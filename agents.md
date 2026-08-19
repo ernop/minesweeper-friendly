@@ -79,6 +79,11 @@ the same chunky Arial Black face as the in-game numerals. Losses are shown but n
 Hosting: public GitHub repo `ernop/minesweeper-friendly`; GitHub Pages serves
 the playable game from the master branch root at
 https://ernop.github.io/minesweeper-friendly/ and redeploys on every push.
+Default difficulty is Beginner.
+
+Promotion: `promo/PROMO.md` is the promotional page — player-facing pitch
+only, nothing technical — with `promo/win-screen-2026-08-19.png` as its hero
+image. Keep it free of implementation detail.
 
 Not yet implemented: NG/friendly modes.
 

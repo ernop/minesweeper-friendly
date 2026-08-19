@@ -68,7 +68,7 @@ function faceSvg(features) {
 
 //-------CORE STATE-------
 
-let config = { ...DIFFICULTIES.intermediate };
+let config = { ...DIFFICULTIES.beginner };
 let cells = [];            // {mine, revealed, flagged, adjacent}
 let cellElements = [];
 let gameState = 'ready';   // ready | playing | won | lost

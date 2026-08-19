@@ -22,7 +22,7 @@ then http://localhost:8018/
 - Right click: place/remove a flag
 - Left click on a satisfied number: chord (open all unflagged neighbors)
 - Face button or space bar: new game
-- Tabs: Beginner 9x9/10, Intermediate 16x16/40, Expert 30x16/99, Custom
+- Tabs: Beginner 9x9/10 (default), Intermediate 16x16/40, Expert 30x16/99, Custom
 
 ## Scores
 
