@@ -416,7 +416,7 @@ function showStats(result) {
     recordScoreAndRenderRanks(stats);
   } else {
     recordLoss(stats.at);
-    resultRanks.textContent = 'Losses are not ranked.';
+    resultRanks.textContent = '';
   }
 }
 
