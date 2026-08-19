@@ -9,6 +9,10 @@
 
 * { box-sizing: border-box; }
 
+/* Keep the scrollbar gutter reserved so a tall results panel appearing
+   can't change the viewport width and nudge the centered board. */
+html { scrollbar-gutter: stable; }
+
 body {
   font-family: Arial, Helvetica, sans-serif;
   background: #ffffff;
@@ -188,8 +192,16 @@ main {
 
 /*-------RESULTS-------*/
 
+/* The board is the anchor; results hang off its right edge without ever
+   occupying layout space, so the board never moves when they come and go. */
+#game-area { position: relative; }
+
 #results {
-  min-height: 4em;
+  position: absolute;
+  top: 0;
+  left: 100%;
+  margin-left: 24px;
+  width: 400px;
   text-align: center;
   /* Echo the chunky in-game numeral face throughout the results area */
   font-family: "Arial Black", "Arial Bold", Arial, sans-serif;

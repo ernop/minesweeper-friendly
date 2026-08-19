@@ -87,6 +87,11 @@ spanning the age columns), color-coded per unit via
 palette: m green, h blue, d red, w navy, mo maroon, y teal); the me-row
 overrides to black on its highlight for readability. The results area uses
 the same chunky Arial Black face as the in-game numerals. Losses are shown but not recorded.
+Layout: `#results` is absolutely positioned off `#game-area` (left: 100%,
+400px wide) so it appears to the right of the board and never occupies
+layout space — the board must never move when results appear/disappear;
+`html { scrollbar-gutter: stable }` keeps the scrollbar from nudging the
+centered board either.
 
 Backup: `#backup` controls export the score history as a JSON blob
 (clipboard via `copyToClipboard` with execCommand fallback, or Blob-URL file
