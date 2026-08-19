@@ -225,9 +225,24 @@ main {
   color: #333333;
 }
 
-.rank-row { white-space: nowrap; }
+/* Rank, time, and date line up as three columns; rank and time right-aligned
+   so widths like #9/#10 and 5.961s/10.220s stay vertically aligned */
+.rank-grid {
+  display: grid;
+  grid-template-columns: max-content max-content max-content;
+  column-gap: 8px;
+}
 
-.rank-row.me {
+.rank-row { display: contents; }
+
+.rank-row span { white-space: nowrap; }
+
+.rank-row .rank-cell,
+.rank-row .time-cell {
+  text-align: right;
+}
+
+.rank-row.me span {
   font-weight: bold;
   color: #000000;
 }

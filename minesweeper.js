@@ -513,13 +513,16 @@ function recordScoreAndRenderRanks(stats) {
   const modeScores = allScores[key];
   modeScores.push(stats);
   localStorage.setItem(SCORES_KEY, JSON.stringify(allScores));
+  renderRanks(stats, modeScores);
+}
 
+function renderRanks(stats, modeScores) {
   resultRanks.textContent = '';
   for (const column of rankColumns(stats)) {
     const inWindow = modeScores
       .filter(column.filter)
       .sort((a, b) => a.timeMs - b.timeMs || a.at - b.at);
-    // `stats` is the same object we pushed, so identity search finds it.
+    // `stats` is an element of modeScores, so identity search finds it.
     const myIndex = inWindow.indexOf(stats);
     const start = Math.max(0, myIndex - 10);
     const end = Math.min(inWindow.length, myIndex + 11);
@@ -529,13 +532,25 @@ function recordScoreAndRenderRanks(stats) {
     const heading = document.createElement('h4');
     heading.textContent = column.label + ' - #' + (myIndex + 1) + ' of ' + inWindow.length;
     list.appendChild(heading);
+    // Three aligned columns per list: rank, time, date.
+    const grid = document.createElement('div');
+    grid.className = 'rank-grid';
     for (let i = start; i < end; i++) {
       const row = document.createElement('div');
       row.className = i === myIndex ? 'rank-row me' : 'rank-row';
-      row.textContent = '#' + (i + 1) + ' - ' + (inWindow[i].timeMs / 1000).toFixed(3)
-        + 's - ' + column.dateLabel(inWindow[i].at);
-      list.appendChild(row);
+      for (const [cls, text] of [
+        ['rank-cell', '#' + (i + 1)],
+        ['time-cell', (inWindow[i].timeMs / 1000).toFixed(3) + 's'],
+        ['date-cell', column.dateLabel(inWindow[i].at)],
+      ]) {
+        const cell = document.createElement('span');
+        cell.className = cls;
+        cell.textContent = text;
+        row.appendChild(cell);
+      }
+      grid.appendChild(row);
     }
+    list.appendChild(grid);
     resultRanks.appendChild(list);
   }
 }
