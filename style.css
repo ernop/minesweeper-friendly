@@ -251,6 +251,18 @@ main {
 .rank-row .age-num-cell { padding-right: 0; }
 .rank-row .age-unit-cell { padding-left: 1px; }
 
+/* Age colors by unit, following the board-number palette:
+   seconds ultralight blue, then 2-green, 1-blue, 3-red, 4-navy, 5-maroon, 6-teal. */
+.rank-row .age-u-s  { color: #a9d1f2; }
+.rank-row .age-u-m  { color: #008000; }
+.rank-row .age-u-h  { color: #0000ff; }
+.rank-row .age-u-d  { color: #ff0000; }
+.rank-row .age-u-w  { color: #000080; }
+.rank-row .age-u-mo { color: #800000; }
+.rank-row .age-u-y  { color: #008080; }
+
+/* The me-row stays black-on-highlight: ultralight blue text would be
+   unreadable on the light blue bar (this rule wins on specificity). */
 .rank-row.me span {
   font-weight: bold;
   color: #000000;

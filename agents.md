@@ -54,8 +54,11 @@ after each win the result panel shows ranked-list columns (10 above, own score
 bolded, 10 below) for lifetime / past year / month / week / day / hour /
 15 min / 5 min / 1 min windows, plus day categories: today's weekday,
 weekend-or-weekday, and US federal holidays (rule-based, `isHoliday`) when
-today is one. Rows show relative age (`relativeTimeLabel`: seconds under a
-minute, minutes under an hour, then hours/days/weeks/months/years). Losses are shown but not recorded.
+today is one. Rows show relative age (`relativeAge`: abbreviated s/m/h/d/w/
+mo/y; a 0-second age renders as "just now"), color-coded per unit via
+`.age-u-*` classes in the board-number palette (s ultralight blue, m green,
+h blue, d red, w navy, mo maroon, y teal); the me-row overrides to black on
+its highlight for readability. Losses are shown but not recorded.
 
 Hosting: public GitHub repo `ernop/minesweeper-friendly`; GitHub Pages serves
 the playable game from the master branch root at

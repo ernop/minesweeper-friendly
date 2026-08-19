@@ -536,11 +536,13 @@ function renderRanks(stats, modeScores) {
       const row = document.createElement('div');
       row.className = i === myIndex ? 'rank-row me' : 'rank-row';
       const age = relativeAge(stats.at, inWindow[i].at);
+      const justNow = age.count === 0 && age.unit === 's';
+      const unitClass = ' age-u-' + age.unit;
       for (const [cls, text] of [
         ['rank-cell', '#' + (i + 1)],
         ['time-cell', (inWindow[i].timeMs / 1000).toFixed(3) + 's'],
-        ['age-num-cell', String(age.count)],
-        ['age-unit-cell', age.unit + ' ago'],
+        ['age-num-cell' + unitClass, justNow ? '' : String(age.count)],
+        ['age-unit-cell' + unitClass, justNow ? 'just now' : age.unit + ' ago'],
       ]) {
         const cell = document.createElement('span');
         cell.className = cls;
