@@ -426,19 +426,22 @@ function formatDate(timestampMs) {
 }
 
 const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-// Date detail scales with the window: seconds only matter for minute-scale
-// windows, a year-old score just needs its date.
-function windowDateLabel(span, timestampMs) {
-  const d = new Date(timestampMs);
-  const pad = (n) => String(n).padStart(2, '0');
-  const hm = pad(d.getHours()) + ':' + pad(d.getMinutes());
-  if (span <= 3600e3) return hm + ':' + pad(d.getSeconds());
-  if (span <= 86400e3) return hm;
-  if (span <= 7 * 86400e3) return WEEKDAY_NAMES[d.getDay()].slice(0, 3) + ' ' + hm;
-  if (span <= 365 * 86400e3) return MONTH_NAMES[d.getMonth()] + ' ' + d.getDate();
-  return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+// Relative age in the largest sensible unit: seconds under a minute, minutes
+// under an hour, then hours, days, weeks, months, years.
+function relativeTimeLabel(nowMs, thenMs) {
+  const ago = (count, unit) => count + ' ' + unit + (count === 1 ? '' : 's') + ' ago';
+  const seconds = Math.max(0, Math.round((nowMs - thenMs) / 1000));
+  if (seconds < 60) return ago(seconds, 'second');
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return ago(minutes, 'minute');
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return ago(hours, 'hour');
+  const days = Math.floor(hours / 24);
+  if (days < 7) return ago(days, 'day');
+  if (days < 30) return ago(Math.floor(days / 7), 'week');
+  if (days < 365) return ago(Math.floor(days / 30), 'month');
+  return ago(Math.floor(days / 365), 'year');
 }
 
 //-------DAY CATEGORIES (weekday / weekend / US holidays)-------
@@ -472,27 +475,22 @@ function rankColumns(stats) {
   const columns = RANK_WINDOWS.map(([label, span]) => ({
     label: label,
     filter: (s) => stats.at - s.at <= span,
-    dateLabel: (at) => windowDateLabel(span, at),
   }));
-  const fullDate = (at) => windowDateLabel(Infinity, at);
   const winDate = new Date(stats.at);
   const weekday = winDate.getDay();
   columns.push({
     label: 'on ' + WEEKDAY_NAMES[weekday] + 's',
     filter: (s) => new Date(s.at).getDay() === weekday,
-    dateLabel: fullDate,
   });
   const weekend = isWeekend(winDate);
   columns.push({
     label: weekend ? 'on weekends' : 'on weekdays',
     filter: (s) => isWeekend(new Date(s.at)) === weekend,
-    dateLabel: fullDate,
   });
   if (isHoliday(winDate)) {
     columns.push({
       label: 'on holidays',
       filter: (s) => isHoliday(new Date(s.at)),
-      dateLabel: fullDate,
     });
   }
   return columns;
@@ -541,7 +539,7 @@ function renderRanks(stats, modeScores) {
       for (const [cls, text] of [
         ['rank-cell', '#' + (i + 1)],
         ['time-cell', (inWindow[i].timeMs / 1000).toFixed(3) + 's'],
-        ['date-cell', column.dateLabel(inWindow[i].at)],
+        ['date-cell', relativeTimeLabel(stats.at, inWindow[i].at)],
       ]) {
         const cell = document.createElement('span');
         cell.className = cls;

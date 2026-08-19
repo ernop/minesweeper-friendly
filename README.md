@@ -33,5 +33,5 @@ hour, 15 min, 5 min, 1 min) plus day-category columns: all scores set on
 today's weekday ("on Wednesdays"), on weekends or weekdays (whichever today
 is), and on US federal holidays when today is one. Each column shows up to 10
 scores above yours, your new score bolded, and up to 10 below, with rank,
-time, and a date whose detail scales with the window (seconds for minute
-windows, date only for lifetime). Losses show stats but are not recorded.
+time, and a relative age ("43 seconds ago", "5 minutes ago", "2 weeks ago",
+"3 years ago"). Losses show stats but are not recorded.
