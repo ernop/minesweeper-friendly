@@ -387,7 +387,7 @@ function showStats(result) {
     + ' - 3BV/s ' + stats.bvps.toFixed(4) + ' - Clicks ' + stats.clicks
     + ' - Efficiency ' + stats.efficiency + '%';
   if (result === 'Win') {
-    resultRanks.textContent = recordScoreAndRank(stats);
+    recordScoreAndRenderRanks(stats);
   } else {
     resultRanks.textContent = 'Losses are not ranked.';
   }
@@ -427,9 +427,10 @@ function loadScores() {
   return raw === null ? {} : JSON.parse(raw);
 }
 
-// Appends the win to this mode's history, then ranks it (by time, ties broken
-// by earlier date) inside each time window.
-function recordScoreAndRank(stats) {
+// Appends the win to this mode's history, then renders one ranked-list column
+// per time window: up to 10 scores above the new one, the new one bolded, and
+// up to 10 below. Ordering is by time, ties broken by earlier date.
+function recordScoreAndRenderRanks(stats) {
   const allScores = loadScores();
   const key = modeLabel();
   if (!(key in allScores)) allScores[key] = [];
@@ -437,15 +438,30 @@ function recordScoreAndRank(stats) {
   modeScores.push(stats);
   localStorage.setItem(SCORES_KEY, JSON.stringify(allScores));
 
-  const parts = [];
+  resultRanks.textContent = '';
   for (const [label, span] of RANK_WINDOWS) {
-    const inWindow = modeScores.filter((s) => stats.at - s.at <= span);
-    const rank = 1 + inWindow.filter(
-      (s) => s.timeMs < stats.timeMs || (s.timeMs === stats.timeMs && s.at < stats.at)
-    ).length;
-    parts.push('#' + rank + ' of ' + inWindow.length + ' ' + label);
+    const inWindow = modeScores
+      .filter((s) => stats.at - s.at <= span)
+      .sort((a, b) => a.timeMs - b.timeMs || a.at - b.at);
+    // `stats` is the same object we pushed, so identity search finds it.
+    const myIndex = inWindow.indexOf(stats);
+    const start = Math.max(0, myIndex - 10);
+    const end = Math.min(inWindow.length, myIndex + 11);
+
+    const list = document.createElement('div');
+    list.className = 'rank-list';
+    const heading = document.createElement('h4');
+    heading.textContent = label + ' - #' + (myIndex + 1) + ' of ' + inWindow.length;
+    list.appendChild(heading);
+    for (let i = start; i < end; i++) {
+      const row = document.createElement('div');
+      row.className = i === myIndex ? 'rank-row me' : 'rank-row';
+      row.textContent = '#' + (i + 1) + ' - ' + (inWindow[i].timeMs / 1000).toFixed(3)
+        + 's - ' + formatDate(inWindow[i].at);
+      list.appendChild(row);
+    }
+    resultRanks.appendChild(list);
   }
-  return 'Rank: ' + parts.join(' - ');
 }
 
 //-------PRESS PREVIEW (held left button)-------

@@ -117,6 +117,37 @@ Banned, non-exhaustively:
 - The fix is always to improve the single upstream source, never to add
   downstream alternatives.
 
+### Design requirements
+
+Recorded 2026-08-19 during the play-history design review. These govern every
+design in this repo and extend the Anti-Fallback Principle above.
+
+1. Perfect design, zero compromises. A tolerated known defect is a bug in the
+   design, not a trade-off.
+2. Ideal-world assumptions: there are no legacy problems, legacy users, or
+   support burdens. No fallbacks (see above) and no belt-and-suspenders:
+   never guard a state the system cannot reach — if a state is impossible,
+   the guard is banned; if it is possible, it must be handled truthfully.
+   Schema changes carry no migration shims or forward version provisioning;
+   change the schema and the code together.
+3. Proper names, always. A name states exactly what the thing is, with units
+   and reference points where they disambiguate (`timeMs`, `endedAt`). One
+   term per concept.
+4. Always the most efficient way possible — computation, storage,
+   implementation effort. Store each primary fact exactly once; derive
+   everything else at read time.
+5. No component ever lies in any message it emits — UI text, stored records,
+   return values. Every value shown or stored is exactly the fact it claims:
+   no sentinel values standing in for "unknown" or "impossible", no rounded
+   copy that can disagree with its source, no display string doing double
+   duty as an identifier.
+6. Components are relatively independent. Storage does not produce UI
+   strings; presentation does not define storage keys; a component's
+   interface is data, not another component's formatting.
+7. Correct division of concepts: nothing duplicated, nothing that is one
+   thing split, nothing that is two things merged. Storing a derived value
+   next to its primaries is duplication.
+
 ### Configuration
 
 - Never use environment variables for configuration.
