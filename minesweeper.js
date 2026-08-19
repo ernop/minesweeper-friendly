@@ -641,23 +641,23 @@ function avgDeltaCaption(spec, stats, eligible) {
   const caption = document.createElement('div');
   if (before.length === 0) {
     caption.className = 'rank-delta delta-new';
-    caption.textContent = 'first game at this value';
+    caption.textContent = 'new';
     return caption;
   }
   const prevAvg = avg(before);
   const newAvg = avg(inBucket);
   // Classify at display precision: a shift that rounds to 0.000s is
-  // "unchanged", never "worsened by 0.000s".
+  // unchanged. "+" = improved (avg time fell), "-" = worsened (it rose).
   const shift = fmt(Math.abs(newAvg - prevAvg));
   if (shift === '0.000s') {
     caption.className = 'rank-delta delta-same';
-    caption.textContent = 'unchanged';
+    caption.textContent = '=';
   } else if (newAvg < prevAvg) {
     caption.className = 'rank-delta delta-improved';
-    caption.textContent = 'improved by ' + shift;
+    caption.textContent = '+' + shift;
   } else {
     caption.className = 'rank-delta delta-worsened';
-    caption.textContent = 'worsened by ' + shift;
+    caption.textContent = '-' + shift;
   }
   return caption;
 }

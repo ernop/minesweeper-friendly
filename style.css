@@ -199,7 +199,8 @@ main {
 
 #results {
   position: absolute;
-  top: 0;
+  top: 50%;
+  transform: translateY(-50%);
   left: 100%;
   margin-left: 24px;
   width: 320px;
