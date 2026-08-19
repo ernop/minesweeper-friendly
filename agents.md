@@ -58,7 +58,8 @@ after each win the result panel shows ranked-list columns (windowed via
 15 min / 5 min / 1 min windows, plus day categories: today's weekday,
 weekend-or-weekday, and US federal holidays (rule-based, `isHoliday`) when
 today is one. Stat-similarity columns rank the win among games with 3BV/s
-within +/-10% of this win's and with identical 3BV, efficiency, and clicks.
+within +/-10% of this win's (each row also shows its own 3BV/s, via the
+column's `extra` cell) and with identical 3BV, efficiency, and clicks.
 Rankcount charts (`RANKCOUNT_SPECS`) list each distinct value of efficiency /
 clicks / 3BV / 3BV/s (2-decimal buckets) best-first with per-value win counts.
 Rows show relative age (`relativeAge`: abbreviated s/m/h/d/w/

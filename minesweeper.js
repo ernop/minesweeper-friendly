@@ -508,6 +508,8 @@ function rankColumns(stats) {
   columns.push({
     label: '3BV/s near ' + stats.bvps.toFixed(2),
     filter: (s) => Math.abs(s.bvps - stats.bvps) <= stats.bvps * 0.10,
+    // Unlike the exact-match columns, each row's value differs, so show it.
+    extra: (s) => s.bvps.toFixed(2),
   });
   columns.push({
     label: '3BV = ' + stats.bv,
@@ -593,13 +595,14 @@ function renderRanks(stats, modeScores) {
     const myIndex = inWindow.indexOf(stats);
     resultRanks.appendChild(buildRankList(
       column.label + ' - #' + (myIndex + 1) + ' of ' + inWindow.length,
-      inWindow.length, myIndex, 'rank-grid',
+      inWindow.length, myIndex, column.extra ? 'rank-grid with-stat' : 'rank-grid',
       (i) => {
         const age = relativeAge(stats.at, inWindow[i].at);
         const cells = [
           ['rank-cell', '#' + (i + 1)],
           ['time-cell', (inWindow[i].timeMs / 1000).toFixed(3) + 's'],
         ];
+        if (column.extra) cells.push(['stat-cell', column.extra(inWindow[i])]);
         if (age.count === 0 && age.unit === 's') {
           cells.push(['age-just-cell age-u-s', 'just now']);
         } else {

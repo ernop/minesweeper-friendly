@@ -259,6 +259,10 @@ main {
   text-align: left;
 }
 
+/* Lists with an extra per-row stat column (e.g. each row's 3BV/s) */
+.rank-grid.with-stat { grid-template-columns: repeat(5, max-content); }
+.rank-row .stat-cell { text-align: right; }
+
 /* Rankcount charts: rank, stat value, x-count */
 .rankcount-grid {
   display: grid;
