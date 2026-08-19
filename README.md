@@ -31,7 +31,9 @@ efficiency). After each win the result panel shows the full stats plus one
 ranked-list column per time window (lifetime, past year, month, week, day,
 hour, 15 min, 5 min, 1 min) plus day-category columns: all scores set on
 today's weekday ("on Wednesdays"), on weekends or weekdays (whichever today
-is), and on US federal holidays when today is one. Each column shows up to 10
+is), and on US federal holidays when today is one. Four more columns rank the
+win among similar games: 3BV/s within 10% of this win's, and exact matches on
+3BV, efficiency, and click count. Each column shows up to 10
 scores above yours, your new score bolded, and up to 10 below, with rank,
 time, and a relative age ("43s ago", "5m ago", "2w ago"; the brand-new score
 says "just now"). Ages are color-coded by unit following the board-number

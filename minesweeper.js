@@ -492,6 +492,25 @@ function rankColumns(stats) {
       filter: (s) => isHoliday(new Date(s.at)),
     });
   }
+  // Stat-similarity columns: wins that resemble this one. 3BV/s matches
+  // within +/-10% (an exact 4-decimal rate would almost never recur); the
+  // integer stats match exactly.
+  columns.push({
+    label: '3BV/s near ' + stats.bvps.toFixed(2),
+    filter: (s) => Math.abs(s.bvps - stats.bvps) <= stats.bvps * 0.10,
+  });
+  columns.push({
+    label: '3BV = ' + stats.bv,
+    filter: (s) => s.bv === stats.bv,
+  });
+  columns.push({
+    label: 'efficiency = ' + stats.efficiency + '%',
+    filter: (s) => s.efficiency === stats.efficiency,
+  });
+  columns.push({
+    label: 'clicks = ' + stats.clicks,
+    filter: (s) => s.clicks === stats.clicks,
+  });
   return columns;
 }
 
