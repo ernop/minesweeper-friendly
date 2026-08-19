@@ -203,15 +203,34 @@ main {
 
 #result-summary { font-weight: bold; }
 
-/* Mini-display: how this win moved its 3BV/s bucket's average time */
-#result-avg-delta {
+/* The game's stats as a small label/value tablechart */
+#stats-grid {
+  display: inline-grid;
+  grid-template-columns: max-content max-content;
+  gap: 0 10px;
+  margin: 4px 0;
   font-size: 12px;
-  margin: 2px 0;
 }
-#result-avg-delta.delta-improved { color: #008000; }
-#result-avg-delta.delta-worsened { color: #ff0000; }
-#result-avg-delta.delta-same { color: #666666; }
-#result-avg-delta.delta-new { color: #0000ff; }
+#stats-grid .stat-label {
+  text-align: left;
+  color: #888888;
+}
+#stats-grid .stat-value {
+  text-align: right;
+  color: #333333;
+}
+
+/* Caption under a rankaverage chart: this win's effect on its bucket's avg */
+.rank-delta {
+  margin-top: 3px;
+  max-width: 180px;
+  font-size: 11px;
+  white-space: normal;
+}
+.delta-improved { color: #008000; }
+.delta-worsened { color: #ff0000; }
+.delta-same { color: #666666; }
+.delta-new { color: #0000ff; }
 
 /* One ranked-list column per time window; the new score is bolded */
 #result-ranks {

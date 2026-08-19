@@ -99,7 +99,6 @@ const mineCounter = document.getElementById('mine-counter');
 const timerDisplay = document.getElementById('timer');
 const resultSummary = document.getElementById('result-summary');
 const resultStats = document.getElementById('result-stats');
-const resultAvgDelta = document.getElementById('result-avg-delta');
 const resultRanks = document.getElementById('result-ranks');
 const customForm = document.getElementById('custom-form');
 
@@ -393,15 +392,30 @@ function showStats(result) {
     pathPx: Math.round(mousePathPx),
   };
   resultSummary.textContent = result + ' - ' + modeLabel() + ' - ' + formatDate(stats.at);
-  resultStats.textContent = 'Time ' + seconds.toFixed(3) + 's - 3BV ' + stats.bv
-    + ' - 3BV/s ' + stats.bvps.toFixed(4) + ' - Clicks ' + stats.clicks
-    + ' - Efficiency ' + stats.efficiency + '%'
-    + ' - Mouse path ' + stats.pathPx + 'px';
+  resultStats.textContent = '';
+  const statsGrid = document.createElement('div');
+  statsGrid.id = 'stats-grid';
+  for (const [label, value] of [
+    ['Time', seconds.toFixed(3) + 's'],
+    ['3BV', String(stats.bv)],
+    ['3BV/s', stats.bvps.toFixed(4)],
+    ['Clicks', String(stats.clicks)],
+    ['Efficiency', stats.efficiency + '%'],
+    ['Mouse path', stats.pathPx + 'px'],
+  ]) {
+    const labelCell = document.createElement('span');
+    labelCell.className = 'stat-label';
+    labelCell.textContent = label;
+    const valueCell = document.createElement('span');
+    valueCell.className = 'stat-value';
+    valueCell.textContent = value;
+    statsGrid.append(labelCell, valueCell);
+  }
+  resultStats.appendChild(statsGrid);
   if (result === 'Win') {
     recordScoreAndRenderRanks(stats);
   } else {
     recordLoss(stats.at);
-    resultAvgDelta.textContent = '';
     resultRanks.textContent = 'Losses are not ranked.';
   }
 }
@@ -583,12 +597,16 @@ function windowBounds(myIndex, length) {
 }
 
 // Rankcount charts: every distinct value of a stat, ordered best-first, with
-// how many wins hit it. 3BV/s buckets at 2 decimals; the rest are integers.
+// how many wins hit it. 3BV/s buckets at 2 decimals, mouse path at 100px;
+// the rest are exact integers. `delta` specs annotate their rankaverage
+// chart with how this win moved its own bucket's average; `avgOnly` skips
+// the rankcount chart; `has` excludes wins recorded before a stat existed.
 const RANKCOUNT_SPECS = [
   { label: 'efficiency', value: (s) => s.efficiency, format: (v) => v + '%', descending: true },
   { label: 'clicks', value: (s) => s.clicks, format: (v) => String(v), descending: false },
   { label: '3BV', value: (s) => s.bv, format: (v) => String(v), descending: true },
-  { label: '3BV/s', value: (s) => Number(s.bvps.toFixed(2)), format: (v) => v.toFixed(2), descending: true },
+  { label: '3BV/s', value: (s) => Number(s.bvps.toFixed(2)), format: (v) => v.toFixed(2), descending: true, delta: true },
+  { label: 'mouse path', value: (s) => Math.round(s.pathPx / 100) * 100, format: (v) => v + 'px', descending: false, avgOnly: true, delta: true, has: (s) => typeof s.pathPx === 'number' },
 ];
 
 function buildRankList(headingText, rowCount, myIndex, gridClass, buildRowCells) {
@@ -615,39 +633,40 @@ function buildRankList(headingText, rowCount, myIndex, gridClass, buildRowCells)
   return list;
 }
 
-// How this win moved the average time of its own 3BV/s bucket: the average
-// over all wins sharing this 3BV/s (2 decimals), before vs after this game.
-function renderAvgDelta(stats, modeScores) {
-  const bucket = Number(stats.bvps.toFixed(2));
-  const inBucket = modeScores.filter((s) => Number(s.bvps.toFixed(2)) === bucket);
+// Caption for a rankaverage chart: how this win moved the average time of
+// its own bucket (the average over all wins sharing this bucketed value),
+// before vs after this game.
+function avgDeltaCaption(spec, stats, eligible) {
+  const bucket = spec.value(stats);
+  const inBucket = eligible.filter((s) => spec.value(s) === bucket);
   const avg = (list) => list.reduce((sum, s) => sum + s.timeMs, 0) / list.length;
   const fmt = (ms) => (ms / 1000).toFixed(3) + 's';
   const before = inBucket.filter((s) => s !== stats);
-  const label = '3BV/s ' + bucket.toFixed(2) + ' average time';
 
-  resultAvgDelta.className = '';
+  const caption = document.createElement('div');
   if (before.length === 0) {
-    resultAvgDelta.className = 'delta-new';
-    resultAvgDelta.textContent = label + ' initialized: ' + fmt(stats.timeMs) + ' (first game at this rate)';
-    return;
+    caption.className = 'rank-delta delta-new';
+    caption.textContent = spec.format(bucket) + ' avg set: ' + fmt(stats.timeMs) + ' (first game at this value)';
+    return caption;
   }
   const prevAvg = avg(before);
   const newAvg = avg(inBucket);
-  const base = label + ' over ' + inBucket.length + ' games: ' + fmt(prevAvg) + ' \u2192 ' + fmt(newAvg);
+  const base = spec.format(bucket) + ' avg over ' + inBucket.length + ' games: '
+    + fmt(prevAvg) + ' \u2192 ' + fmt(newAvg);
   if (newAvg < prevAvg) {
-    resultAvgDelta.className = 'delta-improved';
-    resultAvgDelta.textContent = base + ' \u2014 improved by ' + fmt(prevAvg - newAvg);
+    caption.className = 'rank-delta delta-improved';
+    caption.textContent = base + ' \u2014 improved by ' + fmt(prevAvg - newAvg);
   } else if (newAvg > prevAvg) {
-    resultAvgDelta.className = 'delta-worsened';
-    resultAvgDelta.textContent = base + ' \u2014 worsened by ' + fmt(newAvg - prevAvg);
+    caption.className = 'rank-delta delta-worsened';
+    caption.textContent = base + ' \u2014 worsened by ' + fmt(newAvg - prevAvg);
   } else {
-    resultAvgDelta.className = 'delta-same';
-    resultAvgDelta.textContent = base + ' \u2014 unchanged';
+    caption.className = 'rank-delta delta-same';
+    caption.textContent = base + ' \u2014 unchanged';
   }
+  return caption;
 }
 
 function renderRanks(stats, modeScores, modeLosses = []) {
-  renderAvgDelta(stats, modeScores);
   resultRanks.textContent = '';
   for (const column of rankColumns(stats)) {
     const inWindow = modeScores
@@ -674,8 +693,9 @@ function renderRanks(stats, modeScores, modeLosses = []) {
       }));
   }
   for (const spec of RANKCOUNT_SPECS) {
+    const eligible = spec.has ? modeScores.filter(spec.has) : modeScores;
     const groups = new Map(); // value -> { count, totalMs }
-    for (const s of modeScores) {
+    for (const s of eligible) {
       const v = spec.value(s);
       const g = groups.get(v) || { count: 0, totalMs: 0 };
       g.count += 1;
@@ -685,22 +705,24 @@ function renderRanks(stats, modeScores, modeLosses = []) {
     const myValue = spec.value(stats);
     const avgMs = (v) => groups.get(v).totalMs / groups.get(v).count;
 
-    // Rankcount: distinct values ordered best-first, with win counts.
-    const byValue = [...groups.keys()].sort((a, b) => spec.descending ? b - a : a - b);
-    const countIndex = byValue.indexOf(myValue);
-    resultRanks.appendChild(buildRankList(
-      spec.label + ' rankcount - #' + (countIndex + 1) + ' of ' + byValue.length,
-      byValue.length, countIndex, 'rankcount-grid',
-      (i) => [
-        ['rank-cell', '#' + (i + 1)],
-        ['val-cell', spec.format(byValue[i])],
-        ['cnt-cell', '\u00d7' + groups.get(byValue[i]).count],
-      ]));
+    if (!spec.avgOnly) {
+      // Rankcount: distinct values ordered best-first, with win counts.
+      const byValue = [...groups.keys()].sort((a, b) => spec.descending ? b - a : a - b);
+      const countIndex = byValue.indexOf(myValue);
+      resultRanks.appendChild(buildRankList(
+        spec.label + ' rankcount - #' + (countIndex + 1) + ' of ' + byValue.length,
+        byValue.length, countIndex, 'rankcount-grid',
+        (i) => [
+          ['rank-cell', '#' + (i + 1)],
+          ['val-cell', spec.format(byValue[i])],
+          ['cnt-cell', '\u00d7' + groups.get(byValue[i]).count],
+        ]));
+    }
 
     // Rankaverage: the same groups ranked by their average solve time.
     const byAvg = [...groups.keys()].sort((a, b) => avgMs(a) - avgMs(b));
     const avgIndex = byAvg.indexOf(myValue);
-    resultRanks.appendChild(buildRankList(
+    const avgList = buildRankList(
       spec.label + ' rankaverage - #' + (avgIndex + 1) + ' of ' + byAvg.length,
       byAvg.length, avgIndex, 'rankavg-grid',
       (i) => [
@@ -708,7 +730,9 @@ function renderRanks(stats, modeScores, modeLosses = []) {
         ['val-cell', spec.format(byAvg[i])],
         ['avg-cell', (avgMs(byAvg[i]) / 1000).toFixed(3) + 's'],
         ['cnt-cell', '\u00d7' + groups.get(byAvg[i]).count],
-      ]));
+      ]);
+    if (spec.delta) avgList.appendChild(avgDeltaCaption(spec, stats, eligible));
+    resultRanks.appendChild(avgList);
   }
 
   // Streak lists: wins in chronological runs split by losses. A k-loss

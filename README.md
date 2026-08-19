@@ -38,13 +38,16 @@ all scores set on
 today's weekday ("on Wednesdays"), on weekends or weekdays (whichever today
 is), and on US federal holidays when today is one. Three more columns rank
 the win among games with the exact same 3BV, efficiency, or click count.
-A mini-display above the lists shows how this win moved the average time of
-its own 3BV/s bucket (2 decimals): improved/worsened by how much, unchanged,
-or initialized if it's the first game at that rate. Rankcount charts list every distinct value
+Rankcount charts list every distinct value
 of efficiency, clicks, 3BV, and 3BV/s (2 decimals) best-first with how many
 wins hit each, your row bolded. Beside each is a rankaverage chart: the same
 groups ranked by their average solve time, each row showing the value, the
-group's average time, and its win count. Streak lists rank your win runs:
+group's average time, and its win count; mouse path gets a rankaverage too,
+bucketed to the nearest 100px. The 3BV/s and mouse path rankaverage charts
+carry a colored caption showing how this win moved its own bucket's average
+time: improved/worsened by how much, unchanged, or set for the first time.
+The stats themselves (time, 3BV, 3BV/s, clicks, efficiency, mouse path)
+render as a small label/value table under the result line. Streak lists rank your win runs:
 "streak" (consecutive wins), "near-streak" (runs spanning at most 1 loss),
 and "near-near-streak" (at most 2), each row showing length and how long ago
 the streak's last win was; loss timestamps are recorded to split streaks. Each list windows around your row,
