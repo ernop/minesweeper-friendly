@@ -192,8 +192,9 @@ main {
 
 /*-------RESULTS-------*/
 
-/* The board is the anchor; results hang off its right edge without ever
-   occupying layout space, so the board never moves when they come and go. */
+/* The board is the anchor; the win summary + stats table hang off its right
+   edge without ever occupying layout space, so the board never moves when
+   they come and go. The rank charts live below the board in normal flow. */
 #game-area { position: relative; }
 
 #results {
@@ -201,7 +202,7 @@ main {
   top: 0;
   left: 100%;
   margin-left: 24px;
-  width: 400px;
+  width: 320px;
   text-align: center;
   /* Echo the chunky in-game numeral face throughout the results area */
   font-family: "Arial Black", "Arial Bold", Arial, sans-serif;
@@ -254,6 +255,7 @@ main {
   margin-top: 8px;
   font-size: 13px;
   color: #666666;
+  font-family: "Arial Black", "Arial Bold", Arial, sans-serif;
 }
 
 .rank-list {
