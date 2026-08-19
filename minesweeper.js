@@ -743,12 +743,30 @@ function renderRanks(stats, modeScores, modeLosses = []) {
   }
   for (const [label, slack] of [['streak', 0], ['near-streak (1 loss ok)', 1], ['near-near-streak (2 losses ok)', 2]]) {
     const span = Math.min(slack + 1, runs.length);
-    const segments = [];
+    // Each window of `span` adjacent runs is trimmed to its nonempty core
+    // (consecutive losses leave empty runs that pad windows). Identical
+    // cores are deduped and cores strictly inside a wider core are dropped,
+    // so a sub-streak never appears alongside the wider streak containing
+    // it. Windows that merely overlap (sharing a middle run across two
+    // different losses) are distinct streaks and both stay.
+    const cores = new Map(); // 'a-b' -> {a, b} inclusive run-index range
     for (let i = 0; i + span <= runs.length; i++) {
-      const winsAt = runs.slice(i, i + span).flat();
-      if (winsAt.length === 0) continue;
-      segments.push({ len: winsAt.length, end: winsAt[winsAt.length - 1], current: i + span === runs.length });
+      let a = -1, b = -1;
+      for (let j = i; j < i + span; j++) {
+        if (runs[j].length === 0) continue;
+        if (a === -1) a = j;
+        b = j;
+      }
+      if (a === -1) continue;
+      cores.set(a + '-' + b, { a, b });
     }
+    const allCores = [...cores.values()];
+    const segments = allCores
+      .filter((c) => !allCores.some((o) => o.a <= c.a && c.b <= o.b && (o.a < c.a || o.b > c.b)))
+      .map(({ a, b }) => {
+        const winsAt = runs.slice(a, b + 1).flat();
+        return { len: winsAt.length, end: winsAt[winsAt.length - 1], current: b === runs.length - 1 };
+      });
     segments.sort((a, b) => b.len - a.len || b.end - a.end);
     const myIndex = segments.findIndex((seg) => seg.current);
     resultRanks.appendChild(buildRankList(

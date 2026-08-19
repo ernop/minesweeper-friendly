@@ -77,7 +77,11 @@ grid (`#stats-grid`). Streak lists: losses are stored as bare
 timestamps per mode (`minesweeper-friendly.losses.v1`, written by
 `recordLoss`) purely to split win runs; a k-loss streak joins k+1 adjacent
 runs (k = 0/1/2 for streak / near-streak / near-near-streak), ranked by
-length then recency, current streak highlighted. Export blobs are
+length then recency, current streak highlighted. Windows are trimmed to
+their nonempty core, deduped, and dropped when strictly inside a wider
+core — consecutive losses leave empty runs whose padded windows would
+otherwise re-list sub-streaks (the double-counting bug). Overlapping
+windows that span different losses are distinct streaks and both stay. Export blobs are
 `{ wins, losses }`; import also accepts the older bare wins map, deduping
 losses by timestamp.
 Rows show relative age (`relativeAge`: abbreviated s/m/h/d/w/
