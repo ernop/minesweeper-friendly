@@ -61,7 +61,9 @@ today is one. Stat-similarity columns rank the win among games with 3BV/s
 within +/-10% of this win's (each row also shows its own 3BV/s, via the
 column's `extra` cell) and with identical 3BV, efficiency, and clicks.
 Rankcount charts (`RANKCOUNT_SPECS`) list each distinct value of efficiency /
-clicks / 3BV / 3BV/s (2-decimal buckets) best-first with per-value win counts.
+clicks / 3BV / 3BV/s (2-decimal buckets) best-first with per-value win counts;
+paired rankaverage charts rank the same groups by average solve time (value,
+avg time, x-count per row).
 Rows show relative age (`relativeAge`: abbreviated s/m/h/d/w/
 mo/y, no "ago" suffix; a 0-second age renders as a left-aligned "just now"
 spanning the age columns), color-coded per unit via

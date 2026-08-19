@@ -613,20 +613,40 @@ function renderRanks(stats, modeScores) {
       }));
   }
   for (const spec of RANKCOUNT_SPECS) {
-    const counts = new Map();
+    const groups = new Map(); // value -> { count, totalMs }
     for (const s of modeScores) {
       const v = spec.value(s);
-      counts.set(v, (counts.get(v) || 0) + 1);
+      const g = groups.get(v) || { count: 0, totalMs: 0 };
+      g.count += 1;
+      g.totalMs += s.timeMs;
+      groups.set(v, g);
     }
-    const values = [...counts.keys()].sort((a, b) => spec.descending ? b - a : a - b);
-    const myIndex = values.indexOf(spec.value(stats));
+    const myValue = spec.value(stats);
+    const avgMs = (v) => groups.get(v).totalMs / groups.get(v).count;
+
+    // Rankcount: distinct values ordered best-first, with win counts.
+    const byValue = [...groups.keys()].sort((a, b) => spec.descending ? b - a : a - b);
+    const countIndex = byValue.indexOf(myValue);
     resultRanks.appendChild(buildRankList(
-      spec.label + ' rankcount - #' + (myIndex + 1) + ' of ' + values.length,
-      values.length, myIndex, 'rankcount-grid',
+      spec.label + ' rankcount - #' + (countIndex + 1) + ' of ' + byValue.length,
+      byValue.length, countIndex, 'rankcount-grid',
       (i) => [
         ['rank-cell', '#' + (i + 1)],
-        ['val-cell', spec.format(values[i])],
-        ['cnt-cell', '\u00d7' + counts.get(values[i])],
+        ['val-cell', spec.format(byValue[i])],
+        ['cnt-cell', '\u00d7' + groups.get(byValue[i]).count],
+      ]));
+
+    // Rankaverage: the same groups ranked by their average solve time.
+    const byAvg = [...groups.keys()].sort((a, b) => avgMs(a) - avgMs(b));
+    const avgIndex = byAvg.indexOf(myValue);
+    resultRanks.appendChild(buildRankList(
+      spec.label + ' rankaverage - #' + (avgIndex + 1) + ' of ' + byAvg.length,
+      byAvg.length, avgIndex, 'rankavg-grid',
+      (i) => [
+        ['rank-cell', '#' + (i + 1)],
+        ['val-cell', spec.format(byAvg[i])],
+        ['avg-cell', (avgMs(byAvg[i]) / 1000).toFixed(3) + 's'],
+        ['cnt-cell', '\u00d7' + groups.get(byAvg[i]).count],
       ]));
   }
 }

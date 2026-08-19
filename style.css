@@ -271,6 +271,13 @@ main {
 .rank-row .val-cell { text-align: right; }
 .rank-row .cnt-cell { text-align: left; }
 
+/* Rankaverage charts: rank, stat value, average time, x-count */
+.rankavg-grid {
+  display: grid;
+  grid-template-columns: repeat(4, max-content);
+}
+.rank-row .avg-cell { text-align: right; }
+
 /* Age colors by unit, following the board-number palette:
    seconds ultralight blue, then 2-green, 1-blue, 3-red, 4-navy, 5-maroon, 6-teal. */
 .rank-row .age-u-s  { color: #39ff14; }

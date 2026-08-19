@@ -36,7 +36,9 @@ is), and on US federal holidays when today is one. Four more columns rank the
 win among similar games: 3BV/s within 10% of this win's, and exact matches on
 3BV, efficiency, and click count. Rankcount charts list every distinct value
 of efficiency, clicks, 3BV, and 3BV/s (2 decimals) best-first with how many
-wins hit each, your row bolded. Each list windows around your row: when 1st
+wins hit each, your row bolded. Beside each is a rankaverage chart: the same
+groups ranked by their average solve time, each row showing the value, the
+group's average time, and its win count. Each list windows around your row: when 1st
 place is within 10 rows above you the list anchors at the top and grows
 downward (21 rows total); otherwise it shows 5 rows either side. Rows show
 rank, time, and a relative age ("43s", "5m", "2w"; the brand-new score says
