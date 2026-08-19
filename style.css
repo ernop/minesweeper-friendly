@@ -230,10 +230,13 @@ main {
 /* Rank, time, age-count, and age-unit line up as four columns. Rank, time,
    and age-count are right-aligned so widths like #9/#10, 5.961s/10.220s, and
    0s/15m stay vertically comparable. Spacing uses cell padding, not gaps, so
-   the me-row highlight reads as one continuous bar. */
+   the me-row highlight reads as one continuous bar. Auto tracks at 100%
+   width stretch each row to fill the list (whose width the heading sets)
+   instead of clumping left. */
 .rank-grid {
   display: grid;
-  grid-template-columns: repeat(4, max-content);
+  width: 100%;
+  grid-template-columns: repeat(4, auto);
 }
 
 .rank-row { display: contents; }
@@ -260,13 +263,14 @@ main {
 }
 
 /* Lists with an extra per-row stat column (e.g. each row's 3BV/s) */
-.rank-grid.with-stat { grid-template-columns: repeat(5, max-content); }
+.rank-grid.with-stat { grid-template-columns: repeat(5, auto); }
 .rank-row .stat-cell { text-align: right; }
 
 /* Rankcount charts: rank, stat value, x-count */
 .rankcount-grid {
   display: grid;
-  grid-template-columns: repeat(3, max-content);
+  width: 100%;
+  grid-template-columns: repeat(3, auto);
 }
 .rank-row .val-cell { text-align: right; }
 .rank-row .cnt-cell { text-align: left; }
@@ -274,7 +278,8 @@ main {
 /* Rankaverage charts: rank, stat value, average time, x-count */
 .rankavg-grid {
   display: grid;
-  grid-template-columns: repeat(4, max-content);
+  width: 100%;
+  grid-template-columns: repeat(4, auto);
 }
 .rank-row .avg-cell { text-align: right; }
 
