@@ -52,7 +52,9 @@ heart on loss. Score history: all wins stored per mode in localStorage
 (`minesweeper-friendly.scores.v1`) with date/time/3BV/3BV/s/clicks/efficiency;
 after each win the result panel shows ranked-list columns (10 above, own score
 bolded, 10 below) for lifetime / past year / month / week / day / hour /
-15 min / 5 min / 1 min windows. Losses are shown but not recorded.
+15 min / 5 min / 1 min windows, plus day categories: today's weekday,
+weekend-or-weekday, and US federal holidays (rule-based, `isHoliday`) when
+today is one. Row date detail scales with the window (`windowDateLabel`). Losses are shown but not recorded.
 
 Hosting: public GitHub repo `ernop/minesweeper-friendly`; GitHub Pages serves
 the playable game from the master branch root at

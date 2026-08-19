@@ -425,6 +425,79 @@ function formatDate(timestampMs) {
     + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
 }
 
+const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+// Date detail scales with the window: seconds only matter for minute-scale
+// windows, a year-old score just needs its date.
+function windowDateLabel(span, timestampMs) {
+  const d = new Date(timestampMs);
+  const pad = (n) => String(n).padStart(2, '0');
+  const hm = pad(d.getHours()) + ':' + pad(d.getMinutes());
+  if (span <= 3600e3) return hm + ':' + pad(d.getSeconds());
+  if (span <= 86400e3) return hm;
+  if (span <= 7 * 86400e3) return WEEKDAY_NAMES[d.getDay()].slice(0, 3) + ' ' + hm;
+  if (span <= 365 * 86400e3) return MONTH_NAMES[d.getMonth()] + ' ' + d.getDate();
+  return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+}
+
+//-------DAY CATEGORIES (weekday / weekend / US holidays)-------
+
+function isWeekend(date) {
+  return date.getDay() === 0 || date.getDay() === 6;
+}
+
+// US federal holidays (fixed dates plus the weekday-rule ones).
+function isHoliday(date) {
+  const m = date.getMonth();
+  const day = date.getDate();
+  const weekday = date.getDay();
+  const nth = Math.ceil(day / 7);
+  if (m === 0 && day === 1) return true;                       // New Year's Day
+  if (m === 0 && weekday === 1 && nth === 3) return true;      // MLK Day
+  if (m === 1 && weekday === 1 && nth === 3) return true;      // Presidents Day
+  if (m === 4 && weekday === 1 && day >= 25) return true;      // Memorial Day
+  if (m === 5 && day === 19) return true;                      // Juneteenth
+  if (m === 6 && day === 4) return true;                       // Independence Day
+  if (m === 8 && weekday === 1 && day <= 7) return true;       // Labor Day
+  if (m === 10 && weekday === 4 && nth === 4) return true;     // Thanksgiving
+  if (m === 11 && day === 25) return true;                     // Christmas
+  return false;
+}
+
+// Columns for the current win: the rolling windows, plus lifetime-spanning
+// categories the win itself belongs to (same weekday, weekend/weekday,
+// holiday when today is one).
+function rankColumns(stats) {
+  const columns = RANK_WINDOWS.map(([label, span]) => ({
+    label: label,
+    filter: (s) => stats.at - s.at <= span,
+    dateLabel: (at) => windowDateLabel(span, at),
+  }));
+  const fullDate = (at) => windowDateLabel(Infinity, at);
+  const winDate = new Date(stats.at);
+  const weekday = winDate.getDay();
+  columns.push({
+    label: 'on ' + WEEKDAY_NAMES[weekday] + 's',
+    filter: (s) => new Date(s.at).getDay() === weekday,
+    dateLabel: fullDate,
+  });
+  const weekend = isWeekend(winDate);
+  columns.push({
+    label: weekend ? 'on weekends' : 'on weekdays',
+    filter: (s) => isWeekend(new Date(s.at)) === weekend,
+    dateLabel: fullDate,
+  });
+  if (isHoliday(winDate)) {
+    columns.push({
+      label: 'on holidays',
+      filter: (s) => isHoliday(new Date(s.at)),
+      dateLabel: fullDate,
+    });
+  }
+  return columns;
+}
+
 function loadScores() {
   const raw = localStorage.getItem(SCORES_KEY);
   return raw === null ? {} : JSON.parse(raw);
@@ -442,9 +515,9 @@ function recordScoreAndRenderRanks(stats) {
   localStorage.setItem(SCORES_KEY, JSON.stringify(allScores));
 
   resultRanks.textContent = '';
-  for (const [label, span] of RANK_WINDOWS) {
+  for (const column of rankColumns(stats)) {
     const inWindow = modeScores
-      .filter((s) => stats.at - s.at <= span)
+      .filter(column.filter)
       .sort((a, b) => a.timeMs - b.timeMs || a.at - b.at);
     // `stats` is the same object we pushed, so identity search finds it.
     const myIndex = inWindow.indexOf(stats);
@@ -454,13 +527,13 @@ function recordScoreAndRenderRanks(stats) {
     const list = document.createElement('div');
     list.className = 'rank-list';
     const heading = document.createElement('h4');
-    heading.textContent = label + ' - #' + (myIndex + 1) + ' of ' + inWindow.length;
+    heading.textContent = column.label + ' - #' + (myIndex + 1) + ' of ' + inWindow.length;
     list.appendChild(heading);
     for (let i = start; i < end; i++) {
       const row = document.createElement('div');
       row.className = i === myIndex ? 'rank-row me' : 'rank-row';
       row.textContent = '#' + (i + 1) + ' - ' + (inWindow[i].timeMs / 1000).toFixed(3)
-        + 's - ' + formatDate(inWindow[i].at);
+        + 's - ' + column.dateLabel(inWindow[i].at);
       list.appendChild(row);
     }
     resultRanks.appendChild(list);
