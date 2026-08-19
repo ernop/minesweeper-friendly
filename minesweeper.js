@@ -653,15 +653,18 @@ function avgDeltaCaption(spec, stats, eligible) {
   const newAvg = avg(inBucket);
   const base = spec.format(bucket) + ' avg over ' + inBucket.length + ' games: '
     + fmt(prevAvg) + ' \u2192 ' + fmt(newAvg);
-  if (newAvg < prevAvg) {
-    caption.className = 'rank-delta delta-improved';
-    caption.textContent = base + ' \u2014 improved by ' + fmt(prevAvg - newAvg);
-  } else if (newAvg > prevAvg) {
-    caption.className = 'rank-delta delta-worsened';
-    caption.textContent = base + ' \u2014 worsened by ' + fmt(newAvg - prevAvg);
-  } else {
+  // Classify at display precision: a shift that rounds to 0.000s is
+  // "unchanged", never "worsened by 0.000s".
+  const shift = fmt(Math.abs(newAvg - prevAvg));
+  if (shift === '0.000s') {
     caption.className = 'rank-delta delta-same';
     caption.textContent = base + ' \u2014 unchanged';
+  } else if (newAvg < prevAvg) {
+    caption.className = 'rank-delta delta-improved';
+    caption.textContent = base + ' \u2014 improved by ' + shift;
+  } else {
+    caption.className = 'rank-delta delta-worsened';
+    caption.textContent = base + ' \u2014 worsened by ' + shift;
   }
   return caption;
 }
