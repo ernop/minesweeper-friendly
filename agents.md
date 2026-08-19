@@ -49,7 +49,9 @@ auto-flag on win), 3BV/efficiency stats line, zoom control, space-bar restart.
 All icons are inline SVG. The status button is a dove (peace symbol) with
 four states: idle, startled flap while pressing, olive branch on win, broken
 heart on loss. Score history: all wins stored per mode in localStorage
-(`minesweeper-friendly.scores.v1`) with date/time/3BV/3BV/s/clicks/efficiency;
+(`minesweeper-friendly.scores.v1`) with date/time/3BV/3BV/s/clicks/efficiency/
+mouse path (`pathPx`: cursor distance in px accumulated on document mousemove
+only while `gameState === 'playing'`);
 after each win the result panel shows ranked-list columns (10 above, own score
 bolded, 10 below) for lifetime / past year / month / week / day / hour /
 15 min / 5 min / 1 min windows, plus day categories: today's weekday,

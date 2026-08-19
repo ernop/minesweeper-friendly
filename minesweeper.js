@@ -84,6 +84,13 @@ let clickCount = 0;
 let leftDown = false;
 let pressedIndices = [];
 
+// Mouse path length during the run (px). The position is tracked at all
+// times so the first in-game segment starts from wherever the cursor
+// already is, but distance only accumulates while playing.
+let mousePathPx = 0;
+let lastMouseX = null;
+let lastMouseY = null;
+
 //-------DOM-------
 
 const boardElement = document.getElementById('board');
@@ -176,6 +183,7 @@ function newGame() {
   clickCount = 0;
   finalTimeMs = 0;
   startTime = 0;
+  mousePathPx = 0;
   clearInterval(timerInterval);
   timerInterval = null;
   leftDown = false;
@@ -381,11 +389,13 @@ function showStats(result) {
     bvps: seconds > 0 ? Number((bv / seconds).toFixed(4)) : 0,
     clicks: clickCount,
     efficiency: clickCount > 0 ? Math.round((bv / clickCount) * 100) : 0,
+    pathPx: Math.round(mousePathPx),
   };
   resultSummary.textContent = result + ' - ' + modeLabel() + ' - ' + formatDate(stats.at);
   resultStats.textContent = 'Time ' + seconds.toFixed(3) + 's - 3BV ' + stats.bv
     + ' - 3BV/s ' + stats.bvps.toFixed(4) + ' - Clicks ' + stats.clicks
-    + ' - Efficiency ' + stats.efficiency + '%';
+    + ' - Efficiency ' + stats.efficiency + '%'
+    + ' - Mouse path ' + stats.pathPx + 'px';
   if (result === 'Win') {
     recordScoreAndRenderRanks(stats);
   } else {
@@ -640,6 +650,14 @@ document.addEventListener('mouseup', (event) => {
   leftDown = false;
   clearPresses();
   if (gameState === 'ready' || gameState === 'playing') setFace('smile');
+});
+
+document.addEventListener('mousemove', (event) => {
+  if (lastMouseX !== null && gameState === 'playing') {
+    mousePathPx += Math.hypot(event.clientX - lastMouseX, event.clientY - lastMouseY);
+  }
+  lastMouseX = event.clientX;
+  lastMouseY = event.clientY;
 });
 
 boardElement.addEventListener('contextmenu', (event) => {

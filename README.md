@@ -27,7 +27,8 @@ then http://localhost:8018/
 ## Scores
 
 Every win is kept in localStorage per mode (date, time, 3BV, 3BV/s, clicks,
-efficiency). After each win the result panel shows the full stats plus one
+efficiency, and mouse path: total cursor distance in px from first click to
+game end). After each win the result panel shows the full stats plus one
 ranked-list column per time window (lifetime, past year, month, week, day,
 hour, 15 min, 5 min, 1 min) plus day-category columns: all scores set on
 today's weekday ("on Wednesdays"), on weekends or weekdays (whichever today
