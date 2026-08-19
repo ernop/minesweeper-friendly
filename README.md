@@ -36,7 +36,11 @@ days back, "this month" and "in <year>" since their calendar starts, and
 15 min / 5 min / 1 min windows roll continuously. Then day-category columns:
 all scores set on
 today's weekday ("on Wednesdays"), on weekends or weekdays (whichever today
-is), and on US federal holidays when today is one.
+is), and on US federal holidays when today is one. Columns reveal
+themselves gradually: a chart only appears once it would actually differ —
+if every game you've played was today, "this month" and "lifetime" would
+just repeat "today", so they stay hidden until your history spreads out
+enough to make them distinct.
 Rankaverage charts group your wins by efficiency, clicks, 3BV, 3BV/s
 (2 decimals), and mouse path (nearest 100px), ranked by each group's average
 solve time; every row shows the rank, the value, the group's average time,

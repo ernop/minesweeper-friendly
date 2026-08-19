@@ -61,7 +61,11 @@ from end of the day 365 days prior), "this month" (calendar), "past week"
 15 min / 5 min / 1 min. Timestamps are epoch ms; all calendar boundaries and
 day categories resolve in the viewer's local timezone. Plus day categories: today's weekday,
 weekend-or-weekday, and US federal holidays (rule-based, `isHoliday`) when
-today is one.
+today is one. Progressive disclosure: each window/category column carries a
+`specificity` rank (narrow windows lowest, then day categories, then broad
+windows); when several columns contain the exact same score set only the
+most specific renders, so a new player sees one chart and broader ones
+appear as history spreads across hours/days/weekdays.
 Rankaverage charts (`RANKAVERAGE_SPECS`) group wins by efficiency / clicks /
 3BV / 3BV/s (2-decimal buckets) / mouse path (100px buckets, `has` filters
 pre-pathPx wins) and rank the groups by average solve time; each row shows

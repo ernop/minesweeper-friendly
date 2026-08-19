@@ -437,19 +437,24 @@ function startOfDay(ms, daysBack = 0) {
 // "this month"/"in <year>" from their calendar starts, and the rolling
 // "in the last year" starts at the end of the day exactly 365 days prior.
 // Sub-day windows stay purely rolling.
+// [label, windowStartMs, specificity]. Lower specificity = narrower window;
+// when two lists contain the exact same scores only the most specific
+// survives (see renderRanks), so broad charts appear gradually as history
+// spreads out. Day categories (added in rankColumns) sit at 5-7, between
+// "today" and "past week".
 function rankWindows(nowMs) {
   const d = new Date(nowMs);
   return [
-    ['lifetime', -Infinity],
-    ['in ' + d.getFullYear(), new Date(d.getFullYear(), 0, 1).getTime()],
-    ['in the last year', startOfDay(nowMs, 364)],
-    ['this month', new Date(d.getFullYear(), d.getMonth(), 1).getTime()],
-    ['past week', startOfDay(nowMs, 6)],
-    ['today', startOfDay(nowMs)],
-    ['past hour', nowMs - 3600e3],
-    ['past 15 min', nowMs - 15 * 60e3],
-    ['past 5 min', nowMs - 5 * 60e3],
-    ['past 1 min', nowMs - 60e3],
+    ['lifetime', -Infinity, 12],
+    ['in ' + d.getFullYear(), new Date(d.getFullYear(), 0, 1).getTime(), 10],
+    ['in the last year', startOfDay(nowMs, 364), 11],
+    ['this month', new Date(d.getFullYear(), d.getMonth(), 1).getTime(), 9],
+    ['past week', startOfDay(nowMs, 6), 8],
+    ['today', startOfDay(nowMs), 4],
+    ['past hour', nowMs - 3600e3, 3],
+    ['past 15 min', nowMs - 15 * 60e3, 2],
+    ['past 5 min', nowMs - 5 * 60e3, 1],
+    ['past 1 min', nowMs - 60e3, 0],
   ];
 }
 
@@ -515,25 +520,29 @@ function isHoliday(date) {
 // categories the win itself belongs to (same weekday, weekend/weekday,
 // holiday when today is one).
 function rankColumns(stats) {
-  const columns = rankWindows(stats.at).map(([label, startMs]) => ({
+  const columns = rankWindows(stats.at).map(([label, startMs, specificity]) => ({
     label: label,
     filter: (s) => s.at >= startMs,
+    specificity: specificity,
   }));
   const winDate = new Date(stats.at);
   const weekday = winDate.getDay();
   columns.push({
     label: 'on ' + WEEKDAY_NAMES[weekday] + 's',
     filter: (s) => new Date(s.at).getDay() === weekday,
+    specificity: 5,
   });
   const weekend = isWeekend(winDate);
   columns.push({
     label: weekend ? 'on weekends' : 'on weekdays',
     filter: (s) => isWeekend(new Date(s.at)) === weekend,
+    specificity: 6,
   });
   if (isHoliday(winDate)) {
     columns.push({
       label: 'on holidays',
       filter: (s) => isHoliday(new Date(s.at)),
+      specificity: 7,
     });
   }
   return columns;
@@ -657,10 +666,27 @@ function avgDeltaCaption(spec, stats, eligible) {
 
 function renderRanks(stats, modeScores, modeLosses = []) {
   resultRanks.textContent = '';
-  for (const column of rankColumns(stats)) {
-    const inWindow = modeScores
+  // Progressive disclosure: two lists holding the exact same scores would
+  // render identically, so only the most specific one of each such group is
+  // shown. Broader charts appear on their own once history spreads across
+  // enough hours/days/weekdays to make them differ.
+  const candidates = rankColumns(stats).map((column) => ({
+    column,
+    inWindow: modeScores
       .filter(column.filter)
-      .sort((a, b) => a.timeMs - b.timeMs || a.at - b.at);
+      .sort((a, b) => a.timeMs - b.timeMs || a.at - b.at),
+  }));
+  const seenSets = new Set();
+  const kept = new Set();
+  for (const c of [...candidates].sort((a, b) => a.column.specificity - b.column.specificity)) {
+    const signature = c.inWindow.map((s) => s.at + '/' + s.timeMs).join('|');
+    if (seenSets.has(signature)) continue;
+    seenSets.add(signature);
+    kept.add(c);
+  }
+  for (const c of candidates) {
+    if (!kept.has(c)) continue;
+    const { column, inWindow } = c;
     // `stats` is an element of modeScores, so identity search finds it.
     const myIndex = inWindow.indexOf(stats);
     resultRanks.appendChild(buildRankList(
