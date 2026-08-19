@@ -331,6 +331,17 @@ main {
 
 #import-panel { margin-top: 6px; }
 
+#site-footer {
+  margin-top: 10px;
+  text-align: center;
+  font-size: 11px;
+}
+
+#site-footer a {
+  color: #8aa0b5;
+  text-decoration: underline dotted;
+}
+
 #import-panel textarea {
   width: 340px;
   vertical-align: middle;
