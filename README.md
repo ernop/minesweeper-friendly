@@ -36,9 +36,11 @@ days back, "this month" and "in <year>" since their calendar starts, and
 15 min / 5 min / 1 min windows roll continuously. Then day-category columns:
 all scores set on
 today's weekday ("on Wednesdays"), on weekends or weekdays (whichever today
-is), and on US federal holidays when today is one. Four more columns rank the
-win among similar games: 3BV/s within 10% of this win's, and exact matches on
-3BV, efficiency, and click count. Rankcount charts list every distinct value
+is), and on US federal holidays when today is one. Three more columns rank
+the win among games with the exact same 3BV, efficiency, or click count.
+A mini-display above the lists shows how this win moved the average time of
+its own 3BV/s bucket (2 decimals): improved/worsened by how much, unchanged,
+or initialized if it's the first game at that rate. Rankcount charts list every distinct value
 of efficiency, clicks, 3BV, and 3BV/s (2 decimals) best-first with how many
 wins hit each, your row bolded. Beside each is a rankaverage chart: the same
 groups ranked by their average solve time, each row showing the value, the

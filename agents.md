@@ -61,9 +61,11 @@ from end of the day 365 days prior), "this month" (calendar), "past week"
 15 min / 5 min / 1 min. Timestamps are epoch ms; all calendar boundaries and
 day categories resolve in the viewer's local timezone. Plus day categories: today's weekday,
 weekend-or-weekday, and US federal holidays (rule-based, `isHoliday`) when
-today is one. Stat-similarity columns rank the win among games with 3BV/s
-within +/-10% of this win's (each row also shows its own 3BV/s, via the
-column's `extra` cell) and with identical 3BV, efficiency, and clicks.
+today is one. Stat-similarity columns rank the win among games with
+identical 3BV, efficiency, and clicks (3BV/s has no similarity column; its
+rankaverage covers every rate bucket). `renderAvgDelta` shows in
+`#result-avg-delta` how the win moved its own 3BV/s bucket's average time:
+improved (green) / worsened (red) / unchanged (gray) / initialized (blue).
 Rankcount charts (`RANKCOUNT_SPECS`) list each distinct value of efficiency /
 clicks / 3BV / 3BV/s (2-decimal buckets) best-first with per-value win counts;
 paired rankaverage charts rank the same groups by average solve time (value,

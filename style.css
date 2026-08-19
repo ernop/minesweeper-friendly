@@ -203,6 +203,16 @@ main {
 
 #result-summary { font-weight: bold; }
 
+/* Mini-display: how this win moved its 3BV/s bucket's average time */
+#result-avg-delta {
+  font-size: 12px;
+  margin: 2px 0;
+}
+#result-avg-delta.delta-improved { color: #008000; }
+#result-avg-delta.delta-worsened { color: #ff0000; }
+#result-avg-delta.delta-same { color: #666666; }
+#result-avg-delta.delta-new { color: #0000ff; }
+
 /* One ranked-list column per time window; the new score is bolded */
 #result-ranks {
   display: flex;
@@ -261,10 +271,6 @@ main {
   grid-column: span 2;
   text-align: left;
 }
-
-/* Lists with an extra per-row stat column (e.g. each row's 3BV/s) */
-.rank-grid.with-stat { grid-template-columns: repeat(5, auto); }
-.rank-row .stat-cell { text-align: right; }
 
 /* Rankcount charts: rank, stat value, x-count */
 .rankcount-grid {

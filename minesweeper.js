@@ -99,6 +99,7 @@ const mineCounter = document.getElementById('mine-counter');
 const timerDisplay = document.getElementById('timer');
 const resultSummary = document.getElementById('result-summary');
 const resultStats = document.getElementById('result-stats');
+const resultAvgDelta = document.getElementById('result-avg-delta');
 const resultRanks = document.getElementById('result-ranks');
 const customForm = document.getElementById('custom-form');
 
@@ -399,6 +400,7 @@ function showStats(result) {
   if (result === 'Win') {
     recordScoreAndRenderRanks(stats);
   } else {
+    resultAvgDelta.textContent = '';
     resultRanks.textContent = 'Losses are not ranked.';
   }
 }
@@ -519,15 +521,8 @@ function rankColumns(stats) {
       filter: (s) => isHoliday(new Date(s.at)),
     });
   }
-  // Stat-similarity columns: wins that resemble this one. 3BV/s matches
-  // within +/-10% (an exact 4-decimal rate would almost never recur); the
-  // integer stats match exactly.
-  columns.push({
-    label: '3BV/s near ' + stats.bvps.toFixed(2),
-    filter: (s) => Math.abs(s.bvps - stats.bvps) <= stats.bvps * 0.10,
-    // Unlike the exact-match columns, each row's value differs, so show it.
-    extra: (s) => s.bvps.toFixed(2),
-  });
+  // Stat-similarity columns: wins matching this one exactly. (3BV/s has no
+  // similarity column; its rankaverage chart covers every rate bucket.)
   columns.push({
     label: '3BV = ' + stats.bv,
     filter: (s) => s.bv === stats.bv,
@@ -602,7 +597,39 @@ function buildRankList(headingText, rowCount, myIndex, gridClass, buildRowCells)
   return list;
 }
 
+// How this win moved the average time of its own 3BV/s bucket: the average
+// over all wins sharing this 3BV/s (2 decimals), before vs after this game.
+function renderAvgDelta(stats, modeScores) {
+  const bucket = Number(stats.bvps.toFixed(2));
+  const inBucket = modeScores.filter((s) => Number(s.bvps.toFixed(2)) === bucket);
+  const avg = (list) => list.reduce((sum, s) => sum + s.timeMs, 0) / list.length;
+  const fmt = (ms) => (ms / 1000).toFixed(3) + 's';
+  const before = inBucket.filter((s) => s !== stats);
+  const label = '3BV/s ' + bucket.toFixed(2) + ' average time';
+
+  resultAvgDelta.className = '';
+  if (before.length === 0) {
+    resultAvgDelta.className = 'delta-new';
+    resultAvgDelta.textContent = label + ' initialized: ' + fmt(stats.timeMs) + ' (first game at this rate)';
+    return;
+  }
+  const prevAvg = avg(before);
+  const newAvg = avg(inBucket);
+  const base = label + ' over ' + inBucket.length + ' games: ' + fmt(prevAvg) + ' \u2192 ' + fmt(newAvg);
+  if (newAvg < prevAvg) {
+    resultAvgDelta.className = 'delta-improved';
+    resultAvgDelta.textContent = base + ' \u2014 improved by ' + fmt(prevAvg - newAvg);
+  } else if (newAvg > prevAvg) {
+    resultAvgDelta.className = 'delta-worsened';
+    resultAvgDelta.textContent = base + ' \u2014 worsened by ' + fmt(newAvg - prevAvg);
+  } else {
+    resultAvgDelta.className = 'delta-same';
+    resultAvgDelta.textContent = base + ' \u2014 unchanged';
+  }
+}
+
 function renderRanks(stats, modeScores) {
+  renderAvgDelta(stats, modeScores);
   resultRanks.textContent = '';
   for (const column of rankColumns(stats)) {
     const inWindow = modeScores
@@ -612,14 +639,13 @@ function renderRanks(stats, modeScores) {
     const myIndex = inWindow.indexOf(stats);
     resultRanks.appendChild(buildRankList(
       column.label + ' - #' + (myIndex + 1) + ' of ' + inWindow.length,
-      inWindow.length, myIndex, column.extra ? 'rank-grid with-stat' : 'rank-grid',
+      inWindow.length, myIndex, 'rank-grid',
       (i) => {
         const age = relativeAge(stats.at, inWindow[i].at);
         const cells = [
           ['rank-cell', '#' + (i + 1)],
           ['time-cell', (inWindow[i].timeMs / 1000).toFixed(3) + 's'],
         ];
-        if (column.extra) cells.push(['stat-cell', column.extra(inWindow[i])]);
         if (age.count === 0 && age.unit === 's') {
           cells.push(['age-just-cell age-u-s', 'just now']);
         } else {
