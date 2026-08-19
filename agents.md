@@ -64,9 +64,10 @@ clicks / 3BV / 3BV/s (2-decimal buckets) best-first with per-value win counts.
 Rows show relative age (`relativeAge`: abbreviated s/m/h/d/w/
 mo/y, no "ago" suffix; a 0-second age renders as a left-aligned "just now"
 spanning the age columns), color-coded per unit via
-`.age-u-*` classes in the board-number palette (s ultralight blue, m green,
-h blue, d red, w navy, mo maroon, y teal); the me-row overrides to black on
-its highlight for readability. Losses are shown but not recorded.
+`.age-u-*` classes (s hyper-fluorescent green #39ff14, then the board-number
+palette: m green, h blue, d red, w navy, mo maroon, y teal); the me-row
+overrides to black on its highlight for readability. The results area uses
+the same chunky Arial Black face as the in-game numerals. Losses are shown but not recorded.
 
 Hosting: public GitHub repo `ernop/minesweeper-friendly`; GitHub Pages serves
 the playable game from the master branch root at

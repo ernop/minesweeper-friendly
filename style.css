@@ -191,6 +191,8 @@ main {
 #results {
   min-height: 4em;
   text-align: center;
+  /* Echo the chunky in-game numeral face throughout the results area */
+  font-family: "Arial Black", "Arial Bold", Arial, sans-serif;
 }
 
 #results p {
@@ -267,7 +269,7 @@ main {
 
 /* Age colors by unit, following the board-number palette:
    seconds ultralight blue, then 2-green, 1-blue, 3-red, 4-navy, 5-maroon, 6-teal. */
-.rank-row .age-u-s  { color: #a9d1f2; }
+.rank-row .age-u-s  { color: #39ff14; }
 .rank-row .age-u-m  { color: #008000; }
 .rank-row .age-u-h  { color: #0000ff; }
 .rank-row .age-u-d  { color: #ff0000; }
