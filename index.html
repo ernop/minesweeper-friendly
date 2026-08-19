@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Minesweeper - Standard Mode</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+  <nav id="difficulty-tabs">
+    <a href="#" data-difficulty="beginner">Beginner</a>
+    <a href="#" data-difficulty="intermediate" class="active">Intermediate</a>
+    <a href="#" data-difficulty="expert">Expert</a>
+    <a href="#" data-difficulty="custom">Custom</a>
+    <label id="zoom-label">Zoom
+      <select id="zoom-select">
+        <option value="16">16</option>
+        <option value="20">20</option>
+        <option value="24" selected>24</option>
+        <option value="28">28</option>
+        <option value="32">32</option>
+      </select>
+    </label>
+  </nav>
+
+  <form id="custom-form" hidden>
+    <label>Width <input id="custom-width" type="number" min="8" max="100" value="30"></label>
+    <label>Height <input id="custom-height" type="number" min="1" max="100" value="16"></label>
+    <label>Mines <input id="custom-mines" type="number" min="1" value="99"></label>
+    <button type="submit">Update</button>
+  </form>
+
+  <div id="game-frame">
+    <div id="top-panel">
+      <div id="mine-counter" class="lcd"></div>
+      <button id="face-button" type="button" aria-label="New game"></button>
+      <div id="timer" class="lcd"></div>
+    </div>
+    <div id="board"></div>
+  </div>
+
+  <div id="results">
+    <p id="result-summary"></p>
+    <p id="result-stats"></p>
+    <p id="result-ranks"></p>
+  </div>
+</main>
+<script src="minesweeper.js"></script>
+</body>
+</html>

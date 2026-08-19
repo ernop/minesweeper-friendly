@@ -37,6 +37,28 @@ repeat. One derived result from the session: a 1-2…2-1 wall chain with k twos
 is fully forced unless k ≡ 0 (mod 3), in which case only every third cell is a
 forced mine.
 
+## State
+
+Standard mode clone implemented (2026-08-19): `index.html` + `style.css` +
+`minesweeper.js`, no dependencies, no build step. Serve with
+`python3 -m http.server 8018`. Covers: Beginner/Intermediate/Expert/Custom
+tabs, first-click safety (mines placed on first reveal), flood fill, flags,
+left-click chording with press preview, seven-segment LCD counters, smiley
+face states, classic loss/win rendering (red hit cell, crossed wrong flags,
+auto-flag on win), 3BV/efficiency stats line, zoom control, space-bar restart.
+All icons are inline SVG. The status button is a dove (peace symbol) with
+four states: idle, startled flap while pressing, olive branch on win, broken
+heart on loss. Score history: all wins stored per mode in localStorage
+(`minesweeper-friendly.scores.v1`) with date/time/3BV/3BV/s/clicks/efficiency;
+after each win the result panel shows rank among lifetime / past year / month /
+week / day / hour scores. Losses are shown but not recorded.
+
+Hosting: public GitHub repo `ernop/minesweeper-friendly`; GitHub Pages serves
+the playable game from the master branch root at
+https://ernop.github.io/minesweeper-friendly/ and redeploys on every push.
+
+Not yet implemented: NG/friendly modes.
+
 ## Reference material
 
 - `reference/minesweeper-online-ng-medium-2026-08-19.png` — minesweeper.online
