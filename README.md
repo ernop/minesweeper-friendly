@@ -29,8 +29,12 @@ then http://localhost:8018/
 Every win is kept in localStorage per mode (date, time, 3BV, 3BV/s, clicks,
 efficiency, and mouse path: total cursor distance in px from first click to
 game end). After each win the result panel shows the full stats plus one
-ranked-list column per time window (lifetime, past year, month, week, day,
-hour, 15 min, 5 min, 1 min) plus day-category columns: all scores set on
+ranked-list column per time window. Day-and-longer windows anchor to your
+local calendar: "today" since last midnight, "past week" since midnight six
+days back, "this month" and "in <year>" since their calendar starts, and
+"in the last year" since the end of the day exactly 365 days prior; hour /
+15 min / 5 min / 1 min windows roll continuously. Then day-category columns:
+all scores set on
 today's weekday ("on Wednesdays"), on weekends or weekdays (whichever today
 is), and on US federal holidays when today is one. Four more columns rank the
 win among similar games: 3BV/s within 10% of this win's, and exact matches on

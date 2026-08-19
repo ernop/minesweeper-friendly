@@ -407,17 +407,34 @@ function showStats(result) {
 
 const SCORES_KEY = 'minesweeper-friendly.scores.v1';
 
-const RANK_WINDOWS = [
-  ['lifetime', Infinity],
-  ['past year', 365 * 86400e3],
-  ['past month', 30 * 86400e3],
-  ['past week', 7 * 86400e3],
-  ['past day', 86400e3],
-  ['past hour', 3600e3],
-  ['past 15 min', 15 * 60e3],
-  ['past 5 min', 5 * 60e3],
-  ['past 1 min', 60e3],
-];
+// Local midnight `daysBack` days before the given moment.
+function startOfDay(ms, daysBack = 0) {
+  const d = new Date(ms);
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - daysBack);
+  return d.getTime();
+}
+
+// Day-and-longer windows anchor at local midnights: "today" runs from the
+// last midnight, "past week" from midnight 6 days back (7 calendar days),
+// "this month"/"in <year>" from their calendar starts, and the rolling
+// "in the last year" starts at the end of the day exactly 365 days prior.
+// Sub-day windows stay purely rolling.
+function rankWindows(nowMs) {
+  const d = new Date(nowMs);
+  return [
+    ['lifetime', -Infinity],
+    ['in ' + d.getFullYear(), new Date(d.getFullYear(), 0, 1).getTime()],
+    ['in the last year', startOfDay(nowMs, 364)],
+    ['this month', new Date(d.getFullYear(), d.getMonth(), 1).getTime()],
+    ['past week', startOfDay(nowMs, 6)],
+    ['today', startOfDay(nowMs)],
+    ['past hour', nowMs - 3600e3],
+    ['past 15 min', nowMs - 15 * 60e3],
+    ['past 5 min', nowMs - 5 * 60e3],
+    ['past 1 min', nowMs - 60e3],
+  ];
+}
 
 function modeLabel() {
   for (const [name, d] of Object.entries(DIFFICULTIES)) {
@@ -481,9 +498,9 @@ function isHoliday(date) {
 // categories the win itself belongs to (same weekday, weekend/weekday,
 // holiday when today is one).
 function rankColumns(stats) {
-  const columns = RANK_WINDOWS.map(([label, span]) => ({
+  const columns = rankWindows(stats.at).map(([label, startMs]) => ({
     label: label,
-    filter: (s) => stats.at - s.at <= span,
+    filter: (s) => s.at >= startMs,
   }));
   const winDate = new Date(stats.at);
   const weekday = winDate.getDay();

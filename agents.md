@@ -54,8 +54,12 @@ mouse path (`pathPx`: cursor distance in px accumulated on document mousemove
 only while `gameState === 'playing'`);
 after each win the result panel shows ranked-list columns (windowed via
 `windowBounds`: top-anchored 21 rows when 1st place is within 10 above, else
-5 either side; own score bolded) for lifetime / past year / month / week / day / hour /
-15 min / 5 min / 1 min windows, plus day categories: today's weekday,
+5 either side; own score bolded) for windows built by `rankWindows`:
+lifetime, "in <year>" (calendar year), "in the last year" (rolling 365 days
+from end of the day 365 days prior), "this month" (calendar), "past week"
+(midnight 6 days back), "today" (last local midnight), then rolling hour /
+15 min / 5 min / 1 min. Timestamps are epoch ms; all calendar boundaries and
+day categories resolve in the viewer's local timezone. Plus day categories: today's weekday,
 weekend-or-weekday, and US federal holidays (rule-based, `isHoliday`) when
 today is one. Stat-similarity columns rank the win among games with 3BV/s
 within +/-10% of this win's (each row also shows its own 3BV/s, via the
