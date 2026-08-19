@@ -107,6 +107,8 @@ Default difficulty is Beginner.
 Promotion: `promo/PROMO.md` is the promotional page — player-facing pitch
 only, nothing technical — with `promo/win-screen-2026-08-19.png` as its hero
 image. Keep it free of implementation detail.
+`promo/win-screen-2026-08-19-full-layout.png` (current layout: stats beside
+the board, charts below) is the README's screenshot.
 
 Not yet implemented: NG/friendly modes.
 

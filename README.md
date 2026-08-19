@@ -6,6 +6,8 @@ Minesweeper variant project. Current contents: a clone of minesweeper.online's
 standard mode. Planned: friendlier variants along the solver-aware design axis
 (see `agents.md`).
 
+![A won Beginner game: stats beside the board, rank charts and streak lists below](promo/win-screen-2026-08-19-full-layout.png)
+
 ## Run
 
 No dependencies, no build step. Open `index.html` in a browser, or:
