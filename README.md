@@ -36,16 +36,13 @@ days back, "this month" and "in <year>" since their calendar starts, and
 15 min / 5 min / 1 min windows roll continuously. Then day-category columns:
 all scores set on
 today's weekday ("on Wednesdays"), on weekends or weekdays (whichever today
-is), and on US federal holidays when today is one. Three more columns rank
-the win among games with the exact same 3BV, efficiency, or click count.
-Rankcount charts list every distinct value
-of efficiency, clicks, 3BV, and 3BV/s (2 decimals) best-first with how many
-wins hit each, your row bolded. Beside each is a rankaverage chart: the same
-groups ranked by their average solve time, each row showing the value, the
-group's average time, and its win count; mouse path gets a rankaverage too,
-bucketed to the nearest 100px. The 3BV/s and mouse path rankaverage charts
-carry a colored caption showing how this win moved its own bucket's average
-time: improved/worsened by how much, unchanged, or set for the first time.
+is), and on US federal holidays when today is one.
+Rankaverage charts group your wins by efficiency, clicks, 3BV, 3BV/s
+(2 decimals), and mouse path (nearest 100px), ranked by each group's average
+solve time; every row shows the rank, the value, the group's average time,
+and how many wins share it, with your group bolded. Under each chart a
+colored caption shows how this win moved its own group's average time:
+improved/worsened by how much, unchanged, or set for the first time.
 The stats themselves (time, 3BV, 3BV/s, clicks, efficiency, mouse path)
 render as a small label/value table under the result line. Streak lists rank your win runs:
 "streak" (consecutive wins), "near-streak" (runs spanning at most 1 loss),

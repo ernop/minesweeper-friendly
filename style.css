@@ -291,22 +291,15 @@ main {
   text-align: left;
 }
 
-/* Rankcount charts: rank, stat value, x-count */
-.rankcount-grid {
-  display: grid;
-  width: 100%;
-  grid-template-columns: repeat(3, auto);
-}
-.rank-row .val-cell { text-align: right; }
-.rank-row .cnt-cell { text-align: left; }
-
 /* Rankaverage charts: rank, stat value, average time, x-count */
 .rankavg-grid {
   display: grid;
   width: 100%;
   grid-template-columns: repeat(4, auto);
 }
+.rank-row .val-cell { text-align: right; }
 .rank-row .avg-cell { text-align: right; }
+.rank-row .cnt-cell { text-align: left; }
 
 /*-------BACKUP (subtle export/import controls)-------*/
 

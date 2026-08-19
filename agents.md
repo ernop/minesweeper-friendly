@@ -61,16 +61,14 @@ from end of the day 365 days prior), "this month" (calendar), "past week"
 15 min / 5 min / 1 min. Timestamps are epoch ms; all calendar boundaries and
 day categories resolve in the viewer's local timezone. Plus day categories: today's weekday,
 weekend-or-weekday, and US federal holidays (rule-based, `isHoliday`) when
-today is one. Stat-similarity columns rank the win among games with
-identical 3BV, efficiency, and clicks (3BV/s has no similarity column; its
-rankaverage covers every rate bucket).
-Rankcount charts (`RANKCOUNT_SPECS`) list each distinct value of efficiency /
-clicks / 3BV / 3BV/s (2-decimal buckets) best-first with per-value win counts;
-paired rankaverage charts rank the same groups by average solve time (value,
-avg time, x-count per row). Mouse path is avgOnly (100px buckets, `has`
-filters pre-pathPx wins). Specs with `delta` get an `avgDeltaCaption` under
-their rankaverage: this win's effect on its bucket's average (green improved /
-red worsened / gray unchanged / blue first). The stats line is a label/value
+today is one.
+Rankaverage charts (`RANKAVERAGE_SPECS`) group wins by efficiency / clicks /
+3BV / 3BV/s (2-decimal buckets) / mouse path (100px buckets, `has` filters
+pre-pathPx wins) and rank the groups by average solve time; each row shows
+rank, value, avg time, and x-count, and each chart carries an
+`avgDeltaCaption`: this win's effect on its group's average (green improved /
+red worsened / gray unchanged / blue first). There are no separate rankcount
+charts; the x-count column covers that. The stats line is a label/value
 grid (`#stats-grid`). Streak lists: losses are stored as bare
 timestamps per mode (`minesweeper-friendly.losses.v1`, written by
 `recordLoss`) purely to split win runs; a k-loss streak joins k+1 adjacent

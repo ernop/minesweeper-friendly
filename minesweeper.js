@@ -536,20 +536,6 @@ function rankColumns(stats) {
       filter: (s) => isHoliday(new Date(s.at)),
     });
   }
-  // Stat-similarity columns: wins matching this one exactly. (3BV/s has no
-  // similarity column; its rankaverage chart covers every rate bucket.)
-  columns.push({
-    label: '3BV = ' + stats.bv,
-    filter: (s) => s.bv === stats.bv,
-  });
-  columns.push({
-    label: 'efficiency = ' + stats.efficiency + '%',
-    filter: (s) => s.efficiency === stats.efficiency,
-  });
-  columns.push({
-    label: 'clicks = ' + stats.clicks,
-    filter: (s) => s.clicks === stats.clicks,
-  });
   return columns;
 }
 
@@ -596,17 +582,17 @@ function windowBounds(myIndex, length) {
   return [myIndex - 5, Math.min(length, myIndex + 6)];
 }
 
-// Rankcount charts: every distinct value of a stat, ordered best-first, with
-// how many wins hit it. 3BV/s buckets at 2 decimals, mouse path at 100px;
-// the rest are exact integers. `delta` specs annotate their rankaverage
-// chart with how this win moved its own bucket's average; `avgOnly` skips
-// the rankcount chart; `has` excludes wins recorded before a stat existed.
-const RANKCOUNT_SPECS = [
-  { label: 'efficiency', value: (s) => s.efficiency, format: (v) => v + '%', descending: true },
-  { label: 'clicks', value: (s) => s.clicks, format: (v) => String(v), descending: false },
-  { label: '3BV', value: (s) => s.bv, format: (v) => String(v), descending: true },
-  { label: '3BV/s', value: (s) => Number(s.bvps.toFixed(2)), format: (v) => v.toFixed(2), descending: true, delta: true },
-  { label: 'mouse path', value: (s) => Math.round(s.pathPx / 100) * 100, format: (v) => v + 'px', descending: false, avgOnly: true, delta: true, has: (s) => typeof s.pathPx === 'number' },
+// Rankaverage charts: wins grouped by a stat's value, ranked by the group's
+// average solve time. Each row shows rank, value, average, and x-count; a
+// caption notes how this win moved its own group's average. 3BV/s buckets
+// at 2 decimals, mouse path at 100px; the rest group on exact integers.
+// `has` excludes wins recorded before a stat existed.
+const RANKAVERAGE_SPECS = [
+  { label: 'efficiency', value: (s) => s.efficiency, format: (v) => v + '%' },
+  { label: 'clicks', value: (s) => s.clicks, format: (v) => String(v) },
+  { label: '3BV', value: (s) => s.bv, format: (v) => String(v) },
+  { label: '3BV/s', value: (s) => Number(s.bvps.toFixed(2)), format: (v) => v.toFixed(2) },
+  { label: 'mouse path', value: (s) => Math.round(s.pathPx / 100) * 100, format: (v) => v + 'px', has: (s) => typeof s.pathPx === 'number' },
 ];
 
 function buildRankList(headingText, rowCount, myIndex, gridClass, buildRowCells) {
@@ -695,7 +681,7 @@ function renderRanks(stats, modeScores, modeLosses = []) {
         return cells;
       }));
   }
-  for (const spec of RANKCOUNT_SPECS) {
+  for (const spec of RANKAVERAGE_SPECS) {
     const eligible = spec.has ? modeScores.filter(spec.has) : modeScores;
     const groups = new Map(); // value -> { count, totalMs }
     for (const s of eligible) {
@@ -705,26 +691,9 @@ function renderRanks(stats, modeScores, modeLosses = []) {
       g.totalMs += s.timeMs;
       groups.set(v, g);
     }
-    const myValue = spec.value(stats);
     const avgMs = (v) => groups.get(v).totalMs / groups.get(v).count;
-
-    if (!spec.avgOnly) {
-      // Rankcount: distinct values ordered best-first, with win counts.
-      const byValue = [...groups.keys()].sort((a, b) => spec.descending ? b - a : a - b);
-      const countIndex = byValue.indexOf(myValue);
-      resultRanks.appendChild(buildRankList(
-        spec.label + ' rankcount - #' + (countIndex + 1) + ' of ' + byValue.length,
-        byValue.length, countIndex, 'rankcount-grid',
-        (i) => [
-          ['rank-cell', '#' + (i + 1)],
-          ['val-cell', spec.format(byValue[i])],
-          ['cnt-cell', '\u00d7' + groups.get(byValue[i]).count],
-        ]));
-    }
-
-    // Rankaverage: the same groups ranked by their average solve time.
     const byAvg = [...groups.keys()].sort((a, b) => avgMs(a) - avgMs(b));
-    const avgIndex = byAvg.indexOf(myValue);
+    const avgIndex = byAvg.indexOf(spec.value(stats));
     const avgList = buildRankList(
       spec.label + ' rankaverage - #' + (avgIndex + 1) + ' of ' + byAvg.length,
       byAvg.length, avgIndex, 'rankavg-grid',
@@ -734,7 +703,7 @@ function renderRanks(stats, modeScores, modeLosses = []) {
         ['avg-cell', (avgMs(byAvg[i]) / 1000).toFixed(3) + 's'],
         ['cnt-cell', '\u00d7' + groups.get(byAvg[i]).count],
       ]);
-    if (spec.delta) avgList.appendChild(avgDeltaCaption(spec, stats, eligible));
+    avgList.appendChild(avgDeltaCaption(spec, stats, eligible));
     resultRanks.appendChild(avgList);
   }
 
