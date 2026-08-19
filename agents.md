@@ -69,7 +69,13 @@ improved (green) / worsened (red) / unchanged (gray) / initialized (blue).
 Rankcount charts (`RANKCOUNT_SPECS`) list each distinct value of efficiency /
 clicks / 3BV / 3BV/s (2-decimal buckets) best-first with per-value win counts;
 paired rankaverage charts rank the same groups by average solve time (value,
-avg time, x-count per row).
+avg time, x-count per row). Streak lists: losses are stored as bare
+timestamps per mode (`minesweeper-friendly.losses.v1`, written by
+`recordLoss`) purely to split win runs; a k-loss streak joins k+1 adjacent
+runs (k = 0/1/2 for streak / near-streak / near-near-streak), ranked by
+length then recency, current streak highlighted. Export blobs are
+`{ wins, losses }`; import also accepts the older bare wins map, deduping
+losses by timestamp.
 Rows show relative age (`relativeAge`: abbreviated s/m/h/d/w/
 mo/y, no "ago" suffix; a 0-second age renders as a left-aligned "just now"
 spanning the age columns), color-coded per unit via

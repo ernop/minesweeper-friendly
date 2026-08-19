@@ -44,7 +44,10 @@ or initialized if it's the first game at that rate. Rankcount charts list every 
 of efficiency, clicks, 3BV, and 3BV/s (2 decimals) best-first with how many
 wins hit each, your row bolded. Beside each is a rankaverage chart: the same
 groups ranked by their average solve time, each row showing the value, the
-group's average time, and its win count. Each list windows around your row,
+group's average time, and its win count. Streak lists rank your win runs:
+"streak" (consecutive wins), "near-streak" (runs spanning at most 1 loss),
+and "near-near-streak" (at most 2), each row showing length and how long ago
+the streak's last win was; loss timestamps are recorded to split streaks. Each list windows around your row,
 11 rows max: 5 either side, and when 1st place is within the 5 above, the
 list anchors at the top with the unused budget growing downward. Rows show
 rank, time, and a relative age ("43s", "5m", "2w"; the brand-new score says

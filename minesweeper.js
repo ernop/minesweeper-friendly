@@ -400,6 +400,7 @@ function showStats(result) {
   if (result === 'Win') {
     recordScoreAndRenderRanks(stats);
   } else {
+    recordLoss(stats.at);
     resultAvgDelta.textContent = '';
     resultRanks.textContent = 'Losses are not ranked.';
   }
@@ -543,6 +544,23 @@ function loadScores() {
   return raw === null ? {} : JSON.parse(raw);
 }
 
+// Losses are stored as bare timestamps per mode; they carry no stats and
+// exist to split win streaks.
+const LOSSES_KEY = 'minesweeper-friendly.losses.v1';
+
+function loadLosses() {
+  const raw = localStorage.getItem(LOSSES_KEY);
+  return raw === null ? {} : JSON.parse(raw);
+}
+
+function recordLoss(atMs) {
+  const all = loadLosses();
+  const key = modeLabel();
+  if (!(key in all)) all[key] = [];
+  all[key].push(atMs);
+  localStorage.setItem(LOSSES_KEY, JSON.stringify(all));
+}
+
 // Appends the win to this mode's history, then renders one ranked-list column
 // per time window: up to 10 scores above the new one, the new one bolded, and
 // up to 10 below. Ordering is by time, ties broken by earlier date.
@@ -553,7 +571,7 @@ function recordScoreAndRenderRanks(stats) {
   const modeScores = allScores[key];
   modeScores.push(stats);
   localStorage.setItem(SCORES_KEY, JSON.stringify(allScores));
-  renderRanks(stats, modeScores);
+  renderRanks(stats, modeScores, loadLosses()[key] || []);
 }
 
 // Visible slice of a ranked list, 11 rows max: 5 either side of my row; when
@@ -628,7 +646,7 @@ function renderAvgDelta(stats, modeScores) {
   }
 }
 
-function renderRanks(stats, modeScores) {
+function renderRanks(stats, modeScores, modeLosses = []) {
   renderAvgDelta(stats, modeScores);
   resultRanks.textContent = '';
   for (const column of rankColumns(stats)) {
@@ -691,6 +709,46 @@ function renderRanks(stats, modeScores) {
         ['avg-cell', (avgMs(byAvg[i]) / 1000).toFixed(3) + 's'],
         ['cnt-cell', '\u00d7' + groups.get(byAvg[i]).count],
       ]));
+  }
+
+  // Streak lists: wins in chronological runs split by losses. A k-loss
+  // streak joins k+1 adjacent runs; the streak ending in this win is "me".
+  const events = modeScores.map((s) => ({ at: s.at, win: s.at }))
+    .concat(modeLosses.map((at) => ({ at, win: null })))
+    .sort((a, b) => a.at - b.at);
+  const runs = [[]];
+  for (const e of events) {
+    if (e.win !== null) runs[runs.length - 1].push(e.win);
+    else runs.push([]);
+  }
+  for (const [label, slack] of [['streak', 0], ['near-streak (1 loss ok)', 1], ['near-near-streak (2 losses ok)', 2]]) {
+    const span = Math.min(slack + 1, runs.length);
+    const segments = [];
+    for (let i = 0; i + span <= runs.length; i++) {
+      const winsAt = runs.slice(i, i + span).flat();
+      if (winsAt.length === 0) continue;
+      segments.push({ len: winsAt.length, end: winsAt[winsAt.length - 1], current: i + span === runs.length });
+    }
+    segments.sort((a, b) => b.len - a.len || b.end - a.end);
+    const myIndex = segments.findIndex((seg) => seg.current);
+    resultRanks.appendChild(buildRankList(
+      label + ' - #' + (myIndex + 1) + ' of ' + segments.length,
+      segments.length, myIndex, 'rank-grid',
+      (i) => {
+        const seg = segments[i];
+        const age = relativeAge(stats.at, seg.end);
+        const cells = [
+          ['rank-cell', '#' + (i + 1)],
+          ['time-cell', seg.len + (seg.len === 1 ? ' win' : ' wins')],
+        ];
+        if (age.count === 0 && age.unit === 's') {
+          cells.push(['age-just-cell age-u-s', 'just now']);
+        } else {
+          cells.push(['age-num-cell age-u-' + age.unit, String(age.count)]);
+          cells.push(['age-unit-cell age-u-' + age.unit, age.unit]);
+        }
+        return cells;
+      }));
   }
 }
 
@@ -854,7 +912,7 @@ function copyToClipboard(text) {
 
 document.getElementById('export-btn').addEventListener('click', () => {
   const scores = loadScores();
-  const json = JSON.stringify(scores);
+  const json = JSON.stringify({ wins: scores, losses: loadLosses() });
   copyToClipboard(json).then(
     () => { backupStatus.textContent = 'export copied to clipboard (' + winCount(scores) + ' wins)'; },
     () => { backupStatus.textContent = 'clipboard copy failed - use save to file'; },
@@ -866,19 +924,24 @@ document.getElementById('export-btn').addEventListener('click', () => {
 });
 
 // Merges an exported blob into the stored history. A win is a duplicate of
-// an existing one when both its date (`at`) and score (`timeMs`) match.
+// an existing one when both its date (`at`) and score (`timeMs`) match;
+// a loss is a duplicate on its timestamp. Blobs from before losses were
+// exported are a bare mode-to-wins map and still import fine.
 function importScores(text) {
-  let imported;
+  let parsed;
   try {
-    imported = JSON.parse(text);
+    parsed = JSON.parse(text);
   } catch {
     backupStatus.textContent = 'import failed: not valid JSON';
     return;
   }
+  const winsIn = 'wins' in parsed ? parsed.wins : parsed;
+  const lossesIn = 'losses' in parsed ? parsed.losses : {};
+
   const all = loadScores();
   let added = 0;
   let dups = 0;
-  for (const [mode, list] of Object.entries(imported)) {
+  for (const [mode, list] of Object.entries(winsIn)) {
     if (!Array.isArray(list)) continue;
     if (!(mode in all)) all[mode] = [];
     const seen = new Set(all[mode].map((s) => s.at + '/' + s.timeMs));
@@ -894,7 +957,24 @@ function importScores(text) {
     }
   }
   localStorage.setItem(SCORES_KEY, JSON.stringify(all));
-  backupStatus.textContent = 'imported ' + added + ' new wins, skipped ' + dups + ' duplicates';
+
+  const allLosses = loadLosses();
+  let lossesAdded = 0;
+  for (const [mode, list] of Object.entries(lossesIn)) {
+    if (!Array.isArray(list)) continue;
+    if (!(mode in allLosses)) allLosses[mode] = [];
+    const seen = new Set(allLosses[mode]);
+    for (const at of list) {
+      if (seen.has(at)) continue;
+      seen.add(at);
+      allLosses[mode].push(at);
+      lossesAdded += 1;
+    }
+  }
+  localStorage.setItem(LOSSES_KEY, JSON.stringify(allLosses));
+
+  backupStatus.textContent = 'imported ' + added + ' new wins, skipped ' + dups
+    + ' duplicates' + (lossesAdded > 0 ? ' (+' + lossesAdded + ' losses)' : '');
   importPanel.hidden = true;
   importText.value = '';
 }
