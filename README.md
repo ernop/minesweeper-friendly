@@ -29,6 +29,7 @@ then http://localhost:8018/
 Every win is kept in localStorage per mode (date, time, 3BV, 3BV/s, clicks,
 efficiency). After each win the result panel shows the full stats plus one
 ranked-list column per time window (lifetime, past year, month, week, day,
-hour): up to 10 scores above yours, your new score bolded, and up to 10
+hour, 15 min, 5 min, 1 min): up to 10 scores above yours, your new score
+bolded, and up to 10
 below, each row with rank, time, and date. Losses show stats but are not
 recorded.

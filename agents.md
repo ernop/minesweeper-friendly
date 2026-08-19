@@ -50,8 +50,9 @@ All icons are inline SVG. The status button is a dove (peace symbol) with
 four states: idle, startled flap while pressing, olive branch on win, broken
 heart on loss. Score history: all wins stored per mode in localStorage
 (`minesweeper-friendly.scores.v1`) with date/time/3BV/3BV/s/clicks/efficiency;
-after each win the result panel shows rank among lifetime / past year / month /
-week / day / hour scores. Losses are shown but not recorded.
+after each win the result panel shows ranked-list columns (10 above, own score
+bolded, 10 below) for lifetime / past year / month / week / day / hour /
+15 min / 5 min / 1 min windows. Losses are shown but not recorded.
 
 Hosting: public GitHub repo `ernop/minesweeper-friendly`; GitHub Pages serves
 the playable game from the master branch root at

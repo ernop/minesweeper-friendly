@@ -404,6 +404,9 @@ const RANK_WINDOWS = [
   ['past week', 7 * 86400e3],
   ['past day', 86400e3],
   ['past hour', 3600e3],
+  ['past 15 min', 15 * 60e3],
+  ['past 5 min', 5 * 60e3],
+  ['past 1 min', 60e3],
 ];
 
 function modeLabel() {
