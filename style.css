@@ -225,24 +225,34 @@ main {
   color: #333333;
 }
 
-/* Rank, time, and date line up as three columns; rank and time right-aligned
-   so widths like #9/#10 and 5.961s/10.220s stay vertically aligned */
+/* Rank, time, age-count, and age-unit line up as four columns. Rank, time,
+   and age-count are right-aligned so widths like #9/#10, 5.961s/10.220s, and
+   0s/15m stay vertically comparable. Spacing uses cell padding, not gaps, so
+   the me-row highlight reads as one continuous bar. */
 .rank-grid {
   display: grid;
-  grid-template-columns: max-content max-content max-content;
-  column-gap: 8px;
+  grid-template-columns: repeat(4, max-content);
 }
 
 .rank-row { display: contents; }
 
-.rank-row span { white-space: nowrap; }
+.rank-row span {
+  white-space: nowrap;
+  padding: 0 4px;
+}
 
 .rank-row .rank-cell,
-.rank-row .time-cell {
+.rank-row .time-cell,
+.rank-row .age-num-cell {
   text-align: right;
 }
+
+/* The unit hugs its count */
+.rank-row .age-num-cell { padding-right: 0; }
+.rank-row .age-unit-cell { padding-left: 1px; }
 
 .rank-row.me span {
   font-weight: bold;
   color: #000000;
+  background: #d8ebfa;
 }

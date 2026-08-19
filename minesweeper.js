@@ -427,21 +427,20 @@ function formatDate(timestampMs) {
 
 const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-// Relative age in the largest sensible unit: seconds under a minute, minutes
-// under an hour, then hours, days, weeks, months, years.
-function relativeTimeLabel(nowMs, thenMs) {
-  const ago = (count, unit) => count + ' ' + unit + (count === 1 ? '' : 's') + ' ago';
+// Relative age in the largest sensible unit, split into count and unit so the
+// counts can be right-aligned as their own column.
+function relativeAge(nowMs, thenMs) {
   const seconds = Math.max(0, Math.round((nowMs - thenMs) / 1000));
-  if (seconds < 60) return ago(seconds, 'second');
+  if (seconds < 60) return { count: seconds, unit: 's' };
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return ago(minutes, 'minute');
+  if (minutes < 60) return { count: minutes, unit: 'm' };
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return ago(hours, 'hour');
+  if (hours < 24) return { count: hours, unit: 'h' };
   const days = Math.floor(hours / 24);
-  if (days < 7) return ago(days, 'day');
-  if (days < 30) return ago(Math.floor(days / 7), 'week');
-  if (days < 365) return ago(Math.floor(days / 30), 'month');
-  return ago(Math.floor(days / 365), 'year');
+  if (days < 7) return { count: days, unit: 'd' };
+  if (days < 30) return { count: Math.floor(days / 7), unit: 'w' };
+  if (days < 365) return { count: Math.floor(days / 30), unit: 'mo' };
+  return { count: Math.floor(days / 365), unit: 'y' };
 }
 
 //-------DAY CATEGORIES (weekday / weekend / US holidays)-------
@@ -536,10 +535,12 @@ function renderRanks(stats, modeScores) {
     for (let i = start; i < end; i++) {
       const row = document.createElement('div');
       row.className = i === myIndex ? 'rank-row me' : 'rank-row';
+      const age = relativeAge(stats.at, inWindow[i].at);
       for (const [cls, text] of [
         ['rank-cell', '#' + (i + 1)],
         ['time-cell', (inWindow[i].timeMs / 1000).toFixed(3) + 's'],
-        ['date-cell', relativeTimeLabel(stats.at, inWindow[i].at)],
+        ['age-num-cell', String(age.count)],
+        ['age-unit-cell', age.unit + ' ago'],
       ]) {
         const cell = document.createElement('span');
         cell.className = cls;
