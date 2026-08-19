@@ -48,7 +48,13 @@ group's average time, and its win count. Each list windows around your row,
 11 rows max: 5 either side, and when 1st place is within the 5 above, the
 list anchors at the top with the unused budget growing downward. Rows show
 rank, time, and a relative age ("43s", "5m", "2w"; the brand-new score says
-"just now"). Ages are color-coded by unit following the board-number
+"just now").
+
+Backup: subtle "export scores" / "import scores" controls under the results.
+Export copies the full history JSON to the clipboard (with a save-to-file
+option); import accepts pasted JSON or a file. Imports merge and dedupe:
+a win is a duplicate when its date and time both match an existing one, so
+re-importing the same blob is always safe. Ages are color-coded by unit following the board-number
 palette: seconds ultralight blue, minutes green, hours blue, days red, then
 navy/maroon/teal for weeks/months/years. Losses show stats but are not
 recorded.

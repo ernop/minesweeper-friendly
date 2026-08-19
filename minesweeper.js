@@ -780,7 +780,7 @@ boardElement.addEventListener('contextmenu', (event) => {
 document.getElementById('top-panel').addEventListener('click', newGame);
 
 document.addEventListener('keydown', (event) => {
-  if (event.code !== 'Space' || event.target.tagName === 'INPUT') return;
+  if (event.code !== 'Space' || ['INPUT', 'TEXTAREA', 'BUTTON', 'A'].includes(event.target.tagName)) return;
   event.preventDefault();
   newGame();
 });
@@ -822,6 +822,95 @@ customForm.addEventListener('submit', (event) => {
 
 document.getElementById('zoom-select').addEventListener('change', (event) => {
   document.documentElement.style.setProperty('--cell-size', event.target.value + 'px');
+});
+
+//-------BACKUP (export / import of the score history)-------
+
+const backupStatus = document.getElementById('backup-status');
+const importPanel = document.getElementById('import-panel');
+const importText = document.getElementById('import-text');
+const importFileInput = document.getElementById('import-file-input');
+const exportFileLink = document.getElementById('export-file');
+
+function winCount(scores) {
+  return Object.values(scores).reduce((n, list) => n + list.length, 0);
+}
+
+// The async clipboard API needs a focused secure context; fall back to the
+// selection-based copy where it is unavailable.
+function copyToClipboard(text) {
+  return navigator.clipboard.writeText(text).catch(() => {
+    const scratch = document.createElement('textarea');
+    scratch.value = text;
+    scratch.style.position = 'fixed';
+    scratch.style.opacity = '0';
+    document.body.appendChild(scratch);
+    scratch.select();
+    const ok = document.execCommand('copy');
+    scratch.remove();
+    if (!ok) throw new Error('copy failed');
+  });
+}
+
+document.getElementById('export-btn').addEventListener('click', () => {
+  const scores = loadScores();
+  const json = JSON.stringify(scores);
+  copyToClipboard(json).then(
+    () => { backupStatus.textContent = 'export copied to clipboard (' + winCount(scores) + ' wins)'; },
+    () => { backupStatus.textContent = 'clipboard copy failed - use save to file'; },
+  );
+  if (exportFileLink.href) URL.revokeObjectURL(exportFileLink.href);
+  exportFileLink.href = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+  exportFileLink.download = 'minesweeper-friendly-scores-' + new Date().toISOString().slice(0, 10) + '.json';
+  exportFileLink.hidden = false;
+});
+
+// Merges an exported blob into the stored history. A win is a duplicate of
+// an existing one when both its date (`at`) and score (`timeMs`) match.
+function importScores(text) {
+  let imported;
+  try {
+    imported = JSON.parse(text);
+  } catch {
+    backupStatus.textContent = 'import failed: not valid JSON';
+    return;
+  }
+  const all = loadScores();
+  let added = 0;
+  let dups = 0;
+  for (const [mode, list] of Object.entries(imported)) {
+    if (!Array.isArray(list)) continue;
+    if (!(mode in all)) all[mode] = [];
+    const seen = new Set(all[mode].map((s) => s.at + '/' + s.timeMs));
+    for (const s of list) {
+      const key = s.at + '/' + s.timeMs;
+      if (seen.has(key)) {
+        dups += 1;
+        continue;
+      }
+      seen.add(key);
+      all[mode].push(s);
+      added += 1;
+    }
+  }
+  localStorage.setItem(SCORES_KEY, JSON.stringify(all));
+  backupStatus.textContent = 'imported ' + added + ' new wins, skipped ' + dups + ' duplicates';
+  importPanel.hidden = true;
+  importText.value = '';
+}
+
+document.getElementById('import-btn').addEventListener('click', () => {
+  importPanel.hidden = !importPanel.hidden;
+});
+
+document.getElementById('import-apply').addEventListener('click', () => importScores(importText.value));
+
+document.getElementById('import-open').addEventListener('click', () => importFileInput.click());
+
+importFileInput.addEventListener('change', () => {
+  const file = importFileInput.files[0];
+  if (file) file.text().then(importScores);
+  importFileInput.value = '';
 });
 
 //-------INIT-------

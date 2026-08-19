@@ -78,6 +78,11 @@ palette: m green, h blue, d red, w navy, mo maroon, y teal); the me-row
 overrides to black on its highlight for readability. The results area uses
 the same chunky Arial Black face as the in-game numerals. Losses are shown but not recorded.
 
+Backup: `#backup` controls export the score history as a JSON blob
+(clipboard via `copyToClipboard` with execCommand fallback, or Blob-URL file
+download) and import via paste or file. `importScores` merges with dedup
+keyed on `at`/`timeMs` pairs per mode, so repeat imports are no-ops.
+
 Hosting: public GitHub repo `ernop/minesweeper-friendly`; GitHub Pages serves
 the playable game from the master branch root at
 https://ernop.github.io/minesweeper-friendly/ and redeploys on every push.

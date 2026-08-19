@@ -289,6 +289,37 @@ main {
 }
 .rank-row .avg-cell { text-align: right; }
 
+/*-------BACKUP (subtle export/import controls)-------*/
+
+#backup {
+  margin-top: 30px;
+  text-align: center;
+  font-size: 11px;
+  color: #999999;
+}
+
+#backup button,
+#backup a {
+  font: inherit;
+  color: #8aa0b5;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0 6px;
+  cursor: pointer;
+  text-decoration: underline dotted;
+}
+
+#import-panel { margin-top: 6px; }
+
+#import-panel textarea {
+  width: 340px;
+  vertical-align: middle;
+  font-size: 11px;
+  color: #555555;
+  border: 1px solid #cccccc;
+}
+
 /* Age colors by unit, following the board-number palette:
    seconds ultralight blue, then 2-green, 1-blue, 3-red, 4-navy, 5-maroon, 6-teal. */
 .rank-row .age-u-s  { color: #39ff14; }
