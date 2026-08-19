@@ -542,6 +542,47 @@ function recordScoreAndRenderRanks(stats) {
   renderRanks(stats, modeScores);
 }
 
+// Visible slice of a ranked list: when 1st place is within 10 rows above,
+// anchor at the top and spend the full 21-row budget growing downward;
+// otherwise show 5 rows either side.
+function windowBounds(myIndex, length) {
+  if (myIndex <= 10) return [0, Math.min(length, 21)];
+  return [myIndex - 5, Math.min(length, myIndex + 6)];
+}
+
+// Rankcount charts: every distinct value of a stat, ordered best-first, with
+// how many wins hit it. 3BV/s buckets at 2 decimals; the rest are integers.
+const RANKCOUNT_SPECS = [
+  { label: 'efficiency', value: (s) => s.efficiency, format: (v) => v + '%', descending: true },
+  { label: 'clicks', value: (s) => s.clicks, format: (v) => String(v), descending: false },
+  { label: '3BV', value: (s) => s.bv, format: (v) => String(v), descending: true },
+  { label: '3BV/s', value: (s) => Number(s.bvps.toFixed(2)), format: (v) => v.toFixed(2), descending: true },
+];
+
+function buildRankList(headingText, rowCount, myIndex, gridClass, buildRowCells) {
+  const list = document.createElement('div');
+  list.className = 'rank-list';
+  const heading = document.createElement('h4');
+  heading.textContent = headingText;
+  list.appendChild(heading);
+  const grid = document.createElement('div');
+  grid.className = gridClass;
+  const [start, end] = windowBounds(myIndex, rowCount);
+  for (let i = start; i < end; i++) {
+    const row = document.createElement('div');
+    row.className = i === myIndex ? 'rank-row me' : 'rank-row';
+    for (const [cls, text] of buildRowCells(i)) {
+      const cell = document.createElement('span');
+      cell.className = cls;
+      cell.textContent = text;
+      row.appendChild(cell);
+    }
+    grid.appendChild(row);
+  }
+  list.appendChild(grid);
+  return list;
+}
+
 function renderRanks(stats, modeScores) {
   resultRanks.textContent = '';
   for (const column of rankColumns(stats)) {
@@ -550,38 +591,40 @@ function renderRanks(stats, modeScores) {
       .sort((a, b) => a.timeMs - b.timeMs || a.at - b.at);
     // `stats` is an element of modeScores, so identity search finds it.
     const myIndex = inWindow.indexOf(stats);
-    const start = Math.max(0, myIndex - 10);
-    const end = Math.min(inWindow.length, myIndex + 11);
-
-    const list = document.createElement('div');
-    list.className = 'rank-list';
-    const heading = document.createElement('h4');
-    heading.textContent = column.label + ' - #' + (myIndex + 1) + ' of ' + inWindow.length;
-    list.appendChild(heading);
-    // Three aligned columns per list: rank, time, date.
-    const grid = document.createElement('div');
-    grid.className = 'rank-grid';
-    for (let i = start; i < end; i++) {
-      const row = document.createElement('div');
-      row.className = i === myIndex ? 'rank-row me' : 'rank-row';
-      const age = relativeAge(stats.at, inWindow[i].at);
-      const justNow = age.count === 0 && age.unit === 's';
-      const unitClass = ' age-u-' + age.unit;
-      for (const [cls, text] of [
-        ['rank-cell', '#' + (i + 1)],
-        ['time-cell', (inWindow[i].timeMs / 1000).toFixed(3) + 's'],
-        ['age-num-cell' + unitClass, justNow ? '' : String(age.count)],
-        ['age-unit-cell' + unitClass, justNow ? 'just now' : age.unit + ' ago'],
-      ]) {
-        const cell = document.createElement('span');
-        cell.className = cls;
-        cell.textContent = text;
-        row.appendChild(cell);
-      }
-      grid.appendChild(row);
+    resultRanks.appendChild(buildRankList(
+      column.label + ' - #' + (myIndex + 1) + ' of ' + inWindow.length,
+      inWindow.length, myIndex, 'rank-grid',
+      (i) => {
+        const age = relativeAge(stats.at, inWindow[i].at);
+        const cells = [
+          ['rank-cell', '#' + (i + 1)],
+          ['time-cell', (inWindow[i].timeMs / 1000).toFixed(3) + 's'],
+        ];
+        if (age.count === 0 && age.unit === 's') {
+          cells.push(['age-just-cell age-u-s', 'just now']);
+        } else {
+          cells.push(['age-num-cell age-u-' + age.unit, String(age.count)]);
+          cells.push(['age-unit-cell age-u-' + age.unit, age.unit]);
+        }
+        return cells;
+      }));
+  }
+  for (const spec of RANKCOUNT_SPECS) {
+    const counts = new Map();
+    for (const s of modeScores) {
+      const v = spec.value(s);
+      counts.set(v, (counts.get(v) || 0) + 1);
     }
-    list.appendChild(grid);
-    resultRanks.appendChild(list);
+    const values = [...counts.keys()].sort((a, b) => spec.descending ? b - a : a - b);
+    const myIndex = values.indexOf(spec.value(stats));
+    resultRanks.appendChild(buildRankList(
+      spec.label + ' rankcount - #' + (myIndex + 1) + ' of ' + values.length,
+      values.length, myIndex, 'rankcount-grid',
+      (i) => [
+        ['rank-cell', '#' + (i + 1)],
+        ['val-cell', spec.format(values[i])],
+        ['cnt-cell', '\u00d7' + counts.get(values[i])],
+      ]));
   }
 }
 

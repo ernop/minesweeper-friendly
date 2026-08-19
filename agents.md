@@ -52,13 +52,18 @@ heart on loss. Score history: all wins stored per mode in localStorage
 (`minesweeper-friendly.scores.v1`) with date/time/3BV/3BV/s/clicks/efficiency/
 mouse path (`pathPx`: cursor distance in px accumulated on document mousemove
 only while `gameState === 'playing'`);
-after each win the result panel shows ranked-list columns (10 above, own score
-bolded, 10 below) for lifetime / past year / month / week / day / hour /
+after each win the result panel shows ranked-list columns (windowed via
+`windowBounds`: top-anchored 21 rows when 1st place is within 10 above, else
+5 either side; own score bolded) for lifetime / past year / month / week / day / hour /
 15 min / 5 min / 1 min windows, plus day categories: today's weekday,
 weekend-or-weekday, and US federal holidays (rule-based, `isHoliday`) when
 today is one. Stat-similarity columns rank the win among games with 3BV/s
-within +/-10% of this win's and with identical 3BV, efficiency, and clicks. Rows show relative age (`relativeAge`: abbreviated s/m/h/d/w/
-mo/y; a 0-second age renders as "just now"), color-coded per unit via
+within +/-10% of this win's and with identical 3BV, efficiency, and clicks.
+Rankcount charts (`RANKCOUNT_SPECS`) list each distinct value of efficiency /
+clicks / 3BV / 3BV/s (2-decimal buckets) best-first with per-value win counts.
+Rows show relative age (`relativeAge`: abbreviated s/m/h/d/w/
+mo/y, no "ago" suffix; a 0-second age renders as a left-aligned "just now"
+spanning the age columns), color-coded per unit via
 `.age-u-*` classes in the board-number palette (s ultralight blue, m green,
 h blue, d red, w navy, mo maroon, y teal); the me-row overrides to black on
 its highlight for readability. Losses are shown but not recorded.

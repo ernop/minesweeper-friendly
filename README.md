@@ -34,10 +34,13 @@ hour, 15 min, 5 min, 1 min) plus day-category columns: all scores set on
 today's weekday ("on Wednesdays"), on weekends or weekdays (whichever today
 is), and on US federal holidays when today is one. Four more columns rank the
 win among similar games: 3BV/s within 10% of this win's, and exact matches on
-3BV, efficiency, and click count. Each column shows up to 10
-scores above yours, your new score bolded, and up to 10 below, with rank,
-time, and a relative age ("43s ago", "5m ago", "2w ago"; the brand-new score
-says "just now"). Ages are color-coded by unit following the board-number
+3BV, efficiency, and click count. Rankcount charts list every distinct value
+of efficiency, clicks, 3BV, and 3BV/s (2 decimals) best-first with how many
+wins hit each, your row bolded. Each list windows around your row: when 1st
+place is within 10 rows above you the list anchors at the top and grows
+downward (21 rows total); otherwise it shows 5 rows either side. Rows show
+rank, time, and a relative age ("43s", "5m", "2w"; the brand-new score says
+"just now"). Ages are color-coded by unit following the board-number
 palette: seconds ultralight blue, minutes green, hours blue, days red, then
 navy/maroon/teal for weeks/months/years. Losses show stats but are not
 recorded.

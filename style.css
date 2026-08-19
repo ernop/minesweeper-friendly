@@ -251,6 +251,20 @@ main {
 .rank-row .age-num-cell { padding-right: 0; }
 .rank-row .age-unit-cell { padding-left: 1px; }
 
+/* "just now" takes the whole age area, left-aligned */
+.rank-row .age-just-cell {
+  grid-column: span 2;
+  text-align: left;
+}
+
+/* Rankcount charts: rank, stat value, x-count */
+.rankcount-grid {
+  display: grid;
+  grid-template-columns: repeat(3, max-content);
+}
+.rank-row .val-cell { text-align: right; }
+.rank-row .cnt-cell { text-align: left; }
+
 /* Age colors by unit, following the board-number palette:
    seconds ultralight blue, then 2-green, 1-blue, 3-red, 4-navy, 5-maroon, 6-teal. */
 .rank-row .age-u-s  { color: #a9d1f2; }
