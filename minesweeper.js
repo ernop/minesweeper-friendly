@@ -556,11 +556,11 @@ function recordScoreAndRenderRanks(stats) {
   renderRanks(stats, modeScores);
 }
 
-// Visible slice of a ranked list: when 1st place is within 10 rows above,
-// anchor at the top and spend the full 21-row budget growing downward;
-// otherwise show 5 rows either side.
+// Visible slice of a ranked list, 11 rows max: 5 either side of my row; when
+// 1st place is within the 5 above, anchor at the top and let the unused
+// budget grow downward instead.
 function windowBounds(myIndex, length) {
-  if (myIndex <= 10) return [0, Math.min(length, 21)];
+  if (myIndex <= 5) return [0, Math.min(length, 11)];
   return [myIndex - 5, Math.min(length, myIndex + 6)];
 }
 
