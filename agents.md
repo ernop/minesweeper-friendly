@@ -41,82 +41,43 @@ forced mine.
 
 Standard mode clone implemented (2026-08-19): `index.html` + `style.css` +
 `minesweeper.js`, no dependencies, no build step. Serve with
-`python3 -m http.server 8018`. Covers: Beginner/Intermediate/Expert/Custom
-tabs, first-click safety (mines placed on first reveal), flood fill, flags,
-left-click chording with press preview, seven-segment LCD counters, smiley
-face states, classic loss/win rendering (red hit cell, crossed wrong flags,
-auto-flag on win), 3BV/efficiency stats line, zoom control, space-bar restart.
-All icons are inline SVG. The status button is a dove (peace symbol) with
-four states: idle, startled flap while pressing, olive branch on win, broken
-heart on loss. Score history: all wins stored per mode in localStorage
-(`minesweeper-friendly.scores.v1`) with date/time/3BV/3BV/s/clicks/efficiency/
-mouse path (`pathPx`: cursor distance in px accumulated on document mousemove
-only while `gameState === 'playing'`);
-after each win the result panel shows ranked-list columns (windowed via
-`windowBounds`, 11 rows max: 5 either side, top-anchored when 1st place is
-within the 5 above; own score bolded) for windows built by `rankWindows`:
-Earned detail: a list renders its full window only when the placement is
-top-10 or within 10% of the best entry's value (`nearTop`, metric per list
-type: time, bucket avg time, streak length); otherwise it collapses to the
-heading plus the player's own row (see `buildRankList`).
-lifetime, "in <year>" (calendar year), "in the last year" (rolling 365 days
-from end of the day 365 days prior), "this month" (calendar), "past week"
-(midnight 6 days back), "today" (last local midnight), then rolling hour /
-15 min / 5 min / 1 min. Timestamps are epoch ms; all calendar boundaries and
-day categories resolve in the viewer's local timezone. Plus day categories: today's weekday,
-weekend-or-weekday, and US federal holidays (rule-based, `isHoliday`) when
-today is one. Progressive disclosure: each window/category column carries a
-`specificity` rank (narrow windows lowest, then day categories, then broad
-windows); when several columns contain the exact same score set only the
-most specific renders, so a new player sees one chart and broader ones
-appear as history spreads across hours/days/weekdays.
-Rankaverage charts (`RANKAVERAGE_SPECS`) group wins by efficiency / clicks /
-3BV / 3BV/s (2-decimal buckets) / mouse path (100px buckets) / mouse speed
-(10px/s buckets; both use `has` to filter pre-pathPx wins) and rank the
-groups by average solve time; each row shows
-rank, value, avg time, and x-count, and each chart carries an
-`avgDeltaCaption`: this win's effect on its group's average (green improved /
-red worsened / gray unchanged / blue first). There are no separate rankcount
-charts; the x-count column covers that. The stats line is a label/value
-grid (`#stats-grid`) and includes derived mouse metrics: speed (px/s),
-path per click, path per 3BV. At the very bottom, three inline-SVG scatter
-plots (`buildScatter`, after a `.flex-break`) show relationships across all
-path-recorded wins, this game's dot highlighted red: mouse speed vs time,
-path/click vs efficiency, path/3BV vs time. Both axes carry 1/2/5-step
-tick labels with gridlines (`niceTicks`); units go in a caption below. Streak lists: losses are stored as bare
-timestamps per mode (`minesweeper-friendly.losses.v1`, written by
-`recordLoss`) purely to split win runs; a k-loss streak joins k+1 adjacent
-runs (k = 0/1/2 for streak / near-streak / near-near-streak), ranked by
-length then recency, current streak highlighted. Windows are trimmed to
-their nonempty core, deduped, and dropped when strictly inside a wider
-core — consecutive losses leave empty runs whose padded windows would
-otherwise re-list sub-streaks (the double-counting bug). Overlapping
-windows that span different losses are distinct streaks and both stay. Export blobs are
-`{ wins, losses }`; import also accepts the older bare wins map, deduping
-losses by timestamp.
-Rows show relative age (`relativeAge`: abbreviated s/m/h/d/w/
-mo/y, no "ago" suffix; a 0-second age renders as a left-aligned "just now"
-spanning the age columns), color-coded per unit via
-`.age-u-*` classes (s hyper-fluorescent green #39ff14, then the board-number
-palette: m green, h blue, d red, w navy, mo maroon, y teal); the me-row
-overrides to black on its highlight for readability. The results area uses
-the same chunky Arial Black face as the in-game numerals. Losses are shown but not recorded.
-Layout: `#results` (win summary + stats grid only) is absolutely positioned
-off `#game-area` (left: 100%, 320px wide) so it appears to the right of the
-board and never occupies layout space — the board must never move when
-results appear/disappear; `html { scrollbar-gutter: stable }` keeps the
-scrollbar from nudging the centered board either. `#result-ranks` (rank
-charts, rankaverages, streaks) sits below the board in normal flow.
+`python3 -m http.server 8018`.
 
-Backup: `#backup` controls export the score history as a JSON blob
-(clipboard via `copyToClipboard` with execCommand fallback, or Blob-URL file
-download) and import via paste or file. `importScores` merges with dedup
-keyed on `at`/`timeMs` pairs per mode, so repeat imports are no-ops.
+**`PRODUCT.md` is the canonical spec of every product and UI decision**
+(board chrome, layout rules, rank lists, rankaverages, streaks, scatters,
+backup). Read it before changing behavior; keep it and the code in sync in
+the same change. Below is only the implementation mapping.
+
+Implementation notes:
+
+- Storage: wins per mode in localStorage `minesweeper-friendly.scores.v1`
+  ({at, timeMs, bv, bvps, clicks, efficiency, pathPx}); loss timestamps in
+  `minesweeper-friendly.losses.v1` (written by `recordLoss`, used only to
+  split streak runs). Timestamps are epoch ms; all calendar math is done in
+  the viewer's local timezone at read time.
+- `pathPx`: cursor distance accumulated on document mousemove only while
+  `gameState === 'playing'`. Derived mouse metrics (speed, path/click,
+  path/3BV) are computed at display time, never stored.
+- Rank list machinery: `rankWindows` (time windows + `specificity` for
+  progressive disclosure), `rankColumns` (adds day categories, `isHoliday`),
+  `windowBounds` (11-row windowing), `buildRankList` (shared renderer; the
+  earned-detail collapse and `.collapsed` greying live here),
+  `relativeAge` + `.age-u-*` classes (age display and unit colors).
+- Rankaverages: `RANKAVERAGE_SPECS` (bucketing per stat; `has` filters
+  pre-pathPx wins), `avgDeltaCaption` (sign/color convention).
+- Streaks: run-splitting and the core-trim/dedupe/domination filter are in
+  `renderRanks`; see PRODUCT.md for the double-counting rationale.
+- Scatters: `buildScatter` + `niceTicks`, appended after a `.flex-break`.
+- Layout: `#results` (summary + `#stats-grid` only) is absolutely
+  positioned off `#game-area`; `#result-ranks` is normal flow below.
+  `html { scrollbar-gutter: stable }` protects board centering.
+- Backup: `#backup` controls; `importScores` dedupes wins on `at`/`timeMs`
+  pairs and losses by timestamp; `copyToClipboard` has an execCommand
+  fallback for non-secure contexts.
 
 Hosting: public GitHub repo `ernop/minesweeper-friendly`; GitHub Pages serves
 the playable game from the master branch root at
 https://ernop.github.io/minesweeper-friendly/ and redeploys on every push.
-Default difficulty is Beginner.
 
 Promotion: `promo/PROMO.md` is the promotional page — player-facing pitch
 only, nothing technical — with `promo/win-screen-2026-08-19.png` as its hero
