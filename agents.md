@@ -24,6 +24,8 @@ The design axis mapped so far, ordered by who bears the burden of ambiguity:
    guess is a mine, forced guesses are always safe.
 7. The angelic dual of Kaboom — mostly unexplored: any guess consistent with
    your information succeeds; you die only by contradicting known facts.
+   First step implemented 2026-08-20 as "A just universe" (PRODUCT.md):
+   sealed forced guesses always survive; open-field gambles stay deadly.
 
 The repo name points at entry 7 and its neighbors: variants friendlier than
 standard play.
@@ -104,39 +106,76 @@ Implementation notes:
   passwordless sudo; mousetrap itself compiled from CRAN, its heavy deps
   installed as conda-forge binaries). `analysis/biometrics/` holds the
   mouse-dynamics feature extractor with its own venv.
-- Trace metrics (PRODUCT.md "Trace metrics panel"): the
-  "TRACE METRICS: COMPUTATION" section is pure (`computeTraceMetrics`
-  plus helpers, no DOM), a JS port of the session-level features in
-  `analysis/biometrics/extract_features.py`; the "TRACE METRICS: DISPLAY"
-  section holds `TRACE_METRIC_DISPLAYS` (label, definition, numeric
-  extractor, formatter), `metricsSeries` (the per-game value history
-  feeding the charts; reset by `beginTraceMetricsSeries` from
-  `beginTrace`), `buildSparkline(tMs, values, size)` with
-  SPARK_SMALL/SPARK_LARGE geometries, and `buildMetricRow` shared by both
-  displays. Live: a top-level setInterval (LIVE_METRICS_EVERY_MS) runs
-  `renderLiveTraceMetrics` while `tracing()` — it always appends to the
-  series (so the after-game charts exist even with the panel off), then
-  `renderMetricsPanel` shows `#metrics-panel` only if
+- Trace metrics (PRODUCT.md "Trace metrics panel"): the pure sections
+  between the "TRACE METRICS: COMPUTATION" and "TRACE METRICS: DISPLAY"
+  markers (no DOM; Node harnesses extract exactly this span) implement
+  all four measurement systems over a trace:
+  - `computeTraceMetrics` — the biometrics session set, a JS port of
+    `analysis/biometrics/extract_features.py`;
+  - `traceSegments` — the shared inter-click segmentation, the exact
+    trial construction of `analysis/mousetrap/trace_measures.R`
+    ('lup'/'rdown' events end segments; previous click point prepended,
+    click point appended, < 5 points skipped);
+  - `computePsychometrics` — an exact port of the mousetrap R package's
+    mt_derivatives/mt_deviations/mt_measures/mt_time_normalize/
+    mt_sample_entropy path, transcribed from the installed package
+    source (deparse dumps; includes quirks like the padded leading zero
+    in vel/acc, pracma::polyarea's ccw-positive shoelace with the
+    orientation flip, and which.max tie-breaking). The entropy radius r
+    pools per game — trace_measures.R was changed the same day to run
+    its pipeline per game so offline matches;
+  - `computeHevelius` — the cursor-only Hevelius features per movement
+    (FEATURES.md mapping; 100 Hz linear resample, 7 Hz Kaiser-FIR
+    (21 taps, beta 3.3953, unity DC gain, replicate padding) speed/acc/
+    jerk chain; submovement thresholds 100/500 px/s; documented
+    deviation: no Kalman position smoothing, params unpublished);
+  - `computeWasteMetrics` — the survey Tier 1/2 whole-game measures
+    (250 ms pauses, wander ratio, 8 px/90° turnarounds, 300 ms feints
+    via the layout events' cell mapping);
+  - `computeAllTraceMetrics` — the combined {bio, psych, hev, waste}
+    object the display consumes.
+  The DISPLAY section holds `TRACE_METRIC_GROUPS` (per system: key,
+  name, definition, displays of {label, calc, use, of, fmt} — calc and
+  use render as the row's "HOW:/USE:" hover tooltip; series identity is
+  metricSeriesKey = group key + label; not everything
+  computed is displayed), `metricsSeries` (reset by
+  `beginTraceMetricsSeries` from `beginTrace`),
+  `buildSparkline(tMs, values, size)` with SPARK_SMALL/SPARK_LARGE
+  geometries, `buildMetricRow`/`buildMetricsGroupHead` shared by both
+  displays, and `displayableNumber` (undefined and NaN both render as
+  the en dash). Live: a top-level setInterval (LIVE_METRICS_EVERY_MS)
+  runs `renderLiveTraceMetrics` while `tracing()` — it always appends to
+  the series (so the after-game charts exist even with the panel off);
+  `liveSegmentCache` recomputes the segment-based systems (psych, hev)
+  only when the trace's click-event count changes, whole-trace systems
+  every tick; `renderMetricsPanel` shows `#metrics-panel` only if
   settings.showMotionStatsDuringGame; `metricsPanelCollapsed` +
   `lastLiveMetrics` implement the panel's own × / "motion ▸" session
   toggler; `refreshMetricsPanel` (called from the settings change
   handler) applies the setting mid-game. Final: `reportResult` computes
-  with wall time endedAt - trace.startedAt (the stored trace's
-  definition), snapshots `finalMotion` {metrics, series}, and hides the
-  panel; `renderResult` appends `buildMotionStatsCharts()` (13
-  .motion-chart rows, SPARK_LARGE) to `#result-ranks` after a flex-break
-  when settings.showMotionStatsAfterGame — so a settings toggle
-  re-renders them via the existing renderedResult re-render. `newGame`
-  nulls `finalMotion` with `renderedResult`. Parity with
-  the Python extractor is checked by extracting the computation section
-  by its markers in Node and comparing every displayed value on
-  `analysis/biometrics/synthetic-trace.json` against the checked-in
-  `synthetic-features.json` (2026-08-20: 16 checks, tolerance 1e-9;
-  harness pattern in /tmp/ms-metrics-parity.js, recreate as needed). If
-  either implementation's definitions change, change the other and rerun.
-  Node-harness caution: the top-level setInterval keeps a bare `node`
-  process alive — full-game harnesses must wrap global.setInterval to
-  `.unref()` the handle (or extract only the computation section).
+  `computeAllTraceMetrics` with wall time endedAt - trace.startedAt (the
+  stored trace's definition), snapshots `finalMotion` {metrics, series},
+  and hides the panel; `renderResult` appends `buildMotionStatsCharts()`
+  (grouped .motion-chart rows with labeled breaks, SPARK_LARGE) to
+  `#result-ranks` when settings.showMotionStatsAfterGame — so a settings
+  toggle re-renders them via the existing renderedResult re-render.
+  `newGame` nulls `finalMotion` with `renderedResult`.
+  Verification (all checked in under tests/, all extract the computation
+  span by its markers):
+  - `tests/metrics-biometrics-parity.js` — vs the checked-in Python
+    output (`synthetic-features.json`), tolerance 1e-9;
+  - `tests/metrics-mousetrap-parity.js` — vs the actual R package via
+    Rscript on the checked-in synthetic trace plus a freshly randomized
+    one per run (needs `~/analysis-envs/r-mousetrap`; fails loudly, never
+    skips), tolerance 1e-8 on all 11 per-game means;
+  - `tests/metrics-hevelius-test.js` — known-answer constructed
+    movements (no runnable Hevelius reference exists; note: the 7 Hz
+    FIR's side lobes legitimately overshoot ~1.5% at moving-to-still
+    step edges, so exact-value tests must end movements at the click).
+  If any implementation's definitions change, change its counterpart and
+  rerun. Node-harness caution: the top-level setInterval keeps a bare
+  `node` process alive — full-game harnesses must wrap global.setInterval
+  to `.unref()` the handle (or extract only the computation section).
 - Trace timestamp invariant (PRODUCT.md "Raw input traces"): the document
   mousemove recorder coalesces events whose precision-reduced
   performance.now() equals the previous sample's (latest position wins),
@@ -210,6 +249,50 @@ Implementation notes:
   validates it with the rest of the blob and applies known fields.
   First setting: `collapseDuplicateCharts` — gates the progressive
   disclosure dedupe in `renderRanks`.
+- A just universe (PRODUCT.md "A just universe"): the judge and redraw
+  are `justice.js` — pure logic on a view {width, height, mines,
+  revealed[], adjacent[]} (flags invisible by design), exporting the
+  `Justice` global / CommonJS module, loaded before `minesweeper.js` in
+  `index.html`. Pipeline is deduce → decompose → decide, all
+  deterministic and exact (no sampling, no floats): `proveFacts` (the
+  solver tiers (a) counting and (b) subset subtraction from this file's
+  design-axis notes, iterated to a fixpoint — sound; incompleteness only
+  affects decomposition granularity, never correctness),
+  `buildStructure` (substitutes facts into clues, splits the remaining
+  unknowns into ambiguity islands connected via shared residual clues;
+  proven cells cut the constraint graph, so islands are small — a sealed
+  pair is 2 cells, the corner-1 is 3), `trySave` (judges each hit:
+  proven-mine hits and open regions rejected, sealed islands checked by
+  one witness-anchored streaming enumeration that aborts on the first
+  arrangement disagreeing with the current layout about anything a
+  player could ever observe — total or any bordering cell's view;
+  sea hits use `seaGuards` + fixed island totals via `existsOtherTotal`,
+  a branch-and-bound existence query). Redraw: reservoir-uniform among
+  island arrangements consistent with the opened cells clear, sea
+  reshuffled at fixed count; mine total and every revealed number
+  preserved (asserted). The first design enumerated the whole
+  clue-connected component and was intractable mid-game (2026-08-20);
+  the deduce-then-decompose rewrite is what makes it fast — keep it.
+  Work is budgeted at one unit per cell assignment
+  (`Justice.NODE_BUDGET` = 2e7, shared per attempt); exceeding it throws
+  (announce via #backup-status, rethrow — a bug, not a fallback).
+  Measured 2026-08-20 (`tests/justice-bench.js`, deterministic
+  constructed worst cases, no randomness): every case — expert and
+  100x100/2000 corner-1, a 21-cell undeducible chain island, 48- and
+  300-cell sealed sea remnants — under 3 ms and at most 21 work units.
+  Game side (`minesweeper.js`): `attemptJustice(revealIndices)` is the
+  only call site, invoked from `revealCell` and `chord` in place of
+  `lose()` when the setting is on; on a save it swaps `cells[].mine`,
+  recomputes `adjacent`, increments `justiceEvents` (reset in `newGame`),
+  and the fatal click proceeds as an ordinary reveal. `finish` calls
+  `renderJusticeStamps` (#justice-stamps overlay on #game-frame, one
+  .justice-stamp per save, style.css `justice-slam`). `reportResult`
+  stores `justice: justiceEvents` (GAME_RECORD_SCHEMA; absent before
+  2026-08-20). Settings schema entries may carry `helpFile`;
+  `buildSettingsPanel` renders the "?" + iframe hover popover
+  (`.setting-help`/`.setting-help-pop`), used by `justUniverse` →
+  `just-universe-help.html`. Correctness: `node tests/justice-test.js`
+  (18 checks, ascii fixtures); timing: `node tests/justice-bench.js`.
 - Rankaverage sort persistence: userdata 'rankavgSort' maps stat label to
   {key, dir} (absent = natural rank order); written by the sort-header
   click cycle in `buildRankavgList` (asc → desc → none).
@@ -288,16 +371,20 @@ image. Keep it free of implementation detail.
 `promo/win-screen-2026-08-19-full-layout.png` (current layout: stats beside
 the board, charts below) is the README's screenshot.
 
-Not yet implemented: NG/friendly modes.
+Friendly modes implemented so far: "A just universe" (2026-08-20; see
+PRODUCT.md and the implementation bullet above). NG generation is not yet
+implemented.
 
 ## Reference material
 
 - `reference/mouse-motion-metrics.md` — 2026-08-20 survey of mouse-motion
   characterization across psychometrics, biometrics, clinical assessment,
-  and esports, with a tiered proposal for per-game measurements. The
-  session-level biometrics set is implemented in-page as the trace
-  metrics strip (PRODUCT.md "Trace metrics strip"); the rest is offline
-  under `analysis/` or not yet implemented.
+  and esports, with a tiered proposal for per-game measurements. All four
+  systems are implemented in-page since 2026-08-20 (PRODUCT.md "Trace
+  metrics panel"): the biometrics session set, the mousetrap psychometric
+  measures, the Hevelius-style clinical features, and the survey's own
+  Tier 1/2 waste measures. The offline pipelines under `analysis/` remain
+  the reference implementations where they exist.
 - `reference/hevelius/` — 2026-08-20 deep dive on Hevelius (Gajos et al.,
   mouse-based motor assessment, 32 trajectory features): papers,
   supplementary methods, and `FEATURES.md`, which enumerates all 32 feature

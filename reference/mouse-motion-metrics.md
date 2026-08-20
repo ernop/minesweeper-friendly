@@ -4,8 +4,13 @@ Compiled 2026-08-20 from four literatures that all profile people through
 cursor movement: psychometric mouse-tracking, behavioral biometrics
 (mouse dynamics), clinical motor assessment, and esports/HCI kinematics.
 Purpose: a menu of candidate per-game measurements for this project, each
-tied to what it reveals about the player. Nothing here is implemented yet
-except what PRODUCT.md lists; this file is the design input.
+tied to what it reveals about the player. Implementation status (updated
+later on 2026-08-20): all four systems now run in-page over the raw trace
+and display live plus canonically at game end (PRODUCT.md "Trace metrics
+panel") — the biometrics session set, the mousetrap psychometric
+measures (exact port, R-verified), the Hevelius-style clinical features
+(FEATURES.md mapping), and this file's own Tier 1/2 proposals in their
+trace-computed form (see the Tier 1/2 notes below).
 
 ## Measurement principle: spent effort is never a no-op
 
@@ -128,6 +133,22 @@ Constraint recap (agents.md design rules): store primary facts once,
 derive at read time, small scalars per record, no raw traces in the
 game record.
 
+Status (2026-08-20): the Tier 1/2 ideas below are implemented as
+trace-computed display metrics (computeWasteMetrics in minesweeper.js,
+the "waste" section of the metrics panel), not as stored record fields —
+the raw trace decision (Tier 3) made the store-a-scalar-per-metric
+framing moot, since every value is recomputable from the trace forever.
+Implemented from the trace: pauses/paused/longest pause (250 ms bar),
+wander ratio, turnarounds (dirChanges), feints. One definitional
+deviation: the feint proposal below says "hidden cell", but the trace
+does not carry cell reveal state, so the implemented feint counts a
+clickless dwell-then-leave over any board cell. Not implemented:
+`mouseActiveMs`/`speedSqPxMs` as record fields (the biometrics set's
+moving time and speed stats cover the same ground from the trace) and
+the survey's `submovementCount` sketch (superseded by the Hevelius
+submovement decomposition, thresholds 100/500 px/s, in the clinical
+set).
+
 ### Tier 1 — running aggregates, no trace needed
 
 Each is a single number accumulated during play (like mousePathPx today)
@@ -175,11 +196,14 @@ sidesteps localStorage's ~5 MB cap. The deciding argument held:
 aggregate definitions freeze at record time, while a stored trace lets
 any future metric apply retroactively. Offline pipelines live under
 analysis/ (mousetrap measures per inter-click segment; biometrics
-feature extraction). Since 2026-08-20 the session-level biometrics set
-is also computed in-page from the trace and displayed live during play
-plus canonically at game end (PRODUCT.md "Trace metrics strip"); the
-in-page and offline implementations are parity-checked on the synthetic
-trace.
+feature extraction). Since 2026-08-20 all four systems are also computed
+in-page from the trace and displayed live during play plus canonically
+at game end (PRODUCT.md "Trace metrics panel"): the biometrics session
+set (parity-checked against the Python extractor), the mousetrap
+psychometric measures (exact port, parity-checked value-for-value
+against the R package on randomized traces), the Hevelius-style clinical
+features (known-answer tested; no runnable reference exists), and the
+Tier 1/2 waste measures above. Harnesses: tests/metrics-*.js.
 
 ### Interactions with existing features
 

@@ -10,7 +10,8 @@ key names) live in `agents.md`; player-facing pitch in `promo/PROMO.md`.
 - Start from a faithful clone of minesweeper.online's standard mode: same
   mechanics, same classic-Windows look.
 - Grow toward friendlier variants (no-guess and beyond; the design axis is
-  mapped in `agents.md`). Not yet implemented.
+  mapped in `agents.md`). First variant implemented 2026-08-20: "A just
+  universe" (see its section below).
 - A playable version is always live at
   https://ernop.github.io/minesweeper-friendly/ — the public repo redeploys
   GitHub Pages on every push. The page links back to the repo via a subtle
@@ -35,6 +36,50 @@ key names) live in `agents.md`; player-facing pitch in `promo/PROMO.md`.
 - Mechanics: first click never a mine; flood fill; right-click flags;
   left-click chording with press preview; win auto-flags remaining mines;
   loss shows the red hit cell and crossed-out wrong flags.
+
+## A just universe (decided 2026-08-20)
+
+The first friendly variant (the direction of `agents.md` design-axis entry
+7, the angelic dual of Kaboom). Principle: the player can lose to their own
+choices and to the field's diffuse odds, but never to a coin the universe
+minted specifically for them.
+
+- The protected situation is the *named coin* (structural, de re
+  necessity): a sealed region — a set of covered cells with two or more
+  consistent mine arrangements that no strategy could ever tell apart. No
+  revealed number distinguishes them, no revealable cell ever could, and
+  the region's mine total is identical in every arrangement, so global
+  mine counting is blind to it too. Winning requires clearing the safe
+  cells inside such a region, so every winning line must eventually click
+  into it blind. Covered: endgame leftovers (the classic final 50/50),
+  sealed pairs and chains behind proven mines whenever they form, and a
+  sealed sea remnant. The player must also have entered the region at its
+  best odds (ties count); picking the worse cell of an asymmetric sealed
+  zone is a real mistake and stays deadly.
+- Deliberately NOT protected (merely de dicto — "some gamble was needed,
+  but not this one"): open-field guesses, including the early corner-1
+  where guessing is unavoidable in aggregate but no specific cell is
+  forced — the board could still resolve differently, so the loss names a
+  risk the player chose. Provably-known mines are never saved.
+- Mechanics: when a click (or chord) would die on a named coin, the mines
+  are quietly redrawn with that cell clear — uniformly among the
+  arrangements consistent with everything on screen — and play continues
+  as if nothing happened. During play a save is invisible; the player
+  just "happens" to survive. Mine total and every revealed number are
+  preserved exactly.
+- At game end, one big "JUSTICE" rubber stamp slams onto the board per
+  save, slightly scattered, with a hover title explaining the count.
+- The per-game record carries the save count (`justice` field; see
+  Per-game stats), shown as a "Justice" row in the stats table.
+- Setting `justUniverse` (default on), labeled "a just universe":
+  "when in a truly forced-guess situation, you 'just so happen' to win".
+  A "?" beside the name raises `just-universe-help.html` on hover — a
+  standalone page of mini-board diagrams showing where the rule applies
+  and where it does not.
+- The judge is exact, deterministic logic (no sampling, no probability
+  estimates): deduce facts, decompose the ambiguity into islands, decide
+  by exhaustive check of the tiny residual region. Implementation and
+  measured costs (worst constructed case under 3 ms) in `agents.md`.
 
 ## Layout: the board never moves
 
@@ -113,6 +158,11 @@ clicks of retracted work. It is kept as its own measurement rather than
 folded into wasted clicks because the two wastes mean different things —
 a wasted click is a motor slip (clicking where nothing can happen), a
 removed flag is a changed mind.
+
+Justice — how many truly forced guesses "just so happened" to win this
+game (see "A just universe") — joined the schema on 2026-08-20 under the
+same absence rules as wasted clicks. Zero is a normal value and is
+recorded; the stats table always shows the row when the field exists.
 
 States — the player's state tags active at the moment the game finished
 (see "Player states" below) — joined the schema on 2026-08-20. Every game
@@ -370,23 +420,61 @@ carries at least one tag.
   elapsed seconds. Spans where the value was not yet measurable are gaps
   in the line, never bridged. The after-game charts are the same rows at
   chart size (230x130 vs the panel's 150x46).
-- The metrics, top to bottom (each row carries its definition as a hover
-  tooltip): strokes (movement bouts; a pause of 100ms or more separates
-  bouts), moving (time the cursor spent in motion), silence (share of the
-  game with the cursor still), path (total cursor travel in the trace),
-  speed (mean of per-stroke mean speeds), peak speed (fastest
-  sample-to-sample speed), straightness (chord/path per stroke, mean),
-  jerk (mean |da/dt|, px/ms³), turn rate (mean |heading change|, rad/ms),
-  left clicks, right clicks, hold (mean button-down time),
-  pause-and-click (mean stillness before a press).
-- The definitions are exactly those of the offline extractor
-  (`analysis/biometrics/extract_features.py`, sources cited there); the
-  two implementations are kept in step by a parity harness that compares
-  them on the checked-in synthetic trace (see agents.md). A number on the
-  panel means exactly what the offline pipeline would compute.
+- Four measurement systems, each a labeled section of the panel and of
+  the after-game charts (decided 2026-08-20, when the three researched
+  systems beyond the first were reimplemented in-page). Every row
+  carries a two-part explanation as its hover tooltip — "HOW", exactly
+  how the value is calculated, and "USE", what it might be used for and
+  in what context (the literature's reading plus this project's
+  multi-timescale tracking angle); each section header explains its
+  system the same way. The sections:
+  - DYNAMICS — the behavioral-biometrics session set over movement bouts
+    (a pause of 100ms or more separates bouts): strokes, moving, silence
+    (share of the game with the cursor still), path, speed (mean of
+    per-stroke mean speeds), peak speed, straightness (chord/path),
+    jerk (mean |da/dt|, px/ms³), turn rate (rad/ms), left clicks, right
+    clicks, hold (mean button-down time), pause-and-click (mean stillness
+    before a press). Definitions are exactly those of the offline
+    extractor (`analysis/biometrics/extract_features.py`).
+  - WASTE — the survey's own whole-game proposals
+    (reference/mouse-motion-metrics.md Tier 1/2): wander (total travel
+    over the straight lines between consecutive clicks; 1.0 = perfectly
+    direct), pauses / paused / longest pause (stops of 250ms or more),
+    turnarounds (heading reversals over 90° between movement legs of 8px
+    or more), feints (dwelled 300ms or more over a cell, then left it
+    without clicking — approach-abandon made countable). Fruitless
+    effort is counted, never subtracted away (the measurement
+    principle).
+  - PSYCHOMETRIC — the mousetrap decision-research measures (Kieslich et
+    al.) per inter-click segment, means over segments: segments, MAD,
+    AUC, AD, x-flips, y-flips, initiation, idle, vel max, acc max,
+    sample entropy, segment time. An exact port of the R package as
+    `analysis/mousetrap/trace_measures.R` applies it, verified
+    value-for-value against Rscript (see agents.md).
+  - CLINICAL — Hevelius-style motor features (Gajos et al. 2020;
+    reference/hevelius/FEATURES.md) per inter-click movement, means over
+    movements: execution, exec no pauses, peak speed, peak accel,
+    submovements, main sub, sub end dist, axis dev, movement error, axis
+    crossings, norm jerk (without pauses), click slip, verification,
+    re-entries. More features are computed than displayed (offsets,
+    variability, direction changes, normalized jerk with pauses, the
+    submovement fractions); per-stage display configurability is
+    planned. The block-variability features (CoV across
+    equal-difficulty movements) are offline-only: they need difficulty
+    residualization first.
+- An inter-click segment (the psychometric and clinical unit) runs from
+  the previous click to the next, the click being the segment's response
+  — the exact trial construction of the offline R pipeline; segments
+  with fewer than 5 trajectory points are unmeasurable and skipped.
+  Segment values change only when a click lands, so the live schedule
+  recomputes those two systems per click and the whole-trace systems
+  every tick.
 - A value whose formula needs more data than the trace has yet (no
-  strokes, no completed click, zero wall time) shows as an en dash with a
-  "not yet measurable" tooltip — never a made-up zero.
+  strokes, no completed click, no measurable segment, zero wall time)
+  shows as an en dash with a "not yet measurable" tooltip — never a
+  made-up zero. A formula that computes but degenerates (sample entropy
+  with no matching windows yields NaN, as in R) displays the same way:
+  not measurable here.
 - The panel is display only: nothing new is stored. The trace remains the
   ground truth, per-game scalar records are unchanged, and the panel's
   values are recomputable from the stored trace forever.
@@ -414,11 +502,16 @@ carries at least one tag.
   and interactive. One checkbox per switch with its full description; a
   change saves immediately and re-renders the result on screen, so the
   player watches the meaning of the change while the panel stays open.
-- Settings so far: `collapseDuplicateCharts` (default on) — the rank
+- Settings so far: `justUniverse` (default on) — the forced-guess
+  protection (see "A just universe"; the only setting so far with a "?"
+  hover help page); `collapseDuplicateCharts` (default on) — the rank
   lists' progressive disclosure switch (see Rank lists);
   `showMotionStatsDuringGame` and `showMotionStatsAfterGame` (both
   default on) — the two stages of the trace metrics display (see Trace
   metrics panel).
+- A setting may carry a `helpFile`: the panel then shows a "?" beside its
+  label which raises that page in a hover popover (an iframe, so the help
+  page is a normal standalone document).
 
 ## Play history and backup
 

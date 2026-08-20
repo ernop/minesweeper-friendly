@@ -68,13 +68,23 @@ long <- do.call(rbind, rows)
 cat(sprintf("games: %d, segments: %d (skipped %d with <5 samples), samples: %d\n",
   length(games), length(unique(long$mt_id)), skipped, nrow(long)))
 
-mt <- mt_import_long(long)
-mt <- mt_derivatives(mt)
-mt <- mt_measures(mt)
-mt <- mt_time_normalize(mt)
-mt <- mt_sample_entropy(mt, use = "tn_trajectories")
-
-trials <- mt$measures
+# The mousetrap pipeline runs once per game, not once over the whole
+# export: mt_sample_entropy pools its tolerance radius r (0.2 * SD of the
+# time-normalized x-differences) across every trial in the object, and the
+# game is the pooling unit — a game's values must not depend on which
+# other games happen to sit in the same export. The in-page implementation
+# (minesweeper.js computePsychometrics) pools per game identically.
+trial_list <- list()
+for (game_id in unique(long$game)) {
+  long_g <- long[long$game == game_id, ]
+  mt <- mt_import_long(long_g)
+  mt <- mt_derivatives(mt)
+  mt <- mt_measures(mt)
+  mt <- mt_time_normalize(mt)
+  mt <- mt_sample_entropy(mt, use = "tn_trajectories")
+  trial_list[[game_id]] <- mt$measures
+}
+trials <- do.call(rbind, trial_list)
 # Carry game id and outcome back onto the per-trial rows.
 meta <- unique(long[, c("mt_id", "game", "outcome")])
 trials <- merge(meta, trials, by = "mt_id")

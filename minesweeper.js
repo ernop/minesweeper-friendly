@@ -494,7 +494,7 @@ function reportResult(outcome) {
   // the now-complete trace, with the same wall-time definition the stored
   // trace carries (endedAt - startedAt). Snapshotted for the after-game
   // charts; the live panel's game is over, so it goes away.
-  const finalMetrics = computeTraceMetrics(
+  const finalMetrics = computeAllTraceMetrics(
     trace.t, trace.x, trace.y, trace.events, record.endedAt - trace.startedAt);
   appendTraceMetricsSeries(finalMetrics);
   finalMotion = { metrics: finalMetrics, series: metricsSeries };
@@ -1757,43 +1757,1224 @@ function computeTraceMetrics(sampleT, sampleX, sampleY, events, wallDurationMs) 
   };
 }
 
+// Sample standard deviation (n-1 denominator, R's sd()); NaN below two
+// values, like R.
+function traceMetricsSampleSd(values) {
+  const n = values.length;
+  if (n < 2) return NaN;
+  const mean = traceMetricsMean(values);
+  let ss = 0;
+  for (const v of values) ss += (v - mean) * (v - mean);
+  return Math.sqrt(ss / (n - 1));
+}
+
+// Mean over segments/movements of a per-item feature, over the items
+// where it is defined; undefined when none measured it. NaN values (an
+// item measured it but the formula degenerated, e.g. sample entropy with
+// no matching windows) propagate into the mean, exactly as R's mean()
+// does — the display layer renders NaN as "not measurable".
+function itemsMean(items, key) {
+  const values = [];
+  for (const it of items) if (it[key] !== undefined) values.push(it[key]);
+  return values.length > 0 ? traceMetricsMean(values) : undefined;
+}
+
+//-------TRACE METRICS: SEGMENTATION (inter-click movements)-------
+
+// The psychometric and clinical systems both analyze inter-click
+// segments: the trajectory from the previous click (or trace start) to
+// the next click, the click being the segment's response. This is the
+// exact trial construction of analysis/mousetrap/trace_measures.R: a
+// click is an 'lup' or 'rdown' event; the segment gets the previous
+// click's point prepended (that is where the cursor stood) and the
+// click's own point appended unless a sample already sits on that
+// instant; segments with fewer than SEGMENT_MIN_SAMPLES points carry too
+// little trajectory to measure and are skipped, like the R script skips
+// them.
+const SEGMENT_MIN_SAMPLES = 5;
+
+function traceSegments(sampleT, sampleX, sampleY, events) {
+  const segments = [];
+  let lower = -Infinity;
+  let prev = null;
+  let si = 0; // events and samples are both time-ordered
+  for (const ev of events) {
+    if (ev.kind !== 'lup' && ev.kind !== 'rdown') continue;
+    const t = [];
+    const x = [];
+    const y = [];
+    const rawT = []; // actual mousemove times in the window, for pauses
+    let rawOffset = 0; // index in t/x/y where the raw samples start
+    if (prev !== null) { t.push(prev.t); x.push(prev.x); y.push(prev.y); rawOffset = 1; }
+    while (si < sampleT.length && sampleT[si] <= ev.t) {
+      if (sampleT[si] > lower) {
+        t.push(sampleT[si]);
+        x.push(sampleX[si]);
+        y.push(sampleY[si]);
+        rawT.push(sampleT[si]);
+      }
+      si++;
+    }
+    if (t.length === 0 || t[t.length - 1] < ev.t) {
+      t.push(ev.t);
+      x.push(ev.x);
+      y.push(ev.y);
+    }
+    if (t.length >= SEGMENT_MIN_SAMPLES) {
+      const t0 = t[0];
+      segments.push({
+        startT: t0,                      // trace time of the segment start
+        t: t.map((v) => v - t0),         // segment-relative, like mousetrap
+        x: x,
+        y: y,
+        rawT: rawT,                      // trace time (not rebased)
+        rawOffset: rawOffset,            // rawT[i] is the point at t/x/y[rawOffset + i]
+        click: ev,
+      });
+    }
+    lower = ev.t;
+    prev = ev;
+  }
+  return segments;
+}
+
+//-------TRACE METRICS: PSYCHOMETRIC (mousetrap measures per segment)-------
+
+// An exact port of the mousetrap R package pipeline (Kieslich et al.) as
+// analysis/mousetrap/trace_measures.R applies it: mt_derivatives ->
+// mt_measures -> mt_time_normalize -> mt_sample_entropy, per inter-click
+// segment, then per-game means. Ported from the installed package source
+// (mousetrap 3.2.x), verified value-for-value against Rscript on the
+// synthetic trace (tests/metrics-mousetrap-parity.js).
+
+// Signed deviation of each point from the idealized straight line from
+// the first to the last point (mt_deviations / points_on_ideal): distance
+// to the orthogonal projection on the infinite line, negative where the
+// ideal point lies below the actual one in y, all negated when the
+// trajectory runs downward in y.
+function mtDevIdeal(x, y) {
+  const n = x.length;
+  const dev = new Array(n);
+  const sx = x[0];
+  const sy = y[0];
+  const ex = x[n - 1];
+  const ey = y[n - 1];
+  if (sx === ex && sy === ey) { dev.fill(0); return dev; }
+  const dx = ex - sx;
+  const dy = ey - sy;
+  const len2 = dx * dx + dy * dy;
+  for (let i = 0; i < n; i++) {
+    const u = ((x[i] - sx) * dx + (y[i] - sy) * dy) / len2;
+    const ix = sx + u * dx;
+    const iy = sy + u * dy;
+    let d = Math.hypot(ix - x[i], iy - y[i]);
+    if (iy > y[i]) d = -d;
+    dev[i] = d;
+  }
+  if (sy > ey) for (let i = 0; i < n; i++) dev[i] = -dev[i];
+  return dev;
+}
+
+// mousetrap:::count_changes with threshold 0: merge consecutive nonzero
+// position changes into same-sign runs; flips = runs - 1 (0 when the
+// coordinate never moved).
+function mtCountFlips(pos) {
+  let runs = 0;
+  let lastSign = 0;
+  for (let i = 1; i < pos.length; i++) {
+    const d = pos[i] - pos[i - 1];
+    if (d === 0) continue;
+    const sign = d > 0 ? 1 : -1;
+    if (sign !== lastSign) { runs++; lastSign = sign; }
+  }
+  return runs > 0 ? runs - 1 : 0;
+}
+
+// mt_measures + mt_derivatives on one segment (rebased t). Includes the
+// leading padded zero mousetrap stores in the vel/acc columns, hence the
+// maxima never go below 0.
+function mtSegmentMeasures(t, x, y) {
+  const n = t.length;
+  const dev = mtDevIdeal(x, y);
+
+  let madIdx = 0;
+  let adSum = 0;
+  for (let i = 0; i < n; i++) {
+    if (Math.abs(dev[i]) > Math.abs(dev[madIdx])) madIdx = i;
+    adSum += dev[i];
+  }
+
+  // AUC: pracma::polyarea's shoelace over the closed point polygon
+  // (counterclockwise positive), then mousetrap's orientation flip so
+  // that curvature away from the ideal line is positive.
+  let area2 = 0;
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    area2 += x[i] * y[j] - x[j] * y[i];
+  }
+  let auc = area2 / 2;
+  if ((y[n - 1] > y[0] && x[n - 1] > x[0]) || (y[n - 1] < y[0] && x[n - 1] < x[0])) {
+    auc = -auc;
+  }
+
+  // initiation_time: timestamp of the sample before the first one that
+  // has moved away from the start; RT when nothing ever moved.
+  let initiationTimeMs = t[n - 1];
+  for (let i = 1; i < n; i++) {
+    if (x[i] !== x[0] || y[i] !== y[0]) { initiationTimeMs = t[i - 1]; break; }
+  }
+
+  // idle_time over position-constant steps; mousetrap's two degenerate
+  // branches (never idle -> first timestamp, which is 0 after rebasing;
+  // always idle -> RT).
+  let constCount = 0;
+  let idleSum = 0;
+  for (let i = 1; i < n; i++) {
+    if (x[i] === x[i - 1] && y[i] === y[i - 1]) {
+      constCount++;
+      idleSum += t[i] - t[i - 1];
+    }
+  }
+  let idleTimeMs;
+  if (constCount === 0) idleTimeMs = t[0];
+  else if (constCount === n - 1) idleTimeMs = t[n - 1];
+  else idleTimeMs = idleSum;
+
+  // mt_derivatives: vel over each step; acc = diff(vel) over the step
+  // times (not midpoints — mousetrap's own convention).
+  const vel = [];
+  for (let i = 1; i < n; i++) {
+    vel.push(Math.hypot(x[i] - x[i - 1], y[i] - y[i - 1]) / (t[i] - t[i - 1]));
+  }
+  let velMax = 0;
+  for (const v of vel) if (v > velMax) velMax = v;
+  let accMax = 0;
+  for (let i = 1; i < vel.length; i++) {
+    const a = (vel[i] - vel[i - 1]) / (t[i] - t[i - 1]);
+    if (a > accMax) accMax = a;
+  }
+
+  return {
+    mad: dev[madIdx],
+    ad: adSum / n,
+    auc: auc,
+    xFlips: mtCountFlips(x),
+    yFlips: mtCountFlips(y),
+    initiationTimeMs: initiationTimeMs,
+    idleTimeMs: idleTimeMs,
+    velMaxPxPerMs: velMax,
+    accMaxPxPerMs2: accMax,
+    rtMs: t[n - 1],
+  };
+}
+
+// mt_time_normalize: linear interpolation at nsteps equally spaced
+// timestamps from first to last (R's approx(..., n = nsteps)).
+function mtTimeNormalize(t, vals, nsteps) {
+  const n = t.length;
+  const out = new Array(nsteps);
+  const t0 = t[0];
+  const t1 = t[n - 1];
+  let j = 0;
+  for (let s = 0; s < nsteps; s++) {
+    const tt = t0 + ((t1 - t0) * s) / (nsteps - 1);
+    while (j < n - 2 && t[j + 1] < tt) j++;
+    out[s] = vals[j] + (vals[j + 1] - vals[j]) * ((tt - t[j]) / (t[j + 1] - t[j]));
+  }
+  return out;
+}
+
+// mt_sample_entropy (m = 3, use_diff = TRUE) on a time-normalized x
+// series: window-match counting over the first differences, dropping the
+// last m-window exactly like the package does. NaN when no m-windows
+// match within r (R's -log(0/0)).
+function mtSampleEntropy(tnX, r, m) {
+  const dx = [];
+  for (let i = 1; i < tnX.length; i++) dx.push(tnX[i] - tnX[i - 1]);
+  const windows = dx.length - m; // (length - m + 1) minus the dropped last
+  let matchesM = 0;
+  let matchesM1 = 0;
+  for (let i = 0; i < windows - 1; i++) {
+    for (let j = i + 1; j < windows; j++) {
+      let maxd = 0;
+      for (let k = 0; k < m; k++) {
+        const d = Math.abs(dx[i + k] - dx[j + k]);
+        if (d > maxd) maxd = d;
+      }
+      if (maxd <= r) {
+        matchesM++;
+        if (Math.max(maxd, Math.abs(dx[i + m] - dx[j + m])) <= r) matchesM1++;
+      }
+    }
+  }
+  return -Math.log(matchesM1 / matchesM);
+}
+
+const MT_TIME_NORMALIZE_STEPS = 101;
+const MT_SAMPLE_ENTROPY_M = 3;
+
+// Per-game means of the key mousetrap measures over the game's
+// inter-click segments (the same key list trace_measures.R aggregates).
+// The entropy tolerance radius r pools the time-normalized x-differences
+// of this game's segments (0.2 * their sample SD) — the game is the
+// pooling unit, in-page and offline alike, so a game's value never
+// depends on which other games happen to sit in the same export.
+function computePsychometrics(sampleT, sampleX, sampleY, events) {
+  const segments = traceSegments(sampleT, sampleX, sampleY, events);
+  if (segments.length === 0) return { segmentCount: 0 };
+  const per = segments.map((seg) => mtSegmentMeasures(seg.t, seg.x, seg.y));
+
+  const tn = segments.map((seg) => mtTimeNormalize(seg.t, seg.x, MT_TIME_NORMALIZE_STEPS));
+  const pooledDiffs = [];
+  for (const xs of tn) {
+    for (let i = 1; i < xs.length; i++) pooledDiffs.push(xs[i] - xs[i - 1]);
+  }
+  const r = 0.2 * traceMetricsSampleSd(pooledDiffs);
+  for (let i = 0; i < per.length; i++) {
+    per[i].sampleEntropy = mtSampleEntropy(tn[i], r, MT_SAMPLE_ENTROPY_M);
+  }
+
+  return {
+    segmentCount: segments.length,
+    mad: itemsMean(per, 'mad'),
+    ad: itemsMean(per, 'ad'),
+    auc: itemsMean(per, 'auc'),
+    xFlips: itemsMean(per, 'xFlips'),
+    yFlips: itemsMean(per, 'yFlips'),
+    initiationTimeMs: itemsMean(per, 'initiationTimeMs'),
+    idleTimeMs: itemsMean(per, 'idleTimeMs'),
+    velMaxPxPerMs: itemsMean(per, 'velMaxPxPerMs'),
+    accMaxPxPerMs2: itemsMean(per, 'accMaxPxPerMs2'),
+    sampleEntropy: itemsMean(per, 'sampleEntropy'),
+    rtMs: itemsMean(per, 'rtMs'),
+  };
+}
+
+//-------TRACE METRICS: CLINICAL (Hevelius-style movement features)-------
+
+// The cursor-only subset of the Hevelius 32 (Gajos et al., Movement
+// Disorders 2020; definitions and mapping in reference/hevelius/
+// FEATURES.md), per inter-click movement (assumption A1: the same
+// segments as the psychometric system), aggregated as per-game means over
+// the movements where each feature is defined.
+//
+// Kinematic pipeline, deliberately close to Hevelius's published one:
+// resample the trajectory at 100 Hz by linear interpolation, derive
+// speed, then acceleration, then jerk, each low-pass filtered at 7 Hz
+// with a Kaiser-window FIR (40 dB stopband, the published spec). One
+// documented deviation: Hevelius additionally smooths positions with a
+// Kalman filter whose parameters the papers do not state, so positions
+// here go unsmoothed and the 7 Hz FIR carries all the smoothing.
+//
+// Not computed in-page: the block-variability features (CoV/SD across
+// movements of equal difficulty — our movements have continuously varying
+// distance, so those need difficulty residualization first, a modeling
+// layer that belongs offline), and click duration (feature 24), which is
+// the biometrics set's "hold" row already.
+const HEVELIUS_DT_MS = 10;              // 100 Hz resample grid
+const HEVELIUS_PAUSE_MS = 100;          // a pause: >= 100 ms between raw events
+const HEVELIUS_SUB_START_PXMS = 0.1;    // submovement starts: speed crosses 100 px/s
+const HEVELIUS_SUB_QUALIFY_PXMS = 0.5;  // ... and counts only if it reaches 500 px/s
+
+// Modified Bessel function I0 by power series (converges fast for the
+// small arguments a Kaiser window uses).
+function besselI0(v) {
+  let sum = 1;
+  let term = 1;
+  for (let k = 1; k <= 25; k++) {
+    term *= (v / (2 * k)) * (v / (2 * k));
+    sum += term;
+  }
+  return sum;
+}
+
+// Windowed-sinc low-pass FIR taps, Kaiser window, normalized to unity DC
+// gain. Beta 3.3953 is the Kaiser formula's value for 40 dB stopband
+// attenuation; 21 taps spans 0.2 s at 100 Hz.
+function kaiserLowpassTaps(numTaps, cutoffHz, sampleHz, beta) {
+  const taps = new Array(numTaps);
+  const mid = (numTaps - 1) / 2;
+  const fc = cutoffHz / sampleHz;
+  const denom = besselI0(beta);
+  let sum = 0;
+  for (let i = 0; i < numTaps; i++) {
+    const k = i - mid;
+    const sinc = k === 0 ? 2 * fc : Math.sin(2 * Math.PI * fc * k) / (Math.PI * k);
+    const frac = k / mid;
+    taps[i] = sinc * (besselI0(beta * Math.sqrt(1 - frac * frac)) / denom);
+    sum += taps[i];
+  }
+  for (let i = 0; i < numTaps; i++) taps[i] /= sum;
+  return taps;
+}
+
+const HEVELIUS_FIR = kaiserLowpassTaps(21, 7, 100, 3.3953);
+
+// Zero-phase FIR by symmetric convolution, holding the endpoints past the
+// edges (replicate padding) so short movements are not shortened.
+function firFilter(values, taps) {
+  const n = values.length;
+  const half = (taps.length - 1) / 2;
+  const out = new Array(n);
+  for (let i = 0; i < n; i++) {
+    let acc = 0;
+    for (let k = 0; k < taps.length; k++) {
+      let idx = i + k - half;
+      if (idx < 0) idx = 0;
+      else if (idx >= n) idx = n - 1;
+      acc += values[idx] * taps[k];
+    }
+    out[i] = acc;
+  }
+  return out;
+}
+
+// Linear resample of (t, x, y) onto a uniform dtMs grid from t[0].
+function resampleUniform(t, x, y, dtMs) {
+  const n = t.length;
+  const steps = Math.max(2, Math.floor((t[n - 1] - t[0]) / dtMs) + 1);
+  const xs = new Array(steps);
+  const ys = new Array(steps);
+  let j = 0;
+  for (let s = 0; s < steps; s++) {
+    const tt = t[0] + s * dtMs;
+    while (j < n - 2 && t[j + 1] < tt) j++;
+    const frac = Math.min(1, Math.max(0, (tt - t[j]) / (t[j + 1] - t[j])));
+    xs[s] = x[j] + (x[j + 1] - x[j]) * frac;
+    ys[s] = y[j] + (y[j + 1] - y[j]) * frac;
+  }
+  return { xs, ys, steps };
+}
+
+// The board cell rect for a click, from the latest layout snapshot at or
+// before the click; null when the click hit no cell or no layout with
+// nonzero cell size is known.
+function cellRectAt(layout, index) {
+  if (layout === null || index === null || index === undefined) return null;
+  if (!(layout.width > 0) || !(layout.height > 0)) return null;
+  const cellW = layout.width / layout.boardWidth;
+  const cellH = layout.height / layout.boardHeight;
+  const col = index % layout.boardWidth;
+  const row = Math.floor(index / layout.boardWidth);
+  return {
+    left: layout.left + col * cellW,
+    top: layout.top + row * cellH,
+    width: cellW,
+    height: cellH,
+  };
+}
+
+// Merge intervals and total their overlap with [lo, hi].
+function overlapMs(intervals, lo, hi) {
+  const clipped = intervals
+    .map(([a, b]) => [Math.max(a, lo), Math.min(b, hi)])
+    .filter(([a, b]) => b > a)
+    .sort((p, q) => p[0] - q[0]);
+  let total = 0;
+  let curLo = null;
+  let curHi = null;
+  for (const [a, b] of clipped) {
+    if (curLo === null || a > curHi) {
+      if (curLo !== null) total += curHi - curLo;
+      curLo = a;
+      curHi = b;
+    } else if (b > curHi) {
+      curHi = b;
+    }
+  }
+  if (curLo !== null) total += curHi - curLo;
+  return total;
+}
+
+// Features of one movement. seg times are segment-relative except rawT
+// (trace time); helper inputs carry the segment's button intervals and
+// press event (trace time) and the target rect at click time.
+function heveliusMovement(seg, buttonIntervals, pressT, targetRect) {
+  const m = {};
+  const relT = seg.t;
+  const n = relT.length;
+  m.movementTimeMs = relT[n - 1]; // feature 1 (A4: includes deduction time)
+
+  // Pauses (>= 100 ms between raw mousemove events) within the movement:
+  // features 31, 32. Hevelius defines the longest pause as 0 when none
+  // occurred, so these exist whenever the movement has raw samples.
+  const pauses = []; // [startT, endT] in trace time
+  for (let i = 1; i < seg.rawT.length; i++) {
+    if (seg.rawT[i] - seg.rawT[i - 1] >= HEVELIUS_PAUSE_MS) {
+      pauses.push([seg.rawT[i - 1], seg.rawT[i]]);
+    }
+  }
+  if (seg.rawT.length > 0) {
+    m.pauseCount = pauses.length;
+    m.longestPauseMs = 0;
+    for (const [a, b] of pauses) if (b - a > m.longestPauseMs) m.longestPauseMs = b - a;
+  }
+
+  // Execution time (3): first to last raw mousemove, minus time the left
+  // button was held; without pauses (4): additionally minus the union of
+  // pause intervals (a pause while the button was held counts once).
+  let execMs;
+  let execNoPauseMs;
+  if (seg.rawT.length >= 2) {
+    const first = seg.rawT[0];
+    const last = seg.rawT[seg.rawT.length - 1];
+    execMs = last - first - overlapMs(buttonIntervals, first, last);
+    execNoPauseMs = last - first
+      - overlapMs(buttonIntervals.concat(pauses), first, last);
+    m.executionTimeMs = execMs;
+    m.executionTimeNoPausesMs = execNoPauseMs;
+  }
+
+  // Kinematics on the 100 Hz resampled, 7 Hz low-passed chain.
+  const { xs, ys, steps } = resampleUniform(relT, seg.x, seg.y, HEVELIUS_DT_MS);
+  const speedRaw = new Array(steps - 1);
+  for (let i = 1; i < steps; i++) {
+    speedRaw[i - 1] = Math.hypot(xs[i] - xs[i - 1], ys[i] - ys[i - 1]) / HEVELIUS_DT_MS;
+  }
+  const speed = firFilter(speedRaw, HEVELIUS_FIR);
+  let peakIdx = 0;
+  for (let i = 1; i < speed.length; i++) if (speed[i] > speed[peakIdx]) peakIdx = i;
+  m.peakSpeedPxPerMs = speed[peakIdx]; // feature 7
+
+  let accel = [];
+  let jerk = [];
+  if (speed.length >= 2) {
+    const accelRaw = new Array(speed.length - 1);
+    for (let i = 1; i < speed.length; i++) {
+      accelRaw[i - 1] = (speed[i] - speed[i - 1]) / HEVELIUS_DT_MS;
+    }
+    accel = firFilter(accelRaw, HEVELIUS_FIR);
+    let accMax = accel[0];
+    for (const a of accel) if (a > accMax) accMax = a;
+    m.peakAccelPxPerMs2 = accMax; // feature 9
+    if (accel.length >= 2) {
+      const jerkRaw = new Array(accel.length - 1);
+      for (let i = 1; i < accel.length; i++) {
+        jerkRaw[i - 1] = (accel[i] - accel[i - 1]) / HEVELIUS_DT_MS;
+      }
+      jerk = firFilter(jerkRaw, HEVELIUS_FIR);
+    }
+  }
+
+  // Submovement decomposition (fig S2 thresholds) on the smoothed speed.
+  const subs = []; // {start, end} as speed indices (end exclusive)
+  let subStart = null;
+  let subPeak = 0;
+  for (let i = 0; i < speed.length; i++) {
+    if (subStart === null) {
+      if (speed[i] >= HEVELIUS_SUB_START_PXMS) { subStart = i; subPeak = speed[i]; }
+    } else {
+      if (speed[i] > subPeak) subPeak = speed[i];
+      if (speed[i] < HEVELIUS_SUB_START_PXMS) {
+        if (subPeak >= HEVELIUS_SUB_QUALIFY_PXMS) subs.push({ start: subStart, end: i });
+        subStart = null;
+        subPeak = 0;
+      }
+    }
+  }
+  if (subStart !== null && subPeak >= HEVELIUS_SUB_QUALIFY_PXMS) {
+    subs.push({ start: subStart, end: speed.length });
+  }
+  m.submovementCount = subs.length; // Table S4's 33rd input
+  let main = null;
+  for (const sub of subs) {
+    if (peakIdx >= sub.start && peakIdx < sub.end) { main = sub; break; }
+  }
+  if (main !== null) {
+    // Feature 21's numeric value is unstated in the papers (see
+    // FEATURES.md "Definition status"); this uses its duration.
+    m.mainSubmovementMs = (main.end - main.start) * HEVELIUS_DT_MS;
+    // Fraction of the main submovement spent accelerating (30), read on
+    // the smoothed speed within the submovement.
+    let speedPeakInSub = main.start;
+    for (let i = main.start; i < main.end; i++) {
+      if (speed[i] > speed[speedPeakInSub]) speedPeakInSub = i;
+    }
+    if (main.end - main.start > 0) {
+      m.mainSubAcceleratingFraction =
+        (speedPeakInSub - main.start) / (main.end - main.start);
+    }
+    if (targetRect !== null) {
+      const cx = targetRect.left + targetRect.width / 2;
+      const cy = targetRect.top + targetRect.height / 2;
+      // The sub's end index in position space: speed[i] spans positions
+      // i..i+1, so the submovement ends at position index main.end.
+      const endPos = Math.min(main.end, steps - 1);
+      const startPos = Math.min(main.start, steps - 1);
+      m.mainSubEndDistPx = Math.hypot(xs[endPos] - cx, ys[endPos] - cy); // feature 11
+      // Fraction of the remaining distance to the target covered along
+      // the task axis (12); can exceed 1 on overshoot.
+      const ax = seg.x[n - 1] - seg.x[0];
+      const ay = seg.y[n - 1] - seg.y[0];
+      const axisLen = Math.hypot(ax, ay);
+      if (axisLen > 0) {
+        const ux = ax / axisLen;
+        const uy = ay / axisLen;
+        const proj = (px, py) => px * ux + py * uy;
+        const remaining = proj(cx, cy) - proj(xs[startPos], ys[startPos]);
+        if (remaining !== 0) {
+          m.mainSubFractionCovered =
+            (proj(xs[endPos], ys[endPos]) - proj(xs[startPos], ys[startPos])) / remaining;
+        }
+      }
+    }
+  }
+
+  // Task-axis path statistics (13-17, 19, 20) on the actual pointer
+  // samples; the axis is the start-to-end cursor line, signed deviation
+  // as in mtDevIdeal.
+  const dev = mtDevIdeal(seg.x, seg.y);
+  let maxDev = 0;
+  let absSum = 0;
+  let devSum = 0;
+  for (const d of dev) {
+    if (Math.abs(d) > maxDev) maxDev = Math.abs(d);
+    absSum += Math.abs(d);
+    devSum += d;
+  }
+  m.maxAxisDeviationPx = maxDev;                    // 13
+  m.movementVariabilityPx = traceMetricsSampleSd(dev); // 14 (SD of deviations)
+  m.movementErrorPx = absSum / n;                   // 15
+  m.movementOffsetPx = devSum / n;                  // 16
+  let crossings = 0;
+  let lastSide = 0;
+  for (const d of dev) {
+    if (d === 0) continue;
+    const side = d > 0 ? 1 : -1;
+    if (lastSide !== 0 && side !== lastSide) crossings++;
+    lastSide = side;
+  }
+  m.axisCrossings = crossings;                      // 17
+  m.directionChanges = mtCountFlips(dev);           // 19 (orthogonal component)
+  const axisProj = new Array(n);
+  {
+    const ax = seg.x[n - 1] - seg.x[0];
+    const ay = seg.y[n - 1] - seg.y[0];
+    const axisLen = Math.hypot(ax, ay);
+    for (let i = 0; i < n; i++) {
+      axisProj[i] = axisLen > 0
+        ? ((seg.x[i] - seg.x[0]) * ax + (seg.y[i] - seg.y[0]) * ay) / axisLen
+        : 0;
+    }
+  }
+  m.orthogonalDirectionChanges = mtCountFlips(axisProj); // 20 (parallel component)
+
+  // Target re-entries (18) and verification time (22), when the target
+  // rect is known. Verification: last raw move at or before the press
+  // that sat inside the target, to the press.
+  if (targetRect !== null) {
+    const inside = (px, py) => px >= targetRect.left
+      && px < targetRect.left + targetRect.width
+      && py >= targetRect.top
+      && py < targetRect.top + targetRect.height;
+    let entries = 0;
+    let wasInside = false;
+    for (let i = 0; i < n; i++) {
+      const now = inside(seg.x[i], seg.y[i]);
+      if (now && !wasInside) entries++;
+      wasInside = now;
+    }
+    if (entries > 0) m.targetReentries = entries - 1; // re-entries exclude the first entry
+    if (pressT !== null) {
+      let lastMoveT = null;
+      let lastInside = false;
+      for (let i = 0; i < seg.rawT.length; i++) {
+        if (seg.rawT[i] > pressT) break;
+        lastMoveT = seg.rawT[i];
+        const pi = seg.rawOffset + i;
+        lastInside = inside(seg.x[pi], seg.y[pi]);
+      }
+      if (lastMoveT !== null && lastInside) m.verificationTimeMs = pressT - lastMoveT;
+    }
+  }
+
+  // Normalized jerk (28) and without pauses (29): (ET_np)^3 / v_peak^2
+  // times the integral of squared jerk; 29 drops integrand samples lying
+  // inside a pause. ET is execution time without pauses in both, per the
+  // published formula.
+  if (jerk.length > 0 && execNoPauseMs !== undefined && m.peakSpeedPxPerMs > 0) {
+    let integral = 0;
+    let integralNoPause = 0;
+    for (let i = 0; i < jerk.length; i++) {
+      const contrib = jerk[i] * jerk[i] * HEVELIUS_DT_MS;
+      integral += contrib;
+      // jerk[i] sits at resample step i (trace time seg.startT + i*dt,
+      // up to the chain's small alignment); paused spans contribute no
+      // real motion, so 29 excludes them.
+      const tAbs = seg.startT + i * HEVELIUS_DT_MS;
+      let paused = false;
+      for (const [a, b] of pauses) {
+        if (tAbs >= a && tAbs <= b) { paused = true; break; }
+      }
+      if (!paused) integralNoPause += contrib;
+    }
+    const scale = Math.pow(execNoPauseMs, 3) / (m.peakSpeedPxPerMs * m.peakSpeedPxPerMs);
+    m.normalizedJerk = scale * integral;
+    m.normalizedJerkNoPauses = scale * integralNoPause;
+  }
+
+  return m;
+}
+
+function computeHevelius(sampleT, sampleX, sampleY, events) {
+  const segments = traceSegments(sampleT, sampleX, sampleY, events);
+  if (segments.length === 0) return { movementCount: 0 };
+
+  // Walk events once, tracking the current layout and pairing each
+  // segment's ending click with its press and the button-held intervals
+  // inside the segment window.
+  const per = [];
+  for (const seg of segments) {
+    const windowLo = seg.startT;
+    const windowHi = seg.click.t;
+    let layout = null;
+    let pressT = null;
+    const buttonIntervals = [];
+    let openDown = null;
+    for (const ev of events) {
+      if (ev.t > windowHi) break;
+      if (ev.kind === 'layout') { layout = ev; continue; }
+      if (ev.kind === 'ldown') {
+        openDown = ev.t;
+        if (seg.click.kind === 'lup' && ev.t >= windowLo) pressT = ev.t;
+      } else if (ev.kind === 'lup' && openDown !== null) {
+        buttonIntervals.push([openDown, ev.t]);
+        openDown = null;
+      } else if (ev.kind === 'rdown' && ev === seg.click) {
+        pressT = ev.t;
+      }
+    }
+    if (openDown !== null) buttonIntervals.push([openDown, windowHi]);
+    const targetRect = cellRectAt(layout, seg.click.index);
+    per.push(heveliusMovement(seg, buttonIntervals, pressT, targetRect));
+  }
+
+  // Click slip (26): distance between press and release of each completed
+  // left click, from the event stream directly (independent of segments).
+  const slips = [];
+  let down = null;
+  for (const ev of events) {
+    if (ev.kind === 'ldown') down = ev;
+    else if (ev.kind === 'lup' && down !== null) {
+      slips.push(Math.hypot(ev.x - down.x, ev.y - down.y));
+      down = null;
+    }
+  }
+
+  return {
+    movementCount: segments.length,
+    movementTimeMs: itemsMean(per, 'movementTimeMs'),
+    executionTimeMs: itemsMean(per, 'executionTimeMs'),
+    executionTimeNoPausesMs: itemsMean(per, 'executionTimeNoPausesMs'),
+    peakSpeedPxPerMs: itemsMean(per, 'peakSpeedPxPerMs'),
+    peakAccelPxPerMs2: itemsMean(per, 'peakAccelPxPerMs2'),
+    submovementCount: itemsMean(per, 'submovementCount'),
+    mainSubmovementMs: itemsMean(per, 'mainSubmovementMs'),
+    mainSubEndDistPx: itemsMean(per, 'mainSubEndDistPx'),
+    mainSubFractionCovered: itemsMean(per, 'mainSubFractionCovered'),
+    mainSubAcceleratingFraction: itemsMean(per, 'mainSubAcceleratingFraction'),
+    maxAxisDeviationPx: itemsMean(per, 'maxAxisDeviationPx'),
+    movementVariabilityPx: itemsMean(per, 'movementVariabilityPx'),
+    movementErrorPx: itemsMean(per, 'movementErrorPx'),
+    movementOffsetPx: itemsMean(per, 'movementOffsetPx'),
+    axisCrossings: itemsMean(per, 'axisCrossings'),
+    directionChanges: itemsMean(per, 'directionChanges'),
+    orthogonalDirectionChanges: itemsMean(per, 'orthogonalDirectionChanges'),
+    targetReentries: itemsMean(per, 'targetReentries'),
+    verificationTimeMs: itemsMean(per, 'verificationTimeMs'),
+    normalizedJerk: itemsMean(per, 'normalizedJerk'),
+    normalizedJerkNoPauses: itemsMean(per, 'normalizedJerkNoPauses'),
+    pauseCount: itemsMean(per, 'pauseCount'),
+    longestPauseMs: itemsMean(per, 'longestPauseMs'),
+    clickSlipPx: slips.length > 0 ? traceMetricsMean(slips) : undefined,
+  };
+}
+
+//-------TRACE METRICS: WASTE (survey Tier 1/2 whole-game measures)-------
+
+// The survey's own proposals (reference/mouse-motion-metrics.md, Tier
+// 1/2), computed over the whole trace rather than per segment. The
+// threshold constants are definitional parts of each metric.
+const WASTE_PAUSE_MS = 250;      // a whole-game pause: >= 250 ms between samples
+const WASTE_TURN_LEG_PX = 8;     // heading legs must displace this far
+const FEINT_DWELL_MS = 300;      // a feint: dwell this long, then leave clickless
+
+function computeWasteMetrics(sampleT, sampleX, sampleY, events) {
+  const n = sampleT.length;
+
+  // Pauses over the whole game (>= 250 ms between consecutive samples):
+  // count, total, longest. Distinct from the Hevelius per-movement 100 ms
+  // pauses — this is the "time paused" the survey proposed.
+  let pauseCount = 0;
+  let pausedMs = 0;
+  let longestPauseMs = 0;
+  for (let i = 1; i < n; i++) {
+    const gap = sampleT[i] - sampleT[i - 1];
+    if (gap >= WASTE_PAUSE_MS) {
+      pauseCount++;
+      pausedMs += gap;
+      if (gap > longestPauseMs) longestPauseMs = gap;
+    }
+  }
+
+  // Wander ratio: total cursor travel over the sum of straight lines
+  // between consecutive clicks (1.0 = perfectly direct all game). The
+  // fruitless travel stays in the numerator — that is the point.
+  let totalPathPx = 0;
+  for (let i = 1; i < n; i++) {
+    totalPathPx += Math.hypot(sampleX[i] - sampleX[i - 1], sampleY[i] - sampleY[i - 1]);
+  }
+  let clickTravelPx = 0;
+  let prevClick = null;
+  for (const ev of events) {
+    if (ev.kind !== 'lup' && ev.kind !== 'rdown') continue;
+    if (prevClick !== null) {
+      clickTravelPx += Math.hypot(ev.x - prevClick.x, ev.y - prevClick.y);
+    }
+    prevClick = ev;
+  }
+
+  // Direction changes: heading reversals of more than 90 degrees between
+  // consecutive movement legs of >= 8 px each (the length floor keeps
+  // pixel jitter out) — the x-flips analog on an open 2D board.
+  let dirChanges = 0;
+  let legDx = 0;
+  let legDy = 0;
+  let prevLegDx = null;
+  let prevLegDy = null;
+  for (let i = 1; i < n; i++) {
+    legDx += sampleX[i] - sampleX[i - 1];
+    legDy += sampleY[i] - sampleY[i - 1];
+    if (Math.hypot(legDx, legDy) >= WASTE_TURN_LEG_PX) {
+      if (prevLegDx !== null && prevLegDx * legDx + prevLegDy * legDy < 0) {
+        dirChanges++;
+      }
+      prevLegDx = legDx;
+      prevLegDy = legDy;
+      legDx = 0;
+      legDy = 0;
+    }
+  }
+
+  // Feints: the cursor enters a board cell, stays over it for >= 300 ms
+  // (entry to exit, exit observed), and no click happens during the
+  // stay — approached, did nothing, left. An unfinished stay at trace end
+  // has no exit and is not counted. The survey draft said "hidden cell";
+  // the trace does not carry cell reveal state, so this counts dwells
+  // over any board cell (the deviation is documented in the survey file).
+  let feintCount = 0;
+  {
+    let layout = null;
+    let li = 0; // next event to process for layout/click bookkeeping
+    let curCell = null;
+    let enterT = 0;
+    let clickedDuring = false;
+    for (let i = 0; i < n; i++) {
+      // Events up to this sample: track layout changes and clicks.
+      while (li < events.length && events[li].t <= sampleT[i]) {
+        const ev = events[li];
+        if (ev.kind === 'layout') layout = ev;
+        else if (ev.kind === 'lup' || ev.kind === 'rdown') clickedDuring = true;
+        li++;
+      }
+      let cell = null;
+      if (layout !== null && layout.width > 0 && layout.height > 0) {
+        const col = Math.floor((sampleX[i] - layout.left) / (layout.width / layout.boardWidth));
+        const row = Math.floor((sampleY[i] - layout.top) / (layout.height / layout.boardHeight));
+        if (col >= 0 && col < layout.boardWidth && row >= 0 && row < layout.boardHeight) {
+          cell = row * layout.boardWidth + col;
+        }
+      }
+      if (cell !== curCell) {
+        if (curCell !== null && !clickedDuring && sampleT[i] - enterT >= FEINT_DWELL_MS) {
+          feintCount++;
+        }
+        curCell = cell;
+        enterT = sampleT[i];
+        clickedDuring = false;
+      }
+    }
+  }
+
+  return {
+    pauseCount: pauseCount,
+    pausedMs: pausedMs,
+    longestPauseMs: longestPauseMs,
+    wanderRatio: clickTravelPx > 0 ? totalPathPx / clickTravelPx : undefined,
+    dirChanges: dirChanges,
+    feintCount: feintCount,
+  };
+}
+
+//-------TRACE METRICS: ALL SYSTEMS COMBINED-------
+
+// The object the display layer consumes: all four measurement systems
+// over the same trace. The psychometric and clinical systems only see
+// completed inter-click segments, so their values change only when a
+// click lands — the live schedule exploits that (renderLiveTraceMetrics
+// caches them between clicks).
+function computeAllTraceMetrics(sampleT, sampleX, sampleY, events, wallDurationMs) {
+  return {
+    wallDurationMs: wallDurationMs,
+    bio: computeTraceMetrics(sampleT, sampleX, sampleY, events, wallDurationMs),
+    psych: computePsychometrics(sampleT, sampleX, sampleY, events),
+    hev: computeHevelius(sampleT, sampleX, sampleY, events),
+    waste: computeWasteMetrics(sampleT, sampleX, sampleY, events),
+  };
+}
+
 //-------TRACE METRICS: DISPLAY (the #metrics-panel column)-------
 
 const metricsPanel = document.getElementById('metrics-panel');
 
-// One row per metric: label, current value, and a sparkline of how the
-// value evolved over the game so far. Each entry: label, hover
-// definition, numeric extractor (undefined = not yet measurable on this
-// trace, rendered as an en dash and a gap in the sparkline), formatter
-// for the extracted number.
-const TRACE_METRIC_DISPLAYS = [
-  ['strokes', 'movement bouts (a pause of 100ms or more separates bouts)',
-    (m) => m.strokeCount, (v) => String(v)],
-  ['moving', 'time the cursor spent in motion',
-    (m) => m.movementMs, (v) => (v / 1000).toFixed(1) + 's'],
-  ['silence', 'share of the game spent with the cursor still',
-    (m) => m.silenceRatio, (v) => Math.round(v * 100) + '%'],
-  ['path', 'total cursor travel over the whole trace',
-    (m) => m.totalPathPx, (v) => Math.round(v) + 'px'],
-  ['speed', 'mean of the per-stroke mean speeds',
-    (m) => m.speedMeanPxPerMs, (v) => Math.round(v * 1000) + 'px/s'],
-  ['peak speed', 'fastest sample-to-sample speed of any stroke',
-    (m) => m.speedMaxPxPerMs, (v) => Math.round(v * 1000) + 'px/s'],
-  ['straightness', 'chord over path per stroke (1 = a straight line), mean over strokes',
-    (m) => m.straightness, (v) => v.toFixed(2)],
-  ['jerk', 'mean |da/dt| per stroke in px/ms\u00b3, mean over strokes',
-    (m) => m.jerkMeanPxPerMs3, (v) => v.toFixed(4)],
-  ['turn rate', 'mean |heading change per ms| per stroke in rad/ms, mean over strokes',
-    (m) => m.angularVelocityMeanRadPerMs, (v) => v.toFixed(3)],
-  ['left clicks', 'completed left clicks (down and up both on the trace)',
-    (m) => m.leftClickCount, (v) => String(v)],
-  ['right clicks', 'right-button presses',
-    (m) => m.rightClickCount, (v) => String(v)],
-  ['hold', 'mean left-button down-to-up time',
-    (m) => m.clickDurationMeanMs, (v) => Math.round(v) + 'ms'],
-  ['pause-and-click', 'mean stillness between the end of movement and a press',
-    (m) => m.pauseAndClickMeanMs, (v) => Math.round(v) + 'ms'],
+// The displayed metrics, grouped by measurement system. Each display:
+// label; calc (how the value is computed, exactly); use (what it is good
+// for and in what context — the literature's reading plus this project's
+// multi-timescale self-tracking angle); of, the numeric extractor over
+// the combined metrics object of computeAllTraceMetrics (undefined or
+// NaN = not measurable on this trace, rendered as an en dash and a gap
+// in the sparkline); fmt, the formatter for the extracted number. calc
+// and use appear together as the row's hover tooltip. Not everything
+// computed is displayed (the clinical system computes more features than
+// shown); per-stage configurability of what appears is planned.
+const TRACE_METRIC_GROUPS = [
+  { key: 'bio', name: 'dynamics', definition:
+      'behavioral-biometrics session features over movement bouts '
+      + '(same definitions as the offline extractor)',
+    displays: [
+      { label: 'strokes',
+        calc: 'number of movement bouts: consecutive cursor samples chain into '
+          + 'one bout, and a gap of 100ms or more between samples starts the next',
+        use: 'how many separate hand movements the game took. Stop-and-go play '
+          + 'raises it; fluent sweeps lower it. A per-game baseline for hesitancy '
+          + 'across days and states',
+        of: (m) => m.bio.strokeCount, fmt: (v) => String(v) },
+      { label: 'moving',
+        calc: 'sum of bout durations (first to last sample of each bout)',
+        use: 'pure motor time, as opposed to thinking time. With path it gives '
+          + 'true moving speed, undiluted by deliberation',
+        of: (m) => m.bio.movementMs, fmt: (v) => (v / 1000).toFixed(1) + 's' },
+      { label: 'silence',
+        calc: '1 minus moving time over wall-clock game time',
+        use: 'share of the game spent with the cursor still — thinking, reading '
+          + 'the board, or resting. A standard mouse-dynamics feature; here it '
+          + 'tracks deliberation vs fluency (fatigue, brain fog, warm-up)',
+        of: (m) => m.bio.silenceRatio, fmt: (v) => Math.round(v * 100) + '%' },
+      { label: 'path',
+        calc: 'sum of distances between every consecutive pair of cursor '
+          + 'samples, jumps across pauses included — fruitless travel counts',
+        use: 'gross motor output of the game. Shifts with hardware and '
+          + 'sensitivity changes (tag those with a state like "new mouse"), and '
+          + 'feeds wander and the path-per-click stats',
+        of: (m) => m.bio.totalPathPx, fmt: (v) => Math.round(v) + 'px' },
+      { label: 'speed',
+        calc: 'each bout\u2019s mean of its sample-to-sample speeds, then the '
+          + 'mean over bouts',
+        use: 'overall tempo of hand movement. Rises with warm-up within a '
+          + 'session; sensitive to mouse/DPI changes, so it profiles the setup '
+          + 'as much as the player — read alongside turn rate, which does not',
+        of: (m) => m.bio.speedMeanPxPerMs, fmt: (v) => Math.round(v * 1000) + 'px/s' },
+      { label: 'peak speed',
+        calc: 'the single fastest sample-to-sample speed in any bout',
+        use: 'ballistic capability — the flick, not the cruise. Less diluted '
+          + 'by careful stretches than the mean; declines with age in pointing '
+          + 'studies, so a long-horizon tracking target',
+        of: (m) => m.bio.speedMaxPxPerMs, fmt: (v) => Math.round(v * 1000) + 'px/s' },
+      { label: 'straightness',
+        calc: 'per bout, straight-line distance from its start to its end '
+          + 'divided by the distance actually traveled (1 = a perfect line); '
+          + 'mean over bouts',
+        use: 'movement efficiency and planning: low values mean curved, '
+          + 'corrected, or searching motion. Drops under unfamiliarity and '
+          + 'fatigue',
+        of: (m) => m.bio.straightness, fmt: (v) => v.toFixed(2) },
+      { label: 'jerk',
+        calc: 'per bout, the mean absolute rate of change of acceleration '
+          + '(third derivative of position along the path, px/ms\u00b3, from '
+          + 'segment-midpoint speeds); mean over bouts',
+        use: 'movement smoothness. Elevated jerk marks corrections, tremor, '
+          + 'fatigue, or unfamiliarity — the clinical literature\u2019s '
+          + 'smoothness family, on raw bouts',
+        of: (m) => m.bio.jerkMeanPxPerMs3, fmt: (v) => v.toFixed(4) },
+      { label: 'turn rate',
+        calc: 'per bout, the mean absolute change of movement heading per ms '
+          + '(rad/ms) between successive moving steps; mean over bouts',
+        use: 'the curvature family — the most person-identifying and most '
+          + 'hardware-stable features in mouse biometrics (Zheng et al.). The '
+          + 'best candidate for a signature that survives a mouse change',
+        of: (m) => m.bio.angularVelocityMeanRadPerMs, fmt: (v) => v.toFixed(3) },
+      { label: 'left clicks',
+        calc: 'completed left clicks: a press and its release both on the trace',
+        use: 'activity volume, and a cross-check of the game\u2019s own click '
+          + 'counter from an independent recording path',
+        of: (m) => m.bio.leftClickCount, fmt: (v) => String(v) },
+      { label: 'right clicks',
+        calc: 'right-button presses (flag actions)',
+        use: 'flagging style: markless play shows 0; heavy flaggers run high. '
+          + 'Style shifts over months are real signal',
+        of: (m) => m.bio.rightClickCount, fmt: (v) => String(v) },
+      { label: 'hold',
+        calc: 'mean time from left-button press to its release',
+        use: 'purely motor — no thinking can hide in it. Click duration is one '
+          + 'of Hevelius\u2019 strongest ataxia/parkinsonism separators and has '
+          + 'good test-retest reliability: a prime longitudinal health metric',
+        of: (m) => m.bio.clickDurationMeanMs, fmt: (v) => Math.round(v) + 'ms' },
+      { label: 'pause-and-click',
+        calc: 'for each press, the stillness between the last cursor movement '
+          + 'and the press; mean over presses',
+        use: 'the commitment lag: arrived, then hesitated how long before '
+          + 'acting? Separates decision lag from travel time — the "lag" the '
+          + 'biometrics literature uses to identify users',
+        of: (m) => m.bio.pauseAndClickMeanMs, fmt: (v) => Math.round(v) + 'ms' },
+    ] },
+  { key: 'waste', name: 'waste', definition:
+      'whole-game waste measures (the survey\u2019s Tier 1/2 proposals); '
+      + 'fruitless effort is counted, never subtracted away',
+    displays: [
+      { label: 'wander',
+        calc: 'total cursor travel divided by the sum of straight lines '
+          + 'between consecutive click positions (1.0 = perfectly direct '
+          + 'all game)',
+        use: 'the purest wasted-motion number: how much extra distance the '
+          + 'hand covered beyond what the clicks required. Scanning, searching, '
+          + 'and second-guessing all raise it; expertise lowers it',
+        of: (m) => m.waste.wanderRatio, fmt: (v) => v.toFixed(2) + '\u00d7' },
+      { label: 'pauses',
+        calc: 'count of gaps of 250ms or more between consecutive cursor '
+          + 'samples over the whole game',
+        use: 'how often play stalls. More, shorter pauses read differently '
+          + 'than one long freeze — see longest pause',
+        of: (m) => m.waste.pauseCount, fmt: (v) => String(v) },
+      { label: 'paused',
+        calc: 'total time inside those 250ms-or-longer gaps',
+        use: 'total stalled time — the coarse-grained "time paused" companion '
+          + 'to silence (which uses the finer 100ms bout gap)',
+        of: (m) => m.waste.pausedMs, fmt: (v) => (v / 1000).toFixed(1) + 's' },
+      { label: 'longest pause',
+        calc: 'the single longest such gap',
+        use: 'the hardest deduction of the game — or a distraction. The '
+          + '"stuck" moment, worth correlating with board difficulty and states',
+        of: (m) => m.waste.longestPauseMs, fmt: (v) => (v / 1000).toFixed(1) + 's' },
+      { label: 'turnarounds',
+        calc: 'heading reversals of more than 90\u00b0 between consecutive '
+          + 'movement legs of at least 8px each (the length floor keeps pixel '
+          + 'jitter out)',
+        use: 'went one way, changed plan, went another — the open-board analog '
+          + 'of the x-flips "change of mind" measure. Confusion and re-planning '
+          + 'made countable',
+        of: (m) => m.waste.dirChanges, fmt: (v) => String(v) },
+      { label: 'feints',
+        calc: 'times the cursor entered a board cell, stayed 300ms or more, '
+          + 'then left it without any click during the stay',
+        use: 'approach-abandon: considered acting and backed off. Real spent '
+          + 'effort that no click records — a direct hesitation counter, the '
+          + 'measurement principle in action',
+        of: (m) => m.waste.feintCount, fmt: (v) => String(v) },
+    ] },
+  { key: 'psych', name: 'psychometric', definition:
+      'mousetrap decision-research measures per inter-click segment '
+      + '(exact port of the R package), means over segments',
+    displays: [
+      { label: 'segments',
+        calc: 'number of inter-click trajectories measured: previous click to '
+          + 'next click, needing at least 5 trajectory points',
+        use: 'the sample size behind every psychometric and clinical mean '
+          + 'below — small counts mean noisy means',
+        of: (m) => m.psych.segmentCount, fmt: (v) => String(v) },
+      { label: 'MAD',
+        calc: 'per segment, the signed maximum deviation of the path from the '
+          + 'ideal straight line joining segment start to its click; mean over '
+          + 'segments',
+        use: 'decision research reads the bow of a path as attraction toward '
+          + 'an option not chosen: large magnitude = conflicted approach. Track '
+          + 'against uncertainty (guessy boards) and states',
+        of: (m) => m.psych.mad, fmt: (v) => Math.round(v) + 'px' },
+      { label: 'AUC',
+        calc: 'per segment, the signed area enclosed between the actual path '
+          + 'and that ideal line (shoelace formula, negative when the path '
+          + 'bows the other way); mean over segments',
+        use: 'the whole-path conflict measure; correlates .8-.9 with MAD, so '
+          + 'they mostly confirm each other — divergence itself is interesting',
+        of: (m) => m.psych.auc, fmt: (v) => sparkAxisNumber(v) + 'px\u00b2' },
+      { label: 'AD',
+        calc: 'per segment, the mean signed deviation over all path points; '
+          + 'mean over segments',
+        use: 'persistent drift to one side of the ideal line rather than a '
+          + 'single bow — systematic bias in approach paths',
+        of: (m) => m.psych.ad, fmt: (v) => Math.round(v) + 'px' },
+      { label: 'x-flips',
+        calc: 'per segment, reversals of horizontal movement direction '
+          + '(consecutive moves merge into same-direction runs; flips = runs '
+          + 'minus 1); mean over segments',
+        use: 'the classic "changes of mind" count from mouse-tracking: each '
+          + 'flip is a mid-flight reversal. Decision instability, hesitancy',
+        of: (m) => m.psych.xFlips, fmt: (v) => v.toFixed(1) },
+      { label: 'y-flips',
+        calc: 'the same, vertically',
+        use: 'as x-flips; on a 2D board both axes carry the signal, unlike the '
+          + 'two-choice lab task where x is the option axis',
+        of: (m) => m.psych.yFlips, fmt: (v) => v.toFixed(1) },
+      { label: 'initiation',
+        calc: 'per segment, time from the segment\u2019s start until the '
+          + 'cursor first moves; mean over segments',
+        use: 'how long before the hand launches — planning or re-orienting '
+          + 'time after each click. The esports reaction-time analog, and in '
+          + 'minesweeper it also absorbs deduction time',
+        of: (m) => m.psych.initiationTimeMs, fmt: (v) => Math.round(v) + 'ms' },
+      { label: 'idle',
+        calc: 'per segment, total time of steps where the position did not '
+          + 'change; mean over segments',
+        use: 'stalling inside an approach (as opposed to before it): stop-offs '
+          + 'en route to the click',
+        of: (m) => m.psych.idleTimeMs, fmt: (v) => (v / 1000).toFixed(1) + 's' },
+      { label: 'vel max',
+        calc: 'per segment, the peak point-to-point velocity; mean over '
+          + 'segments',
+        use: 'per-decision ballistic speed. Same family as peak speed above '
+          + 'but averaged per approach, so one wild flick cannot dominate it',
+        of: (m) => m.psych.velMaxPxPerMs, fmt: (v) => Math.round(v * 1000) + 'px/s' },
+      { label: 'acc max',
+        calc: 'per segment, the peak increase of velocity per ms; mean over '
+          + 'segments',
+        use: 'launch force — how hard movements start. Age- and '
+          + 'impairment-sensitive in the clinical literature',
+        of: (m) => m.psych.accMaxPxPerMs2, fmt: (v) => v.toFixed(4) },
+      { label: 'entropy',
+        calc: 'per segment, sample entropy (m=3) of the differenced x '
+          + 'trajectory after resampling to 101 equal time steps; the '
+          + 'tolerance r is 0.2 \u00d7 the SD pooled over this game\u2019s '
+          + 'segments; mean over segments',
+        use: 'spatiotemporal disorder — how unpredictable the path is moment '
+          + 'to moment. Only ~.5 correlated with flips, so it catches '
+          + 'restlessness the flip counts miss',
+        of: (m) => m.psych.sampleEntropy, fmt: (v) => v.toFixed(2) },
+      { label: 'segment time',
+        calc: 'per segment, time from its start to its click (mousetrap\u2019s '
+          + 'RT); mean over segments',
+        use: 'the full think-plus-travel cycle per decision. In minesweeper '
+          + 'this is dominated by deduction, so read it as decision pace, not '
+          + 'motor speed',
+        of: (m) => m.psych.rtMs, fmt: (v) => (v / 1000).toFixed(1) + 's' },
+    ] },
+  { key: 'hev', name: 'clinical', definition:
+      'Hevelius-style motor features per inter-click movement '
+      + '(100Hz resample, 7Hz low-pass; see reference/hevelius/FEATURES.md), '
+      + 'means over movements',
+    displays: [
+      { label: 'execution',
+        calc: 'per movement, time from its first to its last mousemove, with '
+          + 'time the button was held excluded; mean over movements',
+        use: 'the purest "how long does the hand take" number gameplay '
+          + 'offers: it starts at the first move, so pre-movement deliberation '
+          + 'is excluded. Good test-retest reliability in Hevelius',
+        of: (m) => m.hev.executionTimeMs, fmt: (v) => (v / 1000).toFixed(2) + 's' },
+      { label: 'exec no pauses',
+        calc: 'execution time with mid-movement stops of 100ms or more also '
+          + 'subtracted',
+        use: 'motor transport time cleansed of mid-flight thinking — the ET '
+          + 'that normalized jerk is built on. The gap between the two '
+          + 'execution rows is itself a hesitation measure',
+        of: (m) => m.hev.executionTimeNoPausesMs, fmt: (v) => (v / 1000).toFixed(2) + 's' },
+      { label: 'peak speed*',
+        calc: 'per movement, the maximum of the smoothed speed (trajectory '
+          + 'resampled at 100Hz, speed low-passed at 7Hz); mean over movements',
+        use: 'the clearest documented aging signal in Hevelius (declines '
+          + 'steadily with age) — the single best feature for multi-year '
+          + 'self-tracking. Smoothing makes it robust to sensor noise',
+        of: (m) => m.hev.peakSpeedPxPerMs, fmt: (v) => Math.round(v * 1000) + 'px/s' },
+      { label: 'peak accel',
+        calc: 'per movement, the maximum of the smoothed acceleration; mean '
+          + 'over movements',
+        use: 'burst strength at movement launch; part of the noise-to-force '
+          + 'family Hevelius used to separate patient groups',
+        of: (m) => m.hev.peakAccelPxPerMs2, fmt: (v) => v.toFixed(4) },
+      { label: 'submovements',
+        calc: 'per movement, count of speed pulses that cross 100px/s and '
+          + 'reach at least 500px/s before dropping back; mean over movements',
+        use: 'healthy fast pointing is one ballistic pulse plus at most one '
+          + 'correction; more pulses mean corrections — impairment, '
+          + 'unfamiliarity, or fatigue. A core clinical smoothness count',
+        of: (m) => m.hev.submovementCount, fmt: (v) => v.toFixed(1) },
+      { label: 'main sub',
+        calc: 'duration of the submovement containing the movement\u2019s '
+          + 'peak speed; mean over movements',
+        use: 'the ballistic core of each movement. (Hevelius weights this '
+          + 'feature in its models without publishing the exact quantity; '
+          + 'duration is this project\u2019s documented choice)',
+        of: (m) => m.hev.mainSubmovementMs, fmt: (v) => Math.round(v) + 'ms' },
+      { label: 'sub end dist',
+        calc: 'distance from the clicked cell\u2019s center at the moment the '
+          + 'main submovement ends; mean over movements',
+        use: 'primary-movement accuracy: how much distance was left for '
+          + 'corrections after the big pulse. One of the features that '
+          + 'separated patients from controls in Hevelius',
+        of: (m) => m.hev.mainSubEndDistPx, fmt: (v) => Math.round(v) + 'px' },
+      { label: 'axis dev',
+        calc: 'per movement, the maximum distance of the path from the task '
+          + 'axis (the straight line joining the movement\u2019s start and '
+          + 'end); mean over movements',
+        use: 'worst-case path control per movement — the MacKenzie pointing '
+          + 'accuracy family. Big deviations mean detours, not jitter',
+        of: (m) => m.hev.maxAxisDeviationPx, fmt: (v) => Math.round(v) + 'px' },
+      { label: 'movement error',
+        calc: 'per movement, the average absolute distance of the path from '
+          + 'the task axis; mean over movements',
+        use: 'gross straightness of transport: how far, on average, the hand '
+          + 'strayed from the direct line. Steadier than the max',
+        of: (m) => m.hev.movementErrorPx, fmt: (v) => Math.round(v) + 'px' },
+      { label: 'axis crossings',
+        calc: 'per movement, times the path crossed the task axis; mean over '
+          + 'movements',
+        use: 'oscillation around the intended line — weaving. Tremor and '
+          + 'over-correction both raise it',
+        of: (m) => m.hev.axisCrossings, fmt: (v) => v.toFixed(1) },
+      { label: 'norm jerk',
+        calc: 'per movement, dimensionless (execution time without '
+          + 'pauses)\u00b3 \u00f7 peak speed\u00b2 \u00d7 the integral of '
+          + 'squared jerk, pause spans excluded from the integral; mean over '
+          + 'movements',
+        use: 'THE smoothness measure: Hevelius\u2019 strongest ataxia '
+          + 'separator (z 3.2-3.6), good reliability, and built to be nearly '
+          + 'independent of movement difficulty — which suits uncontrolled '
+          + 'gameplay distances. Watch it against fatigue and states',
+        of: (m) => m.hev.normalizedJerkNoPauses, fmt: (v) => sparkAxisNumber(v) },
+      { label: 'click slip',
+        calc: 'distance the cursor slid between button press and release; '
+          + 'mean over completed left clicks',
+        use: 'purely motor, no assumptions, elevated in ataxia: did the hand '
+          + 'hold still through the click? Cheap to compute over every stored '
+          + 'trace, so ideal for backfilled long-run tracking',
+        of: (m) => m.hev.clickSlipPx, fmt: (v) => v.toFixed(1) + 'px' },
+      { label: 'verification',
+        calc: 'time between the last movement inside the clicked cell and the '
+          + 'button press; mean over movements where the cursor ended inside '
+          + 'the cell',
+        use: 'the look-before-committing window. In the clinic it is visual '
+          + 'verification; in minesweeper it also contains safety re-checking, '
+          + 'so read it as care, not just motor settling',
+        of: (m) => m.hev.verificationTimeMs, fmt: (v) => Math.round(v) + 'ms' },
+      { label: 're-entries',
+        calc: 'times the pointer left the clicked cell and came back before '
+          + 'the click; mean over movements with a known target cell',
+        use: 'target acquisition instability — overshoot-and-return at the '
+          + 'destination. Noisier here than in the lab task, since neighboring '
+          + 'cells are plausible targets too',
+        of: (m) => m.hev.targetReentries, fmt: (v) => v.toFixed(1) },
+    ] },
 ];
+
+// Series keys must be unique across groups (labels repeat, e.g. "peak
+// speed"); group key + label is the identity of a displayed series.
+function metricSeriesKey(group, display) {
+  return group.key + ':' + display.label;
+}
+
+// A displayed number: NaN means a formula was computed but degenerated
+// (e.g. sample entropy with no matching windows) — for display both are
+// one thing: not measurable here.
+function displayableNumber(v) {
+  return v === undefined || Number.isNaN(v) ? undefined : v;
+}
 
 // The per-game history of every displayed value, one entry per render
 // (about one per second, plus the final render), feeding the sparklines.
@@ -1801,10 +2982,14 @@ const TRACE_METRIC_DISPLAYS = [
 let metricsSeries = null;
 
 function beginTraceMetricsSeries() {
-  metricsSeries = {
-    tMs: [],
-    byLabel: new Map(TRACE_METRIC_DISPLAYS.map(([label]) => [label, []])),
-  };
+  const byKey = new Map();
+  for (const group of TRACE_METRIC_GROUPS) {
+    for (const display of group.displays) {
+      byKey.set(metricSeriesKey(group, display), []);
+    }
+  }
+  metricsSeries = { tMs: [], byKey: byKey };
+  liveSegmentCache = { clickEvents: -1, psych: null, hev: null };
 }
 
 // Compact numeric form for sparkline axis labels; the units live in the
@@ -1902,30 +3087,46 @@ function buildSparkline(tMs, values, size) {
 
 function appendTraceMetricsSeries(metrics) {
   metricsSeries.tMs.push(metrics.wallDurationMs);
-  for (const [label, , numberOf] of TRACE_METRIC_DISPLAYS) {
-    metricsSeries.byLabel.get(label).push(numberOf(metrics));
+  for (const group of TRACE_METRIC_GROUPS) {
+    for (const display of group.displays) {
+      metricsSeries.byKey.get(metricSeriesKey(group, display))
+        .push(displayableNumber(display.of(metrics)));
+    }
   }
 }
 
-// One metric as label + current value + chart of its series.
-function buildMetricRow(display, metrics, series, size, rowClass) {
-  const [label, definition, numberOf, format] = display;
-  const value = numberOf(metrics);
+// One metric as label + current value + chart of its series. The hover
+// tooltip is the metric's full explanation: how the value is calculated,
+// then what it is used for and in what context.
+function buildMetricRow(group, display, metrics, series, size, rowClass) {
+  const value = displayableNumber(display.of(metrics));
   const row = document.createElement('div');
   row.className = rowClass;
-  row.title = definition + (value === undefined ? ' (not yet measurable)' : '');
+  row.title = 'HOW: ' + display.calc + '.\n\nUSE: ' + display.use + '.'
+    + (value === undefined ? '\n\n(not yet measurable on this trace)' : '');
   const head = document.createElement('div');
   head.className = 'metric-head';
   const labelEl = document.createElement('span');
   labelEl.className = 'metric-label';
-  labelEl.textContent = label;
+  labelEl.textContent = display.label;
   const valueEl = document.createElement('span');
   valueEl.className = 'metric-value';
-  valueEl.textContent = value === undefined ? '\u2013' : format(value);
+  valueEl.textContent = value === undefined ? '\u2013' : display.fmt(value);
   head.append(labelEl, valueEl);
   row.appendChild(head);
-  row.appendChild(buildSparkline(series.tMs, series.byLabel.get(label), size));
+  row.appendChild(buildSparkline(
+    series.tMs, series.byKey.get(metricSeriesKey(group, display)), size));
   return row;
+}
+
+// The section header naming a measurement system, shared by the live
+// panel and the after-game charts.
+function buildMetricsGroupHead(group) {
+  const head = document.createElement('div');
+  head.className = 'metrics-group-head';
+  head.textContent = group.name;
+  head.title = group.definition;
+  return head;
 }
 
 // Whether the player tucked the live panel away with its own toggler.
@@ -1978,9 +3179,12 @@ function renderMetricsPanel(metrics) {
   head.append(phaseEl, hide);
   metricsPanel.appendChild(head);
 
-  for (const display of TRACE_METRIC_DISPLAYS) {
-    metricsPanel.appendChild(
-      buildMetricRow(display, metrics, metricsSeries, SPARK_SMALL, 'metric-row'));
+  for (const group of TRACE_METRIC_GROUPS) {
+    metricsPanel.appendChild(buildMetricsGroupHead(group));
+    for (const display of group.displays) {
+      metricsPanel.appendChild(buildMetricRow(
+        group, display, metrics, metricsSeries, SPARK_SMALL, 'metric-row'));
+    }
   }
 }
 
@@ -1992,12 +3196,26 @@ function renderMetricsPanel(metrics) {
 let finalMotion = null;
 
 // The after-game display: one large chart per metric, appended inline
-// after the other bottom charts (renderResult). Canonical values: same
+// after the other bottom charts (renderResult), grouped by measurement
+// system with a labeled break before each group. Canonical values: same
 // computation as live, complete trace.
 function buildMotionStatsCharts() {
-  return TRACE_METRIC_DISPLAYS.map((display) => buildMetricRow(
-    display, finalMotion.metrics, finalMotion.series, SPARK_LARGE,
-    'metric-row motion-chart'));
+  const nodes = [];
+  for (const group of TRACE_METRIC_GROUPS) {
+    const brk = document.createElement('div');
+    brk.className = 'flex-break';
+    nodes.push(brk);
+    nodes.push(buildMetricsGroupHead(group));
+    const brk2 = document.createElement('div');
+    brk2.className = 'flex-break';
+    nodes.push(brk2);
+    for (const display of group.displays) {
+      nodes.push(buildMetricRow(
+        group, display, finalMotion.metrics, finalMotion.series, SPARK_LARGE,
+        'metric-row motion-chart'));
+    }
+  }
+  return nodes;
 }
 
 // Applies the showMotionStatsDuringGame setting to a running game
@@ -2007,9 +3225,32 @@ function refreshMetricsPanel() {
   if (trace !== null && tracing()) renderMetricsPanel(lastLiveMetrics);
 }
 
+// The segment-based systems (psychometric, clinical) only see completed
+// inter-click segments, so their values cannot change between clicks;
+// the live schedule recomputes them only when the trace's click count
+// moves, and recomputes the whole-trace systems every tick.
+let liveSegmentCache = { clickEvents: -1, psych: null, hev: null };
+
 function renderLiveTraceMetrics() {
-  const metrics = computeTraceMetrics(
-    trace.t, trace.x, trace.y, trace.events, Date.now() - trace.startedAt);
+  const wallMs = Date.now() - trace.startedAt;
+  let clickEvents = 0;
+  for (const ev of trace.events) {
+    if (ev.kind === 'lup' || ev.kind === 'rdown') clickEvents++;
+  }
+  if (clickEvents !== liveSegmentCache.clickEvents) {
+    liveSegmentCache = {
+      clickEvents: clickEvents,
+      psych: computePsychometrics(trace.t, trace.x, trace.y, trace.events),
+      hev: computeHevelius(trace.t, trace.x, trace.y, trace.events),
+    };
+  }
+  const metrics = {
+    wallDurationMs: wallMs,
+    bio: computeTraceMetrics(trace.t, trace.x, trace.y, trace.events, wallMs),
+    psych: liveSegmentCache.psych,
+    hev: liveSegmentCache.hev,
+    waste: computeWasteMetrics(trace.t, trace.x, trace.y, trace.events),
+  };
   appendTraceMetricsSeries(metrics);
   lastLiveMetrics = metrics;
   renderMetricsPanel(metrics);

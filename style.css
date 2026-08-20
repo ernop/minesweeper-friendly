@@ -860,6 +860,21 @@ main {
   cursor: pointer;
 }
 
+/* Section header naming a measurement system, in the live panel and
+   between the after-game chart groups alike. */
+.metrics-group-head {
+  font-size: 11px;
+  font-weight: bold;
+  color: #667788;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+#metrics-panel .metrics-group-head {
+  margin: 10px 0 2px;
+  border-bottom: 1px solid #e5e5e5;
+}
+
 /* The after-game charts sit inline among the bottom charts; the head
    line (label + canonical value) doubles as the chart's title. */
 .motion-chart {
