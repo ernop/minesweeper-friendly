@@ -608,7 +608,11 @@ const RANKAVERAGE_SPECS = [
   { label: 'mouse speed', value: (s) => Math.round(s.pathPx / (s.timeMs / 1000) / 10) * 10, format: (v) => v + 'px/s', has: (s) => typeof s.pathPx === 'number' },
 ];
 
-function buildRankList(headingText, rowCount, myIndex, gridClass, buildRowCells) {
+// A placement earns the full windowed list only if it's near the top:
+// within the numerical top 10, or within 10% of the best entry's value
+// (`nearTop`, judged by each caller's metric). Mediocre placements (say
+// #60 of 70) collapse to the heading plus the player's own row.
+function buildRankList(headingText, rowCount, myIndex, gridClass, buildRowCells, nearTop) {
   const list = document.createElement('div');
   list.className = 'rank-list';
   const heading = document.createElement('h4');
@@ -616,7 +620,8 @@ function buildRankList(headingText, rowCount, myIndex, gridClass, buildRowCells)
   list.appendChild(heading);
   const grid = document.createElement('div');
   grid.className = gridClass;
-  const [start, end] = windowBounds(myIndex, rowCount);
+  const earned = myIndex < 10 || nearTop;
+  const [start, end] = earned ? windowBounds(myIndex, rowCount) : [myIndex, myIndex + 1];
   for (let i = start; i < end; i++) {
     const row = document.createElement('div');
     row.className = i === myIndex ? 'rank-row me' : 'rank-row';
@@ -762,6 +767,7 @@ function renderRanks(stats, modeScores, modeLosses = []) {
     const { column, inWindow } = c;
     // `stats` is an element of modeScores, so identity search finds it.
     const myIndex = inWindow.indexOf(stats);
+    const nearTop = stats.timeMs <= inWindow[0].timeMs * 1.1;
     resultRanks.appendChild(buildRankList(
       column.label + ' - #' + (myIndex + 1) + ' of ' + inWindow.length,
       inWindow.length, myIndex, 'rank-grid',
@@ -778,7 +784,7 @@ function renderRanks(stats, modeScores, modeLosses = []) {
           cells.push(['age-unit-cell age-u-' + age.unit, age.unit]);
         }
         return cells;
-      }));
+      }, nearTop));
   }
   for (const spec of RANKAVERAGE_SPECS) {
     const eligible = spec.has ? modeScores.filter(spec.has) : modeScores;
@@ -793,6 +799,7 @@ function renderRanks(stats, modeScores, modeLosses = []) {
     const avgMs = (v) => groups.get(v).totalMs / groups.get(v).count;
     const byAvg = [...groups.keys()].sort((a, b) => avgMs(a) - avgMs(b));
     const avgIndex = byAvg.indexOf(spec.value(stats));
+    const nearTop = avgMs(byAvg[avgIndex]) <= avgMs(byAvg[0]) * 1.1;
     const avgList = buildRankList(
       spec.label + ' rankaverage - #' + (avgIndex + 1) + ' of ' + byAvg.length,
       byAvg.length, avgIndex, 'rankavg-grid',
@@ -801,7 +808,7 @@ function renderRanks(stats, modeScores, modeLosses = []) {
         ['val-cell', spec.format(byAvg[i])],
         ['avg-cell', (avgMs(byAvg[i]) / 1000).toFixed(3) + 's'],
         ['cnt-cell', '\u00d7' + groups.get(byAvg[i]).count],
-      ]);
+      ], nearTop);
     avgList.appendChild(avgDeltaCaption(spec, stats, eligible));
     resultRanks.appendChild(avgList);
   }
@@ -844,6 +851,7 @@ function renderRanks(stats, modeScores, modeLosses = []) {
       });
     segments.sort((a, b) => b.len - a.len || b.end - a.end);
     const myIndex = segments.findIndex((seg) => seg.current);
+    const nearTop = segments[myIndex].len >= segments[0].len * 0.9;
     resultRanks.appendChild(buildRankList(
       label + ' - #' + (myIndex + 1) + ' of ' + segments.length,
       segments.length, myIndex, 'rank-grid',
@@ -861,7 +869,7 @@ function renderRanks(stats, modeScores, modeLosses = []) {
           cells.push(['age-unit-cell age-u-' + age.unit, age.unit]);
         }
         return cells;
-      }));
+      }, nearTop));
   }
 
   // Scatter plots at the very bottom: derived mouse metrics against

@@ -60,7 +60,10 @@ games faster. Streak lists rank your win runs:
 and "near-near-streak" (at most 2), each row showing length and how long ago
 the streak's last win was; loss timestamps are recorded to split streaks. Each list windows around your row,
 11 rows max: 5 either side, and when 1st place is within the 5 above, the
-list anchors at the top with the unused budget growing downward. Rows show
+list anchors at the top with the unused budget growing downward. Detail is
+earned: the full list only shows when you place in the top 10 or within
+10% of the best entry — a #60-of-70 game collapses to just the heading
+and your own row. Rows show
 rank, time, and a relative age ("43s", "5m", "2w"; the brand-new score says
 "just now").
 

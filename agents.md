@@ -55,6 +55,10 @@ only while `gameState === 'playing'`);
 after each win the result panel shows ranked-list columns (windowed via
 `windowBounds`, 11 rows max: 5 either side, top-anchored when 1st place is
 within the 5 above; own score bolded) for windows built by `rankWindows`:
+Earned detail: a list renders its full window only when the placement is
+top-10 or within 10% of the best entry's value (`nearTop`, metric per list
+type: time, bucket avg time, streak length); otherwise it collapses to the
+heading plus the player's own row (see `buildRankList`).
 lifetime, "in <year>" (calendar year), "in the last year" (rolling 365 days
 from end of the day 365 days prior), "this month" (calendar), "past week"
 (midnight 6 days back), "today" (last local midnight), then rolling hour /
