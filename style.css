@@ -82,8 +82,8 @@ main {
 
 /*-------JUSTICE STAMPS (a just universe)-------*/
 
-/* At game end, one rubber-stamped JUSTICE per truly-forced guess that went
-   the player's way, slammed over the board with a little scatter and a
+/* At game end, one rubber-stamped JUSTICE per guaranteed sealed-pocket
+   entry, slammed over the board with a little scatter and a
    staggered delay so repeat stamps read as separate strikes. Pointer events
    pass through: the board stays clickable underneath. */
 #justice-stamps {
@@ -97,6 +97,40 @@ main {
   overflow: hidden;
   pointer-events: none;
   z-index: 5;
+}
+
+/* Immediate event log: each qualifying bare entry prints JUSTICE just to
+   the board's right. It occupies no layout space, so the board never moves. */
+#justice-live {
+  position: absolute;
+  left: calc(100% + 14px);
+  top: 20%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 7px;
+  pointer-events: none;
+  z-index: 4;
+}
+
+.justice-live-word {
+  width: max-content;
+  font-family: "Arial Black", "Arial Bold", Arial, sans-serif;
+  font-weight: 900;
+  font-size: 18px;
+  line-height: 1;
+  letter-spacing: 2px;
+  color: #b3121b;
+  border: 2px double #b3121b;
+  border-radius: 4px;
+  padding: 4px 6px 4px 8px;
+  transform: rotate(-4deg);
+  animation: justice-live-print 0.35s cubic-bezier(0.15, 1.35, 0.4, 1);
+}
+
+@keyframes justice-live-print {
+  from { transform: rotate(-4deg) scale(2.2); opacity: 0; }
+  to { transform: rotate(-4deg) scale(1); opacity: 1; }
 }
 
 .justice-stamp {
@@ -438,6 +472,7 @@ main {
 }
 
 .setting-row input { vertical-align: middle; margin-right: 6px; }
+.setting-row input:disabled { cursor: not-allowed; }
 
 .setting-name {
   color: #555555;

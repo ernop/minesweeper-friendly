@@ -11,6 +11,9 @@ const DIFFICULTIES = {
 const LCD_MIN = -99;
 const LCD_MAX = 999;
 const TIMER_CAP_SECONDS = 999;
+const RNG_VERSION = GameRandom.VERSION;
+const BOARD_VERSION = 'uniform-first-safe-fisher-yates-v1';
+const JUSTICE_VERSION = 'sealed-pocket-mercy-v1';
 
 // Seven-segment layout in a 13x23 viewBox. Segment -> polygon points.
 const SEGMENT_POINTS = {
@@ -84,6 +87,8 @@ let flagsPlaced = 0;   // flags the player placed (removals don't subtract)
 let flagsRemoved = 0;  // flags the player took back; each removal means the
                        // placement + removal pair (2 clicks) netted nothing —
                        // the second kind of waste besides no-op clicks
+let gameSeed = null;    // 128-bit seed for placement and Justice redraws
+let gameRandom = null;  // the one deterministic random stream for this game
 
 // Press-preview state (left button held down)
 let leftDown = false;
@@ -106,6 +111,7 @@ const resultSummary = document.getElementById('result-summary');
 const resultStats = document.getElementById('result-stats');
 const resultRanks = document.getElementById('result-ranks');
 const customForm = document.getElementById('custom-form');
+const justiceLive = document.getElementById('justice-live');
 
 //-------LCD DISPLAYS-------
 
@@ -165,7 +171,7 @@ function placeMines(safeIndex) {
     if (i !== safeIndex) pool.push(i);
   }
   for (let i = pool.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(gameRandom() * (i + 1));
     [pool[i], pool[j]] = [pool[j], pool[i]];
   }
   for (let k = 0; k < config.mines; k++) {
@@ -183,6 +189,7 @@ function placeMines(safeIndex) {
 function newGame() {
   gameState = 'ready';
   minesPlaced = false;
+  justiceEnabledForGame = null;
   flagsCount = 0;
   revealedCount = 0;
   clickCount = 0;
@@ -193,6 +200,9 @@ function newGame() {
   startTime = 0;
   mousePathPx = 0;
   justiceEvents = 0;
+  gameSeed = GameRandom.createSeed();
+  gameRandom = GameRandom.fromSeed(gameSeed);
+  justiceLive.textContent = '';
   const stamps = document.getElementById('justice-stamps');
   if (stamps !== null) stamps.remove();
   clearInterval(timerInterval);
@@ -226,6 +236,7 @@ function newGame() {
   resultSummary.textContent = '';
   resultStats.textContent = '';
   resultRanks.textContent = '';
+  refreshSettingsPanel();
 }
 
 function startTimer() {
@@ -260,13 +271,18 @@ function revealCell(index) {
   const cell = cells[index];
   if (cell.revealed || cell.flagged) return;
 
+  let firstReveal = false;
   if (!minesPlaced) {
     placeMines(index);
+    justiceEnabledForGame = settings.justUniverse;
     gameState = 'playing';
     startTimer();
+    refreshSettingsPanel();
+    firstReveal = true;
   }
 
-  if (cell.mine && !attemptJustice([index])) {
+  if (!firstReveal) attemptJustice(index);
+  if (cell.mine) {
     lose([index]);
     return;
   }
@@ -321,7 +337,7 @@ function chord(index) {
   clickCount++;
 
   const hitMines = toReveal.filter((n) => cells[n].mine);
-  if (hitMines.length > 0 && !attemptJustice(toReveal)) {
+  if (hitMines.length > 0) {
     lose(hitMines);
     return true;
   }
@@ -373,22 +389,20 @@ function finish() {
   timerInterval = null;
   clearPresses();
   renderJusticeStamps();
+  refreshSettingsPanel();
 }
 
-//-------A JUST UNIVERSE (truly forced guesses "just so happen" to win)-------
+//-------A JUST UNIVERSE (sealed-pocket mercy)-------
 
-// Decided 2026-08-20 (PRODUCT.md "A just universe"): with the setting on, a
-// click that would die on a *named coin* — a sealed region no strategy could
-// ever have resolved (endgame leftovers, sealed 50/50 pairs and chains,
-// sealed zones entered at their best odds) — quietly redraws the mines with
-// that cell clear and play continues as if nothing happened. Open-field
-// gambles stay deadly. Detection and the redraw are justice.js (pure,
-// node-testable); this is the only place the game calls it.
+// Qualification happens before the hidden layout is consulted. Every bare
+// click into a certified sealed pocket is one Justice event whether that
+// cell was already clear or needed a conditional redraw. Chords never enter
+// this path: a wrong flag is the player's mistake.
+let justiceEnabledForGame = null; // frozen from the setting on first reveal
+let justiceEvents = 0;            // qualifying sealed-pocket entries
 
-let justiceEvents = 0; // saves granted in the current game
-
-function attemptJustice(revealIndices) {
-  if (!settings.justUniverse) return false;
+function attemptJustice(index) {
+  if (justiceEnabledForGame !== true) return false;
   const view = {
     width: config.width,
     height: config.height,
@@ -396,20 +410,20 @@ function attemptJustice(revealIndices) {
     revealed: cells.map((c) => c.revealed),
     adjacent: cells.map((c) => c.adjacent),
   };
-  const hits = revealIndices.filter((i) => cells[i].mine);
+  let certificate;
   let redrawn;
   try {
-    redrawn = Justice.trySave(view, hits, revealIndices,
-      cells.map((c) => c.mine), Math.random, { nodes: 0, limit: Justice.NODE_BUDGET });
+    certificate = Justice.certifyEntry(view, index);
+    if (certificate === null) return false;
+    redrawn = Justice.redrawEntry(
+      certificate, index, cells.map((c) => c.mine), gameRandom);
   } catch (err) {
-    // Same philosophy as storageFailure: a solver failure is a bug to fix,
-    // not a mode to tolerate — announce where the player can see it, rethrow.
     backupStatus.textContent = 'justice solver failed: ' + err.message;
     throw err;
   }
-  if (redrawn === null) return false;
-  // The redraw must agree with every number already on screen; a
-  // contradiction is a solver bug and must not reach the board.
+  let mineTotal = 0;
+  for (const mine of redrawn) if (mine) mineTotal++;
+  if (mineTotal !== config.mines) throw new Error('justice redraw changed the mine total');
   for (let i = 0; i < cells.length; i++) {
     if (!cells[i].revealed) continue;
     if (neighbors(i).filter((n) => redrawn[n]).length !== cells[i].adjacent) {
@@ -418,23 +432,31 @@ function attemptJustice(revealIndices) {
   }
   for (let i = 0; i < cells.length; i++) cells[i].mine = redrawn[i];
   for (let i = 0; i < cells.length; i++) {
-    // Mirrors placeMines: mines keep adjacent 0.
     cells[i].adjacent = cells[i].mine ? 0 : neighbors(i).filter((n) => cells[n].mine).length;
   }
+  if (cells[index].mine) throw new Error('justice entry remained mined');
   justiceEvents++;
+  announceJustice(certificate);
   return true;
 }
 
-// The big fun stamp: when the finished game contained justice, "JUSTICE"
-// slams onto the board once per save, slightly scattered like a real rubber
-// stamp used more than once. Shown at game end only — during play a save is
-// deliberately invisible (the player just "happens" to survive).
+function announceJustice(certificate) {
+  const word = document.createElement('div');
+  word.className = 'justice-live-word';
+  word.textContent = 'JUSTICE';
+  word.title = 'Guaranteed entry into a certified sealed '
+    + certificate.type + ' pocket (' + certificate.clearWays + '/'
+    + certificate.totalWays + ' clear)';
+  justiceLive.appendChild(word);
+}
+
+// The game-end recap keeps one large stamp per qualifying entry.
 function renderJusticeStamps() {
   if (justiceEvents === 0) return;
   const holder = document.createElement('div');
   holder.id = 'justice-stamps';
-  holder.title = justiceEvents + ' truly forced guess'
-    + (justiceEvents === 1 ? '' : 'es') + ' went your way this game (a just universe)';
+  holder.title = justiceEvents + ' sealed-pocket entr'
+    + (justiceEvents === 1 ? 'y was' : 'ies were') + ' guaranteed safe this game';
   for (let k = 0; k < justiceEvents; k++) {
     const stamp = document.createElement('div');
     stamp.className = 'justice-stamp';
@@ -487,6 +509,11 @@ function reportResult(outcome) {
     mousePathPx: Math.round(mousePathPx),
     states: activeStateNames(),
     justice: justiceEvents,
+    justiceEnabled: justiceEnabledForGame,
+    seed: gameSeed,
+    rngVersion: RNG_VERSION,
+    boardVersion: BOARD_VERSION,
+    justiceVersion: JUSTICE_VERSION,
   };
   const modeRecords = appendGameRecord(record);
   saveTrace(record);
@@ -524,8 +551,8 @@ function renderResult(record, modeRecords) {
     ['Wasted clicks', String(record.wastedClicks)],
     ['Flags placed', isMarkless(record) ? '0 - markless' : String(record.flagsPlaced)],
     ['Flags removed', String(record.flagsRemoved)],
-    // Justice: truly forced guesses that went the player's way (only on
-    // games that measured it).
+    // A Justice event is any qualifying sealed-pocket entry, whether the
+    // hidden witness was already clear or needed a redraw.
     ...(record.justice !== undefined ? [['Justice', String(record.justice)]] : []),
     ...(record.outcome === 'win'
       ? [['Clicks over 3BV', String(record.clicks - record.bv3)]]
@@ -589,7 +616,12 @@ const GAME_RECORD_SCHEMA = [
   { field: 'flagsRemoved', valid: (v) => v === undefined || isNumber(v), example: '1', describe: 'flags the player took back; each removal = a place+remove pair (2 clicks) that netted nothing; absent on games recorded before 2026-08-20' },
   { field: 'mousePathPx', valid: isNumber, example: '1182', describe: 'cursor travel while playing, px' },
   { field: 'states', valid: (v) => v === undefined || (Array.isArray(v) && v.every((s) => typeof s === 'string')), example: '["sleepy"]', describe: 'player-defined state tags active when the game finished (see the states panel); absent on games recorded before 2026-08-20' },
-  { field: 'justice', valid: (v) => v === undefined || isNumber(v), example: '1', describe: 'truly forced guesses that "just so happened" to win (the "a just universe" setting); absent on games recorded before 2026-08-20' },
+  { field: 'justice', valid: (v) => v === undefined || isNumber(v), example: '1', describe: 'bare entries into certified sealed pockets that Justice guaranteed safe; absent on games recorded before 2026-08-20' },
+  { field: 'justiceEnabled', valid: (v) => v === undefined || typeof v === 'boolean', example: 'true', describe: 'whether "a just universe" was frozen on for this game at its first reveal; absent on earlier games' },
+  { field: 'seed', valid: (v) => v === undefined || (typeof v === 'string' && /^[0-9a-f]{32}$/.test(v)), example: '"2f4c5a107ad399e681137b2dc51490aa"', describe: '128-bit seed for initial placement and Justice redraws; absent on earlier games' },
+  { field: 'rngVersion', valid: (v) => v === undefined || v === RNG_VERSION, example: '"' + RNG_VERSION + '"', describe: 'algorithm that turns seed into the game random stream; absent on earlier games' },
+  { field: 'boardVersion', valid: (v) => v === undefined || v === BOARD_VERSION, example: '"' + BOARD_VERSION + '"', describe: 'first-click-safe board placement algorithm used with the seed; absent on earlier games' },
+  { field: 'justiceVersion', valid: (v) => v === undefined || v === JUSTICE_VERSION, example: '"' + JUSTICE_VERSION + '"', describe: 'sealed-pocket certification and redraw contract; absent on earlier games' },
 ];
 
 // Records are grouped by mode key and kept in chronological order. The RAM
@@ -615,7 +647,7 @@ const SETTINGS_SCHEMA = [
     default: true,
     valid: (v) => typeof v === 'boolean',
     label: 'a just universe',
-    describe: 'when in a truly forced-guess situation, you "just so happen" to win',
+    describe: 'when you bare-click into a sealed pocket that no outside clue can ever resolve, that entry is guaranteed safe',
     // A "?" beside the name raises this page on hover (examples of what
     // counts as truly forced and what does not).
     helpFile: 'just-universe-help.html',
@@ -1555,6 +1587,11 @@ function saveTrace(record) {
     endedAt: record.endedAt,
     mode: modeKey(),
     outcome: record.outcome,
+    justiceEnabled: record.justiceEnabled,
+    seed: record.seed,
+    rngVersion: record.rngVersion,
+    boardVersion: record.boardVersion,
+    justiceVersion: record.justiceVersion,
     startedAt: trace.startedAt,
     sampleT: Float64Array.from(trace.t),
     sampleX: Float32Array.from(trace.x),
@@ -3692,6 +3729,10 @@ function buildSettingsPanel() {
     box.dataset.field = s.field;
     box.checked = settings[s.field];
     box.addEventListener('change', () => {
+      if (s.field === 'justUniverse' && gameState === 'playing') {
+        box.checked = settings[s.field];
+        return;
+      }
       settings[s.field] = box.checked;
       saveSettings();
       if (renderedResult !== null) renderResult(renderedResult.record, renderedResult.modeRecords);
@@ -3739,6 +3780,9 @@ function buildSettingsPanel() {
 function refreshSettingsPanel() {
   for (const box of settingsPanel.querySelectorAll('input[type=checkbox]')) {
     box.checked = settings[box.dataset.field];
+    const locked = box.dataset.field === 'justUniverse' && gameState === 'playing';
+    box.disabled = locked;
+    box.title = locked ? 'A just universe is fixed from the first reveal until this game ends.' : '';
   }
 }
 

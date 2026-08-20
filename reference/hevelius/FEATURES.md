@@ -116,7 +116,14 @@ Named assumptions:
   unobservable time inside the segment. Segments containing thinking or
   wandering are not Hevelius-grade pointing movements; a filter for
   deliberate target-directed segments is required (the CHI 2012 paper is the
-  template for exactly this).
+  template for exactly this). Affirmed as the deliberate design 2026-08-20:
+  anchoring at the last click, agnostic to when the destination became
+  available or was deduced, is what keeps every number a statement about
+  the physical interaction layer rather than a guess at private intention —
+  the full birth-time taxonomy (information birth / deduction / commitment /
+  re-verification) and the computable refinements deferred for later are in
+  reference/mouse-motion-metrics.md, "Goal birth time and segment
+  anchoring".
 - A2 (intent): the clicked cell is the intended target; target center = cell
   center and target region = cell rect via the layout events. False for
   mis-clicks (cf. wastedClicks) and approximate for chords. Hevelius targets
@@ -130,7 +137,11 @@ Named assumptions:
 - A4 (decision-time contamination): any feature whose definition includes
   time not strictly inside cursor motion — movement time, verification time,
   pauses — absorbs minesweeper deduction time, which Hevelius's "as fast and
-  accurate as possible" instruction excludes by design.
+  accurate as possible" instruction excludes by design. Note (2026-08-20):
+  the contamination is uneven across segments — a return to a goal deduced
+  earlier (thinking prepaid during other work) is nearly pure transport,
+  while a fresh-deduction segment is soaked; per-game means mix both. See
+  the birth-time section of reference/mouse-motion-metrics.md.
 
 Classification legend: direct = computable from the trace as defined;
 A-n = computable under the named assumption(s); the pipeline (resample,

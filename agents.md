@@ -25,7 +25,8 @@ The design axis mapped so far, ordered by who bears the burden of ambiguity:
 7. The angelic dual of Kaboom — mostly unexplored: any guess consistent with
    your information succeeds; you die only by contradicting known facts.
    First step implemented 2026-08-20 as "A just universe" (PRODUCT.md):
-   sealed forced guesses always survive; open-field gambles stay deadly.
+   certified sealed-pocket entries are guaranteed safe; open-field gambles
+   and all chords stay deadly.
 
 The repo name points at entry 7 and its neighbors: variants friendlier than
 standard play.
@@ -41,7 +42,7 @@ forced mine.
 
 ## State
 
-Standard mode clone implemented (2026-08-19): `index.html` + `style.css` +
+Runtime: `index.html` + `style.css` + pure `rng.js` / `justice.js` +
 `minesweeper.js`, no dependencies, no build step. Serve with
 `python3 -m http.server 8018`.
 
@@ -71,9 +72,10 @@ Implementation notes:
 - History: userdata 'history' maps mode key to a
   chronological array of game records, one per finished game:
   {endedAt, outcome: 'win'|'loss', timeMs, bv3, clicks, wastedClicks,
-  flagsPlaced, flagsRemoved, mousePathPx, states} — primary measurements
-  only (wastedClicks and flagsPlaced absent on records from before
-  2026-08-19, flagsRemoved and states absent before 2026-08-20; see
+  flagsPlaced, flagsRemoved, mousePathPx, states, justice,
+  justiceEnabled, seed, rngVersion, boardVersion, justiceVersion} —
+  primary measurements only
+  (later-added fields may be absent on earlier records; see
   `GAME_RECORD_SCHEMA`). The mode key is the board parameters
   (`modeKey()`, e.g. `9x9/10`); difficulty names are display-only
   (`modeLabel()`). Timestamps are epoch ms; all calendar math is done in
@@ -247,52 +249,57 @@ Implementation notes:
   change saves and re-renders `renderedResult` in place). Exports carry
   the block under the reserved top-level `"settings"` key; `importHistory`
   validates it with the rest of the blob and applies known fields.
-  First setting: `collapseDuplicateCharts` — gates the progressive
-  disclosure dedupe in `renderRanks`.
+  `justUniverse` is frozen into `justiceEnabledForGame` at first reveal;
+  its checkbox is disabled while `gameState === 'playing'`. Other settings
+  remain immediately editable. `collapseDuplicateCharts` gates the
+  progressive-disclosure dedupe in `renderRanks`.
 - A just universe (PRODUCT.md "A just universe"): the judge and redraw
   are `justice.js` — pure logic on a view {width, height, mines,
   revealed[], adjacent[]} (flags invisible by design), exporting the
   `Justice` global / CommonJS module, loaded before `minesweeper.js` in
-  `index.html`. Pipeline is deduce → decompose → decide, all
-  deterministic and exact (no sampling, no floats): `proveFacts` (the
-  solver tiers (a) counting and (b) subset subtraction from this file's
-  design-axis notes, iterated to a fixpoint — sound; incompleteness only
-  affects decomposition granularity, never correctness),
-  `buildStructure` (substitutes facts into clues, splits the remaining
-  unknowns into ambiguity islands connected via shared residual clues;
-  proven cells cut the constraint graph, so islands are small — a sealed
-  pair is 2 cells, the corner-1 is 3), `trySave` (judges each hit:
-  proven-mine hits and open regions rejected, sealed islands checked by
-  one witness-anchored streaming enumeration that aborts on the first
-  arrangement disagreeing with the current layout about anything a
-  player could ever observe — total or any bordering cell's view;
-  sea hits use `seaGuards` + fixed island totals via `existsOtherTotal`,
-  a branch-and-bound existence query). Redraw: reservoir-uniform among
-  island arrangements consistent with the opened cells clear, sea
-  reshuffled at fixed count; mine total and every revealed number
-  preserved (asserted). The first design enumerated the whole
-  clue-connected component and was intractable mid-game (2026-08-20);
-  the deduce-then-decompose rewrite is what makes it fast — keep it.
-  Work is budgeted at one unit per cell assignment
-  (`Justice.NODE_BUDGET` = 2e7, shared per attempt); exceeding it throws
-  (announce via #backup-status, rethrow — a bug, not a fallback).
-  Measured 2026-08-20 (`tests/justice-bench.js`, deterministic
-  constructed worst cases, no randomness): every case — expert and
-  100x100/2000 corner-1, a 21-cell undeducible chain island, 48- and
-  300-cell sealed sea remnants — under 3 ms and at most 21 work units.
-  Game side (`minesweeper.js`): `attemptJustice(revealIndices)` is the
-  only call site, invoked from `revealCell` and `chord` in place of
-  `lose()` when the setting is on; on a save it swaps `cells[].mine`,
-  recomputes `adjacent`, increments `justiceEvents` (reset in `newGame`),
-  and the fatal click proceeds as an ordinary reveal. `finish` calls
-  `renderJusticeStamps` (#justice-stamps overlay on #game-frame, one
-  .justice-stamp per save, style.css `justice-slam`). `reportResult`
-  stores `justice: justiceEvents` (GAME_RECORD_SCHEMA; absent before
-  2026-08-20). Settings schema entries may carry `helpFile`;
+  `index.html`. Exact player rule: a bare click into a certified pocket
+  that no outside clue can ever resolve is guaranteed safe. Qualification
+  is hidden-layout-independent: `certifyEntry(view, clicked)` receives no
+  witness. It runs `proveFacts` (counting, subset subtraction, terminal
+  global-count facts), `buildStructure` (residual clue components plus
+  8-connected sea components), then recognizes one compact family:
+  `cardinalityShape` (every k-of-n layout), `complementShape` (a connected
+  spanning x+y=1 graph whose two equal-total bipartition layouts satisfy
+  every residual clue), or one sealed sea remnant whose count is fixed by
+  cardinality/complement frontier templates. Covered external cells must
+  be proved mines or receive an invariant pocket contribution. Whole
+  residual components are used; v1 never searches arbitrary subsets.
+  Unsupported asymmetric/exotic ambiguity is outside the product rule.
+  This replaced two model-enumeration implementations on 2026-08-20: the
+  first hung mid-game; the second's sparse benchmark falsely supported a
+  universal <3ms claim, while a deterministic 40-variable sealed
+  constraint family exposed 1,048,576 layouts and took ~693ms. The current
+  certificate judge enumerates no layouts and has no work budget.
+  `redrawEntry(certificate, clicked, currentMines, random)` consults the
+  witness only after certification: an already-clear entry returns it
+  unchanged; a mined cardinality/sea entry directly samples k locations
+  excluding the click; a mined complement entry switches partitions.
+  Game side: only `revealCell` calls `attemptJustice(index)`, before its
+  mine test and never on the first reveal. `chord` never calls Justice;
+  wrong flags remain fatal. Every qualifying entry increments
+  `justiceEvents` regardless of whether redraw occurred, appends a live
+  `.justice-live-word` to #justice-live at the board's right, and receives
+  one end-game `.justice-stamp`. `reportResult` stores `justice`,
+  `justiceEnabled`, `seed`, `rngVersion`, `boardVersion`, and
+  `justiceVersion`; rankings intentionally remain mixed for now. `rng.js`
+  exports `GameRandom`: `createSeed` obtains 128
+  bits from `crypto.getRandomValues`, and `fromSeed` implements
+  `xoshiro128ss-v1`, the single stream used by `placeMines` and Justice.
+  Initial-board replay needs mode + first click + seed + RNG/board versions;
+  Justice replay also needs the input trace and Justice version. Settings
+  schema entries may carry `helpFile`;
   `buildSettingsPanel` renders the "?" + iframe hover popover
   (`.setting-help`/`.setting-help-pop`), used by `justUniverse` →
   `just-universe-help.html`. Correctness: `node tests/justice-test.js`
-  (18 checks, ascii fixtures); timing: `node tests/justice-bench.js`.
+  (deterministic fixtures including safe-entry counting semantics and the
+  chord-origin rule); `node tests/rng-test.js` freezes the RNG version's
+  output sequence; scale: `node tests/justice-bench.js` (100x100 boards,
+  10,000-cell structural proof and direct redraw; no timing threshold).
 - Rankaverage sort persistence: userdata 'rankavgSort' maps stat label to
   {key, dir} (absent = natural rank order); written by the sort-header
   click cycle in `buildRankavgList` (asc → desc → none).

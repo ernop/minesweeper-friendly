@@ -44,42 +44,54 @@ The first friendly variant (the direction of `agents.md` design-axis entry
 choices and to the field's diffuse odds, but never to a coin the universe
 minted specifically for them.
 
-- The protected situation is the *named coin* (structural, de re
-  necessity): a sealed region — a set of covered cells with two or more
-  consistent mine arrangements that no strategy could ever tell apart. No
-  revealed number distinguishes them, no revealable cell ever could, and
-  the region's mine total is identical in every arrangement, so global
-  mine counting is blind to it too. Winning requires clearing the safe
-  cells inside such a region, so every winning line must eventually click
-  into it blind. Covered: endgame leftovers (the classic final 50/50),
-  sealed pairs and chains behind proven mines whenever they form, and a
-  sealed sea remnant. The player must also have entered the region at its
-  best odds (ties count); picking the worse cell of an asymmetric sealed
-  zone is a real mistake and stays deadly.
-- Deliberately NOT protected (merely de dicto — "some gamble was needed,
-  but not this one"): open-field guesses, including the early corner-1
-  where guessing is unavoidable in aggregate but no specific cell is
-  forced — the board could still resolve differently, so the loss names a
-  risk the player chose. Provably-known mines are never saved.
-- Mechanics: when a click (or chord) would die on a named coin, the mines
-  are quietly redrawn with that cell clear — uniformly among the
-  arrangements consistent with everything on screen — and play continues
-  as if nothing happened. During play a save is invisible; the player
-  just "happens" to survive. Mine total and every revealed number are
-  preserved exactly.
-- At game end, one big "JUSTICE" rubber stamp slams onto the board per
-  save, slightly scattered, with a hover title explaining the count.
-- The per-game record carries the save count (`justice` field; see
-  Per-game stats), shown as a "Justice" row in the stats table.
+- Exact player-facing definition: **when you bare-click into a certified
+  pocket that no outside clue can ever resolve, that entry is guaranteed
+  safe.**
+- A *sealed pocket* is a group of still-unknown cells with at least two
+  possible internal mine arrangements, all with the same mine total, such
+  that every possible observation outside the pocket is identical under
+  every arrangement. An internal safe click may reveal a number and resolve
+  the rest; the defining fact is that this information could not be earned
+  before entering. Every cell in a certified v1 pocket is ambiguous and
+  has the same odds.
+- This is structural, de re necessity: winning eventually requires entering
+  this particular unreadable pocket. It deliberately excludes merely de
+  dicto necessity ("some gamble is required"), including the early corner-1
+  and its open sea. It also excludes provably safe/mine cells.
+- Justice applies only to a bare direct reveal. Chords categorically receive
+  none, even if a chord would open only one cell: a flag is the player's
+  unsupported claim, and a wrong one may kill.
+- Qualification is decided from visible clues and the global mine count
+  before the hidden layout is consulted. Every qualifying entry increments
+  `justice`, whether its cell was already clear or needed intervention. If
+  mined, only the certified pocket is redrawn uniformly from its represented
+  layouts conditioned on that cell being clear. Thus Justice is a count of
+  guaranteed sealed-pocket entries, not counterfactual deaths undone.
+- V1 recognizes only structures carrying short exact certificates:
+  symmetric k-of-n pockets, equal-total alternating 50/50 pairs/chains, and
+  a single sealed sea remnant whose mine count is pinned by certified
+  frontier totals. Arbitrary asymmetric or structurally exotic ambiguities
+  are outside v1 and retain ordinary Minesweeper behavior. This explicit
+  scope replaces the earlier unbounded model-enumeration design.
+- Each event immediately prints "JUSTICE" to the board's right. At game end,
+  one large rubber stamp appears per event.
+- The per-game record carries the event count (`justice`), the frozen
+  `justiceEnabled` state, the 128-bit `seed`, `rngVersion`, `boardVersion`,
+  and `justiceVersion`; see Per-game stats. Rankings continue mixing
+  Justice-on and Justice-off games for now (explicit user decision
+  2026-08-20; separation is deferred).
 - Setting `justUniverse` (default on), labeled "a just universe":
-  "when in a truly forced-guess situation, you 'just so happen' to win".
+  "when you bare-click into a sealed pocket that no outside clue can ever
+  resolve, that entry is guaranteed safe". It remains editable before the
+  first reveal, is frozen for the active game, and unlocks when the game
+  ends or restarts.
   A "?" beside the name raises `just-universe-help.html` on hover — a
   standalone page of mini-board diagrams showing where the rule applies
   and where it does not.
-- The judge is exact, deterministic logic (no sampling, no probability
-  estimates): deduce facts, decompose the ambiguity into islands, decide
-  by exhaustive check of the tiny residual region. Implementation and
-  measured costs (worst constructed case under 3 ms) in `agents.md`.
+- The certificate judge is exact and deterministic; it performs no model
+  enumeration and has no search budget. Redraw sampling is direct over the
+  compact certified family. Implementation and deterministic scale checks
+  are recorded in `agents.md`.
 
 ## Layout: the board never moves
 
@@ -113,6 +125,22 @@ This is why measurements favor completeness over compactness, why raw
 traces are kept (a metric invented years from now must be computable over
 today's games), and why spent effort is never dropped (see the
 measurement principle in reference/mouse-motion-metrics.md).
+
+Clarified 2026-08-20: the motion metrics measure the outer physical
+world — the layer where the player actually interacts with the mouse and
+generates movements — not the inner cognitive one. Concretely, every
+inter-click movement is anchored at the last click before it, regardless
+of how long before that its destination had been revealed or become
+deducible; when the player's intention for a move was actually born
+(at the enabling reveal, during earlier work, on committing after the
+previous click, or on re-verifying at arrival) is private and is
+deliberately not guessed at. A cell that gets resolved indirectly by
+separate processes (a flood fill or a chord from elsewhere) simply
+produces no movement and no work items — correct, because no physical
+interaction happened there. The full birth-time analysis, including the
+uneven thinking-contamination it implies and the computable refinements
+left for later, is in reference/mouse-motion-metrics.md ("Goal birth
+time and segment anchoring").
 
 ## Per-game stats
 
@@ -159,10 +187,25 @@ folded into wasted clicks because the two wastes mean different things —
 a wasted click is a motor slip (clicking where nothing can happen), a
 removed flag is a changed mind.
 
-Justice — how many truly forced guesses "just so happened" to win this
-game (see "A just universe") — joined the schema on 2026-08-20 under the
-same absence rules as wasted clicks. Zero is a normal value and is
-recorded; the stats table always shows the row when the field exists.
+Justice — how many bare entries into certified sealed pockets were
+guaranteed safe (see "A just universe") — joined the schema on 2026-08-20
+under the same absence rules as wasted clicks. It increments on every
+qualifying entry whether the hidden cell was originally clear or required
+a redraw. Zero is a normal value and is recorded; the stats table always
+shows the row when the field exists. `justiceEnabled` records the setting
+state frozen at the first reveal so the rules of the game remain knowable,
+although rankings deliberately continue mixing both states for now.
+
+Seed — every new board receives a cryptographically generated 128-bit seed.
+`xoshiro128ss-v1` expands it into the one deterministic random stream used
+for initial mine placement and every Justice redraw. Finished records and
+traces store `seed`, `rngVersion`, `boardVersion`, and `justiceVersion`.
+The seed plus board mode, first click, RNG version, and board version
+reproduces the initial board. Reproducing later redraws also requires
+replaying the stored input trace under the recorded Justice version,
+because redraws consume the stream only when the player's path triggers
+them. A bare seed without those version names is not claimed to be a
+permanent replay format.
 
 States — the player's state tags active at the moment the game finished
 (see "Player states" below) — joined the schema on 2026-08-20. Every game
@@ -502,9 +545,10 @@ carries at least one tag.
   and interactive. One checkbox per switch with its full description; a
   change saves immediately and re-renders the result on screen, so the
   player watches the meaning of the change while the panel stays open.
-- Settings so far: `justUniverse` (default on) — the forced-guess
-  protection (see "A just universe"; the only setting so far with a "?"
-  hover help page); `collapseDuplicateCharts` (default on) — the rank
+- Settings so far: `justUniverse` (default on) — sealed-pocket mercy (see
+  "A just universe"; the only setting so far with a "?" hover help page;
+  editable until the first reveal, then locked for the active game);
+  `collapseDuplicateCharts` (default on) — the rank
   lists' progressive disclosure switch (see Rank lists);
   `showMotionStatsDuringGame` and `showMotionStatsAfterGame` (both
   default on) — the two stages of the trace metrics display (see Trace

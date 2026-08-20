@@ -219,6 +219,75 @@ Tier 1/2 waste measures above. Harnesses: tests/metrics-*.js.
   must be fixed before the field enters the schema and named in its
   `describe` string.
 
+## Goal birth time and segment anchoring (decided 2026-08-20)
+
+Every literature ported here measures movement against an *instructed*
+goal: a target appears (that is t = 0) and the participant is told to
+click it. Gameplay has no such instruction — the goal is born inside the
+player's head at some unobservable moment. Working through a concrete
+scenario settled how this project handles that.
+
+The scenario: a click reveals two usable frontiers, A and B. The player
+works A's chain of clicks quickly and well, then returns across the
+board and clicks B (call that move C). When was the goal of C born?
+Four defensible answers, possibly minutes apart:
+
+1. Information birth — the original reveal that exposed B. From that
+   instant B's deduction was available in the world. This is the closest
+   analog to the lab's "target onset" (in the lab, availability and
+   instruction are fused into one stimulus).
+2. Deduction — the private moment the player worked out that B is safe.
+   Cognition runs in parallel with motor execution, so this may happen
+   *during* the A-chain. No trace can observe it.
+3. Commitment — the moment after the last A click when the player
+   decided "now B."
+4. Re-verification — a possible second deduction on arrival at B,
+   visible only as pre-click stillness.
+
+DECIDED: movements are anchored at the last click before them (the A1
+segmentation), regardless of how long before that the destination had
+been revealed or become deducible — i.e. the code's operational answer
+is "birth = commitment," candidate 3, and candidates 1, 2, and 4 are
+deliberately not guessed at. The reason is the measurement purpose: this
+system characterizes the outer physical world, where the player actually
+interacts with the mouse and generates movements — not the inner
+cognitive one. Intention is private; anchoring at observable clicks
+keeps every number a statement about physical interaction. Consistently,
+a cell resolved indirectly by separate processes (flood fill, a chord
+from elsewhere) produces no movement, no segment, and no work items at
+all — correct, because no physical interaction happened there.
+
+Two consequences worth remembering when reading the numbers:
+
+- The thinking contamination (FEATURES.md A4) is *uneven* across
+  segments. A queued return like C — thinking prepaid during the
+  A-chain — is nearly pure transport: prompt initiation, direct path,
+  short verification; one of the cleanest motor measurements gameplay
+  produces. A fresh-deduction segment is soaked with thinking. Per-game
+  means mix both kinds.
+- Because of that, a deliberate-movement filter (the CHI 2012
+  classifier direction, reference/hevelius/) would not just remove
+  wandering — it would also *find* the queued returns, which are the
+  gold-standard pointing trials hiding in ordinary play.
+
+Computable refinements, researched, NOT built:
+
+- Final-approach onset (trace-only): define the start of the last
+  movement bout that terminates in the click as "the run at the
+  target," and measure initiation/transport from there instead of from
+  the previous click. Handles both the wandering case and the queued
+  return correctly.
+- Deducible-since timestamps (needs a solver replay): stamp, per cell,
+  when it first became provably safe/mined — the observable surrogate
+  for information birth (candidate 1). Gives opportunity latency =
+  click time − deducible-since, decomposable into visible transport
+  plus invisible cognition-and-queueing.
+- Queue metrics built on that: how long discovered-but-pending
+  frontiers wait, whether they are cleared in an efficient order, and
+  whether queue latency stretches under fatigue or states. No ported
+  literature measures this — their tasks have one instructed goal at a
+  time; minesweeper naturally has a queue.
+
 ## Sources
 
 - Stillman, Shen & Ferguson 2018, "How Mouse-tracking Can Advance Social

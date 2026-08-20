@@ -107,21 +107,27 @@
 <h1>A Just Universe</h1>
 
 <div class="lead">
-  <p><span class="rule">You never lose to a coin the universe minted specifically for
-  you.</span> When the game corners you into a spot that <em>no possible way of
-  playing</em> could ever have figured out &mdash; and you take the best odds it
-  offers &mdash; the mine "just so happens" to be in the other cell. Everything
-  else about the board stays an honest, ordinary random board: ordinary guesses
-  keep their ordinary risk, and every number you ever saw stays true.</p>
+  <p><span class="rule">A sealed pocket is a group of unknown cells whose possible
+  mine arrangements all look identical from everywhere outside the group.</span>
+  No play outside it can tell you which internal cell is safe. When you bare-click
+  into a certified sealed pocket, that entry is guaranteed safe and counts as one
+  <b>JUSTICE</b> &mdash; whether the cell was already clear or the pocket had to be
+  redrawn. Every number already revealed and the total mine count remain true.</p>
 </div>
 
-<p>The test is strict, and it is about the <em>place</em>, not the moment: a spot
-is truly forced only when every winning line of play &mdash; in any order, with
-any skill &mdash; must eventually click into that exact sealed pocket while it is
-still a mystery. If any information about it could ever have been earned,
-anywhere, at any price, the risk is real.</p>
+<p>The key is <em>outside the pocket</em>: an internal safe click may reveal a
+number that resolves the rest, but there was no way to earn that information
+before entering. This is stricter than an ordinary &ldquo;forced guess.&rdquo; A
+corner 1 may force you to gamble somewhere, yet it does not force entry into one
+permanently unreadable pocket.</p>
 
-<h2 class="saves">When it saves you</h2>
+<p>This first version certifies three exact, equal-odds structures: symmetric
+<em>k</em>-of-<em>n</em> pockets, alternating 50/50 pairs and chains, and a final
+sealed sea remnant. It never estimates probabilities or searches until time runs
+out. An exotic ambiguity without one of these short structural proofs keeps
+ordinary Minesweeper behavior.</p>
+
+<h2 class="saves">When Justice applies</h2>
 
 <div class="example">
   <div class="mini" style="--w:3">
@@ -132,8 +138,9 @@ anywhere, at any price, the risk is real.</p>
     <p><span class="name">The endgame 50/50.</span> One mine left, two cells it could
     be in, and no number will ever see either cell (a wall of proven mines seals
     them off). The whole game comes down to a coin you were always going to have
-    to flip. <span class="verdict-save">Saved.</span> Click either cell &mdash;
-    they are exactly equal &mdash; and you win it.</p>
+    to flip. <span class="verdict-save">Justice.</span> Bare-click either cell:
+    the entry is guaranteed safe and counts once, even when that cell was already
+    clear in the original layout.</p>
     <p class="legend">&#9679; = a cell proven to be a mine (it can never be opened,
     so it can never tell you anything). Gold outline = the cells the coin is between.</p>
   </div>
@@ -152,33 +159,30 @@ anywhere, at any price, the risk is real.</p>
     Every number that touches A also touches B, and the only cells that could ever
     have told them apart are proven mines &mdash; so no future play, anywhere on the
     board, can ever break the tie. You will have to flip this coin sooner or later;
-    flipping it now costs nothing. <span class="verdict-save">Saved.</span></p>
+    flipping it now costs nothing. <span class="verdict-save">Justice.</span></p>
   </div>
 </div>
 
 <div class="example">
-  <div class="mini" style="--w:4">
-    <span class="mc h cand">a</span><span class="mc r n1">1</span><span class="mc r dim"></span><span class="mc r dim"></span>
-    <span class="mc r n1">1</span><span class="mc h cand">b</span><span class="mc r n1">1</span><span class="mc r dim"></span>
-    <span class="mc r dim"></span><span class="mc r n1">1</span><span class="mc h cand">c</span><span class="mc r n1">1</span>
-    <span class="mc r dim"></span><span class="mc r dim"></span><span class="mc r n1">1</span><span class="mc h cand">d</span>
+  <div class="mini" style="--w:7">
+    <span class="mc h cand">a</span><span class="mc r n1">1</span><span class="mc h cand">b</span><span class="mc r n1">1</span><span class="mc h cand">c</span><span class="mc r n1">1</span><span class="mc h cand">d</span>
   </div>
   <div>
-    <p><span class="name">The 50/50 chain.</span> Each 1 links two neighbors: exactly
-    one mine in a&ndash;b, one in b&ndash;c, one in c&ndash;d. Only two layouts fit
-    &mdash; mines at a&amp;c, or mines at b&amp;d &mdash; and when the chain's flanks
-    are sealed (fragment shown; the dimmed cells stand for revealed or proven-mine
-    surroundings), nothing can ever say which. The whole chain is <em>one</em> coin:
-    survive one click inside it and every number it shows resolves the rest.
-    <span class="verdict-save">Saved.</span></p>
+    <p><span class="name">The 50/50 chain.</span> Each 1 links its two covered
+    neighbors: exactly one mine in a&ndash;b, one in b&ndash;c, one in c&ndash;d.
+    Only two layouts fit &mdash; mines at a&amp;c, or mines at b&amp;d &mdash; and
+    the one-cell-high strip has no outside square that could distinguish them.
+    The whole chain is <em>one</em> pocket: the first
+    guaranteed click inside it may show a number that resolves the rest.
+    <span class="verdict-save">Justice.</span></p>
   </div>
 </div>
 
-<p>Sealed pockets with more than two layouts (a 1-in-3 nook, say) count too
-&mdash; as long as you enter at the pocket's <em>best odds</em>. Take a worse cell
-inside the pocket when a better one existed and the risk is yours.</p>
+<p>Symmetric sealed pockets with more than two layouts count too: in a certified
+1-in-3 nook, for example, every cell has the same 1-in-3 mine risk, so a bare
+click into any of them receives Justice.</p>
 
-<h2 class="kills">When it does NOT save you</h2>
+<h2 class="kills">When Justice does NOT apply</h2>
 
 <div class="example">
   <div class="mini" style="--w:3">
@@ -197,17 +201,18 @@ inside the pocket when a better one existed and the risk is yours.</p>
 </div>
 
 <div class="example">
-  <div class="mini" style="--w:3">
-    <span class="mc r"></span><span class="mc r n1">1</span><span class="mc h cand">A</span>
-    <span class="mc r n1">1</span><span class="mc r n3">3</span><span class="mc h cand">B</span>
-    <span class="mc r n1">1</span><span class="mc h mine">&#9679;</span><span class="mc h mine">&#9679;</span>
-    <span class="mc r n1">1</span><span class="mc h"></span><span class="mc h"></span>
+  <div class="mini" style="--w:4">
+    <span class="mc r"></span><span class="mc r n1">1</span><span class="mc h cand">A</span><span class="mc h"></span>
+    <span class="mc r n1">1</span><span class="mc r n3">3</span><span class="mc h cand">B</span><span class="mc h"></span>
+    <span class="mc r n1">1</span><span class="mc h mine">&#9679;</span><span class="mc h mine">&#9679;</span><span class="mc h"></span>
+    <span class="mc r n1">1</span><span class="mc r n2">2</span><span class="mc r n2">2</span><span class="mc h"></span>
   </div>
   <div>
     <p><span class="name">The pair that could still be solved.</span> Same shape as the
-    sealed pair &mdash; but the bottom flank is unexplored, not proven. Open those
-    cells later and their numbers would tell A from B. Information about this pair is
-    still purchasable, so it is not a sealed coin yet.
+    sealed pair &mdash; but here the board keeps going to the right, and that flank is
+    unexplored, not proven. Open those cells later (the right-hand 2 already proves
+    the two beside it are safe) and their numbers begin to tell A from B. Information
+    about this pair is still purchasable, so it is not a sealed coin yet.
     <span class="verdict-kill">Real risk.</span></p>
   </div>
 </div>
@@ -218,22 +223,23 @@ inside the pocket when a better one existed and the risk is yours.</p>
     <span class="mc h cand">x</span><span class="mc h"></span><span class="mc h cand">z</span>
   </div>
   <div>
-    <p><span class="name">The knowable mine.</span> 1-2-1: the numbers already prove
-    x and z are mines and the middle is safe. Clicking a provable mine &mdash; or
-    chording on a wrong flag the numbers could have caught &mdash; is a mistake, not
-    a coin. <span class="verdict-kill">Real risk.</span></p>
+    <p><span class="name">The knowable mine &mdash; and every chord.</span> 1-2-1:
+    the numbers already prove x and z are mines and the middle is safe. Clicking a
+    provable mine is a mistake. Chording is also categorically outside this rule:
+    a flag is your claim, not information supplied by the board, and a wrong flag
+    may kill even when the surrounding uncertainty was unavoidable.
+    <span class="verdict-kill">No Justice.</span></p>
   </div>
 </div>
 
 <div class="footer">
-  <p><span class="rule">In one sentence:</span> you can lose to your own choices and
-  to the open field's ordinary odds, but never to a sealed pocket that no amount of
-  play could ever have read &mdash; walk into one of those at its best odds and you
-  "just so happen" to win.</p>
-  <p>A save is invisible while you play (that's the point). When the game ends you
-  get one big <b>JUSTICE</b> stamp per save, and the count is stored on the game's
-  record (the "Justice" row in the stats). Switch the setting off for the fully
-  classic experience: the same situations simply kill you.</p>
+  <p><span class="rule">In one sentence:</span> when you bare-click into a certified
+  pocket that no outside clue can ever resolve, that entry is guaranteed safe.</p>
+  <p>Each qualifying entry immediately prints <b>JUSTICE</b> to the board's right
+  and adds one to the game's Justice count, regardless of whether a redraw was
+  needed. The finished game also shows one large stamp per entry. The setting is
+  fixed at the first reveal and cannot change until the game ends; switch it off
+  before starting for ordinary Minesweeper.</p>
 </div>
 
 </body>
