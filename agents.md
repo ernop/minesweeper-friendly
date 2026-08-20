@@ -68,7 +68,7 @@ most specific renders, so a new player sees one chart and broader ones
 appear as history spreads across hours/days/weekdays.
 Rankaverage charts (`RANKAVERAGE_SPECS`) group wins by efficiency / clicks /
 3BV / 3BV/s (2-decimal buckets) / mouse path (100px buckets) / mouse speed
-(50px/s buckets; both use `has` to filter pre-pathPx wins) and rank the
+(10px/s buckets; both use `has` to filter pre-pathPx wins) and rank the
 groups by average solve time; each row shows
 rank, value, avg time, and x-count, and each chart carries an
 `avgDeltaCaption`: this win's effect on its group's average (green improved /

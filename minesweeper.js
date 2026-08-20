@@ -605,7 +605,7 @@ const RANKAVERAGE_SPECS = [
   { label: '3BV', value: (s) => s.bv, format: (v) => String(v) },
   { label: '3BV/s', value: (s) => Number(s.bvps.toFixed(2)), format: (v) => v.toFixed(2) },
   { label: 'mouse path', value: (s) => Math.round(s.pathPx / 100) * 100, format: (v) => v + 'px', has: (s) => typeof s.pathPx === 'number' },
-  { label: 'mouse speed', value: (s) => Math.round(s.pathPx / (s.timeMs / 1000) / 50) * 50, format: (v) => v + 'px/s', has: (s) => typeof s.pathPx === 'number' },
+  { label: 'mouse speed', value: (s) => Math.round(s.pathPx / (s.timeMs / 1000) / 10) * 10, format: (v) => v + 'px/s', has: (s) => typeof s.pathPx === 'number' },
 ];
 
 function buildRankList(headingText, rowCount, myIndex, gridClass, buildRowCells) {
