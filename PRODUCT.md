@@ -97,7 +97,11 @@ flag doesn't subtract; the auto-flagging of remaining mines on a win is
 not the player's doing and is not counted) — joined the schema on
 2026-08-19 under the same absence rules as wasted clicks. A game with
 zero flags placed holds the special status "markless": the stats table's
-"Flags placed" row reads "0 - markless". Records from before the
+"Flags placed" row reads "0 - markless", and wherever an individual game's
+time appears in a table chart (rank-list time cells, the stats table's
+Time row) a small olive-green "(m)" precedes it. Aggregate times
+(rankaverage group averages, delta rows) carry no marker, since they mix
+games. Records from before the
 measurement never claim the status, since for them it is unknown.
 
 Flags removed — how many flags the player took back — joined the schema
@@ -139,9 +143,11 @@ carries at least one tag.
   finishes (win or loss).
 - Editing the list never touches past games: records keep exactly the
   states they were stamped with, even if a state is later removed.
-- The states panel hangs off the board's LEFT edge, mirroring the
-  stats panel on the right: absolutely positioned, occupying no layout
-  space, so using it never moves the board.
+- The states panel sits in the screen's upper-right corner (2026-08-20;
+  it previously hung off the board's left edge), sharing a fixed cluster
+  with the settings button. Fixed to the viewport, it occupies no layout
+  space — using it never moves the board — and stays visible while
+  scrolling the charts.
 
 ## Rank lists (time windows and day categories)
 
@@ -159,7 +165,7 @@ carries at least one tag.
   sees a single chart; broader ones appear as history spreads out. This is
   the `collapseDuplicateCharts` setting (see Personal settings), on by
   default; switched off, every window always renders its own chart.
-- Also one non-window list: "best times for this 3BV (N)" — every win
+- Also one non-window list: "3BV N" — every win
   whose board had exactly this game's 3BV, the fairest time comparison
   (2026-08-20). Same row format as the window lists.
 - Row format: rank, time, relative age. Headings carry only the window
@@ -306,6 +312,14 @@ carries at least one tag.
   warmup and is real data, so capture covers the ready state, not just
   play. Post-game movement belongs to no game and is not captured.
   Abandoned boards (restarted mid-game) produce no record and no trace.
+- Sample timestamps are strictly increasing, by construction (decided
+  2026-08-20): browsers reduce performance.now() precision (Chromium
+  quantizes to ~100µs), so two mousemove events can read the same
+  timestamp. Such events are one sample — the latest position at that
+  instant — because at the timer's resolution the two positions are not
+  ordered in time, and a zero time step would put Infinity into every
+  rate computed from the trace. Every consumer (the metrics panel, the
+  offline extractors) may rely on this invariant.
 - Traces live in their own store (`traces`, keyed by endedAt exactly like
   history records; see Storage) and are never held in RAM — they are far
   too large for that. Nothing is pruned.
@@ -317,6 +331,67 @@ carries at least one tag.
   clipboard) for the offline analysis pipelines under `analysis/`.
 - Recording overhead, measured 2026-08-20: ~100ns per mousemove event and
   <0.5ms of typed-array conversion at save time — imperceptible.
+
+## Trace metrics panel (decided 2026-08-20; vertical with sparklines
+## later the same day, replacing the first bottom-strip form; live/final
+## split into panel/bottom-charts with settings later still)
+
+- The session-level mouse-dynamics features are computed in-page from the
+  trace and shown both live and canonically, in two places:
+  - LIVE (the panel): while a trace runs (board shown through game end),
+    a vertical panel fixed to the left edge recomputes once a second over
+    the samples so far, marked "live" in grey. Live numbers are transient
+    readings of an unfinished trace. The panel is the live display only;
+    it goes away when the game finishes.
+  - FINAL (the after-game charts): the moment a game finishes, the same
+    computation runs once over the complete trace, and each metric
+    renders as a larger chart inline at the page bottom, after whatever
+    other bottom charts the outcome produced (rank lists and scatters for
+    a win, nothing else for a loss — motion existed either way). These
+    are the canonical values: same code as live, complete data, and the
+    same wall-time definition the stored trace carries
+    (endedAt - startedAt) — live and final can never disagree in
+    definition, only in how much of the game they saw.
+- Two settings govern the two stages (see Personal settings; both default
+  on): "show motion stats during game" (the live panel) and "show motion
+  stats after game ends" (the bottom charts). Toggling either applies
+  immediately — the panel updates mid-game, the bottom charts appear or
+  vanish on the shown result. Finer stage-by-stage configurability of
+  what is shown when is planned, not built.
+- The live panel also carries its own small × toggler in its top-right:
+  clicking it tucks the panel down to a "motion ▸" chip in the same
+  corner, and the chip click brings it back. This is session-only
+  display state — the persistent switch is the setting.
+- One row per metric: the name, the current value, and a sparkline chart
+  of the value's evolution over this game (one point per live recompute
+  plus the final one). The sparkline carries labeled axes: y is the
+  series min and max (a flat series draws mid-chart but labels its true
+  value — the padding is chart geometry, not data), x runs 0 to the
+  elapsed seconds. Spans where the value was not yet measurable are gaps
+  in the line, never bridged. The after-game charts are the same rows at
+  chart size (230x130 vs the panel's 150x46).
+- The metrics, top to bottom (each row carries its definition as a hover
+  tooltip): strokes (movement bouts; a pause of 100ms or more separates
+  bouts), moving (time the cursor spent in motion), silence (share of the
+  game with the cursor still), path (total cursor travel in the trace),
+  speed (mean of per-stroke mean speeds), peak speed (fastest
+  sample-to-sample speed), straightness (chord/path per stroke, mean),
+  jerk (mean |da/dt|, px/ms³), turn rate (mean |heading change|, rad/ms),
+  left clicks, right clicks, hold (mean button-down time),
+  pause-and-click (mean stillness before a press).
+- The definitions are exactly those of the offline extractor
+  (`analysis/biometrics/extract_features.py`, sources cited there); the
+  two implementations are kept in step by a parity harness that compares
+  them on the checked-in synthetic trace (see agents.md). A number on the
+  panel means exactly what the offline pipeline would compute.
+- A value whose formula needs more data than the trace has yet (no
+  strokes, no completed click, zero wall time) shows as an en dash with a
+  "not yet measurable" tooltip — never a made-up zero.
+- The panel is display only: nothing new is stored. The trace remains the
+  ground truth, per-game scalar records are unchanged, and the panel's
+  values are recomputable from the stored trace forever.
+- The panel is fixed-positioned (it never moves the board) and scrolls
+  itself when the viewport is shorter than its rows.
 
 ## Personal settings (decided 2026-08-20)
 
@@ -332,12 +407,18 @@ carries at least one tag.
   (it can never collide with a mode key, which is always WxH/M); importing
   a blob applies its settings after validation. Exports from before
   2026-08-20 simply lack the key.
-- A "settings" button among the backup controls raises the panel: one
-  checkbox per switch with its full description. A change saves
-  immediately and re-renders the result on screen, so the effect is
-  visible without finishing another game.
+- A "settings" button in the screen's upper-right corner (the fixed
+  cluster it shares with the states tags, 2026-08-20; it debuted among the
+  backup controls earlier that day) opens the panel as a small in-page
+  dropdown right below — never a modal, so the page stays fully visible
+  and interactive. One checkbox per switch with its full description; a
+  change saves immediately and re-renders the result on screen, so the
+  player watches the meaning of the change while the panel stays open.
 - Settings so far: `collapseDuplicateCharts` (default on) — the rank
-  lists' progressive disclosure switch (see Rank lists).
+  lists' progressive disclosure switch (see Rank lists);
+  `showMotionStatsDuringGame` and `showMotionStatsAfterGame` (both
+  default on) — the two stages of the trace metrics display (see Trace
+  metrics panel).
 
 ## Play history and backup
 

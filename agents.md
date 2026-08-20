@@ -104,6 +104,47 @@ Implementation notes:
   passwordless sudo; mousetrap itself compiled from CRAN, its heavy deps
   installed as conda-forge binaries). `analysis/biometrics/` holds the
   mouse-dynamics feature extractor with its own venv.
+- Trace metrics (PRODUCT.md "Trace metrics panel"): the
+  "TRACE METRICS: COMPUTATION" section is pure (`computeTraceMetrics`
+  plus helpers, no DOM), a JS port of the session-level features in
+  `analysis/biometrics/extract_features.py`; the "TRACE METRICS: DISPLAY"
+  section holds `TRACE_METRIC_DISPLAYS` (label, definition, numeric
+  extractor, formatter), `metricsSeries` (the per-game value history
+  feeding the charts; reset by `beginTraceMetricsSeries` from
+  `beginTrace`), `buildSparkline(tMs, values, size)` with
+  SPARK_SMALL/SPARK_LARGE geometries, and `buildMetricRow` shared by both
+  displays. Live: a top-level setInterval (LIVE_METRICS_EVERY_MS) runs
+  `renderLiveTraceMetrics` while `tracing()` — it always appends to the
+  series (so the after-game charts exist even with the panel off), then
+  `renderMetricsPanel` shows `#metrics-panel` only if
+  settings.showMotionStatsDuringGame; `metricsPanelCollapsed` +
+  `lastLiveMetrics` implement the panel's own × / "motion ▸" session
+  toggler; `refreshMetricsPanel` (called from the settings change
+  handler) applies the setting mid-game. Final: `reportResult` computes
+  with wall time endedAt - trace.startedAt (the stored trace's
+  definition), snapshots `finalMotion` {metrics, series}, and hides the
+  panel; `renderResult` appends `buildMotionStatsCharts()` (13
+  .motion-chart rows, SPARK_LARGE) to `#result-ranks` after a flex-break
+  when settings.showMotionStatsAfterGame — so a settings toggle
+  re-renders them via the existing renderedResult re-render. `newGame`
+  nulls `finalMotion` with `renderedResult`. Parity with
+  the Python extractor is checked by extracting the computation section
+  by its markers in Node and comparing every displayed value on
+  `analysis/biometrics/synthetic-trace.json` against the checked-in
+  `synthetic-features.json` (2026-08-20: 16 checks, tolerance 1e-9;
+  harness pattern in /tmp/ms-metrics-parity.js, recreate as needed). If
+  either implementation's definitions change, change the other and rerun.
+  Node-harness caution: the top-level setInterval keeps a bare `node`
+  process alive — full-game harnesses must wrap global.setInterval to
+  `.unref()` the handle (or extract only the computation section).
+- Trace timestamp invariant (PRODUCT.md "Raw input traces"): the document
+  mousemove recorder coalesces events whose precision-reduced
+  performance.now() equals the previous sample's (latest position wins),
+  so sampleT is strictly increasing by construction. This is what keeps
+  every dt > 0 (no Infinity speeds/jerk in the metrics panel — the
+  2026-08-20 bug) and satisfies the offline extractor's validation.
+  Simulated-input tests must dispatch mousemoves with real delays
+  (~12ms sleeps) or they exercise exactly this coalescing path.
 - `clickCount` counts only effective clicks; `wastedClicks` counts board
   clicks that changed nothing — `toggleFlag` and `chord` return whether
   they had an effect, and the mouseup/contextmenu handlers count the
@@ -115,6 +156,9 @@ Implementation notes:
   is not counted). `isMarkless(record)` derives the markless status
   (flagsPlaced === 0); records from before the measurement have it
   undefined and never qualify. Same absence rules as wastedClicks.
+  Display: the `.markless-time` class on a time cell draws a small
+  olive-green "(m)" before the time via CSS `::before` — applied in
+  `timeAgeRow` (every time-ranked list) and the stats table's Time row.
 - `flagsRemoved` counts flag removals by the player (both branches live in
   `toggleFlag`). The second waste type: each removal marks a place+remove
   pair (2 effective clicks) that netted nothing — see PRODUCT.md "Flags
@@ -127,8 +171,10 @@ Implementation notes:
   changes something. `activeStateNames()` is stamped
   onto every record as `states` (always written, `[]` when none active;
   absent on pre-2026-08-20 records, same absence rules as wastedClicks).
-  UI: `#states` panel mirrors `#results` on the board's left — absolutely
-  positioned off `#game-area` so it never moves the board. Only active
+  UI: `#states` lives in `#top-right`, the fixed screen-chrome cluster
+  pinned to the viewport's upper-right (shared with `#settings-btn`);
+  fixed positioning means it occupies no layout space and never moves
+  the board. Only active
   states render (chips; click = take off); `#states-add-btn` toggles
   `#states-menu`, which lists the inactive options (click = put on, its
   `.state-remove` x = delete from list) plus the add form (a created
@@ -152,20 +198,21 @@ Implementation notes:
 - Layout: `#results` (summary + `#stats-grid` only) is absolutely
   positioned off `#game-area`; `#result-ranks` is normal flow below.
   `html { scrollbar-gutter: stable }` protects board centering.
-- Personal settings (PRODUCT.md "Personal settings"): localStorage
-  `minesweeper-friendly.settings`; `SETTINGS_SCHEMA` is the single
-  definition (field/default/valid/label/describe) feeding `loadSettings`
-  (absent key or field = default), the import validation, and
-  `buildSettingsPanel` (`#settings-panel`, toggled by `#settings-btn`; a
+- Personal settings (PRODUCT.md "Personal settings"): the RAM `settings`
+  object (userdata 'settings', filled by `loadUserdata` via
+  `settingsFrom`, which fills absent fields from `SETTINGS_SCHEMA`
+  defaults). `SETTINGS_SCHEMA` is the single definition
+  (field/default/valid/label/describe) feeding `settingsFrom`, the import
+  validation, and `buildSettingsPanel` (`#settings-panel`, an in-page
+  dropdown in the `#top-right` cluster toggled by `#settings-btn`; a
   change saves and re-renders `renderedResult` in place). Exports carry
   the block under the reserved top-level `"settings"` key; `importHistory`
   validates it with the rest of the blob and applies known fields.
   First setting: `collapseDuplicateCharts` — gates the progressive
   disclosure dedupe in `renderRanks`.
-- Rankaverage sort persistence: localStorage
-  `minesweeper-friendly.rankavgSort` maps stat label to {key, dir}
-  (absent = natural rank order); written by the sort-header click cycle in
-  `buildRankavgList` (asc → desc → none).
+- Rankaverage sort persistence: userdata 'rankavgSort' maps stat label to
+  {key, dir} (absent = natural rank order); written by the sort-header
+  click cycle in `buildRankavgList` (asc → desc → none).
 - Backup: `#backup` controls; `importHistory` validates the whole blob
   before writing (arrays of well-formed records only, loud error naming the
   offending mode otherwise), dedupes by `endedAt` within each mode, and
@@ -247,8 +294,10 @@ Not yet implemented: NG/friendly modes.
 
 - `reference/mouse-motion-metrics.md` — 2026-08-20 survey of mouse-motion
   characterization across psychometrics, biometrics, clinical assessment,
-  and esports, with a tiered proposal for per-game measurements (none
-  implemented yet).
+  and esports, with a tiered proposal for per-game measurements. The
+  session-level biometrics set is implemented in-page as the trace
+  metrics strip (PRODUCT.md "Trace metrics strip"); the rest is offline
+  under `analysis/` or not yet implemented.
 - `reference/hevelius/` — 2026-08-20 deep dive on Hevelius (Gajos et al.,
   mouse-based motor assessment, 32 trajectory features): papers,
   supplementary methods, and `FEATURES.md`, which enumerates all 32 feature

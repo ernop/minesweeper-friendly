@@ -59,7 +59,8 @@ render as a small label/value table beside the board, including wasted
 clicks (board clicks that changed nothing — recorded per game since
 2026-08-19; older records lack the measurement), flags placed (same
 recording rules; a zero-flag game earns the special status "markless",
-shown right in the row) and, for wins, clicks over
+shown right in the row and as a small "(m)" before that game's time in
+every rank list) and, for wins, clicks over
 3BV (clicks beyond the board's minimum). At the bottom, ten small
 scatter plots chart every win: win time vs date, win time vs hour of day,
 3BV vs time, clicks vs 3BV (with the clicks = 3BV floor drawn in), wasted

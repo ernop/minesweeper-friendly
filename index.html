@@ -7,6 +7,22 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<div id="top-right">
+  <div id="states">
+    <div id="states-chips"></div>
+    <button type="button" id="states-add-btn" title="Tag your play session (sleepy? new mouse?). Active states are saved onto every game you finish, so you can see how life affects your play.">+ state</button>
+    <div id="states-menu" hidden>
+      <div id="states-options"></div>
+      <form id="states-add-form">
+        <input id="states-add-input" type="text" placeholder="new state">
+        <button type="submit">add</button>
+      </form>
+      <p id="states-status"></p>
+    </div>
+  </div>
+  <button type="button" id="settings-btn">settings</button>
+  <div id="settings-panel" hidden></div>
+</div>
 <main>
   <nav id="difficulty-tabs">
     <a href="#" data-difficulty="beginner" class="active">Beginner</a>
@@ -45,19 +61,6 @@
       <p id="result-summary"></p>
       <div id="result-stats"></div>
     </div>
-
-    <div id="states">
-      <div id="states-chips"></div>
-      <button type="button" id="states-add-btn" title="Tag your play session (sleepy? new mouse?). Active states are saved onto every game you finish, so you can see how life affects your play.">+ state</button>
-      <div id="states-menu" hidden>
-        <div id="states-options"></div>
-        <form id="states-add-form">
-          <input id="states-add-input" type="text" placeholder="new state">
-          <button type="submit">add</button>
-        </form>
-        <p id="states-status"></p>
-      </div>
-    </div>
   </div>
 
   <div id="result-ranks"></div>
@@ -68,7 +71,6 @@
     <button type="button" id="export-traces-btn">export traces</button>
     <a id="export-traces-file" hidden>save traces to file</a>
     <button type="button" id="import-btn">import history</button>
-    <button type="button" id="settings-btn">settings</button>
     <button type="button" id="format-btn">data format</button>
     <span id="backup-status"></span>
     <div id="import-panel" hidden>
@@ -77,12 +79,14 @@
       <button type="button" id="import-open">open file&hellip;</button>
       <input type="file" id="import-file-input" accept=".json,application/json" hidden>
     </div>
-    <div id="settings-panel" hidden></div>
     <div id="format-panel" hidden></div>
   </div>
 
   <p id="site-footer"><a href="https://github.com/ernop/minesweeper-friendly">source &amp; issues on GitHub</a></p>
+
+  <div id="metrics-panel" hidden></div>
 </main>
+<script src="justice.js"></script>
 <script src="minesweeper.js"></script>
 </body>
 </html>

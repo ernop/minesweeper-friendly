@@ -71,11 +71,64 @@ main {
 /*-------GAME FRAME (classic chrome)-------*/
 
 #game-frame {
+  /* Anchors the JUSTICE stamps overlay */
+  position: relative;
   display: inline-block;
   background: var(--silver);
   padding: calc(var(--cell-size) / 4);
   border: calc(var(--cell-size) / 8) solid;
   border-color: var(--bevel-light) var(--bevel-dark) var(--bevel-dark) var(--bevel-light);
+}
+
+/*-------JUSTICE STAMPS (a just universe)-------*/
+
+/* At game end, one rubber-stamped JUSTICE per truly-forced guess that went
+   the player's way, slammed over the board with a little scatter and a
+   staggered delay so repeat stamps read as separate strikes. Pointer events
+   pass through: the board stays clickable underneath. */
+#justice-stamps {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.justice-stamp {
+  font-family: "Arial Black", "Arial Bold", Arial, sans-serif;
+  font-weight: 900;
+  font-size: 40px;
+  line-height: 1;
+  letter-spacing: 5px;
+  color: #b3121b;
+  border: 4px double #b3121b;
+  border-radius: 6px;
+  padding: 8px 20px 8px 25px; /* right pad minus letter-spacing tail */
+  background: rgba(255, 255, 255, 0.55);
+  text-shadow: 0 0 1px #b3121b;
+  transform: translateX(var(--stamp-dx, 0px)) rotate(var(--stamp-rot, -8deg));
+  opacity: 0; /* until its slam lands (animation-delay staggers strikes) */
+  animation: justice-slam 0.5s cubic-bezier(0.15, 1.35, 0.4, 1) forwards;
+}
+
+@keyframes justice-slam {
+  from {
+    transform: translateX(var(--stamp-dx, 0px)) rotate(var(--stamp-rot, -8deg)) scale(3.2);
+    opacity: 0;
+  }
+  55% {
+    transform: translateX(var(--stamp-dx, 0px)) rotate(var(--stamp-rot, -8deg)) scale(0.94);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(var(--stamp-dx, 0px)) rotate(var(--stamp-rot, -8deg)) scale(1);
+    opacity: 0.93;
+  }
 }
 
 #top-panel {
@@ -241,23 +294,24 @@ main {
   color: #333333;
 }
 
-/*-------PLAYER STATES (session tags, left of the board)-------*/
+/*-------TOP-RIGHT SCREEN CHROME (session tags + settings)-------*/
 
-/* Mirrors #results on the other side: absolutely positioned off the board's
-   left edge, occupying no layout space, so tagging the session can never
-   move the board. Only active states are visible; everything else hides
-   behind the "+ state" button and its menu. */
-#states {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  right: 100%;
-  margin-right: 24px;
-  width: 170px;
+/* Pinned to the screen's upper-right corner: the player-state tags and the
+   settings button, with their menus dropping down in-page below. Fixed, so
+   the cluster occupies no layout space (the board cannot move) and stays
+   put as the page scrolls. */
+#top-right {
+  position: fixed;
+  top: 10px;
+  right: 14px;
+  z-index: 10;
+  width: 250px;
   text-align: right;
   font-size: 11px;
   color: #999999;
 }
+
+#states { margin-bottom: 4px; }
 
 #states-chips {
   display: flex;
@@ -285,7 +339,8 @@ main {
 
 .state-chip:hover { background: #c4dff5; }
 
-#states-add-btn {
+#states-add-btn,
+#settings-btn {
   font: inherit;
   color: #8aa0b5;
   background: none;
@@ -294,6 +349,8 @@ main {
   cursor: pointer;
   text-decoration: underline dotted;
 }
+
+#settings-btn { margin-left: 10px; }
 
 /* The menu of inactive states: click a name to put it on, its x to delete
    it from the list; the field at the bottom creates (and puts on) a new
@@ -354,6 +411,83 @@ main {
 #states-status {
   margin: 4px 0 0;
   color: #b05050;
+}
+
+/* Settings panel: an in-page dropdown under the settings button — one
+   checkbox row per switch in SETTINGS_SCHEMA with its full description.
+   Changes apply and re-render the page immediately, so the player watches
+   the effect while the panel stays open. */
+#settings-panel {
+  margin-top: 5px;
+  padding: 6px 8px;
+  background: #f7f9fb;
+  border: 1px solid #e0e6ec;
+  text-align: left;
+}
+
+#settings-panel[hidden] { display: none; }
+
+.setting-row {
+  display: block;
+  font-size: 11px;
+  color: #777777;
+  cursor: pointer;
+  margin: 4px 0;
+  /* Anchors a setting's help popover */
+  position: relative;
+}
+
+.setting-row input { vertical-align: middle; margin-right: 6px; }
+
+.setting-name {
+  color: #555555;
+  font-weight: bold;
+  margin-right: 6px;
+}
+
+/* The "?" beside a setting that has a help page; hovering it (or the page)
+   raises the page in a popover to the panel's left. */
+.setting-help {
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  margin-right: 6px;
+  border: 1px solid #8aa0b5;
+  border-radius: 50%;
+  color: #8aa0b5;
+  font-size: 10px;
+  font-weight: bold;
+  line-height: 12px;
+  text-align: center;
+  cursor: help;
+}
+
+.setting-help:hover {
+  color: #ffffff;
+  background: #8aa0b5;
+}
+
+.setting-help-pop {
+  position: absolute;
+  right: 100%;
+  top: -10px;
+  margin-right: 10px;
+  width: 540px;
+  height: 600px;
+  max-height: 85vh;
+  background: #ffffff;
+  border: 1px solid #8aa0b5;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  z-index: 20;
+}
+
+.setting-help-pop[hidden] { display: none; }
+
+.setting-help-pop iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
 }
 
 /* This win's effect on its bucket's average time: a cell in the last grid
@@ -418,6 +552,15 @@ main {
 /* The unit hugs its count */
 .rank-row .age-num-cell { padding-right: 0; }
 .rank-row .age-unit-cell { padding-left: 1px; }
+
+/* Markless games (no flags placed): a small (m) rides before the time
+   wherever an individual game's time is shown. Olive-branch green, fixed
+   explicitly so it survives the me-row's black text override. */
+.markless-time::before {
+  content: "(m) ";
+  font-size: 0.75em;
+  color: #2e7d32;
+}
 
 /* The game that just finished says "this" across the whole age area,
    right-flush with the other rows' age labels */
@@ -548,32 +691,6 @@ main {
 
 #import-panel { margin-top: 6px; }
 
-/* Settings panel: one checkbox row per switch in SETTINGS_SCHEMA, the
-   switch's full description alongside it. */
-#settings-panel {
-  margin: 10px auto 0;
-  max-width: 560px;
-  text-align: left;
-}
-
-#settings-panel[hidden] { display: none; }
-
-.setting-row {
-  display: block;
-  font-size: 11px;
-  color: #777777;
-  cursor: pointer;
-  margin: 4px 0;
-}
-
-.setting-row input { vertical-align: middle; margin-right: 6px; }
-
-.setting-name {
-  color: #555555;
-  font-weight: bold;
-  margin-right: 6px;
-}
-
 /* Data-format panel: a raisable reference card documenting the export
    structure and the per-game record fields. */
 #format-panel {
@@ -674,3 +791,104 @@ main {
   color: #000000;
   background: #d8ebfa;
 }
+
+/*-------METRICS PANEL (live / final mouse-dynamics column)-------*/
+
+/* A fixed column on the left edge of the viewport: one row per metric
+   (label, current value, sparkline of the value over the game). Fixed
+   positioning means it never moves the board; it scrolls itself when the
+   viewport is short. */
+#metrics-panel {
+  position: fixed;
+  left: 6px;
+  top: 6px;
+  bottom: 6px;
+  width: 172px;
+  overflow-y: auto;
+  background: #fbfbfb;
+  border: 1px solid #dddddd;
+  padding: 4px 8px;
+  font-size: 11px;
+}
+
+#metrics-panel .metric-row {
+  margin: 4px 0 2px;
+}
+
+#metrics-panel .metric-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+#metrics-panel .metric-label {
+  color: #999999;
+}
+
+#metrics-panel .metric-value {
+  font-family: monospace;
+  color: #446688;
+}
+
+/* When tucked away via its own toggler, the panel shrinks to a small
+   restore chip in the same corner. */
+#metrics-panel.collapsed {
+  bottom: auto;
+  width: auto;
+  padding: 2px 4px;
+}
+
+#metrics-panel .metrics-panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+/* The live marker is grey: live numbers are transient readings. */
+#metrics-panel .metric-phase {
+  font-weight: bold;
+  color: #999999;
+}
+
+.metrics-toggle {
+  font: inherit;
+  font-size: 11px;
+  color: #8aa0b5;
+  background: none;
+  border: none;
+  padding: 0 2px;
+  cursor: pointer;
+}
+
+/* The after-game charts sit inline among the bottom charts; the head
+   line (label + canonical value) doubles as the chart's title. */
+.motion-chart {
+  width: 230px;
+  font-size: 11px;
+}
+
+.motion-chart .metric-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.motion-chart .metric-label {
+  color: #999999;
+}
+
+.motion-chart .metric-value {
+  font-family: monospace;
+  color: #446688;
+}
+
+.spark { display: block; }
+.spark-frame { fill: #ffffff; stroke: #e5e5e5; }
+.spark-line { fill: none; stroke: #446688; stroke-width: 1; }
+.spark-dot { fill: #446688; }
+.spark-label {
+  font-family: Arial, sans-serif;
+  font-size: 8px;
+  fill: #999999;
+}
+.spark-label-big { font-size: 11px; }

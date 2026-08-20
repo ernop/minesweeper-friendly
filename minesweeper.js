@@ -192,6 +192,9 @@ function newGame() {
   finalTimeMs = 0;
   startTime = 0;
   mousePathPx = 0;
+  justiceEvents = 0;
+  const stamps = document.getElementById('justice-stamps');
+  if (stamps !== null) stamps.remove();
   clearInterval(timerInterval);
   timerInterval = null;
   leftDown = false;
@@ -219,6 +222,7 @@ function newGame() {
   setLcd(timerDisplay, 0);
   setFace('smile');
   renderedResult = null;
+  finalMotion = null;
   resultSummary.textContent = '';
   resultStats.textContent = '';
   resultRanks.textContent = '';
@@ -262,7 +266,7 @@ function revealCell(index) {
     startTimer();
   }
 
-  if (cell.mine) {
+  if (cell.mine && !attemptJustice([index])) {
     lose([index]);
     return;
   }
@@ -317,7 +321,7 @@ function chord(index) {
   clickCount++;
 
   const hitMines = toReveal.filter((n) => cells[n].mine);
-  if (hitMines.length > 0) {
+  if (hitMines.length > 0 && !attemptJustice(toReveal)) {
     lose(hitMines);
     return true;
   }
@@ -368,6 +372,79 @@ function finish() {
   clearInterval(timerInterval);
   timerInterval = null;
   clearPresses();
+  renderJusticeStamps();
+}
+
+//-------A JUST UNIVERSE (truly forced guesses "just so happen" to win)-------
+
+// Decided 2026-08-20 (PRODUCT.md "A just universe"): with the setting on, a
+// click that would die on a *named coin* — a sealed region no strategy could
+// ever have resolved (endgame leftovers, sealed 50/50 pairs and chains,
+// sealed zones entered at their best odds) — quietly redraws the mines with
+// that cell clear and play continues as if nothing happened. Open-field
+// gambles stay deadly. Detection and the redraw are justice.js (pure,
+// node-testable); this is the only place the game calls it.
+
+let justiceEvents = 0; // saves granted in the current game
+
+function attemptJustice(revealIndices) {
+  if (!settings.justUniverse) return false;
+  const view = {
+    width: config.width,
+    height: config.height,
+    mines: config.mines,
+    revealed: cells.map((c) => c.revealed),
+    adjacent: cells.map((c) => c.adjacent),
+  };
+  const hits = revealIndices.filter((i) => cells[i].mine);
+  let redrawn;
+  try {
+    redrawn = Justice.trySave(view, hits, revealIndices,
+      cells.map((c) => c.mine), Math.random, { nodes: 0, limit: Justice.NODE_BUDGET });
+  } catch (err) {
+    // Same philosophy as storageFailure: a solver failure is a bug to fix,
+    // not a mode to tolerate — announce where the player can see it, rethrow.
+    backupStatus.textContent = 'justice solver failed: ' + err.message;
+    throw err;
+  }
+  if (redrawn === null) return false;
+  // The redraw must agree with every number already on screen; a
+  // contradiction is a solver bug and must not reach the board.
+  for (let i = 0; i < cells.length; i++) {
+    if (!cells[i].revealed) continue;
+    if (neighbors(i).filter((n) => redrawn[n]).length !== cells[i].adjacent) {
+      throw new Error('justice redraw contradicts revealed cell ' + i);
+    }
+  }
+  for (let i = 0; i < cells.length; i++) cells[i].mine = redrawn[i];
+  for (let i = 0; i < cells.length; i++) {
+    // Mirrors placeMines: mines keep adjacent 0.
+    cells[i].adjacent = cells[i].mine ? 0 : neighbors(i).filter((n) => cells[n].mine).length;
+  }
+  justiceEvents++;
+  return true;
+}
+
+// The big fun stamp: when the finished game contained justice, "JUSTICE"
+// slams onto the board once per save, slightly scattered like a real rubber
+// stamp used more than once. Shown at game end only — during play a save is
+// deliberately invisible (the player just "happens" to survive).
+function renderJusticeStamps() {
+  if (justiceEvents === 0) return;
+  const holder = document.createElement('div');
+  holder.id = 'justice-stamps';
+  holder.title = justiceEvents + ' truly forced guess'
+    + (justiceEvents === 1 ? '' : 'es') + ' went your way this game (a just universe)';
+  for (let k = 0; k < justiceEvents; k++) {
+    const stamp = document.createElement('div');
+    stamp.className = 'justice-stamp';
+    stamp.textContent = 'JUSTICE';
+    stamp.style.setProperty('--stamp-rot', ((k % 2 === 0 ? -1 : 1) * (7 + (k * 5) % 9)) + 'deg');
+    stamp.style.setProperty('--stamp-dx', (((k * 13) % 21) - 10) + 'px');
+    stamp.style.animationDelay = (0.15 + k * 0.4) + 's';
+    holder.appendChild(stamp);
+  }
+  document.getElementById('game-frame').appendChild(holder);
 }
 
 //-------STATS (3BV, as measured on minesweeper.online)-------
@@ -409,9 +486,19 @@ function reportResult(outcome) {
     flagsRemoved: flagsRemoved,
     mousePathPx: Math.round(mousePathPx),
     states: activeStateNames(),
+    justice: justiceEvents,
   };
   const modeRecords = appendGameRecord(record);
   saveTrace(record);
+  // The canonical metrics: the same computation the live panel runs, over
+  // the now-complete trace, with the same wall-time definition the stored
+  // trace carries (endedAt - startedAt). Snapshotted for the after-game
+  // charts; the live panel's game is over, so it goes away.
+  const finalMetrics = computeTraceMetrics(
+    trace.t, trace.x, trace.y, trace.events, record.endedAt - trace.startedAt);
+  appendTraceMetricsSeries(finalMetrics);
+  finalMotion = { metrics: finalMetrics, series: metricsSeries };
+  metricsPanel.hidden = true;
   renderResult(record, modeRecords);
 }
 
@@ -429,14 +516,17 @@ function renderResult(record, modeRecords) {
   statsGrid.id = 'stats-grid';
   // "Clicks over 3BV" only exists for wins: a lost board was never
   // finished, so the subtraction means nothing.
-  for (const [label, value] of [
-    ['Time', seconds.toFixed(3) + 's'],
+  for (const [label, value, valueClass] of [
+    ['Time', seconds.toFixed(3) + 's', isMarkless(record) ? 'markless-time' : ''],
     ['3BV', String(record.bv3)],
     ['3BV/s', bvPerSecond(record).toFixed(4)],
     ['Clicks', String(record.clicks)],
     ['Wasted clicks', String(record.wastedClicks)],
     ['Flags placed', isMarkless(record) ? '0 - markless' : String(record.flagsPlaced)],
     ['Flags removed', String(record.flagsRemoved)],
+    // Justice: truly forced guesses that went the player's way (only on
+    // games that measured it).
+    ...(record.justice !== undefined ? [['Justice', String(record.justice)]] : []),
     ...(record.outcome === 'win'
       ? [['Clicks over 3BV', String(record.clicks - record.bv3)]]
       : []),
@@ -453,7 +543,7 @@ function renderResult(record, modeRecords) {
     labelCell.className = 'stat-label';
     labelCell.textContent = label;
     const valueCell = document.createElement('span');
-    valueCell.className = 'stat-value';
+    valueCell.className = 'stat-value' + (valueClass ? ' ' + valueClass : '');
     valueCell.textContent = value;
     statsGrid.append(labelCell, valueCell);
   }
@@ -462,6 +552,15 @@ function renderResult(record, modeRecords) {
     renderRanks(record, modeRecords);
   } else {
     resultRanks.textContent = '';
+  }
+  // The after-game motion charts, jammed inline after whatever other
+  // bottom charts the outcome produced (all of them for a win, none for
+  // a loss). Motion existed either way.
+  if (settings.showMotionStatsAfterGame && finalMotion !== null) {
+    const brk = document.createElement('div');
+    brk.className = 'flex-break';
+    resultRanks.appendChild(brk);
+    for (const chart of buildMotionStatsCharts()) resultRanks.appendChild(chart);
   }
 }
 
@@ -490,6 +589,7 @@ const GAME_RECORD_SCHEMA = [
   { field: 'flagsRemoved', valid: (v) => v === undefined || isNumber(v), example: '1', describe: 'flags the player took back; each removal = a place+remove pair (2 clicks) that netted nothing; absent on games recorded before 2026-08-20' },
   { field: 'mousePathPx', valid: isNumber, example: '1182', describe: 'cursor travel while playing, px' },
   { field: 'states', valid: (v) => v === undefined || (Array.isArray(v) && v.every((s) => typeof s === 'string')), example: '["sleepy"]', describe: 'player-defined state tags active when the game finished (see the states panel); absent on games recorded before 2026-08-20' },
+  { field: 'justice', valid: (v) => v === undefined || isNumber(v), example: '1', describe: 'truly forced guesses that "just so happened" to win (the "a just universe" setting); absent on games recorded before 2026-08-20' },
 ];
 
 // Records are grouped by mode key and kept in chronological order. The RAM
@@ -511,11 +611,35 @@ let history = null;
 // the documentation cannot drift apart.
 const SETTINGS_SCHEMA = [
   {
+    field: 'justUniverse',
+    default: true,
+    valid: (v) => typeof v === 'boolean',
+    label: 'a just universe',
+    describe: 'when in a truly forced-guess situation, you "just so happen" to win',
+    // A "?" beside the name raises this page on hover (examples of what
+    // counts as truly forced and what does not).
+    helpFile: 'just-universe-help.html',
+  },
+  {
     field: 'collapseDuplicateCharts',
     default: true,
     valid: (v) => typeof v === 'boolean',
     label: 'collapse duplicate tablecharts',
     describe: 'when several time windows hold the exact same wins (e.g. every win this week happened today), show only the most specific chart; off = every window always renders its own chart',
+  },
+  {
+    field: 'showMotionStatsDuringGame',
+    default: true,
+    valid: (v) => typeof v === 'boolean',
+    label: 'show motion stats during game',
+    describe: 'the live motion panel on the left edge: mouse-dynamics values and their sparklines, recomputed once a second while you play (the panel\u2019s own \u00d7 tucks it away for the session; this switch turns it off for good)',
+  },
+  {
+    field: 'showMotionStatsAfterGame',
+    default: true,
+    valid: (v) => typeof v === 'boolean',
+    label: 'show motion stats after game ends',
+    describe: 'when a game finishes, the canonical motion values, each with its over-the-game chart, inline at the bottom after the other charts',
   },
 ];
 
@@ -1082,7 +1206,9 @@ function renderRanks(record, modeRecords) {
     const age = relativeAge(record.endedAt, list[i].endedAt);
     const cells = [
       ['rank-cell', '#' + (i + 1)],
-      ['time-cell', (list[i].timeMs / 1000).toFixed(3) + 's'],
+      // Markless games carry a small (m) before their time (CSS ::before).
+      ['time-cell' + (isMarkless(list[i]) ? ' markless-time' : ''),
+        (list[i].timeMs / 1000).toFixed(3) + 's'],
     ];
     if (age.count === 0 && age.unit === 's') {
       cells.push(['age-just-cell age-u-s', 'this']);
@@ -1128,7 +1254,7 @@ function renderRanks(record, modeRecords) {
   // since only equally-hard layouts compete.
   const sameBv = wins.filter((s) => s.bv3 === record.bv3).sort(byTimeThenEnd);
   resultRanks.appendChild(buildRankList(
-    'best times for this 3BV (' + record.bv3 + ')',
+    '3BV ' + record.bv3,
     sameBv.length, sameBv.indexOf(record), 'rank-grid',
     timeAgeRow(sameBv)));
 
@@ -1386,6 +1512,11 @@ function beginTrace() {
     events: [],            // button + layout events, see traceEvent/recordLayout
   };
   recordLayout();
+  // The metrics panel flips back to live immediately with fresh series:
+  // the previous game's final values and sparklines must not linger over
+  // a running trace.
+  beginTraceMetricsSeries();
+  renderLiveTraceMetrics();
 }
 
 function tracing() {
@@ -1434,6 +1565,459 @@ function saveTrace(record) {
   tx.objectStore(TRACE_STORE).put(stored);
   tx.onerror = () => storageFailure('trace save failed: ' + tx.error);
 }
+
+//-------TRACE METRICS: COMPUTATION (pure; shared by live and final)-------
+
+// The session-level mouse-dynamics features, computed in-page from the
+// trace. Definitions and literature sources are those of
+// analysis/biometrics/extract_features.py — the two implementations are
+// kept in step (the harness in agents.md compares them on the synthetic
+// trace), so a number shown here means exactly what the offline pipeline
+// would compute for it.
+//
+// One pure function does all computing, on two schedules:
+// - live: every LIVE_METRICS_EVERY_MS while the trace runs, over the
+//   samples so far, into the #metrics-bar strip at the bottom of the
+//   screen;
+// - final: once from reportResult, over the finished trace — the
+//   canonical values, marked "final" on the strip. Same function,
+//   complete data: live and final can never disagree in definition,
+//   only in how much of the game they have seen.
+//
+// A value whose formula needs more data than the trace has yet (no
+// strokes, no completed click, zero wall time) is undefined, rendered as
+// an en dash — "not yet measurable", never a made-up zero.
+
+// A stroke is a movement bout: event-driven mousemove sampling emits
+// nothing while the cursor rests, so a gap >= STROKE_GAP_MS between
+// consecutive samples separates two bouts.
+const STROKE_GAP_MS = 100;
+const LIVE_METRICS_EVERY_MS = 1000;
+
+function traceMetricsMean(values) {
+  let sum = 0;
+  for (const v of values) sum += v;
+  return sum / values.length;
+}
+
+// Map an angle difference into (-pi, pi] (JS % keeps the sign, so the
+// negative branch needs the extra turn).
+function wrapAngle(a) {
+  let r = (a + Math.PI) % (2 * Math.PI);
+  if (r < 0) r += 2 * Math.PI;
+  return r - Math.PI;
+}
+
+// Features of one movement bout, samples [a, b). A feature whose formula
+// needs more points (or displacement) than the bout has is absent.
+function strokeMetrics(t, x, y, a, b) {
+  const count = b - a;
+  const m = { durationMs: t[b - 1] - t[a] };
+  if (count < 2) return m;
+
+  let path = 0;
+  const speeds = [];     // px/ms per segment
+  const tMid = [];       // segment midpoint times, for the kinematic chain
+  const thetas = [];     // heading per moving (nonzero-length) segment
+  const thetaTMid = [];
+  for (let i = a + 1; i < b; i++) {
+    const dt = t[i] - t[i - 1];
+    const dx = x[i] - x[i - 1];
+    const dy = y[i] - y[i - 1];
+    const len = Math.hypot(dx, dy);
+    path += len;
+    speeds.push(len / dt);
+    tMid.push((t[i] + t[i - 1]) / 2);
+    if (len > 0) {
+      thetas.push(Math.atan2(dy, dx));
+      thetaTMid.push((t[i] + t[i - 1]) / 2);
+    }
+  }
+  m.pathLengthPx = path;
+  // Gamboa & Fred 2004: straightness = chord / path, in [0, 1].
+  const chord = Math.hypot(x[b - 1] - x[a], y[b - 1] - y[a]);
+  if (path > 0) m.straightness = chord / path;
+  m.speedMeanPxPerMs = traceMetricsMean(speeds);
+  let speedMax = 0;
+  for (const s of speeds) if (s > speedMax) speedMax = s;
+  m.speedMaxPxPerMs = speedMax;
+
+  // Kinematic chain on segment midpoints: a_i = dv/dt, j_i = da/dt.
+  if (count >= 3) {
+    const accels = [];
+    const accelTMid = [];
+    for (let i = 1; i < speeds.length; i++) {
+      accels.push((speeds[i] - speeds[i - 1]) / (tMid[i] - tMid[i - 1]));
+      accelTMid.push((tMid[i] + tMid[i - 1]) / 2);
+    }
+    if (count >= 4) {
+      const jerks = [];
+      for (let i = 1; i < accels.length; i++) {
+        jerks.push(Math.abs((accels[i] - accels[i - 1]) / (accelTMid[i] - accelTMid[i - 1])));
+      }
+      m.jerkMeanPxPerMs3 = traceMetricsMean(jerks);
+    }
+  }
+
+  // Angular velocity over headings; defined only where the cursor displaced.
+  if (thetas.length >= 2) {
+    const omegas = [];
+    for (let i = 1; i < thetas.length; i++) {
+      omegas.push(Math.abs(wrapAngle(thetas[i] - thetas[i - 1]) / (thetaTMid[i] - thetaTMid[i - 1])));
+    }
+    m.angularVelocityMeanRadPerMs = traceMetricsMean(omegas);
+  }
+  return m;
+}
+
+// Mean over strokes of a per-stroke feature, over the strokes where it is
+// defined; undefined when no stroke measured it.
+function strokesMean(strokes, key) {
+  const values = [];
+  for (const s of strokes) if (s[key] !== undefined) values.push(s[key]);
+  return values.length > 0 ? traceMetricsMean(values) : undefined;
+}
+
+function computeTraceMetrics(sampleT, sampleX, sampleY, events, wallDurationMs) {
+  const n = sampleT.length;
+
+  const strokes = [];
+  let start = 0;
+  for (let i = 1; i <= n; i++) {
+    if (i === n || sampleT[i] - sampleT[i - 1] >= STROKE_GAP_MS) {
+      strokes.push(strokeMetrics(sampleT, sampleX, sampleY, start, i));
+      start = i;
+    }
+  }
+
+  let movementMs = 0;
+  for (const s of strokes) movementMs += s.durationMs;
+  // Total path over ALL consecutive samples — the jumps across stroke gaps
+  // are travel too (the measurement principle: fruitless motion existed).
+  let totalPathPx = 0;
+  for (let i = 1; i < n; i++) {
+    totalPathPx += Math.hypot(sampleX[i] - sampleX[i - 1], sampleY[i] - sampleY[i - 1]);
+  }
+  let speedMaxPxPerMs;
+  for (const s of strokes) {
+    if (s.speedMaxPxPerMs !== undefined
+        && (speedMaxPxPerMs === undefined || s.speedMaxPxPerMs > speedMaxPxPerMs)) {
+      speedMaxPxPerMs = s.speedMaxPxPerMs;
+    }
+  }
+
+  // Click features from the button-event stream. Pairing rule: each
+  // 'ldown' matches the next 'lup'; an 'lup' with no open 'ldown' began
+  // off the board cells and completes no measured click. Pause-and-click
+  // (Zheng et al. CCS 2011): stillness between the last movement sample
+  // and each press, left and right pooled.
+  let leftClickCount = 0;
+  let rightClickCount = 0;
+  const holdsMs = [];
+  const pausesMs = [];
+  let openLdownT = null;
+  let si = 0; // events and samples are both time-ordered
+  for (const ev of events) {
+    if (ev.kind === 'layout') continue;
+    if (ev.kind === 'ldown' || ev.kind === 'rdown') {
+      while (si < n && sampleT[si] <= ev.t) si++;
+      if (si > 0) pausesMs.push(ev.t - sampleT[si - 1]);
+    }
+    if (ev.kind === 'ldown') {
+      openLdownT = ev.t;
+    } else if (ev.kind === 'lup') {
+      if (openLdownT !== null) {
+        holdsMs.push(ev.t - openLdownT);
+        openLdownT = null;
+        leftClickCount++;
+      }
+    } else if (ev.kind === 'rdown') {
+      rightClickCount++;
+    }
+  }
+
+  return {
+    wallDurationMs: wallDurationMs,
+    sampleCount: n,
+    strokeCount: strokes.length,
+    movementMs: movementMs,
+    // Survey vocabulary (arXiv:2208.09061): share of the game spent with
+    // the cursor still.
+    silenceRatio: wallDurationMs > 0 ? 1 - movementMs / wallDurationMs : undefined,
+    totalPathPx: totalPathPx,
+    speedMeanPxPerMs: strokesMean(strokes, 'speedMeanPxPerMs'),
+    speedMaxPxPerMs: speedMaxPxPerMs,
+    straightness: strokesMean(strokes, 'straightness'),
+    jerkMeanPxPerMs3: strokesMean(strokes, 'jerkMeanPxPerMs3'),
+    angularVelocityMeanRadPerMs: strokesMean(strokes, 'angularVelocityMeanRadPerMs'),
+    leftClickCount: leftClickCount,
+    rightClickCount: rightClickCount,
+    clickDurationMeanMs: holdsMs.length > 0 ? traceMetricsMean(holdsMs) : undefined,
+    pauseAndClickMeanMs: pausesMs.length > 0 ? traceMetricsMean(pausesMs) : undefined,
+  };
+}
+
+//-------TRACE METRICS: DISPLAY (the #metrics-panel column)-------
+
+const metricsPanel = document.getElementById('metrics-panel');
+
+// One row per metric: label, current value, and a sparkline of how the
+// value evolved over the game so far. Each entry: label, hover
+// definition, numeric extractor (undefined = not yet measurable on this
+// trace, rendered as an en dash and a gap in the sparkline), formatter
+// for the extracted number.
+const TRACE_METRIC_DISPLAYS = [
+  ['strokes', 'movement bouts (a pause of 100ms or more separates bouts)',
+    (m) => m.strokeCount, (v) => String(v)],
+  ['moving', 'time the cursor spent in motion',
+    (m) => m.movementMs, (v) => (v / 1000).toFixed(1) + 's'],
+  ['silence', 'share of the game spent with the cursor still',
+    (m) => m.silenceRatio, (v) => Math.round(v * 100) + '%'],
+  ['path', 'total cursor travel over the whole trace',
+    (m) => m.totalPathPx, (v) => Math.round(v) + 'px'],
+  ['speed', 'mean of the per-stroke mean speeds',
+    (m) => m.speedMeanPxPerMs, (v) => Math.round(v * 1000) + 'px/s'],
+  ['peak speed', 'fastest sample-to-sample speed of any stroke',
+    (m) => m.speedMaxPxPerMs, (v) => Math.round(v * 1000) + 'px/s'],
+  ['straightness', 'chord over path per stroke (1 = a straight line), mean over strokes',
+    (m) => m.straightness, (v) => v.toFixed(2)],
+  ['jerk', 'mean |da/dt| per stroke in px/ms\u00b3, mean over strokes',
+    (m) => m.jerkMeanPxPerMs3, (v) => v.toFixed(4)],
+  ['turn rate', 'mean |heading change per ms| per stroke in rad/ms, mean over strokes',
+    (m) => m.angularVelocityMeanRadPerMs, (v) => v.toFixed(3)],
+  ['left clicks', 'completed left clicks (down and up both on the trace)',
+    (m) => m.leftClickCount, (v) => String(v)],
+  ['right clicks', 'right-button presses',
+    (m) => m.rightClickCount, (v) => String(v)],
+  ['hold', 'mean left-button down-to-up time',
+    (m) => m.clickDurationMeanMs, (v) => Math.round(v) + 'ms'],
+  ['pause-and-click', 'mean stillness between the end of movement and a press',
+    (m) => m.pauseAndClickMeanMs, (v) => Math.round(v) + 'ms'],
+];
+
+// The per-game history of every displayed value, one entry per render
+// (about one per second, plus the final render), feeding the sparklines.
+// Display-side state only: nothing here is stored anywhere.
+let metricsSeries = null;
+
+function beginTraceMetricsSeries() {
+  metricsSeries = {
+    tMs: [],
+    byLabel: new Map(TRACE_METRIC_DISPLAYS.map(([label]) => [label, []])),
+  };
+}
+
+// Compact numeric form for sparkline axis labels; the units live in the
+// value column of the same row.
+function sparkAxisNumber(v) {
+  if (Math.abs(v) >= 10000) return (v / 1000).toPrecision(3) + 'k';
+  if (Math.abs(v) >= 100) return String(Math.round(v));
+  if (v === 0) return '0';
+  return v.toPrecision(2);
+}
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+// Chart geometries: small for the live panel's rows, large for the
+// after-game charts inline at the page bottom.
+const SPARK_SMALL = { width: 150, height: 46, left: 34, bottom: 11, dotR: 1.7, labelClass: 'spark-label' };
+const SPARK_LARGE = { width: 230, height: 130, left: 40, bottom: 14, dotR: 2.5, labelClass: 'spark-label spark-label-big' };
+
+// A tallish per-metric chart of the value over the game: y axis labeled
+// with the series min and max, x axis from 0 to the latest elapsed
+// seconds. Gaps (spans where the value was not yet measurable) break the
+// line rather than being bridged.
+function buildSparkline(tMs, values, size) {
+  const { width, height, left, bottom } = size;
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('class', 'spark');
+  svg.setAttribute('width', width);
+  svg.setAttribute('height', height);
+
+  const frame = document.createElementNS(SVG_NS, 'rect');
+  frame.setAttribute('class', 'spark-frame');
+  frame.setAttribute('x', left);
+  frame.setAttribute('y', 1);
+  frame.setAttribute('width', width - left - 1);
+  frame.setAttribute('height', height - bottom - 2);
+  svg.appendChild(frame);
+
+  let min = Infinity;
+  let max = -Infinity;
+  let defined = 0;
+  for (const v of values) {
+    if (v === undefined) continue;
+    defined++;
+    if (v < min) min = v;
+    if (v > max) max = v;
+  }
+  if (defined === 0) return svg; // frame only: nothing measurable yet
+  // A flat series draws mid-chart, but its axis labels stay the true
+  // value — the padding is chart geometry, not data.
+  const labelMin = min;
+  const labelMax = max;
+  if (min === max) { min -= 0.5; max += 0.5; }
+
+  const tEnd = tMs[tMs.length - 1];
+  const xOf = (t) => left + (tEnd > 0 ? (t / tEnd) * (width - left - 3) : 0) + 1;
+  const yOf = (v) => 1 + (1 - (v - min) / (max - min)) * (height - bottom - 4) + 1;
+
+  let d = '';
+  let pen = false; // whether the previous point existed (draw vs move)
+  let lastX = null;
+  let lastY = null;
+  for (let i = 0; i < values.length; i++) {
+    if (values[i] === undefined) { pen = false; continue; }
+    lastX = xOf(tMs[i]);
+    lastY = yOf(values[i]);
+    d += (pen ? 'L' : 'M') + lastX.toFixed(1) + ' ' + lastY.toFixed(1);
+    pen = true;
+  }
+  const line = document.createElementNS(SVG_NS, 'path');
+  line.setAttribute('class', 'spark-line');
+  line.setAttribute('d', d);
+  svg.appendChild(line);
+  const dot = document.createElementNS(SVG_NS, 'circle');
+  dot.setAttribute('class', 'spark-dot');
+  dot.setAttribute('cx', lastX.toFixed(1));
+  dot.setAttribute('cy', lastY.toFixed(1));
+  dot.setAttribute('r', size.dotR);
+  svg.appendChild(dot);
+
+  const textAt = (x, y, anchor, content) => {
+    const el = document.createElementNS(SVG_NS, 'text');
+    el.setAttribute('class', size.labelClass);
+    el.setAttribute('x', x);
+    el.setAttribute('y', y);
+    el.setAttribute('text-anchor', anchor);
+    el.textContent = content;
+    svg.appendChild(el);
+  };
+  textAt(left - 2, 8, 'end', sparkAxisNumber(labelMax));
+  textAt(left - 2, height - bottom - 1, 'end', sparkAxisNumber(labelMin));
+  textAt(left, height - 1, 'start', '0');
+  textAt(width - 2, height - 1, 'end', (tEnd / 1000).toFixed(0) + 's');
+  return svg;
+}
+
+function appendTraceMetricsSeries(metrics) {
+  metricsSeries.tMs.push(metrics.wallDurationMs);
+  for (const [label, , numberOf] of TRACE_METRIC_DISPLAYS) {
+    metricsSeries.byLabel.get(label).push(numberOf(metrics));
+  }
+}
+
+// One metric as label + current value + chart of its series.
+function buildMetricRow(display, metrics, series, size, rowClass) {
+  const [label, definition, numberOf, format] = display;
+  const value = numberOf(metrics);
+  const row = document.createElement('div');
+  row.className = rowClass;
+  row.title = definition + (value === undefined ? ' (not yet measurable)' : '');
+  const head = document.createElement('div');
+  head.className = 'metric-head';
+  const labelEl = document.createElement('span');
+  labelEl.className = 'metric-label';
+  labelEl.textContent = label;
+  const valueEl = document.createElement('span');
+  valueEl.className = 'metric-value';
+  valueEl.textContent = value === undefined ? '\u2013' : format(value);
+  head.append(labelEl, valueEl);
+  row.appendChild(head);
+  row.appendChild(buildSparkline(series.tMs, series.byLabel.get(label), size));
+  return row;
+}
+
+// Whether the player tucked the live panel away with its own toggler.
+// Session-only display state: the persistent switch is the
+// showMotionStatsDuringGame setting.
+let metricsPanelCollapsed = false;
+
+// The metrics of the latest render, so toggler clicks and settings
+// changes can redraw the panel without waiting for the next tick.
+let lastLiveMetrics = null;
+
+function renderMetricsPanel(metrics) {
+  if (!settings.showMotionStatsDuringGame) {
+    metricsPanel.hidden = true;
+    return;
+  }
+  metricsPanel.hidden = false;
+  metricsPanel.textContent = '';
+  metricsPanel.classList.toggle('collapsed', metricsPanelCollapsed);
+
+  if (metricsPanelCollapsed) {
+    const restore = document.createElement('button');
+    restore.type = 'button';
+    restore.className = 'metrics-toggle';
+    restore.textContent = 'motion \u25b8';
+    restore.title = 'show the live motion stats panel again';
+    restore.addEventListener('click', () => {
+      metricsPanelCollapsed = false;
+      renderMetricsPanel(lastLiveMetrics);
+    });
+    metricsPanel.appendChild(restore);
+    return;
+  }
+
+  const head = document.createElement('div');
+  head.className = 'metrics-panel-head';
+  const phaseEl = document.createElement('span');
+  phaseEl.className = 'metric-phase';
+  phaseEl.textContent = 'live';
+  phaseEl.title = 'recomputed over the trace so far, once a second';
+  const hide = document.createElement('button');
+  hide.type = 'button';
+  hide.className = 'metrics-toggle';
+  hide.textContent = '\u00d7';
+  hide.title = 'tuck this panel away for now (the "show motion stats during game" setting turns it off for good)';
+  hide.addEventListener('click', () => {
+    metricsPanelCollapsed = true;
+    renderMetricsPanel(lastLiveMetrics);
+  });
+  head.append(phaseEl, hide);
+  metricsPanel.appendChild(head);
+
+  for (const display of TRACE_METRIC_DISPLAYS) {
+    metricsPanel.appendChild(
+      buildMetricRow(display, metrics, metricsSeries, SPARK_SMALL, 'metric-row'));
+  }
+}
+
+// The finished game's canonical metrics and its full series, snapshotted
+// at game end for the after-game charts (see buildMotionStatsCharts);
+// null while no finished game is on screen. beginTrace replaces
+// metricsSeries with a fresh object, so these references stay the ended
+// game's own.
+let finalMotion = null;
+
+// The after-game display: one large chart per metric, appended inline
+// after the other bottom charts (renderResult). Canonical values: same
+// computation as live, complete trace.
+function buildMotionStatsCharts() {
+  return TRACE_METRIC_DISPLAYS.map((display) => buildMetricRow(
+    display, finalMotion.metrics, finalMotion.series, SPARK_LARGE,
+    'metric-row motion-chart'));
+}
+
+// Applies the showMotionStatsDuringGame setting to a running game
+// immediately (called on any settings change; ticks would apply it
+// within a second anyway).
+function refreshMetricsPanel() {
+  if (trace !== null && tracing()) renderMetricsPanel(lastLiveMetrics);
+}
+
+function renderLiveTraceMetrics() {
+  const metrics = computeTraceMetrics(
+    trace.t, trace.x, trace.y, trace.events, Date.now() - trace.startedAt);
+  appendTraceMetricsSeries(metrics);
+  lastLiveMetrics = metrics;
+  renderMetricsPanel(metrics);
+}
+
+setInterval(() => {
+  if (trace !== null && tracing()) renderLiveTraceMetrics();
+}, LIVE_METRICS_EVERY_MS);
 
 //-------PLAYER STATES (session tags stamped onto finished games)-------
 
@@ -1626,9 +2210,23 @@ document.addEventListener('mousemove', (event) => {
   lastMouseX = event.clientX;
   lastMouseY = event.clientY;
   if (tracing()) {
-    trace.t.push(performance.now() - trace.t0);
-    trace.x.push(event.clientX);
-    trace.y.push(event.clientY);
+    const t = performance.now() - trace.t0;
+    const last = trace.t.length - 1;
+    if (last >= 0 && trace.t[last] === t) {
+      // performance.now() is precision-reduced (Chromium quantizes to
+      // ~100us), so two mousemove events can carry the same timestamp.
+      // At the timer's resolution both positions exist "at the same
+      // time"; the sample for that instant is the latest known position.
+      // Keeping both entries would put dt = 0 into every rate (speed,
+      // jerk = distance/0 = Infinity) and violate the trace invariant the
+      // offline extractor validates: sampleT strictly increasing.
+      trace.x[last] = event.clientX;
+      trace.y[last] = event.clientY;
+    } else {
+      trace.t.push(t);
+      trace.x.push(event.clientX);
+      trace.y.push(event.clientY);
+    }
   }
 });
 
@@ -1856,6 +2454,7 @@ function buildSettingsPanel() {
       settings[s.field] = box.checked;
       saveSettings();
       if (renderedResult !== null) renderResult(renderedResult.record, renderedResult.modeRecords);
+      refreshMetricsPanel();
     });
     const name = document.createElement('span');
     name.className = 'setting-name';
@@ -1863,7 +2462,34 @@ function buildSettingsPanel() {
     const describe = document.createElement('span');
     describe.className = 'setting-describe';
     describe.textContent = s.describe;
-    row.append(box, name, describe);
+    if (s.helpFile !== undefined) {
+      // A "?" that raises the setting's help page (an iframe popover to the
+      // panel's left) while hovered — over the "?" or the page itself.
+      const help = document.createElement('span');
+      help.className = 'setting-help';
+      help.textContent = '?';
+      const pop = document.createElement('div');
+      pop.className = 'setting-help-pop';
+      pop.hidden = true;
+      const frame = document.createElement('iframe');
+      frame.src = s.helpFile;
+      frame.title = s.label + ' — help';
+      pop.appendChild(frame);
+      let hideTimer = null;
+      const show = () => { clearTimeout(hideTimer); pop.hidden = false; };
+      const hide = () => { hideTimer = setTimeout(() => { pop.hidden = true; }, 250); };
+      for (const el of [help, pop]) {
+        el.addEventListener('mouseenter', show);
+        el.addEventListener('mouseleave', hide);
+      }
+      // Inside the row's <label>: interacting with the "?" or the page must
+      // not toggle the checkbox.
+      help.addEventListener('click', (event) => event.preventDefault());
+      pop.addEventListener('click', (event) => event.preventDefault());
+      row.append(box, name, help, describe, pop);
+    } else {
+      row.append(box, name, describe);
+    }
     settingsPanel.appendChild(row);
   }
 }

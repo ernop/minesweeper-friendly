@@ -175,7 +175,11 @@ sidesteps localStorage's ~5 MB cap. The deciding argument held:
 aggregate definitions freeze at record time, while a stored trace lets
 any future metric apply retroactively. Offline pipelines live under
 analysis/ (mousetrap measures per inter-click segment; biometrics
-feature extraction).
+feature extraction). Since 2026-08-20 the session-level biometrics set
+is also computed in-page from the trace and displayed live during play
+plus canonically at game end (PRODUCT.md "Trace metrics strip"); the
+in-page and offline implementations are parity-checked on the synthetic
+trace.
 
 ### Interactions with existing features
 
