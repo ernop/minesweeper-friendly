@@ -78,7 +78,8 @@ grid (`#stats-grid`) and includes derived mouse metrics: speed (px/s),
 path per click, path per 3BV. At the very bottom, three inline-SVG scatter
 plots (`buildScatter`, after a `.flex-break`) show relationships across all
 path-recorded wins, this game's dot highlighted red: mouse speed vs time,
-path/click vs efficiency, path/3BV vs time; axis ranges go in a caption. Streak lists: losses are stored as bare
+path/click vs efficiency, path/3BV vs time. Both axes carry 1/2/5-step
+tick labels with gridlines (`niceTicks`); units go in a caption below. Streak lists: losses are stored as bare
 timestamps per mode (`minesweeper-friendly.losses.v1`, written by
 `recordLoss`) purely to split win runs; a k-loss streak joins k+1 adjacent
 runs (k = 0/1/2 for streak / near-streak / near-near-streak), ranked by

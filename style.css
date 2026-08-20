@@ -309,13 +309,20 @@ main {
 /* Scatter plots: derived mouse metrics vs outcomes, this game highlighted */
 .flex-break { flex-basis: 100%; height: 0; }
 .scatter-svg {
-  width: 220px;
-  height: 150px;
+  width: 260px;
+  height: 180px;
   display: block;
   margin-top: 4px;
-  background: #fbfbfb;
-  border: 1px solid #dddddd;
 }
+.scatter-plot { fill: #fbfbfb; stroke: #dddddd; }
+.scatter-grid { stroke: #eeeeee; }
+.scatter-tick {
+  font-family: Arial, sans-serif;
+  font-size: 8px;
+  fill: #999999;
+}
+.tick-x { text-anchor: middle; }
+.tick-y { text-anchor: end; }
 .scatter-dot { fill: #999999; }
 .scatter-me { fill: #cc0000; }
 .scatter-caption {

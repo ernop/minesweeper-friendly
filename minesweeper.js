@@ -632,29 +632,61 @@ function buildRankList(headingText, rowCount, myIndex, gridClass, buildRowCells)
   return list;
 }
 
+// Tick positions for a scatter axis: a 1/2/5*10^k step sized to give at
+// most `count` ticks across the range.
+function niceTicks(min, max, count) {
+  const span = max - min;
+  if (span <= 0) return [min];
+  const mag = Math.pow(10, Math.floor(Math.log10(span / count)));
+  const step = [1, 2, 5, 10].map((m) => m * mag).find((s) => span / s <= count);
+  const ticks = [];
+  for (let v = Math.ceil(min / step) * step; v <= max + step / 1e6; v += step) ticks.push(v);
+  return ticks;
+}
+
 // Small inline-SVG scatter plot: every win is a dot, this game is the
 // highlighted one. Shows relationships (e.g. does moving the mouse faster
-// actually win games faster?) rather than rankings. Axis ranges go in a
-// caption below the plot instead of tick marks.
+// actually win games faster?) rather than rankings. Both axes carry nice
+// tick labels with gridlines; units go in the caption below.
 function buildScatter(title, scores, me, fx, fy, xUnit, yUnit) {
-  const W = 220, H = 150, PAD = 9;
+  const W = 260, H = 180, L = 38, R = 10, T = 8, B = 18;
   const xs = scores.map(fx), ys = scores.map(fy);
-  const x0 = Math.min(...xs), x1 = Math.max(...xs);
-  const y0 = Math.min(...ys), y1 = Math.max(...ys);
-  const px = (v) => x1 === x0 ? W / 2 : PAD + (v - x0) / (x1 - x0) * (W - 2 * PAD);
-  const py = (v) => y1 === y0 ? H / 2 : H - PAD - (v - y0) / (y1 - y0) * (H - 2 * PAD);
+  const pad = (min, max) => {
+    const p = (max - min) * 0.04;
+    return [min - p, max + p];
+  };
+  const [x0, x1] = pad(Math.min(...xs), Math.max(...xs));
+  const [y0, y1] = pad(Math.min(...ys), Math.max(...ys));
+  const px = (v) => x1 === x0 ? (L + W - R) / 2 : L + (v - x0) / (x1 - x0) * (W - L - R);
+  const py = (v) => y1 === y0 ? (T + H - B) / 2 : H - B - (v - y0) / (y1 - y0) * (H - T - B);
   const svgNS = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(svgNS, 'svg');
   svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
   svg.setAttribute('class', 'scatter-svg');
-  const dot = (s, cls, r) => {
-    const c = document.createElementNS(svgNS, 'circle');
-    c.setAttribute('cx', px(fx(s)).toFixed(1));
-    c.setAttribute('cy', py(fy(s)).toFixed(1));
-    c.setAttribute('r', r);
-    c.setAttribute('class', cls);
-    svg.appendChild(c);
+  const el = (tag, attrs, text) => {
+    const node = document.createElementNS(svgNS, tag);
+    for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
+    if (text !== undefined) node.textContent = text;
+    svg.appendChild(node);
+    return node;
   };
+  el('rect', { x: L, y: T, width: W - L - R, height: H - T - B, class: 'scatter-plot' });
+  const tickFmt = (ticks) => {
+    const step = ticks.length > 1 ? ticks[1] - ticks[0] : 1;
+    const dec = step >= 1 ? 0 : step >= 0.1 ? 1 : 2;
+    return (v) => v.toFixed(dec);
+  };
+  const xTicks = niceTicks(x0, x1, 7), fmtX = tickFmt(xTicks);
+  for (const v of xTicks) {
+    el('line', { x1: px(v), y1: T, x2: px(v), y2: H - B, class: 'scatter-grid' });
+    el('text', { x: px(v), y: H - B + 11, class: 'scatter-tick tick-x' }, fmtX(v));
+  }
+  const yTicks = niceTicks(y0, y1, 7), fmtY = tickFmt(yTicks);
+  for (const v of yTicks) {
+    el('line', { x1: L, y1: py(v), x2: W - R, y2: py(v), class: 'scatter-grid' });
+    el('text', { x: L - 4, y: py(v) + 2.5, class: 'scatter-tick tick-y' }, fmtY(v));
+  }
+  const dot = (s, cls, r) => el('circle', { cx: px(fx(s)).toFixed(1), cy: py(fy(s)).toFixed(1), r, class: cls });
   for (const s of scores) if (s !== me) dot(s, 'scatter-dot', '2.2');
   dot(me, 'scatter-me', '3.5');
 
@@ -664,9 +696,7 @@ function buildScatter(title, scores, me, fx, fy, xUnit, yUnit) {
   heading.textContent = title;
   const caption = document.createElement('div');
   caption.className = 'scatter-caption';
-  const fmtN = (v) => v >= 100 ? String(Math.round(v)) : v.toFixed(1);
-  caption.textContent = '\u2192 ' + fmtN(x0) + '\u2013' + fmtN(x1) + ' ' + xUnit
-    + '   \u2191 ' + fmtN(y0) + '\u2013' + fmtN(y1) + ' ' + yUnit;
+  caption.textContent = '\u2192 ' + xUnit + '   \u2191 ' + yUnit;
   list.append(heading, svg, caption);
   return list;
 }
