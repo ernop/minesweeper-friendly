@@ -80,6 +80,7 @@ let finalTimeMs = 0;
 let timerInterval = null;
 let clickCount = 0;    // board clicks that changed something (reveal/flag/chord)
 let wastedClicks = 0;  // board clicks that changed nothing
+let flagsPlaced = 0;   // flags the player placed (removals don't subtract)
 
 // Press-preview state (left button held down)
 let leftDown = false;
@@ -183,6 +184,7 @@ function newGame() {
   revealedCount = 0;
   clickCount = 0;
   wastedClicks = 0;
+  flagsPlaced = 0;
   finalTimeMs = 0;
   startTime = 0;
   mousePathPx = 0;
@@ -285,6 +287,7 @@ function toggleFlag(index) {
   if (cell.revealed) return false;
   cell.flagged = !cell.flagged;
   flagsCount += cell.flagged ? 1 : -1;
+  if (cell.flagged) flagsPlaced++;
   clickCount++;
   updateCell(index);
   setLcd(mineCounter, config.mines - flagsCount);
@@ -394,6 +397,7 @@ function reportResult(outcome) {
     bv3: compute3BV(),
     clicks: clickCount,
     wastedClicks: wastedClicks,
+    flagsPlaced: flagsPlaced,
     mousePathPx: Math.round(mousePathPx),
   };
   const modeRecords = appendGameRecord(record);
@@ -415,6 +419,7 @@ function renderResult(record, modeRecords) {
     ['3BV/s', bvPerSecond(record).toFixed(4)],
     ['Clicks', String(record.clicks)],
     ['Wasted clicks', String(record.wastedClicks)],
+    ['Flags placed', isMarkless(record) ? '0 - markless' : String(record.flagsPlaced)],
     ...(record.outcome === 'win'
       ? [['Clicks over 3BV', String(record.clicks - record.bv3)]]
       : []),
@@ -448,10 +453,11 @@ function renderResult(record, modeRecords) {
 // definition of the record shape — reportResult writes exactly these
 // fields, importHistory validates candidates against `valid`, and the
 // data-format card renders `example` and `describe` — so the writer, the
-// validator, and the documentation cannot drift apart. wastedClicks joined
-// the schema on 2026-08-19: it is always written now, but games recorded
-// before it was measured lack it, so absence is valid ("not measured");
-// displays that need it use only records that carry it.
+// validator, and the documentation cannot drift apart. wastedClicks and
+// flagsPlaced joined the schema on 2026-08-19: both are always written now,
+// but games recorded before they were measured lack them, so absence is
+// valid ("not measured"); displays that need them use only records that
+// carry them.
 const isNumber = (v) => typeof v === 'number';
 const GAME_RECORD_SCHEMA = [
   { field: 'endedAt', valid: isNumber, example: '1787201223496', describe: 'when the game finished (Unix epoch, ms)' },
@@ -460,6 +466,7 @@ const GAME_RECORD_SCHEMA = [
   { field: 'bv3', valid: isNumber, example: '10', describe: "the board's 3BV: minimum clicks to clear it" },
   { field: 'clicks', valid: isNumber, example: '19', describe: 'clicks that changed the board (reveals, flags, chords)' },
   { field: 'wastedClicks', valid: (v) => v === undefined || isNumber(v), example: '3', describe: 'board clicks that changed nothing; absent on games recorded before 2026-08-19' },
+  { field: 'flagsPlaced', valid: (v) => v === undefined || isNumber(v), example: '0', describe: 'flags the player placed (win auto-flagging not counted); 0 = a markless game; absent on games recorded before 2026-08-19' },
   { field: 'mousePathPx', valid: isNumber, example: '1182', describe: 'cursor travel while playing, px' },
 ];
 
@@ -486,6 +493,13 @@ function bvPerSecond(record) {
 
 function efficiencyPercent(record) {
   return Math.round((record.bv3 / record.clicks) * 100);
+}
+
+// A markless game: the player never placed a single flag. Records from
+// before flagsPlaced was measured have it undefined and never qualify —
+// the status is only claimed where it is known.
+function isMarkless(record) {
+  return record.flagsPlaced === 0;
 }
 
 // Local midnight `daysBack` days before the given moment.

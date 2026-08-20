@@ -56,7 +56,9 @@ The stats themselves (time, 3BV, 3BV/s, clicks, efficiency, mouse path,
 mouse speed, path per click, path per 3BV)
 render as a small label/value table beside the board, including wasted
 clicks (board clicks that changed nothing — recorded per game since
-2026-08-19; older records lack the measurement) and, for wins, clicks over
+2026-08-19; older records lack the measurement), flags placed (same
+recording rules; a zero-flag game earns the special status "markless",
+shown right in the row) and, for wins, clicks over
 3BV (clicks beyond the board's minimum). At the bottom, ten small
 scatter plots chart every win: win time vs date, win time vs hour of day,
 3BV vs time, clicks vs 3BV (with the clicks = 3BV floor drawn in), wasted

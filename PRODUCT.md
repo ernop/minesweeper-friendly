@@ -54,8 +54,8 @@ key names) live in `agents.md`; player-facing pitch in `promo/PROMO.md`.
 
 Recorded per finished game, win or loss, primary measurements only: end
 date, outcome, time (ms precision, shown as seconds to 3 decimals), 3BV,
-clicks, wasted clicks, mouse path (px of cursor travel, accumulated only
-while the game is in progress). The stored click count includes only
+clicks, wasted clicks, flags placed, mouse path (px of cursor travel,
+accumulated only while the game is in progress). The stored click count includes only
 clicks that changed the board (reveals, flags, chords). Everything else is
 derived at display time: 3BV/s (4 decimals), clicks over 3BV (clicks minus
 3BV; wins only — a lost board was never finished, so the subtraction means
@@ -72,6 +72,14 @@ measurement existed simply lack the field: absence means "not measured"
 and is valid on import (a present value must be a number); displays that
 need the value use only records that carry it. Every game recorded from
 now on has it.
+
+Flags placed — how many flags the player set during the game (removing a
+flag doesn't subtract; the auto-flagging of remaining mines on a win is
+not the player's doing and is not counted) — joined the schema on
+2026-08-19 under the same absence rules as wasted clicks. A game with
+zero flags placed holds the special status "markless": the stats table's
+"Flags placed" row reads "0 - markless". Records from before the
+measurement never claim the status, since for them it is unknown.
 
 ## Rank lists (time windows and day categories)
 

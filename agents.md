@@ -53,8 +53,9 @@ Implementation notes:
 - Storage: localStorage `minesweeper-friendly.history` maps mode key to a
   chronological array of game records, one per finished game:
   {endedAt, outcome: 'win'|'loss', timeMs, bv3, clicks, wastedClicks,
-  mousePathPx} — primary measurements only (wastedClicks absent on records
-  from before 2026-08-19; see `GAME_RECORD_SCHEMA`). The mode key is the board parameters
+  flagsPlaced, mousePathPx} — primary measurements only (wastedClicks and
+  flagsPlaced absent on records from before 2026-08-19; see
+  `GAME_RECORD_SCHEMA`). The mode key is the board parameters
   (`modeKey()`, e.g. `9x9/10`); difficulty names are display-only
   (`modeLabel()`). Timestamps are epoch ms; all calendar math is done in
   the viewer's local timezone at read time. This schema replaced the
@@ -71,6 +72,11 @@ Implementation notes:
   falses plus left-clicks on flagged cells. Stored on the record since
   2026-08-19; `GAME_RECORD_SCHEMA` accepts its absence (older records),
   and the wasted-clicks scatter filters to wins that carry it.
+- `flagsPlaced` counts flag placements by the player (removals don't
+  subtract; the win auto-flagging in `checkWin` bypasses `toggleFlag` and
+  is not counted). `isMarkless(record)` derives the markless status
+  (flagsPlaced === 0); records from before the measurement have it
+  undefined and never qualify. Same absence rules as wastedClicks.
 - Rank list machinery: `rankWindows` (time windows + `specificity` for
   progressive disclosure), `rankColumns` (adds day categories, `isHoliday`),
   `windowBounds` (11-row windowing), `buildRankList` (shared renderer,
