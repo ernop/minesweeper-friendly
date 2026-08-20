@@ -402,6 +402,9 @@ function showStats(result) {
     ['Clicks', String(stats.clicks)],
     ['Efficiency', stats.efficiency + '%'],
     ['Mouse path', stats.pathPx + 'px'],
+    ['Mouse speed', Math.round(stats.pathPx / seconds) + 'px/s'],
+    ['Path per click', Math.round(stats.pathPx / stats.clicks) + 'px'],
+    ['Path per 3BV', Math.round(stats.pathPx / stats.bv) + 'px'],
   ]) {
     const labelCell = document.createElement('span');
     labelCell.className = 'stat-label';
@@ -602,6 +605,7 @@ const RANKAVERAGE_SPECS = [
   { label: '3BV', value: (s) => s.bv, format: (v) => String(v) },
   { label: '3BV/s', value: (s) => Number(s.bvps.toFixed(2)), format: (v) => v.toFixed(2) },
   { label: 'mouse path', value: (s) => Math.round(s.pathPx / 100) * 100, format: (v) => v + 'px', has: (s) => typeof s.pathPx === 'number' },
+  { label: 'mouse speed', value: (s) => Math.round(s.pathPx / (s.timeMs / 1000) / 50) * 50, format: (v) => v + 'px/s', has: (s) => typeof s.pathPx === 'number' },
 ];
 
 function buildRankList(headingText, rowCount, myIndex, gridClass, buildRowCells) {
@@ -625,6 +629,45 @@ function buildRankList(headingText, rowCount, myIndex, gridClass, buildRowCells)
     grid.appendChild(row);
   }
   list.appendChild(grid);
+  return list;
+}
+
+// Small inline-SVG scatter plot: every win is a dot, this game is the
+// highlighted one. Shows relationships (e.g. does moving the mouse faster
+// actually win games faster?) rather than rankings. Axis ranges go in a
+// caption below the plot instead of tick marks.
+function buildScatter(title, scores, me, fx, fy, xUnit, yUnit) {
+  const W = 220, H = 150, PAD = 9;
+  const xs = scores.map(fx), ys = scores.map(fy);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs);
+  const y0 = Math.min(...ys), y1 = Math.max(...ys);
+  const px = (v) => x1 === x0 ? W / 2 : PAD + (v - x0) / (x1 - x0) * (W - 2 * PAD);
+  const py = (v) => y1 === y0 ? H / 2 : H - PAD - (v - y0) / (y1 - y0) * (H - 2 * PAD);
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(svgNS, 'svg');
+  svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+  svg.setAttribute('class', 'scatter-svg');
+  const dot = (s, cls, r) => {
+    const c = document.createElementNS(svgNS, 'circle');
+    c.setAttribute('cx', px(fx(s)).toFixed(1));
+    c.setAttribute('cy', py(fy(s)).toFixed(1));
+    c.setAttribute('r', r);
+    c.setAttribute('class', cls);
+    svg.appendChild(c);
+  };
+  for (const s of scores) if (s !== me) dot(s, 'scatter-dot', '2.2');
+  dot(me, 'scatter-me', '3.5');
+
+  const list = document.createElement('div');
+  list.className = 'rank-list scatter';
+  const heading = document.createElement('h4');
+  heading.textContent = title;
+  const caption = document.createElement('div');
+  caption.className = 'scatter-caption';
+  const fmtN = (v) => v >= 100 ? String(Math.round(v)) : v.toFixed(1);
+  caption.textContent = '\u2192 ' + fmtN(x0) + '\u2013' + fmtN(x1) + ' ' + xUnit
+    + '   \u2191 ' + fmtN(y0) + '\u2013' + fmtN(y1) + ' ' + yUnit;
+  list.append(heading, svg, caption);
   return list;
 }
 
@@ -787,6 +830,22 @@ function renderRanks(stats, modeScores, modeLosses = []) {
         }
         return cells;
       }));
+  }
+
+  // Scatter plots at the very bottom: derived mouse metrics against
+  // outcomes. Needs at least 2 path-recorded wins to have a spread.
+  const withPath = modeScores.filter((s) => typeof s.pathPx === 'number');
+  if (withPath.length >= 2 && typeof stats.pathPx === 'number') {
+    const brk = document.createElement('div');
+    brk.className = 'flex-break';
+    resultRanks.appendChild(brk);
+    const secs = (s) => s.timeMs / 1000;
+    resultRanks.appendChild(buildScatter('mouse speed vs time',
+      withPath, stats, (s) => s.pathPx / secs(s), secs, 'px/s', 's'));
+    resultRanks.appendChild(buildScatter('path per click vs efficiency',
+      withPath, stats, (s) => s.pathPx / s.clicks, (s) => s.efficiency, 'px/click', '%'));
+    resultRanks.appendChild(buildScatter('path per 3BV vs time',
+      withPath, stats, (s) => s.pathPx / s.bv, secs, 'px/3BV', 's'));
   }
 }
 

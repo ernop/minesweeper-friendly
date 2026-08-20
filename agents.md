@@ -67,13 +67,18 @@ windows); when several columns contain the exact same score set only the
 most specific renders, so a new player sees one chart and broader ones
 appear as history spreads across hours/days/weekdays.
 Rankaverage charts (`RANKAVERAGE_SPECS`) group wins by efficiency / clicks /
-3BV / 3BV/s (2-decimal buckets) / mouse path (100px buckets, `has` filters
-pre-pathPx wins) and rank the groups by average solve time; each row shows
+3BV / 3BV/s (2-decimal buckets) / mouse path (100px buckets) / mouse speed
+(50px/s buckets; both use `has` to filter pre-pathPx wins) and rank the
+groups by average solve time; each row shows
 rank, value, avg time, and x-count, and each chart carries an
 `avgDeltaCaption`: this win's effect on its group's average (green improved /
 red worsened / gray unchanged / blue first). There are no separate rankcount
 charts; the x-count column covers that. The stats line is a label/value
-grid (`#stats-grid`). Streak lists: losses are stored as bare
+grid (`#stats-grid`) and includes derived mouse metrics: speed (px/s),
+path per click, path per 3BV. At the very bottom, three inline-SVG scatter
+plots (`buildScatter`, after a `.flex-break`) show relationships across all
+path-recorded wins, this game's dot highlighted red: mouse speed vs time,
+path/click vs efficiency, path/3BV vs time; axis ranges go in a caption. Streak lists: losses are stored as bare
 timestamps per mode (`minesweeper-friendly.losses.v1`, written by
 `recordLoss`) purely to split win runs; a k-loss streak joins k+1 adjacent
 runs (k = 0/1/2 for streak / near-streak / near-near-streak), ranked by

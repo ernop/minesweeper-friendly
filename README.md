@@ -49,8 +49,13 @@ solve time; every row shows the rank, the value, the group's average time,
 and how many wins share it, with your group bolded. Under each chart a
 colored caption shows how this win moved its own group's average time:
 improved/worsened by how much, unchanged, or set for the first time.
-The stats themselves (time, 3BV, 3BV/s, clicks, efficiency, mouse path)
-render as a small label/value table under the result line. Streak lists rank your win runs:
+The stats themselves (time, 3BV, 3BV/s, clicks, efficiency, mouse path,
+mouse speed, path per click, path per 3BV)
+render as a small label/value table beside the board. At the bottom, three
+small scatter plots chart every path-recorded win with your newest game
+highlighted: mouse speed vs time, path per click vs efficiency, and path
+per 3BV vs time — so you can see whether moving faster actually wins
+games faster. Streak lists rank your win runs:
 "streak" (consecutive wins), "near-streak" (runs spanning at most 1 loss),
 and "near-near-streak" (at most 2), each row showing length and how long ago
 the streak's last win was; loss timestamps are recorded to split streaks. Each list windows around your row,
