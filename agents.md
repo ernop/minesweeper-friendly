@@ -50,30 +50,41 @@ the same change. Below is only the implementation mapping.
 
 Implementation notes:
 
-- Storage: wins per mode in localStorage `minesweeper-friendly.scores.v1`
-  ({at, timeMs, bv, bvps, clicks, efficiency, pathPx}); loss timestamps in
-  `minesweeper-friendly.losses.v1` (written by `recordLoss`, used only to
-  split streak runs). Timestamps are epoch ms; all calendar math is done in
-  the viewer's local timezone at read time.
-- `pathPx`: cursor distance accumulated on document mousemove only while
-  `gameState === 'playing'`. Derived mouse metrics (speed, path/click,
-  path/3BV) are computed at display time, never stored.
+- Storage: localStorage `minesweeper-friendly.history` maps mode key to a
+  chronological array of game records, one per finished game:
+  {endedAt, outcome: 'win'|'loss', timeMs, bv3, clicks, mousePathPx} —
+  primary measurements only. The mode key is the board parameters
+  (`modeKey()`, e.g. `9x9/10`); difficulty names are display-only
+  (`modeLabel()`). Timestamps are epoch ms; all calendar math is done in
+  the viewer's local timezone at read time. This schema replaced the
+  `scores.v1`/`losses.v1` pair (2026-08-19, data-structure rectification);
+  the old keys are not read and any data under them is ignored.
+- Derived metrics (3BV/s, efficiency %, mouse speed, path/click, path/3BV)
+  are computed at read time via `secondsOf`/`bvPerSecond`/
+  `efficiencyPercent`, never stored.
+- `mousePathPx`: cursor distance accumulated on document mousemove only
+  while `gameState === 'playing'`.
 - Rank list machinery: `rankWindows` (time windows + `specificity` for
   progressive disclosure), `rankColumns` (adds day categories, `isHoliday`),
-  `windowBounds` (11-row windowing), `buildRankList` (shared renderer; the
-  earned-detail collapse and `.collapsed` greying live here),
-  `relativeAge` + `.age-u-*` classes (age display and unit colors).
-- Rankaverages: `RANKAVERAGE_SPECS` (bucketing per stat; `has` filters
-  pre-pathPx wins), `avgDeltaCaption` (sign/color convention).
+  `windowBounds` (11-row windowing), `buildRankList` (shared renderer,
+  always the full window), `relativeAge` + `.age-u-*` classes (age display
+  and unit colors, shared with the scatter legend).
+- Rankaverages: `RANKAVERAGE_SPECS` (bucketing per stat), `avgDelta`
+  (sign/color convention; rendered as a final grid row whose text sits in
+  the average-time column).
 - Streaks: run-splitting and the core-trim/dedupe/domination filter are in
   `renderRanks`; see PRODUCT.md for the double-counting rationale.
-- Scatters: `buildScatter` + `niceTicks`, appended after a `.flex-break`.
+- Scatters: `buildScatter` + `niceTicks`, appended after a `.flex-break`;
+  dots colored by age unit (`.age-dot-*`), the current game ringed and
+  tagged with its today-rank, on-chart axis labels, legend appended last.
 - Layout: `#results` (summary + `#stats-grid` only) is absolutely
   positioned off `#game-area`; `#result-ranks` is normal flow below.
   `html { scrollbar-gutter: stable }` protects board centering.
-- Backup: `#backup` controls; `importScores` dedupes wins on `at`/`timeMs`
-  pairs and losses by timestamp; `copyToClipboard` has an execCommand
-  fallback for non-secure contexts.
+- Backup: `#backup` controls; `importHistory` validates the whole blob
+  before writing (arrays of well-formed records only, loud error naming the
+  offending mode otherwise), dedupes by `endedAt` within each mode, and
+  re-sorts each mode chronologically after a merge. Export writes with
+  `navigator.clipboard` only; a rejection surfaces its error message.
 
 Hosting: public GitHub repo `ernop/minesweeper-friendly`; GitHub Pages serves
 the playable game from the master branch root at

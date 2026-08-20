@@ -40,10 +40,10 @@ key names) live in `agents.md`; player-facing pitch in `promo/PROMO.md`.
 
 - The board is the anchor. Nothing that appears or disappears may shift it,
   ever.
-- The win summary line + stats table are the ONLY things beside the board:
-  absolutely positioned to the right, vertically centered against the
-  frame, 320px wide (wide enough that the summary stays on one line). They
-  appear and disappear without occupying layout space.
+- The win summary (three lines: outcome, mode, end date-time) + stats table
+  are the ONLY things beside the board: absolutely positioned to the right,
+  vertically centered against the frame, 320px wide. They appear and
+  disappear without occupying layout space.
 - Everything else (rank lists, rankaverages, streaks, scatter plots) sits
   below the board in normal flow.
 - The scrollbar gutter is always reserved so a tall results area cannot
@@ -52,12 +52,14 @@ key names) live in `agents.md`; player-facing pitch in `promo/PROMO.md`.
 
 ## Per-game stats
 
-Recorded per win: date, time (ms precision, shown as seconds to 3
-decimals), 3BV, 3BV/s (4 decimals), clicks, efficiency %, mouse path (px of
-cursor travel, accumulated only while the game is in progress). Derived at
-display time: mouse speed (px/s), path per click, path per 3BV. Shown as a
-label/value table. Losses are recorded as bare timestamps, used only to
-split win streaks; a loss shows no rank output at all.
+Recorded per finished game, win or loss, primary measurements only: end
+date, outcome, time (ms precision, shown as seconds to 3 decimals), 3BV,
+clicks, mouse path (px of cursor travel, accumulated only while the game is
+in progress). Everything else is derived at display time: 3BV/s (4
+decimals), efficiency %, mouse speed (px/s), path per click, path per 3BV.
+Shown as a label/value table for wins and losses alike; a loss shows no
+rank output at all (losses split win streaks and feed lifetime totals, but
+are not ranked).
 
 ## Rank lists (time windows and day categories)
 
@@ -74,14 +76,15 @@ split win streaks; a loss shows no rank output at all.
   windows, then day categories, then broad windows). A brand-new player
   sees a single chart; broader ones appear as history spreads out.
 - Row format: rank, time, relative age.
-- Windowing: 11 rows max — 5 above and 5 below your row; when 1st place is
-  within the 5 above, anchor at the top and grow downward instead.
-- Earned detail: the full window renders only when your placement is in
-  the numerical top 10 OR within 10% of the best entry's value (time for
-  score lists, bucket average for rankaverages, length for streaks).
-  Otherwise the list collapses to its heading plus your own row, greyed to
-  45% opacity with no bold or highlight. A #60-of-70 game shows almost
-  nothing.
+- Windowing: 11 rows max. If your rank is within the top 11, the list
+  anchors at #1 and shows the top 11 with your row in its true place
+  (a #8 placement draws #1-#11, never #3-#13). Only when #1 is out of
+  reach does the window center on you: 5 nearest faster and 5 nearest
+  slower entries.
+- Every list always renders its full window at full opacity, wherever the
+  placement falls: a mediocre rank still shows its 5 neighbors either side,
+  because the placement itself is fresh information. (This replaced the
+  earned-detail collapse, which greyed non-top placements to a single row.)
 
 ## Relative age display
 
@@ -89,8 +92,9 @@ split win streaks; a loss shows no rank output at all.
 - A 0-second age renders as "just now", left-aligned, spanning the age
   columns.
 - The age (count + unit) is color-coded by unit: s = hyper-fluorescent
-  green (#39ff14); then the board-number palette: m = green, h = blue
-  (the "1" blue), d = red (the game red), w = navy, mo = maroon, y = teal.
+  green (#39ff14, always bolded — too light to read at normal weight);
+  then the board-number palette: m = green, h = blue (the "1" blue),
+  d = red (the game red), w = navy, mo = maroon, y = teal.
 - Your own row is bolded on a tasteful light-blue highlight (#d8ebfa),
   with text overridden to black for readability (unit colors would be
   unreadable on the highlight).
@@ -102,10 +106,14 @@ split win streaks; a loss shows no rank output at all.
   buckets). There are NO separate rankcount charts and no exact-match
   "same 3BV/clicks/efficiency" columns — the rankaverage's x-count column
   and value grouping cover those.
-- Row format: rank, grouped value, that group's average solve time,
-  x-count of wins in the group. Ranked best (lowest) average first.
-- Delta caption under each chart, minimal text only: how this win moved
-  its own group's average. The SIGN is the true numeric direction of the
+- Row format: rank, grouped value, that group's average solve time, win
+  count in the group. Ranked best (lowest) average first. The count is
+  written with a trailing multiplication sign ("12x") and right-aligned,
+  so ones/tens/hundreds places line up down the column.
+- Delta row, minimal text only: how this win moved its own group's
+  average. Because the delta is a time, it renders as the chart's last
+  grid row with its text in the average-time column, exactly aligned
+  under the times above it. The SIGN is the true numeric direction of the
   average time ("-0.024s" = it fell, "+0.462s" = it rose); the COLOR is
   the judgment: green = good (average fell), red = bad (rose), gray "=" =
   unchanged at display precision (a shift rounding to 0.000s is never
@@ -127,18 +135,28 @@ split win streaks; a loss shows no rank output at all.
 
 - At the very bottom, three plots relating derived mouse metrics to
   outcomes: mouse speed vs time, path per click vs efficiency, path per
-  3BV vs time.
-- Every path-recorded win is a gray dot; the just-finished game is a
-  larger red dot. Requires at least 2 path-recorded wins.
+  3BV vs time. Requires at least 2 wins.
+- Every win is a dot colored by its relative-age unit, reusing the age
+  palette (seconds = fluorescent green, minutes = green, hours = blue,
+  days = red, weeks = navy, months = maroon, years = teal), so time
+  trends are scannable at a glance. A shared legend below the plots
+  spells out the mapping.
+- The just-finished game is a larger black-ringed dot (colored like the
+  rest, i.e. fluorescent green since it is seconds old) tagged with its
+  rank among today's wins ("#N today"); the tag flips to the left when
+  the dot is near the right edge.
 - Both axes carry real scales: tick labels at nice 1/2/5-step intervals
-  (up to 7) with light gridlines; units go in a small caption below
-  ("→ px/s ↑ s").
+  (up to 7) with light gridlines, plus a spelled-out axis label naming
+  the metric and unit on the chart itself ("→ mouse speed (px/s)" under
+  the x axis, and the same form rotated along the y axis).
 
-## Score history and backup
+## Play history and backup
 
-- All wins are kept forever, per mode, in localStorage; nothing is pruned.
-- Export/import as a JSON blob `{ wins, losses }`: copy to clipboard, save
-  to file, paste in, or open from file — subtle controls out of the way of
-  play. Import dedupes (a win with the same date+time values is a dup;
-  losses dedupe by timestamp), so repeated imports are no-ops. Older
-  wins-only blobs still import.
+- Every finished game (win and loss) is kept forever in localStorage,
+  grouped by mode; nothing is pruned. A mode is identified by its board
+  parameters (e.g. `9x9/10`), never by its display name.
+- Export/import as a JSON map of mode to game records: copy to clipboard,
+  save to file, paste in, or open from file — subtle controls out of the
+  way of play. The blob is validated in full before anything is written;
+  a malformed blob imports nothing and says why. Records dedupe by end
+  timestamp, so repeated imports are no-ops.

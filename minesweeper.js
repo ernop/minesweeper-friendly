@@ -320,7 +320,7 @@ function checkWin() {
   }
   setLcd(mineCounter, 0);
   setFace('cool');
-  showStats('Win');
+  reportResult('win');
 }
 
 function lose(hitIndices) {
@@ -342,7 +342,7 @@ function lose(hitIndices) {
     cellElements[i].innerHTML = MINE_SVG;
   }
   setFace('dead');
-  showStats('Loss');
+  reportResult('loss');
 }
 
 function finish() {
@@ -379,32 +379,36 @@ function compute3BV() {
   return count;
 }
 
-function showStats(result) {
-  const bv = compute3BV();
-  const seconds = finalTimeMs / 1000;
-  const stats = {
-    at: Date.now(),
+function reportResult(outcome) {
+  const record = {
+    endedAt: Date.now(),
+    outcome: outcome,
     timeMs: Math.round(finalTimeMs),
-    bv: bv,
-    bvps: seconds > 0 ? Number((bv / seconds).toFixed(4)) : 0,
+    bv3: compute3BV(),
     clicks: clickCount,
-    efficiency: clickCount > 0 ? Math.round((bv / clickCount) * 100) : 0,
-    pathPx: Math.round(mousePathPx),
+    mousePathPx: Math.round(mousePathPx),
   };
-  resultSummary.textContent = result + ' - ' + modeLabel() + ' - ' + formatDate(stats.at);
+  const modeRecords = appendGameRecord(record);
+  renderResult(record, modeRecords);
+}
+
+function renderResult(record, modeRecords) {
+  const seconds = secondsOf(record);
+  resultSummary.textContent = (record.outcome === 'win' ? 'Win' : 'Loss')
+    + '\n' + modeLabel() + '\n' + formatDate(record.endedAt);
   resultStats.textContent = '';
   const statsGrid = document.createElement('div');
   statsGrid.id = 'stats-grid';
   for (const [label, value] of [
     ['Time', seconds.toFixed(3) + 's'],
-    ['3BV', String(stats.bv)],
-    ['3BV/s', stats.bvps.toFixed(4)],
-    ['Clicks', String(stats.clicks)],
-    ['Efficiency', stats.efficiency + '%'],
-    ['Mouse path', stats.pathPx + 'px'],
-    ['Mouse speed', Math.round(stats.pathPx / seconds) + 'px/s'],
-    ['Path per click', Math.round(stats.pathPx / stats.clicks) + 'px'],
-    ['Path per 3BV', Math.round(stats.pathPx / stats.bv) + 'px'],
+    ['3BV', String(record.bv3)],
+    ['3BV/s', bvPerSecond(record).toFixed(4)],
+    ['Clicks', String(record.clicks)],
+    ['Efficiency', efficiencyPercent(record) + '%'],
+    ['Mouse path', record.mousePathPx + 'px'],
+    ['Mouse speed', Math.round(record.mousePathPx / seconds) + 'px/s'],
+    ['Path per click', Math.round(record.mousePathPx / record.clicks) + 'px'],
+    ['Path per 3BV', Math.round(record.mousePathPx / record.bv3) + 'px'],
   ]) {
     const labelCell = document.createElement('span');
     labelCell.className = 'stat-label';
@@ -415,17 +419,39 @@ function showStats(result) {
     statsGrid.append(labelCell, valueCell);
   }
   resultStats.appendChild(statsGrid);
-  if (result === 'Win') {
-    recordScoreAndRenderRanks(stats);
+  if (record.outcome === 'win') {
+    renderRanks(record, modeRecords);
   } else {
-    recordLoss(stats.at);
     resultRanks.textContent = '';
   }
 }
 
-//-------SCORE HISTORY (localStorage, all wins kept per mode)-------
+//-------PLAY HISTORY (localStorage, every finished game kept per mode)-------
 
-const SCORES_KEY = 'minesweeper-friendly.scores.v1';
+// One record per finished game, win or loss, holding only the primary
+// measurements: { endedAt, outcome: 'win'|'loss', timeMs, bv3, clicks,
+// mousePathPx }. Derived metrics (3BV/s, efficiency, mouse speed, ...) are
+// computed from these wherever needed, never stored. Records are grouped by
+// mode key and kept in chronological order.
+const HISTORY_KEY = 'minesweeper-friendly.history';
+
+// A mode's identity is its parameters; named difficulty labels are
+// display-only (see modeLabel).
+function modeKey() {
+  return config.width + 'x' + config.height + '/' + config.mines;
+}
+
+function secondsOf(record) {
+  return record.timeMs / 1000;
+}
+
+function bvPerSecond(record) {
+  return record.bv3 / secondsOf(record);
+}
+
+function efficiencyPercent(record) {
+  return Math.round((record.bv3 / record.clicks) * 100);
+}
 
 // Local midnight `daysBack` days before the given moment.
 function startOfDay(ms, daysBack = 0) {
@@ -441,7 +467,7 @@ function startOfDay(ms, daysBack = 0) {
 // "in the last year" starts at the end of the day exactly 365 days prior.
 // Sub-day windows stay purely rolling.
 // [label, windowStartMs, specificity]. Lower specificity = narrower window;
-// when two lists contain the exact same scores only the most specific
+// when two lists contain the exact same wins only the most specific
 // survives (see renderRanks), so broad charts appear gradually as history
 // spreads out. Day categories (added in rankColumns) sit at 5-7, between
 // "today" and "past week".
@@ -522,97 +548,79 @@ function isHoliday(date) {
 // Columns for the current win: the rolling windows, plus lifetime-spanning
 // categories the win itself belongs to (same weekday, weekend/weekday,
 // holiday when today is one).
-function rankColumns(stats) {
-  const columns = rankWindows(stats.at).map(([label, startMs, specificity]) => ({
+function rankColumns(record) {
+  const columns = rankWindows(record.endedAt).map(([label, startMs, specificity]) => ({
     label: label,
-    filter: (s) => s.at >= startMs,
+    filter: (s) => s.endedAt >= startMs,
     specificity: specificity,
   }));
-  const winDate = new Date(stats.at);
+  const winDate = new Date(record.endedAt);
   const weekday = winDate.getDay();
   columns.push({
     label: 'on ' + WEEKDAY_NAMES[weekday] + 's',
-    filter: (s) => new Date(s.at).getDay() === weekday,
+    filter: (s) => new Date(s.endedAt).getDay() === weekday,
     specificity: 5,
   });
   const weekend = isWeekend(winDate);
   columns.push({
     label: weekend ? 'on weekends' : 'on weekdays',
-    filter: (s) => isWeekend(new Date(s.at)) === weekend,
+    filter: (s) => isWeekend(new Date(s.endedAt)) === weekend,
     specificity: 6,
   });
   if (isHoliday(winDate)) {
     columns.push({
       label: 'on holidays',
-      filter: (s) => isHoliday(new Date(s.at)),
+      filter: (s) => isHoliday(new Date(s.endedAt)),
       specificity: 7,
     });
   }
   return columns;
 }
 
-function loadScores() {
-  const raw = localStorage.getItem(SCORES_KEY);
+function loadHistory() {
+  const raw = localStorage.getItem(HISTORY_KEY);
   return raw === null ? {} : JSON.parse(raw);
 }
 
-// Losses are stored as bare timestamps per mode; they carry no stats and
-// exist to split win streaks.
-const LOSSES_KEY = 'minesweeper-friendly.losses.v1';
-
-function loadLosses() {
-  const raw = localStorage.getItem(LOSSES_KEY);
-  return raw === null ? {} : JSON.parse(raw);
+// Appends the finished game to its mode's history and returns that mode's
+// full record list (the appended object included, so identity search works).
+function appendGameRecord(record) {
+  const history = loadHistory();
+  const key = modeKey();
+  if (!(key in history)) history[key] = [];
+  history[key].push(record);
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+  return history[key];
 }
 
-function recordLoss(atMs) {
-  const all = loadLosses();
-  const key = modeLabel();
-  if (!(key in all)) all[key] = [];
-  all[key].push(atMs);
-  localStorage.setItem(LOSSES_KEY, JSON.stringify(all));
-}
-
-// Appends the win to this mode's history, then renders one ranked-list column
-// per time window: up to 10 scores above the new one, the new one bolded, and
-// up to 10 below. Ordering is by time, ties broken by earlier date.
-function recordScoreAndRenderRanks(stats) {
-  const allScores = loadScores();
-  const key = modeLabel();
-  if (!(key in allScores)) allScores[key] = [];
-  const modeScores = allScores[key];
-  modeScores.push(stats);
-  localStorage.setItem(SCORES_KEY, JSON.stringify(allScores));
-  renderRanks(stats, modeScores, loadLosses()[key] || []);
-}
-
-// Visible slice of a ranked list, 11 rows max: 5 either side of my row; when
-// 1st place is within the 5 above, anchor at the top and let the unused
-// budget grow downward instead.
+// Visible slice of a ranked list, 11 rows max. When my row sits within the
+// top 11, the whole budget anchors at #1: the top 11 renders with my row in
+// its true place. Only when #1 is out of reach does the window center on
+// me: the 5 nearest faster and 5 nearest slower entries.
 function windowBounds(myIndex, length) {
-  if (myIndex <= 5) return [0, Math.min(length, 11)];
+  if (myIndex <= 10) return [0, Math.min(length, 11)];
   return [myIndex - 5, Math.min(length, myIndex + 6)];
 }
 
 // Rankaverage charts: wins grouped by a stat's value, ranked by the group's
-// average solve time. Each row shows rank, value, average, and x-count; a
-// caption notes how this win moved its own group's average. 3BV/s buckets
-// at 2 decimals, mouse path at 100px; the rest group on exact integers.
-// `has` excludes wins recorded before a stat existed.
+// average solve time. Each row shows rank, value, average, and win count; a
+// final row aligned under the average-time column notes how this win moved
+// its own group's average. 3BV/s buckets
+// at 2 decimals, mouse path at 100px, mouse speed at 10px/s; the rest group
+// on exact integers.
 const RANKAVERAGE_SPECS = [
-  { label: 'efficiency', value: (s) => s.efficiency, format: (v) => v + '%' },
+  { label: 'efficiency', value: efficiencyPercent, format: (v) => v + '%' },
   { label: 'clicks', value: (s) => s.clicks, format: (v) => String(v) },
-  { label: '3BV', value: (s) => s.bv, format: (v) => String(v) },
-  { label: '3BV/s', value: (s) => Number(s.bvps.toFixed(2)), format: (v) => v.toFixed(2) },
-  { label: 'mouse path', value: (s) => Math.round(s.pathPx / 100) * 100, format: (v) => v + 'px', has: (s) => typeof s.pathPx === 'number' },
-  { label: 'mouse speed', value: (s) => Math.round(s.pathPx / (s.timeMs / 1000) / 10) * 10, format: (v) => v + 'px/s', has: (s) => typeof s.pathPx === 'number' },
+  { label: '3BV', value: (s) => s.bv3, format: (v) => String(v) },
+  { label: '3BV/s', value: (s) => Number(bvPerSecond(s).toFixed(2)), format: (v) => v.toFixed(2) },
+  { label: 'mouse path', value: (s) => Math.round(s.mousePathPx / 100) * 100, format: (v) => v + 'px' },
+  { label: 'mouse speed', value: (s) => Math.round(s.mousePathPx / secondsOf(s) / 10) * 10, format: (v) => v + 'px/s' },
 ];
 
-// A placement earns the full windowed list only if it's near the top:
-// within the numerical top 10, or within 10% of the best entry's value
-// (`nearTop`, judged by each caller's metric). Mediocre placements (say
-// #60 of 70) collapse to the heading plus the player's own row.
-function buildRankList(headingText, rowCount, myIndex, gridClass, buildRowCells, nearTop) {
+// Every list renders its full 11-row window around the player's row (see
+// windowBounds); a mediocre placement still shows its 5 neighbors above and
+// below, at full opacity, since the placement itself is fresh information.
+function buildRankList(headingText, rowCount, myIndex, gridClass, buildRowCells) {
   const list = document.createElement('div');
   list.className = 'rank-list';
   const heading = document.createElement('h4');
@@ -620,9 +628,7 @@ function buildRankList(headingText, rowCount, myIndex, gridClass, buildRowCells,
   list.appendChild(heading);
   const grid = document.createElement('div');
   grid.className = gridClass;
-  const earned = myIndex < 10 || nearTop;
-  if (!earned) list.classList.add('collapsed');
-  const [start, end] = earned ? windowBounds(myIndex, rowCount) : [myIndex, myIndex + 1];
+  const [start, end] = windowBounds(myIndex, rowCount);
   for (let i = start; i < end; i++) {
     const row = document.createElement('div');
     row.className = i === myIndex ? 'rank-row me' : 'rank-row';
@@ -650,13 +656,15 @@ function niceTicks(min, max, count) {
   return ticks;
 }
 
-// Small inline-SVG scatter plot: every win is a dot, this game is the
-// highlighted one. Shows relationships (e.g. does moving the mouse faster
-// actually win games faster?) rather than rankings. Both axes carry nice
-// tick labels with gridlines; units go in the caption below.
-function buildScatter(title, scores, me, fx, fy, xUnit, yUnit) {
-  const W = 260, H = 180, L = 38, R = 10, T = 8, B = 18;
-  const xs = scores.map(fx), ys = scores.map(fy);
+// Small inline-SVG scatter plot: every win is a dot colored by its age unit
+// (the same palette as rank-list ages, so time trends are scannable); this
+// game is the black-ringed dot labeled with its today-rank. Shows
+// relationships (e.g. does moving the mouse faster actually win games
+// faster?) rather than rankings. Both axes carry nice tick labels with
+// gridlines plus a spelled-out axis label naming the metric and unit.
+function buildScatter(title, wins, me, fx, fy, xLabel, yLabel, meLabel, ageUnitOf) {
+  const W = 270, H = 200, L = 52, R = 10, T = 8, B = 32;
+  const xs = wins.map(fx), ys = wins.map(fy);
   const pad = (min, max) => {
     const p = (max - min) * 0.04;
     return [min - p, max + p];
@@ -693,36 +701,40 @@ function buildScatter(title, scores, me, fx, fy, xUnit, yUnit) {
     el('text', { x: L - 4, y: py(v) + 2.5, class: 'scatter-tick tick-y' }, fmtY(v));
   }
   const dot = (s, cls, r) => el('circle', { cx: px(fx(s)).toFixed(1), cy: py(fy(s)).toFixed(1), r, class: cls });
-  for (const s of scores) if (s !== me) dot(s, 'scatter-dot', '2.2');
-  dot(me, 'scatter-me', '3.5');
+  for (const s of wins) if (s !== me) dot(s, 'scatter-dot age-dot-' + ageUnitOf(s), '2.2');
+  dot(me, 'scatter-me age-dot-' + ageUnitOf(me), '3.5');
+  // Today-rank tag beside the me-dot; flips to the left near the right edge.
+  const meX = px(fx(me));
+  const flipLeft = meX > W - R - 50;
+  el('text', {
+    x: (flipLeft ? meX - 6 : meX + 6).toFixed(1),
+    y: Math.max(T + 9, py(fy(me)) - 5).toFixed(1),
+    class: 'scatter-me-label' + (flipLeft ? ' flip-left' : ''),
+  }, meLabel);
+  el('text', { x: L + (W - L - R) / 2, y: H - 3, class: 'scatter-axis-label' }, '\u2192 ' + xLabel);
+  el('text', {
+    transform: 'translate(10 ' + (T + (H - T - B) / 2) + ') rotate(-90)',
+    class: 'scatter-axis-label',
+  }, '\u2192 ' + yLabel);
 
   const list = document.createElement('div');
   list.className = 'rank-list scatter';
   const heading = document.createElement('h4');
   heading.textContent = title;
-  const caption = document.createElement('div');
-  caption.className = 'scatter-caption';
-  caption.textContent = '\u2192 ' + xUnit + '   \u2191 ' + yUnit;
-  list.append(heading, svg, caption);
+  list.append(heading, svg);
   return list;
 }
 
-// Caption for a rankaverage chart: how this win moved the average time of
-// its own bucket (the average over all wins sharing this bucketed value),
-// before vs after this game.
-function avgDeltaCaption(spec, stats, eligible) {
-  const bucket = spec.value(stats);
-  const inBucket = eligible.filter((s) => spec.value(s) === bucket);
+// How this win moved the average time of its own bucket (the average over
+// all wins sharing this bucketed value), before vs after this game. Returns
+// class + text for a cell rendered in the average-time column.
+function avgDelta(spec, record, wins) {
+  const bucket = spec.value(record);
+  const inBucket = wins.filter((s) => spec.value(s) === bucket);
   const avg = (list) => list.reduce((sum, s) => sum + s.timeMs, 0) / list.length;
   const fmt = (ms) => (ms / 1000).toFixed(3) + 's';
-  const before = inBucket.filter((s) => s !== stats);
-
-  const caption = document.createElement('div');
-  if (before.length === 0) {
-    caption.className = 'rank-delta delta-new';
-    caption.textContent = 'new';
-    return caption;
-  }
+  const before = inBucket.filter((s) => s !== record);
+  if (before.length === 0) return { className: 'delta-new', text: 'new' };
   const prevAvg = avg(before);
   const newAvg = avg(inBucket);
   // Classify at display precision: a shift that rounds to 0.000s is
@@ -730,35 +742,28 @@ function avgDeltaCaption(spec, stats, eligible) {
   // it fell, "+" = it rose); the color says whether that's good (green)
   // or bad (red).
   const shift = fmt(Math.abs(newAvg - prevAvg));
-  if (shift === '0.000s') {
-    caption.className = 'rank-delta delta-same';
-    caption.textContent = '=';
-  } else if (newAvg < prevAvg) {
-    caption.className = 'rank-delta delta-improved';
-    caption.textContent = '-' + shift;
-  } else {
-    caption.className = 'rank-delta delta-worsened';
-    caption.textContent = '+' + shift;
-  }
-  return caption;
+  if (shift === '0.000s') return { className: 'delta-same', text: '=' };
+  if (newAvg < prevAvg) return { className: 'delta-improved', text: '-' + shift };
+  return { className: 'delta-worsened', text: '+' + shift };
 }
 
-function renderRanks(stats, modeScores, modeLosses = []) {
+function renderRanks(record, modeRecords) {
   resultRanks.textContent = '';
-  // Progressive disclosure: two lists holding the exact same scores would
+  const wins = modeRecords.filter((r) => r.outcome === 'win');
+  // Progressive disclosure: two lists holding the exact same wins would
   // render identically, so only the most specific one of each such group is
   // shown. Broader charts appear on their own once history spreads across
   // enough hours/days/weekdays to make them differ.
-  const candidates = rankColumns(stats).map((column) => ({
+  const candidates = rankColumns(record).map((column) => ({
     column,
-    inWindow: modeScores
+    inWindow: wins
       .filter(column.filter)
-      .sort((a, b) => a.timeMs - b.timeMs || a.at - b.at),
+      .sort((a, b) => a.timeMs - b.timeMs || a.endedAt - b.endedAt),
   }));
   const seenSets = new Set();
   const kept = new Set();
   for (const c of [...candidates].sort((a, b) => a.column.specificity - b.column.specificity)) {
-    const signature = c.inWindow.map((s) => s.at + '/' + s.timeMs).join('|');
+    const signature = c.inWindow.map((s) => s.endedAt).join('|');
     if (seenSets.has(signature)) continue;
     seenSets.add(signature);
     kept.add(c);
@@ -766,14 +771,13 @@ function renderRanks(stats, modeScores, modeLosses = []) {
   for (const c of candidates) {
     if (!kept.has(c)) continue;
     const { column, inWindow } = c;
-    // `stats` is an element of modeScores, so identity search finds it.
-    const myIndex = inWindow.indexOf(stats);
-    const nearTop = stats.timeMs <= inWindow[0].timeMs * 1.1;
+    // `record` is an element of modeRecords, so identity search finds it.
+    const myIndex = inWindow.indexOf(record);
     resultRanks.appendChild(buildRankList(
       column.label + ' - #' + (myIndex + 1) + ' of ' + inWindow.length,
       inWindow.length, myIndex, 'rank-grid',
       (i) => {
-        const age = relativeAge(stats.at, inWindow[i].at);
+        const age = relativeAge(record.endedAt, inWindow[i].endedAt);
         const cells = [
           ['rank-cell', '#' + (i + 1)],
           ['time-cell', (inWindow[i].timeMs / 1000).toFixed(3) + 's'],
@@ -785,12 +789,11 @@ function renderRanks(stats, modeScores, modeLosses = []) {
           cells.push(['age-unit-cell age-u-' + age.unit, age.unit]);
         }
         return cells;
-      }, nearTop));
+      }));
   }
   for (const spec of RANKAVERAGE_SPECS) {
-    const eligible = spec.has ? modeScores.filter(spec.has) : modeScores;
     const groups = new Map(); // value -> { count, totalMs }
-    for (const s of eligible) {
+    for (const s of wins) {
       const v = spec.value(s);
       const g = groups.get(v) || { count: 0, totalMs: 0 };
       g.count += 1;
@@ -799,8 +802,7 @@ function renderRanks(stats, modeScores, modeLosses = []) {
     }
     const avgMs = (v) => groups.get(v).totalMs / groups.get(v).count;
     const byAvg = [...groups.keys()].sort((a, b) => avgMs(a) - avgMs(b));
-    const avgIndex = byAvg.indexOf(spec.value(stats));
-    const nearTop = avgMs(byAvg[avgIndex]) <= avgMs(byAvg[0]) * 1.1;
+    const avgIndex = byAvg.indexOf(spec.value(record));
     const avgList = buildRankList(
       spec.label + ' rankaverage - #' + (avgIndex + 1) + ' of ' + byAvg.length,
       byAvg.length, avgIndex, 'rankavg-grid',
@@ -808,20 +810,34 @@ function renderRanks(stats, modeScores, modeLosses = []) {
         ['rank-cell', '#' + (i + 1)],
         ['val-cell', spec.format(byAvg[i])],
         ['avg-cell', (avgMs(byAvg[i]) / 1000).toFixed(3) + 's'],
-        ['cnt-cell', '\u00d7' + groups.get(byAvg[i]).count],
-      ], nearTop);
-    avgList.appendChild(avgDeltaCaption(spec, stats, eligible));
+        ['cnt-cell', groups.get(byAvg[i]).count + '\u00d7'],
+      ]);
+    // The delta is a time, so it rides the grid as one more row with its
+    // text in the average-time column, aligning under the times above it.
+    const delta = avgDelta(spec, record, wins);
+    const deltaRow = document.createElement('div');
+    deltaRow.className = 'rank-row';
+    for (const [cls, text] of [
+      ['rank-cell', ''],
+      ['val-cell', ''],
+      ['avg-cell rank-delta ' + delta.className, delta.text],
+      ['cnt-cell', ''],
+    ]) {
+      const cell = document.createElement('span');
+      cell.className = cls;
+      cell.textContent = text;
+      deltaRow.appendChild(cell);
+    }
+    avgList.querySelector('.rankavg-grid').appendChild(deltaRow);
     resultRanks.appendChild(avgList);
   }
 
   // Streak lists: wins in chronological runs split by losses. A k-loss
   // streak joins k+1 adjacent runs; the streak ending in this win is "me".
-  const events = modeScores.map((s) => ({ at: s.at, win: s.at }))
-    .concat(modeLosses.map((at) => ({ at, win: null })))
-    .sort((a, b) => a.at - b.at);
+  // modeRecords is chronological (appended in play order; import re-sorts).
   const runs = [[]];
-  for (const e of events) {
-    if (e.win !== null) runs[runs.length - 1].push(e.win);
+  for (const r of modeRecords) {
+    if (r.outcome === 'win') runs[runs.length - 1].push(r.endedAt);
     else runs.push([]);
   }
   for (const [label, slack] of [['streak', 0], ['near-streak (1 loss ok)', 1], ['near-near-streak (2 losses ok)', 2]]) {
@@ -852,13 +868,12 @@ function renderRanks(stats, modeScores, modeLosses = []) {
       });
     segments.sort((a, b) => b.len - a.len || b.end - a.end);
     const myIndex = segments.findIndex((seg) => seg.current);
-    const nearTop = segments[myIndex].len >= segments[0].len * 0.9;
     resultRanks.appendChild(buildRankList(
       label + ' - #' + (myIndex + 1) + ' of ' + segments.length,
       segments.length, myIndex, 'rank-grid',
       (i) => {
         const seg = segments[i];
-        const age = relativeAge(stats.at, seg.end);
+        const age = relativeAge(record.endedAt, seg.end);
         const cells = [
           ['rank-cell', '#' + (i + 1)],
           ['time-cell', seg.len + (seg.len === 1 ? ' win' : ' wins')],
@@ -870,23 +885,42 @@ function renderRanks(stats, modeScores, modeLosses = []) {
           cells.push(['age-unit-cell age-u-' + age.unit, age.unit]);
         }
         return cells;
-      }, nearTop));
+      }));
   }
 
   // Scatter plots at the very bottom: derived mouse metrics against
-  // outcomes. Needs at least 2 path-recorded wins to have a spread.
-  const withPath = modeScores.filter((s) => typeof s.pathPx === 'number');
-  if (withPath.length >= 2 && typeof stats.pathPx === 'number') {
+  // outcomes. Needs at least 2 wins to have a spread.
+  if (wins.length >= 2) {
     const brk = document.createElement('div');
     brk.className = 'flex-break';
     resultRanks.appendChild(brk);
-    const secs = (s) => s.timeMs / 1000;
+    const todayStart = startOfDay(record.endedAt);
+    const todayRank = wins
+      .filter((s) => s.endedAt >= todayStart)
+      .sort((a, b) => a.timeMs - b.timeMs || a.endedAt - b.endedAt)
+      .indexOf(record) + 1;
+    const meLabel = '#' + todayRank + ' today';
+    const ageUnitOf = (s) => relativeAge(record.endedAt, s.endedAt).unit;
     resultRanks.appendChild(buildScatter('mouse speed vs time',
-      withPath, stats, (s) => s.pathPx / secs(s), secs, 'px/s', 's'));
+      wins, record, (s) => s.mousePathPx / secondsOf(s), secondsOf,
+      'mouse speed (px/s)', 'win time (s)', meLabel, ageUnitOf));
     resultRanks.appendChild(buildScatter('path per click vs efficiency',
-      withPath, stats, (s) => s.pathPx / s.clicks, (s) => s.efficiency, 'px/click', '%'));
+      wins, record, (s) => s.mousePathPx / s.clicks, efficiencyPercent,
+      'mouse path per click (px)', 'efficiency (%)', meLabel, ageUnitOf));
     resultRanks.appendChild(buildScatter('path per 3BV vs time',
-      withPath, stats, (s) => s.pathPx / s.bv, secs, 'px/3BV', 's'));
+      wins, record, (s) => s.mousePathPx / s.bv3, secondsOf,
+      'mouse path per 3BV (px)', 'win time (s)', meLabel, ageUnitOf));
+    const legend = document.createElement('div');
+    legend.className = 'scatter-legend';
+    legend.appendChild(document.createTextNode('dot color = how long ago that win was:'));
+    for (const [unit, name] of [['s', 'seconds'], ['m', 'minutes'], ['h', 'hours'],
+      ['d', 'days'], ['w', 'weeks'], ['mo', 'months'], ['y', 'years']]) {
+      const item = document.createElement('span');
+      item.className = 'legend-item age-u-' + unit;
+      item.textContent = name;
+      legend.appendChild(item);
+    }
+    resultRanks.appendChild(legend);
   }
 }
 
@@ -1020,7 +1054,7 @@ document.getElementById('zoom-select').addEventListener('change', (event) => {
   document.documentElement.style.setProperty('--cell-size', event.target.value + 'px');
 });
 
-//-------BACKUP (export / import of the score history)-------
+//-------BACKUP (export / import of the play history)-------
 
 const backupStatus = document.getElementById('backup-status');
 const importPanel = document.getElementById('import-panel');
@@ -1028,91 +1062,72 @@ const importText = document.getElementById('import-text');
 const importFileInput = document.getElementById('import-file-input');
 const exportFileLink = document.getElementById('export-file');
 
-function winCount(scores) {
-  return Object.values(scores).reduce((n, list) => n + list.length, 0);
-}
-
-// The async clipboard API needs a focused secure context; fall back to the
-// selection-based copy where it is unavailable.
-function copyToClipboard(text) {
-  return navigator.clipboard.writeText(text).catch(() => {
-    const scratch = document.createElement('textarea');
-    scratch.value = text;
-    scratch.style.position = 'fixed';
-    scratch.style.opacity = '0';
-    document.body.appendChild(scratch);
-    scratch.select();
-    const ok = document.execCommand('copy');
-    scratch.remove();
-    if (!ok) throw new Error('copy failed');
-  });
+function gameCount(history) {
+  return Object.values(history).reduce((n, list) => n + list.length, 0);
 }
 
 document.getElementById('export-btn').addEventListener('click', () => {
-  const scores = loadScores();
-  const json = JSON.stringify({ wins: scores, losses: loadLosses() });
-  copyToClipboard(json).then(
-    () => { backupStatus.textContent = 'export copied to clipboard (' + winCount(scores) + ' wins)'; },
-    () => { backupStatus.textContent = 'clipboard copy failed - use save to file'; },
+  const history = loadHistory();
+  const json = JSON.stringify(history);
+  navigator.clipboard.writeText(json).then(
+    () => { backupStatus.textContent = 'export copied to clipboard (' + gameCount(history) + ' games)'; },
+    (err) => { backupStatus.textContent = 'clipboard copy failed: ' + err.message; },
   );
   if (exportFileLink.href) URL.revokeObjectURL(exportFileLink.href);
   exportFileLink.href = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
-  exportFileLink.download = 'minesweeper-friendly-scores-' + new Date().toISOString().slice(0, 10) + '.json';
+  exportFileLink.download = 'minesweeper-friendly-history-' + new Date().toISOString().slice(0, 10) + '.json';
   exportFileLink.hidden = false;
 });
 
-// Merges an exported blob into the stored history. A win is a duplicate of
-// an existing one when both its date (`at`) and score (`timeMs`) match;
-// a loss is a duplicate on its timestamp. Blobs from before losses were
-// exported are a bare mode-to-wins map and still import fine.
-function importScores(text) {
+const RECORD_NUMBER_FIELDS = ['endedAt', 'timeMs', 'bv3', 'clicks', 'mousePathPx'];
+
+// Merges an exported history into the stored one. endedAt identifies a
+// record within a mode (one player cannot finish two games of the same mode
+// in the same millisecond), so re-importing the same blob is a no-op. The
+// whole blob is validated before anything is written.
+function importHistory(text) {
   let parsed;
   try {
     parsed = JSON.parse(text);
-  } catch {
-    backupStatus.textContent = 'import failed: not valid JSON';
+  } catch (err) {
+    backupStatus.textContent = 'import failed: ' + err.message;
     return;
   }
-  const winsIn = 'wins' in parsed ? parsed.wins : parsed;
-  const lossesIn = 'losses' in parsed ? parsed.losses : {};
-
-  const all = loadScores();
+  for (const [mode, list] of Object.entries(parsed)) {
+    if (!Array.isArray(list)) {
+      backupStatus.textContent = 'import failed: "' + mode + '" is not an array of game records';
+      return;
+    }
+    for (const r of list) {
+      const malformed = r === null || typeof r !== 'object'
+        || (r.outcome !== 'win' && r.outcome !== 'loss')
+        || RECORD_NUMBER_FIELDS.some((f) => typeof r[f] !== 'number');
+      if (malformed) {
+        backupStatus.textContent = 'import failed: "' + mode + '" contains a malformed game record';
+        return;
+      }
+    }
+  }
+  const history = loadHistory();
   let added = 0;
   let dups = 0;
-  for (const [mode, list] of Object.entries(winsIn)) {
-    if (!Array.isArray(list)) continue;
-    if (!(mode in all)) all[mode] = [];
-    const seen = new Set(all[mode].map((s) => s.at + '/' + s.timeMs));
-    for (const s of list) {
-      const key = s.at + '/' + s.timeMs;
-      if (seen.has(key)) {
+  for (const [mode, list] of Object.entries(parsed)) {
+    if (!(mode in history)) history[mode] = [];
+    const seen = new Set(history[mode].map((r) => r.endedAt));
+    for (const r of list) {
+      if (seen.has(r.endedAt)) {
         dups += 1;
         continue;
       }
-      seen.add(key);
-      all[mode].push(s);
+      seen.add(r.endedAt);
+      history[mode].push(r);
       added += 1;
     }
+    // Merged-in records restore the chronological-order invariant.
+    history[mode].sort((a, b) => a.endedAt - b.endedAt);
   }
-  localStorage.setItem(SCORES_KEY, JSON.stringify(all));
-
-  const allLosses = loadLosses();
-  let lossesAdded = 0;
-  for (const [mode, list] of Object.entries(lossesIn)) {
-    if (!Array.isArray(list)) continue;
-    if (!(mode in allLosses)) allLosses[mode] = [];
-    const seen = new Set(allLosses[mode]);
-    for (const at of list) {
-      if (seen.has(at)) continue;
-      seen.add(at);
-      allLosses[mode].push(at);
-      lossesAdded += 1;
-    }
-  }
-  localStorage.setItem(LOSSES_KEY, JSON.stringify(allLosses));
-
-  backupStatus.textContent = 'imported ' + added + ' new wins, skipped ' + dups
-    + ' duplicates' + (lossesAdded > 0 ? ' (+' + lossesAdded + ' losses)' : '');
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+  backupStatus.textContent = 'imported ' + added + ' new games, skipped ' + dups + ' duplicates';
   importPanel.hidden = true;
   importText.value = '';
 }
@@ -1121,13 +1136,13 @@ document.getElementById('import-btn').addEventListener('click', () => {
   importPanel.hidden = !importPanel.hidden;
 });
 
-document.getElementById('import-apply').addEventListener('click', () => importScores(importText.value));
+document.getElementById('import-apply').addEventListener('click', () => importHistory(importText.value));
 
 document.getElementById('import-open').addEventListener('click', () => importFileInput.click());
 
 importFileInput.addEventListener('change', () => {
   const file = importFileInput.files[0];
-  if (file) file.text().then(importScores);
+  if (file) file.text().then(importHistory);
   importFileInput.value = '';
 });
 

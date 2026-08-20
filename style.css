@@ -215,7 +215,11 @@ main {
   margin: 2px 0;
 }
 
-#result-summary { font-weight: bold; }
+/* Outcome, mode, and end date each on their own line */
+#result-summary {
+  font-weight: bold;
+  white-space: pre-line;
+}
 
 /* The game's stats as a small label/value tablechart */
 #stats-grid {
@@ -234,13 +238,10 @@ main {
   color: #333333;
 }
 
-/* Caption under a rankaverage chart: this win's effect on its bucket's avg */
-.rank-delta {
-  margin-top: 3px;
-  max-width: 180px;
-  font-size: 11px;
-  white-space: normal;
-}
+/* This win's effect on its bucket's average time: a cell in the last grid
+   row of the rankaverage chart, sitting in (and right-aligned with) the
+   average-time column since the delta is itself a time. */
+.rank-delta { font-size: 11px; }
 .delta-improved { color: #008000; }
 .delta-worsened { color: #ff0000; }
 .delta-same { color: #666666; }
@@ -264,10 +265,6 @@ main {
   font-size: 12px;
   color: #555555;
 }
-
-/* Lists where the placement didn't earn full detail are greyed out */
-.rank-list.collapsed { opacity: 0.45; }
-.rank-list.collapsed .rank-row.me { font-weight: normal; background: none; }
 
 .rank-list h4 {
   margin: 0 0 3px;
@@ -313,8 +310,8 @@ main {
 /* Scatter plots: derived mouse metrics vs outcomes, this game highlighted */
 .flex-break { flex-basis: 100%; height: 0; }
 .scatter-svg {
-  width: 260px;
-  height: 180px;
+  width: 270px;
+  height: 200px;
   display: block;
   margin-top: 4px;
 }
@@ -327,15 +324,40 @@ main {
 }
 .tick-x { text-anchor: middle; }
 .tick-y { text-anchor: end; }
-.scatter-dot { fill: #999999; }
-.scatter-me { fill: #cc0000; }
-.scatter-caption {
-  margin-top: 3px;
-  font-size: 10px;
+/* Dots take the age-unit palette (same as rank-list ages); the current game
+   is the black-ringed dot with its today-rank tag beside it. */
+.scatter-svg .age-dot-s  { fill: #39ff14; }
+.scatter-svg .age-dot-m  { fill: #008000; }
+.scatter-svg .age-dot-h  { fill: #0000ff; }
+.scatter-svg .age-dot-d  { fill: #ff0000; }
+.scatter-svg .age-dot-w  { fill: #000080; }
+.scatter-svg .age-dot-mo { fill: #800000; }
+.scatter-svg .age-dot-y  { fill: #008080; }
+.scatter-me { stroke: #000000; stroke-width: 1; }
+.scatter-me-label {
+  font-family: Arial, sans-serif;
+  font-size: 9px;
+  font-weight: bold;
+  fill: #000000;
+}
+.scatter-me-label.flip-left { text-anchor: end; }
+.scatter-axis-label {
+  font-family: Arial, sans-serif;
+  font-size: 9px;
+  fill: #555555;
+  text-anchor: middle;
+}
+.scatter-legend {
+  flex-basis: 100%;
+  text-align: center;
+  font-size: 11px;
   color: #888888;
 }
+.scatter-legend .legend-item { margin-left: 8px; }
 
-/* Rankaverage charts: rank, stat value, average time, x-count */
+/* Rankaverage charts: rank, stat value, average time, win count. The count
+   column is right-aligned with its multiplication sign trailing ("12x"),
+   so ones/tens/hundreds places line up down the column. */
 .rankavg-grid {
   display: grid;
   width: 100%;
@@ -343,7 +365,7 @@ main {
 }
 .rank-row .val-cell { text-align: right; }
 .rank-row .avg-cell { text-align: right; }
-.rank-row .cnt-cell { text-align: left; }
+.rank-row .cnt-cell { text-align: right; }
 
 /*-------BACKUP (subtle export/import controls)-------*/
 
@@ -387,15 +409,17 @@ main {
   border: 1px solid #cccccc;
 }
 
-/* Age colors by unit, following the board-number palette:
-   seconds ultralight blue, then 2-green, 1-blue, 3-red, 4-navy, 5-maroon, 6-teal. */
-.rank-row .age-u-s  { color: #39ff14; }
-.rank-row .age-u-m  { color: #008000; }
-.rank-row .age-u-h  { color: #0000ff; }
-.rank-row .age-u-d  { color: #ff0000; }
-.rank-row .age-u-w  { color: #000080; }
-.rank-row .age-u-mo { color: #800000; }
-.rank-row .age-u-y  { color: #008080; }
+/* Age colors by unit, following the board-number palette: seconds
+   hyper-fluorescent green (always bolded — it's too light to read thin),
+   then 2-green, 1-blue, 3-red, 4-navy, 5-maroon, 6-teal. Shared by the
+   rank-list age cells and the scatter legend. */
+.age-u-s  { color: #39ff14; font-weight: bold; }
+.age-u-m  { color: #008000; }
+.age-u-h  { color: #0000ff; }
+.age-u-d  { color: #ff0000; }
+.age-u-w  { color: #000080; }
+.age-u-mo { color: #800000; }
+.age-u-y  { color: #008080; }
 
 /* The me-row stays black-on-highlight: ultralight blue text would be
    unreadable on the light blue bar (this rule wins on specificity). */
