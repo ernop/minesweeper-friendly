@@ -720,17 +720,19 @@ function avgDeltaCaption(spec, stats, eligible) {
   const prevAvg = avg(before);
   const newAvg = avg(inBucket);
   // Classify at display precision: a shift that rounds to 0.000s is
-  // unchanged. "+" = improved (avg time fell), "-" = worsened (it rose).
+  // unchanged. The sign is the real direction of the average time ("-" =
+  // it fell, "+" = it rose); the color says whether that's good (green)
+  // or bad (red).
   const shift = fmt(Math.abs(newAvg - prevAvg));
   if (shift === '0.000s') {
     caption.className = 'rank-delta delta-same';
     caption.textContent = '=';
   } else if (newAvg < prevAvg) {
     caption.className = 'rank-delta delta-improved';
-    caption.textContent = '+' + shift;
+    caption.textContent = '-' + shift;
   } else {
     caption.className = 'rank-delta delta-worsened';
-    caption.textContent = '-' + shift;
+    caption.textContent = '+' + shift;
   }
   return caption;
 }
