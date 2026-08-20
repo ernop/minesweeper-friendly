@@ -265,6 +265,10 @@ main {
   color: #555555;
 }
 
+/* Lists where the placement didn't earn full detail are greyed out */
+.rank-list.collapsed { opacity: 0.45; }
+.rank-list.collapsed .rank-row.me { font-weight: normal; background: none; }
+
 .rank-list h4 {
   margin: 0 0 3px;
   font-size: 12px;

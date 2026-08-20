@@ -621,6 +621,7 @@ function buildRankList(headingText, rowCount, myIndex, gridClass, buildRowCells,
   const grid = document.createElement('div');
   grid.className = gridClass;
   const earned = myIndex < 10 || nearTop;
+  if (!earned) list.classList.add('collapsed');
   const [start, end] = earned ? windowBounds(myIndex, rowCount) : [myIndex, myIndex + 1];
   for (let i = start; i < end; i++) {
     const row = document.createElement('div');
