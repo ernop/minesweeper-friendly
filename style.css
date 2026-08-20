@@ -192,17 +192,20 @@ main {
 
 /*-------RESULTS-------*/
 
-/* The board is the anchor; the win summary + stats table hang off its right
-   edge without ever occupying layout space, so the board never moves when
-   they come and go. The rank charts live below the board in normal flow. */
+/* The board is the anchor; the win summary + stats table sit at the far
+   right of the board's row, pinned near the viewport edge, without ever
+   occupying layout space, so the board never moves when they come and go.
+   The rank charts live below the board in normal flow. */
 #game-area { position: relative; }
 
 #results {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  left: 100%;
-  margin-left: 24px;
+  /* Walks from the board box's right edge (50%) out to the viewport's
+     (-50vw), then backs off the body padding plus about half the reserved
+     scrollbar gutter (+32px). */
+  right: calc(50% - 50vw + 32px);
   width: 320px;
   text-align: center;
   /* Echo the chunky in-game numeral face throughout the results area */
@@ -236,6 +239,121 @@ main {
 #stats-grid .stat-value {
   text-align: right;
   color: #333333;
+}
+
+/*-------PLAYER STATES (session tags, left of the board)-------*/
+
+/* Mirrors #results on the other side: absolutely positioned off the board's
+   left edge, occupying no layout space, so tagging the session can never
+   move the board. Only active states are visible; everything else hides
+   behind the "+ state" button and its menu. */
+#states {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  right: 100%;
+  margin-right: 24px;
+  width: 170px;
+  text-align: right;
+  font-size: 11px;
+  color: #999999;
+}
+
+#states-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-bottom: 5px;
+}
+
+#states-chips:empty { margin-bottom: 0; }
+
+/* An active state: the me-row highlight (bold black on light blue), with
+   its trailing x signaling one click takes it off. */
+.state-chip {
+  font: inherit;
+  font-size: 11px;
+  color: #000000;
+  font-weight: bold;
+  background: #d8ebfa;
+  border: 1px solid #8aa0b5;
+  border-radius: 9px;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+
+.state-chip:hover { background: #c4dff5; }
+
+#states-add-btn {
+  font: inherit;
+  color: #8aa0b5;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline dotted;
+}
+
+/* The menu of inactive states: click a name to put it on, its x to delete
+   it from the list; the field at the bottom creates (and puts on) a new
+   state. */
+#states-menu {
+  margin-top: 5px;
+  padding: 6px 8px;
+  background: #f7f9fb;
+  border: 1px solid #e0e6ec;
+}
+
+#states-menu[hidden] { display: none; }
+
+.state-option {
+  display: block;
+  width: 100%;
+  font: inherit;
+  font-size: 11px;
+  color: #667788;
+  background: none;
+  border: none;
+  padding: 2px 0;
+  cursor: pointer;
+  text-align: right;
+}
+
+.state-option:hover {
+  color: #000000;
+  background: #eaf2fa;
+}
+
+.state-remove {
+  margin-left: 5px;
+  color: #b05050;
+  font-weight: bold;
+}
+
+#states-add-form { margin-top: 5px; }
+
+#states-add-form input {
+  width: 100px;
+  font-size: 11px;
+  color: #555555;
+  border: 1px solid #cccccc;
+}
+
+#states-add-form button {
+  font: inherit;
+  color: #8aa0b5;
+  background: none;
+  border: none;
+  padding: 0;
+  margin-left: 4px;
+  cursor: pointer;
+  text-decoration: underline dotted;
+}
+
+#states-status {
+  margin: 4px 0 0;
+  color: #b05050;
 }
 
 /* This win's effect on its bucket's average time: a cell in the last grid
@@ -301,17 +419,20 @@ main {
 .rank-row .age-num-cell { padding-right: 0; }
 .rank-row .age-unit-cell { padding-left: 1px; }
 
-/* "just now" takes the whole age area, left-aligned */
+/* The game that just finished says "this" across the whole age area,
+   right-flush with the other rows' age labels */
 .rank-row .age-just-cell {
   grid-column: span 2;
-  text-align: left;
+  text-align: right;
 }
 
-/* Scatter plots: derived mouse metrics vs outcomes, this game highlighted */
+/* Scatter plots: derived mouse metrics vs outcomes, this game highlighted.
+   The charts carry no titles; the axis labels and tick values render at
+   what was the title size (12px bold) and do the naming themselves. */
 .flex-break { flex-basis: 100%; height: 0; }
 .scatter-svg {
   width: 270px;
-  height: 200px;
+  height: 210px;
   display: block;
   margin-top: 4px;
 }
@@ -319,8 +440,9 @@ main {
 .scatter-grid { stroke: #eeeeee; }
 .scatter-tick {
   font-family: Arial, sans-serif;
-  font-size: 8px;
-  fill: #999999;
+  font-size: 12px;
+  font-weight: bold;
+  fill: #333333;
 }
 .tick-x { text-anchor: middle; }
 .tick-y { text-anchor: end; }
@@ -346,8 +468,9 @@ main {
 .scatter-me-label.flip-left { text-anchor: end; }
 .scatter-axis-label {
   font-family: Arial, sans-serif;
-  font-size: 9px;
-  fill: #555555;
+  font-size: 12px;
+  font-weight: bold;
+  fill: #333333;
   text-anchor: middle;
 }
 .scatter-legend {
@@ -369,6 +492,38 @@ main {
 .rank-row .val-cell { text-align: right; }
 .rank-row .avg-cell { text-align: right; }
 .rank-row .cnt-cell { text-align: right; }
+
+/* Rankaverage sort headers: a quiet row of clickable column names; the
+   active order is the only dark one. */
+.rank-row .sort-cell {
+  font-size: 10px;
+  font-weight: normal;
+  color: #aabbcc;
+  cursor: pointer;
+  user-select: none;
+}
+.rank-row .sort-cell:hover { text-decoration: underline; }
+.rank-row .sort-cell.active {
+  color: #333333;
+  font-weight: bold;
+}
+
+/* The value header doubles as the chart's title (rankaverage charts carry
+   no h4), so it renders dark and bold at heading size — while staying
+   clickable to sort, like its neighbors. */
+.rank-row .sort-cell.val-cell {
+  font-size: 12px;
+  font-weight: bold;
+  color: #333333;
+}
+
+/* The "of N" completing the highlighted "#x" rank above it, at the foot of
+   every tablechart. */
+.rank-total {
+  padding: 0 4px;
+  font-size: 11px;
+  color: #999999;
+}
 
 /*-------BACKUP (subtle export/import controls)-------*/
 
@@ -392,6 +547,32 @@ main {
 }
 
 #import-panel { margin-top: 6px; }
+
+/* Settings panel: one checkbox row per switch in SETTINGS_SCHEMA, the
+   switch's full description alongside it. */
+#settings-panel {
+  margin: 10px auto 0;
+  max-width: 560px;
+  text-align: left;
+}
+
+#settings-panel[hidden] { display: none; }
+
+.setting-row {
+  display: block;
+  font-size: 11px;
+  color: #777777;
+  cursor: pointer;
+  margin: 4px 0;
+}
+
+.setting-row input { vertical-align: middle; margin-right: 6px; }
+
+.setting-name {
+  color: #555555;
+  font-weight: bold;
+  margin-right: 6px;
+}
 
 /* Data-format panel: a raisable reference card documenting the export
    structure and the per-game record fields. */

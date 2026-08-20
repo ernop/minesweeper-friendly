@@ -1,0 +1,387 @@
+[
+  {
+    "endedAt": 1755710010622,
+    "mode": "9x9/10",
+    "outcome": "win",
+    "startedAt": 1755710000000,
+    "session": {
+      "wallDurationMs": 10622.0,
+      "sampleCount": 359,
+      "strokeCount": 6,
+      "movementMs": 4138.0,
+      "silenceRatio": 0.6104311805686311,
+      "totalPathPx": 1501.688862033422
+    },
+    "clicks": {
+      "leftClickCount": 4,
+      "rightClickCount": 2,
+      "unpairedLupCount": 0,
+      "unpairedLdownCount": 0,
+      "clickDurationMs": {
+        "mean": 87.92499999999995,
+        "std": 19.791964910033542,
+        "max": 116.69999999999982
+      },
+      "pauseAndClickMs": {
+        "mean": 138.4833333333335,
+        "std": 14.96589641670557,
+        "max": 154.69999999999982
+      }
+    },
+    "strokeAggregates": {
+      "accelerationPxPerMs2": {
+        "mean": 0.011187973441398073,
+        "std": 0.009791582968328298,
+        "n": 6
+      },
+      "angularVelocityRadPerMs": {
+        "mean": 0.050017703481072345,
+        "std": 0.010536710961492791,
+        "n": 6
+      },
+      "chordLengthPx": {
+        "mean": 236.6311981881199,
+        "std": 43.126076535989995,
+        "n": 6
+      },
+      "curvatureAngleRad": {
+        "mean": 2.5933996587930506,
+        "std": 0.1053362861926065,
+        "n": 6
+      },
+      "curvatureDistance": {
+        "mean": 107.40714568903671,
+        "std": 51.06801579571388,
+        "n": 6
+      },
+      "directionRad": {
+        "mean": 0.380298832535558,
+        "std": 1.6877256175585515,
+        "n": 6
+      },
+      "durationMs": {
+        "mean": 689.6666666666666,
+        "std": 133.6983877572532,
+        "n": 6
+      },
+      "jerkPxPerMs3": {
+        "mean": 0.0014050349440061806,
+        "std": 0.0009439522597432451,
+        "n": 6
+      },
+      "pathLengthPx": {
+        "mean": 249.39064881064067,
+        "std": 44.13410454754707,
+        "n": 6
+      },
+      "sampleCount": {
+        "mean": 59.833333333333336,
+        "std": 11.66785708212476,
+        "n": 6
+      },
+      "speedPxPerMs": {
+        "mean": 0.40471810571753974,
+        "std": 0.08248327358306205,
+        "n": 6
+      },
+      "startMs": {
+        "mean": 5574.599999999999,
+        "std": 2855.161463034972,
+        "n": 6
+      },
+      "straightness": {
+        "mean": 0.948183722413518,
+        "std": 0.012854913875462141,
+        "n": 6
+      },
+      "velocityXPxPerMs": {
+        "mean": 0.032753812935344316,
+        "std": 0.2716129795564299,
+        "n": 6
+      },
+      "velocityYPxPerMs": {
+        "mean": 0.048625674709171667,
+        "std": 0.26850965569613644,
+        "n": 6
+      }
+    },
+    "strokes": [
+      {
+        "sampleCount": 76,
+        "startMs": 1134.2,
+        "durationMs": 871.8,
+        "pathLengthPx": 256.5798524388167,
+        "chordLengthPx": 241.89522525258744,
+        "straightness": 0.9427678087478403,
+        "directionRad": 0.5178436978197564,
+        "speedPxPerMs": {
+          "mean": 0.30538535441720055,
+          "std": 0.17833550807594079,
+          "max": 0.7733692520393932
+        },
+        "velocityXPxPerMs": {
+          "mean": 0.23744773084156415,
+          "std": 0.18156064371233452
+        },
+        "velocityYPxPerMs": {
+          "mean": 0.13065583338674044,
+          "std": 0.1365544913512343
+        },
+        "accelerationPxPerMs2": {
+          "mean": 0.0062810962832762635,
+          "std": 0.011336022852839016,
+          "max": 0.09438894231496123
+        },
+        "jerkPxPerMs3": {
+          "mean": 0.0009413523387836377,
+          "std": 0.0012561761125984923,
+          "max": 0.009434067782136438
+        },
+        "angularVelocityRadPerMs": {
+          "mean": 0.04611366026654673,
+          "std": 0.07113358412502015,
+          "max": 0.3001381293833877
+        },
+        "curvatureAngleRad": {
+          "mean": 2.608476066525692,
+          "std": 0.8161789497753024
+        },
+        "curvatureDistance": {
+          "mean": 41.59593885116147,
+          "std": 61.350976637879,
+          "definedTriples": 74
+        }
+      },
+      {
+        "sampleCount": 52,
+        "startMs": 3324.2,
+        "durationMs": 594.8000000000002,
+        "pathLengthPx": 183.8610615192002,
+        "chordLengthPx": 174.42125243215062,
+        "straightness": 0.9486579213181373,
+        "directionRad": 1.9776981227944945,
+        "speedPxPerMs": {
+          "mean": 0.47895997304743176,
+          "std": 1.2814881038906933,
+          "max": 9.453041838485717
+        },
+        "velocityXPxPerMs": {
+          "mean": -0.09202610105529248,
+          "std": 0.18203565563732138
+        },
+        "velocityYPxPerMs": {
+          "mean": 0.43759737749442457,
+          "std": 1.2800457680123063
+        },
+        "accelerationPxPerMs2": {
+          "mean": 0.03296939798758995,
+          "std": 0.19250431475043064,
+          "max": 1.380230785652704
+        },
+        "jerkPxPerMs3": {
+          "mean": 0.0035048641625879235,
+          "std": 0.018340363595511,
+          "max": 0.13049218726523087
+        },
+        "angularVelocityRadPerMs": {
+          "mean": 0.06499354826688587,
+          "std": 0.09735895926921016,
+          "max": 0.45287295039370645
+        },
+        "curvatureAngleRad": {
+          "mean": 2.468022488607929,
+          "std": 0.9496373190085386
+        },
+        "curvatureDistance": {
+          "mean": 114.78415274181889,
+          "std": 338.5193770347224,
+          "definedTriples": 50
+        }
+      },
+      {
+        "sampleCount": 54,
+        "startMs": 4814.1,
+        "durationMs": 632.6999999999998,
+        "pathLengthPx": 308.6004177374389,
+        "chordLengthPx": 294.19257808449214,
+        "straightness": 0.9533123131893972,
+        "directionRad": -0.9509893990862874,
+        "speedPxPerMs": {
+          "mean": 0.49395734927316626,
+          "std": 0.28505569217751214,
+          "max": 0.9149855589719604
+        },
+        "velocityXPxPerMs": {
+          "mean": 0.2735230757267098,
+          "std": 0.20016614188855092
+        },
+        "velocityYPxPerMs": {
+          "mean": -0.3820884790168606,
+          "std": 0.25372750625978346
+        },
+        "accelerationPxPerMs2": {
+          "mean": 0.006989531739316033,
+          "std": 0.005399818748305831,
+          "max": 0.02216732436595343
+        },
+        "jerkPxPerMs3": {
+          "mean": 0.00110034785908541,
+          "std": 0.0008909441978682373,
+          "max": 0.003543782861521589
+        },
+        "angularVelocityRadPerMs": {
+          "mean": 0.04559852105218532,
+          "std": 0.07857289246003074,
+          "max": 0.4049540105599909
+        },
+        "curvatureAngleRad": {
+          "mean": 2.638709889840027,
+          "std": 0.7875517586034141
+        },
+        "curvatureDistance": {
+          "mean": 49.119886932519755,
+          "std": 62.96994234843191,
+          "definedTriples": 52
+        }
+      },
+      {
+        "sampleCount": 54,
+        "startMs": 6368.7,
+        "durationMs": 630.4000000000005,
+        "pathLengthPx": 297.2740361055324,
+        "chordLengthPx": 286.7065086460368,
+        "straightness": 0.9644518990022253,
+        "directionRad": 2.7102859711160585,
+        "speedPxPerMs": {
+          "mean": 0.4726826113439798,
+          "std": 0.2781293990372309,
+          "max": 0.8819105806086054
+        },
+        "velocityXPxPerMs": {
+          "mean": -0.41037796619659367,
+          "std": 0.2746878990070361
+        },
+        "velocityYPxPerMs": {
+          "mean": 0.18577083207034123,
+          "std": 0.1497013514538726
+        },
+        "accelerationPxPerMs2": {
+          "mean": 0.0067515233684405235,
+          "std": 0.005063446685503363,
+          "max": 0.020952196563739856
+        },
+        "jerkPxPerMs3": {
+          "mean": 0.000988784423534043,
+          "std": 0.0007689177837103584,
+          "max": 0.0031842341436874593
+        },
+        "angularVelocityRadPerMs": {
+          "mean": 0.03942645738041491,
+          "std": 0.06802211625352805,
+          "max": 0.21367553699210162
+        },
+        "curvatureAngleRad": {
+          "mean": 2.6822823916095904,
+          "std": 0.7979828040275553
+        },
+        "curvatureDistance": {
+          "mean": 169.34976361516348,
+          "std": 337.6631202364743,
+          "definedTriples": 52
+        }
+      },
+      {
+        "sampleCount": 47,
+        "startMs": 8285.9,
+        "durationMs": 534.0,
+        "pathLengthPx": 211.70878030369985,
+        "chordLengthPx": 202.46149386982208,
+        "straightness": 0.9563207231149677,
+        "directionRad": 0.35182196173411484,
+        "speedPxPerMs": {
+          "mean": 0.3841169862649064,
+          "std": 0.2298931490784367,
+          "max": 0.7631225233965084
+        },
+        "velocityXPxPerMs": {
+          "mean": 0.3423121247448713,
+          "std": 0.23166852390421983
+        },
+        "velocityYPxPerMs": {
+          "mean": 0.12497285337725123,
+          "std": 0.11802800232942355
+        },
+        "accelerationPxPerMs2": {
+          "mean": 0.005411685680447735,
+          "std": 0.005665207130074726,
+          "max": 0.02660820526178859
+        },
+        "jerkPxPerMs3": {
+          "mean": 0.0008112533002224611,
+          "std": 0.0009956859548187593,
+          "max": 0.005217523395745249
+        },
+        "angularVelocityRadPerMs": {
+          "mean": 0.04000461051608503,
+          "std": 0.07057635049554296,
+          "max": 0.3159117507249432
+        },
+        "curvatureAngleRad": {
+          "mean": 2.7235610708811118,
+          "std": 0.6589227014431301
+        },
+        "curvatureDistance": {
+          "mean": 99.24754978764983,
+          "std": 225.99204489230226,
+          "definedTriples": 45
+        }
+      },
+      {
+        "sampleCount": 76,
+        "startMs": 9520.5,
+        "durationMs": 874.2999999999993,
+        "pathLengthPx": 238.3197447591561,
+        "chordLengthPx": 220.11013084363017,
+        "straightness": 0.9235916691085398,
+        "directionRad": -2.3248673591647884,
+        "speedPxPerMs": {
+          "mean": 0.2932063599585537,
+          "std": 0.27913743594966633,
+          "max": 2.3400854685246295
+        },
+        "velocityXPxPerMs": {
+          "mean": -0.15435598644919324,
+          "std": 0.16226264564544912
+        },
+        "velocityYPxPerMs": {
+          "mean": -0.20515436905686685,
+          "std": 0.26766476383904886
+        },
+        "accelerationPxPerMs2": {
+          "mean": 0.008724605589317931,
+          "std": 0.033797477848140495,
+          "max": 0.29509496531440726
+        },
+        "jerkPxPerMs3": {
+          "mean": 0.0010836075798236083,
+          "std": 0.0029525406902085813,
+          "max": 0.025325713883455503
+        },
+        "angularVelocityRadPerMs": {
+          "mean": 0.06396942340431618,
+          "std": 0.08422651141192611,
+          "max": 0.3593136409339518
+        },
+        "curvatureAngleRad": {
+          "mean": 2.439346045293952,
+          "std": 0.8910474337392681
+        },
+        "curvatureDistance": {
+          "mean": 170.3455822059068,
+          "std": 819.4697256739595,
+          "definedTriples": 74
+        }
+      }
+    ]
+  }
+]

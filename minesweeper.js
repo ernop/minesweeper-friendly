@@ -81,6 +81,9 @@ let timerInterval = null;
 let clickCount = 0;    // board clicks that changed something (reveal/flag/chord)
 let wastedClicks = 0;  // board clicks that changed nothing
 let flagsPlaced = 0;   // flags the player placed (removals don't subtract)
+let flagsRemoved = 0;  // flags the player took back; each removal means the
+                       // placement + removal pair (2 clicks) netted nothing —
+                       // the second kind of waste besides no-op clicks
 
 // Press-preview state (left button held down)
 let leftDown = false;
@@ -185,6 +188,7 @@ function newGame() {
   clickCount = 0;
   wastedClicks = 0;
   flagsPlaced = 0;
+  flagsRemoved = 0;
   finalTimeMs = 0;
   startTime = 0;
   mousePathPx = 0;
@@ -209,9 +213,12 @@ function newGame() {
     cellElements.push(el);
   }
 
+  beginTrace();
+
   setLcd(mineCounter, config.mines);
   setLcd(timerDisplay, 0);
   setFace('smile');
+  renderedResult = null;
   resultSummary.textContent = '';
   resultStats.textContent = '';
   resultRanks.textContent = '';
@@ -288,6 +295,7 @@ function toggleFlag(index) {
   cell.flagged = !cell.flagged;
   flagsCount += cell.flagged ? 1 : -1;
   if (cell.flagged) flagsPlaced++;
+  else flagsRemoved++;
   clickCount++;
   updateCell(index);
   setLcd(mineCounter, config.mines - flagsCount);
@@ -398,13 +406,21 @@ function reportResult(outcome) {
     clicks: clickCount,
     wastedClicks: wastedClicks,
     flagsPlaced: flagsPlaced,
+    flagsRemoved: flagsRemoved,
     mousePathPx: Math.round(mousePathPx),
+    states: activeStateNames(),
   };
   const modeRecords = appendGameRecord(record);
+  saveTrace(record);
   renderResult(record, modeRecords);
 }
 
+// The result currently on screen ({record, modeRecords}), kept so a
+// settings toggle can re-render it in place; null while no result shows.
+let renderedResult = null;
+
 function renderResult(record, modeRecords) {
+  renderedResult = { record, modeRecords };
   const seconds = secondsOf(record);
   resultSummary.textContent = (record.outcome === 'win' ? 'Win' : 'Loss')
     + '\n' + modeLabel() + '\n' + formatDate(record.endedAt);
@@ -420,6 +436,7 @@ function renderResult(record, modeRecords) {
     ['Clicks', String(record.clicks)],
     ['Wasted clicks', String(record.wastedClicks)],
     ['Flags placed', isMarkless(record) ? '0 - markless' : String(record.flagsPlaced)],
+    ['Flags removed', String(record.flagsRemoved)],
     ...(record.outcome === 'win'
       ? [['Clicks over 3BV', String(record.clicks - record.bv3)]]
       : []),
@@ -428,6 +445,9 @@ function renderResult(record, modeRecords) {
     ['Mouse speed', Math.round(record.mousePathPx / seconds) + 'px/s'],
     ['Path per click', Math.round(record.mousePathPx / record.clicks) + 'px'],
     ['Path per 3BV', Math.round(record.mousePathPx / record.bv3) + 'px'],
+    // The states row appears only when the game carries at least one state
+    // tag; a tagless game shows nothing rather than an empty row.
+    ...(record.states.length > 0 ? [['States', record.states.join(', ')]] : []),
   ]) {
     const labelCell = document.createElement('span');
     labelCell.className = 'stat-label';
@@ -445,7 +465,7 @@ function renderResult(record, modeRecords) {
   }
 }
 
-//-------PLAY HISTORY (localStorage, every finished game kept per mode)-------
+//-------PLAY HISTORY (every finished game kept per mode)-------
 
 // The game-record schema: one record per finished game, win or loss,
 // holding only the primary measurements; every other displayed stat is
@@ -454,10 +474,10 @@ function renderResult(record, modeRecords) {
 // fields, importHistory validates candidates against `valid`, and the
 // data-format card renders `example` and `describe` — so the writer, the
 // validator, and the documentation cannot drift apart. wastedClicks and
-// flagsPlaced joined the schema on 2026-08-19: both are always written now,
-// but games recorded before they were measured lack them, so absence is
-// valid ("not measured"); displays that need them use only records that
-// carry them.
+// flagsPlaced joined the schema on 2026-08-19, flagsRemoved on 2026-08-20:
+// all are always written now, but games recorded before they were measured
+// lack them, so absence is valid ("not measured"); displays that need them
+// use only records that carry them.
 const isNumber = (v) => typeof v === 'number';
 const GAME_RECORD_SCHEMA = [
   { field: 'endedAt', valid: isNumber, example: '1787201223496', describe: 'when the game finished (Unix epoch, ms)' },
@@ -467,11 +487,52 @@ const GAME_RECORD_SCHEMA = [
   { field: 'clicks', valid: isNumber, example: '19', describe: 'clicks that changed the board (reveals, flags, chords)' },
   { field: 'wastedClicks', valid: (v) => v === undefined || isNumber(v), example: '3', describe: 'board clicks that changed nothing; absent on games recorded before 2026-08-19' },
   { field: 'flagsPlaced', valid: (v) => v === undefined || isNumber(v), example: '0', describe: 'flags the player placed (win auto-flagging not counted); 0 = a markless game; absent on games recorded before 2026-08-19' },
+  { field: 'flagsRemoved', valid: (v) => v === undefined || isNumber(v), example: '1', describe: 'flags the player took back; each removal = a place+remove pair (2 clicks) that netted nothing; absent on games recorded before 2026-08-20' },
   { field: 'mousePathPx', valid: isNumber, example: '1182', describe: 'cursor travel while playing, px' },
+  { field: 'states', valid: (v) => v === undefined || (Array.isArray(v) && v.every((s) => typeof s === 'string')), example: '["sleepy"]', describe: 'player-defined state tags active when the game finished (see the states panel); absent on games recorded before 2026-08-20' },
 ];
 
-// Records are grouped by mode key and kept in chronological order.
-const HISTORY_KEY = 'minesweeper-friendly.history';
+// Records are grouped by mode key and kept in chronological order. The RAM
+// copy of the whole history (userdata 'history', filled by loadUserdata);
+// scalar records are small enough that all of them stay in RAM — revisit
+// only if that ever stops being true.
+let history = null;
+
+//-------PERSONAL SETTINGS (behavior switches, stored beside the history)-------
+
+// Player-facing behavior switches ("settings", never "config" — that word
+// is taken by the board parameters). Like GAME_RECORD_SCHEMA, this is the
+// single definition of the settings block: settingsFrom fills absent fields
+// from `default` (a stored block written before a setting existed simply
+// predates it — absence means the player never changed it), importHistory
+// validates an incoming block against `valid`, buildSettingsPanel renders
+// the controls from `label`/`describe`, and exports carry the block under
+// the reserved "settings" key — so the writer, the validator, the UI, and
+// the documentation cannot drift apart.
+const SETTINGS_SCHEMA = [
+  {
+    field: 'collapseDuplicateCharts',
+    default: true,
+    valid: (v) => typeof v === 'boolean',
+    label: 'collapse duplicate tablecharts',
+    describe: 'when several time windows hold the exact same wins (e.g. every win this week happened today), show only the most specific chart; off = every window always renders its own chart',
+  },
+];
+
+// The RAM copy of the settings block (userdata 'settings').
+let settings = null;
+
+function settingsFrom(stored) {
+  const filled = {};
+  for (const s of SETTINGS_SCHEMA) {
+    filled[s.field] = s.field in stored ? stored[s.field] : s.default;
+  }
+  return filled;
+}
+
+function saveSettings() {
+  persistUserdata('settings', settings);
+}
 
 // A mode's identity is its parameters; named difficulty labels are
 // display-only (see modeLabel).
@@ -574,6 +635,29 @@ function relativeAge(nowMs, thenMs) {
   return { count: Math.floor(days / 365), unit: 'y' };
 }
 
+// Each age unit's span in ms, matching relativeAge's boundaries. Used to
+// place an age within its unit: frac runs 0 (just entered the unit) to 1
+// (about to roll into the next), so scatter dots can fade with age inside
+// a single color. Years cap at 10, beyond which everything is equally old.
+const AGE_UNIT_SPANS = [
+  ['s', 0, 60e3],
+  ['m', 60e3, 3600e3],
+  ['h', 3600e3, 864e5],
+  ['d', 864e5, 7 * 864e5],
+  ['w', 7 * 864e5, 30 * 864e5],
+  ['mo', 30 * 864e5, 365 * 864e5],
+  ['y', 365 * 864e5, 10 * 365 * 864e5],
+];
+
+function ageInfo(nowMs, thenMs) {
+  const age = Math.max(0, nowMs - thenMs);
+  for (const [unit, lo, hi] of AGE_UNIT_SPANS) {
+    if (age < hi || unit === 'y') {
+      return { unit, frac: Math.min(1, (age - lo) / (hi - lo)) };
+    }
+  }
+}
+
 //-------DAY CATEGORIES (weekday / weekend / US holidays)-------
 
 function isWeekend(date) {
@@ -630,29 +714,26 @@ function rankColumns(record) {
   return columns;
 }
 
-function loadHistory() {
-  const raw = localStorage.getItem(HISTORY_KEY);
-  return raw === null ? {} : JSON.parse(raw);
-}
-
 // Appends the finished game to its mode's history and returns that mode's
 // full record list (the appended object included, so identity search works).
 function appendGameRecord(record) {
-  const history = loadHistory();
   const key = modeKey();
   if (!(key in history)) history[key] = [];
   history[key].push(record);
-  localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+  persistUserdata('history', history);
   return history[key];
 }
 
-// Visible slice of a ranked list, 11 rows max. When my row sits within the
+// Visible slice of a ranked list, always the full 11 rows when the list has
+// them (a constant row count keeps a chart's height stable across re-sorts,
+// so reordering never reflows its neighbors). When my row sits within the
 // top 11, the whole budget anchors at #1: the top 11 renders with my row in
-// its true place. Only when #1 is out of reach does the window center on
-// me: the 5 nearest faster and 5 nearest slower entries.
+// its true place. Otherwise the window centers on me — 5 above, 5 below —
+// sliding upward when I'm near the bottom so the budget still fills.
 function windowBounds(myIndex, length) {
   if (myIndex <= 10) return [0, Math.min(length, 11)];
-  return [myIndex - 5, Math.min(length, myIndex + 6)];
+  const end = Math.min(length, myIndex + 6);
+  return [Math.max(0, end - 11), end];
 }
 
 // Rankaverage charts: wins grouped by a stat's value, ranked by the group's
@@ -673,14 +754,35 @@ const RANKAVERAGE_SPECS = [
 // Every list renders its full 11-row window around the player's row (see
 // windowBounds); a mediocre placement still shows its 5 neighbors above and
 // below, at full opacity, since the placement itself is fresh information.
-function buildRankList(headingText, rowCount, myIndex, gridClass, buildRowCells) {
+// The list ends with an "of N" footer completing the highlighted "#x": the
+// rank fraction lives in the chart, not the heading. headingText may be
+// null for charts whose column headers do the naming. sortHeader, when
+// given, renders a row of subtle clickable column headers above the data
+// ({cls, text, active, onClick} each).
+function buildRankList(headingText, rowCount, myIndex, gridClass, buildRowCells, sortHeader) {
   const list = document.createElement('div');
   list.className = 'rank-list';
-  const heading = document.createElement('h4');
-  heading.textContent = headingText;
-  list.appendChild(heading);
+  if (headingText !== null) {
+    const heading = document.createElement('h4');
+    heading.textContent = headingText;
+    list.appendChild(heading);
+  }
   const grid = document.createElement('div');
   grid.className = gridClass;
+  if (sortHeader) {
+    const row = document.createElement('div');
+    row.className = 'rank-row sort-row';
+    for (const { cls, text, active, onClick } of sortHeader) {
+      const cell = document.createElement('span');
+      cell.className = cls + ' sort-cell' + (active ? ' active' : '');
+      cell.textContent = text;
+      const plain = text.replace(/[\u25be\u25b4]/g, '').trim();
+      cell.title = 'sort by ' + (plain === '#' ? 'rank' : plain);
+      cell.addEventListener('click', onClick);
+      row.appendChild(cell);
+    }
+    grid.appendChild(row);
+  }
   const [start, end] = windowBounds(myIndex, rowCount);
   for (let i = start; i < end; i++) {
     const row = document.createElement('div');
@@ -694,6 +796,15 @@ function buildRankList(headingText, rowCount, myIndex, gridClass, buildRowCells)
     grid.appendChild(row);
   }
   list.appendChild(grid);
+  // The "of N" only appears when rows are actually cut off below: if the
+  // last row is visible, the list's end is already in view and the count
+  // says nothing new. The footer line itself always renders (blank via
+  // nbsp) so toggling between sort orders that do and don't reach the last
+  // row cannot change the chart's height.
+  const total = document.createElement('div');
+  total.className = 'rank-total';
+  total.textContent = end < rowCount ? 'of ' + rowCount : '\u00a0';
+  list.appendChild(total);
   return list;
 }
 
@@ -711,13 +822,14 @@ function niceTicks(min, max, count) {
 
 // Ticks for a date x-axis (epoch ms): a calendar step from minutes up to
 // days, aligned to local wall-clock multiples, labeled HH:mm below a day
-// and M/D from a day up.
+// and M/D from a day up. At most 5 ticks: HH:mm labels are the widest kind
+// at the title-sized tick font, so more would collide.
 function timeTicks(min, max) {
   const MIN = 60e3, HOUR = 3600e3, DAY = 864e5;
   const steps = [MIN, 5 * MIN, 15 * MIN, 30 * MIN, HOUR, 3 * HOUR, 6 * HOUR,
-    12 * HOUR, DAY, 2 * DAY, 7 * DAY, 14 * DAY, 30 * DAY, 90 * DAY, 365 * DAY];
+    12 * HOUR, DAY, 2 * DAY, 7 * DAY, 14 * DAY, 30 * DAY, 90 * DAY, 180 * DAY, 365 * DAY];
   const span = Math.max(max - min, 1);
-  const step = steps.find((s) => span / s <= 6) || 365 * DAY;
+  const step = steps.find((s) => span / s <= 5) || 365 * DAY;
   const offMs = new Date(min).getTimezoneOffset() * 60e3;
   const ticks = [];
   for (let t = Math.ceil((min - offMs) / step) * step + offMs; t <= max; t += step) ticks.push(t);
@@ -732,16 +844,18 @@ function timeTicks(min, max) {
 }
 
 // Small inline-SVG scatter plot: every win is a dot colored by its age unit
-// (the same palette as rank-list ages, so time trends are scannable); this
-// game is the black-ringed dot labeled with its today-rank. Shows
-// relationships (e.g. does moving the mouse faster actually win games
-// faster?) rather than rankings. Both axes carry nice tick labels with
-// gridlines plus a spelled-out axis label naming the metric and unit.
-// opts.timeAxis renders x as a local date/time axis; opts.idealLine draws
-// the y = x diagonal (used where y has a hard floor at x, e.g. clicks
-// can never beat 3BV).
-function buildScatter(title, wins, me, fx, fy, xLabel, yLabel, meLabel, ageUnitOf, opts = {}) {
-  const W = 270, H = 200, L = 52, R = 10, T = 8, B = 32;
+// (the same palette as rank-list ages, so time trends are scannable) and
+// faded within that color by how deep into the unit it sits (a 6-day-old
+// dot is paler than a 1-day-old one); this game is the black-ringed dot
+// labeled with its today-rank. Shows relationships (e.g. does moving the
+// mouse faster actually win games faster?) rather than rankings. There is
+// no chart title: the terse axis labels, rendered at title size along
+// with the tick values, name the chart. opts.timeAxis renders x as a local
+// date/time axis; opts.idealLine draws the y = x diagonal (used where y has
+// a hard floor at x, e.g. clicks can never beat 3BV). ageInfoOf maps a win
+// to its {unit, frac} age (see ageInfo).
+function buildScatter(wins, me, fx, fy, xLabel, yLabel, meLabel, ageInfoOf, opts = {}) {
+  const W = 270, H = 210, L = 54, R = 10, T = 10, B = 36;
   const xs = wins.map(fx), ys = wins.map(fy);
   const pad = (min, max) => {
     const p = (max - min) * 0.04;
@@ -768,21 +882,23 @@ function buildScatter(title, wins, me, fx, fy, xLabel, yLabel, meLabel, ageUnitO
     const dec = step >= 1 ? 0 : step >= 0.1 ? 1 : 2;
     return (v) => v.toFixed(dec);
   };
+  // x caps at 6 ticks (the labels are title-sized, so a 7-tick x-axis can
+  // collide with itself); y stacks vertically and takes the full 7.
   let xTicks, fmtX;
   if (opts.timeAxis) {
     ({ ticks: xTicks, fmt: fmtX } = timeTicks(x0, x1));
   } else {
-    xTicks = niceTicks(x0, x1, 7);
+    xTicks = niceTicks(x0, x1, 6);
     fmtX = tickFmt(xTicks);
   }
   for (const v of xTicks) {
     el('line', { x1: px(v), y1: T, x2: px(v), y2: H - B, class: 'scatter-grid' });
-    el('text', { x: px(v), y: H - B + 11, class: 'scatter-tick tick-x' }, fmtX(v));
+    el('text', { x: px(v), y: H - B + 14, class: 'scatter-tick tick-x' }, fmtX(v));
   }
   const yTicks = niceTicks(y0, y1, 7), fmtY = tickFmt(yTicks);
   for (const v of yTicks) {
     el('line', { x1: L, y1: py(v), x2: W - R, y2: py(v), class: 'scatter-grid' });
-    el('text', { x: L - 4, y: py(v) + 2.5, class: 'scatter-tick tick-y' }, fmtY(v));
+    el('text', { x: L - 4, y: py(v) + 4, class: 'scatter-tick tick-y' }, fmtY(v));
   }
   if (opts.idealLine) {
     const t0 = Math.max(x0, y0);
@@ -795,9 +911,18 @@ function buildScatter(title, wins, me, fx, fy, xLabel, yLabel, meLabel, ageUnitO
       });
     }
   }
-  const dot = (s, cls, r) => el('circle', { cx: px(fx(s)).toFixed(1), cy: py(fy(s)).toFixed(1), r, class: cls });
-  for (const s of wins) if (s !== me) dot(s, 'scatter-dot age-dot-' + ageUnitOf(s), '2.2');
-  dot(me, 'scatter-me age-dot-' + ageUnitOf(me), '3.5');
+  const dot = (s, cls, r, opacity) => el('circle', {
+    cx: px(fx(s)).toFixed(1), cy: py(fy(s)).toFixed(1), r, class: cls,
+    'fill-opacity': opacity,
+  });
+  // The deeper into its age unit a win sits, the more washed-out its dot:
+  // full color on entering the unit, fading to 30% at the far edge.
+  for (const s of wins) {
+    if (s === me) continue;
+    const age = ageInfoOf(s);
+    dot(s, 'scatter-dot age-dot-' + age.unit, '2.2', (1 - 0.7 * age.frac).toFixed(2));
+  }
+  dot(me, 'scatter-me age-dot-' + ageInfoOf(me).unit, '3.5', '1');
   // Today-rank tag beside the me-dot; flips to the left near the right edge.
   const meX = px(fx(me));
   const flipLeft = meX > W - R - 50;
@@ -806,17 +931,15 @@ function buildScatter(title, wins, me, fx, fy, xLabel, yLabel, meLabel, ageUnitO
     y: Math.max(T + 9, py(fy(me)) - 5).toFixed(1),
     class: 'scatter-me-label' + (flipLeft ? ' flip-left' : ''),
   }, meLabel);
-  el('text', { x: L + (W - L - R) / 2, y: H - 3, class: 'scatter-axis-label' }, '\u2192 ' + xLabel);
+  el('text', { x: L + (W - L - R) / 2, y: H - 4, class: 'scatter-axis-label' }, '\u2192 ' + xLabel);
   el('text', {
-    transform: 'translate(10 ' + (T + (H - T - B) / 2) + ') rotate(-90)',
+    transform: 'translate(12 ' + (T + (H - T - B) / 2) + ') rotate(-90)',
     class: 'scatter-axis-label',
   }, '\u2192 ' + yLabel);
 
   const list = document.createElement('div');
   list.className = 'rank-list scatter';
-  const heading = document.createElement('h4');
-  heading.textContent = title;
-  list.append(heading, svg);
+  list.append(svg);
   return list;
 }
 
@@ -842,26 +965,153 @@ function avgDelta(spec, record, wins) {
   return { className: 'delta-worsened', text: '+' + shift };
 }
 
+// The player's chosen row order for each rankaverage chart, keyed by the
+// stat label and persisted so a preference survives reloads. An entry is
+// {key, dir}; a missing entry means the natural rank order. The RAM copy
+// (userdata 'rankavgSort').
+let rankavgSorts = null;
+
+function saveRankavgSort(label, sort) {
+  if (sort === null) delete rankavgSorts[label];
+  else rankavgSorts[label] = sort;
+  persistUserdata('rankavgSort', rankavgSorts);
+}
+
+// One rankaverage tablechart. It carries no title — the value column's
+// header names the stat. Clicking a column header cycles its sort:
+// ascending, then descending, then back to the natural rank order (by the
+// bucket's average time). Sorting only reorders rows — each
+// row keeps its true by-average rank number — and the 11-row window stays
+// centered on this game's bucket. Every comparator ends in a deterministic
+// tie-break, so a given history renders the same way every time.
+function buildRankavgList(spec, record, wins) {
+  const groups = new Map(); // bucketed value -> { count, totalMs }
+  for (const s of wins) {
+    const v = spec.value(s);
+    const g = groups.get(v) || { count: 0, totalMs: 0 };
+    g.count += 1;
+    g.totalMs += s.timeMs;
+    groups.set(v, g);
+  }
+  const avgMs = (v) => groups.get(v).totalMs / groups.get(v).count;
+  const ascComparators = {
+    rank: (a, b) => avgMs(a) - avgMs(b) || a - b,
+    value: (a, b) => a - b,
+    time: (a, b) => avgMs(a) - avgMs(b) || a - b,
+    count: (a, b) => groups.get(a).count - groups.get(b).count || avgMs(a) - avgMs(b) || a - b,
+  };
+  const byAvg = [...groups.keys()].sort(ascComparators.rank);
+  const rankOf = (v) => byAvg.indexOf(v) + 1;
+  // Only a well-formed {key, dir} counts; anything else (including entries
+  // from older versions of this code) falls back to the natural order.
+  const saved = rankavgSorts[spec.label];
+  const sort = saved && typeof saved === 'object' && saved.key in ascComparators
+    && (saved.dir === 'asc' || saved.dir === 'desc') ? saved : null;
+  const order = [...byAvg];
+  if (sort !== null) {
+    order.sort(ascComparators[sort.key]);
+    if (sort.dir === 'desc') order.reverse();
+  }
+  const myIndex = order.indexOf(spec.value(record));
+  let list;
+  const arrow = { desc: ' \u25be', asc: ' \u25b4' };
+  const sortHeader = [
+    ['rank-cell', '#', 'rank'],
+    ['val-cell', spec.label, 'value'],
+    ['avg-cell', 'avg', 'time'],
+    ['cnt-cell', 'count', 'count'],
+  ].map(([cls, text, key]) => {
+    const active = sort !== null && sort.key === key;
+    return {
+      cls,
+      text: text + (active ? arrow[sort.dir] : ''),
+      active,
+      onClick: () => {
+        const next = !active ? { key, dir: 'asc' }
+          : sort.dir === 'asc' ? { key, dir: 'desc' }
+          : null;
+        saveRankavgSort(spec.label, next);
+        const fresh = buildRankavgList(spec, record, wins);
+        // Freeze the box at its pre-click width (the row count, and so the
+        // height, is already constant — see windowBounds) so re-sorting
+        // never reflows the whole row of tablecharts around this one.
+        fresh.style.width = list.getBoundingClientRect().width + 'px';
+        list.replaceWith(fresh);
+      },
+    };
+  });
+  list = buildRankList(
+    null,
+    order.length, myIndex, 'rankavg-grid',
+    (i) => [
+      ['rank-cell', '#' + rankOf(order[i])],
+      ['val-cell', spec.format(order[i])],
+      ['avg-cell', (avgMs(order[i]) / 1000).toFixed(3) + 's'],
+      ['cnt-cell', groups.get(order[i]).count + '\u00d7'],
+    ],
+    sortHeader);
+  // The delta is a time, so it rides the grid as one more row with its
+  // text in the average-time column, aligning under the times above it.
+  const delta = avgDelta(spec, record, wins);
+  const deltaRow = document.createElement('div');
+  deltaRow.className = 'rank-row';
+  for (const [cls, text] of [
+    ['rank-cell', ''],
+    ['val-cell', ''],
+    ['avg-cell rank-delta ' + delta.className, delta.text],
+    ['cnt-cell', ''],
+  ]) {
+    const cell = document.createElement('span');
+    cell.className = cls;
+    cell.textContent = text;
+    deltaRow.appendChild(cell);
+  }
+  list.querySelector('.rankavg-grid').appendChild(deltaRow);
+  return list;
+}
+
 function renderRanks(record, modeRecords) {
   resultRanks.textContent = '';
   const wins = modeRecords.filter((r) => r.outcome === 'win');
   // Ranking order everywhere: fastest first, ties broken by earlier finish.
   const byTimeThenEnd = (a, b) => a.timeMs - b.timeMs || a.endedAt - b.endedAt;
-  // Progressive disclosure: two lists holding the exact same wins would
-  // render identically, so only the most specific one of each such group is
-  // shown. Broader charts appear on their own once history spreads across
-  // enough hours/days/weekdays to make them differ.
+  // Row builder shared by every time-ranked list: rank, solve time, and the
+  // win's age split into count and unit cells (or a single "this" marking
+  // the game that just finished).
+  const timeAgeRow = (list) => (i) => {
+    const age = relativeAge(record.endedAt, list[i].endedAt);
+    const cells = [
+      ['rank-cell', '#' + (i + 1)],
+      ['time-cell', (list[i].timeMs / 1000).toFixed(3) + 's'],
+    ];
+    if (age.count === 0 && age.unit === 's') {
+      cells.push(['age-just-cell age-u-s', 'this']);
+    } else {
+      cells.push(['age-num-cell age-u-' + age.unit, String(age.count)]);
+      cells.push(['age-unit-cell age-u-' + age.unit, age.unit]);
+    }
+    return cells;
+  };
+  // Progressive disclosure (the collapseDuplicateCharts setting, on by
+  // default): two lists holding the exact same wins would render
+  // identically, so only the most specific one of each such group is shown,
+  // and broader charts appear on their own once history spreads across
+  // enough hours/days/weekdays to make them differ. Switched off, every
+  // window renders its own chart regardless of duplication.
   const candidates = rankColumns(record).map((column) => ({
     column,
     inWindow: wins.filter(column.filter).sort(byTimeThenEnd),
   }));
-  const seenSets = new Set();
-  const kept = new Set();
-  for (const c of [...candidates].sort((a, b) => a.column.specificity - b.column.specificity)) {
-    const signature = c.inWindow.map((s) => s.endedAt).join('|');
-    if (seenSets.has(signature)) continue;
-    seenSets.add(signature);
-    kept.add(c);
+  const kept = new Set(candidates);
+  if (settings.collapseDuplicateCharts) {
+    const seenSets = new Set();
+    kept.clear();
+    for (const c of [...candidates].sort((a, b) => a.column.specificity - b.column.specificity)) {
+      const signature = c.inWindow.map((s) => s.endedAt).join('|');
+      if (seenSets.has(signature)) continue;
+      seenSets.add(signature);
+      kept.add(c);
+    }
   }
   for (const c of candidates) {
     if (!kept.has(c)) continue;
@@ -869,62 +1119,21 @@ function renderRanks(record, modeRecords) {
     // `record` is an element of modeRecords, so identity search finds it.
     const myIndex = inWindow.indexOf(record);
     resultRanks.appendChild(buildRankList(
-      column.label + ' - #' + (myIndex + 1) + ' of ' + inWindow.length,
+      column.label,
       inWindow.length, myIndex, 'rank-grid',
-      (i) => {
-        const age = relativeAge(record.endedAt, inWindow[i].endedAt);
-        const cells = [
-          ['rank-cell', '#' + (i + 1)],
-          ['time-cell', (inWindow[i].timeMs / 1000).toFixed(3) + 's'],
-        ];
-        if (age.count === 0 && age.unit === 's') {
-          cells.push(['age-just-cell age-u-s', 'just now']);
-        } else {
-          cells.push(['age-num-cell age-u-' + age.unit, String(age.count)]);
-          cells.push(['age-unit-cell age-u-' + age.unit, age.unit]);
-        }
-        return cells;
-      }));
+      timeAgeRow(inWindow)));
   }
+
+  // Best times on boards of this exact 3BV: the fairest time comparison,
+  // since only equally-hard layouts compete.
+  const sameBv = wins.filter((s) => s.bv3 === record.bv3).sort(byTimeThenEnd);
+  resultRanks.appendChild(buildRankList(
+    'best times for this 3BV (' + record.bv3 + ')',
+    sameBv.length, sameBv.indexOf(record), 'rank-grid',
+    timeAgeRow(sameBv)));
+
   for (const spec of RANKAVERAGE_SPECS) {
-    const groups = new Map(); // value -> { count, totalMs }
-    for (const s of wins) {
-      const v = spec.value(s);
-      const g = groups.get(v) || { count: 0, totalMs: 0 };
-      g.count += 1;
-      g.totalMs += s.timeMs;
-      groups.set(v, g);
-    }
-    const avgMs = (v) => groups.get(v).totalMs / groups.get(v).count;
-    const byAvg = [...groups.keys()].sort((a, b) => avgMs(a) - avgMs(b));
-    const avgIndex = byAvg.indexOf(spec.value(record));
-    const avgList = buildRankList(
-      spec.label + ' rankaverage - #' + (avgIndex + 1) + ' of ' + byAvg.length,
-      byAvg.length, avgIndex, 'rankavg-grid',
-      (i) => [
-        ['rank-cell', '#' + (i + 1)],
-        ['val-cell', spec.format(byAvg[i])],
-        ['avg-cell', (avgMs(byAvg[i]) / 1000).toFixed(3) + 's'],
-        ['cnt-cell', groups.get(byAvg[i]).count + '\u00d7'],
-      ]);
-    // The delta is a time, so it rides the grid as one more row with its
-    // text in the average-time column, aligning under the times above it.
-    const delta = avgDelta(spec, record, wins);
-    const deltaRow = document.createElement('div');
-    deltaRow.className = 'rank-row';
-    for (const [cls, text] of [
-      ['rank-cell', ''],
-      ['val-cell', ''],
-      ['avg-cell rank-delta ' + delta.className, delta.text],
-      ['cnt-cell', ''],
-    ]) {
-      const cell = document.createElement('span');
-      cell.className = cls;
-      cell.textContent = text;
-      deltaRow.appendChild(cell);
-    }
-    avgList.querySelector('.rankavg-grid').appendChild(deltaRow);
-    resultRanks.appendChild(avgList);
+    resultRanks.appendChild(buildRankavgList(spec, record, wins));
   }
 
   // Streak lists: wins in chronological runs split by losses. A k-loss
@@ -935,7 +1144,7 @@ function renderRanks(record, modeRecords) {
     if (r.outcome === 'win') runs[runs.length - 1].push(r.endedAt);
     else runs.push([]);
   }
-  for (const [label, slack] of [['streak', 0], ['near-streak (1 loss ok)', 1], ['near-near-streak (2 losses ok)', 2]]) {
+  for (const [label, slack] of [['streak', 0], ['near-streak', 1], ['near-near-streak', 2]]) {
     const span = Math.min(slack + 1, runs.length);
     // Each window of `span` adjacent runs is trimmed to its nonempty core
     // (consecutive losses leave empty runs that pad windows). Identical
@@ -964,7 +1173,7 @@ function renderRanks(record, modeRecords) {
     segments.sort((a, b) => b.len - a.len || b.end - a.end);
     const myIndex = segments.findIndex((seg) => seg.current);
     resultRanks.appendChild(buildRankList(
-      label + ' - #' + (myIndex + 1) + ' of ' + segments.length,
+      label,
       segments.length, myIndex, 'rank-grid',
       (i) => {
         const seg = segments[i];
@@ -974,7 +1183,7 @@ function renderRanks(record, modeRecords) {
           ['time-cell', seg.len + (seg.len === 1 ? ' win' : ' wins')],
         ];
         if (age.count === 0 && age.unit === 's') {
-          cells.push(['age-just-cell age-u-s', 'just now']);
+          cells.push(['age-just-cell age-u-s', 'this']);
         } else {
           cells.push(['age-num-cell age-u-' + age.unit, String(age.count)]);
           cells.push(['age-unit-cell age-u-' + age.unit, age.unit]);
@@ -996,50 +1205,54 @@ function renderRanks(record, modeRecords) {
       .sort(byTimeThenEnd)
       .indexOf(record) + 1;
     const meLabel = '#' + todayRank + ' today';
-    const ageUnitOf = (s) => relativeAge(record.endedAt, s.endedAt).unit;
+    const ageInfoOf = (s) => ageInfo(record.endedAt, s.endedAt);
     const hourOfDay = (s) => {
       const d = new Date(s.endedAt);
       return d.getHours() + d.getMinutes() / 60;
     };
-    resultRanks.appendChild(buildScatter('win time vs date',
+    // Axis labels stay terse — one or two words, no units or asides; the
+    // tick values carry the scale. "date" spreads wins across the calendar;
+    // "time of day" folds every win onto one 24-hour clock, exposing the
+    // daily rhythm instead of the long-term trend.
+    resultRanks.appendChild(buildScatter(
       wins, record, (s) => s.endedAt, secondsOf,
-      'when the win happened', 'win time (s)', meLabel, ageUnitOf, { timeAxis: true }));
-    resultRanks.appendChild(buildScatter('win time vs hour of day',
+      'date', 'time', meLabel, ageInfoOf, { timeAxis: true }));
+    resultRanks.appendChild(buildScatter(
       wins, record, hourOfDay, secondsOf,
-      'hour of day (local)', 'win time (s)', meLabel, ageUnitOf));
-    resultRanks.appendChild(buildScatter('3BV vs time',
+      'time of day', 'time', meLabel, ageInfoOf));
+    resultRanks.appendChild(buildScatter(
       wins, record, (s) => s.bv3, secondsOf,
-      'board 3BV', 'win time (s)', meLabel, ageUnitOf));
-    resultRanks.appendChild(buildScatter('clicks vs 3BV',
+      '3BV', 'time', meLabel, ageInfoOf));
+    resultRanks.appendChild(buildScatter(
       wins, record, (s) => s.bv3, (s) => s.clicks,
-      'board 3BV', 'clicks made (line: clicks = 3BV)', meLabel, ageUnitOf,
+      '3BV', 'clicks', meLabel, ageInfoOf,
       { idealLine: true }));
     // Only wins that carry the wastedClicks measurement (recorded since
     // 2026-08-19) can appear on its chart.
     const withWasted = wins.filter((s) => 'wastedClicks' in s);
     if (withWasted.length >= 2) {
-      resultRanks.appendChild(buildScatter('wasted clicks vs 3BV/s',
+      resultRanks.appendChild(buildScatter(
         withWasted, record, (s) => s.wastedClicks, bvPerSecond,
-        'wasted clicks (no-ops)', '3BV/s', meLabel, ageUnitOf));
+        'wasted clicks', '3BV/s', meLabel, ageInfoOf));
     }
-    resultRanks.appendChild(buildScatter('mouse path vs time',
+    resultRanks.appendChild(buildScatter(
       wins, record, (s) => s.mousePathPx, secondsOf,
-      'mouse path (px)', 'win time (s)', meLabel, ageUnitOf));
-    resultRanks.appendChild(buildScatter('mouse speed vs time',
+      'mouse path', 'time', meLabel, ageInfoOf));
+    resultRanks.appendChild(buildScatter(
       wins, record, (s) => s.mousePathPx / secondsOf(s), secondsOf,
-      'mouse speed (px/s)', 'win time (s)', meLabel, ageUnitOf));
-    resultRanks.appendChild(buildScatter('mouse speed vs efficiency',
+      'mouse speed', 'time', meLabel, ageInfoOf));
+    resultRanks.appendChild(buildScatter(
       wins, record, (s) => s.mousePathPx / secondsOf(s), efficiencyPercent,
-      'mouse speed (px/s)', 'efficiency (%)', meLabel, ageUnitOf));
-    resultRanks.appendChild(buildScatter('path per click vs efficiency',
+      'mouse speed', 'efficiency', meLabel, ageInfoOf));
+    resultRanks.appendChild(buildScatter(
       wins, record, (s) => s.mousePathPx / s.clicks, efficiencyPercent,
-      'mouse path per click (px)', 'efficiency (%)', meLabel, ageUnitOf));
-    resultRanks.appendChild(buildScatter('path per 3BV vs time',
+      'path per click', 'efficiency', meLabel, ageInfoOf));
+    resultRanks.appendChild(buildScatter(
       wins, record, (s) => s.mousePathPx / s.bv3, secondsOf,
-      'mouse path per 3BV (px)', 'win time (s)', meLabel, ageUnitOf));
+      'path per 3BV', 'time', meLabel, ageInfoOf));
     const legend = document.createElement('div');
     legend.className = 'scatter-legend';
-    legend.appendChild(document.createTextNode('dot color = how long ago that win was:'));
+    legend.appendChild(document.createTextNode('dot color = how long ago that win was (dots fade as they age within a color):'));
     for (const [unit, name] of [['s', 'seconds'], ['m', 'minutes'], ['h', 'hours'],
       ['d', 'days'], ['w', 'weeks'], ['mo', 'months'], ['y', 'years']]) {
       const item = document.createElement('span');
@@ -1050,6 +1263,282 @@ function renderRanks(record, modeRecords) {
     resultRanks.appendChild(legend);
   }
 }
+
+//-------PERSISTENT STORAGE (one IndexedDB database: userdata + traces)-------
+
+// All storage moved from localStorage into IndexedDB on 2026-08-20. One
+// database holds two stores: 'userdata' (play history, settings, rankavg
+// sorts, player states — one entry per kind) and 'traces' (see the trace
+// section below). Userdata is RAM-first: loadUserdata reads every kind
+// into its RAM object once at startup, all reads and mutations work on RAM
+// synchronously, and each mutation calls persistUserdata — an async
+// fire-and-forget write of that kind's whole RAM object. IndexedDB
+// structured-clones the value at put() time, so RAM mutations after the
+// call cannot race the write. Traces are far too large for RAM and are
+// written straight to their store, one entry per game.
+
+const DB_NAME = 'minesweeper-friendly';
+const TRACE_STORE = 'traces';
+const USERDATA_STORE = 'userdata';
+const USERDATA_KINDS = ['history', 'settings', 'rankavgSort', 'states'];
+
+let db = null;
+
+// A failure to open the database or to persist data is a bug to fix, not a
+// mode to tolerate: announce where the player can see it, and throw.
+function storageFailure(what) {
+  backupStatus.textContent = what;
+  throw new Error(what);
+}
+
+// Where each userdata kind lived before 2026-08-20. The version-2 upgrade
+// below carries the data over exactly once (the upgrade only ever runs
+// once per origin); deletable once every player's origin has upgraded.
+const LEGACY_LOCALSTORAGE_KEYS = {
+  history: 'minesweeper-friendly.history',
+  settings: 'minesweeper-friendly.settings',
+  rankavgSort: 'minesweeper-friendly.rankavgSort',
+  states: 'minesweeper-friendly.states',
+};
+
+const dbRequest = indexedDB.open(DB_NAME, 2);
+dbRequest.onupgradeneeded = (event) => {
+  const upgraded = event.target.result;
+  if (event.oldVersion < 1) upgraded.createObjectStore(TRACE_STORE, { keyPath: 'endedAt' });
+  if (event.oldVersion < 2) {
+    const store = upgraded.createObjectStore(USERDATA_STORE);
+    const moved = [];
+    for (const [kind, storageKey] of Object.entries(LEGACY_LOCALSTORAGE_KEYS)) {
+      const raw = localStorage.getItem(storageKey);
+      if (raw === null) continue;
+      store.put(JSON.parse(raw), kind);
+      moved.push(storageKey);
+    }
+    // The old keys disappear only after the carried-over data is committed.
+    event.target.transaction.addEventListener('complete', () => {
+      for (const storageKey of moved) localStorage.removeItem(storageKey);
+    });
+  }
+};
+dbRequest.onsuccess = (event) => {
+  db = event.target.result;
+  loadUserdata();
+};
+dbRequest.onerror = () => storageFailure('database failed to open: ' + dbRequest.error);
+
+// Reads every userdata kind into its RAM object, then finishes startup:
+// init() builds the settings panel, the states panel, and the first board,
+// all of which read RAM.
+function loadUserdata() {
+  const tx = db.transaction(USERDATA_STORE);
+  tx.onerror = () => storageFailure('userdata load failed: ' + tx.error);
+  const store = tx.objectStore(USERDATA_STORE);
+  const got = {};
+  for (const kind of USERDATA_KINDS) {
+    const request = store.get(kind);
+    request.onsuccess = () => { got[kind] = request.result; };
+  }
+  tx.oncomplete = () => {
+    // An absent kind is a player who never stored it, not an error.
+    history = got.history === undefined ? {} : got.history;
+    settings = settingsFrom(got.settings === undefined ? {} : got.settings);
+    rankavgSorts = got.rankavgSort === undefined ? {} : got.rankavgSort;
+    playerStates = got.states === undefined
+      ? DEFAULT_STATE_NAMES.map((name) => ({ name, active: false }))
+      : got.states;
+    init();
+  };
+}
+
+// Persists one userdata kind's RAM object. Fire-and-forget: RAM is already
+// current, so nothing waits on the disk write.
+function persistUserdata(kind, value) {
+  if (db === null) storageFailure(kind + ' not saved: database is not open');
+  const tx = db.transaction(USERDATA_STORE, 'readwrite');
+  tx.objectStore(USERDATA_STORE).put(value, kind);
+  tx.onerror = () => storageFailure(kind + ' save failed: ' + tx.error);
+}
+
+//-------RAW INPUT TRACE (full per-game cursor and click stream)-------
+
+// Decided 2026-08-20 (PRODUCT.md "Raw input traces"): every finished game
+// keeps its complete input stream — cursor samples, button events, board
+// geometry — as the ground truth behind all motion metrics. Scalar record
+// fields summarize; the trace is what lets any future metric be computed
+// over past games too. Traces live in their own store, keyed by endedAt
+// exactly like the history records, and are never held in RAM.
+//
+// A trace runs from board creation (newGame) to finish. Pre-first-click
+// movement is warmup and is real data, so sampling covers 'ready' as well
+// as 'playing'; post-game movement belongs to no game and is not captured.
+// Timestamps are ms relative to the trace's start (startedAt holds the
+// absolute epoch ms). layout events snapshot the board's bounding rect,
+// re-recorded on scroll, resize, and zoom, so every (x,y) sample stays
+// mappable to a board cell forever.
+
+let trace = null;
+
+function beginTrace() {
+  trace = {
+    startedAt: Date.now(),
+    t0: performance.now(),
+    t: [], x: [], y: [],   // cursor samples, one entry per mousemove
+    events: [],            // button + layout events, see traceEvent/recordLayout
+  };
+  recordLayout();
+}
+
+function tracing() {
+  return gameState === 'ready' || gameState === 'playing';
+}
+
+// Board geometry snapshot: with the rect and the board's cell dimensions,
+// any sample (x,y) maps to a cell index offline.
+function recordLayout() {
+  const rect = boardElement.getBoundingClientRect();
+  trace.events.push({
+    t: performance.now() - trace.t0,
+    kind: 'layout',
+    left: rect.left, top: rect.top, width: rect.width, height: rect.height,
+    boardWidth: config.width, boardHeight: config.height,
+  });
+}
+
+// kind: 'ldown' | 'lup' | 'rdown'. index is the board cell the event hit,
+// or null (an 'lup' released off the cells while the button was down).
+function traceEvent(kind, event, index) {
+  trace.events.push({
+    t: performance.now() - trace.t0,
+    kind: kind,
+    x: event.clientX,
+    y: event.clientY,
+    index: index,
+  });
+}
+
+// Stored trace: identity fields matching the game record, plus the sample
+// arrays as typed arrays (compact; IndexedDB stores them natively).
+function saveTrace(record) {
+  if (db === null) storageFailure('trace not saved: database is not open');
+  const stored = {
+    endedAt: record.endedAt,
+    mode: modeKey(),
+    outcome: record.outcome,
+    startedAt: trace.startedAt,
+    sampleT: Float64Array.from(trace.t),
+    sampleX: Float32Array.from(trace.x),
+    sampleY: Float32Array.from(trace.y),
+    events: trace.events,
+  };
+  const tx = db.transaction(TRACE_STORE, 'readwrite');
+  tx.objectStore(TRACE_STORE).put(stored);
+  tx.onerror = () => storageFailure('trace save failed: ' + tx.error);
+}
+
+//-------PLAYER STATES (session tags stamped onto finished games)-------
+
+// The player keeps a personal list of state tags ("sleepy", "new mouse", ...)
+// and toggles which ones currently apply; every finished game records the
+// active set (see reportResult), so life circumstances can be correlated
+// with results later. Editing the list only shapes future games — past
+// records keep whatever states they were stamped with.
+const DEFAULT_STATE_NAMES = ['sleepy', 'just woke up', 'inebriated'];
+
+// The RAM copy (userdata 'states'): [{name, active}] in display order. A
+// new player gets the default options to choose from, none active (see
+// loadUserdata); the list is only persisted once the player changes
+// something.
+let playerStates = null;
+
+function savePlayerStates() {
+  persistUserdata('states', playerStates);
+}
+
+function activeStateNames() {
+  return playerStates.filter((s) => s.active).map((s) => s.name);
+}
+
+const statesChips = document.getElementById('states-chips');
+const statesAddBtn = document.getElementById('states-add-btn');
+const statesMenu = document.getElementById('states-menu');
+const statesOptions = document.getElementById('states-options');
+const statesAddForm = document.getElementById('states-add-form');
+const statesAddInput = document.getElementById('states-add-input');
+const statesStatus = document.getElementById('states-status');
+
+// Only ACTIVE states are visible: each is a chip, and clicking it takes the
+// state off. Everything inactive lives out of sight behind the "+ state"
+// button, whose menu lists the inactive options (click one to put it on,
+// its x to delete it from the list) plus the new-state field. An untagged
+// session shows nothing but the one small button.
+function renderStates() {
+  statesChips.textContent = '';
+  for (const state of playerStates) {
+    if (!state.active) continue;
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'state-chip';
+    chip.title = 'click to take this state off (future games only)';
+    chip.textContent = state.name + ' \u00d7';
+    chip.addEventListener('click', () => {
+      state.active = false;
+      savePlayerStates();
+      renderStates();
+    });
+    statesChips.appendChild(chip);
+  }
+  statesOptions.textContent = '';
+  for (const state of playerStates) {
+    if (state.active) continue;
+    const option = document.createElement('button');
+    option.type = 'button';
+    option.className = 'state-option';
+    option.textContent = state.name;
+    option.addEventListener('click', () => {
+      state.active = true;
+      statesMenu.hidden = true;
+      savePlayerStates();
+      renderStates();
+    });
+    const remove = document.createElement('span');
+    remove.className = 'state-remove';
+    remove.textContent = '\u00d7';
+    remove.title = 'delete from the list (past games keep their recorded states)';
+    remove.addEventListener('click', (event) => {
+      event.stopPropagation();
+      playerStates = playerStates.filter((s) => s !== state);
+      savePlayerStates();
+      renderStates();
+    });
+    option.appendChild(remove);
+    statesOptions.appendChild(option);
+  }
+}
+
+statesAddBtn.addEventListener('click', () => {
+  statesMenu.hidden = !statesMenu.hidden;
+  statesStatus.textContent = '';
+});
+
+// A state created here goes on immediately (typing it mid-session means
+// "I am in this state now"); one chip-click takes it off.
+statesAddForm.addEventListener('submit', (event) => {
+  event.preventDefault();
+  const name = statesAddInput.value.trim();
+  if (name === '') {
+    statesStatus.textContent = 'state name is empty';
+    return;
+  }
+  if (playerStates.some((s) => s.name === name)) {
+    statesStatus.textContent = '"' + name + '" already exists';
+    return;
+  }
+  playerStates.push({ name, active: true });
+  savePlayerStates();
+  statesAddInput.value = '';
+  statesMenu.hidden = true;
+  renderStates();
+});
 
 //-------PRESS PREVIEW (held left button)-------
 
@@ -1086,6 +1575,7 @@ boardElement.addEventListener('mousedown', (event) => {
   if (gameState === 'won' || gameState === 'lost') return;
   const index = cellIndexFromEvent(event);
   if (index === null) return;
+  traceEvent('ldown', event, index);
   leftDown = true;
   setFace('ooh');
   pressAt(index);
@@ -1102,6 +1592,8 @@ boardElement.addEventListener('mouseup', (event) => {
   const index = cellIndexFromEvent(event);
   if (index === null) return;
   if (gameState === 'won' || gameState === 'lost') return;
+  // Logged before acting so a game-ending click is inside its own trace.
+  traceEvent('lup', event, index);
   const cell = cells[index];
   if (!cell.revealed && !cell.flagged) {
     clickCount++;
@@ -1116,6 +1608,12 @@ boardElement.addEventListener('mouseup', (event) => {
 
 document.addEventListener('mouseup', (event) => {
   if (event.button !== 0) return;
+  // Releases on a cell were already logged by the board handler above
+  // (it runs first on the bubble path); this catches the rest — a press
+  // dragged off the cells and released, still a real input event.
+  if (leftDown && tracing() && cellIndexFromEvent(event) === null) {
+    traceEvent('lup', event, null);
+  }
   leftDown = false;
   clearPresses();
   if (gameState === 'ready' || gameState === 'playing') setFace('smile');
@@ -1127,13 +1625,29 @@ document.addEventListener('mousemove', (event) => {
   }
   lastMouseX = event.clientX;
   lastMouseY = event.clientY;
+  if (tracing()) {
+    trace.t.push(performance.now() - trace.t0);
+    trace.x.push(event.clientX);
+    trace.y.push(event.clientY);
+  }
 });
 
 boardElement.addEventListener('contextmenu', (event) => {
   event.preventDefault();
   if (gameState === 'won' || gameState === 'lost') return;
   const index = cellIndexFromEvent(event);
-  if (index !== null && !toggleFlag(index)) wastedClicks++;
+  if (index === null) return;
+  traceEvent('rdown', event, index);
+  if (!toggleFlag(index)) wastedClicks++;
+});
+
+// The board can shift under the viewport coordinate system; every such
+// change gets a fresh layout event so samples stay mappable to cells.
+document.addEventListener('scroll', () => {
+  if (tracing()) recordLayout();
+});
+window.addEventListener('resize', () => {
+  if (tracing()) recordLayout();
 });
 
 // Anywhere on the top panel (face button included, since it bubbles) restarts.
@@ -1182,6 +1696,7 @@ customForm.addEventListener('submit', (event) => {
 
 document.getElementById('zoom-select').addEventListener('change', (event) => {
   document.documentElement.style.setProperty('--cell-size', event.target.value + 'px');
+  if (tracing()) recordLayout();
 });
 
 //-------BACKUP (export / import of the play history)-------
@@ -1197,8 +1712,9 @@ function gameCount(history) {
 }
 
 document.getElementById('export-btn').addEventListener('click', () => {
-  const history = loadHistory();
-  const json = JSON.stringify(history);
+  // The reserved "settings" key rides along with the mode lists; it can
+  // never collide with a mode key (those are always WxH/M).
+  const json = JSON.stringify({ settings, ...history });
   navigator.clipboard.writeText(json).then(
     () => { backupStatus.textContent = 'export copied to clipboard (' + gameCount(history) + ' games)'; },
     (err) => { backupStatus.textContent = 'clipboard copy failed: ' + err.message; },
@@ -1209,11 +1725,39 @@ document.getElementById('export-btn').addEventListener('click', () => {
   exportFileLink.hidden = false;
 });
 
+// Traces export as a JSON array of per-game trace objects (typed arrays
+// converted back to plain arrays), download-only — traces are far too
+// large for the clipboard. Consumed by the offline analysis pipelines
+// (see analysis/ and agents.md).
+const exportTracesLink = document.getElementById('export-traces-file');
+
+document.getElementById('export-traces-btn').addEventListener('click', () => {
+  if (db === null) storageFailure('trace export failed: database is not open');
+  const request = db.transaction(TRACE_STORE).objectStore(TRACE_STORE).getAll();
+  request.onerror = () => storageFailure('trace export failed: ' + request.error);
+  request.onsuccess = () => {
+    const games = request.result.map((s) => ({
+      ...s,
+      sampleT: Array.from(s.sampleT),
+      sampleX: Array.from(s.sampleX),
+      sampleY: Array.from(s.sampleY),
+    }));
+    const json = JSON.stringify(games);
+    if (exportTracesLink.href) URL.revokeObjectURL(exportTracesLink.href);
+    exportTracesLink.href = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+    exportTracesLink.download = 'minesweeper-friendly-traces-' + new Date().toISOString().slice(0, 10) + '.json';
+    exportTracesLink.hidden = false;
+    backupStatus.textContent = games.length + ' traces ready (' + (json.length / 1048576).toFixed(1) + ' MB)';
+  };
+});
+
 // Merges an exported history into the stored one. endedAt identifies a
 // record within a mode (one player cannot finish two games of the same mode
 // in the same millisecond), so re-importing the same blob is a no-op. The
-// whole blob is validated against GAME_RECORD_SCHEMA before anything is
-// written.
+// reserved "settings" key (exports since 2026-08-20; absent on older
+// exports) carries the settings block, whose known fields overwrite the
+// stored settings. The whole blob — settings included — is validated
+// before anything is written.
 function importHistory(text) {
   let parsed;
   try {
@@ -1221,6 +1765,17 @@ function importHistory(text) {
   } catch (err) {
     backupStatus.textContent = 'import failed: ' + err.message;
     return;
+  }
+  let importedSettings = null;
+  if ('settings' in parsed) {
+    importedSettings = parsed.settings;
+    delete parsed.settings;
+    const malformed = importedSettings === null || typeof importedSettings !== 'object'
+      || SETTINGS_SCHEMA.some((s) => s.field in importedSettings && !s.valid(importedSettings[s.field]));
+    if (malformed) {
+      backupStatus.textContent = 'import failed: "settings" is not a valid settings block';
+      return;
+    }
   }
   for (const [mode, list] of Object.entries(parsed)) {
     if (!Array.isArray(list)) {
@@ -1236,7 +1791,6 @@ function importHistory(text) {
       }
     }
   }
-  const history = loadHistory();
   let added = 0;
   let dups = 0;
   for (const [mode, list] of Object.entries(parsed)) {
@@ -1254,8 +1808,17 @@ function importHistory(text) {
     // Merged-in records restore the chronological-order invariant.
     history[mode].sort((a, b) => a.endedAt - b.endedAt);
   }
-  localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
-  backupStatus.textContent = 'imported ' + added + ' new games, skipped ' + dups + ' duplicates';
+  persistUserdata('history', history);
+  let settingsNote = '';
+  if (importedSettings !== null) {
+    for (const s of SETTINGS_SCHEMA) {
+      if (s.field in importedSettings) settings[s.field] = importedSettings[s.field];
+    }
+    saveSettings();
+    refreshSettingsPanel();
+    settingsNote = ', applied settings';
+  }
+  backupStatus.textContent = 'imported ' + added + ' new games, skipped ' + dups + ' duplicates' + settingsNote;
   importPanel.hidden = true;
   importText.value = '';
 }
@@ -1269,6 +1832,48 @@ const formatPanel = document.getElementById('format-panel');
 document.getElementById('format-btn').addEventListener('click', () => {
   formatPanel.hidden = !formatPanel.hidden;
 });
+
+//-------SETTINGS PANEL-------
+
+const settingsPanel = document.getElementById('settings-panel');
+
+document.getElementById('settings-btn').addEventListener('click', () => {
+  settingsPanel.hidden = !settingsPanel.hidden;
+});
+
+// One checkbox row per SETTINGS_SCHEMA entry. A change saves immediately
+// and re-renders the result on screen (if any), so the effect is visible
+// without finishing another game.
+function buildSettingsPanel() {
+  for (const s of SETTINGS_SCHEMA) {
+    const row = document.createElement('label');
+    row.className = 'setting-row';
+    const box = document.createElement('input');
+    box.type = 'checkbox';
+    box.dataset.field = s.field;
+    box.checked = settings[s.field];
+    box.addEventListener('change', () => {
+      settings[s.field] = box.checked;
+      saveSettings();
+      if (renderedResult !== null) renderResult(renderedResult.record, renderedResult.modeRecords);
+    });
+    const name = document.createElement('span');
+    name.className = 'setting-name';
+    name.textContent = s.label;
+    const describe = document.createElement('span');
+    describe.className = 'setting-describe';
+    describe.textContent = s.describe;
+    row.append(box, name, describe);
+    settingsPanel.appendChild(row);
+  }
+}
+
+// Re-syncs the checkboxes after an import replaces settings.
+function refreshSettingsPanel() {
+  for (const box of settingsPanel.querySelectorAll('input[type=checkbox]')) {
+    box.checked = settings[box.dataset.field];
+  }
+}
 
 // The data-format reference card, generated from GAME_RECORD_SCHEMA and
 // DIFFICULTIES so it always matches what the code writes and accepts.
@@ -1288,14 +1893,17 @@ function buildFormatPanel() {
   const intermediateKey = modeKeyOf(DIFFICULTIES.intermediate);
   const keyColumn = (key) => ('"' + key + '":').padEnd(intermediateKey.length + 4);
   const pre = document.createElement('pre');
-  pre.textContent = '{\n  ' + keyColumn(beginnerKey) + '[ \u2026one record per finished game\u2026 ],\n  '
+  pre.textContent = '{\n  ' + keyColumn('settings') + '{ \u2026the settings panel\u2019s switches\u2026 },\n  '
+    + keyColumn(beginnerKey) + '[ \u2026one record per finished game\u2026 ],\n  '
     + keyColumn(intermediateKey) + '[ \u2026 ]\n}';
   const namedModes = Object.entries(DIFFICULTIES)
     .map(([name, d]) => modeKeyOf(d) + ' = ' + difficultyDisplayName(name))
     .join(', ');
   const exportNote = document.createElement('p');
   exportNote.textContent = 'One list per board, keyed by its parameters (width\u00d7height/mines: '
-    + namedModes + '). Records sit in play order, wins and losses alike.';
+    + namedModes + '). Records sit in play order, wins and losses alike. The reserved '
+    + '"settings" key carries the settings panel\u2019s switches; importing applies them '
+    + '(absent on exports from before 2026-08-20).';
   exportBlock.append(pre, exportNote);
 
   const recordBlock = block('each game record');
@@ -1328,7 +1936,14 @@ importFileInput.addEventListener('change', () => {
 
 //-------INIT-------
 
+// Static chrome builds immediately; everything that reads userdata waits
+// in init, which loadUserdata calls once the RAM copies are filled.
 buildLcd(mineCounter);
 buildLcd(timerDisplay);
 buildFormatPanel();
-newGame();
+
+function init() {
+  buildSettingsPanel();
+  renderStates();
+  newGame();
+}

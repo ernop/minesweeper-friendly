@@ -50,11 +50,28 @@ the same change. Below is only the implementation mapping.
 
 Implementation notes:
 
-- Storage: localStorage `minesweeper-friendly.history` maps mode key to a
+- Storage (PRODUCT.md "Storage"): one IndexedDB database
+  (`minesweeper-friendly`, version 2, opened at parse time), two stores.
+  `userdata` holds one entry per kind — 'history', 'settings',
+  'rankavgSort', 'states' (`USERDATA_KINDS`); `traces` holds one entry
+  per game. Userdata is RAM-first: `loadUserdata` fills the RAM objects
+  (`history`, `settings`, `rankavgSorts`, `playerStates`) once the db
+  opens, then calls `init()` (settings panel, states panel, first board —
+  everything that reads userdata waits there; only static chrome builds
+  at parse). All reads/mutations touch RAM synchronously; every mutation
+  calls `persistUserdata(kind, ramObject)`, an async fire-and-forget
+  put (IndexedDB clones at put() time, so later RAM mutations cannot
+  race). `storageFailure` announces in #backup-status and throws — no
+  silent storage loss. The version-2 upgrade carries the pre-2026-08-20
+  localStorage keys (`LEGACY_LOCALSTORAGE_KEYS`) into `userdata` once,
+  removing them after the upgrade transaction commits; deletable once
+  every player's origin has upgraded.
+- History: userdata 'history' maps mode key to a
   chronological array of game records, one per finished game:
   {endedAt, outcome: 'win'|'loss', timeMs, bv3, clicks, wastedClicks,
-  flagsPlaced, mousePathPx} — primary measurements only (wastedClicks and
-  flagsPlaced absent on records from before 2026-08-19; see
+  flagsPlaced, flagsRemoved, mousePathPx, states} — primary measurements
+  only (wastedClicks and flagsPlaced absent on records from before
+  2026-08-19, flagsRemoved and states absent before 2026-08-20; see
   `GAME_RECORD_SCHEMA`). The mode key is the board parameters
   (`modeKey()`, e.g. `9x9/10`); difficulty names are display-only
   (`modeLabel()`). Timestamps are epoch ms; all calendar math is done in
@@ -66,6 +83,27 @@ Implementation notes:
   `efficiencyPercent`, never stored.
 - `mousePathPx`: cursor distance accumulated on document mousemove only
   while `gameState === 'playing'`.
+- Raw input traces (PRODUCT.md "Raw input traces"): `beginTrace` (end of
+  newGame's board build) starts {startedAt, t0, t/x/y sample arrays,
+  events}; the document mousemove handler appends a sample per move while
+  `tracing()` (ready or playing). `traceEvent` logs 'ldown'/'lup'/'rdown'
+  from the board handlers (document mouseup catches off-cell releases,
+  index null); `recordLayout` logs board-geometry events (newGame,
+  scroll, resize, zoom). `saveTrace` (called from reportResult) puts
+  {endedAt, mode, outcome, startedAt, sampleT/sampleX/sampleY as typed
+  arrays, events} into the `traces` store, keyPath endedAt (never held
+  in RAM — far too large). Failures go through `storageFailure`
+  (#backup-status + throw) — no silent trace loss. "export traces"
+  (#export-traces-btn + #export-traces-file) downloads every trace as a
+  JSON array with the typed arrays converted back to plain arrays.
+- Offline analysis lives under `analysis/` (inputs: the exported trace
+  JSON). `analysis/mousetrap/trace_measures.R` computes psychometric
+  mouse-tracking measures per inter-click segment; it runs on the R env
+  at `~/analysis-envs/r-mousetrap` (created 2026-08-20 with micromamba at
+  `~/.local/bin/micromamba` — this machine has no system R and no
+  passwordless sudo; mousetrap itself compiled from CRAN, its heavy deps
+  installed as conda-forge binaries). `analysis/biometrics/` holds the
+  mouse-dynamics feature extractor with its own venv.
 - `clickCount` counts only effective clicks; `wastedClicks` counts board
   clicks that changed nothing — `toggleFlag` and `chord` return whether
   they had an effect, and the mouseup/contextmenu handlers count the
@@ -77,6 +115,25 @@ Implementation notes:
   is not counted). `isMarkless(record)` derives the markless status
   (flagsPlaced === 0); records from before the measurement have it
   undefined and never qualify. Same absence rules as wastedClicks.
+- `flagsRemoved` counts flag removals by the player (both branches live in
+  `toggleFlag`). The second waste type: each removal marks a place+remove
+  pair (2 effective clicks) that netted nothing — see PRODUCT.md "Flags
+  removed" for why it stays separate from wastedClicks. Same absence rules
+  as wastedClicks (absent before 2026-08-20).
+- Player states (PRODUCT.md "Player states"): userdata 'states' holds
+  `[{name, active}]` in display order; absent entry = new player,
+  `loadUserdata` fills `playerStates` with the `DEFAULT_STATE_NAMES`
+  options (none active) and nothing is persisted until the player
+  changes something. `activeStateNames()` is stamped
+  onto every record as `states` (always written, `[]` when none active;
+  absent on pre-2026-08-20 records, same absence rules as wastedClicks).
+  UI: `#states` panel mirrors `#results` on the board's left — absolutely
+  positioned off `#game-area` so it never moves the board. Only active
+  states render (chips; click = take off); `#states-add-btn` toggles
+  `#states-menu`, which lists the inactive options (click = put on, its
+  `.state-remove` x = delete from list) plus the add form (a created
+  state activates immediately). `renderStates` rebuilds both chips and
+  menu options.
 - Rank list machinery: `rankWindows` (time windows + `specificity` for
   progressive disclosure), `rankColumns` (adds day categories, `isHoliday`),
   `windowBounds` (11-row windowing), `buildRankList` (shared renderer,
@@ -95,6 +152,20 @@ Implementation notes:
 - Layout: `#results` (summary + `#stats-grid` only) is absolutely
   positioned off `#game-area`; `#result-ranks` is normal flow below.
   `html { scrollbar-gutter: stable }` protects board centering.
+- Personal settings (PRODUCT.md "Personal settings"): localStorage
+  `minesweeper-friendly.settings`; `SETTINGS_SCHEMA` is the single
+  definition (field/default/valid/label/describe) feeding `loadSettings`
+  (absent key or field = default), the import validation, and
+  `buildSettingsPanel` (`#settings-panel`, toggled by `#settings-btn`; a
+  change saves and re-renders `renderedResult` in place). Exports carry
+  the block under the reserved top-level `"settings"` key; `importHistory`
+  validates it with the rest of the blob and applies known fields.
+  First setting: `collapseDuplicateCharts` — gates the progressive
+  disclosure dedupe in `renderRanks`.
+- Rankaverage sort persistence: localStorage
+  `minesweeper-friendly.rankavgSort` maps stat label to {key, dir}
+  (absent = natural rank order); written by the sort-header click cycle in
+  `buildRankavgList` (asc → desc → none).
 - Backup: `#backup` controls; `importHistory` validates the whole blob
   before writing (arrays of well-formed records only, loud error naming the
   offending mode otherwise), dedupes by `endedAt` within each mode, and
@@ -113,9 +184,10 @@ https://ernop.github.io/minesweeper-friendly/ and redeploys on every push.
 
 - Serving: `python3 -m http.server 8018` is the canonical local server
   (README). Other ports (8000; 8099 for throwaway tests) have been used in
-  agent sessions. localStorage is per-origin, so EACH PORT HAS ITS OWN PLAY
-  HISTORY — never test imports or synthetic renders against the origin the
-  player actually uses; use a fresh port instead.
+  agent sessions. Browser storage (IndexedDB, and localStorage before
+  2026-08-20) is per-origin, so EACH PORT HAS ITS OWN PLAY HISTORY —
+  never test imports or synthetic renders against the origin the player
+  actually uses; use a fresh port instead.
 - No headless browser exists here: no chromium / google-chrome /
   headless_shell, and `/usr/bin/firefox` is an uninstalled snap stub that
   only prints "snap install firefox". Visual verification needs the Cursor
@@ -131,11 +203,29 @@ https://ernop.github.io/minesweeper-friendly/ and redeploys on every push.
   with textContent/innerHTML/hidden/value/dataset, `style.setProperty`,
   `setAttribute`, `addEventListener`, `appendChild`/`append`,
   `querySelector`/`querySelectorAll` (must return 3 elements — `setLcd`
-  iterates 3 digit svgs), `classList`, `requestSubmit`; globals
-  `localStorage`, `navigator.clipboard.writeText`,
-  `URL.createObjectURL`/`revokeObjectURL`, `performance.now`. This ran the
-  real `importHistory` end-to-end for the 2026-08-19 legacy-history
-  conversion (import + dedupe-on-reimport both verified).
+  iterates 3 digit svgs), `classList`, `requestSubmit`,
+  `getBoundingClientRect` (trace layout events); globals `localStorage`
+  (still required — the version-2 upgrade reads the legacy keys),
+  `navigator.clipboard.writeText` (define via Object.defineProperty —
+  Node 22 has a global navigator getter),
+  `URL.createObjectURL`/`revokeObjectURL`, `performance.now`,
+  `window.addEventListener`, and a working `indexedDB` shim: `open`
+  fires onupgradeneeded (with `event.oldVersion`,
+  `event.target.transaction` supporting addEventListener('complete'))
+  then onsuccess on a microtask; `createObjectStore` supports both
+  keyPath ('traces') and out-of-line keys ('userdata');
+  `transaction(...).objectStore(...)` supports put/get/getAll with
+  request onsuccess on a microtask and transaction oncomplete firing
+  after all request callbacks (a timer works, since microtasks run
+  first). Startup is async — the db open leads to `loadUserdata` then
+  `init()`, so the harness must await (~a timer tick) after loading the
+  script before touching game state. Since 2026-08-20 the game's
+  top-level bindings (history, cells, ...) are reachable from follow-up
+  `vm.runInThisContext` snippets, which is how a harness asserts on RAM
+  state. This approach ran the real `importHistory` end-to-end for the
+  2026-08-19 legacy-history conversion, and the full 2026-08-20
+  localStorage-to-IndexedDB migration (fresh start + carried-over data,
+  a played game persisting record and trace, import write-through).
 - Quick checks: `node --check minesweeper.js` for JS syntax; a small
   python3 `html.parser` walker for tag balance in `index.html` (void tags:
   meta, link, input, br, hr, img). Node v22 is installed and fine for
@@ -155,6 +245,20 @@ Not yet implemented: NG/friendly modes.
 
 ## Reference material
 
+- `reference/mouse-motion-metrics.md` — 2026-08-20 survey of mouse-motion
+  characterization across psychometrics, biometrics, clinical assessment,
+  and esports, with a tiered proposal for per-game measurements (none
+  implemented yet).
+- `reference/hevelius/` — 2026-08-20 deep dive on Hevelius (Gajos et al.,
+  mouse-based motor assessment, 32 trajectory features): papers,
+  supplementary methods, and `FEATURES.md`, which enumerates all 32 feature
+  definitions with a mapping onto our raw input traces (named assumptions,
+  computability classification, normalization and longitudinal notes).
+- `reference/esports-mouse-training.md` — 2026-08-20 survey of out-of-game
+  aim-training tools (KovaaK's, Aimlabs, Voltaic, Aimer7), documented pro
+  usage, uptake and persistence numbers, and the peer-reviewed evidence on
+  efficacy; every number labeled documented / company claim / tracker
+  estimate / community claim.
 - `reference/minesweeper-online-ng-medium-2026-08-19.png` — minesweeper.online
   NG mode (Medium), showing the given starting position (green X) and
   difficulty tabs Easy/Medium/Hard/Evil.
@@ -241,6 +345,20 @@ design in this repo and extend the Anti-Fallback Principle above.
 7. Correct division of concepts: nothing duplicated, nothing that is one
    thing split, nothing that is two things merged. Storing a derived value
    next to its primaries is duplication.
+
+Refinement to 4 and 7 (2026-08-20, decided with the user): "store each
+primary fact exactly once" means store every independently MEASURED
+quantity directly and straightforwardly; derive at read time only what is
+a pure, definition-stable function of stored facts (3BV/s from bv3 and
+timeMs). Never store a measured value only as a remainder to be
+reconstructed by subtracting one stored value from another — if the two
+measurements' windows or thresholds differ even at the edges, the
+reconstruction lies. The duplication rule 7 bans is two copies of the
+same fact; two related measurements are not copies. Since raw traces
+became the stored ground truth (PRODUCT.md "Raw input traces"), per-game
+scalars are summaries of the trace and definitions can be recomputed
+retroactively; when in doubt, add the straightforward scalar rather than
+a clever reconstruction.
 
 ### Configuration
 

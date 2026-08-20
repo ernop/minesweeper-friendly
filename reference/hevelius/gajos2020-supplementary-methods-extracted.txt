@@ -1,0 +1,136 @@
+Text extraction of the Supplementary Methods (Appendix S1) of Gajos et al. 2020,
+"Computer Mouse Use Captures Ataxia and Parkinsonism..." (doi 10.1002/mds.27915).
+Source: gajos2020-supplementary-appendix-s1.docx (from PMC7028247, CC BY).
+Formulas restored from the embedded formula images. Tables S2-S4 (z-score
+summary statistics, classification results, model weights) are in the docx only.
+Figures S1/S2 saved alongside as pngs.
+
+Supplementary Methods
+Standard protocol approvals, registrations, and patient consents
+The online collection of the normative data was approved by the Harvard University Internal Review Board. Participants were presented with an informed consent form online and provided consent by clicking the “I agree” button.
+For the clinical data collection, consent/assent and protocols were approved by the Partners Healthcare Institutional Review Board.
+Overall design of the Hevelius tool
+Hevelius is a browser-based software tool for quantifying a person’s motor performance in the arm. Hevelius builds on a large body of prior research that used quantitative measures derived from two-dimensional movement trajectories to characterize aspects of the development, aging and abnormality of the human neuro-motor system 1–10. Hevelius presents participants with a set of pointing tasks to be performed with a computer mouse, collects detailed data about each movement, and computes 32 measures (table S1) that quantify several aspects of a participant’s performance. The measurements are then compared to the baseline data collected from healthy volunteers of the same age and are reported as age-specific z-scores.
+Tasks
+Participants were instructed to use the mouse to click on a target (a red circle) on a computer screen as soon as it appeared. One target was presented at a time and as each target was correctly clicked, the next target appeared. Clicking on a single target constituted a complete trial. A sequence of nine targets constituted a block. Participants were allowed to rest between blocks, but were instructed to complete each block without interruption. 
+Participants were presented with 10 blocks of 9 targets each. During in-clinic deployment, the first two blocks were for practice and were excluded from analyses.
+The first pointing task in each block involved having the participant position the mouse cursor in a known position, while the remaining 8 tasks were used for the actual assessment. 
+The blocks differed in terms of the sizes of the targets and distances between successive targets to cover the range of tasks typically experienced when operating a computer and to improve the robustness of the measurements. During in-clinic deployment, target sizes were varied from 20 to 60 pixels and distances between targets were varied from 150 to 800 pixels such that the index of difficulty (computed as ID = log2(D/W + 1), where D is the distance to the next target and W is the target diameter) ranged from 2.2 to 4.8. The properties of individual tasks and their order were fixed across all participants. During online deployment, target sizes varied from 15 to 60 pixels. Distances between targets varied similarly to the clinical deployment, but if a participant used a device with a small screen, the distances were automatically adapted such that the task would fit on the screen. 
+Processing of movement data and feature extraction
+The raw data collected included basic movement statistics (location of endpoints, timing) as well as detailed movement trajectories. The movement trajectories were translated, rotated, resampled, and smoothed. Because discrete sampling of continuous mouse pointer trajectories introduces potential artifacts (such as discontinuities in direction and speed, which would produce large noise in derivatives), we adopted an approach similar to the one previously published7,23 to translate, rotate, resample and smooth the data prior to computing any measures. Specifically, we first translated and rotated the movement trajectories such that each movement started at the origin and ended on the x-axis. We then resampled movement trajectories at a 100Hz rate. Finally, movement trajectories were smoothed using a Kalman filter. We computed speed using the discrete derivative of the smoothed 2D pointer positions with respect to time and the result was smoothed using a 7Hz low-pass FIR filter (with 40dB stopband attenuation using Kaiser window). To compute acceleration and jerk, we similarly first computed discrete derivatives of speed and acceleration, respectively, and applied the same low-pass filter.
+Following prior work7,11 (and as illustrated in figure S1), we decomposed each movement into several components: initiation time (from the target onset to the first mouse move event), execution time (from first to last mouse move event), verification time (time spent inside the target between last mouse move event and the start of the click), and click (time from mouse down to mouse up event). We marked pauses whenever there was a break of 100 ms or more in the raw mouse movement events.  
+A new submovement was marked when the speed crossed the 100 pixels/s threshold, but only if it subsequently reached at least 500 pixels/s (see figure S2). The end of the movement was marked when the speed fell again below 100 pixels/s. Three of the measures reported by Hevelius required the identification of the main submovement. The main submovement was identified as the submovement during which the speed reached its maximum value.
+Computing age-specific z-scores
+Age-specific z-scores for the in-clinic participants were computed by comparing an individual’s results to those of healthy online volunteers of exactly the same age. The overall z-scores were smoothed across neighboring ages using a locally-weighted linear regression (with lambda = 5)12.  The z-scores were computed separately for each block of trials and later averaged across blocks. 
+Computing age-specific normative baselines
+Pointing performance varies with the size of the target and the distances between targets24. To allow our baseline values to be independent of the task properties, we performed the following steps:
+We averaged values of each measure per block.
+We applied the Box-Cox transform25,26 to make the distribution of the values of each measure approximately normal.
+For each measure, we fitted a regression of the form: mu_measure(d, s) = w1*log2(d) + w2*log2(s), where d is the distance between successive targets, s is the target size, and mu_measure is the Box-Coxed transformed value of a measure.
+For each measure and each age, we computed the standard deviation of the residuals.
+Z-scores for future test-takers were computed by computing the difference between the test-taker’s performance and the performance estimated by mu_measure(d, s) and dividing the difference by the standard deviation of the residuals.
+Collection and processing of normative data online
+To collect large quantities of normative data from diverse participants, we launched a study on LabintheWild.org13, a platform for conducting large-scale behavioral research with unpaid online volunteers.
+Participant selection
+Most participants arrived at the study site via search, social media referrals or other referrals. All were allowed to participate, but only a subset were included in the final analyses: those who reported using a mouse with their dominant hand and who revealed their age. 3.9% of otherwise eligible participants were excluded because they answered “yes” to the question “Do you have any medical condition that might affect how you use a computer?” Analysis of a random sample of 100 open-ended explanations showed that the most common conditions reported were vision impairments (n=30), carpal tunnel (n=13), ADHD (n=6), arthritis (n=6), multiple conditions (n=5), color vision deficiency (n=4), multiple sclerosis (n=3), and use of non-dominant hand (n=2). In addition, we excluded participants aged ≥86 and ≤4, given low sample sizes at these ages.
+Online data collection procedures
+Collecting data from unpaid online volunteers has the advantage that there is no registration necessary for reimbursement, which could impose a sign-up barrier and deter certain populations14,15. We followed an existing approach and best practices for obtaining valid data from uncompensated online volunteers13,16: we incentivized participation by providing personalized feedback on their performance at the end of the study and provided opportunities for participants to flag situations that could have compromised data (participants were asked if they had taken the study before, if they experienced any technical difficulties, were interrupted during the study or provided any false information). Research has shown that studies that follow these practices produce data that are comparable to those obtained in conventional laboratory studies and accurately replicate in-lab study results13,16–18. 
+Collection of clinical data
+Participant selection
+Participants were recruited from the Massachusetts General Hospital (MGH) between August 2016 and July 2018. Individuals in the Ataxia and Movement Disorders Units, regardless of specific diagnosis, were invited to participate if they reported being able to use a computer mouse. Additionally, children with ataxia-telangiectasia (A-T) were recruited through the Ataxia-Telangiectasia Children’s Project or the MGH Ataxia Unit. Individuals were invited (but not required) to repeat a testing session at a subsequent visit to MGH. Healthy subject data were obtained from two populations: 1) family members of patients (e.g., asymptomatic partners or gene negative family members) and 2) MGH clinical and research staff. Participants used Hevelius with their dominant arm (e.g., individuals who identified themselves as right-handed were asked to perform the task with their right arm). In cases of handedness ambiguity, individuals were asked to use the arm that they would typically use a computer mouse with or write with. Clinical data for MGH patients including diagnosis and scores on clinical rating scale were identified in the medical record from their concurrent visit. All patients had disease-specific rating scale scores and for those without a same-day clinical appointment, scores were obtained from video data of the same-day neurological exam.
+Clinical data collection procedures
+All neurologic examinations were videotaped. Ataxia patients were scored on the Brief Ataxia Rating Scale (BARS) (range 0–30). Patients with parkinsonism were assessed with the Unified Parkinson’s Disease Rating Scale (UPDRS) Part III Motor Examination (range 0–108)19. For regression models combining patients with ataxia and parkinsonism, dominant arm and total scores were normalized by the maximum score to obtain a value between zero and one and allow comparison between patients with different diseases. Whereas the BARS has a single score for each arm (range 0–4) based on the finger-nose-finger task, the UPDRS has several scoring elements for each arm (rest tremor (0–4), postural tremor (0–4), rigidity (0–4), and bradykinesia on three tasks (0–12)), which were summed to form a composite severity score for the dominant arm (0–24).
+Clinical Score Estimation
+To estimate clinical scores from Hevelius measurements, we used least absolute shrinkage and selection operator (LASSO)20, a regression method that simultaneously performs feature selection and fits a linear model. We used 20-fold cross-validation to evaluate the predictive performance of the regression models using mean absolute error (MAE) and the Pearson correlation coefficients as quantitative measures of model performance. Bootstrap validation21 was used to estimate the sensitivity of score predictions to variability in performance during a single assessment session.  We produced bootstrap samples by resampling (with replacement) 8 blocks, recomputing the mean values of each measure for each participant, and computing new regression values for each sample. For each analysis, we computed 1000 bootstrap samples.
+Classification Analysis
+We used a linear support vector machine (SVM) with the regularization parameter C=1 for classification. Because Hevelius produces several correlated measures, we first applied a feature selection algorithm (recursive feature elimination22 followed by a variant of the stepwise discriminant process) to identify a subset of features that were most informative for any given classification task. We used leave-one-out cross-validation to estimate the performance of the classifiers. All classifiers were trained and evaluated using age-specific z-scored features (see section above) in order to account for age differences present across groups. 
+Disease Progression Analysis
+We trained a logistic regression classification model (with L1 regularization) to identify which individual in a pair had more severe disease. The input to the model was 1) the numeric difference in the 32 Hevelius features between two individuals (individual A minus individual B) and 2) the binary variable indicating which individual’s dominant arm score (on BARS or UPDRS) was higher. If all pairwise comparisons between participants were considered, there would be unique comparisons. However, comparisons between individuals with the same score were excluded and individuals with ataxia were only compared with other individuals with ataxia or controls (similarly for parkinsonism). Information about which individual in each pair was more severe was used by the model to then predict whether the first or second session from a single individual was more severe. 18-fold cross-validation was used to evaluate the performance of this classifier. In each fold, data from one of the 18 ataxia patients with repeat visits was held out for evaluation. This enabled us to determine, for individuals with a progressive ataxia diagnosis (SCA, A-T, or MSA-C), how often the model estimated more severe disease at the second time point. Repeat sessions from individuals with other diagnoses (e.g., Parkinson’s disease) were not included in this analysis as assessments of progression would be confounded by symptomatic treatment. 
+Implementation
+All machine learning and numerical analyses were implemented in Python 3.6.2 with the following key libraries: numpy 1.13.1, pandas 0.20.3, scikit-learn 0.19.0 or in Mathworks MATLAB.
+Supplementary Results
+Classification analyses
+To assess whether age-specific z-scored features improved the performance of our models, we performed additional ataxia versus parkinsonism and ataxia versus healthy classification using age-specific z-scored and age-generic z-scored features. As shown in table S3, performance for ataxia versus parkinsonism improved substantially with age-specific z-scores. For ataxia versus healthy classification, overall performance was largely unchanged, likely due to the fact that the children with A-T tended to have moderate to severe disease, such that classification was not impacted by age-specific z-scoring (one would expect more benefit for populations with mild disease). As expected, the age-specific z-scored model showed higher specificity (but lower sensitivity), consistent with the finding that accounting for age in children resulted in fewer false positives (i.e., fewer healthy children labeled as having ataxia). 
+References
+Figure legends and tables
+Figure S1. Components of a movement.
+
+
+Figure S2. We used speed thresholds to identify submovements.
+
+
+Figure S3. Representative summaries of data collected. Top: Cross-sectional statistics depicting four measures as a function of age for online participants. Error bars indicate 95% confidence intervals. Bottom: Illustration of movement data from three in-clinic participants for 16 movements. The participants were aged 54, 59 and 60 (left to right). The ataxia (MSA-C) and PD patients had similar common dominant arm scores (0.375 for the ataxia patient and 0.33 for the PD patient). Gray lines show individual movements while the red lines show averages. Top row shows actual movement trajectories rotated and scaled such that all start at the origin and end at (1,0). Bottom two rows show speed and acceleration profiles with the x-axis representing normalized time (0=time of the start of the movement, 1=time of the successful click on the target).
+
+
+
+Table S1. Movement measures reported by Hevelius. 
+Movement time
+Complete movement time from target onset to the end of the successful click on the target.
+Movement time variability
+Coefficient of variation of movement times in a block of trials.
+Execution time
+Time from the first to the last mouse movement (excluding any movement that occurred while the mouse button was pressed -- see Click slip).
+Execution time without pauses
+Like execution time, but excludes pauses of 100ms or longer.
+Execution time variability
+Coefficient of variation of execution times in a block of trials.
+Execution time variability (without pauses)
+Coefficient of variation of execution times (without pauses) in a block of trials.
+Peak speed
+The maximum (smoothed) speed recorded during a movement.
+Peak speed variability
+Coefficient of variation of peak speeds in a block of trials.
+Peak acceleration
+The maximum (smoothed) acceleration recorded during a movement.
+Peak acceleration variability
+Coefficient of variation of peak accelerations in a block of trials.
+Distance from target center at end of main submovement
+The 2D distance from the mouse pointer location at the end of the main submovement to the target center.
+Fraction of remaining distance to the target center covered in main submovement
+The fraction of the remaining distance along the task axis covered during the main submovement. The value of this measure can be greater than 1 if the person overshoots the target.
+Maximum deviation from task axis
+The maximum distance of the mouse pointer from the task axis during a movement.
+Movement variability27
+The standard deviation of the distance of the actual path from the task axis.
+Movement error27
+The average absolute distance of the mouse pointer from the task axis. In other words, this measure captures, at the gross level, how far the pointer trajectory was from a straight line.
+Movement offset27
+The average (non-absolute) distance of the mouse pointer from the task axis. A large magnitude of movement offset indicates that the movement trajectory falls mostly to one side of the task axis or the other. A movement with a large movement error may still have a small movement offset if the path of the movement deviates first to one side of the movement axis and then to the other.
+Task axis crossings27
+The number of times the mouse pointer crossed the task axis during the movement.
+Target re-entries27
+The number of times the mouse pointer leaves the target and then re-enters it before the start of the click.
+Movement direction changes27
+The number of times the movement component orthogonal to the task axis changes sign.
+Orthogonal direction changes27
+The number of times the movement component parallel to the task axis changes sign.
+Main submovement
+The submovement with the highest peak speed.
+Verification time
+The time interval between the end of a movement inside a target and the beginning of the click (i.e., the time when the mouse button was pressed).
+Verification time variability
+Standard deviation of verification times in a block of trials.
+Click duration
+The time between mouse button press and release during the correct click on the target.
+Click duration variability
+Standard deviation of click durations in a block of trials.
+Click slip
+Distance between the point where the mouse button was pressed down and where it was released during click on the target.
+Noise-to-force ratio7
+The standard deviation (computed over all trials in a block) of the distance from the target center at the end of the first submovement divided by mean of peak accelerations.
+Normalized jerk28,29
+A dimensionless measure computed as
+
+normalized jerk = (ET)^3 / v_max^2 * integral over t of (da/dt)^2 dt
+
+where da/dt is the jerk, ET is the execution time without pauses and v_max is the peak speed during the movement. 
+Normalized jerk without pauses
+Like normalized jerk, but excludes parts of the movement when the mouse pointer was paused for 100ms or longer.
+Fraction of the main submovement spent accelerating
+The fraction of the time from the start of the submovement to the time when acceleration reached its peak value divided by the overall duration of the submovement.
+Number of pauses
+Number of pauses of 100ms or longer.
+Duration of the longest pause
+Duration of the longest pause of 100ms or longer. If not such pause occurred, 0ms is recorded for this measure.
+In several definitions, we refer to a task axis, which is the straight line linking the positions of the cursor at the start and at the end of the movement.
+

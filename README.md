@@ -28,7 +28,8 @@ then http://localhost:8018/
 
 ## Play history
 
-Every finished game, win or loss, is kept in localStorage per mode. Each
+Every finished game, win or loss, is kept per mode in the browser's
+IndexedDB (loaded into RAM at startup; persisted asynchronously). Each
 record stores only the primary measurements — end date, outcome, time, 3BV,
 clicks, and mouse path (total cursor distance in px from first click to game
 end); derived stats (3BV/s, efficiency, mouse speed, and the rest) are
