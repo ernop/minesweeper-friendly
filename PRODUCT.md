@@ -54,12 +54,24 @@ key names) live in `agents.md`; player-facing pitch in `promo/PROMO.md`.
 
 Recorded per finished game, win or loss, primary measurements only: end
 date, outcome, time (ms precision, shown as seconds to 3 decimals), 3BV,
-clicks, mouse path (px of cursor travel, accumulated only while the game is
-in progress). Everything else is derived at display time: 3BV/s (4
-decimals), efficiency %, mouse speed (px/s), path per click, path per 3BV.
+clicks, wasted clicks, mouse path (px of cursor travel, accumulated only
+while the game is in progress). The stored click count includes only
+clicks that changed the board (reveals, flags, chords). Everything else is
+derived at display time: 3BV/s (4 decimals), clicks over 3BV (clicks minus
+3BV; wins only — a lost board was never finished, so the subtraction means
+nothing), efficiency %, mouse speed (px/s), path per click, path per 3BV.
 Shown as a label/value table for wins and losses alike; a loss shows no
 rank output at all (losses split win streaks and feed lifetime totals, but
 are not ranked).
+
+Wasted clicks — board clicks that changed nothing (chord attempts on
+unsatisfied or empty numbers, left-clicks on flagged cells, right-clicks
+on revealed cells) — joined the record schema on 2026-08-19 (decided
+2026-08-19: tolerate absence going forward). Games recorded before the
+measurement existed simply lack the field: absence means "not measured"
+and is valid on import (a present value must be a number); displays that
+need the value use only records that carry it. Every game recorded from
+now on has it.
 
 ## Rank lists (time windows and day categories)
 
@@ -133,9 +145,15 @@ are not ranked).
 
 ## Scatter plots
 
-- At the very bottom, three plots relating derived mouse metrics to
-  outcomes: mouse speed vs time, path per click vs efficiency, path per
-  3BV vs time. Requires at least 2 wins.
+- At the very bottom, ten plots, grouped time-trend first, then board,
+  then mouse: win time vs date (local date/time x-axis: minute-to-day
+  calendar ticks, HH:mm labels below a day step, M/D above), win time vs
+  hour of day (0-24 local), 3BV vs time, clicks vs 3BV (with the y = x
+  floor drawn as a dashed line — a game on the line used only the board's
+  minimum clicks), wasted clicks vs 3BV/s (only wins carrying the
+  wastedClicks measurement; appears once at least 2 do), mouse path vs
+  time, mouse speed vs time, mouse speed vs efficiency, path per click vs
+  efficiency, path per 3BV vs time. Requires at least 2 wins.
 - Every win is a dot colored by its relative-age unit, reusing the age
   palette (seconds = fluorescent green, minutes = green, hours = blue,
   days = red, weeks = navy, months = maroon, years = teal), so time
@@ -160,3 +178,10 @@ are not ranked).
   way of play. The blob is validated in full before anything is written;
   a malformed blob imports nothing and says why. Records dedupe by end
   timestamp, so repeated imports are no-ops.
+- A "data format" button beside the backup controls raises a reference
+  card: the export's overall shape (one mode-keyed list per board) and a
+  field-by-field table of the six per-game measurements with example
+  values and units, plus the note that every other displayed stat is
+  derived from them at display time. The card is generated from the same
+  field definitions the importer validates against, so it cannot lie
+  about the real format.

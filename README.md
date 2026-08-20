@@ -54,10 +54,16 @@ group's average time: improved/worsened by how much, unchanged, or set for
 the first time.
 The stats themselves (time, 3BV, 3BV/s, clicks, efficiency, mouse path,
 mouse speed, path per click, path per 3BV)
-render as a small label/value table beside the board. At the bottom, three
-small scatter plots chart every win: mouse speed vs time, path per click vs
-efficiency, and path per 3BV vs time — so you can see whether moving faster
-actually wins games faster. Each axis carries a spelled-out label with
+render as a small label/value table beside the board, including wasted
+clicks (board clicks that changed nothing — recorded per game since
+2026-08-19; older records lack the measurement) and, for wins, clicks over
+3BV (clicks beyond the board's minimum). At the bottom, ten small
+scatter plots chart every win: win time vs date, win time vs hour of day,
+3BV vs time, clicks vs 3BV (with the clicks = 3BV floor drawn in), wasted
+clicks vs 3BV/s, mouse path vs time, mouse speed vs time, mouse speed vs
+efficiency, path per click vs efficiency, and path per 3BV vs time — so
+you can see whether moving faster actually wins games faster, and whether
+you're improving at all. Each axis carries a spelled-out label with
 units; dots are colored by how long ago each win was (same palette as the
 rank-list ages, with a legend below), and your newest game is the
 black-ringed dot tagged with its rank among today's wins. Streak lists rank

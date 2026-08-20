@@ -334,6 +334,9 @@ main {
 .scatter-svg .age-dot-mo { fill: #800000; }
 .scatter-svg .age-dot-y  { fill: #008080; }
 .scatter-me { stroke: #000000; stroke-width: 1; }
+/* The y = x floor on clicks vs 3BV: a game on the line used only the
+   board's minimum clicks */
+.scatter-ideal { stroke: #b0b8c0; stroke-dasharray: 4 3; }
 .scatter-me-label {
   font-family: Arial, sans-serif;
   font-size: 9px;
@@ -389,6 +392,68 @@ main {
 }
 
 #import-panel { margin-top: 6px; }
+
+/* Data-format panel: a raisable reference card documenting the export
+   structure and the per-game record fields. */
+#format-panel {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 28px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  text-align: left;
+}
+
+#format-panel[hidden] { display: none; }
+
+.format-block {
+  max-width: 380px;
+  font-size: 11px;
+  color: #777777;
+}
+
+.format-block h4 {
+  margin: 0 0 4px;
+  font-size: 11px;
+  color: #555555;
+}
+
+.format-block pre {
+  margin: 0;
+  padding: 6px 8px;
+  background: #f7f9fb;
+  border: 1px solid #e0e6ec;
+  font-size: 11px;
+  color: #446688;
+}
+
+.format-block table {
+  border-collapse: collapse;
+  background: #f7f9fb;
+  border: 1px solid #e0e6ec;
+}
+
+.format-block td {
+  padding: 2px 8px;
+  vertical-align: top;
+}
+
+.format-block td:first-child {
+  font-family: monospace;
+  color: #446688;
+}
+
+.format-block td:nth-child(2) {
+  font-family: monospace;
+  text-align: right;
+  color: #99aabb;
+}
+
+.format-block p {
+  margin: 5px 0 0;
+  line-height: 1.4;
+}
 
 #site-footer {
   margin-top: 10px;

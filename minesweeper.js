@@ -78,7 +78,8 @@ let revealedCount = 0;
 let startTime = 0;
 let finalTimeMs = 0;
 let timerInterval = null;
-let clickCount = 0;
+let clickCount = 0;    // board clicks that changed something (reveal/flag/chord)
+let wastedClicks = 0;  // board clicks that changed nothing
 
 // Press-preview state (left button held down)
 let leftDown = false;
@@ -181,6 +182,7 @@ function newGame() {
   flagsCount = 0;
   revealedCount = 0;
   clickCount = 0;
+  wastedClicks = 0;
   finalTimeMs = 0;
   startTime = 0;
   mousePathPx = 0;
@@ -277,35 +279,40 @@ function floodReveal(index) {
   }
 }
 
+// Returns whether the click changed anything (false on a revealed cell).
 function toggleFlag(index) {
   const cell = cells[index];
-  if (cell.revealed) return;
+  if (cell.revealed) return false;
   cell.flagged = !cell.flagged;
   flagsCount += cell.flagged ? 1 : -1;
   clickCount++;
   updateCell(index);
   setLcd(mineCounter, config.mines - flagsCount);
+  return true;
 }
 
 // Left-click chord on a satisfied number opens all unflagged neighbors.
+// Returns whether the click changed anything (a chord on a zero cell, an
+// unsatisfied number, or a number with nothing left to open is a no-op).
 function chord(index) {
   const cell = cells[index];
-  if (!cell.revealed || cell.adjacent === 0) return;
+  if (!cell.revealed || cell.adjacent === 0) return false;
   const around = neighbors(index);
   const flaggedCount = around.filter((n) => cells[n].flagged).length;
-  if (flaggedCount !== cell.adjacent) return;
+  if (flaggedCount !== cell.adjacent) return false;
 
   const toReveal = around.filter((n) => !cells[n].revealed && !cells[n].flagged);
-  if (toReveal.length === 0) return;
+  if (toReveal.length === 0) return false;
   clickCount++;
 
   const hitMines = toReveal.filter((n) => cells[n].mine);
   if (hitMines.length > 0) {
     lose(hitMines);
-    return;
+    return true;
   }
   for (const n of toReveal) floodReveal(n);
   checkWin();
+  return true;
 }
 
 function checkWin() {
@@ -386,6 +393,7 @@ function reportResult(outcome) {
     timeMs: Math.round(finalTimeMs),
     bv3: compute3BV(),
     clicks: clickCount,
+    wastedClicks: wastedClicks,
     mousePathPx: Math.round(mousePathPx),
   };
   const modeRecords = appendGameRecord(record);
@@ -399,11 +407,17 @@ function renderResult(record, modeRecords) {
   resultStats.textContent = '';
   const statsGrid = document.createElement('div');
   statsGrid.id = 'stats-grid';
+  // "Clicks over 3BV" only exists for wins: a lost board was never
+  // finished, so the subtraction means nothing.
   for (const [label, value] of [
     ['Time', seconds.toFixed(3) + 's'],
     ['3BV', String(record.bv3)],
     ['3BV/s', bvPerSecond(record).toFixed(4)],
     ['Clicks', String(record.clicks)],
+    ['Wasted clicks', String(record.wastedClicks)],
+    ...(record.outcome === 'win'
+      ? [['Clicks over 3BV', String(record.clicks - record.bv3)]]
+      : []),
     ['Efficiency', efficiencyPercent(record) + '%'],
     ['Mouse path', record.mousePathPx + 'px'],
     ['Mouse speed', Math.round(record.mousePathPx / seconds) + 'px/s'],
@@ -428,17 +442,38 @@ function renderResult(record, modeRecords) {
 
 //-------PLAY HISTORY (localStorage, every finished game kept per mode)-------
 
-// One record per finished game, win or loss, holding only the primary
-// measurements: { endedAt, outcome: 'win'|'loss', timeMs, bv3, clicks,
-// mousePathPx }. Derived metrics (3BV/s, efficiency, mouse speed, ...) are
-// computed from these wherever needed, never stored. Records are grouped by
-// mode key and kept in chronological order.
+// The game-record schema: one record per finished game, win or loss,
+// holding only the primary measurements; every other displayed stat is
+// derived from them at read time, never stored. This is the single
+// definition of the record shape — reportResult writes exactly these
+// fields, importHistory validates candidates against `valid`, and the
+// data-format card renders `example` and `describe` — so the writer, the
+// validator, and the documentation cannot drift apart. wastedClicks joined
+// the schema on 2026-08-19: it is always written now, but games recorded
+// before it was measured lack it, so absence is valid ("not measured");
+// displays that need it use only records that carry it.
+const isNumber = (v) => typeof v === 'number';
+const GAME_RECORD_SCHEMA = [
+  { field: 'endedAt', valid: isNumber, example: '1787201223496', describe: 'when the game finished (Unix epoch, ms)' },
+  { field: 'outcome', valid: (v) => v === 'win' || v === 'loss', example: '"win"', describe: '"win" or "loss"' },
+  { field: 'timeMs', valid: isNumber, example: '6705', describe: 'solve time in ms (shown as 6.705s)' },
+  { field: 'bv3', valid: isNumber, example: '10', describe: "the board's 3BV: minimum clicks to clear it" },
+  { field: 'clicks', valid: isNumber, example: '19', describe: 'clicks that changed the board (reveals, flags, chords)' },
+  { field: 'wastedClicks', valid: (v) => v === undefined || isNumber(v), example: '3', describe: 'board clicks that changed nothing; absent on games recorded before 2026-08-19' },
+  { field: 'mousePathPx', valid: isNumber, example: '1182', describe: 'cursor travel while playing, px' },
+];
+
+// Records are grouped by mode key and kept in chronological order.
 const HISTORY_KEY = 'minesweeper-friendly.history';
 
 // A mode's identity is its parameters; named difficulty labels are
 // display-only (see modeLabel).
+function modeKeyOf(params) {
+  return params.width + 'x' + params.height + '/' + params.mines;
+}
+
 function modeKey() {
-  return config.width + 'x' + config.height + '/' + config.mines;
+  return modeKeyOf(config);
 }
 
 function secondsOf(record) {
@@ -487,10 +522,14 @@ function rankWindows(nowMs) {
   ];
 }
 
+function difficultyDisplayName(name) {
+  return name.charAt(0).toUpperCase() + name.slice(1);
+}
+
 function modeLabel() {
   for (const [name, d] of Object.entries(DIFFICULTIES)) {
     if (d.width === config.width && d.height === config.height && d.mines === config.mines) {
-      return name.charAt(0).toUpperCase() + name.slice(1);
+      return difficultyDisplayName(name);
     }
   }
   return 'Custom ' + config.width + 'x' + config.height + '-' + config.mines;
@@ -656,13 +695,38 @@ function niceTicks(min, max, count) {
   return ticks;
 }
 
+// Ticks for a date x-axis (epoch ms): a calendar step from minutes up to
+// days, aligned to local wall-clock multiples, labeled HH:mm below a day
+// and M/D from a day up.
+function timeTicks(min, max) {
+  const MIN = 60e3, HOUR = 3600e3, DAY = 864e5;
+  const steps = [MIN, 5 * MIN, 15 * MIN, 30 * MIN, HOUR, 3 * HOUR, 6 * HOUR,
+    12 * HOUR, DAY, 2 * DAY, 7 * DAY, 14 * DAY, 30 * DAY, 90 * DAY, 365 * DAY];
+  const span = Math.max(max - min, 1);
+  const step = steps.find((s) => span / s <= 6) || 365 * DAY;
+  const offMs = new Date(min).getTimezoneOffset() * 60e3;
+  const ticks = [];
+  for (let t = Math.ceil((min - offMs) / step) * step + offMs; t <= max; t += step) ticks.push(t);
+  const pad2 = (n) => String(n).padStart(2, '0');
+  const fmt = (t) => {
+    const d = new Date(t);
+    return step < DAY
+      ? pad2(d.getHours()) + ':' + pad2(d.getMinutes())
+      : (d.getMonth() + 1) + '/' + d.getDate();
+  };
+  return { ticks, fmt };
+}
+
 // Small inline-SVG scatter plot: every win is a dot colored by its age unit
 // (the same palette as rank-list ages, so time trends are scannable); this
 // game is the black-ringed dot labeled with its today-rank. Shows
 // relationships (e.g. does moving the mouse faster actually win games
 // faster?) rather than rankings. Both axes carry nice tick labels with
 // gridlines plus a spelled-out axis label naming the metric and unit.
-function buildScatter(title, wins, me, fx, fy, xLabel, yLabel, meLabel, ageUnitOf) {
+// opts.timeAxis renders x as a local date/time axis; opts.idealLine draws
+// the y = x diagonal (used where y has a hard floor at x, e.g. clicks
+// can never beat 3BV).
+function buildScatter(title, wins, me, fx, fy, xLabel, yLabel, meLabel, ageUnitOf, opts = {}) {
   const W = 270, H = 200, L = 52, R = 10, T = 8, B = 32;
   const xs = wins.map(fx), ys = wins.map(fy);
   const pad = (min, max) => {
@@ -690,7 +754,13 @@ function buildScatter(title, wins, me, fx, fy, xLabel, yLabel, meLabel, ageUnitO
     const dec = step >= 1 ? 0 : step >= 0.1 ? 1 : 2;
     return (v) => v.toFixed(dec);
   };
-  const xTicks = niceTicks(x0, x1, 7), fmtX = tickFmt(xTicks);
+  let xTicks, fmtX;
+  if (opts.timeAxis) {
+    ({ ticks: xTicks, fmt: fmtX } = timeTicks(x0, x1));
+  } else {
+    xTicks = niceTicks(x0, x1, 7);
+    fmtX = tickFmt(xTicks);
+  }
   for (const v of xTicks) {
     el('line', { x1: px(v), y1: T, x2: px(v), y2: H - B, class: 'scatter-grid' });
     el('text', { x: px(v), y: H - B + 11, class: 'scatter-tick tick-x' }, fmtX(v));
@@ -699,6 +769,17 @@ function buildScatter(title, wins, me, fx, fy, xLabel, yLabel, meLabel, ageUnitO
   for (const v of yTicks) {
     el('line', { x1: L, y1: py(v), x2: W - R, y2: py(v), class: 'scatter-grid' });
     el('text', { x: L - 4, y: py(v) + 2.5, class: 'scatter-tick tick-y' }, fmtY(v));
+  }
+  if (opts.idealLine) {
+    const t0 = Math.max(x0, y0);
+    const t1 = Math.min(x1, y1);
+    if (t0 < t1) {
+      el('line', {
+        x1: px(t0).toFixed(1), y1: py(t0).toFixed(1),
+        x2: px(t1).toFixed(1), y2: py(t1).toFixed(1),
+        class: 'scatter-ideal',
+      });
+    }
   }
   const dot = (s, cls, r) => el('circle', { cx: px(fx(s)).toFixed(1), cy: py(fy(s)).toFixed(1), r, class: cls });
   for (const s of wins) if (s !== me) dot(s, 'scatter-dot age-dot-' + ageUnitOf(s), '2.2');
@@ -750,15 +831,15 @@ function avgDelta(spec, record, wins) {
 function renderRanks(record, modeRecords) {
   resultRanks.textContent = '';
   const wins = modeRecords.filter((r) => r.outcome === 'win');
+  // Ranking order everywhere: fastest first, ties broken by earlier finish.
+  const byTimeThenEnd = (a, b) => a.timeMs - b.timeMs || a.endedAt - b.endedAt;
   // Progressive disclosure: two lists holding the exact same wins would
   // render identically, so only the most specific one of each such group is
   // shown. Broader charts appear on their own once history spreads across
   // enough hours/days/weekdays to make them differ.
   const candidates = rankColumns(record).map((column) => ({
     column,
-    inWindow: wins
-      .filter(column.filter)
-      .sort((a, b) => a.timeMs - b.timeMs || a.endedAt - b.endedAt),
+    inWindow: wins.filter(column.filter).sort(byTimeThenEnd),
   }));
   const seenSets = new Set();
   const kept = new Set();
@@ -888,8 +969,9 @@ function renderRanks(record, modeRecords) {
       }));
   }
 
-  // Scatter plots at the very bottom: derived mouse metrics against
-  // outcomes. Needs at least 2 wins to have a spread.
+  // Scatter plots at the very bottom: primary measurements first (3BV and
+  // mouse path against win time), then derived mouse metrics. Needs at
+  // least 2 wins to have a spread.
   if (wins.length >= 2) {
     const brk = document.createElement('div');
     brk.className = 'flex-break';
@@ -897,13 +979,44 @@ function renderRanks(record, modeRecords) {
     const todayStart = startOfDay(record.endedAt);
     const todayRank = wins
       .filter((s) => s.endedAt >= todayStart)
-      .sort((a, b) => a.timeMs - b.timeMs || a.endedAt - b.endedAt)
+      .sort(byTimeThenEnd)
       .indexOf(record) + 1;
     const meLabel = '#' + todayRank + ' today';
     const ageUnitOf = (s) => relativeAge(record.endedAt, s.endedAt).unit;
+    const hourOfDay = (s) => {
+      const d = new Date(s.endedAt);
+      return d.getHours() + d.getMinutes() / 60;
+    };
+    resultRanks.appendChild(buildScatter('win time vs date',
+      wins, record, (s) => s.endedAt, secondsOf,
+      'when the win happened', 'win time (s)', meLabel, ageUnitOf, { timeAxis: true }));
+    resultRanks.appendChild(buildScatter('win time vs hour of day',
+      wins, record, hourOfDay, secondsOf,
+      'hour of day (local)', 'win time (s)', meLabel, ageUnitOf));
+    resultRanks.appendChild(buildScatter('3BV vs time',
+      wins, record, (s) => s.bv3, secondsOf,
+      'board 3BV', 'win time (s)', meLabel, ageUnitOf));
+    resultRanks.appendChild(buildScatter('clicks vs 3BV',
+      wins, record, (s) => s.bv3, (s) => s.clicks,
+      'board 3BV', 'clicks made (line: clicks = 3BV)', meLabel, ageUnitOf,
+      { idealLine: true }));
+    // Only wins that carry the wastedClicks measurement (recorded since
+    // 2026-08-19) can appear on its chart.
+    const withWasted = wins.filter((s) => 'wastedClicks' in s);
+    if (withWasted.length >= 2) {
+      resultRanks.appendChild(buildScatter('wasted clicks vs 3BV/s',
+        withWasted, record, (s) => s.wastedClicks, bvPerSecond,
+        'wasted clicks (no-ops)', '3BV/s', meLabel, ageUnitOf));
+    }
+    resultRanks.appendChild(buildScatter('mouse path vs time',
+      wins, record, (s) => s.mousePathPx, secondsOf,
+      'mouse path (px)', 'win time (s)', meLabel, ageUnitOf));
     resultRanks.appendChild(buildScatter('mouse speed vs time',
       wins, record, (s) => s.mousePathPx / secondsOf(s), secondsOf,
       'mouse speed (px/s)', 'win time (s)', meLabel, ageUnitOf));
+    resultRanks.appendChild(buildScatter('mouse speed vs efficiency',
+      wins, record, (s) => s.mousePathPx / secondsOf(s), efficiencyPercent,
+      'mouse speed (px/s)', 'efficiency (%)', meLabel, ageUnitOf));
     resultRanks.appendChild(buildScatter('path per click vs efficiency',
       wins, record, (s) => s.mousePathPx / s.clicks, efficiencyPercent,
       'mouse path per click (px)', 'efficiency (%)', meLabel, ageUnitOf));
@@ -980,7 +1093,10 @@ boardElement.addEventListener('mouseup', (event) => {
     clickCount++;
     revealCell(index);
   } else if (cell.revealed) {
-    chord(index);
+    if (!chord(index)) wastedClicks++;
+  } else {
+    // Left-clicking a flagged cell does nothing.
+    wastedClicks++;
   }
 });
 
@@ -1003,7 +1119,7 @@ boardElement.addEventListener('contextmenu', (event) => {
   event.preventDefault();
   if (gameState === 'won' || gameState === 'lost') return;
   const index = cellIndexFromEvent(event);
-  if (index !== null) toggleFlag(index);
+  if (index !== null && !toggleFlag(index)) wastedClicks++;
 });
 
 // Anywhere on the top panel (face button included, since it bubbles) restarts.
@@ -1079,12 +1195,11 @@ document.getElementById('export-btn').addEventListener('click', () => {
   exportFileLink.hidden = false;
 });
 
-const RECORD_NUMBER_FIELDS = ['endedAt', 'timeMs', 'bv3', 'clicks', 'mousePathPx'];
-
 // Merges an exported history into the stored one. endedAt identifies a
 // record within a mode (one player cannot finish two games of the same mode
 // in the same millisecond), so re-importing the same blob is a no-op. The
-// whole blob is validated before anything is written.
+// whole blob is validated against GAME_RECORD_SCHEMA before anything is
+// written.
 function importHistory(text) {
   let parsed;
   try {
@@ -1100,8 +1215,7 @@ function importHistory(text) {
     }
     for (const r of list) {
       const malformed = r === null || typeof r !== 'object'
-        || (r.outcome !== 'win' && r.outcome !== 'loss')
-        || RECORD_NUMBER_FIELDS.some((f) => typeof r[f] !== 'number');
+        || GAME_RECORD_SCHEMA.some((f) => !f.valid(r[f.field]));
       if (malformed) {
         backupStatus.textContent = 'import failed: "' + mode + '" contains a malformed game record';
         return;
@@ -1136,6 +1250,58 @@ document.getElementById('import-btn').addEventListener('click', () => {
   importPanel.hidden = !importPanel.hidden;
 });
 
+const formatPanel = document.getElementById('format-panel');
+
+document.getElementById('format-btn').addEventListener('click', () => {
+  formatPanel.hidden = !formatPanel.hidden;
+});
+
+// The data-format reference card, generated from GAME_RECORD_SCHEMA and
+// DIFFICULTIES so it always matches what the code writes and accepts.
+function buildFormatPanel() {
+  const block = (headingText) => {
+    const div = document.createElement('div');
+    div.className = 'format-block';
+    const heading = document.createElement('h4');
+    heading.textContent = headingText;
+    div.appendChild(heading);
+    formatPanel.appendChild(div);
+    return div;
+  };
+
+  const exportBlock = block('the whole export');
+  const beginnerKey = modeKeyOf(DIFFICULTIES.beginner);
+  const intermediateKey = modeKeyOf(DIFFICULTIES.intermediate);
+  const keyColumn = (key) => ('"' + key + '":').padEnd(intermediateKey.length + 4);
+  const pre = document.createElement('pre');
+  pre.textContent = '{\n  ' + keyColumn(beginnerKey) + '[ \u2026one record per finished game\u2026 ],\n  '
+    + keyColumn(intermediateKey) + '[ \u2026 ]\n}';
+  const namedModes = Object.entries(DIFFICULTIES)
+    .map(([name, d]) => modeKeyOf(d) + ' = ' + difficultyDisplayName(name))
+    .join(', ');
+  const exportNote = document.createElement('p');
+  exportNote.textContent = 'One list per board, keyed by its parameters (width\u00d7height/mines: '
+    + namedModes + '). Records sit in play order, wins and losses alike.';
+  exportBlock.append(pre, exportNote);
+
+  const recordBlock = block('each game record');
+  const table = document.createElement('table');
+  for (const f of GAME_RECORD_SCHEMA) {
+    const row = document.createElement('tr');
+    for (const text of [f.field, f.example, f.describe]) {
+      const cell = document.createElement('td');
+      cell.textContent = text;
+      row.appendChild(cell);
+    }
+    table.appendChild(row);
+  }
+  const recordNote = document.createElement('p');
+  recordNote.textContent = 'Only these ' + GAME_RECORD_SCHEMA.length + ' measurements are stored. '
+    + 'Everything else on the win screen (3BV/s, clicks over 3BV, efficiency, mouse speed, '
+    + 'path per click, path per 3BV, every rank and chart) is recomputed from them at display time.';
+  recordBlock.append(table, recordNote);
+}
+
 document.getElementById('import-apply').addEventListener('click', () => importHistory(importText.value));
 
 document.getElementById('import-open').addEventListener('click', () => importFileInput.click());
@@ -1150,4 +1316,5 @@ importFileInput.addEventListener('change', () => {
 
 buildLcd(mineCounter);
 buildLcd(timerDisplay);
+buildFormatPanel();
 newGame();

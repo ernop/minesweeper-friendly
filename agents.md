@@ -52,8 +52,9 @@ Implementation notes:
 
 - Storage: localStorage `minesweeper-friendly.history` maps mode key to a
   chronological array of game records, one per finished game:
-  {endedAt, outcome: 'win'|'loss', timeMs, bv3, clicks, mousePathPx} —
-  primary measurements only. The mode key is the board parameters
+  {endedAt, outcome: 'win'|'loss', timeMs, bv3, clicks, wastedClicks,
+  mousePathPx} — primary measurements only (wastedClicks absent on records
+  from before 2026-08-19; see `GAME_RECORD_SCHEMA`). The mode key is the board parameters
   (`modeKey()`, e.g. `9x9/10`); difficulty names are display-only
   (`modeLabel()`). Timestamps are epoch ms; all calendar math is done in
   the viewer's local timezone at read time. This schema replaced the
@@ -64,6 +65,12 @@ Implementation notes:
   `efficiencyPercent`, never stored.
 - `mousePathPx`: cursor distance accumulated on document mousemove only
   while `gameState === 'playing'`.
+- `clickCount` counts only effective clicks; `wastedClicks` counts board
+  clicks that changed nothing — `toggleFlag` and `chord` return whether
+  they had an effect, and the mouseup/contextmenu handlers count the
+  falses plus left-clicks on flagged cells. Stored on the record since
+  2026-08-19; `GAME_RECORD_SCHEMA` accepts its absence (older records),
+  and the wasted-clicks scatter filters to wins that carry it.
 - Rank list machinery: `rankWindows` (time windows + `specificity` for
   progressive disclosure), `rankColumns` (adds day categories, `isHoliday`),
   `windowBounds` (11-row windowing), `buildRankList` (shared renderer,
@@ -74,9 +81,11 @@ Implementation notes:
   the average-time column).
 - Streaks: run-splitting and the core-trim/dedupe/domination filter are in
   `renderRanks`; see PRODUCT.md for the double-counting rationale.
-- Scatters: `buildScatter` + `niceTicks`, appended after a `.flex-break`;
-  dots colored by age unit (`.age-dot-*`), the current game ringed and
-  tagged with its today-rank, on-chart axis labels, legend appended last.
+- Scatters: `buildScatter` + `niceTicks` (`timeTicks` for the date axis),
+  appended after a `.flex-break`; dots colored by age unit (`.age-dot-*`),
+  the current game ringed and tagged with its today-rank, on-chart axis
+  labels, legend appended last. Options: `timeAxis` (local calendar
+  x-ticks), `idealLine` (y = x dashed floor).
 - Layout: `#results` (summary + `#stats-grid` only) is absolutely
   positioned off `#game-area`; `#result-ranks` is normal flow below.
   `html { scrollbar-gutter: stable }` protects board centering.
@@ -85,10 +94,50 @@ Implementation notes:
   offending mode otherwise), dedupes by `endedAt` within each mode, and
   re-sorts each mode chronologically after a merge. Export writes with
   `navigator.clipboard` only; a rejection surfaces its error message.
+  `#format-panel` (toggled by `#format-btn`) is the data-format reference
+  card, generated at init by `buildFormatPanel` from `GAME_RECORD_SCHEMA`
+  and `DIFFICULTIES` — the same schema `importHistory` validates against —
+  so the card, the validator, and the writer cannot drift apart.
 
 Hosting: public GitHub repo `ernop/minesweeper-friendly`; GitHub Pages serves
 the playable game from the master branch root at
 https://ernop.github.io/minesweeper-friendly/ and redeploys on every push.
+
+## Local tooling and verification (this machine, learned 2026-08-19)
+
+- Serving: `python3 -m http.server 8018` is the canonical local server
+  (README). Other ports (8000; 8099 for throwaway tests) have been used in
+  agent sessions. localStorage is per-origin, so EACH PORT HAS ITS OWN PLAY
+  HISTORY — never test imports or synthetic renders against the origin the
+  player actually uses; use a fresh port instead.
+- No headless browser exists here: no chromium / google-chrome /
+  headless_shell, and `/usr/bin/firefox` is an uninstalled snap stub that
+  only prints "snap install firefox". Visual verification needs the Cursor
+  IDE browser (MCP server `cursor-ide-browser`), which is registered only
+  while an IDE browser tab exists — it can appear and disappear
+  mid-session, so check availability before planning around it.
+- Running game code without a browser: load `minesweeper.js` in Node via
+  `vm.runInThisContext`, not `eval` (the file's 'use strict' makes eval
+  declarations local, so nothing would be defined). Required shims:
+  `document` with `getElementById` (memoize one stub element per id),
+  `createElement`/`createElementNS`, `querySelectorAll`,
+  `documentElement.style.setProperty`, `addEventListener`; stub elements
+  with textContent/innerHTML/hidden/value/dataset, `style.setProperty`,
+  `setAttribute`, `addEventListener`, `appendChild`/`append`,
+  `querySelector`/`querySelectorAll` (must return 3 elements — `setLcd`
+  iterates 3 digit svgs), `classList`, `requestSubmit`; globals
+  `localStorage`, `navigator.clipboard.writeText`,
+  `URL.createObjectURL`/`revokeObjectURL`, `performance.now`. This ran the
+  real `importHistory` end-to-end for the 2026-08-19 legacy-history
+  conversion (import + dedupe-on-reimport both verified).
+- Quick checks: `node --check minesweeper.js` for JS syntax; a small
+  python3 `html.parser` walker for tag balance in `index.html` (void tags:
+  meta, link, input, br, hr, img). Node v22 is installed and fine for
+  one-shot data conversion scripts.
+- Deploys: `gh` CLI is installed and authenticated. Every push to master
+  triggers the "pages build and deployment" workflow; `gh run list` /
+  `gh run watch <id> --exit-status` confirm it, and the live site can be
+  spot-checked with `curl https://ernop.github.io/minesweeper-friendly/...`.
 
 Promotion: `promo/PROMO.md` is the promotional page — player-facing pitch
 only, nothing technical — with `promo/win-screen-2026-08-19.png` as its hero
