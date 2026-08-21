@@ -48,7 +48,7 @@ forced mine.
 ## State
 
 Runtime: `index.html` + `style.css` + pure `rng.js` / `justice.js` /
-`board-shape.js` / `solver.js` / `trial.js` + `minesweeper.js`, no
+`board-shape.js` / `solver.js` / `odds.js` / `trial.js` + `minesweeper.js`, no
 dependencies, no build step.
 Serve with `python3 -m http.server 8018`.
 
@@ -81,7 +81,9 @@ Implementation notes:
   flagsPlaced, flagsRemoved, mousePathPx, states, justice,
   justiceEnabled, seed, rngVersion, boardVersion, justiceVersion,
   maxAdjacent, hasSeven, zeroCount, islandCount, largestIsland,
-  playMode, identityIndex, transform, trialStartedAt} —
+  playMode, identityIndex, transform, trialStartedAt, guesses,
+  guessIdealRisk, guessNonideal, guessPerfect, lifeLost, lifeNeedless,
+  oddsVersion} —
   primary measurements only
   (later-added fields may be absent on earlier records; see
   `GAME_RECORD_SCHEMA`). The mode key is board parameters plus play mode
@@ -91,9 +93,12 @@ Implementation notes:
   time. This schema replaced the `scores.v1`/`losses.v1` pair
   (2026-08-19, data-structure rectification); the old keys are not read
   and any data under them is ignored.
-- Derived metrics (3BV/s, efficiency %, mouse speed, path/click, path/3BV)
-  are computed at read time via `secondsOf`/`bvPerSecond`/
-  `efficiencyPercent`, never stored.
+- Derived metrics (3BV/s, efficiency %, correctness %, throughput, IOS,
+  mouse speed, path/click, path/3BV) are computed at read time via
+  `secondsOf`/`bvPerSecond`/`efficiencyPercent`/`correctnessPercent`/
+  `throughputOf`/`iosOf`, never stored. Correctness needs `wastedClicks`
+  (absent = unmeasured). Throughput and IOS are wins-only; IOS is also
+  blank when time ≤ 1s.
 - `mousePathPx`: cursor distance accumulated on document mousemove only
   while `gameState === 'playing'`.
 - Raw input traces (PRODUCT.md "Raw input traces"): `beginTrace` (end of
@@ -315,10 +320,24 @@ Implementation notes:
   chord-origin rule); `node tests/rng-test.js` freezes the RNG version's
   output sequence; scale: `node tests/justice-bench.js` (100x100 boards,
   10,000-cell structural proof and direct redraw; no timing threshold).
+- Guess ledger (PRODUCT.md "Guess ledger"): `odds.js` enumerates remaining
+  consistent layouts on residual clue components (budget 22 vars /
+  250000 visits) plus a binomial sea, then scores a bare unproven click.
+  `noteGuess` runs from `revealCell` after the first-click path and
+  before Justice / proof-or-die / angelic, so the p is the player's
+  information, not the post-mercy board. Proven-safe clicks return null
+  (not a guess). Over-budget returns `{measured: false}` and
+  `oddsFailed` omits the whole ledger from that record — no invented
+  odds.   `scoreGuess` stores absolute p (`lifeLost`), excess over min p
+  (`lifeNeedless`), `idealRisk`, and one-ply expected remaining life
+  (`perfectPlay`). A covered proven-safe cell makes min p 0, so any
+  guess is fully needless. Live chips (`.guess-live-word`) stack in
+  `#justice-live`. `node tests/odds-test.js`.
 - Play modes (PRODUCT.md "Play modes"): `settings.playMode` plus history
   key `WxH/M@id`. `solver.js` grades NG boards (`analyze` /
   `generate`) and decides proof-or-die / angelic clicks. `trial.js`
-  holds the 25×4 session, dihedral maps, and identity grouping.
+  holds the 25×4 and 4×4 sessions, dihedral maps, identity grouping,
+  and replay of opens/flags from stored traces for overlay charts.
   `node tests/solver-test.js` and `node tests/trial-test.js`.
 - Rankaverage sort persistence: userdata 'rankavgSort' maps stat label to
   {key, dir} (absent = natural rank order); written by the sort-header

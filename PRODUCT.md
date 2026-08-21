@@ -44,7 +44,9 @@ Mode menu. Rankings and history are stored per (board, play mode); a
 Beginner Standard win never appears on Beginner Uniform NG lists.
 
 - **Standard.** Today's first-click-safe random boards. "A just universe"
-  applies here only.
+  applies here and in the Trial modes (frozen from the setting on the
+  first click, or when a given opening is used). It does not apply in
+  the NG modes or Angelic.
 - **Uniform NG.** Generate-and-reject until the board is fully solvable
   from the opening by counting, subset subtraction, and the global mine
   count, and every required deduction step sits at one grade (all
@@ -65,20 +67,51 @@ Beginner Standard win never appears on Beginner Uniform NG lists.
   the sealed-pocket special case; this mode covers every consistent
   guess. Justice is off here — the mode is the mercy.
 - **Trial.** 25 hidden board identities for the current size, each shown
-  four times (100 games). Presentations are shuffled so repeats are not
-  obvious; each showing applies a random grid isometry (all eight
-  dihedral maps on a square; identity, 180°, horizontal and vertical
-  flips on a rectangle) so the four trials of one identity are the same
-  puzzle in logical terms. The opening is given; the timer runs from
-  that moment. Progress is `n / 100` with an "end trial" control.
+  four times (100 games). Choosing the mode starts the trial at once;
+  the board appears and the player chooses the opening click (a mine
+  can kill — the layout is already fixed). Presentations are
+  shuffled so repeats are not obvious, with the same identity kept away
+  from its other showings; the four showings of one identity use four
+  different isometries (a subset of the eight dihedral maps on a square;
+  all four of identity, 180°, and the two flips on a rectangle) so the
+  puzzle is the same logically and never the same orientation twice.
+  The board stays covered until you click; the timer starts then.
+  Progress is `n / 100` with an "end trial" control. After each game
+  the finished board stays; the titlebar (or space) deals the next
+  one. A restart before that game is finished skips the current slot
+  and deals the next item. When the last game finishes, the board
+  disappears. Only the review and the choice to start another or
+  change mode remain. Start another trial stays inert for a short
+  moment so a trailing click cannot begin a new session. Leaving the
+  mode or changing size while a session is running ends it; that
+  review is not kept. Justice follows the user setting (default on).
+  Solve-time, 3BV/s, and efficiency omit losses; counts, overlays, and
+  motion metrics keep them.
+  The review leads with later meetings of the same identity vs first
+  meetings. A verdict and meeting-index bars (mean win time, 3BV/s,
+  win rate; light gold = first meeting, dark brown = last) sit above
+  the per-board list. Identities are collapsed; a row opens if it has a
+  loss, a large first-to-last swing, or is the only board. Open rows
+  keep attempt-index charts plus overlaid traces: open squares,
+  remaining safe squares (0 is a win), flags, unmarked mines, cursor
+  path, speed (with a bucket-width slider; default 200 ms mean, 0 =
+  raw samples), and cursor x/y mapped back through the inverse isometry
+  onto the identity board so the four orientations share one
+  coordinate frame. From the results the player
+  starts another trial (same size) or changes mode / size (that starts
+  a new trial at once). Ending early via "end trial" shows the same review
+  for the games already played.
   Finished trial games are stored under that size's trial key only —
   they do not enter Standard (or any other mode's) time windows,
-  streaks, scatters, or rankaverages. The one ranking shown during a
-  trial is the time list for trial games of this size. Ending the
-  session (complete or quit) groups the boards by identity and charts
-  time and 3BV/s across the attempts so improvement is visible.
-  Changing size or leaving Trial ends the current session as a quit
-  and shows that review.
+  streaks, scatters, or rankaverages.
+- **Short trial.** The same rules as Trial, with 4 identities shown
+  four times each (16 games). Its results live under that size's
+  short-trial key and never mix with the 100-game Trial lists.
+- **Test trial.** One identity, four orientations (4 games). Same
+  storage split (`@test-trial`).
+- The setting `trialGiveOpening` (default off) restores a predetermined
+  opening on trial boards. A first click on a mine can kill: the
+  layout is already fixed.
 
 ## A just universe (decided 2026-08-20)
 
@@ -197,7 +230,13 @@ zero count, island count, largest island). The stored click count includes only
 clicks that changed the board (reveals, flags, chords). Everything else is
 derived at display time: 3BV/s (4 decimals), clicks over 3BV (clicks minus
 3BV; wins only — a lost board was never finished, so the subtraction means
-nothing), efficiency %, mouse speed (px/s), path per click, path per 3BV.
+nothing), efficiency % (3BV / effective clicks, as a percent), correctness %
+(effective / (effective + wasted); omitted when wasted clicks were never
+measured), throughput (3BV / effective clicks, as a 4-decimal ratio — the
+same quantity as efficiency, clone name; wins only, same unfinished-board
+honesty as clicks over 3BV), IOS (log(3BV) / log(time in seconds); wins
+only; blank when time is 1s or less, matching minesweeper.online), mouse
+speed (px/s), path per click, path per 3BV.
 Shown as a label/value table for wins and losses alike; a loss shows no
 rank output at all (losses split win streaks and feed lifetime totals, but
 are not ranked).
@@ -241,6 +280,43 @@ a redraw. Zero is a normal value and is recorded; the stats table always
 shows the row when the field exists. `justiceEnabled` records the setting
 state frozen at the first reveal so the rules of the game remain knowable,
 although rankings deliberately continue mixing both states for now.
+
+Guess ledger — on every bare click into a cell that is not proven safe
+(not the first click, never a chord), the remaining consistent layouts
+are enumerated and the click is scored. Stored per game (joined
+2026-08-21, same absence rules as wasted clicks; omitted entirely if any
+guess in the game exceeded the enumerator budget): `guesses`,
+`guessIdealRisk`, `guessNonideal`, `guessPerfect`, `lifeLost`,
+`lifeNeedless`, `oddsVersion`.
+
+- **Life lost** (absolute). Each guess costs its mine probability. A 19%
+  death click spends 0.19 lives in the multiverse whether you lived or
+  died. Justice may still rewrite a certified pocket so you live; the
+  0.19 remains on the ledger (the remaining chance you lived was played
+  out, not erased).
+- **Life needless.** Cost above the safest available cell:
+  p(chosen) − p(best). Clicking the ideal-risk spot costs 0 needless
+  life even if that spot is itself a 19% die. This still punishes
+  semi-deaths — picking a 30% when a 19% existed — without punishing
+  ideal play for the world's residual risk.
+- **Ideal-risk / off.** A guess is ideal-risk when it chose a lowest-p
+  cell, off when it did not.
+- **Perfect.** Lowest raw risk is not the same as best play. A 4% click
+  that tells you almost nothing can lose to a 5% click that splits the
+  remaining layouts and leaves a solved board. The stored objective is
+  one-ply expected remaining life: (1 − p(die)) × (1 − expected min
+  remaining risk after the number that click would show). When Justice
+  would certify the cell, death risk for this score is 0 (you will
+  live) but absolute life-lost still uses the raw p. If the remaining
+  region is too large to enumerate, `guessPerfect` falls back to
+  “same as ideal-risk” rather than inventing information value, and if
+  even p cannot be measured the whole ledger is omitted.
+
+A live chip (olive, in the Justice stack) prints the raw p and either
+`ideal`, `justice`, or the needless extra. NG / proof-or-die / angelic
+games still record the counterfactual odds of an unproven click;
+rankings stay per play mode, so a Standard guess ledger is never
+compared to an Angelic one.
 
 Seed — every new board receives a cryptographically generated 128-bit seed.
 `xoshiro128ss-v1` expands it into the one deterministic random stream used

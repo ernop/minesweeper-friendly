@@ -3,9 +3,9 @@
 **Play now: https://ernop.github.io/minesweeper-friendly/**
 
 Minesweeper variant project. Standard first-click-safe play, plus Uniform NG,
-Single-path NG, Proof-or-die, Angelic, and a 100-game Trial of 25 hidden
-boards shown four times each under random flips and rotations. The Mode menu
-is in the upper right; each mode keeps its own rankings.
+Single-path NG, Proof-or-die, Angelic, a 100-game Trial of 25 hidden boards
+shown four times each, Short trial (4 boards × 4), and Test trial (1 board
+× 4). The Mode menu is in the upper right; each mode keeps its own rankings.
 
 ![A won Beginner game: stats beside the board, rank charts and streak lists below](promo/win-screen-2026-08-19-full-layout.png)
 
@@ -26,7 +26,7 @@ then http://localhost:8018/
 - Left click on a satisfied number: chord (open all unflagged neighbors)
 - Face button or space bar: new game
 - Tabs: Beginner 9x9/10 (default), Intermediate 16x16/40, Expert 30x16/99, Custom
-- Upper-right Mode menu: Standard, Uniform NG, Single-path NG, Proof-or-die, Angelic, Trial
+- Upper-right Mode menu: Standard, Uniform NG, Single-path NG, Proof-or-die, Angelic, Trial, Short trial, Test trial
 
 ## Play history
 
@@ -35,7 +35,8 @@ IndexedDB (loaded into RAM at startup; persisted asynchronously). Each
 record stores only the primary measurements — end date, outcome, time, 3BV,
 clicks, mouse path (total cursor distance in px from first click to game
 end), and the finished board's max number, sevens, zeros, and mine
-islands; derived stats (3BV/s, efficiency, mouse speed, and the rest) are
+islands; derived stats (3BV/s, efficiency, correctness, throughput, IOS,
+mouse speed, and the rest) are
 computed at display time. After each win the result panel shows the full
 stats plus one ranked-list column per time window. Day-and-longer windows anchor to your
 local calendar: "today" since last midnight, "past week" since midnight six
@@ -59,7 +60,8 @@ and how many wins share it, with your group bolded. A colored final row,
 aligned under the average-time column, shows how this win moved its own
 group's average time: improved/worsened by how much, unchanged, or set for
 the first time.
-The stats themselves (time, 3BV, 3BV/s, clicks, efficiency, mouse path,
+The stats themselves (time, 3BV, 3BV/s, clicks, efficiency, correctness,
+throughput, IOS, mouse path,
 mouse speed, path per click, path per 3BV)
 render as a small label/value table beside the board, including wasted
 clicks (board clicks that changed nothing — recorded per game since

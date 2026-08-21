@@ -18,6 +18,8 @@ const PLAY_MODES = [
   { id: 'proof-or-die', label: 'Proof-or-die' },
   { id: 'angelic', label: 'Angelic' },
   { id: 'trial', label: 'Trial' },
+  { id: 'short-trial', label: 'Short trial' },
+  { id: 'test-trial', label: 'Test trial' },
 ];
 const PLAY_MODE_IDS = new Set(PLAY_MODES.map((m) => m.id));
 
@@ -105,7 +107,6 @@ let gameRandom = null;  // the one deterministic random stream for this game
 let trialSession = null;   // userdata 'trial'; null when none stored
 let trialPresentation = null; // current trial board, or null
 let lastTrialReview = null;   // ended session waiting to be shown
-let holdTrialAfterEnd = false; // one newGame after quit does not start another
 
 // Press-preview state (left button held down)
 let leftDown = false;
@@ -209,7 +210,7 @@ function placeMinesForPlayMode(safeIndex) {
     placeMines(safeIndex);
     return;
   }
-  if (mode === 'trial') {
+  if (Trial.isPlayMode(mode)) {
     if (trialPresentation === null) throw new Error('trial presentation missing at placement');
     applyMineMap(trialPresentation.mines);
     return;
@@ -234,12 +235,18 @@ function placeMinesForPlayMode(safeIndex) {
 //-------GAME FLOW-------
 
 function newGame() {
-  if (settings.playMode === 'trial' && trialIsActive()
+  if (Trial.isPlayMode(settings.playMode) && trialIsActive()
       && (trialSession.width !== config.width
         || trialSession.height !== config.height
-        || trialSession.mines !== config.mines)) {
-    endTrial('quit');
+        || trialSession.mines !== config.mines
+        || trialSessionPlayMode() !== settings.playMode)) {
+    abandonTrial();
   }
+  if (Trial.isPlayMode(settings.playMode) && !trialIsActive() && !trialReviewMatches()) {
+    startTrial();
+    return;
+  }
+  syncTrialBoardVisibility(trialPhase());
   gameState = 'ready';
   minesPlaced = false;
   justiceEnabledForGame = null;
@@ -253,6 +260,8 @@ function newGame() {
   startTime = 0;
   mousePathPx = 0;
   justiceEvents = 0;
+  guessEvents = [];
+  oddsFailed = false;
   gameSeed = GameRandom.createSeed();
   gameRandom = GameRandom.fromSeed(gameSeed);
   justiceLive.textContent = '';
@@ -287,49 +296,89 @@ function newGame() {
   resultSummary.textContent = '';
   resultStats.textContent = '';
   resultRanks.textContent = '';
-  if (settings.playMode === 'trial') setupTrialBoard();
+  if (Trial.isPlayMode(settings.playMode) && trialIsActive()) setupTrialBoard();
   else trialPresentation = null;
   refreshSettingsPanel();
-  renderTrialProgress();
   document.title = 'Minesweeper - ' + playModeLabel();
-  if (settings.playMode === 'trial' && lastTrialReview && lastTrialReview.endedHow
-      && trialPresentation === null) {
-    renderTrialReview(lastTrialReview);
-  }
+  renderTrialChrome();
 }
 
 function setupTrialBoard() {
-  if (holdTrialAfterEnd) {
-    holdTrialAfterEnd = false;
+  if (!trialIsActive()) {
     trialPresentation = null;
     return;
   }
-  ensureTrialSession();
-  trialPresentation = Trial.presentation(trialSession, gameRandom);
-  applyMineMap(trialPresentation.mines);
-  floodReveal(trialPresentation.firstClick);
-  gameState = 'playing';
-  startTimer();
-  justiceEnabledForGame = false;
-  checkWin();
-}
-
-function ensureTrialSession() {
-  const key = boardKey();
-  if (trialSession
-    && trialSession.endedHow === null
-    && trialSession.boardKey === key
-    && trialSession.width === config.width
-    && trialSession.height === config.height
-    && trialSession.mines === config.mines) {
+  if (trialSession.nextIndex >= Trial.gameCount(trialSession)) {
+    endTrial('completed');
+    trialPresentation = null;
     return;
   }
-  trialSession = Trial.createSession(key, config.width, config.height, config.mines, gameRandom);
+  trialPresentation = Trial.presentation(trialSession, gameRandom);
+  applyMineMap(trialPresentation.mines);
+  if (settings.trialGiveOpening) {
+    floodReveal(trialPresentation.firstClick);
+    gameState = 'playing';
+    startTimer();
+    justiceEnabledForGame = settings.justUniverse;
+    refreshSettingsPanel();
+    checkWin();
+  }
+}
+
+const TRIAL_START_ARM_MS = 800;
+let trialStartArmTimer = null;
+
+function clearTrialStartArm() {
+  if (trialStartArmTimer !== null) {
+    clearTimeout(trialStartArmTimer);
+    trialStartArmTimer = null;
+  }
+}
+
+function startTrial() {
+  if (!Trial.isPlayMode(settings.playMode) || trialIsActive()) return;
+  lastTrialReview = null;
+  if (gameRandom === null) {
+    gameSeed = GameRandom.createSeed();
+    gameRandom = GameRandom.fromSeed(gameSeed);
+  }
+  trialSession = Trial.createSession(
+    boardKey(), config.width, config.height, config.mines, gameRandom, settings.playMode);
   persistUserdata('trial', trialSession);
+  newGame();
+}
+
+function playModeOfTrial(session) {
+  return session.playMode === undefined ? 'trial' : session.playMode;
+}
+
+function trialSessionPlayMode() {
+  return playModeOfTrial(trialSession);
 }
 
 function trialIsActive() {
-  return trialSession !== null && trialSession.endedHow === null;
+  return trialSession !== null && trialSession.endedHow === null
+    && trialSessionPlayMode() === settings.playMode;
+}
+
+function trialReviewMatches() {
+  return lastTrialReview !== null
+    && lastTrialReview.endedHow
+    && playModeOfTrial(lastTrialReview) === settings.playMode
+    && lastTrialReview.width === config.width
+    && lastTrialReview.height === config.height
+    && lastTrialReview.mines === config.mines;
+}
+
+function trialPhase() {
+  if (!Trial.isPlayMode(settings.playMode)) return 'none';
+  if (trialIsActive()) return 'playing';
+  if (trialReviewMatches()) return 'review';
+  return 'idle';
+}
+
+function trialBlocksPlay() {
+  return Trial.isPlayMode(settings.playMode) && trialPhase() !== 'playing';
 }
 
 function endTrial(how) {
@@ -337,29 +386,77 @@ function endTrial(how) {
   Trial.finishSession(trialSession, how);
   persistUserdata('trial', trialSession);
   lastTrialReview = trialSession;
-  if (how === 'quit') holdTrialAfterEnd = true;
+  clearInterval(timerInterval);
+  timerInterval = null;
 }
 
-function renderTrialProgress() {
+function abandonTrial() {
+  if (!trialIsActive()) return;
+  Trial.finishSession(trialSession, 'quit');
+  persistUserdata('trial', trialSession);
+  lastTrialReview = null;
+}
+
+function syncTrialBoardVisibility(phase) {
+  const hide = phase === 'review';
+  document.getElementById('game-frame').hidden = hide;
+  document.getElementById('game-area').classList.toggle('trial-no-board', hide);
+}
+
+function renderTrialChrome() {
+  const stage = document.getElementById('trial-stage');
+  const copy = document.getElementById('trial-copy');
+  const btn = document.getElementById('trial-start-btn');
   const box = document.getElementById('trial-progress');
-  if (settings.playMode !== 'trial' || !trialIsActive()) {
+  const phase = trialPhase();
+  syncTrialBoardVisibility(phase);
+  if (phase === 'none') {
+    clearTrialStartArm();
+    stage.hidden = true;
     box.hidden = true;
     box.textContent = '';
     return;
   }
-  box.hidden = false;
+  if (phase === 'playing') {
+    clearTrialStartArm();
+    stage.hidden = true;
+    box.hidden = false;
+    box.textContent = '';
+    const label = document.createElement('span');
+    label.textContent = trialSession.results.length + ' / ' + Trial.gameCount(trialSession);
+    const quit = document.createElement('button');
+    quit.type = 'button';
+    quit.textContent = 'end trial';
+    quit.addEventListener('click', () => {
+      endTrial('quit');
+      renderTrialChrome();
+    });
+    box.append(label, quit);
+    return;
+  }
+  if (phase !== 'review') {
+    clearTrialStartArm();
+    stage.hidden = true;
+    box.hidden = true;
+    box.textContent = '';
+    return;
+  }
+  box.hidden = true;
   box.textContent = '';
-  const label = document.createElement('span');
-  label.textContent = trialSession.results.length + ' / ' + Trial.GAMES;
-  const quit = document.createElement('button');
-  quit.type = 'button';
-  quit.textContent = 'end trial';
-  quit.addEventListener('click', () => {
-    endTrial('quit');
-    newGame();
-    if (lastTrialReview) renderTrialReview(lastTrialReview);
-  });
-  box.append(label, quit);
+  stage.hidden = false;
+  copy.hidden = true;
+  copy.textContent = '';
+  btn.textContent = 'start another trial';
+  btn.hidden = true;
+  btn.disabled = true;
+  clearTrialStartArm();
+  trialStartArmTimer = setTimeout(() => {
+    trialStartArmTimer = null;
+    if (trialPhase() !== 'review') return;
+    btn.hidden = false;
+    btn.disabled = false;
+  }, TRIAL_START_ARM_MS);
+  if (lastTrialReview) renderTrialReview(lastTrialReview);
 }
 
 function startTimer() {
@@ -391,18 +488,27 @@ function updateCell(i) {
 }
 
 function revealCell(index) {
+  if (trialBlocksPlay()) return;
   const cell = cells[index];
   if (cell.revealed || cell.flagged) return;
 
   let firstReveal = false;
   if (!minesPlaced) {
     placeMinesForPlayMode(index);
-    justiceEnabledForGame = settings.playMode === 'standard' && settings.justUniverse;
+    justiceEnabledForGame = justiceAppliesToMode() && settings.justUniverse;
     gameState = 'playing';
     startTimer();
     refreshSettingsPanel();
     firstReveal = true;
+  } else if (gameState === 'ready') {
+    gameState = 'playing';
+    startTimer();
+    justiceEnabledForGame = justiceAppliesToMode() && settings.justUniverse;
+    refreshSettingsPanel();
+    firstReveal = true;
   }
+
+  if (!firstReveal) noteGuess(index);
 
   if (settings.playMode === 'proof-or-die' && !firstReveal) {
     if (!Solver.isProvenSafe(playerView(), index)) {
@@ -447,8 +553,15 @@ function floodReveal(index) {
 
 // Returns whether the click changed anything (false on a revealed cell).
 function toggleFlag(index) {
+  if (trialBlocksPlay()) return false;
   const cell = cells[index];
   if (cell.revealed) return false;
+  if (gameState === 'ready' && minesPlaced) {
+    gameState = 'playing';
+    startTimer();
+    justiceEnabledForGame = justiceAppliesToMode() && settings.justUniverse;
+    refreshSettingsPanel();
+  }
   cell.flagged = !cell.flagged;
   flagsCount += cell.flagged ? 1 : -1;
   if (cell.flagged) flagsPlaced++;
@@ -463,6 +576,7 @@ function toggleFlag(index) {
 // Returns whether the click changed anything (a chord on a zero cell, an
 // unsatisfied number, or a number with nothing left to open is a no-op).
 function chord(index) {
+  if (trialBlocksPlay()) return false;
   const cell = cells[index];
   if (!cell.revealed || cell.adjacent === 0) return false;
   const around = neighbors(index);
@@ -556,6 +670,12 @@ function finish() {
 // this path: a wrong flag is the player's mistake.
 let justiceEnabledForGame = null; // frozen from the setting on first reveal
 let justiceEvents = 0;            // qualifying sealed-pocket entries
+let guessEvents = [];             // measured bare unproven clicks this game
+let oddsFailed = false;           // a guess existed but odds could not be measured
+
+function justiceAppliesToMode() {
+  return settings.playMode === 'standard' || Trial.isPlayMode(settings.playMode);
+}
 
 function playerView() {
   return {
@@ -616,6 +736,43 @@ function announceJustice(certificate) {
   justiceLive.appendChild(word);
 }
 
+function noteGuess(index) {
+  let event;
+  try {
+    event = Odds.scoreGuess(playerView(), index, {
+      considerJustice: justiceEnabledForGame === true,
+    });
+  } catch (err) {
+    backupStatus.textContent = 'guess odds failed: ' + err.message;
+    throw err;
+  }
+  if (event === null) return;
+  if (!event.measured) {
+    oddsFailed = true;
+    return;
+  }
+  guessEvents.push(event);
+  announceGuess(event);
+}
+
+function announceGuess(event) {
+  const word = document.createElement('div');
+  word.className = 'guess-live-word';
+  const bits = [event.p.toFixed(2)];
+  if (event.justice) bits.push('justice');
+  else if (event.idealRisk) bits.push('ideal');
+  else bits.push('+' + event.lifeNeedless.toFixed(2));
+  word.textContent = bits.join(' ');
+  word.title = event.idealRisk
+    ? ('Guess: ' + (event.p * 100).toFixed(1) + '% death, the lowest '
+      + 'available risk'
+      + (event.perfectPlay ? ', and the best expected remaining life' : ''))
+    : ('Guess: ' + (event.p * 100).toFixed(1) + '% death; the safest cell '
+      + 'was ' + (event.minP * 100).toFixed(1) + '% (needless '
+      + event.lifeNeedless.toFixed(3) + ')');
+  justiceLive.appendChild(word);
+}
+
 //-------STATS (3BV, as measured on minesweeper.online)-------
 
 function compute3BV() {
@@ -673,25 +830,35 @@ function reportResult(outcome) {
     largestIsland: shape.largestIsland,
     playMode: settings.playMode,
   };
-  if (settings.playMode === 'trial' && trialPresentation !== null) {
+  if (!oddsFailed) {
+    record.guesses = guessEvents.length;
+    record.guessIdealRisk = guessEvents.filter((e) => e.idealRisk).length;
+    record.guessNonideal = guessEvents.filter((e) => !e.idealRisk).length;
+    record.guessPerfect = guessEvents.filter((e) => e.perfectPlay).length;
+    record.lifeLost = guessEvents.reduce((sum, e) => sum + e.lifeLost, 0);
+    record.lifeNeedless = guessEvents.reduce((sum, e) => sum + e.lifeNeedless, 0);
+    record.oddsVersion = Odds.VERSION;
+  }
+  if (Trial.isPlayMode(settings.playMode) && trialPresentation !== null) {
     record.identityIndex = trialPresentation.identityIndex;
     record.transform = trialPresentation.transform;
     record.trialStartedAt = trialSession.startedAt;
+    record.givenOpening = settings.trialGiveOpening;
   }
   const modeRecords = appendGameRecord(record);
-  if (settings.playMode === 'trial' && trialIsActive() && trialPresentation !== null) {
+  if (Trial.isPlayMode(settings.playMode) && trialIsActive() && trialPresentation !== null) {
     Trial.recordResult(trialSession, {
       identityIndex: trialPresentation.identityIndex,
       transform: trialPresentation.transform,
+      givenOpening: record.givenOpening,
       endedAt: record.endedAt,
       outcome: record.outcome,
       timeMs: record.timeMs,
       bv3: record.bv3,
       clicks: record.clicks,
     });
-    if (trialSession.nextIndex >= Trial.GAMES) endTrial('completed');
+    if (trialSession.nextIndex >= Trial.gameCount(trialSession)) endTrial('completed');
     persistUserdata('trial', trialSession);
-    renderTrialProgress();
   }
   saveTrace(record);
   // The canonical metrics: the same computation the live panel runs, over
@@ -739,6 +906,18 @@ function renderResult(record, modeRecords) {
       ? [['Clicks over 3BV', String(record.clicks - record.bv3)]]
       : []),
     ['Efficiency', efficiencyPercent(record) + '%'],
+    ...(correctnessPercent(record) !== undefined
+      ? [['Correctness', correctnessPercent(record) + '%']] : []),
+    ...(throughputOf(record) !== undefined
+      ? [['Throughput', throughputOf(record).toFixed(4)]] : []),
+    ...(iosOf(record) !== undefined
+      ? [['IOS', iosOf(record).toFixed(4)]] : []),
+    ...(record.lifeLost !== undefined
+      ? [['Life lost', record.lifeLost.toFixed(3)]] : []),
+    ...(record.lifeNeedless !== undefined
+      ? [['Life needless', record.lifeNeedless.toFixed(3)]] : []),
+    ...(record.guesses !== undefined
+      ? [['Guesses', formatGuesses(record)]] : []),
     ['Mouse path', record.mousePathPx + 'px'],
     ['Mouse speed', Math.round(record.mousePathPx / seconds) + 'px/s'],
     ['Path per click', Math.round(record.mousePathPx / record.clicks) + 'px'],
@@ -756,13 +935,9 @@ function renderResult(record, modeRecords) {
     statsGrid.append(labelCell, valueCell);
   }
   resultStats.appendChild(statsGrid);
-  if (settings.playMode === 'trial') {
+  if (Trial.isPlayMode(settings.playMode)) {
     resultRanks.textContent = '';
-    if (lastTrialReview && lastTrialReview.endedHow) {
-      renderTrialReview(lastTrialReview);
-    } else if (record.outcome === 'win' || record.outcome === 'loss') {
-      renderTrialMidRanks(record, modeRecords);
-    }
+    renderTrialChrome();
   } else if (record.outcome === 'win') {
     renderRanks(record, modeRecords);
   } else {
@@ -770,8 +945,9 @@ function renderResult(record, modeRecords) {
   }
   // The after-game motion charts, jammed inline after whatever other
   // bottom charts the outcome produced (all of them for a win, none for
-  // a loss). Motion existed either way.
-  if (settings.showMotionStatsAfterGame && finalMotion !== null) {
+  // a loss). Motion existed either way. Trial review has its own charts.
+  if (settings.showMotionStatsAfterGame && finalMotion !== null
+      && !Trial.isPlayMode(settings.playMode)) {
     const brk = document.createElement('div');
     brk.className = 'flex-break';
     resultRanks.appendChild(brk);
@@ -816,9 +992,17 @@ const GAME_RECORD_SCHEMA = [
   { field: 'islandCount', valid: (v) => v === undefined || isNumber(v), example: '6', describe: '8-connected mine components on the finished board (diagonals count, edges empty); absent on earlier games' },
   { field: 'largestIsland', valid: (v) => v === undefined || isNumber(v), example: '5', describe: 'mine count in the largest 8-connected mine component; 0 if no mines; absent on earlier games' },
   { field: 'playMode', valid: (v) => v === undefined || PLAY_MODE_IDS.has(v), example: '"standard"', describe: 'play mode this game was under; absent on games recorded before 2026-08-21' },
-  { field: 'identityIndex', valid: (v) => v === undefined || isNumber(v), example: '3', describe: 'trial board identity (0-24); absent outside trial' },
+  { field: 'identityIndex', valid: (v) => v === undefined || isNumber(v), example: '3', describe: 'trial board identity (0-based in that session); absent outside trial' },
   { field: 'transform', valid: (v) => v === undefined || typeof v === 'string', example: '"rot90"', describe: 'isometry applied to the trial identity for this presentation' },
   { field: 'trialStartedAt', valid: (v) => v === undefined || isNumber(v), example: '1787201223496', describe: 'when the enclosing trial session began' },
+  { field: 'givenOpening', valid: (v) => v === undefined || typeof v === 'boolean', example: 'false', describe: 'whether this trial presentation started with a predetermined cell already opened; absent on earlier trial games (those were given an opening)' },
+  { field: 'guesses', valid: (v) => v === undefined || isNumber(v), example: '2', describe: 'bare clicks into cells that were not proven safe; 0 is a game with no guesses; absent when odds could not be measured or on games recorded before 2026-08-21' },
+  { field: 'guessIdealRisk', valid: (v) => v === undefined || isNumber(v), example: '1', describe: 'guesses that chose a lowest-available death risk; absent with guesses' },
+  { field: 'guessNonideal', valid: (v) => v === undefined || isNumber(v), example: '1', describe: 'guesses that chose a cell riskier than the safest available; absent with guesses' },
+  { field: 'guessPerfect', valid: (v) => v === undefined || isNumber(v), example: '1', describe: 'guesses that maximized one-ply expected remaining life (survival times leftover min-risk after the number you would see); absent with guesses' },
+  { field: 'lifeLost', valid: (v) => v === undefined || isNumber(v), example: '0.75', describe: 'sum of mine probabilities of guessed cells (absolute multiverse lives spent); absent with guesses' },
+  { field: 'lifeNeedless', valid: (v) => v === undefined || isNumber(v), example: '0.25', describe: 'sum of (chosen risk minus safest available risk); an ideal-risk guess costs 0 even at 19% death; absent with guesses' },
+  { field: 'oddsVersion', valid: (v) => v === undefined || v === Odds.VERSION, example: '"' + Odds.VERSION + '"', describe: 'remaining-layout odds and guess-scoring contract; absent on earlier games' },
 ];
 
 // Records are grouped by mode key and kept in chronological order. The RAM
@@ -875,8 +1059,15 @@ const SETTINGS_SCHEMA = [
     default: 'standard',
     valid: (v) => PLAY_MODE_IDS.has(v),
     label: 'play mode',
-    describe: 'Standard, Uniform NG, Single-path NG, Proof-or-die, Angelic, or Trial. Each mode stores and ranks its own results.',
+    describe: 'Standard, Uniform NG, Single-path NG, Proof-or-die, Angelic, Trial, Short trial, or Test trial. Each mode stores and ranks its own results.',
     control: 'none',
+  },
+  {
+    field: 'trialGiveOpening',
+    default: false,
+    valid: (v) => typeof v === 'boolean',
+    label: 'trial: open a starting cell',
+    describe: 'each trial board begins with one predetermined cell already opened; off (default) = you make the first click on a covered board',
   },
 ];
 
@@ -953,6 +1144,38 @@ function bvPerSecond(record) {
 
 function efficiencyPercent(record) {
   return Math.round((record.bv3 / record.clicks) * 100);
+}
+
+// Effective / (effective + wasted). Absence of wastedClicks means the
+// denominator was never measured, so this is undefined rather than 100%.
+function correctnessPercent(record) {
+  if (!('wastedClicks' in record)) return undefined;
+  const total = record.clicks + record.wastedClicks;
+  if (total === 0) return undefined;
+  return Math.round((record.clicks / total) * 100);
+}
+
+// 3BV / effective clicks. Same quantity as efficiency, as a ratio.
+// Wins only: a lost board was never finished, so the 3BV numerator is
+// the whole board and the ratio would flatter a short loss.
+function throughputOf(record) {
+  if (record.outcome !== 'win' || record.clicks === 0) return undefined;
+  return record.bv3 / record.clicks;
+}
+
+// log(3BV) / log(time in seconds). MSO blanks t≤1; we do the same.
+// Wins only, same unfinished-board honesty as throughput.
+function iosOf(record) {
+  if (record.outcome !== 'win') return undefined;
+  const t = secondsOf(record);
+  if (!(t > 1) || !(record.bv3 > 0)) return undefined;
+  return Math.log(record.bv3) / Math.log(t);
+}
+
+function formatGuesses(record) {
+  if (record.guesses === 0) return '0';
+  return record.guesses + ' · ' + record.guessIdealRisk + ' ideal · '
+    + record.guessNonideal + ' off · ' + record.guessPerfect + ' perfect';
 }
 
 // A markless game: the player never placed a single flag. Records from
@@ -1505,63 +1728,580 @@ function renderTrialMidRanks(record, modeRecords) {
     .sort((a, b) => a.timeMs - b.timeMs || a.endedAt - b.endedAt);
   if (wins.length === 0) return;
   resultRanks.appendChild(buildRankList(
-    'trial ' + boardKey(),
+    playModeLabel() + ' ' + boardKey(),
     wins.length, wins.indexOf(record), 'rank-grid',
     trialTimeAgeRow(record, wins)));
 }
 
+const TRIAL_TRANSFORM_LABELS = {
+  id: 'upright',
+  rot90: 'turned 90°',
+  rot180: 'turned 180°',
+  rot270: 'turned 270°',
+  flipH: 'flipped sideways',
+  flipV: 'flipped upside-down',
+  flipD: 'flipped on the diagonal',
+  flipAD: 'flipped on the other diagonal',
+};
+
+function trialTransformLabel(name) {
+  const label = TRIAL_TRANSFORM_LABELS[name];
+  if (!label) throw new Error('unknown trial transform ' + name);
+  return label;
+}
+
+function trialDeltaPhrase(seconds, base) {
+  if (seconds === null || base === null) return null;
+  const abs = Math.abs(seconds);
+  if (abs < 0.05 || (base > 0 && abs / base < 0.05)) return 'about even';
+  return (seconds > 0 ? abs.toFixed(2) + 's faster' : abs.toFixed(2) + 's slower');
+}
+
+function trialMemoryCopy(sum) {
+  if (sum.identitiesWithTwoWins === 0) {
+    return 'Not enough wins on the same board twice to compare meetings.';
+  }
+  const later = trialDeltaPhrase(sum.withinMean, sum.firstMeetings.meanTime);
+  if (later === 'about even') {
+    return 'Later meetings of the same board were about as fast as the first.';
+  }
+  return 'Later meetings of the same board were ' + later + ' than the first.';
+}
+
+function formatTrialMeetCell(value, kind) {
+  if (value === null || value === undefined) return '—';
+  if (kind === 'rate') return Math.round(value * 100) + '%';
+  if (kind === 'time') return value.toFixed(2) + 's';
+  if (kind === 'bvs') return value.toFixed(2);
+  return String(value);
+}
+
+function appendTrialMeetTable(parent, showings) {
+  const table = document.createElement('div');
+  table.className = 'trial-meet-table';
+  const header = ['', 'games', 'wins', 'mean time', '3BV/s'];
+  for (const label of header) {
+    const cell = document.createElement('span');
+    cell.className = 'trial-meet-head';
+    cell.textContent = label;
+    table.appendChild(cell);
+  }
+  for (let i = 0; i < showings.length; i++) {
+    const row = showings[i];
+    const cells = [
+      trialRunOrdinal(i),
+      String(row.n),
+      String(row.wins),
+      formatTrialMeetCell(row.meanTime, 'time'),
+      formatTrialMeetCell(row.meanBvS, 'bvs'),
+    ];
+    for (const text of cells) {
+      const cell = document.createElement('span');
+      cell.textContent = text;
+      table.appendChild(cell);
+    }
+  }
+  parent.appendChild(table);
+}
+
+function appendTrialSessionSummary(parent, summary) {
+  const wrap = document.createElement('div');
+  wrap.className = 'trial-session-summary';
+  const head = document.createElement('div');
+  head.className = 'overlay-chart-label';
+  head.textContent = 'same board, by meeting (light → dark = earlier → later)';
+  wrap.appendChild(head);
+  appendNamedBars(wrap, 'mean win time (s)',
+    summary.showings.map((s) => s.meanTime === null ? undefined : s.meanTime), SPARK_SMALL);
+  appendNamedBars(wrap, 'mean win 3BV/s',
+    summary.showings.map((s) => s.meanBvS === null ? undefined : s.meanBvS), SPARK_SMALL);
+  appendNamedBars(wrap, 'win rate',
+    summary.showings.map((s) => s.winRate === null ? undefined : s.winRate), SPARK_SMALL);
+  appendTrialMeetTable(wrap, summary.showings);
+  parent.appendChild(wrap);
+}
+
+function identitySummaryLine(group) {
+  const wins = [];
+  let losses = 0;
+  for (const attempt of group.attempts) {
+    if (attempt.outcome === 'win') wins.push(attempt.timeMs / 1000);
+    else losses++;
+  }
+  let line = 'board ' + (group.identityIndex + 1)
+    + ' · ' + group.attempts.length + ' meeting'
+    + (group.attempts.length === 1 ? '' : 's')
+    + ' · ' + wins.length + ' win' + (wins.length === 1 ? '' : 's');
+  if (losses > 0) line += ' · ' + losses + ' loss' + (losses === 1 ? '' : 'es');
+  if (wins.length >= 2) {
+    const delta = wins[0] - wins[wins.length - 1];
+    line += delta > 0.05
+      ? ' · last ' + delta.toFixed(2) + 's faster'
+      : delta < -0.05
+        ? ' · last ' + (-delta).toFixed(2) + 's slower'
+        : ' · last matched first';
+  }
+  return line;
+}
+
+function identityStartsOpen(group, playedCount) {
+  if (playedCount <= 1) return true;
+  for (const attempt of group.attempts) {
+    if (attempt.outcome === 'loss') return true;
+  }
+  const wins = group.attempts.filter((a) => a.outcome === 'win');
+  if (wins.length >= 2) {
+    const first = wins[0].timeMs;
+    const last = wins[wins.length - 1].timeMs;
+    if (first > 0 && Math.abs(first - last) / first >= 0.2) return true;
+  }
+  return false;
+}
+
 function renderTrialReview(session) {
-  resultSummary.textContent = 'Trial '
-    + (session.endedHow === 'completed' ? 'complete' : 'ended')
+  const summary = Trial.sessionSummary(session);
+  resultSummary.textContent = playModeLabel(session.playMode || 'trial')
+    + ' ' + (session.endedHow === 'completed' ? 'complete' : 'ended')
     + '\n' + session.width + 'x' + session.height + '/' + session.mines
-    + '\n' + session.results.length + ' / ' + Trial.GAMES;
+    + '\n' + session.results.length + ' / ' + Trial.gameCount(session);
   resultStats.textContent = '';
+  const verdict = document.createElement('p');
+  verdict.className = 'trial-verdict';
+  verdict.textContent = trialMemoryCopy(summary);
+  resultStats.appendChild(verdict);
   resultRanks.textContent = '';
+  appendTrialSessionSummary(resultRanks, summary);
+  const pendingOverlays = [];
   const groups = Trial.groupedResults(session);
+  const playedCount = groups.filter((g) => g.attempts.length > 0).length;
   for (const group of groups) {
     if (group.attempts.length === 0) continue;
-    const box = document.createElement('div');
-    box.className = 'trial-identity';
-    const head = document.createElement('h3');
-    head.textContent = 'board ' + (group.identityIndex + 1)
-      + ' \u00b7 ' + group.attempts.length + ' attempt'
-      + (group.attempts.length === 1 ? '' : 's');
-    box.appendChild(head);
-    const winTimes = [];
-    const winBvps = [];
+    const details = document.createElement('details');
+    details.className = 'trial-identity';
+    if (identityStartsOpen(group, playedCount)) details.open = true;
+    const head = document.createElement('summary');
+    head.textContent = identitySummaryLine(group);
+    details.appendChild(head);
+    const body = document.createElement('div');
+    body.className = 'trial-identity-body';
     for (let i = 0; i < group.attempts.length; i++) {
       const attempt = group.attempts[i];
       const seconds = attempt.timeMs / 1000;
       const line = document.createElement('div');
-      line.textContent = (i + 1) + '. ' + attempt.outcome + '  '
+      line.textContent = trialRunOrdinal(i) + '  ' + attempt.outcome + '  '
         + seconds.toFixed(3) + 's  3BV ' + attempt.bv3
         + '  ' + (attempt.bv3 / seconds).toFixed(3) + '/s  '
-        + attempt.transform;
-      box.appendChild(line);
-      if (attempt.outcome === 'win') {
-        winTimes.push(seconds);
-        winBvps.push(attempt.bv3 / seconds);
-      }
+        + trialTransformLabel(attempt.transform);
+      body.appendChild(line);
     }
-    if (winTimes.length >= 2) {
-      const note = document.createElement('div');
-      const delta = winTimes[0] - winTimes[winTimes.length - 1];
-      note.textContent = delta > 0
-        ? ('last win ' + delta.toFixed(3) + 's faster than first')
-        : delta < 0
-          ? ('last win ' + (-delta).toFixed(3) + 's slower than first')
-          : 'last win matched the first';
-      box.appendChild(note);
-      box.appendChild(buildSparkline(
-        winTimes.map((_, i) => i * 1000), winTimes, SPARK_SMALL));
-      const bvNote = document.createElement('div');
-      bvNote.textContent = '3BV/s';
-      box.appendChild(bvNote);
-      box.appendChild(buildSparkline(
-        winBvps.map((_, i) => i * 1000), winBvps, SPARK_SMALL));
+    if (group.attempts.length >= 2) {
+      appendOverlayLegend(body, group.attempts);
+      appendTrialAttemptCharts(body, group.attempts);
+      pendingOverlays.push({ group: group, box: body, details: details });
     }
-    resultRanks.appendChild(box);
+    details.appendChild(body);
+    resultRanks.appendChild(details);
   }
+  if (pendingOverlays.length > 0) {
+    loadTracesByEndedAt(session.results.map((r) => r.endedAt), (traces) => {
+      if (lastTrialReview !== session) return;
+      for (const item of pendingOverlays) {
+        const fill = () => {
+          if (item.filled) return;
+          item.filled = true;
+          appendTrialOverlays(item.box, session, item.group, traces);
+        };
+        if (item.details.open) fill();
+        else {
+          item.details.addEventListener('toggle', () => {
+            if (item.details.open) fill();
+          });
+        }
+      }
+    });
+  }
+}
+
+// Light → dark is earlier → later. One hue family so the order is
+// readable without the legend.
+const TRIAL_RUN_COLORS = ['#e8b84a', '#e07020', '#b82c14', '#2a0e0c'];
+const TRIAL_RUN_ORDINALS = ['1st', '2nd', '3rd', '4th'];
+
+function trialAttemptColor(i) {
+  return TRIAL_RUN_COLORS[i % TRIAL_RUN_COLORS.length];
+}
+
+function trialRunOrdinal(i) {
+  return TRIAL_RUN_ORDINALS[i] || String(i + 1);
+}
+
+function trialRunAgeLabel(i, lastIndex) {
+  if (i === 0) return 'earliest';
+  if (i === lastIndex) return 'latest';
+  return trialRunOrdinal(i);
+}
+
+function appendOverlayLegend(box, attempts) {
+  const legend = document.createElement('div');
+  legend.className = 'overlay-legend';
+  const last = attempts.length - 1;
+  for (let i = 0; i < attempts.length; i++) {
+    const item = document.createElement('span');
+    const swatch = document.createElement('span');
+    swatch.className = 'overlay-swatch';
+    swatch.style.background = trialAttemptColor(i);
+    item.appendChild(swatch);
+    item.appendChild(document.createTextNode(
+      trialRunAgeLabel(i, last) + '  '
+      + trialTransformLabel(attempts[i].transform)
+      + '  ' + attempts[i].outcome));
+    legend.appendChild(item);
+  }
+  box.appendChild(legend);
+}
+
+function appendNamedBars(box, label, values, size) {
+  const name = document.createElement('div');
+  name.className = 'overlay-chart-label';
+  name.textContent = label;
+  box.appendChild(name);
+  box.appendChild(buildBarChart(values, size));
+}
+
+function winOnly(attempt, value) {
+  return attempt.outcome === 'win' ? value : undefined;
+}
+
+function appendTrialAttemptCharts(box, attempts) {
+  appendNamedBars(box, 'time (s)',
+    attempts.map((a) => winOnly(a, a.timeMs / 1000)), SPARK_SMALL);
+  appendNamedBars(box, '3BV/s',
+    attempts.map((a) => winOnly(a, a.bv3 / (a.timeMs / 1000))), SPARK_SMALL);
+  appendNamedBars(box, 'clicks', attempts.map((a) => a.clicks), SPARK_SMALL);
+  appendNamedBars(box, 'efficiency',
+    attempts.map((a) => winOnly(a, a.clicks > 0 ? a.bv3 / a.clicks : undefined)), SPARK_SMALL);
+}
+
+function loadTracesByEndedAt(endedAts, done) {
+  if (db === null) storageFailure('trial overlays failed: database is not open');
+  const tx = db.transaction(TRACE_STORE);
+  tx.onerror = () => storageFailure('trial overlay load failed: ' + tx.error);
+  const store = tx.objectStore(TRACE_STORE);
+  const traces = new Map();
+  for (const endedAt of endedAts) {
+    const request = store.get(endedAt);
+    request.onsuccess = () => {
+      if (request.result !== undefined) traces.set(endedAt, request.result);
+    };
+  }
+  tx.oncomplete = () => done(traces);
+}
+
+function presentedBoard(session, attempt) {
+  const identity = session.identities[attempt.identityIndex];
+  return {
+    mines: Trial.applyMines(identity.mines, session.width, session.height, attempt.transform),
+    firstClick: Trial.mapIndex(identity.firstClick, session.width, session.height, attempt.transform),
+  };
+}
+
+function appendTrialOverlays(box, session, group, traces) {
+  const runs = [];
+  for (let i = 0; i < group.attempts.length; i++) {
+    const stored = traces.get(group.attempts[i].endedAt);
+    if (stored === undefined) continue;
+    const board = presentedBoard(session, group.attempts[i]);
+    const progress = Trial.replayProgress(
+      session.width, session.height, board.mines, board.firstClick, stored.events,
+      { givenOpening: group.attempts[i].givenOpening !== false });
+    const samples = {
+      t: Array.from(stored.sampleT),
+      x: Array.from(stored.sampleX),
+      y: Array.from(stored.sampleY),
+    };
+    const wall = stored.endedAt - stored.startedAt;
+    runs.push({
+      colorIndex: i,
+      progress: progress,
+      path: Trial.runningPath(samples.t, samples.x, samples.y),
+      speed: Trial.runningSpeed(samples.t, samples.x, samples.y),
+      board: Trial.identityBoardSamples(
+        samples.t, samples.x, samples.y, stored.events,
+        group.attempts[i].transform, session.width, session.height),
+      metrics: computeAllTraceMetrics(samples.t, samples.x, samples.y, stored.events, wall),
+    });
+  }
+  if (runs.length < 2) return;
+
+  const overlayHead = document.createElement('div');
+  overlayHead.className = 'overlay-chart-label';
+  overlayHead.textContent = 'overlaid in time (light = earlier · dark = later)';
+  box.appendChild(overlayHead);
+  appendOverlayLegend(box, group.attempts);
+
+  const overlay = (label, pick) => {
+    const name = document.createElement('div');
+    name.className = 'overlay-chart-label';
+    name.textContent = label;
+    box.appendChild(name);
+    box.appendChild(buildOverlaySparkline(runs.map((run) => pick(run)), SPARK_LARGE));
+  };
+  overlay('open squares', (run) => ({
+    colorIndex: run.colorIndex, tMs: run.progress.tMs, values: run.progress.opened,
+  }));
+  overlay('squares unopened', (run) => ({
+    colorIndex: run.colorIndex, tMs: run.progress.tMs, values: run.progress.unopened,
+  }));
+  overlay('flags', (run) => ({
+    colorIndex: run.colorIndex, tMs: run.progress.tMs, values: run.progress.flags,
+  }));
+  overlay('mines unmarked', (run) => ({
+    colorIndex: run.colorIndex, tMs: run.progress.tMs, values: run.progress.unmarked,
+  }));
+  overlay('cursor path (px)', (run) => ({
+    colorIndex: run.colorIndex, tMs: run.path.tMs, values: run.path.values,
+  }));
+  appendTrialSpeedOverlay(box, runs);
+  overlay('cursor x (identity px)', (run) => ({
+    colorIndex: run.colorIndex, tMs: run.board.tMs, values: run.board.x,
+  }));
+  overlay('cursor y (identity px)', (run) => ({
+    colorIndex: run.colorIndex, tMs: run.board.tMs, values: run.board.y,
+  }));
+
+  for (const groupDef of TRACE_METRIC_GROUPS) {
+    const head = document.createElement('div');
+    head.className = 'overlay-chart-label';
+    head.textContent = groupDef.name;
+    box.appendChild(head);
+    for (const display of groupDef.displays) {
+      const values = runs.map((run) => displayableNumber(display.of(run.metrics)));
+      if (values.every((v) => v === undefined)) continue;
+      appendNamedBars(box, display.label, values, SPARK_SMALL);
+    }
+  }
+}
+
+let trialSpeedBucketMs = 200;
+
+function speedOverlayRuns(runs, widthMs) {
+  return runs.map((run) => {
+    const bucketed = Trial.bucketSeries(run.speed.tMs, run.speed.values, widthMs);
+    return { colorIndex: run.colorIndex, tMs: bucketed.tMs, values: bucketed.values };
+  });
+}
+
+function appendTrialSpeedOverlay(box, runs) {
+  const name = document.createElement('div');
+  name.className = 'overlay-chart-label';
+  name.textContent = 'cursor speed (px/s)';
+  box.appendChild(name);
+  const controls = document.createElement('div');
+  controls.className = 'trial-speed-bucket';
+  const slider = document.createElement('input');
+  slider.type = 'range';
+  slider.min = '0';
+  slider.max = '800';
+  slider.step = '25';
+  slider.value = String(trialSpeedBucketMs);
+  const readout = document.createElement('span');
+  const syncReadout = () => {
+    readout.textContent = trialSpeedBucketMs === 0
+      ? 'raw samples'
+      : trialSpeedBucketMs + ' ms average';
+  };
+  syncReadout();
+  controls.append(slider, readout);
+  box.appendChild(controls);
+  const host = document.createElement('div');
+  host.className = 'trial-speed-chart';
+  box.appendChild(host);
+  const redraw = () => {
+    host.textContent = '';
+    host.appendChild(buildOverlaySparkline(speedOverlayRuns(runs, trialSpeedBucketMs), SPARK_LARGE));
+  };
+  slider.addEventListener('input', () => {
+    trialSpeedBucketMs = Number(slider.value);
+    syncReadout();
+    redraw();
+  });
+  redraw();
+}
+
+function overlayQuantile(sorted, q) {
+  const i = (sorted.length - 1) * q;
+  const lo = Math.floor(i);
+  const hi = Math.ceil(i);
+  if (lo === hi) return sorted[lo];
+  return sorted[lo] + (sorted[hi] - sorted[lo]) * (i - lo);
+}
+
+// Tukey fences, but never tighter than the 5th–95th so a mostly-still
+// cursor does not hide ordinary flicks. Extreme sample-to-sample speeds
+// (a 13k px/s spike from a tiny dt) stay off the axis.
+function overlayAxisBounds(values) {
+  const xs = [];
+  for (const v of values) {
+    if (v === undefined || !Number.isFinite(v)) continue;
+    xs.push(v);
+  }
+  xs.sort((a, b) => a - b);
+  if (xs.length === 0) return null;
+  if (xs.length < 8) return { min: xs[0], max: xs[xs.length - 1] };
+  const q1 = overlayQuantile(xs, 0.25);
+  const q3 = overlayQuantile(xs, 0.75);
+  const fence = 1.5 * (q3 - q1);
+  let min = Math.min(q1 - fence, overlayQuantile(xs, 0.05));
+  let max = Math.max(q3 + fence, overlayQuantile(xs, 0.95));
+  min = Math.max(min, xs[0]);
+  max = Math.min(max, xs[xs.length - 1]);
+  return { min: min, max: max };
+}
+
+function buildOverlaySparkline(runs, size) {
+  const { width, height, left, bottom } = size;
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('class', 'spark');
+  svg.setAttribute('width', width);
+  svg.setAttribute('height', height);
+  const frame = document.createElementNS(SVG_NS, 'rect');
+  frame.setAttribute('class', 'spark-frame');
+  frame.setAttribute('x', left);
+  frame.setAttribute('y', 1);
+  frame.setAttribute('width', width - left - 1);
+  frame.setAttribute('height', height - bottom - 2);
+  svg.appendChild(frame);
+
+  const pooled = [];
+  let tEnd = 0;
+  for (const run of runs) {
+    if (run.tMs.length > 0 && run.tMs[run.tMs.length - 1] > tEnd) {
+      tEnd = run.tMs[run.tMs.length - 1];
+    }
+    for (const v of run.values) pooled.push(v);
+  }
+  const bounds = overlayAxisBounds(pooled);
+  if (bounds === null) return svg;
+  let min = bounds.min;
+  let max = bounds.max;
+  const labelMin = min;
+  const labelMax = max;
+  if (min === max) { min -= 0.5; max += 0.5; }
+
+  const yTop = 2;
+  const yBot = height - bottom - 2;
+  const xOf = (t) => left + (tEnd > 0 ? (t / tEnd) * (width - left - 3) : 0) + 1;
+  const yOf = (v) => {
+    const clamped = Math.min(max, Math.max(min, v));
+    const y = yTop + (1 - (clamped - min) / (max - min)) * (yBot - yTop);
+    return y;
+  };
+
+  for (const run of runs) {
+    let d = '';
+    let pen = false;
+    let lastX = null;
+    let lastY = null;
+    for (let i = 0; i < run.values.length; i++) {
+      if (run.values[i] === undefined) { pen = false; continue; }
+      lastX = xOf(run.tMs[i]);
+      lastY = yOf(run.values[i]);
+      d += (pen ? 'L' : 'M') + lastX.toFixed(1) + ' ' + lastY.toFixed(1);
+      pen = true;
+    }
+    if (d === '') continue;
+    const line = document.createElementNS(SVG_NS, 'path');
+    line.setAttribute('class', 'spark-line spark-line-' + run.colorIndex);
+    line.setAttribute('d', d);
+    svg.appendChild(line);
+    if (lastX !== null) {
+      const dot = document.createElementNS(SVG_NS, 'circle');
+      dot.setAttribute('class', 'spark-dot spark-dot-' + run.colorIndex);
+      dot.setAttribute('cx', lastX.toFixed(1));
+      dot.setAttribute('cy', lastY.toFixed(1));
+      dot.setAttribute('r', size.dotR);
+      svg.appendChild(dot);
+    }
+  }
+
+  const textAt = (x, y, anchor, content) => {
+    const el = document.createElementNS(SVG_NS, 'text');
+    el.setAttribute('class', size.labelClass);
+    el.setAttribute('x', x);
+    el.setAttribute('y', y);
+    el.setAttribute('text-anchor', anchor);
+    el.textContent = content;
+    svg.appendChild(el);
+  };
+  textAt(left - 2, 8, 'end', sparkAxisNumber(labelMax));
+  textAt(left - 2, height - bottom - 1, 'end', sparkAxisNumber(labelMin));
+  textAt(left, height - 1, 'start', '0');
+  textAt(width - 2, height - 1, 'end', (tEnd / 1000).toFixed(0) + 's');
+  return svg;
+}
+
+function buildBarChart(values, size) {
+  const { width, height, left, bottom } = size;
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('class', 'spark');
+  svg.setAttribute('width', width);
+  svg.setAttribute('height', height);
+  const frame = document.createElementNS(SVG_NS, 'rect');
+  frame.setAttribute('class', 'spark-frame');
+  frame.setAttribute('x', left);
+  frame.setAttribute('y', 1);
+  frame.setAttribute('width', width - left - 1);
+  frame.setAttribute('height', height - bottom - 2);
+  svg.appendChild(frame);
+
+  let min = 0;
+  let max = -Infinity;
+  let defined = 0;
+  for (const v of values) {
+    if (v === undefined) continue;
+    defined++;
+    if (v < min) min = v;
+    if (v > max) max = v;
+  }
+  if (defined === 0) return svg;
+  const labelMax = max;
+  if (min === max) { max = min === 0 ? 1 : max * 1.1; }
+
+  const plotLeft = left + 1;
+  const plotWidth = width - left - 3;
+  const plotTop = 2;
+  const plotHeight = height - bottom - 4;
+  const yOf = (v) => plotTop + (1 - (v - min) / (max - min)) * plotHeight;
+  const baseline = yOf(0);
+  const slot = plotWidth / values.length;
+
+  const textAt = (x, y, anchor, content) => {
+    const el = document.createElementNS(SVG_NS, 'text');
+    el.setAttribute('class', size.labelClass);
+    el.setAttribute('x', x);
+    el.setAttribute('y', y);
+    el.setAttribute('text-anchor', anchor);
+    el.textContent = content;
+    svg.appendChild(el);
+  };
+
+  for (let i = 0; i < values.length; i++) {
+    if (values[i] === undefined) continue;
+    const barW = Math.max(4, slot * 0.6);
+    const cx = plotLeft + (i + 0.5) * slot;
+    const y = yOf(values[i]);
+    const bar = document.createElementNS(SVG_NS, 'rect');
+    bar.setAttribute('class', 'spark-bar spark-bar-' + (i % 4));
+    bar.setAttribute('x', (cx - barW / 2).toFixed(1));
+    bar.setAttribute('y', Math.min(y, baseline).toFixed(1));
+    bar.setAttribute('width', barW.toFixed(1));
+    bar.setAttribute('height', Math.max(1, Math.abs(baseline - y)).toFixed(1));
+    svg.appendChild(bar);
+    textAt(cx, height - 1, 'middle', trialRunOrdinal(i));
+  }
+  textAt(left - 2, 8, 'end', sparkAxisNumber(labelMax));
+  textAt(left - 2, height - bottom - 1, 'end', sparkAxisNumber(min));
+  return svg;
 }
 
 function renderRanks(record, modeRecords) {
@@ -3846,6 +4586,7 @@ function cellIndexFromEvent(event) {
 
 boardElement.addEventListener('mousedown', (event) => {
   if (event.button !== 0) return;
+  if (trialBlocksPlay()) return;
   if (gameState === 'won' || gameState === 'lost') return;
   const index = cellIndexFromEvent(event);
   if (index === null) return;
@@ -3865,7 +4606,7 @@ boardElement.addEventListener('mouseup', (event) => {
   if (event.button !== 0 || !leftDown) return;
   const index = cellIndexFromEvent(event);
   if (index === null) return;
-  if (gameState === 'won' || gameState === 'lost') return;
+  if (trialBlocksPlay() || gameState === 'won' || gameState === 'lost') return;
   // Logged before acting so a game-ending click is inside its own trace.
   traceEvent('lup', event, index);
   const cell = cells[index];
@@ -3922,7 +4663,7 @@ document.addEventListener('mousemove', (event) => {
 
 boardElement.addEventListener('contextmenu', (event) => {
   event.preventDefault();
-  if (gameState === 'won' || gameState === 'lost') return;
+  if (trialBlocksPlay() || gameState === 'won' || gameState === 'lost') return;
   const index = cellIndexFromEvent(event);
   if (index === null) return;
   traceEvent('rdown', event, index);
@@ -3938,13 +4679,30 @@ window.addEventListener('resize', () => {
   if (tracing()) recordLayout();
 });
 
+function requestNewGame() {
+  if (trialPhase() === 'review') return;
+  if (trialIsActive() && trialPresentation !== null
+      && gameState !== 'won' && gameState !== 'lost') {
+    Trial.skipPresentation(trialSession);
+    persistUserdata('trial', trialSession);
+    trialPresentation = null;
+    if (trialSession.nextIndex >= Trial.gameCount(trialSession)) {
+      endTrial('completed');
+      renderTrialChrome();
+      return;
+    }
+  }
+  newGame();
+}
+
 // Anywhere on the top panel (face button included, since it bubbles) restarts.
-document.getElementById('top-panel').addEventListener('click', newGame);
+document.getElementById('top-panel').addEventListener('click', requestNewGame);
+document.getElementById('trial-start-btn').addEventListener('click', startTrial);
 
 document.addEventListener('keydown', (event) => {
   if (event.code !== 'Space' || ['INPUT', 'TEXTAREA', 'BUTTON', 'A'].includes(event.target.tagName)) return;
   event.preventDefault();
-  newGame();
+  requestNewGame();
 });
 
 //-------DIFFICULTY TABS-------
@@ -4249,8 +5007,9 @@ function buildFormatPanel() {
   }
   const recordNote = document.createElement('p');
   recordNote.textContent = 'Only these ' + GAME_RECORD_SCHEMA.length + ' measurements are stored. '
-    + 'Everything else on the win screen (3BV/s, clicks over 3BV, efficiency, mouse speed, '
-    + 'path per click, path per 3BV, every rank and chart) is recomputed from them at display time.';
+    + 'Everything else on the win screen (3BV/s, clicks over 3BV, efficiency, correctness, '
+    + 'throughput, IOS, mouse speed, path per click, path per 3BV, every rank and chart) is '
+    + 'recomputed from them at display time.';
   recordBlock.append(table, recordNote);
 }
 
@@ -4288,15 +5047,12 @@ function buildPlayModeSwitcher() {
 function setPlayMode(id) {
   if (!PLAY_MODE_IDS.has(id)) throw new Error('unknown play mode ' + id);
   if (id === settings.playMode) return;
-  if (settings.playMode === 'trial' && trialIsActive()) endTrial('quit');
+  if (Trial.isPlayMode(settings.playMode) && trialIsActive()) abandonTrial();
+  lastTrialReview = null;
   settings.playMode = id;
-  if (id !== 'trial') holdTrialAfterEnd = false;
   saveSettings();
   document.getElementById('play-mode-select').value = id;
   newGame();
-  if (lastTrialReview && lastTrialReview.endedHow === 'quit') {
-    renderTrialReview(lastTrialReview);
-  }
 }
 
 function syncDifficultyTabs() {
@@ -4317,13 +5073,15 @@ function init() {
   buildSettingsPanel();
   buildPlayModeSwitcher();
   renderStates();
-  if (settings.playMode === 'trial' && trialSession && trialSession.endedHow === null) {
+  if (Trial.isPlayMode(settings.playMode) && trialSession
+      && trialSessionPlayMode() === settings.playMode) {
     config = {
       width: trialSession.width,
       height: trialSession.height,
       mines: trialSession.mines,
     };
     syncDifficultyTabs();
+    if (trialSession.endedHow !== null) lastTrialReview = trialSession;
   }
   newGame();
 }

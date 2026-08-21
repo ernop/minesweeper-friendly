@@ -77,6 +77,18 @@ Generation that aims at the same families the new lists rank:
 - **Trace-only metrics named in the survey and not ported:** tremor
   spectrum (4–6 Hz band power), overshoot analysis, Fitts throughput
   curves. Raw traces are stored so these can be added later.
+- **Guess-ledger ranks and scatters.** Life lost / needless / perfect-play
+  counts are stored per game; no rank list or scatter uses them yet.
+- **Deeper than one-ply perfect play.** Current `guessPerfect` is
+  expected remaining life after one number observation. A full
+  remaining-game-tree win probability would need another budget and a
+  visible failure mode; do not silently degrade to min-p.
+- **IOE as 3BV / total clicks** (effective + wasted). Efficiency /
+  throughput already use effective clicks only. The clone's IOE is the
+  missing total-click cousin.
+- **ZiNi / HZiNi, STNB.** Board-fact click lower bounds and the
+  minesweeper.online QG-normalized standing; not requested for this
+  pass.
 
 ## Research designs (creator, not built)
 
@@ -97,7 +109,10 @@ Generation that aims at the same families the new lists rank:
   scatters; markless; states; settings; traces; four in-page motion
   systems; "A just universe" v1; play-mode switcher; Uniform NG;
   Single-path NG; Proof-or-die; Angelic; Trial (25 identities × 4
-  isometries, trial-only time list, identity-grouped review).
+  isometries, starts at once → memory-test review); Short
+  trial (4 × 4); Test trial (1 × 4); correctness / throughput / IOS
+  (derived); guess ledger (life lost, needless, ideal-risk, one-ply
+  perfect play).
 - Waste metrics (pauses, wander, turnarounds, feints) and the
   biometrics / mousetrap / Hevelius-style displays. The Tier 1/2
   "store a scalar per metric" framing is obsolete: the trace is the

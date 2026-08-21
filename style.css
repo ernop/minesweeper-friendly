@@ -110,6 +110,22 @@ main {
   animation: justice-live-print 0.35s cubic-bezier(0.15, 1.35, 0.4, 1);
 }
 
+.guess-live-word {
+  width: max-content;
+  font-family: Arial, sans-serif;
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 1;
+  letter-spacing: 0.4px;
+  color: #3d4a2e;
+  border: 1px solid #6b7a4e;
+  border-radius: 3px;
+  padding: 3px 6px;
+  background: #e8edd8;
+  transform: rotate(-3deg);
+  animation: justice-live-print 0.35s cubic-bezier(0.15, 1.35, 0.4, 1);
+}
+
 @keyframes justice-live-print {
   from { transform: rotate(-4deg) scale(2.2); opacity: 0; }
   to { transform: rotate(-4deg) scale(1); opacity: 1; }
@@ -235,6 +251,15 @@ main {
    The rank charts live below the board in normal flow. */
 #game-area { position: relative; }
 
+#game-area.trial-no-board #results {
+  position: static;
+  transform: none;
+  right: auto;
+  width: auto;
+  max-width: 420px;
+  margin: 36px auto 12px;
+}
+
 #results {
   position: absolute;
   top: 50%;
@@ -253,6 +278,29 @@ main {
   font-size: 13px;
   color: #666666;
   margin: 2px 0;
+}
+
+#trial-stage {
+  margin-bottom: 10px;
+  text-align: center;
+}
+
+#trial-copy {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 13px;
+  font-weight: normal;
+  color: #333333;
+  line-height: 1.4;
+  white-space: normal;
+}
+
+#trial-start-btn {
+  margin-top: 8px;
+  font: inherit;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 4px 12px;
 }
 
 /* Outcome, mode, and end date each on their own line */
@@ -332,16 +380,102 @@ main {
   cursor: pointer;
 }
 
+.trial-verdict {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 13px;
+  font-weight: normal;
+  color: #333333;
+  text-align: left;
+  line-height: 1.4;
+  white-space: normal;
+  margin: 0;
+}
+
+.trial-session-summary {
+  flex-basis: 100%;
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto 8px;
+  text-align: left;
+  font-family: Arial, Helvetica, sans-serif;
+  font-weight: normal;
+  color: #333333;
+}
+
+.trial-meet-table {
+  display: grid;
+  grid-template-columns: 36px 48px 40px 72px 56px;
+  gap: 2px 8px;
+  margin: 8px 0;
+  font-size: 12px;
+}
+
+.trial-meet-head {
+  color: #888888;
+  font-size: 11px;
+}
+
+.trial-warmup-note {
+  font-size: 12px;
+  color: #666666;
+  line-height: 1.4;
+}
+
 .trial-identity {
-  min-width: 220px;
+  min-width: 250px;
+  max-width: 280px;
   padding: 8px 10px;
   border: 1px solid #e0e6ec;
   background: #fbfcfd;
+  font-family: Arial, Helvetica, sans-serif;
+  font-weight: normal;
 }
 
-.trial-identity h3 {
-  margin: 0 0 6px;
+.trial-identity summary {
+  cursor: pointer;
   font-size: 12px;
+  font-weight: bold;
+  color: #333333;
+}
+
+.trial-identity-body {
+  margin-top: 6px;
+  font-size: 12px;
+}
+
+.overlay-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin: 6px 0 8px;
+  font-size: 10px;
+}
+
+.overlay-swatch {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 3px;
+  vertical-align: middle;
+}
+
+.overlay-chart-label {
+  margin-top: 8px;
+  font-size: 11px;
+}
+
+.trial-speed-bucket {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 2px 0 4px;
+  font-size: 11px;
+  color: #666666;
+}
+
+.trial-speed-bucket input[type="range"] {
+  width: 140px;
+  margin: 0;
 }
 
 #states { margin-bottom: 4px; }
@@ -931,10 +1065,18 @@ main {
   color: #446688;
 }
 
-.spark { display: block; }
+.spark { display: block; overflow: hidden; }
 .spark-frame { fill: #ffffff; stroke: #e5e5e5; }
 .spark-line { fill: none; stroke: #446688; stroke-width: 1; }
 .spark-dot { fill: #446688; }
+.spark-line.spark-line-0 { stroke: #e8b84a; stroke-width: 1.3; }
+.spark-dot.spark-dot-0, .spark-bar-0 { fill: #e8b84a; }
+.spark-line.spark-line-1 { stroke: #e07020; stroke-width: 1.6; }
+.spark-dot.spark-dot-1, .spark-bar-1 { fill: #e07020; }
+.spark-line.spark-line-2 { stroke: #b82c14; stroke-width: 1.9; }
+.spark-dot.spark-dot-2, .spark-bar-2 { fill: #b82c14; }
+.spark-line.spark-line-3 { stroke: #2a0e0c; stroke-width: 2.2; }
+.spark-dot.spark-dot-3, .spark-bar-3 { fill: #2a0e0c; }
 .spark-label {
   font-family: Arial, sans-serif;
   font-size: 8px;
