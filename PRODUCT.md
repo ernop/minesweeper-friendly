@@ -67,9 +67,10 @@ Beginner Standard win never appears on Beginner Uniform NG lists.
   the sealed-pocket special case; this mode covers every consistent
   guess. Justice is off here — the mode is the mercy.
 - **Trial.** 25 hidden board identities for the current size, each shown
-  four times (100 games). Choosing the mode starts the trial at once;
-  the board appears and the player chooses the opening click (a mine
-  can kill — the layout is already fixed). Presentations are
+  four times (100 games). Choosing the mode hides the board and shows
+  a centered description plus Start trial. That click starts the
+  sequence; the player chooses the opening (a mine can kill — the
+  layout is already fixed). Presentations are
   shuffled so repeats are not obvious, with the same identity kept away
   from its other showings; the four showings of one identity use four
   different isometries (a subset of the eight dihedral maps on a square;
@@ -98,8 +99,8 @@ Beginner Standard win never appears on Beginner Uniform NG lists.
   raw samples), and cursor x/y mapped back through the inverse isometry
   onto the identity board so the four orientations share one
   coordinate frame. From the results the player
-  starts another trial (same size) or changes mode / size (that starts
-  a new trial at once). Ending early via "end trial" shows the same review
+  starts another trial (same size) or changes mode / size (that opens
+  a fresh lobby). Ending early via "end trial" shows the same review
   for the games already played.
   Finished trial games are stored under that size's trial key only —
   they do not enter Standard (or any other mode's) time windows,

@@ -109,7 +109,7 @@ Generation that aims at the same families the new lists rank:
   scatters; markless; states; settings; traces; four in-page motion
   systems; "A just universe" v1; play-mode switcher; Uniform NG;
   Single-path NG; Proof-or-die; Angelic; Trial (25 identities × 4
-  isometries, starts at once → memory-test review); Short
+  isometries, lobby → start → memory-test review); Short
   trial (4 × 4); Test trial (1 × 4); correctness / throughput / IOS
   (derived); guess ledger (life lost, needless, ideal-risk, one-ply
   perfect play).
