@@ -224,8 +224,9 @@ Implementation notes:
 - Rank list machinery: `rankWindows` (time windows + `specificity` for
   progressive disclosure), `rankColumns` (adds day categories, `isHoliday`),
   `windowBounds` (11-row windowing), `buildRankList` (shared renderer,
-  always the full window), `relativeAge` + `.age-u-*` classes (age display
-  and unit colors, shared with the scatter legend).
+  always the full window), `relativeAge` / `formatAgeCount` + `.age-u-*`
+  classes (age display and unit colors, shared with the scatter legend;
+  h/d/w/y counts are one decimal including .0).
 - Rankaverages: `RANKAVERAGE_SPECS` (bucketing per stat), `avgDelta`
   (sign/color convention; rendered as a final grid row whose text sits in
   the average-time column).
@@ -282,9 +283,9 @@ Implementation notes:
   Game side: only `revealCell` calls `attemptJustice(index)`, before its
   mine test and never on the first reveal. `chord` never calls Justice;
   wrong flags remain fatal. Every qualifying entry increments
-  `justiceEvents` regardless of whether redraw occurred, appends a live
-  `.justice-live-word` to #justice-live at the board's right, and receives
-  one end-game `.justice-stamp`. `reportResult` stores `justice`,
+  `justiceEvents` regardless of whether redraw occurred and appends a live
+  `.justice-live-word` to #justice-live at the board's right (multiple
+  events stack downward). `reportResult` stores `justice`,
   `justiceEnabled`, `seed`, `rngVersion`, `boardVersion`, and
   `justiceVersion`; rankings intentionally remain mixed for now. `rng.js`
   exports `GameRandom`: `createSeed` obtains 128

@@ -77,7 +77,7 @@ and how long ago the streak's last win was; recorded losses split the
 streaks. Each list windows around your row, 11 rows max: when you rank in
 the top 11 the list simply shows the top 11 with your row in place;
 otherwise it centers on you with the 5 nearest entries either side. Rows
-show rank, time, and a relative age ("43s", "5m", "2w"; the brand-new score
+show rank, time, and a relative age ("43s", "5m", "2.0w"; the brand-new score
 says "just now").
 
 Backup: subtle "export history" / "import history" controls under the

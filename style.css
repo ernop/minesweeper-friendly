@@ -71,8 +71,6 @@ main {
 /*-------GAME FRAME (classic chrome)-------*/
 
 #game-frame {
-  /* Anchors the JUSTICE stamps overlay */
-  position: relative;
   display: inline-block;
   background: var(--silver);
   padding: calc(var(--cell-size) / 4);
@@ -80,27 +78,11 @@ main {
   border-color: var(--bevel-light) var(--bevel-dark) var(--bevel-dark) var(--bevel-light);
 }
 
-/*-------JUSTICE STAMPS (a just universe)-------*/
-
-/* At game end, one rubber-stamped JUSTICE per guaranteed sealed-pocket
-   entry, slammed over the board with a little scatter and a
-   staggered delay so repeat stamps read as separate strikes. Pointer events
-   pass through: the board stays clickable underneath. */
-#justice-stamps {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  overflow: hidden;
-  pointer-events: none;
-  z-index: 5;
-}
+/*-------JUSTICE (a just universe)-------*/
 
 /* Immediate event log: each qualifying bare entry prints JUSTICE just to
-   the board's right. It occupies no layout space, so the board never moves. */
+   the board's right, stacked downward when a game has more than one.
+   Occupies no layout space, so the board never moves. */
 #justice-live {
   position: absolute;
   left: calc(100% + 14px);
@@ -131,38 +113,6 @@ main {
 @keyframes justice-live-print {
   from { transform: rotate(-4deg) scale(2.2); opacity: 0; }
   to { transform: rotate(-4deg) scale(1); opacity: 1; }
-}
-
-.justice-stamp {
-  font-family: "Arial Black", "Arial Bold", Arial, sans-serif;
-  font-weight: 900;
-  font-size: 40px;
-  line-height: 1;
-  letter-spacing: 5px;
-  color: #b3121b;
-  border: 4px double #b3121b;
-  border-radius: 6px;
-  padding: 8px 20px 8px 25px; /* right pad minus letter-spacing tail */
-  background: rgba(255, 255, 255, 0.55);
-  text-shadow: 0 0 1px #b3121b;
-  transform: translateX(var(--stamp-dx, 0px)) rotate(var(--stamp-rot, -8deg));
-  opacity: 0; /* until its slam lands (animation-delay staggers strikes) */
-  animation: justice-slam 0.5s cubic-bezier(0.15, 1.35, 0.4, 1) forwards;
-}
-
-@keyframes justice-slam {
-  from {
-    transform: translateX(var(--stamp-dx, 0px)) rotate(var(--stamp-rot, -8deg)) scale(3.2);
-    opacity: 0;
-  }
-  55% {
-    transform: translateX(var(--stamp-dx, 0px)) rotate(var(--stamp-rot, -8deg)) scale(0.94);
-    opacity: 1;
-  }
-  to {
-    transform: translateX(var(--stamp-dx, 0px)) rotate(var(--stamp-rot, -8deg)) scale(1);
-    opacity: 0.93;
-  }
 }
 
 #top-panel {
@@ -561,7 +511,7 @@ main {
 
 /* Rank, time, age-count, and age-unit line up as four columns. Rank, time,
    and age-count are right-aligned so widths like #9/#10, 5.961s/10.220s, and
-   0s/15m stay vertically comparable. Spacing uses cell padding, not gaps, so
+   0s/15m/1.0h stay vertically comparable. Spacing uses cell padding, not gaps, so
    the me-row highlight reads as one continuous bar. Auto tracks at 100%
    width stretch each row to fill the list (whose width the heading sets)
    instead of clumping left. */

@@ -203,8 +203,6 @@ function newGame() {
   gameSeed = GameRandom.createSeed();
   gameRandom = GameRandom.fromSeed(gameSeed);
   justiceLive.textContent = '';
-  const stamps = document.getElementById('justice-stamps');
-  if (stamps !== null) stamps.remove();
   clearInterval(timerInterval);
   timerInterval = null;
   leftDown = false;
@@ -388,7 +386,6 @@ function finish() {
   clearInterval(timerInterval);
   timerInterval = null;
   clearPresses();
-  renderJusticeStamps();
   refreshSettingsPanel();
 }
 
@@ -448,25 +445,6 @@ function announceJustice(certificate) {
     + certificate.type + ' pocket (' + certificate.clearWays + '/'
     + certificate.totalWays + ' clear)';
   justiceLive.appendChild(word);
-}
-
-// The game-end recap keeps one large stamp per qualifying entry.
-function renderJusticeStamps() {
-  if (justiceEvents === 0) return;
-  const holder = document.createElement('div');
-  holder.id = 'justice-stamps';
-  holder.title = justiceEvents + ' sealed-pocket entr'
-    + (justiceEvents === 1 ? 'y was' : 'ies were') + ' guaranteed safe this game';
-  for (let k = 0; k < justiceEvents; k++) {
-    const stamp = document.createElement('div');
-    stamp.className = 'justice-stamp';
-    stamp.textContent = 'JUSTICE';
-    stamp.style.setProperty('--stamp-rot', ((k % 2 === 0 ? -1 : 1) * (7 + (k * 5) % 9)) + 'deg');
-    stamp.style.setProperty('--stamp-dx', (((k * 13) % 21) - 10) + 'px');
-    stamp.style.animationDelay = (0.15 + k * 0.4) + 's';
-    holder.appendChild(stamp);
-  }
-  document.getElementById('game-frame').appendChild(holder);
 }
 
 //-------STATS (3BV, as measured on minesweeper.online)-------
@@ -776,19 +754,30 @@ function formatDate(timestampMs) {
 const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 // Relative age in the largest sensible unit, split into count and unit so the
-// counts can be right-aligned as their own column.
+// counts can be right-aligned as their own column. h/d/w/y keep one decimal
+// (including trailing .0); s/m/mo stay whole. Tenths-rounding that would
+// display as the next unit's threshold promotes instead (23.95h → 1.0d).
 function relativeAge(nowMs, thenMs) {
+  const tenths = (n) => Math.round(n * 10) / 10;
   const seconds = Math.max(0, Math.round((nowMs - thenMs) / 1000));
   if (seconds < 60) return { count: seconds, unit: 's' };
   const minutes = Math.floor(seconds / 60);
   if (minutes < 60) return { count: minutes, unit: 'm' };
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return { count: hours, unit: 'h' };
-  const days = Math.floor(hours / 24);
-  if (days < 7) return { count: days, unit: 'd' };
-  if (days < 30) return { count: Math.floor(days / 7), unit: 'w' };
+  const hours = minutes / 60;
+  const hoursTenth = tenths(hours);
+  if (hoursTenth < 24) return { count: hoursTenth, unit: 'h' };
+  const days = hours / 24;
+  const daysTenth = tenths(days);
+  if (daysTenth < 7) return { count: daysTenth, unit: 'd' };
+  if (days < 30) return { count: tenths(days / 7), unit: 'w' };
   if (days < 365) return { count: Math.floor(days / 30), unit: 'mo' };
-  return { count: Math.floor(days / 365), unit: 'y' };
+  return { count: tenths(days / 365), unit: 'y' };
+}
+
+function formatAgeCount(age) {
+  return (age.unit === 'h' || age.unit === 'd' || age.unit === 'w' || age.unit === 'y')
+    ? age.count.toFixed(1)
+    : String(age.count);
 }
 
 // Each age unit's span in ms, matching relativeAge's boundaries. Used to
@@ -1245,7 +1234,7 @@ function renderRanks(record, modeRecords) {
     if (age.count === 0 && age.unit === 's') {
       cells.push(['age-just-cell age-u-s', 'this']);
     } else {
-      cells.push(['age-num-cell age-u-' + age.unit, String(age.count)]);
+      cells.push(['age-num-cell age-u-' + age.unit, formatAgeCount(age)]);
       cells.push(['age-unit-cell age-u-' + age.unit, age.unit]);
     }
     return cells;
@@ -1343,7 +1332,7 @@ function renderRanks(record, modeRecords) {
         if (age.count === 0 && age.unit === 's') {
           cells.push(['age-just-cell age-u-s', 'this']);
         } else {
-          cells.push(['age-num-cell age-u-' + age.unit, String(age.count)]);
+          cells.push(['age-num-cell age-u-' + age.unit, formatAgeCount(age)]);
           cells.push(['age-unit-cell age-u-' + age.unit, age.unit]);
         }
         return cells;

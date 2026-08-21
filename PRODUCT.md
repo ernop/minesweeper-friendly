@@ -73,8 +73,9 @@ minted specifically for them.
   frontier totals. Arbitrary asymmetric or structurally exotic ambiguities
   are outside v1 and retain ordinary Minesweeper behavior. This explicit
   scope replaces the earlier unbounded model-enumeration design.
-- Each event immediately prints "JUSTICE" to the board's right. At game end,
-  one large rubber stamp appears per event.
+- Each event immediately prints "JUSTICE" to the board's right. Later
+  events in the same game stack downward there, one after another. There
+  is no separate end-game recap.
 - The per-game record carries the event count (`justice`), the frozen
   `justiceEnabled` state, the 128-bit `seed`, `rngVersion`, `boardVersion`,
   and `justiceVersion`; see Per-game stats. Rankings continue mixing
@@ -281,6 +282,9 @@ carries at least one tag.
 ## Relative age display
 
 - Largest sensible unit, abbreviated, no "ago": s, m, h, d, w, mo, y.
+  h, d, w, and y show one decimal place, including trailing .0 (1.0h,
+  2.3d, 2.0w). s, m, and mo stay whole. Tenths-rounding that would
+  display as the next unit's threshold promotes instead (23.95h → 1.0d).
 - A 0-second age renders as "this" (the game that just finished), spanning
   the age columns, right-aligned so its right edge is flush with the other
   rows' age labels (2026-08-20; replaced the left-aligned "just now").
