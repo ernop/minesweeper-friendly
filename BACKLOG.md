@@ -78,6 +78,17 @@ Generation that aims at the same families the new lists rank:
   spectrum (4–6 Hz band power), overshoot analysis, Fitts throughput
   curves. Raw traces are stored so these can be added later.
 
+## Research designs (creator, not built)
+
+- **Secret replay experiment** (2026-08-19 discussion;
+  `reference/replay-experiment.md`): covert re-serves of transformed
+  earlier boards inside ordinary Standard play, lag as the independent
+  variable (1 game to 1 week) to fit the memory-boost decay curve;
+  implicit-memory fingerprints (click-sequence match under the
+  transform, time-to-first-deduction); a skill/luck variance split
+  (within- vs between-identity). Trial / Short trial are the overt
+  instrument; this is the covert, long-lag complement.
+
 ## Already true, so they are not backlog
 
 - First-click-safe standard play; classic chrome; history; rank windows;
