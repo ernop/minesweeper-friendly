@@ -17,16 +17,17 @@ The design axis mapped so far, ordered by who bears the burden of ambiguity:
    (minesweeper.online NG, Simon Tatham's Mines).
 4. Evil NG — additionally guarantees a difficulty floor (at least one advanced
    deduction per board).
-5. Unbuilt intermediate entries: graded NG (score by hardest required
-   technique, as Sudoku grading does), uniform-hardness NG, single-path NG,
+5. Graded NG (unbuilt: score by hardest required technique, as Sudoku
+   grading does). Built 2026-08-21: uniform-hardness NG, single-path NG,
    proof-or-die NG (opening a not-provably-safe cell kills even if empty).
 6. Kaboom (pwmarcz.pl/kaboom) — adversarial: mines stay unfixed; any unforced
-   guess is a mine, forced guesses are always safe.
-7. The angelic dual of Kaboom — mostly unexplored: any guess consistent with
-   your information succeeds; you die only by contradicting known facts.
-   First step implemented 2026-08-20 as "A just universe" (PRODUCT.md):
-   certified sealed-pocket entries are guaranteed safe; open-field gambles
-   and all chords stay deadly.
+   guess is a mine, forced guesses are always safe. Unbuilt.
+7. The angelic dual of Kaboom: any guess consistent with your information
+   succeeds; you die only by contradicting known facts. First step
+   implemented 2026-08-20 as "A just universe" (PRODUCT.md): certified
+   sealed-pocket entries are guaranteed safe; open-field gambles and all
+   chords stay deadly. The rest of the dual is the Angelic play mode
+   (2026-08-21): a cell that is not a proven mine is made safe.
 
 The repo name points at entry 7 and its neighbors: variants friendlier than
 standard play.
@@ -47,7 +48,8 @@ forced mine.
 ## State
 
 Runtime: `index.html` + `style.css` + pure `rng.js` / `justice.js` /
-`board-shape.js` + `minesweeper.js`, no dependencies, no build step.
+`board-shape.js` / `solver.js` / `trial.js` + `minesweeper.js`, no
+dependencies, no build step.
 Serve with `python3 -m http.server 8018`.
 
 **`PRODUCT.md` is the canonical spec of every product and UI decision**
@@ -60,7 +62,7 @@ Implementation notes:
 - Storage (PRODUCT.md "Storage"): one IndexedDB database
   (`minesweeper-friendly`, version 2, opened at parse time), two stores.
   `userdata` holds one entry per kind — 'history', 'settings',
-  'rankavgSort', 'states' (`USERDATA_KINDS`); `traces` holds one entry
+  'rankavgSort', 'states', 'trial' (`USERDATA_KINDS`); `traces` holds one entry
   per game. Userdata is RAM-first: `loadUserdata` fills the RAM objects
   (`history`, `settings`, `rankavgSorts`, `playerStates`) once the db
   opens, then calls `init()` (settings panel, states panel, first board —
@@ -78,15 +80,17 @@ Implementation notes:
   {endedAt, outcome: 'win'|'loss', timeMs, bv3, clicks, wastedClicks,
   flagsPlaced, flagsRemoved, mousePathPx, states, justice,
   justiceEnabled, seed, rngVersion, boardVersion, justiceVersion,
-  maxAdjacent, hasSeven, zeroCount, islandCount, largestIsland} —
+  maxAdjacent, hasSeven, zeroCount, islandCount, largestIsland,
+  playMode, identityIndex, transform, trialStartedAt} —
   primary measurements only
   (later-added fields may be absent on earlier records; see
-  `GAME_RECORD_SCHEMA`). The mode key is the board parameters
-  (`modeKey()`, e.g. `9x9/10`); difficulty names are display-only
-  (`modeLabel()`). Timestamps are epoch ms; all calendar math is done in
-  the viewer's local timezone at read time. This schema replaced the
-  `scores.v1`/`losses.v1` pair (2026-08-19, data-structure rectification);
-  the old keys are not read and any data under them is ignored.
+  `GAME_RECORD_SCHEMA`). The mode key is board parameters plus play mode
+  (`modeKey()`, e.g. `9x9/10@standard`); keys without `@` mean Standard.
+  Difficulty names are display-only (`modeLabel()`). Timestamps are epoch
+  ms; all calendar math is done in the viewer's local timezone at read
+  time. This schema replaced the `scores.v1`/`losses.v1` pair
+  (2026-08-19, data-structure rectification); the old keys are not read
+  and any data under them is ignored.
 - Derived metrics (3BV/s, efficiency %, mouse speed, path/click, path/3BV)
   are computed at read time via `secondsOf`/`bvPerSecond`/
   `efficiencyPercent`, never stored.
@@ -311,6 +315,11 @@ Implementation notes:
   chord-origin rule); `node tests/rng-test.js` freezes the RNG version's
   output sequence; scale: `node tests/justice-bench.js` (100x100 boards,
   10,000-cell structural proof and direct redraw; no timing threshold).
+- Play modes (PRODUCT.md "Play modes"): `settings.playMode` plus history
+  key `WxH/M@id`. `solver.js` grades NG boards (`analyze` /
+  `generate`) and decides proof-or-die / angelic clicks. `trial.js`
+  holds the 25×4 session, dihedral maps, and identity grouping.
+  `node tests/solver-test.js` and `node tests/trial-test.js`.
 - Rankaverage sort persistence: userdata 'rankavgSort' maps stat label to
   {key, dir} (absent = natural rank order); written by the sort-header
   click cycle in `buildRankavgList` (asc → desc → none).

@@ -37,6 +37,49 @@ key names) live in `agents.md`; player-facing pitch in `promo/PROMO.md`.
   left-click chording with press preview; win auto-flags remaining mines;
   loss shows the red hit cell and crossed-out wrong flags.
 
+## Play modes (decided 2026-08-21)
+
+A second uniqueifier next to board size. The upper-right cluster has a
+Mode menu. Rankings and history are stored per (board, play mode); a
+Beginner Standard win never appears on Beginner Uniform NG lists.
+
+- **Standard.** Today's first-click-safe random boards. "A just universe"
+  applies here only.
+- **Uniform NG.** Generate-and-reject until the board is fully solvable
+  from the opening by counting, subset subtraction, and the global mine
+  count, and every required deduction step sits at one grade (all
+  counting, or all subset, or all global). If no such board appears
+  within the attempt budget, generation fails loudly.
+- **Single-path NG.** Same solver, plus each deduction step's newly
+  proven safes are covered by one click's flood — no unused forced
+  cells, no second equally-forced next move. Boards are carved as a
+  connected safe corridor through an all-mine field (random placement
+  almost never has this shape). If no such board appears within the
+  attempt budget, generation fails loudly.
+- **Proof-or-die.** An NG board. After the opening, opening a cell that
+  is not currently proven safe kills, even if that cell is empty. Chords
+  die if any opened cell is unproven.
+- **Angelic.** The rest of the angelic dual of Kaboom: a click (or chord
+  cell) that is not a proven mine is made safe; you die only by
+  contradicting known facts (clicking a proven mine). A just universe is
+  the sealed-pocket special case; this mode covers every consistent
+  guess. Justice is off here — the mode is the mercy.
+- **Trial.** 25 hidden board identities for the current size, each shown
+  four times (100 games). Presentations are shuffled so repeats are not
+  obvious; each showing applies a random grid isometry (all eight
+  dihedral maps on a square; identity, 180°, horizontal and vertical
+  flips on a rectangle) so the four trials of one identity are the same
+  puzzle in logical terms. The opening is given; the timer runs from
+  that moment. Progress is `n / 100` with an "end trial" control.
+  Finished trial games are stored under that size's trial key only —
+  they do not enter Standard (or any other mode's) time windows,
+  streaks, scatters, or rankaverages. The one ranking shown during a
+  trial is the time list for trial games of this size. Ending the
+  session (complete or quit) groups the boards by identity and charts
+  time and 3BV/s across the attempts so improvement is visible.
+  Changing size or leaving Trial ends the current session as a quit
+  and shows that review.
+
 ## A just universe (decided 2026-08-20)
 
 The first friendly variant (the direction of `agents.md` design-axis entry
@@ -249,9 +292,9 @@ carries at least one tag.
   states they were stamped with, even if a state is later removed.
 - The states panel sits in the screen's upper-right corner (2026-08-20;
   it previously hung off the board's left edge), sharing a fixed cluster
-  with the settings button. Fixed to the viewport, it occupies no layout
-  space — using it never moves the board — and stays visible while
-  scrolling the charts.
+  with the play-mode menu (2026-08-21) and the settings button. Fixed to
+  the viewport, it occupies no layout space — using it never moves the
+  board — and stays visible while scrolling the charts.
 
 ## Rank lists (time windows and day categories)
 
@@ -404,8 +447,8 @@ carries at least one tag.
 
 - All persistent data lives in one IndexedDB database
   (`minesweeper-friendly`, version 2) with two stores: `userdata` (play
-  history, settings, rankaverage sort preferences, player states — one
-  entry per kind) and `traces` (one entry per finished game).
+  history, settings, rankaverage sort preferences, player states, trial
+  session — one entry per kind) and `traces` (one entry per finished game).
 - Userdata is RAM-first: every kind is read into RAM once at startup, all
   reads and mutations work on the RAM copy synchronously, and each
   mutation immediately persists that kind's whole RAM object with an
@@ -564,7 +607,8 @@ carries at least one tag.
   entry or absent field = the default (the player never changed it);
   nothing is persisted until they do.
 - Exports carry the block under the reserved top-level `"settings"` key
-  (it can never collide with a mode key, which is always WxH/M); importing
+  (it can never collide with a mode key, which is always WxH/M@playMode);
+  importing
   a blob applies its settings after validation. Exports from before
   2026-08-20 simply lack the key.
 - A "settings" button in the screen's upper-right corner (the fixed
@@ -590,7 +634,8 @@ carries at least one tag.
 
 - Every finished game (win and loss) is kept forever (userdata `history`;
   see Storage), grouped by mode; nothing is pruned. A mode is identified
-  by its board parameters (e.g. `9x9/10`), never by its display name.
+  by board parameters plus play mode (e.g. `9x9/10@standard`). Keys
+  written before 2026-08-21 as `9x9/10` mean Standard.
 - Export/import as a JSON map of mode to game records, plus the reserved
   `"settings"` key (see Personal settings): copy to clipboard, save to
   file, paste in, or open from file — subtle controls out of the way of

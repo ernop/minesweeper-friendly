@@ -8,6 +8,12 @@
 </head>
 <body>
 <div id="top-right">
+  <div id="play-mode">
+    <label>Mode
+      <select id="play-mode-select"></select>
+    </label>
+    <div id="trial-progress" hidden></div>
+  </div>
   <div id="states">
     <div id="states-chips"></div>
     <button type="button" id="states-add-btn" title="Tag your play session (sleepy? new mouse?). Active states are saved onto every game you finish, so you can see how life affects your play.">+ state</button>
@@ -90,6 +96,8 @@
 <script src="rng.js"></script>
 <script src="justice.js"></script>
 <script src="board-shape.js"></script>
+<script src="solver.js"></script>
+<script src="trial.js"></script>
 <script src="minesweeper.js"></script>
 </body>
 </html>

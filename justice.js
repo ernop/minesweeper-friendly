@@ -60,7 +60,11 @@ function rawClues(view) {
 // withhold a certificate, never manufacture one.
 //
 // Status values remain 1=mine and 2=safe for the public test interface.
-function proveFacts(view, clues) {
+function proveFacts(view, clues, opts) {
+  opts = opts || {};
+  const useCount = opts.count !== false;
+  const useSubset = opts.subset !== false;
+  const useGlobal = opts.global !== false;
   const size = view.width * view.height;
   const status = new Map();
   const mark = (cell, value) => {
@@ -92,15 +96,17 @@ function proveFacts(view, clues) {
       residuals.push({ unknown, need, set: new Set(unknown) });
     }
 
-    for (const residual of residuals) {
-      if (residual.need === 0) {
-        for (const cell of residual.unknown) mark(cell, 2);
-      } else if (residual.need === residual.unknown.length) {
-        for (const cell of residual.unknown) mark(cell, 1);
+    if (useCount) {
+      for (const residual of residuals) {
+        if (residual.need === 0) {
+          for (const cell of residual.unknown) mark(cell, 2);
+        } else if (residual.need === residual.unknown.length) {
+          for (const cell of residual.unknown) mark(cell, 1);
+        }
       }
     }
 
-    if (status.size === before) {
+    if (useSubset && status.size === before) {
       for (let i = 0; i < residuals.length; i++) {
         for (let j = 0; j < residuals.length; j++) {
           if (i === j) continue;
@@ -122,22 +128,24 @@ function proveFacts(view, clues) {
       }
     }
 
-    let knownMines = 0;
-    const globallyUnknown = [];
-    for (let i = 0; i < size; i++) {
-      if (view.revealed[i]) continue;
-      const fact = status.get(i);
-      if (fact === 1) knownMines++;
-      else if (fact !== 2) globallyUnknown.push(i);
-    }
-    const minesLeft = view.mines - knownMines;
-    if (minesLeft < 0 || minesLeft > globallyUnknown.length) {
-      throw new Error('global mine count contradicts visible clues');
-    }
-    if (minesLeft === 0) {
-      for (const cell of globallyUnknown) mark(cell, 2);
-    } else if (minesLeft === globallyUnknown.length) {
-      for (const cell of globallyUnknown) mark(cell, 1);
+    if (useGlobal) {
+      let knownMines = 0;
+      const globallyUnknown = [];
+      for (let i = 0; i < size; i++) {
+        if (view.revealed[i]) continue;
+        const fact = status.get(i);
+        if (fact === 1) knownMines++;
+        else if (fact !== 2) globallyUnknown.push(i);
+      }
+      const minesLeft = view.mines - knownMines;
+      if (minesLeft < 0 || minesLeft > globallyUnknown.length) {
+        throw new Error('global mine count contradicts visible clues');
+      }
+      if (minesLeft === 0) {
+        for (const cell of globallyUnknown) mark(cell, 2);
+      } else if (minesLeft === globallyUnknown.length) {
+        for (const cell of globallyUnknown) mark(cell, 1);
+      }
     }
 
     changed = status.size !== before;

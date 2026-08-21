@@ -25,23 +25,20 @@ counting, (b) subset subtraction / named patterns, (c) full constraint
 enumeration including the global mine count. Derived session result: a
 1-2…2-1 wall chain with k twos is fully forced unless k ≡ 0 (mod 3).
 
-- **No-guess (NG).** A complete logical path at generation time
-  (minesweeper.online NG, Simon Tatham's Mines).
+- **No-guess (NG) as its own menu mode.** Uniform / single-path /
+  proof-or-die already generate NG boards (PRODUCT.md "Play modes").
+  A separate unlabeled "any NG" item is not in the menu.
 - **Evil NG.** NG plus a difficulty floor: at least one advanced
   deduction per board.
 - **Graded NG.** Score each board by the hardest required technique, as
-  Sudoku grading does.
-- **Uniform-hardness NG.** Every required step sits at one chosen grade.
-- **Single-path NG.** Exactly one logical line; no unused forced cells.
-- **Proof-or-die NG.** Opening a cell that is not provably safe kills
-  even if the cell is empty.
+  Sudoku grading does. Uniform-hardness NG is built (one grade for every
+  step); a visible grade label / picker is not.
 - **Kaboom.** Mines stay unfixed; any unforced guess is a mine, forced
   guesses are always safe.
-- **Full angelic dual of Kaboom.** Any guess consistent with known facts
-  succeeds; death only by contradiction. "A just universe" is the first
-  step (certified sealed pockets only). Open-field gambles and all
-  chords still kill. Justice v1 also refuses asymmetric or exotic
-  sealed structure; expanding that family is a further step.
+- **Justice v1 family expansion.** Asymmetric or exotic sealed structure
+  still refused. Angelic mode (2026-08-21) is the rest of the dual for
+  play: any cell that is not a proven mine is made safe. Expanding
+  Justice certificates is a further step.
 
 minesweeper.online NG also gives a starting position (green X). That
 opening style is not built here.
@@ -87,7 +84,9 @@ Generation that aims at the same families the new lists rank:
   "3BV N"; board-shape time lists (has 8 / has 7 / max 4 / max 3 /
   max 2 / islands / largest island / zeros); rankaverages; streaks; ten
   scatters; markless; states; settings; traces; four in-page motion
-  systems; "A just universe" v1.
+  systems; "A just universe" v1; play-mode switcher; Uniform NG;
+  Single-path NG; Proof-or-die; Angelic; Trial (25 identities × 4
+  isometries, trial-only time list, identity-grouped review).
 - Waste metrics (pauses, wander, turnarounds, feints) and the
   biometrics / mousetrap / Hevelius-style displays. The Tier 1/2
   "store a scalar per metric" framing is obsolete: the trace is the

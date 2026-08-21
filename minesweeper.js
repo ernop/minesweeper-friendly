@@ -8,6 +8,19 @@ const DIFFICULTIES = {
   expert: { width: 30, height: 16, mines: 99 },
 };
 
+// Play mode is a second uniqueifier next to board size: rankings and
+// history keys are per (board, play mode). Trial results never mix
+// with the other modes' lists.
+const PLAY_MODES = [
+  { id: 'standard', label: 'Standard' },
+  { id: 'uniform-ng', label: 'Uniform NG' },
+  { id: 'single-path-ng', label: 'Single-path NG' },
+  { id: 'proof-or-die', label: 'Proof-or-die' },
+  { id: 'angelic', label: 'Angelic' },
+  { id: 'trial', label: 'Trial' },
+];
+const PLAY_MODE_IDS = new Set(PLAY_MODES.map((m) => m.id));
+
 const LCD_MIN = -99;
 const LCD_MAX = 999;
 const TIMER_CAP_SECONDS = 999;
@@ -89,6 +102,10 @@ let flagsRemoved = 0;  // flags the player took back; each removal means the
                        // the second kind of waste besides no-op clicks
 let gameSeed = null;    // 128-bit seed for placement and Justice redraws
 let gameRandom = null;  // the one deterministic random stream for this game
+let trialSession = null;   // userdata 'trial'; null when none stored
+let trialPresentation = null; // current trial board, or null
+let lastTrialReview = null;   // ended session waiting to be shown
+let holdTrialAfterEnd = false; // one newGame after quit does not start another
 
 // Press-preview state (left button held down)
 let leftDown = false;
@@ -165,28 +182,64 @@ function neighbors(index) {
 
 // Mines are placed on the first reveal so that cell is never a mine
 // (first-click safety, as on minesweeper.online standard mode).
-function placeMines(safeIndex) {
-  const pool = [];
+function applyMineMap(mineAt) {
+  if (mineAt.length !== cells.length) throw new Error('mine map does not match the board');
+  for (let i = 0; i < cells.length; i++) cells[i].mine = !!mineAt[i];
   for (let i = 0; i < cells.length; i++) {
-    if (i !== safeIndex) pool.push(i);
-  }
-  for (let i = pool.length - 1; i > 0; i--) {
-    const j = Math.floor(gameRandom() * (i + 1));
-    [pool[i], pool[j]] = [pool[j], pool[i]];
-  }
-  for (let k = 0; k < config.mines; k++) {
-    cells[pool[k]].mine = true;
-  }
-  for (let i = 0; i < cells.length; i++) {
-    if (cells[i].mine) continue;
-    cells[i].adjacent = neighbors(i).filter((n) => cells[n].mine).length;
+    cells[i].adjacent = cells[i].mine ? 0 : neighbors(i).filter((n) => cells[n].mine).length;
   }
   minesPlaced = true;
+}
+
+function placeMines(safeIndex) {
+  applyMineMap(Solver.randomPlacement(
+    config.width, config.height, config.mines, safeIndex, gameRandom));
+}
+
+function ngAttempts() {
+  const n = config.width * config.height;
+  if (n <= 81) return 800;
+  if (n <= 256) return 400;
+  return 250;
+}
+
+function placeMinesForPlayMode(safeIndex) {
+  const mode = settings.playMode;
+  if (mode === 'standard' || mode === 'angelic') {
+    placeMines(safeIndex);
+    return;
+  }
+  if (mode === 'trial') {
+    if (trialPresentation === null) throw new Error('trial presentation missing at placement');
+    applyMineMap(trialPresentation.mines);
+    return;
+  }
+  const pred = mode === 'uniform-ng' ? (r) => r.uniform
+    : mode === 'single-path-ng' ? (r) => r.singlePath
+    : (r) => r.solved;
+  const placer = mode === 'single-path-ng' ? Solver.tunnelPlacement : Solver.randomPlacement;
+  backupStatus.textContent = 'generating ' + playModeLabel() + ' board\u2026';
+  let got;
+  try {
+    got = Solver.generate(
+      config.width, config.height, config.mines, safeIndex, gameRandom, pred, ngAttempts(), placer);
+  } catch (err) {
+    backupStatus.textContent = err.message;
+    throw err;
+  }
+  applyMineMap(got.mineAt);
+  backupStatus.textContent = '';
 }
 
 //-------GAME FLOW-------
 
 function newGame() {
+  if (settings.playMode === 'trial' && trialIsActive()
+      && (trialSession.width !== config.width
+        || trialSession.height !== config.height
+        || trialSession.mines !== config.mines)) {
+    endTrial('quit');
+  }
   gameState = 'ready';
   minesPlaced = false;
   justiceEnabledForGame = null;
@@ -234,7 +287,79 @@ function newGame() {
   resultSummary.textContent = '';
   resultStats.textContent = '';
   resultRanks.textContent = '';
+  if (settings.playMode === 'trial') setupTrialBoard();
+  else trialPresentation = null;
   refreshSettingsPanel();
+  renderTrialProgress();
+  document.title = 'Minesweeper - ' + playModeLabel();
+  if (settings.playMode === 'trial' && lastTrialReview && lastTrialReview.endedHow
+      && trialPresentation === null) {
+    renderTrialReview(lastTrialReview);
+  }
+}
+
+function setupTrialBoard() {
+  if (holdTrialAfterEnd) {
+    holdTrialAfterEnd = false;
+    trialPresentation = null;
+    return;
+  }
+  ensureTrialSession();
+  trialPresentation = Trial.presentation(trialSession, gameRandom);
+  applyMineMap(trialPresentation.mines);
+  floodReveal(trialPresentation.firstClick);
+  gameState = 'playing';
+  startTimer();
+  justiceEnabledForGame = false;
+  checkWin();
+}
+
+function ensureTrialSession() {
+  const key = boardKey();
+  if (trialSession
+    && trialSession.endedHow === null
+    && trialSession.boardKey === key
+    && trialSession.width === config.width
+    && trialSession.height === config.height
+    && trialSession.mines === config.mines) {
+    return;
+  }
+  trialSession = Trial.createSession(key, config.width, config.height, config.mines, gameRandom);
+  persistUserdata('trial', trialSession);
+}
+
+function trialIsActive() {
+  return trialSession !== null && trialSession.endedHow === null;
+}
+
+function endTrial(how) {
+  if (!trialIsActive()) return;
+  Trial.finishSession(trialSession, how);
+  persistUserdata('trial', trialSession);
+  lastTrialReview = trialSession;
+  if (how === 'quit') holdTrialAfterEnd = true;
+}
+
+function renderTrialProgress() {
+  const box = document.getElementById('trial-progress');
+  if (settings.playMode !== 'trial' || !trialIsActive()) {
+    box.hidden = true;
+    box.textContent = '';
+    return;
+  }
+  box.hidden = false;
+  box.textContent = '';
+  const label = document.createElement('span');
+  label.textContent = trialSession.results.length + ' / ' + Trial.GAMES;
+  const quit = document.createElement('button');
+  quit.type = 'button';
+  quit.textContent = 'end trial';
+  quit.addEventListener('click', () => {
+    endTrial('quit');
+    newGame();
+    if (lastTrialReview) renderTrialReview(lastTrialReview);
+  });
+  box.append(label, quit);
 }
 
 function startTimer() {
@@ -271,15 +396,29 @@ function revealCell(index) {
 
   let firstReveal = false;
   if (!minesPlaced) {
-    placeMines(index);
-    justiceEnabledForGame = settings.justUniverse;
+    placeMinesForPlayMode(index);
+    justiceEnabledForGame = settings.playMode === 'standard' && settings.justUniverse;
     gameState = 'playing';
     startTimer();
     refreshSettingsPanel();
     firstReveal = true;
   }
 
-  if (!firstReveal) attemptJustice(index);
+  if (settings.playMode === 'proof-or-die' && !firstReveal) {
+    if (!Solver.isProvenSafe(playerView(), index)) {
+      lose([index]);
+      return;
+    }
+  } else if (settings.playMode === 'angelic' && !firstReveal) {
+    const saved = Solver.forceSafe(playerView(), cells.map((c) => c.mine), index, gameRandom);
+    if (saved === null) {
+      lose([index]);
+      return;
+    }
+    applyMineMap(saved);
+  } else if (!firstReveal) {
+    attemptJustice(index);
+  }
   if (cell.mine) {
     lose([index]);
     return;
@@ -333,6 +472,26 @@ function chord(index) {
   const toReveal = around.filter((n) => !cells[n].revealed && !cells[n].flagged);
   if (toReveal.length === 0) return false;
   clickCount++;
+
+  if (settings.playMode === 'proof-or-die') {
+    const view = playerView();
+    if (toReveal.some((n) => !Solver.isProvenSafe(view, n))) {
+      lose(toReveal);
+      return true;
+    }
+  } else if (settings.playMode === 'angelic') {
+    let mines = cells.map((c) => c.mine);
+    const view = playerView();
+    for (const n of toReveal) {
+      const saved = Solver.forceSafe(view, mines, n, gameRandom);
+      if (saved === null) {
+        lose([n]);
+        return true;
+      }
+      mines = saved;
+    }
+    applyMineMap(mines);
+  }
 
   const hitMines = toReveal.filter((n) => cells[n].mine);
   if (hitMines.length > 0) {
@@ -397,6 +556,16 @@ function finish() {
 // this path: a wrong flag is the player's mistake.
 let justiceEnabledForGame = null; // frozen from the setting on first reveal
 let justiceEvents = 0;            // qualifying sealed-pocket entries
+
+function playerView() {
+  return {
+    width: config.width,
+    height: config.height,
+    mines: config.mines,
+    revealed: cells.map((c) => c.revealed),
+    adjacent: cells.map((c) => c.adjacent),
+  };
+}
 
 function attemptJustice(index) {
   if (justiceEnabledForGame !== true) return false;
@@ -502,8 +671,28 @@ function reportResult(outcome) {
     zeroCount: shape.zeroCount,
     islandCount: shape.islandCount,
     largestIsland: shape.largestIsland,
+    playMode: settings.playMode,
   };
+  if (settings.playMode === 'trial' && trialPresentation !== null) {
+    record.identityIndex = trialPresentation.identityIndex;
+    record.transform = trialPresentation.transform;
+    record.trialStartedAt = trialSession.startedAt;
+  }
   const modeRecords = appendGameRecord(record);
+  if (settings.playMode === 'trial' && trialIsActive() && trialPresentation !== null) {
+    Trial.recordResult(trialSession, {
+      identityIndex: trialPresentation.identityIndex,
+      transform: trialPresentation.transform,
+      endedAt: record.endedAt,
+      outcome: record.outcome,
+      timeMs: record.timeMs,
+      bv3: record.bv3,
+      clicks: record.clicks,
+    });
+    if (trialSession.nextIndex >= Trial.GAMES) endTrial('completed');
+    persistUserdata('trial', trialSession);
+    renderTrialProgress();
+  }
   saveTrace(record);
   // The canonical metrics: the same computation the live panel runs, over
   // the now-complete trace, with the same wall-time definition the stored
@@ -567,7 +756,14 @@ function renderResult(record, modeRecords) {
     statsGrid.append(labelCell, valueCell);
   }
   resultStats.appendChild(statsGrid);
-  if (record.outcome === 'win') {
+  if (settings.playMode === 'trial') {
+    resultRanks.textContent = '';
+    if (lastTrialReview && lastTrialReview.endedHow) {
+      renderTrialReview(lastTrialReview);
+    } else if (record.outcome === 'win' || record.outcome === 'loss') {
+      renderTrialMidRanks(record, modeRecords);
+    }
+  } else if (record.outcome === 'win') {
     renderRanks(record, modeRecords);
   } else {
     resultRanks.textContent = '';
@@ -619,6 +815,10 @@ const GAME_RECORD_SCHEMA = [
   { field: 'zeroCount', valid: (v) => v === undefined || isNumber(v), example: '41', describe: 'how many finished-board cells have adjacent-mine count 0; absent on earlier games' },
   { field: 'islandCount', valid: (v) => v === undefined || isNumber(v), example: '6', describe: '8-connected mine components on the finished board (diagonals count, edges empty); absent on earlier games' },
   { field: 'largestIsland', valid: (v) => v === undefined || isNumber(v), example: '5', describe: 'mine count in the largest 8-connected mine component; 0 if no mines; absent on earlier games' },
+  { field: 'playMode', valid: (v) => v === undefined || PLAY_MODE_IDS.has(v), example: '"standard"', describe: 'play mode this game was under; absent on games recorded before 2026-08-21' },
+  { field: 'identityIndex', valid: (v) => v === undefined || isNumber(v), example: '3', describe: 'trial board identity (0-24); absent outside trial' },
+  { field: 'transform', valid: (v) => v === undefined || typeof v === 'string', example: '"rot90"', describe: 'isometry applied to the trial identity for this presentation' },
+  { field: 'trialStartedAt', valid: (v) => v === undefined || isNumber(v), example: '1787201223496', describe: 'when the enclosing trial session began' },
 ];
 
 // Records are grouped by mode key and kept in chronological order. The RAM
@@ -670,6 +870,14 @@ const SETTINGS_SCHEMA = [
     label: 'show motion stats after game ends',
     describe: 'when a game finishes, the canonical motion values, each with its over-the-game chart, inline at the bottom after the other charts',
   },
+  {
+    field: 'playMode',
+    default: 'standard',
+    valid: (v) => PLAY_MODE_IDS.has(v),
+    label: 'play mode',
+    describe: 'Standard, Uniform NG, Single-path NG, Proof-or-die, Angelic, or Trial. Each mode stores and ranks its own results.',
+    control: 'none',
+  },
 ];
 
 // The RAM copy of the settings block (userdata 'settings').
@@ -687,14 +895,52 @@ function saveSettings() {
   persistUserdata('settings', settings);
 }
 
-// A mode's identity is its parameters; named difficulty labels are
-// display-only (see modeLabel).
-function modeKeyOf(params) {
+// A stored mode is board parameters plus play mode. Named difficulty
+// labels are display-only (see modeLabel). Keys without @ are the
+// pre-2026-08-21 shape and mean Standard.
+function boardKeyOf(params) {
   return params.width + 'x' + params.height + '/' + params.mines;
 }
 
+function boardKey() {
+  return boardKeyOf(config);
+}
+
+function modeKeyOf(params, playMode) {
+  return boardKeyOf(params) + '@' + playMode;
+}
+
 function modeKey() {
-  return modeKeyOf(config);
+  return modeKeyOf(config, settings.playMode);
+}
+
+function playModeLabel(id) {
+  const spec = PLAY_MODES.find((m) => m.id === (id || settings.playMode));
+  return spec ? spec.label : String(id);
+}
+
+function normalizeHistoryKey(key) {
+  return key.includes('@') ? key : key + '@standard';
+}
+
+function normalizeHistory(raw) {
+  const out = {};
+  let changed = false;
+  for (const [key, list] of Object.entries(raw)) {
+    const norm = normalizeHistoryKey(key);
+    if (norm !== key) changed = true;
+    if (!out[norm]) out[norm] = [];
+    const seen = new Set(out[norm].map((r) => r.endedAt));
+    for (const r of list) {
+      if (seen.has(r.endedAt)) continue;
+      seen.add(r.endedAt);
+      out[norm].push(r);
+    }
+  }
+  for (const key of Object.keys(out)) {
+    out[key].sort((a, b) => a.endedAt - b.endedAt);
+  }
+  return { history: out, changed: changed };
 }
 
 function secondsOf(record) {
@@ -755,12 +1001,14 @@ function difficultyDisplayName(name) {
 }
 
 function modeLabel() {
+  let board = 'Custom ' + config.width + 'x' + config.height + '-' + config.mines;
   for (const [name, d] of Object.entries(DIFFICULTIES)) {
     if (d.width === config.width && d.height === config.height && d.mines === config.mines) {
-      return difficultyDisplayName(name);
+      board = difficultyDisplayName(name);
+      break;
     }
   }
-  return 'Custom ' + config.width + 'x' + config.height + '-' + config.mines;
+  return board + ' \u00b7 ' + playModeLabel();
 }
 
 function formatDate(timestampMs) {
@@ -1234,6 +1482,88 @@ function buildRankavgList(spec, record, wins) {
   return list;
 }
 
+function trialTimeAgeRow(nowRecord, list) {
+  return (i) => {
+    const age = relativeAge(nowRecord.endedAt, list[i].endedAt);
+    const cells = [
+      ['rank-cell', '#' + (i + 1)],
+      ['time-cell' + (isMarkless(list[i]) ? ' markless-time' : ''),
+        (list[i].timeMs / 1000).toFixed(3) + 's'],
+    ];
+    if (age.count === 0 && age.unit === 's') {
+      cells.push(['age-just-cell age-u-s', 'this']);
+    } else {
+      cells.push(['age-num-cell age-u-' + age.unit, formatAgeCount(age)]);
+      cells.push(['age-unit-cell age-u-' + age.unit, age.unit]);
+    }
+    return cells;
+  };
+}
+
+function renderTrialMidRanks(record, modeRecords) {
+  const wins = modeRecords.filter((r) => r.outcome === 'win')
+    .sort((a, b) => a.timeMs - b.timeMs || a.endedAt - b.endedAt);
+  if (wins.length === 0) return;
+  resultRanks.appendChild(buildRankList(
+    'trial ' + boardKey(),
+    wins.length, wins.indexOf(record), 'rank-grid',
+    trialTimeAgeRow(record, wins)));
+}
+
+function renderTrialReview(session) {
+  resultSummary.textContent = 'Trial '
+    + (session.endedHow === 'completed' ? 'complete' : 'ended')
+    + '\n' + session.width + 'x' + session.height + '/' + session.mines
+    + '\n' + session.results.length + ' / ' + Trial.GAMES;
+  resultStats.textContent = '';
+  resultRanks.textContent = '';
+  const groups = Trial.groupedResults(session);
+  for (const group of groups) {
+    if (group.attempts.length === 0) continue;
+    const box = document.createElement('div');
+    box.className = 'trial-identity';
+    const head = document.createElement('h3');
+    head.textContent = 'board ' + (group.identityIndex + 1)
+      + ' \u00b7 ' + group.attempts.length + ' attempt'
+      + (group.attempts.length === 1 ? '' : 's');
+    box.appendChild(head);
+    const winTimes = [];
+    const winBvps = [];
+    for (let i = 0; i < group.attempts.length; i++) {
+      const attempt = group.attempts[i];
+      const seconds = attempt.timeMs / 1000;
+      const line = document.createElement('div');
+      line.textContent = (i + 1) + '. ' + attempt.outcome + '  '
+        + seconds.toFixed(3) + 's  3BV ' + attempt.bv3
+        + '  ' + (attempt.bv3 / seconds).toFixed(3) + '/s  '
+        + attempt.transform;
+      box.appendChild(line);
+      if (attempt.outcome === 'win') {
+        winTimes.push(seconds);
+        winBvps.push(attempt.bv3 / seconds);
+      }
+    }
+    if (winTimes.length >= 2) {
+      const note = document.createElement('div');
+      const delta = winTimes[0] - winTimes[winTimes.length - 1];
+      note.textContent = delta > 0
+        ? ('last win ' + delta.toFixed(3) + 's faster than first')
+        : delta < 0
+          ? ('last win ' + (-delta).toFixed(3) + 's slower than first')
+          : 'last win matched the first';
+      box.appendChild(note);
+      box.appendChild(buildSparkline(
+        winTimes.map((_, i) => i * 1000), winTimes, SPARK_SMALL));
+      const bvNote = document.createElement('div');
+      bvNote.textContent = '3BV/s';
+      box.appendChild(bvNote);
+      box.appendChild(buildSparkline(
+        winBvps.map((_, i) => i * 1000), winBvps, SPARK_SMALL));
+    }
+    resultRanks.appendChild(box);
+  }
+}
+
 function renderRanks(record, modeRecords) {
   resultRanks.textContent = '';
   const wins = modeRecords.filter((r) => r.outcome === 'win');
@@ -1517,7 +1847,7 @@ function renderRanks(record, modeRecords) {
 const DB_NAME = 'minesweeper-friendly';
 const TRACE_STORE = 'traces';
 const USERDATA_STORE = 'userdata';
-const USERDATA_KINDS = ['history', 'settings', 'rankavgSort', 'states'];
+const USERDATA_KINDS = ['history', 'settings', 'rankavgSort', 'states', 'trial'];
 
 let db = null;
 
@@ -1577,12 +1907,15 @@ function loadUserdata() {
   }
   tx.oncomplete = () => {
     // An absent kind is a player who never stored it, not an error.
-    history = got.history === undefined ? {} : got.history;
+    const loaded = normalizeHistory(got.history === undefined ? {} : got.history);
+    history = loaded.history;
+    if (loaded.changed) persistUserdata('history', history);
     settings = settingsFrom(got.settings === undefined ? {} : got.settings);
     rankavgSorts = got.rankavgSort === undefined ? {} : got.rankavgSort;
     playerStates = got.states === undefined
       ? DEFAULT_STATE_NAMES.map((name) => ({ name, active: false }))
       : got.states;
+    trialSession = got.trial === undefined ? null : got.trial;
     init();
   };
 }
@@ -3668,7 +4001,7 @@ function gameCount(history) {
 
 document.getElementById('export-btn').addEventListener('click', () => {
   // The reserved "settings" key rides along with the mode lists; it can
-  // never collide with a mode key (those are always WxH/M).
+  // never collide with a mode key (those are always WxH/M@playMode).
   const json = JSON.stringify({ settings, ...history });
   navigator.clipboard.writeText(json).then(
     () => { backupStatus.textContent = 'export copied to clipboard (' + gameCount(history) + ' games)'; },
@@ -3732,6 +4065,7 @@ function importHistory(text) {
       return;
     }
   }
+  const incoming = {};
   for (const [mode, list] of Object.entries(parsed)) {
     if (!Array.isArray(list)) {
       backupStatus.textContent = 'import failed: "' + mode + '" is not an array of game records';
@@ -3745,10 +4079,13 @@ function importHistory(text) {
         return;
       }
     }
+    const key = normalizeHistoryKey(mode);
+    if (!incoming[key]) incoming[key] = [];
+    incoming[key].push(...list);
   }
   let added = 0;
   let dups = 0;
-  for (const [mode, list] of Object.entries(parsed)) {
+  for (const [mode, list] of Object.entries(incoming)) {
     if (!(mode in history)) history[mode] = [];
     const seen = new Set(history[mode].map((r) => r.endedAt));
     for (const r of list) {
@@ -3771,6 +4108,7 @@ function importHistory(text) {
     }
     saveSettings();
     refreshSettingsPanel();
+    document.getElementById('play-mode-select').value = settings.playMode;
     settingsNote = ', applied settings';
   }
   backupStatus.textContent = 'imported ' + added + ' new games, skipped ' + dups + ' duplicates' + settingsNote;
@@ -3801,6 +4139,7 @@ document.getElementById('settings-btn').addEventListener('click', () => {
 // without finishing another game.
 function buildSettingsPanel() {
   for (const s of SETTINGS_SCHEMA) {
+    if (s.control === 'none') continue;
     const row = document.createElement('label');
     row.className = 'setting-row';
     const box = document.createElement('input');
@@ -3879,19 +4218,20 @@ function buildFormatPanel() {
   };
 
   const exportBlock = block('the whole export');
-  const beginnerKey = modeKeyOf(DIFFICULTIES.beginner);
-  const intermediateKey = modeKeyOf(DIFFICULTIES.intermediate);
+  const beginnerKey = modeKeyOf(DIFFICULTIES.beginner, 'standard');
+  const intermediateKey = modeKeyOf(DIFFICULTIES.intermediate, 'standard');
   const keyColumn = (key) => ('"' + key + '":').padEnd(intermediateKey.length + 4);
   const pre = document.createElement('pre');
   pre.textContent = '{\n  ' + keyColumn('settings') + '{ \u2026the settings panel\u2019s switches\u2026 },\n  '
     + keyColumn(beginnerKey) + '[ \u2026one record per finished game\u2026 ],\n  '
     + keyColumn(intermediateKey) + '[ \u2026 ]\n}';
   const namedModes = Object.entries(DIFFICULTIES)
-    .map(([name, d]) => modeKeyOf(d) + ' = ' + difficultyDisplayName(name))
+    .map(([name, d]) => boardKeyOf(d) + ' = ' + difficultyDisplayName(name))
     .join(', ');
   const exportNote = document.createElement('p');
-  exportNote.textContent = 'One list per board, keyed by its parameters (width\u00d7height/mines: '
-    + namedModes + '). Records sit in play order, wins and losses alike. The reserved '
+  exportNote.textContent = 'One list per board and play mode, keyed by width\u00d7height/mines@mode ('
+    + namedModes + '; modes: ' + PLAY_MODES.map((m) => m.id).join(', ')
+    + '). Keys without @ are Standard. Records sit in play order, wins and losses alike. The reserved '
     + '"settings" key carries the settings panel\u2019s switches; importing applies them '
     + '(absent on exports from before 2026-08-20).';
   exportBlock.append(pre, exportNote);
@@ -3932,8 +4272,58 @@ buildLcd(mineCounter);
 buildLcd(timerDisplay);
 buildFormatPanel();
 
+function buildPlayModeSwitcher() {
+  const select = document.getElementById('play-mode-select');
+  select.textContent = '';
+  for (const mode of PLAY_MODES) {
+    const option = document.createElement('option');
+    option.value = mode.id;
+    option.textContent = mode.label;
+    select.appendChild(option);
+  }
+  select.value = settings.playMode;
+  select.addEventListener('change', () => setPlayMode(select.value));
+}
+
+function setPlayMode(id) {
+  if (!PLAY_MODE_IDS.has(id)) throw new Error('unknown play mode ' + id);
+  if (id === settings.playMode) return;
+  if (settings.playMode === 'trial' && trialIsActive()) endTrial('quit');
+  settings.playMode = id;
+  if (id !== 'trial') holdTrialAfterEnd = false;
+  saveSettings();
+  document.getElementById('play-mode-select').value = id;
+  newGame();
+  if (lastTrialReview && lastTrialReview.endedHow === 'quit') {
+    renderTrialReview(lastTrialReview);
+  }
+}
+
+function syncDifficultyTabs() {
+  let matched = 'custom';
+  for (const [name, d] of Object.entries(DIFFICULTIES)) {
+    if (d.width === config.width && d.height === config.height && d.mines === config.mines) {
+      matched = name;
+      break;
+    }
+  }
+  for (const tab of document.querySelectorAll('#difficulty-tabs a')) {
+    tab.classList.toggle('active', tab.dataset.difficulty === matched);
+  }
+  customForm.hidden = matched !== 'custom';
+}
+
 function init() {
   buildSettingsPanel();
+  buildPlayModeSwitcher();
   renderStates();
+  if (settings.playMode === 'trial' && trialSession && trialSession.endedHow === null) {
+    config = {
+      width: trialSession.width,
+      height: trialSession.height,
+      mines: trialSession.mines,
+    };
+    syncDifficultyTabs();
+  }
   newGame();
 }

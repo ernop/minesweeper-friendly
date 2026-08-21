@@ -2,9 +2,10 @@
 
 **Play now: https://ernop.github.io/minesweeper-friendly/**
 
-Minesweeper variant project. Current contents: a clone of minesweeper.online's
-standard mode. Planned: friendlier variants along the solver-aware design axis
-(see `agents.md`).
+Minesweeper variant project. Standard first-click-safe play, plus Uniform NG,
+Single-path NG, Proof-or-die, Angelic, and a 100-game Trial of 25 hidden
+boards shown four times each under random flips and rotations. The Mode menu
+is in the upper right; each mode keeps its own rankings.
 
 ![A won Beginner game: stats beside the board, rank charts and streak lists below](promo/win-screen-2026-08-19-full-layout.png)
 
@@ -25,6 +26,7 @@ then http://localhost:8018/
 - Left click on a satisfied number: chord (open all unflagged neighbors)
 - Face button or space bar: new game
 - Tabs: Beginner 9x9/10 (default), Intermediate 16x16/40, Expert 30x16/99, Custom
+- Upper-right Mode menu: Standard, Uniform NG, Single-path NG, Proof-or-die, Angelic, Trial
 
 ## Play history
 
