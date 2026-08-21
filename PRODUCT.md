@@ -81,8 +81,9 @@ Beginner Standard win never appears on Beginner Uniform NG lists.
   the finished board stays; the titlebar (or space) deals the next
   one. A restart before that game is finished skips the current slot
   and deals the next item. When the last game finishes, the board
-  disappears. Only the review and the choice to start another or
-  change mode remain. Start another trial stays inert for a short
+  disappears. A centered header holds the session line, the memory
+  verdict, and Start another trial; the meeting-index summary is a
+  full-width row under that; per-board cards wrap below. Start another trial stays inert for a short
   moment so a trailing click cannot begin a new session. Leaving the
   mode or changing size while a session is running ends it; that
   review is not kept. Justice follows the user setting (default on).
@@ -319,10 +320,18 @@ guess in the game exceeded the enumerator budget): `guesses`,
   even p cannot be measured the whole ledger is omitted.
 
 A live chip (olive, in the Justice stack) prints the raw p and either
-`ideal`, `justice`, or the needless extra. NG / proof-or-die / angelic
-games still record the counterfactual odds of an unproven click;
-rankings stay per play mode, so a Standard guess ledger is never
-compared to an Angelic one.
+`ideal`, `justice`, or the needless extra; its hover text names the
+reason (a provably safe square was available, or the safest square's
+odds). The ledger exists only where the standard mine gamble is real:
+Standard, the Trial modes, and the NG modes (their mines still kill).
+Angelic records no ledger — an unproven click there cannot kill, so a
+risk chip would be fiction — and neither does Proof-or-die, where an
+unproven click is a deterministic death, not a probability. Absence of
+the fields on those modes means "not measured", the usual rule. A
+scoring failure never blocks the reveal: it announces in the backup
+status line and omits that game's ledger. The odds engine is held to
+ground truth by a brute-force parity test (every consistent layout
+enumerated on small random boards; probabilities must match exactly).
 
 Seed — every new board receives a cryptographically generated 128-bit seed.
 `xoshiro128ss-v1` expands it into the one deterministic random stream used

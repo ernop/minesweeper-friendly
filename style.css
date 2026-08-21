@@ -70,6 +70,10 @@ main {
 
 /*-------GAME FRAME (classic chrome)-------*/
 
+body.trial-offboard #game-frame {
+  display: none !important;
+}
+
 #game-frame {
   display: inline-block;
   background: var(--silver);
@@ -398,15 +402,38 @@ main {
   margin: 0;
 }
 
+#trial-verdict {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 15px;
+  font-weight: normal;
+  color: #333333;
+  line-height: 1.45;
+  white-space: normal;
+  margin: 12px 0 0;
+}
+
+body.trial-offboard #result-ranks {
+  max-width: 1100px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
 .trial-session-summary {
-  flex-basis: 100%;
+  flex: 0 0 100%;
   width: 100%;
-  max-width: 520px;
-  margin: 0 auto 8px;
+  max-width: none;
+  box-sizing: border-box;
+  margin: 0 0 20px;
   text-align: left;
   font-family: Arial, Helvetica, sans-serif;
   font-weight: normal;
   color: #333333;
+}
+
+.trial-session-summary > * {
+  max-width: 36em;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .trial-meet-table {

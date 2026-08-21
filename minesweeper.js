@@ -424,11 +424,15 @@ function syncTrialBoardVisibility(phase) {
   const hide = phase === 'lobby' || phase === 'review';
   document.getElementById('game-frame').hidden = hide;
   gameArea.classList.toggle('trial-no-board', hide);
+  document.body.classList.toggle('trial-offboard', hide);
+  resultsBox.hidden = hide;
+  if (hide) resultRanks.style.removeProperty('--result-overflow');
 }
 
 function renderTrialChrome() {
   const stage = document.getElementById('trial-stage');
   const copy = document.getElementById('trial-copy');
+  const verdict = document.getElementById('trial-verdict');
   const btn = document.getElementById('trial-start-btn');
   const box = document.getElementById('trial-progress');
   const phase = trialPhase();
@@ -436,6 +440,7 @@ function renderTrialChrome() {
   if (phase === 'none') {
     clearTrialStartArm();
     stage.hidden = true;
+    verdict.hidden = true;
     box.hidden = true;
     box.textContent = '';
     return;
@@ -443,6 +448,7 @@ function renderTrialChrome() {
   if (phase === 'playing') {
     clearTrialStartArm();
     stage.hidden = true;
+    verdict.hidden = true;
     box.hidden = false;
     box.textContent = '';
     const label = document.createElement('span');
@@ -464,6 +470,8 @@ function renderTrialChrome() {
     clearTrialStartArm();
     copy.hidden = false;
     copy.textContent = trialKindCopy(settings.playMode);
+    verdict.hidden = true;
+    verdict.textContent = '';
     btn.hidden = false;
     btn.disabled = false;
     btn.textContent = 'start trial';
@@ -472,16 +480,13 @@ function renderTrialChrome() {
     resultRanks.textContent = '';
     return;
   }
-  copy.hidden = true;
-  copy.textContent = '';
   btn.textContent = 'start another trial';
-  btn.hidden = true;
+  btn.hidden = false;
   btn.disabled = true;
   clearTrialStartArm();
   trialStartArmTimer = setTimeout(() => {
     trialStartArmTimer = null;
     if (trialPhase() !== 'review') return;
-    btn.hidden = false;
     btn.disabled = false;
   }, TRIAL_START_ARM_MS);
   if (lastTrialReview) renderTrialReview(lastTrialReview);
@@ -536,7 +541,7 @@ function revealCell(index) {
     firstReveal = true;
   }
 
-  if (!firstReveal) noteGuess(index);
+  if (!firstReveal && guessLedgerAppliesToMode()) noteGuess(index);
 
   if (settings.playMode === 'proof-or-die' && !firstReveal) {
     if (!Solver.isProvenSafe(playerView(), index)) {
@@ -764,6 +769,17 @@ function announceJustice(certificate) {
   justiceLive.appendChild(word);
 }
 
+// The guess ledger only exists where the standard mine gamble is real.
+// Angelic cannot kill an unproven click (risk chips there would be
+// fiction), and proof-or-die kills unproven clicks deterministically —
+// neither is a probabilistic guess against hidden mines.
+function guessLedgerAppliesToMode() {
+  return settings.playMode === 'standard'
+    || settings.playMode === 'uniform-ng'
+    || settings.playMode === 'single-path-ng'
+    || Trial.isPlayMode(settings.playMode);
+}
+
 function noteGuess(index) {
   let event;
   try {
@@ -771,8 +787,11 @@ function noteGuess(index) {
       considerJustice: justiceEnabledForGame === true,
     });
   } catch (err) {
+    // A scoring failure must never block the reveal: announce, omit
+    // this game's ledger, and let the click proceed.
     backupStatus.textContent = 'guess odds failed: ' + err.message;
-    throw err;
+    oddsFailed = true;
+    return;
   }
   if (event === null) return;
   if (!event.measured) {
@@ -795,9 +814,11 @@ function announceGuess(event) {
     ? ('Guess: ' + (event.p * 100).toFixed(1) + '% death, the lowest '
       + 'available risk'
       + (event.perfectPlay ? ', and the best expected remaining life' : ''))
-    : ('Guess: ' + (event.p * 100).toFixed(1) + '% death; the safest cell '
-      + 'was ' + (event.minP * 100).toFixed(1) + '% (needless '
-      + event.lifeNeedless.toFixed(3) + ')');
+    : ('Guess: ' + (event.p * 100).toFixed(1) + '% death; '
+      + (event.minP <= 1e-9
+        ? 'a provably safe square was available'
+        : 'the safest square was ' + (event.minP * 100).toFixed(1) + '%')
+      + ' (needless ' + event.lifeNeedless.toFixed(3) + ')');
   justiceLive.appendChild(word);
 }
 
@@ -858,7 +879,7 @@ function reportResult(outcome) {
     largestIsland: shape.largestIsland,
     playMode: settings.playMode,
   };
-  if (!oddsFailed) {
+  if (!oddsFailed && guessLedgerAppliesToMode()) {
     record.guesses = guessEvents.length;
     record.guessIdealRisk = guessEvents.filter((e) => e.idealRisk).length;
     record.guessNonideal = guessEvents.filter((e) => !e.idealRisk).length;
@@ -1025,7 +1046,7 @@ const GAME_RECORD_SCHEMA = [
   { field: 'transform', valid: (v) => v === undefined || typeof v === 'string', example: '"rot90"', describe: 'isometry applied to the trial identity for this presentation' },
   { field: 'trialStartedAt', valid: (v) => v === undefined || isNumber(v), example: '1787201223496', describe: 'when the enclosing trial session began' },
   { field: 'givenOpening', valid: (v) => v === undefined || typeof v === 'boolean', example: 'false', describe: 'whether this trial presentation started with a predetermined cell already opened; absent on earlier trial games (those were given an opening)' },
-  { field: 'guesses', valid: (v) => v === undefined || isNumber(v), example: '2', describe: 'bare clicks into cells with p(mine) > 0; a zero-risk cell is not a guess even if local deduction had not marked it; absent when odds could not be measured or on games recorded before 2026-08-21' },
+  { field: 'guesses', valid: (v) => v === undefined || isNumber(v), example: '2', describe: 'bare clicks into cells with p(mine) > 0; a zero-risk cell is not a guess even if local deduction had not marked it; absent when odds could not be measured, in modes without a real mine gamble (angelic, proof-or-die), or on games recorded before 2026-08-21' },
   { field: 'guessIdealRisk', valid: (v) => v === undefined || isNumber(v), example: '1', describe: 'guesses that chose a lowest-available death risk; absent with guesses' },
   { field: 'guessNonideal', valid: (v) => v === undefined || isNumber(v), example: '1', describe: 'guesses that chose a cell riskier than the safest available; absent with guesses' },
   { field: 'guessPerfect', valid: (v) => v === undefined || isNumber(v), example: '1', describe: 'guesses that maximized one-ply expected remaining life (survival times leftover min-risk after the number you would see); absent with guesses' },
@@ -1889,15 +1910,17 @@ function identityStartsOpen(group, playedCount) {
 
 function renderTrialReview(session) {
   const summary = Trial.sessionSummary(session);
-  resultSummary.textContent = playModeLabel(session.playMode || 'trial')
+  const copy = document.getElementById('trial-copy');
+  const verdict = document.getElementById('trial-verdict');
+  copy.hidden = false;
+  copy.textContent = playModeLabel(session.playMode || 'trial')
     + ' ' + (session.endedHow === 'completed' ? 'complete' : 'ended')
     + '\n' + session.width + 'x' + session.height + '/' + session.mines
     + '\n' + session.results.length + ' / ' + Trial.gameCount(session);
-  resultStats.textContent = '';
-  const verdict = document.createElement('p');
-  verdict.className = 'trial-verdict';
+  verdict.hidden = false;
   verdict.textContent = trialMemoryCopy(summary);
-  resultStats.appendChild(verdict);
+  resultSummary.textContent = '';
+  resultStats.textContent = '';
   resultRanks.textContent = '';
   appendTrialSessionSummary(resultRanks, summary);
   const pendingOverlays = [];

@@ -179,6 +179,104 @@ console.log('proven safe is not a guess');
   check('already revealed is not a guess', Odds.scoreGuess(board.view, board.at(0, 0)) === null);
 }
 
+console.log('brute-force parity: engine odds match exhaustive enumeration');
+{
+  // Ground truth: enumerate every mine placement consistent with the
+  // view and count, per covered cell, the fraction that mine it. The
+  // engine's component-plus-sea factoring must reproduce it exactly.
+  function lcg(seed) {
+    let s = seed >>> 0;
+    return () => {
+      s = (s * 1664525 + 1013904223) >>> 0;
+      return s / 4294967296;
+    };
+  }
+
+  function bruteForce(view) {
+    const n = view.width * view.height;
+    const covered = [];
+    for (let i = 0; i < n; i++) if (!view.revealed[i]) covered.push(i);
+    const mineCount = new Array(n).fill(0);
+    let total = 0;
+    const pick = [];
+    function consistent(mineSet) {
+      for (let i = 0; i < n; i++) {
+        if (!view.revealed[i]) continue;
+        let c = 0;
+        for (const nb of Justice.neighbors(i, view.width, view.height)) {
+          if (mineSet.has(nb)) c++;
+        }
+        if (c !== view.adjacent[i]) return false;
+      }
+      return true;
+    }
+    function rec(start, left) {
+      if (left === 0) {
+        if (!consistent(new Set(pick))) return;
+        total++;
+        for (const c of pick) mineCount[c]++;
+        return;
+      }
+      for (let k = start; k <= covered.length - left; k++) {
+        pick.push(covered[k]);
+        rec(k + 1, left - 1);
+        pick.pop();
+      }
+    }
+    rec(0, view.mines);
+    return { total, p: mineCount.map((c) => c / total) };
+  }
+
+  function randomView(rng, w, h, m, clicks) {
+    const n = w * h;
+    const mine = new Array(n).fill(false);
+    const pool = [...Array(n).keys()];
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    for (let k = 0; k < m; k++) mine[pool[k]] = true;
+    const adj = mine.map((mm, i) => (mm ? 0
+      : Justice.neighbors(i, w, h).filter((x) => mine[x]).length));
+    const revealed = new Array(n).fill(false);
+    const safes = [...Array(n).keys()].filter((i) => !mine[i]);
+    for (let c = 0; c < clicks; c++) {
+      const stack = [safes[Math.floor(rng() * safes.length)]];
+      while (stack.length) {
+        const i = stack.pop();
+        if (revealed[i] || mine[i]) continue;
+        revealed[i] = true;
+        if (adj[i] === 0) {
+          for (const nb of Justice.neighbors(i, w, h)) {
+            if (!revealed[nb] && !mine[nb]) stack.push(nb);
+          }
+        }
+      }
+    }
+    return { width: w, height: h, mines: m, revealed, adjacent: adj };
+  }
+
+  const rng = lcg(12345);
+  let cases = 0;
+  let mismatches = 0;
+  for (let t = 0; t < 200; t++) {
+    const w = 4 + Math.floor(rng() * 2);
+    const m = 3 + Math.floor(rng() * 3);
+    const view = randomView(rng, w, 4, m, 1 + Math.floor(rng() * 2));
+    const truth = bruteForce(view);
+    if (truth.total === 0) continue;
+    const odds = Odds.analyzeView(view);
+    if (!odds.measured) continue;
+    cases++;
+    for (let i = 0; i < view.width * view.height; i++) {
+      if (view.revealed[i]) continue;
+      if (Math.abs(odds.pMine[i] - truth.p[i]) > 1e-9) mismatches++;
+    }
+  }
+  check('at least 150 random positions compared (' + cases + ')', cases >= 150);
+  check('every covered-cell probability matches ground truth', mismatches === 0);
+}
+
 console.log('binom');
 {
   check('C(5,2)=10', Odds.binom(5, 2) === 10);

@@ -327,15 +327,23 @@ Implementation notes:
   consistent layouts on residual clue components (budget 22 vars /
   250000 visits) plus a binomial sea, then scores a bare unproven click.
   `noteGuess` runs from `revealCell` after the first-click path and
-  before Justice / proof-or-die / angelic, so the p is the player's
+  before Justice, gated by `guessLedgerAppliesToMode()` (standard,
+  trial modes, uniform/single-path NG — modes where hidden mines
+  really kill; angelic and proof-or-die record nothing, their ledger
+  fields stay absent), so the p is the player's
   information, not the post-mercy board. Proven-safe clicks and clicks
   with enumerated p(mine) = 0 return null (not a guess). Over-budget returns `{measured: false}` and
   `oddsFailed` omits the whole ledger from that record — no invented
-  odds.   `scoreGuess` stores absolute p (`lifeLost`), excess over min p
+  odds; a thrown scoring error does the same and never blocks the
+  reveal. `scoreGuess` stores absolute p (`lifeLost`), excess over min p
   (`lifeNeedless`), `idealRisk`, and one-ply expected remaining life
   (`perfectPlay`). A covered proven-safe cell makes min p 0, so any
-  guess is fully needless. Live chips (`.guess-live-word`) stack in
-  `#justice-live`. `node tests/odds-test.js`.
+  guess is fully needless; the chip's hover names which case applied.
+  Live chips (`.guess-live-word`) stack in
+  `#justice-live`. `node tests/odds-test.js` includes a seeded
+  brute-force parity section: on random small boards every consistent
+  layout is enumerated and `analyzeView` probabilities must match it
+  exactly.
 - Play modes (PRODUCT.md "Play modes"): `settings.playMode` plus history
   key `WxH/M@id`. `solver.js` grades NG boards (`analyze` /
   `generate`) and decides proof-or-die / angelic clicks. `trial.js`
