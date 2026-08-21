@@ -153,6 +153,23 @@ console.log('a proven safe makes any guess needless');
   check('not perfect', guess.perfectPlay === false);
 }
 
+console.log('enumeration-safe is not a guess');
+{
+  // One mine in the 50/50 at col 2. The two cells behind it are sea
+  // with zero mines left — p=0 even if proveFacts does not mark them.
+  const board = makeBoard([
+    '..*##',
+    '..###',
+  ]);
+  const sea = board.at(4, 0);
+  const fifty = board.at(2, 0);
+  const odds = Odds.analyzeView(board.view);
+  check('sea p is 0', close(odds.pMine[sea], 0));
+  check('50/50 is still a guess', Odds.scoreGuess(board.view, fifty) !== null);
+  check('clicking the zero-risk sea is not a guess',
+    Odds.scoreGuess(board.view, sea) === null);
+}
+
 console.log('proven safe is not a guess');
 {
   const board = makeBoard([

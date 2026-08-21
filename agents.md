@@ -258,7 +258,10 @@ Implementation notes:
   x-ticks), `idealLine` (y = x dashed floor).
 - Layout: `#results` (summary + `#stats-grid` only) is absolutely
   positioned off `#game-area`; `#result-ranks` is normal flow below.
-  `html { scrollbar-gutter: stable }` protects board centering.
+  `syncResultClearance` sets `--result-overflow` on `#result-ranks` to
+  the pixel overhang of the stats table below the board so the lists
+  start clear of it. `html { scrollbar-gutter: stable }` protects board
+  centering.
 - Personal settings (PRODUCT.md "Personal settings"): the RAM `settings`
   object (userdata 'settings', filled by `loadUserdata` via
   `settingsFrom`, which fills absent fields from `SETTINGS_SCHEMA`
@@ -325,8 +328,8 @@ Implementation notes:
   250000 visits) plus a binomial sea, then scores a bare unproven click.
   `noteGuess` runs from `revealCell` after the first-click path and
   before Justice / proof-or-die / angelic, so the p is the player's
-  information, not the post-mercy board. Proven-safe clicks return null
-  (not a guess). Over-budget returns `{measured: false}` and
+  information, not the post-mercy board. Proven-safe clicks and clicks
+  with enumerated p(mine) = 0 return null (not a guess). Over-budget returns `{measured: false}` and
   `oddsFailed` omits the whole ledger from that record — no invented
   odds.   `scoreGuess` stores absolute p (`lifeLost`), excess over min p
   (`lifeNeedless`), `idealRisk`, and one-ply expected remaining life

@@ -128,8 +128,24 @@ const timerDisplay = document.getElementById('timer');
 const resultSummary = document.getElementById('result-summary');
 const resultStats = document.getElementById('result-stats');
 const resultRanks = document.getElementById('result-ranks');
+const gameArea = document.getElementById('game-area');
+const resultsBox = document.getElementById('results');
 const customForm = document.getElementById('custom-form');
 const justiceLive = document.getElementById('justice-live');
+
+// #results is out of flow so it cannot move the board. If the table is
+// taller than the board, the lists below shift down by the overhang.
+function syncResultClearance() {
+  if (gameArea.classList.contains('trial-no-board')) {
+    resultRanks.style.removeProperty('--result-overflow');
+    return;
+  }
+  const extra = Math.max(0,
+    Math.ceil(resultsBox.getBoundingClientRect().bottom
+      - gameArea.getBoundingClientRect().bottom));
+  if (extra > 0) resultRanks.style.setProperty('--result-overflow', extra + 'px');
+  else resultRanks.style.removeProperty('--result-overflow');
+}
 
 //-------LCD DISPLAYS-------
 
@@ -292,6 +308,7 @@ function newGame() {
   resultSummary.textContent = '';
   resultStats.textContent = '';
   resultRanks.textContent = '';
+  syncResultClearance();
   if (Trial.isPlayMode(settings.playMode) && trialIsActive()) setupTrialBoard();
   else trialPresentation = null;
   refreshSettingsPanel();
@@ -406,7 +423,7 @@ function abandonTrial() {
 function syncTrialBoardVisibility(phase) {
   const hide = phase === 'lobby' || phase === 'review';
   document.getElementById('game-frame').hidden = hide;
-  document.getElementById('game-area').classList.toggle('trial-no-board', hide);
+  gameArea.classList.toggle('trial-no-board', hide);
 }
 
 function renderTrialChrome() {
@@ -964,6 +981,7 @@ function renderResult(record, modeRecords) {
     resultRanks.appendChild(brk);
     for (const chart of buildMotionStatsCharts()) resultRanks.appendChild(chart);
   }
+  syncResultClearance();
 }
 
 //-------PLAY HISTORY (every finished game kept per mode)-------
@@ -1007,7 +1025,7 @@ const GAME_RECORD_SCHEMA = [
   { field: 'transform', valid: (v) => v === undefined || typeof v === 'string', example: '"rot90"', describe: 'isometry applied to the trial identity for this presentation' },
   { field: 'trialStartedAt', valid: (v) => v === undefined || isNumber(v), example: '1787201223496', describe: 'when the enclosing trial session began' },
   { field: 'givenOpening', valid: (v) => v === undefined || typeof v === 'boolean', example: 'false', describe: 'whether this trial presentation started with a predetermined cell already opened; absent on earlier trial games (those were given an opening)' },
-  { field: 'guesses', valid: (v) => v === undefined || isNumber(v), example: '2', describe: 'bare clicks into cells that were not proven safe; 0 is a game with no guesses; absent when odds could not be measured or on games recorded before 2026-08-21' },
+  { field: 'guesses', valid: (v) => v === undefined || isNumber(v), example: '2', describe: 'bare clicks into cells with p(mine) > 0; a zero-risk cell is not a guess even if local deduction had not marked it; absent when odds could not be measured or on games recorded before 2026-08-21' },
   { field: 'guessIdealRisk', valid: (v) => v === undefined || isNumber(v), example: '1', describe: 'guesses that chose a lowest-available death risk; absent with guesses' },
   { field: 'guessNonideal', valid: (v) => v === undefined || isNumber(v), example: '1', describe: 'guesses that chose a cell riskier than the safest available; absent with guesses' },
   { field: 'guessPerfect', valid: (v) => v === undefined || isNumber(v), example: '1', describe: 'guesses that maximized one-ply expected remaining life (survival times leftover min-risk after the number you would see); absent with guesses' },
@@ -4688,6 +4706,7 @@ document.addEventListener('scroll', () => {
 });
 window.addEventListener('resize', () => {
   if (tracing()) recordLayout();
+  syncResultClearance();
 });
 
 function requestNewGame() {

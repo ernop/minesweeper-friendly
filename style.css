@@ -681,7 +681,7 @@ main {
   justify-content: center;
   align-items: flex-start;
   gap: 18px;
-  margin-top: 8px;
+  margin-top: calc(8px + var(--result-overflow, 0px));
   font-size: 13px;
   color: #666666;
   font-family: "Arial Black", "Arial Bold", Arial, sans-serif;

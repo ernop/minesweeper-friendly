@@ -5,7 +5,7 @@ if (typeof Justice === 'undefined') {
 }
 
 // Remaining-layout odds for a player view. Used to score a bare click
-// into a cell that is not proven safe: absolute multiverse life lost
+// into a cell with p(mine) > 0: absolute multiverse life lost
 // (the cell's mine probability), needless life lost (excess over the
 // safest available click), and a one-ply expected-remaining-life score
 // so a slightly riskier but more informative click can beat a safer
@@ -288,7 +288,8 @@ function justiceWouldSave(view, cell) {
 }
 
 // Score a bare click into `clicked`. Returns null when the click is not
-// a guess (proven safe) or when odds cannot be measured.
+// a guess: already revealed, locally proven safe, or p(mine) is 0 in
+// every remaining layout (the local prover was just incomplete).
 function scoreGuess(view, clicked, opts) {
   opts = opts || {};
   if (view.revealed[clicked]) return null;
@@ -299,6 +300,7 @@ function scoreGuess(view, clicked, opts) {
   if (!odds.measured) return { measured: false };
 
   const p = odds.pMine[clicked];
+  if (!(p > 1e-12)) return null;
   const minP = minRisk(odds);
   const lifeNeedless = Math.max(0, p - minP);
   const idealRisk = !odds.provenSafeOpen && p <= minP + 1e-12;

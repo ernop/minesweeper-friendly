@@ -181,7 +181,9 @@ minted specifically for them.
   vertically centered against the frame, 320px wide. They appear and
   disappear without occupying layout space.
 - Everything else (rank lists, rankaverages, streaks, scatter plots) sits
-  below the board in normal flow.
+  below the board in normal flow. If the stats table is taller than the
+  board, those lists shift down by the overhang so they never sit under
+  the table; the board does not move.
 - The scrollbar gutter is always reserved so a tall results area cannot
   change the viewport width and nudge the centered board.
 - The results area echoes the in-game numeral face (Arial Black stack).
@@ -282,8 +284,11 @@ shows the row when the field exists. `justiceEnabled` records the setting
 state frozen at the first reveal so the rules of the game remain knowable,
 although rankings deliberately continue mixing both states for now.
 
-Guess ledger — on every bare click into a cell that is not proven safe
-(not the first click, never a chord), the remaining consistent layouts
+Guess ledger — on every bare click into a cell whose remaining-layout
+mine probability is greater than zero (not the first click, never a
+chord). A cell that is safe in every consistent layout is not a guess,
+even if local deduction had not yet marked it; clicking it is not
+wrong and does not print a chip. The remaining consistent layouts
 are enumerated and the click is scored. Stored per game (joined
 2026-08-21, same absence rules as wasted clicks; omitted entirely if any
 guess in the game exceeded the enumerator budget): `guesses`,
