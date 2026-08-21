@@ -242,10 +242,6 @@ function newGame() {
         || trialSessionPlayMode() !== settings.playMode)) {
     abandonTrial();
   }
-  if (Trial.isPlayMode(settings.playMode) && !trialIsActive() && !trialReviewMatches()) {
-    startTrial();
-    return;
-  }
   syncTrialBoardVisibility(trialPhase());
   gameState = 'ready';
   minesPlaced = false;
@@ -348,6 +344,16 @@ function startTrial() {
   newGame();
 }
 
+function trialKindCopy(id) {
+  const kind = Trial.kindOf(id);
+  const games = kind.identities * kind.repeats;
+  return playModeLabel(id) + '\n\n'
+    + kind.identities + ' board' + (kind.identities === 1 ? '' : 's')
+    + ', each in ' + kind.repeats + ' orientations (' + games + ' games).\n'
+    + 'Same logical maps, different flips and rotations.\n'
+    + 'You choose the first click. These games do not count toward Standard.';
+}
+
 function playModeOfTrial(session) {
   return session.playMode === undefined ? 'trial' : session.playMode;
 }
@@ -374,7 +380,7 @@ function trialPhase() {
   if (!Trial.isPlayMode(settings.playMode)) return 'none';
   if (trialIsActive()) return 'playing';
   if (trialReviewMatches()) return 'review';
-  return 'idle';
+  return 'lobby';
 }
 
 function trialBlocksPlay() {
@@ -398,7 +404,7 @@ function abandonTrial() {
 }
 
 function syncTrialBoardVisibility(phase) {
-  const hide = phase === 'review';
+  const hide = phase === 'lobby' || phase === 'review';
   document.getElementById('game-frame').hidden = hide;
   document.getElementById('game-area').classList.toggle('trial-no-board', hide);
 }
@@ -434,16 +440,21 @@ function renderTrialChrome() {
     box.append(label, quit);
     return;
   }
-  if (phase !== 'review') {
-    clearTrialStartArm();
-    stage.hidden = true;
-    box.hidden = true;
-    box.textContent = '';
-    return;
-  }
   box.hidden = true;
   box.textContent = '';
   stage.hidden = false;
+  if (phase === 'lobby') {
+    clearTrialStartArm();
+    copy.hidden = false;
+    copy.textContent = trialKindCopy(settings.playMode);
+    btn.hidden = false;
+    btn.disabled = false;
+    btn.textContent = 'start trial';
+    resultSummary.textContent = '';
+    resultStats.textContent = '';
+    resultRanks.textContent = '';
+    return;
+  }
   copy.hidden = true;
   copy.textContent = '';
   btn.textContent = 'start another trial';
@@ -4680,7 +4691,7 @@ window.addEventListener('resize', () => {
 });
 
 function requestNewGame() {
-  if (trialPhase() === 'review') return;
+  if (trialPhase() === 'lobby' || trialPhase() === 'review') return;
   if (trialIsActive() && trialPresentation !== null
       && gameState !== 'won' && gameState !== 'lost') {
     Trial.skipPresentation(trialSession);
