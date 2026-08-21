@@ -31,8 +31,9 @@ then http://localhost:8018/
 Every finished game, win or loss, is kept per mode in the browser's
 IndexedDB (loaded into RAM at startup; persisted asynchronously). Each
 record stores only the primary measurements — end date, outcome, time, 3BV,
-clicks, and mouse path (total cursor distance in px from first click to game
-end); derived stats (3BV/s, efficiency, mouse speed, and the rest) are
+clicks, mouse path (total cursor distance in px from first click to game
+end), and the finished board's max number, sevens, zeros, and mine
+islands; derived stats (3BV/s, efficiency, mouse speed, and the rest) are
 computed at display time. After each win the result panel shows the full
 stats plus one ranked-list column per time window. Day-and-longer windows anchor to your
 local calendar: "today" since last midnight, "past week" since midnight six
@@ -46,6 +47,9 @@ themselves gradually: a chart only appears once it would actually differ —
 if every game you've played was today, "this month" and "lifetime" would
 just repeat "today", so they stay hidden until your history spreads out
 enough to make them distinct.
+After a win there are also lists for boards that match this one's 3BV,
+highest number (has an 8, has a 7, or no number above 4 / 3 / 2),
+mine-island count, largest mine-island, and zero count.
 Rankaverage charts group your wins by efficiency, clicks, 3BV, 3BV/s
 (2 decimals), mouse path (nearest 100px), and mouse speed (nearest 10px/s),
 ranked by each group's average solve time; every row shows the rank, the value, the group's average time,

@@ -148,7 +148,9 @@ time and segment anchoring").
 Recorded per finished game, win or loss, primary measurements only: end
 date, outcome, time (ms precision, shown as seconds to 3 decimals), 3BV,
 clicks, wasted clicks, flags placed, flags removed, mouse path (px of
-cursor travel, accumulated only while the game is in progress). The stored click count includes only
+cursor travel, accumulated only while the game is in progress), and
+the finished-board shape facts (max number, whether a 7 is present,
+zero count, island count, largest island). The stored click count includes only
 clicks that changed the board (reveals, flags, chords). Everything else is
 derived at display time: 3BV/s (4 decimals), clicks over 3BV (clicks minus
 3BV; wins only — a lost board was never finished, so the subtraction means
@@ -208,6 +210,14 @@ because redraws consume the stream only when the player's path triggers
 them. A bare seed without those version names is not claimed to be a
 permanent replay format.
 
+Board shape — facts of the finished mine layout, joined the schema on
+2026-08-21 under the same absence rules: `maxAdjacent` (highest number
+on the board), `hasSeven`, `zeroCount` (cells with adjacent-mine count
+0), `islandCount` (8-connected mine components, diagonals included,
+edges empty), `largestIsland` (mine count in the largest component).
+The stats table shows max number, zeros, islands, and largest island
+when the fields exist. They feed the board-shape time lists.
+
 States — the player's state tags active at the moment the game finished
 (see "Player states" below) — joined the schema on 2026-08-20. Every game
 recorded from now on carries the field (an empty list when nothing was
@@ -262,6 +272,21 @@ carries at least one tag.
 - Also one non-window list: "3BV N" — every win
   whose board had exactly this game's 3BV, the fairest time comparison
   (2026-08-20). Same row format as the window lists.
+- Board-shape lists (2026-08-21), same row format, over timed wins of
+  this mode whose finished board (after any Justice redraw) matches this
+  game. Measured at game end and stored: `maxAdjacent`, `hasSeven`,
+  `zeroCount`, `islandCount`, `largestIsland`. Absence on earlier
+  records means not measured; those games stay off these lists.
+  - "has 8" / "has 7" — at least one cell with that number.
+  - "max 4" / "max 3" / "max 2" — no number higher than that cap.
+    Nested; a max-2 board also qualifies for max 3 and max 4.
+  - "N islands" — 8-connected mine components (diagonals count, edges
+    empty, no wrap).
+  - "largest island N" — mine count in the largest such component.
+  - "N zeros" — cells whose adjacent-mine count is 0.
+  Progressive disclosure uses the same setting as the window charts:
+  identical member sets keep the most specific list (has 8, has 7,
+  max 2, then max 3, then max 4, then the grouping lists).
 - Row format: rank, time, relative age. Headings carry only the window
   name; the rank fraction lives in the chart itself — your row's "#x"
   plus an "of N" footer line, shown only when rows are actually cut off

@@ -31,6 +31,10 @@ The design axis mapped so far, ordered by who bears the burden of ambiguity:
 The repo name points at entry 7 and its neighbors: variants friendlier than
 standard play.
 
+Unbuilt work lives in one file: [BACKLOG.md](BACKLOG.md). That is the
+place for generation ideas, deferred product, and requested rank lists
+that are not in the game yet. Do not leave new ideas only in chat.
+
 Solver logic tiers (what "solvable" means): (a) trivial counting — number
 equals hidden or flagged neighbors; (b) subset subtraction between overlapping
 constraints — yields the named patterns 1-1, 1-2, 1-2-1, 1-2-2-1, reductions,
@@ -42,9 +46,9 @@ forced mine.
 
 ## State
 
-Runtime: `index.html` + `style.css` + pure `rng.js` / `justice.js` +
-`minesweeper.js`, no dependencies, no build step. Serve with
-`python3 -m http.server 8018`.
+Runtime: `index.html` + `style.css` + pure `rng.js` / `justice.js` /
+`board-shape.js` + `minesweeper.js`, no dependencies, no build step.
+Serve with `python3 -m http.server 8018`.
 
 **`PRODUCT.md` is the canonical spec of every product and UI decision**
 (board chrome, layout rules, rank lists, rankaverages, streaks, scatters,
@@ -73,7 +77,8 @@ Implementation notes:
   chronological array of game records, one per finished game:
   {endedAt, outcome: 'win'|'loss', timeMs, bv3, clicks, wastedClicks,
   flagsPlaced, flagsRemoved, mousePathPx, states, justice,
-  justiceEnabled, seed, rngVersion, boardVersion, justiceVersion} —
+  justiceEnabled, seed, rngVersion, boardVersion, justiceVersion,
+  maxAdjacent, hasSeven, zeroCount, islandCount, largestIsland} —
   primary measurements only
   (later-added fields may be absent on earlier records; see
   `GAME_RECORD_SCHEMA`). The mode key is the board parameters
@@ -226,7 +231,12 @@ Implementation notes:
   `windowBounds` (11-row windowing), `buildRankList` (shared renderer,
   always the full window), `relativeAge` / `formatAgeCount` + `.age-u-*`
   classes (age display and unit colors, shared with the scatter legend;
-  h/d/w/y counts are one decimal including .0).
+  h/d/w/y counts are one decimal including .0). Board-shape lists
+  (`has 8` / `has 7` / `max N` / `N islands` / `largest island N` /
+  `N zeros`) are built in `renderRanks` from the finished-board scalars
+  computed by `board-shape.js` (`BoardShape.of`) at `reportResult`.
+  `node tests/board-shape-test.js` freezes the neighborhood and island
+  rules.
 - Rankaverages: `RANKAVERAGE_SPECS` (bucketing per stat), `avgDelta`
   (sign/color convention; rendered as a final grid row whose text sits in
   the average-time column).
@@ -380,8 +390,10 @@ image. Keep it free of implementation detail.
 the board, charts below) is the README's screenshot.
 
 Friendly modes implemented so far: "A just universe" (2026-08-20; see
-PRODUCT.md and the implementation bullet above). NG generation is not yet
-implemented.
+PRODUCT.md and the implementation bullet above). Everything not built —
+NG and the rest of the design axis, board-shape time lists, deferred
+Justice ranking split, leftover motion work — is listed in
+[BACKLOG.md](BACKLOG.md).
 
 ## Reference material
 

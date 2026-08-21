@@ -474,7 +474,12 @@ function compute3BV() {
   return count;
 }
 
+function computeBoardShape() {
+  return BoardShape.of(config.width, config.height, cells.map((c) => c.mine));
+}
+
 function reportResult(outcome) {
+  const shape = computeBoardShape();
   const record = {
     endedAt: Date.now(),
     outcome: outcome,
@@ -492,6 +497,11 @@ function reportResult(outcome) {
     rngVersion: RNG_VERSION,
     boardVersion: BOARD_VERSION,
     justiceVersion: JUSTICE_VERSION,
+    maxAdjacent: shape.maxAdjacent,
+    hasSeven: shape.hasSeven,
+    zeroCount: shape.zeroCount,
+    islandCount: shape.islandCount,
+    largestIsland: shape.largestIsland,
   };
   const modeRecords = appendGameRecord(record);
   saveTrace(record);
@@ -524,6 +534,10 @@ function renderResult(record, modeRecords) {
   for (const [label, value, valueClass] of [
     ['Time', seconds.toFixed(3) + 's', isMarkless(record) ? 'markless-time' : ''],
     ['3BV', String(record.bv3)],
+    ...(record.maxAdjacent !== undefined ? [['Max number', String(record.maxAdjacent)]] : []),
+    ...(record.zeroCount !== undefined ? [['Zeros', String(record.zeroCount)]] : []),
+    ...(record.islandCount !== undefined ? [['Islands', String(record.islandCount)]] : []),
+    ...(record.largestIsland !== undefined ? [['Largest island', String(record.largestIsland)]] : []),
     ['3BV/s', bvPerSecond(record).toFixed(4)],
     ['Clicks', String(record.clicks)],
     ['Wasted clicks', String(record.wastedClicks)],
@@ -600,6 +614,11 @@ const GAME_RECORD_SCHEMA = [
   { field: 'rngVersion', valid: (v) => v === undefined || v === RNG_VERSION, example: '"' + RNG_VERSION + '"', describe: 'algorithm that turns seed into the game random stream; absent on earlier games' },
   { field: 'boardVersion', valid: (v) => v === undefined || v === BOARD_VERSION, example: '"' + BOARD_VERSION + '"', describe: 'first-click-safe board placement algorithm used with the seed; absent on earlier games' },
   { field: 'justiceVersion', valid: (v) => v === undefined || v === JUSTICE_VERSION, example: '"' + JUSTICE_VERSION + '"', describe: 'sealed-pocket certification and redraw contract; absent on earlier games' },
+  { field: 'maxAdjacent', valid: (v) => v === undefined || isNumber(v), example: '4', describe: 'highest adjacent-mine number on the finished board; absent on games recorded before 2026-08-21' },
+  { field: 'hasSeven', valid: (v) => v === undefined || typeof v === 'boolean', example: 'true', describe: 'whether the finished board contains at least one 7; absent on earlier games' },
+  { field: 'zeroCount', valid: (v) => v === undefined || isNumber(v), example: '41', describe: 'how many finished-board cells have adjacent-mine count 0; absent on earlier games' },
+  { field: 'islandCount', valid: (v) => v === undefined || isNumber(v), example: '6', describe: '8-connected mine components on the finished board (diagonals count, edges empty); absent on earlier games' },
+  { field: 'largestIsland', valid: (v) => v === undefined || isNumber(v), example: '5', describe: 'mine count in the largest 8-connected mine component; 0 if no mines; absent on earlier games' },
 ];
 
 // Records are grouped by mode key and kept in chronological order. The RAM
@@ -1278,6 +1297,77 @@ function renderRanks(record, modeRecords) {
     '3BV ' + record.bv3,
     sameBv.length, sameBv.indexOf(record), 'rank-grid',
     timeAgeRow(sameBv)));
+
+  // Board-shape time lists: this win's finished-board family only.
+  // Older wins that lack the measurement stay off the list. Nested
+  // filters (max 2 ⊂ max 3 ⊂ max 4) collapse under the same setting
+  // as the window charts, most specific first.
+  const shapeCandidates = [];
+  if (record.maxAdjacent === 8) {
+    shapeCandidates.push({
+      label: 'has 8',
+      specificity: 0,
+      rows: wins.filter((s) => s.maxAdjacent === 8),
+    });
+  }
+  if (record.hasSeven === true) {
+    shapeCandidates.push({
+      label: 'has 7',
+      specificity: 1,
+      rows: wins.filter((s) => s.hasSeven === true),
+    });
+  }
+  if (typeof record.maxAdjacent === 'number') {
+    for (const cap of [4, 3, 2]) {
+      if (record.maxAdjacent <= cap) {
+        shapeCandidates.push({
+          label: 'max ' + cap,
+          specificity: cap,
+          rows: wins.filter((s) => typeof s.maxAdjacent === 'number' && s.maxAdjacent <= cap),
+        });
+      }
+    }
+  }
+  if (typeof record.islandCount === 'number') {
+    shapeCandidates.push({
+      label: record.islandCount === 1 ? '1 island' : record.islandCount + ' islands',
+      specificity: 10,
+      rows: wins.filter((s) => s.islandCount === record.islandCount),
+    });
+  }
+  if (typeof record.largestIsland === 'number') {
+    shapeCandidates.push({
+      label: 'largest island ' + record.largestIsland,
+      specificity: 11,
+      rows: wins.filter((s) => s.largestIsland === record.largestIsland),
+    });
+  }
+  if (typeof record.zeroCount === 'number') {
+    shapeCandidates.push({
+      label: record.zeroCount === 1 ? '1 zero' : record.zeroCount + ' zeros',
+      specificity: 12,
+      rows: wins.filter((s) => s.zeroCount === record.zeroCount),
+    });
+  }
+  const shapeKept = new Set(shapeCandidates);
+  if (settings.collapseDuplicateCharts) {
+    const seenSets = new Set();
+    shapeKept.clear();
+    for (const c of [...shapeCandidates].sort((a, b) => a.specificity - b.specificity)) {
+      const signature = c.rows.map((s) => s.endedAt).join('|');
+      if (seenSets.has(signature)) continue;
+      seenSets.add(signature);
+      shapeKept.add(c);
+    }
+  }
+  for (const c of shapeCandidates) {
+    if (!shapeKept.has(c)) continue;
+    const inWindow = c.rows.slice().sort(byTimeThenEnd);
+    resultRanks.appendChild(buildRankList(
+      c.label,
+      inWindow.length, inWindow.indexOf(record), 'rank-grid',
+      timeAgeRow(inWindow)));
+  }
 
   for (const spec of RANKAVERAGE_SPECS) {
     resultRanks.appendChild(buildRankavgList(spec, record, wins));
