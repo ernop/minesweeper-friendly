@@ -53,13 +53,9 @@ enough to make them distinct.
 After a win there are also lists for boards that match this one's 3BV,
 highest number (has an 8, has a 7, or no number above 4 / 3 / 2),
 mine-island count, largest mine-island, and zero count.
-Rankaverage charts group your wins by efficiency, clicks, 3BV, 3BV/s
-(2 decimals), mouse path (nearest 100px), and mouse speed (nearest 10px/s),
-ranked by each group's average solve time; every row shows the rank, the value, the group's average time,
-and how many wins share it, with your group bolded. A colored final row,
-aligned under the average-time column, shows how this win moved its own
-group's average time: improved/worsened by how much, unchanged, or set for
-the first time.
+Average-time scatter plots group your wins by efficiency, clicks, 3BV,
+3BV/s (2 decimals), mouse path (nearest 100px), and mouse speed (nearest
+10px/s), then plot each value against its group's average solve time.
 The stats themselves (time, 3BV, 3BV/s, clicks, efficiency, correctness,
 throughput, IOS, mouse path,
 mouse speed, path per click, path per 3BV)
@@ -69,11 +65,10 @@ clicks (board clicks that changed nothing — recorded per game since
 recording rules; a zero-flag game earns the special status "markless",
 shown right in the row and as a small "(m)" before that game's time in
 every rank list) and, for wins, clicks over
-3BV (clicks beyond the board's minimum). At the bottom, ten small
+3BV (clicks beyond the board's minimum). At the bottom, seven small
 scatter plots chart every win: win time vs date, win time vs hour of day,
 3BV vs time, clicks vs 3BV (with the clicks = 3BV floor drawn in), wasted
-clicks vs 3BV/s, mouse path vs time, mouse speed vs time, mouse speed vs
-efficiency, path per click vs efficiency, and path per 3BV vs time — so
+clicks vs 3BV/s, mouse path vs time, and mouse speed vs time — so
 you can see whether moving faster actually wins games faster, and whether
 you're improving at all. Each axis carries a spelled-out label with
 units; dots are colored by how long ago each win was (same palette as the
@@ -85,8 +80,15 @@ and how long ago the streak's last win was; recorded losses split the
 streaks. Each list windows around your row, 11 rows max: when you rank in
 the top 11 the list simply shows the top 11 with your row in place;
 otherwise it centers on you with the 5 nearest entries either side. Rows
-show rank, time, and a relative age ("43s", "5m", "2.0w"; the brand-new score
+show rank (without a leading "#"), fixed-width time, and a relative age
+("43s", "5m", "2.0w"; the brand-new score
 says "just now").
+
+The home-page score buttons open the same full result view for Beginner,
+Intermediate, or Expert without requiring a new game; historical views have
+no "this" marker. The settings panel's "shown things" group controls each
+result section. The last-1-minute list, largest-island items, and
+near-near-streak list start hidden.
 
 Backup: subtle "export history" / "import history" controls under the
 results. Export copies the full history JSON to the clipboard (with a

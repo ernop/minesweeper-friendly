@@ -57,6 +57,34 @@ main {
   color: #666666;
 }
 
+#scores-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin: -4px 0 4px;
+  font-size: 11px;
+  color: #708090;
+}
+
+#scores-nav button {
+  min-height: 25px;
+  padding: 2px 9px;
+  border: 1px solid #c9d4de;
+  border-radius: 3px;
+  background: #f7fafc;
+  color: #45657a;
+  font: inherit;
+  cursor: pointer;
+}
+
+#scores-nav button:hover,
+#scores-nav button:focus-visible {
+  border-color: #8aa8bb;
+  background: #edf5fa;
+  color: #173f57;
+}
+
 #custom-form[hidden] { display: none; }
 
 #custom-form {
@@ -279,14 +307,14 @@ body.trial-offboard #game-frame {
      scrollbar gutter (+32px). */
   right: calc(50% - 50vw + 32px);
   width: 320px;
-  text-align: center;
+  text-align: left;
   /* Echo the chunky in-game numeral face throughout the results area */
   font-family: "Arial Black", "Arial Bold", Arial, sans-serif;
 }
 
 #results p {
   font-size: 13px;
-  color: #666666;
+  color: #000000;
   margin: 2px 0;
 }
 
@@ -318,11 +346,13 @@ body.trial-offboard #game-frame {
 #result-summary {
   font-weight: bold;
   white-space: pre-line;
+  color: #000000;
 }
 
 /* The game's stats as a small label/value tablechart */
 #stats-grid {
-  display: inline-grid;
+  display: grid;
+  width: max-content;
   grid-template-columns: max-content max-content;
   gap: 0 10px;
   margin: 4px 0;
@@ -330,11 +360,11 @@ body.trial-offboard #game-frame {
 }
 #stats-grid .stat-label {
   text-align: left;
-  color: #888888;
+  color: #111111;
 }
 #stats-grid .stat-value {
   text-align: right;
-  color: #333333;
+  color: #000000;
 }
 
 /*-------TOP-RIGHT SCREEN CHROME (session tags + settings)-------*/
@@ -641,6 +671,24 @@ body.trial-offboard #result-ranks {
 .setting-row input { vertical-align: middle; margin-right: 6px; }
 .setting-row input:disabled { cursor: not-allowed; }
 
+.setting-group {
+  margin: 6px 0;
+  padding-top: 4px;
+  border-top: 1px solid #dce4ea;
+}
+
+.setting-group summary {
+  color: #3f5668;
+  font-size: 11px;
+  font-weight: bold;
+  cursor: pointer;
+  user-select: none;
+}
+
+.setting-child {
+  margin-left: 9px;
+}
+
 .setting-name {
   color: #555555;
   font-weight: bold;
@@ -751,9 +799,20 @@ body.trial-offboard #result-ranks {
   text-align: right;
 }
 
-/* The unit hugs its count */
+/* Timings use tabular fixed-width glyphs so decimals compare vertically. */
+.rank-row .time-cell,
+.rank-row .avg-cell {
+  font-family: ui-monospace, "Cascadia Mono", "Liberation Mono", monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The unit hugs its count, while every age string ends on one shared edge. */
 .rank-row .age-num-cell { padding-right: 0; }
-.rank-row .age-unit-cell { padding-left: 1px; }
+.rank-row .age-unit-cell {
+  min-width: 2ch;
+  padding-left: 1px;
+  text-align: right;
+}
 
 /* Markless games (no flags placed): a small (m) rides before the time
    wherever an individual game's time is shown. Olive-branch green, fixed

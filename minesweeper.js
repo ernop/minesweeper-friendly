@@ -926,11 +926,15 @@ function reportResult(outcome) {
 // settings toggle can re-render it in place; null while no result shows.
 let renderedResult = null;
 
-function renderResult(record, modeRecords) {
-  renderedResult = { record, modeRecords };
+function renderResult(record, modeRecords, options = {}) {
+  renderedResult = { record, modeRecords, options };
   const seconds = secondsOf(record);
-  resultSummary.textContent = (record.outcome === 'win' ? 'Win' : 'Loss')
-    + '\n' + modeLabel() + '\n' + formatDate(record.endedAt);
+  const summaryLead = options.historyView
+    ? 'High scores'
+    : (record.outcome === 'win' ? 'Win' : 'Loss');
+  resultSummary.textContent = summaryLead + '\n' + boardDisplayLabel()
+    + '\n' + playModeLabel()
+    + '\n' + (options.historyView ? 'Latest win · ' : '') + formatDate(record.endedAt);
   resultStats.textContent = '';
   const statsGrid = document.createElement('div');
   statsGrid.id = 'stats-grid';
@@ -942,7 +946,8 @@ function renderResult(record, modeRecords) {
     ...(record.maxAdjacent !== undefined ? [['Max number', String(record.maxAdjacent)]] : []),
     ...(record.zeroCount !== undefined ? [['Zeros', String(record.zeroCount)]] : []),
     ...(record.islandCount !== undefined ? [['Islands', String(record.islandCount)]] : []),
-    ...(record.largestIsland !== undefined ? [['Largest island', String(record.largestIsland)]] : []),
+    ...(settings.shownThings.largestIsland && record.largestIsland !== undefined
+      ? [['Largest island', String(record.largestIsland)]] : []),
     ['3BV/s', bvPerSecond(record).toFixed(4)],
     ['Clicks', String(record.clicks)],
     ['Wasted clicks', String(record.wastedClicks)],
@@ -983,19 +988,19 @@ function renderResult(record, modeRecords) {
     valueCell.textContent = value;
     statsGrid.append(labelCell, valueCell);
   }
-  resultStats.appendChild(statsGrid);
-  if (Trial.isPlayMode(settings.playMode)) {
+  if (settings.shownThings.gameStats) resultStats.appendChild(statsGrid);
+  if (Trial.isPlayMode(settings.playMode) && !options.historyView) {
     resultRanks.textContent = '';
     renderTrialChrome();
   } else if (record.outcome === 'win') {
-    renderRanks(record, modeRecords);
+    renderRanks(record, modeRecords, options);
   } else {
     resultRanks.textContent = '';
   }
   // The after-game motion charts, jammed inline after whatever other
   // bottom charts the outcome produced (all of them for a win, none for
   // a loss). Motion existed either way. Trial review has its own charts.
-  if (settings.showMotionStatsAfterGame && finalMotion !== null
+  if (settings.showMotionStatsAfterGame && finalMotion !== null && !options.historyView
       && !Trial.isPlayMode(settings.playMode)) {
     const brk = document.createElement('div');
     brk.className = 'flex-break';
@@ -1072,6 +1077,40 @@ let history = null;
 // the controls from `label`/`describe`, and exports carry the block under
 // the reserved "settings" key — so the writer, the validator, the UI, and
 // the documentation cannot drift apart.
+const SHOWN_THINGS_DEFAULTS = Object.freeze({
+  gameStats: true,
+  timeTables: true,
+  lastOneMinute: false,
+  exact3BV: true,
+  boardShapeTables: true,
+  largestIsland: false,
+  averageCharts: true,
+  streak: true,
+  nearStreak: true,
+  nearNearStreak: false,
+  relationshipCharts: true,
+});
+
+const SHOWN_THINGS_OPTIONS = [
+  ['gameStats', 'game stats', 'the label/value stats beside the board'],
+  ['timeTables', 'time-window tablecharts', 'lifetime, calendar, rolling-window, and day-category rankings'],
+  ['lastOneMinute', 'last 1 minute', 'the very short rolling time tablechart'],
+  ['exact3BV', 'same-3BV tablechart', 'times on boards with exactly the same 3BV'],
+  ['boardShapeTables', 'board-shape tablecharts', 'max number, islands, and zero-count rankings'],
+  ['largestIsland', 'largest island', 'the largest-island stat and matching tablechart'],
+  ['averageCharts', 'average-time charts', 'average solve time by clicks, efficiency, 3BV, speed, and path'],
+  ['streak', 'streak', 'consecutive-win ranking'],
+  ['nearStreak', 'near-streak', 'win runs spanning at most one loss'],
+  ['nearNearStreak', 'near-near-streak', 'win runs spanning at most two losses'],
+  ['relationshipCharts', 'relationship charts', 'the raw win scatter plots at the bottom'],
+];
+
+function validShownThings(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    && Object.entries(value).every(([key, enabled]) =>
+      key in SHOWN_THINGS_DEFAULTS && typeof enabled === 'boolean');
+}
+
 const SETTINGS_SCHEMA = [
   {
     field: 'justUniverse',
@@ -1105,6 +1144,14 @@ const SETTINGS_SCHEMA = [
     describe: 'when a game finishes, the canonical motion values, each with its over-the-game chart, inline at the bottom after the other charts',
   },
   {
+    field: 'shownThings',
+    default: SHOWN_THINGS_DEFAULTS,
+    valid: validShownThings,
+    label: 'shown things',
+    describe: 'choose which result sections appear after a game or in the score viewer',
+    control: 'shown-things',
+  },
+  {
     field: 'playMode',
     default: 'standard',
     valid: (v) => PLAY_MODE_IDS.has(v),
@@ -1127,7 +1174,14 @@ let settings = null;
 function settingsFrom(stored) {
   const filled = {};
   for (const s of SETTINGS_SCHEMA) {
-    filled[s.field] = s.field in stored ? stored[s.field] : s.default;
+    if (s.field === 'shownThings') {
+      filled[s.field] = {
+        ...SHOWN_THINGS_DEFAULTS,
+        ...(s.field in stored && validShownThings(stored[s.field]) ? stored[s.field] : {}),
+      };
+    } else {
+      filled[s.field] = s.field in stored ? stored[s.field] : s.default;
+    }
   }
   return filled;
 }
@@ -1273,7 +1327,7 @@ function difficultyDisplayName(name) {
   return name.charAt(0).toUpperCase() + name.slice(1);
 }
 
-function modeLabel() {
+function boardDisplayLabel() {
   let board = 'Custom ' + config.width + 'x' + config.height + '-' + config.mines;
   for (const [name, d] of Object.entries(DIFFICULTIES)) {
     if (d.width === config.width && d.height === config.height && d.mines === config.mines) {
@@ -1281,13 +1335,14 @@ function modeLabel() {
       break;
     }
   }
-  return board + ' \u00b7 ' + playModeLabel();
+  return board;
 }
 
 function formatDate(timestampMs) {
   const d = new Date(timestampMs);
   const pad = (n) => String(n).padStart(2, '0');
-  return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate())
+  return WEEKDAY_NAMES[d.getDay()] + ' '
+    + d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate())
     + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
 }
 
@@ -1370,13 +1425,13 @@ function isHoliday(date) {
 // Columns for the current win: the rolling windows, plus lifetime-spanning
 // categories the win itself belongs to (same weekday, weekend/weekday,
 // holiday when today is one).
-function rankColumns(record) {
-  const columns = rankWindows(record.endedAt).map(([label, startMs, specificity]) => ({
+function rankColumns(referenceMs) {
+  const columns = rankWindows(referenceMs).map(([label, startMs, specificity]) => ({
     label: label,
     filter: (s) => s.endedAt >= startMs,
     specificity: specificity,
   }));
-  const winDate = new Date(record.endedAt);
+  const winDate = new Date(referenceMs);
   const weekday = winDate.getDay();
   columns.push({
     label: 'on ' + WEEKDAY_NAMES[weekday] + 's',
@@ -1421,13 +1476,12 @@ function windowBounds(myIndex, length) {
   return [Math.max(0, end - 11), end];
 }
 
-// Rankaverage charts: wins grouped by a stat's value, ranked by the group's
-// average solve time. Each row shows rank, value, average, and win count; a
-// final row aligned under the average-time column notes how this win moved
-// its own group's average. 3BV/s buckets
-// at 2 decimals, mouse path at 100px, mouse speed at 10px/s; the rest group
-// on exact integers.
-const RANKAVERAGE_SPECS = [
+// Average-time charts group wins by an input/performance value, then plot
+// that value against the group's average solve time. This keeps the useful
+// relationship from the former ranked tables without spending a column on
+// sample count. 3BV/s buckets at 2 decimals, mouse path at 100px, mouse
+// speed at 10px/s; the rest group on exact integers.
+const AVERAGE_SCATTER_SPECS = [
   { label: 'efficiency', value: efficiencyPercent, format: (v) => v + '%' },
   { label: 'clicks', value: (s) => s.clicks, format: (v) => String(v) },
   { label: '3BV', value: (s) => s.bv3, format: (v) => String(v) },
@@ -1546,8 +1600,8 @@ function buildScatter(wins, me, fx, fy, xLabel, yLabel, meLabel, ageInfoOf, opts
     const p = (max - min) * 0.04;
     return [min - p, max + p];
   };
-  const [x0, x1] = pad(Math.min(...xs), Math.max(...xs));
-  const [y0, y1] = pad(Math.min(...ys), Math.max(...ys));
+  const [x0, x1] = opts.xDomain || pad(Math.min(...xs), Math.max(...xs));
+  const [y0, y1] = opts.yDomain || pad(Math.min(...ys), Math.max(...ys));
   const px = (v) => x1 === x0 ? (L + W - R) / 2 : L + (v - x0) / (x1 - x0) * (W - L - R);
   const py = (v) => y1 === y0 ? (T + H - B) / 2 : H - B - (v - y0) / (y1 - y0) * (H - T - B);
   const svgNS = 'http://www.w3.org/2000/svg';
@@ -1570,7 +1624,10 @@ function buildScatter(wins, me, fx, fy, xLabel, yLabel, meLabel, ageInfoOf, opts
   // x caps at 6 ticks (the labels are title-sized, so a 7-tick x-axis can
   // collide with itself); y stacks vertically and takes the full 7.
   let xTicks, fmtX;
-  if (opts.timeAxis) {
+  if (opts.xTicks) {
+    xTicks = opts.xTicks;
+    fmtX = opts.formatX || tickFmt(xTicks);
+  } else if (opts.timeAxis) {
     ({ ticks: xTicks, fmt: fmtX } = timeTicks(x0, x1));
   } else {
     xTicks = niceTicks(x0, x1, 6);
@@ -1604,18 +1661,28 @@ function buildScatter(wins, me, fx, fy, xLabel, yLabel, meLabel, ageInfoOf, opts
   // full color on entering the unit, fading to 30% at the far edge.
   for (const s of wins) {
     if (s === me) continue;
-    const age = ageInfoOf(s);
-    dot(s, 'scatter-dot age-dot-' + age.unit, '2.2', (1 - 0.7 * age.frac).toFixed(2));
+    if (opts.neutralDots) {
+      dot(s, 'scatter-dot average-dot', '2.8', '0.8');
+    } else {
+      const age = ageInfoOf(s);
+      dot(s, 'scatter-dot age-dot-' + age.unit, '2.2', (1 - 0.7 * age.frac).toFixed(2));
+    }
   }
-  dot(me, 'scatter-me age-dot-' + ageInfoOf(me).unit, '3.5', '1');
-  // Today-rank tag beside the me-dot; flips to the left near the right edge.
-  const meX = px(fx(me));
-  const flipLeft = meX > W - R - 50;
-  el('text', {
-    x: (flipLeft ? meX - 6 : meX + 6).toFixed(1),
-    y: Math.max(T + 9, py(fy(me)) - 5).toFixed(1),
-    class: 'scatter-me-label' + (flipLeft ? ' flip-left' : ''),
-  }, meLabel);
+  if (me !== null) {
+    const meClass = opts.neutralDots ? 'scatter-me average-dot' :
+      'scatter-me age-dot-' + ageInfoOf(me).unit;
+    dot(me, meClass, '3.5', '1');
+    // Today-rank tag beside the me-dot; flips to the left near the right edge.
+    if (meLabel) {
+      const meX = px(fx(me));
+      const flipLeft = meX > W - R - 50;
+      el('text', {
+        x: (flipLeft ? meX - 6 : meX + 6).toFixed(1),
+        y: Math.max(T + 9, py(fy(me)) - 5).toFixed(1),
+        class: 'scatter-me-label' + (flipLeft ? ' flip-left' : ''),
+      }, meLabel);
+    }
+  }
   el('text', { x: L + (W - L - R) / 2, y: H - 4, class: 'scatter-axis-label' }, '\u2192 ' + xLabel);
   el('text', {
     transform: 'translate(12 ' + (T + (H - T - B) / 2) + ') rotate(-90)',
@@ -1626,6 +1693,33 @@ function buildScatter(wins, me, fx, fy, xLabel, yLabel, meLabel, ageInfoOf, opts
   list.className = 'rank-list scatter';
   list.append(svg);
   return list;
+}
+
+function buildAverageScatter(spec, wins, record, historyView) {
+  const groups = new Map();
+  for (const win of wins) {
+    const key = spec.value(win);
+    const group = groups.get(key) || {
+      x: key, totalSeconds: 0, count: 0, newestEndedAt: -Infinity,
+    };
+    group.totalSeconds += secondsOf(win);
+    group.count += 1;
+    group.newestEndedAt = Math.max(group.newestEndedAt, win.endedAt);
+    groups.set(key, group);
+  }
+  const points = [...groups.values()].map((group) => ({
+    x: group.x,
+    averageSeconds: group.totalSeconds / group.count,
+    endedAt: group.newestEndedAt,
+  }));
+  const current = historyView
+    ? null
+    : points.find((point) => point.x === spec.value(record)) || null;
+  const referenceMs = historyView ? Date.now() : record.endedAt;
+  return buildScatter(
+    points, current, (point) => point.x, (point) => point.averageSeconds,
+    spec.label, 'average time', '',
+    (point) => ageInfo(referenceMs, point.endedAt));
 }
 
 // How this win moved the average time of its own bucket (the average over
@@ -1701,7 +1795,7 @@ function buildRankavgList(spec, record, wins) {
   let list;
   const arrow = { desc: ' \u25be', asc: ' \u25b4' };
   const sortHeader = [
-    ['rank-cell', '#', 'rank'],
+    ['rank-cell', 'rank', 'rank'],
     ['val-cell', spec.label, 'value'],
     ['avg-cell', 'avg', 'time'],
     ['cnt-cell', 'count', 'count'],
@@ -1729,7 +1823,7 @@ function buildRankavgList(spec, record, wins) {
     null,
     order.length, myIndex, 'rankavg-grid',
     (i) => [
-      ['rank-cell', '#' + rankOf(order[i])],
+      ['rank-cell', String(rankOf(order[i]))],
       ['val-cell', spec.format(order[i])],
       ['avg-cell', (avgMs(order[i]) / 1000).toFixed(3) + 's'],
       ['cnt-cell', groups.get(order[i]).count + '\u00d7'],
@@ -1759,7 +1853,7 @@ function trialTimeAgeRow(nowRecord, list) {
   return (i) => {
     const age = relativeAge(nowRecord.endedAt, list[i].endedAt);
     const cells = [
-      ['rank-cell', '#' + (i + 1)],
+      ['rank-cell', String(i + 1)],
       ['time-cell' + (isMarkless(list[i]) ? ' markless-time' : ''),
         (list[i].timeMs / 1000).toFixed(3) + 's'],
     ];
@@ -1883,7 +1977,7 @@ function identitySummaryLine(group) {
     + (group.attempts.length === 1 ? '' : 's')
     + ' · ' + wins.length + ' win' + (wins.length === 1 ? '' : 's');
   if (losses > 0) line += ' · ' + losses + ' loss' + (losses === 1 ? '' : 'es');
-  if (wins.length >= 2) {
+  if (settings.shownThings.relationshipCharts && wins.length >= 2) {
     const delta = wins[0] - wins[wins.length - 1];
     line += delta > 0.05
       ? ' · last ' + delta.toFixed(2) + 's faster'
@@ -2356,23 +2450,26 @@ function buildBarChart(values, size) {
   return svg;
 }
 
-function renderRanks(record, modeRecords) {
+function renderRanks(record, modeRecords, options = {}) {
   resultRanks.textContent = '';
   const wins = modeRecords.filter((r) => r.outcome === 'win');
+  const historyView = options.historyView === true;
+  const referenceMs = historyView ? Date.now() : record.endedAt;
+  const selectedIndex = (list) => historyView ? -1 : list.indexOf(record);
   // Ranking order everywhere: fastest first, ties broken by earlier finish.
   const byTimeThenEnd = (a, b) => a.timeMs - b.timeMs || a.endedAt - b.endedAt;
   // Row builder shared by every time-ranked list: rank, solve time, and the
   // win's age split into count and unit cells (or a single "this" marking
   // the game that just finished).
   const timeAgeRow = (list) => (i) => {
-    const age = relativeAge(record.endedAt, list[i].endedAt);
+    const age = relativeAge(referenceMs, list[i].endedAt);
     const cells = [
-      ['rank-cell', '#' + (i + 1)],
+      ['rank-cell', String(i + 1)],
       // Markless games carry a small (m) before their time (CSS ::before).
       ['time-cell' + (isMarkless(list[i]) ? ' markless-time' : ''),
         (list[i].timeMs / 1000).toFixed(3) + 's'],
     ];
-    if (age.count === 0 && age.unit === 's') {
+    if (!historyView && list[i] === record) {
       cells.push(['age-just-cell age-u-s', 'this']);
     } else {
       cells.push(['age-num-cell age-u-' + age.unit, formatAgeCount(age)]);
@@ -2386,7 +2483,9 @@ function renderRanks(record, modeRecords) {
   // and broader charts appear on their own once history spreads across
   // enough hours/days/weekdays to make them differ. Switched off, every
   // window renders its own chart regardless of duplication.
-  const candidates = rankColumns(record).map((column) => ({
+  const candidates = rankColumns(referenceMs)
+    .filter((column) => settings.shownThings.lastOneMinute || column.label !== 'past 1 min')
+    .map((column) => ({
     column,
     inWindow: wins.filter(column.filter).sort(byTimeThenEnd),
   }));
@@ -2401,24 +2500,26 @@ function renderRanks(record, modeRecords) {
       kept.add(c);
     }
   }
-  for (const c of candidates) {
-    if (!kept.has(c)) continue;
-    const { column, inWindow } = c;
-    // `record` is an element of modeRecords, so identity search finds it.
-    const myIndex = inWindow.indexOf(record);
-    resultRanks.appendChild(buildRankList(
-      column.label,
-      inWindow.length, myIndex, 'rank-grid',
-      timeAgeRow(inWindow)));
+  if (settings.shownThings.timeTables) {
+    for (const c of candidates) {
+      if (!kept.has(c)) continue;
+      const { column, inWindow } = c;
+      resultRanks.appendChild(buildRankList(
+        column.label,
+        inWindow.length, selectedIndex(inWindow), 'rank-grid',
+        timeAgeRow(inWindow)));
+    }
   }
 
   // Best times on boards of this exact 3BV: the fairest time comparison,
   // since only equally-hard layouts compete.
-  const sameBv = wins.filter((s) => s.bv3 === record.bv3).sort(byTimeThenEnd);
-  resultRanks.appendChild(buildRankList(
-    '3BV ' + record.bv3,
-    sameBv.length, sameBv.indexOf(record), 'rank-grid',
-    timeAgeRow(sameBv)));
+  if (settings.shownThings.exact3BV) {
+    const sameBv = wins.filter((s) => s.bv3 === record.bv3).sort(byTimeThenEnd);
+    resultRanks.appendChild(buildRankList(
+      '3BV ' + record.bv3,
+      sameBv.length, selectedIndex(sameBv), 'rank-grid',
+      timeAgeRow(sameBv)));
+  }
 
   // Board-shape time lists: this win's finished-board family only.
   // Older wins that lack the measurement stay off the list. Nested
@@ -2457,7 +2558,7 @@ function renderRanks(record, modeRecords) {
       rows: wins.filter((s) => s.islandCount === record.islandCount),
     });
   }
-  if (typeof record.largestIsland === 'number') {
+  if (settings.shownThings.largestIsland && typeof record.largestIsland === 'number') {
     shapeCandidates.push({
       label: 'largest island ' + record.largestIsland,
       specificity: 11,
@@ -2482,17 +2583,21 @@ function renderRanks(record, modeRecords) {
       shapeKept.add(c);
     }
   }
-  for (const c of shapeCandidates) {
-    if (!shapeKept.has(c)) continue;
-    const inWindow = c.rows.slice().sort(byTimeThenEnd);
-    resultRanks.appendChild(buildRankList(
-      c.label,
-      inWindow.length, inWindow.indexOf(record), 'rank-grid',
-      timeAgeRow(inWindow)));
+  if (settings.shownThings.boardShapeTables) {
+    for (const c of shapeCandidates) {
+      if (!shapeKept.has(c)) continue;
+      const inWindow = c.rows.slice().sort(byTimeThenEnd);
+      resultRanks.appendChild(buildRankList(
+        c.label,
+        inWindow.length, selectedIndex(inWindow), 'rank-grid',
+        timeAgeRow(inWindow)));
+    }
   }
 
-  for (const spec of RANKAVERAGE_SPECS) {
-    resultRanks.appendChild(buildRankavgList(spec, record, wins));
+  if (settings.shownThings.averageCharts && wins.length >= 2) {
+    for (const spec of AVERAGE_SCATTER_SPECS) {
+      resultRanks.appendChild(buildAverageScatter(spec, wins, record, historyView));
+    }
   }
 
   // Streak lists: wins in chronological runs split by losses. A k-loss
@@ -2504,6 +2609,9 @@ function renderRanks(record, modeRecords) {
     else runs.push([]);
   }
   for (const [label, slack] of [['streak', 0], ['near-streak', 1], ['near-near-streak', 2]]) {
+    if (label === 'streak' && !settings.shownThings.streak) continue;
+    if (label === 'near-streak' && !settings.shownThings.nearStreak) continue;
+    if (label === 'near-near-streak' && !settings.shownThings.nearNearStreak) continue;
     const span = Math.min(slack + 1, runs.length);
     // Each window of `span` adjacent runs is trimmed to its nonempty core
     // (consecutive losses leave empty runs that pad windows). Identical
@@ -2530,18 +2638,18 @@ function renderRanks(record, modeRecords) {
         return { len: winsAt.length, end: winsAt[winsAt.length - 1], current: b === runs.length - 1 };
       });
     segments.sort((a, b) => b.len - a.len || b.end - a.end);
-    const myIndex = segments.findIndex((seg) => seg.current);
+    const myIndex = historyView ? -1 : segments.findIndex((seg) => seg.current);
     resultRanks.appendChild(buildRankList(
       label,
       segments.length, myIndex, 'rank-grid',
       (i) => {
         const seg = segments[i];
-        const age = relativeAge(record.endedAt, seg.end);
+        const age = relativeAge(referenceMs, seg.end);
         const cells = [
-          ['rank-cell', '#' + (i + 1)],
+          ['rank-cell', String(i + 1)],
           ['time-cell', seg.len + (seg.len === 1 ? ' win' : ' wins')],
         ];
-        if (age.count === 0 && age.unit === 's') {
+        if (!historyView && seg.current) {
           cells.push(['age-just-cell age-u-s', 'this']);
         } else {
           cells.push(['age-num-cell age-u-' + age.unit, formatAgeCount(age)]);
@@ -2563,8 +2671,9 @@ function renderRanks(record, modeRecords) {
       .filter((s) => s.endedAt >= todayStart)
       .sort(byTimeThenEnd)
       .indexOf(record) + 1;
-    const meLabel = '#' + todayRank + ' today';
-    const ageInfoOf = (s) => ageInfo(record.endedAt, s.endedAt);
+    const meLabel = todayRank + ' today';
+    const highlighted = historyView ? null : record;
+    const ageInfoOf = (s) => ageInfo(referenceMs, s.endedAt);
     const hourOfDay = (s) => {
       const d = new Date(s.endedAt);
       return d.getHours() + d.getMinutes() / 60;
@@ -2574,16 +2683,17 @@ function renderRanks(record, modeRecords) {
     // "time of day" folds every win onto one 24-hour clock, exposing the
     // daily rhythm instead of the long-term trend.
     resultRanks.appendChild(buildScatter(
-      wins, record, (s) => s.endedAt, secondsOf,
+      wins, highlighted, (s) => s.endedAt, secondsOf,
       'date', 'time', meLabel, ageInfoOf, { timeAxis: true }));
     resultRanks.appendChild(buildScatter(
-      wins, record, hourOfDay, secondsOf,
-      'time of day', 'time', meLabel, ageInfoOf));
+      wins, highlighted, hourOfDay, secondsOf,
+      'time of day', 'time', meLabel, ageInfoOf,
+      { xDomain: [0, 24], xTicks: [0, 4, 8, 12, 16, 20, 24] }));
     resultRanks.appendChild(buildScatter(
-      wins, record, (s) => s.bv3, secondsOf,
+      wins, highlighted, (s) => s.bv3, secondsOf,
       '3BV', 'time', meLabel, ageInfoOf));
     resultRanks.appendChild(buildScatter(
-      wins, record, (s) => s.bv3, (s) => s.clicks,
+      wins, highlighted, (s) => s.bv3, (s) => s.clicks,
       '3BV', 'clicks', meLabel, ageInfoOf,
       { idealLine: true }));
     // Only wins that carry the wastedClicks measurement (recorded since
@@ -2591,24 +2701,15 @@ function renderRanks(record, modeRecords) {
     const withWasted = wins.filter((s) => 'wastedClicks' in s);
     if (withWasted.length >= 2) {
       resultRanks.appendChild(buildScatter(
-        withWasted, record, (s) => s.wastedClicks, bvPerSecond,
+        withWasted, historyView ? null : record, (s) => s.wastedClicks, bvPerSecond,
         'wasted clicks', '3BV/s', meLabel, ageInfoOf));
     }
     resultRanks.appendChild(buildScatter(
-      wins, record, (s) => s.mousePathPx, secondsOf,
+      wins, highlighted, (s) => s.mousePathPx, secondsOf,
       'mouse path', 'time', meLabel, ageInfoOf));
     resultRanks.appendChild(buildScatter(
-      wins, record, (s) => s.mousePathPx / secondsOf(s), secondsOf,
+      wins, highlighted, (s) => s.mousePathPx / secondsOf(s), secondsOf,
       'mouse speed', 'time', meLabel, ageInfoOf));
-    resultRanks.appendChild(buildScatter(
-      wins, record, (s) => s.mousePathPx / secondsOf(s), efficiencyPercent,
-      'mouse speed', 'efficiency', meLabel, ageInfoOf));
-    resultRanks.appendChild(buildScatter(
-      wins, record, (s) => s.mousePathPx / s.clicks, efficiencyPercent,
-      'path per click', 'efficiency', meLabel, ageInfoOf));
-    resultRanks.appendChild(buildScatter(
-      wins, record, (s) => s.mousePathPx / s.bv3, secondsOf,
-      'path per 3BV', 'time', meLabel, ageInfoOf));
     const legend = document.createElement('div');
     legend.className = 'scatter-legend';
     legend.appendChild(document.createTextNode('dot color = how long ago that win was (dots fade as they age within a color):'));
@@ -4777,6 +4878,32 @@ for (const tab of document.querySelectorAll('#difficulty-tabs a')) {
   });
 }
 
+function showScoresForDifficulty(name) {
+  config = { ...DIFFICULTIES[name] };
+  customForm.hidden = true;
+  syncDifficultyTabs();
+  newGame();
+  const modeRecords = history[modeKey()] || [];
+  const wins = modeRecords.filter((record) => record.outcome === 'win');
+  if (wins.length === 0) {
+    renderedResult = null;
+    resultSummary.textContent = 'High scores\n' + boardDisplayLabel()
+      + '\n' + playModeLabel() + '\nNo wins yet';
+    resultStats.textContent = '';
+    resultRanks.textContent = '';
+    syncResultClearance();
+    return;
+  }
+  const latest = wins.reduce((a, b) => a.endedAt > b.endedAt ? a : b);
+  renderResult(latest, modeRecords, { historyView: true });
+}
+
+for (const button of document.querySelectorAll('[data-score-difficulty]')) {
+  button.addEventListener('click', () => {
+    showScoresForDifficulty(button.dataset.scoreDifficulty);
+  });
+}
+
 customForm.addEventListener('submit', (event) => {
   event.preventDefault();
   const width = Math.max(8, Math.min(100, Number(document.getElementById('custom-width').value)));
@@ -4914,9 +5041,7 @@ function importHistory(text) {
   persistUserdata('history', history);
   let settingsNote = '';
   if (importedSettings !== null) {
-    for (const s of SETTINGS_SCHEMA) {
-      if (s.field in importedSettings) settings[s.field] = importedSettings[s.field];
-    }
+    settings = settingsFrom({ ...settings, ...importedSettings });
     saveSettings();
     refreshSettingsPanel();
     document.getElementById('play-mode-select').value = settings.playMode;
@@ -4951,6 +5076,40 @@ document.getElementById('settings-btn').addEventListener('click', () => {
 function buildSettingsPanel() {
   for (const s of SETTINGS_SCHEMA) {
     if (s.control === 'none') continue;
+    if (s.control === 'shown-things') {
+      const group = document.createElement('details');
+      group.className = 'setting-group';
+      const summary = document.createElement('summary');
+      summary.textContent = s.label;
+      summary.title = s.describe;
+      group.appendChild(summary);
+      for (const [key, label, description] of SHOWN_THINGS_OPTIONS) {
+        const row = document.createElement('label');
+        row.className = 'setting-row setting-child';
+        const box = document.createElement('input');
+        box.type = 'checkbox';
+        box.dataset.field = s.field;
+        box.dataset.subfield = key;
+        box.checked = settings[s.field][key];
+        box.addEventListener('change', () => {
+          settings[s.field][key] = box.checked;
+          saveSettings();
+          if (renderedResult !== null) {
+            renderResult(renderedResult.record, renderedResult.modeRecords, renderedResult.options);
+          }
+        });
+        const name = document.createElement('span');
+        name.className = 'setting-name';
+        name.textContent = label;
+        const describe = document.createElement('span');
+        describe.className = 'setting-describe';
+        describe.textContent = description;
+        row.append(box, name, describe);
+        group.appendChild(row);
+      }
+      settingsPanel.appendChild(group);
+      continue;
+    }
     const row = document.createElement('label');
     row.className = 'setting-row';
     const box = document.createElement('input');
@@ -4964,7 +5123,9 @@ function buildSettingsPanel() {
       }
       settings[s.field] = box.checked;
       saveSettings();
-      if (renderedResult !== null) renderResult(renderedResult.record, renderedResult.modeRecords);
+      if (renderedResult !== null) {
+        renderResult(renderedResult.record, renderedResult.modeRecords, renderedResult.options);
+      }
       refreshMetricsPanel();
     });
     const name = document.createElement('span');
@@ -5008,7 +5169,9 @@ function buildSettingsPanel() {
 // Re-syncs the checkboxes after an import replaces settings.
 function refreshSettingsPanel() {
   for (const box of settingsPanel.querySelectorAll('input[type=checkbox]')) {
-    box.checked = settings[box.dataset.field];
+    box.checked = box.dataset.subfield
+      ? settings[box.dataset.field][box.dataset.subfield]
+      : settings[box.dataset.field];
     const locked = box.dataset.field === 'justUniverse' && gameState === 'playing';
     box.disabled = locked;
     box.title = locked ? 'A just universe is fixed from the first reveal until this game ends.' : '';
