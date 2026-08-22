@@ -4823,6 +4823,18 @@ boardElement.addEventListener('contextmenu', (event) => {
   if (!toggleFlag(index)) wastedClicks++;
 });
 
+// Swallow near misses around the board so an imprecise flag click does not
+// open the browser menu. Right-clicks elsewhere on the page remain normal.
+document.addEventListener('contextmenu', (event) => {
+  const buffer = 20;
+  const rect = boardElement.getBoundingClientRect();
+  const nearBoard = event.clientX >= rect.left - buffer
+    && event.clientX <= rect.right + buffer
+    && event.clientY >= rect.top - buffer
+    && event.clientY <= rect.bottom + buffer;
+  if (nearBoard) event.preventDefault();
+});
+
 // The board can shift under the viewport coordinate system; every such
 // change gets a fresh layout event so samples stay mappable to cells.
 document.addEventListener('scroll', () => {
