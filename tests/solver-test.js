@@ -79,6 +79,24 @@ check('certain mine: last two cells, one mine', (() => {
   return Solver.isCertainMine(view, 1) && !Solver.isProvenSafe(view, 1);
 })());
 
+check('visible misclicks classify contradictions, not outcomes', (() => {
+  // The visible 0 proves cell 1 safe; with one mine globally, cell 2 is
+  // therefore a certain mine. No hidden layout is passed to the classifier.
+  const view = {
+    width: 3,
+    height: 1,
+    mines: 1,
+    adjacent: [0, 1, 0],
+    revealed: [true, false, false],
+  };
+  return Solver.isVisibleMisclick(view, { kind: 'reveal', cell: 2 })
+    && !Solver.isVisibleMisclick(view, { kind: 'reveal', cell: 1 })
+    && Solver.isVisibleMisclick(view, { kind: 'flag', cell: 1, removing: false })
+    && Solver.isVisibleMisclick(view, { kind: 'flag', cell: 2, removing: true })
+    && Solver.isVisibleMisclick(view, { kind: 'chord', opened: [2], flagged: [] })
+    && Solver.isVisibleMisclick(view, { kind: 'chord', opened: [1], flagged: [1] });
+})());
+
 check('angelic forceSafe swaps a 50/50 mine onto its partner', (() => {
   const mines = [true, false];
   const adjacent = [0, 0];

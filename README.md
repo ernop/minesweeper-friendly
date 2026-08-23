@@ -60,17 +60,18 @@ Average-time scatter plots group your wins by efficiency, clicks, 3BV,
 The stats themselves (time, 3BV, 3BV/s, clicks, efficiency, correctness,
 throughput, IOS, mouse path,
 mouse speed, path per click, path per 3BV, plus the per-game forms of the
-session series: click rate, wasted rate, mark rate — derived, so they
-show on old games too — and the stored fastclick gap)
-render as a small label/value table beside the board, including wasted
-clicks (board clicks that changed nothing — recorded per game since
+session series: click rate, no-op rate, misclick rate, mark rate — derived
+from stored counts — and the stored fastclick gap)
+render as a small label/value table beside the board, including no-op
+clicks (board clicks that changed nothing — stored as `wastedClicks`
+since
 2026-08-19; older records lack the measurement), flags placed (same
 recording rules; a zero-flag game earns the special status "markless",
 shown right in the row and as a small "(m)" before that game's time in
 every rank list) and, for wins, clicks over
 3BV (clicks beyond the board's minimum). At the bottom, seven small
 scatter plots chart every win: win time vs date, win time vs hour of day,
-3BV vs time, clicks vs 3BV (with the clicks = 3BV floor drawn in), wasted
+3BV vs time, clicks vs 3BV (with the clicks = 3BV floor drawn in), no-op
 clicks vs 3BV/s, mouse path vs time, and mouse speed vs time — so
 you can see whether moving faster actually wins games faster, and whether
 you're improving at all. Each axis carries a spelled-out label with
@@ -87,27 +88,36 @@ show rank (without a leading "#"), fixed-width time, and a relative age
 ("43s", "5m", "2.0w"; the brand-new score
 says "just now").
 
-The flush-left panel carries live self-observation. During a game it
+The in-page left column carries live self-observation without covering
+the board. During a game it
 shows per-game motion metrics recomputed once a second; on top, always, a
-"session" section charts the last hour across games (losses and abandoned
-boards included, but only time a game was actually in progress): mouse
+"session" section charts the last hour of actual play across games (losses
+and abandoned boards included): mouse
 speed, board-changing clicks per second, avoidable deaths per minute
 (deaths meeting the app's explicit rule-based classification, which also
-get a yes/no row in each loss's stats table), no-op clicks per minute,
+get a yes/no row in each loss's stats table), misclicks per minute
+(board-changing actions contradicted by facts provable from the visible
+board, fatal or nonfatal), no-op clicks per minute,
 the fastclick gap (when you're clicking usefully on the move, how fast the
 qualifying press intervals are), flags placed per second, and flags removed
-per minute. Each chart is a sliding one-hour window with a selectable
-bucket size (10s to 5m). These are observations, not explanations: the app
+per minute. Breaks consume no chart time: history is scanned as far back as
+needed to fill each selectable played-time bucket (10s to 5m). Each chart
+uses a one-hour accumulated-play axis, black plot-aligned titles, readable
+axes, and the newest value labeled at its point. The panel preserves its scroll position
+through its once-a-second redraw. These are observations, not explanations: the app
 does not infer fatigue, attention, hardware trouble, judgment, or any other
 cause from a change in a line. The
-window survives a reload: on startup the last hour is rebuilt from your
-stored game records, so closing the tab doesn't wipe the running averages.
+window survives a reload: on startup records are scanned backward until
+the last hour of play is rebuilt, so closing the tab doesn't wipe the
+running averages.
 
 The home-page score buttons open the same full result view for Beginner,
 Intermediate, or Expert without requiring a new game; historical views have
-no "this" marker. The settings panel's "shown things" group controls each
-result section. The last-1-minute list, largest-island items, and
-near-near-streak list start hidden.
+no "this" marker. The settings page's "shown things" group (the
+"settings" button top-right leads there; a demo world on the page shows
+each switch's effect as you flip it) controls each result section. The
+last-1-minute list, largest-island items, and near-near-streak list start
+hidden.
 
 Backup: subtle "export history" / "import history" controls under the
 results. Export copies the full history JSON to the clipboard (with a

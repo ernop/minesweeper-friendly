@@ -237,6 +237,25 @@ function isCertainMine(view, cell) {
   return factsFor(view).get(cell) === 1;
 }
 
+// Whether a board-changing action contradicts facts provable from the
+// visible board. This classifies the action, not the player's intent.
+// Flags are passed as action data rather than fed into the proof system,
+// because a player's mark cannot prove itself correct.
+function isVisibleMisclick(view, action) {
+  const facts = factsFor(view);
+  if (action.kind === 'reveal') return facts.get(action.cell) === 1;
+  if (action.kind === 'flag') {
+    return action.removing
+      ? facts.get(action.cell) === 1
+      : facts.get(action.cell) === 2;
+  }
+  if (action.kind === 'chord') {
+    return action.opened.some((cell) => facts.get(cell) === 1)
+      || action.flagged.some((cell) => facts.get(cell) === 2);
+  }
+  throw new Error('unknown visible action kind ' + action.kind);
+}
+
 function layoutAgrees(view, mines) {
   if (mineCountOf(mines) !== view.mines) return false;
   const size = view.width * view.height;
@@ -293,6 +312,7 @@ const Solver = {
   generate: generate,
   isProvenSafe: isProvenSafe,
   isCertainMine: isCertainMine,
+  isVisibleMisclick: isVisibleMisclick,
   forceSafe: forceSafe,
   layoutAgrees: layoutAgrees,
 };

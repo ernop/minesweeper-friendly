@@ -101,14 +101,16 @@ Generation that aims at the same families the new lists rank:
 ## Session stats follow-ons (creator direction, 2026-08-22)
 
 The session section (PRODUCT.md "Session stats") is built: mouse speed,
-avoidable-death / no-op-click / mine-marking / flag-removal rates and
-fastclick gap, bucketed over a sliding hour. It displays observations;
+avoidable-death / visible-state-misclick / no-op-click / mine-marking / flag-removal rates and
+fastclick gap, bucketed over a sliding hour of actual play with wall-clock
+breaks removed. It displays observations;
 causes, mental states, and traits are not inferred. Context-tag associations
 would require explicit analysis. Not built yet:
 
 - **Finer backfill from traces.** Record-based backfill on reload is
-  built (2026-08-22, same evening): the last hour rebuilds from stored
-  records, totals spread evenly over each game's span. The traces hold
+  built (2026-08-22, same evening; played-time scan revised 2026-08-23):
+  stored records are scanned backward until the last hour of played
+  duration is filled, with totals spread evenly over each game's span. The traces hold
   exact press/movement timing if bucket-faithful backfill is ever
   wanted; abandoned boards leave no record and stay lost across
   reloads either way.
@@ -151,7 +153,7 @@ would require explicit analysis. Not built yet:
   perfect play); music-playing state (boolean asked of the local base
   system); avoidable-death classification on losses (legacy storage field
   `stupidDeath`); the session stats
-  section (bucketed sliding-hour series, flush left).
+  section (bucketed sliding-hour-of-play series, in-page left column).
 - Waste metrics (pauses, wander, turnarounds, feints) and the
   biometrics / mousetrap / Hevelius-style displays. The Tier 1/2
   "store a scalar per metric" framing is obsolete: the trace is the

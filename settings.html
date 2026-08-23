@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Minesweeper - Settings</title>
+<link rel="stylesheet" href="style.css?v=20260823-stable-demo">
+</head>
+<body class="settings-page">
+<div id="settings-titlebar">
+  <span id="settings-titlebar-name">minesweeper &mdash; settings</span>
+  <a class="return-to-game" href="index.html">return to game</a>
+</div>
+<div id="settings-layout">
+  <div id="settings-demo">
+    <p id="settings-demo-head">a demo, not a real game</p>
+    <div id="demo-page">
+      <div id="demo-left">
+        <!-- mini stand-ins for the left stats panel, built by settings-page.js -->
+      </div>
+      <div id="demo-main">
+        <div id="demo-board-wrap">
+          <div id="demo-frame">
+            <div id="demo-board"></div>
+          </div>
+          <div id="demo-justice">JUSTICE</div>
+        </div>
+        <p id="demo-summary">42.31 seconds &mdash; a win</p>
+        <div id="demo-after">
+          <!-- mini stand-ins for the after-game sections, built by settings-page.js -->
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="settings-column">
+    <p id="settings-status" hidden></p>
+    <!-- groups, rows, and the bottom return link built by settings-page.js -->
+  </div>
+</div>
+<script src="storage.js?v=20260823-stable-demo"></script>
+<script src="settings-core.js?v=20260823-stable-demo"></script>
+<script src="settings-page.js?v=20260823-stable-demo"></script>
+</body>
+</html>

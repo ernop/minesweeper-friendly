@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Minesweeper - Standard Mode</title>
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=20260823-stable-demo">
 </head>
 <body>
 <div id="top-right">
@@ -19,6 +19,10 @@
     <div id="states-chips"></div>
     <button type="button" id="states-add-btn" title="Tag your play session (sleepy? new mouse?). Active states are saved onto every game you finish so you can compare measurements by self-reported context; a tag does not establish a cause.">+ state</button>
     <div id="states-menu" hidden>
+      <div id="states-menu-head">
+        <span>session states</span>
+        <button type="button" id="states-close" title="close (Esc or a click outside also closes)">&times;</button>
+      </div>
       <div id="states-options"></div>
       <form id="states-add-form">
         <input id="states-add-input" type="text" placeholder="new state">
@@ -27,9 +31,10 @@
       <p id="states-status"></p>
     </div>
   </div>
-  <button type="button" id="settings-btn">settings</button>
-  <div id="settings-panel" hidden></div>
+  <a id="settings-btn" href="settings.html">settings</a>
 </div>
+<div id="page-layout">
+<div id="metrics-panel" hidden><div id="metrics-panel-content"></div></div>
 <main>
   <nav id="difficulty-tabs">
     <a href="#" data-difficulty="beginner" class="active">Beginner</a>
@@ -68,8 +73,9 @@
       <div id="board"></div>
     </div>
 
-    <nav id="scores-nav" aria-label="View high scores without playing">
+    <nav id="scores-nav" aria-label="View high scores or the finished game's cursor path">
       <button type="button" id="see-scores-btn">see scores</button>
+      <button type="button" id="path-view-btn" hidden title="Draw the finished game's actual cursor path over the board. 'moves' is every recorded movement; 'clicks' connects only the clicks in order. Light = earlier, dark = later; blue dots are left clicks, red dots are flag clicks. Movement off the board clips at its edge.">path: off</button>
     </nav>
 
     <div id="results">
@@ -100,14 +106,16 @@
 
   <p id="site-footer"><a href="https://github.com/ernop/minesweeper-friendly">source &amp; issues on GitHub</a></p>
 
-  <div id="metrics-panel" hidden></div>
 </main>
+</div>
 <script src="rng.js"></script>
 <script src="justice.js"></script>
 <script src="board-shape.js"></script>
 <script src="solver.js"></script>
 <script src="odds.js"></script>
 <script src="trial.js"></script>
-<script src="minesweeper.js"></script>
+<script src="storage.js?v=20260823-stable-demo"></script>
+<script src="settings-core.js?v=20260823-stable-demo"></script>
+<script src="minesweeper.js?v=20260823-stable-demo"></script>
 </body>
 </html>

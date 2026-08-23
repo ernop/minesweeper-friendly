@@ -74,11 +74,8 @@ const FACE_SVGS = {
   cool: faceSvg(DOVE_BODY + DOVE_WING_FOLDED + DOVE_EYE + DOVE_BEAK + OLIVE_BRANCH),
 };
 
-const FLAG_SVG = '<svg viewBox="0 0 16 16"><path d="M9 3 L9 8.5 L3.5 5.75 Z" fill="#ff0000"/><rect x="8.4" y="3" width="1.2" height="9" fill="#000"/><rect x="5" y="11.5" width="8" height="1.5" fill="#000"/><rect x="3.5" y="13" width="11" height="2" fill="#000"/></svg>';
-
-const MINE_SVG_INNER = '<line x1="8" y1="1" x2="8" y2="15"/><line x1="1" y1="8" x2="15" y2="8"/><line x1="3" y1="3" x2="13" y2="13"/><line x1="13" y1="3" x2="3" y2="13"/><circle cx="8" cy="8" r="4.6" stroke="none"/><rect x="6" y="6" width="2" height="2" fill="#ffffff" stroke="none"/>';
-const MINE_SVG = '<svg viewBox="0 0 16 16" fill="#000" stroke="#000" stroke-width="1.4">' + MINE_SVG_INNER + '</svg>';
-const WRONG_FLAG_SVG = '<svg viewBox="0 0 16 16" fill="#000" stroke="#000" stroke-width="1.4">' + MINE_SVG_INNER + '<path d="M2 2 L14 14 M14 2 L2 14" stroke="#ff0000" stroke-width="2"/></svg>';
+// FLAG_SVG / MINE_SVG / WRONG_FLAG_SVG live in settings-core.js, shared
+// with the settings page's demo board.
 
 function faceSvg(features) {
   return '<svg viewBox="0 0 26 26">' + features + '</svg>';
@@ -98,6 +95,7 @@ let finalTimeMs = 0;
 let timerInterval = null;
 let clickCount = 0;    // board clicks that changed something (reveal/flag/chord)
 let wastedClicks = 0;  // board clicks that changed nothing
+let misclicks = 0;     // board-changing actions contradicted by visible facts
 let flagsPlaced = 0;   // flags the player placed (removals don't subtract)
 let flagsRemoved = 0;  // flag states the player turned off; each placement
                        // and each removal is a separate board-changing click
@@ -269,6 +267,8 @@ function newGame() {
   sessionLastUsefulPressAt = null;
   gameFastclickGaps = [];
   deathWasStupid = undefined;
+  deathEvaluation = null;
+  justiceDetails = [];
   gameState = 'ready';
   minesPlaced = false;
   justiceEnabledForGame = null;
@@ -276,6 +276,7 @@ function newGame() {
   revealedCount = 0;
   clickCount = 0;
   wastedClicks = 0;
+  misclicks = 0;
   flagsPlaced = 0;
   flagsRemoved = 0;
   finalTimeMs = 0;
@@ -316,13 +317,16 @@ function newGame() {
   setFace('smile');
   renderedResult = null;
   finalMotion = null;
+  // The board rebuild above removed the path overlay's canvas node; the
+  // button hides with the finished game it belonged to.
+  pathCanvas = null;
+  renderPathViewButton();
   resultSummary.textContent = '';
   resultStats.textContent = '';
   resultRanks.textContent = '';
   syncResultClearance();
   if (Trial.isPlayMode(settings.playMode) && trialIsActive()) setupTrialBoard();
   else trialPresentation = null;
-  refreshSettingsPanel();
   document.title = 'Minesweeper - ' + playModeLabel();
   renderTrialChrome();
 }
@@ -344,7 +348,6 @@ function setupTrialBoard() {
     gameState = 'playing';
     startTimer();
     justiceEnabledForGame = settings.justUniverse;
-    refreshSettingsPanel();
     checkWin();
   }
 }
@@ -526,11 +529,19 @@ function updateCell(i) {
   const el = cellElements[i];
   if (cell.revealed) {
     el.className = 'cell revealed' + (cell.adjacent > 0 ? ' n' + cell.adjacent : '');
-    el.innerHTML = '';
-    if (cell.adjacent > 0) el.textContent = cell.adjacent;
+    paintCellGlyph(el, cell.adjacent);
   } else {
     el.className = 'cell hidden';
     el.innerHTML = cell.flagged ? FLAG_SVG : '';
+  }
+}
+
+// Repaints every revealed cell when the number-display setting changes
+// mid-board. Mines and wrong flags shown at game end are never
+// `revealed`, so a repaint cannot clobber them.
+function repaintRevealedCells() {
+  for (let i = 0; i < cells.length; i++) {
+    if (cells[i].revealed) updateCell(i);
   }
 }
 
@@ -545,13 +556,11 @@ function revealCell(index) {
     justiceEnabledForGame = justiceAppliesToMode() && settings.justUniverse;
     gameState = 'playing';
     startTimer();
-    refreshSettingsPanel();
     firstReveal = true;
   } else if (gameState === 'ready') {
     gameState = 'playing';
     startTimer();
     justiceEnabledForGame = justiceAppliesToMode() && settings.justUniverse;
-    refreshSettingsPanel();
     firstReveal = true;
   }
 
@@ -560,14 +569,14 @@ function revealCell(index) {
   if (settings.playMode === 'proof-or-die' && !firstReveal) {
     if (!Solver.isProvenSafe(playerView(), index)) {
       // Opening an unproven cell here is a deterministic death: stupid.
-      lose([index], true);
+      lose([index], true, evaluateProofDeath(index));
       return;
     }
   } else if (settings.playMode === 'angelic' && !firstReveal) {
     const saved = Solver.forceSafe(playerView(), cells.map((c) => c.mine), index, gameRandom);
     if (saved === null) {
       // An angelic death contradicts known facts (a proven mine): stupid.
-      lose([index], true);
+      lose([index], true, { kind: 'mine' });
       return;
     }
     applyMineMap(saved);
@@ -575,7 +584,8 @@ function revealCell(index) {
     attemptJustice(index);
   }
   if (cell.mine) {
-    lose([index], bareDeathStupidity(index, firstReveal));
+    lose([index], bareDeathStupidity(index, firstReveal),
+      evaluateFatalReveal(index, firstReveal));
     return;
   }
 
@@ -609,7 +619,6 @@ function toggleFlag(index) {
     gameState = 'playing';
     startTimer();
     justiceEnabledForGame = justiceAppliesToMode() && settings.justUniverse;
-    refreshSettingsPanel();
   }
   cell.flagged = !cell.flagged;
   flagsCount += cell.flagged ? 1 : -1;
@@ -621,26 +630,32 @@ function toggleFlag(index) {
   return true;
 }
 
+// The cells a chord would open, or null when the click is a no-op.
+function chordTargets(index) {
+  const cell = cells[index];
+  if (!cell.revealed || cell.adjacent === 0) return null;
+  const around = neighbors(index);
+  const flaggedCount = around.filter((n) => cells[n].flagged).length;
+  if (flaggedCount !== cell.adjacent) return null;
+
+  const toReveal = around.filter((n) => !cells[n].revealed && !cells[n].flagged);
+  return toReveal.length === 0 ? null : toReveal;
+}
+
 // Left-click chord on a satisfied number opens all unflagged neighbors.
 // Returns whether the click changed anything (a chord on a zero cell, an
 // unsatisfied number, or a number with nothing left to open is a no-op).
 function chord(index) {
   if (trialBlocksPlay()) return false;
-  const cell = cells[index];
-  if (!cell.revealed || cell.adjacent === 0) return false;
-  const around = neighbors(index);
-  const flaggedCount = around.filter((n) => cells[n].flagged).length;
-  if (flaggedCount !== cell.adjacent) return false;
-
-  const toReveal = around.filter((n) => !cells[n].revealed && !cells[n].flagged);
-  if (toReveal.length === 0) return false;
+  const toReveal = chordTargets(index);
+  if (toReveal === null) return false;
   clickCount++;
 
   if (settings.playMode === 'proof-or-die') {
     const view = playerView();
     if (toReveal.some((n) => !Solver.isProvenSafe(view, n))) {
       // Chording over an unproven cell in proof-or-die is deterministic.
-      lose(toReveal, true);
+      lose(toReveal, true, evaluateChordDeath(toReveal));
       return true;
     }
   } else if (settings.playMode === 'angelic') {
@@ -650,7 +665,7 @@ function chord(index) {
       const saved = Solver.forceSafe(view, mines, n, gameRandom);
       if (saved === null) {
         // The chord opened a proven mine: contradicted known facts.
-        lose([n], true);
+        lose([n], true, { kind: 'mine' });
         return true;
       }
       mines = saved;
@@ -662,7 +677,7 @@ function chord(index) {
   if (hitMines.length > 0) {
     // A chord death is categorically stupid: a flag is the player's
     // unsupported claim (the Justice doctrine), and a wrong one killed.
-    lose(hitMines, true);
+    lose(hitMines, true, evaluateChordDeath(hitMines));
     return true;
   }
   for (const n of toReveal) floodReveal(n);
@@ -673,6 +688,7 @@ function chord(index) {
 function checkWin() {
   if (revealedCount !== cells.length - config.mines) return;
   gameState = 'won';
+  sessionRecordEnd('win');
   finish();
   for (let i = 0; i < cells.length; i++) {
     if (cells[i].mine && !cells[i].flagged) {
@@ -689,9 +705,12 @@ function checkWin() {
 // true = the fatal act was avoidable from the represented player information;
 // false = not classified avoidable; undefined = not measured. Stored on the
 // loss record under the legacy field name stupidDeath.
-function lose(hitIndices, stupidVerdict) {
+function lose(hitIndices, stupidVerdict, evaluation) {
   deathWasStupid = stupidVerdict;
+  deathEvaluation = evaluation || null;
   sessionRecordDeath(stupidVerdict);
+  sessionRecordEnd(evaluation && evaluation.kind !== undefined
+    ? evaluation.kind : 'other');
   gameState = 'lost';
   finish();
   for (let i = 0; i < cells.length; i++) {
@@ -719,7 +738,6 @@ function finish() {
   clearInterval(timerInterval);
   timerInterval = null;
   clearPresses();
-  refreshSettingsPanel();
 }
 
 //-------A JUST UNIVERSE (sealed-pocket mercy)-------
@@ -747,6 +765,28 @@ function playerView() {
   };
 }
 
+function revealIsMisclick(index) {
+  return minesPlaced && Solver.isVisibleMisclick(
+    playerView(), { kind: 'reveal', cell: index });
+}
+
+function flagChangeIsMisclick(index, removing) {
+  return minesPlaced && Solver.isVisibleMisclick(
+    playerView(), { kind: 'flag', cell: index, removing: removing });
+}
+
+function chordIsMisclick(index, toReveal) {
+  return minesPlaced && Solver.isVisibleMisclick(playerView(), {
+    kind: 'chord',
+    opened: toReveal,
+    flagged: neighbors(index).filter((n) => cells[n].flagged),
+  });
+}
+
+function recordMisclick() {
+  misclicks++;
+}
+
 function attemptJustice(index) {
   if (justiceEnabledForGame !== true) return false;
   const view = {
@@ -767,6 +807,9 @@ function attemptJustice(index) {
     backupStatus.textContent = 'justice solver failed: ' + err.message;
     throw err;
   }
+  // Whether the guaranteed entry actually needed the mercy: read before
+  // the redraw is applied, for the end-of-game recap and justiceSaves.
+  const wasMine = cells[index].mine;
   let mineTotal = 0;
   for (const mine of redrawn) if (mine) mineTotal++;
   if (mineTotal !== config.mines) throw new Error('justice redraw changed the mine total');
@@ -782,6 +825,12 @@ function attemptJustice(index) {
   }
   if (cells[index].mine) throw new Error('justice entry remained mined');
   justiceEvents++;
+  justiceDetails.push({
+    type: certificate.type,
+    clearWays: certificate.clearWays,
+    totalWays: certificate.totalWays,
+    saved: wasMine,
+  });
   announceJustice(certificate);
   return true;
 }
@@ -863,6 +912,218 @@ function bareDeathStupidity(index, firstReveal) {
   return !event.idealRisk;
 }
 
+//-------GAME-END EVALUATION: VERDICT (pure)-------
+
+// The death verdict: every loss is judged at the fatal act and filed into
+// exactly one kind (PRODUCT.md "Game-end evaluation"). The judgement uses
+// only what the player could have known at that moment.
+const DEATH_KIND_LABELS = {
+  mine: 'clicked clear mine',
+  chord: 'chord death',
+  needless: 'needless guess',
+  forced: 'forced guess',
+  angel: 'angel-death',
+};
+
+// Ranked classification over the facts of the fatal act:
+// - provenMine: the fatal square was provably a mine from the visible board.
+// - via: 'bare' (a direct reveal), 'chord', 'first' (a blind first click
+//   into a fixed layout), or 'proof' (a proof-or-die rule death).
+// - measured: whether the surrounding facts below could be established.
+// - safeAvailable: a provably safe covered square existed somewhere.
+// - bestOdds: the fatal act took a lowest-available death risk.
+// Returns a DEATH_KIND_LABELS key, or undefined when nothing was judgeable.
+function deathVerdict(facts) {
+  if (facts.provenMine) return 'mine';
+  if (facts.via === 'chord') return 'chord';
+  // A blind first click into a fixed layout: every covered square was the
+  // same gamble, so the ideal risk was taken trivially.
+  if (facts.via === 'first') return 'angel';
+  if (!facts.measured) return undefined;
+  if (facts.safeAvailable) return 'needless';
+  if (facts.via === 'proof') return 'forced';
+  return facts.bestOdds ? 'angel' : 'forced';
+}
+
+// The player-facing explanation of the verdict — what the judgement was
+// and exactly why it was made. Pure over the stored record fields so it
+// renders identically on the fresh loss and on a revisited one.
+function deathVerdictText(record) {
+  const pct = (v) => (v * 100).toFixed(1) + '%';
+  const kind = record.deathKind;
+  const proof = record.playMode === 'proof-or-die';
+  if (kind === 'mine') {
+    return 'The fatal square was provably a mine from the visible board '
+      + '\u2014 not a guess, a readable fact. Clicked clear mine +1.';
+  }
+  if (kind === 'chord') {
+    return 'Your chord opened a mine behind your own wrong flag. A flag is '
+      + 'your unsupported claim, and this one was wrong \u2014 the odds were '
+      + 'never consulted.';
+  }
+  if (kind === 'needless') {
+    if (proof) {
+      return 'A provably safe square was available, but you opened an '
+        + 'unproven one \u2014 in proof-or-die that is death by rule.';
+    }
+    return 'You were not forced: a provably safe square was available. You '
+      + 'guessed anyway'
+      + (typeof record.deathRisk === 'number'
+        ? ' (a ' + pct(record.deathRisk) + ' mine chance)' : '')
+      + ' and it was a mine.';
+  }
+  if (kind === 'forced') {
+    if (proof) {
+      return 'No provably safe square existed anywhere, so proof-or-die '
+        + 'left no legal move: opening any unproven square was death by rule.';
+    }
+    return 'You were forced to guess \u2014 no provably safe square existed '
+      + 'anywhere \u2014 but you did not take the best odds'
+      + (typeof record.deathRisk === 'number'
+        && typeof record.deathBestRisk === 'number'
+        ? ': you clicked a ' + pct(record.deathRisk) + ' mine chance when '
+          + pct(record.deathBestRisk) + ' was available' : '')
+      + '.';
+  }
+  if (kind === 'angel') {
+    return 'You were forced to guess: no provably safe square existed '
+      + 'anywhere. You took the best available odds'
+      + (typeof record.deathRisk === 'number'
+        ? ' (' + pct(record.deathRisk) + ' mine chance, the lowest on the '
+          + 'board)' : '')
+      + ' and the universe killed you anyway. Angel-death: not your fault.';
+  }
+  return 'The fatal act could not be judged: the remaining layouts were '
+    + 'too many to measure.';
+}
+
+// The end-of-game Justice recap, win or loss: cited by rule name, with the
+// count of impossible choices the player was walked through unharmed.
+// saves = how many of those entries actually required moving a mine.
+function justiceRecapText(count, saves) {
+  const times = count === 1 ? 'once' : count + ' times';
+  let text = 'Due to the rule "A Just Universe", you were forced to make '
+    + 'an impossible choice and were automatically protected (' + times + ').';
+  if (typeof saves === 'number' && count > 0) {
+    if (saves === 0) {
+      text += ' Your square happened to be already clear each time; the '
+        + 'guarantee held either way.';
+    } else {
+      text += ' ' + (saves === 1 ? 'Once a mine' : saves + ' of those times a mine')
+        + ' was actually moved out from under you.';
+    }
+  }
+  return text;
+}
+
+// One recap line per Justice event of the just-finished game.
+function justiceEventDetail(detail, index) {
+  return '#' + (index + 1) + ': entry into a sealed ' + detail.type
+    + ' pocket (' + detail.clearWays + '/' + detail.totalWays
+    + ' layouts clear) \u2014 '
+    + (detail.saved
+      ? 'your square was mined; the pocket was redrawn around you.'
+      : 'your square was already clear; the guarantee held either way.');
+}
+
+//-------GAME-END EVALUATION: CAPTURE (reads the live board at the fatal act)-------
+
+// The judged evaluation of the current loss ({kind, p?, minP?}), set by
+// lose() and written onto the record by reportResult; null while no loss
+// is being reported. Reset in newGame.
+let deathEvaluation = null;
+
+// Per-event Justice details of the current game ({type, clearWays,
+// totalWays, saved}), pushed by attemptJustice for the end-of-game recap.
+let justiceDetails = [];
+
+// Locally provable facts over the covered board right now: the fact map
+// (1 = certain mine, 2 = proven safe) plus whether any covered square is
+// proven safe. Uses the same prover the odds engine builds on.
+function coveredFactsInfo() {
+  const view = playerView();
+  const facts = Justice.proveFacts(view, Justice.rawClues(view));
+  let safeAvailable = false;
+  for (let i = 0; i < cells.length; i++) {
+    if (!view.revealed[i] && facts.get(i) === 2) {
+      safeAvailable = true;
+      break;
+    }
+  }
+  return { facts, safeAvailable };
+}
+
+// Judges a fatal bare reveal. Prefers the click's own guess-ledger event
+// (exact enumerated odds); falls back to locally provable facts when the
+// odds were not measured, and to unjudged when even those cannot split
+// the remaining kinds. Must never block the loss: failures announce and
+// return the unjudged evaluation.
+function evaluateFatalReveal(index, firstReveal) {
+  try {
+    if (firstReveal) {
+      const p = config.mines / cells.length;
+      return { kind: deathVerdict({ via: 'first' }), p: p, minP: p };
+    }
+    const local = coveredFactsInfo();
+    const event = guessEvents[guessEvents.length - 1];
+    const matched = event !== undefined && event.cell === index;
+    const provenMine = local.facts.get(index) === 1
+      || (matched && event.p >= 1 - 1e-9);
+    if (matched) {
+      const kind = deathVerdict({
+        via: 'bare',
+        provenMine: provenMine,
+        measured: true,
+        safeAvailable: local.safeAvailable || event.minP <= 1e-9,
+        bestOdds: event.idealRisk,
+      });
+      return { kind: kind, p: event.p, minP: event.minP };
+    }
+    // No measured odds: only the locally provable kinds are reachable.
+    if (provenMine) return { kind: 'mine', p: 1 };
+    if (local.safeAvailable) return { kind: 'needless' };
+    return { kind: undefined };
+  } catch (err) {
+    backupStatus.textContent = 'death verdict failed: ' + err.message;
+    return { kind: undefined };
+  }
+}
+
+// Judges a proof-or-die rule death (opening an unproven square).
+function evaluateProofDeath(index) {
+  try {
+    const local = coveredFactsInfo();
+    return {
+      kind: deathVerdict({
+        via: 'proof',
+        provenMine: local.facts.get(index) === 1,
+        measured: true,
+        safeAvailable: local.safeAvailable,
+      }),
+    };
+  } catch (err) {
+    backupStatus.textContent = 'death verdict failed: ' + err.message;
+    return { kind: undefined };
+  }
+}
+
+// Judges a chord death: a provably-mined opened square outranks the
+// wrong-flag verdict (the player chorded through a readable fact).
+function evaluateChordDeath(hitIndices) {
+  try {
+    const local = coveredFactsInfo();
+    return {
+      kind: deathVerdict({
+        via: 'chord',
+        provenMine: hitIndices.some((i) => local.facts.get(i) === 1),
+      }),
+    };
+  } catch (err) {
+    backupStatus.textContent = 'death verdict failed: ' + err.message;
+    return { kind: 'chord' };
+  }
+}
+
 //-------STATS (3BV, as measured on minesweeper.online)-------
 
 function compute3BV() {
@@ -903,6 +1164,7 @@ function reportResult(outcome) {
     bv3: compute3BV(),
     clicks: clickCount,
     wastedClicks: wastedClicks,
+    misclicks: misclicks,
     flagsPlaced: flagsPlaced,
     flagsRemoved: flagsRemoved,
     mousePathPx: Math.round(mousePathPx),
@@ -932,6 +1194,22 @@ function reportResult(outcome) {
   if (outcome === 'loss' && deathWasStupid !== undefined) {
     record.stupidDeath = deathWasStupid;
   }
+  // The death verdict (PRODUCT.md "Game-end evaluation"): the judged kind
+  // plus the measured odds behind the judgement. Absent on wins and when
+  // nothing was judgeable.
+  if (outcome === 'loss' && deathEvaluation !== null
+      && deathEvaluation.kind !== undefined) {
+    record.deathKind = deathEvaluation.kind;
+    if (typeof deathEvaluation.p === 'number') {
+      record.deathRisk = deathEvaluation.p;
+    }
+    if (typeof deathEvaluation.minP === 'number') {
+      record.deathBestRisk = deathEvaluation.minP;
+    }
+  }
+  // How many Justice entries actually required moving a mine (the rest
+  // were guaranteed but already clear). Zero is a normal value.
+  record.justiceSaves = justiceDetails.filter((d) => d.saved).length;
   // Fastclick gap: the game's median gap between consecutive useful
   // presses made on the move with gaps under 1s (the session series'
   // qualification, over this one game). Absent when no gap qualified.
@@ -982,11 +1260,59 @@ function reportResult(outcome) {
   // stays (it spans games), so the panel re-renders rather than hiding.
   renderMetricsPanel(null);
   renderResult(record, modeRecords);
+  // The path button appears with the finished board; a view left on from
+  // the previous game draws this game's path immediately.
+  renderPathViewButton();
+  renderPathOverlay();
 }
 
 // The result currently on screen ({record, modeRecords}), kept so a
 // settings toggle can re-render it in place; null while no result shows.
 let renderedResult = null;
+
+// The game-end evaluation blocks (PRODUCT.md "Game-end evaluation"): the
+// death verdict with its full justification on a loss, and the Justice
+// recap on any game that had events — both above the stats table. The
+// per-event Justice lines come from this game's RAM details; a record
+// re-rendered later still gets the counted recap sentence.
+function buildVerdictBlocks(record) {
+  const wrap = document.createElement('div');
+  wrap.id = 'result-verdicts';
+  const block = (kindClass, titleText, bodyText) => {
+    const box = document.createElement('div');
+    box.className = 'verdict-block ' + kindClass;
+    const title = document.createElement('div');
+    title.className = 'verdict-title';
+    title.textContent = titleText;
+    const body = document.createElement('div');
+    body.className = 'verdict-body';
+    body.textContent = bodyText;
+    box.append(title, body);
+    wrap.appendChild(box);
+    return box;
+  };
+  if (record.outcome === 'loss') {
+    block('verdict-' + (record.deathKind || 'unjudged'),
+      'Death verdict: '
+        + (record.deathKind ? DEATH_KIND_LABELS[record.deathKind] : 'unjudged'),
+      deathVerdictText(record));
+  }
+  if ((record.justice || 0) > 0) {
+    const box = block('verdict-justice', 'A Just Universe',
+      justiceRecapText(record.justice, record.justiceSaves));
+    if (justiceDetails.length === record.justice) {
+      const list = document.createElement('div');
+      list.className = 'verdict-details';
+      justiceDetails.forEach((detail, i) => {
+        const line = document.createElement('div');
+        line.textContent = justiceEventDetail(detail, i);
+        list.appendChild(line);
+      });
+      box.appendChild(list);
+    }
+  }
+  return wrap.childNodes.length > 0 ? wrap : null;
+}
 
 function renderResult(record, modeRecords, options = {}) {
   renderedResult = { record, modeRecords, options };
@@ -998,6 +1324,12 @@ function renderResult(record, modeRecords, options = {}) {
     + '\n' + playModeLabel()
     + '\n' + (options.historyView ? 'Latest win · ' : '') + formatDate(record.endedAt);
   resultStats.textContent = '';
+  if (!options.historyView && settings.shownThings.endVerdict) {
+    const verdicts = buildVerdictBlocks(record);
+    if (verdicts !== null) {
+      resultStats.appendChild(verdicts);
+    }
+  }
   const statsGrid = document.createElement('div');
   statsGrid.id = 'stats-grid';
   // "Clicks over 3BV" only exists for wins: a lost board was never
@@ -1012,7 +1344,8 @@ function renderResult(record, modeRecords, options = {}) {
       ? [['Largest island', String(record.largestIsland)]] : []),
     ['3BV/s', bvPerSecond(record).toFixed(4)],
     ['Clicks', String(record.clicks)],
-    ['Wasted clicks', String(record.wastedClicks)],
+    ['No-op clicks', String(record.wastedClicks)],
+    ...(record.misclicks !== undefined ? [['Misclicks', String(record.misclicks)]] : []),
     ['Flags placed', isMarkless(record) ? '0 - markless' : String(record.flagsPlaced)],
     ['Flags removed', String(record.flagsRemoved)],
     // A Justice event is any qualifying sealed-pocket entry, whether the
@@ -1036,6 +1369,10 @@ function renderResult(record, modeRecords, options = {}) {
       ? [['Guesses', formatGuesses(record)]] : []),
     ...(record.stupidDeath !== undefined
       ? [['Avoidable death', record.stupidDeath ? 'yes' : 'no']] : []),
+    ...(record.deathKind !== undefined
+      ? [['Death verdict', DEATH_KIND_LABELS[record.deathKind]]] : []),
+    ...(record.justiceSaves !== undefined && (record.justice || 0) > 0
+      ? [['Justice saves', String(record.justiceSaves)]] : []),
     ['Mouse path', record.mousePathPx + 'px'],
     ['Mouse speed', Math.round(record.mousePathPx / seconds) + 'px/s'],
     // The per-game forms of the session series, derived from stored
@@ -1044,7 +1381,9 @@ function renderResult(record, modeRecords, options = {}) {
     ...(seconds > 0
       ? [['Click rate', (record.clicks / seconds).toFixed(2) + '/s']] : []),
     ...(seconds > 0 && 'wastedClicks' in record
-      ? [['Wasted rate', (record.wastedClicks / (seconds / 60)).toFixed(1) + '/min']] : []),
+      ? [['No-op rate', (record.wastedClicks / (seconds / 60)).toFixed(1) + '/min']] : []),
+    ...(seconds > 0 && record.misclicks !== undefined
+      ? [['Misclick rate', (record.misclicks / (seconds / 60)).toFixed(1) + '/min']] : []),
     ...(seconds > 0 && record.flagsPlaced !== undefined
       ? [['Mark rate', (record.flagsPlaced / seconds).toFixed(2) + '/s']] : []),
     ...(seconds > 0 && record.flagsRemoved !== undefined
@@ -1067,7 +1406,9 @@ function renderResult(record, modeRecords, options = {}) {
     valueCell.textContent = value;
     statsGrid.append(labelCell, valueCell);
   }
-  if (settings.shownThings.gameStats) resultStats.appendChild(statsGrid);
+  if (settings.shownThings.gameStats) {
+    resultStats.appendChild(statsGrid);
+  }
   if (Trial.isPlayMode(settings.playMode) && !options.historyView) {
     resultRanks.textContent = '';
     renderTrialChrome();
@@ -1084,7 +1425,9 @@ function renderResult(record, modeRecords, options = {}) {
     const brk = document.createElement('div');
     brk.className = 'flex-break';
     resultRanks.appendChild(brk);
-    for (const chart of buildMotionStatsCharts()) resultRanks.appendChild(chart);
+    for (const chart of buildMotionStatsCharts()) {
+      resultRanks.appendChild(chart);
+    }
   }
   syncResultClearance();
 }
@@ -1110,6 +1453,7 @@ const GAME_RECORD_SCHEMA = [
   { field: 'bv3', valid: isNumber, example: '10', describe: "the board's 3BV: minimum clicks to clear it" },
   { field: 'clicks', valid: isNumber, example: '19', describe: 'clicks that changed the board (reveals, flags, chords)' },
   { field: 'wastedClicks', valid: (v) => v === undefined || isNumber(v), example: '3', describe: 'board clicks that changed nothing; absent on games recorded before 2026-08-19' },
+  { field: 'misclicks', valid: (v) => v === undefined || isNumber(v), example: '1', describe: 'board-changing actions contradicted by facts provable from the visible board at click time: opening a proven mine, flagging a proven safe, removing a proven-mine flag, or chording through a visible contradiction; independent of whether the action caused death; absent on games recorded before 2026-08-23' },
   { field: 'flagsPlaced', valid: (v) => v === undefined || isNumber(v), example: '0', describe: 'flags the player placed (win auto-flagging not counted); 0 = a markless game; absent on games recorded before 2026-08-19' },
   { field: 'flagsRemoved', valid: (v) => v === undefined || isNumber(v), example: '1', describe: 'flag states the player turned off; placement and removal are each board-changing clicks; the reason for removal is not observed; absent on games recorded before 2026-08-20' },
   { field: 'mousePathPx', valid: isNumber, example: '1182', describe: 'cursor travel while playing, px' },
@@ -1140,171 +1484,61 @@ const GAME_RECORD_SCHEMA = [
   { field: 'lifeNeedless', valid: (v) => v === undefined || isNumber(v), example: '0.25', describe: 'sum of (chosen risk minus safest available risk); an ideal-risk guess costs 0 even at 19% death; absent with guesses' },
   { field: 'oddsVersion', valid: (v) => v === undefined || v === Odds.VERSION, example: '"' + Odds.VERSION + '"', describe: 'remaining-layout odds and guess-scoring contract; absent on earlier games' },
   { field: 'stupidDeath', valid: (v) => v === undefined || typeof v === 'boolean', example: 'true', describe: 'legacy field name; loss only: rule-based classification of whether the fatal act was avoidable from represented player information (wrong-flag chord, unproven proof-or-die open, contradicted-fact angelic death, or nonideal guess when something strictly safer was available); false = not classified avoidable; absent on wins, when the fatal click could not be measured, and on games recorded before 2026-08-22' },
+  { field: 'deathKind', valid: (v) => v === undefined || v in DEATH_KIND_LABELS, example: '"angel"', describe: 'loss only: the death verdict — "mine" (the fatal square was provably a mine from the visible board), "angel" (forced to guess, took the lowest available risk, died anyway), "forced" (forced to guess but not at the lowest risk), "needless" (a provably safe square was available), or "chord" (a wrong flag killed); absent on wins, when nothing was judgeable, and on games recorded before 2026-08-23' },
+  { field: 'deathRisk', valid: (v) => v === undefined || isNumber(v), example: '0.25', describe: 'loss only: the fatal square\u2019s measured mine probability at the fatal click; absent when odds were not measured there' },
+  { field: 'deathBestRisk', valid: (v) => v === undefined || isNumber(v), example: '0.143', describe: 'loss only: the lowest mine probability available anywhere at the fatal click (0 = a provably safe square existed); absent when odds were not measured there' },
+  { field: 'justiceSaves', valid: (v) => v === undefined || isNumber(v), example: '0', describe: 'how many of the game\u2019s Justice entries actually required moving a mine (justice counts every guaranteed entry; this counts the redraws among them); absent on games recorded before 2026-08-23' },
 ];
 
 // Records are grouped by mode key and kept in chronological order. The RAM
-// copy of the whole history (userdata 'history', filled by loadUserdata);
+// copy of the whole history (userdata 'history', filled by userdataReady);
 // scalar records are small enough that all of them stay in RAM — revisit
 // only if that ever stops being true.
 let history = null;
 
-//-------PERSONAL SETTINGS (behavior switches, stored beside the history)-------
+//-------SETTINGS SUPPORT (the schema itself lives in settings-core.js)-------
 
-// Player-facing behavior switches ("settings", never "config" — that word
-// is taken by the board parameters). Like GAME_RECORD_SCHEMA, this is the
-// single definition of the settings block: settingsFrom fills absent fields
-// from `default` (a stored block written before a setting existed simply
-// predates it — absence means the player never changed it), importHistory
-// validates an incoming block against `valid`, buildSettingsPanel renders
-// the controls from `label`/`describe`, and exports carry the block under
-// the reserved "settings" key — so the writer, the validator, the UI, and
-// the documentation cannot drift apart.
-const SHOWN_THINGS_DEFAULTS = Object.freeze({
-  gameStats: true,
-  timeTables: true,
-  lastOneMinute: false,
-  exact3BV: true,
-  boardShapeTables: true,
-  largestIsland: false,
-  averageCharts: true,
-  streak: true,
-  nearStreak: true,
-  nearNearStreak: false,
-  relationshipCharts: true,
-});
+// The settings schema, groups, shown-things options, the RAM copy
+// (`settings`), settingsFrom, and saveSettings all moved to
+// settings-core.js on 2026-08-23, shared with the settings page. The
+// constants below stay here because only game-page code (including the
+// schema's late-bound valid() closures) ever reads them.
 
-const SHOWN_THINGS_OPTIONS = [
-  ['gameStats', 'game stats', 'the label/value stats beside the board'],
-  ['timeTables', 'time-window tablecharts', 'lifetime, calendar, rolling-window, and day-category rankings'],
-  ['lastOneMinute', 'last 1 minute', 'the very short rolling time tablechart'],
-  ['exact3BV', 'same-3BV tablechart', 'times on boards with exactly the same 3BV'],
-  ['boardShapeTables', 'board-shape tablecharts', 'max number, islands, and zero-count rankings'],
-  ['largestIsland', 'largest island', 'the largest-island stat and matching tablechart'],
-  ['averageCharts', 'average-time charts', 'average solve time by clicks, 3BV, and mouse path'],
-  ['streak', 'streak', 'consecutive-win ranking'],
-  ['nearStreak', 'near-streak', 'win runs spanning at most one loss'],
-  ['nearNearStreak', 'near-near-streak', 'win runs spanning at most two losses'],
-  ['relationshipCharts', 'relationship charts', 'the raw win scatter plots at the bottom'],
+// Selectable running-average lengths (seconds of accumulated play); see
+// the session stats section. "5m" means five minutes of played time,
+// never wall time. The selector lives on the session section itself, not
+// on the settings page, so experimenting with it is one click.
+const SESSION_LOOKBACK_CHOICES = [30, 60, 120, 300, 900];
+
+// Selectable session-stat window lengths (minutes of accumulated play).
+// Same one-click doctrine: the selector lives on the session section.
+// Retention (SESSION_KEEP_MS) always covers the largest choice, so
+// switching to a longer window works immediately.
+const SESSION_WINDOW_CHOICES = [15, 30, 60, 180];
+
+// Selectable source windows for the recent-placements summary (PRODUCT.md
+// "Recent placements"): [id, label, windowStartMs(nowMs)]. Like the session
+// lookback, the selector lives on the summary block itself. "today
+// since 6am" treats 6am as the day boundary, so before 6am it reaches back
+// to yesterday's 6am rather than reporting an empty morning.
+const RECENT_PLACEMENTS_WINDOWS = [
+  ['today', 'today', (now) => startOfDay(now)],
+  ['today6am', 'today since 6am', (now) => {
+    const d = new Date(now);
+    d.setHours(6, 0, 0, 0);
+    if (d.getTime() > now) d.setDate(d.getDate() - 1);
+    return d.getTime();
+  }],
+  ['pastHour', 'in the past hour', (now) => now - 3600e3],
+  ['past24h', 'in the past 24h', (now) => now - 24 * 3600e3],
+  ['pastWeek', 'in the past week', (now) => startOfDay(now, 6)],
 ];
-
-function validShownThings(value) {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-    && Object.entries(value).every(([key, enabled]) =>
-      key in SHOWN_THINGS_DEFAULTS && typeof enabled === 'boolean');
-}
-
-// Selectable session-stat bucket sizes (seconds); see the session stats
-// section. The selector lives on the session section itself, not in the
-// settings dropdown, so experimenting with it is one click.
-const SESSION_BUCKET_CHOICES = [10, 30, 60, 300];
 
 // Drag bounds for the left stats panel: narrow enough to get out of the
 // way, wide enough for a chart to be genuinely readable, never so wide
 // it could swallow the board on a laptop screen.
 const METRICS_PANEL_WIDTH_MIN = 220;
 const METRICS_PANEL_WIDTH_MAX = 640;
-
-const SETTINGS_SCHEMA = [
-  {
-    field: 'justUniverse',
-    default: true,
-    valid: (v) => typeof v === 'boolean',
-    label: 'a just universe',
-    describe: 'when you bare-click into a sealed pocket that no outside clue can ever resolve, that entry is guaranteed safe',
-    // A "?" beside the name raises this page on hover (examples of what
-    // counts as truly forced and what does not).
-    helpFile: 'just-universe-help.html',
-  },
-  {
-    field: 'collapseDuplicateCharts',
-    default: true,
-    valid: (v) => typeof v === 'boolean',
-    label: 'collapse duplicate tablecharts',
-    describe: 'when several time windows hold the exact same wins (e.g. every win this week happened today), show only the most specific chart (lifetime and past week always render); off = every window always renders its own chart',
-  },
-  {
-    field: 'showMotionStatsDuringGame',
-    default: true,
-    valid: (v) => typeof v === 'boolean',
-    label: 'show motion stats during game',
-    describe: 'the live motion panel on the left edge: mouse-dynamics values and their sparklines, recomputed once a second while you play (the panel\u2019s own \u00d7 tucks it away for the session; this switch turns it off for good)',
-  },
-  {
-    field: 'showMotionStatsAfterGame',
-    default: true,
-    valid: (v) => typeof v === 'boolean',
-    label: 'show motion stats after game ends',
-    describe: 'when a game finishes, the canonical motion values, each with its over-the-game chart, inline at the bottom after the other charts',
-  },
-  {
-    field: 'showSessionStats',
-    default: true,
-    valid: (v) => typeof v === 'boolean',
-    label: 'show session stats',
-    describe: 'the recent-observations section at the top of the left panel: mouse speed while playing, click / avoidable-death / no-op-click / mine-marking / flag-removal rates, and the fastclick gap, bucketed and charted over the last hour across games, wins and losses alike; changes are not assigned a cause',
-  },
-  {
-    field: 'sessionBucketSeconds',
-    default: 60,
-    valid: (v) => SESSION_BUCKET_CHOICES.includes(v),
-    label: 'session bucket size',
-    describe: 'seconds of play summed into each session-stat bucket; chosen with the selector on the session section itself',
-    control: 'none',
-  },
-  {
-    field: 'metricsPanelWidth',
-    default: 316,
-    valid: (v) => typeof v === 'number' && v >= METRICS_PANEL_WIDTH_MIN && v <= METRICS_PANEL_WIDTH_MAX,
-    label: 'stats panel width',
-    describe: 'px width of the left stats panel; set by dragging the panel\u2019s right edge, not from here',
-    control: 'none',
-  },
-  {
-    field: 'shownThings',
-    default: SHOWN_THINGS_DEFAULTS,
-    valid: validShownThings,
-    label: 'shown things',
-    describe: 'choose which result sections appear after a game or in the score viewer',
-    control: 'shown-things',
-  },
-  {
-    field: 'playMode',
-    default: 'standard',
-    valid: (v) => PLAY_MODE_IDS.has(v),
-    label: 'play mode',
-    describe: 'Standard, Uniform NG, Single-path NG, Proof-or-die, Angelic, Trial, Short trial, or Test trial. Each mode stores and ranks its own results.',
-    control: 'none',
-  },
-  {
-    field: 'trialGiveOpening',
-    default: false,
-    valid: (v) => typeof v === 'boolean',
-    label: 'trial: open a starting cell',
-    describe: 'each trial board begins with one predetermined cell already opened; off (default) = you make the first click on a covered board',
-  },
-];
-
-// The RAM copy of the settings block (userdata 'settings').
-let settings = null;
-
-function settingsFrom(stored) {
-  const filled = {};
-  for (const s of SETTINGS_SCHEMA) {
-    if (s.field === 'shownThings') {
-      filled[s.field] = {
-        ...SHOWN_THINGS_DEFAULTS,
-        ...(s.field in stored && validShownThings(stored[s.field]) ? stored[s.field] : {}),
-      };
-    } else {
-      filled[s.field] = s.field in stored ? stored[s.field] : s.default;
-    }
-  }
-  return filled;
-}
-
-function saveSettings() {
-  persistUserdata('settings', settings);
-}
 
 // A stored mode is board parameters plus play mode. Named difficulty
 // labels are display-only (see modeLabel). Keys without @ are the
@@ -1541,12 +1775,15 @@ function isHoliday(date) {
 
 // Columns for the current win: the rolling windows, plus lifetime-spanning
 // categories the win itself belongs to (same weekday, weekend/weekday,
-// holiday when today is one).
+// holiday when today is one). Window columns carry their startMs; day
+// categories have none — that absence is what marks them lifetime-spanning
+// (the recent-placements strictly-longer rule reads it).
 function rankColumns(referenceMs) {
   const columns = rankWindows(referenceMs).map(([label, startMs, specificity]) => ({
     label: label,
     filter: (s) => s.endedAt >= startMs,
     specificity: specificity,
+    startMs: startMs,
   }));
   const winDate = new Date(referenceMs);
   const weekday = winDate.getDay();
@@ -1569,6 +1806,225 @@ function rankColumns(referenceMs) {
     });
   }
   return columns;
+}
+
+// Board-shape chart candidates for this win's finished-board family:
+// {label, specificity, rows (member wins)}. Older wins lacking a
+// measurement stay off their list. Shared by the board-shape tablecharts
+// and the recent-placements summary so the two chart sets cannot drift;
+// the largestIsland display gate is applied at the tablechart render
+// site, not here.
+function boardShapeCandidates(record, wins) {
+  const candidates = [];
+  if (record.maxAdjacent === 8) {
+    candidates.push({
+      label: 'has 8',
+      specificity: 0,
+      rows: wins.filter((s) => s.maxAdjacent === 8),
+    });
+  }
+  if (record.hasSeven === true) {
+    candidates.push({
+      label: 'has 7',
+      specificity: 1,
+      rows: wins.filter((s) => s.hasSeven === true),
+    });
+  }
+  if (typeof record.maxAdjacent === 'number') {
+    for (const cap of [4, 3, 2]) {
+      if (record.maxAdjacent <= cap) {
+        candidates.push({
+          label: 'max ' + cap,
+          specificity: cap,
+          rows: wins.filter((s) => typeof s.maxAdjacent === 'number' && s.maxAdjacent <= cap),
+        });
+      }
+    }
+  }
+  if (typeof record.islandCount === 'number') {
+    candidates.push({
+      label: record.islandCount === 1 ? '1 island' : record.islandCount + ' islands',
+      specificity: 10,
+      rows: wins.filter((s) => s.islandCount === record.islandCount),
+    });
+  }
+  if (typeof record.largestIsland === 'number') {
+    candidates.push({
+      label: 'largest island ' + record.largestIsland,
+      specificity: 11,
+      rows: wins.filter((s) => s.largestIsland === record.largestIsland),
+    });
+  }
+  if (typeof record.zeroCount === 'number') {
+    candidates.push({
+      label: record.zeroCount === 1 ? '1 zero' : record.zeroCount + ' zeros',
+      specificity: 12,
+      rows: wins.filter((s) => s.zeroCount === record.zeroCount),
+    });
+  }
+  return candidates;
+}
+
+//-------RECENT PLACEMENTS: COMPUTATION (pure; tests extract this span)-------
+
+// English ordinal: 1st, 2nd, 3rd, 4th ... with the 11th/12th/13th rule.
+function ordinal(n) {
+  const rem100 = n % 100;
+  if (rem100 >= 11 && rem100 <= 13) return n + 'th';
+  return n + ({ 1: 'st', 2: 'nd', 3: 'rd' }[n % 10] || 'th');
+}
+
+// Sorted ranks compressed into runs, the ordinal suffix only closing each
+// run: [1, 3, 8, 9, 10, 11, 12] renders as "1st, 3rd, 8\u201312th".
+function formatRankRuns(ranks) {
+  const parts = [];
+  for (let i = 0; i < ranks.length; i++) {
+    let j = i;
+    while (j + 1 < ranks.length && ranks[j + 1] === ranks[j] + 1) j++;
+    parts.push(j > i ? ranks[i] + '\u2013' + ordinal(ranks[j]) : ordinal(ranks[i]));
+    i = j;
+  }
+  return parts.join(', ');
+}
+
+// The recent-placements rows (PRODUCT.md "Recent placements"). Each
+// candidate names one tablechart: {label, specificity, wins (that chart's
+// member wins), startMs (present only on time windows — a window reports
+// only when it starts strictly before the source window, since a window
+// no longer than the source could only echo its own chart; membership
+// charts like weekend/weekday and same-3BV span lifetime and always
+// qualify), alwaysShowBest (lifetime's near-miss rule: when no rank is
+// within the top tenth, report the single best source-window rank anyway,
+// marked nearMiss, so how close it came stays visible)}. Within each
+// chart, wins rank fastest-first (ties by earlier finish) and a rank r is
+// reported only when it is earned within the source window and sits in
+// the list's top tenth (r * 10 <= list length; a 9-win list reports
+// nothing). Rows come back narrowest chart first, each
+// {label, ranks (ascending, 1-based), total, nearMiss}.
+function recentPlacementsSummary(candidates, sourceStartMs) {
+  const rows = [];
+  for (const c of candidates) {
+    if (c.startMs !== undefined && !(c.startMs < sourceStartMs)) continue;
+    const list = c.wins.slice()
+      .sort((a, b) => a.timeMs - b.timeMs || a.endedAt - b.endedAt);
+    const ranks = [];
+    for (let i = 0; (i + 1) * 10 <= list.length; i++) {
+      if (list[i].endedAt >= sourceStartMs) ranks.push(i + 1);
+    }
+    if (ranks.length > 0) {
+      rows.push({ label: c.label, specificity: c.specificity, ranks, total: list.length, nearMiss: false });
+    } else if (c.alwaysShowBest === true) {
+      const best = list.findIndex((s) => s.endedAt >= sourceStartMs);
+      if (best !== -1) {
+        rows.push({ label: c.label, specificity: c.specificity, ranks: [best + 1], total: list.length, nearMiss: true });
+      }
+    }
+  }
+  rows.sort((a, b) => a.specificity - b.specificity);
+  return rows;
+}
+
+//-------RECENT PLACEMENTS: DISPLAY-------
+
+// One summary block: which top-tenth ranks on the longer tablecharts —
+// the time windows, the day categories, this game's same-3BV chart, and
+// its board-shape charts — were earned within the chosen recent window.
+// The window selector sits in the heading and persists as
+// settings.recentPlacementsWindow; a change re-renders the result in
+// place, like a settings-panel switch.
+function buildRecentPlacements(record, wins, referenceMs) {
+  const [, chosenLabel, startOf] = RECENT_PLACEMENTS_WINDOWS
+    .find(([id]) => id === settings.recentPlacementsWindow);
+  const sourceStartMs = startOf(referenceMs);
+  // Every chart this game is ranked on competes here (the general rule,
+  // decided 2026-08-23): the time windows and day categories from
+  // rankColumns (day categories carry no startMs — lifetime-spanning,
+  // always longer than the source), this game's same-3BV chart, and its
+  // board-shape charts — independent of which tablecharts are switched
+  // on. Shape charts order after lifetime and the 3BV chart, in their
+  // tablechart order (specificity offset 14).
+  const candidates = rankColumns(referenceMs).map((column) => ({
+    label: column.label,
+    specificity: column.specificity,
+    startMs: column.startMs,
+    wins: wins.filter(column.filter),
+    alwaysShowBest: column.label === 'lifetime',
+  }));
+  candidates.push({
+    label: '3BV ' + record.bv3,
+    specificity: 13,
+    wins: wins.filter((s) => s.bv3 === record.bv3),
+  });
+  for (const c of boardShapeCandidates(record, wins)) {
+    candidates.push({
+      label: c.label,
+      specificity: 14 + c.specificity,
+      wins: c.rows,
+    });
+  }
+  const rows = recentPlacementsSummary(candidates, sourceStartMs);
+
+  const box = document.createElement('div');
+  box.className = 'rank-list recent-placements';
+  const heading = document.createElement('h4');
+  heading.textContent = 'ranks won';
+  heading.title = 'top ranks on every longer chart (time windows, day '
+    + 'categories, this 3BV, this board\u2019s shape charts) that were earned '
+    + chosenLabel + '; only ranks within the top tenth of a list count, '
+    + 'except that lifetime shows its closest rank when none made the tenth';
+  const select = document.createElement('select');
+  select.className = 'recent-placements-select';
+  select.title = 'the recent window whose earned top ranks are summarized';
+  for (const [id, label] of RECENT_PLACEMENTS_WINDOWS) {
+    const option = document.createElement('option');
+    option.value = id;
+    option.textContent = label;
+    select.appendChild(option);
+  }
+  select.value = settings.recentPlacementsWindow;
+  select.addEventListener('change', () => {
+    settings.recentPlacementsWindow = select.value;
+    saveSettings();
+    if (renderedResult !== null) {
+      renderResult(renderedResult.record, renderedResult.modeRecords, renderedResult.options);
+    }
+  });
+  heading.appendChild(select);
+  box.appendChild(heading);
+
+  // Lifetime's near-miss rule reports whenever the source window has any
+  // win at all, so an empty summary means exactly that: no wins yet.
+  if (rows.length === 0) {
+    const none = document.createElement('div');
+    none.className = 'recent-placements-none';
+    none.textContent = 'no wins ' + chosenLabel;
+    box.appendChild(none);
+    return box;
+  }
+  const grid = document.createElement('div');
+  grid.className = 'recent-placements-grid';
+  for (const row of rows) {
+    const line = document.createElement('div');
+    line.className = 'rank-row';
+    if (row.nearMiss) {
+      line.title = 'no top-tenth ' + row.label + ' rank was won ' + chosenLabel
+        + '; this is the closest one';
+    }
+    for (const [cls, text] of [
+      ['recent-window-cell', row.label],
+      ['recent-ranks-cell' + (row.nearMiss ? ' recent-near-cell' : ''),
+        formatRankRuns(row.ranks)],
+      ['recent-of-cell', 'of ' + row.total],
+    ]) {
+      const cell = document.createElement('span');
+      cell.className = cls;
+      cell.textContent = text;
+      line.appendChild(cell);
+    }
+    grid.appendChild(line);
+  }
+  box.appendChild(grid);
+  return box;
 }
 
 // Appends the finished game to its mode's history and returns that mode's
@@ -2796,6 +3252,12 @@ function renderRanks(record, modeRecords, options = {}) {
       timeAgeRow(sameBv)));
   }
 
+  // Recent placements (requested 2026-08-23): which top-tenth ranks on
+  // the longer charts were earned within the chosen recent window.
+  if (settings.shownThings.recentPlacements) {
+    resultRanks.appendChild(buildRecentPlacements(record, wins, referenceMs));
+  }
+
   // Board-shape time lists: this win's finished-board family only.
   // Older wins that lack the measurement stay off the list. Nested
   // filters (max 2 ⊂ max 3 ⊂ max 4) collapse under the same setting
@@ -2935,8 +3397,10 @@ function renderRanks(record, modeRecords, options = {}) {
   }
 
   // Scatter plots at the very bottom, each raw win value against win time
-  // (or clicks). Needs at least 2 wins to have a spread.
-  if (wins.length >= 2) {
+  // (or clicks). Needs at least 2 wins to have a spread. These are the
+  // "relationship charts": the switch had described them all along but
+  // never actually gated them until 2026-08-23.
+  if (settings.shownThings.relationshipCharts && wins.length >= 2) {
     const brk = document.createElement('div');
     brk.className = 'flex-break';
     resultRanks.appendChild(brk);
@@ -2957,7 +3421,7 @@ function renderRanks(record, modeRecords, options = {}) {
     // average charts) — always on the untrimmed values, even where trimY
     // hides outliers from display (the fit resists outliers by
     // construction). Not on "time of day" (a straight line on a circular
-    // axis would mislead) nor "wasted clicks" (tied small-integer x
+    // axis would mislead) nor "no-op clicks" (tied small-integer x
     // leaves too few effective slopes).
     const trendTodayWins = wins.filter((s) => s.endedAt >= startOfDay(referenceMs));
     const trendOpts = (fx, fy) => ({
@@ -2972,19 +3436,20 @@ function renderRanks(record, modeRecords, options = {}) {
     // tick values carry the scale. "date" spreads wins across the calendar;
     // "time of day" folds every win onto one 24-hour clock, exposing the
     // daily rhythm instead of the long-term trend.
-    resultRanks.appendChild(buildScatter(
+    const appendScatter = (svg) => resultRanks.appendChild(svg);
+    appendScatter(buildScatter(
       wins, highlighted, endedAtOf, secondsOf,
       'date', 'time', meLabel, ageInfoOf,
       { timeAxis: true, trimY: true, ...trendOpts(endedAtOf, secondsOf) }));
-    resultRanks.appendChild(buildScatter(
+    appendScatter(buildScatter(
       wins, highlighted, hourOfDay, secondsOf,
       'time of day', 'time', meLabel, ageInfoOf,
       { xDomain: [0, 24], xTicks: [0, 4, 8, 12, 16, 20, 24], trimY: true }));
-    resultRanks.appendChild(buildScatter(
+    appendScatter(buildScatter(
       wins, highlighted, bv3Of, secondsOf,
       '3BV', 'time', meLabel, ageInfoOf,
       { trimY: true, ...trendOpts(bv3Of, secondsOf) }));
-    resultRanks.appendChild(buildScatter(
+    appendScatter(buildScatter(
       wins, highlighted, bv3Of, clicksOf,
       '3BV', 'clicks', meLabel, ageInfoOf,
       { idealLine: true, ...trendOpts(bv3Of, clicksOf) }));
@@ -2992,9 +3457,9 @@ function renderRanks(record, modeRecords, options = {}) {
     // 2026-08-19) can appear on its chart.
     const withWasted = wins.filter((s) => 'wastedClicks' in s);
     if (withWasted.length >= 2) {
-      resultRanks.appendChild(buildScatter(
+      appendScatter(buildScatter(
         withWasted, historyView ? null : record, (s) => s.wastedClicks, secondsOf,
-        'wasted clicks', 'time', meLabel, ageInfoOf, { trimY: true }));
+        'no-op clicks', 'time', meLabel, ageInfoOf, { trimY: true }));
     }
     const legend = document.createElement('div');
     legend.className = 'scatter-legend';
@@ -3010,25 +3475,13 @@ function renderRanks(record, modeRecords, options = {}) {
   }
 }
 
-//-------PERSISTENT STORAGE (one IndexedDB database: userdata + traces)-------
+//-------PERSISTENT STORAGE (shared machinery lives in storage.js)-------
 
-// All storage moved from localStorage into IndexedDB on 2026-08-20. One
-// database holds two stores: 'userdata' (play history, settings, rankavg
-// sorts, player states — one entry per kind) and 'traces' (see the trace
-// section below). Userdata is RAM-first: loadUserdata reads every kind
-// into its RAM object once at startup, all reads and mutations work on RAM
-// synchronously, and each mutation calls persistUserdata — an async
-// fire-and-forget write of that kind's whole RAM object. IndexedDB
-// structured-clones the value at put() time, so RAM mutations after the
-// call cannot race the write. Traces are far too large for RAM and are
-// written straight to their store, one entry per game.
-
-const DB_NAME = 'minesweeper-friendly';
-const TRACE_STORE = 'traces';
-const USERDATA_STORE = 'userdata';
-const USERDATA_KINDS = ['history', 'settings', 'rankavgSort', 'states', 'trial'];
-
-let db = null;
+// The database open, upgrade path, readAllUserdata, and persistUserdata
+// moved to storage.js on 2026-08-23, shared with the settings page. This
+// page supplies the two hooks storage.js calls: storageFailure and
+// userdataReady. Traces are far too large for RAM and are written
+// straight to their store (see the trace section below).
 
 // A failure to open the database or to persist data is a bug to fix, not a
 // mode to tolerate: announce where the player can see it, and throw.
@@ -3037,54 +3490,10 @@ function storageFailure(what) {
   throw new Error(what);
 }
 
-// Where each userdata kind lived before 2026-08-20. The version-2 upgrade
-// below carries the data over exactly once (the upgrade only ever runs
-// once per origin); deletable once every player's origin has upgraded.
-const LEGACY_LOCALSTORAGE_KEYS = {
-  history: 'minesweeper-friendly.history',
-  settings: 'minesweeper-friendly.settings',
-  rankavgSort: 'minesweeper-friendly.rankavgSort',
-  states: 'minesweeper-friendly.states',
-};
-
-const dbRequest = indexedDB.open(DB_NAME, 2);
-dbRequest.onupgradeneeded = (event) => {
-  const upgraded = event.target.result;
-  if (event.oldVersion < 1) upgraded.createObjectStore(TRACE_STORE, { keyPath: 'endedAt' });
-  if (event.oldVersion < 2) {
-    const store = upgraded.createObjectStore(USERDATA_STORE);
-    const moved = [];
-    for (const [kind, storageKey] of Object.entries(LEGACY_LOCALSTORAGE_KEYS)) {
-      const raw = localStorage.getItem(storageKey);
-      if (raw === null) continue;
-      store.put(JSON.parse(raw), kind);
-      moved.push(storageKey);
-    }
-    // The old keys disappear only after the carried-over data is committed.
-    event.target.transaction.addEventListener('complete', () => {
-      for (const storageKey of moved) localStorage.removeItem(storageKey);
-    });
-  }
-};
-dbRequest.onsuccess = (event) => {
-  db = event.target.result;
-  loadUserdata();
-};
-dbRequest.onerror = () => storageFailure('database failed to open: ' + dbRequest.error);
-
 // Reads every userdata kind into its RAM object, then finishes startup:
-// init() builds the settings panel, the states panel, and the first board,
-// all of which read RAM.
-function loadUserdata() {
-  const tx = db.transaction(USERDATA_STORE);
-  tx.onerror = () => storageFailure('userdata load failed: ' + tx.error);
-  const store = tx.objectStore(USERDATA_STORE);
-  const got = {};
-  for (const kind of USERDATA_KINDS) {
-    const request = store.get(kind);
-    request.onsuccess = () => { got[kind] = request.result; };
-  }
-  tx.oncomplete = () => {
+// init() builds the states panel and the first board, all of which read RAM.
+function userdataReady() {
+  readAllUserdata((got) => {
     // An absent kind is a player who never stored it, not an error.
     const loaded = normalizeHistory(got.history === undefined ? {} : got.history);
     history = loaded.history;
@@ -3096,16 +3505,7 @@ function loadUserdata() {
       : got.states;
     trialSession = got.trial === undefined ? null : got.trial;
     init();
-  };
-}
-
-// Persists one userdata kind's RAM object. Fire-and-forget: RAM is already
-// current, so nothing waits on the disk write.
-function persistUserdata(kind, value) {
-  if (db === null) storageFailure(kind + ' not saved: database is not open');
-  const tx = db.transaction(USERDATA_STORE, 'readwrite');
-  tx.objectStore(USERDATA_STORE).put(value, kind);
-  tx.onerror = () => storageFailure(kind + ' save failed: ' + tx.error);
+  });
 }
 
 //-------RAW INPUT TRACE (full per-game cursor and click stream)-------
@@ -3161,9 +3561,33 @@ function recordLayout() {
   });
 }
 
+// The board also moves when content around it appears or disappears —
+// the metrics panel showing, hiding, collapsing, or being drag-resized
+// shifts the centered column — and no scroll, resize, or zoom event
+// fires then. Rather than enumerating movers, the recorder compares the
+// live rect to the last recorded one wherever the trace is already
+// touched: before every button event (clicks always map exactly) and in
+// renderMetricsPanel (the known mover's own render path, which the
+// live-metrics tick also reaches once a second as a catch-all).
+function recordLayoutIfMoved() {
+  if (!tracing()) return;
+  let last = null;
+  for (let i = trace.events.length - 1; i >= 0; i--) {
+    if (trace.events[i].kind === 'layout') {
+      last = trace.events[i];
+      break;
+    }
+  }
+  const rect = boardElement.getBoundingClientRect();
+  if (last !== null && rect.left === last.left && rect.top === last.top
+      && rect.width === last.width && rect.height === last.height) return;
+  recordLayout();
+}
+
 // kind: 'ldown' | 'lup' | 'rdown'. index is the board cell the event hit,
 // or null (an 'lup' released off the cells while the button was down).
 function traceEvent(kind, event, index) {
+  recordLayoutIfMoved();
   trace.events.push({
     t: performance.now() - trace.t0,
     kind: kind,
@@ -3196,6 +3620,133 @@ function saveTrace(record) {
   tx.objectStore(TRACE_STORE).put(stored);
   tx.onerror = () => storageFailure('trace save failed: ' + tx.error);
 }
+
+//-------PATH REPLAY (after-game views of the game's cursor path)-------
+
+// After a game ends its trace is still in RAM (newGame replaces it), so
+// the finished board can show the actual cursor path drawn straight from
+// the trace — nothing new is stored, and the views exist only until the
+// next board. #path-view-btn (beside "see scores", below the board)
+// cycles off → moves → clicks: 'moves' is the polyline through every
+// recorded cursor sample, warmup included; 'clicks' connects only the
+// effective click events ('lup'/'rdown', the events that end trace
+// segments) in click order. Both shade light = earlier, dark = later
+// (the overlay-chart convention); click dots draw in both views, blue
+// for left clicks, red for right (flag) clicks. Every point maps through
+// the layout event in effect at its trace time to a board fraction and
+// then onto the board's current border box, so the drawing is correct
+// across mid-game scrolls and zooms and follows after-game zoom changes.
+const PATH_VIEW_ORDER = ['off', 'moves', 'clicks'];
+let pathView = 'off';   // kept across games within the page session
+let pathCanvas = null;  // the overlay currently on the board, or null
+let pathResizeObserver = null;
+const pathViewButton = document.getElementById('path-view-btn');
+
+function pathViewAvailable() {
+  return (gameState === 'won' || gameState === 'lost')
+    && trace !== null
+    && !document.getElementById('game-frame').hidden;
+}
+
+function renderPathViewButton() {
+  pathViewButton.hidden = !pathViewAvailable();
+  pathViewButton.textContent = 'path: ' + pathView;
+}
+
+// One mapper per drawing pass: points arrive in trace-time order, so the
+// active layout event only ever advances.
+function pathPointMapper(width, height) {
+  const layouts = trace.events.filter((e) => e.kind === 'layout');
+  let i = 0;
+  return (t, x, y) => {
+    while (i + 1 < layouts.length && layouts[i + 1].t <= t) i++;
+    const geometry = layouts[i];
+    return [
+      (x - geometry.left) / geometry.width * width,
+      (y - geometry.top) / geometry.height * height,
+    ];
+  };
+}
+
+function renderPathOverlay() {
+  if (pathCanvas !== null) {
+    pathCanvas.remove();
+    pathCanvas = null;
+  }
+  if (pathView === 'off' || !pathViewAvailable()) return;
+  const rect = boardElement.getBoundingClientRect();
+  const canvas = document.createElement('canvas');
+  canvas.id = 'path-canvas';
+  // The layout events measured the board's border box; absolute children
+  // are placed relative to the padding box, so the canvas backs out by
+  // the border widths to cover exactly what was measured.
+  canvas.style.left = -boardElement.clientLeft + 'px';
+  canvas.style.top = -boardElement.clientTop + 'px';
+  canvas.style.width = rect.width + 'px';
+  canvas.style.height = rect.height + 'px';
+  const scale = window.devicePixelRatio;
+  canvas.width = Math.round(rect.width * scale);
+  canvas.height = Math.round(rect.height * scale);
+  boardElement.appendChild(canvas);
+  pathCanvas = canvas;
+  if (pathResizeObserver === null) {
+    pathResizeObserver = new ResizeObserver(() => {
+      if (pathCanvas !== null) renderPathOverlay();
+    });
+    pathResizeObserver.observe(boardElement);
+  }
+  const ctx = canvas.getContext('2d');
+  ctx.scale(scale, scale);
+  const clicks = trace.events.filter((e) => e.kind === 'lup' || e.kind === 'rdown');
+  const lastSampleT = trace.t.length > 0 ? trace.t[trace.t.length - 1] : 0;
+  const lastClickT = clicks.length > 0 ? clicks[clicks.length - 1].t : 0;
+  const tEnd = Math.max(lastSampleT, lastClickT);
+  const shade = (t) => 'hsl(211, 85%, '
+    + (78 - (tEnd > 0 ? 56 * (t / tEnd) : 0)) + '%)';
+  const segment = (from, to, t) => {
+    ctx.strokeStyle = shade(t);
+    ctx.beginPath();
+    ctx.moveTo(from[0], from[1]);
+    ctx.lineTo(to[0], to[1]);
+    ctx.stroke();
+  };
+  ctx.lineWidth = 1.5;
+  ctx.lineCap = 'round';
+  const toLine = pathPointMapper(rect.width, rect.height);
+  let prev = null;
+  if (pathView === 'moves') {
+    for (let i = 0; i < trace.t.length; i++) {
+      const point = toLine(trace.t[i], trace.x[i], trace.y[i]);
+      if (prev !== null) segment(prev, point, trace.t[i]);
+      prev = point;
+    }
+  } else {
+    for (const click of clicks) {
+      const point = toLine(click.t, click.x, click.y);
+      if (prev !== null) segment(prev, point, click.t);
+      prev = point;
+    }
+  }
+  const toDot = pathPointMapper(rect.width, rect.height);
+  const radius = pathView === 'clicks' ? 3.5 : 2.5;
+  for (const click of clicks) {
+    const [x, y] = toDot(click.t, click.x, click.y);
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, 2 * Math.PI);
+    ctx.fillStyle = click.kind === 'rdown' ? '#cc0000' : '#0000cc';
+    ctx.fill();
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = '#ffffff';
+    ctx.stroke();
+  }
+}
+
+pathViewButton.addEventListener('click', () => {
+  pathView = PATH_VIEW_ORDER[
+    (PATH_VIEW_ORDER.indexOf(pathView) + 1) % PATH_VIEW_ORDER.length];
+  renderPathOverlay();
+  renderPathViewButton();
+});
 
 //-------MUSIC STATE (was audio playing, asked of the machine's base system)-------
 
@@ -4375,6 +4926,7 @@ function computeAllTraceMetrics(sampleT, sampleX, sampleY, events, wallDurationM
 //-------TRACE METRICS: DISPLAY (the #metrics-panel column)-------
 
 const metricsPanel = document.getElementById('metrics-panel');
+const metricsPanelContent = document.getElementById('metrics-panel-content');
 
 // The displayed metrics, grouped by measurement system. Each display:
 // label; calc (how the value is computed, exactly); records (a literal
@@ -4900,7 +5452,17 @@ let lastLiveMetrics = null;
 // setting is on — it spans games) and the live per-game rows (only while a
 // trace runs and that setting is on). metrics === null means "no live
 // rows": between games the panel still renders for the session section.
+// Rendering the panel is what shows, hides, collapses, or resizes it —
+// the layout changes that move the centered board without any scroll or
+// resize event — so every render ends with a geometry check. The
+// live-metrics tick passes through here too, making this the once-a-
+// second catch-all for any other content-driven board movement.
 function renderMetricsPanel(metrics) {
+  renderMetricsPanelContent(metrics);
+  recordLayoutIfMoved();
+}
+
+function renderMetricsPanelContent(metrics) {
   const showSession = settings.showSessionStats;
   const showLive = settings.showMotionStatsDuringGame
     && metrics !== null && tracing();
@@ -4908,8 +5470,13 @@ function renderMetricsPanel(metrics) {
     metricsPanel.hidden = true;
     return;
   }
+  // The panel redraws live values once a second. Replacing its children
+  // must not throw a reader back to the top of the independently scrolling
+  // panel.
+  const savedScrollTop = metricsPanelContent.scrollTop;
   metricsPanel.hidden = false;
-  metricsPanel.textContent = '';
+  metricsPanelContent.textContent = '';
+  for (const oldGrip of metricsPanel.querySelectorAll('.metrics-resize')) oldGrip.remove();
   metricsPanel.classList.toggle('collapsed', metricsPanelCollapsed);
   // The dragged width applies only expanded; collapsed shrinks to its chip.
   metricsPanel.style.width = metricsPanelCollapsed
@@ -4925,7 +5492,7 @@ function renderMetricsPanel(metrics) {
       metricsPanelCollapsed = false;
       refreshMetricsPanel();
     });
-    metricsPanel.appendChild(restore);
+    metricsPanelContent.appendChild(restore);
     return;
   }
 
@@ -4936,7 +5503,7 @@ function renderMetricsPanel(metrics) {
   phaseEl.textContent = showLive ? 'live' : 'session';
   phaseEl.title = showLive
     ? 'recomputed over the trace so far, once a second'
-    : 'ongoing bucketed stats across games, sliding one-hour window';
+    : 'ongoing bucketed stats across games, last hour of actual play';
   const hide = document.createElement('button');
   hide.type = 'button';
   hide.className = 'metrics-toggle';
@@ -4947,47 +5514,77 @@ function renderMetricsPanel(metrics) {
     refreshMetricsPanel();
   });
   head.append(phaseEl, hide);
-  metricsPanel.appendChild(head);
+  metricsPanelContent.appendChild(head);
   metricsPanel.appendChild(buildMetricsResizeGrip());
 
-  if (showSession) appendSessionSection(metricsPanel);
-  if (!showLive) return;
+  // The session and live sections each sit in their own wrapper (all
+  // panel CSS selects by descendant, so the extra div changes nothing).
+  if (showSession) {
+    const sessionWrap = document.createElement('div');
+    appendSessionSection(sessionWrap);
+    metricsPanelContent.appendChild(sessionWrap);
+  }
+  if (!showLive) {
+    metricsPanelContent.scrollTop = savedScrollTop;
+    return;
+  }
+  const liveWrap = document.createElement('div');
   for (const group of TRACE_METRIC_GROUPS) {
-    metricsPanel.appendChild(buildMetricsGroupHead(group));
+    liveWrap.appendChild(buildMetricsGroupHead(group));
     for (const display of group.displays) {
-      metricsPanel.appendChild(buildMetricRow(
+      liveWrap.appendChild(buildMetricRow(
         group, display, metrics, metricsSeries, SPARK_SMALL, 'metric-row'));
     }
   }
+  metricsPanelContent.appendChild(liveWrap);
+  metricsPanelContent.scrollTop = savedScrollTop;
 }
 
-// The panel's right-edge drag grip. The panel re-renders once a second
-// and replaces all children, this grip included; a drag in progress
-// survives that because its move/up listeners live on the document —
-// only the pointerdown needs the (current) grip node. During the drag
-// the panel itself tracks the pointer instantly; the charts recompute
-// to the new width on release and on every normal re-render tick.
+// The panel's right-edge drag grip. Its move/up listeners live on the
+// document, so per-frame panel rebuilds during a drag do not interrupt it.
+// Width and chart geometry both follow the pointer on the next animation
+// frame; release persists the final width.
 function buildMetricsResizeGrip() {
   const grip = document.createElement('div');
   grip.className = 'metrics-resize';
   grip.title = 'drag to resize the stats panel';
-  const edge = () => metricsPanel.getBoundingClientRect().left
-    + settings.metricsPanelWidth - 7;
-  grip.style.left = edge() + 'px';
+  grip.setAttribute('role', 'separator');
+  grip.setAttribute('aria-label', 'resize stats panel');
+  grip.setAttribute('aria-orientation', 'vertical');
+  grip.setAttribute('aria-valuemin', String(METRICS_PANEL_WIDTH_MIN));
+  grip.setAttribute('aria-valuemax', String(METRICS_PANEL_WIDTH_MAX));
+  grip.setAttribute('aria-valuenow', String(settings.metricsPanelWidth));
+  grip.tabIndex = 0;
+  grip.addEventListener('keydown', (event) => {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+    event.preventDefault();
+    const direction = event.key === 'ArrowLeft' ? -1 : 1;
+    settings.metricsPanelWidth = Math.min(METRICS_PANEL_WIDTH_MAX,
+      Math.max(METRICS_PANEL_WIDTH_MIN, settings.metricsPanelWidth + direction * 10));
+    saveSettings();
+    refreshMetricsPanel();
+  });
   grip.addEventListener('pointerdown', (event) => {
     if (event.button !== 0) return;
     event.preventDefault();
     const startX = event.clientX;
     const startWidth = settings.metricsPanelWidth;
+    let renderFrame = null;
     const move = (ev) => {
       settings.metricsPanelWidth = Math.min(METRICS_PANEL_WIDTH_MAX,
         Math.max(METRICS_PANEL_WIDTH_MIN, Math.round(startWidth + ev.clientX - startX)));
       metricsPanel.style.width = settings.metricsPanelWidth + 'px';
-      grip.style.left = edge() + 'px';
+      if (renderFrame === null) {
+        renderFrame = requestAnimationFrame(() => {
+          renderFrame = null;
+          refreshMetricsPanel();
+        });
+      }
     };
     const up = () => {
       document.removeEventListener('pointermove', move);
       document.removeEventListener('pointerup', up);
+      if (renderFrame !== null) cancelAnimationFrame(renderFrame);
       saveSettings();
       refreshMetricsPanel();
     };
@@ -5067,20 +5664,31 @@ function renderLiveTraceMetrics() {
 }
 
 setInterval(() => {
+  // Never rebuild the panel under the player's open control: the ticker
+  // replacing the DOM while the bucket dropdown was open closed it
+  // before a choice could land. Focus inside the panel means a control
+  // is in use; the control's own change handler re-renders explicitly
+  // (which replaces the control and releases focus), and clicking
+  // anywhere else blurs it, so the ticker resumes within a second.
+  if (metricsPanel.contains(document.activeElement)) return;
   if (tracing()) renderLiveTraceMetrics();
-  // Between games the session section keeps sliding: its window's right
-  // edge is "now", so the charts move left even while nothing is played.
+  // Between games the session section still redraws for UI consistency;
+  // its cumulative-play axis correctly stays fixed while nothing is played.
   else renderMetricsPanel(null);
 }, LIVE_METRICS_EVERY_MS);
 
-//-------SESSION STATS: COMPUTATION (pure; cross-game bucketed series)-------
+//-------SESSION STATS: COMPUTATION (pure; cross-game running averages)-------
 
-// The recent-observations section (PRODUCT.md "Session stats"): a few
-// per-bucket rates over the last hour, across games, losses and abandoned
+// The recent-observations section (PRODUCT.md "Session stats"): running
+// averages over recent actual play, across games, losses and abandoned
 // boards included — but only over time a game was actually in progress
 // (first reveal to game end), never travel to the restart button or
-// between-game idling. These are observations only; this code does not infer
-// mood, condition, play style, or any cause for a change.
+// between-game idling. Two layers: sessionBucketSeries chops the played
+// timeline into fixed buckets and sums each; sessionRunningSeries rolls a
+// trailing-lookback window over fine (SESSION_STEP_MS) buckets, so each
+// charted point is "the average over the last N minutes of play" — N of
+// played time, never wall time. These are observations only; this code
+// does not infer mood, condition, play style, or any cause for a change.
 //
 // Everything here is pure over an event list so it is testable in Node
 // (tests/session-buckets-test.js extracts this span). Events, all wall
@@ -5088,24 +5696,37 @@ setInterval(() => {
 // - {kind:'play', from, to} — a finished span of in-progress play; the
 //   currently running span is passed separately as opts.openPlayFrom.
 // - {kind:'move', at, px} — cursor travel while playing, coalesced into
-//   ~1s cells (bucket sizes are >= 10s, so cell granularity is invisible).
-// - {kind:'press', at, useful, flag, moving, gapMs} — one board press.
+//   ~1s cells (the sample step is 10s, so cell granularity is invisible).
+// - {kind:'press', at, useful, flag, misclick, moving, gapMs} — one board press.
 //   useful = it changed the board; flag = it placed a flag; moving = a
 //   cursor move landed within 100ms before it (the cadence definition);
+//   misclick = the board-changing action contradicted a visible-board fact;
 //   gapMs = time since the previous useful press of the same game
 //   (undefined on each game's first useful press).
 // - {kind:'death', at, stupid} — a lost game; stupid true/false/undefined
 //   mirrors the record's stupidDeath field.
-// - {kind:'game', from, to, px, useful, wasted, flags, stupid, fastGapMs}
+// - {kind:'end', at, end} — a finished game's ending: 'win', a death
+//   verdict kind (see DEATH_KIND_LABELS), or 'other' for an unjudged
+//   loss. Feeds the game-endings fraction lines.
+// - {kind:'game', from, to, px, useful, wasted, misclicks, flags, stupid, fastGapMs, end}
 //   — a whole finished game backfilled from its stored record (games
 //   played before this page load; see sessionBackfillFromHistory). Its
 //   totals spread across its span proportionally to each bucket's
 //   overlap — a bucket-level approximation where live events are exact —
-//   its play time counts like a 'play' interval, a stupid death lands in
-//   the bucket the game ended in, and the stored per-game fastclick
-//   median contributes one gap sample to each bucket it overlaps.
-const SESSION_WINDOW_MS = 60 * 60 * 1000;  // the charts' sliding window
-const SESSION_KEEP_MS = SESSION_WINDOW_MS + 5 * 60 * 1000; // retention slack
+//   its play time counts like a 'play' interval, a stupid death and the
+//   ending land in the bucket the game ended in, and the stored per-game
+//   fastclick median contributes one gap sample to each bucket it overlaps.
+// The running-average sample step: one charted point per this much
+// accumulated play. Finer would redraw sub-pixel wiggles; coarser would
+// visibly stairstep the shortest (30s) lookback.
+const SESSION_STEP_MS = 10 * 1000;
+// Retention always covers the largest selectable window plus the largest
+// selectable lookback (see SESSION_WINDOW_CHOICES / SESSION_LOOKBACK_CHOICES),
+// so switching either to its longest works at once.
+const SESSION_WINDOW_MAX_MS = 3 * 60 * 60 * 1000;
+const SESSION_LOOKBACK_MAX_MS = 15 * 60 * 1000;
+const SESSION_KEEP_MS =
+  SESSION_WINDOW_MAX_MS + SESSION_LOOKBACK_MAX_MS + 5 * 60 * 1000; // + slack
 const SESSION_MOVE_COALESCE_MS = 1000;
 const SESSION_MOVING_PRESS_MS = 100; // press "on the move" (same as cadence)
 // A useful-press gap this short qualifies for the fastclick median.
@@ -5117,6 +5738,12 @@ const FASTCLICK_MAX_GAP_MS = 1000;
 // evidence is no evidence — the bucket shows an en dash instead.
 const SESSION_MIN_PLAY_MS = 1000;
 
+// Every game ending files into exactly one of these kinds: 'win', a death
+// verdict (the DEATH_KIND_LABELS keys), or 'other' — an unjudged loss or
+// a loss recorded before the verdict existed. The endings chart draws one
+// cumulative percent line per kind.
+const SESSION_END_KINDS = ['win', 'angel', 'forced', 'needless', 'mine', 'chord', 'other'];
+
 function sessionMedian(values) {
   if (values.length === 0) return undefined;
   const sorted = [...values].sort((a, b) => a - b);
@@ -5124,132 +5751,322 @@ function sessionMedian(values) {
   return sorted.length % 2 === 1 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
-// Buckets the events into wall-clock-aligned buckets (a 1m bucket is a
-// real calendar minute) covering the window ending at nowMs. Alignment
-// matters for display stability: anchored to the clock, a finished
-// bucket's value is frozen forever — only the current, still-filling
-// bucket changes between renders, and the whole set never re-bins as
-// "now" advances (right-edge-anchored buckets made every point wiggle
-// every second). The first bucket may reach back past the window edge
-// and the last is usually partial; both are honest. Returns arrays
-// indexed left-to-right; undefined = not measurable in that bucket (no
-// in-progress play there, or no qualifying gaps), never a made-up 0.
-// Rates are over in-progress play time only: a bucket where 20s were
-// played reports its wasted clicks per played minute, not per wall minute.
+// Selects the newest games by accumulated played duration. Their wall ages
+// and the breaks between them are deliberately irrelevant.
+function sessionHistorySlice(games, keepMs) {
+  let keepFrom = games.length;
+  let keptPlayMs = 0;
+  while (keepFrom > 0 && keptPlayMs < keepMs) {
+    keepFrom--;
+    keptPlayMs += games[keepFrom].to - games[keepFrom].from;
+  }
+  let playOffsetMs = 0;
+  for (let i = 0; i < keepFrom; i++) {
+    playOffsetMs += games[i].to - games[i].from;
+  }
+  return { games: games.slice(keepFrom), playOffsetMs };
+}
+
+// Collapses all play spans onto one cumulative-play timeline, then buckets
+// that timeline. Wall-clock gaps consume no x distance and no bucket time:
+// ten played seconds, a five-minute break, and twenty more played seconds
+// are one contiguous thirty-second run here. playOffsetMs is the cumulative
+// duration of older spans pruned from RAM, preserving bucket alignment.
+// Finished buckets are anchored to cumulative played-time multiples; only
+// the current partial bucket changes while play continues.
 function sessionBucketSeries(events, opts) {
-  const startMs = Math.floor((opts.nowMs - opts.windowMs) / opts.bucketMs) * opts.bucketMs;
-  const bucketCount = Math.ceil((opts.nowMs - startMs) / opts.bucketMs);
-  const bucketAt = (t) => Math.floor((t - startMs) / opts.bucketMs);
+  const spans = [];
+  for (const ev of events) {
+    if ((ev.kind === 'play' || ev.kind === 'game') && ev.to > ev.from) {
+      spans.push({ from: ev.from, to: ev.to, game: ev.kind === 'game' ? ev : null });
+    }
+  }
+  if (typeof opts.openPlayFrom === 'number' && opts.nowMs > opts.openPlayFrom) {
+    spans.push({ from: opts.openPlayFrom, to: opts.nowMs, game: null });
+  }
+  spans.sort((a, b) => a.from - b.from || a.to - b.to);
+
+  let playCursor = opts.playOffsetMs || 0;
+  for (const span of spans) {
+    span.playFrom = playCursor;
+    span.playTo = playCursor + span.to - span.from;
+    playCursor = span.playTo;
+  }
+  const playNowMs = playCursor;
+  const windowFrom = playNowMs - opts.windowMs;
+  const startPlayMs = Math.floor(windowFrom / opts.bucketMs) * opts.bucketMs;
+  const bucketCount = Math.max(1, Math.ceil((playNowMs - startPlayMs) / opts.bucketMs));
+  const bucketAt = (playAt) => Math.floor((playAt - startPlayMs) / opts.bucketMs);
 
   const playMs = new Array(bucketCount).fill(0);
   const movePx = new Array(bucketCount).fill(0);
   const useful = new Array(bucketCount).fill(0);
   const wasted = new Array(bucketCount).fill(0);
+  const misclickPlayMs = new Array(bucketCount).fill(0);
+  const misclickCount = new Array(bucketCount).fill(0);
   const flags = new Array(bucketCount).fill(0);
   const unflags = new Array(bucketCount).fill(0);
   const stupidDeaths = new Array(bucketCount).fill(0);
   const fastGaps = Array.from({ length: bucketCount }, () => []);
+  const endCounts = SESSION_END_KINDS.map(() => new Array(bucketCount).fill(0));
+  const countEnd = (i, end) => {
+    if (i < 0 || i >= bucketCount) return;
+    const k = SESSION_END_KINDS.indexOf(end);
+    endCounts[k >= 0 ? k : SESSION_END_KINDS.indexOf('other')][i]++;
+  };
 
-  // Walks the buckets a [from, to) span overlaps, handing each its
-  // overlap in ms. Shared by live play intervals and backfilled games.
-  const eachOverlap = (from, to, take) => {
-    from = Math.max(from, startMs);
-    to = Math.min(to, opts.nowMs);
+  const eachPlayOverlap = (from, to, take) => {
+    from = Math.max(from, windowFrom);
+    to = Math.min(to, playNowMs);
     for (let i = Math.max(0, bucketAt(from)); i < bucketCount; i++) {
-      const bucketFrom = startMs + i * opts.bucketMs;
+      const bucketFrom = startPlayMs + i * opts.bucketMs;
       if (bucketFrom >= to) break;
       take(i, Math.min(to, bucketFrom + opts.bucketMs) - Math.max(from, bucketFrom));
     }
   };
-  const addPlay = (from, to) => {
-    eachOverlap(from, to, (i, overlapMs) => { playMs[i] += overlapMs; });
-  };
 
-  for (const ev of events) {
-    if (ev.kind === 'play') {
-      addPlay(ev.from, ev.to);
-      continue;
-    }
-    if (ev.kind === 'game') {
-      // A backfilled record: totals spread over the game's span by each
-      // bucket's share of it; the whole span is in-progress play time.
-      const spanMs = ev.to - ev.from;
-      if (spanMs <= 0) continue;
-      eachOverlap(ev.from, ev.to, (i, overlapMs) => {
-        playMs[i] += overlapMs;
+  for (const span of spans) {
+    const ev = span.game;
+    const spanMs = span.playTo - span.playFrom;
+    eachPlayOverlap(span.playFrom, span.playTo, (i, overlapMs) => {
+      playMs[i] += overlapMs;
+      if (ev === null || typeof ev.misclicks === 'number') {
+        misclickPlayMs[i] += overlapMs;
+      }
+      if (ev !== null) {
         const share = overlapMs / spanMs;
         movePx[i] += ev.px * share;
         useful[i] += ev.useful * share;
         wasted[i] += ev.wasted * share;
+        if (typeof ev.misclicks === 'number') {
+          misclickCount[i] += ev.misclicks * share;
+        }
         flags[i] += ev.flags * share;
         unflags[i] += (ev.unflags || 0) * share;
         if (typeof ev.fastGapMs === 'number') fastGaps[i].push(ev.fastGapMs);
-      });
-      if (ev.stupid === true) {
-        // The death happened at the game's last in-progress instant, so
-        // it belongs to the bucket containing to - 1 (an end sitting
-        // exactly on a bucket boundary must not spill into the next,
-        // never-played bucket).
-        const i = bucketAt(Math.min(ev.to, opts.nowMs) - 1);
-        if (i >= 0 && i < bucketCount) stupidDeaths[i]++;
       }
-      continue;
+    });
+    if (ev !== null && ev.stupid === true) {
+      const i = bucketAt(span.playTo - 1e-6);
+      if (i >= 0 && i < bucketCount) stupidDeaths[i]++;
     }
-    const i = bucketAt(ev.at);
+    // The ending lands in the bucket containing the game's final instant,
+    // like the classified death above.
+    if (ev !== null && typeof ev.end === 'string') {
+      countEnd(bucketAt(span.playTo - 1e-6), ev.end);
+    }
+  }
+
+  // Maps a live wall-clock event into its containing compressed play span.
+  // The first press can precede sessionPlayBegin by a few milliseconds;
+  // attach that one to the immediately following span.
+  const playAtWallTime = (at) => {
+    for (const span of spans) {
+      if (at >= span.from && at <= span.to) {
+        return Math.min(span.playTo - 1e-6, span.playFrom + at - span.from);
+      }
+      if (at < span.from && span.from - at <= 100) return span.playFrom;
+      if (at < span.from) break;
+    }
+    return null;
+  };
+
+  for (const ev of events) {
+    if (ev.kind === 'play' || ev.kind === 'game') continue;
+    const playAt = playAtWallTime(ev.at);
+    if (playAt === null || playAt < windowFrom || playAt > playNowMs) continue;
+    const i = bucketAt(playAt);
     if (i < 0 || i >= bucketCount) continue;
     if (ev.kind === 'move') {
       movePx[i] += ev.px;
     } else if (ev.kind === 'press') {
       if (ev.useful) useful[i]++;
       else wasted[i]++;
+      if (ev.misclick) misclickCount[i]++;
       if (ev.flag) flags[i]++;
       if (ev.unflag) unflags[i]++;
       if (ev.useful && ev.moving && ev.gapMs !== undefined
           && ev.gapMs <= FASTCLICK_MAX_GAP_MS) {
         fastGaps[i].push(ev.gapMs);
       }
-    } else if (ev.kind === 'death') {
-      if (ev.stupid === true) stupidDeaths[i]++;
+    } else if (ev.kind === 'death' && ev.stupid === true) {
+      stupidDeaths[i]++;
+    } else if (ev.kind === 'end') {
+      countEnd(i, ev.end);
     }
   }
-  if (typeof opts.openPlayFrom === 'number') addPlay(opts.openPlayFrom, opts.nowMs);
+
+  // Game endings as cumulative fractions of the games finished so far in
+  // the window: at each bucket, kind count / total over buckets 0..i.
+  // Undefined until the first game ends (a fraction of nothing is not 0).
+  const endFractions = {};
+  for (const kind of SESSION_END_KINDS) {
+    endFractions[kind] = new Array(bucketCount).fill(undefined);
+  }
+  const endGames = new Array(bucketCount).fill(0);
+  {
+    const cumulative = new Array(SESSION_END_KINDS.length).fill(0);
+    let total = 0;
+    for (let i = 0; i < bucketCount; i++) {
+      for (let k = 0; k < SESSION_END_KINDS.length; k++) {
+        cumulative[k] += endCounts[k][i];
+        total += endCounts[k][i];
+      }
+      endGames[i] = total;
+      if (total > 0) {
+        for (let k = 0; k < SESSION_END_KINDS.length; k++) {
+          endFractions[SESSION_END_KINDS[k]][i] = cumulative[k] / total;
+        }
+      }
+    }
+  }
 
   const centers = [];
   const speedPxPerSec = [];
   const clicksPerSec = [];
   const stupidPerMin = [];
   const wastedPerMin = [];
+  const misclicksPerMin = [];
   const flagsPerSec = [];
   const mismarksPerMin = [];
   const fastclickGapMs = [];
   for (let i = 0; i < bucketCount; i++) {
-    centers.push(startMs + (i + 0.5) * opts.bucketMs);
+    centers.push(startPlayMs + (i + 0.5) * opts.bucketMs);
     const playedSec = playMs[i] / 1000;
     const enough = playMs[i] >= SESSION_MIN_PLAY_MS;
     speedPxPerSec.push(enough ? movePx[i] / playedSec : undefined);
     clicksPerSec.push(enough ? useful[i] / playedSec : undefined);
     stupidPerMin.push(enough ? stupidDeaths[i] / (playedSec / 60) : undefined);
     wastedPerMin.push(enough ? wasted[i] / (playedSec / 60) : undefined);
+    const misclickPlayedSec = misclickPlayMs[i] / 1000;
+    misclicksPerMin.push(misclickPlayMs[i] >= SESSION_MIN_PLAY_MS
+      ? misclickCount[i] / (misclickPlayedSec / 60) : undefined);
     flagsPerSec.push(enough ? flags[i] / playedSec : undefined);
     mismarksPerMin.push(enough ? unflags[i] / (playedSec / 60) : undefined);
     fastclickGapMs.push(sessionMedian(fastGaps[i]));
   }
   return {
-    startMs, bucketMs: opts.bucketMs, nowMs: opts.nowMs,
+    startPlayMs, bucketMs: opts.bucketMs, playNowMs,
     windowMs: opts.windowMs, centers, playMs,
-    speedPxPerSec, clicksPerSec, stupidPerMin, wastedPerMin, flagsPerSec,
-    mismarksPerMin, fastclickGapMs,
+    speedPxPerSec, clicksPerSec, stupidPerMin, wastedPerMin, misclicksPerMin, flagsPerSec,
+    mismarksPerMin, fastclickGapMs, endFractions, endGames,
+    // The raw per-bucket accumulations behind the rates, for layers that
+    // aggregate across buckets (sessionRunningSeries) — rates can't be
+    // re-averaged without their weights.
+    sums: { playMs, movePx, useful, wasted, misclickPlayMs, misclickCount,
+      flags, unflags, stupidDeaths, fastGaps, endCounts },
+  };
+}
+
+// The trailing running average the charts actually show: one sample per
+// SESSION_STEP_MS of accumulated play, each averaging the lookback of
+// played time behind it ("5m" = five played minutes, never wall time).
+// Built as rolling prefix-sum windows over sessionBucketSeries' fine
+// buckets, so a finished sample never changes as play continues — only
+// the newest, still-accumulating one does — and a young session simply
+// averages the play that exists so far. Rates divide by the played time
+// actually covered, and under SESSION_MIN_PLAY_MS of it stays undefined.
+// The endings fractions ignore the lookback entirely: they remain each
+// kind's cumulative share of the games finished so far in the chart
+// window, resampled at the same positions.
+// opts: {nowMs, stepMs, lookbackMs, windowMs, openPlayFrom, playOffsetMs}.
+function sessionRunningSeries(events, opts) {
+  const fine = sessionBucketSeries(events, {
+    nowMs: opts.nowMs,
+    bucketMs: opts.stepMs,
+    // Reach one lookback past the chart window so the earliest visible
+    // sample still averages its full trailing lookback.
+    windowMs: opts.windowMs + opts.lookbackMs,
+    openPlayFrom: opts.openPlayFrom,
+    playOffsetMs: opts.playOffsetMs,
+  });
+  const sums = fine.sums;
+  const lookbackBuckets = Math.max(1, Math.round(opts.lookbackMs / opts.stepMs));
+  const prefix = (arr) => {
+    const p = new Array(arr.length + 1).fill(0);
+    for (let i = 0; i < arr.length; i++) p[i + 1] = p[i] + arr[i];
+    return p;
+  };
+  const pPlay = prefix(sums.playMs);
+  const pMove = prefix(sums.movePx);
+  const pUseful = prefix(sums.useful);
+  const pWasted = prefix(sums.wasted);
+  const pMisPlay = prefix(sums.misclickPlayMs);
+  const pMis = prefix(sums.misclickCount);
+  const pFlags = prefix(sums.flags);
+  const pUnflags = prefix(sums.unflags);
+  const pStupid = prefix(sums.stupidDeaths);
+  const roll = (p, k) => p[k + 1] - p[Math.max(0, k - lookbackBuckets + 1)];
+
+  const windowFrom = fine.playNowMs - opts.windowMs;
+  const centers = [];
+  const playMs = [];
+  const speedPxPerSec = [];
+  const clicksPerSec = [];
+  const stupidPerMin = [];
+  const wastedPerMin = [];
+  const misclicksPerMin = [];
+  const flagsPerSec = [];
+  const mismarksPerMin = [];
+  const fastclickGapMs = [];
+  const endFractions = {};
+  for (const kind of SESSION_END_KINDS) endFractions[kind] = [];
+  const endGames = [];
+  const endCumulative = new Array(SESSION_END_KINDS.length).fill(0);
+  let endTotal = 0;
+  for (let k = 0; k < sums.playMs.length; k++) {
+    // The sample sits at its fine bucket's right edge; the newest one
+    // rides the current play position instead.
+    const pos = Math.min(fine.startPlayMs + (k + 1) * opts.stepMs, fine.playNowMs);
+    if (pos < windowFrom) continue; // lookback-only reach, not charted
+    for (let j = 0; j < SESSION_END_KINDS.length; j++) {
+      endCumulative[j] += sums.endCounts[j][k];
+      endTotal += sums.endCounts[j][k];
+    }
+    centers.push(pos);
+    const playedMs = roll(pPlay, k);
+    const playedSec = playedMs / 1000;
+    const enough = playedMs >= SESSION_MIN_PLAY_MS;
+    playMs.push(playedMs);
+    speedPxPerSec.push(enough ? roll(pMove, k) / playedSec : undefined);
+    clicksPerSec.push(enough ? roll(pUseful, k) / playedSec : undefined);
+    stupidPerMin.push(enough ? roll(pStupid, k) / (playedSec / 60) : undefined);
+    wastedPerMin.push(enough ? roll(pWasted, k) / (playedSec / 60) : undefined);
+    const misPlayedMs = roll(pMisPlay, k);
+    misclicksPerMin.push(misPlayedMs >= SESSION_MIN_PLAY_MS
+      ? roll(pMis, k) / (misPlayedMs / 60000) : undefined);
+    flagsPerSec.push(enough ? roll(pFlags, k) / playedSec : undefined);
+    mismarksPerMin.push(enough ? roll(pUnflags, k) / (playedSec / 60) : undefined);
+    const gaps = [];
+    for (let j = Math.max(0, k - lookbackBuckets + 1); j <= k; j++) {
+      gaps.push(...sums.fastGaps[j]);
+    }
+    fastclickGapMs.push(sessionMedian(gaps));
+    endGames.push(endTotal);
+    for (let j = 0; j < SESSION_END_KINDS.length; j++) {
+      endFractions[SESSION_END_KINDS[j]].push(
+        endTotal > 0 ? endCumulative[j] / endTotal : undefined);
+    }
+  }
+  return {
+    stepMs: opts.stepMs, lookbackMs: opts.lookbackMs,
+    playNowMs: fine.playNowMs, windowMs: opts.windowMs,
+    centers, playMs,
+    speedPxPerSec, clicksPerSec, stupidPerMin, wastedPerMin,
+    misclicksPerMin, flagsPerSec, mismarksPerMin, fastclickGapMs,
+    endFractions, endGames,
   };
 }
 
 //-------SESSION STATS: RECORDING (event capture into RAM)-------
 
 // Live events are RAM-only, but the window survives reloads: on load,
-// sessionBackfillFromHistory reconstructs the last hour from stored game
+// sessionBackfillFromHistory reconstructs the last hour of play from stored game
 // records (one coarse 'game' event per record), so a reload mid-session
 // keeps the running averages. Stored traces and records remain the
 // ground truth every value here could be recomputed from.
 let sessionEvents = [];
+let sessionPlayOffsetMs = 0;           // played duration before retained events
 let sessionPlayFrom = null;          // Date.now() when 'playing' began, or null
 let sessionLastMoveAt = 0;           // wall time of the last cursor move
 let sessionLastUsefulPressAt = null; // last useful press of the current game
@@ -5257,15 +6074,27 @@ let gameFastclickGaps = [];          // this game's qualifying gaps, for the
                                      // per-game fastclickGapMs record field
 
 function sessionPrune(nowMs) {
-  const cutoff = nowMs - SESSION_KEEP_MS;
-  let drop = 0;
-  while (drop < sessionEvents.length) {
-    const ev = sessionEvents[drop];
-    const end = ev.kind === 'play' || ev.kind === 'game' ? ev.to : ev.at;
-    if (end >= cutoff) break;
-    drop++;
+  let needed = SESSION_KEEP_MS;
+  if (sessionPlayFrom !== null) needed -= Math.max(0, nowMs - sessionPlayFrom);
+  const spans = sessionEvents
+    .filter((ev) => (ev.kind === 'play' || ev.kind === 'game') && ev.to > ev.from)
+    .sort((a, b) => b.to - a.to);
+  let cutoff = null;
+  for (const span of spans) {
+    needed -= span.to - span.from;
+    cutoff = span.from;
+    if (needed <= 0) break;
   }
-  if (drop > 0) sessionEvents.splice(0, drop);
+  if (needed > 0 || cutoff === null) return;
+
+  let droppedPlayMs = 0;
+  sessionEvents = sessionEvents.filter((ev) => {
+    const end = ev.kind === 'play' || ev.kind === 'game' ? ev.to : ev.at;
+    if (end >= cutoff) return true;
+    if (ev.kind === 'play' || ev.kind === 'game') droppedPlayMs += ev.to - ev.from;
+    return false;
+  });
+  sessionPlayOffsetMs += droppedPlayMs;
 }
 
 function sessionPlayBegin() {
@@ -5292,7 +6121,7 @@ function sessionRecordMove(px) {
   sessionEvents.push({ kind: 'move', at: now, px: px });
 }
 
-function sessionRecordPress(useful, flagPlaced, flagRemoved) {
+function sessionRecordPress(useful, flagPlaced, flagRemoved, misclick) {
   const now = Date.now();
   const press = {
     kind: 'press',
@@ -5300,6 +6129,7 @@ function sessionRecordPress(useful, flagPlaced, flagRemoved) {
     useful: useful,
     flag: flagPlaced,
     unflag: flagRemoved === true,
+    misclick: misclick === true,
     moving: now - sessionLastMoveAt <= SESSION_MOVING_PRESS_MS,
     gapMs: undefined,
   };
@@ -5320,25 +6150,25 @@ function sessionRecordDeath(stupid) {
   sessionEvents.push({ kind: 'death', at: Date.now(), stupid: stupid });
 }
 
-// Rebuilds the session window from stored game records at startup, so
-// closing the tab does not wipe the last hour: 30 minutes of play, a
-// reload, and the running averages are still there. One 'game' event per
-// recent record, any mode — session stats are about the player, not the
-// board. Called once from init(), after loadUserdata fills the history
-// RAM and before any live event can exist, so live and backfilled data
-// can never overlap (every backfilled game ended before this page load).
+// One ending per finished game ('win', a death verdict kind, or 'other'),
+// recorded while the play span is still open so it lands inside it.
+function sessionRecordEnd(end) {
+  sessionEvents.push({ kind: 'end', at: Date.now(), end: end });
+}
+
+// Rebuilds enough cumulative play from stored game records to cover the
+// chart window plus retention slack. It scans backward by game duration,
+// not wall age: a one-hour play window may reach days back across breaks.
+// Called once from init(), before any live event can exist.
 // Bucket-level approximation: a record holds totals, not timestamps, so
 // the totals spread evenly over the game's span — the traces hold the
 // exact timing if a finer backfill is ever wanted. Fields that joined
-// the schema later may be absent on old records; a game inside the last
-// hour realistically carries them all, and an absent count contributes
-// 0 rather than blocking the rest of the game's data.
+// the schema later may be absent on old records.
 function sessionBackfillFromHistory() {
-  const cutoff = Date.now() - SESSION_KEEP_MS;
   const games = [];
   for (const records of Object.values(history)) {
     for (const record of records) {
-      if (record.endedAt < cutoff || record.timeMs <= 0) continue;
+      if (record.timeMs <= 0) continue;
       games.push({
         kind: 'game',
         from: record.endedAt - record.timeMs,
@@ -5346,15 +6176,19 @@ function sessionBackfillFromHistory() {
         px: record.mousePathPx,
         useful: record.clicks,
         wasted: record.wastedClicks || 0,
+        misclicks: record.misclicks,
         flags: record.flagsPlaced || 0,
         unflags: record.flagsRemoved || 0,
         stupid: record.stupidDeath === true,
         fastGapMs: record.fastclickGapMs,
+        end: record.outcome === 'win' ? 'win' : (record.deathKind || 'other'),
       });
     }
   }
   games.sort((a, b) => a.to - b.to);
-  sessionEvents.unshift(...games);
+  const retained = sessionHistorySlice(games, SESSION_KEEP_MS);
+  sessionPlayOffsetMs = retained.playOffsetMs;
+  sessionEvents.unshift(...retained.games);
 }
 
 //-------SESSION STATS: DISPLAY (top section of the left panel)-------
@@ -5362,30 +6196,33 @@ function sessionBackfillFromHistory() {
 const SESSION_GROUP = {
   name: 'session',
   definition: 'recent observations across games (losses and abandoned '
-    + 'boards included): per-bucket values over the last hour, sliding left '
-    + 'as time passes. Rates count only time a game was actually in '
-    + 'progress — travel to the restart button and between-game idling are '
-    + 'nobody\u2019s statistic. A bucket with under a second of play shows '
-    + 'an en dash, never a rate over a sliver. Survives reload: the last '
-    + 'hour is rebuilt from stored records, wins and losses alike with '
-    + 'their full played time; only an abandoned board\u2019s time (no '
-    + 'record) is lost across a reload',
+    + 'boards included): each charted point is a running average over the '
+    + 'played time behind it \u2014 the first selector picks that lookback '
+    + '(30s\u201315m), the second how much play the chart spans '
+    + '(15m\u20133h). All durations are actual play: breaks, restart-button '
+    + 'travel, and between-game idling consume no chart time and no '
+    + 'lookback ("5m" means five played minutes, never wall time). A young '
+    + 'session averages the play that exists so far; a point with under a '
+    + 'second of covered play shows an en dash, never a rate over a '
+    + 'sliver. Survives reload: the window is rebuilt from stored records, '
+    + 'wins and losses alike with their full played time; only an '
+    + 'abandoned board\u2019s time (no record) is lost across a reload',
 };
 
 const SESSION_METRIC_SPECS = [
   { label: 'mouse speed', unit: 'px/s',
-    calc: 'cursor px traveled while a game was in progress in this bucket, '
-      + 'divided by the in-progress seconds in it; abandoned games count, '
-      + 'between-game movement never does',
-    records: 'cursor travel per in-progress second in each bucket; a change '
-      + 'in the series has no assigned cause',
+    calc: 'cursor px traveled while a game was in progress over the '
+      + 'trailing lookback of play, divided by its in-progress seconds; '
+      + 'abandoned games count, between-game movement never does',
+    records: 'cursor travel per in-progress second, averaged over the '
+      + 'trailing lookback; a change in the series has no assigned cause',
     of: (b, i) => b.speedPxPerSec[i], fmt: (v) => Math.round(v) + 'px/s' },
   { label: 'click rate', unit: 'clicks/s',
     calc: 'board clicks that changed something (reveals, flags, chords) '
       + 'per in-progress second; wasted clicks are excluded — they have '
       + 'their own row',
-    records: 'board-changing clicks per in-progress second in each bucket; '
-      + 'it does not measure decisions or identify why the rate changed',
+    records: 'board-changing clicks per in-progress second over the trailing '
+      + 'lookback; it does not measure decisions or identify why the rate changed',
     of: (b, i) => b.clicksPerSec[i], fmt: (v) => v.toFixed(2) + '/s' },
   { label: 'avoidable deaths', unit: 'deaths/min',
     calc: 'deaths whose fatal act was avoidable with what was already '
@@ -5396,7 +6233,15 @@ const SESSION_METRIC_SPECS = [
     records: 'deaths meeting the stated rule-based avoidability definition '
       + 'per in-progress minute; it does not identify a mental state',
     of: (b, i) => b.stupidPerMin[i], fmt: (v) => v.toFixed(2) + '/min' },
-  { label: 'wasted clicks', unit: 'wasted/min',
+  { label: 'misclicks', unit: 'misclicks/min',
+    calc: 'board-changing actions contradicted by facts provable from the '
+      + 'visible board at click time, per in-progress minute: opening a proven '
+      + 'mine, flagging a proven safe, removing a proven-mine flag, or chording '
+      + 'through a visible contradiction',
+    records: 'visible-board contradictions, independently of outcome; a fatal '
+      + 'misclick also appears in avoidable deaths, while a wrong flag can be nonfatal',
+    of: (b, i) => b.misclicksPerMin[i], fmt: (v) => v.toFixed(1) + '/min' },
+  { label: 'no-op clicks', unit: 'no-ops/min',
     calc: 'board clicks that changed nothing (chords on unsatisfied or '
       + 'empty numbers, left-clicks on flags, right-clicks on revealed '
       + 'cells), per in-progress minute',
@@ -5407,36 +6252,64 @@ const SESSION_METRIC_SPECS = [
     calc: 'median gap between consecutive useful presses of the same game '
       + 'when the press was made on the move (cursor moving within 100ms '
       + 'before it) and the gap was under 1s',
-    records: 'the median qualifying press-to-press interval in each bucket; '
-      + 'only the timing rule above is observed',
+    records: 'the median qualifying press-to-press interval within the '
+      + 'trailing lookback; only the timing rule above is observed',
     of: (b, i) => b.fastclickGapMs[i], fmt: (v) => Math.round(v) + 'ms' },
   { label: 'mine marking', unit: 'flags/s',
     calc: 'flags placed per in-progress second (removals don\u2019t '
       + 'subtract; the win\u2019s auto-flagging is not yours and never '
       + 'counts)',
-    records: 'flags placed per in-progress second in each bucket; confidence, '
-      + 'caution, and intent are not observed',
+    records: 'flags placed per in-progress second over the trailing lookback; '
+      + 'confidence, caution, and intent are not observed',
     of: (b, i) => b.flagsPerSec[i], fmt: (v) => v.toFixed(2) + '/s' },
   { label: 'flag removals', unit: 'removed/min',
     calc: 'flags taken back per in-progress minute (win auto-flagging and '
       + 'flags left standing are not counted, only the removal itself)',
-    records: 'flags removed per in-progress minute in each bucket; the record '
-      + 'does not reveal why a flag was removed',
+    records: 'flags removed per in-progress minute over the trailing lookback; '
+      + 'the record does not reveal why a flag was removed',
     of: (b, i) => b.mismarksPerMin[i], fmt: (v) => v.toFixed(1) + '/min' },
+];
+
+// The game-endings lines: one cumulative percent line per ending kind,
+// in one chart (PRODUCT.md "Game-end evaluation"). Order and labels match
+// the death verdicts; 'win' leads, 'other' is an unjudged loss. The color
+// travels inline (line stroke, last-point dot fill, legend swatch), so
+// the three can never disagree.
+const SESSION_END_SPECS = [
+  { kind: 'win', label: 'win', color: '#2e7d32' },
+  { kind: 'angel', label: 'angel-death', color: '#d4a017' },
+  { kind: 'forced', label: 'forced guess', color: '#e07020' },
+  { kind: 'needless', label: 'needless guess', color: '#b82c14' },
+  { kind: 'mine', label: 'clicked clear mine', color: '#1a1a1a' },
+  { kind: 'chord', label: 'chord death', color: '#7a3ca8' },
+  { kind: 'other', label: 'unjudged loss', color: '#999999' },
 ];
 
 // A session chart is a real chart, not a sparkline (decided 2026-08-22):
 // the scatter plots' visual grammar — light gridlines, 1/2/5-step y
-// ticks with minor tickmarks, wall-clock HH:mm x ticks, labeled axes —
-// at panel width. Two more legibility rules: y starts at 0 (every
-// series is nonnegative; an auto-zoomed floor turned small wiggles
-// into drama), and x is the fixed sliding window ending at now, with
-// clock-aligned buckets so a finished bucket's point never moves.
-// Unmeasurable buckets break the line, never bridged. Width follows the
-// panel's dragged width (its grip, see buildMetricsResizeGrip): the
-// chart fills the panel's content box — width minus the 16px padding
-// and 2px border of the border-box panel.
-const SESSION_CHART = { H: 150, L: 46, R: 8, T: 8, B: 30 };
+// ticks with minor tickmarks, played-time x ticks, a labeled y axis —
+// at panel width. The x axis carries no caption (dropped 2026-08-23):
+// its "-15m … now" tick labels already say "played time ago", so the
+// caption line bought nothing and cost plot height. Two more legibility
+// rules: y starts at 0 (every series is nonnegative; an auto-zoomed
+// floor turned small wiggles into drama), and x is the fixed played-time
+// window ending at the current cumulative play coordinate. Breaks have
+// already been removed. Unmeasurable points break the line, never
+// bridged. Width follows the panel's dragged width (its grip, see
+// buildMetricsResizeGrip): the chart fills the panel's content box —
+// width minus the 16px padding and 2px border of the border-box panel.
+const SESSION_CHART = { H: 150, L: 54, R: 8, T: 10, B: 22 };
+
+// X-tick label for "this long of accumulated play ago". Whole hours stay
+// whole; a 3h window's quarter ticks need the decimal (-2.3h, -1.5h).
+function sessionAgoLabel(agoMs) {
+  if (agoMs < 1) return 'now';
+  if (agoMs >= 60 * 60 * 1000) {
+    const hours = agoMs / (60 * 60 * 1000);
+    return '-' + (Number.isInteger(hours) ? hours.toFixed(0) : hours.toFixed(1)) + 'h';
+  }
+  return '-' + Math.round(agoMs / 60000) + 'm';
+}
 
 function buildSessionChart(buckets, spec) {
   const { H, L, R, T, B } = SESSION_CHART;
@@ -5458,21 +6331,21 @@ function buildSessionChart(buckets, spec) {
   let max = 0;
   for (const v of values) if (v !== undefined && v > max) max = v;
 
-  const x0 = buckets.nowMs - buckets.windowMs;
-  const x1 = buckets.nowMs;
+  const x0 = buckets.playNowMs - buckets.windowMs;
+  const x1 = buckets.playNowMs;
   // y always starts at 0; a flat-zero series still gets a real scale.
   const y0 = 0;
   const y1 = max > 0 ? max * 1.08 : 1;
   const px = (t) => L + ((Math.min(Math.max(t, x0), x1) - x0) / (x1 - x0)) * (W - L - R);
   const py = (v) => H - B - ((v - y0) / (y1 - y0)) * (H - T - B);
 
-  const { ticks: xTicks, fmt: fmtX } = timeTicks(x0, x1);
+  const xTicks = Array.from({ length: 5 },
+    (_, i) => x0 + (x1 - x0) * i / 4);
   for (const v of xTicks) {
     el('line', { x1: px(v), y1: T, x2: px(v), y2: H - B, class: 'scatter-grid' });
-    // A tick near the right edge keeps its centered label inside the svg
-    // (an HH:mm label is ~32px wide at this size; half must fit).
+    // A tick near the right edge keeps its centered label inside the svg.
     el('text', { x: Math.min(px(v), W - 17), y: H - B + 13, class: 'scatter-tick tick-x' },
-      fmtX(v));
+      sessionAgoLabel(x1 - v));
   }
   const yTicks = niceTicks(y0, y1, 4);
   const yStep = yTicks.length > 1 ? yTicks[1] - yTicks[0] : 1;
@@ -5485,9 +6358,8 @@ function buildSessionChart(buckets, spec) {
     el('line', { x1: L - 4, y1: py(v), x2: L, y2: py(v), class: 'scatter-minor' });
   }
 
-  // Axis labels, scatter-style: terse, ticks carry the scale.
-  el('text', { x: L + (W - L - R) / 2, y: H - 3, class: 'scatter-axis-label' },
-    '\u2192 time of day');
+  // Only the y axis gets a caption; the x ticks ("-15m … now") already
+  // say "played time ago" on their own.
   const yLabel = el('text', { x: 0, y: 0, class: 'scatter-axis-label' },
     '\u2192 ' + spec.unit);
   yLabel.setAttribute('transform',
@@ -5498,22 +6370,107 @@ function buildSessionChart(buckets, spec) {
   let pen = false;
   let lastX = null;
   let lastY = null;
+  let lastValue = null;
   for (let i = 0; i < values.length; i++) {
     if (values[i] === undefined) { pen = false; continue; }
     lastX = px(buckets.centers[i]);
     lastY = py(values[i]);
+    lastValue = values[i];
     d += (pen ? 'L' : 'M') + lastX.toFixed(1) + ' ' + lastY.toFixed(1);
     pen = true;
   }
   if (lastX !== null) {
     el('path', { class: 'spark-line', d: d });
-    el('circle', { class: 'spark-dot', cx: lastX.toFixed(1), cy: lastY.toFixed(1), r: 2.2 });
+    el('circle', { class: 'spark-dot', cx: lastX.toFixed(1), cy: lastY.toFixed(1), r: 3 });
+    const putLeft = lastX > W - 80;
+    const labelY = lastY < T + 14 ? lastY + 16 : lastY - 6;
+    el('text', {
+      x: (lastX + (putLeft ? -7 : 7)).toFixed(1),
+      y: labelY.toFixed(1),
+      class: 'session-point-value',
+      'text-anchor': putLeft ? 'end' : 'start',
+    }, spec.fmt(lastValue));
   }
   return svg;
 }
 
-// The shown number is the newest measurable bucket's value — the current
-// reading, not a window average (the chart is the average's home).
+// The game-endings chart: the session chart's visual grammar with a fixed
+// 0–100% y axis and one line per ending kind. Kinds that never occurred
+// in the window stay off the chart (a page of flat zeros hides the real
+// lines); 'win' always draws once any game has ended, because a 0% win
+// line is itself the reading. The legend below the chart carries each
+// drawn kind's color and current percentage.
+function buildSessionEndingsChart(buckets) {
+  const { H, L, R, T, B } = SESSION_CHART;
+  const W = settings.metricsPanelWidth - 18;
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('class', 'session-chart');
+  svg.setAttribute('width', W);
+  svg.setAttribute('height', H);
+  const el = (tag, attrs, text) => {
+    const node = document.createElementNS(SVG_NS, tag);
+    for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
+    if (text !== undefined) node.textContent = text;
+    svg.appendChild(node);
+    return node;
+  };
+  el('rect', { x: L, y: T, width: W - L - R, height: H - T - B, class: 'scatter-plot' });
+
+  const x0 = buckets.playNowMs - buckets.windowMs;
+  const x1 = buckets.playNowMs;
+  const px = (t) => L + ((Math.min(Math.max(t, x0), x1) - x0) / (x1 - x0)) * (W - L - R);
+  const py = (pct) => H - B - (pct / 100) * (H - T - B);
+
+  const xTicks = Array.from({ length: 5 }, (_, i) => x0 + (x1 - x0) * i / 4);
+  for (const v of xTicks) {
+    el('line', { x1: px(v), y1: T, x2: px(v), y2: H - B, class: 'scatter-grid' });
+    el('text', { x: Math.min(px(v), W - 17), y: H - B + 13, class: 'scatter-tick tick-x' },
+      sessionAgoLabel(x1 - v));
+  }
+  for (const pct of [0, 25, 50, 75, 100]) {
+    el('line', { x1: L, y1: py(pct), x2: W - R, y2: py(pct), class: 'scatter-grid' });
+    el('text', { x: L - 4, y: py(pct) + 4, class: 'scatter-tick tick-y' }, String(pct));
+  }
+  const yLabel = el('text', { x: 0, y: 0, class: 'scatter-axis-label' },
+    '\u2192 % of session games');
+  yLabel.setAttribute('transform',
+    'translate(10 ' + (H - B - (H - T - B) / 2) + ') rotate(-90)');
+  yLabel.setAttribute('text-anchor', 'middle');
+
+  const drawn = [];
+  const anyGames = buckets.endGames[buckets.endGames.length - 1] > 0;
+  for (const spec of SESSION_END_SPECS) {
+    const series = buckets.endFractions[spec.kind];
+    const latest = latestDefined(buckets, (b, i) => series[i]);
+    const show = anyGames && (spec.kind === 'win' || (latest !== undefined && latest > 0));
+    if (!show) continue;
+    let d = '';
+    let pen = false;
+    let lastX = null;
+    let lastY = null;
+    for (let i = 0; i < buckets.centers.length; i++) {
+      const v = displayableNumber(series[i]);
+      if (v === undefined) { pen = false; continue; }
+      lastX = px(buckets.centers[i]);
+      lastY = py(v * 100);
+      d += (pen ? 'L' : 'M') + lastX.toFixed(1) + ' ' + lastY.toFixed(1);
+      pen = true;
+    }
+    if (lastX === null) continue;
+    el('path', { class: 'end-line', stroke: spec.color, d: d });
+    // A last-point dot keeps a one-bucket series visible (a path with a
+    // single point draws nothing).
+    el('circle', {
+      class: 'end-dot', fill: spec.color, r: 2.5,
+      cx: lastX.toFixed(1), cy: lastY.toFixed(1),
+    });
+    drawn.push({ spec, latest });
+  }
+  return { svg, drawn };
+}
+
+// The shown number is the newest measurable sample's value: the running
+// average ending at the current play position.
 function latestDefined(buckets, of) {
   for (let i = buckets.centers.length - 1; i >= 0; i--) {
     const v = displayableNumber(of(buckets, i));
@@ -5526,34 +6483,57 @@ function appendSessionSection(container) {
   const head = buildMetricsGroupHead(SESSION_GROUP);
   const select = document.createElement('select');
   select.className = 'session-bucket-select';
-  select.title = 'bucket size: how many seconds each charted point sums over';
-  for (const seconds of SESSION_BUCKET_CHOICES) {
+  select.title = 'running-average length: each charted point averages this '
+    + 'much played time behind it (played time, never wall time)';
+  for (const seconds of SESSION_LOOKBACK_CHOICES) {
     const option = document.createElement('option');
     option.value = String(seconds);
-    option.textContent = seconds < 60 ? seconds + 's' : (seconds / 60) + 'm';
+    option.textContent =
+      (seconds < 60 ? seconds + 's' : (seconds / 60) + 'm') + ' avg';
     select.appendChild(option);
   }
-  select.value = String(settings.sessionBucketSeconds);
+  select.value = String(settings.sessionLookbackSeconds);
   select.addEventListener('change', () => {
-    settings.sessionBucketSeconds = Number(select.value);
+    settings.sessionLookbackSeconds = Number(select.value);
     saveSettings();
     refreshMetricsPanel();
   });
   head.appendChild(select);
+  // The window length gets the same one-click treatment as the
+  // running-average length: a second selector on the section head itself.
+  const windowSelect = document.createElement('select');
+  windowSelect.className = 'session-bucket-select';
+  windowSelect.title = 'window: how much accumulated play the charts look back over';
+  for (const minutes of SESSION_WINDOW_CHOICES) {
+    const option = document.createElement('option');
+    option.value = String(minutes);
+    option.textContent = minutes < 60 ? minutes + 'm' : (minutes / 60) + 'h';
+    windowSelect.appendChild(option);
+  }
+  windowSelect.value = String(settings.sessionWindowMinutes);
+  windowSelect.addEventListener('change', () => {
+    settings.sessionWindowMinutes = Number(windowSelect.value);
+    saveSettings();
+    refreshMetricsPanel();
+  });
+  head.appendChild(windowSelect);
   container.appendChild(head);
 
   const now = Date.now();
   sessionPrune(now);
-  const buckets = sessionBucketSeries(sessionEvents, {
+  const buckets = sessionRunningSeries(sessionEvents, {
     nowMs: now,
-    bucketMs: settings.sessionBucketSeconds * 1000,
-    windowMs: SESSION_WINDOW_MS,
+    stepMs: SESSION_STEP_MS,
+    lookbackMs: settings.sessionLookbackSeconds * 1000,
+    windowMs: settings.sessionWindowMinutes * 60 * 1000,
     openPlayFrom: sessionPlayFrom,
+    playOffsetMs: sessionPlayOffsetMs,
   });
+  appendSessionEndingsRow(container, buckets);
   for (const spec of SESSION_METRIC_SPECS) {
     const value = latestDefined(buckets, spec.of);
     const row = document.createElement('div');
-    row.className = 'metric-row';
+    row.className = 'metric-row session-metric-row';
     row.title = 'HOW: ' + spec.calc + '.\n\nRECORDS: ' + spec.records + '.'
       + (value === undefined ? '\n\n(nothing measurable in the window yet)' : '');
     const headRow = document.createElement('div');
@@ -5561,14 +6541,61 @@ function appendSessionSection(container) {
     const labelEl = document.createElement('span');
     labelEl.className = 'metric-label';
     labelEl.textContent = spec.label;
-    const valueEl = document.createElement('span');
-    valueEl.className = 'metric-value';
-    valueEl.textContent = value === undefined ? '\u2013' : spec.fmt(value);
-    headRow.append(labelEl, valueEl);
+    headRow.appendChild(labelEl);
     row.appendChild(headRow);
     row.appendChild(buildSessionChart(buckets, spec));
     container.appendChild(row);
   }
+}
+
+// The game-endings row: one chart of cumulative percent lines (how the
+// window's finished games ended, by death verdict), with a color legend
+// carrying each drawn kind's current share.
+function appendSessionEndingsRow(container, buckets) {
+  const row = document.createElement('div');
+  row.className = 'metric-row session-metric-row';
+  row.title = 'HOW: every finished game in the window files into exactly '
+    + 'one ending — win, or its death verdict (angel-death = forced to '
+    + 'guess and took the lowest available risk; forced guess = forced '
+    + 'but not at the lowest risk; needless guess = a provably safe '
+    + 'square was available; clicked clear mine = the fatal square was '
+    + 'provably a mine; chord death = a wrong flag killed; unjudged '
+    + 'when nothing was measurable). Each line is that ending\u2019s '
+    + 'cumulative share of the games finished so far in the window.'
+    + '\n\nRECORDS: the composition of game endings under the stated '
+    + 'verdict rules; it does not identify a cause for a change.';
+  const headRow = document.createElement('div');
+  headRow.className = 'metric-head';
+  const labelEl = document.createElement('span');
+  labelEl.className = 'metric-label';
+  labelEl.textContent = 'game endings';
+  headRow.appendChild(labelEl);
+  row.appendChild(headRow);
+  const { svg, drawn } = buildSessionEndingsChart(buckets);
+  row.appendChild(svg);
+  if (drawn.length > 0) {
+    const legend = document.createElement('div');
+    legend.className = 'session-end-legend';
+    for (const { spec, latest } of drawn) {
+      const item = document.createElement('span');
+      item.className = 'end-legend-item';
+      const swatch = document.createElement('span');
+      swatch.className = 'end-swatch';
+      swatch.style.background = spec.color;
+      const text = document.createElement('span');
+      text.textContent = spec.label + ' '
+        + (latest === undefined ? '0' : Math.round(latest * 100)) + '%';
+      item.append(swatch, text);
+      legend.appendChild(item);
+    }
+    row.appendChild(legend);
+  } else {
+    const empty = document.createElement('div');
+    empty.className = 'session-end-legend session-end-empty';
+    empty.textContent = 'no finished games in the window yet';
+    row.appendChild(empty);
+  }
+  container.appendChild(row);
 }
 
 //-------PLAYER STATES (session tags stamped onto finished games)-------
@@ -5582,7 +6609,7 @@ const DEFAULT_STATE_NAMES = ['sleepy', 'just woke up', 'inebriated'];
 
 // The RAM copy (userdata 'states'): [{name, active}] in display order. A
 // new player gets the default options to choose from, none active (see
-// loadUserdata); the list is only persisted once the player changes
+// userdataReady); the list is only persisted once the player changes
 // something.
 let playerStates = null;
 
@@ -5632,7 +6659,7 @@ function renderStates() {
     option.textContent = state.name;
     option.addEventListener('click', () => {
       state.active = true;
-      statesMenu.hidden = true;
+      setStatesMenuOpen(false);
       savePlayerStates();
       renderStates();
     });
@@ -5651,10 +6678,21 @@ function renderStates() {
   }
 }
 
+// Every open/close goes through here so the button always shows its
+// pressed ("open") state while the menu is up (the settings panel's
+// helper is the same shape). Esc and outside-click closing live with the
+// settings panel's handlers.
+function setStatesMenuOpen(open) {
+  statesMenu.hidden = !open;
+  statesAddBtn.classList.toggle('open', open);
+}
+
 statesAddBtn.addEventListener('click', () => {
-  statesMenu.hidden = !statesMenu.hidden;
+  setStatesMenuOpen(statesMenu.hidden);
   statesStatus.textContent = '';
 });
+
+document.getElementById('states-close').addEventListener('click', () => setStatesMenuOpen(false));
 
 // A state created here goes on immediately (typing it mid-session means
 // "I am in this state now"); one chip-click takes it off.
@@ -5672,7 +6710,7 @@ statesAddForm.addEventListener('submit', (event) => {
   playerStates.push({ name, active: true });
   savePlayerStates();
   statesAddInput.value = '';
-  statesMenu.hidden = true;
+  setStatesMenuOpen(false);
   renderStates();
 });
 
@@ -5734,21 +6772,28 @@ boardElement.addEventListener('mouseup', (event) => {
   const cell = cells[index];
   if (!cell.revealed && !cell.flagged) {
     clickCount++;
+    const misclick = revealIsMisclick(index);
+    if (misclick) recordMisclick();
     // Recorded before the reveal so a fatal click's press event precedes
     // its death event in the session log.
-    sessionRecordPress(true, false);
+    sessionRecordPress(true, false, false, misclick);
     revealCell(index);
   } else if (cell.revealed) {
-    if (!chord(index)) {
+    const targets = chordTargets(index);
+    if (targets === null) {
       wastedClicks++;
-      sessionRecordPress(false, false);
+      sessionRecordPress(false, false, false, false);
     } else {
-      sessionRecordPress(true, false);
+      const misclick = chordIsMisclick(index, targets);
+      if (misclick) recordMisclick();
+      // Record before acting because a contradicted chord can end the game.
+      sessionRecordPress(true, false, false, misclick);
+      chord(index);
     }
   } else {
     // Left-clicking a flagged cell does nothing.
     wastedClicks++;
-    sessionRecordPress(false, false);
+    sessionRecordPress(false, false, false, false);
   }
 });
 
@@ -5801,14 +6846,17 @@ boardElement.addEventListener('contextmenu', (event) => {
   const index = cellIndexFromEvent(event);
   if (index === null) return;
   traceEvent('rdown', event, index);
+  const removing = cells[index].flagged;
+  const misclick = !cells[index].revealed && flagChangeIsMisclick(index, removing);
   if (!toggleFlag(index)) {
     wastedClicks++;
-    sessionRecordPress(false, false);
+    sessionRecordPress(false, false, false, false);
   } else {
+    if (misclick) recordMisclick();
     // A removal is still a useful press (it changed the board); only a
     // placement feeds the mine-marking rate, only a removal feeds the
     // flag-removal rate.
-    sessionRecordPress(true, cells[index].flagged, !cells[index].flagged);
+    sessionRecordPress(true, cells[index].flagged, !cells[index].flagged, misclick);
   }
 });
 
@@ -6036,7 +7084,7 @@ function importHistory(text) {
   if (importedSettings !== null) {
     settings = settingsFrom({ ...settings, ...importedSettings });
     saveSettings();
-    refreshSettingsPanel();
+    repaintRevealedCells();
     document.getElementById('play-mode-select').value = settings.playMode;
     settingsNote = ', applied settings';
   }
@@ -6055,121 +7103,28 @@ document.getElementById('format-btn').addEventListener('click', () => {
   formatPanel.hidden = !formatPanel.hidden;
 });
 
-//-------SETTINGS PANEL-------
+//-------SETTINGS ENTRY (the full page settings.html holds the controls)-------
 
-const settingsPanel = document.getElementById('settings-panel');
+// The in-page settings drawer became a full page on 2026-08-23: the
+// "settings" opener in the top-right is now a plain link to settings.html
+// (see index.html), which shares this page's schema (settings-core.js)
+// and database (storage.js) and demonstrates each switch on a demo world.
+// Changes save straight to the shared database; this page reads them
+// fresh on every load, and the return trip from settings.html is a load.
 
-document.getElementById('settings-btn').addEventListener('click', () => {
-  settingsPanel.hidden = !settingsPanel.hidden;
+document.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape') return;
+  if (!statesMenu.hidden) setStatesMenuOpen(false);
 });
 
-// One checkbox row per SETTINGS_SCHEMA entry. A change saves immediately
-// and re-renders the result on screen (if any), so the effect is visible
-// without finishing another game.
-function buildSettingsPanel() {
-  for (const s of SETTINGS_SCHEMA) {
-    if (s.control === 'none') continue;
-    if (s.control === 'shown-things') {
-      const group = document.createElement('details');
-      group.className = 'setting-group';
-      const summary = document.createElement('summary');
-      summary.textContent = s.label;
-      summary.title = s.describe;
-      group.appendChild(summary);
-      for (const [key, label, description] of SHOWN_THINGS_OPTIONS) {
-        const row = document.createElement('label');
-        row.className = 'setting-row setting-child';
-        const box = document.createElement('input');
-        box.type = 'checkbox';
-        box.dataset.field = s.field;
-        box.dataset.subfield = key;
-        box.checked = settings[s.field][key];
-        box.addEventListener('change', () => {
-          settings[s.field][key] = box.checked;
-          saveSettings();
-          if (renderedResult !== null) {
-            renderResult(renderedResult.record, renderedResult.modeRecords, renderedResult.options);
-          }
-        });
-        const name = document.createElement('span');
-        name.className = 'setting-name';
-        name.textContent = label;
-        const describe = document.createElement('span');
-        describe.className = 'setting-describe';
-        describe.textContent = description;
-        row.append(box, name, describe);
-        group.appendChild(row);
-      }
-      settingsPanel.appendChild(group);
-      continue;
-    }
-    const row = document.createElement('label');
-    row.className = 'setting-row';
-    const box = document.createElement('input');
-    box.type = 'checkbox';
-    box.dataset.field = s.field;
-    box.checked = settings[s.field];
-    box.addEventListener('change', () => {
-      if (s.field === 'justUniverse' && gameState === 'playing') {
-        box.checked = settings[s.field];
-        return;
-      }
-      settings[s.field] = box.checked;
-      saveSettings();
-      if (renderedResult !== null) {
-        renderResult(renderedResult.record, renderedResult.modeRecords, renderedResult.options);
-      }
-      refreshMetricsPanel();
-    });
-    const name = document.createElement('span');
-    name.className = 'setting-name';
-    name.textContent = s.label;
-    const describe = document.createElement('span');
-    describe.className = 'setting-describe';
-    describe.textContent = s.describe;
-    if (s.helpFile !== undefined) {
-      // A "?" that raises the setting's help page (an iframe popover to the
-      // panel's left) while hovered — over the "?" or the page itself.
-      const help = document.createElement('span');
-      help.className = 'setting-help';
-      help.textContent = '?';
-      const pop = document.createElement('div');
-      pop.className = 'setting-help-pop';
-      pop.hidden = true;
-      const frame = document.createElement('iframe');
-      frame.src = s.helpFile;
-      frame.title = s.label + ' — help';
-      pop.appendChild(frame);
-      let hideTimer = null;
-      const show = () => { clearTimeout(hideTimer); pop.hidden = false; };
-      const hide = () => { hideTimer = setTimeout(() => { pop.hidden = true; }, 250); };
-      for (const el of [help, pop]) {
-        el.addEventListener('mouseenter', show);
-        el.addEventListener('mouseleave', hide);
-      }
-      // Inside the row's <label>: interacting with the "?" or the page must
-      // not toggle the checkbox.
-      help.addEventListener('click', (event) => event.preventDefault());
-      pop.addEventListener('click', (event) => event.preventDefault());
-      row.append(box, name, help, describe, pop);
-    } else {
-      row.append(box, name, describe);
-    }
-    settingsPanel.appendChild(row);
+// A click outside the open states menu closes it; the menu's own button
+// is excluded because its handler already toggles.
+document.addEventListener('click', (event) => {
+  if (!statesMenu.hidden
+      && !statesMenu.contains(event.target) && !statesAddBtn.contains(event.target)) {
+    setStatesMenuOpen(false);
   }
-}
-
-// Re-syncs the checkboxes after an import replaces settings.
-function refreshSettingsPanel() {
-  for (const box of settingsPanel.querySelectorAll('input[type=checkbox]')) {
-    box.checked = box.dataset.subfield
-      ? settings[box.dataset.field][box.dataset.subfield]
-      : settings[box.dataset.field];
-    const locked = box.dataset.field === 'justUniverse' && gameState === 'playing';
-    box.disabled = locked;
-    box.title = locked ? 'A just universe is fixed from the first reveal until this game ends.' : '';
-  }
-}
+});
 
 // The data-format reference card, generated from GAME_RECORD_SCHEMA and
 // DIFFICULTIES so it always matches what the code writes and accepts.
@@ -6235,7 +7190,7 @@ importFileInput.addEventListener('change', () => {
 //-------INIT-------
 
 // Static chrome builds immediately; everything that reads userdata waits
-// in init, which loadUserdata calls once the RAM copies are filled.
+// in init, which userdataReady calls once the RAM copies are filled.
 buildLcd(mineCounter);
 buildLcd(timerDisplay);
 buildFormatPanel();
@@ -6279,7 +7234,6 @@ function syncDifficultyTabs() {
 }
 
 function init() {
-  buildSettingsPanel();
   buildPlayModeSwitcher();
   renderStates();
   // The history RAM is filled now and nothing has been played yet: the

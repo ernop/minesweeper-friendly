@@ -48,8 +48,11 @@ forced mine.
 ## State
 
 Runtime: `index.html` + `style.css` + pure `rng.js` / `justice.js` /
-`board-shape.js` / `solver.js` / `odds.js` / `trial.js` + `minesweeper.js`, no
-dependencies, no build step.
+`board-shape.js` / `solver.js` / `odds.js` / `trial.js` + shared
+`storage.js` / `settings-core.js` + `minesweeper.js`, no dependencies, no
+build step. The settings page is `settings.html` + `settings-page.js`,
+loading the same `style.css`, `storage.js`, and `settings-core.js` (both
+pages must load storage.js and settings-core.js before their own script).
 Serve with `python3 -m http.server 8018`.
 
 **`PRODUCT.md` is the canonical spec of every product and UI decision**
@@ -60,30 +63,40 @@ the same change. Below is only the implementation mapping.
 Implementation notes:
 
 - Storage (PRODUCT.md "Storage"): one IndexedDB database
-  (`minesweeper-friendly`, version 2, opened at parse time), two stores.
-  `userdata` holds one entry per kind — 'history', 'settings',
-  'rankavgSort', 'states', 'trial' (`USERDATA_KINDS`); `traces` holds one entry
-  per game. Userdata is RAM-first: `loadUserdata` fills the RAM objects
-  (`history`, `settings`, `rankavgSorts`, `playerStates`) once the db
-  opens, then calls `init()` (settings panel, states panel, first board —
+  (`minesweeper-friendly`, version 2), two stores. The open, upgrade,
+  `readAllUserdata`, and `persistUserdata` live in `storage.js`
+  (2026-08-23, shared with the settings page); each page defines two
+  late-bound hooks: `storageFailure(what)` (announce + throw) and
+  `userdataReady()` (called once BOTH the db is open and the document's
+  scripts have run — the open can otherwise race the later `<script>`
+  fetches and call a hook that does not exist yet). `userdata` holds one
+  entry per kind — 'history', 'settings', 'rankavgSort', 'states',
+  'trial' (`USERDATA_KINDS`); `traces` holds one entry per game. Userdata
+  is RAM-first: the game page's `userdataReady` fills the RAM objects
+  (`history`, `settings`, `rankavgSorts`, `playerStates`) via
+  `readAllUserdata`, then calls `init()` (states panel, first board —
   everything that reads userdata waits there; only static chrome builds
   at parse). All reads/mutations touch RAM synchronously; every mutation
   calls `persistUserdata(kind, ramObject)`, an async fire-and-forget
   put (IndexedDB clones at put() time, so later RAM mutations cannot
-  race). `storageFailure` announces in #backup-status and throws — no
-  silent storage loss. The version-2 upgrade carries the pre-2026-08-20
-  localStorage keys (`LEGACY_LOCALSTORAGE_KEYS`) into `userdata` once,
-  removing them after the upgrade transaction commits; deletable once
-  every player's origin has upgraded.
+  race). The game page's `storageFailure` announces in #backup-status;
+  the settings page's in #settings-status — no silent storage loss.
+  The version-2 upgrade carries the pre-2026-08-20 localStorage keys
+  (`LEGACY_LOCALSTORAGE_KEYS`) into `userdata` once, removing them after
+  the upgrade transaction commits; deletable once every player's origin
+  has upgraded. Cross-page consistency: each page reads settings fresh
+  at load and writes through immediately; the game and settings pages
+  are never open as two live views of the same RAM.
 - History: userdata 'history' maps mode key to a
   chronological array of game records, one per finished game:
   {endedAt, outcome: 'win'|'loss', timeMs, bv3, clicks, wastedClicks,
-  flagsPlaced, flagsRemoved, mousePathPx, states, justice,
+  misclicks, flagsPlaced, flagsRemoved, mousePathPx, states, justice,
   justiceEnabled, seed, rngVersion, boardVersion, justiceVersion,
   maxAdjacent, hasSeven, zeroCount, islandCount, largestIsland,
   playMode, identityIndex, transform, trialStartedAt, guesses,
   guessIdealRisk, guessNonideal, guessPerfect, lifeLost, lifeNeedless,
-  oddsVersion} —
+  oddsVersion, stupidDeath, deathKind, deathRisk, deathBestRisk,
+  justiceSaves, fastclickGapMs, musicPlaying} —
   primary measurements only
   (later-added fields may be absent on earlier records; see
   `GAME_RECORD_SCHEMA`). The mode key is board parameters plus play mode
@@ -107,13 +120,31 @@ Implementation notes:
   `tracing()` (ready or playing). `traceEvent` logs 'ldown'/'lup'/'rdown'
   from the board handlers (document mouseup catches off-cell releases,
   index null); `recordLayout` logs board-geometry events (newGame,
-  scroll, resize, zoom). `saveTrace` (called from reportResult) puts
+  scroll, resize, zoom), and `recordLayoutIfMoved` (2026-08-23)
+  re-records whenever the board's rect differs from the last layout
+  event — called from `traceEvent` and from the `renderMetricsPanel`
+  wrapper (the panel appearing/collapsing/resizing is the known
+  no-event board mover; the live-metrics tick reaches it once a second
+  as the catch-all). `node tests/trace-layout-test.js` freezes these
+  rules. `saveTrace` (called from reportResult) puts
   {endedAt, mode, outcome, startedAt, sampleT/sampleX/sampleY as typed
   arrays, events} into the `traces` store, keyPath endedAt (never held
   in RAM — far too large). Failures go through `storageFailure`
   (#backup-status + throw) — no silent trace loss. "export traces"
   (#export-traces-btn + #export-traces-file) downloads every trace as a
   JSON array with the typed arrays converted back to plain arrays.
+- Path replay views (PRODUCT.md "Path replay views"): `#path-view-btn`
+  (in `#scores-nav`) cycles `pathView` off → moves → clicks;
+  `renderPathOverlay` draws `#path-canvas` (absolute over `#board`,
+  pointer-events none, covering the border box the layout events
+  measured) from the RAM trace of the game just finished —
+  `pathPointMapper` walks the layout events so each point maps through
+  the geometry at its trace time; a lazily created ResizeObserver on
+  `#board` redraws on zoom. `reportResult` renders button + overlay
+  after `renderResult`; `newGame` nulls `pathCanvas` (the board rebuild
+  removed the node) and re-hides the button; `pathViewAvailable` also
+  requires `#game-frame` visible (trial off-board phases). Nothing is
+  persisted.
 - Offline analysis lives under `analysis/` (inputs: the exported trace
   JSON). `analysis/mousetrap/trace_measures.R` computes psychometric
   mouse-tracking measures per inter-click segment; it runs on the R env
@@ -202,8 +233,9 @@ Implementation notes:
     share, not-measurable cases);
   - `tests/session-buckets-test.js` — known-answer event lists for the
     session-stats bucketing (extracts the SESSION STATS: COMPUTATION
-    span; per-bucket rates, straddling play intervals, the open
-    interval, window clamping, the 1s minimum-play rule, medians).
+    span; cumulative-play compaction across wall-clock breaks, per-bucket
+    rates, open intervals, history retention, the 1s minimum-play rule,
+    medians).
   If any implementation's definitions change, change its counterpart and
   rerun. Node-harness caution: the top-level setInterval keeps a bare
   `node` process alive — full-game harnesses must wrap global.setInterval
@@ -222,6 +254,15 @@ Implementation notes:
   falses plus left-clicks on flagged cells. Stored on the record since
   2026-08-19; `GAME_RECORD_SCHEMA` accepts its absence (older records),
   and the wasted-clicks scatter filters to wins that carry it.
+- `misclicks` counts board-changing actions contradicted by facts provable
+  from the visible board at input time. `Solver.isVisibleMisclick` owns
+  the pure classification: reveal of a certain mine, placement on a
+  proven safe, removal from a certain mine, or a chord whose opened set
+  contains a certain mine / flagged set contains a proven safe. The
+  mouseup/contextmenu handlers classify and increment before acting so a
+  fatal action reaches `reportResult`; `newGame` resets it. Stored since
+  2026-08-23; older records omit it. A fatal misclick can also carry
+  `stupidDeath=true`; the two measurements are independent.
 - `flagsPlaced` counts flag placements by the player (removals don't
   subtract; the win auto-flagging in `checkWin` bypasses `toggleFlag` and
   is not counted). `isMarkless(record)` derives the markless status
@@ -231,50 +272,70 @@ Implementation notes:
   olive-green "(m)" before the time via CSS `::before` — applied in
   `timeAgeRow` (every time-ranked list) and the stats table's Time row.
 - `flagsRemoved` counts flag removals by the player (both branches live in
-  `toggleFlag`). The second waste type: each removal marks a place+remove
-  pair (2 effective clicks) that netted nothing — see PRODUCT.md "Flags
-  removed" for why it stays separate from wastedClicks. Same absence rules
-  as wastedClicks (absent before 2026-08-20).
+  `toggleFlag`). It stays separate from no-op clicks because removal
+  changed the board; its reason is not inferred. Same absence rules as
+  wastedClicks (absent before 2026-08-20).
 - Session stats (PRODUCT.md "Session stats"): three marker-delimited
   spans in minesweeper.js. COMPUTATION (pure, Node-extractable):
-  `sessionBucketSeries(events, {nowMs, bucketMs, windowMs, openPlayFrom})`
-  buckets a wall-clock event list ({kind:'play',from,to} finished play
+  `sessionBucketSeries(events, {nowMs, bucketMs, windowMs, openPlayFrom,
+  playOffsetMs})` compacts a wall-clock event list into cumulative played
+  time, removing every between-play gap, then buckets it
+  ({kind:'play',from,to} finished play
   spans, {kind:'move',at,px} ~1s-coalesced cursor travel while playing,
-  {kind:'press',at,useful,flag,moving,gapMs}, {kind:'death',at,stupid})
-  into the six series (speed, click rate, stupid/min, wasted/min,
-  flags/s, fastclick gap); constants SESSION_WINDOW_MS (1h),
-  FASTCLICK_MAX_GAP_MS (1s), SESSION_MIN_PLAY_MS (1s — rates over a
-  sliver of play are undefined, not absurd). RECORDING (RAM only):
-  `sessionEvents` pruned to SESSION_KEEP_MS by `sessionPrune`;
+  {kind:'press',at,useful,flag,unflag,misclick,moving,gapMs},
+  {kind:'death',at,stupid}) into the eight series (speed, click rate,
+  avoidable deaths/min, misclicks/min, no-ops/min, flags/s,
+  flag-removals/min, fastclick gap) plus raw per-bucket `sums`.
+  `sessionRunningSeries(events, {nowMs, stepMs, lookbackMs, windowMs,
+  openPlayFrom, playOffsetMs})` — what the charts show since 2026-08-23 —
+  layers trailing running averages over it: fine SESSION_STEP_MS (10s)
+  buckets, prefix-sum rolling windows of lookbackMs of played time, one
+  sample per step (the newest rides the current play position; finished
+  samples never change), rates divided by the played time actually
+  covered, fastclick median pooled over the lookback's gaps, endings
+  fractions cumulative over the chart window and ignoring the lookback.
+  Constants FASTCLICK_MAX_GAP_MS (1s), SESSION_MIN_PLAY_MS (1s — rates
+  over a sliver of covered play are undefined, not absurd),
+  SESSION_KEEP_MS (max window + max lookback + slack). RECORDING (RAM only):
+  `sessionEvents` pruned to SESSION_KEEP_MS of played duration by
+  `sessionPrune`; `sessionPlayOffsetMs` preserves cumulative bucket
+  alignment after older events leave RAM;
   `sessionPlayBegin` hooks `startTimer` (every transition into
   'playing' passes there), `sessionPlayEnd` hooks `finish` and the top
   of `newGame` (abandoned boards close their interval — the time was
-  real);   `sessionRecordMove` taps the document mousemove handler beside
-  mousePathPx; `sessionRecordPress(useful, flagPlaced)` taps the board
+  real); `sessionRecordMove` taps the document mousemove handler beside
+  mousePathPx; `sessionRecordPress(useful, flagPlaced, flagRemoved,
+  misclick)` taps the board
   mouseup and contextmenu handlers beside the wastedClicks counting
   (`sessionLastUsefulPressAt` resets in newGame so gaps never span
   games; `sessionLastMoveAt` gives the 100ms moving flag); it also
   collects this game's qualifying gaps into `gameFastclickGaps` (reset
   in newGame), whose median `reportResult` stores as the record's
   `fastclickGapMs` (win or loss; absent when nothing qualified — the
-  per-game click, wasted, and mark rates need no new fields, they are
-  derived rows in the stats table); `sessionRecordDeath` is called from
+  per-game click, no-op, misclick, and mark rates derive from stored
+  fields); `sessionRecordDeath` is called from
   `lose`. `sessionBackfillFromHistory` (called once from init, after
-  loadUserdata fills history and before any live event) rebuilds the
-  window from recent records of every mode as {kind:'game'} events —
+  userdataReady fills history and before any live event) scans records of
+  every mode backward until enough actual play is retained, regardless of
+  wall age, and rebuilds them as {kind:'game'} events —
   totals spread by bucket overlap in sessionBucketSeries, death in the
   bucket containing to − 1 (an end on a bucket boundary must not spill
   into the next bucket), stored fastclick median as one gap sample per
   overlapped bucket; live and backfill cannot overlap because every
   backfilled game ended before the page load. DISPLAY: `SESSION_GROUP` +
   `SESSION_METRIC_SPECS` (label/calc/records/of/fmt like the trace groups),
-  `buildSessionSparkline` (fixed sliding-window x axis, right edge =
-  now, "-60m"/"now" labels), `latestDefined` (the shown number),
+  `buildSessionChart` (selectable cumulative-play x window, y-only axis
+  caption — the "-15m … now" x ticks speak for themselves — and
+  point-attached newest value), `latestDefined` (measurability),
   `appendSessionSection` (renders into the panel top, hosts the
-  bucket-size <select> writing settings.sessionBucketSeconds;
-  SESSION_BUCKET_CHOICES lives beside SETTINGS_SCHEMA). The live-metrics
-  setInterval renders the panel session-only between games so the
-  window keeps sliding.
+  running-average <select> writing settings.sessionLookbackSeconds and
+  the window <select> writing settings.sessionWindowMinutes;
+  SESSION_LOOKBACK_CHOICES and SESSION_WINDOW_CHOICES live beside
+  SETTINGS_SCHEMA's constants in minesweeper.js). The live-metrics
+  setInterval redraws the panel while active play advances;
+  `renderMetricsPanel` snapshots/restores `#metrics-panel-content`'s
+  scrollTop so
+  periodic replacement cannot push the reader away from lower charts.
 - Avoidable-death classification (stored under the legacy field name
   `stupidDeath`; PRODUCT.md "Avoidable-death classification"):
   `lose(hitIndices, stupidVerdict)` — every call site passes its verdict (chord /
@@ -312,7 +373,7 @@ Implementation notes:
   origins, not a hidden error.
 - Player states (PRODUCT.md "Player states"): userdata 'states' holds
   `[{name, active}]` in display order; absent entry = new player,
-  `loadUserdata` fills `playerStates` with the `DEFAULT_STATE_NAMES`
+  `userdataReady` fills `playerStates` with the `DEFAULT_STATE_NAMES`
   options (none active) and nothing is persisted until the player
   changes something. `activeStateNames()` is stamped
   onto every record as `states` (always written, `[]` when none active;
@@ -321,22 +382,49 @@ Implementation notes:
   pinned to the viewport's upper-right (shared with `#settings-btn`);
   fixed positioning means it occupies no layout space and never moves
   the board. Only active
-  states render (chips; click = take off); `#states-add-btn` toggles
-  `#states-menu`, which lists the inactive options (click = put on, its
+  states render (chips; click = take off); `#states-add-btn` (a real
+  bordered button holding a pressed `.open` look while the menu is up,
+  2026-08-23) toggles
+  `#states-menu` through `setStatesMenuOpen`, which lists the inactive
+  options (click = put on, its
   `.state-remove` x = delete from list) plus the add form (a created
-  state activates immediately). `renderStates` rebuilds both chips and
-  menu options.
+  state activates immediately) under a `#states-menu-head` header whose
+  `#states-close` ×, Esc, and outside clicks all close it. `renderStates`
+  rebuilds both chips and menu options.
 - Rank list machinery: `rankWindows` (time windows + `specificity` for
   progressive disclosure), `rankColumns` (adds day categories, `isHoliday`),
   `windowBounds` (11-row windowing), `buildRankList` (shared renderer,
   always the full window), `relativeAge` / `formatAgeCount` + `.age-u-*`
   classes (age display and unit colors, shared with the scatter legend;
-  h/d/w/y counts are one decimal including .0). Board-shape lists
+  h/d/w/y counts are one decimal including .0).   Board-shape lists
   (`has 8` / `has 7` / `max N` / `N islands` / `largest island N` /
-  `N zeros`) are built in `renderRanks` from the finished-board scalars
-  computed by `board-shape.js` (`BoardShape.of`) at `reportResult`.
+  `N zeros`) are defined once in `boardShapeCandidates(record, wins)`
+  (shared with the recent-placements summary) and rendered in
+  `renderRanks` from the finished-board scalars computed by
+  `board-shape.js` (`BoardShape.of`) at `reportResult`.
   `node tests/board-shape-test.js` freezes the neighborhood and island
   rules.
+- Recent placements (PRODUCT.md "Recent placements"): the pure span
+  between the "RECENT PLACEMENTS: COMPUTATION" and ": DISPLAY" markers —
+  `ordinal`, `formatRankRuns` (run compression), `recentPlacementsSummary`
+  over candidates {label, specificity, wins, startMs (time windows only:
+  the strictly-longer rule; membership charts omit it and always
+  qualify), alwaysShowBest (lifetime's near-miss rule, rows flagged
+  nearMiss)} — computes the rows; `RECENT_PLACEMENTS_WINDOWS` (beside
+  SESSION_LOOKBACK_CHOICES) defines the source-window choices, whose
+  selector on the block's heading writes
+  `settings.recentPlacementsWindow` (schema control 'none') and
+  re-renders `renderedResult`; `buildRecentPlacements(record, wins,
+  referenceMs)` builds the candidates — `rankColumns` (window columns
+  carry startMs; day categories don't and so always qualify), this
+  game's same-3BV chart, and `boardShapeCandidates(record, wins)` (the
+  extracted shape-chart definitions the board-shape tablecharts also
+  render from; the summary ignores the largestIsland display gate) —
+  and renders the block in `renderRanks` right after the exact-3BV
+  list, gated by shownThings.recentPlacements; nearMiss rows render the
+  rank muted (`.recent-near-cell`).
+  `node tests/recent-placements-test.js` freezes the formatting and
+  summary rules.
 - Rankaverages: `RANKAVERAGE_SPECS` (bucketing per stat), `avgDelta`
   (sign/color convention; rendered as a final grid row whose text sits in
   the average-time column).
@@ -362,20 +450,61 @@ Implementation notes:
   start clear of it. `html { scrollbar-gutter: stable }` protects board
   centering.
 - Personal settings (PRODUCT.md "Personal settings"): the RAM `settings`
-  object (userdata 'settings', filled by `loadUserdata` via
-  `settingsFrom`, which fills absent fields from `SETTINGS_SCHEMA`
-  defaults). `SETTINGS_SCHEMA` is the single definition
-  (field/default/valid/label/describe) feeding `settingsFrom`, the import
-  validation, and `buildSettingsPanel` (`#settings-panel`, an in-page
-  dropdown in the `#top-right` cluster toggled by `#settings-btn`; a
-  change saves and re-renders `renderedResult` in place). Exports carry
-  the block under the reserved top-level `"settings"` key; `importHistory`
+  object lives in `settings-core.js` (userdata 'settings', filled by each
+  page's `userdataReady` via `settingsFrom`, which fills absent fields
+  from `SETTINGS_SCHEMA` defaults). `SETTINGS_SCHEMA`, `SETTINGS_GROUPS`,
+  `SHOWN_THINGS_*`, `NUMBER_DISPLAY_CHOICES`, `settingsFrom`,
+  `saveSettings`, the cell iconography SVGs, and `paintCellGlyph` all
+  live in `settings-core.js`, shared by both pages. Caution: some schema
+  `valid` closures reference game-page globals (PLAY_MODE_IDS etc.) —
+  they are late-bound and only ever called by the game page's import
+  validation; the settings page must not call a control-'none' field's
+  valid(). The controls themselves are `settings.html` +
+  `settings-page.js` (2026-08-23; the in-page drawer is gone):
+  `#settings-btn` on the game page is now a plain `<a>` to settings.html.
+  The page: a sticky `#settings-titlebar` with a `.return-to-game` link
+  (same dress as the game's top-right buttons; a twin,
+  `#settings-column-return`, is appended at the switch column's end by
+  buildSettingsColumn; Esc navigates back too), `buildSettingsColumn`
+  renders one section per
+  `SETTINGS_GROUPS` entry into `#settings-column`; each switch is a
+  `buildSettingRow` single-line row — the clickable checkbox + name, with
+  `describe` as the name's title tooltip; captions were purged 2026-08-23
+  (see PRODUCT.md), so a schema `hint` renders a visible second line only
+  when present (only `justUniverse`), and `control: 'choice'` renders via
+  `buildChoiceRow` with each option's explanation as its tooltip — a
+  change saves and calls `refreshDemo()`. The demo world
+  (`buildDemoWorld` / `refreshDemo` in settings-page.js): `#demo-board`
+  computes adjacency and a real flood opening from fixed `DEMO_MINES`
+  and repaints through the shared `paintCellGlyph`; `.demo-card`
+  stand-ins carry data-setting-region keys — an off boolean ghosts its
+  element via `.demo-off` (faded, grayscale, dashed border; never
+  removed, so the demo layout never shifts — a PRODUCT.md decision);
+  `rebuildDemoTimeTables` rebuilds the timeTables card per
+  `collapseDuplicateCharts` but always with three chart slots (collapsed
+  ghosts the absorbed "this week"), keeping its height constant;
+  `#demo-justice` follows `justUniverse`. Row
+  hover glows `settingRegionElements(key)` (`.setting-region-glow`;
+  page-local `PAGE_HIGHLIGHT_SELECTORS` overrides) and changes nothing
+  else — no hover-injected or hover-swapped text, ever (two note
+  mechanisms were removed for this on 2026-08-23; when nothing matches,
+  nothing happens). The game page has no region tagging and no hover
+  controls: the `#region-hide-chip` mechanism (hover a result section,
+  click "hide ×" to switch it off) and the `tagSettingRegion` markers
+  feeding it were removed later on 2026-08-23 — hiding things is the
+  settings page's job (see PRODUCT.md "Personal settings").
+  `numberDisplay` (digits / letters / dots, drawn in `updateCell` via
+  `paintCellGlyph`) repaints in place on settings import
+  (`repaintRevealedCells`). The raw scatter block is gated by
+  shownThings.relationshipCharts since 2026-08-23. Exports carry the
+  block under the reserved top-level `"settings"` key; `importHistory`
   validates it with the rest of the blob and applies known fields.
-  `justUniverse` is frozen into `justiceEnabledForGame` at first reveal;
-  its checkbox is disabled while `gameState === 'playing'`. Other settings
-  remain immediately editable. `collapseDuplicateCharts` gates the
-  progressive-disclosure dedupe in `renderRanks` ("lifetime" is exempt:
-  always shown, and identical windows collapse into it).
+  `justUniverse` is frozen into `justiceEnabledForGame` at first reveal —
+  a change on the settings page applies from the next game (the old
+  drawer's mid-game lock UI retired with the drawer).
+  `collapseDuplicateCharts` gates the progressive-disclosure dedupe in
+  `renderRanks` ("lifetime" is exempt: always shown, and identical
+  windows collapse into it).
 - A just universe (PRODUCT.md "A just universe"): the judge and redraw
   are `justice.js` — pure logic on a view {width, height, mines,
   revealed[], adjacent[]} (flags invisible by design), exporting the
@@ -405,20 +534,24 @@ Implementation notes:
   Game side: only `revealCell` calls `attemptJustice(index)`, before its
   mine test and never on the first reveal. `chord` never calls Justice;
   wrong flags remain fatal. Every qualifying entry increments
-  `justiceEvents` regardless of whether redraw occurred and appends a live
+  `justiceEvents` regardless of whether redraw occurred, pushes a
+  {type, clearWays, totalWays, saved} detail onto `justiceDetails`
+  (saved = the cell was mined before the redraw; reset in newGame; feeds
+  the end-game recap and the record's `justiceSaves` count) and appends
+  a live
   `.justice-live-word` to #justice-live at the board's right (multiple
   events stack downward). `reportResult` stores `justice`,
-  `justiceEnabled`, `seed`, `rngVersion`, `boardVersion`, and
-  `justiceVersion`; rankings intentionally remain mixed for now. `rng.js`
+  `justiceSaves`, `justiceEnabled`, `seed`, `rngVersion`, `boardVersion`,
+  and `justiceVersion`; rankings intentionally remain mixed for now. `rng.js`
   exports `GameRandom`: `createSeed` obtains 128
   bits from `crypto.getRandomValues`, and `fromSeed` implements
   `xoshiro128ss-v1`, the single stream used by `placeMines` and Justice.
   Initial-board replay needs mode + first click + seed + RNG/board versions;
-  Justice replay also needs the input trace and Justice version. Settings
-  schema entries may carry `helpFile`;
-  `buildSettingsPanel` renders the "?" + iframe hover popover
-  (`.setting-help`/`.setting-help-pop`), used by `justUniverse` →
-  `just-universe-help.html`. Correctness: `node tests/justice-test.js`
+  Justice replay also needs the input trace and Justice version.
+  just-universe-help.html is a standalone explainer document (its "?"
+  popover on the settings row was removed in the 2026-08-23 caption
+  purge; the schema no longer carries `helpFile`). Correctness:
+  `node tests/justice-test.js`
   (deterministic fixtures including safe-entry counting semantics and the
   chord-origin rule); `node tests/rng-test.js` freezes the RNG version's
   output sequence; scale: `node tests/justice-bench.js` (100x100 boards,
@@ -509,9 +642,12 @@ https://ernop.github.io/minesweeper-friendly/ and redeploys on every push.
   `transaction(...).objectStore(...)` supports put/get/getAll with
   request onsuccess on a microtask and transaction oncomplete firing
   after all request callbacks (a timer works, since microtasks run
-  first). Startup is async — the db open leads to `loadUserdata` then
-  `init()`, so the harness must await (~a timer tick) after loading the
-  script before touching game state. Since 2026-08-20 the game's
+  first). Startup is async — the db open (in storage.js, which the
+  harness must load first along with settings-core.js) leads to
+  `userdataReady` then `init()`, and `userdataReady` also waits for
+  `document.readyState`, so a DOM shim must report it past 'loading'; the
+  harness must await (~a timer tick) after loading the
+  scripts before touching game state. Since 2026-08-20 the game's
   top-level bindings (history, cells, ...) are reachable from follow-up
   `vm.runInThisContext` snippets, which is how a harness asserts on RAM
   state. This approach ran the real `importHistory` end-to-end for the

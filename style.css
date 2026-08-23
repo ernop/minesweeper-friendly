@@ -21,11 +21,20 @@ body {
   padding: 24px;
 }
 
+#page-layout {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 18px;
+  width: 100%;
+}
+
 main {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 12px;
+  min-width: 0;
 }
 
 /*-------DIFFICULTY TABS-------*/
@@ -61,6 +70,7 @@ main {
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 10px;
   margin: 18px 0 4px;
   font-size: 11px;
 }
@@ -100,7 +110,8 @@ body.trial-offboard #game-frame {
   display: none !important;
 }
 
-#game-frame {
+#game-frame,
+#demo-frame {
   display: inline-block;
   background: var(--silver);
   padding: calc(var(--cell-size) / 4);
@@ -213,12 +224,25 @@ body.trial-offboard #game-frame {
 
 /*-------BOARD-------*/
 
-#board {
+#board,
+#demo-board {
   display: grid;
   grid-template-columns: repeat(var(--board-width), var(--cell-size));
   border: var(--bevel-size) solid;
   border-color: var(--bevel-dark) var(--bevel-light) var(--bevel-light) var(--bevel-dark);
   user-select: none;
+}
+
+/* Anchor for the after-game cursor-path overlay */
+#board { position: relative; }
+
+/* After-game cursor-path overlay: sits over the cells, never intercepts
+   input. Sized and offset from JS to cover the board's border box (the
+   geometry the trace's layout events measured). */
+#path-canvas {
+  position: absolute;
+  pointer-events: none;
+  z-index: 3;
 }
 
 .cell {
@@ -262,6 +286,15 @@ body.trial-offboard #game-frame {
 }
 
 .cell.mine-hit { background: #ff0000; }
+
+/* The dots number display: the count lives only in the classic color,
+   inherited from the cell's nN class via currentColor. */
+.cell .num-dot {
+  width: calc(var(--cell-size) * 0.45);
+  height: calc(var(--cell-size) * 0.45);
+  border-radius: 50%;
+  background: currentColor;
+}
 
 /* Classic number colors */
 .cell.n1 { color: #0000ff; }
@@ -365,12 +398,63 @@ body.trial-offboard #game-frame {
   color: #000000;
 }
 
+/* Game-end evaluation (PRODUCT.md "Game-end evaluation"): the death
+   verdict and the Justice recap, above the stats table. The title keeps
+   the results area's chunky face; the justification prose switches to a
+   plain face for legibility. Accent colors follow the endings-chart
+   palette; the Justice block echoes the JUSTICE chip (double border,
+   its red). */
+#result-verdicts { margin: 6px 0; }
+.verdict-block {
+  border: 2px solid #888888;
+  border-left-width: 6px;
+  border-radius: 4px;
+  background: #f4f4f0;
+  padding: 6px 8px;
+  margin: 6px 0;
+}
+.verdict-title {
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.4px;
+  margin-bottom: 3px;
+}
+.verdict-body,
+.verdict-details {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 12px;
+  font-weight: normal;
+  color: #222222;
+  line-height: 1.4;
+}
+.verdict-details { margin-top: 4px; color: #555555; }
+.verdict-details div { margin: 2px 0; }
+.verdict-mine { border-color: #1a1a1a; background: #efefef; }
+.verdict-mine .verdict-title { color: #1a1a1a; }
+.verdict-chord { border-color: #7a3ca8; background: #f3edf8; }
+.verdict-chord .verdict-title { color: #7a3ca8; }
+.verdict-needless { border-color: #b82c14; background: #f9efec; }
+.verdict-needless .verdict-title { color: #b82c14; }
+.verdict-forced { border-color: #e07020; background: #faf1e8; }
+.verdict-forced .verdict-title { color: #a85510; }
+.verdict-angel { border-color: #d4a017; background: #fbf6e4; }
+.verdict-angel .verdict-title { color: #8a6a0a; }
+.verdict-unjudged { border-color: #999999; background: #f2f2f2; }
+.verdict-unjudged .verdict-title { color: #666666; }
+.verdict-justice {
+  border-style: double;
+  border-width: 4px;
+  border-color: #b3121b;
+  background: #fdf4ee;
+}
+.verdict-justice .verdict-title { color: #b3121b; letter-spacing: 2px; }
+
 /*-------TOP-RIGHT SCREEN CHROME (session tags + settings)-------*/
 
-/* Pinned to the screen's upper-right corner: the player-state tags and the
-   settings button, with their menus dropping down in-page below. Fixed, so
-   the cluster occupies no layout space (the board cannot move) and stays
-   put as the page scrolls. */
+/* Pinned to the screen's upper-right corner: the player-state tags (menu
+   dropping down in-page below) and the settings button (opening the
+   full-height right-edge panel). Fixed, so the cluster occupies no layout
+   space (the board cannot move) and stays put as the page scrolls. */
 #top-right {
   position: fixed;
   top: 10px;
@@ -586,15 +670,34 @@ body.trial-offboard #result-ranks {
 
 .state-chip:hover { background: #c4dff5; }
 
+/* The two top-right openers are real, obvious buttons (2026-08-23; they
+   were dotted-underline text before). "settings" is a plain link to the
+   settings page dressed as the same button; "+ state" holds its pressed
+   look via .open while its menu is up. The settings page's return-to-game
+   links wear the identical dress — the shared piece of titlebar. */
 #states-add-btn,
-#settings-btn {
+#settings-btn,
+.return-to-game {
   font: inherit;
-  color: #8aa0b5;
-  background: none;
-  border: none;
-  padding: 0;
+  font-size: 11px;
+  color: #3f5668;
+  background: #f7f9fb;
+  border: 1px solid #c5d0da;
+  border-radius: 3px;
+  padding: 3px 10px;
   cursor: pointer;
-  text-decoration: underline dotted;
+  text-decoration: none;
+  display: inline-block;
+}
+
+#states-add-btn:hover,
+#settings-btn:hover,
+.return-to-game:hover { background: #e3edf6; }
+
+#states-add-btn.open {
+  background: #dcebf7;
+  border-color: #8aa0b5;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.12);
 }
 
 #settings-btn { margin-left: 10px; }
@@ -610,6 +713,32 @@ body.trial-offboard #result-ranks {
 }
 
 #states-menu[hidden] { display: none; }
+
+#states-menu-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+#states-menu-head span {
+  color: #3f5668;
+  font-size: 11px;
+  font-weight: bold;
+}
+
+#states-close {
+  font: inherit;
+  font-size: 14px;
+  line-height: 1;
+  color: #8aa0b5;
+  background: none;
+  border: none;
+  padding: 1px 4px;
+  cursor: pointer;
+}
+
+#states-close:hover { color: #3f5668; }
 
 .state-option {
   display: block;
@@ -660,100 +789,286 @@ body.trial-offboard #result-ranks {
   color: #b05050;
 }
 
-/* Settings panel: an in-page dropdown under the settings button — one
-   checkbox row per switch in SETTINGS_SCHEMA with its full description.
-   Changes apply and re-render the page immediately, so the player watches
-   the effect while the panel stays open. */
-#settings-panel {
-  margin-top: 5px;
-  padding: 6px 8px;
-  background: #f7f9fb;
-  border: 1px solid #e0e6ec;
+/* The settings page (settings.html): a titlebar sharing the game's button
+   dress, the demo world on the left (sticky, so it stays in view while
+   the switch column scrolls), and the switch column on the right. Group
+   headings split the switches by where they act; each switch is a
+   two-line row (clickable checkbox + name, then a plain-text hint that
+   toggles nothing). Changes save immediately and the demo world shows
+   them, so the player watches the effect without playing a game. */
+
+body.settings-page {
+  padding: 0;
   text-align: left;
 }
 
-#settings-panel[hidden] { display: none; }
+/* Sticky, so "return to game" is available at the top however far the
+   switch column has scrolled (its twin sits at the column's end). */
+#settings-titlebar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  border-bottom: 1px solid #dce4ea;
+  background: #f7f9fb;
+}
 
-.setting-row {
-  display: block;
+#settings-titlebar-name {
+  color: #3f5668;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+#settings-layout {
+  display: flex;
+  gap: 32px;
+  align-items: flex-start;
+  max-width: 1060px;
+  margin: 0 auto;
+  padding: 18px 16px 8px;
+}
+
+#settings-demo {
+  position: sticky;
+  top: 12px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+#settings-column {
+  width: 340px;
+  flex: none;
   font-size: 11px;
-  color: #777777;
-  cursor: pointer;
-  margin: 4px 0;
-  /* Anchors a setting's help popover */
+}
+
+#settings-status {
+  margin: 0 0 8px;
+  color: #b05050;
+}
+
+#settings-column-return { margin: 20px 0 36px; }
+
+/*-------DEMO WORLD-------*/
+
+#settings-demo-head {
+  margin: 0 0 10px;
+  color: #667788;
+  font-size: 11px;
+  font-style: italic;
+}
+
+#demo-page {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+#demo-left {
+  width: 168px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+#demo-main {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* The demo board draws at a reduced cell size; every cell rule inherits
+   through --cell-size, so it is the real rendering, only smaller. */
+#demo-frame { --cell-size: 18px; }
+
+#demo-board-wrap {
   position: relative;
+  display: inline-block;
 }
 
-.setting-row input { vertical-align: middle; margin-right: 6px; }
-.setting-row input:disabled { cursor: not-allowed; }
+/* The JUSTICE mark beside the demo board, where the real one prints. */
+#demo-justice {
+  position: absolute;
+  left: calc(100% + 10px);
+  top: 20%;
+  color: #2e7d32;
+  font-size: 11px;
+  font-weight: bold;
+  letter-spacing: 0.08em;
+}
 
-.setting-group {
-  margin: 6px 0;
-  padding-top: 4px;
+#demo-summary {
+  margin: 10px 0 6px;
+  font-size: 12px;
+  font-weight: bold;
+  color: #333333;
+}
+
+#demo-after {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-content: flex-start;
+}
+
+.demo-card {
+  min-width: 120px;
+  padding: 6px 8px;
+  background: #fbfcfe;
+  border: 1px solid #e0e6ec;
+  border-radius: 3px;
+  font-size: 11px;
+}
+
+/* An off thing stays in its slot as a faded ghost, so toggling a switch
+   never moves the rest of the demo. */
+#settings-demo .demo-off {
+  opacity: 0.3;
+  filter: grayscale(1);
+}
+
+.demo-card.demo-off { border-style: dashed; }
+
+.demo-card-title {
+  margin-bottom: 4px;
+  color: #3f5668;
+  font-size: 10px;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.demo-mini-table { margin-top: 4px; }
+
+.demo-mini-caption {
+  color: #667788;
+  font-size: 10px;
+  margin-bottom: 1px;
+}
+
+.demo-mini-table table { border-collapse: collapse; }
+
+.demo-mini-table td {
+  padding: 0 6px 0 0;
+  color: #555555;
+  font-size: 10px;
+}
+
+.demo-mini-table tr.demo-now td {
+  color: #000000;
+  font-weight: bold;
+  background: #eaf3fb;
+}
+
+.demo-stat-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #555555;
+  white-space: nowrap;
+}
+
+.demo-stat-value {
+  color: #000000;
+  font-weight: bold;
+}
+
+.demo-spark svg {
+  width: 48px;
+  height: 12px;
+  display: block;
+}
+
+.demo-scatter svg {
+  width: 120px;
+  height: 72px;
+  display: block;
+}
+
+.demo-stat-grid {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 1px 10px;
+  color: #555555;
+}
+
+/*-------SETTINGS ROWS (shared by the settings column)-------*/
+
+.settings-group-heading {
+  margin: 14px 0 2px;
+  padding-top: 8px;
   border-top: 1px solid #dce4ea;
-}
-
-.setting-group summary {
   color: #3f5668;
   font-size: 11px;
   font-weight: bold;
-  cursor: pointer;
-  user-select: none;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
-.setting-child {
-  margin-left: 9px;
+.settings-subheading {
+  margin: 12px 0 0;
+  color: #3f5668;
+  font-size: 12px;
+  font-weight: bold;
 }
+
+.setting-row {
+  margin: 8px 0;
+  font-size: 11px;
+}
+
+.setting-main {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.setting-main input { margin: 0; }
+.setting-main input:disabled { cursor: not-allowed; }
+
+.setting-child { margin-left: 14px; }
+
+/* A choice row's options: one radio + name per option, on one line. */
+.setting-choices {
+  display: flex;
+  gap: 12px;
+  margin: 3px 0 0 19px;
+}
+
+.setting-choice {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #555555;
+  cursor: pointer;
+}
+
+.setting-choice input { margin: 0; }
 
 .setting-name {
   color: #555555;
+  font-size: 12px;
   font-weight: bold;
-  margin-right: 6px;
 }
 
-/* The "?" beside a setting that has a help page; hovering it (or the page)
-   raises the page in a popover to the panel's left. */
-.setting-help {
-  display: inline-block;
-  width: 13px;
-  height: 13px;
-  margin-right: 6px;
-  border: 1px solid #8aa0b5;
-  border-radius: 50%;
-  color: #8aa0b5;
-  font-size: 10px;
-  font-weight: bold;
-  line-height: 12px;
-  text-align: center;
-  cursor: help;
-}
-
-.setting-help:hover {
-  color: #ffffff;
-  background: #8aa0b5;
-}
-
-.setting-help-pop {
-  position: absolute;
-  right: 100%;
-  top: -10px;
-  margin-right: 10px;
-  width: 540px;
-  height: 600px;
-  max-height: 85vh;
-  background: #ffffff;
-  border: 1px solid #8aa0b5;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
-  z-index: 20;
-}
-
-.setting-help-pop[hidden] { display: none; }
-
-.setting-help-pop iframe {
+.setting-describe {
   display: block;
-  width: 100%;
-  height: 100%;
-  border: 0;
+  margin: 1px 0 0 19px;
+  color: #777777;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+/* Live-region linking (settings page only): hovering a settings row
+   glows the demo piece it controls. */
+.setting-region-glow {
+  outline: 2px solid #4a90d9;
+  outline-offset: 3px;
+  border-radius: 2px;
 }
 
 /* This win's effect on its bucket's average time: a cell in the last grid
@@ -952,6 +1267,40 @@ body.trial-offboard #result-ranks {
   color: #333333;
 }
 
+/* Recent placements: one row per longer time window, listing the
+   top-tenth ranks earned within the chosen recent window. The window
+   selector rides the heading line. */
+.recent-placements-select {
+  margin-left: 6px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: normal;
+  color: #555555;
+}
+
+.recent-placements-grid {
+  display: grid;
+  width: 100%;
+  grid-template-columns: repeat(3, auto);
+}
+
+.recent-placements-grid .recent-window-cell { text-align: right; }
+
+.recent-placements-grid .recent-of-cell {
+  font-size: 11px;
+  color: #999999;
+}
+
+/* Lifetime's near-miss rank (the closest rank when none made the top
+   tenth) renders muted: it is context, not an earned top placement. */
+.recent-placements-grid .recent-near-cell { color: #999999; }
+
+.recent-placements-none {
+  padding: 0 4px;
+  font-size: 11px;
+  color: #999999;
+}
+
 /* The "of N" completing the highlighted "#x" rank above it, at the foot of
    every tablechart. */
 .rank-total {
@@ -1086,24 +1435,29 @@ body.trial-offboard #result-ranks {
 
 /*-------METRICS PANEL (live / final mouse-dynamics column)-------*/
 
-/* A fixed column on the left edge of the viewport: one row per metric
-   (label, current value, sparkline of the value over the game). Fixed
-   positioning means it never moves the board; it scrolls itself when the
-   viewport is short. */
+/* An in-page left column: one row per metric (label, current value,
+   sparkline of the value over the game). It occupies layout width rather
+   than covering the page, and stays available while its own tall contents
+   scroll. */
 #metrics-panel {
-  position: fixed;
-  left: 6px;
+  position: sticky;
   top: 6px;
-  bottom: 6px;
+  align-self: start;
+  max-height: calc(100vh - 12px);
   /* Default only: the real width is the metricsPanelWidth setting, set
      by dragging the panel's right edge and applied inline on render.
      Wide enough for the session charts' full axis treatment. */
   width: 316px;
-  overflow-y: auto;
   background: #fbfbfb;
   border: 1px solid #dddddd;
-  padding: 4px 8px;
   font-size: 11px;
+}
+
+#metrics-panel-content {
+  max-height: calc(100vh - 14px);
+  overflow-y: auto;
+  overflow-anchor: none;
+  padding: 4px 8px;
 }
 
 #metrics-panel .metric-row {
@@ -1130,6 +1484,9 @@ body.trial-offboard #result-ranks {
 #metrics-panel.collapsed {
   bottom: auto;
   width: auto;
+}
+
+#metrics-panel.collapsed #metrics-panel-content {
   padding: 2px 4px;
 }
 
@@ -1181,15 +1538,12 @@ body.trial-offboard #result-ranks {
   letter-spacing: normal;
 }
 
-/* The panel's right-edge resize grip. Fixed to the viewport (not
-   absolute in the panel: the panel scrolls, and the grip must ride the
-   visible edge, not scroll away with the content); render and drag set
-   its left inline to track the panel edge. The hover tint hints at the
-   affordance without adding a permanent visual line. */
+/* The panel's right-edge resize grip belongs to the in-page panel. */
 .metrics-resize {
-  position: fixed;
-  top: 6px;
-  bottom: 6px;
+  position: absolute;
+  top: 0;
+  right: -4px;
+  bottom: 0;
   width: 7px;
   cursor: ew-resize;
 }
@@ -1199,12 +1553,58 @@ body.trial-offboard #result-ranks {
    gridlines, tick classes) at panel width. */
 .session-chart {
   display: block;
-  margin-top: 2px;
+  margin-top: 0;
 }
 .session-chart .scatter-tick,
 .session-chart .scatter-axis-label {
-  font-size: 10px;
+  font-size: 12px;
+  font-weight: bold;
+  fill: #111111;
 }
+.session-metric-row .metric-head {
+  justify-content: flex-start;
+  margin: 0 0 0 54px;
+}
+#metrics-panel .session-metric-row .metric-label {
+  color: #000000;
+  font-size: 14px;
+  font-weight: bold;
+  line-height: 1.05;
+}
+.session-point-value {
+  font-family: Arial, sans-serif;
+  font-size: 12px;
+  font-weight: bold;
+  fill: #000000;
+  stroke: #ffffff;
+  stroke-width: 3px;
+  paint-order: stroke fill;
+}
+
+/* Game-endings lines (one cumulative percent line per ending kind) and
+   their legend. The per-kind color travels inline from SESSION_END_SPECS
+   (line stroke, last-point dot fill, legend swatch background); only the
+   shared geometry lives here. */
+.end-line { fill: none; stroke-width: 1.6; }
+.session-end-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  font-family: Arial, sans-serif;
+  font-size: 11px;
+  margin: 2px 0 4px 54px;
+}
+.end-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.end-swatch {
+  display: inline-block;
+  width: 12px;
+  height: 3px;
+}
+.session-end-empty { color: #888888; }
 
 /* The after-game charts sit inline among the bottom charts; the head
    line (label + canonical value) doubles as the chart's title. */

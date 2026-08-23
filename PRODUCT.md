@@ -24,6 +24,12 @@ key names) live in `agents.md`; player-facing pitch in `promo/PROMO.md`.
   dependencies, no build step.
 - Cell numbers use a chunky face (Arial Black stack); the classic
   number-color palette (1 blue, 2 green, 3 red, ...).
+- Number display (2026-08-23): a gameplay setting draws revealed counts
+  as the classic digits (default), as letters A–H (A=1 … H=8), or as one
+  colored dot per cell. All three use the classic color palette, so the
+  color always carries the count; in the dots display it is the only
+  carrier. Changing the setting repaints the board in place, mid-game
+  included.
 - The status button is a dove (symbol of peace and kindness), not a smiley:
   idle; startled flap while a cell is pressed; olive branch on win; broken
   heart on loss.
@@ -152,8 +158,10 @@ minted specifically for them.
   are outside v1 and retain ordinary Minesweeper behavior. This explicit
   scope replaces the earlier unbounded model-enumeration design.
 - Each event immediately prints "JUSTICE" to the board's right. Later
-  events in the same game stack downward there, one after another. There
-  is no separate end-game recap.
+  events in the same game stack downward there, one after another.
+  Since 2026-08-23 there is also an end-game Justice recap (an explicit
+  creator request reversing the earlier "no separate end-game recap"
+  decision): see "Game-end evaluation".
 - The per-game record carries the event count (`justice`), the frozen
   `justiceEnabled` state, the 128-bit `seed`, `rngVersion`, `boardVersion`,
   and `justiceVersion`; see Per-game stats. Rankings continue mixing
@@ -171,6 +179,83 @@ minted specifically for them.
   enumeration and has no search budget. Redraw sampling is direct over the
   compact certified family. Implementation and deterministic scale checks
   are recorded in `agents.md`.
+
+## Game-end evaluation (requested and decided 2026-08-23)
+
+Every game end gets a judgement. A win is fine — they won. Every loss is
+judged at the fatal act and filed into exactly one **death verdict**,
+using only what the player could have known at that moment, and the
+verdict is shown with its full justification so the ranking is never a
+bare label.
+
+- The verdicts, ranked (a higher rule outranks everything below it):
+  - **clicked clear mine** (`mine`) — the fatal square was provably a
+    mine from the visible board (locally proven, or mined in every
+    remaining layout). Not a guess: a readable fact, "+1" against the
+    player. A chord that opened a provable mine also files here.
+  - **chord death** (`chord`) — a chord opened a mine behind the
+    player's own wrong flag. The odds were never consulted: a flag is
+    the player's unsupported claim (the Justice doctrine).
+  - **needless guess** (`needless`) — a provably safe square was
+    available (locally proven, or zero-risk in every remaining layout),
+    but the player guessed elsewhere and died.
+  - **forced guess** (`forced`) — no provably safe square existed
+    anywhere, so a guess was forced, but the player did not take the
+    lowest available risk. In proof-or-die this verdict also covers the
+    truly stuck position: nothing was provable, so any open was death
+    by rule.
+  - **angel-death** (`angel`) — forced to guess, took the lowest
+    available risk, and the universe killed them anyway. Explicitly not
+    the player's fault. A blind first click into a fixed trial layout
+    files here too: every covered square was the same gamble, so the
+    ideal risk was taken trivially.
+  - **unjudged** (no stored field) — the surrounding odds could not be
+    measured (enumerator over budget) and no local fact settles it.
+    Absence means "not judged", never a made-up verdict.
+- The judgement grounds: the fatal click's own guess-ledger event (exact
+  enumerated odds, the same event the ledger already scored) when it
+  exists; locally provable facts otherwise — which can still establish
+  "clicked clear mine" and "needless guess", but cannot split angel from
+  forced, so those fall back to unjudged. The judging must never block
+  the loss itself: a verdict failure announces in the backup status line
+  and leaves the death unjudged.
+- Display: a verdict block above the stats table on every fresh loss —
+  "Death verdict: <label>" plus prose stating exactly why that judgement
+  was made, with the measured percentages (chosen risk, best available
+  risk) when they exist. The stats table also carries a compact "Death
+  verdict" row on losses that have one. The relation to the older
+  avoidable-death classification (`stupidDeath`): the two coexist;
+  the verdict is the finer partition (angel-death ⟺ not avoidable for
+  bare reveals).
+- The Justice recap (win or loss alike): when the game had Justice
+  events, a second block cites the rule by name — 'Due to the rule "A
+  Just Universe", you were forced to make an impossible choice and were
+  automatically protected (n times).' — with one detail line per event
+  (pocket type, clear/total layout counts) saying honestly whether the
+  player's square was actually mined and redrawn or was already clear
+  (the guarantee held either way). The recap wording never claims a
+  mine was moved when it was not; `justiceSaves` stores the redraw
+  count so the distinction survives on the record.
+- Storage (see Per-game stats): `deathKind`, `deathRisk`,
+  `deathBestRisk` on judged losses; `justiceSaves` on every new record.
+- The left panel's session section gains a **game endings** chart: one
+  chart, one cumulative percent line per ending kind (win plus the five
+  verdicts plus "unjudged loss"), each line the kind's share of the
+  games finished so far in the played-time window. Kinds that never
+  occurred stay off the chart, except the win line, which always draws
+  once any game has ended (a 0% win line is itself the reading). A
+  color legend under the chart carries each drawn kind's current share.
+  Wins backfill as wins; stored `deathKind` backfills losses; older
+  losses without the field are "unjudged loss".
+- The session window is now selectable (this request's companion): 15m /
+  30m / 1h / 3h of accumulated play, persisted as `sessionWindowMinutes`
+  (default 60), chosen with a second selector on the session section
+  head beside the running-average length. Event retention always covers
+  the largest choice, so switching longer works immediately.
+- Both blocks are one shown-thing (`endVerdict`, "game-end verdict", on
+  by default). The verdict describes the action under the stated rules;
+  it does not identify judgment, attention, or any other cause — the
+  standing measurement doctrine.
 
 ## Layout: the board never moves
 
@@ -228,7 +313,7 @@ time and segment anchoring").
 
 Recorded per finished game, win or loss, primary measurements only: end
 date, outcome, time (ms precision, shown as seconds to 3 decimals), 3BV,
-clicks, wasted clicks, flags placed, flags removed, mouse path (px of
+clicks, no-op clicks (`wastedClicks`), misclicks, flags placed, flags removed, mouse path (px of
 cursor travel, accumulated only while the game is in progress), and
 the finished-board shape facts (max number, whether a 7 is present,
 zero count, island count, largest island). The stored click count includes only
@@ -243,8 +328,9 @@ honesty as clicks over 3BV), IOS (log(3BV) / log(time in seconds); wins
 only; blank when time is 1s or less, matching minesweeper.online), mouse
 speed (px/s), path per click, path per 3BV, and (2026-08-22, the per-game
 forms of the session series) click rate (effective clicks per second),
-wasted rate (wasted clicks per minute), and mark rate (flags placed per
-second) — all three derived from the stored counts and time, so they
+no-op rate (no-op clicks per minute), misclick rate (visible-board
+contradictions per minute), and mark rate (flags placed per second) —
+all derived from the stored counts and time, so they
 appear on historical games too.
 Shown as a label/value table for wins and losses alike; a loss shows no
 rank output at all (losses split win streaks and feed lifetime totals, but
@@ -258,6 +344,16 @@ measurement existed simply lack the field: absence means "not measured"
 and is valid on import (a present value must be a number); displays that
 need the value use only records that carry it. Every game recorded from
 now on has it.
+
+Misclicks — board-changing actions contradicted by facts provable from
+the visible board at click time: opening a proven mine, flagging a proven
+safe cell, removing a flag from a proven mine, or chording while a flagged
+neighbor is proven safe or an opened neighbor is proven mined. This is an
+operational visible-state classification, not a claim about intent or what
+the player consciously knew. It is independent of outcome: a fatal
+misclick also appears in the avoidable-death classification, while a wrong
+flag can be a nonfatal misclick. Stored as `misclicks` on every new game
+record beginning 2026-08-23; older records omit it as not measured.
 
 Flags placed — how many flags the player set during the game (removing a
 flag doesn't subtract; the auto-flagging of remaining mines on a win is
@@ -357,6 +453,23 @@ classified deaths feed the session stats' per-minute rate live. This
 classification describes the action under the stated rules; it does not
 identify judgment, attention, impatience, or any other cause.
 
+Death verdict — on a loss, the finer game-end judgement (see "Game-end
+evaluation"): `deathKind` ("mine" / "chord" / "needless" / "forced" /
+"angel"), plus the measured odds behind it when they exist — `deathRisk`
+(the fatal square's mine probability) and `deathBestRisk` (the lowest
+available anywhere; 0 = a provably safe square existed). Joined the
+schema 2026-08-23, same absence rules: absent on wins, on unjudged
+losses, and on earlier games. Feeds the verdict block, the stats
+table's "Death verdict" row, and the session game-endings chart's
+backfill.
+
+Justice saves — how many of the game's Justice entries actually required
+moving a mine (`justice` counts every guaranteed entry; `justiceSaves`
+counts the redraws among them) — joined the schema 2026-08-23, zero a
+normal value, written on every new record. Shown as a "Justice saves"
+stats row when the game had Justice events, and it keeps the end-game
+recap honest about entries whose square was already clear.
+
 Fastclick gap — the game's median gap between consecutive board-changing
 presses made on the move (a cursor move within 100ms before the press)
 with gaps under 1s — joined the schema on 2026-08-22 alongside the
@@ -439,6 +552,12 @@ carries at least one tag.
   at the bottom creates a new state — a created state goes on
   immediately, since typing it mid-session means "I am in this state
   now". Duplicate or empty names are refused with a visible message.
+- Since 2026-08-23 the "+ state" opener is a real bordered button (it was
+  dotted-underline text) that holds a pressed look while the menu is up,
+  and the menu carries a "session states" header with an ×; ×, Esc, and a
+  click outside all close it. (It shares the button dress with the
+  "settings" link beside it, which since later that day leads to the full
+  settings page rather than opening a surface here.)
 - A new player's menu offers three suggested options: sleepy, just woke
   up, inebriated — none active.
 - The active set is stamped onto each game record at the moment it
@@ -507,6 +626,56 @@ carries at least one tag.
   placement falls: a mediocre rank still shows its 5 neighbors either side,
   because the placement itself is fresh information. (This replaced the
   earned-detail collapse, which greyed non-top placements to a single row.)
+
+## Recent placements (requested and decided 2026-08-23; charts and the
+## lifetime near-miss rule extended later the same day)
+
+- One summary block, rendered right after the "3BV N" list: for a chosen
+  recent window it reports, per longer chart, which of that chart's top
+  ranks were earned within the recent window — e.g.
+  "this month: 1st, 3rd, 8–12th / lifetime: 7th, 14th".
+- Source window choices: today (since the last local midnight — the
+  default), today since 6am (6am is the day boundary, so before 6am it
+  reaches back to yesterday's 6am rather than reporting an empty
+  morning), in the past hour, in the past 24h, in the past week
+  (midnight 6 days back, same as the rank window). The choice persists
+  as the `recentPlacementsWindow` setting, chosen with the selector on
+  the block's own heading (like the session lookback); changing it
+  re-renders the result in place.
+- Only charts strictly longer than the source window report — a chart no
+  longer than the source could only echo itself. For time windows,
+  strictly longer means the window starts strictly earlier: with the
+  source at the past hour, "today", "past week", "this month" and up
+  qualify while "past hour" and shorter never do, and "today" as source
+  excludes the "today" chart itself.
+- The general rule (decided 2026-08-23, third revision that day): every
+  chart this game is ranked on competes. Besides the time windows that
+  means all the lifetime-spanning membership charts — the day categories
+  (this weekday, weekend/weekday, holidays when today is one), this
+  game's "3BV N" chart, and its board-shape charts (has 8 / has 7 /
+  max N / N islands / largest island N / N zeros). Spanning lifetime,
+  membership charts always qualify as longer; only their member wins
+  compete. The summary is independent of which tablecharts are switched
+  on (hiding a chart does not hide the fact); the chart definitions are
+  shared with the tablecharts (`boardShapeCandidates`, `rankColumns`) so
+  the two sets cannot drift.
+- Only ranks within the top tenth of a list are reported (rank r
+  qualifies when r × 10 ≤ list length): a 9-win list reports nothing, a
+  200-win list reports ranks up to 20. Ranking order is the tablechart
+  order — fastest first, ties by earlier finish.
+- Lifetime always answers (added later on 2026-08-23): when the source
+  window has wins but none reached lifetime's top tenth, the single best
+  (closest) recent lifetime rank reports anyway, muted and with an
+  explanatory tooltip — how close the window came stays visible. Because
+  of this rule, the block's one-line empty state means exactly "no wins
+  <window>" and says so.
+- Row format: chart name, the earned ranks with consecutive runs
+  compressed ("8–12th", the ordinal suffix closing each run), and a pale
+  "of N" naming the list length the tenth is of. Rows order narrowest
+  chart first (the tablecharts' specificity order; after lifetime come
+  the same-3BV chart, then the board-shape charts in their tablechart
+  order).
+- Gated by shownThings.recentPlacements (on by default).
 
 ## Relative age display
 
@@ -603,7 +772,7 @@ carries at least one tag.
   calendar ticks, HH:mm labels below a day step, M/D above), win time vs
   hour of day (0-24 local), 3BV vs time, clicks vs 3BV (with the y = x
   floor drawn as a dashed line — a game on the line used only the board's
-  minimum clicks), wasted clicks vs 3BV/s (only wins carrying the
+  minimum clicks), no-op clicks vs 3BV/s (only wins carrying the
   wastedClicks measurement; appears once at least 2 do), mouse path vs
   time, mouse speed vs time, mouse speed vs efficiency, path per click vs
   efficiency, path per 3BV vs time. Requires at least 2 wins.
@@ -623,6 +792,10 @@ carries at least one tag.
   "→ mouse speed"); the tick values carry the scale. The two time charts
   are labeled "date" (calendar spread) and "time of day" (all wins folded
   onto one 24-hour clock).
+- The whole section (plots and legend) is the "relationship charts"
+  shown-thing. The switch had described these plots all along but never
+  actually gated them (it only trimmed a trial summary line); repaired
+  2026-08-23.
 - Both axes carry real scales: tick labels at nice 1/2/5-step intervals
   with light gridlines. Ticks and axis labels render at heading size
   (12px bold, 2026-08-20), so the x axis caps at 6 ticks (5 on the date
@@ -675,6 +848,15 @@ carries at least one tag.
   released off the cells), and layout events (the board's bounding rect
   and dimensions, re-recorded on scroll, resize, and zoom, so every
   sample maps to a board cell forever).
+- The board also moves without any scroll/resize/zoom event when content
+  around it changes — found 2026-08-23: the metrics panel's first render
+  during init shifts the centered board ~880px after the trace's opening
+  layout event, so warmup samples mapped through stale geometry. The
+  recorder therefore also compares the live rect to the last recorded
+  one and re-records on any difference: before every button event (every
+  click maps exactly), after every metrics-panel render (the known
+  mover — appearing, hiding, collapsing, drag-resizing), and via the
+  once-a-second live tick as the catch-all for anything else.
 - A trace runs from board creation to finish: pre-first-click movement is
   warmup and is real data, so capture covers the ready state, not just
   play. Post-game movement belongs to no game and is not captured.
@@ -698,6 +880,31 @@ carries at least one tag.
   clipboard) for the offline analysis pipelines under `analysis/`.
 - Recording overhead, measured 2026-08-20: ~100ns per mousemove event and
   <0.5ms of typed-array conversion at save time — imperceptible.
+
+## Path replay views (decided 2026-08-23)
+
+- When a game finishes, a "path: …" button appears beside "see scores"
+  below the board and cycles three views of the played-out board:
+  off → moves → clicks. It hides whenever no finished board is on screen
+  (a new board, the trial lobby/review phases).
+- 'moves' draws the game's actual cursor path — the polyline through
+  every recorded cursor sample, warmup included — over the finished
+  board. 'clicks' draws only the effective click events ('lup'/'rdown')
+  connected in click order. Both shade light = earlier, dark = later
+  (the overlay-chart convention); click dots draw in both views, blue
+  for left clicks, red for right (flag) clicks. Movement that left the
+  board clips at the board edge (the path exits and re-enters).
+- The drawing is the RAM trace of the game just finished — nothing new
+  is stored, and the views exist only until the next board replaces the
+  trace. Replaying older games from the traces store is not built.
+- Every point maps through the trace's layout events (the board geometry
+  in effect at that moment) to a board fraction and then onto the
+  board's current size, so the overlay is correct even if the player
+  scrolled or zoomed mid-game, and it follows zoom changes made after
+  the game.
+- The overlay never intercepts input; the chosen view is remembered
+  across games within the page session (not persisted), so a view left
+  on shows the next finished game's path immediately.
 
 ## Trace metrics panel (decided 2026-08-20; vertical with sparklines
 ## later the same day, replacing the first bottom-strip form; live/final
@@ -808,16 +1015,22 @@ carries at least one tag.
 - The panel is display only: nothing new is stored. The trace remains the
   ground truth, per-game scalar records are unchanged, and the panel's
   values are recomputable from the stored trace forever.
-- The panel is fixed-positioned (it never moves the board) and scrolls
-  itself when the viewport is shorter than its rows.
+- The panel is an in-page left column: it consumes layout width and never
+  covers the board or page content. It is sticky within its column and
+  scrolls itself when the viewport is shorter than its rows.
 
 ## Session stats (decided 2026-08-22)
 
-The recent-observations section: a handful of per-bucket series over the
-last hour, across games, shown live at the top of the flush-left panel.
-Each series is deliberately both a per-game statistic (already in the
-records) and an ongoing bucketed trend. The chart displays changes but
-does not label their cause.
+The recent-observations section: a handful of running-average series
+over a selectable window of actual play (15m / 30m / 1h / 3h, default
+1h; see "Game-end evaluation" for the 2026-08-23 window selector),
+across games, shown live at the top of the flush-left panel. Wall-clock
+breaks are compressed out. Each charted point is the average over a
+selectable trailing lookback of played time (running averages replaced
+disjoint buckets 2026-08-23, chosen over them for readable trends and
+rare-event rates). Each series is deliberately both a per-game statistic
+(already in the records) and an ongoing session trend. The chart
+displays changes but does not label their cause.
 
 - Scope: only time a game was actually in progress (first reveal — or
   first flag once mines exist — to game end). Losses count. Abandoned
@@ -834,8 +1047,11 @@ does not label their cause.
     have their own row). It does not partition decision and movement time.
   - **avoidable deaths** — deaths meeting the rule-based classification
     above per in-progress minute; other deaths do not count.
-  - **wasted clicks** — the wasted-click definition, per in-progress
-    minute.
+  - **misclicks** — the visible-state contradiction definition above per
+    in-progress minute, whether or not the action ended the game.
+  - **no-op clicks** — clicks that changed no board state per
+    in-progress minute (stored under the legacy field name
+    `wastedClicks`).
   - **fastclick gap** — median gap between consecutive board-changing presses of
     the same game, counting only presses made on the move (a cursor
     sample within 100ms before, the cadence definition) with gaps under
@@ -849,25 +1065,41 @@ does not label their cause.
     Backfills from the stored per-game `flagsRemoved` count, and the
     stats table shows the per-game form as "Flag-removal rate" beside the
     existing "Flags removed" count.
-- Buckets: the bucket size is selectable on the section itself (10s /
-  30s / 1m / 5m; persisted as the `sessionBucketSeconds` setting,
-  default 1m). Buckets align to the wall clock — a 1m bucket is a real
-  calendar minute — not to "now" (decided 2026-08-22, later that
-  evening: right-edge-anchored buckets re-binned all history every
-  render, so every point on every chart wiggled every second). A
-  finished bucket's value is frozen forever; only the current,
-  still-filling bucket changes. The charts' x axis is a fixed one-hour
-  sliding window whose right edge is now: new buckets accrete at the
-  right as the clock crosses boundaries, even between games.
-- Honesty rules: a bucket with under one second of in-progress play
-  shows an en dash — one death over a 50ms sliver is an absurdity, not
-  a reading. Unmeasurable buckets are gaps in the line, never bridged;
-  a played-but-motionless bucket's speed is a real 0.
-- The current value shown beside each name is the newest measurable
-  bucket's value — the current reading; the chart is the average's home.
+  - **game endings** (added 2026-08-23) — not a rate: one chart of
+    cumulative percent lines, one per ending kind (win, the death
+    verdicts, unjudged loss), each the kind's share of the games
+    finished so far in the window, with a color legend of current
+    shares. See "Game-end evaluation".
+- Running averages (replacing disjoint buckets, 2026-08-23): the
+  lookback is selectable on the section itself (30s / 1m / 2m / 5m /
+  15m; persisted as the `sessionLookbackSeconds` setting, default 5m),
+  and so is the window length (15m / 30m / 1h / 3h;
+  `sessionWindowMinutes`, default 1h). Both are **played time**, not
+  elapsed real time — "5m average" means five minutes of actual play.
+  Game spans are joined onto a cumulative-play timeline, so the end of a
+  game and the start after a five-minute break are adjacent. History is
+  scanned backward through as many games as necessary to fill the chosen
+  play window plus one lookback. One sample per 10s of play, each
+  averaging the lookback of played time behind it (internally: rolling
+  windows over fine 10s buckets); samples sit at played-time multiples,
+  so a finished sample never changes as play continues — only the
+  newest, which rides the current play position. A young session
+  averages the play that exists so far. A wall-clock break changes
+  nothing.
+- Honesty rules: a point whose lookback covers under one second of
+  in-progress play shows an en dash — one death over a 50ms sliver is
+  an absurdity, not a reading. Unmeasurable points are gaps in the
+  line, never bridged; a played-but-motionless stretch's speed is a
+  real 0.
+- The newest measurable sample's value — the running average ending at
+  the current play position — is labeled directly beside its plotted
+  point, rather than detached from the data in the title row.
 - Storage: the live event log is RAM, but the window survives reload
-  (decided 2026-08-22, same evening): at startup the last hour is
-  rebuilt from the stored game records — play 30 minutes, close the tab,
+  (decided 2026-08-22, same evening; played-time scan revised
+  2026-08-23): at startup the newest records are scanned backward until
+  the largest selectable window (3h) plus the largest lookback (15m)
+  plus retention slack of actual play
+  is rebuilt — play 30 minutes, close the tab,
   reopen, and the running averages are still there. The inclusion rule
   (stated explicitly 2026-08-22, late evening, and verified with a live
   loss + reload): wins and losses backfill alike, each with its full
@@ -877,15 +1109,17 @@ does not label their cause.
   no record and so cannot be backfilled: their played time is kept live
   but honestly lost across a reload — the one accepted gap. All modes'
   games backfill — session stats are about the player, not the board.
-  Backfill is bucket-level approximate where live capture is exact: a
+  Backfill is span-level approximate where live capture is exact: a
   record holds totals, not timestamps, so each game's totals spread
-  evenly over its span, its classified avoidable death lands in the
-  bucket it ended in, and its stored per-game fastclick median stands
-  in for that span's gaps. The traces hold exact timing if a finer
-  backfill is ever wanted. The only new per-game persistence is the
-  legacy-named `stupidDeath` field and `fastclickGapMs` (2026-08-22);
+  evenly over its span, its classified avoidable death lands at the
+  played instant it ended, and its stored per-game fastclick median
+  stands in for that span's gaps. The traces hold exact timing if a finer
+  backfill is ever wanted. Newer per-game persistence includes the
+  legacy-named `stupidDeath` field and `fastclickGapMs` (2026-08-22),
+  plus `misclicks` and `deathKind` (2026-08-23, the latter feeding the
+  game-endings backfill);
   every series also has a per-game form in the stats table — click,
-  wasted, mark, and flag-removal rates derived from stored counts,
+  no-op, misclick, mark, and flag-removal rates derived from stored counts,
   mouse speed as before, the fastclick gap from its stored field.
 - Display: the section renders at the top of the left metrics panel,
   always (not just during games), under its own "session" header with
@@ -895,24 +1129,47 @@ does not label their cause.
 - Charts: real charts, not sparklines (decided 2026-08-22, same
   evening) — the scatter plots' visual grammar at panel width (the
   panel widened to fit): plot frame, light gridlines, 1/2/5-step y
-  ticks with minor tickmarks, wall-clock HH:mm x ticks, a rotated
-  y-axis unit label, and "→ time of day" under the x axis. The y axis
+  ticks with minor tickmarks, relative played-time x ticks (`-1h` through
+  `now`), and a rotated y-axis unit label. The "→ accumulated play time"
+  caption under the x axis was dropped 2026-08-23: the tick labels
+  already say "played time ago" on their own, and the caption line cost
+  plot height. The y axis
   always starts at 0 (every series is nonnegative; an auto-zoomed
-  floor turned small wiggles into drama).
-- Resizable (added 2026-08-22, late evening): the panel's right edge is
-  a drag grip (fixed to the viewport so it never scrolls away with the
-  panel content). Dragging resizes the panel live; the charts recompute
-  to fill the new width on release and on every once-a-second re-render.
+  floor turned small wiggles into drama). Titles are black, larger,
+  close to and left-aligned with the plot area; session-axis text is
+  12px bold for legibility. Each newest point carries its formatted
+  value directly.
+- Resizable (added 2026-08-22, live behavior revised 2026-08-23): the
+  in-page panel's right edge is a drag grip. Dragging resizes the panel
+  and recomputes chart geometry on every animation frame, so the contents
+  track the pointer rather than catching up on release.
   The width persists as the `metricsPanelWidth` setting (default 316px,
   clamped 220–640); collapsing to the corner chip ignores it.
+- Live redraws preserve `#metrics-panel-content`'s `scrollTop`; replacing chart
+  nodes once a second must never push a reader away from lower charts.
 
-## Personal settings (decided 2026-08-20)
+## Personal settings (decided 2026-08-20; area redone from scratch 2026-08-23)
 
+- The design doctrine, revised again 2026-08-23 (the same day the
+  original guidance was separated from implementation and the "never a
+  modal" lock was lifted): settings live on their own full page,
+  settings.html, reached from the clear "settings" button in the game's
+  upper-right; the way back is equally clear — a "return to game" button
+  in the page's titlebar and at the bottom, Esc, or the browser's Back.
+  Still durable: a change shows its meaning live. Since the real game is
+  no longer beside the controls, the page carries a demo world — a
+  pretend mid-game (board, left-panel cards, after-game sections, all
+  from fixed consistent data) that visibly changes the moment a switch
+  flips. Everything else (row shape, hint placement, demo content) is
+  implementation and freely revisable; earlier revisions of this section
+  had mistaken implementation defaults for decisions.
 - A schema-driven settings system for player-facing behavior switches:
   `SETTINGS_SCHEMA` is the single definition (field, default, validity,
-  label, description); the loader, the import validator, the settings
-  panel UI, and the data-format card all derive from it. Named "settings",
-  never "config" — that word is the board parameters.
+  group, label, hint, description); the loader, the import validator, the
+  settings page UI, and the data-format card all derive from it. It lives
+  in settings-core.js, loaded by both pages, so the game and the settings
+  page cannot drift. Named "settings", never "config" — that word is the
+  board parameters.
 - Stored beside the history (userdata `settings`; see Storage). Absent
   entry or absent field = the default (the player never changed it);
   nothing is persisted until they do.
@@ -921,29 +1178,80 @@ does not label their cause.
   importing
   a blob applies its settings after validation. Exports from before
   2026-08-20 simply lack the key.
-- A "settings" button in the screen's upper-right corner (the fixed
-  cluster it shares with the states tags, 2026-08-20; it debuted among the
-  backup controls earlier that day) opens the panel as a small in-page
-  dropdown right below — never a modal, so the page stays fully visible
-  and interactive. One checkbox per switch with its full description; a
-  change saves immediately and re-renders the result on screen, so the
-  player watches the meaning of the change while the panel stays open.
+- A "settings" button in the game's upper-right corner (the fixed
+  cluster it shares with the states tags, 2026-08-20; a real bordered
+  button since 2026-08-23) is a plain link to settings.html (2026-08-23;
+  before that it opened an in-page surface — first a small corner
+  dropdown, then briefly a full-height right-edge drawer that same day).
+  The settings page wears the game's identity: a slim titlebar with the
+  site name and a "return to game" button dressed exactly like the game's
+  own top-right buttons, and a second "return to game" at the bottom of
+  the switch column; Esc also returns. The titlebar is sticky, so the
+  top way back stays available however far the column has scrolled.
+- The demo world (2026-08-23, created with the page): the left side of
+  the page is a miniature pretend mid-game — a partially played board
+  whose mines, adjacency, and flood-revealed opening are computed from
+  fixed coordinates (so what it shows could genuinely occur in play),
+  mini left-panel cards, a win summary, and one stand-in card per result
+  section, all from hand-picked consistent data.   It exists so a change
+  demonstrates itself: flipping number display repaints the demo board,
+  a shown-things switch fades its card, the collapse switch visibly
+  merges the demo's duplicate time windows, and the just-universe switch
+  fades the JUSTICE mark beside the demo board. Layout stability is a
+  decision (2026-08-23): an off thing never leaves the layout — it stays
+  in its slot as a faded gray ghost, so flipping a switch moves nothing
+  else on the page, and the ghost itself shows what is missing and
+  where. The demo sticks while the switch column scrolls, and it is
+  display-only — no clicks.
+- Switches render under group headings naming where they act — gameplay /
+  left panel / after a game — driven by the schema's `group` field
+  (`SETTINGS_GROUPS` orders the sections), so the page and the schema
+  cannot drift. No captions (decided 2026-08-23, removing the hint lines,
+  the shown-things caption, and the "?" help popover added earlier that
+  day): a caption that restates its switch's name is noise, so a row is
+  just the clickable checkbox + name, with the schema's full description
+  riding on the name as a plain tooltip. A schema `hint` renders as a
+  visible second line only when it says something the name cannot —
+  currently only "a just universe". The shown-things switches render
+  inline under their own subheading in "after a game". A multi-option
+  setting renders as a choice row: the name line, one radio per option
+  (each option's explanation is its tooltip). A change saves immediately
+  and the demo world shows it; the game page reads settings fresh on
+  every load, so returning applies them.
+- The row–demo link (2026-08-23): hovering a row glows the demo piece the
+  switch controls — the demo is the explanation. Hover changes nothing
+  but the glow: it must never inject or swap text (decided 2026-08-23
+  after two rounds of hover-note mechanisms did exactly that; when
+  nothing is there to glow, nothing happens). The game page has no
+  hover-only controls: the floating "hide ×" chip that appeared over a
+  hovered result section (added earlier on 2026-08-23) was removed the
+  same day — hiding things is the settings page's job, not something the
+  pointer stumbles into. The remaining one-click precedents stand: the
+  session lookback and window selectors living on the session section
+  itself, and the stats panel width set by dragging the panel's own edge.
 - Settings so far: `justUniverse` (default on) — sealed-pocket mercy (see
-  "A just universe"; the only setting so far with a "?" hover help page;
-  editable until the first reveal, then locked for the active game);
+  "A just universe";
+  a game freezes the value at its first reveal, so a change made mid-game
+  applies from the next game — the old drawer's mid-game lock UI retired
+  with the drawer, 2026-08-23);
   `collapseDuplicateCharts` (default on) — the rank
   lists' progressive disclosure switch (see Rank lists);
   `showMotionStatsDuringGame` and `showMotionStatsAfterGame` (both
   default on) — the two stages of the trace metrics display (see Trace
-  metrics panel); `showSessionStats` (default on) and
-  `sessionBucketSeconds` (default 60; set by the selector on the session
-  section itself, not a panel checkbox) — the session stats section (see
+  metrics panel); `showSessionStats` (default on),
+  `sessionLookbackSeconds` (default 300), and `sessionWindowMinutes`
+  (default 60) — the session stats section, its running-average
+  length, and its window length (the latter two set by the selectors on
+  the session section itself, not panel checkboxes; see
   Session stats); `metricsPanelWidth` (default 316, clamped 220–640; set
   by dragging the stats panel's right edge, not a panel checkbox) — the
-  left panel's width, which the session charts fill.
-- A setting may carry a `helpFile`: the panel then shows a "?" beside its
-  label which raises that page in a hover popover (an iframe, so the help
-  page is a normal standalone document).
+  left panel's width, which the session charts fill;
+  `numberDisplay` (default numbers; the first choice-row setting) —
+  digits / letters / dots for revealed counts (see Board and chrome).
+- The schema's `helpFile` "?" popover was removed with the caption purge
+  (2026-08-23): the just-universe explanation already lives in the hint
+  and tooltip. just-universe-help.html remains in the repo as a
+  standalone document.
 
 ## Play history and backup
 
