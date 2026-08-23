@@ -32,16 +32,18 @@ function assertUndefined(name, actual) {
   if (actual !== undefined) throw new Error(`${name}: got ${actual}, want undefined`);
 }
 
-// A 1-hour window of 1-minute buckets ending at now. Bucket i covers
-// [start + i*60000, start + (i+1)*60000) with start = now - 3600000;
-// bucket 59 is the newest.
+// A 1-hour window of 1-minute buckets. Buckets align to wall-clock
+// multiples of the bucket size; this NOW sits exactly on a boundary for
+// every size tested, so the grid start is now - 3600000 and bucket i
+// covers [start + i*60000, start + (i+1)*60000), bucket 59 newest.
+// (Test 7 exercises an unaligned now.)
 const NOW = 10 * 3600 * 1000;
 const START = NOW - 3600 * 1000;
 const bucketFrom = (i) => START + i * 60000;
 const opts = { nowMs: NOW, bucketMs: 60000, windowMs: 3600 * 1000 };
 
-const press = (at, useful, flag, moving, gapMs) =>
-  ({ kind: 'press', at, useful, flag, moving, gapMs });
+const press = (at, useful, flag, moving, gapMs, unflag) =>
+  ({ kind: 'press', at, useful, flag, unflag: unflag === true, moving, gapMs });
 
 // ---- Test 1: one fully played bucket with every event kind ----
 // Bucket 10 is played for its whole 60s. 1200px of travel -> 20px/s.
@@ -64,6 +66,9 @@ const press = (at, useful, flag, moving, gapMs) =>
     press(b10 + 5900, true, false, true, 400),
     press(b10 + 10900, true, true, true, 5000),       // too long: not a fastclick
     press(b10 + 11150, true, false, false, 250),      // not moving: not a fastclick
+    // Two flag removals (mismarks undone); still useful presses.
+    press(b10 + 15000, true, false, false, undefined, true),
+    press(b10 + 16000, true, false, false, undefined, true),
     { kind: 'death', at: b10 + 20000, stupid: true },
     { kind: 'death', at: b10 + 40000, stupid: false },
     { kind: 'death', at: b10 + 50000, stupid: undefined },
@@ -72,10 +77,11 @@ const press = (at, useful, flag, moving, gapMs) =>
   assertEq('t1 bucketCount', s.centers.length, 60);
   assertClose('t1 playMs', s.playMs[10], 60000, 1e-9);
   assertClose('t1 speed', s.speedPxPerSec[10], 20, 1e-9);
-  // Useful presses: the 6 flagged useful ones (wasted presses excluded).
-  assertClose('t1 clicksPerSec', s.clicksPerSec[10], 6 / 60, 1e-9);
+  // Useful presses: 8 (6 reveals/flags + 2 removals; wasted excluded).
+  assertClose('t1 clicksPerSec', s.clicksPerSec[10], 8 / 60, 1e-9);
   assertClose('t1 wastedPerMin', s.wastedPerMin[10], 3, 1e-9);
   assertClose('t1 flagsPerSec', s.flagsPerSec[10], 2 / 60, 1e-9);
+  assertClose('t1 mismarksPerMin', s.mismarksPerMin[10], 2, 1e-9);
   assertClose('t1 stupidPerMin', s.stupidPerMin[10], 1, 1e-9);
   assertClose('t1 fastclickGap', s.fastclickGapMs[10], 300, 1e-9);
   // A bucket with no play and no presses is undefined everywhere.
@@ -84,6 +90,7 @@ const press = (at, useful, flag, moving, gapMs) =>
   assertUndefined('t1 empty wasted', s.wastedPerMin[11]);
   assertUndefined('t1 empty stupid', s.stupidPerMin[11]);
   assertUndefined('t1 empty flags', s.flagsPerSec[11]);
+  assertUndefined('t1 empty mismarks', s.mismarksPerMin[11]);
   assertUndefined('t1 empty fastclick', s.fastclickGapMs[11]);
 }
 
@@ -156,7 +163,8 @@ const press = (at, useful, flag, moving, gapMs) =>
 // ---- Test 4c: backfilled 'game' events spread totals by overlap ----
 // A 90s game from 30s into bucket 40 to 60s into bucket 41 (2/3 in
 // bucket 40's half, wait: 30s in bucket 40, 60s in bucket 41). Totals:
-// 900px, 18 useful, 3 wasted, 6 flags, a stupid death, fastGap 240ms.
+// 900px, 18 useful, 3 wasted, 6 flags, 3 unflags, a stupid death,
+// fastGap 240ms.
 // Bucket 40 gets 1/3 of the totals over 30s of play; bucket 41 gets 2/3
 // over 60s. The death lands where the game ended (bucket 41); the fast
 // gap median is 240 in both.
@@ -165,7 +173,8 @@ const press = (at, useful, flag, moving, gapMs) =>
   const to = bucketFrom(41) + 60000;
   const events = [{
     kind: 'game', from, to,
-    px: 900, useful: 18, wasted: 3, flags: 6, stupid: true, fastGapMs: 240,
+    px: 900, useful: 18, wasted: 3, flags: 6, unflags: 3,
+    stupid: true, fastGapMs: 240,
   }];
   const s = sessionBucketSeries(events, opts);
   assertClose('t4c playMs b40', s.playMs[40], 30000, 1e-9);
@@ -175,6 +184,8 @@ const press = (at, useful, flag, moving, gapMs) =>
   assertClose('t4c clicks b40', s.clicksPerSec[40], (18 / 3) / 30, 1e-9);
   assertClose('t4c wasted b41', s.wastedPerMin[41], (3 * 2 / 3) / 1, 1e-9);
   assertClose('t4c flags b40', s.flagsPerSec[40], (6 / 3) / 30, 1e-9);
+  assertClose('t4c mismarks b40', s.mismarksPerMin[40], (3 / 3) / 0.5, 1e-9);
+  assertClose('t4c mismarks b41', s.mismarksPerMin[41], (3 * 2 / 3) / 1, 1e-9);
   assertClose('t4c stupid b40', s.stupidPerMin[40], 0, 1e-9);
   assertClose('t4c stupid b41', s.stupidPerMin[41], 1, 1e-9);
   assertClose('t4c fastgap b40', s.fastclickGapMs[40], 240, 1e-9);
@@ -194,6 +205,8 @@ const press = (at, useful, flag, moving, gapMs) =>
   const s = sessionBucketSeries(events, opts);
   assertClose('t4d clicks', s.clicksPerSec[45], 0.1, 1e-9);
   assertClose('t4d stupid', s.stupidPerMin[45], 0, 1e-9);
+  // Old records lack unflags: a played bucket reads a real 0, not a gap.
+  assertClose('t4d mismarks', s.mismarksPerMin[45], 0, 1e-9);
   assertUndefined('t4d fastgap', s.fastclickGapMs[45]);
 }
 
@@ -210,6 +223,28 @@ const press = (at, useful, flag, moving, gapMs) =>
     const s = sessionBucketSeries([], { nowMs: NOW, bucketMs, windowMs: 3600 * 1000 });
     assertEq(`t6 count ${bucketMs}`, s.centers.length, want);
   }
+}
+
+// ---- Test 7: buckets align to the wall clock, not to "now" ----
+// With now half a bucket past a boundary, the grid still starts on a
+// clock multiple: the window covers a 61st, partial bucket, and — the
+// point of alignment — a finished bucket's value stays identical as now
+// advances, instead of re-binning every render.
+{
+  const events = [
+    { kind: 'play', from: NOW, to: NOW + 30000 },
+    press(NOW + 10000, false, false, false, undefined),
+  ];
+  const s = sessionBucketSeries(events,
+    { nowMs: NOW + 30000, bucketMs: 60000, windowMs: 3600 * 1000 });
+  assertEq('t7 startMs', s.startMs, START);
+  assertEq('t7 count', s.centers.length, 61);
+  assertClose('t7 playMs b60', s.playMs[60], 30000, 1e-9);
+  assertClose('t7 wasted b60', s.wastedPerMin[60], 2, 1e-9); // 1 press / 0.5min
+  const s2 = sessionBucketSeries(events,
+    { nowMs: NOW + 47000, bucketMs: 60000, windowMs: 3600 * 1000 });
+  assertEq('t7 startMs stable', s2.startMs, s.startMs);
+  assertClose('t7 wasted stable', s2.wastedPerMin[60], 2, 1e-9);
 }
 
 console.log(`session-buckets: all ${checks} checks passed`);

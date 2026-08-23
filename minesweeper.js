@@ -99,9 +99,8 @@ let timerInterval = null;
 let clickCount = 0;    // board clicks that changed something (reveal/flag/chord)
 let wastedClicks = 0;  // board clicks that changed nothing
 let flagsPlaced = 0;   // flags the player placed (removals don't subtract)
-let flagsRemoved = 0;  // flags the player took back; each removal means the
-                       // placement + removal pair (2 clicks) netted nothing —
-                       // the second kind of waste besides no-op clicks
+let flagsRemoved = 0;  // flag states the player turned off; each placement
+                       // and each removal is a separate board-changing click
 let deathWasStupid = undefined; // loss classification: was the fatal act
                                 // avoidable with what was already knowable
                                 // (see the lose() call sites); undefined =
@@ -686,10 +685,10 @@ function checkWin() {
   reportResult('win');
 }
 
-// stupidVerdict: true = the fatal act was avoidable with what was already
-// knowable, false = an honest death (lowest available risk, or a trial
-// first click into a fixed layout), undefined = not measured. Stored on
-// the loss record as stupidDeath and fed into the session stats.
+// stupidVerdict is the legacy variable name for a rule-based classification:
+// true = the fatal act was avoidable from the represented player information;
+// false = not classified avoidable; undefined = not measured. Stored on the
+// loss record under the legacy field name stupidDeath.
 function lose(hitIndices, stupidVerdict) {
   deathWasStupid = stupidVerdict;
   sessionRecordDeath(stupidVerdict);
@@ -850,14 +849,12 @@ function announceGuess(event) {
   justiceLive.appendChild(word);
 }
 
-// Classifies a fatal bare reveal for the stupidDeath record field and the
-// session stats. Stupid = the click's own guess-ledger event was nonideal
-// (a strictly safer square, possibly a provably safe one, was available);
-// honest = it took the lowest available risk, or it was a first click into
-// a fixed trial layout (nothing was knowable). undefined = not measured
-// (odds failed or the ledger does not apply here). Chord, proof-or-die,
-// and angelic deaths never reach this: they are categorically stupid at
-// their lose() call sites.
+// Classifies a fatal bare reveal for the legacy stupidDeath record field.
+// True means the click's guess-ledger event was nonideal (a strictly safer
+// square, possibly a provably safe one, was available); false means it took
+// the lowest available risk or was a first click into a fixed trial layout.
+// Undefined means not measured. Chord, proof-or-die, and angelic deaths use
+// their explicit rule-based classifications at their lose() call sites.
 function bareDeathStupidity(index, firstReveal) {
   if (firstReveal) return false;
   if (!guessLedgerAppliesToMode() || oddsFailed) return undefined;
@@ -929,16 +926,15 @@ function reportResult(outcome) {
   if (musicObservations.length > 0) {
     record.musicPlaying = musicObservations.some((heard) => heard);
   }
-  // Stupid death: whether the fatal act was avoidable with what was
-  // already knowable (see the lose() call sites and bareDeathStupidity).
+  // Rule-based avoidable-death classification, stored under its legacy
+  // field name (see the lose() call sites and bareDeathStupidity).
   // Absent on wins and when the fatal click could not be measured.
   if (outcome === 'loss' && deathWasStupid !== undefined) {
     record.stupidDeath = deathWasStupid;
   }
   // Fastclick gap: the game's median gap between consecutive useful
   // presses made on the move with gaps under 1s (the session series'
-  // qualification, over this one game). Absent when no gap qualified —
-  // slow careful play is "not measurable here", never a made-up number.
+  // qualification, over this one game). Absent when no gap qualified.
   const gameFastGap = sessionMedian(gameFastclickGaps);
   if (gameFastGap !== undefined) {
     record.fastclickGapMs = Math.round(gameFastGap);
@@ -1039,7 +1035,7 @@ function renderResult(record, modeRecords, options = {}) {
     ...(record.guesses !== undefined
       ? [['Guesses', formatGuesses(record)]] : []),
     ...(record.stupidDeath !== undefined
-      ? [['Stupid death', record.stupidDeath ? 'yes' : 'no']] : []),
+      ? [['Avoidable death', record.stupidDeath ? 'yes' : 'no']] : []),
     ['Mouse path', record.mousePathPx + 'px'],
     ['Mouse speed', Math.round(record.mousePathPx / seconds) + 'px/s'],
     // The per-game forms of the session series, derived from stored
@@ -1051,6 +1047,8 @@ function renderResult(record, modeRecords, options = {}) {
       ? [['Wasted rate', (record.wastedClicks / (seconds / 60)).toFixed(1) + '/min']] : []),
     ...(seconds > 0 && record.flagsPlaced !== undefined
       ? [['Mark rate', (record.flagsPlaced / seconds).toFixed(2) + '/s']] : []),
+    ...(seconds > 0 && record.flagsRemoved !== undefined
+      ? [['Flag-removal rate', (record.flagsRemoved / (seconds / 60)).toFixed(1) + '/min']] : []),
     ...(record.fastclickGapMs !== undefined
       ? [['Fastclick gap', Math.round(record.fastclickGapMs) + 'ms']] : []),
     ['Path per click', Math.round(record.mousePathPx / record.clicks) + 'px'],
@@ -1113,9 +1111,9 @@ const GAME_RECORD_SCHEMA = [
   { field: 'clicks', valid: isNumber, example: '19', describe: 'clicks that changed the board (reveals, flags, chords)' },
   { field: 'wastedClicks', valid: (v) => v === undefined || isNumber(v), example: '3', describe: 'board clicks that changed nothing; absent on games recorded before 2026-08-19' },
   { field: 'flagsPlaced', valid: (v) => v === undefined || isNumber(v), example: '0', describe: 'flags the player placed (win auto-flagging not counted); 0 = a markless game; absent on games recorded before 2026-08-19' },
-  { field: 'flagsRemoved', valid: (v) => v === undefined || isNumber(v), example: '1', describe: 'flags the player took back; each removal = a place+remove pair (2 clicks) that netted nothing; absent on games recorded before 2026-08-20' },
+  { field: 'flagsRemoved', valid: (v) => v === undefined || isNumber(v), example: '1', describe: 'flag states the player turned off; placement and removal are each board-changing clicks; the reason for removal is not observed; absent on games recorded before 2026-08-20' },
   { field: 'mousePathPx', valid: isNumber, example: '1182', describe: 'cursor travel while playing, px' },
-  { field: 'fastclickGapMs', valid: (v) => v === undefined || isNumber(v), example: '218', describe: 'median gap between consecutive board-changing presses made on the move (cursor moving within 100ms before) with gaps under 1s — the click-rate floor; absent when no gap qualified or on games recorded before 2026-08-22' },
+  { field: 'fastclickGapMs', valid: (v) => v === undefined || isNumber(v), example: '218', describe: 'median gap between consecutive board-changing presses made on the move (cursor moving within 100ms before) with gaps under 1s; absent when no gap qualified or on games recorded before 2026-08-22' },
   { field: 'states', valid: (v) => v === undefined || (Array.isArray(v) && v.every((s) => typeof s === 'string')), example: '["sleepy"]', describe: 'player-defined state tags active when the game finished (see the states panel); absent on games recorded before 2026-08-20' },
   { field: 'musicPlaying', valid: (v) => v === undefined || typeof v === 'boolean', example: 'true', describe: 'whether this machine heard audio playing during the game (sampled about once a minute from the local base system); absent when that endpoint never answered or on games recorded before 2026-08-22' },
   { field: 'justice', valid: (v) => v === undefined || isNumber(v), example: '1', describe: 'bare entries into certified sealed pockets that Justice guaranteed safe; absent on games recorded before 2026-08-20' },
@@ -1141,7 +1139,7 @@ const GAME_RECORD_SCHEMA = [
   { field: 'lifeLost', valid: (v) => v === undefined || isNumber(v), example: '0.75', describe: 'sum of mine probabilities of guessed cells (absolute multiverse lives spent); absent with guesses' },
   { field: 'lifeNeedless', valid: (v) => v === undefined || isNumber(v), example: '0.25', describe: 'sum of (chosen risk minus safest available risk); an ideal-risk guess costs 0 even at 19% death; absent with guesses' },
   { field: 'oddsVersion', valid: (v) => v === undefined || v === Odds.VERSION, example: '"' + Odds.VERSION + '"', describe: 'remaining-layout odds and guess-scoring contract; absent on earlier games' },
-  { field: 'stupidDeath', valid: (v) => v === undefined || typeof v === 'boolean', example: 'true', describe: 'loss only: whether the fatal act was avoidable with what was already knowable (a wrong-flag chord, an unproven proof-or-die open, a contradicted-fact angelic death, or a nonideal guess when something strictly safer was available); false = an honest lowest-risk death; absent on wins, when the fatal click could not be measured, and on games recorded before 2026-08-22' },
+  { field: 'stupidDeath', valid: (v) => v === undefined || typeof v === 'boolean', example: 'true', describe: 'legacy field name; loss only: rule-based classification of whether the fatal act was avoidable from represented player information (wrong-flag chord, unproven proof-or-die open, contradicted-fact angelic death, or nonideal guess when something strictly safer was available); false = not classified avoidable; absent on wins, when the fatal click could not be measured, and on games recorded before 2026-08-22' },
 ];
 
 // Records are grouped by mode key and kept in chronological order. The RAM
@@ -1200,6 +1198,12 @@ function validShownThings(value) {
 // settings dropdown, so experimenting with it is one click.
 const SESSION_BUCKET_CHOICES = [10, 30, 60, 300];
 
+// Drag bounds for the left stats panel: narrow enough to get out of the
+// way, wide enough for a chart to be genuinely readable, never so wide
+// it could swallow the board on a laptop screen.
+const METRICS_PANEL_WIDTH_MIN = 220;
+const METRICS_PANEL_WIDTH_MAX = 640;
+
 const SETTINGS_SCHEMA = [
   {
     field: 'justUniverse',
@@ -1237,7 +1241,7 @@ const SETTINGS_SCHEMA = [
     default: true,
     valid: (v) => typeof v === 'boolean',
     label: 'show session stats',
-    describe: 'the ongoing section at the top of the left panel: mouse speed while playing, stupid-death / wasted-click / mine-marking rates, and the fastclick gap, bucketed and charted over the last hour across games (losses included)',
+    describe: 'the recent-observations section at the top of the left panel: mouse speed while playing, click / avoidable-death / no-op-click / mine-marking / flag-removal rates, and the fastclick gap, bucketed and charted over the last hour across games, wins and losses alike; changes are not assigned a cause',
   },
   {
     field: 'sessionBucketSeconds',
@@ -1245,6 +1249,14 @@ const SETTINGS_SCHEMA = [
     valid: (v) => SESSION_BUCKET_CHOICES.includes(v),
     label: 'session bucket size',
     describe: 'seconds of play summed into each session-stat bucket; chosen with the selector on the session section itself',
+    control: 'none',
+  },
+  {
+    field: 'metricsPanelWidth',
+    default: 316,
+    valid: (v) => typeof v === 'number' && v >= METRICS_PANEL_WIDTH_MIN && v <= METRICS_PANEL_WIDTH_MAX,
+    label: 'stats panel width',
+    describe: 'px width of the left stats panel; set by dragging the panel\u2019s right edge, not from here',
     control: 'none',
   },
   {
@@ -2155,7 +2167,7 @@ function trialDeltaPhrase(seconds, base) {
   return (seconds > 0 ? abs.toFixed(2) + 's faster' : abs.toFixed(2) + 's slower');
 }
 
-function trialMemoryCopy(sum) {
+function trialRepeatComparisonCopy(sum) {
   if (sum.identitiesWithTwoWins === 0) {
     return 'Not enough wins on the same board twice to compare meetings.';
   }
@@ -2266,7 +2278,7 @@ function renderTrialReview(session) {
     + '\n' + session.width + 'x' + session.height + '/' + session.mines
     + '\n' + session.results.length + ' / ' + Trial.gameCount(session);
   verdict.hidden = false;
-  verdict.textContent = trialMemoryCopy(summary);
+  verdict.textContent = trialRepeatComparisonCopy(summary);
   resultSummary.textContent = '';
   resultStats.textContent = '';
   resultRanks.textContent = '';
@@ -4365,13 +4377,12 @@ function computeAllTraceMetrics(sampleT, sampleX, sampleY, events, wallDurationM
 const metricsPanel = document.getElementById('metrics-panel');
 
 // The displayed metrics, grouped by measurement system. Each display:
-// label; calc (how the value is computed, exactly); use (what it is good
-// for and in what context — the literature's reading plus this project's
-// multi-timescale self-tracking angle); of, the numeric extractor over
+// label; calc (how the value is computed, exactly); records (a literal
+// description of the observation, without assigning a cause); of, the numeric extractor over
 // the combined metrics object of computeAllTraceMetrics (undefined or
 // NaN = not measurable on this trace, rendered as an en dash and a gap
 // in the sparkline); fmt, the formatter for the extracted number. calc
-// and use appear together as the row's hover tooltip. Not everything
+// and records appear together as the row's hover tooltip. Not everything
 // computed is displayed (the clinical system computes more features than
 // shown); per-stage configurability of what appears is planned.
 const TRACE_METRIC_GROUPS = [
@@ -4382,130 +4393,116 @@ const TRACE_METRIC_GROUPS = [
       { label: 'strokes',
         calc: 'number of movement bouts: consecutive cursor samples chain into '
           + 'one bout, and a gap of 100ms or more between samples starts the next',
-        use: 'how many separate hand movements the game took. Stop-and-go play '
-          + 'raises it; fluent sweeps lower it. A per-game baseline for hesitancy '
-          + 'across days and states',
+        records: 'how many movement bouts the 100ms gap rule divided the sampled '
+          + 'cursor path into; it does not identify why gaps occurred',
         of: (m) => m.bio.strokeCount, fmt: (v) => String(v) },
       { label: 'moving',
         calc: 'sum of bout durations (first to last sample of each bout)',
-        use: 'pure motor time, as opposed to thinking time. With path it gives '
-          + 'true moving speed, undiluted by deliberation',
+        records: 'the sampled time spanned by movement bouts; time outside those '
+          + 'bouts is excluded, without assigning either span a cognitive cause',
         of: (m) => m.bio.movementMs, fmt: (v) => (v / 1000).toFixed(1) + 's' },
       { label: 'silence',
         calc: '1 minus moving time over wall-clock game time',
-        use: 'share of the game spent with the cursor still — thinking, reading '
-          + 'the board, or resting. A standard mouse-dynamics feature; here it '
-          + 'tracks deliberation vs fluency (fatigue, brain fog, warm-up)',
+        records: 'the fraction of wall-clock game time outside movement bouts; '
+          + 'the trace does not reveal what the player was doing during that time',
         of: (m) => m.bio.silenceRatio, fmt: (v) => Math.round(v * 100) + '%' },
       { label: 'path',
         calc: 'sum of distances between every consecutive pair of cursor '
           + 'samples, jumps across pauses included — fruitless travel counts',
-        use: 'gross motor output of the game. Shifts with hardware and '
-          + 'sensitivity changes (tag those with a state like "new mouse"), and '
-          + 'feeds wander and the path-per-click stats',
+        records: 'total cursor travel in viewport pixels over the sampled trace; '
+          + 'the value alone does not identify why it differs between games',
         of: (m) => m.bio.totalPathPx, fmt: (v) => Math.round(v) + 'px' },
       { label: 'speed',
         calc: 'each bout\u2019s mean of its sample-to-sample speeds, then the '
           + 'mean over bouts',
-        use: 'overall tempo of hand movement. Rises with warm-up within a '
-          + 'session; sensitive to mouse/DPI changes, so it profiles the setup '
-          + 'as much as the player — read alongside turn rate, which does not',
+        records: 'the mean sampled cursor speed within bouts, first averaged per '
+          + 'bout and then across bouts; it is descriptive, not causal',
         of: (m) => m.bio.speedMeanPxPerMs, fmt: (v) => Math.round(v * 1000) + 'px/s' },
       { label: 'peak speed',
         calc: 'the single fastest sample-to-sample speed in any bout',
-        use: 'ballistic capability — the flick, not the cruise. Less diluted '
-          + 'by careful stretches than the mean; declines with age in pointing '
-          + 'studies, so a long-horizon tracking target',
+        records: 'the largest single sample-to-sample cursor speed observed in '
+          + 'any measured bout of this game',
         of: (m) => m.bio.speedMaxPxPerMs, fmt: (v) => Math.round(v * 1000) + 'px/s' },
       { label: 'straightness',
         calc: 'per bout, straight-line distance from its start to its end '
           + 'divided by the distance actually traveled (1 = a perfect line); '
           + 'mean over bouts',
-        use: 'movement efficiency and planning: low values mean curved, '
-          + 'corrected, or searching motion. Drops under unfamiliarity and '
-          + 'fatigue',
+        records: 'the geometric directness of each bout from its sampled start '
+          + 'to end; it does not identify planning, searching, or fatigue',
         of: (m) => m.bio.straightness, fmt: (v) => v.toFixed(2) },
       { label: 'jerk',
         calc: 'per bout, the mean absolute rate of change of acceleration '
           + '(third derivative of position along the path, px/ms\u00b3, from '
           + 'segment-midpoint speeds); mean over bouts',
-        use: 'movement smoothness. Elevated jerk marks corrections, tremor, '
-          + 'fatigue, or unfamiliarity — the clinical literature\u2019s '
-          + 'smoothness family, on raw bouts',
+        records: 'the mean absolute third-derivative quantity computed from the '
+          + 'sampled path; this app does not infer its cause or diagnose tremor',
         of: (m) => m.bio.jerkMeanPxPerMs3, fmt: (v) => v.toFixed(4) },
       { label: 'turn rate',
         calc: 'per bout, the mean absolute change of movement heading per ms '
           + '(rad/ms) between successive moving steps; mean over bouts',
-        use: 'the curvature family — the most person-identifying and most '
-          + 'hardware-stable features in mouse biometrics (Zheng et al.). The '
-          + 'best candidate for a signature that survives a mouse change',
+        records: 'the mean absolute rate at which sampled movement heading '
+          + 'changed within bouts; no identity or hardware conclusion is implied',
         of: (m) => m.bio.angularVelocityMeanRadPerMs, fmt: (v) => v.toFixed(3) },
       { label: 'left clicks',
         calc: 'completed left clicks: a press and its release both on the trace',
-        use: 'activity volume, and a cross-check of the game\u2019s own click '
-          + 'counter from an independent recording path',
+        records: 'completed left-button press/release pairs found in the trace; '
+          + 'this is independent of whether the board state changed',
         of: (m) => m.bio.leftClickCount, fmt: (v) => String(v) },
       { label: 'right clicks',
         calc: 'right-button presses (flag actions)',
-        use: 'flagging style: markless play shows 0; heavy flaggers run high. '
-          + 'Style shifts over months are real signal',
+        records: 'right-button presses found in the trace, including presses '
+          + 'whether or not their board effect was later undone',
         of: (m) => m.bio.rightClickCount, fmt: (v) => String(v) },
       { label: 'hold',
         calc: 'mean time from left-button press to its release',
-        use: 'purely motor — no thinking can hide in it. Click duration is one '
-          + 'of Hevelius\u2019 strongest ataxia/parkinsonism separators and has '
-          + 'good test-retest reliability: a prime longitudinal health metric',
+        records: 'mean elapsed time from left-button press to release; this '
+          + 'game does not use it to infer cognition, health, or diagnosis',
         of: (m) => m.bio.clickDurationMeanMs, fmt: (v) => Math.round(v) + 'ms' },
       { label: 'pause-and-click',
         calc: 'for each press, the stillness between the last cursor movement '
           + 'and the press; mean over presses',
-        use: 'the commitment lag: arrived, then hesitated how long before '
-          + 'acting? Separates decision lag from travel time — the "lag" the '
-          + 'biometrics literature uses to identify users',
+        records: 'mean elapsed time from the last sampled cursor movement to '
+          + 'the following press; the reason for stillness is not observed',
         of: (m) => m.bio.pauseAndClickMeanMs, fmt: (v) => Math.round(v) + 'ms' },
     ] },
-  { key: 'waste', name: 'waste', definition:
-      'whole-game waste measures (the survey\u2019s Tier 1/2 proposals); '
-      + 'fruitless effort is counted, never subtracted away',
+  { key: 'waste', name: 'path and no-action events', definition:
+      'whole-game path ratios, sample gaps, direction reversals, and cell '
+      + 'dwell-without-click counts',
     displays: [
       { label: 'wander',
         calc: 'total cursor travel divided by the sum of straight lines '
           + 'between consecutive click positions (1.0 = perfectly direct '
           + 'all game)',
-        use: 'the purest wasted-motion number: how much extra distance the '
-          + 'hand covered beyond what the clicks required. Scanning, searching, '
-          + 'and second-guessing all raise it; expertise lowers it',
+        records: 'sampled cursor distance relative to straight lines between '
+          + 'successive click positions; the excess distance has no assigned cause',
         of: (m) => m.waste.wanderRatio, fmt: (v) => v.toFixed(2) + '\u00d7' },
       { label: 'pauses',
         calc: 'count of gaps of 250ms or more between consecutive cursor '
           + 'samples over the whole game',
-        use: 'how often play stalls. More, shorter pauses read differently '
-          + 'than one long freeze — see longest pause',
+        records: 'the number of consecutive cursor-sample gaps at least 250ms '
+          + 'long; it does not identify why the gaps occurred',
         of: (m) => m.waste.pauseCount, fmt: (v) => String(v) },
       { label: 'paused',
         calc: 'total time inside those 250ms-or-longer gaps',
-        use: 'total stalled time — the coarse-grained "time paused" companion '
-          + 'to silence (which uses the finer 100ms bout gap)',
+        records: 'the summed duration of cursor-sample gaps at least 250ms long',
         of: (m) => m.waste.pausedMs, fmt: (v) => (v / 1000).toFixed(1) + 's' },
       { label: 'longest pause',
         calc: 'the single longest such gap',
-        use: 'the hardest deduction of the game — or a distraction. The '
-          + '"stuck" moment, worth correlating with board difficulty and states',
+        records: 'the longest cursor-sample gap of at least 250ms in the game; '
+          + 'the trace does not identify what happened during it',
         of: (m) => m.waste.longestPauseMs, fmt: (v) => (v / 1000).toFixed(1) + 's' },
       { label: 'turnarounds',
         calc: 'heading reversals of more than 90\u00b0 between consecutive '
           + 'movement legs of at least 8px each (the length floor keeps pixel '
           + 'jitter out)',
-        use: 'went one way, changed plan, went another — the open-board analog '
-          + 'of the x-flips "change of mind" measure. Confusion and re-planning '
-          + 'made countable',
+        records: 'the count of qualifying sampled heading reversals; a reversal '
+          + 'does not by itself establish a changed plan or confusion',
         of: (m) => m.waste.dirChanges, fmt: (v) => String(v) },
       { label: 'feints',
         calc: 'times the cursor entered a board cell, stayed 300ms or more, '
           + 'then left it without any click during the stay',
-        use: 'approach-abandon: considered acting and backed off. Real spent '
-          + 'effort that no click records — a direct hesitation counter, the '
-          + 'measurement principle in action',
+        records: 'cell visits lasting at least 300ms that ended without a click '
+          + 'in that cell; intention and hesitation are not observed',
         of: (m) => m.waste.feintCount, fmt: (v) => String(v) },
     ] },
   { key: 'cad', name: 'click timing', definition:
@@ -4516,230 +4513,210 @@ const TRACE_METRIC_GROUPS = [
       { label: 'click gap',
         calc: 'median time between consecutive button presses over the '
           + 'whole game',
-        use: 'the typical beat of play. Falls as reading and deciding speed '
-          + 'up; the median is robust to a few long deductions, which a mean '
-          + 'would soak up',
+        records: 'the median elapsed time between consecutive button presses; '
+          + 'it does not separate reading, deciding, and movement',
         of: (m) => m.cad.gapMedianMs, fmt: (v) => Math.round(v) + 'ms' },
       { label: 'gap spread',
         calc: 'interquartile range of those gaps divided by their median',
-        use: 'systematic rhythm vs bursts: near 0 means metronomic, evenly '
-          + 'spaced clicking; high means rapid-fire runs mixed with long '
-          + 'stalls. Two games with the same click gap can differ hugely here',
+        records: 'the spread of press gaps relative to their median: 0 means '
+          + 'the measured gaps are equal, and larger values mean more dispersion',
         of: (m) => m.cad.gapSpreadRatio, fmt: (v) => v.toFixed(2) + '\u00d7' },
       { label: 'fastest gap',
         calc: 'the single shortest press-to-press gap of the game',
-        use: 'pure rapid-fire capability: the best back-to-back the hand '
-          + 'produced, whatever it was for. A ceiling number to watch rise '
-          + 'with practice',
+        records: 'the shortest elapsed time observed between two consecutive '
+          + 'button presses in this game',
         of: (m) => m.cad.fastestGapMs, fmt: (v) => Math.round(v) + 'ms' },
       { label: 'peak rate',
         calc: 'the most presses inside any rolling 1-second window',
-        use: 'sustained rapid-fire rather than one fast pair — cleared '
-          + 'chains and chord runs push it up. The actions-per-second '
-          + 'ceiling of this game',
+        records: 'the largest number of button presses observed in any rolling '
+          + 'one-second interval of this game',
         of: (m) => m.cad.peakPressesPerSec, fmt: (v) => v + '/s' },
       { label: 'burst share',
         calc: 'share of press-to-press gaps under 250ms',
-        use: 'how much of the game is played in runs vs single aimed '
-          + 'clicks — the volume counterpart of fastest gap. Expect it to '
-          + 'grow with board-reading fluency',
+        records: 'the fraction of measured press-to-press gaps shorter than '
+          + '250ms; it does not establish fluency or intent',
         of: (m) => m.cad.burstGapShare, fmt: (v) => Math.round(v * 100) + '%' },
       { label: 'on the move',
         calc: 'share of presses with a cursor sample in the 100ms before '
           + 'the press (samples exist only while the cursor moves)',
-        use: 'clicking without stopping: the click-while-moving fluency '
-          + 'that separates sweeping play from point-stop-click play. The '
-          + 'inverse view of pause-and-click',
+        records: 'the fraction of presses preceded by a cursor-movement sample '
+          + 'within 100ms; it does not identify the reason for that timing',
         of: (m) => m.cad.movingPressShare, fmt: (v) => Math.round(v * 100) + '%' },
     ] },
-  { key: 'psych', name: 'psychometric', definition:
-      'mousetrap decision-research measures per inter-click segment '
-      + '(exact port of the R package), means over segments',
+  { key: 'psych', name: 'trajectory geometry', definition:
+      'mousetrap-formula trajectory measures per inter-click segment '
+      + '(exact port of the R package), reported as means over segments; '
+      + 'the game does not infer mental states from them',
     displays: [
       { label: 'segments',
         calc: 'number of inter-click trajectories measured: previous click to '
           + 'next click, needing at least 5 trajectory points',
-        use: 'the sample size behind every psychometric and clinical mean '
-          + 'below — small counts mean noisy means',
+        records: 'the number of qualifying inter-click trajectories included '
+          + 'in the trajectory and movement means below',
         of: (m) => m.psych.segmentCount, fmt: (v) => String(v) },
       { label: 'MAD',
         calc: 'per segment, the signed maximum deviation of the path from the '
           + 'ideal straight line joining segment start to its click; mean over '
           + 'segments',
-        use: 'decision research reads the bow of a path as attraction toward '
-          + 'an option not chosen: large magnitude = conflicted approach. Track '
-          + 'against uncertainty (guessy boards) and states',
+        records: 'the signed largest deviation from the start-to-click line, '
+          + 'averaged over segments; conflict or attraction is not inferred',
         of: (m) => m.psych.mad, fmt: (v) => Math.round(v) + 'px' },
       { label: 'AUC',
         calc: 'per segment, the signed area enclosed between the actual path '
           + 'and that ideal line (shoelace formula, negative when the path '
           + 'bows the other way); mean over segments',
-        use: 'the whole-path conflict measure; correlates .8-.9 with MAD, so '
-          + 'they mostly confirm each other — divergence itself is interesting',
+        records: 'the signed area between each sampled segment and its '
+          + 'start-to-click line, averaged over segments',
         of: (m) => m.psych.auc, fmt: (v) => sparkAxisNumber(v) + 'px\u00b2' },
       { label: 'AD',
         calc: 'per segment, the mean signed deviation over all path points; '
           + 'mean over segments',
-        use: 'persistent drift to one side of the ideal line rather than a '
-          + 'single bow — systematic bias in approach paths',
+        records: 'the signed mean deviation from the start-to-click line over '
+          + 'all path samples, averaged over segments',
         of: (m) => m.psych.ad, fmt: (v) => Math.round(v) + 'px' },
       { label: 'x-flips',
         calc: 'per segment, reversals of horizontal movement direction '
           + '(consecutive moves merge into same-direction runs; flips = runs '
           + 'minus 1); mean over segments',
-        use: 'the classic "changes of mind" count from mouse-tracking: each '
-          + 'flip is a mid-flight reversal. Decision instability, hesitancy',
+        records: 'horizontal direction-run reversals in each sampled segment, '
+          + 'averaged over segments; they do not prove a change of mind',
         of: (m) => m.psych.xFlips, fmt: (v) => v.toFixed(1) },
       { label: 'y-flips',
         calc: 'the same, vertically',
-        use: 'as x-flips; on a 2D board both axes carry the signal, unlike the '
-          + 'two-choice lab task where x is the option axis',
+        records: 'vertical direction-run reversals in each sampled segment, '
+          + 'averaged over segments',
         of: (m) => m.psych.yFlips, fmt: (v) => v.toFixed(1) },
       { label: 'initiation',
         calc: 'per segment, time from the segment\u2019s start until the '
           + 'cursor first moves; mean over segments',
-        use: 'how long before the hand launches — planning or re-orienting '
-          + 'time after each click. The esports reaction-time analog, and in '
-          + 'minesweeper it also absorbs deduction time',
+        records: 'elapsed time from the segment start to its first sampled '
+          + 'cursor movement; the app cannot partition its causes',
         of: (m) => m.psych.initiationTimeMs, fmt: (v) => Math.round(v) + 'ms' },
       { label: 'idle',
         calc: 'per segment, total time of steps where the position did not '
           + 'change; mean over segments',
-        use: 'stalling inside an approach (as opposed to before it): stop-offs '
-          + 'en route to the click',
+        records: 'sampled no-position-change time inside each segment, averaged '
+          + 'over segments',
         of: (m) => m.psych.idleTimeMs, fmt: (v) => (v / 1000).toFixed(1) + 's' },
       { label: 'vel max',
         calc: 'per segment, the peak point-to-point velocity; mean over '
           + 'segments',
-        use: 'per-decision ballistic speed. Same family as peak speed above '
-          + 'but averaged per approach, so one wild flick cannot dominate it',
+        records: 'the maximum point-to-point cursor speed in each segment, '
+          + 'averaged over segments',
         of: (m) => m.psych.velMaxPxPerMs, fmt: (v) => Math.round(v * 1000) + 'px/s' },
       { label: 'acc max',
         calc: 'per segment, the peak increase of velocity per ms; mean over '
           + 'segments',
-        use: 'launch force — how hard movements start. Age- and '
-          + 'impairment-sensitive in the clinical literature',
+        records: 'the maximum sampled increase in velocity per millisecond in '
+          + 'each segment, averaged over segments',
         of: (m) => m.psych.accMaxPxPerMs2, fmt: (v) => v.toFixed(4) },
       { label: 'entropy',
         calc: 'per segment, sample entropy (m=3) of the differenced x '
           + 'trajectory after resampling to 101 equal time steps; the '
           + 'tolerance r is 0.2 \u00d7 the SD pooled over this game\u2019s '
           + 'segments; mean over segments',
-        use: 'spatiotemporal disorder — how unpredictable the path is moment '
-          + 'to moment. Only ~.5 correlated with flips, so it catches '
-          + 'restlessness the flip counts miss',
+        records: 'sample entropy of the resampled differenced x trajectory, '
+          + 'averaged over segments; it does not diagnose restlessness',
         of: (m) => m.psych.sampleEntropy, fmt: (v) => v.toFixed(2) },
       { label: 'segment time',
         calc: 'per segment, time from its start to its click (mousetrap\u2019s '
           + 'RT); mean over segments',
-        use: 'the full think-plus-travel cycle per decision. In minesweeper '
-          + 'this is dominated by deduction, so read it as decision pace, not '
-          + 'motor speed',
+        records: 'total elapsed time from one click to the next for qualifying '
+          + 'segments; movement and nonmovement time are not separated',
         of: (m) => m.psych.rtMs, fmt: (v) => (v / 1000).toFixed(1) + 's' },
     ] },
-  { key: 'hev', name: 'clinical', definition:
-      'Hevelius-style motor features per inter-click movement '
+  { key: 'hev', name: 'movement geometry', definition:
+      'Hevelius-formula movement features per inter-click movement '
       + '(100Hz resample, 7Hz low-pass; see reference/hevelius/FEATURES.md), '
-      + 'means over movements',
+      + 'reported as means over movements; this game makes no clinical inference',
     displays: [
       { label: 'execution',
         calc: 'per movement, time from its first to its last mousemove, with '
           + 'time the button was held excluded; mean over movements',
-        use: 'the purest "how long does the hand take" number gameplay '
-          + 'offers: it starts at the first move, so pre-movement deliberation '
-          + 'is excluded. Good test-retest reliability in Hevelius',
+        records: 'elapsed time from the first to last sampled movement, with '
+          + 'button-hold time excluded, averaged over movements',
         of: (m) => m.hev.executionTimeMs, fmt: (v) => (v / 1000).toFixed(2) + 's' },
       { label: 'exec no pauses',
         calc: 'execution time with mid-movement stops of 100ms or more also '
           + 'subtracted',
-        use: 'motor transport time cleansed of mid-flight thinking — the ET '
-          + 'that normalized jerk is built on. The gap between the two '
-          + 'execution rows is itself a hesitation measure',
+        records: 'execution time after subtracting sampled gaps of at least '
+          + '100ms; the app does not assign those gaps a cause',
         of: (m) => m.hev.executionTimeNoPausesMs, fmt: (v) => (v / 1000).toFixed(2) + 's' },
       { label: 'peak speed*',
         calc: 'per movement, the maximum of the smoothed speed (trajectory '
           + 'resampled at 100Hz, speed low-passed at 7Hz); mean over movements',
-        use: 'the clearest documented aging signal in Hevelius (declines '
-          + 'steadily with age) — the single best feature for multi-year '
-          + 'self-tracking. Smoothing makes it robust to sensor noise',
+        records: 'the maximum low-pass-filtered speed in each movement, '
+          + 'averaged over movements',
         of: (m) => m.hev.peakSpeedPxPerMs, fmt: (v) => Math.round(v * 1000) + 'px/s' },
       { label: 'peak accel',
         calc: 'per movement, the maximum of the smoothed acceleration; mean '
           + 'over movements',
-        use: 'burst strength at movement launch; part of the noise-to-force '
-          + 'family Hevelius used to separate patient groups',
+        records: 'the maximum low-pass-filtered acceleration in each movement, '
+          + 'averaged over movements',
         of: (m) => m.hev.peakAccelPxPerMs2, fmt: (v) => v.toFixed(4) },
       { label: 'submovements',
         calc: 'per movement, count of speed pulses that cross 100px/s and '
           + 'reach at least 500px/s before dropping back; mean over movements',
-        use: 'healthy fast pointing is one ballistic pulse plus at most one '
-          + 'correction; more pulses mean corrections — impairment, '
-          + 'unfamiliarity, or fatigue. A core clinical smoothness count',
+        records: 'the number of speed pulses meeting the stated thresholds in '
+          + 'each movement, averaged over movements; no cause is assigned',
         of: (m) => m.hev.submovementCount, fmt: (v) => v.toFixed(1) },
       { label: 'main sub',
         calc: 'duration of the submovement containing the movement\u2019s '
           + 'peak speed; mean over movements',
-        use: 'the ballistic core of each movement. (Hevelius weights this '
-          + 'feature in its models without publishing the exact quantity; '
-          + 'duration is this project\u2019s documented choice)',
+        records: 'the duration of the threshold-defined speed pulse containing '
+          + 'peak speed, averaged over movements',
         of: (m) => m.hev.mainSubmovementMs, fmt: (v) => Math.round(v) + 'ms' },
       { label: 'sub end dist',
         calc: 'distance from the clicked cell\u2019s center at the moment the '
           + 'main submovement ends; mean over movements',
-        use: 'primary-movement accuracy: how much distance was left for '
-          + 'corrections after the big pulse. One of the features that '
-          + 'separated patients from controls in Hevelius',
+        records: 'distance from the clicked cell center when the main '
+          + 'threshold-defined speed pulse ended, averaged over movements',
         of: (m) => m.hev.mainSubEndDistPx, fmt: (v) => Math.round(v) + 'px' },
       { label: 'axis dev',
         calc: 'per movement, the maximum distance of the path from the task '
           + 'axis (the straight line joining the movement\u2019s start and '
           + 'end); mean over movements',
-        use: 'worst-case path control per movement — the MacKenzie pointing '
-          + 'accuracy family. Big deviations mean detours, not jitter',
+        records: 'the maximum sampled perpendicular distance from the '
+          + 'start-to-end axis, averaged over movements',
         of: (m) => m.hev.maxAxisDeviationPx, fmt: (v) => Math.round(v) + 'px' },
       { label: 'movement error',
         calc: 'per movement, the average absolute distance of the path from '
           + 'the task axis; mean over movements',
-        use: 'gross straightness of transport: how far, on average, the hand '
-          + 'strayed from the direct line. Steadier than the max',
+        records: 'the mean absolute sampled distance from the start-to-end '
+          + 'axis in each movement, averaged over movements',
         of: (m) => m.hev.movementErrorPx, fmt: (v) => Math.round(v) + 'px' },
       { label: 'axis crossings',
         calc: 'per movement, times the path crossed the task axis; mean over '
           + 'movements',
-        use: 'oscillation around the intended line — weaving. Tremor and '
-          + 'over-correction both raise it',
+        records: 'the number of sampled crossings of the start-to-end axis in '
+          + 'each movement, averaged over movements; no cause is assigned',
         of: (m) => m.hev.axisCrossings, fmt: (v) => v.toFixed(1) },
       { label: 'norm jerk',
         calc: 'per movement, dimensionless (execution time without '
           + 'pauses)\u00b3 \u00f7 peak speed\u00b2 \u00d7 the integral of '
           + 'squared jerk, pause spans excluded from the integral; mean over '
           + 'movements',
-        use: 'THE smoothness measure: Hevelius\u2019 strongest ataxia '
-          + 'separator (z 3.2-3.6), good reliability, and built to be nearly '
-          + 'independent of movement difficulty — which suits uncontrolled '
-          + 'gameplay distances. Watch it against fatigue and states',
+        records: 'the stated dimensionless jerk integral after excluding '
+          + 'pause spans, averaged over movements; it is not a diagnosis',
         of: (m) => m.hev.normalizedJerkNoPauses, fmt: (v) => sparkAxisNumber(v) },
       { label: 'click slip',
         calc: 'distance the cursor slid between button press and release; '
           + 'mean over completed left clicks',
-        use: 'purely motor, no assumptions, elevated in ataxia: did the hand '
-          + 'hold still through the click? Cheap to compute over every stored '
-          + 'trace, so ideal for backfilled long-run tracking',
+        records: 'cursor distance between left-button press and release, '
+          + 'averaged over completed left clicks',
         of: (m) => m.hev.clickSlipPx, fmt: (v) => v.toFixed(1) + 'px' },
       { label: 'verification',
         calc: 'time between the last movement inside the clicked cell and the '
           + 'button press; mean over movements where the cursor ended inside '
           + 'the cell',
-        use: 'the look-before-committing window. In the clinic it is visual '
-          + 'verification; in minesweeper it also contains safety re-checking, '
-          + 'so read it as care, not just motor settling',
+        records: 'elapsed time from the last sampled movement inside the '
+          + 'clicked cell to its button press; purpose is not observed',
         of: (m) => m.hev.verificationTimeMs, fmt: (v) => Math.round(v) + 'ms' },
       { label: 're-entries',
         calc: 'times the pointer left the clicked cell and came back before '
           + 'the click; mean over movements with a known target cell',
-        use: 'target acquisition instability — overshoot-and-return at the '
-          + 'destination. Noisier here than in the lab task, since neighboring '
-          + 'cells are plausible targets too',
+        records: 'the number of times the pointer left and re-entered the '
+          + 'eventual clicked cell before the click, averaged over movements',
         of: (m) => m.hev.targetReentries, fmt: (v) => v.toFixed(1) },
     ] },
 ];
@@ -4883,7 +4860,7 @@ function buildMetricRow(group, display, metrics, series, size, rowClass) {
   const value = displayableNumber(display.of(metrics));
   const row = document.createElement('div');
   row.className = rowClass;
-  row.title = 'HOW: ' + display.calc + '.\n\nUSE: ' + display.use + '.'
+  row.title = 'HOW: ' + display.calc + '.\n\nRECORDS: ' + display.records + '.'
     + (value === undefined ? '\n\n(not yet measurable on this trace)' : '');
   const head = document.createElement('div');
   head.className = 'metric-head';
@@ -4934,6 +4911,9 @@ function renderMetricsPanel(metrics) {
   metricsPanel.hidden = false;
   metricsPanel.textContent = '';
   metricsPanel.classList.toggle('collapsed', metricsPanelCollapsed);
+  // The dragged width applies only expanded; collapsed shrinks to its chip.
+  metricsPanel.style.width = metricsPanelCollapsed
+    ? '' : settings.metricsPanelWidth + 'px';
 
   if (metricsPanelCollapsed) {
     const restore = document.createElement('button');
@@ -4968,6 +4948,7 @@ function renderMetricsPanel(metrics) {
   });
   head.append(phaseEl, hide);
   metricsPanel.appendChild(head);
+  metricsPanel.appendChild(buildMetricsResizeGrip());
 
   if (showSession) appendSessionSection(metricsPanel);
   if (!showLive) return;
@@ -4978,6 +4959,42 @@ function renderMetricsPanel(metrics) {
         group, display, metrics, metricsSeries, SPARK_SMALL, 'metric-row'));
     }
   }
+}
+
+// The panel's right-edge drag grip. The panel re-renders once a second
+// and replaces all children, this grip included; a drag in progress
+// survives that because its move/up listeners live on the document —
+// only the pointerdown needs the (current) grip node. During the drag
+// the panel itself tracks the pointer instantly; the charts recompute
+// to the new width on release and on every normal re-render tick.
+function buildMetricsResizeGrip() {
+  const grip = document.createElement('div');
+  grip.className = 'metrics-resize';
+  grip.title = 'drag to resize the stats panel';
+  const edge = () => metricsPanel.getBoundingClientRect().left
+    + settings.metricsPanelWidth - 7;
+  grip.style.left = edge() + 'px';
+  grip.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidth = settings.metricsPanelWidth;
+    const move = (ev) => {
+      settings.metricsPanelWidth = Math.min(METRICS_PANEL_WIDTH_MAX,
+        Math.max(METRICS_PANEL_WIDTH_MIN, Math.round(startWidth + ev.clientX - startX)));
+      metricsPanel.style.width = settings.metricsPanelWidth + 'px';
+      grip.style.left = edge() + 'px';
+    };
+    const up = () => {
+      document.removeEventListener('pointermove', move);
+      document.removeEventListener('pointerup', up);
+      saveSettings();
+      refreshMetricsPanel();
+    };
+    document.addEventListener('pointermove', move);
+    document.addEventListener('pointerup', up);
+  });
+  return grip;
 }
 
 // The finished game's canonical metrics and its full series, snapshotted
@@ -5058,12 +5075,12 @@ setInterval(() => {
 
 //-------SESSION STATS: COMPUTATION (pure; cross-game bucketed series)-------
 
-// The ongoing self-observation section (PRODUCT.md "Session stats"): a few
+// The recent-observations section (PRODUCT.md "Session stats"): a few
 // per-bucket rates over the last hour, across games, losses and abandoned
 // boards included — but only over time a game was actually in progress
 // (first reveal to game end), never travel to the restart button or
-// between-game idling. The point is mood/condition/playstyle visibility on
-// the minutes timescale: warm-up, fatigue, tilt.
+// between-game idling. These are observations only; this code does not infer
+// mood, condition, play style, or any cause for a change.
 //
 // Everything here is pure over an event list so it is testable in Node
 // (tests/session-buckets-test.js extracts this span). Events, all wall
@@ -5091,9 +5108,8 @@ const SESSION_WINDOW_MS = 60 * 60 * 1000;  // the charts' sliding window
 const SESSION_KEEP_MS = SESSION_WINDOW_MS + 5 * 60 * 1000; // retention slack
 const SESSION_MOVE_COALESCE_MS = 1000;
 const SESSION_MOVING_PRESS_MS = 100; // press "on the move" (same as cadence)
-// A useful-press gap this short is a "fastclick": the hand was already
-// committed, so the gap length reads out the current click-rate floor
-// (the can't-or-won't-click-faster-than-X hypothesis).
+// A useful-press gap this short qualifies for the fastclick median.
+// This is a timing filter only; it assigns no cause to the interval.
 const FASTCLICK_MAX_GAP_MS = 1000;
 // A bucket needs at least this much in-progress play before its rates are
 // measurable: dividing one death by the 50ms sliver of play at a bucket's
@@ -5108,15 +5124,21 @@ function sessionMedian(values) {
   return sorted.length % 2 === 1 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
-// Buckets the events into windowMs/bucketMs equal buckets whose right edge
-// is nowMs (so every render slides the window left a little). Returns
-// arrays indexed left-to-right; undefined = not measurable in that bucket
-// (no in-progress play there, or no qualifying gaps), never a made-up 0.
+// Buckets the events into wall-clock-aligned buckets (a 1m bucket is a
+// real calendar minute) covering the window ending at nowMs. Alignment
+// matters for display stability: anchored to the clock, a finished
+// bucket's value is frozen forever — only the current, still-filling
+// bucket changes between renders, and the whole set never re-bins as
+// "now" advances (right-edge-anchored buckets made every point wiggle
+// every second). The first bucket may reach back past the window edge
+// and the last is usually partial; both are honest. Returns arrays
+// indexed left-to-right; undefined = not measurable in that bucket (no
+// in-progress play there, or no qualifying gaps), never a made-up 0.
 // Rates are over in-progress play time only: a bucket where 20s were
 // played reports its wasted clicks per played minute, not per wall minute.
 function sessionBucketSeries(events, opts) {
-  const bucketCount = Math.round(opts.windowMs / opts.bucketMs);
-  const startMs = opts.nowMs - bucketCount * opts.bucketMs;
+  const startMs = Math.floor((opts.nowMs - opts.windowMs) / opts.bucketMs) * opts.bucketMs;
+  const bucketCount = Math.ceil((opts.nowMs - startMs) / opts.bucketMs);
   const bucketAt = (t) => Math.floor((t - startMs) / opts.bucketMs);
 
   const playMs = new Array(bucketCount).fill(0);
@@ -5124,6 +5146,7 @@ function sessionBucketSeries(events, opts) {
   const useful = new Array(bucketCount).fill(0);
   const wasted = new Array(bucketCount).fill(0);
   const flags = new Array(bucketCount).fill(0);
+  const unflags = new Array(bucketCount).fill(0);
   const stupidDeaths = new Array(bucketCount).fill(0);
   const fastGaps = Array.from({ length: bucketCount }, () => []);
 
@@ -5159,6 +5182,7 @@ function sessionBucketSeries(events, opts) {
         useful[i] += ev.useful * share;
         wasted[i] += ev.wasted * share;
         flags[i] += ev.flags * share;
+        unflags[i] += (ev.unflags || 0) * share;
         if (typeof ev.fastGapMs === 'number') fastGaps[i].push(ev.fastGapMs);
       });
       if (ev.stupid === true) {
@@ -5179,6 +5203,7 @@ function sessionBucketSeries(events, opts) {
       if (ev.useful) useful[i]++;
       else wasted[i]++;
       if (ev.flag) flags[i]++;
+      if (ev.unflag) unflags[i]++;
       if (ev.useful && ev.moving && ev.gapMs !== undefined
           && ev.gapMs <= FASTCLICK_MAX_GAP_MS) {
         fastGaps[i].push(ev.gapMs);
@@ -5195,6 +5220,7 @@ function sessionBucketSeries(events, opts) {
   const stupidPerMin = [];
   const wastedPerMin = [];
   const flagsPerSec = [];
+  const mismarksPerMin = [];
   const fastclickGapMs = [];
   for (let i = 0; i < bucketCount; i++) {
     centers.push(startMs + (i + 0.5) * opts.bucketMs);
@@ -5205,20 +5231,24 @@ function sessionBucketSeries(events, opts) {
     stupidPerMin.push(enough ? stupidDeaths[i] / (playedSec / 60) : undefined);
     wastedPerMin.push(enough ? wasted[i] / (playedSec / 60) : undefined);
     flagsPerSec.push(enough ? flags[i] / playedSec : undefined);
+    mismarksPerMin.push(enough ? unflags[i] / (playedSec / 60) : undefined);
     fastclickGapMs.push(sessionMedian(fastGaps[i]));
   }
   return {
-    startMs, bucketMs: opts.bucketMs, nowMs: opts.nowMs, centers, playMs,
+    startMs, bucketMs: opts.bucketMs, nowMs: opts.nowMs,
+    windowMs: opts.windowMs, centers, playMs,
     speedPxPerSec, clicksPerSec, stupidPerMin, wastedPerMin, flagsPerSec,
-    fastclickGapMs,
+    mismarksPerMin, fastclickGapMs,
   };
 }
 
 //-------SESSION STATS: RECORDING (event capture into RAM)-------
 
-// RAM-only: the session is this page load. The stored traces and records
-// remain the ground truth every value here could be recomputed from;
-// backfilling the window from them on load is backlogged, not built.
+// Live events are RAM-only, but the window survives reloads: on load,
+// sessionBackfillFromHistory reconstructs the last hour from stored game
+// records (one coarse 'game' event per record), so a reload mid-session
+// keeps the running averages. Stored traces and records remain the
+// ground truth every value here could be recomputed from.
 let sessionEvents = [];
 let sessionPlayFrom = null;          // Date.now() when 'playing' began, or null
 let sessionLastMoveAt = 0;           // wall time of the last cursor move
@@ -5262,13 +5292,14 @@ function sessionRecordMove(px) {
   sessionEvents.push({ kind: 'move', at: now, px: px });
 }
 
-function sessionRecordPress(useful, flagPlaced) {
+function sessionRecordPress(useful, flagPlaced, flagRemoved) {
   const now = Date.now();
   const press = {
     kind: 'press',
     at: now,
     useful: useful,
     flag: flagPlaced,
+    unflag: flagRemoved === true,
     moving: now - sessionLastMoveAt <= SESSION_MOVING_PRESS_MS,
     gapMs: undefined,
   };
@@ -5316,6 +5347,7 @@ function sessionBackfillFromHistory() {
         useful: record.clicks,
         wasted: record.wastedClicks || 0,
         flags: record.flagsPlaced || 0,
+        unflags: record.flagsRemoved || 0,
         stupid: record.stupidDeath === true,
         fastGapMs: record.fastclickGapMs,
       });
@@ -5329,116 +5361,138 @@ function sessionBackfillFromHistory() {
 
 const SESSION_GROUP = {
   name: 'session',
-  definition: 'ongoing self-observation across games (losses and abandoned '
+  definition: 'recent observations across games (losses and abandoned '
     + 'boards included): per-bucket values over the last hour, sliding left '
     + 'as time passes. Rates count only time a game was actually in '
     + 'progress — travel to the restart button and between-game idling are '
     + 'nobody\u2019s statistic. A bucket with under a second of play shows '
-    + 'an en dash, never a rate over a sliver. RAM only: the session is '
-    + 'this page load',
+    + 'an en dash, never a rate over a sliver. Survives reload: the last '
+    + 'hour is rebuilt from stored records, wins and losses alike with '
+    + 'their full played time; only an abandoned board\u2019s time (no '
+    + 'record) is lost across a reload',
 };
 
 const SESSION_METRIC_SPECS = [
-  { label: 'mouse speed',
+  { label: 'mouse speed', unit: 'px/s',
     calc: 'cursor px traveled while a game was in progress in this bucket, '
       + 'divided by the in-progress seconds in it; abandoned games count, '
       + 'between-game movement never does',
-    use: 'the warm-up / fatigue readout on the minutes timescale: gross '
-      + 'hand tempo. Read it against the per-game speed rows to separate '
-      + '"slow game" from "slow hour"',
+    records: 'cursor travel per in-progress second in each bucket; a change '
+      + 'in the series has no assigned cause',
     of: (b, i) => b.speedPxPerSec[i], fmt: (v) => Math.round(v) + 'px/s' },
-  { label: 'click rate',
+  { label: 'click rate', unit: 'clicks/s',
     calc: 'board clicks that changed something (reveals, flags, chords) '
       + 'per in-progress second; wasted clicks are excluded — they have '
       + 'their own row',
-    use: 'the plainest tempo line: effective decisions per second. Watch '
-      + 'it climb through warm-up and sag when sleepy; read against '
-      + 'fastclick gap to split "deciding slower" from "clicking slower"',
+    records: 'board-changing clicks per in-progress second in each bucket; '
+      + 'it does not measure decisions or identify why the rate changed',
     of: (b, i) => b.clicksPerSec[i], fmt: (v) => v.toFixed(2) + '/s' },
-  { label: 'stupid deaths',
+  { label: 'avoidable deaths', unit: 'deaths/min',
     calc: 'deaths whose fatal act was avoidable with what was already '
       + 'knowable (wrong-flag chord, unproven proof-or-die open, '
       + 'contradicted-fact angelic death, or a nonideal guess when '
       + 'something strictly safer was available), per in-progress minute; '
-      + 'honest lowest-risk deaths do not count',
-    use: 'the tilt / impatience / fog detector: honest deaths are the '
-      + 'field\u2019s odds, stupid deaths are yours. A cluster marks a '
-      + 'stretch where judgment, not luck, was off',
+      + 'lowest-risk deaths do not count',
+    records: 'deaths meeting the stated rule-based avoidability definition '
+      + 'per in-progress minute; it does not identify a mental state',
     of: (b, i) => b.stupidPerMin[i], fmt: (v) => v.toFixed(2) + '/min' },
-  { label: 'wasted clicks',
+  { label: 'wasted clicks', unit: 'wasted/min',
     calc: 'board clicks that changed nothing (chords on unsatisfied or '
       + 'empty numbers, left-clicks on flags, right-clicks on revealed '
       + 'cells), per in-progress minute',
-    use: 'motor slippage rate: rises with haste, fatigue, and hardware '
-      + 'trouble. The per-game count exists; this is its across-games '
-      + 'trend line',
+    records: 'clicks that changed no board state per in-progress minute; '
+      + 'the record does not distinguish among possible causes',
     of: (b, i) => b.wastedPerMin[i], fmt: (v) => v.toFixed(1) + '/min' },
-  { label: 'fastclick gap',
+  { label: 'fastclick gap', unit: 'ms',
     calc: 'median gap between consecutive useful presses of the same game '
       + 'when the press was made on the move (cursor moving within 100ms '
       + 'before it) and the gap was under 1s',
-    use: 'the click-rate floor: when the hand is already committed, how '
-      + 'fast do clicks actually come? The hypothesis under test: tired '
-      + 'stretches have a hard floor X, warmed-up stretches run near X/2',
+    records: 'the median qualifying press-to-press interval in each bucket; '
+      + 'only the timing rule above is observed',
     of: (b, i) => b.fastclickGapMs[i], fmt: (v) => Math.round(v) + 'ms' },
-  { label: 'mine marking',
+  { label: 'mine marking', unit: 'flags/s',
     calc: 'flags placed per in-progress second (removals don\u2019t '
       + 'subtract; the win\u2019s auto-flagging is not yours and never '
       + 'counts)',
-    use: 'flagging tempo and style drift: markless stretches read 0, '
-      + 'careful stretches climb. Confidence and caution show up here '
-      + 'before they show in times',
+    records: 'flags placed per in-progress second in each bucket; confidence, '
+      + 'caution, and intent are not observed',
     of: (b, i) => b.flagsPerSec[i], fmt: (v) => v.toFixed(2) + '/s' },
+  { label: 'flag removals', unit: 'removed/min',
+    calc: 'flags taken back per in-progress minute (win auto-flagging and '
+      + 'flags left standing are not counted, only the removal itself)',
+    records: 'flags removed per in-progress minute in each bucket; the record '
+      + 'does not reveal why a flag was removed',
+    of: (b, i) => b.mismarksPerMin[i], fmt: (v) => v.toFixed(1) + '/min' },
 ];
 
-// A session chart differs from a game sparkline in one way: x is the fixed
-// sliding window (right edge = now), not 0-to-elapsed. Same look, same
-// gap rule: unmeasurable buckets break the line, never bridged.
-function buildSessionSparkline(buckets, of, size) {
-  const { width, height, left, bottom } = size;
+// A session chart is a real chart, not a sparkline (decided 2026-08-22):
+// the scatter plots' visual grammar — light gridlines, 1/2/5-step y
+// ticks with minor tickmarks, wall-clock HH:mm x ticks, labeled axes —
+// at panel width. Two more legibility rules: y starts at 0 (every
+// series is nonnegative; an auto-zoomed floor turned small wiggles
+// into drama), and x is the fixed sliding window ending at now, with
+// clock-aligned buckets so a finished bucket's point never moves.
+// Unmeasurable buckets break the line, never bridged. Width follows the
+// panel's dragged width (its grip, see buildMetricsResizeGrip): the
+// chart fills the panel's content box — width minus the 16px padding
+// and 2px border of the border-box panel.
+const SESSION_CHART = { H: 150, L: 46, R: 8, T: 8, B: 30 };
+
+function buildSessionChart(buckets, spec) {
+  const { H, L, R, T, B } = SESSION_CHART;
+  const W = settings.metricsPanelWidth - 18;
   const svg = document.createElementNS(SVG_NS, 'svg');
-  svg.setAttribute('class', 'spark');
-  svg.setAttribute('width', width);
-  svg.setAttribute('height', height);
+  svg.setAttribute('class', 'session-chart');
+  svg.setAttribute('width', W);
+  svg.setAttribute('height', H);
+  const el = (tag, attrs, text) => {
+    const node = document.createElementNS(SVG_NS, tag);
+    for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
+    if (text !== undefined) node.textContent = text;
+    svg.appendChild(node);
+    return node;
+  };
+  el('rect', { x: L, y: T, width: W - L - R, height: H - T - B, class: 'scatter-plot' });
 
-  const frame = document.createElementNS(SVG_NS, 'rect');
-  frame.setAttribute('class', 'spark-frame');
-  frame.setAttribute('x', left);
-  frame.setAttribute('y', 1);
-  frame.setAttribute('width', width - left - 1);
-  frame.setAttribute('height', height - bottom - 2);
-  svg.appendChild(frame);
+  const values = buckets.centers.map((_, i) => displayableNumber(spec.of(buckets, i)));
+  let max = 0;
+  for (const v of values) if (v !== undefined && v > max) max = v;
 
-  const values = buckets.centers.map((_, i) => displayableNumber(of(buckets, i)));
-  let min = Infinity;
-  let max = -Infinity;
-  let defined = 0;
-  for (const v of values) {
-    if (v === undefined) continue;
-    defined++;
-    if (v < min) min = v;
-    if (v > max) max = v;
+  const x0 = buckets.nowMs - buckets.windowMs;
+  const x1 = buckets.nowMs;
+  // y always starts at 0; a flat-zero series still gets a real scale.
+  const y0 = 0;
+  const y1 = max > 0 ? max * 1.08 : 1;
+  const px = (t) => L + ((Math.min(Math.max(t, x0), x1) - x0) / (x1 - x0)) * (W - L - R);
+  const py = (v) => H - B - ((v - y0) / (y1 - y0)) * (H - T - B);
+
+  const { ticks: xTicks, fmt: fmtX } = timeTicks(x0, x1);
+  for (const v of xTicks) {
+    el('line', { x1: px(v), y1: T, x2: px(v), y2: H - B, class: 'scatter-grid' });
+    // A tick near the right edge keeps its centered label inside the svg
+    // (an HH:mm label is ~32px wide at this size; half must fit).
+    el('text', { x: Math.min(px(v), W - 17), y: H - B + 13, class: 'scatter-tick tick-x' },
+      fmtX(v));
+  }
+  const yTicks = niceTicks(y0, y1, 4);
+  const yStep = yTicks.length > 1 ? yTicks[1] - yTicks[0] : 1;
+  const yDec = yStep >= 1 ? 0 : yStep >= 0.1 ? 1 : 2;
+  for (const v of yTicks) {
+    el('line', { x1: L, y1: py(v), x2: W - R, y2: py(v), class: 'scatter-grid' });
+    el('text', { x: L - 4, y: py(v) + 4, class: 'scatter-tick tick-y' }, v.toFixed(yDec));
+  }
+  for (const v of minorTicks(yTicks, y0, y1)) {
+    el('line', { x1: L - 4, y1: py(v), x2: L, y2: py(v), class: 'scatter-minor' });
   }
 
-  const textAt = (x, y, anchor, content) => {
-    const el = document.createElementNS(SVG_NS, 'text');
-    el.setAttribute('class', size.labelClass);
-    el.setAttribute('x', x);
-    el.setAttribute('y', y);
-    el.setAttribute('text-anchor', anchor);
-    el.textContent = content;
-    svg.appendChild(el);
-  };
-  textAt(left, height - 1, 'start', '-' + Math.round(SESSION_WINDOW_MS / 60000) + 'm');
-  textAt(width - 2, height - 1, 'end', 'now');
-  if (defined === 0) return svg; // frame + time axis only
-
-  const labelMin = min;
-  const labelMax = max;
-  if (min === max) { min -= 0.5; max += 0.5; }
-  const windowStart = buckets.nowMs - buckets.centers.length * buckets.bucketMs;
-  const xOf = (t) => left + ((t - windowStart) / (buckets.nowMs - windowStart)) * (width - left - 3) + 1;
-  const yOf = (v) => 1 + (1 - (v - min) / (max - min)) * (height - bottom - 4) + 1;
+  // Axis labels, scatter-style: terse, ticks carry the scale.
+  el('text', { x: L + (W - L - R) / 2, y: H - 3, class: 'scatter-axis-label' },
+    '\u2192 time of day');
+  const yLabel = el('text', { x: 0, y: 0, class: 'scatter-axis-label' },
+    '\u2192 ' + spec.unit);
+  yLabel.setAttribute('transform',
+    'translate(10 ' + (H - B - (H - T - B) / 2) + ') rotate(-90)');
+  yLabel.setAttribute('text-anchor', 'middle');
 
   let d = '';
   let pen = false;
@@ -5446,23 +5500,15 @@ function buildSessionSparkline(buckets, of, size) {
   let lastY = null;
   for (let i = 0; i < values.length; i++) {
     if (values[i] === undefined) { pen = false; continue; }
-    lastX = xOf(buckets.centers[i]);
-    lastY = yOf(values[i]);
+    lastX = px(buckets.centers[i]);
+    lastY = py(values[i]);
     d += (pen ? 'L' : 'M') + lastX.toFixed(1) + ' ' + lastY.toFixed(1);
     pen = true;
   }
-  const line = document.createElementNS(SVG_NS, 'path');
-  line.setAttribute('class', 'spark-line');
-  line.setAttribute('d', d);
-  svg.appendChild(line);
-  const dot = document.createElementNS(SVG_NS, 'circle');
-  dot.setAttribute('class', 'spark-dot');
-  dot.setAttribute('cx', lastX.toFixed(1));
-  dot.setAttribute('cy', lastY.toFixed(1));
-  dot.setAttribute('r', size.dotR);
-  svg.appendChild(dot);
-  textAt(left - 2, 8, 'end', sparkAxisNumber(labelMax));
-  textAt(left - 2, height - bottom - 1, 'end', sparkAxisNumber(labelMin));
+  if (lastX !== null) {
+    el('path', { class: 'spark-line', d: d });
+    el('circle', { class: 'spark-dot', cx: lastX.toFixed(1), cy: lastY.toFixed(1), r: 2.2 });
+  }
   return svg;
 }
 
@@ -5508,7 +5554,7 @@ function appendSessionSection(container) {
     const value = latestDefined(buckets, spec.of);
     const row = document.createElement('div');
     row.className = 'metric-row';
-    row.title = 'HOW: ' + spec.calc + '.\n\nUSE: ' + spec.use + '.'
+    row.title = 'HOW: ' + spec.calc + '.\n\nRECORDS: ' + spec.records + '.'
       + (value === undefined ? '\n\n(nothing measurable in the window yet)' : '');
     const headRow = document.createElement('div');
     headRow.className = 'metric-head';
@@ -5520,7 +5566,7 @@ function appendSessionSection(container) {
     valueEl.textContent = value === undefined ? '\u2013' : spec.fmt(value);
     headRow.append(labelEl, valueEl);
     row.appendChild(headRow);
-    row.appendChild(buildSessionSparkline(buckets, spec.of, SPARK_SMALL));
+    row.appendChild(buildSessionChart(buckets, spec));
     container.appendChild(row);
   }
 }
@@ -5760,8 +5806,9 @@ boardElement.addEventListener('contextmenu', (event) => {
     sessionRecordPress(false, false);
   } else {
     // A removal is still a useful press (it changed the board); only a
-    // placement feeds the mine-marking rate.
-    sessionRecordPress(true, cells[index].flagged);
+    // placement feeds the mine-marking rate, only a removal feeds the
+    // flag-removal rate.
+    sessionRecordPress(true, cells[index].flagged, !cells[index].flagged);
   }
 });
 

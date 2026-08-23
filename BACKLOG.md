@@ -101,10 +101,10 @@ Generation that aims at the same families the new lists rank:
 ## Session stats follow-ons (creator direction, 2026-08-22)
 
 The session section (PRODUCT.md "Session stats") is built: mouse speed,
-stupid-death / wasted-click / mine-marking rates, fastclick gap, bucketed
-over a sliding hour. The stated direction behind it is broader: anything
-recordable, usable, or inferable that helps understand the player's
-mood / condition / playstyle. Not built yet:
+avoidable-death / no-op-click / mine-marking / flag-removal rates and
+fastclick gap, bucketed over a sliding hour. It displays observations;
+causes, mental states, and traits are not inferred. Context-tag associations
+would require explicit analysis. Not built yet:
 
 - **Finer backfill from traces.** Record-based backfill on reload is
   built (2026-08-22, same evening): the last hour rebuilds from stored
@@ -113,16 +113,15 @@ mood / condition / playstyle. Not built yet:
   wanted; abandoned boards leave no record and stay lost across
   reloads either way.
 - **Longer windows and cross-session views.** An hour is the floor the
-  creator asked for; day-scale session charts, or overlaying today's
-  curve on yesterday's, would show warm-up shape rather than level.
+  creator asked for; day-scale charts or overlays of different days
+  would show repeatability and differences without assigning their cause.
 - **State-tag overlays.** Mark the session charts where a state tag went
   on or off ("sleepy" starts here), so the tags and the curves can be
   read against each other.
-- **More inferable signals.** Candidates in the same spirit: honest-death
-  rate alongside stupid (the field's odds vs the player's), justice
-  events per minute, chord share, hesitation trends (pause-and-click
-  drift within the hour), guess-ledger life-lost per minute.
-- **Stupid-death backfill.** The classification only exists on losses
+- **More measurements.** Candidates in the same spirit: lowest-risk-death
+  rate alongside avoidable-death rate, justice events per minute, chord
+  share, pre-press stillness trends, and guess-ledger life-lost per minute.
+- **Avoidable-death backfill.** The classification only exists on losses
   from 2026-08-22 on; the stored traces plus the odds engine could
   classify historical losses offline.
 
@@ -130,11 +129,12 @@ mood / condition / playstyle. Not built yet:
 
 - **Secret replay experiment** (2026-08-19 discussion;
   `reference/replay-experiment.md`): covert re-serves of transformed
-  earlier boards inside ordinary Standard play, lag as the independent
-  variable (1 game to 1 week) to fit the memory-boost decay curve;
-  implicit-memory fingerprints (click-sequence match under the
-  transform, time-to-first-deduction); a skill/luck variance split
-  (within- vs between-identity). Trial / Short trial are the overt
+  earlier boards inside ordinary Standard play, lag as the scheduled
+  variable (1 game to 1 week) to estimate repeat-associated change;
+  candidate repeat measurements (click-sequence match under the
+  transform, time-to-first-deduction); and within- vs between-identity
+  variance. Calling any effect memory, skill, or luck requires controls
+  beyond board identity. Trial / Short trial are the overt
   instrument; this is the covert, long-lag complement.
 
 ## Already true, so they are not backlog
@@ -145,11 +145,12 @@ mood / condition / playstyle. Not built yet:
   scatters; markless; states; settings; traces; four in-page motion
   systems; "A just universe" v1; play-mode switcher; Uniform NG;
   Single-path NG; Proof-or-die; Angelic; Trial (25 identities × 4
-  isometries, lobby → start → memory-test review); Short
+  isometries, lobby → start → repeat-comparison review); Short
   trial (4 × 4); Test trial (1 × 4); correctness / throughput / IOS
   (derived); guess ledger (life lost, needless, ideal-risk, one-ply
   perfect play); music-playing state (boolean asked of the local base
-  system); stupid-death classification on losses; the session stats
+  system); avoidable-death classification on losses (legacy storage field
+  `stupidDeath`); the session stats
   section (bucketed sliding-hour series, flush left).
 - Waste metrics (pauses, wander, turnarounds, feints) and the
   biometrics / mousetrap / Hevelius-style displays. The Tier 1/2

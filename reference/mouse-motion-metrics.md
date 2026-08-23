@@ -3,8 +3,11 @@
 Compiled 2026-08-20 from four literatures that all profile people through
 cursor movement: psychometric mouse-tracking, behavioral biometrics
 (mouse dynamics), clinical motor assessment, and esports/HCI kinematics.
-Purpose: a menu of candidate per-game measurements for this project, each
-tied to what it reveals about the player. Implementation status (updated
+Purpose: a menu of candidate per-game measurements for this project. The
+formulas record cursor geometry and timing; they do not by themselves reveal
+the player's cause, intention, cognitive state, expertise, health, or hardware.
+Findings cited below belong to the cited studies' tasks and populations and
+are hypotheses—not validations—for Minesweeper data. Implementation status (updated
 later on 2026-08-20): all four systems now run in-page over the raw trace
 and display live plus canonically at game end (PRODUCT.md "Trace metrics
 panel") — the biometrics session set, the mousetrap psychometric
@@ -31,9 +34,10 @@ annotate that travel rather than filter it.
 ### Psychometric mouse-tracking (decision research)
 
 The MouseTracker / mousetrap tradition (Freeman & Ambady 2010; Stillman
-2018 TiCS review; Kieslich et al., mousetrap R package) records the
-cursor en route to a choice and reads hesitation and conflict out of the
-trajectory:
+2018 TiCS review; Kieslich et al., mousetrap R package) records cursor
+trajectories in controlled choice tasks. Those studies interpret some
+trajectory differences in relation to conflict; this project only reuses
+the formulas:
 
 - Maximum absolute deviation (MAD) and area under the curve (AUC):
   how far the actual path bows away from the straight line from movement
@@ -48,9 +52,10 @@ trajectory:
 - Velocity/acceleration profiles over normalized time: when in the
   movement the commitment happened.
 
-Minesweeper mapping: each inter-click segment is a decision about where
-to click next. Deviation-from-straight and reversal counts are directly
-computable per segment.
+Minesweeper mapping: each inter-click segment is an observable path from
+one click to the next. Deviation-from-straight and reversal counts are
+computable per segment; calling that segment a decision or hesitation would
+require evidence not present in the trace.
 
 ### Behavioral biometrics (mouse dynamics)
 
@@ -69,17 +74,19 @@ mouse-dynamics surveys 2022-2025). Their standard feature vocabulary:
 - Stroke segmentation: movement bouts split by silences; features
   computed per stroke.
 
-Notable finding: speed and pause features shift with hardware/platform;
-angle-based features are stable per person across platforms. For this
-project that means speed metrics will move when the player changes mouse
-(a states tag like "new mouse" is the control), while curvature-family
-metrics track the player.
+The cited biometrics studies report hardware/platform differences in some
+speed and pause features and greater cross-platform stability for some
+angle features under their conditions. This project has not established
+either result. A "new mouse" tag merely records context for later analysis;
+it is not a control and does not prove that hardware caused a change.
 
 ### Clinical motor assessment (health profiling)
 
-Mouse trajectories detect and grade Parkinsonism, ataxia, tremor, and
-fatigue (Hevelius tool, Gajos et al., Movement Disorders 2020; INRIA
-tremor-detection 2020; submovement studies):
+Controlled clinical tasks have used mouse trajectories in models of
+Parkinsonism, ataxia, tremor, and fatigue (Hevelius tool, Gajos et al.,
+Movement Disorders 2020; INRIA tremor-detection 2020; submovement studies).
+Those validations do not transfer automatically to ordinary Minesweeper;
+this project performs no clinical inference:
 
 - Hevelius extracts 32 features from target-directed mouse movements;
   the ones that separated patients from controls: movement time,
@@ -90,26 +97,25 @@ tremor-detection 2020; submovement studies):
   at most one correction; impairment (or unfamiliarity, or fatigue)
   shows as more submovements, detected as acceleration or jerk
   zero-crossings.
-- Tremor: 4-6 Hz oscillation superimposed on the path; even healthy
-  people show elevated physiological tremor under fatigue or alcohol —
-  which is exactly what the states tags ("sleepy", "inebriated") could
-  correlate against.
+- Tremor: cited work examines 4-6 Hz oscillation superimposed on the path.
+  A state tag such as "sleepy" or "inebriated" is only a self-reported
+  grouping variable; any association would need to be tested.
 
 ### Esports / HCI kinematics
 
 Aim Lab (Frontiers in Human Neuroscience 2022), Aiming.Pro metrics,
 Fitts's law pointing research:
 
-- Reaction time: stimulus onset to movement start. Minesweeper analog:
-  board changes after a reveal → how long until the cursor starts moving
-  toward the next click.
+- Reaction time: stimulus onset to movement start. Minesweeper has no
+  observed instruction or goal-onset equivalent; it can only record elapsed
+  time from an observable board event or preceding click.
 - Path efficiency: straight-line distance to target divided by actual
   path length. The exact formalization of "wasted motion".
 - Overshoot/undershoot: passing the target and coming back vs clicking
   short, split by movement direction.
-- Initial movement angle vs target direction: did the hand start toward
-  the eventual click or somewhere else first ("went one way, changed
-  plan, went another way").
+- Initial movement angle vs target direction: the angular difference
+  between the first sampled movement and the eventual click direction.
+  It does not establish that a plan changed.
 - Fitts's law throughput: effective bits/s of pointing, from target
   distance and size vs movement time. Cell size is fixed here, so
   throughput reduces to distance-vs-time curves per click.
@@ -157,14 +163,16 @@ and stored as a primary measurement; everything else derives:
 1. `mouseActiveMs` — ms spent actually moving (mousemove gaps < 100 ms
    chain into one bout). Derives: idle time = timeMs - mouseActiveMs,
    silence ratio, and true moving speed = mousePathPx / mouseActiveMs
-   (today's "mouse speed" divides by total time, so thinking time
-   dilutes it).
+   (today's "mouse speed" divides by total time, so nonmovement time is
+   included in its denominator; the trace does not identify that time as
+   thinking).
 2. `pauseCount` and `longestPauseMs` — pauses = gaps >= 250 ms while
-   playing. Derives mean pause length. Longest pause is the "stuck on a
-   deduction" moment.
+   playing. Derives mean pause length. The reason for a pause is not
+   observed.
 3. `clickTravelPx` — sum of straight-line distances between consecutive
    click positions. Derives wander ratio = mousePathPx / clickTravelPx
-   (1.0 = perfectly direct all game; the pure "wasted motion" number).
+   (1.0 = the straight-line minimum between the observed click positions;
+   excess path has no assigned cause).
 4. `dirChanges` — heading reversals > 90 degrees between movement
    segments of >= 8 px each (the length floor keeps pixel jitter out).
    The x-flips analog on an open 2D board.
@@ -173,15 +181,17 @@ and stored as a primary measurement; everything else derives:
    and stddev of speed at read time; nothing else stored.
 6. `preClickStillMs` — total stillness time immediately preceding each
    effective click (pause-and-click). Derives mean lag per click:
-   decision lag separated from travel.
+   pre-press stillness separated from sampled travel; it does not isolate
+   a decision process.
 
 ### Tier 2 — event detection during play, still scalar outputs
 
-7. `feintCount` — approaches that die: cursor dwells >= 300 ms over a
-   hidden cell, then leaves without clicking anything within that dwell.
-   Direct "moved there, did nothing, went elsewhere" counter.
+7. `feintCount` — cursor dwells >= 300 ms over a hidden cell, then leaves
+   without clicking within that dwell. It records that event without
+   inferring whether the player intended to click.
 8. `submovementCount` — acceleration zero-crossings within movement
-   bouts. Smoothness/fatigue marker from the clinical literature.
+   bouts. Clinical studies have used related measures, but this project
+   does not infer fatigue or impairment from the count.
    Requires velocity differentiation with light smoothing; thresholds
    need tuning against real play before the definition is frozen into
    the schema.
@@ -209,10 +219,9 @@ Tier 1/2 waste measures above. Harnesses: tests/metrics-*.js.
 
 - Every Tier 1/2 metric joins the schema under the established absence
   rules (absent = not measured, valid on import).
-- The states panel is the natural experiment layer: silence ratio vs
-  "sleepy", dirChanges and submovements vs "inebriated", speed stddev vs
-  "new mouse" are exactly the correlations the clinical and biometrics
-  literatures found to be real.
+- The states panel supplies self-reported grouping variables. Comparisons
+  such as silence ratio by "sleepy" or speed by "new mouse" are untested
+  hypotheses here; correlation would not establish causation.
 - Threshold constants (100 ms bout gap, 250 ms pause, 300 ms dwell,
   8 px segment floor, 90 degrees reversal) are definitional parts of
   each metric: changing one later changes the metric's meaning, so they
@@ -259,16 +268,13 @@ all — correct, because no physical interaction happened there.
 
 Two consequences worth remembering when reading the numbers:
 
-- The thinking contamination (FEATURES.md A4) is *uneven* across
-  segments. A queued return like C — thinking prepaid during the
-  A-chain — is nearly pure transport: prompt initiation, direct path,
-  short verification; one of the cleanest motor measurements gameplay
-  produces. A fresh-deduction segment is soaked with thinking. Per-game
-  means mix both kinds.
-- Because of that, a deliberate-movement filter (the CHI 2012
-  classifier direction, reference/hevelius/) would not just remove
-  wandering — it would also *find* the queued returns, which are the
-  gold-standard pointing trials hiding in ordinary play.
+- Unobserved cognition may occupy different amounts of different segments.
+  The trace cannot determine whether a return was queued, whether thinking
+  occurred earlier, or whether a deduction was fresh. Per-game means mix
+  segments with unknown internal timing.
+- A deliberate-movement classifier inspired by CHI 2012 could be tested,
+  but its labels and validity in Minesweeper would need independent
+  validation; it cannot be assumed to identify queued returns.
 
 Computable refinements, researched, NOT built:
 
@@ -283,8 +289,8 @@ Computable refinements, researched, NOT built:
   click time − deducible-since, decomposable into visible transport
   plus invisible cognition-and-queueing.
 - Queue metrics built on that: how long discovered-but-pending
-  frontiers wait, whether they are cleared in an efficient order, and
-  whether queue latency stretches under fatigue or states. No ported
+  frontiers wait and their clearing order. Associations with state tags
+  would be hypotheses to test. No ported
   literature measures this — their tasks have one instructed goal at a
   time; minesweeper naturally has a queue.
 

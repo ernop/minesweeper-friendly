@@ -1095,7 +1095,10 @@ body.trial-offboard #result-ranks {
   left: 6px;
   top: 6px;
   bottom: 6px;
-  width: 172px;
+  /* Default only: the real width is the metricsPanelWidth setting, set
+     by dragging the panel's right edge and applied inline on render.
+     Wide enough for the session charts' full axis treatment. */
+  width: 316px;
   overflow-y: auto;
   background: #fbfbfb;
   border: 1px solid #dddddd;
@@ -1176,6 +1179,31 @@ body.trial-offboard #result-ranks {
   font-weight: normal;
   text-transform: none;
   letter-spacing: normal;
+}
+
+/* The panel's right-edge resize grip. Fixed to the viewport (not
+   absolute in the panel: the panel scrolls, and the grip must ride the
+   visible edge, not scroll away with the content); render and drag set
+   its left inline to track the panel edge. The hover tint hints at the
+   affordance without adding a permanent visual line. */
+.metrics-resize {
+  position: fixed;
+  top: 6px;
+  bottom: 6px;
+  width: 7px;
+  cursor: ew-resize;
+}
+.metrics-resize:hover { background: #dde6ee; }
+
+/* Session charts reuse the scatter plots' visual grammar (plot frame,
+   gridlines, tick classes) at panel width. */
+.session-chart {
+  display: block;
+  margin-top: 2px;
+}
+.session-chart .scatter-tick,
+.session-chart .scatter-axis-label {
+  font-size: 10px;
 }
 
 /* The after-game charts sit inline among the bottom charts; the head

@@ -14,6 +14,12 @@ appears as Appendix A of the 2023 TACCESS follow-up
 most complete public description of the system. Definition count recovered:
 32 of 32, with two caveats in "Definition status" below.
 
+Scope: this file documents source-paper formulas and how they can be
+computed from this project's traces. The Hevelius findings were established
+in its own target-clicking tasks and study populations. Reusing a formula in
+Minesweeper does not validate the same interpretation, identify the cause of
+a value, or support an individual health or diagnostic claim.
+
 ## Files in this directory
 
 - `gajos2020-computer-mouse-ataxia-parkinsonism-authors-version.pdf` — main
@@ -288,22 +294,20 @@ normalization. Robustness comes from the statistical layer instead:
   transformed, then regressed on log2(distance) and log2(target size) (the
   TACCESS version adds a task-type term: reciprocal vs one-at-a-time). A
   test-taker's z-score is (observed − regression estimate) / SD of residuals
-  for that age. This is what makes scores nominally independent of target
-  size, distance, and screen — and it is the mechanism we would borrow for
-  A3 (minesweeper movements have continuously varying d with fixed w).
+  for that age. This was the source paper's normalization procedure;
+  whether it transfers to Minesweeper would need separate validation.
 - Age: separate regression per age year; z-scores smoothed across ages by
   locally weighted linear regression (lambda = 5). Age-specific z-scores are
-  the paper's device for separating disease from development/aging. For our
-  multi-year self-tracking, aging is signal, not confound: track raw
-  (difficulty-normalized) values, not age-relative ones.
+  the paper's device for separating disease from development/aging. This
+  project cannot infer aging or disease from raw longitudinal values.
 - Devices: TACCESS states participants' own computers (different mice, gain,
   pixel ratios) did not substantially affect the measures as long as a mouse
-  was used. Our player-states mechanism can stamp device changes explicitly.
+  was used. That result is not assumed here; a device state tag only records
+  self-reported context for later analysis.
 - Session structure and warmup: in-clinic, the first 2 blocks are practice
   and excluded from analysis; the first trial of each block only positions
-  the cursor and is excluded. Within-session warmup is real and Hevelius
-  handles it by exclusion — for our per-game series, early-session games can
-  be tagged rather than dropped.
+  the cursor and is excluded. That protocol does not prove that changes in
+  this game's early-session series are caused by warmup.
 - Session length and aggregation: the task is 8 scored blocks of 9 targets,
   2-6 min in clinic. Z-scores are computed per block, then averaged. At home
   (TACCESS): single-session test-retest reliability was only moderate;
@@ -314,8 +318,8 @@ normalization. Robustness comes from the statistical layer instead:
   median.
 - Day-to-day state: caregiver/participant reports of mood, fatigue, and
   sleep did not significantly explain session-to-session variability in
-  estimated scores (TACCESS Table 4) — relevant to our states feature: the
-  interesting variance may sit in the residual, not the self-report.
+  estimated scores (TACCESS Table 4). This project's tags remain context
+  labels only; no cause is assigned from them.
 - Per-feature reliability (TACCESS Table 3): good ICC in both A-T and
   healthy children at 2-session aggregation for movement time, number of
   pauses, duration of longest pause, execution time, click duration, and
@@ -323,31 +327,24 @@ normalization. Robustness comes from the statistical layer instead:
   offset, movement error, movement variability, peak acceleration
   variability, max deviation from task axis, and main submovement.
 
-## Five most promising features for our longitudinal use
+## Five source-paper candidates, not validated for this app
 
-Criteria: test-retest reliability (TACCESS Table 3), immunity to the
-decision-time confound (A4), computability from our trace with the fewest
-assumptions, and demonstrated sensitivity (Table S2 z-scores; age curves in
-fig S3).
+The ranking below was originally based on source-study reliability,
+computability, and source-study group differences. It is retained as research
+history, not as a claim that these features measure the same constructs in
+Minesweeper.
 
 1. Execution time (per movement, difficulty-normalized; feature 3, with 4).
-   Good ICC; starts at the first mousemove so it excludes pre-movement
-   deliberation; the purest "how long does the hand take" number available
-   from gameplay.
-2. Click duration (24). Good ICC, purely motor, computable directly, zero
-   dependence on segmentation or targets; large effects in both ataxia and
-   parkinsonism (Table S2).
-3. Normalized jerk without pauses (29). Good ICC; the strongest separator in
-   Table S2 (z 3.2-3.6 in ataxia, 1.4 in parkinsonism); cursor-only;
-   designed to be minimally correlated with task difficulty, which suits our
-   uncontrolled d.
-4. Peak speed (7). Cursor-only, robust to segmentation edge noise, and the
-   clearest documented aging signal (declines with age, fig S3) — the
-   feature most aligned with multi-year tracking.
-5. Click slip (26). Direct, purely motor, unaffected by every named
-   assumption; elevated in ataxia; cheap to compute and to backfill over all
-   stored traces.
+   Good ICC in the source study; starts at the first mousemove and therefore
+   excludes elapsed time before that observable event.
+2. Click duration (24). Good ICC in the source study and computable directly;
+   source-study group differences do not constitute a diagnosis here.
+3. Normalized jerk without pauses (29). Good ICC and group differences in
+   the source study; transfer to this task is unvalidated.
+4. Peak speed (7). The source study reported an age relationship; this app
+   records peak speed without attributing a longitudinal change to age.
+5. Click slip (26). Directly computable from press and release positions;
+   source-study group differences are not interpreted clinically here.
 
-Runner-up: number of pauses / longest pause (31, 32) — good ICC in Hevelius,
-but in minesweeper pauses measure thinking (A4); only usable within strictly
-filtered target-directed segments.
+Runner-up: number of pauses / longest pause (31, 32) — good ICC in Hevelius.
+In Minesweeper the reason for a sample gap is unknown.

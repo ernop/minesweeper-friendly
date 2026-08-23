@@ -156,8 +156,8 @@ Implementation notes:
   - `computeAllTraceMetrics` — the combined {bio, psych, hev, waste,
     cad} object the display consumes.
   The DISPLAY section holds `TRACE_METRIC_GROUPS` (per system: key,
-  name, definition, displays of {label, calc, use, of, fmt} — calc and
-  use render as the row's "HOW:/USE:" hover tooltip; series identity is
+  name, definition, displays of {label, calc, records, of, fmt} — calc and
+  records render as the row's "HOW:/RECORDS:" hover tooltip; series identity is
   metricSeriesKey = group key + label; not everything
   computed is displayed), `metricsSeries` (reset by
   `beginTraceMetricsSeries` from `beginTrace`),
@@ -267,7 +267,7 @@ Implementation notes:
   into the next bucket), stored fastclick median as one gap sample per
   overlapped bucket; live and backfill cannot overlap because every
   backfilled game ended before the page load. DISPLAY: `SESSION_GROUP` +
-  `SESSION_METRIC_SPECS` (label/calc/use/of/fmt like the trace groups),
+  `SESSION_METRIC_SPECS` (label/calc/records/of/fmt like the trace groups),
   `buildSessionSparkline` (fixed sliding-window x axis, right edge =
   now, "-60m"/"now" labels), `latestDefined` (the shown number),
   `appendSessionSection` (renders into the panel top, hosts the
@@ -275,8 +275,9 @@ Implementation notes:
   SESSION_BUCKET_CHOICES lives beside SETTINGS_SCHEMA). The live-metrics
   setInterval renders the panel session-only between games so the
   window keeps sliding.
-- Stupid death (PRODUCT.md "Stupid death"): `lose(hitIndices,
-  stupidVerdict)` — every call site passes its verdict (chord /
+- Avoidable-death classification (stored under the legacy field name
+  `stupidDeath`; PRODUCT.md "Avoidable-death classification"):
+  `lose(hitIndices, stupidVerdict)` — every call site passes its verdict (chord /
   proof-or-die / angelic deaths: categorically true;
   `bareDeathStupidity(index, firstReveal)` judges bare reveals off the
   last guess-ledger event's idealRisk, false on a trial first click,
@@ -284,7 +285,7 @@ Implementation notes:
   holds it until `reportResult` writes `stupidDeath` (losses only,
   absent = not measured; reset in newGame so a following win cannot
   inherit it), and `sessionRecordDeath` feeds the session series the
-  same verdict.
+  same rule-based classification. The field does not encode a cause.
 - Music state (PRODUCT.md "Music playing"): `sampleMusic` fetches
   `MUSIC_ENDPOINT` (http://localhost/api/is-music-playing — the resident
   ProjectLauncher at `~/proj/mybrowser/utilities/caddy/launcher/launcher.py`,

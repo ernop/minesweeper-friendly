@@ -81,8 +81,8 @@ Beginner Standard win never appears on Beginner Uniform NG lists.
   the finished board stays; the titlebar (or space) deals the next
   one. A restart before that game is finished skips the current slot
   and deals the next item. When the last game finishes, the board
-  disappears. A centered header holds the session line, the memory
-  verdict, and Start another trial; the meeting-index summary is a
+  disappears. A centered header holds the session line, a descriptive
+  later-versus-first comparison, and Start another trial; the meeting-index summary is a
   full-width row under that; per-board cards wrap below. Start another trial stays inert for a short
   moment so a trailing click cannot begin a new session. Leaving the
   mode or changing size while a session is running ends it; that
@@ -90,7 +90,7 @@ Beginner Standard win never appears on Beginner Uniform NG lists.
   Solve-time, 3BV/s, and efficiency omit losses; counts, overlays, and
   motion metrics keep them.
   The review leads with later meetings of the same identity vs first
-  meetings. A verdict and meeting-index bars (mean win time, 3BV/s,
+  meetings. Descriptive comparison text and meeting-index bars (mean win time, 3BV/s,
   win rate; light gold = first meeting, dark brown = last) sit above
   the per-board list. Identities are collapsed; a row opens if it has a
   loss, a large first-to-last swing, or is the only board. Open rows
@@ -191,17 +191,18 @@ minted specifically for them.
 
 ## Measurement purpose (decided 2026-08-20)
 
-The point of all per-game measurement — the scalar stats, the raw input
-traces, the states tags — is to detect and characterize differences
-within one changing player, on every timescale at once:
+The point of all per-game measurement — scalar stats, raw input traces,
+and state tags — is to preserve observations that can be compared within
+one player over minutes, days, and longer periods. The game records what
+happened; it does not infer why a value changed. A state tag permits later
+grouping by that self-reported context, but neither a tag nor a correlation
+establishes a cause. Motion and gameplay measurements are not diagnoses,
+health assessments, personality traits, or proven measures of fatigue,
+attention, confidence, expertise, or cognition.
 
-- minute by minute, as they warm up within a session;
-- day by day, as they learn, or are tired, sick, brain-fogged, have or
-  haven't exercised, and everything else the states tags can name;
-- month by month, year by year, decade by decade, to characterize
-  learning curves, aging, recovery, and overall health.
-
-Anything minesweeper data might relate to in that concern is in scope.
+Questions about learning, equipment, health, or other circumstances are
+research hypotheses until tested against the stored observations with an
+explicit analysis and appropriate controls.
 This is why measurements favor completeness over compactness, why raw
 traces are kept (a metric invented years from now must be computable over
 today's games), and why spent effort is never dropped (see the
@@ -270,15 +271,13 @@ Time row) a small olive-green "(m)" precedes it. Aggregate times
 games. Records from before the
 measurement never claim the status, since for them it is unknown.
 
-Flags removed — how many flags the player took back — joined the schema
-on 2026-08-20 under the same absence rules. This is the second kind of
-waste, distinct from wasted clicks: the place and the remove each changed
-the board (both count as effective clicks, and the placement still counts
-in flags placed), but the pair netted nothing, so every removal marks 2
-clicks of retracted work. It is kept as its own measurement rather than
-folded into wasted clicks because the two wastes mean different things —
-a wasted click is a motor slip (clicking where nothing can happen), a
-removed flag is a changed mind.
+Flags removed — how many flag states the player turned off — joined the
+schema on 2026-08-20 under the same absence rules. Placement and removal
+both changed the board and count as effective clicks; the placement still
+counts in flags placed. Removal is stored separately from no-op clicks
+because they are different observable events. The record does not say why
+either event occurred: a no-op is not automatically a motor slip, and a
+removed flag does not prove a changed mind.
 
 Justice — how many bare entries into certified sealed pockets were
 guaranteed safe (see "A just universe") — joined the schema on 2026-08-20
@@ -337,22 +336,26 @@ status line and omits that game's ledger. The odds engine is held to
 ground truth by a brute-force parity test (every consistent layout
 enumerated on small random boards; probabilities must match exactly).
 
-Stupid death — on a loss, whether the fatal act was avoidable with what
-was already knowable — joined the schema on 2026-08-22 (decided
-2026-08-22, alongside the session stats). Categorically stupid: any chord
+Avoidable-death classification — on a loss, whether the fatal act meets
+the following rule-based definition of avoidable from the represented
+player information — joined the schema on 2026-08-22 (decided
+2026-08-22, alongside the session stats). Categorically avoidable: any chord
 death (a flag is the player's unsupported claim — the Justice doctrine —
 and a wrong one killed), any proof-or-die death (opening an unproven cell
 is deterministic), any angelic death (the only way to die there is
 contradicting known facts). A bare-reveal death is judged by its own
-guess-ledger event: stupid when the guess was nonideal (a strictly safer
-square — possibly a provably safe one — was available), honest when it
-took the lowest available risk. A trial first click into a fixed layout
-that happens to be mined is honest: nothing was knowable. The field is
+guess-ledger event: classified avoidable when the guess was nonideal (a
+strictly safer square — possibly a provably safe one — was available),
+and not classified avoidable when it took the lowest available risk. A
+trial first click into a fixed layout that happens to be mined is not
+classified avoidable: nothing was knowable. The field is
 absent on wins and whenever the fatal click could not be measured (odds
 over budget, ledger-free modes reached through no categorical rule) —
 absence means "not measured", the usual rule. The stats table shows a
-"Stupid death" row (yes / no) on losses that carry the field, and stupid
-deaths feed the session stats' per-minute rate live.
+"Avoidable death" row (yes / no) on losses that carry the field, and
+classified deaths feed the session stats' per-minute rate live. This
+classification describes the action under the stated rules; it does not
+identify judgment, attention, impatience, or any other cause.
 
 Fastclick gap — the game's median gap between consecutive board-changing
 presses made on the move (a cursor move within 100ms before the press)
@@ -421,9 +424,10 @@ carries at least one tag.
 
 ## Player states
 
-- The player keeps a personal list of state tags describing their
-  situation — sleepiness, mood, hardware ("bad mouse"), location — so
-  they can later correlate life circumstances with results.
+- The player keeps a personal list of self-reported context tags —
+  sleepiness, mood, hardware ("bad mouse"), location. Active tags are
+  stored on finished-game records for later grouping and comparison; the
+  tag and any observed association do not establish a cause.
 - Only ACTIVE states are visible. Each shows as a chip (the me-row
   highlight: bold black on light blue, with a trailing x); clicking a
   chip takes the state off. An untagged session shows nothing but one
@@ -741,10 +745,9 @@ carries at least one tag.
   systems beyond the first were reimplemented in-page; click timing
   added 2026-08-22). Every row
   carries a two-part explanation as its hover tooltip — "HOW", exactly
-  how the value is calculated, and "USE", what it might be used for and
-  in what context (the literature's reading plus this project's
-  multi-timescale tracking angle); each section header explains its
-  system the same way. The sections:
+  how the value is calculated, and "RECORDS", a literal description of
+  the observation without assigning a cause; each section header explains
+  its system the same way. The sections:
   - DYNAMICS — the behavioral-biometrics session set over movement bouts
     (a pause of 100ms or more separates bouts): strokes, moving, silence
     (share of the game with the cursor still), path, speed (mean of
@@ -759,9 +762,8 @@ carries at least one tag.
     direct), pauses / paused / longest pause (stops of 250ms or more),
     turnarounds (heading reversals over 90° between movement legs of 8px
     or more), feints (dwelled 300ms or more over a cell, then left it
-    without clicking — approach-abandon made countable). Fruitless
-    effort is counted, never subtracted away (the measurement
-    principle).
+    without clicking). These are event definitions, not claims about
+    intention.
   - CLICK TIMING — press-to-press cadence over all button presses, left
     and right together (added 2026-08-22): click gap (median gap between
     consecutive presses), gap spread (interquartile range over median —
@@ -773,13 +775,13 @@ carries at least one tag.
     unit: a wasted click is the same motor act as an effective one, and
     the trace records the hand, not the board effect (the measurement
     principle again).
-  - PSYCHOMETRIC — the mousetrap decision-research measures (Kieslich et
-    al.) per inter-click segment, means over segments: segments, MAD,
+  - TRAJECTORY GEOMETRY — mousetrap-formula measures (Kieslich et al.)
+    per inter-click segment, means over segments: segments, MAD,
     AUC, AD, x-flips, y-flips, initiation, idle, vel max, acc max,
     sample entropy, segment time. An exact port of the R package as
     `analysis/mousetrap/trace_measures.R` applies it, verified
     value-for-value against Rscript (see agents.md).
-  - CLINICAL — Hevelius-style motor features (Gajos et al. 2020;
+  - MOVEMENT GEOMETRY — Hevelius-formula movement features (Gajos et al. 2020;
     reference/hevelius/FEATURES.md) per inter-click movement, means over
     movements: execution, exec no pauses, peak speed, peak accel,
     submovements, main sub, sub end dist, axis dev, movement error, axis
@@ -790,7 +792,7 @@ carries at least one tag.
     planned. The block-variability features (CoV across
     equal-difficulty movements) are offline-only: they need difficulty
     residualization first.
-- An inter-click segment (the psychometric and clinical unit) runs from
+- An inter-click segment (the trajectory- and movement-geometry unit) runs from
   the previous click to the next, the click being the segment's response
   — the exact trial construction of the offline R pipeline; segments
   with fewer than 5 trajectory points are unmeasurable and skipped.
@@ -811,12 +813,11 @@ carries at least one tag.
 
 ## Session stats (decided 2026-08-22)
 
-The ongoing self-observation section: a handful of per-bucket series over
-the last hour, across games, shown live at the top of the flush-left
-panel. This is the measurement purpose's minutes timescale made visible —
-warm-up, fatigue, tilt, mood — and each series is deliberately both a
-per-game statistic (already in the records) and this ongoing bucketed
-trend.
+The recent-observations section: a handful of per-bucket series over the
+last hour, across games, shown live at the top of the flush-left panel.
+Each series is deliberately both a per-game statistic (already in the
+records) and an ongoing bucketed trend. The chart displays changes but
+does not label their cause.
 
 - Scope: only time a game was actually in progress (first reveal — or
   first flag once mines exist — to game end). Losses count. Abandoned
@@ -825,30 +826,39 @@ trend.
   Travel to the restart button and between-game idling are nobody's
   statistic.
 - The series, each a row (name, current value, chart) in the panel's
-  session section:
+  recent-observations section:
   - **mouse speed** — px of cursor travel while playing over in-progress
     seconds, px/s.
   - **click rate** — board clicks that changed something (reveals,
-    flags, chords) per in-progress second; wasted clicks excluded (they
-    have their own row). The plainest tempo line: read against fastclick
-    gap to split "deciding slower" from "clicking slower".
-  - **stupid deaths** — deaths classified stupid (see "Stupid death"
-    under Per-game stats) per in-progress minute; honest deaths do not
-    count.
+    flags, chords) per in-progress second; no-op clicks excluded (they
+    have their own row). It does not partition decision and movement time.
+  - **avoidable deaths** — deaths meeting the rule-based classification
+    above per in-progress minute; other deaths do not count.
   - **wasted clicks** — the wasted-click definition, per in-progress
     minute.
-  - **fastclick gap** — median gap between consecutive useful presses of
+  - **fastclick gap** — median gap between consecutive board-changing presses of
     the same game, counting only presses made on the move (a cursor
     sample within 100ms before, the cadence definition) with gaps under
-    1s. The click-rate floor: the hypothesis is that tired stretches
-    have a hard floor X while warmed-up stretches run near X/2.
+    1s. It records only that filtered timing distribution.
   - **mine marking** — flags placed per in-progress second (removals
     don't subtract; win auto-flagging never counts).
+  - **flag removals** (added 2026-08-22, same evening) — flags taken
+    back per in-progress minute. Counts the removal, not the placement;
+    flags left standing are invisible here, and the reason for removal
+    is not observed.
+    Backfills from the stored per-game `flagsRemoved` count, and the
+    stats table shows the per-game form as "Flag-removal rate" beside the
+    existing "Flags removed" count.
 - Buckets: the bucket size is selectable on the section itself (10s /
   30s / 1m / 5m; persisted as the `sessionBucketSeconds` setting,
-  default 1m). The charts' x axis is a fixed one-hour sliding window
-  whose right edge is now: each once-a-second re-render slides the data
-  left and new buckets accrete at the right, even between games.
+  default 1m). Buckets align to the wall clock — a 1m bucket is a real
+  calendar minute — not to "now" (decided 2026-08-22, later that
+  evening: right-edge-anchored buckets re-binned all history every
+  render, so every point on every chart wiggled every second). A
+  finished bucket's value is frozen forever; only the current,
+  still-filling bucket changes. The charts' x axis is a fixed one-hour
+  sliding window whose right edge is now: new buckets accrete at the
+  right as the clock crosses boundaries, even between games.
 - Honesty rules: a bucket with under one second of in-progress play
   shows an en dash — one death over a 50ms sliver is an absurdity, not
   a reading. Unmeasurable buckets are gaps in the line, never bridged;
@@ -858,24 +868,43 @@ trend.
 - Storage: the live event log is RAM, but the window survives reload
   (decided 2026-08-22, same evening): at startup the last hour is
   rebuilt from the stored game records — play 30 minutes, close the tab,
-  reopen, and the running averages are still there. Backfill is
-  bucket-level approximate where live capture is exact: a record holds
-  totals, not timestamps, so each game's totals spread evenly over its
-  span, its stupid death lands in the bucket it ended in, and its stored
-  per-game fastclick median stands in for that span's gaps. All modes'
+  reopen, and the running averages are still there. The inclusion rule
+  (stated explicitly 2026-08-22, late evening, and verified with a live
+  loss + reload): wins and losses backfill alike, each with its full
+  played time — a loss's record carries its duration, counts, and death
+  exactly as a win's carries its counts. Losing an abandoned board's
+  time is acceptable; missing a loss is not. Abandoned boards produce
+  no record and so cannot be backfilled: their played time is kept live
+  but honestly lost across a reload — the one accepted gap. All modes'
   games backfill — session stats are about the player, not the board.
-  Abandoned boards produce no record and so cannot be backfilled: their
-  played time is kept live but honestly lost across a reload. The traces
-  hold exact timing if a finer backfill is ever wanted. The only new
-  per-game persistence is the `stupidDeath` and `fastclickGapMs` fields
-  (2026-08-22); every series also has a per-game form in the stats
-  table — click, wasted, and mark rates derived from stored counts,
+  Backfill is bucket-level approximate where live capture is exact: a
+  record holds totals, not timestamps, so each game's totals spread
+  evenly over its span, its classified avoidable death lands in the
+  bucket it ended in, and its stored per-game fastclick median stands
+  in for that span's gaps. The traces hold exact timing if a finer
+  backfill is ever wanted. The only new per-game persistence is the
+  legacy-named `stupidDeath` field and `fastclickGapMs` (2026-08-22);
+  every series also has a per-game form in the stats table — click,
+  wasted, mark, and flag-removal rates derived from stored counts,
   mouse speed as before, the fastclick gap from its stored field.
 - Display: the section renders at the top of the left metrics panel,
   always (not just during games), under its own "session" header with
-  HOW/USE hover explanations like every other metric row. The
+  HOW/RECORDS hover explanations like every other metric row. The
   `showSessionStats` setting (default on) turns it off; the panel's ×
   chip tucks it away with the rest.
+- Charts: real charts, not sparklines (decided 2026-08-22, same
+  evening) — the scatter plots' visual grammar at panel width (the
+  panel widened to fit): plot frame, light gridlines, 1/2/5-step y
+  ticks with minor tickmarks, wall-clock HH:mm x ticks, a rotated
+  y-axis unit label, and "→ time of day" under the x axis. The y axis
+  always starts at 0 (every series is nonnegative; an auto-zoomed
+  floor turned small wiggles into drama).
+- Resizable (added 2026-08-22, late evening): the panel's right edge is
+  a drag grip (fixed to the viewport so it never scrolls away with the
+  panel content). Dragging resizes the panel live; the charts recompute
+  to fill the new width on release and on every once-a-second re-render.
+  The width persists as the `metricsPanelWidth` setting (default 316px,
+  clamped 220–640); collapsing to the corner chip ignores it.
 
 ## Personal settings (decided 2026-08-20)
 
@@ -909,7 +938,9 @@ trend.
   metrics panel); `showSessionStats` (default on) and
   `sessionBucketSeconds` (default 60; set by the selector on the session
   section itself, not a panel checkbox) — the session stats section (see
-  Session stats).
+  Session stats); `metricsPanelWidth` (default 316, clamped 220–640; set
+  by dragging the stats panel's right edge, not a panel checkbox) — the
+  left panel's width, which the session charts fill.
 - A setting may carry a `helpFile`: the panel then shows a "?" beside its
   label which raises that page in a hover popover (an iframe, so the help
   page is a normal standalone document).

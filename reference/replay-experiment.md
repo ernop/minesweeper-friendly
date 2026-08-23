@@ -28,18 +28,22 @@ recognize it — and how fast does that help fade?
   - reveal luck — how big the opening cascade happens to be;
   - guess luck — surviving the guesses taken.
 
-3BV/s normalizes part of draw luck; nothing separates reveal luck or
-decisions from reading. Repeats are the lever: the same identity twice
-holds draw luck constant, so within-identity variance is skill plus
-noise, and between-identity variance is luck. Trial already produces the
-paired data for a variance split; the formal decomposition itself is not
-computed anywhere.
+3BV/s normalizes part of draw variation; nothing here separates reveal
+luck, motor behavior, strategy, familiarity, practice, or other
+session-level changes. Repeats hold board identity constant, but
+within-identity variance can still contain all of those factors, and
+between-identity variance is not simply "luck." Trial produces paired data;
+a defensible decomposition would require an explicit model and controls and
+is not computed anywhere.
 
-## Why repeats are pure signal
+## What repeats control—and what they do not
 
 Boards are uniform-random (mines over all cells minus the first click).
 Natural repeats are combinatorially impossible (C(480,99) for Expert), so
-any similarity effect on a served repeat is signal.
+a served repeat is known to share board identity. Any observed performance
+difference or similarity is still only an association unless practice,
+order, transform ergonomics, session state, and other alternatives are
+controlled.
 
 ## Transforms (as built in Trial, restated)
 
@@ -61,12 +65,11 @@ identical.
 2. **Lag as the independent variable.** Trial repeats happen within one
    session. The decay question needs scheduled lags spanning 1 game, 5
    games, 1 hour, 1 day, 1 week — then fit the boost-vs-lag curve. That
-   curve is the answer to "how quickly does board memory fade,"
-   measured per player. Literature anchor: contextual cueing (Chun &
+   curve would estimate repeat-associated change over lag; calling it memory
+   decay would require a validated design. Literature anchor: contextual cueing (Chun &
    Jiang) — reliable speedup on repeated spatial configurations with
    chance-level explicit recognition, persisting days to a week+ in lab
-   stimuli; minesweeper's homogeneous boards and heavy interference
-   probably shorten it.
+   stimuli. Transfer to Minesweeper is an untested hypothesis.
 3. **Implicit-memory fingerprints.** Detect noticing without asking:
    does the replay's early click sequence match the original's (under
    the transform) beyond chance; does time-to-first-deduction drop.
@@ -75,8 +78,8 @@ identical.
 4. **Skill/luck variance split.** Within- vs between-identity variance
    from Trial (or covert replay) data, reported as a number.
 
-## Expected outcome
+## Hypotheses, not expected findings
 
-Implicit facilitation without conscious recognition, especially under
-transforms; verbatim repeats of distinctive boards (dramatic opening,
-memorable guess corner) are the likeliest conscious catches.
+Possible hypotheses include repeat-associated facilitation without reported
+recognition and different effects for transformed versus verbatim repeats.
+The current data and UI do not establish either result.

@@ -91,14 +91,15 @@ The flush-left panel carries live self-observation. During a game it
 shows per-game motion metrics recomputed once a second; on top, always, a
 "session" section charts the last hour across games (losses and abandoned
 boards included, but only time a game was actually in progress): mouse
-speed, effective clicks per second, stupid deaths per minute (deaths that were avoidable with what was
-already knowable — a wrong-flag chord, or gambling when something strictly
-safer was available — as opposed to honest lowest-risk deaths, which also
-get a yes/no row in each loss's stats table), wasted clicks per minute,
+speed, board-changing clicks per second, avoidable deaths per minute
+(deaths meeting the app's explicit rule-based classification, which also
+get a yes/no row in each loss's stats table), no-op clicks per minute,
 the fastclick gap (when you're clicking usefully on the move, how fast the
-clicks actually come), and flags placed per second. Each chart is a
-sliding one-hour window with a selectable bucket size (10s to 5m), so you
-can watch yourself warm up, tire, or tilt in close to real time. The
+qualifying press intervals are), flags placed per second, and flags removed
+per minute. Each chart is a sliding one-hour window with a selectable
+bucket size (10s to 5m). These are observations, not explanations: the app
+does not infer fatigue, attention, hardware trouble, judgment, or any other
+cause from a change in a line. The
 window survives a reload: on startup the last hour is rebuilt from your
 stored game records, so closing the tab doesn't wipe the running averages.
 
