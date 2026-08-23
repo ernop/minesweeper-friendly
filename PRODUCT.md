@@ -294,6 +294,32 @@ report.
   change the viewport width and nudge the centered board.
 - The results area echoes the in-game numeral face (Arial Black stack).
 
+## UI doctrine (directives collected 2026-08-23)
+
+Player directives given across the settings redesigns, promoted here
+because they apply app-wide, not just where each was first stated.
+
+- Simplicity first: prefer the simplest surface that does the job. When
+  explanatory or demonstration machinery accretes around a surface,
+  strip it rather than polish it — the settings demo world (a pretend
+  mid-game that reacted to every switch) was built and removed the same
+  day on this rule.
+- Captions and explanatory text must earn their place: write one only
+  when it says something truly new and useful, keep it minimal and to
+  the point, and never add speculation or editorializing. A caption that
+  restates its control's name is noise and gets removed. Full
+  descriptions may ride on names as plain tooltips.
+- Hover changes nothing: pointer movement must never inject, swap, or
+  reflow text, and no control may be reachable only by hovering.
+- Layout stability: content appearing or disappearing must not shift
+  unrelated content. "The board never moves" (previous section) is the
+  oldest case of this rule; it holds on every page.
+- Clear ways in and out: a surface opens from an obvious bordered button
+  and closes just as obviously — for a page, a visible way back at both
+  the top and the bottom of the body (not tucked at a far edge), plus
+  Esc. Modals and separate pages are allowed; the old "in-page only,
+  never a modal" lock was lifted 2026-08-23.
+
 ## Measurement purpose (decided 2026-08-20)
 
 The point of all per-game measurement — scalar stats, raw input traces,
@@ -1189,20 +1215,17 @@ displays changes but does not label their cause.
 
 ## Personal settings (decided 2026-08-20; area redone from scratch 2026-08-23)
 
-- The design doctrine, revised again 2026-08-23 (the same day the
-  original guidance was separated from implementation and the "never a
-  modal" lock was lifted): settings live on their own full page,
-  settings.html, reached from the clear "settings" button in the game's
-  upper-right; the way back is equally clear — "return to game" buttons
-  at the top and bottom of the page body, Esc, or the browser's Back.
-  The page is deliberately super simple (decided later on 2026-08-23):
-  just the switches — a demo world (a pretend mid-game beside the
-  controls that reacted to every switch) was built and removed the same
-  day in favor of simplicity. A change still shows its meaning live
-  where the thing itself lives: the game page reads settings fresh on
-  every load. Everything else (row shape, hint placement) is
-  implementation and freely revisable; earlier revisions of this section
-  had mistaken implementation defaults for decisions.
+- The design doctrine (settled 2026-08-23 after several same-day
+  revisions; the general rules it produced live in "UI doctrine" above):
+  settings live on their own full page, settings.html, reached from the
+  clear "settings" button in the game's upper-right; the way back is
+  equally clear — "return to game" buttons at the top and bottom of the
+  page body, Esc, or the browser's Back. The page is deliberately super
+  simple: just the switches. A change shows its meaning where the thing
+  itself lives: the game page reads settings fresh on every load.
+  Everything else (row shape, hint placement) is implementation and
+  freely revisable; earlier revisions of this section had mistaken
+  implementation defaults for decisions.
 - A schema-driven settings system for player-facing behavior switches:
   `SETTINGS_SCHEMA` is the single definition (field, default, validity,
   group, label, hint, description); the loader, the import validator, the

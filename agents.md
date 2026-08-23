@@ -36,6 +36,11 @@ Unbuilt work lives in one file: [BACKLOG.md](BACKLOG.md). That is the
 place for generation ideas, deferred product, and requested rank lists
 that are not in the game yet. Do not leave new ideas only in chat.
 
+App-wide UI rules (simplicity first, captions must earn their place,
+hover changes nothing, layout stability, clear ways in and out) live in
+PRODUCT.md "UI doctrine" — read it before building or reshaping any
+surface.
+
 Solver logic tiers (what "solvable" means): (a) trivial counting — number
 equals hidden or flagged neighbors; (b) subset subtraction between overlapping
 constraints — yields the named patterns 1-1, 1-2, 1-2-1, 1-2-2-1, reductions,
