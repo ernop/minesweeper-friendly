@@ -1925,8 +1925,11 @@ function renderResult(record, modeRecords, options = {}) {
     // fastclick gap is the one stored measurement among them.
     ...(seconds > 0
       ? [['Click rate', (record.clicks / seconds).toFixed(2) + '/s']] : []),
+    // Per second since 2026-08-23, matching the session chart's unit
+    // move; derived from the stored count, so every record old or new
+    // shows the same unit with no migration.
     ...(seconds > 0 && 'wastedClicks' in record
-      ? [['No-op rate', (record.wastedClicks / (seconds / 60)).toFixed(1) + '/min']] : []),
+      ? [['No-op rate', (record.wastedClicks / seconds).toFixed(2) + '/s']] : []),
     ...(seconds > 0 && record.misclicks !== undefined
       ? [['Misclick rate', (record.misclicks / (seconds / 60)).toFixed(1) + '/min']] : []),
     ...(seconds > 0 && record.flagsPlaced !== undefined
@@ -6779,6 +6782,39 @@ function sessionRunningSeries(events, opts) {
   };
 }
 
+// Rates-chart y-scale stability (requested 2026-08-23 afternoon: "I
+// hate when we're pushing up into new territory and shrinking, or the
+// false appearance nothing is changing"). The ceiling lives on a
+// 1-2-5-10 ladder instead of ceil(max): a climb rescales once at a
+// step boundary and then holds through the whole climb, and shrinking
+// requires the tallest value to fit within 80% of a lower step, so a
+// value hovering near a boundary cannot flap the scale. The trade-off
+// is deliberate and accepted: up to ~2.5x headroom above the tallest
+// line, and the same data can draw at different scales depending on
+// what the chart showed before — the labeled ticks always tell the
+// truth about the scale in force.
+
+// The smallest 1/2/5×10^k value at or above `value`, floored at 1
+// (ticks stay integers; the /s rates live happily on a 0..1 scale).
+function rateScaleStep(value) {
+  let base = 1;
+  for (;;) {
+    for (const m of [1, 2, 5]) {
+      if (base * m >= value) return base * m;
+    }
+    base *= 10;
+  }
+}
+
+// The chart ceiling given the tallest shown value and the ceiling in
+// force (undefined on a fresh chart). Grows immediately — data never
+// clips — and shrinks only to a step that holds max at ≤80% of it.
+function rateScaleCeiling(max, remembered) {
+  const needed = rateScaleStep(max);
+  if (remembered === undefined || needed > remembered) return needed;
+  return Math.min(remembered, rateScaleStep(max / 0.8));
+}
+
 //-------SESSION STATS: RECORDING (event capture into RAM)-------
 
 // Live events are RAM-only, but the window survives reloads: on load,
@@ -7267,7 +7303,12 @@ function buildSessionEndingsChart(buckets) {
 // HOW/RECORDS.
 const SESSION_RATES_CHART = { H: 170, L: 54, R: 8, T: 5, B: 22 };
 
-function buildSessionRatesChart(buckets, specs, unit) {
+// RAM-only per-chart scale memory (chart key → ceiling in force),
+// consumed by rateScaleCeiling. A reload starts fresh and re-derives
+// from the backfilled window, so no scale is ever persisted.
+const sessionRateScaleMemory = new Map();
+
+function buildSessionRatesChart(buckets, specs, unit, scaleKey) {
   const { H, L, R, T, B } = SESSION_RATES_CHART;
   const W = settings.metricsPanelWidth - 18;
   const svg = document.createElementNS(SVG_NS, 'svg');
@@ -7290,7 +7331,8 @@ function buildSessionRatesChart(buckets, specs, unit) {
       if (v !== undefined && v > max) max = v;
     }
   }
-  const yTop = Math.max(1, Math.ceil(max));
+  const yTop = rateScaleCeiling(max, sessionRateScaleMemory.get(scaleKey));
+  sessionRateScaleMemory.set(scaleKey, yTop);
   const tickStep = [1, 2, 5, 10, 20, 50, 100].find((s) => yTop / s <= 6) || 100;
 
   const x0 = buckets.playNowMs - buckets.windowMs;
@@ -7410,7 +7452,7 @@ function appendSessionRatesRow(
   labelEl.textContent = label + unit;
   headRow.appendChild(labelEl);
   row.appendChild(headRow);
-  const { svg, drawn } = buildSessionRatesChart(buckets, specs, unit);
+  const { svg, drawn } = buildSessionRatesChart(buckets, specs, unit, label + unit);
   row.appendChild(svg);
   // Every drawn line names itself at its endpoint, so there is no
   // legend; an empty window still explains itself.

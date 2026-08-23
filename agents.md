@@ -348,8 +348,12 @@ Implementation notes:
   + `appendSessionRatesRow(container, buckets, unit)` (two unit-grouped
   plots right after endings — "action rates/m" then "action rates/s",
   split 2026-08-23 evening so neither unit's magnitudes squash the
-  other's: each a 0-rooted integer scale to its own ceil(max) with
-  unit-suffixed ticks; no legend — each line's name+value+unit floats
+  other's: each a 0-rooted integer scale with unit-suffixed ticks whose
+  ceiling comes from `rateScaleCeiling(max, remembered)` (computation
+  section, tested in session-buckets-test): the 1-2-5-10 ladder via
+  `rateScaleStep`, growing immediately, shrinking only when max fits
+  80% of a lower step, remembered per chart key in the RAM-only
+  `sessionRateScaleMemory` map; no legend — each line's name+value+unit floats
   at its endpoint in the line's color, cascade-nudged apart preserving
   line order, with HOW/RECORDS as hover titles on lines and labels),
   `latestDefined` (measurability),

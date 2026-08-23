@@ -126,16 +126,16 @@ would require explicit analysis. Not built yet:
 - **More measurements.** Candidates in the same spirit: lowest-risk-death
   rate alongside mistake-tagged-death rate, justice events per minute, chord
   share, pre-press stillness trends, and guess-ledger life-lost per minute.
-- **Per-game no-op rate unit (mapped, 2026-08-23).** The session chart
-  now shows no-op clicks per second; the per-game stats table still
-  derives it per minute. Align or leave, creator's call.
 - **Chart value readout (mapped, 2026-08-23).** The rates charts label
   only the newest value; a hover crosshair reading every line at any
   x would expose history without more standing ink.
-- **Rates-chart scale stability (mapped, 2026-08-23).** Each rates
-  chart rescales to ceil(max shown), so the scale can jump as old
-  peaks leave the window; a sticky or stepped ceiling would trade a
-  little resolution for steadier reading.
+- **Solo-chart scale stability (mapped, 2026-08-23).** The rates
+  charts got ladder ceilings with shrink hysteresis (PRODUCT.md "The
+  action-rates charts"); the solo session charts (mouse speed,
+  fastclick gap, magnitudes) still rescale to max×1.08 every sample.
+  The 1-2-5-10 ladder is coarse for their magnitudes (a 300ms gap
+  pinned under a 500 ceiling wastes 40% of the plot), so extending
+  stability there needs a finer ladder or another rule.
 - **Full historical action-evidence backfill.** Legacy death booleans and
   five-way verdicts are normalized immediately, but old records lack the
   saved visible position and earlier nonfatal mistakes. Deterministic board

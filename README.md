@@ -103,7 +103,7 @@ speed, board-changing clicks per second, deaths with recorded mistake
 tags per minute (fatal actions such as opening a proven mine or guessing
 while a guaranteed-safe move was available), misclicks per minute
 (board-changing actions contradicted by facts provable from the visible
-board, fatal or nonfatal), no-op clicks per minute,
+board, fatal or nonfatal), no-op clicks per second,
 the fastclick gap (when you're clicking usefully on the move, how fast the
 qualifying press intervals are), flags placed per second, and flags removed
 per minute. It also charts enabled report-category frequencies, excess

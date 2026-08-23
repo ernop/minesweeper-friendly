@@ -417,7 +417,10 @@ honesty as clicks over 3BV), IOS (log(3BV) / log(time in seconds); wins
 only; blank when time is 1s or less, matching minesweeper.online), mouse
 speed (px/s), path per click, path per 3BV, and (2026-08-22, the per-game
 forms of the session series) click rate (effective clicks per second),
-no-op rate (no-op clicks per minute), misclick rate (visible-board
+no-op rate (no-op clicks per second — per minute until 2026-08-23,
+when it followed the session chart's unit move; the rate is derived
+from the stored count, so old and new records alike show the new unit
+with no migration), misclick rate (visible-board
 contradictions per minute), and mark rate (flags placed per second) —
 all derived from the stored counts and time, so they
 appear on historical games too.
@@ -1252,9 +1255,22 @@ displays changes but does not label their cause.
   chart are directly comparable and neither unit's magnitudes squash
   the other's (the single dual-axis chart tried first put a ~20/m no-op
   line and a ~1/s marking line on one numeric scale, flattening the
-  small movers). Each chart's scale is rooted at 0 up to ceil(max shown
-  value), integer ticks stepped 1/2/5/10… to stay readable, each tick
-  labeled with the chart's unit ("0/m, 1/m, 2/m…"). Each series keeps
+  small movers). Each chart's scale is rooted at 0; the ceiling sits
+  on the 1-2-5-10 ladder (1, 2, 5, 10, 20, 50…) rather than ceil(max),
+  a stability request (2026-08-23: "I hate when we're pushing up into
+  new territory and shrinking, or the false appearance nothing is
+  changing"). The scale grows the moment a line needs more room —
+  data never clips — and then holds through the whole climb inside
+  that step; it shrinks only when the tallest shown value fits within
+  80% of a lower step, so a peak leaving the window or a value
+  hovering at a boundary cannot flap the scale. The ceiling is
+  remembered per chart in RAM only; a reload re-derives it from the
+  backfilled window. The accepted trade-off: up to ~2.5× headroom
+  above the tallest line, and the same data can draw at different
+  scales depending on what the chart showed before — the labeled
+  ticks always state the scale in force. Integer ticks stepped
+  1/2/5/10… stay readable, each labeled with the chart's unit
+  ("0/m, 1/m, 2/m…"). Each series keeps
   the unit that gives it a meaty, clearly visible value (the choice
   delegated in the original request): click rate, mine marking, and
   no-op clicks read as /s; misclicks, deaths with mistakes, and flag

@@ -404,4 +404,29 @@ const runOpts = {
   assertUndefined('run sliver rate', s.avoidablePerMin[last(s)]);
 }
 
-console.log(`session-series: all ${checks} checks passed (buckets + running averages)`);
+// Rates-chart scale ladder: the ceiling sits on 1/2/5×10^k, grows
+// immediately, and shrinks only when max fits 80% of a lower step.
+{
+  assertEq('ladder floor', rateScaleStep(0), 1);
+  assertEq('ladder sub-1', rateScaleStep(0.3), 1);
+  assertEq('ladder exact', rateScaleStep(2), 2);
+  assertEq('ladder 3.2', rateScaleStep(3.2), 5);
+  assertEq('ladder 18.8', rateScaleStep(18.8), 20);
+  assertEq('ladder 60', rateScaleStep(60), 100);
+
+  assertEq('scale fresh', rateScaleCeiling(3.2, undefined), 5);
+  assertEq('scale grow', rateScaleCeiling(5.5, 5), 10);
+  // A climb inside the step holds the scale it grew to.
+  assertEq('scale hold climb', rateScaleCeiling(9.4, 10), 10);
+  // 9 is over 80% of 10, so 20 does not shrink; 7.8 fits and does.
+  assertEq('scale hold near boundary', rateScaleCeiling(9, 20), 20);
+  assertEq('scale shrink with room', rateScaleCeiling(7.8, 20), 10);
+  // A collapse skips intermediate steps but keeps the 80% margin:
+  // 3.8 fits 80% of 5; 4.5 does not and lands on 10.
+  assertEq('scale shrink deep', rateScaleCeiling(3.8, 20), 5);
+  assertEq('scale shrink margin', rateScaleCeiling(4.5, 20), 10);
+  // All-zero lines settle back to the unit floor.
+  assertEq('scale zero floor', rateScaleCeiling(0, 20), 1);
+}
+
+console.log(`session-series: all ${checks} checks passed (buckets + running averages + scale ladder)`);
