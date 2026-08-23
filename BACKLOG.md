@@ -89,6 +89,14 @@ Generation that aims at the same families the new lists rank:
 - **ZiNi / HZiNi, STNB.** Board-fact click lower bounds and the
   minesweeper.online QG-normalized standing; not requested for this
   pass.
+- **Which-song detail on the music state.** The boolean `musicPlaying`
+  is built (2026-08-22, PRODUCT.md "Music playing"). PipeWire also
+  exposes each stream's `media.name` (Firefox: the playing tab's media
+  title), so song titles are technically reachable; deliberately not
+  stored — titles are personal data that would live forever in records
+  and exports. Revisit only with an explicit privacy decision. MPRIS
+  (artist/album) is absent for this Firefox; would need a player that
+  registers one.
 
 ## Research designs (creator, not built)
 
@@ -112,7 +120,8 @@ Generation that aims at the same families the new lists rank:
   isometries, lobby → start → memory-test review); Short
   trial (4 × 4); Test trial (1 × 4); correctness / throughput / IOS
   (derived); guess ledger (life lost, needless, ideal-risk, one-ply
-  perfect play).
+  perfect play); music-playing state (boolean asked of the local base
+  system).
 - Waste metrics (pauses, wander, turnarounds, feints) and the
   biometrics / mousetrap / Hevelius-style displays. The Tier 1/2
   "store a scalar per metric" framing is obsolete: the trace is the

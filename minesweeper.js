@@ -299,6 +299,7 @@ function newGame() {
   }
 
   beginTrace();
+  beginMusicSampling();
 
   setLcd(mineCounter, config.mines);
   setLcd(timerDisplay, 0);
@@ -879,6 +880,12 @@ function reportResult(outcome) {
     largestIsland: shape.largestIsland,
     playMode: settings.playMode,
   };
+  // Music state: true if any sample during this game heard audio playing,
+  // false if every sample heard silence; no field at all when the base
+  // system's endpoint never answered (not measured).
+  if (musicObservations.length > 0) {
+    record.musicPlaying = musicObservations.some((heard) => heard);
+  }
   if (!oddsFailed && guessLedgerAppliesToMode()) {
     record.guesses = guessEvents.length;
     record.guessIdealRisk = guessEvents.filter((e) => e.idealRisk).length;
@@ -979,6 +986,8 @@ function renderResult(record, modeRecords, options = {}) {
     // The states row appears only when the game carries at least one state
     // tag; a tagless game shows nothing rather than an empty row.
     ...(record.states.length > 0 ? [['States', record.states.join(', ')]] : []),
+    ...(record.musicPlaying !== undefined
+      ? [['Music', record.musicPlaying ? 'playing' : 'none']] : []),
   ]) {
     const labelCell = document.createElement('span');
     labelCell.className = 'stat-label';
@@ -1035,6 +1044,7 @@ const GAME_RECORD_SCHEMA = [
   { field: 'flagsRemoved', valid: (v) => v === undefined || isNumber(v), example: '1', describe: 'flags the player took back; each removal = a place+remove pair (2 clicks) that netted nothing; absent on games recorded before 2026-08-20' },
   { field: 'mousePathPx', valid: isNumber, example: '1182', describe: 'cursor travel while playing, px' },
   { field: 'states', valid: (v) => v === undefined || (Array.isArray(v) && v.every((s) => typeof s === 'string')), example: '["sleepy"]', describe: 'player-defined state tags active when the game finished (see the states panel); absent on games recorded before 2026-08-20' },
+  { field: 'musicPlaying', valid: (v) => v === undefined || typeof v === 'boolean', example: 'true', describe: 'whether this machine heard audio playing during the game (sampled about once a minute from the local base system); absent when that endpoint never answered or on games recorded before 2026-08-22' },
   { field: 'justice', valid: (v) => v === undefined || isNumber(v), example: '1', describe: 'bare entries into certified sealed pockets that Justice guaranteed safe; absent on games recorded before 2026-08-20' },
   { field: 'justiceEnabled', valid: (v) => v === undefined || typeof v === 'boolean', example: 'true', describe: 'whether "a just universe" was frozen on for this game at its first reveal; absent on earlier games' },
   { field: 'seed', valid: (v) => v === undefined || (typeof v === 'string' && /^[0-9a-f]{32}$/.test(v)), example: '"2f4c5a107ad399e681137b2dc51490aa"', describe: '128-bit seed for initial placement and Justice redraws; absent on earlier games' },
@@ -1098,7 +1108,7 @@ const SHOWN_THINGS_OPTIONS = [
   ['exact3BV', 'same-3BV tablechart', 'times on boards with exactly the same 3BV'],
   ['boardShapeTables', 'board-shape tablecharts', 'max number, islands, and zero-count rankings'],
   ['largestIsland', 'largest island', 'the largest-island stat and matching tablechart'],
-  ['averageCharts', 'average-time charts', 'average solve time by clicks, efficiency, 3BV, speed, and path'],
+  ['averageCharts', 'average-time charts', 'average solve time by clicks, 3BV, and mouse path'],
   ['streak', 'streak', 'consecutive-win ranking'],
   ['nearStreak', 'near-streak', 'win runs spanning at most one loss'],
   ['nearNearStreak', 'near-near-streak', 'win runs spanning at most two losses'],
@@ -1305,8 +1315,9 @@ function startOfDay(ms, daysBack = 0) {
 // [label, windowStartMs, specificity]. Lower specificity = narrower window;
 // when two lists contain the exact same wins only the most specific
 // survives (see renderRanks), so broad charts appear gradually as history
-// spreads out. Day categories (added in rankColumns) sit at 5-7, between
-// "today" and "past week".
+// spreads out. "lifetime" is the exception: it always renders, and windows
+// identical to it collapse into it. Day categories (added in rankColumns)
+// sit at 5-7, between "today" and "past week".
 function rankWindows(nowMs) {
   const d = new Date(nowMs);
   return [
@@ -1479,15 +1490,12 @@ function windowBounds(myIndex, length) {
 // Average-time charts group wins by an input/performance value, then plot
 // that value against the group's average solve time. This keeps the useful
 // relationship from the former ranked tables without spending a column on
-// sample count. 3BV/s buckets at 2 decimals, mouse path at 100px, mouse
-// speed at 10px/s; the rest group on exact integers.
+// sample count. Mouse path buckets at 100px; the rest group on exact
+// integers.
 const AVERAGE_SCATTER_SPECS = [
-  { label: 'efficiency', value: efficiencyPercent, format: (v) => v + '%' },
   { label: 'clicks', value: (s) => s.clicks, format: (v) => String(v) },
   { label: '3BV', value: (s) => s.bv3, format: (v) => String(v) },
-  { label: '3BV/s', value: (s) => Number(bvPerSecond(s).toFixed(2)), format: (v) => v.toFixed(2) },
   { label: 'mouse path', value: (s) => Math.round(s.mousePathPx / 100) * 100, format: (v) => v + 'px' },
-  { label: 'mouse speed', value: (s) => Math.round(s.mousePathPx / secondsOf(s) / 10) * 10, format: (v) => v + 'px/s' },
 ];
 
 // Every list renders its full 11-row window around the player's row (see
@@ -1559,6 +1567,27 @@ function niceTicks(min, max, count) {
   return ticks;
 }
 
+// Minor tick positions between the labeled majors, so the inner divisions
+// of a step are visible. Each major step splits into round parts — 4 for
+// a 2·10^k or 4·10^k step, else 5 — and minors also extend past the
+// outermost majors to the padded range edges. Major positions themselves
+// are excluded.
+function minorTicks(ticks, min, max) {
+  if (ticks.length < 2) return [];
+  const step = ticks[1] - ticks[0];
+  const mant = Math.round(step / Math.pow(10, Math.floor(Math.log10(step) + 1e-9)));
+  const perMajor = (mant === 2 || mant === 4) ? 4 : 5;
+  const sub = step / perMajor;
+  const first = Math.ceil((min - ticks[0]) / sub - 1e-9);
+  const last = Math.floor((max - ticks[0]) / sub + 1e-9);
+  const minors = [];
+  for (let i = first; i <= last; i++) {
+    if (((i % perMajor) + perMajor) % perMajor === 0) continue;
+    minors.push(ticks[0] + i * sub);
+  }
+  return minors;
+}
+
 // Ticks for a date x-axis (epoch ms): a calendar step from minutes up to
 // days, aligned to local wall-clock multiples, labeled HH:mm below a day
 // and M/D from a day up. At most 5 ticks: HH:mm labels are the widest kind
@@ -1582,6 +1611,53 @@ function timeTicks(min, max) {
   return { ticks, fmt };
 }
 
+//-------TREND LINE (Theil–Sen, chosen 2026-08-22 from a fit sampling)-------
+
+function median(values) {
+  const s = [...values].sort((a, b) => a - b);
+  const m = s.length >> 1;
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+}
+
+// Theil–Sen line y = a + b·x: the median slope over all point pairs,
+// then the median intercept. Outlier games barely move it, unlike least
+// squares. Returns null when no pair has distinct x.
+function fitTheilSen(pairs) {
+  const slopes = [];
+  for (let i = 0; i < pairs.length; i++) {
+    for (let j = i + 1; j < pairs.length; j++) {
+      const dx = pairs[j][0] - pairs[i][0];
+      if (dx !== 0) slopes.push((pairs[j][1] - pairs[i][1]) / dx);
+    }
+  }
+  if (slopes.length === 0) return null;
+  const b = median(slopes);
+  return { a: median(pairs.map(([x, y]) => y - b * x)), b };
+}
+
+// The caption rendered under a chart carrying the trend lines.
+const TREND_CAPTION = {
+  label: 'Theil\u2013Sen',
+  math: 'b = median slope over all point pairs, a = median(y \u2212 b\u00b7x): outliers barely move it',
+};
+
+// The chart's trend lines, both dashed and colored by the existing
+// color:recency sense of the age palette: the all-data fit in the
+// deep-history teal (the years unit), today's fit in the hours blue.
+// Either is omitted when its data can't support the fit.
+function trendLinesFor(pairs, todayPairs) {
+  const lines = [];
+  for (const [data, cls] of [[pairs, 'trend-all'], [todayPairs, 'trend-today']]) {
+    if (data.length < 2) continue;
+    const fit = fitTheilSen(data);
+    if (fit !== null) lines.push({ ...fit, cls });
+  }
+  return lines;
+}
+
+// Unique ids for the per-chart SVG clip paths of the trend lines.
+let trendClipSeq = 0;
+
 // Small inline-SVG scatter plot: every win is a dot colored by its age unit
 // (the same palette as rank-list ages, so time trends are scannable) and
 // faded within that color by how deep into the unit it sits (a 6-day-old
@@ -1591,11 +1667,38 @@ function timeTicks(min, max) {
 // no chart title: the terse axis labels, rendered at title size along
 // with the tick values, name the chart. opts.timeAxis renders x as a local
 // date/time axis; opts.idealLine draws the y = x diagonal (used where y has
-// a hard floor at x, e.g. clicks can never beat 3BV). ageInfoOf maps a win
-// to its {unit, frac} age (see ageInfo).
+// a hard floor at x, e.g. clicks can never beat 3BV). opts.trendLines
+// (trendLinesFor output) draws each y = a + b·x entry clipped to the plot
+// rect (a today-only fit can exit the all-data frame); opts.trendCaption
+// (TREND_CAPTION) captions the chart with the fit's name and math.
+// ageInfoOf maps a win to its {unit, frac} age (see ageInfo).
+// opts.trimY drops y-outliers above the Tukey fence (Q3 + 1.5·IQR — the
+// box-plot whisker rule: scale-free, and quartiles barely move when an
+// outlier appears) so one freak slow win can't stretch the whole axis.
+// The me-dot is never dropped, and a corner note counts what's hidden.
 function buildScatter(wins, me, fx, fy, xLabel, yLabel, meLabel, ageInfoOf, opts = {}) {
   const W = 270, H = 210, L = 54, R = 10, T = 10, B = 36;
-  const xs = wins.map(fx), ys = wins.map(fy);
+  let shown = wins;
+  let hiddenCount = 0;
+  let hiddenMax = 0;
+  // Quartiles need a few points to mean anything; below 8 wins the fence
+  // is noise, so everything shows.
+  if (opts.trimY && wins.length >= 8) {
+    const sorted = wins.map(fy).sort((a, b) => a - b);
+    const q = (p) => {
+      const at = (sorted.length - 1) * p;
+      const lo = Math.floor(at);
+      return sorted[lo] + (at - lo) * ((sorted[lo + 1] ?? sorted[lo]) - sorted[lo]);
+    };
+    const fence = q(0.75) + 1.5 * (q(0.75) - q(0.25));
+    const keep = (s) => fy(s) <= fence || s === me;
+    shown = wins.filter(keep);
+    hiddenCount = wins.length - shown.length;
+    if (hiddenCount > 0) {
+      hiddenMax = Math.max(...wins.filter((s) => !keep(s)).map(fy));
+    }
+  }
+  const xs = shown.map(fx), ys = shown.map(fy);
   const pad = (min, max) => {
     const p = (max - min) * 0.04;
     return [min - p, max + p];
@@ -1642,6 +1745,17 @@ function buildScatter(wins, me, fx, fy, xLabel, yLabel, meLabel, ageInfoOf, opts
     el('line', { x1: L, y1: py(v), x2: W - R, y2: py(v), class: 'scatter-grid' });
     el('text', { x: L - 4, y: py(v) + 4, class: 'scatter-tick tick-y' }, fmtY(v));
   }
+  // Minor tickmarks on the axis edges between the labeled divisions.
+  // Skipped on the date axis, whose calendar steps (15 min, 3 h, 7 d...)
+  // don't subdivide into round parts.
+  if (!opts.timeAxis) {
+    for (const v of minorTicks(xTicks, x0, x1)) {
+      el('line', { x1: px(v), y1: H - B, x2: px(v), y2: H - B + 4, class: 'scatter-minor' });
+    }
+  }
+  for (const v of minorTicks(yTicks, y0, y1)) {
+    el('line', { x1: L - 4, y1: py(v), x2: L, y2: py(v), class: 'scatter-minor' });
+  }
   if (opts.idealLine) {
     const t0 = Math.max(x0, y0);
     const t1 = Math.min(x1, y1);
@@ -1653,13 +1767,38 @@ function buildScatter(wins, me, fx, fy, xLabel, yLabel, meLabel, ageInfoOf, opts
       });
     }
   }
+  if (opts.trendLines && opts.trendLines.length > 0) {
+    const clipId = 'trend-clip-' + trendClipSeq++;
+    const make = (tag) => document.createElementNS(svgNS, tag);
+    const defs = make('defs');
+    const clip = make('clipPath');
+    clip.setAttribute('id', clipId);
+    const crect = make('rect');
+    for (const [k, v] of Object.entries(
+      { x: L, y: T, width: W - L - R, height: H - T - B })) crect.setAttribute(k, v);
+    clip.appendChild(crect);
+    defs.appendChild(clip);
+    svg.appendChild(defs);
+    const group = make('g');
+    group.setAttribute('clip-path', 'url(#' + clipId + ')');
+    svg.appendChild(group);
+    for (const t of opts.trendLines) {
+      const node = make('line');
+      node.setAttribute('x1', px(x0).toFixed(1));
+      node.setAttribute('y1', py(t.a + t.b * x0).toFixed(1));
+      node.setAttribute('x2', px(x1).toFixed(1));
+      node.setAttribute('y2', py(t.a + t.b * x1).toFixed(1));
+      node.setAttribute('class', 'scatter-trend ' + t.cls);
+      group.appendChild(node);
+    }
+  }
   const dot = (s, cls, r, opacity) => el('circle', {
     cx: px(fx(s)).toFixed(1), cy: py(fy(s)).toFixed(1), r, class: cls,
     'fill-opacity': opacity,
   });
   // The deeper into its age unit a win sits, the more washed-out its dot:
   // full color on entering the unit, fading to 30% at the far edge.
-  for (const s of wins) {
+  for (const s of shown) {
     if (s === me) continue;
     if (opts.neutralDots) {
       dot(s, 'scatter-dot average-dot', '2.8', '0.8');
@@ -1688,14 +1827,44 @@ function buildScatter(wins, me, fx, fy, xLabel, yLabel, meLabel, ageInfoOf, opts
     transform: 'translate(12 ' + (T + (H - T - B) / 2) + ') rotate(-90)',
     class: 'scatter-axis-label',
   }, '\u2192 ' + yLabel);
+  if (hiddenCount > 0) {
+    el('text', { x: W - R - 3, y: T + 11, class: 'scatter-outlier-note' },
+      '\u2191 ' + hiddenCount + ' outlier' + (hiddenCount === 1 ? '' : 's')
+      + ', max ' + hiddenMax.toFixed(1));
+  }
 
   const list = document.createElement('div');
   list.className = 'rank-list scatter';
   list.append(svg);
+  if (opts.trendCaption) {
+    const legend = document.createElement('div');
+    legend.className = 'trend-legend';
+    const name = document.createElement('span');
+    name.className = 'li';
+    name.textContent = opts.trendCaption.label;
+    const math = document.createElement('span');
+    math.className = 'math';
+    math.textContent = ' \u2014 ' + opts.trendCaption.math;
+    // The note's words wear the same age-unit classes as the lines'
+    // colors, so the color:recency sense reads directly.
+    const note = document.createElement('span');
+    note.className = 'note';
+    const allWord = document.createElement('span');
+    allWord.className = 'age-u-y';
+    allWord.textContent = 'teal = all data';
+    const todayWord = document.createElement('span');
+    todayWord.className = 'age-u-h';
+    todayWord.textContent = 'blue = today only';
+    note.append(allWord, ', ', todayWord);
+    legend.append(name, math, note);
+    list.appendChild(legend);
+  }
   return list;
 }
 
-function buildAverageScatter(spec, wins, record, historyView) {
+// Bucket wins by the spec's value and average each bucket's solve time:
+// the points the average charts plot.
+function averagePoints(spec, wins) {
   const groups = new Map();
   for (const win of wins) {
     const key = spec.value(win);
@@ -1707,19 +1876,35 @@ function buildAverageScatter(spec, wins, record, historyView) {
     group.newestEndedAt = Math.max(group.newestEndedAt, win.endedAt);
     groups.set(key, group);
   }
-  const points = [...groups.values()].map((group) => ({
+  return [...groups.values()].map((group) => ({
     x: group.x,
     averageSeconds: group.totalSeconds / group.count,
     endedAt: group.newestEndedAt,
   }));
+}
+
+// One average chart: bucket averages as dots plus the Theil–Sen trend
+// line — solid over all the plotted bucket averages, dashed over bucket
+// averages recomputed from today's wins only — captioned with the fit's
+// name and math.
+function buildAverageScatter(spec, wins, record, historyView) {
+  const points = averagePoints(spec, wins);
   const current = historyView
     ? null
     : points.find((point) => point.x === spec.value(record)) || null;
   const referenceMs = historyView ? Date.now() : record.endedAt;
+  const asPairs = (pts) => pts.map((p) => [p.x, p.averageSeconds]);
+  const todayStart = startOfDay(referenceMs);
+  const todayPairs = asPairs(
+    averagePoints(spec, wins.filter((w) => w.endedAt >= todayStart)));
   return buildScatter(
     points, current, (point) => point.x, (point) => point.averageSeconds,
     spec.label, 'average time', '',
-    (point) => ageInfo(referenceMs, point.endedAt));
+    (point) => ageInfo(referenceMs, point.endedAt),
+    {
+      trendLines: trendLinesFor(asPairs(points), todayPairs),
+      trendCaption: TREND_CAPTION,
+    });
 }
 
 // How this win moved the average time of its own bucket (the average over
@@ -2481,8 +2666,11 @@ function renderRanks(record, modeRecords, options = {}) {
   // default): two lists holding the exact same wins would render
   // identically, so only the most specific one of each such group is shown,
   // and broader charts appear on their own once history spreads across
-  // enough hours/days/weekdays to make them differ. Switched off, every
-  // window renders its own chart regardless of duplication.
+  // enough hours/days/weekdays to make them differ. Exception: "lifetime"
+  // always renders, and claims its content first, so any window holding
+  // the exact same wins collapses into it rather than the other way
+  // around. Switched off, every window renders its own chart regardless
+  // of duplication.
   const candidates = rankColumns(referenceMs)
     .filter((column) => settings.shownThings.lastOneMinute || column.label !== 'past 1 min')
     .map((column) => ({
@@ -2491,10 +2679,14 @@ function renderRanks(record, modeRecords, options = {}) {
   }));
   const kept = new Set(candidates);
   if (settings.collapseDuplicateCharts) {
+    const signatureOf = (c) => c.inWindow.map((s) => s.endedAt).join('|');
     const seenSets = new Set();
     kept.clear();
+    const lifetime = candidates.find((c) => c.column.label === 'lifetime');
+    kept.add(lifetime);
+    seenSets.add(signatureOf(lifetime));
     for (const c of [...candidates].sort((a, b) => a.column.specificity - b.column.specificity)) {
-      const signature = c.inWindow.map((s) => s.endedAt).join('|');
+      const signature = signatureOf(c);
       if (seenSets.has(signature)) continue;
       seenSets.add(signature);
       kept.add(c);
@@ -2659,9 +2851,8 @@ function renderRanks(record, modeRecords, options = {}) {
       }));
   }
 
-  // Scatter plots at the very bottom: primary measurements first (3BV and
-  // mouse path against win time), then derived mouse metrics. Needs at
-  // least 2 wins to have a spread.
+  // Scatter plots at the very bottom, each raw win value against win time
+  // (or clicks). Needs at least 2 wins to have a spread.
   if (wins.length >= 2) {
     const brk = document.createElement('div');
     brk.className = 'flex-break';
@@ -2684,14 +2875,14 @@ function renderRanks(record, modeRecords, options = {}) {
     // daily rhythm instead of the long-term trend.
     resultRanks.appendChild(buildScatter(
       wins, highlighted, (s) => s.endedAt, secondsOf,
-      'date', 'time', meLabel, ageInfoOf, { timeAxis: true }));
+      'date', 'time', meLabel, ageInfoOf, { timeAxis: true, trimY: true }));
     resultRanks.appendChild(buildScatter(
       wins, highlighted, hourOfDay, secondsOf,
       'time of day', 'time', meLabel, ageInfoOf,
-      { xDomain: [0, 24], xTicks: [0, 4, 8, 12, 16, 20, 24] }));
+      { xDomain: [0, 24], xTicks: [0, 4, 8, 12, 16, 20, 24], trimY: true }));
     resultRanks.appendChild(buildScatter(
       wins, highlighted, (s) => s.bv3, secondsOf,
-      '3BV', 'time', meLabel, ageInfoOf));
+      '3BV', 'time', meLabel, ageInfoOf, { trimY: true }));
     resultRanks.appendChild(buildScatter(
       wins, highlighted, (s) => s.bv3, (s) => s.clicks,
       '3BV', 'clicks', meLabel, ageInfoOf,
@@ -2701,15 +2892,9 @@ function renderRanks(record, modeRecords, options = {}) {
     const withWasted = wins.filter((s) => 'wastedClicks' in s);
     if (withWasted.length >= 2) {
       resultRanks.appendChild(buildScatter(
-        withWasted, historyView ? null : record, (s) => s.wastedClicks, bvPerSecond,
-        'wasted clicks', '3BV/s', meLabel, ageInfoOf));
+        withWasted, historyView ? null : record, (s) => s.wastedClicks, secondsOf,
+        'wasted clicks', 'time', meLabel, ageInfoOf, { trimY: true }));
     }
-    resultRanks.appendChild(buildScatter(
-      wins, highlighted, (s) => s.mousePathPx, secondsOf,
-      'mouse path', 'time', meLabel, ageInfoOf));
-    resultRanks.appendChild(buildScatter(
-      wins, highlighted, (s) => s.mousePathPx / secondsOf(s), secondsOf,
-      'mouse speed', 'time', meLabel, ageInfoOf));
     const legend = document.createElement('div');
     legend.className = 'scatter-legend';
     legend.appendChild(document.createTextNode('dot color = how long ago that win was (dots fade as they age within a color):'));
@@ -2907,6 +3092,64 @@ function saveTrace(record) {
   tx.objectStore(TRACE_STORE).put(stored);
   tx.onerror = () => storageFailure('trace save failed: ' + tx.error);
 }
+
+//-------MUSIC STATE (was audio playing, asked of the machine's base system)-------
+
+// The page cannot observe system audio; the machine's resident
+// ProjectLauncher can (PipeWire) and serves a cached boolean at
+// localhost/api/is-music-playing, rechecked there at most once a minute.
+// Polled continuously while the page is open: the live indicator is a
+// statement about the machine right now and must appear/disappear when
+// the music starts/stops even between games. Polling faster than the
+// base system's own minute only tracks its cache, so a change can show
+// up to ~75s late (poll interval + cache age), typically under a minute.
+// reportResult stores musicPlaying = true if any sample during the game
+// heard audio, false if every sample heard silence, and no field at all
+// when the endpoint never answered (any other machine, launcher down):
+// absence means "not measured", the usual rule, so the record cannot lie
+// on origins where no base system exists.
+const MUSIC_ENDPOINT = 'http://localhost/api/is-music-playing';
+const MUSIC_SAMPLE_EVERY_MS = 15000;
+let musicObservations = [];
+// The latest answer, for the live indicator: true/false = measured,
+// null = the endpoint is not answering. Unknown shows nothing — it is
+// never displayed as silence.
+let musicNow = null;
+const musicIndicator = document.getElementById('music-indicator');
+
+function renderMusicIndicator() {
+  musicIndicator.hidden = musicNow !== true;
+}
+
+function sampleMusic() {
+  fetch(MUSIC_ENDPOINT, { signal: AbortSignal.timeout(3000) })
+    .then((response) => {
+      if (!response.ok) throw new Error('is-music-playing: http ' + response.status);
+      return response.json();
+    })
+    .then((data) => {
+      musicNow = data.is_music_playing === true;
+      // A game's observations are the answers that arrive while it runs;
+      // an answer is at most seconds old, so it belongs to the board now
+      // in play. One landing after the game ended is display-only — the
+      // record was already written.
+      if (tracing()) musicObservations.push(musicNow);
+      renderMusicIndicator();
+    })
+    .catch(() => {
+      // No base system answered from this origin: unknown, not silence.
+      // Running games are simply not measured (no musicPlaying field).
+      musicNow = null;
+      renderMusicIndicator();
+    });
+}
+
+function beginMusicSampling() {
+  musicObservations = [];
+  sampleMusic();
+}
+
+setInterval(sampleMusic, MUSIC_SAMPLE_EVERY_MS);
 
 //-------TRACE METRICS: COMPUTATION (pure; shared by live and final)-------
 
@@ -3948,6 +4191,65 @@ function computeWasteMetrics(sampleT, sampleX, sampleY, events) {
   };
 }
 
+//-------TRACE METRICS: CLICK CADENCE (press-to-press timing)-------
+
+// Click-timing measures over button presses ('ldown' and 'rdown' — the
+// motor acts; a release belongs to the same act). Wasted presses count
+// the same as effective ones (the measurement principle) — the trace
+// records the hand, not the board effect. The threshold constants are
+// definitional parts of each metric.
+const CADENCE_BURST_GAP_MS = 250;     // a burst gap: successive presses closer than this
+const CADENCE_MOVING_WINDOW_MS = 100; // on the move: a cursor sample within this window before the press
+const CADENCE_PEAK_WINDOW_MS = 1000;  // the rolling window for peak press rate
+
+function computeClickCadence(sampleT, events) {
+  const presses = [];
+  for (const ev of events) {
+    if (ev.kind === 'ldown' || ev.kind === 'rdown') presses.push(ev.t);
+  }
+  const m = {};
+  if (presses.length > 0) {
+    // Peak rate: the most presses inside any rolling window, two-pointer
+    // over the chronological press times.
+    let peak = 1;
+    let lo = 0;
+    for (let hi = 0; hi < presses.length; hi++) {
+      while (presses[hi] - presses[lo] > CADENCE_PEAK_WINDOW_MS) lo++;
+      if (hi - lo + 1 > peak) peak = hi - lo + 1;
+    }
+    m.peakPressesPerSec = peak / (CADENCE_PEAK_WINDOW_MS / 1000);
+    // On the move: samples exist only while the cursor moves, so a press
+    // with a sample inside the window before it was made mid-motion.
+    let moving = 0;
+    let si = 0;
+    for (const t of presses) {
+      while (si < sampleT.length && sampleT[si] <= t) si++;
+      if (si > 0 && t - sampleT[si - 1] <= CADENCE_MOVING_WINDOW_MS) moving++;
+    }
+    m.movingPressShare = moving / presses.length;
+  }
+  if (presses.length >= 2) {
+    const gaps = [];
+    for (let i = 1; i < presses.length; i++) gaps.push(presses[i] - presses[i - 1]);
+    gaps.sort((a, b) => a - b);
+    // Quartiles by linear interpolation; p <= 0.75 and 2+ gaps keep the
+    // interpolation index strictly inside the array.
+    const q = (p) => {
+      const at = (gaps.length - 1) * p;
+      const lo2 = Math.floor(at);
+      return gaps[lo2] + (at - lo2) * (gaps[lo2 + 1] - gaps[lo2]);
+    };
+    const median = q(0.5);
+    m.gapMedianMs = median;
+    // Two presses at one timestamp (both buttons in the same ms) can zero
+    // the median; a ratio over zero is genuinely not measurable.
+    m.gapSpreadRatio = median > 0 ? (q(0.75) - q(0.25)) / median : undefined;
+    m.fastestGapMs = gaps[0];
+    m.burstGapShare = gaps.filter((g) => g < CADENCE_BURST_GAP_MS).length / gaps.length;
+  }
+  return m;
+}
+
 //-------TRACE METRICS: ALL SYSTEMS COMBINED-------
 
 // The object the display layer consumes: all four measurement systems
@@ -3962,6 +4264,7 @@ function computeAllTraceMetrics(sampleT, sampleX, sampleY, events, wallDurationM
     psych: computePsychometrics(sampleT, sampleX, sampleY, events),
     hev: computeHevelius(sampleT, sampleX, sampleY, events),
     waste: computeWasteMetrics(sampleT, sampleX, sampleY, events),
+    cad: computeClickCadence(sampleT, events),
   };
 }
 
@@ -4112,6 +4415,50 @@ const TRACE_METRIC_GROUPS = [
           + 'effort that no click records — a direct hesitation counter, the '
           + 'measurement principle in action',
         of: (m) => m.waste.feintCount, fmt: (v) => String(v) },
+    ] },
+  { key: 'cad', name: 'click timing', definition:
+      'press-to-press rhythm over all button presses, left and right '
+      + 'together; wasted presses count the same as effective ones — the '
+      + 'trace records the hand, not the board effect',
+    displays: [
+      { label: 'click gap',
+        calc: 'median time between consecutive button presses over the '
+          + 'whole game',
+        use: 'the typical beat of play. Falls as reading and deciding speed '
+          + 'up; the median is robust to a few long deductions, which a mean '
+          + 'would soak up',
+        of: (m) => m.cad.gapMedianMs, fmt: (v) => Math.round(v) + 'ms' },
+      { label: 'gap spread',
+        calc: 'interquartile range of those gaps divided by their median',
+        use: 'systematic rhythm vs bursts: near 0 means metronomic, evenly '
+          + 'spaced clicking; high means rapid-fire runs mixed with long '
+          + 'stalls. Two games with the same click gap can differ hugely here',
+        of: (m) => m.cad.gapSpreadRatio, fmt: (v) => v.toFixed(2) + '\u00d7' },
+      { label: 'fastest gap',
+        calc: 'the single shortest press-to-press gap of the game',
+        use: 'pure rapid-fire capability: the best back-to-back the hand '
+          + 'produced, whatever it was for. A ceiling number to watch rise '
+          + 'with practice',
+        of: (m) => m.cad.fastestGapMs, fmt: (v) => Math.round(v) + 'ms' },
+      { label: 'peak rate',
+        calc: 'the most presses inside any rolling 1-second window',
+        use: 'sustained rapid-fire rather than one fast pair — cleared '
+          + 'chains and chord runs push it up. The actions-per-second '
+          + 'ceiling of this game',
+        of: (m) => m.cad.peakPressesPerSec, fmt: (v) => v + '/s' },
+      { label: 'burst share',
+        calc: 'share of press-to-press gaps under 250ms',
+        use: 'how much of the game is played in runs vs single aimed '
+          + 'clicks — the volume counterpart of fastest gap. Expect it to '
+          + 'grow with board-reading fluency',
+        of: (m) => m.cad.burstGapShare, fmt: (v) => Math.round(v * 100) + '%' },
+      { label: 'on the move',
+        calc: 'share of presses with a cursor sample in the 100ms before '
+          + 'the press (samples exist only while the cursor moves)',
+        use: 'clicking without stopping: the click-while-moving fluency '
+          + 'that separates sweeping play from point-stop-click play. The '
+          + 'inverse view of pause-and-click',
+        of: (m) => m.cad.movingPressShare, fmt: (v) => Math.round(v * 100) + '%' },
     ] },
   { key: 'psych', name: 'psychometric', definition:
       'mousetrap decision-research measures per inter-click segment '
@@ -4592,6 +4939,7 @@ function renderLiveTraceMetrics() {
     psych: liveSegmentCache.psych,
     hev: liveSegmentCache.hev,
     waste: computeWasteMetrics(trace.t, trace.x, trace.y, trace.events),
+    cad: computeClickCadence(trace.t, trace.events),
   };
   appendTraceMetricsSeries(metrics);
   lastLiveMetrics = metrics;

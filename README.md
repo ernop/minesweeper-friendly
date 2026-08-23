@@ -47,9 +47,10 @@ all scores set on
 today's weekday ("on Wednesdays"), on weekends or weekdays (whichever today
 is), and on US federal holidays when today is one. Columns reveal
 themselves gradually: a chart only appears once it would actually differ —
-if every game you've played was today, "this month" and "lifetime" would
+if every game you've played was today, "this month" and "past week" would
 just repeat "today", so they stay hidden until your history spreads out
-enough to make them distinct.
+enough to make them distinct. The one constant is "lifetime": it always
+shows, and any window that matches it exactly folds into it.
 After a win there are also lists for boards that match this one's 3BV,
 highest number (has an 8, has a 7, or no number above 4 / 3 / 2),
 mine-island count, largest mine-island, and zero count.

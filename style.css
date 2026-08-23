@@ -542,6 +542,24 @@ body.trial-offboard #result-ranks {
   margin: 0;
 }
 
+/* The measured music state: shown while the machine is playing audio
+   (asked of the local base system, see PRODUCT.md "Music playing").
+   Display only — a measured fact, not a player tag, so no x and no
+   click; olive (the measured-fact accent of the guess chips), never
+   the player-tag blue. */
+#music-indicator {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: bold;
+  color: #3d4a2e;
+  background: #eef2e4;
+  border: 1px solid #6b7a4e;
+  padding: 2px 8px;
+  margin-bottom: 4px;
+}
+
+#music-indicator[hidden] { display: none; }
+
 #states { margin-bottom: 4px; }
 
 #states-chips {
@@ -842,6 +860,7 @@ body.trial-offboard #result-ranks {
 }
 .scatter-plot { fill: #fbfbfb; stroke: #dddddd; }
 .scatter-grid { stroke: #eeeeee; }
+.scatter-minor { stroke: #bbbbbb; }
 .scatter-tick {
   font-family: Arial, sans-serif;
   font-size: 12px;
@@ -863,11 +882,35 @@ body.trial-offboard #result-ranks {
 /* The y = x floor on clicks vs 3BV: a game on the line used only the
    board's minimum clicks */
 .scatter-ideal { stroke: #b0b8c0; stroke-dasharray: 4 3; }
+/* The Theil–Sen trend line on the average charts: solid over all data,
+   dashed over today's wins only, captioned below the chart. Its color
+   stays off the age-dot palette so line and dots never read as the same
+   thing. */
+.scatter-trend { fill: none; stroke-width: 1.3; opacity: 0.85; }
+.scatter-trend.trend-today { stroke-dasharray: 5 3; }
+.trend-ts { stroke: #ff1493; }
+.trend-legend {
+  font-family: Arial, sans-serif;
+  font-size: 10px;
+  color: #666666;
+  max-width: 270px;
+  margin-top: 2px;
+}
+.trend-legend .li { font-weight: bold; white-space: nowrap; }
+.trend-legend .math { color: #555555; }
+.trend-legend .li.trend-ts { color: #ff1493; }
+.trend-legend .note { display: block; }
 .scatter-me-label {
   font-family: Arial, sans-serif;
   font-size: 9px;
   font-weight: bold;
   fill: #000000;
+}
+.scatter-outlier-note {
+  font-family: Arial, sans-serif;
+  font-size: 9px;
+  fill: #999999;
+  text-anchor: end;
 }
 .scatter-me-label.flip-left { text-anchor: end; }
 .scatter-axis-label {

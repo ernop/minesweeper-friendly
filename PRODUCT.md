@@ -352,6 +352,30 @@ edges empty), `largestIsland` (mine count in the largest component).
 The stats table shows max number, zeros, islands, and largest island
 when the fields exist. They feed the board-shape time lists.
 
+Music playing — whether this machine heard audio playing during the game
+— joined the schema on 2026-08-22 (decided 2026-08-22). The page cannot
+observe system audio; the machine's resident base system (ProjectLauncher,
+the localhost dashboard's API) can, via PipeWire: any running audio output
+stream counts, except speech synthesis. It serves a cached boolean at
+localhost/api/is-music-playing, rechecked there at most once a minute. The
+game polls it continuously while the page is open (every 15s, plus once
+the moment a board is dealt); the record stores `musicPlaying` = true if
+any answer arriving while the game ran heard audio, false if every one
+heard silence, and no field at all when the endpoint never answered (any
+other machine, base system down) — absence means "not measured", the
+usual rule, so records cannot lie on origins with no base system.
+Because it is a true state of the world, it is also shown live: an olive
+"music" chip in the fixed upper-right cluster (by the states tags)
+appears while the latest answer is "playing" and goes away when the
+music stops — within about a minute either way, since the base system
+rechecks at most once a minute (worst case ~75s: poll interval + cache
+age). An unreachable endpoint shows nothing: unknown is never displayed
+as silence. The chip is display only — a measured fact, not a player
+tag, so it has no x and takes no clicks. The stats table shows a "Music"
+row (playing / none) when the field exists. Deliberately a boolean, not
+the stream titles: titles are personal data that would live forever in
+records and exports.
+
 States — the player's state tags active at the moment the game finished
 (see "Player states" below) — joined the schema on 2026-08-20. Every game
 recorded from now on carries the field (an empty list when nothing was
@@ -399,10 +423,14 @@ carries at least one tag.
   today is one).
 - Progressive disclosure: when several lists would contain the exact same
   set of scores, only the most specific renders (specificity: narrow
-  windows, then day categories, then broad windows). A brand-new player
-  sees a single chart; broader ones appear as history spreads out. This is
-  the `collapseDuplicateCharts` setting (see Personal settings), on by
-  default; switched off, every window always renders its own chart.
+  windows, then day categories, then broad windows). Exception
+  (2026-08-22): "lifetime" always renders, and any window holding the
+  exact same scores collapses into it — so a player whose whole history
+  fits in one week sees "lifetime" rather than a stack of identical
+  month/year charts. A brand-new player sees a single chart; broader ones
+  appear as history spreads out. This is the `collapseDuplicateCharts`
+  setting (see Personal settings), on by default; switched off, every
+  window always renders its own chart.
 - Also one non-window list: "3BV N" — every win
   whose board had exactly this game's 3BV, the fairest time comparison
   (2026-08-20). Same row format as the window lists.
@@ -489,6 +517,24 @@ carries at least one tag.
   "worsened"), blue "new" = first game in that group. Green always means
   good, red always means bad.
 
+## Average-time charts
+
+- One small scatter per grouping stat (`AVERAGE_SCATTER_SPECS`): grouped
+  value on x, that group's average solve time on y, dots colored by the
+  age of the group's newest win.
+  Axis labels name the chart ("→ 3BV" / "→ average time").
+- Trend line (decided 2026-08-22, chosen by eye from a five-fit
+  sampling): the Theil–Sen line y = a + b·x — b is the median slope over
+  all point pairs, a the median of y − b·x — in pink, off the age-dot
+  palette. Chosen over least squares because outlier games barely move
+  it, and over a through-origin ratio line because solve time has a
+  fixed per-game component. The line draws twice: solid fit over all
+  plotted bucket averages, dashed fit over bucket averages recomputed
+  from today's wins only (local midnight, as everywhere) — today's line
+  only appearing once today has at least 2 buckets. Lines clip to the
+  plot frame. A caption under the chart names the fit, gives its math,
+  and spells out solid vs dashed.
+
 ## Streak lists
 
 - Three lists: "streak" (0 losses), "near-streak" (1 loss ok),
@@ -533,6 +579,11 @@ carries at least one tag.
   with light gridlines. Ticks and axis labels render at heading size
   (12px bold, 2026-08-20), so the x axis caps at 6 ticks (5 on the date
   axis, whose HH:mm labels are widest) while y takes up to 7.
+- Minor tickmarks (2026-08-22) sit on the axis edges between the labeled
+  divisions so inner positions are readable: each labeled step splits into
+  round parts (quarters for a 2- or 4-mantissa step, else fifths), also
+  covering the padded range beyond the outermost labels. The date axis
+  skips them (calendar steps don't subdivide into round parts).
 
 ## Storage (decided 2026-08-20)
 
@@ -626,9 +677,10 @@ carries at least one tag.
   elapsed seconds. Spans where the value was not yet measurable are gaps
   in the line, never bridged. The after-game charts are the same rows at
   chart size (230x130 vs the panel's 150x46).
-- Four measurement systems, each a labeled section of the panel and of
+- Five measurement systems, each a labeled section of the panel and of
   the after-game charts (decided 2026-08-20, when the three researched
-  systems beyond the first were reimplemented in-page). Every row
+  systems beyond the first were reimplemented in-page; click timing
+  added 2026-08-22). Every row
   carries a two-part explanation as its hover tooltip — "HOW", exactly
   how the value is calculated, and "USE", what it might be used for and
   in what context (the literature's reading plus this project's
@@ -651,6 +703,17 @@ carries at least one tag.
     without clicking — approach-abandon made countable). Fruitless
     effort is counted, never subtracted away (the measurement
     principle).
+  - CLICK TIMING — press-to-press cadence over all button presses, left
+    and right together (added 2026-08-22): click gap (median gap between
+    consecutive presses), gap spread (interquartile range over median —
+    near 0 = metronomic, systematic clicking; high = rapid-fire runs
+    mixed with long stalls), fastest gap, peak rate (most presses in any
+    rolling 1-second window), burst share (share of gaps under 250ms),
+    on the move (share of presses with a cursor sample in the 100ms
+    before the press — clicking without stopping). The press is the
+    unit: a wasted click is the same motor act as an effective one, and
+    the trace records the hand, not the board effect (the measurement
+    principle again).
   - PSYCHOMETRIC — the mousetrap decision-research measures (Kieslich et
     al.) per inter-click segment, means over segments: segments, MAD,
     AUC, AD, x-flips, y-flips, initiation, idle, vel max, acc max,

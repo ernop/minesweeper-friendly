@@ -125,7 +125,7 @@ Implementation notes:
 - Trace metrics (PRODUCT.md "Trace metrics panel"): the pure sections
   between the "TRACE METRICS: COMPUTATION" and "TRACE METRICS: DISPLAY"
   markers (no DOM; Node harnesses extract exactly this span) implement
-  all four measurement systems over a trace:
+  all five measurement systems over a trace:
   - `computeTraceMetrics` — the biometrics session set, a JS port of
     `analysis/biometrics/extract_features.py`;
   - `traceSegments` — the shared inter-click segmentation, the exact
@@ -148,8 +148,13 @@ Implementation notes:
   - `computeWasteMetrics` — the survey Tier 1/2 whole-game measures
     (250 ms pauses, wander ratio, 8 px/90° turnarounds, 300 ms feints
     via the layout events' cell mapping);
-  - `computeAllTraceMetrics` — the combined {bio, psych, hev, waste}
-    object the display consumes.
+  - `computeClickCadence` — press-to-press click timing over 'ldown' +
+    'rdown' events (2026-08-22): gap quartiles (median + IQR/median
+    spread), fastest gap, peak presses in a rolling 1 s window, share of
+    gaps under 250 ms, share of presses with a cursor sample within
+    100 ms before the press;
+  - `computeAllTraceMetrics` — the combined {bio, psych, hev, waste,
+    cad} object the display consumes.
   The DISPLAY section holds `TRACE_METRIC_GROUPS` (per system: key,
   name, definition, displays of {label, calc, use, of, fmt} — calc and
   use render as the row's "HOW:/USE:" hover tooltip; series identity is
@@ -187,7 +192,10 @@ Implementation notes:
   - `tests/metrics-hevelius-test.js` — known-answer constructed
     movements (no runnable Hevelius reference exists; note: the 7 Hz
     FIR's side lobes legitimately overshoot ~1.5% at moving-to-still
-    step edges, so exact-value tests must end movements at the click).
+    step edges, so exact-value tests must end movements at the click);
+  - `tests/metrics-cadence-test.js` — known-answer press sequences for
+    the click-cadence metrics (gap quartiles, peak window, moving-press
+    share, not-measurable cases).
   If any implementation's definitions change, change its counterpart and
   rerun. Node-harness caution: the top-level setInterval keeps a bare
   `node` process alive — full-game harnesses must wrap global.setInterval
@@ -219,6 +227,26 @@ Implementation notes:
   pair (2 effective clicks) that netted nothing — see PRODUCT.md "Flags
   removed" for why it stays separate from wastedClicks. Same absence rules
   as wastedClicks (absent before 2026-08-20).
+- Music state (PRODUCT.md "Music playing"): `sampleMusic` fetches
+  `MUSIC_ENDPOINT` (http://localhost/api/is-music-playing — the resident
+  ProjectLauncher at `~/proj/mybrowser/utilities/caddy/launcher/launcher.py`,
+  proxied by Caddy from :80 to :8787, answering from PipeWire `pw-dump`
+  with a 60s cache and `Access-Control-Allow-Origin: *`; Firefox exempts
+  http://localhost from mixed-content blocking, so the GitHub Pages origin
+  can fetch it too). `beginMusicSampling` (called from newGame beside
+  beginTrace) resets `musicObservations` and samples once; a top-level
+  setInterval (`MUSIC_SAMPLE_EVERY_MS`, 15s) polls continuously — not
+  only during games — because `musicNow` also drives the live indicator
+  (`#music-indicator`, the olive "music" chip in `#top-right`, rendered
+  by `renderMusicIndicator`; hidden unless the latest answer is exactly
+  true, so unknown never displays as silence). An answer is pushed onto
+  `musicObservations` only while `tracing()` — it is at most seconds old,
+  so it belongs to the board now in play; one landing after game end is
+  display-only. `reportResult` writes `musicPlaying` (any-sample-true)
+  only when at least one answer arrived during the game — a failed fetch
+  sets `musicNow` null and produces no observation, because
+  unreachable-endpoint is the designed "not measured" state on foreign
+  origins, not a hidden error.
 - Player states (PRODUCT.md "Player states"): userdata 'states' holds
   `[{name, active}]` in display order; absent entry = new player,
   `loadUserdata` fills `playerStates` with the `DEFAULT_STATE_NAMES`
@@ -251,11 +279,17 @@ Implementation notes:
   the average-time column).
 - Streaks: run-splitting and the core-trim/dedupe/domination filter are in
   `renderRanks`; see PRODUCT.md for the double-counting rationale.
-- Scatters: `buildScatter` + `niceTicks` (`timeTicks` for the date axis),
-  appended after a `.flex-break`; dots colored by age unit (`.age-dot-*`),
+- Scatters: `buildScatter` + `niceTicks` (`timeTicks` for the date axis;
+  `minorTicks` adds edge tickmarks between labeled divisions, skipped on
+  the date axis), appended after a `.flex-break`; dots colored by age unit (`.age-dot-*`),
   the current game ringed and tagged with its today-rank, on-chart axis
   labels, legend appended last. Options: `timeAxis` (local calendar
-  x-ticks), `idealLine` (y = x dashed floor).
+  x-ticks), `idealLine` (y = x dashed floor), `trendLines` +
+  `trendCaption` (`trendLinesFor` / `TREND_CAPTION`: the Theil–Sen line
+  on the average charts, solid over all data and dashed over today's,
+  clipped to the plot rect, captioned with the fit's math — chosen
+  2026-08-22 from a five-fit sampling, see PRODUCT.md "Average-time
+  charts").
 - Layout: `#results` (summary + `#stats-grid` only) is absolutely
   positioned off `#game-area`; `#result-ranks` is normal flow below.
   `syncResultClearance` sets `--result-overflow` on `#result-ranks` to
@@ -275,7 +309,8 @@ Implementation notes:
   `justUniverse` is frozen into `justiceEnabledForGame` at first reveal;
   its checkbox is disabled while `gameState === 'playing'`. Other settings
   remain immediately editable. `collapseDuplicateCharts` gates the
-  progressive-disclosure dedupe in `renderRanks`.
+  progressive-disclosure dedupe in `renderRanks` ("lifetime" is exempt:
+  always shown, and identical windows collapse into it).
 - A just universe (PRODUCT.md "A just universe"): the judge and redraw
   are `justice.js` — pure logic on a view {width, height, mines,
   revealed[], adjacent[]} (flags invisible by design), exporting the
