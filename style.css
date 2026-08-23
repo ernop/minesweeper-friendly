@@ -35,6 +35,7 @@ main {
   align-items: center;
   gap: 12px;
   min-width: 0;
+  container-type: inline-size;
 }
 
 /*-------DIFFICULTY TABS-------*/
@@ -309,7 +310,7 @@ body.trial-offboard #game-frame {
 /* The board is the anchor; the win summary + stats table sit at the far
    right of the board's row, pinned near the viewport edge, without ever
    occupying layout space, so the board never moves when they come and go.
-   The rank charts live below the board in normal flow. */
+   The action analysis and rank charts live below the board in normal flow. */
 #game-area { position: relative; }
 
 #game-area.trial-no-board {
@@ -329,12 +330,13 @@ body.trial-offboard #game-frame {
 
 #results {
   position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  /* Walks from the board box's right edge (50%) out to the viewport's
-     (-50vw), then backs off the body padding plus about half the reserved
-     scrollbar gutter (+32px). */
+  top: var(--results-top-clearance, 0px);
+  transform: none;
+  /* Fallback for older browsers, then the container-unit rule aligns the
+     edge to the available main column rather than the full viewport (the
+     in-page metrics panel consumes part of that viewport). */
   right: calc(50% - 50vw + 32px);
+  right: calc(50% - 50cqw + 4px);
   width: 320px;
   text-align: left;
   /* Echo the chunky in-game numeral face throughout the results area */
@@ -345,6 +347,40 @@ body.trial-offboard #game-frame {
   font-size: 13px;
   color: #000000;
   margin: 2px 0;
+}
+
+/* Full after-game explanations need reading width, not the 320px stat
+   sidebar. They sit centrally between the board row and rankings. The
+   overflow variable clears a stat sidebar taller than the board. */
+#result-analysis {
+  box-sizing: border-box;
+  width: min(920px, calc(100% - 24px));
+  margin: calc(14px + var(--result-overflow, 0px)) auto 4px;
+  text-align: left;
+  font-family: "Arial Black", "Arial Bold", Arial, sans-serif;
+}
+#result-analysis:empty { display: none; }
+#result-analysis .result-verdicts {
+  display: grid;
+  gap: 10px;
+}
+#result-analysis .verdict-block {
+  margin: 0;
+  padding: 10px 14px;
+}
+#result-analysis .verdict-title {
+  margin-bottom: 5px;
+  font-size: 15px;
+}
+#result-analysis .verdict-body,
+#result-analysis .verdict-details {
+  font-size: 14px;
+  line-height: 1.5;
+}
+#result-analysis .evaluation-position { margin-top: 10px; }
+#result-analysis .evaluation-legend {
+  margin-top: 7px;
+  font-size: 12px;
 }
 
 #trial-stage {
@@ -396,9 +432,9 @@ body.trial-offboard #game-frame {
   color: #000000;
 }
 
-/* Game-end evaluation (PRODUCT.md "Game-end evaluation"): the death
-   verdict and the Justice recap, above the stats table. The title keeps
-   the results area's chunky face; the justification prose switches to a
+/* Game-end evaluation (PRODUCT.md "Game-end evaluation"): action analysis
+   and the Justice recap. The title keeps the results area's chunky face;
+   the justification prose switches to a
    plain face for legibility. Accent colors follow the endings-chart
    palette; the Justice block echoes the JUSTICE chip (double border,
    its red). */
@@ -439,6 +475,8 @@ body.trial-offboard #game-frame {
 .verdict-angel .verdict-title { color: #8a6a0a; }
 .verdict-unjudged { border-color: #999999; background: #f2f2f2; }
 .verdict-unjudged .verdict-title { color: #666666; }
+.verdict-clean { border-color: #2e7d32; background: #f2f8f2; }
+.verdict-clean .verdict-title { color: #1f6524; }
 .verdict-mistake { border-color: #b82c14; background: #fff8f5; }
 .verdict-mistake .verdict-title { color: #8f1f0e; }
 .evaluation-position { margin-top: 7px; }

@@ -220,8 +220,10 @@ report.
   guess carries no mistake tag even if it happens to kill.
 - Evidence capture must never block play. Prover/enumerator failure is
   stored as unmeasured rather than filled with an invented conclusion.
-- Display: the fatal action appears first above the stats table, followed
-  by every earlier mistake. Each block contains literal explanatory
+- Display: the compact stats stay in the 320px sidebar, while the action
+  analysis occupies a centered, responsive column below the board and
+  above rankings/charts. The fatal action appears first, followed by every
+  earlier mistake. Each block contains literal explanatory
   prose, chosen/best values when measured, and a saved rendering of the
   visible board before the action. The selected square(s) are outlined
   red; guaranteed-safe alternatives green; lower-risk or higher
@@ -229,6 +231,9 @@ report.
   coordinates are also written as text. Trial results retain each run's
   ledger and expose the same report in a nested “action report” disclosure
   under that run, so the final trial review does not lose interim mistakes.
+  A clean win still gets the separate report zone with the literal reading
+  “no recorded mistakes”; absence of a mistake block never makes the report
+  disappear into the stats.
 - The five old ending names (`mine`, `chord`, `needless`, `forced`,
   `angel`) remain only as a **derived session-chart view** of the fatal
   evidence. They are not stored as the source of truth and cannot erase
@@ -264,7 +269,7 @@ report.
   head beside the running-average length. Event retention always covers
   the largest choice, so switching longer works immediately.
 - The action report and Justice recap are one shown-thing (`endVerdict`,
-  "game-end verdict", on by default). They describe actions under the stated rules;
+  "after-game action analysis", on by default). They describe actions under the stated rules;
   it does not identify judgment, attention, or any other cause — the
   standing measurement doctrine.
 
@@ -273,14 +278,17 @@ report.
 - The board is the anchor. Nothing that appears or disappears may shift it,
   ever.
 - The win summary (three lines: outcome, mode, end date-time) + stats table
-  are the ONLY things on the board's row: absolutely positioned at the far
-  right of the row (right edge pinned near the viewport's, 2026-08-20),
-  vertically centered against the frame, 320px wide. They appear and
-  disappear without occupying layout space.
-- Everything else (rank lists, rankaverages, streaks, scatter plots) sits
-  below the board in normal flow. If the stats table is taller than the
-  board, those lists shift down by the overhang so they never sit under
-  the table; the board does not move.
+  are the ONLY things allowed beside the board: normally absolutely
+  positioned at the far right of the available main column, vertically
+  aligned from the board row's top, 320px wide. Container-relative
+  positioning accounts for the in-page metrics column, so the stats'
+  right edge never crosses the main column/window edge. If fixed top-right
+  controls occupy the same strip, the stats start below those controls
+  while remaining flush right.
+- Everything else (the centered action analysis, rank lists, rankaverages,
+  streaks, scatter plots) sits below the board in normal flow. If the stats
+  table is taller than the board, the first visible section shifts down by
+  the overhang so nothing sits under the table; the board does not move.
 - The scrollbar gutter is always reserved so a tall results area cannot
   change the viewport width and nudge the centered board.
 - The results area echoes the in-game numeral face (Arial Black stack).

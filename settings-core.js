@@ -37,7 +37,7 @@ const SHOWN_THINGS_DEFAULTS = Object.freeze({
 });
 
 const SHOWN_THINGS_OPTIONS = [
-  ['endVerdict', 'game-end verdict', 'the death judgement and Justice recap above the stats'],
+  ['endVerdict', 'after-game action analysis', 'the centralized fatal-action, earlier-mistake, and Justice report below the board'],
   ['gameStats', 'game stats', 'the label/value stats beside the board'],
   ['timeTables', 'time-window tablecharts', 'lifetime, calendar, rolling-window, and day-category rankings'],
   ['lastOneMinute', 'last 1 minute', 'the very short rolling time tablechart'],

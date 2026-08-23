@@ -125,24 +125,50 @@ const mineCounter = document.getElementById('mine-counter');
 const timerDisplay = document.getElementById('timer');
 const resultSummary = document.getElementById('result-summary');
 const resultStats = document.getElementById('result-stats');
+const resultAnalysis = document.getElementById('result-analysis');
 const resultRanks = document.getElementById('result-ranks');
 const gameArea = document.getElementById('game-area');
 const resultsBox = document.getElementById('results');
+const mainElement = document.querySelector('main');
+const topRight = document.getElementById('top-right');
 const customForm = document.getElementById('custom-form');
 const justiceLive = document.getElementById('justice-live');
 
-// #results is out of flow so it cannot move the board. If the table is
-// taller than the board, the lists below shift down by the overhang.
+// Keep the compact stats flush with the available main column's right edge.
+// If the fixed top-right controls occupy that same horizontal strip, start
+// the stats below them; never move the stats beneath the board.
+function syncResultsPlacement() {
+  resultsBox.style.removeProperty('--results-top-clearance');
+  if (gameArea.classList.contains('trial-no-board')
+      || (resultSummary.textContent === '' && resultStats.textContent === '')) return;
+
+  const areaRect = gameArea.getBoundingClientRect();
+  const chromeRect = topRight.getBoundingClientRect();
+  const resultRect = resultsBox.getBoundingClientRect();
+  const sharesRightStrip = resultRect.right > chromeRect.left - 8
+    && resultRect.left < chromeRect.right + 8;
+  if (sharesRightStrip && chromeRect.bottom + 8 > areaRect.top) {
+    resultsBox.style.setProperty('--results-top-clearance',
+      Math.ceil(chromeRect.bottom - areaRect.top + 8) + 'px');
+  }
+}
+
+// The right-side stats are out of flow so they cannot move the board. If
+// they extend below it, the separate report (or rankings when no report is
+// shown) shifts down by the exact overhang.
 function syncResultClearance() {
+  resultAnalysis.style.removeProperty('--result-overflow');
+  resultRanks.style.removeProperty('--result-overflow');
   if (gameArea.classList.contains('trial-no-board')) {
-    resultRanks.style.removeProperty('--result-overflow');
     return;
   }
   const extra = Math.max(0,
     Math.ceil(resultsBox.getBoundingClientRect().bottom
       - gameArea.getBoundingClientRect().bottom));
-  if (extra > 0) resultRanks.style.setProperty('--result-overflow', extra + 'px');
-  else resultRanks.style.removeProperty('--result-overflow');
+  if (extra > 0) {
+    const target = resultAnalysis.childElementCount > 0 ? resultAnalysis : resultRanks;
+    target.style.setProperty('--result-overflow', extra + 'px');
+  }
 }
 
 //-------LCD DISPLAYS-------
@@ -319,7 +345,9 @@ function newGame() {
   renderPathViewButton();
   resultSummary.textContent = '';
   resultStats.textContent = '';
+  resultAnalysis.textContent = '';
   resultRanks.textContent = '';
+  resultsBox.style.removeProperty('--results-top-clearance');
   syncResultClearance();
   if (Trial.isPlayMode(settings.playMode) && trialIsActive()) setupTrialBoard();
   else trialPresentation = null;
@@ -487,6 +515,7 @@ function renderTrialChrome() {
     btn.textContent = 'start trial';
     resultSummary.textContent = '';
     resultStats.textContent = '';
+    resultAnalysis.textContent = '';
     resultRanks.textContent = '';
     return;
   }
@@ -1441,6 +1470,20 @@ function reportResult(outcome) {
 // settings toggle can re-render it in place; null while no result shows.
 let renderedResult = null;
 
+let resultLayoutFrame = null;
+if (typeof ResizeObserver !== 'undefined') {
+  const resultLayoutObserver = new ResizeObserver(() => {
+    if (renderedResult === null || resultLayoutFrame !== null) return;
+    resultLayoutFrame = requestAnimationFrame(() => {
+      resultLayoutFrame = null;
+      syncResultsPlacement();
+      syncResultClearance();
+    });
+  });
+  resultLayoutObserver.observe(mainElement);
+  resultLayoutObserver.observe(topRight);
+}
+
 function evaluationCellName(cell, width) {
   return 'row ' + (Math.floor(cell / width) + 1) + ', column ' + (cell % width + 1);
 }
@@ -1541,9 +1584,10 @@ function buildEvaluationPosition(evaluation) {
 }
 
 // The game-end evaluation blocks (PRODUCT.md "Game-end evaluation"): the
-// death verdict with its full justification on a loss, and the Justice
-// recap on any game that had events — both above the stats table. The
-// per-event Justice lines come from this game's RAM details; a record
+// fatal action with its full justification, every earlier mistake, and the
+// Justice recap. The centralized report sits below the board row; nested
+// trial reports reuse the same builder. The per-event Justice lines come
+// from this game's RAM details; a record
 // re-rendered later still gets the counted recap sentence.
 function buildVerdictBlocks(record) {
   const wrap = document.createElement('div');
@@ -1599,6 +1643,10 @@ function buildVerdictBlocks(record) {
       box.appendChild(list);
     }
   }
+  if (wrap.childNodes.length === 0 && record.outcome === 'win') {
+    block('verdict-clean', 'Action report: no recorded mistakes',
+      'No measured action in this game met one of the report’s mistake rules.');
+  }
   return wrap.childNodes.length > 0 ? wrap : null;
 }
 
@@ -1615,10 +1663,11 @@ function renderResult(record, modeRecords, options = {}) {
     + '\n' + playModeLabel()
     + '\n' + (options.historyView ? 'Latest win · ' : '') + formatDate(record.endedAt);
   resultStats.textContent = '';
+  resultAnalysis.textContent = '';
   if (settings.shownThings.endVerdict) {
     const verdicts = buildVerdictBlocks(record);
     if (verdicts !== null) {
-      resultStats.appendChild(verdicts);
+      resultAnalysis.appendChild(verdicts);
     }
   }
   const statsGrid = document.createElement('div');
@@ -1720,6 +1769,7 @@ function renderResult(record, modeRecords, options = {}) {
       resultRanks.appendChild(chart);
     }
   }
+  syncResultsPlacement();
   syncResultClearance();
 }
 
@@ -3124,6 +3174,7 @@ function renderTrialReview(session) {
   verdict.textContent = trialRepeatComparisonCopy(summary);
   resultSummary.textContent = '';
   resultStats.textContent = '';
+  resultAnalysis.textContent = '';
   resultRanks.textContent = '';
   appendTrialSessionSummary(resultRanks, summary);
   const pendingOverlays = [];
@@ -7443,6 +7494,7 @@ document.addEventListener('scroll', () => {
 });
 window.addEventListener('resize', () => {
   if (tracing()) recordLayout();
+  syncResultsPlacement();
   syncResultClearance();
 });
 
@@ -7499,7 +7551,9 @@ function showScoresForCurrentMode() {
     resultSummary.textContent = 'High scores\n' + boardDisplayLabel()
       + '\n' + playModeLabel() + '\nNo wins yet';
     resultStats.textContent = '';
+    resultAnalysis.textContent = '';
     resultRanks.textContent = '';
+    syncResultsPlacement();
     syncResultClearance();
     return;
   }

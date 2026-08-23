@@ -351,7 +351,9 @@ Implementation notes:
   alternatives. `recordActionEvaluation` keeps every nonfatal tagged
   action; `lose(hitIndices, evaluation)` always keeps the fatal action.
   `reportResult` writes only the versioned `actionEvaluations` array.
-  `buildVerdictBlocks` renders the fatal action then all earlier mistakes;
+  `renderResult` puts `buildVerdictBlocks` in the centered, responsive
+  `#result-analysis` below the board (never the 320px stat sidebar);
+  the builder renders the fatal action then all earlier mistakes, and
   `buildEvaluationPosition` draws each saved position without revealing
   hidden mines. Trial result payloads copy the ledger, and
   `renderTrialReview` exposes the same blocks under each run's nested
@@ -457,12 +459,15 @@ Implementation notes:
   3BV-clicks raw plots, always fit on untrimmed values — chosen
   2026-08-22 from a five-fit sampling, see PRODUCT.md "Average-time
   charts" and "Scatter plots").
-- Layout: `#results` (summary + `#stats-grid` only) is absolutely
-  positioned off `#game-area`; `#result-ranks` is normal flow below.
-  `syncResultClearance` sets `--result-overflow` on `#result-ranks` to
-  the pixel overhang of the stats table below the board so the lists
-  start clear of it. `html { scrollbar-gutter: stable }` protects board
-  centering.
+- Layout: `#results` (summary + `#stats-grid` only) stays absolutely
+  positioned flush with the available `main` column's right edge using
+  main-container `cqw`, not viewport width. `syncResultsPlacement` measures
+  the fixed `#top-right` controls and adds only enough top clearance to
+  keep the stats below them while preserving that right alignment.
+  `syncResultClearance` moves the separate report/rank flow below any
+  stats overhang.
+  A `ResizeObserver` re-evaluates main/chrome resizing and
+  `html { scrollbar-gutter: stable }` protects board centering.
 - Personal settings (PRODUCT.md "Personal settings"): the RAM `settings`
   object lives in `settings-core.js` (userdata 'settings', filled by each
   page's `userdataReady` via `settingsFrom`, which fills absent fields
