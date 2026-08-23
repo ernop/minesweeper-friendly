@@ -95,6 +95,7 @@ let finalTimeMs = 0;
 let timerInterval = null;
 let clickCount = 0;    // board clicks that changed something (reveal/flag/chord)
 let wastedClicks = 0;  // board clicks that changed nothing
+let inputActionCount = 0; // every accepted board input, including no-ops
 let misclicks = 0;     // board-changing actions contradicted by visible facts
 let flagsPlaced = 0;   // flags the player placed (removals don't subtract)
 let flagsRemoved = 0;  // flag states the player turned off; each placement
@@ -298,6 +299,7 @@ function newGame() {
   revealedCount = 0;
   clickCount = 0;
   wastedClicks = 0;
+  inputActionCount = 0;
   misclicks = 0;
   flagsPlaced = 0;
   flagsRemoved = 0;
@@ -956,8 +958,98 @@ const ACTION_MISTAKE_LABELS = {
   'chord-visible-contradiction': 'chorded through a visible contradiction',
   'chord-wrong-flag-outcome': 'chorded with a wrong flag',
   'opened-unproven-with-safe-move': 'opened an unproven square while a proven-safe move was available',
+  'no-op-click': 'made a click that changed nothing',
   'legacy-avoidable': 'legacy avoidable-death classification',
 };
+
+const ACTION_CATEGORY_SPECS = [
+  { id: 'gameLoss', label: 'Game loss',
+    records: 'the fatal action; a loss can be best-available play and is not automatically a mistake' },
+  { id: 'gameRisk', label: 'Game risk',
+    records: 'a survived action that increased the actual chance of losing under the active rules' },
+  { id: 'timeLoss', label: 'Time loss',
+    records: 'an input that made no board progress or moved visible state away from a proven fact; counts actions, not seconds or intent' },
+  { id: 'lifeMaximization', label: 'Life maximization',
+    records: 'an optional one-ply model comparison where another action had higher expected remaining life' },
+  { id: 'measurementNotes', label: 'Measurement notes',
+    records: 'legacy or incomplete evidence the app cannot classify more precisely' },
+];
+
+const TIME_LOSS_MISTAKES = new Set([
+  'flagged-proven-safe',
+  'removed-proven-mine-flag',
+  'chord-visible-contradiction',
+  'no-op-click',
+]);
+const GAME_RISK_MISTAKES = new Set([
+  'guessed-with-safe-move',
+  'chose-higher-risk',
+  'opened-unproven-with-safe-move',
+]);
+
+function evaluationRiskDelta(evaluation) {
+  const evidence = evaluation.evidence || {};
+  if (typeof evidence.actualRisk === 'number'
+      && typeof evidence.bestActualRisk === 'number') {
+    return Math.max(0, evidence.actualRisk - evidence.bestActualRisk);
+  }
+  if (evidence.playMode === 'angelic' || evidence.justiceProtected === true) return 0;
+  if (typeof evidence.chosenRisk === 'number'
+      && typeof evidence.bestRisk === 'number') {
+    return Math.max(0, evidence.chosenRisk - evidence.bestRisk);
+  }
+  return undefined;
+}
+
+function evaluationLifeGap(evaluation) {
+  const evidence = evaluation.evidence || {};
+  if (typeof evidence.expectedLife !== 'number'
+      || typeof evidence.bestExpectedLife !== 'number') return undefined;
+  return Math.max(0, evidence.bestExpectedLife - evidence.expectedLife);
+}
+
+// One primary section per action. Severity wins; lower-level mechanisms
+// remain on the evidence as secondary tags and never duplicate the action.
+function actionEvaluationCategory(evaluation) {
+  if (!evaluation) return undefined;
+  if (evaluation.result === 'death') return 'gameLoss';
+  if (typeof evaluation.version === 'string'
+      && evaluation.version !== ACTION_EVALUATION_VERSION) return 'measurementNotes';
+  const mistakes = new Set(evaluation.mistakes || []);
+  const hasRiskRule = [...GAME_RISK_MISTAKES].some((kind) => mistakes.has(kind));
+  if (hasRiskRule) {
+    const delta = evaluationRiskDelta(evaluation);
+    if (delta === undefined || delta > 1e-12) return 'gameRisk';
+  }
+  if ([...TIME_LOSS_MISTAKES].some((kind) => mistakes.has(kind))) return 'timeLoss';
+  if (mistakes.has('chose-lower-modeled-life')
+      && (evaluationLifeGap(evaluation) || 0) > 1e-9) return 'lifeMaximization';
+  if (evaluation.legacy || mistakes.has('legacy-avoidable')
+      || (evaluation.evidence && evaluation.evidence.factsMeasured === false)) {
+    return 'measurementNotes';
+  }
+  if (mistakes.size > 0) return 'measurementNotes';
+  return undefined;
+}
+
+function actionCategorySummary(evaluations) {
+  const counts = Object.fromEntries(
+    ACTION_CATEGORY_SPECS.map((spec) => [spec.id, 0]));
+  let excessRisk = 0;
+  let modeledLifeGap = 0;
+  for (const evaluation of evaluations || []) {
+    const category = actionEvaluationCategory(evaluation);
+    if (category) counts[category]++;
+    if (category === 'gameRisk') {
+      excessRisk += evaluationRiskDelta(evaluation) || 0;
+    }
+    if (Array.isArray(evaluation.mistakes)
+        && evaluation.mistakes.includes('chose-lower-modeled-life')) {
+      modeledLifeGap += evaluationLifeGap(evaluation) || 0;
+    }
+  }
+  return { counts, excessRisk, modeledLifeGap };
+}
 
 function evaluationHasMistake(evaluation) {
   return Array.isArray(evaluation && evaluation.mistakes)
@@ -969,10 +1061,12 @@ function evaluationHasMistake(evaluation) {
 // every applicable mistake remain together on the action evaluation.
 function evaluationEndingKind(evaluation) {
   if (!evaluation) return 'other';
+  if (evaluation.version !== ACTION_EVALUATION_VERSION) return 'other';
   if (evaluation.legacy && DEATH_KIND_LABELS[evaluation.legacy.deathKind]) {
     return evaluation.legacy.deathKind;
   }
-  const mistakes = new Set(evaluation.mistakes || []);
+  const mistakes = new Set(Array.isArray(evaluation.mistakes)
+    ? evaluation.mistakes : []);
   if (mistakes.has('opened-proven-mine')) return 'mine';
   if (evaluation.action === 'chord') return 'chord';
   if (mistakes.has('guessed-with-safe-move')
@@ -999,17 +1093,27 @@ function fatalEvaluationOf(record) {
 }
 
 function actionEvaluationLabel(evaluation) {
+  if (evaluation.legacy
+      && evaluation.legacy.source === 'pre-action-evaluation-coverage') {
+    return 'action evidence unavailable for this older game';
+  }
   if (evaluation.result === 'death') {
     const kind = evaluationEndingKind(evaluation);
     return kind === 'other' ? 'unjudged death' : DEATH_KIND_LABELS[kind];
   }
-  const labels = (evaluation.mistakes || [])
+  const labels = (Array.isArray(evaluation.mistakes) ? evaluation.mistakes : [])
     .map((kind) => ACTION_MISTAKE_LABELS[kind] || kind);
   return labels.length > 0 ? labels.join('; ') : 'recorded action';
 }
 
 function actionEvaluationText(evaluation) {
+  if (evaluation.version !== ACTION_EVALUATION_VERSION) {
+    return 'This action uses a newer evidence version. It was preserved verbatim, but this build cannot interpret it safely.';
+  }
   if (evaluation.legacy) {
+    if (evaluation.legacy.source === 'pre-action-evaluation-coverage') {
+      return 'This game predates action-by-action evidence. Its outcome and aggregate counts remain valid, but earlier actions cannot be reconstructed from this record alone.';
+    }
     if (evaluation.legacy.deathKind) {
       return 'This older record stored the verdict “'
         + (DEATH_KIND_LABELS[evaluation.legacy.deathKind] || evaluation.legacy.deathKind)
@@ -1046,6 +1150,14 @@ function actionEvaluationText(evaluation) {
   if (mistakes.has('removed-proven-mine-flag')) {
     parts.push('Visible facts still proved the unflagged square was a mine.');
   }
+  if (mistakes.has('no-op-click')) {
+    const reason = {
+      'chord-unavailable': 'The chord conditions were not met, so the board did not change.',
+      'left-clicked-flag': 'Left-clicking a flagged square did not change the board.',
+      'flagged-revealed-cell': 'A revealed square cannot be flagged, so the board did not change.',
+    }[evidence.reason];
+    parts.push(reason || 'The click did not change the board.');
+  }
   if (mistakes.has('chord-visible-contradiction')) {
     parts.push('The chord’s flags or opened neighbors contradicted facts provable from the visible board.');
   }
@@ -1072,11 +1184,24 @@ function actionEvaluationText(evaluation) {
   if (typeof evidence.bestRisk === 'number') {
     parts.push('Lowest available mine risk: ' + (evidence.bestRisk * 100).toFixed(1) + '%.');
   }
+  if (typeof evidence.actualRisk === 'number'
+      && typeof evidence.bestActualRisk === 'number') {
+    const delta = Math.max(0, evidence.actualRisk - evidence.bestActualRisk);
+    parts.push('Under the active mode and protection rules: '
+      + (evidence.actualRisk * 100).toFixed(1) + '% selected versus '
+      + (evidence.bestActualRisk * 100).toFixed(1) + '% best available'
+      + (delta > 1e-12
+        ? ' (+' + (delta * 100).toFixed(1) + ' percentage points)' : '')
+      + '.');
+  }
   if (typeof evidence.expectedLife === 'number'
       && typeof evidence.bestExpectedLife === 'number') {
     parts.push('One-ply expected remaining life: '
       + evidence.expectedLife.toFixed(3) + ' selected; '
-      + evidence.bestExpectedLife.toFixed(3) + ' best measured.');
+      + evidence.bestExpectedLife.toFixed(3) + ' best measured'
+      + (evidence.bestExpectedLife > evidence.expectedLife + 1e-9
+        ? ' (gap ' + (evidence.bestExpectedLife - evidence.expectedLife).toFixed(3) + ')'
+        : '') + '.');
   }
   const alternativeCount = new Set((evaluation.alternatives || [])
     .flatMap((alternative) => alternative.cells)).size;
@@ -1154,8 +1279,8 @@ function visiblePositionSnapshot() {
   };
 }
 
-function actionEvaluationBase(action, actionNumber, selected, triggerCell) {
-  return {
+function actionEvaluationBase(action, actionNumber, selected, triggerCell, options = {}) {
+  const evaluation = {
     version: ACTION_EVALUATION_VERSION,
     action,
     actionNumber,
@@ -1169,8 +1294,9 @@ function actionEvaluationBase(action, actionNumber, selected, triggerCell) {
       oddsVersion: Odds.VERSION,
     },
     alternatives: [],
-    position: visiblePositionSnapshot(),
   };
+  if (options.position !== false) evaluation.position = visiblePositionSnapshot();
+  return evaluation;
 }
 
 function addAlternative(evaluation, kind, candidates, risk) {
@@ -1183,7 +1309,7 @@ function addAlternative(evaluation, kind, candidates, risk) {
 }
 
 function evaluateRevealAction(index, firstReveal, guessEvent, action = 'reveal') {
-  const evaluation = actionEvaluationBase(action, clickCount, [index]);
+  const evaluation = actionEvaluationBase(action, inputActionCount, [index]);
   evaluation.evidence.firstReveal = firstReveal;
   let local;
   try {
@@ -1212,6 +1338,9 @@ function evaluateRevealAction(index, firstReveal, guessEvent, action = 'reveal')
   if (measuredGuess) {
     evaluation.evidence.chosenRisk = guessEvent.p;
     evaluation.evidence.bestRisk = guessEvent.minP;
+    evaluation.evidence.actualRisk = guessEvent.actualP;
+    evaluation.evidence.bestActualRisk = guessEvent.actualMinP;
+    evaluation.evidence.justiceProtected = guessEvent.justice === true;
     evaluation.evidence.bestRiskTaken = guessEvent.p <= guessEvent.minP + 1e-12;
     evaluation.evidence.expectedLife = guessEvent.expectedLife;
     evaluation.evidence.bestExpectedLife = guessEvent.bestExpectedLife;
@@ -1220,23 +1349,28 @@ function evaluateRevealAction(index, firstReveal, guessEvent, action = 'reveal')
     evaluation.evidence.oddsMeasured = true;
     evaluation.evidence.chosenRisk = blindRisk;
     evaluation.evidence.bestRisk = blindRisk;
+    evaluation.evidence.actualRisk = blindRisk;
+    evaluation.evidence.bestActualRisk = blindRisk;
     evaluation.evidence.bestRiskTaken = true;
   }
 
   if (provenMine) evaluation.mistakes.push('opened-proven-mine');
   if (provenMine && safeAvailable) evaluation.mistakes.push('ignored-safe-move');
   if (!provenMine && measuredGuess && guessEvent.p > 1e-12
-      && guessEvent.minP <= 1e-12) {
+      && guessEvent.minP <= 1e-12
+      && guessEvent.actualP > guessEvent.actualMinP + 1e-12) {
     evaluation.mistakes.push('guessed-with-safe-move');
   }
   if (measuredGuess && guessEvent.minP > 1e-12
-      && guessEvent.p > guessEvent.minP + 1e-12) {
+      && guessEvent.p > guessEvent.minP + 1e-12
+      && guessEvent.actualP > guessEvent.actualMinP + 1e-12) {
     evaluation.mistakes.push('chose-higher-risk');
   }
   if (measuredGuess && guessEvent.bestExpectedLife > guessEvent.expectedLife + 1e-9) {
     evaluation.mistakes.push('chose-lower-modeled-life');
   }
-  if (!provenMine && !provenSafe && !measuredGuess && safeAvailable) {
+  if (!provenMine && !provenSafe && !measuredGuess && safeAvailable
+      && settings.playMode !== 'angelic') {
     evaluation.mistakes.push('opened-unproven-with-safe-move');
   }
 
@@ -1252,7 +1386,7 @@ function evaluateRevealAction(index, firstReveal, guessEvent, action = 'reveal')
 }
 
 function evaluateChordAction(index, toReveal) {
-  const evaluation = actionEvaluationBase('chord', clickCount + 1, toReveal, index);
+  const evaluation = actionEvaluationBase('chord', inputActionCount, toReveal, index);
   try {
     const view = playerView();
     const local = coveredFactsInfo(view);
@@ -1296,7 +1430,7 @@ function evaluateChordAction(index, toReveal) {
 
 function evaluateFlagAction(index, removing) {
   const action = removing ? 'flag-remove' : 'flag-place';
-  const evaluation = actionEvaluationBase(action, clickCount + 1, [index]);
+  const evaluation = actionEvaluationBase(action, inputActionCount, [index]);
   try {
     const view = playerView();
     const local = coveredFactsInfo(view);
@@ -1333,11 +1467,21 @@ function evaluateFlagAction(index, removing) {
   return evaluation;
 }
 
+function evaluateNoOpAction(index, reason) {
+  const evaluation = actionEvaluationBase(
+    'no-op', inputActionCount, index === null ? [] : [index],
+    undefined, { position: false });
+  evaluation.mistakes.push('no-op-click');
+  evaluation.evidence.reason = reason;
+  return evaluation;
+}
+
 function recordActionEvaluation(evaluation, result) {
   if (!evaluation) return;
   evaluation.result = result;
   if (result === 'death' || evaluationHasMistake(evaluation)) {
     actionEvaluations.push(evaluation);
+    sessionRecordEvaluation(evaluation);
   }
 }
 
@@ -1583,56 +1727,101 @@ function buildEvaluationPosition(evaluation) {
   return wrap;
 }
 
-// The game-end evaluation blocks (PRODUCT.md "Game-end evaluation"): the
-// fatal action with its full justification, every earlier mistake, and the
-// Justice recap. The centralized report sits below the board row; nested
-// trial reports reuse the same builder. The per-event Justice lines come
-// from this game's RAM details; a record
-// re-rendered later still gets the counted recap sentence.
+function reportCategoryEnabled(category) {
+  const selected = settings && settings.reportCategories
+    ? settings.reportCategories : REPORT_CATEGORY_DEFAULTS;
+  return selected[category] !== false;
+}
+
+function reportDetailLevel() {
+  return settings && settings.reportDetail
+    ? settings.reportDetail : 'positions';
+}
+
+function evaluationForReport(evaluation) {
+  if (reportCategoryEnabled('lifeMaximization')) return evaluation;
+  return {
+    ...evaluation,
+    mistakes: (Array.isArray(evaluation.mistakes) ? evaluation.mistakes : [])
+      .filter((kind) => kind !== 'chose-lower-modeled-life'),
+    alternatives: (Array.isArray(evaluation.alternatives) ? evaluation.alternatives : [])
+      .filter((alternative) => alternative.kind !== 'higher-modeled-life-reveal'),
+  };
+}
+
+// The action report is grouped by one exclusive primary category per action.
+// Severity determines placement; lower-level mistake tags remain evidence.
+// The centralized report sits below the board row, and trial reports reuse it.
 function buildVerdictBlocks(record) {
   const wrap = document.createElement('div');
   wrap.className = 'result-verdicts';
-  const block = (kindClass, titleText, bodyText) => {
+  const detail = reportDetailLevel();
+  const sections = new Map();
+  const categorySpec = (id) =>
+    ACTION_CATEGORY_SPECS.find((candidate) => candidate.id === id);
+  const sectionFor = (category) => {
+    if (sections.has(category)) return sections.get(category);
+    const spec = categorySpec(category);
+    const section = document.createElement('section');
+    section.className = 'verdict-category verdict-category-' + category;
+    const heading = document.createElement('h3');
+    heading.className = 'verdict-category-title';
+    heading.textContent = spec ? spec.label : category;
+    if (spec) heading.title = spec.records;
+    section.appendChild(heading);
+    sections.set(category, section);
+    wrap.appendChild(section);
+    return section;
+  };
+  const block = (category, kindClass, titleText, bodyText) => {
     const box = document.createElement('div');
     box.className = 'verdict-block ' + kindClass;
     const title = document.createElement('div');
     title.className = 'verdict-title';
     title.textContent = titleText;
-    const body = document.createElement('div');
-    body.className = 'verdict-body';
-    body.textContent = bodyText;
-    box.append(title, body);
-    wrap.appendChild(box);
+    box.appendChild(title);
+    if (detail !== 'summary' && bodyText) {
+      const body = document.createElement('div');
+      body.className = 'verdict-body';
+      body.textContent = bodyText;
+      box.appendChild(body);
+    }
+    sectionFor(category).appendChild(box);
     return box;
   };
   const evaluations = record.actionEvaluations || [];
   const fatal = fatalEvaluationOf(record);
-  if (fatal) {
+  if (fatal && reportCategoryEnabled('gameLoss')) {
+    const shown = evaluationForReport(fatal);
     const kind = evaluationEndingKind(fatal);
-    const box = block('verdict-' + (kind || 'unjudged'),
-      'Fatal action: ' + actionEvaluationLabel(fatal),
-      actionEvaluationText(fatal));
-    const position = buildEvaluationPosition(fatal);
+    const box = block('gameLoss', 'verdict-' + (kind || 'unjudged'),
+      'Fatal action: ' + actionEvaluationLabel(shown),
+      actionEvaluationText(shown));
+    const position = detail === 'positions' ? buildEvaluationPosition(shown) : null;
     if (position) box.appendChild(position);
-  } else if (record.outcome === 'loss') {
-    block('verdict-unjudged', 'Fatal action: unjudged',
+  } else if (!fatal && record.outcome === 'loss'
+      && reportCategoryEnabled('gameLoss')) {
+    block('gameLoss', 'verdict-unjudged', 'Fatal action: unjudged',
       'No action evidence was available for this loss.');
   }
   for (const evaluation of evaluations) {
     if (evaluation.result === 'death' || !evaluationHasMistake(evaluation)) continue;
-    const box = block('verdict-mistake',
-      'Earlier mistake'
+    const category = actionEvaluationCategory(evaluation);
+    if (!category || !reportCategoryEnabled(category)) continue;
+    const shown = evaluationForReport(evaluation);
+    const box = block(category, 'verdict-mistake',
+      'Action'
         + (typeof evaluation.actionNumber === 'number'
-          ? ' (action ' + evaluation.actionNumber + ')' : '')
-        + ': ' + actionEvaluationLabel(evaluation),
-      actionEvaluationText(evaluation));
-    const position = buildEvaluationPosition(evaluation);
+          ? ' ' + evaluation.actionNumber : '')
+        + ': ' + actionEvaluationLabel(shown),
+      actionEvaluationText(shown));
+    const position = detail === 'positions' ? buildEvaluationPosition(shown) : null;
     if (position) box.appendChild(position);
   }
-  if ((record.justice || 0) > 0) {
-    const box = block('verdict-justice', 'A Just Universe',
+  if ((record.justice || 0) > 0 && reportCategoryEnabled('measurementNotes')) {
+    const box = block('measurementNotes', 'verdict-justice', 'A Just Universe',
       justiceRecapText(record.justice, record.justiceSaves));
-    if (justiceDetails.length === record.justice) {
+    if (detail !== 'summary' && justiceDetails.length === record.justice) {
       const list = document.createElement('div');
       list.className = 'verdict-details';
       justiceDetails.forEach((detail, i) => {
@@ -1643,8 +1832,9 @@ function buildVerdictBlocks(record) {
       box.appendChild(list);
     }
   }
-  if (wrap.childNodes.length === 0 && record.outcome === 'win') {
-    block('verdict-clean', 'Action report: no recorded mistakes',
+  if (wrap.childNodes.length === 0 && record.outcome === 'win'
+      && reportCategoryEnabled('measurementNotes')) {
+    block('measurementNotes', 'verdict-clean', 'No recorded reportable actions',
       'No measured action in this game met one of the report’s mistake rules.');
   }
   return wrap.childNodes.length > 0 ? wrap : null;
@@ -1654,8 +1844,23 @@ function renderResult(record, modeRecords, options = {}) {
   renderedResult = { record, modeRecords, options };
   const seconds = secondsOf(record);
   const fatalEvaluation = fatalEvaluationOf(record);
-  const recordedMistakes = (record.actionEvaluations || [])
-    .filter(evaluationHasMistake).length;
+  const actionSummary = actionCategorySummary(record.actionEvaluations);
+  const categoryStatRows = ACTION_CATEGORY_SPECS
+    .filter((spec) => reportCategoryEnabled(spec.id)
+      && actionSummary.counts[spec.id] > 0)
+    .map((spec) => [
+      spec.id === 'measurementNotes' ? spec.label : spec.label + ' actions',
+      String(actionSummary.counts[spec.id]),
+    ]);
+  const categoryMagnitudeRows = [
+    ...(reportCategoryEnabled('gameRisk') && actionSummary.excessRisk > 1e-12
+      ? [['Excess game risk',
+        (actionSummary.excessRisk * 100).toFixed(1) + 'pp']] : []),
+    ...(reportCategoryEnabled('lifeMaximization')
+        && actionSummary.modeledLifeGap > 1e-9
+      ? [['Modeled life gap',
+        actionSummary.modeledLifeGap.toFixed(3)]] : []),
+  ];
   const summaryLead = options.historyView
     ? 'High scores'
     : (record.outcome === 'win' ? 'Win' : 'Loss');
@@ -1707,8 +1912,8 @@ function renderResult(record, modeRecords, options = {}) {
       ? [['Life needless', record.lifeNeedless.toFixed(3)]] : []),
     ...(record.guesses !== undefined
       ? [['Guesses', formatGuesses(record)]] : []),
-    ...(recordedMistakes > 0
-      ? [['Recorded mistakes', String(recordedMistakes)]] : []),
+    ...categoryStatRows,
+    ...categoryMagnitudeRows,
     ...(fatalEvaluation !== undefined
       ? [['Fatal action', actionEvaluationLabel(fatalEvaluation)]] : []),
     ...(record.justiceSaves !== undefined && (record.justice || 0) > 0
@@ -1838,7 +2043,7 @@ const GAME_RECORD_SCHEMA = [
   { field: 'islandCount', valid: (v) => v === undefined || isNumber(v), example: '6', describe: '8-connected mine components on the finished board (diagonals count, edges empty); absent on earlier games' },
   { field: 'largestIsland', valid: (v) => v === undefined || isNumber(v), example: '5', describe: 'mine count in the largest 8-connected mine component; 0 if no mines; absent on earlier games' },
   { field: 'playMode', valid: (v) => v === undefined || PLAY_MODE_IDS.has(v), example: '"standard"', describe: 'play mode this game was under; absent on games recorded before 2026-08-21' },
-  { field: 'actionEvaluations', valid: validActionEvaluations, example: '[{"version":"action-evaluation-v1","action":"reveal","result":"continued","mistakes":["guessed-with-safe-move"]}]', describe: 'versioned evidence for the fatal action and every earlier measured mistake: action shape, independent mistake tags, chosen/best risks, highlighted alternatives, and the visible position before the action; [] means no recorded mistakes and no death; older records are normalized into this field on load/import' },
+  { field: 'actionEvaluations', valid: validActionEvaluations, example: '[{"version":"action-evaluation-v1","action":"reveal","result":"continued","mistakes":["guessed-with-safe-move"]}]', describe: 'versioned evidence for the fatal action and every earlier measured reportable action: exclusive report category derived from action/outcome, independent mistake tags, raw and protection-aware chosen/best risks, modeled-life values, highlighted alternatives, and (except compact no-op entries) the visible position before the action; [] means no recorded reportable action and no death; older records are normalized into this field on load/import' },
   { field: 'identityIndex', valid: (v) => v === undefined || isNumber(v), example: '3', describe: 'trial board identity (0-based in that session); absent outside trial' },
   { field: 'transform', valid: (v) => v === undefined || typeof v === 'string', example: '"rot90"', describe: 'isometry applied to the trial identity for this presentation' },
   { field: 'trialStartedAt', valid: (v) => v === undefined || isNumber(v), example: '1787201223496', describe: 'when the enclosing trial session began' },
@@ -1980,6 +2185,20 @@ function legacyFatalEvaluation(record) {
   return evaluation;
 }
 
+function legacyCoverageEvaluation(record) {
+  return {
+    version: ACTION_EVALUATION_VERSION,
+    action: 'history-coverage',
+    atMs: record.timeMs,
+    selected: [],
+    result: 'continued',
+    mistakes: [],
+    evidence: { factsMeasured: false, playMode: record.playMode },
+    alternatives: [],
+    legacy: { source: 'pre-action-evaluation-coverage' },
+  };
+}
+
 // Every record in RAM uses the newest action-evidence representation.
 // Legacy fields are accepted only at the storage/import boundary, converted
 // once, deleted, and persisted back so the rest of the app has one model.
@@ -1988,7 +2207,8 @@ function normalizeGameRecord(record) {
   let changed = false;
   if (!Array.isArray(normalized.actionEvaluations)) {
     normalized.actionEvaluations = normalized.outcome === 'loss'
-      ? [legacyFatalEvaluation(normalized)] : [];
+      ? [legacyFatalEvaluation(normalized)]
+      : [legacyCoverageEvaluation(normalized)];
     changed = true;
   }
   for (const field of ['stupidDeath', 'deathKind', 'deathRisk', 'deathBestRisk']) {
@@ -6262,6 +6482,10 @@ function sessionBucketSeries(events, opts) {
   const flags = new Array(bucketCount).fill(0);
   const unflags = new Array(bucketCount).fill(0);
   const avoidableDeaths = new Array(bucketCount).fill(0);
+  const categoryCounts = Object.fromEntries(ACTION_CATEGORY_SPECS.map((spec) =>
+    [spec.id, new Array(bucketCount).fill(0)]));
+  const excessRisk = new Array(bucketCount).fill(0);
+  const modeledLifeGap = new Array(bucketCount).fill(0);
   const fastGaps = Array.from({ length: bucketCount }, () => []);
   const endCounts = SESSION_END_KINDS.map(() => new Array(bucketCount).fill(0));
   const countEnd = (i, end) => {
@@ -6298,6 +6522,13 @@ function sessionBucketSeries(events, opts) {
         }
         flags[i] += ev.flags * share;
         unflags[i] += (ev.unflags || 0) * share;
+        if (ev.categoryCounts) {
+          for (const spec of ACTION_CATEGORY_SPECS) {
+            categoryCounts[spec.id][i] += (ev.categoryCounts[spec.id] || 0) * share;
+          }
+          excessRisk[i] += (ev.excessRisk || 0) * share;
+          modeledLifeGap[i] += (ev.modeledLifeGap || 0) * share;
+        }
         if (typeof ev.fastGapMs === 'number') fastGaps[i].push(ev.fastGapMs);
       }
     });
@@ -6346,6 +6577,10 @@ function sessionBucketSeries(events, opts) {
       }
     } else if (ev.kind === 'death' && ev.mistake === true) {
       avoidableDeaths[i]++;
+    } else if (ev.kind === 'evaluation') {
+      if (categoryCounts[ev.category]) categoryCounts[ev.category][i]++;
+      excessRisk[i] += ev.excessRisk || 0;
+      modeledLifeGap[i] += ev.modeledLifeGap || 0;
     } else if (ev.kind === 'end') {
       countEnd(i, ev.end);
     }
@@ -6385,6 +6620,10 @@ function sessionBucketSeries(events, opts) {
   const flagsPerSec = [];
   const mismarksPerMin = [];
   const fastclickGapMs = [];
+  const categoryPerMin = Object.fromEntries(
+    ACTION_CATEGORY_SPECS.map((spec) => [spec.id, []]));
+  const excessRiskPctPerMin = [];
+  const modeledLifeGapPerMin = [];
   for (let i = 0; i < bucketCount; i++) {
     centers.push(startPlayMs + (i + 0.5) * opts.bucketMs);
     const playedSec = playMs[i] / 1000;
@@ -6398,6 +6637,14 @@ function sessionBucketSeries(events, opts) {
       ? misclickCount[i] / (misclickPlayedSec / 60) : undefined);
     flagsPerSec.push(enough ? flags[i] / playedSec : undefined);
     mismarksPerMin.push(enough ? unflags[i] / (playedSec / 60) : undefined);
+    for (const spec of ACTION_CATEGORY_SPECS) {
+      categoryPerMin[spec.id].push(enough
+        ? categoryCounts[spec.id][i] / (playedSec / 60) : undefined);
+    }
+    excessRiskPctPerMin.push(enough
+      ? 100 * excessRisk[i] / (playedSec / 60) : undefined);
+    modeledLifeGapPerMin.push(enough
+      ? modeledLifeGap[i] / (playedSec / 60) : undefined);
     fastclickGapMs.push(sessionMedian(fastGaps[i]));
   }
   return {
@@ -6405,11 +6652,13 @@ function sessionBucketSeries(events, opts) {
     windowMs: opts.windowMs, centers, playMs,
     speedPxPerSec, clicksPerSec, avoidablePerMin, wastedPerMin, misclicksPerMin, flagsPerSec,
     mismarksPerMin, fastclickGapMs, endFractions, endGames,
+    categoryPerMin, excessRiskPctPerMin, modeledLifeGapPerMin,
     // The raw per-bucket accumulations behind the rates, for layers that
     // aggregate across buckets (sessionRunningSeries) — rates can't be
     // re-averaged without their weights.
     sums: { playMs, movePx, useful, wasted, misclickPlayMs, misclickCount,
-      flags, unflags, avoidableDeaths, fastGaps, endCounts },
+      flags, unflags, avoidableDeaths, categoryCounts, excessRisk,
+      modeledLifeGap, fastGaps, endCounts },
   };
 }
 
@@ -6451,6 +6700,10 @@ function sessionRunningSeries(events, opts) {
   const pFlags = prefix(sums.flags);
   const pUnflags = prefix(sums.unflags);
   const pAvoidable = prefix(sums.avoidableDeaths);
+  const pCategoryCounts = Object.fromEntries(ACTION_CATEGORY_SPECS.map((spec) =>
+    [spec.id, prefix(sums.categoryCounts[spec.id])]));
+  const pExcessRisk = prefix(sums.excessRisk);
+  const pModeledLifeGap = prefix(sums.modeledLifeGap);
   const roll = (p, k) => p[k + 1] - p[Math.max(0, k - lookbackBuckets + 1)];
 
   const windowFrom = fine.playNowMs - opts.windowMs;
@@ -6464,6 +6717,10 @@ function sessionRunningSeries(events, opts) {
   const flagsPerSec = [];
   const mismarksPerMin = [];
   const fastclickGapMs = [];
+  const categoryPerMin = Object.fromEntries(
+    ACTION_CATEGORY_SPECS.map((spec) => [spec.id, []]));
+  const excessRiskPctPerMin = [];
+  const modeledLifeGapPerMin = [];
   const endFractions = {};
   for (const kind of SESSION_END_KINDS) endFractions[kind] = [];
   const endGames = [];
@@ -6492,6 +6749,14 @@ function sessionRunningSeries(events, opts) {
       ? roll(pMis, k) / (misPlayedMs / 60000) : undefined);
     flagsPerSec.push(enough ? roll(pFlags, k) / playedSec : undefined);
     mismarksPerMin.push(enough ? roll(pUnflags, k) / (playedSec / 60) : undefined);
+    for (const spec of ACTION_CATEGORY_SPECS) {
+      categoryPerMin[spec.id].push(enough
+        ? roll(pCategoryCounts[spec.id], k) / (playedSec / 60) : undefined);
+    }
+    excessRiskPctPerMin.push(enough
+      ? 100 * roll(pExcessRisk, k) / (playedSec / 60) : undefined);
+    modeledLifeGapPerMin.push(enough
+      ? roll(pModeledLifeGap, k) / (playedSec / 60) : undefined);
     const gaps = [];
     for (let j = Math.max(0, k - lookbackBuckets + 1); j <= k; j++) {
       gaps.push(...sums.fastGaps[j]);
@@ -6509,6 +6774,7 @@ function sessionRunningSeries(events, opts) {
     centers, playMs,
     speedPxPerSec, clicksPerSec, avoidablePerMin, wastedPerMin,
     misclicksPerMin, flagsPerSec, mismarksPerMin, fastclickGapMs,
+    categoryPerMin, excessRiskPctPerMin, modeledLifeGapPerMin,
     endFractions, endGames,
   };
 }
@@ -6605,6 +6871,21 @@ function sessionRecordDeath(mistake) {
   sessionEvents.push({ kind: 'death', at: Date.now(), mistake: mistake });
 }
 
+function sessionRecordEvaluation(evaluation) {
+  const category = actionEvaluationCategory(evaluation);
+  if (!category) return;
+  sessionEvents.push({
+    kind: 'evaluation',
+    at: Date.now(),
+    category,
+    excessRisk: category === 'gameRisk'
+      ? (evaluationRiskDelta(evaluation) || 0) : 0,
+    modeledLifeGap: Array.isArray(evaluation.mistakes)
+      && evaluation.mistakes.includes('chose-lower-modeled-life')
+      ? (evaluationLifeGap(evaluation) || 0) : 0,
+  });
+}
+
 // One ending per finished game ('win', a death verdict kind, or 'other'),
 // recorded while the play span is still open so it lands inside it.
 function sessionRecordEnd(end) {
@@ -6624,6 +6905,7 @@ function sessionBackfillFromHistory() {
   for (const records of Object.values(history)) {
     for (const record of records) {
       if (record.timeMs <= 0) continue;
+      const actionSummary = actionCategorySummary(record.actionEvaluations);
       games.push({
         kind: 'game',
         from: record.endedAt - record.timeMs,
@@ -6635,6 +6917,9 @@ function sessionBackfillFromHistory() {
         flags: record.flagsPlaced || 0,
         unflags: record.flagsRemoved || 0,
         fatalMistake: evaluationHasMistake(fatalEvaluationOf(record)),
+        categoryCounts: actionSummary.counts,
+        excessRisk: actionSummary.excessRisk,
+        modeledLifeGap: actionSummary.modeledLifeGap,
         fastGapMs: record.fastclickGapMs,
         end: record.outcome === 'win' ? 'win'
           : evaluationEndingKind(fatalEvaluationOf(record)),
@@ -6668,8 +6953,9 @@ const SESSION_GROUP = {
 // Titles carry the unit (decided 2026-08-23, afternoon): "mouse speed
 // px/s" sits flush on its plot and says everything the removed rotated
 // y-axis caption used to say, without the sideways read or the lost
-// horizontal space. Only the two series with their own units keep solo
-// charts; the six action rates live together in SESSION_RATE_SPECS.
+// horizontal space. Series with distinct units keep solo charts; the six
+// legacy action rates share two unit-grouped plots, and enabled report
+// categories share a third per-minute plot.
 const SESSION_METRIC_SPECS = [
   { label: 'mouse speed px/s',
     calc: 'cursor px traveled while a game was in progress over the '
@@ -6685,17 +6971,34 @@ const SESSION_METRIC_SPECS = [
     records: 'the median qualifying press-to-press interval within the '
       + 'trailing lookback; only the timing rule above is observed',
     of: (b, i) => b.fastclickGapMs[i], fmt: (v) => Math.round(v) + 'ms' },
+  { label: 'excess game risk pp/m', category: 'gameRisk',
+    calc: 'sum of the extra immediate loss probability chosen by survived '
+      + 'game-risk actions over the trailing played-time lookback, divided '
+      + 'by played minutes; protection rules are applied before comparing',
+    records: 'percentage points of additional immediate loss probability '
+      + 'per played minute; it is a probability sum, not observed deaths',
+    of: (b, i) => b.excessRiskPctPerMin[i],
+    fmt: (v) => v.toFixed(2) + 'pp/m' },
+  { label: 'modeled life gap /m', category: 'lifeMaximization',
+    calc: 'sum of the one-ply best-minus-selected expected-remaining-life '
+      + 'gaps over the trailing played-time lookback, divided by played minutes',
+    records: 'the optional model-relative expected-life gap per played minute; '
+      + 'it is not a claim about player intent or long-horizon optimality',
+    of: (b, i) => b.modeledLifeGapPerMin[i],
+    fmt: (v) => v.toFixed(3) + '/m' },
 ];
 
-// The combined action-rates chart (decided 2026-08-23, afternoon): the
-// six per-play-time rates share one plot so risings and fallings can be
-// compared directly. One numeric scale, two unit readings: the left axis
-// labels the numerals as /m, the right as /s, both rooted at 0 — so
-// 1/m and 1/s sit at the same height and each series picks whichever
-// unit gives it a meaty, visible value (the request sketched no-op
-// clicks per second, but ~3/m beats ~0.05/s pinned to the floor; the
-// stated choose-what-reads-best rule decided). fmt is the bare number;
-// displays append the unit.
+// The action-rates charts (combined 2026-08-23 afternoon; split by unit
+// that evening): the six per-play-time rates draw as two shared plots —
+// every /m series in one chart, every /s series in another — so lines
+// on a chart are directly comparable and neither unit's scale squashes
+// the other's. Each series keeps the unit that gives it a meaty,
+// visible value under the stated choose-what-reads-best rule. No-op
+// clicks moved /m -> /s on 2026-08-23 (user call, "to improve
+// distribution"): its ~19/m line towered over the other /m rates and
+// squashed them against the floor, while as ~0.3/s it sits comfortably
+// on the /s chart's 0..1 scale next to click rate. fmt is the bare
+// number; displays append the unit.
 const SESSION_RATE_SPECS = [
   { label: 'flag removals', unit: '/m', color: '#00838f',
     calc: 'flags taken back per in-progress minute (win auto-flagging and '
@@ -6718,13 +7021,16 @@ const SESSION_RATE_SPECS = [
     records: 'visible-board contradictions, independently of outcome; a fatal '
       + 'fatal visible contradiction also appears in deaths with mistakes, while a wrong flag can be nonfatal',
     of: (b, i) => b.misclicksPerMin[i], fmt: (v) => v.toFixed(1) },
-  { label: 'no-op clicks', unit: '/m', color: '#e8a000',
+  { label: 'no-op clicks', unit: '/s', color: '#e8a000',
     calc: 'board clicks that changed nothing (chords on unsatisfied or '
       + 'empty numbers, left-clicks on flags, right-clicks on revealed '
-      + 'cells), per in-progress minute',
-    records: 'clicks that changed no board state per in-progress minute; '
+      + 'cells), per in-progress second',
+    records: 'clicks that changed no board state per in-progress second; '
       + 'the record does not distinguish among possible causes',
-    of: (b, i) => b.wastedPerMin[i], fmt: (v) => v.toFixed(1) },
+    // The series stores per-minute; the spec converts for display.
+    of: (b, i) => b.wastedPerMin[i] === undefined
+      ? undefined : b.wastedPerMin[i] / 60,
+    fmt: (v) => v.toFixed(2) },
   { label: 'deaths with mistakes', unit: '/m', color: '#7b1fa2',
     calc: 'deaths whose fatal action carries at least one recorded mistake '
       + 'tag (for example, opening a proven mine, guessing while a safe move '
@@ -6739,6 +7045,29 @@ const SESSION_RATE_SPECS = [
     records: 'board-changing clicks per in-progress second over the trailing '
       + 'lookback; it does not measure decisions or identify why the rate changed',
     of: (b, i) => b.clicksPerSec[i], fmt: (v) => v.toFixed(2) },
+];
+
+const SESSION_CATEGORY_RATE_SPECS = [
+  { category: 'gameLoss', label: 'game loss', unit: '/m', color: '#8f1f0e',
+    calc: 'fatal actions per played minute, whether avoidable, forced, protected, or unjudged',
+    records: 'games ending in a fatal action per played minute; the category does not itself call the action a mistake',
+    of: (b, i) => b.categoryPerMin.gameLoss[i], fmt: (v) => v.toFixed(2) },
+  { category: 'gameRisk', label: 'game risk', unit: '/m', color: '#d06a00',
+    calc: 'survived actions that added actual immediate loss probability under the active rules, per played minute',
+    records: 'nonfatal risk-increasing actions per played minute; magnitude has its own excess-game-risk chart',
+    of: (b, i) => b.categoryPerMin.gameRisk[i], fmt: (v) => v.toFixed(2) },
+  { category: 'timeLoss', label: 'time loss', unit: '/m', color: '#1682b8',
+    calc: 'no-progress inputs and visible board-state regressions per played minute',
+    records: 'classified time-loss actions per played minute; no duration or intent is inferred',
+    of: (b, i) => b.categoryPerMin.timeLoss[i], fmt: (v) => v.toFixed(2) },
+  { category: 'lifeMaximization', label: 'life maximization', unit: '/m', color: '#8651ad',
+    calc: 'actions with a positive one-ply expected-remaining-life gap per played minute',
+    records: 'optional model-relative opportunities per played minute; magnitude has its own modeled-life-gap chart',
+    of: (b, i) => b.categoryPerMin.lifeMaximization[i], fmt: (v) => v.toFixed(2) },
+  { category: 'measurementNotes', label: 'measurement notes', unit: '/m', color: '#777777',
+    calc: 'actions whose stored evidence is legacy or incomplete, per played minute',
+    records: 'unclassified evidence notes per played minute, not mistakes',
+    of: (b, i) => b.categoryPerMin.measurementNotes[i], fmt: (v) => v.toFixed(2) },
 ];
 
 // The game-endings lines: one cumulative percent line per ending kind,
@@ -6928,17 +7257,17 @@ function buildSessionEndingsChart(buckets) {
   return { svg, drawn };
 }
 
-// The action-rates chart: every SESSION_RATE_SPECS series in one plot.
-// One numeric scale rooted at 0 up to ceil(max shown value), integer
-// ticks stepped 1/2/5/10… so they stay readable; the left edge reads the
-// numerals as per-minute ("2/m"), the right edge as per-second ("2/s"),
-// same numeral at the same height. Each line ends in a dot with its
-// current value floating to the point's left in the line's own color
-// (nudged apart when lines end close together); the legend below repeats
-// color, name+unit, and value, and carries each metric's HOW/RECORDS.
-const SESSION_RATES_CHART = { H: 170, L: 54, R: 40, T: 5, B: 22 };
+// An action-rates chart: every SESSION_RATE_SPECS series of one unit in
+// one plot. The numeric scale is rooted at 0 up to ceil(max shown
+// value), integer ticks stepped 1/2/5/10… so they stay readable, each
+// labeled with the chart's unit ("2/m"). Each line ends in a dot with
+// its current value floating to the point's left in the line's own
+// color (nudged apart when lines end close together); the legend below
+// repeats color, name+unit, and value, and carries each metric's
+// HOW/RECORDS.
+const SESSION_RATES_CHART = { H: 170, L: 54, R: 8, T: 5, B: 22 };
 
-function buildSessionRatesChart(buckets) {
+function buildSessionRatesChart(buckets, specs, unit) {
   const { H, L, R, T, B } = SESSION_RATES_CHART;
   const W = settings.metricsPanelWidth - 18;
   const svg = document.createElementNS(SVG_NS, 'svg');
@@ -6955,14 +7284,14 @@ function buildSessionRatesChart(buckets) {
   el('rect', { x: L, y: T, width: W - L - R, height: H - T - B, class: 'scatter-plot' });
 
   let max = 0;
-  for (const spec of SESSION_RATE_SPECS) {
+  for (const spec of specs) {
     for (let i = 0; i < buckets.centers.length; i++) {
       const v = displayableNumber(spec.of(buckets, i));
       if (v !== undefined && v > max) max = v;
     }
   }
   const yTop = Math.max(1, Math.ceil(max));
-  let tickStep = [1, 2, 5, 10, 20, 50, 100].find((s) => yTop / s <= 6) || 100;
+  const tickStep = [1, 2, 5, 10, 20, 50, 100].find((s) => yTop / s <= 6) || 100;
 
   const x0 = buckets.playNowMs - buckets.windowMs;
   const x1 = buckets.playNowMs;
@@ -6977,106 +7306,120 @@ function buildSessionRatesChart(buckets) {
   }
   for (let v = 0; v <= yTop; v += tickStep) {
     el('line', { x1: L, y1: py(v), x2: W - R, y2: py(v), class: 'scatter-grid' });
-    el('text', { x: L - 4, y: py(v) + 4, class: 'scatter-tick tick-y' }, v + '/m');
-    el('text', { x: W - R + 4, y: py(v) + 4, class: 'scatter-tick tick-y-right' }, v + '/s');
+    el('text', { x: L - 4, y: py(v) + 4, class: 'scatter-tick tick-y' }, v + unit);
   }
 
   const drawn = [];
   const pointLabels = [];
-  for (const spec of SESSION_RATE_SPECS) {
+  const seriesPoints = [];
+  for (const spec of specs) {
+    const points = [];
     let d = '';
     let pen = false;
-    let lastX = null;
-    let lastY = null;
-    let lastValue = null;
     for (let i = 0; i < buckets.centers.length; i++) {
       const v = displayableNumber(spec.of(buckets, i));
       if (v === undefined) { pen = false; continue; }
-      lastX = px(buckets.centers[i]);
-      lastY = py(v);
-      lastValue = v;
-      d += (pen ? 'L' : 'M') + lastX.toFixed(1) + ' ' + lastY.toFixed(1);
+      const x = px(buckets.centers[i]);
+      const y = py(v);
+      points.push({ x, y, v });
+      d += (pen ? 'L' : 'M') + x.toFixed(1) + ' ' + y.toFixed(1);
       pen = true;
     }
-    drawn.push({ spec, latest: lastValue === null ? undefined : lastValue });
-    if (lastX === null) continue;
-    el('path', { class: 'end-line', stroke: spec.color, d: d });
+    const lastPoint = points[points.length - 1];
+    drawn.push({ spec, latest: lastPoint === undefined ? undefined : lastPoint.v });
+    if (lastPoint === undefined) continue;
+    seriesPoints.push({ spec, points });
+    const hover = document.createElementNS(SVG_NS, 'title');
+    hover.textContent = 'HOW: ' + spec.calc + '.\n\nRECORDS: ' + spec.records + '.';
+    el('path', { class: 'end-line', stroke: spec.color, d: d }).appendChild(hover);
     el('circle', {
       class: 'end-dot', fill: spec.color, r: 2.5,
-      cx: lastX.toFixed(1), cy: lastY.toFixed(1),
+      cx: lastPoint.x.toFixed(1), cy: lastPoint.y.toFixed(1),
     });
     pointLabels.push({
-      x: lastX, y: lastY, color: spec.color,
-      text: spec.fmt(lastValue) + spec.unit,
+      x: lastPoint.x, y: lastPoint.y, spec,
+      text: spec.label + ' ' + spec.fmt(lastPoint.v) + spec.unit,
     });
   }
 
-  // Float each current value to its point's left; when several lines end
-  // at nearly the same height, nudge the labels apart: a top-down pass
-  // spaces them, then a bottom-up pass pushes any that ran past the plot
-  // bottom back up (six 11px labels always fit a 140px plot).
+  // Direct labeling, no legend (decided 2026-08-23, evening): each
+  // line's full label — name, current value, unit — floats at the
+  // line's endpoint in the line's own color, where the eye lands after
+  // following the line, so reading needs no legend matching. An on-line
+  // mid-chart placement was tried first and rejected: with several
+  // near-zero rates sharing a tight band, a ~120px name box rarely has
+  // a clear spot, and the design would have fallen back to a legend
+  // most of the time. Endpoint stacking always works: when lines end
+  // near the same height, a top-down pass spaces the labels, then a
+  // bottom-up pass pushes any that ran past the plot bottom back up (a
+  // handful of 11px labels always fits a 140px plot), and the nudges
+  // preserve endpoint order top-to-bottom, so label order always
+  // matches line order. The white halo keeps a label readable where it
+  // crosses other lines. Each label (and each line) carries the
+  // metric's HOW/RECORDS as its hover title.
   pointLabels.sort((a, b) => a.y - b.y);
   let floorY = T + 9;
   for (const lab of pointLabels) {
     lab.labelY = Math.max(lab.y + 4, floorY);
-    floorY = lab.labelY + 11;
+    floorY = lab.labelY + 12;
   }
   let ceilY = H - B - 2;
   for (let i = pointLabels.length - 1; i >= 0; i--) {
     pointLabels[i].labelY = Math.min(pointLabels[i].labelY, ceilY);
-    ceilY = pointLabels[i].labelY - 11;
+    ceilY = pointLabels[i].labelY - 12;
   }
   for (const lab of pointLabels) {
+    // Right-anchored just left of the endpoint dot, clamped so a long
+    // label on a narrow panel stays inside the drawing.
+    const anchorX = Math.max(lab.x - 6, lab.text.length * 6.2 + 2);
+    const hover = document.createElementNS(SVG_NS, 'title');
+    hover.textContent = 'HOW: ' + lab.spec.calc + '.\n\nRECORDS: '
+      + lab.spec.records + '.';
     el('text', {
-      x: (lab.x - 6).toFixed(1),
+      x: anchorX.toFixed(1),
       y: lab.labelY.toFixed(1),
-      fill: lab.color,
+      fill: lab.spec.color,
       class: 'rate-point-value',
       'text-anchor': 'end',
-    }, lab.text);
+    }, lab.text).appendChild(hover);
   }
   return { svg, drawn };
 }
 
-// The action-rates row: the combined chart plus its legend (swatch,
-// name+unit, current value; each entry's tooltip is that metric's
-// HOW/RECORDS).
-function appendSessionRatesRow(container, buckets) {
+// An action-rates row: one unit's chart, each line naming itself at its
+// endpoint (no legend; every line and label hover-explains itself with
+// its metric's HOW/RECORDS).
+function appendSessionRatesRow(
+  container, buckets, unit, sourceSpecs = SESSION_RATE_SPECS,
+  label = 'action rates') {
+  const specs = sourceSpecs.filter((spec) => spec.unit === unit);
+  if (specs.length === 0) return;
+  const per = unit === '/m' ? 'minute' : 'second';
   const row = document.createElement('div');
   row.className = 'metric-row session-metric-row';
-  row.title = 'HOW: the six action rates on one numeric scale so their '
-    + 'risings and fallings can be compared. The left axis reads the '
-    + 'numerals as per played minute, the right as per played second '
-    + '(1/m and 1/s sit at the same height); each series uses whichever '
-    + 'unit gives it a clearly visible value \u2014 see its legend entry. '
-    + 'Each line\u2019s current value floats beside its endpoint.'
+  row.title = 'HOW: every per-played-' + per + ' action rate on one '
+    + '0-rooted scale so their risings and fallings can be compared '
+    + '. Each line carries its own name and current value at its '
+    + 'endpoint, in the line\u2019s color.'
     + '\n\nRECORDS: the same running averages as ever, drawn together; '
-    + 'hover a legend entry for that metric\u2019s own definition.';
+    + 'hover a line or its label for that metric\u2019s own definition.';
   const headRow = document.createElement('div');
   headRow.className = 'metric-head';
   const labelEl = document.createElement('span');
   labelEl.className = 'metric-label';
-  labelEl.textContent = 'action rates';
+  labelEl.textContent = label + unit;
   headRow.appendChild(labelEl);
   row.appendChild(headRow);
-  const { svg, drawn } = buildSessionRatesChart(buckets);
+  const { svg, drawn } = buildSessionRatesChart(buckets, specs, unit);
   row.appendChild(svg);
-  const legend = document.createElement('div');
-  legend.className = 'session-end-legend';
-  for (const { spec, latest } of drawn) {
-    const item = document.createElement('span');
-    item.className = 'end-legend-item';
-    item.title = 'HOW: ' + spec.calc + '.\n\nRECORDS: ' + spec.records + '.';
-    const swatch = document.createElement('span');
-    swatch.className = 'end-swatch';
-    swatch.style.background = spec.color;
-    const text = document.createElement('span');
-    text.textContent = spec.label + spec.unit + ' '
-      + (latest === undefined ? '\u2013' : spec.fmt(latest));
-    item.append(swatch, text);
-    legend.appendChild(item);
+  // Every drawn line names itself at its endpoint, so there is no
+  // legend; an empty window still explains itself.
+  if (!drawn.some(({ latest }) => latest !== undefined)) {
+    const empty = document.createElement('div');
+    empty.className = 'session-end-legend session-end-empty';
+    empty.textContent = 'nothing measurable in the window yet';
+    row.appendChild(empty);
   }
-  row.appendChild(legend);
   container.appendChild(row);
 }
 
@@ -7141,8 +7484,13 @@ function appendSessionSection(container) {
     playOffsetMs: sessionPlayOffsetMs,
   });
   appendSessionEndingsRow(container, buckets);
-  appendSessionRatesRow(container, buckets);
+  appendSessionRatesRow(container, buckets, '/m');
+  appendSessionRatesRow(container, buckets, '/s');
+  const categorySpecs = SESSION_CATEGORY_RATE_SPECS
+    .filter((spec) => reportCategoryEnabled(spec.category));
+  appendSessionRatesRow(container, buckets, '/m', categorySpecs, 'report categories');
   for (const spec of SESSION_METRIC_SPECS) {
+    if (spec.category && !reportCategoryEnabled(spec.category)) continue;
     const value = latestDefined(buckets, spec.of);
     const row = document.createElement('div');
     row.className = 'metric-row session-metric-row';
@@ -7381,6 +7729,7 @@ boardElement.addEventListener('mouseup', (event) => {
   if (trialBlocksPlay() || gameState === 'won' || gameState === 'lost') return;
   // Logged before acting so a game-ending click is inside its own trace.
   traceEvent('lup', event, index);
+  inputActionCount++;
   const cell = cells[index];
   if (!cell.revealed && !cell.flagged) {
     clickCount++;
@@ -7395,6 +7744,7 @@ boardElement.addEventListener('mouseup', (event) => {
     if (targets === null) {
       wastedClicks++;
       sessionRecordPress(false, false, false, false);
+      recordActionEvaluation(evaluateNoOpAction(index, 'chord-unavailable'), 'continued');
     } else {
       const misclick = chordIsMisclick(index, targets);
       if (misclick) recordMisclick();
@@ -7406,6 +7756,7 @@ boardElement.addEventListener('mouseup', (event) => {
     // Left-clicking a flagged cell does nothing.
     wastedClicks++;
     sessionRecordPress(false, false, false, false);
+    recordActionEvaluation(evaluateNoOpAction(index, 'left-clicked-flag'), 'continued');
   }
 });
 
@@ -7458,6 +7809,7 @@ boardElement.addEventListener('contextmenu', (event) => {
   const index = cellIndexFromEvent(event);
   if (index === null) return;
   traceEvent('rdown', event, index);
+  inputActionCount++;
   const removing = cells[index].flagged;
   const misclick = !cells[index].revealed && flagChangeIsMisclick(index, removing);
   const actionEvaluation = !cells[index].revealed
@@ -7465,6 +7817,7 @@ boardElement.addEventListener('contextmenu', (event) => {
   if (!toggleFlag(index)) {
     wastedClicks++;
     sessionRecordPress(false, false, false, false);
+    recordActionEvaluation(evaluateNoOpAction(index, 'flagged-revealed-cell'), 'continued');
   } else {
     if (misclick) recordMisclick();
     // A removal is still a useful press (it changed the board); only a

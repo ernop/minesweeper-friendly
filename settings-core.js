@@ -52,6 +52,34 @@ const SHOWN_THINGS_OPTIONS = [
   ['relationshipCharts', 'relationship charts', 'the raw win scatter plots at the bottom'],
 ];
 
+const REPORT_CATEGORY_DEFAULTS = Object.freeze({
+  gameLoss: true,
+  gameRisk: true,
+  timeLoss: true,
+  lifeMaximization: false,
+  measurementNotes: true,
+});
+
+const REPORT_CATEGORY_OPTIONS = [
+  ['gameLoss', 'game loss', 'the fatal action and why the game ended; includes best-available-risk deaths without treating them as mistakes'],
+  ['gameRisk', 'game risk', 'survived actions that increased the actual chance of losing under the active mode and protection rules'],
+  ['timeLoss', 'time loss', 'no-progress inputs and visible board-state regressions; counts actions, never invented seconds or intent'],
+  ['lifeMaximization', 'life maximization', 'optional one-ply expected-remaining-life comparisons, including sea-versus-frontier choices; explicitly model-relative'],
+  ['measurementNotes', 'measurement notes', 'legacy, unjudged, or otherwise incomplete evidence that the app cannot honestly classify further'],
+];
+
+const REPORT_DETAIL_CHOICES = [
+  ['summary', 'summary', 'category headings and action labels only'],
+  ['explanations', 'explanations', 'labels plus the literal evidence and measured values'],
+  ['positions', 'positions', 'full explanations, saved board positions, and highlighted alternatives'],
+];
+
+function validReportCategories(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    && Object.entries(value).every(([key, enabled]) =>
+      key in REPORT_CATEGORY_DEFAULTS && typeof enabled === 'boolean');
+}
+
 function validShownThings(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
     && Object.entries(value).every(([key, enabled]) =>
@@ -112,12 +140,31 @@ const SETTINGS_SCHEMA = [
     describe: 'when a game finishes, the canonical motion values, each with its over-the-game chart, inline at the bottom after the other charts',
   },
   {
+    field: 'reportCategories',
+    default: REPORT_CATEGORY_DEFAULTS,
+    valid: validReportCategories,
+    group: 'after-game',
+    label: 'action-report categories',
+    describe: 'which evidence categories appear in after-game reports and category session diagnostics',
+    control: 'report-categories',
+  },
+  {
+    field: 'reportDetail',
+    default: 'positions',
+    valid: (v) => REPORT_DETAIL_CHOICES.some(([id]) => id === v),
+    group: 'after-game',
+    label: 'action-report detail',
+    describe: 'how much evidence each reported action shows',
+    control: 'choice',
+    choices: REPORT_DETAIL_CHOICES,
+  },
+  {
     field: 'showSessionStats',
     default: true,
     valid: (v) => typeof v === 'boolean',
     group: 'left-panel',
     label: 'show session stats',
-    describe: 'the recent-observations section at the top of the in-page left panel: mouse speed while playing, click / mistake-tagged-death / misclick / no-op-click / mine-marking / flag-removal rates, the fastclick gap, and the game-endings percent lines, each point a running average over a chosen lookback of actual play across games with wall-clock breaks removed; changes are not assigned a cause',
+    describe: 'the recent-observations section at the top of the in-page left panel: mouse speed while playing, click / mistake-tagged-death / misclick / no-op-click / mine-marking / flag-removal rates, exclusive report-category frequencies and measured magnitudes, the fastclick gap, and the game-endings percent lines, each point a running average over a chosen lookback of actual play across games with wall-clock breaks removed; changes are not assigned a cause',
   },
   {
     field: 'sessionLookbackSeconds',
@@ -203,6 +250,11 @@ function settingsFrom(stored) {
       filled[s.field] = {
         ...SHOWN_THINGS_DEFAULTS,
         ...(s.field in stored && validShownThings(stored[s.field]) ? stored[s.field] : {}),
+      };
+    } else if (s.field === 'reportCategories') {
+      filled[s.field] = {
+        ...REPORT_CATEGORY_DEFAULTS,
+        ...(s.field in stored && validReportCategories(stored[s.field]) ? stored[s.field] : {}),
       };
     } else {
       filled[s.field] = s.field in stored ? stored[s.field] : s.default;

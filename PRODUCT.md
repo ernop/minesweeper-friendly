@@ -188,10 +188,12 @@ minted specifically for them.
 
 ## Game-end evaluation (requested and decided 2026-08-23)
 
-Every board-changing action is evaluated against the position visible
-immediately before it. The canonical result is a versioned
+Every board-changing action, fatal action, and classified no-op board
+input is evaluated against the position visible immediately before it.
+The canonical result is a versioned
 `actionEvaluations` evidence ledger, not one mutually exclusive label.
-The ledger stores every fatal action and every earlier measured mistake;
+The ledger stores every fatal action and every earlier measured reportable
+action;
 a nonfatal unnecessary guess therefore survives into the after-game
 report.
 
@@ -203,12 +205,19 @@ report.
   - **necessity** — whether a guaranteed-safe reveal existed elsewhere;
   - **raw risk quality** — chosen mine probability, lowest available
     mine probability, and whether the minimum was taken;
+  - **actual risk under the active rules** — chosen and best immediate
+    loss probability after Justice or mode protection is applied. Raw
+    risk can remain nonzero while actual risk is zero; that action is not
+    called game-risking;
   - **one-ply modeled quality** — chosen and best measured expected
     remaining life. This is explicitly the odds model's output, not a
     claim about information, intent, attention, or cause;
   - **mechanical contradictions** — proven-safe flag, removal of a
     proven-mine flag, visible chord contradiction, and a wrong-flag chord
-    established only by the fatal outcome.
+    established only by the fatal outcome;
+  - **no-progress input** — unsatisfied chord, left-click on a flag, or
+    right-click on a revealed cell. These carry their exact no-op reason
+    but omit a full board snapshot to avoid multiplying history size.
 - **Needless guess** has one precise meaning: the player revealed an
   uncertain, positive-risk square while at least one zero-risk reveal
   was available. Merely having a different move with higher modeled
@@ -221,10 +230,30 @@ report.
   guess carries no mistake tag even if it happens to kill.
 - Evidence capture must never block play. Prover/enumerator failure is
   stored as unmeasured rather than filled with an invented conclusion.
+- **Exclusive report taxonomy** (added 2026-08-23): each evaluation
+  appears once, under its highest-severity applicable category, while
+  all lower-level mistake tags remain on its evidence:
+  1. **Game loss** — every fatal action. The category states the outcome,
+     not that the action was a mistake; a lowest-risk forced death belongs
+     here too.
+  2. **Game risk** — a survived action that added actual immediate loss
+     probability under the active mode and protection rules. Raw-risk
+     differences canceled by Justice or Angelic protection do not qualify.
+  3. **Time loss** — a no-progress input, proven-safe flag, removal of a
+     proven-mine flag, or nonfatal visible chord contradiction. The
+     measurement is one classified action; it does not invent seconds or
+     claim intent.
+  4. **Life maximization** — an otherwise-lower-severity action for which
+     the one-ply model found higher expected remaining life elsewhere.
+     This category is optional and model-relative, including
+     sea-versus-frontier comparisons; it is not presented as long-horizon
+     optimality.
+  5. **Measurement notes** — legacy or incomplete evidence that cannot
+     honestly be classified further, plus the factual Justice recap.
 - Display: the compact stats stay in the 320px sidebar, while the action
   analysis occupies a centered, responsive column below the board and
-  above rankings/charts. The fatal action appears first, followed by every
-  earlier mistake. Each block contains literal explanatory
+  above rankings/charts. Category sections appear in the severity order
+  above; actions remain in ledger order within them. Each block contains literal explanatory
   prose, chosen/best values when measured, and a saved rendering of the
   visible board before the action. The selected square(s) are outlined
   red; guaranteed-safe alternatives green; lower-risk or higher
@@ -232,8 +261,11 @@ report.
   coordinates are also written as text. Trial results retain each run's
   ledger and expose the same report in a nested “action report” disclosure
   under that run, so the final trial review does not lose interim mistakes.
+  The compact stats list enabled category counts instead of one undifferentiated
+  “recorded mistakes” total, plus nonzero excess-game-risk and optional
+  modeled-life-gap magnitudes.
   A clean win still gets the separate report zone with the literal reading
-  “no recorded mistakes”; absence of a mistake block never makes the report
+  “No recorded reportable actions”; absence of an action block never makes the report
   disappear into the stats.
 - The five old ending names (`mine`, `chord`, `needless`, `forced`,
   `angel`) remain only as a **derived session-chart view** of the fatal
@@ -260,7 +292,11 @@ report.
   games finished so far in the played-time window. Kinds that never
   occurred stay off the chart, except the win line, which always draws
   once any game has ended (a 0% win line is itself the reading). A
-  color legend under the chart carries each drawn kind's current share.
+  color legend under the chart carries each drawn kind's current share;
+  this chart keeps its legend even though the action-rates charts label
+  their lines directly (2026-08-23, evening), because cumulative-share
+  lines converge and stack at identical values, leaving no honest room
+  for on-chart names.
   Wins backfill as wins; losses derive their line from the fatal action
   evidence; legacy losses retain their old line through provenance, and
   evidence-free losses are "unjudged loss".
@@ -270,7 +306,13 @@ report.
   head beside the running-average length. Event retention always covers
   the largest choice, so switching longer works immediately.
 - The action report and Justice recap are one shown-thing (`endVerdict`,
-  "after-game action analysis", on by default). They describe actions under the stated rules;
+  "after-game action analysis", on by default). `reportCategories` supplies
+  independent switches for the five categories; game loss, game risk, time
+  loss, and measurement notes default on, while the explicitly
+  model-relative life-maximization advice defaults off. `reportDetail`
+  chooses `summary`, `explanations`, or `positions` (default, preserving
+  the full report). The same category switches gate the corresponding
+  session diagnostics. They describe actions under the stated rules;
   it does not identify judgment, attention, or any other cause — the
   standing measurement doctrine.
 
@@ -482,12 +524,13 @@ enumerated on small random boards; probabilities must match exactly).
 Action evaluations — `actionEvaluations` joined the schema 2026-08-23
 and is the sole in-memory/store representation for action mistakes and
 deaths. It is an array on every new record: empty when a win had no
-recorded mistake, otherwise one item for each nonfatal measured mistake
+recorded reportable action, otherwise one item for each nonfatal measured action
 plus one item for the fatal action on a loss. Every item carries a schema
 version, action number/time, action/result, any number of independent
-mistake tags, literal measured evidence, alternative cells, and a compact
-visible-position snapshot (revealed cell/number pairs plus flagged
-indices). The snapshot deliberately records what was visible, not hidden
+mistake tags, literal measured evidence, and alternative cells. Actions
+where position matters also carry a compact visible-position snapshot
+(revealed cell/number pairs plus flagged indices); no-op inputs omit it
+to avoid duplicating the board in history. A snapshot records what was visible, not hidden
 mines the player could not see. See "Game-end evaluation" for the full
 taxonomy and report.
 
@@ -498,6 +541,9 @@ removes all four legacy fields, and persists the normalized history.
 `deathKind` can retain its old five-way chart line as provenance;
 `stupidDeath: true` can retain only “legacy avoidable” because inventing
 the missing modern subtype, risks, alternatives, or board would be false.
+An older win with no action ledger becomes an explicit measurement note
+that action coverage is unavailable, not a falsely mistake-free modern
+game.
 No runtime calculation reads either legacy field.
 
 Justice saves — how many of the game's Justice entries actually required
@@ -1076,8 +1122,8 @@ displays changes but does not label their cause.
   Travel to the restart button and between-game idling are nobody's
   statistic.
 - The series, in the panel's recent-observations section (since
-  2026-08-23 afternoon the six action rates share one combined chart —
-  see "The action-rates chart" below — while mouse speed, fastclick
+  2026-08-23 the six action rates share two unit-grouped charts —
+  see "The action-rates charts" below — while mouse speed, fastclick
   gap, and game endings keep their own):
   - **mouse speed** — px of cursor travel while playing over in-progress
     seconds, px/s.
@@ -1090,8 +1136,9 @@ displays changes but does not label their cause.
   - **misclicks** — the visible-state contradiction definition above per
     in-progress minute, whether or not the action ended the game.
   - **no-op clicks** — clicks that changed no board state per
-    in-progress minute (stored under the legacy field name
-    `wastedClicks`).
+    in-progress second (stored under the legacy field name
+    `wastedClicks`; charted /m until 2026-08-23, see the action-rates
+    charts below).
   - **fastclick gap** — median gap between consecutive board-changing presses of
     the same game, counting only presses made on the move (a cursor
     sample within 100ms before, the cadence definition) with gaps under
@@ -1110,6 +1157,17 @@ displays changes but does not label their cause.
     verdicts, unjudged loss), each the kind's share of the games
     finished so far in the window, with a color legend of current
     shares. See "Game-end evaluation".
+  - **report categories** (added 2026-08-23) — one per-minute line for
+    each enabled exclusive action-report category: game loss, game risk,
+    time loss, life maximization, and measurement notes. The same
+    `reportCategories` switches gate report sections and these lines.
+  - **excess game risk** — sum of the extra immediate loss probability
+    on survived game-risk actions per played minute, in percentage
+    points/minute. Active protection rules are applied first; this is a
+    probability sum, not a count of observed deaths.
+  - **modeled life gap** — sum of one-ply
+    best-minus-selected expected-remaining-life gaps per played minute.
+    It appears only when the optional life-maximization category is on.
 - Running averages (replacing disjoint buckets, 2026-08-23): the
   lookback is selectable on the section itself (30s / 1m / 2m / 5m /
   15m; persisted as the `sessionLookbackSeconds` setting, default 5m),
@@ -1150,7 +1208,8 @@ displays changes but does not label their cause.
   but honestly lost across a reload — the one accepted gap. All modes'
   games backfill — session stats are about the player, not the board.
   Backfill is span-level approximate where live capture is exact: a
-  record holds totals, not timestamps, so each game's totals spread
+  record holds totals, not timestamps, so each game's totals (including
+  report-category counts and their risk/life magnitudes) spread
   evenly over its span, its mistake-tagged fatal action lands at the
   played instant it ended, and its stored per-game fastclick median
   stands in for that span's gaps. The traces hold exact timing if a finer
@@ -1184,26 +1243,39 @@ displays changes but does not label their cause.
   endings %") and sits flush on the plot's top edge (the title-to-chart
   gap reduced until nothing separates them); the sideways read and the
   caption's horizontal cost are gone.
-- The action-rates chart (decided 2026-08-23, afternoon): the six
-  per-play-time rates — flag removals, mine marking, misclicks, no-op
-  clicks, deaths with mistakes, click rate — combined into one chart,
-  second from the top (endings first), replacing their six solo charts,
-  so risings and fallings can be compared directly. One numeric scale,
-  two unit readings: a left axis labels the gridline numerals as
-  per-minute ("0/m, 1/m, 2/m…"), a right axis as per-second ("0/s,
-  1/s…"), both rooted at 0 up to ceil(max shown value), integer ticks
-  stepped 1/2/5/10… to stay readable, and the same numeral at the same
-  height on both edges. Each series uses whichever unit gives it a
-  meaty, clearly visible value (the choice delegated in the request):
-  click rate and mine marking read as /s; misclicks, no-op clicks,
-  deaths with mistakes, and flag removals as /m — no-op clicks were
-  sketched as /s but ~3/m beats ~0.05/s pinned to the floor. Each line
-  has its own color and ends in a dot with its current value floating
-  to the point's left in that color (nudged apart when endpoints
-  crowd); a legend below repeats color, name+unit, and current value,
-  and each legend entry's tooltip carries that metric's HOW/RECORDS.
-  Mouse speed (px/s) and fastclick gap (ms) keep solo charts — their
-  units fit neither axis.
+- The action-rates charts (combined 2026-08-23 afternoon; split by
+  unit that evening): the six per-play-time rates draw as two shared
+  charts right after game endings, replacing their six solo charts.
+  "action rates/m" holds every per-minute series — flag removals,
+  misclicks, deaths with mistakes — and "action rates/s" the per-second
+  trio, mine marking, click rate, and no-op clicks, so the lines on a
+  chart are directly comparable and neither unit's magnitudes squash
+  the other's (the single dual-axis chart tried first put a ~20/m no-op
+  line and a ~1/s marking line on one numeric scale, flattening the
+  small movers). Each chart's scale is rooted at 0 up to ceil(max shown
+  value), integer ticks stepped 1/2/5/10… to stay readable, each tick
+  labeled with the chart's unit ("0/m, 1/m, 2/m…"). Each series keeps
+  the unit that gives it a meaty, clearly visible value (the choice
+  delegated in the original request): click rate, mine marking, and
+  no-op clicks read as /s; misclicks, deaths with mistakes, and flag
+  removals as /m. No-op clicks changed unit twice: sketched /s,
+  implemented /m because ~3/m beat ~0.05/s pinned to the floor, then
+  moved back to /s later on 2026-08-23 (user call, "to improve
+  distribution") once real sessions showed its ~19/m line towering
+  over the other /m rates and squashing them against the floor, while
+  at ~0.3/s it sits comfortably beside click rate on the /s scale.
+  Each line has its own color and ends in
+  a dot, and labels itself directly (2026-08-23, evening): its name,
+  current value, and unit float together to the endpoint's left in the
+  line's color, nudged apart when endpoints crowd while preserving the
+  lines' top-to-bottom order, so reading never needs legend matching —
+  the rates charts have no legend at all. Hovering a line or its label
+  gives that metric's HOW/RECORDS. Mid-line name placement was tried
+  first and rejected: several near-zero rates share a tight band, so a
+  name-sized box rarely had a clear spot and the design would have
+  degenerated into a legend fallback most of the time. Mouse speed
+  (px/s) and fastclick gap (ms) keep solo charts — their units fit
+  neither chart.
 - Resizable (added 2026-08-22, live behavior revised 2026-08-23): the
   in-page panel's right edge is a drag grip. Dragging resizes the panel
   and recomputes chart geometry on every animation frame, so the contents
@@ -1268,8 +1340,8 @@ displays changes but does not label their cause.
   just the clickable checkbox + name, with the schema's full description
   riding on the name as a plain tooltip. A schema `hint` renders as a
   visible second line only when it says something the name cannot —
-  currently only "a just universe". The shown-things switches render
-  inline under their own subheading in "after a game". A multi-option
+  currently only "a just universe". The shown-things and report-category
+  switches render inline under their own subheadings in "after a game". A multi-option
   setting renders as a choice row: the name line, one radio per option
   (each option's explanation is its tooltip). A change saves immediately;
   the game page reads settings fresh on every load, so returning applies
@@ -1292,7 +1364,12 @@ displays changes but does not label their cause.
   lists' progressive disclosure switch (see Rank lists);
   `showMotionStatsDuringGame` and `showMotionStatsAfterGame` (both
   default on) — the two stages of the trace metrics display (see Trace
-  metrics panel); `showSessionStats` (default on),
+  metrics panel); `reportCategories` (game loss, game risk, time loss,
+  and measurement notes on; life maximization off) and `reportDetail`
+  (`positions` by default, with `summary` and `explanations` choices) —
+  which action-analysis categories and evidence depth appear after a game
+  and which category diagnostics appear in the session section;
+  `showSessionStats` (default on),
   `sessionLookbackSeconds` (default 300), and `sessionWindowMinutes`
   (default 60) — the session stats section, its running-average
   length, and its window length (the latter two set by the selectors on

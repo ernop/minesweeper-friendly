@@ -289,9 +289,11 @@ Implementation notes:
   ({kind:'play',from,to} finished play
   spans, {kind:'move',at,px} ~1s-coalesced cursor travel while playing,
   {kind:'press',at,useful,flag,unflag,misclick,moving,gapMs},
-  {kind:'death',at,mistake}) into the eight series (speed, click rate,
+  {kind:'death',at,mistake}, and
+  {kind:'evaluation',at,category,excessRisk,modeledLifeGap}) into the eight legacy series (speed, click rate,
   mistake-tagged deaths/min, misclicks/min, no-ops/min, flags/s,
-  flag-removals/min, fastclick gap) plus raw per-bucket `sums`.
+  flag-removals/min, fastclick gap), five exclusive report-category rates,
+  and the excess-risk / modeled-life magnitudes, plus raw per-bucket `sums`.
   `sessionRunningSeries(events, {nowMs, stepMs, lookbackMs, windowMs,
   openPlayFrom, playOffsetMs})` — what the charts show since 2026-08-23 —
   layers trailing running averages over it: fine SESSION_STEP_MS (10s)
@@ -320,25 +322,36 @@ Implementation notes:
   `fastclickGapMs` (win or loss; absent when nothing qualified — the
   per-game click, no-op, misclick, and mark rates derive from stored
   fields); `sessionRecordDeath` is called from
-  `lose`. `sessionBackfillFromHistory` (called once from init, after
+  `lose`; `sessionRecordEvaluation` is called by
+  `recordActionEvaluation` for every retained live evaluation.
+  `sessionBackfillFromHistory` (called once from init, after
   userdataReady fills history and before any live event) scans records of
   every mode backward until enough actual play is retained, regardless of
   wall age, and rebuilds them as {kind:'game'} events —
-  totals spread by bucket overlap in sessionBucketSeries, death in the
+  totals and `actionCategorySummary` spread by bucket overlap in
+  sessionBucketSeries, death in the
   bucket containing to − 1 (an end on a bucket boundary must not spill
   into the next bucket), stored fastclick median as one gap sample per
   overlapped bucket; live and backfill cannot overlap because every
   backfilled game ended before the page load. DISPLAY: `SESSION_GROUP` +
-  `SESSION_METRIC_SPECS` (solo rows: mouse speed, fastclick gap;
+  `SESSION_METRIC_SPECS` (solo rows: mouse speed, fastclick gap, and the
+  enabled excess-risk / modeled-life magnitude charts;
   label carries the unit and sits flush on the plot — no axis captions,
   the "-15m … now" x ticks speak for themselves) +
   `SESSION_RATE_SPECS` (the six action rates, each with unit '/m' or
-  '/s' — chosen for meaty values — color, and bare-number fmt), rendered
-  by `buildSessionChart` / `buildSessionRatesChart` +
-  `appendSessionRatesRow` (one plot, second from the top: shared
-  0-rooted integer numeric scale to ceil(max), left edge labeled /m and
-  right edge /s at the same heights, per-line colored last-value labels
-  nudged apart, legend with per-metric HOW/RECORDS tooltips),
+  '/s' — chosen for meaty values; no-op clicks charts /s since
+  2026-08-23 by dividing the stored per-minute series by 60 in its
+  spec — color, and bare-number fmt) plus
+  `SESSION_CATEGORY_RATE_SPECS` (one `/m` line per enabled exclusive
+  report category), rendered
+  by `buildSessionChart` / `buildSessionRatesChart(buckets, specs, unit)`
+  + `appendSessionRatesRow(container, buckets, unit)` (two unit-grouped
+  plots right after endings — "action rates/m" then "action rates/s",
+  split 2026-08-23 evening so neither unit's magnitudes squash the
+  other's: each a 0-rooted integer scale to its own ceil(max) with
+  unit-suffixed ticks; no legend — each line's name+value+unit floats
+  at its endpoint in the line's color, cascade-nudged apart preserving
+  line order, with HOW/RECORDS as hover titles on lines and labels),
   `latestDefined` (measurability),
   `appendSessionSection` (renders into the panel top, hosts the
   running-average <select> writing settings.sessionLookbackSeconds and
@@ -350,16 +363,26 @@ Implementation notes:
   scrollTop so
   periodic replacement cannot push the reader away from lower charts.
 - Action evidence (PRODUCT.md "Game-end evaluation"):
-  `evaluateRevealAction`, `evaluateChordAction`, and `evaluateFlagAction`
+  `evaluateRevealAction`, `evaluateChordAction`, `evaluateFlagAction`, and
+  `evaluateNoOpAction`
   capture the visible board before mutation, independent mistake tags,
-  chosen/best raw risk, one-ply expected-life values, and highlighted
-  alternatives. `recordActionEvaluation` keeps every nonfatal tagged
+  chosen/best raw and protection-aware actual risk, one-ply expected-life
+  values, no-op reason, and highlighted alternatives. Compact no-op
+  evaluations deliberately omit a board snapshot.
+  `actionEvaluationCategory` assigns exactly one primary category in
+  severity order (`gameLoss`, `gameRisk`, `timeLoss`,
+  `lifeMaximization`, `measurementNotes`); actual-risk delta, not raw
+  odds alone, determines survived game risk. `actionCategorySummary`
+  supplies category frequencies and magnitudes to session backfill.
+  `recordActionEvaluation` keeps every nonfatal tagged
   action; `lose(hitIndices, evaluation)` always keeps the fatal action.
   `reportResult` writes only the versioned `actionEvaluations` array.
   `renderResult` puts `buildVerdictBlocks` in the centered, responsive
   `#result-analysis` below the board (never the 320px stat sidebar);
-  the builder renders the fatal action then all earlier mistakes, and
-  `buildEvaluationPosition` draws each saved position without revealing
+  the builder groups each action once by primary category and obeys
+  `settings.reportCategories` plus `settings.reportDetail`; life-model
+  secondary prose/alternatives are removed when that optional category is
+  off. `buildEvaluationPosition` draws each saved position without revealing
   hidden mines. Trial result payloads copy the ledger, and
   `renderTrialReview` exposes the same blocks under each run's nested
   action report. `evaluationEndingKind` derives the old five session-chart
@@ -367,7 +390,9 @@ Implementation notes:
   runs inside history load and import: it converts `stupidDeath`,
   `deathKind`, `deathRisk`, and `deathBestRisk` to an explicitly
   provenance-marked fatal evaluation, deletes all four fields, and causes
-  normalized history to be persisted. Runtime code never reads them.
+  normalized history to be persisted. A pre-ledger win becomes a
+  `pre-action-evaluation-coverage` measurement note instead of an
+  invented clean ledger. Runtime code never reads the old fields.
 - Music state (PRODUCT.md "Music playing"): `sampleMusic` fetches
   `MUSIC_ENDPOINT` (http://localhost/api/is-music-playing — the resident
   ProjectLauncher at `~/proj/mybrowser/utilities/caddy/launcher/launcher.py`,
@@ -477,7 +502,8 @@ Implementation notes:
   object lives in `settings-core.js` (userdata 'settings', filled by each
   page's `userdataReady` via `settingsFrom`, which fills absent fields
   from `SETTINGS_SCHEMA` defaults). `SETTINGS_SCHEMA`, `SETTINGS_GROUPS`,
-  `SHOWN_THINGS_*`, `NUMBER_DISPLAY_CHOICES`, `settingsFrom`,
+  `SHOWN_THINGS_*`, `REPORT_CATEGORY_*`, `REPORT_DETAIL_CHOICES`,
+  `NUMBER_DISPLAY_CHOICES`, `settingsFrom`,
   `saveSettings`, the cell iconography SVGs, and `paintCellGlyph` all
   live in `settings-core.js`, shared by both pages. Caution: some schema
   `valid` closures reference game-page globals (PLAY_MODE_IDS etc.) —

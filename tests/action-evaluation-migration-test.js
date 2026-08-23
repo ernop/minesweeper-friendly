@@ -65,9 +65,15 @@ const base = {
     outcome: 'win',
     stupidDeath: undefined,
   });
-  check('old win becomes empty modern ledger',
+  check('old win becomes explicit coverage note',
     Array.isArray(modern.record.actionEvaluations)
-      && modern.record.actionEvaluations.length === 0);
+      && modern.record.actionEvaluations.length === 1
+      && modern.record.actionEvaluations[0].legacy.source
+        === 'pre-action-evaluation-coverage');
+  check('old win note is not invented as a mistake',
+    modern.record.actionEvaluations[0].mistakes.length === 0
+      && actionEvaluationCategory(modern.record.actionEvaluations[0])
+        === 'measurementNotes');
 }
 
 {

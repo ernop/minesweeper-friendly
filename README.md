@@ -69,10 +69,13 @@ since
 recording rules; a zero-flag game earns the special status "markless",
 shown right in the row and as a small "(m)" before that game's time in
 every rank list) and, for wins, clicks over
-3BV (clicks beyond the board's minimum). The after-game report lists the
-fatal action and every earlier measured mistake, explains the independent
-facts (for example, proven mine plus a safe alternative), and redraws the
-visible position with the selected and alternative cells highlighted.
+3BV (clicks beyond the board's minimum). The after-game report groups each
+action once by severity: game loss, game risk, time loss, optional
+one-ply life maximization, or measurement notes. It explains the independent
+facts (for example, proven mine plus a safe alternative), quantifies actual
+risk after protection rules, and can redraw the visible position with the
+selected and alternative cells highlighted. Settings choose categories and
+summary / explanation / full-position detail.
 At the bottom, seven small
 scatter plots chart every win: win time vs date, win time vs hour of day,
 3BV vs time, clicks vs 3BV (with the clicks = 3BV floor drawn in), no-op
@@ -103,8 +106,10 @@ while a guaranteed-safe move was available), misclicks per minute
 board, fatal or nonfatal), no-op clicks per minute,
 the fastclick gap (when you're clicking usefully on the move, how fast the
 qualifying press intervals are), flags placed per second, and flags removed
-per minute. Breaks consume no chart time: history is scanned as far back as
-needed to fill each selectable played-time bucket (10s to 5m). Each chart
+per minute. It also charts enabled report-category frequencies, excess
+protection-aware game risk, and the optional modeled-life gap. Breaks
+consume no chart time: history is scanned as far back as needed to fill each
+selectable played-time lookback (30s to 15m). Each chart
 uses a one-hour accumulated-play axis, black plot-aligned titles, readable
 axes, and the newest value labeled at its point. The panel preserves its scroll position
 through its once-a-second redraw. These are observations, not explanations: the app

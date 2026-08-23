@@ -126,6 +126,16 @@ would require explicit analysis. Not built yet:
 - **More measurements.** Candidates in the same spirit: lowest-risk-death
   rate alongside mistake-tagged-death rate, justice events per minute, chord
   share, pre-press stillness trends, and guess-ledger life-lost per minute.
+- **Per-game no-op rate unit (mapped, 2026-08-23).** The session chart
+  now shows no-op clicks per second; the per-game stats table still
+  derives it per minute. Align or leave, creator's call.
+- **Chart value readout (mapped, 2026-08-23).** The rates charts label
+  only the newest value; a hover crosshair reading every line at any
+  x would expose history without more standing ink.
+- **Rates-chart scale stability (mapped, 2026-08-23).** Each rates
+  chart rescales to ceil(max shown), so the scale can jump as old
+  peaks leave the window; a sticky or stepped ceiling would trade a
+  little resolution for steadier reading.
 - **Full historical action-evidence backfill.** Legacy death booleans and
   five-way verdicts are normalized immediately, but old records lack the
   saved visible position and earlier nonfatal mistakes. Deterministic board
@@ -156,8 +166,10 @@ would require explicit analysis. Not built yet:
   trial (4 × 4); Test trial (1 × 4); correctness / throughput / IOS
   (derived); guess ledger (life lost, needless, ideal-risk, one-ply
   perfect play); music-playing state (boolean asked of the local base
-  system); versioned action-evaluation ledger with fatal and earlier
-  mistake explanations/position snapshots plus immediate legacy death-field
+  system); versioned action-evaluation ledger with exclusive game-loss /
+  game-risk / time-loss / optional life-maximization / measurement-note
+  report groups, configurable detail, protection-aware risk magnitudes,
+  explanations/position snapshots, and immediate legacy death-field
   normalization; the session stats
   section (bucketed sliding-hour-of-play series, in-page left column).
 - Waste metrics (pauses, wander, turnarounds, feints) and the

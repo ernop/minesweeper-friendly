@@ -95,7 +95,7 @@ function buildChoiceRow(s) {
 }
 
 // One section per SETTINGS_GROUPS entry, rows in schema order within
-// their group; the shown-things switches render inline under their own
+// their group; object-valued switch groups render inline under their own
 // subheading. Control-'none' entries never render (their values are set
 // where the thing itself lives, on the game page).
 function buildSettingsColumn() {
@@ -114,6 +114,17 @@ function buildSettingsColumn() {
         sub.title = s.describe;
         column.appendChild(sub);
         for (const [key, label, description] of SHOWN_THINGS_OPTIONS) {
+          column.appendChild(buildSettingRow(s, key, label, description));
+        }
+        continue;
+      }
+      if (s.control === 'report-categories') {
+        const sub = document.createElement('div');
+        sub.className = 'settings-subheading';
+        sub.textContent = s.label;
+        sub.title = s.describe;
+        column.appendChild(sub);
+        for (const [key, label, description] of REPORT_CATEGORY_OPTIONS) {
           column.appendChild(buildSettingRow(s, key, label, description));
         }
         continue;

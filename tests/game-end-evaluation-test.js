@@ -70,6 +70,8 @@ assertContains('safe-open guess explanation',
   actionEvaluationText(unnecessaryGuess), 'nonzero mine risk');
 assertContains('nonfatal mistake label',
   actionEvaluationLabel(unnecessaryGuess), 'guessed while');
+assertEq('survived needless guess is game risk',
+  actionEvaluationCategory(unnecessaryGuess), 'gameRisk');
 
 const lowerModeledLife = {
   version: ACTION_EVALUATION_VERSION,
@@ -83,6 +85,10 @@ assertContains('modeled-life dimension names the model',
   actionEvaluationText(lowerModeledLife), 'one-ply odds model');
 assertContains('modeled-life values retained',
   actionEvaluationText(lowerModeledLife), '0.400 selected; 0.600 best');
+assertEq('modeled-only action has optional category',
+  actionEvaluationCategory(lowerModeledLife), 'lifeMaximization');
+assertEq('modeled life gap is measured',
+  Number(evaluationLifeGap(lowerModeledLife).toFixed(3)), 0.2);
 
 const higherRisk = {
   version: ACTION_EVALUATION_VERSION,
@@ -95,6 +101,8 @@ const higherRisk = {
 assertEq('higher-risk forced guess ending', evaluationEndingKind(higherRisk), 'forced');
 assertContains('higher-risk text chosen odds', actionEvaluationText(higherRisk), '30.0%');
 assertContains('higher-risk text best odds', actionEvaluationText(higherRisk), '12.5%');
+assertEq('fatal severity wins over risk mechanism',
+  actionEvaluationCategory(higherRisk), 'gameLoss');
 
 const bestRiskDeath = {
   version: ACTION_EVALUATION_VERSION,
@@ -115,6 +123,77 @@ assertContains('legacy text admits evidence limit', actionEvaluationText({
   alternatives: [],
   legacy: { avoidable: true },
 }), 'not store enough evidence');
+
+const protectedGuess = {
+  version: ACTION_EVALUATION_VERSION,
+  action: 'reveal',
+  result: 'continued',
+  mistakes: ['chose-higher-risk'],
+  evidence: {
+    chosenRisk: 0.4, bestRisk: 0.2,
+    actualRisk: 0, bestActualRisk: 0,
+    justiceProtected: true,
+  },
+};
+assertEq('protected legacy risk tag becomes a note, not game risk',
+  actionEvaluationCategory(protectedGuess), 'measurementNotes');
+
+const timeLoss = {
+  version: ACTION_EVALUATION_VERSION,
+  action: 'flag-remove',
+  result: 'continued',
+  mistakes: ['removed-proven-mine-flag'],
+  evidence: {},
+};
+assertEq('proven-mine unflag is time loss',
+  actionEvaluationCategory(timeLoss), 'timeLoss');
+const noOp = {
+  version: ACTION_EVALUATION_VERSION,
+  action: 'no-op',
+  result: 'continued',
+  mistakes: ['no-op-click'],
+  evidence: { reason: 'left-clicked-flag' },
+};
+assertEq('no-progress click is time loss',
+  actionEvaluationCategory(noOp), 'timeLoss');
+assertContains('no-progress reason is explained',
+  actionEvaluationText(noOp), 'flagged square');
+
+const note = {
+  version: ACTION_EVALUATION_VERSION,
+  action: 'unknown',
+  result: 'continued',
+  mistakes: ['legacy-avoidable'],
+  evidence: {},
+  legacy: { avoidable: true },
+};
+assertEq('legacy uncertainty is a measurement note',
+  actionEvaluationCategory(note), 'measurementNotes');
+
+const future = {
+  version: 'action-evaluation-v99',
+  action: 'future-action',
+  result: 'continued',
+  mistakes: { futureShape: true },
+};
+assertEq('unknown future version is preserved as a measurement note',
+  actionEvaluationCategory(future), 'measurementNotes');
+assertContains('unknown future version is not interpreted',
+  actionEvaluationText(future), 'cannot interpret it safely');
+
+const summary = actionCategorySummary([
+  unnecessaryGuess, lowerModeledLife, timeLoss, noOp, note, future, higherRisk,
+]);
+assertEq('summary counts fatal once', summary.counts.gameLoss, 1);
+assertEq('summary counts risk once', summary.counts.gameRisk, 1);
+assertEq('summary counts both time-loss actions', summary.counts.timeLoss, 2);
+assertEq('summary counts life once', summary.counts.lifeMaximization, 1);
+assertEq('summary counts both legacy and future notes',
+  summary.counts.measurementNotes, 2);
+assertEq('summary quantifies survived excess risk',
+  Number(summary.excessRisk.toFixed(3)), 0.2);
+assertEq('summary quantifies modeled-life gap',
+  Number(summary.modeledLifeGap.toFixed(3)), 0.2);
 
 // The Justice recap: the rule is cited by name, the count is right, and
 // the redraw detail is honest about entries that were already clear.

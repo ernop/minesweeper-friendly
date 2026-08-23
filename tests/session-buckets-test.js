@@ -10,9 +10,13 @@ const path = require('path');
 
 const repo = path.join(__dirname, '..');
 const source = fs.readFileSync(path.join(repo, 'minesweeper.js'), 'utf8');
+const verdictStart = source.indexOf('//-------GAME-END EVALUATION: VERDICT');
+const verdictEnd = source.indexOf('//-------GAME-END EVALUATION: CAPTURE');
 const startIdx = source.indexOf('//-------SESSION STATS: COMPUTATION');
 const endIdx = source.indexOf('//-------SESSION STATS: RECORDING');
-if (startIdx === -1 || endIdx === -1) throw new Error('section markers not found');
+if (verdictStart === -1 || verdictEnd === -1
+    || startIdx === -1 || endIdx === -1) throw new Error('section markers not found');
+vm.runInThisContext(source.slice(verdictStart, verdictEnd));
 vm.runInThisContext(source.slice(startIdx, endIdx));
 
 let checks = 0;
@@ -61,6 +65,12 @@ const press = (at, useful, flag, moving, gapMs, unflag, misclick) => ({
     press(from + 16000, true, false, false, undefined, true),
     { kind: 'death', at: from + 20000, mistake: true },
     { kind: 'death', at: from + 40000, mistake: false },
+    { kind: 'evaluation', at: from + 21000, category: 'gameLoss' },
+    { kind: 'evaluation', at: from + 22000, category: 'gameRisk',
+      excessRisk: 0.15, modeledLifeGap: 0.08 },
+    { kind: 'evaluation', at: from + 23000, category: 'timeLoss' },
+    { kind: 'evaluation', at: from + 24000, category: 'lifeMaximization',
+      modeledLifeGap: 0.12 },
   ];
   const s = sessionBucketSeries(events, opts);
   const i = last(s);
@@ -73,6 +83,12 @@ const press = (at, useful, flag, moving, gapMs, unflag, misclick) => ({
   assertClose('live flags', s.flagsPerSec[i], 2 / 60);
   assertClose('live unflags', s.mismarksPerMin[i], 2);
   assertClose('live deaths with mistakes', s.avoidablePerMin[i], 1);
+  assertClose('live game-loss category', s.categoryPerMin.gameLoss[i], 1);
+  assertClose('live game-risk category', s.categoryPerMin.gameRisk[i], 1);
+  assertClose('live time-loss category', s.categoryPerMin.timeLoss[i], 1);
+  assertClose('live life category', s.categoryPerMin.lifeMaximization[i], 1);
+  assertClose('live excess risk magnitude', s.excessRiskPctPerMin[i], 15);
+  assertClose('live modeled-life magnitude', s.modeledLifeGapPerMin[i], 0.2);
   assertClose('live fastclick median', s.fastclickGapMs[i], 300);
   assertUndefined('empty earlier bucket', s.speedPxPerSec[i - 1]);
 }
@@ -129,6 +145,8 @@ const press = (at, useful, flag, moving, gapMs, unflag, misclick) => ({
     kind: 'game', from: NOW - 90 * 1000, to: NOW,
     px: 900, useful: 18, wasted: 3, misclicks: 2,
     flags: 6, unflags: 3, fatalMistake: true, fastGapMs: 240,
+    categoryCounts: { gameLoss: 1, gameRisk: 3, timeLoss: 6 },
+    excessRisk: 0.3, modeledLifeGap: 0.15,
   };
   const s = sessionBucketSeries([game], opts);
   const i = last(s);
@@ -145,6 +163,12 @@ const press = (at, useful, flag, moving, gapMs, unflag, misclick) => ({
   assertClose('game no death previous', s.avoidablePerMin[i - 1], 0);
   assertClose('game fastgap newest', s.fastclickGapMs[i], 240);
   assertClose('game fastgap previous', s.fastclickGapMs[i - 1], 240);
+  assertClose('game category distributed newest',
+    s.categoryPerMin.gameRisk[i], 2);
+  assertClose('game category distributed previous',
+    s.categoryPerMin.timeLoss[i - 1], 4);
+  assertClose('game excess risk distributed', s.excessRiskPctPerMin[i], 20);
+  assertClose('game modeled life distributed', s.modeledLifeGapPerMin[i - 1], 0.1);
 }
 
 // Old records without misclick coverage leave that series unmeasured while

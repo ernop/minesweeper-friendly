@@ -82,6 +82,13 @@ console.log('1-of-2 pocket');
   const guess = Odds.scoreGuess(board.view, a);
   check('life lost 0.5', close(guess.lifeLost, 0.5));
   check('needless 0', close(guess.lifeNeedless, 0));
+  check('actual risk follows raw risk without protection',
+    close(guess.actualP, 0.5) && close(guess.actualMinP, 0.5));
+  const protectedGuess = Odds.scoreGuess(board.view, a, { considerJustice: true });
+  check('certified pocket reports zero actual protected risk',
+    protectedGuess.justice === true
+      && close(protectedGuess.actualP, 0)
+      && close(protectedGuess.actualMinP, 0));
   check('ideal risk', guess.idealRisk);
   check('perfect play (symmetric)', guess.perfectPlay);
   check('expected life 0.5', close(guess.expectedLife, 0.5));

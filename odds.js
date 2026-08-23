@@ -309,6 +309,16 @@ function scoreGuess(view, clicked, opts) {
   const lifeNeedless = Math.max(0, p - minP);
   const idealRisk = !odds.provenSafeOpen && p <= minP + 1e-12;
   const justice = opts.considerJustice === true && justiceWouldSave(view, clicked);
+  const actualP = justice ? 0 : p;
+  let actualMinP = justice ? 0 : minP;
+  if (opts.considerJustice === true && actualMinP > 1e-12) {
+    for (const other of odds.unproven) {
+      if (justiceWouldSave(view, other)) {
+        actualMinP = 0;
+        break;
+      }
+    }
+  }
 
   let expected = 1 - (justice ? 0 : p);
   let bestExpected = expected;
@@ -354,6 +364,8 @@ function scoreGuess(view, clicked, opts) {
     cell: clicked,
     p,
     minP,
+    actualP,
+    actualMinP,
     bestCells,
     lifeLost: p,
     lifeNeedless,
