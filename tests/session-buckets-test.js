@@ -59,8 +59,8 @@ const press = (at, useful, flag, moving, gapMs, unflag, misclick) => ({
     press(from + 11150, true, false, false, 250),
     press(from + 15000, true, false, false, undefined, true),
     press(from + 16000, true, false, false, undefined, true),
-    { kind: 'death', at: from + 20000, stupid: true },
-    { kind: 'death', at: from + 40000, stupid: false },
+    { kind: 'death', at: from + 20000, mistake: true },
+    { kind: 'death', at: from + 40000, mistake: false },
   ];
   const s = sessionBucketSeries(events, opts);
   const i = last(s);
@@ -72,7 +72,7 @@ const press = (at, useful, flag, moving, gapMs, unflag, misclick) => ({
   assertClose('live misclicks', s.misclicksPerMin[i], 1);
   assertClose('live flags', s.flagsPerSec[i], 2 / 60);
   assertClose('live unflags', s.mismarksPerMin[i], 2);
-  assertClose('live avoidable deaths', s.stupidPerMin[i], 1);
+  assertClose('live deaths with mistakes', s.avoidablePerMin[i], 1);
   assertClose('live fastclick median', s.fastclickGapMs[i], 300);
   assertUndefined('empty earlier bucket', s.speedPxPerSec[i - 1]);
 }
@@ -128,7 +128,7 @@ const press = (at, useful, flag, moving, gapMs, unflag, misclick) => ({
   const game = {
     kind: 'game', from: NOW - 90 * 1000, to: NOW,
     px: 900, useful: 18, wasted: 3, misclicks: 2,
-    flags: 6, unflags: 3, stupid: true, fastGapMs: 240,
+    flags: 6, unflags: 3, fatalMistake: true, fastGapMs: 240,
   };
   const s = sessionBucketSeries([game], opts);
   const i = last(s);
@@ -141,8 +141,8 @@ const press = (at, useful, flag, moving, gapMs, unflag, misclick) => ({
   assertClose('game misclicks newest', s.misclicksPerMin[i], 4 / 3);
   assertClose('game flags previous', s.flagsPerSec[i - 1], 4 / 60);
   assertClose('game unflags newest', s.mismarksPerMin[i], 2);
-  assertClose('game death newest', s.stupidPerMin[i], 2);
-  assertClose('game no death previous', s.stupidPerMin[i - 1], 0);
+  assertClose('game death newest', s.avoidablePerMin[i], 2);
+  assertClose('game no death previous', s.avoidablePerMin[i - 1], 0);
   assertClose('game fastgap newest', s.fastclickGapMs[i], 240);
   assertClose('game fastgap previous', s.fastclickGapMs[i - 1], 240);
 }
@@ -152,7 +152,7 @@ const press = (at, useful, flag, moving, gapMs, unflag, misclick) => ({
 {
   const game = {
     kind: 'game', from: NOW - MIN, to: NOW,
-    px: 0, useful: 6, wasted: 0, flags: 0, stupid: false,
+    px: 0, useful: 6, wasted: 0, flags: 0, fatalMistake: false,
   };
   const s = sessionBucketSeries([game], opts);
   const i = last(s);
@@ -167,11 +167,11 @@ const press = (at, useful, flag, moving, gapMs, unflag, misclick) => ({
   const from = NOW - 500;
   const s = sessionBucketSeries([
     { kind: 'play', from, to: NOW },
-    { kind: 'death', at: from + 400, stupid: true },
+    { kind: 'death', at: from + 400, mistake: true },
   ], opts);
   const i = last(s);
   assertClose('sliver duration', s.playMs[i], 500);
-  assertUndefined('sliver death rate', s.stupidPerMin[i]);
+  assertUndefined('sliver death rate', s.avoidablePerMin[i]);
   assertUndefined('sliver speed', s.speedPxPerSec[i]);
 }
 
@@ -315,7 +315,7 @@ const runOpts = {
   const events = [
     { kind: 'play', from: first, to: first + 30000 },
     press(first + 10000, false, false, false),
-    { kind: 'death', at: first + 20000, stupid: true },
+    { kind: 'death', at: first + 20000, mistake: true },
     { kind: 'play', from: NOW - 30000, to: NOW },
     press(NOW - 10000, false, false, false),
   ];
@@ -323,7 +323,7 @@ const runOpts = {
   const i = last(s);
   assertEq('run playtime lookback position', s.centers[i], MIN);
   assertClose('run lookback spans the break', s.wastedPerMin[i], 2);
-  assertClose('run death within played lookback', s.stupidPerMin[i], 1);
+  assertClose('run death within played lookback', s.avoidablePerMin[i], 1);
 }
 
 // Wall time advancing during a break changes no sample: positions and
@@ -375,9 +375,9 @@ const runOpts = {
 {
   const s = sessionRunningSeries([
     { kind: 'play', from: NOW - 500, to: NOW },
-    { kind: 'death', at: NOW - 100, stupid: true },
+    { kind: 'death', at: NOW - 100, mistake: true },
   ], runOpts);
-  assertUndefined('run sliver rate', s.stupidPerMin[last(s)]);
+  assertUndefined('run sliver rate', s.avoidablePerMin[last(s)]);
 }
 
 console.log(`session-series: all ${checks} checks passed (buckets + running averages)`);

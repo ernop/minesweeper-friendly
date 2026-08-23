@@ -54,8 +54,11 @@ Generation that aims at the same families the new lists rank:
 
 ## Deferred product (already decided, not built)
 
-- **Separate Justice-on and Justice-off rankings.** Explicitly deferred
-  2026-08-20; lists still mix both.
+- **Separate Justice-on and Justice-off rankings: decided against
+  (2026-08-23).** Originally deferred 2026-08-20. The creator confirmed
+  the mixed lists are the product: Justice stays on and its games rank
+  within the same lists. Not open for revisiting without a new explicit
+  request.
 - **Per-stage motion-stat configurability.** Which metrics appear live
   vs after the game. Two on/off settings exist; finer control does not.
 - **Hevelius features computed but not shown.** Offsets, variability,
@@ -101,7 +104,7 @@ Generation that aims at the same families the new lists rank:
 ## Session stats follow-ons (creator direction, 2026-08-22)
 
 The session section (PRODUCT.md "Session stats") is built: mouse speed,
-avoidable-death / visible-state-misclick / no-op-click / mine-marking / flag-removal rates and
+mistake-tagged-death / visible-state-misclick / no-op-click / mine-marking / flag-removal rates and
 fastclick gap, bucketed over a sliding hour of actual play with wall-clock
 breaks removed. It displays observations;
 causes, mental states, and traits are not inferred. Context-tag associations
@@ -121,11 +124,13 @@ would require explicit analysis. Not built yet:
   on or off ("sleepy" starts here), so the tags and the curves can be
   read against each other.
 - **More measurements.** Candidates in the same spirit: lowest-risk-death
-  rate alongside avoidable-death rate, justice events per minute, chord
+  rate alongside mistake-tagged-death rate, justice events per minute, chord
   share, pre-press stillness trends, and guess-ledger life-lost per minute.
-- **Avoidable-death backfill.** The classification only exists on losses
-  from 2026-08-22 on; the stored traces plus the odds engine could
-  classify historical losses offline.
+- **Full historical action-evidence backfill.** Legacy death booleans and
+  five-way verdicts are normalized immediately, but old records lack the
+  saved visible position and earlier nonfatal mistakes. Deterministic board
+  replay plus stored traces may be able to reconstruct some of that
+  evidence offline; uncertainty must remain explicit.
 
 ## Research designs (creator, not built)
 
@@ -151,8 +156,9 @@ would require explicit analysis. Not built yet:
   trial (4 × 4); Test trial (1 × 4); correctness / throughput / IOS
   (derived); guess ledger (life lost, needless, ideal-risk, one-ply
   perfect play); music-playing state (boolean asked of the local base
-  system); avoidable-death classification on losses (legacy storage field
-  `stupidDeath`); the session stats
+  system); versioned action-evaluation ledger with fatal and earlier
+  mistake explanations/position snapshots plus immediate legacy death-field
+  normalization; the session stats
   section (bucketed sliding-hour-of-play series, in-page left column).
 - Waste metrics (pauses, wander, turnarounds, feints) and the
   biometrics / mousetrap / Hevelius-style displays. The Tier 1/2

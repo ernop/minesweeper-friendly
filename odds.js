@@ -302,15 +302,21 @@ function scoreGuess(view, clicked, opts) {
   const p = odds.pMine[clicked];
   if (!(p > 1e-12)) return null;
   const minP = minRisk(odds);
+  const bestCells = [];
+  for (let i = 0; i < view.revealed.length; i++) {
+    if (!view.revealed[i] && odds.pMine[i] <= minP + 1e-12) bestCells.push(i);
+  }
   const lifeNeedless = Math.max(0, p - minP);
   const idealRisk = !odds.provenSafeOpen && p <= minP + 1e-12;
   const justice = opts.considerJustice === true && justiceWouldSave(view, clicked);
 
   let expected = 1 - (justice ? 0 : p);
   let bestExpected = expected;
+  let bestExpectedCells = [clicked];
   let perfectPlay = idealRisk;
   if (odds.provenSafeOpen) {
     bestExpected = 1;
+    bestExpectedCells = bestCells;
     perfectPlay = false;
   }
   const cheap = !odds.provenSafeOpen && odds.visits < 80000 && odds.unproven.length <= 40;
@@ -335,7 +341,10 @@ function scoreGuess(view, clicked, opts) {
       }
       if (life > bestExpected + 1e-9) {
         bestExpected = life;
+        bestExpectedCells = [other];
         perfectPlay = false;
+      } else if (Math.abs(life - bestExpected) <= 1e-9) {
+        bestExpectedCells.push(other);
       }
     }
   }
@@ -345,10 +354,12 @@ function scoreGuess(view, clicked, opts) {
     cell: clicked,
     p,
     minP,
+    bestCells,
     lifeLost: p,
     lifeNeedless,
     expectedLife: expected,
     bestExpectedLife: bestExpected,
+    bestExpectedCells,
     idealRisk,
     perfectPlay,
     justice,

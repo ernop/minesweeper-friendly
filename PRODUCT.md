@@ -30,6 +30,10 @@ key names) live in `agents.md`; player-facing pitch in `promo/PROMO.md`.
   color always carries the count; in the dots display it is the only
   carrier. Changing the setting repaints the board in place, mid-game
   included.
+- Favicon (2026-08-23): a raised minesweeper cell in the game's exact
+  palette (silver face, light/dark bevels) carrying a blocky letter E in
+  a light, confident blue — like a revealed letter cell, but the E, not
+  a count. One SVG (`favicon.svg`), linked from both pages.
 - The status button is a dove (symbol of peace and kindness), not a smiley:
   idle; startled flap while a cell is pressed; olive branch on win; broken
   heart on loss.
@@ -164,9 +168,10 @@ minted specifically for them.
   decision): see "Game-end evaluation".
 - The per-game record carries the event count (`justice`), the frozen
   `justiceEnabled` state, the 128-bit `seed`, `rngVersion`, `boardVersion`,
-  and `justiceVersion`; see Per-game stats. Rankings continue mixing
-  Justice-on and Justice-off games for now (explicit user decision
-  2026-08-20; separation is deferred).
+  and `justiceVersion`; see Per-game stats. Rankings mix Justice-on and
+  Justice-off games in the same lists: first decided 2026-08-20 as a
+  deferral, confirmed as the product on 2026-08-23 — Justice stays on
+  and its games rank within these lists; separation is not planned.
 - Setting `justUniverse` (default on), labeled "a just universe":
   "when you bare-click into a sealed pocket that no outside clue can ever
   resolve, that entry is guaranteed safe". It remains editable before the
@@ -182,51 +187,52 @@ minted specifically for them.
 
 ## Game-end evaluation (requested and decided 2026-08-23)
 
-Every game end gets a judgement. A win is fine — they won. Every loss is
-judged at the fatal act and filed into exactly one **death verdict**,
-using only what the player could have known at that moment, and the
-verdict is shown with its full justification so the ranking is never a
-bare label.
+Every board-changing action is evaluated against the position visible
+immediately before it. The canonical result is a versioned
+`actionEvaluations` evidence ledger, not one mutually exclusive label.
+The ledger stores every fatal action and every earlier measured mistake;
+a nonfatal unnecessary guess therefore survives into the after-game
+report.
 
-- The verdicts, ranked (a higher rule outranks everything below it):
-  - **clicked clear mine** (`mine`) — the fatal square was provably a
-    mine from the visible board (locally proven, or mined in every
-    remaining layout). Not a guess: a readable fact, "+1" against the
-    player. A chord that opened a provable mine also files here.
-  - **chord death** (`chord`) — a chord opened a mine behind the
-    player's own wrong flag. The odds were never consulted: a flag is
-    the player's unsupported claim (the Justice doctrine).
-  - **needless guess** (`needless`) — a provably safe square was
-    available (locally proven, or zero-risk in every remaining layout),
-    but the player guessed elsewhere and died.
-  - **forced guess** (`forced`) — no provably safe square existed
-    anywhere, so a guess was forced, but the player did not take the
-    lowest available risk. In proof-or-die this verdict also covers the
-    truly stuck position: nothing was provable, so any open was death
-    by rule.
-  - **angel-death** (`angel`) — forced to guess, took the lowest
-    available risk, and the universe killed them anyway. Explicitly not
-    the player's fault. A blind first click into a fixed trial layout
-    files here too: every covered square was the same gamble, so the
-    ideal risk was taken trivially.
-  - **unjudged** (no stored field) — the surrounding odds could not be
-    measured (enumerator over budget) and no local fact settles it.
-    Absence means "not judged", never a made-up verdict.
-- The judgement grounds: the fatal click's own guess-ledger event (exact
-  enumerated odds, the same event the ledger already scored) when it
-  exists; locally provable facts otherwise — which can still establish
-  "clicked clear mine" and "needless guess", but cannot split angel from
-  forced, so those fall back to unjudged. The judging must never block
-  the loss itself: a verdict failure announces in the backup status line
-  and leaves the death unjudged.
-- Display: a verdict block above the stats table on every fresh loss —
-  "Death verdict: <label>" plus prose stating exactly why that judgement
-  was made, with the measured percentages (chosen risk, best available
-  risk) when they exist. The stats table also carries a compact "Death
-  verdict" row on losses that have one. The relation to the older
-  avoidable-death classification (`stupidDeath`): the two coexist;
-  the verdict is the finer partition (angel-death ⟺ not avoidable for
-  bare reveals).
+- The independent dimensions are preserved together:
+  - **action and outcome** — reveal, chord, flag placement/removal, or a
+    proof-or-die open; continued play or death;
+  - **visible certainty** — selected square proven safe, proven mine, or
+    uncertain;
+  - **necessity** — whether a guaranteed-safe reveal existed elsewhere;
+  - **raw risk quality** — chosen mine probability, lowest available
+    mine probability, and whether the minimum was taken;
+  - **one-ply modeled quality** — chosen and best measured expected
+    remaining life. This is explicitly the odds model's output, not a
+    claim about information, intent, attention, or cause;
+  - **mechanical contradictions** — proven-safe flag, removal of a
+    proven-mine flag, visible chord contradiction, and a wrong-flag chord
+    established only by the fatal outcome.
+- **Needless guess** has one precise meaning: the player revealed an
+  uncertain, positive-risk square while at least one zero-risk reveal
+  was available. Merely having a different move with higher modeled
+  expected life is recorded separately.
+- A click on a **proven mine while a safe move is open** records both
+  facts: `opened-proven-mine` and `ignored-safe-move`. It is not collapsed
+  into either "mine" or "needless." A positive-risk uncertain click in
+  the same position records `guessed-with-safe-move`; a forced guess
+  above the minimum records `chose-higher-risk`; a forced minimum-risk
+  guess carries no mistake tag even if it happens to kill.
+- Evidence capture must never block play. Prover/enumerator failure is
+  stored as unmeasured rather than filled with an invented conclusion.
+- Display: the fatal action appears first above the stats table, followed
+  by every earlier mistake. Each block contains literal explanatory
+  prose, chosen/best values when measured, and a saved rendering of the
+  visible board before the action. The selected square(s) are outlined
+  red; guaranteed-safe alternatives green; lower-risk or higher
+  modeled-life alternatives blue; flag corrections orange. Alternative
+  coordinates are also written as text. Trial results retain each run's
+  ledger and expose the same report in a nested “action report” disclosure
+  under that run, so the final trial review does not lose interim mistakes.
+- The five old ending names (`mine`, `chord`, `needless`, `forced`,
+  `angel`) remain only as a **derived session-chart view** of the fatal
+  evidence. They are not stored as the source of truth and cannot erase
+  simultaneous facts.
 - The Justice recap (win or loss alike): when the game had Justice
   events, a second block cites the rule by name — 'Due to the rule "A
   Just Universe", you were forced to make an impossible choice and were
@@ -236,8 +242,12 @@ bare label.
   (the guarantee held either way). The recap wording never claims a
   mine was moved when it was not; `justiceSaves` stores the redraw
   count so the distinction survives on the record.
-- Storage (see Per-game stats): `deathKind`, `deathRisk`,
-  `deathBestRisk` on judged losses; `justiceSaves` on every new record.
+- Storage (see Per-game stats): `actionEvaluations` on every new record;
+  `justiceSaves` on every new record. Legacy `stupidDeath`, `deathKind`,
+  `deathRisk`, and `deathBestRisk` fields are accepted only at the
+  load/import boundary, converted immediately into a versioned action
+  evaluation with explicit legacy provenance, deleted, and persisted
+  back. Coarse old evidence is never upgraded by inventing detail.
 - The left panel's session section gains a **game endings** chart: one
   chart, one cumulative percent line per ending kind (win plus the five
   verdicts plus "unjudged loss"), each line the kind's share of the
@@ -245,15 +255,16 @@ bare label.
   occurred stay off the chart, except the win line, which always draws
   once any game has ended (a 0% win line is itself the reading). A
   color legend under the chart carries each drawn kind's current share.
-  Wins backfill as wins; stored `deathKind` backfills losses; older
-  losses without the field are "unjudged loss".
+  Wins backfill as wins; losses derive their line from the fatal action
+  evidence; legacy losses retain their old line through provenance, and
+  evidence-free losses are "unjudged loss".
 - The session window is now selectable (this request's companion): 15m /
   30m / 1h / 3h of accumulated play, persisted as `sessionWindowMinutes`
   (default 60), chosen with a second selector on the session section
   head beside the running-average length. Event retention always covers
   the largest choice, so switching longer works immediately.
-- Both blocks are one shown-thing (`endVerdict`, "game-end verdict", on
-  by default). The verdict describes the action under the stated rules;
+- The action report and Justice recap are one shown-thing (`endVerdict`,
+  "game-end verdict", on by default). They describe actions under the stated rules;
   it does not identify judgment, attention, or any other cause — the
   standing measurement doctrine.
 
@@ -315,6 +326,7 @@ Recorded per finished game, win or loss, primary measurements only: end
 date, outcome, time (ms precision, shown as seconds to 3 decimals), 3BV,
 clicks, no-op clicks (`wastedClicks`), misclicks, flags placed, flags removed, mouse path (px of
 cursor travel, accumulated only while the game is in progress), and
+the versioned action-evaluation ledger (`actionEvaluations`), plus
 the finished-board shape facts (max number, whether a 7 is present,
 zero count, island count, largest island). The stored click count includes only
 clicks that changed the board (reveals, flags, chords). Everything else is
@@ -351,7 +363,7 @@ safe cell, removing a flag from a proven mine, or chording while a flagged
 neighbor is proven safe or an opened neighbor is proven mined. This is an
 operational visible-state classification, not a claim about intent or what
 the player consciously knew. It is independent of outcome: a fatal
-misclick also appears in the avoidable-death classification, while a wrong
+misclick also appears in the action-evaluation ledger, while a wrong
 flag can be a nonfatal misclick. Stored as `misclicks` on every new game
 record beginning 2026-08-23; older records omit it as not measured.
 
@@ -432,36 +444,26 @@ status line and omits that game's ledger. The odds engine is held to
 ground truth by a brute-force parity test (every consistent layout
 enumerated on small random boards; probabilities must match exactly).
 
-Avoidable-death classification — on a loss, whether the fatal act meets
-the following rule-based definition of avoidable from the represented
-player information — joined the schema on 2026-08-22 (decided
-2026-08-22, alongside the session stats). Categorically avoidable: any chord
-death (a flag is the player's unsupported claim — the Justice doctrine —
-and a wrong one killed), any proof-or-die death (opening an unproven cell
-is deterministic), any angelic death (the only way to die there is
-contradicting known facts). A bare-reveal death is judged by its own
-guess-ledger event: classified avoidable when the guess was nonideal (a
-strictly safer square — possibly a provably safe one — was available),
-and not classified avoidable when it took the lowest available risk. A
-trial first click into a fixed layout that happens to be mined is not
-classified avoidable: nothing was knowable. The field is
-absent on wins and whenever the fatal click could not be measured (odds
-over budget, ledger-free modes reached through no categorical rule) —
-absence means "not measured", the usual rule. The stats table shows a
-"Avoidable death" row (yes / no) on losses that carry the field, and
-classified deaths feed the session stats' per-minute rate live. This
-classification describes the action under the stated rules; it does not
-identify judgment, attention, impatience, or any other cause.
+Action evaluations — `actionEvaluations` joined the schema 2026-08-23
+and is the sole in-memory/store representation for action mistakes and
+deaths. It is an array on every new record: empty when a win had no
+recorded mistake, otherwise one item for each nonfatal measured mistake
+plus one item for the fatal action on a loss. Every item carries a schema
+version, action number/time, action/result, any number of independent
+mistake tags, literal measured evidence, alternative cells, and a compact
+visible-position snapshot (revealed cell/number pairs plus flagged
+indices). The snapshot deliberately records what was visible, not hidden
+mines the player could not see. See "Game-end evaluation" for the full
+taxonomy and report.
 
-Death verdict — on a loss, the finer game-end judgement (see "Game-end
-evaluation"): `deathKind` ("mine" / "chord" / "needless" / "forced" /
-"angel"), plus the measured odds behind it when they exist — `deathRisk`
-(the fatal square's mine probability) and `deathBestRisk` (the lowest
-available anywhere; 0 = a provably safe square existed). Joined the
-schema 2026-08-23, same absence rules: absent on wins, on unjudged
-losses, and on earlier games. Feeds the verdict block, the stats
-table's "Death verdict" row, and the session game-endings chart's
-backfill.
+Legacy `stupidDeath`, `deathKind`, `deathRisk`, and `deathBestRisk` are
+import-only. Loading or importing immediately converts them to one fatal
+action evaluation, records exactly which old representation supplied it,
+removes all four legacy fields, and persists the normalized history.
+`deathKind` can retain its old five-way chart line as provenance;
+`stupidDeath: true` can retain only “legacy avoidable” because inventing
+the missing modern subtype, risks, alternatives, or board would be false.
+No runtime calculation reads either legacy field.
 
 Justice saves — how many of the game's Justice entries actually required
 moving a mine (`justice` counts every guaranteed entry; `justiceSaves`
@@ -1038,15 +1040,18 @@ displays changes but does not label their cause.
   player spent); their play interval closes when the restart happens.
   Travel to the restart button and between-game idling are nobody's
   statistic.
-- The series, each a row (name, current value, chart) in the panel's
-  recent-observations section:
+- The series, in the panel's recent-observations section (since
+  2026-08-23 afternoon the six action rates share one combined chart —
+  see "The action-rates chart" below — while mouse speed, fastclick
+  gap, and game endings keep their own):
   - **mouse speed** — px of cursor travel while playing over in-progress
     seconds, px/s.
   - **click rate** — board clicks that changed something (reveals,
     flags, chords) per in-progress second; no-op clicks excluded (they
     have their own row). It does not partition decision and movement time.
-  - **avoidable deaths** — deaths meeting the rule-based classification
-    above per in-progress minute; other deaths do not count.
+  - **deaths with mistakes** — fatal actions carrying at least one
+    evidence-backed mistake tag per in-progress minute; untagged deaths
+    do not count.
   - **misclicks** — the visible-state contradiction definition above per
     in-progress minute, whether or not the action ended the game.
   - **no-op clicks** — clicks that changed no board state per
@@ -1111,13 +1116,13 @@ displays changes but does not label their cause.
   games backfill — session stats are about the player, not the board.
   Backfill is span-level approximate where live capture is exact: a
   record holds totals, not timestamps, so each game's totals spread
-  evenly over its span, its classified avoidable death lands at the
+  evenly over its span, its mistake-tagged fatal action lands at the
   played instant it ended, and its stored per-game fastclick median
   stands in for that span's gaps. The traces hold exact timing if a finer
   backfill is ever wanted. Newer per-game persistence includes the
-  legacy-named `stupidDeath` field and `fastclickGapMs` (2026-08-22),
-  plus `misclicks` and `deathKind` (2026-08-23, the latter feeding the
-  game-endings backfill);
+  `fastclickGapMs` (2026-08-22), plus `misclicks` and the canonical
+  `actionEvaluations` ledger (2026-08-23, feeding both mistake-tagged
+  deaths and derived game-ending lines);
   every series also has a per-game form in the stats table — click,
   no-op, misclick, mark, and flag-removal rates derived from stored counts,
   mouse speed as before, the fastclick gap from its stored field.
@@ -1130,15 +1135,40 @@ displays changes but does not label their cause.
   evening) — the scatter plots' visual grammar at panel width (the
   panel widened to fit): plot frame, light gridlines, 1/2/5-step y
   ticks with minor tickmarks, relative played-time x ticks (`-1h` through
-  `now`), and a rotated y-axis unit label. The "→ accumulated play time"
-  caption under the x axis was dropped 2026-08-23: the tick labels
-  already say "played time ago" on their own, and the caption line cost
-  plot height. The y axis
+  `now`). The y axis
   always starts at 0 (every series is nonnegative; an auto-zoomed
   floor turned small wiggles into drama). Titles are black, larger,
   close to and left-aligned with the plot area; session-axis text is
   12px bold for legibility. Each newest point carries its formatted
   value directly.
+- No axis captions (both dropped 2026-08-23): the "→ accumulated play
+  time" x caption went in the morning — the "-15m … now" tick labels
+  already say "played time ago" — and the rotated y-axis unit caption
+  went that afternoon. The unit moved into the row title, which now
+  reads name + unit ("mouse speed px/s", "fastclick gap ms", "game
+  endings %") and sits flush on the plot's top edge (the title-to-chart
+  gap reduced until nothing separates them); the sideways read and the
+  caption's horizontal cost are gone.
+- The action-rates chart (decided 2026-08-23, afternoon): the six
+  per-play-time rates — flag removals, mine marking, misclicks, no-op
+  clicks, deaths with mistakes, click rate — combined into one chart,
+  second from the top (endings first), replacing their six solo charts,
+  so risings and fallings can be compared directly. One numeric scale,
+  two unit readings: a left axis labels the gridline numerals as
+  per-minute ("0/m, 1/m, 2/m…"), a right axis as per-second ("0/s,
+  1/s…"), both rooted at 0 up to ceil(max shown value), integer ticks
+  stepped 1/2/5/10… to stay readable, and the same numeral at the same
+  height on both edges. Each series uses whichever unit gives it a
+  meaty, clearly visible value (the choice delegated in the request):
+  click rate and mine marking read as /s; misclicks, no-op clicks,
+  deaths with mistakes, and flag removals as /m — no-op clicks were
+  sketched as /s but ~3/m beats ~0.05/s pinned to the floor. Each line
+  has its own color and ends in a dot with its current value floating
+  to the point's left in that color (nudged apart when endpoints
+  crowd); a legend below repeats color, name+unit, and current value,
+  and each legend entry's tooltip carries that metric's HOW/RECORDS.
+  Mouse speed (px/s) and fastclick gap (ms) keep solo charts — their
+  units fit neither axis.
 - Resizable (added 2026-08-22, live behavior revised 2026-08-23): the
   in-page panel's right edge is a drag grip. Dragging resizes the panel
   and recomputes chart geometry on every animation frame, so the contents
@@ -1154,13 +1184,14 @@ displays changes but does not label their cause.
   original guidance was separated from implementation and the "never a
   modal" lock was lifted): settings live on their own full page,
   settings.html, reached from the clear "settings" button in the game's
-  upper-right; the way back is equally clear — a "return to game" button
-  in the page's titlebar and at the bottom, Esc, or the browser's Back.
-  Still durable: a change shows its meaning live. Since the real game is
-  no longer beside the controls, the page carries a demo world — a
-  pretend mid-game (board, left-panel cards, after-game sections, all
-  from fixed consistent data) that visibly changes the moment a switch
-  flips. Everything else (row shape, hint placement, demo content) is
+  upper-right; the way back is equally clear — "return to game" buttons
+  at the top and bottom of the page body, Esc, or the browser's Back.
+  The page is deliberately super simple (decided later on 2026-08-23):
+  just the switches — a demo world (a pretend mid-game beside the
+  controls that reacted to every switch) was built and removed the same
+  day in favor of simplicity. A change still shows its meaning live
+  where the thing itself lives: the game page reads settings fresh on
+  every load. Everything else (row shape, hint placement) is
   implementation and freely revisable; earlier revisions of this section
   had mistaken implementation defaults for decisions.
 - A schema-driven settings system for player-facing behavior switches:
@@ -1183,26 +1214,19 @@ displays changes but does not label their cause.
   button since 2026-08-23) is a plain link to settings.html (2026-08-23;
   before that it opened an in-page surface — first a small corner
   dropdown, then briefly a full-height right-edge drawer that same day).
-  The settings page wears the game's identity: a slim titlebar with the
-  site name and a "return to game" button dressed exactly like the game's
-  own top-right buttons, and a second "return to game" at the bottom of
-  the switch column; Esc also returns. The titlebar is sticky, so the
-  top way back stays available however far the column has scrolled.
-- The demo world (2026-08-23, created with the page): the left side of
-  the page is a miniature pretend mid-game — a partially played board
-  whose mines, adjacency, and flood-revealed opening are computed from
-  fixed coordinates (so what it shows could genuinely occur in play),
-  mini left-panel cards, a win summary, and one stand-in card per result
-  section, all from hand-picked consistent data.   It exists so a change
-  demonstrates itself: flipping number display repaints the demo board,
-  a shown-things switch fades its card, the collapse switch visibly
-  merges the demo's duplicate time windows, and the just-universe switch
-  fades the JUSTICE mark beside the demo board. Layout stability is a
-  decision (2026-08-23): an off thing never leaves the layout — it stays
-  in its slot as a faded gray ghost, so flipping a switch moves nothing
-  else on the page, and the ghost itself shows what is missing and
-  where. The demo sticks while the switch column scrolls, and it is
-  display-only — no clicks.
+  The settings page wears the game's identity: a slim titlebar with just
+  the site name, then the switch column with two "return to game"
+  buttons (dressed exactly like the game's own top-right buttons) on a
+  rail to the column's left — one at the top, one aligned with the
+  column's bottom line, beside it rather than below it; Esc also
+  returns. The buttons live in the body, not far off at the page's
+  right edge (decided 2026-08-23, moving the titlebar's own button into
+  the body).
+- The demo world (2026-08-23, created with the page and removed later
+  the same day): a miniature pretend mid-game beside the controls —
+  partially played board, mini left-panel cards, stand-in result
+  cards — that reacted live to every switch. Removed to keep the page
+  super simple; the record stays because the idea may return.
 - Switches render under group headings naming where they act — gameplay /
   left panel / after a game — driven by the schema's `group` field
   (`SETTINGS_GROUPS` orders the sections), so the page and the schema
@@ -1215,14 +1239,12 @@ displays changes but does not label their cause.
   currently only "a just universe". The shown-things switches render
   inline under their own subheading in "after a game". A multi-option
   setting renders as a choice row: the name line, one radio per option
-  (each option's explanation is its tooltip). A change saves immediately
-  and the demo world shows it; the game page reads settings fresh on
-  every load, so returning applies them.
-- The row–demo link (2026-08-23): hovering a row glows the demo piece the
-  switch controls — the demo is the explanation. Hover changes nothing
-  but the glow: it must never inject or swap text (decided 2026-08-23
-  after two rounds of hover-note mechanisms did exactly that; when
-  nothing is there to glow, nothing happens). The game page has no
+  (each option's explanation is its tooltip). A change saves immediately;
+  the game page reads settings fresh on every load, so returning applies
+  them.
+- Hover must never inject or swap text (decided 2026-08-23 after two
+  rounds of hover-note mechanisms did exactly that). The row–demo glow
+  link retired with the demo world the same day. The game page has no
   hover-only controls: the floating "hide ×" chip that appeared over a
   hovered result section (added earlier on 2026-08-23) was removed the
   same day — hiding things is the settings page's job, not something the

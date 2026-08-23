@@ -1,7 +1,7 @@
 'use strict';
-// Known-answer tests for the game-end evaluation: the death-verdict
-// classifier, its player-facing justification text, and the Justice
-// recap wording (extracts the pure GAME-END EVALUATION: VERDICT span).
+// Known-answer tests for multidimensional action evidence, its
+// player-facing explanation, the derived session ending line, and the
+// Justice recap wording.
 
 const fs = require('fs');
 const vm = require('vm');
@@ -25,39 +25,6 @@ function assertContains(name, text, want) {
     throw new Error(`${name}: "${text}" does not contain "${want}"`);
   }
 }
-function assertNotContains(name, text, unwanted) {
-  checks++;
-  if (text.includes(unwanted)) {
-    throw new Error(`${name}: "${text}" must not contain "${unwanted}"`);
-  }
-}
-
-// The classifier, ranked: a provable mine outranks everything; then the
-// act shape (chord, blind first click); then the measured facts.
-assertEq('proven mine wins over everything',
-  deathVerdict({ via: 'bare', provenMine: true, measured: true, safeAvailable: true }), 'mine');
-assertEq('proven mine via chord is still mine',
-  deathVerdict({ via: 'chord', provenMine: true }), 'mine');
-assertEq('chord death without a proven mine',
-  deathVerdict({ via: 'chord', provenMine: false }), 'chord');
-assertEq('blind first click is an angel-death',
-  deathVerdict({ via: 'first' }), 'angel');
-assertEq('unmeasured bare death is unjudged',
-  deathVerdict({ via: 'bare', provenMine: false, measured: false }), undefined);
-assertEq('safe square available makes the guess needless',
-  deathVerdict({ via: 'bare', provenMine: false, measured: true, safeAvailable: true, bestOdds: false }),
-  'needless');
-assertEq('forced at the best odds is an angel-death',
-  deathVerdict({ via: 'bare', provenMine: false, measured: true, safeAvailable: false, bestOdds: true }),
-  'angel');
-assertEq('forced off the best odds is a forced guess',
-  deathVerdict({ via: 'bare', provenMine: false, measured: true, safeAvailable: false, bestOdds: false }),
-  'forced');
-assertEq('proof-or-die with a safe square available is needless',
-  deathVerdict({ via: 'proof', provenMine: false, measured: true, safeAvailable: true }), 'needless');
-assertEq('proof-or-die with nothing provable is forced',
-  deathVerdict({ via: 'proof', provenMine: false, measured: true, safeAvailable: false }), 'forced');
-
 // Every kind has a label.
 for (const kind of ['mine', 'chord', 'needless', 'forced', 'angel']) {
   checks++;
@@ -69,29 +36,85 @@ assertEq('mine label matches the requested wording',
   DEATH_KIND_LABELS.mine, 'clicked clear mine');
 assertEq('angel label', DEATH_KIND_LABELS.angel, 'angel-death');
 
-// The justification text names the judgement's exact grounds.
+// Modern action evidence keeps independent facts together instead of
+// collapsing them into one exclusive verdict.
+const provenMineWithSafe = {
+  version: ACTION_EVALUATION_VERSION,
+  action: 'reveal',
+  result: 'death',
+  mistakes: ['opened-proven-mine', 'ignored-safe-move'],
+  evidence: { chosenRisk: 1, bestRisk: 0, safeAvailable: true },
+  alternatives: [{ kind: 'safe-reveal', cells: [4] }],
+};
+assertEq('proven mine remains ending kind', evaluationEndingKind(provenMineWithSafe), 'mine');
 assertContains('mine text states the provable fact',
-  deathVerdictText({ deathKind: 'mine' }), 'provably a mine');
-assertContains('mine text counts the click',
-  deathVerdictText({ deathKind: 'mine' }), 'Clicked clear mine +1');
-assertContains('chord text blames the flag',
-  deathVerdictText({ deathKind: 'chord' }), 'wrong flag');
-assertContains('angel text absolves',
-  deathVerdictText({ deathKind: 'angel', deathRisk: 0.25 }), 'not your fault');
-assertContains('angel text carries the odds',
-  deathVerdictText({ deathKind: 'angel', deathRisk: 0.25 }), '25.0%');
-assertContains('forced text compares both odds',
-  deathVerdictText({ deathKind: 'forced', deathRisk: 0.3, deathBestRisk: 0.125 }), '30.0%');
-assertContains('forced text names the best available',
-  deathVerdictText({ deathKind: 'forced', deathRisk: 0.3, deathBestRisk: 0.125 }), '12.5%');
-assertContains('needless text names the safe square',
-  deathVerdictText({ deathKind: 'needless', deathRisk: 0.2 }), 'provably safe square was available');
-assertContains('proof-or-die forced text states the rule death',
-  deathVerdictText({ deathKind: 'forced', playMode: 'proof-or-die' }), 'death by rule');
-assertNotContains('proof-or-die forced text never talks odds',
-  deathVerdictText({ deathKind: 'forced', playMode: 'proof-or-die' }), '%');
-assertContains('unjudged text admits the limit',
-  deathVerdictText({}), 'could not be judged');
+  actionEvaluationText(provenMineWithSafe), 'provably a mine');
+assertContains('mine also retains safe alternative',
+  actionEvaluationText(provenMineWithSafe), 'guaranteed-safe reveal was available');
+assertContains('mine text carries selected risk',
+  actionEvaluationText(provenMineWithSafe), '100.0%');
+assertContains('mine text carries best risk',
+  actionEvaluationText(provenMineWithSafe), '0.0%');
+
+const unnecessaryGuess = {
+  version: ACTION_EVALUATION_VERSION,
+  action: 'reveal',
+  result: 'continued',
+  mistakes: ['guessed-with-safe-move'],
+  evidence: { chosenRisk: 0.2, bestRisk: 0, safeAvailable: true },
+  alternatives: [{ kind: 'safe-reveal', cells: [7, 8] }],
+};
+assertEq('safe-open guess is needless ending kind',
+  evaluationEndingKind({ ...unnecessaryGuess, result: 'death' }), 'needless');
+assertContains('safe-open guess explanation',
+  actionEvaluationText(unnecessaryGuess), 'nonzero mine risk');
+assertContains('nonfatal mistake label',
+  actionEvaluationLabel(unnecessaryGuess), 'guessed while');
+
+const lowerModeledLife = {
+  version: ACTION_EVALUATION_VERSION,
+  action: 'reveal',
+  result: 'continued',
+  mistakes: ['chose-lower-modeled-life'],
+  evidence: { expectedLife: 0.4, bestExpectedLife: 0.6 },
+  alternatives: [{ kind: 'higher-modeled-life-reveal', cells: [6] }],
+};
+assertContains('modeled-life dimension names the model',
+  actionEvaluationText(lowerModeledLife), 'one-ply odds model');
+assertContains('modeled-life values retained',
+  actionEvaluationText(lowerModeledLife), '0.400 selected; 0.600 best');
+
+const higherRisk = {
+  version: ACTION_EVALUATION_VERSION,
+  action: 'reveal',
+  result: 'death',
+  mistakes: ['chose-higher-risk'],
+  evidence: { chosenRisk: 0.3, bestRisk: 0.125, safeAvailable: false },
+  alternatives: [{ kind: 'lower-risk-reveal', cells: [2] }],
+};
+assertEq('higher-risk forced guess ending', evaluationEndingKind(higherRisk), 'forced');
+assertContains('higher-risk text chosen odds', actionEvaluationText(higherRisk), '30.0%');
+assertContains('higher-risk text best odds', actionEvaluationText(higherRisk), '12.5%');
+
+const bestRiskDeath = {
+  version: ACTION_EVALUATION_VERSION,
+  action: 'reveal',
+  result: 'death',
+  mistakes: [],
+  evidence: { chosenRisk: 0.25, bestRisk: 0.25, safeAvailable: false },
+  alternatives: [],
+};
+assertEq('best-risk forced death ending', evaluationEndingKind(bestRiskDeath), 'angel');
+assertContains('best-risk death is explained', actionEvaluationText(bestRiskDeath), 'lowest measured');
+
+assertContains('legacy text admits evidence limit', actionEvaluationText({
+  version: ACTION_EVALUATION_VERSION,
+  action: 'unknown',
+  result: 'death',
+  mistakes: ['legacy-avoidable'],
+  alternatives: [],
+  legacy: { avoidable: true },
+}), 'not store enough evidence');
 
 // The Justice recap: the rule is cited by name, the count is right, and
 // the redraw detail is honest about entries that were already clear.

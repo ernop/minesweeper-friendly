@@ -110,8 +110,7 @@ body.trial-offboard #game-frame {
   display: none !important;
 }
 
-#game-frame,
-#demo-frame {
+#game-frame {
   display: inline-block;
   background: var(--silver);
   padding: calc(var(--cell-size) / 4);
@@ -224,8 +223,7 @@ body.trial-offboard #game-frame {
 
 /*-------BOARD-------*/
 
-#board,
-#demo-board {
+#board {
   display: grid;
   grid-template-columns: repeat(var(--board-width), var(--cell-size));
   border: var(--bevel-size) solid;
@@ -404,7 +402,7 @@ body.trial-offboard #game-frame {
    plain face for legibility. Accent colors follow the endings-chart
    palette; the Justice block echoes the JUSTICE chip (double border,
    its red). */
-#result-verdicts { margin: 6px 0; }
+.result-verdicts { margin: 6px 0; }
 .verdict-block {
   border: 2px solid #888888;
   border-left-width: 6px;
@@ -441,6 +439,50 @@ body.trial-offboard #game-frame {
 .verdict-angel .verdict-title { color: #8a6a0a; }
 .verdict-unjudged { border-color: #999999; background: #f2f2f2; }
 .verdict-unjudged .verdict-title { color: #666666; }
+.verdict-mistake { border-color: #b82c14; background: #fff8f5; }
+.verdict-mistake .verdict-title { color: #8f1f0e; }
+.evaluation-position { margin-top: 7px; }
+.evaluation-board-scroll {
+  max-width: 100%;
+  overflow: auto;
+  border: 1px solid #b8b8b8;
+  background: #d8d8d8;
+}
+.evaluation-board {
+  display: block;
+  image-rendering: pixelated;
+}
+.evaluation-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 5px;
+  font: 11px/1.35 Arial, Helvetica, sans-serif;
+  color: #333333;
+}
+.evaluation-key::before {
+  content: "";
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 5px;
+  border: 2px solid #d17a00;
+  vertical-align: -1px;
+}
+.evaluation-key-selected::before { border-color: #d00000; }
+.evaluation-key-safe-reveal::before { border-color: #008000; }
+.evaluation-key-lower-risk-reveal::before,
+.evaluation-key-higher-modeled-life-reveal::before { border-color: #0066cc; }
+.trial-action-report {
+  margin: 5px 0 8px 14px;
+  font-family: Arial, Helvetica, sans-serif;
+}
+.trial-action-report > summary {
+  cursor: pointer;
+  color: #8f1f0e;
+  font-size: 12px;
+  font-weight: bold;
+}
 .verdict-justice {
   border-style: double;
   border-width: 4px;
@@ -789,28 +831,19 @@ body.trial-offboard #result-ranks {
   color: #b05050;
 }
 
-/* The settings page (settings.html): a titlebar sharing the game's button
-   dress, the demo world on the left (sticky, so it stays in view while
-   the switch column scrolls), and the switch column on the right. Group
-   headings split the switches by where they act; each switch is a
-   two-line row (clickable checkbox + name, then a plain-text hint that
-   toggles nothing). Changes save immediately and the demo world shows
-   them, so the player watches the effect without playing a game. */
+/* The settings page (settings.html): a slim titlebar, then just the
+   switch column with a "return to game" button to its left at the top
+   and another at the bottom (the rail stretches to the column's height,
+   so the bottom button sits beside the column's last line, not below
+   it). Group headings split the switches by where they act; changes save
+   immediately, and the game page reads them fresh on every load. */
 
 body.settings-page {
   padding: 0;
   text-align: left;
 }
 
-/* Sticky, so "return to game" is available at the top however far the
-   switch column has scrolled (its twin sits at the column's end). */
 #settings-titlebar {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
   padding: 8px 16px;
   border-bottom: 1px solid #dce4ea;
   background: #f7f9fb;
@@ -824,18 +857,18 @@ body.settings-page {
 
 #settings-layout {
   display: flex;
-  gap: 32px;
-  align-items: flex-start;
-  max-width: 1060px;
+  gap: 24px;
+  align-items: stretch;
+  width: max-content;
   margin: 0 auto;
-  padding: 18px 16px 8px;
+  padding: 18px 16px 24px;
 }
 
-#settings-demo {
-  position: sticky;
-  top: 12px;
-  flex: 1 1 auto;
-  min-width: 0;
+#settings-return-rail {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-start;
 }
 
 #settings-column {
@@ -847,151 +880,6 @@ body.settings-page {
 #settings-status {
   margin: 0 0 8px;
   color: #b05050;
-}
-
-#settings-column-return { margin: 20px 0 36px; }
-
-/*-------DEMO WORLD-------*/
-
-#settings-demo-head {
-  margin: 0 0 10px;
-  color: #667788;
-  font-size: 11px;
-  font-style: italic;
-}
-
-#demo-page {
-  display: flex;
-  gap: 16px;
-  align-items: flex-start;
-}
-
-#demo-left {
-  width: 168px;
-  flex: none;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-#demo-main {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-/* The demo board draws at a reduced cell size; every cell rule inherits
-   through --cell-size, so it is the real rendering, only smaller. */
-#demo-frame { --cell-size: 18px; }
-
-#demo-board-wrap {
-  position: relative;
-  display: inline-block;
-}
-
-/* The JUSTICE mark beside the demo board, where the real one prints. */
-#demo-justice {
-  position: absolute;
-  left: calc(100% + 10px);
-  top: 20%;
-  color: #2e7d32;
-  font-size: 11px;
-  font-weight: bold;
-  letter-spacing: 0.08em;
-}
-
-#demo-summary {
-  margin: 10px 0 6px;
-  font-size: 12px;
-  font-weight: bold;
-  color: #333333;
-}
-
-#demo-after {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-content: flex-start;
-}
-
-.demo-card {
-  min-width: 120px;
-  padding: 6px 8px;
-  background: #fbfcfe;
-  border: 1px solid #e0e6ec;
-  border-radius: 3px;
-  font-size: 11px;
-}
-
-/* An off thing stays in its slot as a faded ghost, so toggling a switch
-   never moves the rest of the demo. */
-#settings-demo .demo-off {
-  opacity: 0.3;
-  filter: grayscale(1);
-}
-
-.demo-card.demo-off { border-style: dashed; }
-
-.demo-card-title {
-  margin-bottom: 4px;
-  color: #3f5668;
-  font-size: 10px;
-  font-weight: bold;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.demo-mini-table { margin-top: 4px; }
-
-.demo-mini-caption {
-  color: #667788;
-  font-size: 10px;
-  margin-bottom: 1px;
-}
-
-.demo-mini-table table { border-collapse: collapse; }
-
-.demo-mini-table td {
-  padding: 0 6px 0 0;
-  color: #555555;
-  font-size: 10px;
-}
-
-.demo-mini-table tr.demo-now td {
-  color: #000000;
-  font-weight: bold;
-  background: #eaf3fb;
-}
-
-.demo-stat-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: #555555;
-  white-space: nowrap;
-}
-
-.demo-stat-value {
-  color: #000000;
-  font-weight: bold;
-}
-
-.demo-spark svg {
-  width: 48px;
-  height: 12px;
-  display: block;
-}
-
-.demo-scatter svg {
-  width: 120px;
-  height: 72px;
-  display: block;
-}
-
-.demo-stat-grid {
-  display: grid;
-  grid-template-columns: auto auto;
-  gap: 1px 10px;
-  color: #555555;
 }
 
 /*-------SETTINGS ROWS (shared by the settings column)-------*/
@@ -1061,14 +949,6 @@ body.settings-page {
   color: #777777;
   font-size: 11px;
   line-height: 1.35;
-}
-
-/* Live-region linking (settings page only): hovering a settings row
-   glows the demo piece it controls. */
-.setting-region-glow {
-  outline: 2px solid #4a90d9;
-  outline-offset: 3px;
-  border-radius: 2px;
 }
 
 /* This win's effect on its bucket's average time: a cell in the last grid
@@ -1586,6 +1466,18 @@ body.settings-page {
    (line stroke, last-point dot fill, legend swatch background); only the
    shared geometry lives here. */
 .end-line { fill: none; stroke-width: 1.6; }
+/* The action-rates chart's right-edge per-second axis mirrors the left. */
+.tick-y-right { text-anchor: start; }
+/* Per-line current values in the line's own color (fill set inline);
+   the white halo keeps them readable over gridlines and other lines. */
+.rate-point-value {
+  font-family: Arial, sans-serif;
+  font-size: 11px;
+  font-weight: bold;
+  stroke: #ffffff;
+  stroke-width: 3px;
+  paint-order: stroke fill;
+}
 .session-end-legend {
   display: flex;
   flex-wrap: wrap;

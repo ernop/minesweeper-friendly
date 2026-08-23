@@ -117,7 +117,7 @@ const SETTINGS_SCHEMA = [
     valid: (v) => typeof v === 'boolean',
     group: 'left-panel',
     label: 'show session stats',
-    describe: 'the recent-observations section at the top of the in-page left panel: mouse speed while playing, click / avoidable-death / misclick / no-op-click / mine-marking / flag-removal rates, the fastclick gap, and the game-endings percent lines, each point a running average over a chosen lookback of actual play across games with wall-clock breaks removed; changes are not assigned a cause',
+    describe: 'the recent-observations section at the top of the in-page left panel: mouse speed while playing, click / mistake-tagged-death / misclick / no-op-click / mine-marking / flag-removal rates, the fastclick gap, and the game-endings percent lines, each point a running average over a chosen lookback of actual play across games with wall-clock breaks removed; changes are not assigned a cause',
   },
   {
     field: 'sessionLookbackSeconds',
@@ -215,7 +215,7 @@ function saveSettings() {
   persistUserdata('settings', settings);
 }
 
-//-------CELL ICONOGRAPHY (shared by the game board and the demo board)-------
+//-------CELL ICONOGRAPHY-------
 
 const FLAG_SVG = '<svg viewBox="0 0 16 16"><path d="M9 3 L9 8.5 L3.5 5.75 Z" fill="#ff0000"/><rect x="8.4" y="3" width="1.2" height="9" fill="#000"/><rect x="5" y="11.5" width="8" height="1.5" fill="#000"/><rect x="3.5" y="13" width="11" height="2" fill="#000"/></svg>';
 
@@ -225,8 +225,8 @@ const WRONG_FLAG_SVG = '<svg viewBox="0 0 16 16" fill="#000" stroke="#000" strok
 
 // Draws a revealed cell's adjacent-count glyph per settings.numberDisplay
 // (digits, letters A–H, or a color-only dot; the cell's nN class carries
-// the color). Shared by the game board and the settings page's demo
-// board, so the demo can never drift from the real rendering.
+// the color). Only the game page paints cells today; this stays here
+// with the schema because it renders a setting's value.
 function paintCellGlyph(el, adjacent) {
   el.innerHTML = '';
   if (adjacent <= 0) return;

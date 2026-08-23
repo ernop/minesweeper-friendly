@@ -120,6 +120,8 @@ console.log('needless 50/50 next to a safer sea');
   const bad = Odds.scoreGuess(board.view, fifty);
   check('needless 0.25', close(bad.lifeNeedless, 0.25));
   check('not ideal risk', bad.idealRisk === false);
+  check('safer cells are returned for explanation',
+    bad.bestCells.length > 0 && bad.bestCells.every((cell) => close(odds.pMine[cell], 0.25)));
   const good = Odds.scoreGuess(board.view, sea);
   check('sea is ideal risk', good.idealRisk);
   check('sea life lost 0.25', close(good.lifeLost, 0.25));
@@ -149,6 +151,11 @@ console.log('a proven safe makes any guess needless');
   const guess = Odds.scoreGuess(view, fifty);
   check('minP is 0', close(guess.minP, 0));
   check('whole 0.5 is needless', close(guess.lifeNeedless, 0.5));
+  check('guaranteed-safe alternatives are returned',
+    guess.bestCells.includes(1) && guess.bestCells.includes(5));
+  check('higher modeled-life alternatives are returned',
+    guess.bestExpectedCells.includes(1) && guess.bestExpectedCells.includes(5)
+      && !guess.bestExpectedCells.includes(fifty));
   check('not ideal', guess.idealRisk === false);
   check('not perfect', guess.perfectPlay === false);
 }

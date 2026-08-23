@@ -69,12 +69,15 @@ since
 recording rules; a zero-flag game earns the special status "markless",
 shown right in the row and as a small "(m)" before that game's time in
 every rank list) and, for wins, clicks over
-3BV (clicks beyond the board's minimum). At the bottom, seven small
+3BV (clicks beyond the board's minimum). The after-game report lists the
+fatal action and every earlier measured mistake, explains the independent
+facts (for example, proven mine plus a safe alternative), and redraws the
+visible position with the selected and alternative cells highlighted.
+At the bottom, seven small
 scatter plots chart every win: win time vs date, win time vs hour of day,
 3BV vs time, clicks vs 3BV (with the clicks = 3BV floor drawn in), no-op
 clicks vs 3BV/s, mouse path vs time, and mouse speed vs time — so
-you can see whether moving faster actually wins games faster, and whether
-you're improving at all. Each axis carries a spelled-out label with
+you can compare those recorded values over time. Each axis carries a spelled-out label with
 units; dots are colored by how long ago each win was (same palette as the
 rank-list ages, with a legend below), and your newest game is the
 black-ringed dot tagged with its rank among today's wins. Streak lists rank
@@ -93,9 +96,9 @@ the board. During a game it
 shows per-game motion metrics recomputed once a second; on top, always, a
 "session" section charts the last hour of actual play across games (losses
 and abandoned boards included): mouse
-speed, board-changing clicks per second, avoidable deaths per minute
-(deaths meeting the app's explicit rule-based classification, which also
-get a yes/no row in each loss's stats table), misclicks per minute
+speed, board-changing clicks per second, deaths with recorded mistake
+tags per minute (fatal actions such as opening a proven mine or guessing
+while a guaranteed-safe move was available), misclicks per minute
 (board-changing actions contradicted by facts provable from the visible
 board, fatal or nonfatal), no-op clicks per minute,
 the fastclick gap (when you're clicking usefully on the move, how fast the
@@ -114,8 +117,7 @@ running averages.
 The home-page score buttons open the same full result view for Beginner,
 Intermediate, or Expert without requiring a new game; historical views have
 no "this" marker. The settings page's "shown things" group (the
-"settings" button top-right leads there; a demo world on the page shows
-each switch's effect as you flip it) controls each result section. The
+"settings" button top-right leads there) controls each result section. The
 last-1-minute list, largest-island items, and near-near-streak list start
 hidden.
 

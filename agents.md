@@ -95,7 +95,7 @@ Implementation notes:
   maxAdjacent, hasSeven, zeroCount, islandCount, largestIsland,
   playMode, identityIndex, transform, trialStartedAt, guesses,
   guessIdealRisk, guessNonideal, guessPerfect, lifeLost, lifeNeedless,
-  oddsVersion, stupidDeath, deathKind, deathRisk, deathBestRisk,
+  oddsVersion, actionEvaluations,
   justiceSaves, fastclickGapMs, musicPlaying} —
   primary measurements only
   (later-added fields may be absent on earlier records; see
@@ -261,8 +261,9 @@ Implementation notes:
   contains a certain mine / flagged set contains a proven safe. The
   mouseup/contextmenu handlers classify and increment before acting so a
   fatal action reaches `reportResult`; `newGame` resets it. Stored since
-  2026-08-23; older records omit it. A fatal misclick can also carry
-  `stupidDeath=true`; the two measurements are independent.
+  2026-08-23; older records omit it. A fatal misclick can also carry one
+  or more tags in `actionEvaluations`; the count and evidence ledger are
+  independent measurements.
 - `flagsPlaced` counts flag placements by the player (removals don't
   subtract; the win auto-flagging in `checkWin` bypasses `toggleFlag` and
   is not counted). `isMarkless(record)` derives the markless status
@@ -283,8 +284,8 @@ Implementation notes:
   ({kind:'play',from,to} finished play
   spans, {kind:'move',at,px} ~1s-coalesced cursor travel while playing,
   {kind:'press',at,useful,flag,unflag,misclick,moving,gapMs},
-  {kind:'death',at,stupid}) into the eight series (speed, click rate,
-  avoidable deaths/min, misclicks/min, no-ops/min, flags/s,
+  {kind:'death',at,mistake}) into the eight series (speed, click rate,
+  mistake-tagged deaths/min, misclicks/min, no-ops/min, flags/s,
   flag-removals/min, fastclick gap) plus raw per-bucket `sums`.
   `sessionRunningSeries(events, {nowMs, stepMs, lookbackMs, windowMs,
   openPlayFrom, playOffsetMs})` — what the charts show since 2026-08-23 —
@@ -323,10 +324,17 @@ Implementation notes:
   into the next bucket), stored fastclick median as one gap sample per
   overlapped bucket; live and backfill cannot overlap because every
   backfilled game ended before the page load. DISPLAY: `SESSION_GROUP` +
-  `SESSION_METRIC_SPECS` (label/calc/records/of/fmt like the trace groups),
-  `buildSessionChart` (selectable cumulative-play x window, y-only axis
-  caption — the "-15m … now" x ticks speak for themselves — and
-  point-attached newest value), `latestDefined` (measurability),
+  `SESSION_METRIC_SPECS` (solo rows: mouse speed, fastclick gap;
+  label carries the unit and sits flush on the plot — no axis captions,
+  the "-15m … now" x ticks speak for themselves) +
+  `SESSION_RATE_SPECS` (the six action rates, each with unit '/m' or
+  '/s' — chosen for meaty values — color, and bare-number fmt), rendered
+  by `buildSessionChart` / `buildSessionRatesChart` +
+  `appendSessionRatesRow` (one plot, second from the top: shared
+  0-rooted integer numeric scale to ceil(max), left edge labeled /m and
+  right edge /s at the same heights, per-line colored last-value labels
+  nudged apart, legend with per-metric HOW/RECORDS tooltips),
+  `latestDefined` (measurability),
   `appendSessionSection` (renders into the panel top, hosts the
   running-average <select> writing settings.sessionLookbackSeconds and
   the window <select> writing settings.sessionWindowMinutes;
@@ -336,17 +344,23 @@ Implementation notes:
   `renderMetricsPanel` snapshots/restores `#metrics-panel-content`'s
   scrollTop so
   periodic replacement cannot push the reader away from lower charts.
-- Avoidable-death classification (stored under the legacy field name
-  `stupidDeath`; PRODUCT.md "Avoidable-death classification"):
-  `lose(hitIndices, stupidVerdict)` — every call site passes its verdict (chord /
-  proof-or-die / angelic deaths: categorically true;
-  `bareDeathStupidity(index, firstReveal)` judges bare reveals off the
-  last guess-ledger event's idealRisk, false on a trial first click,
-  undefined when odds failed or no event matched). `deathWasStupid`
-  holds it until `reportResult` writes `stupidDeath` (losses only,
-  absent = not measured; reset in newGame so a following win cannot
-  inherit it), and `sessionRecordDeath` feeds the session series the
-  same rule-based classification. The field does not encode a cause.
+- Action evidence (PRODUCT.md "Game-end evaluation"):
+  `evaluateRevealAction`, `evaluateChordAction`, and `evaluateFlagAction`
+  capture the visible board before mutation, independent mistake tags,
+  chosen/best raw risk, one-ply expected-life values, and highlighted
+  alternatives. `recordActionEvaluation` keeps every nonfatal tagged
+  action; `lose(hitIndices, evaluation)` always keeps the fatal action.
+  `reportResult` writes only the versioned `actionEvaluations` array.
+  `buildVerdictBlocks` renders the fatal action then all earlier mistakes;
+  `buildEvaluationPosition` draws each saved position without revealing
+  hidden mines. Trial result payloads copy the ledger, and
+  `renderTrialReview` exposes the same blocks under each run's nested
+  action report. `evaluationEndingKind` derives the old five session-chart
+  lines without replacing or erasing the evidence. `normalizeGameRecord`
+  runs inside history load and import: it converts `stupidDeath`,
+  `deathKind`, `deathRisk`, and `deathBestRisk` to an explicitly
+  provenance-marked fatal evaluation, deletes all four fields, and causes
+  normalized history to be persisted. Runtime code never reads them.
 - Music state (PRODUCT.md "Music playing"): `sampleMusic` fetches
   `MUSIC_ENDPOINT` (http://localhost/api/is-music-playing — the resident
   ProjectLauncher at `~/proj/mybrowser/utilities/caddy/launcher/launcher.py`,
@@ -459,13 +473,17 @@ Implementation notes:
   `valid` closures reference game-page globals (PLAY_MODE_IDS etc.) —
   they are late-bound and only ever called by the game page's import
   validation; the settings page must not call a control-'none' field's
-  valid(). The controls themselves are `settings.html` +
+  valid().   The controls themselves are `settings.html` +
   `settings-page.js` (2026-08-23; the in-page drawer is gone):
   `#settings-btn` on the game page is now a plain `<a>` to settings.html.
-  The page: a sticky `#settings-titlebar` with a `.return-to-game` link
-  (same dress as the game's top-right buttons; a twin,
-  `#settings-column-return`, is appended at the switch column's end by
-  buildSettingsColumn; Esc navigates back too), `buildSettingsColumn`
+  The page (stripped to just the switches later on 2026-08-23 — the demo
+  world that briefly lived beside them, with its region glow and
+  `.demo-*` machinery, is gone; see PRODUCT.md): a `#settings-titlebar`
+  with only the site name, then `#settings-layout` — a
+  `#settings-return-rail` (flex column, space-between, stretched to the
+  switch column's height) holding two `.return-to-game` links, one at
+  the top and one beside the column's bottom line, then
+  `#settings-column`. Esc navigates back too. `buildSettingsColumn`
   renders one section per
   `SETTINGS_GROUPS` entry into `#settings-column`; each switch is a
   `buildSettingRow` single-line row — the clickable checkbox + name, with
@@ -473,22 +491,9 @@ Implementation notes:
   (see PRODUCT.md), so a schema `hint` renders a visible second line only
   when present (only `justUniverse`), and `control: 'choice'` renders via
   `buildChoiceRow` with each option's explanation as its tooltip — a
-  change saves and calls `refreshDemo()`. The demo world
-  (`buildDemoWorld` / `refreshDemo` in settings-page.js): `#demo-board`
-  computes adjacency and a real flood opening from fixed `DEMO_MINES`
-  and repaints through the shared `paintCellGlyph`; `.demo-card`
-  stand-ins carry data-setting-region keys — an off boolean ghosts its
-  element via `.demo-off` (faded, grayscale, dashed border; never
-  removed, so the demo layout never shifts — a PRODUCT.md decision);
-  `rebuildDemoTimeTables` rebuilds the timeTables card per
-  `collapseDuplicateCharts` but always with three chart slots (collapsed
-  ghosts the absorbed "this week"), keeping its height constant;
-  `#demo-justice` follows `justUniverse`. Row
-  hover glows `settingRegionElements(key)` (`.setting-region-glow`;
-  page-local `PAGE_HIGHLIGHT_SELECTORS` overrides) and changes nothing
-  else — no hover-injected or hover-swapped text, ever (two note
-  mechanisms were removed for this on 2026-08-23; when nothing matches,
-  nothing happens). The game page has no region tagging and no hover
+  change just saves. No hover behavior at all — no hover-injected or
+  hover-swapped text, ever (two note mechanisms were removed for this on
+  2026-08-23). The game page has no region tagging and no hover
   controls: the `#region-hide-chip` mechanism (hover a result section,
   click "hide ×" to switch it off) and the `tagSettingRegion` markers
   feeding it were removed later on 2026-08-23 — hiding things is the
@@ -542,7 +547,8 @@ Implementation notes:
   `.justice-live-word` to #justice-live at the board's right (multiple
   events stack downward). `reportResult` stores `justice`,
   `justiceSaves`, `justiceEnabled`, `seed`, `rngVersion`, `boardVersion`,
-  and `justiceVersion`; rankings intentionally remain mixed for now. `rng.js`
+  and `justiceVersion`; rankings intentionally remain mixed (confirmed
+  as the product 2026-08-23, no longer a deferral). `rng.js`
   exports `GameRandom`: `createSeed` obtains 128
   bits from `crypto.getRandomValues`, and `fromSeed` implements
   `xoshiro128ss-v1`, the single stream used by `placeMines` and Justice.
@@ -613,12 +619,19 @@ https://ernop.github.io/minesweeper-friendly/ and redeploys on every push.
   `saveTrace` untouched). Anything that writes storage — imports, played
   test games, settings changes — runs on 8099, the single permanent
   test origin (junk history expected there), never on any other port.
-- No headless browser exists here: no chromium / google-chrome /
-  headless_shell, and `/usr/bin/firefox` is an uninstalled snap stub that
-  only prints "snap install firefox". Visual verification needs the Cursor
-  IDE browser (MCP server `cursor-ide-browser`), which is registered only
-  while an IDE browser tab exists — it can appear and disappear
-  mid-session, so check availability before planning around it.
+- Headless browsing (state as of 2026-08-23): no system chromium /
+  google-chrome, and `/usr/bin/firefox` is an uninstalled snap stub that
+  only prints "snap install firefox" — but Playwright browser builds now
+  live under `~/.cache/ms-playwright` (chromium headless shell included),
+  installed during an agent verification session. A working harness sits
+  in `/tmp/mines-smoke` (puppeteer-core against
+  `~/.cache/ms-playwright/chromium_headless_shell-*/.../chrome-headless-shell`,
+  launched with `--no-sandbox` — the AppArmor userns restriction forbids
+  the sandbox). /tmp is wipeable; reinstalling is one `npm i
+  puppeteer-core` plus that executablePath. The Cursor IDE browser (MCP
+  server `cursor-ide-browser`) also works when registered, but it exists
+  only while an IDE browser tab is open and can disappear mid-session,
+  so check availability before planning around it.
 - Running game code without a browser: load `minesweeper.js` in Node via
   `vm.runInThisContext`, not `eval` (the file's 'use strict' makes eval
   declarations local, so nothing would be defined). Required shims:

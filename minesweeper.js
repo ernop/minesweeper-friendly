@@ -74,8 +74,8 @@ const FACE_SVGS = {
   cool: faceSvg(DOVE_BODY + DOVE_WING_FOLDED + DOVE_EYE + DOVE_BEAK + OLIVE_BRANCH),
 };
 
-// FLAG_SVG / MINE_SVG / WRONG_FLAG_SVG live in settings-core.js, shared
-// with the settings page's demo board.
+// FLAG_SVG / MINE_SVG / WRONG_FLAG_SVG live in settings-core.js with the
+// rest of the cell iconography.
 
 function faceSvg(features) {
   return '<svg viewBox="0 0 26 26">' + features + '</svg>';
@@ -99,10 +99,7 @@ let misclicks = 0;     // board-changing actions contradicted by visible facts
 let flagsPlaced = 0;   // flags the player placed (removals don't subtract)
 let flagsRemoved = 0;  // flag states the player turned off; each placement
                        // and each removal is a separate board-changing click
-let deathWasStupid = undefined; // loss classification: was the fatal act
-                                // avoidable with what was already knowable
-                                // (see the lose() call sites); undefined =
-                                // not measured, win, or game still running
+let actionEvaluations = []; // fatal action plus every earlier measured mistake
 let gameSeed = null;    // 128-bit seed for placement and Justice redraws
 let gameRandom = null;  // the one deterministic random stream for this game
 let trialSession = null;   // userdata 'trial'; null when none stored
@@ -266,8 +263,7 @@ function newGame() {
   sessionPlayEnd();
   sessionLastUsefulPressAt = null;
   gameFastclickGaps = [];
-  deathWasStupid = undefined;
-  deathEvaluation = null;
+  actionEvaluations = [];
   justiceDetails = [];
   gameState = 'ready';
   minesPlaced = false;
@@ -520,7 +516,14 @@ function elapsedMs() {
   return startTime === 0 ? 0 : performance.now() - startTime;
 }
 
+// Skipping the rewrite when the face is unchanged is load-bearing: the
+// document mouseup handler re-asserts 'smile' during ready/playing, and
+// rewriting mid-click destroyed the svg under the pointer, so the
+// browser dropped the click and the dove never restarted a running game.
+let currentFaceName = null;
 function setFace(name) {
+  if (name === currentFaceName) return;
+  currentFaceName = name;
   faceButton.innerHTML = FACE_SVGS[name];
 }
 
@@ -564,19 +567,24 @@ function revealCell(index) {
     firstReveal = true;
   }
 
-  if (!firstReveal && guessLedgerAppliesToMode()) noteGuess(index);
+  const guessEvent = !firstReveal && guessLedgerAppliesToMode()
+    ? noteGuess(index) : null;
+  const action = settings.playMode === 'proof-or-die' && !firstReveal
+    ? 'proof-open' : 'reveal';
+  const actionEvaluation = evaluateRevealAction(
+    index, firstReveal && revealedCount === 0, guessEvent, action);
 
   if (settings.playMode === 'proof-or-die' && !firstReveal) {
     if (!Solver.isProvenSafe(playerView(), index)) {
-      // Opening an unproven cell here is a deterministic death: stupid.
-      lose([index], true, evaluateProofDeath(index));
+      // Opening an unproven cell here is a deterministic rule death.
+      lose([index], actionEvaluation);
       return;
     }
   } else if (settings.playMode === 'angelic' && !firstReveal) {
     const saved = Solver.forceSafe(playerView(), cells.map((c) => c.mine), index, gameRandom);
     if (saved === null) {
-      // An angelic death contradicts known facts (a proven mine): stupid.
-      lose([index], true, { kind: 'mine' });
+      // An angelic death can only be a visible-fact contradiction.
+      lose([index], actionEvaluation);
       return;
     }
     applyMineMap(saved);
@@ -584,12 +592,12 @@ function revealCell(index) {
     attemptJustice(index);
   }
   if (cell.mine) {
-    lose([index], bareDeathStupidity(index, firstReveal),
-      evaluateFatalReveal(index, firstReveal));
+    lose([index], actionEvaluation);
     return;
   }
 
   floodReveal(index);
+  recordActionEvaluation(actionEvaluation, 'continued');
   checkWin();
 }
 
@@ -649,13 +657,14 @@ function chord(index) {
   if (trialBlocksPlay()) return false;
   const toReveal = chordTargets(index);
   if (toReveal === null) return false;
+  const actionEvaluation = evaluateChordAction(index, toReveal);
   clickCount++;
 
   if (settings.playMode === 'proof-or-die') {
     const view = playerView();
     if (toReveal.some((n) => !Solver.isProvenSafe(view, n))) {
       // Chording over an unproven cell in proof-or-die is deterministic.
-      lose(toReveal, true, evaluateChordDeath(toReveal));
+      lose(toReveal, actionEvaluation);
       return true;
     }
   } else if (settings.playMode === 'angelic') {
@@ -665,7 +674,7 @@ function chord(index) {
       const saved = Solver.forceSafe(view, mines, n, gameRandom);
       if (saved === null) {
         // The chord opened a proven mine: contradicted known facts.
-        lose([n], true, { kind: 'mine' });
+        lose([n], actionEvaluation);
         return true;
       }
       mines = saved;
@@ -675,12 +684,13 @@ function chord(index) {
 
   const hitMines = toReveal.filter((n) => cells[n].mine);
   if (hitMines.length > 0) {
-    // A chord death is categorically stupid: a flag is the player's
-    // unsupported claim (the Justice doctrine), and a wrong one killed.
-    lose(hitMines, true, evaluateChordDeath(hitMines));
+    actionEvaluation.mistakes.push('chord-wrong-flag-outcome');
+    actionEvaluation.evidence.hitMines = hitMines;
+    lose(hitMines, actionEvaluation);
     return true;
   }
   for (const n of toReveal) floodReveal(n);
+  recordActionEvaluation(actionEvaluation, 'continued');
   checkWin();
   return true;
 }
@@ -701,16 +711,10 @@ function checkWin() {
   reportResult('win');
 }
 
-// stupidVerdict is the legacy variable name for a rule-based classification:
-// true = the fatal act was avoidable from the represented player information;
-// false = not classified avoidable; undefined = not measured. Stored on the
-// loss record under the legacy field name stupidDeath.
-function lose(hitIndices, stupidVerdict, evaluation) {
-  deathWasStupid = stupidVerdict;
-  deathEvaluation = evaluation || null;
-  sessionRecordDeath(stupidVerdict);
-  sessionRecordEnd(evaluation && evaluation.kind !== undefined
-    ? evaluation.kind : 'other');
+function lose(hitIndices, evaluation) {
+  recordActionEvaluation(evaluation, 'death');
+  sessionRecordDeath(evaluationHasMistake(evaluation));
+  sessionRecordEnd(evaluationEndingKind(evaluation));
   gameState = 'lost';
   finish();
   for (let i = 0; i < cells.length; i++) {
@@ -867,15 +871,16 @@ function noteGuess(index) {
     // this game's ledger, and let the click proceed.
     backupStatus.textContent = 'guess odds failed: ' + err.message;
     oddsFailed = true;
-    return;
+    return undefined;
   }
-  if (event === null) return;
+  if (event === null) return null;
   if (!event.measured) {
     oddsFailed = true;
-    return;
+    return undefined;
   }
   guessEvents.push(event);
   announceGuess(event);
+  return event;
 }
 
 function announceGuess(event) {
@@ -898,25 +903,10 @@ function announceGuess(event) {
   justiceLive.appendChild(word);
 }
 
-// Classifies a fatal bare reveal for the legacy stupidDeath record field.
-// True means the click's guess-ledger event was nonideal (a strictly safer
-// square, possibly a provably safe one, was available); false means it took
-// the lowest available risk or was a first click into a fixed trial layout.
-// Undefined means not measured. Chord, proof-or-die, and angelic deaths use
-// their explicit rule-based classifications at their lose() call sites.
-function bareDeathStupidity(index, firstReveal) {
-  if (firstReveal) return false;
-  if (!guessLedgerAppliesToMode() || oddsFailed) return undefined;
-  const event = guessEvents[guessEvents.length - 1];
-  if (event === undefined || event.cell !== index) return undefined;
-  return !event.idealRisk;
-}
-
 //-------GAME-END EVALUATION: VERDICT (pure)-------
 
-// The death verdict: every loss is judged at the fatal act and filed into
-// exactly one kind (PRODUCT.md "Game-end evaluation"). The judgement uses
-// only what the player could have known at that moment.
+// Compatibility labels for the derived game-endings chart and legacy
+// imports. Current records store multidimensional action evidence instead.
 const DEATH_KIND_LABELS = {
   mine: 'clicked clear mine',
   chord: 'chord death',
@@ -925,76 +915,148 @@ const DEATH_KIND_LABELS = {
   angel: 'angel-death',
 };
 
-// Ranked classification over the facts of the fatal act:
-// - provenMine: the fatal square was provably a mine from the visible board.
-// - via: 'bare' (a direct reveal), 'chord', 'first' (a blind first click
-//   into a fixed layout), or 'proof' (a proof-or-die rule death).
-// - measured: whether the surrounding facts below could be established.
-// - safeAvailable: a provably safe covered square existed somewhere.
-// - bestOdds: the fatal act took a lowest-available death risk.
-// Returns a DEATH_KIND_LABELS key, or undefined when nothing was judgeable.
-function deathVerdict(facts) {
-  if (facts.provenMine) return 'mine';
-  if (facts.via === 'chord') return 'chord';
-  // A blind first click into a fixed layout: every covered square was the
-  // same gamble, so the ideal risk was taken trivially.
-  if (facts.via === 'first') return 'angel';
-  if (!facts.measured) return undefined;
-  if (facts.safeAvailable) return 'needless';
-  if (facts.via === 'proof') return 'forced';
-  return facts.bestOdds ? 'angel' : 'forced';
+const ACTION_EVALUATION_VERSION = 'action-evaluation-v1';
+const ACTION_MISTAKE_LABELS = {
+  'opened-proven-mine': 'opened a proven mine',
+  'ignored-safe-move': 'ignored a guaranteed-safe move',
+  'guessed-with-safe-move': 'guessed while a guaranteed-safe move was available',
+  'chose-higher-risk': 'chose higher risk than necessary',
+  'chose-lower-modeled-life': 'chose lower modeled expected remaining life',
+  'flagged-proven-safe': 'flagged a proven-safe square',
+  'removed-proven-mine-flag': 'removed a flag from a proven mine',
+  'chord-visible-contradiction': 'chorded through a visible contradiction',
+  'chord-wrong-flag-outcome': 'chorded with a wrong flag',
+  'opened-unproven-with-safe-move': 'opened an unproven square while a proven-safe move was available',
+  'legacy-avoidable': 'legacy avoidable-death classification',
+};
+
+function evaluationHasMistake(evaluation) {
+  return Array.isArray(evaluation && evaluation.mistakes)
+    && evaluation.mistakes.length > 0;
 }
 
-// The player-facing explanation of the verdict — what the judgement was
-// and exactly why it was made. Pure over the stored record fields so it
-// renders identically on the fresh loss and on a revisited one.
-function deathVerdictText(record) {
-  const pct = (v) => (v * 100).toFixed(1) + '%';
-  const kind = record.deathKind;
-  const proof = record.playMode === 'proof-or-die';
-  if (kind === 'mine') {
-    return 'The fatal square was provably a mine from the visible board '
-      + '\u2014 not a guess, a readable fact. Clicked clear mine +1.';
+// The old five ending lines remain a derived compatibility view for the
+// session chart. They are never the evidence source: independent facts and
+// every applicable mistake remain together on the action evaluation.
+function evaluationEndingKind(evaluation) {
+  if (!evaluation) return 'other';
+  if (evaluation.legacy && DEATH_KIND_LABELS[evaluation.legacy.deathKind]) {
+    return evaluation.legacy.deathKind;
   }
-  if (kind === 'chord') {
-    return 'Your chord opened a mine behind your own wrong flag. A flag is '
-      + 'your unsupported claim, and this one was wrong \u2014 the odds were '
-      + 'never consulted.';
+  const mistakes = new Set(evaluation.mistakes || []);
+  if (mistakes.has('opened-proven-mine')) return 'mine';
+  if (evaluation.action === 'chord') return 'chord';
+  if (mistakes.has('guessed-with-safe-move')
+      || mistakes.has('opened-unproven-with-safe-move')) return 'needless';
+  if (mistakes.has('chose-higher-risk') || evaluation.action === 'proof-open') {
+    return 'forced';
   }
-  if (kind === 'needless') {
-    if (proof) {
-      return 'A provably safe square was available, but you opened an '
-        + 'unproven one \u2014 in proof-or-die that is death by rule.';
+  const evidence = evaluation.evidence || {};
+  if (evidence.firstReveal === true
+      || (typeof evidence.chosenRisk === 'number'
+        && typeof evidence.bestRisk === 'number'
+        && evidence.chosenRisk <= evidence.bestRisk + 1e-12)) {
+    return 'angel';
+  }
+  return 'other';
+}
+
+function fatalEvaluationOf(record) {
+  if (!Array.isArray(record.actionEvaluations)) return undefined;
+  for (let i = record.actionEvaluations.length - 1; i >= 0; i--) {
+    if (record.actionEvaluations[i].result === 'death') return record.actionEvaluations[i];
+  }
+  return undefined;
+}
+
+function actionEvaluationLabel(evaluation) {
+  if (evaluation.result === 'death') {
+    const kind = evaluationEndingKind(evaluation);
+    return kind === 'other' ? 'unjudged death' : DEATH_KIND_LABELS[kind];
+  }
+  const labels = (evaluation.mistakes || [])
+    .map((kind) => ACTION_MISTAKE_LABELS[kind] || kind);
+  return labels.length > 0 ? labels.join('; ') : 'recorded action';
+}
+
+function actionEvaluationText(evaluation) {
+  if (evaluation.legacy) {
+    if (evaluation.legacy.deathKind) {
+      return 'This older record stored the verdict “'
+        + (DEATH_KIND_LABELS[evaluation.legacy.deathKind] || evaluation.legacy.deathKind)
+        + '”, but not the board evidence needed to reconstruct it.';
     }
-    return 'You were not forced: a provably safe square was available. You '
-      + 'guessed anyway'
-      + (typeof record.deathRisk === 'number'
-        ? ' (a ' + pct(record.deathRisk) + ' mine chance)' : '')
-      + ' and it was a mine.';
+    return evaluation.legacy.avoidable
+      ? 'This older record classified the fatal act as avoidable, but did not store enough evidence to say which modern mistake applied.'
+      : 'This older record did not classify the fatal act as avoidable, but did not store enough evidence for a modern re-evaluation.';
   }
-  if (kind === 'forced') {
-    if (proof) {
-      return 'No provably safe square existed anywhere, so proof-or-die '
-        + 'left no legal move: opening any unproven square was death by rule.';
-    }
-    return 'You were forced to guess \u2014 no provably safe square existed '
-      + 'anywhere \u2014 but you did not take the best odds'
-      + (typeof record.deathRisk === 'number'
-        && typeof record.deathBestRisk === 'number'
-        ? ': you clicked a ' + pct(record.deathRisk) + ' mine chance when '
-          + pct(record.deathBestRisk) + ' was available' : '')
-      + '.';
+  const evidence = evaluation.evidence || {};
+  const parts = [];
+  const mistakes = new Set(evaluation.mistakes || []);
+  if (mistakes.has('opened-proven-mine')) {
+    parts.push('The selected square was provably a mine from the visible position.');
   }
-  if (kind === 'angel') {
-    return 'You were forced to guess: no provably safe square existed '
-      + 'anywhere. You took the best available odds'
-      + (typeof record.deathRisk === 'number'
-        ? ' (' + pct(record.deathRisk) + ' mine chance, the lowest on the '
-          + 'board)' : '')
-      + ' and the universe killed you anyway. Angel-death: not your fault.';
+  if (mistakes.has('ignored-safe-move')) {
+    parts.push('At least one guaranteed-safe reveal was available instead.');
   }
-  return 'The fatal act could not be judged: the remaining layouts were '
-    + 'too many to measure.';
+  if (mistakes.has('guessed-with-safe-move')) {
+    parts.push('The selected square had a nonzero mine risk while at least one guaranteed-safe reveal was available.');
+  }
+  if (mistakes.has('opened-unproven-with-safe-move')) {
+    parts.push('A proven-safe reveal was available, but the action opened an unproven square.');
+  }
+  if (mistakes.has('chose-higher-risk')) {
+    parts.push('The selected risk was higher than the lowest risk available.');
+  }
+  if (mistakes.has('chose-lower-modeled-life')) {
+    parts.push('The one-ply odds model found another action with higher expected remaining life; this compares modeled outcomes, not intent.');
+  }
+  if (mistakes.has('flagged-proven-safe')) {
+    parts.push('Visible facts proved the flagged square safe.');
+  }
+  if (mistakes.has('removed-proven-mine-flag')) {
+    parts.push('Visible facts still proved the unflagged square was a mine.');
+  }
+  if (mistakes.has('chord-visible-contradiction')) {
+    parts.push('The chord’s flags or opened neighbors contradicted facts provable from the visible board.');
+  }
+  if (mistakes.has('chord-wrong-flag-outcome')
+      && !mistakes.has('chord-visible-contradiction')) {
+    parts.push('The chord opened a mine because at least one surrounding flag was wrong; the visible position did not prove that error beforehand.');
+  }
+  if (evaluation.action === 'chord' && evaluation.result === 'death'
+      && !mistakes.has('chord-visible-contradiction')
+      && !mistakes.has('chord-wrong-flag-outcome')) {
+    parts.push('The chord opened a mine because at least one surrounding flag was wrong, but the stored visible facts did not prove the contradiction beforehand.');
+  }
+  if (evaluation.action === 'proof-open' && evaluation.result === 'death'
+      && !evidence.safeAvailable) {
+    parts.push('Proof-or-die had no proven-safe legal move; opening an unproven square caused the mode’s rule death.');
+  }
+  if (evaluation.result === 'death' && parts.length === 0
+      && typeof evidence.chosenRisk === 'number') {
+    parts.push('No guaranteed-safe reveal was available. The selected square had the lowest measured mine risk and happened to be mined.');
+  }
+  if (typeof evidence.chosenRisk === 'number') {
+    parts.push('Selected mine risk: ' + (evidence.chosenRisk * 100).toFixed(1) + '%.');
+  }
+  if (typeof evidence.bestRisk === 'number') {
+    parts.push('Lowest available mine risk: ' + (evidence.bestRisk * 100).toFixed(1) + '%.');
+  }
+  if (typeof evidence.expectedLife === 'number'
+      && typeof evidence.bestExpectedLife === 'number') {
+    parts.push('One-ply expected remaining life: '
+      + evidence.expectedLife.toFixed(3) + ' selected; '
+      + evidence.bestExpectedLife.toFixed(3) + ' best measured.');
+  }
+  const alternativeCount = new Set((evaluation.alternatives || [])
+    .flatMap((alternative) => alternative.cells)).size;
+  if (alternativeCount > 0) {
+    parts.push(alternativeCount + ' alternative '
+      + (alternativeCount === 1 ? 'move is' : 'moves are')
+      + ' highlighted on the saved position.');
+  }
+  return parts.join(' ') || 'The action was recorded, but no further judgement was measurable.';
 }
 
 // The end-of-game Justice recap, win or loss: cited by rule name, with the
@@ -1028,11 +1090,6 @@ function justiceEventDetail(detail, index) {
 
 //-------GAME-END EVALUATION: CAPTURE (reads the live board at the fatal act)-------
 
-// The judged evaluation of the current loss ({kind, p?, minP?}), set by
-// lose() and written onto the record by reportResult; null while no loss
-// is being reported. Reset in newGame.
-let deathEvaluation = null;
-
 // Per-event Justice details of the current game ({type, clearWays,
 // totalWays, saved}), pushed by attemptJustice for the end-of-game recap.
 let justiceDetails = [];
@@ -1040,87 +1097,218 @@ let justiceDetails = [];
 // Locally provable facts over the covered board right now: the fact map
 // (1 = certain mine, 2 = proven safe) plus whether any covered square is
 // proven safe. Uses the same prover the odds engine builds on.
-function coveredFactsInfo() {
-  const view = playerView();
+function coveredFactsInfo(view = playerView()) {
   const facts = Justice.proveFacts(view, Justice.rawClues(view));
-  let safeAvailable = false;
+  const safeCells = [];
+  const mineCells = [];
   for (let i = 0; i < cells.length; i++) {
-    if (!view.revealed[i] && facts.get(i) === 2) {
-      safeAvailable = true;
-      break;
-    }
+    if (view.revealed[i]) continue;
+    if (facts.get(i) === 2) safeCells.push(i);
+    if (facts.get(i) === 1) mineCells.push(i);
   }
-  return { facts, safeAvailable };
+  return { facts, safeCells, mineCells, safeAvailable: safeCells.length > 0 };
 }
 
-// Judges a fatal bare reveal. Prefers the click's own guess-ledger event
-// (exact enumerated odds); falls back to locally provable facts when the
-// odds were not measured, and to unjudged when even those cannot split
-// the remaining kinds. Must never block the loss: failures announce and
-// return the unjudged evaluation.
-function evaluateFatalReveal(index, firstReveal) {
+function visiblePositionSnapshot() {
+  const revealed = [];
+  const flagged = [];
+  for (let i = 0; i < cells.length; i++) {
+    if (cells[i].revealed) revealed.push([i, cells[i].adjacent]);
+    if (cells[i].flagged) flagged.push(i);
+  }
+  return {
+    width: config.width,
+    height: config.height,
+    mines: config.mines,
+    revealed,
+    flagged,
+  };
+}
+
+function actionEvaluationBase(action, actionNumber, selected, triggerCell) {
+  return {
+    version: ACTION_EVALUATION_VERSION,
+    action,
+    actionNumber,
+    atMs: Math.round(elapsedMs()),
+    selected: [...new Set(selected)],
+    ...(typeof triggerCell === 'number' ? { triggerCell } : {}),
+    result: 'continued',
+    mistakes: [],
+    evidence: {
+      playMode: settings.playMode,
+      oddsVersion: Odds.VERSION,
+    },
+    alternatives: [],
+    position: visiblePositionSnapshot(),
+  };
+}
+
+function addAlternative(evaluation, kind, candidates, risk) {
+  const selected = new Set(evaluation.selected);
+  const cells = [...new Set(candidates)].filter((cell) => !selected.has(cell));
+  if (cells.length === 0) return;
+  const alternative = { kind, cells };
+  if (typeof risk === 'number') alternative.risk = risk;
+  evaluation.alternatives.push(alternative);
+}
+
+function evaluateRevealAction(index, firstReveal, guessEvent, action = 'reveal') {
+  const evaluation = actionEvaluationBase(action, clickCount, [index]);
+  evaluation.evidence.firstReveal = firstReveal;
+  let local;
   try {
-    if (firstReveal) {
-      const p = config.mines / cells.length;
-      return { kind: deathVerdict({ via: 'first' }), p: p, minP: p };
+    local = coveredFactsInfo();
+  } catch (err) {
+    backupStatus.textContent = 'action evaluation failed: ' + err.message;
+    local = { facts: new Map(), safeCells: [], mineCells: [], safeAvailable: false };
+    evaluation.evidence.factsMeasured = false;
+  }
+  const measuredGuess = guessEvent && guessEvent.measured === true;
+  const provenMine = local.facts.get(index) === 1
+    || (measuredGuess && guessEvent.p >= 1 - 1e-12);
+  const provenSafe = local.facts.get(index) === 2;
+  evaluation.evidence.factsMeasured = evaluation.evidence.factsMeasured !== false;
+  evaluation.evidence.knowledge = provenMine ? 'proven-mine'
+    : provenSafe ? 'proven-safe' : 'uncertain';
+  if (provenMine) {
+    evaluation.evidence.knowledgeSource = local.facts.get(index) === 1
+      ? 'visible-deduction' : 'remaining-layouts';
+  }
+
+  const safeAvailable = measuredGuess
+    ? guessEvent.minP <= 1e-12 : local.safeAvailable;
+  evaluation.evidence.safeAvailable = safeAvailable;
+  evaluation.evidence.oddsMeasured = measuredGuess;
+  if (measuredGuess) {
+    evaluation.evidence.chosenRisk = guessEvent.p;
+    evaluation.evidence.bestRisk = guessEvent.minP;
+    evaluation.evidence.bestRiskTaken = guessEvent.p <= guessEvent.minP + 1e-12;
+    evaluation.evidence.expectedLife = guessEvent.expectedLife;
+    evaluation.evidence.bestExpectedLife = guessEvent.bestExpectedLife;
+  } else if (firstReveal) {
+    const blindRisk = config.mines / cells.length;
+    evaluation.evidence.oddsMeasured = true;
+    evaluation.evidence.chosenRisk = blindRisk;
+    evaluation.evidence.bestRisk = blindRisk;
+    evaluation.evidence.bestRiskTaken = true;
+  }
+
+  if (provenMine) evaluation.mistakes.push('opened-proven-mine');
+  if (provenMine && safeAvailable) evaluation.mistakes.push('ignored-safe-move');
+  if (!provenMine && measuredGuess && guessEvent.p > 1e-12
+      && guessEvent.minP <= 1e-12) {
+    evaluation.mistakes.push('guessed-with-safe-move');
+  }
+  if (measuredGuess && guessEvent.minP > 1e-12
+      && guessEvent.p > guessEvent.minP + 1e-12) {
+    evaluation.mistakes.push('chose-higher-risk');
+  }
+  if (measuredGuess && guessEvent.bestExpectedLife > guessEvent.expectedLife + 1e-9) {
+    evaluation.mistakes.push('chose-lower-modeled-life');
+  }
+  if (!provenMine && !provenSafe && !measuredGuess && safeAvailable) {
+    evaluation.mistakes.push('opened-unproven-with-safe-move');
+  }
+
+  const bestCells = measuredGuess ? guessEvent.bestCells : local.safeCells;
+  if (safeAvailable) addAlternative(evaluation, 'safe-reveal', bestCells, 0);
+  else if (measuredGuess && guessEvent.p > guessEvent.minP + 1e-12) {
+    addAlternative(evaluation, 'lower-risk-reveal', guessEvent.bestCells, guessEvent.minP);
+  }
+  if (measuredGuess && guessEvent.bestExpectedLife > guessEvent.expectedLife + 1e-9) {
+    addAlternative(evaluation, 'higher-modeled-life-reveal', guessEvent.bestExpectedCells);
+  }
+  return evaluation;
+}
+
+function evaluateChordAction(index, toReveal) {
+  const evaluation = actionEvaluationBase('chord', clickCount + 1, toReveal, index);
+  try {
+    const view = playerView();
+    const local = coveredFactsInfo(view);
+    const odds = Odds.analyzeView(view);
+    const oddsMeasured = odds.measured === true;
+    const isSafe = (cell) => local.facts.get(cell) === 2
+      || (oddsMeasured && odds.pMine[cell] <= 1e-12);
+    const isMine = (cell) => local.facts.get(cell) === 1
+      || (oddsMeasured && odds.pMine[cell] >= 1 - 1e-12);
+    const flagged = neighbors(index).filter((cell) => cells[cell].flagged);
+    const wrongFlags = flagged.filter(isSafe);
+    const openedMines = toReveal.filter(isMine);
+    const safeCells = [];
+    for (let cell = 0; cell < cells.length; cell++) {
+      if (!view.revealed[cell] && isSafe(cell)) safeCells.push(cell);
     }
-    const local = coveredFactsInfo();
-    const event = guessEvents[guessEvents.length - 1];
-    const matched = event !== undefined && event.cell === index;
+    evaluation.evidence.factsMeasured = true;
+    evaluation.evidence.oddsMeasured = oddsMeasured;
+    evaluation.evidence.safeAvailable = safeCells.length > 0;
+    evaluation.evidence.wrongFlags = wrongFlags;
+    evaluation.evidence.openedProvenMines = openedMines;
+    if (wrongFlags.length > 0 || openedMines.length > 0) {
+      evaluation.mistakes.push('chord-visible-contradiction');
+    }
+    addAlternative(evaluation, 'unflag-proven-safe', wrongFlags);
+    addAlternative(evaluation, 'flag-proven-mine', openedMines);
+    addAlternative(evaluation, 'safe-reveal',
+      safeCells.filter((cell) => !cells[cell].flagged), 0);
+    if (settings.playMode === 'proof-or-die'
+        && toReveal.some((cell) => local.facts.get(cell) !== 2)
+        && safeCells.length > 0) {
+      evaluation.mistakes.push('opened-unproven-with-safe-move');
+      addAlternative(evaluation, 'safe-reveal', safeCells, 0);
+    }
+  } catch (err) {
+    backupStatus.textContent = 'action evaluation failed: ' + err.message;
+    evaluation.evidence.factsMeasured = false;
+  }
+  return evaluation;
+}
+
+function evaluateFlagAction(index, removing) {
+  const action = removing ? 'flag-remove' : 'flag-place';
+  const evaluation = actionEvaluationBase(action, clickCount + 1, [index]);
+  try {
+    const view = playerView();
+    const local = coveredFactsInfo(view);
+    const odds = Odds.analyzeView(view);
+    const oddsMeasured = odds.measured === true;
     const provenMine = local.facts.get(index) === 1
-      || (matched && event.p >= 1 - 1e-9);
-    if (matched) {
-      const kind = deathVerdict({
-        via: 'bare',
-        provenMine: provenMine,
-        measured: true,
-        safeAvailable: local.safeAvailable || event.minP <= 1e-9,
-        bestOdds: event.idealRisk,
-      });
-      return { kind: kind, p: event.p, minP: event.minP };
+      || (oddsMeasured && odds.pMine[index] >= 1 - 1e-12);
+    const provenSafe = local.facts.get(index) === 2
+      || (oddsMeasured && odds.pMine[index] <= 1e-12);
+    const mineCells = [];
+    if (oddsMeasured) {
+      for (let cell = 0; cell < cells.length; cell++) {
+        if (!view.revealed[cell] && odds.pMine[cell] >= 1 - 1e-12) mineCells.push(cell);
+      }
+    } else {
+      mineCells.push(...local.mineCells);
     }
-    // No measured odds: only the locally provable kinds are reachable.
-    if (provenMine) return { kind: 'mine', p: 1 };
-    if (local.safeAvailable) return { kind: 'needless' };
-    return { kind: undefined };
+    evaluation.evidence.factsMeasured = true;
+    evaluation.evidence.oddsMeasured = oddsMeasured;
+    evaluation.evidence.knowledge = provenMine ? 'proven-mine'
+      : provenSafe ? 'proven-safe' : 'uncertain';
+    if (!removing && evaluation.evidence.knowledge === 'proven-safe') {
+      evaluation.mistakes.push('flagged-proven-safe');
+      addAlternative(evaluation, 'flag-proven-mine', mineCells);
+    }
+    if (removing && evaluation.evidence.knowledge === 'proven-mine') {
+      evaluation.mistakes.push('removed-proven-mine-flag');
+      addAlternative(evaluation, 'keep-proven-mine-flag', [index]);
+    }
   } catch (err) {
-    backupStatus.textContent = 'death verdict failed: ' + err.message;
-    return { kind: undefined };
+    backupStatus.textContent = 'action evaluation failed: ' + err.message;
+    evaluation.evidence.factsMeasured = false;
   }
+  return evaluation;
 }
 
-// Judges a proof-or-die rule death (opening an unproven square).
-function evaluateProofDeath(index) {
-  try {
-    const local = coveredFactsInfo();
-    return {
-      kind: deathVerdict({
-        via: 'proof',
-        provenMine: local.facts.get(index) === 1,
-        measured: true,
-        safeAvailable: local.safeAvailable,
-      }),
-    };
-  } catch (err) {
-    backupStatus.textContent = 'death verdict failed: ' + err.message;
-    return { kind: undefined };
-  }
-}
-
-// Judges a chord death: a provably-mined opened square outranks the
-// wrong-flag verdict (the player chorded through a readable fact).
-function evaluateChordDeath(hitIndices) {
-  try {
-    const local = coveredFactsInfo();
-    return {
-      kind: deathVerdict({
-        via: 'chord',
-        provenMine: hitIndices.some((i) => local.facts.get(i) === 1),
-      }),
-    };
-  } catch (err) {
-    backupStatus.textContent = 'death verdict failed: ' + err.message;
-    return { kind: 'chord' };
+function recordActionEvaluation(evaluation, result) {
+  if (!evaluation) return;
+  evaluation.result = result;
+  if (result === 'death' || evaluationHasMistake(evaluation)) {
+    actionEvaluations.push(evaluation);
   }
 }
 
@@ -1181,31 +1369,13 @@ function reportResult(outcome) {
     islandCount: shape.islandCount,
     largestIsland: shape.largestIsland,
     playMode: settings.playMode,
+    actionEvaluations: actionEvaluations,
   };
   // Music state: true if any sample during this game heard audio playing,
   // false if every sample heard silence; no field at all when the base
   // system's endpoint never answered (not measured).
   if (musicObservations.length > 0) {
     record.musicPlaying = musicObservations.some((heard) => heard);
-  }
-  // Rule-based avoidable-death classification, stored under its legacy
-  // field name (see the lose() call sites and bareDeathStupidity).
-  // Absent on wins and when the fatal click could not be measured.
-  if (outcome === 'loss' && deathWasStupid !== undefined) {
-    record.stupidDeath = deathWasStupid;
-  }
-  // The death verdict (PRODUCT.md "Game-end evaluation"): the judged kind
-  // plus the measured odds behind the judgement. Absent on wins and when
-  // nothing was judgeable.
-  if (outcome === 'loss' && deathEvaluation !== null
-      && deathEvaluation.kind !== undefined) {
-    record.deathKind = deathEvaluation.kind;
-    if (typeof deathEvaluation.p === 'number') {
-      record.deathRisk = deathEvaluation.p;
-    }
-    if (typeof deathEvaluation.minP === 'number') {
-      record.deathBestRisk = deathEvaluation.minP;
-    }
   }
   // How many Justice entries actually required moving a mine (the rest
   // were guaranteed but already clear). Zero is a normal value.
@@ -1243,6 +1413,7 @@ function reportResult(outcome) {
       timeMs: record.timeMs,
       bv3: record.bv3,
       clicks: record.clicks,
+      actionEvaluations: record.actionEvaluations,
     });
     if (trialSession.nextIndex >= Trial.gameCount(trialSession)) endTrial('completed');
     persistUserdata('trial', trialSession);
@@ -1270,6 +1441,105 @@ function reportResult(outcome) {
 // settings toggle can re-render it in place; null while no result shows.
 let renderedResult = null;
 
+function evaluationCellName(cell, width) {
+  return 'row ' + (Math.floor(cell / width) + 1) + ', column ' + (cell % width + 1);
+}
+
+function evaluationAlternativeLabel(kind) {
+  return {
+    'safe-reveal': 'Guaranteed-safe reveal',
+    'lower-risk-reveal': 'Lower-risk reveal',
+    'higher-modeled-life-reveal': 'Higher modeled expected-life reveal',
+    'flag-proven-mine': 'Proven mine to flag',
+    'unflag-proven-safe': 'Proven-safe flag to remove',
+    'keep-proven-mine-flag': 'Proven-mine flag to keep',
+  }[kind] || kind;
+}
+
+function buildEvaluationPosition(evaluation) {
+  if (evaluation.version !== ACTION_EVALUATION_VERSION || !evaluation.position) return null;
+  const position = evaluation.position;
+  if (!Number.isInteger(position.width) || !Number.isInteger(position.height)
+      || position.width <= 0 || position.height <= 0
+      || position.width * position.height > 100000
+      || !Array.isArray(position.revealed) || !Array.isArray(position.flagged)) {
+    return null;
+  }
+  const cellSize = 16;
+  const canvas = document.createElement('canvas');
+  canvas.className = 'evaluation-board';
+  canvas.width = position.width * cellSize;
+  canvas.height = position.height * cellSize;
+  canvas.setAttribute('role', 'img');
+  canvas.setAttribute('aria-label', 'Visible board immediately before this action');
+  const ctx = canvas.getContext('2d');
+  const revealed = new Map(position.revealed);
+  const flagged = new Set(position.flagged);
+  const alternatives = new Map();
+  for (const alternative of evaluation.alternatives || []) {
+    for (const cell of alternative.cells) alternatives.set(cell, alternative.kind);
+  }
+  const selected = new Set(evaluation.selected || []);
+  const numberColors = ['#555555', '#0000ff', '#008000', '#ff0000',
+    '#000080', '#800000', '#008080', '#000000', '#808080'];
+  ctx.font = 'bold 11px Arial';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  for (let cell = 0; cell < position.width * position.height; cell++) {
+    const x = (cell % position.width) * cellSize;
+    const y = Math.floor(cell / position.width) * cellSize;
+    ctx.fillStyle = revealed.has(cell) ? '#f7f7f7' : '#c0c0c0';
+    ctx.fillRect(x, y, cellSize, cellSize);
+    ctx.strokeStyle = '#888888';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x + 0.5, y + 0.5, cellSize - 1, cellSize - 1);
+    if (revealed.has(cell) && revealed.get(cell) > 0) {
+      const number = revealed.get(cell);
+      ctx.fillStyle = numberColors[number] || '#000000';
+      ctx.fillText(String(number), x + cellSize / 2, y + cellSize / 2 + 0.5);
+    } else if (flagged.has(cell)) {
+      ctx.fillStyle = '#b3121b';
+      ctx.fillText('\u2691', x + cellSize / 2, y + cellSize / 2);
+    }
+    if (alternatives.has(cell)) {
+      const kind = alternatives.get(cell);
+      ctx.strokeStyle = kind === 'safe-reveal' ? '#008000'
+        : (kind === 'lower-risk-reveal' || kind === 'higher-modeled-life-reveal')
+          ? '#0066cc' : '#d17a00';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(x + 2, y + 2, cellSize - 4, cellSize - 4);
+    }
+    if (selected.has(cell)) {
+      ctx.strokeStyle = '#d00000';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(x + 1.5, y + 1.5, cellSize - 3, cellSize - 3);
+    }
+  }
+  const wrap = document.createElement('div');
+  wrap.className = 'evaluation-position';
+  const scroll = document.createElement('div');
+  scroll.className = 'evaluation-board-scroll';
+  scroll.appendChild(canvas);
+  wrap.appendChild(scroll);
+  const legend = document.createElement('div');
+  legend.className = 'evaluation-legend';
+  const selectedLegend = document.createElement('span');
+  selectedLegend.className = 'evaluation-key evaluation-key-selected';
+  selectedLegend.textContent = 'selected action';
+  legend.appendChild(selectedLegend);
+  for (const alternative of evaluation.alternatives || []) {
+    const item = document.createElement('span');
+    item.className = 'evaluation-key evaluation-key-' + alternative.kind;
+    const names = alternative.cells.slice(0, 8)
+      .map((cell) => evaluationCellName(cell, position.width));
+    item.textContent = evaluationAlternativeLabel(alternative.kind) + ': '
+      + names.join('; ') + (alternative.cells.length > names.length ? '; \u2026' : '');
+    legend.appendChild(item);
+  }
+  wrap.appendChild(legend);
+  return wrap;
+}
+
 // The game-end evaluation blocks (PRODUCT.md "Game-end evaluation"): the
 // death verdict with its full justification on a loss, and the Justice
 // recap on any game that had events — both above the stats table. The
@@ -1277,7 +1547,7 @@ let renderedResult = null;
 // re-rendered later still gets the counted recap sentence.
 function buildVerdictBlocks(record) {
   const wrap = document.createElement('div');
-  wrap.id = 'result-verdicts';
+  wrap.className = 'result-verdicts';
   const block = (kindClass, titleText, bodyText) => {
     const box = document.createElement('div');
     box.className = 'verdict-block ' + kindClass;
@@ -1291,11 +1561,29 @@ function buildVerdictBlocks(record) {
     wrap.appendChild(box);
     return box;
   };
-  if (record.outcome === 'loss') {
-    block('verdict-' + (record.deathKind || 'unjudged'),
-      'Death verdict: '
-        + (record.deathKind ? DEATH_KIND_LABELS[record.deathKind] : 'unjudged'),
-      deathVerdictText(record));
+  const evaluations = record.actionEvaluations || [];
+  const fatal = fatalEvaluationOf(record);
+  if (fatal) {
+    const kind = evaluationEndingKind(fatal);
+    const box = block('verdict-' + (kind || 'unjudged'),
+      'Fatal action: ' + actionEvaluationLabel(fatal),
+      actionEvaluationText(fatal));
+    const position = buildEvaluationPosition(fatal);
+    if (position) box.appendChild(position);
+  } else if (record.outcome === 'loss') {
+    block('verdict-unjudged', 'Fatal action: unjudged',
+      'No action evidence was available for this loss.');
+  }
+  for (const evaluation of evaluations) {
+    if (evaluation.result === 'death' || !evaluationHasMistake(evaluation)) continue;
+    const box = block('verdict-mistake',
+      'Earlier mistake'
+        + (typeof evaluation.actionNumber === 'number'
+          ? ' (action ' + evaluation.actionNumber + ')' : '')
+        + ': ' + actionEvaluationLabel(evaluation),
+      actionEvaluationText(evaluation));
+    const position = buildEvaluationPosition(evaluation);
+    if (position) box.appendChild(position);
   }
   if ((record.justice || 0) > 0) {
     const box = block('verdict-justice', 'A Just Universe',
@@ -1317,6 +1605,9 @@ function buildVerdictBlocks(record) {
 function renderResult(record, modeRecords, options = {}) {
   renderedResult = { record, modeRecords, options };
   const seconds = secondsOf(record);
+  const fatalEvaluation = fatalEvaluationOf(record);
+  const recordedMistakes = (record.actionEvaluations || [])
+    .filter(evaluationHasMistake).length;
   const summaryLead = options.historyView
     ? 'High scores'
     : (record.outcome === 'win' ? 'Win' : 'Loss');
@@ -1324,7 +1615,7 @@ function renderResult(record, modeRecords, options = {}) {
     + '\n' + playModeLabel()
     + '\n' + (options.historyView ? 'Latest win · ' : '') + formatDate(record.endedAt);
   resultStats.textContent = '';
-  if (!options.historyView && settings.shownThings.endVerdict) {
+  if (settings.shownThings.endVerdict) {
     const verdicts = buildVerdictBlocks(record);
     if (verdicts !== null) {
       resultStats.appendChild(verdicts);
@@ -1367,10 +1658,10 @@ function renderResult(record, modeRecords, options = {}) {
       ? [['Life needless', record.lifeNeedless.toFixed(3)]] : []),
     ...(record.guesses !== undefined
       ? [['Guesses', formatGuesses(record)]] : []),
-    ...(record.stupidDeath !== undefined
-      ? [['Avoidable death', record.stupidDeath ? 'yes' : 'no']] : []),
-    ...(record.deathKind !== undefined
-      ? [['Death verdict', DEATH_KIND_LABELS[record.deathKind]]] : []),
+    ...(recordedMistakes > 0
+      ? [['Recorded mistakes', String(recordedMistakes)]] : []),
+    ...(fatalEvaluation !== undefined
+      ? [['Fatal action', actionEvaluationLabel(fatalEvaluation)]] : []),
     ...(record.justiceSaves !== undefined && (record.justice || 0) > 0
       ? [['Justice saves', String(record.justiceSaves)]] : []),
     ['Mouse path', record.mousePathPx + 'px'],
@@ -1437,15 +1728,40 @@ function renderResult(record, modeRecords, options = {}) {
 // The game-record schema: one record per finished game, win or loss,
 // holding only the primary measurements; every other displayed stat is
 // derived from them at read time, never stored. This is the single
-// definition of the record shape — reportResult writes exactly these
-// fields, importHistory validates candidates against `valid`, and the
-// data-format card renders `example` and `describe` — so the writer, the
-// validator, and the documentation cannot drift apart. wastedClicks and
+// definition of the record shape — reportResult writes the non-legacy
+// fields, importHistory also accepts the explicitly marked legacy boundary
+// fields, and the data-format card renders only the current examples and
+// descriptions. wastedClicks and
 // flagsPlaced joined the schema on 2026-08-19, flagsRemoved on 2026-08-20:
 // all are always written now, but games recorded before they were measured
 // lack them, so absence is valid ("not measured"); displays that need them
 // use only records that carry them.
 const isNumber = (v) => typeof v === 'number';
+function validActionEvaluations(value) {
+  return value === undefined || (Array.isArray(value) && value.every((evaluation) => {
+    if (evaluation === null || typeof evaluation !== 'object'
+        || typeof evaluation.version !== 'string') return false;
+    // Unknown future versions are preserved verbatim. This build cannot
+    // interpret them, but import must not destroy data merely because a
+    // newer build added or reorganized evidence.
+    if (evaluation.version !== ACTION_EVALUATION_VERSION) return true;
+    if (typeof evaluation.action !== 'string'
+        || (evaluation.result !== 'continued' && evaluation.result !== 'death')
+        || !Array.isArray(evaluation.mistakes)
+        || !evaluation.mistakes.every((mistake) => typeof mistake === 'string')) {
+      return false;
+    }
+    if (evaluation.position === undefined) return true;
+    const position = evaluation.position;
+    return position !== null
+      && typeof position === 'object'
+      && Number.isInteger(position.width) && position.width > 0
+      && Number.isInteger(position.height) && position.height > 0
+      && position.width * position.height <= 100000
+      && Array.isArray(position.revealed)
+      && Array.isArray(position.flagged);
+  }));
+}
 const GAME_RECORD_SCHEMA = [
   { field: 'endedAt', valid: isNumber, example: '1787201223496', describe: 'when the game finished (Unix epoch, ms)' },
   { field: 'outcome', valid: (v) => v === 'win' || v === 'loss', example: '"win"', describe: '"win" or "loss"' },
@@ -1472,6 +1788,7 @@ const GAME_RECORD_SCHEMA = [
   { field: 'islandCount', valid: (v) => v === undefined || isNumber(v), example: '6', describe: '8-connected mine components on the finished board (diagonals count, edges empty); absent on earlier games' },
   { field: 'largestIsland', valid: (v) => v === undefined || isNumber(v), example: '5', describe: 'mine count in the largest 8-connected mine component; 0 if no mines; absent on earlier games' },
   { field: 'playMode', valid: (v) => v === undefined || PLAY_MODE_IDS.has(v), example: '"standard"', describe: 'play mode this game was under; absent on games recorded before 2026-08-21' },
+  { field: 'actionEvaluations', valid: validActionEvaluations, example: '[{"version":"action-evaluation-v1","action":"reveal","result":"continued","mistakes":["guessed-with-safe-move"]}]', describe: 'versioned evidence for the fatal action and every earlier measured mistake: action shape, independent mistake tags, chosen/best risks, highlighted alternatives, and the visible position before the action; [] means no recorded mistakes and no death; older records are normalized into this field on load/import' },
   { field: 'identityIndex', valid: (v) => v === undefined || isNumber(v), example: '3', describe: 'trial board identity (0-based in that session); absent outside trial' },
   { field: 'transform', valid: (v) => v === undefined || typeof v === 'string', example: '"rot90"', describe: 'isometry applied to the trial identity for this presentation' },
   { field: 'trialStartedAt', valid: (v) => v === undefined || isNumber(v), example: '1787201223496', describe: 'when the enclosing trial session began' },
@@ -1483,10 +1800,10 @@ const GAME_RECORD_SCHEMA = [
   { field: 'lifeLost', valid: (v) => v === undefined || isNumber(v), example: '0.75', describe: 'sum of mine probabilities of guessed cells (absolute multiverse lives spent); absent with guesses' },
   { field: 'lifeNeedless', valid: (v) => v === undefined || isNumber(v), example: '0.25', describe: 'sum of (chosen risk minus safest available risk); an ideal-risk guess costs 0 even at 19% death; absent with guesses' },
   { field: 'oddsVersion', valid: (v) => v === undefined || v === Odds.VERSION, example: '"' + Odds.VERSION + '"', describe: 'remaining-layout odds and guess-scoring contract; absent on earlier games' },
-  { field: 'stupidDeath', valid: (v) => v === undefined || typeof v === 'boolean', example: 'true', describe: 'legacy field name; loss only: rule-based classification of whether the fatal act was avoidable from represented player information (wrong-flag chord, unproven proof-or-die open, contradicted-fact angelic death, or nonideal guess when something strictly safer was available); false = not classified avoidable; absent on wins, when the fatal click could not be measured, and on games recorded before 2026-08-22' },
-  { field: 'deathKind', valid: (v) => v === undefined || v in DEATH_KIND_LABELS, example: '"angel"', describe: 'loss only: the death verdict — "mine" (the fatal square was provably a mine from the visible board), "angel" (forced to guess, took the lowest available risk, died anyway), "forced" (forced to guess but not at the lowest risk), "needless" (a provably safe square was available), or "chord" (a wrong flag killed); absent on wins, when nothing was judgeable, and on games recorded before 2026-08-23' },
-  { field: 'deathRisk', valid: (v) => v === undefined || isNumber(v), example: '0.25', describe: 'loss only: the fatal square\u2019s measured mine probability at the fatal click; absent when odds were not measured there' },
-  { field: 'deathBestRisk', valid: (v) => v === undefined || isNumber(v), example: '0.143', describe: 'loss only: the lowest mine probability available anywhere at the fatal click (0 = a provably safe square existed); absent when odds were not measured there' },
+  { field: 'stupidDeath', legacy: true, valid: (v) => v === undefined || typeof v === 'boolean', example: 'true', describe: 'legacy import-only avoidable-death boolean; normalized into actionEvaluations and removed immediately' },
+  { field: 'deathKind', legacy: true, valid: (v) => v === undefined || v in DEATH_KIND_LABELS, example: '"angel"', describe: 'legacy import-only five-way death verdict; normalized into actionEvaluations and removed immediately' },
+  { field: 'deathRisk', legacy: true, valid: (v) => v === undefined || isNumber(v), example: '0.25', describe: 'legacy import-only selected risk; normalized into actionEvaluations and removed immediately' },
+  { field: 'deathBestRisk', legacy: true, valid: (v) => v === undefined || isNumber(v), example: '0.143', describe: 'legacy import-only best available risk; normalized into actionEvaluations and removed immediately' },
   { field: 'justiceSaves', valid: (v) => v === undefined || isNumber(v), example: '0', describe: 'how many of the game\u2019s Justice entries actually required moving a mine (justice counts every guaranteed entry; this counts the redraws among them); absent on games recorded before 2026-08-23' },
 ];
 
@@ -1568,6 +1885,73 @@ function normalizeHistoryKey(key) {
   return key.includes('@') ? key : key + '@standard';
 }
 
+//-------ACTION EVALUATION: HISTORY NORMALIZATION (pure)-------
+
+function legacyFatalEvaluation(record) {
+  const deathKind = record.deathKind;
+  const evaluation = {
+    version: ACTION_EVALUATION_VERSION,
+    action: deathKind === 'chord' ? 'chord'
+      : record.playMode === 'proof-or-die' ? 'proof-open'
+        : deathKind === undefined ? 'unknown' : 'reveal',
+    actionNumber: record.clicks,
+    atMs: record.timeMs,
+    selected: [],
+    result: 'death',
+    mistakes: [],
+    evidence: {
+      playMode: record.playMode,
+      oddsMeasured: typeof record.deathRisk === 'number',
+      ...(typeof record.deathRisk === 'number'
+        ? { chosenRisk: record.deathRisk } : {}),
+      ...(typeof record.deathBestRisk === 'number'
+        ? { bestRisk: record.deathBestRisk,
+          safeAvailable: record.deathBestRisk <= 1e-12 } : {}),
+    },
+    alternatives: [],
+    legacy: {
+      source: deathKind !== undefined ? 'death-kind-v1'
+        : record.stupidDeath !== undefined ? 'avoidable-boolean-v1'
+          : 'unjudged-loss',
+      ...(deathKind !== undefined ? { deathKind } : {}),
+      ...(record.stupidDeath !== undefined ? { avoidable: record.stupidDeath } : {}),
+    },
+  };
+  if (deathKind === 'mine') evaluation.mistakes.push('opened-proven-mine');
+  if (deathKind === 'needless') evaluation.mistakes.push('guessed-with-safe-move');
+  if (deathKind === 'forced' && typeof record.deathRisk === 'number'
+      && typeof record.deathBestRisk === 'number'
+      && record.deathRisk > record.deathBestRisk + 1e-12) {
+    evaluation.mistakes.push('chose-higher-risk');
+  }
+  if (deathKind === undefined && record.stupidDeath === true) {
+    evaluation.mistakes.push('legacy-avoidable');
+  }
+  return evaluation;
+}
+
+// Every record in RAM uses the newest action-evidence representation.
+// Legacy fields are accepted only at the storage/import boundary, converted
+// once, deleted, and persisted back so the rest of the app has one model.
+function normalizeGameRecord(record) {
+  const normalized = { ...record };
+  let changed = false;
+  if (!Array.isArray(normalized.actionEvaluations)) {
+    normalized.actionEvaluations = normalized.outcome === 'loss'
+      ? [legacyFatalEvaluation(normalized)] : [];
+    changed = true;
+  }
+  for (const field of ['stupidDeath', 'deathKind', 'deathRisk', 'deathBestRisk']) {
+    if (field in normalized) {
+      delete normalized[field];
+      changed = true;
+    }
+  }
+  return { record: normalized, changed };
+}
+
+//-------ACTION EVALUATION: HISTORY NORMALIZATION END-------
+
 function normalizeHistory(raw) {
   const out = {};
   let changed = false;
@@ -1576,7 +1960,10 @@ function normalizeHistory(raw) {
     if (norm !== key) changed = true;
     if (!out[norm]) out[norm] = [];
     const seen = new Set(out[norm].map((r) => r.endedAt));
-    for (const r of list) {
+    for (const sourceRecord of list) {
+      const modern = normalizeGameRecord(sourceRecord);
+      if (modern.changed) changed = true;
+      const r = modern.record;
       if (seen.has(r.endedAt)) continue;
       seen.add(r.endedAt);
       out[norm].push(r);
@@ -2761,6 +3148,23 @@ function renderTrialReview(session) {
         + '  ' + (attempt.bv3 / seconds).toFixed(3) + '/s  '
         + trialTransformLabel(attempt.transform);
       body.appendChild(line);
+      if (Array.isArray(attempt.actionEvaluations)
+          && attempt.actionEvaluations.length > 0) {
+        const actionDetails = document.createElement('details');
+        actionDetails.className = 'trial-action-report';
+        const actionHead = document.createElement('summary');
+        const mistakeCount = attempt.actionEvaluations.filter(evaluationHasMistake).length;
+        actionHead.textContent = 'action report'
+          + (mistakeCount > 0 ? ' · ' + mistakeCount + ' '
+            + (mistakeCount === 1 ? 'mistake' : 'mistakes') : '');
+        actionDetails.appendChild(actionHead);
+        const report = buildVerdictBlocks({
+          outcome: attempt.outcome,
+          actionEvaluations: attempt.actionEvaluations,
+        });
+        if (report) actionDetails.appendChild(report);
+        body.appendChild(actionDetails);
+      }
     }
     if (group.attempts.length >= 2) {
       appendOverlayLegend(body, group.attempts);
@@ -5703,17 +6107,17 @@ setInterval(() => {
 //   misclick = the board-changing action contradicted a visible-board fact;
 //   gapMs = time since the previous useful press of the same game
 //   (undefined on each game's first useful press).
-// - {kind:'death', at, stupid} — a lost game; stupid true/false/undefined
-//   mirrors the record's stupidDeath field.
+// - {kind:'death', at, mistake} — a lost game; mistake says whether the
+//   fatal action carried at least one recorded mistake tag.
 // - {kind:'end', at, end} — a finished game's ending: 'win', a death
 //   verdict kind (see DEATH_KIND_LABELS), or 'other' for an unjudged
 //   loss. Feeds the game-endings fraction lines.
-// - {kind:'game', from, to, px, useful, wasted, misclicks, flags, stupid, fastGapMs, end}
+// - {kind:'game', from, to, px, useful, wasted, misclicks, flags, fatalMistake, fastGapMs, end}
 //   — a whole finished game backfilled from its stored record (games
 //   played before this page load; see sessionBackfillFromHistory). Its
 //   totals spread across its span proportionally to each bucket's
 //   overlap — a bucket-level approximation where live events are exact —
-//   its play time counts like a 'play' interval, a stupid death and the
+//   its play time counts like a 'play' interval, a mistake-tagged death and the
 //   ending land in the bucket the game ended in, and the stored per-game
 //   fastclick median contributes one gap sample to each bucket it overlaps.
 // The running-average sample step: one charted point per this much
@@ -5806,7 +6210,7 @@ function sessionBucketSeries(events, opts) {
   const misclickCount = new Array(bucketCount).fill(0);
   const flags = new Array(bucketCount).fill(0);
   const unflags = new Array(bucketCount).fill(0);
-  const stupidDeaths = new Array(bucketCount).fill(0);
+  const avoidableDeaths = new Array(bucketCount).fill(0);
   const fastGaps = Array.from({ length: bucketCount }, () => []);
   const endCounts = SESSION_END_KINDS.map(() => new Array(bucketCount).fill(0));
   const countEnd = (i, end) => {
@@ -5846,9 +6250,9 @@ function sessionBucketSeries(events, opts) {
         if (typeof ev.fastGapMs === 'number') fastGaps[i].push(ev.fastGapMs);
       }
     });
-    if (ev !== null && ev.stupid === true) {
+    if (ev !== null && ev.fatalMistake === true) {
       const i = bucketAt(span.playTo - 1e-6);
-      if (i >= 0 && i < bucketCount) stupidDeaths[i]++;
+      if (i >= 0 && i < bucketCount) avoidableDeaths[i]++;
     }
     // The ending lands in the bucket containing the game's final instant,
     // like the classified death above.
@@ -5889,8 +6293,8 @@ function sessionBucketSeries(events, opts) {
           && ev.gapMs <= FASTCLICK_MAX_GAP_MS) {
         fastGaps[i].push(ev.gapMs);
       }
-    } else if (ev.kind === 'death' && ev.stupid === true) {
-      stupidDeaths[i]++;
+    } else if (ev.kind === 'death' && ev.mistake === true) {
+      avoidableDeaths[i]++;
     } else if (ev.kind === 'end') {
       countEnd(i, ev.end);
     }
@@ -5924,7 +6328,7 @@ function sessionBucketSeries(events, opts) {
   const centers = [];
   const speedPxPerSec = [];
   const clicksPerSec = [];
-  const stupidPerMin = [];
+  const avoidablePerMin = [];
   const wastedPerMin = [];
   const misclicksPerMin = [];
   const flagsPerSec = [];
@@ -5936,7 +6340,7 @@ function sessionBucketSeries(events, opts) {
     const enough = playMs[i] >= SESSION_MIN_PLAY_MS;
     speedPxPerSec.push(enough ? movePx[i] / playedSec : undefined);
     clicksPerSec.push(enough ? useful[i] / playedSec : undefined);
-    stupidPerMin.push(enough ? stupidDeaths[i] / (playedSec / 60) : undefined);
+    avoidablePerMin.push(enough ? avoidableDeaths[i] / (playedSec / 60) : undefined);
     wastedPerMin.push(enough ? wasted[i] / (playedSec / 60) : undefined);
     const misclickPlayedSec = misclickPlayMs[i] / 1000;
     misclicksPerMin.push(misclickPlayMs[i] >= SESSION_MIN_PLAY_MS
@@ -5948,13 +6352,13 @@ function sessionBucketSeries(events, opts) {
   return {
     startPlayMs, bucketMs: opts.bucketMs, playNowMs,
     windowMs: opts.windowMs, centers, playMs,
-    speedPxPerSec, clicksPerSec, stupidPerMin, wastedPerMin, misclicksPerMin, flagsPerSec,
+    speedPxPerSec, clicksPerSec, avoidablePerMin, wastedPerMin, misclicksPerMin, flagsPerSec,
     mismarksPerMin, fastclickGapMs, endFractions, endGames,
     // The raw per-bucket accumulations behind the rates, for layers that
     // aggregate across buckets (sessionRunningSeries) — rates can't be
     // re-averaged without their weights.
     sums: { playMs, movePx, useful, wasted, misclickPlayMs, misclickCount,
-      flags, unflags, stupidDeaths, fastGaps, endCounts },
+      flags, unflags, avoidableDeaths, fastGaps, endCounts },
   };
 }
 
@@ -5995,7 +6399,7 @@ function sessionRunningSeries(events, opts) {
   const pMis = prefix(sums.misclickCount);
   const pFlags = prefix(sums.flags);
   const pUnflags = prefix(sums.unflags);
-  const pStupid = prefix(sums.stupidDeaths);
+  const pAvoidable = prefix(sums.avoidableDeaths);
   const roll = (p, k) => p[k + 1] - p[Math.max(0, k - lookbackBuckets + 1)];
 
   const windowFrom = fine.playNowMs - opts.windowMs;
@@ -6003,7 +6407,7 @@ function sessionRunningSeries(events, opts) {
   const playMs = [];
   const speedPxPerSec = [];
   const clicksPerSec = [];
-  const stupidPerMin = [];
+  const avoidablePerMin = [];
   const wastedPerMin = [];
   const misclicksPerMin = [];
   const flagsPerSec = [];
@@ -6030,7 +6434,7 @@ function sessionRunningSeries(events, opts) {
     playMs.push(playedMs);
     speedPxPerSec.push(enough ? roll(pMove, k) / playedSec : undefined);
     clicksPerSec.push(enough ? roll(pUseful, k) / playedSec : undefined);
-    stupidPerMin.push(enough ? roll(pStupid, k) / (playedSec / 60) : undefined);
+    avoidablePerMin.push(enough ? roll(pAvoidable, k) / (playedSec / 60) : undefined);
     wastedPerMin.push(enough ? roll(pWasted, k) / (playedSec / 60) : undefined);
     const misPlayedMs = roll(pMisPlay, k);
     misclicksPerMin.push(misPlayedMs >= SESSION_MIN_PLAY_MS
@@ -6052,7 +6456,7 @@ function sessionRunningSeries(events, opts) {
     stepMs: opts.stepMs, lookbackMs: opts.lookbackMs,
     playNowMs: fine.playNowMs, windowMs: opts.windowMs,
     centers, playMs,
-    speedPxPerSec, clicksPerSec, stupidPerMin, wastedPerMin,
+    speedPxPerSec, clicksPerSec, avoidablePerMin, wastedPerMin,
     misclicksPerMin, flagsPerSec, mismarksPerMin, fastclickGapMs,
     endFractions, endGames,
   };
@@ -6146,8 +6550,8 @@ function sessionRecordPress(useful, flagPlaced, flagRemoved, misclick) {
   sessionEvents.push(press);
 }
 
-function sessionRecordDeath(stupid) {
-  sessionEvents.push({ kind: 'death', at: Date.now(), stupid: stupid });
+function sessionRecordDeath(mistake) {
+  sessionEvents.push({ kind: 'death', at: Date.now(), mistake: mistake });
 }
 
 // One ending per finished game ('win', a death verdict kind, or 'other'),
@@ -6179,9 +6583,10 @@ function sessionBackfillFromHistory() {
         misclicks: record.misclicks,
         flags: record.flagsPlaced || 0,
         unflags: record.flagsRemoved || 0,
-        stupid: record.stupidDeath === true,
+        fatalMistake: evaluationHasMistake(fatalEvaluationOf(record)),
         fastGapMs: record.fastclickGapMs,
-        end: record.outcome === 'win' ? 'win' : (record.deathKind || 'other'),
+        end: record.outcome === 'win' ? 'win'
+          : evaluationEndingKind(fatalEvaluationOf(record)),
       });
     }
   }
@@ -6209,65 +6614,80 @@ const SESSION_GROUP = {
     + 'abandoned board\u2019s time (no record) is lost across a reload',
 };
 
+// Titles carry the unit (decided 2026-08-23, afternoon): "mouse speed
+// px/s" sits flush on its plot and says everything the removed rotated
+// y-axis caption used to say, without the sideways read or the lost
+// horizontal space. Only the two series with their own units keep solo
+// charts; the six action rates live together in SESSION_RATE_SPECS.
 const SESSION_METRIC_SPECS = [
-  { label: 'mouse speed', unit: 'px/s',
+  { label: 'mouse speed px/s',
     calc: 'cursor px traveled while a game was in progress over the '
       + 'trailing lookback of play, divided by its in-progress seconds; '
       + 'abandoned games count, between-game movement never does',
     records: 'cursor travel per in-progress second, averaged over the '
       + 'trailing lookback; a change in the series has no assigned cause',
     of: (b, i) => b.speedPxPerSec[i], fmt: (v) => Math.round(v) + 'px/s' },
-  { label: 'click rate', unit: 'clicks/s',
-    calc: 'board clicks that changed something (reveals, flags, chords) '
-      + 'per in-progress second; wasted clicks are excluded — they have '
-      + 'their own row',
-    records: 'board-changing clicks per in-progress second over the trailing '
-      + 'lookback; it does not measure decisions or identify why the rate changed',
-    of: (b, i) => b.clicksPerSec[i], fmt: (v) => v.toFixed(2) + '/s' },
-  { label: 'avoidable deaths', unit: 'deaths/min',
-    calc: 'deaths whose fatal act was avoidable with what was already '
-      + 'knowable (wrong-flag chord, unproven proof-or-die open, '
-      + 'contradicted-fact angelic death, or a nonideal guess when '
-      + 'something strictly safer was available), per in-progress minute; '
-      + 'lowest-risk deaths do not count',
-    records: 'deaths meeting the stated rule-based avoidability definition '
-      + 'per in-progress minute; it does not identify a mental state',
-    of: (b, i) => b.stupidPerMin[i], fmt: (v) => v.toFixed(2) + '/min' },
-  { label: 'misclicks', unit: 'misclicks/min',
-    calc: 'board-changing actions contradicted by facts provable from the '
-      + 'visible board at click time, per in-progress minute: opening a proven '
-      + 'mine, flagging a proven safe, removing a proven-mine flag, or chording '
-      + 'through a visible contradiction',
-    records: 'visible-board contradictions, independently of outcome; a fatal '
-      + 'misclick also appears in avoidable deaths, while a wrong flag can be nonfatal',
-    of: (b, i) => b.misclicksPerMin[i], fmt: (v) => v.toFixed(1) + '/min' },
-  { label: 'no-op clicks', unit: 'no-ops/min',
-    calc: 'board clicks that changed nothing (chords on unsatisfied or '
-      + 'empty numbers, left-clicks on flags, right-clicks on revealed '
-      + 'cells), per in-progress minute',
-    records: 'clicks that changed no board state per in-progress minute; '
-      + 'the record does not distinguish among possible causes',
-    of: (b, i) => b.wastedPerMin[i], fmt: (v) => v.toFixed(1) + '/min' },
-  { label: 'fastclick gap', unit: 'ms',
+  { label: 'fastclick gap ms',
     calc: 'median gap between consecutive useful presses of the same game '
       + 'when the press was made on the move (cursor moving within 100ms '
       + 'before it) and the gap was under 1s',
     records: 'the median qualifying press-to-press interval within the '
       + 'trailing lookback; only the timing rule above is observed',
     of: (b, i) => b.fastclickGapMs[i], fmt: (v) => Math.round(v) + 'ms' },
-  { label: 'mine marking', unit: 'flags/s',
+];
+
+// The combined action-rates chart (decided 2026-08-23, afternoon): the
+// six per-play-time rates share one plot so risings and fallings can be
+// compared directly. One numeric scale, two unit readings: the left axis
+// labels the numerals as /m, the right as /s, both rooted at 0 — so
+// 1/m and 1/s sit at the same height and each series picks whichever
+// unit gives it a meaty, visible value (the request sketched no-op
+// clicks per second, but ~3/m beats ~0.05/s pinned to the floor; the
+// stated choose-what-reads-best rule decided). fmt is the bare number;
+// displays append the unit.
+const SESSION_RATE_SPECS = [
+  { label: 'flag removals', unit: '/m', color: '#00838f',
+    calc: 'flags taken back per in-progress minute (win auto-flagging and '
+      + 'flags left standing are not counted, only the removal itself)',
+    records: 'flags removed per in-progress minute over the trailing lookback; '
+      + 'the record does not reveal why a flag was removed',
+    of: (b, i) => b.mismarksPerMin[i], fmt: (v) => v.toFixed(1) },
+  { label: 'mine marking', unit: '/s', color: '#388e3c',
     calc: 'flags placed per in-progress second (removals don\u2019t '
       + 'subtract; the win\u2019s auto-flagging is not yours and never '
       + 'counts)',
     records: 'flags placed per in-progress second over the trailing lookback; '
       + 'confidence, caution, and intent are not observed',
-    of: (b, i) => b.flagsPerSec[i], fmt: (v) => v.toFixed(2) + '/s' },
-  { label: 'flag removals', unit: 'removed/min',
-    calc: 'flags taken back per in-progress minute (win auto-flagging and '
-      + 'flags left standing are not counted, only the removal itself)',
-    records: 'flags removed per in-progress minute over the trailing lookback; '
-      + 'the record does not reveal why a flag was removed',
-    of: (b, i) => b.mismarksPerMin[i], fmt: (v) => v.toFixed(1) + '/min' },
+    of: (b, i) => b.flagsPerSec[i], fmt: (v) => v.toFixed(2) },
+  { label: 'misclicks', unit: '/m', color: '#d32f2f',
+    calc: 'board-changing actions contradicted by facts provable from the '
+      + 'visible board at click time, per in-progress minute: opening a proven '
+      + 'mine, flagging a proven safe, removing a proven-mine flag, or chording '
+      + 'through a visible contradiction',
+    records: 'visible-board contradictions, independently of outcome; a fatal '
+      + 'fatal visible contradiction also appears in deaths with mistakes, while a wrong flag can be nonfatal',
+    of: (b, i) => b.misclicksPerMin[i], fmt: (v) => v.toFixed(1) },
+  { label: 'no-op clicks', unit: '/m', color: '#e8a000',
+    calc: 'board clicks that changed nothing (chords on unsatisfied or '
+      + 'empty numbers, left-clicks on flags, right-clicks on revealed '
+      + 'cells), per in-progress minute',
+    records: 'clicks that changed no board state per in-progress minute; '
+      + 'the record does not distinguish among possible causes',
+    of: (b, i) => b.wastedPerMin[i], fmt: (v) => v.toFixed(1) },
+  { label: 'deaths with mistakes', unit: '/m', color: '#7b1fa2',
+    calc: 'deaths whose fatal action carries at least one recorded mistake '
+      + 'tag (for example, opening a proven mine, guessing while a safe move '
+      + 'was available, or choosing higher risk), per in-progress minute',
+    records: 'fatal actions with one or more evidence-backed mistake tags '
+      + 'per in-progress minute; it does not identify intent or mental state',
+    of: (b, i) => b.avoidablePerMin[i], fmt: (v) => v.toFixed(2) },
+  { label: 'click rate', unit: '/s', color: '#1565c0',
+    calc: 'board clicks that changed something (reveals, flags, chords) '
+      + 'per in-progress second; no-op clicks are excluded — they have '
+      + 'their own line',
+    records: 'board-changing clicks per in-progress second over the trailing '
+      + 'lookback; it does not measure decisions or identify why the rate changed',
+    of: (b, i) => b.clicksPerSec[i], fmt: (v) => v.toFixed(2) },
 ];
 
 // The game-endings lines: one cumulative percent line per ending kind,
@@ -6287,10 +6707,12 @@ const SESSION_END_SPECS = [
 
 // A session chart is a real chart, not a sparkline (decided 2026-08-22):
 // the scatter plots' visual grammar — light gridlines, 1/2/5-step y
-// ticks with minor tickmarks, played-time x ticks, a labeled y axis —
-// at panel width. The x axis carries no caption (dropped 2026-08-23):
-// its "-15m … now" tick labels already say "played time ago", so the
-// caption line bought nothing and cost plot height. Two more legibility
+// ticks with minor tickmarks, played-time x ticks — at panel width.
+// Neither axis carries a caption (x dropped earlier 2026-08-23, the
+// rotated y caption that afternoon): the "-15m … now" x ticks already
+// say "played time ago", and the row title carries the unit ("mouse
+// speed px/s") sitting flush on the plot's top edge (T is the few px
+// that keep a top gridline label inside the svg). Two more legibility
 // rules: y starts at 0 (every series is nonnegative; an auto-zoomed
 // floor turned small wiggles into drama), and x is the fixed played-time
 // window ending at the current cumulative play coordinate. Breaks have
@@ -6298,7 +6720,7 @@ const SESSION_END_SPECS = [
 // bridged. Width follows the panel's dragged width (its grip, see
 // buildMetricsResizeGrip): the chart fills the panel's content box —
 // width minus the 16px padding and 2px border of the border-box panel.
-const SESSION_CHART = { H: 150, L: 54, R: 8, T: 10, B: 22 };
+const SESSION_CHART = { H: 150, L: 54, R: 8, T: 5, B: 22 };
 
 // X-tick label for "this long of accumulated play ago". Whole hours stay
 // whole; a 3h window's quarter ticks need the decimal (-2.3h, -1.5h).
@@ -6357,14 +6779,6 @@ function buildSessionChart(buckets, spec) {
   for (const v of minorTicks(yTicks, y0, y1)) {
     el('line', { x1: L - 4, y1: py(v), x2: L, y2: py(v), class: 'scatter-minor' });
   }
-
-  // Only the y axis gets a caption; the x ticks ("-15m … now") already
-  // say "played time ago" on their own.
-  const yLabel = el('text', { x: 0, y: 0, class: 'scatter-axis-label' },
-    '\u2192 ' + spec.unit);
-  yLabel.setAttribute('transform',
-    'translate(10 ' + (H - B - (H - T - B) / 2) + ') rotate(-90)');
-  yLabel.setAttribute('text-anchor', 'middle');
 
   let d = '';
   let pen = false;
@@ -6431,12 +6845,6 @@ function buildSessionEndingsChart(buckets) {
     el('line', { x1: L, y1: py(pct), x2: W - R, y2: py(pct), class: 'scatter-grid' });
     el('text', { x: L - 4, y: py(pct) + 4, class: 'scatter-tick tick-y' }, String(pct));
   }
-  const yLabel = el('text', { x: 0, y: 0, class: 'scatter-axis-label' },
-    '\u2192 % of session games');
-  yLabel.setAttribute('transform',
-    'translate(10 ' + (H - B - (H - T - B) / 2) + ') rotate(-90)');
-  yLabel.setAttribute('text-anchor', 'middle');
-
   const drawn = [];
   const anyGames = buckets.endGames[buckets.endGames.length - 1] > 0;
   for (const spec of SESSION_END_SPECS) {
@@ -6467,6 +6875,158 @@ function buildSessionEndingsChart(buckets) {
     drawn.push({ spec, latest });
   }
   return { svg, drawn };
+}
+
+// The action-rates chart: every SESSION_RATE_SPECS series in one plot.
+// One numeric scale rooted at 0 up to ceil(max shown value), integer
+// ticks stepped 1/2/5/10… so they stay readable; the left edge reads the
+// numerals as per-minute ("2/m"), the right edge as per-second ("2/s"),
+// same numeral at the same height. Each line ends in a dot with its
+// current value floating to the point's left in the line's own color
+// (nudged apart when lines end close together); the legend below repeats
+// color, name+unit, and value, and carries each metric's HOW/RECORDS.
+const SESSION_RATES_CHART = { H: 170, L: 54, R: 40, T: 5, B: 22 };
+
+function buildSessionRatesChart(buckets) {
+  const { H, L, R, T, B } = SESSION_RATES_CHART;
+  const W = settings.metricsPanelWidth - 18;
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('class', 'session-chart');
+  svg.setAttribute('width', W);
+  svg.setAttribute('height', H);
+  const el = (tag, attrs, text) => {
+    const node = document.createElementNS(SVG_NS, tag);
+    for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
+    if (text !== undefined) node.textContent = text;
+    svg.appendChild(node);
+    return node;
+  };
+  el('rect', { x: L, y: T, width: W - L - R, height: H - T - B, class: 'scatter-plot' });
+
+  let max = 0;
+  for (const spec of SESSION_RATE_SPECS) {
+    for (let i = 0; i < buckets.centers.length; i++) {
+      const v = displayableNumber(spec.of(buckets, i));
+      if (v !== undefined && v > max) max = v;
+    }
+  }
+  const yTop = Math.max(1, Math.ceil(max));
+  let tickStep = [1, 2, 5, 10, 20, 50, 100].find((s) => yTop / s <= 6) || 100;
+
+  const x0 = buckets.playNowMs - buckets.windowMs;
+  const x1 = buckets.playNowMs;
+  const px = (t) => L + ((Math.min(Math.max(t, x0), x1) - x0) / (x1 - x0)) * (W - L - R);
+  const py = (v) => H - B - (v / yTop) * (H - T - B);
+
+  const xTicks = Array.from({ length: 5 }, (_, i) => x0 + (x1 - x0) * i / 4);
+  for (const v of xTicks) {
+    el('line', { x1: px(v), y1: T, x2: px(v), y2: H - B, class: 'scatter-grid' });
+    el('text', { x: Math.min(px(v), W - 17), y: H - B + 13, class: 'scatter-tick tick-x' },
+      sessionAgoLabel(x1 - v));
+  }
+  for (let v = 0; v <= yTop; v += tickStep) {
+    el('line', { x1: L, y1: py(v), x2: W - R, y2: py(v), class: 'scatter-grid' });
+    el('text', { x: L - 4, y: py(v) + 4, class: 'scatter-tick tick-y' }, v + '/m');
+    el('text', { x: W - R + 4, y: py(v) + 4, class: 'scatter-tick tick-y-right' }, v + '/s');
+  }
+
+  const drawn = [];
+  const pointLabels = [];
+  for (const spec of SESSION_RATE_SPECS) {
+    let d = '';
+    let pen = false;
+    let lastX = null;
+    let lastY = null;
+    let lastValue = null;
+    for (let i = 0; i < buckets.centers.length; i++) {
+      const v = displayableNumber(spec.of(buckets, i));
+      if (v === undefined) { pen = false; continue; }
+      lastX = px(buckets.centers[i]);
+      lastY = py(v);
+      lastValue = v;
+      d += (pen ? 'L' : 'M') + lastX.toFixed(1) + ' ' + lastY.toFixed(1);
+      pen = true;
+    }
+    drawn.push({ spec, latest: lastValue === null ? undefined : lastValue });
+    if (lastX === null) continue;
+    el('path', { class: 'end-line', stroke: spec.color, d: d });
+    el('circle', {
+      class: 'end-dot', fill: spec.color, r: 2.5,
+      cx: lastX.toFixed(1), cy: lastY.toFixed(1),
+    });
+    pointLabels.push({
+      x: lastX, y: lastY, color: spec.color,
+      text: spec.fmt(lastValue) + spec.unit,
+    });
+  }
+
+  // Float each current value to its point's left; when several lines end
+  // at nearly the same height, nudge the labels apart: a top-down pass
+  // spaces them, then a bottom-up pass pushes any that ran past the plot
+  // bottom back up (six 11px labels always fit a 140px plot).
+  pointLabels.sort((a, b) => a.y - b.y);
+  let floorY = T + 9;
+  for (const lab of pointLabels) {
+    lab.labelY = Math.max(lab.y + 4, floorY);
+    floorY = lab.labelY + 11;
+  }
+  let ceilY = H - B - 2;
+  for (let i = pointLabels.length - 1; i >= 0; i--) {
+    pointLabels[i].labelY = Math.min(pointLabels[i].labelY, ceilY);
+    ceilY = pointLabels[i].labelY - 11;
+  }
+  for (const lab of pointLabels) {
+    el('text', {
+      x: (lab.x - 6).toFixed(1),
+      y: lab.labelY.toFixed(1),
+      fill: lab.color,
+      class: 'rate-point-value',
+      'text-anchor': 'end',
+    }, lab.text);
+  }
+  return { svg, drawn };
+}
+
+// The action-rates row: the combined chart plus its legend (swatch,
+// name+unit, current value; each entry's tooltip is that metric's
+// HOW/RECORDS).
+function appendSessionRatesRow(container, buckets) {
+  const row = document.createElement('div');
+  row.className = 'metric-row session-metric-row';
+  row.title = 'HOW: the six action rates on one numeric scale so their '
+    + 'risings and fallings can be compared. The left axis reads the '
+    + 'numerals as per played minute, the right as per played second '
+    + '(1/m and 1/s sit at the same height); each series uses whichever '
+    + 'unit gives it a clearly visible value \u2014 see its legend entry. '
+    + 'Each line\u2019s current value floats beside its endpoint.'
+    + '\n\nRECORDS: the same running averages as ever, drawn together; '
+    + 'hover a legend entry for that metric\u2019s own definition.';
+  const headRow = document.createElement('div');
+  headRow.className = 'metric-head';
+  const labelEl = document.createElement('span');
+  labelEl.className = 'metric-label';
+  labelEl.textContent = 'action rates';
+  headRow.appendChild(labelEl);
+  row.appendChild(headRow);
+  const { svg, drawn } = buildSessionRatesChart(buckets);
+  row.appendChild(svg);
+  const legend = document.createElement('div');
+  legend.className = 'session-end-legend';
+  for (const { spec, latest } of drawn) {
+    const item = document.createElement('span');
+    item.className = 'end-legend-item';
+    item.title = 'HOW: ' + spec.calc + '.\n\nRECORDS: ' + spec.records + '.';
+    const swatch = document.createElement('span');
+    swatch.className = 'end-swatch';
+    swatch.style.background = spec.color;
+    const text = document.createElement('span');
+    text.textContent = spec.label + spec.unit + ' '
+      + (latest === undefined ? '\u2013' : spec.fmt(latest));
+    item.append(swatch, text);
+    legend.appendChild(item);
+  }
+  row.appendChild(legend);
+  container.appendChild(row);
 }
 
 // The shown number is the newest measurable sample's value: the running
@@ -6530,6 +7090,7 @@ function appendSessionSection(container) {
     playOffsetMs: sessionPlayOffsetMs,
   });
   appendSessionEndingsRow(container, buckets);
+  appendSessionRatesRow(container, buckets);
   for (const spec of SESSION_METRIC_SPECS) {
     const value = latestDefined(buckets, spec.of);
     const row = document.createElement('div');
@@ -6568,7 +7129,7 @@ function appendSessionEndingsRow(container, buckets) {
   headRow.className = 'metric-head';
   const labelEl = document.createElement('span');
   labelEl.className = 'metric-label';
-  labelEl.textContent = 'game endings';
+  labelEl.textContent = 'game endings %';
   headRow.appendChild(labelEl);
   row.appendChild(headRow);
   const { svg, drawn } = buildSessionEndingsChart(buckets);
@@ -6848,6 +7409,8 @@ boardElement.addEventListener('contextmenu', (event) => {
   traceEvent('rdown', event, index);
   const removing = cells[index].flagged;
   const misclick = !cells[index].revealed && flagChangeIsMisclick(index, removing);
+  const actionEvaluation = !cells[index].revealed
+    ? evaluateFlagAction(index, removing) : null;
   if (!toggleFlag(index)) {
     wastedClicks++;
     sessionRecordPress(false, false, false, false);
@@ -6857,6 +7420,7 @@ boardElement.addEventListener('contextmenu', (event) => {
     // placement feeds the mine-marking rate, only a removal feeds the
     // flag-removal rate.
     sessionRecordPress(true, cells[index].flagged, !cells[index].flagged, misclick);
+    recordActionEvaluation(actionEvaluation, 'continued');
   }
 });
 
@@ -7050,6 +7614,7 @@ function importHistory(text) {
       backupStatus.textContent = 'import failed: "' + mode + '" is not an array of game records';
       return;
     }
+    const normalizedList = [];
     for (const r of list) {
       const malformed = r === null || typeof r !== 'object'
         || GAME_RECORD_SCHEMA.some((f) => !f.valid(r[f.field]));
@@ -7057,10 +7622,11 @@ function importHistory(text) {
         backupStatus.textContent = 'import failed: "' + mode + '" contains a malformed game record';
         return;
       }
+      normalizedList.push(normalizeGameRecord(r).record);
     }
     const key = normalizeHistoryKey(mode);
     if (!incoming[key]) incoming[key] = [];
-    incoming[key].push(...list);
+    incoming[key].push(...normalizedList);
   }
   let added = 0;
   let dups = 0;
@@ -7108,9 +7674,9 @@ document.getElementById('format-btn').addEventListener('click', () => {
 // The in-page settings drawer became a full page on 2026-08-23: the
 // "settings" opener in the top-right is now a plain link to settings.html
 // (see index.html), which shares this page's schema (settings-core.js)
-// and database (storage.js) and demonstrates each switch on a demo world.
-// Changes save straight to the shared database; this page reads them
-// fresh on every load, and the return trip from settings.html is a load.
+// and database (storage.js). Changes save straight to the shared
+// database; this page reads them fresh on every load, and the return
+// trip from settings.html is a load.
 
 document.addEventListener('keydown', (event) => {
   if (event.key !== 'Escape') return;
@@ -7160,7 +7726,8 @@ function buildFormatPanel() {
 
   const recordBlock = block('each game record');
   const table = document.createElement('table');
-  for (const f of GAME_RECORD_SCHEMA) {
+  const storedFields = GAME_RECORD_SCHEMA.filter((field) => !field.legacy);
+  for (const f of storedFields) {
     const row = document.createElement('tr');
     for (const text of [f.field, f.example, f.describe]) {
       const cell = document.createElement('td');
@@ -7170,7 +7737,7 @@ function buildFormatPanel() {
     table.appendChild(row);
   }
   const recordNote = document.createElement('p');
-  recordNote.textContent = 'Only these ' + GAME_RECORD_SCHEMA.length + ' measurements are stored. '
+  recordNote.textContent = 'Only these ' + storedFields.length + ' measurements are stored. '
     + 'Everything else on the win screen (3BV/s, clicks over 3BV, efficiency, correctness, '
     + 'throughput, IOS, mouse speed, path per click, path per 3BV, every rank and chart) is '
     + 'recomputed from them at display time.';
