@@ -30,10 +30,11 @@ key names) live in `agents.md`; player-facing pitch in `promo/PROMO.md`.
   color always carries the count; in the dots display it is the only
   carrier. Changing the setting repaints the board in place, mid-game
   included.
-- Favicon (2026-08-23): a raised minesweeper cell in the game's exact
-  palette (silver face, light/dark bevels) carrying a blocky letter E in
-  a light, confident blue — like a revealed letter cell, but the E, not
-  a count. One SVG (`favicon.svg`), linked from both pages.
+- Favicon (2026-08-23; letter and color revised same day): a raised
+  minesweeper cell in the game's exact palette (silver face, light/dark
+  bevels) carrying a blocky letter M in the board's strong classic blue
+  (the "1" color — the first light-blue E was judged too light). One SVG
+  (`favicon.svg`), linked from both pages.
 - The status button is a dove (symbol of peace and kindness), not a smiley:
   idle; startled flap while a cell is pressed; olive branch on win; broken
   heart on loss.
