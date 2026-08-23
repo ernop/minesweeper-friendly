@@ -261,6 +261,10 @@ report.
   coordinates are also written as text. Trial results retain each run's
   ledger and expose the same report in a nested “action report” disclosure
   under that run, so the final trial review does not lose interim mistakes.
+  Semantically identical entries without a saved diagram aggregate at
+  their first occurrence and show one count (for example, “Unsatisfied
+  chord clicks: 7”); positioned evidence remains one block per action so
+  each action number stays attached to its diagram.
   The compact stats list enabled category counts instead of one undifferentiated
   “recorded mistakes” total, plus nonzero excess-game-risk and optional
   modeled-life-gap magnitudes.
@@ -942,7 +946,13 @@ carries at least one tag.
   one and re-records on any difference: before every button event (every
   click maps exactly), after every metrics-panel render (the known
   mover — appearing, hiding, collapsing, drag-resizing), and via the
-  once-a-second live tick as the catch-all for anything else.
+  once-a-second live tick as the catch-all for anything else. Traces
+  saved before the fix retain the defect for the first game of each
+  page load: their samples map through the stale opening rect (button
+  events are unaffected — they store the hit cell index directly). The
+  true geometry was never measured, so those traces cannot be repaired;
+  offline sample-to-cell mapping of a session's pre-fix first game is
+  suspect.
 - A trace runs from board creation to finish: pre-first-click movement is
   warmup and is real data, so capture covers the ready state, not just
   play. Post-game movement belongs to no game and is not captured.

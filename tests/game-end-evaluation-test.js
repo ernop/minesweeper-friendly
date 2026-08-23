@@ -158,6 +158,18 @@ assertEq('no-progress click is time loss',
   actionEvaluationCategory(noOp), 'timeLoss');
 assertContains('no-progress reason is explained',
   actionEvaluationText(noOp), 'flagged square');
+const noOpGroups = aggregateReportEntries([
+  { evaluation: noOp, shown: noOp, category: 'timeLoss' },
+  { evaluation: { ...noOp, actionNumber: 8 },
+    shown: { ...noOp, actionNumber: 8 }, category: 'timeLoss' },
+  { evaluation: { ...noOp, evidence: { reason: 'chord-unavailable' } },
+    shown: { ...noOp, evidence: { reason: 'chord-unavailable' } },
+    category: 'timeLoss' },
+]);
+assertEq('identical positionless actions aggregate', noOpGroups.length, 2);
+assertEq('aggregate carries the repeated count', noOpGroups[0].count, 2);
+assertEq('aggregate title is a count, not action numbers',
+  aggregateReportTitle(noOpGroups[0]), 'Left-clicks on flagged squares: 2');
 
 const note = {
   version: ACTION_EVALUATION_VERSION,

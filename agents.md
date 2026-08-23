@@ -386,7 +386,9 @@ Implementation notes:
   the builder groups each action once by primary category and obeys
   `settings.reportCategories` plus `settings.reportDetail`; life-model
   secondary prose/alternatives are removed when that optional category is
-  off. `buildEvaluationPosition` draws each saved position without revealing
+  off. `aggregateReportEntries` collapses semantically identical
+  positionless entries into reason-specific counts while positioned
+  entries stay individual. `buildEvaluationPosition` draws each saved position without revealing
   hidden mines. Trial result payloads copy the ledger, and
   `renderTrialReview` exposes the same blocks under each run's nested
   action report. `evaluationEndingKind` derives the old five session-chart

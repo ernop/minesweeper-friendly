@@ -1213,6 +1213,49 @@ function actionEvaluationText(evaluation) {
   return parts.join(' ') || 'The action was recorded, but no further judgement was measurable.';
 }
 
+const NO_OP_AGGREGATE_LABELS = {
+  'chord-unavailable': 'Unsatisfied chord clicks',
+  'left-clicked-flag': 'Left-clicks on flagged squares',
+  'flagged-revealed-cell': 'Flag attempts on revealed squares',
+};
+
+// Positionless repetitions do not need one prose block per input. Group
+// semantically identical entries at their first occurrence; positioned
+// evidence remains individual so its action number stays attached to its
+// diagram.
+function aggregateReportEntries(entries) {
+  const result = [];
+  const groups = new Map();
+  for (const entry of entries) {
+    if (entry.shown.position !== undefined) {
+      result.push({ ...entry, count: 1 });
+      continue;
+    }
+    const label = actionEvaluationLabel(entry.shown);
+    const text = actionEvaluationText(entry.shown);
+    const key = JSON.stringify([entry.category, entry.shown.action, label, text]);
+    const existing = groups.get(key);
+    if (existing) {
+      existing.count++;
+      continue;
+    }
+    const grouped = { ...entry, count: 1, label, text };
+    groups.set(key, grouped);
+    result.push(grouped);
+  }
+  return result;
+}
+
+function aggregateReportTitle(entry) {
+  if (entry.shown.action === 'no-op') {
+    const reason = entry.shown.evidence && entry.shown.evidence.reason;
+    const label = NO_OP_AGGREGATE_LABELS[reason] || 'Clicks that changed nothing';
+    return label + ': ' + entry.count;
+  }
+  return entry.count + ' recorded '
+    + (entry.count === 1 ? 'action' : 'actions') + ': ' + entry.label;
+}
+
 // The end-of-game Justice recap, win or loss: cited by rule name, with the
 // count of impossible choices the player was walked through unharmed.
 // saves = how many of those entries actually required moving a mine.
@@ -1804,17 +1847,26 @@ function buildVerdictBlocks(record) {
     block('gameLoss', 'verdict-unjudged', 'Fatal action: unjudged',
       'No action evidence was available for this loss.');
   }
+  const reportEntries = [];
   for (const evaluation of evaluations) {
     if (evaluation.result === 'death' || !evaluationHasMistake(evaluation)) continue;
     const category = actionEvaluationCategory(evaluation);
     if (!category || !reportCategoryEnabled(category)) continue;
     const shown = evaluationForReport(evaluation);
-    const box = block(category, 'verdict-mistake',
-      'Action'
+    reportEntries.push({ evaluation, shown, category });
+  }
+  for (const entry of aggregateReportEntries(reportEntries)) {
+    const { evaluation, shown, category } = entry;
+    const positionless = shown.position === undefined;
+    const title = positionless
+      ? aggregateReportTitle(entry)
+      : 'Action'
         + (typeof evaluation.actionNumber === 'number'
           ? ' ' + evaluation.actionNumber : '')
-        + ': ' + actionEvaluationLabel(shown),
-      actionEvaluationText(shown));
+        + ': ' + actionEvaluationLabel(shown);
+    const body = positionless && shown.action === 'no-op'
+      ? null : (entry.text || actionEvaluationText(shown));
+    const box = block(category, 'verdict-mistake', title, body);
     const position = detail === 'positions' ? buildEvaluationPosition(shown) : null;
     if (position) box.appendChild(position);
   }

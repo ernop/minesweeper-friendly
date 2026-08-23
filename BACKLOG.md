@@ -142,6 +142,22 @@ would require explicit analysis. Not built yet:
   replay plus stored traces may be able to reconstruct some of that
   evidence offline; uncertainty must remain explicit.
 
+## Path replay follow-ons (mapped, 2026-08-23)
+
+The after-game path views are built (PRODUCT.md "Path replay views"):
+a button below the finished board cycles off → moves → clicks, drawn
+from the RAM trace of the game just ended. Not built:
+
+- **Historical replay from the traces store.** Every finished game's
+  trace is persisted; a viewer that loads a past game's trace (and
+  redraws its board from seed + mode + first click) could show any
+  game's path, not just the last one.
+- **Animated playback.** The stored timestamps allow replaying the
+  cursor in real or scaled time rather than a static polyline.
+- **Off-board excursions.** The overlay canvas covers the board only,
+  so movement that left the board clips at its edge; a wider canvas
+  would show the full excursion (e.g. travel to the face button).
+
 ## Research designs (creator, not built)
 
 - **Secret replay experiment** (2026-08-19 discussion;
@@ -176,3 +192,7 @@ would require explicit analysis. Not built yet:
   biometrics / mousetrap / Hevelius-style displays. The Tier 1/2
   "store a scalar per metric" framing is obsolete: the trace is the
   ground truth.
+- Path replay views (2026-08-23): the after-game moves/clicks overlay
+  on the finished board, with the layout-drift re-record fix in the
+  trace recorder that it exposed (PRODUCT.md "Path replay views" and
+  "Raw input traces").
