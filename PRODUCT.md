@@ -240,7 +240,11 @@ measured), throughput (3BV / effective clicks, as a 4-decimal ratio — the
 same quantity as efficiency, clone name; wins only, same unfinished-board
 honesty as clicks over 3BV), IOS (log(3BV) / log(time in seconds); wins
 only; blank when time is 1s or less, matching minesweeper.online), mouse
-speed (px/s), path per click, path per 3BV.
+speed (px/s), path per click, path per 3BV, and (2026-08-22, the per-game
+forms of the session series) click rate (effective clicks per second),
+wasted rate (wasted clicks per minute), and mark rate (flags placed per
+second) — all three derived from the stored counts and time, so they
+appear on historical games too.
 Shown as a label/value table for wins and losses alike; a loss shows no
 rank output at all (losses split win streaks and feed lifetime totals, but
 are not ranked).
@@ -333,6 +337,35 @@ status line and omits that game's ledger. The odds engine is held to
 ground truth by a brute-force parity test (every consistent layout
 enumerated on small random boards; probabilities must match exactly).
 
+Stupid death — on a loss, whether the fatal act was avoidable with what
+was already knowable — joined the schema on 2026-08-22 (decided
+2026-08-22, alongside the session stats). Categorically stupid: any chord
+death (a flag is the player's unsupported claim — the Justice doctrine —
+and a wrong one killed), any proof-or-die death (opening an unproven cell
+is deterministic), any angelic death (the only way to die there is
+contradicting known facts). A bare-reveal death is judged by its own
+guess-ledger event: stupid when the guess was nonideal (a strictly safer
+square — possibly a provably safe one — was available), honest when it
+took the lowest available risk. A trial first click into a fixed layout
+that happens to be mined is honest: nothing was knowable. The field is
+absent on wins and whenever the fatal click could not be measured (odds
+over budget, ledger-free modes reached through no categorical rule) —
+absence means "not measured", the usual rule. The stats table shows a
+"Stupid death" row (yes / no) on losses that carry the field, and stupid
+deaths feed the session stats' per-minute rate live.
+
+Fastclick gap — the game's median gap between consecutive board-changing
+presses made on the move (a cursor move within 100ms before the press)
+with gaps under 1s — joined the schema on 2026-08-22 alongside the
+session stats, whose fastclick series uses the identical qualification.
+Stored (as `fastclickGapMs`) rather than derived because it needs press
+timestamps, which the scalar record does not carry (the trace does, so
+history from the trace era is backfillable offline). Win or loss alike.
+Absent when no gap qualified — slow, careful play is "not measured
+here", never a made-up number — and on games recorded before the
+measurement. The stats table shows a "Fastclick gap" row when the field
+exists.
+
 Seed — every new board receives a cryptographically generated 128-bit seed.
 `xoshiro128ss-v1` expands it into the one deterministic random stream used
 for initial mine placement and every Justice redraw. Finished records and
@@ -355,8 +388,11 @@ when the fields exist. They feed the board-shape time lists.
 Music playing — whether this machine heard audio playing during the game
 — joined the schema on 2026-08-22 (decided 2026-08-22). The page cannot
 observe system audio; the machine's resident base system (ProjectLauncher,
-the localhost dashboard's API) can, via PipeWire: any running audio output
-stream counts, except speech synthesis. It serves a cached boolean at
+the localhost dashboard's API) can, via PipeWire: playing means some audio
+output stream is running (speech synthesis excluded) AND the speaker mix
+actually carries signal (~0.5s of the default sink's monitor above
+-60 dBFS) — stream state alone lies, since some players hold an open
+"running" stream while feeding silence. It serves a cached boolean at
 localhost/api/is-music-playing, rechecked there at most once a minute. The
 game polls it continuously while the page is open (every 15s, plus once
 the moment a board is dealt); the record stores `musicPlaying` = true if
@@ -424,13 +460,15 @@ carries at least one tag.
 - Progressive disclosure: when several lists would contain the exact same
   set of scores, only the most specific renders (specificity: narrow
   windows, then day categories, then broad windows). Exception
-  (2026-08-22): "lifetime" always renders, and any window holding the
-  exact same scores collapses into it — so a player whose whole history
-  fits in one week sees "lifetime" rather than a stack of identical
-  month/year charts. A brand-new player sees a single chart; broader ones
-  appear as history spreads out. This is the `collapseDuplicateCharts`
-  setting (see Personal settings), on by default; switched off, every
-  window always renders its own chart.
+  (2026-08-22, "past week" added to it later that day): "lifetime" and
+  "past week" always render, and any window holding the exact same
+  scores collapses into one of them — so a player whose whole history
+  fits in one week sees "lifetime" and "past week" rather than a stack
+  of identical month/year charts, and always has the week as a recent
+  reference frame. A brand-new player sees the two pinned charts;
+  broader ones appear as history spreads out. This is the
+  `collapseDuplicateCharts` setting (see Personal settings), on by
+  default; switched off, every window always renders its own chart.
 - Also one non-window list: "3BV N" — every win
   whose board had exactly this game's 3BV, the fairest time comparison
   (2026-08-20). Same row format as the window lists.
@@ -523,17 +561,23 @@ carries at least one tag.
   value on x, that group's average solve time on y, dots colored by the
   age of the group's newest win.
   Axis labels name the chart ("→ 3BV" / "→ average time").
-- Trend line (decided 2026-08-22, chosen by eye from a five-fit
+- Trend lines (decided 2026-08-22, chosen by eye from a five-fit
   sampling): the Theil–Sen line y = a + b·x — b is the median slope over
-  all point pairs, a the median of y − b·x — in pink, off the age-dot
-  palette. Chosen over least squares because outlier games barely move
-  it, and over a through-origin ratio line because solve time has a
-  fixed per-game component. The line draws twice: solid fit over all
-  plotted bucket averages, dashed fit over bucket averages recomputed
-  from today's wins only (local midnight, as everywhere) — today's line
-  only appearing once today has at least 2 buckets. Lines clip to the
-  plot frame. A caption under the chart names the fit, gives its math,
-  and spells out solid vs dashed.
+  all point pairs, a the median of y − b·x. Chosen over least squares
+  because outlier games barely move it, and over a through-origin ratio
+  line because solve time has a fixed per-game component. The line draws
+  twice, both dashed (dashing marks them as fits, not data), colored by
+  the same color:recency sense as the age dots: the fit over all plotted
+  bucket averages in the years teal (deep history), the fit over bucket
+  averages recomputed from today's wins only (local midnight, as
+  everywhere) in the hours blue — today's line only appearing once today
+  has at least 2 buckets.   Lines clip to the plot frame and span only
+  their own fit's x-range (a fit is never extrapolated beyond its data).
+  No caption: the fit-name/math caption and the color-key note ("teal =
+  all data, blue = today only") were both dropped 2026-08-22 — the
+  dashing marks the lines as fits and the color:recency sense already
+  matches the age dots. The date, 3BV/time, and 3BV/clicks raw plots
+  carry the same pair (see "Scatter plots").
 
 ## Streak lists
 
@@ -579,6 +623,18 @@ carries at least one tag.
   with light gridlines. Ticks and axis labels render at heading size
   (12px bold, 2026-08-20), so the x axis caps at 6 ticks (5 on the date
   axis, whose HH:mm labels are widest) while y takes up to 7.
+- Trend lines (2026-08-22): the date, 3BV/time, and 3BV/clicks plots
+  carry the same Theil–Sen pair as the average-time charts (all data in
+  the years teal, today only in the hours blue, both dashed, same
+  caption). Fits always use the untrimmed values even where the trimmed
+  axis hides outliers — Theil–Sen resists them by construction — and a
+  line spans only its own data's x-range, never extrapolated beyond it,
+  so today's line on the date plot is a short segment at the right edge
+  (today's trajectory; the all-data slope there is seconds per day of
+  practice). On 3BV/clicks the trend's gap above the y = x floor is the
+  average click overhead per unit of board difficulty. No line on "time
+  of day" (a straight line on a circular axis would mislead) or "wasted
+  clicks" (tied small-integer x leaves too few effective slopes).
 - Minor tickmarks (2026-08-22) sit on the axis edges between the labeled
   divisions so inner positions are readable: each labeled step splits into
   round parts (quarters for a 2- or 4-mantissa step, else fifths), also
@@ -648,8 +704,10 @@ carries at least one tag.
   - LIVE (the panel): while a trace runs (board shown through game end),
     a vertical panel fixed to the left edge recomputes once a second over
     the samples so far, marked "live" in grey. Live numbers are transient
-    readings of an unfinished trace. The panel is the live display only;
-    it goes away when the game finishes.
+    readings of an unfinished trace. The live rows go away when the game
+    finishes; the panel itself stays, because since 2026-08-22 it also
+    hosts the session stats section (see "Session stats"), which spans
+    games.
   - FINAL (the after-game charts): the moment a game finishes, the same
     computation runs once over the complete trace, and each metric
     renders as a larger chart inline at the page bottom, after whatever
@@ -665,10 +723,11 @@ carries at least one tag.
   immediately — the panel updates mid-game, the bottom charts appear or
   vanish on the shown result. Finer stage-by-stage configurability of
   what is shown when is planned, not built.
-- The live panel also carries its own small × toggler in its top-right:
-  clicking it tucks the panel down to a "motion ▸" chip in the same
-  corner, and the chip click brings it back. This is session-only
-  display state — the persistent switch is the setting.
+- The panel also carries its own small × toggler in its top-right:
+  clicking it tucks the panel down to a "stats ▸" chip in the same
+  corner (renamed from "motion ▸" when the session section moved in,
+  2026-08-22), and the chip click brings it back. This is session-only
+  display state — the persistent switches are the settings.
 - One row per metric: the name, the current value, and a sparkline chart
   of the value's evolution over this game (one point per live recompute
   plus the final one). The sparkline carries labeled axes: y is the
@@ -750,6 +809,66 @@ carries at least one tag.
 - The panel is fixed-positioned (it never moves the board) and scrolls
   itself when the viewport is shorter than its rows.
 
+## Session stats (decided 2026-08-22)
+
+The ongoing self-observation section: a handful of per-bucket series over
+the last hour, across games, shown live at the top of the flush-left
+panel. This is the measurement purpose's minutes timescale made visible —
+warm-up, fatigue, tilt, mood — and each series is deliberately both a
+per-game statistic (already in the records) and this ongoing bucketed
+trend.
+
+- Scope: only time a game was actually in progress (first reveal — or
+  first flag once mines exist — to game end). Losses count. Abandoned
+  boards count too (the restart threw away the record, not the time the
+  player spent); their play interval closes when the restart happens.
+  Travel to the restart button and between-game idling are nobody's
+  statistic.
+- The series, each a row (name, current value, chart) in the panel's
+  session section:
+  - **mouse speed** — px of cursor travel while playing over in-progress
+    seconds, px/s.
+  - **click rate** — board clicks that changed something (reveals,
+    flags, chords) per in-progress second; wasted clicks excluded (they
+    have their own row). The plainest tempo line: read against fastclick
+    gap to split "deciding slower" from "clicking slower".
+  - **stupid deaths** — deaths classified stupid (see "Stupid death"
+    under Per-game stats) per in-progress minute; honest deaths do not
+    count.
+  - **wasted clicks** — the wasted-click definition, per in-progress
+    minute.
+  - **fastclick gap** — median gap between consecutive useful presses of
+    the same game, counting only presses made on the move (a cursor
+    sample within 100ms before, the cadence definition) with gaps under
+    1s. The click-rate floor: the hypothesis is that tired stretches
+    have a hard floor X while warmed-up stretches run near X/2.
+  - **mine marking** — flags placed per in-progress second (removals
+    don't subtract; win auto-flagging never counts).
+- Buckets: the bucket size is selectable on the section itself (10s /
+  30s / 1m / 5m; persisted as the `sessionBucketSeconds` setting,
+  default 1m). The charts' x axis is a fixed one-hour sliding window
+  whose right edge is now: each once-a-second re-render slides the data
+  left and new buckets accrete at the right, even between games.
+- Honesty rules: a bucket with under one second of in-progress play
+  shows an en dash — one death over a 50ms sliver is an absurdity, not
+  a reading. Unmeasurable buckets are gaps in the line, never bridged;
+  a played-but-motionless bucket's speed is a real 0.
+- The current value shown beside each name is the newest measurable
+  bucket's value — the current reading; the chart is the average's home.
+- Storage: RAM only — the session is this page load. The stored traces
+  and records remain the ground truth every one of these values could be
+  recomputed from; backfilling the window from them on reload is
+  backlogged, not built. The only new per-game persistence is the
+  `stupidDeath` and `fastclickGapMs` fields (2026-08-22); every series
+  also has a per-game form in the stats table — click, wasted, and mark
+  rates derived from stored counts, mouse speed as before, the fastclick
+  gap from its stored field.
+- Display: the section renders at the top of the left metrics panel,
+  always (not just during games), under its own "session" header with
+  HOW/USE hover explanations like every other metric row. The
+  `showSessionStats` setting (default on) turns it off; the panel's ×
+  chip tucks it away with the rest.
+
 ## Personal settings (decided 2026-08-20)
 
 - A schema-driven settings system for player-facing behavior switches:
@@ -779,7 +898,10 @@ carries at least one tag.
   lists' progressive disclosure switch (see Rank lists);
   `showMotionStatsDuringGame` and `showMotionStatsAfterGame` (both
   default on) — the two stages of the trace metrics display (see Trace
-  metrics panel).
+  metrics panel); `showSessionStats` (default on) and
+  `sessionBucketSeconds` (default 60; set by the selector on the session
+  section itself, not a panel checkbox) — the session stats section (see
+  Session stats).
 - A setting may carry a `helpFile`: the panel then shows a "?" beside its
   label which raises that page in a hover popover (an iframe, so the help
   page is a normal standalone document).

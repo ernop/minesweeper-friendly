@@ -59,7 +59,9 @@ Average-time scatter plots group your wins by efficiency, clicks, 3BV,
 10px/s), then plot each value against its group's average solve time.
 The stats themselves (time, 3BV, 3BV/s, clicks, efficiency, correctness,
 throughput, IOS, mouse path,
-mouse speed, path per click, path per 3BV)
+mouse speed, path per click, path per 3BV, plus the per-game forms of the
+session series: click rate, wasted rate, mark rate — derived, so they
+show on old games too — and the stored fastclick gap)
 render as a small label/value table beside the board, including wasted
 clicks (board clicks that changed nothing — recorded per game since
 2026-08-19; older records lack the measurement), flags placed (same
@@ -84,6 +86,19 @@ otherwise it centers on you with the 5 nearest entries either side. Rows
 show rank (without a leading "#"), fixed-width time, and a relative age
 ("43s", "5m", "2.0w"; the brand-new score
 says "just now").
+
+The flush-left panel carries live self-observation. During a game it
+shows per-game motion metrics recomputed once a second; on top, always, a
+"session" section charts the last hour across games (losses and abandoned
+boards included, but only time a game was actually in progress): mouse
+speed, effective clicks per second, stupid deaths per minute (deaths that were avoidable with what was
+already knowable — a wrong-flag chord, or gambling when something strictly
+safer was available — as opposed to honest lowest-risk deaths, which also
+get a yes/no row in each loss's stats table), wasted clicks per minute,
+the fastclick gap (when you're clicking usefully on the move, how fast the
+clicks actually come), and flags placed per second. Each chart is a
+sliding one-hour window with a selectable bucket size (10s to 5m), so you
+can watch yourself warm up, tire, or tilt in close to real time.
 
 The home-page score buttons open the same full result view for Beginner,
 Intermediate, or Expert without requiring a new game; historical views have

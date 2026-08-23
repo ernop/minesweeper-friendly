@@ -89,14 +89,39 @@ Generation that aims at the same families the new lists rank:
 - **ZiNi / HZiNi, STNB.** Board-fact click lower bounds and the
   minesweeper.online QG-normalized standing; not requested for this
   pass.
-- **Which-song detail on the music state.** The boolean `musicPlaying`
-  is built (2026-08-22, PRODUCT.md "Music playing"). PipeWire also
-  exposes each stream's `media.name` (Firefox: the playing tab's media
-  title), so song titles are technically reachable; deliberately not
-  stored — titles are personal data that would live forever in records
-  and exports. Revisit only with an explicit privacy decision. MPRIS
-  (artist/album) is absent for this Firefox; would need a player that
-  registers one.
+- **Which-song detail on the music state: decided against (2026-08-22).**
+  The boolean `musicPlaying` is built (PRODUCT.md "Music playing").
+  PipeWire also exposes each stream's `media.name` (Firefox: the playing
+  tab's media title), so song titles are technically reachable, but the
+  creator decided titles are never stored: they are personal data that
+  would live forever in records and exports. Not open for revisiting
+  without a new explicit request. MPRIS (artist/album) is absent for
+  this Firefox; would need a player that registers one.
+
+## Session stats follow-ons (creator direction, 2026-08-22)
+
+The session section (PRODUCT.md "Session stats") is built: mouse speed,
+stupid-death / wasted-click / mine-marking rates, fastclick gap, bucketed
+over a sliding hour. The stated direction behind it is broader: anything
+recordable, usable, or inferable that helps understand the player's
+mood / condition / playstyle. Not built yet:
+
+- **Backfill the window on reload.** The section is RAM-only (the
+  session is this page load); the stored records and traces could
+  rebuild the last hour after a refresh.
+- **Longer windows and cross-session views.** An hour is the floor the
+  creator asked for; day-scale session charts, or overlaying today's
+  curve on yesterday's, would show warm-up shape rather than level.
+- **State-tag overlays.** Mark the session charts where a state tag went
+  on or off ("sleepy" starts here), so the tags and the curves can be
+  read against each other.
+- **More inferable signals.** Candidates in the same spirit: honest-death
+  rate alongside stupid (the field's odds vs the player's), justice
+  events per minute, chord share, hesitation trends (pause-and-click
+  drift within the hour), guess-ledger life-lost per minute.
+- **Stupid-death backfill.** The classification only exists on losses
+  from 2026-08-22 on; the stored traces plus the odds engine could
+  classify historical losses offline.
 
 ## Research designs (creator, not built)
 
@@ -121,7 +146,8 @@ Generation that aims at the same families the new lists rank:
   trial (4 × 4); Test trial (1 × 4); correctness / throughput / IOS
   (derived); guess ledger (life lost, needless, ideal-risk, one-ply
   perfect play); music-playing state (boolean asked of the local base
-  system).
+  system); stupid-death classification on losses; the session stats
+  section (bucketed sliding-hour series, flush left).
 - Waste metrics (pauses, wander, turnarounds, feints) and the
   biometrics / mousetrap / Hevelius-style displays. The Tier 1/2
   "store a scalar per metric" framing is obsolete: the trace is the

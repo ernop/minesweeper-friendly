@@ -169,14 +169,18 @@ Implementation notes:
   the series (so the after-game charts exist even with the panel off);
   `liveSegmentCache` recomputes the segment-based systems (psych, hev)
   only when the trace's click-event count changes, whole-trace systems
-  every tick; `renderMetricsPanel` shows `#metrics-panel` only if
-  settings.showMotionStatsDuringGame; `metricsPanelCollapsed` +
-  `lastLiveMetrics` implement the panel's own × / "motion ▸" session
-  toggler; `refreshMetricsPanel` (called from the settings change
-  handler) applies the setting mid-game. Final: `reportResult` computes
+  every tick; `renderMetricsPanel(metrics)` renders `#metrics-panel` as
+  session section (settings.showSessionStats) + live per-game rows
+  (settings.showMotionStatsDuringGame, only while tracing with metrics
+  non-null — null means "no live rows", the between-games render);
+  `metricsPanelCollapsed` + `lastLiveMetrics` implement the panel's own
+  × / "stats ▸" session toggler; `refreshMetricsPanel` (called from the
+  settings change handler) applies the settings mid-game and between
+  games. Final: `reportResult` computes
   `computeAllTraceMetrics` with wall time endedAt - trace.startedAt (the
   stored trace's definition), snapshots `finalMotion` {metrics, series},
-  and hides the panel; `renderResult` appends `buildMotionStatsCharts()`
+  and re-renders the panel session-only (the live rows' game is over;
+  the panel itself persists); `renderResult` appends `buildMotionStatsCharts()`
   (grouped .motion-chart rows with labeled breaks, SPARK_LARGE) to
   `#result-ranks` when settings.showMotionStatsAfterGame — so a settings
   toggle re-renders them via the existing renderedResult re-render.
@@ -195,7 +199,11 @@ Implementation notes:
     step edges, so exact-value tests must end movements at the click);
   - `tests/metrics-cadence-test.js` — known-answer press sequences for
     the click-cadence metrics (gap quartiles, peak window, moving-press
-    share, not-measurable cases).
+    share, not-measurable cases);
+  - `tests/session-buckets-test.js` — known-answer event lists for the
+    session-stats bucketing (extracts the SESSION STATS: COMPUTATION
+    span; per-bucket rates, straddling play intervals, the open
+    interval, window clamping, the 1s minimum-play rule, medians).
   If any implementation's definitions change, change its counterpart and
   rerun. Node-harness caution: the top-level setInterval keeps a bare
   `node` process alive — full-game harnesses must wrap global.setInterval
@@ -227,11 +235,58 @@ Implementation notes:
   pair (2 effective clicks) that netted nothing — see PRODUCT.md "Flags
   removed" for why it stays separate from wastedClicks. Same absence rules
   as wastedClicks (absent before 2026-08-20).
+- Session stats (PRODUCT.md "Session stats"): three marker-delimited
+  spans in minesweeper.js. COMPUTATION (pure, Node-extractable):
+  `sessionBucketSeries(events, {nowMs, bucketMs, windowMs, openPlayFrom})`
+  buckets a wall-clock event list ({kind:'play',from,to} finished play
+  spans, {kind:'move',at,px} ~1s-coalesced cursor travel while playing,
+  {kind:'press',at,useful,flag,moving,gapMs}, {kind:'death',at,stupid})
+  into the six series (speed, click rate, stupid/min, wasted/min,
+  flags/s, fastclick gap); constants SESSION_WINDOW_MS (1h),
+  FASTCLICK_MAX_GAP_MS (1s), SESSION_MIN_PLAY_MS (1s — rates over a
+  sliver of play are undefined, not absurd). RECORDING (RAM only):
+  `sessionEvents` pruned to SESSION_KEEP_MS by `sessionPrune`;
+  `sessionPlayBegin` hooks `startTimer` (every transition into
+  'playing' passes there), `sessionPlayEnd` hooks `finish` and the top
+  of `newGame` (abandoned boards close their interval — the time was
+  real);   `sessionRecordMove` taps the document mousemove handler beside
+  mousePathPx; `sessionRecordPress(useful, flagPlaced)` taps the board
+  mouseup and contextmenu handlers beside the wastedClicks counting
+  (`sessionLastUsefulPressAt` resets in newGame so gaps never span
+  games; `sessionLastMoveAt` gives the 100ms moving flag); it also
+  collects this game's qualifying gaps into `gameFastclickGaps` (reset
+  in newGame), whose median `reportResult` stores as the record's
+  `fastclickGapMs` (win or loss; absent when nothing qualified — the
+  per-game click, wasted, and mark rates need no new fields, they are
+  derived rows in the stats table); `sessionRecordDeath` is called from
+  `lose`. DISPLAY: `SESSION_GROUP` +
+  `SESSION_METRIC_SPECS` (label/calc/use/of/fmt like the trace groups),
+  `buildSessionSparkline` (fixed sliding-window x axis, right edge =
+  now, "-60m"/"now" labels), `latestDefined` (the shown number),
+  `appendSessionSection` (renders into the panel top, hosts the
+  bucket-size <select> writing settings.sessionBucketSeconds;
+  SESSION_BUCKET_CHOICES lives beside SETTINGS_SCHEMA). The live-metrics
+  setInterval renders the panel session-only between games so the
+  window keeps sliding.
+- Stupid death (PRODUCT.md "Stupid death"): `lose(hitIndices,
+  stupidVerdict)` — every call site passes its verdict (chord /
+  proof-or-die / angelic deaths: categorically true;
+  `bareDeathStupidity(index, firstReveal)` judges bare reveals off the
+  last guess-ledger event's idealRisk, false on a trial first click,
+  undefined when odds failed or no event matched). `deathWasStupid`
+  holds it until `reportResult` writes `stupidDeath` (losses only,
+  absent = not measured; reset in newGame so a following win cannot
+  inherit it), and `sessionRecordDeath` feeds the session series the
+  same verdict.
 - Music state (PRODUCT.md "Music playing"): `sampleMusic` fetches
   `MUSIC_ENDPOINT` (http://localhost/api/is-music-playing — the resident
   ProjectLauncher at `~/proj/mybrowser/utilities/caddy/launcher/launcher.py`,
-  proxied by Caddy from :80 to :8787, answering from PipeWire `pw-dump`
-  with a 60s cache and `Access-Control-Allow-Origin: *`; Firefox exempts
+  proxied by Caddy from :80 to :8787, answering from PipeWire with a 60s
+  cache and `Access-Control-Allow-Origin: *`: true = `pw-dump` shows a
+  running output stream (speech-dispatcher excluded) AND a ~0.5s
+  `pw-record` probe of the default sink's monitor has RMS ≥ -60 dBFS,
+  because paused/idle web players can hold a running stream of silence;
+  Firefox exempts
   http://localhost from mixed-content blocking, so the GitHub Pages origin
   can fetch it too). `beginMusicSampling` (called from newGame beside
   beginTrace) resets `musicObservations` and samples once; a top-level
@@ -284,12 +339,14 @@ Implementation notes:
   the date axis), appended after a `.flex-break`; dots colored by age unit (`.age-dot-*`),
   the current game ringed and tagged with its today-rank, on-chart axis
   labels, legend appended last. Options: `timeAxis` (local calendar
-  x-ticks), `idealLine` (y = x dashed floor), `trendLines` +
-  `trendCaption` (`trendLinesFor` / `TREND_CAPTION`: the Theil–Sen line
-  on the average charts, solid over all data and dashed over today's,
-  clipped to the plot rect, captioned with the fit's math — chosen
+  x-ticks), `idealLine` (y = x dashed floor), `trendLines`
+  (`trendLinesFor`: the Theil–Sen line fit twice — all data in the age
+  palette's years teal, today only in its hours blue, both dashed —
+  clipped to the plot rect, drawn only across its own fit's x-range,
+  no caption; on the average charts and the date / 3BV-time /
+  3BV-clicks raw plots, always fit on untrimmed values — chosen
   2026-08-22 from a five-fit sampling, see PRODUCT.md "Average-time
-  charts").
+  charts" and "Scatter plots").
 - Layout: `#results` (summary + `#stats-grid` only) is absolutely
   positioned off `#game-area`; `#result-ranks` is normal flow below.
   `syncResultClearance` sets `--result-overflow` on `#result-ranks` to
@@ -405,11 +462,16 @@ https://ernop.github.io/minesweeper-friendly/ and redeploys on every push.
 ## Local tooling and verification (this machine, learned 2026-08-19)
 
 - Serving: `python3 -m http.server 8018` is the canonical local server
-  (README). Other ports (8000; 8099 for throwaway tests) have been used in
-  agent sessions. Browser storage (IndexedDB, and localStorage before
-  2026-08-20) is per-origin, so EACH PORT HAS ITS OWN PLAY HISTORY —
-  never test imports or synthetic renders against the origin the player
-  actually uses; use a fresh port instead.
+  (README) and THE port for this service — no improvised ports (decided
+  2026-08-22; sessions had used 8000, 8099, ...). If 8018 is already
+  serving, use the running server. Browser storage (IndexedDB, and
+  localStorage before 2026-08-20) is per-origin, so each port has its
+  own play history: 8018 is the player's real origin. Agent verification
+  also runs on 8018 whenever it persists nothing (RAM-only injections
+  plus an in-page render, reading, screenshots — `persistUserdata` and
+  `saveTrace` untouched). Anything that writes storage — imports, played
+  test games, settings changes — runs on 8099, the single permanent
+  test origin (junk history expected there), never on any other port.
 - No headless browser exists here: no chromium / google-chrome /
   headless_shell, and `/usr/bin/firefox` is an uninstalled snap stub that
   only prints "snap install firefox". Visual verification needs the Cursor

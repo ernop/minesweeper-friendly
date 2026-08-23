@@ -46,13 +46,6 @@
       </select>
     </label>
   </nav>
-  <nav id="scores-nav" aria-label="View high scores without playing">
-    <span>view scores</span>
-    <button type="button" data-score-difficulty="beginner">Beginner</button>
-    <button type="button" data-score-difficulty="intermediate">Intermediate</button>
-    <button type="button" data-score-difficulty="expert">Expert</button>
-  </nav>
-
   <form id="custom-form" hidden>
     <label>Width <input id="custom-width" type="number" min="8" max="100" value="30"></label>
     <label>Height <input id="custom-height" type="number" min="1" max="100" value="16"></label>
@@ -74,6 +67,10 @@
       </div>
       <div id="board"></div>
     </div>
+
+    <nav id="scores-nav" aria-label="View high scores without playing">
+      <button type="button" id="see-scores-btn">see scores</button>
+    </nav>
 
     <div id="results">
       <p id="result-summary"></p>

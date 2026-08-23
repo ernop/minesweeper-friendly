@@ -61,10 +61,8 @@ main {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  margin: -4px 0 4px;
+  margin: 18px 0 4px;
   font-size: 11px;
-  color: #708090;
 }
 
 #scores-nav button {
@@ -882,24 +880,14 @@ body.trial-offboard #result-ranks {
 /* The y = x floor on clicks vs 3BV: a game on the line used only the
    board's minimum clicks */
 .scatter-ideal { stroke: #b0b8c0; stroke-dasharray: 4 3; }
-/* The Theil–Sen trend line on the average charts: solid over all data,
-   dashed over today's wins only, captioned below the chart. Its color
-   stays off the age-dot palette so line and dots never read as the same
-   thing. */
-.scatter-trend { fill: none; stroke-width: 1.3; opacity: 0.85; }
-.scatter-trend.trend-today { stroke-dasharray: 5 3; }
-.trend-ts { stroke: #ff1493; }
-.trend-legend {
-  font-family: Arial, sans-serif;
-  font-size: 10px;
-  color: #666666;
-  max-width: 270px;
-  margin-top: 2px;
-}
-.trend-legend .li { font-weight: bold; white-space: nowrap; }
-.trend-legend .math { color: #555555; }
-.trend-legend .li.trend-ts { color: #ff1493; }
-.trend-legend .note { display: block; }
+/* The Theil–Sen trend lines on the average charts, both dashed (dashing
+   marks them as fits, not data) and colored by the age palette's
+   color:recency sense: the all-data fit in the years teal (deep
+   history), today's fit in the hours blue. Same hexes as the age dots
+   and age-unit text. */
+.scatter-trend { fill: none; stroke-width: 1.3; opacity: 0.85; stroke-dasharray: 5 3; }
+.trend-all { stroke: #008080; }
+.trend-today { stroke: #0000ff; }
 .scatter-me-label {
   font-family: Arial, sans-serif;
   font-size: 9px;
@@ -1177,6 +1165,17 @@ body.trial-offboard #result-ranks {
 #metrics-panel .metrics-group-head {
   margin: 10px 0 2px;
   border-bottom: 1px solid #e5e5e5;
+}
+
+/* The session section's bucket-size selector rides its header line; the
+   header's uppercase styling must not leak into the option labels. */
+.session-bucket-select {
+  float: right;
+  font: inherit;
+  font-size: 10px;
+  font-weight: normal;
+  text-transform: none;
+  letter-spacing: normal;
 }
 
 /* The after-game charts sit inline among the bottom charts; the head
