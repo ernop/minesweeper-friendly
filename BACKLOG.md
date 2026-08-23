@@ -106,9 +106,12 @@ over a sliding hour. The stated direction behind it is broader: anything
 recordable, usable, or inferable that helps understand the player's
 mood / condition / playstyle. Not built yet:
 
-- **Backfill the window on reload.** The section is RAM-only (the
-  session is this page load); the stored records and traces could
-  rebuild the last hour after a refresh.
+- **Finer backfill from traces.** Record-based backfill on reload is
+  built (2026-08-22, same evening): the last hour rebuilds from stored
+  records, totals spread evenly over each game's span. The traces hold
+  exact press/movement timing if bucket-faithful backfill is ever
+  wanted; abandoned boards leave no record and stay lost across
+  reloads either way.
 - **Longer windows and cross-session views.** An hour is the floor the
   creator asked for; day-scale session charts, or overlaying today's
   curve on yesterday's, would show warm-up shape rather than level.

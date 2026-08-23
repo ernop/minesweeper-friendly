@@ -98,7 +98,9 @@ get a yes/no row in each loss's stats table), wasted clicks per minute,
 the fastclick gap (when you're clicking usefully on the move, how fast the
 clicks actually come), and flags placed per second. Each chart is a
 sliding one-hour window with a selectable bucket size (10s to 5m), so you
-can watch yourself warm up, tire, or tilt in close to real time.
+can watch yourself warm up, tire, or tilt in close to real time. The
+window survives a reload: on startup the last hour is rebuilt from your
+stored game records, so closing the tab doesn't wipe the running averages.
 
 The home-page score buttons open the same full result view for Beginner,
 Intermediate, or Expert without requiring a new game; historical views have

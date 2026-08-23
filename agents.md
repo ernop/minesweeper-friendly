@@ -259,7 +259,14 @@ Implementation notes:
   `fastclickGapMs` (win or loss; absent when nothing qualified — the
   per-game click, wasted, and mark rates need no new fields, they are
   derived rows in the stats table); `sessionRecordDeath` is called from
-  `lose`. DISPLAY: `SESSION_GROUP` +
+  `lose`. `sessionBackfillFromHistory` (called once from init, after
+  loadUserdata fills history and before any live event) rebuilds the
+  window from recent records of every mode as {kind:'game'} events —
+  totals spread by bucket overlap in sessionBucketSeries, death in the
+  bucket containing to − 1 (an end on a bucket boundary must not spill
+  into the next bucket), stored fastclick median as one gap sample per
+  overlapped bucket; live and backfill cannot overlap because every
+  backfilled game ended before the page load. DISPLAY: `SESSION_GROUP` +
   `SESSION_METRIC_SPECS` (label/calc/use/of/fmt like the trace groups),
   `buildSessionSparkline` (fixed sliding-window x axis, right edge =
   now, "-60m"/"now" labels), `latestDefined` (the shown number),

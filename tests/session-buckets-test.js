@@ -153,6 +153,50 @@ const press = (at, useful, flag, moving, gapMs) =>
   assertUndefined('t4b wasted', s.wastedPerMin[30]);
 }
 
+// ---- Test 4c: backfilled 'game' events spread totals by overlap ----
+// A 90s game from 30s into bucket 40 to 60s into bucket 41 (2/3 in
+// bucket 40's half, wait: 30s in bucket 40, 60s in bucket 41). Totals:
+// 900px, 18 useful, 3 wasted, 6 flags, a stupid death, fastGap 240ms.
+// Bucket 40 gets 1/3 of the totals over 30s of play; bucket 41 gets 2/3
+// over 60s. The death lands where the game ended (bucket 41); the fast
+// gap median is 240 in both.
+{
+  const from = bucketFrom(40) + 30000;
+  const to = bucketFrom(41) + 60000;
+  const events = [{
+    kind: 'game', from, to,
+    px: 900, useful: 18, wasted: 3, flags: 6, stupid: true, fastGapMs: 240,
+  }];
+  const s = sessionBucketSeries(events, opts);
+  assertClose('t4c playMs b40', s.playMs[40], 30000, 1e-9);
+  assertClose('t4c playMs b41', s.playMs[41], 60000, 1e-9);
+  assertClose('t4c speed b40', s.speedPxPerSec[40], (900 / 3) / 30, 1e-9);
+  assertClose('t4c speed b41', s.speedPxPerSec[41], (900 * 2 / 3) / 60, 1e-9);
+  assertClose('t4c clicks b40', s.clicksPerSec[40], (18 / 3) / 30, 1e-9);
+  assertClose('t4c wasted b41', s.wastedPerMin[41], (3 * 2 / 3) / 1, 1e-9);
+  assertClose('t4c flags b40', s.flagsPerSec[40], (6 / 3) / 30, 1e-9);
+  assertClose('t4c stupid b40', s.stupidPerMin[40], 0, 1e-9);
+  assertClose('t4c stupid b41', s.stupidPerMin[41], 1, 1e-9);
+  assertClose('t4c fastgap b40', s.fastclickGapMs[40], 240, 1e-9);
+  assertClose('t4c fastgap b41', s.fastclickGapMs[41], 240, 1e-9);
+  assertUndefined('t4c empty b42', s.speedPxPerSec[42]);
+}
+
+// ---- Test 4d: a game without a fastclick median leaves gaps alone ----
+// fastGapMs undefined (no gap qualified in that game, or an old record):
+// the game's play/counts land, the fastclick series stays unmeasured.
+{
+  const from = bucketFrom(45);
+  const events = [{
+    kind: 'game', from, to: from + 60000,
+    px: 0, useful: 6, wasted: 0, flags: 0, stupid: false, fastGapMs: undefined,
+  }];
+  const s = sessionBucketSeries(events, opts);
+  assertClose('t4d clicks', s.clicksPerSec[45], 0.1, 1e-9);
+  assertClose('t4d stupid', s.stupidPerMin[45], 0, 1e-9);
+  assertUndefined('t4d fastgap', s.fastclickGapMs[45]);
+}
+
 // ---- Test 5: sessionMedian on even counts and empties ----
 {
   assertUndefined('t5 empty median', sessionMedian([]));

@@ -5079,6 +5079,14 @@ setInterval(() => {
 //   (undefined on each game's first useful press).
 // - {kind:'death', at, stupid} — a lost game; stupid true/false/undefined
 //   mirrors the record's stupidDeath field.
+// - {kind:'game', from, to, px, useful, wasted, flags, stupid, fastGapMs}
+//   — a whole finished game backfilled from its stored record (games
+//   played before this page load; see sessionBackfillFromHistory). Its
+//   totals spread across its span proportionally to each bucket's
+//   overlap — a bucket-level approximation where live events are exact —
+//   its play time counts like a 'play' interval, a stupid death lands in
+//   the bucket the game ended in, and the stored per-game fastclick
+//   median contributes one gap sample to each bucket it overlaps.
 const SESSION_WINDOW_MS = 60 * 60 * 1000;  // the charts' sliding window
 const SESSION_KEEP_MS = SESSION_WINDOW_MS + 5 * 60 * 1000; // retention slack
 const SESSION_MOVE_COALESCE_MS = 1000;
@@ -5119,19 +5127,48 @@ function sessionBucketSeries(events, opts) {
   const stupidDeaths = new Array(bucketCount).fill(0);
   const fastGaps = Array.from({ length: bucketCount }, () => []);
 
-  const addPlay = (from, to) => {
+  // Walks the buckets a [from, to) span overlaps, handing each its
+  // overlap in ms. Shared by live play intervals and backfilled games.
+  const eachOverlap = (from, to, take) => {
     from = Math.max(from, startMs);
     to = Math.min(to, opts.nowMs);
     for (let i = Math.max(0, bucketAt(from)); i < bucketCount; i++) {
       const bucketFrom = startMs + i * opts.bucketMs;
       if (bucketFrom >= to) break;
-      playMs[i] += Math.min(to, bucketFrom + opts.bucketMs) - Math.max(from, bucketFrom);
+      take(i, Math.min(to, bucketFrom + opts.bucketMs) - Math.max(from, bucketFrom));
     }
+  };
+  const addPlay = (from, to) => {
+    eachOverlap(from, to, (i, overlapMs) => { playMs[i] += overlapMs; });
   };
 
   for (const ev of events) {
     if (ev.kind === 'play') {
       addPlay(ev.from, ev.to);
+      continue;
+    }
+    if (ev.kind === 'game') {
+      // A backfilled record: totals spread over the game's span by each
+      // bucket's share of it; the whole span is in-progress play time.
+      const spanMs = ev.to - ev.from;
+      if (spanMs <= 0) continue;
+      eachOverlap(ev.from, ev.to, (i, overlapMs) => {
+        playMs[i] += overlapMs;
+        const share = overlapMs / spanMs;
+        movePx[i] += ev.px * share;
+        useful[i] += ev.useful * share;
+        wasted[i] += ev.wasted * share;
+        flags[i] += ev.flags * share;
+        if (typeof ev.fastGapMs === 'number') fastGaps[i].push(ev.fastGapMs);
+      });
+      if (ev.stupid === true) {
+        // The death happened at the game's last in-progress instant, so
+        // it belongs to the bucket containing to - 1 (an end sitting
+        // exactly on a bucket boundary must not spill into the next,
+        // never-played bucket).
+        const i = bucketAt(Math.min(ev.to, opts.nowMs) - 1);
+        if (i >= 0 && i < bucketCount) stupidDeaths[i]++;
+      }
       continue;
     }
     const i = bucketAt(ev.at);
@@ -5194,7 +5231,8 @@ function sessionPrune(nowMs) {
   let drop = 0;
   while (drop < sessionEvents.length) {
     const ev = sessionEvents[drop];
-    if ((ev.kind === 'play' ? ev.to : ev.at) >= cutoff) break;
+    const end = ev.kind === 'play' || ev.kind === 'game' ? ev.to : ev.at;
+    if (end >= cutoff) break;
     drop++;
   }
   if (drop > 0) sessionEvents.splice(0, drop);
@@ -5249,6 +5287,42 @@ function sessionRecordPress(useful, flagPlaced) {
 
 function sessionRecordDeath(stupid) {
   sessionEvents.push({ kind: 'death', at: Date.now(), stupid: stupid });
+}
+
+// Rebuilds the session window from stored game records at startup, so
+// closing the tab does not wipe the last hour: 30 minutes of play, a
+// reload, and the running averages are still there. One 'game' event per
+// recent record, any mode — session stats are about the player, not the
+// board. Called once from init(), after loadUserdata fills the history
+// RAM and before any live event can exist, so live and backfilled data
+// can never overlap (every backfilled game ended before this page load).
+// Bucket-level approximation: a record holds totals, not timestamps, so
+// the totals spread evenly over the game's span — the traces hold the
+// exact timing if a finer backfill is ever wanted. Fields that joined
+// the schema later may be absent on old records; a game inside the last
+// hour realistically carries them all, and an absent count contributes
+// 0 rather than blocking the rest of the game's data.
+function sessionBackfillFromHistory() {
+  const cutoff = Date.now() - SESSION_KEEP_MS;
+  const games = [];
+  for (const records of Object.values(history)) {
+    for (const record of records) {
+      if (record.endedAt < cutoff || record.timeMs <= 0) continue;
+      games.push({
+        kind: 'game',
+        from: record.endedAt - record.timeMs,
+        to: record.endedAt,
+        px: record.mousePathPx,
+        useful: record.clicks,
+        wasted: record.wastedClicks || 0,
+        flags: record.flagsPlaced || 0,
+        stupid: record.stupidDeath === true,
+        fastGapMs: record.fastclickGapMs,
+      });
+    }
+  }
+  games.sort((a, b) => a.to - b.to);
+  sessionEvents.unshift(...games);
 }
 
 //-------SESSION STATS: DISPLAY (top section of the left panel)-------
@@ -6161,6 +6235,9 @@ function init() {
   buildSettingsPanel();
   buildPlayModeSwitcher();
   renderStates();
+  // The history RAM is filled now and nothing has been played yet: the
+  // one safe moment to rebuild the session window from stored records.
+  sessionBackfillFromHistory();
   if (Trial.isPlayMode(settings.playMode) && trialSession
       && trialSessionPlayMode() === settings.playMode) {
     config = {

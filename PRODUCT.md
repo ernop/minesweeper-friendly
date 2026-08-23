@@ -855,14 +855,22 @@ trend.
   a played-but-motionless bucket's speed is a real 0.
 - The current value shown beside each name is the newest measurable
   bucket's value — the current reading; the chart is the average's home.
-- Storage: RAM only — the session is this page load. The stored traces
-  and records remain the ground truth every one of these values could be
-  recomputed from; backfilling the window from them on reload is
-  backlogged, not built. The only new per-game persistence is the
-  `stupidDeath` and `fastclickGapMs` fields (2026-08-22); every series
-  also has a per-game form in the stats table — click, wasted, and mark
-  rates derived from stored counts, mouse speed as before, the fastclick
-  gap from its stored field.
+- Storage: the live event log is RAM, but the window survives reload
+  (decided 2026-08-22, same evening): at startup the last hour is
+  rebuilt from the stored game records — play 30 minutes, close the tab,
+  reopen, and the running averages are still there. Backfill is
+  bucket-level approximate where live capture is exact: a record holds
+  totals, not timestamps, so each game's totals spread evenly over its
+  span, its stupid death lands in the bucket it ended in, and its stored
+  per-game fastclick median stands in for that span's gaps. All modes'
+  games backfill — session stats are about the player, not the board.
+  Abandoned boards produce no record and so cannot be backfilled: their
+  played time is kept live but honestly lost across a reload. The traces
+  hold exact timing if a finer backfill is ever wanted. The only new
+  per-game persistence is the `stupidDeath` and `fastclickGapMs` fields
+  (2026-08-22); every series also has a per-game form in the stats
+  table — click, wasted, and mark rates derived from stored counts,
+  mouse speed as before, the fastclick gap from its stored field.
 - Display: the section renders at the top of the left metrics panel,
   always (not just during games), under its own "session" header with
   HOW/USE hover explanations like every other metric row. The
