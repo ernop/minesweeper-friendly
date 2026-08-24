@@ -15,30 +15,35 @@ function check(name, condition) {
 
 {
   const fresh = settingsFrom({});
-  check('fatal actions shown by default', fresh.reportCategories.gameLoss === true);
-  check('game risk shown by default', fresh.reportCategories.gameRisk === true);
-  check('time loss shown by default', fresh.reportCategories.timeLoss === true);
-  check('model-relative advice is opt-in',
-    fresh.reportCategories.lifeMaximization === false);
-  check('full position detail preserves existing default',
-    fresh.reportDetail === 'positions');
+  check('new-player default is fatal only', fresh.reportScope === 'fatal');
+  check('retired category block is not rewritten',
+    !('reportCategories' in fresh));
+  check('retired detail setting is not rewritten',
+    !('reportDetail' in fresh));
 }
 
 {
-  const stored = settingsFrom({
-    reportCategories: { timeLoss: false },
-    reportDetail: 'summary',
-  });
-  check('partial stored category merges with newer defaults',
-    stored.reportCategories.gameLoss === true
-      && stored.reportCategories.timeLoss === false);
-  check('stored detail retained', stored.reportDetail === 'summary');
+  check('old hidden report becomes nothing',
+    settingsFrom({ shownThings: { endVerdict: false } }).reportScope === 'none');
+  check('old fatal plus risk switches become risk tier',
+    settingsFrom({ reportCategories: {
+      gameLoss: true, gameRisk: true, timeLoss: false,
+      lifeMaximization: false, measurementNotes: false,
+    } }).reportScope === 'risk');
+  check('any old extended category becomes full tier',
+    settingsFrom({ reportCategories: {
+      gameLoss: true, gameRisk: true, timeLoss: true,
+    } }).reportScope === 'full');
+  check('explicit modern scope wins over legacy fields',
+    settingsFrom({
+      reportScope: 'fatal',
+      shownThings: { endVerdict: false },
+    }).reportScope === 'fatal');
 }
 
-check('unknown category rejected',
-  validReportCategories({ gameLoss: true, imaginary: true }) === false);
-check('all detail choices are schema-valid',
-  REPORT_DETAIL_CHOICES.every(([id]) =>
-    SETTINGS_SCHEMA.find((entry) => entry.field === 'reportDetail').valid(id)));
+check('all four scope choices are schema-valid',
+  REPORT_SCOPE_CHOICES.length === 4
+    && REPORT_SCOPE_CHOICES.every(([id]) => validReportScope(id)));
+check('unknown scope rejected', validReportScope('everything-ish') === false);
 
 console.log(`report-settings: all ${checks} checks passed`);

@@ -20,9 +20,11 @@ design-axis entry 2). Nothing below exists.
 ### Solver-aware modes (mapped)
 
 From the design axis in `agents.md`. NG generation is generate → solve →
-reject/repair → repeat. Solver tiers already named: (a) trivial
-counting, (b) subset subtraction / named patterns, (c) full constraint
-enumeration including the global mine count. Derived session result: a
+reject/repair → repeat. Solver tiers are now implemented as (a) direct
+counting, (b) arbitrary overlap-difference deduction, and (c) exhaustive
+frontier-component search joined through the global mine count and sea.
+This is layout-consistency solving, not a finite named-pattern catalog.
+Derived session result: a
 1-2…2-1 wall chain with k twos is fully forced unless k ≡ 0 (mod 3).
 
 - **No-guess (NG) as its own menu mode.** Uniform / single-path /
@@ -184,7 +186,8 @@ from the RAM trace of the game just ended. Not built:
   perfect play); music-playing state (boolean asked of the local base
   system); versioned action-evaluation ledger with exclusive game-loss /
   game-risk / time-loss / optional life-maximization / measurement-note
-  report groups, configurable detail, protection-aware risk magnitudes,
+  report groups, four persistent none / fatal / risk / full display tiers
+  (fatal-only new-player default), protection-aware risk magnitudes,
   explanations/position snapshots, and immediate legacy death-field
   normalization; the session stats
   section (bucketed sliding-hour-of-play series, in-page left column).

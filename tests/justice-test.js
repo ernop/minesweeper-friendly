@@ -177,7 +177,110 @@ function validRedraw(board, redrawn, clicked) {
     second.cells.every((cell) => redrawn[cell] === board.mines[cell]));
 }
 
-// 9. Chords categorically bypass Justice in the game integration. This is
+// 9. Equal-sized overlapping constraints can prove their one-sided cells.
+{
+  // Equal-size overlapping clues:
+  //   shared + cell 3 = 3
+  //   shared + cell 4 = 2
+  // therefore cell 3 is mined and cell 4 is safe.
+  const view = {
+    width: 5,
+    height: 1,
+    mines: 3,
+    revealed: [false, false, false, false, false],
+    adjacent: [0, 0, 0, 0, 0],
+  };
+  const facts = Justice.proveFacts(view, [
+    { covered: [0, 1, 2, 3], count: 3 },
+    { covered: [0, 1, 2, 4], count: 2 },
+  ]);
+  check('overlap subtraction proves the one-sided mine', facts.get(3) === 1);
+  check('overlap subtraction proves the one-sided safe', facts.get(4) === 2);
+}
+
+// 10. A forced fact that requires combining four constraints, rather than
+// matching one local pattern, is found by all-consistent-layout search.
+{
+  const view = {
+    width: 5,
+    height: 1,
+    mines: 2,
+    revealed: [false, false, false, false, false],
+    adjacent: [0, 0, 0, 0, 0],
+  };
+  const clues = [
+    { covered: [0, 1, 2], count: 1 },
+    { covered: [0, 3, 4], count: 1 },
+    { covered: [1, 3], count: 1 },
+    { covered: [2, 4], count: 1 },
+  ];
+  const local = Justice.proveFacts(view, clues, { global: false });
+  check('local count/subset rules alone do not find higher-order fact',
+    !local.has(0));
+  const exact = Justice.proveFacts(view, clues);
+  check('complete solver proves higher-order safe', exact.get(0) === 2);
+  check('complete solver labels exhaustive result', exact.complete === true
+    && exact.method === 'all-consistent-layouts');
+  const limited = Justice.proveFacts(view, clues, { maxVisits: 0 });
+  check('work limit is explicit rather than a false judgement',
+    limited.complete === false && limited.method === 'work-limit' && !limited.has(0));
+}
+
+// 11. Random small constraint systems agree with full brute force.
+{
+  let state = 0x5eed1234;
+  const random = () => {
+    state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+    return state / 4294967296;
+  };
+  let matched = true;
+  for (let trial = 0; trial < 100 && matched; trial++) {
+    const size = 8;
+    const witness = Array.from({ length: size }, () => random() < 0.35);
+    if (!witness.some(Boolean)) witness[0] = true;
+    const clues = [];
+    for (let c = 0; c < 5; c++) {
+      const covered = [];
+      for (let cell = 0; cell < size; cell++) {
+        if (random() < 0.45) covered.push(cell);
+      }
+      if (covered.length < 2) covered.push(c % size, (c + 3) % size);
+      const unique = [...new Set(covered)];
+      clues.push({
+        covered: unique,
+        count: unique.filter((cell) => witness[cell]).length,
+      });
+    }
+    const mineCount = witness.filter(Boolean).length;
+    const models = [];
+    for (let mask = 0; mask < (1 << size); mask++) {
+      let mines = 0;
+      for (let cell = 0; cell < size; cell++) mines += (mask >> cell) & 1;
+      if (mines !== mineCount) continue;
+      if (clues.every((clue) => clue.covered.reduce(
+        (sum, cell) => sum + ((mask >> cell) & 1), 0) === clue.count)) {
+        models.push(mask);
+      }
+    }
+    const facts = Justice.proveFacts({
+      width: size,
+      height: 1,
+      mines: mineCount,
+      revealed: new Array(size).fill(false),
+      adjacent: new Array(size).fill(0),
+    }, clues);
+    if (!facts.complete || models.length === 0) matched = false;
+    for (let cell = 0; cell < size && matched; cell++) {
+      const mineInAll = models.every((mask) => ((mask >> cell) & 1) === 1);
+      const safeInAll = models.every((mask) => ((mask >> cell) & 1) === 0);
+      const expected = mineInAll ? 1 : safeInAll ? 2 : undefined;
+      if (facts.get(cell) !== expected) matched = false;
+    }
+  }
+  check('exact facts match brute force on random constraint systems', matched);
+}
+
+// 12. Chords categorically bypass Justice in the game integration. This is
 // an origin rule, not something the pure cell certifier can infer.
 {
   const source = fs.readFileSync(

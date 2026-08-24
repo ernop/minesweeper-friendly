@@ -256,6 +256,63 @@ const press = (at, useful, flag, moving, gapMs, unflag, misclick) => ({
   assertEq('endings cumulative game count', s.endGames[i], 4);
 }
 
+// Modern fatal-action statuses are their own ending kinds, and the
+// win-with-unmarked-mines average tracks measured wins only: losses and
+// unmeasured wins change neither its numerator nor its denominator.
+{
+  const from = NOW - 3 * MIN;
+  const events = [
+    { kind: 'play', from, to: NOW },
+    { kind: 'end', at: from + 30000, end: 'win', winUnmarked: 0.5 },
+    { kind: 'end', at: from + 90000, end: 'guess-min' },
+    { kind: 'end', at: from + 150000, end: 'win' },
+    { kind: 'end', at: from + 160000, end: 'win', winUnmarked: 1 },
+  ];
+  const s = sessionBucketSeries(events, opts);
+  const i = last(s);
+  assertClose('fine kind files under its own line', s.endFractions['guess-min'][i], 0.25);
+  assertClose('win share counts measured and unmeasured wins', s.endFractions.win[i], 0.75);
+  assertUndefined('unmarked undefined before first measured win',
+    s.winUnmarkedFraction[i - 3]);
+  assertClose('unmarked first measured win', s.winUnmarkedFraction[i - 2], 0.5);
+  assertClose('unmarked unchanged by a loss', s.winUnmarkedFraction[i - 1], 0.5);
+  assertClose('unmarked averages measured wins only', s.winUnmarkedFraction[i], 0.75);
+}
+
+// A backfilled win carries its derived unmarked-mine share; a backfilled
+// loss files under its fine fatal-action kind.
+{
+  const games = [
+    { kind: 'game', from: NOW - 2 * MIN, to: NOW - MIN, end: 'win', winUnmarked: 0.2 },
+    { kind: 'game', from: NOW - 30 * 1000, to: NOW, end: 'guess-safe' },
+  ];
+  const s = sessionBucketSeries(games, opts);
+  const i = last(s);
+  assertClose('backfilled unmarked share', s.winUnmarkedFraction[i], 0.2);
+  assertClose('backfilled fine loss line', s.endFractions['guess-safe'][i], 0.5);
+  assertClose('backfilled win line beside it', s.endFractions.win[i], 0.5);
+}
+
+// Derived win-with-unmarked-mines inputs: the mode key's mine count and
+// a stored win's unmarked share reconstructed from its flag counters.
+{
+  assertEq('mode key mines', minesOfModeKey('30x16/99@standard'), 99);
+  assertEq('legacy mode key mines', minesOfModeKey('9x9/10'), 10);
+  assertUndefined('malformed mode key mines', minesOfModeKey('junk'));
+  const win = { outcome: 'win', flagsPlaced: 4, flagsRemoved: 1 };
+  assertClose('stored win unmarked share', recordWinUnmarkedShare(win, 10), 0.7);
+  assertClose('markless win is fully unmarked',
+    recordWinUnmarkedShare({ outcome: 'win', flagsPlaced: 0 }, 10), 1);
+  assertUndefined('loss has no unmarked share',
+    recordWinUnmarkedShare({ outcome: 'loss', flagsPlaced: 0, flagsRemoved: 0 }, 10));
+  assertUndefined('pre-flag-counter win is unmeasured',
+    recordWinUnmarkedShare({ outcome: 'win' }, 10));
+  assertUndefined('nonzero flags without removal coverage is unmeasured',
+    recordWinUnmarkedShare({ outcome: 'win', flagsPlaced: 3 }, 10));
+  assertUndefined('unknown mine count is unmeasured',
+    recordWinUnmarkedShare(win, undefined));
+}
+
 // A backfilled game's ending lands in the bucket containing its final
 // instant, exactly like its classified death.
 {
@@ -393,6 +450,23 @@ const runOpts = {
   assertClose('run endings cumulative win', s.endFractions.win[last(s)], 0.5);
   assertClose('run endings cumulative angel', s.endFractions.angel[last(s)], 0.5);
   assertEq('run endings game count', s.endGames[last(s)], 2);
+}
+
+// The wins' unmarked-mine average also ignores the lookback: cumulative
+// over the window's measured wins so far, resampled at the same positions.
+{
+  const from = NOW - 3 * MIN;
+  const events = [
+    { kind: 'play', from, to: NOW },
+    { kind: 'end', at: from + 30000, end: 'win', winUnmarked: 0.25 },
+    { kind: 'end', at: from + 90000, end: 'win', winUnmarked: 0.75 },
+  ];
+  const s = sessionRunningSeries(events, { ...runOpts, windowMs: 5 * MIN });
+  const at = (pos) => s.centers.indexOf(pos);
+  assertUndefined('run unmarked before first measured win',
+    s.winUnmarkedFraction[at(20000)]);
+  assertClose('run unmarked after first win', s.winUnmarkedFraction[at(40000)], 0.25);
+  assertClose('run unmarked cumulative average', s.winUnmarkedFraction[last(s)], 0.5);
 }
 
 // Under one covered second is still not a rate.

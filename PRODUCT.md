@@ -59,9 +59,9 @@ Beginner Standard win never appears on Beginner Uniform NG lists.
   first click, or when a given opening is used). It does not apply in
   the NG modes or Angelic.
 - **Uniform NG.** Generate-and-reject until the board is fully solvable
-  from the opening by counting, subset subtraction, and the global mine
-  count, and every required deduction step sits at one grade (all
-  counting, or all subset, or all global). If no such board appears
+  from the opening by direct counting, overlap deduction, or exhaustive
+  globally consistent layouts, and every required deduction step sits at
+  one grade (all counting, all overlap, or all exact). If no such board appears
   within the attempt budget, generation fails loudly.
 - **Single-path NG.** Same solver, plus each deduction step's newly
   proven safes are covered by one click's flood — no unused forced
@@ -71,12 +71,41 @@ Beginner Standard win never appears on Beginner Uniform NG lists.
   attempt budget, generation fails loudly.
 - **Proof-or-die.** An NG board. After the opening, opening a cell that
   is not currently proven safe kills, even if that cell is empty. Chords
-  die if any opened cell is unproven.
+  die if any opened cell is unproven. If exhaustive proof reaches its
+  explicit work limit, the input is blocked and not judged; engine
+  incompleteness never counts as player failure.
 - **Angelic.** The rest of the angelic dual of Kaboom: a click (or chord
   cell) that is not a proven mine is made safe; you die only by
   contradicting known facts (clicking a proven mine). A just universe is
   the sealed-pocket special case; this mode covers every consistent
   guess. Justice is off here — the mode is the mercy.
+
+### Visible-information solver
+
+`Justice.proveFacts` is the canonical proof engine used by NG generation,
+Proof-or-die, Angelic, misclick classification, guess scoring, and action
+reports. It receives only revealed numbers, covered-cell locations, board
+dimensions, and the total mine count. Player flags are annotations and the
+hidden layout is never evidence.
+
+The solver first closes direct-count and arbitrary overlap-difference
+constraints. It then partitions the unresolved frontier into connected
+constraint components, exhaustively searches each component, and joins
+their possible mine totals through the board-wide mine count and
+unconstrained sea. A cell is proven safe or mined only when it has that
+value in every globally consistent layout. This is general constraint
+solving rather than a catalog of named patterns.
+
+The browser search has a deterministic two-million-node work limit.
+Results carry `complete`, `visits`, and `method`. A completed search has
+considered every consistent layout; an over-limit search returns only facts
+already soundly established and marks itself incomplete. Reports must not
+call an unresolved action “unproven,” and Proof-or-die must not kill, merely
+because the engine exhausted its work budget. Identical visible positions
+reuse the last exact proof result. One-ply odds scoring may inspect up to
+forty hypothetical next positions; each hypothetical proof prepass uses an
+80000-node limit, after which residual odds either complete independently
+or remain explicitly unmeasured.
 - **Trial.** 25 hidden board identities for the current size, each shown
   four times (100 games). Choosing the mode hides the board and shows
   a centered description plus Start trial. That click starts the
@@ -162,8 +191,14 @@ minted specifically for them.
   frontier totals. Arbitrary asymmetric or structurally exotic ambiguities
   are outside v1 and retain ordinary Minesweeper behavior. This explicit
   scope replaces the earlier unbounded model-enumeration design.
-- Each event immediately prints "JUSTICE" to the board's right. Later
-  events in the same game stack downward there, one after another.
+- At game end a single chip appears to the board's right stating the
+  game's Justice survival count: "you won a forced coinflip" (pluralized
+  with the count for more than one). Nothing pops up beside the board
+  mid-game (creator request 2026-08-23). Earlier the same day the design
+  was per-event "JUSTICE" chips plus guess-odds risk chips; later on
+  2026-08-23 the creator withheld the risk chips entirely — they may
+  return once they can be shown with a proper explanation, and the
+  underlying guess measurements are still recorded either way.
   Since 2026-08-23 there is also an end-game Justice recap (an explicit
   creator request reversing the earlier "no separate end-game recap"
   decision): see "Game-end evaluation".
@@ -197,6 +232,14 @@ action;
 a nonfatal unnecessary guess therefore survives into the after-game
 report.
 
+- New evidence records carry `proofVersion: "all-consistent-layouts-v1"`.
+  An exhaustive result may call an unresolved cell uncertain; an
+  explicitly incomplete work-limit result may preserve facts already
+  proved, but cannot generate an “unproven” criticism. Older
+  `opened-unproven-with-safe-move` entries that include a saved position
+  are rechecked by the canonical solver; if the selected cell is now
+  proved safe, that obsolete mistake tag is removed and the correction is
+  persisted.
 - The independent dimensions are preserved together:
   - **action and outcome** — reveal, chord, flag placement/removal, or a
     proof-or-die open; continued play or death;
@@ -228,6 +271,14 @@ report.
   the same position records `guessed-with-safe-move`; a forced guess
   above the minimum records `chose-higher-risk`; a forced minimum-risk
   guess carries no mistake tag even if it happens to kill.
+- The primary fatal status uses the independent facts directly:
+  **opened a proven mine while a safe move was available**; **opened a
+  proven mine when a guess was required**; **died after guessing while a
+  safe move was available**; **higher-risk forced guess**; or **died
+  despite choosing a minimum-risk forced guess**. An unmeasured risk rank
+  says so. Chording is only the input method: its opened cells receive the
+  same proven/potential, safe-available, and risk-rank classification
+  rather than a separate “chord death” report class.
 - Evidence capture must never block play. Prover/enumerator failure is
   stored as unmeasured rather than filled with an invented conclusion.
 - **Exclusive report taxonomy** (added 2026-08-23): each evaluation
@@ -253,54 +304,101 @@ report.
 - Display: the compact stats stay in the 320px sidebar, while the action
   analysis occupies a centered, responsive column below the board and
   above rankings/charts. Category sections appear in the severity order
-  above; actions remain in ledger order within them. Each block contains literal explanatory
-  prose, chosen/best values when measured, and a saved rendering of the
-  visible board before the action. The selected square(s) are outlined
+  above. The fatal action is always first. Survived game-risk actions then
+  sort by selected actual death probability (highest first), with excess
+  risk as the tie-breaker. Time loss, life maximization, and measurement
+  notes follow and retain action order. Wins use the same report: they have
+  no fatal block, but survived risky or needless guesses still appear when
+  the selected scope includes game risk. Every bare reveal is evaluated;
+  marking or chording is never required for criticism. When no action
+  qualifies under the selected scope, the report emits no empty-success or
+  “nothing recorded” placeholder. Each block leads with
+  only the dimensions that distinguish that report type, as compact
+  labeled facts (`Immediate risk`, `Safe alternative`, `One-ply life`,
+  etc.). Equal raw/active risks collapse into one line, equal modeled-life
+  values say “tied,” and measured values/counts are retained without
+  repetitive prose. A saved rendering shows the visible board before the
+  action. Uniform covered remainder is omitted: the diagram crops to
+  revealed/flagged/selected/trigger cells plus two cells of context,
+  explicitly labels its original row/column range, and ignores a large
+  alternative set when choosing bounds. The selected square(s) are outlined
   red; guaranteed-safe alternatives green; lower-risk or higher
   modeled-life alternatives blue; flag corrections orange. Alternative
-  coordinates are also written as text. Trial results retain each run's
+  legends show the full count plus short coordinate examples. Trial results retain each run's
   ledger and expose the same report in a nested “action report” disclosure
   under that run, so the final trial review does not lose interim mistakes.
   Semantically identical entries without a saved diagram aggregate at
   their first occurrence and show one count (for example, “Unsatisfied
   chord clicks: 7”); positioned evidence remains one block per action so
   each action number stays attached to its diagram.
-  The compact stats list enabled category counts instead of one undifferentiated
-  “recorded mistakes” total, plus nonzero excess-game-risk and optional
-  modeled-life-gap magnitudes.
-  A clean win still gets the separate report zone with the literal reading
-  “No recorded reportable actions”; absence of an action block never makes the report
-  disappear into the stats.
-- The five old ending names (`mine`, `chord`, `needless`, `forced`,
-  `angel`) remain only as a **derived session-chart view** of the fatal
-  evidence. They are not stored as the source of truth and cannot erase
-  simultaneous facts.
+  Full analysis adds category counts instead of one undifferentiated
+  “recorded mistakes” total, plus nonzero excess-game-risk and
+  modeled-life-gap magnitudes. Lower tiers omit those diagnostic rows.
+  Under the default fatal-only tier a clean win shows no analysis block;
+  the persistent scope selector remains available.
+- The session endings chart classifies losses through the **same
+  fatal-action status the report labels** (2026-08-23, evening: the
+  chart's categories must be the report's reasons for losing, word for
+  word): opened a proven mine (safe move available / guess required),
+  Proof-or-die rule death (with / without a proven-safe move), died
+  after guessing while a safe move was available, and forced guesses
+  that were higher-risk, minimum-risk, or risk-rank-unmeasured. One
+  classifier produces both the report label and the chart kind, so the
+  two can never disagree. The five old ending names (`mine`, `chord`,
+  `needless`, `forced`, `angel`) survive only as **legacy provenance**:
+  losses imported from records that stored the old five-way verdict
+  keep their old line (dashed on the chart) rather than having modern
+  detail invented for them, and the report shows their old wording.
 - The Justice recap (win or loss alike): when the game had Justice
   events, a second block cites the rule by name — 'Due to the rule "A
-  Just Universe", you were forced to make an impossible choice and were
-  automatically protected (n times).' — with one detail line per event
-  (pocket type, clear/total layout counts) saying honestly whether the
-  player's square was actually mined and redrawn or was already clear
-  (the guarantee held either way). The recap wording never claims a
-  mine was moved when it was not; `justiceSaves` stores the redraw
-  count so the distinction survives on the record.
-- Storage (see Per-game stats): `actionEvaluations` on every new record;
-  `justiceSaves` on every new record. Legacy `stupidDeath`, `deathKind`,
+  Just Universe", you won a forced coinflip' (count-pluralized) — with
+  one detail line per event (pocket type, clear/total layout counts,
+  "a forced coinflip, won"). Strictly the player's point of view
+  (creator directive later on 2026-08-23, reversing the same-day
+  "honest redraw detail" design): no "actual" mine reality is ever
+  revealed or referred to — whether an entry's square was mined and
+  redrawn or was already clear is not recorded, shown, or hinted at.
+  A forced flip is a forced flip, neither a life nor a death. The
+  layout counts in the detail lines are the player's own information,
+  derived from visible clues.
+- Storage (see Per-game stats): `actionEvaluations` on every new record.
+  `justiceSaves` (the redraw count) was written only during part of
+  2026-08-23 and is no longer recorded — see the player's-point-of-view
+  directive above; old records keep it as an accepted historical field,
+  but nothing displays it. Legacy `stupidDeath`, `deathKind`,
   `deathRisk`, and `deathBestRisk` fields are accepted only at the
   load/import boundary, converted immediately into a versioned action
   evaluation with explicit legacy provenance, deleted, and persisted
   back. Coarse old evidence is never upgraded by inventing detail.
 - The left panel's session section gains a **game endings** chart: one
-  chart, one cumulative percent line per ending kind (win plus the five
-  verdicts plus "unjudged loss"), each line the kind's share of the
-  games finished so far in the played-time window. Kinds that never
-  occurred stay off the chart, except the win line, which always draws
-  once any game has ended (a 0% win line is itself the reading). A
+  chart, one cumulative percent line per ending kind (win plus the
+  report's fatal-action statuses plus dashed legacy-verdict lines plus
+  "unjudged loss"), each line the kind's share of the games finished so
+  far in the played-time window. Kinds that never occurred stay off the
+  chart, except the win line, which always draws once any game has
+  ended (a 0% win line is itself the reading). A
   color legend under the chart carries each drawn kind's current share;
   this chart keeps its legend even though the action-rates charts label
   their lines directly (2026-08-23, evening), because cumulative-share
   lines converge and stack at identical values, leaving no honest room
   for on-chart names.
+- The same chart carries the **percent of mines unmarked when winning**
+  line
+  (2026-08-23, evening; renamed from "win-with-unmarked-mines" minutes
+  later — that read like a share of wins, not a share of mines), a
+  different quantity on the same percent axis,
+  drawn dotted: across the window's wins so far, the average share of
+  the board's mines carrying no flag at the instant of winning
+  (measured only on wins; 0% means every mine was flagged, 100% a
+  markless win). Live wins count unflagged mines just before the
+  auto-flag sweep repaints them; stored wins derive the share (never
+  store it) from `flagsPlaced - flagsRemoved` against the mode's mine
+  count — at a win every flag still on the board provably sits on a
+  mine, since flagged cells cannot be revealed. Wins recorded before
+  the flag counters existed are unmeasured and stay out of both the
+  numerator and the denominator; the line draws once any win in the
+  window measured it, even at 0% (flagging every mine is a reading
+  too).
   Wins backfill as wins; losses derive their line from the fatal action
   evidence; legacy losses retain their old line through provenance, and
   evidence-free losses are "unjudged loss".
@@ -309,14 +407,22 @@ report.
   (default 60), chosen with a second selector on the session section
   head beside the running-average length. Event retention always covers
   the largest choice, so switching longer works immediately.
-- The action report and Justice recap are one shown-thing (`endVerdict`,
-  "after-game action analysis", on by default). `reportCategories` supplies
-  independent switches for the five categories; game loss, game risk, time
-  loss, and measurement notes default on, while the explicitly
-  model-relative life-maximization advice defaults off. `reportDetail`
-  chooses `summary`, `explanations`, or `positions` (default, preserving
-  the full report). The same category switches gate the corresponding
-  session diagnostics. They describe actions under the stated rules;
+- `reportScope` is the single persistent “After each game, show me”
+  setting, available both directly above the current after-game report
+  (changes apply immediately) and on the settings page:
+  - `none` — no action report, mistake/category counts, or fatal-action
+    mention; evidence is still stored;
+  - `fatal` — **default for every new player**; wins show no analysis,
+    losses show exactly the fatal action and its evidence;
+  - `risk` — fatal action plus earlier actions that increased actual
+    death probability;
+  - `full` — fatal and risky actions plus aggregated time loss,
+    model-relative optimization, measurement notes, and the corresponding
+    diagnostic stats.
+  Old `shownThings.endVerdict` and `reportCategories` values are read only
+  to migrate an existing preference into the nearest tier;
+  `reportDetail` is retired. None are shown or rewritten. Reports describe actions
+  under the stated rules;
   it does not identify judgment, attention, or any other cause — the
   standing measurement doctrine.
 
@@ -514,7 +620,8 @@ guess in the game exceeded the enumerator budget): `guesses`,
   “same as ideal-risk” rather than inventing information value, and if
   even p cannot be measured the whole ledger is omitted.
 
-A live chip (olive, in the Justice stack) prints the raw p and either
+A chip (olive, in the Justice stack, shown at game end like the rest of
+the stack) prints the raw p and either
 `ideal`, `justice`, or the needless extra; its hover text names the
 reason (a provably safe square was available, or the safest square's
 odds). The ledger exists only where the standard mine gamble is real:
@@ -553,12 +660,13 @@ that action coverage is unavailable, not a falsely mistake-free modern
 game.
 No runtime calculation reads either legacy field.
 
-Justice saves — how many of the game's Justice entries actually required
-moving a mine (`justice` counts every guaranteed entry; `justiceSaves`
-counts the redraws among them) — joined the schema 2026-08-23, zero a
-normal value, written on every new record. Shown as a "Justice saves"
-stats row when the game had Justice events, and it keeps the end-game
-recap honest about entries whose square was already clear.
+Justice saves (`justiceSaves`) — a historical field written only during
+part of 2026-08-23, counting which Justice entries involved a redraw. It
+was retired the same day by the player's-point-of-view directive: never
+reveal or refer to an "actual" mine reality behind a forced coinflip —
+a forced flip is a forced flip, neither a life nor a death. The field is
+no longer recorded or shown anywhere; the schema still accepts it so the
+records from that day stay valid.
 
 Fastclick gap — the game's median gap between consecutive board-changing
 presses made on the move (a cursor move within 100ms before the press)
@@ -727,8 +835,10 @@ carries at least one tag.
 - Source window choices: today (since the last local midnight — the
   default), today since 6am (6am is the day boundary, so before 6am it
   reaches back to yesterday's 6am rather than reporting an empty
-  morning), in the past hour, in the past 24h, in the past week
-  (midnight 6 days back, same as the rank window). The choice persists
+  morning), in the past 10 min / 30 min / hour / 2 hours / 4 hours
+  (the short rolling windows added 2026-08-23), in the past 24h, in the
+  past week (midnight 6 days back, same as the rank window). The choice
+  persists
   as the `recentPlacementsWindow` setting, chosen with the selector on
   the block's own heading (like the session lookback); changing it
   re-renders the result in place.
@@ -1166,14 +1276,18 @@ displays changes but does not label their cause.
     stats table shows the per-game form as "Flag-removal rate" beside the
     existing "Flags removed" count.
   - **game endings** (added 2026-08-23) — not a rate: one chart of
-    cumulative percent lines, one per ending kind (win, the death
-    verdicts, unjudged loss), each the kind's share of the games
-    finished so far in the window, with a color legend of current
-    shares. See "Game-end evaluation".
+    cumulative percent lines, one per ending kind (win, the report's
+    fatal-action statuses word for word, dashed legacy-verdict lines,
+    unjudged loss), each the kind's share of the games finished so far
+    in the window, plus the dotted "percent of mines unmarked when
+    winning" line (the wins' average share of mines left unflagged at
+    the winning instant), with a color legend of current shares. See
+    "Game-end evaluation".
   - **report categories** (added 2026-08-23) — one per-minute line for
     each enabled exclusive action-report category: game loss, game risk,
-    time loss, life maximization, and measurement notes. The same
-    `reportCategories` switches gate report sections and these lines.
+    time loss, life maximization, and measurement notes. `reportScope`
+    gates these lines with the same none / fatal / risk / full ladder as
+    the report.
   - **excess game risk** — sum of the extra immediate loss probability
     on survived game-risk actions per played minute, in percentage
     points/minute. Active protection rules are applied first; this is a
@@ -1184,7 +1298,7 @@ displays changes but does not label their cause.
 - Running averages (replacing disjoint buckets, 2026-08-23): the
   lookback is selectable on the section itself (30s / 1m / 2m / 5m /
   15m; persisted as the `sessionLookbackSeconds` setting, default 5m),
-  and so is the window length (15m / 30m / 1h / 3h;
+  and so is the window length (1m / 5m / 10m / 15m / 30m / 1h / 3h;
   `sessionWindowMinutes`, default 1h). Both are **played time**, not
   elapsed real time — "5m average" means five minutes of actual play.
   Game spans are joined onto a cumulative-play timeline, so the end of a
@@ -1318,9 +1432,9 @@ displays changes but does not label their cause.
   settings live on their own full page, settings.html, reached from the
   clear "settings" button in the game's upper-right; the way back is
   equally clear — "return to game" buttons at the top and bottom of the
-  page body, Esc, or the browser's Back. The page is deliberately super
-  simple: just the switches. A change shows its meaning where the thing
-  itself lives: the game page reads settings fresh on every load.
+  page body, Esc, or the browser's Back. The page stays focused on the
+  settings themselves. A change shows its meaning where the thing itself
+  lives: the game page reads settings fresh on every load.
   Everything else (row shape, hint placement) is implementation and
   freely revisable; earlier revisions of this section had mistaken
   implementation defaults for decisions.
@@ -1344,14 +1458,12 @@ displays changes but does not label their cause.
   button since 2026-08-23) is a plain link to settings.html (2026-08-23;
   before that it opened an in-page surface — first a small corner
   dropdown, then briefly a full-height right-edge drawer that same day).
-  The settings page wears the game's identity: a slim titlebar with just
-  the site name, then the switch column with two "return to game"
-  buttons (dressed exactly like the game's own top-right buttons) on a
-  rail to the column's left — one at the top, one aligned with the
-  column's bottom line, beside it rather than below it; Esc also
-  returns. The buttons live in the body, not far off at the page's
-  right edge (decided 2026-08-23, moving the titlebar's own button into
-  the body).
+  The settings page wears the game's identity: a slim titlebar with the
+  site name, then a centered body headed "Settings" with its save
+  behavior stated beside the title. The two "return to game" buttons
+  (dressed like the game's own top-right buttons) sit above and below the
+  settings panels in the body; Esc also returns. They are not tucked at
+  a screen edge.
 - The demo world (2026-08-23, created with the page and removed later
   the same day): a miniature pretend mid-game beside the controls —
   partially played board, mini left-panel cards, stand-in result
@@ -1360,18 +1472,19 @@ displays changes but does not label their cause.
 - Switches render under group headings naming where they act — gameplay /
   left panel / after a game — driven by the schema's `group` field
   (`SETTINGS_GROUPS` orders the sections), so the page and the schema
-  cannot drift. No captions (decided 2026-08-23, removing the hint lines,
-  the shown-things caption, and the "?" help popover added earlier that
-  day): a caption that restates its switch's name is noise, so a row is
-  just the clickable checkbox + name, with the schema's full description
-  riding on the name as a plain tooltip. A schema `hint` renders as a
-  visible second line only when it says something the name cannot —
-  currently only "a just universe". The shown-things and report-category
-  switches render inline under their own subheadings in "after a game". A multi-option
-  setting renders as a choice row: the name line, one radio per option
-  (each option's explanation is its tooltip). A change saves immediately;
-  the game page reads settings fresh on every load, so returning applies
-  them.
+  cannot drift. Each group is a separate panel with its heading in a
+  stable left column and its settings on the right. A switch row puts its
+  name on the left, its checkbox at the far right, and any earned hint in
+  the column between them — never below the name where it could look like
+  another list item. The schema's full description remains a plain
+  tooltip. A multi-option setting such as `reportScope` puts one radio
+  group to the right of its name. The numerous shown-things switches form
+  a compact two-column option grid under their own subheading rather than
+  extending the primary list. The layout collapses to one section column
+  on narrow screens while retaining the name/control relationship. A
+  change saves immediately; the game page reads settings fresh on every
+  load, so returning applies them. "Changes save automatically" beside
+  the page title states why there is no save button.
 - Hover must never inject or swap text (decided 2026-08-23 after two
   rounds of hover-note mechanisms did exactly that). The row–demo glow
   link retired with the demo world the same day. The game page has no
@@ -1390,11 +1503,10 @@ displays changes but does not label their cause.
   lists' progressive disclosure switch (see Rank lists);
   `showMotionStatsDuringGame` and `showMotionStatsAfterGame` (both
   default on) — the two stages of the trace metrics display (see Trace
-  metrics panel); `reportCategories` (game loss, game risk, time loss,
-  and measurement notes on; life maximization off) and `reportDetail`
-  (`positions` by default, with `summary` and `explanations` choices) —
-  which action-analysis categories and evidence depth appear after a game
-  and which category diagnostics appear in the session section;
+  metrics panel); `reportScope` (`fatal` by default; choices `none`,
+  `fatal`, `risk`, `full`) — the simple after-game analysis ladder,
+  editable on both the report and settings page, which also gates category
+  session diagnostics;
   `showSessionStats` (default on),
   `sessionLookbackSeconds` (default 300), and `sessionWindowMinutes`
   (default 60) — the session stats section, its running-average

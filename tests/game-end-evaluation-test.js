@@ -35,6 +35,23 @@ for (const kind of ['mine', 'chord', 'needless', 'forced', 'angel']) {
 assertEq('mine label matches the requested wording',
   DEATH_KIND_LABELS.mine, 'clicked clear mine');
 assertEq('angel label', DEATH_KIND_LABELS.angel, 'angel-death');
+assertEq('nothing scope allows no fatal report',
+  reportScopeAllows('none', 'gameLoss'), false);
+assertEq('fatal scope allows only game loss',
+  reportScopeAllows('fatal', 'gameLoss'), true);
+assertEq('fatal scope hides survived risk',
+  reportScopeAllows('fatal', 'gameRisk'), false);
+assertEq('risk scope includes fatal and survived risk',
+  reportScopeAllows('risk', 'gameLoss')
+    && reportScopeAllows('risk', 'gameRisk'), true);
+assertEq('risk scope excludes time loss',
+  reportScopeAllows('risk', 'timeLoss'), false);
+assertEq('full scope includes model advice',
+  reportScopeAllows('full', 'lifeMaximization'), true);
+assertEq('empty successful games do not render a report placeholder',
+  source.includes('No recorded reportable actions'), false);
+assertEq('bare reveals are evaluated without requiring flags or chords',
+  source.includes('const actionEvaluation = evaluateRevealAction('), true);
 
 // Modern action evidence keeps independent facts together instead of
 // collapsing them into one exclusive verdict.
@@ -55,6 +72,9 @@ assertContains('mine text carries selected risk',
   actionEvaluationText(provenMineWithSafe), '100.0%');
 assertContains('mine text carries best risk',
   actionEvaluationText(provenMineWithSafe), '0.0%');
+assertEq('fatal proven mine label includes safe alternative status',
+  actionEvaluationLabel(provenMineWithSafe),
+  'opened a proven mine while a safe move was available');
 
 const unnecessaryGuess = {
   version: ACTION_EVALUATION_VERSION,
@@ -99,10 +119,53 @@ const higherRisk = {
   alternatives: [{ kind: 'lower-risk-reveal', cells: [2] }],
 };
 assertEq('higher-risk forced guess ending', evaluationEndingKind(higherRisk), 'forced');
+assertEq('fatal label distinguishes higher-risk forced guess',
+  actionEvaluationLabel(higherRisk), 'died from a higher-risk forced guess');
 assertContains('higher-risk text chosen odds', actionEvaluationText(higherRisk), '30.0%');
 assertContains('higher-risk text best odds', actionEvaluationText(higherRisk), '12.5%');
 assertEq('fatal severity wins over risk mechanism',
   actionEvaluationCategory(higherRisk), 'gameLoss');
+const compactRiskLines = actionEvaluationLines({
+  ...higherRisk,
+  result: 'continued',
+  evidence: {
+    chosenRisk: 1 / 3,
+    bestRisk: 0.155,
+    actualRisk: 1 / 3,
+    bestActualRisk: 0.155,
+    expectedLife: 2 / 3,
+    bestExpectedLife: 2 / 3,
+  },
+  alternatives: [{ kind: 'lower-risk-reveal',
+    cells: Array.from({ length: 252 }, (_, i) => i + 2) }],
+  position: { width: 30, height: 16, revealed: [[0, 1]], flagged: [] },
+});
+assertEq('compact risk report has one nonduplicated risk line',
+  compactRiskLines.filter((line) =>
+    line.label.includes('risk') || line.label.includes('rules')).length, 1);
+assertContains('compact risk line highlights the delta',
+  compactRiskLines.find((line) => line.label === 'Immediate risk').value,
+  '+17.8pp');
+assertEq('compact one-ply line states a tie once',
+  compactRiskLines.find((line) => line.label === 'One-ply life (model)').value,
+  'tied at 0.667');
+assertEq('positioned report leaves alternative count to its legend',
+  compactRiskLines.some((line) => line.label === 'Alternatives'), false);
+
+const cropped = evaluationCropBounds({
+  width: 30,
+  height: 16,
+  revealed: [[0, 1]],
+  flagged: [],
+}, {
+  selected: [1],
+  alternatives: [{ kind: 'lower-risk-reveal',
+    cells: Array.from({ length: 252 }, (_, i) => i + 2) }],
+});
+assertEq('uniform covered remainder is cropped', cropped.cropped, true);
+assertEq('crop keeps two cells of nearby context',
+  [cropped.rowFrom, cropped.rowTo, cropped.colFrom, cropped.colTo].join(','),
+  '0,2,0,3');
 
 const bestRiskDeath = {
   version: ACTION_EVALUATION_VERSION,
@@ -113,7 +176,88 @@ const bestRiskDeath = {
   alternatives: [],
 };
 assertEq('best-risk forced death ending', evaluationEndingKind(bestRiskDeath), 'angel');
+assertEq('fatal label says minimum-risk choice still lost',
+  actionEvaluationLabel(bestRiskDeath),
+  'died despite choosing a minimum-risk forced guess');
 assertContains('best-risk death is explained', actionEvaluationText(bestRiskDeath), 'lowest measured');
+
+const uncertainChordDeath = {
+  version: ACTION_EVALUATION_VERSION,
+  action: 'chord',
+  result: 'death',
+  mistakes: ['chord-wrong-flag-outcome'],
+  evidence: { safeAvailable: false },
+  alternatives: [],
+};
+assertEq('chord is input method, not a special fatal class',
+  actionEvaluationLabel(uncertainChordDeath),
+  'died from a forced guess (risk rank unmeasured)');
+assertEq('modern chord derives forced ending line, not chord class',
+  evaluationEndingKind(uncertainChordDeath), 'forced');
+assertEq('chord with a safe alternative uses the same needless language',
+  actionEvaluationLabel({
+    ...uncertainChordDeath,
+    evidence: { safeAvailable: true },
+  }), 'died after guessing while a safe move was available');
+assertEq('chord opening a proven mine uses the same proven-mine language',
+  actionEvaluationLabel({
+    ...uncertainChordDeath,
+    evidence: { safeAvailable: false, openedProvenMines: [4] },
+  }), 'opened a proven mine when a guess was required');
+assertEq('modern proven-mine chord derives mine ending line',
+  evaluationEndingKind({
+    ...uncertainChordDeath,
+    evidence: { safeAvailable: false, openedProvenMines: [4] },
+  }), 'mine');
+assertEq('legacy chord line survives only as provenance',
+  evaluationEndingKind({
+    ...uncertainChordDeath,
+    legacy: { deathKind: 'chord' },
+  }), 'chord');
+
+// The session endings chart classifies through the same fatal-action
+// status the report labels, so the two can never disagree.
+for (const [evaluation, kind] of [
+  [provenMineWithSafe, 'mine-safe'],
+  [higherRisk, 'guess-higher'],
+  [bestRiskDeath, 'guess-min'],
+  [uncertainChordDeath, 'guess-unmeasured'],
+  [{ ...uncertainChordDeath, evidence: { safeAvailable: true } }, 'guess-safe'],
+  [{ ...uncertainChordDeath,
+    evidence: { safeAvailable: false, openedProvenMines: [4] } }, 'mine-forced'],
+]) {
+  assertEq(`session ending kind ${kind}`, sessionEndingKind(evaluation), kind);
+  assertEq(`chart kind ${kind} carries the report's exact wording`,
+    FATAL_STATUS_LABELS[kind], actionEvaluationLabel(evaluation));
+}
+assertEq('proof-or-die death with a safe move has its own ending kind',
+  sessionEndingKind({
+    version: ACTION_EVALUATION_VERSION,
+    action: 'proof-open',
+    result: 'death',
+    mistakes: [],
+    evidence: { safeAvailable: true },
+  }), 'proof-safe');
+assertEq('proof-or-die death without a safe move has its own ending kind',
+  sessionEndingKind({
+    version: ACTION_EVALUATION_VERSION,
+    action: 'proof-open',
+    result: 'death',
+    mistakes: [],
+    evidence: { safeAvailable: false },
+  }), 'proof-forced');
+assertEq('legacy verdict stays its own provenance ending kind',
+  sessionEndingKind({
+    ...uncertainChordDeath,
+    legacy: { deathKind: 'angel' },
+  }), 'angel');
+assertEq('missing fatal evaluation is an unjudged ending',
+  sessionEndingKind(undefined), 'other');
+assertEq('legacy without a stored verdict is an unjudged ending',
+  sessionEndingKind({
+    ...uncertainChordDeath,
+    legacy: { avoidable: true },
+  }), 'other');
 
 assertContains('legacy text admits evidence limit', actionEvaluationText({
   version: ACTION_EVALUATION_VERSION,
@@ -171,6 +315,34 @@ assertEq('aggregate carries the repeated count', noOpGroups[0].count, 2);
 assertEq('aggregate title is a count, not action numbers',
   aggregateReportTitle(noOpGroups[0]), 'Left-clicks on flagged squares: 2');
 
+const lowerDangerRisk = {
+  version: ACTION_EVALUATION_VERSION,
+  action: 'reveal',
+  actionNumber: 3,
+  result: 'continued',
+  mistakes: ['chose-higher-risk'],
+  evidence: { actualRisk: 0.4, bestActualRisk: 0 },
+};
+const higherDangerRisk = {
+  ...lowerDangerRisk,
+  actionNumber: 9,
+  evidence: { actualRisk: 0.6, bestActualRisk: 0.5 },
+};
+const orderedWinEntries = orderReportEntries([
+  { evaluation: timeLoss, shown: timeLoss, category: 'timeLoss', count: 1 },
+  { evaluation: lowerModeledLife, shown: lowerModeledLife,
+    category: 'lifeMaximization', count: 1 },
+  { evaluation: lowerDangerRisk, shown: lowerDangerRisk,
+    category: 'gameRisk', count: 1 },
+  { evaluation: higherDangerRisk, shown: higherDangerRisk,
+    category: 'gameRisk', count: 1 },
+]);
+assertEq('winning report still puts survived risks first',
+  orderedWinEntries.map((entry) => entry.category).join(','),
+  'gameRisk,gameRisk,timeLoss,lifeMaximization');
+assertEq('highest selected death risk comes first within game risk',
+  orderedWinEntries[0].evaluation.actionNumber, 9);
+
 const note = {
   version: ACTION_EVALUATION_VERSION,
   action: 'unknown',
@@ -208,24 +380,24 @@ assertEq('summary quantifies modeled-life gap',
   Number(summary.modeledLifeGap.toFixed(3)), 0.2);
 
 // The Justice recap: the rule is cited by name, the count is right, and
-// the redraw detail is honest about entries that were already clear.
+// the wording stays strictly in the player's point of view — a forced
+// flip is a forced flip; no "actual" mine reality is ever revealed.
 assertContains('recap cites the rule',
-  justiceRecapText(2, 1), 'A Just Universe');
-assertContains('recap counts the choices',
-  justiceRecapText(2, 1), '2 times');
-assertContains('recap singular', justiceRecapText(1, 1), 'once');
-assertContains('recap names the real save',
-  justiceRecapText(1, 1), 'moved out from under you');
-assertContains('recap is honest about already-clear entries',
-  justiceRecapText(2, 0), 'already clear');
+  justiceRecapText(2), 'A Just Universe');
+assertContains('recap counts the flips',
+  justiceRecapText(2), '2 forced coinflips');
+assertContains('recap singular', justiceRecapText(1), 'a forced coinflip');
+assertEq('recap never reveals mine reality',
+  /redraw|moved|already clear|mined/.test(justiceRecapText(3)), false);
 assertContains('event detail names the pocket',
-  justiceEventDetail({ type: 'sea', clearWays: 3, totalWays: 5, saved: true }, 0),
+  justiceEventDetail({ type: 'sea', clearWays: 3, totalWays: 5 }, 0),
   'sealed sea pocket (3/5 layouts clear)');
-assertContains('event detail says the mine moved',
-  justiceEventDetail({ type: 'sea', clearWays: 3, totalWays: 5, saved: true }, 0),
-  'redrawn');
-assertContains('event detail says already clear',
-  justiceEventDetail({ type: 'complement', clearWays: 1, totalWays: 2, saved: false }, 1),
-  'already clear');
+assertContains('event detail calls the entry a won coinflip',
+  justiceEventDetail({ type: 'complement', clearWays: 1, totalWays: 2 }, 1),
+  'a forced coinflip, won');
+assertEq('event detail never reveals mine reality',
+  /redraw|moved|already clear|mined/.test(
+    justiceEventDetail({ type: 'sea', clearWays: 3, totalWays: 5 }, 0)),
+  false);
 
 console.log(`game-end-evaluation: all ${checks} checks passed`);

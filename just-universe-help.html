@@ -110,9 +110,9 @@
   <p><span class="rule">A sealed pocket is a group of unknown cells whose possible
   mine arrangements all look identical from everywhere outside the group.</span>
   No play outside it can tell you which internal cell is safe. When you bare-click
-  into a certified sealed pocket, that entry is guaranteed safe and counts as one
-  <b>JUSTICE</b> &mdash; whether the cell was already clear or the pocket had to be
-  redrawn. Every number already revealed and the total mine count remain true.</p>
+  into a certified sealed pocket, that entry is a forced coinflip &mdash; and you
+  win it, always. Each one counts as one Justice survival. Every number already
+  revealed and the total mine count remain true.</p>
 </div>
 
 <p>The key is <em>outside the pocket</em>: an internal safe click may reveal a
@@ -123,8 +123,10 @@ permanently unreadable pocket.</p>
 
 <p>This first version certifies three exact, equal-odds structures: symmetric
 <em>k</em>-of-<em>n</em> pockets, alternating 50/50 pairs and chains, and a final
-sealed sea remnant. It never estimates probabilities or searches until time runs
-out. An exotic ambiguity without one of these short structural proofs keeps
+sealed sea remnant. Before matching those shapes, the shared solver proves every
+cell fixed across all layouts consistent with the visible clues and total mine
+count. It never treats a work-limit result as proof and never estimates a
+qualification. An exotic ambiguity without one of these short structural proofs keeps
 ordinary Minesweeper behavior.</p>
 
 <h2 class="saves">When Justice applies</h2>
@@ -139,8 +141,7 @@ ordinary Minesweeper behavior.</p>
     be in, and no number will ever see either cell (a wall of proven mines seals
     them off). The whole game comes down to a coin you were always going to have
     to flip. <span class="verdict-save">Justice.</span> Bare-click either cell:
-    the entry is guaranteed safe and counts once, even when that cell was already
-    clear in the original layout.</p>
+    the flip lands in your favor and counts once.</p>
     <p class="legend">&#9679; = a cell proven to be a mine (it can never be opened,
     so it can never tell you anything). Gold outline = the cells the coin is between.</p>
   </div>
@@ -235,11 +236,10 @@ click into any of them receives Justice.</p>
 <div class="footer">
   <p><span class="rule">In one sentence:</span> when you bare-click into a certified
   pocket that no outside clue can ever resolve, that entry is guaranteed safe.</p>
-  <p>Each qualifying entry immediately prints <b>JUSTICE</b> to the board's right
-  and adds one to the game's Justice count, regardless of whether a redraw was
-  needed. Later entries in the same game stack downward on the right. The setting is
-  fixed at the first reveal and cannot change until the game ends; switch it off
-  before starting for ordinary Minesweeper.</p>
+  <p>Each qualifying entry adds one to the game's Justice count. When the game
+  ends, the count appears once to the board's right: <b>you won a forced
+  coinflip</b>. The setting is fixed at the first reveal and cannot change until
+  the game ends; switch it off before starting for ordinary Minesweeper.</p>
 </div>
 
 </body>

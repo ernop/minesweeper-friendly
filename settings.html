@@ -4,25 +4,31 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Minesweeper - Settings</title>
-<link rel="stylesheet" href="style.css?v=20260823-report-taxonomy">
+<link rel="stylesheet" href="style.css?v=20260823-player-pov">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 </head>
 <body class="settings-page">
 <div id="settings-titlebar">
-  <span id="settings-titlebar-name">minesweeper &mdash; settings</span>
+  <span id="settings-titlebar-name">minesweeper</span>
 </div>
-<div id="settings-layout">
-  <div id="settings-return-rail">
-    <a class="return-to-game" href="index.html">return to game</a>
-    <a class="return-to-game" href="index.html">return to game</a>
-  </div>
+<main id="settings-layout">
+  <header id="settings-page-header">
+    <a class="return-to-game" href="index.html">&larr; return to game</a>
+    <div id="settings-heading">
+      <h1>Settings</h1>
+      <p>Changes save automatically.</p>
+    </div>
+  </header>
+  <p id="settings-status" hidden></p>
   <div id="settings-column">
-    <p id="settings-status" hidden></p>
     <!-- groups and rows built by settings-page.js from SETTINGS_SCHEMA -->
   </div>
-</div>
+  <footer id="settings-page-footer">
+    <a class="return-to-game" href="index.html">&larr; return to game</a>
+  </footer>
+</main>
 <script src="storage.js?v=20260823-simple-settings"></script>
-<script src="settings-core.js?v=20260823-report-taxonomy"></script>
-<script src="settings-page.js?v=20260823-report-taxonomy"></script>
+<script src="settings-core.js?v=20260823-report-scope"></script>
+<script src="settings-page.js?v=20260823-settings-layout"></script>
 </body>
 </html>

@@ -6,7 +6,7 @@ if (typeof Justice === 'undefined') {
 
 // Logical NG solver on top of Justice.proveFacts. Used to generate
 // no-guess boards and to decide proof-or-die / angelic clicks.
-// Grades, cheapest first: count, subset, global.
+// Grades, cheapest first: direct count, overlap deduction, exact layouts.
 
 function solverNeighbors(index, width, height) {
   return Justice.neighbors(index, width, height);
@@ -128,14 +128,14 @@ function analyze(width, height, mineAt, firstClick) {
     if (safes.length > 0) {
       grade = 'count';
     } else {
-      const subsetFacts = Justice.proveFacts(view, clues, { global: false });
-      safes = newSafeFrom(subsetFacts, revealed);
+      const overlapFacts = Justice.proveFacts(view, clues, { global: false });
+      safes = newSafeFrom(overlapFacts, revealed);
       if (safes.length > 0) {
-        grade = 'subset';
+        grade = 'overlap';
       } else {
         const fullFacts = Justice.proveFacts(view, clues);
         safes = newSafeFrom(fullFacts, revealed);
-        if (safes.length > 0) grade = 'global';
+        if (safes.length > 0) grade = 'exact';
       }
     }
     if (safes.length === 0) break;
@@ -237,6 +237,28 @@ function isCertainMine(view, cell) {
   return factsFor(view).get(cell) === 1;
 }
 
+function classifyCell(view, cell) {
+  const facts = factsFor(view);
+  const fact = facts.get(cell);
+  return {
+    kind: fact === 1 ? 'mine' : fact === 2 ? 'safe' : 'unknown',
+    complete: facts.complete === true,
+    visits: facts.visits || 0,
+  };
+}
+
+function classifyCells(view, cells) {
+  const facts = factsFor(view);
+  return {
+    complete: facts.complete === true,
+    visits: facts.visits || 0,
+    kinds: cells.map((cell) => {
+      const fact = facts.get(cell);
+      return fact === 1 ? 'mine' : fact === 2 ? 'safe' : 'unknown';
+    }),
+  };
+}
+
 // Whether a board-changing action contradicts facts provable from the
 // visible board. This classifies the action, not the player's intent.
 // Flags are passed as action data rather than fed into the proof system,
@@ -275,14 +297,15 @@ function layoutAgrees(view, mines) {
 // return a mine map with that cell clear, agreeing with every revealed
 // number. Single-mine swaps cover 50/50 partners and open sea.
 function forceSafe(view, mines, clicked, rng) {
-  if (isCertainMine(view, clicked)) return null;
+  const facts = factsFor(view);
+  if (facts.get(clicked) === 1) return null;
   const next = mines.slice();
   if (!next[clicked]) return next;
   const size = view.width * view.height;
   const partners = [];
   for (let i = 0; i < size; i++) {
     if (i === clicked || view.revealed[i] || next[i]) continue;
-    if (isProvenSafe(view, i)) continue;
+    if (facts.get(i) === 2) continue;
     partners.push(i);
   }
   for (let i = partners.length - 1; i > 0; i--) {
@@ -312,6 +335,8 @@ const Solver = {
   generate: generate,
   isProvenSafe: isProvenSafe,
   isCertainMine: isCertainMine,
+  classifyCell: classifyCell,
+  classifyCells: classifyCells,
   isVisibleMisclick: isVisibleMisclick,
   forceSafe: forceSafe,
   layoutAgrees: layoutAgrees,

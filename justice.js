@@ -1,5 +1,7 @@
 'use strict';
 
+const VISIBLE_PROOF_VERSION = 'all-consistent-layouts-v1';
+
 //-------SEALED-POCKET MERCY (pure logic, no DOM, no hidden-state judgment)-------
 //
 // A Justice event is a bare click into a certified sealed pocket: a group
@@ -52,12 +54,220 @@ function rawClues(view) {
   return clues;
 }
 
+const DEFAULT_PROOF_VISITS = 2000000;
+let lastExactProof = null;
+
+function exactProofKey(view, clues, maxVisits) {
+  const visible = [];
+  for (let i = 0; i < view.revealed.length; i++) {
+    if (view.revealed[i]) visible.push(i + ':' + view.adjacent[i]);
+  }
+  const equations = clues.map((clue) =>
+    clue.count + ':' + clue.covered.join(',')).join(';');
+  return view.width + 'x' + view.height + '/' + view.mines
+    + '|' + visible.join(',') + '|' + equations + '|' + maxVisits;
+}
+
+function enumerateProofComponent(cells, clues, work) {
+  const clueIndexesByCell = new Map(cells.map((cell) => [cell, []]));
+  clues.forEach((clue, clueIndex) => {
+    for (const cell of clue.unknown) clueIndexesByCell.get(cell).push(clueIndex);
+  });
+  const ordered = cells.slice().sort((a, b) =>
+    clueIndexesByCell.get(b).length - clueIndexesByCell.get(a).length);
+  const remaining = clues.map((clue) => clue.unknown.length);
+  const needed = clues.map((clue) => clue.need);
+  const assignment = new Map();
+  const byMineCount = new Map();
+  let stopped = false;
+
+  const visit = (at, mineCount) => {
+    work.visits++;
+    if (work.visits > work.maxVisits) {
+      stopped = true;
+      return;
+    }
+    if (at === ordered.length) {
+      if (needed.some((need) => need !== 0)) return;
+      let summary = byMineCount.get(mineCount);
+      if (!summary) {
+        summary = { minePossible: new Set(), safePossible: new Set() };
+        byMineCount.set(mineCount, summary);
+      }
+      for (const cell of ordered) {
+        (assignment.get(cell) ? summary.minePossible : summary.safePossible).add(cell);
+      }
+      return;
+    }
+    const cell = ordered[at];
+    for (const mine of [false, true]) {
+      let possible = true;
+      assignment.set(cell, mine);
+      for (const clueIndex of clueIndexesByCell.get(cell)) {
+        remaining[clueIndex]--;
+        if (mine) needed[clueIndex]--;
+        if (needed[clueIndex] < 0 || needed[clueIndex] > remaining[clueIndex]) {
+          possible = false;
+        }
+      }
+      if (possible) visit(at + 1, mineCount + (mine ? 1 : 0));
+      for (const clueIndex of clueIndexesByCell.get(cell)) {
+        if (mine) needed[clueIndex]++;
+        remaining[clueIndex]++;
+      }
+      if (stopped) return;
+    }
+    assignment.delete(cell);
+  };
+
+  visit(0, 0);
+  if (stopped) return null;
+  if (byMineCount.size === 0) throw new Error('visible clues have no valid layout');
+  return { cells: ordered, byMineCount };
+}
+
+function possibleMineSums(components, skip = -1) {
+  let sums = new Set([0]);
+  for (let i = 0; i < components.length; i++) {
+    if (i === skip) continue;
+    const next = new Set();
+    for (const sum of sums) {
+      for (const count of components[i].byMineCount.keys()) next.add(sum + count);
+    }
+    sums = next;
+  }
+  return sums;
+}
+
+// Exhaustive visible-information proof. Frontier components are searched
+// independently, then joined through the board's total mine count and the
+// unconstrained sea. A cell is marked only when every globally consistent
+// layout gives it the same value.
+function proveExactFacts(view, clues, status, mark, maxVisits) {
+  const residuals = [];
+  const clueIndexesByCell = new Map();
+  for (const clue of clues) {
+    const unknown = [];
+    let need = clue.count;
+    for (const cell of clue.covered) {
+      const fact = status.get(cell);
+      if (fact === 1) need--;
+      else if (fact !== 2) unknown.push(cell);
+    }
+    if (need < 0 || need > unknown.length) {
+      throw new Error('visible clues are inconsistent');
+    }
+    if (unknown.length === 0) continue;
+    const clueIndex = residuals.length;
+    residuals.push({ unknown, need });
+    for (const cell of unknown) {
+      if (!clueIndexesByCell.has(cell)) clueIndexesByCell.set(cell, []);
+      clueIndexesByCell.get(cell).push(clueIndex);
+    }
+  }
+
+  const components = [];
+  const seen = new Set();
+  for (const start of clueIndexesByCell.keys()) {
+    if (seen.has(start)) continue;
+    const cells = [];
+    const clueSet = new Set();
+    const stack = [start];
+    seen.add(start);
+    while (stack.length > 0) {
+      const cell = stack.pop();
+      cells.push(cell);
+      for (const clueIndex of clueIndexesByCell.get(cell)) {
+        if (!clueSet.has(clueIndex)) clueSet.add(clueIndex);
+        for (const other of residuals[clueIndex].unknown) {
+          if (seen.has(other)) continue;
+          seen.add(other);
+          stack.push(other);
+        }
+      }
+    }
+    components.push({
+      cells,
+      clues: [...clueSet].map((index) => residuals[index]),
+    });
+  }
+
+  const work = { visits: 0, maxVisits };
+  const solved = [];
+  for (const component of components) {
+    const result = enumerateProofComponent(component.cells, component.clues, work);
+    if (result === null) return { complete: false, visits: work.visits };
+    solved.push(result);
+  }
+
+  let knownMines = 0;
+  const unresolved = [];
+  for (let cell = 0; cell < view.width * view.height; cell++) {
+    if (view.revealed[cell]) continue;
+    const fact = status.get(cell);
+    if (fact === 1) knownMines++;
+    else if (fact !== 2) unresolved.push(cell);
+  }
+  const frontier = new Set(clueIndexesByCell.keys());
+  const sea = unresolved.filter((cell) => !frontier.has(cell));
+  const target = view.mines - knownMines;
+  if (target < 0 || target > unresolved.length) {
+    throw new Error('global mine count contradicts visible clues');
+  }
+
+  const allComponentSums = possibleMineSums(solved);
+  const possibleSeaCounts = new Set();
+  for (const sum of allComponentSums) {
+    const seaMines = target - sum;
+    if (seaMines >= 0 && seaMines <= sea.length) possibleSeaCounts.add(seaMines);
+  }
+  if (possibleSeaCounts.size === 0) {
+    throw new Error('visible clues and global mine count have no valid layout');
+  }
+
+  for (let i = 0; i < solved.length; i++) {
+    const otherSums = possibleMineSums(solved, i);
+    const feasibleCounts = [];
+    for (const localCount of solved[i].byMineCount.keys()) {
+      if ([...otherSums].some((otherCount) => {
+        const seaMines = target - localCount - otherCount;
+        return seaMines >= 0 && seaMines <= sea.length;
+      })) {
+        feasibleCounts.push(localCount);
+      }
+    }
+    if (feasibleCounts.length === 0) {
+      throw new Error('component has no globally valid layout');
+    }
+    for (const cell of solved[i].cells) {
+      let canBeMine = false;
+      let canBeSafe = false;
+      for (const count of feasibleCounts) {
+        const summary = solved[i].byMineCount.get(count);
+        if (summary.minePossible.has(cell)) canBeMine = true;
+        if (summary.safePossible.has(cell)) canBeSafe = true;
+      }
+      if (!canBeMine) mark(cell, 2);
+      else if (!canBeSafe) mark(cell, 1);
+    }
+  }
+
+  if ([...possibleSeaCounts].every((count) => count === 0)) {
+    for (const cell of sea) mark(cell, 2);
+  } else if ([...possibleSeaCounts].every((count) => count === sea.length)) {
+    for (const cell of sea) mark(cell, 1);
+  }
+  return { complete: true, visits: work.visits };
+}
+
 // Sound local deduction to a fixpoint:
 // - a clue needing zero/all of its unresolved cells proves them safe/mined;
-// - subtracting a residual clue from a strict superset can do the same.
-// A final global-count rule proves every unresolved cell only when all of
-// them are safe or all are mines. Incompleteness is conservative: it can
-// withhold a certificate, never manufacture one.
+// - subtracting any two overlapping residual clues can expose extreme
+//   one-sided differences (strict subsets are one instance);
+// - the default exact pass searches every globally consistent frontier
+//   layout and applies the total mine count across components and sea.
+// A work-limit result is explicitly marked incomplete. Every returned fact
+// remains sound; incompleteness can withhold a certificate, never invent one.
 //
 // Status values remain 1=mine and 2=safe for the public test interface.
 function proveFacts(view, clues, opts) {
@@ -65,6 +275,11 @@ function proveFacts(view, clues, opts) {
   const useCount = opts.count !== false;
   const useSubset = opts.subset !== false;
   const useGlobal = opts.global !== false;
+  const useExact = opts.exact !== false && useCount && useSubset && useGlobal;
+  const maxVisits = Number.isFinite(opts.maxVisits)
+    ? opts.maxVisits : DEFAULT_PROOF_VISITS;
+  const cacheKey = useExact ? exactProofKey(view, clues, maxVisits) : null;
+  if (lastExactProof && lastExactProof.key === cacheKey) return lastExactProof.facts;
   const size = view.width * view.height;
   const status = new Map();
   const mark = (cell, value) => {
@@ -108,21 +323,21 @@ function proveFacts(view, clues, opts) {
 
     if (useSubset && status.size === before) {
       for (let i = 0; i < residuals.length; i++) {
-        for (let j = 0; j < residuals.length; j++) {
-          if (i === j) continue;
-          const small = residuals[i];
-          const large = residuals[j];
-          if (small.unknown.length >= large.unknown.length) continue;
-          if (!small.unknown.every((cell) => large.set.has(cell))) continue;
-          const difference = large.unknown.filter((cell) => !small.set.has(cell));
-          const need = large.need - small.need;
-          if (need < 0 || need > difference.length) {
+        for (let j = i + 1; j < residuals.length; j++) {
+          const left = residuals[i];
+          const right = residuals[j];
+          const leftOnly = left.unknown.filter((cell) => !right.set.has(cell));
+          const rightOnly = right.unknown.filter((cell) => !left.set.has(cell));
+          const difference = left.need - right.need;
+          if (difference < -rightOnly.length || difference > leftOnly.length) {
             throw new Error('visible clues are inconsistent');
           }
-          if (need === 0) {
-            for (const cell of difference) mark(cell, 2);
-          } else if (need === difference.length) {
-            for (const cell of difference) mark(cell, 1);
+          if (difference === leftOnly.length) {
+            for (const cell of leftOnly) mark(cell, 1);
+            for (const cell of rightOnly) mark(cell, 2);
+          } else if (difference === -rightOnly.length) {
+            for (const cell of leftOnly) mark(cell, 2);
+            for (const cell of rightOnly) mark(cell, 1);
           }
         }
       }
@@ -150,17 +365,29 @@ function proveFacts(view, clues, opts) {
 
     changed = status.size !== before;
   }
+  if (useExact) {
+    const exact = proveExactFacts(
+      view, clues, status, mark, maxVisits);
+    status.complete = exact.complete;
+    status.visits = exact.visits;
+    status.method = exact.complete ? 'all-consistent-layouts' : 'work-limit';
+    lastExactProof = { key: cacheKey, facts: status };
+  } else {
+    status.complete = false;
+    status.visits = 0;
+    status.method = 'rules-only';
+  }
   return status;
 }
 
-function buildStructure(view) {
+function buildStructure(view, proofOptions) {
   const size = view.width * view.height;
   if (view.revealed.length !== size || view.adjacent.length !== size) {
     throw new Error('board view has the wrong size');
   }
 
   const raw = rawClues(view);
-  const facts = proveFacts(view, raw);
+  const facts = proveFacts(view, raw, proofOptions);
   const clues = [];
   const cluesOfCell = new Map();
   const frontierSet = new Set();
@@ -511,6 +738,7 @@ function redrawEntry(certificate, clicked, currentMines, random) {
 }
 
 const Justice = {
+  PROOF_VERSION: VISIBLE_PROOF_VERSION,
   neighbors: justiceNeighbors,
   rawClues,
   proveFacts,

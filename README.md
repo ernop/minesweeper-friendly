@@ -28,6 +28,17 @@ then http://localhost:8018/
 - Tabs: Beginner 9x9/10 (default), Intermediate 16x16/40, Expert 30x16/99, Custom
 - Upper-right Mode menu: Standard, Uniform NG, Single-path NG, Proof-or-die, Angelic, Trial, Short trial, Test trial
 
+## Solver
+
+Proofs use every mine layout consistent with the revealed numbers and total
+mine count, not a fixed catalog of Minesweeper patterns. The engine solves
+connected frontier constraints, combines their mine totals with the
+unconstrained board, and marks a cell only when every valid layout agrees.
+Flags and the hidden board are never treated as player knowledge. If the
+explicit search budget is exhausted, the result is reported as incomplete;
+the game does not turn that engine limit into a criticism or Proof-or-die
+death.
+
 ## Play history
 
 Every finished game, win or loss, is kept per mode in the browser's
@@ -71,11 +82,20 @@ shown right in the row and as a small "(m)" before that game's time in
 every rank list) and, for wins, clicks over
 3BV (clicks beyond the board's minimum). The after-game report groups each
 action once by severity: game loss, game risk, time loss, optional
-one-ply life maximization, or measurement notes. It explains the independent
+one-ply life maximization, or measurement notes. New players see only the
+fatal action after a loss (a win has none at that default scope). Risk/full
+scope reports still show needless or higher-risk actions from games the
+player won. Reports put the fatal action first, then sort survived risks by
+highest selected actual death probability; lower-severity sections follow.
+The inline “After each
+game, show me” selector switches persistently among nothing, fatal only,
+fatal plus risky actions, and full analysis. Full analysis explains the independent
 facts (for example, proven mine plus a safe alternative), quantifies actual
-risk after protection rules, and can redraw the visible position with the
-selected and alternative cells highlighted. Settings choose categories and
-summary / explanation / full-position detail.
+risk after protection rules, and presents only the dimensions that differ
+as short labeled facts. Saved positions crop away uniform covered remainder
+while naming the shown row/column range; selected and alternative cells stay
+highlighted. Bare reveals are evaluated without requiring flags or chords;
+if nothing qualifies under the selected scope, no empty report card appears.
 At the bottom, seven small
 scatter plots chart every win: win time vs date, win time vs hour of day,
 3BV vs time, clicks vs 3BV (with the clicks = 3BV floor drawn in), no-op

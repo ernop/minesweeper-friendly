@@ -81,8 +81,9 @@ function enumerateComponent(cells, clues, visits) {
   return solutions;
 }
 
-function analyzeView(view) {
-  const structure = Justice.buildStructure(view);
+function analyzeView(view, opts) {
+  opts = opts || {};
+  const structure = Justice.buildStructure(view, opts.proof);
   const visits = { n: 0 };
   const components = [];
   for (const component of structure.components) {
@@ -272,7 +273,13 @@ function expectedLife(view, odds, cell) {
 
   let value = 0;
   buckets.forEach((count, key) => {
-    const next = analyzeView(nextView(view, cell, Number(key)));
+    const next = analyzeView(nextView(view, cell, Number(key)), {
+      // One-ply scoring can inspect up to forty hypothetical positions.
+      // Keep each canonical proof bounded; incomplete facts remain sound,
+      // and the odds enumerator either solves the residual or reports that
+      // this branch was unmeasured.
+      proof: { maxVisits: 80000 },
+    });
     const nextMin = next.measured ? minRisk(next) : minRisk(odds);
     value += (count / safeWeight) * (1 - nextMin);
   });
@@ -288,8 +295,9 @@ function justiceWouldSave(view, cell) {
 }
 
 // Score a bare click into `clicked`. Returns null when the click is not
-// a guess: already revealed, locally proven safe, or p(mine) is 0 in
-// every remaining layout (the local prover was just incomplete).
+// a guess: already revealed, proven safe by the canonical constraint
+// solver, or p(mine) is 0 in every enumerated layout after a proof search
+// that explicitly ended incomplete at its work limit.
 function scoreGuess(view, clicked, opts) {
   opts = opts || {};
   if (view.revealed[clicked]) return null;

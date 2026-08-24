@@ -41,11 +41,12 @@ hover changes nothing, layout stability, clear ways in and out) live in
 PRODUCT.md "UI doctrine" — read it before building or reshaping any
 surface.
 
-Solver logic tiers (what "solvable" means): (a) trivial counting — number
-equals hidden or flagged neighbors; (b) subset subtraction between overlapping
-constraints — yields the named patterns 1-1, 1-2, 1-2-1, 1-2-2-1, reductions,
-holes, triangles, corner patterns; (c) full constraint enumeration including
-the global mine count. NG generation is generate → solve → reject/repair →
+Solver logic tiers (what "solvable" means): (a) direct clue counting;
+(b) arbitrary overlap-difference deduction (strict subsets and named
+patterns are special cases); (c) exhaustive frontier-component constraint
+search joined through the global mine count and unconstrained sea.
+Completed tier-(c) results capture every fact common to all layouts
+consistent with the player's visible information. NG generation is generate → solve → reject/repair →
 repeat. One derived result from the session: a 1-2…2-1 wall chain with k twos
 is fully forced unless k ≡ 0 (mod 3), in which case only every third cell is a
 forced mine.
@@ -101,7 +102,9 @@ Implementation notes:
   playMode, identityIndex, transform, trialStartedAt, guesses,
   guessIdealRisk, guessNonideal, guessPerfect, lifeLost, lifeNeedless,
   oddsVersion, actionEvaluations,
-  justiceSaves, fastclickGapMs, musicPlaying} —
+  fastclickGapMs, musicPlaying} —
+  (`justiceSaves` is historical: written only during part of 2026-08-23,
+  no longer recorded or shown; the schema still accepts it) —
   primary measurements only
   (later-added fields may be absent on earlier records; see
   `GAME_RECORD_SCHEMA`). The mode key is board parameters plus play mode
@@ -301,7 +304,12 @@ Implementation notes:
   sample per step (the newest rides the current play position; finished
   samples never change), rates divided by the played time actually
   covered, fastclick median pooled over the lookback's gaps, endings
-  fractions cumulative over the chart window and ignoring the lookback.
+  fractions and the wins' unmarked-mine average (`winUnmarkedFraction`,
+  measured wins only) cumulative over the chart window and ignoring the
+  lookback. Ending kinds (SESSION_END_KINDS) are win, the modern
+  fatal-action statuses (`sessionEndingKind` in the verdict section —
+  the report's exact loss categories), the five legacy verdicts as
+  provenance, and 'other'.
   Constants FASTCLICK_MAX_GAP_MS (1s), SESSION_MIN_PLAY_MS (1s — rates
   over a sliver of covered play are undefined, not absurd),
   SESSION_KEEP_MS (max window + max lookback + slack). RECORDING (RAM only):
@@ -332,8 +340,12 @@ Implementation notes:
   sessionBucketSeries, death in the
   bucket containing to − 1 (an end on a bucket boundary must not spill
   into the next bucket), stored fastclick median as one gap sample per
-  overlapped bucket; live and backfill cannot overlap because every
-  backfilled game ended before the page load. DISPLAY: `SESSION_GROUP` +
+  overlapped bucket, a stored win's unmarked-mine share derived (never
+  stored) by `recordWinUnmarkedShare(record, minesOfModeKey(key))` from
+  flagsPlaced − flagsRemoved (live wins count unflagged mines in
+  checkWin before the auto-flag sweep and pass the share to
+  `sessionRecordEnd('win', share)`); live and backfill cannot overlap
+  because every backfilled game ended before the page load. DISPLAY: `SESSION_GROUP` +
   `SESSION_METRIC_SPECS` (solo rows: mouse speed, fastclick gap, and the
   enabled excess-risk / modeled-life magnitude charts;
   label carries the unit and sits flush on the plot — no axis captions,
@@ -384,19 +396,47 @@ Implementation notes:
   `renderResult` puts `buildVerdictBlocks` in the centered, responsive
   `#result-analysis` below the board (never the 320px stat sidebar);
   the builder groups each action once by primary category and obeys
-  `settings.reportCategories` plus `settings.reportDetail`; life-model
-  secondary prose/alternatives are removed when that optional category is
-  off. `aggregateReportEntries` collapses semantically identical
+  `settings.reportScope` through `reportScopeAllows`: none, fatal-only
+  (new-player default), fatal+risk, or full. `buildReportScopeControl`
+  renders the same persistent choice directly above the current report and
+  re-renders immediately; the settings page shares `REPORT_SCOPE_CHOICES`.
+  Every direct reveal is evaluated before opening whether or not the player
+  ever flags or chords. `buildVerdictBlocks` returns `null` when no enabled
+  category has content; it never manufactures an empty-success measurement
+  note.
+  `orderReportEntries` fixes section order at fatal, game risk, time loss,
+  life maximization, then notes; survived game-risk actions sort by highest
+  selected actual death probability, then excess risk, while other sections
+  retain action order. Winning records use this same path and therefore
+  show survived risky actions at risk/full scope without inventing a fatal block.
+  Life-model secondary prose/alternatives appear only at full scope.
+  `aggregateReportEntries` collapses semantically identical
   positionless entries into reason-specific counts while positioned
-  entries stay individual. `buildEvaluationPosition` draws each saved position without revealing
-  hidden mines. Trial result payloads copy the ledger, and
+  entries stay individual. `actionEvaluationLines` turns positioned
+  reports into compact labeled difference/value rows, merging identical
+  raw/active risk and stating model ties once. `evaluationCropBounds`
+  excludes large alternative sets from its bounds and crops uniform
+  covered remainder to visible/flagged/selected/trigger cells plus two
+  context cells; `buildEvaluationPosition` labels and draws that source
+  range without revealing hidden mines. Trial result payloads copy the ledger, and
   `renderTrialReview` exposes the same blocks under each run's nested
-  action report. `evaluationEndingKind` derives the old five session-chart
-  lines without replacing or erasing the evidence. `normalizeGameRecord`
+  action report. `fatalActionStatusKind` is the single fatal-action
+  classifier: `fatalActionStatusLabel` looks its kind up in
+  FATAL_STATUS_LABELS for the report, and `sessionEndingKind` returns
+  the same kind for the endings chart (legacy records keep their stored
+  five-way verdict as provenance), so chart categories and report
+  wording can never disagree. `evaluationEndingKind` remains only as
+  the old five-way view for the report's legacy labels and verdict
+  styling; modern chords classify
+  by proven/needless/forced mine-opening evidence, while only legacy chord
+  provenance keeps the dedicated chord line. `normalizeGameRecord`
   runs inside history load and import: it converts `stupidDeath`,
   `deathKind`, `deathRisk`, and `deathBestRisk` to an explicitly
   provenance-marked fatal evaluation, deletes all four fields, and causes
-  normalized history to be persisted. A pre-ledger win becomes a
+  normalized history to be persisted. `proofCorrectedEvaluation` also
+  reruns saved-position entries carrying the old
+  `opened-unproven-with-safe-move` tag; a complete proof that the selected
+  cell was safe removes and persists that obsolete tag. A pre-ledger win becomes a
   `pre-action-evaluation-coverage` measurement note instead of an
   invented clean ledger. Runtime code never reads the old fields.
 - Music state (PRODUCT.md "Music playing"): `sampleMusic` fetches
@@ -508,7 +548,7 @@ Implementation notes:
   object lives in `settings-core.js` (userdata 'settings', filled by each
   page's `userdataReady` via `settingsFrom`, which fills absent fields
   from `SETTINGS_SCHEMA` defaults). `SETTINGS_SCHEMA`, `SETTINGS_GROUPS`,
-  `SHOWN_THINGS_*`, `REPORT_CATEGORY_*`, `REPORT_DETAIL_CHOICES`,
+  `SHOWN_THINGS_*`, `REPORT_SCOPE_CHOICES`,
   `NUMBER_DISPLAY_CHOICES`, `settingsFrom`,
   `saveSettings`, the cell iconography SVGs, and `paintCellGlyph` all
   live in `settings-core.js`, shared by both pages. Caution: some schema
@@ -518,22 +558,19 @@ Implementation notes:
   valid().   The controls themselves are `settings.html` +
   `settings-page.js` (2026-08-23; the in-page drawer is gone):
   `#settings-btn` on the game page is now a plain `<a>` to settings.html.
-  The page (stripped to just the switches later on 2026-08-23 — the demo
-  world that briefly lived beside them, with its region glow and
-  `.demo-*` machinery, is gone; see PRODUCT.md): a `#settings-titlebar`
-  with only the site name, then `#settings-layout` — a
-  `#settings-return-rail` (flex column, space-between, stretched to the
-  switch column's height) holding two `.return-to-game` links, one at
-  the top and one beside the column's bottom line, then
-  `#settings-column`. Esc navigates back too. `buildSettingsColumn`
-  renders one section per
-  `SETTINGS_GROUPS` entry into `#settings-column`; each switch is a
-  `buildSettingRow` single-line row — the clickable checkbox + name, with
-  `describe` as the name's title tooltip; captions were purged 2026-08-23
-  (see PRODUCT.md), so a schema `hint` renders a visible second line only
-  when present (only `justUniverse`), and `control: 'choice'` renders via
-  `buildChoiceRow` with each option's explanation as its tooltip — a
-  change just saves. No hover behavior at all — no hover-injected or
+  The page (the demo world is gone; see PRODUCT.md) has a slim
+  `#settings-titlebar`, then centered `#settings-layout`: top return link,
+  page title + automatic-save note, `#settings-column`, and bottom return
+  link. Esc navigates back too. `buildSettingsColumn` renders one
+  `.settings-group` panel per `SETTINGS_GROUPS` entry. Each switch from
+  `buildSettingRow` is one wide label with its name left, checkbox at the
+  far right, and the rare schema `hint` in a dedicated middle column
+  (only `justUniverse`); `describe` remains the name's title tooltip.
+  `buildChoiceRow` puts its radio group to the right of the setting name.
+  `buildShownThings` lays its many switches out as a compact two-column
+  option grid, collapsing responsively. A change just saves; the static
+  note beside the page title explains the absent save button. No hover
+  behavior at all — no hover-injected or
   hover-swapped text, ever (two note mechanisms were removed for this on
   2026-08-23). The game page has no region tagging and no hover
   controls: the `#region-hide-chip` mechanism (hover a result section,
@@ -546,6 +583,9 @@ Implementation notes:
   shownThings.relationshipCharts since 2026-08-23. Exports carry the
   block under the reserved top-level `"settings"` key; `importHistory`
   validates it with the rest of the blob and applies known fields.
+  `reportScopeFromStored` maps the retired `shownThings.endVerdict` /
+  `reportCategories` forms to the nearest tier; explicit modern
+  `reportScope` always wins.
   `justUniverse` is frozen into `justiceEnabledForGame` at first reveal —
   a change on the settings page applies from the next game (the old
   drawer's mid-game lock UI retired with the drawer).
@@ -559,21 +599,27 @@ Implementation notes:
   `index.html`. Exact player rule: a bare click into a certified pocket
   that no outside clue can ever resolve is guaranteed safe. Qualification
   is hidden-layout-independent: `certifyEntry(view, clicked)` receives no
-  witness. It runs `proveFacts` (counting, subset subtraction, terminal
-  global-count facts), `buildStructure` (residual clue components plus
+  witness. It runs `proveFacts` (direct counts, general overlap subtraction,
+  then exhaustive component search coupled by total mines and sea),
+  `buildStructure` (residual clue components plus
   8-connected sea components), then recognizes one compact family:
   `cardinalityShape` (every k-of-n layout), `complementShape` (a connected
   spanning x+y=1 graph whose two equal-total bipartition layouts satisfy
   every residual clue), or one sealed sea remnant whose count is fixed by
   cardinality/complement frontier templates. Covered external cells must
   be proved mines or receive an invariant pocket contribution. Whole
-  residual components are used; v1 never searches arbitrary subsets.
+  residual components are used; v1 never searches arbitrary pocket subsets.
   Unsupported asymmetric/exotic ambiguity is outside the product rule.
   This replaced two model-enumeration implementations on 2026-08-20: the
   first hung mid-game; the second's sparse benchmark falsely supported a
   universal <3ms claim, while a deterministic 40-variable sealed
   constraint family exposed 1,048,576 layouts and took ~693ms. The current
-  certificate judge enumerates no layouts and has no work budget.
+  certificate-shape judge itself enumerates no ambiguous pocket layouts.
+  Its canonical proof prepass now has a deterministic two-million-node
+  ceiling and returns a Map annotated with `complete`, `visits`, and
+  `method`; over-limit results retain only sound facts and cannot justify a
+  negative player judgement. One visible-position cache avoids repeating
+  the same exact proof across click scoring, reports, and mode rules.
   `redrawEntry(certificate, clicked, currentMines, random)` consults the
   witness only after certification: an already-clear entry returns it
   unchanged; a mined cardinality/sea entry directly samples k locations
@@ -581,14 +627,20 @@ Implementation notes:
   Game side: only `revealCell` calls `attemptJustice(index)`, before its
   mine test and never on the first reveal. `chord` never calls Justice;
   wrong flags remain fatal. Every qualifying entry increments
-  `justiceEvents` regardless of whether redraw occurred, pushes a
-  {type, clearWays, totalWays, saved} detail onto `justiceDetails`
-  (saved = the cell was mined before the redraw; reset in newGame; feeds
-  the end-game recap and the record's `justiceSaves` count) and appends
-  a live
-  `.justice-live-word` to #justice-live at the board's right (multiple
-  events stack downward). `reportResult` stores `justice`,
-  `justiceSaves`, `justiceEnabled`, `seed`, `rngVersion`, `boardVersion`,
+  `justiceEvents` regardless of whether redraw occurred and pushes a
+  {type, clearWays, totalWays} detail onto `justiceDetails` (reset in
+  newGame; feeds the end-game recap). Whether the entry's cell was mined
+  before the redraw is deliberately not tracked past the redraw itself:
+  the player's point of view is the only one that exists (creator
+  directive 2026-08-23) — recap, details, stats, and record never reveal
+  or refer to an "actual" mine reality, and the historical `justiceSaves`
+  field stopped being written the same day it was added. When
+  `finish()` runs, `showJusticeSurvivals` attaches one
+  `.justice-live-word` chip to #justice-live at the board's right,
+  wording the count as "you won a forced coinflip" (pluralized) —
+  nothing pops up mid-game, and no chip appears when the count is zero
+  (2026-08-23). `reportResult` stores `justice`,
+  `justiceEnabled`, `seed`, `rngVersion`, `boardVersion`,
   and `justiceVersion`; rankings intentionally remain mixed (confirmed
   as the product 2026-08-23, no longer a deferral). `rng.js`
   exports `GameRandom`: `createSeed` obtains 128
@@ -607,6 +659,11 @@ Implementation notes:
 - Guess ledger (PRODUCT.md "Guess ledger"): `odds.js` enumerates remaining
   consistent layouts on residual clue components (budget 22 vars /
   250000 visits) plus a binomial sea, then scores a bare unproven click.
+  `analyzeView(view, opts)` can pass proof options through
+  `Justice.buildStructure`; one-ply hypothetical next positions cap the
+  canonical proof prepass at 80000 visits so up to forty branches cannot
+  each consume the two-million-visit gameplay budget. Incomplete proof
+  facts stay sound, and residual odds either complete or remain unmeasured.
   `noteGuess` runs from `revealCell` after the first-click path and
   before Justice, gated by `guessLedgerAppliesToMode()` (standard,
   trial modes, uniform/single-path NG — modes where hidden mines
@@ -619,9 +676,10 @@ Implementation notes:
   reveal. `scoreGuess` stores absolute p (`lifeLost`), excess over min p
   (`lifeNeedless`), `idealRisk`, and one-ply expected remaining life
   (`perfectPlay`). A covered proven-safe cell makes min p 0, so any
-  guess is fully needless; the chip's hover names which case applied.
-  Live chips (`.guess-live-word`) stack in
-  `#justice-live`. `node tests/odds-test.js` includes a seeded
+  guess is fully needless. The per-guess risk chips that once showed
+  these numbers beside the board were withheld on 2026-08-23 (creator
+  request: reintroduce only with a proper explanation); the ledger
+  itself is unchanged. `node tests/odds-test.js` includes a seeded
   brute-force parity section: on random small boards every consistent
   layout is enumerated and `analyzeView` probabilities must match it
   exactly.

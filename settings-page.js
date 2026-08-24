@@ -29,16 +29,29 @@ document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') location.href = 'index.html';
 });
 
-// One row per switch: the clickable label is exactly the checkbox + name
-// line, and the full description rides on the name as a tooltip. Only a
-// schema entry with a `hint` (something the name itself cannot say) gets
-// a second line. A change saves immediately. `subfield` marks a
-// shown-things child.
+// A switch row is one wide click target: name on the left, the rare
+// visible hint in its own middle column, and the control at the right.
+// `subfield` marks one of the compact shown-things switches.
 function buildSettingRow(s, subfield, labelText, titleText) {
-  const row = document.createElement('div');
-  row.className = 'setting-row' + (subfield !== null ? ' setting-child' : '');
-  const main = document.createElement('label');
-  main.className = 'setting-main';
+  const row = document.createElement('label');
+  row.className = subfield === null
+    ? 'setting-row setting-toggle-row'
+    : 'setting-option';
+  row.dataset.setting = subfield === null ? s.field : `${s.field}.${subfield}`;
+
+  const name = document.createElement('span');
+  name.className = 'setting-name';
+  name.textContent = labelText;
+  name.title = titleText;
+  row.appendChild(name);
+
+  if (s.hint !== undefined && subfield === null) {
+    const describe = document.createElement('span');
+    describe.className = 'setting-describe';
+    describe.textContent = s.hint;
+    row.appendChild(describe);
+  }
+
   const box = document.createElement('input');
   box.type = 'checkbox';
   box.checked = subfield !== null ? settings[s.field][subfield] : settings[s.field];
@@ -47,26 +60,16 @@ function buildSettingRow(s, subfield, labelText, titleText) {
     else settings[s.field] = box.checked;
     saveSettings();
   });
-  const name = document.createElement('span');
-  name.className = 'setting-name';
-  name.textContent = labelText;
-  name.title = titleText;
-  main.append(box, name);
-  row.appendChild(main);
-  if (s.hint !== undefined && subfield === null) {
-    const describe = document.createElement('p');
-    describe.className = 'setting-describe';
-    describe.textContent = s.hint;
-    row.appendChild(describe);
-  }
+  row.appendChild(box);
   return row;
 }
 
-// A choice row: the name line, then one radio per option (the option's
-// own explanation rides on it as a tooltip).
+// Choice settings use the same two-column row, with the complete radio
+// group occupying the control column.
 function buildChoiceRow(s) {
   const row = document.createElement('div');
-  row.className = 'setting-row';
+  row.className = 'setting-row setting-choice-row';
+  row.dataset.setting = s.field;
   const name = document.createElement('span');
   name.className = 'setting-name';
   name.textContent = s.label;
@@ -74,6 +77,8 @@ function buildChoiceRow(s) {
   row.appendChild(name);
   const group = document.createElement('div');
   group.className = 'setting-choices';
+  group.setAttribute('role', 'radiogroup');
+  group.setAttribute('aria-label', s.label);
   for (const [value, label, description] of s.choices) {
     const item = document.createElement('label');
     item.className = 'setting-choice';
@@ -94,46 +99,54 @@ function buildChoiceRow(s) {
   return row;
 }
 
-// One section per SETTINGS_GROUPS entry, rows in schema order within
-// their group; object-valued switch groups render inline under their own
-// subheading. Control-'none' entries never render (their values are set
-// where the thing itself lives, on the game page).
+function buildShownThings(s) {
+  const subgroup = document.createElement('section');
+  subgroup.className = 'settings-subgroup';
+
+  const heading = document.createElement('h3');
+  heading.className = 'settings-subheading';
+  heading.textContent = s.label;
+  heading.title = s.describe;
+  subgroup.appendChild(heading);
+
+  const options = document.createElement('div');
+  options.className = 'setting-options-grid';
+  for (const [key, label, description] of SHOWN_THINGS_OPTIONS) {
+    options.appendChild(buildSettingRow(s, key, label, description));
+  }
+  subgroup.appendChild(options);
+  return subgroup;
+}
+
+// Each schema group becomes one panel with a stable heading column and a
+// control body. Control-'none' entries remain editable where they live.
 function buildSettingsColumn() {
   const column = document.getElementById('settings-column');
+  column.replaceChildren();
   for (const [groupId, groupLabel] of SETTINGS_GROUPS) {
-    const heading = document.createElement('div');
+    const section = document.createElement('section');
+    section.className = 'settings-group';
+
+    const heading = document.createElement('h2');
     heading.className = 'settings-group-heading';
     heading.textContent = groupLabel;
-    column.appendChild(heading);
+    section.appendChild(heading);
+
+    const body = document.createElement('div');
+    body.className = 'settings-group-body';
     for (const s of SETTINGS_SCHEMA) {
       if (s.group !== groupId || s.control === 'none') continue;
       if (s.control === 'shown-things') {
-        const sub = document.createElement('div');
-        sub.className = 'settings-subheading';
-        sub.textContent = s.label;
-        sub.title = s.describe;
-        column.appendChild(sub);
-        for (const [key, label, description] of SHOWN_THINGS_OPTIONS) {
-          column.appendChild(buildSettingRow(s, key, label, description));
-        }
-        continue;
-      }
-      if (s.control === 'report-categories') {
-        const sub = document.createElement('div');
-        sub.className = 'settings-subheading';
-        sub.textContent = s.label;
-        sub.title = s.describe;
-        column.appendChild(sub);
-        for (const [key, label, description] of REPORT_CATEGORY_OPTIONS) {
-          column.appendChild(buildSettingRow(s, key, label, description));
-        }
+        body.appendChild(buildShownThings(s));
         continue;
       }
       if (s.control === 'choice') {
-        column.appendChild(buildChoiceRow(s));
+        body.appendChild(buildChoiceRow(s));
         continue;
       }
-      column.appendChild(buildSettingRow(s, null, s.label, s.describe));
+      body.appendChild(buildSettingRow(s, null, s.label, s.describe));
     }
+    section.appendChild(body);
+    column.appendChild(section);
   }
 }
