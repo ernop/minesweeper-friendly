@@ -22,22 +22,26 @@ is still unbuilt.
 
 ### More board generators (creator, 2026-08-25)
 
-Future registry entries named when the registry was requested, plus
-natural neighbors of the built ones:
+Built the same day (PRODUCT.md "Board generators and top score keys"):
+pink noise (with the anisotropy stretch parameter), blue noise, green
+noise, stippled, letterforms, and patriotic. Still unbuilt:
 
-- **Stippled.** Stippling-style placement (denser blue-noise dots
-  following a target density image or gradient).
-- **Mine density via English letterforms.** Rasterized letters (or
-  words) as the density field, so the solved board spells something.
-- **Anisotropic noise.** Stretch the pink-noise field's x vs y
-  wavelength (streaks, veins, bands) — one aspect-ratio parameter.
 - **Threshold blobs.** Cut the noise field at a level and fill the
   super-threshold region with mines (hard blob edges instead of the
   built proportional weighting) — parameterized by edge softness.
 - **Toroidal wrap.** Periodic noise/distance so the board tiles;
   matters for future wrapped-board modes.
-- **Green noise.** Band-pass (mid-frequency-only) placement: clumps of
-  one characteristic size with even spacing between clumps.
+- **Black noise.** The audio-taxonomy color not yet represented:
+  almost-everywhere emptiness with rare tight bursts — most of the
+  board minefree, a few dense pockets. (Violet noise, blue's steeper
+  sibling, is effectively reachable by raising blue's spread and is
+  not planned as its own entry.)
+- **Words in letterforms.** The letterforms generator draws random
+  letters; a chosen word (part of the key, so each word ranks
+  separately) is the natural next step.
+- **More flags and emblems.** Patriotic is stars-and-stripes; other
+  flag geometries (tricolors, crosses, circles) are the same
+  region-allocation pattern with different regions.
 - **Combined modes and sizes.** More modes that combine generators
   with the NG/graded predicates, and new board sizes as their own
   ranked keys — the top score key already carries all of it.
@@ -208,8 +212,9 @@ from the RAM trace of the game just ended. Not built:
   isometries, lobby → start → repeat-comparison review); Short
   trial (4 × 4); Test trial (1 × 4); correctness / throughput / IOS
   (derived); guess ledger (life lost, needless, ideal-risk, one-ply
-  perfect play); board generators (Default / Pink noise / Blue noise,
-  per-key rankings via the top score key, Board lab exploration mode);
+  perfect play); board generators (Default / Pink noise / Blue noise /
+  Green noise / Stippled / Letterforms / Patriotic, per-key rankings
+  via the top score key, Board lab exploration mode);
   music-playing state (boolean asked of the local base
   system); versioned action-evaluation ledger with exclusive game-loss /
   game-risk / time-loss / optional life-maximization / measurement-note

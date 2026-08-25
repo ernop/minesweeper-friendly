@@ -135,13 +135,102 @@ check('pink noise at contrast 0 behaves like uniform ('
   + flatPairs.toFixed(1) + ' vs ' + uniformPairs.toFixed(1) + ')',
 Math.abs(flatPairs - uniformPairs) < uniformPairs * 0.25);
 
+// Green noise clumps too (one characteristic size).
+const greenPairs = averageOver(generatorWithDefaults('green-noise'), adjacentMinePairs);
+check('green noise clusters mines into clumps ('
+  + greenPairs.toFixed(1) + ' vs ' + uniformPairs.toFixed(1) + ')',
+greenPairs > uniformPairs * 1.3);
+
+// Letterform strokes concentrate the mines far above uniform adjacency.
+const letterPairs = averageOver(generatorWithDefaults('letterforms'), adjacentMinePairs);
+check('letterform strokes concentrate mines ('
+  + letterPairs.toFixed(1) + ' vs ' + uniformPairs.toFixed(1) + ')',
+letterPairs > uniformPairs * 1.5);
+
+// Stippling at density range 0 degenerates to pure blue noise.
+const stippleFlat = { id: 'stippled', params: { scale: 16, contrast: 0, spread: 12 } };
+const stippleFlatSpacing = averageOver(stippleFlat, meanNearestMineDistance);
+check('stippled at density range 0 spaces like blue noise ('
+  + stippleFlatSpacing.toFixed(2) + ' vs uniform ' + uniformSpacing.toFixed(2) + ')',
+stippleFlatSpacing > uniformSpacing * 1.2);
+
+// Anisotropy: positive stretch makes horizontal streaks (mine pairs
+// along x outnumber pairs along y); negative stretch flips it.
+function axisPairs(dx, dy) {
+  return (mineAt, width, height) => {
+    let pairs = 0;
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        if (!mineAt[y * width + x]) continue;
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx < width && ny < height && mineAt[ny * width + nx]) pairs++;
+      }
+    }
+    return pairs;
+  };
+}
+
+const stretched = { id: 'pink-noise', params: { alpha: 1, scale: 8, contrast: 2, stretch: 3 } };
+const squeezed = { id: 'pink-noise', params: { alpha: 1, scale: 8, contrast: 2, stretch: -3 } };
+const stretchedH = averageOver(stretched, axisPairs(1, 0));
+const stretchedV = averageOver(stretched, axisPairs(0, 1));
+const squeezedH = averageOver(squeezed, axisPairs(1, 0));
+const squeezedV = averageOver(squeezed, axisPairs(0, 1));
+check('positive stretch makes horizontal streaks ('
+  + stretchedH.toFixed(1) + ' horizontal vs ' + stretchedV.toFixed(1) + ' vertical pairs)',
+stretchedH > stretchedV * 1.3);
+check('negative stretch makes vertical veins ('
+  + squeezedV.toFixed(1) + ' vertical vs ' + squeezedH.toFixed(1) + ' horizontal pairs)',
+squeezedV > squeezedH * 1.3);
+
+// Patriotic: the canton takes its exact area-proportional mine share as
+// an even star field; the stripes alternate dense/sparse.
+{
+  const width = 30;
+  const height = 16;
+  const mines = 99;
+  const safeIndex = width * height - 1; // outside the canton
+  const cantonWidth = Math.round(width * 0.4);
+  const cantonHeight = Math.round(height * 7 / 13);
+  const cantonCells = cantonWidth * cantonHeight;
+  const wantCanton = Math.round(mines * cantonCells / (width * height - 1));
+  let denseTotal = 0;
+  let sparseTotal = 0;
+  for (let k = 0; k < 20; k++) {
+    const rng = GameRandom.fromSeed(seedNumbered(3000 + k));
+    const mineAt = BoardGenerators.place(
+      generatorWithDefaults('patriotic'), width, height, mines, safeIndex, rng);
+    let inCanton = 0;
+    for (let i = 0; i < mineAt.length; i++) {
+      if (!mineAt[i]) continue;
+      const x = i % width;
+      const y = (i - x) / width;
+      if (x < cantonWidth && y < cantonHeight) {
+        inCanton++;
+      } else if (Math.floor(y * 13 / height) % 2 === 0) {
+        denseTotal++;
+      } else {
+        sparseTotal++;
+      }
+    }
+    check('canton holds exactly its proportional mine share (' + inCanton + ')',
+      inCanton === wantCanton);
+  }
+  check('dense stripes far outweigh sparse stripes ('
+    + denseTotal + ' vs ' + sparseTotal + ')', denseTotal > sparseTotal * 2);
+}
+
 //-------top score key suffix-------
 
 check('default generator adds no key suffix',
   BoardGenerators.keySuffix(BoardGenerators.uniformGenerator()) === '');
 check('pink noise key suffix is canonical (schema order)',
   BoardGenerators.keySuffix(generatorWithDefaults('pink-noise'))
-    === '+pink-noise(alpha=1,scale=8,contrast=2)');
+    === '+pink-noise(alpha=1,scale=8,contrast=2,stretch=0)');
+check('patriotic key suffix',
+  BoardGenerators.keySuffix(generatorWithDefaults('patriotic'))
+    === '+patriotic(stripes=13,contrast=8,canton=0.4)');
 check('blue noise key suffix',
   BoardGenerators.keySuffix(generatorWithDefaults('blue-noise'))
     === '+blue-noise(spread=8)');
@@ -160,7 +249,8 @@ check('parameterized display label', BoardGenerators.displayLabel(
 
 const filled = BoardGenerators.paramsFrom('pink-noise', { alpha: 2.5 });
 check('override kept', filled.alpha === 2.5);
-check('absent params take defaults', filled.scale === 8 && filled.contrast === 2);
+check('absent params take defaults',
+  filled.scale === 8 && filled.contrast === 2 && filled.stretch === 0);
 
 check('empty params block valid', BoardGenerators.validParamsBlock({}));
 check('good params block valid',

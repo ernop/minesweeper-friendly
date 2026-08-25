@@ -187,13 +187,38 @@ deal fixed identities.
   without replacement (weight exp(contrast × standardized field)).
   Parameters: spectral exponent alpha (0 = white/uniform, 1 = pink,
   2 = red/brown; the slider is the whole colored-noise family on the
-  clustered side), feature size (base wavelength in cells), and
-  contrast (0 = uniform regardless of the field; higher hugs the field
-  peaks). Produces dense mine clumps and open plains.
+  clustered side), feature size (base wavelength in cells), contrast
+  (0 = uniform regardless of the field; higher hugs the field peaks),
+  and stretch (anisotropy as log2 of the x:y feature ratio: 0 = round
+  features, positive = horizontal streaks, negative = vertical veins).
+  Produces dense mine clumps and open plains.
 - **Blue noise.** Mitchell's best-candidate sampling: each mine
   auditions `spread` uniform candidates and takes the one farthest from
   every placed mine. spread 1 is exactly uniform; higher is more even.
   Produces evenly spaced mines with few adjacent pairs.
+- **Green noise.** One mid-frequency octave only (band-pass — the
+  halftoning literature's green noise): mine clumps of one
+  characteristic size with even spacing between clumps. Parameters:
+  clump spacing (the band's wavelength; clumps about half that wide)
+  and contrast.
+- **Stippled.** A smooth large-scale density field (red-noise slope)
+  rendered the way stippling renders ink: best-candidate scored by
+  nearest-distance × local density, so spacing is locally even — tight
+  in dense regions, wide in sparse ones. Parameters: density feature
+  size, density range (0 = pure blue noise), evenness (candidates).
+- **Letterforms.** Mine density follows random uppercase letters from a
+  built-in 5×7 pixel font, one per equal horizontal slot, letters drawn
+  from the game seed like the rest of the layout — the solved board
+  spells them in mines. Parameters: letters (1–6) and stroke contrast
+  (stroke cells weigh e^contrast against 1; high values put nearly all
+  mines in the strokes).
+- **Patriotic.** Stars and stripes: the upper-left canton (a chosen
+  share of the width, the classic 7/13 of the height) takes its exact
+  area-proportional share of the mines as an evenly spread star field
+  (best-candidate); the rest fall into alternating dense/sparse
+  horizontal stripes by weighted sampling, dense at top and bottom.
+  Parameters: stripes (odd, 3–21), stripe contrast (dense:sparse
+  weight ratio), canton width (0 = no canton).
 
 In Standard and Angelic the generator places the board directly; in
 Uniform NG and Proof-or-die it supplies the candidates for the

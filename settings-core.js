@@ -214,7 +214,7 @@ const SETTINGS_SCHEMA = [
     valid: (v) => typeof v === 'string' && BoardGenerators.SPECS.some((g) => g.id === v),
     group: 'gameplay',
     label: 'board generator',
-    describe: 'the mine-placement algorithm (Default, Pink noise, Blue noise), chosen with the Generator menu in the game\u2019s upper right; each generator + parameter combination keeps its own top score lists',
+    describe: 'the mine-placement algorithm, chosen with the Generator menu in the game\u2019s upper right (the menu lists them all); each generator + parameter combination keeps its own top score lists',
     control: 'none',
   },
   {

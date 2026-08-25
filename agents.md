@@ -699,10 +699,17 @@ Implementation notes:
   `version` (the record's `boardVersion` string), a parameter schema
   ({key, label, min/max/step, default, describe}), and `place(width,
   height, mineCount, safeIndex, rng, params)`; `safeIndex` is null in
-  the Board lab (no first click). Pink noise = fractal value-noise
-  field (persistence 2^(−alpha/2) gives spectral slope alpha) +
-  Efraimidis-Spirakis weighted sampling; blue noise = Mitchell
-  best-candidate with an O(n)-per-mine nearest-distance relax. Game
+  the Board lab (no first click). Seven generators (2026-08-25): pink
+  noise = fractal value-noise field (persistence 2^(−alpha/2) gives
+  spectral slope alpha; `stretch` = log2 x:y anisotropy) +
+  Efraimidis-Spirakis weighted sampling (`weightedSampleInto`); blue
+  noise = Mitchell best-candidate (`bestCandidatePlace`, O(n)-per-mine
+  nearest-distance relax, pluggable score); green noise = one band-pass
+  octave, weighted; stippled = red-noise density field × best-candidate
+  distance score; letterforms = seed-drawn letters from the built-in
+  5×7 `LETTERFORMS` font as exp-weights; patriotic = exact
+  area-proportional star-field canton (best-candidate) + alternating
+  stripe weights. Game
   side: `settings.boardGenerator` + `settings.boardGeneratorParams`
   (per-generator overrides, deep-copied in `settingsFrom`), the
   `#board-generator-select` menu (`buildBoardGeneratorSwitcher`,
