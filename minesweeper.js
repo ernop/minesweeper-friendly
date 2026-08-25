@@ -9,8 +9,10 @@ const DIFFICULTIES = {
 };
 
 // Play mode is a second uniqueifier next to board size: rankings and
-// history keys are per (board, play mode). Trial results never mix
-// with the other modes' lists.
+// history keys are per (board, play mode, board generator). Trial
+// results never mix with the other modes' lists. Board lab is the
+// non-play mode for exploring board generation: every board appears
+// already solved, nothing is recorded.
 const PLAY_MODES = [
   { id: 'standard', label: 'Standard' },
   { id: 'uniform-ng', label: 'Uniform NG' },
@@ -20,6 +22,7 @@ const PLAY_MODES = [
   { id: 'trial', label: 'Trial' },
   { id: 'short-trial', label: 'Short trial' },
   { id: 'test-trial', label: 'Test trial' },
+  { id: 'board-lab', label: 'Board lab' },
 ];
 const PLAY_MODE_IDS = new Set(PLAY_MODES.map((m) => m.id));
 
@@ -27,7 +30,11 @@ const LCD_MIN = -99;
 const LCD_MAX = 999;
 const TIMER_CAP_SECONDS = 999;
 const RNG_VERSION = GameRandom.VERSION;
-const BOARD_VERSION = 'uniform-first-safe-fisher-yates-v1';
+// One version string per board generator (generators.js); a record's
+// boardVersion names the exact placement algorithm its seed replays
+// through. The default generator's string predates the registry.
+const BOARD_VERSION = BoardGenerators.byId(BoardGenerators.DEFAULT_ID).version;
+const BOARD_VERSIONS = new Set(BoardGenerators.SPECS.map((g) => g.version));
 const JUSTICE_VERSION = 'sealed-pocket-mercy-v2';
 const JUSTICE_VERSIONS = new Set([
   'sealed-pocket-mercy-v1',
@@ -90,7 +97,7 @@ function faceSvg(features) {
 let config = { ...DIFFICULTIES.beginner };
 let cells = [];            // {mine, revealed, flagged, adjacent}
 let cellElements = [];
-let gameState = 'ready';   // ready | playing | won | lost
+let gameState = 'ready';   // ready | playing | won | lost | lab (Board lab display)
 let minesPlaced = false;
 let flagsCount = 0;
 let revealedCount = 0;
@@ -237,9 +244,35 @@ function applyMineMap(mineAt) {
   minesPlaced = true;
 }
 
+//-------BOARD GENERATORS (registry in generators.js)-------
+
+// Which modes place mines with the selected board generator. Single-path
+// NG carves corridor boards (its placer is the mode itself), and trial
+// sessions build their fixed identities with the default generator.
+function generatorAppliesToMode(mode) {
+  return mode !== 'single-path-ng' && !Trial.isPlayMode(mode);
+}
+
+function boardLabActive() {
+  return settings.playMode === 'board-lab';
+}
+
+// The generator the current settings select for the current mode: the
+// chosen id with its stored parameter overrides filled from the schema
+// defaults, or the default generator where the choice does not apply.
+function activeGenerator() {
+  if (!generatorAppliesToMode(settings.playMode)) return BoardGenerators.uniformGenerator();
+  const id = settings.boardGenerator;
+  return { id, params: BoardGenerators.paramsFrom(id, settings.boardGeneratorParams[id]) };
+}
+
+// Frozen per board at newGame so a mid-board settings import cannot make
+// the finished record disagree with the placement that actually ran.
+let gameGenerator = null;
+
 function placeMines(safeIndex) {
-  applyMineMap(Solver.randomPlacement(
-    config.width, config.height, config.mines, safeIndex, gameRandom));
+  applyMineMap(BoardGenerators.place(
+    gameGenerator, config.width, config.height, config.mines, safeIndex, gameRandom));
 }
 
 function ngAttempts() {
@@ -263,7 +296,11 @@ function placeMinesForPlayMode(safeIndex) {
   const pred = mode === 'uniform-ng' ? (r) => r.uniform
     : mode === 'single-path-ng' ? (r) => r.singlePath
     : (r) => r.solved;
-  const placer = mode === 'single-path-ng' ? Solver.tunnelPlacement : Solver.randomPlacement;
+  // NG modes generate-and-reject over the chosen generator's candidates,
+  // so a colored-noise NG board is noise-shaped AND fully solvable.
+  const placer = mode === 'single-path-ng'
+    ? Solver.tunnelPlacement
+    : (w, h, m, safe, rng) => BoardGenerators.place(gameGenerator, w, h, m, safe, rng);
   backupStatus.textContent = 'generating ' + playModeLabel() + ' board\u2026';
   let got;
   try {
@@ -315,6 +352,7 @@ function newGame() {
   oddsFailed = false;
   gameSeed = GameRandom.createSeed();
   gameRandom = GameRandom.fromSeed(gameSeed);
+  gameGenerator = activeGenerator();
   justiceLive.textContent = '';
   clearInterval(timerInterval);
   timerInterval = null;
@@ -357,8 +395,152 @@ function newGame() {
   syncResultClearance();
   if (Trial.isPlayMode(settings.playMode) && trialIsActive()) setupTrialBoard();
   else trialPresentation = null;
+  if (boardLabActive()) buildLabBoard();
   document.title = 'Minesweeper - ' + playModeLabel();
   renderTrialChrome();
+  syncLabChrome();
+}
+
+//-------BOARD LAB (the non-play mode for exploring board generation)-------
+
+// The lab shows every board as if it had just been solved: safe cells
+// open with their numbers, mines flagged, counters at their win values.
+// No timer runs, no input reaches the cells, and nothing is recorded.
+function buildLabBoard() {
+  applyMineMap(BoardGenerators.place(
+    gameGenerator, config.width, config.height, config.mines, null, gameRandom));
+  for (let i = 0; i < cells.length; i++) {
+    if (cells[i].mine) {
+      cells[i].flagged = true;
+    } else {
+      cells[i].revealed = true;
+      revealedCount++;
+    }
+    updateCell(i);
+  }
+  flagsCount = config.mines;
+  setLcd(mineCounter, 0);
+  gameState = 'lab';
+}
+
+// The lab panel's slider rows are rebuilt only when the generator
+// changes: a regeneration mid-drag must not replace the slider element
+// under the pointer.
+let labPanelGeneratorId = null;
+let labControls = null;
+
+function labSliderRow(labelText, title, min, max, step, value, onInput) {
+  const row = document.createElement('label');
+  row.className = 'lab-row';
+  const name = document.createElement('span');
+  name.className = 'lab-name';
+  name.textContent = labelText;
+  if (title !== '') name.title = title;
+  const slider = document.createElement('input');
+  slider.type = 'range';
+  slider.min = String(min);
+  slider.max = String(max);
+  slider.step = String(step);
+  slider.value = String(value);
+  const readout = document.createElement('span');
+  readout.className = 'lab-value';
+  readout.textContent = String(value);
+  slider.addEventListener('input', () => {
+    readout.textContent = slider.value;
+    onInput(Number(slider.value));
+  });
+  row.append(name, slider, readout);
+  return { row, slider, readout };
+}
+
+// Classic winmine constraint, same as the custom form: mines fit with at
+// least a 3x3 opening's worth of space (floor 1 for one-row boards).
+function labMaxMines() {
+  return Math.max(1, (config.width - 1) * (config.height - 1));
+}
+
+function buildLabPanel() {
+  const panel = document.getElementById('board-lab-panel');
+  panel.textContent = '';
+  labControls = { params: {} };
+
+  const note = document.createElement('p');
+  note.id = 'board-lab-note';
+  note.textContent = 'Every board is shown already solved. Nothing here is timed or recorded.';
+  panel.appendChild(note);
+
+  const sizeChanged = () => {
+    if (config.mines > labMaxMines()) config.mines = labMaxMines();
+    syncDifficultyTabs();
+    newGame();
+  };
+  labControls.width = labSliderRow('width', '', 8, 100, 1, config.width, (v) => {
+    config.width = v;
+    sizeChanged();
+  });
+  labControls.height = labSliderRow('height', '', 1, 100, 1, config.height, (v) => {
+    config.height = v;
+    sizeChanged();
+  });
+  labControls.mines = labSliderRow('mines', '', 1, labMaxMines(), 1, config.mines, (v) => {
+    config.mines = v;
+    syncDifficultyTabs();
+    newGame();
+  });
+  panel.append(labControls.width.row, labControls.height.row, labControls.mines.row);
+
+  const spec = BoardGenerators.byId(settings.boardGenerator);
+  const params = BoardGenerators.paramsFrom(spec.id, settings.boardGeneratorParams[spec.id]);
+  for (const p of spec.params) {
+    const control = labSliderRow(p.label, p.describe, p.min, p.max, p.step, params[p.key], (v) => {
+      if (!(spec.id in settings.boardGeneratorParams)) {
+        settings.boardGeneratorParams[spec.id] = {};
+      }
+      settings.boardGeneratorParams[spec.id][p.key] = v;
+      saveSettings();
+      newGame();
+    });
+    labControls.params[p.key] = control;
+    panel.appendChild(control.row);
+  }
+
+  const remake = document.createElement('button');
+  remake.type = 'button';
+  remake.id = 'board-lab-new';
+  remake.textContent = 'make new board';
+  remake.addEventListener('click', () => newGame());
+  panel.appendChild(remake);
+  labPanelGeneratorId = spec.id;
+}
+
+// Size sliders track config (the difficulty tabs also change it); param
+// sliders are the only writers of their values, so they are not re-set
+// here — a generator change or settings import rebuilds the panel.
+function syncLabPanelValues() {
+  for (const [control, value] of [
+    [labControls.width, config.width],
+    [labControls.height, config.height],
+    [labControls.mines, config.mines],
+  ]) {
+    control.slider.value = String(value);
+    control.readout.textContent = String(value);
+  }
+  labControls.mines.slider.max = String(labMaxMines());
+}
+
+function syncLabChrome() {
+  const panel = document.getElementById('board-lab-panel');
+  const lab = boardLabActive();
+  document.getElementById('scores-nav').hidden = lab;
+  panel.hidden = !lab;
+  if (!lab) {
+    panel.textContent = '';
+    labPanelGeneratorId = null;
+    labControls = null;
+    return;
+  }
+  if (labPanelGeneratorId !== settings.boardGenerator) buildLabPanel();
+  else syncLabPanelValues();
 }
 
 function setupTrialBoard() {
@@ -1863,7 +2045,7 @@ function reportResult(outcome) {
     justiceEnabled: justiceEnabledForGame,
     seed: gameSeed,
     rngVersion: RNG_VERSION,
-    boardVersion: BOARD_VERSION,
+    boardVersion: BoardGenerators.byId(gameGenerator.id).version,
     justiceVersion: JUSTICE_VERSION,
     maxAdjacent: shape.maxAdjacent,
     hasSeven: shape.hasSeven,
@@ -1873,6 +2055,11 @@ function reportResult(outcome) {
     playMode: settings.playMode,
     actionEvaluations: actionEvaluations,
   };
+  // The non-default board generator this board was placed with; absent =
+  // the default uniform generator (matching the key suffix convention).
+  if (gameGenerator.id !== BoardGenerators.DEFAULT_ID) {
+    record.generator = { id: gameGenerator.id, params: { ...gameGenerator.params } };
+  }
   // Music state: true if any sample during this game heard audio playing,
   // false if every sample heard silence; no field at all when the base
   // system's endpoint never answered (not measured).
@@ -2307,6 +2494,7 @@ function renderResult(record, modeRecords, options = {}) {
     : (record.outcome === 'win' ? 'Win' : 'Loss');
   resultSummary.textContent = summaryLead + '\n' + boardDisplayLabel()
     + '\n' + playModeLabel()
+    + (record.generator === undefined ? '' : '\n' + BoardGenerators.displayLabel(record.generator))
     + '\n' + (options.historyView ? 'Latest win · ' : '') + formatDate(record.endedAt);
   resultStats.textContent = '';
   resultAnalysis.textContent = '';
@@ -2479,7 +2667,8 @@ const GAME_RECORD_SCHEMA = [
   { field: 'justiceEnabled', valid: (v) => v === undefined || typeof v === 'boolean', example: 'true', describe: 'whether "a just universe" was frozen on for this game at its first reveal; absent on earlier games' },
   { field: 'seed', valid: (v) => v === undefined || (typeof v === 'string' && /^[0-9a-f]{32}$/.test(v)), example: '"2f4c5a107ad399e681137b2dc51490aa"', describe: '128-bit seed for initial placement and Justice redraws; absent on earlier games' },
   { field: 'rngVersion', valid: (v) => v === undefined || v === RNG_VERSION, example: '"' + RNG_VERSION + '"', describe: 'algorithm that turns seed into the game random stream; absent on earlier games' },
-  { field: 'boardVersion', valid: (v) => v === undefined || v === BOARD_VERSION, example: '"' + BOARD_VERSION + '"', describe: 'first-click-safe board placement algorithm used with the seed; absent on earlier games' },
+  { field: 'boardVersion', valid: (v) => v === undefined || BOARD_VERSIONS.has(v), example: '"' + BOARD_VERSION + '"', describe: 'board placement algorithm used with the seed (one version string per board generator); absent on earlier games' },
+  { field: 'generator', valid: (v) => v === undefined || BoardGenerators.validStoredGenerator(v), example: '{"id":"pink-noise","params":{"alpha":1,"scale":8,"contrast":2}}', describe: 'non-default board generator this board was placed with (id plus its complete parameter set, the same facts the top score key\u2019s +generator suffix carries); absent = the default uniform generator' },
   { field: 'justiceVersion', valid: (v) => v === undefined || JUSTICE_VERSIONS.has(v), example: '"' + JUSTICE_VERSION + '"', describe: 'sealed-pocket certification and redraw contract; v2 uses the all-consistent-layout proof prepass; absent on earlier games' },
   { field: 'maxAdjacent', valid: (v) => v === undefined || isNumber(v), example: '4', describe: 'highest adjacent-mine number on the finished board; absent on games recorded before 2026-08-21' },
   { field: 'hasSeven', valid: (v) => v === undefined || typeof v === 'boolean', example: 'true', describe: 'whether the finished board contains at least one 7; absent on earlier games' },
@@ -2560,9 +2749,13 @@ const RECENT_PLACEMENTS_WINDOWS = [
 const METRICS_PANEL_WIDTH_MIN = 220;
 const METRICS_PANEL_WIDTH_MAX = 640;
 
-// A stored mode is board parameters plus play mode. Named difficulty
-// labels are display-only (see modeLabel). Keys without @ are the
-// pre-2026-08-21 shape and mean Standard.
+// The top score key: everything that determines how a board is made and
+// played — board parameters, play mode, and the board generator with its
+// exact parameter values. Every key holds its own history and rankings.
+// Named difficulty labels are display-only (see boardDisplayLabel). Keys
+// without @ are the pre-2026-08-21 shape and mean Standard; keys without
+// a +generator suffix mean the default uniform generator, so every
+// pre-generator key is already a valid top score key.
 function boardKeyOf(params) {
   return params.width + 'x' + params.height + '/' + params.mines;
 }
@@ -2575,8 +2768,12 @@ function modeKeyOf(params, playMode) {
   return boardKeyOf(params) + '@' + playMode;
 }
 
+function topScoreKeyOf(params, playMode, generator) {
+  return modeKeyOf(params, playMode) + BoardGenerators.keySuffix(generator);
+}
+
 function modeKey() {
-  return modeKeyOf(config, settings.playMode);
+  return topScoreKeyOf(config, settings.playMode, gameGenerator);
 }
 
 function playModeLabel(id) {
@@ -8296,7 +8493,7 @@ function cellIndexFromEvent(event) {
 
 boardElement.addEventListener('mousedown', (event) => {
   if (event.button !== 0) return;
-  if (trialBlocksPlay()) return;
+  if (trialBlocksPlay() || boardLabActive()) return;
   if (gameState === 'won' || gameState === 'lost') return;
   const index = cellIndexFromEvent(event);
   if (index === null) return;
@@ -8316,7 +8513,8 @@ boardElement.addEventListener('mouseup', (event) => {
   if (event.button !== 0 || !leftDown) return;
   const index = cellIndexFromEvent(event);
   if (index === null) return;
-  if (trialBlocksPlay() || gameState === 'won' || gameState === 'lost') return;
+  if (trialBlocksPlay() || boardLabActive()
+      || gameState === 'won' || gameState === 'lost') return;
   // Logged before acting so a game-ending click is inside its own trace.
   traceEvent('lup', event, index);
   inputActionCount++;
@@ -8403,7 +8601,8 @@ document.addEventListener('mousemove', (event) => {
 
 boardElement.addEventListener('contextmenu', (event) => {
   event.preventDefault();
-  if (trialBlocksPlay() || gameState === 'won' || gameState === 'lost') return;
+  if (trialBlocksPlay() || boardLabActive()
+      || gameState === 'won' || gameState === 'lost') return;
   const index = cellIndexFromEvent(event);
   if (index === null) return;
   traceEvent('rdown', event, index);
@@ -8484,8 +8683,12 @@ for (const tab of document.querySelectorAll('#difficulty-tabs a')) {
     tab.classList.add('active');
     const name = tab.dataset.difficulty;
     if (name === 'custom') {
-      customForm.hidden = false;
-      customForm.requestSubmit();
+      // In the Board lab the sliders are the custom control; the form
+      // stays hidden and the current size simply remains.
+      if (!boardLabActive()) {
+        customForm.hidden = false;
+        customForm.requestSubmit();
+      }
     } else {
       customForm.hidden = true;
       config = { ...DIFFICULTIES[name] };
@@ -8500,7 +8703,10 @@ function showScoresForCurrentMode() {
   if (wins.length === 0) {
     renderedResult = null;
     resultSummary.textContent = 'High scores\n' + boardDisplayLabel()
-      + '\n' + playModeLabel() + '\nNo wins yet';
+      + '\n' + playModeLabel()
+      + (gameGenerator.id === BoardGenerators.DEFAULT_ID
+        ? '' : '\n' + BoardGenerators.displayLabel(gameGenerator))
+      + '\nNo wins yet';
     resultStats.textContent = '';
     resultAnalysis.textContent = '';
     resultRanks.textContent = '';
@@ -8657,6 +8863,12 @@ function importHistory(text) {
     saveSettings();
     repaintRevealedCells();
     document.getElementById('play-mode-select').value = settings.playMode;
+    document.getElementById('board-generator-select').value = settings.boardGenerator;
+    refreshGeneratorSelect();
+    // Imported generator parameters may differ from the sliders on
+    // screen; force the lab panel to rebuild with the imported values.
+    labPanelGeneratorId = null;
+    syncLabChrome();
     settingsNote = ', applied settings';
   }
   backupStatus.textContent = 'imported ' + added + ' new games, skipped ' + dups + ' duplicates' + settingsNote;
@@ -8788,7 +9000,46 @@ function setPlayMode(id) {
   settings.playMode = id;
   saveSettings();
   document.getElementById('play-mode-select').value = id;
+  refreshGeneratorSelect();
+  // The custom form's visibility depends on the mode (the Board lab's
+  // sliders replace it), not only on the matched difficulty.
+  syncDifficultyTabs();
   newGame();
+}
+
+function buildBoardGeneratorSwitcher() {
+  const select = document.getElementById('board-generator-select');
+  select.textContent = '';
+  for (const spec of BoardGenerators.SPECS) {
+    const option = document.createElement('option');
+    option.value = spec.id;
+    option.textContent = spec.label;
+    option.title = spec.describe;
+    select.appendChild(option);
+  }
+  select.value = settings.boardGenerator;
+  select.addEventListener('change', () => setBoardGenerator(select.value));
+  refreshGeneratorSelect();
+}
+
+function setBoardGenerator(id) {
+  BoardGenerators.byId(id); // throws on an unknown id
+  if (id === settings.boardGenerator) return;
+  settings.boardGenerator = id;
+  saveSettings();
+  document.getElementById('board-generator-select').value = id;
+  newGame();
+}
+
+// The generator menu is live only in modes that place mines with it;
+// single-path NG carves its own corridor boards and trial sessions use
+// fixed identities, so there the menu is disabled rather than lying.
+function refreshGeneratorSelect() {
+  const select = document.getElementById('board-generator-select');
+  const applies = generatorAppliesToMode(settings.playMode);
+  select.disabled = !applies;
+  select.title = applies
+    ? '' : playModeLabel() + ' builds its boards its own way; the generator applies in the other modes';
 }
 
 function syncDifficultyTabs() {
@@ -8802,11 +9053,12 @@ function syncDifficultyTabs() {
   for (const tab of document.querySelectorAll('#difficulty-tabs a')) {
     tab.classList.toggle('active', tab.dataset.difficulty === matched);
   }
-  customForm.hidden = matched !== 'custom';
+  customForm.hidden = matched !== 'custom' || boardLabActive();
 }
 
 function init() {
   buildPlayModeSwitcher();
+  buildBoardGeneratorSwitcher();
   renderStates();
   // The history RAM is filled now and nothing has been played yet: the
   // one safe moment to rebuild the session window from stored records.

@@ -67,6 +67,8 @@ main {
   color: #666666;
 }
 
+#scores-nav[hidden] { display: none; }
+
 #scores-nav {
   display: flex;
   align-items: center;
@@ -104,6 +106,58 @@ main {
 }
 
 #custom-form input { width: 60px; }
+
+/*-------BOARD LAB (the board-generation exploration mode)-------*/
+
+#board-lab-panel[hidden] { display: none; }
+
+#board-lab-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: #333333;
+}
+
+#board-lab-note {
+  margin: 0 0 2px;
+  font-size: 12px;
+  color: #667788;
+}
+
+.lab-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.lab-name {
+  width: 130px;
+  text-align: right;
+  color: #667788;
+}
+
+.lab-row input[type="range"] { width: 240px; }
+
+.lab-value {
+  width: 44px;
+  text-align: left;
+  font-weight: bold;
+}
+
+#board-lab-new {
+  margin-top: 4px;
+  font: inherit;
+  font-size: 12px;
+  padding: 3px 12px;
+  border: 1px solid #c9d4de;
+  border-radius: 3px;
+  background: #f7fafc;
+  color: #2c5875;
+  cursor: pointer;
+}
 
 /*-------GAME FRAME (classic chrome)-------*/
 
@@ -608,12 +662,14 @@ body.trial-offboard #game-frame {
   color: #999999;
 }
 
-#play-mode {
+#play-mode,
+#board-generator {
   margin-bottom: 8px;
   text-align: right;
 }
 
-#play-mode label {
+#play-mode label,
+#board-generator label {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -621,13 +677,19 @@ body.trial-offboard #game-frame {
   font-size: 11px;
 }
 
-#play-mode-select {
+#play-mode-select,
+#board-generator-select {
   font: inherit;
   font-size: 11px;
   color: #333333;
   background: #f7f9fb;
   border: 1px solid #c5d0da;
   padding: 2px 4px;
+}
+
+#board-generator-select:disabled {
+  color: #99a5b0;
+  background: #eef1f4;
 }
 
 #trial-progress {

@@ -154,6 +154,65 @@ or remain explicitly unmeasured.
 - The setting `trialGiveOpening` (default off) restores a predetermined
   opening on trial boards. A first click on a mine can kill: the
   layout is already fixed.
+- **Board lab (decided 2026-08-25).** The non-play mode for exploring
+  board generation. Every board appears the instant it is dealt, shown
+  as if it had just been solved: safe cells open with their numbers,
+  mines flagged, counters at their win values (mine LCD 0, timer 0).
+  No input reaches the cells, no timer runs, and nothing is ever
+  recorded — the mode exists to look at generated boards, not to play
+  them. A panel above the board holds free size adjustment (width
+  8–100, height 1–100, mines 1 to the classic (w−1)(h−1) cap — the
+  sliders replace the custom form, which stays hidden in this mode),
+  one slider per parameter of the chosen generator, and a "make new
+  board" button; the titlebar, dove, and space bar deal a new board as
+  everywhere else. Any slider movement regenerates instantly. The
+  generator itself is chosen with the same upper-right Generator menu
+  as in play; parameter changes made in the lab persist and are the
+  values the play modes use. The see-scores control hides here
+  (there is nothing to rank).
+
+## Board generators and top score keys (decided 2026-08-25)
+
+The board generator is the algorithm that places the mines — a third
+uniqueifier next to board size and play mode. The upper-right cluster
+has a Generator menu below the Mode menu. The registry lives in
+`generators.js`; the menu is disabled (never silently ignored) in modes
+that place their own boards: Single-path NG carves corridors, trials
+deal fixed identities.
+
+- **Default.** The uniform Fisher-Yates placement standard play has
+  always used (every layout equally likely, first click never a mine).
+- **Pink noise.** Mines drawn from a fractal (octave-summed) value-noise
+  field with power spectrum ≈ 1/f^alpha, by exact weighted sampling
+  without replacement (weight exp(contrast × standardized field)).
+  Parameters: spectral exponent alpha (0 = white/uniform, 1 = pink,
+  2 = red/brown; the slider is the whole colored-noise family on the
+  clustered side), feature size (base wavelength in cells), and
+  contrast (0 = uniform regardless of the field; higher hugs the field
+  peaks). Produces dense mine clumps and open plains.
+- **Blue noise.** Mitchell's best-candidate sampling: each mine
+  auditions `spread` uniform candidates and takes the one farthest from
+  every placed mine. spread 1 is exactly uniform; higher is more even.
+  Produces evenly spaced mines with few adjacent pairs.
+
+In Standard and Angelic the generator places the board directly; in
+Uniform NG and Proof-or-die it supplies the candidates for the
+generate-and-reject loop, so a colored-noise NG board is noise-shaped
+AND fully solvable (the attempt budget still fails loudly).
+
+**The top score key** is the single high-level concept: everything that
+determines how a board is made and played — board parameters, play
+mode, and the generator with its exact parameter values — and every
+key holds its own separate history and rankings. Concretely the key is
+`WxH/M@playMode` plus a `+generator(param=value,...)` suffix in schema
+order, e.g. `9x9/10@standard+pink-noise(alpha=1,scale=8,contrast=2)`.
+The default generator adds no suffix, so every pre-generator key is
+already a valid top score key, exactly as keys without `@` mean
+Standard. Records carry the same facts: `boardVersion` names the
+placement algorithm version (one string per generator) and `generator`
+stores the non-default id plus its complete parameter set; both are
+frozen per board at deal time, so a mid-board settings import cannot
+make a record disagree with the placement that actually ran.
 
 ## A just universe (decided 2026-08-20)
 

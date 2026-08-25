@@ -54,9 +54,9 @@ forced mine.
 ## State
 
 Runtime: `index.html` + `style.css` + pure `rng.js` / `justice.js` /
-`board-shape.js` / `solver.js` / `odds.js` / `trial.js` + shared
-`storage.js` / `settings-core.js` + `minesweeper.js`, no dependencies, no
-build step. The settings page is `settings.html` + `settings-page.js`,
+`board-shape.js` / `solver.js` / `generators.js` / `odds.js` /
+`trial.js` + shared `storage.js` / `settings-core.js` +
+`minesweeper.js`, no dependencies, no build step. The settings page is `settings.html` + `settings-page.js`,
 loading the same `style.css`, `storage.js`, and `settings-core.js` (both
 pages must load storage.js and settings-core.js before their own script).
 Serve with `python3 -m http.server 8018`.
@@ -107,9 +107,12 @@ Implementation notes:
   no longer recorded or shown; the schema still accepts it) —
   primary measurements only
   (later-added fields may be absent on earlier records; see
-  `GAME_RECORD_SCHEMA`). The mode key is board parameters plus play mode
-  (`modeKey()`, e.g. `9x9/10@standard`); keys without `@` mean Standard.
-  Difficulty names are display-only (`modeLabel()`). Timestamps are epoch
+  `GAME_RECORD_SCHEMA`). The mode key is the top score key: board
+  parameters, play mode, and board generator (`modeKey()`, e.g.
+  `9x9/10@standard`, or with a non-default generator
+  `9x9/10@standard+pink-noise(alpha=1,scale=8,contrast=2)`); keys
+  without `@` mean Standard, keys without `+` mean the default uniform
+  generator. Difficulty names are display-only. Timestamps are epoch
   ms; all calendar math is done in the viewer's local timezone at read
   time. This schema replaced the `scores.v1`/`losses.v1` pair
   (2026-08-19, data-structure rectification); the old keys are not read
@@ -689,6 +692,31 @@ Implementation notes:
   holds the 25×4 and 4×4 sessions, dihedral maps, identity grouping,
   and replay of opens/flags from stored traces for overlay charts.
   `node tests/solver-test.js` and `node tests/trial-test.js`.
+- Board generators (PRODUCT.md "Board generators and top score keys"):
+  `generators.js` is the pure registry (`BoardGenerators` global /
+  CommonJS module, loaded after solver.js — its uniform entry delegates
+  to `Solver.randomPlacement`): per generator an id, menu label,
+  `version` (the record's `boardVersion` string), a parameter schema
+  ({key, label, min/max/step, default, describe}), and `place(width,
+  height, mineCount, safeIndex, rng, params)`; `safeIndex` is null in
+  the Board lab (no first click). Pink noise = fractal value-noise
+  field (persistence 2^(−alpha/2) gives spectral slope alpha) +
+  Efraimidis-Spirakis weighted sampling; blue noise = Mitchell
+  best-candidate with an O(n)-per-mine nearest-distance relax. Game
+  side: `settings.boardGenerator` + `settings.boardGeneratorParams`
+  (per-generator overrides, deep-copied in `settingsFrom`), the
+  `#board-generator-select` menu (`buildBoardGeneratorSwitcher`,
+  disabled via `generatorAppliesToMode` in single-path NG and trials),
+  `gameGenerator` frozen per board in `newGame`, `topScoreKeyOf` /
+  `BoardGenerators.keySuffix` for the history key, and the record's
+  `generator` field (absent = default). Board lab (`playMode
+  'board-lab'`, `gameState 'lab'`): `buildLabBoard` deals a solved-view
+  board with no records, traces, or timer; `buildLabPanel` /
+  `syncLabChrome` render the size + parameter sliders (`#board-lab-panel`;
+  rebuild only on generator change so a drag never loses its slider).
+  `node tests/generators-test.js` freezes placement invariants,
+  key-suffix canonical form, validation, and the statistical
+  signatures (pink clusters, blue spreads).
 - Rankaverage sort persistence: userdata 'rankavgSort' maps stat label to
   {key, dir} (absent = natural rank order); written by the sort-header
   click cycle in `buildRankavgList` (asc → desc → none).

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Minesweeper - Standard Mode</title>
-<link rel="stylesheet" href="style.css?v=20260823-player-pov">
+<link rel="stylesheet" href="style.css?v=20260825-board-generators">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 </head>
 <body>
@@ -14,6 +14,11 @@
       <select id="play-mode-select"></select>
     </label>
     <div id="trial-progress" hidden></div>
+  </div>
+  <div id="board-generator">
+    <label>Generator
+      <select id="board-generator-select"></select>
+    </label>
   </div>
   <div id="music-indicator" hidden title="This machine is playing audio right now (rechecked about once a minute). Stamped onto each finished game as its music state.">music</div>
   <div id="states">
@@ -58,6 +63,7 @@
     <label>Mines <input id="custom-mines" type="number" min="1" value="99"></label>
     <button type="submit">Update</button>
   </form>
+  <div id="board-lab-panel" hidden></div>
 
   <div id="game-area">
     <div id="trial-stage" hidden>
@@ -114,10 +120,11 @@
 <script src="justice.js?v=20260823-exact-solver"></script>
 <script src="board-shape.js"></script>
 <script src="solver.js?v=20260823-exact-solver"></script>
+<script src="generators.js?v=20260825-board-generators"></script>
 <script src="odds.js?v=20260823-report-taxonomy"></script>
 <script src="trial.js"></script>
 <script src="storage.js?v=20260823-simple-settings"></script>
-<script src="settings-core.js?v=20260823-report-scope"></script>
-<script src="minesweeper.js?v=20260823-player-pov"></script>
+<script src="settings-core.js?v=20260825-board-generators"></script>
+<script src="minesweeper.js?v=20260825-board-generators"></script>
 </body>
 </html>

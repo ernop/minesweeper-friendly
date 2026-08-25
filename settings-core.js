@@ -203,7 +203,27 @@ const SETTINGS_SCHEMA = [
     valid: (v) => PLAY_MODE_IDS.has(v),
     group: 'gameplay',
     label: 'play mode',
-    describe: 'Standard, Uniform NG, Single-path NG, Proof-or-die, Angelic, Trial, Short trial, or Test trial. Each mode stores and ranks its own results.',
+    describe: 'Standard, Uniform NG, Single-path NG, Proof-or-die, Angelic, Trial, Short trial, Test trial, or Board lab. Each mode stores and ranks its own results (Board lab records nothing).',
+    control: 'none',
+  },
+  {
+    field: 'boardGenerator',
+    default: 'uniform',
+    // Late-bound: BoardGenerators lives in generators.js, loaded only by
+    // the game page — like the PLAY_MODE_IDS closure above.
+    valid: (v) => typeof v === 'string' && BoardGenerators.SPECS.some((g) => g.id === v),
+    group: 'gameplay',
+    label: 'board generator',
+    describe: 'the mine-placement algorithm (Default, Pink noise, Blue noise), chosen with the Generator menu in the game\u2019s upper right; each generator + parameter combination keeps its own top score lists',
+    control: 'none',
+  },
+  {
+    field: 'boardGeneratorParams',
+    default: {},
+    valid: (v) => BoardGenerators.validParamsBlock(v),
+    group: 'gameplay',
+    label: 'board generator parameters',
+    describe: 'per-generator parameter overrides (an absent parameter means its default), adjusted with the Board lab\u2019s sliders',
     control: 'none',
   },
   {
@@ -239,6 +259,14 @@ function settingsFrom(stored) {
       };
     } else if (s.field === 'reportScope') {
       filled[s.field] = reportScopeFromStored(stored);
+    } else if (s.field === 'boardGeneratorParams') {
+      // Deep-copied so later slider edits can never mutate the schema's
+      // shared default object or an imported blob.
+      const storedParams = s.field in stored && stored[s.field] !== null
+        && typeof stored[s.field] === 'object' && !Array.isArray(stored[s.field])
+        ? stored[s.field] : {};
+      filled[s.field] = Object.fromEntries(
+        Object.entries(storedParams).map(([id, p]) => [id, { ...p }]));
     } else {
       filled[s.field] = s.field in stored ? stored[s.field] : s.default;
     }
