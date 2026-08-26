@@ -1,5 +1,5 @@
 :root {
-  --cell-size: 24px;
+  --cell-size: 28px;
   /* Classic Windows minesweeper palette, matching minesweeper.online's skin */
   --silver: #c0c0c0;
   --bevel-light: #ffffff;
@@ -858,8 +858,8 @@ body.trial-offboard #result-ranks {
 
 #states-chips {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  flex-direction: column;
+  align-items: flex-end;
   gap: 4px;
   margin-bottom: 5px;
 }
