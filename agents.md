@@ -365,12 +365,12 @@ Implementation notes:
   + `appendSessionRatesRow(container, buckets, unit)` (two unit-grouped
   plots right after endings — "action rates/m" then "action rates/s",
   split 2026-08-23 evening so neither unit's magnitudes squash the
-  other's: each a 0-rooted integer scale with unit-suffixed ticks whose
-  ceiling comes from `rateScaleCeiling(max, remembered)` (computation
-  section, tested in session-buckets-test): the 1-2-5-10 ladder via
-  `rateScaleStep`, growing immediately, shrinking only when max fits
-  80% of a lower step, remembered per chart key in the RAM-only
-  `sessionRateScaleMemory` map; no legend — each line's name+value+unit floats
+  other's: solo and combined-rate y axes auto-range through
+  `sessionYDomain` around their measured values with modest padding
+  instead of being forced to start at zero (a measured zero stays in
+  range; the endings composition alone keeps its fixed 0–100% domain);
+  1/2/5 unit-suffixed ticks come from `niceTicks`; no legend — each
+  line's name+value+unit floats
   at its endpoint in the line's color, cascade-nudged apart preserving
   line order, with HOW/RECORDS as hover titles on lines and labels),
   `latestDefined` (measurability),

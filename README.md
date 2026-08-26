@@ -140,7 +140,12 @@ protection-aware game risk, and the optional modeled-life gap. Breaks
 consume no chart time: history is scanned as far back as needed to fill each
 selectable played-time lookback (30s to 15m). Each chart
 uses a one-hour accumulated-play axis, black plot-aligned titles, readable
-axes, and the newest value labeled at its point. The panel preserves its scroll position
+auto-ranged y axes (not forced to start at zero), and the newest value
+labeled at its point. The game-endings composition alone keeps its meaningful
+full 0–100% range. Thin green vertical lines
+mark actual wins on every session chart; hovering one responds immediately
+with the solve time, board dimensions and mine count, and local completion
+date. The panel preserves its scroll position
 through its once-a-second redraw. These are observations, not explanations: the app
 does not infer fatigue, attention, hardware trouble, judgment, or any other
 cause from a change in a line. The

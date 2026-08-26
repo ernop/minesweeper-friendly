@@ -7076,6 +7076,10 @@ function renderMetricsPanel(metrics) {
 }
 
 function renderMetricsPanelContent(metrics) {
+  // Any explicit rebuild retires the SVG that owns an open win tooltip.
+  // Ordinary once-a-second rebuilds pause while a real pointer hovers a
+  // chart, so this is cleanup rather than visible tooltip flicker.
+  hideSessionWinTooltip();
   const showSession = settings.showSessionStats;
   const showLive = settings.showMotionStatsDuringGame
     && metrics !== null && tracing();
@@ -7282,8 +7286,11 @@ setInterval(() => {
   // before a choice could land. Focus inside the panel means a control
   // is in use; the control's own change handler re-renders explicitly
   // (which replaces the control and releases focus), and clicking
-  // anywhere else blurs it, so the ticker resumes within a second.
-  if (metricsPanel.contains(document.activeElement)) return;
+  // anywhere else blurs it, so the ticker resumes within a second. A
+  // hovered chart likewise stays still while its instant win tooltip is
+  // being inspected; moving off it resumes updates.
+  if (metricsPanel.contains(document.activeElement)
+      || metricsPanel.querySelector('.session-chart:hover')) return;
   if (tracing()) renderLiveTraceMetrics();
   // Between games the session section still redraws for UI consistency;
   // its cumulative-play axis correctly stays fixed while nothing is played.
@@ -7459,6 +7466,19 @@ function sessionBucketSeries(events, opts) {
   const modeledLifeGap = new Array(bucketCount).fill(0);
   const fastGaps = Array.from({ length: bucketCount }, () => []);
   const endCounts = SESSION_END_KINDS.map(() => new Array(bucketCount).fill(0));
+  // Exact win instants stay separate from the bucketed aggregates so every
+  // session chart can draw a thin event line at the win's true played-time
+  // coordinate and show its stored result details on hover.
+  const wins = [];
+  const addWin = (playAt, ev) => {
+    if (playAt < windowFrom || playAt > playNowMs) return;
+    wins.push({
+      playAt,
+      timeMs: ev.timeMs,
+      boardKey: ev.boardKey,
+      endedAt: ev.endedAt === undefined ? (ev.at === undefined ? ev.to : ev.at) : ev.endedAt,
+    });
+  };
   // The unmarked-mines-at-win inputs: per bucket, the sum of measured
   // wins' unmarked-mine shares and how many wins carried the measurement
   // (wins recorded before flag counting stay out of both).
@@ -7520,6 +7540,7 @@ function sessionBucketSeries(events, opts) {
     // like the classified death above.
     if (ev !== null && typeof ev.end === 'string') {
       countEnd(bucketAt(span.playTo - 1e-6), ev.end, ev.winUnmarked);
+      if (ev.end === 'win') addWin(span.playTo, ev);
     }
   }
 
@@ -7563,8 +7584,10 @@ function sessionBucketSeries(events, opts) {
       modeledLifeGap[i] += ev.modeledLifeGap || 0;
     } else if (ev.kind === 'end') {
       countEnd(i, ev.end, ev.winUnmarked);
+      if (ev.end === 'win') addWin(playAt, ev);
     }
   }
+  wins.sort((a, b) => a.playAt - b.playAt);
 
   // Game endings as cumulative fractions of the games finished so far in
   // the window: at each bucket, kind count / total over buckets 0..i.
@@ -7641,6 +7664,7 @@ function sessionBucketSeries(events, opts) {
     windowMs: opts.windowMs, centers, playMs,
     speedPxPerSec, clicksPerSec, avoidablePerMin, wastedPerMin, misclicksPerMin, flagsPerSec,
     mismarksPerMin, fastclickGapMs, endFractions, endGames, winUnmarkedFraction,
+    wins,
     categoryPerMin, excessRiskPctPerMin, modeledLifeGapPerMin,
     // The raw per-bucket accumulations behind the rates, for layers that
     // aggregate across buckets (sessionRunningSeries) — rates can't be
@@ -7772,40 +7796,31 @@ function sessionRunningSeries(events, opts) {
     misclicksPerMin, flagsPerSec, mismarksPerMin, fastclickGapMs,
     categoryPerMin, excessRiskPctPerMin, modeledLifeGapPerMin,
     endFractions, endGames, winUnmarkedFraction,
+    wins: fine.wins.filter((win) =>
+      win.playAt >= windowFrom && win.playAt <= fine.playNowMs),
   };
 }
 
-// Rates-chart y-scale stability (requested 2026-08-23 afternoon: "I
-// hate when we're pushing up into new territory and shrinking, or the
-// false appearance nothing is changing"). The ceiling lives on a
-// 1-2-5-10 ladder instead of ceil(max): a climb rescales once at a
-// step boundary and then holds through the whole climb, and shrinking
-// requires the tallest value to fit within 80% of a lower step, so a
-// value hovering near a boundary cannot flap the scale. The trade-off
-// is deliberate and accepted: up to ~2.5x headroom above the tallest
-// line, and the same data can draw at different scales depending on
-// what the chart showed before — the labeled ticks always tell the
-// truth about the scale in force.
-
-// The smallest 1/2/5×10^k value at or above `value`, floored at 1
-// (ticks stay integers; the /s rates live happily on a 0..1 scale).
-function rateScaleStep(value) {
-  let base = 1;
-  for (;;) {
-    for (const m of [1, 2, 5]) {
-      if (base * m >= value) return base * m;
-    }
-    base *= 10;
+// Auto-range a session chart around the values it actually shows. Zero is
+// no longer a mandatory floor: a positive series can use the plot's height
+// to expose its variation. A measured zero remains in range, nonnegative
+// data never gets a meaningless negative floor, and a flat series receives
+// enough symmetric room to remain visible.
+function sessionYDomain(values) {
+  const measured = values.filter((v) => typeof v === 'number' && Number.isFinite(v));
+  if (measured.length === 0) return { min: 0, max: 1 };
+  const min = Math.min(...measured);
+  const max = Math.max(...measured);
+  if (min === max) {
+    if (min === 0) return { min: 0, max: 1 };
+    const pad = Math.max(Math.abs(min) * 0.08, 1e-6);
+    return { min: min - pad, max: max + pad };
   }
-}
-
-// The chart ceiling given the tallest shown value and the ceiling in
-// force (undefined on a fresh chart). Grows immediately — data never
-// clips — and shrinks only to a step that holds max at ≤80% of it.
-function rateScaleCeiling(max, remembered) {
-  const needed = rateScaleStep(max);
-  if (remembered === undefined || needed > remembered) return needed;
-  return Math.min(remembered, rateScaleStep(max / 0.8));
+  const pad = (max - min) * 0.08;
+  return {
+    min: min >= 0 ? Math.max(0, min - pad) : min - pad,
+    max: max + pad,
+  };
 }
 
 //-------SESSION STATS: RECORDING (event capture into RAM)-------
@@ -7920,8 +7935,14 @@ function sessionRecordEvaluation(evaluation) {
 // still open so it lands inside it. On a win, winUnmarked carries the
 // share of the board's mines that had no flag at the winning instant.
 function sessionRecordEnd(end, winUnmarked) {
-  const event = { kind: 'end', at: Date.now(), end: end };
+  const now = Date.now();
+  const event = { kind: 'end', at: now, end: end };
   if (typeof winUnmarked === 'number') event.winUnmarked = winUnmarked;
+  if (end === 'win') {
+    event.timeMs = elapsedMs();
+    event.boardKey = boardKey();
+    event.endedAt = now;
+  }
   sessionEvents.push(event);
 }
 
@@ -7958,6 +7979,9 @@ function sessionBackfillFromHistory() {
         end: record.outcome === 'win' ? 'win'
           : sessionEndingKind(fatalEvaluationOf(record)),
         winUnmarked: recordWinUnmarkedShare(record, mines),
+        timeMs: record.timeMs,
+        boardKey: modeKey.split('@')[0],
+        endedAt: record.endedAt,
       });
     }
   }
@@ -8142,12 +8166,12 @@ const SESSION_END_SPECS = [
 // rotated y caption that afternoon): the "-15m … now" x ticks already
 // say "played time ago", and the row title carries the unit ("mouse
 // speed px/s") sitting flush on the plot's top edge (T is the few px
-// that keep a top gridline label inside the svg). Two more legibility
-// rules: y starts at 0 (every series is nonnegative; an auto-zoomed
-// floor turned small wiggles into drama), and x is the fixed played-time
-// window ending at the current cumulative play coordinate. Breaks have
-// already been removed. Unmeasurable points break the line, never
-// bridged. Width follows the panel's dragged width (its grip, see
+// that keep a top gridline label inside the svg). The y range follows
+// the measured values with modest padding rather than being forced to
+// start at 0; x is the fixed played-time window ending at the current
+// cumulative play coordinate. Breaks have already been removed.
+// Unmeasurable points break the line, never bridged. Width follows the
+// panel's dragged width (its grip, see
 // buildMetricsResizeGrip): the chart fills the panel's content box —
 // width minus the 16px padding and 2px border of the border-box panel.
 const SESSION_CHART = { H: 150, L: 54, R: 8, T: 5, B: 22 };
@@ -8161,6 +8185,117 @@ function sessionAgoLabel(agoMs) {
     return '-' + (Number.isInteger(hours) ? hours.toFixed(0) : hours.toFixed(1)) + 'h';
   }
   return '-' + Math.round(agoMs / 60000) + 'm';
+}
+
+let sessionWinTooltip = null;
+let sessionWinTooltipChart = null;
+
+function sessionWinBoardLabel(key) {
+  const match = /^(\d+)x(\d+)\/(\d+)/.exec(String(key || ''));
+  return match === null
+    ? 'board size unavailable'
+    : match[1] + '\u00d7' + match[2] + ' \u00b7 ' + match[3] + ' mines';
+}
+
+function getSessionWinTooltip() {
+  if (sessionWinTooltip !== null) return sessionWinTooltip;
+  sessionWinTooltip = document.createElement('div');
+  sessionWinTooltip.className = 'session-win-tooltip';
+  sessionWinTooltip.hidden = true;
+  document.body.appendChild(sessionWinTooltip);
+  return sessionWinTooltip;
+}
+
+function hideSessionWinTooltip(chart) {
+  if (chart !== undefined && sessionWinTooltipChart !== chart) return;
+  if (sessionWinTooltip !== null) sessionWinTooltip.hidden = true;
+  sessionWinTooltipChart = null;
+}
+
+// Thin, low-contrast win lines are shared by every session chart. Hover is
+// handled by the SVG itself rather than by one listener per line: nearest-
+// line lookup is tiny, overlapping hit areas stay deterministic, and the
+// custom tooltip appears immediately instead of waiting for SVG <title>.
+function appendSessionWinMarkers(svg, buckets, geometry, px) {
+  const wins = Array.isArray(buckets.wins) ? buckets.wins : [];
+  if (wins.length === 0) return;
+  const lines = wins.map((win) => {
+    const line = document.createElementNS(SVG_NS, 'line');
+    const x = px(win.playAt).toFixed(1);
+    line.setAttribute('x1', x);
+    line.setAttribute('x2', x);
+    line.setAttribute('y1', geometry.top);
+    line.setAttribute('y2', geometry.bottom);
+    line.setAttribute('class', 'session-win-line');
+    svg.appendChild(line);
+    return line;
+  });
+  let active = -1;
+  const clearActive = () => {
+    if (active >= 0) lines[active].classList.remove('active');
+    active = -1;
+  };
+  svg.addEventListener('pointermove', (event) => {
+    const bounds = svg.getBoundingClientRect();
+    if (bounds.width <= 0 || bounds.height <= 0) return;
+    const x = (event.clientX - bounds.left) * geometry.width / bounds.width;
+    const y = (event.clientY - bounds.top) * geometry.height / bounds.height;
+    if (x < geometry.left || x > geometry.right
+        || y < geometry.top || y > geometry.bottom) {
+      clearActive();
+      hideSessionWinTooltip(svg);
+      return;
+    }
+    let nearest = -1;
+    let nearestDistance = Infinity;
+    for (let i = 0; i < wins.length; i++) {
+      const distance = Math.abs(px(wins[i].playAt) - x);
+      if (distance < nearestDistance) {
+        nearest = i;
+        nearestDistance = distance;
+      }
+    }
+    // Six screen pixels is easy to acquire without turning the whole chart
+    // into a tooltip trigger when win lines are sparse.
+    const hitDistance = 6 * geometry.width / bounds.width;
+    if (nearest < 0 || nearestDistance > hitDistance) {
+      clearActive();
+      hideSessionWinTooltip(svg);
+      return;
+    }
+    if (active !== nearest) {
+      clearActive();
+      active = nearest;
+      lines[active].classList.add('active');
+      const win = wins[active];
+      const tooltip = getSessionWinTooltip();
+      const result = document.createElement('div');
+      result.className = 'session-win-tooltip-result';
+      result.textContent = (typeof win.timeMs === 'number'
+        ? (win.timeMs / 1000).toFixed(3) + 's'
+        : 'time unavailable') + ' \u00b7 ' + sessionWinBoardLabel(win.boardKey);
+      tooltip.replaceChildren(result);
+      if (typeof win.endedAt === 'number') {
+        const when = document.createElement('div');
+        when.className = 'session-win-tooltip-when';
+        when.textContent = formatDate(win.endedAt);
+        tooltip.appendChild(when);
+      }
+      tooltip.hidden = false;
+      sessionWinTooltipChart = svg;
+    }
+    const tooltip = getSessionWinTooltip();
+    const gap = 9;
+    const left = Math.min(event.clientX + gap,
+      window.innerWidth - tooltip.offsetWidth - 5);
+    const top = Math.max(5, event.clientY - tooltip.offsetHeight - gap);
+    tooltip.style.left = Math.max(5, left) + 'px';
+    tooltip.style.top = top + 'px';
+  });
+  svg.addEventListener('pointerleave', () => {
+    clearActive();
+    hideSessionWinTooltip(svg);
+  });
 }
 
 function buildSessionChart(buckets, spec) {
@@ -8180,14 +8315,12 @@ function buildSessionChart(buckets, spec) {
   el('rect', { x: L, y: T, width: W - L - R, height: H - T - B, class: 'scatter-plot' });
 
   const values = buckets.centers.map((_, i) => displayableNumber(spec.of(buckets, i)));
-  let max = 0;
-  for (const v of values) if (v !== undefined && v > max) max = v;
 
   const x0 = buckets.playNowMs - buckets.windowMs;
   const x1 = buckets.playNowMs;
-  // y always starts at 0; a flat-zero series still gets a real scale.
-  const y0 = 0;
-  const y1 = max > 0 ? max * 1.08 : 1;
+  const yDomain = sessionYDomain(values);
+  const y0 = yDomain.min;
+  const y1 = yDomain.max;
   const px = (t) => L + ((Math.min(Math.max(t, x0), x1) - x0) / (x1 - x0)) * (W - L - R);
   const py = (v) => H - B - ((v - y0) / (y1 - y0)) * (H - T - B);
 
@@ -8209,6 +8342,9 @@ function buildSessionChart(buckets, spec) {
   for (const v of minorTicks(yTicks, y0, y1)) {
     el('line', { x1: L - 4, y1: py(v), x2: L, y2: py(v), class: 'scatter-minor' });
   }
+  appendSessionWinMarkers(svg, buckets, {
+    width: W, height: H, left: L, right: W - R, top: T, bottom: H - B,
+  }, px);
 
   let d = '';
   let pen = false;
@@ -8239,7 +8375,9 @@ function buildSessionChart(buckets, spec) {
 }
 
 // The game-endings chart: the session chart's visual grammar with a fixed
-// 0–100% y axis and one line per ending kind. Kinds that never occurred
+// 0–100% y axis and one line per ending kind. Unlike the auto-ranged
+// measurement charts, this composition keeps its full meaningful domain.
+// Kinds that never occurred
 // in the window stay off the chart (a page of flat zeros hides the real
 // lines); 'win' always draws once any game has ended, because a 0% win
 // line is itself the reading. The legend below the chart carries each
@@ -8275,6 +8413,9 @@ function buildSessionEndingsChart(buckets) {
     el('line', { x1: L, y1: py(pct), x2: W - R, y2: py(pct), class: 'scatter-grid' });
     el('text', { x: L - 4, y: py(pct) + 4, class: 'scatter-tick tick-y' }, String(pct));
   }
+  appendSessionWinMarkers(svg, buckets, {
+    width: W, height: H, left: L, right: W - R, top: T, bottom: H - B,
+  }, px);
   const drawn = [];
   const anyGames = buckets.endGames[buckets.endGames.length - 1] > 0;
   for (const spec of SESSION_END_SPECS) {
@@ -8317,21 +8458,14 @@ function buildSessionEndingsChart(buckets) {
 }
 
 // An action-rates chart: every SESSION_RATE_SPECS series of one unit in
-// one plot. The numeric scale is rooted at 0 up to ceil(max shown
-// value), integer ticks stepped 1/2/5/10… so they stay readable, each
-// labeled with the chart's unit ("2/m"). Each line ends in a dot with
-// its current value floating to the point's left in the line's own
-// color (nudged apart when lines end close together); the legend below
-// repeats color, name+unit, and value, and carries each metric's
-// HOW/RECORDS.
+// one plot. The shared numeric scale auto-ranges around all measured
+// lines, with readable 1/2/5 ticks labeled with the chart's unit. Each
+// line ends in a dot with its current value floating to the point's
+// left in the line's own color (nudged apart when lines end close
+// together).
 const SESSION_RATES_CHART = { H: 170, L: 54, R: 8, T: 5, B: 22 };
 
-// RAM-only per-chart scale memory (chart key → ceiling in force),
-// consumed by rateScaleCeiling. A reload starts fresh and re-derives
-// from the backfilled window, so no scale is ever persisted.
-const sessionRateScaleMemory = new Map();
-
-function buildSessionRatesChart(buckets, specs, unit, scaleKey) {
+function buildSessionRatesChart(buckets, specs, unit) {
   const { H, L, R, T, B } = SESSION_RATES_CHART;
   const W = settings.metricsPanelWidth - 18;
   const svg = document.createElementNS(SVG_NS, 'svg');
@@ -8347,21 +8481,21 @@ function buildSessionRatesChart(buckets, specs, unit, scaleKey) {
   };
   el('rect', { x: L, y: T, width: W - L - R, height: H - T - B, class: 'scatter-plot' });
 
-  let max = 0;
+  const values = [];
   for (const spec of specs) {
     for (let i = 0; i < buckets.centers.length; i++) {
       const v = displayableNumber(spec.of(buckets, i));
-      if (v !== undefined && v > max) max = v;
+      if (v !== undefined) values.push(v);
     }
   }
-  const yTop = rateScaleCeiling(max, sessionRateScaleMemory.get(scaleKey));
-  sessionRateScaleMemory.set(scaleKey, yTop);
-  const tickStep = [1, 2, 5, 10, 20, 50, 100].find((s) => yTop / s <= 6) || 100;
+  const yDomain = sessionYDomain(values);
+  const y0 = yDomain.min;
+  const y1 = yDomain.max;
 
   const x0 = buckets.playNowMs - buckets.windowMs;
   const x1 = buckets.playNowMs;
   const px = (t) => L + ((Math.min(Math.max(t, x0), x1) - x0) / (x1 - x0)) * (W - L - R);
-  const py = (v) => H - B - (v / yTop) * (H - T - B);
+  const py = (v) => H - B - ((v - y0) / (y1 - y0)) * (H - T - B);
 
   const xTicks = Array.from({ length: 5 }, (_, i) => x0 + (x1 - x0) * i / 4);
   for (const v of xTicks) {
@@ -8369,10 +8503,21 @@ function buildSessionRatesChart(buckets, specs, unit, scaleKey) {
     el('text', { x: Math.min(px(v), W - 17), y: H - B + 13, class: 'scatter-tick tick-x' },
       sessionAgoLabel(x1 - v));
   }
-  for (let v = 0; v <= yTop; v += tickStep) {
+  const yTicks = niceTicks(y0, y1, 5);
+  const yStep = yTicks.length > 1 ? yTicks[1] - yTicks[0] : 1;
+  const yDec = Math.min(6, Math.max(0, -Math.floor(Math.log10(yStep) + 1e-9)));
+  for (const v of yTicks) {
     el('line', { x1: L, y1: py(v), x2: W - R, y2: py(v), class: 'scatter-grid' });
-    el('text', { x: L - 4, y: py(v) + 4, class: 'scatter-tick tick-y' }, v + unit);
+    const shown = Math.abs(v) < Math.pow(10, -yDec) / 2 ? 0 : v;
+    el('text', { x: L - 4, y: py(v) + 4, class: 'scatter-tick tick-y' },
+      shown.toFixed(yDec) + unit);
   }
+  for (const v of minorTicks(yTicks, y0, y1)) {
+    el('line', { x1: L - 4, y1: py(v), x2: L, y2: py(v), class: 'scatter-minor' });
+  }
+  appendSessionWinMarkers(svg, buckets, {
+    width: W, height: H, left: L, right: W - R, top: T, bottom: H - B,
+  }, px);
 
   const drawn = [];
   const pointLabels = [];
@@ -8463,7 +8608,7 @@ function appendSessionRatesRow(
   const row = document.createElement('div');
   row.className = 'metric-row session-metric-row';
   row.title = 'HOW: every per-played-' + per + ' action rate on one '
-    + '0-rooted scale so their risings and fallings can be compared '
+    + 'shared auto-ranged scale so their risings and fallings can be compared '
     + '. Each line carries its own name and current value at its '
     + 'endpoint, in the line\u2019s color.'
     + '\n\nRECORDS: the same running averages as ever, drawn together; '
@@ -8475,7 +8620,7 @@ function appendSessionRatesRow(
   labelEl.textContent = label + unit;
   headRow.appendChild(labelEl);
   row.appendChild(headRow);
-  const { svg, drawn } = buildSessionRatesChart(buckets, specs, unit, label + unit);
+  const { svg, drawn } = buildSessionRatesChart(buckets, specs, unit);
   row.appendChild(svg);
   // Every drawn line names itself at its endpoint, so there is no
   // legend; an empty window still explains itself.

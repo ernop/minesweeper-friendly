@@ -280,10 +280,12 @@ const press = (at, useful, flag, moving, gapMs, unflag, misclick) => ({
 }
 
 // A backfilled win carries its derived unmarked-mine share; a backfilled
-// loss files under its fine fatal-action kind.
+// loss files under its fine fatal-action kind. The win also keeps its exact
+// played-time coordinate and tooltip details outside the bucket aggregates.
 {
   const games = [
-    { kind: 'game', from: NOW - 2 * MIN, to: NOW - MIN, end: 'win', winUnmarked: 0.2 },
+    { kind: 'game', from: NOW - 2 * MIN, to: NOW - MIN, end: 'win',
+      winUnmarked: 0.2, timeMs: MIN, boardKey: '9x9/10', endedAt: NOW - MIN },
     { kind: 'game', from: NOW - 30 * 1000, to: NOW, end: 'guess-safe' },
   ];
   const s = sessionBucketSeries(games, opts);
@@ -291,6 +293,11 @@ const press = (at, useful, flag, moving, gapMs, unflag, misclick) => ({
   assertClose('backfilled unmarked share', s.winUnmarkedFraction[i], 0.2);
   assertClose('backfilled fine loss line', s.endFractions['guess-safe'][i], 0.5);
   assertClose('backfilled win line beside it', s.endFractions.win[i], 0.5);
+  assertEq('backfilled win marker count', s.wins.length, 1);
+  assertClose('backfilled win marker position', s.wins[0].playAt, MIN);
+  assertEq('backfilled win marker time', s.wins[0].timeMs, MIN);
+  assertEq('backfilled win marker board', s.wins[0].boardKey, '9x9/10');
+  assertEq('backfilled win marker date', s.wins[0].endedAt, NOW - MIN);
 }
 
 // Derived win-with-unmarked-mines inputs: the mode key's mine count and
@@ -478,29 +485,23 @@ const runOpts = {
   assertUndefined('run sliver rate', s.avoidablePerMin[last(s)]);
 }
 
-// Rates-chart scale ladder: the ceiling sits on 1/2/5×10^k, grows
-// immediately, and shrinks only when max fits 80% of a lower step.
+// Session chart y domains follow measured values instead of forcing zero.
 {
-  assertEq('ladder floor', rateScaleStep(0), 1);
-  assertEq('ladder sub-1', rateScaleStep(0.3), 1);
-  assertEq('ladder exact', rateScaleStep(2), 2);
-  assertEq('ladder 3.2', rateScaleStep(3.2), 5);
-  assertEq('ladder 18.8', rateScaleStep(18.8), 20);
-  assertEq('ladder 60', rateScaleStep(60), 100);
-
-  assertEq('scale fresh', rateScaleCeiling(3.2, undefined), 5);
-  assertEq('scale grow', rateScaleCeiling(5.5, 5), 10);
-  // A climb inside the step holds the scale it grew to.
-  assertEq('scale hold climb', rateScaleCeiling(9.4, 10), 10);
-  // 9 is over 80% of 10, so 20 does not shrink; 7.8 fits and does.
-  assertEq('scale hold near boundary', rateScaleCeiling(9, 20), 20);
-  assertEq('scale shrink with room', rateScaleCeiling(7.8, 20), 10);
-  // A collapse skips intermediate steps but keeps the 80% margin:
-  // 3.8 fits 80% of 5; 4.5 does not and lands on 10.
-  assertEq('scale shrink deep', rateScaleCeiling(3.8, 20), 5);
-  assertEq('scale shrink margin', rateScaleCeiling(4.5, 20), 10);
-  // All-zero lines settle back to the unit floor.
-  assertEq('scale zero floor', rateScaleCeiling(0, 20), 1);
+  let domain = sessionYDomain([]);
+  assertClose('empty domain floor', domain.min, 0);
+  assertClose('empty domain ceiling', domain.max, 1);
+  domain = sessionYDomain([undefined, 10, 20]);
+  assertClose('positive varying domain excludes zero', domain.min, 9.2);
+  assertClose('positive varying domain pads ceiling', domain.max, 20.8);
+  domain = sessionYDomain([0, 20]);
+  assertClose('measured zero remains the floor', domain.min, 0);
+  assertClose('zero-based data still pads ceiling', domain.max, 21.6);
+  domain = sessionYDomain([5, 5]);
+  assertClose('flat positive domain pads below', domain.min, 4.6);
+  assertClose('flat positive domain pads above', domain.max, 5.4);
+  domain = sessionYDomain([-5, -3]);
+  assertClose('negative domain pads below', domain.min, -5.16);
+  assertClose('negative domain pads above', domain.max, -2.84);
 }
 
-console.log(`session-series: all ${checks} checks passed (buckets + running averages + scale ladder)`);
+console.log(`session-series: all ${checks} checks passed (buckets + running averages + y domains)`);
