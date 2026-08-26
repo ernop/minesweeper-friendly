@@ -1,8 +1,8 @@
 'use strict';
 // Known-answer tests for the recent-placements summary: ordinal and
-// run formatting, the strictly-longer-window rule, membership charts
-// (no startMs), the top-tenth cutoff, tie-breaking, row order, and
-// lifetime's near-miss rule.
+// run formatting, chart-set dedupe, the strictly-longer-window rule,
+// membership charts (no startMs), the top-tenth cutoff, tie-breaking,
+// row order, current-game marking, and lifetime's near-miss rule.
 
 const fs = require('fs');
 const vm = require('vm');
@@ -46,6 +46,31 @@ const win = (endedAt, timeMs) => ({ endedAt, timeMs });
 // window's own member wins plus its start for the strictly-longer rule.
 const windowCandidate = (label, specificity, startMs, wins) =>
   ({ label, specificity, startMs, wins: wins.filter((s) => s.endedAt >= startMs) });
+
+// Tablechart progressive disclosure: pinned lifetime and past week both
+// survive even when identical, claim their member set from ordinary charts,
+// and each remaining duplicate set keeps its most specific candidate.
+{
+  const a = win(NOW - 2 * HOUR, 20000);
+  const b = win(NOW - HOUR, 10000);
+  const kept = dedupeRankCandidates([
+    { label: 'lifetime', specificity: 12, wins: [a, b] },
+    { label: 'past week', specificity: 8, wins: [a, b] },
+    { label: 'this month', specificity: 9, wins: [b, a] },
+    { label: 'today', specificity: 4, wins: [b] },
+    { label: 'past hour', specificity: 3, wins: [b] },
+  ], ['lifetime', 'past week']);
+  assertEq('pinned charts claim duplicate sets',
+    kept.map((candidate) => candidate.label).join(','),
+    'lifetime,past week,past hour');
+
+  const shapeKept = dedupeRankCandidates([
+    { label: 'max 4', specificity: 4, wins: [a] },
+    { label: 'max 2', specificity: 2, wins: [a] },
+  ]);
+  assertEq('shape duplicate keeps most specific',
+    shapeKept.map((candidate) => candidate.label).join(','), 'max 2');
+}
 
 // 20 old wins at 20s..39s spread over past weeks, plus recent wins placed
 // among them by solve time. Source window: the last hour.
@@ -110,7 +135,7 @@ const windowCandidate = (label, specificity, startMs, wins) =>
 }
 
 // Membership and ordering: only source-window wins report, ties break by
-// earlier finish, and rows come back narrowest window first.
+// earlier finish, and rows come back with the largest competitor pool first.
 {
   const sourceStart = NOW - HOUR;
   const wins = [];
@@ -129,12 +154,45 @@ const windowCandidate = (label, specificity, startMs, wins) =>
   ];
   const rows = recentPlacementsSummary(candidates, sourceStart);
   assertEq('two windows report', rows.length, 2);
-  assertEq('narrowest first', rows[0].label, 'this month');
-  assertEq('month ranks', rows[0].ranks.join(','), '1,3');
-  assertEq('month total', rows[0].total, 40);
-  assertEq('lifetime second', rows[1].label, 'lifetime');
-  assertEq('lifetime ranks', rows[1].ranks.join(','), '2,4');
-  assertEq('lifetime total', rows[1].total, 41);
+  assertEq('largest pool first', rows[0].label, 'lifetime');
+  assertEq('lifetime ranks', rows[0].ranks.join(','), '2,4');
+  assertEq('lifetime total', rows[0].total, 41);
+  assertEq('month second', rows[1].label, 'this month');
+  assertEq('month ranks', rows[1].ranks.join(','), '1,3');
+  assertEq('month total', rows[1].total, 40);
+}
+
+// Equal-sized pools put the broader, more significant chart first.
+{
+  const sourceStart = NOW - HOUR;
+  const wins = [];
+  for (let i = 0; i < 9; i++) wins.push(win(NOW - 2 * DAY - i * HOUR, 20000 + i * 1000));
+  wins.push(win(NOW - 60e3, 10000));
+  const rows = recentPlacementsSummary([
+    { label: 'this month', specificity: 9, wins },
+    { label: 'lifetime', specificity: 12, wins, alwaysShowBest: true },
+  ], sourceStart);
+  assertEq('broader chart wins equal-total tie', rows[0].label, 'lifetime');
+  assertEq('equal-total narrower chart second', rows[1].label, 'this month');
+}
+
+// The summary identifies the rank belonging to the exact current record,
+// including lifetime's near-miss path.
+{
+  const sourceStart = NOW - HOUR;
+  const old = [];
+  for (let i = 0; i < 19; i++) old.push(win(NOW - 2 * DAY - i * HOUR, 20000 + i * 1000));
+  const current = win(NOW, 10000);
+  const rows = recentPlacementsSummary([
+    { label: 'lifetime', specificity: 12, wins: [...old, current], alwaysShowBest: true },
+  ], sourceStart, current);
+  assertEq('current top rank identified', rows[0].currentRank, 1);
+
+  const nearCurrent = win(NOW, 21500);
+  const nearRows = recentPlacementsSummary([
+    { label: 'lifetime', specificity: 12, wins: [...old, nearCurrent], alwaysShowBest: true },
+  ], sourceStart, nearCurrent);
+  assertEq('current near-miss rank identified', nearRows[0].currentRank, 3);
 }
 
 // Lifetime's near-miss rule: with alwaysShowBest, a source-window win

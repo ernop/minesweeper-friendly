@@ -59,7 +59,8 @@ Runtime: `index.html` + `style.css` + pure `rng.js` / `justice.js` /
 `minesweeper.js`, no dependencies, no build step. The settings page is `settings.html` + `settings-page.js`,
 loading the same `style.css`, `storage.js`, and `settings-core.js` (both
 pages must load storage.js and settings-core.js before their own script).
-Serve with `python3 -m http.server 8018`.
+Serve with `python3 -m http.server 8018 --bind 127.0.0.1` and open exactly
+`http://127.0.0.1:8018/`.
 
 **`PRODUCT.md` is the canonical spec of every product and UI decision**
 (board chrome, layout rules, rank lists, rankaverages, streaks, scatters,
@@ -517,7 +518,13 @@ Implementation notes:
   render from; the summary ignores the largestIsland display gate) —
   and renders the block in `renderRanks` right after the exact-3BV
   list, gated by shownThings.recentPlacements; nearMiss rows render the
-  rank muted (`.recent-near-cell`).
+  rank muted (`.recent-near-cell`). `dedupeRankCandidates` is shared
+  with the full time/day and board-shape tablecharts, so the summary
+  obeys `collapseDuplicateCharts` with the same pinned lifetime/week
+  and most-specific-shape rules. Summary rows sort by competitor count
+  descending, then broader specificity; the exact current record's
+  ordinal carries `.recent-current-rank`, matching the full tablechart's
+  bold light-blue current-row treatment.
   `node tests/recent-placements-test.js` freezes the formatting and
   summary rules.
 - Rankaverages: `RANKAVERAGE_SPECS` (bucketing per stat), `avgDelta`
@@ -602,7 +609,11 @@ Implementation notes:
   `index.html`. Exact player rule: a bare click into a certified pocket
   that no outside clue can ever resolve is guaranteed safe. Qualification
   is hidden-layout-independent: `certifyEntry(view, clicked)` receives no
-  witness. It runs `proveFacts` (direct counts, general overlap subtraction,
+  witness. `certifyEntries(view, entries)` is the batched equivalent used
+  by guess scoring: it builds one visible constraint structure and checks
+  each frontier/sea component once, avoiding an Expert-sized structure
+  rebuild for every covered cell on the click-critical path. Certification
+  runs `proveFacts` (direct counts, general overlap subtraction,
   then exhaustive component search coupled by total mines and sea),
   `buildStructure` (residual clue components plus
   8-connected sea components), then recognizes one compact family:
@@ -743,17 +754,20 @@ https://ernop.github.io/minesweeper-friendly/ and redeploys on every push.
 
 ## Local tooling and verification (this machine, learned 2026-08-19)
 
-- Serving: `python3 -m http.server 8018` is the canonical local server
-  (README) and THE port for this service — no improvised ports (decided
-  2026-08-22; sessions had used 8000, 8099, ...). If 8018 is already
-  serving, use the running server. Browser storage (IndexedDB, and
-  localStorage before 2026-08-20) is per-origin, so each port has its
-  own play history: 8018 is the player's real origin. Agent verification
+- Serving: `python3 -m http.server 8018 --bind 127.0.0.1` and
+  `http://127.0.0.1:8018/` are the canonical local server and exact play
+  origin — no improvised hosts or ports (decided 2026-08-22; sessions had
+  used 8000, 8099, ...). If that origin is already serving, use the running
+  server. Browser storage (IndexedDB, and localStorage before 2026-08-20) is
+  per-origin: `localhost:8018` is a different, incorrect score store even
+  though it reaches the same machine. `http://127.0.0.1:8018/` is the
+  player's real origin. Agent verification
   also runs on 8018 whenever it persists nothing (RAM-only injections
   plus an in-page render, reading, screenshots — `persistUserdata` and
   `saveTrace` untouched). Anything that writes storage — imports, played
-  test games, settings changes — runs on 8099, the single permanent
-  test origin (junk history expected there), never on any other port.
+  test games, settings changes — runs on `http://127.0.0.1:8099/`, the
+  single permanent test origin (junk history expected there), never on any
+  other origin.
 - Headless browsing (state as of 2026-08-23): no system chromium /
   google-chrome, and `/usr/bin/firefox` is an uninstalled snap stub that
   only prints "snap install firefox" — but Playwright browser builds now

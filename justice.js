@@ -663,23 +663,52 @@ function certifySeaEntry(structure, clicked) {
   };
 }
 
-// Returns a compact proof that the covered cell is a qualifying sealed
-// entry, or null. This function cannot inspect the hidden mine layout.
-function certifyEntry(view, clicked) {
+function validateEntryIndex(view, clicked) {
   const size = view.width * view.height;
   if (!Number.isInteger(clicked) || clicked < 0 || clicked >= size) {
     throw new Error('clicked cell is outside the board');
   }
-  if (view.revealed[clicked]) return null;
+}
 
+// Returns compact proofs for qualifying entries while constructing the
+// visible constraint structure only once. Every cell in one certified
+// pocket shares its certificate, so each frontier/sea component is also
+// checked only once.
+function certifyEntries(view, entries) {
+  for (const entry of entries) validateEntryIndex(view, entry);
   const structure = buildStructure(view);
-  if (structure.facts.has(clicked)) return null;
+  const certificates = new Map();
+  const frontierCertificates = new Map();
+  let seaCertificate;
+  let seaChecked = false;
 
-  const componentIndex = structure.componentOfCell.get(clicked);
-  if (componentIndex !== undefined) {
-    return certifyFrontierEntry(structure, structure.components[componentIndex]);
+  for (const entry of entries) {
+    if (view.revealed[entry] || structure.facts.has(entry)) continue;
+    const componentIndex = structure.componentOfCell.get(entry);
+    let certificate = null;
+    if (componentIndex !== undefined) {
+      if (!frontierCertificates.has(componentIndex)) {
+        frontierCertificates.set(componentIndex,
+          certifyFrontierEntry(structure, structure.components[componentIndex]));
+      }
+      certificate = frontierCertificates.get(componentIndex);
+    } else if (structure.seaComponentOfCell.has(entry)) {
+      if (!seaChecked) {
+        seaCertificate = certifySeaEntry(structure, entry);
+        seaChecked = true;
+      }
+      certificate = seaCertificate;
+    }
+    if (certificate !== null) certificates.set(entry, certificate);
   }
-  return certifySeaEntry(structure, clicked);
+  return certificates;
+}
+
+// Returns a compact proof that the covered cell is a qualifying sealed
+// entry, or null. This function cannot inspect the hidden mine layout.
+function certifyEntry(view, clicked) {
+  validateEntryIndex(view, clicked);
+  return certifyEntries(view, [clicked]).get(clicked) || null;
 }
 
 function layoutMatchesComplement(currentMines, shape) {
@@ -745,6 +774,7 @@ const Justice = {
   buildStructure,
   cardinalityShape,
   complementShape,
+  certifyEntries,
   certifyEntry,
   redrawEntry,
 };

@@ -1,0 +1,17 @@
+---
+description: Use the canonical local origins so browser history stays intact
+alwaysApply: true
+---
+
+# Local server origins
+
+- The player's canonical local origin is exactly
+  `http://127.0.0.1:8018/`.
+- Serve it from the repository root with
+  `python3 -m http.server 8018 --bind 127.0.0.1`.
+- Before starting or restarting it, check whether that server is already
+  running and reuse it when possible.
+- Never substitute `localhost`, another hostname, or another port. IndexedDB
+  scores are origin-scoped, so substitutions open a different history.
+- Storage-writing automated tests use exactly `http://127.0.0.1:8099/`.
+  Do not use that test origin for the player's games.

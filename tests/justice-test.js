@@ -69,6 +69,11 @@ function validRedraw(board, redrawn, clicked) {
     JSON.stringify(minedCertificate) === JSON.stringify(safeCertificate));
   check('1-in-3: exact entry odds recorded',
     minedCertificate.clearWays === 2 && minedCertificate.totalWays === 3);
+  const batched = Justice.certifyEntries(minedEntry.view, [1, 2, 3]);
+  check('1-in-3: batch certification covers every pocket entry',
+    batched.size === 3 && [1, 2, 3].every((entry) => batched.has(entry)));
+  check('1-in-3: batch reuses one pocket certificate',
+    batched.get(1) === batched.get(2) && batched.get(2) === batched.get(3));
   const redrawn = Justice.redrawEntry(
     minedCertificate, 1, minedEntry.mines, () => 0);
   check('1-in-3: mined entry redrawn clear', validRedraw(minedEntry, redrawn, 1));

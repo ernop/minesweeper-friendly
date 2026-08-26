@@ -36,8 +36,8 @@ key names) live in `agents.md`; player-facing pitch in `promo/PROMO.md`.
   (the "1" color — the first light-blue E was judged too light). One SVG
   (`favicon.svg`), linked from both pages.
 - The status button is a dove (symbol of peace and kindness), not a smiley:
-  idle; startled flap while a cell is pressed; olive branch on win; broken
-  heart on loss.
+  it stays still throughout normal play, carries an olive branch on win,
+  and becomes a broken heart on loss.
 - Clicking anywhere in the titlebar (the whole top panel, not just the
   dove) restarts. Space bar also restarts, except when focus is in an
   input, textarea, button, or link.
@@ -943,6 +943,11 @@ carries at least one tag.
   on (hiding a chart does not hide the fact); the chart definitions are
   shared with the tablecharts (`boardShapeCandidates`, `rankColumns`) so
   the two sets cannot drift.
+- The same `collapseDuplicateCharts` rule applies before the summary is
+  computed: time/day charts use the pinned-lifetime-and-week progressive
+  disclosure, and board-shape charts keep their most specific distinct
+  member sets. Switching the setting off restores every candidate here
+  just as it does in the full tablecharts.
 - Only ranks within the top tenth of a list are reported (rank r
   qualifies when r × 10 ≤ list length): a 9-win list reports nothing, a
   200-win list reports ranks up to 20. Ranking order is the tablechart
@@ -955,10 +960,11 @@ carries at least one tag.
   <window>" and says so.
 - Row format: chart name, the earned ranks with consecutive runs
   compressed ("8–12th", the ordinal suffix closing each run), and a pale
-  "of N" naming the list length the tenth is of. Rows order narrowest
-  chart first (the tablecharts' specificity order; after lifetime come
-  the same-3BV chart, then the board-shape charts in their tablechart
-  order).
+  "of N" naming the list length the tenth is of. Rows order by that list
+  length, largest competitor pool first. Equal-sized pools put the
+  broader, more significant chart first (reverse tablechart specificity).
+  The ordinal belonging to the game that just finished is bold on the
+  same light-blue background as its row in the full tablechart.
 - Gated by shownThings.recentPlacements (on by default).
 
 ## Relative age display

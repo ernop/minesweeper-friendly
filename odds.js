@@ -286,14 +286,6 @@ function expectedLife(view, odds, cell) {
   return survive * value;
 }
 
-function justiceWouldSave(view, cell) {
-  try {
-    return Justice.certifyEntry(view, cell) !== null;
-  } catch (err) {
-    return false;
-  }
-}
-
 // Score a bare click into `clicked`. Returns null when the click is not
 // a guess: already revealed, proven safe by the canonical constraint
 // solver, or p(mine) is 0 in every enumerated layout after a proof search
@@ -316,17 +308,20 @@ function scoreGuess(view, clicked, opts) {
   }
   const lifeNeedless = Math.max(0, p - minP);
   const idealRisk = !odds.provenSafeOpen && p <= minP + 1e-12;
-  const justice = opts.considerJustice === true && justiceWouldSave(view, clicked);
-  const actualP = justice ? 0 : p;
-  let actualMinP = justice ? 0 : minP;
-  if (opts.considerJustice === true && actualMinP > 1e-12) {
-    for (const other of odds.unproven) {
-      if (justiceWouldSave(view, other)) {
-        actualMinP = 0;
-        break;
-      }
+  let justiceCertificates = new Map();
+  if (opts.considerJustice === true) {
+    try {
+      // Certification depends only on this one visible position. Batch all
+      // candidates so the board's proof structure is built once, rather
+      // than once per covered cell on the click-critical path.
+      justiceCertificates = Justice.certifyEntries(view, odds.unproven);
+    } catch (err) {
+      justiceCertificates = new Map();
     }
   }
+  const justice = justiceCertificates.has(clicked);
+  const actualP = justice ? 0 : p;
+  const actualMinP = justiceCertificates.size > 0 ? 0 : minP;
 
   let expected = 1 - (justice ? 0 : p);
   let bestExpected = expected;
@@ -350,7 +345,7 @@ function scoreGuess(view, clicked, opts) {
     for (const other of odds.unproven) {
       if (other === clicked) continue;
       let life = expectedLife(view, odds, other);
-      if (opts.considerJustice === true && justiceWouldSave(view, other)) {
+      if (justiceCertificates.has(other)) {
         life = Math.max(life, 1 - minRisk({
           measured: true,
           unproven: odds.unproven.filter((c) => c !== other),

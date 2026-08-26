@@ -345,10 +345,10 @@ body.trial-offboard #game-frame {
 
 /*-------RESULTS-------*/
 
-/* The board is the anchor; the win summary + stats table sit at the far
-   right of the board's row, pinned near the viewport edge, without ever
-   occupying layout space, so the board never moves when they come and go.
-   The action analysis and rank charts live below the board in normal flow. */
+/* The board is the anchor; when room permits, the win summary + stats table
+   sit at the far right of its row. On narrower layouts JS moves that compact
+   block below the board so it cannot cover the cells. The action analysis
+   and rank charts live below the game area in normal flow. */
 #game-area { position: relative; }
 
 #game-area.trial-no-board {
@@ -379,6 +379,13 @@ body.trial-offboard #game-frame {
   text-align: left;
   /* Echo the chunky in-game numeral face throughout the results area */
   font-family: "Arial Black", "Arial Bold", Arial, sans-serif;
+}
+
+#game-area.results-below-board #results {
+  position: static;
+  right: auto;
+  width: min(320px, 100%);
+  margin: 12px auto 0;
 }
 
 #results p {
@@ -1500,6 +1507,19 @@ body.settings-page .return-to-game {
 .recent-placements-grid .recent-of-cell {
   font-size: 11px;
   color: #999999;
+}
+
+/* Within a ranks-won row, mark the ordinal earned by the game that just
+   finished exactly like its highlighted row in the full tablechart. */
+.recent-placements-grid .recent-rank-run {
+  padding: 0;
+}
+
+.recent-placements-grid .recent-current-rank {
+  padding: 0 2px;
+  font-weight: bold;
+  color: #000000;
+  background: #d8ebfa;
 }
 
 /* Lifetime's near-miss rank (the closest rank when none made the top

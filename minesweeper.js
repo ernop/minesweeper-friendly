@@ -66,21 +66,17 @@ const DIGIT_SEGMENTS = {
   '-': 'G',
 };
 
-// The status button shows a dove (peace) instead of the classic smiley:
-// idle dove, startled flap while pressing, olive branch on win, and a
-// broken heart on loss.
+// The status button shows a still dove (peace) during normal play,
+// an olive branch on win, and a broken heart on loss.
 const DOVE_BODY = '<path d="M6 9.5 Q6.5 5.8 10.5 6.3 Q14.5 6.8 16.5 9 Q20.5 10.5 24 9.5 L21.5 12 L23.5 14.5 Q17.5 18.5 12 17.5 Q7 16.5 6 12 Q5.6 10.6 6 9.5 Z" fill="#ffffff" stroke="#000" stroke-width="1.1"/>';
 const DOVE_BEAK = '<path d="M6.2 8.8 L3 10 L6.2 11.2 Z" fill="#f0a020"/>';
 const DOVE_EYE = '<circle cx="8.7" cy="8.8" r="0.75"/>';
-const DOVE_EYE_WIDE = '<circle cx="8.7" cy="8.8" r="1.15" fill="none" stroke="#000" stroke-width="0.7"/><circle cx="8.7" cy="8.8" r="0.55"/>';
 const DOVE_WING_FOLDED = '<path d="M10.5 10.5 Q14.5 8.5 17.5 10 Q14.5 13.5 10.5 10.5 Z" fill="#dddddd" stroke="#000" stroke-width="0.9"/>';
-const DOVE_WING_RAISED = '<path d="M12 9.5 Q13 3.5 18.5 4 Q16.5 8.5 12 9.5 Z" fill="#dddddd" stroke="#000" stroke-width="0.9"/>';
 const OLIVE_BRANCH = '<path d="M3 10.8 Q1.6 12.6 2.4 14.8" fill="none" stroke="#2e7d32" stroke-width="0.9"/><ellipse cx="1.7" cy="12.3" rx="1.4" ry="0.75" transform="rotate(-35 1.7 12.3)" fill="#43a047"/><ellipse cx="3.5" cy="13.9" rx="1.4" ry="0.75" transform="rotate(30 3.5 13.9)" fill="#43a047"/>';
 const BROKEN_HEART = '<path d="M13 21.5 C5.5 15.5 4.5 9.5 8 7.3 C10.6 5.8 12.4 7.6 13 9.2 C13.6 7.6 15.4 5.8 18 7.3 C21.5 9.5 20.5 15.5 13 21.5 Z" fill="#d32f2f" stroke="#000" stroke-width="1"/><path d="M13 8.8 L11.6 11.5 L13.8 14 L12 17 L13.4 19.5" fill="none" stroke="#ffffff" stroke-width="1.3"/>';
 
 const FACE_SVGS = {
   smile: faceSvg(DOVE_BODY + DOVE_WING_FOLDED + DOVE_EYE + DOVE_BEAK),
-  ooh: faceSvg(DOVE_BODY + DOVE_WING_RAISED + DOVE_EYE_WIDE + DOVE_BEAK),
   dead: faceSvg(BROKEN_HEART),
   cool: faceSvg(DOVE_BODY + DOVE_WING_FOLDED + DOVE_EYE + DOVE_BEAK + OLIVE_BRANCH),
 };
@@ -146,15 +142,28 @@ const topRight = document.getElementById('top-right');
 const customForm = document.getElementById('custom-form');
 const justiceLive = document.getElementById('justice-live');
 
-// Keep the compact stats flush with the available main column's right edge.
-// If the fixed top-right controls occupy that same horizontal strip, start
-// the stats below them; never move the stats beneath the board.
+// Keep the compact stats flush with the available main column's right edge
+// when that gutter is wide enough. With the metrics panel open (or on a
+// narrow viewport), put them below the board instead of covering it.
+// If the fixed top-right controls occupy the side layout's horizontal strip,
+// start the stats below them.
 function syncResultsPlacement() {
   resultsBox.style.removeProperty('--results-top-clearance');
   if (gameArea.classList.contains('trial-no-board')
-      || (resultSummary.textContent === '' && resultStats.textContent === '')) return;
+      || (resultSummary.textContent === '' && resultStats.textContent === '')) {
+    gameArea.classList.remove('results-below-board');
+    return;
+  }
 
   const areaRect = gameArea.getBoundingClientRect();
+  const frameRect = document.getElementById('game-frame').getBoundingClientRect();
+  const mainRect = mainElement.getBoundingClientRect();
+  const resultsWidth = resultsBox.getBoundingClientRect().width;
+  const rightGutter = mainRect.right - frameRect.right;
+  const belowBoard = rightGutter < resultsWidth + 16;
+  gameArea.classList.toggle('results-below-board', belowBoard);
+  if (belowBoard) return;
+
   const chromeRect = topRight.getBoundingClientRect();
   const resultRect = resultsBox.getBoundingClientRect();
   const sharesRightStrip = resultRect.right > chromeRect.left - 8
@@ -3195,6 +3204,35 @@ function formatRankRuns(ranks) {
   return parts.join(', ');
 }
 
+// Progressive-disclosure dedupe shared by the tablecharts and their
+// recent-placements summary. Candidates with the exact same member wins
+// keep the lowest-specificity chart, except pinned charts are always kept
+// and claim their duplicate sets before the ordinary candidates.
+function dedupeRankCandidates(candidates, pinnedLabels = []) {
+  const signatureOf = (candidate) => candidate.wins
+    .map((win) => win.endedAt)
+    .sort((a, b) => a - b)
+    .join('|');
+  const kept = [];
+  const keptSet = new Set();
+  const seenSets = new Set();
+  for (const label of pinnedLabels) {
+    const pinned = candidates.find((candidate) => candidate.label === label);
+    if (pinned === undefined) throw new Error('missing pinned rank chart: ' + label);
+    kept.push(pinned);
+    keptSet.add(pinned);
+    seenSets.add(signatureOf(pinned));
+  }
+  for (const candidate of [...candidates].sort((a, b) => a.specificity - b.specificity)) {
+    if (keptSet.has(candidate)) continue;
+    const signature = signatureOf(candidate);
+    if (seenSets.has(signature)) continue;
+    seenSets.add(signature);
+    kept.push(candidate);
+  }
+  return kept;
+}
+
 // The recent-placements rows (PRODUCT.md "Recent placements"). Each
 // candidate names one tablechart: {label, specificity, wins (that chart's
 // member wins), startMs (present only on time windows — a window reports
@@ -3207,9 +3245,10 @@ function formatRankRuns(ranks) {
 // chart, wins rank fastest-first (ties by earlier finish) and a rank r is
 // reported only when it is earned within the source window and sits in
 // the list's top tenth (r * 10 <= list length; a 9-win list reports
-// nothing). Rows come back narrowest chart first, each
-// {label, ranks (ascending, 1-based), total, nearMiss}.
-function recentPlacementsSummary(candidates, sourceStartMs) {
+// nothing). Rows come back with the largest competitor pool first; ties
+// put broader, more significant charts first. Each row is
+// {label, ranks (ascending, 1-based), total, nearMiss, currentRank}.
+function recentPlacementsSummary(candidates, sourceStartMs, currentRecord) {
   const rows = [];
   for (const c of candidates) {
     if (c.startMs !== undefined && !(c.startMs < sourceStartMs)) continue;
@@ -3219,16 +3258,32 @@ function recentPlacementsSummary(candidates, sourceStartMs) {
     for (let i = 0; (i + 1) * 10 <= list.length; i++) {
       if (list[i].endedAt >= sourceStartMs) ranks.push(i + 1);
     }
+    const currentIndex = currentRecord === undefined ? -1 : list.indexOf(currentRecord);
+    const currentRank = currentIndex === -1 ? undefined : currentIndex + 1;
     if (ranks.length > 0) {
-      rows.push({ label: c.label, specificity: c.specificity, ranks, total: list.length, nearMiss: false });
+      rows.push({
+        label: c.label,
+        specificity: c.specificity,
+        ranks,
+        total: list.length,
+        nearMiss: false,
+        currentRank: ranks.includes(currentRank) ? currentRank : undefined,
+      });
     } else if (c.alwaysShowBest === true) {
       const best = list.findIndex((s) => s.endedAt >= sourceStartMs);
       if (best !== -1) {
-        rows.push({ label: c.label, specificity: c.specificity, ranks: [best + 1], total: list.length, nearMiss: true });
+        rows.push({
+          label: c.label,
+          specificity: c.specificity,
+          ranks: [best + 1],
+          total: list.length,
+          nearMiss: true,
+          currentRank: best === currentIndex ? currentRank : undefined,
+        });
       }
     }
   }
-  rows.sort((a, b) => a.specificity - b.specificity);
+  rows.sort((a, b) => b.total - a.total || b.specificity - a.specificity);
   return rows;
 }
 
@@ -3249,28 +3304,37 @@ function buildRecentPlacements(record, wins, referenceMs) {
   // rankColumns (day categories carry no startMs — lifetime-spanning,
   // always longer than the source), this game's same-3BV chart, and its
   // board-shape charts — independent of which tablecharts are switched
-  // on. Shape charts order after lifetime and the 3BV chart, in their
-  // tablechart order (specificity offset 14).
-  const candidates = rankColumns(referenceMs).map((column) => ({
+  // on. The same setting and helper as the full tablecharts dedupe the
+  // time/day and shape groups before all surviving rows are ordered by
+  // competitor count (specificity offset 14 breaks equal-count ties).
+  let rankCandidates = rankColumns(referenceMs).map((column) => ({
     label: column.label,
     specificity: column.specificity,
     startMs: column.startMs,
     wins: wins.filter(column.filter),
     alwaysShowBest: column.label === 'lifetime',
   }));
-  candidates.push({
+  if (settings.collapseDuplicateCharts) {
+    rankCandidates = dedupeRankCandidates(rankCandidates, ['lifetime', 'past week']);
+  }
+  const candidates = [...rankCandidates, {
     label: '3BV ' + record.bv3,
     specificity: 13,
     wins: wins.filter((s) => s.bv3 === record.bv3),
-  });
-  for (const c of boardShapeCandidates(record, wins)) {
+  }];
+  let shapeCandidates = boardShapeCandidates(record, wins)
+    .map((candidate) => ({ ...candidate, wins: candidate.rows }));
+  if (settings.collapseDuplicateCharts) {
+    shapeCandidates = dedupeRankCandidates(shapeCandidates);
+  }
+  for (const c of shapeCandidates) {
     candidates.push({
       label: c.label,
       specificity: 14 + c.specificity,
-      wins: c.rows,
+      wins: c.wins,
     });
   }
-  const rows = recentPlacementsSummary(candidates, sourceStartMs);
+  const rows = recentPlacementsSummary(candidates, sourceStartMs, record);
 
   const box = document.createElement('div');
   box.className = 'rank-list recent-placements';
@@ -3318,17 +3382,40 @@ function buildRecentPlacements(record, wins, referenceMs) {
       line.title = 'no top-tenth ' + row.label + ' rank was won ' + chosenLabel
         + '; this is the closest one';
     }
-    for (const [cls, text] of [
-      ['recent-window-cell', row.label],
-      ['recent-ranks-cell' + (row.nearMiss ? ' recent-near-cell' : ''),
-        formatRankRuns(row.ranks)],
-      ['recent-of-cell', 'of ' + row.total],
-    ]) {
-      const cell = document.createElement('span');
-      cell.className = cls;
-      cell.textContent = text;
-      line.appendChild(cell);
+    const labelCell = document.createElement('span');
+    labelCell.className = 'recent-window-cell';
+    labelCell.textContent = row.label;
+    line.appendChild(labelCell);
+    const ranksCell = document.createElement('span');
+    ranksCell.className = 'recent-ranks-cell'
+      + (row.nearMiss ? ' recent-near-cell' : '');
+    if (row.currentRank === undefined) {
+      ranksCell.textContent = formatRankRuns(row.ranks);
+    } else {
+      const before = row.ranks.filter((rank) => rank < row.currentRank);
+      const after = row.ranks.filter((rank) => rank > row.currentRank);
+      if (before.length > 0) {
+        const prefix = document.createElement('span');
+        prefix.className = 'recent-rank-run';
+        prefix.textContent = formatRankRuns(before) + ', ';
+        ranksCell.appendChild(prefix);
+      }
+      const current = document.createElement('span');
+      current.className = 'recent-current-rank';
+      current.textContent = ordinal(row.currentRank);
+      ranksCell.appendChild(current);
+      if (after.length > 0) {
+        const suffix = document.createElement('span');
+        suffix.className = 'recent-rank-run';
+        suffix.textContent = ', ' + formatRankRuns(after);
+        ranksCell.appendChild(suffix);
+      }
     }
+    line.appendChild(ranksCell);
+    const totalCell = document.createElement('span');
+    totalCell.className = 'recent-of-cell';
+    totalCell.textContent = 'of ' + row.total;
+    line.appendChild(totalCell);
     grid.appendChild(line);
   }
   box.appendChild(grid);
@@ -4536,25 +4623,21 @@ function renderRanks(record, modeRecords, options = {}) {
   // renders its own chart regardless of duplication.
   const candidates = rankColumns(referenceMs)
     .filter((column) => settings.shownThings.lastOneMinute || column.label !== 'past 1 min')
-    .map((column) => ({
-    column,
-    inWindow: wins.filter(column.filter).sort(byTimeThenEnd),
-  }));
+    .map((column) => {
+      const inWindow = wins.filter(column.filter).sort(byTimeThenEnd);
+      return {
+        label: column.label,
+        specificity: column.specificity,
+        column,
+        inWindow,
+        wins: inWindow,
+      };
+    });
   const kept = new Set(candidates);
   if (settings.collapseDuplicateCharts) {
-    const signatureOf = (c) => c.inWindow.map((s) => s.endedAt).join('|');
-    const seenSets = new Set();
     kept.clear();
-    for (const label of ['lifetime', 'past week']) {
-      const pinned = candidates.find((c) => c.column.label === label);
-      kept.add(pinned);
-      seenSets.add(signatureOf(pinned));
-    }
-    for (const c of [...candidates].sort((a, b) => a.column.specificity - b.column.specificity)) {
-      const signature = signatureOf(c);
-      if (seenSets.has(signature)) continue;
-      seenSets.add(signature);
-      kept.add(c);
+    for (const candidate of dedupeRankCandidates(candidates, ['lifetime', 'past week'])) {
+      kept.add(candidate);
     }
   }
   if (settings.shownThings.timeTables) {
@@ -4588,62 +4671,16 @@ function renderRanks(record, modeRecords, options = {}) {
   // Older wins that lack the measurement stay off the list. Nested
   // filters (max 2 ⊂ max 3 ⊂ max 4) collapse under the same setting
   // as the window charts, most specific first.
-  const shapeCandidates = [];
-  if (record.maxAdjacent === 8) {
-    shapeCandidates.push({
-      label: 'has 8',
-      specificity: 0,
-      rows: wins.filter((s) => s.maxAdjacent === 8),
-    });
-  }
-  if (record.hasSeven === true) {
-    shapeCandidates.push({
-      label: 'has 7',
-      specificity: 1,
-      rows: wins.filter((s) => s.hasSeven === true),
-    });
-  }
-  if (typeof record.maxAdjacent === 'number') {
-    for (const cap of [4, 3, 2]) {
-      if (record.maxAdjacent <= cap) {
-        shapeCandidates.push({
-          label: 'max ' + cap,
-          specificity: cap,
-          rows: wins.filter((s) => typeof s.maxAdjacent === 'number' && s.maxAdjacent <= cap),
-        });
-      }
-    }
-  }
-  if (typeof record.islandCount === 'number') {
-    shapeCandidates.push({
-      label: record.islandCount === 1 ? '1 island' : record.islandCount + ' islands',
-      specificity: 10,
-      rows: wins.filter((s) => s.islandCount === record.islandCount),
-    });
-  }
-  if (settings.shownThings.largestIsland && typeof record.largestIsland === 'number') {
-    shapeCandidates.push({
-      label: 'largest island ' + record.largestIsland,
-      specificity: 11,
-      rows: wins.filter((s) => s.largestIsland === record.largestIsland),
-    });
-  }
-  if (typeof record.zeroCount === 'number') {
-    shapeCandidates.push({
-      label: record.zeroCount === 1 ? '1 zero' : record.zeroCount + ' zeros',
-      specificity: 12,
-      rows: wins.filter((s) => s.zeroCount === record.zeroCount),
-    });
-  }
+  const shapeCandidates = boardShapeCandidates(record, wins)
+    .filter((candidate) => settings.shownThings.largestIsland
+      || !candidate.label.startsWith('largest island '));
   const shapeKept = new Set(shapeCandidates);
   if (settings.collapseDuplicateCharts) {
-    const seenSets = new Set();
     shapeKept.clear();
-    for (const c of [...shapeCandidates].sort((a, b) => a.specificity - b.specificity)) {
-      const signature = c.rows.map((s) => s.endedAt).join('|');
-      if (seenSets.has(signature)) continue;
-      seenSets.add(signature);
-      shapeKept.add(c);
+    const dedupeCandidates = shapeCandidates
+      .map((candidate) => ({ ...candidate, wins: candidate.rows }));
+    for (const candidate of dedupeRankCandidates(dedupeCandidates)) {
+      shapeKept.add(shapeCandidates.find((original) => original.label === candidate.label));
     }
   }
   if (settings.shownThings.boardShapeTables) {
@@ -8499,7 +8536,6 @@ boardElement.addEventListener('mousedown', (event) => {
   if (index === null) return;
   traceEvent('ldown', event, index);
   leftDown = true;
-  setFace('ooh');
   pressAt(index);
 });
 
@@ -8566,7 +8602,6 @@ document.addEventListener('mouseup', (event) => {
   }
   leftDown = false;
   clearPresses();
-  if (gameState === 'ready' || gameState === 'playing') setFace('smile');
 });
 
 document.addEventListener('mousemove', (event) => {

@@ -14,10 +14,12 @@ shown four times each, Short trial (4 boards × 4), and Test trial (1 board
 No dependencies, no build step. Open `index.html` in a browser, or:
 
 ```bash
-python3 -m http.server 8018
+python3 -m http.server 8018 --bind 127.0.0.1
 ```
 
-then http://localhost:8018/
+Then open exactly **http://127.0.0.1:8018/**. This is the canonical local
+play origin: IndexedDB scores are origin-scoped, so `localhost:8018` or any
+other host/port has separate history and must not be substituted.
 
 ## Controls
 

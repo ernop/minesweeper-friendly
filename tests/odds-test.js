@@ -84,11 +84,20 @@ console.log('1-of-2 pocket');
   check('needless 0', close(guess.lifeNeedless, 0));
   check('actual risk follows raw risk without protection',
     close(guess.actualP, 0.5) && close(guess.actualMinP, 0.5));
+  let certificationCalls = 0;
+  const certifyEntries = Justice.certifyEntries;
+  Justice.certifyEntries = (...args) => {
+    certificationCalls++;
+    return certifyEntries(...args);
+  };
   const protectedGuess = Odds.scoreGuess(board.view, a, { considerJustice: true });
+  Justice.certifyEntries = certifyEntries;
   check('certified pocket reports zero actual protected risk',
     protectedGuess.justice === true
       && close(protectedGuess.actualP, 0)
       && close(protectedGuess.actualMinP, 0));
+  check('protected scoring batches Justice certification once',
+    certificationCalls === 1);
   check('ideal risk', guess.idealRisk);
   check('perfect play (symmetric)', guess.perfectPlay);
   check('expected life 0.5', close(guess.expectedLife, 0.5));

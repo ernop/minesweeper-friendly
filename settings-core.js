@@ -116,7 +116,7 @@ const SETTINGS_SCHEMA = [
     valid: (v) => typeof v === 'boolean',
     group: 'after-game',
     label: 'collapse duplicate tablecharts',
-    describe: 'when several time windows hold the exact same wins (e.g. every win this week happened today), show only the most specific chart (lifetime and past week always render); off = every window always renders its own chart',
+    describe: 'when several time windows hold the exact same wins (e.g. every win this week happened today), show only the most specific chart in both the tablecharts and ranks-won summary (lifetime and past week always render); off = every window always renders its own chart',
   },
   {
     field: 'showMotionStatsDuringGame',
