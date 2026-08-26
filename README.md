@@ -5,7 +5,14 @@
 Minesweeper variant project. Standard first-click-safe play, plus Uniform NG,
 Single-path NG, Proof-or-die, Angelic, a 100-game Trial of 25 hidden boards
 shown four times each, Short trial (4 boards × 4), and Test trial (1 board
-× 4). The Mode menu is in the upper right; each mode keeps its own rankings.
+× 4). The Pregen 10 mode samples ten boards, ranks them by descending 3BV,
+and deals them in that order with the upper-right cell opened automatically.
+Persistent 3BV-versus-time charts below the board track the current ten-board
+challenge and all wins in this mode/configuration since local midnight.
+A run/3BV/time table beside them adds each result as the challenge proceeds
+and keeps the latest completed run highlighted in light blue; it never adds
+a distracting second live clock.
+The Mode menu is in the upper right; each mode keeps its own rankings.
 
 ![A won Beginner game: stats beside the board, rank charts and streak lists below](promo/win-screen-2026-08-19-full-layout.png)
 
@@ -28,7 +35,7 @@ other host/port has separate history and must not be substituted.
 - Left click on a satisfied number: chord (open all unflagged neighbors)
 - Face button or space bar: new game
 - Tabs: Beginner 9x9/10 (default), Intermediate 16x16/40, Expert 30x16/99, Custom
-- Upper-right Mode menu: Standard, Uniform NG, Single-path NG, Proof-or-die, Angelic, Trial, Short trial, Test trial
+- Upper-right Mode menu: Standard, Pregen 10 boards by descending 3BV, Uniform NG, Single-path NG, Proof-or-die, Angelic, Trial, Short trial, Test trial, Board lab
 
 ## Solver
 
@@ -150,9 +157,10 @@ hidden.
 
 Backup: subtle "export history" / "import history" controls under the
 results. Export copies the full history JSON to the clipboard (with a
-save-to-file option); import accepts pasted JSON or a file, validates the
-whole blob before writing anything, and merges with dedupe by each record's
-end timestamp, so re-importing the same blob is always safe. Ages are
+save-to-file option), omitting irreparable records and invalid optional
+fields; import accepts pasted JSON or a file, recovers every usable record
+and field, and merges with dedupe by each record's end timestamp, so
+re-importing the same blob is always safe. Ages are
 color-coded by unit following the board-number palette: seconds
 fluorescent green (always bold), minutes green, hours blue, days red, then
 navy/maroon/teal for weeks/months/years. Losses show the same stats table

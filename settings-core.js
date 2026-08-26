@@ -203,7 +203,7 @@ const SETTINGS_SCHEMA = [
     valid: (v) => PLAY_MODE_IDS.has(v),
     group: 'gameplay',
     label: 'play mode',
-    describe: 'Standard, Uniform NG, Single-path NG, Proof-or-die, Angelic, Trial, Short trial, Test trial, or Board lab. Each mode stores and ranks its own results (Board lab records nothing).',
+    describe: 'Standard, Pregen 10 by descending 3BV, Uniform NG, Single-path NG, Proof-or-die, Angelic, Trial, Short trial, Test trial, or Board lab. Each mode stores and ranks its own results (Board lab records nothing).',
     control: 'none',
   },
   {

@@ -15,6 +15,10 @@ const DIFFICULTIES = {
 // already solved, nothing is recorded.
 const PLAY_MODES = [
   { id: 'standard', label: 'Standard' },
+  {
+    id: 'pregen-10-3bv-desc',
+    label: 'pregen 10 boards and order by 3BV descending, assuming auto-click in upper right',
+  },
   { id: 'uniform-ng', label: 'Uniform NG' },
   { id: 'single-path-ng', label: 'Single-path NG' },
   { id: 'proof-or-die', label: 'Proof-or-die' },
@@ -113,6 +117,8 @@ let gameRandom = null;  // the one deterministic random stream for this game
 let trialSession = null;   // userdata 'trial'; null when none stored
 let trialPresentation = null; // current trial board, or null
 let lastTrialReview = null;   // ended session waiting to be shown
+let pregenBatch = null;       // ten seed-backed candidates in descending 3BV order
+let pregenCurrent = null;     // rank/3BV of the candidate currently being played
 
 // Press-preview state (left button held down)
 let leftDown = false;
@@ -134,6 +140,7 @@ const timerDisplay = document.getElementById('timer');
 const resultSummary = document.getElementById('result-summary');
 const resultStats = document.getElementById('result-stats');
 const resultAnalysis = document.getElementById('result-analysis');
+const pregenCharts = document.getElementById('pregen-charts');
 const resultRanks = document.getElementById('result-ranks');
 const gameArea = document.getElementById('game-area');
 const resultsBox = document.getElementById('results');
@@ -178,6 +185,7 @@ function syncResultsPlacement() {
 // they extend below it, the separate report (or rankings when no report is
 // shown) shifts down by the exact overhang.
 function syncResultClearance() {
+  pregenCharts.style.removeProperty('--result-overflow');
   resultAnalysis.style.removeProperty('--result-overflow');
   resultRanks.style.removeProperty('--result-overflow');
   if (gameArea.classList.contains('trial-no-board')) {
@@ -187,7 +195,8 @@ function syncResultClearance() {
     Math.ceil(resultsBox.getBoundingClientRect().bottom
       - gameArea.getBoundingClientRect().bottom));
   if (extra > 0) {
-    const target = resultAnalysis.childElementCount > 0 ? resultAnalysis : resultRanks;
+    const target = !pregenCharts.hidden ? pregenCharts
+      : resultAnalysis.childElementCount > 0 ? resultAnalysis : resultRanks;
     target.style.setProperty('--result-overflow', extra + 'px');
   }
 }
@@ -266,6 +275,10 @@ function boardLabActive() {
   return settings.playMode === 'board-lab';
 }
 
+function pregenActive() {
+  return settings.playMode === 'pregen-10-3bv-desc';
+}
+
 // The generator the current settings select for the current mode: the
 // chosen id with its stored parameter overrides filled from the schema
 // defaults, or the default generator where the choice does not apply.
@@ -293,7 +306,7 @@ function ngAttempts() {
 
 function placeMinesForPlayMode(safeIndex) {
   const mode = settings.playMode;
-  if (mode === 'standard' || mode === 'angelic') {
+  if (mode === 'standard' || mode === 'pregen-10-3bv-desc' || mode === 'angelic') {
     placeMines(safeIndex);
     return;
   }
@@ -404,10 +417,182 @@ function newGame() {
   syncResultClearance();
   if (Trial.isPlayMode(settings.playMode) && trialIsActive()) setupTrialBoard();
   else trialPresentation = null;
+  if (pregenActive()) setupPregenBoard();
+  else pregenCurrent = null;
   if (boardLabActive()) buildLabBoard();
   document.title = 'Minesweeper - ' + playModeLabel();
   renderTrialChrome();
+  renderPregenChrome();
+  renderPregenCharts();
   syncLabChrome();
+}
+
+//-------PREGENERATED HIGH-3BV MODE-------
+
+const PREGEN_BATCH_SIZE = 10;
+
+function pregenBatchKey() {
+  return boardKey() + BoardGenerators.keySuffix(gameGenerator);
+}
+
+function buildPregenBatch(key) {
+  backupStatus.textContent = 'generating and ranking 10 boards by 3BV\u2026';
+  const seeds = [];
+  for (let i = 0; i < PREGEN_BATCH_SIZE; i++) seeds.push(GameRandom.createSeed());
+  let boards;
+  try {
+    boards = Pregen.rankSeeds({
+      seeds,
+      width: config.width,
+      height: config.height,
+      mineCount: config.mines,
+      safeIndex: config.width - 1,
+      generator: gameGenerator,
+      randomFromSeed: GameRandom.fromSeed,
+      place: BoardGenerators.place,
+    });
+  } catch (err) {
+    backupStatus.textContent = 'board generation failed: ' + err.message;
+    throw err;
+  }
+  pregenBatch = { key, boards, next: 0, startedAt: Date.now(), results: [] };
+  backupStatus.textContent = '';
+}
+
+function setupPregenBoard() {
+  const key = pregenBatchKey();
+  if (pregenBatch === null || pregenBatch.key !== key
+      || pregenBatch.next >= pregenBatch.boards.length) {
+    buildPregenBatch(key);
+  }
+  const candidate = pregenBatch.boards[pregenBatch.next];
+  pregenBatch.next++;
+  pregenCurrent = {
+    rank: pregenBatch.next,
+    total: pregenBatch.boards.length,
+    bv3: candidate.bv3,
+  };
+
+  // Regenerate the chosen candidate from its own seed. This consumes exactly
+  // the placement portion of the stream, leaving Justice redraws replayable.
+  gameSeed = candidate.seed;
+  gameRandom = GameRandom.fromSeed(gameSeed);
+  const opening = config.width - 1;
+  const mineAt = BoardGenerators.place(
+    gameGenerator, config.width, config.height, config.mines, opening, gameRandom);
+  if (Pregen.board3BV(config.width, config.height, mineAt) !== candidate.bv3) {
+    throw new Error('pregenerated board changed while being dealt');
+  }
+  applyMineMap(mineAt);
+  floodReveal(opening);
+  gameState = 'playing';
+  justiceEnabledForGame = justiceAppliesToMode() && settings.justUniverse;
+  startTimer();
+  checkWin();
+}
+
+function renderPregenChrome() {
+  const box = document.getElementById('pregen-progress');
+  box.hidden = !pregenActive() || pregenCurrent === null;
+  box.textContent = box.hidden
+    ? ''
+    : pregenCurrent.rank + ' / ' + pregenCurrent.total + ' \u00b7 3BV ' + pregenCurrent.bv3;
+}
+
+function buildPregenProgressTable(rows) {
+  const panel = document.createElement('section');
+  panel.className = 'pregen-progress-panel';
+  const heading = document.createElement('h4');
+  heading.textContent = 'challenge progress';
+  const table = document.createElement('table');
+  const head = document.createElement('thead');
+  const headRow = document.createElement('tr');
+  for (const label of ['run', '3BV', 'time']) {
+    const cell = document.createElement('th');
+    cell.textContent = label;
+    headRow.appendChild(cell);
+  }
+  head.appendChild(headRow);
+  const body = document.createElement('tbody');
+  for (const row of rows) {
+    const tr = document.createElement('tr');
+    if (row.outcome === 'loss') tr.classList.add('loss');
+    if (row.latest) tr.classList.add('me');
+    const run = document.createElement('td');
+    run.textContent = String(row.run);
+    const bv3 = document.createElement('td');
+    bv3.textContent = String(row.bv3);
+    const time = document.createElement('td');
+    time.textContent = (row.timeMs / 1000).toFixed(3) + 's';
+    if (row.outcome === 'loss') {
+      const outcome = document.createElement('span');
+      outcome.className = 'pregen-progress-outcome';
+      outcome.textContent = ' loss';
+      time.appendChild(outcome);
+    }
+    tr.append(run, bv3, time);
+    body.appendChild(tr);
+  }
+  table.append(head, body);
+  panel.append(heading, table);
+  return panel;
+}
+
+function buildPregenChartPanel(label, wins, referenceMs) {
+  const panel = document.createElement('section');
+  panel.className = 'pregen-chart-panel';
+  const heading = document.createElement('h4');
+  heading.textContent = label;
+  panel.appendChild(heading);
+  if (wins.length < 2) {
+    const waiting = document.createElement('p');
+    waiting.className = 'pregen-chart-waiting';
+    waiting.textContent = wins.length + ' / 2 wins needed';
+    panel.appendChild(waiting);
+    return panel;
+  }
+
+  const latest = wins.reduce((a, b) => a.endedAt > b.endedAt ? a : b);
+  const byTimeThenEnd = [...wins]
+    .sort((a, b) => a.timeMs - b.timeMs || a.endedAt - b.endedAt);
+  const rank = byTimeThenEnd.indexOf(latest) + 1;
+  const pairs = wins.map((record) => [record.bv3, secondsOf(record)]);
+  panel.appendChild(buildScatter(
+    wins,
+    latest,
+    (record) => record.bv3,
+    secondsOf,
+    '3BV',
+    'time',
+    rank + ' ' + label,
+    (record) => ageInfo(referenceMs, record.endedAt),
+    {
+      trimY: true,
+      trendLines: trendLinesFor([], pairs),
+    },
+  ));
+  return panel;
+}
+
+function renderPregenCharts() {
+  pregenCharts.textContent = '';
+  const visible = pregenActive() && pregenBatch !== null && history !== null;
+  pregenCharts.hidden = !visible;
+  if (!visible) {
+    syncResultClearance();
+    return;
+  }
+  const records = history[modeKey()] || [];
+  const scoped = Pregen.chartWins(
+    records, pregenBatch.startedAt, startOfDay(Date.now()));
+  const progress = Pregen.progressRows(pregenBatch.results);
+  const referenceMs = Date.now();
+  pregenCharts.append(
+    buildPregenProgressTable(progress),
+    buildPregenChartPanel('this challenge', scoped.challenge, referenceMs),
+    buildPregenChartPanel('whole day', scoped.today, referenceMs),
+  );
+  syncResultClearance();
 }
 
 //-------BOARD LAB (the non-play mode for exploring board generation)-------
@@ -1007,7 +1192,9 @@ let guessEvents = [];             // measured bare unproven clicks this game
 let oddsFailed = false;           // a guess existed but odds could not be measured
 
 function justiceAppliesToMode() {
-  return settings.playMode === 'standard' || Trial.isPlayMode(settings.playMode);
+  return settings.playMode === 'standard'
+    || settings.playMode === 'pregen-10-3bv-desc'
+    || Trial.isPlayMode(settings.playMode);
 }
 
 function playerView() {
@@ -1110,6 +1297,7 @@ function showJusticeSurvivals() {
 // neither is a probabilistic guess against hidden mines.
 function guessLedgerAppliesToMode() {
   return settings.playMode === 'standard'
+    || settings.playMode === 'pregen-10-3bv-desc'
     || settings.playMode === 'uniform-ng'
     || settings.playMode === 'single-path-ng'
     || Trial.isPlayMode(settings.playMode);
@@ -2008,28 +2196,7 @@ function recordActionEvaluation(evaluation, result) {
 //-------STATS (3BV, as measured on minesweeper.online)-------
 
 function compute3BV() {
-  const seen = new Array(cells.length).fill(false);
-  let count = 0;
-  // Each connected zero-region (plus its numbered border) costs one click.
-  for (let i = 0; i < cells.length; i++) {
-    if (cells[i].mine || seen[i] || cells[i].adjacent !== 0) continue;
-    count++;
-    seen[i] = true;
-    const stack = [i];
-    while (stack.length > 0) {
-      const j = stack.pop();
-      for (const n of neighbors(j)) {
-        if (cells[n].mine || seen[n]) continue;
-        seen[n] = true;
-        if (cells[n].adjacent === 0) stack.push(n);
-      }
-    }
-  }
-  // Every remaining number not touching a zero-region costs one click.
-  for (let i = 0; i < cells.length; i++) {
-    if (!cells[i].mine && !seen[i]) count++;
-  }
-  return count;
+  return Pregen.board3BV(config.width, config.height, cells.map((cell) => cell.mine));
 }
 
 function computeBoardShape() {
@@ -2097,7 +2264,11 @@ function reportResult(outcome) {
     record.trialStartedAt = trialSession.startedAt;
     record.givenOpening = settings.trialGiveOpening;
   }
+  if (pregenActive() && pregenBatch !== null && pregenCurrent !== null) {
+    pregenBatch.results.push({ run: pregenCurrent.rank, record });
+  }
   const modeRecords = appendGameRecord(record);
+  renderPregenCharts();
   if (Trial.isPlayMode(settings.playMode) && trialIsActive() && trialPresentation !== null) {
     Trial.recordResult(trialSession, {
       identityIndex: trialPresentation.identityIndex,
@@ -2632,7 +2803,9 @@ function renderResult(record, modeRecords, options = {}) {
 // all are always written now, but games recorded before they were measured
 // lack them, so absence is valid ("not measured"); displays that need them
 // use only records that carry them.
-const isNumber = (v) => typeof v === 'number';
+// JSON turns NaN and infinities into null. Accepting them here would let an
+// export produced by this page fail its own importer after serialization.
+const isNumber = (v) => typeof v === 'number' && Number.isFinite(v);
 function validActionEvaluations(value) {
   return value === undefined || (Array.isArray(value) && value.every((evaluation) => {
     if (evaluation === null || typeof evaluation !== 'object'
@@ -2904,6 +3077,83 @@ function normalizeHistory(raw) {
   }
   return { history: out, changed: changed };
 }
+
+//-------PLAY HISTORY: TRANSFER CLEANING (pure)-------
+
+// Preserve every usable measurement in a record. An invalid optional field
+// can be dropped without changing the primary game result; an invalid
+// required field makes the record unusable. Normalization then upgrades any
+// legacy action evidence that was absent or had to be discarded.
+function cleanTransferredGameRecord(source) {
+  if (source === null || typeof source !== 'object' || Array.isArray(source)) {
+    return { record: null, repairedFields: 0 };
+  }
+  const cleaned = { ...source };
+  let repairedFields = 0;
+  for (const field of GAME_RECORD_SCHEMA) {
+    if (field.valid(cleaned[field.field])) continue;
+    if (!field.valid(undefined)) return { record: null, repairedFields: 0 };
+    delete cleaned[field.field];
+    repairedFields++;
+  }
+  const normalized = normalizeGameRecord(cleaned).record;
+  if (GAME_RECORD_SCHEMA.some((field) => !field.valid(normalized[field.field]))) {
+    return { record: null, repairedFields: 0 };
+  }
+  return { record: normalized, repairedFields };
+}
+
+// Used in both directions so an export never contains a record this build
+// would reject, while import can retain all valid siblings of bad data.
+function cleanTransferredHistory(raw) {
+  const cleaned = {};
+  let gameCount = 0;
+  let skippedRecords = 0;
+  let skippedLists = 0;
+  let repairedFields = 0;
+  for (const [mode, list] of Object.entries(raw)) {
+    if (mode === 'settings') continue;
+    if (!Array.isArray(list)) {
+      skippedLists++;
+      continue;
+    }
+    const key = normalizeHistoryKey(mode);
+    if (!cleaned[key]) cleaned[key] = [];
+    for (const source of list) {
+      const result = cleanTransferredGameRecord(source);
+      if (result.record === null) {
+        skippedRecords++;
+        continue;
+      }
+      cleaned[key].push(result.record);
+      gameCount++;
+      repairedFields += result.repairedFields;
+    }
+  }
+  return { history: cleaned, gameCount, skippedRecords, skippedLists, repairedFields };
+}
+
+// Invalid settings do not make game history unusable. Keep unknown fields on
+// import for old migration inputs, but exports contain only the current,
+// documented settings schema.
+function cleanTransferredSettings(source, preserveUnknown) {
+  if (source === null || typeof source !== 'object' || Array.isArray(source)) {
+    return { settings: null, skippedFields: 0 };
+  }
+  const cleaned = preserveUnknown ? { ...source } : {};
+  let skippedFields = 0;
+  for (const field of SETTINGS_SCHEMA) {
+    if (!(field.field in source)) continue;
+    if (field.valid(source[field.field])) cleaned[field.field] = source[field.field];
+    else {
+      delete cleaned[field.field];
+      skippedFields++;
+    }
+  }
+  return { settings: cleaned, skippedFields };
+}
+
+//-------PLAY HISTORY: TRANSFER CLEANING END-------
 
 function secondsOf(record) {
   return record.timeMs / 1000;
@@ -8784,16 +9034,26 @@ const importText = document.getElementById('import-text');
 const importFileInput = document.getElementById('import-file-input');
 const exportFileLink = document.getElementById('export-file');
 
-function gameCount(history) {
-  return Object.values(history).reduce((n, list) => n + list.length, 0);
-}
-
 document.getElementById('export-btn').addEventListener('click', () => {
   // The reserved "settings" key rides along with the mode lists; it can
   // never collide with a mode key (those are always WxH/M@playMode).
-  const json = JSON.stringify({ settings, ...history });
+  const games = cleanTransferredHistory(history);
+  const exportedSettings = cleanTransferredSettings(settings, false);
+  const json = JSON.stringify({
+    settings: exportedSettings.settings || {},
+    ...games.history,
+  });
+  const cleanup = [];
+  if (games.skippedRecords > 0) cleanup.push('omitted ' + games.skippedRecords + ' malformed games');
+  if (games.skippedLists > 0) cleanup.push('omitted ' + games.skippedLists + ' malformed lists');
+  if (games.repairedFields + exportedSettings.skippedFields > 0) {
+    cleanup.push('discarded ' + (games.repairedFields + exportedSettings.skippedFields)
+      + ' invalid fields');
+  }
+  const status = 'export copied to clipboard (' + games.gameCount + ' games)'
+    + (cleanup.length > 0 ? '; ' + cleanup.join(', ') : '');
   navigator.clipboard.writeText(json).then(
-    () => { backupStatus.textContent = 'export copied to clipboard (' + gameCount(history) + ' games)'; },
+    () => { backupStatus.textContent = status; },
     (err) => { backupStatus.textContent = 'clipboard copy failed: ' + err.message; },
   );
   if (exportFileLink.href) URL.revokeObjectURL(exportFileLink.href);
@@ -8833,8 +9093,9 @@ document.getElementById('export-traces-btn').addEventListener('click', () => {
 // in the same millisecond), so re-importing the same blob is a no-op. The
 // reserved "settings" key (exports since 2026-08-20; absent on older
 // exports) carries the settings block, whose known fields overwrite the
-// stored settings. The whole blob — settings included — is validated
-// before anything is written.
+// stored settings. Malformed optional fields are discarded and malformed
+// records or lists are skipped, so one damaged item never prevents the rest
+// of a backup from being recovered.
 function importHistory(text) {
   let parsed;
   try {
@@ -8843,37 +9104,21 @@ function importHistory(text) {
     backupStatus.textContent = 'import failed: ' + err.message;
     return;
   }
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    backupStatus.textContent = 'import failed: the export is not an object';
+    return;
+  }
   let importedSettings = null;
+  let skippedSettings = 0;
+  let malformedSettings = 0;
   if ('settings' in parsed) {
-    importedSettings = parsed.settings;
-    delete parsed.settings;
-    const malformed = importedSettings === null || typeof importedSettings !== 'object'
-      || SETTINGS_SCHEMA.some((s) => s.field in importedSettings && !s.valid(importedSettings[s.field]));
-    if (malformed) {
-      backupStatus.textContent = 'import failed: "settings" is not a valid settings block';
-      return;
-    }
+    const cleaned = cleanTransferredSettings(parsed.settings, true);
+    importedSettings = cleaned.settings;
+    skippedSettings = cleaned.skippedFields;
+    if (importedSettings === null) malformedSettings = 1;
   }
-  const incoming = {};
-  for (const [mode, list] of Object.entries(parsed)) {
-    if (!Array.isArray(list)) {
-      backupStatus.textContent = 'import failed: "' + mode + '" is not an array of game records';
-      return;
-    }
-    const normalizedList = [];
-    for (const r of list) {
-      const malformed = r === null || typeof r !== 'object'
-        || GAME_RECORD_SCHEMA.some((f) => !f.valid(r[f.field]));
-      if (malformed) {
-        backupStatus.textContent = 'import failed: "' + mode + '" contains a malformed game record';
-        return;
-      }
-      normalizedList.push(normalizeGameRecord(r).record);
-    }
-    const key = normalizeHistoryKey(mode);
-    if (!incoming[key]) incoming[key] = [];
-    incoming[key].push(...normalizedList);
-  }
+  const transfer = cleanTransferredHistory(parsed);
+  const incoming = transfer.history;
   let added = 0;
   let dups = 0;
   for (const [mode, list] of Object.entries(incoming)) {
@@ -8906,7 +9151,15 @@ function importHistory(text) {
     syncLabChrome();
     settingsNote = ', applied settings';
   }
-  backupStatus.textContent = 'imported ' + added + ' new games, skipped ' + dups + ' duplicates' + settingsNote;
+  const skipped = [];
+  if (transfer.skippedRecords > 0) skipped.push(transfer.skippedRecords + ' malformed games');
+  if (transfer.skippedLists > 0) skipped.push(transfer.skippedLists + ' malformed lists');
+  if (malformedSettings > 0) skipped.push('malformed settings');
+  if (transfer.repairedFields + skippedSettings > 0) {
+    skipped.push((transfer.repairedFields + skippedSettings) + ' invalid fields');
+  }
+  backupStatus.textContent = 'imported ' + added + ' new games, skipped ' + dups + ' duplicates'
+    + (skipped.length > 0 ? ', ' + skipped.join(', ') : '') + settingsNote;
   importPanel.hidden = true;
   importText.value = '';
 }
@@ -9031,6 +9284,7 @@ function setPlayMode(id) {
   if (!PLAY_MODE_IDS.has(id)) throw new Error('unknown play mode ' + id);
   if (id === settings.playMode) return;
   if (Trial.isPlayMode(settings.playMode) && trialIsActive()) abandonTrial();
+  if (pregenActive() || id === 'pregen-10-3bv-desc') pregenBatch = null;
   lastTrialReview = null;
   settings.playMode = id;
   saveSettings();

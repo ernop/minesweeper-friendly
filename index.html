@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Minesweeper - Standard Mode</title>
-<link rel="stylesheet" href="style.css?v=20260826-ranks-won">
+<link rel="stylesheet" href="style.css?v=20260826-pregen-highlight">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 </head>
 <body>
@@ -14,6 +14,7 @@
       <select id="play-mode-select"></select>
     </label>
     <div id="trial-progress" hidden></div>
+    <div id="pregen-progress" hidden></div>
   </div>
   <div id="board-generator">
     <label>Generator
@@ -92,6 +93,7 @@
     <div id="justice-live" aria-live="polite" aria-label="Justice events"></div>
   </div>
 
+  <section id="pregen-charts" hidden aria-label="Pregen challenge charts"></section>
   <section id="result-analysis" aria-label="After-game action analysis"></section>
   <div id="result-ranks"></div>
 
@@ -121,10 +123,11 @@
 <script src="board-shape.js"></script>
 <script src="solver.js?v=20260823-exact-solver"></script>
 <script src="generators.js?v=20260825-noise-family"></script>
+<script src="pregen.js?v=20260826-pregen-highlight"></script>
 <script src="odds.js?v=20260825-batched-certification"></script>
 <script src="trial.js"></script>
 <script src="storage.js?v=20260823-simple-settings"></script>
-<script src="settings-core.js?v=20260826-ranks-won"></script>
-<script src="minesweeper.js?v=20260826-ranks-won"></script>
+<script src="settings-core.js?v=20260826-pregen-10"></script>
+<script src="minesweeper.js?v=20260826-pregen-highlight"></script>
 </body>
 </html>

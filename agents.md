@@ -37,7 +37,8 @@ place for generation ideas, deferred product, and requested rank lists
 that are not in the game yet. Do not leave new ideas only in chat.
 
 App-wide UI rules (simplicity first, captions must earn their place,
-hover changes nothing, layout stability, clear ways in and out) live in
+hover changes nothing, layout stability, no distracting duplicate live
+values, clear ways in and out) live in
 PRODUCT.md "UI doctrine" — read it before building or reshaping any
 surface.
 
@@ -703,6 +704,21 @@ Implementation notes:
   holds the 25×4 and 4×4 sessions, dihedral maps, identity grouping,
   and replay of opens/flags from stored traces for overlay charts.
   `node tests/solver-test.js` and `node tests/trial-test.js`.
+- Pregen 10 mode: `pregen.js` provides pure 3BV scoring and descending
+  seed ranking. The game page creates ten independently seeded candidates
+  through the selected generator with `width - 1` (upper right) safe, deals
+  each by regenerating its map from the ranked seed, and automatically opens
+  that cell without adding a player click. The per-page batch is replaced
+  after ten deals or when its board/generator key changes. `#pregen-charts`
+  stays below the board during and after play: `Pregen.chartWins` scopes the
+  current batch by `pregenBatch.startedAt` and the whole day by local midnight,
+  then the existing `buildScatter` grammar renders 3BV → time once each scope
+  has the normal two-win minimum. `Pregen.progressRows` feeds the adjacent
+  run/3BV/time table from completed `pregenBatch.results` only — no live clock
+  or active-board row. Its latest completed row uses the same light-blue
+  `me` highlight as the normal ranking tables and stays highlighted during
+  the next game.
+  `node tests/pregen-test.js`.
 - Board generators (PRODUCT.md "Board generators and top score keys"):
   `generators.js` is the pure registry (`BoardGenerators` global /
   CommonJS module, loaded after solver.js — its uniform entry delegates

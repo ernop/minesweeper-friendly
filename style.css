@@ -699,7 +699,8 @@ body.trial-offboard #game-frame {
   background: #eef1f4;
 }
 
-#trial-progress {
+#trial-progress,
+#pregen-progress {
   margin-top: 4px;
   color: #333333;
   font-size: 12px;
@@ -1309,6 +1310,77 @@ body.settings-page .return-to-game {
   font-size: 13px;
   color: #666666;
   font-family: "Arial Black", "Arial Bold", Arial, sans-serif;
+}
+
+#pregen-charts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 18px;
+  margin-top: calc(8px + var(--result-overflow, 0px));
+  color: #666666;
+  font-family: "Arial Black", "Arial Bold", Arial, sans-serif;
+}
+
+#pregen-charts[hidden] { display: none; }
+
+.pregen-chart-panel,
+.pregen-progress-panel {
+  width: 270px;
+  text-align: left;
+}
+
+.pregen-chart-panel > h4,
+.pregen-progress-panel > h4 {
+  margin: 0 0 3px;
+  font-size: 12px;
+  color: #333333;
+}
+
+.pregen-progress-panel table {
+  width: 100%;
+  border-collapse: collapse;
+  color: #555555;
+  font: 12px ui-monospace, "Cascadia Mono", "Liberation Mono", monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.pregen-progress-panel th,
+.pregen-progress-panel td {
+  padding: 2px 6px;
+  border-bottom: 1px solid #eeeeee;
+  text-align: right;
+}
+
+.pregen-progress-panel th {
+  color: #999999;
+  font-family: "Arial Black", "Arial Bold", Arial, sans-serif;
+  font-weight: normal;
+}
+
+.pregen-progress-panel tr.loss td { color: #aa3333; }
+.pregen-progress-panel tr.me td {
+  color: #000000;
+  background: #d8ebfa;
+  font-weight: bold;
+}
+.pregen-progress-outcome {
+  font-family: Arial, sans-serif;
+  font-size: 10px;
+}
+
+.pregen-chart-waiting {
+  box-sizing: border-box;
+  width: 270px;
+  height: 210px;
+  margin: 4px 0 0;
+  border: 1px solid #dddddd;
+  display: grid;
+  place-items: center;
+  color: #999999;
+  background: #fbfbfb;
+  font: bold 12px Arial, sans-serif;
 }
 
 .rank-list {

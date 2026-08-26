@@ -58,6 +58,33 @@ Beginner Standard win never appears on Beginner Uniform NG lists.
   applies here and in the Trial modes (frozen from the setting on the
   first click, or when a given opening is used). It does not apply in
   the NG modes or Angelic.
+- **pregen 10 boards and order by 3BV descending, assuming auto-click in
+  upper right (decided 2026-08-26).** Generate ten first-click-safe
+  candidates through the selected board generator, using the upper-right
+  cell as every candidate's opening. Compute each full board's 3BV, order
+  the candidates from highest to lowest (generation order breaks ties), and
+  deal all ten in that order; exhausting the batch creates a fresh ten.
+  Every candidate has its own replayable seed. The upper-right cell opens
+  automatically and the timer starts after generation; that supplied opening
+  is not counted as a player click. The current batch position and 3BV appear
+  below the Mode menu. Gameplay otherwise follows Standard, including A just
+  universe and guess measurement, while history and rankings remain separate
+  under this mode's key.
+  A persistent "challenge progress" table precedes the charts with columns
+  `run`, `3BV`, and `time`. Each finished board adds one row in ranked deal
+  order; a loss is named in its time cell. Only completed facts appear here:
+  there is no second live timer or transient current-board row. The latest
+  completed run keeps the standard light-blue "me" background, including
+  while the next board is underway.
+  Two persistent 3BV → solve-time scatters sit below the board throughout
+  play and after each result: "this challenge" contains wins completed since
+  the current ten-board batch was created, while "whole day" contains this
+  top-score key's wins since local midnight, including earlier batches.
+  They use the normal relationship-chart grammar (wins only, age-colored
+  dots, nice axes and minor ticks, Tukey y-outlier trimming, a blue
+  Theil–Sen fit, and the latest win ringed with its within-scope time rank).
+  Each chart keeps a fixed-size waiting frame until the normal two-win
+  minimum is reached.
 - **Uniform NG.** Generate-and-reject until the board is fully solvable
   from the opening by direct counting, overlap deduction, or exhaustive
   globally consistent layouts, and every required deduction step sits at
@@ -550,6 +577,10 @@ because they apply app-wide, not just where each was first stated.
 - Layout stability: content appearing or disappearing must not shift
   unrelated content. "The board never moves" (previous section) is the
   oldest case of this rule; it holds on every page.
+- No distracting transient duplicates: a live-changing value appears only
+  where it is essential, in one canonical place. Summary tables, rankings,
+  and comparison surfaces show stable completed facts; they do not echo the
+  game timer or add other ticking/readjusting values.
 - Clear ways in and out: a surface opens from an obvious bordered button
   and closes just as obviously — for a page, a visible way back at both
   the top and the bottom of the body (not tucked at a far edge), plus
@@ -1621,8 +1652,12 @@ displays changes but does not label their cause.
 - Export/import as a JSON map of mode to game records, plus the reserved
   `"settings"` key (see Personal settings): copy to clipboard, save to
   file, paste in, or open from file — subtle controls out of the way of
-  play. The blob is validated in full — settings included — before
-  anything is written; a malformed blob imports nothing and says why.
+  play. Export applies the importer schema first, discarding invalid
+  optional fields and omitting irreparable records or lists so it never
+  emits data this build would reject. Import recovers every usable sibling:
+  invalid optional fields are discarded, irreparable records/lists are
+  skipped, and valid settings fields still apply; the status reports each
+  kind of cleanup.
   Records dedupe by end timestamp, so repeated imports are no-ops.
 - A "data format" button beside the backup controls raises a reference
   card: the export's overall shape (the settings block plus one mode-keyed
