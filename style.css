@@ -41,6 +41,7 @@ main {
 /*-------DIFFICULTY TABS-------*/
 
 #difficulty-tabs {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 22px;
@@ -65,6 +66,80 @@ main {
   margin-left: 20px;
   font-size: 13px;
   color: #666666;
+}
+
+#board-position-btn {
+  border: 1px solid #c5d0da;
+  border-radius: 3px;
+  background: #f7f9fb;
+  padding: 3px 8px;
+  color: #3f5668;
+  font: 11px Arial, Helvetica, sans-serif;
+  cursor: pointer;
+}
+
+#board-position-btn:hover,
+#board-position-btn[aria-expanded="true"] {
+  border-color: #8aa0b5;
+  background: #e3edf6;
+}
+
+#board-position-panel {
+  position: fixed;
+  right: 14px;
+  bottom: 14px;
+  z-index: 30;
+  width: 330px;
+  border: 1px solid #b9c8d2;
+  border-radius: 5px;
+  background: #ffffff;
+  padding: 9px 10px;
+  box-shadow: 0 3px 10px rgba(34, 56, 70, 0.16);
+  color: #3f5668;
+  font: 11px Arial, Helvetica, sans-serif;
+  text-align: left;
+}
+
+#board-position-panel[hidden] { display: none; }
+
+.board-position-row {
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr) 62px;
+  align-items: center;
+  gap: 7px;
+  margin: 3px 0;
+}
+
+.board-position-row input[type="range"] {
+  width: 100%;
+  margin: 0;
+}
+
+.board-position-row input[type="number"] {
+  width: 62px;
+  font: inherit;
+}
+
+#board-position-note {
+  margin: 7px 0 5px;
+  color: #667788;
+  line-height: 1.35;
+}
+
+#board-position-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+#board-position-actions button {
+  border: 1px solid #c5d0da;
+  border-radius: 3px;
+  background: #f7f9fb;
+  padding: 3px 9px;
+  color: #3f5668;
+  font: inherit;
+  cursor: pointer;
 }
 
 #scores-nav[hidden] { display: none; }
@@ -188,6 +263,19 @@ body.trial-offboard #game-frame {
   gap: 7px;
   pointer-events: none;
   z-index: 4;
+}
+
+#justice-live.justice-left {
+  right: calc(100% + 14px);
+  left: auto;
+  align-items: flex-end;
+}
+
+#justice-live.justice-below {
+  top: calc(100% + 8px);
+  right: auto;
+  left: 0;
+  align-items: flex-start;
 }
 
 .justice-live-word {
@@ -349,7 +437,29 @@ body.trial-offboard #game-frame {
    sit at the far right of its row. On narrower layouts JS moves that compact
    block below the board so it cannot cover the cells. The action analysis
    and rank charts live below the game area in normal flow. */
-#game-area { position: relative; }
+#game-area {
+  position: relative;
+  transform: translate(
+    var(--board-position-applied-x, 0px),
+    var(--board-position-applied-y, 0px));
+  margin-bottom: var(--board-position-flow-clearance, 0px);
+}
+
+#board-position-drag-surface {
+  position: absolute;
+  z-index: 20;
+  border: 3px dashed #417ca4;
+  background: rgba(65, 124, 164, 0.08);
+  cursor: move;
+  touch-action: none;
+}
+
+#board-position-drag-surface[hidden] { display: none; }
+
+#board-position-drag-surface:focus-visible {
+  outline: 3px solid #0d5d8c;
+  outline-offset: 3px;
+}
 
 #game-area.trial-no-board {
   display: flex;
@@ -369,7 +479,12 @@ body.trial-offboard #game-frame {
 #results {
   position: absolute;
   top: var(--results-top-clearance, 0px);
-  transform: none;
+  /* The board may carry a persistent player-selected translation. Cancel it
+     for the detached right-side stats: they stay at the main column's upper
+     right and only move down when the chrome needs clearance. */
+  transform: translate(
+    calc(-1 * var(--board-position-applied-x, 0px)),
+    calc(-1 * var(--board-position-applied-y, 0px)));
   /* Fallback for older browsers, then the container-unit rule aligns the
      edge to the available main column rather than the full viewport (the
      in-page metrics panel consumes part of that viewport). */
@@ -383,6 +498,7 @@ body.trial-offboard #game-frame {
 
 #game-area.results-below-board #results {
   position: static;
+  transform: none;
   right: auto;
   width: min(320px, 100%);
   margin: 12px auto 0;
@@ -999,6 +1115,36 @@ body.trial-offboard #result-ranks {
 #states-status {
   margin: 4px 0 0;
   color: #b05050;
+}
+
+/* On narrow viewports the formerly fixed chrome enters normal flow. This
+   guarantees that it and the board controls cannot cover one another; the
+   board-position preference is still applied inside the remaining space. */
+@media (max-width: 720px) {
+  #top-right {
+    position: static;
+    width: 100%;
+    margin-bottom: 14px;
+    text-align: center;
+  }
+
+  #play-mode,
+  #board-generator {
+    text-align: center;
+  }
+
+  #states-chips {
+    align-items: center;
+  }
+
+  #board-position-panel {
+    position: fixed;
+    top: auto;
+    bottom: 12px;
+    right: 12px;
+    left: 12px;
+    width: auto;
+  }
 }
 
 /*-------SETTINGS PAGE-------*/

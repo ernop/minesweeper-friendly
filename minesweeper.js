@@ -143,11 +143,228 @@ const resultAnalysis = document.getElementById('result-analysis');
 const pregenCharts = document.getElementById('pregen-charts');
 const resultRanks = document.getElementById('result-ranks');
 const gameArea = document.getElementById('game-area');
+const gameFrame = document.getElementById('game-frame');
 const resultsBox = document.getElementById('results');
 const mainElement = document.querySelector('main');
 const topRight = document.getElementById('top-right');
+const difficultyTabs = document.getElementById('difficulty-tabs');
 const customForm = document.getElementById('custom-form');
 const justiceLive = document.getElementById('justice-live');
+const boardPositionButton = document.getElementById('board-position-btn');
+const boardPositionPanel = document.getElementById('board-position-panel');
+const boardPositionX = document.getElementById('board-position-x');
+const boardPositionXNumber = document.getElementById('board-position-x-number');
+const boardPositionY = document.getElementById('board-position-y');
+const boardPositionYNumber = document.getElementById('board-position-y-number');
+const boardPositionNote = document.getElementById('board-position-note');
+const boardPositionDragSurface = document.getElementById('board-position-drag-surface');
+
+//-------PERSISTENT BOARD POSITION (pure constraint solver)-------
+
+function boardPositionRect(rect, x, y) {
+  const width = rect.width === undefined ? rect.right - rect.left : rect.width;
+  const height = rect.height === undefined ? rect.bottom - rect.top : rect.height;
+  return {
+    left: rect.left + x,
+    top: rect.top + y,
+    right: rect.left + x + width,
+    bottom: rect.top + y + height,
+    width,
+    height,
+  };
+}
+
+function boardPositionOverlapArea(a, b) {
+  return Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left))
+    * Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top));
+}
+
+function boardPositionLayoutRect(rect, scrollX, scrollY, fixedAtViewportOrigin) {
+  return boardPositionRect(
+    rect,
+    fixedAtViewportOrigin ? 0 : scrollX,
+    fixedAtViewportOrigin ? 0 : scrollY);
+}
+
+// Find the collision-free offset nearest the player's preference. Horizontal
+// bounds keep a board that fits inside the available main column; oversized
+// boards retain their natural overflow. There is deliberately no lower bound:
+// positive Y expands page flow, so a deeply lowered board remains scrollable.
+function constrainBoardOffset(base, bounds, exclusions, preferredX, preferredY) {
+  const gap = 8;
+  const availableWidth = Math.max(0, bounds.right - bounds.left);
+  const fitsHorizontally = base.width <= availableWidth;
+  const minX = bounds.left - base.left;
+  const maxX = bounds.right - base.right;
+  const clampX = (x) => fitsHorizontally ? Math.max(minX, Math.min(maxX, x)) : x;
+  const minY = bounds.top - base.top;
+  const clampY = (y) => Math.max(minY, y);
+  const xCandidates = [clampX(preferredX)];
+  const yCandidates = [clampY(preferredY)];
+
+  for (const exclusion of exclusions) {
+    xCandidates.push(clampX(exclusion.left - gap - base.right));
+    xCandidates.push(clampX(exclusion.right + gap - base.left));
+    yCandidates.push(clampY(exclusion.top - gap - base.bottom));
+    yCandidates.push(clampY(exclusion.bottom + gap - base.top));
+  }
+
+  let best = null;
+  for (const x of new Set(xCandidates.map(Math.round))) {
+    for (const y of new Set(yCandidates.map(Math.round))) {
+      const placed = boardPositionRect(base, x, y);
+      const overlap = exclusions.reduce(
+        (sum, exclusion) => sum + boardPositionOverlapArea(placed, exclusion), 0);
+      const distance = (x - preferredX) ** 2 + (y - preferredY) ** 2;
+      const score = overlap * 1e9 + distance;
+      if (best === null || score < best.score) best = { x, y, score, overlap };
+    }
+  }
+  return { x: best.x, y: best.y, adjusted: best.x !== preferredX || best.y !== preferredY };
+}
+
+//-------PERSISTENT BOARD POSITION END-------
+
+let appliedBoardOffsetX = 0;
+let appliedBoardOffsetY = 0;
+let boardLayoutFrame = null;
+
+// Layout decisions belong to the page, not to the current scroll position.
+// Ordinary elements therefore use stable document coordinates. The top-right
+// chrome is fixed on wide screens, but its no-overlap footprint is treated as
+// where it sits at scroll zero so scrolling can never make content chase it.
+function boardPageRect(element) {
+  return boardPositionLayoutRect(
+    element.getBoundingClientRect(), window.scrollX, window.scrollY, false);
+}
+
+function boardChromeLayoutRect() {
+  const rect = topRight.getBoundingClientRect();
+  return boardPositionLayoutRect(
+    rect,
+    window.scrollX,
+    window.scrollY,
+    getComputedStyle(topRight).position === 'fixed');
+}
+
+function syncBoardPositionInputs() {
+  const x = String(settings.boardOffsetX);
+  const y = String(settings.boardOffsetY);
+  boardPositionX.value = x;
+  boardPositionXNumber.value = x;
+  boardPositionY.value = y;
+  boardPositionYNumber.value = y;
+}
+
+// The editor itself is fixed to the least occupied viewport corner. It moves
+// out of the board's way instead of becoming another constraint that changes
+// the position the player is trying to set.
+function placeBoardPositionPanel() {
+  if (boardPositionPanel.hidden) return;
+  if (window.innerWidth <= 720) {
+    boardPositionPanel.style.removeProperty('top');
+    boardPositionPanel.style.removeProperty('right');
+    boardPositionPanel.style.removeProperty('bottom');
+    boardPositionPanel.style.removeProperty('left');
+    return;
+  }
+  const margin = 14;
+  const width = boardPositionPanel.offsetWidth;
+  const height = boardPositionPanel.offsetHeight;
+  const centerX = Math.max(margin, Math.round((window.innerWidth - width) / 2));
+  const middleY = Math.max(margin, Math.round((window.innerHeight - height) / 2));
+  const rightX = Math.max(margin, window.innerWidth - margin - width);
+  const bottomY = Math.max(margin, window.innerHeight - margin - height);
+  const candidates = [
+    [margin, margin],
+    [centerX, margin],
+    [rightX, margin],
+    [margin, middleY],
+    [rightX, middleY],
+    [margin, bottomY],
+    [centerX, bottomY],
+    [rightX, bottomY],
+  ];
+  const obstacles = [
+    gameFrame.getBoundingClientRect(),
+    topRight.getBoundingClientRect(),
+    difficultyTabs.getBoundingClientRect(),
+  ];
+  if (!metricsPanel.hidden) obstacles.push(metricsPanel.getBoundingClientRect());
+  if (resultSummary.textContent !== '' || resultStats.textContent !== '') {
+    obstacles.push(resultsBox.getBoundingClientRect());
+  }
+  let best = null;
+  for (const [left, top] of candidates) {
+    const rect = {
+      left, top, right: left + width, bottom: top + height, width, height,
+    };
+    const overlap = obstacles.reduce(
+      (sum, obstacle) => sum + boardPositionOverlapArea(rect, obstacle), 0);
+    if (best === null || overlap < best.overlap) best = { left, top, overlap };
+  }
+  boardPositionPanel.style.left = best.left + 'px';
+  boardPositionPanel.style.top = best.top + 'px';
+  boardPositionPanel.style.right = 'auto';
+  boardPositionPanel.style.bottom = 'auto';
+}
+
+function applyBoardPosition() {
+  if (settings === null) return;
+  const current = boardPageRect(gameFrame);
+  const base = boardPositionRect(current, -appliedBoardOffsetX, -appliedBoardOffsetY);
+  const mainRect = boardPageRect(mainElement);
+  const tabsRect = boardPageRect(difficultyTabs);
+  const viewportRight = Math.max(8, window.innerWidth - 8);
+  let left = Math.max(8, mainRect.left + 8);
+  let right = Math.min(viewportRight, mainRect.right - 8);
+  if (right < left) {
+    left = mainRect.left;
+    right = mainRect.right;
+  }
+  const exclusions = [];
+  const chromeRect = boardChromeLayoutRect();
+  if (chromeRect.width > 0 && chromeRect.height > 0) exclusions.push(chromeRect);
+  const placed = constrainBoardOffset(base, {
+    left,
+    right,
+    top: tabsRect.bottom + 8,
+  }, exclusions, settings.boardOffsetX, settings.boardOffsetY);
+
+  appliedBoardOffsetX = placed.x;
+  appliedBoardOffsetY = placed.y;
+  gameArea.style.setProperty('--board-position-applied-x', placed.x + 'px');
+  gameArea.style.setProperty('--board-position-applied-y', placed.y + 'px');
+  gameArea.style.setProperty(
+    '--board-position-flow-clearance', Math.max(0, placed.y) + 'px');
+
+  boardPositionDragSurface.style.left = gameFrame.offsetLeft + 'px';
+  boardPositionDragSurface.style.top = gameFrame.offsetTop + 'px';
+  boardPositionDragSurface.style.width = gameFrame.offsetWidth + 'px';
+  boardPositionDragSurface.style.height = gameFrame.offsetHeight + 'px';
+  placeBoardPositionPanel();
+  if (!boardPositionPanel.hidden) {
+    boardPositionNote.textContent = placed.adjusted
+      ? 'Saved position is temporarily adjusted to keep required controls clear.'
+      : 'Drag the highlighted board, or use its arrow keys. Shift moves 10 px.';
+  }
+}
+
+function syncBoardLayout() {
+  applyBoardPosition();
+  syncResultsPlacement();
+  syncJusticePlacement();
+  syncResultClearance();
+  recordLayoutIfMoved();
+}
+
+function scheduleBoardLayout() {
+  if (boardLayoutFrame !== null) return;
+  boardLayoutFrame = requestAnimationFrame(() => {
+    boardLayoutFrame = null;
+    syncBoardLayout();
+  });
+}
 
 // Keep the compact stats flush with the available main column's right edge
 // when that gutter is wide enough. With the metrics panel open (or on a
@@ -162,7 +379,6 @@ function syncResultsPlacement() {
     return;
   }
 
-  const areaRect = gameArea.getBoundingClientRect();
   const frameRect = document.getElementById('game-frame').getBoundingClientRect();
   const mainRect = mainElement.getBoundingClientRect();
   const resultsWidth = resultsBox.getBoundingClientRect().width;
@@ -171,14 +387,32 @@ function syncResultsPlacement() {
   gameArea.classList.toggle('results-below-board', belowBoard);
   if (belowBoard) return;
 
-  const chromeRect = topRight.getBoundingClientRect();
-  const resultRect = resultsBox.getBoundingClientRect();
+  const chromeRect = boardChromeLayoutRect();
+  const resultRect = boardPageRect(resultsBox);
   const sharesRightStrip = resultRect.right > chromeRect.left - 8
     && resultRect.left < chromeRect.right + 8;
-  if (sharesRightStrip && chromeRect.bottom + 8 > areaRect.top) {
+  if (sharesRightStrip && chromeRect.bottom + 8 > resultRect.top) {
     resultsBox.style.setProperty('--results-top-clearance',
-      Math.ceil(chromeRect.bottom - areaRect.top + 8) + 'px');
+      Math.ceil(chromeRect.bottom - resultRect.top + 8) + 'px');
   }
+}
+
+function syncJusticePlacement() {
+  justiceLive.classList.remove('justice-left', 'justice-below');
+  if (justiceLive.childElementCount === 0) return;
+  const mainRect = boardPageRect(mainElement);
+  const chromeRect = boardChromeLayoutRect();
+  const resultsRect = boardPageRect(resultsBox);
+  const resultsVisible = resultSummary.textContent !== '' || resultStats.textContent !== '';
+  const collides = (rect) => rect.left < mainRect.left + 8 || rect.right > mainRect.right - 8
+    || boardPositionOverlapArea(rect, chromeRect) > 0
+    || (resultsVisible && boardPositionOverlapArea(rect, resultsRect) > 0);
+
+  if (!collides(boardPageRect(justiceLive))) return;
+  justiceLive.classList.add('justice-left');
+  if (!collides(boardPageRect(justiceLive))) return;
+  justiceLive.classList.remove('justice-left');
+  justiceLive.classList.add('justice-below');
 }
 
 // The right-side stats are out of flow so they cannot move the board. If
@@ -191,9 +425,12 @@ function syncResultClearance() {
   if (gameArea.classList.contains('trial-no-board')) {
     return;
   }
+  const floatingBottom = Math.max(
+    resultsBox.getBoundingClientRect().bottom,
+    justiceLive.childElementCount > 0
+      ? justiceLive.getBoundingClientRect().bottom : -Infinity);
   const extra = Math.max(0,
-    Math.ceil(resultsBox.getBoundingClientRect().bottom
-      - gameArea.getBoundingClientRect().bottom));
+    Math.ceil(floatingBottom - gameArea.getBoundingClientRect().bottom));
   if (extra > 0) {
     const target = !pregenCharts.hidden ? pregenCharts
       : resultAnalysis.childElementCount > 0 ? resultAnalysis : resultRanks;
@@ -397,6 +634,9 @@ function newGame() {
     cellElements.push(el);
   }
 
+  // Apply the saved preference after the rebuilt board has its final size,
+  // but before beginTrace snapshots its initial viewport geometry.
+  applyBoardPosition();
   beginTrace();
   beginMusicSampling();
 
@@ -1289,6 +1529,7 @@ function showJusticeSurvivals() {
   word.title = 'Bare entries into certified sealed pockets are forced '
     + 'coinflips that A Just Universe guarantees you win';
   justiceLive.appendChild(word);
+  scheduleBoardLayout();
 }
 
 // The guess ledger only exists where the standard mine gamble is real.
@@ -2313,8 +2554,7 @@ if (typeof ResizeObserver !== 'undefined') {
     if (renderedResult === null || resultLayoutFrame !== null) return;
     resultLayoutFrame = requestAnimationFrame(() => {
       resultLayoutFrame = null;
-      syncResultsPlacement();
-      syncResultClearance();
+      syncBoardLayout();
     });
   });
   resultLayoutObserver.observe(mainElement);
@@ -2786,8 +3026,7 @@ function renderResult(record, modeRecords, options = {}) {
       resultRanks.appendChild(chart);
     }
   }
-  syncResultsPlacement();
-  syncResultClearance();
+  syncBoardLayout();
 }
 
 //-------PLAY HISTORY (every finished game kept per mode)-------
@@ -7072,7 +7311,7 @@ let lastLiveMetrics = null;
 // second catch-all for any other content-driven board movement.
 function renderMetricsPanel(metrics) {
   renderMetricsPanelContent(metrics);
-  recordLayoutIfMoved();
+  syncBoardLayout();
 }
 
 function renderMetricsPanelContent(metrics) {
@@ -9073,8 +9312,10 @@ document.addEventListener('scroll', () => {
   if (tracing()) recordLayout();
 });
 window.addEventListener('resize', () => {
+  applyBoardPosition();
   if (tracing()) recordLayout();
   syncResultsPlacement();
+  syncJusticePlacement();
   syncResultClearance();
 });
 
@@ -9140,8 +9381,7 @@ function showScoresForCurrentMode() {
     resultStats.textContent = '';
     resultAnalysis.textContent = '';
     resultRanks.textContent = '';
-    syncResultsPlacement();
-    syncResultClearance();
+    syncBoardLayout();
     return;
   }
   const latest = wins.reduce((a, b) => a.endedAt > b.endedAt ? a : b);
@@ -9166,9 +9406,116 @@ customForm.addEventListener('submit', (event) => {
 
 //-------ZOOM-------
 
+function setBoardPositionPreference(x, y, persist) {
+  settings.boardOffsetX = Math.max(-2000, Math.min(2000, Math.round(x)));
+  settings.boardOffsetY = Math.max(-1000, Math.min(2000, Math.round(y)));
+  syncBoardPositionInputs();
+  syncBoardLayout();
+  if (persist) saveSettings();
+}
+
+function setBoardPositionEditing(open) {
+  boardPositionPanel.hidden = !open;
+  boardPositionDragSurface.hidden = !open;
+  boardPositionButton.setAttribute('aria-expanded', String(open));
+  syncBoardLayout();
+  if (open) boardPositionDragSurface.focus({ preventScroll: true });
+  else boardPositionButton.focus({ preventScroll: true });
+}
+
+function bindBoardPositionInput(range, number, axis) {
+  const apply = (source, persist) => {
+    if (source.value === '' || !Number.isFinite(Number(source.value))) return;
+    const value = Number(source.value);
+    const x = axis === 'x' ? value : settings.boardOffsetX;
+    const y = axis === 'y' ? value : settings.boardOffsetY;
+    setBoardPositionPreference(x, y, persist);
+  };
+  range.addEventListener('input', () => apply(range, false));
+  range.addEventListener('change', () => apply(range, true));
+  number.addEventListener('change', () => apply(number, true));
+}
+
+function initBoardPositionControls() {
+  syncBoardPositionInputs();
+  boardPositionButton.addEventListener('click', () => {
+    setBoardPositionEditing(boardPositionPanel.hidden);
+  });
+  document.getElementById('board-position-done').addEventListener('click', () => {
+    setBoardPositionEditing(false);
+  });
+  document.getElementById('board-position-reset').addEventListener('click', () => {
+    setBoardPositionPreference(0, 0, true);
+  });
+  bindBoardPositionInput(boardPositionX, boardPositionXNumber, 'x');
+  bindBoardPositionInput(boardPositionY, boardPositionYNumber, 'y');
+
+  boardPositionDragSurface.addEventListener('keydown', (event) => {
+    const deltas = {
+      ArrowLeft: [-1, 0],
+      ArrowRight: [1, 0],
+      ArrowUp: [0, -1],
+      ArrowDown: [0, 1],
+    };
+    if (!(event.key in deltas)) {
+      if (event.key === 'Escape') setBoardPositionEditing(false);
+      return;
+    }
+    event.preventDefault();
+    const scale = event.shiftKey ? 10 : 1;
+    const [dx, dy] = deltas[event.key];
+    setBoardPositionPreference(
+      settings.boardOffsetX + dx * scale,
+      settings.boardOffsetY + dy * scale,
+      true);
+  });
+
+  boardPositionDragSurface.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const preferenceX = settings.boardOffsetX;
+    const preferenceY = settings.boardOffsetY;
+    const move = (ev) => {
+      setBoardPositionPreference(
+        preferenceX + ev.clientX - startX,
+        preferenceY + ev.clientY - startY,
+        false);
+    };
+    const up = (ev) => {
+      document.removeEventListener('pointermove', move);
+      document.removeEventListener('pointerup', up);
+      move(ev);
+      saveSettings();
+      boardPositionDragSurface.focus({ preventScroll: true });
+    };
+    document.addEventListener('pointermove', move);
+    document.addEventListener('pointerup', up);
+  });
+
+  boardPositionPanel.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') setBoardPositionEditing(false);
+  });
+
+  if (typeof ResizeObserver !== 'undefined') {
+    const observer = new ResizeObserver(scheduleBoardLayout);
+    observer.observe(topRight);
+    observer.observe(gameFrame);
+    observer.observe(resultsBox);
+    observer.observe(justiceLive);
+    observer.observe(difficultyTabs);
+    observer.observe(metricsPanel);
+  }
+}
+
 document.getElementById('zoom-select').addEventListener('change', (event) => {
   document.documentElement.style.setProperty('--cell-size', event.target.value + 'px');
+  applyBoardPosition();
   if (tracing()) recordLayout();
+  syncResultsPlacement();
+  syncJusticePlacement();
+  syncResultClearance();
 });
 
 //-------BACKUP (export / import of the play history)-------
@@ -9494,6 +9841,7 @@ function init() {
   buildPlayModeSwitcher();
   buildBoardGeneratorSwitcher();
   renderStates();
+  initBoardPositionControls();
   // The history RAM is filled now and nothing has been played yet: the
   // one safe moment to rebuild the session window from stored records.
   sessionBackfillFromHistory();

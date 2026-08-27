@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Minesweeper - Standard Mode</title>
-<link rel="stylesheet" href="style.css?v=20260826-session-auto-y">
+<link rel="stylesheet" href="style.css?v=20260826-board-position">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 </head>
 <body>
@@ -57,6 +57,27 @@
         <option value="32">32</option>
       </select>
     </label>
+    <button type="button" id="board-position-btn" aria-expanded="false"
+      aria-controls="board-position-panel">position</button>
+    <div id="board-position-panel" hidden>
+      <div class="board-position-row">
+        <label for="board-position-x">left / right</label>
+        <input id="board-position-x" type="range" min="-2000" max="2000" step="1">
+        <input id="board-position-x-number" type="number" min="-2000" max="2000" step="1"
+          aria-label="Horizontal board offset in pixels">
+      </div>
+      <div class="board-position-row">
+        <label for="board-position-y">up / down</label>
+        <input id="board-position-y" type="range" min="-1000" max="2000" step="1">
+        <input id="board-position-y-number" type="number" min="-1000" max="2000" step="1"
+          aria-label="Vertical board offset in pixels">
+      </div>
+      <p id="board-position-note">Drag the highlighted board, or use its arrow keys. Shift moves 10 px.</p>
+      <div id="board-position-actions">
+        <button type="button" id="board-position-reset">center</button>
+        <button type="button" id="board-position-done">done</button>
+      </div>
+    </div>
   </nav>
   <form id="custom-form" hidden>
     <label>Width <input id="custom-width" type="number" min="8" max="100" value="30"></label>
@@ -80,6 +101,8 @@
       </div>
       <div id="board"></div>
     </div>
+    <div id="board-position-drag-surface" hidden tabindex="0"
+      aria-label="Board position. Drag, or use arrow keys to move."></div>
 
     <nav id="scores-nav" aria-label="View high scores or the finished game's cursor path">
       <button type="button" id="see-scores-btn">see scores</button>
@@ -127,7 +150,7 @@
 <script src="odds.js?v=20260825-batched-certification"></script>
 <script src="trial.js"></script>
 <script src="storage.js?v=20260823-simple-settings"></script>
-<script src="settings-core.js?v=20260826-pregen-10"></script>
-<script src="minesweeper.js?v=20260826-session-auto-y"></script>
+<script src="settings-core.js?v=20260826-board-position"></script>
+<script src="minesweeper.js?v=20260826-board-position"></script>
 </body>
 </html>
