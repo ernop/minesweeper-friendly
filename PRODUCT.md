@@ -172,7 +172,7 @@ or remain explicitly unmeasured.
   for the games already played.
   Finished trial games are stored under that size's trial key only —
   they do not enter Standard (or any other mode's) time windows,
-  streaks, scatters, or rankaverages.
+  streaks, relationship charts, or average-time charts.
 - **Short trial.** The same rules as Trial, with 4 identities shown
   four times each (16 games). Its results live under that size's
   short-trial key and never mix with the 100-game Trial lists.
@@ -549,8 +549,8 @@ report.
   right edge never crosses the main column/window edge. If fixed top-right
   controls occupy the same strip, the stats start below those controls
   while remaining flush right.
-- Everything else (the centered action analysis, rank lists, rankaverages,
-  streaks, scatter plots) sits below the board in normal flow. If the stats
+- Everything else (the centered action analysis and semantic chart sections)
+  sits below the board in normal flow. If the stats
   table is taller than the board, the first visible section shifts down by
   the overhang so nothing sits under the table; the board does not move.
 - The scrollbar gutter is always reserved so a tall results area cannot
@@ -622,6 +622,39 @@ uneven thinking-contamination it implies and the computable refinements
 left for later, is in reference/mouse-motion-metrics.md ("Goal birth
 time and segment anchoring").
 
+## Result presentation and ordering (unified 2026-08-27)
+
+Post-game and score-view output share one semantic presentation model. Order
+answers progressively deeper player questions; it is never inferred from DOM
+append timing or from how many cards fit on a row:
+
+1. **Outcome** — win/loss or High scores, board, mode, generator, date.
+2. **Facts** — the selected game's compact label/value stats.
+3. **Analysis** — post-game action interpretation only.
+4. **Placements** — the recent "ranks won" summary.
+5. **Rankings** — time/category, same-3BV, and board-shape tablecharts.
+6. **Averages** — average solve-time scatterplots.
+7. **Streaks** — consecutive and loss-tolerant win runs.
+8. **Relationships** — raw-win scatterplots.
+9. **Diagnostics** — post-game motion systems.
+
+Each chart family owns a full-width semantic section and wraps internally.
+Responsive wrapping may change the number of cards on a row, but cannot mix
+the tail of one family into the next family. DOM order and visual order are
+the same.
+
+The score viewer deliberately omits post-game action analysis and motion
+diagnostics. Its reference record is explicitly the latest win: its compact
+facts are labeled "latest win stats", while ordinary ranking rows and plots
+have no "this game" highlight. Rolling windows use the time at which scores
+are viewed. A post-game loss has outcome, facts, enabled action analysis, and
+motion diagnostics, but no win rankings.
+
+Chart eligibility, display order, duplicate preference, and summary
+tie-breaking are separate concepts. In particular, a ranking candidate has
+independent `displayOrder`, `dedupePriority`, and `summaryTiePriority`
+properties; changing one must not silently reorder either of the others.
+
 ## Per-game stats
 
 Recorded per finished game, win or loss, primary measurements only: end
@@ -679,9 +712,8 @@ not the player's doing and is not counted) — joined the schema on
 zero flags placed holds the special status "markless": the stats table's
 "Flags placed" row reads "0 - markless", and wherever an individual game's
 time appears in a table chart (rank-list time cells, the stats table's
-Time row) a small olive-green "(m)" precedes it. Aggregate times
-(rankaverage group averages, delta rows) carry no marker, since they mix
-games. Records from before the
+Time row) a small olive-green "(m)" precedes it. Average-time chart dots
+carry no marker, since they aggregate games. Records from before the
 measurement never claim the status, since for them it is unknown.
 
 Flags removed — how many flag states the player turned off — joined the
@@ -894,8 +926,8 @@ carries at least one tag.
   weekdays" (whichever today is), "on holidays" (US federal, only when
   today is one).
 - Progressive disclosure: when several lists would contain the exact same
-  set of scores, only the most specific renders (specificity: narrow
-  windows, then day categories, then broad windows). Exception
+  set of scores, only the lowest `dedupePriority` renders (narrow windows,
+  then day categories, then broad windows). Exception
   (2026-08-22, "past week" added to it later that day): "lifetime" and
   "past week" always render, and any window holding the exact same
   scores collapses into one of them — so a player whose whole history
@@ -933,8 +965,7 @@ carries at least one tag.
   is within the top 11, the list anchors at #1 and shows the top 11 with
   your row in its true place (a #8 placement draws #1-#11, never #3-#13).
   Otherwise the window centers on you — 5 above, 5 below — sliding upward
-  near the bottom so the budget still fills (a constant row count also
-  keeps chart heights stable across rankaverage re-sorts, 2026-08-20).
+  near the bottom so the budget still fills.
 - Every list always renders its full window at full opacity, wherever the
   placement falls: a mediocre rank still shows its 5 neighbors either side,
   because the placement itself is fresh information. (This replaced the
@@ -943,7 +974,7 @@ carries at least one tag.
 ## Recent placements (requested and decided 2026-08-23; charts and the
 ## lifetime near-miss rule extended later the same day)
 
-- One summary block, rendered right after the "3BV N" list: for a chosen
+- One summary block, leading the below-board chart sections: for a chosen
   recent window it reports, per longer chart, which of that chart's top
   ranks were earned within the recent window — e.g.
   "this month: 1st, 3rd, 8–12th / lifetime: 7th, 14th".
@@ -993,7 +1024,7 @@ carries at least one tag.
   compressed ("8–12th", the ordinal suffix closing each run), and a pale
   "of N" naming the list length the tenth is of. Rows order by that list
   length, largest competitor pool first. Equal-sized pools put the
-  broader, more significant chart first (reverse tablechart specificity).
+  broader, more significant chart first (`summaryTiePriority` descending).
   The ordinal belonging to the game that just finished is bold on the
   same light-blue background as its row in the full tablechart.
 - Gated by shownThings.recentPlacements (on by default).
@@ -1015,45 +1046,21 @@ carries at least one tag.
   with text overridden to black for readability (unit colors would be
   unreadable on the highlight).
 
-## Rankaverage charts
+## Retired rankaverage charts
 
-- One per grouping stat: efficiency (exact %), clicks (exact), 3BV (exact),
-  3BV/s (0.01 buckets), mouse path (100px buckets), mouse speed (10px/s
-  buckets). There are NO separate rankcount charts and no exact-match
-  "same 3BV/clicks/efficiency" columns — the rankaverage's x-count column
-  and value grouping cover those.
-- Row format: rank, grouped value, that group's average solve time, win
-  count in the group. Ranked best (lowest) average first. The count is
-  written with a trailing multiplication sign ("12x") and right-aligned,
-  so ones/tens/hundreds places line up down the column.
-- No chart title: a header row of clickable column names does the naming,
-  with the value column's header carrying the stat name at heading size
-  and weight while its neighbors ("#", "avg", "count") stay pale
-  (2026-08-20).
-- Sortable (2026-08-20): clicking a column header cycles ascending (▴),
-  descending (▾), then back to the natural rank order. Sorting only
-  reorders rows — every row keeps its true by-average rank number — and
-  the window stays centered on this game's bucket. The chosen order
-  persists per chart (userdata `rankavgSort`, entries {key, dir},
-  absent = natural) and every comparator ends in a
-  deterministic tie-break, so a given history always renders the same way.
-  Re-sorting freezes the chart at its pre-click width so reordering never
-  reflows the charts around it.
-- Delta row, minimal text only: how this win moved its own group's
-  average. Because the delta is a time, it renders as the chart's last
-  grid row with its text in the average-time column, exactly aligned
-  under the times above it. The SIGN is the true numeric direction of the
-  average time ("-0.024s" = it fell, "+0.462s" = it rose); the COLOR is
-  the judgment: green = good (average fell), red = bad (rose), gray "=" =
-  unchanged at display precision (a shift rounding to 0.000s is never
-  "worsened"), blue "new" = first game in that group. Green always means
-  good, red always means bad.
+The sortable rankaverage tables were replaced by the average-time
+scatterplots: the plots retain the useful grouped-value/average-time
+relationship with substantially less standing table ink. Their old
+`rankavgSort` userdata kind remains recognized by the storage migration so
+an existing database is not damaged, but it has no current visible control,
+runtime state, export field, or result section.
 
 ## Average-time charts
 
-- One small scatter per grouping stat (`AVERAGE_SCATTER_SPECS`): grouped
-  value on x, that group's average solve time on y, dots colored by the
-  age of the group's newest win.
+- One small scatter per grouping stat (`AVERAGE_SCATTER_SPECS`): clicks,
+  3BV, and mouse path (100px buckets). The grouped value is on x and that
+  group's average solve time on y; dots are colored by the age of the
+  group's newest win.
   Axis labels name the chart ("→ 3BV" / "→ average time").
 - Trend lines (decided 2026-08-22, chosen by eye from a five-fit
   sampling): the Theil–Sen line y = a + b·x — b is the median slope over
@@ -1088,15 +1095,13 @@ carries at least one tag.
 
 ## Scatter plots
 
-- At the very bottom, ten plots, grouped time-trend first, then board,
-  then mouse: win time vs date (local date/time x-axis: minute-to-day
-  calendar ticks, HH:mm labels below a day step, M/D above), win time vs
-  hour of day (0-24 local), 3BV vs time, clicks vs 3BV (with the y = x
-  floor drawn as a dashed line — a game on the line used only the board's
-  minimum clicks), no-op clicks vs 3BV/s (only wins carrying the
-  wastedClicks measurement; appears once at least 2 do), mouse path vs
-  time, mouse speed vs time, mouse speed vs efficiency, path per click vs
-  efficiency, path per 3BV vs time. Requires at least 2 wins.
+- The relationships section has five plots in fixed order: win time vs date
+  (local date/time x-axis: minute-to-day calendar ticks, HH:mm labels below
+  a day step, M/D above), win time vs hour of day (0–24 local), 3BV vs time,
+  clicks vs 3BV (with the y = x floor drawn as a dashed line — a game on the
+  line used only the board's minimum clicks), and no-op clicks vs time (only
+  wins carrying the `wastedClicks` measurement; appears once at least 2 do).
+  The section requires at least 2 wins.
 - Every win is a dot colored by its relative-age unit, reusing the age
   palette (seconds = fluorescent green, minutes = green, hours = blue,
   days = red, weeks = navy, months = maroon, years = teal), so time
@@ -1143,7 +1148,7 @@ carries at least one tag.
 
 - All persistent data lives in one IndexedDB database
   (`minesweeper-friendly`, version 2) with two stores: `userdata` (play
-  history, settings, rankaverage sort preferences, player states, trial
+  history, settings, legacy rankaverage sort preferences, player states, trial
   session — one entry per kind) and `traces` (one entry per finished game).
 - Userdata is RAM-first: every kind is read into RAM once at startup, all
   reads and mutations work on the RAM copy synchronously, and each

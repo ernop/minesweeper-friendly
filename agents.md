@@ -64,7 +64,7 @@ Serve with `python3 -m http.server 8018 --bind 127.0.0.1` and open exactly
 `http://127.0.0.1:8018/`.
 
 **`PRODUCT.md` is the canonical spec of every product and UI decision**
-(board chrome, layout rules, rank lists, rankaverages, streaks, scatters,
+(board chrome, result presentation, rank lists, streaks, scatters,
 backup). Read it before changing behavior; keep it and the code in sync in
 the same change. Below is only the implementation mapping.
 
@@ -78,10 +78,10 @@ Implementation notes:
   `userdataReady()` (called once BOTH the db is open and the document's
   scripts have run — the open can otherwise race the later `<script>`
   fetches and call a hook that does not exist yet). `userdata` holds one
-  entry per kind — 'history', 'settings', 'rankavgSort', 'states',
+  entry per kind — 'history', 'settings', legacy 'rankavgSort', 'states',
   'trial' (`USERDATA_KINDS`); `traces` holds one entry per game. Userdata
-  is RAM-first: the game page's `userdataReady` fills the RAM objects
-  (`history`, `settings`, `rankavgSorts`, `playerStates`) via
+  is RAM-first: the game page's `userdataReady` fills the active RAM objects
+  (`history`, `settings`, `playerStates`) via
   `readAllUserdata`, then calls `init()` (states panel, first board —
   everything that reads userdata waits there; only static chrome builds
   at parse). All reads/mutations touch RAM synchronously; every mutation
@@ -488,8 +488,14 @@ Implementation notes:
   state activates immediately) under a `#states-menu-head` header whose
   `#states-close` ×, Esc, and outside clicks all close it. `renderStates`
   rebuilds both chips and menu options.
-- Rank list machinery: `rankWindows` (time windows + `specificity` for
-  progressive disclosure), `rankColumns` (adds day categories, `isHoliday`),
+- Unified result presentation: the pure span between the "RESULT
+  PRESENTATION MODEL" and "DISPLAY" markers defines semantic phase and chart
+  section order for post-game and score contexts. `createResultSectionCollector`
+  collects computed nodes and emits only nonempty sections in that order;
+  each `.result-chart-section-items` wraps internally.
+- Rank list machinery: `rankWindows` (time windows with independent
+  `displayOrder`, `dedupePriority`, and `summaryTiePriority`),
+  `rankColumns` (adds day categories, `isHoliday`),
   `windowBounds` (11-row windowing), `buildRankList` (shared renderer,
   always the full window), `relativeAge` / `formatAgeCount` + `.age-u-*`
   classes (age display and unit colors, shared with the scatter legend;
@@ -503,8 +509,9 @@ Implementation notes:
   rules.
 - Recent placements (PRODUCT.md "Recent placements"): the pure span
   between the "RECENT PLACEMENTS: COMPUTATION" and ": DISPLAY" markers —
-  `ordinal`, `formatRankRuns` (run compression), `recentPlacementsSummary`
-  over candidates {label, specificity, wins, startMs (time windows only:
+  `compareRankedWins`, `ordinal`, `formatRankRuns` (run compression),
+  `recentPlacementsSummary`
+  over candidates {label, dedupePriority, summaryTiePriority, wins, startMs (time windows only:
   the strictly-longer rule; membership charts omit it and always
   qualify), alwaysShowBest (lifetime's near-miss rule, rows flagged
   nearMiss)} — computes the rows; `RECENT_PLACEMENTS_WINDOWS` (beside
@@ -512,30 +519,30 @@ Implementation notes:
   selector on the block's heading writes
   `settings.recentPlacementsWindow` (schema control 'none') and
   re-renders `renderedResult`; `buildRecentPlacements(record, wins,
-  referenceMs)` builds the candidates — `rankColumns` (window columns
+  referenceMs, markReferenceRecord)` builds the candidates — `rankColumns` (window columns
   carry startMs; day categories don't and so always qualify), this
   game's same-3BV chart, and `boardShapeCandidates(record, wins)` (the
   extracted shape-chart definitions the board-shape tablecharts also
   render from; the summary ignores the largestIsland display gate) —
-  and renders the block in `renderRanks` right after the exact-3BV
-  list, gated by shownThings.recentPlacements; nearMiss rows render the
+  and emits the leading placements section, gated by
+  shownThings.recentPlacements; nearMiss rows render the
   rank muted (`.recent-near-cell`). `dedupeRankCandidates` is shared
   with the full time/day and board-shape tablecharts, so the summary
   obeys `collapseDuplicateCharts` with the same pinned lifetime/week
   and most-specific-shape rules. Summary rows sort by competitor count
-  descending, then broader specificity; the exact current record's
+  descending, then `summaryTiePriority`; the exact current record's
   ordinal carries `.recent-current-rank`, matching the full tablechart's
   bold light-blue current-row treatment.
   `node tests/recent-placements-test.js` freezes the formatting and
-  summary rules.
-- Rankaverages: `RANKAVERAGE_SPECS` (bucketing per stat), `avgDelta`
-  (sign/color convention; rendered as a final grid row whose text sits in
-  the average-time column).
+  summary rules; `node tests/result-presentation-test.js` freezes the
+  cross-context section order.
+- Average-time charts: `AVERAGE_SCATTER_SPECS`, `averagePoints`, and
+  `buildAverageScatter`; the former rankaverage table code is retired.
 - Streaks: run-splitting and the core-trim/dedupe/domination filter are in
   `renderRanks`; see PRODUCT.md for the double-counting rationale.
 - Scatters: `buildScatter` + `niceTicks` (`timeTicks` for the date axis;
   `minorTicks` adds edge tickmarks between labeled divisions, skipped on
-  the date axis), appended after a `.flex-break`; dots colored by age unit (`.age-dot-*`),
+  the date axis), emitted in the relationships section; dots colored by age unit (`.age-dot-*`),
   the current game ringed and tagged with its today-rank, on-chart axis
   labels, legend appended last. Options: `timeAxis` (local calendar
   x-ticks), `idealLine` (y = x dashed floor), `trendLines`
@@ -751,9 +758,9 @@ Implementation notes:
   `node tests/generators-test.js` freezes placement invariants,
   key-suffix canonical form, validation, and the statistical
   signatures (pink clusters, blue spreads).
-- Rankaverage sort persistence: userdata 'rankavgSort' maps stat label to
-  {key, dir} (absent = natural rank order); written by the sort-header
-  click cycle in `buildRankavgList` (asc → desc → none).
+- Retired rankaverage compatibility: storage still recognizes the old
+  `rankavgSort` userdata kind during migration, but the runtime does not
+  load, mutate, or export it.
 - Backup: `#backup` controls; `importHistory` validates the whole blob
   before writing (arrays of well-formed records only, loud error naming the
   offending mode otherwise), dedupes by `endedAt` within each mode, and

@@ -614,6 +614,14 @@ body.trial-offboard #game-frame {
   color: #000000;
 }
 
+.latest-win-stats-title {
+  margin: 8px 0 2px;
+  font-size: 11px;
+  color: #667788;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
 /* Game-end evaluation (PRODUCT.md "Game-end evaluation"): action analysis
    and the Justice recap. The title keeps the results area's chunky face;
    the justification prose switches to a
@@ -1436,15 +1444,6 @@ body.settings-page .return-to-game {
   }
 }
 
-/* This win's effect on its bucket's average time: a cell in the last grid
-   row of the rankaverage chart, sitting in (and right-aligned with) the
-   average-time column since the delta is itself a time. */
-.rank-delta { font-size: 11px; }
-.delta-improved { color: #008000; }
-.delta-worsened { color: #ff0000; }
-.delta-same { color: #666666; }
-.delta-new { color: #0000ff; }
-
 /* One ranked-list column per time window; the new score is bolded */
 #result-ranks {
   display: flex;
@@ -1456,6 +1455,66 @@ body.settings-page .return-to-game {
   font-size: 13px;
   color: #666666;
   font-family: "Arial Black", "Arial Bold", Arial, sans-serif;
+}
+
+/* Normal results are sectioned by meaning. Trial summaries still use the
+   legacy direct flex stream above; regular win/score views use one vertical
+   stack whose children each wrap internally, so unrelated chart families
+   can never become accidental visual neighbors. */
+#result-ranks.sectioned-results {
+  display: block;
+}
+
+.result-chart-section {
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0 auto 26px;
+}
+
+.result-chart-section:last-child { margin-bottom: 0; }
+
+.result-chart-section-title {
+  width: min(920px, calc(100% - 24px));
+  margin: 0 auto 10px;
+  border-bottom: 1px solid #d9e2e8;
+  padding-bottom: 4px;
+  color: #667788;
+  font-size: 13px;
+  line-height: 1.2;
+  text-align: left;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.result-chart-section-items {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 18px;
+}
+
+.result-chart-section-placements {
+  margin-bottom: 20px;
+}
+
+.motion-metric-group {
+  flex-basis: 100%;
+}
+
+.motion-metric-group > .metrics-group-head {
+  width: min(920px, calc(100% - 24px));
+  margin: 0 auto 6px;
+  border-bottom: 1px solid #e5e5e5;
+  padding-bottom: 2px;
+}
+
+.motion-metric-group-items {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 18px;
 }
 
 #pregen-charts {
@@ -1600,7 +1659,6 @@ body.settings-page .return-to-game {
 /* Scatter plots: derived mouse metrics vs outcomes, this game highlighted.
    The charts carry no titles; the axis labels and tick values render at
    what was the title size (12px bold) and do the naming themselves. */
-.flex-break { flex-basis: 100%; height: 0; }
 .scatter-svg {
   width: 270px;
   height: 210px;
@@ -1666,42 +1724,6 @@ body.settings-page .return-to-game {
   color: #888888;
 }
 .scatter-legend .legend-item { margin-left: 8px; }
-
-/* Rankaverage charts: rank, stat value, average time, win count. The count
-   column is right-aligned with its multiplication sign trailing ("12x"),
-   so ones/tens/hundreds places line up down the column. */
-.rankavg-grid {
-  display: grid;
-  width: 100%;
-  grid-template-columns: repeat(4, auto);
-}
-.rank-row .val-cell { text-align: right; }
-.rank-row .avg-cell { text-align: right; }
-.rank-row .cnt-cell { text-align: right; }
-
-/* Rankaverage sort headers: a quiet row of clickable column names; the
-   active order is the only dark one. */
-.rank-row .sort-cell {
-  font-size: 10px;
-  font-weight: normal;
-  color: #aabbcc;
-  cursor: pointer;
-  user-select: none;
-}
-.rank-row .sort-cell:hover { text-decoration: underline; }
-.rank-row .sort-cell.active {
-  color: #333333;
-  font-weight: bold;
-}
-
-/* The value header doubles as the chart's title (rankaverage charts carry
-   no h4), so it renders dark and bold at heading size — while staying
-   clickable to sort, like its neighbors. */
-.rank-row .sort-cell.val-cell {
-  font-size: 12px;
-  font-weight: bold;
-  color: #333333;
-}
 
 /* Recent placements: one row per longer time window, listing the
    top-tenth ranks earned within the chosen recent window. The window

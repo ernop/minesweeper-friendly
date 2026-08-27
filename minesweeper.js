@@ -2888,6 +2888,97 @@ function buildReportScopeControl(onChange) {
   return label;
 }
 
+//-------RESULT PRESENTATION MODEL (pure; tests extract this span)-------
+
+// Result surfaces share one semantic sequence. A section's order is product
+// meaning, not an accident of DOM append order or the width at which flex
+// items happen to wrap. The score viewer deliberately omits post-game-only
+// action and motion detail; its reference record is context for the history,
+// not a game that just happened.
+const RESULT_PRESENTATION_PHASES = Object.freeze([
+  { id: 'outcome', order: 10 },
+  { id: 'facts', order: 20 },
+  { id: 'analysis', order: 30, contexts: ['postGame'] },
+  { id: 'placements', order: 40 },
+  { id: 'rankings', order: 50 },
+  { id: 'averages', order: 60 },
+  { id: 'streaks', order: 70 },
+  { id: 'relationships', order: 80 },
+  { id: 'diagnostics', order: 90, contexts: ['postGame'] },
+]);
+
+const RESULT_CHART_SECTIONS = Object.freeze([
+  { id: 'placements', phase: 'placements', label: null },
+  { id: 'rankings', phase: 'rankings', label: 'rankings' },
+  { id: 'averages', phase: 'averages', label: 'average time' },
+  { id: 'streaks', phase: 'streaks', label: 'streaks' },
+  { id: 'relationships', phase: 'relationships', label: 'relationships' },
+  {
+    id: 'diagnostics',
+    phase: 'diagnostics',
+    label: 'motion diagnostics',
+    contexts: ['postGame'],
+  },
+]);
+
+function resultPresentationPhases(context) {
+  return RESULT_PRESENTATION_PHASES
+    .filter((phase) => phase.contexts === undefined || phase.contexts.includes(context))
+    .slice()
+    .sort((a, b) => a.order - b.order);
+}
+
+function resultChartSections(context) {
+  const phaseOrder = new Map(
+    resultPresentationPhases(context).map((phase, index) => [phase.id, index]));
+  return RESULT_CHART_SECTIONS
+    .filter((section) =>
+      section.contexts === undefined || section.contexts.includes(context))
+    .slice()
+    .sort((a, b) => phaseOrder.get(a.phase) - phaseOrder.get(b.phase));
+}
+
+//-------RESULT PRESENTATION DISPLAY-------
+
+// Collect first, render second: call sites can compute related data together,
+// while the model above remains the one authority for visible section order.
+function createResultSectionCollector(context) {
+  const specs = resultChartSections(context);
+  const nodes = new Map(specs.map((spec) => [spec.id, []]));
+  return {
+    append(sectionId, node) {
+      if (!nodes.has(sectionId)) {
+        throw new Error('unknown result section: ' + sectionId);
+      }
+      nodes.get(sectionId).push(node);
+    },
+    appendAll(sectionId, additions) {
+      for (const node of additions) this.append(sectionId, node);
+    },
+    renderInto(parent) {
+      parent.textContent = '';
+      for (const spec of specs) {
+        const children = nodes.get(spec.id);
+        if (children.length === 0) continue;
+        const section = document.createElement('section');
+        section.className = 'result-chart-section result-chart-section-' + spec.id;
+        section.setAttribute('aria-label', spec.label || 'recent placements');
+        if (spec.label !== null) {
+          const heading = document.createElement('h3');
+          heading.className = 'result-chart-section-title';
+          heading.textContent = spec.label;
+          section.appendChild(heading);
+        }
+        const items = document.createElement('div');
+        items.className = 'result-chart-section-items';
+        items.append(...children);
+        section.appendChild(items);
+        parent.appendChild(section);
+      }
+    },
+  };
+}
+
 function renderResult(record, modeRecords, options = {}) {
   renderedResult = { record, modeRecords, options };
   const seconds = secondsOf(record);
@@ -2918,12 +3009,15 @@ function renderResult(record, modeRecords, options = {}) {
     + '\n' + (options.historyView ? 'Latest win · ' : '') + formatDate(record.endedAt);
   resultStats.textContent = '';
   resultAnalysis.textContent = '';
-  resultAnalysis.appendChild(buildReportScopeControl(
-    () => renderResult(record, modeRecords, options)));
-  if (settings.reportScope !== 'none') {
-    const verdicts = buildVerdictBlocks(record);
-    if (verdicts !== null) {
-      resultAnalysis.appendChild(verdicts);
+  const historyView = options.historyView === true;
+  if (!historyView) {
+    resultAnalysis.appendChild(buildReportScopeControl(
+      () => renderResult(record, modeRecords, options)));
+    if (settings.reportScope !== 'none') {
+      const verdicts = buildVerdictBlocks(record);
+      if (verdicts !== null) {
+        resultAnalysis.appendChild(verdicts);
+      }
     }
   }
   const statsGrid = document.createElement('div');
@@ -3004,13 +3098,24 @@ function renderResult(record, modeRecords, options = {}) {
     statsGrid.append(labelCell, valueCell);
   }
   if (settings.shownThings.gameStats) {
+    if (historyView) {
+      const heading = document.createElement('h3');
+      heading.className = 'latest-win-stats-title';
+      heading.textContent = 'latest win stats';
+      resultStats.appendChild(heading);
+    }
     resultStats.appendChild(statsGrid);
   }
+  const resultSections = createResultSectionCollector(
+    historyView ? 'scores' : 'postGame');
+  resultRanks.classList.toggle(
+    'sectioned-results',
+    !Trial.isPlayMode(settings.playMode) || historyView);
   if (Trial.isPlayMode(settings.playMode) && !options.historyView) {
     resultRanks.textContent = '';
     renderTrialChrome();
   } else if (record.outcome === 'win') {
-    renderRanks(record, modeRecords, options);
+    renderRanks(record, modeRecords, options, resultSections);
   } else {
     resultRanks.textContent = '';
   }
@@ -3019,12 +3124,10 @@ function renderResult(record, modeRecords, options = {}) {
   // a loss). Motion existed either way. Trial review has its own charts.
   if (settings.showMotionStatsAfterGame && finalMotion !== null && !options.historyView
       && !Trial.isPlayMode(settings.playMode)) {
-    const brk = document.createElement('div');
-    brk.className = 'flex-break';
-    resultRanks.appendChild(brk);
-    for (const chart of buildMotionStatsCharts()) {
-      resultRanks.appendChild(chart);
-    }
+    resultSections.appendAll('diagnostics', buildMotionStatsCharts());
+  }
+  if (!Trial.isPlayMode(settings.playMode) || options.historyView) {
+    resultSections.renderInto(resultRanks);
   }
   syncBoardLayout();
 }
@@ -3458,25 +3561,39 @@ function startOfDay(ms, daysBack = 0) {
 // "this month"/"in <year>" from their calendar starts, and the rolling
 // "in the last year" starts at the end of the day exactly 365 days prior.
 // Sub-day windows stay purely rolling.
-// [label, windowStartMs, specificity]. Lower specificity = narrower window;
-// when two lists contain the exact same wins only the most specific
-// survives (see renderRanks), so broad charts appear gradually as history
-// spreads out. "lifetime" and "past week" are the exceptions: they always
-// render, and windows identical to either collapse into it. Day categories
-// (added in rankColumns) sit at 5-7, between "today" and "past week".
+// Ordering concerns are deliberately separate:
+// - displayOrder is where the tablechart appears;
+// - dedupePriority is lower for the chart that claims a duplicate member set;
+// - summaryTiePriority is higher for the broader/more significant row.
+// "lifetime" and "past week" are additionally pinned by callers. Day
+// categories (added in rankColumns) dedupe between "today" and "past week".
 function rankWindows(nowMs) {
   const d = new Date(nowMs);
   return [
-    ['lifetime', -Infinity, 12],
-    ['in ' + d.getFullYear(), new Date(d.getFullYear(), 0, 1).getTime(), 10],
-    ['in the last year', startOfDay(nowMs, 364), 11],
-    ['this month', new Date(d.getFullYear(), d.getMonth(), 1).getTime(), 9],
-    ['past week', startOfDay(nowMs, 6), 8],
-    ['today', startOfDay(nowMs), 4],
-    ['past hour', nowMs - 3600e3, 3],
-    ['past 15 min', nowMs - 15 * 60e3, 2],
-    ['past 5 min', nowMs - 5 * 60e3, 1],
-    ['past 1 min', nowMs - 60e3, 0],
+    { id: 'lifetime', label: 'lifetime', startMs: -Infinity,
+      displayOrder: 10, dedupePriority: 12, summaryTiePriority: 12 },
+    { id: 'calendar-year', label: 'in ' + d.getFullYear(),
+      startMs: new Date(d.getFullYear(), 0, 1).getTime(),
+      displayOrder: 20, dedupePriority: 10, summaryTiePriority: 10 },
+    { id: 'rolling-year', label: 'in the last year',
+      startMs: startOfDay(nowMs, 364),
+      displayOrder: 30, dedupePriority: 11, summaryTiePriority: 11 },
+    { id: 'calendar-month', label: 'this month',
+      startMs: new Date(d.getFullYear(), d.getMonth(), 1).getTime(),
+      displayOrder: 40, dedupePriority: 9, summaryTiePriority: 9 },
+    { id: 'past-week', label: 'past week', startMs: startOfDay(nowMs, 6),
+      displayOrder: 50, dedupePriority: 8, summaryTiePriority: 8 },
+    { id: 'today', label: 'today', startMs: startOfDay(nowMs),
+      displayOrder: 60, dedupePriority: 4, summaryTiePriority: 4 },
+    { id: 'past-hour', label: 'past hour', startMs: nowMs - 3600e3,
+      displayOrder: 70, dedupePriority: 3, summaryTiePriority: 3 },
+    { id: 'past-15-min', label: 'past 15 min',
+      startMs: nowMs - 15 * 60e3,
+      displayOrder: 80, dedupePriority: 2, summaryTiePriority: 2 },
+    { id: 'past-5-min', label: 'past 5 min', startMs: nowMs - 5 * 60e3,
+      displayOrder: 90, dedupePriority: 1, summaryTiePriority: 1 },
+    { id: 'past-1-min', label: 'past 1 min', startMs: nowMs - 60e3,
+      displayOrder: 100, dedupePriority: 0, summaryTiePriority: 0 },
   ];
 }
 
@@ -3585,37 +3702,44 @@ function isHoliday(date) {
 // categories have none — that absence is what marks them lifetime-spanning
 // (the recent-placements strictly-longer rule reads it).
 function rankColumns(referenceMs) {
-  const columns = rankWindows(referenceMs).map(([label, startMs, specificity]) => ({
-    label: label,
-    filter: (s) => s.endedAt >= startMs,
-    specificity: specificity,
-    startMs: startMs,
+  const columns = rankWindows(referenceMs).map((window) => ({
+    ...window,
+    filter: (s) => s.endedAt >= window.startMs,
   }));
   const winDate = new Date(referenceMs);
   const weekday = winDate.getDay();
   columns.push({
+    id: 'weekday',
     label: 'on ' + WEEKDAY_NAMES[weekday] + 's',
     filter: (s) => new Date(s.endedAt).getDay() === weekday,
-    specificity: 5,
+    displayOrder: 110,
+    dedupePriority: 5,
+    summaryTiePriority: 5,
   });
   const weekend = isWeekend(winDate);
   columns.push({
+    id: weekend ? 'weekends' : 'weekdays',
     label: weekend ? 'on weekends' : 'on weekdays',
     filter: (s) => isWeekend(new Date(s.endedAt)) === weekend,
-    specificity: 6,
+    displayOrder: 120,
+    dedupePriority: 6,
+    summaryTiePriority: 6,
   });
   if (isHoliday(winDate)) {
     columns.push({
+      id: 'holidays',
       label: 'on holidays',
       filter: (s) => isHoliday(new Date(s.endedAt)),
-      specificity: 7,
+      displayOrder: 130,
+      dedupePriority: 7,
+      summaryTiePriority: 7,
     });
   }
-  return columns;
+  return columns.sort((a, b) => a.displayOrder - b.displayOrder);
 }
 
 // Board-shape chart candidates for this win's finished-board family:
-// {label, specificity, rows (member wins)}. Older wins lacking a
+// {label, displayOrder, dedupePriority, summaryTiePriority, rows}. Older wins lacking a
 // measurement stay off their list. Shared by the board-shape tablecharts
 // and the recent-placements summary so the two chart sets cannot drift;
 // the largestIsland display gate is applied at the tablechart render
@@ -3624,15 +3748,21 @@ function boardShapeCandidates(record, wins) {
   const candidates = [];
   if (record.maxAdjacent === 8) {
     candidates.push({
+      id: 'has-8',
       label: 'has 8',
-      specificity: 0,
+      displayOrder: 10,
+      dedupePriority: 0,
+      summaryTiePriority: 0,
       rows: wins.filter((s) => s.maxAdjacent === 8),
     });
   }
   if (record.hasSeven === true) {
     candidates.push({
+      id: 'has-7',
       label: 'has 7',
-      specificity: 1,
+      displayOrder: 20,
+      dedupePriority: 1,
+      summaryTiePriority: 1,
       rows: wins.filter((s) => s.hasSeven === true),
     });
   }
@@ -3640,8 +3770,11 @@ function boardShapeCandidates(record, wins) {
     for (const cap of [4, 3, 2]) {
       if (record.maxAdjacent <= cap) {
         candidates.push({
+          id: 'max-' + cap,
           label: 'max ' + cap,
-          specificity: cap,
+          displayOrder: 70 - cap * 10,
+          dedupePriority: cap,
+          summaryTiePriority: cap,
           rows: wins.filter((s) => typeof s.maxAdjacent === 'number' && s.maxAdjacent <= cap),
         });
       }
@@ -3649,29 +3782,45 @@ function boardShapeCandidates(record, wins) {
   }
   if (typeof record.islandCount === 'number') {
     candidates.push({
+      id: 'islands',
       label: record.islandCount === 1 ? '1 island' : record.islandCount + ' islands',
-      specificity: 10,
+      displayOrder: 80,
+      dedupePriority: 10,
+      summaryTiePriority: 10,
       rows: wins.filter((s) => s.islandCount === record.islandCount),
     });
   }
   if (typeof record.largestIsland === 'number') {
     candidates.push({
+      id: 'largest-island',
       label: 'largest island ' + record.largestIsland,
-      specificity: 11,
+      displayOrder: 90,
+      dedupePriority: 11,
+      summaryTiePriority: 11,
       rows: wins.filter((s) => s.largestIsland === record.largestIsland),
     });
   }
   if (typeof record.zeroCount === 'number') {
     candidates.push({
+      id: 'zeros',
       label: record.zeroCount === 1 ? '1 zero' : record.zeroCount + ' zeros',
-      specificity: 12,
+      displayOrder: 100,
+      dedupePriority: 12,
+      summaryTiePriority: 12,
       rows: wins.filter((s) => s.zeroCount === record.zeroCount),
     });
   }
-  return candidates;
+  return candidates.sort((a, b) => a.displayOrder - b.displayOrder);
 }
 
 //-------RECENT PLACEMENTS: COMPUTATION (pure; tests extract this span)-------
+
+// Canonical order for every time-ranked win list. Modern JavaScript's stable
+// sort preserves history order only in the extremely rare case where both
+// stored values are identical.
+function compareRankedWins(a, b) {
+  return a.timeMs - b.timeMs || a.endedAt - b.endedAt;
+}
 
 // English ordinal: 1st, 2nd, 3rd, 4th ... with the 11th/12th/13th rule.
 function ordinal(n) {
@@ -3695,8 +3844,20 @@ function formatRankRuns(ranks) {
 
 // Progressive-disclosure dedupe shared by the tablecharts and their
 // recent-placements summary. Candidates with the exact same member wins
-// keep the lowest-specificity chart, except pinned charts are always kept
-// and claim their duplicate sets before the ordinary candidates.
+// keep the lowest dedupePriority chart, except pinned charts are always
+// kept and claim their duplicate sets before the ordinary candidates.
+// `specificity` remains a compatibility fallback for extracted callers and
+// old known-answer fixtures; production candidates use the explicit fields.
+function rankDedupePriority(candidate) {
+  return candidate.dedupePriority ?? candidate.specificity
+    ?? Number.MAX_SAFE_INTEGER;
+}
+
+function rankSummaryTiePriority(candidate) {
+  return candidate.summaryTiePriority ?? candidate.specificity
+    ?? Number.MIN_SAFE_INTEGER;
+}
+
 function dedupeRankCandidates(candidates, pinnedLabels = []) {
   const signatureOf = (candidate) => candidate.wins
     .map((win) => win.endedAt)
@@ -3712,7 +3873,8 @@ function dedupeRankCandidates(candidates, pinnedLabels = []) {
     keptSet.add(pinned);
     seenSets.add(signatureOf(pinned));
   }
-  for (const candidate of [...candidates].sort((a, b) => a.specificity - b.specificity)) {
+  for (const candidate of [...candidates]
+    .sort((a, b) => rankDedupePriority(a) - rankDedupePriority(b))) {
     if (keptSet.has(candidate)) continue;
     const signature = signatureOf(candidate);
     if (seenSets.has(signature)) continue;
@@ -3723,7 +3885,7 @@ function dedupeRankCandidates(candidates, pinnedLabels = []) {
 }
 
 // The recent-placements rows (PRODUCT.md "Recent placements"). Each
-// candidate names one tablechart: {label, specificity, wins (that chart's
+// candidate names one tablechart: {label, ordering priorities, wins (that chart's
 // member wins), startMs (present only on time windows — a window reports
 // only when it starts strictly before the source window, since a window
 // no longer than the source could only echo its own chart; membership
@@ -3741,8 +3903,7 @@ function recentPlacementsSummary(candidates, sourceStartMs, currentRecord) {
   const rows = [];
   for (const c of candidates) {
     if (c.startMs !== undefined && !(c.startMs < sourceStartMs)) continue;
-    const list = c.wins.slice()
-      .sort((a, b) => a.timeMs - b.timeMs || a.endedAt - b.endedAt);
+    const list = c.wins.slice().sort(compareRankedWins);
     const ranks = [];
     for (let i = 0; (i + 1) * 10 <= list.length; i++) {
       if (list[i].endedAt >= sourceStartMs) ranks.push(i + 1);
@@ -3752,7 +3913,7 @@ function recentPlacementsSummary(candidates, sourceStartMs, currentRecord) {
     if (ranks.length > 0) {
       rows.push({
         label: c.label,
-        specificity: c.specificity,
+        summaryTiePriority: rankSummaryTiePriority(c),
         ranks,
         total: list.length,
         nearMiss: false,
@@ -3763,7 +3924,7 @@ function recentPlacementsSummary(candidates, sourceStartMs, currentRecord) {
       if (best !== -1) {
         rows.push({
           label: c.label,
-          specificity: c.specificity,
+          summaryTiePriority: rankSummaryTiePriority(c),
           ranks: [best + 1],
           total: list.length,
           nearMiss: true,
@@ -3772,7 +3933,8 @@ function recentPlacementsSummary(candidates, sourceStartMs, currentRecord) {
       }
     }
   }
-  rows.sort((a, b) => b.total - a.total || b.specificity - a.specificity);
+  rows.sort((a, b) =>
+    b.total - a.total || b.summaryTiePriority - a.summaryTiePriority);
   return rows;
 }
 
@@ -3784,7 +3946,7 @@ function recentPlacementsSummary(candidates, sourceStartMs, currentRecord) {
 // The window selector sits in the heading and persists as
 // settings.recentPlacementsWindow; a change re-renders the result in
 // place, like a settings-panel switch.
-function buildRecentPlacements(record, wins, referenceMs) {
+function buildRecentPlacements(record, wins, referenceMs, markReferenceRecord = true) {
   const [, chosenLabel, startOf] = RECENT_PLACEMENTS_WINDOWS
     .find(([id]) => id === settings.recentPlacementsWindow);
   const sourceStartMs = startOf(referenceMs);
@@ -3795,10 +3957,11 @@ function buildRecentPlacements(record, wins, referenceMs) {
   // board-shape charts — independent of which tablecharts are switched
   // on. The same setting and helper as the full tablecharts dedupe the
   // time/day and shape groups before all surviving rows are ordered by
-  // competitor count (specificity offset 14 breaks equal-count ties).
+  // competitor count (the shape priority offset breaks equal-count ties).
   let rankCandidates = rankColumns(referenceMs).map((column) => ({
     label: column.label,
-    specificity: column.specificity,
+    dedupePriority: column.dedupePriority,
+    summaryTiePriority: column.summaryTiePriority,
     startMs: column.startMs,
     wins: wins.filter(column.filter),
     alwaysShowBest: column.label === 'lifetime',
@@ -3808,7 +3971,8 @@ function buildRecentPlacements(record, wins, referenceMs) {
   }
   const candidates = [...rankCandidates, {
     label: '3BV ' + record.bv3,
-    specificity: 13,
+    dedupePriority: 13,
+    summaryTiePriority: 13,
     wins: wins.filter((s) => s.bv3 === record.bv3),
   }];
   let shapeCandidates = boardShapeCandidates(record, wins)
@@ -3819,11 +3983,13 @@ function buildRecentPlacements(record, wins, referenceMs) {
   for (const c of shapeCandidates) {
     candidates.push({
       label: c.label,
-      specificity: 14 + c.specificity,
+      dedupePriority: 14 + c.dedupePriority,
+      summaryTiePriority: 14 + c.summaryTiePriority,
       wins: c.wins,
     });
   }
-  const rows = recentPlacementsSummary(candidates, sourceStartMs, record);
+  const rows = recentPlacementsSummary(
+    candidates, sourceStartMs, markReferenceRecord ? record : undefined);
 
   const box = document.createElement('div');
   box.className = 'rank-list recent-placements';
@@ -3948,11 +4114,8 @@ const AVERAGE_SCATTER_SPECS = [
 // windowBounds); a mediocre placement still shows its 5 neighbors above and
 // below, at full opacity, since the placement itself is fresh information.
 // The list ends with an "of N" footer completing the highlighted "#x": the
-// rank fraction lives in the chart, not the heading. headingText may be
-// null for charts whose column headers do the naming. sortHeader, when
-// given, renders a row of subtle clickable column headers above the data
-// ({cls, text, active, onClick} each).
-function buildRankList(headingText, rowCount, myIndex, gridClass, buildRowCells, sortHeader) {
+// rank fraction lives in the chart, not the heading.
+function buildRankList(headingText, rowCount, myIndex, gridClass, buildRowCells) {
   const list = document.createElement('div');
   list.className = 'rank-list';
   if (headingText !== null) {
@@ -3962,20 +4125,6 @@ function buildRankList(headingText, rowCount, myIndex, gridClass, buildRowCells,
   }
   const grid = document.createElement('div');
   grid.className = gridClass;
-  if (sortHeader) {
-    const row = document.createElement('div');
-    row.className = 'rank-row sort-row';
-    for (const { cls, text, active, onClick } of sortHeader) {
-      const cell = document.createElement('span');
-      cell.className = cls + ' sort-cell' + (active ? ' active' : '');
-      cell.textContent = text;
-      const plain = text.replace(/[\u25be\u25b4]/g, '').trim();
-      cell.title = 'sort by ' + (plain === '#' ? 'rank' : plain);
-      cell.addEventListener('click', onClick);
-      row.appendChild(cell);
-    }
-    grid.appendChild(row);
-  }
   const [start, end] = windowBounds(myIndex, rowCount);
   for (let i = start; i < end; i++) {
     const row = document.createElement('div');
@@ -3992,8 +4141,7 @@ function buildRankList(headingText, rowCount, myIndex, gridClass, buildRowCells,
   // The "of N" only appears when rows are actually cut off below: if the
   // last row is visible, the list's end is already in view and the count
   // says nothing new. The footer line itself always renders (blank via
-  // nbsp) so toggling between sort orders that do and don't reach the last
-  // row cannot change the chart's height.
+  // nbsp) so neighboring charts keep aligned heights.
   const total = document.createElement('div');
   total.className = 'rank-total';
   total.textContent = end < rowCount ? 'of ' + rowCount : '\u00a0';
@@ -4326,133 +4474,6 @@ function buildAverageScatter(spec, wins, record, historyView) {
     spec.label, 'average time', '',
     (point) => ageInfo(referenceMs, point.endedAt),
     { trendLines: trendLinesFor(asPairs(points), todayPairs) });
-}
-
-// How this win moved the average time of its own bucket (the average over
-// all wins sharing this bucketed value), before vs after this game. Returns
-// class + text for a cell rendered in the average-time column.
-function avgDelta(spec, record, wins) {
-  const bucket = spec.value(record);
-  const inBucket = wins.filter((s) => spec.value(s) === bucket);
-  const avg = (list) => list.reduce((sum, s) => sum + s.timeMs, 0) / list.length;
-  const fmt = (ms) => (ms / 1000).toFixed(3) + 's';
-  const before = inBucket.filter((s) => s !== record);
-  if (before.length === 0) return { className: 'delta-new', text: 'new' };
-  const prevAvg = avg(before);
-  const newAvg = avg(inBucket);
-  // Classify at display precision: a shift that rounds to 0.000s is
-  // unchanged. The sign is the real direction of the average time ("-" =
-  // it fell, "+" = it rose); the color says whether that's good (green)
-  // or bad (red).
-  const shift = fmt(Math.abs(newAvg - prevAvg));
-  if (shift === '0.000s') return { className: 'delta-same', text: '=' };
-  if (newAvg < prevAvg) return { className: 'delta-improved', text: '-' + shift };
-  return { className: 'delta-worsened', text: '+' + shift };
-}
-
-// The player's chosen row order for each rankaverage chart, keyed by the
-// stat label and persisted so a preference survives reloads. An entry is
-// {key, dir}; a missing entry means the natural rank order. The RAM copy
-// (userdata 'rankavgSort').
-let rankavgSorts = null;
-
-function saveRankavgSort(label, sort) {
-  if (sort === null) delete rankavgSorts[label];
-  else rankavgSorts[label] = sort;
-  persistUserdata('rankavgSort', rankavgSorts);
-}
-
-// One rankaverage tablechart. It carries no title — the value column's
-// header names the stat. Clicking a column header cycles its sort:
-// ascending, then descending, then back to the natural rank order (by the
-// bucket's average time). Sorting only reorders rows — each
-// row keeps its true by-average rank number — and the 11-row window stays
-// centered on this game's bucket. Every comparator ends in a deterministic
-// tie-break, so a given history renders the same way every time.
-function buildRankavgList(spec, record, wins) {
-  const groups = new Map(); // bucketed value -> { count, totalMs }
-  for (const s of wins) {
-    const v = spec.value(s);
-    const g = groups.get(v) || { count: 0, totalMs: 0 };
-    g.count += 1;
-    g.totalMs += s.timeMs;
-    groups.set(v, g);
-  }
-  const avgMs = (v) => groups.get(v).totalMs / groups.get(v).count;
-  const ascComparators = {
-    rank: (a, b) => avgMs(a) - avgMs(b) || a - b,
-    value: (a, b) => a - b,
-    time: (a, b) => avgMs(a) - avgMs(b) || a - b,
-    count: (a, b) => groups.get(a).count - groups.get(b).count || avgMs(a) - avgMs(b) || a - b,
-  };
-  const byAvg = [...groups.keys()].sort(ascComparators.rank);
-  const rankOf = (v) => byAvg.indexOf(v) + 1;
-  // Only a well-formed {key, dir} counts; anything else (including entries
-  // from older versions of this code) falls back to the natural order.
-  const saved = rankavgSorts[spec.label];
-  const sort = saved && typeof saved === 'object' && saved.key in ascComparators
-    && (saved.dir === 'asc' || saved.dir === 'desc') ? saved : null;
-  const order = [...byAvg];
-  if (sort !== null) {
-    order.sort(ascComparators[sort.key]);
-    if (sort.dir === 'desc') order.reverse();
-  }
-  const myIndex = order.indexOf(spec.value(record));
-  let list;
-  const arrow = { desc: ' \u25be', asc: ' \u25b4' };
-  const sortHeader = [
-    ['rank-cell', 'rank', 'rank'],
-    ['val-cell', spec.label, 'value'],
-    ['avg-cell', 'avg', 'time'],
-    ['cnt-cell', 'count', 'count'],
-  ].map(([cls, text, key]) => {
-    const active = sort !== null && sort.key === key;
-    return {
-      cls,
-      text: text + (active ? arrow[sort.dir] : ''),
-      active,
-      onClick: () => {
-        const next = !active ? { key, dir: 'asc' }
-          : sort.dir === 'asc' ? { key, dir: 'desc' }
-          : null;
-        saveRankavgSort(spec.label, next);
-        const fresh = buildRankavgList(spec, record, wins);
-        // Freeze the box at its pre-click width (the row count, and so the
-        // height, is already constant — see windowBounds) so re-sorting
-        // never reflows the whole row of tablecharts around this one.
-        fresh.style.width = list.getBoundingClientRect().width + 'px';
-        list.replaceWith(fresh);
-      },
-    };
-  });
-  list = buildRankList(
-    null,
-    order.length, myIndex, 'rankavg-grid',
-    (i) => [
-      ['rank-cell', String(rankOf(order[i]))],
-      ['val-cell', spec.format(order[i])],
-      ['avg-cell', (avgMs(order[i]) / 1000).toFixed(3) + 's'],
-      ['cnt-cell', groups.get(order[i]).count + '\u00d7'],
-    ],
-    sortHeader);
-  // The delta is a time, so it rides the grid as one more row with its
-  // text in the average-time column, aligning under the times above it.
-  const delta = avgDelta(spec, record, wins);
-  const deltaRow = document.createElement('div');
-  deltaRow.className = 'rank-row';
-  for (const [cls, text] of [
-    ['rank-cell', ''],
-    ['val-cell', ''],
-    ['avg-cell rank-delta ' + delta.className, delta.text],
-    ['cnt-cell', ''],
-  ]) {
-    const cell = document.createElement('span');
-    cell.className = cls;
-    cell.textContent = text;
-    deltaRow.appendChild(cell);
-  }
-  list.querySelector('.rankavg-grid').appendChild(deltaRow);
-  return list;
 }
 
 function trialTimeAgeRow(nowRecord, list) {
@@ -5074,14 +5095,11 @@ function buildBarChart(values, size) {
   return svg;
 }
 
-function renderRanks(record, modeRecords, options = {}) {
-  resultRanks.textContent = '';
+function renderRanks(record, modeRecords, options = {}, sections) {
   const wins = modeRecords.filter((r) => r.outcome === 'win');
   const historyView = options.historyView === true;
   const referenceMs = historyView ? Date.now() : record.endedAt;
   const selectedIndex = (list) => historyView ? -1 : list.indexOf(record);
-  // Ranking order everywhere: fastest first, ties broken by earlier finish.
-  const byTimeThenEnd = (a, b) => a.timeMs - b.timeMs || a.endedAt - b.endedAt;
   // Row builder shared by every time-ranked list: rank, solve time, and the
   // win's age split into count and unit cells (or a single "this" marking
   // the game that just finished).
@@ -5113,10 +5131,12 @@ function renderRanks(record, modeRecords, options = {}) {
   const candidates = rankColumns(referenceMs)
     .filter((column) => settings.shownThings.lastOneMinute || column.label !== 'past 1 min')
     .map((column) => {
-      const inWindow = wins.filter(column.filter).sort(byTimeThenEnd);
+      const inWindow = wins.filter(column.filter).sort(compareRankedWins);
       return {
         label: column.label,
-        specificity: column.specificity,
+        displayOrder: column.displayOrder,
+        dedupePriority: column.dedupePriority,
+        summaryTiePriority: column.summaryTiePriority,
         column,
         inWindow,
         wins: inWindow,
@@ -5133,7 +5153,7 @@ function renderRanks(record, modeRecords, options = {}) {
     for (const c of candidates) {
       if (!kept.has(c)) continue;
       const { column, inWindow } = c;
-      resultRanks.appendChild(buildRankList(
+      sections.append('rankings', buildRankList(
         column.label,
         inWindow.length, selectedIndex(inWindow), 'rank-grid',
         timeAgeRow(inWindow)));
@@ -5143,8 +5163,9 @@ function renderRanks(record, modeRecords, options = {}) {
   // Best times on boards of this exact 3BV: the fairest time comparison,
   // since only equally-hard layouts compete.
   if (settings.shownThings.exact3BV) {
-    const sameBv = wins.filter((s) => s.bv3 === record.bv3).sort(byTimeThenEnd);
-    resultRanks.appendChild(buildRankList(
+    const sameBv = wins.filter((s) => s.bv3 === record.bv3)
+      .sort(compareRankedWins);
+    sections.append('rankings', buildRankList(
       '3BV ' + record.bv3,
       sameBv.length, selectedIndex(sameBv), 'rank-grid',
       timeAgeRow(sameBv)));
@@ -5153,7 +5174,8 @@ function renderRanks(record, modeRecords, options = {}) {
   // Recent placements (requested 2026-08-23): which top-tenth ranks on
   // the longer charts were earned within the chosen recent window.
   if (settings.shownThings.recentPlacements) {
-    resultRanks.appendChild(buildRecentPlacements(record, wins, referenceMs));
+    sections.append('placements',
+      buildRecentPlacements(record, wins, referenceMs, !historyView));
   }
 
   // Board-shape time lists: this win's finished-board family only.
@@ -5175,8 +5197,8 @@ function renderRanks(record, modeRecords, options = {}) {
   if (settings.shownThings.boardShapeTables) {
     for (const c of shapeCandidates) {
       if (!shapeKept.has(c)) continue;
-      const inWindow = c.rows.slice().sort(byTimeThenEnd);
-      resultRanks.appendChild(buildRankList(
+      const inWindow = c.rows.slice().sort(compareRankedWins);
+      sections.append('rankings', buildRankList(
         c.label,
         inWindow.length, selectedIndex(inWindow), 'rank-grid',
         timeAgeRow(inWindow)));
@@ -5185,7 +5207,8 @@ function renderRanks(record, modeRecords, options = {}) {
 
   if (settings.shownThings.averageCharts && wins.length >= 2) {
     for (const spec of AVERAGE_SCATTER_SPECS) {
-      resultRanks.appendChild(buildAverageScatter(spec, wins, record, historyView));
+      sections.append('averages',
+        buildAverageScatter(spec, wins, record, historyView));
     }
   }
 
@@ -5228,7 +5251,7 @@ function renderRanks(record, modeRecords, options = {}) {
       });
     segments.sort((a, b) => b.len - a.len || b.end - a.end);
     const myIndex = historyView ? -1 : segments.findIndex((seg) => seg.current);
-    resultRanks.appendChild(buildRankList(
+    sections.append('streaks', buildRankList(
       label,
       segments.length, myIndex, 'rank-grid',
       (i) => {
@@ -5253,13 +5276,10 @@ function renderRanks(record, modeRecords, options = {}) {
   // "relationship charts": the switch had described them all along but
   // never actually gated them until 2026-08-23.
   if (settings.shownThings.relationshipCharts && wins.length >= 2) {
-    const brk = document.createElement('div');
-    brk.className = 'flex-break';
-    resultRanks.appendChild(brk);
     const todayStart = startOfDay(record.endedAt);
     const todayRank = wins
       .filter((s) => s.endedAt >= todayStart)
-      .sort(byTimeThenEnd)
+      .sort(compareRankedWins)
       .indexOf(record) + 1;
     const meLabel = todayRank + ' today';
     const highlighted = historyView ? null : record;
@@ -5288,7 +5308,7 @@ function renderRanks(record, modeRecords, options = {}) {
     // tick values carry the scale. "date" spreads wins across the calendar;
     // "time of day" folds every win onto one 24-hour clock, exposing the
     // daily rhythm instead of the long-term trend.
-    const appendScatter = (svg) => resultRanks.appendChild(svg);
+    const appendScatter = (svg) => sections.append('relationships', svg);
     appendScatter(buildScatter(
       wins, highlighted, endedAtOf, secondsOf,
       'date', 'time', meLabel, ageInfoOf,
@@ -5323,7 +5343,7 @@ function renderRanks(record, modeRecords, options = {}) {
       item.textContent = name;
       legend.appendChild(item);
     }
-    resultRanks.appendChild(legend);
+    sections.append('relationships', legend);
   }
 }
 
@@ -5351,7 +5371,6 @@ function userdataReady() {
     history = loaded.history;
     if (loaded.changed) persistUserdata('history', history);
     settings = settingsFrom(got.settings === undefined ? {} : got.settings);
-    rankavgSorts = got.rankavgSort === undefined ? {} : got.rankavgSort;
     playerStates = got.states === undefined
       ? DEFAULT_STATE_NAMES.map((name) => ({ name, active: false }))
       : got.states;
@@ -7457,25 +7476,25 @@ function buildMetricsResizeGrip() {
 // game's own.
 let finalMotion = null;
 
-// The after-game display: one large chart per metric, appended inline
-// after the other bottom charts (renderResult), grouped by measurement
-// system with a labeled break before each group. Canonical values: same
-// computation as live, complete trace.
+// The after-game display: one semantic subgroup per measurement system.
+// Each subgroup owns its heading and responsive chart row, so viewport
+// wrapping can never mix the tail of one system with the next one.
+// Canonical values: same computation as live, complete trace.
 function buildMotionStatsCharts() {
   const nodes = [];
   for (const group of TRACE_METRIC_GROUPS) {
-    const brk = document.createElement('div');
-    brk.className = 'flex-break';
-    nodes.push(brk);
-    nodes.push(buildMetricsGroupHead(group));
-    const brk2 = document.createElement('div');
-    brk2.className = 'flex-break';
-    nodes.push(brk2);
+    const section = document.createElement('section');
+    section.className = 'motion-metric-group';
+    section.appendChild(buildMetricsGroupHead(group));
+    const items = document.createElement('div');
+    items.className = 'motion-metric-group-items';
     for (const display of group.displays) {
-      nodes.push(buildMetricRow(
+      items.appendChild(buildMetricRow(
         group, display, finalMotion.metrics, finalMotion.series, SPARK_LARGE,
         'metric-row motion-chart'));
     }
+    section.appendChild(items);
+    nodes.push(section);
   }
   return nodes;
 }

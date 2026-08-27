@@ -38,10 +38,10 @@ const SHOWN_THINGS_DEFAULTS = Object.freeze({
 
 const SHOWN_THINGS_OPTIONS = [
   ['gameStats', 'game stats', 'the label/value stats beside the board'],
+  ['recentPlacements', 'recent placements', 'the leading summary of top-tenth ranks earned within a chosen recent window; lifetime always shows at least its closest rank'],
   ['timeTables', 'time-window tablecharts', 'lifetime, calendar, rolling-window, and day-category rankings'],
   ['lastOneMinute', 'last 1 minute', 'the very short rolling time tablechart'],
   ['exact3BV', 'same-3BV tablechart', 'times on boards with exactly the same 3BV'],
-  ['recentPlacements', 'recent placements', 'which top-tenth ranks on the longer charts (time windows, day categories, same 3BV, board shape) were earned within a chosen recent window; lifetime always shows at least its closest rank'],
   ['boardShapeTables', 'board-shape tablecharts', 'max number, islands, and zero-count rankings'],
   ['largestIsland', 'largest island', 'the largest-island stat and matching tablechart'],
   ['averageCharts', 'average-time charts', 'average solve time by clicks, 3BV, and mouse path'],

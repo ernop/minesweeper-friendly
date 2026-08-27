@@ -205,8 +205,8 @@ from the RAM trace of the game just ended. Not built:
 
 - First-click-safe standard play; classic chrome; history; rank windows;
   "3BV N"; board-shape time lists (has 8 / has 7 / max 4 / max 3 /
-  max 2 / islands / largest island / zeros); rankaverages; streaks; ten
-  scatters; markless; states; settings; traces; four in-page motion
+  max 2 / islands / largest island / zeros); average-time charts; streaks;
+  five relationship scatters; markless; states; settings; traces; four in-page motion
   systems; "A just universe" v1; play-mode switcher; Uniform NG;
   Single-path NG; Proof-or-die; Angelic; Trial (25 identities × 4
   isometries, lobby → start → repeat-comparison review); Short

@@ -70,6 +70,13 @@ const windowCandidate = (label, specificity, startMs, wins) =>
   ]);
   assertEq('shape duplicate keeps most specific',
     shapeKept.map((candidate) => candidate.label).join(','), 'max 2');
+
+  const explicit = dedupeRankCandidates([
+    { label: 'broad', dedupePriority: 8, summaryTiePriority: 12, wins: [a] },
+    { label: 'narrow', dedupePriority: 2, summaryTiePriority: 3, wins: [a] },
+  ]);
+  assertEq('explicit dedupe priority is independent of summary priority',
+    explicit.map((candidate) => candidate.label).join(','), 'narrow');
 }
 
 // 20 old wins at 20s..39s spread over past weeks, plus recent wins placed
@@ -174,6 +181,13 @@ const windowCandidate = (label, specificity, startMs, wins) =>
   ], sourceStart);
   assertEq('broader chart wins equal-total tie', rows[0].label, 'lifetime');
   assertEq('equal-total narrower chart second', rows[1].label, 'this month');
+
+  const explicitRows = recentPlacementsSummary([
+    { label: 'narrow', dedupePriority: 1, summaryTiePriority: 2, wins },
+    { label: 'broad', dedupePriority: 9, summaryTiePriority: 12, wins },
+  ], sourceStart);
+  assertEq('explicit summary priority is independent of dedupe priority',
+    explicitRows.map((row) => row.label).join(','), 'broad,narrow');
 }
 
 // The summary identifies the rank belonging to the exact current record,

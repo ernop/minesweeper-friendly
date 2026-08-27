@@ -66,17 +66,15 @@ days back, "this month" and "in <year>" since their calendar starts, and
 all scores set on
 today's weekday ("on Wednesdays"), on weekends or weekdays (whichever today
 is), and on US federal holidays when today is one. Columns reveal
-themselves gradually: a chart only appears once it would actually differ —
-if every game you've played was today, "this month" and "past week" would
-just repeat "today", so they stay hidden until your history spreads out
-enough to make them distinct. The one constant is "lifetime": it always
-shows, and any window that matches it exactly folds into it.
+themselves gradually: a chart only appears once it would actually differ.
+Lifetime and past week are pinned as long-term and recent anchors; duplicate
+ordinary windows fold into the most specific surviving chart.
 After a win there are also lists for boards that match this one's 3BV,
 highest number (has an 8, has a 7, or no number above 4 / 3 / 2),
 mine-island count, largest mine-island, and zero count.
-Average-time scatter plots group your wins by efficiency, clicks, 3BV,
-3BV/s (2 decimals), mouse path (nearest 100px), and mouse speed (nearest
-10px/s), then plot each value against its group's average solve time.
+Average-time scatter plots group your wins by clicks, 3BV, and mouse path
+(nearest 100px), then plot each value against its group's average solve
+time.
 The stats themselves (time, 3BV, 3BV/s, clicks, efficiency, correctness,
 throughput, IOS, mouse path,
 mouse speed, path per click, path per 3BV, plus the per-game forms of the
@@ -105,14 +103,11 @@ as short labeled facts. Saved positions crop away uniform covered remainder
 while naming the shown row/column range; selected and alternative cells stay
 highlighted. Bare reveals are evaluated without requiring flags or chords;
 if nothing qualifies under the selected scope, no empty report card appears.
-At the bottom, seven small
-scatter plots chart every win: win time vs date, win time vs hour of day,
-3BV vs time, clicks vs 3BV (with the clicks = 3BV floor drawn in), no-op
-clicks vs 3BV/s, mouse path vs time, and mouse speed vs time — so
-you can compare those recorded values over time. Each axis carries a spelled-out label with
-units; dots are colored by how long ago each win was (same palette as the
-rank-list ages, with a legend below), and your newest game is the
-black-ringed dot tagged with its rank among today's wins. Streak lists rank
+Below the rankings, five relationship plots chart every win: win time vs
+date, win time vs hour of day, 3BV vs time, clicks vs 3BV (with the clicks =
+3BV floor drawn in), and no-op clicks vs time. Dots are colored by how long
+ago each win was (the rank-list age palette), and the just-finished game is
+the black-ringed dot tagged with its rank among today's wins. Streak lists rank
 your win runs: "streak" (consecutive wins), "near-streak" (runs spanning at
 most 1 loss), and "near-near-streak" (at most 2), each row showing length
 and how long ago the streak's last win was; recorded losses split the
@@ -120,8 +115,15 @@ streaks. Each list windows around your row, 11 rows max: when you rank in
 the top 11 the list simply shows the top 11 with your row in place;
 otherwise it centers on you with the 5 nearest entries either side. Rows
 show rank (without a leading "#"), fixed-width time, and a relative age
-("43s", "5m", "2.0w"; the brand-new score
-says "just now").
+("43s", "5m", "2.0w"; the brand-new score says "this").
+
+Post-game output follows stable semantic sections: outcome and facts, action
+analysis, recent ranks won, ranking tablecharts, average-time charts,
+streaks, relationships, then motion diagnostics. Each family wraps within
+its own row group, so viewport width cannot mix unrelated chart families.
+The High scores view uses the same history sections but omits post-game
+action analysis and motion diagnostics; its facts are explicitly labeled as
+the latest win's stats and historical charts have no current-game marker.
 
 The in-page left column carries live self-observation without covering
 the board. During a game it
