@@ -3361,6 +3361,10 @@ let history = null;
 // never wall time. The selector lives on the session section itself, not
 // on the settings page, so experimenting with it is one click.
 const SESSION_LOOKBACK_CHOICES = [30, 60, 120, 300, 900];
+// Per-game aggregation uses completed games as both denominator and
+// lookback unit. Five games is the direct counterpart to the default
+// five-minute played-time lookback.
+const SESSION_GAME_LOOKBACK_CHOICES = [1, 3, 5, 10, 20, 50];
 
 // Selectable session-stat window lengths (minutes of accumulated play).
 // Same one-click doctrine: the selector lives on the session section.
@@ -8308,6 +8312,7 @@ const SESSION_STEP_MS = 10 * 1000;
 // so switching either to its longest works at once.
 const SESSION_WINDOW_MAX_MS = 3 * 60 * 60 * 1000;
 const SESSION_LOOKBACK_MAX_MS = 15 * 60 * 1000;
+const SESSION_GAME_LOOKBACK_MAX = 50;
 const SESSION_KEEP_MS =
   SESSION_WINDOW_MAX_MS + SESSION_LOOKBACK_MAX_MS + 5 * 60 * 1000; // + slack
 const SESSION_MOVE_COALESCE_MS = 1000;
@@ -8375,6 +8380,31 @@ function sessionRetainedEvents(events, keepMs) {
   for (const modeSpans of byMode.values()) {
     for (const span of sessionHistorySlice(modeSpans, keepMs).games) retained.add(span);
   }
+  const completed = new Set(spans.filter((span) => span.kind === 'game'));
+  for (const end of events.filter((ev) => ev.kind === 'end')) {
+    for (let i = spans.length - 1; i >= 0; i--) {
+      const span = spans[i];
+      if (span.modeKey === end.modeKey && span.from <= end.at && span.to >= end.at) {
+        completed.add(span);
+        break;
+      }
+    }
+  }
+  // A game-count lookback at the earliest visible point needs N completed
+  // games before the played-time window, not merely N games before "now".
+  // Keep the intervening spans too so the compressed x coordinate remains
+  // honest. Apply this globally and per exact mode.
+  const retainGamePrefix = (ordered) => {
+    const firstKept = ordered.findIndex((span) => retained.has(span));
+    if (firstKept <= 0) return;
+    let games = 0;
+    for (let i = firstKept - 1; i >= 0 && games < SESSION_GAME_LOOKBACK_MAX; i--) {
+      retained.add(ordered[i]);
+      if (completed.has(ordered[i])) games++;
+    }
+  };
+  retainGamePrefix(spans);
+  for (const modeSpans of byMode.values()) retainGamePrefix(modeSpans);
   const modeCutoffs = new Map();
   for (const span of retained) {
     const key = span.modeKey || '';
@@ -8444,6 +8474,8 @@ function sessionBucketSeries(events, opts) {
   }
   const playNowMs = playCursor;
   const windowFrom = playNowMs - opts.windowMs;
+  const markerWindowFrom = playNowMs
+    - (opts.markerWindowMs === undefined ? opts.windowMs : opts.markerWindowMs);
   const startPlayMs = Math.floor(windowFrom / opts.bucketMs) * opts.bucketMs;
   const bucketCount = Math.max(1, Math.ceil((playNowMs - startPlayMs) / opts.bucketMs));
   const bucketAt = (playAt) => Math.floor((playAt - startPlayMs) / opts.bucketMs);
@@ -8472,7 +8504,7 @@ function sessionBucketSeries(events, opts) {
   const gameEnds = [];
   const wins = [];
   const addGameEnd = (playAt, ev) => {
-    if (playAt < windowFrom || playAt > playNowMs) return;
+    if (playAt < markerWindowFrom || playAt > playNowMs) return;
     const marker = {
       playAt,
       end: ev.end,
@@ -8480,6 +8512,7 @@ function sessionBucketSeries(events, opts) {
       timeMs: ev.timeMs,
       boardKey: ev.boardKey,
       endedAt: ev.endedAt === undefined ? (ev.at === undefined ? ev.to : ev.at) : ev.endedAt,
+      source: ev,
     };
     gameEnds.push(marker);
     if (ev.end === 'win') wins.push(marker);
@@ -8575,6 +8608,7 @@ function sessionBucketSeries(events, opts) {
   for (const ev of events) {
     if (ev.kind === 'play' || ev.kind === 'game') continue;
     const playAt = playAtWallTime(ev.at);
+    if (playAt !== null && ev.kind === 'end') addGameEnd(playAt, ev);
     if (playAt === null || playAt < windowFrom || playAt > playNowMs) continue;
     const i = bucketAt(playAt);
     if (i < 0 || i >= bucketCount) continue;
@@ -8601,7 +8635,6 @@ function sessionBucketSeries(events, opts) {
     } else if (ev.kind === 'end') {
       countEnd(i, ev.end, ev.winUnmarked);
       if (typeof ev.unusedMarks === 'number') unusedMarkGames[i]++;
-      addGameEnd(playAt, ev);
     }
   }
   gameEnds.sort((a, b) => a.playAt - b.playAt);
@@ -8758,6 +8791,127 @@ function sessionRawSeries(events, opts) {
     endFractions: raw.rawEndFractions,
     endGames: raw.rawEndGames,
     winUnmarkedFraction: raw.rawWinUnmarkedFraction,
+  };
+}
+
+// Per-game mode samples completed games rather than slicing them by time.
+// The x axis remains compressed played time so the player can still locate
+// changes within the selected session window. A running point averages the
+// last N completed games; raw mode uses disjoint N-game groups.
+function sessionGameSeries(events, opts) {
+  const timeline = sessionBucketSeries(events, {
+    nowMs: opts.nowMs,
+    bucketMs: SESSION_STEP_MS,
+    windowMs: opts.windowMs,
+    markerWindowMs: Infinity,
+    openPlayFrom: opts.openPlayFrom,
+    playOffsetMs: opts.playOffsetMs,
+  });
+  const visibleFrom = timeline.playNowMs - opts.windowMs;
+  const finished = timeline.gameEnds
+    .filter((game) => game.source !== undefined)
+    .sort((a, b) => a.playAt - b.playAt);
+  const grouped = [];
+  if (opts.aggregation === 'raw') {
+    for (let i = 0; i < finished.length; i += opts.lookbackGames) {
+      const games = finished.slice(i, i + opts.lookbackGames);
+      if (games[games.length - 1].playAt >= visibleFrom) grouped.push(games);
+    }
+  } else {
+    for (let i = 0; i < finished.length; i++) {
+      if (finished[i].playAt < visibleFrom) continue;
+      grouped.push(finished.slice(Math.max(0, i - opts.lookbackGames + 1), i + 1));
+    }
+  }
+
+  const centers = [];
+  const playMs = [];
+  const speedPxPerSec = [];
+  const fastclickGapMs = [];
+  const usefulPerGame = [];
+  const wastedPerGame = [];
+  const misclicksPerGame = [];
+  const flagsPerGame = [];
+  const mismarksPerGame = [];
+  const unusedMarksPerGame = [];
+  const avoidablePerGame = [];
+  const categoryPerGame = Object.fromEntries(
+    ACTION_CATEGORY_SPECS.map((spec) => [spec.id, []]));
+  const excessRiskPctPerGame = [];
+  const modeledLifeGapPerGame = [];
+  const endFractions = Object.fromEntries(
+    SESSION_END_KINDS.map((kind) => [kind, []]));
+  const endGames = [];
+  const winUnmarkedFraction = [];
+  const average = (games, of) => {
+    const measured = games.map((game) => of(game.source))
+      .filter((value) => typeof value === 'number');
+    return measured.length === 0
+      ? undefined : measured.reduce((sum, value) => sum + value, 0) / measured.length;
+  };
+  for (const games of grouped) {
+    const sources = games.map((game) => game.source);
+    const durationMs = sources.reduce((sum, source) =>
+      sum + (typeof source.to === 'number' && typeof source.from === 'number'
+        ? source.to - source.from : source.timeMs || 0), 0);
+    const movePx = sources.reduce((sum, source) =>
+      sum + (source.movePx === undefined ? source.px || 0 : source.movePx), 0);
+    centers.push(games[games.length - 1].playAt);
+    playMs.push(durationMs);
+    speedPxPerSec.push(durationMs > 0 ? movePx / (durationMs / 1000) : undefined);
+    fastclickGapMs.push(sessionMedian(sources
+      .map((source) => source.fastGapMs)
+      .filter((value) => typeof value === 'number')));
+    usefulPerGame.push(average(games, (source) => source.useful));
+    wastedPerGame.push(average(games, (source) => source.wasted));
+    misclicksPerGame.push(average(games, (source) => source.misclicks));
+    flagsPerGame.push(average(games, (source) => source.flags));
+    mismarksPerGame.push(average(games, (source) => source.unflags));
+    unusedMarksPerGame.push(average(games, (source) => source.unusedMarks));
+    avoidablePerGame.push(sources.filter((source) => source.fatalMistake === true).length
+      / games.length);
+    for (const spec of ACTION_CATEGORY_SPECS) {
+      categoryPerGame[spec.id].push(average(games, (source) =>
+        source.categoryCounts && source.categoryCounts[spec.id]));
+    }
+    excessRiskPctPerGame.push(average(games, (source) =>
+      typeof source.excessRisk === 'number' ? source.excessRisk * 100 : undefined));
+    modeledLifeGapPerGame.push(average(games, (source) => source.modeledLifeGap));
+    endGames.push(games.length);
+    for (const kind of SESSION_END_KINDS) {
+      endFractions[kind].push(
+        games.filter((game) => game.end === kind).length / games.length);
+    }
+    const unmarked = sources.map((source) => source.winUnmarked)
+      .filter((value) => typeof value === 'number');
+    winUnmarkedFraction.push(unmarked.length === 0 ? undefined
+      : unmarked.reduce((sum, value) => sum + value, 0) / unmarked.length);
+  }
+  const visibleEnds = timeline.gameEnds.filter((game) => game.playAt >= visibleFrom);
+  return {
+    stepMs: undefined,
+    lookbackGames: opts.lookbackGames,
+    playNowMs: timeline.playNowMs,
+    windowMs: opts.windowMs,
+    centers,
+    playMs,
+    speedPxPerSec,
+    fastclickGapMs,
+    usefulPerGame,
+    wastedPerGame,
+    misclicksPerGame,
+    flagsPerGame,
+    mismarksPerGame,
+    unusedMarksPerGame,
+    avoidablePerGame,
+    categoryPerGame,
+    excessRiskPctPerGame,
+    modeledLifeGapPerGame,
+    endFractions,
+    endGames,
+    winUnmarkedFraction,
+    gameEnds: visibleEnds,
+    wins: visibleEnds.filter((game) => game.end === 'win'),
   };
 }
 
@@ -9078,6 +9232,7 @@ function sessionRecordUnusedMark() {
 function sessionRecordEnd(end, winUnmarked) {
   const now = Date.now();
   finishOpenFlagEpisodes();
+  const actionSummary = actionCategorySummary(actionEvaluations);
   const event = {
     kind: 'end',
     modeKey: sessionEventModeKey(),
@@ -9086,7 +9241,20 @@ function sessionRecordEnd(end, winUnmarked) {
     timeMs: elapsedMs(),
     boardKey: boardKey(),
     endedAt: now,
+    movePx: mousePathPx,
+    useful: clickCount,
+    wasted: wastedClicks,
+    misclicks: misclicks,
+    flags: flagsPlaced,
+    unflags: flagsRemoved,
     unusedMarks: unusedCorrectFlags,
+    fatalMistake: evaluationHasMistake(fatalEvaluationOf({
+      actionEvaluations,
+    })),
+    categoryCounts: actionSummary.counts,
+    excessRisk: actionSummary.excessRisk,
+    modeledLifeGap: actionSummary.modeledLifeGap,
+    fastGapMs: sessionMedian(gameFastclickGaps),
   };
   if (typeof winUnmarked === 'number') event.winUnmarked = winUnmarked;
   sessionEvents.push(event);
@@ -9940,17 +10108,6 @@ function appendSessionSection(container) {
     saveSettings();
     refreshMetricsPanel();
   });
-  const intervalOptions = [];
-  for (const seconds of SESSION_LOOKBACK_CHOICES) {
-    intervalOptions.push([seconds,
-      (seconds < 60 ? seconds + 's' : (seconds / 60) + 'm') + ' groups']);
-  }
-  choice('Played-time grouping length', intervalOptions,
-    settings.sessionLookbackSeconds, (value) => {
-    settings.sessionLookbackSeconds = Number(value);
-    saveSettings();
-    refreshMetricsPanel();
-  });
   choice('Session rate basis', [
     ['time', 'per played time'],
     ['game', 'per game'],
@@ -9959,6 +10116,29 @@ function appendSessionSection(container) {
     saveSettings();
     refreshMetricsPanel();
   });
+  if (settings.sessionRateBasis === 'game') {
+    choice('Completed-game grouping length',
+      SESSION_GAME_LOOKBACK_CHOICES.map((games) => [
+        games, games + (games === 1 ? ' game' : ' games'),
+      ]),
+      settings.sessionLookbackGames, (value) => {
+        settings.sessionLookbackGames = Number(value);
+        saveSettings();
+        refreshMetricsPanel();
+      });
+  } else {
+    const intervalOptions = [];
+    for (const seconds of SESSION_LOOKBACK_CHOICES) {
+      intervalOptions.push([seconds,
+        (seconds < 60 ? seconds + 's' : (seconds / 60) + 'm') + ' groups']);
+    }
+    choice('Played-time grouping length', intervalOptions,
+      settings.sessionLookbackSeconds, (value) => {
+        settings.sessionLookbackSeconds = Number(value);
+        saveSettings();
+        refreshMetricsPanel();
+      });
+  }
   choice('Session mode scope', [
     ['current', 'this mode'],
     ['all', 'all modes'],
@@ -9999,16 +10179,22 @@ function appendSessionSection(container) {
     openPlayFrom: includeOpenPlay ? sessionPlayFrom : undefined,
     playOffsetMs: sessionPlayOffsetMs,
   };
-  const buckets = settings.sessionAggregation === 'raw'
-    ? sessionRawSeries(scopedEvents, {
+  const buckets = settings.sessionRateBasis === 'game'
+    ? sessionGameSeries(scopedEvents, {
       ...seriesOptions,
-      bucketMs: settings.sessionLookbackSeconds * 1000,
+      aggregation: settings.sessionAggregation,
+      lookbackGames: settings.sessionLookbackGames,
     })
-    : sessionRunningSeries(scopedEvents, {
-      ...seriesOptions,
-      stepMs: SESSION_STEP_MS,
-      lookbackMs: settings.sessionLookbackSeconds * 1000,
-    });
+    : settings.sessionAggregation === 'raw'
+      ? sessionRawSeries(scopedEvents, {
+        ...seriesOptions,
+        bucketMs: settings.sessionLookbackSeconds * 1000,
+      })
+      : sessionRunningSeries(scopedEvents, {
+        ...seriesOptions,
+        stepMs: SESSION_STEP_MS,
+        lookbackMs: settings.sessionLookbackSeconds * 1000,
+      });
   appendSessionEndingsRow(container, buckets);
   if (settings.sessionRateBasis === 'game') {
     appendSessionRatesRow(container, buckets, '/game');

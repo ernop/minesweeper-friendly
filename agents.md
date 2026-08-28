@@ -324,13 +324,16 @@ Implementation notes:
 - Session stats (PRODUCT.md "Session stats"): a player-controlled observation
   tool. `clearSession` persists `settings.sessionStartedAt` without deleting
   history; backfill excludes games crossing that boundary.
-  `settings.sessionAggregation` chooses trailing averages or
-  `sessionRawSeries` disjoint played-time buckets,
-  `settings.sessionRateBasis` chooses time-normalized or per-finished-game
-  values, and `settings.sessionModeScope` defaults to the exact current
+  `settings.sessionAggregation` chooses trailing averages or disjoint groups.
+  `settings.sessionRateBasis` chooses time-normalized values using
+  `sessionLookbackSeconds`, or per-finished-game values using
+  `sessionLookbackGames`; `sessionGameSeries` then produces rolling or
+  disjoint N-game groups while retaining the played-time x axis.
+  `settings.sessionModeScope` defaults to the exact current
   board/play-mode/generator key rather than all modes. Every live and
   backfilled event carries `modeKey`; `sessionRetainedEvents` keeps enough
-  play both globally and per exact mode. The UI exposes all choices directly,
+  play both globally and per exact mode, plus 50 completed games before each
+  played-time boundary for full per-game lookbacks. The UI exposes all choices directly,
   has one session heading, no HOW/RECORDS chart hover essays, and uses
   evaluation-semantic ending colors (green/gold/orange/red/grey).
   Three marker-delimited
@@ -341,10 +344,11 @@ Implementation notes:
   ({kind:'play',from,to} finished play
   spans, {kind:'move',at,px} ~1s-coalesced cursor travel while playing,
   {kind:'press',at,useful,flag,unflag,misclick,moving,gapMs},
+  {kind:'unused-mark',at},
   {kind:'death',at,mistake}, and
-  {kind:'evaluation',at,category,excessRisk,modeledLifeGap}) into the eight legacy series (speed, click rate,
+  {kind:'evaluation',at,category,excessRisk,modeledLifeGap}) into nine core series (speed, click rate,
   mistake-tagged deaths/min, misclicks/min, no-ops/min, flags/s,
-  flag-removals/min, fastclick gap), five exclusive report-category rates,
+  flag-removals/min, unused-marks/min, fastclick gap), five exclusive report-category rates,
   and the excess-risk / modeled-life magnitudes, plus raw per-bucket `sums`.
   `sessionRunningSeries(events, {nowMs, stepMs, lookbackMs, windowMs,
   openPlayFrom, playOffsetMs})` — what the charts show since 2026-08-23 —
@@ -359,6 +363,11 @@ Implementation notes:
   fatal-action statuses (`sessionEndingKind` in the verdict section —
   the report's exact loss categories), the five legacy verdicts as
   provenance, and 'other'.
+  `sessionGameSeries(events, {lookbackGames, aggregation, ...})` takes the
+  completed game summaries attached to exact game-end markers: running mode
+  samples the last N games at each ending, raw mode forms disjoint N-game
+  groups, optional fields average measured games only, and open games produce
+  no premature sample.
   Constants FASTCLICK_MAX_GAP_MS (1s), SESSION_MIN_PLAY_MS (1s — rates
   over a sliver of covered play are undefined, not absurd),
   SESSION_KEEP_MS (max window + max lookback + slack). RECORDING (RAM only):
@@ -425,9 +434,11 @@ Implementation notes:
   because no worldwide leaderboard is available),
   `latestDefined` (measurability),
   `appendSessionSection` (renders into the panel top, hosts the
-  running-average <select> writing settings.sessionLookbackSeconds and
+  grouping <select> writing `settings.sessionLookbackSeconds` in played-time
+  mode or `settings.sessionLookbackGames` in per-game mode, and
   the window <select> writing settings.sessionWindowMinutes;
-  SESSION_LOOKBACK_CHOICES and SESSION_WINDOW_CHOICES live beside
+  SESSION_LOOKBACK_CHOICES, SESSION_GAME_LOOKBACK_CHOICES, and
+  SESSION_WINDOW_CHOICES live beside
   SETTINGS_SCHEMA's constants in minesweeper.js). The live-metrics
   setInterval redraws the panel while active play advances;
   `renderMetricsPanel` snapshots/restores `#metrics-panel-content`'s

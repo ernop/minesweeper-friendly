@@ -18,6 +18,8 @@ function check(name, condition) {
   check('new-player default is fatal only', fresh.reportScope === 'fatal');
   check('session defaults to running averages', fresh.sessionAggregation === 'average');
   check('session defaults to played-time rates', fresh.sessionRateBasis === 'time');
+  check('per-game grouping defaults to five completed games',
+    fresh.sessionLookbackGames === 5);
   check('session defaults to exact current mode', fresh.sessionModeScope === 'current');
   check('session has no clear boundary initially', fresh.sessionStartedAt === 0);
   check('retired category block is not rewritten',

@@ -15,7 +15,8 @@
 // validator, the UI, and the documentation cannot drift apart.
 //
 // Some `valid` closures reference game-page globals (PLAY_MODE_IDS,
-// SESSION_LOOKBACK_CHOICES, RECENT_PLACEMENTS_WINDOWS, METRICS_PANEL_WIDTH_*)
+// SESSION_LOOKBACK_CHOICES, SESSION_GAME_LOOKBACK_CHOICES,
+// RECENT_PLACEMENTS_WINDOWS, METRICS_PANEL_WIDTH_*)
 // that only minesweeper.js defines. That is deliberate: validation only
 // ever runs on the game page (import), and the closures are late-bound.
 // The settings page must never call a control-'none' field's valid().
@@ -150,7 +151,7 @@ const SETTINGS_SCHEMA = [
     valid: (v) => typeof v === 'boolean',
     group: 'left-panel',
     label: 'show session stats',
-    describe: 'the recent-observations section at the top of the in-page left panel: mouse speed while playing, click / mistake-tagged-death / misclick / no-op-click / mine-marking / flag-removal rates, exclusive report-category frequencies and measured magnitudes, the fastclick gap, and the game-endings percent lines, each point a running average over a chosen lookback of actual play across games with wall-clock breaks removed; changes are not assigned a cause',
+    describe: 'the recent-observations section at the top of the in-page left panel: mouse speed while playing, click / mistake-tagged-death / misclick / no-op-click / mine-marking / flag-removal / unused-mark rates, exclusive report-category frequencies and measured magnitudes, the fastclick gap, and the game-endings percent lines; grouping uses played time for per-time rates or completed-game counts for per-game rates, while the horizontal window remains played time; changes are not assigned a cause',
   },
   {
     field: 'sessionLookbackSeconds',
@@ -162,12 +163,21 @@ const SETTINGS_SCHEMA = [
     control: 'none',
   },
   {
+    field: 'sessionLookbackGames',
+    default: 5,
+    valid: (v) => SESSION_GAME_LOOKBACK_CHOICES.includes(v),
+    group: 'left-panel',
+    label: 'session game grouping length',
+    describe: 'completed games in each per-game running lookback or raw group; chosen with the selector on the session section itself',
+    control: 'none',
+  },
+  {
     field: 'sessionAggregation',
     default: 'average',
     valid: (v) => v === 'average' || v === 'raw',
     group: 'left-panel',
     label: 'session grouping',
-    describe: 'running average or independent raw played-time buckets; chosen on the session section',
+    describe: 'running average or independent raw groups, measured in played time or completed games according to the selected rate basis; chosen on the session section',
     control: 'none',
   },
   {

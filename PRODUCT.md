@@ -1440,16 +1440,20 @@ does not label their cause.
   record cannot honestly reconstruct only its post-clear portion. During an
   active game, post-clear events remain available live; that partial game is
   intentionally not reconstructed after a reload.
-- **Grouping:** `running average` (default) retains the trailing played-time
-  average; `raw buckets` shows independent values for each disjoint group.
-  The 30s / 1m / 2m / 5m / 15m selector is the running lookback or raw
-  bucket width respectively. Both are accumulated game-play time, never
-  wall time.
+- **Grouping:** `running average` (default) retains a trailing average;
+  `raw buckets` shows independent values for each disjoint group. With the
+  per-played-time basis, 30s / 1m / 2m / 5m / 15m is the running lookback
+  or raw bucket width in accumulated game-play time. With the per-game
+  basis, the control instead reads 1 / 3 / 5 / 10 / 20 / 50 completed
+  games and that count is the running lookback or raw group size. An
+  unfinished game never enters a per-game sample.
 - **Rate basis:** `per played time` (default) keeps the readable `/m` and `/s`
   action/report charts. `per game` puts those values on one `/game` chart,
-  dividing each group by its finished games. Mouse speed and fastclick gap
-  keep their intrinsic px/s and ms units; game-ending percentages are
-  unchanged by rate basis.
+  dividing each N-game group by its measured finished games. Mouse speed and
+  fastclick gap keep their intrinsic px/s and ms units but use the same
+  completed-game lookback; game-ending percentages describe that N-game
+  group. The horizontal session window remains played time in both modes,
+  preserving when changes happened while the aggregation unit changes.
 - **Mode scope:** `this mode` is the default and means the exact current board
   dimensions/mine count + play mode + generator/parameters—the same key used
   for score history. `all modes` deliberately combines every retained mode.
@@ -1531,14 +1535,18 @@ does not label their cause.
   - **modeled life gap** — sum of one-ply
     best-minus-selected expected-remaining-life gaps per played minute.
     It appears only when the optional life-maximization category is on.
-- Running averages and raw buckets: the
-  lookback is selectable on the section itself (30s / 1m / 2m / 5m /
-  15m; persisted as the `sessionLookbackSeconds` setting, default 5m),
+- Running averages and raw buckets: in per-played-time mode, the lookback is
+  selectable on the section itself (30s / 1m / 2m / 5m / 15m; persisted as
+  `sessionLookbackSeconds`, default 5m),
   and so is the window length (1m / 5m / 10m / 15m / 30m / 1h / 3h;
   `sessionWindowMinutes`, default 1h). Both are **played time**, not
   elapsed real time — "5m average" means five minutes of actual play.
   `sessionAggregation` (`average` / `raw`) selects whether that duration
   is a trailing lookback or a disjoint bucket.
+  In per-game mode the grouping selector switches to 1 / 3 / 5 / 10 / 20 /
+  50 completed games (`sessionLookbackGames`, default 5), and the selected
+  count becomes the trailing lookback or disjoint group size. The x-axis
+  window remains played time.
   Game spans are joined onto a cumulative-play timeline, so the end of a
   game and the start after a five-minute break are adjacent. History is
   scanned backward through as many games as necessary to fill the chosen
@@ -1564,6 +1572,10 @@ does not label their cause.
   plus retention slack of actual play
   is rebuilt — play 30 minutes, close the tab,
   reopen, and the running averages are still there. The inclusion rule
+  also keeps up to 50 additional completed games before the played-time
+  retention boundary, globally and for each exact mode, so the earliest
+  visible per-game point can receive its full selected game lookback.
+  The backfill inclusion rule
   (stated explicitly 2026-08-22, late evening, and verified with a live
   loss + reload): wins and losses backfill alike, each with its full
   played time — a loss's record carries its duration, counts, and death

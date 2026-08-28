@@ -105,6 +105,52 @@ const press = (at, useful, flag, moving, gapMs, unflag, misclick) => ({
   assertUndefined('empty earlier bucket', s.speedPxPerSec[i - 1]);
 }
 
+// Per-game basis uses completed-game counts, never played-time buckets.
+{
+  const games = [
+    { kind: 'game', from: NOW - 10 * MIN, to: NOW - 10 * MIN + 10000,
+      end: 'win', useful: 2, wasted: 1, movePx: 100, unusedMarks: 0,
+      categoryCounts: { timeLoss: 1 }, excessRisk: 0.1 },
+    { kind: 'game', from: NOW - 5 * MIN, to: NOW - 5 * MIN + 20000,
+      end: 'loss', useful: 4, wasted: 2, px: 200,
+      categoryCounts: { timeLoss: 2 }, excessRisk: 0.2 },
+    { kind: 'game', from: NOW - MIN, to: NOW - MIN + 30000,
+      end: 'win', useful: 8, wasted: 3, movePx: 600, unusedMarks: 2,
+      categoryCounts: { timeLoss: 3 }, excessRisk: 0.3 },
+  ];
+  const common = {
+    nowMs: NOW, windowMs: HOUR, lookbackGames: 2,
+    openPlayFrom: undefined, playOffsetMs: 0,
+  };
+  const running = sessionGameSeries(games, { ...common, aggregation: 'average' });
+  const i = last(running);
+  assertEq('per-game running series samples at each completed game',
+    running.centers.length, 3);
+  assertClose('per-game running lookback uses last two game counts',
+    running.usefulPerGame[i], 6);
+  assertClose('per-game intrinsic speed uses last two complete games',
+    running.speedPxPerSec[i], 16);
+  assertClose('per-game ending fraction uses last two games',
+    running.endFractions.win[i], 0.5);
+  assertClose('per-game optional field averages only measured games',
+    running.unusedMarksPerGame[i], 2);
+  assertClose('per-game report category uses last two games',
+    running.categoryPerGame.timeLoss[i], 2.5);
+  const raw = sessionGameSeries(games, { ...common, aggregation: 'raw' });
+  assertEq('raw per-game groups are disjoint', raw.centers.length, 2);
+  assertClose('raw final partial group contains only its completed game',
+    raw.usefulPerGame[last(raw)], 8);
+  assertEq('per-game series preserves exact game-end markers',
+    raw.gameEnds.length, 3);
+  const live = sessionGameSeries([
+    { kind: 'play', from: NOW - 10000, to: NOW },
+    { kind: 'end', at: NOW, end: 'win', useful: 3, wasted: 0,
+      movePx: 50, timeMs: 10000, categoryCounts: {} },
+  ], { ...common, aggregation: 'average' });
+  assertClose('live completed-game summary enters game-count lookback',
+    live.usefulPerGame[last(live)], 3);
+}
+
 // Older games did not measure unused marks. They must not be treated as
 // measured zeroes in either time-based or per-game rates.
 {
@@ -618,6 +664,12 @@ const runOpts = {
   const openOnly = { kind: 'move', modeKey: 'new-mode', at: 60000, px: 12 };
   assertEq('retention keeps open-game events before their span closes',
     sessionRetainedEvents([...events, openOnly], 20000).includes(openOnly), true);
+  const manyGames = Array.from({ length: 60 }, (_, i) => ({
+    kind: 'game', modeKey: a, from: i * 1000, to: (i + 1) * 1000,
+  }));
+  assertEq('retention keeps fifty completed games before the time window',
+    sessionRetainedEvents(manyGames, 10000)
+      .filter((ev) => ev.kind === 'game').length, 60);
 }
 
 // Session chart y domains follow measured values instead of forcing zero.
