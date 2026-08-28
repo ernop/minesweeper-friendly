@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Minesweeper - Standard Mode</title>
-<link rel="stylesheet" href="style.css?v=20260828-path-tools">
+<link rel="stylesheet" href="style.css?v=20260828-board-stability">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <!-- Defer preserves dependency order while letting every page asset download
      in parallel. Storage starts first so disk access overlaps JS startup. -->
@@ -79,13 +79,23 @@
     <div id="board-position-panel" hidden>
       <div class="board-position-row">
         <label for="board-position-x">left / right</label>
-        <input id="board-position-x" type="range" min="-2000" max="2000" step="1">
+        <div class="board-position-slider">
+          <input id="board-position-x" type="range" min="-2000" max="2000" step="1">
+          <div class="board-position-ticks" aria-hidden="true">
+            <span>-2000</span><span>-1000</span><span>0</span><span>1000</span><span>2000</span>
+          </div>
+        </div>
         <input id="board-position-x-number" type="number" min="-2000" max="2000" step="1"
           aria-label="Horizontal board offset in pixels">
       </div>
       <div class="board-position-row">
         <label for="board-position-y">up / down</label>
-        <input id="board-position-y" type="range" min="-1000" max="2000" step="1">
+        <div class="board-position-slider">
+          <input id="board-position-y" type="range" min="-1000" max="2000" step="1">
+          <div class="board-position-ticks" aria-hidden="true">
+            <span>-1000</span><span>-250</span><span>500</span><span>1250</span><span>2000</span>
+          </div>
+        </div>
         <input id="board-position-y-number" type="number" min="-1000" max="2000" step="1"
           aria-label="Vertical board offset in pixels">
       </div>

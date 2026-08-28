@@ -96,6 +96,12 @@ Implementation notes:
   has upgraded. Cross-page consistency: each page reads settings fresh
   at load and writes through immediately; the game and settings pages
   are never open as two live views of the same RAM.
+- Board position: `settings.boardOffsetX/Y` are independent persistent pixel
+  preferences. `applyBoardPosition` derives a collision-safe applied pair
+  without rewriting them; `#game-frame` is width-max-content and centered
+  inside `#game-area`, preventing the static below-board result block from
+  shifting the frame when it widens that parent. The editor exposes drag,
+  arrow, numeric, and labeled-notch slider input for both axes.
 - History: userdata 'history' maps mode key to a
   chronological array of game records, one per finished game:
   {endedAt, outcome: 'win'|'loss', timeMs, bv3, clicks, wastedClicks,

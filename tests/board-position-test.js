@@ -6,6 +6,8 @@ const vm = require('vm');
 
 const source = fs.readFileSync(
   path.join(__dirname, '..', 'minesweeper.js'), 'utf8');
+const css = fs.readFileSync(path.join(__dirname, '..', 'style.css'), 'utf8');
+const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const start = source.indexOf('//-------PERSISTENT BOARD POSITION (pure constraint solver)-------');
 const end = source.indexOf('//-------PERSISTENT BOARD POSITION END-------');
 if (start < 0 || end < 0 || end <= start) {
@@ -82,6 +84,16 @@ const bounds = { left: 0, right: 800, top: 50 };
   check('an oversized board keeps intentional horizontal overflow',
     result.x === 75);
 }
+
+check('game frame stays centered when surrounding result width changes',
+  /#game-frame\s*\{[^}]*width:\s*max-content;[^}]*margin-inline:\s*auto;/s.test(css));
+check('position editor exposes independent horizontal and vertical values',
+  html.includes('id="board-position-x-number"')
+    && html.includes('id="board-position-y-number"'));
+check('both position sliders show labeled notch scales',
+  (html.match(/class="board-position-ticks"/g) || []).length === 2
+    && html.includes('<span>-2000</span>')
+    && html.includes('<span>2000</span>'));
 
 console.log(failures === 0
   ? 'board-position: all checks passed'

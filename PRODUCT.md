@@ -558,6 +558,12 @@ report.
   the overhang so nothing sits under the table; the board does not move.
 - The scrollbar gutter is always reserved so a tall results area cannot
   change the viewport width and nudge the centered board.
+- The Position control stores independent horizontal and vertical pixel
+  offsets, editable by drag, arrow keys, labeled-notch sliders, or numeric
+  inputs. The game frame remains centered inside any wider result footprint,
+  so showing results below the board or starting the next game does not change
+  either on-screen coordinate. Collision constraints may temporarily adjust
+  an applied offset without changing the player's saved X/Y preference.
 - The results area echoes the in-game numeral face (Arial Black stack).
 
 ## UI doctrine (directives collected 2026-08-23)

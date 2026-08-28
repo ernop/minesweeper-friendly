@@ -118,6 +118,45 @@ main {
   margin: 0;
 }
 
+.board-position-slider {
+  min-width: 0;
+}
+
+.board-position-ticks {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  margin-top: -1px;
+  color: #526b7c;
+  font-size: 8px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.board-position-ticks span::before {
+  display: block;
+  width: 1px;
+  height: 4px;
+  margin: 0 auto 1px;
+  background: #7890a0;
+  content: "";
+}
+
+.board-position-ticks span:first-child {
+  text-align: left;
+}
+
+.board-position-ticks span:first-child::before {
+  margin-left: 0;
+}
+
+.board-position-ticks span:last-child {
+  text-align: right;
+}
+
+.board-position-ticks span:last-child::before {
+  margin-right: 0;
+}
+
 .board-position-row input[type="number"] {
   width: 62px;
   font: inherit;
@@ -387,7 +426,9 @@ body.trial-offboard #game-frame {
 }
 
 #game-frame {
-  display: inline-block;
+  display: block;
+  width: max-content;
+  margin-inline: auto;
   background: var(--silver);
   padding: calc(var(--cell-size) / 4);
   border: calc(var(--cell-size) / 8) solid;
