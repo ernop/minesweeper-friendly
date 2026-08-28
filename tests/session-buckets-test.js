@@ -286,7 +286,7 @@ const press = (at, useful, flag, moving, gapMs, unflag, misclick) => ({
 }
 
 // A backfilled win carries its derived unmarked-mine share; a backfilled
-// loss files under its fine fatal-action kind. The win also keeps its exact
+// loss files under its fine fatal-action kind. Both keep their exact
 // played-time coordinate and tooltip details outside the bucket aggregates.
 {
   const games = [
@@ -304,6 +304,9 @@ const press = (at, useful, flag, moving, gapMs, unflag, misclick) => ({
   assertEq('backfilled win marker time', s.wins[0].timeMs, MIN);
   assertEq('backfilled win marker board', s.wins[0].boardKey, '9x9/10');
   assertEq('backfilled win marker date', s.wins[0].endedAt, NOW - MIN);
+  assertEq('all finished games receive event markers', s.gameEnds.length, 2);
+  assertEq('win marker keeps semantic outcome', s.gameEnds[0].end, 'win');
+  assertEq('loss marker keeps semantic outcome', s.gameEnds[1].end, 'guess-safe');
 }
 
 // Derived win-with-unmarked-mines inputs: the mode key's mine count and

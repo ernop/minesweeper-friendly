@@ -8396,18 +8396,22 @@ function sessionBucketSeries(events, opts) {
   const modeledLifeGap = new Array(bucketCount).fill(0);
   const fastGaps = Array.from({ length: bucketCount }, () => []);
   const endCounts = SESSION_END_KINDS.map(() => new Array(bucketCount).fill(0));
-  // Exact win instants stay separate from the bucketed aggregates so every
-  // session chart can draw a thin event line at the win's true played-time
-  // coordinate and show its stored result details on hover.
+  // Exact game-end instants stay separate from the bucketed aggregates so
+  // every session chart can mark wins and each kind of loss at the true
+  // played-time coordinate with the endings chart's semantic color.
+  const gameEnds = [];
   const wins = [];
-  const addWin = (playAt, ev) => {
+  const addGameEnd = (playAt, ev) => {
     if (playAt < windowFrom || playAt > playNowMs) return;
-    wins.push({
+    const marker = {
       playAt,
+      end: ev.end,
       timeMs: ev.timeMs,
       boardKey: ev.boardKey,
       endedAt: ev.endedAt === undefined ? (ev.at === undefined ? ev.to : ev.at) : ev.endedAt,
-    });
+    };
+    gameEnds.push(marker);
+    if (ev.end === 'win') wins.push(marker);
   };
   // The unmarked-mines-at-win inputs: per bucket, the sum of measured
   // wins' unmarked-mine shares and how many wins carried the measurement
@@ -8470,7 +8474,7 @@ function sessionBucketSeries(events, opts) {
     // like the classified death above.
     if (ev !== null && typeof ev.end === 'string') {
       countEnd(bucketAt(span.playTo - 1e-6), ev.end, ev.winUnmarked);
-      if (ev.end === 'win') addWin(span.playTo, ev);
+      addGameEnd(span.playTo, ev);
     }
   }
 
@@ -8514,9 +8518,10 @@ function sessionBucketSeries(events, opts) {
       modeledLifeGap[i] += ev.modeledLifeGap || 0;
     } else if (ev.kind === 'end') {
       countEnd(i, ev.end, ev.winUnmarked);
-      if (ev.end === 'win') addWin(playAt, ev);
+      addGameEnd(playAt, ev);
     }
   }
+  gameEnds.sort((a, b) => a.playAt - b.playAt);
   wins.sort((a, b) => a.playAt - b.playAt);
 
   // Game endings are exposed both as cumulative fractions (for running
@@ -8629,7 +8634,7 @@ function sessionBucketSeries(events, opts) {
     speedPxPerSec, clicksPerSec, avoidablePerMin, wastedPerMin, misclicksPerMin, flagsPerSec,
     mismarksPerMin, fastclickGapMs, endFractions, endGames, winUnmarkedFraction,
     rawEndFractions, rawEndGames, rawWinUnmarkedFraction,
-    wins,
+    wins, gameEnds,
     categoryPerMin, excessRiskPctPerMin, modeledLifeGapPerMin,
     usefulPerGame, wastedPerGame, misclicksPerGame, flagsPerGame,
     mismarksPerGame, avoidablePerGame, categoryPerGame,
@@ -8816,6 +8821,8 @@ function sessionRunningSeries(events, opts) {
     mismarksPerGame, avoidablePerGame, categoryPerGame,
     excessRiskPctPerGame, modeledLifeGapPerGame,
     endFractions, endGames, winUnmarkedFraction,
+    gameEnds: fine.gameEnds.filter((game) =>
+      game.playAt >= windowFrom && game.playAt <= fine.playNowMs),
     wins: fine.wins.filter((win) =>
       win.playAt >= windowFrom && win.playAt <= fine.playNowMs),
   };
@@ -9271,21 +9278,27 @@ function hideSessionWinTooltip(chart) {
   sessionWinTooltipChart = null;
 }
 
-// Thin, low-contrast win lines are shared by every session chart. Hover is
-// handled by the SVG itself rather than by one listener per line: nearest-
-// line lookup is tiny, overlapping hit areas stay deterministic, and the
-// custom tooltip appears immediately instead of waiting for SVG <title>.
-function appendSessionWinMarkers(svg, buckets, geometry, px) {
-  const wins = Array.isArray(buckets.wins) ? buckets.wins : [];
-  if (wins.length === 0) return;
-  const lines = wins.map((win) => {
+// Thin game-end lines are shared by every session chart. Wins are green;
+// losses reuse the endings chart's correctness-aware colors. Hover is handled
+// once by the SVG, with nearest-line lookup for deterministic overlaps.
+function appendSessionGameMarkers(svg, buckets, geometry, px) {
+  const gameEnds = Array.isArray(buckets.gameEnds)
+    ? buckets.gameEnds
+    : (Array.isArray(buckets.wins)
+      ? buckets.wins.map((win) => ({ ...win, end: 'win' })) : []);
+  if (gameEnds.length === 0) return;
+  const endingSpec = (end) => SESSION_END_SPECS.find(
+    (spec) => spec.kind === end && spec.series === undefined)
+      || SESSION_END_SPECS.find((spec) => spec.kind === 'other');
+  const lines = gameEnds.map((game) => {
     const line = document.createElementNS(SVG_NS, 'line');
-    const x = px(win.playAt).toFixed(1);
+    const x = px(game.playAt).toFixed(1);
     line.setAttribute('x1', x);
     line.setAttribute('x2', x);
     line.setAttribute('y1', geometry.top);
     line.setAttribute('y2', geometry.bottom);
-    line.setAttribute('class', 'session-win-line');
+    line.setAttribute('class', 'session-game-line');
+    line.setAttribute('stroke', endingSpec(game.end).color);
     svg.appendChild(line);
     return line;
   });
@@ -9307,15 +9320,15 @@ function appendSessionWinMarkers(svg, buckets, geometry, px) {
     }
     let nearest = -1;
     let nearestDistance = Infinity;
-    for (let i = 0; i < wins.length; i++) {
-      const distance = Math.abs(px(wins[i].playAt) - x);
+    for (let i = 0; i < gameEnds.length; i++) {
+      const distance = Math.abs(px(gameEnds[i].playAt) - x);
       if (distance < nearestDistance) {
         nearest = i;
         nearestDistance = distance;
       }
     }
     // Six screen pixels is easy to acquire without turning the whole chart
-    // into a tooltip trigger when win lines are sparse.
+    // into a tooltip trigger when game-end lines are sparse.
     const hitDistance = 6 * geometry.width / bounds.width;
     if (nearest < 0 || nearestDistance > hitDistance) {
       clearActive();
@@ -9326,18 +9339,21 @@ function appendSessionWinMarkers(svg, buckets, geometry, px) {
       clearActive();
       active = nearest;
       lines[active].classList.add('active');
-      const win = wins[active];
+      const game = gameEnds[active];
+      const spec = endingSpec(game.end);
       const tooltip = getSessionWinTooltip();
       const result = document.createElement('div');
       result.className = 'session-win-tooltip-result';
-      result.textContent = (typeof win.timeMs === 'number'
-        ? (win.timeMs / 1000).toFixed(3) + 's'
-        : 'time unavailable') + ' \u00b7 ' + sessionWinBoardLabel(win.boardKey);
+      result.style.color = spec.color;
+      result.textContent = spec.label + ' \u00b7 '
+        + (typeof game.timeMs === 'number'
+          ? (game.timeMs / 1000).toFixed(3) + 's'
+          : 'time unavailable') + ' \u00b7 ' + sessionWinBoardLabel(game.boardKey);
       tooltip.replaceChildren(result);
-      if (typeof win.endedAt === 'number') {
+      if (typeof game.endedAt === 'number') {
         const when = document.createElement('div');
         when.className = 'session-win-tooltip-when';
-        when.textContent = formatDate(win.endedAt);
+        when.textContent = formatDate(game.endedAt);
         tooltip.appendChild(when);
       }
       tooltip.hidden = false;
@@ -9401,7 +9417,7 @@ function buildSessionChart(buckets, spec) {
   for (const v of minorTicks(yTicks, y0, y1)) {
     el('line', { x1: L - 4, y1: py(v), x2: L, y2: py(v), class: 'scatter-minor' });
   }
-  appendSessionWinMarkers(svg, buckets, {
+  appendSessionGameMarkers(svg, buckets, {
     width: W, height: H, left: L, right: W - R, top: T, bottom: H - B,
   }, px);
 
@@ -9472,7 +9488,7 @@ function buildSessionEndingsChart(buckets) {
     el('line', { x1: L, y1: py(pct), x2: W - R, y2: py(pct), class: 'scatter-grid' });
     el('text', { x: L - 4, y: py(pct) + 4, class: 'scatter-tick tick-y' }, String(pct));
   }
-  appendSessionWinMarkers(svg, buckets, {
+  appendSessionGameMarkers(svg, buckets, {
     width: W, height: H, left: L, right: W - R, top: T, bottom: H - B,
   }, px);
   const drawn = [];
@@ -9639,7 +9655,7 @@ function buildSessionRatesChart(buckets, specs, unit) {
   for (const v of minorTicks(yTicks, y0, y1)) {
     el('line', { x1: L - 4, y1: py(v), x2: L, y2: py(v), class: 'scatter-minor' });
   }
-  appendSessionWinMarkers(svg, buckets, {
+  appendSessionGameMarkers(svg, buckets, {
     width: W, height: H, left: L, right: W - R, top: T, bottom: H - B,
   }, px);
 

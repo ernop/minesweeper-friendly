@@ -407,7 +407,10 @@ Implementation notes:
   `sessionRateLabelLayout` greedily distributes each full current
   name+value+unit label across low-occlusion plot positions and a fine
   color-matched leader ties it to the still-visible endpoint dot; labels avoid
-  one another and minimize covered data, with no HOW/RECORDS hover essays),
+  one another and minimize covered data, with no HOW/RECORDS hover essays).
+  `appendSessionGameMarkers` draws every exact `gameEnds` instant, using the
+  matching `SESSION_END_SPECS` color (green only for wins) and a compact
+  outcome/time/board/date tooltip,
   `latestDefined` (measurability),
   `appendSessionSection` (renders into the panel top, hosts the
   running-average <select> writing settings.sessionLookbackSeconds and
