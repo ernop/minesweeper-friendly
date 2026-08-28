@@ -16,14 +16,18 @@ const startIdx = source.indexOf('//-------SESSION STATS: COMPUTATION');
 const endIdx = source.indexOf('//-------SESSION STATS: RECORDING');
 const labelLayoutStart = source.indexOf('function sessionRateLabelLayout(');
 const labelLayoutEnd = source.indexOf('\nfunction buildSessionRatesChart(', labelLayoutStart);
+const placementStart = source.indexOf('function sessionGamePlacement(');
+const placementEnd = source.indexOf('\nfunction sessionGameTimeOfDay(', placementStart);
 if (verdictStart === -1 || verdictEnd === -1
     || startIdx === -1 || endIdx === -1
-    || labelLayoutStart === -1 || labelLayoutEnd === -1) {
+    || labelLayoutStart === -1 || labelLayoutEnd === -1
+    || placementStart === -1 || placementEnd === -1) {
   throw new Error('section markers not found');
 }
 vm.runInThisContext(source.slice(verdictStart, verdictEnd));
 vm.runInThisContext(source.slice(startIdx, endIdx));
 vm.runInThisContext(source.slice(labelLayoutStart, labelLayoutEnd));
+vm.runInThisContext(source.slice(placementStart, placementEnd));
 
 let checks = 0;
 function assertClose(name, actual, want, tol = 1e-9) {
@@ -290,9 +294,11 @@ const press = (at, useful, flag, moving, gapMs, unflag, misclick) => ({
 // played-time coordinate and tooltip details outside the bucket aggregates.
 {
   const games = [
-    { kind: 'game', from: NOW - 2 * MIN, to: NOW - MIN, end: 'win',
+    { kind: 'game', modeKey: '9x9/10@standard',
+      from: NOW - 2 * MIN, to: NOW - MIN, end: 'win',
       winUnmarked: 0.2, timeMs: MIN, boardKey: '9x9/10', endedAt: NOW - MIN },
-    { kind: 'game', from: NOW - 30 * 1000, to: NOW, end: 'guess-safe' },
+    { kind: 'game', modeKey: '9x9/10@standard',
+      from: NOW - 30 * 1000, to: NOW, end: 'guess-safe' },
   ];
   const s = sessionBucketSeries(games, opts);
   const i = last(s);
@@ -307,6 +313,29 @@ const press = (at, useful, flag, moving, gapMs, unflag, misclick) => ({
   assertEq('all finished games receive event markers', s.gameEnds.length, 2);
   assertEq('win marker keeps semantic outcome', s.gameEnds[0].end, 'win');
   assertEq('loss marker keeps semantic outcome', s.gameEnds[1].end, 'guess-safe');
+  assertEq('markers retain exact mode for lifetime rank',
+    s.gameEnds[0].modeKey, '9x9/10@standard');
+}
+
+{
+  const records = Array.from({ length: 20 }, (_, i) => ({
+    outcome: 'win',
+    timeMs: (i + 1) * 1000,
+    endedAt: 100 + i,
+  }));
+  const topTen = sessionGamePlacement({
+    end: 'win', timeMs: 2000, endedAt: 101,
+  }, records);
+  assertEq('game marker reports current lifetime rank', topTen.rank, 2);
+  assertEq('game marker reports lifetime comparison count', topTen.total, 20);
+  assertEq('second of twenty is identified as top ten percent',
+    topTen.accolade, 'top 10%');
+  assertEq('fastest saved finish is identified as personal best',
+    sessionGamePlacement({
+      end: 'win', timeMs: 1000, endedAt: 100,
+    }, records).accolade, 'PB');
+  assertEq('losses have no time rank',
+    sessionGamePlacement({ end: 'guess-safe', timeMs: 500 }, records), undefined);
 }
 
 // Derived win-with-unmarked-mines inputs: the mode key's mine count and

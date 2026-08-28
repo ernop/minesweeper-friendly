@@ -410,7 +410,10 @@ Implementation notes:
   one another and minimize covered data, with no HOW/RECORDS hover essays).
   `appendSessionGameMarkers` draws every exact `gameEnds` instant, using the
   matching `SESSION_END_SPECS` color (green only for wins) and a compact
-  outcome/time/board/date tooltip,
+  tooltip with duration, local time of day, and `sessionGamePlacement`'s
+  current lifetime rank within `history[marker.modeKey]`; #1 is `PB`, and
+  rank/total <= 10% with at least ten saved wins is `top 10%` (never WR/global,
+  because no worldwide leaderboard is available),
   `latestDefined` (measurability),
   `appendSessionSection` (renders into the panel top, hosts the
   running-average <select> writing settings.sessionLookbackSeconds and

@@ -1459,7 +1459,12 @@ does not label their cause.
   green is a win,
   gold is an unavoidable/minimum-risk death, orange is an inferior or
   rule-breaking forced choice, red is an avoidable/proven-wrong action, and
-  grey is unjudged. The unmarked-mines-on-win measurement remains teal.
+  grey is unjudged. Marker hover is intentionally compact: finish duration,
+  current lifetime rank among the player's saved wins for that exact mode,
+  and time of day (no full date). A #1 finish earns `PB`; a finish in the best
+  10% of at least ten saved wins earns `top 10%`. No worldwide rank or WR
+  claim appears because the app has no global leaderboard data. The
+  unmarked-mines-on-win measurement remains teal.
 
 - Scope: only time a game was actually in progress (first reveal — or
   first flag once mines exist — to game end). Losses count. Abandoned

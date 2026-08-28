@@ -7972,7 +7972,7 @@ function renderMetricsPanelContent(metrics) {
   // Any explicit rebuild retires the SVG that owns an open win tooltip.
   // Ordinary once-a-second rebuilds pause while a real pointer hovers a
   // chart, so this is cleanup rather than visible tooltip flicker.
-  hideSessionWinTooltip();
+  hideSessionGameTooltip();
   const showSession = settings.showSessionStats;
   const showLive = settings.showMotionStatsDuringGame
     && metrics !== null && tracing();
@@ -8406,6 +8406,7 @@ function sessionBucketSeries(events, opts) {
     const marker = {
       playAt,
       end: ev.end,
+      modeKey: ev.modeKey,
       timeMs: ev.timeMs,
       boardKey: ev.boardKey,
       endedAt: ev.endedAt === undefined ? (ev.at === undefined ? ev.to : ev.at) : ev.endedAt,
@@ -8965,13 +8966,16 @@ function sessionRecordEvaluation(evaluation) {
 // share of the board's mines that had no flag at the winning instant.
 function sessionRecordEnd(end, winUnmarked) {
   const now = Date.now();
-  const event = { kind: 'end', modeKey: sessionEventModeKey(), at: now, end: end };
+  const event = {
+    kind: 'end',
+    modeKey: sessionEventModeKey(),
+    at: now,
+    end: end,
+    timeMs: elapsedMs(),
+    boardKey: boardKey(),
+    endedAt: now,
+  };
   if (typeof winUnmarked === 'number') event.winUnmarked = winUnmarked;
-  if (end === 'win') {
-    event.timeMs = elapsedMs();
-    event.boardKey = boardKey();
-    event.endedAt = now;
-  }
   sessionEvents.push(event);
 }
 
@@ -9253,29 +9257,51 @@ function sessionAgoLabel(agoMs) {
   return '-' + Math.round(agoMs / 60000) + 'm';
 }
 
-let sessionWinTooltip = null;
-let sessionWinTooltipChart = null;
+let sessionGameTooltip = null;
+let sessionGameTooltipChart = null;
 
-function sessionWinBoardLabel(key) {
-  const match = /^(\d+)x(\d+)\/(\d+)/.exec(String(key || ''));
-  return match === null
-    ? 'board size unavailable'
-    : match[1] + '\u00d7' + match[2] + ' \u00b7 ' + match[3] + ' mines';
+function sessionGamePlacement(game, records) {
+  if (game.end !== 'win' || typeof game.timeMs !== 'number') return undefined;
+  const wins = (records || []).filter((record) =>
+    record.outcome === 'win' && typeof record.timeMs === 'number');
+  let candidate = wins.find((record) => record.endedAt === game.endedAt);
+  let ranked = wins;
+  if (candidate === undefined) {
+    candidate = { outcome: 'win', timeMs: game.timeMs, endedAt: game.endedAt };
+    ranked = [...wins, candidate];
+  }
+  ranked = ranked.sort((a, b) =>
+    a.timeMs - b.timeMs || a.endedAt - b.endedAt);
+  const rank = ranked.indexOf(candidate) + 1;
+  const total = ranked.length;
+  return {
+    rank,
+    total,
+    accolade: rank === 1 ? 'PB'
+      : total >= 10 && rank / total <= 0.1 ? 'top 10%' : undefined,
+  };
 }
 
-function getSessionWinTooltip() {
-  if (sessionWinTooltip !== null) return sessionWinTooltip;
-  sessionWinTooltip = document.createElement('div');
-  sessionWinTooltip.className = 'session-win-tooltip';
-  sessionWinTooltip.hidden = true;
-  document.body.appendChild(sessionWinTooltip);
-  return sessionWinTooltip;
+function sessionGameTimeOfDay(endedAt) {
+  return new Date(endedAt).toLocaleTimeString([], {
+    hour: 'numeric',
+    minute: '2-digit',
+  });
 }
 
-function hideSessionWinTooltip(chart) {
-  if (chart !== undefined && sessionWinTooltipChart !== chart) return;
-  if (sessionWinTooltip !== null) sessionWinTooltip.hidden = true;
-  sessionWinTooltipChart = null;
+function getSessionGameTooltip() {
+  if (sessionGameTooltip !== null) return sessionGameTooltip;
+  sessionGameTooltip = document.createElement('div');
+  sessionGameTooltip.className = 'session-game-tooltip';
+  sessionGameTooltip.hidden = true;
+  document.body.appendChild(sessionGameTooltip);
+  return sessionGameTooltip;
+}
+
+function hideSessionGameTooltip(chart) {
+  if (chart !== undefined && sessionGameTooltipChart !== chart) return;
+  if (sessionGameTooltip !== null) sessionGameTooltip.hidden = true;
+  sessionGameTooltipChart = null;
 }
 
 // Thin game-end lines are shared by every session chart. Wins are green;
@@ -9315,7 +9341,7 @@ function appendSessionGameMarkers(svg, buckets, geometry, px) {
     if (x < geometry.left || x > geometry.right
         || y < geometry.top || y > geometry.bottom) {
       clearActive();
-      hideSessionWinTooltip(svg);
+      hideSessionGameTooltip(svg);
       return;
     }
     let nearest = -1;
@@ -9332,7 +9358,7 @@ function appendSessionGameMarkers(svg, buckets, geometry, px) {
     const hitDistance = 6 * geometry.width / bounds.width;
     if (nearest < 0 || nearestDistance > hitDistance) {
       clearActive();
-      hideSessionWinTooltip(svg);
+      hideSessionGameTooltip(svg);
       return;
     }
     if (active !== nearest) {
@@ -9341,25 +9367,39 @@ function appendSessionGameMarkers(svg, buckets, geometry, px) {
       lines[active].classList.add('active');
       const game = gameEnds[active];
       const spec = endingSpec(game.end);
-      const tooltip = getSessionWinTooltip();
-      const result = document.createElement('div');
-      result.className = 'session-win-tooltip-result';
-      result.style.color = spec.color;
-      result.textContent = spec.label + ' \u00b7 '
-        + (typeof game.timeMs === 'number'
-          ? (game.timeMs / 1000).toFixed(3) + 's'
-          : 'time unavailable') + ' \u00b7 ' + sessionWinBoardLabel(game.boardKey);
-      tooltip.replaceChildren(result);
+      const placement = sessionGamePlacement(
+        game, history === null ? [] : history[game.modeKey]);
+      const tooltip = getSessionGameTooltip();
+      const primary = document.createElement('div');
+      primary.className = 'session-game-tooltip-primary';
+      const time = document.createElement('span');
+      time.className = 'session-game-tooltip-time';
+      time.textContent = typeof game.timeMs === 'number'
+        ? (game.timeMs / 1000).toFixed(3) + 's' : '\u2013';
+      const rank = document.createElement('span');
+      rank.className = 'session-game-tooltip-rank';
+      rank.style.color = spec.color;
+      rank.textContent = placement === undefined
+        ? spec.label + ' \u00b7 unranked'
+        : '#' + placement.rank + ' / ' + placement.total + ' lifetime';
+      primary.append(time, rank);
+      if (placement !== undefined && placement.accolade !== undefined) {
+        const accolade = document.createElement('span');
+        accolade.className = 'session-game-tooltip-accolade';
+        accolade.textContent = placement.accolade;
+        primary.appendChild(accolade);
+      }
+      tooltip.replaceChildren(primary);
       if (typeof game.endedAt === 'number') {
         const when = document.createElement('div');
-        when.className = 'session-win-tooltip-when';
-        when.textContent = formatDate(game.endedAt);
+        when.className = 'session-game-tooltip-when';
+        when.textContent = sessionGameTimeOfDay(game.endedAt);
         tooltip.appendChild(when);
       }
       tooltip.hidden = false;
-      sessionWinTooltipChart = svg;
+      sessionGameTooltipChart = svg;
     }
-    const tooltip = getSessionWinTooltip();
+    const tooltip = getSessionGameTooltip();
     const gap = 9;
     const left = Math.min(event.clientX + gap,
       window.innerWidth - tooltip.offsetWidth - 5);
@@ -9369,7 +9409,7 @@ function appendSessionGameMarkers(svg, buckets, geometry, px) {
   });
   svg.addEventListener('pointerleave', () => {
     clearActive();
-    hideSessionWinTooltip(svg);
+    hideSessionGameTooltip(svg);
   });
 }
 
