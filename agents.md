@@ -403,10 +403,11 @@ Implementation notes:
   `sessionYDomain` around their measured values with modest padding
   instead of being forced to start at zero (a measured zero stays in
   range; the endings composition alone keeps its fixed 0–100% domain);
-  1/2/5 unit-suffixed ticks come from `niceTicks`; no legend — each
-  line's name+value+unit floats
-  at its endpoint in the line's color, cascade-nudged apart preserving
-  line order, with HOW/RECORDS as hover titles on lines and labels),
+  1/2/5 unit-suffixed ticks come from `niceTicks`; no legend —
+  `sessionRateLabelLayout` greedily distributes each full current
+  name+value+unit label across low-occlusion plot positions and a fine
+  color-matched leader ties it to the still-visible endpoint dot; labels avoid
+  one another and minimize covered data, with no HOW/RECORDS hover essays),
   `latestDefined` (measurability),
   `appendSessionSection` (renders into the panel top, hosts the
   running-average <select> writing settings.sessionLookbackSeconds and

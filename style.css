@@ -2423,6 +2423,12 @@ body.settings-page .return-to-game {
   stroke-width: 3px;
   paint-order: stroke fill;
 }
+.rate-label-leader {
+  fill: none;
+  stroke-width: 0.8;
+  stroke-dasharray: 2 2;
+  opacity: 0.72;
+}
 .session-end-legend {
   display: flex;
   flex-wrap: wrap;

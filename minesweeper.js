@@ -9525,6 +9525,70 @@ function buildSessionEndingsChart(buckets) {
 // together).
 const SESSION_RATES_CHART = { H: 170, L: 54, R: 8, T: 5, B: 22 };
 
+// Place long current-value labels throughout the plot rather than stacking
+// every one against the right edge. Candidate boxes are scored for overlap,
+// covered data points, leader length, and repeated horizontal position.
+function sessionRateLabelLayout(labels, bounds) {
+  const textHeight = 12;
+  const plotWidth = bounds.right - bounds.left;
+  const allPoints = labels.flatMap((label) => label.points);
+  const placed = [];
+  const overlapArea = (a, b) =>
+    Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left))
+      * Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top));
+  const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+
+  for (const [order, label] of [...labels].sort((a, b) => a.y - b.y).entries()) {
+    const width = Math.min(plotWidth - 4, label.text.length * 6.15);
+    const candidates = [];
+    const preferredBaseline = clamp(label.y + 4, bounds.top + textHeight, bounds.bottom);
+    const baselines = [preferredBaseline];
+    for (let y = bounds.top + textHeight; y <= bounds.bottom; y += textHeight + 1) {
+      baselines.push(y);
+    }
+    const targetCenter = bounds.left + plotWidth
+      * (0.2 + ((order * 0.37) % 0.6));
+    for (const baseline of new Set(baselines.map(Math.round))) {
+      for (let step = 0; step <= 6; step++) {
+        const center = bounds.left + width / 2
+          + (plotWidth - width) * step / 6;
+        const box = {
+          left: center - width / 2,
+          right: center + width / 2,
+          top: baseline - textHeight,
+          bottom: baseline + 2,
+        };
+        const collision = placed.reduce(
+          (sum, prior) => sum + overlapArea(box, prior.box), 0);
+        const coveredPoints = allPoints.filter((point) =>
+          point.x >= box.left - 2 && point.x <= box.right + 2
+            && point.y >= box.top - 2 && point.y <= box.bottom + 2).length;
+        const connectorX = clamp(label.x, box.left, box.right);
+        const connectorY = clamp(label.y, box.top, box.bottom);
+        const leaderLength = Math.hypot(
+          connectorX - label.x, connectorY - label.y);
+        const repeatedX = placed.reduce((sum, prior) =>
+          sum + Math.max(0, 70 - Math.abs(center - prior.center)), 0);
+        candidates.push({
+          x: center,
+          y: baseline,
+          anchor: 'middle',
+          box,
+          center,
+          connectorX,
+          connectorY,
+          score: collision * 1e6 + coveredPoints * 1800
+            + leaderLength * 0.7 + Math.abs(center - targetCenter) * 0.08
+            + Math.abs(baseline - label.y) * 0.15 + repeatedX * 0.4,
+        });
+      }
+    }
+    candidates.sort((a, b) => a.score - b.score);
+    placed.push({ ...label, ...candidates[0] });
+  }
+  return placed;
+}
+
 function buildSessionRatesChart(buckets, specs, unit) {
   const { H, L, R, T, B } = SESSION_RATES_CHART;
   const W = settings.metricsPanelWidth - 18;
@@ -9604,46 +9668,28 @@ function buildSessionRatesChart(buckets, specs, unit) {
     });
     pointLabels.push({
       x: lastPoint.x, y: lastPoint.y, spec,
+      points,
       text: spec.label + ' ' + spec.fmt(lastPoint.v) + spec.unit,
     });
   }
 
-  // Direct labeling, no legend (decided 2026-08-23, evening): each
-  // line's full label — name, current value, unit — floats at the
-  // line's endpoint in the line's own color, where the eye lands after
-  // following the line, so reading needs no legend matching. An on-line
-  // mid-chart placement was tried first and rejected: with several
-  // near-zero rates sharing a tight band, a ~120px name box rarely has
-  // a clear spot, and the design would have fallen back to a legend
-  // most of the time. Endpoint stacking always works: when lines end
-  // near the same height, a top-down pass spaces the labels, then a
-  // bottom-up pass pushes any that ran past the plot bottom back up (a
-  // handful of 11px labels always fits a 140px plot), and the nudges
-  // preserve endpoint order top-to-bottom, so label order always
-  // matches line order. The white halo keeps a label readable where it
-  // crosses other lines. Each label (and each line) carries the
-  // metric remains directly readable without a hover explanation.
-  pointLabels.sort((a, b) => a.y - b.y);
-  let floorY = T + 9;
-  for (const lab of pointLabels) {
-    lab.labelY = Math.max(lab.y + 4, floorY);
-    floorY = lab.labelY + 12;
-  }
-  let ceilY = H - B - 2;
-  for (let i = pointLabels.length - 1; i >= 0; i--) {
-    pointLabels[i].labelY = Math.min(pointLabels[i].labelY, ceilY);
-    ceilY = pointLabels[i].labelY - 12;
-  }
-  for (const lab of pointLabels) {
-    // Right-anchored just left of the endpoint dot, clamped so a long
-    // label on a narrow panel stays inside the drawing.
-    const anchorX = Math.max(lab.x - 6, lab.text.length * 6.2 + 2);
+  // Current values remain direct labels in their series colors, but a
+  // collision/occlusion pass distributes them across open parts of the plot.
+  // Fine leader lines keep every moved value explicitly tied to its endpoint.
+  for (const lab of sessionRateLabelLayout(pointLabels, {
+    left: L + 2, right: W - R - 2, top: T + 1, bottom: H - B - 2,
+  })) {
+    el('line', {
+      x1: lab.x.toFixed(1), y1: (lab.y - 4).toFixed(1),
+      x2: lab.connectorX.toFixed(1), y2: lab.connectorY.toFixed(1),
+      stroke: lab.spec.color, class: 'rate-label-leader',
+    });
     el('text', {
-      x: anchorX.toFixed(1),
-      y: lab.labelY.toFixed(1),
+      x: lab.x.toFixed(1),
+      y: lab.y.toFixed(1),
       fill: lab.spec.color,
       class: 'rate-point-value',
-      'text-anchor': 'end',
+      'text-anchor': lab.anchor,
     }, lab.text);
   }
   return { svg, drawn };

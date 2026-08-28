@@ -14,10 +14,16 @@ const verdictStart = source.indexOf('//-------GAME-END EVALUATION: VERDICT');
 const verdictEnd = source.indexOf('//-------GAME-END EVALUATION: CAPTURE');
 const startIdx = source.indexOf('//-------SESSION STATS: COMPUTATION');
 const endIdx = source.indexOf('//-------SESSION STATS: RECORDING');
+const labelLayoutStart = source.indexOf('function sessionRateLabelLayout(');
+const labelLayoutEnd = source.indexOf('\nfunction buildSessionRatesChart(', labelLayoutStart);
 if (verdictStart === -1 || verdictEnd === -1
-    || startIdx === -1 || endIdx === -1) throw new Error('section markers not found');
+    || startIdx === -1 || endIdx === -1
+    || labelLayoutStart === -1 || labelLayoutEnd === -1) {
+  throw new Error('section markers not found');
+}
 vm.runInThisContext(source.slice(verdictStart, verdictEnd));
 vm.runInThisContext(source.slice(startIdx, endIdx));
+vm.runInThisContext(source.slice(labelLayoutStart, labelLayoutEnd));
 
 let checks = 0;
 function assertClose(name, actual, want, tol = 1e-9) {
@@ -577,6 +583,37 @@ const runOpts = {
   domain = sessionYDomain([-5, -3]);
   assertClose('negative domain pads below', domain.min, -5.16);
   assertClose('negative domain pads above', domain.max, -2.84);
+}
+
+// Crowded current-value labels occupy distinct open positions while staying
+// inside the plot; leader endpoints retain their line association.
+{
+  const labels = Array.from({ length: 6 }, (_, i) => ({
+    x: 320,
+    y: 92 + i * 4,
+    text: ['click rate 14.50/game', 'mine marking 5.25/game',
+      'no-op clicks 2.00/game', 'deaths with mistakes 0.33/game',
+      'flag removals 0.2/game', 'misclicks 0.1/game'][i],
+    points: Array.from({ length: 12 }, (__, j) => ({
+      x: 58 + j * 23,
+      y: 25 + ((i * 19 + j * 11) % 105),
+    })),
+  }));
+  const placed = sessionRateLabelLayout(labels, {
+    left: 56, right: 328, top: 6, bottom: 146,
+  });
+  assertEq('every crowded rate label is placed', placed.length, labels.length);
+  assertEq('rate labels stay inside the plot', placed.every((label) =>
+    label.box.left >= 55.99 && label.box.right <= 328.01
+      && label.box.top >= 6 && label.box.bottom <= 148), true);
+  assertEq('rate labels do not overlap one another', placed.every((label, i) =>
+    placed.slice(i + 1).every((other) =>
+      Math.min(label.box.right, other.box.right)
+        <= Math.max(label.box.left, other.box.left)
+      || Math.min(label.box.bottom, other.box.bottom)
+        <= Math.max(label.box.top, other.box.top))), true);
+  assertEq('rate labels use varied horizontal positions',
+    new Set(placed.map((label) => Math.round(label.center))).size >= 3, true);
 }
 
 console.log(`session-series: all ${checks} checks passed (buckets + running averages + y domains)`);

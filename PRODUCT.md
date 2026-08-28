@@ -1450,7 +1450,11 @@ does not label their cause.
   window.
 - **Presentation:** the panel shows the word `session` once. Chart rows and
   lines do not carry HOW/RECORDS hover essays; direct labels and values are
-  the interface. The game-ending palette carries evaluation: green is a win,
+  the interface. Multi-series rate labels keep their endpoint dots but are
+  distributed across open plot regions, with fine color-matched leaders back
+  to the current point; placement avoids other labels and minimizes covered
+  data instead of stacking every value over the chart's right edge. The
+  game-ending palette carries evaluation: green is a win,
   gold is an unavoidable/minimum-risk death, orange is an inferior or
   rule-breaking forced choice, red is an avoidable/proven-wrong action, and
   grey is unjudged. The unmarked-mines-on-win measurement remains teal.
