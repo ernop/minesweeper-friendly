@@ -372,14 +372,16 @@ report.
   - **no-progress input** — unsatisfied chord, left-click on a flag, or
     right-click on a revealed cell. These carry their exact no-op reason
     but omit a full board snapshot to avoid multiplying history size.
-  - **unused correct mark** — a player-placed flag that is on a mine but
-    is removed or reaches game end without ever contributing to an accepted
-    chord. Each placement/removal cycle is its own episode. This is an
-    observable no-chord-use proxy for wasted marking time, not a claim that
-    the player did not use the mark mentally. It is attached retrospectively
-    to the original flag action, shown in full action analysis and the
-    less-useful path, counted in `unusedCorrectFlags`, and charted per played
-    minute or per game in session rates.
+  - **unused correct mark (wins only)** — in a won game, a player-placed flag
+    that was on a mine when removed or at game end but never contributed to
+    an accepted chord. Each placement/removal cycle is its own episode.
+    Losses are unmeasured: their truncated future cannot establish whether a
+    standing mark would later have supported a chord. This is an observable
+    no-chord-use proxy for wasted marking time, not a claim that the player
+    did not use the mark mentally. It is attached retrospectively to the
+    original flag action, shown in full action analysis and the less-useful
+    path, counted in win records' `unusedCorrectFlags`, and charted against
+    measured winning-game time or measured wins in session rates.
 - **Needless guess** has one precise meaning: the player revealed an
   uncertain, positive-risk square while at least one zero-risk reveal
   was available. Merely having a different move with higher modeled
@@ -517,7 +519,10 @@ report.
   the flag counters existed are unmeasured and stay out of both the
   numerator and the denominator; the line draws once any win in the
   window measured it, even at 0% (flagging every mine is a reading
-  too).
+  too). This win-only line is the positive marking-economy measure:
+  a higher value means the player completed the board while placing marks
+  on a smaller share of its mines. The separate unused-correct-mark measure
+  is likewise win-only, but identifies marks that never enabled a chord.
   Wins backfill as wins; losses derive their line from the fatal action
   evidence; legacy losses retain their old line through provenance, and
   evidence-free losses are "unjudged loss".
@@ -556,7 +561,7 @@ report.
 - The five exclusive primary report item categories are:
   **Game loss** (every fatal action), **Game risk** (a survived action that
   increased actual death risk), **Time loss** (no progress, visible-state
-  regression, or an unused correct mine mark), **Life maximization**
+  regression, or a win's unused correct mine mark), **Life maximization**
   (positive one-ply modeled-life gap), and **Measurement notes** (legacy,
   incomplete, newer, or otherwise unclassifiable evidence).
 - The complete current mistake/evidence tag registry is:

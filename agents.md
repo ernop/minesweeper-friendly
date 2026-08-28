@@ -105,7 +105,7 @@ Implementation notes:
 - History: userdata 'history' maps mode key to a
   chronological array of game records, one per finished game:
   {endedAt, outcome: 'win'|'loss', timeMs, bv3, clicks, wastedClicks,
-  misclicks, flagsPlaced, flagsRemoved, unusedCorrectFlags, mousePathPx,
+  misclicks, flagsPlaced, flagsRemoved, unusedCorrectFlags (wins only), mousePathPx,
   states, justice,
   justiceEnabled, seed, rngVersion, boardVersion, justiceVersion,
   maxAdjacent, hasSeven, zeroCount, islandCount, largestIsland,
@@ -135,14 +135,16 @@ Implementation notes:
   blank when time ≤ 1s.
 - `mousePathPx`: cursor distance accumulated on document mousemove only
   while `gameState === 'playing'`.
-- Unused correct marks: `activeFlagEpisodes` tracks each player flag placement
-  until removal or game end. `markChordFlagUsage` consumes neighboring
-  episodes only for an accepted chord; `finishFlagEpisode` retrospectively
-  tags an unused correct placement with `unused-correct-flag`, adds its
-  time-loss evidence to the report/trace, emits a live `unused-mark` session
-  event, and increments the stored `unusedCorrectFlags`. The session bucket
-  and running layers expose `/m` and `/game` series. This measures observable
-  chord use, never unobservable mental use.
+- Unused correct marks: `activeFlagEpisodes` and `flagEpisodes` retain every
+  player flag placement and removal until the outcome is known.
+  `markChordFlagUsage` consumes neighboring episodes only for an accepted
+  chord. On a win, `finishOpenFlagEpisodes(true)` retrospectively tags each
+  unused correct placement with `unused-correct-flag`, adds its time-loss
+  evidence to the report/trace, and increments stored `unusedCorrectFlags`.
+  On a loss, the episodes are deliberately unmeasured and the record omits
+  that field because later intended chord use is unknowable. The closed
+  winning play span carries the total into win-only `/m` and `/game` session
+  series. This measures observable chord use, never mental use.
 - Raw input traces (PRODUCT.md "Raw input traces"): `beginTrace` (end of
   newGame's board build) starts {startedAt, t0, t/x/y sample arrays,
   events}; the document mousemove handler appends a sample per move while
@@ -344,7 +346,6 @@ Implementation notes:
   ({kind:'play',from,to} finished play
   spans, {kind:'move',at,px} ~1s-coalesced cursor travel while playing,
   {kind:'press',at,useful,flag,unflag,misclick,moving,gapMs},
-  {kind:'unused-mark',at},
   {kind:'death',at,mistake}, and
   {kind:'evaluation',at,category,excessRisk,modeledLifeGap}) into nine core series (speed, click rate,
   mistake-tagged deaths/min, misclicks/min, no-ops/min, flags/s,
@@ -455,8 +456,8 @@ Implementation notes:
   setting gates only rendering through `reportCategoryEnabled` and
   `evaluationForReport`. Thus hidden fatal/reportable items still enter the
   canonical record and session summaries. Retrospective
-  `unused-correct-flag` entries follow the same rule and classify as
-  `timeLoss`.
+  win-only `unused-correct-flag` entries follow the same rule and classify
+  as `timeLoss`; losses create no such entry.
   `actionEvaluationCategory` assigns exactly one primary category in
   severity order (`gameLoss`, `gameRisk`, `timeLoss`,
   `lifeMaximization`, `measurementNotes`); actual-risk delta, not raw

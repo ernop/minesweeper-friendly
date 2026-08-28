@@ -66,8 +66,8 @@ const recordEvaluationSource = source.slice(
 assertEq('report display scope never gates evidence recording',
   recordEvaluationSource.includes('reportCategoryEnabled'), false);
 const unusedMarkSource = source.slice(
-  source.indexOf('function finishFlagEpisode('),
-  source.indexOf('\nfunction finishOpenFlagEpisodes('));
+  source.indexOf('function finishOpenFlagEpisodes('),
+  source.indexOf('\nfunction markChordFlagUsage('));
 assertEq('report display scope never gates unused-mark recording',
   unusedMarkSource.includes('reportCategoryEnabled'), false);
 assertEq('empty successful games do not render a report placeholder',
@@ -343,8 +343,8 @@ assertContains('unused correct mark explains the chord criterion',
   actionEvaluationText(unusedCorrectFlag), 'never contributed to a chord');
 assertEq('accepted chords consume neighboring flag episodes',
   source.includes('markChordFlagUsage(index);'), true);
-assertEq('game end closes every outstanding flag episode',
-  source.includes('finishOpenFlagEpisodes();'), true);
+assertEq('only wins classify outstanding flag episodes',
+  source.includes("finishOpenFlagEpisodes(end === 'win');"), true);
 const noOpGroups = aggregateReportEntries([
   { evaluation: noOp, shown: noOp, category: 'timeLoss' },
   { evaluation: { ...noOp, actionNumber: 8 },

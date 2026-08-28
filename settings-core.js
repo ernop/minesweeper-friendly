@@ -151,7 +151,7 @@ const SETTINGS_SCHEMA = [
     valid: (v) => typeof v === 'boolean',
     group: 'left-panel',
     label: 'show session stats',
-    describe: 'the recent-observations section at the top of the in-page left panel: mouse speed while playing, click / mistake-tagged-death / misclick / no-op-click / mine-marking / flag-removal / unused-mark rates, exclusive report-category frequencies and measured magnitudes, the fastclick gap, and the game-endings percent lines; grouping uses played time for per-time rates or completed-game counts for per-game rates, while the horizontal window remains played time; changes are not assigned a cause',
+    describe: 'the recent-observations section at the top of the in-page left panel: mouse speed while playing, click / mistake-tagged-death / misclick / no-op-click / mine-marking / flag-removal rates, win-only unused-mark rates, exclusive report-category frequencies and measured magnitudes, the fastclick gap, and the game-endings percent lines; grouping uses played time for per-time rates or completed-game counts for per-game rates, while the horizontal window remains played time; changes are not assigned a cause',
   },
   {
     field: 'sessionLookbackSeconds',

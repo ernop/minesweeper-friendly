@@ -59,7 +59,7 @@ const press = (at, useful, flag, moving, gapMs, unflag, misclick) => ({
 {
   const from = NOW - MIN;
   const events = [
-    { kind: 'play', from, to: NOW },
+    { kind: 'play', from, to: NOW, unusedMarks: 1 },
     { kind: 'move', at: from + 1000, px: 700 },
     { kind: 'move', at: from + 30000, px: 500 },
     press(from + 2000, false, false, true),
@@ -81,7 +81,6 @@ const press = (at, useful, flag, moving, gapMs, unflag, misclick) => ({
     { kind: 'evaluation', at: from + 23000, category: 'timeLoss' },
     { kind: 'evaluation', at: from + 24000, category: 'lifeMaximization',
       modeledLifeGap: 0.12 },
-    { kind: 'unused-mark', at: from + 25000 },
   ];
   const s = sessionBucketSeries(events, opts);
   const i = last(s);
@@ -162,6 +161,13 @@ const press = (at, useful, flag, moving, gapMs, unflag, misclick) => ({
     unmeasured.unusedMarksPerMin[last(unmeasured)]);
   assertUndefined('legacy game has no unused-mark per-game rate',
     unmeasured.unusedMarksPerGame[last(unmeasured)]);
+  const loss = sessionBucketSeries([
+    { kind: 'game', from, to: NOW, end: 'loss', unusedMarks: 9 },
+  ], opts);
+  assertUndefined('loss stays outside unused-mark time rate even with stale data',
+    loss.unusedMarksPerMin[last(loss)]);
+  assertUndefined('loss stays outside unused-mark per-game rate even with stale data',
+    loss.unusedMarksPerGame[last(loss)]);
   const measured = sessionBucketSeries([
     { kind: 'game', from, to: NOW, end: 'win', unusedMarks: 0 },
   ], opts);
