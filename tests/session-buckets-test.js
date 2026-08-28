@@ -111,7 +111,7 @@ const press = (at, useful, flag, moving, gapMs, unflag, misclick) => ({
       end: 'win', useful: 2, wasted: 1, movePx: 100, unusedMarks: 0,
       categoryCounts: { timeLoss: 1 }, excessRisk: 0.1 },
     { kind: 'game', from: NOW - 5 * MIN, to: NOW - 5 * MIN + 20000,
-      end: 'loss', useful: 4, wasted: 2, px: 200,
+      end: 'loss', useful: 4, wasted: 2, px: 200, likelyMisclick: true,
       categoryCounts: { timeLoss: 2 }, excessRisk: 0.2 },
     { kind: 'game', from: NOW - MIN, to: NOW - MIN + 30000,
       end: 'win', useful: 8, wasted: 3, movePx: 600, unusedMarks: 2,
@@ -131,6 +131,8 @@ const press = (at, useful, flag, moving, gapMs, unflag, misclick) => ({
     running.speedPxPerSec[i], 16);
   assertClose('per-game ending fraction uses last two games',
     running.endFractions.win[i], 0.5);
+  assertClose('per-game likely-misclick subset uses the same game denominator',
+    running.likelyMisclickFraction[i], 0.5);
   assertClose('per-game optional field averages only measured games',
     running.unusedMarksPerGame[i], 2);
   assertClose('per-game report category uses last two games',
@@ -348,13 +350,15 @@ const press = (at, useful, flag, moving, gapMs, unflag, misclick) => ({
   const events = [
     { kind: 'play', from, to: NOW },
     { kind: 'end', at: from + 30000, end: 'win', winUnmarked: 0.5 },
-    { kind: 'end', at: from + 90000, end: 'guess-min' },
+    { kind: 'end', at: from + 90000, end: 'guess-min', likelyMisclick: true },
     { kind: 'end', at: from + 150000, end: 'win' },
     { kind: 'end', at: from + 160000, end: 'win', winUnmarked: 1 },
   ];
   const s = sessionBucketSeries(events, opts);
   const i = last(s);
   assertClose('fine kind files under its own line', s.endFractions['guess-min'][i], 0.25);
+  assertClose('likely misclick remains an overlapping ending subset',
+    s.likelyMisclickFraction[i], 0.25);
   assertClose('win share counts measured and unmeasured wins', s.endFractions.win[i], 0.75);
   assertUndefined('unmarked undefined before first measured win',
     s.winUnmarkedFraction[i - 3]);
@@ -372,7 +376,8 @@ const press = (at, useful, flag, moving, gapMs, unflag, misclick) => ({
       from: NOW - 2 * MIN, to: NOW - MIN, end: 'win',
       winUnmarked: 0.2, timeMs: MIN, boardKey: '9x9/10', endedAt: NOW - MIN },
     { kind: 'game', modeKey: '9x9/10@standard',
-      from: NOW - 30 * 1000, to: NOW, end: 'guess-safe' },
+      from: NOW - 30 * 1000, to: NOW, end: 'guess-safe',
+      likelyMisclick: true },
   ];
   const s = sessionBucketSeries(games, opts);
   const i = last(s);
@@ -387,6 +392,8 @@ const press = (at, useful, flag, moving, gapMs, unflag, misclick) => ({
   assertEq('all finished games receive event markers', s.gameEnds.length, 2);
   assertEq('win marker keeps semantic outcome', s.gameEnds[0].end, 'win');
   assertEq('loss marker keeps semantic outcome', s.gameEnds[1].end, 'guess-safe');
+  assertEq('loss marker carries likely-misclick inference',
+    s.gameEnds[1].likelyMisclick, true);
   assertEq('markers retain exact mode for lifetime rank',
     s.gameEnds[0].modeKey, '9x9/10@standard');
 }
@@ -560,7 +567,7 @@ const runOpts = {
   const events = [
     { kind: 'play', from, to: NOW },
     { kind: 'end', at: from + 30000, end: 'win' },
-    { kind: 'end', at: from + 90000, end: 'angel' },
+    { kind: 'end', at: from + 90000, end: 'angel', likelyMisclick: true },
   ];
   const s = sessionRunningSeries(events, { ...runOpts, windowMs: 5 * MIN });
   const at = (pos) => s.centers.indexOf(pos);
@@ -568,6 +575,8 @@ const runOpts = {
   assertClose('run endings after first game', s.endFractions.win[at(40000)], 1);
   assertClose('run endings cumulative win', s.endFractions.win[last(s)], 0.5);
   assertClose('run endings cumulative angel', s.endFractions.angel[last(s)], 0.5);
+  assertClose('run likely-misclick subset is cumulative over finished games',
+    s.likelyMisclickFraction[last(s)], 0.5);
   assertEq('run endings game count', s.endGames[last(s)], 2);
 }
 
@@ -606,7 +615,7 @@ const runOpts = {
     press(from + 5000, false, false, false),
     { kind: 'end', at: from + 20000, end: 'win' },
     press(from + 35000, false, false, false),
-    { kind: 'end', at: from + 50000, end: 'guess-higher' },
+    { kind: 'end', at: from + 50000, end: 'guess-higher', likelyMisclick: true },
   ];
   const s = sessionRawSeries(events, {
     nowMs: NOW, bucketMs: 30000, windowMs: MIN,
@@ -614,6 +623,8 @@ const runOpts = {
   assertEq('raw has two groups', s.centers.length, 2);
   assertClose('raw first ending is win', s.endFractions.win[0], 1);
   assertClose('raw second ending is higher-risk guess', s.endFractions['guess-higher'][1], 1);
+  assertClose('raw likely-misclick subset uses only its own group',
+    s.likelyMisclickFraction[1], 1);
   assertClose('raw first no-ops per game', s.wastedPerGame[0], 1);
   assertClose('raw second no-ops per game', s.wastedPerGame[1], 1);
 }

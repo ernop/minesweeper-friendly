@@ -114,6 +114,7 @@ let flagsRemoved = 0;  // flag states the player turned off; each placement
 let unusedCorrectFlags = 0; // win-only correct flags never consumed by a chord
 let activeFlagEpisodes = new Map(); // cell index -> placement evaluation/use state
 let flagEpisodes = []; // every placement, retained until the outcome is known
+const LIKELY_MISCLICK_MAX_MS = 1000;
 let actionEvaluations = []; // fatal action plus every earlier measured mistake
 let gameSeed = null;    // 128-bit seed for placement and Justice redraws
 let gameRandom = null;  // the one deterministic random stream for this game
@@ -1332,6 +1333,40 @@ function markChordFlagUsage(index) {
   }
 }
 
+function cellsTouch(a, b) {
+  const ax = a % config.width;
+  const ay = Math.floor(a / config.width);
+  const bx = b % config.width;
+  const by = Math.floor(b / config.width);
+  return a !== b && Math.abs(ax - bx) <= 1 && Math.abs(ay - by) <= 1;
+}
+
+// Post-hoc physical-misclick heuristic. It deliberately supplements rather
+// than replaces the exact fatal status: a still-active flag on an actual safe
+// cell, placed under one second before an adjacent fatal chord/reveal.
+function annotateLikelyMisclickDeath(evaluation) {
+  if (!evaluation || evaluation.result === 'death') return;
+  const target = evaluation.action === 'chord'
+    ? evaluation.triggerCell : evaluation.selected[0];
+  if (!Number.isInteger(target)) return;
+  let best;
+  for (const episode of activeFlagEpisodes.values()) {
+    const flag = episode.index;
+    const gapMs = evaluation.atMs - episode.evaluation.atMs;
+    if (!cells[flag].flagged || cells[flag].mine || gapMs < 0
+        || gapMs >= LIKELY_MISCLICK_MAX_MS || !cellsTouch(flag, target)) continue;
+    if (best === undefined || gapMs < best.gapMs) best = { flag, gapMs };
+  }
+  if (best === undefined) return;
+  evaluation.mistakes.push('likely-misclick-after-wrong-flag');
+  evaluation.evidence.likelyMisclick = {
+    reason: 'recent-adjacent-wrong-flag',
+    flagCell: best.flag,
+    targetCell: target,
+    gapMs: best.gapMs,
+  };
+}
+
 // Returns whether the click changed anything (false on a revealed cell).
 function toggleFlag(index, evaluation) {
   if (trialBlocksPlay()) return false;
@@ -1448,6 +1483,7 @@ function checkWin() {
 }
 
 function lose(hitIndices, evaluation) {
+  annotateLikelyMisclickDeath(evaluation);
   recordActionEvaluation(evaluation, 'death');
   sessionRecordDeath(evaluationHasMistake(evaluation));
   sessionRecordEnd(sessionEndingKind(evaluation));
@@ -1653,6 +1689,7 @@ const ACTION_MISTAKE_LABELS = {
   'opened-unproven-with-safe-move': 'opened an unproven square while a proven-safe move was available',
   'no-op-click': 'made a click that changed nothing',
   'unused-correct-flag': 'marked a mine but never used that mark in a chord',
+  'likely-misclick-after-wrong-flag': 'likely misclick after a recent wrong flag',
   'legacy-avoidable': 'legacy avoidable-death classification',
 };
 
@@ -1931,6 +1968,12 @@ function actionEvaluationText(evaluation) {
       ? 'This was a mine, but its flag was removed before contributing to any chord.'
       : 'This was a mine, but its flag never contributed to a chord before the game ended.');
   }
+  if (mistakes.has('likely-misclick-after-wrong-flag')
+      && evidence.likelyMisclick) {
+    parts.push('Likely physical misclick: an adjacent safe square was flagged '
+      + Math.round(evidence.likelyMisclick.gapMs)
+      + 'ms before this fatal action and remained flagged.');
+  }
   if (mistakes.has('no-op-click')) {
     const reason = {
       'chord-unavailable': 'The chord conditions were not met, so the board did not change.',
@@ -2113,6 +2156,15 @@ function actionEvaluationLines(evaluation) {
       value: evidence.unusedFlagEndedBy === 'flag-removed'
         ? 'correct mine flag removed before any chord used it'
         : 'correct mine flag remained unused by every later chord',
+    });
+  }
+  if (mistakes.has('likely-misclick-after-wrong-flag')
+      && evidence.likelyMisclick) {
+    lines.push({
+      label: 'Likely misclick',
+      value: 'adjacent wrong flag placed '
+        + Math.round(evidence.likelyMisclick.gapMs)
+        + 'ms before death and never removed',
     });
   }
   if (mistakes.has('chord-visible-contradiction')) {
@@ -8514,6 +8566,7 @@ function sessionBucketSeries(events, opts) {
   const modeledLifeGap = new Array(bucketCount).fill(0);
   const fastGaps = Array.from({ length: bucketCount }, () => []);
   const endCounts = SESSION_END_KINDS.map(() => new Array(bucketCount).fill(0));
+  const likelyMisclickCounts = new Array(bucketCount).fill(0);
   // Exact game-end instants stay separate from the bucketed aggregates so
   // every session chart can mark wins and each kind of loss at the true
   // played-time coordinate with the endings chart's semantic color.
@@ -8528,6 +8581,7 @@ function sessionBucketSeries(events, opts) {
       timeMs: ev.timeMs,
       boardKey: ev.boardKey,
       endedAt: ev.endedAt === undefined ? (ev.at === undefined ? ev.to : ev.at) : ev.endedAt,
+      likelyMisclick: ev.likelyMisclick === true,
       source: ev,
     };
     gameEnds.push(marker);
@@ -8538,7 +8592,7 @@ function sessionBucketSeries(events, opts) {
   // (wins recorded before flag counting stay out of both).
   const winUnmarkedSum = new Array(bucketCount).fill(0);
   const winUnmarkedWins = new Array(bucketCount).fill(0);
-  const countEnd = (i, end, winUnmarked) => {
+  const countEnd = (i, end, winUnmarked, likelyMisclick) => {
     if (i < 0 || i >= bucketCount) return;
     const k = SESSION_END_KINDS.indexOf(end);
     endCounts[k >= 0 ? k : SESSION_END_KINDS.indexOf('other')][i]++;
@@ -8546,6 +8600,7 @@ function sessionBucketSeries(events, opts) {
       winUnmarkedSum[i] += winUnmarked;
       winUnmarkedWins[i]++;
     }
+    if (likelyMisclick === true) likelyMisclickCounts[i]++;
   };
 
   const eachPlayOverlap = (from, to, take) => {
@@ -8603,7 +8658,7 @@ function sessionBucketSeries(events, opts) {
     // like the classified death above.
     if (ev !== null && typeof ev.end === 'string') {
       const endBucket = bucketAt(span.playTo - 1e-6);
-      countEnd(endBucket, ev.end, ev.winUnmarked);
+      countEnd(endBucket, ev.end, ev.winUnmarked, ev.likelyMisclick);
       if (ev.end === 'win' && typeof ev.unusedMarks === 'number'
           && endBucket >= 0 && endBucket < bucketCount) unusedMarkGames[endBucket]++;
       addGameEnd(span.playTo, ev);
@@ -8650,7 +8705,7 @@ function sessionBucketSeries(events, opts) {
       excessRisk[i] += ev.excessRisk || 0;
       modeledLifeGap[i] += ev.modeledLifeGap || 0;
     } else if (ev.kind === 'end') {
-      countEnd(i, ev.end, ev.winUnmarked);
+      countEnd(i, ev.end, ev.winUnmarked, ev.likelyMisclick);
       if (ev.end === 'win' && typeof ev.unusedMarks === 'number') {
         unusedMarkGames[i]++;
       }
@@ -8672,11 +8727,14 @@ function sessionBucketSeries(events, opts) {
   const rawEndGames = new Array(bucketCount).fill(0);
   const winUnmarkedFraction = new Array(bucketCount).fill(undefined);
   const rawWinUnmarkedFraction = new Array(bucketCount).fill(undefined);
+  const likelyMisclickFraction = new Array(bucketCount).fill(undefined);
+  const rawLikelyMisclickFraction = new Array(bucketCount).fill(undefined);
   {
     const cumulative = new Array(SESSION_END_KINDS.length).fill(0);
     let total = 0;
     let unmarkedSum = 0;
     let unmarkedWins = 0;
+    let likelyMisclicks = 0;
     for (let i = 0; i < bucketCount; i++) {
       const bucketGames = endCounts.reduce((sum, counts) => sum + counts[i], 0);
       rawEndGames[i] = bucketGames;
@@ -8684,6 +8742,7 @@ function sessionBucketSeries(events, opts) {
         for (let k = 0; k < SESSION_END_KINDS.length; k++) {
           rawEndFractions[SESSION_END_KINDS[k]][i] = endCounts[k][i] / bucketGames;
         }
+        rawLikelyMisclickFraction[i] = likelyMisclickCounts[i] / bucketGames;
       }
       if (winUnmarkedWins[i] > 0) {
         rawWinUnmarkedFraction[i] = winUnmarkedSum[i] / winUnmarkedWins[i];
@@ -8700,7 +8759,9 @@ function sessionBucketSeries(events, opts) {
       }
       unmarkedSum += winUnmarkedSum[i];
       unmarkedWins += winUnmarkedWins[i];
+      likelyMisclicks += likelyMisclickCounts[i];
       if (unmarkedWins > 0) winUnmarkedFraction[i] = unmarkedSum / unmarkedWins;
+      if (total > 0) likelyMisclickFraction[i] = likelyMisclicks / total;
     }
   }
 
@@ -8775,8 +8836,9 @@ function sessionBucketSeries(events, opts) {
     windowMs: opts.windowMs, centers, playMs,
     speedPxPerSec, clicksPerSec, avoidablePerMin, wastedPerMin, misclicksPerMin, flagsPerSec,
     mismarksPerMin, unusedMarksPerMin, fastclickGapMs,
-    endFractions, endGames, winUnmarkedFraction,
+    endFractions, endGames, winUnmarkedFraction, likelyMisclickFraction,
     rawEndFractions, rawEndGames, rawWinUnmarkedFraction,
+    rawLikelyMisclickFraction,
     wins, gameEnds,
     categoryPerMin, excessRiskPctPerMin, modeledLifeGapPerMin,
     usefulPerGame, wastedPerGame, misclicksPerGame, flagsPerGame,
@@ -8788,7 +8850,8 @@ function sessionBucketSeries(events, opts) {
     sums: { playMs, movePx, useful, wasted, misclickPlayMs, unusedMarkPlayMs,
       misclickCount, flags, unflags, unusedMarks, unusedMarkGames,
       avoidableDeaths, categoryCounts, excessRisk,
-      modeledLifeGap, fastGaps, endCounts, winUnmarkedSum, winUnmarkedWins },
+      modeledLifeGap, fastGaps, endCounts, likelyMisclickCounts,
+      winUnmarkedSum, winUnmarkedWins },
   };
 }
 
@@ -8810,6 +8873,7 @@ function sessionRawSeries(events, opts) {
     endFractions: raw.rawEndFractions,
     endGames: raw.rawEndGames,
     winUnmarkedFraction: raw.rawWinUnmarkedFraction,
+    likelyMisclickFraction: raw.rawLikelyMisclickFraction,
   };
 }
 
@@ -8862,6 +8926,7 @@ function sessionGameSeries(events, opts) {
     SESSION_END_KINDS.map((kind) => [kind, []]));
   const endGames = [];
   const winUnmarkedFraction = [];
+  const likelyMisclickFraction = [];
   const average = (games, of) => {
     const measured = games.map((game) => of(game.source))
       .filter((value) => typeof value === 'number');
@@ -8906,6 +8971,8 @@ function sessionGameSeries(events, opts) {
       .filter((value) => typeof value === 'number');
     winUnmarkedFraction.push(unmarked.length === 0 ? undefined
       : unmarked.reduce((sum, value) => sum + value, 0) / unmarked.length);
+    likelyMisclickFraction.push(
+      sources.filter((source) => source.likelyMisclick === true).length / games.length);
   }
   const visibleEnds = timeline.gameEnds.filter((game) => game.playAt >= visibleFrom);
   return {
@@ -8930,6 +8997,7 @@ function sessionGameSeries(events, opts) {
     endFractions,
     endGames,
     winUnmarkedFraction,
+    likelyMisclickFraction,
     gameEnds: visibleEnds,
     wins: visibleEnds.filter((game) => game.end === 'win'),
   };
@@ -9016,10 +9084,12 @@ function sessionRunningSeries(events, opts) {
   for (const kind of SESSION_END_KINDS) endFractions[kind] = [];
   const endGames = [];
   const winUnmarkedFraction = [];
+  const likelyMisclickFraction = [];
   const endCumulative = new Array(SESSION_END_KINDS.length).fill(0);
   let endTotal = 0;
   let unmarkedSum = 0;
   let unmarkedWins = 0;
+  let likelyMisclicks = 0;
   for (let k = 0; k < sums.playMs.length; k++) {
     // The sample sits at its fine bucket's right edge; the newest one
     // rides the current play position instead.
@@ -9031,6 +9101,7 @@ function sessionRunningSeries(events, opts) {
     }
     unmarkedSum += sums.winUnmarkedSum[k];
     unmarkedWins += sums.winUnmarkedWins[k];
+    likelyMisclicks += sums.likelyMisclickCounts[k];
     centers.push(pos);
     const playedMs = roll(pPlay, k);
     const playedSec = playedMs / 1000;
@@ -9086,6 +9157,8 @@ function sessionRunningSeries(events, opts) {
     }
     winUnmarkedFraction.push(
       unmarkedWins > 0 ? unmarkedSum / unmarkedWins : undefined);
+    likelyMisclickFraction.push(
+      endTotal > 0 ? likelyMisclicks / endTotal : undefined);
   }
   return {
     stepMs: opts.stepMs, lookbackMs: opts.lookbackMs,
@@ -9098,7 +9171,7 @@ function sessionRunningSeries(events, opts) {
     usefulPerGame, wastedPerGame, misclicksPerGame, flagsPerGame,
     mismarksPerGame, unusedMarksPerGame, avoidablePerGame, categoryPerGame,
     excessRiskPctPerGame, modeledLifeGapPerGame,
-    endFractions, endGames, winUnmarkedFraction,
+    endFractions, endGames, winUnmarkedFraction, likelyMisclickFraction,
     gameEnds: fine.gameEnds.filter((game) =>
       game.playAt >= windowFrom && game.playAt <= fine.playNowMs),
     wins: fine.wins.filter((win) =>
@@ -9255,6 +9328,7 @@ function sessionRecordEnd(end, winUnmarked) {
   const now = Date.now();
   finishOpenFlagEpisodes(end === 'win');
   const actionSummary = actionCategorySummary(actionEvaluations);
+  const fatal = fatalEvaluationOf({ actionEvaluations });
   const event = {
     kind: 'end',
     modeKey: sessionEventModeKey(),
@@ -9269,9 +9343,9 @@ function sessionRecordEnd(end, winUnmarked) {
     misclicks: misclicks,
     flags: flagsPlaced,
     unflags: flagsRemoved,
-    fatalMistake: evaluationHasMistake(fatalEvaluationOf({
-      actionEvaluations,
-    })),
+    fatalMistake: evaluationHasMistake(fatal),
+    likelyMisclick: Array.isArray(fatal && fatal.mistakes)
+      && fatal.mistakes.includes('likely-misclick-after-wrong-flag'),
     categoryCounts: actionSummary.counts,
     excessRisk: actionSummary.excessRisk,
     modeledLifeGap: actionSummary.modeledLifeGap,
@@ -9319,6 +9393,7 @@ function sessionBackfillFromHistory() {
       // post-boundary split, so only wholly new games are reconstructed.
       if (from < settings.sessionStartedAt) continue;
       const actionSummary = actionCategorySummary(record.actionEvaluations);
+      const fatal = fatalEvaluationOf(record);
       games.push({
         kind: 'game',
         modeKey: historyModeKey,
@@ -9332,13 +9407,15 @@ function sessionBackfillFromHistory() {
         unflags: record.flagsRemoved || 0,
         ...(record.outcome === 'win' && typeof record.unusedCorrectFlags === 'number'
           ? { unusedMarks: record.unusedCorrectFlags } : {}),
-        fatalMistake: evaluationHasMistake(fatalEvaluationOf(record)),
+        fatalMistake: evaluationHasMistake(fatal),
+        likelyMisclick: Array.isArray(fatal && fatal.mistakes)
+          && fatal.mistakes.includes('likely-misclick-after-wrong-flag'),
         categoryCounts: actionSummary.counts,
         excessRisk: actionSummary.excessRisk,
         modeledLifeGap: actionSummary.modeledLifeGap,
         fastGapMs: record.fastclickGapMs,
         end: record.outcome === 'win' ? 'win'
-          : sessionEndingKind(fatalEvaluationOf(record)),
+          : sessionEndingKind(fatal),
         winUnmarked: recordWinUnmarkedShare(record, mines),
         timeMs: record.timeMs,
         boardKey: historyModeKey.split('@')[0],
@@ -9528,6 +9605,8 @@ const SESSION_END_SPECS = [
   { kind: 'win', label: 'win', color: '#2e7d32' },
   { kind: 'win-unmarked', label: 'percent of mines unmarked when winning',
     color: '#0f9b8e', dash: '2 3', series: (b) => b.winUnmarkedFraction },
+  { kind: 'likely-misclick', label: 'likely misclick deaths',
+    color: '#c2185b', dash: '4 2', series: (b) => b.likelyMisclickFraction },
   { kind: 'guess-min', label: FATAL_STATUS_LABELS['guess-min'], color: '#b8860b' },
   { kind: 'guess-higher', label: FATAL_STATUS_LABELS['guess-higher'], color: '#d95f02' },
   { kind: 'guess-unmeasured', label: FATAL_STATUS_LABELS['guess-unmeasured'], color: '#9a6b2f' },
@@ -9703,6 +9782,12 @@ function appendSessionGameMarkers(svg, buckets, geometry, px) {
         accolade.className = 'session-game-tooltip-accolade';
         accolade.textContent = placement.accolade;
         primary.appendChild(accolade);
+      }
+      if (game.likelyMisclick) {
+        const inference = document.createElement('span');
+        inference.className = 'session-game-tooltip-inference';
+        inference.textContent = 'likely misclick';
+        primary.appendChild(inference);
       }
       tooltip.replaceChildren(primary);
       if (typeof game.endedAt === 'number') {

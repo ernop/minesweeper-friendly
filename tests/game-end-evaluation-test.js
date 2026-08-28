@@ -58,7 +58,8 @@ assertEq('all current mistake tags remain registered',
     'chose-higher-risk', 'chose-lower-modeled-life', 'flagged-proven-safe',
     'removed-proven-mine-flag', 'chord-visible-contradiction',
     'chord-wrong-flag-outcome', 'opened-unproven-with-safe-move',
-    'no-op-click', 'unused-correct-flag', 'legacy-avoidable',
+    'no-op-click', 'unused-correct-flag',
+    'likely-misclick-after-wrong-flag', 'legacy-avoidable',
   ].join(','));
 const recordEvaluationSource = source.slice(
   source.indexOf('function recordActionEvaluation('),
@@ -341,6 +342,20 @@ assertEq('unused correct mark is classified as time loss',
   actionEvaluationCategory(unusedCorrectFlag), 'timeLoss');
 assertContains('unused correct mark explains the chord criterion',
   actionEvaluationText(unusedCorrectFlag), 'never contributed to a chord');
+const likelyMisclick = {
+  version: ACTION_EVALUATION_VERSION,
+  action: 'reveal',
+  result: 'death',
+  mistakes: ['opened-unproven-with-safe-move',
+    'likely-misclick-after-wrong-flag'],
+  evidence: {
+    likelyMisclick: { flagCell: 4, targetCell: 5, gapMs: 317 },
+  },
+};
+assertEq('likely misclick inference does not replace fatal category',
+  actionEvaluationCategory(likelyMisclick), 'gameLoss');
+assertContains('likely misclick report carries the measured interval',
+  actionEvaluationText(likelyMisclick), '317ms');
 assertEq('accepted chords consume neighboring flag episodes',
   source.includes('markChordFlagUsage(index);'), true);
 assertEq('only wins classify outstanding flag episodes',

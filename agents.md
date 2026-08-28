@@ -311,6 +311,14 @@ Implementation notes:
   2026-08-23; older records omit it. A fatal misclick can also carry one
   or more tags in `actionEvaluations`; the count and evidence ledger are
   independent measurements.
+- `annotateLikelyMisclickDeath` adds a non-exclusive retrospective inference
+  to the fatal evaluation before `recordActionEvaluation`: among
+  `activeFlagEpisodes`, a still-standing flag on an actual safe cell must
+  have been placed 0–999ms earlier and touch the fatal reveal cell or chord
+  center orthogonally/diagonally. It adds
+  `likely-misclick-after-wrong-flag` plus `{flagCell,targetCell,gapMs}` evidence;
+  it never replaces `sessionEndingKind`, increments the exact visible-state
+  `misclicks` count, or qualifies removed/correct/distant flags.
 - `flagsPlaced` counts flag placements by the player (removals don't
   subtract; the win auto-flagging in `checkWin` bypasses `toggleFlag` and
   is not counted). `isMarkless(record)` derives the markless status
@@ -338,6 +346,10 @@ Implementation notes:
   played-time boundary for full per-game lookbacks. The UI exposes all choices directly,
   has one session heading, no HOW/RECORDS chart hover essays, and uses
   evaluation-semantic ending colors (green/gold/orange/red/grey).
+  `likelyMisclick` travels on live/backfilled end summaries and game markers;
+  `likelyMisclickFraction` is a magenta dotted, overlapping subset of all
+  finished games, computed for cumulative played-time, raw, and N-game
+  groupings without changing the exclusive technical ending denominator.
   Three marker-delimited
   spans in minesweeper.js. COMPUTATION (pure, Node-extractable):
   `sessionBucketSeries(events, {nowMs, bucketMs, windowMs, openPlayFrom,

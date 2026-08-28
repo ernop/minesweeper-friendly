@@ -2405,6 +2405,14 @@ body.settings-page .return-to-game {
   font-size: 10px;
   font-weight: bold;
 }
+.session-game-tooltip-inference {
+  padding: 1px 4px;
+  border-radius: 2px;
+  background: #c2185b;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: bold;
+}
 .session-game-tooltip-when {
   margin-top: 2px;
   color: #666666;

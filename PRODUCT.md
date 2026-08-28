@@ -754,6 +754,18 @@ misclick also appears in the action-evaluation ledger, while a wrong
 flag can be a nonfatal misclick. Stored as `misclicks` on every new game
 record beginning 2026-08-23; older records omit it as not measured.
 
+Likely physical misclick deaths are a separate post-hoc inference, introduced
+2026-08-28; they do not change that exact visible-state count or replace the
+fatal action's technical classification. A loss qualifies when a flag still
+standing on an actually safe cell was placed less than 1,000ms before the
+fatal action and is one cell away, orthogonally or diagonally, from the
+fatal reveal or chord center. Exactly 1,000ms does not qualify, and removed,
+correct, or more distant flags do not qualify. The fatal report keeps all
+technical mistake tags and adds the measured flag cell, target cell, and gap
+under `likely-misclick-after-wrong-flag`. This is intentionally labeled
+“likely”: hidden-board truth is used only after the game to distinguish a
+motor-slip pattern from a claim about what the player believed.
+
 Flags placed — how many flags the player set during the game (removing a
 flag doesn't subtract; the auto-flagging of remaining mines on a win is
 not the player's doing and is not counted) — joined the schema on
@@ -1505,10 +1517,14 @@ does not label their cause.
   rule-breaking forced choice, red is an avoidable/proven-wrong action, and
   grey is unjudged. Marker hover is intentionally compact: finish duration,
   current lifetime rank among the player's saved wins for that exact mode,
-  and time of day (no full date). A #1 finish earns `PB`; a finish in the best
+  time of day (no full date), and a `likely misclick` badge when that
+  independent inference applies. A #1 finish earns `PB`; a finish in the best
   10% of at least ten saved wins earns `top 10%`. No worldwide rank or WR
   claim appears because the app has no global leaderboard data. The
-  unmarked-mines-on-win measurement remains teal.
+  unmarked-mines-on-win measurement remains teal. The magenta dotted `likely
+  misclick deaths` line is the inferred subset divided by all finished games
+  in the same running, raw, or N-game group. It may overlap any technical
+  loss line, so those exact ending percentages remain intact.
 
 - Scope: only time a game was actually in progress (first reveal — or
   first flag once mines exist — to game end). Losses count. Abandoned
