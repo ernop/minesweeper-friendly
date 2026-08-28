@@ -56,12 +56,14 @@ dbRequest.onupgradeneeded = (event) => {
   }
 };
 // The open can complete between this script and the page's own script
-// (the open races the network fetch of the later <script> tags), so the
-// ready call waits for whichever finishes last: the database or the
-// document's scripts.
+// (the open races the network fetch of the later deferred scripts). During
+// deferred execution readyState is already "interactive", so the callback's
+// existence — not readyState — is the exact signal that the page client has
+// finished declaring its startup path. DOMContentLoaded supplies the second
+// check when the database wins that race.
 let readyAnnounced = false;
 function maybeAnnounceReady() {
-  if (readyAnnounced || db === null || document.readyState === 'loading') return;
+  if (readyAnnounced || db === null || typeof userdataReady !== 'function') return;
   readyAnnounced = true;
   userdataReady();
 }

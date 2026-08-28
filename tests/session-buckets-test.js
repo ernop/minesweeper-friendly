@@ -485,6 +485,81 @@ const runOpts = {
   assertUndefined('run sliver rate', s.avoidablePerMin[last(s)]);
 }
 
+// Raw grouping keeps disjoint played-time buckets: endings and per-game
+// values describe only their own bucket rather than accumulating.
+{
+  const from = NOW - MIN;
+  const events = [
+    { kind: 'play', from, to: NOW },
+    press(from + 5000, false, false, false),
+    { kind: 'end', at: from + 20000, end: 'win' },
+    press(from + 35000, false, false, false),
+    { kind: 'end', at: from + 50000, end: 'guess-higher' },
+  ];
+  const s = sessionRawSeries(events, {
+    nowMs: NOW, bucketMs: 30000, windowMs: MIN,
+  });
+  assertEq('raw has two groups', s.centers.length, 2);
+  assertClose('raw first ending is win', s.endFractions.win[0], 1);
+  assertClose('raw second ending is higher-risk guess', s.endFractions['guess-higher'][1], 1);
+  assertClose('raw first no-ops per game', s.wastedPerGame[0], 1);
+  assertClose('raw second no-ops per game', s.wastedPerGame[1], 1);
+}
+
+// Per-game normalization divides the trailing group's totals by finished
+// games, independently of its played-time /m and /s rates.
+{
+  const from = NOW - MIN;
+  const events = [
+    { kind: 'play', from, to: NOW },
+    press(from + 35000, true, false, false),
+    press(from + 45000, true, false, false),
+    { kind: 'end', at: from + 55000, end: 'win' },
+  ];
+  const s = sessionRunningSeries(events, runOpts);
+  assertClose('run useful actions per game', s.usefulPerGame[last(s)], 2);
+  assertClose('run zero avoidable deaths per game', s.avoidablePerGame[last(s)], 0);
+}
+
+// Exact-mode scope uses the history key carried by every event.
+{
+  const a = '9x9/10@standard';
+  const b = '16x16/40@standard';
+  const events = [
+    { kind: 'play', modeKey: a, from: NOW - 30000, to: NOW - 20000 },
+    { kind: 'move', modeKey: a, at: NOW - 25000, px: 100 },
+    { kind: 'play', modeKey: b, from: NOW - 10000, to: NOW },
+    { kind: 'move', modeKey: b, at: NOW - 5000, px: 300 },
+  ];
+  const onlyA = sessionEventsForMode(events, a, 'current');
+  const all = sessionEventsForMode(events, a, 'all');
+  assertEq('current-mode event count', onlyA.length, 2);
+  assertEq('all-mode event count', all.length, 4);
+  const s = sessionBucketSeries(onlyA, opts);
+  assertClose('current-mode speed excludes other modes', s.speedPxPerSec[last(s)], 10);
+}
+
+// Retention reserves a played-time tail for each exact mode, even when the
+// global newest tail contains only another mode.
+{
+  const a = '9x9/10@standard';
+  const b = '16x16/40@standard';
+  const aGame = { kind: 'game', modeKey: a, from: 0, to: 15000 };
+  const events = [
+    aGame,
+    { kind: 'end', modeKey: a, at: 14000, end: 'win' },
+    { kind: 'game', modeKey: b, from: 20000, to: 35000 },
+    { kind: 'game', modeKey: b, from: 40000, to: 55000 },
+  ];
+  const retained = sessionRetainedEvents(events, 20000);
+  assertEq('retention keeps sparse mode game', retained.includes(aGame), true);
+  assertEq('retention keeps sparse mode ending', retained.some((ev) =>
+    ev.kind === 'end' && ev.modeKey === a), true);
+  const openOnly = { kind: 'move', modeKey: 'new-mode', at: 60000, px: 12 };
+  assertEq('retention keeps open-game events before their span closes',
+    sessionRetainedEvents([...events, openOnly], 20000).includes(openOnly), true);
+}
+
 // Session chart y domains follow measured values instead of forcing zero.
 {
   let domain = sessionYDomain([]);

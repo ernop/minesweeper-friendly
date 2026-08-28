@@ -1,5 +1,8 @@
 :root {
   --cell-size: 28px;
+  /* The honest first-paint preview is the default Beginner board. JS replaces
+     this with the selected game's width when saved state is ready. */
+  --board-width: 9;
   /* Classic Windows minesweeper palette, matching minesweeper.online's skin */
   --silver: #c0c0c0;
   --bevel-light: #ffffff;
@@ -146,6 +149,7 @@ main {
 
 #scores-nav {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: center;
   gap: 10px;
@@ -169,6 +173,148 @@ main {
   border-color: #8aa8bb;
   background: #edf5fa;
   color: #173f57;
+}
+
+#path-view-control {
+  display: flex;
+  flex: 1 0 100%;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: #45657a;
+}
+
+#path-view-control[hidden],
+#path-view-legend[hidden],
+#replay-controls[hidden] {
+  display: none;
+}
+
+.path-view-heading {
+  margin-right: 2px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+#path-view-control button {
+  box-sizing: border-box;
+  min-height: 25px;
+  padding-inline: 7px;
+  font-weight: normal;
+  white-space: nowrap;
+}
+
+#path-view-control button[aria-pressed="true"] {
+  border-color: #547f9a;
+  background: #dcecf5;
+  color: #173f57;
+  box-shadow: inset 0 0 0 1px #ffffff;
+}
+
+#path-view-legend {
+  flex: 1 0 100%;
+  box-sizing: border-box;
+  min-height: 38px;
+  padding: 4px 8px;
+  color: #405563;
+  font-variant-numeric: tabular-nums;
+}
+
+.path-legend-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 5px 8px;
+}
+
+.path-legend-row + .path-legend-row { margin-top: 3px; }
+
+.path-legend-title {
+  color: #263f50;
+  font-size: 11px;
+  font-weight: bold;
+}
+
+.path-gradient-scale {
+  display: inline-grid;
+  grid-template-columns: auto 112px auto;
+  align-items: center;
+  gap: 5px;
+}
+
+.path-gradient-bar {
+  width: 112px;
+  height: 7px;
+  border: 1px solid #8093a1;
+  border-radius: 2px;
+  background: linear-gradient(90deg,
+    hsl(220, 88%, 42%), hsl(110, 88%, 42%), hsl(0, 88%, 42%));
+}
+
+.path-gradient-bar.path-time-gradient {
+  background: linear-gradient(90deg, hsl(211, 85%, 78%), hsl(211, 85%, 22%));
+}
+
+.path-gradient-mid {
+  width: 112px;
+  margin: -3px auto 0;
+  color: #687b89;
+  font-size: 9px;
+  text-align: center;
+}
+
+.path-legend-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.path-legend-swatch {
+  display: inline-block;
+  width: 14px;
+  height: 4px;
+  border-radius: 2px;
+}
+
+.path-legend-swatch.dot {
+  width: 7px;
+  height: 7px;
+  border: 1px solid #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px #6f7d87;
+}
+
+.path-legend-note {
+  flex-basis: 100%;
+  color: #687b89;
+  font-size: 10px;
+  text-align: center;
+}
+
+#replay-controls {
+  display: inline-flex;
+  flex: 1 0 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+#replay-controls button {
+  min-width: 25px;
+  padding-inline: 5px;
+  font-size: 16px;
+  line-height: 1;
+}
+
+#replay-status {
+  box-sizing: border-box;
+  width: min(100%, 34em);
+  min-height: 15px;
+  color: #263f50;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
 }
 
 #custom-form[hidden] { display: none; }
@@ -246,6 +392,72 @@ body.trial-offboard #game-frame {
   padding: calc(var(--cell-size) / 4);
   border: calc(var(--cell-size) / 8) solid;
   border-color: var(--bevel-light) var(--bevel-dark) var(--bevel-dark) var(--bevel-light);
+}
+
+/* Startup is a real, fully styled covered Beginner board, not a blank veil or
+   a fake progress screen. Its plain-language status says exactly what remains
+   before input is ready. Absolute positioning prevents the status appearing
+   or disappearing from moving the board. */
+#startup-status {
+  display: none;
+}
+
+.game-booting #startup-status {
+  position: absolute;
+  top: calc(100% + 7px);
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: max-content;
+  max-width: min(90vw, 360px);
+  transform: translateX(-50%);
+  color: #526878;
+  font-size: 12px;
+  line-height: 1.35;
+  text-align: left;
+}
+
+.startup-dot {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: #417ca4;
+  box-shadow: 0 0 0 3px #e3edf6;
+}
+
+.game-booting #startup-status.startup-error {
+  color: #8f1f0e;
+}
+
+/* The main script paints the LCD segments before storage completes. Reserve
+   their exact footprint at first paint so that operation cannot resize the
+   top panel. */
+.game-booting .lcd {
+  min-width: calc(
+    3 * var(--cell-size) * 13 / 24
+    + 2 * var(--cell-size) * 3 / 24
+    + 2 * var(--cell-size) * 3 / 24
+    + 2px);
+  min-height: calc(
+    var(--cell-size) * 23 / 24
+    + 2 * var(--cell-size) * 2 / 24
+    + 2px);
+}
+
+.game-booting .startup-cell {
+  pointer-events: none;
+}
+
+/* Event handlers are installed while IndexedDB is still opening. Keep the
+   visibly loading chrome from accepting an action it cannot honor yet. */
+.game-booting #difficulty-tabs,
+.game-booting #top-right,
+.game-booting #game-frame,
+.game-booting #scores-nav,
+.game-booting #backup {
+  pointer-events: none;
 }
 
 /*-------JUSTICE (a just universe)-------*/
@@ -368,6 +580,47 @@ body.trial-offboard #game-frame {
   position: absolute;
   pointer-events: none;
   z-index: 3;
+}
+
+.cell.replay-choice {
+  box-shadow: inset 0 0 0 3px #25a55f;
+}
+
+.cell.replay-selected {
+  box-shadow: inset 0 0 0 3px #f1a208, inset 0 0 0 5px #201500;
+}
+
+#replay-choice-areas {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  overflow: visible;
+  pointer-events: none;
+}
+
+#replay-choice-areas svg {
+  position: absolute;
+  inset: 0 auto auto 0;
+  overflow: visible;
+}
+
+.replay-area-leader {
+  fill: none;
+  stroke: #7256a8;
+  stroke-width: 1.5;
+}
+
+.replay-area-label {
+  position: absolute;
+  width: max-content;
+  padding: 2px 4px;
+  border: 1px solid #8a72b6;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.96);
+  color: #3f286c;
+  box-shadow: 0 1px 2px rgba(35, 22, 58, 0.18);
+  font: bold 10px/1.25 Arial, sans-serif;
+  white-space: nowrap;
 }
 
 .cell {
@@ -540,6 +793,13 @@ body.trial-offboard #game-frame {
   max-width: min(52vw, 260px);
   font: inherit;
   font-weight: normal;
+}
+
+#results .report-scope-control {
+  width: min(100%, max-content);
+  margin: 8px 0 0;
+  padding: 5px 7px;
+  font-size: 12px;
 }
 #result-analysis .result-verdicts {
   display: grid;
@@ -1966,6 +2226,7 @@ body.settings-page .return-to-game {
   justify-content: space-between;
   align-items: baseline;
 }
+#metrics-panel .metrics-panel-head .metrics-toggle { margin-left: auto; }
 
 /* The live marker is grey: live numbers are transient readings. */
 #metrics-panel .metric-phase {
@@ -1998,15 +2259,37 @@ body.settings-page .return-to-game {
   border-bottom: 1px solid #e5e5e5;
 }
 
-/* The session section's bucket-size selector rides its header line; the
-   header's uppercase styling must not leak into the option labels. */
-.session-bucket-select {
-  float: right;
-  font: inherit;
+/* Session controls are intentionally compact beneath the dominant section
+   heading: players can reshape the dataset without opening Settings. */
+.session-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin: 4px 0 8px;
+}
+.session-control,
+.session-clear {
+  min-height: 24px;
+  border: 1px solid #c7d1d9;
+  border-radius: 3px;
+  background: #f8fafb;
+  color: #405563;
+  font-family: Arial, sans-serif;
   font-size: 10px;
   font-weight: normal;
   text-transform: none;
   letter-spacing: normal;
+}
+.session-control { max-width: 126px; }
+.session-clear {
+  padding: 2px 6px;
+  color: #7a2f27;
+  cursor: pointer;
+}
+.session-clear:hover {
+  border-color: #b98d86;
+  background: #fff7f5;
 }
 
 /* The panel's right-edge resize grip belongs to the in-page panel. */

@@ -74,6 +74,20 @@ check('layout precedes its button event',
   && events[events.length - 1].kind === 'lup');
 check('event timestamps stay non-decreasing',
   events.every((e, i) => i === 0 || e.t >= events[i - 1].t));
+const evaluation = {
+  action: 'reveal',
+  atMs: 999,
+  position: { width: 9, height: 9, mines: 10, revealed: [], flagged: [] },
+};
+traceDecision(evaluation);
+const decision = events[events.length - 1];
+check('accepted action records a decision event', decision.kind === 'decision');
+check('decision is aligned to its physical input timestamp',
+  decision.t === events[events.length - 2].t);
+check('decision keeps exact input coordinates',
+  decision.x === 1000 && decision.y === 200);
+check('decision uses input-time game clock',
+  decision.evaluation.atMs === 0);
 
 // Size changes count as movement too (zoom without the zoom handler).
 boardRect = { left: 983, top: 120, width: 296, height: 296 };

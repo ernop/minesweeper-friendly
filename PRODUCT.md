@@ -519,8 +519,11 @@ report.
   head beside the running-average length. Event retention always covers
   the largest choice, so switching longer works immediately.
 - `reportScope` is the single persistent “After each game, show me”
-  setting, available both directly above the current after-game report
-  (changes apply immediately) and on the settings page:
+  setting (changes apply immediately) and is also available on the settings
+  page. In compact `none` / `fatal` / `risk` scopes, its in-game control sits
+  below the right-side stats so an absent or short report consumes no space
+  above placements, rankings, and charts. In `full` scope it remains directly
+  above the full-width report it governs:
   - `none` — no action report, mistake/category counts, or fatal-action
     mention; evidence is still stored;
   - `fatal` — **default for every new player**; wins show no analysis,
@@ -1158,6 +1161,12 @@ runtime state, export field, or result section.
   fine because scalar records are tiny — revisit only if that ever stops
   being true. Traces are far too large for RAM and are written straight
   to their store (see Raw input traces).
+- Page assets download in parallel with deferred scripts, with storage first
+  so IndexedDB opens concurrently. Because an IndexedDB open can finish while
+  later deferred scripts are still executing, storage announces readiness
+  only after the page's `userdataReady` callback exists; `readyState` is not
+  used as that signal because it is already `interactive` during deferred
+  execution.
 - A failure to open the database or to persist anything is announced in
   the backup status line and thrown — never tolerated silently.
 - Before 2026-08-20 the userdata lived in localStorage; the version-2
@@ -1168,12 +1177,16 @@ runtime state, export field, or result section.
 ## Raw input traces (decided 2026-08-20)
 
 - Every finished game (win and loss) keeps its complete input stream as
-  the ground truth behind all motion metrics: cursor samples (relative ms
-  timestamp, x, y for every mousemove), button events ('ldown'/'lup'/
-  'rdown' with position and the board cell index hit, or null for a press
-  released off the cells), and layout events (the board's bounding rect
-  and dimensions, re-recorded on scroll, resize, and zoom, so every
-  sample maps to a board cell forever).
+  the ground truth behind all motion and decision analysis: cursor samples
+  (relative ms timestamp, x, y for every mousemove), button events
+  ('ldown'/'lup'/'rdown' with position and the board cell index hit, or null
+  for a press released off the cells), layout events (the board's bounding
+  rect and dimensions, re-recorded on scroll, resize, and zoom, so every
+  sample maps to a board cell forever), and one decision event per accepted
+  board action. A decision event keeps the exact pre-action visible position,
+  selected cell(s), measured reasonable-choice set, evidence, and outcome.
+  This is the durable source for faithful choice replay and later analytics;
+  the scalar history record still keeps only reportable mistake evidence.
 - The board also moves without any scroll/resize/zoom event when content
   around it changes — found 2026-08-23: the metrics panel's first render
   during init shifts the centered board ~880px after the trace's opening
@@ -1213,22 +1226,63 @@ runtime state, export field, or result section.
 - Recording overhead, measured 2026-08-20: ~100ns per mousemove event and
   <0.5ms of typed-array conversion at save time — imperceptible.
 
-## Path replay views (decided 2026-08-23)
+## Path and choice replay views (decided 2026-08-23; expanded 2026-08-28)
 
-- When a game finishes, a "path: …" button appears beside "see scores"
-  below the board and cycles three views of the played-out board:
-  off → moves → clicks. It hides whenever no finished board is on screen
-  (a new board, the trial lobby/review phases).
-- 'moves' draws the game's actual cursor path — the polyline through
-  every recorded cursor sample, warmup included — over the finished
-  board. 'clicks' draws only the effective click events ('lup'/'rdown')
-  connected in click order. Both shade light = earlier, dark = later
-  (the overlay-chart convention); click dots draw in both views, blue
-  for left clicks, red for right (flag) clicks. Movement that left the
-  board clips at the board edge (the path exits and re-enters).
-- The drawing is the RAM trace of the game just finished — nothing new
-  is stored, and the views exist only until the next board replaces the
-  trace. Replaying older games from the traces store is not built.
+- When a game finishes, separate, simultaneously visible buttons appear below
+  the board—no dropdown—for off, raw path, click locations, movement speed,
+  click speed, game progress, and less useful. The control hides whenever no
+  finished board is on screen (a new board or trial lobby/review phase).
+- Raw path restores the original complete every-sample tool, shaded from light
+  early movement to dark late movement. Click locations restores the original
+  raw left-release/right-press inputs as numbered positions in action order;
+  it is not limited to analytically accepted decisions.
+- The three continuous parameter views draw the actual cursor polyline through every
+  recorded sample, warmup included. Movement speed colors each segment by
+  its instantaneous px/s; click speed colors the movement leading to each
+  action by inverse inter-action gap; game progress colors it by the share
+  of non-mine cells uncovered in the exact position during that movement.
+  Parameter-colored paths are 4.25px wide (raw path 3px), materially thicker
+  than the former 1.5px line.
+  Blue is the low end and red the high end. Speed ranges are relative to the
+  just-finished sample and use the lower charts' Tukey 1.5-IQR display rule
+  on both extremes once at least eight values exist, so an isolated pause or
+  burst cannot flatten the local differences. Every path mode has a proper
+  visible legend: gradient bar with low/mid/high numeric values for continuous
+  colors, or explicit color keys for discrete marks. If every segment has the
+  same value, the legend reports that actual value rather than inventing a
+  wider or negative range. The legend occupies its own row and active-button
+  styling never changes button dimensions, so
+  selecting movement speed cannot make the input buttons twitch.
+- "Less useful" shows complete episodes, not isolated fragments: the last
+  useful click before a run, every movement and mistake-tagged action in the
+  run, and the next useful action and movement into it. Blue marks the prior
+  useful boundary, orange the less-useful interval, and green the next useful
+  boundary; each action-to-action interval is labeled with its measured time.
+  Less useful means actions with measured
+  mistake evidence: no-op/time-loss actions, visible contradictions,
+  avoidable or higher risk, and lower modeled one-ply life. A loss from a
+  minimum-risk forced guess is not labeled less useful merely because it
+  was fatal.
+- `back in time` is an independent toggle, not a path-color mode. It can be
+  combined with raw path, click locations, any parameter color, less useful,
+  or off. It starts at the final decision; Previous/Next and Left/Right step
+  backward or forward, and the selected overlay truncates at the displayed
+  decision while retaining its full-game color scale for comparison.
+  Back-in-time replaces the finished board with the exact player-visible
+  board immediately before each accepted action. Previous/next controls and
+  Left/Right keys step through decisions except while another interactive
+  control has keyboard focus; green marks the measured reasonable
+  choice set and gold marks the selected square(s). The status names action
+  number, in-game time, action type, and measured choice count. Uncertain
+  reasonable-choice cells are split into connected visual pockets; each pocket
+  gets a leader line to a side label giving its mine probability (exact 50%
+  reads `50/50`; other uncertain values never round to 0%, 100%, or `50/50`)
+  and cell count. Labels choose the board side that avoids the result summary
+  and available viewport edge. Proven-safe choices get no coinflip label.
+  Leaving back-in-time restores the finished board exactly.
+- These displays read the just-finished RAM trace. The same decision frames
+  are persisted in the trace store for future historical replay and analytics;
+  loading older traces into this control is not yet built.
 - Every point maps through the trace's layout events (the board geometry
   in effect at that moment) to a board fraction and then onto the
   board's current size, so the overlay is correct even if the player
@@ -1351,18 +1405,49 @@ runtime state, export field, or result section.
   covers the board or page content. It is sticky within its column and
   scrolls itself when the viewport is shorter than its rows.
 
-## Session stats (decided 2026-08-22)
+## Session stats (decided 2026-08-22; player-controlled session revised 2026-08-28)
 
-The recent-observations section: a handful of running-average series
-over a selectable window of actual play (15m / 30m / 1h / 3h, default
+The recent-observations section is a player-controlled analysis tool, not an
+automatic mirror of every game the system has recorded. A handful of series
+use either running averages or independent raw buckets
+over a selectable window of actual play (1m / 5m / 10m / 15m / 30m /
+1h / 3h, default
 1h; see "Game-end evaluation" for the 2026-08-23 window selector),
 across games, shown live at the top of the flush-left panel. Wall-clock
-breaks are compressed out. Each charted point is the average over a
-selectable trailing lookback of played time (running averages replaced
-disjoint buckets 2026-08-23, chosen over them for readable trends and
-rare-event rates). Each series is deliberately both a per-game statistic
-(already in the records) and an ongoing session trend. The chart
-displays changes but does not label their cause.
+breaks are compressed out. The player chooses what the section aggregates:
+grouping method, grouping length, per-time or per-game rate basis, exact
+current mode or all modes, and window length. The chart displays changes but
+does not label their cause.
+
+- **Clear session:** a compact `clear session` button starts a new observation
+  boundary immediately and persists its timestamp. It clears only session
+  charts; score history and raw traces are never deleted. Reload backfill
+  excludes games that began before the boundary, because a stored whole-game
+  record cannot honestly reconstruct only its post-clear portion. During an
+  active game, post-clear events remain available live; that partial game is
+  intentionally not reconstructed after a reload.
+- **Grouping:** `running average` (default) retains the trailing played-time
+  average; `raw buckets` shows independent values for each disjoint group.
+  The 30s / 1m / 2m / 5m / 15m selector is the running lookback or raw
+  bucket width respectively. Both are accumulated game-play time, never
+  wall time.
+- **Rate basis:** `per played time` (default) keeps the readable `/m` and `/s`
+  action/report charts. `per game` puts those values on one `/game` chart,
+  dividing each group by its finished games. Mouse speed and fastclick gap
+  keep their intrinsic px/s and ms units; game-ending percentages are
+  unchanged by rate basis.
+- **Mode scope:** `this mode` is the default and means the exact current board
+  dimensions/mine count + play mode + generator/parameters—the same key used
+  for score history. `all modes` deliberately combines every retained mode.
+  Each exact mode retains enough played time independently so a frequently
+  played mode cannot evict a less frequent current mode from its selectable
+  window.
+- **Presentation:** the panel shows the word `session` once. Chart rows and
+  lines do not carry HOW/RECORDS hover essays; direct labels and values are
+  the interface. The game-ending palette carries evaluation: green is a win,
+  gold is an unavoidable/minimum-risk death, orange is an inferior or
+  rule-breaking forced choice, red is an avoidable/proven-wrong action, and
+  grey is unjudged. The unmarked-mines-on-win measurement remains teal.
 
 - Scope: only time a game was actually in progress (first reveal — or
   first flag once mines exist — to game end). Losses count. Abandoned
@@ -1421,12 +1506,14 @@ displays changes but does not label their cause.
   - **modeled life gap** — sum of one-ply
     best-minus-selected expected-remaining-life gaps per played minute.
     It appears only when the optional life-maximization category is on.
-- Running averages (replacing disjoint buckets, 2026-08-23): the
+- Running averages and raw buckets: the
   lookback is selectable on the section itself (30s / 1m / 2m / 5m /
   15m; persisted as the `sessionLookbackSeconds` setting, default 5m),
   and so is the window length (1m / 5m / 10m / 15m / 30m / 1h / 3h;
   `sessionWindowMinutes`, default 1h). Both are **played time**, not
   elapsed real time — "5m average" means five minutes of actual play.
+  `sessionAggregation` (`average` / `raw`) selects whether that duration
+  is a trailing lookback or a disjoint bucket.
   Game spans are joined onto a cumulative-play timeline, so the end of a
   game and the start after a five-minute break are adjacent. History is
   scanned backward through as many games as necessary to fill the chosen
@@ -1458,8 +1545,9 @@ displays changes but does not label their cause.
   exactly as a win's carries its counts. Losing an abandoned board's
   time is acceptable; missing a loss is not. Abandoned boards produce
   no record and so cannot be backfilled: their played time is kept live
-  but honestly lost across a reload — the one accepted gap. All modes'
-  games backfill — session stats are about the player, not the board.
+  but honestly lost across a reload — the one accepted gap. Every mode
+  backfills into RAM, but `sessionModeScope` defaults display to the exact
+  current history key; the player can choose all modes.
   Backfill is span-level approximate where live capture is exact: a
   record holds totals, not timestamps, so each game's totals (including
   report-category counts and their risk/life magnitudes) spread
@@ -1474,8 +1562,8 @@ displays changes but does not label their cause.
   no-op, misclick, mark, and flag-removal rates derived from stored counts,
   mouse speed as before, the fastclick gap from its stored field.
 - Display: the section renders at the top of the left metrics panel,
-  always (not just during games), under its own "session" header with
-  HOW/RECORDS hover explanations like every other metric row. The
+  always (not just during games), under one "session" header with compact
+  controls and no HOW/RECORDS hover essays. The
   `showSessionStats` setting (default on) turns it off; the panel's ×
   chip tucks it away with the rest.
 - Charts: real charts, not sparklines (decided 2026-08-22, same
@@ -1535,8 +1623,7 @@ displays changes but does not label their cause.
   current value, and unit float together to the endpoint's left in the
   line's color, nudged apart when endpoints crowd while preserving the
   lines' top-to-bottom order, so reading never needs legend matching —
-  the rates charts have no legend at all. Hovering a line or its label
-  gives that metric's HOW/RECORDS. Mid-line name placement was tried
+  the rates charts have no legend at all. Mid-line name placement was tried
   first and rejected: several near-zero rates share a tight band, so a
   name-sized box rarely had a clear spot and the design would have
   degenerated into a legend fallback most of the time. Mouse speed

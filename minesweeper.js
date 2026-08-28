@@ -589,6 +589,7 @@ function newGame() {
   // so the session stats keep them. Useful-press gaps never span games.
   sessionPlayEnd();
   sessionLastUsefulPressAt = null;
+  gameLastUsefulPressAt = null;
   gameFastclickGaps = [];
   actionEvaluations = [];
   justiceDetails = [];
@@ -646,9 +647,12 @@ function newGame() {
   renderedResult = null;
   finalMotion = null;
   // The board rebuild above removed the path overlay's canvas node; the
-  // button hides with the finished game it belonged to.
+  // controls hide with the finished game they belonged to.
   pathCanvas = null;
-  renderPathViewButton();
+  replayFinishedCells = null;
+  replayEnabled = false;
+  replayStep = 0;
+  renderPathView();
   resultSummary.textContent = '';
   resultStats.textContent = '';
   resultAnalysis.textContent = '';
@@ -2232,6 +2236,7 @@ function actionEvaluationBase(action, actionNumber, selected, triggerCell, optio
       proofVersion: Justice.PROOF_VERSION,
     },
     alternatives: [],
+    choices: [],
   };
   if (options.position !== false) evaluation.position = visiblePositionSnapshot();
   return evaluation;
@@ -2244,6 +2249,19 @@ function addAlternative(evaluation, kind, candidates, risk) {
   const alternative = { kind, cells };
   if (typeof risk === 'number') alternative.risk = risk;
   evaluation.alternatives.push(alternative);
+}
+
+function setDecisionChoices(evaluation, kind, candidates, risk) {
+  const revealing = kind.endsWith('-reveal');
+  const placingFlag = kind.endsWith('-to-flag');
+  const choices = [...new Set(candidates)].filter((cell) =>
+    Number.isInteger(cell) && cell >= 0 && cell < config.width * config.height
+      && (!(revealing || placingFlag) || !cells[cell].revealed)
+      && (!(revealing || placingFlag) || !cells[cell].flagged));
+  if (choices.length === 0) return;
+  const choice = { kind, cells: choices };
+  if (typeof risk === 'number') choice.risk = risk;
+  evaluation.choices = [choice];
 }
 
 function evaluateRevealAction(index, firstReveal, guessEvent, action = 'reveal') {
@@ -2298,6 +2316,23 @@ function evaluateRevealAction(index, firstReveal, guessEvent, action = 'reveal')
     evaluation.evidence.actualRisk = blindRisk;
     evaluation.evidence.bestActualRisk = blindRisk;
     evaluation.evidence.bestRiskTaken = true;
+  }
+
+  if (firstReveal) {
+    setDecisionChoices(evaluation, 'first-safe-reveal',
+      cells.map((_, cellIndex) => cellIndex));
+  } else if (safeAvailable) {
+    setDecisionChoices(evaluation, 'guaranteed-safe-reveal',
+      measuredGuess ? guessEvent.bestCells : local.safeCells, 0);
+  } else if (measuredGuess) {
+    setDecisionChoices(evaluation, 'minimum-risk-reveal',
+      guessEvent.bestCells, guessEvent.minP);
+  } else if (settings.playMode === 'angelic' && local.complete) {
+    setDecisionChoices(evaluation, 'angelic-safe-reveal',
+      cells.map((cell, cellIndex) => ({ cell, cellIndex }))
+        .filter(({ cell, cellIndex }) =>
+          !cell.revealed && !cell.flagged && local.facts.get(cellIndex) !== 1)
+        .map(({ cellIndex }) => cellIndex));
   }
 
   if (provenMine) evaluation.mistakes.push('opened-proven-mine');
@@ -2355,6 +2390,8 @@ function evaluateChordAction(index, toReveal) {
     evaluation.evidence.safeAvailable = safeCells.length > 0;
     evaluation.evidence.wrongFlags = wrongFlags;
     evaluation.evidence.openedProvenMines = openedMines;
+    setDecisionChoices(evaluation, 'guaranteed-safe-reveal',
+      safeCells.filter((cell) => !cells[cell].flagged), 0);
     if (wrongFlags.length > 0 || openedMines.length > 0) {
       evaluation.mistakes.push('chord-visible-contradiction');
     }
@@ -2401,6 +2438,19 @@ function evaluateFlagAction(index, removing) {
     evaluation.evidence.knowledge = provenMine ? 'proven-mine'
       : provenSafe ? 'proven-safe'
         : (local.complete || oddsMeasured) ? 'uncertain' : 'unmeasured';
+    if (removing) {
+      const safeFlags = [];
+      for (let cell = 0; cell < cells.length; cell++) {
+        if (cells[cell].flagged
+            && (local.facts.get(cell) === 2
+              || (oddsMeasured && odds.pMine[cell] <= 1e-12))) {
+          safeFlags.push(cell);
+        }
+      }
+      setDecisionChoices(evaluation, 'proven-safe-flag-to-remove', safeFlags);
+    } else {
+      setDecisionChoices(evaluation, 'proven-mine-to-flag', mineCells);
+    }
     if (!removing && evaluation.evidence.knowledge === 'proven-safe') {
       evaluation.mistakes.push('flagged-proven-safe');
       addAlternative(evaluation, 'flag-proven-mine', mineCells);
@@ -2428,6 +2478,7 @@ function evaluateNoOpAction(index, reason) {
 function recordActionEvaluation(evaluation, result) {
   if (!evaluation) return;
   evaluation.result = result;
+  traceDecision(evaluation);
   if (result === 'death' || evaluationHasMistake(evaluation)) {
     actionEvaluations.push(evaluation);
     sessionRecordEvaluation(evaluation);
@@ -2538,10 +2589,9 @@ function reportResult(outcome) {
   // stays (it spans games), so the panel re-renders rather than hiding.
   renderMetricsPanel(null);
   renderResult(record, modeRecords);
-  // The path button appears with the finished board; a view left on from
-  // the previous game draws this game's path immediately.
-  renderPathViewButton();
-  renderPathOverlay();
+  // The inspection controls appear with the finished board; a view left on
+  // from the previous game renders this game's trace immediately.
+  renderPathView();
 }
 
 // The result currently on screen ({record, modeRecords}), kept so a
@@ -3011,8 +3061,10 @@ function renderResult(record, modeRecords, options = {}) {
   resultAnalysis.textContent = '';
   const historyView = options.historyView === true;
   if (!historyView) {
-    resultAnalysis.appendChild(buildReportScopeControl(
-      () => renderResult(record, modeRecords, options)));
+    if (settings.reportScope === 'full') {
+      resultAnalysis.appendChild(buildReportScopeControl(
+        () => renderResult(record, modeRecords, options)));
+    }
     if (settings.reportScope !== 'none') {
       const verdicts = buildVerdictBlocks(record);
       if (verdicts !== null) {
@@ -3105,6 +3157,10 @@ function renderResult(record, modeRecords, options = {}) {
       resultStats.appendChild(heading);
     }
     resultStats.appendChild(statsGrid);
+  }
+  if (!historyView && settings.reportScope !== 'full') {
+    resultStats.appendChild(buildReportScopeControl(
+      () => renderResult(record, modeRecords, options)));
   }
   const resultSections = createResultSectionCollector(
     historyView ? 'scores' : 'postGame');
@@ -5359,6 +5415,12 @@ function renderRanks(record, modeRecords, options = {}, sections) {
 // mode to tolerate: announce where the player can see it, and throw.
 function storageFailure(what) {
   backupStatus.textContent = what;
+  const startupStatus = document.getElementById('startup-status');
+  if (document.documentElement.classList.contains('game-booting') && startupStatus !== null) {
+    startupStatus.textContent = 'Could not load your saved game. ' + what;
+    startupStatus.classList.add('startup-error');
+    document.body.removeAttribute('aria-busy');
+  }
   throw new Error(what);
 }
 
@@ -5403,7 +5465,7 @@ function beginTrace() {
     startedAt: Date.now(),
     t0: performance.now(),
     t: [], x: [], y: [],   // cursor samples, one entry per mousemove
-    events: [],            // button + layout events, see traceEvent/recordLayout
+    events: [],            // button, layout, and decision events
   };
   recordLayout();
   // The metrics panel flips back to live immediately with fresh series:
@@ -5461,10 +5523,45 @@ function traceEvent(kind, event, index) {
   recordLayoutIfMoved();
   trace.events.push({
     t: performance.now() - trace.t0,
+    atMs: gameState === 'playing' ? elapsedMs() : 0,
     kind: kind,
     x: event.clientX,
     y: event.clientY,
     index: index,
+  });
+}
+
+// Every accepted board action gets one exact pre-action player view and the
+// choices measured from it. This belongs in the raw trace: it is the durable
+// time-aligned source for replay and later decision analysis, while the game
+// record keeps only the reportable mistake subset.
+function traceDecision(evaluation) {
+  if (!tracing()) return;
+  let input;
+  for (let i = trace.events.length - 1; i >= 0; i--) {
+    const event = trace.events[i];
+    if ((event.kind === 'lup' || event.kind === 'rdown')
+        && event.index !== null) {
+      input = event;
+      break;
+    }
+  }
+  if (input === undefined) {
+    throw new Error('accepted board action has no input trace event');
+  }
+  evaluation.atMs = input.atMs;
+  // No-op report entries deliberately stay compact in scalar history. Their
+  // unchanged pre-action board is added only to the raw trace copy needed by
+  // replay, never back onto the persisted report object.
+  const traceEvaluation = evaluation.position === undefined
+    ? { ...evaluation, position: visiblePositionSnapshot() }
+    : evaluation;
+  trace.events.push({
+    t: input.t,
+    kind: 'decision',
+    x: input.x,
+    y: input.y,
+    evaluation: traceEvaluation,
   });
 }
 
@@ -5492,26 +5589,165 @@ function saveTrace(record) {
   tx.onerror = () => storageFailure('trace save failed: ' + tx.error);
 }
 
-//-------PATH REPLAY (after-game views of the game's cursor path)-------
+//-------PATH REPLAY: COMPUTATION-------
 
-// After a game ends its trace is still in RAM (newGame replaces it), so
-// the finished board can show the actual cursor path drawn straight from
-// the trace — nothing new is stored, and the views exist only until the
-// next board. #path-view-btn (beside "see scores", below the board)
-// cycles off → moves → clicks: 'moves' is the polyline through every
-// recorded cursor sample, warmup included; 'clicks' connects only the
-// effective click events ('lup'/'rdown', the events that end trace
-// segments) in click order. Both shade light = earlier, dark = later
-// (the overlay-chart convention); click dots draw in both views, blue
-// for left clicks, red for right (flag) clicks. Every point maps through
-// the layout event in effect at its trace time to a board fraction and
-// then onto the board's current border box, so the drawing is correct
-// across mid-game scrolls and zooms and follows after-game zoom changes.
-const PATH_VIEW_ORDER = ['off', 'moves', 'clicks'];
-let pathView = 'off';   // kept across games within the page session
-let pathCanvas = null;  // the overlay currently on the board, or null
+// The same Tukey inner-fence rule used by the lower scatter charts keeps an
+// extreme pause or coalesced burst from flattening every local color
+// difference. Values remain data; only the display range is trimmed.
+function pathDisplayRange(values) {
+  const sorted = values.filter(Number.isFinite).sort((a, b) => a - b);
+  if (sorted.length === 0) return undefined;
+  const q = (p) => {
+    const at = (sorted.length - 1) * p;
+    const lo = Math.floor(at);
+    const hi = Math.ceil(at);
+    return sorted[lo] + (sorted[hi] - sorted[lo]) * (at - lo);
+  };
+  let shown = sorted;
+  if (sorted.length >= 8) {
+    const q1 = q(0.25);
+    const q3 = q(0.75);
+    const iqr = q3 - q1;
+    const low = q1 - 1.5 * iqr;
+    const high = q3 + 1.5 * iqr;
+    shown = sorted.filter((value) => value >= low && value <= high);
+  }
+  let min = shown[0];
+  let max = shown[shown.length - 1];
+  return {
+    min,
+    max,
+    trimmed: sorted.length - shown.length,
+  };
+}
+
+function pathDecisionEvents(events) {
+  return events
+    .filter((event) => event.kind === 'decision'
+      && event.evaluation && event.evaluation.position)
+    .sort((a, b) => a.t - b.t);
+}
+
+function pathClickEvents(events) {
+  return events
+    .filter((event) => (event.kind === 'lup' || event.kind === 'rdown')
+      && Number.isFinite(event.x) && Number.isFinite(event.y))
+    .sort((a, b) => a.t - b.t);
+}
+
+function pathDecisionProgress(decision) {
+  const position = decision.evaluation.position;
+  const safeCells = position.width * position.height - position.mines;
+  return safeCells > 0 ? position.revealed.length / safeCells : 0;
+}
+
+function pathDecisionIsLessUseful(decision) {
+  return Array.isArray(decision.evaluation.mistakes)
+    && decision.evaluation.mistakes.length > 0;
+}
+
+// Context roles for each run of less-useful actions. The useful action before
+// a run and the next useful action after it stay visible, so the overlay shows
+// a complete measurable episode rather than disconnected red fragments.
+function pathLessUsefulRoles(decisions) {
+  const roles = decisions.map(() => ({ before: false, less: false, after: false }));
+  let i = 0;
+  while (i < decisions.length) {
+    if (!pathDecisionIsLessUseful(decisions[i])) {
+      i++;
+      continue;
+    }
+    if (i > 0) roles[i - 1].before = true;
+    while (i < decisions.length && pathDecisionIsLessUseful(decisions[i])) {
+      roles[i].less = true;
+      i++;
+    }
+    if (i < decisions.length) roles[i].after = true;
+  }
+  return roles;
+}
+
+// Uncertain reasonable-choice cells become connected areas for replay
+// callouts. Eight-neighbor connectivity matches the way a Minesweeper pocket
+// reads visually; deterministic ordering keeps side labels stable.
+function pathChoiceAreas(evaluation) {
+  const position = evaluation.position;
+  if (!position) return [];
+  const width = position.width;
+  const height = position.height;
+  const areas = [];
+  for (const choice of evaluation.choices || []) {
+    if (!(typeof choice.risk === 'number' && choice.risk > 0 && choice.risk < 1)
+        || !Array.isArray(choice.cells)) continue;
+    const remaining = new Set(choice.cells.filter((cell) =>
+      Number.isInteger(cell) && cell >= 0 && cell < width * height));
+    while (remaining.size > 0) {
+      const first = Math.min(...remaining);
+      remaining.delete(first);
+      const cells = [];
+      const queue = [first];
+      while (queue.length > 0) {
+        const cell = queue.pop();
+        cells.push(cell);
+        const x = cell % width;
+        const y = Math.floor(cell / width);
+        for (let dy = -1; dy <= 1; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            if (dx === 0 && dy === 0) continue;
+            const nx = x + dx;
+            const ny = y + dy;
+            const neighbor = ny * width + nx;
+            if (nx >= 0 && nx < width && ny >= 0 && ny < height
+                && remaining.delete(neighbor)) queue.push(neighbor);
+          }
+        }
+      }
+      cells.sort((a, b) => a - b);
+      areas.push({ kind: choice.kind, risk: choice.risk, cells });
+    }
+  }
+  return areas.sort((a, b) => a.cells[0] - b.cells[0]);
+}
+
+function pathRiskLabel(risk) {
+  if (Math.abs(risk - 0.5) <= 1e-12) return '50/50';
+  const pct = risk * 100;
+  if (pct < 0.1) return '<0.1% mine';
+  if (pct > 99.9) return '>99.9% mine';
+  const shown = Math.round(pct * 10) / 10;
+  return (Number.isInteger(shown) ? shown.toFixed(0) : shown.toFixed(1)) + '% mine';
+}
+
+function pathHeatColor(value, range) {
+  if (range.max <= range.min) return 'hsl(110, 88%, 42%)';
+  const fraction = Math.max(0, Math.min(1,
+    (value - range.min) / (range.max - range.min)));
+  return 'hsl(' + (220 * (1 - fraction)).toFixed(1) + ', 88%, 42%)';
+}
+
+//-------PATH REPLAY: DISPLAY-------
+
+// The just-finished trace remains in RAM until the next board. Its decision
+// events are also persisted in the trace store, preserving exact player-view
+// positions and measured choices for future historical analysis.
+const PATH_VIEW_IDS = new Set([
+  'off', 'raw-path', 'click-locations',
+  'movement-speed', 'click-speed', 'progress', 'less-useful',
+]);
+let pathView = 'off';
+let replayEnabled = false;
+let pathCanvas = null;
 let pathResizeObserver = null;
-const pathViewButton = document.getElementById('path-view-btn');
+let replayFinishedCells = null;
+let replayStep = 0;
+const pathViewControl = document.getElementById('path-view-control');
+const pathViewButtons = [...pathViewControl.querySelectorAll('[data-path-view]')];
+const pathViewLegend = document.getElementById('path-view-legend');
+const replayToggle = document.getElementById('replay-toggle');
+const replayControls = document.getElementById('replay-controls');
+const replayPrevious = document.getElementById('replay-prev');
+const replayNext = document.getElementById('replay-next');
+const replayStatus = document.getElementById('replay-status');
 
 function pathViewAvailable() {
   return (gameState === 'won' || gameState === 'lost')
@@ -5519,9 +5755,14 @@ function pathViewAvailable() {
     && !document.getElementById('game-frame').hidden;
 }
 
-function renderPathViewButton() {
-  pathViewButton.hidden = !pathViewAvailable();
-  pathViewButton.textContent = 'path: ' + pathView;
+function renderPathViewControls() {
+  const available = pathViewAvailable();
+  pathViewControl.hidden = !available;
+  for (const button of pathViewButtons) {
+    button.setAttribute('aria-pressed', String(button.dataset.pathView === pathView));
+  }
+  replayToggle.setAttribute('aria-pressed', String(replayEnabled));
+  replayControls.hidden = !replayEnabled || !available;
 }
 
 // One mapper per drawing pass: points arrive in trace-time order, so the
@@ -5539,12 +5780,290 @@ function pathPointMapper(width, height) {
   };
 }
 
-function renderPathOverlay() {
+function removePathCanvas() {
   if (pathCanvas !== null) {
     pathCanvas.remove();
     pathCanvas = null;
   }
-  if (pathView === 'off' || !pathViewAvailable()) return;
+}
+
+function removeReplayCallouts() {
+  const old = document.getElementById('replay-choice-areas');
+  if (old !== null) old.remove();
+}
+
+// Labels uncertain connected choice areas just outside the board, with elbow
+// leaders back to the actual cells. Vertical packing prevents nearby pockets'
+// labels from hiding one another.
+function renderReplayChoiceAreas(evaluation) {
+  removeReplayCallouts();
+  const areas = pathChoiceAreas(evaluation);
+  if (areas.length === 0) return;
+  const boardRect = boardElement.getBoundingClientRect();
+  const resultsVisible = resultSummary.textContent !== '' || resultStats.textContent !== '';
+  const resultRect = resultsVisible ? resultsBox.getBoundingClientRect() : null;
+  const rightBlocked = resultRect !== null
+    && resultRect.left < boardRect.right + 150
+    && resultRect.right > boardRect.right
+    && resultRect.top < boardRect.bottom
+    && resultRect.bottom > boardRect.top;
+  const rightRoom = window.innerWidth - boardRect.right;
+  const leftRoom = boardRect.left;
+  const onRight = (!rightBlocked && rightRoom >= 150) || leftRoom < 150;
+  const placed = areas.map((area) => {
+    const rects = area.cells.map((cell) => cellElements[cell].getBoundingClientRect());
+    return {
+      area,
+      anchorX: onRight
+        ? Math.max(...rects.map((rect) => rect.right - boardRect.left))
+        : Math.min(...rects.map((rect) => rect.left - boardRect.left)),
+      anchorY: rects.reduce((sum, rect) =>
+        sum + rect.top + rect.height / 2 - boardRect.top, 0) / rects.length,
+    };
+  }).sort((a, b) => a.anchorY - b.anchorY);
+  const gap = 22;
+  let nextY = 10;
+  for (const item of placed) {
+    item.labelY = Math.max(nextY, Math.min(boardRect.height - 10, item.anchorY));
+    nextY = item.labelY + gap;
+  }
+  for (let i = placed.length - 2; i >= 0; i--) {
+    placed[i].labelY = Math.min(placed[i].labelY, placed[i + 1].labelY - gap);
+  }
+
+  const layer = document.createElement('div');
+  layer.id = 'replay-choice-areas';
+  layer.className = onRight ? 'on-right' : 'on-left';
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('width', String(boardRect.width));
+  svg.setAttribute('height', String(boardRect.height));
+  svg.setAttribute('aria-hidden', 'true');
+  layer.appendChild(svg);
+  for (const item of placed) {
+    const edgeX = onRight ? boardRect.width + 4 : -4;
+    const labelX = onRight ? boardRect.width + 9 : -9;
+    const line = document.createElementNS(SVG_NS, 'polyline');
+    line.setAttribute('points', [
+      item.anchorX + ',' + item.anchorY,
+      edgeX + ',' + item.anchorY,
+      edgeX + ',' + item.labelY,
+      labelX + ',' + item.labelY,
+    ].join(' '));
+    line.setAttribute('class', 'replay-area-leader');
+    svg.appendChild(line);
+    const label = document.createElement('span');
+    label.className = 'replay-area-label';
+    if (onRight) label.style.left = (boardRect.width + 11) + 'px';
+    else label.style.right = (boardRect.width + 11) + 'px';
+    label.style.top = (item.labelY - 9) + 'px';
+    label.textContent = pathRiskLabel(item.area.risk)
+      + ' · ' + item.area.cells.length + ' cell'
+      + (item.area.cells.length === 1 ? '' : 's');
+    layer.appendChild(label);
+  }
+  boardElement.appendChild(layer);
+}
+
+function restoreFinishedBoard() {
+  removeReplayCallouts();
+  if (replayFinishedCells === null) return;
+  for (let i = 0; i < cellElements.length; i++) {
+    cellElements[i].className = replayFinishedCells[i].className;
+    cellElements[i].innerHTML = replayFinishedCells[i].innerHTML;
+  }
+  replayFinishedCells = null;
+}
+
+function replayChoiceCells(evaluation) {
+  return [...new Set((evaluation.choices || [])
+    .flatMap((choice) => Array.isArray(choice.cells) ? choice.cells : []))];
+}
+
+function renderReplayFrame() {
+  const decisions = pathDecisionEvents(trace.events);
+  if (decisions.length === 0) {
+    replayStatus.textContent = 'no decision frames';
+    replayPrevious.disabled = true;
+    replayNext.disabled = true;
+    renderPathOverlay();
+    return;
+  }
+  if (replayFinishedCells === null) {
+    replayFinishedCells = cellElements.map((element) => ({
+      className: element.className,
+      innerHTML: element.innerHTML,
+    }));
+  }
+  replayStep = Math.max(0, Math.min(decisions.length - 1, replayStep));
+  const evaluation = decisions[replayStep].evaluation;
+  const position = evaluation.position;
+  const revealed = new Map(position.revealed || []);
+  const flagged = new Set(position.flagged || []);
+  const choices = new Set(replayChoiceCells(evaluation));
+  const selected = new Set(evaluation.selected || []);
+  for (let i = 0; i < cellElements.length; i++) {
+    const element = cellElements[i];
+    if (revealed.has(i)) {
+      const adjacent = revealed.get(i);
+      element.className = 'cell revealed' + (adjacent > 0 ? ' n' + adjacent : '');
+      paintCellGlyph(element, adjacent);
+    } else {
+      element.className = 'cell hidden';
+      element.innerHTML = flagged.has(i) ? FLAG_SVG : '';
+    }
+    if (choices.has(i)) element.classList.add('replay-choice');
+    if (selected.has(i)) element.classList.add('replay-selected');
+  }
+  renderReplayChoiceAreas(evaluation);
+  const choiceCount = choices.size;
+  const atSeconds = Number.isFinite(evaluation.atMs)
+    ? (evaluation.atMs / 1000).toFixed(2) + 's' : 'before timer';
+  replayStatus.textContent = (replayStep + 1) + '/' + decisions.length
+    + ' · ' + atSeconds + ' · ' + evaluation.action
+    + ' · ' + choiceCount + ' measured choice' + (choiceCount === 1 ? '' : 's');
+  replayPrevious.disabled = replayStep === 0;
+  replayNext.disabled = replayStep === decisions.length - 1;
+  renderPathOverlay();
+}
+
+function pathSegments(decisions) {
+  const segments = [];
+  let nextDecision = 0;
+  for (let i = 1; i < trace.t.length; i++) {
+    while (decisions.length > 0 && nextDecision + 1 < decisions.length
+        && decisions[nextDecision].t < trace.t[i]) {
+      nextDecision++;
+    }
+    const decision = decisions[nextDecision] || null;
+    const dt = trace.t[i] - trace.t[i - 1];
+    if (dt <= 0) continue;
+    let value;
+    if (pathView === 'movement-speed') {
+      value = Math.hypot(
+        trace.x[i] - trace.x[i - 1],
+        trace.y[i] - trace.y[i - 1]) * 1000 / dt;
+    } else if (pathView === 'click-speed' && decision !== null && nextDecision > 0) {
+      const gap = decision.t - decisions[nextDecision - 1].t;
+      if (gap > 0) value = 1000 / gap;
+    } else if (pathView === 'progress' && decision !== null) {
+      value = pathDecisionProgress(decision);
+    }
+    segments.push({
+      from: i - 1,
+      to: i,
+      decision,
+      decisionIndex: nextDecision,
+      value,
+    });
+  }
+  return segments;
+}
+
+function pathTimeColor(t, endT) {
+  const fraction = endT > 0 ? Math.max(0, Math.min(1, t / endT)) : 0;
+  return 'hsl(211, 85%, ' + (78 - 56 * fraction).toFixed(1) + '%)';
+}
+
+function resetPathLegend() {
+  pathViewLegend.replaceChildren();
+  pathViewLegend.hidden = true;
+}
+
+function appendPathLegendRow(title, keys, note) {
+  const row = document.createElement('div');
+  row.className = 'path-legend-row';
+  const heading = document.createElement('span');
+  heading.className = 'path-legend-title';
+  heading.textContent = title;
+  row.appendChild(heading);
+  for (const key of keys) {
+    const item = document.createElement('span');
+    item.className = 'path-legend-key';
+    const swatch = document.createElement('span');
+    swatch.className = 'path-legend-swatch' + (key.dot ? ' dot' : '');
+    swatch.style.background = key.color;
+    const label = document.createElement('span');
+    label.textContent = key.label;
+    item.append(swatch, label);
+    row.appendChild(item);
+  }
+  if (note) {
+    const noteEl = document.createElement('span');
+    noteEl.className = 'path-legend-note';
+    noteEl.textContent = note;
+    row.appendChild(noteEl);
+  }
+  pathViewLegend.appendChild(row);
+  pathViewLegend.hidden = false;
+}
+
+function appendPathGradientLegend(title, range, format, options = {}) {
+  if (range === undefined) {
+    appendPathLegendRow(title, [], 'not enough measured movement');
+    return;
+  }
+  if (range.max <= range.min) {
+    appendPathLegendRow(title, [{
+      color: options.time ? 'hsl(211, 85%, 50%)' : pathHeatColor(range.min, range),
+      label: format(range.min),
+    }], 'all measured segments have the same value');
+    return;
+  }
+  const row = document.createElement('div');
+  row.className = 'path-legend-row';
+  const heading = document.createElement('span');
+  heading.className = 'path-legend-title';
+  heading.textContent = title;
+  const scale = document.createElement('span');
+  scale.className = 'path-gradient-scale';
+  const low = document.createElement('span');
+  low.textContent = format(range.min);
+  const barWrap = document.createElement('span');
+  const bar = document.createElement('span');
+  bar.className = 'path-gradient-bar'
+    + (options.time ? ' path-time-gradient' : '');
+  const mid = document.createElement('span');
+  mid.className = 'path-gradient-mid';
+  mid.textContent = format((range.min + range.max) / 2);
+  barWrap.append(bar, mid);
+  const high = document.createElement('span');
+  high.textContent = format(range.max);
+  scale.append(low, barWrap, high);
+  row.append(heading, scale);
+  if (range.trimmed > 0) {
+    const note = document.createElement('span');
+    note.className = 'path-legend-note';
+    note.textContent = range.trimmed + ' extreme segment'
+      + (range.trimmed === 1 ? '' : 's') + ' clipped to the shown color range';
+    row.appendChild(note);
+  }
+  pathViewLegend.appendChild(row);
+  pathViewLegend.hidden = false;
+}
+
+function appendReplayLegend() {
+  if (!replayEnabled) return;
+  appendPathLegendRow('decision-time board', [
+    { color: '#25a55f', label: 'measured choices' },
+    { color: '#f1a208', label: 'selected', dot: true },
+    { color: '#7256a8', label: 'uncertain area → side risk label' },
+  ]);
+}
+
+function renderPathOverlay() {
+  removePathCanvas();
+  resetPathLegend();
+  if (!pathViewAvailable()) return;
+  const decisions = pathDecisionEvents(trace.events);
+  if (pathView === 'off') {
+    appendReplayLegend();
+    return;
+  }
+  if (decisions.length === 0 && pathView !== 'raw-path') {
+    appendPathLegendRow('path', [], 'no recorded decision locations');
+    appendReplayLegend();
+    return;
+  }
   const rect = boardElement.getBoundingClientRect();
   const canvas = document.createElement('canvas');
   canvas.id = 'path-canvas';
@@ -5562,61 +6081,182 @@ function renderPathOverlay() {
   pathCanvas = canvas;
   if (pathResizeObserver === null) {
     pathResizeObserver = new ResizeObserver(() => {
-      if (pathCanvas !== null) renderPathOverlay();
+      if (pathCanvas === null) return;
+      if (replayEnabled) renderReplayFrame();
+      else renderPathOverlay();
     });
     pathResizeObserver.observe(boardElement);
   }
   const ctx = canvas.getContext('2d');
   ctx.scale(scale, scale);
-  const clicks = trace.events.filter((e) => e.kind === 'lup' || e.kind === 'rdown');
-  const lastSampleT = trace.t.length > 0 ? trace.t[trace.t.length - 1] : 0;
-  const lastClickT = clicks.length > 0 ? clicks[clicks.length - 1].t : 0;
-  const tEnd = Math.max(lastSampleT, lastClickT);
-  const shade = (t) => 'hsl(211, 85%, '
-    + (78 - (tEnd > 0 ? 56 * (t / tEnd) : 0)) + '%)';
-  const segment = (from, to, t) => {
-    ctx.strokeStyle = shade(t);
-    ctx.beginPath();
-    ctx.moveTo(from[0], from[1]);
-    ctx.lineTo(to[0], to[1]);
-    ctx.stroke();
-  };
-  ctx.lineWidth = 1.5;
-  ctx.lineCap = 'round';
-  const toLine = pathPointMapper(rect.width, rect.height);
-  let prev = null;
-  if (pathView === 'moves') {
-    for (let i = 0; i < trace.t.length; i++) {
-      const point = toLine(trace.t[i], trace.x[i], trace.y[i]);
-      if (prev !== null) segment(prev, point, trace.t[i]);
-      prev = point;
-    }
-  } else {
-    for (const click of clicks) {
-      const point = toLine(click.t, click.x, click.y);
-      if (prev !== null) segment(prev, point, click.t);
-      prev = point;
-    }
+  const segments = pathSegments(decisions);
+  const endT = trace.t.length === 0 ? 0 : trace.t[trace.t.length - 1];
+  const cutoff = replayEnabled && decisions.length > 0
+    ? decisions[Math.max(0, Math.min(decisions.length - 1, replayStep))].t
+    : Infinity;
+  const range = pathView === 'progress'
+    ? { min: 0, max: 1, trimmed: 0 }
+    : pathDisplayRange(segments.map((segment) => segment.value));
+  if (pathView === 'movement-speed') {
+    appendPathGradientLegend('movement speed', range,
+      (value) => Math.round(value) + ' px/s');
+  } else if (pathView === 'click-speed') {
+    appendPathGradientLegend('click speed', range,
+      (value) => value.toFixed(2) + '/s');
+  } else if (pathView === 'progress') {
+    appendPathGradientLegend('game progress', range,
+      (value) => Math.round(value * 100) + '% uncovered');
+  } else if (pathView === 'raw-path') {
+    appendPathGradientLegend('raw path · elapsed trace time',
+      { min: 0, max: endT, trimmed: 0 },
+      (value) => (value / 1000).toFixed(1) + 's', { time: true });
+    appendPathLegendRow('click markers', [
+      { color: '#174ea6', label: 'left-button release', dot: true },
+      { color: '#c62828', label: 'right-button press', dot: true },
+    ]);
+  } else if (pathView === 'click-locations') {
+    appendPathLegendRow('numbered click locations', [
+      { color: '#174ea6', label: 'left-button release', dot: true },
+      { color: '#c62828', label: 'right-button press', dot: true },
+    ], 'numbers are raw input order');
+  } else if (pathView === 'less-useful') {
+    const count = decisions.filter(pathDecisionIsLessUseful).length;
+    appendPathLegendRow('less-useful episodes', [
+      { color: '#174ea6', label: 'last useful click', dot: true },
+      { color: '#d95f02', label: 'mistake-tagged action / path' },
+      { color: '#2e7d32', label: 'next useful action / path' },
+    ], count + ' mistake-tagged action' + (count === 1 ? '' : 's')
+      + ' · time labels measure each action-to-action segment');
   }
-  const toDot = pathPointMapper(rect.width, rect.height);
-  const radius = pathView === 'clicks' ? 3.5 : 2.5;
-  for (const click of clicks) {
-    const [x, y] = toDot(click.t, click.x, click.y);
+  appendReplayLegend();
+  ctx.lineWidth = pathView === 'raw-path' ? 3 : 4.25;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  const mapper = pathPointMapper(rect.width, rect.height);
+  const mappedPoints = trace.t.map((t, i) => mapper(t, trace.x[i], trace.y[i]));
+  const lessRoles = pathLessUsefulRoles(decisions);
+  for (const segment of segments) {
+    if (trace.t[segment.to] > cutoff) continue;
+    const role = lessRoles[segment.decisionIndex];
+    const show = pathView === 'raw-path'
+      || (pathView === 'less-useful'
+        ? role && (role.less || role.after)
+        : pathView !== 'click-locations' && Number.isFinite(segment.value));
+    if (!show) continue;
+    if (pathView === 'raw-path') {
+      ctx.strokeStyle = pathTimeColor(trace.t[segment.to], endT);
+    } else if (pathView === 'less-useful') {
+      ctx.strokeStyle = role.less ? '#d95f02' : '#2e7d32';
+    } else {
+      ctx.strokeStyle = pathHeatColor(segment.value, range);
+    }
+    ctx.beginPath();
+    ctx.moveTo(mappedPoints[segment.from][0], mappedPoints[segment.from][1]);
+    ctx.lineTo(mappedPoints[segment.to][0], mappedPoints[segment.to][1]);
+    ctx.stroke();
+  }
+  const dotMapper = pathPointMapper(rect.width, rect.height);
+  const drawDot = (x, y, color, radius = 4) => {
     ctx.beginPath();
     ctx.arc(x, y, radius, 0, 2 * Math.PI);
-    ctx.fillStyle = click.kind === 'rdown' ? '#cc0000' : '#0000cc';
+    ctx.fillStyle = color;
     ctx.fill();
-    ctx.lineWidth = 1;
+    ctx.lineWidth = 1.25;
     ctx.strokeStyle = '#ffffff';
     ctx.stroke();
+  };
+  const drawLabel = (x, y, text, color) => {
+    ctx.font = 'bold 10px Arial, sans-serif';
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = '#ffffff';
+    ctx.strokeText(text, x + 6, y - 5);
+    ctx.fillStyle = color;
+    ctx.fillText(text, x + 6, y - 5);
+  };
+  if (pathView === 'raw-path' || pathView === 'click-locations') {
+    const clicks = pathClickEvents(trace.events);
+    const clickMapper = pathPointMapper(rect.width, rect.height);
+    for (let i = 0; i < clicks.length; i++) {
+      const click = clicks[i];
+      if (click.t > cutoff) continue;
+      const [x, y] = clickMapper(click.t, click.x, click.y);
+      const color = click.kind === 'rdown' ? '#c62828' : '#174ea6';
+      drawDot(x, y, color, pathView === 'click-locations' ? 4.5 : 4);
+      if (pathView === 'click-locations') drawLabel(x, y, String(i + 1), color);
+    }
+  }
+  for (let i = 0; i < decisions.length; i++) {
+    const decision = decisions[i];
+    if (decision.t > cutoff) continue;
+    const role = lessRoles[i];
+    const showDot = pathView === 'less-useful'
+      && (role.before || role.less || role.after);
+    if (!showDot) continue;
+    const [x, y] = dotMapper(decision.t, decision.x, decision.y);
+    const color = role.less ? '#d95f02' : role.after ? '#2e7d32' : '#174ea6';
+    drawDot(x, y, color);
+    if (i > 0 && (role.less || role.after)) {
+      const gap = decision.t - decisions[i - 1].t;
+      drawLabel(x, y, gap < 1000 ? Math.round(gap) + 'ms'
+        : (gap / 1000).toFixed(2) + 's', color);
+    }
   }
 }
 
-pathViewButton.addEventListener('click', () => {
-  pathView = PATH_VIEW_ORDER[
-    (PATH_VIEW_ORDER.indexOf(pathView) + 1) % PATH_VIEW_ORDER.length];
-  renderPathOverlay();
-  renderPathViewButton();
+function renderPathView() {
+  if (!replayEnabled) restoreFinishedBoard();
+  removePathCanvas();
+  renderPathViewControls();
+  if (replayEnabled && pathViewAvailable()) {
+    renderReplayFrame();
+  } else {
+    removeReplayCallouts();
+    renderPathOverlay();
+  }
+}
+
+for (const button of pathViewButtons) {
+  button.addEventListener('click', () => {
+    const id = button.dataset.pathView;
+    if (!PATH_VIEW_IDS.has(id)) throw new Error('unknown path view: ' + id);
+    pathView = id;
+    renderPathView();
+  });
+}
+
+replayToggle.addEventListener('click', () => {
+  replayEnabled = !replayEnabled;
+  if (replayEnabled) {
+    const decisions = pathDecisionEvents(trace.events);
+    replayStep = Math.max(0, decisions.length - 1);
+  }
+  renderPathView();
+});
+
+replayPrevious.addEventListener('click', () => {
+  replayStep--;
+  renderReplayFrame();
+});
+
+replayNext.addEventListener('click', () => {
+  replayStep++;
+  renderReplayFrame();
+});
+
+document.addEventListener('keydown', (event) => {
+  if (!replayEnabled || !pathViewAvailable()) return;
+  if (event.target instanceof HTMLElement
+      && event.target.matches(
+        'input, select, textarea, button, [contenteditable], [tabindex]')) return;
+  if (event.key === 'ArrowLeft') {
+    event.preventDefault();
+    replayStep--;
+    renderReplayFrame();
+  } else if (event.key === 'ArrowRight') {
+    event.preventDefault();
+    replayStep++;
+    renderReplayFrame();
+  }
 });
 
 //-------MUSIC STATE (was audio playing, asked of the machine's base system)-------
@@ -7276,15 +7916,11 @@ function appendTraceMetricsSeries(metrics) {
   }
 }
 
-// One metric as label + current value + chart of its series. The hover
-// tooltip is the metric's full explanation: how the value is calculated,
-// then what it is used for and in what context.
+// One metric as label + current value + chart of its series.
 function buildMetricRow(group, display, metrics, series, size, rowClass) {
   const value = displayableNumber(display.of(metrics));
   const row = document.createElement('div');
   row.className = rowClass;
-  row.title = 'HOW: ' + display.calc + '.\n\nRECORDS: ' + display.records + '.'
-    + (value === undefined ? '\n\n(not yet measurable on this trace)' : '');
   const head = document.createElement('div');
   head.className = 'metric-head';
   const labelEl = document.createElement('span');
@@ -7306,7 +7942,6 @@ function buildMetricsGroupHead(group) {
   const head = document.createElement('div');
   head.className = 'metrics-group-head';
   head.textContent = group.name;
-  head.title = group.definition;
   return head;
 }
 
@@ -7373,12 +8008,6 @@ function renderMetricsPanelContent(metrics) {
 
   const head = document.createElement('div');
   head.className = 'metrics-panel-head';
-  const phaseEl = document.createElement('span');
-  phaseEl.className = 'metric-phase';
-  phaseEl.textContent = showLive ? 'live' : 'session';
-  phaseEl.title = showLive
-    ? 'recomputed over the trace so far, once a second'
-    : 'ongoing bucketed stats across games, last hour of actual play';
   const hide = document.createElement('button');
   hide.type = 'button';
   hide.className = 'metrics-toggle';
@@ -7388,7 +8017,13 @@ function renderMetricsPanelContent(metrics) {
     metricsPanelCollapsed = true;
     refreshMetricsPanel();
   });
-  head.append(phaseEl, hide);
+  if (showLive) {
+    const phaseEl = document.createElement('span');
+    phaseEl.className = 'metric-phase';
+    phaseEl.textContent = 'live';
+    head.appendChild(phaseEl);
+  }
+  head.appendChild(hide);
   metricsPanelContent.appendChild(head);
   metricsPanel.appendChild(buildMetricsResizeGrip());
 
@@ -7589,7 +8224,7 @@ setInterval(() => {
 //   loss. On a measured win, winUnmarked is the share of the board's
 //   mines carrying no flag at the winning instant (0..1); absent
 //   otherwise. Feeds the game-endings fraction lines.
-// - {kind:'game', from, to, px, useful, wasted, misclicks, flags, fatalMistake, fastGapMs, end, winUnmarked}
+// - {kind:'game', modeKey, from, to, px, useful, wasted, misclicks, flags, fatalMistake, fastGapMs, end, winUnmarked}
 //   — a whole finished game backfilled from its stored record (games
 //   played before this page load; see sessionBackfillFromHistory). Its
 //   totals spread across its span proportionally to each bucket's
@@ -7654,6 +8289,43 @@ function sessionHistorySlice(games, keepMs) {
     playOffsetMs += games[i].to - games[i].from;
   }
   return { games: games.slice(keepFrom), playOffsetMs };
+}
+
+// Keep enough recent play for the all-modes view and independently for
+// every exact mode. This prevents a frequently played mode from pushing a
+// less frequent current mode out of its selectable played-time window.
+function sessionRetainedEvents(events, keepMs) {
+  const spans = events
+    .filter((ev) => (ev.kind === 'play' || ev.kind === 'game') && ev.to > ev.from)
+    .sort((a, b) => a.to - b.to);
+  const retained = new Set(sessionHistorySlice(spans, keepMs).games);
+  const byMode = new Map();
+  for (const span of spans) {
+    const key = span.modeKey || '';
+    if (!byMode.has(key)) byMode.set(key, []);
+    byMode.get(key).push(span);
+  }
+  for (const modeSpans of byMode.values()) {
+    for (const span of sessionHistorySlice(modeSpans, keepMs).games) retained.add(span);
+  }
+  const modeCutoffs = new Map();
+  for (const span of retained) {
+    const key = span.modeKey || '';
+    modeCutoffs.set(key, Math.min(modeCutoffs.get(key) ?? Infinity, span.from));
+  }
+  return events.filter((ev) => {
+    if (ev.kind === 'play' || ev.kind === 'game') return retained.has(ev);
+    const cutoff = modeCutoffs.get(ev.modeKey || '');
+    // An active game's point events exist before its play span is closed.
+    // With no finished span for that mode yet, they must all survive.
+    return cutoff === undefined || ev.at >= cutoff;
+  });
+}
+
+function sessionEventsForMode(events, exactModeKey, scope) {
+  return scope === 'all'
+    ? events
+    : events.filter((ev) => ev.modeKey === exactModeKey);
 }
 
 // The mine count encoded in a mode key ("30x16/99" or "30x16/99@standard").
@@ -7847,24 +8519,35 @@ function sessionBucketSeries(events, opts) {
   }
   wins.sort((a, b) => a.playAt - b.playAt);
 
-  // Game endings as cumulative fractions of the games finished so far in
-  // the window: at each bucket, kind count / total over buckets 0..i.
-  // Undefined until the first game ends (a fraction of nothing is not 0).
-  // winUnmarkedFraction is the same cumulative shape over a different
-  // denominator: the average unmarked-mine share across the measured wins
-  // so far, undefined until the first one.
+  // Game endings are exposed both as cumulative fractions (for running
+  // averages) and independent per-bucket fractions (for raw grouping).
+  // A fraction of no finished games is undefined, never zero.
   const endFractions = {};
+  const rawEndFractions = {};
   for (const kind of SESSION_END_KINDS) {
     endFractions[kind] = new Array(bucketCount).fill(undefined);
+    rawEndFractions[kind] = new Array(bucketCount).fill(undefined);
   }
   const endGames = new Array(bucketCount).fill(0);
+  const rawEndGames = new Array(bucketCount).fill(0);
   const winUnmarkedFraction = new Array(bucketCount).fill(undefined);
+  const rawWinUnmarkedFraction = new Array(bucketCount).fill(undefined);
   {
     const cumulative = new Array(SESSION_END_KINDS.length).fill(0);
     let total = 0;
     let unmarkedSum = 0;
     let unmarkedWins = 0;
     for (let i = 0; i < bucketCount; i++) {
+      const bucketGames = endCounts.reduce((sum, counts) => sum + counts[i], 0);
+      rawEndGames[i] = bucketGames;
+      if (bucketGames > 0) {
+        for (let k = 0; k < SESSION_END_KINDS.length; k++) {
+          rawEndFractions[SESSION_END_KINDS[k]][i] = endCounts[k][i] / bucketGames;
+        }
+      }
+      if (winUnmarkedWins[i] > 0) {
+        rawWinUnmarkedFraction[i] = winUnmarkedSum[i] / winUnmarkedWins[i];
+      }
       for (let k = 0; k < SESSION_END_KINDS.length; k++) {
         cumulative[k] += endCounts[k][i];
         total += endCounts[k][i];
@@ -7894,6 +8577,16 @@ function sessionBucketSeries(events, opts) {
     ACTION_CATEGORY_SPECS.map((spec) => [spec.id, []]));
   const excessRiskPctPerMin = [];
   const modeledLifeGapPerMin = [];
+  const usefulPerGame = [];
+  const wastedPerGame = [];
+  const misclicksPerGame = [];
+  const flagsPerGame = [];
+  const mismarksPerGame = [];
+  const avoidablePerGame = [];
+  const categoryPerGame = Object.fromEntries(
+    ACTION_CATEGORY_SPECS.map((spec) => [spec.id, []]));
+  const excessRiskPctPerGame = [];
+  const modeledLifeGapPerGame = [];
   for (let i = 0; i < bucketCount; i++) {
     centers.push(startPlayMs + (i + 0.5) * opts.bucketMs);
     const playedSec = playMs[i] / 1000;
@@ -7915,6 +8608,19 @@ function sessionBucketSeries(events, opts) {
       ? 100 * excessRisk[i] / (playedSec / 60) : undefined);
     modeledLifeGapPerMin.push(enough
       ? modeledLifeGap[i] / (playedSec / 60) : undefined);
+    const games = rawEndGames[i];
+    usefulPerGame.push(games > 0 ? useful[i] / games : undefined);
+    wastedPerGame.push(games > 0 ? wasted[i] / games : undefined);
+    misclicksPerGame.push(games > 0 ? misclickCount[i] / games : undefined);
+    flagsPerGame.push(games > 0 ? flags[i] / games : undefined);
+    mismarksPerGame.push(games > 0 ? unflags[i] / games : undefined);
+    avoidablePerGame.push(games > 0 ? avoidableDeaths[i] / games : undefined);
+    for (const spec of ACTION_CATEGORY_SPECS) {
+      categoryPerGame[spec.id].push(games > 0
+        ? categoryCounts[spec.id][i] / games : undefined);
+    }
+    excessRiskPctPerGame.push(games > 0 ? 100 * excessRisk[i] / games : undefined);
+    modeledLifeGapPerGame.push(games > 0 ? modeledLifeGap[i] / games : undefined);
     fastclickGapMs.push(sessionMedian(fastGaps[i]));
   }
   return {
@@ -7922,14 +8628,39 @@ function sessionBucketSeries(events, opts) {
     windowMs: opts.windowMs, centers, playMs,
     speedPxPerSec, clicksPerSec, avoidablePerMin, wastedPerMin, misclicksPerMin, flagsPerSec,
     mismarksPerMin, fastclickGapMs, endFractions, endGames, winUnmarkedFraction,
+    rawEndFractions, rawEndGames, rawWinUnmarkedFraction,
     wins,
     categoryPerMin, excessRiskPctPerMin, modeledLifeGapPerMin,
+    usefulPerGame, wastedPerGame, misclicksPerGame, flagsPerGame,
+    mismarksPerGame, avoidablePerGame, categoryPerGame,
+    excessRiskPctPerGame, modeledLifeGapPerGame,
     // The raw per-bucket accumulations behind the rates, for layers that
     // aggregate across buckets (sessionRunningSeries) — rates can't be
     // re-averaged without their weights.
     sums: { playMs, movePx, useful, wasted, misclickPlayMs, misclickCount,
       flags, unflags, avoidableDeaths, categoryCounts, excessRisk,
       modeledLifeGap, fastGaps, endCounts, winUnmarkedSum, winUnmarkedWins },
+  };
+}
+
+// Independent played-time buckets. Rates use only each bucket's own raw
+// totals; ending percentages likewise describe that bucket rather than the
+// cumulative window. The selected grouping length is still played time.
+function sessionRawSeries(events, opts) {
+  const raw = sessionBucketSeries(events, {
+    nowMs: opts.nowMs,
+    bucketMs: opts.bucketMs,
+    windowMs: opts.windowMs,
+    openPlayFrom: opts.openPlayFrom,
+    playOffsetMs: opts.playOffsetMs,
+  });
+  return {
+    ...raw,
+    stepMs: opts.bucketMs,
+    lookbackMs: opts.bucketMs,
+    endFractions: raw.rawEndFractions,
+    endGames: raw.rawEndGames,
+    winUnmarkedFraction: raw.rawWinUnmarkedFraction,
   };
 }
 
@@ -7971,6 +8702,9 @@ function sessionRunningSeries(events, opts) {
   const pFlags = prefix(sums.flags);
   const pUnflags = prefix(sums.unflags);
   const pAvoidable = prefix(sums.avoidableDeaths);
+  const pGames = prefix(sums.endCounts.reduce((totals, counts) =>
+    totals.map((total, i) => total + counts[i]),
+  new Array(sums.playMs.length).fill(0)));
   const pCategoryCounts = Object.fromEntries(ACTION_CATEGORY_SPECS.map((spec) =>
     [spec.id, prefix(sums.categoryCounts[spec.id])]));
   const pExcessRisk = prefix(sums.excessRisk);
@@ -7992,6 +8726,16 @@ function sessionRunningSeries(events, opts) {
     ACTION_CATEGORY_SPECS.map((spec) => [spec.id, []]));
   const excessRiskPctPerMin = [];
   const modeledLifeGapPerMin = [];
+  const usefulPerGame = [];
+  const wastedPerGame = [];
+  const misclicksPerGame = [];
+  const flagsPerGame = [];
+  const mismarksPerGame = [];
+  const avoidablePerGame = [];
+  const categoryPerGame = Object.fromEntries(
+    ACTION_CATEGORY_SPECS.map((spec) => [spec.id, []]));
+  const excessRiskPctPerGame = [];
+  const modeledLifeGapPerGame = [];
   const endFractions = {};
   for (const kind of SESSION_END_KINDS) endFractions[kind] = [];
   const endGames = [];
@@ -8033,6 +8777,21 @@ function sessionRunningSeries(events, opts) {
       ? 100 * roll(pExcessRisk, k) / (playedSec / 60) : undefined);
     modeledLifeGapPerMin.push(enough
       ? roll(pModeledLifeGap, k) / (playedSec / 60) : undefined);
+    const games = roll(pGames, k);
+    usefulPerGame.push(games > 0 ? roll(pUseful, k) / games : undefined);
+    wastedPerGame.push(games > 0 ? roll(pWasted, k) / games : undefined);
+    misclicksPerGame.push(games > 0 ? roll(pMis, k) / games : undefined);
+    flagsPerGame.push(games > 0 ? roll(pFlags, k) / games : undefined);
+    mismarksPerGame.push(games > 0 ? roll(pUnflags, k) / games : undefined);
+    avoidablePerGame.push(games > 0 ? roll(pAvoidable, k) / games : undefined);
+    for (const spec of ACTION_CATEGORY_SPECS) {
+      categoryPerGame[spec.id].push(games > 0
+        ? roll(pCategoryCounts[spec.id], k) / games : undefined);
+    }
+    excessRiskPctPerGame.push(games > 0
+      ? 100 * roll(pExcessRisk, k) / games : undefined);
+    modeledLifeGapPerGame.push(games > 0
+      ? roll(pModeledLifeGap, k) / games : undefined);
     const gaps = [];
     for (let j = Math.max(0, k - lookbackBuckets + 1); j <= k; j++) {
       gaps.push(...sums.fastGaps[j]);
@@ -8053,6 +8812,9 @@ function sessionRunningSeries(events, opts) {
     speedPxPerSec, clicksPerSec, avoidablePerMin, wastedPerMin,
     misclicksPerMin, flagsPerSec, mismarksPerMin, fastclickGapMs,
     categoryPerMin, excessRiskPctPerMin, modeledLifeGapPerMin,
+    usefulPerGame, wastedPerGame, misclicksPerGame, flagsPerGame,
+    mismarksPerGame, avoidablePerGame, categoryPerGame,
+    excessRiskPctPerGame, modeledLifeGapPerGame,
     endFractions, endGames, winUnmarkedFraction,
     wins: fine.wins.filter((win) =>
       win.playAt >= windowFrom && win.playAt <= fine.playNowMs),
@@ -8089,45 +8851,39 @@ function sessionYDomain(values) {
 // keeps the running averages. Stored traces and records remain the
 // ground truth every value here could be recomputed from.
 let sessionEvents = [];
-let sessionPlayOffsetMs = 0;           // played duration before retained events
+let sessionPlayOffsetMs = 0;
 let sessionPlayFrom = null;          // Date.now() when 'playing' began, or null
+let sessionPlayModeKey = null;       // exact mode frozen when the span begins
 let sessionLastMoveAt = 0;           // wall time of the last cursor move
-let sessionLastUsefulPressAt = null; // last useful press of the current game
+let sessionLastUsefulPressAt = null; // resettable session-only click gap
+let gameLastUsefulPressAt = null;    // never reset by Clear session
 let gameFastclickGaps = [];          // this game's qualifying gaps, for the
                                      // per-game fastclickGapMs record field
 
-function sessionPrune(nowMs) {
-  let needed = SESSION_KEEP_MS;
-  if (sessionPlayFrom !== null) needed -= Math.max(0, nowMs - sessionPlayFrom);
-  const spans = sessionEvents
-    .filter((ev) => (ev.kind === 'play' || ev.kind === 'game') && ev.to > ev.from)
-    .sort((a, b) => b.to - a.to);
-  let cutoff = null;
-  for (const span of spans) {
-    needed -= span.to - span.from;
-    cutoff = span.from;
-    if (needed <= 0) break;
-  }
-  if (needed > 0 || cutoff === null) return;
+function sessionEventModeKey() {
+  return sessionPlayModeKey === null ? modeKey() : sessionPlayModeKey;
+}
 
-  let droppedPlayMs = 0;
-  sessionEvents = sessionEvents.filter((ev) => {
-    const end = ev.kind === 'play' || ev.kind === 'game' ? ev.to : ev.at;
-    if (end >= cutoff) return true;
-    if (ev.kind === 'play' || ev.kind === 'game') droppedPlayMs += ev.to - ev.from;
-    return false;
-  });
-  sessionPlayOffsetMs += droppedPlayMs;
+function sessionPrune(nowMs) {
+  sessionEvents = sessionRetainedEvents(sessionEvents, SESSION_KEEP_MS);
 }
 
 function sessionPlayBegin() {
-  if (sessionPlayFrom === null) sessionPlayFrom = Date.now();
+  if (sessionPlayFrom !== null) return;
+  sessionPlayFrom = Date.now();
+  sessionPlayModeKey = modeKey();
 }
 
 function sessionPlayEnd() {
   if (sessionPlayFrom === null) return;
-  sessionEvents.push({ kind: 'play', from: sessionPlayFrom, to: Date.now() });
+  sessionEvents.push({
+    kind: 'play',
+    modeKey: sessionPlayModeKey,
+    from: sessionPlayFrom,
+    to: Date.now(),
+  });
   sessionPlayFrom = null;
+  sessionPlayModeKey = null;
 }
 
 // Cursor travel while playing, coalesced: consecutive movement within the
@@ -8137,17 +8893,19 @@ function sessionRecordMove(px) {
   const now = Date.now();
   const last = sessionEvents[sessionEvents.length - 1];
   if (last !== undefined && last.kind === 'move'
+      && last.modeKey === sessionEventModeKey()
       && now - last.at < SESSION_MOVE_COALESCE_MS) {
     last.px += px;
     return;
   }
-  sessionEvents.push({ kind: 'move', at: now, px: px });
+  sessionEvents.push({ kind: 'move', modeKey: sessionEventModeKey(), at: now, px: px });
 }
 
 function sessionRecordPress(useful, flagPlaced, flagRemoved, misclick) {
   const now = Date.now();
   const press = {
     kind: 'press',
+    modeKey: sessionEventModeKey(),
     at: now,
     useful: useful,
     flag: flagPlaced,
@@ -8161,16 +8919,21 @@ function sessionRecordPress(useful, flagPlaced, flagRemoved, misclick) {
     sessionLastUsefulPressAt = now;
     // The same qualification the bucketed series uses, collected per game
     // for the record's fastclickGapMs (its median).
-    if (press.moving && press.gapMs !== undefined
-        && press.gapMs <= FASTCLICK_MAX_GAP_MS) {
-      gameFastclickGaps.push(press.gapMs);
+    const gameGapMs = gameLastUsefulPressAt === null
+      ? undefined : now - gameLastUsefulPressAt;
+    gameLastUsefulPressAt = now;
+    if (press.moving && gameGapMs !== undefined
+        && gameGapMs <= FASTCLICK_MAX_GAP_MS) {
+      gameFastclickGaps.push(gameGapMs);
     }
   }
   sessionEvents.push(press);
 }
 
 function sessionRecordDeath(mistake) {
-  sessionEvents.push({ kind: 'death', at: Date.now(), mistake: mistake });
+  sessionEvents.push({
+    kind: 'death', modeKey: sessionEventModeKey(), at: Date.now(), mistake: mistake,
+  });
 }
 
 function sessionRecordEvaluation(evaluation) {
@@ -8178,6 +8941,7 @@ function sessionRecordEvaluation(evaluation) {
   if (!category) return;
   sessionEvents.push({
     kind: 'evaluation',
+    modeKey: sessionEventModeKey(),
     at: Date.now(),
     category,
     excessRisk: category === 'gameRisk'
@@ -8194,7 +8958,7 @@ function sessionRecordEvaluation(evaluation) {
 // share of the board's mines that had no flag at the winning instant.
 function sessionRecordEnd(end, winUnmarked) {
   const now = Date.now();
-  const event = { kind: 'end', at: now, end: end };
+  const event = { kind: 'end', modeKey: sessionEventModeKey(), at: now, end: end };
   if (typeof winUnmarked === 'number') event.winUnmarked = winUnmarked;
   if (end === 'win') {
     event.timeMs = elapsedMs();
@@ -8202,6 +8966,24 @@ function sessionRecordEnd(end, winUnmarked) {
     event.endedAt = now;
   }
   sessionEvents.push(event);
+}
+
+// Starts a player-chosen observation session without deleting any scores or
+// traces. The timestamp persists, so reload backfill cannot reintroduce old
+// games. If a game is active, only its post-clear live events remain; that
+// partial game is intentionally not reconstructed after a later reload.
+function clearSession() {
+  const now = Date.now();
+  settings.sessionStartedAt = now;
+  saveSettings();
+  sessionEvents = [];
+  sessionPlayOffsetMs = 0;
+  sessionLastUsefulPressAt = null;
+  if (sessionPlayFrom !== null) {
+    sessionPlayFrom = now;
+    sessionPlayModeKey = modeKey();
+  }
+  refreshMetricsPanel();
 }
 
 // Rebuilds enough cumulative play from stored game records to cover the
@@ -8214,14 +8996,19 @@ function sessionRecordEnd(end, winUnmarked) {
 // the schema later may be absent on old records.
 function sessionBackfillFromHistory() {
   const games = [];
-  for (const [modeKey, records] of Object.entries(history)) {
-    const mines = minesOfModeKey(modeKey);
+  for (const [historyModeKey, records] of Object.entries(history)) {
+    const mines = minesOfModeKey(historyModeKey);
     for (const record of records) {
       if (record.timeMs <= 0) continue;
+      const from = record.endedAt - record.timeMs;
+      // A game crossing a Clear-session boundary has no honest stored
+      // post-boundary split, so only wholly new games are reconstructed.
+      if (from < settings.sessionStartedAt) continue;
       const actionSummary = actionCategorySummary(record.actionEvaluations);
       games.push({
         kind: 'game',
-        from: record.endedAt - record.timeMs,
+        modeKey: historyModeKey,
+        from,
         to: record.endedAt,
         px: record.mousePathPx,
         useful: record.clicks,
@@ -8238,33 +9025,20 @@ function sessionBackfillFromHistory() {
           : sessionEndingKind(fatalEvaluationOf(record)),
         winUnmarked: recordWinUnmarkedShare(record, mines),
         timeMs: record.timeMs,
-        boardKey: modeKey.split('@')[0],
+        boardKey: historyModeKey.split('@')[0],
         endedAt: record.endedAt,
       });
     }
   }
   games.sort((a, b) => a.to - b.to);
-  const retained = sessionHistorySlice(games, SESSION_KEEP_MS);
-  sessionPlayOffsetMs = retained.playOffsetMs;
-  sessionEvents.unshift(...retained.games);
+  sessionPlayOffsetMs = 0;
+  sessionEvents.unshift(...sessionRetainedEvents(games, SESSION_KEEP_MS));
 }
 
 //-------SESSION STATS: DISPLAY (top section of the left panel)-------
 
 const SESSION_GROUP = {
   name: 'session',
-  definition: 'recent observations across games (losses and abandoned '
-    + 'boards included): each charted point is a running average over the '
-    + 'played time behind it \u2014 the first selector picks that lookback '
-    + '(30s\u201315m), the second how much play the chart spans '
-    + '(15m\u20133h). All durations are actual play: breaks, restart-button '
-    + 'travel, and between-game idling consume no chart time and no '
-    + 'lookback ("5m" means five played minutes, never wall time). A young '
-    + 'session averages the play that exists so far; a point with under a '
-    + 'second of covered play shows an en dash, never a rate over a '
-    + 'sliver. Survives reload: the window is rebuilt from stored records, '
-    + 'wins and losses alike with their full played time; only an '
-    + 'abandoned board\u2019s time (no record) is lost across a reload',
 };
 
 // Titles carry the unit (decided 2026-08-23, afternoon): "mouse speed
@@ -8295,14 +9069,20 @@ const SESSION_METRIC_SPECS = [
     records: 'percentage points of additional immediate loss probability '
       + 'per played minute; it is a probability sum, not observed deaths',
     of: (b, i) => b.excessRiskPctPerMin[i],
-    fmt: (v) => v.toFixed(2) + 'pp/m' },
+    fmt: (v) => v.toFixed(2) + 'pp/m',
+    gameLabel: 'excess game risk pp/game',
+    gameOf: (b, i) => b.excessRiskPctPerGame[i],
+    gameFmt: (v) => v.toFixed(2) + 'pp/game' },
   { label: 'modeled life gap /m', category: 'lifeMaximization',
     calc: 'sum of the one-ply best-minus-selected expected-remaining-life '
       + 'gaps over the trailing played-time lookback, divided by played minutes',
     records: 'the optional model-relative expected-life gap per played minute; '
       + 'it is not a claim about player intent or long-horizon optimality',
     of: (b, i) => b.modeledLifeGapPerMin[i],
-    fmt: (v) => v.toFixed(3) + '/m' },
+    fmt: (v) => v.toFixed(3) + '/m',
+    gameLabel: 'modeled life gap /game',
+    gameOf: (b, i) => b.modeledLifeGapPerGame[i],
+    gameFmt: (v) => v.toFixed(3) + '/game' },
 ];
 
 // The action-rates charts (combined 2026-08-23 afternoon; split by unit
@@ -8322,14 +9102,16 @@ const SESSION_RATE_SPECS = [
       + 'flags left standing are not counted, only the removal itself)',
     records: 'flags removed per in-progress minute over the trailing lookback; '
       + 'the record does not reveal why a flag was removed',
-    of: (b, i) => b.mismarksPerMin[i], fmt: (v) => v.toFixed(1) },
+    of: (b, i) => b.mismarksPerMin[i],
+    gameOf: (b, i) => b.mismarksPerGame[i], fmt: (v) => v.toFixed(1) },
   { label: 'mine marking', unit: '/s', color: '#388e3c',
     calc: 'flags placed per in-progress second (removals don\u2019t '
       + 'subtract; the win\u2019s auto-flagging is not yours and never '
       + 'counts)',
     records: 'flags placed per in-progress second over the trailing lookback; '
       + 'confidence, caution, and intent are not observed',
-    of: (b, i) => b.flagsPerSec[i], fmt: (v) => v.toFixed(2) },
+    of: (b, i) => b.flagsPerSec[i],
+    gameOf: (b, i) => b.flagsPerGame[i], fmt: (v) => v.toFixed(2) },
   { label: 'misclicks', unit: '/m', color: '#d32f2f',
     calc: 'board-changing actions contradicted by facts provable from the '
       + 'visible board at click time, per in-progress minute: opening a proven '
@@ -8337,7 +9119,8 @@ const SESSION_RATE_SPECS = [
       + 'through a visible contradiction',
     records: 'visible-board contradictions, independently of outcome; a fatal '
       + 'fatal visible contradiction also appears in deaths with mistakes, while a wrong flag can be nonfatal',
-    of: (b, i) => b.misclicksPerMin[i], fmt: (v) => v.toFixed(1) },
+    of: (b, i) => b.misclicksPerMin[i],
+    gameOf: (b, i) => b.misclicksPerGame[i], fmt: (v) => v.toFixed(1) },
   { label: 'no-op clicks', unit: '/s', color: '#e8a000',
     calc: 'board clicks that changed nothing (chords on unsatisfied or '
       + 'empty numbers, left-clicks on flags, right-clicks on revealed '
@@ -8347,6 +9130,7 @@ const SESSION_RATE_SPECS = [
     // The series stores per-minute; the spec converts for display.
     of: (b, i) => b.wastedPerMin[i] === undefined
       ? undefined : b.wastedPerMin[i] / 60,
+    gameOf: (b, i) => b.wastedPerGame[i],
     fmt: (v) => v.toFixed(2) },
   { label: 'deaths with mistakes', unit: '/m', color: '#7b1fa2',
     calc: 'deaths whose fatal action carries at least one recorded mistake '
@@ -8354,38 +9138,55 @@ const SESSION_RATE_SPECS = [
       + 'was available, or choosing higher risk), per in-progress minute',
     records: 'fatal actions with one or more evidence-backed mistake tags '
       + 'per in-progress minute; it does not identify intent or mental state',
-    of: (b, i) => b.avoidablePerMin[i], fmt: (v) => v.toFixed(2) },
+    of: (b, i) => b.avoidablePerMin[i],
+    gameOf: (b, i) => b.avoidablePerGame[i], fmt: (v) => v.toFixed(2) },
   { label: 'click rate', unit: '/s', color: '#1565c0',
     calc: 'board clicks that changed something (reveals, flags, chords) '
       + 'per in-progress second; no-op clicks are excluded — they have '
       + 'their own line',
     records: 'board-changing clicks per in-progress second over the trailing '
       + 'lookback; it does not measure decisions or identify why the rate changed',
-    of: (b, i) => b.clicksPerSec[i], fmt: (v) => v.toFixed(2) },
+    of: (b, i) => b.clicksPerSec[i],
+    gameOf: (b, i) => b.usefulPerGame[i], fmt: (v) => v.toFixed(2) },
 ];
 
 const SESSION_CATEGORY_RATE_SPECS = [
   { category: 'gameLoss', label: 'game loss', unit: '/m', color: '#8f1f0e',
     calc: 'fatal actions per played minute, whether avoidable, forced, protected, or unjudged',
     records: 'games ending in a fatal action per played minute; the category does not itself call the action a mistake',
-    of: (b, i) => b.categoryPerMin.gameLoss[i], fmt: (v) => v.toFixed(2) },
+    of: (b, i) => b.categoryPerMin.gameLoss[i],
+    gameOf: (b, i) => b.categoryPerGame.gameLoss[i], fmt: (v) => v.toFixed(2) },
   { category: 'gameRisk', label: 'game risk', unit: '/m', color: '#d06a00',
     calc: 'survived actions that added actual immediate loss probability under the active rules, per played minute',
     records: 'nonfatal risk-increasing actions per played minute; magnitude has its own excess-game-risk chart',
-    of: (b, i) => b.categoryPerMin.gameRisk[i], fmt: (v) => v.toFixed(2) },
+    of: (b, i) => b.categoryPerMin.gameRisk[i],
+    gameOf: (b, i) => b.categoryPerGame.gameRisk[i], fmt: (v) => v.toFixed(2) },
   { category: 'timeLoss', label: 'time loss', unit: '/m', color: '#1682b8',
     calc: 'no-progress inputs and visible board-state regressions per played minute',
     records: 'classified time-loss actions per played minute; no duration or intent is inferred',
-    of: (b, i) => b.categoryPerMin.timeLoss[i], fmt: (v) => v.toFixed(2) },
+    of: (b, i) => b.categoryPerMin.timeLoss[i],
+    gameOf: (b, i) => b.categoryPerGame.timeLoss[i], fmt: (v) => v.toFixed(2) },
   { category: 'lifeMaximization', label: 'life maximization', unit: '/m', color: '#8651ad',
     calc: 'actions with a positive one-ply expected-remaining-life gap per played minute',
     records: 'optional model-relative opportunities per played minute; magnitude has its own modeled-life-gap chart',
-    of: (b, i) => b.categoryPerMin.lifeMaximization[i], fmt: (v) => v.toFixed(2) },
+    of: (b, i) => b.categoryPerMin.lifeMaximization[i],
+    gameOf: (b, i) => b.categoryPerGame.lifeMaximization[i], fmt: (v) => v.toFixed(2) },
   { category: 'measurementNotes', label: 'measurement notes', unit: '/m', color: '#777777',
     calc: 'actions whose stored evidence is legacy or incomplete, per played minute',
     records: 'unclassified evidence notes per played minute, not mistakes',
-    of: (b, i) => b.categoryPerMin.measurementNotes[i], fmt: (v) => v.toFixed(2) },
+    of: (b, i) => b.categoryPerMin.measurementNotes[i],
+    gameOf: (b, i) => b.categoryPerGame.measurementNotes[i], fmt: (v) => v.toFixed(2) },
 ];
+
+function sessionRateSpecsForBasis(specs) {
+  if (settings.sessionRateBasis !== 'game') return specs;
+  return specs.map((spec) => ({ ...spec, unit: '/game', of: spec.gameOf }));
+}
+
+function sessionMetricSpecForBasis(spec) {
+  if (settings.sessionRateBasis !== 'game' || !spec.gameOf) return spec;
+  return { ...spec, label: spec.gameLabel, of: spec.gameOf, fmt: spec.gameFmt };
+}
 
 // The game-endings lines: one cumulative percent line per ending kind,
 // in one chart (PRODUCT.md "Game-end evaluation"). Loss labels are the
@@ -8401,19 +9202,19 @@ const SESSION_END_SPECS = [
   { kind: 'win', label: 'win', color: '#2e7d32' },
   { kind: 'win-unmarked', label: 'percent of mines unmarked when winning',
     color: '#0f9b8e', dash: '2 3', series: (b) => b.winUnmarkedFraction },
-  { kind: 'guess-min', label: FATAL_STATUS_LABELS['guess-min'], color: '#d4a017' },
-  { kind: 'guess-higher', label: FATAL_STATUS_LABELS['guess-higher'], color: '#e07020' },
-  { kind: 'guess-unmeasured', label: FATAL_STATUS_LABELS['guess-unmeasured'], color: '#8a6d3b' },
-  { kind: 'guess-safe', label: FATAL_STATUS_LABELS['guess-safe'], color: '#b82c14' },
-  { kind: 'mine-safe', label: FATAL_STATUS_LABELS['mine-safe'], color: '#1a1a1a' },
-  { kind: 'mine-forced', label: FATAL_STATUS_LABELS['mine-forced'], color: '#555555' },
-  { kind: 'proof-safe', label: FATAL_STATUS_LABELS['proof-safe'], color: '#3f51b5' },
-  { kind: 'proof-forced', label: FATAL_STATUS_LABELS['proof-forced'], color: '#1682b8' },
-  { kind: 'angel', label: DEATH_KIND_LABELS.angel + ' (legacy)', color: '#d4a017', dash: '6 3' },
-  { kind: 'forced', label: DEATH_KIND_LABELS.forced + ' (legacy)', color: '#e07020', dash: '6 3' },
-  { kind: 'needless', label: DEATH_KIND_LABELS.needless + ' (legacy)', color: '#b82c14', dash: '6 3' },
-  { kind: 'mine', label: DEATH_KIND_LABELS.mine + ' (legacy)', color: '#1a1a1a', dash: '6 3' },
-  { kind: 'chord', label: DEATH_KIND_LABELS.chord + ' (legacy)', color: '#7a3ca8', dash: '6 3' },
+  { kind: 'guess-min', label: FATAL_STATUS_LABELS['guess-min'], color: '#b8860b' },
+  { kind: 'guess-higher', label: FATAL_STATUS_LABELS['guess-higher'], color: '#d95f02' },
+  { kind: 'guess-unmeasured', label: FATAL_STATUS_LABELS['guess-unmeasured'], color: '#9a6b2f' },
+  { kind: 'guess-safe', label: FATAL_STATUS_LABELS['guess-safe'], color: '#c62828' },
+  { kind: 'mine-safe', label: FATAL_STATUS_LABELS['mine-safe'], color: '#8e1111' },
+  { kind: 'mine-forced', label: FATAL_STATUS_LABELS['mine-forced'], color: '#b71c1c' },
+  { kind: 'proof-safe', label: FATAL_STATUS_LABELS['proof-safe'], color: '#8e1111' },
+  { kind: 'proof-forced', label: FATAL_STATUS_LABELS['proof-forced'], color: '#d95f02' },
+  { kind: 'angel', label: DEATH_KIND_LABELS.angel + ' (legacy)', color: '#b8860b', dash: '6 3' },
+  { kind: 'forced', label: DEATH_KIND_LABELS.forced + ' (legacy)', color: '#b8860b', dash: '6 3' },
+  { kind: 'needless', label: DEATH_KIND_LABELS.needless + ' (legacy)', color: '#c62828', dash: '6 3' },
+  { kind: 'mine', label: DEATH_KIND_LABELS.mine + ' (legacy)', color: '#8e1111', dash: '6 3' },
+  { kind: 'chord', label: DEATH_KIND_LABELS.chord + ' (legacy)', color: '#a51e36', dash: '6 3' },
   { kind: 'other', label: 'unjudged loss', color: '#999999' },
 ];
 
@@ -8675,10 +9476,11 @@ function buildSessionEndingsChart(buckets) {
     width: W, height: H, left: L, right: W - R, top: T, bottom: H - B,
   }, px);
   const drawn = [];
-  const anyGames = buckets.endGames[buckets.endGames.length - 1] > 0;
+  const anyGames = buckets.endGames.some((count) => count > 0);
   for (const spec of SESSION_END_SPECS) {
     const series = spec.series ? spec.series(buckets) : buckets.endFractions[spec.kind];
     const latest = latestDefined(buckets, (b, i) => series[i]);
+    const occurred = series.some((value) => typeof value === 'number' && value > 0);
     // Never-occurred endings stay off the chart, except the win line,
     // which draws once any game ended (a 0% win line is itself the
     // reading) — and likewise the unmarked-mines-at-win line draws
@@ -8686,7 +9488,7 @@ function buildSessionEndingsChart(buckets) {
     const show = anyGames && (spec.kind === 'win'
       || (spec.kind === 'win-unmarked'
         ? latest !== undefined
-        : latest !== undefined && latest > 0));
+        : occurred));
     if (!show) continue;
     let d = '';
     let pen = false;
@@ -8779,7 +9581,6 @@ function buildSessionRatesChart(buckets, specs, unit) {
 
   const drawn = [];
   const pointLabels = [];
-  const seriesPoints = [];
   for (const spec of specs) {
     const points = [];
     let d = '';
@@ -8796,10 +9597,7 @@ function buildSessionRatesChart(buckets, specs, unit) {
     const lastPoint = points[points.length - 1];
     drawn.push({ spec, latest: lastPoint === undefined ? undefined : lastPoint.v });
     if (lastPoint === undefined) continue;
-    seriesPoints.push({ spec, points });
-    const hover = document.createElementNS(SVG_NS, 'title');
-    hover.textContent = 'HOW: ' + spec.calc + '.\n\nRECORDS: ' + spec.records + '.';
-    el('path', { class: 'end-line', stroke: spec.color, d: d }).appendChild(hover);
+    el('path', { class: 'end-line', stroke: spec.color, d: d });
     el('circle', {
       class: 'end-dot', fill: spec.color, r: 2.5,
       cx: lastPoint.x.toFixed(1), cy: lastPoint.y.toFixed(1),
@@ -8824,7 +9622,7 @@ function buildSessionRatesChart(buckets, specs, unit) {
   // preserve endpoint order top-to-bottom, so label order always
   // matches line order. The white halo keeps a label readable where it
   // crosses other lines. Each label (and each line) carries the
-  // metric's HOW/RECORDS as its hover title.
+  // metric remains directly readable without a hover explanation.
   pointLabels.sort((a, b) => a.y - b.y);
   let floorY = T + 9;
   for (const lab of pointLabels) {
@@ -8840,37 +9638,27 @@ function buildSessionRatesChart(buckets, specs, unit) {
     // Right-anchored just left of the endpoint dot, clamped so a long
     // label on a narrow panel stays inside the drawing.
     const anchorX = Math.max(lab.x - 6, lab.text.length * 6.2 + 2);
-    const hover = document.createElementNS(SVG_NS, 'title');
-    hover.textContent = 'HOW: ' + lab.spec.calc + '.\n\nRECORDS: '
-      + lab.spec.records + '.';
     el('text', {
       x: anchorX.toFixed(1),
       y: lab.labelY.toFixed(1),
       fill: lab.spec.color,
       class: 'rate-point-value',
       'text-anchor': 'end',
-    }, lab.text).appendChild(hover);
+    }, lab.text);
   }
   return { svg, drawn };
 }
 
 // An action-rates row: one unit's chart, each line naming itself at its
-// endpoint (no legend; every line and label hover-explains itself with
-// its metric's HOW/RECORDS).
+// endpoint without a legend or hover essay.
 function appendSessionRatesRow(
   container, buckets, unit, sourceSpecs = SESSION_RATE_SPECS,
   label = 'action rates') {
-  const specs = sourceSpecs.filter((spec) => spec.unit === unit);
+  const specs = sessionRateSpecsForBasis(sourceSpecs)
+    .filter((spec) => spec.unit === unit);
   if (specs.length === 0) return;
-  const per = unit === '/m' ? 'minute' : 'second';
   const row = document.createElement('div');
   row.className = 'metric-row session-metric-row';
-  row.title = 'HOW: every per-played-' + per + ' action rate on one '
-    + 'shared auto-ranged scale so their risings and fallings can be compared '
-    + '. Each line carries its own name and current value at its '
-    + 'endpoint, in the line\u2019s color.'
-    + '\n\nRECORDS: the same running averages as ever, drawn together; '
-    + 'hover a line or its label for that metric\u2019s own definition.';
   const headRow = document.createElement('div');
   headRow.className = 'metric-head';
   const labelEl = document.createElement('span');
@@ -8903,67 +9691,117 @@ function latestDefined(buckets, of) {
 
 function appendSessionSection(container) {
   const head = buildMetricsGroupHead(SESSION_GROUP);
-  const select = document.createElement('select');
-  select.className = 'session-bucket-select';
-  select.title = 'running-average length: each charted point averages this '
-    + 'much played time behind it (played time, never wall time)';
-  for (const seconds of SESSION_LOOKBACK_CHOICES) {
-    const option = document.createElement('option');
-    option.value = String(seconds);
-    option.textContent =
-      (seconds < 60 ? seconds + 's' : (seconds / 60) + 'm') + ' avg';
-    select.appendChild(option);
-  }
-  select.value = String(settings.sessionLookbackSeconds);
-  select.addEventListener('change', () => {
-    settings.sessionLookbackSeconds = Number(select.value);
-    saveSettings();
-    refreshMetricsPanel();
-  });
-  head.appendChild(select);
-  // The window length gets the same one-click treatment as the
-  // running-average length: a second selector on the section head itself.
-  const windowSelect = document.createElement('select');
-  windowSelect.className = 'session-bucket-select';
-  windowSelect.title = 'window: how much accumulated play the charts look back over';
-  for (const minutes of SESSION_WINDOW_CHOICES) {
-    const option = document.createElement('option');
-    option.value = String(minutes);
-    option.textContent = minutes < 60 ? minutes + 'm' : (minutes / 60) + 'h';
-    windowSelect.appendChild(option);
-  }
-  windowSelect.value = String(settings.sessionWindowMinutes);
-  windowSelect.addEventListener('change', () => {
-    settings.sessionWindowMinutes = Number(windowSelect.value);
-    saveSettings();
-    refreshMetricsPanel();
-  });
-  head.appendChild(windowSelect);
   container.appendChild(head);
+  const controls = document.createElement('div');
+  controls.className = 'session-controls';
+  const choice = (ariaLabel, options, value, onChange) => {
+    const select = document.createElement('select');
+    select.className = 'session-control';
+    select.setAttribute('aria-label', ariaLabel);
+    for (const [id, label] of options) {
+      const option = document.createElement('option');
+      option.value = String(id);
+      option.textContent = label;
+      select.appendChild(option);
+    }
+    select.value = String(value);
+    select.addEventListener('change', () => onChange(select.value));
+    controls.appendChild(select);
+  };
+  choice('Session grouping method', [
+    ['average', 'running average'],
+    ['raw', 'raw buckets'],
+  ], settings.sessionAggregation, (value) => {
+    settings.sessionAggregation = value;
+    saveSettings();
+    refreshMetricsPanel();
+  });
+  const intervalOptions = [];
+  for (const seconds of SESSION_LOOKBACK_CHOICES) {
+    intervalOptions.push([seconds,
+      (seconds < 60 ? seconds + 's' : (seconds / 60) + 'm') + ' groups']);
+  }
+  choice('Played-time grouping length', intervalOptions,
+    settings.sessionLookbackSeconds, (value) => {
+    settings.sessionLookbackSeconds = Number(value);
+    saveSettings();
+    refreshMetricsPanel();
+  });
+  choice('Session rate basis', [
+    ['time', 'per played time'],
+    ['game', 'per game'],
+  ], settings.sessionRateBasis, (value) => {
+    settings.sessionRateBasis = value;
+    saveSettings();
+    refreshMetricsPanel();
+  });
+  choice('Session mode scope', [
+    ['current', 'this mode'],
+    ['all', 'all modes'],
+  ], settings.sessionModeScope, (value) => {
+    settings.sessionModeScope = value;
+    saveSettings();
+    refreshMetricsPanel();
+  });
+  const windowOptions = [];
+  for (const minutes of SESSION_WINDOW_CHOICES) {
+    windowOptions.push([minutes,
+      (minutes < 60 ? minutes + 'm' : (minutes / 60) + 'h') + ' window']);
+  }
+  choice('Session played-time window', windowOptions,
+    settings.sessionWindowMinutes, (value) => {
+    settings.sessionWindowMinutes = Number(value);
+    saveSettings();
+    refreshMetricsPanel();
+  });
+  const clear = document.createElement('button');
+  clear.type = 'button';
+  clear.className = 'session-clear';
+  clear.textContent = 'clear session';
+  clear.addEventListener('click', clearSession);
+  controls.appendChild(clear);
+  container.appendChild(controls);
 
   const now = Date.now();
   sessionPrune(now);
-  const buckets = sessionRunningSeries(sessionEvents, {
+  const exactModeKey = modeKey();
+  const scopedEvents = sessionEventsForMode(
+    sessionEvents, exactModeKey, settings.sessionModeScope);
+  const includeOpenPlay = sessionPlayFrom !== null
+    && (settings.sessionModeScope === 'all' || sessionPlayModeKey === exactModeKey);
+  const seriesOptions = {
     nowMs: now,
-    stepMs: SESSION_STEP_MS,
-    lookbackMs: settings.sessionLookbackSeconds * 1000,
     windowMs: settings.sessionWindowMinutes * 60 * 1000,
-    openPlayFrom: sessionPlayFrom,
+    openPlayFrom: includeOpenPlay ? sessionPlayFrom : undefined,
     playOffsetMs: sessionPlayOffsetMs,
-  });
+  };
+  const buckets = settings.sessionAggregation === 'raw'
+    ? sessionRawSeries(scopedEvents, {
+      ...seriesOptions,
+      bucketMs: settings.sessionLookbackSeconds * 1000,
+    })
+    : sessionRunningSeries(scopedEvents, {
+      ...seriesOptions,
+      stepMs: SESSION_STEP_MS,
+      lookbackMs: settings.sessionLookbackSeconds * 1000,
+    });
   appendSessionEndingsRow(container, buckets);
-  appendSessionRatesRow(container, buckets, '/m');
-  appendSessionRatesRow(container, buckets, '/s');
+  if (settings.sessionRateBasis === 'game') {
+    appendSessionRatesRow(container, buckets, '/game');
+  } else {
+    appendSessionRatesRow(container, buckets, '/m');
+    appendSessionRatesRow(container, buckets, '/s');
+  }
   const categorySpecs = SESSION_CATEGORY_RATE_SPECS
     .filter((spec) => reportCategoryEnabled(spec.category));
-  appendSessionRatesRow(container, buckets, '/m', categorySpecs, 'report categories');
-  for (const spec of SESSION_METRIC_SPECS) {
+  appendSessionRatesRow(container, buckets,
+    settings.sessionRateBasis === 'game' ? '/game' : '/m',
+    categorySpecs, 'report categories');
+  for (const sourceSpec of SESSION_METRIC_SPECS) {
+    const spec = sessionMetricSpecForBasis(sourceSpec);
     if (spec.category && !reportCategoryEnabled(spec.category)) continue;
-    const value = latestDefined(buckets, spec.of);
     const row = document.createElement('div');
     row.className = 'metric-row session-metric-row';
-    row.title = 'HOW: ' + spec.calc + '.\n\nRECORDS: ' + spec.records + '.'
-      + (value === undefined ? '\n\n(nothing measurable in the window yet)' : '');
     const headRow = document.createElement('div');
     headRow.className = 'metric-head';
     const labelEl = document.createElement('span');
@@ -8976,31 +9814,11 @@ function appendSessionSection(container) {
   }
 }
 
-// The game-endings row: one chart of cumulative percent lines (how the
-// window's finished games ended, by death verdict), with a color legend
-// carrying each drawn kind's current share.
+// The game-endings row: cumulative percentages in running-average mode,
+// independent bucket percentages in raw mode, with a semantic color legend.
 function appendSessionEndingsRow(container, buckets) {
   const row = document.createElement('div');
   row.className = 'metric-row session-metric-row';
-  row.title = 'HOW: every finished game in the window files into exactly '
-    + 'one ending — win, or the fatal-action status the after-game report '
-    + 'shows, word for word: opened a proven mine (with a safe move '
-    + 'available, or when a guess was required), a Proof-or-die rule '
-    + 'death (with or without a proven-safe move), died after guessing '
-    + 'while a safe move was available, or a forced guess that was '
-    + 'higher-risk, minimum-risk, or risk-rank-unmeasured. Losses '
-    + 'imported from legacy records keep their old five-way verdict as '
-    + 'dashed lines; unjudged when nothing was measurable. Each such '
-    + 'line is that ending\u2019s cumulative share of the games finished '
-    + 'so far in the window. The dotted "percent of mines unmarked when '
-    + 'winning" line is a different quantity on the same percent axis: '
-    + 'across the '
-    + 'window\u2019s wins so far, the average share of the board\u2019s '
-    + 'mines that carried no flag at the instant of winning (measured '
-    + 'only on wins; 0% means every mine was flagged).'
-    + '\n\nRECORDS: the composition of game endings under the report\u2019s '
-    + 'fatal-action rules, plus the wins\u2019 average unmarked-mine '
-    + 'share; it does not identify a cause for a change.';
   const headRow = document.createElement('div');
   headRow.className = 'metric-head';
   const labelEl = document.createElement('span');
@@ -9788,6 +10606,7 @@ function buildPlayModeSwitcher() {
     select.appendChild(option);
   }
   select.value = settings.playMode;
+  select.disabled = false;
   select.addEventListener('change', () => setPlayMode(select.value));
 }
 
@@ -9875,4 +10694,11 @@ function init() {
     if (trialSession.endedHow !== null) lastTrialReview = trialSession;
   }
   newGame();
+  const startupStatus = document.getElementById('startup-status');
+  startupStatus.textContent = 'Ready.';
+  faceButton.disabled = false;
+  boardElement.removeAttribute('aria-busy');
+  boardElement.removeAttribute('aria-describedby');
+  document.body.removeAttribute('aria-busy');
+  document.documentElement.classList.remove('game-booting');
 }

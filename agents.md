@@ -75,9 +75,10 @@ Implementation notes:
   `readAllUserdata`, and `persistUserdata` live in `storage.js`
   (2026-08-23, shared with the settings page); each page defines two
   late-bound hooks: `storageFailure(what)` (announce + throw) and
-  `userdataReady()` (called once BOTH the db is open and the document's
-  scripts have run — the open can otherwise race the later `<script>`
-  fetches and call a hook that does not exist yet). `userdata` holds one
+  `userdataReady()` (called once BOTH the db is open and this callback has
+  been declared — the open can otherwise race later deferred scripts;
+  `readyState` cannot signal this because it is already interactive during
+  defer execution). `userdata` holds one
   entry per kind — 'history', 'settings', legacy 'rankavgSort', 'states',
   'trial' (`USERDATA_KINDS`); `traces` holds one entry per game. Userdata
   is RAM-first: the game page's `userdataReady` fills the active RAM objects
@@ -132,7 +133,9 @@ Implementation notes:
   events}; the document mousemove handler appends a sample per move while
   `tracing()` (ready or playing). `traceEvent` logs 'ldown'/'lup'/'rdown'
   from the board handlers (document mouseup catches off-cell releases,
-  index null); `recordLayout` logs board-geometry events (newGame,
+  index null); `traceDecision` logs every accepted action's exact pre-action
+  visible position, measured choices, evidence, and result;
+  `recordLayout` logs board-geometry events (newGame,
   scroll, resize, zoom), and `recordLayoutIfMoved` (2026-08-23)
   re-records whenever the board's rect differs from the last layout
   event — called from `traceEvent` and from the `renderMetricsPanel`
@@ -146,18 +149,32 @@ Implementation notes:
   (#backup-status + throw) — no silent trace loss. "export traces"
   (#export-traces-btn + #export-traces-file) downloads every trace as a
   JSON array with the typed arrays converted back to plain arrays.
-- Path replay views (PRODUCT.md "Path replay views"): `#path-view-btn`
-  (in `#scores-nav`) cycles `pathView` off → moves → clicks;
+- Path and choice replay views (PRODUCT.md "Path and choice replay views"):
+  `#path-view-control` (in `#scores-nav`) exposes separate buttons for off,
+  raw every-sample path, numbered raw click locations, movement speed, click
+  speed, game progress, and less useful—never a dropdown.
+  `#replay-toggle` independently turns decision-time navigation on, so any
+  path mode can be combined with a saved pre-action board and is truncated at
+  the chosen decision without changing its full-game color scale.
   `renderPathOverlay` draws `#path-canvas` (absolute over `#board`,
-  pointer-events none, covering the border box the layout events
-  measured) from the RAM trace of the game just finished —
-  `pathPointMapper` walks the layout events so each point maps through
-  the geometry at its trace time; a lazily created ResizeObserver on
-  `#board` redraws on zoom. `reportResult` renders button + overlay
-  after `renderResult`; `newGame` nulls `pathCanvas` (the board rebuild
-  removed the node) and re-hides the button; `pathViewAvailable` also
-  requires `#game-frame` visible (trial off-board phases). Nothing is
-  persisted.
+  pointer-events none) from the just-finished RAM trace; parameter paths are
+  thick and their proper gradient legends carry low/mid/high values. Speed
+  colors use `pathDisplayRange`'s Tukey-trimmed local range; a constant range
+  renders its one real value instead of fabricated endpoints. `pathPointMapper` walks
+  layout events so each point maps through its geometry at trace time.
+  Less-useful segments derive from decision mistake evidence and include the
+  preceding/following useful boundary actions plus per-segment duration labels.
+  Back-in-time
+  paints each decision event's saved pre-action position into the real board
+  DOM, marks measured choices and selection, and restores the exact finished
+  markup on exit. `pathChoiceAreas` groups uncertain reasonable choices into
+  connected pockets; `#replay-choice-areas` draws leaders to side labels with
+  non-misleading mine risk and cell count, choosing left or right to avoid
+  the result summary/viewport edge. A lazily created ResizeObserver redraws
+  both overlays and callouts on zoom. Replay arrow shortcuts ignore focused
+  form controls and buttons.
+  Decision frames persist inside the trace; the UI currently opens only the
+  just-finished RAM trace.
 - Offline analysis lives under `analysis/` (inputs: the exported trace
   JSON). `analysis/mousetrap/trace_measures.R` computes psychometric
   mouse-tracking measures per inter-click segment; it runs on the R env
@@ -289,7 +306,19 @@ Implementation notes:
   `toggleFlag`). It stays separate from no-op clicks because removal
   changed the board; its reason is not inferred. Same absence rules as
   wastedClicks (absent before 2026-08-20).
-- Session stats (PRODUCT.md "Session stats"): three marker-delimited
+- Session stats (PRODUCT.md "Session stats"): a player-controlled observation
+  tool. `clearSession` persists `settings.sessionStartedAt` without deleting
+  history; backfill excludes games crossing that boundary.
+  `settings.sessionAggregation` chooses trailing averages or
+  `sessionRawSeries` disjoint played-time buckets,
+  `settings.sessionRateBasis` chooses time-normalized or per-finished-game
+  values, and `settings.sessionModeScope` defaults to the exact current
+  board/play-mode/generator key rather than all modes. Every live and
+  backfilled event carries `modeKey`; `sessionRetainedEvents` keeps enough
+  play both globally and per exact mode. The UI exposes all choices directly,
+  has one session heading, no HOW/RECORDS chart hover essays, and uses
+  evaluation-semantic ending colors (green/gold/orange/red/grey).
+  Three marker-delimited
   spans in minesweeper.js. COMPUTATION (pure, Node-extractable):
   `sessionBucketSeries(events, {nowMs, bucketMs, windowMs, openPlayFrom,
   playOffsetMs})` compacts a wall-clock event list into cumulative played
@@ -319,8 +348,7 @@ Implementation notes:
   over a sliver of covered play are undefined, not absurd),
   SESSION_KEEP_MS (max window + max lookback + slack). RECORDING (RAM only):
   `sessionEvents` pruned to SESSION_KEEP_MS of played duration by
-  `sessionPrune`; `sessionPlayOffsetMs` preserves cumulative bucket
-  alignment after older events leave RAM;
+  `sessionPrune`, with independent retained tails for exact modes;
   `sessionPlayBegin` hooks `startTimer` (every transition into
   'playing' passes there), `sessionPlayEnd` hooks `finish` and the top
   of `newGame` (abandoned boards close their interval — the time was
@@ -403,8 +431,9 @@ Implementation notes:
   the builder groups each action once by primary category and obeys
   `settings.reportScope` through `reportScopeAllows`: none, fatal-only
   (new-player default), fatal+risk, or full. `buildReportScopeControl`
-  renders the same persistent choice directly above the current report and
-  re-renders immediately; the settings page shares `REPORT_SCOPE_CHOICES`.
+  renders below the right-side stats for none/fatal/risk, but stays above
+  the full-width report for full scope, and re-renders immediately; the
+  settings page shares `REPORT_SCOPE_CHOICES`.
   Every direct reveal is evaluated before opening whether or not the player
   ever flags or chords. `buildVerdictBlocks` returns `null` when no enabled
   category has content; it never manufactures an empty-success measurement

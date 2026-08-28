@@ -1,24 +1,41 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="game-booting">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Minesweeper - Standard Mode</title>
-<link rel="stylesheet" href="style.css?v=20260827-result-sections">
+<link rel="stylesheet" href="style.css?v=20260828-path-tools">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
+<!-- Defer preserves dependency order while letting every page asset download
+     in parallel. Storage starts first so disk access overlaps JS startup. -->
+<script defer src="storage.js"></script>
+<script defer src="rng.js"></script>
+<script defer src="justice.js?v=20260825-batched-certification"></script>
+<script defer src="board-shape.js"></script>
+<script defer src="solver.js?v=20260823-exact-solver"></script>
+<script defer src="generators.js?v=20260825-noise-family"></script>
+<script defer src="pregen.js?v=20260826-pregen-highlight"></script>
+<script defer src="odds.js?v=20260825-batched-certification"></script>
+<script defer src="trial.js"></script>
+<script defer src="settings-core.js?v=20260828-session-tool"></script>
+<script defer src="minesweeper.js?v=20260828-path-tools"></script>
 </head>
-<body>
+<body aria-busy="true">
 <div id="top-right">
   <div id="play-mode">
     <label>Mode
-      <select id="play-mode-select"></select>
+      <select id="play-mode-select" disabled>
+        <option>Loading saved mode…</option>
+      </select>
     </label>
     <div id="trial-progress" hidden></div>
     <div id="pregen-progress" hidden></div>
   </div>
   <div id="board-generator">
     <label>Generator
-      <select id="board-generator-select"></select>
+      <select id="board-generator-select" disabled>
+        <option>Loading saved generator…</option>
+      </select>
     </label>
   </div>
   <div id="music-indicator" hidden title="This machine is playing audio right now (rechecked about once a minute). Stamped onto each finished game as its music state.">music</div>
@@ -88,6 +105,10 @@
   <div id="board-lab-panel" hidden></div>
 
   <div id="game-area">
+    <div id="startup-status" role="status">
+      <span class="startup-dot" aria-hidden="true"></span>
+      Loading your settings and saved history…
+    </div>
     <div id="trial-stage" hidden>
       <p id="trial-copy"></p>
       <p id="trial-verdict" hidden></p>
@@ -96,17 +117,55 @@
     <div id="game-frame">
       <div id="top-panel">
         <div id="mine-counter" class="lcd"></div>
-        <button id="face-button" type="button" aria-label="New game"></button>
+        <button id="face-button" type="button" aria-label="New game" disabled>
+          <svg viewBox="0 0 26 26" aria-hidden="true">
+            <path d="M6 9.5 Q6.5 5.8 10.5 6.3 Q14.5 6.8 16.5 9 Q20.5 10.5 24 9.5 L21.5 12 L23.5 14.5 Q17.5 18.5 12 17.5 Q7 16.5 6 12 Q5.6 10.6 6 9.5 Z" fill="#ffffff" stroke="#000" stroke-width="1.1"/>
+            <path d="M10.5 10.5 Q14.5 8.5 17.5 10 Q14.5 13.5 10.5 10.5 Z" fill="#dddddd" stroke="#000" stroke-width="0.9"/>
+            <circle cx="8.7" cy="8.8" r="0.75"/>
+            <path d="M6.2 8.8 L3 10 L6.2 11.2 Z" fill="#f0a020"/>
+          </svg>
+        </button>
         <div id="timer" class="lcd"></div>
       </div>
-      <div id="board"></div>
+      <div id="board" aria-busy="true" aria-describedby="startup-status"></div>
+      <script>
+        // Real covered cells give first paint the exact game geometry. The
+        // loaded game replaces them in place; they never pretend to be ready.
+        (() => {
+          const board = document.getElementById('board');
+          const fragment = document.createDocumentFragment();
+          for (let i = 0; i < 81; i++) {
+            const cell = document.createElement('div');
+            cell.className = 'cell hidden startup-cell';
+            cell.setAttribute('aria-hidden', 'true');
+            fragment.appendChild(cell);
+          }
+          board.appendChild(fragment);
+        })();
+      </script>
     </div>
     <div id="board-position-drag-surface" hidden tabindex="0"
       aria-label="Board position. Drag, or use arrow keys to move."></div>
 
-    <nav id="scores-nav" aria-label="View high scores or the finished game's cursor path">
+    <nav id="scores-nav" aria-label="View high scores or inspect the finished game">
       <button type="button" id="see-scores-btn">see scores</button>
-      <button type="button" id="path-view-btn" hidden title="Draw the finished game's actual cursor path over the board. 'moves' is every recorded movement; 'clicks' connects only the clicks in order. Light = earlier, dark = later; blue dots are left clicks, red dots are flag clicks. Movement off the board clips at its edge.">path: off</button>
+      <div id="path-view-control" hidden aria-label="Path overlay">
+        <span class="path-view-heading">path</span>
+        <button type="button" data-path-view="off">off</button>
+        <button type="button" data-path-view="raw-path">raw path</button>
+        <button type="button" data-path-view="click-locations">click locations</button>
+        <button type="button" data-path-view="movement-speed">movement speed</button>
+        <button type="button" data-path-view="click-speed">click speed</button>
+        <button type="button" data-path-view="progress">game progress</button>
+        <button type="button" data-path-view="less-useful">less useful</button>
+        <button type="button" id="replay-toggle" aria-pressed="false">back in time</button>
+      </div>
+      <div id="path-view-legend" hidden></div>
+      <span id="replay-controls" hidden aria-label="Navigate decision time">
+        <button type="button" id="replay-prev" aria-label="Previous choice">‹</button>
+        <span id="replay-status" aria-live="polite"></span>
+        <button type="button" id="replay-next" aria-label="Next choice">›</button>
+      </span>
     </nav>
 
     <div id="results">
@@ -141,16 +200,5 @@
 
 </main>
 </div>
-<script src="rng.js"></script>
-<script src="justice.js?v=20260825-batched-certification"></script>
-<script src="board-shape.js"></script>
-<script src="solver.js?v=20260823-exact-solver"></script>
-<script src="generators.js?v=20260825-noise-family"></script>
-<script src="pregen.js?v=20260826-pregen-highlight"></script>
-<script src="odds.js?v=20260825-batched-certification"></script>
-<script src="trial.js"></script>
-<script src="storage.js?v=20260823-simple-settings"></script>
-<script src="settings-core.js?v=20260827-result-sections"></script>
-<script src="minesweeper.js?v=20260827-result-sections"></script>
 </body>
 </html>

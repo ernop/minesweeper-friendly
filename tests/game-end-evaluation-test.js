@@ -52,6 +52,12 @@ assertEq('empty successful games do not render a report placeholder',
   source.includes('No recorded reportable actions'), false);
 assertEq('bare reveals are evaluated without requiring flags or chords',
   source.includes('const actionEvaluation = evaluateRevealAction('), true);
+assertEq('no-op report entries omit duplicate board snapshots',
+  source.includes("undefined, { position: false });"), true);
+assertEq('trace replay restores a snapshot only on its no-op copy',
+  source.includes('{ ...evaluation, position: visiblePositionSnapshot() }'), true);
+assertEq('reveal and flag-placement choices exclude unavailable cells',
+  source.includes("const placingFlag = kind.endsWith('-to-flag');"), true);
 
 // Modern action evidence keeps independent facts together instead of
 // collapsing them into one exclusive verdict.

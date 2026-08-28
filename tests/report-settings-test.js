@@ -16,6 +16,10 @@ function check(name, condition) {
 {
   const fresh = settingsFrom({});
   check('new-player default is fatal only', fresh.reportScope === 'fatal');
+  check('session defaults to running averages', fresh.sessionAggregation === 'average');
+  check('session defaults to played-time rates', fresh.sessionRateBasis === 'time');
+  check('session defaults to exact current mode', fresh.sessionModeScope === 'current');
+  check('session has no clear boundary initially', fresh.sessionStartedAt === 0);
   check('retired category block is not rewritten',
     !('reportCategories' in fresh));
   check('retired detail setting is not rewritten',
