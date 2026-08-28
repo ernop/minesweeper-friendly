@@ -372,6 +372,14 @@ report.
   - **no-progress input** — unsatisfied chord, left-click on a flag, or
     right-click on a revealed cell. These carry their exact no-op reason
     but omit a full board snapshot to avoid multiplying history size.
+  - **unused correct mark** — a player-placed flag that is on a mine but
+    is removed or reaches game end without ever contributing to an accepted
+    chord. Each placement/removal cycle is its own episode. This is an
+    observable no-chord-use proxy for wasted marking time, not a claim that
+    the player did not use the mark mentally. It is attached retrospectively
+    to the original flag action, shown in full action analysis and the
+    less-useful path, counted in `unusedCorrectFlags`, and charted per played
+    minute or per game in session rates.
 - **Needless guess** has one precise meaning: the player revealed an
   uncertain, positive-risk square while at least one zero-risk reveal
   was available. Merely having a different move with higher modeled

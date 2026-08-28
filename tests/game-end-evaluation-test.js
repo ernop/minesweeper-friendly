@@ -308,6 +308,21 @@ assertEq('no-progress click is time loss',
   actionEvaluationCategory(noOp), 'timeLoss');
 assertContains('no-progress reason is explained',
   actionEvaluationText(noOp), 'flagged square');
+const unusedCorrectFlag = {
+  version: ACTION_EVALUATION_VERSION,
+  action: 'flag-place',
+  result: 'continued',
+  mistakes: ['unused-correct-flag'],
+  evidence: { unusedFlagEndedBy: 'game-ended' },
+};
+assertEq('unused correct mark is classified as time loss',
+  actionEvaluationCategory(unusedCorrectFlag), 'timeLoss');
+assertContains('unused correct mark explains the chord criterion',
+  actionEvaluationText(unusedCorrectFlag), 'never contributed to a chord');
+assertEq('accepted chords consume neighboring flag episodes',
+  source.includes('markChordFlagUsage(index);'), true);
+assertEq('game end closes every outstanding flag episode',
+  source.includes('finishOpenFlagEpisodes();'), true);
 const noOpGroups = aggregateReportEntries([
   { evaluation: noOp, shown: noOp, category: 'timeLoss' },
   { evaluation: { ...noOp, actionNumber: 8 },

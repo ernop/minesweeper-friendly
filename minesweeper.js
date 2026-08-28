@@ -111,6 +111,8 @@ let misclicks = 0;     // board-changing actions contradicted by visible facts
 let flagsPlaced = 0;   // flags the player placed (removals don't subtract)
 let flagsRemoved = 0;  // flag states the player turned off; each placement
                        // and each removal is a separate board-changing click
+let unusedCorrectFlags = 0; // correct flag placements never consumed by a chord
+let activeFlagEpisodes = new Map(); // cell index -> placement evaluation/use state
 let actionEvaluations = []; // fatal action plus every earlier measured mistake
 let gameSeed = null;    // 128-bit seed for placement and Justice redraws
 let gameRandom = null;  // the one deterministic random stream for this game
@@ -604,6 +606,8 @@ function newGame() {
   misclicks = 0;
   flagsPlaced = 0;
   flagsRemoved = 0;
+  unusedCorrectFlags = 0;
+  activeFlagEpisodes = new Map();
   finalTimeMs = 0;
   startTime = 0;
   mousePathPx = 0;
@@ -1278,8 +1282,48 @@ function floodReveal(index) {
   }
 }
 
+function beginFlagEpisode(index, evaluation) {
+  activeFlagEpisodes.set(index, {
+    index,
+    evaluation,
+    usedByChord: false,
+  });
+}
+
+function finishFlagEpisode(index, reason) {
+  const episode = activeFlagEpisodes.get(index);
+  if (episode === undefined) return;
+  activeFlagEpisodes.delete(index);
+  if (episode.usedByChord || !cells[index].mine) return;
+  unusedCorrectFlags++;
+  const evaluation = episode.evaluation;
+  if (!evaluation.mistakes.includes('unused-correct-flag')) {
+    evaluation.mistakes.push('unused-correct-flag');
+    evaluation.evidence.unusedFlagEndedBy = reason;
+  }
+  if (!actionEvaluations.includes(evaluation)) {
+    actionEvaluations.push(evaluation);
+    sessionRecordEvaluation(evaluation);
+  }
+  sessionRecordUnusedMark();
+}
+
+function finishOpenFlagEpisodes() {
+  for (const index of [...activeFlagEpisodes.keys()]) {
+    finishFlagEpisode(index, 'game-ended');
+  }
+}
+
+function markChordFlagUsage(index) {
+  for (const neighbor of neighbors(index)) {
+    if (!cells[neighbor].flagged) continue;
+    const episode = activeFlagEpisodes.get(neighbor);
+    if (episode !== undefined) episode.usedByChord = true;
+  }
+}
+
 // Returns whether the click changed anything (false on a revealed cell).
-function toggleFlag(index) {
+function toggleFlag(index, evaluation) {
   if (trialBlocksPlay()) return false;
   const cell = cells[index];
   if (cell.revealed) return false;
@@ -1288,7 +1332,9 @@ function toggleFlag(index) {
     startTimer();
     justiceEnabledForGame = justiceAppliesToMode() && settings.justUniverse;
   }
+  if (cell.flagged) finishFlagEpisode(index, 'flag-removed');
   cell.flagged = !cell.flagged;
+  if (cell.flagged) beginFlagEpisode(index, evaluation);
   flagsCount += cell.flagged ? 1 : -1;
   if (cell.flagged) flagsPlaced++;
   else flagsRemoved++;
@@ -1327,6 +1373,7 @@ function chord(index) {
   const toReveal = chordTargets(index);
   if (toReveal === null) return false;
   const actionEvaluation = evaluateChordAction(index, toReveal);
+  markChordFlagUsage(index);
   clickCount++;
 
   if (settings.playMode === 'proof-or-die') {
@@ -1595,6 +1642,7 @@ const ACTION_MISTAKE_LABELS = {
   'chord-wrong-flag-outcome': 'chorded with a wrong flag',
   'opened-unproven-with-safe-move': 'opened an unproven square while a proven-safe move was available',
   'no-op-click': 'made a click that changed nothing',
+  'unused-correct-flag': 'marked a mine but never used that mark in a chord',
   'legacy-avoidable': 'legacy avoidable-death classification',
 };
 
@@ -1623,6 +1671,7 @@ const TIME_LOSS_MISTAKES = new Set([
   'removed-proven-mine-flag',
   'chord-visible-contradiction',
   'no-op-click',
+  'unused-correct-flag',
 ]);
 const GAME_RISK_MISTAKES = new Set([
   'guessed-with-safe-move',
@@ -1867,6 +1916,11 @@ function actionEvaluationText(evaluation) {
   if (mistakes.has('removed-proven-mine-flag')) {
     parts.push('Visible facts still proved the unflagged square was a mine.');
   }
+  if (mistakes.has('unused-correct-flag')) {
+    parts.push(evidence.unusedFlagEndedBy === 'flag-removed'
+      ? 'This was a mine, but its flag was removed before contributing to any chord.'
+      : 'This was a mine, but its flag never contributed to a chord before the game ended.');
+  }
   if (mistakes.has('no-op-click')) {
     const reason = {
       'chord-unavailable': 'The chord conditions were not met, so the board did not change.',
@@ -2042,6 +2096,14 @@ function actionEvaluationLines(evaluation) {
   }
   if (mistakes.has('removed-proven-mine-flag')) {
     lines.push({ label: 'Difference', value: 'removed a flag from a proven mine' });
+  }
+  if (mistakes.has('unused-correct-flag')) {
+    lines.push({
+      label: 'Mark use',
+      value: evidence.unusedFlagEndedBy === 'flag-removed'
+        ? 'correct mine flag removed before any chord used it'
+        : 'correct mine flag remained unused by every later chord',
+    });
   }
   if (mistakes.has('chord-visible-contradiction')) {
     lines.push({ label: 'Difference', value: 'chord contradicted visible facts' });
@@ -2507,6 +2569,7 @@ function reportResult(outcome) {
     misclicks: misclicks,
     flagsPlaced: flagsPlaced,
     flagsRemoved: flagsRemoved,
+    unusedCorrectFlags: unusedCorrectFlags,
     mousePathPx: Math.round(mousePathPx),
     states: activeStateNames(),
     justice: justiceEvents,
@@ -3091,6 +3154,8 @@ function renderResult(record, modeRecords, options = {}) {
       ? [['Misclicks', String(record.misclicks)]] : []),
     ['Flags placed', isMarkless(record) ? '0 - markless' : String(record.flagsPlaced)],
     ...(fullAnalysis ? [['Flags removed', String(record.flagsRemoved)]] : []),
+    ...(typeof record.unusedCorrectFlags === 'number' && record.unusedCorrectFlags > 0
+      ? [['Unused mine marks', String(record.unusedCorrectFlags)]] : []),
     // A Justice event is any qualifying sealed-pocket entry — a forced
     // coinflip the rule guarantees the player wins.
     ...(fullAnalysis && record.justice !== undefined
@@ -3197,8 +3262,9 @@ function renderResult(record, modeRecords, options = {}) {
 // fields, importHistory also accepts the explicitly marked legacy boundary
 // fields, and the data-format card renders only the current examples and
 // descriptions. wastedClicks and
-// flagsPlaced joined the schema on 2026-08-19, flagsRemoved on 2026-08-20:
-// all are always written now, but games recorded before they were measured
+// flagsPlaced joined the schema on 2026-08-19, flagsRemoved on 2026-08-20,
+// and unusedCorrectFlags on 2026-08-28: all are always written now, but
+// games recorded before they were measured
 // lack them, so absence is valid ("not measured"); displays that need them
 // use only records that carry them.
 // JSON turns NaN and infinities into null. Accepting them here would let an
@@ -3239,6 +3305,7 @@ const GAME_RECORD_SCHEMA = [
   { field: 'misclicks', valid: (v) => v === undefined || isNumber(v), example: '1', describe: 'board-changing actions contradicted by facts provable from the visible board at click time: opening a proven mine, flagging a proven safe, removing a proven-mine flag, or chording through a visible contradiction; independent of whether the action caused death; absent on games recorded before 2026-08-23' },
   { field: 'flagsPlaced', valid: (v) => v === undefined || isNumber(v), example: '0', describe: 'flags the player placed (win auto-flagging not counted); 0 = a markless game; absent on games recorded before 2026-08-19' },
   { field: 'flagsRemoved', valid: (v) => v === undefined || isNumber(v), example: '1', describe: 'flag states the player turned off; placement and removal are each board-changing clicks; the reason for removal is not observed; absent on games recorded before 2026-08-20' },
+  { field: 'unusedCorrectFlags', valid: (v) => v === undefined || isNumber(v), example: '2', describe: 'correct mine-flag placement episodes that ended or were removed without ever contributing to an accepted chord; absent on games recorded before 2026-08-28' },
   { field: 'mousePathPx', valid: isNumber, example: '1182', describe: 'cursor travel while playing, px' },
   { field: 'fastclickGapMs', valid: (v) => v === undefined || isNumber(v), example: '218', describe: 'median gap between consecutive board-changing presses made on the move (cursor moving within 100ms before) with gaps under 1s; absent when no gap qualified or on games recorded before 2026-08-22' },
   { field: 'states', valid: (v) => v === undefined || (Array.isArray(v) && v.every((s) => typeof s === 'string')), example: '["sleepy"]', describe: 'player-defined state tags active when the game finished (see the states panel); absent on games recorded before 2026-08-20' },
@@ -8386,9 +8453,12 @@ function sessionBucketSeries(events, opts) {
   const useful = new Array(bucketCount).fill(0);
   const wasted = new Array(bucketCount).fill(0);
   const misclickPlayMs = new Array(bucketCount).fill(0);
+  const unusedMarkPlayMs = new Array(bucketCount).fill(0);
   const misclickCount = new Array(bucketCount).fill(0);
   const flags = new Array(bucketCount).fill(0);
   const unflags = new Array(bucketCount).fill(0);
+  const unusedMarks = new Array(bucketCount).fill(0);
+  const unusedMarkGames = new Array(bucketCount).fill(0);
   const avoidableDeaths = new Array(bucketCount).fill(0);
   const categoryCounts = Object.fromEntries(ACTION_CATEGORY_SPECS.map((spec) =>
     [spec.id, new Array(bucketCount).fill(0)]));
@@ -8447,6 +8517,9 @@ function sessionBucketSeries(events, opts) {
       if (ev === null || typeof ev.misclicks === 'number') {
         misclickPlayMs[i] += overlapMs;
       }
+      if (ev === null || typeof ev.unusedMarks === 'number') {
+        unusedMarkPlayMs[i] += overlapMs;
+      }
       if (ev !== null) {
         const share = overlapMs / spanMs;
         movePx[i] += ev.px * share;
@@ -8457,6 +8530,9 @@ function sessionBucketSeries(events, opts) {
         }
         flags[i] += ev.flags * share;
         unflags[i] += (ev.unflags || 0) * share;
+        if (typeof ev.unusedMarks === 'number') {
+          unusedMarks[i] += ev.unusedMarks * share;
+        }
         if (ev.categoryCounts) {
           for (const spec of ACTION_CATEGORY_SPECS) {
             categoryCounts[spec.id][i] += (ev.categoryCounts[spec.id] || 0) * share;
@@ -8474,7 +8550,10 @@ function sessionBucketSeries(events, opts) {
     // The ending lands in the bucket containing the game's final instant,
     // like the classified death above.
     if (ev !== null && typeof ev.end === 'string') {
-      countEnd(bucketAt(span.playTo - 1e-6), ev.end, ev.winUnmarked);
+      const endBucket = bucketAt(span.playTo - 1e-6);
+      countEnd(endBucket, ev.end, ev.winUnmarked);
+      if (typeof ev.unusedMarks === 'number'
+          && endBucket >= 0 && endBucket < bucketCount) unusedMarkGames[endBucket]++;
       addGameEnd(span.playTo, ev);
     }
   }
@@ -8511,6 +8590,8 @@ function sessionBucketSeries(events, opts) {
           && ev.gapMs <= FASTCLICK_MAX_GAP_MS) {
         fastGaps[i].push(ev.gapMs);
       }
+    } else if (ev.kind === 'unused-mark') {
+      unusedMarks[i]++;
     } else if (ev.kind === 'death' && ev.mistake === true) {
       avoidableDeaths[i]++;
     } else if (ev.kind === 'evaluation') {
@@ -8519,6 +8600,7 @@ function sessionBucketSeries(events, opts) {
       modeledLifeGap[i] += ev.modeledLifeGap || 0;
     } else if (ev.kind === 'end') {
       countEnd(i, ev.end, ev.winUnmarked);
+      if (typeof ev.unusedMarks === 'number') unusedMarkGames[i]++;
       addGameEnd(playAt, ev);
     }
   }
@@ -8578,6 +8660,7 @@ function sessionBucketSeries(events, opts) {
   const misclicksPerMin = [];
   const flagsPerSec = [];
   const mismarksPerMin = [];
+  const unusedMarksPerMin = [];
   const fastclickGapMs = [];
   const categoryPerMin = Object.fromEntries(
     ACTION_CATEGORY_SPECS.map((spec) => [spec.id, []]));
@@ -8588,6 +8671,7 @@ function sessionBucketSeries(events, opts) {
   const misclicksPerGame = [];
   const flagsPerGame = [];
   const mismarksPerGame = [];
+  const unusedMarksPerGame = [];
   const avoidablePerGame = [];
   const categoryPerGame = Object.fromEntries(
     ACTION_CATEGORY_SPECS.map((spec) => [spec.id, []]));
@@ -8606,6 +8690,9 @@ function sessionBucketSeries(events, opts) {
       ? misclickCount[i] / (misclickPlayedSec / 60) : undefined);
     flagsPerSec.push(enough ? flags[i] / playedSec : undefined);
     mismarksPerMin.push(enough ? unflags[i] / (playedSec / 60) : undefined);
+    const unusedPlayedSec = unusedMarkPlayMs[i] / 1000;
+    unusedMarksPerMin.push(unusedMarkPlayMs[i] >= SESSION_MIN_PLAY_MS
+      ? unusedMarks[i] / (unusedPlayedSec / 60) : undefined);
     for (const spec of ACTION_CATEGORY_SPECS) {
       categoryPerMin[spec.id].push(enough
         ? categoryCounts[spec.id][i] / (playedSec / 60) : undefined);
@@ -8620,6 +8707,8 @@ function sessionBucketSeries(events, opts) {
     misclicksPerGame.push(games > 0 ? misclickCount[i] / games : undefined);
     flagsPerGame.push(games > 0 ? flags[i] / games : undefined);
     mismarksPerGame.push(games > 0 ? unflags[i] / games : undefined);
+    unusedMarksPerGame.push(unusedMarkGames[i] > 0
+      ? unusedMarks[i] / unusedMarkGames[i] : undefined);
     avoidablePerGame.push(games > 0 ? avoidableDeaths[i] / games : undefined);
     for (const spec of ACTION_CATEGORY_SPECS) {
       categoryPerGame[spec.id].push(games > 0
@@ -8633,18 +8722,20 @@ function sessionBucketSeries(events, opts) {
     startPlayMs, bucketMs: opts.bucketMs, playNowMs,
     windowMs: opts.windowMs, centers, playMs,
     speedPxPerSec, clicksPerSec, avoidablePerMin, wastedPerMin, misclicksPerMin, flagsPerSec,
-    mismarksPerMin, fastclickGapMs, endFractions, endGames, winUnmarkedFraction,
+    mismarksPerMin, unusedMarksPerMin, fastclickGapMs,
+    endFractions, endGames, winUnmarkedFraction,
     rawEndFractions, rawEndGames, rawWinUnmarkedFraction,
     wins, gameEnds,
     categoryPerMin, excessRiskPctPerMin, modeledLifeGapPerMin,
     usefulPerGame, wastedPerGame, misclicksPerGame, flagsPerGame,
-    mismarksPerGame, avoidablePerGame, categoryPerGame,
+    mismarksPerGame, unusedMarksPerGame, avoidablePerGame, categoryPerGame,
     excessRiskPctPerGame, modeledLifeGapPerGame,
     // The raw per-bucket accumulations behind the rates, for layers that
     // aggregate across buckets (sessionRunningSeries) — rates can't be
     // re-averaged without their weights.
-    sums: { playMs, movePx, useful, wasted, misclickPlayMs, misclickCount,
-      flags, unflags, avoidableDeaths, categoryCounts, excessRisk,
+    sums: { playMs, movePx, useful, wasted, misclickPlayMs, unusedMarkPlayMs,
+      misclickCount, flags, unflags, unusedMarks, unusedMarkGames,
+      avoidableDeaths, categoryCounts, excessRisk,
       modeledLifeGap, fastGaps, endCounts, winUnmarkedSum, winUnmarkedWins },
   };
 }
@@ -8704,9 +8795,12 @@ function sessionRunningSeries(events, opts) {
   const pUseful = prefix(sums.useful);
   const pWasted = prefix(sums.wasted);
   const pMisPlay = prefix(sums.misclickPlayMs);
+  const pUnusedMarkPlay = prefix(sums.unusedMarkPlayMs);
   const pMis = prefix(sums.misclickCount);
   const pFlags = prefix(sums.flags);
   const pUnflags = prefix(sums.unflags);
+  const pUnusedMarks = prefix(sums.unusedMarks);
+  const pUnusedMarkGames = prefix(sums.unusedMarkGames);
   const pAvoidable = prefix(sums.avoidableDeaths);
   const pGames = prefix(sums.endCounts.reduce((totals, counts) =>
     totals.map((total, i) => total + counts[i]),
@@ -8727,6 +8821,7 @@ function sessionRunningSeries(events, opts) {
   const misclicksPerMin = [];
   const flagsPerSec = [];
   const mismarksPerMin = [];
+  const unusedMarksPerMin = [];
   const fastclickGapMs = [];
   const categoryPerMin = Object.fromEntries(
     ACTION_CATEGORY_SPECS.map((spec) => [spec.id, []]));
@@ -8737,6 +8832,7 @@ function sessionRunningSeries(events, opts) {
   const misclicksPerGame = [];
   const flagsPerGame = [];
   const mismarksPerGame = [];
+  const unusedMarksPerGame = [];
   const avoidablePerGame = [];
   const categoryPerGame = Object.fromEntries(
     ACTION_CATEGORY_SPECS.map((spec) => [spec.id, []]));
@@ -8775,6 +8871,9 @@ function sessionRunningSeries(events, opts) {
       ? roll(pMis, k) / (misPlayedMs / 60000) : undefined);
     flagsPerSec.push(enough ? roll(pFlags, k) / playedSec : undefined);
     mismarksPerMin.push(enough ? roll(pUnflags, k) / (playedSec / 60) : undefined);
+    const unusedPlayedMs = roll(pUnusedMarkPlay, k);
+    unusedMarksPerMin.push(unusedPlayedMs >= SESSION_MIN_PLAY_MS
+      ? roll(pUnusedMarks, k) / (unusedPlayedMs / 60000) : undefined);
     for (const spec of ACTION_CATEGORY_SPECS) {
       categoryPerMin[spec.id].push(enough
         ? roll(pCategoryCounts[spec.id], k) / (playedSec / 60) : undefined);
@@ -8789,6 +8888,9 @@ function sessionRunningSeries(events, opts) {
     misclicksPerGame.push(games > 0 ? roll(pMis, k) / games : undefined);
     flagsPerGame.push(games > 0 ? roll(pFlags, k) / games : undefined);
     mismarksPerGame.push(games > 0 ? roll(pUnflags, k) / games : undefined);
+    const measuredUnusedGames = roll(pUnusedMarkGames, k);
+    unusedMarksPerGame.push(measuredUnusedGames > 0
+      ? roll(pUnusedMarks, k) / measuredUnusedGames : undefined);
     avoidablePerGame.push(games > 0 ? roll(pAvoidable, k) / games : undefined);
     for (const spec of ACTION_CATEGORY_SPECS) {
       categoryPerGame[spec.id].push(games > 0
@@ -8816,10 +8918,11 @@ function sessionRunningSeries(events, opts) {
     playNowMs: fine.playNowMs, windowMs: opts.windowMs,
     centers, playMs,
     speedPxPerSec, clicksPerSec, avoidablePerMin, wastedPerMin,
-    misclicksPerMin, flagsPerSec, mismarksPerMin, fastclickGapMs,
+    misclicksPerMin, flagsPerSec, mismarksPerMin, unusedMarksPerMin,
+    fastclickGapMs,
     categoryPerMin, excessRiskPctPerMin, modeledLifeGapPerMin,
     usefulPerGame, wastedPerGame, misclicksPerGame, flagsPerGame,
-    mismarksPerGame, avoidablePerGame, categoryPerGame,
+    mismarksPerGame, unusedMarksPerGame, avoidablePerGame, categoryPerGame,
     excessRiskPctPerGame, modeledLifeGapPerGame,
     endFractions, endGames, winUnmarkedFraction,
     gameEnds: fine.gameEnds.filter((game) =>
@@ -8960,12 +9063,21 @@ function sessionRecordEvaluation(evaluation) {
   });
 }
 
+function sessionRecordUnusedMark() {
+  sessionEvents.push({
+    kind: 'unused-mark',
+    modeKey: sessionEventModeKey(),
+    at: Date.now(),
+  });
+}
+
 // One ending per finished game ('win', a fatal-action status kind, a
 // legacy verdict kind, or 'other'), recorded while the play span is
 // still open so it lands inside it. On a win, winUnmarked carries the
 // share of the board's mines that had no flag at the winning instant.
 function sessionRecordEnd(end, winUnmarked) {
   const now = Date.now();
+  finishOpenFlagEpisodes();
   const event = {
     kind: 'end',
     modeKey: sessionEventModeKey(),
@@ -8974,6 +9086,7 @@ function sessionRecordEnd(end, winUnmarked) {
     timeMs: elapsedMs(),
     boardKey: boardKey(),
     endedAt: now,
+    unusedMarks: unusedCorrectFlags,
   };
   if (typeof winUnmarked === 'number') event.winUnmarked = winUnmarked;
   sessionEvents.push(event);
@@ -9027,6 +9140,8 @@ function sessionBackfillFromHistory() {
         misclicks: record.misclicks,
         flags: record.flagsPlaced || 0,
         unflags: record.flagsRemoved || 0,
+        ...(typeof record.unusedCorrectFlags === 'number'
+          ? { unusedMarks: record.unusedCorrectFlags } : {}),
         fatalMistake: evaluationHasMistake(fatalEvaluationOf(record)),
         categoryCounts: actionSummary.counts,
         excessRisk: actionSummary.excessRisk,
@@ -9115,6 +9230,13 @@ const SESSION_RATE_SPECS = [
       + 'the record does not reveal why a flag was removed',
     of: (b, i) => b.mismarksPerMin[i],
     gameOf: (b, i) => b.mismarksPerGame[i], fmt: (v) => v.toFixed(1) },
+  { label: 'unused mine marks', unit: '/m', color: '#ad1457',
+    calc: 'correct mine-flag placements removed or left standing without '
+      + 'ever contributing to an accepted chord, per in-progress minute',
+    records: 'an observable no-chord-use proxy for unnecessary marking; '
+      + 'the app cannot know whether the player used a mark mentally',
+    of: (b, i) => b.unusedMarksPerMin[i],
+    gameOf: (b, i) => b.unusedMarksPerGame[i], fmt: (v) => v.toFixed(1) },
   { label: 'mine marking', unit: '/s', color: '#388e3c',
     calc: 'flags placed per in-progress second (removals don\u2019t '
       + 'subtract; the win\u2019s auto-flagging is not yours and never '
@@ -10219,7 +10341,7 @@ boardElement.addEventListener('contextmenu', (event) => {
   const misclick = !cells[index].revealed && flagChangeIsMisclick(index, removing);
   const actionEvaluation = !cells[index].revealed
     ? evaluateFlagAction(index, removing) : null;
-  if (!toggleFlag(index)) {
+  if (!toggleFlag(index, actionEvaluation)) {
     wastedClicks++;
     sessionRecordPress(false, false, false, false);
     recordActionEvaluation(evaluateNoOpAction(index, 'flagged-revealed-cell'), 'continued');

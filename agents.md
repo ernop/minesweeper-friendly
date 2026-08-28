@@ -105,7 +105,8 @@ Implementation notes:
 - History: userdata 'history' maps mode key to a
   chronological array of game records, one per finished game:
   {endedAt, outcome: 'win'|'loss', timeMs, bv3, clicks, wastedClicks,
-  misclicks, flagsPlaced, flagsRemoved, mousePathPx, states, justice,
+  misclicks, flagsPlaced, flagsRemoved, unusedCorrectFlags, mousePathPx,
+  states, justice,
   justiceEnabled, seed, rngVersion, boardVersion, justiceVersion,
   maxAdjacent, hasSeven, zeroCount, islandCount, largestIsland,
   playMode, identityIndex, transform, trialStartedAt, guesses,
@@ -134,6 +135,14 @@ Implementation notes:
   blank when time ≤ 1s.
 - `mousePathPx`: cursor distance accumulated on document mousemove only
   while `gameState === 'playing'`.
+- Unused correct marks: `activeFlagEpisodes` tracks each player flag placement
+  until removal or game end. `markChordFlagUsage` consumes neighboring
+  episodes only for an accepted chord; `finishFlagEpisode` retrospectively
+  tags an unused correct placement with `unused-correct-flag`, adds its
+  time-loss evidence to the report/trace, emits a live `unused-mark` session
+  event, and increments the stored `unusedCorrectFlags`. The session bucket
+  and running layers expose `/m` and `/game` series. This measures observable
+  chord use, never unobservable mental use.
 - Raw input traces (PRODUCT.md "Raw input traces"): `beginTrace` (end of
   newGame's board build) starts {startedAt, t0, t/x/y sample arrays,
   events}; the document mousemove handler appends a sample per move while

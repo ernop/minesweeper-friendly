@@ -81,6 +81,7 @@ const press = (at, useful, flag, moving, gapMs, unflag, misclick) => ({
     { kind: 'evaluation', at: from + 23000, category: 'timeLoss' },
     { kind: 'evaluation', at: from + 24000, category: 'lifeMaximization',
       modeledLifeGap: 0.12 },
+    { kind: 'unused-mark', at: from + 25000 },
   ];
   const s = sessionBucketSeries(events, opts);
   const i = last(s);
@@ -92,6 +93,7 @@ const press = (at, useful, flag, moving, gapMs, unflag, misclick) => ({
   assertClose('live misclicks', s.misclicksPerMin[i], 1);
   assertClose('live flags', s.flagsPerSec[i], 2 / 60);
   assertClose('live unflags', s.mismarksPerMin[i], 2);
+  assertClose('live unused mine marks', s.unusedMarksPerMin[i], 1);
   assertClose('live deaths with mistakes', s.avoidablePerMin[i], 1);
   assertClose('live game-loss category', s.categoryPerMin.gameLoss[i], 1);
   assertClose('live game-risk category', s.categoryPerMin.gameRisk[i], 1);
@@ -101,6 +103,26 @@ const press = (at, useful, flag, moving, gapMs, unflag, misclick) => ({
   assertClose('live modeled-life magnitude', s.modeledLifeGapPerMin[i], 0.2);
   assertClose('live fastclick median', s.fastclickGapMs[i], 300);
   assertUndefined('empty earlier bucket', s.speedPxPerSec[i - 1]);
+}
+
+// Older games did not measure unused marks. They must not be treated as
+// measured zeroes in either time-based or per-game rates.
+{
+  const from = NOW - MIN;
+  const unmeasured = sessionBucketSeries([
+    { kind: 'game', from, to: NOW, end: 'win' },
+  ], opts);
+  assertUndefined('legacy game has no unused-mark time rate',
+    unmeasured.unusedMarksPerMin[last(unmeasured)]);
+  assertUndefined('legacy game has no unused-mark per-game rate',
+    unmeasured.unusedMarksPerGame[last(unmeasured)]);
+  const measured = sessionBucketSeries([
+    { kind: 'game', from, to: NOW, end: 'win', unusedMarks: 0 },
+  ], opts);
+  assertClose('measured zero unused-mark time rate',
+    measured.unusedMarksPerMin[last(measured)], 0);
+  assertClose('measured zero unused-mark per-game rate',
+    measured.unusedMarksPerGame[last(measured)], 0);
 }
 
 // Two 30-second games five wall minutes apart fill one contiguous played
