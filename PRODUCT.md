@@ -547,6 +547,33 @@ report.
   under the stated rules;
   it does not identify judgment, attention, or any other cause — the
   standing measurement doctrine.
+- **Collection is independent of display.** `reportScope` filters only what
+  is rendered. Every action is evaluated under the same rules in every scope,
+  and every fatal or reportable evaluation is stored in
+  `actionEvaluations`; session category totals are derived from that complete
+  stored ledger. A clean nonfatal action is evaluated transiently but creates
+  no report item.
+- The five exclusive primary report item categories are:
+  **Game loss** (every fatal action), **Game risk** (a survived action that
+  increased actual death risk), **Time loss** (no progress, visible-state
+  regression, or an unused correct mine mark), **Life maximization**
+  (positive one-ply modeled-life gap), and **Measurement notes** (legacy,
+  incomplete, newer, or otherwise unclassifiable evidence).
+- The complete current mistake/evidence tag registry is:
+  `opened-proven-mine`, `ignored-safe-move`, `guessed-with-safe-move`,
+  `chose-higher-risk`, `chose-lower-modeled-life`,
+  `flagged-proven-safe`, `removed-proven-mine-flag`,
+  `chord-visible-contradiction`, `chord-wrong-flag-outcome`,
+  `opened-unproven-with-safe-move`, `no-op-click`,
+  `unused-correct-flag`, and `legacy-avoidable`. `no-op-click` further records
+  one of `chord-unavailable`, `left-clicked-flag`, or
+  `flagged-revealed-cell`. An action may carry several tags, but severity
+  assigns it to one primary category so category totals never double-count it.
+- Modern Game-loss items use one of eight fatal statuses:
+  `mine-safe`, `mine-forced`, `proof-safe`, `proof-forced`, `guess-safe`,
+  `guess-higher`, `guess-min`, or `guess-unmeasured`; evidence-free losses
+  are `unjudged`. Older imports may preserve the legacy `mine`, `chord`,
+  `needless`, `forced`, or `angel` verdict as provenance.
 
 ## Layout: the board never moves
 

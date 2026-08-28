@@ -451,6 +451,12 @@ Implementation notes:
   chosen/best raw and protection-aware actual risk, one-ply expected-life
   values, no-op reason, and highlighted alternatives. Compact no-op
   evaluations deliberately omit a board snapshot.
+  Capture and `recordActionEvaluation` never consult `reportScope`; that
+  setting gates only rendering through `reportCategoryEnabled` and
+  `evaluationForReport`. Thus hidden fatal/reportable items still enter the
+  canonical record and session summaries. Retrospective
+  `unused-correct-flag` entries follow the same rule and classify as
+  `timeLoss`.
   `actionEvaluationCategory` assigns exactly one primary category in
   severity order (`gameLoss`, `gameRisk`, `timeLoss`,
   `lifeMaximization`, `measurementNotes`); actual-risk delta, not raw

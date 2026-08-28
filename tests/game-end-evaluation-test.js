@@ -48,6 +48,28 @@ assertEq('risk scope excludes time loss',
   reportScopeAllows('risk', 'timeLoss'), false);
 assertEq('full scope includes model advice',
   reportScopeAllows('full', 'lifeMaximization'), true);
+assertEq('all primary report item types remain registered',
+  ACTION_CATEGORY_SPECS.map((spec) => spec.id).join(','),
+  'gameLoss,gameRisk,timeLoss,lifeMaximization,measurementNotes');
+assertEq('all current mistake tags remain registered',
+  Object.keys(ACTION_MISTAKE_LABELS).join(','),
+  [
+    'opened-proven-mine', 'ignored-safe-move', 'guessed-with-safe-move',
+    'chose-higher-risk', 'chose-lower-modeled-life', 'flagged-proven-safe',
+    'removed-proven-mine-flag', 'chord-visible-contradiction',
+    'chord-wrong-flag-outcome', 'opened-unproven-with-safe-move',
+    'no-op-click', 'unused-correct-flag', 'legacy-avoidable',
+  ].join(','));
+const recordEvaluationSource = source.slice(
+  source.indexOf('function recordActionEvaluation('),
+  source.indexOf('\nfunction reportResult(', source.indexOf('function recordActionEvaluation(')));
+assertEq('report display scope never gates evidence recording',
+  recordEvaluationSource.includes('reportCategoryEnabled'), false);
+const unusedMarkSource = source.slice(
+  source.indexOf('function finishFlagEpisode('),
+  source.indexOf('\nfunction finishOpenFlagEpisodes('));
+assertEq('report display scope never gates unused-mark recording',
+  unusedMarkSource.includes('reportCategoryEnabled'), false);
 assertEq('empty successful games do not render a report placeholder',
   source.includes('No recorded reportable actions'), false);
 assertEq('bare reveals are evaluated without requiring flags or chords',
