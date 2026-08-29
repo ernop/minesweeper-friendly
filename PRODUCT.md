@@ -402,6 +402,16 @@ report.
   rather than a separate “chord death” report class.
 - Evidence capture must never block play. Prover/enumerator failure is
   stored as unmeasured rather than filled with an invented conclusion.
+- **Loss feedback precedes result work** (decided 2026-08-29): once a fatal
+  action has been evaluated, the board must reveal its mines, mark the hit
+  cell, and show the dead face in the current input turn. History cloning and
+  persistence, final trace metrics, session-chart rebuilding, and the full
+  post-game report begin only after the browser has had a paint opportunity.
+  A throttled-frame fallback still finalizes the record promptly, and any
+  subsequent player input flushes pending finalization before it can mutate
+  the finished board. The pre-action proof/odds measurement remains before
+  mutation because its evidence must describe exactly what the player could
+  see when clicking.
 - **Exclusive report taxonomy** (added 2026-08-23): each evaluation
   appears once, under its highest-severity applicable category, while
   all lower-level mistake tags remain on its evidence:
@@ -1571,11 +1581,14 @@ does not label their cause.
     winning" line (the wins' average share of mines left unflagged at
     the winning instant), with a color legend of current shares. See
     "Game-end evaluation".
-  - **report categories** (added 2026-08-23) — one per-minute line for
-    each enabled exclusive action-report category: game loss, game risk,
-    time loss, life maximization, and measurement notes. `reportScope`
-    gates these lines with the same none / fatal / risk / full ladder as
-    the report.
+  - **report categories** (added 2026-08-23; scope independence decided
+    2026-08-29) — one per-minute line for every exclusive action-report
+    category: game loss, game risk, time loss, life maximization, and
+    measurement notes. Session diagnostics always show all category lines
+    and their magnitude charts; `reportScope` controls only the after-game
+    report and never hides session series. This keeps the observation
+    history complete by mistake type without forcing a more verbose
+    post-game report.
   - **excess game risk** — sum of the extra immediate loss probability
     on survived game-risk actions per played minute, in percentage
     points/minute. Active protection rules are applied first; this is a

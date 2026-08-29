@@ -26,4 +26,14 @@ const compactControl = source.indexOf(
 check('compact selector follows the stats table',
   statsAppend >= 0 && compactControl > statsAppend);
 
+const sessionRenderStart = source.indexOf('function appendSessionSection(');
+const sessionRenderEnd = source.indexOf(
+  '\nfunction appendSessionEndingsRow(', sessionRenderStart);
+const sessionRender = source.slice(sessionRenderStart, sessionRenderEnd);
+check('session category chart always uses every report category',
+  sessionRender.includes(
+    'const categorySpecs = SESSION_CATEGORY_RATE_SPECS;'));
+check('session magnitude charts ignore after-game report scope',
+  !sessionRender.includes('reportCategoryEnabled('));
+
 console.log(`report-control-layout: all ${checks} checks passed`);

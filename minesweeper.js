@@ -579,7 +579,44 @@ function placeMinesForPlayMode(safeIndex) {
 
 //-------GAME FLOW-------
 
+// A loss first updates the board and face. The result pipeline clones and
+// persists history, recomputes trace metrics, and builds every post-game
+// chart; doing all of that in the fatal mouseup task prevents the browser
+// from painting the already-updated loss UI. A frame callback followed by a
+// timer crosses a paint boundary before that nonessential work begins.
+// The fallback also finalizes promptly if animation frames are throttled.
+let pendingResultOutcome = null;
+let pendingResultFrame = null;
+let pendingResultTimer = null;
+let pendingResultFallbackTimer = null;
+
+function flushPendingResult() {
+  if (pendingResultOutcome === null) return;
+  const outcome = pendingResultOutcome;
+  pendingResultOutcome = null;
+  if (pendingResultFrame !== null) cancelAnimationFrame(pendingResultFrame);
+  if (pendingResultTimer !== null) clearTimeout(pendingResultTimer);
+  if (pendingResultFallbackTimer !== null) clearTimeout(pendingResultFallbackTimer);
+  pendingResultFrame = null;
+  pendingResultTimer = null;
+  pendingResultFallbackTimer = null;
+  reportResult(outcome);
+}
+
+function reportResultAfterPaint(outcome) {
+  if (pendingResultOutcome !== null) flushPendingResult();
+  pendingResultOutcome = outcome;
+  pendingResultFallbackTimer = setTimeout(flushPendingResult, 250);
+  pendingResultFrame = requestAnimationFrame(() => {
+    pendingResultFrame = null;
+    pendingResultTimer = setTimeout(flushPendingResult, 0);
+  });
+}
+
 function newGame() {
+  // Preserve the just-finished game's mutable state if a programmatic restart
+  // arrives in the brief post-paint finalization window.
+  flushPendingResult();
   if (Trial.isPlayMode(settings.playMode) && trialIsActive()
       && (trialSession.width !== config.width
         || trialSession.height !== config.height
@@ -1505,7 +1542,7 @@ function lose(hitIndices, evaluation) {
     cellElements[i].innerHTML = MINE_SVG;
   }
   setFace('dead');
-  reportResult('loss');
+  reportResultAfterPaint('loss');
 }
 
 function finish() {
@@ -9438,8 +9475,9 @@ const SESSION_GROUP = {
 // px/s" sits flush on its plot and says everything the removed rotated
 // y-axis caption used to say, without the sideways read or the lost
 // horizontal space. Series with distinct units keep solo charts; the six
-// legacy action rates share two unit-grouped plots, and enabled report
-// categories share a third per-minute plot.
+// legacy action rates share two unit-grouped plots, and all report
+// categories share a third per-minute plot. Session diagnostics are
+// independent of the after-game report display scope.
 const SESSION_METRIC_SPECS = [
   { label: 'mouse speed px/s',
     calc: 'cursor px traveled while a game was in progress over the '
@@ -10312,14 +10350,12 @@ function appendSessionSection(container) {
     appendSessionRatesRow(container, buckets, '/m');
     appendSessionRatesRow(container, buckets, '/s');
   }
-  const categorySpecs = SESSION_CATEGORY_RATE_SPECS
-    .filter((spec) => reportCategoryEnabled(spec.category));
+  const categorySpecs = SESSION_CATEGORY_RATE_SPECS;
   appendSessionRatesRow(container, buckets,
     settings.sessionRateBasis === 'game' ? '/game' : '/m',
     categorySpecs, 'report categories');
   for (const sourceSpec of SESSION_METRIC_SPECS) {
     const spec = sessionMetricSpecForBasis(sourceSpec);
-    if (spec.category && !reportCategoryEnabled(spec.category)) continue;
     const row = document.createElement('div');
     row.className = 'metric-row session-metric-row';
     const headRow = document.createElement('div');
@@ -10518,6 +10554,12 @@ function cellIndexFromEvent(event) {
   const el = event.target.closest('.cell');
   return el === null ? null : Number(el.dataset.index);
 }
+
+// Ordinarily the queued timer completes before another human input. If it
+// does not, finalize while the just-finished board/config are still intact,
+// before that next input can change them.
+document.addEventListener('pointerdown', flushPendingResult, true);
+document.addEventListener('keydown', flushPendingResult, true);
 
 boardElement.addEventListener('mousedown', (event) => {
   if (event.button !== 0) return;

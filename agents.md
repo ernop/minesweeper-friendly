@@ -254,7 +254,11 @@ Implementation notes:
   `metricsPanelCollapsed` + `lastLiveMetrics` implement the panel's own
   × / "stats ▸" session toggler; `refreshMetricsPanel` (called from the
   settings change handler) applies the settings mid-game and between
-  games. Final: `reportResult` computes
+  games. Loss transition: `lose` paints the mine-hit board and dead face,
+  then `reportResultAfterPaint` crosses a requestAnimationFrame + timer paint
+  boundary before `reportResult`; a 250ms fallback covers throttled frames,
+  while the next pointer/key input and `newGame` flush pending finalization
+  before mutable game state can change. Final: `reportResult` computes
   `computeAllTraceMetrics` with wall time endedAt - trace.startedAt (the
   stored trace's definition), snapshots `finalMotion` {metrics, series},
   and re-renders the panel session-only (the live rows' game is over;
@@ -417,15 +421,16 @@ Implementation notes:
   `sessionRecordEnd('win', share)`); live and backfill cannot overlap
   because every backfilled game ended before the page load. DISPLAY: `SESSION_GROUP` +
   `SESSION_METRIC_SPECS` (solo rows: mouse speed, fastclick gap, and the
-  enabled excess-risk / modeled-life magnitude charts;
+  excess-risk / modeled-life magnitude charts;
   label carries the unit and sits flush on the plot — no axis captions,
   the "-15m … now" x ticks speak for themselves) +
   `SESSION_RATE_SPECS` (the six action rates, each with unit '/m' or
   '/s' — chosen for meaty values; no-op clicks charts /s since
   2026-08-23 by dividing the stored per-minute series by 60 in its
   spec — color, and bare-number fmt) plus
-  `SESSION_CATEGORY_RATE_SPECS` (one `/m` line per enabled exclusive
-  report category), rendered
+  `SESSION_CATEGORY_RATE_SPECS` (one `/m` line per exclusive report
+  category; session diagnostics intentionally ignore the after-game
+  `reportScope`), rendered
   by `buildSessionChart` / `buildSessionRatesChart(buckets, specs, unit)`
   + `appendSessionRatesRow(container, buckets, unit)` (two unit-grouped
   plots right after endings — "action rates/m" then "action rates/s",

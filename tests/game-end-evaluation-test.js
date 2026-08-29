@@ -81,6 +81,21 @@ assertEq('trace replay restores a snapshot only on its no-op copy',
   source.includes('{ ...evaluation, position: visiblePositionSnapshot() }'), true);
 assertEq('reveal and flag-placement choices exclude unavailable cells',
   source.includes("const placingFlag = kind.endsWith('-to-flag');"), true);
+const lossSource = source.slice(
+  source.indexOf('function lose('), source.indexOf('\nfunction finish('));
+assertEq('loss board is updated before post-game work is queued',
+  lossSource.indexOf("setFace('dead')")
+    < lossSource.indexOf("reportResultAfterPaint('loss')"), true);
+assertEq('fatal input does not run the result pipeline synchronously',
+  lossSource.includes("reportResult('loss')"), false);
+const postPaintSource = source.slice(
+  source.indexOf('function reportResultAfterPaint('),
+  source.indexOf('\nfunction newGame('));
+assertEq('loss finalization crosses a browser paint boundary',
+  postPaintSource.includes('requestAnimationFrame(')
+    && postPaintSource.includes('setTimeout(flushPendingResult, 0)'), true);
+assertEq('throttled frames retain a prompt finalization fallback',
+  postPaintSource.includes('setTimeout(flushPendingResult, 250)'), true);
 
 // Modern action evidence keeps independent facts together instead of
 // collapsing them into one exclusive verdict.
