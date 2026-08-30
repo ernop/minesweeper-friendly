@@ -402,11 +402,14 @@ report.
   rather than a separate “chord death” report class.
 - Evidence capture must never block play. Prover/enumerator failure is
   stored as unmeasured rather than filled with an invented conclusion.
-- **Loss feedback precedes result work** (decided 2026-08-29): once a fatal
-  action has been evaluated, the board must reveal its mines, mark the hit
-  cell, and show the dead face in the current input turn. History cloning and
-  persistence, final trace metrics, session-chart rebuilding, and the full
-  post-game report begin only after the browser has had a paint opportunity.
+- **Game-end feedback precedes result work** (decided 2026-08-29): once the
+  ending action has been evaluated, a loss must reveal its mines, mark the hit
+  cell, and show the dead face, while a win must complete its mine marks,
+  counter, and cool face, in the current input turn. The outcome and exact
+  final time appear immediately beside the completed board, with a quiet
+  loading status beneath them. Only after that first paint may history
+  cloning and persistence, final trace metrics, session-chart rebuilding,
+  rankings, and the full post-game report begin.
   A throttled-frame fallback still finalizes the record promptly, and any
   subsequent player input flushes pending finalization before it can mutate
   the finished board. The pre-action proof/odds measurement remains before
@@ -692,10 +695,18 @@ append timing or from how many cards fit on a row:
 3. **Analysis** — post-game action interpretation only.
 4. **Placements** — the recent "ranks won" summary.
 5. **Rankings** — time/category, same-3BV, and board-shape tablecharts.
-6. **Averages** — average solve-time scatterplots.
-7. **Streaks** — consecutive and loss-tolerant win runs.
+6. **Streaks** — consecutive and loss-tolerant win runs.
+7. **Averages** — average solve-time scatterplots.
 8. **Relationships** — raw-win scatterplots.
 9. **Diagnostics** — post-game motion systems.
+
+All pagetables and row-based data displays must precede every chart that
+plots individual points. This includes time/category tables such as "on
+weekends", board-shape rankings, recent placements, streak, near-streak, and
+near-near-streak; all of them appear before grouped average-time scatters and
+raw relationship scatters. Keeping the denser lookup-oriented tables together
+before visual correlation charts gives the page a stable transition from exact
+records to graphical analysis.
 
 Each chart family owns a full-width semantic section and wraps internally.
 Responsive wrapping may change the number of cards on a row, but cannot mix
@@ -1128,10 +1139,17 @@ runtime state, export field, or result section.
 
 ## Average-time charts
 
-- One small scatter per grouping stat (`AVERAGE_SCATTER_SPECS`): clicks,
-  3BV, and mouse path (100px buckets). The grouped value is on x and that
-  group's average solve time on y; dots are colored by the age of the
-  group's newest win.
+- One small scatter per grouping stat (`AVERAGE_SCATTER_SPECS`), in this
+  order: clicks, 3BV, mouse path, zeros, islands, max number, clicks over
+  3BV, IOS, path per click, and path per 3BV. Integer measurements group
+  exactly; mouse path uses 100px buckets, IOS uses 0.01 buckets, and the two
+  path ratios use 10px buckets. The grouped value is on x and that group's
+  average solve time on y; dots are colored by the age of the group's newest
+  win. A measurement-specific chart appears only when at least two wins have
+  a finite value: older records missing board-shape facts are excluded, IOS
+  excludes times at or below one second, and path ratios exclude zero
+  denominators. This preserves the stored-data semantics and prevents
+  undefined values from distorting an axis.
   Axis labels name the chart ("→ 3BV" / "→ average time").
 - Trend lines (decided 2026-08-22, chosen by eye from a five-fit
   sampling): the Theil–Sen line y = a + b·x — b is the median slope over

@@ -254,11 +254,16 @@ Implementation notes:
   `metricsPanelCollapsed` + `lastLiveMetrics` implement the panel's own
   × / "stats ▸" session toggler; `refreshMetricsPanel` (called from the
   settings change handler) applies the settings mid-game and between
-  games. Loss transition: `lose` paints the mine-hit board and dead face,
-  then `reportResultAfterPaint` crosses a requestAnimationFrame + timer paint
-  boundary before `reportResult`; a 250ms fallback covers throttled frames,
-  while the next pointer/key input and `newGame` flush pending finalization
-  before mutable game state can change. Final: `reportResult` computes
+  games. Game-end transition: `lose` paints the mine-hit board and dead face,
+  while `checkWin` paints the completed marks, counter, and cool face; both
+  then use `reportResultAfterPaint`, which synchronously renders only the
+  outcome, exact final time, and loading status before crossing a
+  requestAnimationFrame + timer paint boundary. `reportResult` then persists,
+  computes metrics, and replaces that shell with the complete result. The
+  game-end timestamp is captured before deferral. A 250ms fallback covers
+  throttled frames, while the next pointer/key input and `newGame` flush
+  pending finalization before mutable game state can change. Final:
+  `reportResult` computes
   `computeAllTraceMetrics` with wall time endedAt - trace.startedAt (the
   stored trace's definition), snapshots `finalMotion` {metrics, series},
   and re-renders the panel session-only (the live rows' game is over;
@@ -578,7 +583,11 @@ Implementation notes:
   PRESENTATION MODEL" and "DISPLAY" markers defines semantic phase and chart
   section order for post-game and score contexts. `createResultSectionCollector`
   collects computed nodes and emits only nonempty sections in that order;
-  each `.result-chart-section-items` wraps internally.
+  each `.result-chart-section-items` wraps internally. The invariant is
+  placements → rankings → streaks → average-time scatters → relationship
+  scatters: every pagetable/row-based data display, including day-category
+  rankings and all streak variants, precedes every individual-point chart.
+  `tests/result-presentation-test.js` checks this in both result contexts.
 - Rank list machinery: `rankWindows` (time windows with independent
   `displayOrder`, `dedupePriority`, and `summaryTiePriority`),
   `rankColumns` (adds day categories, `isHoliday`),
@@ -622,8 +631,14 @@ Implementation notes:
   `node tests/recent-placements-test.js` freezes the formatting and
   summary rules; `node tests/result-presentation-test.js` freezes the
   cross-context section order.
-- Average-time charts: `AVERAGE_SCATTER_SPECS`, `averagePoints`, and
-  `buildAverageScatter`; the former rankaverage table code is retired.
+- Average-time charts: `AVERAGE_SCATTER_SPECS`,
+  `averageEligibleWins`, `averagePoints`, and `buildAverageScatter`.
+  Board-shape specs exclude legacy records lacking their field; IOS excludes
+  times at or below one second; path-ratio specs exclude zero denominators.
+  Continuous buckets are mouse path 100px, IOS 0.01, and path ratios 10px.
+  `tests/average-scatter-test.js` freezes the order, metric definitions,
+  eligibility, and aggregation. The former rankaverage table code is
+  retired.
 - Streaks: run-splitting and the core-trim/dedupe/domination filter are in
   `renderRanks`; see PRODUCT.md for the double-counting rationale.
 - Scatters: `buildScatter` + `niceTicks` (`timeTicks` for the date axis;

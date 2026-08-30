@@ -45,7 +45,7 @@ const SHOWN_THINGS_OPTIONS = [
   ['exact3BV', 'same-3BV tablechart', 'times on boards with exactly the same 3BV'],
   ['boardShapeTables', 'board-shape tablecharts', 'max number, islands, and zero-count rankings'],
   ['largestIsland', 'largest island', 'the largest-island stat and matching tablechart'],
-  ['averageCharts', 'average-time charts', 'average solve time by clicks, 3BV, and mouse path'],
+  ['averageCharts', 'average-time charts', 'average solve time by clicks, 3BV, mouse path, board shape, click overhead, IOS, and path ratios'],
   ['streak', 'streak', 'consecutive-win ranking'],
   ['nearStreak', 'near-streak', 'win runs spanning at most one loss'],
   ['nearNearStreak', 'near-near-streak', 'win runs spanning at most two losses'],

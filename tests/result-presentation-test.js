@@ -22,22 +22,32 @@ function assertEq(name, actual, want) {
 assertEq(
   'post-game phase order',
   resultPresentationPhases('postGame').map((phase) => phase.id).join(','),
-  'outcome,facts,analysis,placements,rankings,averages,streaks,relationships,diagnostics');
+  'outcome,facts,analysis,placements,rankings,streaks,averages,relationships,diagnostics');
 
 assertEq(
   'score phase order',
   resultPresentationPhases('scores').map((phase) => phase.id).join(','),
-  'outcome,facts,placements,rankings,averages,streaks,relationships');
+  'outcome,facts,placements,rankings,streaks,averages,relationships');
 
 assertEq(
   'post-game chart order',
   resultChartSections('postGame').map((section) => section.id).join(','),
-  'placements,rankings,averages,streaks,relationships,diagnostics');
+  'placements,rankings,streaks,averages,relationships,diagnostics');
 
 assertEq(
   'score chart order',
   resultChartSections('scores').map((section) => section.id).join(','),
-  'placements,rankings,averages,streaks,relationships');
+  'placements,rankings,streaks,averages,relationships');
+
+for (const context of ['postGame', 'scores']) {
+  const ids = resultChartSections(context).map((section) => section.id);
+  const lastPagetable = Math.max(
+    ...['placements', 'rankings', 'streaks'].map((id) => ids.indexOf(id)));
+  const firstPointChart = Math.min(
+    ...['averages', 'relationships'].map((id) => ids.indexOf(id)));
+  assertEq(`${context} pagetables precede point charts`,
+    lastPagetable < firstPointChart, true);
+}
 
 assertEq(
   'score viewer excludes action analysis',

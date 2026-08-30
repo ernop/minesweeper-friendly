@@ -914,6 +914,26 @@ body.trial-offboard #game-frame {
   text-align: right;
   color: #000000;
 }
+#stats-grid.immediate-stats {
+  align-items: baseline;
+  margin-top: 6px;
+}
+#stats-grid.immediate-stats .stat-label {
+  font-size: 12px;
+  font-weight: bold;
+  color: #333333;
+}
+#stats-grid.immediate-stats .stat-value {
+  font-size: 22px;
+  font-weight: bold;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.result-loading {
+  margin-top: 7px;
+  color: #666666;
+  font-size: 11px;
+}
 
 .latest-win-stats-title {
   margin: 8px 0 2px;

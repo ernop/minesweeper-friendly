@@ -72,9 +72,12 @@ ordinary windows fold into the most specific surviving chart.
 After a win there are also lists for boards that match this one's 3BV,
 highest number (has an 8, has a 7, or no number above 4 / 3 / 2),
 mine-island count, largest mine-island, and zero count.
-Average-time scatter plots group your wins by clicks, 3BV, and mouse path
-(nearest 100px), then plot each value against its group's average solve
-time.
+Average-time scatter plots group your wins by clicks, 3BV, mouse path,
+zeros, islands, max number, clicks over 3BV, IOS, path per click, and path
+per 3BV, then plot each value against its group's average solve time.
+Continuous measurements use readable buckets (mouse path 100px, IOS 0.01,
+and path ratios 10px); charts omit older wins where their measurement is
+absent.
 The stats themselves (time, 3BV, 3BV/s, clicks, efficiency, correctness,
 throughput, IOS, mouse path,
 mouse speed, path per click, path per 3BV, plus the per-game forms of the

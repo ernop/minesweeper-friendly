@@ -579,13 +579,14 @@ function placeMinesForPlayMode(safeIndex) {
 
 //-------GAME FLOW-------
 
-// A loss first updates the board and face. The result pipeline clones and
+// A game end first updates the board and face. The result pipeline clones and
 // persists history, recomputes trace metrics, and builds every post-game
-// chart; doing all of that in the fatal mouseup task prevents the browser
-// from painting the already-updated loss UI. A frame callback followed by a
-// timer crosses a paint boundary before that nonessential work begins.
+// chart; doing all of that in the ending input task prevents the browser
+// from painting the already-updated board and final time. A frame callback
+// followed by a timer crosses a paint boundary before that work begins.
 // The fallback also finalizes promptly if animation frames are throttled.
 let pendingResultOutcome = null;
+let pendingResultEndedAt = null;
 let pendingResultFrame = null;
 let pendingResultTimer = null;
 let pendingResultFallbackTimer = null;
@@ -593,19 +594,55 @@ let pendingResultFallbackTimer = null;
 function flushPendingResult() {
   if (pendingResultOutcome === null) return;
   const outcome = pendingResultOutcome;
+  const endedAt = pendingResultEndedAt;
   pendingResultOutcome = null;
+  pendingResultEndedAt = null;
   if (pendingResultFrame !== null) cancelAnimationFrame(pendingResultFrame);
   if (pendingResultTimer !== null) clearTimeout(pendingResultTimer);
   if (pendingResultFallbackTimer !== null) clearTimeout(pendingResultFallbackTimer);
   pendingResultFrame = null;
   pendingResultTimer = null;
   pendingResultFallbackTimer = null;
-  reportResult(outcome);
+  reportResult(outcome, endedAt);
+}
+
+function renderImmediateGameEnd(outcome, endedAt) {
+  resultSummary.textContent = (outcome === 'win' ? 'Win' : 'Loss')
+    + '\n' + boardDisplayLabel()
+    + '\n' + playModeLabel()
+    + (gameGenerator.id === BoardGenerators.DEFAULT_ID
+      ? '' : '\n' + BoardGenerators.displayLabel(gameGenerator))
+    + '\n' + formatDate(endedAt);
+  resultStats.textContent = '';
+  resultAnalysis.textContent = '';
+  resultRanks.textContent = '';
+
+  const statsGrid = document.createElement('div');
+  statsGrid.id = 'stats-grid';
+  statsGrid.className = 'immediate-stats';
+  statsGrid.setAttribute('aria-label', 'Final time');
+  const label = document.createElement('span');
+  label.className = 'stat-label';
+  label.textContent = 'Time';
+  const value = document.createElement('span');
+  value.className = 'stat-value';
+  value.textContent = (finalTimeMs / 1000).toFixed(3) + 's';
+  statsGrid.append(label, value);
+  resultStats.appendChild(statsGrid);
+
+  const loading = document.createElement('div');
+  loading.className = 'result-loading';
+  loading.setAttribute('role', 'status');
+  loading.textContent = 'loading scores and report\u2026';
+  resultRanks.appendChild(loading);
 }
 
 function reportResultAfterPaint(outcome) {
   if (pendingResultOutcome !== null) flushPendingResult();
+  const endedAt = Date.now();
   pendingResultOutcome = outcome;
+  pendingResultEndedAt = endedAt;
+  renderImmediateGameEnd(outcome, endedAt);
   pendingResultFallbackTimer = setTimeout(flushPendingResult, 250);
   pendingResultFrame = requestAnimationFrame(() => {
     pendingResultFrame = null;
@@ -1516,7 +1553,7 @@ function checkWin() {
   }
   setLcd(mineCounter, 0);
   setFace('cool');
-  reportResult('win');
+  reportResultAfterPaint('win');
 }
 
 function lose(hitIndices, evaluation) {
@@ -2656,10 +2693,10 @@ function computeBoardShape() {
   return BoardShape.of(config.width, config.height, cells.map((c) => c.mine));
 }
 
-function reportResult(outcome) {
+function reportResult(outcome, endedAt = Date.now()) {
   const shape = computeBoardShape();
   const record = {
-    endedAt: Date.now(),
+    endedAt: endedAt,
     outcome: outcome,
     timeMs: Math.round(finalTimeMs),
     bv3: compute3BV(),
@@ -3113,8 +3150,8 @@ const RESULT_PRESENTATION_PHASES = Object.freeze([
   { id: 'analysis', order: 30, contexts: ['postGame'] },
   { id: 'placements', order: 40 },
   { id: 'rankings', order: 50 },
-  { id: 'averages', order: 60 },
-  { id: 'streaks', order: 70 },
+  { id: 'streaks', order: 60 },
+  { id: 'averages', order: 70 },
   { id: 'relationships', order: 80 },
   { id: 'diagnostics', order: 90, contexts: ['postGame'] },
 ]);
@@ -3122,8 +3159,8 @@ const RESULT_PRESENTATION_PHASES = Object.freeze([
 const RESULT_CHART_SECTIONS = Object.freeze([
   { id: 'placements', phase: 'placements', label: null },
   { id: 'rankings', phase: 'rankings', label: 'rankings' },
-  { id: 'averages', phase: 'averages', label: 'average time' },
   { id: 'streaks', phase: 'streaks', label: 'streaks' },
+  { id: 'averages', phase: 'averages', label: 'average time' },
   { id: 'relationships', phase: 'relationships', label: 'relationships' },
   {
     id: 'diagnostics',
@@ -4329,12 +4366,45 @@ function windowBounds(myIndex, length) {
 // Average-time charts group wins by an input/performance value, then plot
 // that value against the group's average solve time. This keeps the useful
 // relationship from the former ranked tables without spending a column on
-// sample count. Mouse path buckets at 100px; the rest group on exact
-// integers.
+// sample count. Mouse path buckets at 100px, IOS at 0.01, and the two path
+// ratios at 10px; integer measurements group exactly. `has` keeps legacy
+// records that predate a measurement (and records where a ratio is
+// undefined) off that chart rather than inventing a value.
 const AVERAGE_SCATTER_SPECS = [
-  { label: 'clicks', value: (s) => s.clicks, format: (v) => String(v) },
-  { label: '3BV', value: (s) => s.bv3, format: (v) => String(v) },
-  { label: 'mouse path', value: (s) => Math.round(s.mousePathPx / 100) * 100, format: (v) => v + 'px' },
+  { label: 'clicks', value: (s) => s.clicks },
+  { label: '3BV', value: (s) => s.bv3 },
+  { label: 'mouse path', value: (s) => Math.round(s.mousePathPx / 100) * 100 },
+  {
+    label: 'zeros',
+    value: (s) => s.zeroCount,
+    has: (s) => typeof s.zeroCount === 'number',
+  },
+  {
+    label: 'islands',
+    value: (s) => s.islandCount,
+    has: (s) => typeof s.islandCount === 'number',
+  },
+  {
+    label: 'max number',
+    value: (s) => s.maxAdjacent,
+    has: (s) => typeof s.maxAdjacent === 'number',
+  },
+  { label: 'clicks over 3BV', value: (s) => s.clicks - s.bv3 },
+  {
+    label: 'IOS',
+    value: (s) => Number(iosOf(s).toFixed(2)),
+    has: (s) => iosOf(s) !== undefined,
+  },
+  {
+    label: 'path per click',
+    value: (s) => Math.round((s.mousePathPx / s.clicks) / 10) * 10,
+    has: (s) => s.clicks > 0,
+  },
+  {
+    label: 'path per 3BV',
+    value: (s) => Math.round((s.mousePathPx / s.bv3) / 10) * 10,
+    has: (s) => s.bv3 > 0,
+  },
 ];
 
 // Every list renders its full 11-row window around the player's row (see
@@ -4661,11 +4731,18 @@ function buildScatter(wins, me, fx, fy, xLabel, yLabel, meLabel, ageInfoOf, opts
   return list;
 }
 
-// Bucket wins by the spec's value and average each bucket's solve time:
-// the points the average charts plot.
+// A chart's eligible wins. The finite check is a final guard against
+// malformed ratios reaching SVG axis math.
+function averageEligibleWins(spec, wins) {
+  return wins.filter((win) =>
+    (!spec.has || spec.has(win)) && Number.isFinite(spec.value(win)));
+}
+
+// Bucket eligible wins by the spec's value and average each bucket's solve
+// time: the points the average charts plot.
 function averagePoints(spec, wins) {
   const groups = new Map();
-  for (const win of wins) {
+  for (const win of averageEligibleWins(spec, wins)) {
     const key = spec.value(win);
     const group = groups.get(key) || {
       x: key, totalSeconds: 0, count: 0, newestEndedAt: -Infinity,
@@ -4687,15 +4764,17 @@ function averagePoints(spec, wins) {
 // averages recomputed from today's wins only — captioned with the fit's
 // name and math.
 function buildAverageScatter(spec, wins, record, historyView) {
-  const points = averagePoints(spec, wins);
-  const current = historyView
+  const eligibleWins = averageEligibleWins(spec, wins);
+  if (eligibleWins.length < 2) return null;
+  const points = averagePoints(spec, eligibleWins);
+  const current = historyView || averageEligibleWins(spec, [record]).length === 0
     ? null
     : points.find((point) => point.x === spec.value(record)) || null;
   const referenceMs = historyView ? Date.now() : record.endedAt;
   const asPairs = (pts) => pts.map((p) => [p.x, p.averageSeconds]);
   const todayStart = startOfDay(referenceMs);
   const todayPairs = asPairs(
-    averagePoints(spec, wins.filter((w) => w.endedAt >= todayStart)));
+    averagePoints(spec, eligibleWins.filter((w) => w.endedAt >= todayStart)));
   return buildScatter(
     points, current, (point) => point.x, (point) => point.averageSeconds,
     spec.label, 'average time', '',
@@ -5434,8 +5513,8 @@ function renderRanks(record, modeRecords, options = {}, sections) {
 
   if (settings.shownThings.averageCharts && wins.length >= 2) {
     for (const spec of AVERAGE_SCATTER_SPECS) {
-      sections.append('averages',
-        buildAverageScatter(spec, wins, record, historyView));
+      const chart = buildAverageScatter(spec, wins, record, historyView);
+      if (chart !== null) sections.append('averages', chart);
     }
   }
 

@@ -88,14 +88,33 @@ assertEq('loss board is updated before post-game work is queued',
     < lossSource.indexOf("reportResultAfterPaint('loss')"), true);
 assertEq('fatal input does not run the result pipeline synchronously',
   lossSource.includes("reportResult('loss')"), false);
+const winSource = source.slice(
+  source.indexOf('function checkWin('), source.indexOf('\nfunction lose('));
+assertEq('win board is updated before post-game work is queued',
+  winSource.indexOf("setFace('cool')")
+    < winSource.indexOf("reportResultAfterPaint('win')"), true);
+assertEq('winning input does not run the result pipeline synchronously',
+  winSource.includes("reportResult('win')"), false);
 const postPaintSource = source.slice(
   source.indexOf('function reportResultAfterPaint('),
   source.indexOf('\nfunction newGame('));
+assertEq('outcome and final time render before the paint boundary',
+  postPaintSource.indexOf('renderImmediateGameEnd(outcome, endedAt)')
+    < postPaintSource.indexOf('requestAnimationFrame('), true);
 assertEq('loss finalization crosses a browser paint boundary',
   postPaintSource.includes('requestAnimationFrame(')
     && postPaintSource.includes('setTimeout(flushPendingResult, 0)'), true);
 assertEq('throttled frames retain a prompt finalization fallback',
   postPaintSource.includes('setTimeout(flushPendingResult, 250)'), true);
+const immediateSource = source.slice(
+  source.indexOf('function renderImmediateGameEnd('),
+  source.indexOf('\nfunction reportResultAfterPaint('));
+assertEq('immediate result makes exact time the primary value',
+  immediateSource.includes("(finalTimeMs / 1000).toFixed(3) + 's'")
+    && immediateSource.includes("value.className = 'stat-value'"), true);
+assertEq('deferred record retains the actual game-end timestamp',
+  source.includes('function reportResult(outcome, endedAt = Date.now())')
+    && source.includes('endedAt: endedAt,'), true);
 
 // Modern action evidence keeps independent facts together instead of
 // collapsing them into one exclusive verdict.

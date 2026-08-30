@@ -1,0 +1,18 @@
+---
+description: Keep exact pagetables before point-based charts
+alwaysApply: true
+---
+
+# Result table ordering
+
+- Every pagetable or row-based data display must appear before every chart
+  that plots individual points.
+- Pagetables include recent placements, time and day-category rankings such
+  as "on weekends", board-shape rankings, streak, near-streak, and
+  near-near-streak.
+- Point charts include grouped average-time scatterplots and raw relationship
+  scatterplots.
+- Preserve this sequence in both DOM and visual order:
+  placements → rankings → streaks → average-time charts → relationship charts.
+- Responsive wrapping must stay within each semantic section and must not
+  interleave a pagetable with point charts.
