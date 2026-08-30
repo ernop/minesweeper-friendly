@@ -37,8 +37,8 @@ place for generation ideas, deferred product, and requested rank lists
 that are not in the game yet. Do not leave new ideas only in chat.
 
 App-wide UI rules (simplicity first, captions must earn their place,
-hover changes nothing, layout stability, no distracting duplicate live
-values, clear ways in and out) live in
+hover changes nothing, semantic legend/key labels are never shortened,
+layout stability, no distracting duplicate live values, clear ways in and out) live in
 PRODUCT.md "UI doctrine" — read it before building or reshaping any
 surface.
 
@@ -257,12 +257,15 @@ Implementation notes:
   games. Game-end transition: `lose` paints the mine-hit board and dead face,
   while `checkWin` paints the completed marks, counter, and cool face; both
   then use `reportResultAfterPaint`, which synchronously renders only the
-  outcome, exact final time, and loading status before crossing a
-  requestAnimationFrame + timer paint boundary. `reportResult` then persists,
-  computes metrics, and replaces that shell with the complete result. The
-  game-end timestamp is captured before deferral. A 250ms fallback covers
-  throttled frames, while the next pointer/key input and `newGame` flush
-  pending finalization before mutable game state can change. Final:
+  outcome, exact final time, and loading status (ending with the same
+  `syncBoardLayout` renderResult uses, so the shell's one frame is placed
+  correctly) before crossing a requestAnimationFrame + timer paint boundary.
+  `reportResult` then persists, computes metrics, and replaces that shell
+  with the complete result. The game-end timestamp is captured before
+  deferral. A 250ms fallback covers throttled frames, while the next
+  pointer/key input, `newGame`, hidden-visibility, and pagehide all flush
+  pending finalization before mutable game state can change or the page can
+  unload with an unsaved record. Final:
   `reportResult` computes
   `computeAllTraceMetrics` with wall time endedAt - trace.startedAt (the
   stored trace's definition), snapshots `finalMotion` {metrics, series},

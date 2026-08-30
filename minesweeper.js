@@ -635,6 +635,9 @@ function renderImmediateGameEnd(outcome, endedAt) {
   loading.setAttribute('role', 'status');
   loading.textContent = 'loading scores and report\u2026';
   resultRanks.appendChild(loading);
+  // The results box just became visible; place it (side vs. below, top
+  // clearance) before this same task's paint, exactly as renderResult does.
+  syncBoardLayout();
 }
 
 function reportResultAfterPaint(outcome) {
@@ -10639,6 +10642,13 @@ function cellIndexFromEvent(event) {
 // before that next input can change them.
 document.addEventListener('pointerdown', flushPendingResult, true);
 document.addEventListener('keydown', flushPendingResult, true);
+// A tab hidden or unloaded inside the deferral window must not lose the
+// finished game: persist immediately rather than waiting on a frame that
+// may never come.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') flushPendingResult();
+});
+window.addEventListener('pagehide', flushPendingResult);
 
 boardElement.addEventListener('mousedown', (event) => {
   if (event.button !== 0) return;

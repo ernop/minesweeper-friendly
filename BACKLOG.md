@@ -132,6 +132,57 @@ Generation that aims at the same families the new lists rank:
   without a new explicit request. MPRIS (artist/album) is absent for
   this Firefox; would need a player that registers one.
 
+## Longitudinal behavior and state analysis (creator, 2026-08-30)
+
+Build an analysis surface over history plus traces. It must keep exact
+board/mode/generator and measurement-era strata visible and make sample
+coverage explicit. The measurement and interpretation requirements are
+canonical in PRODUCT.md "Behavioral signatures and state research."
+
+- **Per-session and trailing-chunk summaries.** For every completed or current
+  session and every selectable recent played-time chunk, prominently show
+  games, wins, win rate, and accumulated play time. Beside them show robust
+  center/spread and measured n for mouse speed (px/s), useful click rate (/s),
+  fastclick gap (ms), path per click, and the available trace-derived movement,
+  pause, click-hold, and verification measures. A chunk with no finished game
+  has no win-rate reading; it is not 0%.
+- **Session comparison views.** Small multiples align sessions at first play;
+  paired early/late summaries expose warm-up or degradation; rolling windows
+  show the latest state without letting long high-volume sessions become
+  thousands of false independent samples. Calendar-day and whole-session
+  uncertainty are computed with day/session as the resampling unit.
+- **Behavioral tendency signature.** Preserve separate dimensions for useful
+  click cadence, movement speed/path geometry, marking/chording style,
+  same-cell no-op bursts, visible-fact contradictions, fatal-action types,
+  and guess policy. Show rates as well as counts so board exposure and
+  truncated losses do not masquerade as tendencies.
+- **Error grammar.** Break no-ops into unavailable chord, click-on-flag, and
+  flag-on-revealed-cell; separate visible-state contradictions from the
+  narrower likely physical-misclick inference; show repeated same-cell bursts,
+  action order, board region, and eventual outcome. Sequence analysis sorts
+  action evaluations by `atMs` rather than trusting historical array order.
+- **Guess-policy progression.** By exact level and over date/session position,
+  chart the shares and risk magnitudes of guaranteed-safe alternatives
+  ignored, minimum-risk guesses, higher-risk guesses, one-ply model-best
+  choices, and model disagreements. Add information-gain/deeper-horizon
+  measures only when their definitions and coverage are explicit.
+- **Competing optimization objectives.** Put per-game win probability beside
+  wins per wall-clock hour, attempts per hour, expected time to the next win,
+  and progress/risk per played hour. Test whether higher levels produce a
+  shift from per-instance survival toward rapid exposure/restart policy; do
+  not call that less sophisticated unless it is worse under the objective
+  being evaluated.
+- **State association and classification.** Compare explicitly labeled states
+  with session-matched controls, then evaluate any classifier on held-out
+  whole sessions against time-of-day and session-position baselines. Report
+  class counts, calibration, confusion/errors, and uncertainty. One player's
+  data can test within-player state prediction; identifying different people
+  requires labeled data from multiple people and a separate consented study.
+- **Priority visuals.** Session-aligned metric ribbons; trailing-chunk stat
+  strips; speed/accuracy/risk frontiers; full-text fatal-status composition;
+  risk-calibration curves; guess-policy shares by level; same-cell no-op burst
+  rasters; and held-out state-classifier calibration/confusion views.
+
 ## Session stats follow-ons (creator direction, 2026-08-22)
 
 The session section (PRODUCT.md "Session stats") is built: mouse speed,

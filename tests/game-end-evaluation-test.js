@@ -112,9 +112,15 @@ const immediateSource = source.slice(
 assertEq('immediate result makes exact time the primary value',
   immediateSource.includes("(finalTimeMs / 1000).toFixed(3) + 's'")
     && immediateSource.includes("value.className = 'stat-value'"), true);
+assertEq('immediate shell places itself with the shared layout sync',
+  immediateSource.includes('syncBoardLayout();'), true);
 assertEq('deferred record retains the actual game-end timestamp',
   source.includes('function reportResult(outcome, endedAt = Date.now())')
     && source.includes('endedAt: endedAt,'), true);
+assertEq('hiding or unloading the page flushes the pending record',
+  source.includes("if (document.visibilityState === 'hidden') flushPendingResult();")
+    && source.includes("window.addEventListener('pagehide', flushPendingResult);"),
+  true);
 
 // Modern action evidence keeps independent facts together instead of
 // collapsing them into one exclusive verdict.

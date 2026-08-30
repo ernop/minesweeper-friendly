@@ -410,11 +410,13 @@ report.
   loading status beneath them. Only after that first paint may history
   cloning and persistence, final trace metrics, session-chart rebuilding,
   rankings, and the full post-game report begin.
-  A throttled-frame fallback still finalizes the record promptly, and any
-  subsequent player input flushes pending finalization before it can mutate
-  the finished board. The pre-action proof/odds measurement remains before
-  mutation because its evidence must describe exactly what the player could
-  see when clicking.
+  The immediate shell runs the same board-layout sync as the full result, so
+  its one visible frame is already correctly placed. A throttled-frame
+  fallback still finalizes the record promptly; any subsequent player input,
+  and the tab being hidden or unloaded, flush pending finalization first — a
+  finished game is never lost to the deferral window. The pre-action
+  proof/odds measurement remains before mutation because its evidence must
+  describe exactly what the player could see when clicking.
 - **Exclusive report taxonomy** (added 2026-08-23): each evaluation
   appears once, under its highest-severity applicable category, while
   all lower-level mistake tags remain on its evidence:
@@ -636,6 +638,13 @@ because they apply app-wide, not just where each was first stated.
   descriptions may ride on names as plain tooltips.
 - Hover changes nothing: pointer movement must never inject, swap, or
   reflow text, and no control may be reachable only by hovering.
+- Semantic labels are never shortened: when legend, key, series, color,
+  region, or section text is the unique explanation of what a visual
+  encoding means, render the complete wording. Never truncate it,
+  ellipsize it, replace it with an abbreviation, or require hover to
+  recover it. Wrap the label, expand/reflow the key, use direct labels,
+  or replace the chart legend with a full-text table; available width is
+  a layout resource, not a reason to remove meaning.
 - Layout stability: content appearing or disappearing must not shift
   unrelated content. "The board never moves" (previous section) is the
   oldest case of this rule; it holds on every page.
@@ -667,6 +676,44 @@ This is why measurements favor completeness over compactness, why raw
 traces are kept (a metric invented years from now must be computable over
 today's games), and why spent effort is never dropped (see the
 measurement principle in reference/mouse-motion-metrics.md).
+
+### Behavioral signatures and state research (requested 2026-08-30)
+
+The longitudinal analysis purpose includes characterizing repeatable play
+tendencies within this player and testing whether measured behavior can
+predict a self-reported state. The requested analysis surfaces are not built
+yet; their concrete backlog is in `BACKLOG.md` under "Longitudinal behavior
+and state analysis."
+
+- Every analysis must support both whole-session summaries and trailing
+  played-time chunks inside the current session. At minimum each grouping
+  reports games, wins, win rate, accumulated play time, mouse speed, useful
+  click rate and fastclick gap, with robust center/spread and measured sample
+  coverage. Additional motion, error, action, and risk measures join the same
+  grouping when present.
+- A play signature is multidimensional: movement/click cadence and geometry;
+  no-op, contradiction, and fatal-action patterns; marking/chording style;
+  and the rate, risk rank, one-ply quality, and context of guesses. A total
+  score must not erase the component values that identify how two signatures
+  differ.
+- State classification is a supervised within-person research result, not an
+  inference from a suggestive curve. Train on explicit state labels, evaluate
+  on held-out whole sessions, report class balance, uncertainty, calibration,
+  and errors, and compare against time-of-day/session-position baselines.
+  Until that validation exists, the UI may show associations but may not say
+  that motion or gameplay detected a physical, physiological, cognitive, or
+  clinical state.
+- Guess behavior must be analyzed against more than one objective. Immediate
+  minimum mine risk and one-ply expected remaining life describe per-instance
+  survival quality; wins per wall-clock hour, attempts per hour, expected
+  time to the next win, and cumulative progress/risk describe exposure-time
+  optimization. A player may rationally accept lower per-game win probability
+  to restart faster, especially on larger boards, so that policy must not be
+  mislabeled as declining sophistication.
+- Difficulty comparisons remain stratified by exact board, mode, generator,
+  and measurement era. Analyses then test whether guess policy changes with
+  level, date, session position, and recent state rather than treating the
+  pooled game mix as a player trait.
 
 Clarified 2026-08-20: the motion metrics measure the outer physical
 world — the layer where the player actually interacts with the mouse and
