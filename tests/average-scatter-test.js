@@ -18,8 +18,9 @@ function section(from, to) {
 const tested = vm.runInThisContext(`(() => {
   ${section('function secondsOf(', 'function formatGuesses(')}
   ${section('// Average-time charts group wins', '// Every list renders')}
-  ${section("// A chart's eligible wins.", '// One average chart:')}
-  return { AVERAGE_SCATTER_SPECS, averageEligibleWins, averagePoints };
+  ${section("// A chart's eligible wins.", '// Bucket all finished games')}
+  ${section('// Bucket all finished games', "// The property charts' three vertical readings")}
+  return { AVERAGE_SCATTER_SPECS, averageEligibleWins, averagePoints, winratePoints };
 })()`);
 
 let checks = 0;
@@ -81,5 +82,20 @@ assertEq('same-value wins form one bucket', zeroPoints.length, 2);
 assertEq('bucket time is the arithmetic mean', zeroPoints[0].averageSeconds, 30);
 assertEq('bucket age follows its newest win', zeroPoints[0].endedAt, 2000);
 assertEq('a distinct value forms another bucket', zeroPoints[1].x, 41);
+
+// Winrate mode buckets wins AND losses by the same property value.
+const winratePoints = tested.winratePoints(byLabel('zeros'), [
+  base,
+  { ...base, endedAt: 2000, outcome: 'loss' },
+  { ...base, endedAt: 3000, zeroCount: 41 },
+  { ...base, endedAt: 4000, zeroCount: undefined },
+]).sort((a, b) => a.x - b.x);
+assertEq('winrate buckets by value', winratePoints.length, 2);
+assertEq('losses join their bucket and lower it',
+  winratePoints[0].winratePct, 50);
+assertEq('winrate bucket age follows its newest game',
+  winratePoints[0].endedAt, 2000);
+assertEq('an all-win bucket reads 100', winratePoints[1].winratePct, 100);
+assertEq('IOS sits winrate mode out', byLabel('IOS').winBound, true);
 
 console.log(`average-scatter: all ${checks} checks passed`);

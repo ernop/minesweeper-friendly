@@ -3,9 +3,10 @@
 **Play now: https://ernop.github.io/minesweeper-friendly/**
 
 Minesweeper variant project. Standard first-click-safe play, plus Uniform NG,
-Single-path NG, Proof-or-die, Angelic, a 100-game Trial of 25 hidden boards
-shown four times each, Short trial (4 boards × 4), and Test trial (1 board
-× 4). The Pregen 10 mode samples ten boards, ranks them by descending 3BV,
+Single-path NG, Proof-or-die, Angelic, an Endgame drill (instantly dealt
+realistic late-game remnants, always finishable by pure deduction), a
+100-game Trial of 25 hidden boards shown four times each, Short trial
+(4 boards × 4), and Test trial (1 board × 4). The Pregen 10 mode samples ten boards, ranks them by descending 3BV,
 and deals them in that order with the upper-right cell opened automatically.
 Persistent 3BV-versus-time charts below the board track the current ten-board
 challenge and all wins in this mode/configuration since local midnight.
@@ -35,7 +36,19 @@ other host/port has separate history and must not be substituted.
 - Left click on a satisfied number: chord (open all unflagged neighbors)
 - Face button or space bar: new game
 - Tabs: Beginner 9x9/10 (default), Intermediate 16x16/40, Expert 30x16/99, Custom
-- Upper-right Mode menu: Standard, Pregen 10 boards by descending 3BV, Uniform NG, Single-path NG, Proof-or-die, Angelic, Trial, Short trial, Test trial, Board lab
+- Upper-right Mode menu: Standard, Pregen 10 boards by descending 3BV, Uniform NG, Single-path NG, Proof-or-die, Angelic, Endgame drill, Trial, Short trial, Test trial, Board lab
+
+## Endgame drill
+
+Rapid endgame training: each new game deals a full board and reveals
+everything except a small remnant pocket against a board edge or corner —
+where real endgames actually finish. Every deal keeps 4–45 covered safe
+cells with genuine mine tension and is guaranteed finishable by pure
+deduction, so a death is always a reading error, never a forced guess. The
+timer starts on your first input, the recorded 3BV is the remnant's
+remaining 3BV (what was actually left to solve), and the mode keeps its own
+rankings. Deals are effectively instant, so the face button loops you
+straight into the next position.
 
 ## Solver
 
@@ -53,10 +66,13 @@ death.
 Every finished game, win or loss, is kept per mode in the browser's
 IndexedDB (loaded into RAM at startup; persisted asynchronously). Each
 record stores only the primary measurements — end date, outcome, time, 3BV,
-clicks, mouse path (total cursor distance in px from first click to game
-end), and the finished board's max number, sevens, zeros, and mine
+clicks, chords, mouse path (total cursor distance in px from first click to
+game end), the board's greedy and human ZiNi (the flaggers' counterparts to
+3BV), the game's cadence spread (press-rhythm dispersion, wins and losses
+alike), and the finished board's max number, sevens, zeros, and mine
 islands; derived stats (3BV/s, efficiency, correctness, throughput, IOS,
-mouse speed, and the rest) are
+IOE, chord share, ZiNi efficiency, STNB on the standard board sizes, mouse
+speed, and the rest) are
 computed at display time. After each win the result panel shows the full
 stats plus one ranked-list column per time window. Day-and-longer windows anchor to your
 local calendar: "today" since last midnight, "past week" since midnight six
@@ -106,9 +122,10 @@ as short labeled facts. Saved positions crop away uniform covered remainder
 while naming the shown row/column range; selected and alternative cells stay
 highlighted. Bare reveals are evaluated without requiring flags or chords;
 if nothing qualifies under the selected scope, no empty report card appears.
-Below the rankings, five relationship plots chart every win: win time vs
+Below the rankings, relationship plots chart every win: win time vs
 date, win time vs hour of day, 3BV vs time, clicks vs 3BV (with the clicks =
-3BV floor drawn in), and no-op clicks vs time. Dots are colored by how long
+3BV floor drawn in), no-op clicks vs time, guesses vs time, life lost vs
+time, and cadence spread over date. Dots are colored by how long
 ago each win was (the rank-list age palette), and the just-finished game is
 the black-ringed dot tagged with its rank among today's wins. Streak lists rank
 your win runs: "streak" (consecutive wins), "near-streak" (runs spanning at
@@ -121,8 +138,9 @@ show rank (without a leading "#"), fixed-width time, and a relative age
 ("43s", "5m", "2.0w"; the brand-new score says "this").
 
 Post-game output follows stable semantic sections: outcome and facts, action
-analysis, recent ranks won, ranking tablecharts, average-time charts,
-streaks, relationships, then motion diagnostics. Each family wraps within
+analysis, recent ranks won, ranking tablecharts, streaks, average-time
+charts, relationships, then motion diagnostics — data tables always precede
+the dot-plot chart families. Each family wraps within
 its own row group, so viewport width cannot mix unrelated chart families.
 The High scores view uses the same history sections but omits post-game
 action analysis and motion diagnostics; its facts are explicitly labeled as

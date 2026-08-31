@@ -151,7 +151,7 @@ const SETTINGS_SCHEMA = [
     valid: (v) => typeof v === 'boolean',
     group: 'left-panel',
     label: 'show session stats',
-    describe: 'the recent-observations section at the top of the in-page left panel: mouse speed while playing, click / mistake-tagged-death / misclick / no-op-click / mine-marking / flag-removal rates, win-only unused-mark rates, exclusive report-category frequencies and measured magnitudes, the fastclick gap, and the game-endings percent lines; grouping uses played time for per-time rates or completed-game counts for per-game rates, while the horizontal window remains played time; changes are not assigned a cause',
+    describe: 'the recent-observations section at the top of the in-page left panel: mouse speed while playing, click / mistake-tagged-death / misclick / no-op-click / mine-marking / flag-removal rates, win-only unused-mark rates and their per-placed-mark share, exclusive report-category frequencies and measured magnitudes, the fastclick gap, and the game-endings percent lines; grouping uses played time for per-time rates or completed-game counts for per-game rates, while the horizontal window remains played time; changes are not assigned a cause',
   },
   {
     field: 'sessionLookbackSeconds',
@@ -226,6 +226,15 @@ const SETTINGS_SCHEMA = [
     control: 'none',
   },
   {
+    field: 'averageChartMode',
+    default: 'average',
+    valid: (v) => v === 'average' || v === 'distribution' || v === 'winrate',
+    group: 'after-game',
+    label: 'property-chart mode',
+    describe: 'what the property charts plot per value: the average win time, every individual win time (the distribution), or the share of games won; chosen with the selector on the charts themselves',
+    control: 'none',
+  },
+  {
     field: 'metricsPanelWidth',
     default: 316,
     valid: (v) => typeof v === 'number' && v >= METRICS_PANEL_WIDTH_MIN && v <= METRICS_PANEL_WIDTH_MAX,
@@ -267,7 +276,7 @@ const SETTINGS_SCHEMA = [
     valid: (v) => PLAY_MODE_IDS.has(v),
     group: 'gameplay',
     label: 'play mode',
-    describe: 'Standard, Pregen 10 by descending 3BV, Uniform NG, Single-path NG, Proof-or-die, Angelic, Trial, Short trial, Test trial, or Board lab. Each mode stores and ranks its own results (Board lab records nothing).',
+    describe: 'Standard, Pregen 10 by descending 3BV, Uniform NG, Single-path NG, Proof-or-die, Angelic, Endgame drill, Trial, Short trial, Test trial, or Board lab. Each mode stores and ranks its own results (Board lab records nothing).',
     control: 'none',
   },
   {

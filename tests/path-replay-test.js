@@ -131,6 +131,86 @@ check('uncertain endpoint risks are not rounded to certainty',
     areas.every((area) => area.risk === 0.5));
 }
 
+{
+  const t = [0, 100, 900, 1000, 1700];
+  const x = [0, 10, 300, 305, 306];
+  const y = [0, 0, 0, 0, 0];
+  const gaps = pathTraceGaps(t, x, y);
+  check('short sample gaps are not data gaps', gaps.length === 2);
+  check('a silent stretch ending far away is an off-screen gap',
+    gaps[0].kind === 'away' && gaps[0].dtMs === 800 && gaps[0].travelPx === 290);
+  check('a silent stretch ending in place is a rest',
+    gaps[1].kind === 'rest' && gaps[1].dtMs === 700);
+}
+
+{
+  // Steady 100 px/s rightward movement, with one crawling segment and one
+  // hard reversal in the middle.
+  const t = [];
+  const x = [];
+  const y = [];
+  let now = 0;
+  let pos = 0;
+  const push = (dt, dx) => {
+    now += dt;
+    pos += dx;
+    t.push(now);
+    x.push(pos);
+    y.push(0);
+  };
+  push(0, 0);
+  for (let i = 0; i < 6; i++) push(50, 5);
+  push(50, 0.05); // segment 7: ~1 px/s, far below the median pace
+  push(50, -10);  // segment 8: hard reversal
+  for (let i = 0; i < 6; i++) push(50, 5);
+  const rough = pathRoughSegments(t, x, y);
+  check('steady movement is not rough', rough[3] === false && rough[12] === false);
+  check('crawling far below median pace is rough', rough[7] === true);
+  check('a hard direction reversal is rough', rough[8] === true);
+}
+
+{
+  const events = [
+    { kind: 'lup', t: 5, x: 1, y: 1 },
+    { kind: 'decision', t: 5, evaluation: { action: 'chord' } },
+    { kind: 'lup', t: 9, x: 2, y: 2 },
+    { kind: 'decision', t: 9, evaluation: { action: 'reveal' } },
+    { kind: 'rdown', t: 12, x: 3, y: 3 },
+    { kind: 'lup', t: 20, x: 4, y: 4 },
+  ];
+  const clicks = pathClickActions(events);
+  check('a chord-accepting left release is detected as a chord',
+    clicks[0].action === 'chord');
+  check('a plain reveal release is not a chord', clicks[1].action === 'reveal');
+  check('an input with no accepted decision has no action kind',
+    clicks[2].action === null && clicks[3].action === null);
+}
+
+{
+  const bins = pathValueBins({ min: 0, max: 60 }, 6);
+  check('legend bins cover the display range in equal classes',
+    bins.length === 6 && bins[0].min === 0 && bins[0].max === 10
+      && bins[5].min === 50 && bins[5].max === 60);
+  check('bin lookup places values in their class',
+    pathBinIndex(bins, 5) === 0 && pathBinIndex(bins, 59) === 5);
+  check('bin lookup clamps values outside the trimmed display range',
+    pathBinIndex(bins, -4) === 0 && pathBinIndex(bins, 1000) === 5);
+  check('a degenerate range yields no bins',
+    pathValueBins({ min: 3, max: 3 }, 6).length === 0
+      && pathValueBins(undefined, 6).length === 0);
+}
+
+check('back in time exposes a game-history slider',
+  html.includes('id="replay-slider"'));
+for (const id of [
+  'moves', 'mines', 'probs', 'pointless', 'purposeful', 'movement',
+]) {
+  check(`replay overlay control exposes ${id} toggle`,
+    html.includes(`data-replay-overlay="${id}"`));
+}
+check('slider scale shows notch marks and numeric labels',
+  css.includes('.replay-slider-notch') && css.includes('.replay-slider-label'));
+
 check('path controls contain no select dropdown',
   !/<select[^>]+(?:path-view|replay)/i.test(html));
 for (const id of [

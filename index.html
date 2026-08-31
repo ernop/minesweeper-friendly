@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Minesweeper - Standard Mode</title>
-<link rel="stylesheet" href="style.css?v=20260828-likely-misclick">
+<link rel="stylesheet" href="style.css?v=20260830-when-strip">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <!-- Defer preserves dependency order while letting every page asset download
      in parallel. Storage starts first so disk access overlaps JS startup. -->
@@ -12,13 +12,15 @@
 <script defer src="rng.js"></script>
 <script defer src="justice.js?v=20260825-batched-certification"></script>
 <script defer src="board-shape.js"></script>
+<script defer src="zini.js"></script>
+<script defer src="endgame.js"></script>
 <script defer src="solver.js?v=20260823-exact-solver"></script>
 <script defer src="generators.js?v=20260825-noise-family"></script>
 <script defer src="pregen.js?v=20260826-pregen-highlight"></script>
 <script defer src="odds.js?v=20260825-batched-certification"></script>
 <script defer src="trial.js"></script>
-<script defer src="settings-core.js?v=20260830-average-charts"></script>
-<script defer src="minesweeper.js?v=20260830-table-before-charts"></script>
+<script defer src="settings-core.js?v=20260830-when-strip"></script>
+<script defer src="minesweeper.js?v=20260830-when-strip"></script>
 </head>
 <body aria-busy="true">
 <div id="top-right">
@@ -30,6 +32,7 @@
     </label>
     <div id="trial-progress" hidden></div>
     <div id="pregen-progress" hidden></div>
+    <div id="endgame-drill-info" hidden></div>
   </div>
   <div id="board-generator">
     <label>Generator
@@ -171,10 +174,24 @@
         <button type="button" id="replay-toggle" aria-pressed="false">back in time</button>
       </div>
       <div id="path-view-legend" hidden></div>
+      <div id="replay-overlay-control" hidden aria-label="Back-in-time overlays">
+        <span class="path-view-heading">overlays</span>
+        <button type="button" data-replay-overlay="moves">available moves</button>
+        <button type="button" data-replay-overlay="mines">forced mines</button>
+        <button type="button" data-replay-overlay="probs">mine&nbsp;%</button>
+        <button type="button" data-replay-overlay="pointless">pointless clicks</button>
+        <button type="button" data-replay-overlay="purposeful">purposeful clicks</button>
+        <button type="button" data-replay-overlay="movement">rough movement</button>
+      </div>
       <span id="replay-controls" hidden aria-label="Navigate decision time">
         <button type="button" id="replay-prev" aria-label="Previous choice">‹</button>
-        <span id="replay-status" aria-live="polite"></span>
+        <span id="replay-slider-wrap">
+          <input type="range" id="replay-slider" min="1" max="1" step="1" value="1"
+            aria-label="Game history position (action number)">
+          <span id="replay-slider-scale" aria-hidden="true"></span>
+        </span>
         <button type="button" id="replay-next" aria-label="Next choice">›</button>
+        <span id="replay-status" aria-live="polite"></span>
       </span>
     </nav>
 

@@ -101,6 +101,9 @@ const press = (at, useful, flag, moving, gapMs, unflag, misclick) => ({
   assertClose('live excess risk magnitude', s.excessRiskPctPerMin[i], 15);
   assertClose('live modeled-life magnitude', s.modeledLifeGapPerMin[i], 0.2);
   assertClose('live fastclick median', s.fastclickGapMs[i], 300);
+  // All useful-press gaps, no fastclick qualification: [200, 250, 300,
+  // 400, 5000]; q1 250, median 300, q3 400, spread (400-250)/300.
+  assertClose('live cadence spread', s.cadenceSpreadRatio[i], 0.5);
   assertUndefined('empty earlier bucket', s.speedPxPerSec[i - 1]);
 }
 
@@ -109,13 +112,13 @@ const press = (at, useful, flag, moving, gapMs, unflag, misclick) => ({
   const games = [
     { kind: 'game', from: NOW - 10 * MIN, to: NOW - 10 * MIN + 10000,
       end: 'win', useful: 2, wasted: 1, movePx: 100, unusedMarks: 0,
-      categoryCounts: { timeLoss: 1 }, excessRisk: 0.1 },
+      categoryCounts: { timeLoss: 1 }, excessRisk: 0.1, cadenceSpread: 0.8 },
     { kind: 'game', from: NOW - 5 * MIN, to: NOW - 5 * MIN + 20000,
       end: 'loss', useful: 4, wasted: 2, px: 200, likelyMisclick: true,
-      categoryCounts: { timeLoss: 2 }, excessRisk: 0.2 },
+      categoryCounts: { timeLoss: 2 }, excessRisk: 0.2, cadenceSpread: 1.2 },
     { kind: 'game', from: NOW - MIN, to: NOW - MIN + 30000,
-      end: 'win', useful: 8, wasted: 3, movePx: 600, unusedMarks: 2,
-      categoryCounts: { timeLoss: 3 }, excessRisk: 0.3 },
+      end: 'win', useful: 8, wasted: 3, movePx: 600, unusedMarks: 2, flags: 8,
+      categoryCounts: { timeLoss: 3 }, excessRisk: 0.3, cadenceSpread: 1.6 },
   ];
   const common = {
     nowMs: NOW, windowMs: HOUR, lookbackGames: 2,
@@ -135,8 +138,12 @@ const press = (at, useful, flag, moving, gapMs, unflag, misclick) => ({
     running.likelyMisclickFraction[i], 0.5);
   assertClose('per-game optional field averages only measured games',
     running.unusedMarksPerGame[i], 2);
+  assertClose('per-game unused-mark share averages measured wins only',
+    running.unusedMarkShareFraction[i], 0.25);
   assertClose('per-game report category uses last two games',
     running.categoryPerGame.timeLoss[i], 2.5);
+  assertClose('per-game cadence spread medians the stored spreads',
+    running.cadenceSpreadRatio[i], 1.4);
   const raw = sessionGameSeries(games, { ...common, aggregation: 'raw' });
   assertEq('raw per-game groups are disjoint', raw.centers.length, 2);
   assertClose('raw final partial group contains only its completed game',
@@ -249,6 +256,8 @@ const press = (at, useful, flag, moving, gapMs, unflag, misclick) => ({
   assertClose('game no death previous', s.avoidablePerMin[i - 1], 0);
   assertClose('game fastgap newest', s.fastclickGapMs[i], 240);
   assertClose('game fastgap previous', s.fastclickGapMs[i - 1], 240);
+  assertUndefined('backfilled game contributes no raw gaps to cadence spread',
+    s.cadenceSpreadRatio[i]);
   assertClose('game category distributed newest',
     s.categoryPerMin.gameRisk[i], 2);
   assertClose('game category distributed previous',
@@ -365,6 +374,51 @@ const press = (at, useful, flag, moving, gapMs, unflag, misclick) => ({
   assertClose('unmarked first measured win', s.winUnmarkedFraction[i - 2], 0.5);
   assertClose('unmarked unchanged by a loss', s.winUnmarkedFraction[i - 1], 0.5);
   assertClose('unmarked averages measured wins only', s.winUnmarkedFraction[i], 0.75);
+}
+
+// The per-mark unused-share average (the primary calibration of unused
+// correct marks) likewise tracks measured wins only: losses, markless
+// wins, and wins without the measurement change neither side.
+{
+  assertClose('unused-mark share of a measured win',
+    sessionUnusedMarkShare({ end: 'win', unusedMarks: 2, flags: 8 }), 0.25);
+  assertUndefined('markless win has no unused-mark share',
+    sessionUnusedMarkShare({ end: 'win', unusedMarks: 0, flags: 0 }));
+  assertUndefined('loss has no unused-mark share',
+    sessionUnusedMarkShare({ end: 'guess-min', unusedMarks: 2, flags: 8 }));
+  assertUndefined('pre-measurement win has no unused-mark share',
+    sessionUnusedMarkShare({ end: 'win', flags: 8 }));
+
+  const from = NOW - 3 * MIN;
+  const events = [
+    { kind: 'play', from, to: NOW },
+    { kind: 'end', at: from + 30000, end: 'win', unusedMarks: 2, flags: 8 },
+    { kind: 'end', at: from + 90000, end: 'guess-min', unusedMarks: 9, flags: 9 },
+    { kind: 'end', at: from + 130000, end: 'win', unusedMarks: 0, flags: 0 },
+    { kind: 'end', at: from + 160000, end: 'win', unusedMarks: 3, flags: 4 },
+  ];
+  const s = sessionBucketSeries(events, opts);
+  const i = last(s);
+  assertUndefined('unused share undefined before first measured win',
+    s.unusedMarkShareFraction[i - 3]);
+  assertClose('unused share first measured win', s.unusedMarkShareFraction[i - 2], 0.25);
+  assertClose('unused share unchanged by a loss and a markless win',
+    s.unusedMarkShareFraction[i - 1], 0.25);
+  assertClose('unused share averages measured wins only',
+    s.unusedMarkShareFraction[i], 0.5);
+}
+
+// A backfilled won game derives its per-mark unused share from the flag
+// counters it carries; raw grouping keeps the same value in its bucket.
+{
+  const s = sessionBucketSeries([
+    { kind: 'game', from: NOW - MIN, to: NOW, end: 'win',
+      unusedMarks: 1, flags: 4 },
+  ], opts);
+  assertClose('backfilled unused-mark share',
+    s.unusedMarkShareFraction[last(s)], 0.25);
+  assertClose('backfilled raw unused-mark share',
+    s.rawUnusedMarkShareFraction[last(s)], 0.25);
 }
 
 // A backfilled win carries its derived unmarked-mine share; a backfilled
@@ -558,6 +612,8 @@ const runOpts = {
   ];
   const s = sessionRunningSeries(events, runOpts);
   assertClose('run fastclick pooled median', s.fastclickGapMs[last(s)], 300);
+  // The same three gaps [100, 300, 500]: q1 200, median 300, q3 400.
+  assertClose('run cadence spread pooled', s.cadenceSpreadRatio[last(s)], 2 / 3);
 }
 
 // Endings ignore the lookback entirely: still each kind's cumulative
@@ -595,6 +651,24 @@ const runOpts = {
     s.winUnmarkedFraction[at(20000)]);
   assertClose('run unmarked after first win', s.winUnmarkedFraction[at(40000)], 0.25);
   assertClose('run unmarked cumulative average', s.winUnmarkedFraction[last(s)], 0.5);
+}
+
+// The wins' per-mark unused-share average follows the same cumulative rule.
+{
+  const from = NOW - 3 * MIN;
+  const events = [
+    { kind: 'play', from, to: NOW },
+    { kind: 'end', at: from + 30000, end: 'win', unusedMarks: 1, flags: 4 },
+    { kind: 'end', at: from + 90000, end: 'win', unusedMarks: 3, flags: 4 },
+  ];
+  const s = sessionRunningSeries(events, { ...runOpts, windowMs: 5 * MIN });
+  const at = (pos) => s.centers.indexOf(pos);
+  assertUndefined('run unused share before first measured win',
+    s.unusedMarkShareFraction[at(20000)]);
+  assertClose('run unused share after first win',
+    s.unusedMarkShareFraction[at(40000)], 0.25);
+  assertClose('run unused share cumulative average',
+    s.unusedMarkShareFraction[last(s)], 0.5);
 }
 
 // Under one covered second is still not a rate.
@@ -739,4 +813,58 @@ const runOpts = {
     new Set(placed.map((label) => Math.round(label.center))).size >= 3, true);
 }
 
-console.log(`session-series: all ${checks} checks passed (buckets + running averages + y domains)`);
+// Real-world provenance sections: play↔wall mapping cut at breaks and
+// local midnights (timezone-independent via local Date constructors).
+{
+  const T0 = new Date(2026, 7, 29, 10, 0).getTime();
+  // Two spans separated by a 5-minute break, same day: one merged section.
+  const merged = sessionWallSections([
+    { playFrom: 0, playTo: 10 * MIN, from: T0, to: T0 + 10 * MIN },
+    { playFrom: 10 * MIN, playTo: 20 * MIN, from: T0 + 15 * MIN, to: T0 + 25 * MIN },
+  ], 0, 20 * MIN);
+  assertEq('a short same-day break merges into one section', merged.length, 1);
+  assertEq('merged section keeps the full wall range start', merged[0].wallFrom, T0);
+  assertEq('merged section keeps the full wall range end', merged[0].wallTo, T0 + 25 * MIN);
+  assertEq('merged section covers the full play range', merged[0].playTo, 20 * MIN);
+
+  // A 20-minute break splits sections even within one day.
+  const split = sessionWallSections([
+    { playFrom: 0, playTo: 10 * MIN, from: T0, to: T0 + 10 * MIN },
+    { playFrom: 10 * MIN, playTo: 20 * MIN, from: T0 + 30 * MIN, to: T0 + 40 * MIN },
+  ], 0, 20 * MIN);
+  assertEq('a long break starts a new section', split.length, 2);
+  assertEq('second section starts at its own wall time', split[1].wallFrom, T0 + 30 * MIN);
+  assertEq('second section starts at its play coordinate', split[1].playFrom, 10 * MIN);
+
+  // A single span crossing local midnight splits exactly there.
+  const eve = new Date(2026, 7, 29, 23, 30).getTime();
+  const midnight = new Date(2026, 7, 30, 0, 0).getTime();
+  const overnight = sessionWallSections([
+    { playFrom: 0, playTo: 60 * MIN, from: eve, to: eve + 60 * MIN },
+  ], 0, 60 * MIN);
+  assertEq('midnight splits a continuous span', overnight.length, 2);
+  assertEq('pre-midnight section ends at midnight', overnight[0].wallTo, midnight);
+  assertEq('pre-midnight section covers its play share', overnight[0].playTo, 30 * MIN);
+  assertEq('post-midnight section starts at midnight', overnight[1].wallFrom, midnight);
+  assertEq('sections carry different local days',
+    sessionLocalDayStart(overnight[0].wallFrom)
+      !== sessionLocalDayStart(overnight[1].wallFrom), true);
+
+  // Clipping to the visible window shifts the wall start by the play cut.
+  const clipped = sessionWallSections([
+    { playFrom: 0, playTo: 20 * MIN, from: T0, to: T0 + 20 * MIN },
+  ], 5 * MIN, 20 * MIN);
+  assertEq('window clipping keeps one section', clipped.length, 1);
+  assertEq('clipped section starts at the visible play coordinate',
+    clipped[0].playFrom, 5 * MIN);
+  assertEq('clipped section wall start advances with the cut',
+    clipped[0].wallFrom, T0 + 5 * MIN);
+
+  // Spans entirely outside the window vanish.
+  assertEq('out-of-window spans produce no sections',
+    sessionWallSections([
+      { playFrom: 0, playTo: 5 * MIN, from: T0, to: T0 + 5 * MIN },
+    ], 10 * MIN, 20 * MIN).length, 0);
+}
+
+console.log(`session-series: all ${checks} checks passed (buckets + running averages + y domains + wall sections)`);

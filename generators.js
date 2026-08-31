@@ -263,48 +263,6 @@ function letterformsPlacement(width, height, mineCount, safeIndex, rng, params) 
   return mineAt;
 }
 
-// Patriotic placement (stars and stripes): the upper-left canton gets
-// its area-proportional share of the mines as an evenly spread star
-// field (best-candidate), and the rest fall into alternating
-// dense/sparse horizontal stripes by weighted sampling. The canton
-// spans `canton` of the width and the classic 7/13 of the height.
-function patrioticPlacement(width, height, mineCount, safeIndex, rng, params) {
-  const n = width * height;
-  const cantonWidth = Math.round(width * params.canton);
-  const cantonHeight = params.canton === 0 ? 0 : Math.max(1, Math.round(height * 7 / 13));
-  const cantonFree = [];
-  const stripeCells = [];
-  for (let i = 0; i < n; i++) {
-    if (i === safeIndex) continue;
-    const x = i % width;
-    const y = (i - x) / width;
-    if (x < cantonWidth && y < cantonHeight) cantonFree.push(i);
-    else stripeCells.push(i);
-  }
-  if (mineCount > cantonFree.length + stripeCells.length) {
-    throw new Error('more mines than placeable cells');
-  }
-  let cantonMines = Math.min(
-    Math.round(mineCount * cantonFree.length / (cantonFree.length + stripeCells.length)),
-    cantonFree.length);
-  let stripeMines = mineCount - cantonMines;
-  if (stripeMines > stripeCells.length) {
-    cantonMines += stripeMines - stripeCells.length;
-    stripeMines = stripeCells.length;
-  }
-  const mineAt = new Array(n).fill(false);
-  const nearest = new Float64Array(n).fill(Infinity);
-  bestCandidatePlace(mineAt, nearest, cantonFree, cantonMines,
-    12, rng, width, (cell) => nearest[cell]);
-  // Stripe 0 is at the top and dense, like the flag's first red stripe.
-  const stripeCount = Math.max(1, Math.min(params.stripes, height));
-  const stripeOf = (cell) => Math.min(stripeCount - 1,
-    Math.floor((cell - cell % width) / width * stripeCount / height));
-  weightedSampleInto(mineAt, stripeCells, stripeMines, rng,
-    (cell) => stripeOf(cell) % 2 === 0 ? params.contrast : 1);
-  return mineAt;
-}
-
 // Every generator: id (stored in settings, records, and top score keys),
 // label (menus), version (the record's boardVersion — names the exact
 // placement algorithm a seed replays through), describe (menu tooltip),
@@ -411,27 +369,6 @@ const GENERATOR_SPECS = [
       },
     ],
     place: letterformsPlacement,
-  },
-  {
-    id: 'patriotic',
-    label: 'Patriotic',
-    version: 'patriotic-stars-and-stripes-v1',
-    describe: 'stars and stripes: an evenly spread star field in the upper-left canton, alternating dense/sparse stripes across the rest',
-    params: [
-      {
-        key: 'stripes', label: 'stripes', min: 3, max: 21, step: 2, default: 13,
-        describe: 'how many horizontal stripes (odd, so the top and bottom stripes are both dense)',
-      },
-      {
-        key: 'contrast', label: 'stripe contrast', min: 1, max: 20, step: 1, default: 8,
-        describe: 'placement-weight ratio of a dense stripe cell to a sparse one: 1 = uniform stripes, higher = crisper banding',
-      },
-      {
-        key: 'canton', label: 'canton width', min: 0, max: 0.6, step: 0.05, default: 0.4,
-        describe: 'the star field\u2019s share of the board width (its height is the classic 7/13); 0 = no canton, stripes everywhere',
-      },
-    ],
-    place: patrioticPlacement,
   },
 ];
 

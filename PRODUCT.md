@@ -106,6 +106,30 @@ Beginner Standard win never appears on Beginner Uniform NG lists.
   contradicting known facts (clicking a proven mine). A just universe is
   the sealed-pocket special case; this mode covers every consistent
   guess. Justice is off here — the mode is the mercy.
+- **Endgame drill (2026-08-30).** Repeated quick training on realistic
+  endgame positions. Each deal generates a full board with the selected
+  generator, then presents it late-game: every safe cell is revealed
+  except a remnant pocket flush with a board side (real endgames finish
+  against borders and corners), with opening closure enforced (a
+  revealed zero never keeps a covered neighbor). A deal is accepted only
+  when the pocket keeps 4–45 covered safe cells, contains at least one
+  mine and one covered numbered safe cell (an all-zero remnant trains
+  nothing), and is finishable by pure deduction from the visible numbers
+  and mine counter — verified with the exact solver, so a drill death is
+  always a reading error, never a forced guess. Rejection budget
+  exhausted → fail loudly. The timer starts on the player's first input
+  (reveal or flag; an accepted chord always follows a flag). The
+  record's 3BV is the presented remnant's remaining 3BV — the minimum
+  clicks to finish what was actually left — so 3BV/s, efficiency, and
+  the same-3BV tables stay honest within the mode; ZiNi/HZiNi and STNB
+  are omitted (full-board measures misdescribe a partial solve). The
+  guess ledger stays on: every measured guess in a deducible position is
+  unforced, which is the mode's training signal. Records rank under
+  their own `@endgame-drill` history key. A drill's seed replays the
+  entire deal (board and window search), and dealing is ~2 ms on expert,
+  so face-button restarts stay instant. The upper-right chrome shows
+  "N safe cells left · remaining 3BV M". Dealing lives in `endgame.js`
+  (pure, dependency-injected, node-tested).
 
 ### Visible-information solver
 
@@ -239,13 +263,12 @@ deal fixed identities.
   spells them in mines. Parameters: letters (1–6) and stroke contrast
   (stroke cells weigh e^contrast against 1; high values put nearly all
   mines in the strokes).
-- **Patriotic.** Stars and stripes: the upper-left canton (a chosen
-  share of the width, the classic 7/13 of the height) takes its exact
-  area-proportional share of the mines as an evenly spread star field
-  (best-candidate); the rest fall into alternating dense/sparse
-  horizontal stripes by weighted sampling, dense at top and bottom.
-  Parameters: stripes (odd, 3–21), stripe contrast (dense:sparse
-  weight ratio), canton width (0 = no canton).
+A seventh generator, **Patriotic** (stars-and-stripes: a best-candidate
+star-field canton plus alternating dense/sparse stripes), shipped
+2026-08-25 and was removed 2026-08-30 by decision. Stored settings that
+still name it fall back to the default generator via the normal
+validation path; its old top score keys (`+patriotic(...)`) simply stop
+being reachable.
 
 In Standard and Angelic the generator places the board directly; in
 Uniform NG and Proof-or-die it supplies the candidates for the
@@ -382,6 +405,16 @@ report.
     original flag action, shown in full action analysis and the less-useful
     path, counted in win records' `unusedCorrectFlags`, and charted against
     measured winning-game time or measured wins in session rates.
+    **Calibration (decided 2026-08-30): the primary reading is per mark
+    placed** — the share of a won game's placed flags that went unused.
+    Per game rises with board size and flagging volume, and per minute
+    rises with playing speed; the share is dimensionless and answers "of
+    the marking work done, how much was pointless" directly, and a
+    markless win stays unmeasured (0 of 0) rather than counting as
+    perfect. It draws on the endings chart as "percent of placed marks
+    unused when winning" beside the unmarked-mines-at-win line; the /m
+    and /game rate views remain as time and volume companions, and the
+    game record shows the count with its share ("2 of 14 placed (14%)").
 - **Needless guess** has one precise meaning: the player revealed an
   uncertain, positive-risk square while at least one zero-risk reveal
   was available. Merely having a different move with higher modeled
@@ -803,6 +836,36 @@ Shown as a label/value table for wins and losses alike; a loss shows no
 rank output at all (losses split win streaks and feed lifetime totals, but
 are not ranked).
 
+Flagger metrics (added 2026-08-30). Each new record stores the board's
+greedy ZiNi (`zini`, the reference greedy flags-and-chords algorithm's
+click count — the flaggers' counterpart to 3BV, never above it), human
+ZiNi (`hzini`, the same greedy algorithm restricted to already-open cells
+after opening every opening first; ported from the community Rust
+reference in `zini.js` with known-answer tests), and `chordClicks`
+(accepted chords among the board-changing clicks). Both ZiNi fields are
+board facts, so they are stored rather than derived; they are omitted on
+Endgame drill games, where a full-board measure misdescribes the partial
+solve. Derived at display time: IOE (3BV / total board-changing clicks,
+wins only), chord share (accepted chords / board-changing clicks, any
+outcome — how much of the play is chord-driven), ZiNi efficiency
+(zini / clicks, the flagger analog of throughput, wins only), and STNB
+(difficulty-normalized speed: constant / (time^1.7 / 3BV) with the
+community constants 47.299 beginner, 153.73 intermediate, 435.001
+expert; only defined on those exact board shapes, wins only, and never
+on Endgame drill records). Absent fields on old records follow the
+standard not-measured rules.
+
+Cadence spread (added 2026-08-30, the chosen per-game cadence-consistency
+measure) is stored as `cadenceSpread` on wins and losses alike: the
+interquartile range of all button-press gaps (wasted presses included)
+divided by their median — 0 is metronomic, larger is burstier. A robust
+dimensionless dispersion was chosen over a coefficient of variation
+because press-gap distributions are heavy-tailed; the IQR/median form
+ignores outlier pauses instead of being dominated by them. Needs at
+least two measurable gaps. It appears as a stats row, as a
+cadence-spread-versus-date relationship scatter (wins with the field,
+Theil–Sen trend on that subset), and as a session series.
+
 Wasted clicks — board clicks that changed nothing (chord attempts on
 unsatisfied or empty numbers, left-clicks on flagged cells, right-clicks
 on revealed cells) — joined the record schema on 2026-08-19 (decided
@@ -1086,10 +1149,17 @@ carries at least one tag.
   max 2, then max 3, then max 4, then the grouping lists).
 - Row format: rank, time, relative age. Headings carry only the window
   name; the rank fraction lives in the chart itself — your row's "#x"
-  plus an "of N" footer line, shown only when rows are actually cut off
+  plus an "N total" footer line, shown only when rows are actually cut off
   below (if the last row is visible the end is already in view). The
   footer line always occupies its height, blank when unneeded, so its
-  appearing can never resize a chart (2026-08-20).
+  appearing can never resize a chart (2026-08-20). The footer reads
+  "510 total", centered under the list, in full black (2026-08-30,
+  replacing the right-hugging gray "of 510").
+- Age cells align by unit start (2026-08-30): the count column stays
+  right-aligned and the unit letter column is left-aligned with a fixed
+  2px gap, so "8.1 h" and "6 m" read as two clean columns.
+  Right-aligning the unit had let wide glyphs ("m") hug their count
+  while narrow ones ("h") floated apart.
 - Windowing: always the full 11 rows when the list has them. If your rank
   is within the top 11, the list anchors at #1 and shows the top 11 with
   your row in its true place (a #8 placement draws #1-#11, never #3-#13).
@@ -1197,7 +1267,25 @@ runtime state, export field, or result section.
   excludes times at or below one second, and path ratios exclude zero
   denominators. This preserves the stored-data semantics and prevents
   undefined values from distorting an axis.
-  Axis labels name the chart ("→ 3BV" / "→ average time").
+- Headers and modes (requested 2026-08-30): every property chart carries a
+  header naming its reading and grouping ("time by clicks"), its y ticks
+  carry the unit ("25s", "40%"), and the rotated y-axis caption is gone
+  (the header + tick units already say it). The x axis label remains.
+- A three-way **mode** selector rides each header and drives all property
+  charts at once (`settings.averageChartMode`, chosen on the charts
+  themselves like the recent-placements window):
+  - **average** — the classic reading: each dot is a group's average win
+    time.
+  - **distribution** — every win is its own dot (value on x, that game's
+    time on y), showing the full spread of times at each value, with the
+    same trend pair and outlier trimming as the raw scatters.
+  - **winrate** — all finished games (wins AND losses) group by the value;
+    each dot is the percentage won. IOS sits this mode out (`winBound`):
+    it is only defined for wins, so its winrate would read 100%
+    everywhere. Loss records carry clicks/path/board-shape facts, so the
+    other specs stay measurable.
+- Each header also carries a (?) help button explaining the current mode
+  (see "Chart help buttons" under Session stats).
 - Trend lines (decided 2026-08-22, chosen by eye from a five-fit
   sampling): the Theil–Sen line y = a + b·x — b is the median slope over
   all point pairs, a the median of y − b·x. Chosen over least squares
@@ -1231,13 +1319,18 @@ runtime state, export field, or result section.
 
 ## Scatter plots
 
-- The relationships section has five plots in fixed order: win time vs date
+- The relationships section has eight plots in fixed order: win time vs date
   (local date/time x-axis: minute-to-day calendar ticks, HH:mm labels below
   a day step, M/D above), win time vs hour of day (0–24 local), 3BV vs time,
   clicks vs 3BV (with the y = x floor drawn as a dashed line — a game on the
-  line used only the board's minimum clicks), and no-op clicks vs time (only
-  wins carrying the `wastedClicks` measurement; appears once at least 2 do).
-  The section requires at least 2 wins.
+  line used only the board's minimum clicks), no-op clicks vs time (only
+  wins carrying the `wastedClicks` measurement; appears once at least 2 do),
+  and (2026-08-30, the guess-ledger and cadence scatters) guesses vs time
+  (tied small-integer x, so no trend line, like no-op clicks), life lost
+  vs time (guess-ledger wins only), and cadence spread over date. Each
+  measurement-gated plot appears once at least 2 wins carry its field and
+  computes its Theil–Sen trends on its own eligible subset, not the full
+  win list. The section requires at least 2 wins.
 - Every win is a dot colored by its relative-age unit, reusing the age
   palette (seconds = fluorescent green, minutes = green, hours = blue,
   days = red, weeks = navy, months = maroon, years = teal), so time
@@ -1359,7 +1452,9 @@ runtime state, export field, or result section.
 - Recording overhead, measured 2026-08-20: ~100ns per mousemove event and
   <0.5ms of typed-array conversion at save time — imperceptible.
 
-## Path and choice replay views (decided 2026-08-23; expanded 2026-08-28)
+## Path and choice replay views (decided 2026-08-23; expanded 2026-08-28;
+## overhauled 2026-08-30: history slider, solver overlays, interpretive
+## legends, chord detection, off-screen durations)
 
 - When a game finishes, separate, simultaneously visible buttons appear below
   the board—no dropdown—for off, raw path, click locations, movement speed,
@@ -1368,7 +1463,17 @@ runtime state, export field, or result section.
 - Raw path restores the original complete every-sample tool, shaded from light
   early movement to dark late movement. Click locations restores the original
   raw left-release/right-press inputs as numbered positions in action order;
-  it is not limited to analytically accepted decisions.
+  it is not limited to analytically accepted decisions. Chords are detected
+  (a decision frame's time equals its accepting input event, so accepted
+  inputs join exactly to their action kind) and drawn in their own green,
+  distinct from plain left releases (blue) and right presses (red); the
+  legend counts detected chords, and the chord dot itself is the exact spot
+  the chord was performed at.
+- Sampling is event-driven, so nothing is recorded while the cursor rests or
+  is off-window. Any silent stretch ≥300ms draws as a dashed gray connector
+  instead of a fake speed color; if its endpoints are ≥40px apart the cursor
+  left and re-entered ("away") and the connector carries an on-path duration
+  label — the direct answer to "how long was I off-screen?".
 - The three continuous parameter views draw the actual cursor polyline through every
   recorded sample, warmup included. Movement speed colors each segment by
   its instantaneous px/s; click speed colors the movement leading to each
@@ -1379,11 +1484,18 @@ runtime state, export field, or result section.
   Blue is the low end and red the high end. Speed ranges are relative to the
   just-finished sample and use the lower charts' Tukey 1.5-IQR display rule
   on both extremes once at least eight values exist, so an isolated pause or
-  burst cannot flatten the local differences. Every path mode has a proper
-  visible legend: gradient bar with low/mid/high numeric values for continuous
-  colors, or explicit color keys for discrete marks. If every segment has the
-  same value, the legend reports that actual value rather than inventing a
-  wider or negative range. The legend occupies its own row and active-button
+  burst cannot flatten the local differences. Every continuous path mode has
+  an interpretive legend (2026-08-30, replacing the gradient bar): six chips,
+  one per color class, each labeled with the exact numeric interval it
+  covers, so every speed class on the line is enumerated. The legend is
+  bidirectional: hovering a chip spotlights that class's segments on the
+  board (others fade); hovering the path itself pops a tooltip with the exact
+  value of the nearest segment and lights the matching chip. The hover
+  listener lives on the board, so the canvas still never intercepts input.
+  Discrete marks keep explicit color keys. If every segment has the same
+  value, the legend reports that actual value rather than inventing a wider
+  or negative range. Legend rows and notes are black on white — no gray text.
+  The legend occupies its own row and active-button
   styling never changes button dimensions, so
   selecting movement speed cannot make the input buttons twitch.
 - "Less useful" shows complete episodes, not isolated fragments: the last
@@ -1402,10 +1514,19 @@ runtime state, export field, or result section.
   backward or forward, and the selected overlay truncates at the displayed
   decision while retaining its full-game color scale for comparison.
   Back-in-time replaces the finished board with the exact player-visible
-  board immediately before each accepted action. Previous/next controls and
+  board immediately before each accepted action. A game-history range slider
+  (2026-08-30) sits between the previous/next buttons and scrubs the same
+  decision index; it shows notch marks for every action (thinned above 60)
+  and black numeric labels at both endpoints and the interior quarters, and
+  the current value is spelled out in the status line ("action N of M").
+  Previous/next controls and
   Left/Right keys step through decisions except while another interactive
   control has keyboard focus; green marks the measured reasonable
-  choice set and gold marks the selected square(s). The status names action
+  choice set and gold marks the acted square(s), and a gold crosshair labeled
+  with the action kind pins the exact input pixel of the displayed action —
+  for a chord, the precise spot the chord was performed at (the crosshair
+  keeps its canvas even when the path mode is off).
+  The status names action
   number, in-game time, action type, and measured choice count. Uncertain
   reasonable-choice cells are split into connected visual pockets; each pocket
   gets a leader line to a side label giving its mine probability (exact 50%
@@ -1413,6 +1534,34 @@ runtime state, export field, or result section.
   and cell count. Labels choose the board side that avoids the result summary
   and available viewport edge. Proven-safe choices get no coinflip label.
   Leaving back-in-time restores the finished board exactly.
+- Back-in-time overlays (2026-08-30): six independent toggles on their own
+  row, remembered for the page session, each doing exactly what it says.
+  - `available moves`: every covered cell proven safe gets a green ring (raw
+    click), and every satisfied number whose chord would open only
+    proven-clear cells gets a blue ring with the cells it would open tinted
+    pale green — chord and raw click are visually distinct because chording
+    is usually preferred.
+  - `forced mines`: every covered cell proven to be a mine gets a red ring
+    and a dimmed real mine glyph. Proofs come from full layout enumeration,
+    so everything deducible from the visible numbers is shown (e.g. the
+    forced mine under a satisfied 2), not just one-step patterns.
+  - `mine %`: every covered cell shows its exact mine probability in percent,
+    computed by full enumeration of remaining layouts (components + binomial
+    sea) with all visible knowledge; proven cells read 0 or 100. When a
+    position exceeds the enumeration budget the legend says so and only
+    bounded-proof facts are marked — probabilities are never invented.
+  - `pointless clicks` / `purposeful clicks`: numbered dots at every
+    mistake-tagged (orange) or clean (teal) action up to the shown moment,
+    as two separate layers.
+  - `rough movement`: purple underlay on segments crawling below ¼ of the
+    game's own median moving pace or making a >135° direction reversal —
+    hesitation and overshoot correction made visible.
+  - Solver reads are cached per decision index, so slider scrubbing stays
+    responsive; the cache clears with each new board.
+  - Legend answer to "what do green and orange mean?": green rings/fills are
+    the measured choice set and proven-safe moves; gold is the square acted
+    on plus the exact click spot. Each active overlay adds its own legend row
+    naming its colors.
 - These displays read the just-finished RAM trace. The same decision frames
   are persisted in the trace store for future historical replay and analytics;
   loading older traces into this control is not yet built.
@@ -1466,10 +1615,11 @@ runtime state, export field, or result section.
   elapsed seconds. Spans where the value was not yet measurable are gaps
   in the line, never bridged. The after-game charts are the same rows at
   chart size (230x130 vs the panel's 150x46).
-- Five measurement systems, each a labeled section of the panel and of
+- Eight measurement systems, each a labeled section of the panel and of
   the after-game charts (decided 2026-08-20, when the three researched
   systems beyond the first were reimplemented in-page; click timing
-  added 2026-08-22). Every row
+  added 2026-08-22; queued clicks, pace recovery, and aimed movement
+  added 2026-08-30). Every row
   carries a two-part explanation as its hover tooltip — "HOW", exactly
   how the value is calculated, and "RECORDS", a literal description of
   the observation without assigning a cause; each section header explains
@@ -1518,6 +1668,45 @@ runtime state, export field, or result section.
     planned. The block-variability features (CoV across
     equal-difficulty movements) are offline-only: they need difficulty
     residualization first.
+  - QUEUED CLICKS (2026-08-30) — the observable hover-then-later-click
+    queue: clicks whose cell the cursor had already dwelt over earlier (a
+    clickless stay of 300ms or more, the feint rule) and came back to
+    click at least 500ms after leaving. Rows: queued clicks, queued share
+    (over all cell-targeted actions), queue wait (median leave-to-click
+    interval), longest wait. Whether the cell was already provable at
+    dwell time is not measured; the reason for the delay is not observed.
+  - PACE RECOVERY (2026-08-30, the post-event pace-delta quantification)
+    — how the action pace responds to this game's own recorded surviving
+    mistakes (no-op clicks, misclicks, judged guesses — whatever the
+    evaluator tagged; deaths have no post-pace and are excluded),
+    measured against the game's median accepted-action gap. Rows:
+    mistakes measured, post-mistake gap (next gap over median gap,
+    median over mistakes; 1.0 = no measurable slowdown), recovery
+    actions (consecutive following gaps above 1.5× the median before one
+    returns within it, median over mistakes; 0 = the very next action
+    was already back at pace).
+  - AIMED MOVEMENT (Fitts, 2026-08-30) — Fitts' law over the game's
+    aimed movements: per press at least 8px from the previous press with
+    a cursor sample between them, index of difficulty
+    log2(distance/cell size + 1) against movement time. Rows: movements,
+    throughput (mean ID/MT, bits per second — it describes this game's
+    movements, not the player's capacity). The after-game charts add a
+    Fitts curve: an ID-versus-movement-time scatter of this game's
+    movements with a Theil–Sen fit, the classic aimed-movement plot.
+  - SPATIAL BIAS (2026-08-30, after-game only — it needs the whole
+    game): does the hand serve some board regions slower than others?
+    Confronts the false "conservation principle" — the board's rules are
+    everywhere-identical, but a mouse is not a spatially uniform device.
+    Each accepted board action is timed against the previous one and
+    regressed (Theil–Sen) on the pixel distance between them, which
+    normalizes away the travel itself and, with it, any relationship to
+    where the previous click or starting square was; each action's
+    residual (measured minus distance-predicted gap) lands in a 3×3
+    board-region grid rendered as a signed heatmap (red = slower than
+    distance predicts, green = faster, shaded by magnitude, with
+    per-region action counts; an unvisited region shows a dash). Needs
+    at least 8 timed pairs and at least 2 measured regions; the Fitts
+    curve likewise needs at least 8 movements.
 - An inter-click segment (the trajectory- and movement-geometry unit) runs from
   the previous click to the next, the click being the segment's response
   — the exact trial construction of the offline R pipeline; segments
@@ -1579,6 +1768,26 @@ does not label their cause.
   Each exact mode retains enough played time independently so a frequently
   played mode cannot evict a less frequent current mode from its selectable
   window.
+- **Real-world provenance ("when this play happened", 2026-08-30):** the
+  compressed play axis hides when the play actually occurred, so a strip
+  above the charts — same width, margins, and x mapping, so its sections
+  line up column-for-column with every chart below — cuts the visible
+  window into wall-clock sections. A new section starts wherever play
+  resumed after a real break of ≥15 minutes, and always at local midnight,
+  so a 60m window that is 30m today + 30m yesterday reads as exactly that.
+  Blocks from the same calendar day share one fill color (palette cycles
+  per distinct day); each block is labeled inside with as much of
+  "day start–end" as fits (falling back to the time range, then the start
+  time, then nothing). A summary row underneath always carries every
+  section in full: day ("today" / "yesterday" / "Fri, Aug 28"), wall-clock
+  range, played amount, and either the break before it ("after 14h away")
+  or "continues past midnight" when the split is only the date change.
+  Sub-second slivers created by the window edge clipping an old span are
+  not listed. Every session chart additionally draws a dashed vertical
+  mark where the play crosses into another calendar day, aligned with the
+  strip's color changes. The play↔wall mapping (`playSpans`) is carried by
+  all three series shapes (running, raw, per-game) from
+  `sessionBucketSeries`; `sessionWallSections` is the pure section cutter.
 - **Presentation:** the panel shows the word `session` once. Chart rows and
   lines do not carry HOW/RECORDS hover essays; direct labels and values are
   the interface. Multi-series rate labels keep their endpoint dots but are
@@ -1609,8 +1818,11 @@ does not label their cause.
   statistic.
 - The series, in the panel's recent-observations section (since
   2026-08-23 the six action rates share two unit-grouped charts —
-  see "The action-rates charts" below — while mouse speed, fastclick
-  gap, and game endings keep their own):
+  see "The action-rates charts" below; since 2026-08-30 mouse speed and
+  the fastclick gap also share one two-line chart, their magnitudes both
+  living in the same few-hundreds range, with each endpoint label naming
+  its own series and unit — "mouse speed 916px/s", "fastclick gap 240ms" —
+  over a bare shared axis; game endings keeps its own chart):
   - **mouse speed** — px of cursor travel while playing over in-progress
     seconds, px/s.
   - **click rate** — board clicks that changed something (reveals,
@@ -1629,6 +1841,14 @@ does not label their cause.
     the same game, counting only presses made on the move (a cursor
     sample within 100ms before, the cadence definition) with gaps under
     1s. It records only that filtered timing distribution.
+  - **cadence spread** (added 2026-08-30) — interquartile range of
+    useful-press gaps within the lookback divided by their median, the
+    same dispersion measure as the per-game `cadenceSpread` field; 0 is
+    metronomic, larger is burstier, losses and wins both contribute.
+    Live play contributes raw gaps; games backfilled from history cannot
+    (records hold no press timestamps), so per-time backfilled spans
+    leave the series unmeasured while the per-game basis medians each
+    game's stored spread instead. Needs at least two gaps.
   - **mine marking** — flags placed per in-progress second (removals
     don't subtract; win auto-flagging never counts).
   - **flag removals** (added 2026-08-22, same evening) — flags taken
@@ -1638,14 +1858,23 @@ does not label their cause.
     Backfills from the stored per-game `flagsRemoved` count, and the
     stats table shows the per-game form as "Flag-removal rate" beside the
     existing "Flags removed" count.
-  - **game endings** (added 2026-08-23) — not a rate: one chart of
-    cumulative percent lines, one per ending kind (win, the report's
-    fatal-action statuses word for word, dashed legacy-verdict lines,
-    unjudged loss), each the kind's share of the games finished so far
-    in the window, plus the dotted "percent of mines unmarked when
-    winning" line (the wins' average share of mines left unflagged at
-    the winning instant), with a color legend of current shares. See
-    "Game-end evaluation".
+  - **game endings** (added 2026-08-23; labels and axis reworked
+    2026-08-30) — not a rate: one chart of cumulative percent lines, one
+    per ending kind, each the kind's share of the games finished so far
+    in the window, with a color legend of current shares. Chart labels
+    are compact forms prefixed **"died: "** for every death ending
+    ("died: likely misclick", "died: clicked forced mine despite
+    available safe move", "died: unjudged", legacy verdicts as "died: …
+    (legacy)"), so the losses read as one family; the after-game report
+    keeps its sentence wording (`FATAL_STATUS_LABELS`), and the two can
+    never disagree because both derive from `fatalActionStatusKind`. The
+    y axis auto-ranges to just above the highest plotted line (capped at
+    100, floored at 10) instead of always spanning 0–100. The dotted
+    "percent of mines unmarked when winning" line (the wins' average
+    share of mines left unflagged at the winning instant) draws in a
+    deliberately un-endings blue (#1565c0), and "percent of placed marks
+    unused when winning" in purple (#7b1fa2), so neither is misread as
+    an ending share. See "Game-end evaluation".
   - **report categories** (added 2026-08-23; scope independence decided
     2026-08-29) — one per-minute line for every exclusive action-report
     category: game loss, game risk, time loss, life maximization, and
@@ -1790,8 +2019,33 @@ does not label their cause.
   first and rejected: several near-zero rates share a tight band, so a
   name-sized box rarely had a clear spot and the design would have
   degenerated into a legend fallback most of the time. Mouse speed
-  (px/s) and fastclick gap (ms) keep solo charts — their units fit
-  neither chart.
+  (px/s) and fastclick gap (ms) kept solo charts until 2026-08-30, when
+  they merged into one "mouse speed & fastclick gap" chart: their
+  magnitudes overlap (hundreds of px/s, hundreds of ms), each endpoint
+  label already names its series and unit, and the shared axis stays
+  bare. The pair measures identically on either rate basis, so it skips
+  the per-game remap.
+- Per-game rate precision (2026-08-30): on the per-game basis every rate
+  label shows one decimal — whole-game magnitudes don't need two.
+- Series spotlight on hover (2026-08-30, for every multi-line chart):
+  hovering a legend entry (game endings) or an endpoint value label (the
+  rates charts, the combined speed/gap chart) fades every other series
+  to near-invisible and thickens the hovered line, via
+  `bindSeriesHighlight`.
+- Chart help buttons (2026-08-30): every session chart's name, and every
+  titled property/relationship chart header, carries a small circled (?)
+  after the name. Hover, focus, or click shows a plain-language
+  explanation of the metric — built from each spec's `calc`/`records`
+  text for the standard series, and hand-written rich explainers for
+  **excess game risk** and **modeled life gap**, each with a miniature
+  realistic board fragment (classic covered bevels, the digit palette,
+  the real mine glyph, probability notes on the cells) walking through a
+  concrete example (17%/33%/50% frontier → opening the 50% cell is +33pp
+  excess risk; survival scores 1.00 vs 0.75 → a 0.25 life gap). One
+  shared body-level tip element serves all buttons, fixed-positioned
+  beside the active button and clamped to the viewport, because an
+  inline tip would be clipped by the scrollable panel; pure black text
+  on white per the contrast rule.
 - Resizable (added 2026-08-22, live behavior revised 2026-08-23): the
   in-page panel's right edge is a drag grip. Dragging resizes the panel
   and recomputes chart geometry on every animation frame, so the contents

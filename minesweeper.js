@@ -23,6 +23,7 @@ const PLAY_MODES = [
   { id: 'single-path-ng', label: 'Single-path NG' },
   { id: 'proof-or-die', label: 'Proof-or-die' },
   { id: 'angelic', label: 'Angelic' },
+  { id: 'endgame-drill', label: 'Endgame drill' },
   { id: 'trial', label: 'Trial' },
   { id: 'short-trial', label: 'Short trial' },
   { id: 'test-trial', label: 'Test trial' },
@@ -105,6 +106,7 @@ let startTime = 0;
 let finalTimeMs = 0;
 let timerInterval = null;
 let clickCount = 0;    // board clicks that changed something (reveal/flag/chord)
+let chordClicks = 0;   // accepted chords among those (the chord share numerator)
 let wastedClicks = 0;  // board clicks that changed nothing
 let inputActionCount = 0; // every accepted board input, including no-ops
 let misclicks = 0;     // board-changing actions contradicted by visible facts
@@ -520,6 +522,10 @@ function pregenActive() {
   return settings.playMode === 'pregen-10-3bv-desc';
 }
 
+function endgameDrillActive() {
+  return settings.playMode === 'endgame-drill';
+}
+
 // The generator the current settings select for the current mode: the
 // chosen id with its stored parameter overrides filled from the schema
 // defaults, or the default generator where the choice does not apply.
@@ -680,6 +686,7 @@ function newGame() {
   flagsCount = 0;
   revealedCount = 0;
   clickCount = 0;
+  chordClicks = 0;
   wastedClicks = 0;
   inputActionCount = 0;
   misclicks = 0;
@@ -736,6 +743,10 @@ function newGame() {
   replayFinishedCells = null;
   replayEnabled = false;
   replayStep = 0;
+  replaySolverCache.clear();
+  replaySlider.max = '1';
+  lastPathState = null;
+  hidePathTooltip();
   renderPathView();
   resultSummary.textContent = '';
   resultStats.textContent = '';
@@ -748,9 +759,12 @@ function newGame() {
   if (pregenActive()) setupPregenBoard();
   else pregenCurrent = null;
   if (boardLabActive()) buildLabBoard();
+  if (endgameDrillActive()) setupEndgameDrill();
+  else drillCurrent = null;
   document.title = 'Minesweeper - ' + playModeLabel();
   renderTrialChrome();
   renderPregenChrome();
+  renderDrillChrome();
   renderPregenCharts();
   syncLabChrome();
 }
@@ -921,6 +935,57 @@ function renderPregenCharts() {
     buildPregenChartPanel('whole day', scoped.today, referenceMs),
   );
   syncResultClearance();
+}
+
+//-------ENDGAME DRILL MODE (dealing logic in endgame.js)-------
+
+// The live drill's presentation facts: the remnant's remaining 3BV (the
+// record's bv3 — the minimum clicks to finish what is actually left) and
+// its covered-safe count for the chrome line.
+let drillCurrent = null;
+
+function setupEndgameDrill() {
+  backupStatus.textContent = 'dealing an endgame position\u2026';
+  let deal;
+  try {
+    deal = EndgameDrill.deal({
+      width: config.width,
+      height: config.height,
+      mines: config.mines,
+      generator: gameGenerator,
+      place: BoardGenerators.place,
+      createSeed: GameRandom.createSeed,
+      randomFromSeed: GameRandom.fromSeed,
+      classifyCells: Solver.classifyCells,
+    });
+  } catch (err) {
+    backupStatus.textContent = 'endgame deal failed: ' + err.message;
+    throw err;
+  }
+  // The deal's seed replays the board and the window search alike; the
+  // fresh stream is never drawn from again (justice is off in drills).
+  gameSeed = deal.seed;
+  gameRandom = GameRandom.fromSeed(deal.seed);
+  applyMineMap(deal.mineAt);
+  for (let i = 0; i < deal.revealed.length; i++) {
+    if (!deal.revealed[i]) continue;
+    cells[i].revealed = true;
+    revealedCount++;
+    updateCell(i);
+  }
+  drillCurrent = { remaining3BV: deal.remaining3BV, safeLeft: deal.safeLeft };
+  backupStatus.textContent = '';
+  // gameState stays 'ready' with mines placed: the timer starts on the
+  // player's first input (reveal, flag, or chord).
+}
+
+function renderDrillChrome() {
+  const box = document.getElementById('endgame-drill-info');
+  box.hidden = !endgameDrillActive() || drillCurrent === null;
+  box.textContent = box.hidden
+    ? ''
+    : drillCurrent.safeLeft + ' safe cells left \u00b7 remaining 3BV '
+      + drillCurrent.remaining3BV;
 }
 
 //-------BOARD LAB (the non-play mode for exploring board generation)-------
@@ -1494,9 +1559,13 @@ function chord(index) {
   if (trialBlocksPlay()) return false;
   const toReveal = chordTargets(index);
   if (toReveal === null) return false;
+  // Even on an endgame drill's pre-opened numbers a chord cannot be the
+  // first game-starting input: an accepted chord needs its flags placed
+  // first, and the first flag already moved ready -> playing.
   const actionEvaluation = evaluateChordAction(index, toReveal);
   markChordFlagUsage(index);
   clickCount++;
+  chordClicks++;
 
   if (settings.playMode === 'proof-or-die') {
     const view = playerView();
@@ -1715,6 +1784,9 @@ function guessLedgerAppliesToMode() {
     || settings.playMode === 'pregen-10-3bv-desc'
     || settings.playMode === 'uniform-ng'
     || settings.playMode === 'single-path-ng'
+    // Drills are dealt deducible, so any measured guess was unforced —
+    // exactly the training signal the mode exists for.
+    || settings.playMode === 'endgame-drill'
     || Trial.isPlayMode(settings.playMode);
 }
 
@@ -2698,12 +2770,22 @@ function computeBoardShape() {
 
 function reportResult(outcome, endedAt = Date.now()) {
   const shape = computeBoardShape();
+  const mineAt = cells.map((cell) => cell.mine);
   const record = {
     endedAt: endedAt,
     outcome: outcome,
     timeMs: Math.round(finalTimeMs),
-    bv3: compute3BV(),
+    // A drill's difficulty is what was actually presented: the remnant's
+    // remaining 3BV, not the whole board's. Full-board ZiNi is likewise
+    // meaningless for a partial solve, so drill records omit it.
+    bv3: endgameDrillActive() && drillCurrent !== null
+      ? drillCurrent.remaining3BV : compute3BV(),
+    ...(endgameDrillActive() ? {} : {
+      zini: Zini.zini(config.width, config.height, mineAt),
+      hzini: Zini.hzini(config.width, config.height, mineAt),
+    }),
     clicks: clickCount,
+    chordClicks: chordClicks,
     wastedClicks: wastedClicks,
     misclicks: misclicks,
     flagsPlaced: flagsPlaced,
@@ -2742,6 +2824,16 @@ function reportResult(outcome, endedAt = Date.now()) {
   const gameFastGap = sessionMedian(gameFastclickGaps);
   if (gameFastGap !== undefined) {
     record.fastclickGapMs = Math.round(gameFastGap);
+  }
+  // Cadence spread: the trace cadence system's gap-spread ratio (press
+  // gap interquartile range over the median gap, all button presses,
+  // wasted included), stored per game for wins and losses alike so
+  // rhythm consistency is chartable across games. Absent when the game
+  // had under two measurable presses or a zero median.
+  const gameCadence = computeClickCadence(trace.t, trace.events);
+  if (typeof gameCadence.gapSpreadRatio === 'number'
+      && Number.isFinite(gameCadence.gapSpreadRatio)) {
+    record.cadenceSpread = Number(gameCadence.gapSpreadRatio.toFixed(3));
   }
   if (!oddsFailed && guessLedgerAppliesToMode()) {
     record.guesses = guessEvents.length;
@@ -2786,7 +2878,14 @@ function reportResult(outcome, endedAt = Date.now()) {
   const finalMetrics = computeAllTraceMetrics(
     trace.t, trace.x, trace.y, trace.events, record.endedAt - trace.startedAt);
   appendTraceMetricsSeries(finalMetrics);
-  finalMotion = { metrics: finalMetrics, series: metricsSeries };
+  finalMotion = {
+    metrics: finalMetrics,
+    series: metricsSeries,
+    // Spatial bias is an after-game chart only (the fit is meaningless
+    // mid-game and quadratic in actions), so it is computed once here
+    // rather than in the live tick's computeAllTraceMetrics.
+    spatial: computeSpatialBias(trace.events),
+  };
   // The live per-game rows go away with their game; the session section
   // stays (it spans games), so the panel re-renders rather than hiding.
   renderMetricsPanel(null);
@@ -3281,6 +3380,12 @@ function renderResult(record, modeRecords, options = {}) {
   for (const [label, value, valueClass] of [
     ['Time', seconds.toFixed(3) + 's', isMarkless(record) ? 'markless-time' : ''],
     ['3BV', String(record.bv3)],
+    // ZiNi and human ZiNi are board facts like 3BV (the flaggers'
+    // click-count benchmarks); absent on games recorded before they
+    // were measured.
+    ...(record.zini !== undefined ? [['ZiNi', String(record.zini)]] : []),
+    ...(fullAnalysis && record.hzini !== undefined
+      ? [['HZiNi', String(record.hzini)]] : []),
     ...(record.maxAdjacent !== undefined ? [['Max number', String(record.maxAdjacent)]] : []),
     ...(record.zeroCount !== undefined ? [['Zeros', String(record.zeroCount)]] : []),
     ...(record.islandCount !== undefined ? [['Islands', String(record.islandCount)]] : []),
@@ -3293,9 +3398,18 @@ function renderResult(record, modeRecords, options = {}) {
       ? [['Misclicks', String(record.misclicks)]] : []),
     ['Flags placed', isMarkless(record) ? '0 - markless' : String(record.flagsPlaced)],
     ...(fullAnalysis ? [['Flags removed', String(record.flagsRemoved)]] : []),
+    // The count leads; the per-mark share (the primary calibration,
+    // decided 2026-08-30) rides along whenever the placement count is
+    // known, so "2 of 14 placed (14%)" reads at a glance.
     ...(record.outcome === 'win' && typeof record.unusedCorrectFlags === 'number'
         && record.unusedCorrectFlags > 0
-      ? [['Unused mine marks', String(record.unusedCorrectFlags)]] : []),
+      ? [['Unused mine marks',
+          typeof record.flagsPlaced === 'number' && record.flagsPlaced > 0
+            ? record.unusedCorrectFlags + ' of ' + record.flagsPlaced
+              + ' placed ('
+              + Math.round(100 * record.unusedCorrectFlags / record.flagsPlaced)
+              + '%)'
+            : String(record.unusedCorrectFlags)]] : []),
     // A Justice event is any qualifying sealed-pocket entry — a forced
     // coinflip the rule guarantees the player wins.
     ...(fullAnalysis && record.justice !== undefined
@@ -3304,12 +3418,20 @@ function renderResult(record, modeRecords, options = {}) {
       ? [['Clicks over 3BV', String(record.clicks - record.bv3)]]
       : []),
     ['Efficiency', efficiencyPercent(record) + '%'],
+    ...(chordShareOf(record) !== undefined
+      ? [['Chord share', Math.round(chordShareOf(record) * 100) + '%']] : []),
     ...(correctnessPercent(record) !== undefined
       ? [['Correctness', correctnessPercent(record) + '%']] : []),
     ...(throughputOf(record) !== undefined
       ? [['Throughput', throughputOf(record).toFixed(4)]] : []),
+    ...(ioeOf(record) !== undefined
+      ? [['IOE', ioeOf(record).toFixed(4)]] : []),
+    ...(fullAnalysis && zniEfficiencyOf(record) !== undefined
+      ? [['ZiNi efficiency', zniEfficiencyOf(record).toFixed(4)]] : []),
     ...(iosOf(record) !== undefined
       ? [['IOS', iosOf(record).toFixed(4)]] : []),
+    ...(stnbOf(record, config) !== undefined
+      ? [['STNB', stnbOf(record, config).toFixed(1)]] : []),
     ...(fullAnalysis && record.lifeLost !== undefined
       ? [['Life lost', record.lifeLost.toFixed(3)]] : []),
     ...(fullAnalysis && record.lifeNeedless !== undefined
@@ -3338,6 +3460,8 @@ function renderResult(record, modeRecords, options = {}) {
       ? [['Flag-removal rate', (record.flagsRemoved / (seconds / 60)).toFixed(1) + '/min']] : []),
     ...(record.fastclickGapMs !== undefined
       ? [['Fastclick gap', Math.round(record.fastclickGapMs) + 'ms']] : []),
+    ...(record.cadenceSpread !== undefined
+      ? [['Cadence spread', record.cadenceSpread.toFixed(2) + '\u00d7']] : []),
     ['Path per click', Math.round(record.mousePathPx / record.clicks) + 'px'],
     ['Path per 3BV', Math.round(record.mousePathPx / record.bv3) + 'px'],
     // The states row appears only when the game carries at least one state
@@ -3439,8 +3563,11 @@ const GAME_RECORD_SCHEMA = [
   { field: 'endedAt', valid: isNumber, example: '1787201223496', describe: 'when the game finished (Unix epoch, ms)' },
   { field: 'outcome', valid: (v) => v === 'win' || v === 'loss', example: '"win"', describe: '"win" or "loss"' },
   { field: 'timeMs', valid: isNumber, example: '6705', describe: 'solve time in ms (shown as 6.705s)' },
-  { field: 'bv3', valid: isNumber, example: '10', describe: "the board's 3BV: minimum clicks to clear it" },
+  { field: 'bv3', valid: isNumber, example: '10', describe: "the board's 3BV: minimum clicks to clear it (in Endgame drill, the presented remnant's remaining 3BV — the minimum clicks to finish what was actually left)" },
+  { field: 'zini', valid: (v) => v === undefined || isNumber(v), example: '8', describe: "the board's greedy ZiNi: the reference greedy flags-and-chords algorithm's click count, the flaggers' counterpart to 3BV (never above it); absent on games recorded before 2026-08-30 and on Endgame drill games (a full-board measure misdescribes a partial solve)" },
+  { field: 'hzini', valid: (v) => v === undefined || isNumber(v), example: '9', describe: "the board's human ZiNi: the same greedy algorithm restricted to already-open cells after opening every opening first; absent on games recorded before 2026-08-30 and on Endgame drill games" },
   { field: 'clicks', valid: isNumber, example: '19', describe: 'clicks that changed the board (reveals, flags, chords)' },
+  { field: 'chordClicks', valid: (v) => v === undefined || isNumber(v), example: '4', describe: 'accepted chords among the board-changing clicks (the chord-share numerator); absent on games recorded before 2026-08-30' },
   { field: 'wastedClicks', valid: (v) => v === undefined || isNumber(v), example: '3', describe: 'board clicks that changed nothing; absent on games recorded before 2026-08-19' },
   { field: 'misclicks', valid: (v) => v === undefined || isNumber(v), example: '1', describe: 'board-changing actions contradicted by facts provable from the visible board at click time: opening a proven mine, flagging a proven safe, removing a proven-mine flag, or chording through a visible contradiction; independent of whether the action caused death; absent on games recorded before 2026-08-23' },
   { field: 'flagsPlaced', valid: (v) => v === undefined || isNumber(v), example: '0', describe: 'flags the player placed (win auto-flagging not counted); 0 = a markless game; absent on games recorded before 2026-08-19' },
@@ -3448,6 +3575,7 @@ const GAME_RECORD_SCHEMA = [
   { field: 'unusedCorrectFlags', valid: (v) => v === undefined || isNumber(v), example: '2', describe: 'on a win, correct mine-flag placement episodes that ended or were removed without ever contributing to an accepted chord; absent on losses and games recorded before 2026-08-28 because an unfinished solve cannot establish whether a standing mark would later have been used' },
   { field: 'mousePathPx', valid: isNumber, example: '1182', describe: 'cursor travel while playing, px' },
   { field: 'fastclickGapMs', valid: (v) => v === undefined || isNumber(v), example: '218', describe: 'median gap between consecutive board-changing presses made on the move (cursor moving within 100ms before) with gaps under 1s; absent when no gap qualified or on games recorded before 2026-08-22' },
+  { field: 'cadenceSpread', valid: (v) => v === undefined || isNumber(v), example: '1.42', describe: 'press-to-press rhythm consistency: interquartile range of all button-press gaps (wasted presses included) divided by their median — 0 means metronomic, larger means burstier; measured for wins and losses; absent under two measurable gaps or on games recorded before 2026-08-30' },
   { field: 'states', valid: (v) => v === undefined || (Array.isArray(v) && v.every((s) => typeof s === 'string')), example: '["sleepy"]', describe: 'player-defined state tags active when the game finished (see the states panel); absent on games recorded before 2026-08-20' },
   { field: 'musicPlaying', valid: (v) => v === undefined || typeof v === 'boolean', example: 'true', describe: 'whether this machine heard audio playing during the game (sampled about once a minute from the local base system); absent when that endpoint never answered or on games recorded before 2026-08-22' },
   { field: 'justice', valid: (v) => v === undefined || isNumber(v), example: '1', describe: 'bare entries into certified sealed pockets that Justice guaranteed safe; absent on games recorded before 2026-08-20' },
@@ -3800,6 +3928,63 @@ function iosOf(record) {
   const t = secondsOf(record);
   if (!(t > 1) || !(record.bv3 > 0)) return undefined;
   return Math.log(record.bv3) / Math.log(t);
+}
+
+// IOE (index of efficiency): 3BV / total clicks, wasted included — the
+// total-click cousin of throughput. Wins only for the same
+// unfinished-board reason; undefined where wastedClicks was never
+// measured (a missing denominator part, not zero).
+function ioeOf(record) {
+  if (record.outcome !== 'win' || !('wastedClicks' in record)) return undefined;
+  const total = record.clicks + record.wastedClicks;
+  if (total === 0) return undefined;
+  return record.bv3 / total;
+}
+
+// Chord share: accepted chords over board-changing clicks. Defined for
+// wins and losses (both had a real click mix); absent where chordClicks
+// was never measured.
+function chordShareOf(record) {
+  if (record.chordClicks === undefined || record.clicks === 0) return undefined;
+  return record.chordClicks / record.clicks;
+}
+
+// STNB, the difficulty-normalized speed score used on saolei.wang:
+// constant / QG with QG = time^1.7 / 3BV, where the constant makes equal
+// skill score alike across the three standard boards (the current
+// site constants; Minesweeper Arbiter's older polynomial constants were
+// 47.299/153.73/435.001). Only the three standard boards have constants,
+// so STNB is undefined elsewhere; wins only (completion = 1).
+const STNB_CONSTANTS = [
+  { width: 9, height: 9, mines: 10, constant: 36 },
+  { width: 16, height: 16, mines: 40, constant: 162 },
+  { width: 30, height: 16, mines: 99, constant: 435 },
+];
+
+function stnbConstantOf(params) {
+  const spec = STNB_CONSTANTS.find((s) => s.width === params.width
+    && s.height === params.height && s.mines === params.mines);
+  return spec === undefined ? undefined : spec.constant;
+}
+
+function stnbOf(record, params) {
+  if (record.outcome !== 'win' || !(record.bv3 > 0)) return undefined;
+  // A drill's bv3 is the remnant's remaining 3BV, not a full solve of the
+  // standard board; STNB's difficulty constants would flatter it wildly.
+  if (record.playMode === 'endgame-drill') return undefined;
+  const constant = stnbConstantOf(params);
+  const t = secondsOf(record);
+  if (constant === undefined || !(t > 0)) return undefined;
+  return constant / (Math.pow(t, 1.7) / record.bv3);
+}
+
+// ZiNi efficiency: the flagger analog of throughput (ZNE on the stats
+// sites) — greedy ZiNi over effective clicks. Wins only, and only on
+// games whose records carry the stored zini.
+function zniEfficiencyOf(record) {
+  if (record.outcome !== 'win' || record.zini === undefined
+      || record.clicks === 0) return undefined;
+  return record.zini / record.clicks;
 }
 
 function formatGuesses(record) {
@@ -4397,6 +4582,9 @@ const AVERAGE_SCATTER_SPECS = [
     label: 'IOS',
     value: (s) => Number(iosOf(s).toFixed(2)),
     has: (s) => iosOf(s) !== undefined,
+    // IOS is only defined for wins, so a winrate view of it would show
+    // 100% everywhere; the chart sits the winrate mode out.
+    winBound: true,
   },
   {
     label: 'path per click',
@@ -4438,13 +4626,14 @@ function buildRankList(headingText, rowCount, myIndex, gridClass, buildRowCells)
     grid.appendChild(row);
   }
   list.appendChild(grid);
-  // The "of N" only appears when rows are actually cut off below: if the
-  // last row is visible, the list's end is already in view and the count
-  // says nothing new. The footer line itself always renders (blank via
-  // nbsp) so neighboring charts keep aligned heights.
+  // The "N total" footer only appears when rows are actually cut off
+  // below: if the last row is visible, the list's end is already in view
+  // and the count says nothing new. The footer line itself always renders
+  // (blank via nbsp) so neighboring charts keep aligned heights.
+  // "510 total" centered (2026-08-30, replacing right-hugging "of 510").
   const total = document.createElement('div');
   total.className = 'rank-total';
-  total.textContent = end < rowCount ? 'of ' + rowCount : '\u00a0';
+  total.textContent = end < rowCount ? rowCount + ' total' : '\u00a0';
   list.appendChild(total);
   return list;
 }
@@ -4551,6 +4740,73 @@ function trendLinesFor(pairs, todayPairs) {
 // Unique ids for the per-chart SVG clip paths of the trend lines.
 let trendClipSeq = 0;
 
+// A small "(?)" that rides right after a chart's name. Hovering it (or
+// focusing/clicking, for keyboards and touch) shows a plain-language
+// explanation of what the chart's metric means. `help` is a string, an
+// array of paragraph strings, or a function that fills the tip element
+// itself (used where an explanation carries a visual board example).
+// One shared body-level tip serves every button (the session game
+// tooltip's pattern): the buttons live inside the scrollable metrics
+// panel and narrow chart headings, where an inline absolute tip would be
+// clipped, and a single element can never accumulate across re-renders.
+let chartHelpTipEl = null;
+
+function getChartHelpTip() {
+  if (chartHelpTipEl === null) {
+    chartHelpTipEl = document.createElement('div');
+    chartHelpTipEl.className = 'chart-help-tip';
+    chartHelpTipEl.hidden = true;
+    document.body.appendChild(chartHelpTipEl);
+  }
+  return chartHelpTipEl;
+}
+
+function chartHelpButton(help) {
+  const wrap = document.createElement('span');
+  wrap.className = 'chart-help-wrap';
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'chart-help';
+  btn.textContent = '?';
+  btn.setAttribute('aria-label', 'what does this chart mean?');
+  const show = () => {
+    const tip = getChartHelpTip();
+    tip.replaceChildren();
+    if (typeof help === 'function') {
+      help(tip);
+    } else {
+      for (const text of Array.isArray(help) ? help : [help]) {
+        const p = document.createElement('p');
+        p.textContent = text;
+        tip.appendChild(p);
+      }
+    }
+    tip.hidden = false;
+    // Fixed positioning clamped to the viewport: below the button where
+    // room allows, above it otherwise, never off either side edge.
+    const rect = btn.getBoundingClientRect();
+    const left = Math.max(4, Math.min(rect.left - 10,
+      window.innerWidth - tip.offsetWidth - 6));
+    const below = rect.bottom + 5;
+    const top = below + tip.offsetHeight + 6 <= window.innerHeight
+      ? below
+      : Math.max(4, rect.top - tip.offsetHeight - 5);
+    tip.style.left = left + 'px';
+    tip.style.top = top + 'px';
+  };
+  const hide = () => { getChartHelpTip().hidden = true; };
+  wrap.addEventListener('mouseenter', show);
+  wrap.addEventListener('mouseleave', hide);
+  btn.addEventListener('focus', show);
+  btn.addEventListener('blur', hide);
+  btn.addEventListener('click', (event) => {
+    event.preventDefault();
+    if (getChartHelpTip().hidden) show(); else hide();
+  });
+  wrap.append(btn);
+  return wrap;
+}
+
 // Small inline-SVG scatter plot: every win is a dot colored by its age unit
 // (the same palette as rank-list ages, so time trends are scannable) and
 // faded within that color by how deep into the unit it sits (a 6-day-old
@@ -4635,7 +4891,8 @@ function buildScatter(wins, me, fx, fy, xLabel, yLabel, meLabel, ageInfoOf, opts
   const yTicks = niceTicks(y0, y1, 7), fmtY = tickFmt(yTicks);
   for (const v of yTicks) {
     el('line', { x1: L, y1: py(v), x2: W - R, y2: py(v), class: 'scatter-grid' });
-    el('text', { x: L - 4, y: py(v) + 4, class: 'scatter-tick tick-y' }, fmtY(v));
+    el('text', { x: L - 4, y: py(v) + 4, class: 'scatter-tick tick-y' },
+      fmtY(v) + (opts.yTickUnit || ''));
   }
   // Minor tickmarks on the axis edges between the labeled divisions.
   // Skipped on the date axis, whose calendar steps (15 min, 3 h, 7 d...)
@@ -4718,10 +4975,15 @@ function buildScatter(wins, me, fx, fy, xLabel, yLabel, meLabel, ageInfoOf, opts
     }
   }
   el('text', { x: L + (W - L - R) / 2, y: H - 4, class: 'scatter-axis-label' }, '\u2192 ' + xLabel);
-  el('text', {
-    transform: 'translate(12 ' + (T + (H - T - B) / 2) + ') rotate(-90)',
-    class: 'scatter-axis-label',
-  }, '\u2192 ' + yLabel);
+  // A titled chart names its quantity in the header, and its y ticks
+  // carry the unit — the rotated y caption would repeat both, so it only
+  // renders on untitled charts (2026-08-30).
+  if (!opts.title) {
+    el('text', {
+      transform: 'translate(12 ' + (T + (H - T - B) / 2) + ') rotate(-90)',
+      class: 'scatter-axis-label',
+    }, '\u2192 ' + yLabel);
+  }
   if (hiddenCount > 0) {
     el('text', { x: W - R - 3, y: T + 11, class: 'scatter-outlier-note' },
       '\u2191 ' + hiddenCount + ' outlier' + (hiddenCount === 1 ? '' : 's')
@@ -4730,6 +4992,13 @@ function buildScatter(wins, me, fx, fy, xLabel, yLabel, meLabel, ageInfoOf, opts
 
   const list = document.createElement('div');
   list.className = 'rank-list scatter';
+  if (opts.title) {
+    const heading = document.createElement('h4');
+    heading.textContent = opts.title;
+    if (opts.headControl) heading.appendChild(opts.headControl);
+    if (opts.help) heading.appendChild(chartHelpButton(opts.help));
+    list.appendChild(heading);
+  }
   list.append(svg);
   return list;
 }
@@ -4762,27 +5031,141 @@ function averagePoints(spec, wins) {
   }));
 }
 
-// One average chart: bucket averages as dots plus the Theil–Sen trend
-// line — solid over all the plotted bucket averages, dashed over bucket
-// averages recomputed from today's wins only — captioned with the fit's
-// name and math.
-function buildAverageScatter(spec, wins, record, historyView) {
+// Bucket all finished games (wins AND losses) by the spec's value and
+// compute each bucket's win percentage: the winrate mode's points.
+function winratePoints(spec, records) {
+  const groups = new Map();
+  for (const r of records) {
+    if (spec.has && !spec.has(r)) continue;
+    const value = spec.value(r);
+    if (!Number.isFinite(value)) continue;
+    const group = groups.get(value)
+      || { x: value, wins: 0, games: 0, newestEndedAt: -Infinity };
+    group.games += 1;
+    if (r.outcome === 'win') group.wins += 1;
+    group.newestEndedAt = Math.max(group.newestEndedAt, r.endedAt);
+    groups.set(value, group);
+  }
+  return [...groups.values()].map((group) => ({
+    x: group.x,
+    winratePct: 100 * group.wins / group.games,
+    endedAt: group.newestEndedAt,
+  }));
+}
+
+// The property charts' three vertical readings (requested 2026-08-30):
+// the classic bucket-average time, the raw distribution of individual
+// win times, and the win percentage per property value. One shared mode
+// applies to every property chart at once; each chart's heading carries
+// the selector.
+const AVERAGE_CHART_MODES = [
+  ['average', 'average'],
+  ['distribution', 'distribution'],
+  ['winrate', 'winrate'],
+];
+
+function averageChartModeSelect() {
+  const select = document.createElement('select');
+  select.className = 'avg-mode-select';
+  select.title = 'what these property charts plot: the average win time '
+    + 'per value, every individual win time (the distribution), or the '
+    + 'share of games won per value; one choice drives all of them';
+  for (const [id, label] of AVERAGE_CHART_MODES) {
+    const option = document.createElement('option');
+    option.value = id;
+    option.textContent = label;
+    select.appendChild(option);
+  }
+  select.value = settings.averageChartMode;
+  select.addEventListener('change', () => {
+    settings.averageChartMode = select.value;
+    saveSettings();
+    if (renderedResult !== null) {
+      renderResult(renderedResult.record, renderedResult.modeRecords, renderedResult.options);
+    }
+  });
+  return select;
+}
+
+function averageChartHelp(spec, mode) {
+  if (mode === 'winrate') {
+    return ['Every finished game \u2014 wins and losses \u2014 is grouped by '
+      + 'its ' + spec.label + ' value. Each dot\u2019s height is the '
+      + 'percentage of that group\u2019s games you won.',
+    'Values seen in only a game or two swing to 0% or 100% easily; trust '
+      + 'the middle of the chart, where the groups are big.'];
+  }
+  if (mode === 'distribution') {
+    return ['Every win is its own dot: across is the game\u2019s '
+      + spec.label + ' value, up is that game\u2019s solve time in seconds. '
+      + 'Unlike the average view, this shows the full spread of times at '
+      + 'each value.',
+    'Dot color is the win\u2019s age (see the legend at the bottom of the '
+      + 'relationship charts); dashed lines are outlier-resistant trend '
+      + 'fits \u2014 teal over all wins, blue over today\u2019s.'];
+  }
+  return ['Wins are grouped by their ' + spec.label + ' value; each '
+    + 'dot\u2019s height is that group\u2019s average solve time in seconds.',
+  'Dot color is the group\u2019s newest win\u2019s age; dashed lines are '
+    + 'outlier-resistant Theil\u2013Sen trend fits \u2014 teal over all '
+    + 'wins, blue over today\u2019s only.'];
+}
+
+// One property chart in the selected mode: "time by X" (bucket averages
+// plus the Theil–Sen trend pair), "times by X" (every win's own time),
+// or "winrate by X" (percent of all finished games won per value).
+function buildAverageScatter(spec, wins, allRecords, record, historyView) {
+  const mode = settings.averageChartMode;
+  const referenceMs = historyView ? Date.now() : record.endedAt;
+  const todayStart = startOfDay(referenceMs);
+  const shared = {
+    headControl: averageChartModeSelect(),
+    help: averageChartHelp(spec, mode),
+  };
+  if (mode === 'winrate') {
+    if (spec.winBound) return null;
+    const points = winratePoints(spec, allRecords);
+    if (points.length < 2) return null;
+    const current = historyView
+      || averageEligibleWins(spec, [record]).length === 0
+      ? null
+      : points.find((point) => point.x === spec.value(record)) || null;
+    return buildScatter(
+      points, current, (point) => point.x, (point) => point.winratePct,
+      spec.label, 'winrate', '',
+      (point) => ageInfo(referenceMs, point.endedAt),
+      { title: 'winrate by ' + spec.label, yTickUnit: '%', ...shared });
+  }
   const eligibleWins = averageEligibleWins(spec, wins);
   if (eligibleWins.length < 2) return null;
+  if (mode === 'distribution') {
+    const me = historyView || averageEligibleWins(spec, [record]).length === 0
+      ? null : record;
+    const asPairs = (list) => list.map((s) => [spec.value(s), secondsOf(s)]);
+    return buildScatter(
+      eligibleWins, me, (s) => spec.value(s), secondsOf,
+      spec.label, 'time', '',
+      (s) => ageInfo(referenceMs, s.endedAt),
+      { title: 'times by ' + spec.label, yTickUnit: 's', trimY: true,
+        trendLines: trendLinesFor(
+          asPairs(eligibleWins),
+          asPairs(eligibleWins.filter((w) => w.endedAt >= todayStart))),
+        ...shared });
+  }
   const points = averagePoints(spec, eligibleWins);
   const current = historyView || averageEligibleWins(spec, [record]).length === 0
     ? null
     : points.find((point) => point.x === spec.value(record)) || null;
-  const referenceMs = historyView ? Date.now() : record.endedAt;
   const asPairs = (pts) => pts.map((p) => [p.x, p.averageSeconds]);
-  const todayStart = startOfDay(referenceMs);
   const todayPairs = asPairs(
     averagePoints(spec, eligibleWins.filter((w) => w.endedAt >= todayStart)));
   return buildScatter(
     points, current, (point) => point.x, (point) => point.averageSeconds,
     spec.label, 'average time', '',
     (point) => ageInfo(referenceMs, point.endedAt),
-    { trendLines: trendLinesFor(asPairs(points), todayPairs) });
+    { title: 'time by ' + spec.label, yTickUnit: 's',
+      trendLines: trendLinesFor(asPairs(points), todayPairs),
+      ...shared });
 }
 
 function trialTimeAgeRow(nowRecord, list) {
@@ -5516,7 +5899,7 @@ function renderRanks(record, modeRecords, options = {}, sections) {
 
   if (settings.shownThings.averageCharts && wins.length >= 2) {
     for (const spec of AVERAGE_SCATTER_SPECS) {
-      const chart = buildAverageScatter(spec, wins, record, historyView);
+      const chart = buildAverageScatter(spec, wins, modeRecords, record, historyView);
       if (chart !== null) sections.append('averages', chart);
     }
   }
@@ -5621,26 +6004,71 @@ function renderRanks(record, modeRecords, options = {}, sections) {
     appendScatter(buildScatter(
       wins, highlighted, endedAtOf, secondsOf,
       'date', 'time', meLabel, ageInfoOf,
-      { timeAxis: true, trimY: true, ...trendOpts(endedAtOf, secondsOf) }));
+      { timeAxis: true, trimY: true, title: 'time by date', yTickUnit: 's',
+        ...trendOpts(endedAtOf, secondsOf) }));
     appendScatter(buildScatter(
       wins, highlighted, hourOfDay, secondsOf,
       'time of day', 'time', meLabel, ageInfoOf,
-      { xDomain: [0, 24], xTicks: [0, 4, 8, 12, 16, 20, 24], trimY: true }));
+      { xDomain: [0, 24], xTicks: [0, 4, 8, 12, 16, 20, 24], trimY: true,
+        title: 'time by time of day', yTickUnit: 's' }));
     appendScatter(buildScatter(
       wins, highlighted, bv3Of, secondsOf,
       '3BV', 'time', meLabel, ageInfoOf,
-      { trimY: true, ...trendOpts(bv3Of, secondsOf) }));
+      { trimY: true, title: 'time by 3BV', yTickUnit: 's',
+        ...trendOpts(bv3Of, secondsOf) }));
     appendScatter(buildScatter(
       wins, highlighted, bv3Of, clicksOf,
       '3BV', 'clicks', meLabel, ageInfoOf,
-      { idealLine: true, ...trendOpts(bv3Of, clicksOf) }));
+      { idealLine: true, title: 'clicks by 3BV',
+        ...trendOpts(bv3Of, clicksOf) }));
     // Only wins that carry the wastedClicks measurement (recorded since
     // 2026-08-19) can appear on its chart.
     const withWasted = wins.filter((s) => 'wastedClicks' in s);
     if (withWasted.length >= 2) {
       appendScatter(buildScatter(
         withWasted, historyView ? null : record, (s) => s.wastedClicks, secondsOf,
-        'no-op clicks', 'time', meLabel, ageInfoOf, { trimY: true }));
+        'no-op clicks', 'time', meLabel, ageInfoOf,
+        { trimY: true, title: 'time by no-op clicks', yTickUnit: 's' }));
+    }
+    // The guess-ledger scatters: only wins whose records carry the odds
+    // measurements (see the guesses/lifeLost fields) can appear. Guess
+    // counts are tied small integers, so like no-op clicks they get no
+    // trend line; life lost is a continuous risk sum, so it does.
+    const withGuesses = wins.filter((s) => s.guesses !== undefined);
+    if (withGuesses.length >= 2) {
+      appendScatter(buildScatter(
+        withGuesses, historyView ? null : record, (s) => s.guesses, secondsOf,
+        'guesses', 'time', meLabel, ageInfoOf,
+        { trimY: true, title: 'time by guesses', yTickUnit: 's' }));
+    }
+    // Like trendOpts, but fit only on the subset of wins that carry the
+    // charted measurement (a fit over absent values would be nonsense).
+    const subsetTrendOpts = (subset, fx, fy) => ({
+      trendLines: trendLinesFor(
+        subset.map((s) => [fx(s), fy(s)]),
+        subset.filter((s) => s.endedAt >= startOfDay(referenceMs))
+          .map((s) => [fx(s), fy(s)])),
+    });
+    const withLifeLost = wins.filter((s) => s.lifeLost !== undefined);
+    if (withLifeLost.length >= 2) {
+      const lifeLostOf = (s) => s.lifeLost;
+      appendScatter(buildScatter(
+        withLifeLost, historyView ? null : record, lifeLostOf, secondsOf,
+        'life lost', 'time', meLabel, ageInfoOf,
+        { trimY: true, title: 'time by life lost', yTickUnit: 's',
+          ...subsetTrendOpts(withLifeLost, lifeLostOf, secondsOf) }));
+    }
+    // Cadence spread across the calendar: rhythm consistency drift over
+    // time (wins only here; the session charts cover losses too).
+    const withCadence = wins.filter((s) => s.cadenceSpread !== undefined);
+    if (withCadence.length >= 2) {
+      const cadenceOf = (s) => s.cadenceSpread;
+      appendScatter(buildScatter(
+        withCadence, historyView ? null : record, endedAtOf, cadenceOf,
+        'date', 'cadence spread', meLabel, ageInfoOf,
+        { timeAxis: true, trimY: true,
+          title: 'cadence spread by date', yTickUnit: '\u00d7',
+          ...subsetTrendOpts(withCadence, endedAtOf, cadenceOf) }));
     }
     const legend = document.createElement('div');
     legend.className = 'scatter-legend';
@@ -5978,6 +6406,113 @@ function pathHeatColor(value, range) {
   return 'hsl(' + (220 * (1 - fraction)).toFixed(1) + ', 88%, 42%)';
 }
 
+// Sampling is event-driven: nothing is recorded while the cursor rests or
+// sits outside the window. A silent stretch whose endpoints are far apart
+// means the cursor left the window and re-entered elsewhere ('away'); nearby
+// endpoints mean it rested in place ('rest'). Away gaps get duration labels
+// so "how long was I off-screen?" is answered on the path itself.
+const PATH_GAP_MS = 300;
+const PATH_GAP_TRAVEL_PX = 40;
+
+function pathTraceGaps(t, x, y) {
+  const gaps = [];
+  for (let i = 1; i < t.length; i++) {
+    const dt = t[i] - t[i - 1];
+    if (dt < PATH_GAP_MS) continue;
+    const travelPx = Math.hypot(x[i] - x[i - 1], y[i] - y[i - 1]);
+    gaps.push({
+      from: i - 1,
+      to: i,
+      dtMs: dt,
+      travelPx,
+      kind: travelPx >= PATH_GAP_TRAVEL_PX ? 'away' : 'rest',
+    });
+  }
+  return gaps;
+}
+
+// Rough-movement flags per sample segment (index i marks samples i-1..i):
+// crawling below a quarter of the game's own median moving speed, or a hard
+// direction reversal (>135°) between adjacent moving segments — hesitation
+// and overshoot correction. Needs at least 8 moving segments to know what
+// "normal" pace is; otherwise nothing is flagged.
+function pathRoughSegments(t, x, y) {
+  const n = t.length;
+  const rough = new Array(n).fill(false);
+  const info = new Array(n).fill(null);
+  const speeds = [];
+  for (let i = 1; i < n; i++) {
+    const dt = t[i] - t[i - 1];
+    if (dt <= 0 || dt >= PATH_GAP_MS) continue;
+    const dx = x[i] - x[i - 1];
+    const dy = y[i] - y[i - 1];
+    const len = Math.hypot(dx, dy);
+    const speed = len * 1000 / dt;
+    info[i] = { speed, len, theta: len > 0 ? Math.atan2(dy, dx) : null };
+    if (speed > 0) speeds.push(speed);
+  }
+  if (speeds.length < 8) return rough;
+  speeds.sort((a, b) => a - b);
+  const median = speeds[Math.floor(speeds.length / 2)];
+  let prevTheta = null;
+  for (let i = 1; i < n; i++) {
+    const seg = info[i];
+    if (seg === null) {
+      prevTheta = null;
+      continue;
+    }
+    if (seg.speed > 0 && seg.speed < median * 0.25) rough[i] = true;
+    if (seg.theta !== null) {
+      if (prevTheta !== null && seg.len >= 4) {
+        let turn = Math.abs(seg.theta - prevTheta) % (2 * Math.PI);
+        if (turn > Math.PI) turn = 2 * Math.PI - turn;
+        if (turn > Math.PI * 0.75) rough[i] = true;
+      }
+      prevTheta = seg.theta;
+    }
+  }
+  return rough;
+}
+
+// Raw inputs annotated with what the game did with them. A decision frame
+// records t equal to the exact input event that it accepted, so exact-time
+// matching ties each accepted input to its action kind — which is how a
+// left release that performed a chord is told apart from a plain reveal.
+function pathClickActions(events) {
+  const actionAt = new Map();
+  for (const event of events) {
+    if (event.kind === 'decision' && event.evaluation) {
+      actionAt.set(event.t, event.evaluation.action);
+    }
+  }
+  return pathClickEvents(events).map((click) => ({
+    ...click,
+    action: actionAt.get(click.t) || null,
+  }));
+}
+
+// Legend classes for a continuous path parameter: equal-width bins over the
+// display range, each holding the exact numeric interval it covers, so the
+// legend can enumerate every color class the line uses.
+function pathValueBins(range, count) {
+  if (range === undefined || !(range.max > range.min)) return [];
+  const bins = [];
+  for (let k = 0; k < count; k++) {
+    bins.push({
+      min: range.min + (range.max - range.min) * k / count,
+      max: range.min + (range.max - range.min) * (k + 1) / count,
+    });
+  }
+  return bins;
+}
+
+function pathBinIndex(bins, value) {
+  if (bins.length === 0 || !Number.isFinite(value)) return -1;
+  const span = bins[bins.length - 1].max - bins[0].min;
+  const k = Math.floor((value - bins[0].min) / span * bins.length);
+  return Math.max(0, Math.min(bins.length - 1, k));
+}
+
 //-------PATH REPLAY: DISPLAY-------
 
 // The just-finished trace remains in RAM until the next board. Its decision
@@ -5993,6 +6528,25 @@ let pathCanvas = null;
 let pathResizeObserver = null;
 let replayFinishedCells = null;
 let replayStep = 0;
+// Independent back-in-time board overlays; remembered for the page session
+// like the path view itself.
+const replayOverlays = {
+  moves: false,
+  mines: false,
+  probs: false,
+  pointless: false,
+  purposeful: false,
+  movement: false,
+};
+// Solver reads per decision index for the current trace (cleared on a new
+// board); enumeration can take milliseconds, and slider scrubbing revisits
+// the same frames constantly.
+const replaySolverCache = new Map();
+// Interpretive-legend hover state: which legend bin is spotlighted, and the
+// cached geometry the canvas repaint + pointer hit tests read.
+let pathHighlightBin = -1;
+let lastPathState = null;
+let pathTooltipEl = null;
 const pathViewControl = document.getElementById('path-view-control');
 const pathViewButtons = [...pathViewControl.querySelectorAll('[data-path-view]')];
 const pathViewLegend = document.getElementById('path-view-legend');
@@ -6001,6 +6555,11 @@ const replayControls = document.getElementById('replay-controls');
 const replayPrevious = document.getElementById('replay-prev');
 const replayNext = document.getElementById('replay-next');
 const replayStatus = document.getElementById('replay-status');
+const replaySlider = document.getElementById('replay-slider');
+const replaySliderScale = document.getElementById('replay-slider-scale');
+const replayOverlayControl = document.getElementById('replay-overlay-control');
+const replayOverlayButtons =
+  [...replayOverlayControl.querySelectorAll('[data-replay-overlay]')];
 
 function pathViewAvailable() {
   return (gameState === 'won' || gameState === 'lost')
@@ -6016,6 +6575,11 @@ function renderPathViewControls() {
   }
   replayToggle.setAttribute('aria-pressed', String(replayEnabled));
   replayControls.hidden = !replayEnabled || !available;
+  replayOverlayControl.hidden = !replayEnabled || !available;
+  for (const button of replayOverlayButtons) {
+    button.setAttribute('aria-pressed',
+      String(replayOverlays[button.dataset.replayOverlay] === true));
+  }
 }
 
 // One mapper per drawing pass: points arrive in trace-time order, so the
@@ -6132,12 +6696,149 @@ function replayChoiceCells(evaluation) {
     .flatMap((choice) => Array.isArray(choice.cells) ? choice.cells : []))];
 }
 
+// Full-knowledge solver reading of one replay position: exact mine
+// probability for every covered cell when the layout enumeration fits its
+// budget, proven mines/safes either way (the bounded canonical prover still
+// runs when enumeration is over budget), and every satisfied number that
+// could be chorded, with the exact cells that chord would open and whether
+// each of them is proven clear.
+function replaySolverRead(position) {
+  const size = position.width * position.height;
+  const revealed = new Array(size).fill(false);
+  const adjacent = new Array(size).fill(0);
+  for (const [cell, count] of position.revealed || []) {
+    revealed[cell] = true;
+    adjacent[cell] = count;
+  }
+  const view = {
+    width: position.width,
+    height: position.height,
+    mines: position.mines,
+    revealed,
+    adjacent,
+  };
+  const flagged = new Set(position.flagged || []);
+  let odds = null;
+  try {
+    odds = Odds.analyzeView(view);
+  } catch (err) {
+    odds = null;
+  }
+  const measured = odds !== null && odds.measured === true;
+  let facts = new Map();
+  if (measured) {
+    for (let i = 0; i < size; i++) {
+      if (revealed[i]) continue;
+      if (odds.pMine[i] <= 1e-12) facts.set(i, 2);
+      else if (odds.pMine[i] >= 1 - 1e-12) facts.set(i, 1);
+    }
+  } else {
+    try {
+      facts = Justice.proveFacts(view, Justice.rawClues(view));
+    } catch (err) {
+      facts = new Map();
+    }
+  }
+  const provenMines = [];
+  const provenSafe = [];
+  for (let i = 0; i < size; i++) {
+    if (revealed[i]) continue;
+    if (facts.get(i) === 1) provenMines.push(i);
+    else if (facts.get(i) === 2) provenSafe.push(i);
+  }
+  const chords = [];
+  for (let i = 0; i < size; i++) {
+    if (!revealed[i] || adjacent[i] <= 0) continue;
+    let flags = 0;
+    const opens = [];
+    const cx = i % position.width;
+    const cy = Math.floor(i / position.width);
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        if (dx === 0 && dy === 0) continue;
+        const nx = cx + dx;
+        const ny = cy + dy;
+        if (nx < 0 || nx >= position.width || ny < 0 || ny >= position.height) continue;
+        const nb = ny * position.width + nx;
+        if (revealed[nb]) continue;
+        if (flagged.has(nb)) flags++;
+        else opens.push(nb);
+      }
+    }
+    if (flags === adjacent[i] && opens.length > 0) {
+      chords.push({
+        cell: i,
+        opens,
+        safe: opens.every((cell) => facts.get(cell) === 2),
+      });
+    }
+  }
+  return { measured, pMine: measured ? odds.pMine : null, facts,
+    provenMines, provenSafe, chords };
+}
+
+function replaySolverAt(step, position) {
+  let read = replaySolverCache.get(step);
+  if (read === undefined) {
+    read = replaySolverRead(position);
+    replaySolverCache.set(step, read);
+  }
+  return read;
+}
+
+function replayProbabilityText(p) {
+  const pct = p * 100;
+  if (pct >= 99.95) return '>99';
+  if (pct < 0.05) return '<0.1';
+  if (pct < 9.95) {
+    const shown = Math.round(pct * 10) / 10;
+    return Number.isInteger(shown) ? shown.toFixed(0) : shown.toFixed(1);
+  }
+  return String(Math.round(pct));
+}
+
+// Notches for every action (thinned above 60) plus black numeric labels at
+// both ends and three interior quarters, so the game-history slider's scale
+// is readable without hovering anything.
+function renderReplaySliderScale(count) {
+  replaySliderScale.replaceChildren();
+  if (count < 1) return;
+  const positionOf = (step) => count === 1 ? 50 : step / (count - 1) * 100;
+  const notchEvery = Math.max(1, Math.ceil(count / 60));
+  for (let step = 0; step < count; step += notchEvery) {
+    const notch = document.createElement('span');
+    notch.className = 'replay-slider-notch';
+    notch.style.left = positionOf(step) + '%';
+    replaySliderScale.appendChild(notch);
+  }
+  const labelSteps = [...new Set([
+    0,
+    Math.round((count - 1) * 0.25),
+    Math.round((count - 1) * 0.5),
+    Math.round((count - 1) * 0.75),
+    count - 1,
+  ])].sort((a, b) => a - b);
+  for (const step of labelSteps) {
+    const label = document.createElement('span');
+    label.className = 'replay-slider-label';
+    label.style.left = positionOf(step) + '%';
+    label.textContent = String(step + 1);
+    replaySliderScale.appendChild(label);
+  }
+}
+
+// Solver detail from the frame most recently painted, for the legend.
+let replayLegendSolver = null;
+
 function renderReplayFrame() {
   const decisions = pathDecisionEvents(trace.events);
+  replayLegendSolver = null;
   if (decisions.length === 0) {
     replayStatus.textContent = 'no decision frames';
     replayPrevious.disabled = true;
     replayNext.disabled = true;
+    renderReplaySliderScale(0);
+    replaySlider.disabled = true;
     renderPathOverlay();
     return;
   }
@@ -6148,21 +6849,61 @@ function renderReplayFrame() {
     }));
   }
   replayStep = Math.max(0, Math.min(decisions.length - 1, replayStep));
+  replaySlider.disabled = false;
+  if (Number(replaySlider.max) !== decisions.length) {
+    replaySlider.max = String(decisions.length);
+    renderReplaySliderScale(decisions.length);
+  }
+  replaySlider.value = String(replayStep + 1);
   const evaluation = decisions[replayStep].evaluation;
   const position = evaluation.position;
   const revealed = new Map(position.revealed || []);
   const flagged = new Set(position.flagged || []);
   const choices = new Set(replayChoiceCells(evaluation));
   const selected = new Set(evaluation.selected || []);
+  const wantSolver = replayOverlays.moves || replayOverlays.mines
+    || replayOverlays.probs;
+  const solver = wantSolver ? replaySolverAt(replayStep, position) : null;
+  replayLegendSolver = solver;
+  const safeCells = solver !== null && replayOverlays.moves
+    ? new Set(solver.provenSafe) : new Set();
+  const mineCells = solver !== null && replayOverlays.mines
+    ? new Set(solver.provenMines) : new Set();
+  const chordCells = new Map();
+  const chordOpens = new Set();
+  if (solver !== null && replayOverlays.moves) {
+    for (const chord of solver.chords) {
+      if (!chord.safe) continue;
+      chordCells.set(chord.cell, chord);
+      for (const cell of chord.opens) chordOpens.add(cell);
+    }
+  }
   for (let i = 0; i < cellElements.length; i++) {
     const element = cellElements[i];
     if (revealed.has(i)) {
       const adjacent = revealed.get(i);
       element.className = 'cell revealed' + (adjacent > 0 ? ' n' + adjacent : '');
       paintCellGlyph(element, adjacent);
+      if (chordCells.has(i)) element.classList.add('replay-chord-safe');
     } else {
       element.className = 'cell hidden';
       element.innerHTML = flagged.has(i) ? FLAG_SVG : '';
+      if (mineCells.has(i)) {
+        element.classList.add('replay-mine-known');
+        if (!flagged.has(i)) element.innerHTML = MINE_SVG;
+      } else if (safeCells.has(i) && !flagged.has(i)) {
+        element.classList.add('replay-safe');
+        if (chordOpens.has(i)) element.classList.add('replay-chord-open');
+      }
+      if (replayOverlays.probs && solver !== null && solver.measured) {
+        const fact = solver.facts.get(i);
+        const prob = document.createElement('span');
+        prob.className = 'replay-prob';
+        prob.textContent = fact === 1 ? '100'
+          : fact === 2 ? '0'
+            : replayProbabilityText(solver.pMine[i]);
+        element.appendChild(prob);
+      }
     }
     if (choices.has(i)) element.classList.add('replay-choice');
     if (selected.has(i)) element.classList.add('replay-selected');
@@ -6171,7 +6912,7 @@ function renderReplayFrame() {
   const choiceCount = choices.size;
   const atSeconds = Number.isFinite(evaluation.atMs)
     ? (evaluation.atMs / 1000).toFixed(2) + 's' : 'before timer';
-  replayStatus.textContent = (replayStep + 1) + '/' + decisions.length
+  replayStatus.textContent = 'action ' + (replayStep + 1) + ' of ' + decisions.length
     + ' · ' + atSeconds + ' · ' + evaluation.action
     + ' · ' + choiceCount + ' measured choice' + (choiceCount === 1 ? '' : 's');
   replayPrevious.disabled = replayStep === 0;
@@ -6190,14 +6931,19 @@ function pathSegments(decisions) {
     const decision = decisions[nextDecision] || null;
     const dt = trace.t[i] - trace.t[i - 1];
     if (dt <= 0) continue;
+    // A data gap has no movement samples inside it, so it carries no real
+    // speed; it is drawn as a dashed connector instead of a colored stroke.
+    const gap = dt >= PATH_GAP_MS;
     let value;
     if (pathView === 'movement-speed') {
-      value = Math.hypot(
-        trace.x[i] - trace.x[i - 1],
-        trace.y[i] - trace.y[i - 1]) * 1000 / dt;
+      if (!gap) {
+        value = Math.hypot(
+          trace.x[i] - trace.x[i - 1],
+          trace.y[i] - trace.y[i - 1]) * 1000 / dt;
+      }
     } else if (pathView === 'click-speed' && decision !== null && nextDecision > 0) {
-      const gap = decision.t - decisions[nextDecision - 1].t;
-      if (gap > 0) value = 1000 / gap;
+      const clickGap = decision.t - decisions[nextDecision - 1].t;
+      if (clickGap > 0) value = 1000 / clickGap;
     } else if (pathView === 'progress' && decision !== null) {
       value = pathDecisionProgress(decision);
     }
@@ -6207,6 +6953,7 @@ function pathSegments(decisions) {
       decision,
       decisionIndex: nextDecision,
       value,
+      gap,
     });
   }
   return segments;
@@ -6298,22 +7045,350 @@ function appendReplayLegend() {
   if (!replayEnabled) return;
   appendPathLegendRow('decision-time board', [
     { color: '#25a55f', label: 'measured choices' },
-    { color: '#f1a208', label: 'selected', dot: true },
+    { color: '#f1a208', label: 'square acted on · crosshair = exact click spot', dot: true },
     { color: '#7256a8', label: 'uncertain area → side risk label' },
   ]);
+  const solver = replayLegendSolver;
+  const solverNote = solver !== null && !solver.measured
+    ? 'position too complex for exact enumeration — showing bounded-proof facts only'
+    : undefined;
+  if (replayOverlays.moves) {
+    appendPathLegendRow('available moves', [
+      { color: '#1b8a3f', label: 'proven safe — raw click' },
+      { color: '#0b5d97', label: 'blue ring = chord this number; pale green = cells that chord opens' },
+    ], solverNote);
+  }
+  if (replayOverlays.mines) {
+    appendPathLegendRow('forced mines', [
+      { color: '#c62828', label: 'proven mine — never open; flag it or chord past it' },
+    ], replayOverlays.moves ? undefined : solverNote);
+  }
+  if (replayOverlays.probs) {
+    appendPathLegendRow('mine %', [],
+      solver !== null && !solver.measured
+        ? 'position too complex for exact probabilities'
+        : 'number on a covered square = exact mine probability (%) from everything visible');
+  }
+  if (replayOverlays.pointless) {
+    appendPathLegendRow('pointless clicks', [
+      { color: '#d95f02', label: 'mistake-tagged action up to the shown moment', dot: true },
+    ]);
+  }
+  if (replayOverlays.purposeful) {
+    appendPathLegendRow('purposeful clicks', [
+      { color: '#00838f', label: 'clean action up to the shown moment', dot: true },
+    ]);
+  }
+  if (replayOverlays.movement) {
+    appendPathLegendRow('rough movement', [
+      { color: '#7b1fa2', label: 'crawling under ¼ of this game\u2019s median pace, or a hard reversal' },
+    ]);
+  }
+}
+
+//-------PATH REPLAY: CANVAS PAINTING + INTERPRETIVE LEGENDS-------
+
+const PATH_POLYLINE_VIEWS = new Set([
+  'raw-path', 'movement-speed', 'click-speed', 'progress',
+]);
+const PATH_LEGEND_BIN_COUNT = 6;
+
+function ensurePathTooltip() {
+  if (pathTooltipEl === null) {
+    pathTooltipEl = document.createElement('div');
+    pathTooltipEl.className = 'path-tooltip';
+    pathTooltipEl.hidden = true;
+    document.body.appendChild(pathTooltipEl);
+  }
+  return pathTooltipEl;
+}
+
+function showPathTooltip(clientX, clientY, text) {
+  const tip = ensurePathTooltip();
+  tip.textContent = text;
+  tip.hidden = false;
+  const pad = 12;
+  tip.style.left = Math.min(window.innerWidth - tip.offsetWidth - 4,
+    clientX + pad) + 'px';
+  tip.style.top = Math.max(4, clientY - tip.offsetHeight - pad) + 'px';
+}
+
+function hidePathTooltip() {
+  if (pathTooltipEl !== null) pathTooltipEl.hidden = true;
+}
+
+function setPathHighlightBin(bin) {
+  if (pathHighlightBin === bin) return;
+  pathHighlightBin = bin;
+  if (lastPathState === null) return;
+  if (lastPathState.legend !== null) {
+    lastPathState.legend.chips.forEach((chip, k) =>
+      chip.classList.toggle('hot', k === bin));
+  }
+  paintPathCanvas();
+}
+
+// Binned interpretive legend for a continuous path parameter: one chip per
+// color class with its exact numeric interval. Hovering a chip spotlights
+// that class's path segments; hovering the path lights the matching chip.
+function appendPathBinLegend(title, range, format, options = {}) {
+  if (range === undefined) {
+    appendPathLegendRow(title, [], 'not enough measured movement');
+    return null;
+  }
+  const colorFor = options.time
+    ? (value) => pathTimeColor(value, range.max)
+    : (value) => pathHeatColor(value, range);
+  if (range.max <= range.min) {
+    appendPathLegendRow(title, [{
+      color: colorFor(range.min),
+      label: format(range.min),
+    }], 'all measured segments have the same value');
+    return null;
+  }
+  const bins = pathValueBins(range, PATH_LEGEND_BIN_COUNT);
+  const row = document.createElement('div');
+  row.className = 'path-legend-row';
+  const heading = document.createElement('span');
+  heading.className = 'path-legend-title';
+  heading.textContent = title;
+  row.appendChild(heading);
+  const chips = bins.map((bin, k) => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'path-bin-chip';
+    chip.title = 'hover to spotlight these path segments';
+    const swatch = document.createElement('span');
+    swatch.className = 'path-legend-swatch';
+    swatch.style.background = colorFor((bin.min + bin.max) / 2);
+    const label = document.createElement('span');
+    label.textContent = format(bin.min) + '–' + format(bin.max);
+    chip.append(swatch, label);
+    chip.addEventListener('mouseenter', () => setPathHighlightBin(k));
+    chip.addEventListener('mouseleave', () => setPathHighlightBin(-1));
+    chip.addEventListener('focus', () => setPathHighlightBin(k));
+    chip.addEventListener('blur', () => setPathHighlightBin(-1));
+    row.appendChild(chip);
+    return chip;
+  });
+  if (range.trimmed > 0) {
+    const note = document.createElement('span');
+    note.className = 'path-legend-note';
+    note.textContent = range.trimmed + ' extreme segment'
+      + (range.trimmed === 1 ? '' : 's') + ' clipped to the shown color range';
+    row.appendChild(note);
+  }
+  pathViewLegend.appendChild(row);
+  pathViewLegend.hidden = false;
+  return { bins, chips, colorFor, format };
+}
+
+function pathGapDurationText(dtMs) {
+  return dtMs < 1000
+    ? Math.round(dtMs) + 'ms away'
+    : (dtMs / 1000).toFixed(1) + 's away';
+}
+
+// Everything visual on the canvas, painted from lastPathState so a legend
+// hover can repaint with a spotlight without rebuilding legends or state.
+function paintPathCanvas() {
+  const state = lastPathState;
+  if (state === null || pathCanvas === null) return;
+  const ctx = state.ctx;
+  ctx.clearRect(0, 0, state.width, state.height);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  const spotlight = pathHighlightBin >= 0 && state.legend !== null;
+
+  if (state.drawView) {
+    ctx.lineWidth = pathView === 'raw-path' ? 3 : 4.25;
+    for (const segment of state.segments) {
+      if (trace.t[segment.to] > state.cutoff) continue;
+      const role = state.lessRoles[segment.decisionIndex];
+      if (segment.gap && PATH_POLYLINE_VIEWS.has(pathView)) {
+        ctx.save();
+        ctx.setLineDash([6, 5]);
+        ctx.lineWidth = 1.75;
+        ctx.strokeStyle = '#78909c';
+        ctx.beginPath();
+        ctx.moveTo(state.points[segment.from][0], state.points[segment.from][1]);
+        ctx.lineTo(state.points[segment.to][0], state.points[segment.to][1]);
+        ctx.stroke();
+        ctx.restore();
+        continue;
+      }
+      const show = pathView === 'raw-path'
+        || (pathView === 'less-useful'
+          ? role && (role.less || role.after)
+          : pathView !== 'click-locations' && Number.isFinite(segment.value));
+      if (!show) continue;
+      if (pathView === 'raw-path') {
+        ctx.strokeStyle = pathTimeColor(trace.t[segment.to], state.endT);
+      } else if (pathView === 'less-useful') {
+        ctx.strokeStyle = role.less ? '#d95f02' : '#2e7d32';
+      } else {
+        ctx.strokeStyle = pathHeatColor(segment.value, state.range);
+      }
+      let alpha = 1;
+      let width = pathView === 'raw-path' ? 3 : 4.25;
+      if (spotlight) {
+        const binValue = pathView === 'raw-path'
+          ? trace.t[segment.to] : segment.value;
+        if (pathBinIndex(state.legend.bins, binValue) === pathHighlightBin) {
+          width += 1.75;
+        } else {
+          alpha = 0.14;
+        }
+      }
+      ctx.globalAlpha = alpha;
+      ctx.lineWidth = width;
+      ctx.beginPath();
+      ctx.moveTo(state.points[segment.from][0], state.points[segment.from][1]);
+      ctx.lineTo(state.points[segment.to][0], state.points[segment.to][1]);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  const drawDot = (x, y, color, radius = 4) => {
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, 2 * Math.PI);
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.lineWidth = 1.25;
+    ctx.strokeStyle = '#ffffff';
+    ctx.stroke();
+  };
+  const drawLabel = (x, y, text, color) => {
+    ctx.font = 'bold 10px Arial, sans-serif';
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = '#ffffff';
+    ctx.strokeText(text, x + 6, y - 5);
+    ctx.fillStyle = color;
+    ctx.fillText(text, x + 6, y - 5);
+  };
+
+  // Off-screen durations: a dashed connector says data is missing; the label
+  // says exactly how long the cursor was away.
+  if (state.drawView && PATH_POLYLINE_VIEWS.has(pathView)) {
+    for (const gap of state.gaps) {
+      if (gap.kind !== 'away' || trace.t[gap.to] > state.cutoff) continue;
+      const midX = (state.points[gap.from][0] + state.points[gap.to][0]) / 2;
+      const midY = (state.points[gap.from][1] + state.points[gap.to][1]) / 2;
+      drawLabel(midX, midY, pathGapDurationText(gap.dtMs), '#37474f');
+    }
+  }
+
+  if (state.drawView
+      && (pathView === 'raw-path' || pathView === 'click-locations')) {
+    for (let i = 0; i < state.clicks.length; i++) {
+      const click = state.clicks[i];
+      if (click.t > state.cutoff) continue;
+      const color = click.kind === 'rdown' ? '#c62828'
+        : click.action === 'chord' ? '#2e7d32' : '#174ea6';
+      drawDot(click.px, click.py, color, pathView === 'click-locations' ? 4.5 : 4);
+      if (pathView === 'click-locations') {
+        drawLabel(click.px, click.py, String(i + 1), color);
+      }
+    }
+  }
+
+  if (state.drawView && pathView === 'less-useful') {
+    for (let i = 0; i < state.decisionPoints.length; i++) {
+      const decision = state.decisionPoints[i];
+      if (decision.t > state.cutoff) continue;
+      const role = state.lessRoles[i];
+      if (!(role.before || role.less || role.after)) continue;
+      const color = role.less ? '#d95f02' : role.after ? '#2e7d32' : '#174ea6';
+      drawDot(decision.px, decision.py, color);
+      if (i > 0 && (role.less || role.after)) {
+        const gap = decision.t - state.decisionPoints[i - 1].t;
+        drawLabel(decision.px, decision.py, gap < 1000 ? Math.round(gap) + 'ms'
+          : (gap / 1000).toFixed(2) + 's', color);
+      }
+    }
+  }
+
+  if (replayEnabled) {
+    // Rough-movement underlay up to the shown moment.
+    if (replayOverlays.movement && state.rough !== null) {
+      ctx.lineWidth = 5.5;
+      ctx.strokeStyle = '#7b1fa2';
+      ctx.globalAlpha = 0.85;
+      for (let i = 1; i < trace.t.length; i++) {
+        if (!state.rough[i] || trace.t[i] > state.cutoff) continue;
+        ctx.beginPath();
+        ctx.moveTo(state.points[i - 1][0], state.points[i - 1][1]);
+        ctx.lineTo(state.points[i][0], state.points[i][1]);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    }
+    // Pointless / purposeful click layers up to the shown moment.
+    if (replayOverlays.pointless || replayOverlays.purposeful) {
+      for (let i = 0; i < state.decisionPoints.length; i++) {
+        const decision = state.decisionPoints[i];
+        if (decision.t > state.cutoff) continue;
+        const less = decision.less;
+        if (less && replayOverlays.pointless) {
+          drawDot(decision.px, decision.py, '#d95f02', 5);
+          drawLabel(decision.px, decision.py, String(i + 1), '#d95f02');
+        } else if (!less && replayOverlays.purposeful) {
+          drawDot(decision.px, decision.py, '#00838f', 5);
+          drawLabel(decision.px, decision.py, String(i + 1), '#00838f');
+        }
+      }
+    }
+    // The exact input spot of the displayed action — for a chord, the pixel
+    // the chord was performed at.
+    const current = state.decisionPoints[state.replayIndex];
+    if (current !== undefined) {
+      ctx.setLineDash([]);
+      ctx.beginPath();
+      ctx.arc(current.px, current.py, 8, 0, 2 * Math.PI);
+      ctx.lineWidth = 4.5;
+      ctx.strokeStyle = '#ffffff';
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(current.px, current.py, 8, 0, 2 * Math.PI);
+      ctx.lineWidth = 2.25;
+      ctx.strokeStyle = '#f1a208';
+      ctx.stroke();
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        ctx.beginPath();
+        ctx.moveTo(current.px + dx * 4, current.py + dy * 4);
+        ctx.lineTo(current.px + dx * 12, current.py + dy * 12);
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = '#ffffff';
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(current.px + dx * 4, current.py + dy * 4);
+        ctx.lineTo(current.px + dx * 12, current.py + dy * 12);
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#f1a208';
+        ctx.stroke();
+      }
+      drawLabel(current.px + 8, current.py - 6, current.action, '#8a6100');
+    }
+  }
 }
 
 function renderPathOverlay() {
   removePathCanvas();
   resetPathLegend();
+  pathHighlightBin = -1;
+  lastPathState = null;
+  hidePathTooltip();
   if (!pathViewAvailable()) return;
   const decisions = pathDecisionEvents(trace.events);
-  if (pathView === 'off') {
-    appendReplayLegend();
-    return;
-  }
-  if (decisions.length === 0 && pathView !== 'raw-path') {
+  const drawView = pathView !== 'off'
+    && (decisions.length > 0 || pathView === 'raw-path');
+  if (pathView !== 'off' && !drawView) {
     appendPathLegendRow('path', [], 'no recorded decision locations');
+  }
+  // Back-in-time keeps a canvas alive even with the path off: the exact
+  // click-spot crosshair and the click/movement layers live there.
+  if (!drawView && !replayEnabled) {
     appendReplayLegend();
     return;
   }
@@ -6342,119 +7417,163 @@ function renderPathOverlay() {
   }
   const ctx = canvas.getContext('2d');
   ctx.scale(scale, scale);
-  const segments = pathSegments(decisions);
+  const segments = drawView ? pathSegments(decisions) : [];
   const endT = trace.t.length === 0 ? 0 : trace.t[trace.t.length - 1];
+  const replayIndex = Math.max(0, Math.min(decisions.length - 1, replayStep));
   const cutoff = replayEnabled && decisions.length > 0
-    ? decisions[Math.max(0, Math.min(decisions.length - 1, replayStep))].t
+    ? decisions[replayIndex].t
     : Infinity;
   const range = pathView === 'progress'
     ? { min: 0, max: 1, trimmed: 0 }
     : pathDisplayRange(segments.map((segment) => segment.value));
-  if (pathView === 'movement-speed') {
-    appendPathGradientLegend('movement speed', range,
-      (value) => Math.round(value) + ' px/s');
-  } else if (pathView === 'click-speed') {
-    appendPathGradientLegend('click speed', range,
-      (value) => value.toFixed(2) + '/s');
-  } else if (pathView === 'progress') {
-    appendPathGradientLegend('game progress', range,
-      (value) => Math.round(value * 100) + '% uncovered');
-  } else if (pathView === 'raw-path') {
-    appendPathGradientLegend('raw path · elapsed trace time',
-      { min: 0, max: endT, trimmed: 0 },
-      (value) => (value / 1000).toFixed(1) + 's', { time: true });
-    appendPathLegendRow('click markers', [
-      { color: '#174ea6', label: 'left-button release', dot: true },
-      { color: '#c62828', label: 'right-button press', dot: true },
-    ]);
-  } else if (pathView === 'click-locations') {
-    appendPathLegendRow('numbered click locations', [
-      { color: '#174ea6', label: 'left-button release', dot: true },
-      { color: '#c62828', label: 'right-button press', dot: true },
-    ], 'numbers are raw input order');
-  } else if (pathView === 'less-useful') {
-    const count = decisions.filter(pathDecisionIsLessUseful).length;
-    appendPathLegendRow('less-useful episodes', [
-      { color: '#174ea6', label: 'last useful click', dot: true },
-      { color: '#d95f02', label: 'mistake-tagged action / path' },
-      { color: '#2e7d32', label: 'next useful action / path' },
-    ], count + ' mistake-tagged action' + (count === 1 ? '' : 's')
-      + ' · time labels measure each action-to-action segment');
+  let legend = null;
+  const gaps = drawView && PATH_POLYLINE_VIEWS.has(pathView)
+    ? pathTraceGaps(trace.t, trace.x, trace.y) : [];
+  if (drawView) {
+    if (pathView === 'movement-speed') {
+      legend = appendPathBinLegend('movement speed', range,
+        (value) => Math.round(value) + ' px/s');
+    } else if (pathView === 'click-speed') {
+      legend = appendPathBinLegend('click speed', range,
+        (value) => value.toFixed(2) + '/s');
+    } else if (pathView === 'progress') {
+      legend = appendPathBinLegend('game progress', range,
+        (value) => Math.round(value * 100) + '% uncovered');
+    } else if (pathView === 'raw-path') {
+      legend = appendPathBinLegend('raw path · elapsed trace time',
+        { min: 0, max: endT, trimmed: 0 },
+        (value) => (value / 1000).toFixed(1) + 's', { time: true });
+      appendPathLegendRow('click markers', [
+        { color: '#174ea6', label: 'left-button release', dot: true },
+        { color: '#2e7d32', label: 'chord', dot: true },
+        { color: '#c62828', label: 'right-button press', dot: true },
+      ]);
+    } else if (pathView === 'click-locations') {
+      const chordCount = pathClickActions(trace.events)
+        .filter((click) => click.action === 'chord').length;
+      appendPathLegendRow('numbered click locations', [
+        { color: '#174ea6', label: 'left-button release', dot: true },
+        { color: '#2e7d32', label: 'chord — left release on a satisfied number', dot: true },
+        { color: '#c62828', label: 'right-button press', dot: true },
+      ], 'numbers are raw input order · ' + chordCount + ' chord'
+        + (chordCount === 1 ? '' : 's') + ' detected');
+    } else if (pathView === 'less-useful') {
+      const count = decisions.filter(pathDecisionIsLessUseful).length;
+      appendPathLegendRow('less-useful episodes', [
+        { color: '#174ea6', label: 'last useful click', dot: true },
+        { color: '#d95f02', label: 'mistake-tagged action / path' },
+        { color: '#2e7d32', label: 'next useful action / path' },
+      ], count + ' mistake-tagged action' + (count === 1 ? '' : 's')
+        + ' · time labels measure each action-to-action segment');
+    }
+    if (gaps.some((gap) => gap.kind === 'away')) {
+      appendPathLegendRow('data gaps', [
+        { color: '#78909c', label: 'dashed = no cursor samples · “away” label = how long the cursor was gone' },
+      ]);
+    }
+    if (legend !== null) {
+      appendPathLegendRow('hover', [],
+        'mouse over a legend range to spotlight its segments; mouse over the path to read the exact value');
+    }
   }
   appendReplayLegend();
-  ctx.lineWidth = pathView === 'raw-path' ? 3 : 4.25;
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
   const mapper = pathPointMapper(rect.width, rect.height);
-  const mappedPoints = trace.t.map((t, i) => mapper(t, trace.x[i], trace.y[i]));
+  const points = trace.t.map((t, i) => mapper(t, trace.x[i], trace.y[i]));
   const lessRoles = pathLessUsefulRoles(decisions);
-  for (const segment of segments) {
-    if (trace.t[segment.to] > cutoff) continue;
-    const role = lessRoles[segment.decisionIndex];
-    const show = pathView === 'raw-path'
-      || (pathView === 'less-useful'
-        ? role && (role.less || role.after)
-        : pathView !== 'click-locations' && Number.isFinite(segment.value));
-    if (!show) continue;
-    if (pathView === 'raw-path') {
-      ctx.strokeStyle = pathTimeColor(trace.t[segment.to], endT);
-    } else if (pathView === 'less-useful') {
-      ctx.strokeStyle = role.less ? '#d95f02' : '#2e7d32';
-    } else {
-      ctx.strokeStyle = pathHeatColor(segment.value, range);
-    }
-    ctx.beginPath();
-    ctx.moveTo(mappedPoints[segment.from][0], mappedPoints[segment.from][1]);
-    ctx.lineTo(mappedPoints[segment.to][0], mappedPoints[segment.to][1]);
-    ctx.stroke();
-  }
-  const dotMapper = pathPointMapper(rect.width, rect.height);
-  const drawDot = (x, y, color, radius = 4) => {
-    ctx.beginPath();
-    ctx.arc(x, y, radius, 0, 2 * Math.PI);
-    ctx.fillStyle = color;
-    ctx.fill();
-    ctx.lineWidth = 1.25;
-    ctx.strokeStyle = '#ffffff';
-    ctx.stroke();
+  const clickMapper = pathPointMapper(rect.width, rect.height);
+  const clicks = pathClickActions(trace.events).map((click) => {
+    const [px, py] = clickMapper(click.t, click.x, click.y);
+    return { ...click, px, py };
+  });
+  const decisionMapper = pathPointMapper(rect.width, rect.height);
+  const decisionPoints = decisions.map((decision) => {
+    const [px, py] = decisionMapper(decision.t, decision.x, decision.y);
+    return {
+      t: decision.t,
+      px,
+      py,
+      less: pathDecisionIsLessUseful(decision),
+      action: decision.evaluation.action,
+    };
+  });
+  const rough = replayEnabled && replayOverlays.movement
+    ? pathRoughSegments(trace.t, trace.x, trace.y) : null;
+  lastPathState = {
+    ctx,
+    width: rect.width,
+    height: rect.height,
+    drawView,
+    segments,
+    points,
+    range,
+    legend,
+    endT,
+    cutoff,
+    lessRoles,
+    clicks,
+    decisionPoints,
+    gaps,
+    rough,
+    replayIndex,
   };
-  const drawLabel = (x, y, text, color) => {
-    ctx.font = 'bold 10px Arial, sans-serif';
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = '#ffffff';
-    ctx.strokeText(text, x + 6, y - 5);
-    ctx.fillStyle = color;
-    ctx.fillText(text, x + 6, y - 5);
-  };
-  if (pathView === 'raw-path' || pathView === 'click-locations') {
-    const clicks = pathClickEvents(trace.events);
-    const clickMapper = pathPointMapper(rect.width, rect.height);
-    for (let i = 0; i < clicks.length; i++) {
-      const click = clicks[i];
-      if (click.t > cutoff) continue;
-      const [x, y] = clickMapper(click.t, click.x, click.y);
-      const color = click.kind === 'rdown' ? '#c62828' : '#174ea6';
-      drawDot(x, y, color, pathView === 'click-locations' ? 4.5 : 4);
-      if (pathView === 'click-locations') drawLabel(x, y, String(i + 1), color);
-    }
-  }
-  for (let i = 0; i < decisions.length; i++) {
-    const decision = decisions[i];
-    if (decision.t > cutoff) continue;
-    const role = lessRoles[i];
-    const showDot = pathView === 'less-useful'
-      && (role.before || role.less || role.after);
-    if (!showDot) continue;
-    const [x, y] = dotMapper(decision.t, decision.x, decision.y);
-    const color = role.less ? '#d95f02' : role.after ? '#2e7d32' : '#174ea6';
-    drawDot(x, y, color);
-    if (i > 0 && (role.less || role.after)) {
-      const gap = decision.t - decisions[i - 1].t;
-      drawLabel(x, y, gap < 1000 ? Math.round(gap) + 'ms'
-        : (gap / 1000).toFixed(2) + 's', color);
-    }
-  }
+  paintPathCanvas();
 }
+
+// Path hover: nearest drawn segment within reach reports its exact value in
+// a tooltip and lights the matching legend chip (which in turn spotlights
+// the whole class). Listening on the board keeps the canvas input-inert.
+function pathSegmentAtPoint(px, py) {
+  const state = lastPathState;
+  if (state === null || !state.drawView || state.legend === null) return null;
+  const reach = 8;
+  let best = null;
+  let bestDistance = reach;
+  for (const segment of state.segments) {
+    if (segment.gap || trace.t[segment.to] > state.cutoff) continue;
+    const binValue = pathView === 'raw-path'
+      ? trace.t[segment.to] : segment.value;
+    if (!Number.isFinite(binValue)) continue;
+    const [x1, y1] = state.points[segment.from];
+    const [x2, y2] = state.points[segment.to];
+    if (px < Math.min(x1, x2) - reach || px > Math.max(x1, x2) + reach
+        || py < Math.min(y1, y2) - reach || py > Math.max(y1, y2) + reach) {
+      continue;
+    }
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const lengthSq = dx * dx + dy * dy;
+    const t = lengthSq === 0 ? 0
+      : Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / lengthSq));
+    const distance = Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      best = { segment, binValue };
+    }
+  }
+  return best;
+}
+
+boardElement.addEventListener('mousemove', (event) => {
+  if (lastPathState === null || lastPathState.legend === null
+      || pathCanvas === null) return;
+  const rect = pathCanvas.getBoundingClientRect();
+  const hit = pathSegmentAtPoint(
+    event.clientX - rect.left, event.clientY - rect.top);
+  if (hit === null) {
+    hidePathTooltip();
+    setPathHighlightBin(-1);
+    return;
+  }
+  const legend = lastPathState.legend;
+  showPathTooltip(event.clientX, event.clientY, legend.format(hit.binValue));
+  setPathHighlightBin(pathBinIndex(legend.bins, hit.binValue));
+});
+
+boardElement.addEventListener('mouseleave', () => {
+  if (lastPathState === null) return;
+  hidePathTooltip();
+  setPathHighlightBin(-1);
+});
 
 function renderPathView() {
   if (!replayEnabled) restoreFinishedBoard();
@@ -6495,6 +7614,20 @@ replayNext.addEventListener('click', () => {
   replayStep++;
   renderReplayFrame();
 });
+
+replaySlider.addEventListener('input', () => {
+  replayStep = Number(replaySlider.value) - 1;
+  renderReplayFrame();
+});
+
+for (const button of replayOverlayButtons) {
+  button.addEventListener('click', () => {
+    const key = button.dataset.replayOverlay;
+    if (!(key in replayOverlays)) throw new Error('unknown replay overlay: ' + key);
+    replayOverlays[key] = !replayOverlays[key];
+    renderPathView();
+  });
+}
 
 document.addEventListener('keydown', (event) => {
   if (!replayEnabled || !pathViewAvailable()) return;
@@ -7669,6 +8802,286 @@ function computeClickCadence(sampleT, events) {
   return m;
 }
 
+//-------TRACE METRICS: QUEUE (hover-then-later-click waits)-------
+
+// A queued click: the cursor dwelt over a cell (the feint rule: entered,
+// stayed >= 300ms, left without clicking), moved away, and the player later
+// clicked that same cell. The wait between leaving and clicking is the
+// queue wait — the observable "noticed it, banked it, came back" interval.
+// This is the observational cousin of the solver-replay queue metric
+// (deducible-since timestamps), which remains unbuilt; no claim is made
+// that the cell was already provable during the dwell.
+const QUEUE_DWELL_MS = FEINT_DWELL_MS; // the same dwell rule feints use
+const QUEUE_LEAD_MS = 500;             // dwell must end this long before the click
+
+// Completed clickless cell dwells >= QUEUE_DWELL_MS, in trace order:
+// {cell, enterT, exitT}. The same walk the feint counter runs, kept
+// separate so the waste metrics' known answers stay untouched.
+function collectClicklessDwells(sampleT, sampleX, sampleY, events) {
+  const dwells = [];
+  let layout = null;
+  let li = 0;
+  let curCell = null;
+  let enterT = 0;
+  let clickedDuring = false;
+  for (let i = 0; i < sampleT.length; i++) {
+    while (li < events.length && events[li].t <= sampleT[i]) {
+      const ev = events[li];
+      if (ev.kind === 'layout') layout = ev;
+      else if (ev.kind === 'lup' || ev.kind === 'rdown') clickedDuring = true;
+      li++;
+    }
+    let cell = null;
+    if (layout !== null && layout.width > 0 && layout.height > 0) {
+      const col = Math.floor((sampleX[i] - layout.left) / (layout.width / layout.boardWidth));
+      const row = Math.floor((sampleY[i] - layout.top) / (layout.height / layout.boardHeight));
+      if (col >= 0 && col < layout.boardWidth && row >= 0 && row < layout.boardHeight) {
+        cell = row * layout.boardWidth + col;
+      }
+    }
+    if (cell !== curCell) {
+      if (curCell !== null && !clickedDuring && sampleT[i] - enterT >= QUEUE_DWELL_MS) {
+        dwells.push({ cell: curCell, enterT: enterT, exitT: sampleT[i] });
+      }
+      curCell = cell;
+      enterT = sampleT[i];
+      clickedDuring = false;
+    }
+  }
+  return dwells;
+}
+
+function computeQueueMetrics(sampleT, sampleX, sampleY, events) {
+  const dwells = collectClicklessDwells(sampleT, sampleX, sampleY, events);
+  // Board actions with a target cell: the left release and the right
+  // press (the events that carry the cell the action landed on).
+  const presses = events.filter((ev) =>
+    (ev.kind === 'lup' || ev.kind === 'rdown') && ev.index !== null
+    && ev.index !== undefined);
+  const waits = [];
+  for (const press of presses) {
+    // The most recent prior dwell over the clicked cell that ended at
+    // least QUEUE_LEAD_MS before the click (so the final approach's own
+    // hover never counts as its queue).
+    let wait;
+    for (const dwell of dwells) {
+      if (dwell.cell !== press.index) continue;
+      if (dwell.exitT > press.t - QUEUE_LEAD_MS) break;
+      wait = press.t - dwell.exitT;
+    }
+    if (wait !== undefined) waits.push(wait);
+  }
+  const m = { queuedClickCount: waits.length };
+  if (presses.length > 0) m.queuedClickShare = waits.length / presses.length;
+  if (waits.length > 0) {
+    const sorted = [...waits].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    m.queueWaitMedianMs = sorted.length % 2 === 1
+      ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+    m.queueWaitMaxMs = sorted[sorted.length - 1];
+  }
+  return m;
+}
+
+//-------TRACE METRICS: RECOVERY (pace after measured mistakes)-------
+
+// How the click pace responds to the player's own recorded mistakes:
+// after each surviving mistake-tagged action (a no-op click, misclick,
+// judged guess, and so on — anything the evaluator tagged), how long was
+// the next action gap relative to the game's typical gap, and how many
+// actions did it take to get back within pace? Deaths are excluded — a
+// fatal action has no post-pace to measure. Timing runs over accepted
+// board actions (the events decisions attach to), not raw button-downs.
+const RECOVERY_PACE_RATIO = 1.5; // back at pace: a gap within 1.5x the median
+
+function computeRecoveryMetrics(events) {
+  const actions = events.filter((ev) =>
+    (ev.kind === 'lup' || ev.kind === 'rdown') && ev.index !== null
+    && ev.index !== undefined);
+  const m = {};
+  if (actions.length < 3) return m;
+  const gaps = [];
+  for (let i = 1; i < actions.length; i++) gaps.push(actions[i].t - actions[i - 1].t);
+  const sorted = [...gaps].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  const baseline = sorted.length % 2 === 1
+    ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+  if (!(baseline > 0)) return m;
+  const mistakes = events.filter((ev) => ev.kind === 'decision'
+    && ev.evaluation && Array.isArray(ev.evaluation.mistakes)
+    && ev.evaluation.mistakes.length > 0
+    && ev.evaluation.result !== 'death');
+  const nextGapRatios = [];
+  const recoveryCounts = [];
+  for (const mistake of mistakes) {
+    // The decision's t is its input action's t; find that action.
+    let k = -1;
+    for (let i = 0; i < actions.length; i++) {
+      if (actions[i].t <= mistake.t) k = i;
+      else break;
+    }
+    if (k < 0 || k + 1 >= actions.length) continue;
+    nextGapRatios.push((actions[k + 1].t - actions[k].t) / baseline);
+    let over = 0;
+    for (let i = k + 1; i < actions.length; i++) {
+      if (actions[i].t - actions[i - 1].t <= RECOVERY_PACE_RATIO * baseline) break;
+      over++;
+    }
+    recoveryCounts.push(over);
+  }
+  m.measuredMistakes = nextGapRatios.length;
+  if (nextGapRatios.length > 0) {
+    const med = (values) => {
+      const s = [...values].sort((a, b) => a - b);
+      const at = Math.floor(s.length / 2);
+      return s.length % 2 === 1 ? s[at] : (s[at - 1] + s[at]) / 2;
+    };
+    m.postMistakeGapRatio = med(nextGapRatios);
+    m.recoveryActionsMedian = med(recoveryCounts);
+  }
+  return m;
+}
+
+//-------TRACE METRICS: FITTS (aimed-movement difficulty vs time)-------
+
+// Fitts' law data over the game's aimed movements: for each button press
+// with a preceding press, the index of difficulty ID = log2(D/W + 1)
+// (Shannon form; D the straight-line distance between the two press
+// positions, W the board cell size from the layout) against the movement
+// time from the first cursor sample after the previous press to the
+// press. Stationary re-presses (no sample between, or D under the floor)
+// are not aimed movements and stay out. Wasted presses count the same as
+// effective ones — the trace records the hand, not the board effect.
+const FITTS_MIN_DISTANCE_PX = 8; // jittery re-presses are not aimed movements
+
+function computeFittsMetrics(sampleT, sampleX, sampleY, events) {
+  let layout = null;
+  let prevPress = null;
+  const pairs = [];
+  let si = 0;
+  for (const ev of events) {
+    if (ev.kind === 'layout') {
+      layout = ev;
+      continue;
+    }
+    if (ev.kind !== 'ldown' && ev.kind !== 'rdown') continue;
+    const press = ev;
+    if (prevPress !== null && layout !== null && layout.boardWidth > 0) {
+      const cellW = layout.width / layout.boardWidth;
+      const d = Math.hypot(press.x - prevPress.x, press.y - prevPress.y);
+      // First cursor sample after the previous press: movement start.
+      while (si < sampleT.length && sampleT[si] <= prevPress.t) si++;
+      if (d >= FITTS_MIN_DISTANCE_PX && cellW > 0
+          && si < sampleT.length && sampleT[si] < press.t) {
+        pairs.push({
+          id: Math.log2(d / cellW + 1),
+          mtMs: press.t - sampleT[si],
+        });
+      }
+    }
+    prevPress = press;
+  }
+  const m = { pairs: pairs, movementCount: pairs.length };
+  if (pairs.length > 0) {
+    // Mean-of-ratios throughput (bits per second), the per-movement form.
+    m.throughputBitsPerSec = pairs.reduce(
+      (sum, p) => sum + (p.mtMs > 0 ? p.id / (p.mtMs / 1000) : 0), 0) / pairs.length;
+  }
+  return m;
+}
+
+//-------TRACE METRICS: SPATIAL BIAS (distance-normalized pace by region)-------
+
+// Does the hand run slower or faster toward some parts of the board than
+// travel distance alone predicts? The board's rules are the same in every
+// row and column, but a mouse is not a uniform device — this measures the
+// difference instead of assuming it away. Every consecutive pair of board
+// actions contributes (distance between the two press positions, gap
+// time); a robust Theil-Sen line fits gap ~ a + b*distance, and each
+// action's residual (measured gap minus the fit's prediction at its
+// distance) lands in the board region (a 3x3 grid of the board) holding
+// its target cell. A region's median residual is its pace bias in ms:
+// positive = slower than distance predicts. Fitting on distance-to-
+// previous-press is what normalizes away the opening square and the
+// geometry of where the previous click happened to be — only the part of
+// the gap that distance cannot explain is attributed to the region.
+const SPATIAL_REGIONS = 3;      // 3x3 board regions
+const SPATIAL_MIN_PAIRS = 8;    // below this, a fit is noise
+
+// Small local Theil-Sen (median of pairwise slopes, median intercept),
+// kept inside the trace-metrics section so it stays pure and sliceable.
+function spatialTheilSen(points) {
+  const slopes = [];
+  for (let i = 0; i < points.length; i++) {
+    for (let j = i + 1; j < points.length; j++) {
+      const dx = points[j][0] - points[i][0];
+      if (dx !== 0) slopes.push((points[j][1] - points[i][1]) / dx);
+    }
+  }
+  if (slopes.length === 0) return null;
+  const med = (values) => {
+    const s = [...values].sort((a, b) => a - b);
+    const at = Math.floor(s.length / 2);
+    return s.length % 2 === 1 ? s[at] : (s[at - 1] + s[at]) / 2;
+  };
+  const b = med(slopes);
+  const a = med(points.map(([x, y]) => y - b * x));
+  return { a, b };
+}
+
+function computeSpatialBias(events) {
+  let layout = null;
+  const actions = [];
+  for (const ev of events) {
+    if (ev.kind === 'layout') layout = ev;
+    else if ((ev.kind === 'lup' || ev.kind === 'rdown')
+        && ev.index !== null && ev.index !== undefined && layout !== null) {
+      actions.push({ ev: ev, boardWidth: layout.boardWidth, boardHeight: layout.boardHeight });
+    }
+  }
+  const points = [];
+  for (let i = 1; i < actions.length; i++) {
+    const prev = actions[i - 1].ev;
+    const cur = actions[i].ev;
+    points.push({
+      d: Math.hypot(cur.x - prev.x, cur.y - prev.y),
+      gapMs: cur.t - prev.t,
+      cell: cur.index,
+      boardWidth: actions[i].boardWidth,
+      boardHeight: actions[i].boardHeight,
+    });
+  }
+  if (points.length < SPATIAL_MIN_PAIRS) return { pairCount: points.length };
+  const fit = spatialTheilSen(points.map((p) => [p.d, p.gapMs]));
+  if (fit === null) return { pairCount: points.length };
+  const residualsByRegion = Array.from(
+    { length: SPATIAL_REGIONS * SPATIAL_REGIONS }, () => []);
+  for (const p of points) {
+    const col = p.cell % p.boardWidth;
+    const row = Math.floor(p.cell / p.boardWidth);
+    const rc = Math.min(SPATIAL_REGIONS - 1,
+      Math.floor(col * SPATIAL_REGIONS / p.boardWidth));
+    const rr = Math.min(SPATIAL_REGIONS - 1,
+      Math.floor(row * SPATIAL_REGIONS / p.boardHeight));
+    residualsByRegion[rr * SPATIAL_REGIONS + rc]
+      .push(p.gapMs - (fit.a + fit.b * p.d));
+  }
+  const med = (values) => {
+    const s = [...values].sort((a, b) => a - b);
+    const at = Math.floor(s.length / 2);
+    return s.length % 2 === 1 ? s[at] : (s[at - 1] + s[at]) / 2;
+  };
+  return {
+    pairCount: points.length,
+    aMs: fit.a,
+    bMsPerPx: fit.b,
+    regions: residualsByRegion.map((residuals) => ({
+      count: residuals.length,
+      medianResidualMs: residuals.length > 0 ? med(residuals) : undefined,
+    })),
+  };
+}
+
 //-------TRACE METRICS: ALL SYSTEMS COMBINED-------
 
 // The object the display layer consumes: all four measurement systems
@@ -7684,6 +9097,9 @@ function computeAllTraceMetrics(sampleT, sampleX, sampleY, events, wallDurationM
     hev: computeHevelius(sampleT, sampleX, sampleY, events),
     waste: computeWasteMetrics(sampleT, sampleX, sampleY, events),
     cad: computeClickCadence(sampleT, events),
+    queue: computeQueueMetrics(sampleT, sampleX, sampleY, events),
+    rec: computeRecoveryMetrics(events),
+    fitts: computeFittsMetrics(sampleT, sampleX, sampleY, events),
   };
 }
 
@@ -7858,6 +9274,76 @@ const TRACE_METRIC_GROUPS = [
         records: 'the fraction of presses preceded by a cursor-movement sample '
           + 'within 100ms; it does not identify the reason for that timing',
         of: (m) => m.cad.movingPressShare, fmt: (v) => Math.round(v * 100) + '%' },
+    ] },
+  { key: 'queue', name: 'queued clicks', definition:
+      'clicks whose cell the cursor had already dwelt over earlier (the '
+      + 'feint rule: a clickless stay of 300ms or more), left, and later '
+      + 'came back to click — the observable hover-then-later-click queue',
+    displays: [
+      { label: 'queued clicks',
+        calc: 'board actions whose cell had an earlier completed clickless '
+          + 'dwell of 300ms or more that ended at least 500ms before the click',
+        records: 'how many actions returned to a previously dwelt-over cell; '
+          + 'whether the cell was already provable then is not measured',
+        of: (m) => m.queue.queuedClickCount, fmt: (v) => String(v) },
+      { label: 'queued share',
+        calc: 'queued clicks over all board actions with a target cell',
+        records: 'the fraction of cell-targeted actions that were queued by '
+          + 'the dwell rule above',
+        of: (m) => m.queue.queuedClickShare, fmt: (v) => Math.round(v * 100) + '%' },
+      { label: 'queue wait',
+        calc: 'per queued click, the time from leaving the dwelt-over cell '
+          + 'to clicking it; median over queued clicks',
+        records: 'the median leave-to-click interval of queued clicks; the '
+          + 'reason for the delay is not observed',
+        of: (m) => m.queue.queueWaitMedianMs, fmt: (v) => (v / 1000).toFixed(1) + 's' },
+      { label: 'longest wait',
+        calc: 'the single longest leave-to-click interval among queued clicks',
+        records: 'the longest measured queue wait of this game',
+        of: (m) => m.queue.queueWaitMaxMs, fmt: (v) => (v / 1000).toFixed(1) + 's' },
+    ] },
+  { key: 'rec', name: 'pace recovery', definition:
+      'how the action pace responds to this game\u2019s own recorded '
+      + 'surviving mistakes (no-op clicks, misclicks, judged guesses '
+      + '\u2014 whatever the evaluator tagged), measured over accepted '
+      + 'board actions against the game\u2019s median action gap',
+    displays: [
+      { label: 'mistakes measured',
+        calc: 'surviving mistake-tagged actions with at least one later '
+          + 'action to time (deaths have no post-pace and are excluded)',
+        records: 'how many mistakes contribute to the recovery numbers below',
+        of: (m) => m.rec.measuredMistakes, fmt: (v) => String(v) },
+      { label: 'post-mistake gap',
+        calc: 'per measured mistake, the next action gap divided by the '
+          + 'game\u2019s median action gap; median over mistakes',
+        records: 'how much longer than typical the action after a mistake '
+          + 'took; 1.0 means no measurable slowdown, higher means slower',
+        of: (m) => m.rec.postMistakeGapRatio, fmt: (v) => v.toFixed(2) + '\u00d7' },
+      { label: 'recovery actions',
+        calc: 'per measured mistake, how many consecutive following gaps '
+          + 'exceeded 1.5\u00d7 the median gap before one returned within '
+          + 'it; median over mistakes',
+        records: 'the median number of actions pace stayed elevated after a '
+          + 'mistake; 0 means the very next gap was already back at pace',
+        of: (m) => m.rec.recoveryActionsMedian, fmt: (v) => String(v) },
+    ] },
+  { key: 'fitts', name: 'aimed movement (Fitts)', definition:
+      'Fitts\u2019 law over the game\u2019s aimed movements: index of '
+      + 'difficulty log2(distance/cell size + 1) per press against its '
+      + 'movement time (first cursor sample after the previous press to '
+      + 'the press); wasted presses count the same as effective ones',
+    displays: [
+      { label: 'movements',
+        calc: 'presses at least 8px from the previous press with at least '
+          + 'one cursor sample between them',
+        records: 'how many aimed movements the Fitts measures below cover',
+        of: (m) => m.fitts.movementCount, fmt: (v) => String(v) },
+      { label: 'throughput',
+        calc: 'per movement, index of difficulty over movement time; mean '
+          + 'over movements (bits per second)',
+        records: 'the mean per-movement Fitts throughput; it describes this '
+          + 'game\u2019s aimed movements, not the player\u2019s capacity',
+        of: (m) => m.fitts.throughputBitsPerSec, fmt: (v) => v.toFixed(2) + ' bit/s' },
     ] },
   { key: 'psych', name: 'trajectory geometry', definition:
       'mousetrap-formula trajectory measures per inter-click segment '
@@ -8384,7 +9870,89 @@ function buildMotionStatsCharts() {
     section.appendChild(items);
     nodes.push(section);
   }
+  const fittsChart = buildFittsCurveSection(finalMotion.metrics.fitts);
+  if (fittsChart !== null) nodes.push(fittsChart);
+  const spatialChart = buildSpatialBiasSection(finalMotion.spatial);
+  if (spatialChart !== null) nodes.push(spatialChart);
   return nodes;
+}
+
+// The Fitts curve: this game's aimed movements as (index of difficulty,
+// movement time) dots with the robust fit line. Under 8 movements a fit
+// is noise, so the section is omitted.
+function buildFittsCurveSection(fitts) {
+  if (!fitts || !Array.isArray(fitts.pairs) || fitts.pairs.length < 8) return null;
+  const section = document.createElement('section');
+  section.className = 'motion-metric-group';
+  section.appendChild(buildMetricsGroupHead({ name: 'Fitts curve' }));
+  const idOf = (p) => p.id;
+  const mtOf = (p) => p.mtMs;
+  section.appendChild(buildScatter(
+    fitts.pairs, null, idOf, mtOf,
+    'difficulty (bits)', 'movement ms', null, null,
+    {
+      trimY: true,
+      neutralDots: true,
+      trendLines: trendLinesFor(fitts.pairs.map((p) => [p.id, p.mtMs]), []),
+    }));
+  return section;
+}
+
+// The spatial-bias heatmap: per board region (a 3x3 grid over the board),
+// the median gap residual after the distance fit — how much slower (+ms,
+// warm) or faster (-ms, cool) actions into that region ran than travel
+// distance alone predicts. Distance normalization is what disentangles
+// the region effect from where the previous click (or the opening square)
+// happened to be.
+function buildSpatialBiasSection(spatial) {
+  if (!spatial || !Array.isArray(spatial.regions)) return null;
+  const measured = spatial.regions.filter(
+    (region) => region.medianResidualMs !== undefined);
+  if (measured.length < 2) return null;
+  const section = document.createElement('section');
+  section.className = 'motion-metric-group';
+  section.appendChild(buildMetricsGroupHead({ name: 'spatial pace bias' }));
+  const grid = document.createElement('div');
+  grid.className = 'spatial-bias-grid';
+  const maxAbs = Math.max(
+    1, ...measured.map((region) => Math.abs(region.medianResidualMs)));
+  for (let rr = 0; rr < SPATIAL_REGIONS; rr++) {
+    for (let rc = 0; rc < SPATIAL_REGIONS; rc++) {
+      const region = spatial.regions[rr * SPATIAL_REGIONS + rc];
+      const cell = document.createElement('div');
+      cell.className = 'spatial-bias-cell';
+      const value = document.createElement('span');
+      value.className = 'spatial-bias-value';
+      const count = document.createElement('span');
+      count.className = 'spatial-bias-count';
+      if (region.medianResidualMs === undefined) {
+        value.textContent = '\u2013';
+        count.textContent = region.count + ' clicks';
+      } else {
+        const ms = Math.round(region.medianResidualMs);
+        value.textContent = (ms > 0 ? '+' : '') + ms + 'ms';
+        count.textContent = region.count + (region.count === 1 ? ' click' : ' clicks');
+        const strength = Math.min(1, Math.abs(ms) / maxAbs) * 0.55;
+        cell.style.background = ms > 0
+          ? 'rgba(211, 47, 47, ' + strength.toFixed(3) + ')'
+          : 'rgba(46, 125, 50, ' + strength.toFixed(3) + ')';
+      }
+      cell.title = 'board region row ' + (rr + 1) + ', column ' + (rc + 1)
+        + ': median gap residual over ' + region.count + ' action(s)';
+      cell.append(value, count);
+      grid.appendChild(cell);
+    }
+  }
+  section.appendChild(grid);
+  const caption = document.createElement('p');
+  caption.className = 'spatial-bias-caption';
+  caption.textContent = 'median action-gap residual after the robust '
+    + 'gap-vs-distance fit (' + spatial.pairCount + ' action pairs; '
+    + Math.round(spatial.bMsPerPx * 100) / 100 + ' ms/px): +ms = actions '
+    + 'into this board region ran slower than travel distance predicts, '
+    + '\u2212ms = faster. Regions follow the board, not the screen.';
+  section.appendChild(caption);
+  return section;
 }
 
 // Applies the panel-affecting settings immediately (called on any settings
@@ -8420,6 +9988,9 @@ function renderLiveTraceMetrics() {
     hev: liveSegmentCache.hev,
     waste: computeWasteMetrics(trace.t, trace.x, trace.y, trace.events),
     cad: computeClickCadence(trace.t, trace.events),
+    queue: computeQueueMetrics(trace.t, trace.x, trace.y, trace.events),
+    rec: computeRecoveryMetrics(trace.events),
+    fitts: computeFittsMetrics(trace.t, trace.x, trace.y, trace.events),
   };
   appendTraceMetricsSeries(metrics);
   lastLiveMetrics = metrics;
@@ -8477,7 +10048,7 @@ setInterval(() => {
 //   loss. On a measured win, winUnmarked is the share of the board's
 //   mines carrying no flag at the winning instant (0..1); absent
 //   otherwise. Feeds the game-endings fraction lines.
-// - {kind:'game', modeKey, from, to, px, useful, wasted, misclicks, flags, fatalMistake, fastGapMs, end, winUnmarked}
+// - {kind:'game', modeKey, from, to, px, useful, wasted, misclicks, flags, fatalMistake, fastGapMs, cadenceSpread, end, winUnmarked}
 //   — a whole finished game backfilled from its stored record (games
 //   played before this page load; see sessionBackfillFromHistory). Its
 //   totals spread across its span proportionally to each bucket's
@@ -8527,6 +10098,21 @@ function sessionMedian(values) {
   const sorted = [...values].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
   return sorted.length % 2 === 1 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+// Quartile spread over median (the same ratio the trace cadence system
+// reports per game): 0 = metronomic, larger = burstier. Interpolated
+// quartiles; undefined under two gaps or at a zero median.
+function sessionGapSpread(gaps) {
+  if (gaps.length < 2) return undefined;
+  const sorted = [...gaps].sort((a, b) => a - b);
+  const q = (p) => {
+    const at = (sorted.length - 1) * p;
+    const lo = Math.floor(at);
+    return sorted[lo] + (at - lo) * ((sorted[lo + 1] ?? sorted[lo]) - sorted[lo]);
+  };
+  const median = q(0.5);
+  return median > 0 ? (q(0.75) - q(0.25)) / median : undefined;
 }
 
 // Selects the newest games by accumulated played duration. Their wall ages
@@ -8629,6 +10215,20 @@ function recordWinUnmarkedShare(record, mines) {
   return Math.min(1, Math.max(0, (mines - onBoard) / mines));
 }
 
+// The per-mark calibration of unused correct marks (decided 2026-08-30):
+// among a won game's placed flags, the share never consumed by an accepted
+// chord. Chosen as the primary reading because it is dimensionless — per
+// game rises with board size and flagging volume, per minute rises with
+// playing speed, while this fraction answers "of the marking work done,
+// how much was pointless" directly. A markless win is unmeasured (0 of 0),
+// never counted as perfect. Works on live 'end' events and backfilled
+// 'game' events alike: both carry flags placed and win-only unusedMarks.
+function sessionUnusedMarkShare(ev) {
+  return ev.end === 'win' && typeof ev.unusedMarks === 'number'
+    && typeof ev.flags === 'number' && ev.flags > 0
+    ? ev.unusedMarks / ev.flags : undefined;
+}
+
 // Collapses all play spans onto one cumulative-play timeline, then buckets
 // that timeline. Wall-clock gaps consume no x distance and no bucket time:
 // ten played seconds, a five-minute break, and twenty more played seconds
@@ -8684,6 +10284,10 @@ function sessionBucketSeries(events, opts) {
   const excessRisk = new Array(bucketCount).fill(0);
   const modeledLifeGap = new Array(bucketCount).fill(0);
   const fastGaps = Array.from({ length: bucketCount }, () => []);
+  // Raw useful-press gaps (no fastclick qualification) for the cadence
+  // spread. Live events only: a backfilled game's raw gaps are gone (its
+  // stored per-game spread still feeds the per-game aggregation).
+  const pressGaps = Array.from({ length: bucketCount }, () => []);
   const endCounts = SESSION_END_KINDS.map(() => new Array(bucketCount).fill(0));
   const likelyMisclickCounts = new Array(bucketCount).fill(0);
   // Exact game-end instants stay separate from the bucketed aggregates so
@@ -8711,13 +10315,22 @@ function sessionBucketSeries(events, opts) {
   // (wins recorded before flag counting stay out of both).
   const winUnmarkedSum = new Array(bucketCount).fill(0);
   const winUnmarkedWins = new Array(bucketCount).fill(0);
-  const countEnd = (i, end, winUnmarked, likelyMisclick) => {
+  // The per-mark unused-share inputs, same shape: sum of measured wins'
+  // unused-mark shares and how many wins carried the measurement
+  // (markless wins have no share and stay out of both).
+  const unusedShareSum = new Array(bucketCount).fill(0);
+  const unusedShareWins = new Array(bucketCount).fill(0);
+  const countEnd = (i, end, winUnmarked, unusedShare, likelyMisclick) => {
     if (i < 0 || i >= bucketCount) return;
     const k = SESSION_END_KINDS.indexOf(end);
     endCounts[k >= 0 ? k : SESSION_END_KINDS.indexOf('other')][i]++;
     if (end === 'win' && typeof winUnmarked === 'number') {
       winUnmarkedSum[i] += winUnmarked;
       winUnmarkedWins[i]++;
+    }
+    if (end === 'win' && typeof unusedShare === 'number') {
+      unusedShareSum[i] += unusedShare;
+      unusedShareWins[i]++;
     }
     if (likelyMisclick === true) likelyMisclickCounts[i]++;
   };
@@ -8777,7 +10390,8 @@ function sessionBucketSeries(events, opts) {
     // like the classified death above.
     if (ev !== null && typeof ev.end === 'string') {
       const endBucket = bucketAt(span.playTo - 1e-6);
-      countEnd(endBucket, ev.end, ev.winUnmarked, ev.likelyMisclick);
+      countEnd(endBucket, ev.end, ev.winUnmarked, sessionUnusedMarkShare(ev),
+        ev.likelyMisclick);
       if (ev.end === 'win' && typeof ev.unusedMarks === 'number'
           && endBucket >= 0 && endBucket < bucketCount) unusedMarkGames[endBucket]++;
       addGameEnd(span.playTo, ev);
@@ -8813,9 +10427,11 @@ function sessionBucketSeries(events, opts) {
       if (ev.misclick) misclickCount[i]++;
       if (ev.flag) flags[i]++;
       if (ev.unflag) unflags[i]++;
-      if (ev.useful && ev.moving && ev.gapMs !== undefined
-          && ev.gapMs <= FASTCLICK_MAX_GAP_MS) {
-        fastGaps[i].push(ev.gapMs);
+      if (ev.useful && ev.gapMs !== undefined) {
+        pressGaps[i].push(ev.gapMs);
+        if (ev.moving && ev.gapMs <= FASTCLICK_MAX_GAP_MS) {
+          fastGaps[i].push(ev.gapMs);
+        }
       }
     } else if (ev.kind === 'death' && ev.mistake === true) {
       avoidableDeaths[i]++;
@@ -8824,7 +10440,8 @@ function sessionBucketSeries(events, opts) {
       excessRisk[i] += ev.excessRisk || 0;
       modeledLifeGap[i] += ev.modeledLifeGap || 0;
     } else if (ev.kind === 'end') {
-      countEnd(i, ev.end, ev.winUnmarked, ev.likelyMisclick);
+      countEnd(i, ev.end, ev.winUnmarked, sessionUnusedMarkShare(ev),
+        ev.likelyMisclick);
       if (ev.end === 'win' && typeof ev.unusedMarks === 'number') {
         unusedMarkGames[i]++;
       }
@@ -8846,6 +10463,8 @@ function sessionBucketSeries(events, opts) {
   const rawEndGames = new Array(bucketCount).fill(0);
   const winUnmarkedFraction = new Array(bucketCount).fill(undefined);
   const rawWinUnmarkedFraction = new Array(bucketCount).fill(undefined);
+  const unusedMarkShareFraction = new Array(bucketCount).fill(undefined);
+  const rawUnusedMarkShareFraction = new Array(bucketCount).fill(undefined);
   const likelyMisclickFraction = new Array(bucketCount).fill(undefined);
   const rawLikelyMisclickFraction = new Array(bucketCount).fill(undefined);
   {
@@ -8853,6 +10472,8 @@ function sessionBucketSeries(events, opts) {
     let total = 0;
     let unmarkedSum = 0;
     let unmarkedWins = 0;
+    let shareSum = 0;
+    let shareWins = 0;
     let likelyMisclicks = 0;
     for (let i = 0; i < bucketCount; i++) {
       const bucketGames = endCounts.reduce((sum, counts) => sum + counts[i], 0);
@@ -8866,6 +10487,9 @@ function sessionBucketSeries(events, opts) {
       if (winUnmarkedWins[i] > 0) {
         rawWinUnmarkedFraction[i] = winUnmarkedSum[i] / winUnmarkedWins[i];
       }
+      if (unusedShareWins[i] > 0) {
+        rawUnusedMarkShareFraction[i] = unusedShareSum[i] / unusedShareWins[i];
+      }
       for (let k = 0; k < SESSION_END_KINDS.length; k++) {
         cumulative[k] += endCounts[k][i];
         total += endCounts[k][i];
@@ -8878,8 +10502,11 @@ function sessionBucketSeries(events, opts) {
       }
       unmarkedSum += winUnmarkedSum[i];
       unmarkedWins += winUnmarkedWins[i];
+      shareSum += unusedShareSum[i];
+      shareWins += unusedShareWins[i];
       likelyMisclicks += likelyMisclickCounts[i];
       if (unmarkedWins > 0) winUnmarkedFraction[i] = unmarkedSum / unmarkedWins;
+      if (shareWins > 0) unusedMarkShareFraction[i] = shareSum / shareWins;
       if (total > 0) likelyMisclickFraction[i] = likelyMisclicks / total;
     }
   }
@@ -8894,6 +10521,7 @@ function sessionBucketSeries(events, opts) {
   const mismarksPerMin = [];
   const unusedMarksPerMin = [];
   const fastclickGapMs = [];
+  const cadenceSpreadRatio = [];
   const categoryPerMin = Object.fromEntries(
     ACTION_CATEGORY_SPECS.map((spec) => [spec.id, []]));
   const excessRiskPctPerMin = [];
@@ -8949,15 +10577,25 @@ function sessionBucketSeries(events, opts) {
     excessRiskPctPerGame.push(games > 0 ? 100 * excessRisk[i] / games : undefined);
     modeledLifeGapPerGame.push(games > 0 ? modeledLifeGap[i] / games : undefined);
     fastclickGapMs.push(sessionMedian(fastGaps[i]));
+    cadenceSpreadRatio.push(sessionGapSpread(pressGaps[i]));
   }
   return {
     startPlayMs, bucketMs: opts.bucketMs, playNowMs,
     windowMs: opts.windowMs, centers, playMs,
+    // The play↔wall mapping behind the compressed x axis, for the
+    // "when was this played" provenance strip and day-boundary marks.
+    playSpans: spans.map((span) => ({
+      playFrom: span.playFrom,
+      playTo: span.playTo,
+      from: span.from,
+      to: span.to,
+    })),
     speedPxPerSec, clicksPerSec, avoidablePerMin, wastedPerMin, misclicksPerMin, flagsPerSec,
-    mismarksPerMin, unusedMarksPerMin, fastclickGapMs,
-    endFractions, endGames, winUnmarkedFraction, likelyMisclickFraction,
+    mismarksPerMin, unusedMarksPerMin, fastclickGapMs, cadenceSpreadRatio,
+    endFractions, endGames, winUnmarkedFraction, unusedMarkShareFraction,
+    likelyMisclickFraction,
     rawEndFractions, rawEndGames, rawWinUnmarkedFraction,
-    rawLikelyMisclickFraction,
+    rawUnusedMarkShareFraction, rawLikelyMisclickFraction,
     wins, gameEnds,
     categoryPerMin, excessRiskPctPerMin, modeledLifeGapPerMin,
     usefulPerGame, wastedPerGame, misclicksPerGame, flagsPerGame,
@@ -8969,8 +10607,8 @@ function sessionBucketSeries(events, opts) {
     sums: { playMs, movePx, useful, wasted, misclickPlayMs, unusedMarkPlayMs,
       misclickCount, flags, unflags, unusedMarks, unusedMarkGames,
       avoidableDeaths, categoryCounts, excessRisk,
-      modeledLifeGap, fastGaps, endCounts, likelyMisclickCounts,
-      winUnmarkedSum, winUnmarkedWins },
+      modeledLifeGap, fastGaps, pressGaps, endCounts, likelyMisclickCounts,
+      winUnmarkedSum, winUnmarkedWins, unusedShareSum, unusedShareWins },
   };
 }
 
@@ -8992,6 +10630,7 @@ function sessionRawSeries(events, opts) {
     endFractions: raw.rawEndFractions,
     endGames: raw.rawEndGames,
     winUnmarkedFraction: raw.rawWinUnmarkedFraction,
+    unusedMarkShareFraction: raw.rawUnusedMarkShareFraction,
     likelyMisclickFraction: raw.rawLikelyMisclickFraction,
   };
 }
@@ -9030,6 +10669,7 @@ function sessionGameSeries(events, opts) {
   const playMs = [];
   const speedPxPerSec = [];
   const fastclickGapMs = [];
+  const cadenceSpreadRatio = [];
   const usefulPerGame = [];
   const wastedPerGame = [];
   const misclicksPerGame = [];
@@ -9045,6 +10685,7 @@ function sessionGameSeries(events, opts) {
     SESSION_END_KINDS.map((kind) => [kind, []]));
   const endGames = [];
   const winUnmarkedFraction = [];
+  const unusedMarkShareFraction = [];
   const likelyMisclickFraction = [];
   const average = (games, of) => {
     const measured = games.map((game) => of(game.source))
@@ -9064,6 +10705,9 @@ function sessionGameSeries(events, opts) {
     speedPxPerSec.push(durationMs > 0 ? movePx / (durationMs / 1000) : undefined);
     fastclickGapMs.push(sessionMedian(sources
       .map((source) => source.fastGapMs)
+      .filter((value) => typeof value === 'number')));
+    cadenceSpreadRatio.push(sessionMedian(sources
+      .map((source) => source.cadenceSpread)
       .filter((value) => typeof value === 'number')));
     usefulPerGame.push(average(games, (source) => source.useful));
     wastedPerGame.push(average(games, (source) => source.wasted));
@@ -9090,6 +10734,10 @@ function sessionGameSeries(events, opts) {
       .filter((value) => typeof value === 'number');
     winUnmarkedFraction.push(unmarked.length === 0 ? undefined
       : unmarked.reduce((sum, value) => sum + value, 0) / unmarked.length);
+    const unusedShares = sources.map((source) => sessionUnusedMarkShare(source))
+      .filter((value) => typeof value === 'number');
+    unusedMarkShareFraction.push(unusedShares.length === 0 ? undefined
+      : unusedShares.reduce((sum, value) => sum + value, 0) / unusedShares.length);
     likelyMisclickFraction.push(
       sources.filter((source) => source.likelyMisclick === true).length / games.length);
   }
@@ -9099,10 +10747,12 @@ function sessionGameSeries(events, opts) {
     lookbackGames: opts.lookbackGames,
     playNowMs: timeline.playNowMs,
     windowMs: opts.windowMs,
+    playSpans: timeline.playSpans,
     centers,
     playMs,
     speedPxPerSec,
     fastclickGapMs,
+    cadenceSpreadRatio,
     usefulPerGame,
     wastedPerGame,
     misclicksPerGame,
@@ -9116,6 +10766,7 @@ function sessionGameSeries(events, opts) {
     endFractions,
     endGames,
     winUnmarkedFraction,
+    unusedMarkShareFraction,
     likelyMisclickFraction,
     gameEnds: visibleEnds,
     wins: visibleEnds.filter((game) => game.end === 'win'),
@@ -9184,6 +10835,7 @@ function sessionRunningSeries(events, opts) {
   const mismarksPerMin = [];
   const unusedMarksPerMin = [];
   const fastclickGapMs = [];
+  const cadenceSpreadRatio = [];
   const categoryPerMin = Object.fromEntries(
     ACTION_CATEGORY_SPECS.map((spec) => [spec.id, []]));
   const excessRiskPctPerMin = [];
@@ -9203,11 +10855,14 @@ function sessionRunningSeries(events, opts) {
   for (const kind of SESSION_END_KINDS) endFractions[kind] = [];
   const endGames = [];
   const winUnmarkedFraction = [];
+  const unusedMarkShareFraction = [];
   const likelyMisclickFraction = [];
   const endCumulative = new Array(SESSION_END_KINDS.length).fill(0);
   let endTotal = 0;
   let unmarkedSum = 0;
   let unmarkedWins = 0;
+  let shareSum = 0;
+  let shareWins = 0;
   let likelyMisclicks = 0;
   for (let k = 0; k < sums.playMs.length; k++) {
     // The sample sits at its fine bucket's right edge; the newest one
@@ -9220,6 +10875,8 @@ function sessionRunningSeries(events, opts) {
     }
     unmarkedSum += sums.winUnmarkedSum[k];
     unmarkedWins += sums.winUnmarkedWins[k];
+    shareSum += sums.unusedShareSum[k];
+    shareWins += sums.unusedShareWins[k];
     likelyMisclicks += sums.likelyMisclickCounts[k];
     centers.push(pos);
     const playedMs = roll(pPlay, k);
@@ -9265,10 +10922,13 @@ function sessionRunningSeries(events, opts) {
     modeledLifeGapPerGame.push(games > 0
       ? roll(pModeledLifeGap, k) / games : undefined);
     const gaps = [];
+    const rawGaps = [];
     for (let j = Math.max(0, k - lookbackBuckets + 1); j <= k; j++) {
       gaps.push(...sums.fastGaps[j]);
+      rawGaps.push(...sums.pressGaps[j]);
     }
     fastclickGapMs.push(sessionMedian(gaps));
+    cadenceSpreadRatio.push(sessionGapSpread(rawGaps));
     endGames.push(endTotal);
     for (let j = 0; j < SESSION_END_KINDS.length; j++) {
       endFractions[SESSION_END_KINDS[j]].push(
@@ -9276,21 +10936,25 @@ function sessionRunningSeries(events, opts) {
     }
     winUnmarkedFraction.push(
       unmarkedWins > 0 ? unmarkedSum / unmarkedWins : undefined);
+    unusedMarkShareFraction.push(
+      shareWins > 0 ? shareSum / shareWins : undefined);
     likelyMisclickFraction.push(
       endTotal > 0 ? likelyMisclicks / endTotal : undefined);
   }
   return {
     stepMs: opts.stepMs, lookbackMs: opts.lookbackMs,
     playNowMs: fine.playNowMs, windowMs: opts.windowMs,
+    playSpans: fine.playSpans,
     centers, playMs,
     speedPxPerSec, clicksPerSec, avoidablePerMin, wastedPerMin,
     misclicksPerMin, flagsPerSec, mismarksPerMin, unusedMarksPerMin,
-    fastclickGapMs,
+    fastclickGapMs, cadenceSpreadRatio,
     categoryPerMin, excessRiskPctPerMin, modeledLifeGapPerMin,
     usefulPerGame, wastedPerGame, misclicksPerGame, flagsPerGame,
     mismarksPerGame, unusedMarksPerGame, avoidablePerGame, categoryPerGame,
     excessRiskPctPerGame, modeledLifeGapPerGame,
-    endFractions, endGames, winUnmarkedFraction, likelyMisclickFraction,
+    endFractions, endGames, winUnmarkedFraction, unusedMarkShareFraction,
+    likelyMisclickFraction,
     gameEnds: fine.gameEnds.filter((game) =>
       game.playAt >= windowFrom && game.playAt <= fine.playNowMs),
     wins: fine.wins.filter((win) =>
@@ -9318,6 +10982,67 @@ function sessionYDomain(values) {
     min: min >= 0 ? Math.max(0, min - pad) : min - pad,
     max: max + pad,
   };
+}
+
+// Real-world provenance of the visible played-time window (2026-08-30):
+// the compressed play axis hides when the play actually happened, so the
+// window is cut into wall-clock sections. A new section starts wherever
+// play resumed after a real break of SESSION_SECTION_BREAK_MS or more,
+// and always at local midnight, so "30m today + 30m yesterday" reads as
+// exactly that. Each section maps a contiguous play-coordinate interval
+// to the contiguous wall-clock interval it came from.
+const SESSION_SECTION_BREAK_MS = 15 * 60 * 1000;
+
+function sessionLocalDayStart(wallMs) {
+  const d = new Date(wallMs);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
+function sessionWallSections(playSpans, playFrom, playTo) {
+  const pieces = [];
+  for (const span of playSpans || []) {
+    const clipFrom = Math.max(span.playFrom, playFrom);
+    const clipTo = Math.min(span.playTo, playTo);
+    if (clipTo <= clipFrom) continue;
+    // Within a span, play time and wall time advance together.
+    let pCursor = clipFrom;
+    let wCursor = span.from + (clipFrom - span.playFrom);
+    const wallEnd = span.from + (clipTo - span.playFrom);
+    while (wCursor < wallEnd) {
+      const day = new Date(wCursor);
+      const nextMidnight = new Date(
+        day.getFullYear(), day.getMonth(), day.getDate() + 1).getTime();
+      const pieceWallTo = Math.min(wallEnd, nextMidnight);
+      const length = pieceWallTo - wCursor;
+      pieces.push({
+        playFrom: pCursor,
+        playTo: pCursor + length,
+        wallFrom: wCursor,
+        wallTo: pieceWallTo,
+      });
+      pCursor += length;
+      wCursor = pieceWallTo;
+    }
+  }
+  pieces.sort((a, b) => a.playFrom - b.playFrom);
+  const sections = [];
+  for (const piece of pieces) {
+    const prev = sections[sections.length - 1];
+    // Merge a continuation: same local day, resumed within the break
+    // threshold. wallTo is exclusive, so the day a section belongs to is
+    // read just inside its end.
+    if (prev !== undefined
+        && piece.wallFrom - prev.wallTo < SESSION_SECTION_BREAK_MS
+        && sessionLocalDayStart(piece.wallFrom)
+          === sessionLocalDayStart(Math.max(prev.wallFrom, prev.wallTo - 1))) {
+      prev.playTo = piece.playTo;
+      prev.wallTo = piece.wallTo;
+    } else {
+      sections.push({ ...piece });
+    }
+  }
+  return sections;
 }
 
 //-------SESSION STATS: RECORDING (event capture into RAM)-------
@@ -9470,6 +11195,13 @@ function sessionRecordEnd(end, winUnmarked) {
     modeledLifeGap: actionSummary.modeledLifeGap,
     fastGapMs: sessionMedian(gameFastclickGaps),
   };
+  // The same per-game gap-spread ratio the record stores (all button
+  // presses from the trace), for the per-game session aggregation.
+  const endCadence = computeClickCadence(trace.t, trace.events);
+  if (typeof endCadence.gapSpreadRatio === 'number'
+      && Number.isFinite(endCadence.gapSpreadRatio)) {
+    event.cadenceSpread = endCadence.gapSpreadRatio;
+  }
   if (end === 'win') event.unusedMarks = unusedCorrectFlags;
   if (typeof winUnmarked === 'number') event.winUnmarked = winUnmarked;
   sessionEvents.push(event);
@@ -9533,6 +11265,7 @@ function sessionBackfillFromHistory() {
         excessRisk: actionSummary.excessRisk,
         modeledLifeGap: actionSummary.modeledLifeGap,
         fastGapMs: record.fastclickGapMs,
+        cadenceSpread: record.cadenceSpread,
         end: record.outcome === 'win' ? 'win'
           : sessionEndingKind(fatal),
         winUnmarked: recordWinUnmarkedShare(record, mines),
@@ -9560,21 +11293,40 @@ const SESSION_GROUP = {
 // legacy action rates share two unit-grouped plots, and all report
 // categories share a third per-minute plot. Session diagnostics are
 // independent of the after-game report display scope.
-const SESSION_METRIC_SPECS = [
-  { label: 'mouse speed px/s',
+// Mouse speed and the fastclick gap share one two-line chart
+// (2026-08-30, replacing their solo rows): their magnitudes live in the
+// same few-hundreds range, and each endpoint label names its own series
+// and unit ("mouse speed 916px/s", "fastclick gap 240ms"), so a shared
+// bare numeric axis stays readable. Both series measure the same way on
+// either rate basis, so the basis mapping is skipped (rawSpecs).
+const SESSION_SPEED_GAP_SPECS = [
+  { label: 'mouse speed', unit: '', color: '#3949ab',
     calc: 'cursor px traveled while a game was in progress over the '
       + 'trailing lookback of play, divided by its in-progress seconds; '
       + 'abandoned games count, between-game movement never does',
     records: 'cursor travel per in-progress second, averaged over the '
       + 'trailing lookback; a change in the series has no assigned cause',
     of: (b, i) => b.speedPxPerSec[i], fmt: (v) => Math.round(v) + 'px/s' },
-  { label: 'fastclick gap ms',
+  { label: 'fastclick gap', unit: '', color: '#e8710a',
     calc: 'median gap between consecutive useful presses of the same game '
       + 'when the press was made on the move (cursor moving within 100ms '
       + 'before it) and the gap was under 1s',
     records: 'the median qualifying press-to-press interval within the '
       + 'trailing lookback; only the timing rule above is observed',
     of: (b, i) => b.fastclickGapMs[i], fmt: (v) => Math.round(v) + 'ms' },
+];
+
+const SESSION_METRIC_SPECS = [
+  { label: 'cadence spread \u00d7',
+    calc: 'interquartile range of useful-press gaps within the trailing '
+      + 'lookback divided by their median (games recorded before this page '
+      + 'load cannot contribute raw gaps); per-game aggregation instead '
+      + 'medians each game\u2019s stored spread, which is measured over all '
+      + 'button presses of that game',
+    records: 'press-rhythm dispersion: 0 means metronomic, larger means '
+      + 'burstier; losses and wins both contribute, and no cause for a '
+      + 'change is inferred',
+    of: (b, i) => b.cadenceSpreadRatio[i], fmt: (v) => v.toFixed(2) + '\u00d7' },
   { label: 'excess game risk pp/m', category: 'gameRisk',
     calc: 'sum of the extra immediate loss probability chosen by survived '
       + 'game-risk actions over the trailing played-time lookback, divided '
@@ -9703,7 +11455,11 @@ const SESSION_CATEGORY_RATE_SPECS = [
 
 function sessionRateSpecsForBasis(specs) {
   if (settings.sessionRateBasis !== 'game') return specs;
-  return specs.map((spec) => ({ ...spec, unit: '/game', of: spec.gameOf }));
+  // Per-game values are whole-game magnitudes, so one decimal reads
+  // fine (user call 2026-08-30; the /s rates keep their two decimals).
+  return specs.map((spec) => ({
+    ...spec, unit: '/game', of: spec.gameOf, fmt: (v) => v.toFixed(1),
+  }));
 }
 
 function sessionMetricSpecForBasis(spec) {
@@ -9712,35 +11468,44 @@ function sessionMetricSpecForBasis(spec) {
 }
 
 // The game-endings lines: one cumulative percent line per ending kind,
-// in one chart (PRODUCT.md "Game-end evaluation"). Loss labels are the
-// report's fatal-action wording verbatim (FATAL_STATUS_LABELS), so the
-// chart's categories are exactly the report's reasons for losing;
-// legacy-imported verdicts keep their old five-way lines as dashed
-// provenance; 'win' leads, 'other' is an unjudged loss. The
-// "percent of mines unmarked when winning" line is a different quantity
-// on the same percent axis (see appendSessionEndingsRow), drawn dotted
-// with its own series accessor. The color travels inline (line stroke, last-point dot
-// fill, legend swatch), so the three can never disagree.
+// in one chart (PRODUCT.md "Game-end evaluation"). The chart carries its
+// own compact labels (2026-08-30): every death ending starts with
+// "died: " so the losses read as one family, while the classification
+// kinds stay exactly the report's fatal-action kinds — the report keeps
+// its sentence wording (FATAL_STATUS_LABELS), and the two can never
+// disagree because both derive from fatalActionStatusKind.
+// Legacy-imported verdicts keep their old five-way lines as dashed
+// provenance; 'win' leads. The "percent of mines unmarked when winning"
+// line is a different quantity on the same percent axis (see
+// appendSessionEndingsRow), drawn dotted in a deliberately un-endings
+// blue so it can't be misread as an ending share. The color travels
+// inline (line stroke, last-point dot fill, legend swatch), so the three
+// can never disagree.
 const SESSION_END_SPECS = [
   { kind: 'win', label: 'win', color: '#2e7d32' },
   { kind: 'win-unmarked', label: 'percent of mines unmarked when winning',
-    color: '#0f9b8e', dash: '2 3', series: (b) => b.winUnmarkedFraction },
-  { kind: 'likely-misclick', label: 'likely misclick deaths',
+    color: '#1565c0', dash: '2 3', series: (b) => b.winUnmarkedFraction },
+  // The per-mark calibration of unused correct marks — the primary
+  // reading (decided 2026-08-30; see sessionUnusedMarkShare). The /m and
+  // /game views on the rate charts remain as volume/time companions.
+  { kind: 'win-unused-marks', label: 'percent of placed marks unused when winning',
+    color: '#7b1fa2', dash: '2 3', series: (b) => b.unusedMarkShareFraction },
+  { kind: 'likely-misclick', label: 'died: likely misclick',
     color: '#c2185b', dash: '4 2', series: (b) => b.likelyMisclickFraction },
-  { kind: 'guess-min', label: FATAL_STATUS_LABELS['guess-min'], color: '#b8860b' },
-  { kind: 'guess-higher', label: FATAL_STATUS_LABELS['guess-higher'], color: '#d95f02' },
-  { kind: 'guess-unmeasured', label: FATAL_STATUS_LABELS['guess-unmeasured'], color: '#9a6b2f' },
-  { kind: 'guess-safe', label: FATAL_STATUS_LABELS['guess-safe'], color: '#c62828' },
-  { kind: 'mine-safe', label: FATAL_STATUS_LABELS['mine-safe'], color: '#8e1111' },
-  { kind: 'mine-forced', label: FATAL_STATUS_LABELS['mine-forced'], color: '#b71c1c' },
-  { kind: 'proof-safe', label: FATAL_STATUS_LABELS['proof-safe'], color: '#8e1111' },
-  { kind: 'proof-forced', label: FATAL_STATUS_LABELS['proof-forced'], color: '#d95f02' },
-  { kind: 'angel', label: DEATH_KIND_LABELS.angel + ' (legacy)', color: '#b8860b', dash: '6 3' },
-  { kind: 'forced', label: DEATH_KIND_LABELS.forced + ' (legacy)', color: '#b8860b', dash: '6 3' },
-  { kind: 'needless', label: DEATH_KIND_LABELS.needless + ' (legacy)', color: '#c62828', dash: '6 3' },
-  { kind: 'mine', label: DEATH_KIND_LABELS.mine + ' (legacy)', color: '#8e1111', dash: '6 3' },
-  { kind: 'chord', label: DEATH_KIND_LABELS.chord + ' (legacy)', color: '#a51e36', dash: '6 3' },
-  { kind: 'other', label: 'unjudged loss', color: '#999999' },
+  { kind: 'guess-min', label: 'died: minimum-risk forced guess', color: '#b8860b' },
+  { kind: 'guess-higher', label: 'died: higher-risk forced guess', color: '#d95f02' },
+  { kind: 'guess-unmeasured', label: 'died: forced guess (risk unmeasured)', color: '#9a6b2f' },
+  { kind: 'guess-safe', label: 'died: guessed despite available safe move', color: '#c62828' },
+  { kind: 'mine-safe', label: 'died: clicked forced mine despite available safe move', color: '#8e1111' },
+  { kind: 'mine-forced', label: 'died: clicked forced mine when a guess was required', color: '#b71c1c' },
+  { kind: 'proof-safe', label: 'died: Proof-or-die rule (safe move available)', color: '#8e1111' },
+  { kind: 'proof-forced', label: 'died: Proof-or-die rule (no safe move)', color: '#d95f02' },
+  { kind: 'angel', label: 'died: ' + DEATH_KIND_LABELS.angel + ' (legacy)', color: '#b8860b', dash: '6 3' },
+  { kind: 'forced', label: 'died: ' + DEATH_KIND_LABELS.forced + ' (legacy)', color: '#b8860b', dash: '6 3' },
+  { kind: 'needless', label: 'died: ' + DEATH_KIND_LABELS.needless + ' (legacy)', color: '#c62828', dash: '6 3' },
+  { kind: 'mine', label: 'died: ' + DEATH_KIND_LABELS.mine + ' (legacy)', color: '#8e1111', dash: '6 3' },
+  { kind: 'chord', label: 'died: ' + DEATH_KIND_LABELS.chord + ' (legacy)', color: '#a51e36', dash: '6 3' },
+  { kind: 'other', label: 'died: unjudged', color: '#999999' },
 ];
 
 // A session chart is a real chart, not a sparkline (decided 2026-08-22):
@@ -9769,6 +11534,206 @@ function sessionAgoLabel(agoMs) {
     return '-' + (Number.isInteger(hours) ? hours.toFixed(0) : hours.toFixed(1)) + 'h';
   }
   return '-' + Math.round(agoMs / 60000) + 'm';
+}
+
+//-------SESSION STATS: REAL-WORLD PROVENANCE STRIP-------
+
+function sessionDayLabel(wallMs, nowMs) {
+  const dayStart = sessionLocalDayStart(wallMs);
+  const today = new Date(sessionLocalDayStart(nowMs));
+  if (dayStart === today.getTime()) return 'today';
+  const yesterday = new Date(
+    today.getFullYear(), today.getMonth(), today.getDate() - 1).getTime();
+  if (dayStart === yesterday) return 'yesterday';
+  return new Date(dayStart).toLocaleDateString([], {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
+function sessionClockLabel(wallMs) {
+  return new Date(wallMs).toLocaleTimeString([], {
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+function sessionPlayedLabel(ms) {
+  if (ms < 60 * 1000) return Math.round(ms / 1000) + 's';
+  if (ms < 60 * 60 * 1000) return Math.round(ms / 60000) + 'm';
+  const hours = ms / (60 * 60 * 1000);
+  return (Number.isInteger(hours) ? hours.toFixed(0) : hours.toFixed(1)) + 'h';
+}
+
+function sessionBreakLabel(ms) {
+  if (ms < 60 * 60 * 1000) return Math.round(ms / 60000) + 'm';
+  const hours = ms / (60 * 60 * 1000);
+  return (hours >= 10 || Number.isInteger(hours)
+    ? Math.round(hours).toFixed(0) : hours.toFixed(1)) + 'h';
+}
+
+// Section fills cycle per distinct local day, so every day's play shares
+// one hue and a day change is an obvious color change.
+const SESSION_DAY_FILLS = ['#d3e7f5', '#fbe3c3', '#d8efd8', '#f3ddf0', '#f5f0c8'];
+
+function sessionSectionsForBuckets(buckets) {
+  const x1 = buckets.playNowMs;
+  const x0 = x1 - buckets.windowMs;
+  return sessionWallSections(buckets.playSpans, x0, x1);
+}
+
+function sessionSectionDay(section) {
+  return sessionLocalDayStart(Math.max(section.wallFrom, section.wallTo - 1));
+}
+
+// Dashed vertical marks on every session chart where the visible play
+// crosses into another calendar day, aligned with the provenance strip.
+function appendSessionDayBoundaries(svg, buckets, px, top, bottom) {
+  const sections = sessionSectionsForBuckets(buckets);
+  for (let i = 1; i < sections.length; i++) {
+    if (sessionSectionDay(sections[i]) === sessionSectionDay(sections[i - 1])) {
+      continue;
+    }
+    const line = document.createElementNS(SVG_NS, 'line');
+    const x = px(sections[i].playFrom).toFixed(1);
+    line.setAttribute('x1', x);
+    line.setAttribute('x2', x);
+    line.setAttribute('y1', top);
+    line.setAttribute('y2', bottom);
+    line.setAttribute('class', 'session-day-boundary');
+    svg.appendChild(line);
+  }
+}
+
+// The "when was this played" strip: same width, margins, and x mapping as
+// the session charts below it, so its sections line up column-for-column.
+// Each block is one contiguous real-world stretch (new block after a
+// ≥15m break or at midnight), filled per day, labeled inside when it
+// fits; the summary row underneath always carries every section's full
+// day, wall-clock range, played amount, and the break before it.
+function appendSessionWhenRow(container, buckets) {
+  // Sub-second slivers (a window edge clipping an old span to almost
+  // nothing) would list as "0s played" noise; the strip states where the
+  // meaningful play came from.
+  const sections = sessionSectionsForBuckets(buckets)
+    .filter((section) => section.playTo - section.playFrom >= 1000);
+  if (sections.length === 0) return;
+  const nowMs = Date.now();
+  const { L, R } = SESSION_CHART;
+  const W = settings.metricsPanelWidth - 18;
+  const H = 26;
+  const row = document.createElement('div');
+  row.className = 'metric-row session-metric-row';
+  const headRow = document.createElement('div');
+  headRow.className = 'metric-head';
+  const labelEl = document.createElement('span');
+  labelEl.className = 'metric-label';
+  labelEl.textContent = 'when this play happened';
+  labelEl.appendChild(chartHelpButton([
+    'The charts below share a compressed x axis: only played time '
+      + 'advances it, and real-world breaks take no width. This strip '
+      + 'maps that axis back to the real world — each block is one '
+      + 'continuous stretch of wall-clock time (a new block starts after '
+      + 'a break of 15 minutes or more, and always at midnight).',
+    'Blocks from the same calendar day share a color. The dashed '
+      + 'vertical line drawn through every chart below marks where the '
+      + 'play crosses into another day.',
+  ]));
+  headRow.appendChild(labelEl);
+  row.appendChild(headRow);
+
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('class', 'session-when-strip');
+  svg.setAttribute('width', W);
+  svg.setAttribute('height', H);
+  const el = (tag, attrs, text) => {
+    const node = document.createElementNS(SVG_NS, tag);
+    for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
+    if (text !== undefined) node.textContent = text;
+    svg.appendChild(node);
+    return node;
+  };
+  const x1 = buckets.playNowMs;
+  const x0 = x1 - buckets.windowMs;
+  const px = (t) => L + ((Math.min(Math.max(t, x0), x1) - x0) / (x1 - x0)) * (W - L - R);
+  el('rect', {
+    x: L, y: 2, width: W - L - R, height: H - 4, class: 'scatter-plot',
+  });
+  const fillOfDay = new Map();
+  const fillFor = (day) => {
+    if (!fillOfDay.has(day)) {
+      fillOfDay.set(day, SESSION_DAY_FILLS[fillOfDay.size % SESSION_DAY_FILLS.length]);
+    }
+    return fillOfDay.get(day);
+  };
+  for (let i = 0; i < sections.length; i++) {
+    const section = sections[i];
+    const bx = px(section.playFrom);
+    const bw = px(section.playTo) - bx;
+    el('rect', {
+      x: bx.toFixed(1),
+      y: 2,
+      width: Math.max(0.5, bw).toFixed(1),
+      height: H - 4,
+      class: 'session-when-block',
+      fill: fillFor(sessionSectionDay(section)),
+    });
+    if (i > 0 && sessionSectionDay(section) !== sessionSectionDay(sections[i - 1])) {
+      const x = bx.toFixed(1);
+      el('line', {
+        x1: x, x2: x, y1: 0, y2: H, class: 'session-day-boundary',
+      });
+    }
+    const day = sessionDayLabel(section.wallFrom, nowMs);
+    const range = sessionClockLabel(section.wallFrom)
+      + '–' + sessionClockLabel(section.wallTo);
+    const full = day + ' ' + range;
+    const startOnly = sessionClockLabel(section.wallFrom);
+    // ~6.2px per character at this size; drop to times-only, then to the
+    // start time, then to nothing, as the block narrows. The summary
+    // underneath always has the rest.
+    const text = bw >= full.length * 6.2 + 8 ? full
+      : bw >= range.length * 6.2 + 8 ? range
+        : bw >= startOnly.length * 6.2 + 8 ? startOnly : '';
+    if (text !== '') {
+      el('text', {
+        x: (bx + bw / 2).toFixed(1),
+        y: H / 2 + 4,
+        class: 'session-when-label',
+        'text-anchor': 'middle',
+      }, text);
+    }
+  }
+  row.appendChild(svg);
+
+  const summary = document.createElement('div');
+  summary.className = 'session-when-summary';
+  for (let i = 0; i < sections.length; i++) {
+    const section = sections[i];
+    const item = document.createElement('span');
+    item.className = 'session-when-item';
+    const swatch = document.createElement('span');
+    swatch.className = 'session-when-swatch';
+    swatch.style.background = fillFor(sessionSectionDay(section));
+    const text = document.createElement('span');
+    let note = sessionDayLabel(section.wallFrom, nowMs) + ' '
+      + sessionClockLabel(section.wallFrom) + '–' + sessionClockLabel(section.wallTo)
+      + ' · ' + sessionPlayedLabel(section.playTo - section.playFrom) + ' played';
+    if (i > 0) {
+      const breakMs = section.wallFrom - sections[i - 1].wallTo;
+      // A section that only exists because the clock crossed midnight is
+      // continuous play, not a break.
+      note += breakMs < SESSION_SECTION_BREAK_MS
+        ? ' (continues past midnight)'
+        : ' (after ' + sessionBreakLabel(breakMs) + ' away)';
+    }
+    text.textContent = note;
+    item.append(swatch, text);
+    summary.appendChild(item);
+  }
+  row.appendChild(summary);
+  container.appendChild(row);
 }
 
 let sessionGameTooltip = null;
@@ -9977,6 +11942,7 @@ function buildSessionChart(buckets, spec) {
   for (const v of minorTicks(yTicks, y0, y1)) {
     el('line', { x1: L - 4, y1: py(v), x2: L, y2: py(v), class: 'scatter-minor' });
   }
+  appendSessionDayBoundaries(svg, buckets, px, T, H - B);
   appendSessionGameMarkers(svg, buckets, {
     width: W, height: H, left: L, right: W - R, top: T, bottom: H - B,
   }, px);
@@ -10009,14 +11975,16 @@ function buildSessionChart(buckets, spec) {
   return svg;
 }
 
-// The game-endings chart: the session chart's visual grammar with a fixed
-// 0–100% y axis and one line per ending kind. Unlike the auto-ranged
-// measurement charts, this composition keeps its full meaningful domain.
-// Kinds that never occurred
+// The game-endings chart: the session chart's visual grammar with one
+// line per ending kind. The y axis auto-ranges to just above the highest
+// plotted rate (2026-08-30, replacing the fixed 0–100% domain: a session
+// whose lines all sit under 50% was wasting half the chart). Kinds that
+// never occurred
 // in the window stay off the chart (a page of flat zeros hides the real
 // lines); 'win' always draws once any game has ended, because a 0% win
 // line is itself the reading. The legend below the chart carries each
-// drawn kind's color and current percentage.
+// drawn kind's color and current percentage, and hovering a legend entry
+// highlights its line in the plot.
 function buildSessionEndingsChart(buckets) {
   const { H, L, R, T, B } = SESSION_CHART;
   const W = settings.metricsPanelWidth - 18;
@@ -10033,10 +12001,38 @@ function buildSessionEndingsChart(buckets) {
   };
   el('rect', { x: L, y: T, width: W - L - R, height: H - T - B, class: 'scatter-plot' });
 
+  // First pass: which series draw, and how high any of them reaches.
+  // The y domain tops out a bit above the highest plotted percentage
+  // (never past 100), so low-rate sessions use the full plot height.
+  const anyGames = buckets.endGames.some((count) => count > 0);
+  const shown = [];
+  let maxPct = 0;
+  for (const spec of SESSION_END_SPECS) {
+    const series = spec.series ? spec.series(buckets) : buckets.endFractions[spec.kind];
+    const latest = latestDefined(buckets, (b, i) => series[i]);
+    const occurred = series.some((value) => typeof value === 'number' && value > 0);
+    // Never-occurred endings stay off the chart, except the win line,
+    // which draws once any game ended (a 0% win line is itself the
+    // reading) — and likewise the two win-only marking lines draw once
+    // any win measured them (flagging every mine, or having every
+    // placed mark do chord work, is a reading too).
+    const show = anyGames && (spec.kind === 'win'
+      || (spec.kind === 'win-unmarked' || spec.kind === 'win-unused-marks'
+        ? latest !== undefined
+        : occurred));
+    if (!show) continue;
+    for (let i = 0; i < buckets.centers.length; i++) {
+      const v = displayableNumber(series[i]);
+      if (v !== undefined) maxPct = Math.max(maxPct, v * 100);
+    }
+    shown.push({ spec, series, latest });
+  }
+  const yMax = Math.min(100, Math.max(10, maxPct * 1.08));
+
   const x0 = buckets.playNowMs - buckets.windowMs;
   const x1 = buckets.playNowMs;
   const px = (t) => L + ((Math.min(Math.max(t, x0), x1) - x0) / (x1 - x0)) * (W - L - R);
-  const py = (pct) => H - B - (pct / 100) * (H - T - B);
+  const py = (pct) => H - B - (pct / yMax) * (H - T - B);
 
   const xTicks = Array.from({ length: 5 }, (_, i) => x0 + (x1 - x0) * i / 4);
   for (const v of xTicks) {
@@ -10044,28 +12040,17 @@ function buildSessionEndingsChart(buckets) {
     el('text', { x: Math.min(px(v), W - 17), y: H - B + 13, class: 'scatter-tick tick-x' },
       sessionAgoLabel(x1 - v));
   }
-  for (const pct of [0, 25, 50, 75, 100]) {
+  for (const pct of niceTicks(0, yMax, 4)) {
     el('line', { x1: L, y1: py(pct), x2: W - R, y2: py(pct), class: 'scatter-grid' });
-    el('text', { x: L - 4, y: py(pct) + 4, class: 'scatter-tick tick-y' }, String(pct));
+    el('text', { x: L - 4, y: py(pct) + 4, class: 'scatter-tick tick-y' },
+      String(Math.round(pct * 10) / 10));
   }
+  appendSessionDayBoundaries(svg, buckets, px, T, H - B);
   appendSessionGameMarkers(svg, buckets, {
     width: W, height: H, left: L, right: W - R, top: T, bottom: H - B,
   }, px);
   const drawn = [];
-  const anyGames = buckets.endGames.some((count) => count > 0);
-  for (const spec of SESSION_END_SPECS) {
-    const series = spec.series ? spec.series(buckets) : buckets.endFractions[spec.kind];
-    const latest = latestDefined(buckets, (b, i) => series[i]);
-    const occurred = series.some((value) => typeof value === 'number' && value > 0);
-    // Never-occurred endings stay off the chart, except the win line,
-    // which draws once any game ended (a 0% win line is itself the
-    // reading) — and likewise the unmarked-mines-at-win line draws
-    // once any win measured it (flagging every mine is a reading too).
-    const show = anyGames && (spec.kind === 'win'
-      || (spec.kind === 'win-unmarked'
-        ? latest !== undefined
-        : occurred));
-    if (!show) continue;
+  for (const { spec, series, latest } of shown) {
     let d = '';
     let pen = false;
     let lastX = null;
@@ -10081,16 +12066,31 @@ function buildSessionEndingsChart(buckets) {
     if (lastX === null) continue;
     const pathAttrs = { class: 'end-line', stroke: spec.color, d: d };
     if (spec.dash) pathAttrs['stroke-dasharray'] = spec.dash;
-    el('path', pathAttrs);
+    const path = el('path', pathAttrs);
     // A last-point dot keeps a one-bucket series visible (a path with a
     // single point draws nothing).
-    el('circle', {
+    const dot = el('circle', {
       class: 'end-dot', fill: spec.color, r: 2.5,
       cx: lastX.toFixed(1), cy: lastY.toFixed(1),
     });
-    drawn.push({ spec, latest });
+    drawn.push({ spec, latest, nodes: [path, dot] });
   }
   return { svg, drawn };
+}
+
+// Hovering a series' legend entry or in-plot value label highlights that
+// series (requested 2026-08-30, for every multi-line chart): the chart's
+// other lines fade while the hovered series thickens to full strength.
+function bindSeriesHighlight(svg, hotspot, nodes) {
+  hotspot.classList.add('series-hotspot');
+  hotspot.addEventListener('mouseenter', () => {
+    svg.classList.add('series-focus');
+    for (const node of nodes) node.classList.add('hot');
+  });
+  hotspot.addEventListener('mouseleave', () => {
+    svg.classList.remove('series-focus');
+    for (const node of nodes) node.classList.remove('hot');
+  });
 }
 
 // An action-rates chart: every SESSION_RATE_SPECS series of one unit in
@@ -10215,6 +12215,7 @@ function buildSessionRatesChart(buckets, specs, unit) {
   for (const v of minorTicks(yTicks, y0, y1)) {
     el('line', { x1: L - 4, y1: py(v), x2: L, y2: py(v), class: 'scatter-minor' });
   }
+  appendSessionDayBoundaries(svg, buckets, px, T, H - B);
   appendSessionGameMarkers(svg, buckets, {
     width: W, height: H, left: L, right: W - R, top: T, bottom: H - B,
   }, px);
@@ -10237,14 +12238,15 @@ function buildSessionRatesChart(buckets, specs, unit) {
     const lastPoint = points[points.length - 1];
     drawn.push({ spec, latest: lastPoint === undefined ? undefined : lastPoint.v });
     if (lastPoint === undefined) continue;
-    el('path', { class: 'end-line', stroke: spec.color, d: d });
-    el('circle', {
+    const path = el('path', { class: 'end-line', stroke: spec.color, d: d });
+    const dot = el('circle', {
       class: 'end-dot', fill: spec.color, r: 2.5,
       cx: lastPoint.x.toFixed(1), cy: lastPoint.y.toFixed(1),
     });
     pointLabels.push({
       x: lastPoint.x, y: lastPoint.y, spec,
       points,
+      seriesNodes: [path, dot],
       text: spec.label + ' ' + spec.fmt(lastPoint.v) + spec.unit,
     });
   }
@@ -10252,32 +12254,160 @@ function buildSessionRatesChart(buckets, specs, unit) {
   // Current values remain direct labels in their series colors, but a
   // collision/occlusion pass distributes them across open parts of the plot.
   // Fine leader lines keep every moved value explicitly tied to its endpoint.
+  // Hovering a value label highlights its whole series.
   for (const lab of sessionRateLabelLayout(pointLabels, {
     left: L + 2, right: W - R - 2, top: T + 1, bottom: H - B - 2,
   })) {
-    el('line', {
+    const leader = el('line', {
       x1: lab.x.toFixed(1), y1: (lab.y - 4).toFixed(1),
       x2: lab.connectorX.toFixed(1), y2: lab.connectorY.toFixed(1),
       stroke: lab.spec.color, class: 'rate-label-leader',
     });
-    el('text', {
+    const labelNode = el('text', {
       x: lab.x.toFixed(1),
       y: lab.y.toFixed(1),
       fill: lab.spec.color,
       class: 'rate-point-value',
       'text-anchor': lab.anchor,
     }, lab.text);
+    bindSeriesHighlight(svg, labelNode,
+      [...lab.seriesNodes, leader, labelNode]);
   }
   return { svg, drawn };
 }
 
+// A tiny real-looking board fragment for help tips: classic covered
+// bevels, the digit palette, and the real mine glyph. Each cell is
+// {kind: 'covered'|'number'|'mine'|'blank', n, note} — `note` prints
+// small bold text over the cell (used for mine probabilities).
+function helpBoardExample(rows, caption) {
+  const wrap = document.createElement('div');
+  wrap.className = 'help-board-wrap';
+  const board = document.createElement('div');
+  board.className = 'help-board';
+  board.style.gridTemplateColumns = 'repeat(' + rows[0].length + ', 26px)';
+  for (const row of rows) {
+    for (const cell of row) {
+      const el = document.createElement('span');
+      el.className = 'help-cell help-' + cell.kind;
+      if (cell.kind === 'number' && cell.n > 0) {
+        el.classList.add('help-n' + cell.n);
+        el.textContent = String(cell.n);
+      } else if (cell.kind === 'mine') {
+        el.innerHTML = MINE_SVG;
+      }
+      if (cell.note) {
+        const note = document.createElement('span');
+        note.className = 'help-cell-note';
+        note.textContent = cell.note;
+        el.appendChild(note);
+      }
+      board.appendChild(el);
+    }
+  }
+  wrap.appendChild(board);
+  if (caption) {
+    const cap = document.createElement('div');
+    cap.className = 'help-board-caption';
+    cap.textContent = caption;
+    wrap.appendChild(cap);
+  }
+  return wrap;
+}
+
+// The excess-game-risk explainer (requested 2026-08-30): plain words plus
+// a realistic board example, because "pp" alone explains nothing.
+function excessRiskHelp(unitNote) {
+  return (tip) => {
+    const p = (text) => {
+      const el = document.createElement('p');
+      el.textContent = text;
+      tip.appendChild(el);
+    };
+    p('Every covered cell has a knowable chance of being a mine, computed '
+      + 'from the visible numbers. When you open a cell that is riskier '
+      + 'than the safest cell you could have opened instead, the extra '
+      + 'chance of dying is excess game risk, in percentage points (pp).');
+    tip.appendChild(helpBoardExample([
+      [{ kind: 'covered', note: '17%' }, { kind: 'covered', note: '33%' },
+        { kind: 'mine' }],
+      [{ kind: 'number', n: 1 }, { kind: 'number', n: 2 },
+        { kind: 'number', n: 2 }],
+    ], 'These frontier cells hid a mine 17%, 33%, and 50% of the time. '
+      + 'The 50% cell was opened \u2014 and it really was a mine. The '
+      + 'safest available choice risked only 17%, so that click '
+      + 'volunteered 33 extra percentage points: +33pp excess game risk.'));
+    p('The chart sums those percentage points over the risky actions you '
+      + 'survived in the lookback, ' + unitNote + '. It measures risk '
+      + 'taken on, not deaths \u2014 deaths have their own lines on the '
+      + 'game endings chart.');
+  };
+}
+
+// The modeled-life-gap explainer: the same treatment for the one-ply
+// expected-remaining-life measure.
+function modeledLifeGapHelp(unitNote) {
+  return (tip) => {
+    const p = (text) => {
+      const el = document.createElement('p');
+      el.textContent = text;
+      tip.appendChild(el);
+    };
+    p('Before each of your moves, a one-move-deep model scores every '
+      + 'available move by the chance you survive it: a proven-safe cell '
+      + 'scores 1.00, a cell that is a mine 25% of the time scores 0.75.');
+    tip.appendChild(helpBoardExample([
+      [{ kind: 'covered', note: '1.00' }, { kind: 'mine', note: '0.75' }],
+      [{ kind: 'number', n: 1 }, { kind: 'number', n: 3 }],
+    ], 'The left cell was proven safe (survival score 1.00). The right '
+      + 'cell was opened instead at a 25% mine chance (score 0.75) \u2014 '
+      + 'and this time it was a mine. Best score minus chosen score: a '
+      + '0.25 life gap, a quarter of a game given away.'));
+    p('The chart sums these gaps over the lookback, ' + unitNote + '. It '
+      + 'is one move deep and model-relative: it does not price the '
+      + 'information a bolder click can buy, and it makes no claim about '
+      + 'your intent.');
+  };
+}
+
+// Default help for a measured metric: its measurement rule and what the
+// series does (and does not) record, straight from the spec.
+function sessionMetricHelp(spec) {
+  const unitNote = settings.sessionRateBasis === 'game'
+    ? 'shown per finished game' : 'shown per played minute';
+  if (spec.category === 'gameRisk') return excessRiskHelp(unitNote);
+  if (spec.category === 'lifeMaximization') return modeledLifeGapHelp(unitNote);
+  return ['What it measures: ' + spec.calc + '.',
+    'What it records: ' + spec.records + '.'];
+}
+
+// Help for a multi-series chart: one entry per drawn series, naming the
+// series in bold and giving its measurement rule.
+function ratesHelpBuilder(specs) {
+  return (tip) => {
+    for (const spec of specs) {
+      const p = document.createElement('p');
+      const name = document.createElement('b');
+      name.textContent = spec.label;
+      p.appendChild(name);
+      p.appendChild(document.createTextNode(' \u2014 ' + spec.calc + '.'));
+      tip.appendChild(p);
+    }
+  };
+}
+
 // An action-rates row: one unit's chart, each line naming itself at its
-// endpoint without a legend or hover essay.
+// endpoint (hover a value label to spotlight its line), with a (?) that
+// explains every drawn series.
 function appendSessionRatesRow(
   container, buckets, unit, sourceSpecs = SESSION_RATE_SPECS,
-  label = 'action rates') {
-  const specs = sessionRateSpecsForBasis(sourceSpecs)
-    .filter((spec) => spec.unit === unit);
+  label = 'action rates', options = {}) {
+  // rawSpecs charts (mouse speed & fastclick gap) measure identically on
+  // either rate basis, so they skip the basis remap and unit filter.
+  const specs = options.rawSpecs
+    ? sourceSpecs
+    : sessionRateSpecsForBasis(sourceSpecs)
+      .filter((spec) => spec.unit === unit);
   if (specs.length === 0) return;
   const row = document.createElement('div');
   row.className = 'metric-row session-metric-row';
@@ -10285,7 +12415,10 @@ function appendSessionRatesRow(
   headRow.className = 'metric-head';
   const labelEl = document.createElement('span');
   labelEl.className = 'metric-label';
-  labelEl.textContent = label + unit;
+  labelEl.textContent = options.headLabel || (label + unit);
+  // Inside the label span, so the (?) rides directly after the name
+  // (the head row itself is a space-between flex).
+  labelEl.appendChild(chartHelpButton(options.help || ratesHelpBuilder(specs)));
   headRow.appendChild(labelEl);
   row.appendChild(headRow);
   const { svg, drawn } = buildSessionRatesChart(buckets, specs, unit);
@@ -10425,6 +12558,7 @@ function appendSessionSection(container) {
         stepMs: SESSION_STEP_MS,
         lookbackMs: settings.sessionLookbackSeconds * 1000,
       });
+  appendSessionWhenRow(container, buckets);
   appendSessionEndingsRow(container, buckets);
   if (settings.sessionRateBasis === 'game') {
     appendSessionRatesRow(container, buckets, '/game');
@@ -10436,6 +12570,11 @@ function appendSessionSection(container) {
   appendSessionRatesRow(container, buckets,
     settings.sessionRateBasis === 'game' ? '/game' : '/m',
     categorySpecs, 'report categories');
+  // Mouse speed and the fastclick gap share one chart (2026-08-30);
+  // each endpoint label carries its own unit, so the axis stays bare.
+  appendSessionRatesRow(container, buckets, '', SESSION_SPEED_GAP_SPECS,
+    'mouse speed & fastclick gap',
+    { rawSpecs: true, headLabel: 'mouse speed & fastclick gap' });
   for (const sourceSpec of SESSION_METRIC_SPECS) {
     const spec = sessionMetricSpecForBasis(sourceSpec);
     const row = document.createElement('div');
@@ -10445,6 +12584,7 @@ function appendSessionSection(container) {
     const labelEl = document.createElement('span');
     labelEl.className = 'metric-label';
     labelEl.textContent = spec.label;
+    labelEl.appendChild(chartHelpButton(sessionMetricHelp(sourceSpec)));
     headRow.appendChild(labelEl);
     row.appendChild(headRow);
     row.appendChild(buildSessionChart(buckets, spec));
@@ -10454,6 +12594,7 @@ function appendSessionSection(container) {
 
 // The game-endings row: cumulative percentages in running-average mode,
 // independent bucket percentages in raw mode, with a semantic color legend.
+// Hovering a legend entry highlights that line in the chart.
 function appendSessionEndingsRow(container, buckets) {
   const row = document.createElement('div');
   row.className = 'metric-row session-metric-row';
@@ -10463,13 +12604,26 @@ function appendSessionEndingsRow(container, buckets) {
   labelEl.className = 'metric-label';
   labelEl.textContent = 'game endings %';
   headRow.appendChild(labelEl);
+  labelEl.appendChild(chartHelpButton([
+    'Of the games finished inside the lookback, the percentage that '
+      + 'ended each way. "win" is every win; each "died:" line is one '
+      + 'exclusive reason the fatal action was judged to have lost the '
+      + 'game, so the died-lines plus the win line cover all finished games.',
+    'The dotted blue and purple lines are different quantities on the '
+      + 'same percent axis, measured on wins only: how many of the '
+      + 'board\u2019s mines you never marked, and how many of your placed '
+      + 'marks never did chord work.',
+    'The y axis stretches to just above the highest line rather than '
+      + 'always showing 0\u2013100. Hover a legend entry to spotlight its '
+      + 'line.',
+  ]));
   row.appendChild(headRow);
   const { svg, drawn } = buildSessionEndingsChart(buckets);
   row.appendChild(svg);
   if (drawn.length > 0) {
     const legend = document.createElement('div');
     legend.className = 'session-end-legend';
-    for (const { spec, latest } of drawn) {
+    for (const { spec, latest, nodes } of drawn) {
       const item = document.createElement('span');
       item.className = 'end-legend-item';
       const swatch = document.createElement('span');
@@ -10479,6 +12633,7 @@ function appendSessionEndingsRow(container, buckets) {
       text.textContent = spec.label + ' '
         + (latest === undefined ? '0' : Math.round(latest * 100)) + '%';
       item.append(swatch, text);
+      bindSeriesHighlight(svg, item, nodes);
       legend.appendChild(item);
     }
     row.appendChild(legend);

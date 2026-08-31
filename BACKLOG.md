@@ -24,7 +24,8 @@ is still unbuilt.
 
 Built the same day (PRODUCT.md "Board generators and top score keys"):
 pink noise (with the anisotropy stretch parameter), blue noise, green
-noise, stippled, letterforms, and patriotic. Still unbuilt:
+noise, stippled, letterforms, and patriotic (the last removed
+2026-08-30). Still unbuilt:
 
 - **Threshold blobs.** Cut the noise field at a level and fill the
   super-threshold region with mines (hard blob edges instead of the
@@ -39,9 +40,9 @@ noise, stippled, letterforms, and patriotic. Still unbuilt:
 - **Words in letterforms.** The letterforms generator draws random
   letters; a chosen word (part of the key, so each word ranks
   separately) is the natural next step.
-- **More flags and emblems.** Patriotic is stars-and-stripes; other
-  flag geometries (tricolors, crosses, circles) are the same
-  region-allocation pattern with different regions.
+- **Flags and emblems.** The removed patriotic generator was
+  stars-and-stripes; flag geometries generally (tricolors, crosses,
+  circles) are a region-allocation pattern with different regions.
 - **Combined modes and sizes.** More modes that combine generators
   with the NG/graded predicates, and new board sizes as their own
   ranked keys — the top score key already carries all of it.
@@ -264,7 +265,7 @@ from the RAM trace of the game just ended. Not built:
   trial (4 × 4); Test trial (1 × 4); correctness / throughput / IOS
   (derived); guess ledger (life lost, needless, ideal-risk, one-ply
   perfect play); board generators (Default / Pink noise / Blue noise /
-  Green noise / Stippled / Letterforms / Patriotic, per-key rankings
+  Green noise / Stippled / Letterforms, per-key rankings
   via the top score key, Board lab exploration mode);
   music-playing state (boolean asked of the local base
   system); versioned action-evaluation ledger with exclusive game-loss /

@@ -184,43 +184,6 @@ check('negative stretch makes vertical veins ('
   + squeezedV.toFixed(1) + ' vertical vs ' + squeezedH.toFixed(1) + ' horizontal pairs)',
 squeezedV > squeezedH * 1.3);
 
-// Patriotic: the canton takes its exact area-proportional mine share as
-// an even star field; the stripes alternate dense/sparse.
-{
-  const width = 30;
-  const height = 16;
-  const mines = 99;
-  const safeIndex = width * height - 1; // outside the canton
-  const cantonWidth = Math.round(width * 0.4);
-  const cantonHeight = Math.round(height * 7 / 13);
-  const cantonCells = cantonWidth * cantonHeight;
-  const wantCanton = Math.round(mines * cantonCells / (width * height - 1));
-  let denseTotal = 0;
-  let sparseTotal = 0;
-  for (let k = 0; k < 20; k++) {
-    const rng = GameRandom.fromSeed(seedNumbered(3000 + k));
-    const mineAt = BoardGenerators.place(
-      generatorWithDefaults('patriotic'), width, height, mines, safeIndex, rng);
-    let inCanton = 0;
-    for (let i = 0; i < mineAt.length; i++) {
-      if (!mineAt[i]) continue;
-      const x = i % width;
-      const y = (i - x) / width;
-      if (x < cantonWidth && y < cantonHeight) {
-        inCanton++;
-      } else if (Math.floor(y * 13 / height) % 2 === 0) {
-        denseTotal++;
-      } else {
-        sparseTotal++;
-      }
-    }
-    check('canton holds exactly its proportional mine share (' + inCanton + ')',
-      inCanton === wantCanton);
-  }
-  check('dense stripes far outweigh sparse stripes ('
-    + denseTotal + ' vs ' + sparseTotal + ')', denseTotal > sparseTotal * 2);
-}
-
 //-------top score key suffix-------
 
 check('default generator adds no key suffix',
@@ -228,9 +191,6 @@ check('default generator adds no key suffix',
 check('pink noise key suffix is canonical (schema order)',
   BoardGenerators.keySuffix(generatorWithDefaults('pink-noise'))
     === '+pink-noise(alpha=1,scale=8,contrast=2,stretch=0)');
-check('patriotic key suffix',
-  BoardGenerators.keySuffix(generatorWithDefaults('patriotic'))
-    === '+patriotic(stripes=13,contrast=8,canton=0.4)');
 check('blue noise key suffix',
   BoardGenerators.keySuffix(generatorWithDefaults('blue-noise'))
     === '+blue-noise(spread=8)');

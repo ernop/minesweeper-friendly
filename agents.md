@@ -133,6 +133,21 @@ Implementation notes:
   `throughputOf`/`iosOf`, never stored. Correctness needs `wastedClicks`
   (absent = unmeasured). Throughput and IOS are wins-only; IOS is also
   blank when time ≤ 1s.
+- Flagger metrics (2026-08-30, PRODUCT.md "Per-game stats"): `zini.js`
+  (`Zini` global / CommonJS) ports the community Rust reference's greedy
+  ZiNi and human ZiNi; `reportResult` stores `zini`/`hzini` (except in
+  Endgame drill) and `chordClicks` (incremented only in `chord`'s accepted
+  path). Derived read-time: `ioeOf` (bv3/clicks, wins), `chordShareOf`
+  (chordClicks/clicks), `zniEfficiencyOf` (zini/clicks, wins), `stnbOf`
+  (`STNB_CONSTANTS` on exact standard shapes, wins, never on drills).
+  `node tests/zini-test.js` (hand-simulated small boards + 3BV-bound
+  invariants on random boards). Per-game `cadenceSpread` = the trace
+  cadence system's gap spread ratio, stored on wins and losses from
+  `computeClickCadence` at report time; drives a stats row, the
+  cadence-over-date relationship scatter, and the session series
+  (`sessionGapSpread` over raw press gaps live; per-game basis medians
+  stored spreads — backfilled spans have no raw gaps and stay
+  unmeasured on the per-time basis).
 - `mousePathPx`: cursor distance accumulated on document mousemove only
   while `gameState === 'playing'`.
 - Unused correct marks: `activeFlagEpisodes` and `flagEpisodes` retain every
@@ -145,6 +160,12 @@ Implementation notes:
   that field because later intended chord use is unknowable. The closed
   winning play span carries the total into win-only `/m` and `/game` session
   series. This measures observable chord use, never mental use.
+  The primary calibration (decided 2026-08-30) is per mark placed:
+  `sessionUnusedMarkShare(ev)` derives unusedMarks / flags from win events
+  (live 'end' and backfilled 'game' alike), the series flows through every
+  session aggregation as `unusedMarkShareFraction` mirroring
+  `winUnmarkedFraction`, and the endings chart draws it as "percent of
+  placed marks unused when winning". A markless win is unmeasured (0 of 0).
 - Raw input traces (PRODUCT.md "Raw input traces"): `beginTrace` (end of
   newGame's board build) starts {startedAt, t0, t/x/y sample arrays,
   events}; the document mousemove handler appends a sample per move while
@@ -173,18 +194,47 @@ Implementation notes:
   `#replay-toggle` independently turns decision-time navigation on, so any
   path mode can be combined with a saved pre-action board and is truncated at
   the chosen decision without changing its full-game color scale.
-  `renderPathOverlay` draws `#path-canvas` (absolute over `#board`,
-  pointer-events none) from the just-finished RAM trace; parameter paths are
-  thick and their proper gradient legends carry low/mid/high values. Speed
-  colors use `pathDisplayRange`'s Tukey-trimmed local range; a constant range
-  renders its one real value instead of fabricated endpoints. `pathPointMapper` walks
-  layout events so each point maps through its geometry at trace time.
-  Less-useful segments derive from decision mistake evidence and include the
-  preceding/following useful boundary actions plus per-segment duration labels.
+  `renderPathOverlay` builds `#path-canvas` (absolute over `#board`,
+  pointer-events none) and a `lastPathState` snapshot from the just-finished
+  RAM trace; `paintPathCanvas` repaints from that state so legend hovers can
+  spotlight without rebuilding anything. Continuous parameters get binned
+  interpretive legends (`appendPathBinLegend` + pure `pathValueBins` /
+  `pathBinIndex`): one chip per color class with its exact interval;
+  chip hover spotlights those segments, and board mousemove hit-tests
+  segments (`pathSegmentAtPoint`, listener on `#board` so the canvas stays
+  input-inert) to show a `.path-tooltip` with the exact value and light the
+  matching chip. Speed colors use `pathDisplayRange`'s Tukey-trimmed local
+  range; a constant range renders its one real value instead of fabricated
+  endpoints. `pathPointMapper` walks layout events so each point maps through
+  its geometry at trace time. Sampling gaps ≥300ms (`pathTraceGaps`) draw as
+  dashed connectors; those whose endpoints are ≥40px apart are 'away'
+  (off-window) and get an on-path duration label. `pathClickActions` joins
+  raw inputs to decision frames by exact event time, so click markers color
+  chords (green) apart from plain left releases (blue) and right presses
+  (red). Less-useful segments derive from decision mistake evidence and
+  include the preceding/following useful boundary actions plus per-segment
+  duration labels.
   Back-in-time
   paints each decision event's saved pre-action position into the real board
   DOM, marks measured choices and selection, and restores the exact finished
-  markup on exit. `pathChoiceAreas` groups uncertain reasonable choices into
+  markup on exit. It adds a game-history range slider (`#replay-slider`, with
+  notch marks and numeric labels at the endpoints and quarters) that is
+  equivalent to prev/next, plus six independent overlay toggles
+  (`#replay-overlay-control`, `replayOverlays`): available moves / forced
+  mines / mine % come from `replaySolverRead` (exact `Odds.analyzeView`
+  enumeration per frame, cached per decision index in `replaySolverCache`,
+  falling back to bounded `Justice.proveFacts` when over budget), painting
+  proven-safe cells green, satisfied chordable numbers with a blue ring plus
+  pale-green cells the chord opens (chord marked safe only when everything it
+  opens is proven clear), proven mines with a red ring and dimmed mine glyph,
+  and exact per-cell mine percentages (`.replay-prob`, 0/100 on proven
+  cells). Pointless/purposeful click layers and the rough-movement underlay
+  (`pathRoughSegments`: crawling under ¼ of the game's median moving pace or
+  a >135° reversal) draw on the canvas up to the shown moment, and a gold
+  crosshair labeled with the action kind marks the exact input pixel of the
+  displayed action — for a chord, the precise spot chorded on. The canvas
+  survives path-off while back-in-time is active so those layers keep
+  rendering. `pathChoiceAreas` groups uncertain reasonable choices into
   connected pockets; `#replay-choice-areas` draws leaders to side labels with
   non-misleading mine risk and cell count, choosing left or right to avoid
   the result summary/viewport edge. A lazily created ResizeObserver redraws
@@ -290,6 +340,14 @@ Implementation notes:
   - `tests/metrics-cadence-test.js` — known-answer press sequences for
     the click-cadence metrics (gap quartiles, peak window, moving-press
     share, not-measurable cases);
+  - `tests/metrics-queue-recovery-test.js` — known-answer traces for
+    `computeQueueMetrics` (the feint-rule dwell registry, leave-to-click
+    waits) and `computeRecoveryMetrics` (median-gap baseline,
+    post-mistake gap ratio, recovery-action counts);
+  - `tests/metrics-fitts-spatial-test.js` — known-answer traces for
+    `computeFittsMetrics` (ID, MT, throughput, the 8px minimum) and
+    `computeSpatialBias` (Theil–Sen distance fit, per-region residual
+    medians);
   - `tests/session-buckets-test.js` — known-answer event lists for the
     session-stats bucketing (extracts the SESSION STATS: COMPUTATION
     span; cumulative-play compaction across wall-clock breaks, per-bucket
@@ -374,7 +432,15 @@ Implementation notes:
   {kind:'evaluation',at,category,excessRisk,modeledLifeGap}) into nine core series (speed, click rate,
   mistake-tagged deaths/min, misclicks/min, no-ops/min, flags/s,
   flag-removals/min, unused-marks/min, fastclick gap), five exclusive report-category rates,
-  and the excess-risk / modeled-life magnitudes, plus raw per-bucket `sums`.
+  and the excess-risk / modeled-life magnitudes, plus raw per-bucket `sums`
+  and `playSpans` (the play↔wall mapping, carried through all three series
+  shapes). `sessionWallSections(playSpans, playFrom, playTo)` (pure, same
+  span) cuts the visible window into wall-clock sections, splitting at
+  local midnight and at resumes after ≥SESSION_SECTION_BREAK_MS (15m);
+  DISPLAY renders it as the "when this play happened" strip
+  (`appendSessionWhenRow`: per-day fills, in-block labels with fallbacks,
+  full summary row) and dashed `appendSessionDayBoundaries` day-change
+  marks on every session chart.
   `sessionRunningSeries(events, {nowMs, stepMs, lookbackMs, windowMs,
   openPlayFrom, playOffsetMs})` — what the charts show since 2026-08-23 —
   layers trailing running averages over it: fine SESSION_STEP_MS (10s)
@@ -428,10 +494,14 @@ Implementation notes:
   checkWin before the auto-flag sweep and pass the share to
   `sessionRecordEnd('win', share)`); live and backfill cannot overlap
   because every backfilled game ended before the page load. DISPLAY: `SESSION_GROUP` +
-  `SESSION_METRIC_SPECS` (solo rows: mouse speed, fastclick gap, and the
+  `SESSION_METRIC_SPECS` (solo rows: cadence spread and the
   excess-risk / modeled-life magnitude charts;
   label carries the unit and sits flush on the plot — no axis captions,
   the "-15m … now" x ticks speak for themselves) +
+  `SESSION_SPEED_GAP_SPECS` (mouse speed + fastclick gap sharing one
+  two-line chart since 2026-08-30, rendered through the rates-chart
+  machinery with `rawSpecs` so the per-game basis never remaps them;
+  endpoint labels carry their own units over a bare shared axis) +
   `SESSION_RATE_SPECS` (the six action rates, each with unit '/m' or
   '/s' — chosen for meaty values; no-op clicks charts /s since
   2026-08-23 by dividing the stored per-minute series by 60 in its
@@ -446,7 +516,8 @@ Implementation notes:
   other's: solo and combined-rate y axes auto-range through
   `sessionYDomain` around their measured values with modest padding
   instead of being forced to start at zero (a measured zero stays in
-  range; the endings composition alone keeps its fixed 0–100% domain);
+  range; the endings chart auto-ranges 0→just above its highest line,
+  capped at 100, since 2026-08-30 — no longer a fixed 0–100% domain);
   1/2/5 unit-suffixed ticks come from `niceTicks`; no legend —
   `sessionRateLabelLayout` greedily distributes each full current
   name+value+unit label across low-occlusion plot positions and a fine
@@ -792,8 +863,8 @@ Implementation notes:
   facts stay sound, and residual odds either complete or remain unmeasured.
   `noteGuess` runs from `revealCell` after the first-click path and
   before Justice, gated by `guessLedgerAppliesToMode()` (standard,
-  trial modes, uniform/single-path NG — modes where hidden mines
-  really kill; angelic and proof-or-die record nothing, their ledger
+  trial modes, uniform/single-path NG, endgame drill — modes where hidden
+  mines really kill; angelic and proof-or-die record nothing, their ledger
   fields stay absent), so the p is the player's
   information, not the post-mercy board. Proven-safe clicks and clicks
   with enumerated p(mine) = 0 return null (not a guess). Over-budget returns `{measured: false}` and
@@ -815,6 +886,29 @@ Implementation notes:
   holds the 25×4 and 4×4 sessions, dihedral maps, identity grouping,
   and replay of opens/flags from stored traces for overlay charts.
   `node tests/solver-test.js` and `node tests/trial-test.js`.
+- Endgame drill mode (PRODUCT.md "Play modes"): `endgame.js` is the pure
+  dealing module (`EndgameDrill` global / CommonJS, loaded with the other
+  board modules; everything injected — rng, `BoardGenerators.place`,
+  `Solver.classifyCells`). `deal` draws a seed, places a full board with
+  the frozen generator, then rejection-samples border-flush remnant
+  windows (sized from a covered-safe budget scaled by mine density):
+  accept only 4–45 covered safe cells after opening-closure erosion,
+  ≥1 mine in the window, ≥1 covered numbered safe cell, and pure-deduction
+  finishability (iterated `classifyCells` with real flood semantics; a
+  work-limit hit rejects). One rng stream drives placement and window
+  search, so the accepted seed replays the whole presentation. Budget
+  exhaustion throws. In `minesweeper.js`, `setupEndgameDrill` (called from
+  `newGame` like the pregen hook) applies the deal, marks the presented
+  cells revealed, and leaves `gameState` 'ready' with mines placed — the
+  existing reveal/flag ready-branches start the timer on first input (an
+  accepted chord can never be first: it needs a flag, which already
+  started the game). `drillCurrent` carries `remaining3BV` (stored as the
+  record's `bv3`) and `safeLeft` for the `#endgame-drill-info` chrome.
+  Drill records omit `zini`/`hzini`, `stnbOf` returns undefined for them,
+  and `guessLedgerAppliesToMode` includes the mode. Dealing measured ~2 ms
+  per expert deal. `node tests/endgame-drill-test.js` (known-answer
+  remaining 3BV, closure, 50/50 rejection, full deals through the real
+  stack on three sizes, seed-replay determinism).
 - Pregen 10 mode: `pregen.js` provides pure 3BV scoring and descending
   seed ranking. The game page creates ten independently seeded candidates
   through the selected generator with `width - 1` (upper right) safe, deals
@@ -837,7 +931,8 @@ Implementation notes:
   `version` (the record's `boardVersion` string), a parameter schema
   ({key, label, min/max/step, default, describe}), and `place(width,
   height, mineCount, safeIndex, rng, params)`; `safeIndex` is null in
-  the Board lab (no first click). Seven generators (2026-08-25): pink
+  the Board lab (no first click). Six generators (2026-08-25; a seventh,
+  patriotic stars-and-stripes, was removed 2026-08-30): pink
   noise = fractal value-noise field (persistence 2^(−alpha/2) gives
   spectral slope alpha; `stretch` = log2 x:y anisotropy) +
   Efraimidis-Spirakis weighted sampling (`weightedSampleInto`); blue
@@ -845,9 +940,7 @@ Implementation notes:
   nearest-distance relax, pluggable score); green noise = one band-pass
   octave, weighted; stippled = red-noise density field × best-candidate
   distance score; letterforms = seed-drawn letters from the built-in
-  5×7 `LETTERFORMS` font as exp-weights; patriotic = exact
-  area-proportional star-field canton (best-candidate) + alternating
-  stripe weights. Game
+  5×7 `LETTERFORMS` font as exp-weights. Game
   side: `settings.boardGenerator` + `settings.boardGeneratorParams`
   (per-generator overrides, deep-copied in `settingsFrom`), the
   `#board-generator-select` menu (`buildBoardGeneratorSwitcher`,
