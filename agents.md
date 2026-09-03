@@ -220,18 +220,34 @@ Implementation notes:
   markup on exit. It adds a game-history range slider (`#replay-slider`, with
   notch marks and numeric labels at the endpoints and quarters) that is
   equivalent to prev/next, plus six independent overlay toggles
-  (`#replay-overlay-control`, `replayOverlays`): available moves / forced
-  mines / mine % come from `replaySolverRead` (exact `Odds.analyzeView`
+  (`#replay-overlay-control`, `replayOverlays`; moves + mines default on):
+  available moves / forced mines / mine % come from `replaySolverRead`
+  (exact `Odds.analyzeView`
   enumeration per frame, cached per decision index in `replaySolverCache`,
-  falling back to bounded `Justice.proveFacts` when over budget), painting
-  proven-safe cells green, satisfied chordable numbers with a blue ring plus
-  pale-green cells the chord opens (chord marked safe only when everything it
-  opens is proven clear), proven mines with a red ring and dimmed mine glyph,
-  and exact per-cell mine percentages (`.replay-prob`, 0/100 on proven
-  cells). Pointless/purposeful click layers and the rough-movement underlay
+  falling back to bounded `Justice.proveFacts` when over budget). Solver
+  deductions draw as dashed inner rings via `::after` (their own visual
+  channel) while player-action marks stay on `box-shadow`, so both can
+  coexist on one square: proven-safe cells dashed green (flagged too — a
+  dashed safe ring around a flag exposes a provably wrong flag), satisfied
+  chordable numbers dashed blue plus pale-green cells the chord opens (chord
+  marked safe only when everything it
+  opens is proven clear), mark-mine moves as mini flag badges
+  (`.replay-flag-hint`) on unflagged proven mines with mark-then-chord combo
+  numbers dashed teal (`replayMoveOptions`, a pure helper in the PATH
+  REPLAY: COMPUTATION span, finds both chord kinds — the full option set is
+  raw click / chord / mark-mine), proven mines dashed red with a dimmed
+  mine glyph when unflagged,
+  and exact per-cell mine percentages as bottom-right corner badges
+  (`.replay-prob`, 0/100 on proven cells) that leave flag/mine glyphs
+  visible. The acted square (`evaluation.triggerCell` for chords, the single
+  selected cell otherwise) gets the gold `replay-trigger` ring; cells the
+  action changed get the translucent gold `replay-selected` wash
+  (background-image, stacking over the chord-open background-color).
+  Pointless/purposeful click layers and the rough-movement underlay
   (`pathRoughSegments`: crawling under ¼ of the game's median moving pace or
   a >135° reversal) draw on the canvas up to the shown moment, and a gold
-  crosshair labeled with the action kind marks the exact input pixel of the
+  crosshair with a white action-kind pill (solid background, clamped to the
+  canvas) marks the exact input pixel of the
   displayed action — for a chord, the precise spot chorded on. The canvas
   survives path-off while back-in-time is active so those layers keep
   rendering. `pathChoiceAreas` groups uncertain reasonable choices into

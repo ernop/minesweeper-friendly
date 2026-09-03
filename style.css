@@ -744,20 +744,63 @@ body.trial-offboard #game-frame {
 /* Back-in-time solver overlays. These sit below the measured-choice and
    acted-square marks in the stylesheet so those decision highlights win
    when a cell carries both. */
-.cell.replay-safe {
-  box-shadow: inset 0 0 0 3px #1b8a3f;
+/* Solver deductions live on their own visual channel: dashed inner rings
+   drawn by ::after. Player-action marks (choices, acted square) stay on
+   box-shadow, so a square can carry both kinds at once without one mark
+   silently replacing the other. */
+.cell.replay-safe::after,
+.cell.replay-chord-safe::after,
+.cell.replay-chord-flag::after,
+.cell.replay-mine-known::after {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  z-index: 1;
+  pointer-events: none;
 }
 
+.cell.replay-safe::after {
+  border: 2px dashed #1b8a3f;
+}
+
+/* background-color (not the shorthand) so the gold action wash, which is a
+   background-image, can stack on top when the same square was opened. */
 .cell.replay-safe.replay-chord-open {
-  background: #d9f2e0;
+  background-color: #d9f2e0;
 }
 
-.cell.replay-chord-safe {
-  box-shadow: inset 0 0 0 3px #0b5d97;
+.cell.replay-chord-safe::after {
+  border: 2px dashed #0b5d97;
 }
 
-.cell.replay-mine-known {
-  box-shadow: inset 0 0 0 3px #c62828;
+/* Chordable once its proven mines are marked: the mark-mine + chord combo. */
+.cell.replay-chord-flag::after {
+  border: 2px dashed #00838f;
+}
+
+.cell.replay-mine-known::after {
+  border: 2px dashed #c62828;
+}
+
+/* Mark-mine move: a mini flag badge on every unflagged proven mine, kept in
+   the top-left corner so the mine glyph and the probability badge stay
+   visible. */
+.replay-flag-hint {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 2;
+  padding: 1px;
+  background: #ffffff;
+  border-bottom-right-radius: 3px;
+  pointer-events: none;
+}
+
+/* Three classes to outrank the later `.cell.hidden svg` flag sizing. */
+.cell.hidden .replay-flag-hint svg {
+  display: block;
+  width: calc(var(--cell-size) * 0.34);
+  height: calc(var(--cell-size) * 0.34);
 }
 
 .cell.replay-mine-known svg {
@@ -766,17 +809,19 @@ body.trial-offboard #game-frame {
 
 .replay-prob {
   position: absolute;
-  inset: 0;
+  right: 0;
+  bottom: 0;
   z-index: 2;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  padding: 0 2px;
+  background: #ffffff;
+  border-top-left-radius: 3px;
   color: #000000;
   font-family: Arial, sans-serif;
-  font-size: calc(var(--cell-size) * 0.36);
+  font-size: calc(var(--cell-size) * 0.30);
+  line-height: 1.3;
   font-weight: 700;
   -webkit-text-stroke: 0;
-  text-shadow: 0 0 2px #ffffff, 0 0 2px #ffffff, 0 0 3px #ffffff;
+  pointer-events: none;
   pointer-events: none;
 }
 
@@ -784,8 +829,21 @@ body.trial-offboard #game-frame {
   box-shadow: inset 0 0 0 3px #25a55f;
 }
 
-.cell.replay-selected {
+/* The square the action was performed on (for a chord: the number that was
+   clicked). Cells the action changed — e.g. the squares a chord opened —
+   get a translucent gold wash instead of another ring. */
+.cell.replay-trigger {
   box-shadow: inset 0 0 0 3px #f1a208, inset 0 0 0 5px #201500;
+}
+
+.cell.replay-choice.replay-trigger {
+  box-shadow: inset 0 0 0 3px #f1a208, inset 0 0 0 5px #201500,
+    inset 0 0 0 8px #25a55f;
+}
+
+.cell.replay-selected {
+  background-image: linear-gradient(
+    rgba(241, 162, 8, 0.38), rgba(241, 162, 8, 0.38));
 }
 
 #replay-choice-areas {
@@ -822,6 +880,8 @@ body.trial-offboard #game-frame {
 }
 
 .cell {
+  /* anchor for replay overlay rings and the mine-probability badge */
+  position: relative;
   width: var(--cell-size);
   height: var(--cell-size);
   display: flex;
@@ -838,8 +898,6 @@ body.trial-offboard #game-frame {
 }
 
 .cell.hidden {
-  /* anchor for the replay mine-probability figure */
-  position: relative;
   border: var(--bevel-size) solid;
   border-color: var(--bevel-light) var(--bevel-dark) var(--bevel-dark) var(--bevel-light);
 }

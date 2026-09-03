@@ -1521,11 +1521,15 @@ runtime state, export field, or result section.
   the current value is spelled out in the status line ("action N of M").
   Previous/next controls and
   Left/Right keys step through decisions except while another interactive
-  control has keyboard focus; green marks the measured reasonable
-  choice set and gold marks the acted square(s), and a gold crosshair labeled
-  with the action kind pins the exact input pixel of the displayed action —
-  for a chord, the precise spot the chord was performed at (the crosshair
-  keeps its canvas even when the path mode is off).
+  control has keyboard focus; green rings mark the measured reasonable
+  choice set, a gold ring marks the square the action was performed on (for
+  a chord: the number that was clicked, via `evaluation.triggerCell`), a
+  translucent gold wash marks the squares the action changed (for a chord:
+  the cells it opened), and a gold crosshair with a white action-kind pill
+  (clamped to the board, solid background so it stays readable over cell
+  marks) pins the exact input pixel of the displayed action — for a chord,
+  the precise spot the chord was performed at (the crosshair keeps its
+  canvas even when the path mode is off).
   The status names action
   number, in-game time, action type, and measured choice count. Uncertain
   reasonable-choice cells are split into connected visual pockets; each pocket
@@ -1536,20 +1540,38 @@ runtime state, export field, or result section.
   Leaving back-in-time restores the finished board exactly.
 - Back-in-time overlays (2026-08-30): six independent toggles on their own
   row, remembered for the page session, each doing exactly what it says.
-  - `available moves`: every covered cell proven safe gets a green ring (raw
-    click), and every satisfied number whose chord would open only
-    proven-clear cells gets a blue ring with the cells it would open tinted
-    pale green — chord and raw click are visually distinct because chording
-    is usually preferred.
-  - `forced mines`: every covered cell proven to be a mine gets a red ring
-    and a dimmed real mine glyph. Proofs come from full layout enumeration,
+  `available moves` and `forced mines` start on — showing what was logically
+  deducible at each moment is the point of back-in-time review (requested
+  2026-08-30 late evening); the rest start off. Solver deductions draw as
+  dashed inner rings on their own visual layer (CSS `::after`), while
+  player-action marks (choices, acted square) stay on `box-shadow`, so one
+  square can carry a deduction and an action mark simultaneously — the
+  earlier single-channel rings silently replaced each other.
+  - `available moves` shows the player's complete option set — raw click,
+    chord, and mark-mine (requested 2026-08-31: all options must be visible
+    to evaluate choices for speed and risk). Every covered cell proven safe
+    gets a dashed green ring (raw click) — including flagged cells, where a
+    dashed safe ring exposes a provably wrong flag. Every satisfied number
+    whose chord would open only proven-clear cells gets a dashed blue ring.
+    Every unflagged proven mine gets a mini flag badge (top-left corner):
+    the mark-mine move. Every number that becomes safely chordable once
+    those mines are marked gets a dashed teal ring (`replayMoveOptions`
+    finds these mark-then-chord combos: flags + unflagged proven mines
+    exactly satisfy the number and everything else it would open is proven
+    clear). Cells any chord opens are tinted pale green. A chord satisfied
+    by a wrong flag is never called safe — it would open a proven mine.
+  - `forced mines`: every covered cell proven to be a mine gets a dashed red
+    ring and (when unflagged) a dimmed real mine glyph; on a flagged cell
+    the ring confirms the flag. Proofs come from full layout enumeration,
     so everything deducible from the visible numbers is shown (e.g. the
     forced mine under a satisfied 2), not just one-step patterns.
-  - `mine %`: every covered cell shows its exact mine probability in percent,
-    computed by full enumeration of remaining layouts (components + binomial
-    sea) with all visible knowledge; proven cells read 0 or 100. When a
-    position exceeds the enumeration budget the legend says so and only
-    bounded-proof facts are marked — probabilities are never invented.
+  - `mine %`: every covered cell shows its exact mine probability in percent
+    as a small white corner badge (bottom-right, so flags and mine glyphs
+    stay visible), computed by full enumeration of remaining layouts
+    (components + binomial sea) with all visible knowledge; proven cells
+    read 0 or 100. When a position exceeds the enumeration budget the
+    legend says so and only bounded-proof facts are marked — probabilities
+    are never invented.
   - `pointless clicks` / `purposeful clicks`: numbered dots at every
     mistake-tagged (orange) or clean (teal) action up to the shown moment,
     as two separate layers.

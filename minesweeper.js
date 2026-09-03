@@ -6513,6 +6513,61 @@ function pathBinIndex(bins, value) {
   return Math.max(0, Math.min(bins.length - 1, k));
 }
 
+// The player's full option set is raw click, chord, and mark-mine — and
+// marking only pays off by unlocking a chord. So besides the chords
+// available right now (numbers already satisfied by placed flags), this
+// also finds every mark-then-chord combo: a number whose flags plus
+// unflagged proven mines exactly satisfy it, with at least one other
+// covered neighbor to open. Raw safe clicks need no scan — they are the
+// facts map's proven-safe entries. `facts` maps covered cells to
+// 1 (proven mine) / 2 (proven safe); `safe` is true when everything the
+// chord would open is proven clear.
+function replayMoveOptions(view, flagged, facts) {
+  const chords = [];
+  const flagChords = [];
+  for (let i = 0; i < view.width * view.height; i++) {
+    if (!view.revealed[i] || view.adjacent[i] <= 0) continue;
+    let flags = 0;
+    const needFlags = [];
+    const opens = [];
+    const cx = i % view.width;
+    const cy = Math.floor(i / view.width);
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        if (dx === 0 && dy === 0) continue;
+        const nx = cx + dx;
+        const ny = cy + dy;
+        if (nx < 0 || nx >= view.width || ny < 0 || ny >= view.height) continue;
+        const nb = ny * view.width + nx;
+        if (view.revealed[nb]) continue;
+        if (flagged.has(nb)) flags++;
+        else if (facts.get(nb) === 1) needFlags.push(nb);
+        else opens.push(nb);
+      }
+    }
+    if (flags === view.adjacent[i] && needFlags.length + opens.length > 0) {
+      // Chordable right now. Unflagged proven mines among the neighbors
+      // would be opened by this chord, so they make it provably fatal.
+      const allOpens = [...needFlags, ...opens];
+      chords.push({
+        cell: i,
+        opens: allOpens,
+        safe: needFlags.length === 0
+          && allOpens.every((cell) => facts.get(cell) === 2),
+      });
+    } else if (needFlags.length > 0 && opens.length > 0
+        && flags + needFlags.length === view.adjacent[i]) {
+      flagChords.push({
+        cell: i,
+        needFlags,
+        opens,
+        safe: opens.every((cell) => facts.get(cell) === 2),
+      });
+    }
+  }
+  return { chords, flagChords };
+}
+
 //-------PATH REPLAY: DISPLAY-------
 
 // The just-finished trace remains in RAM until the next board. Its decision
@@ -6530,9 +6585,13 @@ let replayFinishedCells = null;
 let replayStep = 0;
 // Independent back-in-time board overlays; remembered for the page session
 // like the path view itself.
+// The solver layers that show the logically deducible state of the shown
+// board (available moves, forced mines) start on: seeing what was provable
+// at each moment is the point of back-in-time review (requested
+// 2026-08-30 late evening).
 const replayOverlays = {
-  moves: false,
-  mines: false,
+  moves: true,
+  mines: true,
   probs: false,
   pointless: false,
   purposeful: false,
@@ -6699,9 +6758,10 @@ function replayChoiceCells(evaluation) {
 // Full-knowledge solver reading of one replay position: exact mine
 // probability for every covered cell when the layout enumeration fits its
 // budget, proven mines/safes either way (the bounded canonical prover still
-// runs when enumeration is over budget), and every satisfied number that
-// could be chorded, with the exact cells that chord would open and whether
-// each of them is proven clear.
+// runs when enumeration is over budget), and the full move option set from
+// replayMoveOptions: chords available now and mark-mine-then-chord combos,
+// each with the exact cells the chord would open and whether every one of
+// them is proven clear.
 function replaySolverRead(position) {
   const size = position.width * position.height;
   const revealed = new Array(size).fill(false);
@@ -6746,35 +6806,9 @@ function replaySolverRead(position) {
     if (facts.get(i) === 1) provenMines.push(i);
     else if (facts.get(i) === 2) provenSafe.push(i);
   }
-  const chords = [];
-  for (let i = 0; i < size; i++) {
-    if (!revealed[i] || adjacent[i] <= 0) continue;
-    let flags = 0;
-    const opens = [];
-    const cx = i % position.width;
-    const cy = Math.floor(i / position.width);
-    for (let dy = -1; dy <= 1; dy++) {
-      for (let dx = -1; dx <= 1; dx++) {
-        if (dx === 0 && dy === 0) continue;
-        const nx = cx + dx;
-        const ny = cy + dy;
-        if (nx < 0 || nx >= position.width || ny < 0 || ny >= position.height) continue;
-        const nb = ny * position.width + nx;
-        if (revealed[nb]) continue;
-        if (flagged.has(nb)) flags++;
-        else opens.push(nb);
-      }
-    }
-    if (flags === adjacent[i] && opens.length > 0) {
-      chords.push({
-        cell: i,
-        opens,
-        safe: opens.every((cell) => facts.get(cell) === 2),
-      });
-    }
-  }
+  const { chords, flagChords } = replayMoveOptions(view, flagged, facts);
   return { measured, pMine: measured ? odds.pMine : null, facts,
-    provenMines, provenSafe, chords };
+    provenMines, provenSafe, chords, flagChords };
 }
 
 function replaySolverAt(step, position) {
@@ -6870,14 +6904,32 @@ function renderReplayFrame() {
   const mineCells = solver !== null && replayOverlays.mines
     ? new Set(solver.provenMines) : new Set();
   const chordCells = new Map();
+  const flagChordCells = new Map();
   const chordOpens = new Set();
+  const markMines = new Set();
   if (solver !== null && replayOverlays.moves) {
     for (const chord of solver.chords) {
       if (!chord.safe) continue;
       chordCells.set(chord.cell, chord);
       for (const cell of chord.opens) chordOpens.add(cell);
     }
+    for (const chord of solver.flagChords || []) {
+      if (!chord.safe) continue;
+      flagChordCells.set(chord.cell, chord);
+      for (const cell of chord.opens) chordOpens.add(cell);
+    }
+    // Mark-mine is the third option besides click and chord: every unflagged
+    // proven mine can be marked, which is what unlocks the combo chords.
+    for (const [cell, fact] of solver.facts) {
+      if (fact === 1 && !flagged.has(cell)) markMines.add(cell);
+    }
   }
+  // The square the action was performed on: a chord stores it explicitly;
+  // every other action acts on its (single) selected square.
+  const triggerCell = Number.isInteger(evaluation.triggerCell)
+    ? evaluation.triggerCell
+    : evaluation.action !== 'no-op' && evaluation.selected.length === 1
+      ? evaluation.selected[0] : null;
   for (let i = 0; i < cellElements.length; i++) {
     const element = cellElements[i];
     if (revealed.has(i)) {
@@ -6885,15 +6937,24 @@ function renderReplayFrame() {
       element.className = 'cell revealed' + (adjacent > 0 ? ' n' + adjacent : '');
       paintCellGlyph(element, adjacent);
       if (chordCells.has(i)) element.classList.add('replay-chord-safe');
+      else if (flagChordCells.has(i)) element.classList.add('replay-chord-flag');
     } else {
       element.className = 'cell hidden';
       element.innerHTML = flagged.has(i) ? FLAG_SVG : '';
       if (mineCells.has(i)) {
         element.classList.add('replay-mine-known');
         if (!flagged.has(i)) element.innerHTML = MINE_SVG;
-      } else if (safeCells.has(i) && !flagged.has(i)) {
+      } else if (safeCells.has(i)) {
+        // A dashed safe ring around a placed flag exposes a provably wrong
+        // flag — part of the deducible state, not just a move suggestion.
         element.classList.add('replay-safe');
         if (chordOpens.has(i)) element.classList.add('replay-chord-open');
+      }
+      if (markMines.has(i)) {
+        const hint = document.createElement('span');
+        hint.className = 'replay-flag-hint';
+        hint.innerHTML = FLAG_SVG;
+        element.appendChild(hint);
       }
       if (replayOverlays.probs && solver !== null && solver.measured) {
         const fact = solver.facts.get(i);
@@ -6907,6 +6968,7 @@ function renderReplayFrame() {
     }
     if (choices.has(i)) element.classList.add('replay-choice');
     if (selected.has(i)) element.classList.add('replay-selected');
+    if (i === triggerCell) element.classList.add('replay-trigger');
   }
   renderReplayChoiceAreas(evaluation);
   const choiceCount = choices.size;
@@ -7045,7 +7107,7 @@ function appendReplayLegend() {
   if (!replayEnabled) return;
   appendPathLegendRow('decision-time board', [
     { color: '#25a55f', label: 'measured choices' },
-    { color: '#f1a208', label: 'square acted on · crosshair = exact click spot', dot: true },
+    { color: '#f1a208', label: 'gold ring = square acted on · gold wash = squares it changed · crosshair = exact click spot', dot: true },
     { color: '#7256a8', label: 'uncertain area → side risk label' },
   ]);
   const solver = replayLegendSolver;
@@ -7054,20 +7116,22 @@ function appendReplayLegend() {
     : undefined;
   if (replayOverlays.moves) {
     appendPathLegendRow('available moves', [
-      { color: '#1b8a3f', label: 'proven safe — raw click' },
-      { color: '#0b5d97', label: 'blue ring = chord this number; pale green = cells that chord opens' },
+      { color: '#1b8a3f', label: 'dashed green = proven safe — raw click (around a flag: that flag is provably wrong)' },
+      { color: '#0b5d97', label: 'dashed blue = number you can chord now' },
+      { color: '#c62828', label: 'mini flag = mark-mine move on a proven mine' },
+      { color: '#00838f', label: 'dashed teal = number chordable after those marks · pale green fill = cells a chord opens' },
     ], solverNote);
   }
   if (replayOverlays.mines) {
     appendPathLegendRow('forced mines', [
-      { color: '#c62828', label: 'proven mine — never open; flag it or chord past it' },
+      { color: '#c62828', label: 'dashed red = proven mine — never open; flag it or chord past it' },
     ], replayOverlays.moves ? undefined : solverNote);
   }
   if (replayOverlays.probs) {
     appendPathLegendRow('mine %', [],
       solver !== null && !solver.measured
         ? 'position too complex for exact probabilities'
-        : 'number on a covered square = exact mine probability (%) from everything visible');
+        : 'corner number on a covered square = exact mine probability (%) from everything visible');
   }
   if (replayOverlays.pointless) {
     appendPathLegendRow('pointless clicks', [
@@ -7368,7 +7432,28 @@ function paintPathCanvas() {
         ctx.strokeStyle = '#f1a208';
         ctx.stroke();
       }
-      drawLabel(current.px + 8, current.py - 6, current.action, '#8a6100');
+      // The action word gets a solid pill so it stays readable over cell
+      // rings and glyphs; it sits past the crosshair arms and is clamped
+      // to the canvas so it never runs off the board edge.
+      ctx.font = 'bold 10px Arial, sans-serif';
+      const text = current.action;
+      const textWidth = ctx.measureText(text).width;
+      const pillW = textWidth + 8;
+      const pillH = 14;
+      const pillX = Math.max(2, Math.min(state.width - pillW - 2, current.px + 14));
+      const pillY = Math.max(2, Math.min(state.height - pillH - 2, current.py - 24));
+      ctx.beginPath();
+      ctx.roundRect(pillX, pillY, pillW, pillH, 4);
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+      ctx.lineWidth = 1.25;
+      ctx.strokeStyle = '#f1a208';
+      ctx.stroke();
+      ctx.fillStyle = '#8a6100';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(text, pillX + 4, pillY + pillH / 2 + 0.5);
+      ctx.textBaseline = 'alphabetic';
     }
   }
 }

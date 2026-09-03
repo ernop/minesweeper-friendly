@@ -200,6 +200,45 @@ check('uncertain endpoint risks are not rounded to certainty',
       && pathValueBins(undefined, 6).length === 0);
 }
 
+{
+  // A 1-2-1 wall over a covered row: mines under both 1s, safe under the 2.
+  const view = {
+    width: 3,
+    height: 2,
+    revealed: [true, true, true, false, false, false],
+    adjacent: [1, 2, 1, 0, 0, 0],
+  };
+  const facts = new Map([[3, 1], [4, 2], [5, 1]]);
+
+  const bare = replayMoveOptions(view, new Set(), facts);
+  check('nothing is chordable before any mark', bare.chords.length === 0);
+  check('every number is chordable after marking its proven mines',
+    bare.flagChords.length === 3
+      && bare.flagChords.every((c) => c.safe && c.opens.join(',') === '4'));
+  check('the combo names the exact mines to mark first',
+    bare.flagChords[0].needFlags.join(',') === '3'
+      && bare.flagChords[1].needFlags.join(',') === '3,5'
+      && bare.flagChords[2].needFlags.join(',') === '5');
+
+  const oneMark = replayMoveOptions(view, new Set([3]), facts);
+  check('a placed mark turns its combo into a chord-now',
+    oneMark.chords.length === 1 && oneMark.chords[0].cell === 0
+      && oneMark.chords[0].safe && oneMark.chords[0].opens.join(',') === '4');
+  check('remaining combos still name only the unmarked mine',
+    oneMark.flagChords.length === 2
+      && oneMark.flagChords.every((c) => c.needFlags.join(',') === '5'));
+
+  const wrongMark = replayMoveOptions(view, new Set([4]), facts);
+  check('a chord satisfied by a wrong flag is never called safe',
+    wrongMark.chords.length === 2
+      && wrongMark.chords.every((c) => !c.safe)
+      && wrongMark.flagChords.length === 0);
+}
+
+check('mark-then-chord numbers and mini mark-mine flags have styles',
+  css.includes('.cell.replay-chord-flag::after')
+    && css.includes('.replay-flag-hint'));
+
 check('back in time exposes a game-history slider',
   html.includes('id="replay-slider"'));
 for (const id of [
