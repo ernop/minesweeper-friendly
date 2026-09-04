@@ -281,13 +281,32 @@ Implementation notes:
   that DOM order) is `width: 100%; max-width: 100cqw` against `main`'s
   inline-size container, so a long legend row can never widen `#game-area`
   past the column and under the metrics sidebar (it did; the block used to
-  size to its content). `renderPathViewControls` shows `#review-control`
+  size to its content).   `renderPathViewControls` shows `#review-control`
   and `#path-view-control` together whenever `pathViewAvailable()`.
-  `syncResultsPlacement` toggles `results-floating` on `#game-area` while
-  the stats float in the right gutter; `#scores-nav` then takes a hard
-  336 px right padding and a mirrored left padding that yields first
-  (`min(336px, max(0px, 100cqw − 336px − 280px))`) so legends never run
-  under the stats panel and stay centered when room allows. A lazily created ResizeObserver
+  Legend column (2026-09-04): `#path-view-legend` is a vertical key
+  (`.path-legend-row` is a flex column; each `.path-legend-key` is a 22 px
+  swatch + `.path-legend-text` holding the bold `.path-legend-means`
+  headline and the smaller `.path-legend-detail` line = `look · detail`).
+  `REPLAY_ENCODINGS` entries are written as `look`/`means`/`detail` and
+  `replayEncodingTable` derives the complete `label` (`look = means —
+  detail`); `pathLegendText` renders either shape (path-view keys carry
+  only `label`). Placement is measured in `syncResultsPlacement`:
+  `afterGameSidePlan(rightGutter, legendShown, resultsWidth)` (pure) decides
+  `legendBeside` (gutter − 14 px gap − 12 px ≥ 230 px), the legend width
+  (230–340 px, fluid), and whether the stats still float (only in the room
+  left after the legend, which narrows toward 230 px first). Beside the
+  board, `#game-area.legend-beside` positions the legend absolutely through
+  `--legend-left/--legend-top/--legend-width` (+ `--legend-top-clearance`
+  when the fixed top-right chrome shares its strip, same rule as the
+  stats); otherwise it stays in flow at the end of `#scores-nav`. The
+  control rows keep clear through `--nav-reserve-right/--nav-reserve-left`
+  on `#scores-nav` (`navReserves(columnWidth, reserveRight)`, pure: right =
+  legend column and/or stats width from the column edge; left mirrors it
+  while ≥ 480 px of content remains). A legend taller than the rows pushes
+  `results-below-board` stats down (`--results-below-clearance`) and the
+  report/ranks below the game area (`syncResultClearance` includes the
+  legend bottom). `renderPathOverlay` calls `scheduleBoardLayout()` so every
+  legend rebuild re-measures on the next frame. A lazily created ResizeObserver
   redraws both overlays and callouts on zoom. Replay arrow shortcuts ignore
   focused form controls and buttons.
   Decision frames persist inside the trace; the UI currently opens only the

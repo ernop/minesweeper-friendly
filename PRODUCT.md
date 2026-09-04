@@ -1495,7 +1495,8 @@ runtime state, export field, or result section.
   Discrete marks keep explicit color keys. If every segment has the same
   value, the legend reports that actual value rather than inventing a wider
   or negative range. Legend rows and notes are black on white — no gray text.
-  The legend occupies its own row and active-button
+  The legend is the vertical key beside the board described under review
+  mode (path-view chips stack in it, one range per line); active-button
   styling never changes button dimensions, so
   selecting movement speed cannot make the input buttons twitch.
 - "Less useful" shows complete episodes, not isolated fragments: the last
@@ -1610,14 +1611,30 @@ runtime state, export field, or result section.
     form the board draws (dashed ring, solid ring, fill, mini flag, numeric
     badge, hollow marker, crosshair, leader) and its complete wording; no
     item bundles two encodings under one swatch. Each active overlay adds
-    its own legend row. While the after-game stats float beside the board,
-    the legend and controls keep out of that column on both sides, so no
-    legend text ever runs underneath the stats (it did until 2026-09-04,
-    cutting the last key of the moves row). The whole after-game control
-    block (review row, slider, overlays, path row, legend) is bounded by the
-    main column's width and wraps inside it; it never overlaps the metrics
-    sidebar (2026-09-04: a long legend row had widened the block past the
-    column and under the sidebar).
+    its own legend group.
+  - Legend placement and reading order (requested 2026-09-04): the legend
+    is a vertical key, one item per line, that stands beside the board's
+    right edge, top-aligned with the board frame (below the fixed top-right
+    controls when they would cover it). Items read at a glance: the swatch
+    is board-cell sized (22 px) in the exact color and form drawn on the
+    board; the meaning is the bold headline ("proven safe: open it with a
+    raw click"); the look words and any fine print sit beneath it in one
+    smaller black line ("dashed green · around a flag it means that flag is
+    provably wrong"). Groups have bold underlined titles. Nothing is
+    shortened. The legend's room comes first in the right gutter: it is
+    230–340 px wide, fluid with the gutter, and the after-game stats float
+    at the column edge only in the room left over (the legend narrows
+    toward 230 px before the stats drop below the board). When the gutter
+    cannot hold 230 px the same vertical key sits below the control rows.
+    The control rows beneath the board keep clear of the legend column and
+    of the floating stats (mirrored on the left while the slider keeps
+    480 px of room, so they stay centered under the board), and stats or
+    the report that follow are pushed below a legend taller than the rows
+    above them. Nothing in this block ever runs under the legend, under the
+    stats, or under the metrics sidebar: the block is bounded by the main
+    column's width (until 2026-09-04 a long horizontal legend row widened
+    the block past the column and under the sidebar, and the stats cut the
+    last key of the moves row).
 - These displays read the just-finished RAM trace. The same decision frames
   are persisted in the trace store for future historical replay and analytics;
   loading older traces into this control is not yet built.

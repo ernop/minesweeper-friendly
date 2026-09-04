@@ -150,6 +150,7 @@ const pregenCharts = document.getElementById('pregen-charts');
 const resultRanks = document.getElementById('result-ranks');
 const gameArea = document.getElementById('game-area');
 const gameFrame = document.getElementById('game-frame');
+const scoresNav = document.getElementById('scores-nav');
 const resultsBox = document.getElementById('results');
 const mainElement = document.querySelector('main');
 const topRight = document.getElementById('top-right');
@@ -372,32 +373,140 @@ function scheduleBoardLayout() {
   });
 }
 
+// The legend column that stands beside the board: gap from the frame, its
+// clearance from the stats panel, and the width range it may take (fluid
+// within the gutter; a legend narrower than the minimum wraps every line
+// and is no longer readable at a glance, so it goes below the board instead).
+const LEGEND_BESIDE_GAP = 14;
+const LEGEND_BESIDE_MIN_WIDTH = 230;
+const LEGEND_BESIDE_MAX_WIDTH = 340;
+const RESULTS_GUTTER_MARGIN = 16;
+
+// Pure: given the room to the right of the board frame, decide where the
+// legend and the stats go. Legend beside the board comes first (it explains
+// what is drawn on that board); the stats float at the column edge only in
+// the room that remains, and the legend narrows toward its minimum before
+// pushing the stats below the board.
+function afterGameSidePlan(rightGutter, legendShown, resultsWidth) {
+  const resultsNeed = resultsWidth + RESULTS_GUTTER_MARGIN;
+  if (!legendShown) {
+    return { legendBeside: false, legendWidth: 0, resultsFloat: rightGutter >= resultsNeed };
+  }
+  const legendRoom = rightGutter - LEGEND_BESIDE_GAP - 12;
+  if (legendRoom < LEGEND_BESIDE_MIN_WIDTH) {
+    return { legendBeside: false, legendWidth: 0, resultsFloat: rightGutter >= resultsNeed };
+  }
+  const roomWithResults = legendRoom - resultsNeed;
+  if (roomWithResults >= LEGEND_BESIDE_MIN_WIDTH) {
+    return {
+      legendBeside: true,
+      legendWidth: Math.min(LEGEND_BESIDE_MAX_WIDTH, roomWithResults),
+      resultsFloat: true,
+    };
+  }
+  return {
+    legendBeside: true,
+    legendWidth: Math.min(LEGEND_BESIDE_MAX_WIDTH, legendRoom),
+    resultsFloat: false,
+  };
+}
+
+// Pure: the control rows' inline padding. The right reserve is the hard
+// rule (nothing runs under the legend column or the stats); the left side
+// mirrors it so the rows stay centered under the board, giving way first so
+// the rows keep at least NAV_MIN_CONTENT_WIDTH (the slider needs it).
+const NAV_MIN_CONTENT_WIDTH = 480;
+function navReserves(columnWidth, reserveRight) {
+  return {
+    right: reserveRight,
+    left: Math.min(reserveRight,
+      Math.max(0, columnWidth - reserveRight - NAV_MIN_CONTENT_WIDTH)),
+  };
+}
+
 // Keep the compact stats flush with the available main column's right edge
 // when that gutter is wide enough. With the metrics panel open (or on a
 // narrow viewport), put them below the board instead of covering it.
 // If the fixed top-right controls occupy the side layout's horizontal strip,
-// start the stats below them.
+// start the stats below them. The path/review legend stands beside the
+// board's right edge when the gutter allows and takes precedence over the
+// floating stats for that room.
 function syncResultsPlacement() {
   resultsBox.style.removeProperty('--results-top-clearance');
-  if (gameArea.classList.contains('trial-no-board')
-      || (resultSummary.textContent === '' && resultStats.textContent === '')) {
-    gameArea.classList.remove('results-below-board', 'results-floating');
+  resultsBox.style.removeProperty('--results-below-clearance');
+  for (const name of ['--legend-left', '--legend-top', '--legend-width',
+    '--legend-top-clearance', '--nav-reserve-right', '--nav-reserve-left']) {
+    gameArea.style.removeProperty(name);
+  }
+  const trialNoBoard = gameArea.classList.contains('trial-no-board');
+  const resultsShown = resultSummary.textContent !== '' || resultStats.textContent !== '';
+  const legendShown = !trialNoBoard && !pathViewLegend.hidden
+    && pathViewLegend.childElementCount > 0;
+  if (trialNoBoard || (!resultsShown && !legendShown)) {
+    gameArea.classList.remove('results-below-board', 'results-floating', 'legend-beside');
     return;
   }
 
-  const frameRect = document.getElementById('game-frame').getBoundingClientRect();
+  const frameRect = gameFrame.getBoundingClientRect();
   const mainRect = mainElement.getBoundingClientRect();
+  const areaRect = gameArea.getBoundingClientRect();
   const resultsWidth = resultsBox.getBoundingClientRect().width;
   const rightGutter = mainRect.right - frameRect.right;
-  const belowBoard = rightGutter < resultsWidth + 16;
-  gameArea.classList.toggle('results-below-board', belowBoard);
-  // While the stats float in the right gutter, the after-game controls and
-  // legends below the board keep clear of that column (symmetrically, so
-  // they stay centered under the board) instead of running underneath it.
-  gameArea.classList.toggle('results-floating', !belowBoard);
-  if (belowBoard) return;
-
+  const plan = afterGameSidePlan(rightGutter, legendShown, resultsWidth);
   const chromeRect = boardChromeLayoutRect();
+
+  gameArea.classList.toggle('legend-beside', plan.legendBeside);
+  // The control rows under the board (review, slider, overlays, path) keep
+  // clear of whatever stands in the right gutter: the legend column and/or
+  // the floating stats. `reserveRight` is that column's width measured from
+  // the main column's right edge.
+  let reserveRight = 0;
+  if (plan.legendBeside) {
+    const legendLeft = frameRect.right + LEGEND_BESIDE_GAP;
+    gameArea.style.setProperty('--legend-left',
+      Math.round(legendLeft - areaRect.left) + 'px');
+    gameArea.style.setProperty('--legend-top',
+      Math.round(frameRect.top - areaRect.top) + 'px');
+    gameArea.style.setProperty('--legend-width', Math.floor(plan.legendWidth) + 'px');
+    const legendRect = boardPageRect(pathViewLegend);
+    const underChrome = legendRect.right > chromeRect.left - 8
+      && legendRect.left < chromeRect.right + 8;
+    if (underChrome && chromeRect.bottom + 8 > legendRect.top) {
+      gameArea.style.setProperty('--legend-top-clearance',
+        Math.ceil(chromeRect.bottom - legendRect.top + 8) + 'px');
+    }
+    reserveRight = mainRect.right - legendLeft + 12;
+  }
+  if (resultsShown && plan.resultsFloat) {
+    reserveRight = Math.max(reserveRight, resultsWidth + RESULTS_GUTTER_MARGIN);
+  }
+  if (reserveRight > 0) {
+    const reserves = navReserves(mainRect.width, reserveRight);
+    gameArea.style.setProperty('--nav-reserve-right', Math.ceil(reserves.right) + 'px');
+    gameArea.style.setProperty('--nav-reserve-left', Math.floor(reserves.left) + 'px');
+  }
+
+  if (!resultsShown) {
+    gameArea.classList.remove('results-below-board', 'results-floating');
+    return;
+  }
+  const belowBoard = !plan.resultsFloat;
+  gameArea.classList.toggle('results-below-board', belowBoard);
+  gameArea.classList.toggle('results-floating', !belowBoard);
+  if (belowBoard) {
+    // Stats below the board flow after the control rows; a legend column
+    // taller than those rows would otherwise run over them.
+    if (plan.legendBeside) {
+      const overhang = boardPageRect(pathViewLegend).bottom
+        - boardPageRect(scoresNav).bottom;
+      if (overhang > 0) {
+        resultsBox.style.setProperty('--results-below-clearance',
+          Math.ceil(overhang) + 'px');
+      }
+    }
+    return;
+  }
+
   const resultRect = boardPageRect(resultsBox);
   const sharesRightStrip = resultRect.right > chromeRect.left - 8
     && resultRect.left < chromeRect.right + 8;
@@ -438,7 +547,9 @@ function syncResultClearance() {
   const floatingBottom = Math.max(
     resultsBox.getBoundingClientRect().bottom,
     justiceLive.childElementCount > 0
-      ? justiceLive.getBoundingClientRect().bottom : -Infinity);
+      ? justiceLive.getBoundingClientRect().bottom : -Infinity,
+    gameArea.classList.contains('legend-beside')
+      ? pathViewLegend.getBoundingClientRect().bottom : -Infinity);
   const extra = Math.max(0,
     Math.ceil(floatingBottom - gameArea.getBoundingClientRect().bottom));
   if (extra > 0) {
@@ -1123,7 +1234,7 @@ function syncLabPanelValues() {
 function syncLabChrome() {
   const panel = document.getElementById('board-lab-panel');
   const lab = boardLabActive();
-  document.getElementById('scores-nav').hidden = lab;
+  scoresNav.hidden = lab;
   panel.hidden = !lab;
   if (!lab) {
     panel.textContent = '';
@@ -6587,72 +6698,98 @@ function replayMoveOptions(view, flagged, facts) {
 // after marks; red = mine; orange = mistake-tagged action; black = clean
 // action; deep pink = rough movement. Measured choices used to be a second
 // green, indistinguishable from the proven-safe ring on the same square.
-const REPLAY_ENCODINGS = {
+const REPLAY_ENCODINGS = replayEncodingTable({
   choice: {
-    color: '#7256a8', form: 'ring',
-    label: 'solid purple ring = measured reasonable choice',
+    color: '#7256a8', form: 'ring', look: 'solid purple ring',
+    means: 'measured reasonable choice',
+    detail: 'a square the analysis rated worth choosing at this moment',
   },
   area: {
-    color: '#7256a8', form: 'leader',
-    label: 'uncertain pocket → side label with its exact mine risk and cell count',
+    color: '#7256a8', form: 'leader', look: 'purple arrow to a side label',
+    means: 'uncertain pocket',
+    detail: 'the side label gives that pocket\u2019s exact mine risk and cell count',
   },
   trigger: {
-    color: '#f1a208', form: 'ring',
-    label: 'gold ring = square the action was performed on',
+    color: '#f1a208', form: 'ring', look: 'gold ring',
+    means: 'square the action was performed on',
   },
   selected: {
-    color: '#f1a208', form: 'fill',
-    label: 'gold wash = squares the action changed',
+    color: '#f1a208', form: 'fill', look: 'gold wash',
+    means: 'squares the action changed',
   },
   crosshair: {
-    color: '#f1a208', form: 'crosshair',
-    label: 'crosshair + word = exact input pixel and action kind',
+    color: '#f1a208', form: 'crosshair', look: 'crosshair + word',
+    means: 'exact input pixel and action kind',
   },
   safe: {
-    color: '#1b8a3f', form: 'dashed',
-    label: 'dashed green = proven safe — raw click (around a flag: that flag is provably wrong)',
+    color: '#1b8a3f', form: 'dashed', look: 'dashed green',
+    means: 'proven safe: open it with a raw click',
+    detail: 'around a flag it means that flag is provably wrong',
   },
   'chord-now': {
-    color: '#0b5d97', form: 'dashed',
-    label: 'dashed blue = number you can chord now',
+    color: '#0b5d97', form: 'dashed', look: 'dashed blue',
+    means: 'number you can chord now',
   },
   'mark-mine': {
-    color: '#c62828', form: 'flag',
-    label: 'mini flag = mark-mine move on a proven mine',
+    color: '#c62828', form: 'flag', look: 'mini flag',
+    means: 'mark-mine move on a proven mine',
   },
   'chord-after-marks': {
-    color: '#00838f', form: 'dashed',
-    label: 'dashed teal = number chordable after those marks, opening 2 or more cells',
+    color: '#00838f', form: 'dashed', look: 'dashed teal',
+    means: 'number chordable after those marks',
+    detail: 'opens 2 or more cells',
   },
   'chord-after-marks-single': {
-    color: '#00838f', form: 'dashed-thin',
-    label: 'thin dashed teal = mark-then-chord combo that opens a single cell (never faster than that cell\u2019s raw click)',
+    color: '#00838f', form: 'dashed-thin', look: 'thin dashed teal',
+    means: 'mark-then-chord combo that opens a single cell',
+    detail: 'never faster than that cell\u2019s raw click',
   },
   'chord-open': {
-    color: '#d9f2e0', form: 'fill',
-    label: 'pale green fill = cells a chord opens',
+    color: '#d9f2e0', form: 'fill', look: 'pale green fill',
+    means: 'cells a chord opens',
   },
   mine: {
-    color: '#c62828', form: 'dashed',
-    label: 'dashed red = proven mine — never open; flag it or chord past it',
+    color: '#c62828', form: 'dashed', look: 'dashed red',
+    means: 'proven mine: never open',
+    detail: 'flag it or chord past it',
   },
   prob: {
-    color: '#000000', form: 'badge',
-    label: 'corner number = exact mine probability (%) from everything visible (a proven cell already ringed by another layer shows no number)',
+    color: '#000000', form: 'badge', look: 'corner number',
+    means: 'exact mine probability (%) from everything visible',
+    detail: 'a proven cell already ringed by another layer shows no number',
   },
   pointless: {
-    color: '#d95f02', form: 'dot',
-    label: 'numbered orange ring = mistake-tagged action up to the shown moment',
+    color: '#d95f02', form: 'dot', look: 'numbered orange ring',
+    means: 'mistake-tagged action',
+    detail: 'every such action up to the shown moment',
   },
   purposeful: {
-    color: '#000000', form: 'dot',
-    label: 'numbered black ring = clean action up to the shown moment',
+    color: '#000000', form: 'dot', look: 'numbered black ring',
+    means: 'clean action',
+    detail: 'every such action up to the shown moment',
   },
   movement: {
-    color: '#ad1457', form: 'line',
-    label: 'deep-pink underlay = crawling under ¼ of this game\u2019s median pace, or a hard reversal',
+    color: '#ad1457', form: 'line', look: 'deep-pink underlay',
+    means: 'rough movement',
+    detail: 'crawling under \u00bc of this game\u2019s median pace, or a hard reversal',
   },
-};
+});
+
+// Each encoding is written as three parts so the legend can set the
+// meaning as the headline and the look words plus detail beneath it; the
+// complete `label` (look = meaning — detail) is derived, never retyped, and
+// is what exports and tests read.
+function replayEncodingTable(entries) {
+  const table = {};
+  for (const [key, entry] of Object.entries(entries)) {
+    table[key] = Object.freeze({
+      ...entry,
+      label: entry.look + ' = ' + entry.means
+        + (entry.detail ? ' \u2014 ' + entry.detail : ''),
+    });
+  }
+  return Object.freeze(table);
+}
 
 function replayChoiceCells(evaluation) {
   return [...new Set((evaluation.choices || [])
@@ -7280,9 +7417,7 @@ function appendPathLegendRow(title, keys, note) {
   for (const key of keys) {
     const item = document.createElement('span');
     item.className = 'path-legend-key';
-    const label = document.createElement('span');
-    label.textContent = key.label;
-    item.append(pathLegendSwatch(key), label);
+    item.append(pathLegendSwatch(key), pathLegendText(key));
     row.appendChild(item);
   }
   if (note) {
@@ -7293,6 +7428,28 @@ function appendPathLegendRow(title, keys, note) {
   }
   pathViewLegend.appendChild(row);
   pathViewLegend.hidden = false;
+}
+
+// A legend item's wording: the meaning is the headline; the look words and
+// any detail sit beneath it in one smaller line, so a reader gets "what it
+// is" first and "how it is drawn / the fine print" second. Path-view keys
+// that carry only a `label` show that label as the headline. Nothing is
+// ever shortened.
+function pathLegendText(key) {
+  const text = document.createElement('span');
+  text.className = 'path-legend-text';
+  const headline = document.createElement('span');
+  headline.className = 'path-legend-means';
+  headline.textContent = key.means || key.label;
+  text.appendChild(headline);
+  const fine = [key.look, key.detail].filter(Boolean);
+  if (key.means && fine.length > 0) {
+    const line = document.createElement('span');
+    line.className = 'path-legend-detail';
+    line.textContent = fine.join(' \u00b7 ');
+    text.appendChild(line);
+  }
+  return text;
 }
 
 // One swatch per encoding form, so a legend item shows the same shape the
@@ -7693,6 +7850,9 @@ function paintPathCanvas() {
 function renderPathOverlay() {
   removePathCanvas();
   resetPathLegend();
+  // The legend column beside the board is placed by measurement once this
+  // synchronous rebuild has filled it (scheduleBoardLayout runs on rAF).
+  scheduleBoardLayout();
   pathHighlightBin = -1;
   lastPathState = null;
   hidePathTooltip();

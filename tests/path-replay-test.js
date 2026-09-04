@@ -371,9 +371,47 @@ check('solver reads are never silently replaced by a fallback',
 check('solver reads are precomputed off the input path',
   source.includes('function scheduleReplayPrecompute')
     && source.includes('cancelReplayPrecompute();\n  replaySolverCache.clear();'));
-check('the legend keeps clear of the floating stats column',
-  css.includes('#game-area.results-floating #scores-nav')
-    && source.includes("classList.toggle('results-floating'"));
+{
+  // The side-plan and reserve rules are pure functions in the layout
+  // section; run them from their source text.
+  const grab = (name) => {
+    const match = source.match(new RegExp('(?:const [A-Z_]+ = \\d+;\\n)*function ' + name + '\\([\\s\\S]*?\\n\\}\\n'));
+    if (!match) throw new Error('missing ' + name);
+    return match[0];
+  };
+  const consts = source.match(/const LEGEND_BESIDE_GAP[\s\S]*?const RESULTS_GUTTER_MARGIN = \d+;\n/)[0];
+  vm.runInThisContext(consts + grab('afterGameSidePlan') + grab('navReserves'));
+  check('no legend: stats float exactly when the gutter holds them',
+    afterGameSidePlan(336, false, 320).resultsFloat === true
+      && afterGameSidePlan(335, false, 320).resultsFloat === false
+      && afterGameSidePlan(2000, false, 320).legendBeside === false);
+  check('legend goes below the board when the gutter is under its minimum width',
+    afterGameSidePlan(255, true, 320).legendBeside === false
+      && afterGameSidePlan(256, true, 320).legendBeside === true);
+  check('legend beside the board takes precedence over floating stats',
+    JSON.stringify(afterGameSidePlan(400, true, 320))
+      === JSON.stringify({ legendBeside: true, legendWidth: 340, resultsFloat: false }));
+  check('with room for both, the legend narrows toward its minimum before the stats drop',
+    JSON.stringify(afterGameSidePlan(620, true, 320))
+      === JSON.stringify({ legendBeside: true, legendWidth: 258, resultsFloat: true })
+      && JSON.stringify(afterGameSidePlan(1000, true, 320))
+      === JSON.stringify({ legendBeside: true, legendWidth: 340, resultsFloat: true }));
+  check('control rows mirror the right reserve only while the slider keeps 480px',
+    JSON.stringify(navReserves(1400, 271)) === JSON.stringify({ right: 271, left: 271 })
+      && JSON.stringify(navReserves(816, 267)) === JSON.stringify({ right: 267, left: 69 })
+      && JSON.stringify(navReserves(700, 267)) === JSON.stringify({ right: 267, left: 0 }));
+}
+check('the legend stands beside the board and the control rows keep clear of the gutter',
+  css.includes('#game-area.legend-beside #path-view-legend:not([hidden])')
+    && /#scores-nav\s*\{[^}]*padding-right:\s*var\(--nav-reserve-right/.test(css)
+    && source.includes("classList.toggle('legend-beside'")
+    && source.includes("setProperty('--legend-left'")
+    && source.includes("setProperty('--nav-reserve-right'"));
+check('the legend is a vertical key: meaning headline, look and detail beneath',
+  /\.path-legend-row\s*\{[^}]*flex-direction:\s*column/.test(css)
+    && source.includes("headline.textContent = key.means || key.label")
+    && Object.values(REPLAY_ENCODINGS).every((e) => e.means && e.look
+      && e.label === e.look + ' = ' + e.means + (e.detail ? ' \u2014 ' + e.detail : '')));
 check('the slider shows its current value at the thumb',
   html.includes('id="replay-slider-value"') && css.includes('#replay-slider-value'));
 
@@ -416,9 +454,7 @@ check('review mode is independent of path mode buttons',
     source.includes('reviewControl.hidden = !available'));
 }
 check('after-game controls are bounded by the main column, never their content',
-  /#scores-nav\s*\{[^}]*max-width:\s*100cqw/.test(css)
-    && /results-floating #scores-nav\s*\{[^}]*padding-right:\s*336px/.test(css)
-    && /results-floating #scores-nav\s*\{[^}]*padding-left:\s*min\(336px/.test(css));
+  /#scores-nav\s*\{[^}]*max-width:\s*100cqw/.test(css));
 check('selected path button keeps box dimensions stable',
   css.includes('#path-view-control button[aria-pressed="true"]')
     && !css.match(/#path-view-control button\[aria-pressed="true"\][^{]*\{[^}]*font-weight/s));

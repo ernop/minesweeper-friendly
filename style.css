@@ -209,15 +209,14 @@ main {
   min-width: 0;
 }
 
-/* While the after-game stats float in the right gutter (#results, 320px at
-   the main column's edge), the controls and legends keep out of that column:
-   the right padding is the hard rule (no legend text ever runs underneath
-   the stats); the left padding mirrors it so the block stays centered under
-   the board, giving way first when the column is too narrow to keep a
-   280px content width. */
-#game-area.results-floating #scores-nav {
-  padding-right: 336px;
-  padding-left: min(336px, max(0px, calc(100cqw - 336px - 280px)));
+/* The control rows keep clear of what stands in the right gutter — the
+   legend column beside the board and/or the floating stats. The reserves
+   are measured by syncResultsPlacement (navReserves): the right one is the
+   hard rule, the left one mirrors it so the rows stay centered under the
+   board and gives way first so the slider keeps its room. */
+#scores-nav {
+  padding-right: var(--nav-reserve-right, 0px);
+  padding-left: var(--nav-reserve-left, 0px);
 }
 
 /* Review row: the modifier that steps through the finished game. Same
@@ -306,29 +305,67 @@ main {
   box-shadow: inset 0 0 0 1px #ffffff;
 }
 
+/* The legend is a vertical key: one item per line, swatch left, wording
+   right, grouped under bold titles. It stands beside the board's right
+   edge (`#game-area.legend-beside`, placed by syncResultsPlacement through
+   the --legend-* variables) and falls back to the same vertical list below
+   the board when the gutter cannot hold at least its minimum width. */
 #path-view-legend {
-  flex: 1 0 100%;
+  flex: 0 1 auto;
   box-sizing: border-box;
-  min-height: 38px;
+  width: min(100%, 340px);
   padding: 4px 8px;
+  border: 1px solid #000000;
+  border-radius: 3px;
+  background: #ffffff;
   color: #000000;
+  text-align: left;
   font-variant-numeric: tabular-nums;
+}
+
+#game-area.legend-beside #path-view-legend:not([hidden]) {
+  position: absolute;
+  top: calc(var(--legend-top, 0px) + var(--legend-top-clearance, 0px));
+  left: var(--legend-left, 0px);
+  width: var(--legend-width, 300px);
+  margin: 0;
 }
 
 .path-legend-row {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 5px 8px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
 }
 
-.path-legend-row + .path-legend-row { margin-top: 3px; }
+.path-legend-row + .path-legend-row { margin-top: 8px; }
 
 .path-legend-title {
+  padding-bottom: 2px;
+  border-bottom: 1px solid #000000;
+  color: #000000;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.path-legend-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.path-legend-means {
+  color: #000000;
+  font-size: 12px;
+  font-weight: bold;
+  line-height: 1.25;
+}
+
+.path-legend-detail {
   color: #000000;
   font-size: 11px;
-  font-weight: bold;
+  line-height: 1.3;
 }
 
 .path-gradient-scale {
@@ -360,57 +397,56 @@ main {
 }
 
 .path-legend-key {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
 }
 
-/* Legend swatches take the shape the board draws for that encoding, so a
-   reader matches form as well as color. --swatch-color is set per item. */
+/* Legend swatches take the shape the board draws for that encoding, at
+   the size of a small board cell, so a reader matches form as well as
+   color at a glance. --swatch-color is set per item. The swatch box is a
+   fixed 22px column so the wording lines up down the whole key. */
 .path-legend-swatch {
-  display: inline-block;
+  display: inline-flex;
   flex: none;
+  align-items: center;
+  justify-content: center;
   box-sizing: border-box;
-  width: 14px;
-  height: 4px;
+  width: 22px;
+  height: 22px;
+  margin-top: 0;
   border-radius: 2px;
-  background: var(--swatch-color);
+  background: linear-gradient(var(--swatch-color), var(--swatch-color))
+    center / 100% 5px no-repeat;
 }
 
 /* Filled dot: the path views' click markers. */
 .path-legend-swatch.dot {
-  width: 7px;
-  height: 7px;
-  border: 1px solid #ffffff;
-  border-radius: 50%;
-  box-shadow: 0 0 0 1px #6f7d87;
+  background: radial-gradient(circle at center,
+    var(--swatch-color) 0 5px, #ffffff 5.5px 6.5px, #6f7d87 7px 7.5px,
+    transparent 8px);
 }
 
 /* Hollow ring: the review mode numbered action markers. */
 .path-legend-swatch.form-dot {
-  width: 11px;
-  height: 11px;
-  border: 2px solid var(--swatch-color);
-  border-radius: 50%;
-  background: #ffffff;
+  background: radial-gradient(circle at center,
+    #ffffff 0 4.5px, var(--swatch-color) 5px 8px, transparent 8.5px);
 }
 
 .path-legend-swatch.form-ring,
 .path-legend-swatch.form-dashed,
 .path-legend-swatch.form-dashed-thin,
 .path-legend-swatch.form-fill {
-  width: 13px;
-  height: 13px;
   border-radius: 1px;
   background: #d9d9d9;
 }
 
 .path-legend-swatch.form-ring {
-  box-shadow: inset 0 0 0 3px var(--swatch-color);
+  box-shadow: inset 0 0 0 4px var(--swatch-color);
 }
 
 .path-legend-swatch.form-dashed {
-  border: 2px dashed var(--swatch-color);
+  border: 3px dashed var(--swatch-color);
 }
 
 .path-legend-swatch.form-dashed-thin {
@@ -426,10 +462,6 @@ main {
 .path-legend-swatch.form-badge,
 .path-legend-swatch.form-crosshair,
 .path-legend-swatch.form-leader {
-  width: auto;
-  height: auto;
-  min-width: 13px;
-  border-radius: 2px;
   background: #ffffff;
   color: var(--swatch-color);
   line-height: 1;
@@ -437,35 +469,33 @@ main {
 }
 
 .path-legend-swatch.form-flag {
-  padding: 1px;
   border: 1px solid #6f7d87;
 }
 
 .path-legend-swatch.form-flag svg {
   display: block;
-  width: 9px;
-  height: 9px;
+  width: 14px;
+  height: 14px;
 }
 
 .path-legend-swatch.form-badge {
-  padding: 1px 2px;
   border: 1px solid #6f7d87;
-  font: 700 9px/1.2 Arial, sans-serif;
+  font: 700 11px/1 Arial, sans-serif;
 }
 
 .path-legend-swatch.form-crosshair {
-  font: 700 14px/1 Arial, sans-serif;
+  font: 700 20px/1 Arial, sans-serif;
 }
 
 .path-legend-swatch.form-leader {
-  font: 700 12px/1 Arial, sans-serif;
+  font: 700 18px/1 Arial, sans-serif;
 }
 
 .path-legend-note {
-  flex-basis: 100%;
   color: #000000;
-  font-size: 10px;
-  text-align: center;
+  font-size: 11px;
+  line-height: 1.3;
+  text-align: left;
 }
 
 #replay-controls {
@@ -605,9 +635,10 @@ main {
 /* Interpretive legend chips: one per color class; hovering one spotlights
    its path segments, and hovering the path lights the matching chip. */
 .path-bin-chip {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 4px;
+  justify-content: flex-start;
+  gap: 8px;
   padding: 2px 6px;
   border: 1px solid #8093a1;
   border-radius: 3px;
@@ -1191,7 +1222,9 @@ body.trial-offboard #game-frame {
   transform: none;
   right: auto;
   width: min(320px, 100%);
-  margin: 12px auto 0;
+  /* --results-below-clearance: how far the legend column beside the board
+     extends past the control rows above these stats. */
+  margin: calc(12px + var(--results-below-clearance, 0px)) auto 0;
 }
 
 #results p {
