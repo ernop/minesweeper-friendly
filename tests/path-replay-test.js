@@ -236,8 +236,146 @@ check('uncertain endpoint risks are not rounded to certainty',
 }
 
 check('mark-then-chord numbers and mini mark-mine flags have styles',
-  css.includes('.cell.replay-chord-flag::after')
+  css.includes('.cell.replay-chord-after-marks::after')
+    && css.includes('.cell.replay-chord-after-marks-single::after')
     && css.includes('.replay-flag-hint'));
+check('only the cell\'s own glyph dims on a proven mine, not the mark-mine hint',
+  css.includes('.cell.replay-mine > svg')
+    && !/\.cell\.replay-mine svg\s*\{/.test(css));
+
+{
+  // Every encoding the model can emit has a stylesheet rule reading its
+  // published color variable, a legend swatch form, and complete wording.
+  const cellKeys = ['choice', 'trigger', 'selected', 'safe', 'chord-now',
+    'chord-after-marks', 'chord-after-marks-single', 'chord-open', 'mine'];
+  for (const key of cellKeys) {
+    check(`encoding ${key} is styled through its variable`,
+      css.includes(`.replay-${key}`) && css.includes(`var(--replay-${key})`));
+  }
+  for (const [key, encoding] of Object.entries(REPLAY_ENCODINGS)) {
+    check(`encoding ${key} names its color, form, and meaning`,
+      /^#[0-9a-f]{6}$/.test(encoding.color)
+        && typeof encoding.form === 'string'
+        && encoding.label.includes('=') || key === 'area');
+    check(`encoding ${key} legend wording is a complete sentence fragment`,
+      encoding.label.length >= 20 && !encoding.label.includes('…'));
+  }
+  check('measured choices are no longer a second green',
+    REPLAY_ENCODINGS.choice.color !== REPLAY_ENCODINGS.safe.color
+      && REPLAY_ENCODINGS.choice.color === REPLAY_ENCODINGS.area.color);
+  check('the canvas painter reads marker colors from the table',
+    source.includes('REPLAY_ENCODINGS.pointless.color')
+      && source.includes('REPLAY_ENCODINGS.movement.color')
+      && source.includes('REPLAY_ENCODINGS.crosshair.color'));
+}
+
+{
+  // A 3x2 frame: the top row is revealed 1-2-1, the bottom row covered with
+  // mines under both 1s and a safe cell under the 2. The player chords the
+  // left 1 after flagging its mine; the evaluation's measured choices are
+  // the safe cell plus the (already flagged) right mine.
+  const evaluation = {
+    action: 'chord',
+    atMs: 1770,
+    triggerCell: 0,
+    selected: [4],
+    choices: [{ kind: 'guaranteed-safe-reveal', risk: 0, cells: [4] }],
+    position: {
+      width: 3, height: 2, mines: 2,
+      revealed: [[0, 1], [1, 2], [2, 1]],
+      flagged: [3],
+    },
+  };
+  const facts = new Map([[3, 1], [4, 2], [5, 1]]);
+  const view = {
+    width: 3, height: 2,
+    revealed: [true, true, true, false, false, false],
+    adjacent: [1, 2, 1, 0, 0, 0],
+  };
+  const { chords, flagChords } = replayMoveOptions(view, new Set([3]), facts);
+  const solver = {
+    measured: true,
+    pMine: [0, 0, 0, 1, 0, 1],
+    facts,
+    provenMines: [3, 5],
+    provenSafe: [4],
+    chords,
+    flagChords,
+  };
+  const all = { moves: true, mines: true, probs: true };
+  const model = replayFrameModel(evaluation, solver, all);
+  const marks = (cell) => [...model.cells[cell].marks].sort().join(',');
+  check('frame model keeps the stored board state',
+    model.cells[0].revealed && model.cells[0].adjacent === 1
+      && !model.cells[3].revealed && model.cells[3].flagged
+      && !model.cells[4].flagged);
+  check('the chorded number is the trigger and a chord-now',
+    model.triggerCell === 0 && marks(0) === 'chord-now,trigger');
+  check('a flagged proven mine keeps its flag and gets no mark-mine hint',
+    marks(3) === 'mine');
+  check('an unflagged proven mine offers the mark-mine move',
+    marks(5) === 'mark-mine,mine');
+  check('the safe cell is a proven-safe choice the chord opens and changed',
+    marks(4) === 'choice,chord-open,safe,selected');
+  check('single-cell mark-then-chord combos are kept but marked dominated',
+    marks(2) === 'chord-after-marks-single' && marks(1) === 'chord-after-marks-single');
+  check('proven cells already ringed show no probability badge',
+    model.cells.every((cell) => cell.badge === null));
+  check('measured choice count and exact solver state are reported',
+    model.choiceCount === 1 && model.solverState === 'exact');
+
+  const probsOnly = replayFrameModel(evaluation, solver, { moves: false, mines: false, probs: true });
+  check('with rings off, proven cells read 0 and 100',
+    probsOnly.cells[3].badge === '100' && probsOnly.cells[4].badge === '0'
+      && probsOnly.cells[5].badge === '100');
+  check('with solver layers off, only player marks remain',
+    [...probsOnly.cells[4].marks].sort().join(',') === 'choice,selected');
+
+  const none = replayFrameModel(evaluation, null, all);
+  check('no solver read means no solver marks and state off',
+    none.solverState === 'off'
+      && none.cells.every((cell) => ![...cell.marks].some((key) =>
+        ['safe', 'mine', 'chord-now', 'mark-mine'].includes(key))));
+
+  const bounded = replayFrameModel(evaluation,
+    { ...solver, measured: false, pMine: null }, all);
+  check('an over-budget position still marks proofs but no probabilities',
+    bounded.solverState === 'bounded' && bounded.cells[5].marks.has('mine')
+      && bounded.cells.every((cell) => cell.badge === null));
+
+  const status = replayStatusParts(7, 19, evaluation);
+  check('status parts carry the values separately from the words',
+    status.index === '8' && status.count === '19' && status.time === '1.77 s'
+      && status.action === 'chord' && status.choices === '1 measured choice');
+}
+
+{
+  const rows = replayLegendRows({ moves: true, mines: true, probs: true,
+    pointless: false, purposeful: true, movement: false }, 'exact');
+  check('legend rows follow the active overlays',
+    rows.map((row) => row.title).join('|')
+      === 'decision-time board|available moves|forced mines|mine %|purposeful clicks');
+  check('legend rows only name real encodings',
+    rows.every((row) => row.keys.every((key) => key in REPLAY_ENCODINGS)));
+  check('the board row splits ring, wash, and crosshair into separate items',
+    rows[0].keys.includes('trigger') && rows[0].keys.includes('selected')
+      && rows[0].keys.includes('crosshair'));
+  const boundedRows = replayLegendRows({ moves: false, mines: true, probs: true }, 'bounded');
+  check('the enumeration caveat rides on the first solver row shown',
+    boundedRows[1].note !== undefined && boundedRows[2].keys.length === 0
+      && boundedRows[2].note === 'position too complex for exact probabilities');
+}
+
+check('solver reads are never silently replaced by a fallback',
+  !/function replaySolverRead[\s\S]*?catch[\s\S]*?function replaySolverAt/.test(source));
+check('solver reads are precomputed off the input path',
+  source.includes('function scheduleReplayPrecompute')
+    && source.includes('cancelReplayPrecompute();\n  replaySolverCache.clear();'));
+check('the legend keeps clear of the floating stats column',
+  css.includes('#game-area.results-floating #scores-nav')
+    && source.includes("classList.toggle('results-floating'"));
+check('the slider shows its current value at the thumb',
+  html.includes('id="replay-slider-value"') && css.includes('#replay-slider-value'));
 
 check('back in time exposes a game-history slider',
   html.includes('id="replay-slider"'));

@@ -1,2 +1,9 @@
 analysis/biometrics/.venv/
 __pycache__/
+# editor swap files
+*.kate-swp
+.*.swp
+# personal history/trace exports dropped into the repo for analysis
+/minesweeper-friendly-history-*.json
+/minesweeper-friendly-traces-*.json
+/analysis/history/out/

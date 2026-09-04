@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Minesweeper - Standard Mode</title>
-<link rel="stylesheet" href="style.css?v=20260831-option-set">
+<link rel="stylesheet" href="style.css?v=20260904-encodings">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <!-- Defer preserves dependency order while letting every page asset download
      in parallel. Storage starts first so disk access overlaps JS startup. -->
@@ -19,8 +19,8 @@
 <script defer src="pregen.js?v=20260826-pregen-highlight"></script>
 <script defer src="odds.js?v=20260825-batched-certification"></script>
 <script defer src="trial.js"></script>
-<script defer src="settings-core.js?v=20260831-option-set"></script>
-<script defer src="minesweeper.js?v=20260831-option-set"></script>
+<script defer src="settings-core.js?v=20260904-encodings"></script>
+<script defer src="minesweeper.js?v=20260904-encodings"></script>
 </head>
 <body aria-busy="true">
 <div id="top-right">
@@ -186,6 +186,7 @@
       <span id="replay-controls" hidden aria-label="Navigate decision time">
         <button type="button" id="replay-prev" aria-label="Previous choice">‹</button>
         <span id="replay-slider-wrap">
+          <span id="replay-slider-value" aria-hidden="true"></span>
           <input type="range" id="replay-slider" min="1" max="1" step="1" value="1"
             aria-label="Game history position (action number)">
           <span id="replay-slider-scale" aria-hidden="true"></span>

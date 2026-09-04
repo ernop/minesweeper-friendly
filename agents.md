@@ -219,43 +219,68 @@ Implementation notes:
   DOM, marks measured choices and selection, and restores the exact finished
   markup on exit. It adds a game-history range slider (`#replay-slider`, with
   notch marks and numeric labels at the endpoints and quarters) that is
-  equivalent to prev/next, plus six independent overlay toggles
-  (`#replay-overlay-control`, `replayOverlays`; moves + mines default on):
-  available moves / forced mines / mine % come from `replaySolverRead`
-  (exact `Odds.analyzeView`
-  enumeration per frame, cached per decision index in `replaySolverCache`,
-  falling back to bounded `Justice.proveFacts` when over budget). Solver
-  deductions draw as dashed inner rings via `::after` (their own visual
-  channel) while player-action marks stay on `box-shadow`, so both can
-  coexist on one square: proven-safe cells dashed green (flagged too — a
-  dashed safe ring around a flag exposes a provably wrong flag), satisfied
-  chordable numbers dashed blue plus pale-green cells the chord opens (chord
-  marked safe only when everything it
-  opens is proven clear), mark-mine moves as mini flag badges
-  (`.replay-flag-hint`) on unflagged proven mines with mark-then-chord combo
-  numbers dashed teal (`replayMoveOptions`, a pure helper in the PATH
-  REPLAY: COMPUTATION span, finds both chord kinds — the full option set is
-  raw click / chord / mark-mine), proven mines dashed red with a dimmed
-  mine glyph when unflagged,
-  and exact per-cell mine percentages as bottom-right corner badges
-  (`.replay-prob`, 0/100 on proven cells) that leave flag/mine glyphs
-  visible. The acted square (`evaluation.triggerCell` for chords, the single
-  selected cell otherwise) gets the gold `replay-trigger` ring; cells the
-  action changed get the translucent gold `replay-selected` wash
-  (background-image, stacking over the chord-open background-color).
-  Pointless/purposeful click layers and the rough-movement underlay
-  (`pathRoughSegments`: crawling under ¼ of the game's median moving pace or
-  a >135° reversal) draw on the canvas up to the shown moment, and a gold
-  crosshair with a white action-kind pill (solid background, clamped to the
-  canvas) marks the exact input pixel of the
-  displayed action — for a chord, the precise spot chorded on. The canvas
-  survives path-off while back-in-time is active so those layers keep
-  rendering. `pathChoiceAreas` groups uncertain reasonable choices into
-  connected pockets; `#replay-choice-areas` draws leaders to side labels with
-  non-misleading mine risk and cell count, choosing left or right to avoid
-  the result summary/viewport edge. A lazily created ResizeObserver redraws
-  both overlays and callouts on zoom. Replay arrow shortcuts ignore focused
-  form controls and buttons.
+  equivalent to prev/next and shows the current action number in a label
+  riding above its thumb (`#replay-slider-value`, `--thumb` 0–1), plus six
+  independent overlay toggles
+  (`#replay-overlay-control`, `replayOverlays`; moves + mines default on).
+  Architecture (2026-09-04 review): everything back-in-time can draw is one
+  table, `REPLAY_ENCODINGS` (PATH REPLAY: COMPUTATION span) — key → color,
+  legend swatch form, complete legend wording. `applyReplayEncodingColors`
+  publishes each color as `--replay-<key>` on `:root`; `style.css` reads
+  only those variables for the `.cell.replay-<key>` rules; the canvas
+  painter reads `REPLAY_ENCODINGS.<key>.color`; the legend renders the
+  wording verbatim. A color or meaning changes in exactly one place.
+  Per frame, `replayFrameModel(evaluation, solver, overlays)` (pure, DOM-free,
+  frozen by `tests/path-replay-test.js`) returns per-cell
+  `{revealed, adjacent, flagged, marks: Set<key>, badge}` plus
+  `triggerCell`, `choiceCount`, `solverState` ('off' | 'exact' | 'bounded');
+  `paintReplayFrame` only turns keys into classes and badges.
+  `replayLegendRows(overlays, solverState)` and `replayStatusParts` are the
+  pure legend/status models; `appendReplayLegend` / `renderReplayStatus`
+  render them (`pathLegendSwatch` draws one swatch per form: line, dot,
+  ring, dashed, dashed-thin, fill, flag, badge, crosshair, leader).
+  Solver layers come from `replaySolverRead` (exact `Odds.analyzeView`
+  enumeration; bounded `Justice.proveFacts` facts when over budget; a solver
+  exception propagates — never shown as "too complex"), cached per decision
+  index in `replaySolverCache`. `scheduleReplayPrecompute` fills that cache
+  for every frame in 8 ms `setTimeout(0)` slices as soon as back-in-time is
+  on (cancelled by `cancelReplayPrecompute` on toggle-off and new board), so
+  slider scrubbing never waits on an enumeration.
+  Solver deductions draw as dashed inner rings via `::after` (their own
+  visual channel) while player-action marks stay on `box-shadow`, so both
+  can coexist on one square. Encoding keys: `safe` (dashed green; flagged
+  too — a dashed safe ring around a flag exposes a provably wrong flag),
+  `chord-now` (dashed blue) with `chord-open` pale-green fill on the cells it
+  opens, `mark-mine` (mini flag `.replay-flag-hint` on unflagged proven
+  mines), `chord-after-marks` (dashed teal, combos opening ≥ 2 cells, also
+  filling their opens) and `chord-after-marks-single` (thin 1 px dashed
+  teal, the dominated 1-cell combo, no fill) — `replayMoveOptions` finds
+  both chord kinds; `mine` (dashed red, the cell's own flag/mine glyph dimmed
+  via `.cell.replay-mine > svg` so the hint stays full strength); `prob`
+  (bottom-right `.replay-prob` badge, suppressed on a proven cell whose
+  ring already states 0/100 — fact 1 with `mines` on, fact 2 with `moves`
+  on); `choice` (solid purple inset ring, same hue as the pocket labels —
+  it was a second green before, indistinguishable from `safe`); `trigger`
+  (gold ring on `evaluation.triggerCell` for chords, the single selected
+  cell otherwise) and `selected` (translucent gold wash via background-image
+  + `color-mix`, stacking over the chord-open background-color).
+  Canvas layers up to the shown moment: `pointless`/`purposeful` (hollow
+  numbered rings, orange/black, `drawRingMarker`, so the glyph under the
+  click spot stays readable), `movement` underlay (deep pink;
+  `pathRoughSegments`: crawling under ¼ of the game's median moving pace or
+  a >135° reversal), and the gold `crosshair` with a white action-kind pill
+  centered just above the arms (never over the acted square; clamped to the
+  canvas). The canvas survives path-off while back-in-time is active so
+  those layers keep rendering. `pathChoiceAreas` groups uncertain
+  reasonable choices into connected pockets; `#replay-choice-areas` draws
+  leaders (`--replay-area`) to side labels with non-misleading mine risk and
+  cell count, choosing left or right to avoid the result summary/viewport
+  edge. `syncResultsPlacement` toggles `results-floating` on `#game-area`
+  while the stats float in the right gutter; `#scores-nav` then takes
+  336 px symmetric inline padding so legends never run under the stats
+  panel (they did, cutting the last key). A lazily created ResizeObserver
+  redraws both overlays and callouts on zoom. Replay arrow shortcuts ignore
+  focused form controls and buttons.
   Decision frames persist inside the trace; the UI currently opens only the
   just-finished RAM trace.
 - Offline analysis lives under `analysis/` (inputs: the exported trace
@@ -266,6 +291,20 @@ Implementation notes:
   passwordless sudo; mousetrap itself compiled from CRAN, its heavy deps
   installed as conda-forge binaries). `analysis/biometrics/` holds the
   mouse-dynamics feature extractor with its own venv.
+  `analysis/history/summarize-history.js` (Node, stdlib only; input: a
+  history export) regenerates the stratified history summary the
+  2026-08-30 findings review quoted — totals and per-key/per-day win rates
+  with Wilson intervals, Theil–Sen daily trends, Spearman shape/time
+  correlations, gap-based sessions with early/late halves and the
+  physical-state aggregates (mouse speed, click rate, fastclick gap), the
+  loss taxonomy in the report's exact wording (it loads the GAME-END
+  EVALUATION: VERDICT span, like the tests, so it can never re-implement
+  `fatalActionStatusKind`), guess-policy per key, a summed-risk luck
+  calibration table, and paired state-tag/music contrasts. Output JSON goes
+  to `--out` (`analysis/history/out/` is ignored); see
+  `analysis/history/NOTES.md`. History exports dropped into the repo root
+  are ignored by name pattern (personal data; also served by the local
+  origin).
 - Trace metrics (PRODUCT.md "Trace metrics panel"): the pure sections
   between the "TRACE METRICS: COMPUTATION" and "TRACE METRICS: DISPLAY"
   markers (no DOM; Node harnesses extract exactly this span) implement

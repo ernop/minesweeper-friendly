@@ -381,7 +381,7 @@ function syncResultsPlacement() {
   resultsBox.style.removeProperty('--results-top-clearance');
   if (gameArea.classList.contains('trial-no-board')
       || (resultSummary.textContent === '' && resultStats.textContent === '')) {
-    gameArea.classList.remove('results-below-board');
+    gameArea.classList.remove('results-below-board', 'results-floating');
     return;
   }
 
@@ -391,6 +391,10 @@ function syncResultsPlacement() {
   const rightGutter = mainRect.right - frameRect.right;
   const belowBoard = rightGutter < resultsWidth + 16;
   gameArea.classList.toggle('results-below-board', belowBoard);
+  // While the stats float in the right gutter, the after-game controls and
+  // legends below the board keep clear of that column (symmetrically, so
+  // they stay centered under the board) instead of running underneath it.
+  gameArea.classList.toggle('results-floating', !belowBoard);
   if (belowBoard) return;
 
   const chromeRect = boardChromeLayoutRect();
@@ -743,6 +747,7 @@ function newGame() {
   replayFinishedCells = null;
   replayEnabled = false;
   replayStep = 0;
+  cancelReplayPrecompute();
   replaySolverCache.clear();
   replaySlider.max = '1';
   lastPathState = null;
@@ -6568,6 +6573,243 @@ function replayMoveOptions(view, flagged, facts) {
   return { chords, flagChords };
 }
 
+// Every visual encoding back-in-time can put on the board or its canvas,
+// in one table: the color (published to CSS as `--replay-<key>` by
+// applyReplayEncodingColors), the legend swatch form, and the complete
+// legend wording. The frame model names squares by these keys, the
+// stylesheet reads the colors through the variables, and the legend renders
+// the wording verbatim — so a color or a meaning changes in exactly one
+// place and the legend can never drift from the board (semantic labels are
+// never shortened; see PRODUCT.md UI doctrine).
+//
+// Hue budget: purple = the measured choice set and its pocket labels; gold =
+// the action itself; green = proven safe; blue = chord now; teal = chord
+// after marks; red = mine; orange = mistake-tagged action; black = clean
+// action; deep pink = rough movement. Measured choices used to be a second
+// green, indistinguishable from the proven-safe ring on the same square.
+const REPLAY_ENCODINGS = {
+  choice: {
+    color: '#7256a8', form: 'ring',
+    label: 'solid purple ring = measured reasonable choice',
+  },
+  area: {
+    color: '#7256a8', form: 'leader',
+    label: 'uncertain pocket → side label with its exact mine risk and cell count',
+  },
+  trigger: {
+    color: '#f1a208', form: 'ring',
+    label: 'gold ring = square the action was performed on',
+  },
+  selected: {
+    color: '#f1a208', form: 'fill',
+    label: 'gold wash = squares the action changed',
+  },
+  crosshair: {
+    color: '#f1a208', form: 'crosshair',
+    label: 'crosshair + word = exact input pixel and action kind',
+  },
+  safe: {
+    color: '#1b8a3f', form: 'dashed',
+    label: 'dashed green = proven safe — raw click (around a flag: that flag is provably wrong)',
+  },
+  'chord-now': {
+    color: '#0b5d97', form: 'dashed',
+    label: 'dashed blue = number you can chord now',
+  },
+  'mark-mine': {
+    color: '#c62828', form: 'flag',
+    label: 'mini flag = mark-mine move on a proven mine',
+  },
+  'chord-after-marks': {
+    color: '#00838f', form: 'dashed',
+    label: 'dashed teal = number chordable after those marks, opening 2 or more cells',
+  },
+  'chord-after-marks-single': {
+    color: '#00838f', form: 'dashed-thin',
+    label: 'thin dashed teal = mark-then-chord combo that opens a single cell (never faster than that cell\u2019s raw click)',
+  },
+  'chord-open': {
+    color: '#d9f2e0', form: 'fill',
+    label: 'pale green fill = cells a chord opens',
+  },
+  mine: {
+    color: '#c62828', form: 'dashed',
+    label: 'dashed red = proven mine — never open; flag it or chord past it',
+  },
+  prob: {
+    color: '#000000', form: 'badge',
+    label: 'corner number = exact mine probability (%) from everything visible (a proven cell already ringed by another layer shows no number)',
+  },
+  pointless: {
+    color: '#d95f02', form: 'dot',
+    label: 'numbered orange ring = mistake-tagged action up to the shown moment',
+  },
+  purposeful: {
+    color: '#000000', form: 'dot',
+    label: 'numbered black ring = clean action up to the shown moment',
+  },
+  movement: {
+    color: '#ad1457', form: 'line',
+    label: 'deep-pink underlay = crawling under ¼ of this game\u2019s median pace, or a hard reversal',
+  },
+};
+
+function replayChoiceCells(evaluation) {
+  return [...new Set((evaluation.choices || [])
+    .flatMap((choice) => Array.isArray(choice.cells) ? choice.cells : []))];
+}
+
+function replayProbabilityText(p) {
+  const pct = p * 100;
+  if (pct >= 99.95) return '>99';
+  if (pct < 0.05) return '<0.1';
+  if (pct < 9.95) {
+    const shown = Math.round(pct * 10) / 10;
+    return Number.isInteger(shown) ? shown.toFixed(0) : shown.toFixed(1);
+  }
+  return String(Math.round(pct));
+}
+
+// The square the action was performed on: a chord stores it explicitly;
+// every other action acts on its (single) selected square.
+function replayTriggerCell(evaluation) {
+  if (Number.isInteger(evaluation.triggerCell)) return evaluation.triggerCell;
+  const selected = Array.isArray(evaluation.selected) ? evaluation.selected : [];
+  return evaluation.action !== 'no-op' && selected.length === 1
+    ? selected[0] : null;
+}
+
+// Which encodings each board square carries at one decision frame. Pure:
+// reads the stored evaluation, the solver read for that position (null
+// when no solver layer is on), and the overlay switches. The painter only
+// translates keys to `replay-<key>` classes and badges, so everything about
+// what is shown is testable without a DOM.
+//
+// Rules worth naming: a mark-then-chord combo that opens one cell is kept
+// (the option set stays complete) but marked as the dominated option it is,
+// and its single open cell gets no chord fill; the mine-% badge is dropped
+// from a proven cell whose ring already states 0 or 100, because four
+// symbols in one square hid the board.
+function replayFrameModel(evaluation, solver, overlays) {
+  const position = evaluation.position;
+  const size = position.width * position.height;
+  const revealed = new Map(position.revealed || []);
+  const flagged = new Set(position.flagged || []);
+  const cells = [];
+  for (let i = 0; i < size; i++) {
+    cells.push({
+      revealed: revealed.has(i),
+      adjacent: revealed.get(i) || 0,
+      flagged: flagged.has(i),
+      marks: new Set(),
+      badge: null,
+    });
+  }
+  const mark = (cell, key) => {
+    if (Number.isInteger(cell) && cell >= 0 && cell < size) cells[cell].marks.add(key);
+  };
+  if (solver !== null && overlays.moves) {
+    for (const cell of solver.provenSafe) mark(cell, 'safe');
+    for (const chord of solver.chords) {
+      if (!chord.safe) continue;
+      mark(chord.cell, 'chord-now');
+      for (const cell of chord.opens) mark(cell, 'chord-open');
+    }
+    for (const chord of solver.flagChords) {
+      if (!chord.safe) continue;
+      if (chord.opens.length >= 2) {
+        mark(chord.cell, 'chord-after-marks');
+        for (const cell of chord.opens) mark(cell, 'chord-open');
+      } else {
+        mark(chord.cell, 'chord-after-marks-single');
+      }
+    }
+    // Mark-mine is the third option besides click and chord: every unflagged
+    // proven mine can be marked, which is what unlocks the combo chords.
+    for (const cell of solver.provenMines) {
+      if (!flagged.has(cell)) mark(cell, 'mark-mine');
+    }
+  }
+  if (solver !== null && overlays.mines) {
+    for (const cell of solver.provenMines) mark(cell, 'mine');
+  }
+  if (solver !== null && overlays.probs && solver.measured) {
+    for (let i = 0; i < size; i++) {
+      if (cells[i].revealed) continue;
+      const fact = solver.facts.get(i);
+      if (fact === 1 && overlays.mines) continue;
+      if (fact === 2 && overlays.moves) continue;
+      cells[i].badge = fact === 1 ? '100'
+        : fact === 2 ? '0'
+          : replayProbabilityText(solver.pMine[i]);
+    }
+  }
+  const choices = replayChoiceCells(evaluation);
+  for (const cell of choices) mark(cell, 'choice');
+  for (const cell of evaluation.selected || []) mark(cell, 'selected');
+  const triggerCell = replayTriggerCell(evaluation);
+  if (triggerCell !== null) mark(triggerCell, 'trigger');
+  return {
+    cells,
+    triggerCell,
+    choiceCount: choices.length,
+    solverState: solver === null ? 'off' : solver.measured ? 'exact' : 'bounded',
+  };
+}
+
+// Legend rows for the active overlays: encoding keys (rendered verbatim from
+// REPLAY_ENCODINGS) plus the exact-enumeration caveat where it applies.
+function replayLegendRows(overlays, solverState) {
+  const rows = [{
+    title: 'decision-time board',
+    keys: ['choice', 'area', 'trigger', 'selected', 'crosshair'],
+  }];
+  const bounded = solverState === 'bounded';
+  const solverNote = bounded
+    ? 'position too complex for exact enumeration — showing bounded-proof facts only'
+    : undefined;
+  if (overlays.moves) {
+    rows.push({
+      title: 'available moves',
+      keys: ['safe', 'chord-now', 'mark-mine', 'chord-after-marks',
+        'chord-after-marks-single', 'chord-open'],
+      note: solverNote,
+    });
+  }
+  if (overlays.mines) {
+    rows.push({
+      title: 'forced mines',
+      keys: ['mine'],
+      note: overlays.moves ? undefined : solverNote,
+    });
+  }
+  if (overlays.probs) {
+    rows.push({
+      title: 'mine %',
+      keys: bounded ? [] : ['prob'],
+      note: bounded ? 'position too complex for exact probabilities' : undefined,
+    });
+  }
+  if (overlays.pointless) rows.push({ title: 'pointless clicks', keys: ['pointless'] });
+  if (overlays.purposeful) rows.push({ title: 'purposeful clicks', keys: ['purposeful'] });
+  if (overlays.movement) rows.push({ title: 'rough movement', keys: ['movement'] });
+  return rows;
+}
+
+// The status line's parts, so the values (action number, in-game time,
+// action kind) can be set larger than the words around them.
+function replayStatusParts(step, count, evaluation) {
+  const choiceCount = replayChoiceCells(evaluation).length;
+  return {
+    index: String(step + 1),
+    count: String(count),
+    time: Number.isFinite(evaluation.atMs)
+      ? (evaluation.atMs / 1000).toFixed(2) + ' s' : 'before timer',
+    action: evaluation.action,
+    choices: choiceCount + ' measured choice' + (choiceCount === 1 ? '' : 's'),
+  };
+}
+
 //-------PATH REPLAY: DISPLAY-------
 
 // The just-finished trace remains in RAM until the next board. Its decision
@@ -6616,6 +6858,7 @@ const replayNext = document.getElementById('replay-next');
 const replayStatus = document.getElementById('replay-status');
 const replaySlider = document.getElementById('replay-slider');
 const replaySliderScale = document.getElementById('replay-slider-scale');
+const replaySliderValue = document.getElementById('replay-slider-value');
 const replayOverlayControl = document.getElementById('replay-overlay-control');
 const replayOverlayButtons =
   [...replayOverlayControl.querySelectorAll('[data-replay-overlay]')];
@@ -6750,18 +6993,14 @@ function restoreFinishedBoard() {
   replayFinishedCells = null;
 }
 
-function replayChoiceCells(evaluation) {
-  return [...new Set((evaluation.choices || [])
-    .flatMap((choice) => Array.isArray(choice.cells) ? choice.cells : []))];
-}
-
 // Full-knowledge solver reading of one replay position: exact mine
 // probability for every covered cell when the layout enumeration fits its
 // budget, proven mines/safes either way (the bounded canonical prover still
 // runs when enumeration is over budget), and the full move option set from
 // replayMoveOptions: chords available now and mark-mine-then-chord combos,
 // each with the exact cells the chord would open and whether every one of
-// them is proven clear.
+// them is proven clear. A solver exception propagates: a crash must never
+// be shown as "position too complex" (Anti-Fallback Principle).
 function replaySolverRead(position) {
   const size = position.width * position.height;
   const revealed = new Array(size).fill(false);
@@ -6778,26 +7017,18 @@ function replaySolverRead(position) {
     adjacent,
   };
   const flagged = new Set(position.flagged || []);
-  let odds = null;
-  try {
-    odds = Odds.analyzeView(view);
-  } catch (err) {
-    odds = null;
-  }
-  const measured = odds !== null && odds.measured === true;
-  let facts = new Map();
+  const odds = Odds.analyzeView(view);
+  const measured = odds.measured === true;
+  let facts;
   if (measured) {
+    facts = new Map();
     for (let i = 0; i < size; i++) {
       if (revealed[i]) continue;
       if (odds.pMine[i] <= 1e-12) facts.set(i, 2);
       else if (odds.pMine[i] >= 1 - 1e-12) facts.set(i, 1);
     }
   } else {
-    try {
-      facts = Justice.proveFacts(view, Justice.rawClues(view));
-    } catch (err) {
-      facts = new Map();
-    }
+    facts = Justice.proveFacts(view, Justice.rawClues(view));
   }
   const provenMines = [];
   const provenSafe = [];
@@ -6820,16 +7051,45 @@ function replaySolverAt(step, position) {
   return read;
 }
 
-function replayProbabilityText(p) {
-  const pct = p * 100;
-  if (pct >= 99.95) return '>99';
-  if (pct < 0.05) return '<0.1';
-  if (pct < 9.95) {
-    const shown = Math.round(pct * 10) / 10;
-    return Number.isInteger(shown) ? shown.toFixed(0) : shown.toFixed(1);
+// Fills the solver cache for every decision frame in short main-thread
+// slices once back-in-time is on, so scrubbing the slider never waits on
+// an enumeration: the shown frame is solved synchronously, the rest arrive
+// in the idle gaps between inputs. Cancelled whenever the trace it reads
+// stops being the current one.
+let replayPrecomputeTimer = 0;
+
+function cancelReplayPrecompute() {
+  if (replayPrecomputeTimer !== 0) {
+    clearTimeout(replayPrecomputeTimer);
+    replayPrecomputeTimer = 0;
   }
-  return String(Math.round(pct));
 }
+
+function scheduleReplayPrecompute() {
+  cancelReplayPrecompute();
+  const decisions = pathDecisionEvents(trace.events);
+  let next = 0;
+  const sliceMs = 8;
+  const work = () => {
+    replayPrecomputeTimer = 0;
+    const deadline = performance.now() + sliceMs;
+    while (next < decisions.length && performance.now() < deadline) {
+      replaySolverAt(next, decisions[next].evaluation.position);
+      next++;
+    }
+    if (next < decisions.length) replayPrecomputeTimer = setTimeout(work, 0);
+  };
+  replayPrecomputeTimer = setTimeout(work, 0);
+}
+
+// Publishes every encoding color as a CSS custom property so the stylesheet,
+// the legend swatches, and the canvas painter all read the one table.
+function applyReplayEncodingColors() {
+  for (const [key, encoding] of Object.entries(REPLAY_ENCODINGS)) {
+    document.documentElement.style.setProperty('--replay-' + key, encoding.color);
+  }
+}
+applyReplayEncodingColors();
 
 // Notches for every action (thinned above 60) plus black numeric labels at
 // both ends and three interior quarters, so the game-history slider's scale
@@ -6861,14 +7121,63 @@ function renderReplaySliderScale(count) {
   }
 }
 
-// Solver detail from the frame most recently painted, for the legend.
-let replayLegendSolver = null;
+// Solver state ('off' | 'exact' | 'bounded') from the frame most recently
+// painted, for the legend's enumeration caveat.
+let replayLegendSolverState = 'off';
+
+// Translates the frame model onto the real cell elements: base classes from
+// the stored position, one `replay-<key>` class per encoding, the glyph or
+// flag/mine icon, then the mark-mine hint and the probability badge.
+function paintReplayFrame(model) {
+  for (let i = 0; i < cellElements.length; i++) {
+    const element = cellElements[i];
+    const cell = model.cells[i];
+    const classes = ['cell', cell.revealed ? 'revealed' : 'hidden'];
+    if (cell.revealed && cell.adjacent > 0) classes.push('n' + cell.adjacent);
+    for (const key of cell.marks) classes.push('replay-' + key);
+    element.className = classes.join(' ');
+    if (cell.revealed) {
+      paintCellGlyph(element, cell.adjacent);
+      continue;
+    }
+    element.innerHTML = cell.flagged ? FLAG_SVG
+      : cell.marks.has('mine') ? MINE_SVG : '';
+    if (cell.marks.has('mark-mine')) {
+      const hint = document.createElement('span');
+      hint.className = 'replay-flag-hint';
+      hint.innerHTML = FLAG_SVG;
+      element.appendChild(hint);
+    }
+    if (cell.badge !== null) {
+      const badge = document.createElement('span');
+      badge.className = 'replay-prob';
+      badge.textContent = cell.badge;
+      element.appendChild(badge);
+    }
+  }
+}
+
+// Values (action number, in-game time, action kind) are the largest text
+// in the status; the words around them are secondary.
+function renderReplayStatus(parts) {
+  const value = (text) => {
+    const span = document.createElement('span');
+    span.className = 'replay-status-value';
+    span.textContent = text;
+    return span;
+  };
+  replayStatus.replaceChildren(
+    'action ', value(parts.index), ' of ' + parts.count + ' · ',
+    value(parts.time), ' · ', value(parts.action),
+    ' · ' + parts.choices);
+}
 
 function renderReplayFrame() {
   const decisions = pathDecisionEvents(trace.events);
-  replayLegendSolver = null;
+  replayLegendSolverState = 'off';
   if (decisions.length === 0) {
     replayStatus.textContent = 'no decision frames';
+    replaySliderValue.textContent = '';
     replayPrevious.disabled = true;
     replayNext.disabled = true;
     renderReplaySliderScale(0);
@@ -6891,92 +7200,17 @@ function renderReplayFrame() {
   replaySlider.value = String(replayStep + 1);
   const evaluation = decisions[replayStep].evaluation;
   const position = evaluation.position;
-  const revealed = new Map(position.revealed || []);
-  const flagged = new Set(position.flagged || []);
-  const choices = new Set(replayChoiceCells(evaluation));
-  const selected = new Set(evaluation.selected || []);
   const wantSolver = replayOverlays.moves || replayOverlays.mines
     || replayOverlays.probs;
   const solver = wantSolver ? replaySolverAt(replayStep, position) : null;
-  replayLegendSolver = solver;
-  const safeCells = solver !== null && replayOverlays.moves
-    ? new Set(solver.provenSafe) : new Set();
-  const mineCells = solver !== null && replayOverlays.mines
-    ? new Set(solver.provenMines) : new Set();
-  const chordCells = new Map();
-  const flagChordCells = new Map();
-  const chordOpens = new Set();
-  const markMines = new Set();
-  if (solver !== null && replayOverlays.moves) {
-    for (const chord of solver.chords) {
-      if (!chord.safe) continue;
-      chordCells.set(chord.cell, chord);
-      for (const cell of chord.opens) chordOpens.add(cell);
-    }
-    for (const chord of solver.flagChords || []) {
-      if (!chord.safe) continue;
-      flagChordCells.set(chord.cell, chord);
-      for (const cell of chord.opens) chordOpens.add(cell);
-    }
-    // Mark-mine is the third option besides click and chord: every unflagged
-    // proven mine can be marked, which is what unlocks the combo chords.
-    for (const [cell, fact] of solver.facts) {
-      if (fact === 1 && !flagged.has(cell)) markMines.add(cell);
-    }
-  }
-  // The square the action was performed on: a chord stores it explicitly;
-  // every other action acts on its (single) selected square.
-  const triggerCell = Number.isInteger(evaluation.triggerCell)
-    ? evaluation.triggerCell
-    : evaluation.action !== 'no-op' && evaluation.selected.length === 1
-      ? evaluation.selected[0] : null;
-  for (let i = 0; i < cellElements.length; i++) {
-    const element = cellElements[i];
-    if (revealed.has(i)) {
-      const adjacent = revealed.get(i);
-      element.className = 'cell revealed' + (adjacent > 0 ? ' n' + adjacent : '');
-      paintCellGlyph(element, adjacent);
-      if (chordCells.has(i)) element.classList.add('replay-chord-safe');
-      else if (flagChordCells.has(i)) element.classList.add('replay-chord-flag');
-    } else {
-      element.className = 'cell hidden';
-      element.innerHTML = flagged.has(i) ? FLAG_SVG : '';
-      if (mineCells.has(i)) {
-        element.classList.add('replay-mine-known');
-        if (!flagged.has(i)) element.innerHTML = MINE_SVG;
-      } else if (safeCells.has(i)) {
-        // A dashed safe ring around a placed flag exposes a provably wrong
-        // flag — part of the deducible state, not just a move suggestion.
-        element.classList.add('replay-safe');
-        if (chordOpens.has(i)) element.classList.add('replay-chord-open');
-      }
-      if (markMines.has(i)) {
-        const hint = document.createElement('span');
-        hint.className = 'replay-flag-hint';
-        hint.innerHTML = FLAG_SVG;
-        element.appendChild(hint);
-      }
-      if (replayOverlays.probs && solver !== null && solver.measured) {
-        const fact = solver.facts.get(i);
-        const prob = document.createElement('span');
-        prob.className = 'replay-prob';
-        prob.textContent = fact === 1 ? '100'
-          : fact === 2 ? '0'
-            : replayProbabilityText(solver.pMine[i]);
-        element.appendChild(prob);
-      }
-    }
-    if (choices.has(i)) element.classList.add('replay-choice');
-    if (selected.has(i)) element.classList.add('replay-selected');
-    if (i === triggerCell) element.classList.add('replay-trigger');
-  }
+  const model = replayFrameModel(evaluation, solver, replayOverlays);
+  replayLegendSolverState = model.solverState;
+  paintReplayFrame(model);
   renderReplayChoiceAreas(evaluation);
-  const choiceCount = choices.size;
-  const atSeconds = Number.isFinite(evaluation.atMs)
-    ? (evaluation.atMs / 1000).toFixed(2) + 's' : 'before timer';
-  replayStatus.textContent = 'action ' + (replayStep + 1) + ' of ' + decisions.length
-    + ' · ' + atSeconds + ' · ' + evaluation.action
-    + ' · ' + choiceCount + ' measured choice' + (choiceCount === 1 ? '' : 's');
+  renderReplayStatus(replayStatusParts(replayStep, decisions.length, evaluation));
+  replaySliderValue.textContent = String(replayStep + 1);
+  replaySliderValue.style.setProperty('--thumb', String(decisions.length === 1
+    ? 0.5 : replayStep / (decisions.length - 1)));
   replayPrevious.disabled = replayStep === 0;
   replayNext.disabled = replayStep === decisions.length - 1;
   renderPathOverlay();
@@ -7041,12 +7275,9 @@ function appendPathLegendRow(title, keys, note) {
   for (const key of keys) {
     const item = document.createElement('span');
     item.className = 'path-legend-key';
-    const swatch = document.createElement('span');
-    swatch.className = 'path-legend-swatch' + (key.dot ? ' dot' : '');
-    swatch.style.background = key.color;
     const label = document.createElement('span');
     label.textContent = key.label;
-    item.append(swatch, label);
+    item.append(pathLegendSwatch(key), label);
     row.appendChild(item);
   }
   if (note) {
@@ -7057,6 +7288,22 @@ function appendPathLegendRow(title, keys, note) {
   }
   pathViewLegend.appendChild(row);
   pathViewLegend.hidden = false;
+}
+
+// One swatch per encoding form, so a legend item shows the same shape the
+// board draws: a line, a dot/ring marker, a solid or dashed cell ring, a
+// fill, a mini flag, a numeric badge, a crosshair, or a pocket leader.
+// `key.dot` is the older spelling of form 'dot'.
+function pathLegendSwatch(key) {
+  const form = key.form || (key.dot ? 'dot' : 'line');
+  const swatch = document.createElement('span');
+  swatch.className = 'path-legend-swatch form-' + form;
+  swatch.style.setProperty('--swatch-color', key.color);
+  if (form === 'flag') swatch.innerHTML = FLAG_SVG;
+  else if (form === 'badge') swatch.textContent = '17';
+  else if (form === 'crosshair') swatch.textContent = '\u2316';
+  else if (form === 'leader') swatch.textContent = '\u2192';
+  return swatch;
 }
 
 function appendPathGradientLegend(title, range, format, options = {}) {
@@ -7105,48 +7352,9 @@ function appendPathGradientLegend(title, range, format, options = {}) {
 
 function appendReplayLegend() {
   if (!replayEnabled) return;
-  appendPathLegendRow('decision-time board', [
-    { color: '#25a55f', label: 'measured choices' },
-    { color: '#f1a208', label: 'gold ring = square acted on · gold wash = squares it changed · crosshair = exact click spot', dot: true },
-    { color: '#7256a8', label: 'uncertain area → side risk label' },
-  ]);
-  const solver = replayLegendSolver;
-  const solverNote = solver !== null && !solver.measured
-    ? 'position too complex for exact enumeration — showing bounded-proof facts only'
-    : undefined;
-  if (replayOverlays.moves) {
-    appendPathLegendRow('available moves', [
-      { color: '#1b8a3f', label: 'dashed green = proven safe — raw click (around a flag: that flag is provably wrong)' },
-      { color: '#0b5d97', label: 'dashed blue = number you can chord now' },
-      { color: '#c62828', label: 'mini flag = mark-mine move on a proven mine' },
-      { color: '#00838f', label: 'dashed teal = number chordable after those marks · pale green fill = cells a chord opens' },
-    ], solverNote);
-  }
-  if (replayOverlays.mines) {
-    appendPathLegendRow('forced mines', [
-      { color: '#c62828', label: 'dashed red = proven mine — never open; flag it or chord past it' },
-    ], replayOverlays.moves ? undefined : solverNote);
-  }
-  if (replayOverlays.probs) {
-    appendPathLegendRow('mine %', [],
-      solver !== null && !solver.measured
-        ? 'position too complex for exact probabilities'
-        : 'corner number on a covered square = exact mine probability (%) from everything visible');
-  }
-  if (replayOverlays.pointless) {
-    appendPathLegendRow('pointless clicks', [
-      { color: '#d95f02', label: 'mistake-tagged action up to the shown moment', dot: true },
-    ]);
-  }
-  if (replayOverlays.purposeful) {
-    appendPathLegendRow('purposeful clicks', [
-      { color: '#00838f', label: 'clean action up to the shown moment', dot: true },
-    ]);
-  }
-  if (replayOverlays.movement) {
-    appendPathLegendRow('rough movement', [
-      { color: '#7b1fa2', label: 'crawling under ¼ of this game\u2019s median pace, or a hard reversal' },
-    ]);
+  for (const row of replayLegendRows(replayOverlays, replayLegendSolverState)) {
+    appendPathLegendRow(row.title,
+      row.keys.map((key) => REPLAY_ENCODINGS[key]), row.note);
   }
 }
 
@@ -7373,11 +7581,26 @@ function paintPathCanvas() {
     }
   }
 
+  // Back-in-time action markers are hollow rings with a white halo, so the
+  // number glyph, flag, or badge under the exact click spot stays readable.
+  const drawRingMarker = (x, y, color, radius = 5.5) => {
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, 2 * Math.PI);
+    ctx.lineWidth = 4.5;
+    ctx.strokeStyle = '#ffffff';
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, 2 * Math.PI);
+    ctx.lineWidth = 2.25;
+    ctx.strokeStyle = color;
+    ctx.stroke();
+  };
+
   if (replayEnabled) {
     // Rough-movement underlay up to the shown moment.
     if (replayOverlays.movement && state.rough !== null) {
       ctx.lineWidth = 5.5;
-      ctx.strokeStyle = '#7b1fa2';
+      ctx.strokeStyle = REPLAY_ENCODINGS.movement.color;
       ctx.globalAlpha = 0.85;
       for (let i = 1; i < trace.t.length; i++) {
         if (!state.rough[i] || trace.t[i] > state.cutoff) continue;
@@ -7395,11 +7618,13 @@ function paintPathCanvas() {
         if (decision.t > state.cutoff) continue;
         const less = decision.less;
         if (less && replayOverlays.pointless) {
-          drawDot(decision.px, decision.py, '#d95f02', 5);
-          drawLabel(decision.px, decision.py, String(i + 1), '#d95f02');
+          const color = REPLAY_ENCODINGS.pointless.color;
+          drawRingMarker(decision.px, decision.py, color);
+          drawLabel(decision.px, decision.py, String(i + 1), color);
         } else if (!less && replayOverlays.purposeful) {
-          drawDot(decision.px, decision.py, '#00838f', 5);
-          drawLabel(decision.px, decision.py, String(i + 1), '#00838f');
+          const color = REPLAY_ENCODINGS.purposeful.color;
+          drawRingMarker(decision.px, decision.py, color);
+          drawLabel(decision.px, decision.py, String(i + 1), color);
         }
       }
     }
@@ -7407,6 +7632,7 @@ function paintPathCanvas() {
     // the chord was performed at.
     const current = state.decisionPoints[state.replayIndex];
     if (current !== undefined) {
+      const gold = REPLAY_ENCODINGS.crosshair.color;
       ctx.setLineDash([]);
       ctx.beginPath();
       ctx.arc(current.px, current.py, 8, 0, 2 * Math.PI);
@@ -7416,7 +7642,7 @@ function paintPathCanvas() {
       ctx.beginPath();
       ctx.arc(current.px, current.py, 8, 0, 2 * Math.PI);
       ctx.lineWidth = 2.25;
-      ctx.strokeStyle = '#f1a208';
+      ctx.strokeStyle = gold;
       ctx.stroke();
       for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
         ctx.beginPath();
@@ -7429,25 +7655,26 @@ function paintPathCanvas() {
         ctx.moveTo(current.px + dx * 4, current.py + dy * 4);
         ctx.lineTo(current.px + dx * 12, current.py + dy * 12);
         ctx.lineWidth = 2;
-        ctx.strokeStyle = '#f1a208';
+        ctx.strokeStyle = gold;
         ctx.stroke();
       }
       // The action word gets a solid pill so it stays readable over cell
-      // rings and glyphs; it sits past the crosshair arms and is clamped
-      // to the canvas so it never runs off the board edge.
+      // rings and glyphs. It is centered just above the crosshair arms, so
+      // it never covers the acted square itself, and clamped to the canvas
+      // so it never runs off the board edge.
       ctx.font = 'bold 10px Arial, sans-serif';
       const text = current.action;
       const textWidth = ctx.measureText(text).width;
       const pillW = textWidth + 8;
       const pillH = 14;
-      const pillX = Math.max(2, Math.min(state.width - pillW - 2, current.px + 14));
-      const pillY = Math.max(2, Math.min(state.height - pillH - 2, current.py - 24));
+      const pillX = Math.max(2, Math.min(state.width - pillW - 2, current.px - pillW / 2));
+      const pillY = Math.max(2, Math.min(state.height - pillH - 2, current.py - 14 - pillH));
       ctx.beginPath();
       ctx.roundRect(pillX, pillY, pillW, pillH, 4);
       ctx.fillStyle = '#ffffff';
       ctx.fill();
       ctx.lineWidth = 1.25;
-      ctx.strokeStyle = '#f1a208';
+      ctx.strokeStyle = gold;
       ctx.stroke();
       ctx.fillStyle = '#8a6100';
       ctx.textAlign = 'left';
@@ -7686,8 +7913,11 @@ replayToggle.addEventListener('click', () => {
   if (replayEnabled) {
     const decisions = pathDecisionEvents(trace.events);
     replayStep = Math.max(0, decisions.length - 1);
+  } else {
+    cancelReplayPrecompute();
   }
   renderPathView();
+  if (replayEnabled && pathViewAvailable()) scheduleReplayPrecompute();
 });
 
 replayPrevious.addEventListener('click', () => {

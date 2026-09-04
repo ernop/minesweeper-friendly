@@ -196,6 +196,15 @@ main {
   font-size: 11px;
 }
 
+/* While the after-game stats float in the right gutter (#results, 320px at
+   the main column's edge), the controls and legends keep out of that column
+   on both sides so they stay centered under the board and no legend text
+   ever runs underneath the stats. */
+#game-area.results-floating #scores-nav {
+  box-sizing: border-box;
+  padding-inline: 336px;
+}
+
 #scores-nav button {
   min-height: 25px;
   padding: 2px 9px;
@@ -221,7 +230,7 @@ main {
   align-items: center;
   justify-content: center;
   gap: 4px;
-  color: #45657a;
+  color: #000000;
 }
 
 #path-view-control[hidden],
@@ -256,7 +265,7 @@ main {
   box-sizing: border-box;
   min-height: 38px;
   padding: 4px 8px;
-  color: #405563;
+  color: #000000;
   font-variant-numeric: tabular-nums;
 }
 
@@ -271,7 +280,7 @@ main {
 .path-legend-row + .path-legend-row { margin-top: 3px; }
 
 .path-legend-title {
-  color: #263f50;
+  color: #000000;
   font-size: 11px;
   font-weight: bold;
 }
@@ -310,19 +319,100 @@ main {
   gap: 4px;
 }
 
+/* Legend swatches take the shape the board draws for that encoding, so a
+   reader matches form as well as color. --swatch-color is set per item. */
 .path-legend-swatch {
   display: inline-block;
+  flex: none;
+  box-sizing: border-box;
   width: 14px;
   height: 4px;
   border-radius: 2px;
+  background: var(--swatch-color);
 }
 
+/* Filled dot: the path views' click markers. */
 .path-legend-swatch.dot {
   width: 7px;
   height: 7px;
   border: 1px solid #ffffff;
   border-radius: 50%;
   box-shadow: 0 0 0 1px #6f7d87;
+}
+
+/* Hollow ring: the back-in-time numbered action markers. */
+.path-legend-swatch.form-dot {
+  width: 11px;
+  height: 11px;
+  border: 2px solid var(--swatch-color);
+  border-radius: 50%;
+  background: #ffffff;
+}
+
+.path-legend-swatch.form-ring,
+.path-legend-swatch.form-dashed,
+.path-legend-swatch.form-dashed-thin,
+.path-legend-swatch.form-fill {
+  width: 13px;
+  height: 13px;
+  border-radius: 1px;
+  background: #d9d9d9;
+}
+
+.path-legend-swatch.form-ring {
+  box-shadow: inset 0 0 0 3px var(--swatch-color);
+}
+
+.path-legend-swatch.form-dashed {
+  border: 2px dashed var(--swatch-color);
+}
+
+.path-legend-swatch.form-dashed-thin {
+  border: 1px dashed var(--swatch-color);
+}
+
+.path-legend-swatch.form-fill {
+  background: var(--swatch-color);
+  border: 1px solid #6f7d87;
+}
+
+.path-legend-swatch.form-flag,
+.path-legend-swatch.form-badge,
+.path-legend-swatch.form-crosshair,
+.path-legend-swatch.form-leader {
+  width: auto;
+  height: auto;
+  min-width: 13px;
+  border-radius: 2px;
+  background: #ffffff;
+  color: var(--swatch-color);
+  line-height: 1;
+  text-align: center;
+}
+
+.path-legend-swatch.form-flag {
+  padding: 1px;
+  border: 1px solid #6f7d87;
+}
+
+.path-legend-swatch.form-flag svg {
+  display: block;
+  width: 9px;
+  height: 9px;
+}
+
+.path-legend-swatch.form-badge {
+  padding: 1px 2px;
+  border: 1px solid #6f7d87;
+  font: 700 9px/1.2 Arial, sans-serif;
+}
+
+.path-legend-swatch.form-crosshair {
+  font: 700 14px/1 Arial, sans-serif;
+}
+
+.path-legend-swatch.form-leader {
+  font: 700 12px/1 Arial, sans-serif;
 }
 
 .path-legend-note {
@@ -347,13 +437,22 @@ main {
   line-height: 1;
 }
 
+/* The status line's values (action number, in-game time, action kind) are
+   its most legible text; the words between them are secondary. */
 #replay-status {
   box-sizing: border-box;
-  width: min(100%, 34em);
-  min-height: 15px;
-  color: #263f50;
+  flex: 1 0 100%;
+  min-height: 20px;
+  color: #000000;
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
   text-align: center;
+}
+
+.replay-status-value {
+  font-size: 16px;
+  font-weight: bold;
+  color: #000000;
 }
 
 /* Back-in-time board overlay toggles: same look as the path-mode buttons. */
@@ -364,7 +463,7 @@ main {
   align-items: center;
   justify-content: center;
   gap: 4px;
-  color: #45657a;
+  color: #000000;
 }
 
 #replay-overlay-control[hidden] {
@@ -396,10 +495,33 @@ main {
 #replay-slider-wrap {
   position: relative;
   flex: 1 1 260px;
-  max-width: 540px;
   box-sizing: border-box;
+  padding-top: 15px;
   padding-bottom: 17px;
 }
+
+/* The current action number rides above the thumb, so the slider's value
+   is readable at the slider itself, not only in the status line. */
+#replay-slider-value {
+  position: absolute;
+  top: 0;
+  /* JS sets --thumb (0–100%); the 8px insets match the notch scale's, so
+     the label tracks the thumb across the track's travel. */
+  left: calc(8px + (100% - 16px) * var(--thumb, 0.5));
+  transform: translateX(-50%);
+  min-width: 1.6em;
+  padding: 0 3px;
+  border: 1px solid #45657a;
+  border-radius: 3px;
+  background: #ffffff;
+  color: #000000;
+  font: bold 11px/1.2 Arial, sans-serif;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  pointer-events: none;
+}
+
+#replay-slider-value:empty { display: none; }
 
 #replay-slider {
   width: 100%;
@@ -408,7 +530,8 @@ main {
 
 #replay-slider-scale {
   position: absolute;
-  top: 21px;
+  /* below the 15px value-label band plus the range input's own height */
+  top: 36px;
   right: 8px;
   left: 8px;
   height: 16px;
@@ -741,17 +864,18 @@ body.trial-offboard #game-frame {
   z-index: 3;
 }
 
-/* Back-in-time solver overlays. These sit below the measured-choice and
-   acted-square marks in the stylesheet so those decision highlights win
-   when a cell carries both. */
-/* Solver deductions live on their own visual channel: dashed inner rings
+/* Back-in-time board encodings. Colors come from REPLAY_ENCODINGS in
+   minesweeper.js, published as --replay-<key> custom properties, so the
+   board, the legend swatches, and the canvas painter share one table.
+   Solver deductions live on their own visual channel: dashed inner rings
    drawn by ::after. Player-action marks (choices, acted square) stay on
    box-shadow, so a square can carry both kinds at once without one mark
    silently replacing the other. */
 .cell.replay-safe::after,
-.cell.replay-chord-safe::after,
-.cell.replay-chord-flag::after,
-.cell.replay-mine-known::after {
+.cell.replay-chord-now::after,
+.cell.replay-chord-after-marks::after,
+.cell.replay-chord-after-marks-single::after,
+.cell.replay-mine::after {
   content: '';
   position: absolute;
   inset: 1px;
@@ -760,26 +884,33 @@ body.trial-offboard #game-frame {
 }
 
 .cell.replay-safe::after {
-  border: 2px dashed #1b8a3f;
+  border: 2px dashed var(--replay-safe);
 }
 
 /* background-color (not the shorthand) so the gold action wash, which is a
    background-image, can stack on top when the same square was opened. */
 .cell.replay-safe.replay-chord-open {
-  background-color: #d9f2e0;
+  background-color: var(--replay-chord-open);
 }
 
-.cell.replay-chord-safe::after {
-  border: 2px dashed #0b5d97;
+.cell.replay-chord-now::after {
+  border: 2px dashed var(--replay-chord-now);
 }
 
-/* Chordable once its proven mines are marked: the mark-mine + chord combo. */
-.cell.replay-chord-flag::after {
-  border: 2px dashed #00838f;
+/* Chordable once its proven mines are marked: the mark-mine + chord combo.
+   A combo opening a single cell is a dominated option (never faster than
+   that cell's raw click) and is drawn thin. */
+.cell.replay-chord-after-marks::after {
+  border: 2px dashed var(--replay-chord-after-marks);
 }
 
-.cell.replay-mine-known::after {
-  border: 2px dashed #c62828;
+.cell.replay-chord-after-marks-single::after {
+  inset: 2px;
+  border: 1px dashed var(--replay-chord-after-marks-single);
+}
+
+.cell.replay-mine::after {
+  border: 2px dashed var(--replay-mine);
 }
 
 /* Mark-mine move: a mini flag badge on every unflagged proven mine, kept in
@@ -803,7 +934,9 @@ body.trial-offboard #game-frame {
   height: calc(var(--cell-size) * 0.34);
 }
 
-.cell.replay-mine-known svg {
+/* Only the cell's own flag/mine glyph dims on a proven mine; the mark-mine
+   hint (an svg inside its own span) stays at full strength. */
+.cell.replay-mine > svg {
   opacity: 0.55;
 }
 
@@ -815,35 +948,35 @@ body.trial-offboard #game-frame {
   padding: 0 2px;
   background: #ffffff;
   border-top-left-radius: 3px;
-  color: #000000;
+  color: var(--replay-prob);
   font-family: Arial, sans-serif;
   font-size: calc(var(--cell-size) * 0.30);
   line-height: 1.3;
   font-weight: 700;
   -webkit-text-stroke: 0;
   pointer-events: none;
-  pointer-events: none;
 }
 
 .cell.replay-choice {
-  box-shadow: inset 0 0 0 3px #25a55f;
+  box-shadow: inset 0 0 0 3px var(--replay-choice);
 }
 
 /* The square the action was performed on (for a chord: the number that was
    clicked). Cells the action changed — e.g. the squares a chord opened —
    get a translucent gold wash instead of another ring. */
 .cell.replay-trigger {
-  box-shadow: inset 0 0 0 3px #f1a208, inset 0 0 0 5px #201500;
+  box-shadow: inset 0 0 0 3px var(--replay-trigger), inset 0 0 0 5px #201500;
 }
 
 .cell.replay-choice.replay-trigger {
-  box-shadow: inset 0 0 0 3px #f1a208, inset 0 0 0 5px #201500,
-    inset 0 0 0 8px #25a55f;
+  box-shadow: inset 0 0 0 3px var(--replay-trigger), inset 0 0 0 5px #201500,
+    inset 0 0 0 8px var(--replay-choice);
 }
 
 .cell.replay-selected {
   background-image: linear-gradient(
-    rgba(241, 162, 8, 0.38), rgba(241, 162, 8, 0.38));
+    color-mix(in srgb, var(--replay-selected) 38%, transparent),
+    color-mix(in srgb, var(--replay-selected) 38%, transparent));
 }
 
 #replay-choice-areas {
@@ -862,7 +995,7 @@ body.trial-offboard #game-frame {
 
 .replay-area-leader {
   fill: none;
-  stroke: #7256a8;
+  stroke: var(--replay-area);
   stroke-width: 1.5;
 }
 

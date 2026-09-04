@@ -140,6 +140,13 @@ board/mode/generator and measurement-era strata visible and make sample
 coverage explicit. The measurement and interpretation requirements are
 canonical in PRODUCT.md "Behavioral signatures and state research."
 
+Data layer built 2026-09-04: `analysis/history/summarize-history.js`
+regenerates the stratified summary offline (sessions with early/late
+halves, per-key/per-day trends, loss taxonomy in the report's wording,
+guess policy, luck calibration, state/music contrasts; see
+`analysis/history/NOTES.md`). The in-app surfaces below remain unbuilt; the
+script's JSON is the intended input for their first versions.
+
 - **Per-session and trailing-chunk summaries.** For every completed or current
   session and every selectable recent played-time chunk, prominently show
   games, wins, win rate, and accumulated play time. Beside them show robust

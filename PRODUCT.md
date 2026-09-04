@@ -1517,21 +1517,27 @@ runtime state, export field, or result section.
   board immediately before each accepted action. A game-history range slider
   (2026-08-30) sits between the previous/next buttons and scrubs the same
   decision index; it shows notch marks for every action (thinned above 60)
-  and black numeric labels at both endpoints and the interior quarters, and
-  the current value is spelled out in the status line ("action N of M").
+  and black numeric labels at both endpoints and the interior quarters, the
+  current action number rides in a label above the thumb, and the status
+  line spells the same value out ("action N of M"). The slider is as wide
+  as its row allows (no fixed cap), so notches stay apart on long games.
   Previous/next controls and
   Left/Right keys step through decisions except while another interactive
-  control has keyboard focus; green rings mark the measured reasonable
-  choice set, a gold ring marks the square the action was performed on (for
-  a chord: the number that was clicked, via `evaluation.triggerCell`), a
-  translucent gold wash marks the squares the action changed (for a chord:
-  the cells it opened), and a gold crosshair with a white action-kind pill
-  (clamped to the board, solid background so it stays readable over cell
-  marks) pins the exact input pixel of the displayed action — for a chord,
-  the precise spot the chord was performed at (the crosshair keeps its
-  canvas even when the path mode is off).
-  The status names action
-  number, in-game time, action type, and measured choice count. Uncertain
+  control has keyboard focus; solid purple rings mark the measured
+  reasonable choice set (purple is also the color of the uncertain-pocket
+  labels that describe that set; measured choices were a second green until
+  2026-09-04 and could not be told from the proven-safe ring on the same
+  square), a gold ring marks the square the action was performed on (for a
+  chord: the number that was clicked), a translucent gold wash marks the
+  squares the action changed (for a chord: the cells it opened), and a gold
+  crosshair with a white action-kind pill pins the exact input pixel of the
+  displayed action — for a chord, the precise spot the chord was performed
+  at. The pill sits centered just above the crosshair arms so it never
+  covers the acted square, and is clamped to the board (the crosshair keeps
+  its canvas even when the path mode is off).
+  The status names action number, in-game time, action type, and measured
+  choice count; the three values are the largest text in the status (bold,
+  16 px) and the words around them are secondary. Uncertain
   reasonable-choice cells are split into connected visual pockets; each pocket
   gets a leader line to a side label giving its mine probability (exact 50%
   reads `50/50`; other uncertain values never round to 0%, 100%, or `50/50`)
@@ -1542,11 +1548,11 @@ runtime state, export field, or result section.
   row, remembered for the page session, each doing exactly what it says.
   `available moves` and `forced mines` start on — showing what was logically
   deducible at each moment is the point of back-in-time review (requested
-  2026-08-30 late evening); the rest start off. Solver deductions draw as
-  dashed inner rings on their own visual layer (CSS `::after`), while
-  player-action marks (choices, acted square) stay on `box-shadow`, so one
-  square can carry a deduction and an action mark simultaneously — the
-  earlier single-channel rings silently replaced each other.
+  2026-08-30 late evening); the rest start off. Solver deductions and
+  player-action marks are two independent visual channels (dashed inner
+  rings versus solid inset rings and washes), so one square can carry a
+  deduction and an action mark simultaneously — the earlier single-channel
+  rings silently replaced each other.
   - `available moves` shows the player's complete option set — raw click,
     chord, and mark-mine (requested 2026-08-31: all options must be visible
     to evaluate choices for speed and risk). Every covered cell proven safe
@@ -1555,35 +1561,55 @@ runtime state, export field, or result section.
     whose chord would open only proven-clear cells gets a dashed blue ring.
     Every unflagged proven mine gets a mini flag badge (top-left corner):
     the mark-mine move. Every number that becomes safely chordable once
-    those mines are marked gets a dashed teal ring (`replayMoveOptions`
-    finds these mark-then-chord combos: flags + unflagged proven mines
-    exactly satisfy the number and everything else it would open is proven
-    clear). Cells any chord opens are tinted pale green. A chord satisfied
-    by a wrong flag is never called safe — it would open a proven mine.
+    those mines are marked (flags + unflagged proven mines exactly satisfy
+    the number and everything else it would open is proven clear) gets a
+    dashed teal ring when the chord opens two or more cells; a combo that
+    opens a single cell stays in the option set but is drawn as a thin
+    dashed teal ring, because mark + chord is two inputs for a cell whose
+    raw click is one — a dominated option, shown as such rather than hidden
+    (2026-09-04; before that every combo had the same thick ring and on a
+    mid-game board most numbers were ringed). Cells a full-ring chord opens
+    are tinted pale green. A chord satisfied by a wrong flag is never called
+    safe — it would open a proven mine.
   - `forced mines`: every covered cell proven to be a mine gets a dashed red
     ring and (when unflagged) a dimmed real mine glyph; on a flagged cell
-    the ring confirms the flag. Proofs come from full layout enumeration,
+    the ring confirms the flag. The mark-mine mini flag on the same square
+    stays at full strength. Proofs come from full layout enumeration,
     so everything deducible from the visible numbers is shown (e.g. the
     forced mine under a satisfied 2), not just one-step patterns.
   - `mine %`: every covered cell shows its exact mine probability in percent
     as a small white corner badge (bottom-right, so flags and mine glyphs
     stay visible), computed by full enumeration of remaining layouts
-    (components + binomial sea) with all visible knowledge; proven cells
-    read 0 or 100. When a position exceeds the enumeration budget the
-    legend says so and only bounded-proof facts are marked — probabilities
-    are never invented.
-  - `pointless clicks` / `purposeful clicks`: numbered dots at every
-    mistake-tagged (orange) or clean (teal) action up to the shown moment,
-    as two separate layers.
-  - `rough movement`: purple underlay on segments crawling below ¼ of the
-    game's own median moving pace or making a >135° direction reversal —
-    hesitation and overshoot correction made visible.
-  - Solver reads are cached per decision index, so slider scrubbing stays
-    responsive; the cache clears with each new board.
-  - Legend answer to "what do green and orange mean?": green rings/fills are
-    the measured choice set and proven-safe moves; gold is the square acted
-    on plus the exact click spot. Each active overlay adds its own legend row
-    naming its colors.
+    (components + binomial sea) with all visible knowledge. A proven cell
+    whose ring already states the answer shows no badge (a proven mine while
+    `forced mines` is on, a proven safe while `available moves` is on); with
+    those layers off the badge reads 0 or 100. Four symbols in one square
+    hid the board (2026-09-04). When a position exceeds the enumeration
+    budget the legend says so and only bounded-proof facts are marked —
+    probabilities are never invented. The legend's badge swatch shows a
+    sample number.
+  - `pointless clicks` / `purposeful clicks`: numbered hollow rings at every
+    mistake-tagged (orange) or clean (black) action up to the shown moment,
+    as two separate layers. Hollow so the number, flag, or badge under the
+    exact click spot stays readable; black so a clean action never shares a
+    hue with the teal chord rings.
+  - `rough movement`: deep-pink underlay on segments crawling below ¼ of
+    the game's own median moving pace or making a >135° direction
+    reversal — hesitation and overshoot correction made visible (deep pink
+    so it never shares a hue with the purple choice rings).
+  - Solver reads are cached per decision index and precomputed for every
+    frame in short idle slices as soon as back-in-time is turned on, so
+    slider scrubbing never waits on an enumeration; the cache and the
+    precompute clear with each new board. A solver failure is an error,
+    never displayed as "position too complex".
+  - Legend: every encoding has its own legend item with a swatch of the same
+    form the board draws (dashed ring, solid ring, fill, mini flag, numeric
+    badge, hollow marker, crosshair, leader) and its complete wording; no
+    item bundles two encodings under one swatch. Each active overlay adds
+    its own legend row. While the after-game stats float beside the board,
+    the legend and controls keep out of that column on both sides, so no
+    legend text ever runs underneath the stats (it did until 2026-09-04,
+    cutting the last key of the moves row).
 - These displays read the just-finished RAM trace. The same decision frames
   are persisted in the trace store for future historical replay and analytics;
   loading older traces into this control is not yet built.
