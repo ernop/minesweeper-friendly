@@ -455,6 +455,7 @@ function syncResultsPlacement() {
   const plan = afterGameSidePlan(rightGutter, legendShown, resultsWidth);
   const chromeRect = boardChromeLayoutRect();
 
+  const wasBeside = gameArea.classList.contains('legend-beside');
   gameArea.classList.toggle('legend-beside', plan.legendBeside);
   // The control rows under the board (review, slider, overlays, path) keep
   // clear of whatever stands in the right gutter: the legend column and/or
@@ -477,6 +478,10 @@ function syncResultsPlacement() {
     }
     reserveRight = mainRect.right - legendLeft + 12;
   }
+  // The pocket labels choose their side by what stands beside the board,
+  // so a legend column appearing or leaving re-places them (after the
+  // column has its position, which the side test measures).
+  if (wasBeside !== plan.legendBeside && replayEnabled) refreshReplayChoiceAreas();
   if (resultsShown && plan.resultsFloat) {
     reserveRight = Math.max(reserveRight, resultsWidth + RESULTS_GUTTER_MARGIN);
   }
@@ -7120,11 +7125,16 @@ function renderReplayChoiceAreas(evaluation) {
   const boardRect = boardElement.getBoundingClientRect();
   const resultsVisible = resultSummary.textContent !== '' || resultStats.textContent !== '';
   const resultRect = resultsVisible ? resultsBox.getBoundingClientRect() : null;
-  const rightBlocked = resultRect !== null
-    && resultRect.left < boardRect.right + 150
-    && resultRect.right > boardRect.right
-    && resultRect.top < boardRect.bottom
-    && resultRect.bottom > boardRect.top;
+  const blocks = (rect) => rect !== null
+    && rect.left < boardRect.right + 150
+    && rect.right > boardRect.right
+    && rect.top < boardRect.bottom
+    && rect.bottom > boardRect.top;
+  // The legend column beside the board starts 14 px from the frame, so
+  // while it stands there the labels go to the left side.
+  const legendRect = gameArea.classList.contains('legend-beside')
+    ? pathViewLegend.getBoundingClientRect() : null;
+  const rightBlocked = blocks(resultRect) || blocks(legendRect);
   const rightRoom = window.innerWidth - boardRect.right;
   const leftRoom = boardRect.left;
   const onRight = (!rightBlocked && rightRoom >= 150) || leftRoom < 150;
@@ -7180,6 +7190,15 @@ function renderReplayChoiceAreas(evaluation) {
     layer.appendChild(label);
   }
   boardElement.appendChild(layer);
+}
+
+// Re-places the pocket labels for the shown frame (called when the space
+// beside the board changes after the frame was painted).
+function refreshReplayChoiceAreas() {
+  if (!replayEnabled || !pathViewAvailable()) return;
+  const decisions = pathDecisionEvents(trace.events);
+  if (replayStep >= decisions.length) return;
+  renderReplayChoiceAreas(decisions[replayStep].evaluation);
 }
 
 function restoreFinishedBoard() {
