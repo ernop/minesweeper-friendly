@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Minesweeper - Standard Mode</title>
-<link rel="stylesheet" href="style.css?v=20260904-legend-column">
+<link rel="stylesheet" href="style.css?v=20260904-history-slider">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <!-- Defer preserves dependency order while letting every page asset download
      in parallel. Storage starts first so disk access overlaps JS startup. -->
@@ -19,8 +19,8 @@
 <script defer src="pregen.js?v=20260826-pregen-highlight"></script>
 <script defer src="odds.js?v=20260825-batched-certification"></script>
 <script defer src="trial.js"></script>
-<script defer src="settings-core.js?v=20260904-legend-column"></script>
-<script defer src="minesweeper.js?v=20260904-legend-column"></script>
+<script defer src="settings-core.js?v=20260904-history-slider"></script>
+<script defer src="minesweeper.js?v=20260904-history-slider"></script>
 </head>
 <body aria-busy="true">
 <div id="top-right">
@@ -160,27 +160,25 @@
     <div id="board-position-drag-surface" hidden tabindex="0"
       aria-label="Board position. Drag, or use arrow keys to move."></div>
 
-    <nav id="scores-nav" aria-label="View high scores or inspect the finished game">
-      <button type="button" id="see-scores-btn">see scores</button>
-      <!-- Review is a modifier on the whole finished game, not a path
-           color: its own row above the path row, with its slider and the
-           board-overlay toggles directly beneath it. -->
-      <div id="review-control" hidden aria-label="Step through the finished game">
-        <span class="path-view-heading">review</span>
-        <button type="button" id="replay-toggle" aria-pressed="false">step through moves</button>
-      </div>
-      <span id="replay-controls" hidden aria-label="Navigate decision time">
-        <button type="button" id="replay-prev" aria-label="Previous choice">‹</button>
+    <!-- The after-game controls: always the game-history slider first (it
+         is shown for every finished game, no toggle), then its board
+         overlays, then the path colors, then the scores button. This block
+         stays in the main column beneath the board: it cancels the board's
+         player-chosen sideways translation, so it can never sit under the
+         metrics sidebar. -->
+    <nav id="scores-nav" aria-label="Inspect the finished game or view high scores">
+      <span id="replay-controls" hidden aria-label="Game history: actions done">
+        <button type="button" id="replay-prev" aria-label="One action back">‹</button>
         <span id="replay-slider-wrap">
           <span id="replay-slider-value" aria-hidden="true"></span>
-          <input type="range" id="replay-slider" min="1" max="1" step="1" value="1"
-            aria-label="Game history position (action number)">
+          <input type="range" id="replay-slider" min="0" max="0" step="1" value="0"
+            aria-label="Game history position (actions done)">
           <span id="replay-slider-scale" aria-hidden="true"></span>
         </span>
-        <button type="button" id="replay-next" aria-label="Next choice">›</button>
+        <button type="button" id="replay-next" aria-label="One action forward">›</button>
         <span id="replay-status" aria-live="polite"></span>
       </span>
-      <div id="replay-overlay-control" hidden aria-label="Board overlays while stepping through moves">
+      <div id="replay-overlay-control" hidden aria-label="Board overlays while stepping through the game">
         <span class="path-view-heading">overlays</span>
         <button type="button" data-replay-overlay="moves">available moves</button>
         <button type="button" data-replay-overlay="mines">forced mines</button>
@@ -199,8 +197,11 @@
         <button type="button" data-path-view="progress">game progress</button>
         <button type="button" data-path-view="less-useful">less useful</button>
       </div>
-      <div id="path-view-legend" hidden></div>
+      <button type="button" id="see-scores-btn">see scores</button>
     </nav>
+    <!-- Vertical key beside the board's right edge when the gutter allows
+         (positioned by syncResultsPlacement), otherwise in flow here. -->
+    <div id="path-view-legend" hidden></div>
 
     <div id="results">
       <p id="result-summary"></p>

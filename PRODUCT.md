@@ -1509,26 +1509,31 @@ runtime state, export field, or result section.
   avoidable or higher risk, and lower modeled one-ply life. A loss from a
   minimum-risk forced guess is not labeled less useful merely because it
   was fatal.
-- Review mode (`review · step through moves`, renamed from "back in time"
-  2026-09-04: a plain name for a plain function) is a modifier on the whole
-  finished game, not a path-color mode. It has its own row, offered whenever
-  a game is complete, placed above the path row; its slider and its board
-  overlay toggles sit directly beneath it, then the path row, then the
-  legend. It can be combined with raw path, click locations, any parameter
-  color, less useful, or off. It starts at the final decision; Previous/Next
-  and Left/Right step backward or forward, and the selected overlay
-  truncates at the displayed decision while retaining its full-game color
-  scale for comparison. Review mode replaces the finished board with the
-  exact player-visible board immediately before each accepted action. A game-history range slider
-  (2026-08-30) sits between the previous/next buttons and scrubs the same
-  decision index; it shows notch marks for every action (thinned above 60)
-  and black numeric labels at both endpoints and the interior quarters, the
-  current action number rides in a label above the thumb, and the status
-  line spells the same value out ("action N of M"). The slider is as wide
-  as its row allows (no fixed cap), so notches stay apart on long games.
-  Previous/next controls and
-  Left/Right keys step through decisions except while another interactive
-  control has keyboard focus; solid purple rings mark the measured
+- Game-history slider (2026-09-04, replacing the "back in time" / "step
+  through moves" toggle): once a game is finished, the bar that moves back
+  and forth through it is always shown — nothing has to be turned on. It is
+  the first row under the board, inside the same block as the board's other
+  after-game controls (then the board-overlay toggles, the path colors, and
+  "see scores"), and that block always sits inside the main column beneath
+  the board: it cancels the board's player-chosen sideways offset, so it can
+  never sit under or overlap the session/metrics sidebar to the left. The
+  slider's positions count actions done, 0 … N: the right end (N) is the
+  finished board itself, which is where every game starts; every earlier
+  position shows the exact player-visible board before action position + 1,
+  with the board overlays and the legend. Moving the slider is what enters
+  and leaves review; the finished board is restored exactly at the end.
+  The scale has notch marks for every position (thinned above 60) and black
+  numeric labels at both endpoints (0 and N) and the interior quarters; the
+  current position rides in a label above the thumb; the status spells it
+  out ("13 of 14 actions done · deciding at 2.66 s · next: reveal · 1
+  measured choice"; at the end "14 of 14 actions done · 2.67 s · finished
+  board — drag left or press ‹ to step back"). The slider is as wide as its
+  row allows (no fixed cap), so notches stay apart on long games. It can be
+  combined with raw path, click locations, any parameter color, less
+  useful, or off; the selected overlay truncates at the displayed position
+  while retaining its full-game color scale for comparison.
+  ‹ / › and Left/Right keys step one action except while another
+  interactive control has keyboard focus; solid purple rings mark the measured
   reasonable choice set (purple is also the color of the uncertain-pocket
   labels that describe that set; measured choices were a second green until
   2026-09-04 and could not be told from the proven-safe ring on the same
@@ -1540,15 +1545,15 @@ runtime state, export field, or result section.
   at. The pill sits centered just above the crosshair arms so it never
   covers the acted square, and is clamped to the board (the crosshair keeps
   its canvas even when the path mode is off).
-  The status names action number, in-game time, action type, and measured
-  choice count; the three values are the largest text in the status (bold,
-  16 px) and the words around them are secondary. Uncertain
+  The status names actions done, the decision's in-game time, the next
+  action's type, and measured choice count; the three values are the largest
+  text in the status (bold, 16 px) and the words around them are secondary. Uncertain
   reasonable-choice cells are split into connected visual pockets; each pocket
   gets a leader line to a side label giving its mine probability (exact 50%
   reads `50/50`; other uncertain values never round to 0%, 100%, or `50/50`)
   and cell count. Labels choose the board side that avoids the result summary
   and available viewport edge. Proven-safe choices get no coinflip label.
-  Leaving review mode restores the finished board exactly.
+  Returning the slider to its end restores the finished board exactly.
 - Review-mode overlays (2026-08-30): six independent toggles on their own
   row, remembered for the page session, each doing exactly what it says.
   `available moves` and `forced mines` start on — showing what was logically

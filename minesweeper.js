@@ -860,7 +860,7 @@ function newGame() {
   replayStep = 0;
   cancelReplayPrecompute();
   replaySolverCache.clear();
-  replaySlider.max = '1';
+  replaySlider.max = '0';
   lastPathState = null;
   hidePathTooltip();
   renderPathView();
@@ -3007,7 +3007,10 @@ function reportResult(outcome, endedAt = Date.now()) {
   renderMetricsPanel(null);
   renderResult(record, modeRecords);
   // The inspection controls appear with the finished board; a view left on
-  // from the previous game renders this game's trace immediately.
+  // from the previous game renders this game's trace immediately. The
+  // game-history slider starts at its end: every action done, this board.
+  replayStep = replayDecisionCount();
+  replayEnabled = false;
   renderPathView();
 }
 
@@ -6935,15 +6938,27 @@ function replayLegendRows(overlays, solverState) {
 
 // The status line's parts, so the values (action number, in-game time,
 // action kind) can be set larger than the words around them.
+// `step` is the slider position = actions already done; the shown board is
+// the one the player faced while deciding action step + 1 (`evaluation`),
+// so `time` is that decision's moment and `action` the move about to be made.
 function replayStatusParts(step, count, evaluation) {
   const choiceCount = replayChoiceCells(evaluation).length;
   return {
-    index: String(step + 1),
+    done: String(step),
     count: String(count),
     time: Number.isFinite(evaluation.atMs)
       ? (evaluation.atMs / 1000).toFixed(2) + ' s' : 'before timer',
     action: evaluation.action,
     choices: choiceCount + ' measured choice' + (choiceCount === 1 ? '' : 's'),
+  };
+}
+
+// The slider's last position: every action done, the finished board.
+function replayEndStatusParts(count, finalMs) {
+  return {
+    done: String(count),
+    count: String(count),
+    time: (finalMs / 1000).toFixed(2) + ' s',
   };
 }
 
@@ -6957,6 +6972,11 @@ const PATH_VIEW_IDS = new Set([
   'movement-speed', 'click-speed', 'progress', 'less-useful',
 ]);
 let pathView = 'off';
+// The game-history slider is always offered once a game is finished. Its
+// position `replayStep` counts actions done: 0 … N−1 show the board the
+// player faced before action step + 1 (review frames), N is the finished
+// board itself. `replayEnabled` is derived from that position; there is no
+// separate toggle (2026-09-04).
 let replayEnabled = false;
 let pathCanvas = null;
 let pathResizeObserver = null;
@@ -6988,8 +7008,6 @@ let pathTooltipEl = null;
 const pathViewControl = document.getElementById('path-view-control');
 const pathViewButtons = [...pathViewControl.querySelectorAll('[data-path-view]')];
 const pathViewLegend = document.getElementById('path-view-legend');
-const reviewControl = document.getElementById('review-control');
-const replayToggle = document.getElementById('replay-toggle');
 const replayControls = document.getElementById('replay-controls');
 const replayPrevious = document.getElementById('replay-prev');
 const replayNext = document.getElementById('replay-next');
@@ -7007,22 +7025,61 @@ function pathViewAvailable() {
     && !document.getElementById('game-frame').hidden;
 }
 
+function replayDecisionCount() {
+  return pathViewAvailable() ? pathDecisionEvents(trace.events).length : 0;
+}
+
+// Moves the game-history position and re-renders: review frames for
+// positions before the end, the finished board at the end. Entering the
+// frames starts the idle solver precompute for every frame.
+function setReplayStep(step) {
+  const count = replayDecisionCount();
+  replayStep = Math.max(0, Math.min(count, step));
+  const enabled = replayStep < count;
+  const entering = enabled && !replayEnabled;
+  replayEnabled = enabled;
+  renderPathView();
+  if (entering) scheduleReplayPrecompute();
+}
+
 function renderPathViewControls() {
   const available = pathViewAvailable();
-  // Review (stepping through the finished game's moves) is a modifier on the
-  // whole game and always offered once one is complete; path colors are a
-  // separate choice beneath it.
-  reviewControl.hidden = !available;
+  // Once a game is finished, the game-history slider, its board overlays,
+  // and the path colors are all offered at once; nothing has to be turned
+  // on first.
   pathViewControl.hidden = !available;
   for (const button of pathViewButtons) {
     button.setAttribute('aria-pressed', String(button.dataset.pathView === pathView));
   }
-  replayToggle.setAttribute('aria-pressed', String(replayEnabled));
-  replayControls.hidden = !replayEnabled || !available;
-  replayOverlayControl.hidden = !replayEnabled || !available;
+  replayControls.hidden = !available;
+  replayOverlayControl.hidden = !available;
   for (const button of replayOverlayButtons) {
     button.setAttribute('aria-pressed',
       String(replayOverlays[button.dataset.replayOverlay] === true));
+  }
+  if (available) renderReplaySlider();
+}
+
+// Slider range 0 … N (actions done), thumb label, previous/next state, and
+// the end-position status. Frame statuses come from renderReplayFrame.
+function renderReplaySlider() {
+  const count = replayDecisionCount();
+  const positions = count + 1;
+  if (Number(replaySlider.max) !== count) {
+    replaySlider.max = String(count);
+    renderReplaySliderScale(positions);
+  }
+  replaySlider.disabled = count === 0;
+  replaySlider.value = String(replayStep);
+  replaySliderValue.textContent = String(replayStep);
+  replaySliderValue.style.setProperty('--thumb',
+    String(count === 0 ? 0.5 : replayStep / count));
+  replayPrevious.disabled = replayStep === 0;
+  replayNext.disabled = replayStep >= count;
+  if (count === 0) {
+    replayStatus.textContent = 'no decision frames were recorded for this game';
+  } else if (replayStep >= count) {
+    renderReplayEndStatus(replayEndStatusParts(count, finalTimeMs));
   }
 }
 
@@ -7233,15 +7290,16 @@ function applyReplayEncodingColors() {
 }
 applyReplayEncodingColors();
 
-// Notches for every action (thinned above 60) plus black numeric labels at
-// both ends and three interior quarters, so the game-history slider's scale
-// is readable without hovering anything.
-function renderReplaySliderScale(count) {
+// Notches for every position (thinned above 60) plus black numeric labels
+// at both ends and three interior quarters, so the game-history slider's
+// scale is readable without hovering anything. Positions are 0 … N actions
+// done, so the labels read 0 at the left and N at the right.
+function renderReplaySliderScale(positions) {
   replaySliderScale.replaceChildren();
-  if (count < 1) return;
-  const positionOf = (step) => count === 1 ? 50 : step / (count - 1) * 100;
-  const notchEvery = Math.max(1, Math.ceil(count / 60));
-  for (let step = 0; step < count; step += notchEvery) {
+  if (positions < 1) return;
+  const positionOf = (step) => positions === 1 ? 50 : step / (positions - 1) * 100;
+  const notchEvery = Math.max(1, Math.ceil(positions / 60));
+  for (let step = 0; step < positions; step += notchEvery) {
     const notch = document.createElement('span');
     notch.className = 'replay-slider-notch';
     notch.style.left = positionOf(step) + '%';
@@ -7249,16 +7307,16 @@ function renderReplaySliderScale(count) {
   }
   const labelSteps = [...new Set([
     0,
-    Math.round((count - 1) * 0.25),
-    Math.round((count - 1) * 0.5),
-    Math.round((count - 1) * 0.75),
-    count - 1,
+    Math.round((positions - 1) * 0.25),
+    Math.round((positions - 1) * 0.5),
+    Math.round((positions - 1) * 0.75),
+    positions - 1,
   ])].sort((a, b) => a - b);
   for (const step of labelSteps) {
     const label = document.createElement('span');
     label.className = 'replay-slider-label';
     label.style.left = positionOf(step) + '%';
-    label.textContent = String(step + 1);
+    label.textContent = String(step);
     replaySliderScale.appendChild(label);
   }
 }
@@ -7309,24 +7367,26 @@ function renderReplayStatus(parts) {
     return span;
   };
   replayStatus.replaceChildren(
-    'action ', value(parts.index), ' of ' + parts.count + ' · ',
-    value(parts.time), ' · ', value(parts.action),
+    value(parts.done), ' of ' + parts.count + ' actions done · deciding at ',
+    value(parts.time), ' · next: ', value(parts.action),
     ' · ' + parts.choices);
+}
+
+function renderReplayEndStatus(parts) {
+  const value = (text) => {
+    const span = document.createElement('span');
+    span.className = 'replay-status-value';
+    span.textContent = text;
+    return span;
+  };
+  replayStatus.replaceChildren(
+    value(parts.done), ' of ' + parts.count + ' actions done · ',
+    value(parts.time), ' · finished board — drag left or press ‹ to step back');
 }
 
 function renderReplayFrame() {
   const decisions = pathDecisionEvents(trace.events);
   replayLegendSolverState = 'off';
-  if (decisions.length === 0) {
-    replayStatus.textContent = 'no decision frames';
-    replaySliderValue.textContent = '';
-    replayPrevious.disabled = true;
-    replayNext.disabled = true;
-    renderReplaySliderScale(0);
-    replaySlider.disabled = true;
-    renderPathOverlay();
-    return;
-  }
   if (replayFinishedCells === null) {
     replayFinishedCells = cellElements.map((element) => ({
       className: element.className,
@@ -7334,12 +7394,6 @@ function renderReplayFrame() {
     }));
   }
   replayStep = Math.max(0, Math.min(decisions.length - 1, replayStep));
-  replaySlider.disabled = false;
-  if (Number(replaySlider.max) !== decisions.length) {
-    replaySlider.max = String(decisions.length);
-    renderReplaySliderScale(decisions.length);
-  }
-  replaySlider.value = String(replayStep + 1);
   const evaluation = decisions[replayStep].evaluation;
   const position = evaluation.position;
   const wantSolver = replayOverlays.moves || replayOverlays.mines
@@ -7350,11 +7404,6 @@ function renderReplayFrame() {
   paintReplayFrame(model);
   renderReplayChoiceAreas(evaluation);
   renderReplayStatus(replayStatusParts(replayStep, decisions.length, evaluation));
-  replaySliderValue.textContent = String(replayStep + 1);
-  replaySliderValue.style.setProperty('--thumb', String(decisions.length === 1
-    ? 0.5 : replayStep / (decisions.length - 1)));
-  replayPrevious.disabled = replayStep === 0;
-  replayNext.disabled = replayStep === decisions.length - 1;
   renderPathOverlay();
 }
 
@@ -8073,31 +8122,16 @@ for (const button of pathViewButtons) {
   });
 }
 
-replayToggle.addEventListener('click', () => {
-  replayEnabled = !replayEnabled;
-  if (replayEnabled) {
-    const decisions = pathDecisionEvents(trace.events);
-    replayStep = Math.max(0, decisions.length - 1);
-  } else {
-    cancelReplayPrecompute();
-  }
-  renderPathView();
-  if (replayEnabled && pathViewAvailable()) scheduleReplayPrecompute();
-});
-
 replayPrevious.addEventListener('click', () => {
-  replayStep--;
-  renderReplayFrame();
+  setReplayStep(replayStep - 1);
 });
 
 replayNext.addEventListener('click', () => {
-  replayStep++;
-  renderReplayFrame();
+  setReplayStep(replayStep + 1);
 });
 
 replaySlider.addEventListener('input', () => {
-  replayStep = Number(replaySlider.value) - 1;
-  renderReplayFrame();
+  setReplayStep(Number(replaySlider.value));
 });
 
 for (const button of replayOverlayButtons) {
@@ -8110,18 +8144,16 @@ for (const button of replayOverlayButtons) {
 }
 
 document.addEventListener('keydown', (event) => {
-  if (!replayEnabled || !pathViewAvailable()) return;
+  if (!pathViewAvailable() || replayDecisionCount() === 0) return;
   if (event.target instanceof HTMLElement
       && event.target.matches(
         'input, select, textarea, button, [contenteditable], [tabindex]')) return;
   if (event.key === 'ArrowLeft') {
     event.preventDefault();
-    replayStep--;
-    renderReplayFrame();
+    setReplayStep(replayStep - 1);
   } else if (event.key === 'ArrowRight') {
     event.preventDefault();
-    replayStep++;
-    renderReplayFrame();
+    setReplayStep(replayStep + 1);
   }
 });
 

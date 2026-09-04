@@ -191,9 +191,14 @@ Implementation notes:
   `#path-view-control` (in `#scores-nav`) exposes separate buttons for off,
   raw every-sample path, numbered raw click locations, movement speed, click
   speed, game progress, and less useful—never a dropdown.
-  `#replay-toggle` independently turns decision-time navigation on, so any
-  path mode can be combined with a saved pre-action board and is truncated at
-  the chosen decision without changing its full-game color scale.
+  The game-history slider `#replay-slider` (always shown once a game is
+  finished; positions 0 … N = actions done, N = the finished board) drives
+  `replayStep`; `setReplayStep` clamps it, derives `replayEnabled = step <
+  count`, re-renders through `renderPathView`, and starts the solver
+  precompute when the frames are first entered. `renderReplaySlider` owns
+  range/thumb/‹ ›/end status; `renderReplayFrame` paints a frame. Any path
+  mode combines with the shown pre-action board and is truncated at the
+  chosen position without changing its full-game color scale.
   `renderPathOverlay` builds `#path-canvas` (absolute over `#board`,
   pointer-events none) and a `lastPathState` snapshot from the just-finished
   RAM trace; `paintPathCanvas` repaints from that state so legend hovers can
@@ -275,13 +280,17 @@ Implementation notes:
   reasonable choices into connected pockets; `#replay-choice-areas` draws
   leaders (`--replay-area`) to side labels with non-misleading mine risk and
   cell count, choosing left or right to avoid the result summary/viewport
-  edge. `#scores-nav` (the whole after-game block: `#review-control` row
-  with `#replay-toggle` "step through moves", `#replay-controls` slider,
-  `#replay-overlay-control`, `#path-view-control`, `#path-view-legend`, in
-  that DOM order) is `width: 100%; max-width: 100cqw` against `main`'s
+  edge. `#scores-nav` (the after-game control block: `#replay-controls`
+  slider row, `#replay-overlay-control`, `#path-view-control`,
+  `#see-scores-btn`, in that DOM order; `#path-view-legend` is its sibling
+  after it) is `width: 100%; max-width: 100cqw` against `main`'s
   inline-size container, so a long legend row can never widen `#game-area`
   past the column and under the metrics sidebar (it did; the block used to
-  size to its content).   `renderPathViewControls` shows `#review-control`
+  size to its content), and `#scores-nav`, the in-flow legend, and
+  below-board `#results` carry `translateX(-1 × --board-position-applied-x)`
+  so the board's saved sideways offset never carries them under the sidebar
+  either (the beside-board legend, anchored to the measured frame, does not
+  cancel). `renderPathViewControls` shows the slider row, the overlay row,
   and `#path-view-control` together whenever `pathViewAvailable()`.
   Legend column (2026-09-04): `#path-view-legend` is a vertical key
   (`.path-legend-row` is a flex column; each `.path-legend-key` is a 22 px

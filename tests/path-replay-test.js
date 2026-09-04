@@ -345,8 +345,11 @@ check('only the cell\'s own glyph dims on a proven mine, not the mark-mine hint'
 
   const status = replayStatusParts(7, 19, evaluation);
   check('status parts carry the values separately from the words',
-    status.index === '8' && status.count === '19' && status.time === '1.77 s'
+    status.done === '7' && status.count === '19' && status.time === '1.77 s'
       && status.action === 'chord' && status.choices === '1 measured choice');
+  const end = replayEndStatusParts(19, 9620);
+  check('the end position reports every action done and the final time',
+    end.done === '19' && end.count === '19' && end.time === '9.62 s');
 }
 
 {
@@ -435,23 +438,31 @@ for (const id of [
   check(`path control exposes ${id} button`,
     html.includes(`data-path-view="${id}"`));
 }
-check('review mode is independent of path mode buttons',
-  html.includes('id="replay-toggle"')
-    && !html.includes('data-path-view="replay"'));
+check('the game-history slider needs no toggle and is not a path mode',
+  !html.includes('id="replay-toggle"')
+    && !html.includes('id="review-control"')
+    && !html.includes('data-path-view="replay"')
+    && source.includes('replayControls.hidden = !available')
+    && source.includes('replayOverlayControl.hidden = !available'));
 {
-  const reviewRow = html.indexOf('id="review-control"');
-  const pathRow = html.indexOf('id="path-view-control"');
-  const pathRowEnd = html.indexOf('</div>', pathRow);
-  check('review is its own row above the path row, with a plain name',
-    reviewRow !== -1 && reviewRow < pathRow
-      && html.slice(reviewRow, pathRow).includes('id="replay-toggle"')
-      && html.slice(reviewRow, pathRow).includes('>step through moves<')
-      && !html.slice(pathRow, pathRowEnd).includes('replay-toggle'));
-  check('the slider and overlays sit beneath the review row, before the path row',
-    html.indexOf('id="replay-controls"') > reviewRow
-      && html.indexOf('id="replay-overlay-control"') < pathRow);
-  check('the review row is shown whenever a finished game is present',
-    source.includes('reviewControl.hidden = !available'));
+  const navStart = html.indexOf('id="scores-nav"');
+  const navEnd = html.indexOf('</nav>', navStart);
+  const nav = html.slice(navStart, navEnd);
+  check('the slider row comes first under the board, then overlays, path, scores',
+    nav.indexOf('id="replay-controls"') < nav.indexOf('id="replay-overlay-control"')
+      && nav.indexOf('id="replay-overlay-control"') < nav.indexOf('id="path-view-control"')
+      && nav.indexOf('id="path-view-control"') < nav.indexOf('id="see-scores-btn"'));
+  check('the legend is a sibling of the control rows, not inside them',
+    !nav.includes('id="path-view-legend"')
+      && html.indexOf('id="path-view-legend"') > navEnd);
+  check('slider positions count actions done, from 0 to the finished board',
+    /id="replay-slider" min="0" max="0"/.test(html)
+      && source.includes('replaySlider.max = String(count)')
+      && source.includes('replayStep = replayDecisionCount();')
+      && source.includes('const enabled = replayStep < count;'));
+  check('the control rows cancel the board\u2019s sideways translation',
+    /#scores-nav,\s*#path-view-legend\s*\{[^}]*translateX\(calc\(-1 \* var\(--board-position-applied-x/.test(css)
+      && /legend-beside #path-view-legend:not\(\[hidden\]\)\s*\{[^}]*transform:\s*none/.test(css));
 }
 check('after-game controls are bounded by the main column, never their content',
   /#scores-nav\s*\{[^}]*max-width:\s*100cqw/.test(css));

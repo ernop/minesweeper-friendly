@@ -219,35 +219,14 @@ main {
   padding-left: var(--nav-reserve-left, 0px);
 }
 
-/* Review row: the modifier that steps through the finished game. Same
-   look as the path row beneath it, but its own row. */
-#review-control {
-  display: flex;
-  flex: 1 0 100%;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  color: #000000;
-}
-
-#review-control[hidden] {
-  display: none;
-}
-
-#review-control button {
-  box-sizing: border-box;
-  min-height: 25px;
-  padding-inline: 7px;
-  font-weight: normal;
-  white-space: nowrap;
-}
-
-#review-control button[aria-pressed="true"] {
-  border-color: #547f9a;
-  background: #dcecf5;
-  color: #173f57;
-  box-shadow: inset 0 0 0 1px #ffffff;
+/* The board may carry a player-chosen sideways translation (#game-area's
+   transform). The control rows, the in-flow legend, and stats below the
+   board cancel its horizontal part so they always sit inside the main
+   column beneath the board — never under the metrics sidebar. The vertical
+   part is kept: these follow the board down. */
+#scores-nav,
+#path-view-legend {
+  transform: translateX(calc(-1 * var(--board-position-applied-x, 0px)));
 }
 
 #scores-nav button {
@@ -311,9 +290,9 @@ main {
    the --legend-* variables) and falls back to the same vertical list below
    the board when the gutter cannot hold at least its minimum width. */
 #path-view-legend {
-  flex: 0 1 auto;
   box-sizing: border-box;
   width: min(100%, 340px);
+  margin: 10px auto 0;
   padding: 4px 8px;
   border: 1px solid #000000;
   border-radius: 3px;
@@ -329,6 +308,9 @@ main {
   left: var(--legend-left, 0px);
   width: var(--legend-width, 300px);
   margin: 0;
+  /* Anchored to the board frame, which is measured where it is drawn
+     (translation included), so no cancelling here. */
+  transform: none;
 }
 
 .path-legend-row {
@@ -1219,7 +1201,9 @@ body.trial-offboard #game-frame {
 
 #game-area.results-below-board #results {
   position: static;
-  transform: none;
+  /* Stays in the main column like the control rows above it (see the
+     shared translateX rule near #scores-nav). */
+  transform: translateX(calc(-1 * var(--board-position-applied-x, 0px)));
   right: auto;
   width: min(320px, 100%);
   /* --results-below-clearance: how far the legend column beside the board
