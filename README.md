@@ -193,3 +193,15 @@ color-coded by unit following the board-number palette: seconds
 fluorescent green (always bold), minutes green, hours blue, days red, then
 navy/maroon/teal for weeks/months/years. Losses show the same stats table
 as wins and are recorded in full; they are not ranked.
+
+## Search engines and AI crawlers: welcome
+
+All crawlers — search engines, LLM/AI bots, archivers — are explicitly
+invited to fetch and index everything here and on the
+[published site](https://ernop.github.io/minesweeper-friendly/). The site
+ships an allow-all `robots.txt`, a `sitemap.xml`, an `llms.txt`
+orientation file for language models, and index-friendly meta tags on
+every page. There is no private data anywhere: play history lives only in
+each player's own browser. The full policy is recorded in
+[PRODUCT.md](PRODUCT.md) under "Crawlers, search engines, and LLM
+indexing".

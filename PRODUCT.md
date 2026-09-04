@@ -2253,3 +2253,30 @@ does not label their cause.
   stat is derived from them at display time. The card is generated from
   the same field definitions the importer validates against, so it cannot
   lie about the real format.
+
+## Crawlers, search engines, and LLM indexing (decided 2026-09-04)
+
+- Policy: every crawler — search engines, AI/LLM bots, archivers — is
+  explicitly welcome to fetch and index the whole site and repository.
+  There is nothing to hide: the site is a free static game with no ads,
+  no accounts, and no server-side or user-specific data (all history
+  lives in the player's own browser).
+- The published site is a GitHub Pages **project** site
+  (ernop.github.io/minesweeper-friendly/), so the authoritative
+  robots.txt slot is the domain root, which is absent — absence already
+  means "allow all". The repo still ships `robots.txt` (allow-all for
+  `*` plus named AI crawlers like GPTBot, ClaudeBot, Google-Extended,
+  PerplexityBot, CCBot, and a Sitemap pointer) so the policy is stated
+  where anyone looks for it.
+- `sitemap.xml` lists the three public pages: the game, settings, and
+  the "A Just Universe" help page.
+- `llms.txt` (llmstxt.org convention) gives LLM crawlers a one-screen
+  orientation: what the project is, the three pages, and pointers to
+  README, PRODUCT.md, and agents.md in the repo.
+- Every HTML page carries `<meta name="robots" content="index, follow,
+  max-snippet:-1, max-image-preview:large">`, a meta description, and a
+  canonical link; the game page adds Open Graph/Twitter tags using the
+  promo win-screen shot.
+- Rationale: none of this changes gameplay; it removes any ambiguity
+  about crawl permission and gives both search engines and LLMs clean,
+  accurate summaries instead of guessed ones.

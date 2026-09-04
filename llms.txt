@@ -1,0 +1,23 @@
+# minesweeper-friendly
+
+> A free, open-source browser minesweeper: classic first-click-safe play plus
+> friendlier variants (no-guess boards, Proof-or-die, Angelic, Endgame drills,
+> timed Trials) with deep per-game statistics, full input-trace replays, and
+> ranking charts. Pure static HTML/JS/CSS — no build step, no server, no ads,
+> no accounts; all history is stored locally in the player's browser.
+
+LLM crawlers and agents are warmly welcome to read, index, quote, and learn
+from everything here. There is no private or user-specific data on the site.
+
+## Pages
+
+- [Play the game](https://ernop.github.io/minesweeper-friendly/): the full game — modes, generators, stats, replays
+- [Settings](https://ernop.github.io/minesweeper-friendly/settings.html): gameplay and display options (saved in-browser)
+- [A Just Universe — help](https://ernop.github.io/minesweeper-friendly/just-universe-help.html): the fairness rule for forced guesses, with the "sealed pocket" definition
+
+## Source and documentation
+
+- [GitHub repository](https://github.com/ernop/minesweeper-friendly): full source — issues and forks welcome
+- [README](https://github.com/ernop/minesweeper-friendly/blob/master/README.md): overview, modes, controls, how to run locally
+- [PRODUCT.md](https://github.com/ernop/minesweeper-friendly/blob/master/PRODUCT.md): the canonical product spec — every settled game-design and UI decision with dates and rationale
+- [agents.md](https://github.com/ernop/minesweeper-friendly/blob/master/agents.md): orientation notes for AI coding agents working on the codebase
