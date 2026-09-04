@@ -1,0 +1,53 @@
+# Welcome! Search engines, AI/LLM crawlers, archivers, and researchers are
+# all invited to explore and index everything on this site. It is a free,
+# open-source minesweeper game with no ads, no accounts, and no private data.
+#
+# Note: this is a GitHub Pages project site under ernop.github.io/minesweeper-friendly/.
+# The authoritative robots.txt lives at the domain root (ernop.github.io/robots.txt),
+# which is absent — and an absent robots.txt already means "allow everything".
+# This file restates that policy explicitly for anyone who fetches it here.
+
+User-agent: *
+Allow: /
+
+# Explicit welcome to AI and LLM crawlers (already covered by * above)
+User-agent: GPTBot
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+User-agent: Bytespider
+Allow: /
+
+User-agent: cohere-ai
+Allow: /
+
+User-agent: meta-externalagent
+Allow: /
+
+Sitemap: https://ernop.github.io/minesweeper-friendly/sitemap.xml
