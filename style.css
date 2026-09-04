@@ -196,13 +196,59 @@ main {
   font-size: 11px;
 }
 
-/* While the after-game stats float in the right gutter (#results, 320px at
-   the main column's edge), the controls and legends keep out of that column
-   on both sides so they stay centered under the board and no legend text
-   ever runs underneath the stats. */
-#game-area.results-floating #scores-nav {
+/* The after-game controls and legends are bounded by the main column
+   (100cqw: `main` is the inline-size container), never by their own
+   content: without this cap a long legend row widened #game-area past the
+   column and ran underneath the metrics sidebar. Inside that bound they
+   center under the board. */
+#scores-nav {
   box-sizing: border-box;
-  padding-inline: 336px;
+  width: 100%;
+  max-width: 100cqw;
+  margin-inline: auto;
+  min-width: 0;
+}
+
+/* While the after-game stats float in the right gutter (#results, 320px at
+   the main column's edge), the controls and legends keep out of that column:
+   the right padding is the hard rule (no legend text ever runs underneath
+   the stats); the left padding mirrors it so the block stays centered under
+   the board, giving way first when the column is too narrow to keep a
+   280px content width. */
+#game-area.results-floating #scores-nav {
+  padding-right: 336px;
+  padding-left: min(336px, max(0px, calc(100cqw - 336px - 280px)));
+}
+
+/* Review row: the modifier that steps through the finished game. Same
+   look as the path row beneath it, but its own row. */
+#review-control {
+  display: flex;
+  flex: 1 0 100%;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: #000000;
+}
+
+#review-control[hidden] {
+  display: none;
+}
+
+#review-control button {
+  box-sizing: border-box;
+  min-height: 25px;
+  padding-inline: 7px;
+  font-weight: normal;
+  white-space: nowrap;
+}
+
+#review-control button[aria-pressed="true"] {
+  border-color: #547f9a;
+  background: #dcecf5;
+  color: #173f57;
+  box-shadow: inset 0 0 0 1px #ffffff;
 }
 
 #scores-nav button {
@@ -340,7 +386,7 @@ main {
   box-shadow: 0 0 0 1px #6f7d87;
 }
 
-/* Hollow ring: the back-in-time numbered action markers. */
+/* Hollow ring: the review mode numbered action markers. */
 .path-legend-swatch.form-dot {
   width: 11px;
   height: 11px;
@@ -455,7 +501,7 @@ main {
   color: #000000;
 }
 
-/* Back-in-time board overlay toggles: same look as the path-mode buttons. */
+/* Review mode board overlay toggles: same look as the path-mode buttons. */
 #replay-overlay-control {
   display: flex;
   flex: 1 0 100%;
@@ -864,7 +910,7 @@ body.trial-offboard #game-frame {
   z-index: 3;
 }
 
-/* Back-in-time board encodings. Colors come from REPLAY_ENCODINGS in
+/* Review mode board encodings. Colors come from REPLAY_ENCODINGS in
    minesweeper.js, published as --replay-<key> custom properties, so the
    board, the legend swatches, and the canvas painter share one table.
    Solver deductions live on their own visual channel: dashed inner rings

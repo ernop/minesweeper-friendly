@@ -1508,13 +1508,17 @@ runtime state, export field, or result section.
   avoidable or higher risk, and lower modeled one-ply life. A loss from a
   minimum-risk forced guess is not labeled less useful merely because it
   was fatal.
-- `back in time` is an independent toggle, not a path-color mode. It can be
-  combined with raw path, click locations, any parameter color, less useful,
-  or off. It starts at the final decision; Previous/Next and Left/Right step
-  backward or forward, and the selected overlay truncates at the displayed
-  decision while retaining its full-game color scale for comparison.
-  Back-in-time replaces the finished board with the exact player-visible
-  board immediately before each accepted action. A game-history range slider
+- Review mode (`review · step through moves`, renamed from "back in time"
+  2026-09-04: a plain name for a plain function) is a modifier on the whole
+  finished game, not a path-color mode. It has its own row, offered whenever
+  a game is complete, placed above the path row; its slider and its board
+  overlay toggles sit directly beneath it, then the path row, then the
+  legend. It can be combined with raw path, click locations, any parameter
+  color, less useful, or off. It starts at the final decision; Previous/Next
+  and Left/Right step backward or forward, and the selected overlay
+  truncates at the displayed decision while retaining its full-game color
+  scale for comparison. Review mode replaces the finished board with the
+  exact player-visible board immediately before each accepted action. A game-history range slider
   (2026-08-30) sits between the previous/next buttons and scrubs the same
   decision index; it shows notch marks for every action (thinned above 60)
   and black numeric labels at both endpoints and the interior quarters, the
@@ -1543,11 +1547,11 @@ runtime state, export field, or result section.
   reads `50/50`; other uncertain values never round to 0%, 100%, or `50/50`)
   and cell count. Labels choose the board side that avoids the result summary
   and available viewport edge. Proven-safe choices get no coinflip label.
-  Leaving back-in-time restores the finished board exactly.
-- Back-in-time overlays (2026-08-30): six independent toggles on their own
+  Leaving review mode restores the finished board exactly.
+- Review-mode overlays (2026-08-30): six independent toggles on their own
   row, remembered for the page session, each doing exactly what it says.
   `available moves` and `forced mines` start on — showing what was logically
-  deducible at each moment is the point of back-in-time review (requested
+  deducible at each moment is the point of review mode (requested
   2026-08-30 late evening); the rest start off. Solver deductions and
   player-action marks are two independent visual channels (dashed inner
   rings versus solid inset rings and washes), so one square can carry a
@@ -1598,7 +1602,7 @@ runtime state, export field, or result section.
     reversal — hesitation and overshoot correction made visible (deep pink
     so it never shares a hue with the purple choice rings).
   - Solver reads are cached per decision index and precomputed for every
-    frame in short idle slices as soon as back-in-time is turned on, so
+    frame in short idle slices as soon as review mode is turned on, so
     slider scrubbing never waits on an enumeration; the cache and the
     precompute clear with each new board. A solver failure is an error,
     never displayed as "position too complex".
@@ -1609,7 +1613,11 @@ runtime state, export field, or result section.
     its own legend row. While the after-game stats float beside the board,
     the legend and controls keep out of that column on both sides, so no
     legend text ever runs underneath the stats (it did until 2026-09-04,
-    cutting the last key of the moves row).
+    cutting the last key of the moves row). The whole after-game control
+    block (review row, slider, overlays, path row, legend) is bounded by the
+    main column's width and wraps inside it; it never overlaps the metrics
+    sidebar (2026-09-04: a long legend row had widened the block past the
+    column and under the sidebar).
 - These displays read the just-finished RAM trace. The same decision frames
   are persisted in the trace store for future historical replay and analytics;
   loading older traces into this control is not yet built.

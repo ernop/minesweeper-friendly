@@ -377,7 +377,7 @@ check('the legend keeps clear of the floating stats column',
 check('the slider shows its current value at the thumb',
   html.includes('id="replay-slider-value"') && css.includes('#replay-slider-value'));
 
-check('back in time exposes a game-history slider',
+check('review mode exposes a game-history slider',
   html.includes('id="replay-slider"'));
 for (const id of [
   'moves', 'mines', 'probs', 'pointless', 'purposeful', 'movement',
@@ -397,9 +397,28 @@ for (const id of [
   check(`path control exposes ${id} button`,
     html.includes(`data-path-view="${id}"`));
 }
-check('back-in-time is independent of path mode buttons',
+check('review mode is independent of path mode buttons',
   html.includes('id="replay-toggle"')
     && !html.includes('data-path-view="replay"'));
+{
+  const reviewRow = html.indexOf('id="review-control"');
+  const pathRow = html.indexOf('id="path-view-control"');
+  const pathRowEnd = html.indexOf('</div>', pathRow);
+  check('review is its own row above the path row, with a plain name',
+    reviewRow !== -1 && reviewRow < pathRow
+      && html.slice(reviewRow, pathRow).includes('id="replay-toggle"')
+      && html.slice(reviewRow, pathRow).includes('>step through moves<')
+      && !html.slice(pathRow, pathRowEnd).includes('replay-toggle'));
+  check('the slider and overlays sit beneath the review row, before the path row',
+    html.indexOf('id="replay-controls"') > reviewRow
+      && html.indexOf('id="replay-overlay-control"') < pathRow);
+  check('the review row is shown whenever a finished game is present',
+    source.includes('reviewControl.hidden = !available'));
+}
+check('after-game controls are bounded by the main column, never their content',
+  /#scores-nav\s*\{[^}]*max-width:\s*100cqw/.test(css)
+    && /results-floating #scores-nav\s*\{[^}]*padding-right:\s*336px/.test(css)
+    && /results-floating #scores-nav\s*\{[^}]*padding-left:\s*min\(336px/.test(css));
 check('selected path button keeps box dimensions stable',
   css.includes('#path-view-control button[aria-pressed="true"]')
     && !css.match(/#path-view-control button\[aria-pressed="true"\][^{]*\{[^}]*font-weight/s));

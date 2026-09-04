@@ -214,7 +214,7 @@ Implementation notes:
   (red). Less-useful segments derive from decision mistake evidence and
   include the preceding/following useful boundary actions plus per-segment
   duration labels.
-  Back-in-time
+  Review mode
   paints each decision event's saved pre-action position into the real board
   DOM, marks measured choices and selection, and restores the exact finished
   markup on exit. It adds a game-history range slider (`#replay-slider`, with
@@ -223,7 +223,7 @@ Implementation notes:
   riding above its thumb (`#replay-slider-value`, `--thumb` 0–1), plus six
   independent overlay toggles
   (`#replay-overlay-control`, `replayOverlays`; moves + mines default on).
-  Architecture (2026-09-04 review): everything back-in-time can draw is one
+  Architecture (2026-09-04 review): everything review mode can draw is one
   table, `REPLAY_ENCODINGS` (PATH REPLAY: COMPUTATION span) — key → color,
   legend swatch form, complete legend wording. `applyReplayEncodingColors`
   publishes each color as `--replay-<key>` on `:root`; `style.css` reads
@@ -243,7 +243,7 @@ Implementation notes:
   enumeration; bounded `Justice.proveFacts` facts when over budget; a solver
   exception propagates — never shown as "too complex"), cached per decision
   index in `replaySolverCache`. `scheduleReplayPrecompute` fills that cache
-  for every frame in 8 ms `setTimeout(0)` slices as soon as back-in-time is
+  for every frame in 8 ms `setTimeout(0)` slices as soon as review mode is
   on (cancelled by `cancelReplayPrecompute` on toggle-off and new board), so
   slider scrubbing never waits on an enumeration.
   Solver deductions draw as dashed inner rings via `::after` (their own
@@ -270,15 +270,24 @@ Implementation notes:
   `pathRoughSegments`: crawling under ¼ of the game's median moving pace or
   a >135° reversal), and the gold `crosshair` with a white action-kind pill
   centered just above the arms (never over the acted square; clamped to the
-  canvas). The canvas survives path-off while back-in-time is active so
+  canvas). The canvas survives path-off while review mode is active so
   those layers keep rendering. `pathChoiceAreas` groups uncertain
   reasonable choices into connected pockets; `#replay-choice-areas` draws
   leaders (`--replay-area`) to side labels with non-misleading mine risk and
   cell count, choosing left or right to avoid the result summary/viewport
-  edge. `syncResultsPlacement` toggles `results-floating` on `#game-area`
-  while the stats float in the right gutter; `#scores-nav` then takes
-  336 px symmetric inline padding so legends never run under the stats
-  panel (they did, cutting the last key). A lazily created ResizeObserver
+  edge. `#scores-nav` (the whole after-game block: `#review-control` row
+  with `#replay-toggle` "step through moves", `#replay-controls` slider,
+  `#replay-overlay-control`, `#path-view-control`, `#path-view-legend`, in
+  that DOM order) is `width: 100%; max-width: 100cqw` against `main`'s
+  inline-size container, so a long legend row can never widen `#game-area`
+  past the column and under the metrics sidebar (it did; the block used to
+  size to its content). `renderPathViewControls` shows `#review-control`
+  and `#path-view-control` together whenever `pathViewAvailable()`.
+  `syncResultsPlacement` toggles `results-floating` on `#game-area` while
+  the stats float in the right gutter; `#scores-nav` then takes a hard
+  336 px right padding and a mirrored left padding that yields first
+  (`min(336px, max(0px, 100cqw − 336px − 280px))`) so legends never run
+  under the stats panel and stay centered when room allows. A lazily created ResizeObserver
   redraws both overlays and callouts on zoom. Replay arrow shortcuts ignore
   focused form controls and buttons.
   Decision frames persist inside the trace; the UI currently opens only the

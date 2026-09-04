@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Minesweeper - Standard Mode</title>
-<link rel="stylesheet" href="style.css?v=20260904-encodings">
+<link rel="stylesheet" href="style.css?v=20260904-review-row">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <!-- Defer preserves dependency order while letting every page asset download
      in parallel. Storage starts first so disk access overlaps JS startup. -->
@@ -19,8 +19,8 @@
 <script defer src="pregen.js?v=20260826-pregen-highlight"></script>
 <script defer src="odds.js?v=20260825-batched-certification"></script>
 <script defer src="trial.js"></script>
-<script defer src="settings-core.js?v=20260904-encodings"></script>
-<script defer src="minesweeper.js?v=20260904-encodings"></script>
+<script defer src="settings-core.js?v=20260904-review-row"></script>
+<script defer src="minesweeper.js?v=20260904-review-row"></script>
 </head>
 <body aria-busy="true">
 <div id="top-right">
@@ -162,26 +162,12 @@
 
     <nav id="scores-nav" aria-label="View high scores or inspect the finished game">
       <button type="button" id="see-scores-btn">see scores</button>
-      <div id="path-view-control" hidden aria-label="Path overlay">
-        <span class="path-view-heading">path</span>
-        <button type="button" data-path-view="off">off</button>
-        <button type="button" data-path-view="raw-path">raw path</button>
-        <button type="button" data-path-view="click-locations">click locations</button>
-        <button type="button" data-path-view="movement-speed">movement speed</button>
-        <button type="button" data-path-view="click-speed">click speed</button>
-        <button type="button" data-path-view="progress">game progress</button>
-        <button type="button" data-path-view="less-useful">less useful</button>
-        <button type="button" id="replay-toggle" aria-pressed="false">back in time</button>
-      </div>
-      <div id="path-view-legend" hidden></div>
-      <div id="replay-overlay-control" hidden aria-label="Back-in-time overlays">
-        <span class="path-view-heading">overlays</span>
-        <button type="button" data-replay-overlay="moves">available moves</button>
-        <button type="button" data-replay-overlay="mines">forced mines</button>
-        <button type="button" data-replay-overlay="probs">mine&nbsp;%</button>
-        <button type="button" data-replay-overlay="pointless">pointless clicks</button>
-        <button type="button" data-replay-overlay="purposeful">purposeful clicks</button>
-        <button type="button" data-replay-overlay="movement">rough movement</button>
+      <!-- Review is a modifier on the whole finished game, not a path
+           color: its own row above the path row, with its slider and the
+           board-overlay toggles directly beneath it. -->
+      <div id="review-control" hidden aria-label="Step through the finished game">
+        <span class="path-view-heading">review</span>
+        <button type="button" id="replay-toggle" aria-pressed="false">step through moves</button>
       </div>
       <span id="replay-controls" hidden aria-label="Navigate decision time">
         <button type="button" id="replay-prev" aria-label="Previous choice">‹</button>
@@ -194,6 +180,26 @@
         <button type="button" id="replay-next" aria-label="Next choice">›</button>
         <span id="replay-status" aria-live="polite"></span>
       </span>
+      <div id="replay-overlay-control" hidden aria-label="Board overlays while stepping through moves">
+        <span class="path-view-heading">overlays</span>
+        <button type="button" data-replay-overlay="moves">available moves</button>
+        <button type="button" data-replay-overlay="mines">forced mines</button>
+        <button type="button" data-replay-overlay="probs">mine&nbsp;%</button>
+        <button type="button" data-replay-overlay="pointless">pointless clicks</button>
+        <button type="button" data-replay-overlay="purposeful">purposeful clicks</button>
+        <button type="button" data-replay-overlay="movement">rough movement</button>
+      </div>
+      <div id="path-view-control" hidden aria-label="Path overlay">
+        <span class="path-view-heading">path</span>
+        <button type="button" data-path-view="off">off</button>
+        <button type="button" data-path-view="raw-path">raw path</button>
+        <button type="button" data-path-view="click-locations">click locations</button>
+        <button type="button" data-path-view="movement-speed">movement speed</button>
+        <button type="button" data-path-view="click-speed">click speed</button>
+        <button type="button" data-path-view="progress">game progress</button>
+        <button type="button" data-path-view="less-useful">less useful</button>
+      </div>
+      <div id="path-view-legend" hidden></div>
     </nav>
 
     <div id="results">

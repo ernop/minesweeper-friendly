@@ -6573,7 +6573,7 @@ function replayMoveOptions(view, flagged, facts) {
   return { chords, flagChords };
 }
 
-// Every visual encoding back-in-time can put on the board or its canvas,
+// Every visual encoding review mode can put on the board or its canvas,
 // in one table: the color (published to CSS as `--replay-<key>` by
 // applyReplayEncodingColors), the legend swatch form, and the complete
 // legend wording. The frame model names squares by these keys, the
@@ -6825,11 +6825,11 @@ let pathCanvas = null;
 let pathResizeObserver = null;
 let replayFinishedCells = null;
 let replayStep = 0;
-// Independent back-in-time board overlays; remembered for the page session
+// Independent review mode board overlays; remembered for the page session
 // like the path view itself.
 // The solver layers that show the logically deducible state of the shown
 // board (available moves, forced mines) start on: seeing what was provable
-// at each moment is the point of back-in-time review (requested
+// at each moment is the point of review mode review (requested
 // 2026-08-30 late evening).
 const replayOverlays = {
   moves: true,
@@ -6851,6 +6851,7 @@ let pathTooltipEl = null;
 const pathViewControl = document.getElementById('path-view-control');
 const pathViewButtons = [...pathViewControl.querySelectorAll('[data-path-view]')];
 const pathViewLegend = document.getElementById('path-view-legend');
+const reviewControl = document.getElementById('review-control');
 const replayToggle = document.getElementById('replay-toggle');
 const replayControls = document.getElementById('replay-controls');
 const replayPrevious = document.getElementById('replay-prev');
@@ -6871,6 +6872,10 @@ function pathViewAvailable() {
 
 function renderPathViewControls() {
   const available = pathViewAvailable();
+  // Review (stepping through the finished game's moves) is a modifier on the
+  // whole game and always offered once one is complete; path colors are a
+  // separate choice beneath it.
+  reviewControl.hidden = !available;
   pathViewControl.hidden = !available;
   for (const button of pathViewButtons) {
     button.setAttribute('aria-pressed', String(button.dataset.pathView === pathView));
@@ -7052,7 +7057,7 @@ function replaySolverAt(step, position) {
 }
 
 // Fills the solver cache for every decision frame in short main-thread
-// slices once back-in-time is on, so scrubbing the slider never waits on
+// slices once review mode is on, so scrubbing the slider never waits on
 // an enumeration: the shown frame is solved synchronously, the rest arrive
 // in the idle gaps between inputs. Cancelled whenever the trace it reads
 // stops being the current one.
@@ -7581,7 +7586,7 @@ function paintPathCanvas() {
     }
   }
 
-  // Back-in-time action markers are hollow rings with a white halo, so the
+  // Review mode action markers are hollow rings with a white halo, so the
   // number glyph, flag, or badge under the exact click spot stays readable.
   const drawRingMarker = (x, y, color, radius = 5.5) => {
     ctx.beginPath();
@@ -7698,7 +7703,7 @@ function renderPathOverlay() {
   if (pathView !== 'off' && !drawView) {
     appendPathLegendRow('path', [], 'no recorded decision locations');
   }
-  // Back-in-time keeps a canvas alive even with the path off: the exact
+  // Review mode keeps a canvas alive even with the path off: the exact
   // click-spot crosshair and the click/movement layers live there.
   if (!drawView && !replayEnabled) {
     appendReplayLegend();
