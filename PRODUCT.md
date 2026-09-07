@@ -581,10 +581,11 @@ report.
   the largest choice, so switching longer works immediately.
 - `reportScope` is the single persistent “After each game, show me”
   setting (changes apply immediately) and is also available on the settings
-  page. In compact `none` / `fatal` / `risk` scopes, its in-game control sits
-  below the right-side stats so an absent or short report consumes no space
-  above placements, rankings, and charts. In `full` scope it remains directly
-  above the full-width report it governs:
+  page. After a game, its control stays in the “Analysis & chart display”
+  panel below the replay and board-overlay controls for every scope. The
+  panel also exposes all existing result-section switches, motion charts,
+  and duplicate-tablechart grouping; changes persist and apply immediately
+  without closing the panel. Charts and defaults remain unchanged:
   - `none` — no action report, mistake/category counts, or fatal-action
     mention; evidence is still stored;
   - `fatal` — **default for every new player**; wins show no analysis,
@@ -630,6 +631,12 @@ report.
 
 ## Layout: the board never moves
 
+- Before application JavaScript is ready, the covered preview occupies the
+  main grid column explicitly, even while the metrics sidebar is hidden.
+  The game area fills that column so changing review content cannot resize
+  the board’s containing block. Below 700px window width, the metrics
+  panel stacks above the game in a bounded scroll area rather than
+  squeezing the board into a narrow remaining column.
 - The board is the anchor. Nothing that appears or disappears may shift it,
   ever.
 - The win summary (three lines: outcome, mode, end date-time) + stats table
@@ -646,6 +653,11 @@ report.
   the overhang so nothing sits under the table; the board does not move.
 - The scrollbar gutter is always reserved so a tall results area cannot
   change the viewport width and nudge the centered board.
+- Periodic layout refreshes preserve the page's scroll position and height.
+  Measure with the existing result/legend clearances intact, then replace
+  them; clearing spacing before a geometry read can clamp the browser's
+  scroll position. A reserved replay-legend gutter affects control width,
+  but a hidden or empty legend contributes no vertical clearance.
 - The Position control stores independent horizontal and vertical pixel
   offsets, editable by drag, arrow keys, labeled-notch sliders, or numeric
   inputs. The game frame remains centered inside any wider result footprint,
@@ -1532,6 +1544,12 @@ runtime state, export field, or result section.
   combined with raw path, click locations, any parameter color, less
   useful, or off; the selected overlay truncates at the displayed position
   while retaining its full-game color scale for comparison.
+  Start / End jump to the first frame and finished board. Navigation uses
+  fixed grid columns and a separate fixed-height, scrollable status area.
+  The side-legend footprint is reserved throughout review, including at
+  the finished board, so changing frames or overlays never moves the
+  navigation buttons. Board overlays and Mouse path have separate labeled
+  rows; the expandable Analysis & chart display panel follows them.
   ‹ / › and Left/Right keys step one action except while another
   interactive control has keyboard focus; solid purple rings mark the measured
   reasonable choice set (purple is also the color of the uncertain-pocket

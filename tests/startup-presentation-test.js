@@ -26,6 +26,8 @@ check('first paint builds a complete Beginner board',
   html.includes('for (let i = 0; i < 81; i++)'));
 check('first paint has a default grid width',
   css.includes('--board-width: 9;'));
+check('main keeps its grid column while the sidebar is hidden',
+  /main \{\s*grid-column: 2;/.test(css));
 check('loading board stays visible',
   !css.includes('.game-booting #game-frame { display: none'));
 

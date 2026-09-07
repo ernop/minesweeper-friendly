@@ -1,0 +1,85 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Scroll position regression</title>
+<style>
+  body { font: 14px monospace; }
+  #results { height: 150px; overflow: auto; }
+  iframe { width: 1400px; height: 650px; border: 1px solid #999; }
+</style>
+<h1>Scroll position regression</h1>
+<p>Run on http://127.0.0.1:8099/tests/scroll-position-test.html.</p>
+<pre id="results">Running…</pre>
+<iframe src="../index.html" title="Minesweeper layout under test"></iframe>
+<script>
+'use strict';
+const frame = document.querySelector('iframe');
+frame.addEventListener('load', () => {
+  const script = frame.contentDocument.createElement('script');
+  script.textContent = `
+(async () => {
+  const nextFrame = () => new Promise(resolve => requestAnimationFrame(resolve));
+  while (settings === null || document.body.classList.contains('game-booting')) await nextFrame();
+  const results = [];
+  const check = (name, ok, detail) => {
+    results.push((ok ? 'PASS ' : 'FAIL ') + name + ': ' + detail);
+    parent.document.getElementById('results').textContent = results.join('\\n');
+  };
+  const settled = async () => { await nextFrame(); await nextFrame(); };
+  // Synthetic results in RAM only: exercise real layout and browser scroll
+  // clamping without playing games or persisting settings/history.
+  gameState = 'lost';
+  settings.showSessionStats = false;
+  settings.showMotionStatsDuringGame = false;
+  settings.boardOffsetX = 0;
+  settings.boardOffsetY = 0;
+  renderMetricsPanel(null);
+  resultSummary.textContent = 'Scroll regression fixture';
+  resultStats.innerHTML = '<div style="height:750px">Tall completed-game stats</div>';
+  resultRanks.innerHTML = '<div style="height:1000px">Rankings below the stats</div>';
+  pathViewLegend.innerHTML = '<div style="height:1000px">Tall review legend</div>';
+  for (const [scenario, width, legendVisible, sidebarVisible] of [
+    ['reserved hidden legend', 1400, false, false],
+    ['floating stats', 1900, false, false],
+    ['visible side legend', 1400, true, false],
+    ['narrow stacked results', 650, true, false],
+    ['session sidebar', 1400, false, true],
+  ]) {
+    window.scrollTo(0, 0);
+    parent.document.querySelector('iframe').style.width = width + 'px';
+    pathViewLegend.hidden = !legendVisible;
+    settings.showSessionStats = sidebarVisible;
+    renderMetricsPanel(null);
+    await settled();
+    syncBoardLayout();
+    await settled();
+    const pageHeight = document.documentElement.scrollHeight;
+    const boardTop = boardPageRect(gameFrame).top;
+    for (const fraction of [0.5, 1]) {
+      window.scrollTo(0, (pageHeight - window.innerHeight) * fraction);
+      await settled();
+      const before = window.scrollY;
+      const panelBefore = metricsPanelContent.scrollTop = 400;
+      for (const update of [syncResultClearance, syncResultsPlacement,
+        syncBoardLayout, () => renderMetricsPanel(null)]) {
+        update();
+        await settled();
+      }
+      check(scenario + ' at ' + (fraction === 1 ? 'bottom' : 'mid-page'),
+        Math.abs(window.scrollY - before) < 1
+          && document.documentElement.scrollHeight === pageHeight
+          && Math.abs(boardPageRect(gameFrame).top - boardTop) < 1,
+        'scroll Y ' + before + ' -> ' + window.scrollY
+          + ', page height ' + pageHeight + ' -> ' + document.documentElement.scrollHeight);
+      if (sidebarVisible) check('sidebar preserves its independent scroll',
+        metricsPanelContent.scrollTop === panelBefore,
+        panelBefore + ' -> ' + metricsPanelContent.scrollTop);
+    }
+  }
+  parent.document.getElementById('results').textContent += '\\nDONE';
+})().catch(error => {
+  parent.document.getElementById('results').textContent += '\\n' + error.stack;
+});
+`;
+  frame.contentDocument.body.appendChild(script);
+});
+</script>

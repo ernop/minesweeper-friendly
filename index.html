@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Minesweeper - Standard Mode</title>
-<link rel="stylesheet" href="style.css?v=20260904-pocket-side">
+<link rel="stylesheet" href="style.css?v=20260907-review-layout">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <!-- Defer preserves dependency order while letting every page asset download
      in parallel. Storage starts first so disk access overlaps JS startup. -->
@@ -20,7 +20,7 @@
 <script defer src="odds.js?v=20260825-batched-certification"></script>
 <script defer src="trial.js"></script>
 <script defer src="settings-core.js?v=20260904-pocket-side"></script>
-<script defer src="minesweeper.js?v=20260904-pocket-side"></script>
+<script defer src="minesweeper.js?v=20260907-review-layout"></script>
 </head>
 <body aria-busy="true">
 <div id="top-right">
@@ -160,14 +160,12 @@
     <div id="board-position-drag-surface" hidden tabindex="0"
       aria-label="Board position. Drag, or use arrow keys to move."></div>
 
-    <!-- The after-game controls: always the game-history slider first (it
-         is shown for every finished game, no toggle), then its board
-         overlays, then the path colors, then the scores button. This block
-         stays in the main column beneath the board: it cancels the board's
-         player-chosen sideways translation, so it can never sit under the
-         metrics sidebar. -->
+    <!-- Review transport, board overlays, path colors, and result display
+         settings stay together inside the main column beneath the board. -->
     <nav id="scores-nav" aria-label="Inspect the finished game or view high scores">
-      <span id="replay-controls" hidden aria-label="Game history: actions done">
+      <div id="replay-controls" hidden aria-label="Game history: actions done">
+        <strong class="review-title">Review game</strong>
+        <button type="button" id="replay-first">Start</button>
         <button type="button" id="replay-prev" aria-label="One action back">‹</button>
         <span id="replay-slider-wrap">
           <span id="replay-slider-value" aria-hidden="true"></span>
@@ -176,10 +174,11 @@
           <span id="replay-slider-scale" aria-hidden="true"></span>
         </span>
         <button type="button" id="replay-next" aria-label="One action forward">›</button>
+        <button type="button" id="replay-last">End</button>
         <span id="replay-status" aria-live="polite"></span>
-      </span>
+      </div>
       <div id="replay-overlay-control" hidden aria-label="Board overlays while stepping through the game">
-        <span class="path-view-heading">overlays</span>
+        <span class="path-view-heading">Board overlays</span>
         <button type="button" data-replay-overlay="moves">available moves</button>
         <button type="button" data-replay-overlay="mines">forced mines</button>
         <button type="button" data-replay-overlay="probs">mine&nbsp;%</button>
@@ -188,7 +187,7 @@
         <button type="button" data-replay-overlay="movement">rough movement</button>
       </div>
       <div id="path-view-control" hidden aria-label="Path overlay">
-        <span class="path-view-heading">path</span>
+        <span class="path-view-heading">Mouse path</span>
         <button type="button" data-path-view="off">off</button>
         <button type="button" data-path-view="raw-path">raw path</button>
         <button type="button" data-path-view="click-locations">click locations</button>
@@ -197,6 +196,10 @@
         <button type="button" data-path-view="progress">game progress</button>
         <button type="button" data-path-view="less-useful">less useful</button>
       </div>
+      <details id="review-display" hidden>
+        <summary>Analysis &amp; chart display</summary>
+        <div id="review-display-content"></div>
+      </details>
       <button type="button" id="see-scores-btn">see scores</button>
     </nav>
     <!-- Vertical key beside the board's right edge when the gutter allows

@@ -102,6 +102,11 @@ Implementation notes:
   inside `#game-area`, preventing the static below-board result block from
   shifting the frame when it widens that parent. The editor exposes drag,
   arrow, numeric, and labeled-notch slider input for both axes.
+  Result/legend layout keeps existing clearance during geometry reads to
+  avoid transient page shrinkage and scroll clamping. A reserved gutter for
+  a hidden legend never contributes vertical clearance.
+  `tests/scroll-position-test.html` exercises real browser scroll/layout at
+  the test origin across floating, below-board, narrow, and sidebar layouts.
 - History: userdata 'history' maps mode key to a
   chronological array of game records, one per finished game:
   {endedAt, outcome: 'win'|'loss', timeMs, bv3, clicks, wastedClicks,

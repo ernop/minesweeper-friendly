@@ -432,18 +432,18 @@ function navReserves(columnWidth, reserveRight) {
 // board's right edge when the gutter allows and takes precedence over the
 // floating stats for that room.
 function syncResultsPlacement() {
-  resultsBox.style.removeProperty('--results-top-clearance');
-  resultsBox.style.removeProperty('--results-below-clearance');
-  for (const name of ['--legend-left', '--legend-top', '--legend-width',
-    '--legend-top-clearance', '--nav-reserve-right', '--nav-reserve-left']) {
-    gameArea.style.removeProperty(name);
-  }
   const trialNoBoard = gameArea.classList.contains('trial-no-board');
   const resultsShown = resultSummary.textContent !== '' || resultStats.textContent !== '';
   const legendShown = !trialNoBoard && !pathViewLegend.hidden
     && pathViewLegend.childElementCount > 0;
   if (trialNoBoard || (!resultsShown && !legendShown)) {
     gameArea.classList.remove('results-below-board', 'results-floating', 'legend-beside');
+    resultsBox.style.removeProperty('--results-top-clearance');
+    resultsBox.style.removeProperty('--results-below-clearance');
+    for (const name of ['--legend-left', '--legend-top', '--legend-width',
+      '--legend-top-clearance', '--nav-reserve-right', '--nav-reserve-left']) {
+      gameArea.style.removeProperty(name);
+    }
     return;
   }
 
@@ -452,7 +452,9 @@ function syncResultsPlacement() {
   const areaRect = gameArea.getBoundingClientRect();
   const resultsWidth = resultsBox.getBoundingClientRect().width;
   const rightGutter = mainRect.right - frameRect.right;
-  const plan = afterGameSidePlan(rightGutter, legendShown, resultsWidth);
+  // Keep the legend gutter reserved at the end position and with overlays
+  // off, so the transport never changes width when stepping through a game.
+  const plan = afterGameSidePlan(rightGutter, legendShown || pathViewAvailable(), resultsWidth);
   const chromeRect = boardChromeLayoutRect();
 
   const wasBeside = gameArea.classList.contains('legend-beside');
@@ -470,12 +472,14 @@ function syncResultsPlacement() {
       Math.round(frameRect.top - areaRect.top) + 'px');
     gameArea.style.setProperty('--legend-width', Math.floor(plan.legendWidth) + 'px');
     const legendRect = boardPageRect(pathViewLegend);
-    const underChrome = legendRect.right > chromeRect.left - 8
+    // Measure with the existing spacing intact. Removing it before a
+    // geometry read can shorten the page and clamp the reader's scroll Y.
+    const legendBaseTop = legendRect.top - parseFloat(
+      gameArea.style.getPropertyValue('--legend-top-clearance') || '0');
+    const underChrome = legendShown && legendRect.right > chromeRect.left - 8
       && legendRect.left < chromeRect.right + 8;
-    if (underChrome && chromeRect.bottom + 8 > legendRect.top) {
-      gameArea.style.setProperty('--legend-top-clearance',
-        Math.ceil(chromeRect.bottom - legendRect.top + 8) + 'px');
-    }
+    gameArea.style.setProperty('--legend-top-clearance',
+      (underChrome ? Math.max(0, Math.ceil(chromeRect.bottom - legendBaseTop + 8)) : 0) + 'px');
     reserveRight = mainRect.right - legendLeft + 12;
   }
   // The pocket labels choose their side by what stands beside the board,
@@ -485,14 +489,14 @@ function syncResultsPlacement() {
   if (resultsShown && plan.resultsFloat) {
     reserveRight = Math.max(reserveRight, resultsWidth + RESULTS_GUTTER_MARGIN);
   }
-  if (reserveRight > 0) {
-    const reserves = navReserves(mainRect.width, reserveRight);
-    gameArea.style.setProperty('--nav-reserve-right', Math.ceil(reserves.right) + 'px');
-    gameArea.style.setProperty('--nav-reserve-left', Math.floor(reserves.left) + 'px');
-  }
+  const reserves = navReserves(mainRect.width, reserveRight);
+  gameArea.style.setProperty('--nav-reserve-right', Math.ceil(reserves.right) + 'px');
+  gameArea.style.setProperty('--nav-reserve-left', Math.floor(reserves.left) + 'px');
 
   if (!resultsShown) {
     gameArea.classList.remove('results-below-board', 'results-floating');
+    resultsBox.style.removeProperty('--results-top-clearance');
+    resultsBox.style.removeProperty('--results-below-clearance');
     return;
   }
   const belowBoard = !plan.resultsFloat;
@@ -501,24 +505,20 @@ function syncResultsPlacement() {
   if (belowBoard) {
     // Stats below the board flow after the control rows; a legend column
     // taller than those rows would otherwise run over them.
-    if (plan.legendBeside) {
-      const overhang = boardPageRect(pathViewLegend).bottom
-        - boardPageRect(scoresNav).bottom;
-      if (overhang > 0) {
-        resultsBox.style.setProperty('--results-below-clearance',
-          Math.ceil(overhang) + 'px');
-      }
-    }
+    const overhang = plan.legendBeside && legendShown
+      ? boardPageRect(pathViewLegend).bottom - boardPageRect(scoresNav).bottom : 0;
+    resultsBox.style.setProperty('--results-below-clearance',
+      Math.max(0, Math.ceil(overhang)) + 'px');
     return;
   }
 
   const resultRect = boardPageRect(resultsBox);
+  const resultBaseTop = resultRect.top - parseFloat(
+    resultsBox.style.getPropertyValue('--results-top-clearance') || '0');
   const sharesRightStrip = resultRect.right > chromeRect.left - 8
     && resultRect.left < chromeRect.right + 8;
-  if (sharesRightStrip && chromeRect.bottom + 8 > resultRect.top) {
-    resultsBox.style.setProperty('--results-top-clearance',
-      Math.ceil(chromeRect.bottom - resultRect.top + 8) + 'px');
-  }
+  resultsBox.style.setProperty('--results-top-clearance',
+    (sharesRightStrip ? Math.max(0, Math.ceil(chromeRect.bottom - resultBaseTop + 8)) : 0) + 'px');
 }
 
 function syncJusticePlacement() {
@@ -543,24 +543,28 @@ function syncJusticePlacement() {
 // they extend below it, the separate report (or rankings when no report is
 // shown) shifts down by the exact overhang.
 function syncResultClearance() {
-  pregenCharts.style.removeProperty('--result-overflow');
-  resultAnalysis.style.removeProperty('--result-overflow');
-  resultRanks.style.removeProperty('--result-overflow');
+  const sections = [pregenCharts, resultAnalysis, resultRanks];
   if (gameArea.classList.contains('trial-no-board')) {
+    for (const section of sections) section.style.removeProperty('--result-overflow');
     return;
   }
   const floatingBottom = Math.max(
     resultsBox.getBoundingClientRect().bottom,
     justiceLive.childElementCount > 0
       ? justiceLive.getBoundingClientRect().bottom : -Infinity,
-    gameArea.classList.contains('legend-beside')
+    gameArea.classList.contains('legend-beside') && !pathViewLegend.hidden
+      && pathViewLegend.childElementCount > 0
       ? pathViewLegend.getBoundingClientRect().bottom : -Infinity);
   const extra = Math.max(0,
     Math.ceil(floatingBottom - gameArea.getBoundingClientRect().bottom));
-  if (extra > 0) {
-    const target = !pregenCharts.hidden ? pregenCharts
-      : resultAnalysis.childElementCount > 0 ? resultAnalysis : resultRanks;
-    target.style.setProperty('--result-overflow', extra + 'px');
+  // These sections sit after gameArea, so their current margin does not
+  // affect the overhang measurement. Keep it in place until the replacement
+  // is known; even a synchronous reset/read/restore can clamp page scrolling.
+  const target = !pregenCharts.hidden ? pregenCharts
+    : resultAnalysis.childElementCount > 0 ? resultAnalysis : resultRanks;
+  target.style.setProperty('--result-overflow', extra + 'px');
+  for (const section of sections) {
+    if (section !== target) section.style.removeProperty('--result-overflow');
   }
 }
 
@@ -3363,6 +3367,44 @@ function buildReportScopeControl(onChange) {
   return label;
 }
 
+// The display panel remains in one place for every analysis scope. Update
+// the report without rebuilding the focused controls or closing the panel.
+function renderReviewDisplay(onChange) {
+  const host = document.getElementById('review-display-content');
+  host.reviewChange = onChange;
+  if (host.childElementCount > 0) {
+    host.querySelector('select').value = settings.reportScope;
+    for (const input of host.querySelectorAll('input')) {
+      input.checked = input.dataset.shownThing
+        ? settings.shownThings[input.dataset.shownThing] : settings[input.dataset.setting];
+    }
+    return;
+  }
+  host.appendChild(buildReportScopeControl(() => host.reviewChange()));
+  const options = document.createElement('div');
+  options.className = 'review-display-options';
+  const add = (key, name, description, shownThing) => {
+    const label = document.createElement('label');
+    label.title = description;
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.dataset[shownThing ? 'shownThing' : 'setting'] = key;
+    input.checked = shownThing ? settings.shownThings[key] : settings[key];
+    input.addEventListener('change', () => {
+      (shownThing ? settings.shownThings : settings)[key] = input.checked;
+      saveSettings();
+      host.reviewChange();
+      scheduleBoardLayout();
+    });
+    label.append(input, name);
+    options.appendChild(label);
+  };
+  for (const [key, name, description] of SHOWN_THINGS_OPTIONS) add(key, name, description, true);
+  add('showMotionStatsAfterGame', 'motion charts', 'Motion measurements over the completed game', false);
+  add('collapseDuplicateCharts', 'collapse duplicate tablecharts', 'Combine time windows containing the same wins', false);
+  host.appendChild(options);
+}
+
 //-------RESULT PRESENTATION MODEL (pure; tests extract this span)-------
 
 // Result surfaces share one semantic sequence. A section's order is product
@@ -3486,10 +3528,7 @@ function renderResult(record, modeRecords, options = {}) {
   resultAnalysis.textContent = '';
   const historyView = options.historyView === true;
   if (!historyView) {
-    if (settings.reportScope === 'full') {
-      resultAnalysis.appendChild(buildReportScopeControl(
-        () => renderResult(record, modeRecords, options)));
-    }
+    renderReviewDisplay(() => renderResult(record, modeRecords, options));
     if (settings.reportScope !== 'none') {
       const verdicts = buildVerdictBlocks(record);
       if (verdicts !== null) {
@@ -3611,10 +3650,7 @@ function renderResult(record, modeRecords, options = {}) {
     }
     resultStats.appendChild(statsGrid);
   }
-  if (!historyView && settings.reportScope !== 'full') {
-    resultStats.appendChild(buildReportScopeControl(
-      () => renderResult(record, modeRecords, options)));
-  }
+
   const resultSections = createResultSectionCollector(
     historyView ? 'scores' : 'postGame');
   resultRanks.classList.toggle(
@@ -7052,6 +7088,7 @@ function renderPathViewControls() {
   // Once a game is finished, the game-history slider, its board overlays,
   // and the path colors are all offered at once; nothing has to be turned
   // on first.
+  document.getElementById('review-display').hidden = !available;
   pathViewControl.hidden = !available;
   for (const button of pathViewButtons) {
     button.setAttribute('aria-pressed', String(button.dataset.pathView === pathView));
@@ -7079,6 +7116,8 @@ function renderReplaySlider() {
   replaySliderValue.textContent = String(replayStep);
   replaySliderValue.style.setProperty('--thumb',
     String(count === 0 ? 0.5 : replayStep / count));
+  document.getElementById('replay-first').disabled = replayStep === 0;
+  document.getElementById('replay-last').disabled = replayStep >= count;
   replayPrevious.disabled = replayStep === 0;
   replayNext.disabled = replayStep >= count;
   if (count === 0) {
@@ -8140,6 +8179,9 @@ for (const button of pathViewButtons) {
     renderPathView();
   });
 }
+
+document.getElementById('replay-first').addEventListener('click', () => setReplayStep(0));
+document.getElementById('replay-last').addEventListener('click', () => setReplayStep(replayDecisionCount()));
 
 replayPrevious.addEventListener('click', () => {
   setReplayStep(replayStep - 1);

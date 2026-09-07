@@ -33,6 +33,7 @@ body {
 }
 
 main {
+  grid-column: 2;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1141,6 +1142,8 @@ body.trial-offboard #game-frame {
    block below the board so it cannot cover the cells. The action analysis
    and rank charts live below the game area in normal flow. */
 #game-area {
+  width: 100%;
+  min-width: 0;
   position: relative;
   transform: translate(
     var(--board-position-applied-x, 0px),
@@ -3162,3 +3165,57 @@ body.settings-page .return-to-game {
   fill: #999999;
 }
 .spark-label-big { font-size: 11px; }
+
+/* Review controls keep their geometry as frames and legend text change. */
+#replay-controls {
+  display: grid;
+  grid-template-columns: 48px 32px minmax(0, 1fr) 32px 48px;
+  width: 100%;
+}
+.review-title { grid-column: 1 / -1; text-align: left; font-size: 14px; }
+#replay-status {
+  grid-column: 1 / -1;
+  height: 72px;
+  overflow-y: auto;
+  text-align: left;
+  line-height: 1.5;
+  padding: 6px 8px;
+  background: #f1f5f8;
+  border-radius: 3px;
+}
+#replay-controls #replay-first, #replay-controls #replay-last { font-size: 12px; }
+#replay-slider-wrap { min-width: 0; }
+#scores-nav { align-items: stretch; overflow-anchor: none; }
+#replay-overlay-control, #path-view-control { justify-content: flex-start; }
+.path-view-heading { flex-basis: 100%; margin: 3px 0; text-align: left; }
+#review-display { width: 100%; text-align: left; }
+#review-display[hidden] { display: none; }
+#review-display summary {
+  padding: 8px 10px;
+  border: 1px solid #c9d4de;
+  border-radius: 3px;
+  background: #f7fafc;
+  color: #2c5875;
+  cursor: pointer;
+  font-size: 12px;
+}
+#review-display-content { padding: 10px; border: 1px solid #c9d4de; border-top: 0; }
+.review-display-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 9px 14px; margin-top: 12px; }
+.review-display-options label { display: flex; align-items: center; gap: 6px; }
+.review-display-options input { margin: 0; }
+#review-display .report-scope-control { flex-wrap: wrap; margin: 0; }
+@media (max-width: 700px) {
+  #page-layout { grid-template-columns: minmax(0, 1fr); }
+  main { grid-column: 1; grid-row: 2; }
+  #metrics-panel {
+    grid-column: 1;
+    grid-row: 1;
+    position: static;
+    width: 100% !important;
+    max-height: 220px;
+  }
+  #metrics-panel-content { max-height: 218px; }
+  body { padding: 12px; }
+  #difficulty-tabs { flex-wrap: wrap; justify-content: center; gap: 10px; }
+  #zoom-label { margin-left: 0; }
+}
