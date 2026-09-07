@@ -582,7 +582,7 @@ report.
 - `reportScope` is the single persistent “After each game, show me”
   setting (changes apply immediately) and is also available on the settings
   page. After a game, its control stays in the “Analysis & chart display”
-  panel below the replay and board-overlay controls for every scope. The
+  panel within “Overlays & display” for every scope. The
   panel also exposes all existing result-section switches, motion charts,
   and duplicate-tablechart grouping; changes persist and apply immediately
   without closing the panel. Charts and defaults remain unchanged:
@@ -653,7 +653,8 @@ report.
   the overhang so nothing sits under the table; the board does not move.
 - The scrollbar gutter is always reserved so a tall results area cannot
   change the viewport width and nudge the centered board.
-- Periodic layout refreshes preserve the page's scroll position and height.
+- Layout runs on geometry changes, never on a periodic stats-refresh timer,
+  and preserves the page's scroll position and height.
   Measure with the existing result/legend clearances intact, then replace
   them; clearing spacing before a geometry read can clamp the browser's
   scroll position. A reserved replay-legend gutter affects control width,
@@ -785,7 +786,12 @@ append timing or from how many cards fit on a row:
 1. **Outcome** — win/loss or High scores, board, mode, generator, date.
 2. **Facts** — the selected game's compact label/value stats.
 3. **Analysis** — post-game action interpretation only.
-4. **Placements** — the recent "ranks won" summary.
+4. **Placements** — the recent "ranks won" summary. Its display is promoted
+   directly beneath the board, before review, stats, and analysis, so the
+   first history row is visible in the 1216 × 928 playing window for all
+   standard board sizes at the default zoom. The section scrolls internally
+   after 150px; no rows or charts are removed. Losses retain existing win
+   history without marking the loss as a ranked win.
 5. **Rankings** — time/category, same-3BV, and board-shape tablecharts.
 6. **Streaks** — consecutive and loss-tolerant win runs.
 7. **Averages** — average solve-time scatterplots.
@@ -1431,9 +1437,9 @@ runtime state, export field, or result section.
   layout event, so warmup samples mapped through stale geometry. The
   recorder therefore also compares the live rect to the last recorded
   one and re-records on any difference: before every button event (every
-  click maps exactly), after every metrics-panel render (the known
-  mover — appearing, hiding, collapsing, drag-resizing), and via the
-  once-a-second live tick as the catch-all for anything else. Traces
+  click maps exactly), and after layout passes scheduled by ResizeObserver
+  when the panel or surrounding controls change size. Stats sampling does
+  not run page layout. Traces
   saved before the fix retain the defect for the first game of each
   page load: their samples map through the stale opening rect (button
   events are unaffected — they store the hit cell index directly). The
@@ -1468,9 +1474,11 @@ runtime state, export field, or result section.
 ## overhauled 2026-08-30: history slider, solver overlays, interpretive
 ## legends, chord detection, off-screen durations)
 
-- When a game finishes, separate, simultaneously visible buttons appear below
-  the board—no dropdown—for off, raw path, click locations, movement speed,
-  click speed, game progress, and less useful. The control hides whenever no
+- When a game finishes, “Overlays & display” opens a closable panel with
+  separate buttons for off, raw path, click locations, movement speed,
+  click speed, game progress, and less useful. All options remain available;
+  the panel occupies the browser top layer without pushing rankings down.
+  Close, Escape, or clicking outside dismisses it. The control hides whenever no
   finished board is on screen (a new board or trial lobby/review phase).
 - Raw path restores the original complete every-sample tool, shaded from light
   early movement to dark late movement. Click locations restores the original
@@ -1545,11 +1553,16 @@ runtime state, export field, or result section.
   useful, or off; the selected overlay truncates at the displayed position
   while retaining its full-game color scale for comparison.
   Start / End jump to the first frame and finished board. Navigation uses
-  fixed grid columns and a separate fixed-height, scrollable status area.
+  fixed grid columns and a compact, two-line-height scrollable status area.
+  Final time is a separate prominent value labeled “Final time”, shown to
+  three decimal places and unchanged while reviewing earlier frames. The
+  finished-board status shows only the action count and “Finished board”.
   The side-legend footprint is reserved throughout review, including at
   the finished board, so changing frames or overlays never moves the
   navigation buttons. Board overlays and Mouse path have separate labeled
-  rows; the expandable Analysis & chart display panel follows them.
+  groups inside “Overlays & display”, followed by Analysis & chart display.
+  Only the compact transport and the panel opener occupy space above the
+  results; opening display options does not move lifetime or daily rankings.
   ‹ / › and Left/Right keys step one action except while another
   interactive control has keyboard focus; solid purple rings mark the measured
   reasonable choice set (purple is also the color of the uncertain-pocket
@@ -1677,8 +1690,12 @@ runtime state, export field, or result section.
 - The session-level mouse-dynamics features are computed in-page from the
   trace and shown both live and canonically, in two places:
   - LIVE (the panel): while a trace runs (board shown through game end),
-    a vertical panel fixed to the left edge recomputes once a second over
-    the samples so far, marked "live" in grey. Live numbers are transient
+    a vertical panel at the left samples changes to the input trace,
+    coalescing bursts into at most four computations per second, and updates
+    existing value and sparkline nodes. It is marked "live" in grey. The
+    active game's clock advances elapsed-time measurements using cached
+    input computations; ready boards and finished games have no idle stats
+    timer. Live numbers are transient
     readings of an unfinished trace. The live rows go away when the game
     finishes; the panel itself stays, because since 2026-08-22 it also
     hosts the session stats section (see "Session stats"), which spans
@@ -1704,7 +1721,7 @@ runtime state, export field, or result section.
   2026-08-22), and the chip click brings it back. This is session-only
   display state — the persistent switches are the settings.
 - One row per metric: the name, the current value, and a sparkline chart
-  of the value's evolution over this game (one point per live recompute
+  of the value's evolution over this game (one point per live sample
   plus the final one). The sparkline carries labeled axes: y is the
   series min and max (a flat series draws mid-chart but labels its true
   value — the padding is chart geometry, not data), x runs 0 to the
@@ -1808,8 +1825,9 @@ runtime state, export field, or result section.
   — the exact trial construction of the offline R pipeline; segments
   with fewer than 5 trajectory points are unmeasurable and skipped.
   Segment values change only when a click lands, so the live schedule
-  recomputes those two systems per click and the whole-trace systems
-  every tick.
+  recomputes those two systems when new clicks enter a sample and the
+  whole-trace systems when input changes. Elapsed-only updates reuse the
+  input measurements and derive the silence share from the new duration.
 - A value whose formula needs more data than the trace has yet (no
   strokes, no completed click, no measurable segment, zero wall time)
   shows as an en dash with a "not yet measurable" tooltip — never a
@@ -1822,6 +1840,12 @@ runtime state, export field, or result section.
 - The panel is an in-page left column: it consumes layout width and never
   covers the board or page content. It is sticky within its column and
   scrolls itself when the viewport is shorter than its rows.
+
+Session chart startup geometry (2026-09-07): the played-time provenance
+strip reserves its space even before any play exists. Ending legends keep
+a bounded scroll area, and rate charts retain the empty-note line's space
+when data arrives. The sidebar reserves its scrollbar gutter. The first
+play span, measured action, and completed game must not move other charts.
 
 ## Session stats (decided 2026-08-22; player-controlled session revised 2026-08-28)
 
@@ -2148,8 +2172,13 @@ does not label their cause.
   track the pointer rather than catching up on release.
   The width persists as the `metricsPanelWidth` setting (default 316px,
   clamped 220–640); collapsing to the corner chip ignores it.
-- Live redraws preserve `#metrics-panel-content`'s `scrollTop`; replacing chart
-  nodes once a second must never push a reader away from lower charts.
+- Session charts update when session data, grouping, scope, or dimensions
+  change. Their controls and scroll container stay mounted; live metric rows
+  and sparkline SVG nodes update in place. Chart replacement is confined to
+  the session chart region and preserves its reader's scroll position.
+  Hovered/focused charts defer replacement until pointer leave/focus out,
+  without pausing measurement capture. Hidden documents defer drawing until
+  they become visible. No independent timer rebuilds the panel or page.
 
 ## Personal settings (decided 2026-08-20; area redone from scratch 2026-08-23)
 

@@ -2753,6 +2753,7 @@ body.settings-page .return-to-game {
   align-items: baseline;
 }
 #metrics-panel .metrics-panel-head .metrics-toggle { margin-left: auto; }
+#metrics-panel .metrics-panel-head[hidden] { display: none; }
 
 /* The live marker is grey: live numbers are transient readings. */
 #metrics-panel .metric-phase {
@@ -3172,15 +3173,18 @@ body.settings-page .return-to-game {
   grid-template-columns: 48px 32px minmax(0, 1fr) 32px 48px;
   width: 100%;
 }
-.review-title { grid-column: 1 / -1; text-align: left; font-size: 14px; }
+.review-heading { grid-column: 1 / -1; display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.review-title { text-align: left; font-size: 12px; }
+.review-final-time { display: flex; align-items: baseline; gap: 8px; color: #333; font-size: 12px; }
+#replay-final-time { font-size: 24px; font-variant-numeric: tabular-nums; color: #000; }
 #replay-status {
   grid-column: 1 / -1;
-  height: 72px;
+  height: 36px;
   overflow-y: auto;
   text-align: left;
   line-height: 1.5;
-  padding: 6px 8px;
-  background: #f1f5f8;
+  padding: 0;
+  background: transparent;
   border-radius: 3px;
 }
 #replay-controls #replay-first, #replay-controls #replay-last { font-size: 12px; }
@@ -3219,3 +3223,50 @@ body.settings-page .return-to-game {
   #difficulty-tabs { flex-wrap: wrap; justify-content: center; gap: 10px; }
   #zoom-label { margin-left: 0; }
 }
+
+/* Display options open in the top layer, leaving rankings in place. */
+#scores-nav { margin-top: 10px; gap: 6px; }
+#review-options-button[hidden] { display: none; }
+#review-options {
+  position: fixed;
+  inset: auto 16px 16px auto;
+  width: min(460px, calc(100vw - 32px));
+  max-height: min(650px, calc(100dvh - 32px));
+  overflow-y: auto;
+  margin: 0;
+  padding: 14px;
+  border: 1px solid #a5b7c3;
+  border-radius: 5px;
+  background: #fff;
+  color: #333;
+  box-shadow: 0 4px 20px #0002;
+  font: 12px Arial, sans-serif;
+}
+.review-options-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+#review-options #replay-overlay-control, #review-options #path-view-control { margin-bottom: 12px; }
+#review-options #review-display { margin-top: 10px; }
+
+/* Reserve the early-session geometry before any measurements exist. */
+#metrics-panel-content { scrollbar-gutter: stable; }
+.session-when-row { height: 112px; overflow-y: auto; }
+.session-endings-row > .session-end-legend { height: 72px; overflow-y: auto; }
+.session-metric-row > .session-end-empty { min-height: 16px; }
+
+/* History gets the first space below the board, ahead of inspection tools. */
+#history-placements {
+  transform: translateX(calc(-1 * var(--board-position-applied-x, 0px)));
+  margin: 8px auto 0;
+  max-height: 150px;
+  overflow: auto;
+  scrollbar-gutter: stable;
+  width: 100%;
+  max-width: 100cqw;
+  padding-right: var(--nav-reserve-right, 0px);
+  padding-left: var(--nav-reserve-left, 0px);
+}
+#history-placements:empty { display: none; }
+#history-placements .result-chart-section { margin-bottom: 0; }
+#history-placements .rank-list { margin: 0; }
+#history-placements h4 { margin-top: 0; }
+
+#metrics-panel .session-chart, #metrics-panel .session-when-strip { max-width: 100%; }

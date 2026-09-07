@@ -181,10 +181,10 @@ Implementation notes:
   `recordLayout` logs board-geometry events (newGame,
   scroll, resize, zoom), and `recordLayoutIfMoved` (2026-08-23)
   re-records whenever the board's rect differs from the last layout
-  event — called from `traceEvent` and from the `renderMetricsPanel`
-  wrapper (the panel appearing/collapsing/resizing is the known
-  no-event board mover; the live-metrics tick reaches it once a second
-  as the catch-all). `node tests/trace-layout-test.js` freezes these
+  event — called from `traceEvent` and `syncBoardLayout`, scheduled by
+  ResizeObserver when the panel or surrounding controls change size.
+  Stats sampling never triggers a layout pass.
+  `node tests/trace-layout-test.js` freezes these
   rules. `saveTrace` (called from reportResult) puts
   {endedAt, mode, outcome, startedAt, sampleT/sampleX/sampleY as typed
   arrays, events} into the `traces` store, keyPath endedAt (never held
@@ -389,15 +389,19 @@ Implementation notes:
   `buildSparkline(tMs, values, size)` with SPARK_SMALL/SPARK_LARGE
   geometries, `buildMetricRow`/`buildMetricsGroupHead` shared by both
   displays, and `displayableNumber` (undefined and NaN both render as
-  the en dash). Live: a top-level setInterval (LIVE_METRICS_EVERY_MS)
-  runs `renderLiveTraceMetrics` while `tracing()` — it always appends to
-  the series (so the after-game charts exist even with the panel off);
-  `liveSegmentCache` recomputes the segment-based systems (psych, hev)
-  only when the trace's click-event count changes, whole-trace systems
-  every tick; `renderMetricsPanel(metrics)` renders `#metrics-panel` as
+  the en dash). Live: `scheduleMetricsUpdate` invalidates from trace/session
+  mutations and the existing active-game clock. One trailing task coalesces
+  input bursts (250ms minimum sample spacing), then draws on an animation
+  frame; it never reschedules itself. `renderLiveTraceMetrics` appends to
+  the series even with the panel off. `liveSegmentCache` recomputes psych/hev
+  only when the click-event count changes; elapsed-only updates reuse all
+  input computations and derive `traceSilenceRatio` from the new duration.
+  `renderMetricsPanel(metrics)` maintains `#metrics-panel` as
   session section (settings.showSessionStats) + live per-game rows
   (settings.showMotionStatsDuringGame, only while tracing with metrics
   non-null — null means "no live rows", the between-games render);
+  `metricsPanelView` retains controls, rows, SVGs, and the resize grip;
+  `updateMetrics`/`updateSeries` mutate only live text and geometry.
   `metricsPanelCollapsed` + `lastLiveMetrics` implement the panel's own
   × / "stats ▸" session toggler; `refreshMetricsPanel` (called from the
   settings change handler) applies the settings mid-game and between
@@ -451,7 +455,11 @@ Implementation notes:
     rates, open intervals, history retention, the 1s minimum-play rule,
     medians).
   If any implementation's definitions change, change its counterpart and
-  rerun. Node-harness caution: the top-level setInterval keeps a bare
+  rerun. `tests/metrics-updates-test.js` checks scheduler coalescing, elapsed
+  caching, visibility, and the absence of idle work;
+  `tests/metrics-updates-test.html` checks real DOM identity, focus, scroll,
+  idle mutations, and game lifecycle on the test origin.
+  Node-harness caution: the music sampler's setInterval keeps a bare
   `node` process alive — full-game harnesses must wrap global.setInterval
   to `.unref()` the handle (or extract only the computation section).
 - Trace timestamp invariant (PRODUCT.md "Raw input traces"): the document
@@ -633,11 +641,11 @@ Implementation notes:
   the window <select> writing settings.sessionWindowMinutes;
   SESSION_LOOKBACK_CHOICES, SESSION_GAME_LOOKBACK_CHOICES, and
   SESSION_WINDOW_CHOICES live beside
-  SETTINGS_SCHEMA's constants in minesweeper.js). The live-metrics
-  setInterval redraws the panel while active play advances;
-  `renderMetricsPanel` snapshots/restores `#metrics-panel-content`'s
-  scrollTop so
-  periodic replacement cannot push the reader away from lower charts.
+  SETTINGS_SCHEMA's constants in minesweeper.js). Session mutations mark
+  `sessionChartsDirty`; `appendSessionCharts` replaces only the chart region,
+  preserving `#metrics-panel-content`'s scrollTop. Controls stay mounted
+  during data updates. Hover/focus holds chart replacement until leave/out
+  events, while trace sampling continues. There is no idle refresh loop.
 - Action evidence (PRODUCT.md "Game-end evaluation"):
   `evaluateRevealAction`, `evaluateChordAction`, `evaluateFlagAction`, and
   `evaluateNoOpAction`
@@ -1324,3 +1332,10 @@ in an agent's private memory.
 Prevent problem classes at the earliest, cheapest point (linter rule,
 pre-commit hook, script) rather than repeatedly hand-fixing instances. If
 grep or a script can do it, don't spend model time on it.
+
+Session/placement layout regression (2026-09-07):
+`tests/session-placement-layout-test.html` runs RAM-only fixtures on the test
+origin. It checks session-chart row positions across initial play and first
+measurements, plus first-row history visibility at 1216 × 928 for all three
+standard sizes. The section collector mounts placements in `#history-placements`
+before review; losses render prior win rankings without a current-win marker.

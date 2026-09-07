@@ -746,6 +746,7 @@ function renderImmediateGameEnd(outcome, endedAt) {
   resultStats.textContent = '';
   resultAnalysis.textContent = '';
   resultRanks.textContent = '';
+  document.getElementById('history-placements').replaceChildren();
 
   const statsGrid = document.createElement('div');
   statsGrid.id = 'stats-grid';
@@ -877,6 +878,7 @@ function newGame() {
   resultStats.textContent = '';
   resultAnalysis.textContent = '';
   resultRanks.textContent = '';
+  document.getElementById('history-placements').replaceChildren();
   resultsBox.style.removeProperty('--results-top-clearance');
   syncResultClearance();
   if (Trial.isPlayMode(settings.playMode) && trialIsActive()) setupTrialBoard();
@@ -1417,6 +1419,7 @@ function renderTrialChrome() {
     resultStats.textContent = '';
     resultAnalysis.textContent = '';
     resultRanks.textContent = '';
+    document.getElementById('history-placements').replaceChildren();
     return;
   }
   btn.textContent = 'start another trial';
@@ -1436,8 +1439,13 @@ function startTimer() {
   // one place the session stats learn a game is actually in progress.
   sessionPlayBegin();
   startTime = performance.now();
+  let shownSeconds = -1;
   timerInterval = setInterval(() => {
-    setLcd(timerDisplay, Math.min(TIMER_CAP_SECONDS, Math.floor((performance.now() - startTime) / 1000)));
+    const seconds = Math.floor((performance.now() - startTime) / 1000);
+    if (seconds === shownSeconds) return;
+    shownSeconds = seconds;
+    setLcd(timerDisplay, Math.min(TIMER_CAP_SECONDS, seconds));
+    scheduleMetricsUpdate({ elapsed: true });
   }, 200);
 }
 
@@ -3474,6 +3482,8 @@ function createResultSectionCollector(context) {
     },
     renderInto(parent) {
       parent.textContent = '';
+      const placements = document.getElementById('history-placements');
+      placements.replaceChildren();
       for (const spec of specs) {
         const children = nodes.get(spec.id);
         if (children.length === 0) continue;
@@ -3490,7 +3500,7 @@ function createResultSectionCollector(context) {
         items.className = 'result-chart-section-items';
         items.append(...children);
         section.appendChild(items);
-        parent.appendChild(section);
+        (spec.id === 'placements' ? placements : parent).appendChild(section);
       }
     },
   };
@@ -3658,15 +3668,19 @@ function renderResult(record, modeRecords, options = {}) {
     !Trial.isPlayMode(settings.playMode) || historyView);
   if (Trial.isPlayMode(settings.playMode) && !options.historyView) {
     resultRanks.textContent = '';
+    document.getElementById('history-placements').replaceChildren();
     renderTrialChrome();
   } else if (record.outcome === 'win') {
     renderRanks(record, modeRecords, options, resultSections);
   } else {
     resultRanks.textContent = '';
+    const latestWin = modeRecords.findLast((game) => game.outcome === 'win');
+    if (latestWin) renderRanks(latestWin, modeRecords,
+      { ...options, historyView: true }, resultSections);
   }
   // The after-game motion charts, jammed inline after whatever other
-  // bottom charts the outcome produced (all of them for a win, none for
-  // a loss). Motion existed either way. Trial review has its own charts.
+  // bottom charts the outcome produced. Losses retain prior win history;
+  // motion describes the just-finished game either way. Trial review has its own charts.
   if (settings.showMotionStatsAfterGame && finalMotion !== null && !options.historyView
       && !Trial.isPlayMode(settings.playMode)) {
     resultSections.appendAll('diagnostics', buildMotionStatsCharts());
@@ -5498,6 +5512,7 @@ function renderTrialReview(session) {
   resultAnalysis.appendChild(buildReportScopeControl(
     () => renderTrialReview(session)));
   resultRanks.textContent = '';
+  document.getElementById('history-placements').replaceChildren();
   appendTrialSessionSummary(resultRanks, summary);
   const pendingOverlays = [];
   const groups = Trial.groupedResults(session);
@@ -6333,6 +6348,7 @@ function recordLayout() {
     left: rect.left, top: rect.top, width: rect.width, height: rect.height,
     boardWidth: config.width, boardHeight: config.height,
   });
+  scheduleMetricsUpdate({ trace: true });
 }
 
 // The board also moves when content around it appears or disappears —
@@ -6340,9 +6356,8 @@ function recordLayout() {
 // shifts the centered column — and no scroll, resize, or zoom event
 // fires then. Rather than enumerating movers, the recorder compares the
 // live rect to the last recorded one wherever the trace is already
-// touched: before every button event (clicks always map exactly) and in
-// renderMetricsPanel (the known mover's own render path, which the
-// live-metrics tick also reaches once a second as a catch-all).
+// touched: before every button event (clicks always map exactly) and after
+// ResizeObserver schedules a layout pass for a real geometry change.
 function recordLayoutIfMoved() {
   if (!tracing()) return;
   let last = null;
@@ -6370,6 +6385,7 @@ function traceEvent(kind, event, index) {
     y: event.clientY,
     index: index,
   });
+  scheduleMetricsUpdate({ trace: true });
 }
 
 // Every accepted board action gets one exact pre-action player view and the
@@ -6404,6 +6420,7 @@ function traceDecision(evaluation) {
     y: input.y,
     evaluation: traceEvaluation,
   });
+  scheduleMetricsUpdate({ trace: true });
 }
 
 // Stored trace: identity fields matching the game record, plus the sample
@@ -7089,6 +7106,8 @@ function renderPathViewControls() {
   // and the path colors are all offered at once; nothing has to be turned
   // on first.
   document.getElementById('review-display').hidden = !available;
+  document.getElementById('review-options-button').hidden = !available;
+  if (!available) document.getElementById('review-options').hidePopover();
   pathViewControl.hidden = !available;
   for (const button of pathViewButtons) {
     button.setAttribute('aria-pressed', String(button.dataset.pathView === pathView));
@@ -7107,6 +7126,7 @@ function renderPathViewControls() {
 function renderReplaySlider() {
   const count = replayDecisionCount();
   const positions = count + 1;
+  document.getElementById('replay-final-time').textContent = (finalTimeMs / 1000).toFixed(3) + ' s';
   if (Number(replaySlider.max) !== count) {
     replaySlider.max = String(count);
     renderReplaySliderScale(positions);
@@ -7431,15 +7451,7 @@ function renderReplayStatus(parts) {
 }
 
 function renderReplayEndStatus(parts) {
-  const value = (text) => {
-    const span = document.createElement('span');
-    span.className = 'replay-status-value';
-    span.textContent = text;
-    return span;
-  };
-  replayStatus.replaceChildren(
-    value(parts.done), ' of ' + parts.count + ' actions done · ',
-    value(parts.time), ' · finished board — drag left or press ‹ to step back');
+  replayStatus.textContent = parts.done + ' / ' + parts.count + ' actions · Finished board';
 }
 
 function renderReplayFrame() {
@@ -8285,12 +8297,11 @@ setInterval(sampleMusic, MUSIC_SAMPLE_EVERY_MS);
 // trace), so a number shown here means exactly what the offline pipeline
 // would compute for it.
 //
-// One pure function does all computing, on two schedules:
-// - live: every LIVE_METRICS_EVERY_MS while the trace runs, over the
-//   samples so far, into the #metrics-bar strip at the bottom of the
-//   screen;
-// - final: once from reportResult, over the finished trace — the
-//   canonical values, marked "final" on the strip. Same function,
+// The same computations serve two views:
+// - live: input changes sample the trace for the stats panel; the active
+//   game clock advances elapsed-only values using cached input metrics;
+// - final: once from reportResult, over the finished trace, for the
+//   canonical after-game charts. Same functions,
 //   complete data: live and final can never disagree in definition,
 //   only in how much of the game they have seen.
 //
@@ -8302,7 +8313,6 @@ setInterval(sampleMusic, MUSIC_SAMPLE_EVERY_MS);
 // nothing while the cursor rests, so a gap >= STROKE_GAP_MS between
 // consecutive samples separates two bouts.
 const STROKE_GAP_MS = 100;
-const LIVE_METRICS_EVERY_MS = 1000;
 
 function traceMetricsMean(values) {
   let sum = 0;
@@ -8388,6 +8398,10 @@ function strokesMean(strokes, key) {
   return values.length > 0 ? traceMetricsMean(values) : undefined;
 }
 
+function traceSilenceRatio(movementMs, wallDurationMs) {
+  return wallDurationMs > 0 ? 1 - movementMs / wallDurationMs : undefined;
+}
+
 function computeTraceMetrics(sampleT, sampleX, sampleY, events, wallDurationMs) {
   const n = sampleT.length;
 
@@ -8453,7 +8467,7 @@ function computeTraceMetrics(sampleT, sampleX, sampleY, events, wallDurationMs) 
     movementMs: movementMs,
     // Survey vocabulary (arXiv:2208.09061): share of the game spent with
     // the cursor still.
-    silenceRatio: wallDurationMs > 0 ? 1 - movementMs / wallDurationMs : undefined,
+    silenceRatio: traceSilenceRatio(movementMs, wallDurationMs),
     totalPathPx: totalPathPx,
     speedMeanPxPerMs: strokesMean(strokes, 'speedMeanPxPerMs'),
     speedMaxPxPerMs: speedMaxPxPerMs,
@@ -10109,12 +10123,15 @@ function displayableNumber(v) {
   return v === undefined || Number.isNaN(v) ? undefined : v;
 }
 
-// The per-game history of every displayed value, one entry per render
-// (about one per second, plus the final render), feeding the sparklines.
+// The per-game history of every displayed value, sampled on coalesced input
+// and active-game clock changes, plus the final measurement.
 // Display-side state only: nothing here is stored anywhere.
 let metricsSeries = null;
 
 function beginTraceMetricsSeries() {
+  cancelMetricsUpdate();
+  lastLiveMetrics = null;
+  sessionChartsDirty = true;
   const byKey = new Map();
   for (const group of TRACE_METRIC_GROUPS) {
     for (const display of group.displays) {
@@ -10145,76 +10162,86 @@ const SPARK_LARGE = { width: 230, height: 130, left: 40, bottom: 14, dotR: 2.5, 
 // with the series min and max, x axis from 0 to the latest elapsed
 // seconds. Gaps (spans where the value was not yet measurable) break the
 // line rather than being bridged.
+function setMetricText(element, text) {
+  if (element.textContent !== text) element.textContent = text;
+}
+
+function setMetricAttribute(element, name, value) {
+  const text = String(value);
+  if (element.getAttribute(name) !== text) element.setAttribute(name, text);
+}
+
+function setMetricHidden(element, hidden) {
+  if (element.hidden !== hidden) element.hidden = hidden;
+}
+
 function buildSparkline(tMs, values, size) {
   const { width, height, left, bottom } = size;
   const svg = document.createElementNS(SVG_NS, 'svg');
   svg.setAttribute('class', 'spark');
   svg.setAttribute('width', width);
   svg.setAttribute('height', height);
-
-  const frame = document.createElementNS(SVG_NS, 'rect');
-  frame.setAttribute('class', 'spark-frame');
-  frame.setAttribute('x', left);
-  frame.setAttribute('y', 1);
-  frame.setAttribute('width', width - left - 1);
-  frame.setAttribute('height', height - bottom - 2);
-  svg.appendChild(frame);
-
-  let min = Infinity;
-  let max = -Infinity;
-  let defined = 0;
-  for (const v of values) {
-    if (v === undefined) continue;
-    defined++;
-    if (v < min) min = v;
-    if (v > max) max = v;
-  }
-  if (defined === 0) return svg; // frame only: nothing measurable yet
-  // A flat series draws mid-chart, but its axis labels stay the true
-  // value — the padding is chart geometry, not data.
-  const labelMin = min;
-  const labelMax = max;
-  if (min === max) { min -= 0.5; max += 0.5; }
-
-  const tEnd = tMs[tMs.length - 1];
-  const xOf = (t) => left + (tEnd > 0 ? (t / tEnd) * (width - left - 3) : 0) + 1;
-  const yOf = (v) => 1 + (1 - (v - min) / (max - min)) * (height - bottom - 4) + 1;
-
-  let d = '';
-  let pen = false; // whether the previous point existed (draw vs move)
-  let lastX = null;
-  let lastY = null;
-  for (let i = 0; i < values.length; i++) {
-    if (values[i] === undefined) { pen = false; continue; }
-    lastX = xOf(tMs[i]);
-    lastY = yOf(values[i]);
-    d += (pen ? 'L' : 'M') + lastX.toFixed(1) + ' ' + lastY.toFixed(1);
-    pen = true;
-  }
-  const line = document.createElementNS(SVG_NS, 'path');
-  line.setAttribute('class', 'spark-line');
-  line.setAttribute('d', d);
-  svg.appendChild(line);
-  const dot = document.createElementNS(SVG_NS, 'circle');
-  dot.setAttribute('class', 'spark-dot');
-  dot.setAttribute('cx', lastX.toFixed(1));
-  dot.setAttribute('cy', lastY.toFixed(1));
-  dot.setAttribute('r', size.dotR);
-  svg.appendChild(dot);
-
-  const textAt = (x, y, anchor, content) => {
-    const el = document.createElementNS(SVG_NS, 'text');
-    el.setAttribute('class', size.labelClass);
-    el.setAttribute('x', x);
-    el.setAttribute('y', y);
-    el.setAttribute('text-anchor', anchor);
-    el.textContent = content;
-    svg.appendChild(el);
+  const add = (tag, attrs) => {
+    const node = document.createElementNS(SVG_NS, tag);
+    for (const [key, value] of Object.entries(attrs)) node.setAttribute(key, value);
+    svg.appendChild(node);
+    return node;
   };
-  textAt(left - 2, 8, 'end', sparkAxisNumber(labelMax));
-  textAt(left - 2, height - bottom - 1, 'end', sparkAxisNumber(labelMin));
-  textAt(left, height - 1, 'start', '0');
-  textAt(width - 2, height - 1, 'end', (tEnd / 1000).toFixed(0) + 's');
+  add('rect', {
+    class: 'spark-frame', x: left, y: 1,
+    width: width - left - 1, height: height - bottom - 2,
+  });
+  const line = add('path', { class: 'spark-line' });
+  const dot = add('circle', { class: 'spark-dot', r: size.dotR });
+  const labels = [
+    [left - 2, 8, 'end'],
+    [left - 2, height - bottom - 1, 'end'],
+    [left, height - 1, 'start'],
+    [width - 2, height - 1, 'end'],
+  ].map(([x, y, anchor]) => add('text', {
+    class: size.labelClass, x, y, 'text-anchor': anchor,
+  }));
+
+  // Retain the SVG and its nodes: live samples change geometry and labels,
+  // never the row or the scroll container that owns it.
+  svg.updateSeries = (times, samples) => {
+    let min = Infinity;
+    let max = -Infinity;
+    for (const value of samples) {
+      if (value === undefined) continue;
+      min = Math.min(min, value);
+      max = Math.max(max, value);
+    }
+    const empty = min === Infinity;
+    for (const node of [line, dot, ...labels]) {
+      setMetricAttribute(node, 'visibility', empty ? 'hidden' : 'visible');
+    }
+    if (empty) return;
+    const labelMin = min;
+    const labelMax = max;
+    if (min === max) { min -= 0.5; max += 0.5; }
+    const tEnd = times[times.length - 1];
+    const xOf = (t) => left + (tEnd > 0 ? (t / tEnd) * (width - left - 3) : 0) + 1;
+    const yOf = (v) => 1 + (1 - (v - min) / (max - min)) * (height - bottom - 4) + 1;
+    let d = '';
+    let pen = false;
+    let lastX;
+    let lastY;
+    for (let i = 0; i < samples.length; i++) {
+      if (samples[i] === undefined) { pen = false; continue; }
+      lastX = xOf(times[i]);
+      lastY = yOf(samples[i]);
+      d += (pen ? 'L' : 'M') + lastX.toFixed(1) + ' ' + lastY.toFixed(1);
+      pen = true;
+    }
+    setMetricAttribute(line, 'd', d);
+    setMetricAttribute(dot, 'cx', lastX.toFixed(1));
+    setMetricAttribute(dot, 'cy', lastY.toFixed(1));
+    const text = [sparkAxisNumber(labelMax), sparkAxisNumber(labelMin),
+      '0', (tEnd / 1000).toFixed(0) + 's'];
+    labels.forEach((label, i) => setMetricText(label, text[i]));
+  };
+  svg.updateSeries(tMs, values);
   return svg;
 }
 
@@ -10230,7 +10257,6 @@ function appendTraceMetricsSeries(metrics) {
 
 // One metric as label + current value + chart of its series.
 function buildMetricRow(group, display, metrics, series, size, rowClass) {
-  const value = displayableNumber(display.of(metrics));
   const row = document.createElement('div');
   row.className = rowClass;
   const head = document.createElement('div');
@@ -10240,11 +10266,18 @@ function buildMetricRow(group, display, metrics, series, size, rowClass) {
   labelEl.textContent = display.label;
   const valueEl = document.createElement('span');
   valueEl.className = 'metric-value';
-  valueEl.textContent = value === undefined ? '\u2013' : display.fmt(value);
   head.append(labelEl, valueEl);
   row.appendChild(head);
-  row.appendChild(buildSparkline(
-    series.tMs, series.byKey.get(metricSeriesKey(group, display)), size));
+  const spark = buildSparkline(
+    series.tMs, series.byKey.get(metricSeriesKey(group, display)), size);
+  row.appendChild(spark);
+  row.updateMetrics = (current, currentSeries) => {
+    const value = displayableNumber(display.of(current));
+    setMetricText(valueEl, value === undefined ? '\u2013' : display.fmt(value));
+    spark.updateSeries(currentSeries.tMs,
+      currentSeries.byKey.get(metricSeriesKey(group, display)));
+  };
+  row.updateMetrics(metrics, series);
   return row;
 }
 
@@ -10263,48 +10296,42 @@ function buildMetricsGroupHead(group) {
 let metricsPanelCollapsed = false;
 
 // The metrics of the latest render, so toggler clicks and settings
-// changes can redraw the panel without waiting for the next tick.
+// changes can update the panel without taking another input sample.
 let lastLiveMetrics = null;
 
-// The left panel hosts two things: the session section (always, while its
-// setting is on — it spans games) and the live per-game rows (only while a
-// trace runs and that setting is on). metrics === null means "no live
-// rows": between games the panel still renders for the session section.
-// Rendering the panel is what shows, hides, collapses, or resizes it —
-// the layout changes that move the centered board without any scroll or
-// resize event — so every render ends with a geometry check. The
-// live-metrics tick passes through here too, making this the once-a-
-// second catch-all for any other content-driven board movement.
+// Controls and live rows retain their DOM identity for the page session.
+// Data updates never clear the scroll container or trigger board layout;
+// ResizeObserver handles actual changes in the panel's dimensions.
+let metricsPanelView = null;
+let sessionChartsDirty = true;
+
 function renderMetricsPanel(metrics) {
+  if (!tracing()) cancelMetricsUpdate();
   renderMetricsPanelContent(metrics);
-  syncBoardLayout();
 }
 
 function renderMetricsPanelContent(metrics) {
-  // Any explicit rebuild retires the SVG that owns an open win tooltip.
-  // Ordinary once-a-second rebuilds pause while a real pointer hovers a
-  // chart, so this is cleanup rather than visible tooltip flicker.
-  hideSessionGameTooltip();
   const showSession = settings.showSessionStats;
   const showLive = settings.showMotionStatsDuringGame
     && metrics !== null && tracing();
-  if (!showSession && !showLive) {
-    metricsPanel.hidden = true;
-    return;
-  }
-  // The panel redraws live values once a second. Replacing its children
-  // must not throw a reader back to the top of the independently scrolling
-  // panel.
-  const savedScrollTop = metricsPanelContent.scrollTop;
-  metricsPanel.hidden = false;
-  metricsPanelContent.textContent = '';
-  for (const oldGrip of metricsPanel.querySelectorAll('.metrics-resize')) oldGrip.remove();
-  metricsPanel.classList.toggle('collapsed', metricsPanelCollapsed);
-  // The dragged width applies only expanded; collapsed shrinks to its chip.
-  metricsPanel.style.width = metricsPanelCollapsed
-    ? '' : settings.metricsPanelWidth + 'px';
-
-  if (metricsPanelCollapsed) {
+  setMetricHidden(metricsPanel, !showSession && !showLive);
+  if (metricsPanel.hidden) return;
+  if (metricsPanelView === null) {
+    const head = document.createElement('div');
+    head.className = 'metrics-panel-head';
+    const phase = document.createElement('span');
+    phase.className = 'metric-phase';
+    phase.textContent = 'live';
+    const hide = document.createElement('button');
+    hide.type = 'button';
+    hide.className = 'metrics-toggle';
+    hide.textContent = '\u00d7';
+    hide.title = 'tuck this panel away for now (the "show session stats" and "show motion stats during game" settings turn its parts off for good)';
+    hide.addEventListener('click', () => {
+      metricsPanelCollapsed = true;
+      refreshMetricsPanel();
+    });
+    head.append(phase, hide);
     const restore = document.createElement('button');
     restore.type = 'button';
     restore.className = 'metrics-toggle';
@@ -10314,56 +10341,80 @@ function renderMetricsPanelContent(metrics) {
       metricsPanelCollapsed = false;
       refreshMetricsPanel();
     });
-    metricsPanelContent.appendChild(restore);
-    return;
+    const session = document.createElement('div');
+    const live = document.createElement('div');
+    const grip = buildMetricsResizeGrip();
+    metricsPanelContent.append(restore, head, session, live);
+    metricsPanel.appendChild(grip);
+    metricsPanelView = {
+      head, phase, restore, session, live, grip,
+      sessionControlsKey: null, sessionCharts: null, liveRows: [], metrics: null,
+    };
   }
+  const view = metricsPanelView;
+  metricsPanel.classList.toggle('collapsed', metricsPanelCollapsed);
+  const width = metricsPanelCollapsed ? '' : settings.metricsPanelWidth + 'px';
+  if (metricsPanel.style.width !== width) metricsPanel.style.width = width;
+  setMetricHidden(view.restore, !metricsPanelCollapsed);
+  setMetricHidden(view.head, metricsPanelCollapsed);
+  setMetricHidden(view.grip, metricsPanelCollapsed);
+  setMetricHidden(view.phase, !showLive);
+  setMetricHidden(view.session, metricsPanelCollapsed || !showSession);
+  setMetricHidden(view.live, metricsPanelCollapsed || !showLive);
+  setMetricAttribute(view.grip, 'aria-valuenow', settings.metricsPanelWidth);
+  if (metricsPanelCollapsed) return;
 
-  const head = document.createElement('div');
-  head.className = 'metrics-panel-head';
-  const hide = document.createElement('button');
-  hide.type = 'button';
-  hide.className = 'metrics-toggle';
-  hide.textContent = '\u00d7';
-  hide.title = 'tuck this panel away for now (the "show session stats" and "show motion stats during game" settings turn its parts off for good)';
-  hide.addEventListener('click', () => {
-    metricsPanelCollapsed = true;
-    refreshMetricsPanel();
-  });
-  if (showLive) {
-    const phaseEl = document.createElement('span');
-    phaseEl.className = 'metric-phase';
-    phaseEl.textContent = 'live';
-    head.appendChild(phaseEl);
-  }
-  head.appendChild(hide);
-  metricsPanelContent.appendChild(head);
-  metricsPanel.appendChild(buildMetricsResizeGrip());
-
-  // The session and live sections each sit in their own wrapper (all
-  // panel CSS selects by descendant, so the extra div changes nothing).
   if (showSession) {
-    const sessionWrap = document.createElement('div');
-    appendSessionSection(sessionWrap);
-    metricsPanelContent.appendChild(sessionWrap);
-  }
-  if (!showLive) {
-    metricsPanelContent.scrollTop = savedScrollTop;
-    return;
-  }
-  const liveWrap = document.createElement('div');
-  for (const group of TRACE_METRIC_GROUPS) {
-    liveWrap.appendChild(buildMetricsGroupHead(group));
-    for (const display of group.displays) {
-      liveWrap.appendChild(buildMetricRow(
-        group, display, metrics, metricsSeries, SPARK_SMALL, 'metric-row'));
+    const controlsKey = JSON.stringify([
+      settings.sessionAggregation, settings.sessionRateBasis,
+      settings.sessionLookbackGames, settings.sessionLookbackSeconds,
+      settings.sessionModeScope, settings.sessionWindowMinutes,
+    ]);
+    if (view.sessionControlsKey !== controlsKey) {
+      // Only an explicit settings change alters the control structure.
+      const content = document.createDocumentFragment();
+      view.sessionCharts = appendSessionSection(content);
+      view.session.replaceChildren(content);
+      view.sessionControlsKey = controlsKey;
+      const resumeCharts = () => {
+        if (sessionChartsDirty) scheduleMetricsUpdate({ session: true });
+      };
+      view.sessionCharts.addEventListener('mouseleave', resumeCharts);
+      view.sessionCharts.addEventListener('focusout', resumeCharts);
+      sessionChartsDirty = false;
+    } else if (sessionChartsDirty
+        && !view.sessionCharts.matches(':hover')
+        && !view.sessionCharts.contains(document.activeElement)) {
+      const content = document.createDocumentFragment();
+      appendSessionCharts(content);
+      hideSessionGameTooltip();
+      const scrollTop = metricsPanelContent.scrollTop;
+      view.sessionCharts.replaceChildren(content);
+      metricsPanelContent.scrollTop = scrollTop;
+      sessionChartsDirty = false;
     }
   }
-  metricsPanelContent.appendChild(liveWrap);
-  metricsPanelContent.scrollTop = savedScrollTop;
+  if (showLive && view.metrics !== metrics) {
+    if (view.liveRows.length === 0) {
+      const content = document.createDocumentFragment();
+      for (const group of TRACE_METRIC_GROUPS) {
+        content.appendChild(buildMetricsGroupHead(group));
+        for (const display of group.displays) {
+          const row = buildMetricRow(
+            group, display, metrics, metricsSeries, SPARK_SMALL, 'metric-row');
+          view.liveRows.push(row);
+          content.appendChild(row);
+        }
+      }
+      view.live.appendChild(content);
+    } else {
+      for (const row of view.liveRows) row.updateMetrics(metrics, metricsSeries);
+    }
+    view.metrics = metrics;
+  }
 }
 
-// The panel's right-edge drag grip. Its move/up listeners live on the
-// document, so per-frame panel rebuilds during a drag do not interrupt it.
+// The panel's right-edge drag grip and its listeners survive data updates.
 // Width and chart geometry both follow the pointer on the next animation
 // frame; release persists the final width.
 function buildMetricsResizeGrip() {
@@ -10528,64 +10579,106 @@ function buildSpatialBiasSection(spatial) {
   return section;
 }
 
-// Applies the panel-affecting settings immediately (called on any settings
-// change; ticks would apply them within a second anyway). Between games
-// the live metrics are absent by definition, not merely stale.
+// Settings, resize, and session-clear actions invalidate the chart view.
+// Ordinary samples leave the controls and panel structure mounted.
 function refreshMetricsPanel() {
+  sessionChartsDirty = true;
   renderMetricsPanel(tracing() ? lastLiveMetrics : null);
 }
 
-// The segment-based systems (psychometric, clinical) only see completed
-// inter-click segments, so their values cannot change between clicks;
-// the live schedule recomputes them only when the trace's click count
-// moves, and recomputes the whole-trace systems every tick.
-let liveSegmentCache = { clickEvents: -1, psych: null, hev: null };
+// Input can arrive much faster than these full-trace computations should
+// run. A single trailing task coalesces bursts; it never schedules itself.
+// The existing game clock supplies elapsed-time changes only during play.
+const METRICS_SAMPLE_MIN_MS = 250;
+let metricsUpdateFrame = null;
+let metricsUpdateTimeout = null;
+let metricsTraceDirty = false;
+let metricsElapsedDirty = false;
+let lastMetricsSampleAt = -Infinity;
 
-function renderLiveTraceMetrics() {
-  const wallMs = Date.now() - trace.startedAt;
-  let clickEvents = 0;
-  for (const ev of trace.events) {
-    if (ev.kind === 'lup' || ev.kind === 'rdown') clickEvents++;
-  }
-  if (clickEvents !== liveSegmentCache.clickEvents) {
-    liveSegmentCache = {
-      clickEvents: clickEvents,
-      psych: computePsychometrics(trace.t, trace.x, trace.y, trace.events),
-      hev: computeHevelius(trace.t, trace.x, trace.y, trace.events),
-    };
-  }
-  const metrics = {
-    wallDurationMs: wallMs,
-    bio: computeTraceMetrics(trace.t, trace.x, trace.y, trace.events, wallMs),
-    psych: liveSegmentCache.psych,
-    hev: liveSegmentCache.hev,
-    waste: computeWasteMetrics(trace.t, trace.x, trace.y, trace.events),
-    cad: computeClickCadence(trace.t, trace.events),
-    queue: computeQueueMetrics(trace.t, trace.x, trace.y, trace.events),
-    rec: computeRecoveryMetrics(trace.events),
-    fitts: computeFittsMetrics(trace.t, trace.x, trace.y, trace.events),
-  };
-  appendTraceMetricsSeries(metrics);
-  lastLiveMetrics = metrics;
-  renderMetricsPanel(metrics);
+function cancelMetricsUpdate() {
+  if (metricsUpdateFrame !== null) cancelAnimationFrame(metricsUpdateFrame);
+  if (metricsUpdateTimeout !== null) clearTimeout(metricsUpdateTimeout);
+  metricsUpdateFrame = null;
+  metricsUpdateTimeout = null;
 }
 
-setInterval(() => {
-  // Never rebuild the panel under the player's open control: the ticker
-  // replacing the DOM while the bucket dropdown was open closed it
-  // before a choice could land. Focus inside the panel means a control
-  // is in use; the control's own change handler re-renders explicitly
-  // (which replaces the control and releases focus), and clicking
-  // anywhere else blurs it, so the ticker resumes within a second. A
-  // hovered chart likewise stays still while its instant win tooltip is
-  // being inspected; moving off it resumes updates.
-  if (metricsPanel.contains(document.activeElement)
-      || metricsPanel.querySelector('.session-chart:hover')) return;
-  if (tracing()) renderLiveTraceMetrics();
-  // Between games the session section still redraws for UI consistency;
-  // its cumulative-play axis correctly stays fixed while nothing is played.
-  else renderMetricsPanel(null);
-}, LIVE_METRICS_EVERY_MS);
+function scheduleMetricsUpdate(changed = {}) {
+  if (changed.trace) metricsTraceDirty = true;
+  if (changed.elapsed) metricsElapsedDirty = true;
+  if (changed.session || (changed.elapsed && sessionPlayFrom !== null
+      && settings.sessionRateBasis === 'time')) sessionChartsDirty = true;
+  if (document.hidden || metricsUpdateFrame !== null || metricsUpdateTimeout !== null) return;
+  const requestFrame = () => {
+    metricsUpdateTimeout = null;
+    metricsUpdateFrame = requestAnimationFrame(flushMetricsUpdate);
+  };
+  const delay = Math.max(0, METRICS_SAMPLE_MIN_MS - (performance.now() - lastMetricsSampleAt));
+  if (delay > 0) metricsUpdateTimeout = setTimeout(requestFrame, delay);
+  else requestFrame();
+}
+
+function flushMetricsUpdate() {
+  metricsUpdateFrame = null;
+  if (document.hidden) return;
+  const inputChanged = metricsTraceDirty;
+  const elapsedChanged = metricsElapsedDirty;
+  metricsTraceDirty = false;
+  metricsElapsedDirty = false;
+  if (tracing() && (inputChanged || elapsedChanged)) {
+    renderLiveTraceMetrics(inputChanged);
+  } else {
+    renderMetricsPanel(tracing() ? lastLiveMetrics : null);
+  }
+}
+
+// Completed inter-click segments change only on a click. Whole-trace
+// computations change on input; an elapsed-only update reuses both and
+// derives the silence share from the newly elapsed time.
+let liveSegmentCache = { clickEvents: -1, psych: null, hev: null };
+
+function renderLiveTraceMetrics(inputChanged = true) {
+  const wallMs = Date.now() - trace.startedAt;
+  let metrics;
+  if (inputChanged || lastLiveMetrics === null) {
+    let clickEvents = 0;
+    for (const ev of trace.events) {
+      if (ev.kind === 'lup' || ev.kind === 'rdown') clickEvents++;
+    }
+    if (clickEvents !== liveSegmentCache.clickEvents) {
+      liveSegmentCache = {
+        clickEvents,
+        psych: computePsychometrics(trace.t, trace.x, trace.y, trace.events),
+        hev: computeHevelius(trace.t, trace.x, trace.y, trace.events),
+      };
+    }
+    metrics = {
+      wallDurationMs: wallMs,
+      bio: computeTraceMetrics(trace.t, trace.x, trace.y, trace.events, wallMs),
+      psych: liveSegmentCache.psych,
+      hev: liveSegmentCache.hev,
+      waste: computeWasteMetrics(trace.t, trace.x, trace.y, trace.events),
+      cad: computeClickCadence(trace.t, trace.events),
+      queue: computeQueueMetrics(trace.t, trace.x, trace.y, trace.events),
+      rec: computeRecoveryMetrics(trace.events),
+      fitts: computeFittsMetrics(trace.t, trace.x, trace.y, trace.events),
+    };
+  } else {
+    metrics = {
+      ...lastLiveMetrics,
+      wallDurationMs: wallMs,
+      bio: {
+        ...lastLiveMetrics.bio,
+        wallDurationMs: wallMs,
+        silenceRatio: traceSilenceRatio(lastLiveMetrics.bio.movementMs, wallMs),
+      },
+    };
+  }
+  appendTraceMetricsSeries(metrics);
+  lastLiveMetrics = metrics;
+  lastMetricsSampleAt = performance.now();
+  renderMetricsPanel(metrics);
+}
 
 //-------SESSION STATS: COMPUTATION (pure; cross-game running averages)-------
 
@@ -11647,6 +11740,7 @@ function sessionPlayBegin() {
   if (sessionPlayFrom !== null) return;
   sessionPlayFrom = Date.now();
   sessionPlayModeKey = modeKey();
+  scheduleMetricsUpdate({ session: true });
 }
 
 function sessionPlayEnd() {
@@ -11669,6 +11763,7 @@ function sessionPlayEnd() {
   sessionEvents.push(play);
   sessionPlayFrom = null;
   sessionPlayModeKey = null;
+  scheduleMetricsUpdate({ session: true });
 }
 
 // Cursor travel while playing, coalesced: consecutive movement within the
@@ -11681,9 +11776,11 @@ function sessionRecordMove(px) {
       && last.modeKey === sessionEventModeKey()
       && now - last.at < SESSION_MOVE_COALESCE_MS) {
     last.px += px;
+    scheduleMetricsUpdate({ session: true });
     return;
   }
   sessionEvents.push({ kind: 'move', modeKey: sessionEventModeKey(), at: now, px: px });
+  scheduleMetricsUpdate({ session: true });
 }
 
 function sessionRecordPress(useful, flagPlaced, flagRemoved, misclick) {
@@ -11713,12 +11810,14 @@ function sessionRecordPress(useful, flagPlaced, flagRemoved, misclick) {
     }
   }
   sessionEvents.push(press);
+  scheduleMetricsUpdate({ session: true });
 }
 
 function sessionRecordDeath(mistake) {
   sessionEvents.push({
     kind: 'death', modeKey: sessionEventModeKey(), at: Date.now(), mistake: mistake,
   });
+  scheduleMetricsUpdate({ session: true });
 }
 
 function sessionRecordEvaluation(evaluation) {
@@ -11735,6 +11834,7 @@ function sessionRecordEvaluation(evaluation) {
       && evaluation.mistakes.includes('chose-lower-modeled-life')
       ? (evaluationLifeGap(evaluation) || 0) : 0,
   });
+  scheduleMetricsUpdate({ session: true });
 }
 
 // One ending per finished game ('win', a fatal-action status kind, a
@@ -11778,6 +11878,7 @@ function sessionRecordEnd(end, winUnmarked) {
   if (end === 'win') event.unusedMarks = unusedCorrectFlags;
   if (typeof winUnmarked === 'number') event.winUnmarked = winUnmarked;
   sessionEvents.push(event);
+  scheduleMetricsUpdate({ session: true });
 }
 
 // Starts a player-chosen observation session without deleting any scores or
@@ -11851,6 +11952,7 @@ function sessionBackfillFromHistory() {
   games.sort((a, b) => a.to - b.to);
   sessionPlayOffsetMs = 0;
   sessionEvents.unshift(...sessionRetainedEvents(games, SESSION_KEEP_MS));
+  sessionChartsDirty = true;
 }
 
 //-------SESSION STATS: DISPLAY (top section of the left panel)-------
@@ -12191,13 +12293,12 @@ function appendSessionWhenRow(container, buckets) {
   // meaningful play came from.
   const sections = sessionSectionsForBuckets(buckets)
     .filter((section) => section.playTo - section.playFrom >= 1000);
-  if (sections.length === 0) return;
   const nowMs = Date.now();
   const { L, R } = SESSION_CHART;
   const W = settings.metricsPanelWidth - 18;
   const H = 26;
   const row = document.createElement('div');
-  row.className = 'metric-row session-metric-row';
+  row.className = 'metric-row session-metric-row session-when-row';
   const headRow = document.createElement('div');
   headRow.className = 'metric-head';
   const labelEl = document.createElement('span');
@@ -12220,6 +12321,7 @@ function appendSessionWhenRow(container, buckets) {
   svg.setAttribute('class', 'session-when-strip');
   svg.setAttribute('width', W);
   svg.setAttribute('height', H);
+  svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
   const el = (tag, attrs, text) => {
     const node = document.createElementNS(SVG_NS, tag);
     for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
@@ -12282,6 +12384,7 @@ function appendSessionWhenRow(container, buckets) {
 
   const summary = document.createElement('div');
   summary.className = 'session-when-summary';
+  if (sections.length === 0) summary.textContent = 'No played time yet';
   for (let i = 0; i < sections.length; i++) {
     const section = sections[i];
     const item = document.createElement('span');
@@ -12478,6 +12581,7 @@ function buildSessionChart(buckets, spec) {
   svg.setAttribute('class', 'session-chart');
   svg.setAttribute('width', W);
   svg.setAttribute('height', H);
+  svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
   const el = (tag, attrs, text) => {
     const node = document.createElementNS(SVG_NS, tag);
     for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
@@ -12565,6 +12669,7 @@ function buildSessionEndingsChart(buckets) {
   svg.setAttribute('class', 'session-chart');
   svg.setAttribute('width', W);
   svg.setAttribute('height', H);
+  svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
   const el = (tag, attrs, text) => {
     const node = document.createElementNS(SVG_NS, tag);
     for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
@@ -12745,6 +12850,7 @@ function buildSessionRatesChart(buckets, specs, unit) {
   svg.setAttribute('class', 'session-chart');
   svg.setAttribute('width', W);
   svg.setAttribute('height', H);
+  svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
   const el = (tag, attrs, text) => {
     const node = document.createElementNS(SVG_NS, tag);
     for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
@@ -12998,10 +13104,11 @@ function appendSessionRatesRow(
   row.appendChild(svg);
   // Every drawn line names itself at its endpoint, so there is no
   // legend; an empty window still explains itself.
-  if (!drawn.some(({ latest }) => latest !== undefined)) {
+  {
     const empty = document.createElement('div');
     empty.className = 'session-end-legend session-end-empty';
     empty.textContent = 'nothing measurable in the window yet';
+    empty.style.visibility = drawn.some(({ latest }) => latest !== undefined) ? 'hidden' : 'visible';
     row.appendChild(empty);
   }
   container.appendChild(row);
@@ -13102,6 +13209,14 @@ function appendSessionSection(container) {
   controls.appendChild(clear);
   container.appendChild(controls);
 
+  const charts = document.createElement('div');
+  charts.className = 'session-charts';
+  appendSessionCharts(charts);
+  container.appendChild(charts);
+  return charts;
+}
+
+function appendSessionCharts(container) {
   const now = Date.now();
   sessionPrune(now);
   const exactModeKey = modeKey();
@@ -13170,7 +13285,7 @@ function appendSessionSection(container) {
 // Hovering a legend entry highlights that line in the chart.
 function appendSessionEndingsRow(container, buckets) {
   const row = document.createElement('div');
-  row.className = 'metric-row session-metric-row';
+  row.className = 'metric-row session-metric-row session-endings-row';
   const headRow = document.createElement('div');
   headRow.className = 'metric-head';
   const labelEl = document.createElement('span');
@@ -13374,7 +13489,12 @@ document.addEventListener('keydown', flushPendingResult, true);
 // finished game: persist immediately rather than waiting on a frame that
 // may never come.
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'hidden') flushPendingResult();
+  if (document.visibilityState === 'hidden') {
+    flushPendingResult();
+    cancelMetricsUpdate();
+  } else if (settings !== null) {
+    scheduleMetricsUpdate({ elapsed: tracing(), session: true });
+  }
 });
 window.addEventListener('pagehide', flushPendingResult);
 
@@ -13481,6 +13601,7 @@ document.addEventListener('mousemove', (event) => {
       trace.x.push(event.clientX);
       trace.y.push(event.clientY);
     }
+    scheduleMetricsUpdate({ trace: true });
   }
 });
 
@@ -13597,6 +13718,7 @@ function showScoresForCurrentMode() {
     resultStats.textContent = '';
     resultAnalysis.textContent = '';
     resultRanks.textContent = '';
+    document.getElementById('history-placements').replaceChildren();
     syncBoardLayout();
     return;
   }

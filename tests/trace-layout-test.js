@@ -30,6 +30,7 @@ global.Date = Object.assign(function () {}, Date, { now: () => 1700000000000 });
 // beginTrace's metrics-panel hookups are display machinery, inert here.
 global.beginTraceMetricsSeries = () => {};
 global.renderLiveTraceMetrics = () => {};
+global.scheduleMetricsUpdate = () => {};
 
 vm.runInThisContext(span, { filename: 'raw-input-trace-span.js' });
 

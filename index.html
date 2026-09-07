@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Minesweeper - Standard Mode</title>
-<link rel="stylesheet" href="style.css?v=20260907-review-layout">
+<link rel="stylesheet" href="style.css?v=20260907-visible-placements">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <!-- Defer preserves dependency order while letting every page asset download
      in parallel. Storage starts first so disk access overlaps JS startup. -->
@@ -20,7 +20,7 @@
 <script defer src="odds.js?v=20260825-batched-certification"></script>
 <script defer src="trial.js"></script>
 <script defer src="settings-core.js?v=20260904-pocket-side"></script>
-<script defer src="minesweeper.js?v=20260907-review-layout"></script>
+<script defer src="minesweeper.js?v=20260907-visible-placements"></script>
 </head>
 <body aria-busy="true">
 <div id="top-right">
@@ -160,11 +160,15 @@
     <div id="board-position-drag-surface" hidden tabindex="0"
       aria-label="Board position. Drag, or use arrow keys to move."></div>
 
+    <div id="history-placements" aria-label="History placements"></div>
+
     <!-- Review transport, board overlays, path colors, and result display
          settings stay together inside the main column beneath the board. -->
     <nav id="scores-nav" aria-label="Inspect the finished game or view high scores">
       <div id="replay-controls" hidden aria-label="Game history: actions done">
-        <strong class="review-title">Review game</strong>
+        <div class="review-heading"><strong class="review-title">Review game</strong>
+          <span class="review-final-time">Final time <strong id="replay-final-time"></strong></span>
+        </div>
         <button type="button" id="replay-first">Start</button>
         <button type="button" id="replay-prev" aria-label="One action back">‹</button>
         <span id="replay-slider-wrap">
@@ -177,6 +181,11 @@
         <button type="button" id="replay-last">End</button>
         <span id="replay-status" aria-live="polite"></span>
       </div>
+      <button type="button" id="review-options-button" popovertarget="review-options" hidden>Overlays &amp; display</button>
+      <div id="review-options" popover>
+        <div class="review-options-heading"><strong>Review display</strong>
+          <button type="button" popovertarget="review-options" popovertargetaction="hide">Close</button>
+        </div>
       <div id="replay-overlay-control" hidden aria-label="Board overlays while stepping through the game">
         <span class="path-view-heading">Board overlays</span>
         <button type="button" data-replay-overlay="moves">available moves</button>
@@ -200,6 +209,7 @@
         <summary>Analysis &amp; chart display</summary>
         <div id="review-display-content"></div>
       </details>
+      </div>
       <button type="button" id="see-scores-btn">see scores</button>
     </nav>
     <!-- Vertical key beside the board's right edge when the gutter allows

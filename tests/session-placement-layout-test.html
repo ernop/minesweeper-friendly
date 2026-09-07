@@ -1,0 +1,13 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Session and placement layout regression</title>
+<style>body{font:14px monospace}iframe{width:1216px;height:928px}pre{white-space:pre-wrap}</style>
+<pre id="checks">Running…</pre>
+<iframe src="../index.html" title="Layout fixture"></iframe>
+<script>
+document.querySelector('iframe').addEventListener('load', function () {
+  const script = this.contentDocument.createElement('script');
+  script.src = 'tests/session-placement-layout-fixture.js';
+  this.contentDocument.body.appendChild(script);
+});
+</script>

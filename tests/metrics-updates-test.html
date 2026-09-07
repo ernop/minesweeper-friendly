@@ -1,0 +1,144 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Metrics update regression</title>
+<style>
+  body { font: 14px monospace; }
+  #results { height: 150px; overflow: auto; }
+  iframe { width: 1400px; height: 650px; border: 1px solid #999; }
+</style>
+<h1>Metrics update regression</h1>
+<p>Run on http://127.0.0.1:8099/tests/metrics-updates-test.html.</p>
+<pre id="results">Running…</pre>
+<iframe src="../index.html" title="Minesweeper metrics under test"></iframe>
+<script>
+'use strict';
+const frame = document.querySelector('iframe');
+frame.addEventListener('load', () => {
+  const script = frame.contentDocument.createElement('script');
+  script.textContent = `
+(async () => {
+  const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+  const waitFor = async (condition) => {
+    const deadline = performance.now() + 10000;
+    while (!condition()) {
+      if (performance.now() >= deadline) throw new Error('Timed out waiting for metrics update');
+      await delay(50);
+    }
+  };
+  const results = [];
+  const check = (name, ok) => {
+    results.push((ok ? 'PASS ' : 'FAIL ') + name);
+    parent.document.getElementById('results').textContent = results.join('\\n');
+  };
+  await waitFor(() => settings !== null
+    && !document.documentElement.classList.contains('game-booting'));
+  // All setup is RAM-only. No games are finished, scores saved, or settings
+  // persisted. The real capture handlers, scheduler, calculations, and DOM
+  // renderer run inside the app's document.
+  settings.showSessionStats = true;
+  settings.showMotionStatsDuringGame = true;
+  metricsPanelCollapsed = false;
+  gameState = 'ready';
+  beginTrace();
+  refreshMetricsPanel();
+  await waitFor(() => metricsUpdateFrame === null && metricsUpdateTimeout === null
+    && boardLayoutFrame === null);
+  await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  const control = metricsPanelContent.querySelector('.session-control');
+  const row = metricsPanelView.liveRows[0];
+  const spark = row.querySelector('svg');
+  const line = spark.querySelector('path');
+  const grip = metricsPanel.querySelector('.metrics-resize');
+  let mutations = 0;
+  let layoutCalls = 0;
+  const observer = new MutationObserver(records => { mutations += records.length; });
+  observer.observe(metricsPanel, { subtree: true, childList: true, attributes: true, characterData: true });
+  const originalLayout = syncBoardLayout;
+  syncBoardLayout = () => { layoutCalls++; originalLayout(); };
+  const idleSamples = metricsSeries.tMs.length;
+  await delay(1300);
+  check('ready board performs no idle stats writes or sampling',
+    mutations === 0 && metricsSeries.tMs.length === idleSamples);
+  check('ready board performs no periodic layout pass (' + layoutCalls + ')', layoutCalls === 0);
+  layoutCalls = 0;
+
+  control.focus({ preventScroll: true });
+  metricsPanelContent.scrollTop = 400;
+  const scrollTop = metricsPanelContent.scrollTop;
+  for (let i = 0; i < 20; i++) {
+    document.dispatchEvent(new MouseEvent('mousemove', { clientX: 700 + i, clientY: 150 }));
+  }
+  traceEvent('ldown', { clientX: 720, clientY: 150 }, 0);
+  traceEvent('lup', { clientX: 720, clientY: 150 }, 0);
+  await waitFor(() => lastLiveMetrics.bio.leftClickCount === 1);
+  const clickRow = metricsPanelView.liveRows.find(item =>
+    item.querySelector('.metric-label').textContent === 'left clicks');
+  check('captured input updates the displayed measurement',
+    clickRow.querySelector('.metric-value').textContent === '1');
+  check('live row, SVG, and path retain their DOM identity',
+    metricsPanelView.liveRows[0] === row && row.querySelector('svg') === spark
+      && spark.querySelector('path') === line);
+  check('input updates preserve the focused control and resize grip',
+    document.activeElement === control
+      && metricsPanelContent.querySelector('.session-control') === control
+      && metricsPanel.querySelector('.metrics-resize') === grip);
+  check('input updates preserve sidebar scroll', metricsPanelContent.scrollTop === scrollTop);
+  check('live data does not invoke page layout', layoutCalls === 0);
+
+  const charts = metricsPanelView.sessionCharts;
+  const previousCharts = charts.innerHTML;
+  gameState = 'playing';
+  sessionPlayBegin();
+  sessionPlayFrom -= 2000;
+  sessionRecordPress(true, false, false, false);
+  await waitFor(() => charts.innerHTML !== previousCharts);
+  check('session data updates charts while preserving controls',
+    document.activeElement === control
+      && metricsPanelContent.querySelector('.session-control') === control);
+  const beforeClock = metricsSeries.tMs.length;
+  let inputComputations = 0;
+  const originalCompute = computeTraceMetrics;
+  computeTraceMetrics = (...args) => { inputComputations++; return originalCompute(...args); };
+  startTimer();
+  await waitFor(() => metricsSeries.tMs.length > beforeClock);
+  check('active game clock advances elapsed measurements without rescanning input',
+    inputComputations === 0 && lastLiveMetrics.wallDurationMs > 0);
+  clearInterval(timerInterval);
+  timerInterval = null;
+  gameState = 'lost';
+  sessionPlayEnd();
+  renderMetricsPanel(null);
+  await delay(500);
+  check('game end hides live rows and cancels pending metrics work',
+    metricsPanelView.live.hidden && metricsUpdateFrame === null && metricsUpdateTimeout === null);
+  mutations = 0;
+  layoutCalls = 0;
+  const endedSamples = metricsSeries.tMs.length;
+  await delay(1300);
+  check('finished game performs no idle stats writes, samples, or layout passes',
+    mutations === 0 && metricsSeries.tMs.length === endedSamples && layoutCalls === 0);
+  gameState = 'ready';
+  beginTrace();
+  check('next game resets the measurement without replacing live rows',
+    lastLiveMetrics.bio.leftClickCount === 0 && metricsPanelView.liveRows[0] === row);
+  metricsPanelCollapsed = true;
+  refreshMetricsPanel();
+  check('collapse hides the expanded header and shows the restore control',
+    getComputedStyle(metricsPanelView.head).display === 'none'
+      && !metricsPanelView.restore.hidden);
+  metricsPanelCollapsed = false;
+  refreshMetricsPanel();
+  check('expansion reuses the controls and live rows',
+    metricsPanelContent.querySelector('.session-control') === control
+      && metricsPanelView.liveRows[0] === row);
+  observer.disconnect();
+  syncBoardLayout = originalLayout;
+  computeTraceMetrics = originalCompute;
+  parent.document.getElementById('results').textContent += '\\nDONE';
+})().catch(error => {
+  parent.document.getElementById('results').textContent += '\\n' + error.stack;
+});
+`;
+  frame.contentDocument.body.appendChild(script);
+});
+</script>
