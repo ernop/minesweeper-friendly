@@ -62,6 +62,11 @@ loading the same `style.css`, `storage.js`, and `settings-core.js` (both
 pages must load storage.js and settings-core.js before their own script).
 Serve with `python3 -m http.server 8018 --bind 127.0.0.1` and open exactly
 `http://127.0.0.1:8018/`.
+On PC, the enabled systemd user unit `minesweeper-friendly.service` owns this
+server (boot startup, survives logout, restarts after exit). Use
+`systemctl --user start/restart/status minesweeper-friendly.service` as
+appropriate; never launch a competing manual server. Source and installation:
+[README.md — Persistent local server](README.md#persistent-local-server-linux).
 
 **`PRODUCT.md` is the canonical spec of every product and UI decision**
 (board chrome, result presentation, rank lists, streaks, scatters,
@@ -97,16 +102,12 @@ Implementation notes:
   at load and writes through immediately; the game and settings pages
   are never open as two live views of the same RAM.
 - Board position: `settings.boardOffsetX/Y` are independent persistent pixel
-  preferences. `applyBoardPosition` derives a collision-safe applied pair
-  without rewriting them; `#game-frame` is width-max-content and centered
-  inside `#game-area`, preventing the static below-board result block from
-  shifting the frame when it widens that parent. The editor exposes drag,
-  arrow, numeric, and labeled-notch slider input for both axes.
-  Result/legend layout keeps existing clearance during geometry reads to
-  avoid transient page shrinkage and scroll clamping. A reserved gutter for
-  a hidden legend never contributes vertical clearance.
-  `tests/scroll-position-test.html` exercises real browser scroll/layout at
-  the test origin across floating, below-board, narrow, and sidebar layouts.
+  preferences. `applyBoardPosition` selects docked/compact details first, then
+  constrains the applied offset to the main column without rewriting the
+  saved preference. `#game-frame` centers within `#game-area`; results and
+  legends are outside that translated area. The editor exposes drag,
+  arrows, numeric inputs, and labeled sliders. Browser scroll regressions
+  cover docked and compact details and the independent metrics panel.
 - History: userdata 'history' maps mode key to a
   chronological array of game records, one per finished game:
   {endedAt, outcome: 'win'|'loss', timeMs, bv3, clicks, wastedClicks,
@@ -196,8 +197,8 @@ Implementation notes:
   `#path-view-control` (in `#scores-nav`) exposes separate buttons for off,
   raw every-sample path, numbered raw click locations, movement speed, click
   speed, game progress, and less useful—never a dropdown.
-  The game-history slider `#replay-slider` (always shown once a game is
-  finished; positions 0 … N = actions done, N = the finished board) drives
+  The game-history slider `#replay-slider` (inside collapsed sidebar Replay
+  game; positions 0 … N = actions done, N = the finished board) drives
   `replayStep`; `setReplayStep` clamps it, derives `replayEnabled = step <
   count`, re-renders through `renderPathView`, and starts the solver
   precompute when the frames are first entered. `renderReplaySlider` owns
@@ -285,46 +286,30 @@ Implementation notes:
   reasonable choices into connected pockets; `#replay-choice-areas` draws
   leaders (`--replay-area`) to side labels with non-misleading mine risk and
   cell count, choosing left or right to avoid the result summary/viewport
-  edge. `#scores-nav` (the after-game control block: `#replay-controls`
-  slider row, `#replay-overlay-control`, `#path-view-control`,
-  `#see-scores-btn`, in that DOM order; `#path-view-legend` is its sibling
-  after it) is `width: 100%; max-width: 100cqw` against `main`'s
-  inline-size container, so a long legend row can never widen `#game-area`
-  past the column and under the metrics sidebar (it did; the block used to
-  size to its content), and `#scores-nav`, the in-flow legend, and
-  below-board `#results` carry `translateX(-1 × --board-position-applied-x)`
-  so the board's saved sideways offset never carries them under the sidebar
-  either (the beside-board legend, anchored to the measured frame, does not
-  cancel). `renderPathViewControls` shows the slider row, the overlay row,
-  and `#path-view-control` together whenever `pathViewAvailable()`.
-  Legend column (2026-09-04): `#path-view-legend` is a vertical key
-  (`.path-legend-row` is a flex column; each `.path-legend-key` is a 22 px
-  swatch + `.path-legend-text` holding the bold `.path-legend-means`
-  headline and the smaller `.path-legend-detail` line = `look · detail`).
-  `REPLAY_ENCODINGS` entries are written as `look`/`means`/`detail` and
-  `replayEncodingTable` derives the complete `label` (`look = means —
-  detail`); `pathLegendText` renders either shape (path-view keys carry
-  only `label`). Placement is measured in `syncResultsPlacement`:
-  `afterGameSidePlan(rightGutter, legendShown, resultsWidth)` (pure) decides
-  `legendBeside` (gutter − 14 px gap − 12 px ≥ 230 px), the legend width
-  (230–340 px, fluid), and whether the stats still float (only in the room
-  left after the legend, which narrows toward 230 px first). Beside the
-  board, `#game-area.legend-beside` positions the legend absolutely through
-  `--legend-left/--legend-top/--legend-width` (+ `--legend-top-clearance`
-  when the fixed top-right chrome shares its strip, same rule as the
-  stats); otherwise it stays in flow at the end of `#scores-nav`. The
-  control rows keep clear through `--nav-reserve-right/--nav-reserve-left`
-  on `#scores-nav` (`navReserves(columnWidth, reserveRight)`, pure: right =
-  legend column and/or stats width from the column edge; left mirrors it
-  while ≥ 480 px of content remains). A legend taller than the rows pushes
-  `results-below-board` stats down (`--results-below-clearance`) and the
-  report/ranks below the game area (`syncResultClearance` includes the
-  legend bottom). `renderPathOverlay` calls `scheduleBoardLayout()` so every
-  legend rebuild re-measures on the next frame. A lazily created ResizeObserver
-  redraws both overlays and callouts on zoom. Replay arrow shortcuts ignore
-  focused form controls and buttons.
-  Decision frames persist inside the trace; the UI currently opens only the
-  just-finished RAM trace.
+  edge. Sidebar `#scores-nav` contains `#replay-review`, a native details
+  disclosure collapsed for each new game, plus display options and scores.
+  Its transport uses a full-width slider above four navigation buttons.
+  Closing review restores the finished board; keyboard replay shortcuts only
+  apply while the transport is visible. These controls take no space beneath
+  the board and are outside its saved translation.
+  Layout (2026-09-07): `#page-layout` owns three grid columns: metrics, main,
+  and a 320px `#game-sidebar`. The sidebar contains `#top-right`, `#scores-nav`,
+  `#results`, and `#path-view-legend` in normal flow, with independent scrolling. It is
+  reserved before game end. `syncGameSidebar` compares the viewport, metrics
+  width, and board frame width; when they cannot fit together, it removes the
+  sidebar from the grid and makes it an auto popover opened by Game details.
+  Results or legend visibility/height never enters that width decision.
+  `syncBoardLayout` applies board position, Justice placement, and callout
+  clearance. `syncResultClearance` considers only Justice; stats and legend
+  need no overhang margins, floating/below-board classes, or z-index fixes.
+  ResizeObserver responds to the main column, page layout, and board frame.
+  Legend items retain their complete vertical encoding labels. Replay choice
+  callouts measure visible stats and legend bounds to avoid the sidebar.
+  `renderPathOverlay` builds its legend into a detached fragment and replaces
+  the live contents once, preventing transient collapse and scroll resets.
+  `createResultSectionCollector` appends every section to `#result-ranks` in
+  model order. Daily placements are the first table inside the Rankings
+  section, sharing its left-aligned wrapping rows with the other rank tables.
 - Offline analysis lives under `analysis/` (inputs: the exported trace
   JSON). `analysis/mousetrap/trace_measures.R` computes psychometric
   mouse-tracking measures per inter-click segment; it runs on the R env
@@ -672,8 +657,8 @@ Implementation notes:
   the builder groups each action once by primary category and obeys
   `settings.reportScope` through `reportScopeAllows`: none, fatal-only
   (new-player default), fatal+risk, or full. `buildReportScopeControl`
-  renders below the right-side stats for none/fatal/risk, but stays above
-  the full-width report for full scope, and re-renders immediately; the
+  renders in the display options, or above the report for trial review,
+  and re-renders immediately; the
   settings page shares `REPORT_SCOPE_CHOICES`.
   Every direct reveal is evaluated before opening whether or not the player
   ever flags or chords. `buildVerdictBlocks` returns `null` when no enabled
@@ -745,10 +730,9 @@ Implementation notes:
   changes something. `activeStateNames()` is stamped
   onto every record as `states` (always written, `[]` when none active;
   absent on pre-2026-08-20 records, same absence rules as wastedClicks).
-  UI: `#states` lives in `#top-right`, the fixed screen-chrome cluster
-  pinned to the viewport's upper-right (shared with `#settings-btn`);
-  fixed positioning means it occupies no layout space and never moves
-  the board. Only active
+  UI: `#states` lives in `#top-right` inside the independently scrolling
+  game sidebar, shared with mode, generator, and `#settings-btn`. Expanding
+  state controls never changes the board column. Only active
   states render (chips; click = take off); `#states-add-btn` (a real
   bordered button holding a pressed `.open` look while the menu is up,
   2026-08-23) toggles
@@ -763,7 +747,7 @@ Implementation notes:
   section order for post-game and score contexts. `createResultSectionCollector`
   collects computed nodes and emits only nonempty sections in that order;
   each `.result-chart-section-items` wraps internally. The invariant is
-  placements → rankings → streaks → average-time scatters → relationship
+  rankings (placements first within that section) → streaks → average-time scatters → relationship
   scatters: every pagetable/row-based data display, including day-category
   rankings and all streak variants, precedes every individual-point chart.
   `tests/result-presentation-test.js` checks this in both result contexts.
@@ -798,7 +782,7 @@ Implementation notes:
   game's same-3BV chart, and `boardShapeCandidates(record, wins)` (the
   extracted shape-chart definitions the board-shape tablecharts also
   render from; the summary ignores the largestIsland display gate) —
-  and emits the leading placements section, gated by
+  and emits the first table within Rankings, gated by
   shownThings.recentPlacements; nearMiss rows render the
   rank muted (`.recent-near-cell`). `dedupeRankCandidates` is shared
   with the full time/day and board-shape tablecharts, so the summary
@@ -833,15 +817,12 @@ Implementation notes:
   3BV-clicks raw plots, always fit on untrimmed values — chosen
   2026-08-22 from a five-fit sampling, see PRODUCT.md "Average-time
   charts" and "Scatter plots").
-- Layout: `#results` (summary + `#stats-grid` only) stays absolutely
-  positioned flush with the available `main` column's right edge using
-  main-container `cqw`, not viewport width. `syncResultsPlacement` measures
-  the fixed `#top-right` controls and adds only enough top clearance to
-  keep the stats below them while preserving that right alignment.
-  `syncResultClearance` moves the separate report/rank flow below any
-  stats overhang.
-  A `ResizeObserver` re-evaluates main/chrome resizing and
-  `html { scrollbar-gutter: stable }` protects board centering.
+- Layout: `#results` (summary + `#stats-grid`) is a normal-flow child of
+  `#game-sidebar`, after options and before the legend. The three grid
+  columns prevent overlaps. `syncGameSidebar` controls its compact popover;
+  no result-dependent gutter calculations or overhang margins remain.
+  ResizeObserver tracks page/main/frame geometry; the root scrollbar gutter
+  remains reserved for stable centering.
 - Personal settings (PRODUCT.md "Personal settings"): the RAM `settings`
   object lives in `settings-core.js` (userdata 'settings', filled by each
   page's `userdataReady` via `settingsFrom`, which fills absent fields
@@ -1079,6 +1060,11 @@ https://ernop.github.io/minesweeper-friendly/ and redeploys on every push.
 
 ## Local tooling and verification (this machine, learned 2026-08-19)
 
+- Since 2026-09-07, port 8018 is owned by the enabled systemd user unit
+  `minesweeper-friendly.service`, sourced from `systemd/minesweeper-friendly.service`.
+  Start/restart it with `systemctl --user`; logs are in
+  `journalctl --user -u minesweeper-friendly.service`. Existing `Linger=yes`
+  provides startup at boot before login and operation after logout.
 - Serving: `python3 -m http.server 8018 --bind 127.0.0.1` and
   `http://127.0.0.1:8018/` are the canonical local server and exact play
   origin — no improvised hosts or ports (decided 2026-08-22; sessions had
@@ -1335,7 +1321,11 @@ grep or a script can do it, don't spend model time on it.
 
 Session/placement layout regression (2026-09-07):
 `tests/session-placement-layout-test.html` runs RAM-only fixtures on the test
-origin. It checks session-chart row positions across initial play and first
-measurements, plus first-row history visibility at 1216 × 928 for all three
-standard sizes. The section collector mounts placements in `#history-placements`
-before review; losses render prior win rankings without a current-win marker.
+origin. It checks session chart stability, all three board sizes at 1680/1216/
+650px widths, board stability at game end, daily placements within the first
+Rankings row, rankings directly beneath the board, collapsed sidebar replay,
+tall stats/legend isolation, and compact details opening/closing. It also
+checks replay scroll retention, closing back to the finished board, resetting
+on a new game, and arrow keys leaving a collapsed replay alone.
+`tests/scroll-position-test.html` checks page and metrics-panel scroll retention
+with hidden/tall legends, docked stats, and compact details.

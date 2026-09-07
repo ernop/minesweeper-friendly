@@ -374,42 +374,6 @@ check('solver reads are never silently replaced by a fallback',
 check('solver reads are precomputed off the input path',
   source.includes('function scheduleReplayPrecompute')
     && source.includes('cancelReplayPrecompute();\n  replaySolverCache.clear();'));
-{
-  // The side-plan and reserve rules are pure functions in the layout
-  // section; run them from their source text.
-  const grab = (name) => {
-    const match = source.match(new RegExp('(?:const [A-Z_]+ = \\d+;\\n)*function ' + name + '\\([\\s\\S]*?\\n\\}\\n'));
-    if (!match) throw new Error('missing ' + name);
-    return match[0];
-  };
-  const consts = source.match(/const LEGEND_BESIDE_GAP[\s\S]*?const RESULTS_GUTTER_MARGIN = \d+;\n/)[0];
-  vm.runInThisContext(consts + grab('afterGameSidePlan') + grab('navReserves'));
-  check('no legend: stats float exactly when the gutter holds them',
-    afterGameSidePlan(336, false, 320).resultsFloat === true
-      && afterGameSidePlan(335, false, 320).resultsFloat === false
-      && afterGameSidePlan(2000, false, 320).legendBeside === false);
-  check('legend goes below the board when the gutter is under its minimum width',
-    afterGameSidePlan(255, true, 320).legendBeside === false
-      && afterGameSidePlan(256, true, 320).legendBeside === true);
-  check('legend beside the board takes precedence over floating stats',
-    JSON.stringify(afterGameSidePlan(400, true, 320))
-      === JSON.stringify({ legendBeside: true, legendWidth: 340, resultsFloat: false }));
-  check('with room for both, the legend narrows toward its minimum before the stats drop',
-    JSON.stringify(afterGameSidePlan(620, true, 320))
-      === JSON.stringify({ legendBeside: true, legendWidth: 258, resultsFloat: true })
-      && JSON.stringify(afterGameSidePlan(1000, true, 320))
-      === JSON.stringify({ legendBeside: true, legendWidth: 340, resultsFloat: true }));
-  check('control rows mirror the right reserve only while the slider keeps 480px',
-    JSON.stringify(navReserves(1400, 271)) === JSON.stringify({ right: 271, left: 271 })
-      && JSON.stringify(navReserves(816, 267)) === JSON.stringify({ right: 267, left: 69 })
-      && JSON.stringify(navReserves(700, 267)) === JSON.stringify({ right: 267, left: 0 }));
-}
-check('the legend stands beside the board and the control rows keep clear of the gutter',
-  css.includes('#game-area.legend-beside #path-view-legend:not([hidden])')
-    && /#scores-nav\s*\{[^}]*padding-right:\s*var\(--nav-reserve-right/.test(css)
-    && source.includes("classList.toggle('legend-beside'")
-    && source.includes("setProperty('--legend-left'")
-    && source.includes("setProperty('--nav-reserve-right'"));
 check('the legend is a vertical key: meaning headline, look and detail beneath',
   /\.path-legend-row\s*\{[^}]*flex-direction:\s*column/.test(css)
     && source.includes("headline.textContent = key.means || key.label")
@@ -438,7 +402,7 @@ for (const id of [
   check(`path control exposes ${id} button`,
     html.includes(`data-path-view="${id}"`));
 }
-check('the game-history slider needs no toggle and is not a path mode',
+check('replay stays separate from path modes and is available after game end',
   !html.includes('id="replay-toggle"')
     && !html.includes('id="review-control"')
     && !html.includes('data-path-view="replay"')
@@ -448,24 +412,24 @@ check('the game-history slider needs no toggle and is not a path mode',
   const navStart = html.indexOf('id="scores-nav"');
   const navEnd = html.indexOf('</nav>', navStart);
   const nav = html.slice(navStart, navEnd);
-  check('the slider row comes first under the board, then overlays, path, scores',
+  check('sidebar review groups replay, overlays, path, and scores',
     nav.indexOf('id="replay-controls"') < nav.indexOf('id="replay-overlay-control"')
       && nav.indexOf('id="replay-overlay-control"') < nav.indexOf('id="path-view-control"')
       && nav.indexOf('id="path-view-control"') < nav.indexOf('id="see-scores-btn"'));
-  check('the legend is a sibling of the control rows, not inside them',
+  check('the legend lives in the separate game sidebar',
     !nav.includes('id="path-view-legend"')
-      && html.indexOf('id="path-view-legend"') > navEnd);
+      && html.indexOf('id="path-view-legend"') > html.indexOf('id="game-sidebar"'));
   check('slider positions count actions done, from 0 to the finished board',
     /id="replay-slider" min="0" max="0"/.test(html)
       && source.includes('replaySlider.max = String(count)')
       && source.includes('replayStep = replayDecisionCount();')
       && source.includes('const enabled = replayStep < count;'));
-  check('the control rows cancel the board\u2019s sideways translation',
-    /#scores-nav,\s*#path-view-legend\s*\{[^}]*translateX\(calc\(-1 \* var\(--board-position-applied-x/.test(css)
-      && /legend-beside #path-view-legend:not\(\[hidden\]\)\s*\{[^}]*transform:\s*none/.test(css));
+  check('review controls are outside the translated board area',
+    navStart > html.indexOf('id="game-sidebar"'));
 }
-check('after-game controls are bounded by the main column, never their content',
-  /#scores-nav\s*\{[^}]*max-width:\s*100cqw/.test(css));
+check('replay starts inside a collapsed disclosure',
+  /<details id="replay-review" hidden>/.test(html)
+    && source.includes('replayReview.open = false'));
 check('selected path button keeps box dimensions stable',
   css.includes('#path-view-control button[aria-pressed="true"]')
     && !css.match(/#path-view-control button\[aria-pressed="true"\][^{]*\{[^}]*font-weight/s));

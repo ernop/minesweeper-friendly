@@ -38,10 +38,10 @@ frame.addEventListener('load', () => {
   resultRanks.innerHTML = '<div style="height:1000px">Rankings below the stats</div>';
   pathViewLegend.innerHTML = '<div style="height:1000px">Tall review legend</div>';
   for (const [scenario, width, legendVisible, sidebarVisible] of [
-    ['reserved hidden legend', 1400, false, false],
-    ['floating stats', 1900, false, false],
+    ['hidden legend', 1400, false, false],
+    ['sidebar stats', 1900, false, false],
     ['visible side legend', 1400, true, false],
-    ['narrow stacked results', 650, true, false],
+    ['narrow details panel', 650, true, false],
     ['session sidebar', 1400, false, true],
   ]) {
     window.scrollTo(0, 0);
@@ -59,7 +59,7 @@ frame.addEventListener('load', () => {
       await settled();
       const before = window.scrollY;
       const panelBefore = metricsPanelContent.scrollTop = 400;
-      for (const update of [syncResultClearance, syncResultsPlacement,
+      for (const update of [syncResultClearance, syncGameSidebar,
         syncBoardLayout, () => renderMetricsPanel(null)]) {
         update();
         await settled();

@@ -631,40 +631,45 @@ report.
 
 ## Layout: the board never moves
 
-- Before application JavaScript is ready, the covered preview occupies the
-  main grid column explicitly, even while the metrics sidebar is hidden.
-  The game area fills that column so changing review content cannot resize
-  the board’s containing block. Below 700px window width, the metrics
-  panel stacks above the game in a bounded scroll area rather than
-  squeezing the board into a narrow remaining column.
-- The board is the anchor. Nothing that appears or disappears may shift it,
-  ever.
-- The win summary (three lines: outcome, mode, end date-time) + stats table
-  are the ONLY things allowed beside the board: normally absolutely
-  positioned at the far right of the available main column, vertically
-  aligned from the board row's top, 320px wide. Container-relative
-  positioning accounts for the in-page metrics column, so the stats'
-  right edge never crosses the main column/window edge. If fixed top-right
-  controls occupy the same strip, the stats start below those controls
-  while remaining flush right.
-- Everything else (the centered action analysis and semantic chart sections)
-  sits below the board in normal flow. If the stats
-  table is taller than the board, the first visible section shifts down by
-  the overhang so nothing sits under the table; the board does not move.
-- The scrollbar gutter is always reserved so a tall results area cannot
-  change the viewport width and nudge the centered board.
-- Layout runs on geometry changes, never on a periodic stats-refresh timer,
-  and preserves the page's scroll position and height.
-  Measure with the existing result/legend clearances intact, then replace
-  them; clearing spacing before a geometry read can clamp the browser's
-  scroll position. A reserved replay-legend gutter affects control width,
-  but a hidden or empty legend contributes no vertical clearance.
-- The Position control stores independent horizontal and vertical pixel
-  offsets, editable by drag, arrow keys, labeled-notch sliders, or numeric
-  inputs. The game frame remains centered inside any wider result footprint,
-  so showing results below the board or starting the next game does not change
-  either on-screen coordinate. Collision constraints may temporarily adjust
-  an applied offset without changing the player's saved X/Y preference.
+- The page has separate columns for session/motion metrics, the board and
+  tablecharts, and game details. The details column is reserved before a game
+  finishes; results and replay never change the board column's width.
+- The board is the anchor. Appearing or disappearing content must not move it.
+  Its covered startup preview occupies the same explicit main column.
+- Mode, generator, session tags, settings, optional replay/display controls,
+  completed-game stats, and the full replay legend share the right details
+  column in that order. They are in
+  normal flow inside an independently scrollable, sticky column. Stats precede
+  the legend, so changing replay frames does not move the stats. These panels
+  never cover the board or tablecharts and never add height between them.
+- When the board and side columns cannot fit, a bordered **Game details**
+  button opens the same details as a native popover. Close, Escape, or clicking
+  outside dismisses it. Opening it does not reflow the board or history.
+  This mode depends on viewport, board, and metrics-column widths, never on
+  whether a result or legend exists. Below 700px, session metrics occupy a
+  bounded scroll area above the game.
+- Replay is collapsed by default behind **Replay game** in the sidebar.
+  Closing it restores the finished board; starting a new game resets it to
+  collapsed. Its slider, status, display options, and score controls occupy
+  no space below the board. Replay arrow shortcuts apply only while its
+  transport is open and visible.
+- Rankings begin directly below the board when no action report is shown.
+  The time-period summary ("ranks won", today by default) is the first table
+  inside Rankings, sharing left-aligned wrapping rows with time/category,
+  same-3BV, and board-shape tables. There is no separate summary section.
+  Streaks, averages, relationships, and motion diagnostics follow.
+- The scrollbar gutter is reserved so page growth cannot move the board.
+  Stats and legend height affect only their own scroll column. Only board
+  Justice callouts reserve any overhang before the following content.
+- Replay legends are built offscreen and replaced together, so rebuilding
+  them cannot temporarily collapse the column and reset its scroll position.
+- Layout runs on geometry changes, never a periodic stats-refresh timer, and
+  preserves page and sidebar scroll. Layout corrections allocate space;
+  they do not raise z-index to conceal collisions between ordinary content.
+- Position stores independent X/Y pixel preferences, editable by drag,
+  arrows, labeled sliders, or numbers. The game frame centers within its
+  column; sidebar controls remain outside its translation. Applied offsets may be
+  constrained to its bounds without rewriting the saved preference.
 - The results area echoes the in-game numeral face (Arial Black stack).
 
 ## UI doctrine (directives collected 2026-08-23)
@@ -786,17 +791,15 @@ append timing or from how many cards fit on a row:
 1. **Outcome** — win/loss or High scores, board, mode, generator, date.
 2. **Facts** — the selected game's compact label/value stats.
 3. **Analysis** — post-game action interpretation only.
-4. **Placements** — the recent "ranks won" summary. Its display is promoted
-   directly beneath the board, before review, stats, and analysis, so the
-   first history row is visible in the 1216 × 928 playing window for all
-   standard board sizes at the default zoom. The section scrolls internally
-   after 150px; no rows or charts are removed. Losses retain existing win
+4. **Rankings** — the recent "ranks won" time-period summary first, then
+   time/category, same-3BV, and board-shape tablecharts. All share one
+   left-aligned wrapping collection under the Rankings heading. The summary
+   has no separate section or scroll container. Losses retain existing win
    history without marking the loss as a ranked win.
-5. **Rankings** — time/category, same-3BV, and board-shape tablecharts.
-6. **Streaks** — consecutive and loss-tolerant win runs.
-7. **Averages** — average solve-time scatterplots.
-8. **Relationships** — raw-win scatterplots.
-9. **Diagnostics** — post-game motion systems.
+5. **Streaks** — consecutive and loss-tolerant win runs.
+6. **Averages** — average solve-time scatterplots.
+7. **Relationships** — raw-win scatterplots.
+8. **Diagnostics** — post-game motion systems.
 
 All pagetables and row-based data displays must precede every chart that
 plots individual points. This includes time/category tables such as "on
@@ -816,7 +819,7 @@ diagnostics. Its reference record is explicitly the latest win: its compact
 facts are labeled "latest win stats", while ordinary ranking rows and plots
 have no "this game" highlight. Rolling windows use the time at which scores
 are viewed. A post-game loss has outcome, facts, enabled action analysis, and
-motion diagnostics, but no win rankings.
+motion diagnostics, and retains rankings from the latest win if one exists.
 
 Chart eligibility, display order, duplicate preference, and summary
 tie-breaking are separate concepts. In particular, a ranking candidate has
@@ -1529,15 +1532,13 @@ runtime state, export field, or result section.
   avoidable or higher risk, and lower modeled one-ply life. A loss from a
   minimum-risk forced guess is not labeled less useful merely because it
   was fatal.
-- Game-history slider (2026-09-04, replacing the "back in time" / "step
-  through moves" toggle): once a game is finished, the bar that moves back
-  and forth through it is always shown — nothing has to be turned on. It is
-  the first row under the board, inside the same block as the board's other
-  after-game controls (then the board-overlay toggles, the path colors, and
-  "see scores"), and that block always sits inside the main column beneath
-  the board: it cancels the board's player-chosen sideways offset, so it can
-  never sit under or overlap the session/metrics sidebar to the left. The
-  slider's positions count actions done, 0 … N: the right end (N) is the
+- Game-history slider (updated 2026-09-07): once a game is finished,
+  **Replay game** in the right sidebar opens its transport. It starts
+  collapsed for each game; closing it restores the finished board. The
+  slider fills the sidebar width above a row of Start / previous / next /
+  End buttons and the status. “Overlays & display” and “see scores” are
+  also in the sidebar. None of these controls occupies space under the board.
+  The slider's positions count actions done, 0 … N: the right end (N) is the
   finished board itself, which is where every game starts; every earlier
   position shows the exact player-visible board before action position + 1,
   with the board overlays and the legend. Moving the slider is what enters
@@ -1546,24 +1547,25 @@ runtime state, export field, or result section.
   numeric labels at both endpoints (0 and N) and the interior quarters; the
   current position rides in a label above the thumb; the status spells it
   out ("13 of 14 actions done · deciding at 2.66 s · next: reveal · 1
-  measured choice"; at the end "14 of 14 actions done · 2.67 s · finished
-  board — drag left or press ‹ to step back"). The slider is as wide as its
+  measured choice"; at the end "14 / 14 actions · Finished board"). The
+  slider is as wide as its
   row allows (no fixed cap), so notches stay apart on long games. It can be
   combined with raw path, click locations, any parameter color, less
   useful, or off; the selected overlay truncates at the displayed position
   while retaining its full-game color scale for comparison.
   Start / End jump to the first frame and finished board. Navigation uses
   fixed grid columns and a compact, two-line-height scrollable status area.
-  Final time is a separate prominent value labeled “Final time”, shown to
-  three decimal places and unchanged while reviewing earlier frames. The
-  finished-board status shows only the action count and “Finished board”.
-  The side-legend footprint is reserved throughout review, including at
-  the finished board, so changing frames or overlays never moves the
-  navigation buttons. Board overlays and Mouse path have separate labeled
+  There is no “Review game / Final time” heading row. The stats column
+  contains the completed time to three decimal places; the transport does not
+  duplicate it. The finished-board status shows only the action count and
+  “Finished board”. The separate details column keeps the legend out of the
+  transport layout, so changing frames or overlays never moves its buttons.
+  Board overlays and Mouse path have separate labeled
   groups inside “Overlays & display”, followed by Analysis & chart display.
-  Only the compact transport and the panel opener occupy space above the
-  results; opening display options does not move lifetime or daily rankings.
-  ‹ / › and Left/Right keys step one action except while another
+  The compact transport and panel opener stay in the sidebar; opening them
+  does not move lifetime or daily rankings.
+  ‹ / › and Left/Right keys step one action while replay is open and visible,
+  except while another
   interactive control has keyboard focus; solid purple rings mark the measured
   reasonable choice set (purple is also the color of the uncertain-pocket
   labels that describe that set; measured choices were a second green until
@@ -1649,28 +1651,18 @@ runtime state, export field, or result section.
     item bundles two encodings under one swatch. Each active overlay adds
     its own legend group.
   - Legend placement and reading order (requested 2026-09-04): the legend
-    is a vertical key, one item per line, that stands beside the board's
-    right edge, top-aligned with the board frame (below the fixed top-right
-    controls when they would cover it). Items read at a glance: the swatch
+    is a vertical key, one item per line, in the separate game details
+    column after the final stats. Items read at a glance: the swatch
     is board-cell sized (22 px) in the exact color and form drawn on the
     board; the meaning is the bold headline ("proven safe: open it with a
     raw click"); the look words and any fine print sit beneath it in one
     smaller black line ("dashed green · around a flag it means that flag is
     provably wrong"). Groups have bold underlined titles. Nothing is
-    shortened. The legend's room comes first in the right gutter: it is
-    230–340 px wide, fluid with the gutter, and the after-game stats float
-    at the column edge only in the room left over (the legend narrows
-    toward 230 px before the stats drop below the board). When the gutter
-    cannot hold 230 px the same vertical key sits below the control rows.
-    The control rows beneath the board keep clear of the legend column and
-    of the floating stats (mirrored on the left while the slider keeps
-    480 px of room, so they stay centered under the board), and stats or
-    the report that follow are pushed below a legend taller than the rows
-    above them. Nothing in this block ever runs under the legend, under the
-    stats, or under the metrics sidebar: the block is bounded by the main
-    column's width (until 2026-09-04 a long horizontal legend row widened
-    the block past the column and under the sidebar, and the stats cut the
-    last key of the moves row).
+    shortened. The complete key follows the stats inside the right details
+    column, with its own column's scrollbar when needed. It never competes
+    with stats for a horizontal gutter or pushes stats below the board.
+    On compact layouts it appears in the same Game details popover. Neither
+    the legend nor the stats changes the board, transport, or history layout.
 - These displays read the just-finished RAM trace. The same decision frames
   are persisted in the trace store for future historical replay and analytics;
   loading older traces into this control is not yet built.

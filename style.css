@@ -26,7 +26,8 @@ body {
 
 #page-layout {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  --game-sidebar-width: 320px;
+  grid-template-columns: auto minmax(0, 1fr) var(--game-sidebar-width);
   align-items: start;
   gap: 18px;
   width: 100%;
@@ -47,8 +48,11 @@ main {
 #difficulty-tabs {
   position: relative;
   display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: 100%;
   align-items: center;
-  gap: 22px;
+  gap: 8px 22px;
   font-size: 15px;
 }
 
@@ -187,48 +191,32 @@ main {
 
 #scores-nav[hidden] { display: none; }
 
+/* Review and display controls take space only in the side column. */
 #scores-nav {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  margin: 18px 0 4px;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 6px;
+  margin: 0;
   font-size: 11px;
-}
-
-/* The after-game controls and legends are bounded by the main column
-   (100cqw: `main` is the inline-size container), never by their own
-   content: without this cap a long legend row widened #game-area past the
-   column and ran underneath the metrics sidebar. Inside that bound they
-   center under the board. */
-#scores-nav {
-  box-sizing: border-box;
   width: 100%;
-  max-width: 100cqw;
-  margin-inline: auto;
   min-width: 0;
+  overflow-anchor: none;
 }
 
-/* The control rows keep clear of what stands in the right gutter — the
-   legend column beside the board and/or the floating stats. The reserves
-   are measured by syncResultsPlacement (navReserves): the right one is the
-   hard rule, the left one mirrors it so the rows stay centered under the
-   board and gives way first so the slider keeps its room. */
-#scores-nav {
-  padding-right: var(--nav-reserve-right, 0px);
-  padding-left: var(--nav-reserve-left, 0px);
+#replay-review { width: 100%; min-width: 0; }
+#replay-review[hidden] { display: none; }
+#replay-review > summary {
+  width: fit-content;
+  padding: 5px 9px;
+  border: 1px solid #c9d4de;
+  border-radius: 3px;
+  background: #f7fafc;
+  color: #45657a;
+  cursor: pointer;
 }
-
-/* The board may carry a player-chosen sideways translation (#game-area's
-   transform). The control rows, the in-flow legend, and stats below the
-   board cancel its horizontal part so they always sit inside the main
-   column beneath the board — never under the metrics sidebar. The vertical
-   part is kept: these follow the board down. */
-#scores-nav,
-#path-view-legend {
-  transform: translateX(calc(-1 * var(--board-position-applied-x, 0px)));
-}
+#replay-review[open] > summary { margin-bottom: 8px; }
 
 #scores-nav button {
   min-height: 25px;
@@ -285,16 +273,11 @@ main {
   box-shadow: inset 0 0 0 1px #ffffff;
 }
 
-/* The legend is a vertical key: one item per line, swatch left, wording
-   right, grouped under bold titles. It stands beside the board's right
-   edge (`#game-area.legend-beside`, placed by syncResultsPlacement through
-   the --legend-* variables) and falls back to the same vertical list below
-   the board when the gutter cannot hold at least its minimum width. */
+/* The complete key shares the sidebar's normal flow with the stats. */
 #path-view-legend {
-  box-sizing: border-box;
-  width: min(100%, 340px);
-  margin: 10px auto 0;
-  padding: 4px 8px;
+  width: 100%;
+  margin: 0;
+  padding: 8px;
   border: 1px solid #000000;
   border-radius: 3px;
   background: #ffffff;
@@ -302,17 +285,7 @@ main {
   text-align: left;
   font-variant-numeric: tabular-nums;
 }
-
-#game-area.legend-beside #path-view-legend:not([hidden]) {
-  position: absolute;
-  top: calc(var(--legend-top, 0px) + var(--legend-top-clearance, 0px));
-  left: var(--legend-left, 0px);
-  width: var(--legend-width, 300px);
-  margin: 0;
-  /* Anchored to the board frame, which is measured where it is drawn
-     (translation included), so no cancelling here. */
-  transform: none;
-}
+#path-view-legend[hidden] { display: none; }
 
 .path-legend-row {
   display: flex;
@@ -482,12 +455,14 @@ main {
 }
 
 #replay-controls {
-  display: inline-flex;
-  flex: 1 0 100%;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  width: 100%;
   align-items: center;
-  justify-content: center;
   gap: 6px;
 }
+#replay-controls > button { grid-row: 2; }
+#replay-controls > #replay-slider-wrap { grid-column: 1 / -1; grid-row: 1; }
 
 #replay-controls button {
   min-width: 25px;
@@ -547,10 +522,6 @@ main {
 /* Game-history slider: notches for every action (thinned when crowded) and
    black numeric labels at both endpoints plus the interior quarters. The
    current value is spelled out in the status line beside it. */
-#replay-controls {
-  flex-wrap: wrap;
-}
-
 #replay-slider-wrap {
   position: relative;
   flex: 1 1 260px;
@@ -1137,10 +1108,7 @@ body.trial-offboard #game-frame {
 
 /*-------RESULTS-------*/
 
-/* The board is the anchor; when room permits, the win summary + stats table
-   sit at the far right of its row. On narrower layouts JS moves that compact
-   block below the board so it cannot cover the cells. The action analysis
-   and rank charts live below the game area in normal flow. */
+/* Board offsets affect the board area, never the separate stats column. */
 #game-area {
   width: 100%;
   min-width: 0;
@@ -1173,46 +1141,13 @@ body.trial-offboard #game-frame {
   align-items: center;
 }
 
-#game-area.trial-no-board #results {
-  position: static;
-  transform: none;
-  right: auto;
-  width: auto;
-  max-width: 28em;
-  margin: 0 auto 12px;
-}
-
 #results {
-  position: absolute;
-  top: var(--results-top-clearance, 0px);
-  /* The board may carry a persistent player-selected translation. Cancel it
-     for the detached right-side stats: they stay at the main column's upper
-     right and only move down when the chrome needs clearance. */
-  transform: translate(
-    calc(-1 * var(--board-position-applied-x, 0px)),
-    calc(-1 * var(--board-position-applied-y, 0px)));
-  /* Fallback for older browsers, then the container-unit rule aligns the
-     edge to the available main column rather than the full viewport (the
-     in-page metrics panel consumes part of that viewport). */
-  right: calc(50% - 50vw + 32px);
-  right: calc(50% - 50cqw + 4px);
-  width: 320px;
+  min-width: 0;
+  width: 100%;
   text-align: left;
-  /* Echo the chunky in-game numeral face throughout the results area */
   font-family: "Arial Black", "Arial Bold", Arial, sans-serif;
 }
-
-#game-area.results-below-board #results {
-  position: static;
-  /* Stays in the main column like the control rows above it (see the
-     shared translateX rule near #scores-nav). */
-  transform: translateX(calc(-1 * var(--board-position-applied-x, 0px)));
-  right: auto;
-  width: min(320px, 100%);
-  /* --results-below-clearance: how far the legend column beside the board
-     extends past the control rows above these stats. */
-  margin: calc(12px + var(--results-below-clearance, 0px)) auto 0;
-}
+#results[hidden] { display: none; }
 
 #results p {
   font-size: 13px;
@@ -1220,9 +1155,7 @@ body.trial-offboard #game-frame {
   margin: 2px 0;
 }
 
-/* Full after-game explanations need reading width, not the 320px stat
-   sidebar. They sit centrally between the board row and rankings. The
-   overflow variable clears a stat sidebar taller than the board. */
+/* Full action explanations and rankings follow the board in normal flow. */
 #result-analysis {
   box-sizing: border-box;
   width: min(920px, calc(100% - 24px));
@@ -1316,8 +1249,8 @@ body.trial-offboard #game-frame {
 /* The game's stats as a small label/value tablechart */
 #stats-grid {
   display: grid;
-  width: max-content;
-  grid-template-columns: max-content max-content;
+  width: 100%;
+  grid-template-columns: minmax(0, 1fr) fit-content(55%);
   gap: 0 10px;
   margin: 4px 0;
   font-size: 12px;
@@ -1327,6 +1260,8 @@ body.trial-offboard #game-frame {
   color: #111111;
 }
 #stats-grid .stat-value {
+  min-width: 0;
+  overflow-wrap: anywhere;
   text-align: right;
   color: #000000;
 }
@@ -1515,19 +1450,49 @@ body.trial-offboard #game-frame {
 
 /*-------TOP-RIGHT SCREEN CHROME (session tags + settings)-------*/
 
-/* Pinned to the screen's upper-right corner: the player-state tags (menu
-   dropping down in-page below) and the settings button (opening the
-   full-height right-edge panel). Fixed, so the cluster occupies no layout
-   space (the board cannot move) and stays put as the page scrolls. */
-#top-right {
+/* Options, final stats, and the legend own one grid column. Its scroll
+   stays independent of the board and history, regardless of content height. */
+#game-sidebar {
+  grid-column: 3;
+  grid-row: 1;
+  position: sticky;
+  top: 12px;
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: var(--game-sidebar-width);
+  max-height: calc(100dvh - 24px);
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  padding: 0 8px;
+  border: 0;
+  margin: 0;
+  background: #fff;
+}
+#top-right { text-align: right; font-size: 11px; color: #999999; }
+#game-sidebar-button, #game-sidebar-close {
+  border: 1px solid #c5d0da;
+  border-radius: 3px;
+  background: #f7f9fb;
+  padding: 4px 8px;
+  color: #3f5668;
+  font: 11px Arial, sans-serif;
+  cursor: pointer;
+}
+#game-sidebar-button[hidden], #game-sidebar-close[hidden] { display: none; }
+#game-sidebar-close { align-self: flex-end; }
+#page-layout.compact-sidebar { grid-template-columns: auto minmax(0, 1fr); }
+#game-sidebar[popover] { display: none; }
+#game-sidebar[popover]:popover-open {
+  display: flex;
   position: fixed;
-  top: 10px;
-  right: 14px;
-  z-index: 10;
-  width: 250px;
-  text-align: right;
-  font-size: 11px;
-  color: #999999;
+  inset: 12px 12px auto auto;
+  width: min(340px, calc(100vw - 24px));
+  padding: 12px;
+  border: 1px solid #a5b7c3;
+  border-radius: 5px;
+  box-shadow: 0 4px 20px #0002;
 }
 
 #play-mode,
@@ -1538,7 +1503,8 @@ body.trial-offboard #game-frame {
 
 #play-mode label,
 #board-generator label {
-  display: inline-flex;
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
   align-items: center;
   gap: 6px;
   color: #667788;
@@ -1547,6 +1513,8 @@ body.trial-offboard #game-frame {
 
 #play-mode-select,
 #board-generator-select {
+  min-width: 0;
+  width: 100%;
   font: inherit;
   font-size: 11px;
   color: #333333;
@@ -2201,6 +2169,7 @@ body.settings-page .return-to-game {
    can never become accidental visual neighbors. */
 #result-ranks.sectioned-results {
   display: block;
+  width: 100%;
 }
 
 .result-chart-section {
@@ -2232,9 +2201,8 @@ body.settings-page .return-to-game {
   gap: 18px;
 }
 
-.result-chart-section-placements {
-  margin-bottom: 20px;
-}
+.result-chart-section-rankings > .result-chart-section-title { width: 100%; }
+.result-chart-section-rankings > .result-chart-section-items { justify-content: flex-start; }
 
 .motion-metric-group {
   flex-basis: 100%;
@@ -3168,15 +3136,6 @@ body.settings-page .return-to-game {
 .spark-label-big { font-size: 11px; }
 
 /* Review controls keep their geometry as frames and legend text change. */
-#replay-controls {
-  display: grid;
-  grid-template-columns: 48px 32px minmax(0, 1fr) 32px 48px;
-  width: 100%;
-}
-.review-heading { grid-column: 1 / -1; display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
-.review-title { text-align: left; font-size: 12px; }
-.review-final-time { display: flex; align-items: baseline; gap: 8px; color: #333; font-size: 12px; }
-#replay-final-time { font-size: 24px; font-variant-numeric: tabular-nums; color: #000; }
 #replay-status {
   grid-column: 1 / -1;
   height: 36px;
@@ -3189,7 +3148,6 @@ body.settings-page .return-to-game {
 }
 #replay-controls #replay-first, #replay-controls #replay-last { font-size: 12px; }
 #replay-slider-wrap { min-width: 0; }
-#scores-nav { align-items: stretch; overflow-anchor: none; }
 #replay-overlay-control, #path-view-control { justify-content: flex-start; }
 .path-view-heading { flex-basis: 100%; margin: 3px 0; text-align: left; }
 #review-display { width: 100%; text-align: left; }
@@ -3209,7 +3167,7 @@ body.settings-page .return-to-game {
 .review-display-options input { margin: 0; }
 #review-display .report-scope-control { flex-wrap: wrap; margin: 0; }
 @media (max-width: 700px) {
-  #page-layout { grid-template-columns: minmax(0, 1fr); }
+  #page-layout, #page-layout.compact-sidebar { grid-template-columns: minmax(0, 1fr); }
   main { grid-column: 1; grid-row: 2; }
   #metrics-panel {
     grid-column: 1;
@@ -3225,7 +3183,6 @@ body.settings-page .return-to-game {
 }
 
 /* Display options open in the top layer, leaving rankings in place. */
-#scores-nav { margin-top: 10px; gap: 6px; }
 #review-options-button[hidden] { display: none; }
 #review-options {
   position: fixed;
@@ -3251,22 +3208,5 @@ body.settings-page .return-to-game {
 .session-when-row { height: 112px; overflow-y: auto; }
 .session-endings-row > .session-end-legend { height: 72px; overflow-y: auto; }
 .session-metric-row > .session-end-empty { min-height: 16px; }
-
-/* History gets the first space below the board, ahead of inspection tools. */
-#history-placements {
-  transform: translateX(calc(-1 * var(--board-position-applied-x, 0px)));
-  margin: 8px auto 0;
-  max-height: 150px;
-  overflow: auto;
-  scrollbar-gutter: stable;
-  width: 100%;
-  max-width: 100cqw;
-  padding-right: var(--nav-reserve-right, 0px);
-  padding-left: var(--nav-reserve-left, 0px);
-}
-#history-placements:empty { display: none; }
-#history-placements .result-chart-section { margin-bottom: 0; }
-#history-placements .rank-list { margin: 0; }
-#history-placements h4 { margin-top: 0; }
 
 #metrics-panel .session-chart, #metrics-panel .session-when-strip { max-width: 100%; }

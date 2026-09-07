@@ -1,0 +1,13 @@
+[Unit]
+Description=Minesweeper Friendly local server (127.0.0.1:8018)
+StartLimitIntervalSec=0
+
+[Service]
+Type=exec
+WorkingDirectory=%h/proj/minesweeper-friendly
+ExecStart=/usr/bin/python3 -u -m http.server 8018 --bind 127.0.0.1
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=default.target

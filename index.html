@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Minesweeper - Standard Mode</title>
-<link rel="stylesheet" href="style.css?v=20260907-visible-placements">
+<link rel="stylesheet" href="style.css?v=20260907-rankings-first">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <!-- Defer preserves dependency order while letting every page asset download
      in parallel. Storage starts first so disk access overlaps JS startup. -->
@@ -20,50 +20,14 @@
 <script defer src="odds.js?v=20260825-batched-certification"></script>
 <script defer src="trial.js"></script>
 <script defer src="settings-core.js?v=20260904-pocket-side"></script>
-<script defer src="minesweeper.js?v=20260907-visible-placements"></script>
+<script defer src="minesweeper.js?v=20260907-rankings-first"></script>
 </head>
 <body aria-busy="true">
-<div id="top-right">
-  <div id="play-mode">
-    <label>Mode
-      <select id="play-mode-select" disabled>
-        <option>Loading saved mode…</option>
-      </select>
-    </label>
-    <div id="trial-progress" hidden></div>
-    <div id="pregen-progress" hidden></div>
-    <div id="endgame-drill-info" hidden></div>
-  </div>
-  <div id="board-generator">
-    <label>Generator
-      <select id="board-generator-select" disabled>
-        <option>Loading saved generator…</option>
-      </select>
-    </label>
-  </div>
-  <div id="music-indicator" hidden title="This machine is playing audio right now (rechecked about once a minute). Stamped onto each finished game as its music state.">music</div>
-  <div id="states">
-    <div id="states-chips"></div>
-    <button type="button" id="states-add-btn" title="Tag your play session (sleepy? new mouse?). Active states are saved onto every game you finish so you can compare measurements by self-reported context; a tag does not establish a cause.">+ state</button>
-    <div id="states-menu" hidden>
-      <div id="states-menu-head">
-        <span>session states</span>
-        <button type="button" id="states-close" title="close (Esc or a click outside also closes)">&times;</button>
-      </div>
-      <div id="states-options"></div>
-      <form id="states-add-form">
-        <input id="states-add-input" type="text" placeholder="new state">
-        <button type="submit">add</button>
-      </form>
-      <p id="states-status"></p>
-    </div>
-  </div>
-  <a id="settings-btn" href="settings.html">settings</a>
-</div>
 <div id="page-layout">
 <div id="metrics-panel" hidden><div id="metrics-panel-content"></div></div>
 <main>
   <nav id="difficulty-tabs">
+    <button type="button" id="game-sidebar-button" popovertarget="game-sidebar" hidden>Game details</button>
     <a href="#" data-difficulty="beginner" class="active">Beginner</a>
     <a href="#" data-difficulty="intermediate">Intermediate</a>
     <a href="#" data-difficulty="expert">Expert</a>
@@ -160,66 +124,6 @@
     <div id="board-position-drag-surface" hidden tabindex="0"
       aria-label="Board position. Drag, or use arrow keys to move."></div>
 
-    <div id="history-placements" aria-label="History placements"></div>
-
-    <!-- Review transport, board overlays, path colors, and result display
-         settings stay together inside the main column beneath the board. -->
-    <nav id="scores-nav" aria-label="Inspect the finished game or view high scores">
-      <div id="replay-controls" hidden aria-label="Game history: actions done">
-        <div class="review-heading"><strong class="review-title">Review game</strong>
-          <span class="review-final-time">Final time <strong id="replay-final-time"></strong></span>
-        </div>
-        <button type="button" id="replay-first">Start</button>
-        <button type="button" id="replay-prev" aria-label="One action back">‹</button>
-        <span id="replay-slider-wrap">
-          <span id="replay-slider-value" aria-hidden="true"></span>
-          <input type="range" id="replay-slider" min="0" max="0" step="1" value="0"
-            aria-label="Game history position (actions done)">
-          <span id="replay-slider-scale" aria-hidden="true"></span>
-        </span>
-        <button type="button" id="replay-next" aria-label="One action forward">›</button>
-        <button type="button" id="replay-last">End</button>
-        <span id="replay-status" aria-live="polite"></span>
-      </div>
-      <button type="button" id="review-options-button" popovertarget="review-options" hidden>Overlays &amp; display</button>
-      <div id="review-options" popover>
-        <div class="review-options-heading"><strong>Review display</strong>
-          <button type="button" popovertarget="review-options" popovertargetaction="hide">Close</button>
-        </div>
-      <div id="replay-overlay-control" hidden aria-label="Board overlays while stepping through the game">
-        <span class="path-view-heading">Board overlays</span>
-        <button type="button" data-replay-overlay="moves">available moves</button>
-        <button type="button" data-replay-overlay="mines">forced mines</button>
-        <button type="button" data-replay-overlay="probs">mine&nbsp;%</button>
-        <button type="button" data-replay-overlay="pointless">pointless clicks</button>
-        <button type="button" data-replay-overlay="purposeful">purposeful clicks</button>
-        <button type="button" data-replay-overlay="movement">rough movement</button>
-      </div>
-      <div id="path-view-control" hidden aria-label="Path overlay">
-        <span class="path-view-heading">Mouse path</span>
-        <button type="button" data-path-view="off">off</button>
-        <button type="button" data-path-view="raw-path">raw path</button>
-        <button type="button" data-path-view="click-locations">click locations</button>
-        <button type="button" data-path-view="movement-speed">movement speed</button>
-        <button type="button" data-path-view="click-speed">click speed</button>
-        <button type="button" data-path-view="progress">game progress</button>
-        <button type="button" data-path-view="less-useful">less useful</button>
-      </div>
-      <details id="review-display" hidden>
-        <summary>Analysis &amp; chart display</summary>
-        <div id="review-display-content"></div>
-      </details>
-      </div>
-      <button type="button" id="see-scores-btn">see scores</button>
-    </nav>
-    <!-- Vertical key beside the board's right edge when the gutter allows
-         (positioned by syncResultsPlacement), otherwise in flow here. -->
-    <div id="path-view-legend" hidden></div>
-
-    <div id="results">
-      <p id="result-summary"></p>
-      <div id="result-stats"></div>
-    </div>
     <div id="justice-live" aria-live="polite" aria-label="Justice events"></div>
   </div>
 
@@ -247,6 +151,100 @@
   <p id="site-footer"><a href="https://github.com/ernop/minesweeper-friendly">source &amp; issues on GitHub</a></p>
 
 </main>
+<aside id="game-sidebar" aria-label="Game options, statistics, and replay legend">
+  <button type="button" id="game-sidebar-close" popovertarget="game-sidebar" popovertargetaction="hide" hidden>Close</button>
+  <div id="top-right">
+    <div id="play-mode">
+      <label>Mode
+        <select id="play-mode-select" disabled>
+          <option>Loading saved mode…</option>
+        </select>
+      </label>
+      <div id="trial-progress" hidden></div>
+      <div id="pregen-progress" hidden></div>
+      <div id="endgame-drill-info" hidden></div>
+    </div>
+    <div id="board-generator">
+      <label>Generator
+        <select id="board-generator-select" disabled>
+          <option>Loading saved generator…</option>
+        </select>
+      </label>
+    </div>
+    <div id="music-indicator" hidden title="This machine is playing audio right now (rechecked about once a minute). Stamped onto each finished game as its music state.">music</div>
+    <div id="states">
+      <div id="states-chips"></div>
+      <button type="button" id="states-add-btn" title="Tag your play session (sleepy? new mouse?). Active states are saved onto every game you finish so you can compare measurements by self-reported context; a tag does not establish a cause.">+ state</button>
+      <div id="states-menu" hidden>
+        <div id="states-menu-head">
+          <span>session states</span>
+          <button type="button" id="states-close" title="close (Esc or a click outside also closes)">&times;</button>
+        </div>
+        <div id="states-options"></div>
+        <form id="states-add-form">
+          <input id="states-add-input" type="text" placeholder="new state">
+          <button type="submit">add</button>
+        </form>
+        <p id="states-status"></p>
+      </div>
+    </div>
+    <a id="settings-btn" href="settings.html">settings</a>
+  </div>
+  <!-- Optional review and display controls stay in the side column. -->
+  <nav id="scores-nav" aria-label="Inspect the finished game or view high scores">
+    <details id="replay-review" hidden>
+      <summary>Replay game</summary>
+      <div id="replay-controls" hidden aria-label="Game history: actions done">
+        <button type="button" id="replay-first">Start</button>
+        <button type="button" id="replay-prev" aria-label="One action back">‹</button>
+        <span id="replay-slider-wrap">
+          <span id="replay-slider-value" aria-hidden="true"></span>
+          <input type="range" id="replay-slider" min="0" max="0" step="1" value="0"
+            aria-label="Game history position (actions done)">
+          <span id="replay-slider-scale" aria-hidden="true"></span>
+        </span>
+        <button type="button" id="replay-next" aria-label="One action forward">›</button>
+        <button type="button" id="replay-last">End</button>
+        <span id="replay-status" aria-live="polite"></span>
+      </div>
+    </details>
+    <button type="button" id="review-options-button" popovertarget="review-options" hidden>Overlays &amp; display</button>
+    <div id="review-options" popover>
+      <div class="review-options-heading"><strong>Review display</strong>
+        <button type="button" popovertarget="review-options" popovertargetaction="hide">Close</button>
+      </div>
+      <div id="replay-overlay-control" hidden aria-label="Board overlays while stepping through the game">
+        <span class="path-view-heading">Board overlays</span>
+        <button type="button" data-replay-overlay="moves">available moves</button>
+        <button type="button" data-replay-overlay="mines">forced mines</button>
+        <button type="button" data-replay-overlay="probs">mine&nbsp;%</button>
+        <button type="button" data-replay-overlay="pointless">pointless clicks</button>
+        <button type="button" data-replay-overlay="purposeful">purposeful clicks</button>
+        <button type="button" data-replay-overlay="movement">rough movement</button>
+      </div>
+      <div id="path-view-control" hidden aria-label="Path overlay">
+        <span class="path-view-heading">Mouse path</span>
+        <button type="button" data-path-view="off">off</button>
+        <button type="button" data-path-view="raw-path">raw path</button>
+        <button type="button" data-path-view="click-locations">click locations</button>
+        <button type="button" data-path-view="movement-speed">movement speed</button>
+        <button type="button" data-path-view="click-speed">click speed</button>
+        <button type="button" data-path-view="progress">game progress</button>
+        <button type="button" data-path-view="less-useful">less useful</button>
+      </div>
+      <details id="review-display" hidden>
+        <summary>Analysis &amp; chart display</summary>
+        <div id="review-display-content"></div>
+      </details>
+    </div>
+    <button type="button" id="see-scores-btn">see scores</button>
+  </nav>
+  <div id="results" hidden>
+    <p id="result-summary"></p>
+    <div id="result-stats"></div>
+  </div>
+  <div id="path-view-legend" hidden></div>
+</aside>
 </div>
 </body>
 </html>

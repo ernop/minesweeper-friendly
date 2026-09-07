@@ -153,6 +153,10 @@ const gameFrame = document.getElementById('game-frame');
 const scoresNav = document.getElementById('scores-nav');
 const resultsBox = document.getElementById('results');
 const mainElement = document.querySelector('main');
+const pageLayout = document.getElementById('page-layout');
+const gameSidebar = document.getElementById('game-sidebar');
+const gameSidebarButton = document.getElementById('game-sidebar-button');
+const gameSidebarClose = document.getElementById('game-sidebar-close');
 const topRight = document.getElementById('top-right');
 const difficultyTabs = document.getElementById('difficulty-tabs');
 const customForm = document.getElementById('custom-form');
@@ -236,22 +240,10 @@ let appliedBoardOffsetX = 0;
 let appliedBoardOffsetY = 0;
 let boardLayoutFrame = null;
 
-// Layout decisions belong to the page, not to the current scroll position.
-// Ordinary elements therefore use stable document coordinates. The top-right
-// chrome is fixed on wide screens, but its no-overlap footprint is treated as
-// where it sits at scroll zero so scrolling can never make content chase it.
+// Board layout uses document coordinates so scrolling cannot move content.
 function boardPageRect(element) {
   return boardPositionLayoutRect(
     element.getBoundingClientRect(), window.scrollX, window.scrollY, false);
-}
-
-function boardChromeLayoutRect() {
-  const rect = topRight.getBoundingClientRect();
-  return boardPositionLayoutRect(
-    rect,
-    window.scrollX,
-    window.scrollY,
-    getComputedStyle(topRight).position === 'fixed');
 }
 
 function syncBoardPositionInputs() {
@@ -318,6 +310,7 @@ function placeBoardPositionPanel() {
 
 function applyBoardPosition() {
   if (settings === null) return;
+  syncGameSidebar();
   const current = boardPageRect(gameFrame);
   const base = boardPositionRect(current, -appliedBoardOffsetX, -appliedBoardOffsetY);
   const mainRect = boardPageRect(mainElement);
@@ -329,14 +322,11 @@ function applyBoardPosition() {
     left = mainRect.left;
     right = mainRect.right;
   }
-  const exclusions = [];
-  const chromeRect = boardChromeLayoutRect();
-  if (chromeRect.width > 0 && chromeRect.height > 0) exclusions.push(chromeRect);
   const placed = constrainBoardOffset(base, {
     left,
     right,
     top: tabsRect.bottom + 8,
-  }, exclusions, settings.boardOffsetX, settings.boardOffsetY);
+  }, [], settings.boardOffsetX, settings.boardOffsetY);
 
   appliedBoardOffsetX = placed.x;
   appliedBoardOffsetY = placed.y;
@@ -359,7 +349,6 @@ function applyBoardPosition() {
 
 function syncBoardLayout() {
   applyBoardPosition();
-  syncResultsPlacement();
   syncJusticePlacement();
   syncResultClearance();
   recordLayoutIfMoved();
@@ -373,164 +362,35 @@ function scheduleBoardLayout() {
   });
 }
 
-// The legend column that stands beside the board: gap from the frame, its
-// clearance from the stats panel, and the width range it may take (fluid
-// within the gutter; a legend narrower than the minimum wraps every line
-// and is no longer readable at a glance, so it goes below the board instead).
-const LEGEND_BESIDE_GAP = 14;
-const LEGEND_BESIDE_MIN_WIDTH = 230;
-const LEGEND_BESIDE_MAX_WIDTH = 340;
-const RESULTS_GUTTER_MARGIN = 16;
-
-// Pure: given the room to the right of the board frame, decide where the
-// legend and the stats go. Legend beside the board comes first (it explains
-// what is drawn on that board); the stats float at the column edge only in
-// the room that remains, and the legend narrows toward its minimum before
-// pushing the stats below the board.
-function afterGameSidePlan(rightGutter, legendShown, resultsWidth) {
-  const resultsNeed = resultsWidth + RESULTS_GUTTER_MARGIN;
-  if (!legendShown) {
-    return { legendBeside: false, legendWidth: 0, resultsFloat: rightGutter >= resultsNeed };
+// Reserve the options/stats column before results exist. A finished game's
+// content never decides how much room the board or history receives.
+function syncGameSidebar() {
+  const gap = parseFloat(getComputedStyle(pageLayout).columnGap);
+  const metricsBeside = !metricsPanel.hidden && window.innerWidth > 700;
+  const metricsWidth = metricsBeside ? metricsPanel.getBoundingClientRect().width : 0;
+  const sidebarWidth = parseFloat(getComputedStyle(pageLayout).getPropertyValue('--game-sidebar-width'));
+  const docked = window.innerWidth > 700
+    && pageLayout.clientWidth - metricsWidth - gap * 2 - sidebarWidth
+      >= gameFrame.offsetWidth + 16;
+  const compact = !docked;
+  if (pageLayout.classList.contains('compact-sidebar') !== compact) {
+    if (gameSidebar.matches(':popover-open')) gameSidebar.hidePopover();
+    pageLayout.classList.toggle('compact-sidebar', compact);
+    if (compact) gameSidebar.setAttribute('popover', 'auto');
+    else gameSidebar.removeAttribute('popover');
   }
-  const legendRoom = rightGutter - LEGEND_BESIDE_GAP - 12;
-  if (legendRoom < LEGEND_BESIDE_MIN_WIDTH) {
-    return { legendBeside: false, legendWidth: 0, resultsFloat: rightGutter >= resultsNeed };
-  }
-  const roomWithResults = legendRoom - resultsNeed;
-  if (roomWithResults >= LEGEND_BESIDE_MIN_WIDTH) {
-    return {
-      legendBeside: true,
-      legendWidth: Math.min(LEGEND_BESIDE_MAX_WIDTH, roomWithResults),
-      resultsFloat: true,
-    };
-  }
-  return {
-    legendBeside: true,
-    legendWidth: Math.min(LEGEND_BESIDE_MAX_WIDTH, legendRoom),
-    resultsFloat: false,
-  };
-}
-
-// Pure: the control rows' inline padding. The right reserve is the hard
-// rule (nothing runs under the legend column or the stats); the left side
-// mirrors it so the rows stay centered under the board, giving way first so
-// the rows keep at least NAV_MIN_CONTENT_WIDTH (the slider needs it).
-const NAV_MIN_CONTENT_WIDTH = 480;
-function navReserves(columnWidth, reserveRight) {
-  return {
-    right: reserveRight,
-    left: Math.min(reserveRight,
-      Math.max(0, columnWidth - reserveRight - NAV_MIN_CONTENT_WIDTH)),
-  };
-}
-
-// Keep the compact stats flush with the available main column's right edge
-// when that gutter is wide enough. With the metrics panel open (or on a
-// narrow viewport), put them below the board instead of covering it.
-// If the fixed top-right controls occupy the side layout's horizontal strip,
-// start the stats below them. The path/review legend stands beside the
-// board's right edge when the gutter allows and takes precedence over the
-// floating stats for that room.
-function syncResultsPlacement() {
-  const trialNoBoard = gameArea.classList.contains('trial-no-board');
-  const resultsShown = resultSummary.textContent !== '' || resultStats.textContent !== '';
-  const legendShown = !trialNoBoard && !pathViewLegend.hidden
-    && pathViewLegend.childElementCount > 0;
-  if (trialNoBoard || (!resultsShown && !legendShown)) {
-    gameArea.classList.remove('results-below-board', 'results-floating', 'legend-beside');
-    resultsBox.style.removeProperty('--results-top-clearance');
-    resultsBox.style.removeProperty('--results-below-clearance');
-    for (const name of ['--legend-left', '--legend-top', '--legend-width',
-      '--legend-top-clearance', '--nav-reserve-right', '--nav-reserve-left']) {
-      gameArea.style.removeProperty(name);
-    }
-    return;
-  }
-
-  const frameRect = gameFrame.getBoundingClientRect();
-  const mainRect = mainElement.getBoundingClientRect();
-  const areaRect = gameArea.getBoundingClientRect();
-  const resultsWidth = resultsBox.getBoundingClientRect().width;
-  const rightGutter = mainRect.right - frameRect.right;
-  // Keep the legend gutter reserved at the end position and with overlays
-  // off, so the transport never changes width when stepping through a game.
-  const plan = afterGameSidePlan(rightGutter, legendShown || pathViewAvailable(), resultsWidth);
-  const chromeRect = boardChromeLayoutRect();
-
-  const wasBeside = gameArea.classList.contains('legend-beside');
-  gameArea.classList.toggle('legend-beside', plan.legendBeside);
-  // The control rows under the board (review, slider, overlays, path) keep
-  // clear of whatever stands in the right gutter: the legend column and/or
-  // the floating stats. `reserveRight` is that column's width measured from
-  // the main column's right edge.
-  let reserveRight = 0;
-  if (plan.legendBeside) {
-    const legendLeft = frameRect.right + LEGEND_BESIDE_GAP;
-    gameArea.style.setProperty('--legend-left',
-      Math.round(legendLeft - areaRect.left) + 'px');
-    gameArea.style.setProperty('--legend-top',
-      Math.round(frameRect.top - areaRect.top) + 'px');
-    gameArea.style.setProperty('--legend-width', Math.floor(plan.legendWidth) + 'px');
-    const legendRect = boardPageRect(pathViewLegend);
-    // Measure with the existing spacing intact. Removing it before a
-    // geometry read can shorten the page and clamp the reader's scroll Y.
-    const legendBaseTop = legendRect.top - parseFloat(
-      gameArea.style.getPropertyValue('--legend-top-clearance') || '0');
-    const underChrome = legendShown && legendRect.right > chromeRect.left - 8
-      && legendRect.left < chromeRect.right + 8;
-    gameArea.style.setProperty('--legend-top-clearance',
-      (underChrome ? Math.max(0, Math.ceil(chromeRect.bottom - legendBaseTop + 8)) : 0) + 'px');
-    reserveRight = mainRect.right - legendLeft + 12;
-  }
-  // The pocket labels choose their side by what stands beside the board,
-  // so a legend column appearing or leaving re-places them (after the
-  // column has its position, which the side test measures).
-  if (wasBeside !== plan.legendBeside && replayEnabled) refreshReplayChoiceAreas();
-  if (resultsShown && plan.resultsFloat) {
-    reserveRight = Math.max(reserveRight, resultsWidth + RESULTS_GUTTER_MARGIN);
-  }
-  const reserves = navReserves(mainRect.width, reserveRight);
-  gameArea.style.setProperty('--nav-reserve-right', Math.ceil(reserves.right) + 'px');
-  gameArea.style.setProperty('--nav-reserve-left', Math.floor(reserves.left) + 'px');
-
-  if (!resultsShown) {
-    gameArea.classList.remove('results-below-board', 'results-floating');
-    resultsBox.style.removeProperty('--results-top-clearance');
-    resultsBox.style.removeProperty('--results-below-clearance');
-    return;
-  }
-  const belowBoard = !plan.resultsFloat;
-  gameArea.classList.toggle('results-below-board', belowBoard);
-  gameArea.classList.toggle('results-floating', !belowBoard);
-  if (belowBoard) {
-    // Stats below the board flow after the control rows; a legend column
-    // taller than those rows would otherwise run over them.
-    const overhang = plan.legendBeside && legendShown
-      ? boardPageRect(pathViewLegend).bottom - boardPageRect(scoresNav).bottom : 0;
-    resultsBox.style.setProperty('--results-below-clearance',
-      Math.max(0, Math.ceil(overhang)) + 'px');
-    return;
-  }
-
-  const resultRect = boardPageRect(resultsBox);
-  const resultBaseTop = resultRect.top - parseFloat(
-    resultsBox.style.getPropertyValue('--results-top-clearance') || '0');
-  const sharesRightStrip = resultRect.right > chromeRect.left - 8
-    && resultRect.left < chromeRect.right + 8;
-  resultsBox.style.setProperty('--results-top-clearance',
-    (sharesRightStrip ? Math.max(0, Math.ceil(chromeRect.bottom - resultBaseTop + 8)) : 0) + 'px');
+  gameSidebarButton.hidden = docked;
+  gameSidebarClose.hidden = docked;
+  resultsBox.hidden = resultSummary.textContent === '' && resultStats.textContent === '';
 }
 
 function syncJusticePlacement() {
   justiceLive.classList.remove('justice-left', 'justice-below');
   if (justiceLive.childElementCount === 0) return;
   const mainRect = boardPageRect(mainElement);
-  const chromeRect = boardChromeLayoutRect();
-  const resultsRect = boardPageRect(resultsBox);
-  const resultsVisible = resultSummary.textContent !== '' || resultStats.textContent !== '';
-  const collides = (rect) => rect.left < mainRect.left + 8 || rect.right > mainRect.right - 8
-    || boardPositionOverlapArea(rect, chromeRect) > 0
-    || (resultsVisible && boardPositionOverlapArea(rect, resultsRect) > 0);
+  // Keep board callouts within the main column. Sidebar contents, including
+  // an open compact popover, must not reposition them or the history below.
+  const collides = (rect) => rect.left < mainRect.left + 8 || rect.right > mainRect.right - 8;
 
   if (!collides(boardPageRect(justiceLive))) return;
   justiceLive.classList.add('justice-left');
@@ -539,27 +399,13 @@ function syncJusticePlacement() {
   justiceLive.classList.add('justice-below');
 }
 
-// The right-side stats are out of flow so they cannot move the board. If
-// they extend below it, the separate report (or rankings when no report is
-// shown) shifts down by the exact overhang.
+// Justice callouts belong to the board. The stats and replay legend have
+// their own column and contribute no height to the history below the board.
 function syncResultClearance() {
   const sections = [pregenCharts, resultAnalysis, resultRanks];
-  if (gameArea.classList.contains('trial-no-board')) {
-    for (const section of sections) section.style.removeProperty('--result-overflow');
-    return;
-  }
-  const floatingBottom = Math.max(
-    resultsBox.getBoundingClientRect().bottom,
-    justiceLive.childElementCount > 0
-      ? justiceLive.getBoundingClientRect().bottom : -Infinity,
-    gameArea.classList.contains('legend-beside') && !pathViewLegend.hidden
-      && pathViewLegend.childElementCount > 0
-      ? pathViewLegend.getBoundingClientRect().bottom : -Infinity);
-  const extra = Math.max(0,
-    Math.ceil(floatingBottom - gameArea.getBoundingClientRect().bottom));
-  // These sections sit after gameArea, so their current margin does not
-  // affect the overhang measurement. Keep it in place until the replacement
-  // is known; even a synchronous reset/read/restore can clamp page scrolling.
+  const extra = !gameArea.classList.contains('trial-no-board') && justiceLive.childElementCount > 0
+    ? Math.max(0, Math.ceil(justiceLive.getBoundingClientRect().bottom
+      - gameArea.getBoundingClientRect().bottom)) : 0;
   const target = !pregenCharts.hidden ? pregenCharts
     : resultAnalysis.childElementCount > 0 ? resultAnalysis : resultRanks;
   target.style.setProperty('--result-overflow', extra + 'px');
@@ -746,7 +592,6 @@ function renderImmediateGameEnd(outcome, endedAt) {
   resultStats.textContent = '';
   resultAnalysis.textContent = '';
   resultRanks.textContent = '';
-  document.getElementById('history-placements').replaceChildren();
 
   const statsGrid = document.createElement('div');
   statsGrid.id = 'stats-grid';
@@ -766,8 +611,7 @@ function renderImmediateGameEnd(outcome, endedAt) {
   loading.setAttribute('role', 'status');
   loading.textContent = 'loading scores and report\u2026';
   resultRanks.appendChild(loading);
-  // The results box just became visible; place it (side vs. below, top
-  // clearance) before this same task's paint, exactly as renderResult does.
+  // Show the result in its reserved column before this task paints.
   syncBoardLayout();
 }
 
@@ -867,6 +711,7 @@ function newGame() {
   pathCanvas = null;
   replayFinishedCells = null;
   replayEnabled = false;
+  replayReview.open = false;
   replayStep = 0;
   cancelReplayPrecompute();
   replaySolverCache.clear();
@@ -878,8 +723,6 @@ function newGame() {
   resultStats.textContent = '';
   resultAnalysis.textContent = '';
   resultRanks.textContent = '';
-  document.getElementById('history-placements').replaceChildren();
-  resultsBox.style.removeProperty('--results-top-clearance');
   syncResultClearance();
   if (Trial.isPlayMode(settings.playMode) && trialIsActive()) setupTrialBoard();
   else trialPresentation = null;
@@ -894,6 +737,7 @@ function newGame() {
   renderDrillChrome();
   renderPregenCharts();
   syncLabChrome();
+  syncGameSidebar();
 }
 
 //-------PREGENERATED HIGH-3BV MODE-------
@@ -1419,7 +1263,6 @@ function renderTrialChrome() {
     resultStats.textContent = '';
     resultAnalysis.textContent = '';
     resultRanks.textContent = '';
-    document.getElementById('history-placements').replaceChildren();
     return;
   }
   btn.textContent = 'start another trial';
@@ -3038,14 +2881,15 @@ let renderedResult = null;
 let resultLayoutFrame = null;
 if (typeof ResizeObserver !== 'undefined') {
   const resultLayoutObserver = new ResizeObserver(() => {
-    if (renderedResult === null || resultLayoutFrame !== null) return;
+    if (settings === null || resultLayoutFrame !== null) return;
     resultLayoutFrame = requestAnimationFrame(() => {
       resultLayoutFrame = null;
       syncBoardLayout();
     });
   });
   resultLayoutObserver.observe(mainElement);
-  resultLayoutObserver.observe(topRight);
+  resultLayoutObserver.observe(pageLayout);
+  resultLayoutObserver.observe(gameFrame);
 }
 
 function evaluationCellName(cell, width) {
@@ -3424,7 +3268,6 @@ const RESULT_PRESENTATION_PHASES = Object.freeze([
   { id: 'outcome', order: 10 },
   { id: 'facts', order: 20 },
   { id: 'analysis', order: 30, contexts: ['postGame'] },
-  { id: 'placements', order: 40 },
   { id: 'rankings', order: 50 },
   { id: 'streaks', order: 60 },
   { id: 'averages', order: 70 },
@@ -3433,7 +3276,6 @@ const RESULT_PRESENTATION_PHASES = Object.freeze([
 ]);
 
 const RESULT_CHART_SECTIONS = Object.freeze([
-  { id: 'placements', phase: 'placements', label: null },
   { id: 'rankings', phase: 'rankings', label: 'rankings' },
   { id: 'streaks', phase: 'streaks', label: 'streaks' },
   { id: 'averages', phase: 'averages', label: 'average time' },
@@ -3482,25 +3324,21 @@ function createResultSectionCollector(context) {
     },
     renderInto(parent) {
       parent.textContent = '';
-      const placements = document.getElementById('history-placements');
-      placements.replaceChildren();
       for (const spec of specs) {
         const children = nodes.get(spec.id);
         if (children.length === 0) continue;
         const section = document.createElement('section');
         section.className = 'result-chart-section result-chart-section-' + spec.id;
-        section.setAttribute('aria-label', spec.label || 'recent placements');
-        if (spec.label !== null) {
-          const heading = document.createElement('h3');
-          heading.className = 'result-chart-section-title';
-          heading.textContent = spec.label;
-          section.appendChild(heading);
-        }
+        section.setAttribute('aria-label', spec.label);
+        const heading = document.createElement('h3');
+        heading.className = 'result-chart-section-title';
+        heading.textContent = spec.label;
+        section.appendChild(heading);
         const items = document.createElement('div');
         items.className = 'result-chart-section-items';
         items.append(...children);
         section.appendChild(items);
-        (spec.id === 'placements' ? placements : parent).appendChild(section);
+        parent.appendChild(section);
       }
     },
   };
@@ -3668,7 +3506,6 @@ function renderResult(record, modeRecords, options = {}) {
     !Trial.isPlayMode(settings.playMode) || historyView);
   if (Trial.isPlayMode(settings.playMode) && !options.historyView) {
     resultRanks.textContent = '';
-    document.getElementById('history-placements').replaceChildren();
     renderTrialChrome();
   } else if (record.outcome === 'win') {
     renderRanks(record, modeRecords, options, resultSections);
@@ -5512,7 +5349,6 @@ function renderTrialReview(session) {
   resultAnalysis.appendChild(buildReportScopeControl(
     () => renderTrialReview(session)));
   resultRanks.textContent = '';
-  document.getElementById('history-placements').replaceChildren();
   appendTrialSessionSummary(resultRanks, summary);
   const pendingOverlays = [];
   const groups = Trial.groupedResults(session);
@@ -5986,6 +5822,13 @@ function renderRanks(record, modeRecords, options = {}, sections) {
     }
     return cells;
   };
+  // Recent placements (requested 2026-08-23): which top-tenth ranks on
+  // the longer charts were earned within the chosen recent window.
+  if (settings.shownThings.recentPlacements) {
+    sections.append('rankings',
+      buildRecentPlacements(record, wins, referenceMs, !historyView));
+  }
+
   // Progressive disclosure (the collapseDuplicateCharts setting, on by
   // default): two lists holding the exact same wins would render
   // identically, so only the most specific one of each such group is shown,
@@ -6036,13 +5879,6 @@ function renderRanks(record, modeRecords, options = {}, sections) {
       '3BV ' + record.bv3,
       sameBv.length, selectedIndex(sameBv), 'rank-grid',
       timeAgeRow(sameBv)));
-  }
-
-  // Recent placements (requested 2026-08-23): which top-tenth ranks on
-  // the longer charts were earned within the chosen recent window.
-  if (settings.shownThings.recentPlacements) {
-    sections.append('placements',
-      buildRecentPlacements(record, wins, referenceMs, !historyView));
   }
 
   // Board-shape time lists: this win's finished-board family only.
@@ -7030,7 +6866,7 @@ const PATH_VIEW_IDS = new Set([
   'movement-speed', 'click-speed', 'progress', 'less-useful',
 ]);
 let pathView = 'off';
-// The game-history slider is always offered once a game is finished. Its
+// The game-history slider is available in the collapsed Replay game section. Its
 // position `replayStep` counts actions done: 0 … N−1 show the board the
 // player faced before action step + 1 (review frames), N is the finished
 // board itself. `replayEnabled` is derived from that position; there is no
@@ -7066,6 +6902,7 @@ let pathTooltipEl = null;
 const pathViewControl = document.getElementById('path-view-control');
 const pathViewButtons = [...pathViewControl.querySelectorAll('[data-path-view]')];
 const pathViewLegend = document.getElementById('path-view-legend');
+const replayReview = document.getElementById('replay-review');
 const replayControls = document.getElementById('replay-controls');
 const replayPrevious = document.getElementById('replay-prev');
 const replayNext = document.getElementById('replay-next');
@@ -7102,9 +6939,8 @@ function setReplayStep(step) {
 
 function renderPathViewControls() {
   const available = pathViewAvailable();
-  // Once a game is finished, the game-history slider, its board overlays,
-  // and the path colors are all offered at once; nothing has to be turned
-  // on first.
+  // Review is available in the side column after game end. Its transport
+  // stays collapsed until opened; display options remain separately accessible.
   document.getElementById('review-display').hidden = !available;
   document.getElementById('review-options-button').hidden = !available;
   if (!available) document.getElementById('review-options').hidePopover();
@@ -7112,6 +6948,8 @@ function renderPathViewControls() {
   for (const button of pathViewButtons) {
     button.setAttribute('aria-pressed', String(button.dataset.pathView === pathView));
   }
+  replayReview.hidden = !available;
+  if (!available) replayReview.open = false;
   replayControls.hidden = !available;
   replayOverlayControl.hidden = !available;
   for (const button of replayOverlayButtons) {
@@ -7126,7 +6964,6 @@ function renderPathViewControls() {
 function renderReplaySlider() {
   const count = replayDecisionCount();
   const positions = count + 1;
-  document.getElementById('replay-final-time').textContent = (finalTimeMs / 1000).toFixed(3) + ' s';
   if (Number(replaySlider.max) !== count) {
     replaySlider.max = String(count);
     renderReplaySliderScale(positions);
@@ -7189,9 +7026,8 @@ function renderReplayChoiceAreas(evaluation) {
     && rect.right > boardRect.right
     && rect.top < boardRect.bottom
     && rect.bottom > boardRect.top;
-  // The legend column beside the board starts 14 px from the frame, so
-  // while it stands there the labels go to the left side.
-  const legendRect = gameArea.classList.contains('legend-beside')
+  // Keep pocket labels out of the sidebar when it is near the board.
+  const legendRect = !pathViewLegend.hidden
     ? pathViewLegend.getBoundingClientRect() : null;
   const rightBlocked = blocks(resultRect) || blocks(legendRect);
   const rightRoom = window.innerWidth - boardRect.right;
@@ -7521,12 +7357,7 @@ function pathTimeColor(t, endT) {
   return 'hsl(211, 85%, ' + (78 - 56 * fraction).toFixed(1) + '%)';
 }
 
-function resetPathLegend() {
-  pathViewLegend.replaceChildren();
-  pathViewLegend.hidden = true;
-}
-
-function appendPathLegendRow(title, keys, note) {
+function appendPathLegendRow(legendTarget, title, keys, note) {
   const row = document.createElement('div');
   row.className = 'path-legend-row';
   const heading = document.createElement('span');
@@ -7545,8 +7376,7 @@ function appendPathLegendRow(title, keys, note) {
     noteEl.textContent = note;
     row.appendChild(noteEl);
   }
-  pathViewLegend.appendChild(row);
-  pathViewLegend.hidden = false;
+  legendTarget.appendChild(row);
 }
 
 // A legend item's wording: the meaning is the headline; the look words and
@@ -7587,13 +7417,13 @@ function pathLegendSwatch(key) {
   return swatch;
 }
 
-function appendPathGradientLegend(title, range, format, options = {}) {
+function appendPathGradientLegend(legendTarget, title, range, format, options = {}) {
   if (range === undefined) {
-    appendPathLegendRow(title, [], 'not enough measured movement');
+    appendPathLegendRow(legendTarget, title, [], 'not enough measured movement');
     return;
   }
   if (range.max <= range.min) {
-    appendPathLegendRow(title, [{
+    appendPathLegendRow(legendTarget, title, [{
       color: options.time ? 'hsl(211, 85%, 50%)' : pathHeatColor(range.min, range),
       label: format(range.min),
     }], 'all measured segments have the same value');
@@ -7627,14 +7457,13 @@ function appendPathGradientLegend(title, range, format, options = {}) {
       + (range.trimmed === 1 ? '' : 's') + ' clipped to the shown color range';
     row.appendChild(note);
   }
-  pathViewLegend.appendChild(row);
-  pathViewLegend.hidden = false;
+  legendTarget.appendChild(row);
 }
 
-function appendReplayLegend() {
+function appendReplayLegend(legendTarget) {
   if (!replayEnabled) return;
   for (const row of replayLegendRows(replayOverlays, replayLegendSolverState)) {
-    appendPathLegendRow(row.title,
+    appendPathLegendRow(legendTarget, row.title,
       row.keys.map((key) => REPLAY_ENCODINGS[key]), row.note);
   }
 }
@@ -7684,16 +7513,16 @@ function setPathHighlightBin(bin) {
 // Binned interpretive legend for a continuous path parameter: one chip per
 // color class with its exact numeric interval. Hovering a chip spotlights
 // that class's path segments; hovering the path lights the matching chip.
-function appendPathBinLegend(title, range, format, options = {}) {
+function appendPathBinLegend(legendTarget, title, range, format, options = {}) {
   if (range === undefined) {
-    appendPathLegendRow(title, [], 'not enough measured movement');
+    appendPathLegendRow(legendTarget, title, [], 'not enough measured movement');
     return null;
   }
   const colorFor = options.time
     ? (value) => pathTimeColor(value, range.max)
     : (value) => pathHeatColor(value, range);
   if (range.max <= range.min) {
-    appendPathLegendRow(title, [{
+    appendPathLegendRow(legendTarget, title, [{
       color: colorFor(range.min),
       label: format(range.min),
     }], 'all measured segments have the same value');
@@ -7731,8 +7560,7 @@ function appendPathBinLegend(title, range, format, options = {}) {
       + (range.trimmed === 1 ? '' : 's') + ' clipped to the shown color range';
     row.appendChild(note);
   }
-  pathViewLegend.appendChild(row);
-  pathViewLegend.hidden = false;
+  legendTarget.appendChild(row);
   return { bins, chips, colorFor, format };
 }
 
@@ -7967,11 +7795,18 @@ function paintPathCanvas() {
 }
 
 function renderPathOverlay() {
-  removePathCanvas();
-  resetPathLegend();
-  // The legend column beside the board is placed by measurement once this
-  // synchronous rebuild has filled it (scheduleBoardLayout runs on rAF).
+  // Build the whole legend offscreen before replacing it. Clearing the live
+  // legend before measuring the board temporarily shrinks the sidebar and
+  // clamps its scroll position, even within one synchronous render.
+  const legendTarget = document.createDocumentFragment();
+  buildPathOverlay(legendTarget);
+  pathViewLegend.replaceChildren(legendTarget);
+  pathViewLegend.hidden = pathViewLegend.childElementCount === 0;
   scheduleBoardLayout();
+}
+
+function buildPathOverlay(legendTarget) {
+  removePathCanvas();
   pathHighlightBin = -1;
   lastPathState = null;
   hidePathTooltip();
@@ -7980,12 +7815,12 @@ function renderPathOverlay() {
   const drawView = pathView !== 'off'
     && (decisions.length > 0 || pathView === 'raw-path');
   if (pathView !== 'off' && !drawView) {
-    appendPathLegendRow('path', [], 'no recorded decision locations');
+    appendPathLegendRow(legendTarget, 'path', [], 'no recorded decision locations');
   }
   // Review mode keeps a canvas alive even with the path off: the exact
   // click-spot crosshair and the click/movement layers live there.
   if (!drawView && !replayEnabled) {
-    appendReplayLegend();
+    appendReplayLegend(legendTarget);
     return;
   }
   const rect = boardElement.getBoundingClientRect();
@@ -8027,19 +7862,19 @@ function renderPathOverlay() {
     ? pathTraceGaps(trace.t, trace.x, trace.y) : [];
   if (drawView) {
     if (pathView === 'movement-speed') {
-      legend = appendPathBinLegend('movement speed', range,
+      legend = appendPathBinLegend(legendTarget, 'movement speed', range,
         (value) => Math.round(value) + ' px/s');
     } else if (pathView === 'click-speed') {
-      legend = appendPathBinLegend('click speed', range,
+      legend = appendPathBinLegend(legendTarget, 'click speed', range,
         (value) => value.toFixed(2) + '/s');
     } else if (pathView === 'progress') {
-      legend = appendPathBinLegend('game progress', range,
+      legend = appendPathBinLegend(legendTarget, 'game progress', range,
         (value) => Math.round(value * 100) + '% uncovered');
     } else if (pathView === 'raw-path') {
-      legend = appendPathBinLegend('raw path · elapsed trace time',
+      legend = appendPathBinLegend(legendTarget, 'raw path · elapsed trace time',
         { min: 0, max: endT, trimmed: 0 },
         (value) => (value / 1000).toFixed(1) + 's', { time: true });
-      appendPathLegendRow('click markers', [
+      appendPathLegendRow(legendTarget, 'click markers', [
         { color: '#174ea6', label: 'left-button release', dot: true },
         { color: '#2e7d32', label: 'chord', dot: true },
         { color: '#c62828', label: 'right-button press', dot: true },
@@ -8047,7 +7882,7 @@ function renderPathOverlay() {
     } else if (pathView === 'click-locations') {
       const chordCount = pathClickActions(trace.events)
         .filter((click) => click.action === 'chord').length;
-      appendPathLegendRow('numbered click locations', [
+      appendPathLegendRow(legendTarget, 'numbered click locations', [
         { color: '#174ea6', label: 'left-button release', dot: true },
         { color: '#2e7d32', label: 'chord — left release on a satisfied number', dot: true },
         { color: '#c62828', label: 'right-button press', dot: true },
@@ -8055,7 +7890,7 @@ function renderPathOverlay() {
         + (chordCount === 1 ? '' : 's') + ' detected');
     } else if (pathView === 'less-useful') {
       const count = decisions.filter(pathDecisionIsLessUseful).length;
-      appendPathLegendRow('less-useful episodes', [
+      appendPathLegendRow(legendTarget, 'less-useful episodes', [
         { color: '#174ea6', label: 'last useful click', dot: true },
         { color: '#d95f02', label: 'mistake-tagged action / path' },
         { color: '#2e7d32', label: 'next useful action / path' },
@@ -8063,16 +7898,16 @@ function renderPathOverlay() {
         + ' · time labels measure each action-to-action segment');
     }
     if (gaps.some((gap) => gap.kind === 'away')) {
-      appendPathLegendRow('data gaps', [
+      appendPathLegendRow(legendTarget, 'data gaps', [
         { color: '#78909c', label: 'dashed = no cursor samples · “away” label = how long the cursor was gone' },
       ]);
     }
     if (legend !== null) {
-      appendPathLegendRow('hover', [],
+      appendPathLegendRow(legendTarget, 'hover', [],
         'mouse over a legend range to spotlight its segments; mouse over the path to read the exact value');
     }
   }
-  appendReplayLegend();
+  appendReplayLegend(legendTarget);
   const mapper = pathPointMapper(rect.width, rect.height);
   const points = trace.t.map((t, i) => mapper(t, trace.x[i], trace.y[i]));
   const lessRoles = pathLessUsefulRoles(decisions);
@@ -8192,6 +8027,12 @@ for (const button of pathViewButtons) {
   });
 }
 
+replayReview.addEventListener('toggle', () => {
+  // Closing review returns to the completed board, so a hidden transport
+  // cannot leave the game showing an unexplained earlier frame.
+  if (!replayReview.open && replayEnabled) setReplayStep(replayDecisionCount());
+});
+
 document.getElementById('replay-first').addEventListener('click', () => setReplayStep(0));
 document.getElementById('replay-last').addEventListener('click', () => setReplayStep(replayDecisionCount()));
 
@@ -8218,9 +8059,10 @@ for (const button of replayOverlayButtons) {
 
 document.addEventListener('keydown', (event) => {
   if (!pathViewAvailable() || replayDecisionCount() === 0) return;
+  if (!replayReview.open || !replayControls.checkVisibility()) return;
   if (event.target instanceof HTMLElement
       && event.target.matches(
-        'input, select, textarea, button, [contenteditable], [tabindex]')) return;
+        'input, select, textarea, button, summary, [contenteditable], [tabindex]')) return;
   if (event.key === 'ArrowLeft') {
     event.preventDefault();
     setReplayStep(replayStep - 1);
@@ -13651,7 +13493,6 @@ document.addEventListener('scroll', () => {
 window.addEventListener('resize', () => {
   applyBoardPosition();
   if (tracing()) recordLayout();
-  syncResultsPlacement();
   syncJusticePlacement();
   syncResultClearance();
 });
@@ -13718,7 +13559,6 @@ function showScoresForCurrentMode() {
     resultStats.textContent = '';
     resultAnalysis.textContent = '';
     resultRanks.textContent = '';
-    document.getElementById('history-placements').replaceChildren();
     syncBoardLayout();
     return;
   }
@@ -13851,7 +13691,6 @@ document.getElementById('zoom-select').addEventListener('change', (event) => {
   document.documentElement.style.setProperty('--cell-size', event.target.value + 'px');
   applyBoardPosition();
   if (tracing()) recordLayout();
-  syncResultsPlacement();
   syncJusticePlacement();
   syncResultClearance();
 });

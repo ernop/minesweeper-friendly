@@ -29,6 +29,36 @@ Then open exactly **http://127.0.0.1:8018/**. This is the canonical local
 play origin: IndexedDB scores are origin-scoped, so `localhost:8018` or any
 other host/port has separate history and must not be substituted.
 
+### Persistent local server (Linux)
+
+On PC, `minesweeper-friendly.service` owns the server at the exact address
+above. It starts at boot, keeps running after logout, and restarts two seconds
+after the server exits. User lingering is already enabled on this machine.
+
+The [user unit](systemd/minesweeper-friendly.service) expects the checkout at
+`~/proj/minesweeper-friendly` and Python at `/usr/bin/python3`. Install it with:
+
+```bash
+mkdir -p ~/.config/systemd/user
+install -m 644 systemd/minesweeper-friendly.service ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now minesweeper-friendly.service
+```
+
+On another machine, `loginctl enable-linger "$USER"` enables boot startup
+and operation after logout. Manage the installed server through systemd;
+do not start a second manual server on port 8018:
+
+```bash
+systemctl --user status minesweeper-friendly.service
+systemctl --user restart minesweeper-friendly.service
+journalctl --user -u minesweeper-friendly.service -n 30
+```
+
+An intentional `systemctl --user stop minesweeper-friendly.service` stays
+stopped until started again or the next boot. To remove boot startup too,
+use `systemctl --user disable --now minesweeper-friendly.service`.
+
 ## Controls
 
 - Left click: reveal a cell (first click is never a mine)

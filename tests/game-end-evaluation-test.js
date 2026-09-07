@@ -117,10 +117,27 @@ assertEq('immediate shell places itself with the shared layout sync',
 assertEq('deferred record retains the actual game-end timestamp',
   source.includes('function reportResult(outcome, endedAt = Date.now())')
     && source.includes('endedAt: endedAt,'), true);
-assertEq('hiding or unloading the page flushes the pending record',
-  source.includes("if (document.visibilityState === 'hidden') flushPendingResult();")
-    && source.includes("window.addEventListener('pagehide', flushPendingResult);"),
-  true);
+{
+  // Exercise the registered handlers, independent of formatting or other
+  // lifecycle work that shares the visibility callback.
+  const handlers = {};
+  let flushed = 0;
+  const document = { visibilityState: 'hidden',
+    addEventListener: (name, handler) => { handlers[name] = handler; } };
+  const window = { addEventListener: (name, handler) => { handlers[name] = handler; } };
+  const start = source.indexOf("document.addEventListener('visibilitychange'");
+  const end = source.indexOf("window.addEventListener('pagehide', flushPendingResult);", start)
+    + "window.addEventListener('pagehide', flushPendingResult);".length;
+  vm.runInNewContext(source.slice(start, end), { document, window, settings: null,
+    flushPendingResult: () => { flushed++; }, cancelMetricsUpdate: () => {} });
+  handlers.visibilitychange();
+  assertEq('hiding the page flushes the pending record', flushed, 1);
+  document.visibilityState = 'visible';
+  handlers.visibilitychange();
+  assertEq('showing the page does not finalize a game', flushed, 1);
+  handlers.pagehide();
+  assertEq('unloading the page flushes the pending record', flushed, 2);
+}
 
 // Modern action evidence keeps independent facts together instead of
 // collapsing them into one exclusive verdict.

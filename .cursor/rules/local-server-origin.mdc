@@ -9,6 +9,10 @@ alwaysApply: true
   `http://127.0.0.1:8018/`.
 - Serve it from the repository root with
   `python3 -m http.server 8018 --bind 127.0.0.1`.
+- On PC, `minesweeper-friendly.service` is the enabled systemd user service
+  that owns this process. Use `systemctl --user start/restart/status
+  minesweeper-friendly.service` as appropriate instead of launching a
+  second server. Source and setup are in `README.md` and `systemd/`.
 - Before starting or restarting it, check whether that server is already
   running and reuse it when possible.
 - Never substitute `localhost`, another hostname, or another port. IndexedDB
