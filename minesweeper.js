@@ -3268,16 +3268,14 @@ const RESULT_PRESENTATION_PHASES = Object.freeze([
   { id: 'outcome', order: 10 },
   { id: 'facts', order: 20 },
   { id: 'analysis', order: 30, contexts: ['postGame'] },
-  { id: 'rankings', order: 50 },
-  { id: 'streaks', order: 60 },
+  { id: 'tables', order: 50 },
   { id: 'averages', order: 70 },
   { id: 'relationships', order: 80 },
   { id: 'diagnostics', order: 90, contexts: ['postGame'] },
 ]);
 
 const RESULT_CHART_SECTIONS = Object.freeze([
-  { id: 'rankings', phase: 'rankings', label: 'rankings' },
-  { id: 'streaks', phase: 'streaks', label: 'streaks' },
+  { id: 'tables', phase: 'tables', label: 'Game tables', heading: false },
   { id: 'averages', phase: 'averages', label: 'average time' },
   { id: 'relationships', phase: 'relationships', label: 'relationships' },
   {
@@ -3330,10 +3328,12 @@ function createResultSectionCollector(context) {
         const section = document.createElement('section');
         section.className = 'result-chart-section result-chart-section-' + spec.id;
         section.setAttribute('aria-label', spec.label);
-        const heading = document.createElement('h3');
-        heading.className = 'result-chart-section-title';
-        heading.textContent = spec.label;
-        section.appendChild(heading);
+        if (spec.heading !== false) {
+          const heading = document.createElement('h3');
+          heading.className = 'result-chart-section-title';
+          heading.textContent = spec.label;
+          section.appendChild(heading);
+        }
         const items = document.createElement('div');
         items.className = 'result-chart-section-items';
         items.append(...children);
@@ -5825,7 +5825,7 @@ function renderRanks(record, modeRecords, options = {}, sections) {
   // Recent placements (requested 2026-08-23): which top-tenth ranks on
   // the longer charts were earned within the chosen recent window.
   if (settings.shownThings.recentPlacements) {
-    sections.append('rankings',
+    sections.append('tables',
       buildRecentPlacements(record, wins, referenceMs, !historyView));
   }
 
@@ -5863,7 +5863,7 @@ function renderRanks(record, modeRecords, options = {}, sections) {
     for (const c of candidates) {
       if (!kept.has(c)) continue;
       const { column, inWindow } = c;
-      sections.append('rankings', buildRankList(
+      sections.append('tables', buildRankList(
         column.label,
         inWindow.length, selectedIndex(inWindow), 'rank-grid',
         timeAgeRow(inWindow)));
@@ -5875,7 +5875,7 @@ function renderRanks(record, modeRecords, options = {}, sections) {
   if (settings.shownThings.exact3BV) {
     const sameBv = wins.filter((s) => s.bv3 === record.bv3)
       .sort(compareRankedWins);
-    sections.append('rankings', buildRankList(
+    sections.append('tables', buildRankList(
       '3BV ' + record.bv3,
       sameBv.length, selectedIndex(sameBv), 'rank-grid',
       timeAgeRow(sameBv)));
@@ -5901,7 +5901,7 @@ function renderRanks(record, modeRecords, options = {}, sections) {
     for (const c of shapeCandidates) {
       if (!shapeKept.has(c)) continue;
       const inWindow = c.rows.slice().sort(compareRankedWins);
-      sections.append('rankings', buildRankList(
+      sections.append('tables', buildRankList(
         c.label,
         inWindow.length, selectedIndex(inWindow), 'rank-grid',
         timeAgeRow(inWindow)));
@@ -5954,7 +5954,7 @@ function renderRanks(record, modeRecords, options = {}, sections) {
       });
     segments.sort((a, b) => b.len - a.len || b.end - a.end);
     const myIndex = historyView ? -1 : segments.findIndex((seg) => seg.current);
-    sections.append('streaks', buildRankList(
+    sections.append('tables', buildRankList(
       label,
       segments.length, myIndex, 'rank-grid',
       (i) => {

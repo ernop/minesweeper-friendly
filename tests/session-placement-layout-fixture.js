@@ -11,6 +11,11 @@
   settings.showMotionStatsDuringGame = false;
   settings.boardOffsetX = settings.boardOffsetY = 0;
   settings.playMode = 'standard';
+  // Exercise all streak variants, including near-near-streak which is
+  // available but hidden in the default display settings.
+  settings.shownThings.streak = true;
+  settings.shownThings.nearStreak = true;
+  settings.shownThings.nearNearStreak = true;
   sessionEvents = [];
   sessionPlayFrom = null;
   refreshMetricsPanel();
@@ -58,15 +63,21 @@
       const label = width + 'px ' + size;
       check(label + ': finishing leaves the board in place', sameBoard(before));
       const sections = [...resultRanks.children].map(node => node.className);
-      const rankingItems = resultRanks.querySelector('.result-chart-section-rankings .result-chart-section-items');
-      check(label + ': daily summary is the first table inside rankings',
-        sections[0].includes('result-chart-section-rankings')
-          && rankingItems.firstElementChild.classList.contains('recent-placements')
+      const tableItems = resultRanks.querySelector('.result-chart-section-tables .result-chart-section-items');
+      check(label + ': daily summary leads the continuous table collection',
+        sections[0].includes('result-chart-section-tables')
+          && tableItems.firstElementChild.classList.contains('recent-placements')
           && !resultRanks.querySelector('.result-chart-section-placements')
           && !document.getElementById('history-placements'));
+      const tableLabels = [...tableItems.querySelectorAll('h4')].map(el => el.textContent);
+      check(label + ': all streak tables share the upper collection',
+        ['streak', 'near-streak', 'near-near-streak'].every(name => tableLabels.includes(name))
+          && !resultRanks.querySelector('.result-chart-section-streaks'));
+      check(label + ': table collection has no section heading',
+        !tableItems.parentElement.querySelector('.result-chart-section-title'));
       if (width === 1680) check(label + ': the summary and rank tables share the first row',
-        Math.abs(rect(rankingItems.children[0]).top - rect(rankingItems.children[1]).top) < 1);
-      check(label + ': rankings begin directly below the board',
+        Math.abs(rect(tableItems.children[0]).top - rect(tableItems.children[1]).top) < 1);
+      check(label + ': tables begin directly below the board',
         rect(resultRanks).top - rect(gameFrame).bottom < 32);
       check(label + ': replay is collapsed and all inspection controls are in the sidebar',
         !replayReview.open && !replayControls.checkVisibility()
@@ -111,7 +122,7 @@
       }
       replayReview.querySelector('summary').click();
       await wait();
-      check(label + ': opening replay leaves the board and rankings in place',
+      check(label + ': opening replay leaves the board and tables in place',
         replayReview.open && replayControls.checkVisibility() && sameBoard(before)
           && Math.abs(rect(resultRanks).top - historyTop) < 1
           && gameSidebar.scrollWidth <= gameSidebar.clientWidth);
@@ -129,7 +140,7 @@
   }
   renderResult({ ...record, outcome: 'loss', endedAt: record.endedAt + 1000 }, records);
   check('loss keeps prior win placements in the same chart collection',
-    !!resultRanks.querySelector('.result-chart-section-rankings .recent-placements .rank-row'));
+    !!resultRanks.querySelector('.result-chart-section-tables .recent-placements .rank-row'));
 
   // Exercise actual replay renders: rebuilding a visible, scrolled legend
   // must not temporarily empty the sidebar and reset the reader's position.

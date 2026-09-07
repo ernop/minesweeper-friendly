@@ -308,8 +308,9 @@ Implementation notes:
   `renderPathOverlay` builds its legend into a detached fragment and replaces
   the live contents once, preventing transient collapse and scroll resets.
   `createResultSectionCollector` appends every section to `#result-ranks` in
-  model order. Daily placements are the first table inside the Rankings
-  section, sharing its left-aligned wrapping rows with the other rank tables.
+  model order. The `tables` section has `heading: false`: daily placements,
+  other rank tables, and all streak variants share one left-aligned wrapping
+  collection with no section heading. Individual table labels remain.
 - Offline analysis lives under `analysis/` (inputs: the exported trace
   JSON). `analysis/mousetrap/trace_measures.R` computes psychometric
   mouse-tracking measures per inter-click segment; it runs on the R env
@@ -747,9 +748,10 @@ Implementation notes:
   section order for post-game and score contexts. `createResultSectionCollector`
   collects computed nodes and emits only nonempty sections in that order;
   each `.result-chart-section-items` wraps internally. The invariant is
-  rankings (placements first within that section) → streaks → average-time scatters → relationship
-  scatters: every pagetable/row-based data display, including day-category
-  rankings and all streak variants, precedes every individual-point chart.
+  tables (placements, other rank tables, all streak variants in one list)
+  → average-time scatters → relationship scatters: every row-based display,
+  including day-category rankings and all streak variants, precedes every
+  individual-point chart.
   `tests/result-presentation-test.js` checks this in both result contexts.
 - Rank list machinery: `rankWindows` (time windows with independent
   `displayOrder`, `dedupePriority`, and `summaryTiePriority`),
@@ -782,7 +784,7 @@ Implementation notes:
   game's same-3BV chart, and `boardShapeCandidates(record, wins)` (the
   extracted shape-chart definitions the board-shape tablecharts also
   render from; the summary ignores the largestIsland display gate) —
-  and emits the first table within Rankings, gated by
+  and emits the first item in the upper table collection, gated by
   shownThings.recentPlacements; nearMiss rows render the
   rank muted (`.recent-near-cell`). `dedupeRankCandidates` is shared
   with the full time/day and board-shape tablecharts, so the summary
@@ -1323,7 +1325,8 @@ Session/placement layout regression (2026-09-07):
 `tests/session-placement-layout-test.html` runs RAM-only fixtures on the test
 origin. It checks session chart stability, all three board sizes at 1680/1216/
 650px widths, board stability at game end, daily placements within the first
-Rankings row, rankings directly beneath the board, collapsed sidebar replay,
+table row, all streak variants in that same collection without section
+headings, tables directly beneath the board, collapsed sidebar replay,
 tall stats/legend isolation, and compact details opening/closing. It also
 checks replay scroll retention, closing back to the finished board, resetting
 on a new game, and arrow keys leaving a collapsed replay alone.

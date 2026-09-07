@@ -13,9 +13,11 @@ alwaysApply: true
 - Point charts include grouped average-time scatterplots and raw relationship
   scatterplots.
 - Preserve this sequence in both DOM and visual order:
-  rankings (recent placements first, then the other rank tables) → streaks
-  → average-time charts → relationship charts.
-- The recent time-period summary is a table inside Rankings, sharing its
-  wrapping rows; never extract it into a separate section above Rankings.
+  one table collection (recent placements, other rank tables, then all streak
+  variants) → average-time charts → relationship charts.
+- The upper tables share one continuous wrapping list without Rankings or
+  Streaks section headings. Retain individual table labels such as lifetime
+  and near-streak, which identify their data.
+- Never extract the time-period summary or streaks into a separate section.
 - Responsive wrapping must stay within each semantic section and must not
   interleave a pagetable with point charts.

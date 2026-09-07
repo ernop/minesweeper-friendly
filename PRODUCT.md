@@ -653,11 +653,13 @@ report.
   collapsed. Its slider, status, display options, and score controls occupy
   no space below the board. Replay arrow shortcuts apply only while its
   transport is open and visible.
-- Rankings begin directly below the board when no action report is shown.
-  The time-period summary ("ranks won", today by default) is the first table
-  inside Rankings, sharing left-aligned wrapping rows with time/category,
-  same-3BV, and board-shape tables. There is no separate summary section.
-  Streaks, averages, relationships, and motion diagnostics follow.
+- The tables begin directly below the board when no action report is shown.
+  The time-period summary ("ranks won", today by default), time/category,
+  same-3BV, board-shape, streak, near-streak, and near-near-streak tables share
+  one continuous, left-aligned wrapping list. There are no Rankings or
+  Streaks section headings or forced row breaks between them. Individual
+  table labels remain to identify their data. Averages, relationships, and
+  motion diagnostics follow.
 - The scrollbar gutter is reserved so page growth cannot move the board.
   Stats and legend height affect only their own scroll column. Only board
   Justice callouts reserve any overhang before the following content.
@@ -791,15 +793,14 @@ append timing or from how many cards fit on a row:
 1. **Outcome** — win/loss or High scores, board, mode, generator, date.
 2. **Facts** — the selected game's compact label/value stats.
 3. **Analysis** — post-game action interpretation only.
-4. **Rankings** — the recent "ranks won" time-period summary first, then
-   time/category, same-3BV, and board-shape tablecharts. All share one
-   left-aligned wrapping collection under the Rankings heading. The summary
-   has no separate section or scroll container. Losses retain existing win
-   history without marking the loss as a ranked win.
-5. **Streaks** — consecutive and loss-tolerant win runs.
-6. **Averages** — average solve-time scatterplots.
-7. **Relationships** — raw-win scatterplots.
-8. **Diagnostics** — post-game motion systems.
+4. **Tables** — the recent "ranks won" time-period summary first, then
+   time/category, same-3BV, board-shape, and all consecutive/loss-tolerant
+   streak tablecharts. They share one left-aligned wrapping collection with
+   no section heading. Each table retains its own identifying label. Losses
+   retain existing win history without marking the loss as a ranked win.
+5. **Averages** — average solve-time scatterplots.
+6. **Relationships** — raw-win scatterplots.
+7. **Diagnostics** — post-game motion systems.
 
 All pagetables and row-based data displays must precede every chart that
 plots individual points. This includes time/category tables such as "on
@@ -809,10 +810,10 @@ raw relationship scatters. Keeping the denser lookup-oriented tables together
 before visual correlation charts gives the page a stable transition from exact
 records to graphical analysis.
 
-Each chart family owns a full-width semantic section and wraps internally.
-Responsive wrapping may change the number of cards on a row, but cannot mix
-the tail of one family into the next family. DOM order and visual order are
-the same.
+The upper table collection owns one full-width region and wraps internally;
+rank and streak tables can share a row. Point-chart families follow in their
+own sections. Responsive wrapping cannot mix tables with point charts. DOM
+order and visual order are the same.
 
 The score viewer deliberately omits post-game action analysis and motion
 diagnostics. Its reference record is explicitly the latest win: its compact

@@ -2201,8 +2201,8 @@ body.settings-page .return-to-game {
   gap: 18px;
 }
 
-.result-chart-section-rankings > .result-chart-section-title { width: 100%; }
-.result-chart-section-rankings > .result-chart-section-items { justify-content: flex-start; }
+/* Rank and streak tables share one continuous collection without a heading. */
+.result-chart-section-tables > .result-chart-section-items { justify-content: flex-start; }
 
 .motion-metric-group {
   flex-basis: 100%;
