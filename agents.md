@@ -58,6 +58,7 @@ forced mine.
 Runtime: `index.html` + `style.css` + pure `rng.js` / `justice.js` /
 `board-shape.js` / `solver.js` / `generators.js` / `odds.js` /
 `trial.js` + shared `storage.js` / `settings-core.js` + `preferences-game.js` +
+`board-metrics.js` / `board-metrics-ui.js` / `board-metrics-worker.js` +
 `minesweeper.js`, no dependencies, no build step. The settings page is `settings.html` + `settings-page.js`,
 loading the same `style.css`, `storage.js`, and `settings-core.js` (both
 pages must load storage.js and settings-core.js before their own script).
@@ -314,8 +315,10 @@ Implementation notes:
   the live contents once, preventing transient collapse and scroll resets.
   `createResultSectionCollector` appends every section to `#result-ranks` in
   model order. The `tables` section has `heading: false`: daily placements,
-  other rank tables, and all streak variants share one left-aligned wrapping
-  collection with no section heading. Individual table labels remain.
+  time/category tables, and all streak variants share one left-aligned
+  wrapping collection. `boardTables` follows, labeled "This board", with
+  exact 3BV/ZiNi/maximum-clue and board-shape time tables. Both precede
+  point-chart sections and retain individual table labels.
 - Offline analysis lives under `analysis/` (inputs: the exported trace
   JSON). `analysis/mousetrap/trace_measures.R` computes psychometric
   mouse-tracking measures per inter-click segment; it runs on the R env
@@ -753,8 +756,8 @@ Implementation notes:
   section order for post-game and score contexts. `createResultSectionCollector`
   collects computed nodes and emits only nonempty sections in that order;
   each `.result-chart-section-items` wraps internally. The invariant is
-  tables (placements, other rank tables, all streak variants in one list)
-  → average-time scatters → relationship scatters: every row-based display,
+  tables (placements, time/category tables, all streak variants in one list)
+  → boardTables ("This board") → average-time scatters → relationship scatters: every row-based display,
   including day-category rankings and all streak variants, precedes every
   individual-point chart.
   `tests/result-presentation-test.js` checks this in both result contexts.
@@ -772,6 +775,12 @@ Implementation notes:
   `board-shape.js` (`BoardShape.of`) at `reportResult`.
   `node tests/board-shape-test.js` freezes the neighborhood and island
   rules.
+  `EXACT_BOARD_TABLES` / `exactBoardCandidates` define the independent
+  same-3BV, same-greedy-ZiNi, and exact-maximum-clue time comparisons.
+  They share category discovery between full tables and the summary, skip
+  unmeasured values, retain all full-table standings, and keep their names
+  outside the shape/time duplicate groups. `exact3BV`, `exactZiNi`, and
+  `exactMaxNumber` are independent shownThings switches, default on.
 - Recent placements (PRODUCT.md "Recent placements"): the pure span
   between the "RECENT PLACEMENTS: COMPUTATION" and ": DISPLAY" markers —
   `compareRankedWins`, `ordinal`, `formatRankRuns` (run compression),
@@ -786,8 +795,9 @@ Implementation notes:
   re-renders `renderedResult`; `buildRecentPlacements(record, wins,
   referenceMs, markReferenceRecord)` uses `recentPlacementCandidates` —
   `rankColumns` retains the reference date's day categories; window columns
-  carry startMs. Every recent win contributes its exact 3BV and board-shape
-  families through `rankValueGroups` and `boardShapeCandidates(recentWins, wins)`.
+  carry startMs. Every recent win contributes its exact 3BV, ZiNi,
+  maximum-clue, and board-shape families through `exactBoardCandidates`
+  and `boardShapeCandidates(recentWins, wins)`.
   Each category still ranks against the full supplied mode history. Grouping
   scans once per exact-value field; shape IDs contain their value. The summary
   ignores the largestIsland display gate. This period-wide board-category
@@ -819,6 +829,52 @@ Implementation notes:
   fixtures. It checks podium colors, percentage bands, compact-summary marking,
   low/last/only-result states, history without a selection, and 1680/1216/650px
   table layout. The pure boundaries and rounding live in recent-placements-test.
+  It also exercises real `renderRanks` with a poor overall result at the
+  median of its exact ZiNi/maximum-clue cohorts.
+- Rigorous board-metric research: `reference/board-metric-definitions.md`
+  defines 3BV, exact minimum chord clicks versus ZiNi heuristics, work spread
+  and work-tree length, and a start-conditioned clue-width closure plus its
+  board-only distribution over safe starts. The separate reference calculator
+  is not loaded by the game. `tests/board-metric-definitions-test.js` checks
+  hand-calculated examples, symmetry, bounds, monotone deduction coverage,
+  all 63 non-full 3x2 layouts, and explicit exact-search size limits.
+  Current production: `board-metrics.js` calculates 3BV spread, 0–1 share,
+  and zero-opening coverage, and uses `zini.js` for Human ZiNi. The existing
+  `hzini` field remains its sole primary value. `boardMetrics` stores versioned
+  `workSpread`, `safeCells`, `zeroOneCells`, and `zeroOpenedCells`; fraction
+  values are derived. Four cards in This board expose definitions through
+  their labels using `chartHelpButton(help, label)`. HZiNi efficiency is
+  win-only performance in Game stats (`hziniEfficiencyOf`), not a board card.
+  HZiNi and unrounded fractions have exact-value time tables; 3BV spread
+  groups into [j/2,(j+1)/2) after nine-decimal boundary rounding. All families
+  share full-table and recent-summary definitions in `EXACT_BOARD_TABLES`.
+  Retired research fields remain stored but are not used by the display.
+  `board-metrics-worker.js` performs calculations; `board-metrics-ui.js`
+  serializes captured-record jobs and optional saved-win backfill from final
+  traces. `hasBoardMeasurements` requires all four measurements, so older
+  HZiNi/spread-only records also qualify. `boardMetricBackfillProgress` derives
+  checked/total, measured, unavailable, failed, active, and remaining counts
+  from history plus session-local jobs. Stop finishes the current board;
+  Resume skips completed records even after reload. Each result is persisted
+  separately and immediately eligible for ranks. Missing traces stay
+  unmeasured; actual read/calculation errors display their messages.
+  `tests/board-metrics-test.js` independently executes the documented HZiNi
+  action rules on 511 small and 300 standard-size layouts. The exact
+  opening-first minimum C₀* has a <=16-cell reference calculator, not a
+  production scalar; HZiNi is explicitly not its global optimum.
+  `reference/board-metric-searches.js` retains the C*/RCW research separately,
+  verified by `tests/board-metric-searches-test.js`. No game script loads it.
+  `tests/board-metrics-browser-check.js` covers real game completion, worker
+  replies across mode switches, storage/reload, incremental backfill progress,
+  partial-table use, pause/reload/resume, exact cohorts, tooltips and layout.
+  Research backing the two new fractions and the declined additional proposals: `reference/board-structure-research.md`
+  defines 0–1 share and zero-opening coverage over safe cells, largest-opening
+  share, remaining safe-work clusters, complete one-/two-equation deduction
+  closure, synchronous rounds and mean coverage over all safe starts.
+  `reference/board-structure-metrics.js` implements these exact research
+  calculators; `tests/board-structure-metrics-test.js` compares pair inference
+  against 8,704 exhaustive equation cases, structure on 511 boards, and
+  complete closure/rounds against an independent tiny-board Boolean solver.
 - Average-time charts: `AVERAGE_SCATTER_SPECS`,
   `averageEligibleWins`, `averagePoints`, and `buildAverageScatter`.
   Board-shape specs exclude legacy records lacking their field; IOS excludes

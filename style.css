@@ -2204,8 +2204,39 @@ body.settings-page .return-to-game {
   gap: 18px;
 }
 
-/* Rank and streak tables share one continuous collection without a heading. */
-.result-chart-section-tables > .result-chart-section-items { justify-content: flex-start; }
+/* Period/streak tables and the separate board comparisons align to the left. */
+.result-chart-section-tables > .result-chart-section-items,
+.result-chart-section-boardTables > .result-chart-section-items { justify-content: flex-start; }
+
+.result-chart-section-boardTables > .result-chart-section-title {
+  width: 100%;
+  margin-left: 0;
+  margin-right: 0;
+}
+
+.board-metric-facts {
+  flex-basis: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 28px;
+  text-align: left;
+}
+.board-metric-fact { min-width: 160px; max-width: 360px; min-height: 76px; }
+.board-metric-fact h4 { margin: 0 0 5px; font-size: 13px; }
+.board-metric-value { font-size: 15px; font-weight: bold; color: #314b5c; }
+.board-metric-detail { margin-top: 4px; font-size: 12px; color: #526878; }
+.board-metric-backfill { align-self: flex-start; font-size: 12px; }
+.board-metric-backfill-panel {
+  flex-basis: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  font-size: 12px;
+  color: #526878;
+}
+.board-metric-backfill-panel progress { width: 120px; height: 12px; }
+.board-metric-backfill-error { flex-basis: 100%; color: #a52121; }
 
 .motion-metric-group {
   flex-basis: 100%;
@@ -3064,6 +3095,21 @@ body.settings-page .return-to-game {
   font: bold 10px/13px Arial, sans-serif;
   cursor: help;
   vertical-align: 2px;
+}
+.chart-help-label-wrap { margin-left: 0; }
+.chart-help.chart-help-label {
+  width: auto;
+  height: auto;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: inherit;
+  text-decoration: underline dotted #84939f;
+  text-underline-offset: 3px;
+  vertical-align: baseline;
 }
 /* The tip is one shared body-level element, fixed-positioned beside
    whichever (?) is active and clamped to the viewport (an inline tip

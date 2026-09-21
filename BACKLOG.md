@@ -36,6 +36,47 @@ the category-scope revision.
 The lists themselves are in the product (PRODUCT.md "Rank lists").
 Generation that aims at the same families is still unbuilt; see below.
 
+## Board difficulty and expected performance (creator review, 2026-09-21)
+
+Exact-ZiNi, HZiNi, and exact-maximum-clue time tablecharts are built, alongside 3BV,
+with all standings visible and qualifying period-wide summary entries.
+The [board difficulty review](reference/board-difficulty-review.md) separates
+board rarity, conditional solve performance, workload, logic, and chance,
+with primary online sources and explicitly proposed measurements.
+
+**Built after this review:** HZiNi and 3BV spread cards/time tables, HZiNi
+win efficiency in Game stats, and the two requested exact fractions:
+0–1 share = safe cells showing zero or one / all safe cells; zero-opening
+coverage = the union of all zero floods including numbered borders counted
+once / all safe cells. Each fraction has a card, exact-fraction time table,
+and qualifying period-wide summaries. These are board fractions, distinct
+from rank percentiles. All four cards have definitions on mouseover/focus.
+Saved-win backfill handles partial old measurements and shows progress,
+Stop/Resume, unavailable/error counts, and immediately usable saved results
+that survive reload. See PRODUCT.md for the implemented behavior.
+
+**Declined for the current UI:** the creator asked to skip the other proposals,
+including largest-opening share, remaining work clusters, deduction coverage/
+depth, all-start logical profiles, and work-tree length. Their definitions and
+tested calculators remain research, not queued implementation:
+[structural-fraction review](reference/board-structure-research.md) and
+[rigorous metric definitions](reference/board-metric-definitions.md).
+Retired C*/RCW searches are outside the game's runtime.
+
+A multifeature expected-time model also remains research. It needs held-out
+validation, adequate sample sizes, a declared reference period, and separate
+treatment of wins/losses. Actual time, clicks, mistakes, and pauses must not
+be inputs to an allegedly board-only difficulty adjustment.
+
+**Still unbuilt:** a scalable exact production calculation of the creator's
+opening-first global minimum C₀*(B) = opening count + minimum remaining actions
+after all zero floods. Its exact <=16-cell reference calculator and complete
+definition exist. Opening zeros first does not remove the general optimization
+problem on zero-free boards. HZiNi is a separate fixed greedy benchmark, not
+a proved C₀*. No range or heuristic may be labeled the global minimum.
+An optimal whole-game survival policy also remains research. No additional
+metric implementation is approved by the retained research proposals.
+
 ## Generation (not built)
 
 The board-generator registry exists (2026-08-25, PRODUCT.md "Board
@@ -145,9 +186,6 @@ Generation that aims at the same families the new lists rank:
 - **IOE as 3BV / total clicks** (effective + wasted). Efficiency /
   throughput already use effective clicks only. The clone's IOE is the
   missing total-click cousin.
-- **ZiNi / HZiNi, STNB.** Board-fact click lower bounds and the
-  minesweeper.online QG-normalized standing; not requested for this
-  pass.
 - **Which-song detail on the music state: decided against (2026-08-22).**
   The boolean `musicPlaying` is built (PRODUCT.md "Music playing").
   PipeWire also exposes each stream's `media.name` (Firefox: the playing

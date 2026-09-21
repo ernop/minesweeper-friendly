@@ -70,6 +70,13 @@
           && !resultRanks.querySelector('.result-chart-section-placements')
           && !document.getElementById('history-placements'));
       const tableLabels = [...tableItems.querySelectorAll('h4')].map(el => el.textContent);
+      const boardTables = resultRanks.querySelector('.result-chart-section-boardTables');
+      const boardLabels = [...boardTables.querySelectorAll('h4')].map(el => el.textContent);
+      check(label + ': board comparisons occupy their own named section',
+        boardTables.querySelector('h3').textContent === 'This board'
+          && ['3BV 62', 'ZiNi 47', 'max number 5'].every(name => boardLabels.includes(name))
+          && !tableLabels.some(name => /^(3BV|ZiNi|max number|[0-9]+ islands)/.test(name))
+          && resultRanks.children[1] === boardTables);
       check(label + ': all streak tables share the upper collection',
         ['streak', 'near-streak', 'near-near-streak'].every(name => tableLabels.includes(name))
           && !resultRanks.querySelector('.result-chart-section-streaks'));

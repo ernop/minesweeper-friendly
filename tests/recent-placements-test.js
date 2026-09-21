@@ -289,9 +289,9 @@ const windowCandidate = (label, specificity, startMs, wins) =>
 {
   const now = new Date(2026, 8, 21, 12).getTime(); // Monday in the viewer's timezone.
   const start = startOfDay(now);
-  const low = { bv3: 40, maxAdjacent: 2, hasSeven: false,
+  const low = { bv3: 40, zini: 30, maxAdjacent: 2, hasSeven: false,
     islandCount: 7, largestIsland: 9, zeroCount: 80 };
-  const high = { bv3: 41, maxAdjacent: 8, hasSeven: true,
+  const high = { bv3: 41, zini: 31, maxAdjacent: 8, hasSeven: true,
     islandCount: 8, largestIsland: 10, zeroCount: 70 };
   const old = [low, high].flatMap((shape, group) =>
     Array.from({ length: 20 }, (_, i) => ({ ...shape,
@@ -302,7 +302,8 @@ const windowCandidate = (label, specificity, startMs, wins) =>
   const wins = [...old, unmeasured, earlier, current];
   const candidates = recentPlacementCandidates(wins, now, start, false);
   const rows = recentPlacementsSummary(candidates, start, current);
-  for (const label of ['3BV 40', '3BV 41', 'has 8', 'has 7',
+  for (const label of ['3BV 40', '3BV 41', 'ZiNi 30', 'ZiNi 31',
+    'max number 2', 'max number 8', 'has 8', 'has 7',
     'max 2', 'max 3', 'max 4', '7 islands', '8 islands',
     'largest island 9', 'largest island 10', '70 zeros', '80 zeros']) {
     const row = rows.find((candidate) => candidate.label === label);
@@ -338,6 +339,14 @@ const windowCandidate = (label, specificity, startMs, wins) =>
   const collapsed = recentPlacementCandidates(wins, now, start, true);
   assertEq('collapse keeps both distinct 3BV values',
     collapsed.filter((candidate) => candidate.label.startsWith('3BV ')).length, 2);
+  assertEq('collapse keeps independent ZiNi benchmarks',
+    collapsed.filter((candidate) => candidate.label.startsWith('ZiNi ')).length, 2);
+  assertEq('collapse keeps exact maximum clues identifiable beside caps',
+    collapsed.filter((candidate) => candidate.label.startsWith('max number ')).length, 2);
+  assertEq('earlier ZiNi does not acquire current-game marker',
+    rows.find((row) => row.label === 'ZiNi 31').currentRank, undefined);
+  assertEq('shorter window removes earlier ZiNi category',
+    short.some((candidate) => candidate.label === 'ZiNi 31'), false);
   const anotherEarlier = { ...high, ...win(now - HOUR, 12000) };
   const multipleWins = [...wins, anotherEarlier];
   const multipleRows = recentPlacementsSummary(
@@ -354,6 +363,86 @@ const windowCandidate = (label, specificity, startMs, wins) =>
       || candidate.label.startsWith('max ')), false);
   assertEq('no recent wins keeps empty summary behavior',
     recentPlacementsSummary(noRecent, start).length, 0);
+}
+
+{
+  const five = { ...win(NOW, 30000), bv3: 40, zini: 30, maxAdjacent: 5 };
+  const six = { ...win(NOW - DAY, 10000), bv3: 40, zini: 31, maxAdjacent: 6 };
+  const absent = win(NOW - 2 * DAY, 5000);
+  const candidates = exactBoardCandidates([five], [six, absent, five]);
+  assertEq('same-ZiNi excludes other values and unmeasured history',
+    candidates.find((c) => c.label === 'ZiNi 30').wins.length, 1);
+  assertEq('maximum clue is exact, not an upper bound',
+    candidates.find((c) => c.label === 'max number 5').wins[0], five);
+  assertEq('maximum clue table excludes higher and unmeasured clues',
+    candidates.find((c) => c.label === 'max number 5').wins.length, 1);
+  assertEq('unmeasured reference creates no benchmark tables',
+    exactBoardCandidates([absent], [five, six, absent]).length, 0);
+}
+
+{
+  const measured = (hzini, spread) => ({ hzini, boardMetrics: { version: 1, workSpread: spread } });
+  const a = measured(5, 3.2), b = measured(6, 2.1);
+  const old = [a, b].flatMap((measurements, group) => Array.from({ length: 20 }, (_, i) => ({
+    ...win(NOW - (30 + group * 20 + i) * DAY, 10000 + i * 100), ...measurements,
+  })));
+  const earlier = { ...win(NOW - 1000, 9000), ...a };
+  const current = { ...win(NOW, 9000), ...b };
+  const records = [...old, earlier, current];
+  const rows = recentPlacementsSummary(
+    recentPlacementCandidates(records, NOW, NOW - 60000, true), NOW - 60000, current);
+  for (const label of ['HZiNi 5', 'HZiNi 6', '3BV spread 3.0–<3.5 cells', '3BV spread 2.0–<2.5 cells']) {
+    assertEq('period summary retains every qualifying measured family: ' + label,
+      rows.find((row) => row.label === label).ranks.join(','), '1');
+  }
+  assertEq('earlier HZiNi retains its own category', rows.find((r) => r.label === 'HZiNi 5').currentRank, undefined);
+  const historical = { ...win(NOW - DAY, 12000), hzini: 6 };
+  const research = { ...win(NOW - DAY, 14000), boardMetrics: { ...b.boardMetrics,
+    chord: { status: 'exact', lower: 6, upper: 6 },
+    logic: { status: 'complete', lower: 2, upper: 2 } } };
+  const families = exactBoardCandidates([current, research], [...records, historical, research]);
+  assertEq('existing HZiNi records enter without new board measurements',
+    families.find((c) => c.label === 'HZiNi 6').wins.length, 22);
+  assertEq('retired research does not create time tables',
+    families.some((c) => /minimum clicks|RCW/.test(c.label)), false);
+  assertEq('half-cell interval upper endpoint belongs to the next bin',
+    exactBoardCandidates([{ ...current, boardMetrics: { ...b.boardMetrics, workSpread: 2.5 } }], records)
+      .find((c) => c.label.startsWith('3BV spread')).label, '3BV spread 2.5–<3.0 cells');
+}
+
+{
+  const measured = (zeroOneCells, zeroOpenedCells) => ({ version: 1, workSpread: 2,
+    safeCells: 71, zeroOneCells, zeroOpenedCells });
+  const a = measured(51, 57), b = measured(50, 56);
+  const old = [a, b].flatMap((boardMetrics, group) => Array.from({ length: 20 }, (_, i) => ({
+    ...win(NOW - (30 + group * 20 + i) * DAY, 10000 + i * 100), boardMetrics,
+  })));
+  const earlier = { ...win(NOW - 1000, 9000), boardMetrics: a };
+  const current = { ...win(NOW, 9000), boardMetrics: b };
+  const unmeasured = { ...win(NOW - DAY, 5000), boardMetrics: { version: 1, workSpread: 2 } };
+  const future = { ...win(NOW - DAY, 6000), boardMetrics: { ...b, version: 2 } };
+  const records = [...old, unmeasured, future, earlier, current];
+  const rows = recentPlacementsSummary(
+    recentPlacementCandidates(records, NOW, NOW - 60000, true), NOW - 60000, current);
+  for (const label of ['0–1 share 71.831%', '0–1 share 70.423%',
+    'zero-opening coverage 80.282%', 'zero-opening coverage 78.873%']) {
+    const row = rows.find((r) => r.label === label);
+    assertEq(label + ' retains qualifying earlier values', row.ranks.join(','), '1');
+    assertEq(label + ' excludes absent and unknown-version measurements', row.total, 21);
+  }
+  assertEq('older fractional category is not marked current',
+    rows.find((r) => r.label === '0–1 share 71.831%').currentRank, undefined);
+  const tables = exactBoardCandidates([current], records);
+  assertEq('full fraction table matches this board only',
+    tables.some((t) => t.label === '0–1 share 71.831%'), false);
+  assertEq('different nearby fractions stay separate despite one-decimal rounding',
+    exactBoardCandidates([
+      { boardMetrics: { ...a, safeCells: 100000, zeroOneCells: 50000 } },
+      { boardMetrics: { ...a, safeCells: 100000, zeroOneCells: 50001 } },
+    ], []).filter((t) => t.label.startsWith('0–1 share')).map((t) => t.label).join(','),
+    '0–1 share 50%,0–1 share 50.001%');
+  assertEq('zero coverage is measured, not absent',
+    boardFractionOf({ boardMetrics: measured(30, 0) }, 'zeroOpenedCells'), 0);
 }
 
 console.log(`recent-placements: all ${checks} checks passed`);

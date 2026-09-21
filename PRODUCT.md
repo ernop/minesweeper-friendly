@@ -658,11 +658,17 @@ report.
   transport is open and visible.
 - The tables begin directly below the board when no action report is shown.
   The time-period summary ("ranks won", today by default), time/category,
-  same-3BV, board-shape, streak, near-streak, and near-near-streak tables share
-  one continuous, left-aligned wrapping list. There are no Rankings or
-  Streaks section headings or forced row breaks between them. Individual
-  table labels remain to identify their data. Averages, relationships, and
-  motion diagnostics follow.
+  streak, near-streak, and near-near-streak tables share one continuous,
+  left-aligned wrapping list without a section heading. A separate **This
+  board** section follows (2026-09-21): exact 3BV, ZiNi, HZiNi, maximum number,
+  has-7/8, maximum-clue caps, zero-count, mine-island count, and enabled
+  largest-island tablecharts. Each table keeps its own identifying label.
+  Both sections precede averages, relationships, and motion diagnostics.
+  This board starts with HZiNi, 3BV spread, 0–1 share, and zero-opening
+  coverage measurement cards, followed by their time tables. The labels expose
+  mouseover/focus definitions without moving the layout. After a loss these cards and board
+  comparison families describe the lost board; the upper period/streak
+  tables still retain the latest win history without marking the loss.
 - The scrollbar gutter is reserved so page growth cannot move the board.
   Stats and legend height affect only their own scroll column. Only board
   Justice callouts reserve any overhang before the following content.
@@ -804,13 +810,17 @@ append timing or from how many cards fit on a row:
 2. **Facts** — the selected game's compact label/value stats.
 3. **Analysis** — post-game action interpretation only.
 4. **Tables** — the recent "ranks won" time-period summary first, then
-   time/category, same-3BV, board-shape, and all consecutive/loss-tolerant
-   streak tablecharts. They share one left-aligned wrapping collection with
-   no section heading. Each table retains its own identifying label. Losses
+   time/category and all consecutive/loss-tolerant streak tablecharts.
+   They share one left-aligned wrapping collection with no section heading.
+   Each table retains its own identifying label. Losses
    retain existing win history without marking the loss as a ranked win.
-5. **Averages** — average solve-time scatterplots.
-6. **Relationships** — raw-win scatterplots.
-7. **Diagnostics** — post-game motion systems.
+5. **This board** — the selected reference board's exact-benchmark and
+   shape time tablecharts, in a separate named, left-aligned wrapping section.
+   Empty sections are omitted. The period-wide ranks-won summary above still
+   includes all qualifying board categories from its selected period.
+6. **Averages** — average solve-time scatterplots.
+7. **Relationships** — raw-win scatterplots.
+8. **Diagnostics** — post-game motion systems.
 
 All pagetables and row-based data displays must precede every chart that
 plots individual points. This includes time/category tables such as "on
@@ -820,10 +830,11 @@ raw relationship scatters. Keeping the denser lookup-oriented tables together
 before visual correlation charts gives the page a stable transition from exact
 records to graphical analysis.
 
-The upper table collection owns one full-width region and wraps internally;
-rank and streak tables can share a row. Point-chart families follow in their
-own sections. Responsive wrapping cannot mix tables with point charts. DOM
-order and visual order are the same.
+The upper table collection and This board each own a full-width region and
+wrap internally. Period ranks and streak tables can share a row; board
+comparisons begin their own section. Point-chart families follow in their own
+sections. Responsive wrapping cannot mix tables with point charts. DOM order
+and visual order are the same.
 
 The score viewer deliberately omits post-game action analysis and motion
 diagnostics. Its reference record is explicitly the latest win: its compact
@@ -886,6 +897,73 @@ community constants 47.299 beginner, 153.73 intermediate, 435.001
 expert; only defined on those exact board shapes, wins only, and never
 on Endgame drill records). Absent fields on old records follow the
 standard not-measured rules.
+
+Board measurements (2026-09-21, revised to completed scalar benchmarks):
+**This board** shows HZiNi, 3BV spread, 0–1 share, and zero-opening coverage.
+HZiNi uses the existing `hzini` primary record field. Optional versioned
+`boardMetrics` stores `workSpread`, `safeCells`, `zeroOneCells`, and
+`zeroOpenedCells`. Store measured counts once and derive fractions at display time. No C* proof intervals, RCW simulation,
+hint counts, or simulated guess/mine-hit counts appear in the live results.
+Previously saved research measurements remain in exports without entering
+comparison tables.
+
+- **HZiNi (Human ZiNi):** begin with the fixed final board,
+  perfect mine knowledge, and no flags. Reveal each zero component once,
+  including its numbered border. Then repeatedly choose the exposed positive
+  clue maximizing `covered safe neighbors - unflagged mine neighbors - 1`,
+  provided the gain is nonnegative; flag its remaining adjacent mines and
+  chord once. Otherwise reveal the next covered safe cell. Ties and direct
+  reveals scan down each column, columns left to right, matching the existing
+  Human ZiNi implementation. Each reveal, flag placement and chord counts
+  once. Stop when all safe cells are open. The resulting integer is an exact
+  deterministic benchmark count, **not a proved global minimum**. No hint,
+  deduction, or guess count is an input. `HZiNi N` ranks winning times at
+  exactly N; existing historical HZiNi values are immediately eligible.
+- **HZiNi efficiency:** `100 * hzini / clicks`, derived in Game stats on
+  wins with positive board-changing clicks. It can exceed 100% if the
+  player beats the greedy benchmark. It measures performance, not a board
+  characteristic or rank percentile.
+- **3BV spread:** the root-mean-square distance from the mean of the 3BV
+  work points, in cell spacings. Each independent safe cell contributes one
+  point; each zero component contributes its zero-cell centroid with weight
+  one. Store the unrounded value, display three decimals, and group after
+  rounding to nine decimals into fixed 0.5-cell intervals. These are comparison
+  bins, not bounds on the measurement.
+- **0–1 share:** safe cells with clue zero or one divided by all safe cells.
+- **zero-opening coverage:** the union of every zero flood, including all
+  numbered borders counted once, divided by all safe cells. Stop after
+  flooding, before deductions or chords. No zeros means coverage 0%.
+  Both fractions display up to three percentage decimals plus their exact
+  numerator and safe-cell denominator. Their time tables match the unrounded
+  fraction; missing and unsupported measurements are excluded. These are
+  board fractions, distinct from rank percentiles.
+
+The [full definitions](reference/board-metric-definitions.md#9-fixed-opening-first-benchmark-and-exact-opening-first-minimum)
+specify the fixed HZiNi procedure and distinguish the requested globally
+optimal opening-first quantity C₀*: one reveal per opening plus the globally
+fewest remaining actions. An exact tiny-board reference calculator exists;
+a scalable exact production implementation remains research. HZiNi's fixed
+column-major choice is orientation-dependent; 3BV spread, both fractions, and C₀* are not.
+Measurements describe the final layout in modes that can change mines.
+
+Analysis runs in one background worker at a time. Results amend only the captured
+history record, including if the player changes modes or starts another game.
+New games supply their captured final layout; older viewed records use their
+saved final-board trace when available and otherwise say the board is
+unavailable. No historical values are guessed. Endgame drills omit these
+full-board measures. Export/import preserves versioned measurements; future
+versions are retained without interpretation or mixing into current cohorts.
+`Backfill saved wins` fills missing measurements for the current mode from
+saved final-board traces, one board at a time, including records that already
+have HZiNi/spread but lack the fractions. A progress bar and text show checked /
+total, measured, unavailable, failed, and remaining counts. A missing trace
+stays unmeasured; an actual calculation/read failure displays its error.
+`Stop backfill` lets the current board finish. `Resume backfill` processes only
+missing measurements, including after a reload. Each completed record is saved
+separately and immediately joins its comparison tables; no whole-batch completion
+is required. Progress is derived from recorded measurements, not a saved cursor.
+Unavailable/error checks are session-local and may be attempted again after reload.
+Counts cover supported full-board wins in the current score key.
 
 Cadence spread (added 2026-08-30, the chosen per-game cadence-consistency
 measure) is stored as `cadenceSpread` on wins and losses alike: the
@@ -1161,9 +1239,21 @@ carries at least one tag.
   broader ones appear as history spreads out. This is the
   `collapseDuplicateCharts` setting (see Personal settings), on by
   default; switched off, every window always renders its own chart.
-- Also one non-window list: "3BV N" — every win
-  whose board had exactly this game's 3BV, the fairest time comparison
-  (2026-08-20). Same row format as the window lists.
+- Exact board comparisons: "3BV N", "ZiNi N", "HZiNi N", and "max number N"
+  (the latter three added 2026-09-21) rank solve times among wins matching
+  that one measured value. Maximum number means equality, unlike the
+  existing "max 2/3/4" upper bounds. ZiNi uses the recorded greedy click
+  benchmark; HZiNi uses the opening-first benchmark. Neither is a proven
+  minimum. Missing measurements create no table and do not enter a comparison pool; drill records still
+  omit ZiNi and HZiNi. Each table has an independent display switch, on by default.
+  The 0–1 share and zero-opening coverage tables match unrounded fractions;
+  3BV-spread tables use fixed half-cell bands. All three have default-on
+  independent display switches and omit missing measurements.
+  Like the original same-3BV table, these comparisons retain their
+  names even when their member sets coincide with another table's.
+  All standings remain visible, including median and last place. These
+  are comparisons conditional on one feature, not proof that the boards
+  have equal overall difficulty or that a result is difficulty-adjusted.
 - Board-shape lists (2026-08-21), same row format, over timed wins of
   this mode whose finished board (after any Justice redraw) matches this
   game. Measured at game end and stored: `maxAdjacent`, `hasSeven`,
@@ -1262,18 +1352,22 @@ carries at least one tag.
 - Category scope (revised 2026-09-21): retain the current board size/mine
   count, play mode, and generator with its parameters. Retain the reference
   date's day categories (this weekday, weekend/weekday, holidays when today
-  is one). Within that scope, every 3BV and measured board-shape category
-  represented by a win in the selected period competes: has 8 / has 7 /
+  is one). Within that scope, every exact 3BV, ZiNi, HZiNi, maximum clue,
+  0–1 share, zero-opening coverage, 3BV-spread band, and measured board-shape
+  category represented by a win in the selected period
+  competes: has 8 / has 7 /
   max 2, 3, 4 / N islands / largest island N / N zeros. An earlier 3BV-41
   placement remains eligible after a 3BV-40 win. Each category compares
   against all its saved member wins, including those before the source
   period; the source selects which wins' placements are reported and which
   board categories are considered. Lifetime membership charts qualify as
   longer. The latest win controls only its highlight, not the board-category
-  selection. The neighboring full tablecharts still use that win's 3BV and
-  shape. The summary ignores individual tablechart display switches, and
-  shares its category definitions with the tablecharts (`boardShapeCandidates`,
-  `rankColumns`). Unmeasured shape fields remain excluded.
+  selection. The neighboring full tablecharts still use that win's exact
+  measurements and shape. The summary ignores individual tablechart display
+  switches, and shares its category definitions with the tablecharts
+  (`exactBoardCandidates`, `boardShapeCandidates`, `rankColumns`).
+  Unmeasured fields remain excluded. Exact-value and 3BV-spread comparisons
+  remain independent of duplicate collapsing in the other families.
 - The same `collapseDuplicateCharts` rule applies before the summary is
   computed: time/day charts use the pinned-lifetime-and-week progressive
   disclosure, and board-shape charts keep their most specific distinct

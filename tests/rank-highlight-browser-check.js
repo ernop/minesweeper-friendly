@@ -134,8 +134,60 @@ const { chromium } = require(process.argv[2]);
       assert.deepEqual(overflow, [], width + 'px table overflow');
       await page.screenshot({ path: '/tmp/rank-highlights-' + width + '.png', fullPage: true });
     }
+    const conditional = await page.evaluate(() => {
+      const now = Date.now();
+      const other = Array.from({ length: 190 }, (_, i) => ({
+        outcome: 'win', endedAt: now - (300 + i) * 864e5,
+        timeMs: 1000 + i, bv3: 40, zini: 20, maxAdjacent: 4,
+      }));
+      const comparable = Array.from({ length: 9 }, (_, i) => ({
+        outcome: 'win', endedAt: now - (100 + i) * 864e5,
+        timeMs: 20000 + i * 1000, bv3: 80, zini: 50, maxAdjacent: 6,
+      }));
+      const current = { ...comparable[0], timeMs: 23500, endedAt: now };
+      const records = [...other, ...comparable, current].sort((a, b) => a.endedAt - b.endedAt);
+      settings.shownThings.averageCharts = false;
+      settings.shownThings.relationshipCharts = false;
+      settings.collapseDuplicateCharts = true;
+      const draw = (options = {}) => {
+        const collector = createResultSectionCollector('postGame');
+        renderRanks(current, records, options, collector);
+        collector.renderInto(resultRanks);
+        return Object.fromEntries([...resultRanks.querySelectorAll('.rank-list')]
+          .filter((list) => !list.classList.contains('recent-placements'))
+          .map((list) => [list.querySelector('h4').textContent, {
+            footer: list.querySelector('.rank-total').textContent,
+            selected: list.querySelectorAll('.me').length,
+          }]));
+      };
+      const full = draw();
+      const boardSection = resultRanks.querySelector('.result-chart-section-boardTables');
+      const boardLabels = [...boardSection.querySelectorAll('h4')].map((heading) => heading.textContent);
+      const summaryLabels = [...resultRanks.querySelectorAll('.recent-window-cell')]
+        .map((cell) => cell.textContent);
+      settings.shownThings.exactZiNi = false;
+      const hidden = draw();
+      settings.shownThings.exactZiNi = true;
+      const history = draw({ historyView: true });
+      draw();
+      return { full, summaryLabels, hidden, history, boardLabels,
+        sectionTitle: boardSection.querySelector('h3').textContent };
+    });
+    assert.equal(conditional.full.lifetime.footer, '#195 of 200Bottom 3%');
+    assert.equal(conditional.sectionTitle, 'This board');
+    for (const label of ['3BV 80', 'ZiNi 50', 'max number 6']) {
+      assert.equal(conditional.full[label].footer, '#5 of 10Top 50%');
+      assert(conditional.boardLabels.includes(label));
+      assert.equal(conditional.full[label].selected, 1);
+      assert.equal(conditional.history[label].selected, 0);
+      assert(!conditional.summaryLabels.includes(label), 'median stays in full table, outside top-tenth summary');
+    }
+    assert(!conditional.hidden['ZiNi 50']);
+    assert(conditional.hidden['max number 6']);
+    await page.setViewportSize({ width: 1680, height: 1100 });
+    await page.screenshot({ path: '/tmp/board-section-1680.png', fullPage: true });
     assert.deepEqual(errors, []);
-    console.log('Rank highlights: podium, percentage bands, full/compact tables, low/last/only results, history view, and three viewport widths passed.');
+    console.log('Rank highlights: podium, percentage bands, full/compact tables, low/last/only results, history view, conditional board comparisons, and three viewport widths passed.');
   } finally {
     await browser.close();
   }

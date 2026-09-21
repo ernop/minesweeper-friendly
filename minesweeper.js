@@ -2825,6 +2825,9 @@ function reportResult(outcome, endedAt = Date.now()) {
     spatial: computeSpatialBias(trace.events),
   };
   saveTrace(record);
+  if (!endgameDrillActive()) requestBoardMetrics(record, {
+    width: config.width, height: config.height, mines: mineAt,
+  });
   // The live per-game rows go away with their game; the session section
   // stays (it spans games), so the panel re-renders rather than hiding.
   renderMetricsPanel(null);
@@ -3233,6 +3236,7 @@ const RESULT_PRESENTATION_PHASES = Object.freeze([
   { id: 'facts', order: 20 },
   { id: 'analysis', order: 30, contexts: ['postGame'] },
   { id: 'tables', order: 50 },
+  { id: 'boardTables', order: 60 },
   { id: 'averages', order: 70 },
   { id: 'relationships', order: 80 },
   { id: 'diagnostics', order: 90, contexts: ['postGame'] },
@@ -3240,6 +3244,7 @@ const RESULT_PRESENTATION_PHASES = Object.freeze([
 
 const RESULT_CHART_SECTIONS = Object.freeze([
   { id: 'tables', phase: 'tables', label: 'Game tables', heading: false },
+  { id: 'boardTables', phase: 'boardTables', label: 'This board' },
   { id: 'averages', phase: 'averages', label: 'average time' },
   { id: 'relationships', phase: 'relationships', label: 'relationships' },
   {
@@ -3310,6 +3315,7 @@ function createResultSectionCollector(context) {
 
 function renderResult(record, modeRecords, options = {}) {
   renderedResult = { record, modeRecords, options };
+  requestBoardMetrics(record);
   const seconds = secondsOf(record);
   const actionSummary = actionCategorySummary(record.actionEvaluations);
   const fullAnalysis = settings.reportScope === 'full';
@@ -3401,6 +3407,8 @@ function renderResult(record, modeRecords, options = {}) {
       ? [['Throughput', throughputOf(record).toFixed(4)]] : []),
     ...(ioeOf(record) !== undefined
       ? [['IOE', ioeOf(record).toFixed(4)]] : []),
+    ...(hziniEfficiencyOf(record) !== undefined
+      ? [['HZiNi efficiency', (100 * hziniEfficiencyOf(record)).toFixed(1) + '%']] : []),
     ...(fullAnalysis && zniEfficiencyOf(record) !== undefined
       ? [['ZiNi efficiency', zniEfficiencyOf(record).toFixed(4)]] : []),
     ...(iosOf(record) !== undefined
@@ -3447,7 +3455,9 @@ function renderResult(record, modeRecords, options = {}) {
   ]) {
     const labelCell = document.createElement('span');
     labelCell.className = 'stat-label';
-    labelCell.textContent = label;
+    if (label === 'HZiNi efficiency') {
+      labelCell.appendChild(chartHelpButton('100 × the board’s HZiNi count divided by your board-changing clicks. A performance measure for completed wins; it can exceed 100% when your play beats the fixed HZiNi procedure. This is not a board characteristic or a time-rank percentile.', label));
+    } else labelCell.textContent = label;
     const valueCell = document.createElement('span');
     valueCell.className = 'stat-value' + (valueClass ? ' ' + valueClass : '');
     valueCell.textContent = value;
@@ -3465,6 +3475,10 @@ function renderResult(record, modeRecords, options = {}) {
 
   const resultSections = createResultSectionCollector(
     historyView ? 'scores' : 'postGame');
+  if (settings.shownThings.boardMetricFacts) {
+    const facts = buildBoardMetricFacts(record);
+    if (facts) resultSections.append('boardTables', facts);
+  }
   resultRanks.classList.toggle(
     'sectioned-results',
     !Trial.isPlayMode(settings.playMode) || historyView);
@@ -3477,7 +3491,7 @@ function renderResult(record, modeRecords, options = {}) {
     resultRanks.textContent = '';
     const latestWin = modeRecords.findLast((game) => game.outcome === 'win');
     if (latestWin) renderRanks(latestWin, modeRecords,
-      { ...options, historyView: true }, resultSections);
+      { ...options, historyView: true, boardRecord: record }, resultSections);
   }
   // The after-game motion charts, jammed inline after whatever other
   // bottom charts the outcome produced. Losses retain prior win history;
@@ -3541,6 +3555,7 @@ const GAME_RECORD_SCHEMA = [
   { field: 'bv3', valid: isNumber, example: '10', describe: "the board's 3BV: minimum clicks to clear it (in Endgame drill, the presented remnant's remaining 3BV — the minimum clicks to finish what was actually left)" },
   { field: 'zini', valid: (v) => v === undefined || isNumber(v), example: '8', describe: "the board's greedy ZiNi: the reference greedy flags-and-chords algorithm's click count, the flaggers' counterpart to 3BV (never above it); absent on games recorded before 2026-08-30 and on Endgame drill games (a full-board measure misdescribes a partial solve)" },
   { field: 'hzini', valid: (v) => v === undefined || isNumber(v), example: '9', describe: "the board's human ZiNi: the same greedy algorithm restricted to already-open cells after opening every opening first; absent on games recorded before 2026-08-30 and on Endgame drill games" },
+  { field: 'boardMetrics', valid: (v) => v === undefined || BoardMetrics.valid(v), example: '{"version":1,"workSpread":3.12,"safeCells":71,"zeroOneCells":51,"zeroOpenedCells":57}', describe: 'final-board 3BV spread in cells and exact safe-cell counts for 0–1 share and zero-opening coverage; absent measurements can be backfilled from saved final-board traces' },
   { field: 'clicks', valid: isNumber, example: '19', describe: 'clicks that changed the board (reveals, flags, chords)' },
   { field: 'chordClicks', valid: (v) => v === undefined || isNumber(v), example: '4', describe: 'accepted chords among the board-changing clicks (the chord-share numerator); absent on games recorded before 2026-08-30' },
   { field: 'wastedClicks', valid: (v) => v === undefined || isNumber(v), example: '3', describe: 'board clicks that changed nothing; absent on games recorded before 2026-08-19' },
@@ -3890,6 +3905,13 @@ function zniEfficiencyOf(record) {
   return record.zini / record.clicks;
 }
 
+// HZiNi efficiency describes the completed play; hzini itself describes the board.
+function hziniEfficiencyOf(record) {
+  if (record.outcome !== 'win' || !Number.isSafeInteger(record.hzini)
+      || !(record.clicks > 0)) return undefined;
+  return record.hzini / record.clicks;
+}
+
 function formatGuesses(record) {
   if (record.guesses === 0) return '0';
   return record.guesses + ' · ' + record.guessIdealRisk + ' ideal · '
@@ -4097,13 +4119,59 @@ function rankColumns(referenceMs) {
 // saved wins. Group once per field so a long recent window does not rescan
 // the history for each game or distinct value.
 function rankValueGroups(referenceWins, wins, field) {
-  const values = [...new Set(referenceWins.map((win) => win[field])
-    .filter((value) => typeof value === 'number'))].sort((a, b) => a - b);
+  const valueOf = typeof field === 'function' ? field : (win) => win[field];
+  const values = [...new Set(referenceWins.map(valueOf)
+    .filter((value) => typeof value === 'number' && Number.isFinite(value)))].sort((a, b) => a - b);
   const groups = new Map(values.map((value) => [value, []]));
   for (const win of wins) {
-    if (groups.has(win[field])) groups.get(win[field]).push(win);
+    const value = valueOf(win);
+    if (groups.has(value)) groups.get(value).push(win);
   }
   return groups;
+}
+
+function boardFractionOf(record, field) {
+  const m = record.boardMetrics;
+  return m?.version === 1 && Number.isSafeInteger(m.safeCells) && m.safeCells > 0
+    && Number.isSafeInteger(m[field]) && m[field] >= 0 && m[field] <= m.safeCells
+    ? m[field] / m.safeCells : undefined;
+}
+
+// Three percentage decimals distinguish every possible numerator in one mode
+// (boards have at most 100,000 cells). Cohorts use the unrounded ratio.
+function formatBoardShare(fraction) {
+  return Number((100 * fraction).toFixed(3)) + '%';
+}
+
+// Equal values match one board characteristic, not every source of difficulty.
+// Keep each benchmark identifiable even when its current member set coincides
+// with another benchmark's, as the same-3BV table has always done.
+const EXACT_BOARD_TABLES = [
+  { field: 'bv3', label: '3BV', setting: 'exact3BV', priority: 13 },
+  { field: 'zini', label: 'ZiNi', setting: 'exactZiNi', priority: 14 },
+  { field: 'maxAdjacent', label: 'max number', setting: 'exactMaxNumber', priority: 15 },
+  { field: 'hzini', label: 'HZiNi', setting: 'exactHZiNi', priority: 16 },
+  { field: (win) => {
+    const m = win.boardMetrics;
+    return m?.version === 1 && Number.isFinite(m.workSpread)
+      ? Math.floor(Number(m.workSpread.toFixed(9)) * 2) : undefined;
+  }, labelOf: (bin) => '3BV spread ' + (bin / 2).toFixed(1) + '–<' + ((bin + 1) / 2).toFixed(1) + ' cells',
+  setting: 'workSpreadTable', priority: 17 },
+  { field: (win) => boardFractionOf(win, 'zeroOneCells'),
+    labelOf: (value) => '0–1 share ' + formatBoardShare(value), setting: 'zeroOneShareTable', priority: 18 },
+  { field: (win) => boardFractionOf(win, 'zeroOpenedCells'),
+    labelOf: (value) => 'zero-opening coverage ' + formatBoardShare(value), setting: 'zeroOpeningTable', priority: 19 },
+];
+
+function exactBoardCandidates(referenceWins, wins) {
+  return EXACT_BOARD_TABLES.flatMap((spec) =>
+    [...rankValueGroups(referenceWins, wins, spec.field)].map(([value, rows]) => ({
+      label: spec.labelOf ? spec.labelOf(value) : spec.label + ' ' + value,
+      setting: spec.setting,
+      dedupePriority: spec.priority,
+      summaryTiePriority: spec.priority,
+      wins: rows,
+    })));
 }
 
 // Board-shape chart candidates for the reference wins' finished-board families:
@@ -4351,7 +4419,7 @@ function recentPlacementsSummary(candidates, sourceStartMs, currentRecord) {
 }
 
 // Keep the current mode and date's chart scope, but let every recent win
-// contribute its 3BV and board-shape families. The reference game controls
+// contribute its exact benchmarks and board-shape families. The reference game controls
 // highlighting only; a later unrelated board must not erase earlier ranks.
 function recentPlacementCandidates(wins, referenceMs, sourceStartMs, collapseDuplicates) {
   const recentWins = wins.filter((win) => win.endedAt >= sourceStartMs);
@@ -4366,15 +4434,7 @@ function recentPlacementCandidates(wins, referenceMs, sourceStartMs, collapseDup
   if (collapseDuplicates) {
     rankCandidates = dedupeRankCandidates(rankCandidates, ['lifetime', 'past week']);
   }
-  const candidates = [...rankCandidates];
-  for (const [bv3, members] of rankValueGroups(recentWins, wins, 'bv3')) {
-    candidates.push({
-      label: '3BV ' + bv3,
-      dedupePriority: 13,
-      summaryTiePriority: 13,
-      wins: members,
-    });
-  }
+  const candidates = [...rankCandidates, ...exactBoardCandidates(recentWins, wins)];
   let shapeCandidates = boardShapeCandidates(recentWins, wins)
     .map((candidate) => ({ ...candidate, wins: candidate.rows }));
   if (collapseDuplicates) {
@@ -4418,7 +4478,7 @@ function buildRecentPlacements(record, wins, referenceMs, markReferenceRecord = 
   const heading = document.createElement('h4');
   heading.textContent = 'ranks won';
   heading.title = 'top ranks on every longer chart (time windows, day '
-    + 'categories, the 3BV and board shapes of wins in the selected period) that were earned '
+    + 'categories, exact board benchmarks, 3BV-spread bands, and board shapes of wins in the selected period) that were earned '
     + chosenLabel + '; only ranks within the top tenth of a list count, '
     + 'except that lifetime shows its closest rank when none made the tenth';
   const select = document.createElement('select');
@@ -4747,14 +4807,14 @@ function getChartHelpTip() {
   return chartHelpTipEl;
 }
 
-function chartHelpButton(help) {
+function chartHelpButton(help, label) {
   const wrap = document.createElement('span');
-  wrap.className = 'chart-help-wrap';
+  wrap.className = label ? 'chart-help-wrap chart-help-label-wrap' : 'chart-help-wrap';
   const btn = document.createElement('button');
   btn.type = 'button';
-  btn.className = 'chart-help';
-  btn.textContent = '?';
-  btn.setAttribute('aria-label', 'what does this chart mean?');
+  btn.className = label ? 'chart-help chart-help-label' : 'chart-help';
+  btn.textContent = label || '?';
+  btn.setAttribute('aria-label', label ? 'About ' + label : 'what does this chart mean?');
   const show = () => {
     const tip = getChartHelpTip();
     tip.replaceChildren();
@@ -5772,6 +5832,7 @@ function buildBarChart(values, size) {
 
 function renderRanks(record, modeRecords, options = {}, sections) {
   const wins = modeRecords.filter((r) => r.outcome === 'win');
+  const boardRecord = options.boardRecord || record;
   const historyView = options.historyView === true;
   const referenceMs = historyView ? Date.now() : record.endedAt;
   const selectedIndex = (list) => historyView ? -1 : list.indexOf(record);
@@ -5842,22 +5903,22 @@ function renderRanks(record, modeRecords, options = {}, sections) {
     }
   }
 
-  // Best times on boards of this exact 3BV: the fairest time comparison,
-  // since only equally-hard layouts compete.
-  if (settings.shownThings.exact3BV) {
-    const sameBv = wins.filter((s) => s.bv3 === record.bv3)
-      .sort(compareRankedWins);
-    sections.append('tables', buildRankList(
-      '3BV ' + record.bv3,
-      sameBv.length, selectedIndex(sameBv), 'rank-grid',
-      timeAgeRow(sameBv)));
+  // Full tables retain all standings, including ordinary and poor results.
+  // Only the recent-achievements summary applies a top-tenth cutoff.
+  for (const candidate of exactBoardCandidates([boardRecord], wins)) {
+    if (!settings.shownThings[candidate.setting]) continue;
+    const matching = candidate.wins.slice().sort(compareRankedWins);
+    sections.append('boardTables', buildRankList(
+      candidate.label,
+      matching.length, selectedIndex(matching), 'rank-grid',
+      timeAgeRow(matching)));
   }
 
   // Board-shape time lists: this win's finished-board family only.
   // Older wins that lack the measurement stay off the list. Nested
   // filters (max 2 ⊂ max 3 ⊂ max 4) collapse under the same setting
   // as the window charts, most specific first.
-  const shapeCandidates = boardShapeCandidates([record], wins)
+  const shapeCandidates = boardShapeCandidates([boardRecord], wins)
     .filter((candidate) => settings.shownThings.largestIsland
       || !candidate.label.startsWith('largest island '));
   const shapeKept = new Set(shapeCandidates);
@@ -5873,7 +5934,7 @@ function renderRanks(record, modeRecords, options = {}, sections) {
     for (const c of shapeCandidates) {
       if (!shapeKept.has(c)) continue;
       const inWindow = c.rows.slice().sort(compareRankedWins);
-      sections.append('tables', buildRankList(
+      sections.append('boardTables', buildRankList(
         c.label,
         inWindow.length, selectedIndex(inWindow), 'rank-grid',
         timeAgeRow(inWindow)));
