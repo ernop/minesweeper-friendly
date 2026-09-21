@@ -1,6 +1,8 @@
 'use strict';
 
-if (typeof Solver === 'undefined') {
+// The settings page uses the registry's validators without placing boards.
+// Only CommonJS consumers need to load the solver here; the game page loads it.
+if (typeof module !== 'undefined' && module.exports && typeof Solver === 'undefined') {
   globalThis.Solver = require('./solver.js');
 }
 

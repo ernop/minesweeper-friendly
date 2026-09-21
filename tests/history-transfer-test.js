@@ -15,10 +15,8 @@ globalThis.GAME_RECORD_SCHEMA = [
   { field: 'note', valid: (v) => v === undefined || typeof v === 'string' },
   { field: 'actionEvaluations', valid: (v) => v === undefined || Array.isArray(v) },
 ];
-globalThis.SETTINGS_SCHEMA = [
-  { field: 'playMode', valid: (v) => v === 'standard' },
-  { field: 'zoom', valid: (v) => typeof v === 'number' && Number.isFinite(v) },
-];
+globalThis.BoardGenerators = require('../generators.js');
+vm.runInThisContext(fs.readFileSync(path.join(__dirname, '..', 'settings-core.js'), 'utf8'));
 globalThis.normalizeHistoryKey = (key) => key.includes('@') ? key : key + '@standard';
 globalThis.normalizeGameRecord = (record) => ({
   record: {
@@ -66,15 +64,15 @@ function check(name, condition) {
 
 {
   const imported = cleanTransferredSettings(
-    { playMode: 'standard', zoom: Infinity, legacySetting: true }, true);
+    { playMode: 'standard', cellSize: Infinity, legacySetting: true }, true);
   check('valid setting retained', imported.settings.playMode === 'standard');
-  check('invalid setting discarded', !('zoom' in imported.settings));
+  check('invalid setting discarded', !('cellSize' in imported.settings));
   check('legacy import input preserved', imported.settings.legacySetting === true);
   check('invalid setting counted', imported.skippedFields === 1);
 
   const exported = cleanTransferredSettings(
-    { playMode: 'standard', zoom: 24, legacySetting: true }, false);
-  check('export has current valid settings', exported.settings.zoom === 24);
+    { playMode: 'standard', cellSize: 64, legacySetting: true }, false);
+  check('export has current valid settings', exported.settings.cellSize === 64);
   check('export omits unknown settings', !('legacySetting' in exported.settings));
 }
 

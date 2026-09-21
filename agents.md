@@ -108,6 +108,10 @@ Implementation notes:
   legends are outside that translated area. The editor exposes drag,
   arrows, numeric inputs, and labeled sliders. Browser scroll regressions
   cover docked and compact details and the independent metrics panel.
+  `boardPositionPanelRect` anchors the editor to the board and constrains it
+  to the visible viewport. The panel is a body child so board transforms and
+  column containment cannot change its fixed coordinate system; scroll and
+  visual-viewport changes update it without changing the board's layout.
 - History: userdata 'history' maps mode key to a
   chronological array of game records, one per finished game:
   {endedAt, outcome: 'win'|'loss', timeMs, bv3, clicks, wastedClicks,
@@ -831,12 +835,21 @@ Implementation notes:
   from `SETTINGS_SCHEMA` defaults). `SETTINGS_SCHEMA`, `SETTINGS_GROUPS`,
   `SHOWN_THINGS_*`, `REPORT_SCOPE_CHOICES`,
   `NUMBER_DISPLAY_CHOICES`, `settingsFrom`,
-  `saveSettings`, the cell iconography SVGs, and `paintCellGlyph` all
-  live in `settings-core.js`, shared by both pages. Caution: some schema
-  `valid` closures reference game-page globals (PLAY_MODE_IDS etc.) —
-  they are late-bound and only ever called by the game page's import
-  validation; the settings page must not call a control-'none' field's
-  valid().   The controls themselves are `settings.html` +
+  `saveSettings`, `cleanTransferredSettings`, all preference choices/bounds,
+  the cell iconography SVGs, and `paintCellGlyph` live in `settings-core.js`,
+  shared by both pages. Both load `generators.js` for the shared registry;
+  its browser load does not require a solver unless actually placing boards.
+  Every schema validator runs on either page. `settingsFrom` rejects malformed
+  fields to defaults and clones object values; schema `migrate` handles older
+  forms. `saveSettings` normalizes the same flat object before writing, while
+  loading never writes. `cellSize` defaults to 28 and permits 16–96 px through
+  the schema's choices. `initCellSizeControl` builds Zoom from those choices;
+  `applyCellSize` updates CSS, selection, position, and trace geometry at load,
+  change, and import without starting a game. The data-format card derives
+  its setting/default/meaning table from the schema. `tests/settings-state-test.js`
+  covers both-page validation, defaults, migration, cloning, and round trips;
+  browser verification uses the test origin for real IndexedDB checks.
+  The controls themselves are `settings.html` +
   `settings-page.js` (2026-08-23; the in-page drawer is gone):
   `#settings-btn` on the game page is now a plain `<a>` to settings.html.
   The page (the demo world is gone; see PRODUCT.md) has a slim

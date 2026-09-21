@@ -94,14 +94,13 @@ main {
 
 #board-position-panel {
   position: fixed;
-  right: 14px;
-  bottom: 14px;
   z-index: 30;
-  width: 330px;
-  border: 1px solid #b9c8d2;
+  width: 350px;
+  overflow: auto;
+  border: 2px solid #417ca4;
   border-radius: 5px;
   background: #ffffff;
-  padding: 9px 10px;
+  padding: 0 10px 9px;
   box-shadow: 0 3px 10px rgba(34, 56, 70, 0.16);
   color: #3f5668;
   font: 11px Arial, Helvetica, sans-serif;
@@ -174,19 +173,38 @@ main {
 }
 
 #board-position-actions {
+  position: sticky;
+  top: 0;
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
   gap: 7px;
+  margin-bottom: 7px;
+  padding: 9px 0 7px;
+  background: #ffffff;
+  border-bottom: 1px solid #d5e1e9;
+}
+
+#board-position-title {
+  margin-right: auto;
+  font-size: 13px;
 }
 
 #board-position-actions button {
   border: 1px solid #c5d0da;
   border-radius: 3px;
   background: #f7f9fb;
-  padding: 3px 9px;
+  min-height: 32px;
+  padding: 5px 12px;
   color: #3f5668;
-  font: inherit;
+  font: 13px Arial, Helvetica, sans-serif;
   cursor: pointer;
+}
+
+#board-position-actions #board-position-done {
+  border-color: #24648c;
+  background: #24648c;
+  color: #ffffff;
+  font-weight: bold;
 }
 
 #scores-nav[hidden] { display: none; }
@@ -1850,15 +1868,6 @@ body.trial-offboard #result-ranks {
   #states-chips {
     align-items: center;
   }
-
-  #board-position-panel {
-    position: fixed;
-    top: auto;
-    bottom: 12px;
-    right: 12px;
-    left: 12px;
-    width: auto;
-  }
 }
 
 /*-------SETTINGS PAGE-------*/
@@ -2618,6 +2627,21 @@ body.settings-page .return-to-game {
   margin: 5px 0 0;
   line-height: 1.4;
 }
+
+.settings-format-block {
+  flex-basis: 640px;
+  max-width: 640px;
+  min-width: 0;
+}
+
+.settings-format-block table {
+  width: 100%;
+  table-layout: fixed;
+  overflow-wrap: anywhere;
+}
+
+.settings-format-block td:first-child { width: 26%; }
+.settings-format-block td:nth-child(2) { width: 24%; }
 
 #site-footer {
   margin-top: 10px;

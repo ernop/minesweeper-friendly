@@ -85,6 +85,41 @@ const bounds = { left: 0, right: 800, top: 50 };
     result.x === 75);
 }
 
+{
+  const viewport = { left: 12, top: 12, right: 1188, bottom: 888 };
+  const board = boardPositionRect(base, 300, 50);
+  const panel = boardPositionPanelRect(board, 350, 170, viewport);
+  check('editor opens directly beneath the board',
+    panel.top === board.bottom + 10
+      && panel.left + panel.width / 2 === board.left + board.width / 2);
+  const moved = boardPositionPanelRect(boardPositionRect(board, 80, 120), 350, 170, viewport);
+  check('editor follows both axes of board movement',
+    moved.left - panel.left === 80 && moved.top - panel.top === 120);
+
+  const lowered = boardPositionRect(board, 0, 480);
+  const above = boardPositionPanelRect(lowered, 350, 170, viewport);
+  check('editor stays next to the board above it near the bottom edge',
+    above.bottom === lowered.top - 10 && boardPositionOverlapArea(above, lowered) === 0);
+
+  const narrow = { left: 12, top: 12, right: 378, bottom: 788 };
+  const narrowBoard = { left: 55, top: 90, right: 325, bottom: 420, width: 270, height: 330 };
+  const narrowPanel = boardPositionPanelRect(narrowBoard, 350, 170, narrow);
+  check('narrow screens keep the editor at the board instead of the viewport bottom',
+    narrowPanel.top === narrowBoard.bottom + 10
+      && narrowPanel.left >= narrow.left && narrowPanel.right <= narrow.right);
+
+  for (const [name, rect] of [
+    ['oversized board', { left: -500, top: -500, right: 1500, bottom: 1500, width: 2000, height: 2000 }],
+    ['scrolled past board', boardPositionRect(narrowBoard, 0, -1000)],
+    ['board below viewport', boardPositionRect(narrowBoard, 0, 1000)],
+  ]) {
+    const visible = boardPositionPanelRect(rect, 350, 170, narrow);
+    check(name + ' keeps the entire editor inside the viewport',
+      visible.left >= narrow.left && visible.top >= narrow.top
+        && visible.right <= narrow.right && visible.bottom <= narrow.bottom);
+  }
+}
+
 check('game frame stays centered when surrounding result width changes',
   /#game-frame\s*\{[^}]*width:\s*max-content;[^}]*margin-inline:\s*auto;/s.test(css));
 check('position editor exposes independent horizontal and vertical values',

@@ -4,6 +4,7 @@ const fs = require('fs');
 const vm = require('vm');
 const path = require('path');
 
+globalThis.BoardGenerators = require('../generators.js');
 const source = fs.readFileSync(path.join(__dirname, '..', 'settings-core.js'), 'utf8');
 vm.runInThisContext(source);
 

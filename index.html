@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Minesweeper - Standard Mode</title>
-<link rel="stylesheet" href="style.css?v=20260907-unified-tables">
+<link rel="stylesheet" href="style.css?v=20260921-board-position">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <!-- Defer preserves dependency order while letting every page asset download
      in parallel. Storage starts first so disk access overlaps JS startup. -->
@@ -15,12 +15,12 @@
 <script defer src="zini.js"></script>
 <script defer src="endgame.js"></script>
 <script defer src="solver.js?v=20260823-exact-solver"></script>
-<script defer src="generators.js?v=20260825-noise-family"></script>
+<script defer src="generators.js?v=20260921-shared-settings"></script>
 <script defer src="pregen.js?v=20260826-pregen-highlight"></script>
 <script defer src="odds.js?v=20260825-batched-certification"></script>
 <script defer src="trial.js"></script>
-<script defer src="settings-core.js?v=20260904-pocket-side"></script>
-<script defer src="minesweeper.js?v=20260907-unified-tables"></script>
+<script defer src="settings-core.js?v=20260921-persistent-zoom"></script>
+<script defer src="minesweeper.js?v=20260921-board-position"></script>
 </head>
 <body aria-busy="true">
 <div id="page-layout">
@@ -33,45 +33,10 @@
     <a href="#" data-difficulty="expert">Expert</a>
     <a href="#" data-difficulty="custom">Custom</a>
     <label id="zoom-label">Zoom
-      <select id="zoom-select">
-        <option value="16">16</option>
-        <option value="20">20</option>
-        <option value="24">24</option>
-        <option value="28" selected>28</option>
-        <option value="32">32</option>
-      </select>
+      <select id="zoom-select" disabled></select>
     </label>
     <button type="button" id="board-position-btn" aria-expanded="false"
       aria-controls="board-position-panel">position</button>
-    <div id="board-position-panel" hidden>
-      <div class="board-position-row">
-        <label for="board-position-x">left / right</label>
-        <div class="board-position-slider">
-          <input id="board-position-x" type="range" min="-2000" max="2000" step="1">
-          <div class="board-position-ticks" aria-hidden="true">
-            <span>-2000</span><span>-1000</span><span>0</span><span>1000</span><span>2000</span>
-          </div>
-        </div>
-        <input id="board-position-x-number" type="number" min="-2000" max="2000" step="1"
-          aria-label="Horizontal board offset in pixels">
-      </div>
-      <div class="board-position-row">
-        <label for="board-position-y">up / down</label>
-        <div class="board-position-slider">
-          <input id="board-position-y" type="range" min="-1000" max="2000" step="1">
-          <div class="board-position-ticks" aria-hidden="true">
-            <span>-1000</span><span>-250</span><span>500</span><span>1250</span><span>2000</span>
-          </div>
-        </div>
-        <input id="board-position-y-number" type="number" min="-1000" max="2000" step="1"
-          aria-label="Vertical board offset in pixels">
-      </div>
-      <p id="board-position-note">Drag the highlighted board, or use its arrow keys. Shift moves 10 px.</p>
-      <div id="board-position-actions">
-        <button type="button" id="board-position-reset">center</button>
-        <button type="button" id="board-position-done">done</button>
-      </div>
-    </div>
   </nav>
   <form id="custom-form" hidden>
     <label>Width <input id="custom-width" type="number" min="8" max="100" value="30"></label>
@@ -245,6 +210,36 @@
   </div>
   <div id="path-view-legend" hidden></div>
 </aside>
+</div>
+<div id="board-position-panel" role="region" aria-labelledby="board-position-title" hidden>
+  <div id="board-position-actions">
+    <strong id="board-position-title">Board position</strong>
+    <button type="button" id="board-position-reset">Center</button>
+    <button type="button" id="board-position-done">Done</button>
+  </div>
+  <div class="board-position-row">
+    <label for="board-position-x">left / right</label>
+    <div class="board-position-slider">
+      <input id="board-position-x" type="range" min="-2000" max="2000" step="1">
+      <div class="board-position-ticks" aria-hidden="true">
+        <span>-2000</span><span>-1000</span><span>0</span><span>1000</span><span>2000</span>
+      </div>
+    </div>
+    <input id="board-position-x-number" type="number" min="-2000" max="2000" step="1"
+      aria-label="Horizontal board offset in pixels">
+  </div>
+  <div class="board-position-row">
+    <label for="board-position-y">up / down</label>
+    <div class="board-position-slider">
+      <input id="board-position-y" type="range" min="-1000" max="2000" step="1">
+      <div class="board-position-ticks" aria-hidden="true">
+        <span>-1000</span><span>-250</span><span>500</span><span>1250</span><span>2000</span>
+      </div>
+    </div>
+    <input id="board-position-y-number" type="number" min="-1000" max="2000" step="1"
+      aria-label="Vertical board offset in pixels">
+  </div>
+  <p id="board-position-note">Drag the highlighted board, or use its arrow keys. Shift moves 10 px.</p>
 </div>
 </body>
 </html>

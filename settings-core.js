@@ -1,25 +1,87 @@
 'use strict';
 
-//-------PERSONAL SETTINGS (behavior switches, stored beside the history)-------
+//-------PERSONAL SETTINGS (one schema, one JSON-compatible stored object)-------
 
-// Moved out of minesweeper.js on 2026-08-23 so settings.html (the full
-// settings page) reads and writes the same definitions. Player-facing
-// behavior switches ("settings", never "config" — that word is taken by
-// the board parameters). Like GAME_RECORD_SCHEMA, this is the single
-// definition of the settings block: settingsFrom fills absent fields from
-// `default` (a stored block written before a setting existed simply
-// predates it — absence means the player never changed it), importHistory
-// validates an incoming block against `valid`, the settings page renders
-// the controls from `group`/`label`/`hint`/`describe`, and exports carry
-// the block under the reserved "settings" key — so the writer, the
-// validator, the UI, and the documentation cannot drift apart.
-//
-// Some `valid` closures reference game-page globals (PLAY_MODE_IDS,
-// SESSION_LOOKBACK_CHOICES, SESSION_GAME_LOOKBACK_CHOICES,
-// RECENT_PLACEMENTS_WINDOWS, METRICS_PANEL_WIDTH_*)
-// that only minesweeper.js defines. That is deliberate: validation only
-// ever runs on the game page (import), and the closures are late-bound.
-// The settings page must never call a control-'none' field's valid().
+// Every persistent preference belongs to SETTINGS_SCHEMA. Both pages use
+// this module to load, validate, default, migrate, clone, and save the same
+// flat settings object in IndexedDB userdata['settings']. History backups
+// carry that exact format under 'settings'; older fields remain compatible.
+// Control 'none' means the editor lives on the game page, not a second store.
+// Choices and bounds live here; generator definitions come from the shared
+// generators.js registry, loaded before this module on both pages.
+
+// Play mode is a second uniqueifier next to board size: rankings and
+// history keys are per (board, play mode, board generator). Trial
+// results never mix with the other modes' lists. Board lab is the
+// non-play mode for exploring board generation: every board appears
+// already solved, nothing is recorded.
+const PLAY_MODES = [
+  { id: 'standard', label: 'Standard' },
+  {
+    id: 'pregen-10-3bv-desc',
+    label: 'pregen 10 boards and order by 3BV descending, assuming auto-click in upper right',
+  },
+  { id: 'uniform-ng', label: 'Uniform NG' },
+  { id: 'single-path-ng', label: 'Single-path NG' },
+  { id: 'proof-or-die', label: 'Proof-or-die' },
+  { id: 'angelic', label: 'Angelic' },
+  { id: 'endgame-drill', label: 'Endgame drill' },
+  { id: 'trial', label: 'Trial' },
+  { id: 'short-trial', label: 'Short trial' },
+  { id: 'test-trial', label: 'Test trial' },
+  { id: 'board-lab', label: 'Board lab' },
+];
+const PLAY_MODE_IDS = new Set(PLAY_MODES.map((m) => m.id));
+
+// Selectable running-average lengths (seconds of accumulated play); see
+// the session stats section. "5m" means five minutes of played time,
+// never wall time. The selector lives on the session section itself, not
+// on the settings page, so experimenting with it is one click.
+const SESSION_LOOKBACK_CHOICES = [30, 60, 120, 300, 900];
+// Per-game aggregation uses completed games as both denominator and
+// lookback unit. Five games is the direct counterpart to the default
+// five-minute played-time lookback.
+const SESSION_GAME_LOOKBACK_CHOICES = [1, 3, 5, 10, 20, 50];
+
+// Selectable session-stat window lengths (minutes of accumulated play).
+// Same one-click doctrine: the selector lives on the session section.
+// Retention (SESSION_KEEP_MS) always covers the largest choice, so
+// switching to a longer window works immediately.
+const SESSION_WINDOW_CHOICES = [1, 5, 10, 15, 30, 60, 180];
+
+// Selectable source windows for the recent-placements summary (PRODUCT.md
+// "Recent placements"): [id, label, windowStartMs(nowMs)]. Like the session
+// lookback, the selector lives on the summary block itself. "today
+// since 6am" treats 6am as the day boundary, so before 6am it reaches back
+// to yesterday's 6am rather than reporting an empty morning.
+const RECENT_PLACEMENTS_WINDOWS = [
+  ['today', 'today', (now) => startOfDay(now)],
+  ['today6am', 'today since 6am', (now) => {
+    const d = new Date(now);
+    d.setHours(6, 0, 0, 0);
+    if (d.getTime() > now) d.setDate(d.getDate() - 1);
+    return d.getTime();
+  }],
+  ['past10min', 'in the past 10 min', (now) => now - 600e3],
+  ['past30min', 'in the past 30 min', (now) => now - 1800e3],
+  ['pastHour', 'in the past hour', (now) => now - 3600e3],
+  ['past2h', 'in the past 2 hours', (now) => now - 2 * 3600e3],
+  ['past4h', 'in the past 4 hours', (now) => now - 4 * 3600e3],
+  ['past24h', 'in the past 24h', (now) => now - 24 * 3600e3],
+  ['pastWeek', 'in the past week', (now) => startOfDay(now, 6)],
+];
+
+// Drag bounds for the left stats panel: narrow enough to get out of the
+// way, wide enough for a chart to be genuinely readable, never so wide
+// it could swallow the board on a laptop screen.
+const METRICS_PANEL_WIDTH_MIN = 220;
+const METRICS_PANEL_WIDTH_MAX = 640;
+
+const AVERAGE_CHART_MODES = [
+  ['average', 'average'],
+  ['distribution', 'distribution'],
+  ['winrate', 'winrate'],
+];
 
 const SHOWN_THINGS_DEFAULTS = Object.freeze({
   endVerdict: true,
@@ -79,7 +141,7 @@ function reportScopeFromStored(stored) {
 function validShownThings(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
     && Object.entries(value).every(([key, enabled]) =>
-      key in SHOWN_THINGS_DEFAULTS && typeof enabled === 'boolean');
+      Object.hasOwn(SHOWN_THINGS_DEFAULTS, key) && typeof enabled === 'boolean');
 }
 
 // The settings page renders one section per group, in this order; a
@@ -100,7 +162,19 @@ const NUMBER_DISPLAY_CHOICES = [
   ['dots', 'dots', 'one dot per cell \u2014 the count lives only in the color'],
 ];
 
+const CELL_SIZE_CHOICES = [16, 20, 24, 28, 32, 36, 40, 48, 56, 64, 80, 96];
+
 const SETTINGS_SCHEMA = [
+  {
+    field: 'cellSize',
+    default: 28,
+    valid: (v) => CELL_SIZE_CHOICES.includes(v),
+    choices: CELL_SIZE_CHOICES,
+    group: 'gameplay',
+    label: 'cell size',
+    describe: 'cell size in pixels; chosen with Zoom above the board and remembered between visits',
+    control: 'none',
+  },
   {
     field: 'justUniverse',
     default: true,
@@ -139,6 +213,7 @@ const SETTINGS_SCHEMA = [
     field: 'reportScope',
     default: 'fatal',
     valid: validReportScope,
+    migrate: reportScopeFromStored,
     group: 'after-game',
     label: 'after each game, show me',
     describe: 'how much action analysis appears after games; fatal action only is the new-player default',
@@ -228,7 +303,7 @@ const SETTINGS_SCHEMA = [
   {
     field: 'averageChartMode',
     default: 'average',
-    valid: (v) => v === 'average' || v === 'distribution' || v === 'winrate',
+    valid: (v) => AVERAGE_CHART_MODES.some(([id]) => id === v),
     group: 'after-game',
     label: 'property-chart mode',
     describe: 'what the property charts plot per value: the average win time, every individual win time (the distribution), or the share of games won; chosen with the selector on the charts themselves',
@@ -237,7 +312,7 @@ const SETTINGS_SCHEMA = [
   {
     field: 'metricsPanelWidth',
     default: 316,
-    valid: (v) => typeof v === 'number' && v >= METRICS_PANEL_WIDTH_MIN && v <= METRICS_PANEL_WIDTH_MAX,
+    valid: (v) => typeof v === 'number' && Number.isFinite(v) && v >= METRICS_PANEL_WIDTH_MIN && v <= METRICS_PANEL_WIDTH_MAX,
     group: 'left-panel',
     label: 'stats panel width',
     describe: 'px width of the left stats panel; set by dragging the panel\u2019s right edge, not from here',
@@ -265,6 +340,7 @@ const SETTINGS_SCHEMA = [
     field: 'shownThings',
     default: SHOWN_THINGS_DEFAULTS,
     valid: validShownThings,
+    mergeDefaults: true,
     group: 'after-game',
     label: 'shown things',
     describe: 'which result sections appear after a game or in the score viewer',
@@ -282,8 +358,6 @@ const SETTINGS_SCHEMA = [
   {
     field: 'boardGenerator',
     default: 'uniform',
-    // Late-bound: BoardGenerators lives in generators.js, loaded only by
-    // the game page — like the PLAY_MODE_IDS closure above.
     valid: (v) => typeof v === 'string' && BoardGenerators.SPECS.some((g) => g.id === v),
     group: 'gameplay',
     label: 'board generator',
@@ -322,33 +396,44 @@ const SETTINGS_SCHEMA = [
 // The RAM copy of the settings block (userdata 'settings').
 let settings = null;
 
+// Migration/defaulting is read-only: visiting either page never rewrites
+// storage. Only known, valid fields reach RAM; object defaults and loaded
+// objects are copied so editing one page cannot mutate the schema or input.
 function settingsFrom(stored) {
+  if (stored === null || typeof stored !== 'object' || Array.isArray(stored)) stored = {};
   const filled = {};
   for (const s of SETTINGS_SCHEMA) {
-    if (s.field === 'shownThings') {
-      filled[s.field] = {
-        ...SHOWN_THINGS_DEFAULTS,
-        ...(s.field in stored && validShownThings(stored[s.field]) ? stored[s.field] : {}),
-      };
-    } else if (s.field === 'reportScope') {
-      filled[s.field] = reportScopeFromStored(stored);
-    } else if (s.field === 'boardGeneratorParams') {
-      // Deep-copied so later slider edits can never mutate the schema's
-      // shared default object or an imported blob.
-      const storedParams = s.field in stored && stored[s.field] !== null
-        && typeof stored[s.field] === 'object' && !Array.isArray(stored[s.field])
-        ? stored[s.field] : {};
-      filled[s.field] = Object.fromEntries(
-        Object.entries(storedParams).map(([id, p]) => [id, { ...p }]));
-    } else {
-      filled[s.field] = s.field in stored ? stored[s.field] : s.default;
-    }
+    const raw = s.migrate ? s.migrate(stored)
+      : Object.hasOwn(stored, s.field) ? stored[s.field] : s.default;
+    const value = s.valid(raw) ? raw : s.default;
+    filled[s.field] = structuredClone(s.mergeDefaults ? { ...s.default, ...value } : value);
   }
   return filled;
 }
 
 function saveSettings() {
+  settings = settingsFrom(settings);
   persistUserdata('settings', settings);
+}
+
+// Invalid settings do not make game history unusable. Keep unknown fields on
+// import for old migration inputs, but exports contain only the current,
+// documented settings schema.
+function cleanTransferredSettings(source, preserveUnknown) {
+  if (source === null || typeof source !== 'object' || Array.isArray(source)) {
+    return { settings: null, skippedFields: 0 };
+  }
+  const cleaned = preserveUnknown ? { ...source } : {};
+  let skippedFields = 0;
+  for (const field of SETTINGS_SCHEMA) {
+    if (!Object.hasOwn(source, field.field)) continue;
+    if (field.valid(source[field.field])) cleaned[field.field] = source[field.field];
+    else {
+      delete cleaned[field.field];
+      skippedFields++;
+    }
+  }
+  return { settings: cleaned, skippedFields };
 }
 
 //-------CELL ICONOGRAPHY-------

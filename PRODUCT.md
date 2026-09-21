@@ -43,7 +43,10 @@ key names) live in `agents.md`; player-facing pitch in `promo/PROMO.md`.
   input, textarea, button, or link.
 - LCD counters are red seven-segment with visible gaps between digits (the
   digits must not crowd together).
-- Zoom control: 16-32 px cell sizes.
+- Zoom control: 16, 20, 24, 28, 32, 36, 40, 48, 56, 64, 80, or 96 px cell sizes.
+  Default 28 px. The chosen size is a saved preference: it survives reloads
+  and visits to Settings, and travels with history exports/imports. Zoom
+  changes resize the current board in place and update trace geometry.
 - Mechanics: first click never a mine; flood fill; right-click flags;
   left-click chording with press preview; win auto-flags remaining mines;
   loss shows the red hit cell and crossed-out wrong flags.
@@ -672,6 +675,11 @@ report.
   arrows, labeled sliders, or numbers. The game frame centers within its
   column; sidebar controls remain outside its translation. Applied offsets may be
   constrained to its bounds without rewriting the saved preference.
+- The position editor follows the board, normally directly below it, on all
+  screen widths. It switches sides when needed and stays within the visible
+  viewport during dragging, scrolling, resizing, and zooming. Center and a
+  prominent Done button stay at the top of the editor; Escape also closes it.
+  The editor does not change the board's position or page layout.
 - The results area echoes the in-game numeral face (Arial Black stack).
 
 ## UI doctrine (directives collected 2026-08-23)
@@ -2188,14 +2196,21 @@ does not label their cause.
   implementation defaults for decisions.
 - A schema-driven settings system for player-facing behavior switches:
   `SETTINGS_SCHEMA` is the single definition (field, default, validity,
-  group, label, hint, description); the loader, the import validator, the
-  settings page UI, and the data-format card all derive from it. It lives
+  group, label, hint, description, and optional migration); the loader,
+  saver, import validator, settings page UI, and data-format card all derive
+  from it. Selectable values and limits live beside the schema; generator
+  parameters use the shared generator registry. Both pages load that registry
+  and can validate every preference without the game runtime. It lives
   in settings-core.js, loaded by both pages, so the game and the settings
   page cannot drift. Named "settings", never "config" — that word is the
   board parameters.
 - Stored beside the history (userdata `settings`; see Storage). Absent
-  entry or absent field = the default (the player never changed it);
-  nothing is persisted until they do.
+  entry or absent field = the default (the player never changed it). Invalid
+  stored fields also use their defaults, and nested values are copied before
+  editing. Loading is read-only; only a user change writes the normalized
+  object. All persistent preferences use this flat JSON-compatible object,
+  including controls edited on the game page. The data-format reference
+  lists every setting, default, and meaning directly from the schema.
 - Exports carry the block under the reserved top-level `"settings"` key
   (it can never collide with a mode key, which is always WxH/M@playMode);
   importing
@@ -2242,7 +2257,8 @@ does not label their cause.
   pointer stumbles into. The remaining one-click precedents stand: the
   session lookback and window selectors living on the session section
   itself, and the stats panel width set by dragging the panel's own edge.
-- Settings so far: `justUniverse` (default on) — sealed-pocket mercy (see
+- Settings so far: `cellSize` (default 28) — saved Zoom in pixels;
+  `justUniverse` (default on) — sealed-pocket mercy (see
   "A just universe";
   a game freezes the value at its first reveal, so a change made mid-game
   applies from the next game — the old drawer's mid-game lock UI retired

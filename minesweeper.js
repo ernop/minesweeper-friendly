@@ -8,28 +8,7 @@ const DIFFICULTIES = {
   expert: { width: 30, height: 16, mines: 99 },
 };
 
-// Play mode is a second uniqueifier next to board size: rankings and
-// history keys are per (board, play mode, board generator). Trial
-// results never mix with the other modes' lists. Board lab is the
-// non-play mode for exploring board generation: every board appears
-// already solved, nothing is recorded.
-const PLAY_MODES = [
-  { id: 'standard', label: 'Standard' },
-  {
-    id: 'pregen-10-3bv-desc',
-    label: 'pregen 10 boards and order by 3BV descending, assuming auto-click in upper right',
-  },
-  { id: 'uniform-ng', label: 'Uniform NG' },
-  { id: 'single-path-ng', label: 'Single-path NG' },
-  { id: 'proof-or-die', label: 'Proof-or-die' },
-  { id: 'angelic', label: 'Angelic' },
-  { id: 'endgame-drill', label: 'Endgame drill' },
-  { id: 'trial', label: 'Trial' },
-  { id: 'short-trial', label: 'Short trial' },
-  { id: 'test-trial', label: 'Test trial' },
-  { id: 'board-lab', label: 'Board lab' },
-];
-const PLAY_MODE_IDS = new Set(PLAY_MODES.map((m) => m.id));
+// Play modes and persistent preference choices live in settings-core.js.
 
 const LCD_MIN = -99;
 const LCD_MAX = 999;
@@ -197,6 +176,30 @@ function boardPositionLayoutRect(rect, scrollX, scrollY, fixedAtViewportOrigin) 
     fixedAtViewportOrigin ? 0 : scrollY);
 }
 
+function boardPositionPanelRect(board, width, height, bounds) {
+  const gap = 10;
+  const centerX = board.left + (board.width - width) / 2;
+  const candidates = [
+    [centerX, board.bottom + gap],
+    [centerX, board.top - gap - height],
+    [board.right + gap, board.top],
+    [board.left - gap - width, board.top],
+  ];
+  let best = null;
+  for (const [x, y] of candidates) {
+    const left = Math.max(bounds.left, Math.min(bounds.right - width, x));
+    const top = Math.max(bounds.top, Math.min(bounds.bottom - height, y));
+    const rect = { left, top, right: left + width, bottom: top + height, width, height };
+    const overlap = boardPositionOverlapArea(rect, board);
+    const distance = (left - x) ** 2 + (top - y) ** 2;
+    if (best === null || overlap < best.overlap
+        || (overlap === best.overlap && distance < best.distance)) {
+      best = { ...rect, overlap, distance };
+    }
+  }
+  return best;
+}
+
 // Find the collision-free offset nearest the player's preference. Horizontal
 // bounds keep a board that fits inside the available main column; oversized
 // boards retain their natural overflow. There is deliberately no lower bound:
@@ -239,6 +242,7 @@ function constrainBoardOffset(base, bounds, exclusions, preferredX, preferredY) 
 let appliedBoardOffsetX = 0;
 let appliedBoardOffsetY = 0;
 let boardLayoutFrame = null;
+let stopBoardPositionDrag = null;
 
 // Board layout uses document coordinates so scrolling cannot move content.
 function boardPageRect(element) {
@@ -255,57 +259,24 @@ function syncBoardPositionInputs() {
   boardPositionYNumber.value = y;
 }
 
-// The editor itself is fixed to the least occupied viewport corner. It moves
-// out of the board's way instead of becoming another constraint that changes
-// the position the player is trying to set.
+// Keep the editor beside the board without constraining the position being
+// chosen. At screen edges, another side or an overlap keeps Done reachable.
 function placeBoardPositionPanel() {
   if (boardPositionPanel.hidden) return;
-  if (window.innerWidth <= 720) {
-    boardPositionPanel.style.removeProperty('top');
-    boardPositionPanel.style.removeProperty('right');
-    boardPositionPanel.style.removeProperty('bottom');
-    boardPositionPanel.style.removeProperty('left');
-    return;
-  }
-  const margin = 14;
-  const width = boardPositionPanel.offsetWidth;
-  const height = boardPositionPanel.offsetHeight;
-  const centerX = Math.max(margin, Math.round((window.innerWidth - width) / 2));
-  const middleY = Math.max(margin, Math.round((window.innerHeight - height) / 2));
-  const rightX = Math.max(margin, window.innerWidth - margin - width);
-  const bottomY = Math.max(margin, window.innerHeight - margin - height);
-  const candidates = [
-    [margin, margin],
-    [centerX, margin],
-    [rightX, margin],
-    [margin, middleY],
-    [rightX, middleY],
-    [margin, bottomY],
-    [centerX, bottomY],
-    [rightX, bottomY],
-  ];
-  const obstacles = [
-    gameFrame.getBoundingClientRect(),
-    topRight.getBoundingClientRect(),
-    difficultyTabs.getBoundingClientRect(),
-  ];
-  if (!metricsPanel.hidden) obstacles.push(metricsPanel.getBoundingClientRect());
-  if (resultSummary.textContent !== '' || resultStats.textContent !== '') {
-    obstacles.push(resultsBox.getBoundingClientRect());
-  }
-  let best = null;
-  for (const [left, top] of candidates) {
-    const rect = {
-      left, top, right: left + width, bottom: top + height, width, height,
-    };
-    const overlap = obstacles.reduce(
-      (sum, obstacle) => sum + boardPositionOverlapArea(rect, obstacle), 0);
-    if (best === null || overlap < best.overlap) best = { left, top, overlap };
-  }
-  boardPositionPanel.style.left = best.left + 'px';
-  boardPositionPanel.style.top = best.top + 'px';
-  boardPositionPanel.style.right = 'auto';
-  boardPositionPanel.style.bottom = 'auto';
+  const margin = 12;
+  const viewport = window.visualViewport;
+  const bounds = {
+    left: viewport.offsetLeft + margin,
+    top: viewport.offsetTop + margin,
+    right: viewport.offsetLeft + viewport.width - margin,
+    bottom: viewport.offsetTop + viewport.height - margin,
+  };
+  boardPositionPanel.style.maxWidth = Math.max(0, bounds.right - bounds.left) + 'px';
+  boardPositionPanel.style.maxHeight = Math.max(0, bounds.bottom - bounds.top) + 'px';
+  const placed = boardPositionPanelRect(gameFrame.getBoundingClientRect(),
+    boardPositionPanel.offsetWidth, boardPositionPanel.offsetHeight, bounds);
+  boardPositionPanel.style.left = placed.left + 'px';
+  boardPositionPanel.style.top = placed.top + 'px';
 }
 
 function applyBoardPosition() {
@@ -339,12 +310,12 @@ function applyBoardPosition() {
   boardPositionDragSurface.style.top = gameFrame.offsetTop + 'px';
   boardPositionDragSurface.style.width = gameFrame.offsetWidth + 'px';
   boardPositionDragSurface.style.height = gameFrame.offsetHeight + 'px';
-  placeBoardPositionPanel();
   if (!boardPositionPanel.hidden) {
     boardPositionNote.textContent = placed.adjusted
       ? 'Saved position is temporarily adjusted to keep required controls clear.'
       : 'Drag the highlighted board, or use its arrow keys. Shift moves 10 px.';
   }
+  placeBoardPositionPanel();
 }
 
 function syncBoardLayout() {
@@ -3627,58 +3598,6 @@ const GAME_RECORD_SCHEMA = [
 // only if that ever stops being true.
 let history = null;
 
-//-------SETTINGS SUPPORT (the schema itself lives in settings-core.js)-------
-
-// The settings schema, groups, shown-things options, the RAM copy
-// (`settings`), settingsFrom, and saveSettings all moved to
-// settings-core.js on 2026-08-23, shared with the settings page. The
-// constants below stay here because only game-page code (including the
-// schema's late-bound valid() closures) ever reads them.
-
-// Selectable running-average lengths (seconds of accumulated play); see
-// the session stats section. "5m" means five minutes of played time,
-// never wall time. The selector lives on the session section itself, not
-// on the settings page, so experimenting with it is one click.
-const SESSION_LOOKBACK_CHOICES = [30, 60, 120, 300, 900];
-// Per-game aggregation uses completed games as both denominator and
-// lookback unit. Five games is the direct counterpart to the default
-// five-minute played-time lookback.
-const SESSION_GAME_LOOKBACK_CHOICES = [1, 3, 5, 10, 20, 50];
-
-// Selectable session-stat window lengths (minutes of accumulated play).
-// Same one-click doctrine: the selector lives on the session section.
-// Retention (SESSION_KEEP_MS) always covers the largest choice, so
-// switching to a longer window works immediately.
-const SESSION_WINDOW_CHOICES = [1, 5, 10, 15, 30, 60, 180];
-
-// Selectable source windows for the recent-placements summary (PRODUCT.md
-// "Recent placements"): [id, label, windowStartMs(nowMs)]. Like the session
-// lookback, the selector lives on the summary block itself. "today
-// since 6am" treats 6am as the day boundary, so before 6am it reaches back
-// to yesterday's 6am rather than reporting an empty morning.
-const RECENT_PLACEMENTS_WINDOWS = [
-  ['today', 'today', (now) => startOfDay(now)],
-  ['today6am', 'today since 6am', (now) => {
-    const d = new Date(now);
-    d.setHours(6, 0, 0, 0);
-    if (d.getTime() > now) d.setDate(d.getDate() - 1);
-    return d.getTime();
-  }],
-  ['past10min', 'in the past 10 min', (now) => now - 600e3],
-  ['past30min', 'in the past 30 min', (now) => now - 1800e3],
-  ['pastHour', 'in the past hour', (now) => now - 3600e3],
-  ['past2h', 'in the past 2 hours', (now) => now - 2 * 3600e3],
-  ['past4h', 'in the past 4 hours', (now) => now - 4 * 3600e3],
-  ['past24h', 'in the past 24h', (now) => now - 24 * 3600e3],
-  ['pastWeek', 'in the past week', (now) => startOfDay(now, 6)],
-];
-
-// Drag bounds for the left stats panel: narrow enough to get out of the
-// way, wide enough for a chart to be genuinely readable, never so wide
-// it could swallow the board on a laptop screen.
-const METRICS_PANEL_WIDTH_MIN = 220;
-const METRICS_PANEL_WIDTH_MAX = 640;
-
 // The top score key: everything that determines how a board is made and
 // played — board parameters, play mode, and the board generator with its
 // exact parameter values. Every key holds its own history and rankings.
@@ -3879,26 +3798,6 @@ function cleanTransferredHistory(raw) {
     }
   }
   return { history: cleaned, gameCount, skippedRecords, skippedLists, repairedFields };
-}
-
-// Invalid settings do not make game history unusable. Keep unknown fields on
-// import for old migration inputs, but exports contain only the current,
-// documented settings schema.
-function cleanTransferredSettings(source, preserveUnknown) {
-  if (source === null || typeof source !== 'object' || Array.isArray(source)) {
-    return { settings: null, skippedFields: 0 };
-  }
-  const cleaned = preserveUnknown ? { ...source } : {};
-  let skippedFields = 0;
-  for (const field of SETTINGS_SCHEMA) {
-    if (!(field.field in source)) continue;
-    if (field.valid(source[field.field])) cleaned[field.field] = source[field.field];
-    else {
-      delete cleaned[field.field];
-      skippedFields++;
-    }
-  }
-  return { settings: cleaned, skippedFields };
 }
 
 //-------PLAY HISTORY: TRANSFER CLEANING END-------
@@ -5069,11 +4968,7 @@ function winratePoints(spec, records) {
 // win times, and the win percentage per property value. One shared mode
 // applies to every property chart at once; each chart's heading carries
 // the selector.
-const AVERAGE_CHART_MODES = [
-  ['average', 'average'],
-  ['distribution', 'distribution'],
-  ['winrate', 'winrate'],
-];
+// AVERAGE_CHART_MODES lives with its setting in settings-core.js.
 
 function averageChartModeSelect() {
   const select = document.createElement('select');
@@ -13488,6 +13383,7 @@ document.addEventListener('contextmenu', (event) => {
 // The board can shift under the viewport coordinate system; every such
 // change gets a fresh layout event so samples stay mappable to cells.
 document.addEventListener('scroll', () => {
+  placeBoardPositionPanel();
   if (tracing()) recordLayout();
 });
 window.addEventListener('resize', () => {
@@ -13593,6 +13489,7 @@ function setBoardPositionPreference(x, y, persist) {
 }
 
 function setBoardPositionEditing(open) {
+  if (!open && stopBoardPositionDrag !== null) stopBoardPositionDrag();
   boardPositionPanel.hidden = !open;
   boardPositionDragSurface.hidden = !open;
   boardPositionButton.setAttribute('aria-expanded', String(open));
@@ -13649,32 +13546,49 @@ function initBoardPositionControls() {
   });
 
   boardPositionDragSurface.addEventListener('pointerdown', (event) => {
-    if (event.button !== 0) return;
+    if (event.button !== 0 || stopBoardPositionDrag !== null) return;
     event.preventDefault();
+    boardPositionDragSurface.focus({ preventScroll: true });
     const startX = event.clientX;
     const startY = event.clientY;
     const preferenceX = settings.boardOffsetX;
     const preferenceY = settings.boardOffsetY;
     const move = (ev) => {
+      if (ev.pointerId !== event.pointerId) return;
       setBoardPositionPreference(
         preferenceX + ev.clientX - startX,
         preferenceY + ev.clientY - startY,
         false);
     };
     const up = (ev) => {
+      if (ev.pointerId !== event.pointerId) return;
+      move(ev);
+      stopBoardPositionDrag();
+    };
+    const cancel = (ev) => {
+      if (ev.pointerId === event.pointerId) stopBoardPositionDrag();
+    };
+    const stop = () => {
       document.removeEventListener('pointermove', move);
       document.removeEventListener('pointerup', up);
-      move(ev);
+      document.removeEventListener('pointercancel', cancel);
+      window.removeEventListener('blur', stop);
+      stopBoardPositionDrag = null;
       saveSettings();
-      boardPositionDragSurface.focus({ preventScroll: true });
     };
+    stopBoardPositionDrag = stop;
     document.addEventListener('pointermove', move);
     document.addEventListener('pointerup', up);
+    document.addEventListener('pointercancel', cancel);
+    window.addEventListener('blur', stop);
   });
 
   boardPositionPanel.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') setBoardPositionEditing(false);
   });
+
+  window.visualViewport.addEventListener('resize', placeBoardPositionPanel);
+  window.visualViewport.addEventListener('scroll', placeBoardPositionPanel);
 
   if (typeof ResizeObserver !== 'undefined') {
     const observer = new ResizeObserver(scheduleBoardLayout);
@@ -13684,16 +13598,46 @@ function initBoardPositionControls() {
     observer.observe(justiceLive);
     observer.observe(difficultyTabs);
     observer.observe(metricsPanel);
+    observer.observe(boardPositionPanel);
   }
 }
 
-document.getElementById('zoom-select').addEventListener('change', (event) => {
-  document.documentElement.style.setProperty('--cell-size', event.target.value + 'px');
+//-------PERSISTENT CELL SIZE-------
+
+function applyCellSize() {
+  document.getElementById('zoom-select').value = String(settings.cellSize);
+  document.documentElement.style.setProperty('--cell-size', settings.cellSize + 'px');
   applyBoardPosition();
   if (tracing()) recordLayout();
   syncJusticePlacement();
   syncResultClearance();
-});
+}
+
+function initCellSizeControl() {
+  const select = document.getElementById('zoom-select');
+  select.replaceChildren();
+  const definition = SETTINGS_SCHEMA.find((s) => s.field === 'cellSize');
+  for (const size of definition.choices) {
+    const option = document.createElement('option');
+    option.value = String(size);
+    option.textContent = String(size);
+    select.appendChild(option);
+  }
+  applyCellSize();
+  select.disabled = false;
+  select.addEventListener('change', () => {
+    const size = Number(select.value);
+    if (!definition.valid(size)) {
+      select.value = String(settings.cellSize);
+      return;
+    }
+    settings.cellSize = size;
+    saveSettings();
+    applyCellSize();
+  });
+}
+
+//-------PERSISTENT CELL SIZE END-------
 
 //-------BACKUP (export / import of the play history)-------
 
@@ -13810,6 +13754,7 @@ function importHistory(text) {
   if (importedSettings !== null) {
     settings = settingsFrom({ ...settings, ...importedSettings });
     saveSettings();
+    applyCellSize();
     repaintRevealedCells();
     document.getElementById('play-mode-select').value = settings.playMode;
     document.getElementById('board-generator-select').value = settings.boardGenerator;
@@ -13866,7 +13811,7 @@ document.addEventListener('click', (event) => {
   }
 });
 
-// The data-format reference card, generated from GAME_RECORD_SCHEMA and
+// The data-format reference card, generated from both schemas and
 // DIFFICULTIES so it always matches what the code writes and accepts.
 function buildFormatPanel() {
   const block = (headingText) => {
@@ -13884,7 +13829,7 @@ function buildFormatPanel() {
   const intermediateKey = modeKeyOf(DIFFICULTIES.intermediate, 'standard');
   const keyColumn = (key) => ('"' + key + '":').padEnd(intermediateKey.length + 4);
   const pre = document.createElement('pre');
-  pre.textContent = '{\n  ' + keyColumn('settings') + '{ \u2026the settings panel\u2019s switches\u2026 },\n  '
+  pre.textContent = '{\n  ' + keyColumn('settings') + '{ \u2026personal preferences\u2026 },\n  '
     + keyColumn(beginnerKey) + '[ \u2026one record per finished game\u2026 ],\n  '
     + keyColumn(intermediateKey) + '[ \u2026 ]\n}';
   const namedModes = Object.entries(DIFFICULTIES)
@@ -13894,9 +13839,23 @@ function buildFormatPanel() {
   exportNote.textContent = 'One list per board and play mode, keyed by width\u00d7height/mines@mode ('
     + namedModes + '; modes: ' + PLAY_MODES.map((m) => m.id).join(', ')
     + '). Keys without @ are Standard. Records sit in play order, wins and losses alike. The reserved '
-    + '"settings" key carries the settings panel\u2019s switches; importing applies them '
+    + '"settings" key carries all saved preferences, including zoom; importing applies them '
     + '(absent on exports from before 2026-08-20).';
   exportBlock.append(pre, exportNote);
+
+  const settingsBlock = block('settings: field, default, meaning');
+  settingsBlock.classList.add('settings-format-block');
+  const settingsTable = document.createElement('table');
+  for (const setting of SETTINGS_SCHEMA) {
+    const row = document.createElement('tr');
+    for (const text of [setting.field, JSON.stringify(setting.default, null, 2), setting.describe]) {
+      const cell = document.createElement('td');
+      cell.textContent = text;
+      row.appendChild(cell);
+    }
+    settingsTable.appendChild(row);
+  }
+  settingsBlock.appendChild(settingsTable);
 
   const recordBlock = block('each game record');
   const table = document.createElement('table');
@@ -14016,6 +13975,7 @@ function syncDifficultyTabs() {
 }
 
 function init() {
+  initCellSizeControl();
   buildPlayModeSwitcher();
   buildBoardGeneratorSwitcher();
   renderStates();
