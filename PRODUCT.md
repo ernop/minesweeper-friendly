@@ -45,7 +45,7 @@ key names) live in `agents.md`; player-facing pitch in `promo/PROMO.md`.
   digits must not crowd together).
 - Zoom control: 16, 20, 24, 28, 32, 36, 40, 48, 56, 64, 80, or 96 px cell sizes.
   Default 28 px. The chosen size is a saved preference: it survives reloads
-  and visits to Settings, and travels with history exports/imports. Zoom
+  and visits to Settings, and travels with separate preference exports/imports. Zoom
   changes resize the current board in place and update trace geometry.
 - Mechanics: first click never a mine; flood fill; right-click flags;
   left-click chording with press preview; win auto-flags remaining mines;
@@ -692,13 +692,15 @@ because they apply app-wide, not just where each was first stated.
   strip it rather than polish it — the settings demo world (a pretend
   mid-game that reacted to every switch) was built and removed the same
   day on this rule.
-- Captions and explanatory text must earn their place: write one only
-  when it says something truly new and useful, keep it minimal and to
-  the point, and never add speculation or editorializing. A caption that
-  restates its control's name is noise and gets removed. Full
-  descriptions may ride on names as plain tooltips.
-- Hover changes nothing: pointer movement must never inject, swap, or
-  reflow text, and no control may be reachable only by hovering.
+- Optional instructions and explanatory text must meet both conditions:
+  they add useful information, and they stay hidden until requested through
+  a subtle help affordance, such as a (?) hover tooltip or a control's
+  tooltip. Do not add persistent instructional captions. Omit redundant or
+  obvious guidance entirely; keep useful help brief and factual. This does
+  not hide essential control labels, semantic legends, or error messages.
+- Hover must not inject, swap, or reflow page content. Supplementary help
+  may appear as an overlay tooltip on hover or keyboard focus without
+  changing the layout; no action control may be reachable only by hovering.
 - Semantic labels are never shortened: when legend, key, series, color,
   region, or section text is the unique explanation of what a visual
   encoding means, render the complete wording. Never truncate it,
@@ -1178,13 +1180,12 @@ carries at least one tag.
   identical member sets keep the most specific list (has 8, has 7,
   max 2, then max 3, then max 4, then the grouping lists).
 - Row format: rank, time, relative age. Headings carry only the window
-  name; the rank fraction lives in the chart itself — your row's "#x"
-  plus an "N total" footer line, shown only when rows are actually cut off
-  below (if the last row is visible the end is already in view). The
-  footer line always occupies its height, blank when unneeded, so its
-  appearing can never resize a chart (2026-08-20). The footer reads
-  "510 total", centered under the list, in full black (2026-08-30,
-  replacing the right-hugging gray "of 510").
+  name. With a selected result, the footer always names its rank, complete
+  comparison pool, and percentage standing, e.g. "#32 of 1,080 · Top 3%"
+  (2026-09-21). This includes short lists and last place. History views
+  without a selection retain "N total" when rows are cut off below, and
+  a blank line otherwise. Every footer reserves one line so clearing a
+  selection does not resize the chart vertically.
 - Age cells align by unit start (2026-08-30): the count column stays
   right-aligned and the unit letter column is left-aligned with a fixed
   2px gap, so "8.1 h" and "6 m" read as two clean columns.
@@ -1199,6 +1200,41 @@ carries at least one tag.
   placement falls: a mediocre rank still shows its 5 neighbors either side,
   because the placement itself is fresh information. (This replaced the
   earned-detail collapse, which greyed non-top placements to a single row.)
+
+## Rank highlights (approved and built 2026-09-21)
+
+- The selected result's row combines independent meanings: a thin blue
+  left edge and “this” identify the latest game; a full-row tint indicates
+  percentage standing; gold, silver, and bronze apply only to the rank
+  number for first, second, and third. A single-result list is neutral and
+  says “Only result”, with no podium color.
+- Percentage colors use rank/list size, with successive bands at 1%, 2%,
+  5%, 10%, 25%, 50%, and 90%. The strongest greens mark the top; middle
+  placements are cool gray, the lower half warm gray, and the bottom 10%
+  muted brown. Last place has a distinct brown tint and double underline
+  on the rank number. Text remains black, bold, and fully readable at all
+  standings; poor results are never hidden or faded to illegibility.
+- Percentage text names the upper tail when rank/list size is at most
+  one half, otherwise the inclusive lower tail: (N - rank + 1)/N. Round
+  outward to the next whole percent, or next tenth of a percent below 1%.
+  Examples: #1 of 91 is Top 2%; #32 of 1,080 is Top 3%; #155 of 287 is
+  Bottom 47%. Last place says “Last place”. The numeric pool size always
+  remains visible, including small pools.
+- Shared by time, exact-3BV, shape, streak, and trial ranking tables.
+  A ranked position is required: the Pregen batch progress table lists
+  deal order and keeps its existing plain blue current-row marker.
+- In the compact ranks-won summary, every listed achievement receives its
+  percentage tint and podium color, including earlier qualifying games at
+  other 3BV values. A row's background uses its best reported placement;
+  the fourth cell gives the percentage or percentage range of all ranks
+  reported there. Ordinals use their own colors. Consecutive ranks compress
+  only within the same tint/podium treatment; the current game's ordinal
+  stays separate, with a blue edge and “this”. Earlier achievements retain
+  the same emphasis without the current-game marker. This also applies in
+  score/history views. Lifetime's near-miss placement keeps its standing
+  treatment and explanatory tooltip.
+- This changes presentation only. Ranking order, source-window selection,
+  top-tenth eligibility, and duplicate collapsing are unchanged.
 
 ## Recent placements (requested and decided 2026-08-23; charts and the
 ## lifetime near-miss rule extended later the same day)
@@ -1223,17 +1259,21 @@ carries at least one tag.
   source at the past hour, "today", "past week", "this month" and up
   qualify while "past hour" and shorter never do, and "today" as source
   excludes the "today" chart itself.
-- The general rule (decided 2026-08-23, third revision that day): every
-  chart this game is ranked on competes. Besides the time windows that
-  means all the lifetime-spanning membership charts — the day categories
-  (this weekday, weekend/weekday, holidays when today is one), this
-  game's "3BV N" chart, and its board-shape charts (has 8 / has 7 /
-  max N / N islands / largest island N / N zeros). Spanning lifetime,
-  membership charts always qualify as longer; only their member wins
-  compete. The summary is independent of which tablecharts are switched
-  on (hiding a chart does not hide the fact); the chart definitions are
-  shared with the tablecharts (`boardShapeCandidates`, `rankColumns`) so
-  the two sets cannot drift.
+- Category scope (revised 2026-09-21): retain the current board size/mine
+  count, play mode, and generator with its parameters. Retain the reference
+  date's day categories (this weekday, weekend/weekday, holidays when today
+  is one). Within that scope, every 3BV and measured board-shape category
+  represented by a win in the selected period competes: has 8 / has 7 /
+  max 2, 3, 4 / N islands / largest island N / N zeros. An earlier 3BV-41
+  placement remains eligible after a 3BV-40 win. Each category compares
+  against all its saved member wins, including those before the source
+  period; the source selects which wins' placements are reported and which
+  board categories are considered. Lifetime membership charts qualify as
+  longer. The latest win controls only its highlight, not the board-category
+  selection. The neighboring full tablecharts still use that win's 3BV and
+  shape. The summary ignores individual tablechart display switches, and
+  shares its category definitions with the tablecharts (`boardShapeCandidates`,
+  `rankColumns`). Unmeasured shape fields remain excluded.
 - The same `collapseDuplicateCharts` rule applies before the summary is
   computed: time/day charts use the pinned-lifetime-and-week progressive
   disclosure, and board-shape charts keep their most specific distinct
@@ -1245,17 +1285,18 @@ carries at least one tag.
   order — fastest first, ties by earlier finish.
 - Lifetime always answers (added later on 2026-08-23): when the source
   window has wins but none reached lifetime's top tenth, the single best
-  (closest) recent lifetime rank reports anyway, muted and with an
-  explanatory tooltip — how close the window came stays visible. Because
+  (closest) recent lifetime rank reports anyway, with its standing tint and
+  an explanatory tooltip — how close the window came stays visible. Because
   of this rule, the block's one-line empty state means exactly "no wins
   <window>" and says so.
-- Row format: chart name, the earned ranks with consecutive runs
-  compressed ("8–12th", the ordinal suffix closing each run), and a pale
-  "of N" naming the list length the tenth is of. Rows order by that list
+- Row format: chart name, the earned ranks with compatible consecutive runs
+  compressed ("8–12th", the ordinal suffix closing each run), "of N"
+  naming the list length, and the reported ranks' percentage standing.
+  Rows order by that list
   length, largest competitor pool first. Equal-sized pools put the
   broader, more significant chart first (`summaryTiePriority` descending).
-  The ordinal belonging to the game that just finished is bold on the
-  same light-blue background as its row in the full tablechart.
+  Current and earlier achievements share the same tint and podium treatment;
+  only the current game gets the blue edge and “this” (see Rank highlights).
 - Gated by shownThings.recentPlacements (on by default).
 
 ## Relative age display
@@ -1271,9 +1312,8 @@ carries at least one tag.
   green (#39ff14, always bolded — too light to read at normal weight);
   then the board-number palette: m = green, h = blue (the "1" blue),
   d = red (the game red), w = navy, mo = maroon, y = teal.
-- Your own row is bolded on a tasteful light-blue highlight (#d8ebfa),
-  with text overridden to black for readability (unit colors would be
-  unreadable on the highlight).
+- Your own row is bolded on its percentage-standing tint (see Rank
+  highlights), with text overridden to black for readability.
 
 ## Retired rankaverage charts
 
@@ -1407,8 +1447,7 @@ runtime state, export field, or result section.
 
 - All persistent data lives in one IndexedDB database
   (`minesweeper-friendly`, version 2) with two stores: `userdata` (play
-  history, settings, legacy rankaverage sort preferences, player states, trial
-  session — one entry per kind) and `traces` (one entry per finished game).
+  history, personal preferences, and trial sessions — one entry per kind) and `traces` (one entry per finished game).
 - Userdata is RAM-first: every kind is read into RAM once at startup, all
   reads and mutations work on the RAM copy synchronously, and each
   mutation immediately persists that kind's whole RAM object with an
@@ -2207,15 +2246,34 @@ does not label their cause.
 - Stored beside the history (userdata `settings`; see Storage). Absent
   entry or absent field = the default (the player never changed it). Invalid
   stored fields also use their defaults, and nested values are copied before
-  editing. Loading is read-only; only a user change writes the normalized
-  object. All persistent preferences use this flat JSON-compatible object,
+  editing. Loading only writes when consolidating an existing state-tag list
+  into preferences; other writes follow user changes. All persistent
+  preferences use this flat JSON-compatible object,
   including controls edited on the game page. The data-format reference
   lists every setting, default, and meaning directly from the schema.
-- Exports carry the block under the reserved top-level `"settings"` key
-  (it can never collide with a mode key, which is always WxH/M@playMode);
-  importing
-  a blob applies its settings after validation. Exports from before
-  2026-08-20 simply lack the key.
+- Preferences and game history have separate files and transfer controls.
+  The Settings page exports/imports a plain JSON object defined by
+  `SETTINGS_SCHEMA`; an invalid or unknown field rejects the whole preference
+  import with an error. History exports contain only mode-keyed game lists;
+  history imports ignore the preferences embedded in older combined exports.
+  Neither transfer applies the other kind of data.
+- All lasting control and view choices are preferences: difficulty/preset,
+  applied custom width/height/mines, the separate unsubmitted custom-form
+  values, player-state tags and active flags, mouse-path mode, all six replay
+  overlays, panel collapse, trial-speed averaging, score/current-game view,
+  replay action position, all panels/disclosures, trial identity/action-report
+  disclosures, text drafts, page/panel scroll positions, and focused control.
+  These use the same schema and settings record as the existing preferences.
+- Preference restoration completes before the game becomes interactive.
+  Inapplicable panels keep their open preference until available. Replay
+  positions refer to finished games by timestamp; the actual completed board
+  and trace belong to the trace store, never the preference file. New traces
+  store the final board and metric sampling times so the finished view can
+  be reconstructed without recording another result.
+- Browser-selected file handles, held mouse buttons, active drags, hover
+  highlights, and tooltips are transient input state, not preferences. File
+  selections are applied immediately. An unfinished board still starts fresh
+  on reload; saved Trial progress remains separate from personal preferences.
 - A "settings" button in the game's upper-right corner (the fixed
   cluster it shares with the states tags, 2026-08-20; a real bordered
   button since 2026-08-23) is a plain link to settings.html (2026-08-23;
@@ -2292,18 +2350,18 @@ does not label their cause.
   see Storage), grouped by mode; nothing is pruned. A mode is identified
   by board parameters plus play mode (e.g. `9x9/10@standard`). Keys
   written before 2026-08-21 as `9x9/10` mean Standard.
-- Export/import as a JSON map of mode to game records, plus the reserved
-  `"settings"` key (see Personal settings): copy to clipboard, save to
+- Export/import game history as a JSON map of mode to game records,
+  without preferences: copy to clipboard, save to
   file, paste in, or open from file — subtle controls out of the way of
   play. Export applies the importer schema first, discarding invalid
   optional fields and omitting irreparable records or lists so it never
   emits data this build would reject. Import recovers every usable sibling:
   invalid optional fields are discarded, irreparable records/lists are
-  skipped, and valid settings fields still apply; the status reports each
-  kind of cleanup.
+  skipped; the status reports each kind of cleanup. Embedded settings in
+  older combined exports are ignored.
   Records dedupe by end timestamp, so repeated imports are no-ops.
 - A "data format" button beside the backup controls raises a reference
-  card: the export's overall shape (the settings block plus one mode-keyed
+  card: the export's overall shape (one mode-keyed
   list per board) and a field-by-field table of the per-game record fields
   with example values and units, plus the note that every other displayed
   stat is derived from them at display time. The card is generated from

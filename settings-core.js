@@ -4,8 +4,8 @@
 
 // Every persistent preference belongs to SETTINGS_SCHEMA. Both pages use
 // this module to load, validate, default, migrate, clone, and save the same
-// flat settings object in IndexedDB userdata['settings']. History backups
-// carry that exact format under 'settings'; older fields remain compatible.
+// flat settings object in IndexedDB userdata['settings']. Preferences have
+// their own JSON export/import; game history never reads or writes them.
 // Control 'none' means the editor lives on the game page, not a second store.
 // Choices and bounds live here; generator definitions come from the shared
 // generators.js registry, loaded before this module on both pages.
@@ -164,7 +164,169 @@ const NUMBER_DISPLAY_CHOICES = [
 
 const CELL_SIZE_CHOICES = [16, 20, 24, 28, 32, 36, 40, 48, 56, 64, 80, 96];
 
+const DIFFICULTIES = {
+  beginner: { width: 9, height: 9, mines: 10 },
+  intermediate: { width: 16, height: 16, mines: 40 },
+  expert: { width: 30, height: 16, mines: 99 },
+};
+const PATH_VIEW_IDS = new Set([
+  'off', 'raw-path', 'click-locations', 'movement-speed', 'click-speed', 'progress', 'less-useful',
+]);
+const REPLAY_OVERLAY_DEFAULTS = {
+  moves: true, mines: true, probs: false, pointless: false, purposeful: false, movement: false,
+};
+const PANEL_OPEN_DEFAULTS = {
+  boardPosition: false, gameDetails: false, states: false, replay: false,
+  reviewOptions: false, reviewDisplay: false, importHistory: false, dataFormat: false,
+};
+const DEFAULT_STATE_NAMES = ['sleepy', 'just woke up', 'inebriated'];
+const preferenceObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+const preferenceNumber = (v) => typeof v === 'number' && Number.isFinite(v);
+const preferenceBooleans = (defaults) => (v) => preferenceObject(v)
+  && Object.entries(v).every(([k, enabled]) => Object.hasOwn(defaults, k) && typeof enabled === 'boolean');
+const preferenceBooleanMap = (v) => preferenceObject(v)
+  && Object.values(v).every((enabled) => typeof enabled === 'boolean');
+function validCustomBoard(v) {
+  return preferenceObject(v) && Number.isInteger(v.width) && v.width >= 8 && v.width <= 100
+    && Number.isInteger(v.height) && v.height >= 1 && v.height <= 100
+    && Number.isInteger(v.mines) && v.mines >= 1
+    && v.mines <= Math.max(1, (v.width - 1) * (v.height - 1));
+}
+function validPlayerStates(v) {
+  return Array.isArray(v) && v.every((s) => preferenceObject(s)
+    && typeof s.name === 'string' && s.name.trim() !== '' && typeof s.active === 'boolean')
+    && new Set(v.map((s) => s.name)).size === v.length;
+}
+
 const SETTINGS_SCHEMA = [
+  {
+    field: 'difficulty',
+    default: 'beginner',
+    valid: (v) => v === 'custom' || Object.hasOwn(DIFFICULTIES, v),
+    group: 'gameplay',
+    label: 'board selection',
+    describe: 'selected named preset or Custom',
+    control: 'none',
+  },
+  {
+    field: 'customBoard',
+    default: { ...DIFFICULTIES.expert },
+    valid: validCustomBoard,
+    group: 'gameplay',
+    label: 'custom board',
+    describe: 'applied custom width, height, and mine count; also used by Board lab',
+    control: 'none',
+  },
+  {
+    field: 'customBoardDraft',
+    default: { width: '30', height: '16', mines: '99' },
+    valid: (v) => preferenceObject(v) && ['width', 'height', 'mines'].every((key) => typeof v[key] === 'string'),
+    group: 'gameplay',
+    label: 'custom board draft',
+    describe: 'unsubmitted custom-board input values',
+    control: 'none',
+  },
+  {
+    field: 'playerStates',
+    default: DEFAULT_STATE_NAMES.map((name) => ({ name, active: false })),
+    valid: validPlayerStates,
+    group: 'gameplay',
+    label: 'player states',
+    describe: 'personal state-tag names in display order, including which tags are active',
+    control: 'none',
+  },
+  {
+    field: 'pathView',
+    default: 'off',
+    valid: (v) => PATH_VIEW_IDS.has(v),
+    group: 'after-game',
+    label: 'mouse path display',
+    describe: 'chosen mouse-path presentation',
+    control: 'none',
+  },
+  {
+    field: 'replayOverlays',
+    default: REPLAY_OVERLAY_DEFAULTS,
+    valid: preferenceBooleans(REPLAY_OVERLAY_DEFAULTS),
+    mergeDefaults: true,
+    group: 'after-game',
+    label: 'replay overlays',
+    describe: 'independent available-move, mine, probability, click, and movement overlays',
+    control: 'none',
+  },
+  {
+    field: 'metricsPanelCollapsed',
+    default: false,
+    valid: (v) => typeof v === 'boolean',
+    group: 'left-panel',
+    label: 'collapse stats panel',
+    describe: 'whether the stats panel is tucked away',
+    control: 'none',
+  },
+  {
+    field: 'trialSpeedBucketMs',
+    default: 200,
+    valid: (v) => Number.isInteger(v) && v >= 0 && v <= 800 && v % 25 === 0,
+    group: 'after-game',
+    label: 'trial speed smoothing',
+    describe: 'cursor-speed averaging window in milliseconds; zero shows raw samples',
+    control: 'none',
+  },
+  {
+    field: 'resultView',
+    default: 'game',
+    valid: (v) => v === 'game' || v === 'scores',
+    group: 'after-game',
+    label: 'result view',
+    describe: 'current game or high-score view',
+    control: 'none',
+  },
+  {
+    field: 'replayPosition',
+    default: { endedAt: null, step: 0 },
+    valid: (v) => preferenceObject(v) && (v.endedAt === null || (preferenceNumber(v.endedAt) && v.endedAt >= 0)) && Number.isInteger(v.step) && v.step >= 0,
+    group: 'after-game',
+    label: 'replay position',
+    describe: 'last reviewed finished-game timestamp and action position',
+    control: 'none',
+  },
+  {
+    field: 'panels',
+    default: PANEL_OPEN_DEFAULTS,
+    valid: preferenceBooleans(PANEL_OPEN_DEFAULTS),
+    mergeDefaults: true,
+    group: 'gameplay',
+    label: 'open panels',
+    describe: 'open or closed state of game panels and review controls',
+    control: 'none',
+  },
+  {
+    field: 'trialSections',
+    default: {},
+    valid: preferenceBooleanMap,
+    group: 'after-game',
+    label: 'trial sections',
+    describe: 'expanded trial identities and action reports, keyed by session and identity',
+    control: 'none',
+  },
+  {
+    field: 'drafts',
+    default: { stateName: '', historyImport: '', preferencesImport: '' },
+    valid: (v) => preferenceObject(v) && ['stateName', 'historyImport', 'preferencesImport'].every((key) => typeof v[key] === 'string'),
+    group: 'gameplay',
+    label: 'draft text',
+    describe: 'unsubmitted state name, history JSON, and preferences JSON',
+    control: 'none',
+  },
+  {
+    field: 'viewPosition',
+    default: { pageX: 0, pageY: 0, metricsX: 0, metricsY: 0, focusId: null },
+    valid: (v) => preferenceObject(v) && ['pageX', 'pageY', 'metricsX', 'metricsY'].every((key) => preferenceNumber(v[key]) && v[key] >= 0) && (v.focusId === null || typeof v.focusId === 'string'),
+    group: 'gameplay',
+    label: 'view position',
+    describe: 'page and stats-panel scroll offsets plus the focused control',
+    control: 'none',
+  },
   {
     field: 'cellSize',
     default: 28,
@@ -434,6 +596,40 @@ function cleanTransferredSettings(source, preserveUnknown) {
     }
   }
   return { settings: cleaned, skippedFields };
+}
+
+// Edits use one validated path. Object-valued preferences are replaced as a
+// unit so saved data never shares mutable nested objects with a control.
+function updateSettings(patch) {
+  for (const [field, value] of Object.entries(patch)) {
+    const definition = SETTINGS_SCHEMA.find((s) => s.field === field);
+    if (!definition || !definition.valid(value)) throw new Error('invalid preference: ' + field);
+  }
+  Object.assign(settings, structuredClone(patch));
+  saveSettings();
+}
+
+function loadSettings(got) {
+  const stored = got.settings === undefined ? {} : got.settings;
+  const carryStates = got.states !== undefined && !(preferenceObject(stored) && Object.hasOwn(stored, 'playerStates'));
+  settings = settingsFrom(carryStates ? { ...stored, playerStates: got.states } : stored);
+  if (got.states !== undefined) consolidatePlayerStates(settings);
+}
+
+function exportPreferences() {
+  return JSON.stringify(settingsFrom(settings), null, 2);
+}
+
+function importPreferences(text) {
+  const source = JSON.parse(text);
+  if (!preferenceObject(source)) throw new Error('preferences must be a JSON object');
+  for (const [field, value] of Object.entries(source)) {
+    const definition = SETTINGS_SCHEMA.find((s) => s.field === field);
+    if (!definition) throw new Error('unknown preference: ' + field);
+    if (!definition.valid(value)) throw new Error('invalid preference: ' + field);
+  }
+  settings = settingsFrom({ ...settings, ...source });
+  saveSettings();
 }
 
 //-------CELL ICONOGRAPHY-------

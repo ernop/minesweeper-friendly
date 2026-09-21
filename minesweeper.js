@@ -2,12 +2,6 @@
 
 //-------CONSTANTS-------
 
-const DIFFICULTIES = {
-  beginner: { width: 9, height: 9, mines: 10 },
-  intermediate: { width: 16, height: 16, mines: 40 },
-  expert: { width: 30, height: 16, mines: 99 },
-};
-
 // Play modes and persistent preference choices live in settings-core.js.
 
 const LCD_MIN = -99;
@@ -146,7 +140,6 @@ const boardPositionX = document.getElementById('board-position-x');
 const boardPositionXNumber = document.getElementById('board-position-x-number');
 const boardPositionY = document.getElementById('board-position-y');
 const boardPositionYNumber = document.getElementById('board-position-y-number');
-const boardPositionNote = document.getElementById('board-position-note');
 const boardPositionDragSurface = document.getElementById('board-position-drag-surface');
 
 //-------PERSISTENT BOARD POSITION (pure constraint solver)-------
@@ -310,11 +303,6 @@ function applyBoardPosition() {
   boardPositionDragSurface.style.top = gameFrame.offsetTop + 'px';
   boardPositionDragSurface.style.width = gameFrame.offsetWidth + 'px';
   boardPositionDragSurface.style.height = gameFrame.offsetHeight + 'px';
-  if (!boardPositionPanel.hidden) {
-    boardPositionNote.textContent = placed.adjusted
-      ? 'Saved position is temporarily adjusted to keep required controls clear.'
-      : 'Drag the highlighted board, or use its arrow keys. Shift moves 10 px.';
-  }
   placeBoardPositionPanel();
 }
 
@@ -603,6 +591,8 @@ function newGame() {
   // Preserve the just-finished game's mutable state if a programmatic restart
   // arrives in the brief post-paint finalization window.
   flushPendingResult();
+  rememberPreference('resultView', 'game');
+  rememberPreference('replayPosition', { endedAt: null, step: 0 });
   if (Trial.isPlayMode(settings.playMode) && trialIsActive()
       && (trialSession.width !== config.width
         || trialSession.height !== config.height
@@ -682,7 +672,7 @@ function newGame() {
   pathCanvas = null;
   replayFinishedCells = null;
   replayEnabled = false;
-  replayReview.open = false;
+  replayReview.open = settings.panels.replay;
   replayStep = 0;
   cancelReplayPrecompute();
   replaySolverCache.clear();
@@ -1000,6 +990,7 @@ function buildLabPanel() {
 
   const sizeChanged = () => {
     if (config.mines > labMaxMines()) config.mines = labMaxMines();
+    rememberCustomBoard();
     syncDifficultyTabs();
     newGame();
   };
@@ -1013,6 +1004,7 @@ function buildLabPanel() {
   });
   labControls.mines = labSliderRow('mines', '', 1, labMaxMines(), 1, config.mines, (v) => {
     config.mines = v;
+    rememberCustomBoard();
     syncDifficultyTabs();
     newGame();
   });
@@ -2817,7 +2809,6 @@ function reportResult(outcome, endedAt = Date.now()) {
     if (trialSession.nextIndex >= Trial.gameCount(trialSession)) endTrial('completed');
     persistUserdata('trial', trialSession);
   }
-  saveTrace(record);
   // The canonical metrics: the same computation the live panel runs, over
   // the now-complete trace, with the same wall-time definition the stored
   // trace carries (endedAt - startedAt). Snapshotted for the after-game
@@ -2833,6 +2824,7 @@ function reportResult(outcome, endedAt = Date.now()) {
     // rather than in the live tick's computeAllTraceMetrics.
     spatial: computeSpatialBias(trace.events),
   };
+  saveTrace(record);
   // The live per-game rows go away with their game; the session section
   // stays (it spans games), so the panel re-renders rather than hiding.
   renderMetricsPanel(null);
@@ -2842,6 +2834,7 @@ function reportResult(outcome, endedAt = Date.now()) {
   // game-history slider starts at its end: every action done, this board.
   replayStep = replayDecisionCount();
   replayEnabled = false;
+  updateSettings({ resultView: 'game', replayPosition: { endedAt: record.endedAt, step: replayStep } });
   renderPathView();
 }
 
@@ -4100,15 +4093,28 @@ function rankColumns(referenceMs) {
   return columns.sort((a, b) => a.displayOrder - b.displayOrder);
 }
 
-// Board-shape chart candidates for this win's finished-board family:
+// Exact-value families present in the reference wins, compared against all
+// saved wins. Group once per field so a long recent window does not rescan
+// the history for each game or distinct value.
+function rankValueGroups(referenceWins, wins, field) {
+  const values = [...new Set(referenceWins.map((win) => win[field])
+    .filter((value) => typeof value === 'number'))].sort((a, b) => a - b);
+  const groups = new Map(values.map((value) => [value, []]));
+  for (const win of wins) {
+    if (groups.has(win[field])) groups.get(win[field]).push(win);
+  }
+  return groups;
+}
+
+// Board-shape chart candidates for the reference wins' finished-board families:
 // {label, displayOrder, dedupePriority, summaryTiePriority, rows}. Older wins lacking a
 // measurement stay off their list. Shared by the board-shape tablecharts
 // and the recent-placements summary so the two chart sets cannot drift;
 // the largestIsland display gate is applied at the tablechart render
 // site, not here.
-function boardShapeCandidates(record, wins) {
+function boardShapeCandidates(referenceWins, wins) {
   const candidates = [];
-  if (record.maxAdjacent === 8) {
+  if (referenceWins.some((record) => record.maxAdjacent === 8)) {
     candidates.push({
       id: 'has-8',
       label: 'has 8',
@@ -4118,7 +4124,7 @@ function boardShapeCandidates(record, wins) {
       rows: wins.filter((s) => s.maxAdjacent === 8),
     });
   }
-  if (record.hasSeven === true) {
+  if (referenceWins.some((record) => record.hasSeven === true)) {
     candidates.push({
       id: 'has-7',
       label: 'has 7',
@@ -4128,48 +4134,47 @@ function boardShapeCandidates(record, wins) {
       rows: wins.filter((s) => s.hasSeven === true),
     });
   }
-  if (typeof record.maxAdjacent === 'number') {
-    for (const cap of [4, 3, 2]) {
-      if (record.maxAdjacent <= cap) {
-        candidates.push({
-          id: 'max-' + cap,
-          label: 'max ' + cap,
-          displayOrder: 70 - cap * 10,
-          dedupePriority: cap,
-          summaryTiePriority: cap,
-          rows: wins.filter((s) => typeof s.maxAdjacent === 'number' && s.maxAdjacent <= cap),
-        });
-      }
+  for (const cap of [4, 3, 2]) {
+    if (referenceWins.some((record) =>
+      typeof record.maxAdjacent === 'number' && record.maxAdjacent <= cap)) {
+      candidates.push({
+        id: 'max-' + cap,
+        label: 'max ' + cap,
+        displayOrder: 70 - cap * 10,
+        dedupePriority: cap,
+        summaryTiePriority: cap,
+        rows: wins.filter((s) => typeof s.maxAdjacent === 'number' && s.maxAdjacent <= cap),
+      });
     }
   }
-  if (typeof record.islandCount === 'number') {
+  for (const [count, rows] of rankValueGroups(referenceWins, wins, 'islandCount')) {
     candidates.push({
-      id: 'islands',
-      label: record.islandCount === 1 ? '1 island' : record.islandCount + ' islands',
+      id: 'islands-' + count,
+      label: count === 1 ? '1 island' : count + ' islands',
       displayOrder: 80,
       dedupePriority: 10,
       summaryTiePriority: 10,
-      rows: wins.filter((s) => s.islandCount === record.islandCount),
+      rows,
     });
   }
-  if (typeof record.largestIsland === 'number') {
+  for (const [size, rows] of rankValueGroups(referenceWins, wins, 'largestIsland')) {
     candidates.push({
-      id: 'largest-island',
-      label: 'largest island ' + record.largestIsland,
+      id: 'largest-island-' + size,
+      label: 'largest island ' + size,
       displayOrder: 90,
       dedupePriority: 11,
       summaryTiePriority: 11,
-      rows: wins.filter((s) => s.largestIsland === record.largestIsland),
+      rows,
     });
   }
-  if (typeof record.zeroCount === 'number') {
+  for (const [count, rows] of rankValueGroups(referenceWins, wins, 'zeroCount')) {
     candidates.push({
-      id: 'zeros',
-      label: record.zeroCount === 1 ? '1 zero' : record.zeroCount + ' zeros',
+      id: 'zeros-' + count,
+      label: count === 1 ? '1 zero' : count + ' zeros',
       displayOrder: 100,
       dedupePriority: 12,
       summaryTiePriority: 12,
-      rows: wins.filter((s) => s.zeroCount === record.zeroCount),
+      rows,
     });
   }
   return candidates.sort((a, b) => a.displayOrder - b.displayOrder);
@@ -4191,6 +4196,26 @@ function ordinal(n) {
   return n + ({ 1: 'st', 2: 'nd', 3: 'rd' }[n % 10] || 'th');
 }
 
+// Absolute place and percentage standing are independent: first of a small
+// pool can have a modest percentage, while a large pool's 32nd can be top 3%.
+// Integer comparisons keep the color thresholds identical to ranking cutoffs.
+function rankStanding(rank, total) {
+  if (total === 1) return { band: 'only', podium: 0, label: 'Only result' };
+  const podium = rank <= 3 ? rank : 0;
+  if (rank === total) return { band: 'last', podium, label: 'Last place' };
+  const thresholds = [[1, 'top1'], [2, 'top2'], [5, 'top5'], [10, 'top10'],
+    [25, 'top25'], [50, 'top50'], [90, 'lower50'], [100, 'bottom10']];
+  const [, band] = thresholds.find(([percent]) => rank * 100 <= total * percent);
+  const upper = rank * 2 <= total;
+  const count = upper ? rank : total - rank + 1;
+  // Round outward so the text never claims a smaller top/bottom group than
+  // the position occupies. Tenths below 1% keep very high placements useful.
+  const percent = count * 100 < total
+    ? Math.ceil(count * 1000 / total) / 10
+    : Math.ceil(count * 100 / total);
+  return { band, podium, label: (upper ? 'Top ' : 'Bottom ') + percent + '%' };
+}
+
 // Sorted ranks compressed into runs, the ordinal suffix only closing each
 // run: [1, 3, 8, 9, 10, 11, 12] renders as "1st, 3rd, 8\u201312th".
 function formatRankRuns(ranks) {
@@ -4202,6 +4227,31 @@ function formatRankRuns(ranks) {
     i = j;
   }
   return parts.join(', ');
+}
+
+// Compress only placements with the same visual meaning. Podium places,
+// percentage-band boundaries, and the current game remain individually legible.
+function recentPlacementRuns(ranks, total, currentRank) {
+  const runs = [];
+  for (const rank of ranks) {
+    const standing = rankStanding(rank, total);
+    const current = rank === currentRank;
+    const previous = runs[runs.length - 1];
+    if (previous && !previous.current && !current
+        && previous.last + 1 === rank && previous.band === standing.band
+        && previous.podium === standing.podium) {
+      previous.last = rank;
+    } else {
+      runs.push({ first: rank, last: rank, current, ...standing });
+    }
+  }
+  return runs;
+}
+
+function recentPlacementStanding(ranks, total) {
+  const first = rankStanding(ranks[0], total).label;
+  const last = rankStanding(ranks[ranks.length - 1], total).label;
+  return first === last ? first : first + ' \u2013 ' + last;
 }
 
 // Progressive-disclosure dedupe shared by the tablecharts and their
@@ -4300,26 +4350,11 @@ function recentPlacementsSummary(candidates, sourceStartMs, currentRecord) {
   return rows;
 }
 
-//-------RECENT PLACEMENTS: DISPLAY-------
-
-// One summary block: which top-tenth ranks on the longer tablecharts —
-// the time windows, the day categories, this game's same-3BV chart, and
-// its board-shape charts — were earned within the chosen recent window.
-// The window selector sits in the heading and persists as
-// settings.recentPlacementsWindow; a change re-renders the result in
-// place, like a settings-panel switch.
-function buildRecentPlacements(record, wins, referenceMs, markReferenceRecord = true) {
-  const [, chosenLabel, startOf] = RECENT_PLACEMENTS_WINDOWS
-    .find(([id]) => id === settings.recentPlacementsWindow);
-  const sourceStartMs = startOf(referenceMs);
-  // Every chart this game is ranked on competes here (the general rule,
-  // decided 2026-08-23): the time windows and day categories from
-  // rankColumns (day categories carry no startMs — lifetime-spanning,
-  // always longer than the source), this game's same-3BV chart, and its
-  // board-shape charts — independent of which tablecharts are switched
-  // on. The same setting and helper as the full tablecharts dedupe the
-  // time/day and shape groups before all surviving rows are ordered by
-  // competitor count (the shape priority offset breaks equal-count ties).
+// Keep the current mode and date's chart scope, but let every recent win
+// contribute its 3BV and board-shape families. The reference game controls
+// highlighting only; a later unrelated board must not erase earlier ranks.
+function recentPlacementCandidates(wins, referenceMs, sourceStartMs, collapseDuplicates) {
+  const recentWins = wins.filter((win) => win.endedAt >= sourceStartMs);
   let rankCandidates = rankColumns(referenceMs).map((column) => ({
     label: column.label,
     dedupePriority: column.dedupePriority,
@@ -4328,18 +4363,21 @@ function buildRecentPlacements(record, wins, referenceMs, markReferenceRecord = 
     wins: wins.filter(column.filter),
     alwaysShowBest: column.label === 'lifetime',
   }));
-  if (settings.collapseDuplicateCharts) {
+  if (collapseDuplicates) {
     rankCandidates = dedupeRankCandidates(rankCandidates, ['lifetime', 'past week']);
   }
-  const candidates = [...rankCandidates, {
-    label: '3BV ' + record.bv3,
-    dedupePriority: 13,
-    summaryTiePriority: 13,
-    wins: wins.filter((s) => s.bv3 === record.bv3),
-  }];
-  let shapeCandidates = boardShapeCandidates(record, wins)
+  const candidates = [...rankCandidates];
+  for (const [bv3, members] of rankValueGroups(recentWins, wins, 'bv3')) {
+    candidates.push({
+      label: '3BV ' + bv3,
+      dedupePriority: 13,
+      summaryTiePriority: 13,
+      wins: members,
+    });
+  }
+  let shapeCandidates = boardShapeCandidates(recentWins, wins)
     .map((candidate) => ({ ...candidate, wins: candidate.rows }));
-  if (settings.collapseDuplicateCharts) {
+  if (collapseDuplicates) {
     shapeCandidates = dedupeRankCandidates(shapeCandidates);
   }
   for (const c of shapeCandidates) {
@@ -4350,6 +4388,28 @@ function buildRecentPlacements(record, wins, referenceMs, markReferenceRecord = 
       wins: c.wins,
     });
   }
+  return candidates;
+}
+
+//-------RECENT PLACEMENTS: DISPLAY-------
+
+function applyRankHighlight(element, rank, total) {
+  const standing = rankStanding(rank, total);
+  element.classList.add('rank-highlight');
+  element.dataset.rankBand = standing.band;
+  element.dataset.rankPodium = String(standing.podium);
+  element.title = ordinal(rank) + ' of ' + total + ' · ' + standing.label;
+  return standing;
+}
+
+// The selector changes the period's category coverage as well as which
+// earned ranks qualify, independently of the neighboring full tablecharts.
+function buildRecentPlacements(record, wins, referenceMs, markReferenceRecord = true) {
+  const [, chosenLabel, startOf] = RECENT_PLACEMENTS_WINDOWS
+    .find(([id]) => id === settings.recentPlacementsWindow);
+  const sourceStartMs = startOf(referenceMs);
+  const candidates = recentPlacementCandidates(
+    wins, referenceMs, sourceStartMs, settings.collapseDuplicateCharts);
   const rows = recentPlacementsSummary(
     candidates, sourceStartMs, markReferenceRecord ? record : undefined);
 
@@ -4358,7 +4418,7 @@ function buildRecentPlacements(record, wins, referenceMs, markReferenceRecord = 
   const heading = document.createElement('h4');
   heading.textContent = 'ranks won';
   heading.title = 'top ranks on every longer chart (time windows, day '
-    + 'categories, this 3BV, this board\u2019s shape charts) that were earned '
+    + 'categories, the 3BV and board shapes of wins in the selected period) that were earned '
     + chosenLabel + '; only ranks within the top tenth of a list count, '
     + 'except that lifetime shows its closest rank when none made the tenth';
   const select = document.createElement('select');
@@ -4394,9 +4454,15 @@ function buildRecentPlacements(record, wins, referenceMs, markReferenceRecord = 
   grid.className = 'recent-placements-grid';
   for (const row of rows) {
     const line = document.createElement('div');
-    line.className = 'rank-row';
+    line.className = 'rank-row recent-row-ranked';
+    applyRankHighlight(line, row.ranks[0], row.total);
+    if (row.currentRank !== undefined) {
+      line.classList.add('recent-row-current');
+    }
+    line.title = formatRankRuns(row.ranks) + ' of ' + row.total + ' · '
+      + recentPlacementStanding(row.ranks, row.total);
     if (row.nearMiss) {
-      line.title = 'no top-tenth ' + row.label + ' rank was won ' + chosenLabel
+      line.title += '; no top-tenth ' + row.label + ' rank was won ' + chosenLabel
         + '; this is the closest one';
     }
     const labelCell = document.createElement('span');
@@ -4404,35 +4470,35 @@ function buildRecentPlacements(record, wins, referenceMs, markReferenceRecord = 
     labelCell.textContent = row.label;
     line.appendChild(labelCell);
     const ranksCell = document.createElement('span');
-    ranksCell.className = 'recent-ranks-cell'
-      + (row.nearMiss ? ' recent-near-cell' : '');
-    if (row.currentRank === undefined) {
-      ranksCell.textContent = formatRankRuns(row.ranks);
-    } else {
-      const before = row.ranks.filter((rank) => rank < row.currentRank);
-      const after = row.ranks.filter((rank) => rank > row.currentRank);
-      if (before.length > 0) {
-        const prefix = document.createElement('span');
-        prefix.className = 'recent-rank-run';
-        prefix.textContent = formatRankRuns(before) + ', ';
-        ranksCell.appendChild(prefix);
+    ranksCell.className = 'recent-ranks-cell';
+    for (const run of recentPlacementRuns(row.ranks, row.total, row.currentRank)) {
+      if (ranksCell.childNodes.length > 0) ranksCell.appendChild(document.createTextNode(', '));
+      const rank = document.createElement('span');
+      rank.className = 'recent-rank-run' + (run.current ? ' recent-current-rank' : '');
+      const text = run.first === run.last ? ordinal(run.first)
+        : run.first + '\u2013' + ordinal(run.last);
+      applyRankHighlight(rank, run.first, row.total);
+      rank.textContent = text;
+      rank.title = text + ' of ' + row.total + ' · '
+        + recentPlacementStanding([run.first, run.last], row.total);
+      if (run.current) {
+        rank.setAttribute('aria-label', 'This game: ' + rank.title);
+        const marker = document.createElement('span');
+        marker.className = 'recent-current-label';
+        marker.textContent = ' this';
+        rank.appendChild(marker);
       }
-      const current = document.createElement('span');
-      current.className = 'recent-current-rank';
-      current.textContent = ordinal(row.currentRank);
-      ranksCell.appendChild(current);
-      if (after.length > 0) {
-        const suffix = document.createElement('span');
-        suffix.className = 'recent-rank-run';
-        suffix.textContent = ', ' + formatRankRuns(after);
-        ranksCell.appendChild(suffix);
-      }
+      ranksCell.appendChild(rank);
     }
     line.appendChild(ranksCell);
     const totalCell = document.createElement('span');
     totalCell.className = 'recent-of-cell';
     totalCell.textContent = 'of ' + row.total;
     line.appendChild(totalCell);
+    const standingCell = document.createElement('span');
+    standingCell.className = 'recent-standing-cell';
+    standingCell.textContent = recentPlacementStanding(row.ranks, row.total);
+    line.appendChild(standingCell);
     grid.appendChild(line);
   }
   box.appendChild(grid);
@@ -4511,8 +4577,8 @@ const AVERAGE_SCATTER_SPECS = [
 // Every list renders its full 11-row window around the player's row (see
 // windowBounds); a mediocre placement still shows its 5 neighbors above and
 // below, at full opacity, since the placement itself is fresh information.
-// The list ends with an "of N" footer completing the highlighted "#x": the
-// rank fraction lives in the chart, not the heading.
+// The footer names the selected rank's full comparison pool and percentage,
+// even when the end of a short list is visible.
 function buildRankList(headingText, rowCount, myIndex, gridClass, buildRowCells) {
   const list = document.createElement('div');
   list.className = 'rank-list';
@@ -4524,9 +4590,11 @@ function buildRankList(headingText, rowCount, myIndex, gridClass, buildRowCells)
   const grid = document.createElement('div');
   grid.className = gridClass;
   const [start, end] = windowBounds(myIndex, rowCount);
+  let standing;
   for (let i = start; i < end; i++) {
     const row = document.createElement('div');
     row.className = i === myIndex ? 'rank-row me' : 'rank-row';
+    if (i === myIndex) standing = applyRankHighlight(row, i + 1, rowCount);
     for (const [cls, text] of buildRowCells(i)) {
       const cell = document.createElement('span');
       cell.className = cls;
@@ -4536,14 +4604,22 @@ function buildRankList(headingText, rowCount, myIndex, gridClass, buildRowCells)
     grid.appendChild(row);
   }
   list.appendChild(grid);
-  // The "N total" footer only appears when rows are actually cut off
-  // below: if the last row is visible, the list's end is already in view
-  // and the count says nothing new. The footer line itself always renders
-  // (blank via nbsp) so neighboring charts keep aligned heights.
-  // "510 total" centered (2026-08-30, replacing right-hugging "of 510").
+  // Keep one footer line in history views too, so clearing a selection
+  // does not move the next row of tables.
   const total = document.createElement('div');
   total.className = 'rank-total';
-  total.textContent = end < rowCount ? rowCount + ' total' : '\u00a0';
+  if (standing) {
+    total.classList.add('rank-standing');
+    const count = document.createElement('span');
+    count.className = 'rank-standing-count';
+    count.textContent = '#' + (myIndex + 1) + ' of ' + rowCount.toLocaleString();
+    const percentage = document.createElement('span');
+    percentage.className = 'rank-standing-label';
+    percentage.textContent = standing.label;
+    total.append(count, percentage);
+  } else {
+    total.textContent = end < rowCount ? rowCount + ' total' : '\u00a0';
+  }
   list.appendChild(total);
   return list;
 }
@@ -5252,7 +5328,7 @@ function renderTrialReview(session) {
     if (group.attempts.length === 0) continue;
     const details = document.createElement('details');
     details.className = 'trial-identity';
-    if (identityStartsOpen(group, playedCount)) details.open = true;
+    bindTrialSection(details, `${session.startedAt}:identity:${group.identityIndex}`, identityStartsOpen(group, playedCount));
     const head = document.createElement('summary');
     head.textContent = identitySummaryLine(group);
     details.appendChild(head);
@@ -5276,6 +5352,7 @@ function renderTrialReview(session) {
         if (report) {
           const actionDetails = document.createElement('details');
           actionDetails.className = 'trial-action-report';
+          bindTrialSection(actionDetails, `${session.startedAt}:action:${attempt.endedAt}`, false);
           const actionHead = document.createElement('summary');
           actionHead.textContent = 'action report';
           actionDetails.append(actionHead, report);
@@ -5471,7 +5548,7 @@ function appendTrialOverlays(box, session, group, traces) {
   }
 }
 
-let trialSpeedBucketMs = 200;
+
 
 function speedOverlayRuns(runs, widthMs) {
   return runs.map((run) => {
@@ -5492,12 +5569,12 @@ function appendTrialSpeedOverlay(box, runs) {
   slider.min = '0';
   slider.max = '800';
   slider.step = '25';
-  slider.value = String(trialSpeedBucketMs);
+  slider.value = String(settings.trialSpeedBucketMs);
   const readout = document.createElement('span');
   const syncReadout = () => {
-    readout.textContent = trialSpeedBucketMs === 0
+    readout.textContent = settings.trialSpeedBucketMs === 0
       ? 'raw samples'
-      : trialSpeedBucketMs + ' ms average';
+      : settings.trialSpeedBucketMs + ' ms average';
   };
   syncReadout();
   controls.append(slider, readout);
@@ -5507,10 +5584,10 @@ function appendTrialSpeedOverlay(box, runs) {
   box.appendChild(host);
   const redraw = () => {
     host.textContent = '';
-    host.appendChild(buildOverlaySparkline(speedOverlayRuns(runs, trialSpeedBucketMs), SPARK_LARGE));
+    host.appendChild(buildOverlaySparkline(speedOverlayRuns(runs, settings.trialSpeedBucketMs), SPARK_LARGE));
   };
   slider.addEventListener('input', () => {
-    trialSpeedBucketMs = Number(slider.value);
+    updateSettings({ trialSpeedBucketMs: Number(slider.value) });
     syncReadout();
     redraw();
   });
@@ -5780,7 +5857,7 @@ function renderRanks(record, modeRecords, options = {}, sections) {
   // Older wins that lack the measurement stay off the list. Nested
   // filters (max 2 ⊂ max 3 ⊂ max 4) collapse under the same setting
   // as the window charts, most specific first.
-  const shapeCandidates = boardShapeCandidates(record, wins)
+  const shapeCandidates = boardShapeCandidates([record], wins)
     .filter((candidate) => settings.shownThings.largestIsland
       || !candidate.label.startsWith('largest island '));
   const shapeKept = new Set(shapeCandidates);
@@ -6019,12 +6096,9 @@ function userdataReady() {
     const loaded = normalizeHistory(got.history === undefined ? {} : got.history);
     history = loaded.history;
     if (loaded.changed) persistUserdata('history', history);
-    settings = settingsFrom(got.settings === undefined ? {} : got.settings);
-    playerStates = got.states === undefined
-      ? DEFAULT_STATE_NAMES.map((name) => ({ name, active: false }))
-      : got.states;
+    loadSettings(got);
     trialSession = got.trial === undefined ? null : got.trial;
-    init();
+    init().catch((error) => storageFailure(error.message));
   });
 }
 
@@ -6168,6 +6242,8 @@ function saveTrace(record) {
     boardVersion: record.boardVersion,
     justiceVersion: record.justiceVersion,
     startedAt: trace.startedAt,
+    metricSampleTimes: metricsSeries.tMs,
+    finalBoard: { cells: structuredClone(cells), hitIndices: cellElements.flatMap((el, i) => el.classList.contains('mine-hit') ? [i] : []) },
     sampleT: Float64Array.from(trace.t),
     sampleX: Float32Array.from(trace.x),
     sampleY: Float32Array.from(trace.y),
@@ -6756,11 +6832,6 @@ function replayEndStatusParts(count, finalMs) {
 // The just-finished trace remains in RAM until the next board. Its decision
 // events are also persisted in the trace store, preserving exact player-view
 // positions and measured choices for future historical analysis.
-const PATH_VIEW_IDS = new Set([
-  'off', 'raw-path', 'click-locations',
-  'movement-speed', 'click-speed', 'progress', 'less-useful',
-]);
-let pathView = 'off';
 // The game-history slider is available in the collapsed Replay game section. Its
 // position `replayStep` counts actions done: 0 … N−1 show the board the
 // player faced before action step + 1 (review frames), N is the finished
@@ -6777,14 +6848,6 @@ let replayStep = 0;
 // board (available moves, forced mines) start on: seeing what was provable
 // at each moment is the point of review mode review (requested
 // 2026-08-30 late evening).
-const replayOverlays = {
-  moves: true,
-  mines: true,
-  probs: false,
-  pointless: false,
-  purposeful: false,
-  movement: false,
-};
 // Solver reads per decision index for the current trace (cleared on a new
 // board); enumeration can take milliseconds, and slider scrubbing revisits
 // the same frames constantly.
@@ -6830,6 +6893,7 @@ function setReplayStep(step) {
   replayEnabled = enabled;
   renderPathView();
   if (entering) scheduleReplayPrecompute();
+  rememberReplayPosition();
 }
 
 function renderPathViewControls() {
@@ -6841,15 +6905,15 @@ function renderPathViewControls() {
   if (!available) document.getElementById('review-options').hidePopover();
   pathViewControl.hidden = !available;
   for (const button of pathViewButtons) {
-    button.setAttribute('aria-pressed', String(button.dataset.pathView === pathView));
+    button.setAttribute('aria-pressed', String(button.dataset.pathView === settings.pathView));
   }
   replayReview.hidden = !available;
-  if (!available) replayReview.open = false;
+  if (available) syncReviewPreferences();
   replayControls.hidden = !available;
   replayOverlayControl.hidden = !available;
   for (const button of replayOverlayButtons) {
     button.setAttribute('aria-pressed',
-      String(replayOverlays[button.dataset.replayOverlay] === true));
+      String(settings.replayOverlays[button.dataset.replayOverlay] === true));
   }
   if (available) renderReplaySlider();
 }
@@ -7197,10 +7261,10 @@ function renderReplayFrame() {
   replayStep = Math.max(0, Math.min(decisions.length - 1, replayStep));
   const evaluation = decisions[replayStep].evaluation;
   const position = evaluation.position;
-  const wantSolver = replayOverlays.moves || replayOverlays.mines
-    || replayOverlays.probs;
+  const wantSolver = settings.replayOverlays.moves || settings.replayOverlays.mines
+    || settings.replayOverlays.probs;
   const solver = wantSolver ? replaySolverAt(replayStep, position) : null;
-  const model = replayFrameModel(evaluation, solver, replayOverlays);
+  const model = replayFrameModel(evaluation, solver, settings.replayOverlays);
   replayLegendSolverState = model.solverState;
   paintReplayFrame(model);
   renderReplayChoiceAreas(evaluation);
@@ -7223,16 +7287,16 @@ function pathSegments(decisions) {
     // speed; it is drawn as a dashed connector instead of a colored stroke.
     const gap = dt >= PATH_GAP_MS;
     let value;
-    if (pathView === 'movement-speed') {
+    if (settings.pathView === 'movement-speed') {
       if (!gap) {
         value = Math.hypot(
           trace.x[i] - trace.x[i - 1],
           trace.y[i] - trace.y[i - 1]) * 1000 / dt;
       }
-    } else if (pathView === 'click-speed' && decision !== null && nextDecision > 0) {
+    } else if (settings.pathView === 'click-speed' && decision !== null && nextDecision > 0) {
       const clickGap = decision.t - decisions[nextDecision - 1].t;
       if (clickGap > 0) value = 1000 / clickGap;
-    } else if (pathView === 'progress' && decision !== null) {
+    } else if (settings.pathView === 'progress' && decision !== null) {
       value = pathDecisionProgress(decision);
     }
     segments.push({
@@ -7357,7 +7421,7 @@ function appendPathGradientLegend(legendTarget, title, range, format, options = 
 
 function appendReplayLegend(legendTarget) {
   if (!replayEnabled) return;
-  for (const row of replayLegendRows(replayOverlays, replayLegendSolverState)) {
+  for (const row of replayLegendRows(settings.replayOverlays, replayLegendSolverState)) {
     appendPathLegendRow(legendTarget, row.title,
       row.keys.map((key) => REPLAY_ENCODINGS[key]), row.note);
   }
@@ -7477,11 +7541,11 @@ function paintPathCanvas() {
   const spotlight = pathHighlightBin >= 0 && state.legend !== null;
 
   if (state.drawView) {
-    ctx.lineWidth = pathView === 'raw-path' ? 3 : 4.25;
+    ctx.lineWidth = settings.pathView === 'raw-path' ? 3 : 4.25;
     for (const segment of state.segments) {
       if (trace.t[segment.to] > state.cutoff) continue;
       const role = state.lessRoles[segment.decisionIndex];
-      if (segment.gap && PATH_POLYLINE_VIEWS.has(pathView)) {
+      if (segment.gap && PATH_POLYLINE_VIEWS.has(settings.pathView)) {
         ctx.save();
         ctx.setLineDash([6, 5]);
         ctx.lineWidth = 1.75;
@@ -7493,22 +7557,22 @@ function paintPathCanvas() {
         ctx.restore();
         continue;
       }
-      const show = pathView === 'raw-path'
-        || (pathView === 'less-useful'
+      const show = settings.pathView === 'raw-path'
+        || (settings.pathView === 'less-useful'
           ? role && (role.less || role.after)
-          : pathView !== 'click-locations' && Number.isFinite(segment.value));
+          : settings.pathView !== 'click-locations' && Number.isFinite(segment.value));
       if (!show) continue;
-      if (pathView === 'raw-path') {
+      if (settings.pathView === 'raw-path') {
         ctx.strokeStyle = pathTimeColor(trace.t[segment.to], state.endT);
-      } else if (pathView === 'less-useful') {
+      } else if (settings.pathView === 'less-useful') {
         ctx.strokeStyle = role.less ? '#d95f02' : '#2e7d32';
       } else {
         ctx.strokeStyle = pathHeatColor(segment.value, state.range);
       }
       let alpha = 1;
-      let width = pathView === 'raw-path' ? 3 : 4.25;
+      let width = settings.pathView === 'raw-path' ? 3 : 4.25;
       if (spotlight) {
-        const binValue = pathView === 'raw-path'
+        const binValue = settings.pathView === 'raw-path'
           ? trace.t[segment.to] : segment.value;
         if (pathBinIndex(state.legend.bins, binValue) === pathHighlightBin) {
           width += 1.75;
@@ -7546,7 +7610,7 @@ function paintPathCanvas() {
 
   // Off-screen durations: a dashed connector says data is missing; the label
   // says exactly how long the cursor was away.
-  if (state.drawView && PATH_POLYLINE_VIEWS.has(pathView)) {
+  if (state.drawView && PATH_POLYLINE_VIEWS.has(settings.pathView)) {
     for (const gap of state.gaps) {
       if (gap.kind !== 'away' || trace.t[gap.to] > state.cutoff) continue;
       const midX = (state.points[gap.from][0] + state.points[gap.to][0]) / 2;
@@ -7556,20 +7620,20 @@ function paintPathCanvas() {
   }
 
   if (state.drawView
-      && (pathView === 'raw-path' || pathView === 'click-locations')) {
+      && (settings.pathView === 'raw-path' || settings.pathView === 'click-locations')) {
     for (let i = 0; i < state.clicks.length; i++) {
       const click = state.clicks[i];
       if (click.t > state.cutoff) continue;
       const color = click.kind === 'rdown' ? '#c62828'
         : click.action === 'chord' ? '#2e7d32' : '#174ea6';
-      drawDot(click.px, click.py, color, pathView === 'click-locations' ? 4.5 : 4);
-      if (pathView === 'click-locations') {
+      drawDot(click.px, click.py, color, settings.pathView === 'click-locations' ? 4.5 : 4);
+      if (settings.pathView === 'click-locations') {
         drawLabel(click.px, click.py, String(i + 1), color);
       }
     }
   }
 
-  if (state.drawView && pathView === 'less-useful') {
+  if (state.drawView && settings.pathView === 'less-useful') {
     for (let i = 0; i < state.decisionPoints.length; i++) {
       const decision = state.decisionPoints[i];
       if (decision.t > state.cutoff) continue;
@@ -7602,7 +7666,7 @@ function paintPathCanvas() {
 
   if (replayEnabled) {
     // Rough-movement underlay up to the shown moment.
-    if (replayOverlays.movement && state.rough !== null) {
+    if (settings.replayOverlays.movement && state.rough !== null) {
       ctx.lineWidth = 5.5;
       ctx.strokeStyle = REPLAY_ENCODINGS.movement.color;
       ctx.globalAlpha = 0.85;
@@ -7616,16 +7680,16 @@ function paintPathCanvas() {
       ctx.globalAlpha = 1;
     }
     // Pointless / purposeful click layers up to the shown moment.
-    if (replayOverlays.pointless || replayOverlays.purposeful) {
+    if (settings.replayOverlays.pointless || settings.replayOverlays.purposeful) {
       for (let i = 0; i < state.decisionPoints.length; i++) {
         const decision = state.decisionPoints[i];
         if (decision.t > state.cutoff) continue;
         const less = decision.less;
-        if (less && replayOverlays.pointless) {
+        if (less && settings.replayOverlays.pointless) {
           const color = REPLAY_ENCODINGS.pointless.color;
           drawRingMarker(decision.px, decision.py, color);
           drawLabel(decision.px, decision.py, String(i + 1), color);
-        } else if (!less && replayOverlays.purposeful) {
+        } else if (!less && settings.replayOverlays.purposeful) {
           const color = REPLAY_ENCODINGS.purposeful.color;
           drawRingMarker(decision.px, decision.py, color);
           drawLabel(decision.px, decision.py, String(i + 1), color);
@@ -7707,9 +7771,9 @@ function buildPathOverlay(legendTarget) {
   hidePathTooltip();
   if (!pathViewAvailable()) return;
   const decisions = pathDecisionEvents(trace.events);
-  const drawView = pathView !== 'off'
-    && (decisions.length > 0 || pathView === 'raw-path');
-  if (pathView !== 'off' && !drawView) {
+  const drawView = settings.pathView !== 'off'
+    && (decisions.length > 0 || settings.pathView === 'raw-path');
+  if (settings.pathView !== 'off' && !drawView) {
     appendPathLegendRow(legendTarget, 'path', [], 'no recorded decision locations');
   }
   // Review mode keeps a canvas alive even with the path off: the exact
@@ -7749,23 +7813,23 @@ function buildPathOverlay(legendTarget) {
   const cutoff = replayEnabled && decisions.length > 0
     ? decisions[replayIndex].t
     : Infinity;
-  const range = pathView === 'progress'
+  const range = settings.pathView === 'progress'
     ? { min: 0, max: 1, trimmed: 0 }
     : pathDisplayRange(segments.map((segment) => segment.value));
   let legend = null;
-  const gaps = drawView && PATH_POLYLINE_VIEWS.has(pathView)
+  const gaps = drawView && PATH_POLYLINE_VIEWS.has(settings.pathView)
     ? pathTraceGaps(trace.t, trace.x, trace.y) : [];
   if (drawView) {
-    if (pathView === 'movement-speed') {
+    if (settings.pathView === 'movement-speed') {
       legend = appendPathBinLegend(legendTarget, 'movement speed', range,
         (value) => Math.round(value) + ' px/s');
-    } else if (pathView === 'click-speed') {
+    } else if (settings.pathView === 'click-speed') {
       legend = appendPathBinLegend(legendTarget, 'click speed', range,
         (value) => value.toFixed(2) + '/s');
-    } else if (pathView === 'progress') {
+    } else if (settings.pathView === 'progress') {
       legend = appendPathBinLegend(legendTarget, 'game progress', range,
         (value) => Math.round(value * 100) + '% uncovered');
-    } else if (pathView === 'raw-path') {
+    } else if (settings.pathView === 'raw-path') {
       legend = appendPathBinLegend(legendTarget, 'raw path · elapsed trace time',
         { min: 0, max: endT, trimmed: 0 },
         (value) => (value / 1000).toFixed(1) + 's', { time: true });
@@ -7774,7 +7838,7 @@ function buildPathOverlay(legendTarget) {
         { color: '#2e7d32', label: 'chord', dot: true },
         { color: '#c62828', label: 'right-button press', dot: true },
       ]);
-    } else if (pathView === 'click-locations') {
+    } else if (settings.pathView === 'click-locations') {
       const chordCount = pathClickActions(trace.events)
         .filter((click) => click.action === 'chord').length;
       appendPathLegendRow(legendTarget, 'numbered click locations', [
@@ -7783,7 +7847,7 @@ function buildPathOverlay(legendTarget) {
         { color: '#c62828', label: 'right-button press', dot: true },
       ], 'numbers are raw input order · ' + chordCount + ' chord'
         + (chordCount === 1 ? '' : 's') + ' detected');
-    } else if (pathView === 'less-useful') {
+    } else if (settings.pathView === 'less-useful') {
       const count = decisions.filter(pathDecisionIsLessUseful).length;
       appendPathLegendRow(legendTarget, 'less-useful episodes', [
         { color: '#174ea6', label: 'last useful click', dot: true },
@@ -7822,7 +7886,7 @@ function buildPathOverlay(legendTarget) {
       action: decision.evaluation.action,
     };
   });
-  const rough = replayEnabled && replayOverlays.movement
+  const rough = replayEnabled && settings.replayOverlays.movement
     ? pathRoughSegments(trace.t, trace.x, trace.y) : null;
   lastPathState = {
     ctx,
@@ -7856,7 +7920,7 @@ function pathSegmentAtPoint(px, py) {
   let bestDistance = reach;
   for (const segment of state.segments) {
     if (segment.gap || trace.t[segment.to] > state.cutoff) continue;
-    const binValue = pathView === 'raw-path'
+    const binValue = settings.pathView === 'raw-path'
       ? trace.t[segment.to] : segment.value;
     if (!Number.isFinite(binValue)) continue;
     const [x1, y1] = state.points[segment.from];
@@ -7917,12 +7981,13 @@ for (const button of pathViewButtons) {
   button.addEventListener('click', () => {
     const id = button.dataset.pathView;
     if (!PATH_VIEW_IDS.has(id)) throw new Error('unknown path view: ' + id);
-    pathView = id;
+    updateSettings({ pathView: id });
     renderPathView();
   });
 }
 
 replayReview.addEventListener('toggle', () => {
+  if (!replayReview.hidden) rememberPanel('replay', replayReview.open);
   // Closing review returns to the completed board, so a hidden transport
   // cannot leave the game showing an unexplained earlier frame.
   if (!replayReview.open && replayEnabled) setReplayStep(replayDecisionCount());
@@ -7946,8 +8011,8 @@ replaySlider.addEventListener('input', () => {
 for (const button of replayOverlayButtons) {
   button.addEventListener('click', () => {
     const key = button.dataset.replayOverlay;
-    if (!(key in replayOverlays)) throw new Error('unknown replay overlay: ' + key);
-    replayOverlays[key] = !replayOverlays[key];
+    if (!(key in settings.replayOverlays)) throw new Error('unknown replay overlay: ' + key);
+    updateSettings({ replayOverlays: { ...settings.replayOverlays, [key]: !settings.replayOverlays[key] } });
     renderPathView();
   });
 }
@@ -10027,11 +10092,6 @@ function buildMetricsGroupHead(group) {
   return head;
 }
 
-// Whether the player tucked the live panel away with its own toggler.
-// Session-only display state: the persistent switch is the
-// showMotionStatsDuringGame setting.
-let metricsPanelCollapsed = false;
-
 // The metrics of the latest render, so toggler clicks and settings
 // changes can update the panel without taking another input sample.
 let lastLiveMetrics = null;
@@ -10063,9 +10123,9 @@ function renderMetricsPanelContent(metrics) {
     hide.type = 'button';
     hide.className = 'metrics-toggle';
     hide.textContent = '\u00d7';
-    hide.title = 'tuck this panel away for now (the "show session stats" and "show motion stats during game" settings turn its parts off for good)';
+    hide.title = 'collapse the stats panel; this choice is saved';
     hide.addEventListener('click', () => {
-      metricsPanelCollapsed = true;
+      updateSettings({ metricsPanelCollapsed: true });
       refreshMetricsPanel();
     });
     head.append(phase, hide);
@@ -10075,7 +10135,7 @@ function renderMetricsPanelContent(metrics) {
     restore.textContent = 'stats \u25b8';
     restore.title = 'show the session / live motion stats panel again';
     restore.addEventListener('click', () => {
-      metricsPanelCollapsed = false;
+      updateSettings({ metricsPanelCollapsed: false });
       refreshMetricsPanel();
     });
     const session = document.createElement('div');
@@ -10089,17 +10149,17 @@ function renderMetricsPanelContent(metrics) {
     };
   }
   const view = metricsPanelView;
-  metricsPanel.classList.toggle('collapsed', metricsPanelCollapsed);
-  const width = metricsPanelCollapsed ? '' : settings.metricsPanelWidth + 'px';
+  metricsPanel.classList.toggle('collapsed', settings.metricsPanelCollapsed);
+  const width = settings.metricsPanelCollapsed ? '' : settings.metricsPanelWidth + 'px';
   if (metricsPanel.style.width !== width) metricsPanel.style.width = width;
-  setMetricHidden(view.restore, !metricsPanelCollapsed);
-  setMetricHidden(view.head, metricsPanelCollapsed);
-  setMetricHidden(view.grip, metricsPanelCollapsed);
+  setMetricHidden(view.restore, !settings.metricsPanelCollapsed);
+  setMetricHidden(view.head, settings.metricsPanelCollapsed);
+  setMetricHidden(view.grip, settings.metricsPanelCollapsed);
   setMetricHidden(view.phase, !showLive);
-  setMetricHidden(view.session, metricsPanelCollapsed || !showSession);
-  setMetricHidden(view.live, metricsPanelCollapsed || !showLive);
+  setMetricHidden(view.session, settings.metricsPanelCollapsed || !showSession);
+  setMetricHidden(view.live, settings.metricsPanelCollapsed || !showLive);
   setMetricAttribute(view.grip, 'aria-valuenow', settings.metricsPanelWidth);
-  if (metricsPanelCollapsed) return;
+  if (settings.metricsPanelCollapsed) return;
 
   if (showSession) {
     const controlsKey = JSON.stringify([
@@ -13078,20 +13138,16 @@ function appendSessionEndingsRow(container, buckets) {
 // active set (see reportResult), so life circumstances can be correlated
 // with results later. Editing the list only shapes future games — past
 // records keep whatever states they were stamped with.
-const DEFAULT_STATE_NAMES = ['sleepy', 'just woke up', 'inebriated'];
 
-// The RAM copy (userdata 'states'): [{name, active}] in display order. A
-// new player gets the default options to choose from, none active (see
-// userdataReady); the list is only persisted once the player changes
-// something.
-let playerStates = null;
 
+// The current list lives in settings.playerStates; completed games keep
+// their own record of which tags applied when they were played.
 function savePlayerStates() {
-  persistUserdata('states', playerStates);
+  saveSettings();
 }
 
 function activeStateNames() {
-  return playerStates.filter((s) => s.active).map((s) => s.name);
+  return settings.playerStates.filter((s) => s.active).map((s) => s.name);
 }
 
 const statesChips = document.getElementById('states-chips');
@@ -13109,7 +13165,7 @@ const statesStatus = document.getElementById('states-status');
 // session shows nothing but the one small button.
 function renderStates() {
   statesChips.textContent = '';
-  for (const state of playerStates) {
+  for (const state of settings.playerStates) {
     if (!state.active) continue;
     const chip = document.createElement('button');
     chip.type = 'button';
@@ -13124,7 +13180,7 @@ function renderStates() {
     statesChips.appendChild(chip);
   }
   statesOptions.textContent = '';
-  for (const state of playerStates) {
+  for (const state of settings.playerStates) {
     if (state.active) continue;
     const option = document.createElement('button');
     option.type = 'button';
@@ -13142,7 +13198,7 @@ function renderStates() {
     remove.title = 'delete from the list (past games keep their recorded states)';
     remove.addEventListener('click', (event) => {
       event.stopPropagation();
-      playerStates = playerStates.filter((s) => s !== state);
+      settings.playerStates = settings.playerStates.filter((s) => s !== state);
       savePlayerStates();
       renderStates();
     });
@@ -13156,6 +13212,7 @@ function renderStates() {
 // helper is the same shape). Esc and outside-click closing live with the
 // settings panel's handlers.
 function setStatesMenuOpen(open) {
+  rememberPanel('states', open);
   statesMenu.hidden = !open;
   statesAddBtn.classList.toggle('open', open);
 }
@@ -13176,13 +13233,14 @@ statesAddForm.addEventListener('submit', (event) => {
     statesStatus.textContent = 'state name is empty';
     return;
   }
-  if (playerStates.some((s) => s.name === name)) {
+  if (settings.playerStates.some((s) => s.name === name)) {
     statesStatus.textContent = '"' + name + '" already exists';
     return;
   }
-  playerStates.push({ name, active: true });
+  settings.playerStates.push({ name, active: true });
   savePlayerStates();
   statesAddInput.value = '';
+  rememberPreference('drafts', { ...settings.drafts, stateName: '' });
   setStatesMenuOpen(false);
   renderStates();
 });
@@ -13427,12 +13485,16 @@ for (const tab of document.querySelectorAll('#difficulty-tabs a')) {
     for (const t of document.querySelectorAll('#difficulty-tabs a')) t.classList.remove('active');
     tab.classList.add('active');
     const name = tab.dataset.difficulty;
+    updateSettings({ difficulty: name });
     if (name === 'custom') {
+      config = { ...settings.customBoard };
       // In the Board lab the sliders are the custom control; the form
       // stays hidden and the current size simply remains.
       if (!boardLabActive()) {
         customForm.hidden = false;
         customForm.requestSubmit();
+      } else {
+        newGame();
       }
     } else {
       customForm.hidden = true;
@@ -13443,6 +13505,7 @@ for (const tab of document.querySelectorAll('#difficulty-tabs a')) {
 }
 
 function showScoresForCurrentMode() {
+  rememberPreference('resultView', 'scores');
   const modeRecords = history[modeKey()] || [];
   const wins = modeRecords.filter((record) => record.outcome === 'win');
   if (wins.length === 0) {
@@ -13469,12 +13532,14 @@ customForm.addEventListener('submit', (event) => {
   const width = Math.max(8, Math.min(100, Number(document.getElementById('custom-width').value)));
   const height = Math.max(1, Math.min(100, Number(document.getElementById('custom-height').value)));
   // Classic winmine constraint: mines fit with at least a 3x3 opening's worth of space.
-  const maxMines = (width - 1) * (height - 1);
+  const maxMines = Math.max(1, (width - 1) * (height - 1));
   const mines = Math.max(1, Math.min(maxMines, Number(document.getElementById('custom-mines').value)));
   document.getElementById('custom-width').value = width;
   document.getElementById('custom-height').value = height;
   document.getElementById('custom-mines').value = mines;
   config = { width, height, mines };
+  rememberCustomBoard();
+  syncDifficultyTabs();
   newGame();
 });
 
@@ -13489,6 +13554,7 @@ function setBoardPositionPreference(x, y, persist) {
 }
 
 function setBoardPositionEditing(open) {
+  rememberPanel('boardPosition', open);
   if (!open && stopBoardPositionDrag !== null) stopBoardPositionDrag();
   boardPositionPanel.hidden = !open;
   boardPositionDragSurface.hidden = !open;
@@ -13648,19 +13714,13 @@ const importFileInput = document.getElementById('import-file-input');
 const exportFileLink = document.getElementById('export-file');
 
 document.getElementById('export-btn').addEventListener('click', () => {
-  // The reserved "settings" key rides along with the mode lists; it can
-  // never collide with a mode key (those are always WxH/M@playMode).
   const games = cleanTransferredHistory(history);
-  const exportedSettings = cleanTransferredSettings(settings, false);
-  const json = JSON.stringify({
-    settings: exportedSettings.settings || {},
-    ...games.history,
-  });
+  const json = JSON.stringify(games.history);
   const cleanup = [];
   if (games.skippedRecords > 0) cleanup.push('omitted ' + games.skippedRecords + ' malformed games');
   if (games.skippedLists > 0) cleanup.push('omitted ' + games.skippedLists + ' malformed lists');
-  if (games.repairedFields + exportedSettings.skippedFields > 0) {
-    cleanup.push('discarded ' + (games.repairedFields + exportedSettings.skippedFields)
+  if (games.repairedFields > 0) {
+    cleanup.push('discarded ' + games.repairedFields
       + ' invalid fields');
   }
   const status = 'export copied to clipboard (' + games.gameCount + ' games)'
@@ -13704,9 +13764,8 @@ document.getElementById('export-traces-btn').addEventListener('click', () => {
 // Merges an exported history into the stored one. endedAt identifies a
 // record within a mode (one player cannot finish two games of the same mode
 // in the same millisecond), so re-importing the same blob is a no-op. The
-// reserved "settings" key (exports since 2026-08-20; absent on older
-// exports) carries the settings block, whose known fields overwrite the
-// stored settings. Malformed optional fields are discarded and malformed
+// reserved "settings" key in older combined exports is ignored; importing
+// game history never changes personal preferences. Malformed optional fields are discarded and malformed
 // records or lists are skipped, so one damaged item never prevents the rest
 // of a backup from being recovered.
 function importHistory(text) {
@@ -13720,15 +13779,6 @@ function importHistory(text) {
   if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
     backupStatus.textContent = 'import failed: the export is not an object';
     return;
-  }
-  let importedSettings = null;
-  let skippedSettings = 0;
-  let malformedSettings = 0;
-  if ('settings' in parsed) {
-    const cleaned = cleanTransferredSettings(parsed.settings, true);
-    importedSettings = cleaned.settings;
-    skippedSettings = cleaned.skippedFields;
-    if (importedSettings === null) malformedSettings = 1;
   }
   const transfer = cleanTransferredHistory(parsed);
   const incoming = transfer.history;
@@ -13750,42 +13800,30 @@ function importHistory(text) {
     history[mode].sort((a, b) => a.endedAt - b.endedAt);
   }
   persistUserdata('history', history);
-  let settingsNote = '';
-  if (importedSettings !== null) {
-    settings = settingsFrom({ ...settings, ...importedSettings });
-    saveSettings();
-    applyCellSize();
-    repaintRevealedCells();
-    document.getElementById('play-mode-select').value = settings.playMode;
-    document.getElementById('board-generator-select').value = settings.boardGenerator;
-    refreshGeneratorSelect();
-    // Imported generator parameters may differ from the sliders on
-    // screen; force the lab panel to rebuild with the imported values.
-    labPanelGeneratorId = null;
-    syncLabChrome();
-    settingsNote = ', applied settings';
-  }
   const skipped = [];
   if (transfer.skippedRecords > 0) skipped.push(transfer.skippedRecords + ' malformed games');
   if (transfer.skippedLists > 0) skipped.push(transfer.skippedLists + ' malformed lists');
-  if (malformedSettings > 0) skipped.push('malformed settings');
-  if (transfer.repairedFields + skippedSettings > 0) {
-    skipped.push((transfer.repairedFields + skippedSettings) + ' invalid fields');
+  if (transfer.repairedFields > 0) {
+    skipped.push(transfer.repairedFields + ' invalid fields');
   }
   backupStatus.textContent = 'imported ' + added + ' new games, skipped ' + dups + ' duplicates'
-    + (skipped.length > 0 ? ', ' + skipped.join(', ') : '') + settingsNote;
+    + (skipped.length > 0 ? ', ' + skipped.join(', ') : '');
   importPanel.hidden = true;
   importText.value = '';
+  rememberPanel('importHistory', false);
+  rememberPreference('drafts', { ...settings.drafts, historyImport: '' });
 }
 
 document.getElementById('import-btn').addEventListener('click', () => {
   importPanel.hidden = !importPanel.hidden;
+  rememberPanel('importHistory', !importPanel.hidden);
 });
 
 const formatPanel = document.getElementById('format-panel');
 
 document.getElementById('format-btn').addEventListener('click', () => {
   formatPanel.hidden = !formatPanel.hidden;
+  rememberPanel('dataFormat', !formatPanel.hidden);
 });
 
 //-------SETTINGS ENTRY (the full page settings.html holds the controls)-------
@@ -13829,8 +13867,7 @@ function buildFormatPanel() {
   const intermediateKey = modeKeyOf(DIFFICULTIES.intermediate, 'standard');
   const keyColumn = (key) => ('"' + key + '":').padEnd(intermediateKey.length + 4);
   const pre = document.createElement('pre');
-  pre.textContent = '{\n  ' + keyColumn('settings') + '{ \u2026personal preferences\u2026 },\n  '
-    + keyColumn(beginnerKey) + '[ \u2026one record per finished game\u2026 ],\n  '
+  pre.textContent = '{\n  ' + keyColumn(beginnerKey) + '[ \u2026one record per finished game\u2026 ],\n  '
     + keyColumn(intermediateKey) + '[ \u2026 ]\n}';
   const namedModes = Object.entries(DIFFICULTIES)
     .map(([name, d]) => boardKeyOf(d) + ' = ' + difficultyDisplayName(name))
@@ -13838,12 +13875,11 @@ function buildFormatPanel() {
   const exportNote = document.createElement('p');
   exportNote.textContent = 'One list per board and play mode, keyed by width\u00d7height/mines@mode ('
     + namedModes + '; modes: ' + PLAY_MODES.map((m) => m.id).join(', ')
-    + '). Keys without @ are Standard. Records sit in play order, wins and losses alike. The reserved '
-    + '"settings" key carries all saved preferences, including zoom; importing applies them '
-    + '(absent on exports from before 2026-08-20).';
+    + '). Keys without @ are Standard. Records sit in play order, wins and losses alike. '
+    + 'Personal preferences have separate export and import controls on the Settings page.';
   exportBlock.append(pre, exportNote);
 
-  const settingsBlock = block('settings: field, default, meaning');
+  const settingsBlock = block('separate preferences file: field, default, meaning');
   settingsBlock.classList.add('settings-format-block');
   const settingsTable = document.createElement('table');
   for (const setting of SETTINGS_SCHEMA) {
@@ -13961,20 +13997,19 @@ function refreshGeneratorSelect() {
 }
 
 function syncDifficultyTabs() {
-  let matched = 'custom';
-  for (const [name, d] of Object.entries(DIFFICULTIES)) {
-    if (d.width === config.width && d.height === config.height && d.mines === config.mines) {
-      matched = name;
-      break;
-    }
-  }
+  const matched = settings.difficulty;
   for (const tab of document.querySelectorAll('#difficulty-tabs a')) {
     tab.classList.toggle('active', tab.dataset.difficulty === matched);
   }
   customForm.hidden = matched !== 'custom' || boardLabActive();
 }
 
-function init() {
+async function init() {
+  config = boardFromPreferences();
+  for (const field of ['width', 'height', 'mines']) {
+    document.getElementById('custom-' + field).value = settings.customBoardDraft[field];
+  }
+  syncDifficultyTabs();
   initCellSizeControl();
   buildPlayModeSwitcher();
   buildBoardGeneratorSwitcher();
@@ -13994,6 +14029,8 @@ function init() {
     if (trialSession.endedHow !== null) lastTrialReview = trialSession;
   }
   newGame();
+  await restorePreferredResult();
+  await initGamePreferences();
   const startupStatus = document.getElementById('startup-status');
   startupStatus.textContent = 'Ready.';
   faceButton.disabled = false;

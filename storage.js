@@ -97,4 +97,16 @@ function persistUserdata(kind, value) {
   const tx = db.transaction(USERDATA_STORE, 'readwrite');
   tx.objectStore(USERDATA_STORE).put(value, kind);
   tx.onerror = () => storageFailure(kind + ' save failed: ' + tx.error);
+  // Start committing immediately, including edits followed by navigation.
+  tx.commit();
+}
+
+// Move the tag preference into the settings record atomically. Historical
+// game tags stay on their original game records.
+function consolidatePlayerStates(preferences) {
+  const tx = db.transaction(USERDATA_STORE, 'readwrite');
+  const store = tx.objectStore(USERDATA_STORE);
+  store.put(preferences, 'settings');
+  store.delete('states');
+  tx.onerror = () => storageFailure('player-state preferences move failed: ' + tx.error);
 }

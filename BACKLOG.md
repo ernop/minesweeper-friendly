@@ -7,6 +7,30 @@ the next request; do not leave new ideas only in chat.
 Status labels: **creator** = the creator asked for it; **mapped** = named
 on the design axis or in a research note, not requested as a build.
 
+## Ranks-won visibility and rank appearance (creator, 2026-09-21)
+
+Review why the selected period omits earlier achievements in categories other
+than the latest win's, especially 3BV 41 after a 3BV-40 win. The complete
+[visibility review](reference/ranks-won-review.md) records the affected families,
+independent cutoff/scope/collapse rules, verified interactions, and options.
+Built: all 3BV and measured shape categories represented by wins in the selected
+period now compete, within the current board-size/play-mode/generator key and
+reference date's day-category scope. Full tablecharts retain their per-game
+scope. PRODUCT.md records the resulting policy.
+
+Appearance approved and built the same day: independent podium rank numbers
+and full-row percentage tints, readable low/last/only-result states, a latest-game
+edge, and explicit percentage/list-size labels. The same treatment reaches
+all qualifying ordinals in the compact summary, including earlier games at
+other 3BV values; blue edges and “this” identify the current one. PRODUCT.md “Rank highlights” records
+the implemented design; the alternative underline and uniform-blue treatments
+from the comparison were not selected.
+
+Still undecided: first-place exceptions for small pools, preservation of
+collapsed category names, eligibility before duplicate collapsing, and current
+standings versus achievements when earned. These rules were not changed by
+the category-scope revision.
+
 ## Board-shape time lists (built 2026-08-21)
 
 The lists themselves are in the product (PRODUCT.md "Rank lists").

@@ -427,14 +427,14 @@ check('replay stays separate from path modes and is available after game end',
   check('review controls are outside the translated board area',
     navStart > html.indexOf('id="game-sidebar"'));
 }
-check('replay starts inside a collapsed disclosure',
+check('replay disclosure restores the saved preference',
   /<details id="replay-review" hidden>/.test(html)
-    && source.includes('replayReview.open = false'));
+    && source.includes('replayReview.open = settings.panels.replay'));
 check('selected path button keeps box dimensions stable',
   css.includes('#path-view-control button[aria-pressed="true"]')
     && !css.match(/#path-view-control button\[aria-pressed="true"\][^{]*\{[^}]*font-weight/s));
 check('parameter paths retain the requested thick stroke',
-  source.includes("ctx.lineWidth = pathView === 'raw-path' ? 3 : 4.25;"));
+  source.includes("ctx.lineWidth = settings.pathView === 'raw-path' ? 3 : 4.25;"));
 check('callouts avoid the complete results panel',
   source.includes('resultsBox.getBoundingClientRect()'));
 check('replay arrows preserve focused keyboard controls',

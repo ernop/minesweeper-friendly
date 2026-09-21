@@ -77,3 +77,31 @@ assert.equal(run('settingsFrom({ reportScope: "full", shownThings: { endVerdict:
 assert.deepEqual(plain(run('settingsFrom(Object.create({ cellSize: 96 }))')), defaults);
 
 console.log('settings-state: shared validation, defaults, migration, isolation, and backup round trips passed');
+
+const choices = {
+  difficulty: 'custom', customBoard: { width: 24, height: 12, mines: 45 },
+  customBoardDraft: { width: '25', height: '12', mines: '45' },
+  playerStates: [{ name: 'new mouse', active: true }, { name: 'sleepy', active: false }],
+  pathView: 'click-speed', replayOverlays: { moves: false, mines: false, probs: true, pointless: true, purposeful: true, movement: true },
+  metricsPanelCollapsed: true, trialSpeedBucketMs: 375, resultView: 'scores',
+  replayPosition: { endedAt: 12345, step: 7 },
+  panels: { boardPosition: true, gameDetails: true, states: true, replay: true, reviewOptions: true, reviewDisplay: true, importHistory: true, dataFormat: true },
+  trialSections: { '123:identity:1': false, '123:action:456': true },
+  drafts: { stateName: 'draft', historyImport: '{', preferencesImport: '{' },
+  viewPosition: { pageX: 14, pageY: 400, metricsX: 2, metricsY: 120, focusId: 'custom-width' },
+};
+context.choices = choices;
+run('settings = settingsFrom({}); updateSettings(choices)');
+const savedChoices = plain(saved.get('settings'));
+for (const [key, value] of Object.entries(choices)) assert.deepEqual(savedChoices[key], value);
+const preferenceFile = run('exportPreferences()');
+run('settings = settingsFrom({})');
+context.preferenceFile = preferenceFile;
+run('importPreferences(preferenceFile)');
+assert.deepEqual(plain(run('settings')), savedChoices);
+assert.equal(saved.size, 1, 'preferences transfer never writes history or traces');
+const beforeBadImport = run('exportPreferences()');
+assert.throws(() => run(`importPreferences('{"difficulty":"not-a-preset"}')`), /invalid preference/);
+assert.throws(() => run(`importPreferences('{"history":{}}')`), /unknown preference/);
+assert.equal(run('exportPreferences()'), beforeBadImport, 'invalid imports are atomic');
+console.log('settings-state: all board, view, draft, tag, and independent preference-transfer choices passed');

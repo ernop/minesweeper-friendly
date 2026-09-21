@@ -19,8 +19,9 @@ function storageFailure(what) {
 
 function userdataReady() {
   readAllUserdata((got) => {
-    settings = settingsFrom(got.settings === undefined ? {} : got.settings);
+    loadSettings(got);
     buildSettingsColumn();
+    initPreferencesTransfer();
   });
 }
 
@@ -149,4 +150,41 @@ function buildSettingsColumn() {
     section.appendChild(body);
     column.appendChild(section);
   }
+}
+
+function initPreferencesTransfer() {
+  const input = document.getElementById('preferences-import-text');
+  const download = document.getElementById('preferences-download');
+  input.value = settings.drafts.preferencesImport;
+  input.addEventListener('input', () => updateSettings({ drafts: { ...settings.drafts, preferencesImport: input.value } }));
+  document.getElementById('preferences-export').addEventListener('click', () => {
+    if (download.href) URL.revokeObjectURL(download.href);
+    download.href = URL.createObjectURL(new Blob([exportPreferences()], { type: 'application/json' }));
+    download.download = 'minesweeper-friendly-preferences-' + new Date().toISOString().slice(0, 10) + '.json';
+    download.hidden = false;
+    download.click();
+  });
+  const apply = (text) => {
+    try {
+      importPreferences(text);
+    } catch (error) {
+      settingsStatus.hidden = false;
+      settingsStatus.textContent = 'Preferences import failed: ' + error.message;
+      return;
+    }
+    updateSettings({ drafts: { ...settings.drafts, preferencesImport: '' } });
+    input.value = '';
+    buildSettingsColumn();
+    settingsStatus.hidden = false;
+    settingsStatus.textContent = 'Preferences imported.';
+  };
+  document.getElementById('preferences-import-form').addEventListener('submit', (event) => {
+    event.preventDefault();
+    apply(input.value);
+  });
+  document.getElementById('preferences-import-file').addEventListener('change', async (event) => {
+    const file = event.target.files[0];
+    if (file) apply(await file.text());
+    event.target.value = '';
+  });
 }

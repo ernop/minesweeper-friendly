@@ -213,6 +213,11 @@ no "this" marker. The settings page's "shown things" group (the
 last-1-minute list, largest-island items, and near-near-streak list start
 hidden.
 
+Preferences remember board selection, custom dimensions, zoom, path and replay
+controls, panel state, player tags, drafts, and scroll positions. Settings has
+separate **Export preferences** and **Import preferences JSON** controls;
+history transfers never apply preferences.
+
 Backup: subtle "export history" / "import history" controls under the
 results. Export copies the full history JSON to the clipboard (with a
 save-to-file option), omitting irreparable records and invalid optional

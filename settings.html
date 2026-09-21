@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Minesweeper - Settings</title>
-<link rel="stylesheet" href="style.css?v=20260921-persistent-zoom">
+<link rel="stylesheet" href="style.css?v=20260921-all-preferences">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 </head>
 <body class="settings-page">
@@ -23,13 +23,26 @@
   <div id="settings-column">
     <!-- groups and rows built by settings-page.js from SETTINGS_SCHEMA -->
   </div>
+  <section class="settings-group" id="preferences-transfer">
+    <h2 class="settings-group-heading" title="Preferences files do not include game history.">Preferences backup</h2>
+    <div class="settings-group-body">
+      <button type="button" id="preferences-export">Export preferences</button>
+      <a id="preferences-download" hidden>Save preferences file</a>
+      <form id="preferences-import-form">
+        <label for="preferences-import-text">Import preferences JSON</label>
+        <textarea id="preferences-import-text" rows="4"></textarea>
+        <button type="submit">Apply preferences</button>
+        <label>Open preferences file <input id="preferences-import-file" type="file" accept=".json,application/json"></label>
+      </form>
+    </div>
+  </section>
   <footer id="settings-page-footer">
     <a class="return-to-game" href="index.html">&larr; return to game</a>
   </footer>
 </main>
-<script src="storage.js?v=20260823-simple-settings"></script>
+<script src="storage.js?v=20260921-all-preferences"></script>
 <script src="generators.js?v=20260921-shared-settings"></script>
-<script src="settings-core.js?v=20260921-persistent-zoom"></script>
-<script src="settings-page.js?v=20260823-settings-layout"></script>
+<script src="settings-core.js?v=20260921-all-preferences"></script>
+<script src="settings-page.js?v=20260921-all-preferences"></script>
 </body>
 </html>

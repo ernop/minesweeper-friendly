@@ -14,6 +14,11 @@ const startIdx = source.indexOf('//-------RECENT PLACEMENTS: COMPUTATION');
 const endIdx = source.indexOf('//-------RECENT PLACEMENTS: DISPLAY');
 if (startIdx === -1 || endIdx === -1) throw new Error('section markers not found');
 vm.runInThisContext(source.slice(startIdx, endIdx));
+vm.runInThisContext(source.slice(source.indexOf('function startOfDay('),
+  source.indexOf('function difficultyDisplayName(')));
+vm.runInThisContext(source.slice(source.indexOf('const WEEKDAY_NAMES ='),
+  source.indexOf('// Relative age')));
+vm.runInThisContext(source.slice(source.indexOf('//-------DAY CATEGORIES'), startIdx));
 
 let checks = 0;
 function assertEq(name, actual, want) {
@@ -37,6 +42,57 @@ assertEq('adjacent pair', formatRankRuns([1, 2]), '1\u20132nd');
 assertEq('example from the request',
   formatRankRuns([1, 3, 8, 9, 10, 11, 12]), '1st, 3rd, 8\u201312th');
 assertEq('run then single', formatRankRuns([2, 3, 4, 7]), '2\u20134th, 7th');
+
+// Highlight semantics must agree between full tables and the compact
+// summary, including inclusive lower-tail counts and exact band boundaries.
+for (const [rank, total, band, podium, label] of [
+  [1, 1, 'only', 0, 'Only result'],
+  [1, 9, 'top25', 1, 'Top 12%'],
+  [1, 91, 'top2', 1, 'Top 2%'],
+  [2, 1000, 'top1', 2, 'Top 0.2%'],
+  [3, 1000, 'top1', 3, 'Top 0.3%'],
+  [10, 1000, 'top1', 0, 'Top 1%'],
+  [11, 1000, 'top2', 0, 'Top 2%'],
+  [20, 1000, 'top2', 0, 'Top 2%'],
+  [21, 1000, 'top5', 0, 'Top 3%'],
+  [50, 1000, 'top5', 0, 'Top 5%'],
+  [51, 1000, 'top10', 0, 'Top 6%'],
+  [100, 1000, 'top10', 0, 'Top 10%'],
+  [101, 1000, 'top25', 0, 'Top 11%'],
+  [250, 1000, 'top25', 0, 'Top 25%'],
+  [251, 1000, 'top50', 0, 'Top 26%'],
+  [500, 1000, 'top50', 0, 'Top 50%'],
+  [501, 1000, 'lower50', 0, 'Bottom 50%'],
+  [900, 1000, 'lower50', 0, 'Bottom 11%'],
+  [901, 1000, 'bottom10', 0, 'Bottom 10%'],
+  [999, 1000, 'bottom10', 0, 'Bottom 0.2%'],
+  [1000, 1000, 'last', 0, 'Last place'],
+  [32, 1080, 'top5', 0, 'Top 3%'],
+  [155, 287, 'lower50', 0, 'Bottom 47%'],
+  [1, 100000, 'top1', 1, 'Top 0.1%'],
+]) {
+  const standing = rankStanding(rank, total);
+  assertEq(rank + '/' + total + ' band', standing.band, band);
+  assertEq(rank + '/' + total + ' podium', standing.podium, podium);
+  assertEq(rank + '/' + total + ' percentage label', standing.label, label);
+}
+
+{
+  const ranks = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 20, 21];
+  const runs = recentPlacementRuns(ranks, 1000, 7);
+  assertEq('run compression preserves podiums, color bands, and current game',
+    runs.map((run) => run.first + '-' + run.last).join(','),
+    '1-1,2-2,3-3,4-6,7-7,8-10,11-12,20-20,21-21');
+  assertEq('exactly one run identifies the current game',
+    runs.filter((run) => run.current).map((run) => run.first).join(','), '7');
+  assertEq('earlier first place keeps its podium color', runs[0].podium, 1);
+  assertEq('summary percentage range covers every reported rank',
+    recentPlacementStanding([1, 2, 3, 10], 1000), 'Top 0.1% \u2013 Top 1%');
+  assertEq('same percentage labels are not repeated',
+    recentPlacementStanding([11, 20], 1000), 'Top 2%');
+  assertEq('history summary still creates all earlier achievement runs',
+    recentPlacementRuns([1, 2, 3], 1000).length, 3);
+}
 
 const HOUR = 3600e3;
 const DAY = 24 * HOUR;
@@ -226,6 +282,78 @@ const windowCandidate = (label, specificity, startMs, wins) =>
   assertEq('near miss total', rows[0].total, 20);
   assertEq('no source win reports nothing',
     recentPlacementsSummary(lifetime(old), sourceStart).length, 0);
+}
+
+// Category discovery follows all wins in the selected period while the
+// date categories and the full tablecharts retain their reference scope.
+{
+  const now = new Date(2026, 8, 21, 12).getTime(); // Monday in the viewer's timezone.
+  const start = startOfDay(now);
+  const low = { bv3: 40, maxAdjacent: 2, hasSeven: false,
+    islandCount: 7, largestIsland: 9, zeroCount: 80 };
+  const high = { bv3: 41, maxAdjacent: 8, hasSeven: true,
+    islandCount: 8, largestIsland: 10, zeroCount: 70 };
+  const old = [low, high].flatMap((shape, group) =>
+    Array.from({ length: 20 }, (_, i) => ({ ...shape,
+      ...win(now - (60 + i + group * 20) * DAY, 30000 + i * 100) })));
+  const earlier = { ...high, ...win(now - 2 * HOUR, 10000) };
+  const current = { ...low, ...win(now, 15000) };
+  const unmeasured = win(now - 30 * DAY, 5000);
+  const wins = [...old, unmeasured, earlier, current];
+  const candidates = recentPlacementCandidates(wins, now, start, false);
+  const rows = recentPlacementsSummary(candidates, start, current);
+  for (const label of ['3BV 40', '3BV 41', 'has 8', 'has 7',
+    'max 2', 'max 3', 'max 4', '7 islands', '8 islands',
+    'largest island 9', 'largest island 10', '70 zeros', '80 zeros']) {
+    const row = rows.find((candidate) => candidate.label === label);
+    assertEq(label + ' represented despite a different latest board', row !== undefined, true);
+    assertEq(label + ' compares against full historical pool', row.total, 21);
+    assertEq(label + ' earlier source win still ranks first', row.ranks.join(','), '1');
+  }
+  assertEq('older category result is not marked current',
+    rows.find((row) => row.label === '3BV 41').currentRank, undefined);
+  assertEq('latest category result is marked current',
+    rows.find((row) => row.label === '3BV 40').currentRank, 1);
+  const shapes = boardShapeCandidates([earlier, current], wins);
+  assertEq('exact-value shapes have distinct identities',
+    new Set(shapes.map((candidate) => candidate.id)).size, shapes.length);
+  assertEq('full tablecharts remain specific to current board',
+    boardShapeCandidates([current], wins).some((candidate) => candidate.label === 'has 8'), false);
+  assertEq('full tablechart membership still covers all history',
+    boardShapeCandidates([current], wins).find((candidate) => candidate.label === '7 islands').rows.length, 21);
+  const short = recentPlacementCandidates(wins, now, now - HOUR, false);
+  assertEq('shorter selection removes earlier 3BV category',
+    short.some((candidate) => candidate.label === '3BV 41'), false);
+  assertEq('shorter selection removes earlier shape category',
+    short.some((candidate) => candidate.label === 'has 8'), false);
+  const week = recentPlacementCandidates(wins, now, startOfDay(now, 6), false);
+  assertEq('current weekday category kept',
+    week.some((candidate) => candidate.label === 'on Mondays'), true);
+  assertEq('current weekday class kept',
+    week.some((candidate) => candidate.label === 'on weekdays'), true);
+  assertEq('other weekday classes not added',
+    week.some((candidate) => candidate.label === 'on weekends'), false);
+  assertEq('other weekdays not added',
+    week.some((candidate) => candidate.label === 'on Sundays'), false);
+  const collapsed = recentPlacementCandidates(wins, now, start, true);
+  assertEq('collapse keeps both distinct 3BV values',
+    collapsed.filter((candidate) => candidate.label.startsWith('3BV ')).length, 2);
+  const anotherEarlier = { ...high, ...win(now - HOUR, 12000) };
+  const multipleWins = [...wins, anotherEarlier];
+  const multipleRows = recentPlacementsSummary(
+    recentPlacementCandidates(multipleWins, now, start, true), start, current);
+  assertEq('all qualifying earlier ranks at another 3BV remain listed',
+    multipleRows.find((row) => row.label === '3BV 41').ranks.join(','), '1,2');
+  assertEq('current 3BV remains listed beside earlier 3BV ranks',
+    multipleRows.find((row) => row.label === '3BV 40').ranks.join(','), '1');
+  assertEq('collapse still merges identical shape member sets',
+    collapsed.some((candidate) => candidate.label === 'has 7'), false);
+  const noRecent = recentPlacementCandidates(old, now, start, false);
+  assertEq('no recent wins creates no shape or 3BV candidates',
+    noRecent.some((candidate) => candidate.label.startsWith('3BV ')
+      || candidate.label.startsWith('max ')), false);
+  assertEq('no recent wins keeps empty summary behavior',
+    recentPlacementsSummary(noRecent, start).length, 0);
 }
 
 console.log(`recent-placements: all ${checks} checks passed`);

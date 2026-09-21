@@ -36,8 +36,9 @@ Unbuilt work lives in one file: [BACKLOG.md](BACKLOG.md). That is the
 place for generation ideas, deferred product, and requested rank lists
 that are not in the game yet. Do not leave new ideas only in chat.
 
-App-wide UI rules (simplicity first, captions must earn their place,
-hover changes nothing, semantic legend/key labels are never shortened,
+App-wide UI rules (simplicity first, optional help must be useful and hidden
+behind a subtle tooltip affordance, hover never reflows page content,
+semantic legend/key labels are never shortened,
 layout stability, no distracting duplicate live values, clear ways in and out) live in
 PRODUCT.md "UI doctrine" — read it before building or reshaping any
 surface.
@@ -56,7 +57,7 @@ forced mine.
 
 Runtime: `index.html` + `style.css` + pure `rng.js` / `justice.js` /
 `board-shape.js` / `solver.js` / `generators.js` / `odds.js` /
-`trial.js` + shared `storage.js` / `settings-core.js` +
+`trial.js` + shared `storage.js` / `settings-core.js` + `preferences-game.js` +
 `minesweeper.js`, no dependencies, no build step. The settings page is `settings.html` + `settings-page.js`,
 loading the same `style.css`, `storage.js`, and `settings-core.js` (both
 pages must load storage.js and settings-core.js before their own script).
@@ -84,10 +85,10 @@ Implementation notes:
   been declared — the open can otherwise race later deferred scripts;
   `readyState` cannot signal this because it is already interactive during
   defer execution). `userdata` holds one
-  entry per kind — 'history', 'settings', legacy 'rankavgSort', 'states',
-  'trial' (`USERDATA_KINDS`); `traces` holds one entry per game. Userdata
+  entry per kind — 'history', 'settings', and 'trial'; retired 'states' and
+  'rankavgSort' keys remain readable for existing data (`USERDATA_KINDS`); `traces` holds one entry per game. Userdata
   is RAM-first: the game page's `userdataReady` fills the active RAM objects
-  (`history`, `settings`, `playerStates`) via
+  (`history`, `settings`) via
   `readAllUserdata`, then calls `init()` (states panel, first board —
   everything that reads userdata waits there; only static chrome builds
   at parse). All reads/mutations touch RAM synchronously; every mutation
@@ -765,9 +766,9 @@ Implementation notes:
   classes (age display and unit colors, shared with the scatter legend;
   h/d/w/y counts are one decimal including .0).   Board-shape lists
   (`has 8` / `has 7` / `max N` / `N islands` / `largest island N` /
-  `N zeros`) are defined once in `boardShapeCandidates(record, wins)`
+  `N zeros`) are defined once in `boardShapeCandidates(referenceWins, wins)`
   (shared with the recent-placements summary) and rendered in
-  `renderRanks` from the finished-board scalars computed by
+  `renderRanks` with `[record]` from the finished-board scalars computed by
   `board-shape.js` (`BoardShape.of`) at `reportResult`.
   `node tests/board-shape-test.js` freezes the neighborhood and island
   rules.
@@ -783,23 +784,41 @@ Implementation notes:
   selector on the block's heading writes
   `settings.recentPlacementsWindow` (schema control 'none') and
   re-renders `renderedResult`; `buildRecentPlacements(record, wins,
-  referenceMs, markReferenceRecord)` builds the candidates — `rankColumns` (window columns
-  carry startMs; day categories don't and so always qualify), this
-  game's same-3BV chart, and `boardShapeCandidates(record, wins)` (the
-  extracted shape-chart definitions the board-shape tablecharts also
-  render from; the summary ignores the largestIsland display gate) —
-  and emits the first item in the upper table collection, gated by
-  shownThings.recentPlacements; nearMiss rows render the
-  rank muted (`.recent-near-cell`). `dedupeRankCandidates` is shared
+  referenceMs, markReferenceRecord)` uses `recentPlacementCandidates` —
+  `rankColumns` retains the reference date's day categories; window columns
+  carry startMs. Every recent win contributes its exact 3BV and board-shape
+  families through `rankValueGroups` and `boardShapeCandidates(recentWins, wins)`.
+  Each category still ranks against the full supplied mode history. Grouping
+  scans once per exact-value field; shape IDs contain their value. The summary
+  ignores the largestIsland display gate. This period-wide board-category
+  discovery (2026-09-21) prevents later boards hiding earlier placements.
+  The builder emits the first item in the upper table collection, gated by
+  shownThings.recentPlacements; nearMiss rows retain an explanatory tooltip.
+  `dedupeRankCandidates` is shared
   with the full time/day and board-shape tablecharts, so the summary
   obeys `collapseDuplicateCharts` with the same pinned lifetime/week
   and most-specific-shape rules. Summary rows sort by competitor count
   descending, then `summaryTiePriority`; the exact current record's
-  ordinal carries `.recent-current-rank`, matching the full tablechart's
-  bold light-blue current-row treatment.
+  ordinal carries `.recent-current-rank`. `rankStanding(rank, total)` owns
+  percentage labels, tint bands, and independent podium places;
+  `applyRankHighlight` attaches the shared CSS metadata. `buildRankList`
+  uses it on `.me`, with a rank/pool/percentage footer even for short lists;
+  the compact summary colors every listed achievement, including earlier
+  games. `recentPlacementRuns` splits compression at podium/tint boundaries
+  and at the current ordinal, whose `.recent-current-rank` adds a blue edge
+  and “this”. `.recent-row-ranked` takes the best reported rank's tint;
+  `recentPlacementStanding` gives the fourth cell's percentage/range.
+  One-result lists are neutral; last place stays visible. These highlight
+  rules (2026-09-21) do not change ranking or summary qualification.
   `node tests/recent-placements-test.js` freezes the formatting and
   summary rules; `node tests/result-presentation-test.js` freezes the
   cross-context section order.
+- Rank-highlight browser verification:
+  `node tests/rank-highlight-browser-check.js /path/to/playwright /path/to/chromium`
+  uses an isolated profile on the permanent test origin, with renderer-only
+  fixtures. It checks podium colors, percentage bands, compact-summary marking,
+  low/last/only-result states, history without a selection, and 1680/1216/650px
+  table layout. The pure boundaries and rounding live in recent-placements-test.
 - Average-time charts: `AVERAGE_SCATTER_SPECS`,
   `averageEligibleWins`, `averagePoints`, and `buildAverageScatter`.
   Board-shape specs exclude legacy records lacking their field; IOS excludes
@@ -848,7 +867,15 @@ Implementation notes:
   change, and import without starting a game. The data-format card derives
   its setting/default/meaning table from the schema. `tests/settings-state-test.js`
   covers both-page validation, defaults, migration, cloning, and round trips;
-  browser verification uses the test origin for real IndexedDB checks.
+  `tests/preferences-browser-check.js` covers real IndexedDB restoration,
+  drafts, replay, scrolling, separate transfers, and existing tags on 8099.
+  `preferences-game.js`, loaded before the game runtime, owns control bindings,
+  restoration guards, and scroll/focus capture. The schema also owns board
+  presets, drafts, path/overlay choices, disclosure state, and player tags.
+  `loadSettings` moves the former `userdata.states` record into
+  `settings.playerStates` using one atomic transaction. `restorePreferredResult`
+  reads a saved finished-board snapshot and trace, rebuilding its metric
+  series from stored sample times; those are game data, never preferences.
   The controls themselves are `settings.html` +
   `settings-page.js` (2026-08-23; the in-page drawer is gone):
   `#settings-btn` on the game page is now a plain `<a>` to settings.html.
@@ -874,9 +901,9 @@ Implementation notes:
   `numberDisplay` (digits / letters / dots, drawn in `updateCell` via
   `paintCellGlyph`) repaints in place on settings import
   (`repaintRevealedCells`). The raw scatter block is gated by
-  shownThings.relationshipCharts since 2026-08-23. Exports carry the
-  block under the reserved top-level `"settings"` key; `importHistory`
-  validates it with the rest of the blob and applies known fields.
+  shownThings.relationshipCharts since 2026-08-23. Preferences transfer as
+  a separate plain JSON object through `exportPreferences`/`importPreferences`
+  on the Settings page; `importHistory` ignores old embedded settings.
   `reportScopeFromStored` maps the retired `shownThings.endVerdict` /
   `reportCategories` forms to the nearest tier; explicit modern
   `reportScope` always wins.
@@ -1021,9 +1048,9 @@ Implementation notes:
   then the existing `buildScatter` grammar renders 3BV → time once each scope
   has the normal two-win minimum. `Pregen.progressRows` feeds the adjacent
   run/3BV/time table from completed `pregenBatch.results` only — no live clock
-  or active-board row. Its latest completed row uses the same light-blue
-  `me` highlight as the normal ranking tables and stays highlighted during
-  the next game.
+  or active-board row. Its latest completed row keeps the light-blue
+  `me` marker during the next game. This is deal order, so the percentage
+  and podium treatments used for performance rankings do not apply.
   `node tests/pregen-test.js`.
 - Board generators (PRODUCT.md "Board generators and top score keys"):
   `generators.js` is the pure registry (`BoardGenerators` global /
@@ -1343,5 +1370,16 @@ headings, tables directly beneath the board, collapsed sidebar replay,
 tall stats/legend isolation, and compact details opening/closing. It also
 checks replay scroll retention, closing back to the finished board, resetting
 on a new game, and arrow keys leaving a collapsed replay alone.
+Its replay fixture waits for native toggle delivery before rendering the first
+frame, so the saved panel state has caught up with the opened details element.
 `tests/scroll-position-test.html` checks page and metrics-panel scroll retention
 with hidden/tall legends, docked stats, and compact details.
+
+
+Preference verification (2026-09-21): `node tests/settings-state-test.js`
+checks every new preference shape and independent JSON transfer. Browser:
+`node tests/preferences-browser-check.js /path/to/playwright /path/to/chromium`
+uses only `http://127.0.0.1:8099/` in an isolated profile. Include
+`preferences-game.js` between settings-core.js and minesweeper.js in game
+harnesses. Reload begins a fresh unfinished game, but restores the last
+finished view/replay when that game's trace is available.

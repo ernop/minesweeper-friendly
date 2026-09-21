@@ -166,12 +166,6 @@ main {
   font: inherit;
 }
 
-#board-position-note {
-  margin: 7px 0 5px;
-  color: #667788;
-  line-height: 1.35;
-}
-
 #board-position-actions {
   position: sticky;
   top: 0;
@@ -2499,32 +2493,33 @@ body.settings-page .return-to-game {
 .recent-placements-grid {
   display: grid;
   width: 100%;
-  grid-template-columns: repeat(3, auto);
+  grid-template-columns: repeat(4, auto);
 }
 
 .recent-placements-grid .recent-window-cell { text-align: right; }
+.recent-placements-grid .recent-ranks-cell { max-width: 28ch; white-space: normal; }
 
 .recent-placements-grid .recent-of-cell {
   font-size: 11px;
   color: #999999;
 }
 
-/* Within a ranks-won row, mark the ordinal earned by the game that just
-   finished exactly like its highlighted row in the full tablechart. */
+/* Every reported achievement gets its rank treatment, including earlier
+   games. Only the current game gets the blue identity edge and "this". */
 .recent-placements-grid .recent-rank-run {
-  padding: 0;
+  padding: 0 2px;
+  background: var(--rank-tint);
+  color: #000000;
+  font-weight: bold;
 }
 
 .recent-placements-grid .recent-current-rank {
-  padding: 0 2px;
-  font-weight: bold;
-  color: #000000;
-  background: #d8ebfa;
+  box-shadow: inset 2px 0 #245b8b;
+  padding-left: 4px;
 }
 
-/* Lifetime's near-miss rank (the closest rank when none made the top
-   tenth) renders muted: it is context, not an earned top placement. */
-.recent-placements-grid .recent-near-cell { color: #999999; }
+.recent-placements-grid .recent-current-label { padding: 0; font-size: 10px; }
+.recent-standing-cell { font-size: 11px; }
 
 .recent-placements-none {
   padding: 0 4px;
@@ -2532,16 +2527,23 @@ body.settings-page .return-to-game {
   color: #999999;
 }
 
-/* The "of N" completing the highlighted "#x" rank above it, at the foot of
-   every tablechart. */
-/* "510 total": centered under the list (2026-08-30, was right-hugging
-   "of 510"), in full black per the no-gray-text rule. */
+/* History counts stay centered; selected ranks split their full pool and
+   percentage across the same reserved footer line. */
 .rank-total {
   padding: 0 4px;
   font-size: 11px;
   color: #000000;
   text-align: center;
 }
+
+.rank-total.rank-standing {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  white-space: nowrap;
+}
+
+.rank-standing-label { font-weight: bold; }
 
 /*-------BACKUP (subtle export/import controls)-------*/
 
@@ -2674,12 +2676,44 @@ body.settings-page .return-to-game {
 .age-u-mo { color: #800000; }
 .age-u-y  { color: #008080; }
 
-/* The me-row stays black-on-highlight: ultralight blue text would be
-   unreadable on the light blue bar (this rule wins on specificity). */
-.rank-row.me span {
+/* Percentage tint covers the selected row; absolute podium place colors
+   only its rank. The blue edge means latest game at every standing. */
+.rank-highlight { --rank-tint: color-mix(in srgb, var(--rank-tone) 85%, #ffffff); }
+.rank-highlight[data-rank-band="top1"] { --rank-tone: #4fcca0; }
+.rank-highlight[data-rank-band="top2"] { --rank-tone: #84d6bc; }
+.rank-highlight[data-rank-band="top5"] { --rank-tone: #acdccc; }
+.rank-highlight[data-rank-band="top10"] { --rank-tone: #cae5dc; }
+.rank-highlight[data-rank-band="top25"] { --rank-tone: #d5e2e9; }
+.rank-highlight[data-rank-band="top50"],
+.rank-highlight[data-rank-band="only"] { --rank-tone: #e0e4e7; }
+.rank-highlight[data-rank-band="lower50"] { --rank-tone: #e6ded4; }
+.rank-highlight[data-rank-band="bottom10"] { --rank-tone: #d7c9b9; }
+.rank-highlight[data-rank-band="last"] { --rank-tone: #bfb3a5; }
+.rank-highlight[data-rank-podium="1"] { --rank-podium: #efc558; }
+.rank-highlight[data-rank-podium="2"] { --rank-podium: #c9d2dc; }
+.rank-highlight[data-rank-podium="3"] { --rank-podium: #dbaf87; }
+
+.rank-row.me > span,
+.rank-row.recent-row-ranked > span {
   font-weight: bold;
   color: #000000;
-  background: #d8ebfa;
+  background: var(--rank-tint);
+}
+
+.rank-row.me > .rank-cell,
+.rank-row.recent-row-current > .recent-window-cell {
+  box-shadow: inset 2px 0 #245b8b;
+}
+
+.rank-highlight:not([data-rank-podium="0"]) > .rank-cell,
+.recent-rank-run.rank-highlight:not([data-rank-podium="0"]) {
+  background: var(--rank-podium);
+}
+
+.rank-highlight[data-rank-band="last"] > .rank-cell,
+.recent-rank-run.rank-highlight[data-rank-band="last"] {
+  text-decoration: underline double;
+  text-underline-offset: 2px;
 }
 
 /*-------METRICS PANEL (live / final mouse-dynamics column)-------*/
@@ -3234,3 +3268,19 @@ body.settings-page .return-to-game {
 .session-metric-row > .session-end-empty { min-height: 16px; }
 
 #metrics-panel .session-chart, #metrics-panel .session-when-strip { max-width: 100%; }
+
+
+#preferences-import-form {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+#preferences-import-text {
+  box-sizing: border-box;
+  width: 100%;
+  resize: vertical;
+  font: 12px monospace;
+}
+
+#preferences-import-form button { justify-self: start; }

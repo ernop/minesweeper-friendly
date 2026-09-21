@@ -16,6 +16,7 @@ const frame = document.querySelector('iframe');
 frame.addEventListener('load', () => {
   const script = frame.contentDocument.createElement('script');
   script.textContent = `
+'use strict';
 (async () => {
   const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
   const waitFor = async (condition) => {
@@ -37,7 +38,7 @@ frame.addEventListener('load', () => {
   // renderer run inside the app's document.
   settings.showSessionStats = true;
   settings.showMotionStatsDuringGame = true;
-  metricsPanelCollapsed = false;
+  settings.metricsPanelCollapsed = false;
   gameState = 'ready';
   beginTrace();
   refreshMetricsPanel();
@@ -121,12 +122,12 @@ frame.addEventListener('load', () => {
   beginTrace();
   check('next game resets the measurement without replacing live rows',
     lastLiveMetrics.bio.leftClickCount === 0 && metricsPanelView.liveRows[0] === row);
-  metricsPanelCollapsed = true;
+  settings.metricsPanelCollapsed = true;
   refreshMetricsPanel();
   check('collapse hides the expanded header and shows the restore control',
     getComputedStyle(metricsPanelView.head).display === 'none'
       && !metricsPanelView.restore.hidden);
-  metricsPanelCollapsed = false;
+  settings.metricsPanelCollapsed = false;
   refreshMetricsPanel();
   check('expansion reuses the controls and live rows',
     metricsPanelContent.querySelector('.session-control') === control

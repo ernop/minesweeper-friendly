@@ -4,11 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Minesweeper - Standard Mode</title>
-<link rel="stylesheet" href="style.css?v=20260921-board-position">
+<link rel="stylesheet" href="style.css?v=20260921-all-preferences">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <!-- Defer preserves dependency order while letting every page asset download
      in parallel. Storage starts first so disk access overlaps JS startup. -->
-<script defer src="storage.js"></script>
+<script defer src="storage.js?v=20260921-all-preferences"></script>
 <script defer src="rng.js"></script>
 <script defer src="justice.js?v=20260825-batched-certification"></script>
 <script defer src="board-shape.js"></script>
@@ -19,8 +19,9 @@
 <script defer src="pregen.js?v=20260826-pregen-highlight"></script>
 <script defer src="odds.js?v=20260825-batched-certification"></script>
 <script defer src="trial.js"></script>
-<script defer src="settings-core.js?v=20260921-persistent-zoom"></script>
-<script defer src="minesweeper.js?v=20260921-board-position"></script>
+<script defer src="settings-core.js?v=20260921-all-preferences"></script>
+<script defer src="preferences-game.js?v=20260921-all-preferences"></script>
+<script defer src="minesweeper.js?v=20260921-all-preferences"></script>
 </head>
 <body aria-busy="true">
 <div id="page-layout">
@@ -239,7 +240,6 @@
     <input id="board-position-y-number" type="number" min="-1000" max="2000" step="1"
       aria-label="Vertical board offset in pixels">
   </div>
-  <p id="board-position-note">Drag the highlighted board, or use its arrow keys. Shift moves 10 px.</p>
 </div>
 </body>
 </html>

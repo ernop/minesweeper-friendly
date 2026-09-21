@@ -160,6 +160,9 @@
   check('arrow keys do not start a hidden replay',
     !closedArrow.defaultPrevented && !replayEnabled && replayStep === replayDecisionCount());
   replayReview.open = true;
+  // Native toggle delivery updates the panel preference before a replay
+  // render reads it; an immediate redraw would close the test's own panel.
+  await wait();
   setReplayStep(0);
   await wait();
   gameSidebar.scrollTop = 200;

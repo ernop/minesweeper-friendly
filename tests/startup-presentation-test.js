@@ -37,7 +37,7 @@ check('all external scripts are deferred',
   externalScripts.length > 0
     && externalScripts.every((script) => /\bdefer\b/.test(script.attrs)));
 check('storage starts before application scripts',
-  externalScripts[0].src === 'storage.js');
+  externalScripts[0].src.split('?')[0] === 'storage.js');
 check('early database completion waits for the page callback',
   storage.includes("typeof userdataReady !== 'function'"));
 
