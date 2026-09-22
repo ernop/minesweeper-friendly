@@ -3939,36 +3939,35 @@ function startOfDay(ms, daysBack = 0) {
 // Ordering concerns are deliberately separate:
 // - displayOrder is where the tablechart appears;
 // - dedupePriority is lower for the chart that claims a duplicate member set;
-// - summaryTiePriority is higher for the broader/more significant row.
 // "lifetime" and "past week" are additionally pinned by callers. Day
 // categories (added in rankColumns) dedupe between "today" and "past week".
 function rankWindows(nowMs) {
   const d = new Date(nowMs);
   return [
     { id: 'lifetime', label: 'lifetime', startMs: -Infinity,
-      displayOrder: 10, dedupePriority: 12, summaryTiePriority: 12 },
+      displayOrder: 10, dedupePriority: 12 },
     { id: 'calendar-year', label: 'in ' + d.getFullYear(),
       startMs: new Date(d.getFullYear(), 0, 1).getTime(),
-      displayOrder: 20, dedupePriority: 10, summaryTiePriority: 10 },
+      displayOrder: 20, dedupePriority: 10 },
     { id: 'rolling-year', label: 'in the last year',
       startMs: startOfDay(nowMs, 364),
-      displayOrder: 30, dedupePriority: 11, summaryTiePriority: 11 },
+      displayOrder: 30, dedupePriority: 11 },
     { id: 'calendar-month', label: 'this month',
       startMs: new Date(d.getFullYear(), d.getMonth(), 1).getTime(),
-      displayOrder: 40, dedupePriority: 9, summaryTiePriority: 9 },
+      displayOrder: 40, dedupePriority: 9 },
     { id: 'past-week', label: 'past week', startMs: startOfDay(nowMs, 6),
-      displayOrder: 50, dedupePriority: 8, summaryTiePriority: 8 },
+      displayOrder: 50, dedupePriority: 8 },
     { id: 'today', label: 'today', startMs: startOfDay(nowMs),
-      displayOrder: 60, dedupePriority: 4, summaryTiePriority: 4 },
+      displayOrder: 60, dedupePriority: 4 },
     { id: 'past-hour', label: 'past hour', startMs: nowMs - 3600e3,
-      displayOrder: 70, dedupePriority: 3, summaryTiePriority: 3 },
+      displayOrder: 70, dedupePriority: 3 },
     { id: 'past-15-min', label: 'past 15 min',
       startMs: nowMs - 15 * 60e3,
-      displayOrder: 80, dedupePriority: 2, summaryTiePriority: 2 },
+      displayOrder: 80, dedupePriority: 2 },
     { id: 'past-5-min', label: 'past 5 min', startMs: nowMs - 5 * 60e3,
-      displayOrder: 90, dedupePriority: 1, summaryTiePriority: 1 },
+      displayOrder: 90, dedupePriority: 1 },
     { id: 'past-1-min', label: 'past 1 min', startMs: nowMs - 60e3,
-      displayOrder: 100, dedupePriority: 0, summaryTiePriority: 0 },
+      displayOrder: 100, dedupePriority: 0 },
   ];
 }
 
@@ -4089,7 +4088,6 @@ function rankColumns(referenceMs) {
     filter: (s) => new Date(s.endedAt).getDay() === weekday,
     displayOrder: 110,
     dedupePriority: 5,
-    summaryTiePriority: 5,
   });
   const weekend = isWeekend(winDate);
   columns.push({
@@ -4098,7 +4096,6 @@ function rankColumns(referenceMs) {
     filter: (s) => isWeekend(new Date(s.endedAt)) === weekend,
     displayOrder: 120,
     dedupePriority: 6,
-    summaryTiePriority: 6,
   });
   if (isHoliday(winDate)) {
     columns.push({
@@ -4107,7 +4104,6 @@ function rankColumns(referenceMs) {
       filter: (s) => isHoliday(new Date(s.endedAt)),
       displayOrder: 130,
       dedupePriority: 7,
-      summaryTiePriority: 7,
     });
   }
   return columns.sort((a, b) => a.displayOrder - b.displayOrder);
@@ -4163,12 +4159,15 @@ function boardShareHelp(record, field, definition) {
 }
 
 // Shared by full tables and recent achievements, including every qualifying
-// earlier group. Matching one feature does not imply equal overall difficulty.
+// earlier group. Summary groups follow time/day (0/1): workload (2–5),
+// clues (6–8), islands (9–10), then zeros/fractions (11–13). Within each
+// family, use the numeric measurement. Pool size never changes row order.
+// Matching one feature does not imply equal overall difficulty.
 const BOARD_METRIC_TABLES = [
-  { field: 'bv3', label: '3BV', setting: 'exact3BV', priority: 13 },
-  { field: 'zini', label: 'ZiNi', setting: 'exactZiNi', priority: 14 },
-  { field: 'maxAdjacent', label: 'max number', setting: 'exactMaxNumber', priority: 15 },
-  { field: 'hzini', label: 'HZiNi', setting: 'exactHZiNi', priority: 16,
+  { field: 'bv3', label: '3BV', setting: 'exact3BV', priority: 13, summaryGroup: 2 },
+  { field: 'zini', label: 'ZiNi', setting: 'exactZiNi', priority: 14, summaryGroup: 3 },
+  { field: 'maxAdjacent', label: 'max number', setting: 'exactMaxNumber', priority: 15, summaryGroup: 6 },
+  { field: 'hzini', label: 'HZiNi', setting: 'exactHZiNi', priority: 16, summaryGroup: 4,
     help: () => [
       'Human ZiNi is the action count of a fixed opening-first solve with full board knowledge. The same oriented board always gives the same integer.',
       'Open each zero region once. Then choose the revealed clue with the greatest nonnegative saving: covered safe neighbors minus unflagged mine neighbors minus one chord. Flag its missing mines and chord it. If none qualifies, reveal the next safe cell. Ties and direct reveals scan down columns, left to right.',
@@ -4176,18 +4175,18 @@ const BOARD_METRIC_TABLES = [
     ] },
   { field: boardSpreadGroup,
     labelOf: (value) => '3BV spread ' + value.toFixed(1) + ' cells',
-    setting: 'workSpreadTable', priority: 17,
+    setting: 'workSpreadTable', priority: 17, summaryGroup: 5,
     help: (record) => [
       'How spread out the board’s 3BV work is, measured in cell widths. Larger values mean the work points are more widely spread.',
       'Each zero region contributes one point at the mean position of its zero squares. Each safe square outside all zero openings contributes its own center. All points have equal weight. The value is the root-mean-square distance of these points from their mean position.',
       'This board: ' + record.boardMetrics.workSpread.toFixed(3) + ' cells. Times compare boards rounded to the nearest 0.5 cell. Exact halfway values round up: 2.25 through below 2.75 belongs to 2.5. The stored measurement keeps its full precision.',
     ] },
   { field: (win) => boardShareGroup(win, 'zeroOneCells'),
-    labelOf: (value) => '0–1 share ' + value + '%', setting: 'zeroOneShareTable', priority: 18,
+    labelOf: (value) => '0–1 share ' + value + '%', setting: 'zeroOneShareTable', priority: 18, summaryGroup: 12,
     help: (record) => boardShareHelp(record, 'zeroOneCells',
       'The fraction of all safe squares whose clue is zero or one. Blank zero squares count; mines do not.') },
   { field: (win) => boardShareGroup(win, 'zeroOpenedCells'),
-    labelOf: (value) => 'zero-opening coverage ' + value + '%', setting: 'zeroOpeningTable', priority: 19,
+    labelOf: (value) => 'zero-opening coverage ' + value + '%', setting: 'zeroOpeningTable', priority: 19, summaryGroup: 13,
     help: (record) => boardShareHelp(record, 'zeroOpenedCells',
       'The fraction of all safe squares exposed after opening every zero region, including bordering numbers of any value. Shared borders count once. This stops after automatic flooding, before deductions or chords. With no zeros the coverage is 0%.') },
 ];
@@ -4199,13 +4198,13 @@ function boardMetricCandidates(referenceWins, wins) {
       setting: spec.setting,
       help: spec.help,
       dedupePriority: spec.priority,
-      summaryTiePriority: spec.priority,
+      summaryOrder: [spec.summaryGroup, value],
       wins: rows,
     })));
 }
 
 // Board-shape chart candidates for the reference wins' finished-board families:
-// {label, displayOrder, dedupePriority, summaryTiePriority, rows}. Older wins lacking a
+// {label, displayOrder, dedupePriority, summaryOrder, rows}. Older wins lacking a
 // measurement stay off their list. Shared by the board-shape tablecharts
 // and the recent-placements summary so the two chart sets cannot drift;
 // the largestIsland display gate is applied at the tablechart render
@@ -4215,20 +4214,20 @@ function boardShapeCandidates(referenceWins, wins) {
   if (referenceWins.some((record) => record.maxAdjacent === 8)) {
     candidates.push({
       id: 'has-8',
+      summaryOrder: [7, 8],
       label: 'has 8',
       displayOrder: 10,
       dedupePriority: 0,
-      summaryTiePriority: 0,
       rows: wins.filter((s) => s.maxAdjacent === 8),
     });
   }
   if (referenceWins.some((record) => record.hasSeven === true)) {
     candidates.push({
       id: 'has-7',
+      summaryOrder: [7, 7],
       label: 'has 7',
       displayOrder: 20,
       dedupePriority: 1,
-      summaryTiePriority: 1,
       rows: wins.filter((s) => s.hasSeven === true),
     });
   }
@@ -4237,10 +4236,10 @@ function boardShapeCandidates(referenceWins, wins) {
       typeof record.maxAdjacent === 'number' && record.maxAdjacent <= cap)) {
       candidates.push({
         id: 'max-' + cap,
+        summaryOrder: [8, cap],
         label: 'max ' + cap,
         displayOrder: 70 - cap * 10,
         dedupePriority: cap,
-        summaryTiePriority: cap,
         rows: wins.filter((s) => typeof s.maxAdjacent === 'number' && s.maxAdjacent <= cap),
       });
     }
@@ -4248,30 +4247,30 @@ function boardShapeCandidates(referenceWins, wins) {
   for (const [count, rows] of rankValueGroups(referenceWins, wins, 'islandCount')) {
     candidates.push({
       id: 'islands-' + count,
+      summaryOrder: [9, count],
       label: count === 1 ? '1 island' : count + ' islands',
       displayOrder: 80,
       dedupePriority: 10,
-      summaryTiePriority: 10,
       rows,
     });
   }
   for (const [size, rows] of rankValueGroups(referenceWins, wins, 'largestIsland')) {
     candidates.push({
       id: 'largest-island-' + size,
+      summaryOrder: [10, size],
       label: 'largest island ' + size,
       displayOrder: 90,
       dedupePriority: 11,
-      summaryTiePriority: 11,
       rows,
     });
   }
   for (const [count, rows] of rankValueGroups(referenceWins, wins, 'zeroCount')) {
     candidates.push({
       id: 'zeros-' + count,
+      summaryOrder: [11, count],
       label: count === 1 ? '1 zero' : count + ' zeros',
       displayOrder: 100,
       dedupePriority: 12,
-      summaryTiePriority: 12,
       rows,
     });
   }
@@ -4363,11 +4362,6 @@ function rankDedupePriority(candidate) {
     ?? Number.MAX_SAFE_INTEGER;
 }
 
-function rankSummaryTiePriority(candidate) {
-  return candidate.summaryTiePriority ?? candidate.specificity
-    ?? Number.MIN_SAFE_INTEGER;
-}
-
 function dedupeRankCandidates(candidates, pinnedLabels = []) {
   const signatureOf = (candidate) => candidate.wins
     .map((win) => win.endedAt)
@@ -4406,8 +4400,8 @@ function dedupeRankCandidates(candidates, pinnedLabels = []) {
 // chart, wins rank fastest-first (ties by earlier finish) and a rank r is
 // reported only when it is earned within the source window and sits in
 // the list's top tenth (r * 10 <= list length; a 9-win list reports
-// nothing). Rows come back with the largest competitor pool first; ties
-// put broader, more significant charts first. Each row is
+// nothing). Rows preserve the supplied category/value order, independent
+// of changing comparison-pool sizes or earned placements. Each row is
 // {label, ranks (ascending, 1-based), total, nearMiss, currentRank}.
 function recentPlacementsSummary(candidates, sourceStartMs, currentRecord) {
   const rows = [];
@@ -4423,7 +4417,7 @@ function recentPlacementsSummary(candidates, sourceStartMs, currentRecord) {
     if (ranks.length > 0) {
       rows.push({
         label: c.label,
-        summaryTiePriority: rankSummaryTiePriority(c),
+        summaryOrder: c.summaryOrder,
         ranks,
         total: list.length,
         nearMiss: false,
@@ -4434,7 +4428,7 @@ function recentPlacementsSummary(candidates, sourceStartMs, currentRecord) {
       if (best !== -1) {
         rows.push({
           label: c.label,
-          summaryTiePriority: rankSummaryTiePriority(c),
+          summaryOrder: c.summaryOrder,
           ranks: [best + 1],
           total: list.length,
           nearMiss: true,
@@ -4443,8 +4437,6 @@ function recentPlacementsSummary(candidates, sourceStartMs, currentRecord) {
       }
     }
   }
-  rows.sort((a, b) =>
-    b.total - a.total || b.summaryTiePriority - a.summaryTiePriority);
   return rows;
 }
 
@@ -4456,7 +4448,7 @@ function recentPlacementCandidates(wins, referenceMs, sourceStartMs, collapseDup
   let rankCandidates = rankColumns(referenceMs).map((column) => ({
     label: column.label,
     dedupePriority: column.dedupePriority,
-    summaryTiePriority: column.summaryTiePriority,
+    summaryOrder: [column.startMs === undefined ? 1 : 0, column.displayOrder],
     startMs: column.startMs,
     wins: wins.filter(column.filter),
     alwaysShowBest: column.label === 'lifetime',
@@ -4474,11 +4466,12 @@ function recentPlacementCandidates(wins, referenceMs, sourceStartMs, collapseDup
     candidates.push({
       label: c.label,
       dedupePriority: 14 + c.dedupePriority,
-      summaryTiePriority: 14 + c.summaryTiePriority,
+      summaryOrder: c.summaryOrder,
       wins: c.wins,
     });
   }
-  return candidates;
+  return candidates.sort((a, b) =>
+    a.summaryOrder[0] - b.summaryOrder[0] || a.summaryOrder[1] - b.summaryOrder[1]);
 }
 
 //-------RECENT PLACEMENTS: DISPLAY-------
@@ -4510,7 +4503,7 @@ function buildRecentPlacements(record, wins, referenceMs, markReferenceRecord = 
   heading.title = 'top ranks on every longer chart (time windows, day '
     + 'categories, exact board benchmarks, 3BV-spread bands, and board shapes of wins in the selected period) that were earned '
     + chosenLabel + '; only ranks within the top tenth of a list count, '
-    + 'except that lifetime shows its closest rank when none made the tenth';
+    + 'except that lifetime shows its closest rank when none made the tenth. Ordered by category, with board values ascending.';
   const select = document.createElement('select');
   select.className = 'recent-placements-select';
   select.title = 'the recent window whose earned top ranks are summarized';
@@ -4542,9 +4535,15 @@ function buildRecentPlacements(record, wins, referenceMs, markReferenceRecord = 
   }
   const grid = document.createElement('div');
   grid.className = 'recent-placements-grid';
+  let previousGroup;
   for (const row of rows) {
     const line = document.createElement('div');
     line.className = 'rank-row recent-row-ranked';
+    const group = row.summaryOrder[0];
+    if (previousGroup !== undefined && group !== previousGroup) {
+      line.classList.add('recent-family-start');
+    }
+    previousGroup = group;
     applyRankHighlight(line, row.ranks[0], row.total);
     if (row.currentRank !== undefined) {
       line.classList.add('recent-row-current');
@@ -5910,7 +5909,6 @@ function renderRanks(record, modeRecords, options = {}, sections) {
         label: column.label,
         displayOrder: column.displayOrder,
         dedupePriority: column.dedupePriority,
-        summaryTiePriority: column.summaryTiePriority,
         column,
         inWindow,
         wins: inWindow,

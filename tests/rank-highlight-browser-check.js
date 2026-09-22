@@ -186,8 +186,67 @@ const { chromium } = require(process.argv[2]);
     assert(conditional.hidden['max number 6']);
     await page.setViewportSize({ width: 1680, height: 1100 });
     await page.screenshot({ path: '/tmp/board-section-1680.png', fullPage: true });
+    // Reproduce a long session whose largest pools are deliberately out of
+    // numeric order. The DOM must keep family blocks and every achievement.
+    const longSession = await page.evaluate(() => {
+      const now = new Date(2026, 8, 21, 12).getTime();
+      const variants = [
+        { bv3: 74, zini: 51, hzini: 49, maxAdjacent: 8, hasSeven: true,
+          islandCount: 26, largestIsland: 10, zeroCount: 71, spread: 7 },
+        { bv3: 55, zini: 49, hzini: 46, maxAdjacent: 2, hasSeven: false,
+          islandCount: 9, largestIsland: 3, zeroCount: 9, spread: 6 },
+        { bv3: 60, zini: 50, hzini: 48, maxAdjacent: 7, hasSeven: true,
+          islandCount: 20, largestIsland: 5, zeroCount: 62, spread: 6.5 },
+      ].map((v) => ({ ...v, boardMetrics: { version: 1, workSpread: v.spread,
+        safeCells: 100, zeroOneCells: v.zeroCount, zeroOpenedCells: v.zeroCount + 5 } }));
+      const wins = variants.flatMap((v, group) => Array.from({ length: [79, 39, 19][group] }, (_, i) => ({
+        ...v, outcome: 'win', endedAt: now - (35 + i * 7) * 864e5 - group,
+        timeMs: 20000 + i * 100,
+      })));
+      const recent = variants.map((v, group) => ({ ...v, outcome: 'win',
+        endedAt: now - group * 1000, timeMs: 10000 + group * 100 }));
+      wins.push(...recent);
+      settings.recentPlacementsWindow = 'pastWeek';
+      settings.collapseDuplicateCharts = false;
+      const collector = createResultSectionCollector('postGame');
+      renderRanks(recent[0], wins, {}, collector);
+      collector.renderInto(resultRanks);
+      const rows = [...resultRanks.querySelectorAll('.recent-placements .rank-row')];
+      return {
+        labels: rows.map((row) => row.querySelector('.recent-window-cell').textContent),
+        familyStarts: rows.filter((row) => row.classList.contains('recent-family-start'))
+          .map((row) => row.querySelector('.recent-window-cell').textContent),
+        current: rows.find((row) => row.querySelector('.recent-window-cell').textContent === '3BV 74')
+          .querySelector('.recent-current-rank').textContent,
+      };
+    });
+    for (const family of [
+      ['3BV 55', '3BV 60', '3BV 74'], ['ZiNi 49', 'ZiNi 50', 'ZiNi 51'],
+      ['HZiNi 46', 'HZiNi 48', 'HZiNi 49'],
+      ['3BV spread 6.0 cells', '3BV spread 6.5 cells', '3BV spread 7.0 cells'],
+      ['max number 2', 'max number 7', 'max number 8'], ['has 7', 'has 8'],
+      ['max 2', 'max 3', 'max 4'], ['9 islands', '20 islands', '26 islands'],
+      ['largest island 3', 'largest island 5', 'largest island 10'],
+      ['9 zeros', '62 zeros', '71 zeros'], ['0–1 share 9%', '0–1 share 62%', '0–1 share 71%'],
+      ['zero-opening coverage 14%', 'zero-opening coverage 67%', 'zero-opening coverage 76%'],
+    ]) {
+      const start = longSession.labels.indexOf(family[0]);
+      assert(start >= 0, 'missing family ' + family[0]);
+      assert.deepEqual(longSession.labels.slice(start, start + family.length), family);
+      assert(longSession.familyStarts.includes(family[0]), 'missing family separator: ' + family[0]);
+      assert(family.slice(1).every((label) => !longSession.familyStarts.includes(label)));
+    }
+    assert.equal(longSession.labels[0], 'lifetime');
+    assert.equal(longSession.current, '1st this');
+    for (const width of [1680, 650]) {
+      await page.setViewportSize({ width, height: 1100 });
+      assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll('.rank-list')]
+        .filter((list) => list.scrollWidth > list.clientWidth + 1)
+        .map((list) => list.querySelector('h4').textContent)), [], width + 'px long-session overflow');
+      await page.screenshot({ path: '/tmp/ranks-won-ordered-' + width + '.png', fullPage: true });
+    }
     assert.deepEqual(errors, []);
-    console.log('Rank highlights: podium, percentage bands, full/compact tables, low/last/only results, history view, conditional board comparisons, and three viewport widths passed.');
+    console.log('Rank highlights: podium, percentage bands, full/compact tables, low/last/only results, history view, conditional board comparisons, stable numeric family ordering for long sessions, and three viewport widths passed.');
   } finally {
     await browser.close();
   }

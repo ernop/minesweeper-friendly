@@ -2525,6 +2525,8 @@ body.settings-page .return-to-game {
   grid-template-columns: repeat(4, auto);
 }
 
+/* Separate stable category blocks without repeating their names as headings. */
+.recent-placements-grid .recent-family-start > span { border-top: 4px solid #ffffff; }
 .recent-placements-grid .recent-window-cell { text-align: right; }
 .recent-placements-grid .recent-ranks-cell { max-width: 28ch; white-space: normal; }
 

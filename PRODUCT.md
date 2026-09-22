@@ -845,10 +845,10 @@ have no "this game" highlight. Rolling windows use the time at which scores
 are viewed. A post-game loss has outcome, facts, enabled action analysis, and
 motion diagnostics, and retains rankings from the latest win if one exists.
 
-Chart eligibility, display order, duplicate preference, and summary
-tie-breaking are separate concepts. In particular, a ranking candidate has
-independent `displayOrder`, `dedupePriority`, and `summaryTiePriority`
-properties; changing one must not silently reorder either of the others.
+Chart eligibility, table display order, duplicate preference, and summary
+order are separate concepts. Full tables use `displayOrder`; duplicate member
+sets use `dedupePriority`. Summary candidates carry `summaryOrder` as a
+category/value pair. Changing one must not silently change the others.
 
 ## Per-game stats
 
@@ -1399,9 +1399,15 @@ carries at least one tag.
 - Row format: chart name, the earned ranks with compatible consecutive runs
   compressed ("8–12th", the ordinal suffix closing each run), "of N"
   naming the list length, and the reported ranks' percentage standing.
-  Rows order by that list
-  length, largest competitor pool first. Equal-sized pools put the
-  broader, more significant chart first (`summaryTiePriority` descending).
+  Rows use a stable category order (revised 2026-09-21 for long sessions):
+  time windows in full-table order starting with lifetime, then day categories,
+  3BV, ZiNi, HZiNi, 3BV spread, exact maximum number, has-number, maximum-clue
+  caps, mine-island count, largest island, zeros, 0–1 share, and zero-opening
+  coverage. Board values within each family ascend numerically, including
+  fractional spread groups. Comparison-pool sizes and earned ranks never
+  reorder the categories. Duplicate collapsing and top-tenth eligibility
+  still determine which rows exist. Small white gaps separate families
+  without extra heading rows. Full-table order stays unchanged.
   Current and earlier achievements share the same tint and podium treatment;
   only the current game gets the blue edge and “this” (see Rank highlights).
 - Gated by shownThings.recentPlacements (on by default).

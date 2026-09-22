@@ -762,7 +762,7 @@ Implementation notes:
   individual-point chart.
   `tests/result-presentation-test.js` checks this in both result contexts.
 - Rank list machinery: `rankWindows` (time windows with independent
-  `displayOrder`, `dedupePriority`, and `summaryTiePriority`),
+  `displayOrder` and `dedupePriority`),
   `rankColumns` (adds day categories, `isHoliday`),
   `windowBounds` (11-row windowing), `buildRankList` (shared renderer,
   always the full window), `relativeAge` / `formatAgeCount` + `.age-u-*`
@@ -785,7 +785,7 @@ Implementation notes:
   between the "RECENT PLACEMENTS: COMPUTATION" and ": DISPLAY" markers —
   `compareRankedWins`, `ordinal`, `formatRankRuns` (run compression),
   `recentPlacementsSummary`
-  over candidates {label, dedupePriority, summaryTiePriority, wins, startMs (time windows only:
+  over candidates {label, dedupePriority, summaryOrder, wins, startMs (time windows only:
   the strictly-longer rule; membership charts omit it and always
   qualify), alwaysShowBest (lifetime's near-miss rule, rows flagged
   nearMiss)} — computes the rows; `RECENT_PLACEMENTS_WINDOWS` (beside
@@ -807,9 +807,16 @@ Implementation notes:
   `dedupeRankCandidates` is shared
   with the full time/day and board-shape tablecharts, so the summary
   obeys `collapseDuplicateCharts` with the same pinned lifetime/week
-  and most-specific-shape rules. Summary rows sort by competitor count
-  descending, then `summaryTiePriority`; the exact current record's
-  ordinal carries `.recent-current-rank`. `rankStanding(rank, total)` owns
+  and most-specific-shape rules. `recentPlacementCandidates` sorts survivors
+  by explicit `summaryOrder: [family, value]`; `recentPlacementsSummary`
+  filters achievements while preserving that order. Families are time/day
+  (0/1), 3BV/ZiNi/HZiNi/spread (2–5), exact max/has/caps (6–8), mine islands/
+  largest island (9/10), then zeros/0–1 share/zero-opening coverage (11–13).
+  Time/day use their full-table display order; board values ascend numerically.
+  Pool size and rank never reorder rows. `BOARD_METRIC_TABLES.summaryGroup`
+  and `boardShapeCandidates.summaryOrder` own board-family metadata; no
+  display-label parsing. `.recent-family-start` adds a 4px gap at a group
+  boundary. The exact current record's ordinal carries `.recent-current-rank`. `rankStanding(rank, total)` owns
   percentage labels, tint bands, and independent podium places;
   `applyRankHighlight` attaches the shared CSS metadata. `buildRankList`
   uses it on `.me`, with a rank/pool/percentage footer even for short lists;
@@ -828,7 +835,10 @@ Implementation notes:
   uses an isolated profile on the permanent test origin, with renderer-only
   fixtures. It checks podium colors, percentage bands, compact-summary marking,
   low/last/only-result states, history without a selection, and 1680/1216/650px
-  table layout. The pure boundaries and rounding live in recent-placements-test.
+  table layout, plus a long-session fixture with unequal pool sizes,
+  contiguous numeric families, separators and preserved current-rank marking.
+  The pure boundaries, rounding, and stable category ordering under pool
+  growth and history reversal live in recent-placements-test.
   It also exercises real `renderRanks` with a poor overall result at the
   median of its exact ZiNi/maximum-clue cohorts.
 - Rigorous board-metric research: `reference/board-metric-definitions.md`

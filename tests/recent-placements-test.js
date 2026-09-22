@@ -128,8 +128,8 @@ const windowCandidate = (label, specificity, startMs, wins) =>
     shapeKept.map((candidate) => candidate.label).join(','), 'max 2');
 
   const explicit = dedupeRankCandidates([
-    { label: 'broad', dedupePriority: 8, summaryTiePriority: 12, wins: [a] },
-    { label: 'narrow', dedupePriority: 2, summaryTiePriority: 3, wins: [a] },
+    { label: 'broad', dedupePriority: 8, summaryOrder: [0, 10], wins: [a] },
+    { label: 'narrow', dedupePriority: 2, summaryOrder: [1, 20], wins: [a] },
   ]);
   assertEq('explicit dedupe priority is independent of summary priority',
     explicit.map((candidate) => candidate.label).join(','), 'narrow');
@@ -198,7 +198,7 @@ const windowCandidate = (label, specificity, startMs, wins) =>
 }
 
 // Membership and ordering: only source-window wins report, ties break by
-// earlier finish, and rows come back with the largest competitor pool first.
+// earlier finish, and rows preserve the supplied category order.
 {
   const sourceStart = NOW - HOUR;
   const wins = [];
@@ -217,7 +217,7 @@ const windowCandidate = (label, specificity, startMs, wins) =>
   ];
   const rows = recentPlacementsSummary(candidates, sourceStart);
   assertEq('two windows report', rows.length, 2);
-  assertEq('largest pool first', rows[0].label, 'lifetime');
+  assertEq('supplied lifetime category first', rows[0].label, 'lifetime');
   assertEq('lifetime ranks', rows[0].ranks.join(','), '2,4');
   assertEq('lifetime total', rows[0].total, 41);
   assertEq('month second', rows[1].label, 'this month');
@@ -225,7 +225,8 @@ const windowCandidate = (label, specificity, startMs, wins) =>
   assertEq('month total', rows[1].total, 40);
 }
 
-// Equal-sized pools put the broader, more significant chart first.
+// Summary filtering preserves the canonical category order supplied by the
+// candidate builder; pool sizes and duplicate priorities do not reorder it.
 {
   const sourceStart = NOW - HOUR;
   const wins = [];
@@ -235,15 +236,15 @@ const windowCandidate = (label, specificity, startMs, wins) =>
     { label: 'this month', specificity: 9, wins },
     { label: 'lifetime', specificity: 12, wins, alwaysShowBest: true },
   ], sourceStart);
-  assertEq('broader chart wins equal-total tie', rows[0].label, 'lifetime');
-  assertEq('equal-total narrower chart second', rows[1].label, 'this month');
+  assertEq('first supplied category stays first at equal pool size', rows[0].label, 'this month');
+  assertEq('second supplied category stays second', rows[1].label, 'lifetime');
 
   const explicitRows = recentPlacementsSummary([
-    { label: 'narrow', dedupePriority: 1, summaryTiePriority: 2, wins },
-    { label: 'broad', dedupePriority: 9, summaryTiePriority: 12, wins },
+    { label: 'narrow', dedupePriority: 1, summaryOrder: [1, 10], wins },
+    { label: 'broad', dedupePriority: 9, summaryOrder: [0, 10], wins },
   ], sourceStart);
-  assertEq('explicit summary priority is independent of dedupe priority',
-    explicitRows.map((row) => row.label).join(','), 'broad,narrow');
+  assertEq('summary filtering does not re-sort by duplicate priority',
+    explicitRows.map((row) => row.label).join(','), 'narrow,broad');
 }
 
 // The summary identifies the rank belonging to the exact current record,
@@ -489,6 +490,66 @@ for (const [spread, expected] of [[0, 0], [0.24999999999, 0], [0.25, 0.5],
     assertEq(label + ' marks only the current rank', row.currentRank, 2);
   }
   assertEq('grouping leaves recorded measurements unchanged', JSON.stringify(records), before);
+}
+
+// A long period must stay navigable when comparison-pool sizes differ,
+// grow, or arrive in another history order. Every family remains contiguous
+// and values sort numerically, including one-/two-digit and half-cell values.
+{
+  const now = new Date(2026, 8, 21, 12).getTime();
+  const sourceStart = now - HOUR;
+  const shapes = [
+    { bv3: 74, zini: 51, hzini: 49, maxAdjacent: 8, hasSeven: true,
+      islandCount: 26, largestIsland: 10, zeroCount: 71,
+      boardMetrics: { version: 1, workSpread: 7, safeCells: 100, zeroOneCells: 80, zeroOpenedCells: 90 } },
+    { bv3: 55, zini: 49, hzini: 46, maxAdjacent: 2, hasSeven: false,
+      islandCount: 9, largestIsland: 3, zeroCount: 9,
+      boardMetrics: { version: 1, workSpread: 6, safeCells: 100, zeroOneCells: 9, zeroOpenedCells: 10 } },
+    { bv3: 60, zini: 50, hzini: 48, maxAdjacent: 7, hasSeven: true,
+      islandCount: 20, largestIsland: 5, zeroCount: 62,
+      boardMetrics: { version: 1, workSpread: 6.5, safeCells: 100, zeroOneCells: 72, zeroOpenedCells: 80 } },
+  ];
+  const old = shapes.flatMap((shape, group) => Array.from({ length: [79, 39, 19][group] }, (_, i) => ({
+    ...shape, ...win(now - (35 + i * 7) * DAY - group, 20000 + i * 100),
+  })));
+  const recent = shapes.map((shape, group) => ({ ...shape, ...win(now - group * 1000, 10000 + group * 100) }));
+  const records = [...old, ...recent];
+  const expected = ['3BV 55', '3BV 60', '3BV 74',
+    'ZiNi 49', 'ZiNi 50', 'ZiNi 51', 'HZiNi 46', 'HZiNi 48', 'HZiNi 49',
+    '3BV spread 6.0 cells', '3BV spread 6.5 cells', '3BV spread 7.0 cells',
+    'max number 2', 'max number 7', 'max number 8', 'has 7', 'has 8',
+    'max 2', 'max 3', 'max 4', '9 islands', '20 islands', '26 islands',
+    'largest island 3', 'largest island 5', 'largest island 10',
+    '9 zeros', '62 zeros', '71 zeros', '0–1 share 9%', '0–1 share 72%', '0–1 share 80%',
+    'zero-opening coverage 10%', 'zero-opening coverage 80%', 'zero-opening coverage 90%'];
+  const summarize = (history, collapse) => recentPlacementsSummary(
+    recentPlacementCandidates(history, now, sourceStart, collapse), sourceStart, recent[0]);
+  const rows = summarize(records, false);
+  assertEq('all board families are stable and numeric in a long period',
+    rows.filter((row) => row.summaryOrder[0] >= 2).map((row) => row.label).join('|'), expected.join('|'));
+  assertEq('lifetime remains first', rows[0].label, 'lifetime');
+  assertEq('pool sizes do not reorder 3BV values',
+    rows.filter((row) => row.label.startsWith('3BV ') && !row.label.startsWith('3BV spread'))
+      .map((row) => row.total).join(','), '40,20,80');
+  for (let i = 1; i < rows.length; i++) {
+    assertEq('numeric category order at row ' + i,
+      rows[i - 1].summaryOrder[0] < rows[i].summaryOrder[0]
+      || (rows[i - 1].summaryOrder[0] === rows[i].summaryOrder[0]
+        && rows[i - 1].summaryOrder[1] <= rows[i].summaryOrder[1]), true);
+  }
+  for (const collapse of [false, true]) {
+    const normal = summarize(records, collapse);
+    const reversed = summarize([...records].reverse(), collapse);
+    assertEq('history order does not change categories, collapse=' + collapse,
+      normal.map((r) => r.label).join('|'), reversed.map((r) => r.label).join('|'));
+    const grown = summarize([...records, ...Array.from({ length: 100 }, (_, i) => ({
+      ...shapes[2], ...win(now - (84 + i * 7) * DAY - 500, 30000 + i),
+    }))], collapse);
+    assertEq('growing another comparison pool does not move categories, collapse=' + collapse,
+      grown.map((r) => r.label).join('|'), normal.map((r) => r.label).join('|'));
+    assertEq('current record keeps its placement after sorting, collapse=' + collapse,
+      normal.find((r) => r.label === '3BV 74').currentRank, 1);
+  }
 }
 
 console.log(`recent-placements: all ${checks} checks passed`);
