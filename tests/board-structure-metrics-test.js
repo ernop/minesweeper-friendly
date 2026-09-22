@@ -38,9 +38,10 @@ for (let bits = 0; bits < 511; bits++) {
   const board = boardOf(rows);
   const stats = describe(board);
   const automatic = board.safes.filter((i) => board.clues[i] === 0
-    || board.neighbors[i].some((j) => !board.mines[j] && board.clues[j] === 0)).length;
-  assert.equal(stats.zeroOpenedCells, automatic);
-  assert.equal(stats.zeroOneCells, board.safes.filter((i) => board.clues[i] <= 1).length);
+    || board.neighbors[i].some((j) => !board.mines[j] && board.clues[j] === 0));
+  assert.equal(stats.zeroOpenedCells, automatic.length);
+  assert.equal(stats.zeroOpenedZeroOneCells, automatic.filter((i) => board.clues[i] <= 1).length);
+  assert(stats.zeroOpenedZeroOneCells <= stats.zeroOpenedCells);
   assert.equal(workGeometry(board).bv3, stats.openingCount + stats.safeCells - stats.zeroOpenedCells);
   const reflected = boardOf(rows.map((row) => [...row].reverse().join('')));
   assert.deepEqual(describe(reflected), stats);
@@ -54,22 +55,26 @@ for (let bits = 0; bits < 511; bits++) {
 
 const corner = boardOf(['*..', '...', '...']);
 const center = boardOf(['...', '.*.', '...']);
-assert.deepEqual(describe(corner), { safeCells: 8, zeroOneCells: 8, zeroOpenedCells: 8,
+assert.deepEqual(describe(corner), { safeCells: 8, zeroOpenedZeroOneCells: 8, zeroOpenedCells: 8,
   openingCount: 1, largestOpeningCells: 8, remainingWorkClusters: 0, largestRemainingWorkCluster: 0 });
-assert.deepEqual(describe(center), { safeCells: 8, zeroOneCells: 8, zeroOpenedCells: 0,
+assert.deepEqual(describe(center), { safeCells: 8, zeroOpenedZeroOneCells: 0, zeroOpenedCells: 0,
   openingCount: 0, largestOpeningCells: 0, remainingWorkClusters: 1, largestRemainingWorkCluster: 8 });
 assert.deepEqual(meanSafeStartCoverage(center), { numerator: 64, denominator: 64 });
 assert.deepEqual(meanSafeStartCoverage(boardOf(['*.', '..'])), { numerator: 3, denominator: 9 });
-assert.deepEqual(describe(boardOf(['.....'])), { safeCells: 5, zeroOneCells: 5, zeroOpenedCells: 5,
+assert.deepEqual(describe(boardOf(['.....'])), { safeCells: 5, zeroOpenedZeroOneCells: 5, zeroOpenedCells: 5,
   openingCount: 1, largestOpeningCells: 5, remainingWorkClusters: 0, largestRemainingWorkCluster: 0 });
 assert.equal(describe(boardOf(['.*.'])).zeroOpenedCells, 0);
-assert.equal(describe(boardOf(['*.*', '...', '*.*'])).zeroOneCells, 0);
+assert.equal(describe(boardOf(['*.*', '...', '*.*'])).zeroOpenedZeroOneCells, 0);
 // Two disjoint zero regions reveal a shared numbered border: union, not sum.
 const shared = describe(boardOf(['..*', '...', '*..']));
 assert.equal(shared.openingCount, 2);
 assert.equal(shared.largestOpeningCells, 4);
 assert.equal(shared.zeroOpenedCells, 7);
-assert.equal(shared.zeroOneCells, 6);
+assert.equal(shared.zeroOpenedZeroOneCells, 6);
+const hiddenOnes = describe(boardOf(['....', '.*..', '....']));
+assert.equal(hiddenOnes.safeCells, 11);
+assert.equal(hiddenOnes.zeroOpenedCells, 6);
+assert.equal(hiddenOnes.zeroOpenedZeroOneCells, 6, 'five covered ones stay out of the numerator');
 assert.throws(() => deductionClosure(center, 3), /width/);
 assert.throws(() => deductionClosure(center, 2, 4), /safe/);
 // Compare the complete evolving closure, including synchronous round counts,

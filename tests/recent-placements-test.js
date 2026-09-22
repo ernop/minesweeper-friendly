@@ -412,8 +412,8 @@ const windowCandidate = (label, specificity, startMs, wins) =>
 }
 
 {
-  const measured = (zeroOneCells, zeroOpenedCells) => ({ version: 1, workSpread: 2,
-    safeCells: 71, zeroOneCells, zeroOpenedCells });
+  const measured = (zeroOpenedZeroOneCells, zeroOpenedCells) => ({ version: 1, workSpread: 2,
+    safeCells: 71, zeroOpenedZeroOneCells, zeroOpenedCells });
   const a = measured(51, 57), b = measured(50, 56);
   const old = [a, b].flatMap((boardMetrics, group) => Array.from({ length: 20 }, (_, i) => ({
     ...win(NOW - (30 + group * 20 + i) * DAY, 10000 + i * 100), boardMetrics,
@@ -434,12 +434,22 @@ const windowCandidate = (label, specificity, startMs, wins) =>
   assertEq('older fractional category is not marked current',
     rows.find((r) => r.label === '0–1 share 72%').currentRank, undefined);
   const tables = boardMetricCandidates([current], records);
+  const obsolete = { ...current, boardMetrics: { version: 1, workSpread: 2,
+    safeCells: 71, zeroOneCells: 50, zeroOpenedCells: 56 } };
+  const obsoleteTables = boardMetricCandidates([obsolete], [obsolete]);
+  assertEq('obsolete whole-board count never creates a corrected 0–1 table',
+    obsoleteTables.some((t) => t.setting === 'zeroOneShareTable'), false);
+  assertEq('unchanged zero-opening coverage remains available before backfill',
+    obsoleteTables.some((t) => t.setting === 'zeroOpeningTable'), true);
+  assertEq('obsolete count cannot enter a corrected comparison pool',
+    boardMetricCandidates([current], [...records, obsolete])
+      .find((t) => t.setting === 'zeroOneShareTable').wins.length, 21);
   assertEq('full fraction table matches this board only',
     tables.some((t) => t.label === '0–1 share 72%'), false);
   assertEq('nearby fractions merge into the same whole-percent group',
     boardMetricCandidates([
-      { boardMetrics: { ...a, safeCells: 100000, zeroOneCells: 50000 } },
-      { boardMetrics: { ...a, safeCells: 100000, zeroOneCells: 50001 } },
+      { boardMetrics: { ...a, safeCells: 100000, zeroOpenedZeroOneCells: 50000 } },
+      { boardMetrics: { ...a, safeCells: 100000, zeroOpenedZeroOneCells: 50001 } },
     ], []).filter((t) => t.label.startsWith('0–1 share')).map((t) => t.label).join(','),
     '0–1 share 50%');
   assertEq('zero coverage is measured, not absent',
@@ -449,7 +459,7 @@ const windowCandidate = (label, specificity, startMs, wins) =>
 // Centered rounding boundaries and merged comparison pools. Use integer
 // counts at half-percent ties so binary ratio error cannot flip membership.
 for (let percent = 0; percent < 100; percent++) {
-  for (const field of ['zeroOneCells', 'zeroOpenedCells']) {
+  for (const field of ['zeroOpenedZeroOneCells', 'zeroOpenedCells']) {
     const record = { boardMetrics: { version: 1, safeCells: 200,
       [field]: 2 * percent + 1 } };
     assertEq(field + ' exact half-percent tie at ' + percent,
@@ -459,7 +469,7 @@ for (let percent = 0; percent < 100; percent++) {
 for (const [n, expected] of [[0, 0], [499, 0], [500, 1], [50499, 50],
   [50500, 51], [99499, 99], [99500, 100], [100000, 100]]) {
   assertEq('whole-percent boundary ' + n,
-    boardShareGroup({ boardMetrics: { version: 1, safeCells: 100000, zeroOneCells: n } }, 'zeroOneCells'), expected);
+    boardShareGroup({ boardMetrics: { version: 1, safeCells: 100000, zeroOpenedZeroOneCells: n } }, 'zeroOpenedZeroOneCells'), expected);
 }
 for (const [spread, expected] of [[0, 0], [0.24999999999, 0], [0.25, 0.5],
   [1.24999999999, 1], [1.25, 1.5], [2.5, 2.5], [2.74999999999, 2.5], [2.75, 3]]) {
@@ -468,7 +478,7 @@ for (const [spread, expected] of [[0, 0], [0.24999999999, 0], [0.25, 0.5],
 }
 {
   const measurements = (n, spread) => ({ version: 1, safeCells: 100000,
-    zeroOneCells: n, zeroOpenedCells: n, workSpread: spread });
+    zeroOpenedZeroOneCells: n, zeroOpenedCells: n, workSpread: spread });
   const earlier = { ...win(NOW - 1000, 8000), boardMetrics: measurements(50000, 2.3) };
   const current = { ...win(NOW, 9000), boardMetrics: measurements(50499, 2.7) };
   const old = Array.from({ length: 20 }, (_, i) => ({
@@ -501,13 +511,13 @@ for (const [spread, expected] of [[0, 0], [0.24999999999, 0], [0.25, 0.5],
   const shapes = [
     { bv3: 74, zini: 51, hzini: 49, maxAdjacent: 8, hasSeven: true,
       islandCount: 26, largestIsland: 10, zeroCount: 71,
-      boardMetrics: { version: 1, workSpread: 7, safeCells: 100, zeroOneCells: 80, zeroOpenedCells: 90 } },
+      boardMetrics: { version: 1, workSpread: 7, safeCells: 100, zeroOpenedZeroOneCells: 80, zeroOpenedCells: 90 } },
     { bv3: 55, zini: 49, hzini: 46, maxAdjacent: 2, hasSeven: false,
       islandCount: 9, largestIsland: 3, zeroCount: 9,
-      boardMetrics: { version: 1, workSpread: 6, safeCells: 100, zeroOneCells: 9, zeroOpenedCells: 10 } },
+      boardMetrics: { version: 1, workSpread: 6, safeCells: 100, zeroOpenedZeroOneCells: 9, zeroOpenedCells: 10 } },
     { bv3: 60, zini: 50, hzini: 48, maxAdjacent: 7, hasSeven: true,
       islandCount: 20, largestIsland: 5, zeroCount: 62,
-      boardMetrics: { version: 1, workSpread: 6.5, safeCells: 100, zeroOneCells: 72, zeroOpenedCells: 80 } },
+      boardMetrics: { version: 1, workSpread: 6.5, safeCells: 100, zeroOpenedZeroOneCells: 72, zeroOpenedCells: 80 } },
   ];
   const old = shapes.flatMap((shape, group) => Array.from({ length: [79, 39, 19][group] }, (_, i) => ({
     ...shape, ...win(now - (35 + i * 7) * DAY - group, 20000 + i * 100),

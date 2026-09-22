@@ -92,7 +92,7 @@ function runBoardMetricQueue() {
     runBoardMetricQueue();
   };
   try {
-    worker = new Worker('board-metrics-worker.js?v=20260921-board-groups');
+    worker = new Worker('board-metrics-worker.js?v=20260921-visible-zero-one');
     worker.onmessage = ({ data }) => {
       if (data.id === job.id) finish(data.result, data.error);
     };
@@ -160,40 +160,43 @@ function buildBoardMetricStatus(record) {
     const progress = boardMetricBackfillProgress(key);
     const running = boardMetricBackfills.has(key);
     const count = unmeasuredBoardWins(key).length;
-    const panel = document.createElement('div');
-    panel.className = 'board-metric-backfill-panel';
-    const meter = document.createElement('progress');
-    meter.max = progress.total; meter.value = progress.checked;
-    meter.setAttribute('aria-label', 'Saved wins checked for board measurements');
-    const summary = document.createElement('span');
-    summary.className = 'board-metric-backfill-summary';
-    summary.setAttribute('aria-live', 'polite');
-    summary.textContent = progress.checked + '/' + progress.total + ' checked · '
-      + progress.measured + ' measured'
-      + (progress.unavailable ? ' · ' + progress.unavailable
-        + (progress.unavailable === 1 ? ' saved board unavailable' : ' saved boards unavailable') : '')
-      + (progress.failed ? ' · ' + progress.failed + ' failed' : '')
-      + (progress.remaining ? ' · ' + progress.remaining + ' remaining' : ' · complete');
-    const status = document.createElement('span');
-    status.className = 'board-metric-backfill-status';
-    status.textContent = running ? 'Calculating…'
-      : progress.active ? 'Finishing current board…'
-      : progress.remaining && progress.checked ? 'Paused' : '';
-    panel.append(meter, summary, status);
-    panel.title = 'Each completed win is saved and immediately joins its rank tables. Resume, including after a reload, calculates only missing measurements. Counts cover full-board wins with supported measurement versions in the current mode. Unavailable saved boards stay unmeasured.';
-    if (count || running) {
-      const button = document.createElement('button');
-      button.className = 'board-metric-backfill';
-      button.type = 'button';
-      button.textContent = running ? 'Stop backfill'
-        : (progress.checked ? 'Resume backfill (' : 'Backfill saved wins (') + count + ')';
-      button.title = 'Calculate missing board characteristics from saved final-board traces. Stopping saves the current board and pauses before the next.';
-      button.addEventListener('click', () => {
-        if (boardMetricBackfills.has(key)) boardMetricBackfills.delete(key);
-        else { boardMetricBackfills.add(key); continueBoardMetricBackfill(key); }
-        refreshBoardMetricView(record);
-      });
-      panel.appendChild(button);
+    if (count || running || progress.active) {
+      const panel = document.createElement('div');
+      panel.className = 'board-metric-backfill-panel';
+      const meter = document.createElement('progress');
+      meter.max = progress.total; meter.value = progress.checked;
+      meter.setAttribute('aria-label', 'Saved wins checked for board measurements');
+      const summary = document.createElement('span');
+      summary.className = 'board-metric-backfill-summary';
+      summary.setAttribute('aria-live', 'polite');
+      summary.textContent = progress.checked + '/' + progress.total + ' checked · '
+        + progress.measured + ' measured'
+        + (progress.unavailable ? ' · ' + progress.unavailable
+          + (progress.unavailable === 1 ? ' saved board unavailable' : ' saved boards unavailable') : '')
+        + (progress.failed ? ' · ' + progress.failed + ' failed' : '')
+        + (progress.remaining ? ' · ' + progress.remaining + ' remaining' : ' · complete');
+      const status = document.createElement('span');
+      status.className = 'board-metric-backfill-status';
+      status.textContent = running ? 'Calculating…'
+        : progress.active ? 'Finishing current board…'
+        : progress.remaining && progress.checked ? 'Paused' : '';
+      panel.append(meter, summary, status);
+      panel.title = 'Each completed win is saved and immediately joins its rank tables. Resume, including after a reload, calculates only missing measurements, including the corrected visible 0–1 count. Counts cover full-board wins with supported measurement versions in the current mode. Unavailable saved boards stay unmeasured.';
+      if (count || running) {
+        const button = document.createElement('button');
+        button.className = 'board-metric-backfill';
+        button.type = 'button';
+        button.textContent = running ? 'Stop backfill'
+          : (progress.checked ? 'Resume backfill (' : 'Backfill saved wins (') + count + ')';
+        button.title = 'Calculate missing board characteristics, including corrected visible 0–1 counts, from saved final-board traces. Stopping saves the current board and pauses before the next.';
+        button.addEventListener('click', () => {
+          if (boardMetricBackfills.has(key)) boardMetricBackfills.delete(key);
+          else { boardMetricBackfills.add(key); continueBoardMetricBackfill(key); }
+          refreshBoardMetricView(record);
+        });
+        panel.appendChild(button);
+      }
+      box.appendChild(panel);
     }
     if (progress.failed) {
       const error = document.createElement('div');
@@ -202,9 +205,8 @@ function buildBoardMetricStatus(record) {
       const messages = eligibleBoardWins(key).map((r) => boardMetricJobs.get(r))
         .filter((state) => state?.status === 'error').map((state) => state.error);
       error.textContent = 'Backfill failed: ' + [...new Set(messages)].join('; ');
-      panel.appendChild(error);
+      box.appendChild(error);
     }
-    box.appendChild(panel);
   }
   return box.childElementCount ? box : null;
 }

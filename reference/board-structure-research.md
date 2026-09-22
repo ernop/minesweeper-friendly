@@ -1,7 +1,9 @@
 # Exact board descriptors: fractions, structure, and deduction coverage
 
 Research review, 2026-09-21, following the creator's examples of the fraction
-of zeros and ones, and the fraction exposed after clicking every zero.
+of visible zeros and ones after clicking every zero, and the full fraction
+exposed by those openings. The visible-only meaning was clarified by the
+creator after the initial whole-board 0/1 implementation.
 These proposals are new measurements for this app, not claims of newly
 discovered mathematics or established Minesweeper terminology.
 
@@ -47,12 +49,20 @@ none is automatically an overall difficulty score.
 
 ### 0–1 share
 
-    P₀₁(B) = (|H₀| + |H₁|) / N.
+Let R₀ be the safe cells exposed by clicking every zero and nothing else:
 
-Count safe cells whose actual clue is zero or one. Include zeros even if the
-game draws them blank. Exclude mines. Calculate by scanning the clue counts;
-no solver is required. This answers how much of the safe board consists of
-the two lowest clues. A large value need not guarantee an easy logical solve.
+    R₀ = H₀ union {v in S : v is adjacent to at least one member of H₀}.
+    P₀₁(B) = |R₀ intersect (H₀ union H₁)| / N.
+
+Count only revealed zeros and ones in this set. Include blank zero squares;
+exclude covered ones, even when their number or safety can be deduced.
+Revealed clues of two or more also do not count. The denominator remains all
+safe cells, not just the revealed cells. Each square counts once, even when
+two openings share its border. No later deductions, flags, chords, or direct
+reveals contribute. Without zeros the value is 0; without mines it is 1.
+A direct scan for zeros and ones adjacent to zeros computes this in linear
+time, independently of a flood simulation. A large share does not guarantee
+an easy logical solve.
 
 ### Zero-opening coverage
 
@@ -88,14 +98,17 @@ share, not another independent measurement.
 | --- | ---: | ---: | ---: | ---: |
 | Empty 3×3 | 9 | 9/9 | 9/9 | 9/9 |
 | 3×3, one corner mine | 8 | 8/8 | 8/8 | 8/8 |
-| 3×3, one center mine | 8 | 8/8 | 0/8 | 0/8 |
+| 3×3, one center mine | 8 | 0/8 | 0/8 | 0/8 |
 | 3×3, mines at upper right and lower left | 7 | 6/7 | 7/7 | 4/7 |
-| 2×2, one corner mine | 3 | 3/3 | 0/3 | 0/3 |
+| 2×2, one corner mine | 3 | 0/3 | 0/3 | 0/3 |
+| 4×3, mine at column 2, row 2 | 11 | 6/11 | 6/11 | 6/11 |
 
-The corner-versus-center example separates the creator's two properties:
-both have 100% zeros-and-ones, but automatic opening coverage is 100% versus
-0%. In the two-mine example, two openings of size 4 share their center clue:
-the union is 7, not 8. These examples are checked by the reference tests.
+The center-mine 3×3 has eight ones but reveals none when clicking all zeros:
+both fractions are zero. The 4×3 opens three zeros and three ones while five
+ones stay covered, so the numerator is six, not eleven. In the two-mine
+example, two openings of size 4 share their center clue (a two): full coverage
+counts seven cells, while 0–1 share counts six. Always P₀₁ ≤ P₀.
+These examples are checked by the reference tests.
 
 ## 3. Further exact structural measurements
 

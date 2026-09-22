@@ -117,7 +117,7 @@ const SHOWN_THINGS_OPTIONS = [
   ['boardMetricFacts', 'board backfill progress', 'progress and Stop/Resume controls for measuring saved wins in This board'],
   ['exactHZiNi', 'Human ZiNi tablechart', 'times on boards with the same opening-first chord benchmark (HZiNi)'],
   ['workSpreadTable', '3BV-spread tablechart', 'times on boards with 3BV spread rounded to the same nearest 0.5 cell'],
-  ['zeroOneShareTable', '0–1-share tablechart', 'times on boards whose fraction of safe squares showing zero or one rounds to the same nearest whole percentage point'],
+  ['zeroOneShareTable', '0–1-share tablechart', 'times on boards whose zeros and ones revealed by opening every zero, as a fraction of all safe squares, round to the same nearest whole percentage point'],
   ['zeroOpeningTable', 'zero-opening-coverage tablechart', 'times on boards whose fraction of safe squares exposed by opening every zero region rounds to the same nearest whole percentage point'],
   ['boardShapeTables', 'board-shape tablecharts', 'high clues, maximum-clue caps, mine islands, and zero-count rankings'],
   ['largestIsland', 'largest island', 'the largest-island stat and matching tablechart'],

@@ -865,7 +865,7 @@ Implementation notes:
   Current production: `board-metrics.js` calculates 3BV spread, 0–1 share,
   and zero-opening coverage, and uses `zini.js` for Human ZiNi. The existing
   `hzini` field remains its sole primary value. `boardMetrics` stores versioned
-  `workSpread`, `safeCells`, `zeroOneCells`, and `zeroOpenedCells`; fraction
+  `workSpread`, `safeCells`, `zeroOpenedZeroOneCells`, and `zeroOpenedCells`; fraction
   values are derived. This board shows values in tablechart headings only;
   `buildRankList` accepts optional help and uses `chartHelpButton(help, label)`
   on those headings. Help contains definitions, precise measurements, and
@@ -883,13 +883,20 @@ Implementation notes:
   Retired research fields remain stored but are not used by the display.
   `board-metrics-worker.js` performs calculations; `board-metrics-ui.js`
   serializes captured-record jobs and optional saved-win backfill from final
-  traces. `hasBoardMeasurements` requires all four measurements, so older
-  HZiNi/spread-only records also qualify. `boardMetricBackfillProgress` derives
+  traces. `hasBoardMeasurements` requires all four measurements, including
+  the corrected zero-opened 0/1 numerator. Earlier `zeroOneCells` counted
+  covered ones too: preserve that distinct historical field in exports,
+  never use it in corrected comparisons, and backfill the missing
+  `zeroOpenedZeroOneCells` from the final trace. Older HZiNi/spread-only
+  records also qualify. Bulk backfill is initiated by the player.
+  `boardMetricBackfillProgress` derives
   checked/total, measured, unavailable, failed, active, and remaining counts
   from history plus session-local jobs. Stop finishes the current board;
   Resume skips completed records even after reload. Each result is persisted
   separately and immediately eligible for ranks. Missing traces stay
-  unmeasured; actual read/calculation errors display their messages.
+  unmeasured; actual read/calculation errors display their messages. Hide
+  the progress panel when no job is active and no unattempted record remains;
+  retain actionable paused progress and show errors outside the panel.
   `tests/board-metrics-test.js` independently executes the documented HZiNi
   action rules on 511 small and 300 standard-size layouts. The exact
   opening-first minimum C₀* has a <=16-cell reference calculator, not a

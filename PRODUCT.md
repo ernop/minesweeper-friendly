@@ -905,7 +905,7 @@ standard not-measured rules.
 Board measurements (2026-09-21, revised to completed scalar benchmarks):
 **This board** shows HZiNi, 3BV spread, 0–1 share, and zero-opening coverage.
 HZiNi uses the existing `hzini` primary record field. Optional versioned
-`boardMetrics` stores `workSpread`, `safeCells`, `zeroOneCells`, and
+`boardMetrics` stores `workSpread`, `safeCells`, `zeroOpenedZeroOneCells`, and
 `zeroOpenedCells`. Store measured counts once and derive fractions at display time. No C* proof intervals, RCW simulation,
 hint counts, or simulated guess/mine-hit counts appear in the live results.
 Previously saved research measurements remain in exports without entering
@@ -935,7 +935,12 @@ comparison tables.
   heading gives the group, e.g. `3BV spread 2.5 cells`; its mouseover gives
   the underlying measurement to three decimals and the definition. A 2.5-cell
   group covers [2.25, 2.75); the zero group is clipped at zero.
-- **0–1 share:** safe cells with clue zero or one divided by all safe cells.
+- **0–1 share:** open every zero and nothing else, then count only the
+  revealed zeros and ones, divided by all safe cells on the board. Covered
+  ones and revealed clues of two or more do not count. Shared borders count
+  once. No deductions, flags, chords, or subsequent direct reveals are
+  included. With no zeros the share is 0%; with no mines it is 100%.
+  This share cannot exceed zero-opening coverage.
 - **zero-opening coverage:** the union of every zero flood, including all
   numbered borders counted once, divided by all safe cells. Stop after
   flooding, before deductions or chords. No zeros means coverage 0%.
@@ -966,7 +971,13 @@ full-board measures. Export/import preserves versioned measurements; future
 versions are retained without interpretation or mixing into current cohorts.
 `Backfill saved wins` fills missing measurements for the current mode from
 saved final-board traces, one board at a time, including records that already
-have HZiNi/spread but lack the fractions. A progress bar and text show checked /
+have HZiNi/spread but lack the fractions. The corrected visible 0–1 count is
+stored separately as `zeroOpenedZeroOneCells`: the earlier `zeroOneCells`
+counted all zeros and ones, including covered ones, and never enters corrected
+0–1 comparisons. Those older records need backfill even when they have all
+earlier measurements. Their unchanged spread and zero-opening coverage remain
+usable. Bulk backfill starts only when the player clicks its button.
+A progress bar and text show checked /
 total, measured, unavailable, failed, and remaining counts. A missing trace
 stays unmeasured; an actual calculation/read failure displays its error.
 `Stop backfill` lets the current board finish. `Resume backfill` processes only
@@ -974,6 +985,10 @@ missing measurements, including after a reload. Each completed record is saved
 separately and immediately joins its comparison tables; no whole-batch completion
 is required. Progress is derived from recorded measurements, not a saved cursor.
 Unavailable/error checks are session-local and may be attempted again after reload.
+The progress panel disappears when no calculation is active and no further
+record can be attempted in that operation, including when the remainder has
+unavailable saved boards. It remains available while paused with work left.
+Actual backfill errors remain visible independently of the progress panel.
 Counts cover supported full-board wins in the current score key. The
 `board backfill progress` display switch controls this panel (saved key
 `boardMetricFacts`). Calculation/unavailable/error status remains visible

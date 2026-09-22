@@ -52,7 +52,7 @@ const BoardMetrics = (() => {
     const workSpread = Math.sqrt(points.reduce((s, p) =>
       s + (p.x - meanX) ** 2 + (p.y - meanY) ** 2, 0) / points.length);
     return { width, height, mines, around, clues, safe, floods, units, workSpread,
-      zeroOneCells: safe.filter((i) => clues[i] <= 1).length,
+      zeroOpenedZeroOneCells: [...covered].filter((i) => clues[i] <= 1).length,
       zeroOpenedCells: covered.size,
       mineCount: mines.length - safe.length };
   }
@@ -63,14 +63,20 @@ const BoardMetrics = (() => {
     // boardMetrics. Its established algorithm and historical values stay fixed.
     return { hzini: Zi.hzini(width, height, mines),
       boardMetrics: { version: VERSION, workSpread: b.workSpread,
-        safeCells: b.safe.length, zeroOneCells: b.zeroOneCells, zeroOpenedCells: b.zeroOpenedCells } };
+        safeCells: b.safe.length, zeroOpenedZeroOneCells: b.zeroOpenedZeroOneCells,
+        zeroOpenedCells: b.zeroOpenedCells } };
+  }
+
+  function hasOpeningCounts(value) {
+    return value?.version === VERSION && Number.isSafeInteger(value.safeCells)
+      && value.safeCells > 0 && value.safeCells <= 100000
+      && Number.isSafeInteger(value.zeroOpenedCells)
+      && value.zeroOpenedCells >= 0 && value.zeroOpenedCells <= value.safeCells;
   }
 
   function hasFractions(value) {
-    return value?.version === VERSION && Number.isSafeInteger(value.safeCells)
-      && value.safeCells > 0 && value.safeCells <= 100000
-      && [value.zeroOneCells, value.zeroOpenedCells].every((n) =>
-        Number.isSafeInteger(n) && n >= 0 && n <= value.safeCells);
+    return hasOpeningCounts(value) && Number.isSafeInteger(value.zeroOpenedZeroOneCells)
+      && value.zeroOpenedZeroOneCells >= 0 && value.zeroOpenedZeroOneCells <= value.zeroOpenedCells;
   }
 
   function valid(value) {
@@ -80,8 +86,13 @@ const BoardMetrics = (() => {
     const integer = (v) => Number.isSafeInteger(v) && v >= 0;
     if (!Number.isFinite(value.workSpread) || value.workSpread < 0
         || (value.effort !== undefined && !integer(value.effort))) return false;
-    if (['safeCells', 'zeroOneCells', 'zeroOpenedCells'].some((key) => value[key] !== undefined)
-        && !hasFractions(value)) return false;
+    if (['safeCells', 'zeroOneCells', 'zeroOpenedZeroOneCells', 'zeroOpenedCells']
+      .some((key) => value[key] !== undefined) && !hasOpeningCounts(value)) return false;
+    // The earlier whole-board count is a different measurement. It may stay
+    // in exports, but only the explicit zero-opened count completes backfill.
+    if (value.zeroOneCells !== undefined
+        && (!integer(value.zeroOneCells) || value.zeroOneCells > value.safeCells)) return false;
+    if (value.zeroOpenedZeroOneCells !== undefined && !hasFractions(value)) return false;
     const c = value.chord, l = value.logic;
     if (c !== undefined && (!c || !['exact', 'bounded'].includes(c.status)
         || !integer(c.lower) || c.lower < 1 || !integer(c.upper) || c.upper < c.lower

@@ -198,7 +198,7 @@ const { chromium } = require(process.argv[2]);
         { bv3: 60, zini: 50, hzini: 48, maxAdjacent: 7, hasSeven: true,
           islandCount: 20, largestIsland: 5, zeroCount: 62, spread: 6.5 },
       ].map((v) => ({ ...v, boardMetrics: { version: 1, workSpread: v.spread,
-        safeCells: 100, zeroOneCells: v.zeroCount, zeroOpenedCells: v.zeroCount + 5 } }));
+        safeCells: 100, zeroOpenedZeroOneCells: v.zeroCount, zeroOpenedCells: v.zeroCount + 5 } }));
       const wins = variants.flatMap((v, group) => Array.from({ length: [79, 39, 19][group] }, (_, i) => ({
         ...v, outcome: 'win', endedAt: now - (35 + i * 7) * 864e5 - group,
         timeMs: 20000 + i * 100,

@@ -46,7 +46,8 @@ with primary online sources and explicitly proposed measurements.
 
 **Built after this review:** HZiNi and 3BV spread time tables, HZiNi
 win efficiency in Game stats, and the two requested exact fractions:
-0–1 share = safe cells showing zero or one / all safe cells; zero-opening
+0–1 share = zeros and ones revealed by opening every zero / all safe cells
+(covered ones excluded, clarified by the creator); zero-opening
 coverage = the union of all zero floods including numbered borders counted
 once / all safe cells. Both fractions now group time comparisons by the
 nearest whole percentage point; 3BV spread uses the nearest 0.5 cell. Halfway
@@ -56,7 +57,10 @@ mouseover/focus. These groupings also drive qualifying period-wide summaries.
 Board fractions remain distinct from rank percentiles.
 Saved-win backfill handles partial old measurements and shows progress,
 Stop/Resume, unavailable/error counts, and immediately usable saved results
-that survive reload. See PRODUCT.md for the implemented behavior.
+that survive reload. Old whole-board 0–1 counts are excluded until the player
+backfills the corrected visible count. Exhausted backfill operations hide
+their progress panel; actual errors stay visible. See PRODUCT.md for the
+implemented behavior.
 
 **Declined for the current UI:** the creator asked to skip the other proposals,
 including largest-opening share, remaining work clusters, deduction coverage/
@@ -96,7 +100,8 @@ opening-first click optimizer are tracked above.
   This is the first suggested addition because retained achievements should
   be directly inspectable.
 - **See the cells behind a board metric.** A small separate finished-board
-  preview can highlight the 0/1 cells, the union of zero openings, or the 3BV
+  preview can highlight the 0/1 cells revealed by all zero openings, the full
+  union of zero openings, or the 3BV
   work points and their center. Associate it with the inspected record, which
   may differ from the active unfinished board. Reuse the exact existing
   definitions, keep help accessible by keyboard, and do not reflow the page

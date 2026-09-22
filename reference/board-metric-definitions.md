@@ -429,6 +429,12 @@ no preliminary decimal rounding. A centered group g covers [g−0.25,g+0.25),
 clipped at zero. The heading gives g with one decimal; the tooltip gives
 WS with three decimals and its definition.
 
+For 0–1 share, let R₀ be the union of all zero floods. Its numerator counts
+only cells in R₀ whose clue is zero or one; covered ones do not count.
+Zero-opening coverage counts every cell in R₀, including higher clues.
+Both use all safe cells as the denominator. No zero means both counts are
+zero, regardless of how many covered ones exist.
+
 The fractions retain exact safe-cell numerator n and denominator d. Their
 time-table group is the nearest whole percentage point, computed as
 `floor((200*n+d)/(2*d))` so exact halfway ties always round upward. Group
@@ -441,26 +447,33 @@ changes comparisons, never the primary measurements or their definitions.
 `board-metrics.js` computes 3BV spread, both fractions' primary counts, and
 Human ZiNi; `zini.js` remains the single production implementation of the ZiNi
 procedures. The worker returns `hzini` for the existing primary record field
-and `{version:1, workSpread, safeCells, zeroOneCells, zeroOpenedCells}` for
+and `{version:1, workSpread, safeCells, zeroOpenedZeroOneCells, zeroOpenedCells}` for
 `boardMetrics`. Neither HZiNi nor the fractions are duplicated in storage.
 Existing HZiNi records immediately join the comparison table; fraction tables
 require their measured numerator and safe-cell denominator. Earlier optional chord/logic
 measurements remain preserved in saved data and exports, but are neither
-computed nor displayed nor used in comparison tables.
+computed nor displayed nor used in comparison tables. The earlier
+`zeroOneCells` whole-board count also remains preserved but never enters the
+corrected 0–1 comparison. Its presence does not satisfy the new measurement;
+backfill calculates the distinct visible count from the saved board.
 
 New games analyze their captured final board. Older records use their saved
 final-board trace for missing measurements, with explicit unavailability if
 the trace is absent. There is no invented historical value or reconstructed
 generator output. Worker replies amend only their captured history record,
-even after a mode switch or new game. `Backfill saved wins` fills missing
+even after a mode switch or new game. The player's `Backfill saved wins` click fills missing
 measurements for the current mode one at a time, including old HZiNi/spread
-records missing the new counts. Progress shows checked/total, measured,
+records missing the new counts or retaining only the obsolete whole-board
+0–1 count. Progress shows checked/total, measured,
 unavailable, failed, and remaining counts. `Stop backfill` lets the current
 board finish. Each completion is saved separately and immediately joins its
 tables. `Resume backfill` skips completed records, including after reload;
 there is no all-or-nothing batch or saved cursor. Missing traces remain
 unmeasured, and failures display their errors. Unavailable/error checks are
-session-local. Endgame drills omit whole-board measures.
+session-local. The progress panel disappears when no job is active and no
+unattempted record remains, including when some boards were unavailable.
+Paused operations with work left retain their controls; actual errors remain
+visible outside the panel. Endgame drills omit whole-board measures.
 
 Verification executes the stated HZiNi procedure independently, recomputing
 every gain from revealed cells and flags instead of copying the production

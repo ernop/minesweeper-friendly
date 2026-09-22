@@ -33,7 +33,7 @@ function describe(board) {
   }
   return {
     safeCells: board.safes.length,
-    zeroOneCells: board.safes.filter((i) => board.clues[i] <= 1).length,
+    zeroOpenedZeroOneCells: [...exposed].filter((i) => board.clues[i] <= 1).length,
     zeroOpenedCells: exposed.size,
     openingCount: openings.length,
     largestOpeningCells: openings.length ? Math.max(...openings.map((o) => o.length)) : 0,

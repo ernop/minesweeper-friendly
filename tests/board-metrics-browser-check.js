@@ -29,7 +29,7 @@ const { chromium } = require(process.argv[2]);
         .then((labels) => labels.some((label) => label.startsWith(name))));
     }
     assert(Number.isSafeInteger(saved.metrics.safeCells));
-    assert(Number.isSafeInteger(saved.metrics.zeroOneCells));
+    assert(Number.isSafeInteger(saved.metrics.zeroOpenedZeroOneCells));
     assert(Number.isSafeInteger(saved.metrics.zeroOpenedCells));
     assert(!saved.metrics.chord && !saved.metrics.logic);
     await page.reload();
@@ -63,11 +63,16 @@ const { chromium } = require(process.argv[2]);
       const trace = await new Promise((resolve, reject) => {
         get.onsuccess = () => resolve(get.result); get.onerror = () => reject(get.error);
       });
+      const shape = /^(\d+)x(\d+)\//.exec(key);
+      const b = BoardMetrics.board(Number(shape[1]), Number(shape[2]), trace.finalBoard.cells.map((cell) => cell.mine));
       const tx = db.transaction(TRACE_STORE, 'readwrite');
       for (let i = 1; i <= 3; i++) {
         const r = { ...base, outcome: 'win', endedAt: endedAt + i };
         r.boardMetrics = { version: 1, workSpread: base.boardMetrics.workSpread,
           chord: { status: 'bounded', lower: 1, upper: 100 } };
+        if (i !== 3) Object.assign(r.boardMetrics, { safeCells: b.safe.length,
+          zeroOpenedCells: b.zeroOpenedCells,
+          zeroOneCells: b.safe.filter((cell) => b.clues[cell] <= 1).length });
         if (i === 3) delete r.hzini;
         history[key].push(r);
         if (i !== 2) tx.objectStore(TRACE_STORE).put({ ...trace, endedAt: r.endedAt });
@@ -78,6 +83,9 @@ const { chromium } = require(process.argv[2]);
       persistUserdata('history', history);
       settings.playMode = 'standard';
       renderResult(base, history[key]);
+      if (boardMetricCandidates(history[key].slice(-3), history[key])
+        .some((table) => table.setting === 'zeroOneShareTable')) throw new Error('obsolete counts entered the corrected table');
+      if (boardMetricBackfills.has(key)) throw new Error('bulk backfill started without a click');
       resultRanks.querySelector('.board-metric-backfill').click();
       resultRanks.querySelector('.board-metric-backfill').click();
       return boardMetricBackfillProgress(key);
@@ -101,7 +109,9 @@ const { chromium } = require(process.argv[2]);
       return boardMetricCandidates([wins[0]], wins)
         .filter((table) => ['zeroOneShareTable', 'zeroOpeningTable'].includes(table.setting))
         .map((table) => table.wins.length);
-    }, saved.key), [1, 1]);
+    }, saved.key), [1, 2]);
+    assert.equal(await page.evaluate((key) => history[key].at(-3).boardMetrics.zeroOpenedZeroOneCells,
+      saved.key), saved.metrics.zeroOpenedZeroOneCells);
     // Read after the write transaction, then reload the real persisted history.
     // A partial batch must be useful and resumable without replaying its first win.
     assert.equal(await page.evaluate(async (key) => {
@@ -127,12 +137,27 @@ const { chromium } = require(process.argv[2]);
     assert.equal(await page.evaluate((key) => boardMetricJobs.has(history[key].at(-3)), saved.key), false);
     assert.deepEqual(await page.evaluate((key) => boardMetricBackfillProgress(key), saved.key),
       { total: 3, measured: 2, unavailable: 1, failed: 0, active: 0, checked: 3, remaining: 0 });
-    assert.equal(await page.locator('.board-metric-backfill-summary').innerText(),
-      '3/3 checked · 2 measured · 1 saved board unavailable · complete');
-    assert.deepEqual(await page.locator('.board-metric-backfill-panel progress')
-      .evaluate((el) => [el.value, el.max]), [3, 3]);
+    assert.equal(await page.locator('.board-metric-backfill-panel').count(), 0,
+      'no idle progress panel when unavailable boards are the only remainder');
     assert(await page.evaluate((key) => history[key].slice(-3).filter((r) => BoardMetrics.hasFractions(r.boardMetrics))
       .every((r) => Number.isSafeInteger(r.hzini) && r.boardMetrics.chord.upper === 100), saved.key));
+    const exhausted = await page.evaluate(({ key, endedAt }) => {
+      const base = history[key].find((r) => r.endedAt === endedAt);
+      const missing = history[key].at(-2);
+      boardMetricJobs.set(missing, { status: 'error', error: 'deliberate backfill failure' });
+      const failed = buildBoardMetricStatus(base);
+      const errorVisible = failed.querySelector('[role=alert]').textContent;
+      const failedPanel = failed.querySelector('.board-metric-backfill-panel') !== null;
+      const oldMetrics = missing.boardMetrics;
+      missing.boardMetrics = { ...base.boardMetrics };
+      boardMetricJobs.delete(missing);
+      const allMeasuredIsHidden = buildBoardMetricStatus(base) === null;
+      missing.boardMetrics = oldMetrics;
+      boardMetricJobs.set(missing, { status: 'unavailable' });
+      return { errorVisible, failedPanel, allMeasuredIsHidden };
+    }, saved);
+    assert.deepEqual(exhausted, { errorVisible: 'Backfill failed: deliberate backfill failure',
+      failedPanel: false, allMeasuredIsHidden: true });
 
     // Renderer fixtures are RAM-only. Existing HZiNi records remain comparable;
     // research ranges never become tables, and spread uses fixed bins.
@@ -172,7 +197,7 @@ const { chromium } = require(process.argv[2]);
     assert.equal(rendered.efficiency, '75.0%');
     assert.deepEqual(rendered.details, []);
     assert.deepEqual(rendered.labels, []);
-    assert.equal(rendered.tables['0–1 share 100%'], '#3 of 3Last place');
+    assert.equal(rendered.tables['0–1 share 0%'], '#3 of 3Last place');
     assert.equal(rendered.tables['zero-opening coverage 0%'], '#3 of 3Last place');
     assert.equal(rendered.tables['3BV spread 1.0 cells'], '#2 of 2Last place');
     assert.deepEqual(rendered.values, []);
@@ -189,12 +214,13 @@ const { chromium } = require(process.argv[2]);
     await spreadHelp.focus();
     assert.equal(await page.locator('.chart-help-tip').isVisible(), true);
     await spreadHelp.evaluate((el) => el.blur());
-    for (const [label, detail] of [['0–1 share 100%', '8 of 8 safe cells'],
+    for (const [label, detail] of [['0–1 share 0%', '0 of 8 safe cells'],
       ['zero-opening coverage 0%', '0 of 8 safe cells']]) {
       const help = page.getByRole('button', { name: 'About ' + label, exact: true });
       await help.hover();
       const tip = await page.locator('.chart-help-tip').innerText();
       assert(tip.includes(detail));
+      if (label.startsWith('0–1')) assert(tip.includes('Covered ones'));
       assert(tip.includes('nearest whole percentage point'));
       assert.deepEqual(await page.locator('#board').boundingBox(), boardBefore);
     }
@@ -220,6 +246,6 @@ const { chromium } = require(process.argv[2]);
     assert.deepEqual(edgeCases, { above100: 120, noIdleStatus: true, lossHasEfficiency: false,
       errorText: 'Board measurement failed: deliberate fixture failure' });
     assert.deepEqual(errors, []);
-    console.log('Board metrics browser: real worker, persistence/reload, stale replies, incremental backfill progress with pause/reload/resume and partial ranks, table-only measurements, rounded cohorts and precise heading tooltips, HZiNi performance stats, stable accessible mouseovers and layout passed.');
+    console.log('Board metrics browser: corrected visible 0–1 counts, manual backfill of obsolete counts, persistence/reload, partial ranks, pause/resume, exhausted status hidden with errors retained, worker isolation, rounded cohorts and accessible tooltips passed.');
   } finally { await browser.close(); }
 })().catch((error) => { console.error(error); process.exitCode = 1; });

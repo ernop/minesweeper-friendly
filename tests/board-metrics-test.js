@@ -63,8 +63,13 @@ for (let mask = 0; mask < 511; mask++) {
   const expected = Reference.workGeometry(reference).spreadCells;
   const structure = Structure.describe(reference);
   assert.equal(result.boardMetrics.safeCells, structure.safeCells);
-  assert.equal(result.boardMetrics.zeroOneCells, structure.zeroOneCells);
+  assert.equal(result.boardMetrics.zeroOpenedZeroOneCells, structure.zeroOpenedZeroOneCells);
   assert.equal(result.boardMetrics.zeroOpenedCells, structure.zeroOpenedCells);
+  const visibleLow = reference.safes.filter((i) => reference.clues[i] === 0
+    || (reference.clues[i] === 1 && reference.neighbors[i]
+      .some((j) => !reference.mines[j] && reference.clues[j] === 0))).length;
+  assert.equal(result.boardMetrics.zeroOpenedZeroOneCells, visibleLow);
+  assert(!('zeroOneCells' in result.boardMetrics), 'new results do not write the obsolete whole-board count');
   assert(Metrics.hasFractions(result.boardMetrics));
   const openingMinimum = Reference.openingFirstMinimumClicks(reference);
   assert(openingMinimum <= result.hzini);
@@ -89,6 +94,9 @@ assert.deepEqual(simulate(3, 3, empty), {
   total: 1, actions: { openings: 1, direct: 0, flags: 0, chords: 0 },
 });
 const center = empty.map((_, i) => i === 4);
+assert.equal(Metrics.analyze(3, 3, center).boardMetrics.zeroOpenedZeroOneCells, 0,
+  'all ones, but no zeros to reveal any of them');
+assert.equal(Metrics.analyze(3, 3, empty).boardMetrics.zeroOpenedZeroOneCells, 9);
 assert.deepEqual(simulate(3, 3, center), {
   total: 6, actions: { openings: 0, direct: 1, flags: 1, chords: 4 },
 });
@@ -104,11 +112,17 @@ assert(!Metrics.valid({ version: 1, workSpread: -1 }));
 assert(Metrics.valid({ version: 2, future: 'preserved' }));
 assert(!Metrics.hasFractions({ version: 1, workSpread: 2 }));
 for (const counts of [
-  { safeCells: 0, zeroOneCells: 0, zeroOpenedCells: 0 },
-  { safeCells: 8, zeroOneCells: 9, zeroOpenedCells: 0 },
-  { safeCells: 8, zeroOneCells: 0, zeroOpenedCells: -1 },
-  { safeCells: 8, zeroOneCells: 0.5, zeroOpenedCells: 0 },
-  { safeCells: 8, zeroOneCells: 4 },
+  { safeCells: 0, zeroOpenedZeroOneCells: 0, zeroOpenedCells: 0 },
+  { safeCells: 8, zeroOpenedZeroOneCells: 9, zeroOpenedCells: 0 },
+  { safeCells: 8, zeroOpenedZeroOneCells: 0, zeroOpenedCells: -1 },
+  { safeCells: 8, zeroOpenedZeroOneCells: 0.5, zeroOpenedCells: 0 },
+  { safeCells: 8, zeroOpenedZeroOneCells: 4 },
+  { safeCells: 8, zeroOpenedZeroOneCells: 4, zeroOpenedCells: 3 },
 ]) assert(!Metrics.valid({ version: 1, workSpread: 1, ...counts }));
-assert(Metrics.valid({ version: 1, workSpread: 0, safeCells: 1, zeroOneCells: 1, zeroOpenedCells: 1 }));
+assert(Metrics.valid({ version: 1, workSpread: 0, safeCells: 1, zeroOpenedZeroOneCells: 1, zeroOpenedCells: 1 }));
+const oldWholeBoardCount = { version: 1, workSpread: 1, safeCells: 8,
+  zeroOneCells: 8, zeroOpenedCells: 0 };
+assert(Metrics.valid(oldWholeBoardCount), 'older saved measurements remain importable');
+assert(!Metrics.hasFractions(oldWholeBoardCount), 'old whole-board count still needs backfill');
+assert(!Metrics.valid({ ...oldWholeBoardCount, zeroOneCells: 9 }));
 console.log('Board benchmarks: independent HZiNi protocol on 511 small and 300 standard-size boards, exact action accounting, geometry, persistence schema passed.');
