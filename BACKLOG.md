@@ -80,6 +80,34 @@ a proved C₀*. No range or heuristic may be labeled the global minimum.
 An optimal whole-game survival policy also remains research. No additional
 metric implementation is approved by the retained research proposals.
 
+## Record-review improvements (mapped, 2026-09-21)
+
+Proposals from the creator-requested thread audit; not approved implementation.
+The compact gapless summary, surrounding table flow, and local day-of-month
+comparisons are built. The earlier open ranking-policy choices and exact
+opening-first click optimizer are tracked above.
+
+- **Inspect an achievement's game.** Activate an individual recent rank to
+  open its original finished game and matching comparison table, including
+  earlier board categories absent from the currently displayed game. A
+  compressed rank range first exposes its individual games. Preserve the
+  summary's period, score key, and return scroll position. Saved-board replay
+  needs that game's trace; do not imply an unavailable board can be restored.
+  This is the first suggested addition because retained achievements should
+  be directly inspectable.
+- **See the cells behind a board metric.** A small separate finished-board
+  preview can highlight the 0/1 cells, the union of zero openings, or the 3BV
+  work points and their center. Associate it with the inspected record, which
+  may differ from the active unfinished board. Reuse the exact existing
+  definitions, keep help accessible by keyboard, and do not reflow the page
+  on hover or add another permanent values list.
+- **Compare time with the group's median.** Optional detail beside a board
+  comparison can state seconds faster/slower than the median of that table's
+  saved wins, with its sample count. Use the arithmetic mean of the two
+  central times for an even count. This describes the same observed comparison
+  pool as the rank; it is not an overall board-difficulty estimate or a
+  prediction. It supplies magnitude where a rank alone gives only position.
+
 ## Generation (not built)
 
 The board-generator registry exists (2026-08-25, PRODUCT.md "Board
