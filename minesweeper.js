@@ -4046,7 +4046,7 @@ function ageInfo(nowMs, thenMs) {
   }
 }
 
-//-------DAY CATEGORIES (weekday / weekend / US holidays)-------
+//-------DAY CATEGORIES (weekday / weekend / US holidays / day of month)-------
 
 function isWeekend(date) {
   return date.getDay() === 0 || date.getDay() === 6;
@@ -4072,7 +4072,7 @@ function isHoliday(date) {
 
 // Columns for the current win: the rolling windows, plus lifetime-spanning
 // categories the win itself belongs to (same weekday, weekend/weekday,
-// holiday when today is one). Window columns carry their startMs; day
+// day of month, holiday when today is one). Window columns carry their startMs; day
 // categories have none — that absence is what marks them lifetime-spanning
 // (the recent-placements strictly-longer rule reads it).
 function rankColumns(referenceMs) {
@@ -4106,6 +4106,16 @@ function rankColumns(referenceMs) {
       dedupePriority: 7,
     });
   }
+  const monthDate = winDate.getDate();
+  columns.push({
+    id: 'month-date',
+    label: 'on the ' + ordinal(monthDate),
+    filter: (s) => new Date(s.endedAt).getDate() === monthDate,
+    displayOrder: 140,
+    dedupePriority: 4.5,
+    help: 'Times for wins finished on the ' + ordinal(monthDate)
+      + ' day of any month, across all years, in your local timezone. This table follows the reference date, like the weekday tables.',
+  });
   return columns.sort((a, b) => a.displayOrder - b.displayOrder);
 }
 
@@ -4535,15 +4545,9 @@ function buildRecentPlacements(record, wins, referenceMs, markReferenceRecord = 
   }
   const grid = document.createElement('div');
   grid.className = 'recent-placements-grid';
-  let previousGroup;
   for (const row of rows) {
     const line = document.createElement('div');
     line.className = 'rank-row recent-row-ranked';
-    const group = row.summaryOrder[0];
-    if (previousGroup !== undefined && group !== previousGroup) {
-      line.classList.add('recent-family-start');
-    }
-    previousGroup = group;
     applyRankHighlight(line, row.ranks[0], row.total);
     if (row.currentRank !== undefined) {
       line.classList.add('recent-row-current');
@@ -5928,7 +5932,7 @@ function renderRanks(record, modeRecords, options = {}, sections) {
       sections.append('tables', buildRankList(
         column.label,
         inWindow.length, selectedIndex(inWindow), 'rank-grid',
-        timeAgeRow(inWindow)));
+        timeAgeRow(inWindow), column.help));
     }
   }
 

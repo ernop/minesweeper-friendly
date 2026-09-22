@@ -755,7 +755,12 @@ Implementation notes:
   PRESENTATION MODEL" and "DISPLAY" markers defines semantic phase and chart
   section order for post-game and score contexts. `createResultSectionCollector`
   collects computed nodes and emits only nonempty sections in that order;
-  each `.result-chart-section-items` wraps internally. The invariant is
+  each `.result-chart-section-items` wraps internally. The upper table
+  collection uses a CSS flow root: ranks won floats left and other tables
+  are inline blocks, wrapping alongside its remaining height and then below.
+  The flow root contains the summary so later sections cannot overlap it;
+  negative bottom margin offsets the table spacing at the section boundary.
+  The invariant is
   tables (placements, time/category tables, all streak variants in one list)
   → boardTables ("This board") → average-time scatters → relationship scatters: every row-based display,
   including day-category rankings and all streak variants, precedes every
@@ -763,7 +768,12 @@ Implementation notes:
   `tests/result-presentation-test.js` checks this in both result contexts.
 - Rank list machinery: `rankWindows` (time windows with independent
   `displayOrder` and `dedupePriority`),
-  `rankColumns` (adds day categories, `isHoliday`),
+  `rankColumns` (adds weekday/weekend/holiday and day-of-month categories),
+  `month-date` matches `new Date(record.endedAt).getDate()` to the reference
+  date (1–31), labels it with `ordinal`, and exposes all-months help through
+  `buildRankList`. It has display order 140, duplicate priority 4.5 (before
+  weekday 5), lifetime membership, and no newly stored measurement.
+  The other helpers are
   `windowBounds` (11-row windowing), `buildRankList` (shared renderer,
   always the full window), `relativeAge` / `formatAgeCount` + `.age-u-*`
   classes (age display and unit colors, shared with the scatter legend;
@@ -815,8 +825,9 @@ Implementation notes:
   Time/day use their full-table display order; board values ascend numerically.
   Pool size and rank never reorder rows. `BOARD_METRIC_TABLES.summaryGroup`
   and `boardShapeCandidates.summaryOrder` own board-family metadata; no
-  display-label parsing. `.recent-family-start` adds a 4px gap at a group
-  boundary. The exact current record's ordinal carries `.recent-current-rank`. `rankStanding(rank, total)` owns
+  display-label parsing. Rows stay contiguous across family boundaries, with
+  no added gap. The exact current record's ordinal carries `.recent-current-rank`.
+  `rankStanding(rank, total)` owns
   percentage labels, tint bands, and independent podium places;
   `applyRankHighlight` attaches the shared CSS metadata. `buildRankList`
   uses it on `.me`, with a rank/pool/percentage footer even for short lists;
@@ -836,9 +847,12 @@ Implementation notes:
   fixtures. It checks podium colors, percentage bands, compact-summary marking,
   low/last/only-result states, history without a selection, and 1680/1216/650px
   table layout, plus a long-session fixture with unequal pool sizes,
-  contiguous numeric families, separators and preserved current-rank marking.
-  The pure boundaries, rounding, and stable category ordering under pool
-  growth and history reversal live in recent-placements-test.
+  contiguous numeric families and preserved current-rank marking. It checks
+  gap-free summary rows, multiple table rows flowing beside the summary,
+  non-overlapping later sections, and day-of-month heading help.
+  The pure boundaries, rounding, stable category ordering under pool growth
+  and history reversal, all 31 month dates, cross-month/year membership,
+  leap day and local midnight live in recent-placements-test.
   It also exercises real `renderRanks` with a poor overall result at the
   median of its exact ZiNi/maximum-clue cohorts.
 - Rigorous board-metric research: `reference/board-metric-definitions.md`

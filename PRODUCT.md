@@ -833,10 +833,12 @@ before visual correlation charts gives the page a stable transition from exact
 records to graphical analysis.
 
 The upper table collection and This board each own a full-width region and
-wrap internally. Period ranks and streak tables can share a row; board
-comparisons begin their own section. Point-chart families follow in their own
-sections. Responsive wrapping cannot mix tables with point charts. DOM order
-and visual order are the same.
+wrap internally. In the upper collection, ranks won floats at the left;
+successive rows of period/day/streak tables flow alongside its remaining
+height, then use the full width underneath. Narrow layouts wrap below it
+when there is insufficient horizontal room. The section contains the float,
+so This board and later chart sections begin below all upper tables. DOM
+order is preserved, and table flow cannot mix tables with point charts.
 
 The score viewer deliberately omits post-game action analysis and motion
 diagnostics. Its reference record is explicitly the latest win: its compact
@@ -1238,7 +1240,14 @@ carries at least one tag.
   5 min / 1 min (rolling).
 - Day categories: "on <weekday>s" (today's weekday), "on weekends" or "on
   weekdays" (whichever today is), "on holidays" (US federal, only when
-  today is one).
+  today is one), and "on the Nth" for the reference day of the month.
+  The latter supports every date 1–31: e.g. "on the 21st" compares wins
+  finished on the 21st of any month, across all years, using local finish
+  dates. It follows the same reference-date, mode/generator, duplicate-
+  collapsing, and time-table display rules as the other day categories.
+  A heading tooltip explains the all-months membership. Both its full table
+  and qualifying ranks-won entry derive from existing timestamps; no saved
+  field or backfill is needed.
 - Progressive disclosure: when several lists would contain the exact same
   set of scores, only the lowest `dedupePriority` renders (narrow windows,
   then day categories, then broad windows). Exception
@@ -1365,7 +1374,7 @@ carries at least one tag.
 - Category scope (revised 2026-09-21): retain the current board size/mine
   count, play mode, and generator with its parameters. Retain the reference
   date's day categories (this weekday, weekend/weekday, holidays when today
-  is one). Within that scope, every exact 3BV, ZiNi, HZiNi, maximum clue,
+  is one, and the day of the month). Within that scope, every exact 3BV, ZiNi, HZiNi, maximum clue,
   0–1 share, zero-opening coverage, 3BV-spread band, and measured board-shape
   category represented by a win in the selected period
   competes: has 8 / has 7 /
@@ -1406,8 +1415,8 @@ carries at least one tag.
   coverage. Board values within each family ascend numerically, including
   fractional spread groups. Comparison-pool sizes and earned ranks never
   reorder the categories. Duplicate collapsing and top-tenth eligibility
-  still determine which rows exist. Small white gaps separate families
-  without extra heading rows. Full-table order stays unchanged.
+  still determine which rows exist. Rows remain contiguous across families,
+  without white gaps or extra heading rows. Full-table order stays unchanged.
   Current and earlier achievements share the same tint and podium treatment;
   only the current game gets the blue edge and “this” (see Rank highlights).
 - Gated by shownThings.recentPlacements (on by default).

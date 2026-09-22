@@ -2204,8 +2204,23 @@ body.settings-page .return-to-game {
   gap: 18px;
 }
 
-/* Period/streak tables and the separate board comparisons align to the left. */
-.result-chart-section-tables > .result-chart-section-items,
+/* Float the tall summary so successive rows of time/streak tables can use
+   the space beside it, then continue at full width underneath. */
+.result-chart-section-tables > .result-chart-section-items {
+  display: flow-root;
+  text-align: left;
+  font-size: 0;
+  margin-bottom: -18px;
+}
+.result-chart-section-tables > .result-chart-section-items > .rank-list {
+  display: inline-block;
+  vertical-align: top;
+  margin: 0 18px 18px 0;
+}
+.result-chart-section-tables > .result-chart-section-items > .recent-placements {
+  float: left;
+}
+
 .result-chart-section-boardTables > .result-chart-section-items { justify-content: flex-start; }
 
 .result-chart-section-boardTables > .result-chart-section-title {
@@ -2525,8 +2540,6 @@ body.settings-page .return-to-game {
   grid-template-columns: repeat(4, auto);
 }
 
-/* Separate stable category blocks without repeating their names as headings. */
-.recent-placements-grid .recent-family-start > span { border-top: 4px solid #ffffff; }
 .recent-placements-grid .recent-window-cell { text-align: right; }
 .recent-placements-grid .recent-ranks-cell { max-width: 28ch; white-space: normal; }
 

@@ -214,8 +214,6 @@ const { chromium } = require(process.argv[2]);
       const rows = [...resultRanks.querySelectorAll('.recent-placements .rank-row')];
       return {
         labels: rows.map((row) => row.querySelector('.recent-window-cell').textContent),
-        familyStarts: rows.filter((row) => row.classList.contains('recent-family-start'))
-          .map((row) => row.querySelector('.recent-window-cell').textContent),
         current: rows.find((row) => row.querySelector('.recent-window-cell').textContent === '3BV 74')
           .querySelector('.recent-current-rank').textContent,
       };
@@ -233,20 +231,43 @@ const { chromium } = require(process.argv[2]);
       const start = longSession.labels.indexOf(family[0]);
       assert(start >= 0, 'missing family ' + family[0]);
       assert.deepEqual(longSession.labels.slice(start, start + family.length), family);
-      assert(longSession.familyStarts.includes(family[0]), 'missing family separator: ' + family[0]);
-      assert(family.slice(1).every((label) => !longSession.familyStarts.includes(label)));
     }
     assert.equal(longSession.labels[0], 'lifetime');
     assert.equal(longSession.current, '1st this');
+    const dateHelp = page.getByRole('button', { name: 'About on the 21st', exact: true });
+    await dateHelp.hover();
+    assert((await page.locator('.chart-help-tip').innerText()).includes('day of any month, across all years'));
+    await page.mouse.move(0, 0);
     for (const width of [1680, 650]) {
       await page.setViewportSize({ width, height: 1100 });
       assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll('.rank-list')]
         .filter((list) => list.scrollWidth > list.clientWidth + 1)
         .map((list) => list.querySelector('h4').textContent)), [], width + 'px long-session overflow');
+      const flow = await page.evaluate(() => {
+        const items = resultRanks.querySelector('.result-chart-section-tables .result-chart-section-items');
+        const bounds = (el) => { const r = el.getBoundingClientRect();
+          return { top: r.top, bottom: r.bottom, left: r.left, right: r.right }; };
+        const summary = bounds(items.querySelector('.recent-placements'));
+        const tables = [...items.children].filter((el) => !el.classList.contains('recent-placements')).map(bounds);
+        const rows = [...items.querySelectorAll('.recent-window-cell')].map(bounds);
+        return { summary, tables, rows, nextSection: bounds(resultRanks.querySelector('.result-chart-section-boardTables')) };
+      });
+      for (let i = 1; i < flow.rows.length; i++) {
+        assert(Math.abs(flow.rows[i].top - flow.rows[i - 1].bottom) < 1, 'gap between summary rows');
+      }
+      assert(flow.tables.some((r) => r.left >= flow.summary.right
+        && r.top > flow.summary.top + 40 && r.bottom <= flow.summary.bottom),
+        width + 'px: later table rows should use the space beside the summary');
+      for (const table of flow.tables) {
+        assert(table.top >= flow.summary.bottom || table.left >= flow.summary.right,
+          'table overlaps summary');
+      }
+      assert(flow.nextSection.top >= Math.max(flow.summary.bottom, ...flow.tables.map((r) => r.bottom)),
+        'next section overlaps flowing tables');
       await page.screenshot({ path: '/tmp/ranks-won-ordered-' + width + '.png', fullPage: true });
     }
     assert.deepEqual(errors, []);
-    console.log('Rank highlights: podium, percentage bands, full/compact tables, low/last/only results, history view, conditional board comparisons, stable numeric family ordering for long sessions, and three viewport widths passed.');
+    console.log('Rank highlights: podium, percentage bands, full/compact tables, low/last/only results, history view, conditional board comparisons, stable numeric family ordering, contiguous summary rows, surrounding table flow, day-of-month headings, and three viewport widths passed.');
   } finally {
     await browser.close();
   }

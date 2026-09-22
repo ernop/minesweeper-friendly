@@ -546,10 +546,44 @@ for (const [spread, expected] of [[0, 0], [0.24999999999, 0], [0.25, 0.5],
       ...shapes[2], ...win(now - (84 + i * 7) * DAY - 500, 30000 + i),
     }))], collapse);
     assertEq('growing another comparison pool does not move categories, collapse=' + collapse,
-      grown.map((r) => r.label).join('|'), normal.map((r) => r.label).join('|'));
+      grown.filter((r) => normal.some((before) => before.label === r.label)).map((r) => r.label).join('|'),
+      normal.filter((r) => grown.some((after) => after.label === r.label)).map((r) => r.label).join('|'));
     assertEq('current record keeps its placement after sorting, collapse=' + collapse,
       normal.find((r) => r.label === '3BV 74').currentRank, 1);
   }
+}
+
+// Day-of-month comparisons apply to every date, across months and years,
+// using local finish dates. They are lifetime membership charts, not windows.
+for (let day = 1; day <= 31; day++) {
+  const at = (year, month, date, hour = 12) => new Date(year, month, date, hour).getTime();
+  const reference = at(2026, 0, day);
+  const column = rankColumns(reference).find((c) => c.id === 'month-date');
+  assertEq('day-of-month label ' + day, column.label, 'on the ' + ordinal(day));
+  assertEq('date category has lifetime membership ' + day, column.startMs, undefined);
+  for (const [year, month] of [[2024, 11], [2025, 2], [2026, 0]]) {
+    assertEq('same date across month/year ' + [year, month, day].join('/'),
+      column.filter(win(at(year, month, day), 10000)), true);
+  }
+  const midnight = at(2026, 0, day, 0);
+  assertEq('previous local date excluded ' + day, column.filter(win(midnight - 1, 9000)), false);
+  assertEq('local midnight included ' + day, column.filter(win(midnight, 9000)), true);
+  assertEq('different local date excluded ' + day,
+    column.filter(win(at(2026, 0, day === 31 ? 1 : day + 1), 9000)), false);
+}
+{
+  const now = new Date(2024, 1, 29, 12).getTime();
+  const column = rankColumns(now).find((c) => c.id === 'month-date');
+  const previous = Array.from({ length: 20 }, (_, i) =>
+    win(new Date(2023, 0, 29, 12, i).getTime(), 20000 + i));
+  const current = win(now, 10000);
+  const otherDate = win(new Date(2024, 1, 28, 12).getTime(), 1000);
+  assertEq('leap-day label is the 29th', column.label, 'on the 29th');
+  const row = recentPlacementsSummary(
+    recentPlacementCandidates([...previous, otherDate, current], now, now - HOUR, false),
+    now - HOUR, current).find((r) => r.label === 'on the 29th');
+  assertEq('day-of-month summary compares all earlier months', row.total, 21);
+  assertEq('day-of-month summary preserves current placement', row.currentRank, 1);
 }
 
 console.log(`recent-placements: all ${checks} checks passed`);
