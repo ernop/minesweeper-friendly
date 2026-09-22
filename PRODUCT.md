@@ -1341,8 +1341,15 @@ carries at least one tag.
   muted brown. Last place has a distinct brown tint and double underline
   on the rank number. Text remains black, bold, and fully readable at all
   standings; poor results are never hidden or faded to illegibility.
+- In an odd-sized pool with more than one result, the exact middle rank
+  (`2 * rank = N + 1`) says **Middle place** with the neutral cool-gray tint.
+  It has equally many results ahead and behind: #2 of 3, #3 of 5, #51 of 101.
+  It retains its absolute podium color where applicable. Including the middle
+  result in the lower tail formerly produced labels such as “Bottom 67%”;
+  the explicit middle label replaces those labels without changing rank.
 - Percentage text names the upper tail when rank/list size is at most
-  one half, otherwise the inclusive lower tail: (N - rank + 1)/N. Round
+  one half, otherwise the inclusive lower tail: (N - rank + 1)/N, apart from
+  the exact middle and only/last-result labels above. Round
   outward to the next whole percent, or next tenth of a percent below 1%.
   Examples: #1 of 91 is Top 2%; #32 of 1,080 is Top 3%; #155 of 287 is
   Bottom 47%. Last place says “Last place”. The numeric pool size always

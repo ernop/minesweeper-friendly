@@ -21,6 +21,7 @@ const { chromium } = require(process.argv[2]);
         ['first', 1, 91], ['second', 2, 1000], ['third', 3, 1000],
         ['top1', 10, 1000], ['top2', 20, 1000], ['lifetime', 32, 1080],
         ['top10', 100, 1000], ['top25', 250, 1000], ['middle', 500, 1000],
+        ['3BV 42', 2, 3],
         ['near-streak', 155, 287], ['bottom10', 901, 1000],
         ['last', 1000, 1000], ['only', 1, 1], ['history', 0, 1000],
       ];
@@ -88,6 +89,12 @@ const { chromium } = require(process.argv[2]);
     assert.notEqual(records.first.rankColor, records.first.timeColor);
     assert.notEqual(records.top1.timeColor, records.top2.timeColor);
     assert.equal(records.lifetime.footer, '#32 of 1,080Top 3%');
+    assert.equal(records['3BV 42'].footer, '#2 of 3Middle place');
+    assert.equal(records['3BV 42'].band, 'middle');
+    assert.equal(records['3BV 42'].podium, '2');
+    assert.equal(records['3BV 42'].rankColor, records.second.rankColor);
+    assert.equal(records['3BV 42'].timeColor, records.middle.timeColor);
+    await page.locator('[data-example="3BV 42"]').screenshot({ path: '/tmp/rank-middle-place.png' });
     assert.equal(records['near-streak'].footer, '#155 of 287Bottom 47%');
     assert.equal(records.last.footer, '#1000 of 1,000Last place');
     assert.equal(records.last.underline, 'double');

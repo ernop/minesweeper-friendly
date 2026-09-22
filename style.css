@@ -2729,6 +2729,7 @@ body.settings-page .return-to-game {
 .rank-highlight[data-rank-band="top10"] { --rank-tone: #cae5dc; }
 .rank-highlight[data-rank-band="top25"] { --rank-tone: #d5e2e9; }
 .rank-highlight[data-rank-band="top50"],
+.rank-highlight[data-rank-band="middle"],
 .rank-highlight[data-rank-band="only"] { --rank-tone: #e0e4e7; }
 .rank-highlight[data-rank-band="lower50"] { --rank-tone: #e6ded4; }
 .rank-highlight[data-rank-band="bottom10"] { --rank-tone: #d7c9b9; }

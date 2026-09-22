@@ -47,6 +47,16 @@ assertEq('run then single', formatRankRuns([2, 3, 4, 7]), '2\u20134th, 7th');
 // summary, including inclusive lower-tail counts and exact band boundaries.
 for (const [rank, total, band, podium, label] of [
   [1, 1, 'only', 0, 'Only result'],
+  [1, 2, 'top50', 1, 'Top 50%'],
+  [2, 2, 'last', 2, 'Last place'],
+  [1, 3, 'top50', 1, 'Top 34%'],
+  [2, 3, 'middle', 2, 'Middle place'],
+  [3, 3, 'last', 3, 'Last place'],
+  [2, 5, 'top50', 2, 'Top 40%'],
+  [3, 5, 'middle', 3, 'Middle place'],
+  [4, 5, 'lower50', 0, 'Bottom 40%'],
+  [4, 7, 'middle', 0, 'Middle place'],
+  [51, 101, 'middle', 0, 'Middle place'],
   [1, 9, 'top25', 1, 'Top 12%'],
   [1, 91, 'top2', 1, 'Top 2%'],
   [2, 1000, 'top1', 2, 'Top 0.2%'],
@@ -76,6 +86,9 @@ for (const [rank, total, band, podium, label] of [
   assertEq(rank + '/' + total + ' podium', standing.podium, podium);
   assertEq(rank + '/' + total + ' percentage label', standing.label, label);
 }
+
+assertEq('middle placement wording is shared by the recent summary',
+  recentPlacementStanding([2], 3), 'Middle place');
 
 {
   const ranks = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 20, 21];

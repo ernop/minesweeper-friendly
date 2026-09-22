@@ -836,7 +836,10 @@ Implementation notes:
   and at the current ordinal, whose `.recent-current-rank` adds a blue edge
   and “this”. `.recent-row-ranked` takes the best reported rank's tint;
   `recentPlacementStanding` gives the fourth cell's percentage/range.
-  One-result lists are neutral; last place stays visible. These highlight
+  One-result lists are neutral; last place stays visible. An odd pool's exact
+  middle (`2 * rank === total + 1`, after only/last checks) has band `middle`,
+  neutral tint, and label “Middle place”; its podium color remains independent.
+  This avoids “Bottom 67%” for #2 of 3. These highlight
   rules (2026-09-21) do not change ranking or summary qualification.
   `node tests/recent-placements-test.js` freezes the formatting and
   summary rules; `node tests/result-presentation-test.js` freezes the

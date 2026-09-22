@@ -4310,6 +4310,9 @@ function rankStanding(rank, total) {
   if (total === 1) return { band: 'only', podium: 0, label: 'Only result' };
   const podium = rank <= 3 ? rank : 0;
   if (rank === total) return { band: 'last', podium, label: 'Last place' };
+  // An odd pool's center has equal numbers ahead and behind. Including it
+  // in either tail makes that tail exceed half, e.g. "Bottom 67%" for #2/3.
+  if (rank * 2 === total + 1) return { band: 'middle', podium, label: 'Middle place' };
   const thresholds = [[1, 'top1'], [2, 'top2'], [5, 'top5'], [10, 'top10'],
     [25, 'top25'], [50, 'top50'], [90, 'lower50'], [100, 'bottom10']];
   const [, band] = thresholds.find(([percent]) => rank * 100 <= total * percent);
