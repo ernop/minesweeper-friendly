@@ -775,7 +775,7 @@ Implementation notes:
   `board-shape.js` (`BoardShape.of`) at `reportResult`.
   `node tests/board-shape-test.js` freezes the neighborhood and island
   rules.
-  `EXACT_BOARD_TABLES` / `exactBoardCandidates` define the independent
+  `BOARD_METRIC_TABLES` / `boardMetricCandidates` define the independent
   same-3BV, same-greedy-ZiNi, and exact-maximum-clue time comparisons.
   They share category discovery between full tables and the summary, skip
   unmeasured values, retain all full-table standings, and keep their names
@@ -795,8 +795,8 @@ Implementation notes:
   re-renders `renderedResult`; `buildRecentPlacements(record, wins,
   referenceMs, markReferenceRecord)` uses `recentPlacementCandidates` —
   `rankColumns` retains the reference date's day categories; window columns
-  carry startMs. Every recent win contributes its exact 3BV, ZiNi,
-  maximum-clue, and board-shape families through `exactBoardCandidates`
+  carry startMs. Every recent win contributes its exact 3BV, ZiNi, HZiNi,
+  maximum-clue, rounded fraction/spread, and board-shape families through `boardMetricCandidates`
   and `boardShapeCandidates(recentWins, wins)`.
   Each category still ranks against the full supplied mode history. Grouping
   scans once per exact-value field; shape IDs contain their value. The summary
@@ -842,12 +842,20 @@ Implementation notes:
   and zero-opening coverage, and uses `zini.js` for Human ZiNi. The existing
   `hzini` field remains its sole primary value. `boardMetrics` stores versioned
   `workSpread`, `safeCells`, `zeroOneCells`, and `zeroOpenedCells`; fraction
-  values are derived. Four cards in This board expose definitions through
-  their labels using `chartHelpButton(help, label)`. HZiNi efficiency is
-  win-only performance in Game stats (`hziniEfficiencyOf`), not a board card.
-  HZiNi and unrounded fractions have exact-value time tables; 3BV spread
-  groups into [j/2,(j+1)/2) after nine-decimal boundary rounding. All families
-  share full-table and recent-summary definitions in `EXACT_BOARD_TABLES`.
+  values are derived. This board shows values in tablechart headings only;
+  `buildRankList` accepts optional help and uses `chartHelpButton(help, label)`
+  on those headings. Help contains definitions, precise measurements, and
+  group rules. HZiNi efficiency stays win-only in Game stats
+  (`hziniEfficiencyOf`). HZiNi matches exact integers; `boardShareGroup`
+  rounds both fractions to the nearest whole percentage point using integer
+  counts (halfway up); `boardSpreadGroup` rounds to the nearest 0.5 cell
+  with `Math.round(2 * value) / 2`. There is no preliminary decimal rounding.
+  Recorded measurements stay unchanged. Full tables and recent summaries
+  share these groups through `BOARD_METRIC_TABLES` / `boardMetricCandidates`.
+  `buildBoardMetricStatus` replaces the cards with calculation/error status
+  and backfill progress; saved display key `boardMetricFacts` now controls
+  only backfill progress. Status/error messages remain visible independently.
+  First losses still render the measured table headings with empty win pools.
   Retired research fields remain stored but are not used by the display.
   `board-metrics-worker.js` performs calculations; `board-metrics-ui.js`
   serializes captured-record jobs and optional saved-win backfill from final

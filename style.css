@@ -2214,17 +2214,15 @@ body.settings-page .return-to-game {
   margin-right: 0;
 }
 
-.board-metric-facts {
+.board-metric-status {
   flex-basis: 100%;
   display: flex;
   flex-wrap: wrap;
-  gap: 12px 28px;
+  gap: 6px 10px;
   text-align: left;
+  font-size: 12px;
+  color: #526878;
 }
-.board-metric-fact { min-width: 160px; max-width: 360px; min-height: 76px; }
-.board-metric-fact h4 { margin: 0 0 5px; font-size: 13px; }
-.board-metric-value { font-size: 15px; font-weight: bold; color: #314b5c; }
-.board-metric-detail { margin-top: 4px; font-size: 12px; color: #526878; }
 .board-metric-backfill { align-self: flex-start; font-size: 12px; }
 .board-metric-backfill-panel {
   flex-basis: 100%;

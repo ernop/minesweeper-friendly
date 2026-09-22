@@ -23,9 +23,10 @@ Exact families retain their identities when comparison pools coincide.
 
 These exact-value tables use existing saved measurements. Unmeasured
 records are excluded. The follow-up adds HZiNi, 3BV spread, 0–1 share, and
-zero-opening coverage cards with definitions on mouseover/focus. HZiNi
-efficiency is performance in Game stats. The fractions match unrounded values;
-3BV spread uses half-cell time bands. Saved-win backfill has progress,
+zero-opening coverage tablecharts with values in their headings and definitions
+on mouseover/focus. HZiNi efficiency is performance in Game stats. The fractions
+round to the nearest whole percentage point; 3BV spread to the nearest 0.5 cell.
+Halfway ties round up. No separate value cards remain. Saved-win backfill has progress,
 Stop/Resume, and immediate partial results that survive reload. C* bounds and
 the canonical logical simulation were removed from the
 live display in favor of completed workload scalars. The requested globally

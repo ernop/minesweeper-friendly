@@ -3475,10 +3475,8 @@ function renderResult(record, modeRecords, options = {}) {
 
   const resultSections = createResultSectionCollector(
     historyView ? 'scores' : 'postGame');
-  if (settings.shownThings.boardMetricFacts) {
-    const facts = buildBoardMetricFacts(record);
-    if (facts) resultSections.append('boardTables', facts);
-  }
+  const metricStatus = buildBoardMetricStatus(record);
+  if (metricStatus) resultSections.append('boardTables', metricStatus);
   resultRanks.classList.toggle(
     'sectioned-results',
     !Trial.isPlayMode(settings.playMode) || historyView);
@@ -3490,7 +3488,7 @@ function renderResult(record, modeRecords, options = {}) {
   } else {
     resultRanks.textContent = '';
     const latestWin = modeRecords.findLast((game) => game.outcome === 'win');
-    if (latestWin) renderRanks(latestWin, modeRecords,
+    renderRanks(latestWin || record, modeRecords,
       { ...options, historyView: true, boardRecord: record }, resultSections);
   }
   // The after-game motion charts, jammed inline after whatever other
@@ -4137,37 +4135,69 @@ function boardFractionOf(record, field) {
     ? m[field] / m.safeCells : undefined;
 }
 
-// Three percentage decimals distinguish every possible numerator in one mode
-// (boards have at most 100,000 cells). Cohorts use the unrounded ratio.
 function formatBoardShare(fraction) {
   return Number((100 * fraction).toFixed(3)) + '%';
 }
 
-// Equal values match one board characteristic, not every source of difficulty.
-// Keep each benchmark identifiable even when its current member set coincides
-// with another benchmark's, as the same-3BV table has always done.
-const EXACT_BOARD_TABLES = [
+function boardShareGroup(record, field) {
+  if (boardFractionOf(record, field) === undefined) return undefined;
+  const m = record.boardMetrics;
+  // Integer arithmetic makes exact half-percentage ties round upward even
+  // when the corresponding floating-point ratio lies just below its tie.
+  return Math.floor((200 * m[field] + m.safeCells) / (2 * m.safeCells));
+}
+
+function boardSpreadGroup(record) {
+  const m = record.boardMetrics;
+  return m?.version === 1 && Number.isFinite(m.workSpread)
+    ? Math.round(2 * m.workSpread) / 2 : undefined;
+}
+
+function boardShareHelp(record, field, definition) {
+  const m = record.boardMetrics;
+  return [definition,
+    'This board: ' + m[field] + ' of ' + m.safeCells + ' safe cells ('
+      + formatBoardShare(boardFractionOf(record, field)) + ').',
+    'Times compare boards rounded to the nearest whole percentage point. Exact halfway values round up: 71.5% through below 72.5% belongs to 72%. The stored counts keep their full precision.',
+  ];
+}
+
+// Shared by full tables and recent achievements, including every qualifying
+// earlier group. Matching one feature does not imply equal overall difficulty.
+const BOARD_METRIC_TABLES = [
   { field: 'bv3', label: '3BV', setting: 'exact3BV', priority: 13 },
   { field: 'zini', label: 'ZiNi', setting: 'exactZiNi', priority: 14 },
   { field: 'maxAdjacent', label: 'max number', setting: 'exactMaxNumber', priority: 15 },
-  { field: 'hzini', label: 'HZiNi', setting: 'exactHZiNi', priority: 16 },
-  { field: (win) => {
-    const m = win.boardMetrics;
-    return m?.version === 1 && Number.isFinite(m.workSpread)
-      ? Math.floor(Number(m.workSpread.toFixed(9)) * 2) : undefined;
-  }, labelOf: (bin) => '3BV spread ' + (bin / 2).toFixed(1) + '–<' + ((bin + 1) / 2).toFixed(1) + ' cells',
-  setting: 'workSpreadTable', priority: 17 },
-  { field: (win) => boardFractionOf(win, 'zeroOneCells'),
-    labelOf: (value) => '0–1 share ' + formatBoardShare(value), setting: 'zeroOneShareTable', priority: 18 },
-  { field: (win) => boardFractionOf(win, 'zeroOpenedCells'),
-    labelOf: (value) => 'zero-opening coverage ' + formatBoardShare(value), setting: 'zeroOpeningTable', priority: 19 },
+  { field: 'hzini', label: 'HZiNi', setting: 'exactHZiNi', priority: 16,
+    help: () => [
+      'Human ZiNi is the action count of a fixed opening-first solve with full board knowledge. The same oriented board always gives the same integer.',
+      'Open each zero region once. Then choose the revealed clue with the greatest nonnegative saving: covered safe neighbors minus unflagged mine neighbors minus one chord. Flag its missing mines and chord it. If none qualifies, reveal the next safe cell. Ties and direct reveals scan down columns, left to right.',
+      'Each reveal, flag placement, and chord counts once. This measures that procedure, rather than the global minimum over all possible procedures. Times compare boards with exactly the same HZiNi count.',
+    ] },
+  { field: boardSpreadGroup,
+    labelOf: (value) => '3BV spread ' + value.toFixed(1) + ' cells',
+    setting: 'workSpreadTable', priority: 17,
+    help: (record) => [
+      'How spread out the board’s 3BV work is, measured in cell widths. Larger values mean the work points are more widely spread.',
+      'Each zero region contributes one point at the mean position of its zero squares. Each safe square outside all zero openings contributes its own center. All points have equal weight. The value is the root-mean-square distance of these points from their mean position.',
+      'This board: ' + record.boardMetrics.workSpread.toFixed(3) + ' cells. Times compare boards rounded to the nearest 0.5 cell. Exact halfway values round up: 2.25 through below 2.75 belongs to 2.5. The stored measurement keeps its full precision.',
+    ] },
+  { field: (win) => boardShareGroup(win, 'zeroOneCells'),
+    labelOf: (value) => '0–1 share ' + value + '%', setting: 'zeroOneShareTable', priority: 18,
+    help: (record) => boardShareHelp(record, 'zeroOneCells',
+      'The fraction of all safe squares whose clue is zero or one. Blank zero squares count; mines do not.') },
+  { field: (win) => boardShareGroup(win, 'zeroOpenedCells'),
+    labelOf: (value) => 'zero-opening coverage ' + value + '%', setting: 'zeroOpeningTable', priority: 19,
+    help: (record) => boardShareHelp(record, 'zeroOpenedCells',
+      'The fraction of all safe squares exposed after opening every zero region, including bordering numbers of any value. Shared borders count once. This stops after automatic flooding, before deductions or chords. With no zeros the coverage is 0%.') },
 ];
 
-function exactBoardCandidates(referenceWins, wins) {
-  return EXACT_BOARD_TABLES.flatMap((spec) =>
+function boardMetricCandidates(referenceWins, wins) {
+  return BOARD_METRIC_TABLES.flatMap((spec) =>
     [...rankValueGroups(referenceWins, wins, spec.field)].map(([value, rows]) => ({
       label: spec.labelOf ? spec.labelOf(value) : spec.label + ' ' + value,
       setting: spec.setting,
+      help: spec.help,
       dedupePriority: spec.priority,
       summaryTiePriority: spec.priority,
       wins: rows,
@@ -4434,7 +4464,7 @@ function recentPlacementCandidates(wins, referenceMs, sourceStartMs, collapseDup
   if (collapseDuplicates) {
     rankCandidates = dedupeRankCandidates(rankCandidates, ['lifetime', 'past week']);
   }
-  const candidates = [...rankCandidates, ...exactBoardCandidates(recentWins, wins)];
+  const candidates = [...rankCandidates, ...boardMetricCandidates(recentWins, wins)];
   let shapeCandidates = boardShapeCandidates(recentWins, wins)
     .map((candidate) => ({ ...candidate, wins: candidate.rows }));
   if (collapseDuplicates) {
@@ -4639,12 +4669,13 @@ const AVERAGE_SCATTER_SPECS = [
 // below, at full opacity, since the placement itself is fresh information.
 // The footer names the selected rank's full comparison pool and percentage,
 // even when the end of a short list is visible.
-function buildRankList(headingText, rowCount, myIndex, gridClass, buildRowCells) {
+function buildRankList(headingText, rowCount, myIndex, gridClass, buildRowCells, help) {
   const list = document.createElement('div');
   list.className = 'rank-list';
   if (headingText !== null) {
     const heading = document.createElement('h4');
-    heading.textContent = headingText;
+    if (help) heading.appendChild(chartHelpButton(help, headingText));
+    else heading.textContent = headingText;
     list.appendChild(heading);
   }
   const grid = document.createElement('div');
@@ -5905,13 +5936,13 @@ function renderRanks(record, modeRecords, options = {}, sections) {
 
   // Full tables retain all standings, including ordinary and poor results.
   // Only the recent-achievements summary applies a top-tenth cutoff.
-  for (const candidate of exactBoardCandidates([boardRecord], wins)) {
+  for (const candidate of boardMetricCandidates([boardRecord], wins)) {
     if (!settings.shownThings[candidate.setting]) continue;
     const matching = candidate.wins.slice().sort(compareRankedWins);
     sections.append('boardTables', buildRankList(
       candidate.label,
       matching.length, selectedIndex(matching), 'rank-grid',
-      timeAgeRow(matching)));
+      timeAgeRow(matching), candidate.help?.(boardRecord)));
   }
 
   // Board-shape time lists: this win's finished-board family only.

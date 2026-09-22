@@ -664,11 +664,13 @@ report.
   has-7/8, maximum-clue caps, zero-count, mine-island count, and enabled
   largest-island tablecharts. Each table keeps its own identifying label.
   Both sections precede averages, relationships, and motion diagnostics.
-  This board starts with HZiNi, 3BV spread, 0–1 share, and zero-opening
-  coverage measurement cards, followed by their time tables. The labels expose
-  mouseover/focus definitions without moving the layout. After a loss these cards and board
-  comparison families describe the lost board; the upper period/streak
-  tables still retain the latest win history without marking the loss.
+  HZiNi, 3BV spread, 0–1 share, and zero-opening coverage values appear in
+  their tablechart headings; there are no separate value cards. Heading
+  mouseovers/focus expose definitions, more precise values, and grouping
+  rules without moving the layout. Backfill progress stays above the tables.
+  After a loss these comparison families describe the lost board, including
+  when no wins exist yet; the upper period/streak tables retain the latest
+  win history without marking the loss.
 - The scrollbar gutter is reserved so page growth cannot move the board.
   Stats and legend height affect only their own scroll column. Only board
   Justice callouts reserve any overhang before the following content.
@@ -926,17 +928,24 @@ comparison tables.
 - **3BV spread:** the root-mean-square distance from the mean of the 3BV
   work points, in cell spacings. Each independent safe cell contributes one
   point; each zero component contributes its zero-cell centroid with weight
-  one. Store the unrounded value, display three decimals, and group after
-  rounding to nine decimals into fixed 0.5-cell intervals. These are comparison
-  bins, not bounds on the measurement.
+  one. Store the unrounded value; time comparisons round to the nearest
+  0.5 cell, with exact halfway values upward (`round(2 * value) / 2`). The
+  heading gives the group, e.g. `3BV spread 2.5 cells`; its mouseover gives
+  the underlying measurement to three decimals and the definition. A 2.5-cell
+  group covers [2.25, 2.75); the zero group is clipped at zero.
 - **0–1 share:** safe cells with clue zero or one divided by all safe cells.
 - **zero-opening coverage:** the union of every zero flood, including all
   numbered borders counted once, divided by all safe cells. Stop after
   flooding, before deductions or chords. No zeros means coverage 0%.
-  Both fractions display up to three percentage decimals plus their exact
-  numerator and safe-cell denominator. Their time tables match the unrounded
-  fraction; missing and unsupported measurements are excluded. These are
-  board fractions, distinct from rank percentiles.
+  Both time tables group by the nearest whole percentage point, halfway
+  upward. Compute `floor((200 * numerator + denominator) / (2 * denominator))`
+  from integer counts to avoid binary-ratio tie errors. The 72% group covers
+  [71.5%, 72.5%); 0% and 100% clip to the valid range. Table headings show
+  the group; their mouseovers retain exact numerator/denominator, a percentage
+  to three decimals, and the definition. Stored counts retain full precision.
+  Missing and unsupported measurements stay excluded. These are board
+  fractions, distinct from rank percentiles. Both full tables and recent
+  achievements use these same rounded groups.
 
 The [full definitions](reference/board-metric-definitions.md#9-fixed-opening-first-benchmark-and-exact-opening-first-minimum)
 specify the fixed HZiNi procedure and distinguish the requested globally
@@ -963,7 +972,10 @@ missing measurements, including after a reload. Each completed record is saved
 separately and immediately joins its comparison tables; no whole-batch completion
 is required. Progress is derived from recorded measurements, not a saved cursor.
 Unavailable/error checks are session-local and may be attempted again after reload.
-Counts cover supported full-board wins in the current score key.
+Counts cover supported full-board wins in the current score key. The
+`board backfill progress` display switch controls this panel (saved key
+`boardMetricFacts`). Calculation/unavailable/error status remains visible
+independently; the retired standalone value cards have no display switch.
 
 Cadence spread (added 2026-08-30, the chosen per-game cadence-consistency
 measure) is stored as `cadenceSpread` on wins and losses alike: the
@@ -1246,8 +1258,9 @@ carries at least one tag.
   benchmark; HZiNi uses the opening-first benchmark. Neither is a proven
   minimum. Missing measurements create no table and do not enter a comparison pool; drill records still
   omit ZiNi and HZiNi. Each table has an independent display switch, on by default.
-  The 0–1 share and zero-opening coverage tables match unrounded fractions;
-  3BV-spread tables use fixed half-cell bands. All three have default-on
+  The 0–1 share and zero-opening coverage tables match values rounded to the
+  nearest whole percentage point; 3BV spread uses the nearest 0.5 cell.
+  All halfway ties round up. All three have default-on
   independent display switches and omit missing measurements.
   Like the original same-3BV table, these comparisons retain their
   names even when their member sets coincide with another table's.
@@ -1365,7 +1378,7 @@ carries at least one tag.
   selection. The neighboring full tablecharts still use that win's exact
   measurements and shape. The summary ignores individual tablechart display
   switches, and shares its category definitions with the tablecharts
-  (`exactBoardCandidates`, `boardShapeCandidates`, `rankColumns`).
+  (`boardMetricCandidates`, `boardShapeCandidates`, `rankColumns`).
   Unmeasured fields remain excluded. Exact-value and 3BV-spread comparisons
   remain independent of duplicate collapsing in the other families.
 - The same `collapseDuplicateCharts` rule applies before the summary is

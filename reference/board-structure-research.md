@@ -8,7 +8,7 @@ discovered mathematics or established Minesweeper terminology.
 ## Current status
 
 - **Implemented:** 3BV spread, Human ZiNi, 0–1 share, and zero-opening
-  coverage cards and matching time tables in This board. HZiNi efficiency
+  coverage time tables in This board, with values in their headings. HZiNi efficiency
   is separately shown in Game stats. HZiNi itself was already measured;
   adding its table did not invent a new board property. Existing 3BV,
   zeros, clues and mine islands remain. Saved-win backfill shows progress
@@ -270,9 +270,11 @@ review were declined for the current UI; their calculators remain research.
 
 Board fractions stay visually and verbally separate from time-rank percentiles.
 A board can have 80% opening coverage and a 50th-percentile solve; these answer
-different questions. Within a score key, safe-cell count is constant. Matching
-unrounded fractions therefore gives exact numerator matching. The existing
-period-summary policy applies, and full tables retain ordinary/poor standings
+different questions. The fractions' time comparisons now round to the nearest
+whole percentage point, halfway up, while recorded counts remain exact.
+3BV spread rounds to the nearest 0.5 cell. Definitions and more precise
+measurements appear on heading mouseovers; standalone cards are removed.
+The same grouping and period-summary policy applies, and full tables retain ordinary/poor standings
 and sample size. Missing fields never enter a comparison pool. Backfill from
 saved final layouts persists each completed record and immediately enables its
 comparisons, with progress and Stop/Resume controls across reloads.

@@ -22,10 +22,12 @@ const { chromium } = require(process.argv[2]);
         metrics: record.boardMetrics, count: history[modeKey()].length,
         values: [...resultRanks.querySelectorAll('.board-metric-value')].map((el) => el.textContent) };
     });
-    assert.equal(saved.values.length, 4);
-    assert(saved.values[0].includes('clicks'));
-    assert(saved.values[1].includes('cells'));
-    assert(saved.values[2].includes('%') && saved.values[3].includes('%'));
+    assert.equal(saved.values.length, 0);
+    // Even a first loss with no previous wins exposes its groups in headings.
+    for (const name of ['HZiNi ', '3BV spread ', '0–1 share ', 'zero-opening coverage ']) {
+      assert(await page.locator('.result-chart-section-boardTables h4').allTextContents()
+        .then((labels) => labels.some((label) => label.startsWith(name))));
+    }
     assert(Number.isSafeInteger(saved.metrics.safeCells));
     assert(Number.isSafeInteger(saved.metrics.zeroOneCells));
     assert(Number.isSafeInteger(saved.metrics.zeroOpenedCells));
@@ -96,7 +98,7 @@ const { chromium } = require(process.argv[2]);
       .evaluate((el) => [el.value, el.max]), [1, 3]);
     assert.deepEqual(await page.evaluate((key) => {
       const wins = history[key].filter((r) => r.outcome === 'win');
-      return exactBoardCandidates([wins[0]], wins)
+      return boardMetricCandidates([wins[0]], wins)
         .filter((table) => ['zeroOneShareTable', 'zeroOpeningTable'].includes(table.setting))
         .map((table) => table.wins.length);
     }, saved.key), [1, 1]);
@@ -168,21 +170,35 @@ const { chromium } = require(process.argv[2]);
     assert(!Object.keys(rendered.tables).some((label) => /minimum clicks|RCW/.test(label)));
     assert(!rendered.controls.some((label) => /Refine|RCW/.test(label)));
     assert.equal(rendered.efficiency, '75.0%');
-    assert.deepEqual(rendered.details, ['8 of 8 safe cells', '0 of 8 safe cells']);
-    assert.deepEqual(rendered.labels, ['HZiNi', '3BV spread', '0–1 share', 'zero-opening coverage']);
+    assert.deepEqual(rendered.details, []);
+    assert.deepEqual(rendered.labels, []);
     assert.equal(rendered.tables['0–1 share 100%'], '#3 of 3Last place');
     assert.equal(rendered.tables['zero-opening coverage 0%'], '#3 of 3Last place');
-    assert.equal(rendered.tables['3BV spread 1.0–<1.5 cells'], '#3 of 3Last place');
-    assert.deepEqual(rendered.values, ['6 clicks', '1.225 cells', '100%', '0%']);
+    assert.equal(rendered.tables['3BV spread 1.0 cells'], '#2 of 2Last place');
+    assert.deepEqual(rendered.values, []);
     const boardBefore = await page.locator('#board').boundingBox();
-    const spreadHelp = page.getByRole('button', { name: 'About 3BV spread', exact: true });
+    const spreadHelp = page.getByRole('button', { name: 'About 3BV spread 1.0 cells', exact: true });
     await spreadHelp.hover();
-    assert((await page.locator('.chart-help-tip').innerText()).includes('root-mean-square'));
+    const spreadTip = await page.locator('.chart-help-tip').innerText();
+    assert(spreadTip.includes('root-mean-square'));
+    assert(spreadTip.includes('This board: 1.225 cells'));
+    assert(spreadTip.includes('nearest 0.5 cell'));
+    assert(spreadTip.includes('Exact halfway values round up'));
     assert.deepEqual(await page.locator('#board').boundingBox(), boardBefore);
     await page.mouse.move(0, 0);
     await spreadHelp.focus();
     assert.equal(await page.locator('.chart-help-tip').isVisible(), true);
     await spreadHelp.evaluate((el) => el.blur());
+    for (const [label, detail] of [['0–1 share 100%', '8 of 8 safe cells'],
+      ['zero-opening coverage 0%', '0 of 8 safe cells']]) {
+      const help = page.getByRole('button', { name: 'About ' + label, exact: true });
+      await help.hover();
+      const tip = await page.locator('.chart-help-tip').innerText();
+      assert(tip.includes(detail));
+      assert(tip.includes('nearest whole percentage point'));
+      assert.deepEqual(await page.locator('#board').boundingBox(), boardBefore);
+    }
+    await page.mouse.move(0, 0);
     for (const width of [1440, 650]) {
       await page.setViewportSize({ width, height: 1050 });
       const overflow = await page.evaluate(() => [...document.querySelectorAll('.board-metric-fact, .rank-list')]
@@ -194,16 +210,16 @@ const { chromium } = require(process.argv[2]);
       const r = { outcome: 'win', hzini: 6, clicks: 5,
         boardMetrics: { version: 1, workSpread: 1.2 } };
       const above100 = 100 * hziniEfficiencyOf(r);
-      const boardHasEfficiency = buildBoardMetricFacts(r).textContent.includes('efficiency');
+      const noIdleStatus = buildBoardMetricStatus(r) === null;
       r.outcome = 'loss';
       const lossHasEfficiency = hziniEfficiencyOf(r) !== undefined;
       boardMetricJobs.set(r, { status: 'error', error: 'deliberate fixture failure' });
-      const errorText = buildBoardMetricFacts(r).querySelector('[role=alert]').textContent;
-      return { above100, boardHasEfficiency, lossHasEfficiency, errorText };
+      const errorText = buildBoardMetricStatus(r).querySelector('[role=alert]').textContent;
+      return { above100, noIdleStatus, lossHasEfficiency, errorText };
     });
-    assert.deepEqual(edgeCases, { above100: 120, boardHasEfficiency: false, lossHasEfficiency: false,
+    assert.deepEqual(edgeCases, { above100: 120, noIdleStatus: true, lossHasEfficiency: false,
       errorText: 'Board measurement failed: deliberate fixture failure' });
     assert.deepEqual(errors, []);
-    console.log('Board metrics browser: real worker, persistence/reload, stale replies, incremental backfill progress with pause/reload/resume and partial ranks, four board characteristics, exact fraction cohorts, HZiNi performance stats, stable accessible mouseovers and layout passed.');
+    console.log('Board metrics browser: real worker, persistence/reload, stale replies, incremental backfill progress with pause/reload/resume and partial ranks, table-only measurements, rounded cohorts and precise heading tooltips, HZiNi performance stats, stable accessible mouseovers and layout passed.');
   } finally { await browser.close(); }
 })().catch((error) => { console.error(error); process.exitCode = 1; });

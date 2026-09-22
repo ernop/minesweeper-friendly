@@ -44,13 +44,16 @@ The [board difficulty review](reference/board-difficulty-review.md) separates
 board rarity, conditional solve performance, workload, logic, and chance,
 with primary online sources and explicitly proposed measurements.
 
-**Built after this review:** HZiNi and 3BV spread cards/time tables, HZiNi
+**Built after this review:** HZiNi and 3BV spread time tables, HZiNi
 win efficiency in Game stats, and the two requested exact fractions:
 0–1 share = safe cells showing zero or one / all safe cells; zero-opening
 coverage = the union of all zero floods including numbered borders counted
-once / all safe cells. Each fraction has a card, exact-fraction time table,
-and qualifying period-wide summaries. These are board fractions, distinct
-from rank percentiles. All four cards have definitions on mouseover/focus.
+once / all safe cells. Both fractions now group time comparisons by the
+nearest whole percentage point; 3BV spread uses the nearest 0.5 cell. Halfway
+ties round up and recorded measurements retain full precision. Values appear
+only in tablechart headings, with definitions and precise measurements on
+mouseover/focus. These groupings also drive qualifying period-wide summaries.
+Board fractions remain distinct from rank percentiles.
 Saved-win backfill handles partial old measurements and shows progress,
 Stop/Resume, unavailable/error counts, and immediately usable saved results
 that survive reload. See PRODUCT.md for the implemented behavior.

@@ -2,7 +2,7 @@
 
 Research and reference calculations, 2026-09-21. Existing comparison tables
 are implemented in the **This board** section. The game adds 3BV spread,
-Human ZiNi, 0–1 share, and zero-opening coverage cards and time tables;
+Human ZiNi, 0–1 share, and zero-opening coverage time tables;
 HZiNi efficiency appears separately in Game stats. C*/RCW searches remain
 research only. The [structural-fraction review](board-structure-research.md)
 defines the two implemented fractions and the further closure descriptors
@@ -307,8 +307,9 @@ exact 3BV, ZiNi, HZiNi, maximum number, high-clue presence, low-clue caps,
 zero count, mine-island count, and enabled largest-island size. Period
 summary, date/category, and streak tables stay above; all table sections
 precede scatterplots. HZiNi, 3BV spread, 0–1 share, and zero-opening coverage
-have value cards with definitions on mouseover/focus. HZiNi and fractions use
-exact-value time comparisons; 3BV spread uses half-cell bands. Work-tree
+appear in tablechart headings, with definitions and precise values on
+mouseover/focus. HZiNi matches exact integers; fractions round to the nearest
+whole percentage point and 3BV spread to the nearest 0.5 cell, halfway upward. Work-tree
 length and logical profiles were declined for the current UI and remain research.
 
 ## 9. Fixed opening-first benchmark and exact opening-first minimum
@@ -319,7 +320,7 @@ Two different quantities must not be conflated:
 
 - **Opening-first chord benchmark (HZiNi)** is the exact count produced by
   the fully specified procedure below. It is already stored as `hzini` and
-  now has a card and same-value solve-time table in This board.
+  now has a same-value solve-time table in This board.
 - **Opening-first minimum clicks**, C₀*(B), is the globally smallest count
   under the prescribed opening-first restriction. Its mathematical definition
   and tiny-board exact calculator are below. HZiNi is not a substitute proof
@@ -422,14 +423,20 @@ a rank percentile nor a fraction of a proved optimum. Failed games receive no
 completion-efficiency percentage. All board measurements use the final fixed
 layout; play modes that alter mines may have exposed different earlier layouts.
 
-3BV spread remains the single scalar in section 4. Store its unrounded cell
-value, show three decimals, and group time comparisons into [j/2,(j+1)/2)
-after rounding to nine decimals for boundary stability. Those table intervals
-are comparison bins, **not uncertainty in the measured value**.
+3BV spread remains the single scalar in section 4. Keep its unrounded cell
+value and group time comparisons by `round(2 * WS) / 2`, halfway up, with
+no preliminary decimal rounding. A centered group g covers [g−0.25,g+0.25),
+clipped at zero. The heading gives g with one decimal; the tooltip gives
+WS with three decimals and its definition.
 
-The two fractions use the exact safe-cell definitions in the structural
-review. Their tables compare unrounded values, display up to three percentage
-decimals, and retain qualifying earlier values in the period summary.
+The fractions retain exact safe-cell numerator n and denominator d. Their
+time-table group is the nearest whole percentage point, computed as
+`floor((200*n+d)/(2*d))` so exact halfway ties always round upward. Group
+p covers [p−0.5,p+0.5) percent, clipped to [0,100]. The heading shows p%;
+the tooltip shows exact n/d and a percentage to three decimals. Full tables
+and period summaries use the same groups and retain qualifying earlier wins.
+No standalone metric cards remain; backfill progress stays available. This
+changes comparisons, never the primary measurements or their definitions.
 
 `board-metrics.js` computes 3BV spread, both fractions' primary counts, and
 Human ZiNi; `zini.js` remains the single production implementation of the ZiNi

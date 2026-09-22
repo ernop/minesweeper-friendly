@@ -92,7 +92,7 @@ function runBoardMetricQueue() {
     runBoardMetricQueue();
   };
   try {
-    worker = new Worker('board-metrics-worker.js?v=20260921-board-fractions');
+    worker = new Worker('board-metrics-worker.js?v=20260921-board-groups');
     worker.onmessage = ({ data }) => {
       if (data.id === job.id) finish(data.result, data.error);
     };
@@ -137,50 +137,17 @@ function requestBoardMetrics(record, snapshot) {
   };
 }
 
-function buildBoardMetricFacts(record) {
+function buildBoardMetricStatus(record) {
   if (record.playMode === 'endgame-drill') return null;
   const box = document.createElement('div');
-  box.className = 'board-metric-facts';
-  const metrics = record.boardMetrics?.version === BoardMetrics.VERSION ? record.boardMetrics : null;
+  box.className = 'board-metric-status';
   const job = boardMetricJobs.get(record);
-  const pending = job && ['running', 'loading'].includes(job.status);
-  const missing = pending ? 'Calculating…'
-    : job?.status === 'unavailable' ? 'Saved board unavailable'
-    : job?.status === 'error' ? 'Calculation failed: ' + job.error : 'Not measured';
-  const add = (label, value, help, extra) => {
-    const item = document.createElement('div');
-    item.className = 'board-metric-fact';
-    const heading = document.createElement('h4');
-    heading.appendChild(chartHelpButton(help, label));
-    const number = document.createElement('div');
-    number.className = 'board-metric-value'; number.textContent = value;
-    item.append(heading, number);
-    if (extra) {
-      const detail = document.createElement('div');
-      detail.className = 'board-metric-detail'; detail.textContent = extra;
-      item.appendChild(detail);
-    }
-    box.appendChild(item);
-    return item;
-  };
-  const hzini = record.hzini;
-  add('HZiNi', Number.isSafeInteger(hzini) ? hzini + ' clicks' : missing, [
-    'Human ZiNi is the action count of a fixed opening-first solve with full board knowledge. The same oriented board always gives the same integer.',
-    'Open each zero region once. Then choose the revealed clue with the greatest nonnegative saving: covered safe neighbors minus unflagged mine neighbors minus one chord. Flag its missing mines and chord it. If none qualifies, reveal the next safe cell. Ties and direct reveals scan down columns, left to right.',
-    'Each reveal, flag placement, and chord counts once. This measures that procedure, rather than the global minimum over all possible procedures. The HZiNi table ranks your times on boards with the same count.',
-  ]);
-  add('3BV spread', metrics ? metrics.workSpread.toFixed(3) + ' cells' : missing, [
-    'How spread out the board’s 3BV work is, measured in cell widths. Larger values mean the work points are more widely spread.',
-    'Each zero region contributes one point at the mean position of its zero squares. Each safe square outside all zero openings contributes its own center. All points have equal weight. The value is the root-mean-square distance of these points from their mean position.',
-    'The time table compares boards in the same 0.5-cell band. The displayed board value is a single measurement; the table band groups nearby measurements.',
-  ]);
-  for (const [field, label, help] of [
-    ['zeroOneCells', '0–1 share', 'The fraction of all safe squares whose clue is zero or one. Blank zero squares count; mines do not. The time table compares exactly the same fraction, before display rounding.'],
-    ['zeroOpenedCells', 'zero-opening coverage', 'The fraction of all safe squares exposed after opening every zero region, including bordering numbers of any value. Shared borders count once. This stops after automatic flooding, before deductions or chords. With no zeros the coverage is 0%. The time table compares exactly the same fraction, before display rounding.'],
-  ]) {
-    const fraction = boardFractionOf(record, field);
-    add(label, fraction === undefined ? missing : formatBoardShare(fraction), help,
-      fraction === undefined ? null : metrics[field] + ' of ' + metrics.safeCells + ' safe cells');
+  if (job && ['running', 'loading', 'unavailable'].includes(job.status)) {
+    const status = document.createElement('div');
+    status.setAttribute('role', 'status');
+    status.textContent = job.status === 'unavailable'
+      ? 'Saved board unavailable for new measurements.' : 'Calculating board measurements…';
+    box.appendChild(status);
   }
   if (job?.status === 'error') {
     const error = document.createElement('div');
@@ -189,7 +156,7 @@ function buildBoardMetricFacts(record) {
     box.appendChild(error);
   }
   const key = boardMetricHistoryKey(record);
-  if (key && eligibleBoardWins(key).length) {
+  if (settings.shownThings.boardMetricFacts && key && eligibleBoardWins(key).length) {
     const progress = boardMetricBackfillProgress(key);
     const running = boardMetricBackfills.has(key);
     const count = unmeasuredBoardWins(key).length;
@@ -239,5 +206,5 @@ function buildBoardMetricFacts(record) {
     }
     box.appendChild(panel);
   }
-  return box;
+  return box.childElementCount ? box : null;
 }
