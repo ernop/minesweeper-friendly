@@ -1,8 +1,10 @@
 'use strict';
 // Known-answer tests for cumulative-play session series: the fine
 // bucketing layer (sessionBucketSeries) and the trailing running-average
-// layer over it (sessionRunningSeries). Wall-clock breaks must consume
-// no chart time and no lookback; everything fills from actual play spans.
+// layer over it (sessionRunningSeries). The window is wall-clock (only
+// play from the last N of realtime feeds the series; older play ages
+// out entirely), while the axis and the lookback stay played time:
+// breaks inside the window consume no chart time and no lookback.
 
 const fs = require('fs');
 const vm = require('vm');
@@ -74,7 +76,10 @@ const press = (at, useful, flag, moving, gapMs, unflag, misclick) => ({
   ];
   const s = sessionBucketSeries(events, opts);
   const i = last(s);
-  assertEq('live bucket count', s.centers.length, 60);
+  // Buckets exist only where the window holds play: one played minute
+  // makes one bucket, however long the realtime window is.
+  assertEq('live bucket count', s.centers.length, 1);
+  assertEq('live window play start', s.windowFromPlayMs, 0);
   assertClose('live play', s.playMs[i], MIN);
   assertClose('live speed', s.speedPxPerSec[i], 20);
   assertClose('live useful clicks', s.clicksPerSec[i], 8 / 60);
@@ -90,7 +95,6 @@ const press = (at, useful, flag, moving, gapMs, unflag, misclick) => ({
   assertClose('live excess risk magnitude', s.excessRiskPctPerMin[i], 15);
   assertClose('live modeled-life magnitude', s.modeledLifeGapPerMin[i], 0.2);
   assertClose('live fastclick median', s.fastclickGapMs[i], 300);
-  assertUndefined('empty earlier bucket', s.speedPxPerSec[i - 1]);
 }
 
 // Two 30-second games five wall minutes apart fill one contiguous played
@@ -108,19 +112,29 @@ const press = (at, useful, flag, moving, gapMs, unflag, misclick) => ({
   const i = last(s);
   assertClose('breaks compressed play', s.playMs[i], MIN);
   assertClose('breaks compressed rate', s.wastedPerMin[i], 2);
-  assertUndefined('breaks do not make chart gaps', s.wastedPerMin[i - 1]);
+  assertEq('breaks make no extra buckets', s.centers.length, 1);
 }
 
-// Wall time advancing during a break leaves every played-time coordinate
-// and value unchanged.
+// A break still inside the window changes nothing; wall time advancing
+// past the window ages the play out entirely (a previous session is not
+// this one).
 {
-  const events = [{ kind: 'play', from: NOW - 30000, to: NOW }];
+  const events = [
+    { kind: 'play', from: NOW - 30000, to: NOW },
+    { kind: 'move', at: NOW - 20000, px: 600 },
+  ];
   const s1 = sessionBucketSeries(events, opts);
-  const s2 = sessionBucketSeries(events, { ...opts, nowMs: NOW + 5 * HOUR });
-  assertEq('break leaves playNow fixed', s2.playNowMs, s1.playNowMs);
-  assertEq('break leaves grid fixed', s2.startPlayMs, s1.startPlayMs);
-  assertClose('break leaves partial value fixed',
+  const s2 = sessionBucketSeries(events, { ...opts, nowMs: NOW + 30 * MIN });
+  assertEq('break inside window leaves playNow fixed', s2.playNowMs, s1.playNowMs);
+  assertEq('break inside window leaves grid fixed', s2.startPlayMs, s1.startPlayMs);
+  assertClose('break inside window leaves values fixed',
     s2.speedPxPerSec[last(s2)], s1.speedPxPerSec[last(s1)]);
+  const s3 = sessionBucketSeries(events, { ...opts, nowMs: NOW + 5 * HOUR });
+  assertEq('aged-out coordinates survive', s3.playNowMs, s1.playNowMs);
+  assertEq('aged-out window holds no play', s3.windowFromPlayMs, s1.playNowMs);
+  assertClose('aged-out play sums to nothing',
+    s3.playMs.reduce((a, b) => a + b, 0), 0);
+  assertUndefined('aged-out rate is unmeasured', s3.speedPxPerSec[last(s3)]);
 }
 
 // An open play span advances cumulative time. Its first press may precede
@@ -209,24 +223,44 @@ const press = (at, useful, flag, moving, gapMs, unflag, misclick) => ({
   assertClose('offset partial bucket', s.playMs[last(s)], 30000);
 }
 
-// Startup scans backward until enough play is retained, regardless of how
-// far apart the games are in wall time.
+// The window's start can fall inside a play span: the older part is
+// clipped out (its play, its events), the newer part stays, and the
+// played-time coordinates of everything never shift.
 {
-  const games = [0, 1, 2, 3].map((day) => ({
-    kind: 'game',
-    from: day * 24 * HOUR,
-    to: day * 24 * HOUR + 20000,
-  }));
-  const retained = sessionHistorySlice(games, MIN);
-  assertEq('history retains enough played games', retained.games.length, 3);
-  assertEq('history reaches across multi-day breaks', retained.games[0].from, 24 * HOUR);
-  assertEq('history offset is older played time', retained.playOffsetMs, 20000);
+  const events = [
+    { kind: 'play', from: NOW - 90 * MIN, to: NOW },
+    { kind: 'move', at: NOW - 70 * MIN, px: 999 },
+    { kind: 'move', at: NOW - 30 * MIN, px: 600 },
+  ];
+  const s = sessionBucketSeries(events, opts);
+  assertEq('clipped span window start', s.windowFromPlayMs, 30 * MIN);
+  assertClose('clipped span keeps in-window play',
+    s.playMs.reduce((a, b) => a + b, 0), HOUR);
+  const atPlay = (playAt) => Math.floor((playAt - s.startPlayMs) / MIN);
+  assertClose('in-window move counts', s.speedPxPerSec[atPlay(60 * MIN)], 10);
+  assertClose('pre-window move is gone', s.speedPxPerSec[atPlay(35 * MIN)], 0);
 }
 
-// Choice sizes retain the expected one-hour chart density.
+// A backfilled game straddling the window contributes only its
+// in-window share of its totals.
 {
+  const game = {
+    kind: 'game', from: NOW - 90 * MIN, to: NOW - 30 * MIN,
+    px: 0, useful: 12, wasted: 0, flags: 0, fatalMistake: false,
+  };
+  const s = sessionBucketSeries([game], opts);
+  assertEq('straddling game window start', s.windowFromPlayMs, 30 * MIN);
+  assertClose('straddling game keeps half its play',
+    s.playMs.reduce((a, b) => a + b, 0), 30 * MIN);
+  assertClose('straddling game keeps half its clicks',
+    s.clicksPerSec[last(s)], 12 / 3600);
+}
+
+// Choice sizes retain the expected chart density over a fully played hour.
+{
+  const events = [{ kind: 'play', from: NOW - HOUR, to: NOW }];
   for (const [bucketMs, want] of [[10000, 360], [30000, 120], [MIN, 60], [5 * MIN, 12]]) {
-    const s = sessionBucketSeries([], { nowMs: NOW, bucketMs, windowMs: HOUR });
+    const s = sessionBucketSeries(events, { nowMs: NOW, bucketMs, windowMs: HOUR });
     assertEq(`bucket count ${bucketMs}`, s.centers.length, want);
   }
 }
@@ -234,13 +268,13 @@ const press = (at, useful, flag, moving, gapMs, unflag, misclick) => ({
 // Game endings: cumulative fractions of the games finished so far in the
 // window, one series per ending kind; undefined before the first ending.
 {
-  const from = NOW - 3 * MIN;
+  const from = NOW - 4 * MIN;
   const events = [
     { kind: 'play', from, to: NOW },
-    { kind: 'end', at: from + 30000, end: 'win' },
-    { kind: 'end', at: from + 90000, end: 'angel' },
-    { kind: 'end', at: from + 150000, end: 'win' },
-    { kind: 'end', at: from + 170000, end: 'never-heard-of-it' },
+    { kind: 'end', at: from + 90000, end: 'win' },
+    { kind: 'end', at: from + 150000, end: 'angel' },
+    { kind: 'end', at: from + 210000, end: 'win' },
+    { kind: 'end', at: from + 230000, end: 'never-heard-of-it' },
   ];
   const s = sessionBucketSeries(events, opts);
   const i = last(s);
@@ -260,13 +294,13 @@ const press = (at, useful, flag, moving, gapMs, unflag, misclick) => ({
 // win-with-unmarked-mines average tracks measured wins only: losses and
 // unmeasured wins change neither its numerator nor its denominator.
 {
-  const from = NOW - 3 * MIN;
+  const from = NOW - 4 * MIN;
   const events = [
     { kind: 'play', from, to: NOW },
-    { kind: 'end', at: from + 30000, end: 'win', winUnmarked: 0.5 },
-    { kind: 'end', at: from + 90000, end: 'guess-min' },
-    { kind: 'end', at: from + 150000, end: 'win' },
-    { kind: 'end', at: from + 160000, end: 'win', winUnmarked: 1 },
+    { kind: 'end', at: from + 90000, end: 'win', winUnmarked: 0.5 },
+    { kind: 'end', at: from + 150000, end: 'guess-min' },
+    { kind: 'end', at: from + 210000, end: 'win' },
+    { kind: 'end', at: from + 220000, end: 'win', winUnmarked: 1 },
   ];
   const s = sessionBucketSeries(events, opts);
   const i = last(s);
@@ -329,9 +363,9 @@ const press = (at, useful, flag, moving, gapMs, unflag, misclick) => ({
 }
 
 // A game event without an ending (a fixture or a legacy shape) adds no
-// ending, and an ending that fell out of the played-time window is
-// clipped: an hour-long game ending at played-minute 60 is outside a
-// one-hour window whose newest edge sits at played-minute 130.
+// ending, and an ending that fell out of the realtime window is
+// clipped: a game that ended two wall hours ago is outside a one-hour
+// window no matter how little has been played since.
 {
   const s = sessionBucketSeries([
     { kind: 'game', from: NOW - 3 * HOUR, to: NOW - 2 * HOUR, end: 'chord' },
@@ -366,8 +400,8 @@ const runOpts = {
   const s = sessionRunningSeries(events, runOpts);
   const at = (pos) => s.centers.indexOf(pos);
   assertEq('run sample positions', s.centers.join(','),
-    '0,10000,20000,30000,40000,50000,60000');
-  assertUndefined('run pre-play sample', s.speedPxPerSec[at(0)]);
+    '10000,20000,30000,40000,50000,60000');
+  assertEq('run window play start', s.windowFromPlayMs, 0);
   assertClose('run first play sample', s.speedPxPerSec[at(10000)], 30);
   assertClose('run partial lookback', s.speedPxPerSec[at(20000)], 45);
   assertClose('run full lookback', s.speedPxPerSec[at(30000)], 60);
@@ -389,8 +423,9 @@ const runOpts = {
 }
 
 // "1m average" means one minute of played time: two 30s games an hour of
-// wall time apart are adjacent on the play axis, so one lookback spans
-// both games and both of their events.
+// wall time apart are adjacent on the play axis, so — as long as both
+// sit inside the realtime window — one lookback spans both games and
+// both of their events.
 {
   const first = NOW - HOUR;
   const events = [
@@ -400,25 +435,38 @@ const runOpts = {
     { kind: 'play', from: NOW - 30000, to: NOW },
     press(NOW - 10000, false, false, false),
   ];
-  const s = sessionRunningSeries(events, { ...runOpts, lookbackMs: MIN });
-  const i = last(s);
-  assertEq('run playtime lookback position', s.centers[i], MIN);
-  assertClose('run lookback spans the break', s.wastedPerMin[i], 2);
-  assertClose('run death within played lookback', s.avoidablePerMin[i], 1);
+  const wide = sessionRunningSeries(events,
+    { ...runOpts, lookbackMs: MIN, windowMs: 2 * HOUR });
+  const i = last(wide);
+  assertEq('run playtime lookback position', wide.centers[i], MIN);
+  assertClose('run lookback spans the break', wide.wastedPerMin[i], 2);
+  assertClose('run death within played lookback', wide.avoidablePerMin[i], 1);
+  // The same lookback never reaches play from before the realtime
+  // window: with only the newest game inside it, the older game's press
+  // and death are gone, not averaged in.
+  const narrow = sessionRunningSeries(events,
+    { ...runOpts, lookbackMs: MIN, windowMs: MIN });
+  const j = last(narrow);
+  assertEq('run narrow window play start', narrow.windowFromPlayMs, 30000);
+  assertClose('run lookback stops at the window', narrow.wastedPerMin[j], 2);
+  assertClose('run pre-window death is gone', narrow.avoidablePerMin[j], 0);
 }
 
-// Wall time advancing during a break changes no sample: positions and
-// values are anchored to played time only.
+// Wall time advancing inside the window changes no sample; advancing
+// past it ages the play out, leaving samples with nothing to average.
 {
   const events = [
     { kind: 'play', from: NOW - 30000, to: NOW },
     { kind: 'move', at: NOW - 20000, px: 450 },
   ];
   const s1 = sessionRunningSeries(events, runOpts);
-  const s2 = sessionRunningSeries(events, { ...runOpts, nowMs: NOW + 5 * HOUR });
+  const s2 = sessionRunningSeries(events, { ...runOpts, nowMs: NOW + 20000 });
   assertEq('run break leaves positions fixed', s2.centers.join(','), s1.centers.join(','));
   assertClose('run break leaves values fixed',
     s2.speedPxPerSec[last(s2)], s1.speedPxPerSec[last(s1)]);
+  const s3 = sessionRunningSeries(events, { ...runOpts, nowMs: NOW + 5 * HOUR });
+  assertClose('run aged-out sample covers no play', s3.playMs[last(s3)], 0);
+  assertUndefined('run aged-out value is unmeasured', s3.speedPxPerSec[last(s3)]);
 }
 
 // The fastclick median pools every qualifying gap in the lookback.

@@ -152,6 +152,75 @@ assertEq('compact one-ply line states a tie once',
 assertEq('positioned report leaves alternative count to its legend',
   compactRiskLines.some((line) => line.label === 'Alternatives'), false);
 
+// A survived non-optimal guess taken before the board opened up is its
+// own lower-priority category with player-facing wording; the same
+// evidence mid-game stays ordinary game risk, and a fatal early guess is
+// still the fatal action.
+const earlyGuess = {
+  version: ACTION_EVALUATION_VERSION,
+  action: 'reveal',
+  result: 'continued',
+  mistakes: ['chose-higher-risk'],
+  evidence: { chosenRisk: 0.5, bestRisk: 0.15, actualRisk: 0.5,
+    bestActualRisk: 0.15, boardProgress: 4 / 216 },
+};
+assertEq('early non-optimal guess has its own category',
+  actionEvaluationCategory(earlyGuess), 'earlyGuess');
+assertEq('early guess label uses player-facing wording',
+  actionEvaluationLabel(earlyGuess), 'made a non-optimal early-game guess');
+assertContains('early guess text names the routine opening gamble',
+  actionEvaluationText(earlyGuess), 'early-game guess');
+assertContains('early guess fact line shows board progress',
+  actionEvaluationLines(earlyGuess)
+    .find((line) => line.label === 'Early game').value,
+  '2% of the board');
+assertEq('the same guess mid-game stays game risk',
+  actionEvaluationCategory({ ...earlyGuess,
+    evidence: { ...earlyGuess.evidence, boardProgress: 0.5 } }), 'gameRisk');
+assertEq('progress derives from the saved position when unstored',
+  actionEvaluationCategory({ ...earlyGuess,
+    evidence: { chosenRisk: 0.5, bestRisk: 0.15,
+      actualRisk: 0.5, bestActualRisk: 0.15 },
+    position: { width: 16, height: 16, mines: 40,
+      revealed: [[0, 1], [1, 1], [16, 3], [17, 1]], flagged: [] },
+  }), 'earlyGuess');
+assertEq('unmeasurable progress stays game risk',
+  actionEvaluationCategory({ ...earlyGuess,
+    evidence: { chosenRisk: 0.5, bestRisk: 0.15,
+      actualRisk: 0.5, bestActualRisk: 0.15 } }), 'gameRisk');
+assertEq('a fatal early guess is still the fatal action',
+  actionEvaluationCategory({ ...earlyGuess, result: 'death' }), 'gameLoss');
+assertEq('risk scope includes early-game guesses',
+  reportScopeAllows('risk', 'earlyGuess'), true);
+assertEq('fatal scope excludes early-game guesses',
+  reportScopeAllows('fatal', 'earlyGuess'), false);
+assertEq('early guesses count in the category summary',
+  actionCategorySummary([earlyGuess]).counts.earlyGuess, 1);
+assertEq('early guesses stay out of the excess-risk magnitude',
+  actionCategorySummary([earlyGuess]).excessRisk, 0);
+
+// A forced-guess death before the board opened up is the mode's routine
+// entry fee: one calm fatal status of its own, whatever the risk rank
+// was. Guessing past a proven-safe move stays its own status at any
+// stage, and mid-game deaths keep their rank-specific statuses.
+const earlyDeath = { ...earlyGuess, result: 'death' };
+assertEq('a fatal early guess files as its own routine status',
+  fatalActionStatusKind(earlyDeath), 'guess-early');
+assertEq('early-guess death label is calm',
+  actionEvaluationLabel(earlyDeath), 'died on an early-game guess');
+assertEq('the endings chart shares the early-death kind',
+  sessionEndingKind(earlyDeath), 'guess-early');
+assertContains('early-guess death text names the routine gamble',
+  actionEvaluationText(earlyDeath), 'early-game guess');
+assertEq('a mid-game higher-risk death keeps its status',
+  fatalActionStatusKind({ ...earlyDeath,
+    evidence: { ...earlyDeath.evidence, boardProgress: 0.5 } }),
+  'guess-higher');
+assertEq('guessing past a safe move stays guess-safe even early',
+  fatalActionStatusKind({ ...earlyDeath,
+    evidence: { ...earlyDeath.evidence, safeAvailable: true } }),
+  'guess-safe');
+
 const cropped = evaluationCropBounds({
   width: 30,
   height: 16,
@@ -314,6 +383,29 @@ assertEq('identical positionless actions aggregate', noOpGroups.length, 2);
 assertEq('aggregate carries the repeated count', noOpGroups[0].count, 2);
 assertEq('aggregate title is a count, not action numbers',
   aggregateReportTitle(noOpGroups[0]), 'Left-clicks on flagged squares: 2');
+
+const flaggedSafe = {
+  version: ACTION_EVALUATION_VERSION,
+  action: 'flag-place',
+  actionNumber: 4,
+  result: 'continued',
+  mistakes: ['flagged-proven-safe'],
+  evidence: { knowledge: 'proven-safe' },
+  position: { width: 2, height: 2 },
+};
+const flaggedSafeGroups = aggregateReportEntries([
+  { evaluation: flaggedSafe, shown: flaggedSafe, category: 'timeLoss' },
+  {
+    evaluation: { ...flaggedSafe, actionNumber: 7 },
+    shown: { ...flaggedSafe, actionNumber: 7 },
+    category: 'timeLoss',
+  },
+]);
+assertEq('positioned proven-safe flags aggregate', flaggedSafeGroups.length, 1);
+assertEq('proven-safe flag aggregate retains each instance',
+  flaggedSafeGroups[0].instances.length, 2);
+assertEq('proven-safe flag aggregate has a simple count title',
+  aggregateReportTitle(flaggedSafeGroups[0]), 'Proven-safe squares flagged: 2');
 
 const lowerDangerRisk = {
   version: ACTION_EVALUATION_VERSION,

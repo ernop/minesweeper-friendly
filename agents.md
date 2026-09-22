@@ -288,7 +288,13 @@ Implementation notes:
   spans in minesweeper.js. COMPUTATION (pure, Node-extractable):
   `sessionBucketSeries(events, {nowMs, bucketMs, windowMs, openPlayFrom,
   playOffsetMs})` compacts a wall-clock event list into cumulative played
-  time, removing every between-play gap, then buckets it
+  time, removing every between-play gap. windowMs is **wall-clock**
+  since 2026-08-24 ("1h" = the last realtime hour): only spans/events
+  newer than nowMs − windowMs count (straddling spans clip), the
+  window's start maps to the play axis as `windowFromPlayMs` (returned;
+  charts use it as x0 via `sessionChartXRange`, floored at a minute),
+  and play coordinates stay global so nothing shifts as the horizon
+  slides. It then buckets
   ({kind:'play',from,to} finished play
   spans, {kind:'move',at,px} ~1s-coalesced cursor travel while playing,
   {kind:'press',at,useful,flag,unflag,misclick,moving,gapMs},
@@ -300,9 +306,12 @@ Implementation notes:
   `sessionRunningSeries(events, {nowMs, stepMs, lookbackMs, windowMs,
   openPlayFrom, playOffsetMs})` — what the charts show since 2026-08-23 —
   layers trailing running averages over it: fine SESSION_STEP_MS (10s)
-  buckets, prefix-sum rolling windows of lookbackMs of played time, one
-  sample per step (the newest rides the current play position; finished
-  samples never change), rates divided by the played time actually
+  buckets covering exactly the realtime window (no extra lookback
+  reach — the lookback averages played time but never play from before
+  the window), prefix-sum rolling windows of lookbackMs of played time,
+  one sample per step (the newest rides the current play position;
+  finished samples never change while their play stays in the window),
+  rates divided by the played time actually
   covered, fastclick median pooled over the lookback's gaps, endings
   fractions and the wins' unmarked-mine average (`winUnmarkedFraction`,
   measured wins only) cumulative over the chart window and ignoring the
@@ -312,8 +321,10 @@ Implementation notes:
   provenance, and 'other'.
   Constants FASTCLICK_MAX_GAP_MS (1s), SESSION_MIN_PLAY_MS (1s — rates
   over a sliver of covered play are undefined, not absurd),
-  SESSION_KEEP_MS (max window + max lookback + slack). RECORDING (RAM only):
-  `sessionEvents` pruned to SESSION_KEEP_MS of played duration by
+  SESSION_KEEP_MS (max realtime window + slack; wall-clock like the
+  window — the lookback cannot cross it, so it adds nothing). RECORDING
+  (RAM only):
+  `sessionEvents` pruned to the SESSION_KEEP_MS wall horizon by
   `sessionPrune`; `sessionPlayOffsetMs` preserves cumulative bucket
   alignment after older events leave RAM;
   `sessionPlayBegin` hooks `startTimer` (every transition into
@@ -333,9 +344,9 @@ Implementation notes:
   `lose`; `sessionRecordEvaluation` is called by
   `recordActionEvaluation` for every retained live evaluation.
   `sessionBackfillFromHistory` (called once from init, after
-  userdataReady fills history and before any live event) scans records of
-  every mode backward until enough actual play is retained, regardless of
-  wall age, and rebuilds them as {kind:'game'} events —
+  userdataReady fills history and before any live event) rebuilds every
+  mode's records that ended within the SESSION_KEEP_MS wall horizon
+  (older games can never chart) as {kind:'game'} events —
   totals and `actionCategorySummary` spread by bucket overlap in
   sessionBucketSeries, death in the
   bucket containing to − 1 (an end on a bucket boundary must not spill
@@ -370,8 +381,9 @@ Implementation notes:
   line order, with HOW/RECORDS as hover titles on lines and labels),
   `latestDefined` (measurability),
   `appendSessionSection` (renders into the panel top, hosts the
-  running-average <select> writing settings.sessionLookbackSeconds and
-  the window <select> writing settings.sessionWindowMinutes;
+  realtime-window <select> writing settings.sessionWindowMinutes first
+  — reordered 2026-08-24 when the window went wall-clock — then the
+  running-average <select> writing settings.sessionLookbackSeconds;
   SESSION_LOOKBACK_CHOICES and SESSION_WINDOW_CHOICES live beside
   SETTINGS_SCHEMA's constants in minesweeper.js). The live-metrics
   setInterval redraws the panel while active play advances;
@@ -386,9 +398,27 @@ Implementation notes:
   values, no-op reason, and highlighted alternatives. Compact no-op
   evaluations deliberately omit a board snapshot.
   `actionEvaluationCategory` assigns exactly one primary category in
-  severity order (`gameLoss`, `gameRisk`, `timeLoss`,
+  severity order (`gameLoss`, `gameRisk`, `earlyGuess`, `timeLoss`,
   `lifeMaximization`, `measurementNotes`); actual-risk delta, not raw
-  odds alone, determines survived game risk. `actionCategorySummary`
+  odds alone, determines survived game risk. A survived risk action is
+  `earlyGuess` instead of `gameRisk` when `evaluationIsEarlyGame` finds
+  under `EARLY_GAME_PROGRESS_LIMIT` (a tenth) of the board's safe
+  squares revealed at the action — from `evidence.boardProgress`
+  (written by `actionEvaluationBase` since 2026-08-24) or derived from
+  the saved position on older records; unmeasurable progress stays
+  `gameRisk`, and deaths stay `gameLoss`. `actionEvaluationLabel`
+  headlines the whole category as "made a non-optimal early-game guess"
+  while the mechanism stays on the evidence lines; the category is
+  included at risk scope, and its deltas stay out of the
+  excess-game-risk magnitude and chart. Deaths: `fatalActionStatusKind`
+  files an early forced-guess death as `guess-early` ("died on an
+  early-game guess") whatever its risk rank — the mode's routine entry
+  fee (creator, 2026-08-24) — while a safe-move-available guess death
+  stays `guess-safe` at any stage; `SESSION_END_KINDS`/`SESSION_END_SPECS`
+  carry the matching endings-chart line (muted gold, `#c9a227`), and
+  `buildVerdictBlocks` renders a `guess-early` fatal block below full
+  scope as one calm sentence without evidence lines or a position
+  diagram. `actionCategorySummary`
   supplies category frequencies and magnitudes to session backfill.
   `recordActionEvaluation` keeps every nonfatal tagged
   action; `lose(hitIndices, evaluation)` always keeps the fatal action.
@@ -404,15 +434,19 @@ Implementation notes:
   ever flags or chords. `buildVerdictBlocks` returns `null` when no enabled
   category has content; it never manufactures an empty-success measurement
   note.
-  `orderReportEntries` fixes section order at fatal, game risk, time loss,
-  life maximization, then notes; survived game-risk actions sort by highest
+  `orderReportEntries` fixes section order at fatal, game risk, early-game
+  guess, time loss,
+  life maximization, then notes; survived game-risk and early-guess actions
+  sort within their sections by highest
   selected actual death probability, then excess risk, while other sections
   retain action order. Winning records use this same path and therefore
   show survived risky actions at risk/full scope without inventing a fatal block.
   Life-model secondary prose/alternatives appear only at full scope.
   `aggregateReportEntries` collapses semantically identical
-  positionless entries into reason-specific counts while positioned
-  entries stay individual. `actionEvaluationLines` turns positioned
+  positionless entries into reason-specific counts. Proven-safe flag
+  placements are the positioned exception: one count renders as a
+  disclosure whose instances retain their action numbers and diagrams;
+  other positioned entries stay individual. `actionEvaluationLines` turns positioned
   reports into compact labeled difference/value rows, merging identical
   raw/active risk and stating model ties once. `evaluationCropBounds`
   excludes large alternative sets from its bounds and crops uniform
@@ -463,6 +497,22 @@ Implementation notes:
   sets `musicNow` null and produces no observation, because
   unreachable-endpoint is the designed "not measured" state on foreign
   origins, not a hidden error.
+- Play heartbeat (PRODUCT.md "Play heartbeat"; server contract in
+  hosting.md): the PLAY HEARTBEAT section gates everything on
+  `heartbeatEnabled()` — `location.hostname === HEARTBEAT_HOST`
+  ('fuseki.net') plus `navigator.sendBeacon` support — so localhost,
+  file://, and mirrors schedule nothing. `sessionPlayEnd` accumulates
+  closed play spans into `heartbeatPlayedMs` (page-lifetime only:
+  session backfill from stored records must never owe beacons); a 15s
+  interval calls `heartbeatCheck`, which adds the open span, asks the
+  pure `heartbeatsOwed(playedMs, sent)` (floor(played/5min) − sent,
+  clamped at 0), and sends at most one empty beacon per check to the
+  relative `HEARTBEAT_ENDPOINT` ('hb') — smearing post-sleep catch-ups
+  and never retrying refused sends (undercount over noise, the music
+  poll's fail-silent rule). The bland path dodges generic filter-list
+  patterns ("count", "track", "analytics"). `node tests/heartbeat-test.js`
+  covers the owed arithmetic and the host gate with stubbed
+  location/navigator.
 - Player states (PRODUCT.md "Player states"): userdata 'states' holds
   `[{name, active}]` in display order; absent entry = new player,
   `userdataReady` fills `playerStates` with the `DEFAULT_STATE_NAMES`
@@ -521,12 +571,18 @@ Implementation notes:
   (sign/color convention; rendered as a final grid row whose text sits in
   the average-time column).
 - Streaks: run-splitting and the core-trim/dedupe/domination filter are in
-  `renderRanks`; see PRODUCT.md for the double-counting rationale.
+  `renderRanks`; see PRODUCT.md for the double-counting rationale. They
+  render before the average scatters so every tablechart precedes every
+  graphical chart; a `.flex-break` starts the chart region.
 - Scatters: `buildScatter` + `niceTicks` (`timeTicks` for the date axis;
   `minorTicks` adds edge tickmarks between labeled divisions, skipped on
   the date axis), appended after a `.flex-break`; dots colored by age unit (`.age-dot-*`),
   the current game ringed and tagged with its today-rank, on-chart axis
-  labels, legend appended last. Options: `timeAxis` (local calendar
+  labels, legend appended last. `formatX` and `yTickSuffix` put units on
+  tick values (mouse-path `px`, average-time `s`, clock `h`).
+  `timeTicks` also supplies the smaller year/date-boundary row; the
+  calendar plot omits the now-redundant “date” axis caption. Options:
+  `timeAxis` (local calendar
   x-ticks), `idealLine` (y = x dashed floor), `trendLines`
   (`trendLinesFor`: the Theil–Sen line fit twice — all data in the age
   palette's years teal, today only in its hours blue, both dashed —

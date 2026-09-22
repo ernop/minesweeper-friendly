@@ -54,7 +54,7 @@ const SHOWN_THINGS_OPTIONS = [
 const REPORT_SCOPE_CHOICES = [
   ['none', 'nothing', 'no action analysis, mistake counts, or fatal-action mention; evidence is still stored in history'],
   ['fatal', 'fatal action only', 'the one fatal action after a loss; wins show no action analysis'],
-  ['risk', 'fatal + risky actions', 'the fatal action plus earlier actions that increased actual death probability'],
+  ['risk', 'fatal + risky actions', 'the fatal action plus earlier actions that increased actual death probability; non-optimal early-game guesses appear in their own lower-priority section'],
   ['full', 'full analysis', 'fatal and risky actions, aggregated time loss, model-relative optimization, and measurement notes'],
 ];
 
@@ -167,7 +167,7 @@ const SETTINGS_SCHEMA = [
     valid: (v) => SESSION_WINDOW_CHOICES.includes(v),
     group: 'left-panel',
     label: 'session window',
-    describe: 'minutes of accumulated play the session charts look back over; chosen with the selector on the session section itself',
+    describe: 'minutes of realtime the session charts look back over (wall clock since 2026-08-24: only play inside that window is counted, so a previous session ages out entirely); chosen with the selector on the session section itself',
     control: 'none',
   },
   {

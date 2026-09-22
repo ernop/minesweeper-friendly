@@ -19,6 +19,11 @@ python3 -m http.server 8018
 
 then http://localhost:8018/
 
+For serving it publicly (the fuseki.net deployment, its anonymous
+play-time heartbeat, and how to read the numbers), see `hosting.md`.
+The heartbeat only fires on that host — local copies and mirrors make
+no network requests beyond the optional localhost music poll.
+
 ## Controls
 
 - Left click: reveal a cell (first click is never a mine)

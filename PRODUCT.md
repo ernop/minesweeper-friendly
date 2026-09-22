@@ -274,11 +274,23 @@ report.
 - The primary fatal status uses the independent facts directly:
   **opened a proven mine while a safe move was available**; **opened a
   proven mine when a guess was required**; **died after guessing while a
-  safe move was available**; **higher-risk forced guess**; or **died
+  safe move was available**; **died on an early-game guess**;
+  **higher-risk forced guess**; or **died
   despite choosing a minimum-risk forced guess**. An unmeasured risk rank
   says so. Chording is only the input method: its opened cells receive the
   same proven/potential, safe-available, and risk-rank classification
   rather than a separate “chord death” report class.
+- **Died on an early-game guess** (added 2026-08-24): a forced-guess
+  death taken while under a tenth of the board's safe squares were
+  revealed files as this one routine status whatever its risk rank was —
+  over enough games such deaths are part of the mode, so the report
+  treats them as its entry fee, not a drama. Below full scope the fatal
+  block shows one calm sentence with no risk facts or diagram; full
+  analysis keeps every measurement, including the early-game progress
+  line. Guessing past a proven-safe move stays "died after guessing
+  while a safe move was available" at any stage, and the status derives
+  at read time, so old records reclassify like every other derived
+  view (the endings chart gains a matching muted-gold line).
 - Evidence capture must never block play. Prover/enumerator failure is
   stored as unmeasured rather than filled with an invented conclusion.
 - **Exclusive report taxonomy** (added 2026-08-23): each evaluation
@@ -290,23 +302,36 @@ report.
   2. **Game risk** — a survived action that added actual immediate loss
      probability under the active mode and protection rules. Raw-risk
      differences canceled by Justice or Angelic protection do not qualify.
-  3. **Time loss** — a no-progress input, proven-safe flag, removal of a
+  3. **Early-game guess** (added 2026-08-24) — a survived action that
+     would be game risk, taken while under a tenth of the board's safe
+     squares were revealed (`evidence.boardProgress`, derived from the
+     saved position on records from before the field). Guessing before
+     the board opens up is how most games start, so it reports as its
+     own lower-priority category — headline "made a non-optimal
+     early-game guess" — instead of as mid-game risk, and its deltas
+     stay out of the excess-game-risk magnitude. Included at risk scope,
+     after the game-risk section. A fatal early guess is still the
+     fatal action, but files under its own calm "died on an early-game
+     guess" status (see below). The recategorization applies to old
+     records at read time like every other derived classification.
+  4. **Time loss** — a no-progress input, proven-safe flag, removal of a
      proven-mine flag, or nonfatal visible chord contradiction. The
      measurement is one classified action; it does not invent seconds or
      claim intent.
-  4. **Life maximization** — an otherwise-lower-severity action for which
+  5. **Life maximization** — an otherwise-lower-severity action for which
      the one-ply model found higher expected remaining life elsewhere.
      This category is optional and model-relative, including
      sea-versus-frontier comparisons; it is not presented as long-horizon
      optimality.
-  5. **Measurement notes** — legacy or incomplete evidence that cannot
+  6. **Measurement notes** — legacy or incomplete evidence that cannot
      honestly be classified further, plus the factual Justice recap.
 - Display: the compact stats stay in the 320px sidebar, while the action
   analysis occupies a centered, responsive column below the board and
   above rankings/charts. Category sections appear in the severity order
-  above. The fatal action is always first. Survived game-risk actions then
-  sort by selected actual death probability (highest first), with excess
-  risk as the tie-breaker. Time loss, life maximization, and measurement
+  above. The fatal action is always first. Survived game-risk and
+  early-guess actions then sort within their sections by selected actual
+  death probability (highest first), with excess risk as the tie-breaker.
+  Time loss, life maximization, and measurement
   notes follow and retain action order. Wins use the same report: they have
   no fatal block, but survived risky or needless guesses still appear when
   the selected scope includes game risk. Every bare reveal is evaluated;
@@ -329,8 +354,11 @@ report.
   under that run, so the final trial review does not lose interim mistakes.
   Semantically identical entries without a saved diagram aggregate at
   their first occurrence and show one count (for example, “Unsatisfied
-  chord clicks: 7”); positioned evidence remains one block per action so
-  each action number stays attached to its diagram.
+  chord clicks: 7”). “Flagged a proven-safe square” also aggregates into
+  one simple count even though those entries have saved positions; opening
+  the count reveals every individual action and diagram. Other positioned
+  evidence remains one block per action so each action number stays
+  attached to its diagram.
   Full analysis adds category counts instead of one undifferentiated
   “recorded mistakes” total, plus nonzero excess-game-risk and
   modeled-life-gap magnitudes. Lower tiers omit those diagnostic rows.
@@ -374,7 +402,7 @@ report.
   chart, one cumulative percent line per ending kind (win plus the
   report's fatal-action statuses plus dashed legacy-verdict lines plus
   "unjudged loss"), each line the kind's share of the games finished so
-  far in the played-time window. Kinds that never occurred stay off the
+  far in the realtime window. Kinds that never occurred stay off the
   chart, except the win line, which always draws once any game has
   ended (a 0% win line is itself the reading). A
   color legend under the chart carries each drawn kind's current share;
@@ -726,6 +754,21 @@ row (playing / none) when the field exists. Deliberately a boolean, not
 the stream titles: titles are personal data that would live forever in
 records and exports.
 
+Play heartbeat — the project's one and only outbound measurement,
+added 2026-08-24 for the public fuseki.net/minesweeper-friendly
+deployment (see hosting.md for the full server contract). One empty
+same-origin beacon per five minutes of accumulated played time — the
+session stats' game-in-progress clock, never wall time — so the
+server's access log can answer "how many people play, and for how
+long" with no third parties, no cookies, no payload, and no
+identifiers beyond what any web server logs. It fires only when the
+page is served from fuseki.net: localhost, file://, and the GitHub
+Pages mirror send nothing, so development play never pollutes the
+numbers. Failed or blocked sends drop silently and are never retried
+(the music poll's rule: measurement must never touch play). Nothing
+per-player is collected, keeping the local-only-data stance: one hit
+means only "someone played five more minutes".
+
 States — the player's state tags active at the moment the game finished
 (see "Player states" below) — joined the schema on 2026-08-20. Every game
 recorded from now on carries the field (an empty list when nothing was
@@ -930,10 +973,15 @@ carries at least one tag.
 
 ## Average-time charts
 
+- All tablecharts, including streak / near-streak / near-near-streak, render
+  before any graphical chart. A forced row break separates the final table
+  from the first average-time chart.
 - One small scatter per grouping stat (`AVERAGE_SCATTER_SPECS`): grouped
   value on x, that group's average solve time on y, dots colored by the
   age of the group's newest win.
-  Axis labels name the chart ("→ 3BV" / "→ average time").
+  The y-axis label is the compact “avg”; every y tick carries seconds
+  (`30s`, `35s`). Input units live on their ticks too, notably `px` on
+  every mouse-path tick.
 - Trend lines (decided 2026-08-22, chosen by eye from a five-fit
   sampling): the Theil–Sen line y = a + b·x — b is the median slope over
   all point pairs, a the median of y − b·x. Chosen over least squares
@@ -969,8 +1017,9 @@ carries at least one tag.
 
 - At the very bottom, ten plots, grouped time-trend first, then board,
   then mouse: win time vs date (local date/time x-axis: minute-to-day
-  calendar ticks, HH:mm labels below a day step, M/D above), win time vs
-  hour of day (0-24 local), 3BV vs time, clicks vs 3BV (with the y = x
+  calendar ticks, HH:mm labels below a day step, M/D above, with a smaller
+  date/year row at the first tick and later calendar boundaries), win time
+  vs hour of day (0h–24h local), 3BV vs time, clicks vs 3BV (with the y = x
   floor drawn as a dashed line — a game on the line used only the board's
   minimum clicks), no-op clicks vs 3BV/s (only wins carrying the
   wastedClicks measurement; appears once at least 2 do), mouse path vs
@@ -989,9 +1038,10 @@ carries at least one tag.
   the dot is near the right edge.
 - No chart titles (2026-08-20): the axis labels name the chart. Labels
   are terse — one or two words, no units or asides ("→ time", "→ 3BV",
-  "→ mouse speed"); the tick values carry the scale. The two time charts
-  are labeled "date" (calendar spread) and "time of day" (all wins folded
-  onto one 24-hour clock).
+  "→ mouse speed"); the tick values carry the scale and their counters.
+  The calendar chart has no redundant “date” axis caption: its M/D ticks
+  and smaller year labels already identify it. The clock-folded chart keeps
+  “time of day”, with every x tick labeled in hours (`0h`, `4h` … `24h`).
 - The whole section (plots and legend) is the "relationship charts"
   shown-thing. The switch had described these plots all along but never
   actually gated them (it only trimmed a trial summary line); repaired
@@ -1285,32 +1335,45 @@ displays changes but does not label their cause.
     "Game-end evaluation".
   - **report categories** (added 2026-08-23) — one per-minute line for
     each enabled exclusive action-report category: game loss, game risk,
-    time loss, life maximization, and measurement notes. `reportScope`
+    early guess (added 2026-08-24), time loss, life maximization, and
+    measurement notes. `reportScope`
     gates these lines with the same none / fatal / risk / full ladder as
     the report.
   - **excess game risk** — sum of the extra immediate loss probability
     on survived game-risk actions per played minute, in percentage
     points/minute. Active protection rules are applied first; this is a
-    probability sum, not a count of observed deaths.
+    probability sum, not a count of observed deaths. Early-game guesses
+    are excluded, matching the report's magnitude row.
   - **modeled life gap** — sum of one-ply
     best-minus-selected expected-remaining-life gaps per played minute.
     It appears only when the optional life-maximization category is on.
-- Running averages (replacing disjoint buckets, 2026-08-23): the
-  lookback is selectable on the section itself (30s / 1m / 2m / 5m /
-  15m; persisted as the `sessionLookbackSeconds` setting, default 5m),
-  and so is the window length (1m / 5m / 10m / 15m / 30m / 1h / 3h;
-  `sessionWindowMinutes`, default 1h). Both are **played time**, not
-  elapsed real time — "5m average" means five minutes of actual play.
-  Game spans are joined onto a cumulative-play timeline, so the end of a
-  game and the start after a five-minute break are adjacent. History is
-  scanned backward through as many games as necessary to fill the chosen
-  play window plus one lookback. One sample per 10s of play, each
-  averaging the lookback of played time behind it (internally: rolling
-  windows over fine 10s buckets); samples sit at played-time multiples,
-  so a finished sample never changes as play continues — only the
-  newest, which rides the current play position. A young session
-  averages the play that exists so far. A wall-clock break changes
-  nothing.
+- Running averages (replacing disjoint buckets, 2026-08-23): both
+  selectors live on the section itself. The **window** comes first
+  (1m / 5m / 10m / 15m / 30m / 1h / 3h; `sessionWindowMinutes`, default
+  1h) and is **realtime** since 2026-08-24 — "1h" means only play from
+  the last hour of wall-clock time feeds the charts. The rationale
+  (creator, same day): play four hours in the morning, take a
+  90-minute break, and a 1h window must start blank when you sit back
+  down — a previous session's stats are not this session's, and they
+  must never masquerade as current form just because little has been
+  played since. During a break the charts visibly age out as old play
+  slides past the window. The **running-average length** comes second
+  (30s / 1m / 2m / 5m / 15m; `sessionLookbackSeconds`, default 5m) and
+  stays **played time** — "5m average" means five minutes of actual
+  play — but it never reaches play from before the window, which would
+  smuggle the previous session into a fresh one's first samples.
+  Within the window the chart axis is still compressed played time
+  (chosen over a realtime axis when the window went wall-clock, so
+  breaks take no chart width): game spans are joined onto a
+  cumulative-play timeline, the end of a game and the start after a
+  five-minute break adjacent, and the axis spans however much play the
+  window actually holds. One sample per 10s of play, each averaging
+  the lookback of played time behind it (internally: rolling windows
+  over fine 10s buckets); samples sit at played-time multiples, so
+  while its play stays inside the window a finished sample never
+  changes — only the newest, which rides the current play position,
+  and the oldest, whose underlying play is aging out. A young window
+  averages the play that exists so far.
 - Honesty rules: a point whose lookback covers under one second of
   in-progress play shows an en dash — one death over a 50ms sliver is
   an absurdity, not a reading. Unmeasurable points are gaps in the
@@ -1320,12 +1383,13 @@ displays changes but does not label their cause.
   the current play position — is labeled directly beside its plotted
   point, rather than detached from the data in the title row.
 - Storage: the live event log is RAM, but the window survives reload
-  (decided 2026-08-22, same evening; played-time scan revised
-  2026-08-23): at startup the newest records are scanned backward until
-  the largest selectable window (3h) plus the largest lookback (15m)
-  plus retention slack of actual play
-  is rebuilt — play 30 minutes, close the tab,
-  reopen, and the running averages are still there. The inclusion rule
+  (decided 2026-08-22, same evening; wall-clock retention since
+  2026-08-24, matching the realtime window): at startup every record
+  that ended within the largest selectable window (3h) plus retention
+  slack is rebuilt — play 30 minutes, close the tab,
+  reopen, and the running averages are still there, while games from
+  before the retention horizon stay out no matter how few games sit
+  inside it. The inclusion rule
   (stated explicitly 2026-08-22, late evening, and verified with a live
   loss + reload): wins and losses backfill alike, each with its full
   played time — a loss's record carries its duration, counts, and death

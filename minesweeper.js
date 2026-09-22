@@ -979,6 +979,8 @@ const ACTION_CATEGORY_SPECS = [
     records: 'the fatal action; a loss can be best-available play and is not automatically a mistake' },
   { id: 'gameRisk', label: 'Game risk',
     records: 'a survived action that increased the actual chance of losing under the active rules' },
+  { id: 'earlyGuess', label: 'Early-game guess',
+    records: 'a survived non-optimal guess taken while under a tenth of the board\u2019s safe squares were revealed; a common way to open a board, so it reports below mid-game risk' },
   { id: 'timeLoss', label: 'Time loss',
     records: 'an input that made no board progress or moved visible state away from a proven fact; counts actions, not seconds or intent' },
   { id: 'lifeMaximization', label: 'Life maximization',
@@ -990,7 +992,10 @@ const ACTION_CATEGORY_SPECS = [
 function reportScopeAllows(scope, category) {
   if (scope === 'none') return false;
   if (scope === 'fatal') return category === 'gameLoss';
-  if (scope === 'risk') return category === 'gameLoss' || category === 'gameRisk';
+  if (scope === 'risk') {
+    return category === 'gameLoss' || category === 'gameRisk'
+      || category === 'earlyGuess';
+  }
   return scope === 'full';
 }
 
@@ -1020,6 +1025,33 @@ function evaluationRiskDelta(evaluation) {
   return undefined;
 }
 
+// "Early game" is judged from the player's own position: the fraction of
+// the board's safe squares already revealed when the action was taken
+// (evidence.boardProgress on new records; derived from the saved position
+// on records stored before the field existed). Guessing before the board
+// opens up is how most games start, so a survived non-optimal early guess
+// reports as its own lower-priority category instead of mid-game risk
+// (creator request 2026-08-24). Fatal actions are unaffected: a death is
+// the fatal action wherever it happens.
+const EARLY_GAME_PROGRESS_LIMIT = 0.1;
+
+function evaluationBoardProgress(evaluation) {
+  const evidence = evaluation.evidence || {};
+  if (typeof evidence.boardProgress === 'number') return evidence.boardProgress;
+  const position = evaluation.position;
+  if (!position || !Array.isArray(position.revealed)
+      || !Number.isFinite(position.width) || !Number.isFinite(position.height)
+      || !Number.isFinite(position.mines)) return undefined;
+  const safeTotal = position.width * position.height - position.mines;
+  if (safeTotal <= 0) return undefined;
+  return position.revealed.length / safeTotal;
+}
+
+function evaluationIsEarlyGame(evaluation) {
+  const progress = evaluationBoardProgress(evaluation);
+  return progress !== undefined && progress < EARLY_GAME_PROGRESS_LIMIT;
+}
+
 function evaluationLifeGap(evaluation) {
   const evidence = evaluation.evidence || {};
   if (typeof evidence.expectedLife !== 'number'
@@ -1038,7 +1070,9 @@ function actionEvaluationCategory(evaluation) {
   const hasRiskRule = [...GAME_RISK_MISTAKES].some((kind) => mistakes.has(kind));
   if (hasRiskRule) {
     const delta = evaluationRiskDelta(evaluation);
-    if (delta === undefined || delta > 1e-12) return 'gameRisk';
+    if (delta === undefined || delta > 1e-12) {
+      return evaluationIsEarlyGame(evaluation) ? 'earlyGuess' : 'gameRisk';
+    }
   }
   if ([...TIME_LOSS_MISTAKES].some((kind) => mistakes.has(kind))) return 'timeLoss';
   if (mistakes.has('chose-lower-modeled-life')
@@ -1132,6 +1166,7 @@ const FATAL_STATUS_LABELS = {
   'proof-safe': 'Proof-or-die rule death while a proven-safe move was available',
   'proof-forced': 'Proof-or-die rule death with no proven-safe move available',
   'guess-safe': 'died after guessing while a safe move was available',
+  'guess-early': 'died on an early-game guess',
   'guess-higher': 'died from a higher-risk forced guess',
   'guess-min': 'died despite choosing a minimum-risk forced guess',
   'guess-unmeasured': 'died from a forced guess (risk rank unmeasured)',
@@ -1156,6 +1191,11 @@ function fatalActionStatusKind(evaluation) {
   }
   const delta = evaluationRiskDelta(evaluation);
   if (safeAvailable) return 'guess-safe';
+  // A forced guess death before the board opened up is the mode's
+  // entry fee: over enough games it must happen, so it files as one
+  // routine kind whatever the risk rank was (creator, 2026-08-24).
+  // Guessing past a proven-safe move stays 'guess-safe' at any stage.
+  if (evaluationIsEarlyGame(evaluation)) return 'guess-early';
   if (delta !== undefined && delta > 1e-12) return 'guess-higher';
   if (delta !== undefined) return 'guess-min';
   return 'guess-unmeasured';
@@ -1193,6 +1233,12 @@ function actionEvaluationLabel(evaluation) {
     }
     const kind = evaluationEndingKind(evaluation);
     return kind === 'other' ? 'unjudged death' : DEATH_KIND_LABELS[kind];
+  }
+  // One player-facing wording for the whole early-game category: the
+  // specific mechanism (higher risk, ignored safe move) stays on the
+  // evidence lines, but the headline calls it what it is to a player.
+  if (actionEvaluationCategory(evaluation) === 'earlyGuess') {
+    return 'made a non-optimal early-game guess';
   }
   const labels = (Array.isArray(evaluation.mistakes) ? evaluation.mistakes : [])
     .map((kind) => ACTION_MISTAKE_LABELS[kind] || kind);
@@ -1271,6 +1317,13 @@ function actionEvaluationText(evaluation) {
       && typeof evidence.chosenRisk === 'number') {
     parts.push('No guaranteed-safe reveal was available. The selected square had the lowest measured mine risk and happened to be mined.');
   }
+  if (actionEvaluationCategory(evaluation) === 'earlyGuess'
+      || fatalActionStatusKind(evaluation) === 'guess-early') {
+    parts.push('This was an early-game guess: only '
+      + Math.round(evaluationBoardProgress(evaluation) * 100)
+      + '% of the board\u2019s safe squares were revealed, a routine '
+      + 'opening gamble.');
+  }
   if (typeof evidence.chosenRisk === 'number') {
     parts.push('Selected mine risk: ' + (evidence.chosenRisk * 100).toFixed(1) + '%.');
   }
@@ -1312,14 +1365,42 @@ const NO_OP_AGGREGATE_LABELS = {
   'flagged-revealed-cell': 'Flag attempts on revealed squares',
 };
 
-// Positionless repetitions do not need one prose block per input. Group
-// semantically identical entries at their first occurrence; positioned
-// evidence remains individual so its action number stays attached to its
-// diagram.
+const DISCLOSURE_AGGREGATE_LABELS = {
+  'flagged-proven-safe': 'Proven-safe squares flagged',
+};
+
+function disclosureAggregateKind(evaluation) {
+  if (!Array.isArray(evaluation && evaluation.mistakes)) return null;
+  return Object.keys(DISCLOSURE_AGGREGATE_LABELS)
+    .find((kind) => evaluation.mistakes.includes(kind)) || null;
+}
+
+// Most positioned evidence remains individual so its action number stays
+// attached to its diagram. High-frequency, specifically named mistakes can
+// instead form one count whose instances remain available in a disclosure.
 function aggregateReportEntries(entries) {
   const result = [];
   const groups = new Map();
   for (const entry of entries) {
+    const aggregateKind = disclosureAggregateKind(entry.shown);
+    if (aggregateKind !== null) {
+      const key = JSON.stringify([entry.category, aggregateKind]);
+      const existing = groups.get(key);
+      if (existing) {
+        existing.count++;
+        existing.instances.push(entry);
+        continue;
+      }
+      const grouped = {
+        ...entry,
+        aggregateKind,
+        count: 1,
+        instances: [entry],
+      };
+      groups.set(key, grouped);
+      result.push(grouped);
+      continue;
+    }
     if (entry.shown.position !== undefined) {
       result.push({ ...entry, count: 1 });
       continue;
@@ -1342,7 +1423,7 @@ function aggregateReportEntries(entries) {
 function reportEntryOrderValue(entry) {
   const evaluation = entry.evaluation || entry.shown || {};
   const evidence = evaluation.evidence || {};
-  if (entry.category === 'gameRisk') {
+  if (entry.category === 'gameRisk' || entry.category === 'earlyGuess') {
     const selectedRisk = typeof evidence.actualRisk === 'number'
       ? evidence.actualRisk
       : (typeof evidence.chosenRisk === 'number' ? evidence.chosenRisk : -1);
@@ -1374,6 +1455,9 @@ function orderReportEntries(entries) {
 }
 
 function aggregateReportTitle(entry) {
+  if (entry.aggregateKind !== undefined) {
+    return DISCLOSURE_AGGREGATE_LABELS[entry.aggregateKind] + ': ' + entry.count;
+  }
   if (entry.shown.action === 'no-op') {
     const reason = entry.shown.evidence && entry.shown.evidence.reason;
     const label = NO_OP_AGGREGATE_LABELS[reason] || 'Clicks that changed nothing';
@@ -1458,6 +1542,13 @@ function actionEvaluationLines(evaluation) {
   }
   if (evidence.oddsMeasured === false && !rawMeasured) {
     lines.push({ label: 'Immediate risk', value: 'not measured' });
+  }
+  if (actionEvaluationCategory(evaluation) === 'earlyGuess'
+      || fatalActionStatusKind(evaluation) === 'guess-early') {
+    const progress = evaluationBoardProgress(evaluation);
+    lines.push({ label: 'Early game', value:
+      'only ' + Math.round(progress * 100) + '% of the board\u2019s safe '
+      + 'squares were revealed \u2014 a routine opening gamble' });
   }
   if (typeof evidence.expectedLife === 'number'
       && typeof evidence.bestExpectedLife === 'number') {
@@ -1610,6 +1701,10 @@ function actionEvaluationBase(action, actionNumber, selected, triggerCell, optio
       playMode: settings.playMode,
       oddsVersion: Odds.VERSION,
       proofVersion: Justice.PROOF_VERSION,
+      // The fraction of the board's safe squares already revealed when
+      // the action was taken; the early-game guess category thresholds
+      // on it (older records derive it from the saved position instead).
+      boardProgress: revealedCount / (cells.length - config.mines),
     },
     alternatives: [],
   };
@@ -2166,6 +2261,30 @@ function buildVerdictBlocks(record) {
     wrap.appendChild(section);
     return section;
   };
+  const appendBody = (box, bodyContent) => {
+    if (!bodyContent) return;
+    if (Array.isArray(bodyContent)) {
+      const facts = document.createElement('div');
+      facts.className = 'verdict-facts';
+      for (const fact of bodyContent) {
+        const line = document.createElement('div');
+        line.className = 'verdict-fact';
+        const label = document.createElement('span');
+        label.className = 'verdict-fact-label';
+        label.textContent = fact.label + ':';
+        const value = document.createElement('span');
+        value.textContent = fact.value;
+        line.append(label, value);
+        facts.appendChild(line);
+      }
+      box.appendChild(facts);
+      return;
+    }
+    const body = document.createElement('div');
+    body.className = 'verdict-body';
+    body.textContent = bodyContent;
+    box.appendChild(body);
+  };
   const block = (category, kindClass, titleText, bodyContent) => {
     const box = document.createElement('div');
     box.className = 'verdict-block ' + kindClass;
@@ -2173,41 +2292,57 @@ function buildVerdictBlocks(record) {
     title.className = 'verdict-title';
     title.textContent = titleText;
     box.appendChild(title);
-    if (detail !== 'summary' && bodyContent) {
-      if (Array.isArray(bodyContent)) {
-        const facts = document.createElement('div');
-        facts.className = 'verdict-facts';
-        for (const fact of bodyContent) {
-          const line = document.createElement('div');
-          line.className = 'verdict-fact';
-          const label = document.createElement('span');
-          label.className = 'verdict-fact-label';
-          label.textContent = fact.label + ':';
-          const value = document.createElement('span');
-          value.textContent = fact.value;
-          line.append(label, value);
-          facts.appendChild(line);
-        }
-        box.appendChild(facts);
-      } else {
-        const body = document.createElement('div');
-        body.className = 'verdict-body';
-        body.textContent = bodyContent;
-        box.appendChild(body);
-      }
-    }
+    if (detail !== 'summary') appendBody(box, bodyContent);
     sectionFor(category).appendChild(box);
     return box;
+  };
+  const appendAggregateDisclosure = (entry) => {
+    const details = document.createElement('details');
+    details.className = 'verdict-block verdict-mistake verdict-aggregate';
+    const summary = document.createElement('summary');
+    summary.className = 'verdict-title';
+    summary.textContent = aggregateReportTitle(entry);
+    details.appendChild(summary);
+    const instances = document.createElement('div');
+    instances.className = 'verdict-aggregate-instances';
+    for (const instance of entry.instances) {
+      const item = document.createElement('div');
+      item.className = 'verdict-aggregate-instance';
+      const itemTitle = document.createElement('div');
+      itemTitle.className = 'verdict-title';
+      itemTitle.textContent = 'Action'
+        + (typeof instance.evaluation.actionNumber === 'number'
+          ? ' ' + instance.evaluation.actionNumber : '')
+        + ': ' + actionEvaluationLabel(instance.shown);
+      item.appendChild(itemTitle);
+      appendBody(item, actionEvaluationLines(instance.shown));
+      const position = detail === 'positions'
+        ? buildEvaluationPosition(instance.shown) : null;
+      if (position) item.appendChild(position);
+      instances.appendChild(item);
+    }
+    details.appendChild(instances);
+    sectionFor(entry.category).appendChild(details);
   };
   const evaluations = record.actionEvaluations || [];
   const fatal = fatalEvaluationOf(record);
   if (fatal && reportCategoryEnabled('gameLoss')) {
     const shown = evaluationForReport(fatal);
     const kind = evaluationEndingKind(fatal);
+    // An early-game guess death is the mode's routine entry fee, so
+    // below full scope it gets one calm sentence instead of the full
+    // evidence ceremony; full analysis keeps every measurement.
+    const compactEarly = fatalActionStatusKind(fatal) === 'guess-early'
+      && settings.reportScope !== 'full';
     const box = block('gameLoss', 'verdict-' + (kind || 'unjudged'),
       'Fatal action: ' + actionEvaluationLabel(shown),
-      actionEvaluationLines(shown));
-    const position = detail === 'positions' ? buildEvaluationPosition(shown) : null;
+      compactEarly
+        ? 'A forced coinflip before the board opened up came up wrong. '
+          + 'Over enough games this ending is part of the mode; full '
+          + 'analysis shows the measured odds.'
+        : actionEvaluationLines(shown));
+    const position = detail === 'positions' && !compactEarly
+      ? buildEvaluationPosition(shown) : null;
     if (position) box.appendChild(position);
   } else if (!fatal && record.outcome === 'loss'
       && reportCategoryEnabled('gameLoss')) {
@@ -2224,6 +2359,10 @@ function buildVerdictBlocks(record) {
   }
   for (const entry of orderReportEntries(aggregateReportEntries(reportEntries))) {
     const { evaluation, shown, category } = entry;
+    if (entry.aggregateKind !== undefined) {
+      appendAggregateDisclosure(entry);
+      continue;
+    }
     const positionless = shown.position === undefined;
     const title = positionless
       ? aggregateReportTitle(entry)
@@ -2526,7 +2665,9 @@ let history = null;
 // on the settings page, so experimenting with it is one click.
 const SESSION_LOOKBACK_CHOICES = [30, 60, 120, 300, 900];
 
-// Selectable session-stat window lengths (minutes of accumulated play).
+// Selectable session-stat window lengths (minutes of realtime since
+// 2026-08-24: "1h" = the last hour of wall-clock time — only play
+// within it feeds the charts, so a previous session ages out entirely).
 // Same one-click doctrine: the selector lives on the session section.
 // Retention (SESSION_KEEP_MS) always covers the largest choice, so
 // switching to a longer window works immediately.
@@ -3262,9 +3403,9 @@ function minorTicks(ticks, min, max) {
 }
 
 // Ticks for a date x-axis (epoch ms): a calendar step from minutes up to
-// days, aligned to local wall-clock multiples, labeled HH:mm below a day
-// and M/D from a day up. At most 5 ticks: HH:mm labels are the widest kind
-// at the title-sized tick font, so more would collide.
+// days, aligned to local wall-clock multiples. The primary row is HH:mm
+// below a day and M/D from a day up; a smaller second row names the first
+// date/year and each later date or year boundary.
 function timeTicks(min, max) {
   const MIN = 60e3, HOUR = 3600e3, DAY = 864e5;
   const steps = [MIN, 5 * MIN, 15 * MIN, 30 * MIN, HOUR, 3 * HOUR, 6 * HOUR,
@@ -3281,7 +3422,26 @@ function timeTicks(min, max) {
       ? pad2(d.getHours()) + ':' + pad2(d.getMinutes())
       : (d.getMonth() + 1) + '/' + d.getDate();
   };
-  return { ticks, fmt };
+  const subfmt = (t, index) => {
+    const d = new Date(t);
+    if (index === 0) {
+      return step < DAY
+        ? (d.getMonth() + 1) + '/' + d.getDate() + '/' + d.getFullYear()
+        : String(d.getFullYear());
+    }
+    const previous = new Date(ticks[index - 1]);
+    if (step < DAY) {
+      const changedDate = d.getFullYear() !== previous.getFullYear()
+        || d.getMonth() !== previous.getMonth()
+        || d.getDate() !== previous.getDate();
+      return changedDate
+        ? (d.getMonth() + 1) + '/' + d.getDate() + '/' + d.getFullYear()
+        : '';
+    }
+    return d.getFullYear() !== previous.getFullYear()
+      ? String(d.getFullYear()) : '';
+  };
+  return { ticks, fmt, subfmt };
 }
 
 //-------TREND LINE (Theil–Sen, chosen 2026-08-22 from a fit sampling)-------
@@ -3337,7 +3497,8 @@ let trendClipSeq = 0;
 // labeled with its today-rank. Shows relationships (e.g. does moving the
 // mouse faster actually win games faster?) rather than rankings. There is
 // no chart title: the terse axis labels, rendered at title size along
-// with the tick values, name the chart. opts.timeAxis renders x as a local
+// with the tick values, name the chart (the self-describing calendar ticks
+// are the one captionless axis). opts.timeAxis renders x as a local
 // date/time axis; opts.idealLine draws the y = x diagonal (used where y has
 // a hard floor at x, e.g. clicks can never beat 3BV). opts.trendLines
 // (trendLinesFor output) draws each y = a + b·x entry clipped to the plot
@@ -3397,21 +3558,31 @@ function buildScatter(wins, me, fx, fy, xLabel, yLabel, meLabel, ageInfoOf, opts
   };
   // x caps at 6 ticks (the labels are title-sized, so a 7-tick x-axis can
   // collide with itself); y stacks vertically and takes the full 7.
-  let xTicks, fmtX;
+  let xTicks, fmtX, fmtXSub = null;
   if (opts.xTicks) {
     xTicks = opts.xTicks;
     fmtX = opts.formatX || tickFmt(xTicks);
   } else if (opts.timeAxis) {
-    ({ ticks: xTicks, fmt: fmtX } = timeTicks(x0, x1));
+    ({ ticks: xTicks, fmt: fmtX, subfmt: fmtXSub } = timeTicks(x0, x1));
   } else {
     xTicks = niceTicks(x0, x1, 6);
-    fmtX = tickFmt(xTicks);
+    fmtX = opts.formatX || tickFmt(xTicks);
   }
-  for (const v of xTicks) {
+  for (let i = 0; i < xTicks.length; i++) {
+    const v = xTicks[i];
     el('line', { x1: px(v), y1: T, x2: px(v), y2: H - B, class: 'scatter-grid' });
     el('text', { x: px(v), y: H - B + 14, class: 'scatter-tick tick-x' }, fmtX(v));
+    const subText = fmtXSub === null ? '' : fmtXSub(v, i);
+    if (subText !== '') {
+      el('text', {
+        x: px(v), y: H - B + 27, class: 'scatter-tick tick-x tick-x-sub',
+      }, subText);
+    }
   }
-  const yTicks = niceTicks(y0, y1, 7), fmtY = tickFmt(yTicks);
+  const yTicks = niceTicks(y0, y1, 7);
+  const baseFmtY = tickFmt(yTicks);
+  const fmtY = opts.formatY
+    || ((v) => baseFmtY(v) + (opts.yTickSuffix || ''));
   for (const v of yTicks) {
     el('line', { x1: L, y1: py(v), x2: W - R, y2: py(v), class: 'scatter-grid' });
     el('text', { x: L - 4, y: py(v) + 4, class: 'scatter-tick tick-y' }, fmtY(v));
@@ -3496,11 +3667,17 @@ function buildScatter(wins, me, fx, fy, xLabel, yLabel, meLabel, ageInfoOf, opts
       }, meLabel);
     }
   }
-  el('text', { x: L + (W - L - R) / 2, y: H - 4, class: 'scatter-axis-label' }, '\u2192 ' + xLabel);
-  el('text', {
-    transform: 'translate(12 ' + (T + (H - T - B) / 2) + ') rotate(-90)',
-    class: 'scatter-axis-label',
-  }, '\u2192 ' + yLabel);
+  if (xLabel) {
+    el('text', {
+      x: L + (W - L - R) / 2, y: H - 4, class: 'scatter-axis-label',
+    }, '\u2192 ' + xLabel);
+  }
+  if (yLabel) {
+    el('text', {
+      transform: 'translate(12 ' + (T + (H - T - B) / 2) + ') rotate(-90)',
+      class: 'scatter-axis-label',
+    }, '\u2192 ' + yLabel);
+  }
   if (hiddenCount > 0) {
     el('text', { x: W - R - 3, y: T + 11, class: 'scatter-outlier-note' },
       '\u2191 ' + hiddenCount + ' outlier' + (hiddenCount === 1 ? '' : 's')
@@ -3550,9 +3727,13 @@ function buildAverageScatter(spec, wins, record, historyView) {
     averagePoints(spec, wins.filter((w) => w.endedAt >= todayStart)));
   return buildScatter(
     points, current, (point) => point.x, (point) => point.averageSeconds,
-    spec.label, 'average time', '',
+    spec.label, 'avg', '',
     (point) => ageInfo(referenceMs, point.endedAt),
-    { trendLines: trendLinesFor(asPairs(points), todayPairs) });
+    {
+      formatX: spec.format,
+      yTickSuffix: 's',
+      trendLines: trendLinesFor(asPairs(points), todayPairs),
+    });
 }
 
 // How this win moved the average time of its own bucket (the average over
@@ -4460,12 +4641,6 @@ function renderRanks(record, modeRecords, options = {}) {
     }
   }
 
-  if (settings.shownThings.averageCharts && wins.length >= 2) {
-    for (const spec of AVERAGE_SCATTER_SPECS) {
-      resultRanks.appendChild(buildAverageScatter(spec, wins, record, historyView));
-    }
-  }
-
   // Streak lists: wins in chronological runs split by losses. A k-loss
   // streak joins k+1 adjacent runs; the streak ending in this win is "me".
   // modeRecords is chronological (appended in play order; import re-sorts).
@@ -4525,6 +4700,18 @@ function renderRanks(record, modeRecords, options = {}) {
       }));
   }
 
+  // Every tablechart, including the win/loss streak lists, precedes every
+  // graphical chart. The break makes that order visible even when the flex
+  // row still has room beside the final table.
+  if (settings.shownThings.averageCharts && wins.length >= 2) {
+    const brk = document.createElement('div');
+    brk.className = 'flex-break';
+    resultRanks.appendChild(brk);
+    for (const spec of AVERAGE_SCATTER_SPECS) {
+      resultRanks.appendChild(buildAverageScatter(spec, wins, record, historyView));
+    }
+  }
+
   // Scatter plots at the very bottom, each raw win value against win time
   // (or clicks). Needs at least 2 wins to have a spread. These are the
   // "relationship charts": the switch had described them all along but
@@ -4561,19 +4748,24 @@ function renderRanks(record, modeRecords, options = {}) {
     const endedAtOf = (s) => s.endedAt;
     const bv3Of = (s) => s.bv3;
     const clicksOf = (s) => s.clicks;
-    // Axis labels stay terse — one or two words, no units or asides; the
-    // tick values carry the scale. "date" spreads wins across the calendar;
-    // "time of day" folds every win onto one 24-hour clock, exposing the
-    // daily rhythm instead of the long-term trend.
+    // Axis labels stay terse — one or two words, no units or asides; tick
+    // values carry the scale and unit. The calendar needs no lower "date"
+    // caption because its M/D and year rows identify it; "time of day"
+    // folds every win onto one 24-hour clock.
     const appendScatter = (svg) => resultRanks.appendChild(svg);
     appendScatter(buildScatter(
       wins, highlighted, endedAtOf, secondsOf,
-      'date', 'time', meLabel, ageInfoOf,
+      '', 'time', meLabel, ageInfoOf,
       { timeAxis: true, trimY: true, ...trendOpts(endedAtOf, secondsOf) }));
     appendScatter(buildScatter(
       wins, highlighted, hourOfDay, secondsOf,
       'time of day', 'time', meLabel, ageInfoOf,
-      { xDomain: [0, 24], xTicks: [0, 4, 8, 12, 16, 20, 24], trimY: true }));
+      {
+        xDomain: [0, 24],
+        xTicks: [0, 4, 8, 12, 16, 20, 24],
+        formatX: (hour) => hour + 'h',
+        trimY: true,
+      }));
     appendScatter(buildScatter(
       wins, highlighted, bv3Of, secondsOf,
       '3BV', 'time', meLabel, ageInfoOf,
@@ -6801,8 +6993,9 @@ setInterval(() => {
   // anywhere else blurs it, so the ticker resumes within a second.
   if (metricsPanel.contains(document.activeElement)) return;
   if (tracing()) renderLiveTraceMetrics();
-  // Between games the session section still redraws for UI consistency;
-  // its cumulative-play axis correctly stays fixed while nothing is played.
+  // Between games the session section keeps redrawing: the realtime
+  // window keeps sliding while nothing is played, so old play visibly
+  // ages out of the charts during a break rather than going stale.
   else renderMetricsPanel(null);
 }, LIVE_METRICS_EVERY_MS);
 
@@ -6812,12 +7005,18 @@ setInterval(() => {
 // averages over recent actual play, across games, losses and abandoned
 // boards included — but only over time a game was actually in progress
 // (first reveal to game end), never travel to the restart button or
-// between-game idling. Two layers: sessionBucketSeries chops the played
-// timeline into fixed buckets and sums each; sessionRunningSeries rolls a
-// trailing-lookback window over fine (SESSION_STEP_MS) buckets, so each
-// charted point is "the average over the last N minutes of play" — N of
-// played time, never wall time. These are observations only; this code
-// does not infer mood, condition, play style, or any cause for a change.
+// between-game idling. Two selectors, two meanings (since 2026-08-24):
+// the window is wall-clock realtime — "1h" means only play from the
+// last hour of real life feeds the charts, so a previous session ages
+// out entirely and a fresh sit-down starts from a blank chart — while
+// the running-average lookback stays played time. Two layers:
+// sessionBucketSeries chops the played timeline into fixed buckets and
+// sums each; sessionRunningSeries rolls a trailing-lookback window over
+// fine (SESSION_STEP_MS) buckets, so each charted point is "the average
+// over the last N minutes of play" — N of played time, never wall time,
+// but never reaching data from before the window. These are
+// observations only; this code does not infer mood, condition, play
+// style, or any cause for a change.
 //
 // Everything here is pure over an event list so it is testable in Node
 // (tests/session-buckets-test.js extracts this span). Events, all wall
@@ -6852,13 +7051,12 @@ setInterval(() => {
 // accumulated play. Finer would redraw sub-pixel wiggles; coarser would
 // visibly stairstep the shortest (30s) lookback.
 const SESSION_STEP_MS = 10 * 1000;
-// Retention always covers the largest selectable window plus the largest
-// selectable lookback (see SESSION_WINDOW_CHOICES / SESSION_LOOKBACK_CHOICES),
-// so switching either to its longest works at once.
+// Retention always covers the largest selectable realtime window (see
+// SESSION_WINDOW_CHOICES), so switching to the longest works at once.
+// Wall-clock since 2026-08-24, like the window itself; the lookback
+// cannot reach past the window, so it adds nothing to retention.
 const SESSION_WINDOW_MAX_MS = 3 * 60 * 60 * 1000;
-const SESSION_LOOKBACK_MAX_MS = 15 * 60 * 1000;
-const SESSION_KEEP_MS =
-  SESSION_WINDOW_MAX_MS + SESSION_LOOKBACK_MAX_MS + 5 * 60 * 1000; // + slack
+const SESSION_KEEP_MS = SESSION_WINDOW_MAX_MS + 5 * 60 * 1000; // + slack
 const SESSION_MOVE_COALESCE_MS = 1000;
 const SESSION_MOVING_PRESS_MS = 100; // press "on the move" (same as cadence)
 // A useful-press gap this short qualifies for the fastclick median.
@@ -6878,7 +7076,7 @@ const SESSION_MIN_PLAY_MS = 1000;
 // chart draws one cumulative percent line per kind.
 const SESSION_END_KINDS = [
   'win',
-  'guess-min', 'guess-higher', 'guess-unmeasured', 'guess-safe',
+  'guess-early', 'guess-min', 'guess-higher', 'guess-unmeasured', 'guess-safe',
   'mine-safe', 'mine-forced', 'proof-safe', 'proof-forced',
   'angel', 'forced', 'needless', 'mine', 'chord',
   'other',
@@ -6889,22 +7087,6 @@ function sessionMedian(values) {
   const sorted = [...values].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
   return sorted.length % 2 === 1 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
-}
-
-// Selects the newest games by accumulated played duration. Their wall ages
-// and the breaks between them are deliberately irrelevant.
-function sessionHistorySlice(games, keepMs) {
-  let keepFrom = games.length;
-  let keptPlayMs = 0;
-  while (keepFrom > 0 && keptPlayMs < keepMs) {
-    keepFrom--;
-    keptPlayMs += games[keepFrom].to - games[keepFrom].from;
-  }
-  let playOffsetMs = 0;
-  for (let i = 0; i < keepFrom; i++) {
-    playOffsetMs += games[i].to - games[i].from;
-  }
-  return { games: games.slice(keepFrom), playOffsetMs };
 }
 
 // The mine count encoded in a mode key ("30x16/99" or "30x16/99@standard").
@@ -6934,8 +7116,11 @@ function recordWinUnmarkedShare(record, mines) {
 // ten played seconds, a five-minute break, and twenty more played seconds
 // are one contiguous thirty-second run here. playOffsetMs is the cumulative
 // duration of older spans pruned from RAM, preserving bucket alignment.
-// Finished buckets are anchored to cumulative played-time multiples; only
-// the current partial bucket changes while play continues.
+// Buckets stay anchored to cumulative played-time multiples; the newest
+// partial bucket changes while play continues, and (since the window
+// became wall-clock, 2026-08-24) the oldest in-window buckets thin out
+// as their play ages past the realtime window — both are the honest
+// reading, not drift.
 function sessionBucketSeries(events, opts) {
   const spans = [];
   for (const ev of events) {
@@ -6955,7 +7140,22 @@ function sessionBucketSeries(events, opts) {
     playCursor = span.playTo;
   }
   const playNowMs = playCursor;
-  const windowFrom = playNowMs - opts.windowMs;
+  // The window is wall-clock since 2026-08-24 ("1h" = the last hour of
+  // realtime, played or not): its start maps onto the compressed play
+  // axis — inside a span linearly, in a between-play gap at the boundary
+  // both sides share, and after all play at the current position (a
+  // window that holds no play charts nothing). Everything older is
+  // excluded at the source: spans clip, events drop, and the running
+  // average can never blend in a previous session's play.
+  const horizonWall = opts.nowMs - opts.windowMs;
+  let windowFrom = playNowMs;
+  for (const span of spans) {
+    if (horizonWall <= span.from) { windowFrom = span.playFrom; break; }
+    if (horizonWall <= span.to) {
+      windowFrom = span.playFrom + (horizonWall - span.from);
+      break;
+    }
+  }
   const startPlayMs = Math.floor(windowFrom / opts.bucketMs) * opts.bucketMs;
   const bucketCount = Math.max(1, Math.ceil((playNowMs - startPlayMs) / opts.bucketMs));
   const bucketAt = (playAt) => Math.floor((playAt - startPlayMs) / opts.bucketMs);
@@ -7154,7 +7354,7 @@ function sessionBucketSeries(events, opts) {
   }
   return {
     startPlayMs, bucketMs: opts.bucketMs, playNowMs,
-    windowMs: opts.windowMs, centers, playMs,
+    windowMs: opts.windowMs, windowFromPlayMs: windowFrom, centers, playMs,
     speedPxPerSec, clicksPerSec, avoidablePerMin, wastedPerMin, misclicksPerMin, flagsPerSec,
     mismarksPerMin, fastclickGapMs, endFractions, endGames, winUnmarkedFraction,
     categoryPerMin, excessRiskPctPerMin, modeledLifeGapPerMin,
@@ -7169,23 +7369,31 @@ function sessionBucketSeries(events, opts) {
 
 // The trailing running average the charts actually show: one sample per
 // SESSION_STEP_MS of accumulated play, each averaging the lookback of
-// played time behind it ("5m" = five played minutes, never wall time).
-// Built as rolling prefix-sum windows over sessionBucketSeries' fine
-// buckets, so a finished sample never changes as play continues — only
-// the newest, still-accumulating one does — and a young session simply
-// averages the play that exists so far. Rates divide by the played time
-// actually covered, and under SESSION_MIN_PLAY_MS of it stays undefined.
-// The endings fractions ignore the lookback entirely: they remain each
-// kind's cumulative share of the games finished so far in the chart
-// window, resampled at the same positions.
-// opts: {nowMs, stepMs, lookbackMs, windowMs, openPlayFrom, playOffsetMs}.
+// played time behind it ("5m" = five played minutes, never wall time),
+// but only play inside the realtime window — a lookback that could
+// reach past the window's start would blend a previous session into a
+// fresh one's first samples, exactly what the wall-clock window exists
+// to prevent. Built as rolling prefix-sum windows over
+// sessionBucketSeries' fine buckets: while the underlying play stays in
+// the window a finished sample never changes as play continues — only
+// the newest, still-accumulating one does — and a young window simply
+// averages the play that exists so far; samples whose play has begun
+// aging past the window thin out and eventually leave with it. Rates
+// divide by the played time actually covered, and under
+// SESSION_MIN_PLAY_MS of it stays undefined. The endings fractions
+// ignore the lookback entirely: they remain each kind's cumulative
+// share of the games finished so far in the window, resampled at the
+// same positions.
+// opts: {nowMs, stepMs, lookbackMs, windowMs (wall-clock), openPlayFrom,
+// playOffsetMs}.
 function sessionRunningSeries(events, opts) {
   const fine = sessionBucketSeries(events, {
     nowMs: opts.nowMs,
     bucketMs: opts.stepMs,
-    // Reach one lookback past the chart window so the earliest visible
-    // sample still averages its full trailing lookback.
-    windowMs: opts.windowMs + opts.lookbackMs,
+    // The fine layer covers exactly the realtime window — the lookback
+    // deliberately gets no extra reach past it, so the earliest samples
+    // average only the young window's play (never a previous session's).
+    windowMs: opts.windowMs,
     openPlayFrom: opts.openPlayFrom,
     playOffsetMs: opts.playOffsetMs,
   });
@@ -7211,7 +7419,7 @@ function sessionRunningSeries(events, opts) {
   const pModeledLifeGap = prefix(sums.modeledLifeGap);
   const roll = (p, k) => p[k + 1] - p[Math.max(0, k - lookbackBuckets + 1)];
 
-  const windowFrom = fine.playNowMs - opts.windowMs;
+  const windowFrom = fine.windowFromPlayMs;
   const centers = [];
   const playMs = [];
   const speedPxPerSec = [];
@@ -7283,6 +7491,7 @@ function sessionRunningSeries(events, opts) {
   return {
     stepMs: opts.stepMs, lookbackMs: opts.lookbackMs,
     playNowMs: fine.playNowMs, windowMs: opts.windowMs,
+    windowFromPlayMs: windowFrom,
     centers, playMs,
     speedPxPerSec, clicksPerSec, avoidablePerMin, wastedPerMin,
     misclicksPerMin, flagsPerSec, mismarksPerMin, fastclickGapMs,
@@ -7339,20 +7548,13 @@ let sessionLastUsefulPressAt = null; // last useful press of the current game
 let gameFastclickGaps = [];          // this game's qualifying gaps, for the
                                      // per-game fastclickGapMs record field
 
+// Drops events that ended before the wall-clock retention horizon (see
+// SESSION_KEEP_MS — the largest realtime window plus slack; events past
+// it can never chart again). The played duration of dropped spans
+// accumulates into sessionPlayOffsetMs so the cumulative-play bucket
+// grid never shifts.
 function sessionPrune(nowMs) {
-  let needed = SESSION_KEEP_MS;
-  if (sessionPlayFrom !== null) needed -= Math.max(0, nowMs - sessionPlayFrom);
-  const spans = sessionEvents
-    .filter((ev) => (ev.kind === 'play' || ev.kind === 'game') && ev.to > ev.from)
-    .sort((a, b) => b.to - a.to);
-  let cutoff = null;
-  for (const span of spans) {
-    needed -= span.to - span.from;
-    cutoff = span.from;
-    if (needed <= 0) break;
-  }
-  if (needed > 0 || cutoff === null) return;
-
+  const cutoff = nowMs - SESSION_KEEP_MS;
   let droppedPlayMs = 0;
   sessionEvents = sessionEvents.filter((ev) => {
     const end = ev.kind === 'play' || ev.kind === 'game' ? ev.to : ev.at;
@@ -7369,6 +7571,9 @@ function sessionPlayBegin() {
 
 function sessionPlayEnd() {
   if (sessionPlayFrom === null) return;
+  // The heartbeat's play clock counts only spans lived on this page:
+  // session backfill from stored records must never owe beacons.
+  heartbeatPlayedMs += Date.now() - sessionPlayFrom;
   sessionEvents.push({ kind: 'play', from: sessionPlayFrom, to: Date.now() });
   sessionPlayFrom = null;
 }
@@ -7441,20 +7646,21 @@ function sessionRecordEnd(end, winUnmarked) {
   sessionEvents.push(event);
 }
 
-// Rebuilds enough cumulative play from stored game records to cover the
-// chart window plus retention slack. It scans backward by game duration,
-// not wall age: a one-hour play window may reach days back across breaks.
+// Rebuilds stored games from within the wall-clock retention horizon
+// (since 2026-08-24, matching the realtime window: games that ended
+// before it can never chart, however little has been played since).
 // Called once from init(), before any live event can exist.
 // Bucket-level approximation: a record holds totals, not timestamps, so
 // the totals spread evenly over the game's span — the traces hold the
 // exact timing if a finer backfill is ever wanted. Fields that joined
 // the schema later may be absent on old records.
 function sessionBackfillFromHistory() {
+  const cutoff = Date.now() - SESSION_KEEP_MS;
   const games = [];
   for (const [modeKey, records] of Object.entries(history)) {
     const mines = minesOfModeKey(modeKey);
     for (const record of records) {
-      if (record.timeMs <= 0) continue;
+      if (record.timeMs <= 0 || record.endedAt < cutoff) continue;
       const actionSummary = actionCategorySummary(record.actionEvaluations);
       games.push({
         kind: 'game',
@@ -7478,27 +7684,72 @@ function sessionBackfillFromHistory() {
     }
   }
   games.sort((a, b) => a.to - b.to);
-  const retained = sessionHistorySlice(games, SESSION_KEEP_MS);
-  sessionPlayOffsetMs = retained.playOffsetMs;
-  sessionEvents.unshift(...retained.games);
+  sessionEvents.unshift(...games);
 }
+
+//-------PLAY HEARTBEAT (first-party, anonymous, fail-silent)-------
+
+// One beacon per HEARTBEAT_EVERY_MS of accumulated played time — the
+// same game-in-progress clock the session stats use — sent only when the
+// page is served from HEARTBEAT_HOST, so localhost, file://, GitHub
+// Pages, and any other mirror send nothing. The beacon is an empty POST
+// to a same-origin path (no payload, no cookies, no identifiers): the
+// server's access log is the whole dataset, one hit meaning "someone
+// played five more minutes". Blocked, offline, or failed sends drop
+// silently and are never retried — measurement must never touch play
+// (the music poll's rule). The bland path name is deliberate: generic
+// filter-list patterns match words like "count", "track", and
+// "analytics", and this is neither of those things anyway.
+const HEARTBEAT_HOST = 'fuseki.net';
+const HEARTBEAT_ENDPOINT = 'hb'; // resolves under the app's own path
+const HEARTBEAT_EVERY_MS = 5 * 60 * 1000;
+const HEARTBEAT_CHECK_EVERY_MS = 15000;
+let heartbeatPlayedMs = 0; // closed play spans since page load
+let heartbeatsSent = 0;
+
+function heartbeatsOwed(playedMs, sent) {
+  return Math.max(0, Math.floor(playedMs / HEARTBEAT_EVERY_MS) - sent);
+}
+
+function heartbeatEnabled() {
+  return location.hostname === HEARTBEAT_HOST
+    && typeof navigator.sendBeacon === 'function';
+}
+
+function heartbeatCheck() {
+  const playedMs = heartbeatPlayedMs
+    + (sessionPlayFrom !== null ? Date.now() - sessionPlayFrom : 0);
+  if (heartbeatsOwed(playedMs, heartbeatsSent) === 0) return;
+  // At most one send per check: a machine waking from sleep with a play
+  // span open can owe several at once, and smearing the catch-up across
+  // checks keeps bursts out of the log. Sent counts even when the
+  // beacon is refused — an undercount is fine, a retry loop is not.
+  heartbeatsSent++;
+  try { navigator.sendBeacon(HEARTBEAT_ENDPOINT); } catch (err) { /* dropped */ }
+}
+
+if (heartbeatEnabled()) setInterval(heartbeatCheck, HEARTBEAT_CHECK_EVERY_MS);
 
 //-------SESSION STATS: DISPLAY (top section of the left panel)-------
 
 const SESSION_GROUP = {
   name: 'session',
   definition: 'recent observations across games (losses and abandoned '
-    + 'boards included): each charted point is a running average over the '
-    + 'played time behind it \u2014 the first selector picks that lookback '
-    + '(30s\u201315m), the second how much play the chart spans '
-    + '(15m\u20133h). All durations are actual play: breaks, restart-button '
-    + 'travel, and between-game idling consume no chart time and no '
-    + 'lookback ("5m" means five played minutes, never wall time). A young '
-    + 'session averages the play that exists so far; a point with under a '
-    + 'second of covered play shows an en dash, never a rate over a '
-    + 'sliver. Survives reload: the window is rebuilt from stored records, '
-    + 'wins and losses alike with their full played time; only an '
-    + 'abandoned board\u2019s time (no record) is lost across a reload',
+    + 'boards included). The first selector is the window in realtime '
+    + '(1m\u20133h): only play from that slice of actual wall-clock time '
+    + 'feeds the charts, so a previous session ages out entirely \u2014 '
+    + 'after a long break the charts honestly start blank. The second is '
+    + 'the running-average length: each charted point averages that much '
+    + 'played time behind it ("5m" means five played minutes, never wall '
+    + 'time), and it never reaches play from before the window. Within '
+    + 'the window the chart axis is still played time: breaks, '
+    + 'restart-button travel, and between-game idling consume no chart '
+    + 'width. A young window averages the play that exists so far; a '
+    + 'point with under a second of covered play shows an en dash, never '
+    + 'a rate over a sliver. Survives reload: the window is rebuilt from '
+    + 'stored records, wins and losses alike with their full played '
+    + 'time; only an abandoned board\u2019s time (no record) is lost '
+    + 'across a reload',
 };
 
 // Titles carry the unit (decided 2026-08-23, afternoon): "mouse speed
@@ -7607,6 +7858,10 @@ const SESSION_CATEGORY_RATE_SPECS = [
     calc: 'survived actions that added actual immediate loss probability under the active rules, per played minute',
     records: 'nonfatal risk-increasing actions per played minute; magnitude has its own excess-game-risk chart',
     of: (b, i) => b.categoryPerMin.gameRisk[i], fmt: (v) => v.toFixed(2) },
+  { category: 'earlyGuess', label: 'early guess', unit: '/m', color: '#c9a227',
+    calc: 'survived non-optimal guesses taken while under a tenth of the board\u2019s safe squares were revealed, per played minute',
+    records: 'early-game opening gambles per played minute; reported below mid-game risk and excluded from the excess-game-risk magnitude',
+    of: (b, i) => b.categoryPerMin.earlyGuess[i], fmt: (v) => v.toFixed(2) },
   { category: 'timeLoss', label: 'time loss', unit: '/m', color: '#1682b8',
     calc: 'no-progress inputs and visible board-state regressions per played minute',
     records: 'classified time-loss actions per played minute; no duration or intent is inferred',
@@ -7635,6 +7890,7 @@ const SESSION_END_SPECS = [
   { kind: 'win', label: 'win', color: '#2e7d32' },
   { kind: 'win-unmarked', label: 'percent of mines unmarked when winning',
     color: '#0f9b8e', dash: '2 3', series: (b) => b.winUnmarkedFraction },
+  { kind: 'guess-early', label: FATAL_STATUS_LABELS['guess-early'], color: '#c9a227' },
   { kind: 'guess-min', label: FATAL_STATUS_LABELS['guess-min'], color: '#d4a017' },
   { kind: 'guess-higher', label: FATAL_STATUS_LABELS['guess-higher'], color: '#e07020' },
   { kind: 'guess-unmeasured', label: FATAL_STATUS_LABELS['guess-unmeasured'], color: '#8a6d3b' },
@@ -7660,8 +7916,9 @@ const SESSION_END_SPECS = [
 // speed px/s") sitting flush on the plot's top edge (T is the few px
 // that keep a top gridline label inside the svg). Two more legibility
 // rules: y starts at 0 (every series is nonnegative; an auto-zoomed
-// floor turned small wiggles into drama), and x is the fixed played-time
-// window ending at the current cumulative play coordinate. Breaks have
+// floor turned small wiggles into drama), and x is the played time the
+// realtime window holds, ending at the current cumulative play
+// coordinate (see sessionChartXRange). Breaks have
 // already been removed. Unmeasurable points break the line, never
 // bridged. Width follows the panel's dragged width (its grip, see
 // buildMetricsResizeGrip): the chart fills the panel's content box —
@@ -7670,13 +7927,26 @@ const SESSION_CHART = { H: 150, L: 54, R: 8, T: 5, B: 22 };
 
 // X-tick label for "this long of accumulated play ago". Whole hours stay
 // whole; a 3h window's quarter ticks need the decimal (-2.3h, -1.5h).
+// Sub-minute ticks (a young realtime window may hold seconds of play)
+// read in seconds rather than rounding everything to "-1m"/"-0m".
 function sessionAgoLabel(agoMs) {
   if (agoMs < 1) return 'now';
   if (agoMs >= 60 * 60 * 1000) {
     const hours = agoMs / (60 * 60 * 1000);
     return '-' + (Number.isInteger(hours) ? hours.toFixed(0) : hours.toFixed(1)) + 'h';
   }
-  return '-' + Math.round(agoMs / 60000) + 'm';
+  if (agoMs >= 60 * 1000) return '-' + Math.round(agoMs / 60000) + 'm';
+  return '-' + Math.round(agoMs / 1000) + 's';
+}
+
+// The session charts' shared x range: compressed played time from the
+// realtime window's start to the current play position. The window is a
+// data horizon, not a chart width — the axis spans however much play
+// the window actually holds, floored at a minute so a seconds-old
+// window doesn't draw on a silly sub-minute scale.
+function sessionChartXRange(buckets) {
+  const x1 = buckets.playNowMs;
+  return { x0: Math.min(buckets.windowFromPlayMs, x1 - 60000), x1 };
 }
 
 function buildSessionChart(buckets, spec) {
@@ -7699,8 +7969,7 @@ function buildSessionChart(buckets, spec) {
   let max = 0;
   for (const v of values) if (v !== undefined && v > max) max = v;
 
-  const x0 = buckets.playNowMs - buckets.windowMs;
-  const x1 = buckets.playNowMs;
+  const { x0, x1 } = sessionChartXRange(buckets);
   // y always starts at 0; a flat-zero series still gets a real scale.
   const y0 = 0;
   const y1 = max > 0 ? max * 1.08 : 1;
@@ -7776,8 +8045,7 @@ function buildSessionEndingsChart(buckets) {
   };
   el('rect', { x: L, y: T, width: W - L - R, height: H - T - B, class: 'scatter-plot' });
 
-  const x0 = buckets.playNowMs - buckets.windowMs;
-  const x1 = buckets.playNowMs;
+  const { x0, x1 } = sessionChartXRange(buckets);
   const px = (t) => L + ((Math.min(Math.max(t, x0), x1) - x0) / (x1 - x0)) * (W - L - R);
   const py = (pct) => H - B - (pct / 100) * (H - T - B);
 
@@ -7874,8 +8142,7 @@ function buildSessionRatesChart(buckets, specs, unit, scaleKey) {
   sessionRateScaleMemory.set(scaleKey, yTop);
   const tickStep = [1, 2, 5, 10, 20, 50, 100].find((s) => yTop / s <= 6) || 100;
 
-  const x0 = buckets.playNowMs - buckets.windowMs;
-  const x1 = buckets.playNowMs;
+  const { x0, x1 } = sessionChartXRange(buckets);
   const px = (t) => L + ((Math.min(Math.max(t, x0), x1) - x0) / (x1 - x0)) * (W - L - R);
   const py = (v) => H - B - (v / yTop) * (H - T - B);
 
@@ -8016,10 +8283,33 @@ function latestDefined(buckets, of) {
 
 function appendSessionSection(container) {
   const head = buildMetricsGroupHead(SESSION_GROUP);
+  // The realtime window leads (reordered 2026-08-24 when it became
+  // wall-clock: it decides what data exists at all, so it reads first);
+  // the running-average length follows. Both keep the one-click
+  // doctrine: selectors on the section head itself.
+  const windowSelect = document.createElement('select');
+  windowSelect.className = 'session-bucket-select';
+  windowSelect.title = 'window (realtime): only play from the last this '
+    + 'much wall-clock time feeds the charts \u2014 "1h" means the last '
+    + 'hour of real life, played or not, so a previous session ages out';
+  for (const minutes of SESSION_WINDOW_CHOICES) {
+    const option = document.createElement('option');
+    option.value = String(minutes);
+    option.textContent = minutes < 60 ? minutes + 'm' : (minutes / 60) + 'h';
+    windowSelect.appendChild(option);
+  }
+  windowSelect.value = String(settings.sessionWindowMinutes);
+  windowSelect.addEventListener('change', () => {
+    settings.sessionWindowMinutes = Number(windowSelect.value);
+    saveSettings();
+    refreshMetricsPanel();
+  });
+  head.appendChild(windowSelect);
   const select = document.createElement('select');
   select.className = 'session-bucket-select';
   select.title = 'running-average length: each charted point averages this '
-    + 'much played time behind it (played time, never wall time)';
+    + 'much played time behind it (played time, never wall time; never '
+    + 'reaching before the window)';
   for (const seconds of SESSION_LOOKBACK_CHOICES) {
     const option = document.createElement('option');
     option.value = String(seconds);
@@ -8034,24 +8324,6 @@ function appendSessionSection(container) {
     refreshMetricsPanel();
   });
   head.appendChild(select);
-  // The window length gets the same one-click treatment as the
-  // running-average length: a second selector on the section head itself.
-  const windowSelect = document.createElement('select');
-  windowSelect.className = 'session-bucket-select';
-  windowSelect.title = 'window: how much accumulated play the charts look back over';
-  for (const minutes of SESSION_WINDOW_CHOICES) {
-    const option = document.createElement('option');
-    option.value = String(minutes);
-    option.textContent = minutes < 60 ? minutes + 'm' : (minutes / 60) + 'h';
-    windowSelect.appendChild(option);
-  }
-  windowSelect.value = String(settings.sessionWindowMinutes);
-  windowSelect.addEventListener('change', () => {
-    settings.sessionWindowMinutes = Number(windowSelect.value);
-    saveSettings();
-    refreshMetricsPanel();
-  });
-  head.appendChild(windowSelect);
   container.appendChild(head);
 
   const now = Date.now();
