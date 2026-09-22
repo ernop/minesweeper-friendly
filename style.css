@@ -1351,6 +1351,20 @@ body.trial-offboard #game-frame {
 }
 .verdict-details { margin-top: 4px; color: #555555; }
 .verdict-details div { margin: 2px 0; }
+.verdict-aggregate > summary {
+  margin-bottom: 0;
+  cursor: pointer;
+}
+.verdict-aggregate[open] > summary { margin-bottom: 7px; }
+.verdict-aggregate-instances {
+  border-top: 1px solid rgba(22, 130, 184, 0.28);
+}
+.verdict-aggregate-instance {
+  padding: 9px 2px 4px;
+}
+.verdict-aggregate-instance + .verdict-aggregate-instance {
+  border-top: 1px solid rgba(22, 130, 184, 0.2);
+}
 .verdict-mine { border-color: #1a1a1a; background: #efefef; }
 .verdict-mine .verdict-title { color: #1a1a1a; }
 .verdict-chord { border-color: #7a3ca8; background: #f3edf8; }

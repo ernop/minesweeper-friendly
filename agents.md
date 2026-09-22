@@ -1481,3 +1481,5 @@ uses only `http://127.0.0.1:8099/` in an isolated profile. Include
 `preferences-game.js` between settings-core.js and minesweeper.js in game
 harnesses. Reload begins a fresh unfinished game, but restores the last
 finished view/replay when that game's trace is available.
+
+- [2026-09-22 retained stash review](docs/stash-review-2026-09-22.md): recovered reporting work, superseded chart changes, and archived hosting proposal.

@@ -867,4 +867,24 @@ const runOpts = {
     ], 10 * MIN, 20 * MIN).length, 0);
 }
 
+
+// Recovered early-game events must survive both existing rate bases and
+// retain their own ending kind rather than silently filing as other.
+{
+  const event = { kind: 'game', from: NOW - MIN, to: NOW,
+    end: 'guess-early', categoryCounts: { earlyGuess: 2 } };
+  const time = sessionBucketSeries([event], opts);
+  assertClose('early-guess ending in played-time chart',
+    time.endFractions['guess-early'][last(time)], 1);
+  assertClose('early-guess per-minute category',
+    time.categoryPerMin.earlyGuess[last(time)], 2);
+  const games = sessionGameSeries([event], {
+    nowMs: NOW, windowMs: HOUR, lookbackGames: 1, aggregation: 'average',
+  });
+  assertClose('early-guess ending in per-game chart',
+    games.endFractions['guess-early'][last(games)], 1);
+  assertClose('early-guess per-game category',
+    games.categoryPerGame.earlyGuess[last(games)], 2);
+}
+
 console.log(`session-series: all ${checks} checks passed (buckets + running averages + y domains + wall sections)`);

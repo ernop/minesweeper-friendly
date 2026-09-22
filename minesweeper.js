@@ -1786,6 +1786,8 @@ const ACTION_CATEGORY_SPECS = [
     records: 'the fatal action; a loss can be best-available play and is not automatically a mistake' },
   { id: 'gameRisk', label: 'Game risk',
     records: 'a survived action that increased the actual chance of losing under the active rules' },
+  { id: 'earlyGuess', label: 'Early-game guess',
+    records: 'a survived non-optimal guess taken while under a tenth of the board\u2019s safe squares were revealed; a common way to open a board, so it reports below mid-game risk' },
   { id: 'timeLoss', label: 'Time loss',
     records: 'an input that made no board progress, moved visible state away from a proven fact, or—in a won game—placed a correct mine flag never consumed by a chord; counts actions, not seconds or intent' },
   { id: 'lifeMaximization', label: 'Life maximization',
@@ -1797,7 +1799,10 @@ const ACTION_CATEGORY_SPECS = [
 function reportScopeAllows(scope, category) {
   if (scope === 'none') return false;
   if (scope === 'fatal') return category === 'gameLoss';
-  if (scope === 'risk') return category === 'gameLoss' || category === 'gameRisk';
+  if (scope === 'risk') {
+    return category === 'gameLoss' || category === 'gameRisk'
+      || category === 'earlyGuess';
+  }
   return scope === 'full';
 }
 
@@ -1828,6 +1833,33 @@ function evaluationRiskDelta(evaluation) {
   return undefined;
 }
 
+// "Early game" is judged from the player's own position: the fraction of
+// the board's safe squares already revealed when the action was taken
+// (evidence.boardProgress on new records; derived from the saved position
+// on records stored before the field existed). Guessing before the board
+// opens up is how most games start, so a survived non-optimal early guess
+// reports as its own lower-priority category instead of mid-game risk
+// (creator request 2026-08-24). Fatal actions are unaffected: a death is
+// the fatal action wherever it happens.
+const EARLY_GAME_PROGRESS_LIMIT = 0.1;
+
+function evaluationBoardProgress(evaluation) {
+  const evidence = evaluation.evidence || {};
+  if (typeof evidence.boardProgress === 'number') return evidence.boardProgress;
+  const position = evaluation.position;
+  if (!position || !Array.isArray(position.revealed)
+      || !Number.isFinite(position.width) || !Number.isFinite(position.height)
+      || !Number.isFinite(position.mines)) return undefined;
+  const safeTotal = position.width * position.height - position.mines;
+  if (safeTotal <= 0) return undefined;
+  return position.revealed.length / safeTotal;
+}
+
+function evaluationIsEarlyGame(evaluation) {
+  const progress = evaluationBoardProgress(evaluation);
+  return progress !== undefined && progress < EARLY_GAME_PROGRESS_LIMIT;
+}
+
 function evaluationLifeGap(evaluation) {
   const evidence = evaluation.evidence || {};
   if (typeof evidence.expectedLife !== 'number'
@@ -1846,7 +1878,9 @@ function actionEvaluationCategory(evaluation) {
   const hasRiskRule = [...GAME_RISK_MISTAKES].some((kind) => mistakes.has(kind));
   if (hasRiskRule) {
     const delta = evaluationRiskDelta(evaluation);
-    if (delta === undefined || delta > 1e-12) return 'gameRisk';
+    if (delta === undefined || delta > 1e-12) {
+      return evaluationIsEarlyGame(evaluation) ? 'earlyGuess' : 'gameRisk';
+    }
   }
   if ([...TIME_LOSS_MISTAKES].some((kind) => mistakes.has(kind))) return 'timeLoss';
   if (mistakes.has('chose-lower-modeled-life')
@@ -1940,6 +1974,7 @@ const FATAL_STATUS_LABELS = {
   'proof-safe': 'Proof-or-die rule death while a proven-safe move was available',
   'proof-forced': 'Proof-or-die rule death with no proven-safe move available',
   'guess-safe': 'died after guessing while a safe move was available',
+  'guess-early': 'died on an early-game guess',
   'guess-higher': 'died from a higher-risk forced guess',
   'guess-min': 'died despite choosing a minimum-risk forced guess',
   'guess-unmeasured': 'died from a forced guess (risk rank unmeasured)',
@@ -1964,6 +1999,11 @@ function fatalActionStatusKind(evaluation) {
   }
   const delta = evaluationRiskDelta(evaluation);
   if (safeAvailable) return 'guess-safe';
+  // A forced guess death before the board opened up is the mode's
+  // entry fee: over enough games it must happen, so it files as one
+  // routine kind whatever the risk rank was (creator, 2026-08-24).
+  // Guessing past a proven-safe move stays 'guess-safe' at any stage.
+  if (evaluationIsEarlyGame(evaluation)) return 'guess-early';
   if (delta !== undefined && delta > 1e-12) return 'guess-higher';
   if (delta !== undefined) return 'guess-min';
   return 'guess-unmeasured';
@@ -2001,6 +2041,12 @@ function actionEvaluationLabel(evaluation) {
     }
     const kind = evaluationEndingKind(evaluation);
     return kind === 'other' ? 'unjudged death' : DEATH_KIND_LABELS[kind];
+  }
+  // One player-facing wording for the whole early-game category: the
+  // specific mechanism (higher risk, ignored safe move) stays on the
+  // evidence lines, but the headline calls it what it is to a player.
+  if (actionEvaluationCategory(evaluation) === 'earlyGuess') {
+    return 'made a non-optimal early-game guess';
   }
   const labels = (Array.isArray(evaluation.mistakes) ? evaluation.mistakes : [])
     .map((kind) => ACTION_MISTAKE_LABELS[kind] || kind);
@@ -2090,6 +2136,13 @@ function actionEvaluationText(evaluation) {
       && typeof evidence.chosenRisk === 'number') {
     parts.push('No guaranteed-safe reveal was available. The selected square had the lowest measured mine risk and happened to be mined.');
   }
+  if (actionEvaluationCategory(evaluation) === 'earlyGuess'
+      || fatalActionStatusKind(evaluation) === 'guess-early') {
+    parts.push('This was an early-game guess: only '
+      + Math.round(evaluationBoardProgress(evaluation) * 100)
+      + '% of the board\u2019s safe squares were revealed, a routine '
+      + 'opening gamble.');
+  }
   if (typeof evidence.chosenRisk === 'number') {
     parts.push('Selected mine risk: ' + (evidence.chosenRisk * 100).toFixed(1) + '%.');
   }
@@ -2131,14 +2184,42 @@ const NO_OP_AGGREGATE_LABELS = {
   'flagged-revealed-cell': 'Flag attempts on revealed squares',
 };
 
-// Positionless repetitions do not need one prose block per input. Group
-// semantically identical entries at their first occurrence; positioned
-// evidence remains individual so its action number stays attached to its
-// diagram.
+const DISCLOSURE_AGGREGATE_LABELS = {
+  'flagged-proven-safe': 'Proven-safe squares flagged',
+};
+
+function disclosureAggregateKind(evaluation) {
+  if (!Array.isArray(evaluation && evaluation.mistakes)) return null;
+  return Object.keys(DISCLOSURE_AGGREGATE_LABELS)
+    .find((kind) => evaluation.mistakes.includes(kind)) || null;
+}
+
+// Most positioned evidence remains individual so its action number stays
+// attached to its diagram. High-frequency, specifically named mistakes can
+// instead form one count whose instances remain available in a disclosure.
 function aggregateReportEntries(entries) {
   const result = [];
   const groups = new Map();
   for (const entry of entries) {
+    const aggregateKind = disclosureAggregateKind(entry.shown);
+    if (aggregateKind !== null) {
+      const key = JSON.stringify([entry.category, aggregateKind]);
+      const existing = groups.get(key);
+      if (existing) {
+        existing.count++;
+        existing.instances.push(entry);
+        continue;
+      }
+      const grouped = {
+        ...entry,
+        aggregateKind,
+        count: 1,
+        instances: [entry],
+      };
+      groups.set(key, grouped);
+      result.push(grouped);
+      continue;
+    }
     if (entry.shown.position !== undefined) {
       result.push({ ...entry, count: 1 });
       continue;
@@ -2161,7 +2242,7 @@ function aggregateReportEntries(entries) {
 function reportEntryOrderValue(entry) {
   const evaluation = entry.evaluation || entry.shown || {};
   const evidence = evaluation.evidence || {};
-  if (entry.category === 'gameRisk') {
+  if (entry.category === 'gameRisk' || entry.category === 'earlyGuess') {
     const selectedRisk = typeof evidence.actualRisk === 'number'
       ? evidence.actualRisk
       : (typeof evidence.chosenRisk === 'number' ? evidence.chosenRisk : -1);
@@ -2193,6 +2274,9 @@ function orderReportEntries(entries) {
 }
 
 function aggregateReportTitle(entry) {
+  if (entry.aggregateKind !== undefined) {
+    return DISCLOSURE_AGGREGATE_LABELS[entry.aggregateKind] + ': ' + entry.count;
+  }
   if (entry.shown.action === 'no-op') {
     const reason = entry.shown.evidence && entry.shown.evidence.reason;
     const label = NO_OP_AGGREGATE_LABELS[reason] || 'Clicks that changed nothing';
@@ -2294,6 +2378,13 @@ function actionEvaluationLines(evaluation) {
   }
   if (evidence.oddsMeasured === false && !rawMeasured) {
     lines.push({ label: 'Immediate risk', value: 'not measured' });
+  }
+  if (actionEvaluationCategory(evaluation) === 'earlyGuess'
+      || fatalActionStatusKind(evaluation) === 'guess-early') {
+    const progress = evaluationBoardProgress(evaluation);
+    lines.push({ label: 'Early game', value:
+      'only ' + Math.round(progress * 100) + '% of the board\u2019s safe '
+      + 'squares were revealed \u2014 a routine opening gamble' });
   }
   if (typeof evidence.expectedLife === 'number'
       && typeof evidence.bestExpectedLife === 'number') {
@@ -2446,6 +2537,10 @@ function actionEvaluationBase(action, actionNumber, selected, triggerCell, optio
       playMode: settings.playMode,
       oddsVersion: Odds.VERSION,
       proofVersion: Justice.PROOF_VERSION,
+      // The fraction of the board's safe squares already revealed when
+      // the action was taken; the early-game guess category thresholds
+      // on it (older records derive it from the saved position instead).
+      boardProgress: revealedCount / (cells.length - config.mines),
     },
     alternatives: [],
     choices: [],
@@ -3071,6 +3166,30 @@ function buildVerdictBlocks(record) {
     wrap.appendChild(section);
     return section;
   };
+  const appendBody = (box, bodyContent) => {
+    if (!bodyContent) return;
+    if (Array.isArray(bodyContent)) {
+      const facts = document.createElement('div');
+      facts.className = 'verdict-facts';
+      for (const fact of bodyContent) {
+        const line = document.createElement('div');
+        line.className = 'verdict-fact';
+        const label = document.createElement('span');
+        label.className = 'verdict-fact-label';
+        label.textContent = fact.label + ':';
+        const value = document.createElement('span');
+        value.textContent = fact.value;
+        line.append(label, value);
+        facts.appendChild(line);
+      }
+      box.appendChild(facts);
+      return;
+    }
+    const body = document.createElement('div');
+    body.className = 'verdict-body';
+    body.textContent = bodyContent;
+    box.appendChild(body);
+  };
   const block = (category, kindClass, titleText, bodyContent) => {
     const box = document.createElement('div');
     box.className = 'verdict-block ' + kindClass;
@@ -3078,41 +3197,57 @@ function buildVerdictBlocks(record) {
     title.className = 'verdict-title';
     title.textContent = titleText;
     box.appendChild(title);
-    if (detail !== 'summary' && bodyContent) {
-      if (Array.isArray(bodyContent)) {
-        const facts = document.createElement('div');
-        facts.className = 'verdict-facts';
-        for (const fact of bodyContent) {
-          const line = document.createElement('div');
-          line.className = 'verdict-fact';
-          const label = document.createElement('span');
-          label.className = 'verdict-fact-label';
-          label.textContent = fact.label + ':';
-          const value = document.createElement('span');
-          value.textContent = fact.value;
-          line.append(label, value);
-          facts.appendChild(line);
-        }
-        box.appendChild(facts);
-      } else {
-        const body = document.createElement('div');
-        body.className = 'verdict-body';
-        body.textContent = bodyContent;
-        box.appendChild(body);
-      }
-    }
+    if (detail !== 'summary') appendBody(box, bodyContent);
     sectionFor(category).appendChild(box);
     return box;
+  };
+  const appendAggregateDisclosure = (entry) => {
+    const details = document.createElement('details');
+    details.className = 'verdict-block verdict-mistake verdict-aggregate';
+    const summary = document.createElement('summary');
+    summary.className = 'verdict-title';
+    summary.textContent = aggregateReportTitle(entry);
+    details.appendChild(summary);
+    const instances = document.createElement('div');
+    instances.className = 'verdict-aggregate-instances';
+    for (const instance of entry.instances) {
+      const item = document.createElement('div');
+      item.className = 'verdict-aggregate-instance';
+      const itemTitle = document.createElement('div');
+      itemTitle.className = 'verdict-title';
+      itemTitle.textContent = 'Action'
+        + (typeof instance.evaluation.actionNumber === 'number'
+          ? ' ' + instance.evaluation.actionNumber : '')
+        + ': ' + actionEvaluationLabel(instance.shown);
+      item.appendChild(itemTitle);
+      appendBody(item, actionEvaluationLines(instance.shown));
+      const position = detail === 'positions'
+        ? buildEvaluationPosition(instance.shown) : null;
+      if (position) item.appendChild(position);
+      instances.appendChild(item);
+    }
+    details.appendChild(instances);
+    sectionFor(entry.category).appendChild(details);
   };
   const evaluations = record.actionEvaluations || [];
   const fatal = fatalEvaluationOf(record);
   if (fatal && reportCategoryEnabled('gameLoss')) {
     const shown = evaluationForReport(fatal);
     const kind = evaluationEndingKind(fatal);
+    // An early-game guess death is the mode's routine entry fee, so
+    // below full scope it gets one calm sentence instead of the full
+    // evidence ceremony; full analysis keeps every measurement.
+    const compactEarly = fatalActionStatusKind(fatal) === 'guess-early'
+      && settings.reportScope !== 'full';
     const box = block('gameLoss', 'verdict-' + (kind || 'unjudged'),
       'Fatal action: ' + actionEvaluationLabel(shown),
-      actionEvaluationLines(shown));
-    const position = detail === 'positions' ? buildEvaluationPosition(shown) : null;
+      compactEarly
+        ? 'A forced coinflip before the board opened up came up wrong. '
+          + 'Over enough games this ending is part of the mode; full '
+          + 'analysis shows the measured odds.'
+        : actionEvaluationLines(shown));
+    const position = detail === 'positions' && !compactEarly
+      ? buildEvaluationPosition(shown) : null;
     if (position) box.appendChild(position);
   } else if (!fatal && record.outcome === 'loss'
       && reportCategoryEnabled('gameLoss')) {
@@ -3129,6 +3264,10 @@ function buildVerdictBlocks(record) {
   }
   for (const entry of orderReportEntries(aggregateReportEntries(reportEntries))) {
     const { evaluation, shown, category } = entry;
+    if (entry.aggregateKind !== undefined) {
+      appendAggregateDisclosure(entry);
+      continue;
+    }
     const positionless = shown.position === undefined;
     const title = positionless
       ? aggregateReportTitle(entry)
@@ -10647,7 +10786,7 @@ const SESSION_MIN_PLAY_MS = 1000;
 // chart draws one cumulative percent line per kind.
 const SESSION_END_KINDS = [
   'win',
-  'guess-min', 'guess-higher', 'guess-unmeasured', 'guess-safe',
+  'guess-early', 'guess-min', 'guess-higher', 'guess-unmeasured', 'guess-safe',
   'mine-safe', 'mine-forced', 'proof-safe', 'proof-forced',
   'angel', 'forced', 'needless', 'mine', 'chord',
   'other',
@@ -12003,6 +12142,11 @@ const SESSION_CATEGORY_RATE_SPECS = [
     records: 'nonfatal risk-increasing actions per played minute; magnitude has its own excess-game-risk chart',
     of: (b, i) => b.categoryPerMin.gameRisk[i],
     gameOf: (b, i) => b.categoryPerGame.gameRisk[i], fmt: (v) => v.toFixed(2) },
+  { category: 'earlyGuess', label: 'early guess', unit: '/m', color: '#c9a227',
+    calc: 'survived non-optimal guesses before a tenth of the safe squares were revealed, per played minute',
+    records: 'early opening gambles, reported below mid-game risk and excluded from excess-game-risk magnitude',
+    of: (b, i) => b.categoryPerMin.earlyGuess[i],
+    gameOf: (b, i) => b.categoryPerGame.earlyGuess[i], fmt: (v) => v.toFixed(2) },
   { category: 'timeLoss', label: 'time loss', unit: '/m', color: '#1682b8',
     calc: 'no-progress inputs, visible board-state regressions, and win-only '
       + 'correct mine marks never consumed by a chord, per played minute',
@@ -12061,6 +12205,7 @@ const SESSION_END_SPECS = [
     color: '#7b1fa2', dash: '2 3', series: (b) => b.unusedMarkShareFraction },
   { kind: 'likely-misclick', label: 'died: likely misclick',
     color: '#c2185b', dash: '4 2', series: (b) => b.likelyMisclickFraction },
+  { kind: 'guess-early', label: 'died: early-game guess', color: '#c9a227' },
   { kind: 'guess-min', label: 'died: minimum-risk forced guess', color: '#b8860b' },
   { kind: 'guess-higher', label: 'died: higher-risk forced guess', color: '#d95f02' },
   { kind: 'guess-unmeasured', label: 'died: forced guess (risk unmeasured)', color: '#9a6b2f' },

@@ -431,11 +431,23 @@ report.
 - The primary fatal status uses the independent facts directly:
   **opened a proven mine while a safe move was available**; **opened a
   proven mine when a guess was required**; **died after guessing while a
-  safe move was available**; **higher-risk forced guess**; or **died
+  safe move was available**; **died on an early-game guess**;
+  **higher-risk forced guess**; or **died
   despite choosing a minimum-risk forced guess**. An unmeasured risk rank
   says so. Chording is only the input method: its opened cells receive the
   same proven/potential, safe-available, and risk-rank classification
   rather than a separate “chord death” report class.
+- **Died on an early-game guess** (added 2026-08-24): a forced-guess
+  death taken while under a tenth of the board's safe squares were
+  revealed files as this one routine status whatever its risk rank was —
+  over enough games such deaths are part of the mode, so the report
+  treats them as its entry fee, not a drama. Below full scope the fatal
+  block shows one calm sentence with no risk facts or diagram; full
+  analysis keeps every measurement, including the early-game progress
+  line. Guessing past a proven-safe move stays "died after guessing
+  while a safe move was available" at any stage, and the status derives
+  at read time, so old records reclassify like every other derived
+  view (the endings chart gains a matching muted-gold line).
 - Evidence capture must never block play. Prover/enumerator failure is
   stored as unmeasured rather than filled with an invented conclusion.
 - **Game-end feedback precedes result work** (decided 2026-08-29): once the
@@ -462,23 +474,36 @@ report.
   2. **Game risk** — a survived action that added actual immediate loss
      probability under the active mode and protection rules. Raw-risk
      differences canceled by Justice or Angelic protection do not qualify.
-  3. **Time loss** — a no-progress input, proven-safe flag, removal of a
+  3. **Early-game guess** (added 2026-08-24) — a survived action that
+     would be game risk, taken while under a tenth of the board's safe
+     squares were revealed (`evidence.boardProgress`, derived from the
+     saved position on records from before the field). Guessing before
+     the board opens up is how most games start, so it reports as its
+     own lower-priority category — headline "made a non-optimal
+     early-game guess" — instead of as mid-game risk, and its deltas
+     stay out of the excess-game-risk magnitude. Included at risk scope,
+     after the game-risk section. A fatal early guess is still the
+     fatal action, but files under its own calm "died on an early-game
+     guess" status (see below). The recategorization applies to old
+     records at read time like every other derived classification.
+  4. **Time loss** — a no-progress input, proven-safe flag, removal of a
      proven-mine flag, or nonfatal visible chord contradiction. The
      measurement is one classified action; it does not invent seconds or
      claim intent.
-  4. **Life maximization** — an otherwise-lower-severity action for which
+  5. **Life maximization** — an otherwise-lower-severity action for which
      the one-ply model found higher expected remaining life elsewhere.
      This category is optional and model-relative, including
      sea-versus-frontier comparisons; it is not presented as long-horizon
      optimality.
-  5. **Measurement notes** — legacy or incomplete evidence that cannot
+  6. **Measurement notes** — legacy or incomplete evidence that cannot
      honestly be classified further, plus the factual Justice recap.
 - Display: the compact stats stay in the 320px sidebar, while the action
   analysis occupies a centered, responsive column below the board and
   above rankings/charts. Category sections appear in the severity order
-  above. The fatal action is always first. Survived game-risk actions then
-  sort by selected actual death probability (highest first), with excess
-  risk as the tie-breaker. Time loss, life maximization, and measurement
+  above. The fatal action is always first. Survived game-risk and
+  early-guess actions then sort within their sections by selected actual
+  death probability (highest first), with excess risk as the tie-breaker.
+  Time loss, life maximization, and measurement
   notes follow and retain action order. Wins use the same report: they have
   no fatal block, but survived risky or needless guesses still appear when
   the selected scope includes game risk. Every bare reveal is evaluated;
@@ -501,8 +526,11 @@ report.
   under that run, so the final trial review does not lose interim mistakes.
   Semantically identical entries without a saved diagram aggregate at
   their first occurrence and show one count (for example, “Unsatisfied
-  chord clicks: 7”); positioned evidence remains one block per action so
-  each action number stays attached to its diagram.
+  chord clicks: 7”). “Flagged a proven-safe square” also aggregates into
+  one simple count even though those entries have saved positions; opening
+  the count reveals every individual action and diagram. Other positioned
+  evidence remains one block per action so each action number stays
+  attached to its diagram.
   Full analysis adds category counts instead of one undifferentiated
   “recorded mistakes” total, plus nonzero excess-game-risk and
   modeled-life-gap magnitudes. Lower tiers omit those diagnostic rows.
