@@ -123,10 +123,12 @@ function buildShownThings(s) {
 // control body. Control-'none' entries remain editable where they live.
 function buildSettingsColumn() {
   const column = document.getElementById('settings-column');
-  column.replaceChildren();
+  const transfer = document.getElementById('preferences-transfer');
+  for (const built of column.querySelectorAll('[data-schema-group]')) built.remove();
   for (const [groupId, groupLabel] of SETTINGS_GROUPS) {
     const section = document.createElement('section');
     section.className = 'settings-group';
+    section.dataset.schemaGroup = groupId;
 
     const heading = document.createElement('h2');
     heading.className = 'settings-group-heading';
@@ -148,7 +150,7 @@ function buildSettingsColumn() {
       body.appendChild(buildSettingRow(s, null, s.label, s.describe));
     }
     section.appendChild(body);
-    column.appendChild(section);
+    column.insertBefore(section, transfer);
   }
 }
 

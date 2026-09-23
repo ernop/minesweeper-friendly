@@ -763,8 +763,24 @@ because they apply app-wide, not just where each was first stated.
   and/or heavier than the text beneath them. Data values (numbers, times,
   dates, status) are the most legible element in their region. Primary
   containers use fluid widths, not fixed pixel caps that leave empty
-  margins. The details column and game data follow this as of 2026-09-23;
-  older gray text and fixed caps elsewhere are listed in BACKLOG.md.
+  margins.
+- Page-wide standardization sweep (creator-approved "all", 2026-09-23):
+  every neutral text color on both pages is `#000`, including SVG chart
+  ticks, axis labels, outlier notes, and sparkline labels. Semantic hues
+  remain: links, error reds, verdict and report-category colors, the
+  cell-number palette, and the age-unit palette. A gray series keeps its
+  gray line or marker but draws its text in black (`textColor`: the
+  measurement-notes rate labels and the unjudged-ending tooltip). Series
+  focus fades other series' lines, dots, and leaders, never their value
+  labels. Primary containers lost their pixel caps. The action report
+  spans the board column and lays out each category's blocks in
+  auto-fit columns of at least 400px, in reading order. Section titles
+  span their sections. Data-format blocks grow to fill their row. Trial
+  rankings and trial identity cards are uncapped. Headings now outrank
+  their body text: rank-table labels are 14px over 12px rows,
+  measurement-system heads such as "session" are 15px over 14px chart
+  titles, and settings group headings are 15px over 14px setting names.
+  Controls, tooltips, and popovers keep their own size limits.
 - Optional instructions and explanatory text must meet both conditions:
   they add useful information, and they stay hidden until requested through
   a subtle help affordance, such as a (?) hover tooltip or a control's
@@ -877,6 +893,9 @@ answers progressively deeper player questions; it is never inferred from DOM
 append timing or from how many cards fit on a row:
 
 1. **Outcome** — win/loss or High scores, board, mode, generator, date.
+   Two lines (2026-09-23; formerly one item per line): the larger bold
+   outcome followed by board · mode · generator in regular weight, then
+   the date and time in bold tabular digits.
 2. **Facts / game data** — the winning-game chart in its own column beside the board (or under its outcome context in the details column when that column cannot fit); losses and trials retain label/value stats.
 3. **Analysis** — post-game action interpretation only.
 4. **Tables** — the recent "ranks won" time-period summary first, then
@@ -1972,7 +1991,8 @@ runtime state, export field, or result section.
   - LIVE (the panel): while a trace runs (board shown through game end),
     a vertical panel at the left samples changes to the input trace,
     coalescing bursts into at most four computations per second, and updates
-    existing value and sparkline nodes. It is marked "live" in grey. The
+    existing value and sparkline nodes. It is marked "live" in bold black
+    (grey until the 2026-09-23 no-gray-text sweep). The
     active game's clock advances elapsed-time measurements using cached
     input computations; ready boards and finished games have no idle stats
     timer. Live numbers are transient
@@ -2192,7 +2212,8 @@ inside the same boundary. No old lookback observations leak across it.
   green is a win,
   gold is an unavoidable/minimum-risk death, orange is an inferior or
   rule-breaking forced choice, red is an avoidable/proven-wrong action, and
-  grey is unjudged. Marker hover is intentionally compact: finish duration,
+  grey is unjudged (its marker tooltip text is black). Marker hover is
+  intentionally compact: finish duration,
   current lifetime rank among the player's saved wins for that exact mode,
   time of day (no full date), and a `likely misclick` badge when that
   independent inference applies. A #1 finish earns `PB`; a finish in the best
@@ -2512,9 +2533,16 @@ inside the same boundary. No old lookback observations leak across it.
   another list item. The schema's full description remains a plain
   tooltip. A multi-option setting such as `reportScope` puts one radio
   group to the right of its name. The numerous shown-things switches form
-  a compact two-column option grid under their own subheading rather than
-  extending the primary list. The layout collapses to one section column
-  on narrow screens while retaining the name/control relationship. A
+  a compact option grid (as many columns of at least 260px as fit) under
+  their own subheading rather than extending the primary list. The layout
+  collapses to one section column on narrow screens while retaining the
+  name/control relationship. Width (2026-09-23 sweep): the body spans the
+  window less 48px (28px on narrow screens), and the title and return
+  buttons stay centered. The groups flow into as many columns of at least
+  760px as fit, which is the width that keeps a switch row's name, hint,
+  and checkbox on one line. That gives three columns at 2560px and two at
+  1920px. Preferences backup joins the same flow as the last group. A
+  switch row without a hint lets its name use the hint column. A
   change saves immediately; the game page reads settings fresh on every
   load, so returning applies them. "Changes save automatically" beside
   the page title states why there is no save button.

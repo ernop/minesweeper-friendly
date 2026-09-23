@@ -637,7 +637,9 @@ Implementation notes:
   spec — color, and bare-number fmt) plus
   `SESSION_CATEGORY_RATE_SPECS` (one `/m` line per exclusive report
   category; session diagnostics intentionally ignore the after-game
-  `reportScope`), rendered
+  `reportScope`; an optional `textColor` overrides `color` for text, so
+  gray series such as measurement notes and unjudged endings never draw
+  gray text), rendered
   by `buildSessionChart` / `buildSessionRatesChart(buckets, specs, unit)`
   + `appendSessionRatesRow(container, buckets, unit)` (two unit-grouped
   plots right after endings — "action rates/m" then "action rates/s",
@@ -689,8 +691,9 @@ Implementation notes:
   `recordActionEvaluation` keeps every nonfatal tagged
   action; `lose(hitIndices, evaluation)` always keeps the fatal action.
   `reportResult` writes only the versioned `actionEvaluations` array.
-  `renderResult` puts `buildVerdictBlocks` in the centered, responsive
-  `#result-analysis` below the board (never the 320px stat sidebar);
+  `renderResult` puts `buildVerdictBlocks` in the full-width
+  `#result-analysis` below the board (never the 320px stat sidebar), where
+  each `.verdict-category` is an auto-fit grid of at least 400px columns;
   the builder groups each action once by primary category and obeys
   `settings.reportScope` through `reportScopeAllows`: none, fatal-only
   (new-player default), fatal+risk, or full. `buildReportScopeControl`
@@ -1037,16 +1040,21 @@ Implementation notes:
   `settings-page.js` (2026-08-23; the in-page drawer is gone):
   `#settings-btn` on the game page is now a plain `<a>` to settings.html.
   The page (the demo world is gone; see PRODUCT.md) has a slim
-  `#settings-titlebar`, then centered `#settings-layout`: top return link,
+  `#settings-titlebar`, then fluid `#settings-layout`: top return link,
   page title + automatic-save note, `#settings-column`, and bottom return
   link. Esc navigates back too. `buildSettingsColumn` renders one
-  `.settings-group` panel per `SETTINGS_GROUPS` entry. Each switch from
+  `.settings-group` panel per `SETTINGS_GROUPS` entry, marked
+  `data-schema-group`, and inserts them before the static
+  `#preferences-transfer` group inside `#settings-column`. Rebuilds remove
+  only marked groups, so an import keeps the backup form and its focus.
+  `#settings-column` is a CSS multi-column flow (`columns: 760px`) with
+  unbroken groups. Each switch from
   `buildSettingRow` is one wide label with its name left, checkbox at the
   far right, and the rare schema `hint` in a dedicated middle column
   (only `justUniverse`); `describe` remains the name's title tooltip.
   `buildChoiceRow` puts its radio group to the right of the setting name.
-  `buildShownThings` lays its many switches out as a compact two-column
-  option grid, collapsing responsively. A change just saves; the static
+  `buildShownThings` lays its many switches out as a compact auto-fill
+  option grid of at least 260px columns, collapsing responsively. A change just saves; the static
   note beside the page title explains the absent save button. No hover
   behavior at all — no hover-injected or
   hover-swapped text, ever (two note mechanisms were removed for this on

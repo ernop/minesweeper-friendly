@@ -350,6 +350,21 @@ function clearResultStats() {
   gameDataColumn.textContent = '';
 }
 
+// Two lines: the outcome with its board, mode, and generator, then when.
+function setResultSummary(lead, generatorLabel, when) {
+  const leadNode = document.createElement('span');
+  leadNode.className = 'result-summary-lead';
+  leadNode.textContent = lead;
+  const context = document.createElement('span');
+  context.className = 'result-summary-context';
+  context.textContent = [boardDisplayLabel(), playModeLabel(), generatorLabel]
+    .filter((part) => part !== null).join(' \u00b7 ');
+  const whenNode = document.createElement('span');
+  whenNode.className = 'result-summary-when';
+  whenNode.textContent = when;
+  resultSummary.replaceChildren(leadNode, ' ', context, '\n', whenNode);
+}
+
 function placeGameData() {
   const docked = pageLayout.classList.contains('game-data-docked');
   const host = (docked ? resultStats : gameDataColumn).querySelector('.board-time-profile-host');
@@ -596,12 +611,9 @@ function flushPendingResult() {
 }
 
 function renderImmediateGameEnd(outcome, endedAt) {
-  resultSummary.textContent = (outcome === 'win' ? 'Win' : 'Loss')
-    + '\n' + boardDisplayLabel()
-    + '\n' + playModeLabel()
-    + (gameGenerator.id === BoardGenerators.DEFAULT_ID
-      ? '' : '\n' + BoardGenerators.displayLabel(gameGenerator))
-    + '\n' + formatDate(endedAt);
+  setResultSummary(outcome === 'win' ? 'Win' : 'Loss',
+    gameGenerator.id === BoardGenerators.DEFAULT_ID ? null : BoardGenerators.displayLabel(gameGenerator),
+    formatDate(endedAt));
   clearResultStats();
   resultAnalysis.textContent = '';
   resultRanks.textContent = '';
@@ -3532,10 +3544,9 @@ function renderResult(record, modeRecords, options = {}) {
   const summaryLead = options.historyView
     ? 'High scores'
     : (record.outcome === 'win' ? 'Win' : 'Loss');
-  resultSummary.textContent = summaryLead + '\n' + boardDisplayLabel()
-    + '\n' + playModeLabel()
-    + (record.generator === undefined ? '' : '\n' + BoardGenerators.displayLabel(record.generator))
-    + '\n' + (options.historyView ? 'Latest win · ' : '') + formatDate(record.endedAt);
+  setResultSummary(summaryLead,
+    record.generator === undefined ? null : BoardGenerators.displayLabel(record.generator),
+    (options.historyView ? 'Latest win · ' : '') + formatDate(record.endedAt));
   clearResultStats();
   resultAnalysis.textContent = '';
   const historyView = options.historyView === true;
@@ -12583,7 +12594,7 @@ const SESSION_CATEGORY_RATE_SPECS = [
     records: 'optional model-relative opportunities per played minute; magnitude has its own modeled-life-gap chart',
     of: (b, i) => b.categoryPerMin.lifeMaximization[i],
     gameOf: (b, i) => b.categoryPerGame.lifeMaximization[i], fmt: (v) => v.toFixed(2) },
-  { category: 'measurementNotes', label: 'measurement notes', unit: '/m', color: '#777777',
+  { category: 'measurementNotes', label: 'measurement notes', unit: '/m', color: '#777777', textColor: '#000000',
     calc: 'actions whose stored evidence is legacy or incomplete, per played minute',
     records: 'unclassified evidence notes per played minute, not mistakes',
     of: (b, i) => b.categoryPerMin.measurementNotes[i],
@@ -12643,7 +12654,7 @@ const SESSION_END_SPECS = [
   { kind: 'needless', label: 'died: ' + DEATH_KIND_LABELS.needless + ' (legacy)', color: '#c62828', dash: '6 3' },
   { kind: 'mine', label: 'died: ' + DEATH_KIND_LABELS.mine + ' (legacy)', color: '#8e1111', dash: '6 3' },
   { kind: 'chord', label: 'died: ' + DEATH_KIND_LABELS.chord + ' (legacy)', color: '#a51e36', dash: '6 3' },
-  { kind: 'other', label: 'died: unjudged', color: '#999999' },
+  { kind: 'other', label: 'died: unjudged', color: '#999999', textColor: '#000000' },
 ];
 
 // A session chart is a real chart, not a sparkline (decided 2026-08-22):
@@ -12996,7 +13007,7 @@ function appendSessionGameMarkers(svg, buckets, geometry, px) {
         ? (game.timeMs / 1000).toFixed(3) + 's' : '\u2013';
       const rank = document.createElement('span');
       rank.className = 'session-game-tooltip-rank';
-      rank.style.color = spec.color;
+      rank.style.color = spec.textColor ?? spec.color;
       rank.textContent = placement === undefined
         ? spec.label + ' \u00b7 unranked'
         : '#' + placement.rank + ' / ' + placement.total + ' lifetime';
@@ -13408,7 +13419,7 @@ function buildSessionRatesChart(buckets, specs, unit) {
     const labelNode = el('text', {
       x: lab.x.toFixed(1),
       y: lab.y.toFixed(1),
-      fill: lab.spec.color,
+      fill: lab.spec.textColor ?? lab.spec.color,
       class: 'rate-point-value',
       'text-anchor': lab.anchor,
     }, lab.text);
@@ -14165,11 +14176,9 @@ function showScoresForCurrentMode() {
   const wins = modeRecords.filter((record) => record.outcome === 'win');
   if (wins.length === 0) {
     renderedResult = null;
-    resultSummary.textContent = 'High scores\n' + boardDisplayLabel()
-      + '\n' + playModeLabel()
-      + (gameGenerator.id === BoardGenerators.DEFAULT_ID
-        ? '' : '\n' + BoardGenerators.displayLabel(gameGenerator))
-      + '\nNo wins yet';
+    setResultSummary('High scores',
+      gameGenerator.id === BoardGenerators.DEFAULT_ID ? null : BoardGenerators.displayLabel(gameGenerator),
+      'No wins yet');
     clearResultStats();
     resultAnalysis.textContent = '';
     resultRanks.textContent = '';

@@ -43,11 +43,17 @@ Still open:
   a wide screen leaves a gap between the board and the game data column
   unless the board position is moved. Anchoring the board next to the chart
   would change what the saved position means.
-- **Standardization sweep (approved).** About 40 older gray text colors remain (result
-  tables and recent placements, trial, pregen, board lab, settings title
-  bar, backup), plus fixed caps such as `#result-analysis` at 920px. The
-  outcome summary spends four bold lines above the chart, and "see scores"
-  occupies its own row.
+- **Standardization sweep (approved "all"; built 2026-09-23).** No gray text
+  remains, the primary containers are fluid, headings outrank their body
+  text, and the outcome summary takes two lines (PRODUCT.md "UI doctrine",
+  "Result presentation and ordering", and "Personal settings"). Still open:
+  - The seconds age unit is hyper-fluorescent green `#39ff14` on white,
+    which has a contrast ratio near 1.4:1 even when bolded. It was kept
+    because it is its own recorded decision (PRODUCT.md, age colors), but it
+    fails the "strongly legible" condition on semantic colors.
+  - Gold ending text `#b8860b` in the session tooltip is also weak on white.
+  - "see scores" sits alone on its row only when no replay trace exists
+    (history views); after a live game it shares the row with Replay game.
 
 ## Ranks-won visibility and rank appearance (creator, 2026-09-21)
 
