@@ -66,6 +66,8 @@
       const tableItems = resultRanks.querySelector('.result-chart-section-tables .result-chart-section-items');
       check(label + ': daily summary leads the continuous table collection',
         sections[0].includes('result-chart-section-tables')
+          && resultStats.querySelector('.board-time-profile') !== null
+          && resultStats.querySelector('#stats-grid') === null
           && tableItems.firstElementChild.classList.contains('recent-placements')
           && !resultRanks.querySelector('.result-chart-section-placements')
           && !document.getElementById('history-placements'));

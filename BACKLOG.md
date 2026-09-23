@@ -62,6 +62,18 @@ backfills the corrected visible count. Exhausted backfill operations hide
 their progress panel; actual errors stay visible. See PRODUCT.md for the
 implemented behavior.
 
+**Recurring backfill prompt (creator report, 2026-09-23; diagnosed, unresolved):**
+The creator reports finishing `Resume backfill` and seeing it return later.
+An isolated execution of `board-metrics-ui.js` reproduces this after reload:
+one measured win plus one win without a saved board reaches 2/2 checked and
+hides the panel; the same history in a fresh page becomes 1/2 checked with
+`Resume backfill (1)`. Successful measurements persist, but unavailable/error
+results exist only in the page's `boardMetricJobs` WeakMap, so they become
+unattempted again on reload. `Resume` and `Paused` also derive from any checked
+record, not evidence of a paused batch. This confirms a recurrence path, not
+which records caused the creator's instance. The request was clarification;
+the persistence policy and misleading labels have not been changed.
+
 **Declined for the current UI:** the creator asked to skip the other proposals,
 including largest-opening share, remaining work clusters, deduction coverage/
 depth, all-start logical profiles, and work-tree length. Their definitions and
@@ -83,6 +95,26 @@ problem on zero-free boards. HZiNi is a separate fixed greedy benchmark, not
 a proved C₀*. No range or heuristic may be labeled the global minimum.
 An optimal whole-game survival policy also remains research. No additional
 metric implementation is approved by the retained research proposals.
+
+## Recent and per-person trait–performance correlations (creator, 2026-09-23)
+
+Identify which board descriptors are most associated with this person's
+time performance now, and how that association differs by person. The
+game-data visualization ranks this game's performance within lifetime/session
+history and its board values in preferred directions. It does not compute
+correlations or attribute solve time to traits. Historical session windows
+now share the page-wide selector and derive summaries from existing records.
+
+Existing history already collects primary trait measurements, solve time,
+completion date, and the size/mine-count/mode/generator score key. Derive
+correlation results from those facts rather than storing duplicate percentile
+snapshots. The analysis still needs an explicit recent-period choice,
+adequate measured samples, treatment of ties and missing values, and a
+distinction between association, independent effects, and changes in player
+speed over time. Per-person comparison needs explicit player attribution;
+the current history store has no player identifier, and state tags must not
+be silently treated as identities. No account tracking, cross-person data
+collection, or fitted correlation view is implemented by the trait-line UI.
 
 ## Record-review improvements (mapped, 2026-09-21)
 

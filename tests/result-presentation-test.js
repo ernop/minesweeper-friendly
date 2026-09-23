@@ -63,7 +63,7 @@ assertEq(
   false);
 
 assertEq(
-  'tables lead chart content',
+  'table collection leads lower chart content',
   resultChartSections('postGame')[0].id,
   'tables');
 

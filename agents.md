@@ -36,6 +36,15 @@ Unbuilt work lives in one file: [BACKLOG.md](BACKLOG.md). That is the
 place for generation ideas, deferred product, and requested rank lists
 that are not in the game yet. Do not leave new ideas only in chat.
 
+Standing user instruction (reaffirmed 2026-09-23): always save every
+user-provided product guideline, design, requirement, and decision to a
+project file in the same turn, without needing a reminder. Record product
+and UI specifications in [PRODUCT.md](PRODUCT.md), and pending work in
+[BACKLOG.md](BACKLOG.md), linking any supporting design document from here.
+Preserve the user's intent and distinguish requested behavior from what is
+implemented. This applies even when no code change is requested; chat alone
+is not the record.
+
 App-wide UI rules (simplicity first, optional help must be useful and hidden
 behind a subtle tooltip affordance, hover never reflows page content,
 semantic legend/key labels are never shortened,
@@ -57,11 +66,11 @@ forced mine.
 
 Runtime: `index.html` + `style.css` + pure `rng.js` / `justice.js` /
 `board-shape.js` / `solver.js` / `generators.js` / `odds.js` /
-`trial.js` + shared `storage.js` / `settings-core.js` + `preferences-game.js` +
+`trial.js` + shared `storage.js` / `game-data.js` / `settings-core.js` + `preferences-game.js` +
 `board-metrics.js` / `board-metrics-ui.js` / `board-metrics-worker.js` +
 `minesweeper.js`, no dependencies, no build step. The settings page is `settings.html` + `settings-page.js`,
 loading the same `style.css`, `storage.js`, and `settings-core.js` (both
-pages must load storage.js and settings-core.js before their own script).
+pages must load storage.js, game-data.js, and settings-core.js before their own script).
 Serve with `python3 -m http.server 8018 --bind 127.0.0.1` and open exactly
 `http://127.0.0.1:8018/`.
 On PC, the enabled systemd user unit `minesweeper-friendly.service` owns this
@@ -501,8 +510,9 @@ Implementation notes:
   changed the board; its reason is not inferred. Same absence rules as
   wastedClicks (absent before 2026-08-20).
 - Session stats (PRODUCT.md "Session stats"): a player-controlled observation
-  tool. `clearSession` persists `settings.sessionStartedAt` without deleting
-  history; backfill excludes games crossing that boundary.
+  tool. `SessionScope` in game-data.js owns the single page-wide wall-clock
+  window (`sessionDefinition`, default pastHour), shared with game data and
+  records won. No independent window or Clear-session override remains.
   `settings.sessionAggregation` chooses trailing averages or disjoint groups.
   `settings.sessionRateBasis` chooses time-normalized values using
   `sessionLookbackSeconds`, or per-finished-game values using
@@ -510,9 +520,9 @@ Implementation notes:
   disjoint N-game groups while retaining the played-time x axis.
   `settings.sessionModeScope` defaults to the exact current
   board/play-mode/generator key rather than all modes. Every live and
-  backfilled event carries `modeKey`; `sessionRetainedEvents` keeps enough
-  play both globally and per exact mode, plus 50 completed games before each
-  played-time boundary for full per-game lookbacks. The UI exposes all choices directly,
+  backfilled event carries `modeKey`; retention covers every mode inside
+  `SessionScope.earliest(now)`. The shared wall boundary clips live/play spans
+  and prorates backfilled counters over the original game duration. The UI exposes all choices directly,
   has one session heading, no HOW/RECORDS chart hover essays, and uses
   evaluation-semantic ending colors (green/gold/orange/red/grey).
   `likelyMisclick` travels on live/backfilled end summaries and game markers;
@@ -560,9 +570,8 @@ Implementation notes:
   no premature sample.
   Constants FASTCLICK_MAX_GAP_MS (1s), SESSION_MIN_PLAY_MS (1s — rates
   over a sliver of covered play are undefined, not absurd),
-  SESSION_KEEP_MS (max window + max lookback + slack). RECORDING (RAM only):
-  `sessionEvents` pruned to SESSION_KEEP_MS of played duration by
-  `sessionPrune`, with independent retained tails for exact modes;
+  and SESSION_STEP_MS (10s samples). RECORDING (RAM only):
+  `sessionPrune` retains the largest shared wall-clock window;
   `sessionPlayBegin` hooks `startTimer` (every transition into
   'playing' passes there), `sessionPlayEnd` hooks `finish` and the top
   of `newGame` (abandoned boards close their interval — the time was
@@ -632,10 +641,8 @@ Implementation notes:
   `appendSessionSection` (renders into the panel top, hosts the
   grouping <select> writing `settings.sessionLookbackSeconds` in played-time
   mode or `settings.sessionLookbackGames` in per-game mode, and
-  the window <select> writing settings.sessionWindowMinutes;
-  SESSION_LOOKBACK_CHOICES, SESSION_GAME_LOOKBACK_CHOICES, and
-  SESSION_WINDOW_CHOICES live beside
-  SETTINGS_SCHEMA's constants in minesweeper.js). Session mutations mark
+  the window selector calls `setSessionDefinition`. Grouping choices live
+  beside SETTINGS_SCHEMA; `SessionScope.choices` is the shared window catalog). Session mutations mark
   `sessionChartsDirty`; `appendSessionCharts` replaces only the chart region,
   preserving `#metrics-panel-content`'s scrollTop. Controls stay mounted
   during data updates. Hover/focus holds chart replacement until leave/out
@@ -761,10 +768,10 @@ Implementation notes:
   The flow root contains the summary so later sections cannot overlap it;
   negative bottom margin offsets the table spacing at the section boundary.
   The invariant is
-  tables (placements, time/category tables, all streak variants in one list)
-  → boardTables ("This board") → average-time scatters → relationship scatters: every row-based display,
-  including day-category rankings and all streak variants, precedes every
-  individual-point chart.
+  sidebar outcome + game-data facts → tables (placements, time/category tables,
+  all streak variants) → boardTables ("This board") → average-time scatters →
+  relationship scatters. Game data replaces regular winning stats in
+  `#result-stats`, outside the lower chart collector.
   `tests/result-presentation-test.js` checks this in both result contexts.
 - Rank list machinery: `rankWindows` (time windows with independent
   `displayOrder` and `dedupePriority`),
@@ -791,6 +798,26 @@ Implementation notes:
   unmeasured values, retain all full-table standings, and keep their names
   outside the shape/time duplicate groups. `exact3BV`, `exactZiNi`, and
   `exactMaxNumber` are independent shownThings switches, default on.
+- Game data (2026-09-23): [complete design and removed-field inventory](docs/game-data.md).
+  `game-data.js` owns shared metric formulas, GameData catalog/rows/history/domain,
+  and SessionScope choices/bounds/records. `settings-core.js` depends on it.
+  `performanceTimeRankProfile` adds presentation standing labels; `boardTraitRankProfile`
+  ranks actual scalar trait values with specified preferred directions.
+  `buildBoardTimeRankProfile` renders chart/config/history in `#result-stats`.
+  Configuration has independent session/lifetime columns with mixed/all controls;
+  `gameDataSessionMetrics`, `gameDataLifetimeMetrics`, `gameDataDayTime`, and
+  `gameDataShowValues` use the shared persistent preference schema.
+  `boardTraitLabelLayout` fits measured label heights to exact percentile points;
+  ResizeObserver responds to width/value changes. The chart fills sidebar width,
+  fits viewport height, autozooms with outward decile bounds, and keeps absolute
+  colors. Only the plot scrolls if selections cannot fit readably.
+  Shared chart help uses one owned manual popover, so it stays above compact
+  sidebar content and old blur/leave events cannot hide another item's help.
+  `setSessionDefinition` updates all mirrored selectors and scope-dependent
+  nodes without rebuilding the board. Historical pages derive twenty overlapping
+  session windows at a time from primary records; no stored aggregates.
+  Pure checks: tests/game-data-test.js, tests/recent-placements-test.js,
+  tests/session-buckets-test.js. Browser checks: tests/board-time-profile-browser-check.js.
 - Recent placements (PRODUCT.md "Recent placements"): the pure span
   between the "RECENT PLACEMENTS: COMPUTATION" and ": DISPLAY" markers —
   `compareRankedWins`, `ordinal`, `formatRankRuns` (run compression),
@@ -798,12 +825,10 @@ Implementation notes:
   over candidates {label, dedupePriority, summaryOrder, wins, startMs (time windows only:
   the strictly-longer rule; membership charts omit it and always
   qualify), alwaysShowBest (lifetime's near-miss rule, rows flagged
-  nearMiss)} — computes the rows; `RECENT_PLACEMENTS_WINDOWS` (beside
-  SESSION_LOOKBACK_CHOICES) defines the source-window choices, whose
-  selector on the block's heading writes
-  `settings.recentPlacementsWindow` (schema control 'none') and
-  re-renders `renderedResult`; `buildRecentPlacements(record, wins,
-  referenceMs, markReferenceRecord)` uses `recentPlacementCandidates` —
+  nearMiss)} — computes the rows. `SessionScope` supplies the shared source
+  window and the heading selector calls `setSessionDefinition`.
+  `buildRecentPlacements(record, wins, referenceMs, markReferenceRecord)` uses
+  `recentPlacementCandidates`;
   `rankColumns` retains the reference date's day categories; window columns
   carry startMs. Every recent win contributes its exact 3BV, ZiNi, HZiNi,
   maximum-clue, rounded fraction/spread, and board-shape families through `boardMetricCandidates`

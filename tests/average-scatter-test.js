@@ -16,7 +16,7 @@ function section(from, to) {
 }
 
 const tested = vm.runInThisContext(`(() => {
-  ${section('function secondsOf(', 'function formatGuesses(')}
+  ${fs.readFileSync(path.join(repo, 'game-data.js'), 'utf8')}
   ${section('// Average-time charts group wins', '// Every list renders')}
   ${section("// A chart's eligible wins.", '// Bucket all finished games')}
   ${section('// Bucket all finished games', "// The property charts' three vertical readings")}

@@ -55,6 +55,42 @@ const press = (at, useful, flag, moving, gapMs, unflag, misclick) => ({
   misclick: misclick === true, moving, gapMs,
 });
 
+// The shared wall-clock cutoff applies before either aggregation basis.
+// Partial backfilled spans prorate their counts over the original duration;
+// completed-game averages still use the whole game's observations.
+{
+  const cutoff = NOW - 30000;
+  const old = { kind: 'game', from: NOW - 3 * MIN, to: NOW - 2 * MIN,
+    end: 'win', useful: 900, wasted: 0, px: 9000, flags: 0 };
+  const crossing = { kind: 'game', from: NOW - MIN, to: NOW,
+    end: 'win', useful: 12, wasted: 2, px: 600, flags: 2, misclicks: 1 };
+  const scoped = { ...opts, wallFromMs: cutoff, windowMs: 30000 };
+  const s = sessionBucketSeries([old, crossing], scoped);
+  assertClose('wall cutoff clips played duration', s.playMs[last(s)], 30000);
+  assertClose('wall cutoff preserves original movement rate', s.speedPxPerSec[last(s)], 10);
+  assertClose('wall cutoff prorates useful counts', s.clicksPerSec[last(s)], .2);
+  assertClose('wall cutoff prorates no-op counts', s.wastedPerMin[last(s)], 2);
+  assertEq('wall cutoff excludes old completed games', s.gameEnds.length, 1);
+  const g = sessionGameSeries([old, crossing], { ...scoped, aggregation: 'average', lookbackGames: 10 });
+  assertEq('game lookback cannot reach outside wall scope', g.gameEnds.length, 1);
+  assertClose('game basis uses whole eligible measurement', g.usefulPerGame[last(g)], 12);
+  assertClose('game basis keeps whole eligible duration', g.playMs[last(g)], MIN);
+  const boundary = { ...crossing, from: cutoff - MIN, to: cutoff, useful: 6 };
+  const b = sessionGameSeries([old, boundary, crossing], { ...scoped, aggregation: 'average', lookbackGames: 10 });
+  assertEq('game ending exactly at cutoff remains eligible', b.gameEnds.length, 2);
+  assertClose('boundary game contributes whole-game measurement', b.usefulPerGame[last(b)], 9);
+  const live = sessionBucketSeries([
+    press(cutoff - 1, true, false, true),
+    press(cutoff, true, false, true),
+    press(cutoff + 1000, true, false, true),
+    { kind: 'move', at: cutoff - 1, px: 9000 },
+    { kind: 'move', at: cutoff + 1000, px: 300 },
+  ], { ...scoped, openPlayFrom: NOW - MIN });
+  assertClose('live open play is clipped to wall cutoff', live.playMs[last(live)], 30000);
+  assertClose('live pre-cutoff presses are excluded', live.clicksPerSec[last(live)], 2 / 30);
+  assertClose('live pre-cutoff movement is excluded', live.speedPxPerSec[last(live)], 10);
+}
+
 // One full played minute with every live event kind.
 {
   const from = NOW - MIN;

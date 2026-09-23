@@ -11,7 +11,7 @@ const context = vm.createContext({
   structuredClone,
   persistUserdata: (kind, value) => saved.set(kind, structuredClone(value)),
 });
-for (const file of ['generators.js', 'settings-core.js']) {
+for (const file of ['generators.js', 'game-data.js', 'settings-core.js']) {
   vm.runInContext(fs.readFileSync(path.join(__dirname, '..', file), 'utf8'), context);
 }
 const run = (source) => vm.runInContext(source, context);
@@ -42,8 +42,8 @@ assert(saved.get('settings').cellSize > 32);
 
 context.stored = {
   cellSize: 100000, playMode: 'missing', metricsPanelWidth: NaN,
-  sessionLookbackSeconds: -1, sessionLookbackGames: 2, sessionWindowMinutes: 17,
-  recentPlacementsWindow: 'never', boardGenerator: 'missing',
+  sessionLookbackSeconds: -1, sessionLookbackGames: 2, sessionDefinition: 'never',
+  gameDataSessionMetrics: { unknown: true }, gameDataShowValues: 'yes', boardGenerator: 'missing',
   boardGeneratorParams: { unknown: { scale: 4 } },
   boardOffsetX: Infinity, boardOffsetY: -1001, numberDisplay: 'emoji',
   averageChartMode: 'unknown', justUniverse: 'true',
@@ -79,6 +79,9 @@ assert.deepEqual(plain(run('settingsFrom(Object.create({ cellSize: 96 }))')), de
 console.log('settings-state: shared validation, defaults, migration, isolation, and backup round trips passed');
 
 const choices = {
+  sessionDefinition: 'past30min', gameDataShowValues: false, gameDataDayTime: false,
+  gameDataSessionMetrics: { ...defaults.gameDataSessionMetrics, fastclickGap: false, ioe: true },
+  gameDataLifetimeMetrics: { ...defaults.gameDataLifetimeMetrics, clickRate: false },
   difficulty: 'custom', customBoard: { width: 24, height: 12, mines: 45 },
   customBoardDraft: { width: '25', height: '12', mines: '45' },
   playerStates: [{ name: 'new mouse', active: true }, { name: 'sleepy', active: false }],

@@ -5,6 +5,7 @@ const vm = require('vm');
 const path = require('path');
 
 globalThis.BoardGenerators = require('../generators.js');
+vm.runInThisContext(fs.readFileSync(path.join(__dirname, '..', 'game-data.js'), 'utf8'));
 const source = fs.readFileSync(path.join(__dirname, '..', 'settings-core.js'), 'utf8');
 vm.runInThisContext(source);
 
@@ -22,7 +23,7 @@ function check(name, condition) {
   check('per-game grouping defaults to five completed games',
     fresh.sessionLookbackGames === 5);
   check('session defaults to exact current mode', fresh.sessionModeScope === 'current');
-  check('session has no clear boundary initially', fresh.sessionStartedAt === 0);
+  check('all session surfaces default to the last hour', fresh.sessionDefinition === 'pastHour');
   check('retired category block is not rewritten',
     !('reportCategories' in fresh));
   check('retired detail setting is not rewritten',

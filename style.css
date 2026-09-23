@@ -2265,6 +2265,208 @@ body.settings-page .return-to-game {
 .board-metric-backfill-panel progress { width: 120px; height: 12px; }
 .board-metric-backfill-error { flex-basis: 100%; color: #a52121; }
 
+.board-time-profile-host {
+  flex: 0 0 100%;
+  min-width: 0;
+}
+.board-time-profile {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: #ffffff;
+  color: #555555;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 400;
+  display: flex;
+  flex-direction: column;
+  height: calc(100dvh - 48px);
+  text-align: left;
+  container-type: inline-size;
+}
+.board-time-profile figcaption {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 8px;
+  margin-bottom: 4px;
+  flex-shrink: 0;
+}
+.board-time-profile h4 { margin: 0; font-size: 12px; font-weight: 400; color: #000000; }
+.board-time-profile .chart-help-label { font-weight: 400; }
+.board-time-profile-sides {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 60px;
+  margin-bottom: 0;
+  color: #555555;
+  font-size: inherit;
+  flex-shrink: 0;
+}
+.board-time-profile-sides > span:first-child { text-align: right; }
+.board-trait-line-view { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+.board-trait-line { position: relative; width: 100%; }
+.board-trait-line > svg {
+  position: absolute;
+  top: 0;
+  left: calc(50% + 16px);
+  width: 14px;
+  height: 100%;
+  overflow: visible;
+}
+.board-trait-line > svg[data-side="performance"] {
+  left: auto;
+  right: calc(50% + 16px);
+  transform: scaleX(-1);
+}
+.board-trait-line-axis {
+  position: absolute;
+  left: calc(50% - 16px);
+  width: 32px;
+  border-radius: 4px;
+  background: linear-gradient(#d8f0da, #d9ebfa 50%, #fad8d8);
+  box-shadow: 0 0 0 1px #cad9e0;
+}
+.board-trait-line-tick {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  transform: translateY(-50%);
+  color: #365367;
+  font-size: 10px;
+  line-height: 1;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.board-trait-line-tick::before, .board-trait-line-tick::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 4px;
+  height: 1px;
+  background: #56798b;
+}
+.board-trait-line-tick::before { left: 0; }
+.board-trait-line-tick::after { right: 0; }
+.board-trait-line-connector {
+  fill: none;
+  stroke: #58798d;
+  stroke-width: 1.4;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+.board-trait-line-connector[data-displaced="true"] {
+  stroke: #355d75;
+  stroke-width: 2;
+}
+.board-trait-line-dot {
+  box-sizing: border-box;
+  position: absolute;
+  left: calc(50% + 16px);
+  width: 5px;
+  height: 5px;
+  border: 1.4px solid #355d75;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+.board-trait-line-dot[data-side="performance"] { left: calc(50% - 16px); }
+.board-trait-line .board-trait-line-label {
+  display: flex;
+  position: absolute;
+  left: calc(50% + 30px);
+  max-width: calc(50% - 30px);
+  transform: translateY(-50%);
+  font-size: inherit;
+}
+.board-trait-line .board-trait-line-label[data-side="performance"] {
+  left: auto;
+  right: calc(50% + 30px);
+  justify-content: flex-end;
+}
+.board-time-profile .board-trait-name { white-space: normal; }
+.board-time-profile .board-trait-value { white-space: nowrap; }
+.board-time-profile.game-data-values-hidden .board-trait-value { display: none; }
+.board-time-profile .board-trait-value { font-variant-numeric: tabular-nums; color: inherit; }
+.board-trait-line .board-trait-line-label .chart-help-label {
+  display: block;
+  box-sizing: border-box;
+  max-width: 100%;
+  padding: 1px 2px;
+  border: 0;
+  border-radius: 0;
+  background: var(--trait-tint);
+  color: inherit;
+  text-align: left;
+  text-decoration: none;
+  line-height: 1.2;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.board-trait-line .board-trait-line-label[data-side="performance"] .chart-help-label { text-align: right; }
+.board-trait-line-label .chart-help-label:hover,
+.board-trait-line-label .chart-help-label:focus-visible {
+  outline: 1px solid #819eaf;
+  outline-offset: 2px;
+}
+.board-trait-line-unranked {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 12px;
+  color: #637d8d;
+  font-size: 11px;
+}
+.board-trait-line-unranked-heading { grid-column: 1 / -1; }
+.board-trait-line-unranked > div { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.board-trait-line-unranked > [data-side="performance"] { align-items: flex-end; text-align: right; }
+#global-session-controls { align-self: stretch; font-size: 12px; color: #555555; }
+#global-session-controls select, .board-time-profile select { font: inherit; color: inherit; max-width: 100%; }
+.board-time-profile button:not(.chart-help) {
+  font: inherit;
+  color: #3f5668;
+  background: #f7f9fb;
+  border: 1px solid #c5d0da;
+  border-radius: 3px;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+.board-time-profile button:disabled { opacity: .5; cursor: default; }
+.board-time-profile figcaption > button { margin-left: auto; }
+.game-data-controls, .game-data-history-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  flex-shrink: 0;
+  padding-top: 5px;
+}
+.game-data-controls { border-top: 1px solid #d9e2e8; }
+.game-data-controls label { display: inline-flex; align-items: center; gap: 3px; }
+.game-data-controls input { margin: 0; }
+.game-data-config {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 0;
+}
+.game-data-config table { border-collapse: collapse; width: 100%; }
+.game-data-config th, .game-data-config td { font-weight: 400; padding: 5px 2px; border-bottom: 1px solid #d9e2e8; text-align: center; }
+.game-data-config td:first-child, .game-data-config th:first-child { text-align: left; }
+.game-data-config th label { white-space: nowrap; }
+.game-data-config th input { margin-inline: 0 2px; }
+.game-data-config > button { align-self: flex-start; }
+.game-data-history { flex: 1; min-height: 0; overflow: auto; }
+.game-data-history table { border-collapse: collapse; width: 100%; font-size: inherit; }
+.game-data-history caption { text-align: left; padding: 8px 0; }
+.game-data-history th, .game-data-history td { font-weight: 400; text-align: right; padding: 5px; border-bottom: 1px solid #d9e2e8; white-space: nowrap; }
+.game-data-history th:first-child, .game-data-history td:first-child { text-align: left; }
+.game-data-history thead { color: #000000; }
+
 .motion-metric-group {
   flex-basis: 100%;
 }
@@ -3144,6 +3346,8 @@ body.settings-page .return-to-game {
    would be clipped by the scrollable metrics panel). */
 .chart-help-tip {
   position: fixed;
+  margin: 0;
+  inset: auto;
   z-index: 60;
   width: 290px;
   max-width: 78vw;

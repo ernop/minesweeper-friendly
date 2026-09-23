@@ -164,6 +164,7 @@ const { chromium } = require(process.argv[2]);
     const rendered = await page.evaluate(() => {
       settings.playMode = 'standard';
       settings.shownThings.averageCharts = settings.shownThings.relationshipCharts = false;
+      settings.gameDataLifetimeMetrics.hziniEfficiency = true;
       const now = Date.now();
       const metrics = BoardMetrics.analyze(3, 3, [false, false, false, false, true, false, false, false, false]).boardMetrics;
       const base = { outcome: 'win', endedAt: now, timeMs: 4000, states: [],
@@ -186,43 +187,49 @@ const { chromium } = require(process.argv[2]);
         .map((el) => [el.querySelector('h4').textContent, el.querySelector('.rank-total').textContent]));
       return { tables, values: [...resultRanks.querySelectorAll('.board-metric-value')].map((el) => el.textContent),
         details: [...resultRanks.querySelectorAll('.board-metric-detail')].map((el) => el.textContent),
-        efficiency: [...resultStats.querySelectorAll('.stat-label')]
-          .find((el) => el.textContent === 'HZiNi efficiency').nextElementSibling.textContent,
+        efficiency: resultStats.querySelector('[data-trait="lifetime HZiNi efficiency"] .board-trait-value').textContent,
         labels: [...resultRanks.querySelectorAll('.board-metric-fact h4')].map((el) => el.textContent),
         controls: [...resultRanks.querySelectorAll('button')].map((el) => el.textContent) };
     });
     assert.equal(rendered.tables['HZiNi 6'], '#4 of 4Last place');
     assert(!Object.keys(rendered.tables).some((label) => /minimum clicks|RCW/.test(label)));
     assert(!rendered.controls.some((label) => /Refine|RCW/.test(label)));
-    assert.equal(rendered.efficiency, '75.0%');
+    assert.equal(rendered.efficiency, '75%');
     assert.deepEqual(rendered.details, []);
     assert.deepEqual(rendered.labels, []);
     assert.equal(rendered.tables['0–1 share 0%'], '#3 of 3Last place');
     assert.equal(rendered.tables['zero-opening coverage 0%'], '#3 of 3Last place');
     assert.equal(rendered.tables['3BV spread 1.0 cells'], '#2 of 2Last place');
     assert.deepEqual(rendered.values, []);
-    const boardBefore = await page.locator('#board').boundingBox();
-    const spreadHelp = page.getByRole('button', { name: 'About 3BV spread 1.0 cells', exact: true });
+    // Hover scrolls lower tables into view; compare document coordinates
+    // so scrolling cannot masquerade as board reflow.
+    const boardPosition = () => page.locator('#board').evaluate((el) => {
+      const rect = el.getBoundingClientRect();
+      return { x: rect.left + scrollX, y: rect.top + scrollY, width: rect.width, height: rect.height };
+    });
+    const boardBefore = await boardPosition();
+    const tableHelp = page.locator('.rank-list');
+    const spreadHelp = tableHelp.getByRole('button', { name: 'About 3BV spread 1.0 cells', exact: true });
     await spreadHelp.hover();
     const spreadTip = await page.locator('.chart-help-tip').innerText();
     assert(spreadTip.includes('root-mean-square'));
     assert(spreadTip.includes('This board: 1.225 cells'));
     assert(spreadTip.includes('nearest 0.5 cell'));
     assert(spreadTip.includes('Exact halfway values round up'));
-    assert.deepEqual(await page.locator('#board').boundingBox(), boardBefore);
+    assert.deepEqual(await boardPosition(), boardBefore);
     await page.mouse.move(0, 0);
     await spreadHelp.focus();
     assert.equal(await page.locator('.chart-help-tip').isVisible(), true);
     await spreadHelp.evaluate((el) => el.blur());
     for (const [label, detail] of [['0–1 share 0%', '0 of 8 safe cells'],
       ['zero-opening coverage 0%', '0 of 8 safe cells']]) {
-      const help = page.getByRole('button', { name: 'About ' + label, exact: true });
+      const help = tableHelp.getByRole('button', { name: 'About ' + label, exact: true });
       await help.hover();
       const tip = await page.locator('.chart-help-tip').innerText();
       assert(tip.includes(detail));
       if (label.startsWith('0–1')) assert(tip.includes('Covered ones'));
       assert(tip.includes('nearest whole percentage point'));
-      assert.deepEqual(await page.locator('#board').boundingBox(), boardBefore);
+      assert.deepEqual(await boardPosition(), boardBefore);
     }
     await page.mouse.move(0, 0);
     for (const width of [1440, 650]) {

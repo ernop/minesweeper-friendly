@@ -3453,6 +3453,7 @@ function createResultSectionCollector(context) {
 }
 
 function renderResult(record, modeRecords, options = {}) {
+  if (chartHelpOwner && (resultStats.contains(chartHelpOwner) || resultRanks.contains(chartHelpOwner))) hideChartHelpTip();
   renderedResult = { record, modeRecords, options };
   requestBoardMetrics(record);
   const seconds = secondsOf(record);
@@ -3602,7 +3603,8 @@ function renderResult(record, modeRecords, options = {}) {
     valueCell.textContent = value;
     statsGrid.append(labelCell, valueCell);
   }
-  if (settings.shownThings.gameStats) {
+  if (settings.shownThings.gameStats && (record.outcome !== 'win'
+      || (Trial.isPlayMode(settings.playMode) && !historyView))) {
     if (historyView) {
       const heading = document.createElement('h3');
       heading.className = 'latest-win-stats-title';
@@ -3947,108 +3949,6 @@ function cleanTransferredHistory(raw) {
 
 //-------PLAY HISTORY: TRANSFER CLEANING END-------
 
-function secondsOf(record) {
-  return record.timeMs / 1000;
-}
-
-function bvPerSecond(record) {
-  return record.bv3 / secondsOf(record);
-}
-
-function efficiencyPercent(record) {
-  return Math.round((record.bv3 / record.clicks) * 100);
-}
-
-// Effective / (effective + wasted). Absence of wastedClicks means the
-// denominator was never measured, so this is undefined rather than 100%.
-function correctnessPercent(record) {
-  if (!('wastedClicks' in record)) return undefined;
-  const total = record.clicks + record.wastedClicks;
-  if (total === 0) return undefined;
-  return Math.round((record.clicks / total) * 100);
-}
-
-// 3BV / effective clicks. Same quantity as efficiency, as a ratio.
-// Wins only: a lost board was never finished, so the 3BV numerator is
-// the whole board and the ratio would flatter a short loss.
-function throughputOf(record) {
-  if (record.outcome !== 'win' || record.clicks === 0) return undefined;
-  return record.bv3 / record.clicks;
-}
-
-// log(3BV) / log(time in seconds). MSO blanks t≤1; we do the same.
-// Wins only, same unfinished-board honesty as throughput.
-function iosOf(record) {
-  if (record.outcome !== 'win') return undefined;
-  const t = secondsOf(record);
-  if (!(t > 1) || !(record.bv3 > 0)) return undefined;
-  return Math.log(record.bv3) / Math.log(t);
-}
-
-// IOE (index of efficiency): 3BV / total clicks, wasted included — the
-// total-click cousin of throughput. Wins only for the same
-// unfinished-board reason; undefined where wastedClicks was never
-// measured (a missing denominator part, not zero).
-function ioeOf(record) {
-  if (record.outcome !== 'win' || !('wastedClicks' in record)) return undefined;
-  const total = record.clicks + record.wastedClicks;
-  if (total === 0) return undefined;
-  return record.bv3 / total;
-}
-
-// Chord share: accepted chords over board-changing clicks. Defined for
-// wins and losses (both had a real click mix); absent where chordClicks
-// was never measured.
-function chordShareOf(record) {
-  if (record.chordClicks === undefined || record.clicks === 0) return undefined;
-  return record.chordClicks / record.clicks;
-}
-
-// STNB, the difficulty-normalized speed score used on saolei.wang:
-// constant / QG with QG = time^1.7 / 3BV, where the constant makes equal
-// skill score alike across the three standard boards (the current
-// site constants; Minesweeper Arbiter's older polynomial constants were
-// 47.299/153.73/435.001). Only the three standard boards have constants,
-// so STNB is undefined elsewhere; wins only (completion = 1).
-const STNB_CONSTANTS = [
-  { width: 9, height: 9, mines: 10, constant: 36 },
-  { width: 16, height: 16, mines: 40, constant: 162 },
-  { width: 30, height: 16, mines: 99, constant: 435 },
-];
-
-function stnbConstantOf(params) {
-  const spec = STNB_CONSTANTS.find((s) => s.width === params.width
-    && s.height === params.height && s.mines === params.mines);
-  return spec === undefined ? undefined : spec.constant;
-}
-
-function stnbOf(record, params) {
-  if (record.outcome !== 'win' || !(record.bv3 > 0)) return undefined;
-  // A drill's bv3 is the remnant's remaining 3BV, not a full solve of the
-  // standard board; STNB's difficulty constants would flatter it wildly.
-  if (record.playMode === 'endgame-drill') return undefined;
-  const constant = stnbConstantOf(params);
-  const t = secondsOf(record);
-  if (constant === undefined || !(t > 0)) return undefined;
-  return constant / (Math.pow(t, 1.7) / record.bv3);
-}
-
-// ZiNi efficiency: the flagger analog of throughput (ZNE on the stats
-// sites) — greedy ZiNi over effective clicks. Wins only, and only on
-// games whose records carry the stored zini.
-function zniEfficiencyOf(record) {
-  if (record.outcome !== 'win' || record.zini === undefined
-      || record.clicks === 0) return undefined;
-  return record.zini / record.clicks;
-}
-
-// HZiNi efficiency describes the completed play; hzini itself describes the board.
-function hziniEfficiencyOf(record) {
-  if (record.outcome !== 'win' || !Number.isSafeInteger(record.hzini)
-      || !(record.clicks > 0)) return undefined;
-  return record.hzini / record.clicks;
-}
-
 function formatGuesses(record) {
   if (record.guesses === 0) return '0';
   return record.guesses + ' · ' + record.guessIdealRisk + ' ideal · '
@@ -4315,26 +4215,32 @@ function boardShareHelp(record, field, definition) {
 const BOARD_METRIC_TABLES = [
   { field: 'bv3', label: '3BV', setting: 'exact3BV', priority: 13, summaryGroup: 2 },
   { field: 'zini', label: 'ZiNi', setting: 'exactZiNi', priority: 14, summaryGroup: 3 },
-  { field: 'maxAdjacent', label: 'max number', setting: 'exactMaxNumber', priority: 15, summaryGroup: 6 },
+  { field: 'maxAdjacent', label: 'max number', shortLabel: 'MN', setting: 'exactMaxNumber', priority: 15, summaryGroup: 6 },
   { field: 'hzini', label: 'HZiNi', setting: 'exactHZiNi', priority: 16, summaryGroup: 4,
     help: () => [
       'Human ZiNi is the action count of a fixed opening-first solve with full board knowledge. The same oriented board always gives the same integer.',
       'Open each zero region once. Then choose the revealed clue with the greatest nonnegative saving: covered safe neighbors minus unflagged mine neighbors minus one chord. Flag its missing mines and chord it. If none qualifies, reveal the next safe cell. Ties and direct reveals scan down columns, left to right.',
       'Each reveal, flag placement, and chord counts once. This measures that procedure, rather than the global minimum over all possible procedures. Times compare boards with exactly the same HZiNi count.',
     ] },
-  { field: boardSpreadGroup,
+  { field: boardSpreadGroup, label: '3BV spread',
     labelOf: (value) => '3BV spread ' + value.toFixed(1) + ' cells',
+    valueText: (record) => Number(record.boardMetrics.workSpread.toFixed(1)) + ' cells',
+    rawValue: (record) => record.boardMetrics?.version === 1 ? record.boardMetrics.workSpread : undefined,
     setting: 'workSpreadTable', priority: 17, summaryGroup: 5,
     help: (record) => [
       'How spread out the board’s 3BV work is, measured in cell widths. Larger values mean the work points are more widely spread.',
       'Each zero region contributes one point at the mean position of its zero squares. Each safe square outside all zero openings contributes its own center. All points have equal weight. The value is the root-mean-square distance of these points from their mean position.',
       'This board: ' + record.boardMetrics.workSpread.toFixed(3) + ' cells. Times compare boards rounded to the nearest 0.5 cell. Exact halfway values round up: 2.25 through below 2.75 belongs to 2.5. The stored measurement keeps its full precision.',
     ] },
-  { field: (win) => boardShareGroup(win, 'zeroOpenedZeroOneCells'),
+  { field: (win) => boardShareGroup(win, 'zeroOpenedZeroOneCells'), label: '0–1 share',
+    valueText: (record) => formatBoardShare(boardFractionOf(record, 'zeroOpenedZeroOneCells')),
+    rawValue: (record) => boardFractionOf(record, 'zeroOpenedZeroOneCells'), higher: true,
     labelOf: (value) => '0–1 share ' + value + '%', setting: 'zeroOneShareTable', priority: 18, summaryGroup: 12,
     help: (record) => boardShareHelp(record, 'zeroOpenedZeroOneCells',
       'Open every zero and nothing else. Count only the revealed zeros and ones, divided by all safe squares on the board. Covered ones and revealed clues of two or more do not count. Shared borders count once. No zeros means 0%.') },
-  { field: (win) => boardShareGroup(win, 'zeroOpenedCells'),
+  { field: (win) => boardShareGroup(win, 'zeroOpenedCells'), label: 'zero-opening coverage', shortLabel: 'ZOC',
+    valueText: (record) => formatBoardShare(boardFractionOf(record, 'zeroOpenedCells')),
+    rawValue: (record) => boardFractionOf(record, 'zeroOpenedCells'),
     labelOf: (value) => 'zero-opening coverage ' + value + '%', setting: 'zeroOpeningTable', priority: 19, summaryGroup: 13,
     help: (record) => boardShareHelp(record, 'zeroOpenedCells',
       'The fraction of all safe squares exposed after opening every zero region, including bordering numbers of any value. Shared borders count once. This stops after automatic flooding, before deductions or chords. With no zeros the coverage is 0%.') },
@@ -4344,6 +4250,10 @@ function boardMetricCandidates(referenceWins, wins) {
   return BOARD_METRIC_TABLES.flatMap((spec) =>
     [...rankValueGroups(referenceWins, wins, spec.field)].map(([value, rows]) => ({
       label: spec.labelOf ? spec.labelOf(value) : spec.label + ' ' + value,
+      trait: spec.shortLabel || spec.label,
+      valueText: spec.valueText || (() => String(value)),
+      rawValue: spec.rawValue || ((record) => record[spec.field]),
+      higher: spec.higher === true, measurement: spec.label,
       setting: spec.setting,
       help: spec.help,
       dedupePriority: spec.priority,
@@ -4363,6 +4273,8 @@ function boardShapeCandidates(referenceWins, wins) {
   if (referenceWins.some((record) => record.maxAdjacent === 8)) {
     candidates.push({
       id: 'has-8',
+      trait: 'has an 8',
+      valueText: () => 'yes',
       summaryOrder: [7, 8],
       label: 'has 8',
       displayOrder: 10,
@@ -4373,6 +4285,8 @@ function boardShapeCandidates(referenceWins, wins) {
   if (referenceWins.some((record) => record.hasSeven === true)) {
     candidates.push({
       id: 'has-7',
+      trait: 'has a 7',
+      valueText: () => 'yes',
       summaryOrder: [7, 7],
       label: 'has 7',
       displayOrder: 20,
@@ -4385,6 +4299,8 @@ function boardShapeCandidates(referenceWins, wins) {
       typeof record.maxAdjacent === 'number' && record.maxAdjacent <= cap)) {
       candidates.push({
         id: 'max-' + cap,
+        trait: 'MN ≤ ' + cap,
+        valueText: (record) => String(record.maxAdjacent),
         summaryOrder: [8, cap],
         label: 'max ' + cap,
         displayOrder: 70 - cap * 10,
@@ -4396,6 +4312,8 @@ function boardShapeCandidates(referenceWins, wins) {
   for (const [count, rows] of rankValueGroups(referenceWins, wins, 'islandCount')) {
     candidates.push({
       id: 'islands-' + count,
+      trait: 'islands', rawValue: (record) => record.islandCount, higher: false,
+      valueText: () => String(count),
       summaryOrder: [9, count],
       label: count === 1 ? '1 island' : count + ' islands',
       displayOrder: 80,
@@ -4406,6 +4324,8 @@ function boardShapeCandidates(referenceWins, wins) {
   for (const [size, rows] of rankValueGroups(referenceWins, wins, 'largestIsland')) {
     candidates.push({
       id: 'largest-island-' + size,
+      trait: 'largest island', rawValue: (record) => record.largestIsland, higher: false,
+      valueText: () => String(size),
       summaryOrder: [10, size],
       label: 'largest island ' + size,
       displayOrder: 90,
@@ -4416,6 +4336,8 @@ function boardShapeCandidates(referenceWins, wins) {
   for (const [count, rows] of rankValueGroups(referenceWins, wins, 'zeroCount')) {
     candidates.push({
       id: 'zeros-' + count,
+      trait: 'zeros', rawValue: (record) => record.zeroCount, higher: true,
+      valueText: () => String(count),
       summaryOrder: [11, count],
       label: count === 1 ? '1 zero' : count + ' zeros',
       displayOrder: 100,
@@ -4424,6 +4346,69 @@ function boardShapeCandidates(referenceWins, wins) {
     });
   }
   return candidates.sort((a, b) => a.displayOrder - b.displayOrder);
+}
+
+// Board values use the player's preferred directions. The original matching-
+// trait solve-time pools still drive the separate tables, not these markers.
+function boardTraitRankProfile(record, comparisons, records) {
+  if (record.outcome !== 'win') return [];
+  const past = records.filter((r) => r.endedAt <= record.endedAt);
+  return comparisons.filter((c) => c.rawValue).flatMap((comparison) => {
+    const spec = { id: comparison.setting || comparison.trait, name: comparison.trait,
+      allOutcomes: true, higher: comparison.higher, value: comparison.rawValue,
+      format: () => comparison.valueText(record),
+      help: 'Ranked quantity: this board’s ' + (comparison.measurement || comparison.trait)
+        + '. ' + (comparison.higher ? 'Higher' : 'Lower') + ' values are preferred by your chosen direction.'
+        + (comparison.help ? ' ' + [].concat(comparison.help(record))[0] : ''),
+    };
+    const row = GameData.rankedRow(record, past, spec, '', {}, 'Lifetime through this game’s completion.');
+    if (!row) return [];
+    return [{ ...row, side: 'board',
+      standing: row.allEqual && row.total > 1
+        ? { band: 'middle', podium: 0, label: 'All equal' } : rankStanding(row.rank, row.total),
+    }];
+  });
+}
+
+// The shared catalog, scope definitions, and historical session model live in
+// game-data.js; the report adds table-compatible standing labels here.
+function performanceTimeRankProfile(record, records, preferences = GameData.defaultsForView, params = {}) {
+  return GameData.rows(record, records, preferences, params).map((row) => ({ ...row,
+    standing: row.allEqual && row.total > 1
+      ? { band: 'middle', podium: 0, label: 'All equal' } : rankStanding(row.rank, row.total),
+  }));
+}
+
+// Fit labels near their exact points with a minimum gap. Pool-adjacent-
+// violators minimizes squared displacement while preserving rank order;
+// subtracting the gaps turns label spacing into a monotonicity constraint.
+function boardTraitLabelLayout(rows, top, height, gap, domain = [0, 100]) {
+  const sorted = rows.filter((row) => row.percentile !== null)
+    .slice().sort((a, b) => a.percentile - b.percentile);
+  const offsets = [0];
+  for (let i = 1; i < sorted.length; i++) {
+    const spacing = sorted[i].labelHeight === undefined ? gap
+      : (sorted[i - 1].labelHeight + sorted[i].labelHeight) / 2 + 2;
+    offsets[i] = offsets[i - 1] + spacing;
+  }
+  const pointY = (row) => top + (row.percentile - domain[0]) / (domain[1] - domain[0]) * height;
+  const blocks = [];
+  for (const [index, row] of sorted.entries()) {
+    blocks.push({ sum: pointY(row) - offsets[index], start: index, count: 1 });
+    while (blocks.length > 1) {
+      const b = blocks[blocks.length - 1], a = blocks[blocks.length - 2];
+      if (a.sum / a.count <= b.sum / b.count) break;
+      blocks.splice(-2, 2, { sum: a.sum + b.sum, start: a.start, count: a.count + b.count });
+    }
+  }
+  const positions = [];
+  for (const block of blocks) {
+    const base = Math.max(top, Math.min(top + height - offsets[sorted.length - 1], block.sum / block.count));
+    for (let i = block.start; i < block.start + block.count; i++) {
+      positions.push({ ...sorted[i], pointY: pointY(sorted[i]), labelY: base + offsets[i] });
+    }
+  }
+  return positions;
 }
 
 //-------RECENT PLACEMENTS: COMPUTATION (pure; tests extract this span)-------
@@ -4637,12 +4622,31 @@ function applyRankHighlight(element, rank, total) {
   return standing;
 }
 
-// The selector changes the period's category coverage as well as which
-// earned ranks qualify, independently of the neighboring full tablecharts.
+// All three session surfaces share this setting; rebuild only their own
+// content so selecting a window never resets the board or replay.
+function setSessionDefinition(value) {
+  settings.sessionDefinition = value;
+  saveSettings();
+  for (const select of document.querySelectorAll('select[data-session-scope]')) select.value = value;
+  for (const view of document.querySelectorAll('[data-session-scope-view]')) view.dispatchEvent(new Event('session-scope-change'));
+  sessionChartsDirty = true;
+  refreshMetricsPanel();
+}
+
+function buildSessionScopeSelect(label) {
+  const select = document.createElement('select');
+  select.dataset.sessionScope = '';
+  select.setAttribute('aria-label', label);
+  select.title = 'One session window for session stats, records won, and game data. Wall-clock time; default last hour.';
+  for (const choice of SessionScope.choices) select.add(new Option(choice.label, choice.id));
+  select.value = settings.sessionDefinition;
+  select.addEventListener('change', () => setSessionDefinition(select.value));
+  return select;
+}
+
 function buildRecentPlacements(record, wins, referenceMs, markReferenceRecord = true) {
-  const [, chosenLabel, startOf] = RECENT_PLACEMENTS_WINDOWS
-    .find(([id]) => id === settings.recentPlacementsWindow);
-  const sourceStartMs = startOf(referenceMs);
+  const { label: chosenLabel } = SessionScope.choices.find((c) => c.id === settings.sessionDefinition);
+  const sourceStartMs = SessionScope.bounds(settings.sessionDefinition, referenceMs).from;
   const candidates = recentPlacementCandidates(
     wins, referenceMs, sourceStartMs, settings.collapseDuplicateCharts);
   const rows = recentPlacementsSummary(
@@ -4656,23 +4660,10 @@ function buildRecentPlacements(record, wins, referenceMs, markReferenceRecord = 
     + 'categories, exact board benchmarks, 3BV-spread bands, and board shapes of wins in the selected period) that were earned '
     + chosenLabel + '; only ranks within the top tenth of a list count, '
     + 'except that lifetime shows its closest rank when none made the tenth. Ordered by category, with board values ascending.';
-  const select = document.createElement('select');
+  const select = buildSessionScopeSelect('Records won session (page-wide)');
   select.className = 'recent-placements-select';
-  select.title = 'the recent window whose earned top ranks are summarized';
-  for (const [id, label] of RECENT_PLACEMENTS_WINDOWS) {
-    const option = document.createElement('option');
-    option.value = id;
-    option.textContent = label;
-    select.appendChild(option);
-  }
-  select.value = settings.recentPlacementsWindow;
-  select.addEventListener('change', () => {
-    settings.recentPlacementsWindow = select.value;
-    saveSettings();
-    if (renderedResult !== null) {
-      renderResult(renderedResult.record, renderedResult.modeRecords, renderedResult.options);
-    }
-  });
+  box.dataset.sessionScopeView = '';
+  box.addEventListener('session-scope-change', () => box.replaceWith(buildRecentPlacements(record, wins, referenceMs, markReferenceRecord)));
   heading.appendChild(select);
   box.appendChild(heading);
 
@@ -4972,15 +4963,25 @@ let trendClipSeq = 0;
 // panel and narrow chart headings, where an inline absolute tip would be
 // clipped, and a single element can never accumulate across re-renders.
 let chartHelpTipEl = null;
+let chartHelpOwner = null;
 
 function getChartHelpTip() {
   if (chartHelpTipEl === null) {
     chartHelpTipEl = document.createElement('div');
     chartHelpTipEl.className = 'chart-help-tip';
+    chartHelpTipEl.setAttribute('popover', 'manual');
+    chartHelpTipEl.setAttribute('role', 'tooltip');
     chartHelpTipEl.hidden = true;
     document.body.appendChild(chartHelpTipEl);
   }
   return chartHelpTipEl;
+}
+
+function hideChartHelpTip() {
+  if (chartHelpTipEl === null) return;
+  if (chartHelpTipEl.matches(':popover-open')) chartHelpTipEl.hidePopover();
+  chartHelpTipEl.hidden = true;
+  chartHelpOwner = null;
 }
 
 function chartHelpButton(help, label) {
@@ -4993,6 +4994,7 @@ function chartHelpButton(help, label) {
   btn.setAttribute('aria-label', label ? 'About ' + label : 'what does this chart mean?');
   const show = () => {
     const tip = getChartHelpTip();
+    chartHelpOwner = btn;
     tip.replaceChildren();
     if (typeof help === 'function') {
       help(tip);
@@ -5004,6 +5006,9 @@ function chartHelpButton(help, label) {
       }
     }
     tip.hidden = false;
+    // The compact game sidebar lives in the top layer. Help must share
+    // that layer to remain visible above its chart and configuration.
+    if (!tip.matches(':popover-open')) tip.showPopover();
     // Fixed positioning clamped to the viewport: below the button where
     // room allows, above it otherwise, never off either side edge.
     const rect = btn.getBoundingClientRect();
@@ -5016,9 +5021,12 @@ function chartHelpButton(help, label) {
     tip.style.left = left + 'px';
     tip.style.top = top + 'px';
   };
-  const hide = () => { getChartHelpTip().hidden = true; };
+  const hide = () => {
+    if (chartHelpOwner !== btn) return;
+    hideChartHelpTip();
+  };
   wrap.addEventListener('mouseenter', show);
-  wrap.addEventListener('mouseleave', hide);
+  wrap.addEventListener('mouseleave', () => { if (document.activeElement !== btn) hide(); });
   btn.addEventListener('focus', show);
   btn.addEventListener('blur', hide);
   btn.addEventListener('click', (event) => {
@@ -6006,6 +6014,334 @@ function buildBarChart(values, size) {
   return svg;
 }
 
+function boardTimeProfileRowHelp(record, row) {
+  const rank = row.rankLabel ? row.rankLabel.slice(1) : row.rank.toLocaleString();
+  return [
+    row.label,
+    ...(row.help ? [].concat(row.help(record)) : []),
+    'Top-share percentile = 100 × rank ÷ measured count. ' + (row.direction === 'higher' ? 'Higher' : 'Lower')
+      + ' values receive earlier ranks. Smaller percentages sit higher on the chart. '
+      + 'This is a top-X% share, not the usual ascending percentile. For example, rank 1 of 100 is top 1%. '
+      + 'The current game is included, so first place is 100/N%, not 0%.',
+    row.percentile === null ? 'Only one measured game: no comparative percentile is plotted.'
+      : row.allEqual ? 'All measured values are equal, so there is no preference ordering. The marker is neutral at 50%.'
+        : 'Here: rank ' + rank + ' of ' + row.total.toLocaleString()
+          + '; 100 × ' + Number(row.rank.toFixed(3)) + ' ÷ ' + row.total + ' = '
+          + Number(row.percentile.toFixed(2)) + '%.',
+  ];
+}
+
+function boardTimeRankColor(percentile) {
+  const green = [216, 240, 218], blue = [217, 235, 250], red = [250, 216, 216];
+  const [from, to, fraction] = percentile <= 50
+    ? [green, blue, percentile / 50] : [blue, red, (percentile - 50) / 50];
+  return 'rgb(' + from.map((value, index) => Math.round(value + (to[index] - value) * fraction)).join(', ') + ')';
+}
+
+function boardTraitValueLabel(record, row) {
+  const label = chartHelpButton(boardTimeProfileRowHelp(record, row), row.trait);
+  const button = label.querySelector('button');
+  const name = document.createElement('span');
+  name.className = 'board-trait-name';
+  name.textContent = row.trait;
+  const value = document.createElement('span');
+  value.className = 'board-trait-value';
+  value.textContent = row.valueText;
+  button.replaceChildren(name, ' ', value);
+  button.setAttribute('aria-label', 'About ' + row.trait + ': ' + row.valueText);
+  return label;
+}
+
+function buildBoardTraitLine(record, rows) {
+  const container = document.createElement('div');
+  container.className = 'board-trait-line-view';
+  const ranked = rows.filter((row) => row.percentile !== null);
+  const unranked = rows.filter((row) => row.percentile === null);
+  const stage = document.createElement('div');
+  stage.className = 'board-trait-line';
+  const axis = document.createElement('div');
+  axis.className = 'board-trait-line-axis';
+  stage.appendChild(axis);
+  const [low, high] = GameData.domain(ranked);
+  stage.dataset.low = low;
+  stage.dataset.high = high;
+  const stops = [[low, 0], ...(low < 50 && high > 50 ? [[50, (50 - low) / (high - low) * 100]] : []), [high, 100]];
+  axis.style.background = 'linear-gradient(' + stops.map(([p, at]) => boardTimeRankColor(p) + ' ' + at + '%').join(', ') + ')';
+  for (let position = low; position <= high; position += 10) {
+    const tick = document.createElement('span');
+    tick.className = 'board-trait-line-tick';
+    tick.style.top = ((position - low) / (high - low) * 100) + '%';
+    tick.textContent = position + '%';
+    axis.appendChild(tick);
+  }
+  const entries = [];
+  const svgs = [];
+  for (const side of ['performance', 'board']) {
+    const svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('preserveAspectRatio', 'none');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.dataset.side = side;
+    svgs.push(svg);
+    stage.appendChild(svg);
+    for (const row of ranked.filter((r) => r.side === side).sort((a, b) => a.percentile - b.percentile)) {
+      const connector = document.createElementNS(SVG_NS, 'path');
+      connector.setAttribute('class', 'board-trait-line-connector');
+      svg.appendChild(connector);
+      const dot = document.createElement('span');
+      dot.className = 'board-trait-line-dot';
+      dot.dataset.side = side;
+      dot.style.background = boardTimeRankColor(row.percentile);
+      dot.setAttribute('aria-hidden', 'true');
+      const label = boardTraitValueLabel(record, row);
+      label.classList.add('board-trait-line-label');
+      label.style.setProperty('--trait-tint', boardTimeRankColor(row.percentile));
+      label.dataset.trait = row.trait;
+      label.dataset.side = side;
+      label.dataset.percentile = row.percentile;
+      stage.append(dot, label);
+      entries.push({ ...row, label, dot, connector });
+    }
+  }
+  if (ranked.length) container.appendChild(stage);
+  if (unranked.length) {
+    const note = document.createElement('div');
+    note.className = 'board-trait-line-unranked';
+    const heading = document.createElement('span');
+    heading.className = 'board-trait-line-unranked-heading';
+    heading.textContent = 'Only one measured game:';
+    note.appendChild(heading);
+    for (const side of ['performance', 'board']) {
+      const column = document.createElement('div');
+      column.dataset.side = side;
+      for (const row of unranked.filter((item) => item.side === side)) column.appendChild(boardTraitValueLabel(record, row));
+      note.appendChild(column);
+    }
+    container.appendChild(note);
+  }
+  function layout() {
+    if (!container.isConnected || !container.clientWidth || !ranked.length) return;
+    const measured = entries.map((entry) => ({ ...entry, labelHeight: entry.label.getBoundingClientRect().height }));
+    const top = Math.max(7, ...measured.map((r) => r.labelHeight / 2));
+    const needed = Math.max(...['performance', 'board'].map((side) =>
+      measured.filter((r) => r.side === side).reduce((sum, r) => sum + r.labelHeight + 2, 0)));
+    const noteHeight = container.querySelector('.board-trait-line-unranked')?.offsetHeight || 0;
+    const totalHeight = Math.max(container.clientHeight - noteHeight, needed + top * 2);
+    const height = totalHeight - top * 2;
+    stage.style.height = totalHeight + 'px';
+    axis.style.top = top + 'px';
+    axis.style.height = height + 'px';
+    for (const svg of svgs) svg.setAttribute('viewBox', '0 0 14 ' + totalHeight);
+    for (const side of ['performance', 'board']) {
+      for (const row of boardTraitLabelLayout(measured.filter((r) => r.side === side), top, height, 20, [low, high])) {
+        row.connector.setAttribute('d', 'M 0 ' + row.pointY + ' L 3 ' + row.pointY
+          + ' L 11 ' + row.labelY + ' L 14 ' + row.labelY);
+        row.connector.dataset.displaced = String(Math.abs(row.labelY - row.pointY) > 8);
+        row.dot.style.top = row.pointY + 'px';
+        row.label.style.top = row.labelY + 'px';
+        row.label.dataset.pointY = row.pointY;
+      }
+    }
+  }
+  return { element: container, layout };
+}
+
+function buildBoardTimeRankProfile(record, comparisons, historyView, records) {
+  if (record.outcome !== 'win') return null;
+  const host = document.createElement('div');
+  host.className = 'board-time-profile-host';
+  const profile = document.createElement('figure');
+  profile.className = 'board-time-profile';
+  profile.setAttribute('aria-label', 'game data');
+  host.appendChild(profile);
+  let observer;
+  let view = 'chart', historyMetric = 'time', historyPage = 0;
+  const button = (text, action) => {
+    const node = document.createElement('button');
+    node.type = 'button';
+    node.textContent = text;
+    node.addEventListener('click', action);
+    return node;
+  };
+  function show(next) {
+    view = next; render();
+    profile.querySelector(next === 'chart' ? '.game-data-controls button' : 'figcaption > button')?.focus();
+  }
+  function checkbox(text, checked, change) {
+    const label = document.createElement('label');
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.checked = checked;
+    input.addEventListener('change', () => change(input.checked));
+    label.append(input, ' ' + text);
+    return label;
+  }
+  function render() {
+    observer?.disconnect();
+    if (chartHelpOwner && profile.contains(chartHelpOwner)) hideChartHelpTip();
+    profile.replaceChildren();
+    profile.dataset.screen = view;
+    profile.classList.toggle('game-data-values-hidden', !settings.gameDataShowValues);
+    const caption = document.createElement('figcaption');
+    const heading = document.createElement('h4');
+    heading.appendChild(chartHelpButton([
+      'Your perf: this game’s measurement ranked separately against lifetime and session history. Time and workload-completion metrics compare wins; action, timing, and error metrics compare measured wins and losses. Day time uses the trailing 24 hours. Every comparison ends at this game’s finish and uses the same board size, mine count, mode, and generator.',
+      'Board traits: this board’s measured trait values ranked against measured historical boards in this category. Higher 0–1 share and zero count are preferred; lower 3BV, ZiNi, HZiNi, spread, max number (MN), islands, largest island, and zero-opening coverage (ZOC) are preferred. These directions express your preference, not an estimated effect on solve time.',
+      'Position is rank divided by comparison count, including this win. Higher on the band (closer to zero) is stronger for that named measure. Constant performance values are neutral at 50%; other ties share a mean rank, except times which keep earlier-completion-first order.',
+      'The visible percentile range zooms around all shown points with an outward buffer. Colors keep their absolute 0–100% meaning. Dark leaders retain exact point positions when labels need room. A singleton has no comparative percentile.',
+      'Session has one page-wide definition, shared with the left-side stats and records-won summary; the default is the last hour of wall-clock time. Historical session windows end at the selected game’s completion. History shows medians and measured sample counts for those overlapping windows; measurements are reused, never replaced by stored ranks.',
+    ], 'game data'));
+    caption.appendChild(heading);
+    if (view !== 'chart') caption.appendChild(button('back to game data', () => show('chart')));
+    profile.appendChild(caption);
+    if (view === 'config') {
+      const configView = document.createElement('div');
+      configView.className = 'game-data-config';
+      const title = document.createElement('h4');
+      title.textContent = 'performance comparisons';
+      configView.appendChild(title);
+      const selections = { session: 'gameDataSessionMetrics', lifetime: 'gameDataLifetimeMetrics' };
+      const inputs = [];
+      const metas = [];
+      function sync() {
+        for (const { input, scope, id } of inputs) input.checked = settings[selections[scope]][id];
+        for (const { input, scopes } of metas) {
+          const values = scopes.flatMap((scope) => Object.values(settings[selections[scope]]));
+          input.checked = values.every(Boolean);
+          input.indeterminate = values.some(Boolean) && !input.checked;
+        }
+      }
+      function meta(text, scopes) {
+        const label = checkbox(text, false, (checked) => {
+          for (const scope of scopes) {
+            settings[selections[scope]] = Object.fromEntries(GameData.metrics.map((m) => [m.id, checked]));
+          }
+          saveSettings(); sync();
+        });
+        metas.push({ input: label.querySelector('input'), scopes });
+        return label;
+      }
+      configView.appendChild(meta('all performance metrics', ['session', 'lifetime']));
+      const table = document.createElement('table');
+      const head = document.createElement('thead');
+      const headRow = document.createElement('tr');
+      const nameHead = document.createElement('th'); nameHead.textContent = 'measurement'; headRow.appendChild(nameHead);
+      for (const scope of ['session', 'lifetime']) {
+        const cell = document.createElement('th'); cell.appendChild(meta(scope, [scope])); headRow.appendChild(cell);
+      }
+      head.appendChild(headRow);
+      const body = document.createElement('tbody');
+      for (const metric of GameData.metrics) {
+        const row = document.createElement('tr');
+        const name = document.createElement('td'); name.appendChild(chartHelpButton(metric.help, metric.name)); row.appendChild(name);
+        for (const scope of ['session', 'lifetime']) {
+          const cell = document.createElement('td');
+          const input = document.createElement('input'); input.type = 'checkbox';
+          input.setAttribute('aria-label', scope + ' ' + metric.name);
+          input.addEventListener('change', () => {
+            settings[selections[scope]][metric.id] = input.checked; saveSettings(); sync();
+          });
+          inputs.push({ input, scope, id: metric.id }); cell.appendChild(input); row.appendChild(cell);
+        }
+        body.appendChild(row);
+      }
+      table.append(head, body); configView.appendChild(table); sync();
+      configView.appendChild(checkbox('day time · last 24 hours', settings.gameDataDayTime, (checked) => {
+        settings.gameDataDayTime = checked; saveSettings();
+      }));
+      const historyButton = button('session history', () => show('history'));
+      configView.appendChild(historyButton);
+      profile.append(configView, button('back to game data', () => show('chart')));
+    } else if (view === 'history') {
+      const controls = document.createElement('div');
+      controls.className = 'game-data-history-controls';
+      const label = document.createElement('label');
+      label.textContent = 'measurement ';
+      const select = document.createElement('select');
+      select.setAttribute('aria-label', 'measurement');
+      for (const metric of GameData.metrics) select.add(new Option(metric.name, metric.id));
+      select.value = historyMetric;
+      select.addEventListener('change', () => {
+        historyMetric = select.value; historyPage = 0; render();
+        profile.querySelector('[aria-label="measurement"]').focus();
+      });
+      label.appendChild(select);
+      const choice = SessionScope.choices.find((c) => c.id === settings.sessionDefinition);
+      controls.append(label, chartHelpButton('Medians and middle halves of measured per-game values; n is the measured-game count. Completion metrics use wins; activity metrics include losses. A median of per-game fastclick medians is not a pooled press-gap median. All completed wins and losses establish sessions. '
+        + ('Rows are overlapping session windows ending at saved games, not independent sessions.')));
+      profile.appendChild(controls);
+      const pageSize = 20;
+      const groups = GameData.history(records, record.endedAt, settings.sessionDefinition, historyPage, pageSize);
+      const spec = GameData.metrics.find((m) => m.id === historyMetric);
+      const scroll = document.createElement('div');
+      scroll.className = 'game-data-history';
+      const table = document.createElement('table');
+      const cap = document.createElement('caption');
+      cap.textContent = 'session windows ending at each game' + ' · ' + choice.label;
+      const head = document.createElement('thead');
+      const tr = document.createElement('tr');
+      for (const text of ['ended', 'wins / games', 'measured n', 'median', 'middle 50%']) {
+        const th = document.createElement('th'); th.textContent = text; tr.appendChild(th);
+      }
+      head.appendChild(tr);
+      const body = document.createElement('tbody');
+      for (const group of groups.windows) {
+        const stats = GameData.summary(group.records, historyMetric, config);
+        const row = document.createElement('tr');
+        for (const text of [new Date(group.endedAt).toLocaleString(), stats.wins + ' / ' + stats.games,
+          stats.measured, stats.median === null ? 'unmeasured' : spec.format(stats.median),
+          stats.median === null ? '—' : spec.format(stats.lower) + '–' + spec.format(stats.upper)]) {
+          const cell = document.createElement('td'); cell.textContent = text; row.appendChild(cell);
+        }
+        body.appendChild(row);
+      }
+      table.append(cap, head, body); scroll.appendChild(table); profile.appendChild(scroll);
+      const pager = document.createElement('div'); pager.className = 'game-data-history-controls';
+      const prev = button('newer', () => { historyPage--; render(); }); prev.disabled = historyPage === 0;
+      const next = button('older', () => { historyPage++; render(); }); next.disabled = (historyPage + 1) * pageSize >= groups.total;
+      pager.append(prev, 'page ' + (historyPage + 1) + ' / ' + Math.max(1, Math.ceil(groups.total / pageSize)), next);
+      profile.appendChild(pager);
+    } else {
+      const rows = [...performanceTimeRankProfile(record, records, settings, config), ...boardTraitRankProfile(record, comparisons, records)];
+      const sides = document.createElement('div');
+      sides.className = 'board-time-profile-sides';
+      for (const text of ['your perf', 'board traits']) {
+        const label = document.createElement('span'); label.textContent = text; sides.appendChild(label);
+      }
+      const line = buildBoardTraitLine(record, rows);
+      profile.append(sides, line.element);
+      observer = new ResizeObserver(() => {
+        if (!profile.isConnected) { observer.disconnect(); return; }
+        line.layout();
+      });
+      observer.observe(line.element);
+      requestAnimationFrame(line.layout);
+    }
+    const footer = document.createElement('div');
+    footer.className = 'game-data-controls';
+    const sessionLabel = document.createElement('label');
+    sessionLabel.textContent = 'session ';
+    const session = buildSessionScopeSelect('Game data session (page-wide)');
+    sessionLabel.appendChild(session);
+    footer.appendChild(sessionLabel);
+    footer.appendChild(checkbox('show actual value', settings.gameDataShowValues, (checked) => {
+      settings.gameDataShowValues = checked; saveSettings();
+      profile.classList.toggle('game-data-values-hidden', !checked);
+      // Values change label heights, not the measurements or percentile domain.
+      const viewport = profile.querySelector('.board-trait-line-view');
+      if (viewport) { render(); profile.querySelector('input[type="checkbox"]').focus(); }
+    }));
+    if (view === 'chart') footer.append(button('configure', () => show('config')), button('session history', () => show('history')));
+    profile.appendChild(footer);
+  }
+  profile.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && view !== 'chart') { event.preventDefault(); event.stopPropagation(); show('chart'); profile.querySelector('.game-data-controls button')?.focus(); }
+  });
+  profile.dataset.sessionScopeView = '';
+  profile.addEventListener('session-scope-change', () => { historyPage = 0; render(); });
+  render();
+  return host;
+}
+
 function renderRanks(record, modeRecords, options = {}, sections) {
   const wins = modeRecords.filter((r) => r.outcome === 'win');
   const boardRecord = options.boardRecord || record;
@@ -6080,9 +6416,11 @@ function renderRanks(record, modeRecords, options = {}, sections) {
 
   // Full tables retain all standings, including ordinary and poor results.
   // Only the recent-achievements summary applies a top-tenth cutoff.
+  const boardComparisons = [];
   for (const candidate of boardMetricCandidates([boardRecord], wins)) {
     if (!settings.shownThings[candidate.setting]) continue;
     const matching = candidate.wins.slice().sort(compareRankedWins);
+    boardComparisons.push({ ...candidate, wins: matching });
     sections.append('boardTables', buildRankList(
       candidate.label,
       matching.length, selectedIndex(matching), 'rank-grid',
@@ -6106,6 +6444,9 @@ function renderRanks(record, modeRecords, options = {}, sections) {
     }
   }
   if (settings.shownThings.boardShapeTables) {
+    // Identical time-table memberships do not make two board measurements
+    // interchangeable. Keep every scalar trait on the value-rank chart.
+    boardComparisons.push(...shapeCandidates);
     for (const c of shapeCandidates) {
       if (!shapeKept.has(c)) continue;
       const inWindow = c.rows.slice().sort(compareRankedWins);
@@ -6114,6 +6455,12 @@ function renderRanks(record, modeRecords, options = {}, sections) {
         inWindow.length, selectedIndex(inWindow), 'rank-grid',
         timeAgeRow(inWindow)));
     }
+  }
+
+  resultStats.querySelector('.board-time-profile-host')?.remove();
+  if (settings.shownThings.boardPercentiles) {
+    const profile = buildBoardTimeRankProfile(boardRecord, boardComparisons, historyView, modeRecords);
+    if (profile) resultStats.replaceChildren(profile);
   }
 
   if (settings.shownThings.averageCharts && wins.length >= 2) {
@@ -10401,7 +10748,7 @@ function renderMetricsPanelContent(metrics) {
     const controlsKey = JSON.stringify([
       settings.sessionAggregation, settings.sessionRateBasis,
       settings.sessionLookbackGames, settings.sessionLookbackSeconds,
-      settings.sessionModeScope, settings.sessionWindowMinutes,
+      settings.sessionModeScope, settings.sessionDefinition,
     ]);
     if (view.sessionControlsKey !== controlsKey) {
       // Only an explicit settings change alters the control structure.
@@ -10612,7 +10959,7 @@ function buildSpatialBiasSection(spatial) {
   return section;
 }
 
-// Settings, resize, and session-clear actions invalidate the chart view.
+// Settings and resize actions invalidate the chart view.
 // Ordinary samples leave the controls and panel structure mounted.
 function refreshMetricsPanel() {
   sessionChartsDirty = true;
@@ -10759,14 +11106,8 @@ function renderLiveTraceMetrics(inputChanged = true) {
 // accumulated play. Finer would redraw sub-pixel wiggles; coarser would
 // visibly stairstep the shortest (30s) lookback.
 const SESSION_STEP_MS = 10 * 1000;
-// Retention always covers the largest selectable window plus the largest
-// selectable lookback (see SESSION_WINDOW_CHOICES / SESSION_LOOKBACK_CHOICES),
-// so switching either to its longest works at once.
-const SESSION_WINDOW_MAX_MS = 3 * 60 * 60 * 1000;
-const SESSION_LOOKBACK_MAX_MS = 15 * 60 * 1000;
+// The game-count smoothing lookback is independent of the shared wall window.
 const SESSION_GAME_LOOKBACK_MAX = 50;
-const SESSION_KEEP_MS =
-  SESSION_WINDOW_MAX_MS + SESSION_LOOKBACK_MAX_MS + 5 * 60 * 1000; // + slack
 const SESSION_MOVE_COALESCE_MS = 1000;
 const SESSION_MOVING_PRESS_MS = 100; // press "on the move" (same as cadence)
 // A useful-press gap this short qualifies for the fastclick median.
@@ -10938,17 +11279,19 @@ function sessionUnusedMarkShare(ev) {
 function sessionBucketSeries(events, opts) {
   const spans = [];
   for (const ev of events) {
-    if ((ev.kind === 'play' || ev.kind === 'game') && ev.to > ev.from) {
+    if ((ev.kind === 'play' || ev.kind === 'game') && ev.to > ev.from
+        && ev.to <= opts.nowMs && (opts.wallFromMs === undefined || ev.to >= opts.wallFromMs)) {
       spans.push({
-        from: ev.from,
+        from: Math.max(ev.from, opts.wallFromMs === undefined ? ev.from : opts.wallFromMs),
         to: ev.to,
+        fullDurationMs: ev.to - ev.from,
         game: ev.kind === 'game' ? ev : null,
         unusedMarks: ev.unusedMarks,
       });
     }
   }
   if (typeof opts.openPlayFrom === 'number' && opts.nowMs > opts.openPlayFrom) {
-    spans.push({ from: opts.openPlayFrom, to: opts.nowMs, game: null });
+    spans.push({ from: Math.max(opts.openPlayFrom, opts.wallFromMs === undefined ? opts.openPlayFrom : opts.wallFromMs), to: opts.nowMs, game: null });
   }
   spans.sort((a, b) => a.from - b.from || a.to - b.to);
 
@@ -11049,7 +11392,7 @@ function sessionBucketSeries(events, opts) {
     const measuredUnusedMarks = ev === null
       ? span.unusedMarks
       : (ev.end === 'win' ? ev.unusedMarks : undefined);
-    const spanMs = span.playTo - span.playFrom;
+    const spanMs = span.fullDurationMs === undefined ? span.playTo - span.playFrom : span.fullDurationMs;
     eachPlayOverlap(span.playFrom, span.playTo, (i, overlapMs) => {
       playMs[i] += overlapMs;
       if (ev === null || typeof ev.misclicks === 'number') {
@@ -11113,6 +11456,7 @@ function sessionBucketSeries(events, opts) {
 
   for (const ev of events) {
     if (ev.kind === 'play' || ev.kind === 'game') continue;
+    if (opts.wallFromMs !== undefined && ev.at < opts.wallFromMs) continue;
     const playAt = playAtWallTime(ev.at);
     if (playAt !== null && ev.kind === 'end') addGameEnd(playAt, ev);
     if (playAt === null || playAt < windowFrom || playAt > playNowMs) continue;
@@ -11317,6 +11661,7 @@ function sessionBucketSeries(events, opts) {
 function sessionRawSeries(events, opts) {
   const raw = sessionBucketSeries(events, {
     nowMs: opts.nowMs,
+    wallFromMs: opts.wallFromMs,
     bucketMs: opts.bucketMs,
     windowMs: opts.windowMs,
     openPlayFrom: opts.openPlayFrom,
@@ -11341,6 +11686,7 @@ function sessionRawSeries(events, opts) {
 function sessionGameSeries(events, opts) {
   const timeline = sessionBucketSeries(events, {
     nowMs: opts.nowMs,
+    wallFromMs: opts.wallFromMs,
     bucketMs: SESSION_STEP_MS,
     windowMs: opts.windowMs,
     markerWindowMs: Infinity,
@@ -11487,6 +11833,7 @@ function sessionGameSeries(events, opts) {
 function sessionRunningSeries(events, opts) {
   const fine = sessionBucketSeries(events, {
     nowMs: opts.nowMs,
+    wallFromMs: opts.wallFromMs,
     bucketMs: opts.stepMs,
     // Reach one lookback past the chart window so the earliest visible
     // sample still averages its full trailing lookback.
@@ -11747,7 +12094,7 @@ function sessionWallSections(playSpans, playFrom, playTo) {
 //-------SESSION STATS: RECORDING (event capture into RAM)-------
 
 // Live events are RAM-only, but the window survives reloads: on load,
-// sessionBackfillFromHistory reconstructs the last hour of play from stored game
+// sessionBackfillFromHistory reconstructs the selectable wall window from stored game
 // records (one coarse 'game' event per record), so a reload mid-session
 // keeps the running averages. Stored traces and records remain the
 // ground truth every value here could be recomputed from.
@@ -11756,8 +12103,8 @@ let sessionPlayOffsetMs = 0;
 let sessionPlayFrom = null;          // Date.now() when 'playing' began, or null
 let sessionPlayModeKey = null;       // exact mode frozen when the span begins
 let sessionLastMoveAt = 0;           // wall time of the last cursor move
-let sessionLastUsefulPressAt = null; // resettable session-only click gap
-let gameLastUsefulPressAt = null;    // never reset by Clear session
+let sessionLastUsefulPressAt = null; // live useful-press timing
+let gameLastUsefulPressAt = null;    // per-game gaps never cross games
 let gameFastclickGaps = [];          // this game's qualifying gaps, for the
                                      // per-game fastclickGapMs record field
 
@@ -11766,7 +12113,8 @@ function sessionEventModeKey() {
 }
 
 function sessionPrune(nowMs) {
-  sessionEvents = sessionRetainedEvents(sessionEvents, SESSION_KEEP_MS);
+  const from = SessionScope.earliest(nowMs);
+  sessionEvents = sessionEvents.filter((ev) => (ev.to === undefined ? ev.at : ev.to) >= from);
 }
 
 function sessionPlayBegin() {
@@ -11914,27 +12262,7 @@ function sessionRecordEnd(end, winUnmarked) {
   scheduleMetricsUpdate({ session: true });
 }
 
-// Starts a player-chosen observation session without deleting any scores or
-// traces. The timestamp persists, so reload backfill cannot reintroduce old
-// games. If a game is active, only its post-clear live events remain; that
-// partial game is intentionally not reconstructed after a later reload.
-function clearSession() {
-  const now = Date.now();
-  settings.sessionStartedAt = now;
-  saveSettings();
-  sessionEvents = [];
-  sessionPlayOffsetMs = 0;
-  sessionLastUsefulPressAt = null;
-  if (sessionPlayFrom !== null) {
-    sessionPlayFrom = now;
-    sessionPlayModeKey = modeKey();
-  }
-  refreshMetricsPanel();
-}
-
-// Rebuilds enough cumulative play from stored game records to cover the
-// chart window plus retention slack. It scans backward by game duration,
-// not wall age: a one-hour play window may reach days back across breaks.
+// Backfill the maximum selectable shared wall window from saved records.
 // Called once from init(), before any live event can exist.
 // Bucket-level approximation: a record holds totals, not timestamps, so
 // the totals spread evenly over the game's span — the traces hold the
@@ -11942,14 +12270,13 @@ function clearSession() {
 // the schema later may be absent on old records.
 function sessionBackfillFromHistory() {
   const games = [];
+  const earliest = SessionScope.earliest(Date.now());
   for (const [historyModeKey, records] of Object.entries(history)) {
     const mines = minesOfModeKey(historyModeKey);
     for (const record of records) {
       if (record.timeMs <= 0) continue;
       const from = record.endedAt - record.timeMs;
-      // A game crossing a Clear-session boundary has no honest stored
-      // post-boundary split, so only wholly new games are reconstructed.
-      if (from < settings.sessionStartedAt) continue;
+      if (record.endedAt < earliest) continue;
       const actionSummary = actionCategorySummary(record.actionEvaluations);
       const fatal = fatalEvaluationOf(record);
       games.push({
@@ -11984,7 +12311,7 @@ function sessionBackfillFromHistory() {
   }
   games.sort((a, b) => a.to - b.to);
   sessionPlayOffsetMs = 0;
-  sessionEvents.unshift(...sessionRetainedEvents(games, SESSION_KEEP_MS));
+  sessionEvents.unshift(...games);
   sessionChartsDirty = true;
 }
 
@@ -13229,23 +13556,7 @@ function appendSessionSection(container) {
     saveSettings();
     refreshMetricsPanel();
   });
-  const windowOptions = [];
-  for (const minutes of SESSION_WINDOW_CHOICES) {
-    windowOptions.push([minutes,
-      (minutes < 60 ? minutes + 'm' : (minutes / 60) + 'h') + ' window']);
-  }
-  choice('Session played-time window', windowOptions,
-    settings.sessionWindowMinutes, (value) => {
-    settings.sessionWindowMinutes = Number(value);
-    saveSettings();
-    refreshMetricsPanel();
-  });
-  const clear = document.createElement('button');
-  clear.type = 'button';
-  clear.className = 'session-clear';
-  clear.textContent = 'clear session';
-  clear.addEventListener('click', clearSession);
-  controls.appendChild(clear);
+  controls.appendChild(buildSessionScopeSelect('Session stats window (page-wide)'));
   container.appendChild(controls);
 
   const charts = document.createElement('div');
@@ -13263,9 +13574,14 @@ function appendSessionCharts(container) {
     sessionEvents, exactModeKey, settings.sessionModeScope);
   const includeOpenPlay = sessionPlayFrom !== null
     && (settings.sessionModeScope === 'all' || sessionPlayModeKey === exactModeKey);
+  const wallFromMs = SessionScope.bounds(settings.sessionDefinition, now).from;
   const seriesOptions = {
     nowMs: now,
-    windowMs: settings.sessionWindowMinutes * 60 * 1000,
+    wallFromMs,
+    windowMs: Math.max(1, scopedEvents.filter((ev) => ev.kind === 'play' || ev.kind === 'game')
+      .reduce((sum, ev) => sum + Math.max(0, Math.min(now, ev.to)
+        - Math.max(wallFromMs, ev.from)), 0)
+      + (includeOpenPlay ? now - Math.max(sessionPlayFrom, wallFromMs) : 0)),
     openPlayFrom: includeOpenPlay ? sessionPlayFrom : undefined,
     playOffsetMs: sessionPlayOffsetMs,
   };
@@ -14247,6 +14563,8 @@ function syncDifficultyTabs() {
 }
 
 async function init() {
+  const sessionControl = document.getElementById('global-session-controls');
+  sessionControl.replaceChildren('session ', buildSessionScopeSelect('Page-wide session'));
   config = boardFromPreferences();
   for (const field of ['width', 'height', 'mines']) {
     document.getElementById('custom-' + field).value = settings.customBoardDraft[field];

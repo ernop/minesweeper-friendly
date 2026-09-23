@@ -9,6 +9,7 @@ const vm = require('vm');
 const path = require('path');
 
 const repo = path.join(__dirname, '..');
+vm.runInThisContext(fs.readFileSync(path.join(repo, 'game-data.js'), 'utf8'));
 const source = fs.readFileSync(path.join(repo, 'minesweeper.js'), 'utf8');
 const startIdx = source.indexOf('//-------RECENT PLACEMENTS: COMPUTATION');
 const endIdx = source.indexOf('//-------RECENT PLACEMENTS: DISPLAY');
@@ -24,6 +25,52 @@ let checks = 0;
 function assertEq(name, actual, want) {
   checks++;
   if (actual !== want) throw new Error(`${name}: got ${actual}, want ${want}`);
+}
+
+// Trait markers rank board values, with the player's preferred directions.
+{
+  const current = { outcome: 'win', endedAt: 3, bv3: 75, zeroCount: 59 };
+  const past = [{ outcome: 'win', endedAt: 1, bv3: 70, zeroCount: 40 },
+    { outcome: 'loss', endedAt: 2, bv3: 60, zeroCount: 50 }, current];
+  const comparisons = [...boardMetricCandidates([current], past),
+    ...boardShapeCandidates([current], past)];
+  const rows = boardTraitRankProfile(current, comparisons, past);
+  const workload = rows.find((r) => r.trait === '3BV');
+  const zeros = rows.find((r) => r.trait === 'zeros');
+  assertEq('lower 3BV preferred', workload.rank, 3);
+  assertEq('higher zero count preferred', zeros.rank, 1);
+  assertEq('trait values compare all measured boards including losses', workload.total, 3);
+  assertEq('trait measured value stays visible', workload.valueText, '75');
+  assertEq('top share includes the current board', zeros.percentile, 100 / 3);
+  assertEq('single board has no comparative rank', boardTraitRankProfile(current, comparisons, [current])[0].percentile, null);
+  assertEq('no board profile for a loss', boardTraitRankProfile({ ...current, outcome: 'loss' }, comparisons, past).length, 0);
+}
+
+// Visible board measurements are independent of rounded comparison buckets.
+{
+  const record = { outcome: 'win', timeMs: 33542, bv3: 75, maxAdjacent: 5,
+    islandCount: 21, zeroCount: 59,
+    boardMetrics: { version: 1, workSpread: 6.38, safeCells: 1000,
+      zeroOpenedZeroOneCells: 604, zeroOpenedCells: 694 } };
+  const candidates = boardMetricCandidates([record], [record]);
+  const spread = candidates.find((r) => r.trait === '3BV spread');
+  assertEq('spread cohort stays rounded to half a cell', spread.label, '3BV spread 6.5 cells');
+  assertEq('spread label displays the measurement', spread.valueText(record), '6.4 cells');
+  const coverage = candidates.find((r) => r.trait === 'ZOC');
+  assertEq('coverage cohort stays a whole percentage', coverage.label, 'zero-opening coverage 69%');
+  assertEq('coverage label displays the measured share', coverage.valueText(record), '69.4%');
+  assertEq('shape label displays its actual count', boardShapeCandidates([record], [record])
+    .find((r) => r.trait === 'zeros').valueText(record), '59');
+}
+
+{
+  const layout = (values) => boardTraitLabelLayout(values.map((percentile) => ({ percentile })), 0, 100, 20);
+  assertEq('nearby trait labels share the displacement', layout([40, 40]).map((r) => r.labelY).join(','), '30,50');
+  assertEq('displaced trait labels retain exact points', layout([40, 40]).map((r) => r.pointY).join(','), '40,40');
+  assertEq('top trait cluster stays on scale', layout([0, 0, 0]).map((r) => r.labelY).join(','), '0,20,40');
+  assertEq('bottom trait cluster stays on scale', layout([100, 100, 100]).map((r) => r.labelY).join(','), '60,80,100');
+  assertEq('separated labels keep exact positions', layout([100, 0, 50]).map((r) => r.labelY).join(','), '0,50,100');
+  assertEq('singletons never enter the trait scale', layout([null, 25]).length, 1);
 }
 
 // Ordinals, including the 11th/12th/13th rule and its 111th recurrence.

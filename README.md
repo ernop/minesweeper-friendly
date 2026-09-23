@@ -118,6 +118,13 @@ ordinary windows fold into the most specific surviving chart.
 After a win there are also lists for boards that match this one's 3BV,
 highest number (has an 8, has a 7, or no number above 4 / 3 / 2),
 mine-island count, largest mine-island, and zero count.
+“game data” replaces the winning-game sidebar stats: this game's performance
+relative to lifetime/session history on the left, preferred board-trait ranks
+on the right. It shares one session chooser with live stats and records won
+(default last hour). Configure each scope independently, toggle actual values,
+and review historical session windows. The vertical band autozooms; item help
+states the rank calculation and preferred direction. See
+[the design and removed-field inventory](docs/game-data.md).
 Average-time scatter plots group your wins by clicks, 3BV, mouse path,
 zeros, islands, max number, clicks over 3BV, IOS, path per click, and path
 per 3BV, then plot each value against its group's average solve time.
@@ -199,12 +206,12 @@ full 0–100% range. Thin green vertical lines
 mark actual wins on every session chart; hovering one responds immediately
 with the solve time, board dimensions and mine count, and local completion
 date. The panel preserves its scroll position
-through its once-a-second redraw. These are observations, not explanations: the app
+through data updates. These are observations, not explanations: the app
 does not infer fatigue, attention, hardware trouble, judgment, or any other
 cause from a change in a line. The
-window survives a reload: on startup records are scanned backward until
-the last hour of play is rebuilt, so closing the tab doesn't wipe the
-running averages.
+window survives a reload: startup reconstructs the selectable session windows
+from saved records, then applies the shared page-wide choice (last hour by
+default). Closing the tab does not wipe the measured game history.
 
 The home-page score buttons open the same full result view for Beginner,
 Intermediate, or Expert without requiring a new game; historical views have

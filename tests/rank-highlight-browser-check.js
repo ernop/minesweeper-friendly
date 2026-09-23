@@ -16,6 +16,7 @@ const { chromium } = require(process.argv[2]);
     await page.waitForFunction(() =>
       typeof preferenceUIReady !== 'undefined' && preferenceUIReady);
     await page.evaluate(() => {
+      resultRanks.classList.add('sectioned-results');
       const collector = createResultSectionCollector('postGame');
       const examples = [
         ['first', 1, 91], ['second', 2, 1000], ['third', 3, 1000],
@@ -43,7 +44,7 @@ const { chromium } = require(process.argv[2]);
       wins.push({ ...shapes[1], outcome: 'win', endedAt: now - 1000, timeMs: 1010 });
       const current = { ...shapes[0], outcome: 'win', endedAt: now, timeMs: 1015 };
       wins.push(current);
-      settings.recentPlacementsWindow = 'pastHour';
+      settings.sessionDefinition = 'pastHour';
       settings.collapseDuplicateCharts = false;
       collector.append('tables', buildRecentPlacements(current, wins, now));
       collector.renderInto(resultRanks);
@@ -213,7 +214,7 @@ const { chromium } = require(process.argv[2]);
       const recent = variants.map((v, group) => ({ ...v, outcome: 'win',
         endedAt: now - group * 1000, timeMs: 10000 + group * 100 }));
       wins.push(...recent);
-      settings.recentPlacementsWindow = 'pastWeek';
+      settings.sessionDefinition = 'pastWeek';
       settings.collapseDuplicateCharts = false;
       const collector = createResultSectionCollector('postGame');
       renderRanks(recent[0], wins, {}, collector);

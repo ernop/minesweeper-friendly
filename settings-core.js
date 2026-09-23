@@ -43,34 +43,6 @@ const SESSION_LOOKBACK_CHOICES = [30, 60, 120, 300, 900];
 // five-minute played-time lookback.
 const SESSION_GAME_LOOKBACK_CHOICES = [1, 3, 5, 10, 20, 50];
 
-// Selectable session-stat window lengths (minutes of accumulated play).
-// Same one-click doctrine: the selector lives on the session section.
-// Retention (SESSION_KEEP_MS) always covers the largest choice, so
-// switching to a longer window works immediately.
-const SESSION_WINDOW_CHOICES = [1, 5, 10, 15, 30, 60, 180];
-
-// Selectable source windows for the recent-placements summary (PRODUCT.md
-// "Recent placements"): [id, label, windowStartMs(nowMs)]. Like the session
-// lookback, the selector lives on the summary block itself. "today
-// since 6am" treats 6am as the day boundary, so before 6am it reaches back
-// to yesterday's 6am rather than reporting an empty morning.
-const RECENT_PLACEMENTS_WINDOWS = [
-  ['today', 'today', (now) => startOfDay(now)],
-  ['today6am', 'today since 6am', (now) => {
-    const d = new Date(now);
-    d.setHours(6, 0, 0, 0);
-    if (d.getTime() > now) d.setDate(d.getDate() - 1);
-    return d.getTime();
-  }],
-  ['past10min', 'in the past 10 min', (now) => now - 600e3],
-  ['past30min', 'in the past 30 min', (now) => now - 1800e3],
-  ['pastHour', 'in the past hour', (now) => now - 3600e3],
-  ['past2h', 'in the past 2 hours', (now) => now - 2 * 3600e3],
-  ['past4h', 'in the past 4 hours', (now) => now - 4 * 3600e3],
-  ['past24h', 'in the past 24h', (now) => now - 24 * 3600e3],
-  ['pastWeek', 'in the past week', (now) => startOfDay(now, 6)],
-];
-
 // Drag bounds for the left stats panel: narrow enough to get out of the
 // way, wide enough for a chart to be genuinely readable, never so wide
 // it could swallow the board on a laptop screen.
@@ -92,6 +64,7 @@ const SHOWN_THINGS_DEFAULTS = Object.freeze({
   exactZiNi: true,
   exactMaxNumber: true,
   boardMetricFacts: true,
+  boardPercentiles: true,
   exactHZiNi: true,
   workSpreadTable: true,
   zeroOneShareTable: true,
@@ -107,7 +80,7 @@ const SHOWN_THINGS_DEFAULTS = Object.freeze({
 });
 
 const SHOWN_THINGS_OPTIONS = [
-  ['gameStats', 'game stats', 'the label/value stats beside the board'],
+  ['gameStats', 'loss and trial stats', 'the label/value stats for losses and trial games; regular wins use game data'],
   ['recentPlacements', 'recent placements', 'the leading summary of top-tenth ranks earned within a chosen recent window; lifetime always shows at least its closest rank'],
   ['timeTables', 'time-window tablecharts', 'lifetime, calendar, rolling-window, and day-category rankings'],
   ['lastOneMinute', 'last 1 minute', 'the very short rolling time tablechart'],
@@ -115,6 +88,7 @@ const SHOWN_THINGS_OPTIONS = [
   ['exactZiNi', 'same-ZiNi tablechart', 'times on boards with exactly the same greedy ZiNi click benchmark'],
   ['exactMaxNumber', 'same-maximum-number tablechart', 'times on boards whose highest clue is exactly the same number; distinct from the max 2/3/4 caps'],
   ['boardMetricFacts', 'board backfill progress', 'progress and Stop/Resume controls for measuring saved wins in This board'],
+  ['boardPercentiles', 'game data', 'the winning-game sidebar chart: scoped performance ranks on the left and preferred board-trait ranks on the right'],
   ['exactHZiNi', 'Human ZiNi tablechart', 'times on boards with the same opening-first chord benchmark (HZiNi)'],
   ['workSpreadTable', '3BV-spread tablechart', 'times on boards with 3BV spread rounded to the same nearest 0.5 cell'],
   ['zeroOneShareTable', '0–1-share tablechart', 'times on boards whose zeros and ones revealed by opening every zero, as a fraction of all safe squares, round to the same nearest whole percentage point'],
@@ -450,33 +424,6 @@ const SETTINGS_SCHEMA = [
     control: 'none',
   },
   {
-    field: 'sessionStartedAt',
-    default: 0,
-    valid: (v) => typeof v === 'number' && Number.isFinite(v) && v >= 0,
-    group: 'left-panel',
-    label: 'session start',
-    describe: 'persistent timestamp set by Clear session; older games remain in score history but stay outside session charts',
-    control: 'none',
-  },
-  {
-    field: 'sessionWindowMinutes',
-    default: 60,
-    valid: (v) => SESSION_WINDOW_CHOICES.includes(v),
-    group: 'left-panel',
-    label: 'session window',
-    describe: 'minutes of accumulated play the session charts look back over; chosen with the selector on the session section itself',
-    control: 'none',
-  },
-  {
-    field: 'recentPlacementsWindow',
-    default: 'today',
-    valid: (v) => RECENT_PLACEMENTS_WINDOWS.some(([id]) => id === v),
-    group: 'after-game',
-    label: 'recent-placements window',
-    describe: 'the recent window whose earned top ranks the placements summary reports; chosen with the selector on the summary itself',
-    control: 'none',
-  },
-  {
     field: 'averageChartMode',
     default: 'average',
     valid: (v) => AVERAGE_CHART_MODES.some(([id]) => id === v),
@@ -485,6 +432,30 @@ const SETTINGS_SCHEMA = [
     describe: 'what the property charts plot per value: the average win time, every individual win time (the distribution), or the share of games won; chosen with the selector on the charts themselves',
     control: 'none',
   },
+  {
+    field: 'sessionDefinition', default: 'pastHour',
+    valid: (v) => SessionScope.choices.some((choice) => choice.id === v),
+    group: 'after-game', label: 'page-wide session',
+    describe: 'one shared time window for session stats, recent records, and game data; default last hour',
+    control: 'none',
+  },
+  {
+    field: 'gameDataShowValues', default: true,
+    valid: (v) => typeof v === 'boolean', group: 'after-game',
+    label: 'show actual value in game data', describe: 'show measured values beside game-data labels', control: 'none',
+  },
+  {
+    field: 'gameDataDayTime', default: true,
+    valid: (v) => typeof v === 'boolean', group: 'after-game',
+    label: 'day time in game data', describe: 'rank this solve time among wins in the trailing 24 hours', control: 'none',
+  },
+  ...['Session', 'Lifetime'].map((scope) => ({
+    field: 'gameData' + scope + 'Metrics', default: GameData.defaults, mergeDefaults: true,
+    valid: (v) => v !== null && typeof v === 'object' && !Array.isArray(v)
+      && Object.entries(v).every(([key, value]) => Object.hasOwn(GameData.defaults, key) && typeof value === 'boolean'),
+    group: 'after-game', label: 'game data ' + scope.toLowerCase() + ' metrics',
+    describe: 'which performance comparisons appear in the ' + scope.toLowerCase() + ' scope', control: 'none',
+  })),
   {
     field: 'metricsPanelWidth',
     default: 316,

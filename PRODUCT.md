@@ -605,11 +605,9 @@ report.
   Wins backfill as wins; losses derive their line from the fatal action
   evidence; legacy losses retain their old line through provenance, and
   evidence-free losses are "unjudged loss".
-- The session window is now selectable (this request's companion): 15m /
-  30m / 1h / 3h of accumulated play, persisted as `sessionWindowMinutes`
-  (default 60), chosen with a second selector on the session section
-  head beside the running-average length. Event retention always covers
-  the largest choice, so switching longer works immediately.
+- The session window uses the page-wide `sessionDefinition` chooser, shared
+  with records won and game data; default last hour of wall-clock time.
+  Aggregation lookbacks still use played time. See Session stats.
 - `reportScope` is the single persistent “After each game, show me”
   setting (changes apply immediately) and is also available on the settings
   page. After a game, its control stays in the “Analysis & chart display”
@@ -728,6 +726,10 @@ because they apply app-wide, not just where each was first stated.
   strip it rather than polish it — the settings demo world (a pretend
   mid-game that reacted to every switch) was built and removed the same
   day on this rule.
+- Prefer regular-weight chart names, labels, and values. Use position,
+  spacing, and restrained color to establish hierarchy instead of relying
+  on bolding. Performance gradients use light green for stronger standings,
+  light blue around the middle, and light red for weaker standings.
 - Optional instructions and explanatory text must meet both conditions:
   they add useful information, and they stay hidden until requested through
   a subtle help affordance, such as a (?) hover tooltip or a control's
@@ -744,6 +746,9 @@ because they apply app-wide, not just where each was first stated.
   recover it. Wrap the label, expand/reflow the key, use direct labels,
   or replace the chart legend with a full-text table; available width is
   a layout resource, not a reason to remove meaning.
+  Requested compact names on the percentile overview are an explicit
+  exception: MN = max number and ZOC = zero-opening coverage, expanded in
+  the chart help and each item's value tooltip.
 - Layout stability: content appearing or disappearing must not shift
   unrelated content. "The board never moves" (previous section) is the
   oldest case of this rule; it holds on every page.
@@ -837,7 +842,7 @@ answers progressively deeper player questions; it is never inferred from DOM
 append timing or from how many cards fit on a row:
 
 1. **Outcome** — win/loss or High scores, board, mode, generator, date.
-2. **Facts** — the selected game's compact label/value stats.
+2. **Facts / game data** — the winning-game sidebar chart under its outcome context; losses and trials retain label/value stats.
 3. **Analysis** — post-game action interpretation only.
 4. **Tables** — the recent "ranks won" time-period summary first, then
    time/category and all consecutive/loss-tolerant streak tablecharts.
@@ -852,16 +857,17 @@ append timing or from how many cards fit on a row:
 7. **Relationships** — raw-win scatterplots.
 8. **Diagnostics** — post-game motion systems.
 
-All pagetables and row-based data displays must precede every chart that
-plots individual points. This includes time/category tables such as "on
+The compact percentile overview occupies the winning-game sidebar. All pagetables
+and row-based data displays still precede the historical scatterplots.
+This includes time/category tables such as "on
 weekends", board-shape rankings, recent placements, streak, near-streak, and
 near-near-streak; all of them appear before grouped average-time scatters and
 raw relationship scatters. Keeping the denser lookup-oriented tables together
 before visual correlation charts gives the page a stable transition from exact
 records to graphical analysis.
 
-The upper table collection and This board each own a full-width region and
-wrap internally. In the upper collection, ranks won floats at the left;
+The upper table collection fills the main column; This board and later sections
+span its full width below. In the upper collection, ranks won floats at the left;
 successive rows of period/day/streak tables flow alongside its remaining
 height, then use the full width underneath. Narrow layouts wrap below it
 when there is insufficient horizontal room. The section contains the float,
@@ -869,10 +875,11 @@ so This board and later chart sections begin below all upper tables. DOM
 order is preserved, and table flow cannot mix tables with point charts.
 
 The score viewer deliberately omits post-game action analysis and motion
-diagnostics. Its reference record is explicitly the latest win: its compact
-facts are labeled "latest win stats", while ordinary ranking rows and plots
-have no "this game" highlight. Rolling windows use the time at which scores
-are viewed. A post-game loss has outcome, facts, enabled action analysis, and
+diagnostics. Its reference record is explicitly the latest win, named alongside
+the completion date above game data; ordinary ranking rows and plots have no
+"this game" highlight. Ranking-table rolling windows use the time at which
+scores are viewed; game-data comparisons end at that latest win. A post-game
+loss has outcome, facts, enabled action analysis, and
 motion diagnostics, and retains rankings from the latest win if one exists.
 
 Chart eligibility, table display order, duplicate preference, and summary
@@ -907,9 +914,12 @@ with no migration), misclick rate (visible-board
 contradictions per minute), and mark rate (flags placed per second) —
 all derived from the stored counts and time, so they
 appear on historical games too.
-Shown as a label/value table for wins and losses alike; a loss shows no
-rank output at all (losses split win streaks and feed lifetime totals, but
-are not ranked).
+Regular wins show these measurements through the game-data chart and its
+configuration; the complete replacement inventory is in
+[the game-data design](docs/game-data.md). Losses and trial results retain the
+label/value table. Losses are never ranked as completed solves; their measured
+action statistics can join a performance comparison, and prior win rankings
+remain visible below the loss.
 
 Flagger metrics (added 2026-08-30). Each new record stores the board's
 greedy ZiNi (`zini`, the reference greedy flags-and-chords algorithm's
@@ -938,6 +948,23 @@ HZiNi uses the existing `hzini` primary record field. Optional versioned
 hint counts, or simulated guess/mine-hit counts appear in the live results.
 Previously saved research measurements remain in exports without entering
 comparison tables.
+
+**Game data** replaces the winning-game scalar stat block in the sidebar.
+It compares this game's performance with independently configurable lifetime
+and session pools on the left, and ranks the board's measured trait values
+in preferred directions on the right. Its 0–100% band uses top-share ranks
+(smaller percentages are better), exact anchors, pastel colors, automatic
+range zoom, and full calculation/scope tooltips. Configuration has separate
+session/lifetime checkbox columns and all-selection controls; a saved bottom
+checkbox shows/hides actual values. The page-wide session chooser controls
+this chart, left-side session stats, and records won together, defaulting to
+the last hour of wall time. The chart includes paginated historical-window
+summaries from saved primary facts. The separate This win/time caption is gone.
+
+The complete specification, catalog, formula rules, responsive behavior,
+historical data design, and explicit inventory of old stat-block fields no
+longer displayed are in [Game data and the shared session](docs/game-data.md).
+This is descriptive comparison, not a trait–performance correlation model.
 
 - **HZiNi (Human ZiNi):** begin with the fixed final board,
   perfect mine knowledge, and no flags. Reveal each zero component once,
@@ -1405,16 +1432,11 @@ carries at least one tag.
   recent window it reports, per longer chart, which of that chart's top
   ranks were earned within the recent window — e.g.
   "this month: 1st, 3rd, 8–12th / lifetime: 7th, 14th".
-- Source window choices: today (since the last local midnight — the
-  default), today since 6am (6am is the day boundary, so before 6am it
-  reaches back to yesterday's 6am rather than reporting an empty
-  morning), in the past 10 min / 30 min / hour / 2 hours / 4 hours
-  (the short rolling windows added 2026-08-23), in the past 24h, in the
-  past week (midnight 6 days back, same as the rank window). The choice
-  persists
-  as the `recentPlacementsWindow` setting, chosen with the selector on
-  the block's own heading (like the session lookback); changing it
-  re-renders the result in place.
+- Source window: the shared page-wide `sessionDefinition`, default last hour.
+  The heading's selector mirrors the page chooser and controls session stats
+  and game data too. Bounds come from the same `SessionScope` model; there is
+  no independent recent-placements preference. Changing it rebuilds only
+  scope-dependent content in place.
 - Only charts strictly longer than the source window report — a chart no
   longer than the source could only echo itself. For time windows,
   strictly longer means the window starts strictly earlier: with the
@@ -2061,25 +2083,21 @@ play span, measured action, and completed game must not move other charts.
 
 ## Session stats (decided 2026-08-22; player-controlled session revised 2026-08-28)
 
-The recent-observations section is a player-controlled analysis tool, not an
-automatic mirror of every game the system has recorded. A handful of series
-use either running averages or independent raw buckets
-over a selectable window of actual play (1m / 5m / 10m / 15m / 30m /
-1h / 3h, default
-1h; see "Game-end evaluation" for the 2026-08-23 window selector),
-across games, shown live at the top of the flush-left panel. Wall-clock
-breaks are compressed out. The player chooses what the section aggregates:
-grouping method, grouping length, per-time or per-game rate basis, exact
-current mode or all modes, and window length. The chart displays changes but
-does not label their cause.
+The recent-observations section uses the same page-wide session definition as
+records won and game data: `sessionDefinition`, default last hour of wall-clock
+time. The page chooser and selectors in all three surfaces edit that one
+preference. Choices are last 10/30 minutes, last 1/2/4/24 hours, today, today
+since 6am, and last 7 calendar days. Live stats end at now; historical game
+comparisons end at the selected game's completion. The former independent
+played-time window and Clear-session override are removed.
 
-- **Clear session:** a compact `clear session` button starts a new observation
-  boundary immediately and persists its timestamp. It clears only session
-  charts; score history and raw traces are never deleted. Reload backfill
-  excludes games that began before the boundary, because a stored whole-game
-  record cannot honestly reconstruct only its post-clear portion. During an
-  active game, post-clear events remain available live; that partial game is
-  intentionally not reconstructed after a reload.
+Wall-clock membership and aggregation units are separate. Breaks compress out
+of the plotted x axis, rates still divide by actual play, and grouping controls
+still choose played-time lookbacks or completed-game counts within the shared
+window. Per-time spans/events clip at its boundary; whole-game counts are
+prorated over original durations. Per-game summaries count finished games
+inside the same boundary. No old lookback observations leak across it.
+
 - **Grouping:** `running average` (default) retains a trailing average;
   `raw buckets` shows independent values for each disjoint group. With the
   per-played-time basis, 30s / 1m / 2m / 5m / 15m is the running lookback
@@ -2092,14 +2110,11 @@ does not label their cause.
   dividing each N-game group by its measured finished games. Mouse speed and
   fastclick gap keep their intrinsic px/s and ms units but use the same
   completed-game lookback; game-ending percentages describe that N-game
-  group. The horizontal session window remains played time in both modes,
-  preserving when changes happened while the aggregation unit changes.
+  group. The x axis compresses played time within the shared wall-clock window in both modes.
 - **Mode scope:** `this mode` is the default and means the exact current board
   dimensions/mine count + play mode + generator/parameters—the same key used
   for score history. `all modes` deliberately combines every retained mode.
-  Each exact mode retains enough played time independently so a frequently
-  played mode cannot evict a less frequent current mode from its selectable
-  window.
+  All modes retain the largest selectable wall-clock window; the category filter does not change its boundaries.
 - **Real-world provenance ("when this play happened", 2026-08-30):** the
   compressed play axis hides when the play actually occurred, so a strip
   above the charts — same width, margins, and x mapping, so its sections
@@ -2222,28 +2237,14 @@ does not label their cause.
   - **modeled life gap** — sum of one-ply
     best-minus-selected expected-remaining-life gaps per played minute.
     It appears only when the optional life-maximization category is on.
-- Running averages and raw buckets: in per-played-time mode, the lookback is
-  selectable on the section itself (30s / 1m / 2m / 5m / 15m; persisted as
-  `sessionLookbackSeconds`, default 5m),
-  and so is the window length (1m / 5m / 10m / 15m / 30m / 1h / 3h;
-  `sessionWindowMinutes`, default 1h). Both are **played time**, not
-  elapsed real time — "5m average" means five minutes of actual play.
-  `sessionAggregation` (`average` / `raw`) selects whether that duration
-  is a trailing lookback or a disjoint bucket.
-  In per-game mode the grouping selector switches to 1 / 3 / 5 / 10 / 20 /
-  50 completed games (`sessionLookbackGames`, default 5), and the selected
-  count becomes the trailing lookback or disjoint group size. The x-axis
-  window remains played time.
-  Game spans are joined onto a cumulative-play timeline, so the end of a
-  game and the start after a five-minute break are adjacent. History is
-  scanned backward through as many games as necessary to fill the chosen
-  play window plus one lookback. One sample per 10s of play, each
-  averaging the lookback of played time behind it (internally: rolling
-  windows over fine 10s buckets); samples sit at played-time multiples,
-  so a finished sample never changes as play continues — only the
-  newest, which rides the current play position. A young session
-  averages the play that exists so far. A wall-clock break changes
-  nothing.
+- Running averages and raw buckets: `sessionLookbackSeconds` (30s / 1m / 2m /
+  5m / 15m, default 5m) chooses played time per group, not session membership.
+  `sessionAggregation` chooses trailing averages or disjoint buckets. Per-game
+  mode uses `sessionLookbackGames` (1 / 3 / 5 / 10 / 20 / 50, default 5).
+  All three aggregate only observations in the shared session window. Spans
+  join onto a cumulative-play timeline within it; samples remain at 10-second
+  steps of actual play. A wall-clock break can age observations out of the
+  shared window even though it adds no played time.
 - Honesty rules: a point whose lookback covers under one second of
   in-progress play shows an en dash — one death over a 50ms sliver is
   an absurdity, not a reading. Unmeasurable points are gaps in the
@@ -2252,16 +2253,9 @@ does not label their cause.
 - The newest measurable sample's value — the running average ending at
   the current play position — is labeled directly beside its plotted
   point, rather than detached from the data in the title row.
-- Storage: the live event log is RAM, but the window survives reload
-  (decided 2026-08-22, same evening; played-time scan revised
-  2026-08-23): at startup the newest records are scanned backward until
-  the largest selectable window (3h) plus the largest lookback (15m)
-  plus retention slack of actual play
-  is rebuilt — play 30 minutes, close the tab,
-  reopen, and the running averages are still there. The inclusion rule
-  also keeps up to 50 additional completed games before the played-time
-  retention boundary, globally and for each exact mode, so the earliest
-  visible per-game point can receive its full selected game lookback.
+- Storage: live events stay in RAM. On startup all modes' saved records inside
+  the largest selectable shared wall-clock window are backfilled. Retention
+  uses wall age, not accumulated play, and no hidden Clear-session boundary.
   The backfill inclusion rule
   (stated explicitly 2026-08-22, late evening, and verified with a live
   loss + reload): wins and losses backfill alike, each with its full
@@ -2502,11 +2496,9 @@ does not label their cause.
   editable on both the report and settings page, which also gates category
   session diagnostics;
   `showSessionStats` (default on),
-  `sessionLookbackSeconds` (default 300), and `sessionWindowMinutes`
-  (default 60) — the session stats section, its running-average
-  length, and its window length (the latter two set by the selectors on
-  the session section itself, not panel checkboxes; see
-  Session stats); `metricsPanelWidth` (default 316, clamped 220–640; set
+  `sessionLookbackSeconds` (default 300), and `sessionDefinition`
+  (default `pastHour`) — visibility, played-time grouping, and the shared
+  wall-clock session window (see Session stats); `metricsPanelWidth` (default 316, clamped 220–640; set
   by dragging the stats panel's right edge, not a panel checkbox) — the
   left panel's width, which the session charts fill;
   `numberDisplay` (default numbers; the first choice-row setting) —

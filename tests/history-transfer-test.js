@@ -16,6 +16,7 @@ globalThis.GAME_RECORD_SCHEMA = [
   { field: 'actionEvaluations', valid: (v) => v === undefined || Array.isArray(v) },
 ];
 globalThis.BoardGenerators = require('../generators.js');
+vm.runInThisContext(fs.readFileSync(path.join(__dirname, '..', 'game-data.js'), 'utf8'));
 vm.runInThisContext(fs.readFileSync(path.join(__dirname, '..', 'settings-core.js'), 'utf8'));
 globalThis.normalizeHistoryKey = (key) => key.includes('@') ? key : key + '@standard';
 globalThis.normalizeGameRecord = (record) => ({
