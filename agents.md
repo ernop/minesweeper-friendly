@@ -308,9 +308,11 @@ Implementation notes:
   apply while the transport is visible. These controls take no space beneath
   the board and are outside its saved translation.
   Layout (2026-09-07): `#page-layout` owns three grid columns: metrics, main,
-  and a fluid `#game-sidebar` (2026-09-23: `--game-sidebar-width` is
-  `clamp(320px, 25vw, 760px)`, registered with `@property` as a length so
-  `syncGameSidebar` reads resolved pixels). The sidebar contains `#top-right`, `#scores-nav`,
+  and a fluid `#game-sidebar` (2026-09-23: the preferred `--game-sidebar-width`
+  is `clamp(320px, 25vw, 760px)`, registered with `@property` as a length so
+  `syncGameSidebar` reads resolved pixels; it sets `--game-sidebar-docked-width`
+  to the preferred width capped by the room beside the board, never below
+  `--game-sidebar-min-width`, and docks only when that minimum fits). The sidebar contains `#top-right`, `#scores-nav`,
   `#results`, and `#path-view-legend` in normal flow, with independent scrolling. It is
   reserved before game end. `syncGameSidebar` compares the viewport, metrics
   width, and board frame width; when they cannot fit together, it removes the

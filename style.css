@@ -33,8 +33,9 @@ body {
 
 #page-layout {
   display: grid;
-  --game-sidebar-width: clamp(320px, 25vw, 760px);
-  grid-template-columns: auto minmax(0, 1fr) var(--game-sidebar-width);
+  --game-sidebar-min-width: 320px;
+  --game-sidebar-width: clamp(var(--game-sidebar-min-width), 25vw, 760px);
+  grid-template-columns: auto minmax(0, 1fr) var(--game-sidebar-docked-width, var(--game-sidebar-width));
   align-items: start;
   gap: 18px;
   width: 100%;
@@ -1494,7 +1495,7 @@ body.trial-offboard #game-frame {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  width: var(--game-sidebar-width);
+  width: var(--game-sidebar-docked-width, var(--game-sidebar-width));
   max-height: calc(100dvh - 24px);
   overflow-y: auto;
   scrollbar-gutter: stable;

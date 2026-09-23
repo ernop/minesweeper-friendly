@@ -678,8 +678,9 @@ report.
   follow on wrapping rows. Game data takes the column height left below them,
   the scores navigation, and the outcome summary (at least 480px), so it ends
   at the screen bottom with its controls visible instead of running below it.
-  The column width still enters the docking decision: a board that no longer
-  fits beside the wider column switches to the Game details popover.
+  The column gives way to the board down to 320px before the Game details
+  popover takes over, so widening it never undocks a board that fit beside
+  the former 320px column.
 - When the board and side columns cannot fit, a bordered **Game details**
   button opens the same details as a native popover. Close, Escape, or clicking
   outside dismisses it. Opening it does not reflow the board or history.

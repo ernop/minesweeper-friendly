@@ -337,13 +337,17 @@ function fitGameDataToSidebar() {
 // Reserve the options/stats column before results exist. A finished game's
 // content never decides how much room the board or history receives.
 function syncGameSidebar() {
-  const gap = parseFloat(getComputedStyle(pageLayout).columnGap);
+  const layoutStyle = getComputedStyle(pageLayout);
+  const gap = parseFloat(layoutStyle.columnGap);
   const metricsBeside = !metricsPanel.hidden && window.innerWidth > 700;
   const metricsWidth = metricsBeside ? metricsPanel.getBoundingClientRect().width : 0;
-  const sidebarWidth = parseFloat(getComputedStyle(pageLayout).getPropertyValue('--game-sidebar-width'));
-  const docked = window.innerWidth > 700
-    && pageLayout.clientWidth - metricsWidth - gap * 2 - sidebarWidth
-      >= gameFrame.offsetWidth + 16;
+  // The column takes its preferred share of the viewport but yields to the
+  // board down to its minimum; below that it becomes the Game details popover.
+  const preferred = parseFloat(layoutStyle.getPropertyValue('--game-sidebar-width'));
+  const minimum = parseFloat(layoutStyle.getPropertyValue('--game-sidebar-min-width'));
+  const room = pageLayout.clientWidth - metricsWidth - gap * 2 - gameFrame.offsetWidth - 16;
+  const docked = window.innerWidth > 700 && room >= minimum;
+  pageLayout.style.setProperty('--game-sidebar-docked-width', Math.max(minimum, Math.min(preferred, room)) + 'px');
   const compact = !docked;
   if (pageLayout.classList.contains('compact-sidebar') !== compact) {
     if (gameSidebar.matches(':popover-open')) gameSidebar.hidePopover();
