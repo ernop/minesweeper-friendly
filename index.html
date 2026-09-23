@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Minesweeper - Standard Mode</title>
-<link rel="stylesheet" href="style.css?v=20260923-details-column">
+<link rel="stylesheet" href="style.css?v=20260923-game-data-column">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <!-- Defer preserves dependency order while letting every page asset download
      in parallel. Storage starts first so disk access overlaps JS startup. -->
@@ -21,10 +21,10 @@
 <script defer src="pregen.js?v=20260826-pregen-highlight"></script>
 <script defer src="odds.js?v=20260825-batched-certification"></script>
 <script defer src="trial.js"></script>
-<script defer src="game-data.js"></script>
+<script defer src="game-data.js?v=20260923-game-data-column"></script>
 <script defer src="settings-core.js?v=20260921-visible-zero-one"></script>
 <script defer src="preferences-game.js?v=20260921-all-preferences"></script>
-<script defer src="minesweeper.js?v=20260923-details-column"></script>
+<script defer src="minesweeper.js?v=20260923-game-data-column"></script>
 </head>
 <body aria-busy="true">
 <div id="page-layout">
@@ -121,6 +121,7 @@
   <p id="site-footer"><a href="https://github.com/ernop/minesweeper-friendly">source &amp; issues on GitHub</a></p>
 
 </main>
+<aside id="game-data-column" aria-label="Game data"></aside>
 <aside id="game-sidebar" aria-label="Game options, statistics, and replay legend">
   <button type="button" id="game-sidebar-close" popovertarget="game-sidebar" popovertargetaction="hide" hidden>Close</button>
   <div id="top-right">

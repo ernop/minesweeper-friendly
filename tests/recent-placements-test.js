@@ -41,7 +41,8 @@ function assertEq(name, actual, want) {
   assertEq('higher zero count preferred', zeros.rank, 1);
   assertEq('trait values compare all measured boards including losses', workload.total, 3);
   assertEq('trait measured value stays visible', workload.valueText, '75');
-  assertEq('top share includes the current board', zeros.percentile, 100 / 3);
+  assertEq('the best board in the pool is 0%', zeros.percentile, 0);
+  assertEq('the worst board in the pool is 100%', workload.percentile, 100);
   assertEq('single board has no comparative rank', boardTraitRankProfile(current, comparisons, [current])[0].percentile, null);
   assertEq('no board profile for a loss', boardTraitRankProfile({ ...current, outcome: 'loss' }, comparisons, past).length, 0);
 }

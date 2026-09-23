@@ -57,14 +57,16 @@ const { chromium } = require(process.argv[2]);
     assert.equal(await profile.locator('h4').textContent(), 'game data');
     assert.deepEqual(await profile.locator('.board-time-profile-sides > span').allTextContents(), ['your perf', 'board traits']);
     await page.waitForFunction(() => document.querySelector('.board-trait-line-axis').style.height !== '');
-    assert.deepEqual(await profile.locator('.board-trait-line-tick').allTextContents(), Array.from({ length: 10 }, (_, i) => (i + 1) * 10 + '%'));
+    assert.deepEqual(await profile.locator('.board-trait-line-tick').allTextContents(), Array.from({ length: 11 }, (_, i) => i * 10 + '%'),
+      'the best board in its pool sits at 0%');
     assert.equal(await profile.locator('.board-trait-line-label[data-side="board"]').count(), 9);
     assert.equal(await profile.locator('.board-trait-line-label[data-side="performance"]').count(), 17);
     assert.equal(await profile.locator('.board-trait-line-label[data-trait="3BV"]').textContent(), '3BV 75');
     assert.equal(await profile.locator('.board-trait-line-label[data-trait="ZOC"]').textContent(), 'ZOC 69%');
-    assert.equal(await page.locator('#result-stats .board-time-profile').count(), 1);
-    assert.equal(await page.locator('#result-ranks .board-time-profile').count(), 0);
-    for (const width of [1680, 650, 390, 320]) {
+    assert.equal(await page.locator('#result-stats .board-time-profile').count(), 1,
+      'with the metrics column open at 1440px, game data shares the details column');
+    assert.equal(await page.locator('#game-data-column .board-time-profile, #result-ranks .board-time-profile').count(), 0);
+    for (const width of [1920, 1100, 650, 390, 320]) {
       await page.setViewportSize({ width, height: 1100 });
       await page.evaluate(() => syncGameSidebar());
       if (await page.locator('#game-sidebar-button').isVisible()
@@ -76,15 +78,18 @@ const { chromium } = require(process.argv[2]);
         const bounds = el.getBoundingClientRect();
         const axis = el.querySelector('.board-trait-line-axis').getBoundingClientRect();
         const center = axis.left + axis.width / 2;
-        const column = el.closest('#game-sidebar');
+        const column = el.closest('#game-data-column, #game-sidebar');
         const columnStyle = getComputedStyle(column);
         const [perfHeading, boardHeading] = el.querySelectorAll('.board-time-profile-sides > span');
         return {
+          host: column.id,
           overflow: el.scrollWidth > el.clientWidth + 1,
           width: bounds.width, height: bounds.height, bandWidth: axis.width,
-          columnSlack: parseFloat(columnStyle.maxHeight) - parseFloat(columnStyle.paddingBottom)
-            - parseFloat(columnStyle.borderBottomWidth)
-            - (bounds.bottom - column.getBoundingClientRect().top + column.scrollTop),
+          columnSlack: column.id === 'game-data-column'
+            ? column.getBoundingClientRect().bottom - bounds.bottom
+            : parseFloat(columnStyle.maxHeight) - parseFloat(columnStyle.paddingBottom)
+              - parseFloat(columnStyle.borderBottomWidth)
+              - (bounds.bottom - column.getBoundingClientRect().top + column.scrollTop),
           headingEdges: [center - perfHeading.getBoundingClientRect().right, boardHeading.getBoundingClientRect().left - center],
           low: Number(el.querySelector('.board-trait-line').dataset.low), high: Number(el.querySelector('.board-trait-line').dataset.high),
           ticks: [...el.querySelectorAll('.board-trait-line-tick')].map((tick) => {
@@ -114,6 +119,7 @@ const { chromium } = require(process.argv[2]);
           percentiles: [...el.querySelectorAll('.board-trait-line-label')].map((label) => Number(label.dataset.percentile)),
         };
       });
+      assert.equal(layout.host, { 1920: 'game-data-column' }[width] ?? 'game-sidebar', width + 'px game data host');
       assert.equal(layout.overflow, false, width + 'px line overflow');
       assert.equal(layout.bandWidth, 32);
       assert(layout.ticks.every((position, i) => Math.abs(position - i * 10 / (layout.high - layout.low) * 100) < .02), 'ticks retain absolute decile labels in the zoomed range');
@@ -123,11 +129,11 @@ const { chromium } = require(process.argv[2]);
         'every displaced label has a strong leader and every value follows its name');
       assert(layout.width <= width && layout.height >= 480
         && (layout.height === 480 || Math.abs(layout.columnSlack) <= 1),
-        width + 'px chart fills the details column below its other content: ' + JSON.stringify([layout.height, layout.columnSlack]));
+        width + 'px chart fills its column below any other content: ' + JSON.stringify([layout.height, layout.columnSlack]));
       assert(layout.headingEdges.every((edge) => edge >= 29 && edge <= 31),
         width + 'px side headings align with their label columns: ' + JSON.stringify(layout.headingEdges));
-      if (width >= 650) assert(layout.labels.every((label) => label.height < 20),
-        width + 'px labels keep one line where the column fits them: ' + JSON.stringify(layout.labels.map((l) => l.height)));
+      if (layout.host === 'game-data-column') assert(layout.labels.every((label) => label.height < 20),
+        width + 'px labels keep one line in the game data column: ' + JSON.stringify(layout.labels.map((l) => l.height)));
       assert(layout.labels.every((label, i) => label.inside && label.weight === '400'
         && label.distance >= 29 && label.distance <= 31
         && (i === 0 || label.side !== layout.labels[i - 1].side || label.top >= layout.labels[i - 1].bottom + 1)),
@@ -163,20 +169,23 @@ const { chromium } = require(process.argv[2]);
     assert.deepEqual(await profile.boundingBox(), before, 'help does not reflow the chart');
     await help.evaluate((button) => button.blur());
     await page.mouse.move(0, 0);
-    await page.setViewportSize({ width: 1680, height: 1100 });
+    await page.setViewportSize({ width: 1920, height: 1100 });
     await page.evaluate(() => {
+      syncGameSidebar();
       settings.shownThings.timeTables = true;
       settings.shownThings.recentPlacements = true;
       drawProfileFixture();
     });
-    assert.equal(await page.locator('#result-stats .board-time-profile').count(), 1, 'replaces the sidebar stat block');
+    assert.equal(await page.locator('#game-data-column .board-time-profile').count(), 1, 'owns the game data column');
+    assert.equal(await page.locator('#result-stats .board-time-profile').count(), 0, 'not duplicated in the details column');
     assert.equal(await page.locator('#result-ranks .board-time-profile').count(), 0, 'no duplicate in the lower chart collection');
     await profile.screenshot({ path: '/tmp/game-data-sidebar.png' });
-    const lifetimeBefore = await profile.locator('[data-trait="lifetime time"]').getAttribute('data-percentile');
+    const lifetimeBefore = await profile.locator('[data-trait="time (life)"]').getAttribute('data-percentile');
+    assert.equal(await profile.locator('[data-trait="time (life)"]').textContent(), 'time 33.542s (life)', 'the pool word ends the label');
     await page.getByLabel('Page-wide session', { exact: true }).selectOption('past10min');
     assert((await page.locator('select[data-session-scope]').evaluateAll((els) => els.map((el) => el.value))).every((v) => v === 'past10min'));
-    assert.equal(await profile.locator('[data-trait="session time"]').getAttribute('data-percentile'), '100');
-    assert.equal(await profile.locator('[data-trait="lifetime time"]').getAttribute('data-percentile'), lifetimeBefore);
+    assert.equal(await profile.locator('[data-trait="time (session)"]').getAttribute('data-percentile'), '100');
+    assert.equal(await profile.locator('[data-trait="time (life)"]').getAttribute('data-percentile'), lifetimeBefore);
     await profile.getByLabel('Game data session (page-wide)', { exact: true }).selectOption('pastHour');
     assert((await page.locator('select[data-session-scope]').evaluateAll((els) => els.map((el) => el.value))).every((v) => v === 'pastHour'));
     await profile.getByLabel('show actual value', { exact: true }).uncheck();
@@ -204,8 +213,8 @@ const { chromium } = require(process.argv[2]);
     await profile.screenshot({ path: '/tmp/game-data-config.png' });
     await profile.getByLabel('session fastclick gap', { exact: true }).uncheck();
     await profile.getByRole('button', { name: 'back to game data', exact: true }).first().click();
-    assert.equal(await profile.locator('[data-trait="session fastclick gap"]').count(), 0);
-    assert.equal(await profile.locator('[data-trait="lifetime fastclick gap"]').count(), 1);
+    assert.equal(await profile.locator('[data-trait="fastclick gap (session)"]').count(), 0);
+    assert.equal(await profile.locator('[data-trait="fastclick gap (life)"]').count(), 1);
     await profile.getByRole('button', { name: 'session history', exact: true }).click();
     assert.equal(await profile.locator('tbody tr').count(), 20);
     await profile.getByLabel('measurement', { exact: true }).selectOption('fastclickGap');

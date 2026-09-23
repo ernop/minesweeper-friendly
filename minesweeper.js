@@ -125,6 +125,7 @@ const gameArea = document.getElementById('game-area');
 const gameFrame = document.getElementById('game-frame');
 const scoresNav = document.getElementById('scores-nav');
 const resultsBox = document.getElementById('results');
+const gameDataColumn = document.getElementById('game-data-column');
 const mainElement = document.querySelector('main');
 const pageLayout = document.getElementById('page-layout');
 const gameSidebar = document.getElementById('game-sidebar');
@@ -334,6 +335,29 @@ function fitGameDataToSidebar() {
   profile.style.height = Math.max(GAME_DATA_MIN_HEIGHT, Math.floor(bottom - offset)) + 'px';
 }
 
+// Game data gets its own column only where a win can plot it, so trial modes
+// and a hidden chart do not reserve an empty strip.
+const GAME_DATA_MIN_WIDTH = 360;
+// Keeps the ranks-won summary and a table beside it under the board.
+const MAIN_MIN_WITH_GAME_DATA = 640;
+function gameDataColumnWanted() {
+  return settings !== null && settings.shownThings.boardPercentiles
+    && !Trial.isPlayMode(settings.playMode);
+}
+
+function clearResultStats() {
+  resultStats.textContent = '';
+  gameDataColumn.textContent = '';
+}
+
+function placeGameData() {
+  const docked = pageLayout.classList.contains('game-data-docked');
+  const host = (docked ? resultStats : gameDataColumn).querySelector('.board-time-profile-host');
+  if (host === null) return;
+  host.querySelector('.board-time-profile').style.height = '';
+  (docked ? gameDataColumn : resultStats).appendChild(host);
+}
+
 // Reserve the options/stats column before results exist. A finished game's
 // content never decides how much room the board or history receives.
 function syncGameSidebar() {
@@ -341,13 +365,25 @@ function syncGameSidebar() {
   const gap = parseFloat(layoutStyle.columnGap);
   const metricsBeside = !metricsPanel.hidden && window.innerWidth > 700;
   const metricsWidth = metricsBeside ? metricsPanel.getBoundingClientRect().width : 0;
-  // The column takes its preferred share of the viewport but yields to the
-  // board down to its minimum; below that it becomes the Game details popover.
+  // Game data takes a full-height column beside the board column when the
+  // board, two tables' width, and the details column at its minimum still
+  // fit. Otherwise the details column holds it, taking its preferred share of
+  // the viewport but yielding to the board down to its minimum; below that
+  // the details become the Game details popover.
   const preferred = parseFloat(layoutStyle.getPropertyValue('--game-sidebar-width'));
   const minimum = parseFloat(layoutStyle.getPropertyValue('--game-sidebar-min-width'));
-  const room = pageLayout.clientWidth - metricsWidth - gap * 2 - gameFrame.offsetWidth - 16;
+  const free = pageLayout.clientWidth - metricsWidth;
+  const board = gameFrame.offsetWidth + 16;
+  const room = free - gap * 2 - board;
   const docked = window.innerWidth > 700 && room >= minimum;
-  pageLayout.style.setProperty('--game-sidebar-docked-width', Math.max(minimum, Math.min(preferred, room)) + 'px');
+  const dataRoom = free - gap * 3 - minimum - Math.max(board, MAIN_MIN_WITH_GAME_DATA);
+  const dataDocked = docked && gameDataColumnWanted() && dataRoom >= GAME_DATA_MIN_WIDTH;
+  const dataPreferred = parseFloat(layoutStyle.getPropertyValue('--game-data-width'));
+  pageLayout.style.setProperty('--game-data-docked-width', Math.min(dataPreferred, dataRoom) + 'px');
+  pageLayout.style.setProperty('--game-sidebar-docked-width',
+    (dataDocked ? minimum : Math.max(minimum, Math.min(preferred, room))) + 'px');
+  pageLayout.classList.toggle('game-data-docked', dataDocked);
+  placeGameData();
   const compact = !docked;
   if (pageLayout.classList.contains('compact-sidebar') !== compact) {
     if (gameSidebar.matches(':popover-open')) gameSidebar.hidePopover();
@@ -566,7 +602,7 @@ function renderImmediateGameEnd(outcome, endedAt) {
     + (gameGenerator.id === BoardGenerators.DEFAULT_ID
       ? '' : '\n' + BoardGenerators.displayLabel(gameGenerator))
     + '\n' + formatDate(endedAt);
-  resultStats.textContent = '';
+  clearResultStats();
   resultAnalysis.textContent = '';
   resultRanks.textContent = '';
 
@@ -699,7 +735,7 @@ function newGame() {
   hidePathTooltip();
   renderPathView();
   resultSummary.textContent = '';
-  resultStats.textContent = '';
+  clearResultStats();
   resultAnalysis.textContent = '';
   resultRanks.textContent = '';
   syncResultClearance();
@@ -1241,7 +1277,7 @@ function renderTrialChrome() {
     btn.disabled = false;
     btn.textContent = 'start trial';
     resultSummary.textContent = '';
-    resultStats.textContent = '';
+    clearResultStats();
     resultAnalysis.textContent = '';
     resultRanks.textContent = '';
     return;
@@ -3471,7 +3507,7 @@ function createResultSectionCollector(context) {
 }
 
 function renderResult(record, modeRecords, options = {}) {
-  if (chartHelpOwner && (resultStats.contains(chartHelpOwner) || resultRanks.contains(chartHelpOwner))) hideChartHelpTip();
+  if (chartHelpOwner && [resultStats, gameDataColumn, resultRanks].some((el) => el.contains(chartHelpOwner))) hideChartHelpTip();
   renderedResult = { record, modeRecords, options };
   requestBoardMetrics(record);
   const seconds = secondsOf(record);
@@ -3500,7 +3536,7 @@ function renderResult(record, modeRecords, options = {}) {
     + '\n' + playModeLabel()
     + (record.generator === undefined ? '' : '\n' + BoardGenerators.displayLabel(record.generator))
     + '\n' + (options.historyView ? 'Latest win · ' : '') + formatDate(record.endedAt);
-  resultStats.textContent = '';
+  clearResultStats();
   resultAnalysis.textContent = '';
   const historyView = options.historyView === true;
   if (!historyView) {
@@ -5589,7 +5625,7 @@ function renderTrialReview(session) {
   verdict.hidden = false;
   verdict.textContent = trialRepeatComparisonCopy(summary);
   resultSummary.textContent = '';
-  resultStats.textContent = '';
+  clearResultStats();
   resultAnalysis.textContent = '';
   resultAnalysis.appendChild(buildReportScopeControl(
     () => renderTrialReview(session)));
@@ -6049,14 +6085,13 @@ function boardTimeProfileRowHelp(record, row) {
   return [
     row.label,
     ...(row.help ? [].concat(row.help(record)) : []),
-    'Top-share percentile = 100 × rank ÷ measured count. ' + (row.direction === 'higher' ? 'Higher' : 'Lower')
-      + ' values receive earlier ranks. Smaller percentages sit higher on the chart. '
-      + 'This is a top-X% share, not the usual ascending percentile. For example, rank 1 of 100 is top 1%. '
-      + 'The current game is included, so first place is 100/N%, not 0%.',
+    'Percentile = 100 × (rank − 1) ÷ (measured count − 1): the share of the other measured games that beat this one. '
+      + (row.direction === 'higher' ? 'Higher' : 'Lower') + ' values receive earlier ranks. '
+      + 'The best in the pool is 0% at the top of the chart and the worst is 100%. The current game is included in the count.',
     row.percentile === null ? 'Only one measured game: no comparative percentile is plotted.'
       : row.allEqual ? 'All measured values are equal, so there is no preference ordering. The marker is neutral at 50%.'
         : 'Here: rank ' + rank + ' of ' + row.total.toLocaleString()
-          + '; 100 × ' + Number(row.rank.toFixed(3)) + ' ÷ ' + row.total + ' = '
+          + '; 100 × (' + Number(row.rank.toFixed(3)) + ' − 1) ÷ (' + row.total + ' − 1) = '
           + Number(row.percentile.toFixed(2)) + '%.',
   ];
 }
@@ -6073,11 +6108,17 @@ function boardTraitValueLabel(record, row) {
   const button = label.querySelector('button');
   const name = document.createElement('span');
   name.className = 'board-trait-name';
-  name.textContent = row.trait;
+  name.textContent = row.name ?? row.trait;
   const value = document.createElement('span');
   value.className = 'board-trait-value';
   value.textContent = row.valueText;
   button.replaceChildren(name, ' ', value);
+  if (row.scopeText) {
+    const scope = document.createElement('span');
+    scope.className = 'board-trait-scope';
+    scope.textContent = row.scopeText;
+    button.append(' ', scope);
+  }
   button.setAttribute('aria-label', 'About ' + row.trait + ': ' + row.valueText);
   return label;
 }
@@ -6244,7 +6285,8 @@ function buildBoardTimeRankProfile(record, comparisons, historyView, records) {
     heading.appendChild(chartHelpButton([
       'Your perf: this game’s measurement ranked separately against lifetime and session history. Time and workload-completion metrics compare wins; action, timing, and error metrics compare measured wins and losses. Day time uses the trailing 24 hours. Every comparison ends at this game’s finish and uses the same board size, mine count, mode, and generator.',
       'Board traits: this board’s measured trait values ranked against measured historical boards in this category. Higher 0–1 share and zero count are preferred; lower 3BV, ZiNi, HZiNi, spread, max number (MN), islands, largest island, and zero-opening coverage (ZOC) are preferred. These directions express your preference, not an estimated effect on solve time.',
-      'Position is rank divided by comparison count, including this win. Higher on the band (closer to zero) is stronger for that named measure. Constant performance values are neutral at 50%; other ties share a mean rank, except times which keep earlier-completion-first order.',
+      'Each your-perf label ends with its comparison pool: (session), (life) for lifetime, or (day) for the trailing 24 hours.',
+      'Position is 100 × (rank − 1) ÷ (comparison count − 1), counting this win: the best in its pool is 0% at the top and the worst is 100% at the bottom. Constant performance values are neutral at 50%; other ties share a mean rank, except times which keep earlier-completion-first order.',
       'The visible percentile range zooms around all shown points with an outward buffer. Colors keep their absolute 0–100% meaning. Dark leaders retain exact point positions when labels need room. A singleton has no comparative percentile.',
       'Session has one page-wide definition, shared with the left-side stats and records-won summary; the default is the last hour of wall-clock time. Historical session windows end at the selected game’s completion. History shows medians and measured sample counts for those overlapping windows; measurements are reused, never replaced by stored ranks.',
     ], 'game data'));
@@ -6511,9 +6553,10 @@ function renderRanks(record, modeRecords, options = {}, sections) {
   }
 
   resultStats.querySelector('.board-time-profile-host')?.remove();
+  gameDataColumn.replaceChildren();
   if (settings.shownThings.boardPercentiles) {
     const profile = buildBoardTimeRankProfile(boardRecord, boardComparisons, historyView, modeRecords);
-    if (profile) resultStats.replaceChildren(profile);
+    if (profile) (pageLayout.classList.contains('game-data-docked') ? gameDataColumn : resultStats).replaceChildren(profile);
   }
 
   if (settings.shownThings.averageCharts && wins.length >= 2) {
@@ -7624,7 +7667,8 @@ function renderReplayChoiceAreas(evaluation) {
   // Keep pocket labels out of the sidebar when it is near the board.
   const legendRect = !pathViewLegend.hidden
     ? pathViewLegend.getBoundingClientRect() : null;
-  const rightBlocked = blocks(resultRect) || blocks(legendRect);
+  const dataRect = gameDataColumn.childElementCount > 0 ? gameDataColumn.getBoundingClientRect() : null;
+  const rightBlocked = blocks(resultRect) || blocks(legendRect) || blocks(dataRect);
   const rightRoom = window.innerWidth - boardRect.right;
   const leftRoom = boardRect.left;
   const onRight = (!rightBlocked && rightRoom >= 150) || leftRoom < 150;
@@ -14126,7 +14170,7 @@ function showScoresForCurrentMode() {
       + (gameGenerator.id === BoardGenerators.DEFAULT_ID
         ? '' : '\n' + BoardGenerators.displayLabel(gameGenerator))
       + '\nNo wins yet';
-    resultStats.textContent = '';
+    clearResultStats();
     resultAnalysis.textContent = '';
     resultRanks.textContent = '';
     syncBoardLayout();

@@ -14,7 +14,14 @@ other UI elements", said the page layout is "not very standardized nor
 efficient", and asked that the chart not be crushed and that "the labels
 must match better". Built the same day: fluid details column, compact setup
 rows, a chart filling the remaining column height, and one-line labels
-placed from measured widths (docs/game-data.md "Layout pass"). Open:
+placed from measured widths (docs/game-data.md "Layout pass").
+
+Decided and built later that day. Labels end with their pool word ("3BV/s
+1.600 (session)", "(life)", "(day)"). The best in a pool is 0%, using
+100 × (rank − 1) ÷ (count − 1). The chart has its own full-height column
+beside the board column, empty during play. Superseding other elements
+waits ("later"). The page-wide standardization sweep was approved ("all").
+Still open:
 
 - **What it supersedes.** Each left-side time marker is the same comparison
   as a time table's "this" row: lifetime time and the lifetime table, session
@@ -23,17 +30,20 @@ placed from measured widths (docs/game-data.md "Layout pass"). Open:
   cross-category achievements (ranks won), or the scatterplots. Options:
   hide tables whose standing the chart already shows, link a label to its
   table, or keep tables as the detailed layer.
-- **Shared vocabulary.** Chart "session time" / "day time" versus table
+- **Shared vocabulary.** Chart "time (session)" / "time (day)" versus table
   headings "past hour" / "last 24 hours"; the board-side "3BV 71" ranks this
   board's 3BV among boards, while the "3BV 71" This-board table ranks solve
   times among 3BV-71 wins, so the same text names different quantities.
 - **One label per measurement.** Lifetime, session, and day markers of one
-  measurement repeat the same value ("lifetime time 44.382s", "session time
-  44.382s"). A single label with one marker per scope would roughly halve
-  the left side's labels and remove same-value repeats.
-- **Placement.** The fluid details column, or a full-height column beside
-  the board.
-- **Standardization sweep.** About 40 older gray text colors remain (result
+  measurement repeat the same value ("time 44.382s (life)", "time 44.382s
+  (session)"). A single label with one marker per scope would roughly halve
+  the left side's labels. For now the creator chose only the trailing pool
+  word ("right now we just add the word (session) or (life)").
+- **Board beside the chart.** The board still centers in its own column, so
+  a wide screen leaves a gap between the board and the game data column
+  unless the board position is moved. Anchoring the board next to the chart
+  would change what the saved position means.
+- **Standardization sweep (approved).** About 40 older gray text colors remain (result
   tables and recent placements, trial, pregen, board lab, settings title
   bar, backup), plus fixed caps such as `#result-analysis` at 920px. The
   outcome summary spends four bold lines above the chart, and "see scores"

@@ -309,10 +309,21 @@ Implementation notes:
   the board and are outside its saved translation.
   Layout (2026-09-07): `#page-layout` owns three grid columns: metrics, main,
   and a fluid `#game-sidebar` (2026-09-23: the preferred `--game-sidebar-width`
-  is `clamp(320px, 25vw, 760px)`, registered with `@property` as a length so
+  is `clamp(320px, 30vw, 760px)`, registered with `@property` as a length so
   `syncGameSidebar` reads resolved pixels; it sets `--game-sidebar-docked-width`
   to the preferred width capped by the room beside the board, never below
-  `--game-sidebar-min-width`, and docks only when that minimum fits). The sidebar contains `#top-right`, `#scores-nav`,
+  `--game-sidebar-min-width`, and docks only when that minimum fits).
+  A fourth column, `#game-data-column` (2026-09-23), sits between main and
+  the sidebar when `#page-layout.game-data-docked` is set: `syncGameSidebar`
+  docks it when `gameDataColumnWanted()` (chart enabled, not a trial mode) and
+  main keeps `max(board + 16, MAIN_MIN_WITH_GAME_DATA)` with the column at
+  `GAME_DATA_MIN_WIDTH` or more and the sidebar at its minimum. It sets
+  `--game-data-docked-width` (preferred registered `--game-data-width`,
+  `clamp(360px, 24vw, 760px)`, capped by that room) and pins the sidebar to
+  its minimum. `placeGameData` moves an existing `.board-time-profile-host`
+  between `#result-stats` and the column when the layout changes;
+  `clearResultStats` empties both wherever results are cleared.
+  The sidebar contains `#top-right`, `#scores-nav`,
   `#results`, and `#path-view-legend` in normal flow, with independent scrolling. It is
   reserved before game end. `syncGameSidebar` compares the viewport, metrics
   width, and board frame width; when they cannot fit together, it removes the
@@ -320,9 +331,10 @@ Implementation notes:
   Results or legend visibility/height never enters that width decision.
   `#top-right` and `#states` are wrapping flex rows (selects share a row when
   they fit). `syncGameSidebar` ends with `fitGameDataToSidebar`, which sets
-  the game-data figure's height to the column height below its offset
-  (minimum 480px); `#scores-nav` joins the layout ResizeObserver so its
-  changes refit the chart.
+  the game-data figure's height to the sidebar height below its offset
+  (minimum 480px) when the chart is in `#result-stats`; in the game data
+  column CSS makes it fill the column. `#scores-nav` joins the layout
+  ResizeObserver so its changes refit the chart.
   `syncBoardLayout` applies board position, Justice placement, and callout
   clearance. `syncResultClearance` considers only Justice; stats and legend
   need no overhang margins, floating/below-board classes, or z-index fixes.
@@ -780,7 +792,8 @@ Implementation notes:
   sidebar outcome + game-data facts → tables (placements, time/category tables,
   all streak variants) → boardTables ("This board") → average-time scatters →
   relationship scatters. Game data replaces regular winning stats in
-  `#result-stats`, outside the lower chart collector.
+  `#game-data-column` (or `#result-stats` when that column is not docked),
+  outside the lower chart collector.
   `tests/result-presentation-test.js` checks this in both result contexts.
 - Rank list machinery: `rankWindows` (time windows with independent
   `displayOrder` and `dedupePriority`),
@@ -812,7 +825,13 @@ Implementation notes:
   and SessionScope choices/bounds/records. `settings-core.js` depends on it.
   `performanceTimeRankProfile` adds presentation standing labels; `boardTraitRankProfile`
   ranks actual scalar trait values with specified preferred directions.
-  `buildBoardTimeRankProfile` renders chart/config/history in `#result-stats`.
+  `buildBoardTimeRankProfile` renders chart/config/history; `renderRanks` puts
+  it in `#game-data-column` when docked, else `#result-stats`.
+  `GameData.rankedRow` sets `percentile` to 100 × (rank − 1) ÷ (count − 1)
+  (best 0%), and gives performance rows `name`, `scopeText` ("(session)",
+  "(life)", "(day)"), `trait` = name + scope word (the `data-trait` value),
+  and `label` = name, value, scope word. `boardTraitValueLabel` renders
+  `.board-trait-name`, `.board-trait-value`, then `.board-trait-scope`.
   Configuration has independent session/lifetime columns with mixed/all controls;
   `gameDataSessionMetrics`, `gameDataLifetimeMetrics`, `gameDataDayTime`, and
   `gameDataShowValues` use the shared persistent preference schema.
@@ -821,8 +840,8 @@ Implementation notes:
   the side headings; its `placeBand` measures one-line label widths under
   `.board-trait-line-measuring` and sets `--band-x` on the figure from
   `boardTraitBandCenter`. Band, leaders, dots, labels, side headings, and the
-  singleton note all position from `--band-x`. The chart fills sidebar width
-  and the column height left for it (`fitGameDataToSidebar`), autozooms with
+  singleton note all position from `--band-x`. The chart fills its column's
+  width and the height left for it (`fitGameDataToSidebar`), autozooms with
   outward decile bounds, and keeps absolute colors. Only the plot scrolls if
   selections cannot fit readably.
   Shared chart help uses one owned manual popover, so it stays above compact
@@ -980,8 +999,8 @@ Implementation notes:
   2026-08-22 from a five-fit sampling, see PRODUCT.md "Average-time
   charts" and "Scatter plots").
 - Layout: `#results` (summary + `#stats-grid`) is a normal-flow child of
-  `#game-sidebar`, after options and before the legend. The three grid
-  columns prevent overlaps. `syncGameSidebar` controls its compact popover
+  `#game-sidebar`, after options and before the legend. The grid columns
+  (three, or four with `#game-data-column`) prevent overlaps. `syncGameSidebar` controls its compact popover
   and fits the game-data chart's height (see Layout 2026-09-07 above);
   no result-dependent gutter calculations or overhang margins remain.
   ResizeObserver tracks page/main/frame geometry; the root scrollbar gutter

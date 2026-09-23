@@ -661,8 +661,21 @@ report.
 ## Layout: the board never moves
 
 - The page has separate columns for session/motion metrics, the board and
-  tablecharts, and game details. The details column is reserved before a game
-  finishes; results and replay never change the board column's width.
+  tablecharts, game data, and game details. The game data and details columns
+  are reserved before a game finishes; results and replay never change the
+  board column's width.
+- Game data column (user decision 2026-09-23: "a full-height column right
+  next to the board", empty during play): a sticky column of the full viewport
+  height between the board column and the details column. It is empty during
+  play and after losses, and holds the winning game's chart. It is reserved
+  only when a win can plot the chart (the chart is enabled and the mode is not
+  a trial). It docks when the board column keeps at least the board and 640px
+  (the ranks-won summary plus a table beside it) with the column at 360px or
+  more and the details column at its 320px minimum. It then takes
+  `clamp(360px, 24vw, 760px)` of the remaining room. Otherwise the chart
+  falls back to the details column as described below. The board still
+  centers in its own column, so the gap between the board and the chart
+  follows the board position preference.
 - The board is the anchor. Appearing or disappearing content must not move it.
   Its covered startup preview occupies the same explicit main column.
 - Mode, generator, session tags, settings, optional replay/display controls,
@@ -672,10 +685,12 @@ report.
   the legend, so changing replay frames does not move the stats. These panels
   never cover the board or tablecharts and never add height between them.
 - Details column sizing (2026-09-23, after the user found game data crushed
-  in a fixed 320px strip): the column is fluid, `clamp(320px, 25vw, 760px)`,
-  and the compact popover is `max(420px, 45vw)` within the viewport. Mode and
+  in a fixed 320px strip): with the game data column docked, the details
+  column stays at its 320px minimum. When it holds game data itself, it is
+  fluid, `clamp(320px, 30vw, 760px)`, and the compact popover is
+  `max(420px, 45vw)` within the viewport. Mode and
   generator share a row when they fit; music, tags, + state, and settings
-  follow on wrapping rows. Game data takes the column height left below them,
+  follow on wrapping rows. Game data there takes the column height left below them,
   the scores navigation, and the outcome summary (at least 480px), so it ends
   at the screen bottom with its controls visible instead of running below it.
   The column gives way to the board down to 320px before the Game details
@@ -862,7 +877,7 @@ answers progressively deeper player questions; it is never inferred from DOM
 append timing or from how many cards fit on a row:
 
 1. **Outcome** — win/loss or High scores, board, mode, generator, date.
-2. **Facts / game data** — the winning-game sidebar chart under its outcome context; losses and trials retain label/value stats.
+2. **Facts / game data** — the winning-game chart in its own column beside the board (or under its outcome context in the details column when that column cannot fit); losses and trials retain label/value stats.
 3. **Analysis** — post-game action interpretation only.
 4. **Tables** — the recent "ranks won" time-period summary first, then
    time/category and all consecutive/loss-tolerant streak tablecharts.
@@ -972,16 +987,25 @@ comparison tables.
 **Game data** replaces the winning-game scalar stat block in the sidebar.
 It compares this game's performance with independently configurable lifetime
 and session pools on the left, and ranks the board's measured trait values
-in preferred directions on the right. Its 0–100% band uses top-share ranks
-(smaller percentages are better), exact anchors, pastel colors, automatic
-range zoom, and full calculation/scope tooltips. Configuration has separate
+in preferred directions on the right. Its 0–100% band places each item at
+100 × (rank − 1) ÷ (count − 1): the best in its pool is 0% at the top and the
+worst is 100% (user decision 2026-09-23: "if my number here was highest the
+entire session, the value would be 0%, i.e. I was the best"). Each left label
+names the measurement and this game's value, then ends with its pool word:
+"3BV/s 1.600 (session)", "time 44.382s (life)", or "(day)" for the trailing
+24 hours (user decision 2026-09-23: add the word to the end of the labels).
+Board-trait labels have no pool word. The band also has exact anchors, pastel
+colors, automatic range zoom, and full calculation/scope tooltips. Configuration has separate
 session/lifetime checkbox columns and all-selection controls; a saved bottom
 checkbox shows/hides actual values. The page-wide session chooser controls
 this chart, left-side session stats, and records won together, defaulting to
 the last hour of wall time. The chart includes paginated historical-window
 summaries from saved primary facts. The separate This win/time caption is gone.
-It fills the details column's width and remaining height, and its band sits
-where both sides' labels fit on one line (2026-09-23).
+Its band sits where both sides' labels fit on one line (2026-09-23). It lives
+in its own full-height column beside the board column when that fits, and
+otherwise fills the details column's width and remaining height (see Layout).
+Replacing other result surfaces with it is planned for later (user decision
+2026-09-23); see BACKLOG.md.
 
 The complete specification, catalog, formula rules, responsive behavior,
 historical data design, and explicit inventory of old stat-block fields no

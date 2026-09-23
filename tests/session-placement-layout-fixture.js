@@ -66,7 +66,8 @@
       const tableItems = resultRanks.querySelector('.result-chart-section-tables .result-chart-section-items');
       check(label + ': daily summary leads the continuous table collection',
         sections[0].includes('result-chart-section-tables')
-          && resultStats.querySelector('.board-time-profile') !== null
+          && (pageLayout.classList.contains('game-data-docked') ? gameDataColumn : resultStats)
+            .querySelector('.board-time-profile') !== null
           && resultStats.querySelector('#stats-grid') === null
           && tableItems.firstElementChild.classList.contains('recent-placements')
           && !resultRanks.querySelector('.result-chart-section-placements')
@@ -116,6 +117,9 @@
             && rect(resultsBox).left >= rect(gameSidebar).left
             && rect(resultsBox).top >= rect(topRight).bottom
             && rect(pathViewLegend).top >= rect(resultsBox).bottom);
+        if (pageLayout.classList.contains('game-data-docked')) check(label + ': game data has its own full-height column beside the board column',
+          rect(gameDataColumn).left >= rect(mainElement).right && rect(gameSidebar).left >= rect(gameDataColumn).right
+            && Math.abs(rect(gameDataColumn).height - (innerHeight - 24)) < 1);
         check(label + ': showing the legend leaves stats in place',
           Math.abs(rect(resultsBox).top - statsTop) < 1);
       } else {

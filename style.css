@@ -24,17 +24,23 @@ body {
   padding: 24px;
 }
 
-/* Registered as a length so layout code reads the resolved pixel width. */
+/* Registered as lengths so layout code reads the resolved pixel widths. */
 @property --game-sidebar-width {
   syntax: '<length>';
   inherits: true;
   initial-value: 320px;
 }
+@property --game-data-width {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 360px;
+}
 
 #page-layout {
   display: grid;
   --game-sidebar-min-width: 320px;
-  --game-sidebar-width: clamp(var(--game-sidebar-min-width), 25vw, 760px);
+  --game-sidebar-width: clamp(var(--game-sidebar-min-width), 30vw, 760px);
+  --game-data-width: clamp(360px, 24vw, 760px);
   grid-template-columns: auto minmax(0, 1fr) var(--game-sidebar-docked-width, var(--game-sidebar-width));
   align-items: start;
   gap: 18px;
@@ -1528,6 +1534,32 @@ body.trial-offboard #game-frame {
 #game-sidebar-button[hidden], #game-sidebar-close[hidden] { display: none; }
 #game-sidebar-close { align-self: flex-end; }
 #page-layout.compact-sidebar { grid-template-columns: auto minmax(0, 1fr); }
+/* Game data's own full-height column beside the board column. It is
+   reserved before a win and stays empty during play and after losses. */
+#page-layout.game-data-docked {
+  grid-template-columns: auto minmax(0, 1fr) var(--game-data-docked-width) var(--game-sidebar-docked-width);
+}
+#game-data-column { display: none; }
+#page-layout.game-data-docked #game-data-column {
+  grid-column: 3;
+  grid-row: 1;
+  position: sticky;
+  top: 12px;
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  height: calc(100dvh - 24px);
+  overflow-y: auto;
+}
+#page-layout.game-data-docked #game-sidebar { grid-column: 4; }
+#game-data-column > .board-time-profile-host {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 480px;
+}
+#game-data-column .board-time-profile { flex: 1 1 auto; height: auto; }
 #game-sidebar[popover] { display: none; }
 #game-sidebar[popover]:popover-open {
   display: flex;
@@ -2418,7 +2450,8 @@ body.settings-page .return-to-game {
   justify-content: flex-end;
 }
 .board-time-profile .board-trait-name { white-space: normal; }
-.board-time-profile .board-trait-value { white-space: nowrap; }
+.board-time-profile .board-trait-value,
+.board-time-profile .board-trait-scope { white-space: nowrap; }
 .board-time-profile.game-data-values-hidden .board-trait-value { display: none; }
 .board-time-profile .board-trait-value { font-variant-numeric: tabular-nums; color: inherit; }
 .board-trait-line-measuring .board-trait-line-label,

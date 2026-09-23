@@ -193,6 +193,7 @@ const GameData = (() => {
   const defaults = Object.fromEntries(metrics.map((m) => [m.id, m.default]));
   const defaultsForView = { gameDataSessionMetrics: defaults, gameDataLifetimeMetrics: defaults, sessionDefinition: 'pastHour', gameDataDayTime: true };
   const chronological = (records) => records.slice().sort((a, b) => a.endedAt - b.endedAt);
+  const SCOPE_WORDS = { session: 'session', lifetime: 'life', day: 'day' };
   function rankedRow(record, pool, spec, scope, params, description) {
     const value = spec.value(record, params);
     if (!Number.isFinite(value)) return null;
@@ -205,11 +206,16 @@ const GameData = (() => {
     const rank = time ? better + measured.filter((r) => r.value === value && r.record.endedAt < record.endedAt).length + 1
       : better + (equal + 1) / 2;
     const allEqual = !time && equal === total;
-    const trait = (scope ? scope + ' ' : '') + spec.name;
-    return { id: spec.id + '.' + scope, metricId: spec.id, scope, trait,
-      label: trait + ' ' + spec.format(value), valueText: spec.format(value), side: 'performance',
+    // The label names this game's measurement; the trailing word names the
+    // comparison pool (user wording: "(session)", "(life)").
+    const scopeText = scope ? '(' + SCOPE_WORDS[scope] + ')' : '';
+    const trait = spec.name + (scopeText ? ' ' + scopeText : '');
+    return { id: spec.id + '.' + scope, metricId: spec.id, scope, trait, name: spec.name, scopeText,
+      label: spec.name + ' ' + spec.format(value) + (scopeText ? ' ' + scopeText : ''),
+      valueText: spec.format(value), side: 'performance',
       rank, total, allEqual, direction: spec.higher ? 'higher' : 'lower', population: spec.allOutcomes ? 'completed games' : 'wins',
-      percentile: total < 2 ? null : allEqual ? 50 : 100 * rank / total,
+      // Share of the other measured games that beat this one: the best is 0%, the worst 100%.
+      percentile: total < 2 ? null : allEqual ? 50 : 100 * (rank - 1) / (total - 1),
       rankLabel: !time && equal > 1 ? '#' + (better + 1) + '–' + (better + equal) : '#' + rank,
       help: () => [spec.help, description + ' Only measured ' + (spec.allOutcomes ? 'completed games (wins and losses)' : 'wins')
         + ' in this size, mine count, mode, and generator count. This game’s measurement is compared with '

@@ -5,8 +5,14 @@ requirements and clarifications; it supersedes the earlier compact chart draft.
 
 ## Position and presentation
 
-For regular wins, game data replaces the scalar statistics grid in the game
-sidebar, under the outcome, board size, mode/generator, and completion date.
+For regular wins, game data replaces the scalar statistics grid. It has its
+own full-height column between the board column and the details column (user
+decision 2026-09-23: "a full-height column right next to the board"). That
+column is reserved before the game ends, so the board never moves, and it is
+empty during play and after losses (user decision: "empty"). When the page
+cannot fit it (PRODUCT.md "Layout: the board never moves" gives the rule),
+the chart goes into the details column under the outcome, board size,
+mode/generator, and completion date, or into the Game details popover.
 It is not repeated among the lower ranking charts. Losses and trial games
 retain their scalar statistics because an unfinished board has no completed
 solve-time or efficiency rank. High scores uses its latest winning game.
@@ -15,21 +21,33 @@ The chart supports only one vertical band: "game data", "your perf" on the
 left, and "board traits" on the right. Use Arial typography,
 regular-weight 12px labels, white background, ordinary controls, and square
 pastel highlights. The separate "This win" and time caption is removed;
-solve time is available on "lifetime time", "session time", and "day time".
+solve time is available on "time (life)", "time (session)", and "time (day)".
 MN means max number; ZOC means zero-opening coverage, both expanded in help.
+
+Label wording (user decision 2026-09-23). A your-perf label is the
+measurement name, this game's value, and then the comparison pool as a
+trailing word: "3BV/s 1.600 (session)", "time 44.382s (life)", "time 44.382s
+(day)". With values hidden it reads "3BV/s (session)". The user rejected
+leading scope words such as "session 3BV/s" because the label describes this
+game's number; the pool word only says what it is ranked against. The
+configuration table keeps its "session" and "lifetime" column headings.
+Board-trait labels have no pool word.
 
 Layout pass (2026-09-23). The user found the chart "crushed and badly
 displayed" in a fixed 320px column, with labels that did not "match" their
 points: two-line labels pushed far from their markers along tangled leaders,
 and the chart ran below the screen. Geometry now:
 
-- Width: the chart uses the whole details column, which is fluid
-  (PRODUCT.md "Layout: the board never moves").
-- Height: the chart fills the column height left below the setup controls,
-  scores navigation, and outcome summary, so its bottom controls stay on
-  screen. With less than 480px left it keeps 480px and the column scrolls.
-  Outside the sidebar (test fixtures) it is viewport minus 48px. The plot
-  alone scrolls when the configured collection cannot fit at readable size.
+- Width: the chart uses the whole width of its column: the game data column
+  when docked, otherwise the fluid details column (PRODUCT.md "Layout: the
+  board never moves").
+- Height: in the game data column the chart is the column's full viewport
+  height (at least 480px; the column scrolls below that). In the details
+  column it fills the height left below the setup controls, scores
+  navigation, and outcome summary, so its bottom controls stay on screen,
+  again keeping at least 480px. Outside both (test fixtures) it is viewport
+  minus 48px. The plot alone scrolls when the configured collection cannot
+  fit at readable size.
 - Band position: labels are measured at their natural one-line widths. The
   band stays centered while both sides fit, moves toward the narrower side
   when one side needs more room, and only when both sides together exceed the
@@ -46,10 +64,10 @@ and the chart ran below the screen. Geometry now:
   and disabled buttons (no gray or opacity dimming). Regular-weight Arial:
   "game data" 16px, side headings 14px, labels 12px.
 
-The user intends game data to supersede many other result elements. Which
-elements it replaces, label vocabulary shared with the tables, and placement
-beside the board are open decisions tracked in BACKLOG.md "Game data as the
-primary result surface".
+The user intends game data to supersede many other result elements. Label
+wording and placement beside the board were settled on 2026-09-23 (above).
+Which elements it replaces is deferred ("later"); BACKLOG.md "Game data as
+the primary result surface" tracks it.
 
 Autozoom includes every visible point plus 5% of the occupied range (minimum
 2 percentage points), rounded outward to 10% ticks and bounded to 0–100%.
@@ -89,9 +107,12 @@ lookback. Retention covers the largest selectable wall window in every mode.
 
 ## Ranking and direction
 
-The graph uses a **top-share rank**, not the conventional ascending value
-percentile: `100 × rank / measured population size`. Smaller is higher on the
-chart. Rank 1 of 100 is top 1%; first place is 100/N%, not an invented 0%.
+The graph places each item at `100 × (rank − 1) / (measured count − 1)`: the
+share of the other measured games that beat this one. The best in its pool is
+0% at the top of the chart and the worst is 100% at the bottom (user decision
+2026-09-23, replacing the earlier top-share `100 × rank / count`, whose first
+place showed 100/N%: "if my number here was highest the entire session, the
+value would be 0%, i.e. I was the best"). Rank 2 of 3 is 50%.
 The selected game counts in its comparison population. All measured ties
 share mean ordinal ranks except solve-time ties, which retain earlier-finish
 order. A constant metric has no preference ordering and is shown neutrally
@@ -105,7 +126,7 @@ not estimate correlations or attribute time to board traits.
 
 Each left-side marker ranks **this game's** metric against either lifetime
 or session history of the same size, mine count, play mode, and generator.
-Lifetime and session markers are independently configurable. "Day time"
+Lifetime and session markers are independently configurable. "time (day)"
 ranks this solve time against wins in the trailing 24 hours, crossing midnight;
 it has its own switch. Historical comparisons end at the selected game.
 

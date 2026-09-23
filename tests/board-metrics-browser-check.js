@@ -187,7 +187,7 @@ const { chromium } = require(process.argv[2]);
         .map((el) => [el.querySelector('h4').textContent, el.querySelector('.rank-total').textContent]));
       return { tables, values: [...resultRanks.querySelectorAll('.board-metric-value')].map((el) => el.textContent),
         details: [...resultRanks.querySelectorAll('.board-metric-detail')].map((el) => el.textContent),
-        efficiency: resultStats.querySelector('[data-trait="lifetime HZiNi efficiency"] .board-trait-value').textContent,
+        efficiency: document.querySelector('.board-time-profile [data-trait="HZiNi efficiency (life)"] .board-trait-value').textContent,
         labels: [...resultRanks.querySelectorAll('.board-metric-fact h4')].map((el) => el.textContent),
         controls: [...resultRanks.querySelectorAll('button')].map((el) => el.textContent) };
     });

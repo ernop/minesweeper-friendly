@@ -16,8 +16,12 @@ const records = [
 ];
 const rows = GameData.rows(current, records);
 const row = (id) => rows.find((r) => r.id === id);
-assert.equal(row('time.lifetime').trait, 'lifetime time');
+assert.equal(row('time.lifetime').trait, 'time (life)');
+assert.equal(row('time.session').label, 'time 30.000s (session)', 'the pool word ends the label');
+assert.equal(row('time.day').trait, 'time (day)');
 assert.equal(row('time.lifetime').rank, 3);
+assert.equal(row('time.lifetime').percentile, 100 * 2 / 3, '100 × (rank − 1) ÷ (count − 1)');
+assert.equal(row('time.session').percentile, 0, 'the best in the pool is 0%');
 assert.equal(row('time.lifetime').total, 4, 'future games and losses cannot enter solve-time background');
 assert.equal(row('time.day').total, 3, 'day is trailing 24 hours, crossing midnight');
 assert.equal(row('time.session').total, 2);
@@ -26,6 +30,7 @@ assert.equal(row('clickRate.session').total, 3, 'measured action rates include w
 assert.equal(row('efficiency.session').total, 2, 'completion ratios exclude incomplete boards');
 assert.equal(row('fastclickGap.session').total, 2, 'missing is not zero');
 assert.equal(row('misclickRate.session').rank, 1.5, 'equal rates share mean ordinal rank');
+assert.equal(row('misclickRate.session').percentile, 25);
 assert.equal(row('misclickRate.session').valueText, '0/min');
 assert.equal(row('fastclickGap.session').percentile, 50, 'all-equal timing has neutral rank');
 assert.equal(GameData.rows({ ...current, outcome: 'loss' }, records).length, 0);
