@@ -7,6 +7,38 @@ the next request; do not leave new ideas only in chat.
 Status labels: **creator** = the creator asked for it; **mapped** = named
 on the design axis or in a research note, not requested as a build.
 
+## Game data as the primary result surface (creator, 2026-09-23)
+
+The creator likes the game-data band and hopes it can "supercede so many
+other UI elements", said the page layout is "not very standardized nor
+efficient", and asked that the chart not be crushed and that "the labels
+must match better". Built the same day: fluid details column, compact setup
+rows, a chart filling the remaining column height, and one-line labels
+placed from measured widths (docs/game-data.md "Layout pass"). Open:
+
+- **What it supersedes.** Each left-side time marker is the same comparison
+  as a time table's "this" row: lifetime time and the lifetime table, session
+  time and the selected session window, day time and the trailing-24-hours
+  table. The chart gives rank and top share but not the neighboring times,
+  cross-category achievements (ranks won), or the scatterplots. Options:
+  hide tables whose standing the chart already shows, link a label to its
+  table, or keep tables as the detailed layer.
+- **Shared vocabulary.** Chart "session time" / "day time" versus table
+  headings "past hour" / "last 24 hours"; the board-side "3BV 71" ranks this
+  board's 3BV among boards, while the "3BV 71" This-board table ranks solve
+  times among 3BV-71 wins, so the same text names different quantities.
+- **One label per measurement.** Lifetime, session, and day markers of one
+  measurement repeat the same value ("lifetime time 44.382s", "session time
+  44.382s"). A single label with one marker per scope would roughly halve
+  the left side's labels and remove same-value repeats.
+- **Placement.** The fluid details column, or a full-height column beside
+  the board.
+- **Standardization sweep.** About 40 older gray text colors remain (result
+  tables and recent placements, trial, pregen, board lab, settings title
+  bar, backup), plus fixed caps such as `#result-analysis` at 920px. The
+  outcome summary spends four bold lines above the chart, and "see scores"
+  occupies its own row.
+
 ## Ranks-won visibility and rank appearance (creator, 2026-09-21)
 
 Review why the selected period omits earlier achievements in categories other

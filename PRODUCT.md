@@ -671,6 +671,15 @@ report.
   normal flow inside an independently scrollable, sticky column. Stats precede
   the legend, so changing replay frames does not move the stats. These panels
   never cover the board or tablecharts and never add height between them.
+- Details column sizing (2026-09-23, after the user found game data crushed
+  in a fixed 320px strip): the column is fluid, `clamp(320px, 25vw, 760px)`,
+  and the compact popover is `max(420px, 45vw)` within the viewport. Mode and
+  generator share a row when they fit; music, tags, + state, and settings
+  follow on wrapping rows. Game data takes the column height left below them,
+  the scores navigation, and the outcome summary (at least 480px), so it ends
+  at the screen bottom with its controls visible instead of running below it.
+  The column width still enters the docking decision: a board that no longer
+  fits beside the wider column switches to the Game details popover.
 - When the board and side columns cannot fit, a bordered **Game details**
   button opens the same details as a native popover. Close, Escape, or clicking
   outside dismisses it. Opening it does not reflow the board or history.
@@ -714,7 +723,8 @@ report.
   viewport during dragging, scrolling, resizing, and zooming. Center and a
   prominent Done button stay at the top of the editor; Escape also closes it.
   The editor does not change the board's position or page layout.
-- The results area echoes the in-game numeral face (Arial Black stack).
+- The results area echoes the in-game numeral face (Arial Black stack);
+  the game-data chart inside it uses regular Arial.
 
 ## UI doctrine (directives collected 2026-08-23)
 
@@ -730,6 +740,15 @@ because they apply app-wide, not just where each was first stated.
   spacing, and restrained color to establish hierarchy instead of relying
   on bolding. Performance gradients use light green for stronger standings,
   light blue around the middle, and light red for weaker standings.
+- Contrast, hierarchy, and width (user rules, recorded 2026-09-23): neutral
+  text is pure black on light backgrounds and pure white on dark ones. No
+  gray labels, gray placeholders, or opacity-dimmed text; secondary hierarchy
+  comes from size, weight, spacing, and placement. Headings are larger
+  and/or heavier than the text beneath them. Data values (numbers, times,
+  dates, status) are the most legible element in their region. Primary
+  containers use fluid widths, not fixed pixel caps that leave empty
+  margins. The details column and game data follow this as of 2026-09-23;
+  older gray text and fixed caps elsewhere are listed in BACKLOG.md.
 - Optional instructions and explanatory text must meet both conditions:
   they add useful information, and they stay hidden until requested through
   a subtle help affordance, such as a (?) hover tooltip or a control's
@@ -960,6 +979,8 @@ checkbox shows/hides actual values. The page-wide session chooser controls
 this chart, left-side session stats, and records won together, defaulting to
 the last hour of wall time. The chart includes paginated historical-window
 summaries from saved primary facts. The separate This win/time caption is gone.
+It fills the details column's width and remaining height, and its band sits
+where both sides' labels fit on one line (2026-09-23).
 
 The complete specification, catalog, formula rules, responsive behavior,
 historical data design, and explicit inventory of old stat-block fields no

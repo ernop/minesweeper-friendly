@@ -12,20 +12,44 @@ retain their scalar statistics because an unfinished board has no completed
 solve-time or efficiency rank. High scores uses its latest winning game.
 
 The chart supports only one vertical band: "game data", "your perf" on the
-left, and "board traits" on the right. Use the page's Arial typography,
+left, and "board traits" on the right. Use Arial typography,
 regular-weight 12px labels, white background, ordinary controls, and square
 pastel highlights. The separate "This win" and time caption is removed;
 solve time is available on "lifetime time", "session time", and "day time".
 MN means max number; ZOC means zero-opening coverage, both expanded in help.
 
-Use the available sidebar width and a height of viewport minus 48px. Labels
-wrap at small widths. The plot alone scrolls when the configured collection
-cannot fit at readable size. The band is 32px wide. Label centers are fitted
-independently per side to minimize squared displacement, using their measured
-heights plus 2px separation. Exact percentile points never move. Labels are
-14px from the band; displaced labels have explicit leaders, emphasized at
-2px stroke above 8px displacement. Endpoint padding is only what labels and
-ticks need, not an extra blank region.
+Layout pass (2026-09-23). The user found the chart "crushed and badly
+displayed" in a fixed 320px column, with labels that did not "match" their
+points: two-line labels pushed far from their markers along tangled leaders,
+and the chart ran below the screen. Geometry now:
+
+- Width: the chart uses the whole details column, which is fluid
+  (PRODUCT.md "Layout: the board never moves").
+- Height: the chart fills the column height left below the setup controls,
+  scores navigation, and outcome summary, so its bottom controls stay on
+  screen. With less than 480px left it keeps 480px and the column scrolls.
+  Outside the sidebar (test fixtures) it is viewport minus 48px. The plot
+  alone scrolls when the configured collection cannot fit at readable size.
+- Band position: labels are measured at their natural one-line widths. The
+  band stays centered while both sides fit, moves toward the narrower side
+  when one side needs more room, and only when both sides together exceed the
+  width do they share it in proportion to their widest labels and wrap.
+  "your perf" and "board traits" align with their label columns and keep one
+  line only when that costs no data label its single line.
+- The band is 32px wide. Label centers are fitted independently per side to
+  minimize squared displacement, using their measured heights plus 2px
+  separation. Exact percentile points never move. Labels are 14px from the
+  band; displaced labels have explicit leaders, emphasized at 2px stroke
+  above 8px displacement. Endpoint padding is only what labels and ticks
+  need, not an extra blank region.
+- Text is pure black on white, including ticks, the singleton note, controls,
+  and disabled buttons (no gray or opacity dimming). Regular-weight Arial:
+  "game data" 16px, side headings 14px, labels 12px.
+
+The user intends game data to supersede many other result elements. Which
+elements it replaces, label vocabulary shared with the tables, and placement
+beside the board are open decisions tracked in BACKLOG.md "Game data as the
+primary result surface".
 
 Autozoom includes every visible point plus 5% of the occupied range (minimum
 2 percentage points), rounded outward to 10% ticks and bounded to 0–100%.

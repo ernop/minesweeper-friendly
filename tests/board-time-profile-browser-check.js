@@ -76,9 +76,16 @@ const { chromium } = require(process.argv[2]);
         const bounds = el.getBoundingClientRect();
         const axis = el.querySelector('.board-trait-line-axis').getBoundingClientRect();
         const center = axis.left + axis.width / 2;
+        const column = el.closest('#game-sidebar');
+        const columnStyle = getComputedStyle(column);
+        const [perfHeading, boardHeading] = el.querySelectorAll('.board-time-profile-sides > span');
         return {
           overflow: el.scrollWidth > el.clientWidth + 1,
           width: bounds.width, height: bounds.height, bandWidth: axis.width,
+          columnSlack: parseFloat(columnStyle.maxHeight) - parseFloat(columnStyle.paddingBottom)
+            - parseFloat(columnStyle.borderBottomWidth)
+            - (bounds.bottom - column.getBoundingClientRect().top + column.scrollTop),
+          headingEdges: [center - perfHeading.getBoundingClientRect().right, boardHeading.getBoundingClientRect().left - center],
           low: Number(el.querySelector('.board-trait-line').dataset.low), high: Number(el.querySelector('.board-trait-line').dataset.high),
           ticks: [...el.querySelectorAll('.board-trait-line-tick')].map((tick) => {
             const rect = tick.getBoundingClientRect();
@@ -90,7 +97,7 @@ const { chromium } = require(process.argv[2]);
           })),
           labels: [...el.querySelectorAll('.board-trait-line-label button')].map((button) => {
             const rect = button.getBoundingClientRect();
-            return { top: rect.top, bottom: rect.bottom,
+            return { top: rect.top, bottom: rect.bottom, height: rect.height,
               side: button.parentElement.dataset.side,
               displacement: Math.abs(parseFloat(button.parentElement.style.top) - Number(button.parentElement.dataset.pointY)),
               nameRight: button.querySelector('.board-trait-name').getBoundingClientRect().right,
@@ -114,7 +121,13 @@ const { chromium } = require(process.argv[2]);
       assert(layout.labels.every((label, i) => label.value
         && (label.displacement <= 8 || (layout.leaders[i].strong && layout.leaders[i].width >= 2))),
         'every displaced label has a strong leader and every value follows its name');
-      assert(layout.width <= width && layout.height <= 1100 && layout.height >= 1000, 'uses the viewport while fitting the screen');
+      assert(layout.width <= width && layout.height >= 480
+        && (layout.height === 480 || Math.abs(layout.columnSlack) <= 1),
+        width + 'px chart fills the details column below its other content: ' + JSON.stringify([layout.height, layout.columnSlack]));
+      assert(layout.headingEdges.every((edge) => edge >= 29 && edge <= 31),
+        width + 'px side headings align with their label columns: ' + JSON.stringify(layout.headingEdges));
+      if (width >= 650) assert(layout.labels.every((label) => label.height < 20),
+        width + 'px labels keep one line where the column fits them: ' + JSON.stringify(layout.labels.map((l) => l.height)));
       assert(layout.labels.every((label, i) => label.inside && label.weight === '400'
         && label.distance >= 29 && label.distance <= 31
         && (i === 0 || label.side !== layout.labels[i - 1].side || label.top >= layout.labels[i - 1].bottom + 1)),

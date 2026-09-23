@@ -321,6 +321,19 @@ function scheduleBoardLayout() {
   });
 }
 
+// The game data chart takes the column height left below the controls and
+// summary, so its footer stays in view. A column too short for a readable
+// plot scrolls instead of crushing it.
+const GAME_DATA_MIN_HEIGHT = 480;
+function fitGameDataToSidebar() {
+  const profile = resultStats.querySelector('.board-time-profile');
+  if (profile === null || !profile.checkVisibility()) return;
+  const column = getComputedStyle(gameSidebar);
+  const offset = profile.getBoundingClientRect().top - gameSidebar.getBoundingClientRect().top + gameSidebar.scrollTop;
+  const bottom = parseFloat(column.maxHeight) - parseFloat(column.paddingBottom) - parseFloat(column.borderBottomWidth);
+  profile.style.height = Math.max(GAME_DATA_MIN_HEIGHT, Math.floor(bottom - offset)) + 'px';
+}
+
 // Reserve the options/stats column before results exist. A finished game's
 // content never decides how much room the board or history receives.
 function syncGameSidebar() {
@@ -341,6 +354,7 @@ function syncGameSidebar() {
   gameSidebarButton.hidden = docked;
   gameSidebarClose.hidden = docked;
   resultsBox.hidden = resultSummary.textContent === '' && resultStats.textContent === '';
+  fitGameDataToSidebar();
 }
 
 function syncJusticePlacement() {
@@ -4411,6 +4425,18 @@ function boardTraitLabelLayout(rows, top, height, gap, domain = [0, 100]) {
   return positions;
 }
 
+// Horizontal band center for one-line labels. The band stays centered while
+// both sides' widest labels fit, shifts toward the narrower side when one
+// needs more, and only when both together exceed the width do the sides
+// share the room in proportion to their widest labels (and then wrap).
+function boardTraitBandCenter(width, performanceWidth, boardWidth, offset) {
+  const room = Math.max(0, width - offset * 2);
+  const total = performanceWidth + boardWidth;
+  const left = total > room ? room * performanceWidth / total
+    : Math.min(Math.max(room / 2, performanceWidth), room - boardWidth);
+  return left + offset;
+}
+
 //-------RECENT PLACEMENTS: COMPUTATION (pure; tests extract this span)-------
 
 // Canonical order for every time-ranked win list. Modern JavaScript's stable
@@ -6052,7 +6078,18 @@ function boardTraitValueLabel(record, row) {
   return label;
 }
 
-function buildBoardTraitLine(record, rows) {
+// Band half-width (16px) plus the 14px gap to each side's labels.
+const BOARD_TRAIT_LABEL_OFFSET = 30;
+
+function buildBoardTraitLine(record, rows, frame) {
+  const sides = document.createElement('div');
+  sides.className = 'board-time-profile-sides';
+  const headings = {};
+  for (const [side, text] of [['performance', 'your perf'], ['board', 'board traits']]) {
+    headings[side] = document.createElement('span');
+    headings[side].textContent = text;
+    sides.appendChild(headings[side]);
+  }
   const container = document.createElement('div');
   container.className = 'board-trait-line-view';
   const ranked = rows.filter((row) => row.percentile !== null);
@@ -6118,8 +6155,25 @@ function buildBoardTraitLine(record, rows) {
     }
     container.appendChild(note);
   }
+  // Natural one-line widths place the band; heights are measured afterwards,
+  // once each side's width limit applies. Side headings keep one line only
+  // when that costs no data label its single line.
+  function placeBand() {
+    frame.classList.add('board-trait-line-measuring');
+    const width = (node) => Math.ceil(node.getBoundingClientRect().width) + 1;
+    const labels = { performance: 0, board: 0 };
+    for (const entry of entries) labels[entry.side] = Math.max(labels[entry.side], width(entry.label));
+    const withHeadings = { performance: Math.max(labels.performance, width(headings.performance)),
+      board: Math.max(labels.board, width(headings.board)) };
+    frame.classList.remove('board-trait-line-measuring');
+    const room = stage.clientWidth - BOARD_TRAIT_LABEL_OFFSET * 2;
+    const widest = withHeadings.performance + withHeadings.board <= room ? withHeadings : labels;
+    frame.style.setProperty('--band-x', boardTraitBandCenter(stage.clientWidth,
+      widest.performance, widest.board, BOARD_TRAIT_LABEL_OFFSET) + 'px');
+  }
   function layout() {
     if (!container.isConnected || !container.clientWidth || !ranked.length) return;
+    placeBand();
     const measured = entries.map((entry) => ({ ...entry, labelHeight: entry.label.getBoundingClientRect().height }));
     const top = Math.max(7, ...measured.map((r) => r.labelHeight / 2));
     const needed = Math.max(...['performance', 'board'].map((side) =>
@@ -6142,7 +6196,7 @@ function buildBoardTraitLine(record, rows) {
       }
     }
   }
-  return { element: container, layout };
+  return { header: sides, element: container, layout };
 }
 
 function buildBoardTimeRankProfile(record, comparisons, historyView, records) {
@@ -6302,13 +6356,8 @@ function buildBoardTimeRankProfile(record, comparisons, historyView, records) {
       profile.appendChild(pager);
     } else {
       const rows = [...performanceTimeRankProfile(record, records, settings, config), ...boardTraitRankProfile(record, comparisons, records)];
-      const sides = document.createElement('div');
-      sides.className = 'board-time-profile-sides';
-      for (const text of ['your perf', 'board traits']) {
-        const label = document.createElement('span'); label.textContent = text; sides.appendChild(label);
-      }
-      const line = buildBoardTraitLine(record, rows);
-      profile.append(sides, line.element);
+      const line = buildBoardTraitLine(record, rows, profile);
+      profile.append(line.header, line.element);
       observer = new ResizeObserver(() => {
         if (!profile.isConnected) { observer.disconnect(); return; }
         line.layout();
@@ -14217,6 +14266,7 @@ function initBoardPositionControls() {
   if (typeof ResizeObserver !== 'undefined') {
     const observer = new ResizeObserver(scheduleBoardLayout);
     observer.observe(topRight);
+    observer.observe(scoresNav);
     observer.observe(gameFrame);
     observer.observe(resultsBox);
     observer.observe(justiceLive);

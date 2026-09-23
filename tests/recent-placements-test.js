@@ -73,6 +73,17 @@ function assertEq(name, actual, want) {
   assertEq('singletons never enter the trait scale', layout([null, 25]).length, 1);
 }
 
+// The band stays centered while both one-line label columns fit, shifts
+// toward the narrower side when one needs more, and only then shares room.
+{
+  assertEq('band centered when both sides fit', boardTraitBandCenter(600, 185, 110, 30), 300);
+  assertEq('band shifts right for wide performance labels', boardTraitBandCenter(390, 185, 110, 30), 215);
+  assertEq('band shifts left for wide board labels', boardTraitBandCenter(390, 60, 200, 30), 160);
+  assertEq('overfull sides share room by widest label',
+    Math.round(boardTraitBandCenter(260, 185, 110, 30) * 100) / 100, 155.42);
+  assertEq('empty chart keeps the band centered', boardTraitBandCenter(300, 0, 0, 30), 150);
+}
+
 // Ordinals, including the 11th/12th/13th rule and its 111th recurrence.
 for (const [n, want] of [
   [1, '1st'], [2, '2nd'], [3, '3rd'], [4, '4th'], [10, '10th'],

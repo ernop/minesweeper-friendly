@@ -308,12 +308,19 @@ Implementation notes:
   apply while the transport is visible. These controls take no space beneath
   the board and are outside its saved translation.
   Layout (2026-09-07): `#page-layout` owns three grid columns: metrics, main,
-  and a 320px `#game-sidebar`. The sidebar contains `#top-right`, `#scores-nav`,
+  and a fluid `#game-sidebar` (2026-09-23: `--game-sidebar-width` is
+  `clamp(320px, 25vw, 760px)`, registered with `@property` as a length so
+  `syncGameSidebar` reads resolved pixels). The sidebar contains `#top-right`, `#scores-nav`,
   `#results`, and `#path-view-legend` in normal flow, with independent scrolling. It is
   reserved before game end. `syncGameSidebar` compares the viewport, metrics
   width, and board frame width; when they cannot fit together, it removes the
   sidebar from the grid and makes it an auto popover opened by Game details.
   Results or legend visibility/height never enters that width decision.
+  `#top-right` and `#states` are wrapping flex rows (selects share a row when
+  they fit). `syncGameSidebar` ends with `fitGameDataToSidebar`, which sets
+  the game-data figure's height to the column height below its offset
+  (minimum 480px); `#scores-nav` joins the layout ResizeObserver so its
+  changes refit the chart.
   `syncBoardLayout` applies board position, Justice placement, and callout
   clearance. `syncResultClearance` considers only Justice; stats and legend
   need no overhang margins, floating/below-board classes, or z-index fixes.
@@ -808,9 +815,14 @@ Implementation notes:
   `gameDataSessionMetrics`, `gameDataLifetimeMetrics`, `gameDataDayTime`, and
   `gameDataShowValues` use the shared persistent preference schema.
   `boardTraitLabelLayout` fits measured label heights to exact percentile points;
-  ResizeObserver responds to width/value changes. The chart fills sidebar width,
-  fits viewport height, autozooms with outward decile bounds, and keeps absolute
-  colors. Only the plot scrolls if selections cannot fit readably.
+  ResizeObserver responds to width/value changes. `buildBoardTraitLine` owns
+  the side headings; its `placeBand` measures one-line label widths under
+  `.board-trait-line-measuring` and sets `--band-x` on the figure from
+  `boardTraitBandCenter`. Band, leaders, dots, labels, side headings, and the
+  singleton note all position from `--band-x`. The chart fills sidebar width
+  and the column height left for it (`fitGameDataToSidebar`), autozooms with
+  outward decile bounds, and keeps absolute colors. Only the plot scrolls if
+  selections cannot fit readably.
   Shared chart help uses one owned manual popover, so it stays above compact
   sidebar content and old blur/leave events cannot hide another item's help.
   `setSessionDefinition` updates all mirrored selectors and scope-dependent
@@ -967,7 +979,8 @@ Implementation notes:
   charts" and "Scatter plots").
 - Layout: `#results` (summary + `#stats-grid`) is a normal-flow child of
   `#game-sidebar`, after options and before the legend. The three grid
-  columns prevent overlaps. `syncGameSidebar` controls its compact popover;
+  columns prevent overlaps. `syncGameSidebar` controls its compact popover
+  and fits the game-data chart's height (see Layout 2026-09-07 above);
   no result-dependent gutter calculations or overhang margins remain.
   ResizeObserver tracks page/main/frame geometry; the root scrollbar gutter
   remains reserved for stable centering.
