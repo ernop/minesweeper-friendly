@@ -675,7 +675,9 @@ report.
   `clamp(360px, 24vw, 760px)` of the remaining room. Otherwise the chart
   falls back to the details column as described below. The board still
   centers in its own column, so the gap between the board and the chart
-  follows the board position preference.
+  follows the board position preference. The creator chose to keep this
+  (2026-09-23) over anchoring the board beside the chart; "position" moves
+  the board closer when wanted.
 - The board is the anchor. Appearing or disappearing content must not move it.
   Its covered startup preview occupies the same explicit main column.
 - Mode, generator, session tags, settings, optional replay/display controls,
@@ -1012,7 +1014,8 @@ worst is 100% (user decision 2026-09-23: "if my number here was highest the
 entire session, the value would be 0%, i.e. I was the best"). Each left label
 names the measurement and this game's value, then ends with its pool word:
 "3BV/s 1.600 (session)", "time 44.382s (life)", or "(day)" for the trailing
-24 hours (user decision 2026-09-23: add the word to the end of the labels).
+24 hours (user decision 2026-09-23: add the word to the end of the labels;
+the creator then chose "(day)" over "(24h)").
 Board-trait labels have no pool word. The band also has exact anchors, pastel
 colors, automatic range zoom, and full calculation/scope tooltips. Configuration has separate
 session/lifetime checkbox columns and all-selection controls; a saved bottom
@@ -1568,11 +1571,14 @@ carries at least one tag.
   the age columns, right-aligned so its right edge is flush with the other
   rows' age labels (2026-08-20; replaced the left-aligned "just now").
 - The age (count + unit) is color-coded by unit: s = hyper-fluorescent
-  green (#39ff14, always bolded — too light to read at normal weight);
-  then the board-number palette: m = green, h = blue (the "1" blue),
-  d = red (the game red), w = navy, mo = maroon, y = teal.
+  green (#39ff14), bold on a small black chip; then the board-number
+  palette: m = green, h = blue (the "1" blue), d = red (the game red),
+  w = navy, mo = maroon, y = teal. The scatter legend uses the same
+  colors. The chip is the creator's choice (2026-09-23): bold green on
+  white had about 1.4:1 contrast.
 - Your own row is bolded on its percentage-standing tint (see Rank
-  highlights), with text overridden to black for readability.
+  highlights), with text overridden to black for readability. That
+  override replaces the seconds chip too.
 
 ## Retired rankaverage charts
 

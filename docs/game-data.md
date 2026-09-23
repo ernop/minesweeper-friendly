@@ -27,7 +27,8 @@ MN means max number; ZOC means zero-opening coverage, both expanded in help.
 Label wording (user decision 2026-09-23). A your-perf label is the
 measurement name, this game's value, and then the comparison pool as a
 trailing word: "3BV/s 1.600 (session)", "time 44.382s (life)", "time 44.382s
-(day)". With values hidden it reads "3BV/s (session)". The user rejected
+(day)" ("(day)" confirmed over "(24h)" the same day). With values hidden it
+reads "3BV/s (session)". The user rejected
 leading scope words such as "session 3BV/s" because the label describes this
 game's number; the pool word only says what it is ranked against. The
 configuration table keeps its "session" and "lifetime" column headings.

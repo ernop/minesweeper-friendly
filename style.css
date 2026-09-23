@@ -3012,10 +3012,19 @@ body.settings-page .return-to-game {
 }
 
 /* Age colors by unit, following the board-number palette: seconds
-   hyper-fluorescent green (always bolded — it's too light to read thin),
-   then 2-green, 1-blue, 3-red, 4-navy, 5-maroon, 6-teal. Shared by the
-   rank-list age cells and the scatter legend. */
-.age-u-s  { color: #39ff14; font-weight: bold; }
+   hyper-fluorescent green, bold on a black chip because the green is
+   illegible on white, then 2-green, 1-blue, 3-red, 4-navy, 5-maroon,
+   6-teal. Shared by the rank-list age cells and the scatter legend; the
+   me-row override replaces the chip with the row tint. */
+.age-u-s  {
+  color: #39ff14;
+  font-weight: bold;
+  background: #000000;
+  padding: 0 3px;
+  border-radius: 3px;
+}
+.rank-row .age-num-cell.age-u-s { border-radius: 3px 0 0 3px; }
+.rank-row .age-unit-cell.age-u-s { border-radius: 0 3px 3px 0; }
 .age-u-m  { color: #008000; }
 .age-u-h  { color: #0000ff; }
 .age-u-d  { color: #ff0000; }

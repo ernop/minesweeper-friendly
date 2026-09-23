@@ -39,19 +39,18 @@ Still open:
   (session)"). A single label with one marker per scope would roughly halve
   the left side's labels. For now the creator chose only the trailing pool
   word ("right now we just add the word (session) or (life)").
-- **Board beside the chart.** The board still centers in its own column, so
-  a wide screen leaves a gap between the board and the game data column
-  unless the board position is moved. Anchoring the board next to the chart
-  would change what the saved position means.
+- **Board beside the chart (decided 2026-09-23: keep centered).** A wide
+  screen leaves a gap between the centered board and the game data column.
+  The creator kept centering over anchoring the board next to the chart;
+  "position" moves it when wanted.
 - **Standardization sweep (approved "all"; built 2026-09-23).** No gray text
   remains, the primary containers are fluid, headings outrank their body
   text, and the outcome summary takes two lines (PRODUCT.md "UI doctrine",
-  "Result presentation and ordering", and "Personal settings"). Still open:
-  - The seconds age unit is hyper-fluorescent green `#39ff14` on white,
-    which has a contrast ratio near 1.4:1 even when bolded. It was kept
-    because it is its own recorded decision (PRODUCT.md, age colors), but it
-    fails the "strongly legible" condition on semantic colors.
-  - Gold ending text `#b8860b` in the session tooltip is also weak on white.
+  "Result presentation and ordering", and "Personal settings"). The seconds
+  age green `#39ff14` (about 1.4:1 on white) now sits on a black chip, the
+  creator's choice over a darker green. The trailing-24-hours pool word
+  stays "(day)". Still open:
+  - Gold ending text `#b8860b` in the session tooltip is weak on white.
   - "see scores" sits alone on its row only when no replay trace exists
     (history views); after a live game it shares the row with Replay game.
 
