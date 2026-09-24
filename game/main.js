@@ -1,9 +1,9 @@
 'use strict';
 
-// Startup: the storage.js hooks (storageFailure, userdataReady), the play
-// mode and generator switchers, and init. Must load last: storage.js starts
-// the page as soon as userdataReady exists, so every other game/ script
-// must already be loaded.
+// Startup: the storage.js hooks (storageFailure, userdataReady), the static
+// chrome built at load, and init. Must load last: storage.js starts the page
+// as soon as userdataReady exists, so every other game/ script must already
+// be loaded.
 
 //-------PERSISTENT STORAGE (shared machinery lives in storage.js)-------
 
@@ -26,6 +26,13 @@ function storageFailure(what) {
   throw new Error(what);
 }
 
+// The in-page settings drawer became a full page on 2026-08-23: the
+// "settings" opener in the top-right is now a plain link to settings.html
+// (see index.html), which shares this page's schema (settings-core.js)
+// and database (storage.js). Changes save straight to the shared
+// database; this page reads them fresh on every load, and the return
+// trip from settings.html is a load.
+
 // Reads every userdata kind into its RAM object, then finishes startup:
 // init() builds the states panel and the first board, all of which read RAM.
 function userdataReady() {
@@ -47,79 +54,6 @@ function userdataReady() {
 buildLcd(mineCounter);
 buildLcd(timerDisplay);
 buildFormatPanel();
-
-function buildPlayModeSwitcher() {
-  const select = document.getElementById('play-mode-select');
-  select.textContent = '';
-  for (const mode of PLAY_MODES) {
-    const option = document.createElement('option');
-    option.value = mode.id;
-    option.textContent = mode.label;
-    select.appendChild(option);
-  }
-  select.value = settings.playMode;
-  select.disabled = false;
-  select.addEventListener('change', () => setPlayMode(select.value));
-}
-
-function setPlayMode(id) {
-  if (!PLAY_MODE_IDS.has(id)) throw new Error('unknown play mode ' + id);
-  if (id === settings.playMode) return;
-  if (Trial.isPlayMode(settings.playMode) && trialIsActive()) abandonTrial();
-  if (pregenActive() || id === 'pregen-10-3bv-desc') pregenBatch = null;
-  lastTrialReview = null;
-  settings.playMode = id;
-  saveSettings();
-  document.getElementById('play-mode-select').value = id;
-  refreshGeneratorSelect();
-  // The custom form's visibility depends on the mode (the Board lab's
-  // sliders replace it), not only on the matched difficulty.
-  syncDifficultyTabs();
-  newGame();
-}
-
-function buildBoardGeneratorSwitcher() {
-  const select = document.getElementById('board-generator-select');
-  select.textContent = '';
-  for (const spec of BoardGenerators.SPECS) {
-    const option = document.createElement('option');
-    option.value = spec.id;
-    option.textContent = spec.label;
-    option.title = spec.describe;
-    select.appendChild(option);
-  }
-  select.value = settings.boardGenerator;
-  select.addEventListener('change', () => setBoardGenerator(select.value));
-  refreshGeneratorSelect();
-}
-
-function setBoardGenerator(id) {
-  BoardGenerators.byId(id); // throws on an unknown id
-  if (id === settings.boardGenerator) return;
-  settings.boardGenerator = id;
-  saveSettings();
-  document.getElementById('board-generator-select').value = id;
-  newGame();
-}
-
-// The generator menu is live only in modes that place mines with it;
-// single-path NG carves its own corridor boards and trial sessions use
-// fixed identities, so there the menu is disabled rather than lying.
-function refreshGeneratorSelect() {
-  const select = document.getElementById('board-generator-select');
-  const applies = generatorAppliesToMode(settings.playMode);
-  select.disabled = !applies;
-  select.title = applies
-    ? '' : playModeLabel() + ' builds its boards its own way; the generator applies in the other modes';
-}
-
-function syncDifficultyTabs() {
-  const matched = settings.difficulty;
-  for (const tab of document.querySelectorAll('#difficulty-tabs a')) {
-    tab.classList.toggle('active', tab.dataset.difficulty === matched);
-  }
-  customForm.hidden = matched !== 'custom' || boardLabActive();
-}
 
 async function init() {
   config = boardFromPreferences();

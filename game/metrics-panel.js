@@ -429,13 +429,6 @@ function metricSeriesKey(group, display) {
   return group.key + ':' + display.label;
 }
 
-// A displayed number: NaN means a formula was computed but degenerated
-// (e.g. sample entropy with no matching windows) — for display both are
-// one thing: not measurable here.
-function displayableNumber(v) {
-  return v === undefined || Number.isNaN(v) ? undefined : v;
-}
-
 // The per-game history of every displayed value, sampled on coalesced input
 // and active-game clock changes, plus the final measurement.
 // Display-side state only: nothing here is stored anywhere.
@@ -455,26 +448,6 @@ function beginTraceMetricsSeries() {
   liveSegmentCache = { clickEvents: -1, psych: null, hev: null };
 }
 
-// Compact numeric form for sparkline axis labels; the units live in the
-// value column of the same row.
-function sparkAxisNumber(v) {
-  if (Math.abs(v) >= 10000) return (v / 1000).toPrecision(3) + 'k';
-  if (Math.abs(v) >= 100) return String(Math.round(v));
-  if (v === 0) return '0';
-  return v.toPrecision(2);
-}
-
-const SVG_NS = 'http://www.w3.org/2000/svg';
-
-// Chart geometries: small for the live panel's rows, large for the
-// after-game charts inline at the page bottom.
-const SPARK_SMALL = { width: 150, height: 46, left: 34, bottom: 11, dotR: 1.7, labelClass: 'spark-label' };
-const SPARK_LARGE = { width: 230, height: 130, left: 40, bottom: 14, dotR: 2.5, labelClass: 'spark-label spark-label-big' };
-
-// A tallish per-metric chart of the value over the game: y axis labeled
-// with the series min and max, x axis from 0 to the latest elapsed
-// seconds. Gaps (spans where the value was not yet measurable) break the
-// line rather than being bridged.
 function setMetricText(element, text) {
   if (element.textContent !== text) element.textContent = text;
 }
@@ -488,6 +461,10 @@ function setMetricHidden(element, hidden) {
   if (element.hidden !== hidden) element.hidden = hidden;
 }
 
+// A tallish per-metric chart of the value over the game: y axis labeled
+// with the series min and max, x axis from 0 to the latest elapsed
+// seconds. Gaps (spans where the value was not yet measurable) break the
+// line rather than being bridged.
 function buildSparkline(tMs, values, size) {
   const { width, height, left, bottom } = size;
   const svg = document.createElementNS(SVG_NS, 'svg');

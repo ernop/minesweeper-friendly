@@ -425,27 +425,13 @@ from the RAM trace of the game just ended. Not built:
   so movement that left the board clips at its edge; a wider canvas
   would show the full excursion (e.g. travel to the face button).
 
-## Game page code follow-ups (mapped, 2026-09-23)
+## Space during startup (known issue, confirmed 2026-09-23)
 
-The creator-requested split of `minesweeper.js` into `game/` (built
-2026-09-23; [AGENTS.md](AGENTS.md) "Game page code") moved code verbatim
-and in order. A few pieces therefore still sit with their old neighbors:
-
-- `appendGameRecord` (history) and `AVERAGE_SCATTER_SPECS` (average-time
-  charts) are in `game/rankings.js`.
-- The states-menu close listeners (Escape, outside click) are in
-  `game/backup.js`, not `game/player-states.js`. Moving a document listener
-  changes its registration order relative to the other keydown and click
-  listeners, so check how the handlers interact before moving it.
-- Board position is split between `game/layout.js` (solver, applying the
-  offset) and `game/controls.js` (the editor panel).
-
-Known issue, confirmed 2026-09-23 and present before the split: pressing
-Space while the page is still booting throws "Cannot read properties of
-null (reading 'playMode')", because the Space shortcut calls
-`requestNewGame` before settings have loaded. `.game-booting` already
-blocks pointer input to the loading chrome; the keyboard shortcut has no
-equivalent guard.
+Present before the `game/` split: pressing Space while the page is still
+booting throws "Cannot read properties of null (reading 'playMode')",
+because the Space shortcut calls `requestNewGame` before settings have
+loaded. `.game-booting` already blocks pointer input to the loading
+chrome; the keyboard shortcut has no equivalent guard.
 
 ## Research designs (creator, not built)
 

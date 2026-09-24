@@ -1,23 +1,10 @@
 'use strict';
 
-// Rank tables: rank windows and date/age formatting, day categories,
-// board-metric and board-shape families, trait rank profiles, recent
-// placements ("ranks won in session"), and the rank list builder.
+// Rank tables: rank windows, local days, and relative ages; day categories;
+// board-metric and board-shape families; recent placements ("ranks won in
+// session"); and the 11-row rank list builder.
 
-//-------RANK WINDOWS AND FORMATTING (guesses, dates, ages, board labels)-------
-
-function formatGuesses(record) {
-  if (record.guesses === 0) return '0';
-  return record.guesses + ' · ' + record.guessIdealRisk + ' ideal · '
-    + record.guessNonideal + ' off · ' + record.guessPerfect + ' perfect';
-}
-
-// A markless game: the player never placed a single flag. Records from
-// before flagsPlaced was measured have it undefined and never qualify —
-// the status is only claimed where it is known.
-function isMarkless(record) {
-  return record.flagsPlaced === 0;
-}
+//-------RANK WINDOWS AND AGES (local days, windows, relative ages)-------
 
 // Local midnight `daysBack` days before the given moment.
 function startOfDay(ms, daysBack = 0) {
@@ -65,29 +52,6 @@ function rankWindows(nowMs) {
     { id: 'past-1-min', label: 'past 1 min', startMs: nowMs - 60e3,
       displayOrder: 100, dedupePriority: 0 },
   ];
-}
-
-function difficultyDisplayName(name) {
-  return name.charAt(0).toUpperCase() + name.slice(1);
-}
-
-function boardDisplayLabel() {
-  let board = 'Custom ' + config.width + 'x' + config.height + '-' + config.mines;
-  for (const [name, d] of Object.entries(DIFFICULTIES)) {
-    if (d.width === config.width && d.height === config.height && d.mines === config.mines) {
-      board = difficultyDisplayName(name);
-      break;
-    }
-  }
-  return board;
-}
-
-function formatDate(timestampMs) {
-  const d = new Date(timestampMs);
-  const pad = (n) => String(n).padStart(2, '0');
-  return WEEKDAY_NAMES[d.getDay()] + ' '
-    + d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate())
-    + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
 }
 
 const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -214,6 +178,8 @@ function rankColumns(referenceMs) {
   });
   return columns.sort((a, b) => a.displayOrder - b.displayOrder);
 }
+
+//-------BOARD FAMILIES (exact values, shares, spread bands, shapes)-------
 
 // Exact-value families present in the reference wins, compared against all
 // saved wins. Group once per field so a long recent window does not rescan
@@ -403,81 +369,6 @@ function boardShapeCandidates(referenceWins, wins) {
     });
   }
   return candidates.sort((a, b) => a.displayOrder - b.displayOrder);
-}
-
-// Board values use the player's preferred directions. The original matching-
-// trait solve-time pools still drive the separate tables, not these markers.
-function boardTraitRankProfile(record, comparisons, records) {
-  if (record.outcome !== 'win') return [];
-  const past = records.filter((r) => r.endedAt <= record.endedAt);
-  return comparisons.filter((c) => c.rawValue).flatMap((comparison) => {
-    const spec = { id: comparison.setting || comparison.trait, name: comparison.trait,
-      allOutcomes: true, higher: comparison.higher, value: comparison.rawValue,
-      format: () => comparison.valueText(record),
-      help: 'Ranked quantity: this board’s ' + (comparison.measurement || comparison.trait)
-        + '. ' + (comparison.higher ? 'Higher' : 'Lower') + ' values are preferred by your chosen direction.'
-        + (comparison.help ? ' ' + [].concat(comparison.help(record))[0] : ''),
-    };
-    const row = GameData.rankedRow(record, past, spec, '', {}, 'Lifetime through this game’s completion.');
-    if (!row) return [];
-    return [{ ...row, side: 'board',
-      standing: row.allEqual && row.total > 1
-        ? { band: 'middle', podium: 0, label: 'All equal' } : rankStanding(row.rank, row.total),
-    }];
-  });
-}
-
-// The shared catalog, scope definitions, and historical session model live in
-// game-data.js; the report adds table-compatible standing labels here.
-function performanceTimeRankProfile(record, records, preferences = GameData.defaultsForView, params = {}) {
-  return GameData.rows(record, records, preferences, params).map((row) => ({ ...row,
-    standing: row.allEqual && row.total > 1
-      ? { band: 'middle', podium: 0, label: 'All equal' } : rankStanding(row.rank, row.total),
-  }));
-}
-
-// Fit labels near their exact points with a minimum gap. Pool-adjacent-
-// violators minimizes squared displacement while preserving rank order;
-// subtracting the gaps turns label spacing into a monotonicity constraint.
-function boardTraitLabelLayout(rows, top, height, gap, domain = [0, 100]) {
-  const sorted = rows.filter((row) => row.percentile !== null)
-    .slice().sort((a, b) => a.percentile - b.percentile);
-  const offsets = [0];
-  for (let i = 1; i < sorted.length; i++) {
-    const spacing = sorted[i].labelHeight === undefined ? gap
-      : (sorted[i - 1].labelHeight + sorted[i].labelHeight) / 2 + 2;
-    offsets[i] = offsets[i - 1] + spacing;
-  }
-  const pointY = (row) => top + (row.percentile - domain[0]) / (domain[1] - domain[0]) * height;
-  const blocks = [];
-  for (const [index, row] of sorted.entries()) {
-    blocks.push({ sum: pointY(row) - offsets[index], start: index, count: 1 });
-    while (blocks.length > 1) {
-      const b = blocks[blocks.length - 1], a = blocks[blocks.length - 2];
-      if (a.sum / a.count <= b.sum / b.count) break;
-      blocks.splice(-2, 2, { sum: a.sum + b.sum, start: a.start, count: a.count + b.count });
-    }
-  }
-  const positions = [];
-  for (const block of blocks) {
-    const base = Math.max(top, Math.min(top + height - offsets[sorted.length - 1], block.sum / block.count));
-    for (let i = block.start; i < block.start + block.count; i++) {
-      positions.push({ ...sorted[i], pointY: pointY(sorted[i]), labelY: base + offsets[i] });
-    }
-  }
-  return positions;
-}
-
-// Horizontal band center for one-line labels. The band stays centered while
-// both sides' widest labels fit, shifts toward the narrower side when one
-// needs more, and only when both together exceed the width do the sides
-// share the room in proportion to their widest labels (and then wrap).
-function boardTraitBandCenter(width, performanceWidth, boardWidth, offset) {
-  const room = Math.max(0, width - offset * 2);
-  const total = performanceWidth + boardWidth;
-  const left = total > room ? room * performanceWidth / total
-    : Math.min(Math.max(room / 2, performanceWidth), room - boardWidth);
-  return left + offset;
 }
 
 //-------RECENT PLACEMENTS: COMPUTATION (pure; tests extract this span)-------
@@ -775,15 +666,7 @@ function buildRecentPlacements(record, wins, referenceMs, markReferenceRecord = 
   return box;
 }
 
-// Appends the finished game to its mode's history and returns that mode's
-// full record list (the appended object included, so identity search works).
-function appendGameRecord(record) {
-  const key = modeKey();
-  if (!(key in history)) history[key] = [];
-  history[key].push(record);
-  persistUserdata('history', history);
-  return history[key];
-}
+//-------RANK LISTS (the 11-row ranked table)-------
 
 // Visible slice of a ranked list, always the full 11 rows when the list has
 // them (a constant row count keeps a chart's height stable across re-sorts,
@@ -796,53 +679,6 @@ function windowBounds(myIndex, length) {
   const end = Math.min(length, myIndex + 6);
   return [Math.max(0, end - 11), end];
 }
-
-// Average-time charts group wins by an input/performance value, then plot
-// that value against the group's average solve time. This keeps the useful
-// relationship from the former ranked tables without spending a column on
-// sample count. Mouse path buckets at 100px, IOS at 0.01, and the two path
-// ratios at 10px; integer measurements group exactly. `has` keeps legacy
-// records that predate a measurement (and records where a ratio is
-// undefined) off that chart rather than inventing a value.
-const AVERAGE_SCATTER_SPECS = [
-  { label: 'clicks', value: (s) => s.clicks },
-  { label: '3BV', value: (s) => s.bv3 },
-  { label: 'mouse path', value: (s) => Math.round(s.mousePathPx / 100) * 100 },
-  {
-    label: 'zeros',
-    value: (s) => s.zeroCount,
-    has: (s) => typeof s.zeroCount === 'number',
-  },
-  {
-    label: 'islands',
-    value: (s) => s.islandCount,
-    has: (s) => typeof s.islandCount === 'number',
-  },
-  {
-    label: 'max number',
-    value: (s) => s.maxAdjacent,
-    has: (s) => typeof s.maxAdjacent === 'number',
-  },
-  { label: 'clicks over 3BV', value: (s) => s.clicks - s.bv3 },
-  {
-    label: 'IOS',
-    value: (s) => Number(iosOf(s).toFixed(2)),
-    has: (s) => iosOf(s) !== undefined,
-    // IOS is only defined for wins, so a winrate view of it would show
-    // 100% everywhere; the chart sits the winrate mode out.
-    winBound: true,
-  },
-  {
-    label: 'path per click',
-    value: (s) => Math.round((s.mousePathPx / s.clicks) / 10) * 10,
-    has: (s) => s.clicks > 0,
-  },
-  {
-    label: 'path per 3BV',
-    value: (s) => Math.round((s.mousePathPx / s.bv3) / 10) * 10,
-    has: (s) => s.bv3 > 0,
-  },
-];
 
 // Every list renders its full 11-row window around the player's row (see
 // windowBounds); a mediocre placement still shows its 5 neighbors above and

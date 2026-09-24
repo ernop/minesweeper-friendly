@@ -26,11 +26,11 @@ pages must load storage.js, game-data.js, and settings-core.js before their own 
 
 The former single `minesweeper.js` is split by area into classic scripts
 in `game/` (user request 2026-09-23: split it "to some kind of logical
-division ... to make working with this file easy and sensible"). The split
-moved code verbatim; only two blocks changed position (the play-mode code
-now follows board play, and the storage hooks moved into `main.js`), and
-section markers were added where an old heading no longer described its
-code. The rules:
+division ... to make working with this file easy and sensible"; then
+"review and finish the move now properly"). Code moved verbatim: a first
+pass split the file in order, and a second pass the same day moved each
+misplaced piece into the file of its area. Section markers inside each
+file name what its parts hold. The rules:
 
 - The files share one global scope and load in `index.html` order. Code
   that runs at load time may use only what its own file or an earlier file
@@ -48,17 +48,17 @@ Files, in load order:
 
 | File | Holds |
 | --- | --- |
-| `core.js` | constants, the current game's state, DOM handles |
-| `layout.js` | board position solver and wiring, docked columns, clearance |
-| `play.js` | LCDs, generator glue, new-game flow, reveal/flag/chord, win/loss, A just universe |
-| `play-modes.js` | Pregen 10, Endgame drill, Board lab, trials on the live board |
+| `core.js` | the current game's state, shared DOM handles (incl. the page status line) |
+| `layout.js` | board position solver, wiring, and editor; zoom; docked columns; clearance |
+| `play.js` | top panel (LCDs, face), generator glue and Generator menu, new-game flow, reveal/flag/chord, win/loss, A just universe |
+| `play-modes.js` | Mode menu, mode predicates and labels; Pregen 10, Endgame drill, Board lab, trials on the live board |
 | `evaluation.js` | game-end evaluation: pure verdict model, live capture |
-| `results.js` | the saved record (`reportResult`), after-game report, result view |
-| `history.js` | record schema, per-mode history, mode keys, normalization, transfer cleaning |
-| `rankings.js` | rank windows, date/age formatting, day categories, board families, ranks won in session, rank lists |
-| `charts.js` | axis ticks, trend lines, the (?) help tip, scatter and average-time charts |
+| `results.js` | the saved record (`reportResult`), after-game report, result view, High scores view |
+| `history.js` | record version stamps and schema, per-mode history, mode keys, normalization, transfer cleaning |
+| `rankings.js` | rank windows and relative ages, day categories, board families, ranks won in session, rank lists |
+| `charts.js` | chart basics (SVG namespace, displayed numbers, sparkline sizes), axis ticks, trend lines, the (?) help tip, scatter and average-time charts |
 | `trial-review.js` | after-trial rank rows, identity review, run overlays |
-| `game-data-chart.js` | the game data chart (0–100% band) and its views |
+| `game-data-chart.js` | game data: pure ranking and label layout, then the 0–100% band and its views |
 | `result-ranks.js` | `renderRanks`: result tables and charts in section order |
 | `input-trace.js` | the raw input trace |
 | `replay-model.js` | path and choice replay, pure part |
@@ -68,10 +68,10 @@ Files, in load order:
 | `metrics-panel.js` | left stats panel: session heading, live rows, motion charts, scheduling |
 | `session-stats.js` | session series computation, event recording, startup backfill |
 | `session-charts.js` | the one session picker, session controls and charts |
-| `player-states.js` | player state tags |
-| `controls.js` | board input events, difficulty tabs, board position editor, zoom |
+| `player-states.js` | player state tags and their menu |
+| `controls.js` | board input events, new-game shortcut, difficulty tabs, custom board, see-scores button |
 | `backup.js` | history/trace export and import, data-format card |
-| `main.js` | storage hooks, mode/generator switchers, `init` (last) |
+| `main.js` | storage hooks, static chrome, `init` (last) |
 
 Serve with `python3 -m http.server 8018 --bind 127.0.0.1` and open exactly
 `http://127.0.0.1:8018/`.

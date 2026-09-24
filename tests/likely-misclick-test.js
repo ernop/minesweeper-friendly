@@ -13,7 +13,6 @@ const context = {
   config: { width: 3 },
   cells: Array.from({ length: 9 }, () => ({ flagged: false, mine: false })),
   activeFlagEpisodes: new Map(),
-  LIKELY_MISCLICK_MAX_MS: 1000,
 };
 vm.createContext(context);
 vm.runInContext(source.slice(start, end), context);

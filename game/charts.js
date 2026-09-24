@@ -1,7 +1,33 @@
 'use strict';
 
-// Chart building blocks: axis ticks, Theil–Sen trend lines, the shared (?)
-// help tip, scatter plots, and the average-time charts.
+// Chart building blocks: the SVG namespace, displayed numbers, sparkline
+// sizes, axis ticks, Theil–Sen trend lines, the shared (?) help tip, scatter
+// plots, and the average-time charts.
+
+//-------CHART BASICS (SVG namespace, displayed numbers, sparkline sizes)-------
+
+// A displayed number: NaN means a formula was computed but degenerated
+// (e.g. sample entropy with no matching windows) — for display both are
+// one thing: not measurable here.
+function displayableNumber(v) {
+  return v === undefined || Number.isNaN(v) ? undefined : v;
+}
+
+// Compact numeric form for sparkline axis labels; the units live in the
+// value column of the same row.
+function sparkAxisNumber(v) {
+  if (Math.abs(v) >= 10000) return (v / 1000).toPrecision(3) + 'k';
+  if (Math.abs(v) >= 100) return String(Math.round(v));
+  if (v === 0) return '0';
+  return v.toPrecision(2);
+}
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+// Chart geometries: small for the live panel's rows, large for the
+// after-game charts inline at the page bottom.
+const SPARK_SMALL = { width: 150, height: 46, left: 34, bottom: 11, dotR: 1.7, labelClass: 'spark-label' };
+const SPARK_LARGE = { width: 230, height: 130, left: 40, bottom: 14, dotR: 2.5, labelClass: 'spark-label spark-label-big' };
 
 //-------CHART AXES (tick placement)-------
 
@@ -386,6 +412,53 @@ function buildScatter(wins, me, fx, fy, xLabel, yLabel, meLabel, ageInfoOf, opts
   list.append(svg);
   return list;
 }
+
+// Average-time charts group wins by an input/performance value, then plot
+// that value against the group's average solve time. This keeps the useful
+// relationship from the former ranked tables without spending a column on
+// sample count. Mouse path buckets at 100px, IOS at 0.01, and the two path
+// ratios at 10px; integer measurements group exactly. `has` keeps legacy
+// records that predate a measurement (and records where a ratio is
+// undefined) off that chart rather than inventing a value.
+const AVERAGE_SCATTER_SPECS = [
+  { label: 'clicks', value: (s) => s.clicks },
+  { label: '3BV', value: (s) => s.bv3 },
+  { label: 'mouse path', value: (s) => Math.round(s.mousePathPx / 100) * 100 },
+  {
+    label: 'zeros',
+    value: (s) => s.zeroCount,
+    has: (s) => typeof s.zeroCount === 'number',
+  },
+  {
+    label: 'islands',
+    value: (s) => s.islandCount,
+    has: (s) => typeof s.islandCount === 'number',
+  },
+  {
+    label: 'max number',
+    value: (s) => s.maxAdjacent,
+    has: (s) => typeof s.maxAdjacent === 'number',
+  },
+  { label: 'clicks over 3BV', value: (s) => s.clicks - s.bv3 },
+  {
+    label: 'IOS',
+    value: (s) => Number(iosOf(s).toFixed(2)),
+    has: (s) => iosOf(s) !== undefined,
+    // IOS is only defined for wins, so a winrate view of it would show
+    // 100% everywhere; the chart sits the winrate mode out.
+    winBound: true,
+  },
+  {
+    label: 'path per click',
+    value: (s) => Math.round((s.mousePathPx / s.clicks) / 10) * 10,
+    has: (s) => s.clicks > 0,
+  },
+  {
+    label: 'path per 3BV',
+    value: (s) => Math.round((s.mousePathPx / s.bv3) / 10) * 10,
+    has: (s) => s.bv3 > 0,
+  },
+];
 
 // A chart's eligible wins. The finite check is a final guard against
 // malformed ratios reaching SVG axis math.

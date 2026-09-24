@@ -11,15 +11,16 @@ const path = require('path');
 const repo = path.join(__dirname, '..');
 vm.runInThisContext(fs.readFileSync(path.join(repo, 'game-data.js'), 'utf8'));
 const source = require('./game-source.js').source;
-const startIdx = source.indexOf('//-------RECENT PLACEMENTS: COMPUTATION');
-const endIdx = source.indexOf('//-------RECENT PLACEMENTS: DISPLAY');
-if (startIdx === -1 || endIdx === -1) throw new Error('section markers not found');
-vm.runInThisContext(source.slice(startIdx, endIdx));
-vm.runInThisContext(source.slice(source.indexOf('function startOfDay('),
-  source.indexOf('function difficultyDisplayName(')));
-vm.runInThisContext(source.slice(source.indexOf('const WEEKDAY_NAMES ='),
-  source.indexOf('// Relative age')));
-vm.runInThisContext(source.slice(source.indexOf('//-------DAY CATEGORIES'), startIdx));
+function section(from, to) {
+  const start = source.indexOf(from);
+  const end = source.indexOf(to, start);
+  if (start === -1 || end === -1) throw new Error('section markers not found: ' + from);
+  return source.slice(start, end);
+}
+vm.runInThisContext(section('//-------RECENT PLACEMENTS: COMPUTATION', '//-------RECENT PLACEMENTS: DISPLAY'));
+vm.runInThisContext(section('//-------RANK WINDOWS AND AGES', '//-------DAY CATEGORIES'));
+vm.runInThisContext(section('//-------DAY CATEGORIES', '//-------RECENT PLACEMENTS: COMPUTATION'));
+vm.runInThisContext(section('//-------GAME DATA RANKING', '//-------GAME DATA CHART'));
 
 let checks = 0;
 function assertEq(name, actual, want) {

@@ -734,10 +734,6 @@ function justiceEventDetail(detail, index) {
 
 //-------GAME-END EVALUATION: CAPTURE (reads the live board at the fatal act)-------
 
-// Per-event Justice details of the current game ({type, clearWays,
-// totalWays}), pushed by attemptJustice for the end-of-game recap.
-let justiceDetails = [];
-
 // Facts common to every globally consistent visible-information layout:
 // the fact map (1 = certain mine, 2 = proven safe), completeness status,
 // and the covered safe/mine lists. The same canonical prover feeds odds.

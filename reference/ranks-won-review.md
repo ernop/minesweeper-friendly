@@ -173,9 +173,9 @@ category discovery from rendering and from duplicate collapsing.
 - `docs/product/rankings.md`, “Rank lists” and “Recent placements”: documented policy.
 - `game/rankings.js` (`rankWindows`, `rankColumns`, `boardShapeCandidates`,
   `dedupeRankCandidates`, `recentPlacementsSummary`, `buildRecentPlacements`),
-  `game/result-ranks.js` (`renderRanks`), `game/results.js` (`renderResult`),
-  `game/controls.js` (`showScoresForCurrentMode`), and `game/history.js`
-  (`modeKey`); these were all in the former single `minesweeper.js`.
+  `game/result-ranks.js` (`renderRanks`), `game/results.js` (`renderResult`,
+  `showScoresForCurrentMode`), and `game/history.js` (`modeKey`); these were
+  all in the former single `minesweeper.js`.
 - `settings-core.js`: `RECENT_PLACEMENTS_WINDOWS`, `collapseDuplicateCharts`,
   and the shown-things options.
 - Existing `node tests/recent-placements-test.js`: all 50 checks passed.

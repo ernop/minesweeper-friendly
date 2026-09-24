@@ -1,9 +1,24 @@
 'use strict';
 
-// Play history: the game record schema, per-mode history in RAM, mode keys,
-// legacy normalization, and transfer cleaning for imports.
+// Play history: record version stamps and the game record schema, per-mode
+// history in RAM and appending to it, mode keys, legacy normalization, and
+// transfer cleaning for imports.
 
 //-------PLAY HISTORY (every finished game kept per mode)-------
+
+// Version stamps each record carries: the random stream, the board
+// placement algorithm, and the Justice rule its game ran under.
+const RNG_VERSION = GameRandom.VERSION;
+// One version string per board generator (generators.js); a record's
+// boardVersion names the exact placement algorithm its seed replays
+// through. The default generator's string predates the registry.
+const BOARD_VERSION = BoardGenerators.byId(BoardGenerators.DEFAULT_ID).version;
+const BOARD_VERSIONS = new Set(BoardGenerators.SPECS.map((g) => g.version));
+const JUSTICE_VERSION = 'sealed-pocket-mercy-v2';
+const JUSTICE_VERSIONS = new Set([
+  'sealed-pocket-mercy-v1',
+  JUSTICE_VERSION,
+]);
 
 // The game-record schema: one record per finished game, win or loss,
 // holding only the primary measurements; every other displayed stat is
@@ -97,11 +112,28 @@ const GAME_RECORD_SCHEMA = [
   { field: 'justiceSaves', valid: (v) => v === undefined || isNumber(v), example: '0', describe: 'historical field written only during part of 2026-08-23; no longer recorded or shown anywhere \u2014 the player\u2019s point of view is the only one that exists, and a forced flip is neither a life nor a death; accepted so those records stay valid' },
 ];
 
+// A markless game: the player never placed a single flag. Records from
+// before flagsPlaced was measured have it undefined and never qualify —
+// the status is only claimed where it is known.
+function isMarkless(record) {
+  return record.flagsPlaced === 0;
+}
+
 // Records are grouped by mode key and kept in chronological order. The RAM
 // copy of the whole history (userdata 'history', filled by userdataReady);
 // scalar records are small enough that all of them stay in RAM — revisit
 // only if that ever stops being true.
 let history = null;
+
+// Appends the finished game to its mode's history and returns that mode's
+// full record list (the appended object included, so identity search works).
+function appendGameRecord(record) {
+  const key = modeKey();
+  if (!(key in history)) history[key] = [];
+  history[key].push(record);
+  persistUserdata('history', history);
+  return history[key];
+}
 
 // The top score key: everything that determines how a board is made and
 // played — board parameters, play mode, and the board generator with its
@@ -128,11 +160,6 @@ function topScoreKeyOf(params, playMode, generator) {
 
 function modeKey() {
   return topScoreKeyOf(config, settings.playMode, gameGenerator);
-}
-
-function playModeLabel(id) {
-  const spec = PLAY_MODES.find((m) => m.id === (id || settings.playMode));
-  return spec ? spec.label : String(id);
 }
 
 function normalizeHistoryKey(key) {

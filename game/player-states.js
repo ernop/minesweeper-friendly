@@ -1,6 +1,6 @@
 'use strict';
 
-// Player states: the player's session tags, toggled in the sidebar and
+// Player states: the player's session tags, toggled in the sidebar menu and
 // stamped onto every finished game.
 
 //-------PLAYER STATES (session tags stamped onto finished games)-------
@@ -114,4 +114,18 @@ statesAddForm.addEventListener('submit', (event) => {
   rememberPreference('drafts', { ...settings.drafts, stateName: '' });
   setStatesMenuOpen(false);
   renderStates();
+});
+
+document.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape') return;
+  if (!statesMenu.hidden) setStatesMenuOpen(false);
+});
+
+// A click outside the open states menu closes it; the menu's own button
+// is excluded because its handler already toggles.
+document.addEventListener('click', (event) => {
+  if (!statesMenu.hidden
+      && !statesMenu.contains(event.target) && !statesAddBtn.contains(event.target)) {
+    setStatesMenuOpen(false);
+  }
 });

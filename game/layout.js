@@ -1,8 +1,8 @@
 'use strict';
 
-// Board position (a pure constraint solver, then its page wiring) and page
-// layout: docked sidebar and game data columns, Justice callout placement,
-// and result clearance.
+// Board position (a pure constraint solver, its page wiring, and the position
+// editor), zoom (cell size), and page layout: docked sidebar and game data
+// columns, Justice callout placement, and result clearance.
 
 //-------PERSISTENT BOARD POSITION (pure constraint solver)-------
 
@@ -95,6 +95,14 @@ function constrainBoardOffset(base, bounds, exclusions, preferredX, preferredY) 
 //-------PERSISTENT BOARD POSITION END-------
 
 //-------PAGE LAYOUT (applied position, docked columns, clearance)-------
+
+const boardPositionButton = document.getElementById('board-position-btn');
+const boardPositionPanel = document.getElementById('board-position-panel');
+const boardPositionX = document.getElementById('board-position-x');
+const boardPositionXNumber = document.getElementById('board-position-x-number');
+const boardPositionY = document.getElementById('board-position-y');
+const boardPositionYNumber = document.getElementById('board-position-y-number');
+const boardPositionDragSurface = document.getElementById('board-position-drag-surface');
 
 let appliedBoardOffsetX = 0;
 let appliedBoardOffsetY = 0;
@@ -209,26 +217,6 @@ function gameDataColumnWanted() {
     && !Trial.isPlayMode(settings.playMode);
 }
 
-function clearResultStats() {
-  resultStats.textContent = '';
-  gameDataColumn.textContent = '';
-}
-
-// Two lines: the outcome with its board, mode, and generator, then when.
-function setResultSummary(lead, generatorLabel, when) {
-  const leadNode = document.createElement('span');
-  leadNode.className = 'result-summary-lead';
-  leadNode.textContent = lead;
-  const context = document.createElement('span');
-  context.className = 'result-summary-context';
-  context.textContent = [boardDisplayLabel(), playModeLabel(), generatorLabel]
-    .filter((part) => part !== null).join(' \u00b7 ');
-  const whenNode = document.createElement('span');
-  whenNode.className = 'result-summary-when';
-  whenNode.textContent = when;
-  resultSummary.replaceChildren(leadNode, ' ', context, '\n', whenNode);
-}
-
 function placeGameData() {
   const docked = pageLayout.classList.contains('game-data-docked');
   const host = (docked ? resultStats : gameDataColumn).querySelector('.board-time-profile-host');
@@ -306,4 +294,165 @@ function syncResultClearance() {
   for (const section of sections) {
     if (section !== target) section.style.removeProperty('--result-overflow');
   }
+}
+
+//-------BOARD POSITION EDITOR (the position panel controls)-------
+
+function setBoardPositionPreference(x, y, persist) {
+  settings.boardOffsetX = Math.max(-2000, Math.min(2000, Math.round(x)));
+  settings.boardOffsetY = Math.max(-1000, Math.min(2000, Math.round(y)));
+  syncBoardPositionInputs();
+  syncBoardLayout();
+  if (persist) saveSettings();
+}
+
+function setBoardPositionEditing(open) {
+  rememberPanel('boardPosition', open);
+  if (!open && stopBoardPositionDrag !== null) stopBoardPositionDrag();
+  boardPositionPanel.hidden = !open;
+  boardPositionDragSurface.hidden = !open;
+  boardPositionButton.setAttribute('aria-expanded', String(open));
+  syncBoardLayout();
+  if (open) boardPositionDragSurface.focus({ preventScroll: true });
+  else boardPositionButton.focus({ preventScroll: true });
+}
+
+function bindBoardPositionInput(range, number, axis) {
+  const apply = (source, persist) => {
+    if (source.value === '' || !Number.isFinite(Number(source.value))) return;
+    const value = Number(source.value);
+    const x = axis === 'x' ? value : settings.boardOffsetX;
+    const y = axis === 'y' ? value : settings.boardOffsetY;
+    setBoardPositionPreference(x, y, persist);
+  };
+  range.addEventListener('input', () => apply(range, false));
+  range.addEventListener('change', () => apply(range, true));
+  number.addEventListener('change', () => apply(number, true));
+}
+
+function initBoardPositionControls() {
+  syncBoardPositionInputs();
+  boardPositionButton.addEventListener('click', () => {
+    setBoardPositionEditing(boardPositionPanel.hidden);
+  });
+  document.getElementById('board-position-done').addEventListener('click', () => {
+    setBoardPositionEditing(false);
+  });
+  document.getElementById('board-position-reset').addEventListener('click', () => {
+    setBoardPositionPreference(0, 0, true);
+  });
+  bindBoardPositionInput(boardPositionX, boardPositionXNumber, 'x');
+  bindBoardPositionInput(boardPositionY, boardPositionYNumber, 'y');
+
+  boardPositionDragSurface.addEventListener('keydown', (event) => {
+    const deltas = {
+      ArrowLeft: [-1, 0],
+      ArrowRight: [1, 0],
+      ArrowUp: [0, -1],
+      ArrowDown: [0, 1],
+    };
+    if (!(event.key in deltas)) {
+      if (event.key === 'Escape') setBoardPositionEditing(false);
+      return;
+    }
+    event.preventDefault();
+    const scale = event.shiftKey ? 10 : 1;
+    const [dx, dy] = deltas[event.key];
+    setBoardPositionPreference(
+      settings.boardOffsetX + dx * scale,
+      settings.boardOffsetY + dy * scale,
+      true);
+  });
+
+  boardPositionDragSurface.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0 || stopBoardPositionDrag !== null) return;
+    event.preventDefault();
+    boardPositionDragSurface.focus({ preventScroll: true });
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const preferenceX = settings.boardOffsetX;
+    const preferenceY = settings.boardOffsetY;
+    const move = (ev) => {
+      if (ev.pointerId !== event.pointerId) return;
+      setBoardPositionPreference(
+        preferenceX + ev.clientX - startX,
+        preferenceY + ev.clientY - startY,
+        false);
+    };
+    const up = (ev) => {
+      if (ev.pointerId !== event.pointerId) return;
+      move(ev);
+      stopBoardPositionDrag();
+    };
+    const cancel = (ev) => {
+      if (ev.pointerId === event.pointerId) stopBoardPositionDrag();
+    };
+    const stop = () => {
+      document.removeEventListener('pointermove', move);
+      document.removeEventListener('pointerup', up);
+      document.removeEventListener('pointercancel', cancel);
+      window.removeEventListener('blur', stop);
+      stopBoardPositionDrag = null;
+      saveSettings();
+    };
+    stopBoardPositionDrag = stop;
+    document.addEventListener('pointermove', move);
+    document.addEventListener('pointerup', up);
+    document.addEventListener('pointercancel', cancel);
+    window.addEventListener('blur', stop);
+  });
+
+  boardPositionPanel.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') setBoardPositionEditing(false);
+  });
+
+  window.visualViewport.addEventListener('resize', placeBoardPositionPanel);
+  window.visualViewport.addEventListener('scroll', placeBoardPositionPanel);
+
+  if (typeof ResizeObserver !== 'undefined') {
+    const observer = new ResizeObserver(scheduleBoardLayout);
+    observer.observe(topRight);
+    observer.observe(scoresNav);
+    observer.observe(gameFrame);
+    observer.observe(resultsBox);
+    observer.observe(justiceLive);
+    observer.observe(difficultyTabs);
+    observer.observe(metricsPanel);
+    observer.observe(boardPositionPanel);
+  }
+}
+
+//-------ZOOM (the persistent cell size)-------
+
+function applyCellSize() {
+  document.getElementById('zoom-select').value = String(settings.cellSize);
+  document.documentElement.style.setProperty('--cell-size', settings.cellSize + 'px');
+  applyBoardPosition();
+  if (tracing()) recordLayout();
+  syncJusticePlacement();
+  syncResultClearance();
+}
+
+function initCellSizeControl() {
+  const select = document.getElementById('zoom-select');
+  select.replaceChildren();
+  const definition = SETTINGS_SCHEMA.find((s) => s.field === 'cellSize');
+  for (const size of definition.choices) {
+    const option = document.createElement('option');
+    option.value = String(size);
+    option.textContent = String(size);
+    select.appendChild(option);
+  }
+  applyCellSize();
+  select.disabled = false;
+  select.addEventListener('change', () => {
+    const size = Number(select.value);
+    if (!definition.valid(size)) {
+      select.value = String(settings.cellSize);
+      return;
+    }
+    settings.cellSize = size;
+    saveSettings();
+    applyCellSize();
+  });
 }

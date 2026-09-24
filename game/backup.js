@@ -1,11 +1,10 @@
 'use strict';
 
-// History backup: export and import of history and traces, the data-format
-// reference card, and the states-menu close handlers.
+// History backup: export and import of history and traces, and the
+// data-format reference card.
 
 //-------BACKUP (export / import of the play history)-------
 
-const backupStatus = document.getElementById('backup-status');
 const importPanel = document.getElementById('import-panel');
 const importText = document.getElementById('import-text');
 const importFileInput = document.getElementById('import-file-input');
@@ -117,6 +116,16 @@ document.getElementById('import-btn').addEventListener('click', () => {
   rememberPanel('importHistory', !importPanel.hidden);
 });
 
+document.getElementById('import-apply').addEventListener('click', () => importHistory(importText.value));
+
+document.getElementById('import-open').addEventListener('click', () => importFileInput.click());
+
+importFileInput.addEventListener('change', () => {
+  const file = importFileInput.files[0];
+  if (file) file.text().then(importHistory);
+  importFileInput.value = '';
+});
+
 const formatPanel = document.getElementById('format-panel');
 
 document.getElementById('format-btn').addEventListener('click', () => {
@@ -124,28 +133,7 @@ document.getElementById('format-btn').addEventListener('click', () => {
   rememberPanel('dataFormat', !formatPanel.hidden);
 });
 
-//-------SETTINGS ENTRY (the full page settings.html holds the controls)-------
-
-// The in-page settings drawer became a full page on 2026-08-23: the
-// "settings" opener in the top-right is now a plain link to settings.html
-// (see index.html), which shares this page's schema (settings-core.js)
-// and database (storage.js). Changes save straight to the shared
-// database; this page reads them fresh on every load, and the return
-// trip from settings.html is a load.
-
-document.addEventListener('keydown', (event) => {
-  if (event.key !== 'Escape') return;
-  if (!statesMenu.hidden) setStatesMenuOpen(false);
-});
-
-// A click outside the open states menu closes it; the menu's own button
-// is excluded because its handler already toggles.
-document.addEventListener('click', (event) => {
-  if (!statesMenu.hidden
-      && !statesMenu.contains(event.target) && !statesAddBtn.contains(event.target)) {
-    setStatesMenuOpen(false);
-  }
-});
+//-------DATA FORMAT CARD (the record and preference schemas as a reference)-------
 
 // The data-format reference card, generated from both schemas and
 // DIFFICULTIES so it always matches what the code writes and accepts.
@@ -210,13 +198,3 @@ function buildFormatPanel() {
     + 'recomputed from them at display time.';
   recordBlock.append(table, recordNote);
 }
-
-document.getElementById('import-apply').addEventListener('click', () => importHistory(importText.value));
-
-document.getElementById('import-open').addEventListener('click', () => importFileInput.click());
-
-importFileInput.addEventListener('change', () => {
-  const file = importFileInput.files[0];
-  if (file) file.text().then(importHistory);
-  importFileInput.value = '';
-});

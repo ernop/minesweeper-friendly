@@ -1,10 +1,59 @@
 'use strict';
 
-// One game on the board: LCDs, board helpers, generator glue, the new-game
-// flow, reveal / flag / chord, win and loss, and A just universe
-// (sealed-pocket mercy, misclick facts, the guess ledger).
+// One game on the board: the top panel (LCDs and face), board helpers, the
+// board generator glue and Generator menu, the new-game flow, reveal / flag /
+// chord, win and loss, and A just universe (sealed-pocket mercy, misclick
+// facts, the guess ledger).
 
-//-------LCD DISPLAYS-------
+//-------TOP PANEL (LCD digits, face icons)-------
+
+const LCD_MIN = -99;
+const LCD_MAX = 999;
+const TIMER_CAP_SECONDS = 999;
+
+// Seven-segment layout in a 13x23 viewBox. Segment -> polygon points.
+const SEGMENT_POINTS = {
+  A: '1,0 12,0 10,2 3,2',
+  B: '13,1 13,11 11,9.5 11,3',
+  C: '13,12 13,22 11,20 11,13.5',
+  D: '1,23 3,21 10,21 12,23',
+  E: '0,12 2,13.5 2,20 0,22',
+  F: '0,1 2,3 2,9.5 0,11',
+  G: '1.5,11.5 3,10.5 10,10.5 11.5,11.5 10,12.5 3,12.5',
+};
+
+const DIGIT_SEGMENTS = {
+  '0': 'ABCDEF',
+  '1': 'BC',
+  '2': 'ABGED',
+  '3': 'ABGCD',
+  '4': 'FGBC',
+  '5': 'AFGCD',
+  '6': 'AFGEDC',
+  '7': 'ABC',
+  '8': 'ABCDEFG',
+  '9': 'ABCFGD',
+  '-': 'G',
+};
+
+// The status button shows a still dove (peace) during normal play,
+// an olive branch on win, and a broken heart on loss.
+const DOVE_BODY = '<path d="M6 9.5 Q6.5 5.8 10.5 6.3 Q14.5 6.8 16.5 9 Q20.5 10.5 24 9.5 L21.5 12 L23.5 14.5 Q17.5 18.5 12 17.5 Q7 16.5 6 12 Q5.6 10.6 6 9.5 Z" fill="#ffffff" stroke="#000" stroke-width="1.1"/>';
+const DOVE_BEAK = '<path d="M6.2 8.8 L3 10 L6.2 11.2 Z" fill="#f0a020"/>';
+const DOVE_EYE = '<circle cx="8.7" cy="8.8" r="0.75"/>';
+const DOVE_WING_FOLDED = '<path d="M10.5 10.5 Q14.5 8.5 17.5 10 Q14.5 13.5 10.5 10.5 Z" fill="#dddddd" stroke="#000" stroke-width="0.9"/>';
+const OLIVE_BRANCH = '<path d="M3 10.8 Q1.6 12.6 2.4 14.8" fill="none" stroke="#2e7d32" stroke-width="0.9"/><ellipse cx="1.7" cy="12.3" rx="1.4" ry="0.75" transform="rotate(-35 1.7 12.3)" fill="#43a047"/><ellipse cx="3.5" cy="13.9" rx="1.4" ry="0.75" transform="rotate(30 3.5 13.9)" fill="#43a047"/>';
+const BROKEN_HEART = '<path d="M13 21.5 C5.5 15.5 4.5 9.5 8 7.3 C10.6 5.8 12.4 7.6 13 9.2 C13.6 7.6 15.4 5.8 18 7.3 C21.5 9.5 20.5 15.5 13 21.5 Z" fill="#d32f2f" stroke="#000" stroke-width="1"/><path d="M13 8.8 L11.6 11.5 L13.8 14 L12 17 L13.4 19.5" fill="none" stroke="#ffffff" stroke-width="1.3"/>';
+
+const FACE_SVGS = {
+  smile: faceSvg(DOVE_BODY + DOVE_WING_FOLDED + DOVE_EYE + DOVE_BEAK),
+  dead: faceSvg(BROKEN_HEART),
+  cool: faceSvg(DOVE_BODY + DOVE_WING_FOLDED + DOVE_EYE + DOVE_BEAK + OLIVE_BRANCH),
+};
+
+function faceSvg(features) {
+  return '<svg viewBox="0 0 26 26">' + features + '</svg>';
+}
 
 function buildLcd(container) {
   for (let d = 0; d < 3; d++) {
@@ -74,18 +123,6 @@ function generatorAppliesToMode(mode) {
   return mode !== 'single-path-ng' && !Trial.isPlayMode(mode);
 }
 
-function boardLabActive() {
-  return settings.playMode === 'board-lab';
-}
-
-function pregenActive() {
-  return settings.playMode === 'pregen-10-3bv-desc';
-}
-
-function endgameDrillActive() {
-  return settings.playMode === 'endgame-drill';
-}
-
 // The generator the current settings select for the current mode: the
 // chosen id with its stored parameter overrides filled from the schema
 // defaults, or the default generator where the choice does not apply.
@@ -94,10 +131,6 @@ function activeGenerator() {
   const id = settings.boardGenerator;
   return { id, params: BoardGenerators.paramsFrom(id, settings.boardGeneratorParams[id]) };
 }
-
-// Frozen per board at newGame so a mid-board settings import cannot make
-// the finished record disagree with the placement that actually ran.
-let gameGenerator = null;
 
 function placeMines(safeIndex) {
   applyMineMap(BoardGenerators.place(
@@ -141,6 +174,41 @@ function placeMinesForPlayMode(safeIndex) {
   }
   applyMineMap(got.mineAt);
   backupStatus.textContent = '';
+}
+
+function buildBoardGeneratorSwitcher() {
+  const select = document.getElementById('board-generator-select');
+  select.textContent = '';
+  for (const spec of BoardGenerators.SPECS) {
+    const option = document.createElement('option');
+    option.value = spec.id;
+    option.textContent = spec.label;
+    option.title = spec.describe;
+    select.appendChild(option);
+  }
+  select.value = settings.boardGenerator;
+  select.addEventListener('change', () => setBoardGenerator(select.value));
+  refreshGeneratorSelect();
+}
+
+function setBoardGenerator(id) {
+  BoardGenerators.byId(id); // throws on an unknown id
+  if (id === settings.boardGenerator) return;
+  settings.boardGenerator = id;
+  saveSettings();
+  document.getElementById('board-generator-select').value = id;
+  newGame();
+}
+
+// The generator menu is live only in modes that place mines with it;
+// single-path NG carves its own corridor boards and trial sessions use
+// fixed identities, so there the menu is disabled rather than lying.
+function refreshGeneratorSelect() {
+  const select = document.getElementById('board-generator-select');
+  const applies = generatorAppliesToMode(settings.playMode);
+  select.disabled = !applies;
+  select.title = applies
+    ? '' : playModeLabel() + ' builds its boards its own way; the generator applies in the other modes';
 }
 
 //-------GAME FLOW-------
@@ -361,6 +429,8 @@ function setFace(name) {
   faceButton.innerHTML = FACE_SVGS[name];
 }
 
+// FLAG_SVG / MINE_SVG / WRONG_FLAG_SVG live in settings-core.js with the
+// rest of the cell iconography.
 function updateCell(i) {
   const cell = cells[i];
   const el = cellElements[i];
@@ -516,6 +586,7 @@ function cellsTouch(a, b) {
 // Post-hoc physical-misclick heuristic. It deliberately supplements rather
 // than replaces the exact fatal status: a still-active flag on an actual safe
 // cell, placed under one second before an adjacent fatal chord/reveal.
+const LIKELY_MISCLICK_MAX_MS = 1000;
 function annotateLikelyMisclickDeath(evaluation) {
   if (!evaluation || evaluation.result === 'death') return;
   const target = evaluation.action === 'chord'
@@ -703,6 +774,10 @@ let justiceEnabledForGame = null; // frozen from the setting on first reveal
 let justiceEvents = 0;            // qualifying sealed-pocket entries
 let guessEvents = [];             // measured bare unproven clicks this game
 let oddsFailed = false;           // a guess existed but odds could not be measured
+
+// Per-event Justice details of the current game ({type, clearWays,
+// totalWays}), pushed by attemptJustice for the end-of-game recap.
+let justiceDetails = [];
 
 function justiceAppliesToMode() {
   return settings.playMode === 'standard'

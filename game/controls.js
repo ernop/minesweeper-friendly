@@ -1,7 +1,8 @@
 'use strict';
 
 // Board input and page controls: press preview, mouse and keyboard events,
-// difficulty tabs, the board position editor, and zoom (cell size).
+// the new-game shortcut, difficulty tabs, the custom board form, and the
+// see-scores button.
 
 //-------PRESS PREVIEW (held left button)-------
 
@@ -235,7 +236,15 @@ document.addEventListener('keydown', (event) => {
   requestNewGame();
 });
 
-//-------DIFFICULTY TABS-------
+//-------DIFFICULTY TABS, CUSTOM BOARD, AND THE SCORES BUTTON-------
+
+function syncDifficultyTabs() {
+  const matched = settings.difficulty;
+  for (const tab of document.querySelectorAll('#difficulty-tabs a')) {
+    tab.classList.toggle('active', tab.dataset.difficulty === matched);
+  }
+  customForm.hidden = matched !== 'custom' || boardLabActive();
+}
 
 for (const tab of document.querySelectorAll('#difficulty-tabs a')) {
   tab.addEventListener('click', (event) => {
@@ -262,25 +271,6 @@ for (const tab of document.querySelectorAll('#difficulty-tabs a')) {
   });
 }
 
-function showScoresForCurrentMode() {
-  rememberPreference('resultView', 'scores');
-  const modeRecords = history[modeKey()] || [];
-  const wins = modeRecords.filter((record) => record.outcome === 'win');
-  if (wins.length === 0) {
-    renderedResult = null;
-    setResultSummary('High scores',
-      gameGenerator.id === BoardGenerators.DEFAULT_ID ? null : BoardGenerators.displayLabel(gameGenerator),
-      'No wins yet');
-    clearResultStats();
-    resultAnalysis.textContent = '';
-    resultRanks.textContent = '';
-    syncBoardLayout();
-    return;
-  }
-  const latest = wins.reduce((a, b) => a.endedAt > b.endedAt ? a : b);
-  renderResult(latest, modeRecords, { historyView: true });
-}
-
 document.getElementById('see-scores-btn').addEventListener('click', showScoresForCurrentMode);
 
 customForm.addEventListener('submit', (event) => {
@@ -298,166 +288,3 @@ customForm.addEventListener('submit', (event) => {
   syncDifficultyTabs();
   newGame();
 });
-
-//-------BOARD POSITION EDITOR (the position panel controls)-------
-
-function setBoardPositionPreference(x, y, persist) {
-  settings.boardOffsetX = Math.max(-2000, Math.min(2000, Math.round(x)));
-  settings.boardOffsetY = Math.max(-1000, Math.min(2000, Math.round(y)));
-  syncBoardPositionInputs();
-  syncBoardLayout();
-  if (persist) saveSettings();
-}
-
-function setBoardPositionEditing(open) {
-  rememberPanel('boardPosition', open);
-  if (!open && stopBoardPositionDrag !== null) stopBoardPositionDrag();
-  boardPositionPanel.hidden = !open;
-  boardPositionDragSurface.hidden = !open;
-  boardPositionButton.setAttribute('aria-expanded', String(open));
-  syncBoardLayout();
-  if (open) boardPositionDragSurface.focus({ preventScroll: true });
-  else boardPositionButton.focus({ preventScroll: true });
-}
-
-function bindBoardPositionInput(range, number, axis) {
-  const apply = (source, persist) => {
-    if (source.value === '' || !Number.isFinite(Number(source.value))) return;
-    const value = Number(source.value);
-    const x = axis === 'x' ? value : settings.boardOffsetX;
-    const y = axis === 'y' ? value : settings.boardOffsetY;
-    setBoardPositionPreference(x, y, persist);
-  };
-  range.addEventListener('input', () => apply(range, false));
-  range.addEventListener('change', () => apply(range, true));
-  number.addEventListener('change', () => apply(number, true));
-}
-
-function initBoardPositionControls() {
-  syncBoardPositionInputs();
-  boardPositionButton.addEventListener('click', () => {
-    setBoardPositionEditing(boardPositionPanel.hidden);
-  });
-  document.getElementById('board-position-done').addEventListener('click', () => {
-    setBoardPositionEditing(false);
-  });
-  document.getElementById('board-position-reset').addEventListener('click', () => {
-    setBoardPositionPreference(0, 0, true);
-  });
-  bindBoardPositionInput(boardPositionX, boardPositionXNumber, 'x');
-  bindBoardPositionInput(boardPositionY, boardPositionYNumber, 'y');
-
-  boardPositionDragSurface.addEventListener('keydown', (event) => {
-    const deltas = {
-      ArrowLeft: [-1, 0],
-      ArrowRight: [1, 0],
-      ArrowUp: [0, -1],
-      ArrowDown: [0, 1],
-    };
-    if (!(event.key in deltas)) {
-      if (event.key === 'Escape') setBoardPositionEditing(false);
-      return;
-    }
-    event.preventDefault();
-    const scale = event.shiftKey ? 10 : 1;
-    const [dx, dy] = deltas[event.key];
-    setBoardPositionPreference(
-      settings.boardOffsetX + dx * scale,
-      settings.boardOffsetY + dy * scale,
-      true);
-  });
-
-  boardPositionDragSurface.addEventListener('pointerdown', (event) => {
-    if (event.button !== 0 || stopBoardPositionDrag !== null) return;
-    event.preventDefault();
-    boardPositionDragSurface.focus({ preventScroll: true });
-    const startX = event.clientX;
-    const startY = event.clientY;
-    const preferenceX = settings.boardOffsetX;
-    const preferenceY = settings.boardOffsetY;
-    const move = (ev) => {
-      if (ev.pointerId !== event.pointerId) return;
-      setBoardPositionPreference(
-        preferenceX + ev.clientX - startX,
-        preferenceY + ev.clientY - startY,
-        false);
-    };
-    const up = (ev) => {
-      if (ev.pointerId !== event.pointerId) return;
-      move(ev);
-      stopBoardPositionDrag();
-    };
-    const cancel = (ev) => {
-      if (ev.pointerId === event.pointerId) stopBoardPositionDrag();
-    };
-    const stop = () => {
-      document.removeEventListener('pointermove', move);
-      document.removeEventListener('pointerup', up);
-      document.removeEventListener('pointercancel', cancel);
-      window.removeEventListener('blur', stop);
-      stopBoardPositionDrag = null;
-      saveSettings();
-    };
-    stopBoardPositionDrag = stop;
-    document.addEventListener('pointermove', move);
-    document.addEventListener('pointerup', up);
-    document.addEventListener('pointercancel', cancel);
-    window.addEventListener('blur', stop);
-  });
-
-  boardPositionPanel.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') setBoardPositionEditing(false);
-  });
-
-  window.visualViewport.addEventListener('resize', placeBoardPositionPanel);
-  window.visualViewport.addEventListener('scroll', placeBoardPositionPanel);
-
-  if (typeof ResizeObserver !== 'undefined') {
-    const observer = new ResizeObserver(scheduleBoardLayout);
-    observer.observe(topRight);
-    observer.observe(scoresNav);
-    observer.observe(gameFrame);
-    observer.observe(resultsBox);
-    observer.observe(justiceLive);
-    observer.observe(difficultyTabs);
-    observer.observe(metricsPanel);
-    observer.observe(boardPositionPanel);
-  }
-}
-
-//-------PERSISTENT CELL SIZE-------
-
-function applyCellSize() {
-  document.getElementById('zoom-select').value = String(settings.cellSize);
-  document.documentElement.style.setProperty('--cell-size', settings.cellSize + 'px');
-  applyBoardPosition();
-  if (tracing()) recordLayout();
-  syncJusticePlacement();
-  syncResultClearance();
-}
-
-function initCellSizeControl() {
-  const select = document.getElementById('zoom-select');
-  select.replaceChildren();
-  const definition = SETTINGS_SCHEMA.find((s) => s.field === 'cellSize');
-  for (const size of definition.choices) {
-    const option = document.createElement('option');
-    option.value = String(size);
-    option.textContent = String(size);
-    select.appendChild(option);
-  }
-  applyCellSize();
-  select.disabled = false;
-  select.addEventListener('change', () => {
-    const size = Number(select.value);
-    if (!definition.valid(size)) {
-      select.value = String(settings.cellSize);
-      return;
-    }
-    settings.cellSize = size;
-    saveSettings();
-    applyCellSize();
-  });
-}
-
-//-------PERSISTENT CELL SIZE END-------

@@ -1,7 +1,85 @@
 'use strict';
 
-// The game data chart: the 0–100% band ranking this game's performance and
-// its board traits, with its configuration and session-history views.
+// The game data chart: the pure ranking of this game's performance and board
+// traits and their label layout, then the 0–100% band with its configuration
+// and session-history views.
+
+//-------GAME DATA RANKING (pure: trait and performance rows, label layout)-------
+
+// Board values use the player's preferred directions. The original matching-
+// trait solve-time pools still drive the separate tables, not these markers.
+function boardTraitRankProfile(record, comparisons, records) {
+  if (record.outcome !== 'win') return [];
+  const past = records.filter((r) => r.endedAt <= record.endedAt);
+  return comparisons.filter((c) => c.rawValue).flatMap((comparison) => {
+    const spec = { id: comparison.setting || comparison.trait, name: comparison.trait,
+      allOutcomes: true, higher: comparison.higher, value: comparison.rawValue,
+      format: () => comparison.valueText(record),
+      help: 'Ranked quantity: this board’s ' + (comparison.measurement || comparison.trait)
+        + '. ' + (comparison.higher ? 'Higher' : 'Lower') + ' values are preferred by your chosen direction.'
+        + (comparison.help ? ' ' + [].concat(comparison.help(record))[0] : ''),
+    };
+    const row = GameData.rankedRow(record, past, spec, '', {}, 'Lifetime through this game’s completion.');
+    if (!row) return [];
+    return [{ ...row, side: 'board',
+      standing: row.allEqual && row.total > 1
+        ? { band: 'middle', podium: 0, label: 'All equal' } : rankStanding(row.rank, row.total),
+    }];
+  });
+}
+
+// The shared catalog, scope definitions, and historical session model live in
+// game-data.js; the report adds table-compatible standing labels here.
+function performanceTimeRankProfile(record, records, preferences = GameData.defaultsForView, params = {}) {
+  return GameData.rows(record, records, preferences, params).map((row) => ({ ...row,
+    standing: row.allEqual && row.total > 1
+      ? { band: 'middle', podium: 0, label: 'All equal' } : rankStanding(row.rank, row.total),
+  }));
+}
+
+// Fit labels near their exact points with a minimum gap. Pool-adjacent-
+// violators minimizes squared displacement while preserving rank order;
+// subtracting the gaps turns label spacing into a monotonicity constraint.
+function boardTraitLabelLayout(rows, top, height, gap, domain = [0, 100]) {
+  const sorted = rows.filter((row) => row.percentile !== null)
+    .slice().sort((a, b) => a.percentile - b.percentile);
+  const offsets = [0];
+  for (let i = 1; i < sorted.length; i++) {
+    const spacing = sorted[i].labelHeight === undefined ? gap
+      : (sorted[i - 1].labelHeight + sorted[i].labelHeight) / 2 + 2;
+    offsets[i] = offsets[i - 1] + spacing;
+  }
+  const pointY = (row) => top + (row.percentile - domain[0]) / (domain[1] - domain[0]) * height;
+  const blocks = [];
+  for (const [index, row] of sorted.entries()) {
+    blocks.push({ sum: pointY(row) - offsets[index], start: index, count: 1 });
+    while (blocks.length > 1) {
+      const b = blocks[blocks.length - 1], a = blocks[blocks.length - 2];
+      if (a.sum / a.count <= b.sum / b.count) break;
+      blocks.splice(-2, 2, { sum: a.sum + b.sum, start: a.start, count: a.count + b.count });
+    }
+  }
+  const positions = [];
+  for (const block of blocks) {
+    const base = Math.max(top, Math.min(top + height - offsets[sorted.length - 1], block.sum / block.count));
+    for (let i = block.start; i < block.start + block.count; i++) {
+      positions.push({ ...sorted[i], pointY: pointY(sorted[i]), labelY: base + offsets[i] });
+    }
+  }
+  return positions;
+}
+
+// Horizontal band center for one-line labels. The band stays centered while
+// both sides' widest labels fit, shifts toward the narrower side when one
+// needs more, and only when both together exceed the width do the sides
+// share the room in proportion to their widest labels (and then wrap).
+function boardTraitBandCenter(width, performanceWidth, boardWidth, offset) {
+  const room = Math.max(0, width - offset * 2);
+  const total = performanceWidth + boardWidth;
+  const left = total > room ? room * performanceWidth / total
+    : Math.min(Math.max(room / 2, performanceWidth), room - boardWidth);
+  return left + offset;
+}
 
 //-------GAME DATA CHART (the 0–100% band)-------
 

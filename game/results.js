@@ -1,7 +1,7 @@
 'use strict';
 
 // Finishing a game: the saved record (reportResult), the after-game report,
-// and the result view's section model and rendering.
+// the result view's section model and rendering, and the High scores view.
 
 //-------STATS (3BV, as measured on minesweeper.online)-------
 
@@ -667,6 +667,55 @@ function createResultSectionCollector(context) {
   };
 }
 
+function difficultyDisplayName(name) {
+  return name.charAt(0).toUpperCase() + name.slice(1);
+}
+
+function boardDisplayLabel() {
+  let board = 'Custom ' + config.width + 'x' + config.height + '-' + config.mines;
+  for (const [name, d] of Object.entries(DIFFICULTIES)) {
+    if (d.width === config.width && d.height === config.height && d.mines === config.mines) {
+      board = difficultyDisplayName(name);
+      break;
+    }
+  }
+  return board;
+}
+
+function formatDate(timestampMs) {
+  const d = new Date(timestampMs);
+  const pad = (n) => String(n).padStart(2, '0');
+  return WEEKDAY_NAMES[d.getDay()] + ' '
+    + d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate())
+    + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+}
+
+function formatGuesses(record) {
+  if (record.guesses === 0) return '0';
+  return record.guesses + ' · ' + record.guessIdealRisk + ' ideal · '
+    + record.guessNonideal + ' off · ' + record.guessPerfect + ' perfect';
+}
+
+function clearResultStats() {
+  resultStats.textContent = '';
+  gameDataColumn.textContent = '';
+}
+
+// Two lines: the outcome with its board, mode, and generator, then when.
+function setResultSummary(lead, generatorLabel, when) {
+  const leadNode = document.createElement('span');
+  leadNode.className = 'result-summary-lead';
+  leadNode.textContent = lead;
+  const context = document.createElement('span');
+  context.className = 'result-summary-context';
+  context.textContent = [boardDisplayLabel(), playModeLabel(), generatorLabel]
+    .filter((part) => part !== null).join(' \u00b7 ');
+  const whenNode = document.createElement('span');
+  whenNode.className = 'result-summary-when';
+  whenNode.textContent = when;
+  resultSummary.replaceChildren(leadNode, ' ', context, '\n', whenNode);
+}
+
 function renderResult(record, modeRecords, options = {}) {
   if (chartHelpOwner && [resultStats, gameDataColumn, resultRanks].some((el) => el.contains(chartHelpOwner))) hideChartHelpTip();
   renderedResult = { record, modeRecords, options };
@@ -857,4 +906,23 @@ function renderResult(record, modeRecords, options = {}) {
     resultSections.renderInto(resultRanks);
   }
   syncBoardLayout();
+}
+
+function showScoresForCurrentMode() {
+  rememberPreference('resultView', 'scores');
+  const modeRecords = history[modeKey()] || [];
+  const wins = modeRecords.filter((record) => record.outcome === 'win');
+  if (wins.length === 0) {
+    renderedResult = null;
+    setResultSummary('High scores',
+      gameGenerator.id === BoardGenerators.DEFAULT_ID ? null : BoardGenerators.displayLabel(gameGenerator),
+      'No wins yet');
+    clearResultStats();
+    resultAnalysis.textContent = '';
+    resultRanks.textContent = '';
+    syncBoardLayout();
+    return;
+  }
+  const latest = wins.reduce((a, b) => a.endedAt > b.endedAt ? a : b);
+  renderResult(latest, modeRecords, { historyView: true });
 }

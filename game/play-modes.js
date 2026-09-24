@@ -1,7 +1,60 @@
 'use strict';
 
-// Modes that change how boards are dealt or shown: Pregen 10, Endgame
-// drill, Board lab, and trials on the live board.
+// Play modes: the Mode menu, mode predicates, and labels, then the modes that
+// change how boards are dealt or shown: Pregen 10, Endgame drill, Board lab,
+// and trials on the live board.
+
+//-------PLAY MODES (the Mode menu, mode predicates, labels)-------
+
+// The play mode catalog (PLAY_MODES) lives in settings-core.js with the
+// other preference choices.
+
+function boardLabActive() {
+  return settings.playMode === 'board-lab';
+}
+
+function pregenActive() {
+  return settings.playMode === 'pregen-10-3bv-desc';
+}
+
+function endgameDrillActive() {
+  return settings.playMode === 'endgame-drill';
+}
+
+function playModeLabel(id) {
+  const spec = PLAY_MODES.find((m) => m.id === (id || settings.playMode));
+  return spec ? spec.label : String(id);
+}
+
+function buildPlayModeSwitcher() {
+  const select = document.getElementById('play-mode-select');
+  select.textContent = '';
+  for (const mode of PLAY_MODES) {
+    const option = document.createElement('option');
+    option.value = mode.id;
+    option.textContent = mode.label;
+    select.appendChild(option);
+  }
+  select.value = settings.playMode;
+  select.disabled = false;
+  select.addEventListener('change', () => setPlayMode(select.value));
+}
+
+function setPlayMode(id) {
+  if (!PLAY_MODE_IDS.has(id)) throw new Error('unknown play mode ' + id);
+  if (id === settings.playMode) return;
+  if (Trial.isPlayMode(settings.playMode) && trialIsActive()) abandonTrial();
+  if (pregenActive() || id === 'pregen-10-3bv-desc') pregenBatch = null;
+  lastTrialReview = null;
+  settings.playMode = id;
+  saveSettings();
+  document.getElementById('play-mode-select').value = id;
+  refreshGeneratorSelect();
+  // The custom form's visibility depends on the mode (the Board lab's
+  // sliders replace it), not only on the matched difficulty.
+  syncDifficultyTabs();
+  newGame();
+}
 
 //-------PREGENERATED HIGH-3BV MODE-------
 
