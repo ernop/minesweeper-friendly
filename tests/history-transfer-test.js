@@ -4,7 +4,7 @@ const fs = require('fs');
 const vm = require('vm');
 const path = require('path');
 
-const source = fs.readFileSync(path.join(__dirname, '..', 'minesweeper.js'), 'utf8');
+const source = require('./game-source.js').source;
 const start = source.indexOf('//-------PLAY HISTORY: TRANSFER CLEANING (pure)-------');
 const end = source.indexOf('//-------PLAY HISTORY: TRANSFER CLEANING END-------');
 if (start < 0 || end < 0) throw new Error('transfer-cleaning section marker missing');

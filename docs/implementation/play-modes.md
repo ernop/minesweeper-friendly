@@ -19,7 +19,7 @@ Spec: [docs/product/play-modes.md](../product/play-modes.md). Index: [AGENTS.md]
   finishability (iterated `classifyCells` with real flood semantics; a
   work-limit hit rejects). One rng stream drives placement and window
   search, so the accepted seed replays the whole presentation. Budget
-  exhaustion throws. In `minesweeper.js`, `setupEndgameDrill` (called from
+  exhaustion throws. In `game/play-modes.js`, `setupEndgameDrill` (called from
   `newGame` like the pregen hook) applies the deal, marks the presented
   cells revealed, and leaves `gameState` 'ready' with mines placed — the
   existing reveal/flag ready-branches start the timer on first input (an

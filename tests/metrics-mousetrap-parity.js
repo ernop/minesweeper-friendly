@@ -1,6 +1,6 @@
 'use strict';
 // Parity check: the in-page psychometric system (computePsychometrics in
-// minesweeper.js, a port of the mousetrap R package's measures) against the
+// game/trace-metrics.js, a port of the mousetrap R package's measures) against the
 // actual R package, run via analysis/mousetrap/trace_measures.R on the
 // checked-in synthetic trace. Both sides compute per-game means of the same
 // key measures; they must agree to floating-point noise.
@@ -18,7 +18,7 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 
 const repo = path.join(__dirname, '..');
-const source = fs.readFileSync(path.join(repo, 'minesweeper.js'), 'utf8');
+const source = require('./game-source.js').source;
 
 const startMarker = '//-------TRACE METRICS: COMPUTATION';
 const endMarker = '//-------TRACE METRICS: DISPLAY';

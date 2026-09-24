@@ -34,9 +34,12 @@ Index: [AGENTS.md](../../AGENTS.md).
   server `cursor-ide-browser`) also works when registered, but it exists
   only while an IDE browser tab is open and can disappear mid-session,
   so check availability before planning around it.
-- Running game code without a browser: load `minesweeper.js` in Node via
-  `vm.runInThisContext`, not `eval` (the file's 'use strict' makes eval
-  declarations local, so nothing would be defined). Required shims:
+- Running game code without a browser: load the `game/` scripts, in
+  `index.html` order, in Node via `vm.runInThisContext`, not `eval` (each
+  file's 'use strict' makes eval declarations local, so nothing would be
+  defined). `tests/game-source.js` exports `files` (that order), `texts`,
+  and `source` (their concatenation); tests extract marker- or
+  function-delimited spans from `source`. Required shims:
   `document` with `getElementById` (memoize one stub element per id),
   `createElement`/`createElementNS`, `querySelectorAll`,
   `documentElement.style.setProperty`, `addEventListener`; stub elements
@@ -69,7 +72,8 @@ Index: [AGENTS.md](../../AGENTS.md).
   2026-08-19 legacy-history conversion, and the full 2026-08-20
   localStorage-to-IndexedDB migration (fresh start + carried-over data,
   a played game persisting record and trace, import write-through).
-- Quick checks: `node --check minesweeper.js` for JS syntax; a small
+- Quick checks: `for f in game/*.js; do node --check "$f"; done` for JS
+  syntax; a small
   python3 `html.parser` walker for tag balance in `index.html` (void tags:
   meta, link, input, br, hr, img). Node v22 is installed and fine for
   one-shot data conversion scripts.
@@ -107,6 +111,6 @@ Preference verification (2026-09-21): `node tests/settings-state-test.js`
 checks every new preference shape and independent JSON transfer. Browser:
 `node tests/preferences-browser-check.js /path/to/playwright /path/to/chromium`
 uses only `http://127.0.0.1:8099/` in an isolated profile. Include
-`preferences-game.js` between settings-core.js and minesweeper.js in game
-harnesses. Reload begins a fresh unfinished game, but restores the last
+`preferences-game.js` between settings-core.js and the `game/` scripts in
+game harnesses. Reload begins a fresh unfinished game, but restores the last
 finished view/replay when that game's trace is available.

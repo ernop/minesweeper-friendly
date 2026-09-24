@@ -4,7 +4,7 @@ const fs = require('fs');
 const vm = require('vm');
 const path = require('path');
 
-const source = fs.readFileSync(path.join(__dirname, '..', 'minesweeper.js'), 'utf8');
+const source = require('./game-source.js').source;
 function runSection(startMarker, endMarker) {
   const start = source.indexOf(startMarker);
   const end = source.indexOf(endMarker);

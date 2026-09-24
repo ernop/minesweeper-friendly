@@ -3,8 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const source = fs.readFileSync(
-  path.join(__dirname, '..', 'minesweeper.js'), 'utf8');
+const source = require('./game-source.js').source;
 
 let checks = 0;
 function check(name, condition) {

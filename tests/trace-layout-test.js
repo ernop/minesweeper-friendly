@@ -1,6 +1,6 @@
 'use strict';
 // Known-answer checks for the raw-input-trace layout recording in
-// minesweeper.js (extracted between its section markers): the initial
+// game/input-trace.js (extracted between its section markers): the initial
 // layout event at beginTrace, and recordLayoutIfMoved — the geometry
 // comparison that re-records when the board moved without a scroll,
 // resize, or zoom event (e.g. the metrics panel appearing shifts the
@@ -11,7 +11,7 @@ const path = require('path');
 const vm = require('vm');
 
 const repo = path.join(__dirname, '..');
-const source = fs.readFileSync(path.join(repo, 'minesweeper.js'), 'utf8');
+const source = require('./game-source.js').source;
 const start = source.indexOf('//-------RAW INPUT TRACE');
 const end = source.indexOf('//-------PATH REPLAY');
 if (start < 0 || end < 0 || end <= start) {

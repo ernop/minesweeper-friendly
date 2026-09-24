@@ -4,8 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 
-const source = fs.readFileSync(
-  path.join(__dirname, '..', 'minesweeper.js'), 'utf8');
+const source = require('./game-source.js').source;
 const css = fs.readFileSync(path.join(__dirname, '..', 'style.css'), 'utf8');
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const start = source.indexOf('//-------PERSISTENT BOARD POSITION (pure constraint solver)-------');

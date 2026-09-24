@@ -1,6 +1,6 @@
 'use strict';
 // Known-answer tests for the queue (hover-then-later-click) and pace
-// recovery metrics in minesweeper.js: constructed traces whose dwells,
+// recovery metrics in game/trace-metrics.js: constructed traces whose dwells,
 // waits, baselines, and post-mistake gaps are known analytically.
 //
 // Usage: node tests/metrics-queue-recovery-test.js
@@ -10,7 +10,7 @@ const vm = require('vm');
 const path = require('path');
 
 const repo = path.join(__dirname, '..');
-const source = fs.readFileSync(path.join(repo, 'minesweeper.js'), 'utf8');
+const source = require('./game-source.js').source;
 const startIdx = source.indexOf('//-------TRACE METRICS: COMPUTATION');
 const endIdx = source.indexOf('//-------TRACE METRICS: DISPLAY');
 if (startIdx === -1 || endIdx === -1) throw new Error('section markers not found');

@@ -24,7 +24,8 @@ Spec: [docs/product/session-stats.md](../product/session-stats.md). Index: [AGEN
   finished games, computed for cumulative played-time, raw, and N-game
   groupings without changing the exclusive technical ending denominator.
   Three marker-delimited
-  spans in minesweeper.js. COMPUTATION (pure, Node-extractable):
+  spans in game/session-stats.js (COMPUTATION, RECORDING) and
+  game/session-charts.js (DISPLAY). COMPUTATION (pure, Node-extractable):
   `sessionBucketSeries(events, {nowMs, bucketMs, windowMs, openPlayFrom,
   playOffsetMs})` compacts a wall-clock event list into cumulative played
   time, removing every between-play gap, then buckets it

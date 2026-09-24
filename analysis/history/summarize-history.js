@@ -45,7 +45,7 @@ const outPath = option('--out', null);
 //-------THE GAME'S OWN VERDICT CODE-------
 
 const repo = path.join(__dirname, '..', '..');
-const source = fs.readFileSync(path.join(repo, 'minesweeper.js'), 'utf8');
+const source = fs.readFileSync(path.join(repo, 'game', 'evaluation.js'), 'utf8');
 const startIdx = source.indexOf('//-------GAME-END EVALUATION: VERDICT');
 const endIdx = source.indexOf('//-------GAME-END EVALUATION: CAPTURE');
 if (startIdx === -1 || endIdx === -1) throw new Error('verdict section markers not found');

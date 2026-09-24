@@ -1,6 +1,6 @@
 'use strict';
 // Known-answer tests for the Fitts aimed-movement metrics and the
-// spatial pace-bias computation in minesweeper.js: constructed traces
+// spatial pace-bias computation in game/trace-metrics.js: constructed traces
 // whose difficulty indices, movement times, fits, and residuals are
 // known analytically.
 //
@@ -11,7 +11,7 @@ const vm = require('vm');
 const path = require('path');
 
 const repo = path.join(__dirname, '..');
-const source = fs.readFileSync(path.join(repo, 'minesweeper.js'), 'utf8');
+const source = require('./game-source.js').source;
 const startIdx = source.indexOf('//-------TRACE METRICS: COMPUTATION');
 const endIdx = source.indexOf('//-------TRACE METRICS: DISPLAY');
 if (startIdx === -1 || endIdx === -1) throw new Error('section markers not found');

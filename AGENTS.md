@@ -16,10 +16,62 @@ Runtime: `index.html` + `style.css` load `storage.js`; pure `rng.js` /
 `board-metrics-ui.js` (which runs `board-metrics-worker.js`); pure
 `endgame.js` / `solver.js` / `generators.js` / `pregen.js` / `odds.js` /
 `trial.js`; shared `game-data.js` / `settings-core.js` / `preferences-game.js`;
-then `minesweeper.js`. No dependencies, no build step. The settings page is
+then the game page's own scripts in `game/` (below). No dependencies, no
+build step. The settings page is
 `settings.html` + `settings-page.js`, loading the same `style.css`,
 `storage.js`, `generators.js`, `game-data.js`, and `settings-core.js` (both
 pages must load storage.js, game-data.js, and settings-core.js before their own script).
+
+### Game page code (`game/`)
+
+The former single `minesweeper.js` is split by area into classic scripts
+in `game/` (user request 2026-09-23: split it "to some kind of logical
+division ... to make working with this file easy and sensible"). The split
+moved code verbatim; only two blocks changed position (the play-mode code
+now follows board play, and the storage hooks moved into `main.js`), and
+section markers were added where an old heading no longer described its
+code. The rules:
+
+- The files share one global scope and load in `index.html` order. Code
+  that runs at load time may use only what its own file or an earlier file
+  declares. Functions called later may use any file.
+- `game/main.js` loads last and alone declares `storageFailure` and
+  `userdataReady`: `storage.js` starts the page as soon as `userdataReady`
+  exists, so every other file must be loaded by then.
+- All `game/` script tags share one `?v=` tag. Bump it in every tag (one
+  replace) whenever any `game/` file changes.
+- `tests/startup-presentation-test.js` enforces the last two rules. Tests
+  read the code through `tests/game-source.js`, which concatenates the files
+  in load order, so section-marker spans keep working across files.
+
+Files, in load order:
+
+| File | Holds |
+| --- | --- |
+| `core.js` | constants, the current game's state, DOM handles |
+| `layout.js` | board position solver and wiring, docked columns, clearance |
+| `play.js` | LCDs, generator glue, new-game flow, reveal/flag/chord, win/loss, A just universe |
+| `play-modes.js` | Pregen 10, Endgame drill, Board lab, trials on the live board |
+| `evaluation.js` | game-end evaluation: pure verdict model, live capture |
+| `results.js` | the saved record (`reportResult`), after-game report, result view |
+| `history.js` | record schema, per-mode history, mode keys, normalization, transfer cleaning |
+| `rankings.js` | rank windows, date/age formatting, day categories, board families, ranks won in session, rank lists |
+| `charts.js` | axis ticks, trend lines, the (?) help tip, scatter and average-time charts |
+| `trial-review.js` | after-trial rank rows, identity review, run overlays |
+| `game-data-chart.js` | the game data chart (0–100% band) and its views |
+| `result-ranks.js` | `renderRanks`: result tables and charts in section order |
+| `input-trace.js` | the raw input trace |
+| `replay-model.js` | path and choice replay, pure part |
+| `replay-view.js` | replay controls, frames, path canvas, legends |
+| `music.js` | music state sampling |
+| `trace-metrics.js` | trace metrics, pure (all measurement systems) |
+| `metrics-panel.js` | left stats panel: session heading, live rows, motion charts, scheduling |
+| `session-stats.js` | session series computation, event recording, startup backfill |
+| `session-charts.js` | the one session picker, session controls and charts |
+| `player-states.js` | player state tags |
+| `controls.js` | board input events, difficulty tabs, board position editor, zoom |
+| `backup.js` | history/trace export and import, data-format card |
+| `main.js` | storage hooks, mode/generator switchers, `init` (last) |
 
 Serve with `python3 -m http.server 8018 --bind 127.0.0.1` and open exactly
 `http://127.0.0.1:8018/`.

@@ -7,7 +7,7 @@ const vm = require('vm');
 const path = require('path');
 
 const repo = path.join(__dirname, '..');
-const source = fs.readFileSync(path.join(repo, 'minesweeper.js'), 'utf8');
+const source = require('./game-source.js').source;
 function section(from, to) {
   const start = source.indexOf(from);
   const end = source.indexOf(to, start);

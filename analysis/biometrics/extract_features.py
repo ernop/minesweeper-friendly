@@ -6,7 +6,8 @@ Input: the game's trace export — a JSON array of per-game trace objects
       events: [{t, kind: 'ldown'|'lup'|'rdown', x, y, index}
                | {t, kind: 'layout', left, top, width, height,
                   boardWidth, boardHeight}] }
-(see saveTrace / the traces-export handler in minesweeper.js).
+(see saveTrace in game/input-trace.js and the traces-export handler in
+game/backup.js).
 
 Output: JSON on stdout — per game: session-level features, click features,
 per-stroke features, and per-feature aggregates over strokes.

@@ -7,7 +7,7 @@
 // duplicating it. All storage moved from localStorage into IndexedDB on
 // 2026-08-20. One database holds two stores: 'userdata' (play history,
 // settings, rankavg sorts, player states — one entry per kind) and
-// 'traces' (see the trace section in minesweeper.js). Userdata is
+// 'traces' (see game/input-trace.js). Userdata is
 // RAM-first: each page reads the kinds it needs into RAM once at startup,
 // all reads and mutations work on RAM synchronously, and each mutation
 // calls persistUserdata — an async fire-and-forget write of that kind's

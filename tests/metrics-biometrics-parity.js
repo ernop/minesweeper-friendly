@@ -1,5 +1,5 @@
 'use strict';
-// Parity check: the in-page computeTraceMetrics (minesweeper.js) against the
+// Parity check: the in-page computeTraceMetrics (game/trace-metrics.js) against the
 // offline extractor's output (analysis/biometrics/extract_features.py) on the
 // checked-in synthetic trace. The JS computation section is pure, so it is
 // extracted by its section markers and run standalone.
@@ -11,7 +11,7 @@ const vm = require('vm');
 const path = require('path');
 
 const repo = path.join(__dirname, '..');
-const source = fs.readFileSync(path.join(repo, 'minesweeper.js'), 'utf8');
+const source = require('./game-source.js').source;
 
 const startMarker = '//-------TRACE METRICS: COMPUTATION';
 const endMarker = '//-------TRACE METRICS: DISPLAY';

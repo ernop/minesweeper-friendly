@@ -288,8 +288,7 @@ function validRedraw(board, redrawn, clicked) {
 // 12. Chords categorically bypass Justice in the game integration. This is
 // an origin rule, not something the pure cell certifier can infer.
 {
-  const source = fs.readFileSync(
-    path.join(__dirname, '..', 'minesweeper.js'), 'utf8');
+  const source = require('./game-source.js').source;
   const chordBody = source.slice(
     source.indexOf('function chord('), source.indexOf('function checkWin('));
   check('chord integration: never calls Justice', !chordBody.includes('attemptJustice'));

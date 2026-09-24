@@ -5,8 +5,8 @@ Spec: [docs/product/just-universe.md](../product/just-universe.md). Index: [AGEN
 - A just universe ([A just universe](../product/just-universe.md)): the judge and redraw
   are `justice.js` — pure logic on a view {width, height, mines,
   revealed[], adjacent[]} (flags invisible by design), exporting the
-  `Justice` global / CommonJS module, loaded before `minesweeper.js` in
-  `index.html`. Exact player rule: a bare click into a certified pocket
+  `Justice` global / CommonJS module, loaded before the `game/` scripts in
+  `index.html`; the page wiring is in `game/play.js`. Exact player rule: a bare click into a certified pocket
   that no outside clue can ever resolve is guaranteed safe. Qualification
   is hidden-layout-independent: `certifyEntry(view, clicked)` receives no
   witness. `certifyEntries(view, entries)` is the batched equivalent used

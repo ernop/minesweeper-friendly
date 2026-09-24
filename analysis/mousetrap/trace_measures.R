@@ -74,7 +74,7 @@ cat(sprintf("games: %d, segments: %d (skipped %d with <5 samples), samples: %d\n
 # time-normalized x-differences) across every trial in the object, and the
 # game is the pooling unit — a game's values must not depend on which
 # other games happen to sit in the same export. The in-page implementation
-# (minesweeper.js computePsychometrics) pools per game identically.
+# (game/trace-metrics.js computePsychometrics) pools per game identically.
 trial_list <- list()
 for (game_id in unique(long$game)) {
   long_g <- long[long$game == game_id, ]

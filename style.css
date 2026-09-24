@@ -933,7 +933,7 @@ body.trial-offboard #game-frame {
 }
 
 /* Review mode board encodings. Colors come from REPLAY_ENCODINGS in
-   minesweeper.js, published as --replay-<key> custom properties, so the
+   game/replay-model.js, published as --replay-<key> custom properties, so the
    board, the legend swatches, and the canvas painter share one table.
    Solver deductions live on their own visual channel: dashed inner rings
    drawn by ::after. Player-action marks (choices, acted square) stay on

@@ -1,6 +1,6 @@
 'use strict';
 // Known-answer tests for the click-cadence (press-to-press timing) metrics
-// in minesweeper.js: constructed press sequences whose gap quartiles, peak
+// in game/trace-metrics.js: constructed press sequences whose gap quartiles, peak
 // window counts, and moving-press shares are known analytically.
 //
 // Usage: node tests/metrics-cadence-test.js
@@ -10,7 +10,7 @@ const vm = require('vm');
 const path = require('path');
 
 const repo = path.join(__dirname, '..');
-const source = fs.readFileSync(path.join(repo, 'minesweeper.js'), 'utf8');
+const source = require('./game-source.js').source;
 const startIdx = source.indexOf('//-------TRACE METRICS: COMPUTATION');
 const endIdx = source.indexOf('//-------TRACE METRICS: DISPLAY');
 if (startIdx === -1 || endIdx === -1) throw new Error('section markers not found');

@@ -140,7 +140,7 @@ derive at read time, small scalars per record, no raw traces in the
 game record.
 
 Status (2026-08-20): the Tier 1/2 ideas below are implemented as
-trace-computed display metrics (computeWasteMetrics in minesweeper.js,
+trace-computed display metrics (computeWasteMetrics, now in game/trace-metrics.js,
 the "waste" section of the metrics panel), not as stored record fields —
 the raw trace decision (Tier 3) made the store-a-scalar-per-metric
 framing moot, since every value is recomputable from the trace forever.

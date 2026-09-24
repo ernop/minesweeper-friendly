@@ -9,7 +9,7 @@ const vm = require('vm');
 const path = require('path');
 
 const repo = path.join(__dirname, '..');
-const source = fs.readFileSync(path.join(repo, 'minesweeper.js'), 'utf8');
+const source = require('./game-source.js').source;
 const verdictStart = source.indexOf('//-------GAME-END EVALUATION: VERDICT');
 const verdictEnd = source.indexOf('//-------GAME-END EVALUATION: CAPTURE');
 const startIdx = source.indexOf('//-------SESSION STATS: COMPUTATION');

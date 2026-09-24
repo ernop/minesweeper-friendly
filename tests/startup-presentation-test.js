@@ -9,7 +9,8 @@ const path = require('path');
 const repo = path.join(__dirname, '..');
 const html = fs.readFileSync(path.join(repo, 'index.html'), 'utf8');
 const css = fs.readFileSync(path.join(repo, 'style.css'), 'utf8');
-const js = fs.readFileSync(path.join(repo, 'minesweeper.js'), 'utf8');
+const game = require('./game-source.js');
+const js = game.source;
 const storage = fs.readFileSync(path.join(repo, 'storage.js'), 'utf8');
 
 let checks = 0;
@@ -40,6 +41,17 @@ check('storage starts before application scripts',
   externalScripts[0].src.split('?')[0] === 'storage.js');
 check('early database completion waits for the page callback',
   storage.includes("typeof userdataReady !== 'function'"));
+// storage.js starts the page as soon as userdataReady exists, so the hooks
+// must not exist until every game/ script has loaded.
+check('the storage hooks live only in the last game script',
+  externalScripts.at(-1).src.split('?')[0] === game.files.at(-1)
+    && game.texts.every((text, i) => ['\nfunction userdataReady(', '\nfunction storageFailure(']
+      .filter((hook) => text.includes(hook)).length === (i === game.texts.length - 1 ? 2 : 0)));
+// One shared tag: bumping it for any game/ change cannot leave a mix of
+// cached old and new game scripts.
+check('game scripts share one cache-busting version',
+  new Set(externalScripts.filter((script) => script.src.startsWith('game/'))
+    .map((script) => script.src.split('?v=')[1])).size === 1);
 
 const newGameAt = js.lastIndexOf('  newGame();');
 const readyAt = js.lastIndexOf("document.documentElement.classList.remove('game-booting')");

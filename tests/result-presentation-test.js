@@ -7,7 +7,7 @@ const vm = require('vm');
 const path = require('path');
 
 const repo = path.join(__dirname, '..');
-const source = fs.readFileSync(path.join(repo, 'minesweeper.js'), 'utf8');
+const source = require('./game-source.js').source;
 const startIdx = source.indexOf('//-------RESULT PRESENTATION MODEL');
 const endIdx = source.indexOf('//-------RESULT PRESENTATION DISPLAY');
 if (startIdx === -1 || endIdx === -1) throw new Error('section markers not found');

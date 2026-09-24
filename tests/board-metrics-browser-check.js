@@ -31,11 +31,12 @@ const { chromium } = require(process.argv[2]);
         request.onerror = () => reject(request.error);
       });
     });
-    // A tab running the old code can block the upgrade before the deferred
-    // game script has supplied storageFailure. Its error must still surface.
+    // A tab running the old code can block the upgrade before game/main.js,
+    // the last deferred game script, has supplied storageFailure. Its error
+    // must still surface.
     let releaseGameScript;
     const gameScriptGate = new Promise((resolve) => { releaseGameScript = resolve; });
-    await page.route('**/minesweeper.js?*', async (route) => {
+    await page.route('**/game/main.js?*', async (route) => {
       await gameScriptGate;
       await route.continue();
     });
