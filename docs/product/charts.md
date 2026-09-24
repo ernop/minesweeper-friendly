@@ -4,33 +4,46 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
 
 ## Average-time charts
 
-- One small scatter per grouping stat (`AVERAGE_SCATTER_SPECS`), in this
-  order: clicks, 3BV, mouse path, zeros, islands, max number, clicks over
-  3BV, IOS, path per click, and path per 3BV. Integer measurements group
-  exactly; mouse path uses 100px buckets, IOS uses 0.01 buckets, and the two
-  path ratios use 10px buckets. The grouped value is on x and that group's
-  average solve time on y; dots are colored by the age of the group's newest
-  win. A measurement-specific chart appears only when at least two wins have
-  a finite value: older records missing board-shape facts are excluded, IOS
-  excludes times at or below one second, and path ratios exclude zero
-  denominators. This preserves the stored-data semantics and prevents
-  undefined values from distorting an axis.
-- Headers and modes (requested 2026-08-30): every property chart carries a
-  header naming its reading and grouping ("time by clicks"), its y ticks
-  carry the unit ("25s", "40%"), and the rotated y-axis caption is gone
-  (the header + tick units already say it). The x axis label remains.
-- A three-way **mode** selector rides each header and drives all property
-  charts at once (`settings.averageChartMode`, chosen on the charts
-  themselves like the recent-placements window):
+Two groups, matching the game-data sides (creator decision 2026-09-23).
+Calendar, day-category, and streak leaderboards stay above both. This board's
+exact-value time tables stay with the other pagetables, ahead of every
+point chart. Then **your perf**, then **board traits**.
+
+- **Your perf** (`PERF_CHART_SPECS`): clicks, mouse path, clicks over 3BV,
+  misclick rate, fastclick gap, 3BV/s, click rate, no-op rate, efficiency,
+  path / 3BV, path / click, correctness, IOE, ZiNi efficiency, HZiNi
+  efficiency, IOS, STNB, mouse speed, cadence spread, and unused mark share.
+- **Board traits** (`BOARD_CHART_SPECS`): 3BV, ZiNi, HZiNi, 3BV spread, max
+  number, islands, largest island, zeros, 0–1 share, and zero-opening
+  coverage. A board chart follows its tablechart switch, so 3BV spread and
+  largest island stay off until those tables are on.
+
+Integer measurements group exactly. Mouse path uses 100px buckets, IOS 0.01,
+both path ratios 10px, fastclick gap 10ms, mouse speed 50px/s, 3BV/s and the
+per-second rates 0.1, efficiency-family ratios 0.01, cadence spread 0.1,
+unused mark share 0.05, misclick rate 0.1/min, and STNB 1. 0–1 share and
+zero-opening coverage use the same whole-percentage groups as their time
+tables; 3BV spread uses the same 0.5-cell groups. The grouped value is on x
+and that group's average solve time on y; dots are colored by the age of the
+group's newest win. A chart appears only when at least two wins have a finite
+value. Older records missing a measurement are excluded. IOS excludes times
+at or below one second, and path ratios exclude zero denominators.
+
+- Each chart header names its reading and grouping ("time by clicks"). Y
+  ticks carry the unit ("25s", "40%"). Share charts add "%" on the x ticks.
+  The rotated y-axis caption stays gone. The x axis label remains.
+- Each group has its own three-way **mode** selector on the section heading
+  (`settings.perfChartMode` and `settings.boardChartMode`):
   - **average** — the classic reading: each dot is a group's average win
     time.
   - **distribution** — every win is its own dot (value on x, that game's
     time on y), showing the full spread of times at each value, with the
     same trend pair and outlier trimming as the raw scatters.
   - **winrate** — all finished games (wins AND losses) group by the value;
-    each dot is the percentage won. IOS sits this mode out (`winBound`):
-    it is only defined for wins, so its winrate would read 100%
-    everywhere. Loss records carry clicks/path/board-shape facts, so the
+    each dot is the percentage won. Measurements defined only for wins
+    sit this mode out (`winBound`): IOS, efficiency, IOE, ZiNi efficiency,
+    HZiNi efficiency, and STNB. Their winrate would read 100% everywhere.
+    Loss records carry clicks, path, rates, and board-shape facts, so the
     other specs stay measurable.
 - Each header also carries a (?) help button explaining the current mode
   (see "Chart help buttons" under [Session stats](session-stats.md)).

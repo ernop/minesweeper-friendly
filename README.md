@@ -126,12 +126,10 @@ session" (default today, since local midnight). Configure each scope
 independently, toggle actual values, and review historical session windows. The vertical band autozooms; item help
 states the rank calculation and preferred direction. See
 [the design and removed-field inventory](docs/product/game-data.md).
-Average-time scatter plots group your wins by clicks, 3BV, mouse path,
-zeros, islands, max number, clicks over 3BV, IOS, path per click, and path
-per 3BV, then plot each value against its group's average solve time.
-Continuous measurements use readable buckets (mouse path 100px, IOS 0.01,
-and path ratios 10px); charts omit older wins where their measurement is
-absent.
+Property charts sit in two groups, your perf and board traits, each with
+its own average, distribution, or winrate reading. They plot a measurement
+against average win time, every win's time, or the share of games won.
+Charts omit games where that measurement is absent.
 The stats themselves (time, 3BV, 3BV/s, clicks, efficiency, correctness,
 throughput, IOS, mouse path,
 mouse speed, path per click, path per 3BV, plus the per-game forms of the

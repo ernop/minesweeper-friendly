@@ -44,6 +44,29 @@ function assertEq(name, actual, want) {
   assertEq('trait measured value stays visible', workload.valueText, '75');
   assertEq('the best board in the pool is 0%', zeros.percentile, 0);
   assertEq('the worst board in the pool is 100%', workload.percentile, 100);
+  const low = { outcome: 'win', endedAt: 1, maxAdjacent: 2, largestIsland: 3, islandCount: 12,
+    boardMetrics: { version: 1, safeCells: 100, zeroOpenedCells: 20, zeroOpenedZeroOneCells: 10 } };
+  const mid = { outcome: 'win', endedAt: 2, maxAdjacent: 5, largestIsland: 8, islandCount: 6,
+    boardMetrics: { version: 1, safeCells: 100, zeroOpenedCells: 50, zeroOpenedZeroOneCells: 40 } };
+  const high = { outcome: 'win', endedAt: 3, maxAdjacent: 8, largestIsland: 20, islandCount: 1,
+    boardMetrics: { version: 1, safeCells: 100, zeroOpenedCells: 90, zeroOpenedZeroOneCells: 80 } };
+  const pool = [low, mid, high];
+  const preferred = (record) => boardTraitRankProfile(record,
+    [...boardMetricCandidates([record], pool), ...boardShapeCandidates([record], pool)], pool);
+  const highRows = preferred(high);
+  const lateLow = { ...low, endedAt: 4 };
+  const worstRows = boardTraitRankProfile(lateLow,
+    [...boardMetricCandidates([lateLow], [mid, high, lateLow]),
+      ...boardShapeCandidates([lateLow], [mid, high, lateLow])],
+    [mid, high, lateLow]);
+  assertEq('higher MN is the preferred end', highRows.find((r) => r.trait === 'MN').percentile, 0);
+  assertEq('lower MN is the worst end', worstRows.find((r) => r.trait === 'MN').percentile, 100);
+  assertEq('higher ZOC is the preferred end', highRows.find((r) => r.trait === 'ZOC').percentile, 0);
+  assertEq('lower ZOC is the worst end', worstRows.find((r) => r.trait === 'ZOC').percentile, 100);
+  assertEq('higher largest island is the preferred end',
+    highRows.find((r) => r.trait === 'largest island').percentile, 0);
+  assertEq('fewer islands stay preferred', highRows.find((r) => r.trait === 'islands').percentile, 0);
+  assertEq('higher 0–1 share stays preferred', highRows.find((r) => r.trait === '0–1 share').percentile, 0);
   assertEq('single board has no comparative rank', boardTraitRankProfile(current, comparisons, [current])[0].percentile, null);
   assertEq('no board profile for a loss', boardTraitRankProfile({ ...current, outcome: 'loss' }, comparisons, past).length, 0);
 }

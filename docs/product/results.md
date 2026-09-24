@@ -21,9 +21,13 @@ append timing or from how many cards fit on a row:
    shape time tablecharts, in a separate named, left-aligned wrapping section.
    Empty sections are omitted. The period-wide ranks-won summary above still
    includes all qualifying board categories from its selected period.
-6. **Averages** — average solve-time scatterplots.
-7. **Relationships** — raw-win scatterplots.
-8. **Diagnostics** — post-game motion systems.
+6. **Your perf** — property charts for the left-side measurements, with that
+   group's average / distribution / winrate control.
+7. **Board traits** — property charts for the right-side measurements, with
+   that group's own control. Exact-value time tables stay in This board, above
+   both chart groups.
+8. **Relationships** — raw-win scatterplots.
+9. **Diagnostics** — post-game motion systems.
 
 The compact percentile overview occupies the winning-game sidebar. All pagetables
 and row-based data displays still precede the historical scatterplots.
@@ -54,3 +58,9 @@ Chart eligibility, table display order, duplicate preference, and summary
 order are separate concepts. Full tables use `displayOrder`; duplicate member
 sets use `dedupePriority`. Summary candidates carry `summaryOrder` as a
 category/value pair. Changing one must not silently change the others.
+
+Property charts are two groups, your perf then board traits, each with its
+own average / distribution / winrate control (creator decision 2026-09-23;
+[Point charts](charts.md)). Calendar, day-category, and streak leaderboards
+stay the time-placement collection above them. This board's exact-value
+tables stay pagetables and still precede both chart groups.

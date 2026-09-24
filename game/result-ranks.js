@@ -128,9 +128,15 @@ function renderRanks(record, modeRecords, options = {}, sections) {
   }
 
   if (settings.shownThings.averageCharts && wins.length >= 2) {
-    for (const spec of AVERAGE_SCATTER_SPECS) {
-      const chart = buildAverageScatter(spec, wins, modeRecords, record, historyView);
-      if (chart !== null) sections.append('averages', chart);
+    for (const spec of PERF_CHART_SPECS) {
+      const chart = buildAverageScatter(spec, wins, modeRecords, record, historyView, 'perfChartMode');
+      if (chart !== null) sections.append('perfCharts', chart);
+    }
+    for (const spec of BOARD_CHART_SPECS) {
+      if (spec.setting && !settings.shownThings[spec.setting]) continue;
+      if (spec.setting === 'largestIsland' && !settings.shownThings.boardShapeTables) continue;
+      const chart = buildAverageScatter(spec, wins, modeRecords, record, historyView, 'boardChartMode');
+      if (chart !== null) sections.append('boardCharts', chart);
     }
   }
 

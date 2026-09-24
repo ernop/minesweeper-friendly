@@ -591,7 +591,8 @@ const RESULT_PRESENTATION_PHASES = Object.freeze([
   { id: 'analysis', order: 30, contexts: ['postGame'] },
   { id: 'tables', order: 50 },
   { id: 'boardTables', order: 60 },
-  { id: 'averages', order: 70 },
+  { id: 'perfCharts', order: 70 },
+  { id: 'boardCharts', order: 75 },
   { id: 'relationships', order: 80 },
   { id: 'diagnostics', order: 90, contexts: ['postGame'] },
 ]);
@@ -599,7 +600,8 @@ const RESULT_PRESENTATION_PHASES = Object.freeze([
 const RESULT_CHART_SECTIONS = Object.freeze([
   { id: 'tables', phase: 'tables', label: 'Game tables', heading: false },
   { id: 'boardTables', phase: 'boardTables', label: 'This board' },
-  { id: 'averages', phase: 'averages', label: 'average time' },
+  { id: 'perfCharts', phase: 'perfCharts', label: 'your perf', chartMode: 'perfChartMode' },
+  { id: 'boardCharts', phase: 'boardCharts', label: 'board traits', chartMode: 'boardChartMode' },
   { id: 'relationships', phase: 'relationships', label: 'relationships' },
   {
     id: 'diagnostics',
@@ -655,7 +657,14 @@ function createResultSectionCollector(context) {
           const heading = document.createElement('h3');
           heading.className = 'result-chart-section-title';
           heading.textContent = spec.label;
-          section.appendChild(heading);
+          if (spec.chartMode) {
+            const head = document.createElement('div');
+            head.className = 'result-chart-section-head';
+            head.append(heading, chartModeSelect(spec.chartMode));
+            section.appendChild(head);
+          } else {
+            section.appendChild(heading);
+          }
         }
         const items = document.createElement('div');
         items.className = 'result-chart-section-items';

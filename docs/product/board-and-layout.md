@@ -104,7 +104,8 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   board** section follows (2026-09-21): exact 3BV, ZiNi, HZiNi, maximum number,
   has-7/8, maximum-clue caps, zero-count, mine-island count, and enabled
   largest-island tablecharts. Each table keeps its own identifying label.
-  Both sections precede averages, relationships, and motion diagnostics.
+  Both sections precede the your-perf charts, the board-trait charts,
+  relationships, and motion diagnostics.
   HZiNi, 3BV spread, 0–1 share, and zero-opening coverage values appear in
   their tablechart headings; there are no separate value cards. The
   3BV-spread tablechart is off by default (user decision 2026-09-23: "i don't

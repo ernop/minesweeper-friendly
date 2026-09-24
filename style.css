@@ -2288,17 +2288,36 @@ body.settings-page .return-to-game {
 
 .result-chart-section:last-child { margin-bottom: 0; }
 
+.result-chart-section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 12px;
+  width: calc(100% - 24px);
+  margin: 0 auto 10px;
+  border-bottom: 1px solid #d9e2e8;
+  padding-bottom: 4px;
+}
+
 .result-chart-section-title {
   width: calc(100% - 24px);
   margin: 0 auto 10px;
   border-bottom: 1px solid #d9e2e8;
   padding-bottom: 4px;
   color: #000000;
-  font-size: 13px;
+  font-size: 16px;
+  font-weight: 700;
   line-height: 1.2;
   text-align: left;
   text-transform: uppercase;
   letter-spacing: 0.06em;
+}
+
+.result-chart-section-head .result-chart-section-title {
+  width: auto;
+  margin: 0;
+  border-bottom: 0;
+  padding-bottom: 0;
 }
 
 .result-chart-section-items {
@@ -3522,14 +3541,12 @@ body.settings-page .return-to-game {
   line-height: 1.4;
 }
 
-/* The property charts' mode selector (average / distribution / winrate)
-   rides each chart's heading. */
+/* One average / distribution / winrate control per chart group. */
 .avg-mode-select {
-  margin-left: 6px;
-  font: inherit;
-  font-size: 11px;
-  font-weight: normal;
+  font: 14px Arial, Helvetica, sans-serif;
+  font-weight: 400;
   color: #000000;
+  background: #ffffff;
 }
 
 /* The after-game charts sit inline among the bottom charts; the head

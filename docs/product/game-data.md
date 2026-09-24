@@ -158,10 +158,13 @@ local midnight). Historical comparisons end at the selected game.
 
 Right-side markers rank **board values themselves**, not solve times within
 matched-trait pools. Background is measured completed boards in the same
-category through this game's finish, including measured losses. The user's
-preferred directions are higher 0–1 share and zero count; lower islands,
-ZOC, 3BV, and MN. ZiNi, HZiNi, spread, and largest island also default lower.
-These are declared preferences, not claims about a trait's causal difficulty.
+category through this game's finish, including measured losses. Preferred
+ends (creator decision 2026-09-23): higher 0–1 share, zero count, max
+number (MN), largest island, and zero-opening coverage (ZOC); lower 3BV,
+ZiNi, HZiNi, 3BV spread, and island count. A preferred board opens a lot
+from zeros, needs fewer benchmark clicks, and keeps its mines in one dense
+clump that can show a high number. These are declared preferences, not
+claims about a trait's causal difficulty.
 Raw spread/share measurements rank without rounded comparison buckets.
 Each board-trait marker follows its tablechart's shown-things switch. The
 3BV-spread tablechart, and with it the 3BV spread marker, is off by default
@@ -170,6 +173,11 @@ default").
 Binary clue-presence and capped-MN table families do not duplicate the MN
 marker. Identical time-table memberships do not collapse distinct scalar
 traits on this chart. Matching-board solve-time tables remain a separate analysis.
+
+Left-side performance directions are unchanged: lower time, misclick rate,
+fastclick gap, no-op rate, path, cadence spread, and unused mark share;
+higher 3BV/s, click rate, the efficiency family, correctness, IOS, STNB,
+and mouse speed.
 
 ## Catalog and configuration
 

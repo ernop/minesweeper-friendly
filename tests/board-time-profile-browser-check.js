@@ -281,6 +281,34 @@ const { chromium } = require(process.argv[2]);
     assert((await profile.locator('.board-trait-line-unranked').textContent()).startsWith('Only one measured game:'));
     assert.equal(await profile.locator('.board-trait-line-unranked > [data-side="board"]').textContent(), '3BV 75');
     assert.equal(await profile.locator('.board-trait-line-unranked > [data-side="performance"] button').count(), 17);
+    await page.evaluate(() => {
+      settings.shownThings.boardPercentiles = true;
+      settings.shownThings.averageCharts = true;
+      settings.perfChartMode = 'average';
+      settings.boardChartMode = 'distribution';
+      drawProfileFixture();
+    });
+    const chartSections = await page.locator('#result-ranks > section').evaluateAll((nodes) =>
+      nodes.map((node) => node.getAttribute('aria-label')));
+    const boardAt = chartSections.indexOf('This board');
+    const perfAt = chartSections.indexOf('your perf');
+    const traitsAt = chartSections.indexOf('board traits');
+    assert(boardAt !== -1 && boardAt < perfAt && perfAt < traitsAt,
+      'pagetables precede your perf charts, which precede board-trait charts: ' + chartSections.join(','));
+    assert.equal(await page.locator('.result-chart-section-perfCharts select').inputValue(), 'average');
+    assert.equal(await page.locator('.result-chart-section-boardCharts select').inputValue(), 'distribution');
+    assert(await page.locator('.result-chart-section-boardCharts h4').first().textContent()
+      .then((text) => text.startsWith('times by ')));
+    await page.locator('.result-chart-section-perfCharts select').selectOption('winrate');
+    assert.equal(await page.evaluate(() => settings.perfChartMode), 'winrate');
+    assert.equal(await page.evaluate(() => settings.boardChartMode), 'distribution',
+      'each chart group keeps its own mode');
+    await page.evaluate(() => drawProfileFixture());
+    const perfHeading = await page.locator('.result-chart-section-perfCharts h4').first().textContent();
+    assert(perfHeading.startsWith('winrate by '), 'your perf winrate heading: ' + JSON.stringify(perfHeading));
+    assert((await page.locator('.result-chart-section-boardCharts h4').first().textContent()).startsWith('times by '),
+      'the board-trait group stays on distribution');
+    await page.screenshot({ path: '/tmp/chart-groups.png', fullPage: true });
     await profile.getByLabel('show actual value', { exact: true }).uncheck();
     await page.getByLabel('session', { exact: true }).selectOption('past30min');
     await page.reload();

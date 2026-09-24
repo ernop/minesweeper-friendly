@@ -2,14 +2,15 @@
 
 Spec: [docs/product/charts.md](../product/charts.md). Index: [AGENTS.md](../../AGENTS.md).
 
-- Average-time charts: `AVERAGE_SCATTER_SPECS`,
+- Property charts: `PERF_CHART_SPECS` and `BOARD_CHART_SPECS`,
   `averageEligibleWins`, `averagePoints`, and `buildAverageScatter`.
+  Each group reads `settings.perfChartMode` or `settings.boardChartMode`.
+  The section heading carries that group's selector (`chartModeSelect`).
   Board-shape specs exclude legacy records lacking their field; IOS excludes
   times at or below one second; path-ratio specs exclude zero denominators.
-  Continuous buckets are mouse path 100px, IOS 0.01, and path ratios 10px.
-  `tests/average-scatter-test.js` freezes the order, metric definitions,
-  eligibility, and aggregation. The former rankaverage table code is
-  retired.
+  Bucket steps are in [Point charts](../product/charts.md). A board chart
+  follows its tablechart `shownThings` switch. `tests/average-scatter-test.js`
+  freezes both orders, metric definitions, eligibility, and aggregation.
 - Scatters: `buildScatter` + `niceTicks` (`timeTicks` for the date axis;
   `minorTicks` adds edge tickmarks between labeled divisions, skipped on
   the date axis), emitted in the relationships section; dots colored by age unit (`.age-dot-*`),

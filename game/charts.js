@@ -296,7 +296,7 @@ function buildScatter(wins, me, fx, fy, xLabel, yLabel, meLabel, ageInfoOf, opts
   }
   for (const v of xTicks) {
     el('line', { x1: px(v), y1: T, x2: px(v), y2: H - B, class: 'scatter-grid' });
-    el('text', { x: px(v), y: H - B + 14, class: 'scatter-tick tick-x' }, fmtX(v));
+    el('text', { x: px(v), y: H - B + 14, class: 'scatter-tick tick-x' }, fmtX(v) + (opts.xTickUnit || ''));
   }
   const yTicks = niceTicks(y0, y1, 7), fmtY = tickFmt(yTicks);
   for (const v of yTicks) {
@@ -413,50 +413,112 @@ function buildScatter(wins, me, fx, fy, xLabel, yLabel, meLabel, ageInfoOf, opts
   return list;
 }
 
-// Average-time charts group wins by an input/performance value, then plot
-// that value against the group's average solve time. This keeps the useful
-// relationship from the former ranked tables without spending a column on
-// sample count. Mouse path buckets at 100px, IOS at 0.01, and the two path
-// ratios at 10px; integer measurements group exactly. `has` keeps legacy
-// records that predate a measurement (and records where a ratio is
-// undefined) off that chart rather than inventing a value.
-const AVERAGE_SCATTER_SPECS = [
+// Property charts group games by a measurement, then plot that value against
+// average win time, every win's time, or win percentage. Two groups match
+// the game-data sides. Integer measurements group exactly. Continuous ones
+// use a fixed step so one game cannot become its own bucket. `has` keeps
+// legacy records that predate a measurement off that chart. `setting` hides
+// a board chart when its tablechart switch is off. `winBound` sits a
+// win-only measurement out of winrate, which would otherwise read 100%.
+function roundTo(value, step) {
+  const decimals = (String(step).split('.')[1] || '').length;
+  return Number((Math.round(value / step) * step).toFixed(decimals));
+}
+
+function steppedMetric(id, step, extra = {}) {
+  const metric = GameData.metrics.find((item) => item.id === id);
+  const read = (record) => metric.value(record, config);
+  return {
+    label: metric.name,
+    value: (record) => {
+      const value = read(record);
+      return Number.isFinite(value) ? roundTo(value, step) : undefined;
+    },
+    has: (record) => Number.isFinite(read(record)),
+    ...extra,
+  };
+}
+
+const PERF_CHART_SPECS = [
   { label: 'clicks', value: (s) => s.clicks },
-  { label: '3BV', value: (s) => s.bv3 },
   { label: 'mouse path', value: (s) => Math.round(s.mousePathPx / 100) * 100 },
+  { label: 'clicks over 3BV', value: (s) => s.clicks - s.bv3 },
+  steppedMetric('misclickRate', 0.1),
+  steppedMetric('fastclickGap', 10),
+  steppedMetric('bvPerSecond', 0.1),
+  steppedMetric('clickRate', 0.1),
+  steppedMetric('noopRate', 0.1),
+  steppedMetric('efficiency', 0.01, { winBound: true }),
   {
-    label: 'zeros',
-    value: (s) => s.zeroCount,
-    has: (s) => typeof s.zeroCount === 'number',
+    label: 'path / 3BV',
+    value: (s) => s.bv3 > 0 ? Math.round((s.mousePathPx / s.bv3) / 10) * 10 : undefined,
+    has: (s) => s.bv3 > 0,
   },
   {
-    label: 'islands',
+    label: 'path / click',
+    value: (s) => s.clicks > 0 ? Math.round((s.mousePathPx / s.clicks) / 10) * 10 : undefined,
+    has: (s) => s.clicks > 0,
+  },
+  steppedMetric('correctness', 0.01),
+  steppedMetric('ioe', 0.01, { winBound: true }),
+  steppedMetric('ziniEfficiency', 0.01, { winBound: true }),
+  steppedMetric('hziniEfficiency', 0.01, { winBound: true }),
+  {
+    label: 'IOS',
+    value: (s) => iosOf(s) === undefined ? undefined : Number(iosOf(s).toFixed(2)),
+    has: (s) => iosOf(s) !== undefined,
+    winBound: true,
+  },
+  steppedMetric('stnb', 1, { winBound: true }),
+  steppedMetric('mouseSpeed', 50),
+  steppedMetric('cadenceSpread', 0.1),
+  steppedMetric('unusedMarkShare', 0.05),
+];
+
+const BOARD_CHART_SPECS = [
+  { label: '3BV', value: (s) => s.bv3, setting: 'exact3BV' },
+  {
+    label: 'ZiNi', value: (s) => s.zini, setting: 'exactZiNi',
+    has: (s) => typeof s.zini === 'number',
+  },
+  {
+    label: 'HZiNi', value: (s) => s.hzini, setting: 'exactHZiNi',
+    has: (s) => typeof s.hzini === 'number',
+  },
+  {
+    label: '3BV spread', setting: 'workSpreadTable',
+    value: (s) => boardSpreadGroup(s),
+    has: (s) => boardSpreadGroup(s) !== undefined,
+  },
+  {
+    label: 'max number', setting: 'exactMaxNumber',
+    value: (s) => s.maxAdjacent,
+    has: (s) => typeof s.maxAdjacent === 'number',
+  },
+  {
+    label: 'islands', setting: 'boardShapeTables',
     value: (s) => s.islandCount,
     has: (s) => typeof s.islandCount === 'number',
   },
   {
-    label: 'max number',
-    value: (s) => s.maxAdjacent,
-    has: (s) => typeof s.maxAdjacent === 'number',
-  },
-  { label: 'clicks over 3BV', value: (s) => s.clicks - s.bv3 },
-  {
-    label: 'IOS',
-    value: (s) => Number(iosOf(s).toFixed(2)),
-    has: (s) => iosOf(s) !== undefined,
-    // IOS is only defined for wins, so a winrate view of it would show
-    // 100% everywhere; the chart sits the winrate mode out.
-    winBound: true,
+    label: 'largest island', setting: 'largestIsland',
+    value: (s) => s.largestIsland,
+    has: (s) => typeof s.largestIsland === 'number',
   },
   {
-    label: 'path per click',
-    value: (s) => Math.round((s.mousePathPx / s.clicks) / 10) * 10,
-    has: (s) => s.clicks > 0,
+    label: 'zeros', setting: 'boardShapeTables',
+    value: (s) => s.zeroCount,
+    has: (s) => typeof s.zeroCount === 'number',
   },
   {
-    label: 'path per 3BV',
-    value: (s) => Math.round((s.mousePathPx / s.bv3) / 10) * 10,
-    has: (s) => s.bv3 > 0,
+    label: '0–1 share', setting: 'zeroOneShareTable', xTickUnit: '%',
+    value: (s) => boardShareGroup(s, 'zeroOpenedZeroOneCells'),
+    has: (s) => boardFractionOf(s, 'zeroOpenedZeroOneCells') !== undefined,
+  },
+  {
+    label: 'zero-opening coverage', setting: 'zeroOpeningTable', xTickUnit: '%',
+    value: (s) => boardShareGroup(s, 'zeroOpenedCells'),
+    has: (s) => boardFractionOf(s, 'zeroOpenedCells') !== undefined,
   },
 ];
 
@@ -511,27 +573,26 @@ function winratePoints(spec, records) {
 }
 
 // The property charts' three vertical readings (requested 2026-08-30):
-// the classic bucket-average time, the raw distribution of individual
-// win times, and the win percentage per property value. One shared mode
-// applies to every property chart at once; each chart's heading carries
-// the selector.
+// bucket-average win time, every win's time, and win percentage per value.
+// Each game-data side has its own saved mode, chosen once on that section.
 // AVERAGE_CHART_MODES lives with its setting in settings-core.js.
 
-function averageChartModeSelect() {
+function chartModeSelect(modeField) {
   const select = document.createElement('select');
   select.className = 'avg-mode-select';
-  select.title = 'what these property charts plot: the average win time '
-    + 'per value, every individual win time (the distribution), or the '
-    + 'share of games won per value; one choice drives all of them';
+  select.setAttribute('aria-label',
+    (modeField === 'perfChartMode' ? 'your perf' : 'board traits') + ' chart mode');
+  select.title = 'average win time per value, every individual win time, '
+    + 'or the share of games won per value';
   for (const [id, label] of AVERAGE_CHART_MODES) {
     const option = document.createElement('option');
     option.value = id;
     option.textContent = label;
     select.appendChild(option);
   }
-  select.value = settings.averageChartMode;
+  select.value = settings[modeField];
   select.addEventListener('change', () => {
-    settings.averageChartMode = select.value;
+    settings[modeField] = select.value;
     saveSettings();
     if (renderedResult !== null) {
       renderResult(renderedResult.record, renderedResult.modeRecords, renderedResult.options);
@@ -567,13 +628,13 @@ function averageChartHelp(spec, mode) {
 // One property chart in the selected mode: "time by X" (bucket averages
 // plus the Theil–Sen trend pair), "times by X" (every win's own time),
 // or "winrate by X" (percent of all finished games won per value).
-function buildAverageScatter(spec, wins, allRecords, record, historyView) {
-  const mode = settings.averageChartMode;
+function buildAverageScatter(spec, wins, allRecords, record, historyView, modeField) {
+  const mode = settings[modeField];
   const referenceMs = historyView ? Date.now() : record.endedAt;
   const todayStart = startOfDay(referenceMs);
   const shared = {
-    headControl: averageChartModeSelect(),
     help: averageChartHelp(spec, mode),
+    xTickUnit: spec.xTickUnit,
   };
   if (mode === 'winrate') {
     if (spec.winBound) return null;

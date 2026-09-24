@@ -17,10 +17,12 @@ function section(from, to) {
 
 const tested = vm.runInThisContext(`(() => {
   ${fs.readFileSync(path.join(repo, 'game-data.js'), 'utf8')}
-  ${section('// Average-time charts group wins', "// A chart's eligible wins.")}
+  const config = { width: 9, height: 9, mines: 10 };
+  ${section('function boardFractionOf', 'function boardShareHelp')}
+  ${section('// Property charts group games', "// A chart's eligible wins.")}
   ${section("// A chart's eligible wins.", '// Bucket all finished games')}
   ${section('// Bucket all finished games', "// The property charts' three vertical readings")}
-  return { AVERAGE_SCATTER_SPECS, averageEligibleWins, averagePoints, winratePoints };
+  return { PERF_CHART_SPECS, BOARD_CHART_SPECS, averageEligibleWins, averagePoints, winratePoints };
 })()`);
 
 let checks = 0;
@@ -30,12 +32,16 @@ function assertEq(name, actual, want) {
 }
 
 assertEq(
-  'chart order',
-  tested.AVERAGE_SCATTER_SPECS.map((spec) => spec.label).join(','),
-  'clicks,3BV,mouse path,zeros,islands,max number,clicks over 3BV,IOS,path per click,path per 3BV');
+  'your-perf chart order',
+  tested.PERF_CHART_SPECS.map((spec) => spec.label).join(','),
+  'clicks,mouse path,clicks over 3BV,misclick rate,fastclick gap,3BV/s,click rate,no-op rate,efficiency,path / 3BV,path / click,correctness,IOE,ZiNi efficiency,HZiNi efficiency,IOS,STNB,mouse speed,cadence spread,unused mark share');
+assertEq(
+  'board-trait chart order',
+  tested.BOARD_CHART_SPECS.map((spec) => spec.label).join(','),
+  '3BV,ZiNi,HZiNi,3BV spread,max number,islands,largest island,zeros,0–1 share,zero-opening coverage');
 
 const byLabel = (label) =>
-  tested.AVERAGE_SCATTER_SPECS.find((spec) => spec.label === label);
+  [...tested.PERF_CHART_SPECS, ...tested.BOARD_CHART_SPECS].find((spec) => spec.label === label);
 const base = {
   endedAt: 1000,
   outcome: 'win',
@@ -54,10 +60,12 @@ assertEq('max number uses maxAdjacent', byLabel('max number').value(base), 5);
 assertEq('click overhead is clicks minus 3BV',
   byLabel('clicks over 3BV').value(base), 5);
 assertEq('IOS buckets to hundredths', byLabel('IOS').value(base), 1);
-assertEq('path per click buckets to 10px',
-  byLabel('path per click').value(base), 100);
-assertEq('path per 3BV buckets to 10px',
-  byLabel('path per 3BV').value(base), 120);
+assertEq('path / click buckets to 10px',
+  byLabel('path / click').value(base), 100);
+assertEq('path / 3BV buckets to 10px',
+  byLabel('path / 3BV').value(base), 120);
+assertEq('efficiency is win-only', byLabel('efficiency').winBound, true);
+assertEq('3BV/s keeps losses for winrate', byLabel('3BV/s').winBound, undefined);
 
 assertEq('legacy shape records are ineligible',
   tested.averageEligibleWins(byLabel('zeros'), [{ ...base, zeroCount: undefined }]).length,
@@ -65,11 +73,11 @@ assertEq('legacy shape records are ineligible',
 assertEq('IOS excludes games at or below one second',
   tested.averageEligibleWins(byLabel('IOS'), [{ ...base, timeMs: 1000 }]).length,
   0);
-assertEq('path per click excludes a zero denominator',
-  tested.averageEligibleWins(byLabel('path per click'), [{ ...base, clicks: 0 }]).length,
+assertEq('path / click excludes a zero denominator',
+  tested.averageEligibleWins(byLabel('path / click'), [{ ...base, clicks: 0 }]).length,
   0);
-assertEq('path per 3BV excludes a zero denominator',
-  tested.averageEligibleWins(byLabel('path per 3BV'), [{ ...base, bv3: 0 }]).length,
+assertEq('path / 3BV excludes a zero denominator',
+  tested.averageEligibleWins(byLabel('path / 3BV'), [{ ...base, bv3: 0 }]).length,
   0);
 
 const zeroPoints = tested.averagePoints(byLabel('zeros'), [

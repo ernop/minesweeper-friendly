@@ -46,7 +46,7 @@ context.stored = {
   gameDataSessionMetrics: { unknown: true }, gameDataShowValues: 'yes', boardGenerator: 'missing',
   boardGeneratorParams: { unknown: { scale: 4 } },
   boardOffsetX: Infinity, boardOffsetY: -1001, numberDisplay: 'emoji',
-  averageChartMode: 'unknown', justUniverse: 'true',
+  perfChartMode: 'unknown', boardChartMode: 'unknown', justUniverse: 'true',
 };
 assert.deepEqual(plain(run('settingsFrom(stored)')), defaults);
 for (const size of [null, '64', 0, 33, 64.5, Infinity, -16]) {

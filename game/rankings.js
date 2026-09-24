@@ -238,7 +238,7 @@ function boardShareHelp(record, field, definition) {
 const BOARD_METRIC_TABLES = [
   { field: 'bv3', label: '3BV', setting: 'exact3BV', priority: 13, summaryGroup: 2 },
   { field: 'zini', label: 'ZiNi', setting: 'exactZiNi', priority: 14, summaryGroup: 3 },
-  { field: 'maxAdjacent', label: 'max number', shortLabel: 'MN', setting: 'exactMaxNumber', priority: 15, summaryGroup: 6 },
+  { field: 'maxAdjacent', label: 'max number', shortLabel: 'MN', setting: 'exactMaxNumber', priority: 15, summaryGroup: 6, higher: true },
   { field: 'hzini', label: 'HZiNi', setting: 'exactHZiNi', priority: 16, summaryGroup: 4,
     help: () => [
       'Human ZiNi is the action count of a fixed opening-first solve with full board knowledge. The same oriented board always gives the same integer.',
@@ -263,7 +263,7 @@ const BOARD_METRIC_TABLES = [
       'Open every zero and nothing else. Count only the revealed zeros and ones, divided by all safe squares on the board. Covered ones and revealed clues of two or more do not count. Shared borders count once. No zeros means 0%.') },
   { field: (win) => boardShareGroup(win, 'zeroOpenedCells'), label: 'zero-opening coverage', shortLabel: 'ZOC',
     valueText: (record) => formatBoardShare(boardFractionOf(record, 'zeroOpenedCells')),
-    rawValue: (record) => boardFractionOf(record, 'zeroOpenedCells'),
+    rawValue: (record) => boardFractionOf(record, 'zeroOpenedCells'), higher: true,
     labelOf: (value) => 'zero-opening coverage ' + value + '%', setting: 'zeroOpeningTable', priority: 19, summaryGroup: 13,
     help: (record) => boardShareHelp(record, 'zeroOpenedCells',
       'The fraction of all safe squares exposed after opening every zero region, including bordering numbers of any value. Shared borders count once. This stops after automatic flooding, before deductions or chords. With no zeros the coverage is 0%.') },
@@ -347,7 +347,7 @@ function boardShapeCandidates(referenceWins, wins) {
   for (const [size, rows] of rankValueGroups(referenceWins, wins, 'largestIsland')) {
     candidates.push({
       id: 'largest-island-' + size,
-      trait: 'largest island', rawValue: (record) => record.largestIsland, higher: false,
+      trait: 'largest island', rawValue: (record) => record.largestIsland, higher: true,
       valueText: () => String(size),
       summaryOrder: [10, size],
       label: 'largest island ' + size,
