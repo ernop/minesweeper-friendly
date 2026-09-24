@@ -824,7 +824,9 @@ Implementation notes:
   They share category discovery between full tables and the summary, skip
   unmeasured values, retain all full-table standings, and keep their names
   outside the shape/time duplicate groups. `exact3BV`, `exactZiNi`, and
-  `exactMaxNumber` are independent shownThings switches, default on.
+  `exactMaxNumber` are independent shownThings switches, default on. Each
+  board table switch also gates its game-data board-trait marker (the
+  `boardComparisons` list in `renderRanks`); `workSpreadTable` defaults off.
 - Game data (2026-09-23): [complete design and removed-field inventory](docs/game-data.md).
   `game-data.js` owns shared metric formulas, GameData catalog/rows/history/domain,
   and SessionScope choices/bounds/records. `settings-core.js` depends on it.
@@ -840,6 +842,8 @@ Implementation notes:
   Configuration has independent session/lifetime columns with mixed/all controls;
   `gameDataSessionMetrics`, `gameDataLifetimeMetrics`, `gameDataDayTime`, and
   `gameDataShowValues` use the shared persistent preference schema.
+  `GameData.defaults` is per scope: `lifetime` from each metric's `default`,
+  `session` all off.
   `boardTraitLabelLayout` fits measured label heights to exact percentile points;
   ResizeObserver responds to width/value changes. `buildBoardTraitLine` owns
   the side headings; its `placeBand` measures one-line label widths under

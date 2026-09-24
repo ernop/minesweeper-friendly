@@ -16,7 +16,7 @@ const { chromium } = require(process.argv[2]);
       const now = Date.now();
       const current = { outcome: 'win', endedAt: now, timeMs: 33542,
         clicks: 105, misclicks: 1, wastedClicks: 3, fastclickGapMs: 190, mousePathPx: 980,
-        bv3: 75, zini: 49, maxAdjacent: 5, hzini: 50, islandCount: 21, zeroCount: 59,
+        flagsPlaced: 8, unusedCorrectFlags: 1, bv3: 75, zini: 49, maxAdjacent: 5, hzini: 50, islandCount: 21, zeroCount: 59,
         boardMetrics: { version: 1, workSpread: 6.5, safeCells: 100,
           zeroOpenedZeroOneCells: 60, zeroOpenedCells: 69 } };
       const groups = [
@@ -32,6 +32,7 @@ const { chromium } = require(process.argv[2]);
           ...fields, outcome: 'win', endedAt: now - (1000 + group * 1000 + index) * 864e5,
           clicks: 75 + index % 90, misclicks: index % 4, wastedClicks: index % 9,
           fastclickGapMs: 100 + index % 300, mousePathPx: 400 + index * 10,
+          flagsPlaced: 8, unusedCorrectFlags: index % 4,
           timeMs: current.timeMs + (index < rank - 1 ? index - rank + 1 : index - rank + 2) * 75,
         })));
       wins.push(current);
@@ -53,6 +54,25 @@ const { chromium } = require(process.argv[2]);
       drawProfileFixture();
     });
     const profile = page.locator('.board-time-profile');
+    const traits = (side) => profile.locator('.board-trait-line-label[data-side="' + side + '"]')
+      .evaluateAll((labels) => labels.map((label) => label.dataset.trait).sort());
+    assert.deepEqual(await traits('performance'), ['3BV/s (life)', 'click rate (life)', 'correctness (life)',
+      'fastclick gap (life)', 'misclick rate (life)', 'mouse speed (life)', 'no-op rate (life)', 'time (day)',
+      'time (life)', 'unused mark share (life)'], 'defaults: lifetime comparisons and day time');
+    assert.deepEqual(await traits('board'), ['0–1 share', '3BV', 'HZiNi', 'MN', 'ZOC', 'ZiNi', 'islands', 'zeros'],
+      '3BV spread is off by default');
+    await page.evaluate(() => {
+      // A crowded two-pool selection with every board table exercises label
+      // collisions and the session controls below.
+      window.crowdGameData = () => {
+        const crowded = ['time', 'misclickRate', 'fastclickGap', 'bvPerSecond', 'clickRate', 'efficiency', 'noopRate', 'pathPer3bv'];
+        settings.gameDataSessionMetrics = Object.fromEntries(GameData.metrics.map((m) => [m.id, crowded.includes(m.id)]));
+        settings.gameDataLifetimeMetrics = { ...settings.gameDataSessionMetrics };
+      };
+      crowdGameData();
+      settings.shownThings.workSpreadTable = true;
+      drawProfileFixture();
+    });
     assert.equal(await profile.locator('.board-time-profile-views, .board-time-profile-grid').count(), 0);
     assert.equal(await profile.locator('h4').textContent(), 'game data');
     assert.deepEqual(await profile.locator('.board-time-profile-sides > span').allTextContents(), ['your perf', 'board traits']);
@@ -204,10 +224,7 @@ const { chromium } = require(process.argv[2]);
     await profile.getByLabel('all performance metrics', { exact: true }).uncheck();
     assert.equal(await page.evaluate(() => Object.values(settings.gameDataLifetimeMetrics).some(Boolean)
       || Object.values(settings.gameDataSessionMetrics).some(Boolean)), false);
-    await page.evaluate(() => {
-      settings.gameDataSessionMetrics = { ...GameData.defaults };
-      settings.gameDataLifetimeMetrics = { ...GameData.defaults }; saveSettings();
-    });
+    await page.evaluate(() => { crowdGameData(); saveSettings(); });
     await profile.getByRole('button', { name: 'back to game data', exact: true }).first().click();
     await profile.getByRole('button', { name: 'configure', exact: true }).click();
     await profile.screenshot({ path: '/tmp/game-data-config.png' });

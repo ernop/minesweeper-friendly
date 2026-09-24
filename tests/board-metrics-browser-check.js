@@ -23,11 +23,13 @@ const { chromium } = require(process.argv[2]);
         values: [...resultRanks.querySelectorAll('.board-metric-value')].map((el) => el.textContent) };
     });
     assert.equal(saved.values.length, 0);
-    // Even a first loss with no previous wins exposes its groups in headings.
-    for (const name of ['HZiNi ', '3BV spread ', '0–1 share ', 'zero-opening coverage ']) {
-      assert(await page.locator('.result-chart-section-boardTables h4').allTextContents()
-        .then((labels) => labels.some((label) => label.startsWith(name))));
+    // Even a first loss with no previous wins exposes its groups in headings;
+    // the 3BV-spread tablechart is off by default.
+    const boardHeadings = await page.locator('.result-chart-section-boardTables h4').allTextContents();
+    for (const name of ['HZiNi ', '0–1 share ', 'zero-opening coverage ']) {
+      assert(boardHeadings.some((label) => label.startsWith(name)));
     }
+    assert(!boardHeadings.some((label) => label.startsWith('3BV spread ')));
     assert(Number.isSafeInteger(saved.metrics.safeCells));
     assert(Number.isSafeInteger(saved.metrics.zeroOpenedZeroOneCells));
     assert(Number.isSafeInteger(saved.metrics.zeroOpenedCells));
@@ -164,6 +166,7 @@ const { chromium } = require(process.argv[2]);
     const rendered = await page.evaluate(() => {
       settings.playMode = 'standard';
       settings.shownThings.averageCharts = settings.shownThings.relationshipCharts = false;
+      settings.shownThings.workSpreadTable = true;
       settings.gameDataLifetimeMetrics.hziniEfficiency = true;
       const now = Date.now();
       const metrics = BoardMetrics.analyze(3, 3, [false, false, false, false, true, false, false, false, false]).boardMetrics;

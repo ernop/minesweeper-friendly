@@ -718,7 +718,10 @@ report.
   largest-island tablecharts. Each table keeps its own identifying label.
   Both sections precede averages, relationships, and motion diagnostics.
   HZiNi, 3BV spread, 0–1 share, and zero-opening coverage values appear in
-  their tablechart headings; there are no separate value cards. Heading
+  their tablechart headings; there are no separate value cards. The
+  3BV-spread tablechart is off by default (user decision 2026-09-23: "i don't
+  think we need to show 3bv spread by default"); its switch also controls the
+  3BV spread marker in game data. Heading
   mouseovers/focus expose definitions, more precise values, and grouping
   rules without moving the layout. Backfill progress stays above the tables.
   After a loss these comparison families describe the lost board, including
@@ -1019,7 +1022,12 @@ the creator then chose "(day)" over "(24h)").
 Board-trait labels have no pool word. The band also has exact anchors, pastel
 colors, automatic range zoom, and full calculation/scope tooltips. Configuration has separate
 session/lifetime checkbox columns and all-selection controls; a saved bottom
-checkbox shows/hides actual values. The page-wide session chooser controls
+checkbox shows/hides actual values. By default (user decision 2026-09-23,
+from the creator's own configuration) the left side shows lifetime
+comparisons for time, misclick rate, fastclick gap, 3BV/s, click rate, no-op
+rate, correctness, mouse speed, and unused mark share, plus time (day), and
+no session comparisons; the right side omits 3BV spread, whose tablechart
+switch is off by default. The page-wide session chooser controls
 this chart, left-side session stats, and records won together, defaulting to
 the last hour of wall time. The chart includes paginated historical-window
 summaries from saved primary facts. The separate This win/time caption is gone.

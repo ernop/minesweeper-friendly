@@ -66,7 +66,7 @@ const SHOWN_THINGS_DEFAULTS = Object.freeze({
   boardMetricFacts: true,
   boardPercentiles: true,
   exactHZiNi: true,
-  workSpreadTable: true,
+  workSpreadTable: false,
   zeroOneShareTable: true,
   zeroOpeningTable: true,
   recentPlacements: true,
@@ -449,13 +449,16 @@ const SETTINGS_SCHEMA = [
     valid: (v) => typeof v === 'boolean', group: 'after-game',
     label: 'day time in game data', describe: 'rank this solve time among wins in the trailing 24 hours', control: 'none',
   },
-  ...['Session', 'Lifetime'].map((scope) => ({
-    field: 'gameData' + scope + 'Metrics', default: GameData.defaults, mergeDefaults: true,
-    valid: (v) => v !== null && typeof v === 'object' && !Array.isArray(v)
-      && Object.entries(v).every(([key, value]) => Object.hasOwn(GameData.defaults, key) && typeof value === 'boolean'),
-    group: 'after-game', label: 'game data ' + scope.toLowerCase() + ' metrics',
-    describe: 'which performance comparisons appear in the ' + scope.toLowerCase() + ' scope', control: 'none',
-  })),
+  ...['Session', 'Lifetime'].map((scope) => {
+    const scopeDefaults = GameData.defaults[scope.toLowerCase()];
+    return {
+      field: 'gameData' + scope + 'Metrics', default: scopeDefaults, mergeDefaults: true,
+      valid: (v) => v !== null && typeof v === 'object' && !Array.isArray(v)
+        && Object.entries(v).every(([key, value]) => Object.hasOwn(scopeDefaults, key) && typeof value === 'boolean'),
+      group: 'after-game', label: 'game data ' + scope.toLowerCase() + ' metrics',
+      describe: 'which performance comparisons appear in the ' + scope.toLowerCase() + ' scope', control: 'none',
+    };
+  }),
   {
     field: 'metricsPanelWidth',
     default: 316,

@@ -138,6 +138,10 @@ preferred directions are higher 0–1 share and zero count; lower islands,
 ZOC, 3BV, and MN. ZiNi, HZiNi, spread, and largest island also default lower.
 These are declared preferences, not claims about a trait's causal difficulty.
 Raw spread/share measurements rank without rounded comparison buckets.
+Each board-trait marker follows its tablechart's shown-things switch. The
+3BV-spread tablechart, and with it the 3BV spread marker, is off by default
+(user decision 2026-09-23: "i don't think we need to show 3bv spread by
+default").
 Binary clue-presence and capped-MN table families do not duplicate the MN
 marker. Identical time-table memberships do not collapse distinct scalar
 traits on this chart. Matching-board solve-time tables remain a separate analysis.
@@ -151,10 +155,16 @@ show an indeterminate state. Each individual choice, day-time visibility,
 and value visibility persist in the common preference schema and export.
 Back buttons and Escape return to the chart.
 
-Default in both scopes: time, misclick rate, fastclick gap, 3BV/s, click rate,
-efficiency, no-op rate, and path / 3BV. Optional: correctness, IOE, ZiNi
-efficiency, HZiNi efficiency, IOS, STNB, mouse speed, path / click, cadence
-spread, and unused mark share.
+Defaults (user decision 2026-09-23, from a screenshot of the creator's own
+configuration: "the attached image also is the defaults we should show for
+leftside"): lifetime comparisons for time, misclick rate, fastclick gap, 3BV/s,
+click rate, no-op rate, correctness, mouse speed, and unused mark share, plus
+time (day); no session comparisons. Optional in either scope: efficiency,
+path / 3BV, IOE, ZiNi efficiency, HZiNi efficiency, IOS, STNB, path / click,
+and cadence spread. Before this, both scopes defaulted to time, misclick rate,
+fastclick gap, 3BV/s, click rate, efficiency, no-op rate, and path / 3BV.
+Preferences are saved in full, so a profile that has saved any preference
+keeps its selections; the defaults reach new profiles.
 
 Completion-dependent metrics (time, 3BV/s, efficiency variants, IOS/STNB,
 path / 3BV, unused mark share) compare wins. Observable action/error/timing
@@ -202,7 +212,7 @@ No longer displayed by this replacement (still in saved records or derivable):
   flag removals/rate, Justice count, guess/life-ledger facts, and report-category
   counts/magnitudes. Their report/trace/session sources are not erased.
 
-Still available in configuration but off initially: correctness, IOE, ZiNi
-and HZiNi efficiency, IOS, STNB, mouse speed, path / click, cadence spread,
-and unused mark share. This inventory is for the user's next placement
+Still available in configuration but off initially: efficiency, path / 3BV,
+IOE, ZiNi and HZiNi efficiency, IOS, STNB, path / click, cadence spread, and
+every session comparison. This inventory is for the user's next placement
 choices; it is not approval to add unrelated ranking directions.

@@ -153,17 +153,17 @@ const GameData = (() => {
     { id: 'clickRate', allOutcomes: true, name: 'click rate', higher: true, default: true,
       value: perSecond('clicks'), format: (v) => v.toFixed(2) + '/s',
       help: 'Board-changing clicks per second. Higher means faster activity, separately from efficiency.' },
-    { id: 'efficiency', name: 'efficiency', higher: true, default: true,
+    { id: 'efficiency', name: 'efficiency', higher: true, default: false,
       value: throughputOf, format: percent,
       help: '3BV divided by board-changing clicks. Higher ranks higher. Throughput is the same measurement and is not duplicated.' },
     { id: 'noopRate', allOutcomes: true, name: 'no-op rate', higher: false, default: true,
       value: perSecond('wastedClicks'), format: (v) => v.toFixed(2) + '/s',
       help: 'Clicks that changed nothing per second. Lower rates rank higher.' },
-    { id: 'pathPer3bv', name: 'path / 3BV', higher: false, default: true,
+    { id: 'pathPer3bv', name: 'path / 3BV', higher: false, default: false,
       value: (r) => r.bv3 > 0 ? r.mousePathPx / r.bv3 : undefined,
       format: (v) => Number(v.toFixed(1)) + 'px',
       help: 'Cursor travel per unit of workload. Less travel ranks higher as movement economy.' },
-    { id: 'correctness', allOutcomes: true, name: 'correctness', higher: true, default: false,
+    { id: 'correctness', allOutcomes: true, name: 'correctness', higher: true, default: true,
       value: (r) => r.clicks + r.wastedClicks > 0 ? r.clicks / (r.clicks + r.wastedClicks) : undefined,
       format: percent, help: 'Board-changing clicks divided by all clicks, including no-ops. Higher ranks higher.' },
     { id: 'ioe', name: 'IOE', higher: true, default: false,
@@ -177,7 +177,7 @@ const GameData = (() => {
       value: iosOf, format: (v) => v.toFixed(3), help: 'Log(3BV) divided by log(solve seconds). Defined only above one second. Higher ranks higher.' },
     { id: 'stnb', name: 'STNB', higher: true, default: false,
       value: stnbOf, format: (v) => v.toFixed(1), help: 'Difficulty-normalized speed on the three standard board shapes, excluding Endgame drill. Higher ranks higher.' },
-    { id: 'mouseSpeed', allOutcomes: true, name: 'mouse speed', higher: true, default: false,
+    { id: 'mouseSpeed', allOutcomes: true, name: 'mouse speed', higher: true, default: true,
       value: perSecond('mousePathPx'), format: (v) => Math.round(v) + 'px/s',
       help: 'Cursor travel per solve second. Higher means faster movement, not necessarily more efficient or better play.' },
     { id: 'pathPerClick', allOutcomes: true, name: 'path / click', higher: false, default: false,
@@ -186,12 +186,17 @@ const GameData = (() => {
     { id: 'cadenceSpread', allOutcomes: true, name: 'cadence spread', higher: false, default: false,
       value: (r) => r.cadenceSpread, format: (v) => v.toFixed(2) + '×',
       help: 'All-press gap interquartile range divided by its median. Lower means more even timing, not necessarily better reasoning.' },
-    { id: 'unusedMarkShare', name: 'unused mark share', higher: false, default: false,
+    { id: 'unusedMarkShare', name: 'unused mark share', higher: false, default: true,
       value: (r) => r.flagsPlaced > 0 ? r.unusedCorrectFlags / r.flagsPlaced : undefined,
       format: percent, help: 'Correct placed marks that never contributed to an accepted chord, divided by all placed marks. Lower ranks higher for this observable no-chord-use measure; mental use is unobserved.' },
   ];
-  const defaults = Object.fromEntries(metrics.map((m) => [m.id, m.default]));
-  const defaultsForView = { gameDataSessionMetrics: defaults, gameDataLifetimeMetrics: defaults, sessionDefinition: 'pastHour', gameDataDayTime: true };
+  // The creator's own configuration (2026-09-23): each metric's `default`
+  // against lifetime, plus time (day); no session comparisons.
+  const defaults = {
+    lifetime: Object.fromEntries(metrics.map((m) => [m.id, m.default])),
+    session: Object.fromEntries(metrics.map((m) => [m.id, false])),
+  };
+  const defaultsForView = { gameDataSessionMetrics: defaults.session, gameDataLifetimeMetrics: defaults.lifetime, sessionDefinition: 'pastHour', gameDataDayTime: true };
   const chronological = (records) => records.slice().sort((a, b) => a.endedAt - b.endedAt);
   const SCOPE_WORDS = { session: 'session', lifetime: 'life', day: 'day' };
   function rankedRow(record, pool, spec, scope, params, description) {

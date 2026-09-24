@@ -14,7 +14,17 @@ const records = [
   current,
   { ...current, endedAt: now + 1000, timeMs: 1000 },
 ];
-const rows = GameData.rows(current, records);
+const on = (selection) => Object.keys(selection).filter((id) => selection[id]);
+assert.deepEqual(on(GameData.defaults.lifetime), ['time', 'misclickRate', 'fastclickGap', 'bvPerSecond',
+  'clickRate', 'noopRate', 'correctness', 'mouseSpeed', 'unusedMarkShare'], 'the creator’s lifetime defaults');
+assert.deepEqual(on(GameData.defaults.session), [], 'no session comparisons by default');
+assert.deepEqual(GameData.rows(current, records).map((r) => r.trait), ['time (life)', 'misclick rate (life)',
+  'fastclick gap (life)', '3BV/s (life)', 'click rate (life)', 'no-op rate (life)', 'correctness (life)',
+  'mouse speed (life)', 'time (day)'], 'default rows; the unmeasured unused mark share is absent');
+const board = { width: 9, height: 9, mines: 10 };
+const all = Object.fromEntries(GameData.metrics.map((m) => [m.id, true]));
+const both = { ...GameData.defaultsForView, gameDataSessionMetrics: all, gameDataLifetimeMetrics: all };
+const rows = GameData.rows(current, records, both, board);
 const row = (id) => rows.find((r) => r.id === id);
 assert.equal(row('time.lifetime').trait, 'time (life)');
 assert.equal(row('time.session').label, 'time 30.000s (session)', 'the pool word ends the label');
@@ -35,7 +45,7 @@ assert.equal(row('misclickRate.session').valueText, '0/min');
 assert.equal(row('fastclickGap.session').percentile, 50, 'all-equal timing has neutral rank');
 assert.equal(GameData.rows({ ...current, outcome: 'loss' }, records).length, 0);
 assert(GameData.rows(current, [current]).every((r) => r.percentile === null));
-const short = GameData.rows(current, records, { ...GameData.defaultsForView, sessionDefinition: 'past10min' });
+const short = GameData.rows(current, records, { ...both, sessionDefinition: 'past10min' }, board);
 assert.equal(short.find((r) => r.id === 'time.session').total, 1);
 assert.equal(short.find((r) => r.id === 'time.lifetime').total, 4);
 assert.equal(SessionScope.records(records, 'pastHour', now).length, 3);
@@ -59,7 +69,6 @@ assert.deepEqual(GameData.domain([{ percentile: null }]), [0, 100]);
 assert.deepEqual(GameData.domain([{ percentile: 98 }, { percentile: 100 }]), [90, 100]);
 const enabled = Object.fromEntries(GameData.metrics.map((m) => [m.id, false]));
 assert.equal(GameData.rows(current, records, { ...GameData.defaultsForView, gameDataSessionMetrics: enabled, gameDataLifetimeMetrics: enabled, gameDataDayTime: false }).length, 0);
-const board = { width: 9, height: 9, mines: 10 };
 assert.equal(GameData.metrics.find((m) => m.id === 'stnb').value(current, board), stnbOf(current, board));
 assert.equal(GameData.metrics.find((m) => m.id === 'ioe').value(current), 60 / 82);
 assert.equal(new Set(GameData.metrics.map((m) => m.id)).size, GameData.metrics.length);
