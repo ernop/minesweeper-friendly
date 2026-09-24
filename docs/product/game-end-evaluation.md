@@ -247,9 +247,10 @@ report.
   Wins backfill as wins; losses derive their line from the fatal action
   evidence; legacy losses retain their old line through provenance, and
   evidence-free losses are "unjudged loss".
-- The session window uses the page-wide `sessionDefinition` chooser, shared
-  with records won and game data; default last hour of wall-clock time.
-  Aggregation lookbacks still use played time. See Session stats.
+- The session window uses the page-wide `sessionDefinition`, set by the one
+  picker in the session heading and shared with ranks won and game data;
+  default today (since local midnight). Aggregation lookbacks still use
+  played time. See [Session stats](session-stats.md).
 - `reportScope` is the single persistent “After each game, show me”
   setting (changes apply immediately) and is also available on the settings
   page. After a game, its control stays in the “Analysis & chart display”

@@ -105,7 +105,8 @@ function hziniEfficiencyOf(record) {
 }
 
 
-// One page-wide definition, shared by live stats, records won, and game data.
+// One page-wide definition, shared by live stats, ranks won, and game data.
+// "today" starts at local midnight; it is not the trailing 24 hours.
 const SessionScope = (() => {
   const dayStart = (now, days = 0, hour = 0) => {
     const d = new Date(now); d.setDate(d.getDate() - days); d.setHours(hour, 0, 0, 0); return d.getTime();
@@ -129,7 +130,7 @@ const SessionScope = (() => {
     return items.filter((r) => r.endedAt >= from && r.endedAt <= to);
   }
   const earliest = (now) => Math.min(...choices.map((c) => c.start(now)));
-  return { choices, bounds, records, earliest };
+  return { choices, defaultId: 'today', bounds, records, earliest };
 })();
 
 const GameData = (() => {
@@ -196,7 +197,7 @@ const GameData = (() => {
     lifetime: Object.fromEntries(metrics.map((m) => [m.id, m.default])),
     session: Object.fromEntries(metrics.map((m) => [m.id, false])),
   };
-  const defaultsForView = { gameDataSessionMetrics: defaults.session, gameDataLifetimeMetrics: defaults.lifetime, sessionDefinition: 'pastHour', gameDataDayTime: true };
+  const defaultsForView = { gameDataSessionMetrics: defaults.session, gameDataLifetimeMetrics: defaults.lifetime, sessionDefinition: SessionScope.defaultId, gameDataDayTime: true };
   const chronological = (records) => records.slice().sort((a, b) => a.endedAt - b.endedAt);
   const SCOPE_WORDS = { session: 'session', lifetime: 'life', day: 'day' };
   function rankedRow(record, pool, spec, scope, params, description) {
@@ -238,7 +239,7 @@ const GameData = (() => {
     for (const spec of metrics) {
       for (const [scope, pool, description] of [
         ['lifetime', past, 'Lifetime through this game’s completion.'],
-        ['session', session, 'Session through this game’s completion; ' + choice.label + '. This is the shared page-wide session definition.'],
+        ['session', session, 'Session (' + choice.label + ', the one page-wide session chosen at the upper left) through this game’s completion.'],
       ]) {
         const selected = scope === 'session' ? preferences.gameDataSessionMetrics : preferences.gameDataLifetimeMetrics;
         if (!selected[spec.id]) continue;

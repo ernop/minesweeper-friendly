@@ -53,6 +53,12 @@ const boundary = { ...current, endedAt: now - 3600000 };
 assert(SessionScope.records([boundary], 'pastHour', now).includes(boundary), 'lower bound is inclusive everywhere');
 assert.equal(SessionScope.bounds('today', now).from, new Date(2026, 8, 23).getTime());
 assert.equal(SessionScope.bounds('today6am', now).from, new Date(2026, 8, 22, 6).getTime());
+assert.equal(GameData.defaultsForView.sessionDefinition, 'today', 'the one session defaults to today');
+assert.equal(SessionScope.defaultId, 'today');
+assert.deepEqual(SessionScope.records(records, 'today', now).map((r) => r.endedAt),
+  [now - 30 * 60000, now - 5 * 60000, now], 'today starts at local midnight, the boundary game included');
+assert.equal(SessionScope.records(records, 'past24h', now).length, 4,
+  'the last 24 hours also holds yesterday evening’s game; today does not');
 const history = GameData.history(records, now, 'pastHour', 0, 2);
 assert.equal(history.total, 5);
 assert.equal(history.windows.length, 2);

@@ -1,14 +1,16 @@
-# Session stats (decided 2026-08-22; player-controlled session revised 2026-08-28)
+# Session stats (decided 2026-08-22; player-controlled session revised 2026-08-28; one picker, default today, 2026-09-23)
 
 Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation notes: [docs/implementation/session-stats.md](../implementation/session-stats.md).
 
 The recent-observations section uses the same page-wide session definition as
-records won and game data: `sessionDefinition`, default last hour of wall-clock
-time. The page chooser and selectors in all three surfaces edit that one
-preference. Choices are last 10/30 minutes, last 1/2/4/24 hours, today, today
-since 6am, and last 7 calendar days. Live stats end at now; historical game
-comparisons end at the selected game's completion. The former independent
-played-time window and Clear-session override are removed.
+ranks won in session and game data: `sessionDefinition`, default today (since
+the most recent local midnight, not the last 24 hours). Its one picker is this
+section's "session" heading, at the page's upper left (user decision
+2026-09-23; see [One session definition](game-data.md#one-session-definition)).
+No other surface has a picker. Choices are last 10/30 minutes, last 1/2/4/24
+hours, today, today since 6am, and last 7 calendar days. Live stats end at now;
+historical game comparisons end at the selected game's completion. The former
+independent played-time window and Clear-session override are removed.
 
 Wall-clock membership and aggregation units are separate. Breaks compress out
 of the plotted x axis, rates still divide by actual play, and grouping controls
@@ -205,9 +207,11 @@ inside the same boundary. No old lookback observations leak across it.
   mouse speed as before, the fastclick gap from its stored field.
 - Display: the section renders at the top of the left metrics panel,
   always (not just during games), under one "session" header with compact
-  controls and no HOW/RECORDS hover essays. The
-  `showSessionStats` setting (default on) turns it off; the panel's ×
-  chip tucks it away with the rest.
+  controls and no HOW/RECORDS hover essays. The header's value is the page's
+  one session picker ("SESSION today"). The
+  `showSessionStats` setting (default on) turns the stats off; the panel's ×
+  chip tucks them away with the rest. Neither hides the header and its
+  picker, because ranks won and game data still use the session.
 - Charts: real charts, not sparklines (decided 2026-08-22, same
   evening) — the scatter plots' visual grammar at panel width (the
   panel widened to fit): plot frame, light gridlines, 1/2/5-step y

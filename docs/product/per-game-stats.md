@@ -81,9 +81,11 @@ from the creator's own configuration) the left side shows lifetime
 comparisons for time, misclick rate, fastclick gap, 3BV/s, click rate, no-op
 rate, correctness, mouse speed, and unused mark share, plus time (day), and
 no session comparisons; the right side omits 3BV spread, whose tablechart
-switch is off by default. The page-wide session chooser controls
-this chart, left-side session stats, and records won together, defaulting to
-the last hour of wall time. The chart includes paginated historical-window
+switch is off by default. The page's one session picker, the left stats
+panel's session heading, controls this chart's (session) comparisons,
+left-side session stats, and ranks won in session together, defaulting to
+today (since local midnight); the chart itself only says "session" and has
+no picker (user decision 2026-09-23). The chart includes paginated historical-window
 summaries from saved primary facts. The separate This win/time caption is gone.
 Its band sits where both sides' labels fit on one line (2026-09-23). It lives
 in its own full-height column beside the board column when that fits, and

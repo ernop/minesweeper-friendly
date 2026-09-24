@@ -29,13 +29,14 @@ standardization sweep was approved ("all"). Still open:
 
 - **What it supersedes.** Each left-side time marker is the same comparison
   as a time table's "this" row: lifetime time and the lifetime table, session
-  time and the selected session window, day time and the trailing-24-hours
-  table. The chart gives rank and top share but not the neighboring times,
+  time and the session's time table ("today" under the default session),
+  day time and the trailing-24-hours table. The chart gives rank and top
+  share but not the neighboring times,
   cross-category achievements (ranks won), or the scatterplots. Options:
   hide tables whose standing the chart already shows, link a label to its
   table, or keep tables as the detailed layer.
 - **Shared vocabulary.** Chart "time (session)" / "time (day)" versus table
-  headings "past hour" / "last 24 hours"; the board-side "3BV 71" ranks this
+  headings "today" / "last 24 hours"; the board-side "3BV 71" ranks this
   board's 3BV among boards, while the "3BV 71" This-board table ranks solve
   times among 3BV-71 wins, so the same text names different quantities.
 - **One label per measurement.** Lifetime, session, and day markers of one
@@ -149,7 +150,7 @@ time performance now, and how that association differs by person. The
 game-data visualization ranks this game's performance within lifetime/session
 history and its board values in preferred directions. It does not compute
 correlations or attribute solve time to traits. Historical session windows
-now share the page-wide selector and derive summaries from existing records.
+now use the page's one session picker and derive summaries from existing records.
 
 Existing history already collects primary trait measurements, solve time,
 completion date, and the size/mine-count/mode/generator score key. Derive

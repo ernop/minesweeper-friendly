@@ -34,8 +34,11 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
 - The panel also carries its own small × toggler in its top-right:
   clicking it tucks the panel down to a "stats ▸" chip in the same
   corner (renamed from "motion ▸" when the session section moved in,
-  2026-08-22), and the chip click brings it back. This is session-only
-  display state — the persistent switches are the settings.
+  2026-08-22), and the chip click brings it back. The collapsed state is
+  the saved `metricsPanelCollapsed` preference. Since 2026-09-23 the
+  session heading, which holds the page's one session picker, stays under
+  the chip, and the panel no longer disappears when both stats stages are
+  off ([One session definition](game-data.md#one-session-definition)).
 - One row per metric: the name, the current value, and a sparkline chart
   of the value's evolution over this game (one point per live sample
   plus the final one). The sparkline carries labeled axes: y is the

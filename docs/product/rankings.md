@@ -128,21 +128,24 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
 
 ## Recent placements (requested and decided 2026-08-23; charts and the lifetime near-miss rule extended later the same day)
 
-- One summary block, leading the below-board chart sections: for a chosen
-  recent window it reports, per longer chart, which of that chart's top
-  ranks were earned within the recent window — e.g.
+- One summary block, "ranks won in session", leading the below-board chart
+  sections: for the session it reports, per longer chart, which of that
+  chart's top ranks were earned within the session — e.g.
   "this month: 1st, 3rd, 8–12th / lifetime: 7th, 14th".
-- Source window: the shared page-wide `sessionDefinition`, default last hour.
-  The heading's selector mirrors the page chooser and controls session stats
-  and game data too. Bounds come from the same `SessionScope` model; there is
-  no independent recent-placements preference. Changing it rebuilds only
-  scope-dependent content in place.
+- Source window: the shared page-wide `sessionDefinition`, default today
+  (since local midnight). The heading reads "ranks won in session" and has no
+  selector of its own (user decision 2026-09-23: it "should merely say
+  'session'"); the one picker is the stats panel's session heading at the
+  upper left ([One session definition](game-data.md#one-session-definition)).
+  The heading tooltip names the current window. Bounds come from the same
+  `SessionScope` model; there is no independent recent-placements preference.
+  Changing the session rebuilds only scope-dependent content in place.
 - Only charts strictly longer than the source window report — a chart no
   longer than the source could only echo itself. For time windows,
   strictly longer means the window starts strictly earlier: with the
   source at the past hour, "today", "past week", "this month" and up
   qualify while "past hour" and shorter never do, and "today" as source
-  excludes the "today" chart itself.
+  (the default) excludes the "today" chart itself.
 - Category scope (revised 2026-09-21): retain the current board size/mine
   count, play mode, and generator with its parameters. Retain the reference
   date's day categories (this weekday, weekend/weekday, holidays when today
@@ -176,7 +179,7 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   (closest) recent lifetime rank reports anyway, with its standing tint and
   an explanatory tooltip — how close the window came stays visible. Because
   of this rule, the block's one-line empty state means exactly "no wins
-  <window>" and says so.
+  in session" and says so.
 - Row format: chart name, the earned ranks with compatible consecutive runs
   compressed ("8–12th", the ordinal suffix closing each run), "of N"
   naming the list length, and the reported ranks' percentage standing.

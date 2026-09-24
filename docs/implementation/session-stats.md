@@ -4,8 +4,9 @@ Spec: [docs/product/session-stats.md](../product/session-stats.md). Index: [AGEN
 
 - Session stats ([Session stats](../product/session-stats.md)): a player-controlled observation
   tool. `SessionScope` in game-data.js owns the single page-wide wall-clock
-  window (`sessionDefinition`, default pastHour), shared with game data and
-  records won. No independent window or Clear-session override remains.
+  window (`sessionDefinition`, default `SessionScope.defaultId` = today),
+  shared with game data and ranks won. No independent window or Clear-session
+  override remains.
   `settings.sessionAggregation` chooses trailing averages or disjoint groups.
   `settings.sessionRateBasis` chooses time-normalized values using
   `sessionLookbackSeconds`, or per-finished-game values using
@@ -135,11 +136,17 @@ Spec: [docs/product/session-stats.md](../product/session-stats.md). Index: [AGEN
   rank/total <= 10% with at least ten saved wins is `top 10%` (never WR/global,
   because no worldwide leaderboard is available),
   `latestDefined` (measurability),
-  `appendSessionSection` (renders into the panel top, hosts the
-  grouping <select> writing `settings.sessionLookbackSeconds` in played-time
-  mode or `settings.sessionLookbackGames` in per-game mode, and
-  the window selector calls `setSessionDefinition`. Grouping choices live
-  beside SETTINGS_SCHEMA; `SessionScope.choices` is the shared window catalog). Session mutations mark
+  `appendSessionSection` (renders below the persistent session heading and
+  hosts the grouping <select> writing `settings.sessionLookbackSeconds` in
+  played-time mode or `settings.sessionLookbackGames` in per-game mode.
+  Grouping choices live beside SETTINGS_SCHEMA; `SessionScope.choices` is the
+  shared window catalog). The heading itself (`.session-scope-head`, built once
+  in `renderMetricsPanelContent`) carries the page's one window picker from
+  `buildSessionScopeSelect`, whose change calls `setSessionDefinition`. It is
+  never hidden, so `#metrics-panel` stays visible in every state after its
+  first render; `sessionDefinition` stays in the session controls key so a
+  new window rebuilds the charts at once rather than waiting out the
+  hover deferral. Session mutations mark
   `sessionChartsDirty`; `appendSessionCharts` replaces only the chart region,
   preserving `#metrics-panel-content`'s scrollTop. Controls stay mounted
   during data updates. Hover/focus holds chart replacement until leave/out

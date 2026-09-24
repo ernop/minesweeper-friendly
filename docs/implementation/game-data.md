@@ -30,8 +30,14 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
   selections cannot fit readably.
   Shared chart help uses one owned manual popover, so it stays above compact
   sidebar content and old blur/leave events cannot hide another item's help.
-  `setSessionDefinition` updates all mirrored selectors and scope-dependent
-  nodes without rebuilding the board. Historical pages derive twenty overlapping
+  `SessionScope.defaultId` ('today') is the one default: the settings schema
+  and `GameData.defaultsForView` both read it. `buildSessionScopeSelect` builds
+  the only picker (`#session-definition-select`, accessible name "session")
+  once, inside the stats panel's persistent `.session-scope-head`; game data's
+  footer and the ranks-won heading have none. `setSessionDefinition` saves it,
+  dispatches `session-scope-change` to every `[data-session-scope-view]` node
+  (the ranks-won box and game data), and rebuilds the session section without
+  rebuilding the board. Historical pages derive twenty overlapping
   session windows at a time from primary records; no stored aggregates.
   Pure checks: tests/game-data-test.js, tests/recent-placements-test.js,
   tests/session-buckets-test.js. Browser checks: tests/board-time-profile-browser-check.js.

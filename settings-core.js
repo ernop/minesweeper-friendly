@@ -433,10 +433,10 @@ const SETTINGS_SCHEMA = [
     control: 'none',
   },
   {
-    field: 'sessionDefinition', default: 'pastHour',
+    field: 'sessionDefinition', default: SessionScope.defaultId,
     valid: (v) => SessionScope.choices.some((choice) => choice.id === v),
     group: 'after-game', label: 'page-wide session',
-    describe: 'one shared time window for session stats, recent records, and game data; default last hour',
+    describe: 'the one wall-clock session window for session stats, ranks won in session, and game data session comparisons; chosen only with the picker in the session heading at the upper left; default today (since local midnight, not the last 24 hours)',
     control: 'none',
   },
   {

@@ -118,7 +118,9 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   session diagnostics;
   `showSessionStats` (default on),
   `sessionLookbackSeconds` (default 300), and `sessionDefinition`
-  (default `pastHour`) — visibility, played-time grouping, and the shared
+  (default `today`, since local midnight; set only by the one picker in the
+  stats panel's session heading, never on the settings page) — visibility,
+  played-time grouping, and the shared
   wall-clock session window (see [Session stats](session-stats.md)); `metricsPanelWidth` (default 316, clamped 220–640; set
   by dragging the stats panel's right edge, not a panel checkbox) — the
   left panel's width, which the session charts fill;

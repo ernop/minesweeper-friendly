@@ -2521,8 +2521,7 @@ body.settings-page .return-to-game {
 .board-trait-line-unranked-heading { grid-column: 1 / -1; }
 .board-trait-line-unranked > div { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
 .board-trait-line-unranked > [data-side="performance"] { align-items: flex-end; text-align: right; }
-#global-session-controls { align-self: stretch; font-size: 12px; color: #000000; }
-#global-session-controls select, .board-time-profile select { font: inherit; color: inherit; max-width: 100%; }
+.board-time-profile select { font: inherit; color: inherit; max-width: 100%; }
 .board-time-profile button:not(.chart-help) {
   font: inherit;
   color: #000000;
@@ -2839,17 +2838,8 @@ body.settings-page .return-to-game {
 }
 .scatter-legend .legend-item { margin-left: 8px; }
 
-/* Recent placements: one row per longer time window, listing the
-   top-tenth ranks earned within the chosen recent window. The window
-   selector rides the heading line. */
-.recent-placements-select {
-  margin-left: 6px;
-  font: inherit;
-  font-size: 11px;
-  font-weight: normal;
-  color: #000000;
-}
-
+/* Recent placements ("ranks won in session"): one row per longer chart,
+   listing the top-tenth ranks earned within the session. */
 .recent-placements-grid {
   display: grid;
   width: 100%;
@@ -3190,7 +3180,7 @@ body.settings-page .return-to-game {
   margin: 4px 0 8px;
 }
 .session-control,
-.session-clear {
+.session-scope-select {
   min-height: 24px;
   border: 1px solid #c7d1d9;
   border-radius: 3px;
@@ -3203,15 +3193,16 @@ body.settings-page .return-to-game {
   letter-spacing: normal;
 }
 .session-control { max-width: 126px; }
-.session-clear {
-  padding: 2px 6px;
-  color: #7a2f27;
-  cursor: pointer;
+/* The page's one session picker rides the session heading, so the chosen
+   window reads as the heading's value: "SESSION today". */
+#metrics-panel .session-scope-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+  padding-bottom: 2px;
 }
-.session-clear:hover {
-  border-color: #b98d86;
-  background: #fff7f5;
-}
+.session-scope-select { font-size: 14px; }
 
 /* The panel's right-edge resize grip belongs to the in-page panel. */
 .metrics-resize {
@@ -3532,7 +3523,7 @@ body.settings-page .return-to-game {
 }
 
 /* The property charts' mode selector (average / distribution / winrate)
-   rides each chart's heading like the recent-placements window select. */
+   rides each chart's heading. */
 .avg-mode-select {
   margin-left: 6px;
   font: inherit;

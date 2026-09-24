@@ -85,10 +85,32 @@ rankings nor the zoom range. Hover/focus/click still explains the item.
 
 ## One session definition
 
-There is exactly one page-wide setting: `sessionDefinition`, default
-`pastHour` (the last hour of wall-clock time). The page-level chooser and the
-mirrored selectors in session stats, records won, and game data all edit this
-same field. The former independent recent-placements and played-time window
+There is exactly one page-wide setting, `sessionDefinition`, and exactly one
+picker for it (user decision 2026-09-23: "there shall only be one session
+length picker? i think it should be in the upper left"). Requested behavior,
+all implemented the same day:
+
+- **Where the picker is.** The picker is the value of the "session" heading
+  at the top of the left stats panel, the page's upper-left corner. It reads
+  "SESSION today". The session stats in that panel reflect it. The heading
+  and its picker stay in every panel state. When the panel is collapsed they
+  sit under the "stats ▸" chip. When session stats are switched off the panel
+  keeps only this heading. Ranks won and game data still use the session in
+  both cases. The former top-of-board-column chooser and the mirrored
+  selectors in session stats, ranks won, and game data are removed.
+- **Default "today".** Today means back to the most recent local midnight
+  (the user: "meaning back in time to midnight the night before"). It does
+  not mean the last 24 hours, which stays a separate choice.
+- **The other surfaces merely say "session".** Game data's (session)
+  comparisons, its session history, and "ranks won in session" use the one
+  picked value and carry no picker or window name of their own. The user:
+  "Both the latter things should merely say 'session' and the value used
+  should be the single one picked in the dropdown!" Their help tooltips
+  name the current window and point to the picker.
+
+Saved preferences are stored in full, so a profile saved under the old
+last-hour default keeps "last hour" until the picker is changed once.
+The former independent recent-placements and played-time window
 preferences and Clear-session override are removed.
 
 Choices: last 10/30 minutes, last 1/2/4/24 hours, today, today since 6am, and
@@ -96,7 +118,7 @@ last 7 calendar days. Calendar boundaries use local time. The shared
 `SessionScope.bounds` and `SessionScope.records` implement inclusive endpoints.
 Live session stats end at now. Completed-game comparisons and historical
 session windows end at that game's completion, excluding future records.
-The records-won summary retains its selected report/reference date.
+The ranks-won summary retains its selected report/reference date.
 
 This controls the *membership window*. The left panel may still compress
 breaks out of its x axis and divide by actual played time. Its running
@@ -131,7 +153,8 @@ Each left-side marker ranks **this game's** metric against either lifetime
 or session history of the same size, mine count, play mode, and generator.
 Lifetime and session markers are independently configurable. "time (day)"
 ranks this solve time against wins in the trailing 24 hours, crossing midnight;
-it has its own switch. Historical comparisons end at the selected game.
+it has its own switch and is not the session (whose default, today, starts at
+local midnight). Historical comparisons end at the selected game.
 
 Right-side markers rank **board values themselves**, not solve times within
 matched-trait pools. Background is measured completed boards in the same

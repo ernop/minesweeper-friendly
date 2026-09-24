@@ -37,7 +37,8 @@ Spec: [docs/product/rankings.md](../product/rankings.md). Index: [AGENTS.md](../
   the strictly-longer rule; membership charts omit it and always
   qualify), alwaysShowBest (lifetime's near-miss rule, rows flagged
   nearMiss)} — computes the rows. `SessionScope` supplies the shared source
-  window and the heading selector calls `setSessionDefinition`.
+  window. The "ranks won in session" heading has no selector; the box listens
+  for `session-scope-change` from the one picker and rebuilds itself.
   `buildRecentPlacements(record, wins, referenceMs, markReferenceRecord)` uses
   `recentPlacementCandidates`;
   `rankColumns` retains the reference date's day categories; window columns

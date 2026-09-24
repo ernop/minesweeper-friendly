@@ -120,9 +120,10 @@ highest number (has an 8, has a 7, or no number above 4 / 3 / 2),
 mine-island count, largest mine-island, and zero count.
 “game data” replaces the winning-game sidebar stats: this game's performance
 relative to lifetime/session history on the left, preferred board-trait ranks
-on the right. It shares one session chooser with live stats and records won
-(default last hour). Configure each scope independently, toggle actual values,
-and review historical session windows. The vertical band autozooms; item help
+on the right. Its session comparisons use the page's one session picker, the
+"session" heading at the upper left, shared with live stats and "ranks won in
+session" (default today, since local midnight). Configure each scope
+independently, toggle actual values, and review historical session windows. The vertical band autozooms; item help
 states the rank calculation and preferred direction. See
 [the design and removed-field inventory](docs/product/game-data.md).
 Average-time scatter plots group your wins by clicks, 3BV, mouse path,
@@ -186,7 +187,8 @@ the latest win's stats and historical charts have no current-game marker.
 The in-page left column carries live self-observation without covering
 the board. During a game it
 shows per-game motion metrics recomputed once a second; on top, always, a
-"session" section charts the last hour of actual play across games (losses
+"session" section charts the actual play within the session (today by
+default, picked in its own heading) across games (losses
 and abandoned boards included): mouse
 speed, board-changing clicks per second, deaths with recorded mistake
 tags per minute (fatal actions such as opening a proven mine or guessing
@@ -199,7 +201,7 @@ per minute. It also charts enabled report-category frequencies, excess
 protection-aware game risk, and the optional modeled-life gap. Breaks
 consume no chart time: history is scanned as far back as needed to fill each
 selectable played-time lookback (30s to 15m). Each chart
-uses a one-hour accumulated-play axis, black plot-aligned titles, readable
+uses an accumulated-play axis over the session, black plot-aligned titles, readable
 auto-ranged y axes (not forced to start at zero), and the newest value
 labeled at its point. The game-endings composition alone keeps its meaningful
 full 0–100% range. Thin green vertical lines
@@ -210,7 +212,7 @@ through data updates. These are observations, not explanations: the app
 does not infer fatigue, attention, hardware trouble, judgment, or any other
 cause from a change in a line. The
 window survives a reload: startup reconstructs the selectable session windows
-from saved records, then applies the shared page-wide choice (last hour by
+from saved records, then applies the shared page-wide choice (today by
 default). Closing the tab does not wipe the measured game history.
 
 The home-page score buttons open the same full result view for Beginner,

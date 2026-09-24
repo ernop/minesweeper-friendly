@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Minesweeper - Standard Mode</title>
-<link rel="stylesheet" href="style.css?v=20260923-board-anchor">
+<link rel="stylesheet" href="style.css?v=20260923-one-session-picker">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <!-- Defer preserves dependency order while letting every page asset download
      in parallel. Storage starts first so disk access overlaps JS startup. -->
@@ -21,16 +21,15 @@
 <script defer src="pregen.js?v=20260826-pregen-highlight"></script>
 <script defer src="odds.js?v=20260825-batched-certification"></script>
 <script defer src="trial.js"></script>
-<script defer src="game-data.js?v=20260923-lifetime-defaults"></script>
-<script defer src="settings-core.js?v=20260923-lifetime-defaults"></script>
+<script defer src="game-data.js?v=20260923-one-session-picker"></script>
+<script defer src="settings-core.js?v=20260923-one-session-picker"></script>
 <script defer src="preferences-game.js?v=20260921-all-preferences"></script>
-<script defer src="minesweeper.js?v=20260923-board-anchor"></script>
+<script defer src="minesweeper.js?v=20260923-one-session-picker"></script>
 </head>
 <body aria-busy="true">
 <div id="page-layout">
 <div id="metrics-panel" hidden><div id="metrics-panel-content"></div></div>
 <main>
-  <label id="global-session-controls">session</label>
   <nav id="difficulty-tabs">
     <button type="button" id="game-sidebar-button" popovertarget="game-sidebar" hidden>Game details</button>
     <a href="#" data-difficulty="beginner" class="active">Beginner</a>

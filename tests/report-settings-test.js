@@ -23,7 +23,10 @@ function check(name, condition) {
   check('per-game grouping defaults to five completed games',
     fresh.sessionLookbackGames === 5);
   check('session defaults to exact current mode', fresh.sessionModeScope === 'current');
-  check('all session surfaces default to the last hour', fresh.sessionDefinition === 'pastHour');
+  check('the one session defaults to today', fresh.sessionDefinition === 'today');
+  check('today starts at local midnight, not 24 hours back',
+    SessionScope.bounds('today', new Date(2026, 8, 23, 7, 30).getTime()).from
+      === new Date(2026, 8, 23).getTime());
   check('retired category block is not rewritten',
     !('reportCategories' in fresh));
   check('retired detail setting is not rewritten',

@@ -4702,28 +4702,6 @@ function applyRankHighlight(element, rank, total) {
   return standing;
 }
 
-// All three session surfaces share this setting; rebuild only their own
-// content so selecting a window never resets the board or replay.
-function setSessionDefinition(value) {
-  settings.sessionDefinition = value;
-  saveSettings();
-  for (const select of document.querySelectorAll('select[data-session-scope]')) select.value = value;
-  for (const view of document.querySelectorAll('[data-session-scope-view]')) view.dispatchEvent(new Event('session-scope-change'));
-  sessionChartsDirty = true;
-  refreshMetricsPanel();
-}
-
-function buildSessionScopeSelect(label) {
-  const select = document.createElement('select');
-  select.dataset.sessionScope = '';
-  select.setAttribute('aria-label', label);
-  select.title = 'One session window for session stats, records won, and game data. Wall-clock time; default last hour.';
-  for (const choice of SessionScope.choices) select.add(new Option(choice.label, choice.id));
-  select.value = settings.sessionDefinition;
-  select.addEventListener('change', () => setSessionDefinition(select.value));
-  return select;
-}
-
 function buildRecentPlacements(record, wins, referenceMs, markReferenceRecord = true) {
   const { label: chosenLabel } = SessionScope.choices.find((c) => c.id === settings.sessionDefinition);
   const sourceStartMs = SessionScope.bounds(settings.sessionDefinition, referenceMs).from;
@@ -4735,16 +4713,13 @@ function buildRecentPlacements(record, wins, referenceMs, markReferenceRecord = 
   const box = document.createElement('div');
   box.className = 'rank-list recent-placements';
   const heading = document.createElement('h4');
-  heading.textContent = 'ranks won';
+  heading.textContent = 'ranks won in session';
   heading.title = 'top ranks on every longer chart (time windows, day '
-    + 'categories, exact board benchmarks, 3BV-spread bands, and board shapes of wins in the selected period) that were earned '
-    + chosenLabel + '; only ranks within the top tenth of a list count, '
+    + 'categories, exact board benchmarks, 3BV-spread bands, and board shapes of session wins) that were earned '
+    + 'in the session (' + chosenLabel + ', the one page-wide session chosen at the upper left); only ranks within the top tenth of a list count, '
     + 'except that lifetime shows its closest rank when none made the tenth. Ordered by category, with board values ascending.';
-  const select = buildSessionScopeSelect('Records won session (page-wide)');
-  select.className = 'recent-placements-select';
   box.dataset.sessionScopeView = '';
   box.addEventListener('session-scope-change', () => box.replaceWith(buildRecentPlacements(record, wins, referenceMs, markReferenceRecord)));
-  heading.appendChild(select);
   box.appendChild(heading);
 
   // Lifetime's near-miss rule reports whenever the source window has any
@@ -4752,7 +4727,7 @@ function buildRecentPlacements(record, wins, referenceMs, markReferenceRecord = 
   if (rows.length === 0) {
     const none = document.createElement('div');
     none.className = 'recent-placements-none';
-    none.textContent = 'no wins ' + chosenLabel;
+    none.textContent = 'no wins in session';
     box.appendChild(none);
     return box;
   }
@@ -4768,7 +4743,7 @@ function buildRecentPlacements(record, wins, referenceMs, markReferenceRecord = 
     line.title = formatRankRuns(row.ranks) + ' of ' + row.total + ' · '
       + recentPlacementStanding(row.ranks, row.total);
     if (row.nearMiss) {
-      line.title += '; no top-tenth ' + row.label + ' rank was won ' + chosenLabel
+      line.title += '; no top-tenth ' + row.label + ' rank was won in the session'
         + '; this is the closest one';
     }
     const labelCell = document.createElement('span');
@@ -6302,7 +6277,7 @@ function buildBoardTimeRankProfile(record, comparisons, historyView, records) {
       'Each your-perf label ends with its comparison pool: (session), (life) for lifetime, or (day) for the trailing 24 hours.',
       'Position is 100 × (rank − 1) ÷ (comparison count − 1), counting this win: the best in its pool is 0% at the top and the worst is 100% at the bottom. Constant performance values are neutral at 50%; other ties share a mean rank, except times which keep earlier-completion-first order.',
       'The visible percentile range zooms around all shown points with an outward buffer. Colors keep their absolute 0–100% meaning. Dark leaders retain exact point positions when labels need room. A singleton has no comparative percentile.',
-      'Session has one page-wide definition, shared with the left-side stats and records-won summary; the default is the last hour of wall-clock time. Historical session windows end at the selected game’s completion. History shows medians and measured sample counts for those overlapping windows; measurements are reused, never replaced by stored ranks.',
+      'Session is the one page-wide window chosen with the picker at the upper left (now: ' + SessionScope.choices.find((c) => c.id === settings.sessionDefinition).label + '), shared with the left-side session stats and ranks won in session; the default is today, since local midnight. Historical session windows end at the selected game’s completion. History shows medians and measured sample counts for those overlapping windows; measurements are reused, never replaced by stored ranks.',
     ], 'game data'));
     caption.appendChild(heading);
     if (view !== 'chart') caption.appendChild(button('back to game data', () => show('chart')));
@@ -6381,7 +6356,8 @@ function buildBoardTimeRankProfile(record, comparisons, historyView, records) {
       label.appendChild(select);
       const choice = SessionScope.choices.find((c) => c.id === settings.sessionDefinition);
       controls.append(label, chartHelpButton('Medians and middle halves of measured per-game values; n is the measured-game count. Completion metrics use wins; activity metrics include losses. A median of per-game fastclick medians is not a pooled press-gap median. All completed wins and losses establish sessions. '
-        + ('Rows are overlapping session windows ending at saved games, not independent sessions.')));
+        + 'Rows are overlapping session windows ending at saved games, not independent sessions. Session: '
+        + choice.label + ', the one page-wide session chosen at the upper left.'));
       profile.appendChild(controls);
       const pageSize = 20;
       const groups = GameData.history(records, record.endedAt, settings.sessionDefinition, historyPage, pageSize);
@@ -6390,7 +6366,7 @@ function buildBoardTimeRankProfile(record, comparisons, historyView, records) {
       scroll.className = 'game-data-history';
       const table = document.createElement('table');
       const cap = document.createElement('caption');
-      cap.textContent = 'session windows ending at each game' + ' · ' + choice.label;
+      cap.textContent = 'session windows ending at each game';
       const head = document.createElement('thead');
       const tr = document.createElement('tr');
       for (const text of ['ended', 'wins / games', 'measured n', 'median', 'middle 50%']) {
@@ -6427,11 +6403,6 @@ function buildBoardTimeRankProfile(record, comparisons, historyView, records) {
     }
     const footer = document.createElement('div');
     footer.className = 'game-data-controls';
-    const sessionLabel = document.createElement('label');
-    sessionLabel.textContent = 'session ';
-    const session = buildSessionScopeSelect('Game data session (page-wide)');
-    sessionLabel.appendChild(session);
-    footer.appendChild(sessionLabel);
     footer.appendChild(checkbox('show actual value', settings.gameDataShowValues, (checked) => {
       settings.gameDataShowValues = checked; saveSettings();
       profile.classList.toggle('game-data-values-hidden', !checked);
@@ -10807,8 +10778,6 @@ function renderMetricsPanelContent(metrics) {
   const showSession = settings.showSessionStats;
   const showLive = settings.showMotionStatsDuringGame
     && metrics !== null && tracing();
-  setMetricHidden(metricsPanel, !showSession && !showLive);
-  if (metricsPanel.hidden) return;
   if (metricsPanelView === null) {
     const head = document.createElement('div');
     head.className = 'metrics-panel-head';
@@ -10834,11 +10803,18 @@ function renderMetricsPanelContent(metrics) {
       updateSettings({ metricsPanelCollapsed: false });
       refreshMetricsPanel();
     });
+    // The session heading holds the page's one session picker, so it stays in
+    // every panel state, collapsed or with session stats switched off: ranks
+    // won and game data still use the session. The panel never disappears.
+    const sessionHead = buildMetricsGroupHead(SESSION_GROUP);
+    sessionHead.classList.add('session-scope-head');
+    sessionHead.appendChild(buildSessionScopeSelect());
     const session = document.createElement('div');
     const live = document.createElement('div');
     const grip = buildMetricsResizeGrip();
-    metricsPanelContent.append(restore, head, session, live);
+    metricsPanelContent.append(restore, head, sessionHead, session, live);
     metricsPanel.appendChild(grip);
+    setMetricHidden(metricsPanel, false);
     metricsPanelView = {
       head, phase, restore, session, live, grip,
       sessionControlsKey: null, sessionCharts: null, liveRows: [], metrics: null,
@@ -10864,7 +10840,10 @@ function renderMetricsPanelContent(metrics) {
       settings.sessionModeScope, settings.sessionDefinition,
     ]);
     if (view.sessionControlsKey !== controlsKey) {
-      // Only an explicit settings change alters the control structure.
+      // Only an explicit settings change alters the control structure. A new
+      // session definition rebuilds here too, not through the hover-deferred
+      // path: the picker's option list closes over these charts, and charts
+      // of the previous window must not linger under the pointer.
       const content = document.createDocumentFragment();
       view.sessionCharts = appendSessionSection(content);
       view.session.replaceChildren(content);
@@ -12434,6 +12413,30 @@ const SESSION_GROUP = {
   name: 'session',
 };
 
+// Session stats, ranks won, and game data share this setting; rebuild only
+// their own content so selecting a window never resets the board or replay.
+function setSessionDefinition(value) {
+  settings.sessionDefinition = value;
+  saveSettings();
+  for (const view of document.querySelectorAll('[data-session-scope-view]')) view.dispatchEvent(new Event('session-scope-change'));
+  sessionChartsDirty = true;
+  refreshMetricsPanel();
+}
+
+// The page's only session picker, built once for the stats panel's session
+// heading at the upper left. Ranks won and game data only say "session".
+function buildSessionScopeSelect() {
+  const select = document.createElement('select');
+  select.id = 'session-definition-select';
+  select.className = 'session-scope-select';
+  select.setAttribute('aria-label', 'session');
+  select.title = 'The one page-wide session: these session stats, ranks won in session, and game data’s (session) comparisons all use this wall-clock window. “today” starts at local midnight; it is not the last 24 hours.';
+  for (const choice of SessionScope.choices) select.add(new Option(choice.label, choice.id));
+  select.value = settings.sessionDefinition;
+  select.addEventListener('change', () => setSessionDefinition(select.value));
+  return select;
+}
+
 // Titles carry the unit (decided 2026-08-23, afternoon): "mouse speed
 // px/s" sits flush on its plot and says everything the removed rotated
 // y-axis caption used to say, without the sideways read or the lost
@@ -13606,8 +13609,6 @@ function latestDefined(buckets, of) {
 }
 
 function appendSessionSection(container) {
-  const head = buildMetricsGroupHead(SESSION_GROUP);
-  container.appendChild(head);
   const controls = document.createElement('div');
   controls.className = 'session-controls';
   const choice = (ariaLabel, options, value, onChange) => {
@@ -13671,7 +13672,6 @@ function appendSessionSection(container) {
     saveSettings();
     refreshMetricsPanel();
   });
-  controls.appendChild(buildSessionScopeSelect('Session stats window (page-wide)'));
   container.appendChild(controls);
 
   const charts = document.createElement('div');
@@ -14677,8 +14677,6 @@ function syncDifficultyTabs() {
 }
 
 async function init() {
-  const sessionControl = document.getElementById('global-session-controls');
-  sessionControl.replaceChildren('session ', buildSessionScopeSelect('Page-wide session'));
   config = boardFromPreferences();
   for (const field of ['width', 'height', 'mines']) {
     document.getElementById('custom-' + field).value = settings.customBoardDraft[field];

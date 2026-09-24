@@ -41,6 +41,11 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   tablecharts, game data, and game details. The game data and details columns
   are reserved before a game finishes; results and replay never change the
   board column's width.
+- The metrics column always exists: its "session" heading at the upper left
+  is the page's one session picker (user decision 2026-09-23;
+  [One session definition](game-data.md#one-session-definition)). The
+  former session chooser above the board column's difficulty tabs is
+  removed.
 - Game data column (user decision 2026-09-23: "a full-height column right
   next to the board", empty during play): a sticky column of the full viewport
   height between the board column and the details column. It is empty during
