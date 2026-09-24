@@ -639,7 +639,9 @@ Implementation notes:
   category; session diagnostics intentionally ignore the after-game
   `reportScope`; an optional `textColor` overrides `color` for text, so
   gray series such as measurement notes and unjudged endings never draw
-  gray text), rendered
+  gray text, and `SESSION_END_SPECS` entries whose color is under 4.5:1 on
+  white carry `textChip`, which puts their marker tooltip text on a black
+  chip), rendered
   by `buildSessionChart` / `buildSessionRatesChart(buckets, specs, unit)`
   + `appendSessionRatesRow(container, buckets, unit)` (two unit-grouped
   plots right after endings — "action rates/m" then "action rates/s",

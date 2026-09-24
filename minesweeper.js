@@ -12628,7 +12628,8 @@ function sessionMetricSpecForBasis(spec) {
 // appendSessionEndingsRow), drawn dotted in a deliberately un-endings
 // blue so it can't be misread as an ending share. The color travels
 // inline (line stroke, last-point dot fill, legend swatch), so the three
-// can never disagree.
+// can never disagree. `textChip` marks colors under 4.5:1 on white: the
+// marker tooltip sets their text on a black chip, like the seconds age unit.
 const SESSION_END_SPECS = [
   { kind: 'win', label: 'win', color: '#2e7d32' },
   { kind: 'win-unmarked', label: 'percent of mines unmarked when winning',
@@ -12640,17 +12641,17 @@ const SESSION_END_SPECS = [
     color: '#7b1fa2', dash: '2 3', series: (b) => b.unusedMarkShareFraction },
   { kind: 'likely-misclick', label: 'died: likely misclick',
     color: '#c2185b', dash: '4 2', series: (b) => b.likelyMisclickFraction },
-  { kind: 'guess-early', label: 'died: early-game guess', color: '#c9a227' },
-  { kind: 'guess-min', label: 'died: minimum-risk forced guess', color: '#b8860b' },
-  { kind: 'guess-higher', label: 'died: higher-risk forced guess', color: '#d95f02' },
+  { kind: 'guess-early', label: 'died: early-game guess', color: '#c9a227', textChip: true },
+  { kind: 'guess-min', label: 'died: minimum-risk forced guess', color: '#b8860b', textChip: true },
+  { kind: 'guess-higher', label: 'died: higher-risk forced guess', color: '#d95f02', textChip: true },
   { kind: 'guess-unmeasured', label: 'died: forced guess (risk unmeasured)', color: '#9a6b2f' },
   { kind: 'guess-safe', label: 'died: guessed despite available safe move', color: '#c62828' },
   { kind: 'mine-safe', label: 'died: clicked forced mine despite available safe move', color: '#8e1111' },
   { kind: 'mine-forced', label: 'died: clicked forced mine when a guess was required', color: '#b71c1c' },
   { kind: 'proof-safe', label: 'died: Proof-or-die rule (safe move available)', color: '#8e1111' },
-  { kind: 'proof-forced', label: 'died: Proof-or-die rule (no safe move)', color: '#d95f02' },
-  { kind: 'angel', label: 'died: ' + DEATH_KIND_LABELS.angel + ' (legacy)', color: '#b8860b', dash: '6 3' },
-  { kind: 'forced', label: 'died: ' + DEATH_KIND_LABELS.forced + ' (legacy)', color: '#b8860b', dash: '6 3' },
+  { kind: 'proof-forced', label: 'died: Proof-or-die rule (no safe move)', color: '#d95f02', textChip: true },
+  { kind: 'angel', label: 'died: ' + DEATH_KIND_LABELS.angel + ' (legacy)', color: '#b8860b', dash: '6 3', textChip: true },
+  { kind: 'forced', label: 'died: ' + DEATH_KIND_LABELS.forced + ' (legacy)', color: '#b8860b', dash: '6 3', textChip: true },
   { kind: 'needless', label: 'died: ' + DEATH_KIND_LABELS.needless + ' (legacy)', color: '#c62828', dash: '6 3' },
   { kind: 'mine', label: 'died: ' + DEATH_KIND_LABELS.mine + ' (legacy)', color: '#8e1111', dash: '6 3' },
   { kind: 'chord', label: 'died: ' + DEATH_KIND_LABELS.chord + ' (legacy)', color: '#a51e36', dash: '6 3' },
@@ -13008,6 +13009,7 @@ function appendSessionGameMarkers(svg, buckets, geometry, px) {
       const rank = document.createElement('span');
       rank.className = 'session-game-tooltip-rank';
       rank.style.color = spec.textColor ?? spec.color;
+      if (spec.textChip) rank.classList.add('session-game-tooltip-rank-chip');
       rank.textContent = placement === undefined
         ? spec.label + ' \u00b7 unranked'
         : '#' + placement.rank + ' / ' + placement.total + ' lifetime';

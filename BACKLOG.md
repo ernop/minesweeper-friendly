@@ -48,9 +48,10 @@ Still open:
   text, and the outcome summary takes two lines (PRODUCT.md "UI doctrine",
   "Result presentation and ordering", and "Personal settings"). The seconds
   age green `#39ff14` (about 1.4:1 on white) now sits on a black chip, the
-  creator's choice over a darker green. The trailing-24-hours pool word
-  stays "(day)". Still open:
-  - Gold ending text `#b8860b` in the session tooltip is weak on white.
+  creator's choice over a darker green. The same chip now carries the
+  session tooltip text of the three ending colors under 4.5:1 on white
+  (yellow, gold, orange). The trailing-24-hours pool word stays "(day)".
+  Still open:
   - "see scores" sits alone on its row only when no replay trace exists
     (history views); after a live game it shares the row with Replay game.
 

@@ -2218,7 +2218,11 @@ inside the same boundary. No old lookback observations leak across it.
   green is a win,
   gold is an unavoidable/minimum-risk death, orange is an inferior or
   rule-breaking forced choice, red is an avoidable/proven-wrong action, and
-  grey is unjudged (its marker tooltip text is black). Marker hover is
+  grey is unjudged (its marker tooltip text is black). The three lightest
+  ending colors (early-game guess yellow `#c9a227`, minimum-risk gold
+  `#b8860b`, higher-risk orange `#d95f02`) measure under 4.5:1 on white, so
+  their tooltip text sits on a black chip, following the creator's seconds
+  age-unit choice (2026-09-23). Marker hover is
   intentionally compact: finish duration,
   current lifetime rank among the player's saved wins for that exact mode,
   time of day (no full date), and a `likely misclick` badge when that

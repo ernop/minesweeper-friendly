@@ -3308,6 +3308,11 @@ body.settings-page .return-to-game {
   font-weight: bold;
   font-variant-numeric: tabular-nums;
 }
+.session-game-tooltip-rank-chip {
+  padding: 1px 4px;
+  border-radius: 2px;
+  background: #000000;
+}
 .session-game-tooltip-accolade {
   padding: 1px 4px;
   border-radius: 2px;
