@@ -5,7 +5,7 @@ same level again, rotated — would they notice? how much of a game is
 luck?"). Design notes only; nothing here is built. The overt siblings of
 this idea — Trial and Short trial (hidden repeated identities under
 isometries, identity-grouped review) — are built and specified in
-`PRODUCT.md` "Play modes". This file covers what those modes do NOT do:
+[Play modes](../docs/product/play-modes.md). This file covers what those modes do NOT do:
 covert replays inside ordinary play, long lags, implicit-memory
 detection, and the skill/luck decomposition.
 

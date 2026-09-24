@@ -14,7 +14,8 @@
 # Writes <out_prefix>_trials.csv (one row per inter-click segment) and
 # <out_prefix>_games.csv (per-game means of the key measures).
 #
-# Runs on the env at ~/analysis-envs/r-mousetrap (see agents.md):
+# Runs on the env at ~/analysis-envs/r-mousetrap
+# (see docs/implementation/offline-analysis.md):
 #   ~/analysis-envs/r-mousetrap/bin/Rscript trace_measures.R traces.json out
 
 library(jsonlite)

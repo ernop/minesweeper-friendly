@@ -4602,7 +4602,7 @@ function dedupeRankCandidates(candidates, pinnedLabels = []) {
   return kept;
 }
 
-// The recent-placements rows (PRODUCT.md "Recent placements"). Each
+// The recent-placements rows (docs/product/rankings.md "Recent placements"). Each
 // candidate names one tablechart: {label, ordering priorities, wins (that chart's
 // member wins), startMs (present only on time windows — a window reports
 // only when it starts strictly before the source window, since a window
@@ -6794,9 +6794,10 @@ function userdataReady() {
 
 //-------RAW INPUT TRACE (full per-game cursor and click stream)-------
 
-// Decided 2026-08-20 (PRODUCT.md "Raw input traces"): every finished game
-// keeps its complete input stream — cursor samples, button events, board
-// geometry — as the ground truth behind all motion metrics. Scalar record
+// Decided 2026-08-20 (docs/product/storage-and-history.md "Raw input
+// traces"): every finished game keeps its complete input stream — cursor
+// samples, button events, board geometry — as the ground truth behind all
+// motion metrics. Scalar record
 // fields summarize; the trace is what lets any future metric be computed
 // over past games too. Traces live in their own store, keyed by endedAt
 // exactly like the history records, and are never held in RAM.
@@ -7250,7 +7251,7 @@ function replayMoveOptions(view, flagged, facts) {
 // stylesheet reads the colors through the variables, and the legend renders
 // the wording verbatim — so a color or a meaning changes in exactly one
 // place and the legend can never drift from the board (semantic labels are
-// never shortened; see PRODUCT.md UI doctrine).
+// never shortened; see docs/product/ui-doctrine.md).
 //
 // Hue budget: purple = the measured choice set and its pocket labels; gold =
 // the action itself; green = proven safe; blue = chord now; teal = chord
@@ -8787,9 +8788,9 @@ setInterval(sampleMusic, MUSIC_SAMPLE_EVERY_MS);
 // The session-level mouse-dynamics features, computed in-page from the
 // trace. Definitions and literature sources are those of
 // analysis/biometrics/extract_features.py — the two implementations are
-// kept in step (the harness in agents.md compares them on the synthetic
-// trace), so a number shown here means exactly what the offline pipeline
-// would compute for it.
+// kept in step (tests/metrics-biometrics-parity.js compares them on the
+// synthetic trace), so a number shown here means exactly what the offline
+// pipeline would compute for it.
 //
 // The same computations serve two views:
 // - live: input changes sample the trace for the stats panel; the active
@@ -11171,7 +11172,7 @@ function renderLiveTraceMetrics(inputChanged = true) {
 
 //-------SESSION STATS: COMPUTATION (pure; cross-game running averages)-------
 
-// The recent-observations section (PRODUCT.md "Session stats"): running
+// The recent-observations section (docs/product/session-stats.md): running
 // averages over recent actual play, across games, losses and abandoned
 // boards included — but only over time a game was actually in progress
 // (first reveal to game end), never travel to the restart button or
@@ -12617,7 +12618,7 @@ function sessionMetricSpecForBasis(spec) {
 }
 
 // The game-endings lines: one cumulative percent line per ending kind,
-// in one chart (PRODUCT.md "Game-end evaluation"). The chart carries its
+// in one chart (docs/product/game-end-evaluation.md). The chart carries its
 // own compact labels (2026-08-30): every death ending starts with
 // "died: " so the losses read as one family, while the classification
 // kinds stay exactly the report's fatal-action kinds — the report keeps
@@ -14406,7 +14407,7 @@ document.getElementById('export-btn').addEventListener('click', () => {
 // Traces export as a JSON array of per-game trace objects (typed arrays
 // converted back to plain arrays), download-only — traces are far too
 // large for the clipboard. Consumed by the offline analysis pipelines
-// (see analysis/ and agents.md).
+// (see analysis/ and docs/implementation/offline-analysis.md).
 const exportTracesLink = document.getElementById('export-traces-file');
 
 document.getElementById('export-traces-btn').addEventListener('click', () => {

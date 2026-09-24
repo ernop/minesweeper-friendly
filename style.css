@@ -1334,7 +1334,7 @@ body.trial-offboard #game-frame {
   letter-spacing: 0.06em;
 }
 
-/* Game-end evaluation (PRODUCT.md "Game-end evaluation"): action analysis
+/* Game-end evaluation (docs/product/game-end-evaluation.md): action analysis
    and the Justice recap. The title keeps the results area's chunky face;
    the justification prose switches to a
    plain face for legibility. Accent colors follow the endings-chart
@@ -1754,7 +1754,8 @@ body.trial-offboard #game-frame {
 }
 
 /* The measured music state: shown while the machine is playing audio
-   (asked of the local base system, see PRODUCT.md "Music playing").
+   (asked of the local base system, see docs/product/per-game-stats.md
+   "Music playing").
    Display only — a measured fact, not a player tag, so no x and no
    click; olive (the measured-fact accent of the guess chips), never
    the player-tag blue. */

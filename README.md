@@ -124,7 +124,7 @@ on the right. It shares one session chooser with live stats and records won
 (default last hour). Configure each scope independently, toggle actual values,
 and review historical session windows. The vertical band autozooms; item help
 states the rank calculation and preferred direction. See
-[the design and removed-field inventory](docs/game-data.md).
+[the design and removed-field inventory](docs/product/game-data.md).
 Average-time scatter plots group your wins by clicks, 3BV, mouse path,
 zeros, islands, max number, clicks over 3BV, IOS, path per click, and path
 per 3BV, then plot each value against its group's average solve time.
@@ -235,3 +235,11 @@ color-coded by unit following the board-number palette: seconds
 fluorescent green (always bold), minutes green, hours blue, days red, then
 navy/maroon/teal for weeks/months/years. Losses show the same stats table
 as wins and are recorded in full; they are not ranked.
+
+## Documentation
+
+- [PRODUCT.md](PRODUCT.md) indexes the product specification, one file
+  per area under `docs/product/`.
+- [AGENTS.md](AGENTS.md) is the agent index: standing rules, plus the spec
+  and implementation-notes path for every area.
+- [BACKLOG.md](BACKLOG.md) lists unbuilt work.

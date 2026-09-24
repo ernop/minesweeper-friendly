@@ -11,8 +11,8 @@
 //
 // Prints a short readable digest to stderr and the full JSON to --out (or
 // stdout). Every grouping keeps the exact board/mode key (`9x9/10@standard`)
-// and reports sample sizes; nothing here infers causes (PRODUCT.md
-// "Measurement purpose").
+// and reports sample sizes; nothing here infers causes
+// (docs/product/measurement.md).
 
 const fs = require('fs');
 const path = require('path');
@@ -177,8 +177,8 @@ const groupBy = (list, keyOf) => {
 };
 
 // Robust center/spread for the physical-state aggregates every grouping
-// reports (PRODUCT.md "Behavioral signatures": games, wins, win rate,
-// accumulated play time, mouse speed, click rate, fastclick gap).
+// reports (docs/product/measurement.md "Behavioral signatures": games, wins,
+// win rate, accumulated play time, mouse speed, click rate, fastclick gap).
 function groupSummary(list) {
   const wins = list.filter(isWin);
   return {

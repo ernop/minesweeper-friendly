@@ -1,8 +1,9 @@
 # Unbuilt work
 
 Single list of what exists as an idea and is not in the product yet.
-Implemented behavior stays in `PRODUCT.md`. This file is the place to add
-the next request; do not leave new ideas only in chat.
+Implemented behavior stays in the product spec (`PRODUCT.md` indexes its
+section files). This file is the place to add the next request; do not
+leave new ideas only in chat.
 
 Status labels: **creator** = the creator asked for it; **mapped** = named
 on the design axis or in a research note, not requested as a build.
@@ -14,7 +15,7 @@ other UI elements", said the page layout is "not very standardized nor
 efficient", and asked that the chart not be crushed and that "the labels
 must match better". Built the same day: fluid details column, compact setup
 rows, a chart filling the remaining column height, and one-line labels
-placed from measured widths (docs/game-data.md "Layout pass").
+placed from measured widths (docs/product/game-data.md "Layout pass").
 
 Decided and built later that day. Labels end with their pool word ("3BV/s
 1.600 (session)", "(life)", "(day)"). The best in a pool is 0%, using
@@ -45,8 +46,8 @@ Still open:
   "position" moves it when wanted.
 - **Standardization sweep (approved "all"; built 2026-09-23).** No gray text
   remains, the primary containers are fluid, headings outrank their body
-  text, and the outcome summary takes two lines (PRODUCT.md "UI doctrine",
-  "Result presentation and ordering", and "Personal settings"). The seconds
+  text, and the outcome summary takes two lines ([UI doctrine](docs/product/ui-doctrine.md),
+  [Result presentation and ordering](docs/product/results.md), and [Personal settings](docs/product/settings.md)). The seconds
   age green `#39ff14` (about 1.4:1 on white) now sits on a black chip, the
   creator's choice over a darker green. The same chip now carries the
   session tooltip text of the three ending colors under 4.5:1 on white
@@ -64,13 +65,13 @@ independent cutoff/scope/collapse rules, verified interactions, and options.
 Built: all 3BV and measured shape categories represented by wins in the selected
 period now compete, within the current board-size/play-mode/generator key and
 reference date's day-category scope. Full tablecharts retain their per-game
-scope. PRODUCT.md records the resulting policy.
+scope. [Recent placements](docs/product/rankings.md) records the resulting policy.
 
 Appearance approved and built the same day: independent podium rank numbers
 and full-row percentage tints, readable low/last/only-result states, a latest-game
 edge, and explicit percentage/list-size labels. The same treatment reaches
 all qualifying ordinals in the compact summary, including earlier games at
-other 3BV values; blue edges and “this” identify the current one. PRODUCT.md “Rank highlights” records
+other 3BV values; blue edges and “this” identify the current one. [Rank highlights](docs/product/rankings.md) records
 the implemented design; the alternative underline and uniform-blue treatments
 from the comparison were not selected.
 
@@ -81,7 +82,7 @@ the category-scope revision.
 
 ## Board-shape time lists (built 2026-08-21)
 
-The lists themselves are in the product (PRODUCT.md "Rank lists").
+The lists themselves are in the product ([Rank lists](docs/product/rankings.md)).
 Generation that aims at the same families is still unbuilt; see below.
 
 ## Board difficulty and expected performance (creator review, 2026-09-21)
@@ -107,7 +108,7 @@ Saved-win backfill handles partial old measurements and shows progress,
 Stop/Resume, unavailable/error counts, and immediately usable saved results
 that survive reload. Old whole-board 0–1 counts are excluded until the player
 backfills the corrected visible count. Exhausted backfill operations hide
-their progress panel; actual errors stay visible. See PRODUCT.md for the
+their progress panel; actual errors stay visible. See [Per-game stats](docs/product/per-game-stats.md) for the
 implemented behavior.
 
 **Recurring backfill prompt (creator report and fix request, built 2026-09-23):**
@@ -118,7 +119,7 @@ Restored traces become eligible again. Resume/Paused now require an explicit
 Stop in the current page; reload offers any real remaining work as
 `Backfill saved wins`. Browser regression covers the v2 database upgrade,
 repeated reloads after exhaustion, and restoring a missing source board.
-PRODUCT.md records the implemented policy.
+[Per-game stats](docs/product/per-game-stats.md) records the implemented policy.
 
 **Declined for the current UI:** the creator asked to skip the other proposals,
 including largest-opening share, remaining work clusters, deduction coverage/
@@ -193,15 +194,15 @@ opening-first click optimizer are tracked above.
 
 ## Generation (not built)
 
-The board-generator registry exists (2026-08-25, PRODUCT.md "Board
-generators and top score keys"): Default, Pink noise, and Blue noise,
+The board-generator registry exists (2026-08-25, [Board
+generators and top score keys](docs/product/board-generators.md)): Default, Pink noise, and Blue noise,
 each parameterized, chosen from the upper-right Generator menu, with
 per-key rankings and the Board lab exploration mode. Everything below
 is still unbuilt.
 
 ### More board generators (creator, 2026-08-25)
 
-Built the same day (PRODUCT.md "Board generators and top score keys"):
+Built the same day ([Board generators and top score keys](docs/product/board-generators.md)):
 pink noise (with the anisotropy stretch parameter), blue noise, green
 noise, stippled, letterforms, and patriotic (the last removed
 2026-08-30). Still unbuilt:
@@ -228,7 +229,7 @@ noise, stippled, letterforms, and patriotic (the last removed
 
 ### Solver-aware modes (mapped)
 
-From the design axis in `agents.md`. NG generation is generate → solve →
+From the design axis in [docs/product/design-axis.md](docs/product/design-axis.md). NG generation is generate → solve →
 reject/repair → repeat. Solver tiers are now implemented as (a) direct
 counting, (b) arbitrary overlap-difference deduction, and (c) exhaustive
 frontier-component search joined through the global mine count and sea.
@@ -237,7 +238,7 @@ Derived session result: a
 1-2…2-1 wall chain with k twos is fully forced unless k ≡ 0 (mod 3).
 
 - **No-guess (NG) as its own menu mode.** Uniform / single-path /
-  proof-or-die already generate NG boards (PRODUCT.md "Play modes").
+  proof-or-die already generate NG boards ([Play modes](docs/product/play-modes.md)).
   A separate unlabeled "any NG" item is not in the menu.
 - **Evil NG.** NG plus a difficulty floor: at least one advanced
   deduction per board.
@@ -301,7 +302,7 @@ Generation that aims at the same families the new lists rank:
   throughput already use effective clicks only. The clone's IOE is the
   missing total-click cousin.
 - **Which-song detail on the music state: decided against (2026-08-22).**
-  The boolean `musicPlaying` is built (PRODUCT.md "Music playing").
+  The boolean `musicPlaying` is built ([Music playing](docs/product/per-game-stats.md)).
   PipeWire also exposes each stream's `media.name` (Firefox: the playing
   tab's media title), so song titles are technically reachable, but the
   creator decided titles are never stored: they are personal data that
@@ -314,7 +315,7 @@ Generation that aims at the same families the new lists rank:
 Build an analysis surface over history plus traces. It must keep exact
 board/mode/generator and measurement-era strata visible and make sample
 coverage explicit. The measurement and interpretation requirements are
-canonical in PRODUCT.md "Behavioral signatures and state research."
+canonical in [Behavioral signatures and state research](docs/product/measurement.md).
 
 Data layer built 2026-09-04: `analysis/history/summarize-history.js`
 regenerates the stratified summary offline (sessions with early/late
@@ -369,7 +370,7 @@ script's JSON is the intended input for their first versions.
 
 ## Session stats follow-ons (creator direction, 2026-08-22)
 
-The session section (PRODUCT.md "Session stats") is built: mouse speed,
+The session section ([Session stats](docs/product/session-stats.md)) is built: mouse speed,
 mistake-tagged-death / visible-state-misclick / no-op-click / mine-marking / flag-removal rates and
 fastclick gap, bucketed over a sliding hour of actual play with wall-clock
 breaks removed. It displays observations;
@@ -396,8 +397,8 @@ would require explicit analysis. Not built yet:
   only the newest value; a hover crosshair reading every line at any
   x would expose history without more standing ink.
 - **Solo-chart scale stability (mapped, 2026-08-23).** The rates
-  charts got ladder ceilings with shrink hysteresis (PRODUCT.md "The
-  action-rates charts"); the solo session charts (mouse speed,
+  charts got ladder ceilings with shrink hysteresis ([The
+  action-rates charts](docs/product/session-stats.md)); the solo session charts (mouse speed,
   fastclick gap, magnitudes) still rescale to max×1.08 every sample.
   The 1-2-5-10 ladder is coarse for their magnitudes (a 300ms gap
   pinned under a 500 ceiling wastes 40% of the plot), so extending
@@ -410,7 +411,7 @@ would require explicit analysis. Not built yet:
 
 ## Path replay follow-ons (mapped, 2026-08-23)
 
-The after-game path views are built (PRODUCT.md "Path replay views"):
+The after-game path views are built ([Path replay views](docs/product/replay.md)):
 a button below the finished board cycles off → moves → clicks, drawn
 from the RAM trace of the game just ended. Not built:
 
@@ -464,5 +465,5 @@ from the RAM trace of the game just ended. Not built:
   ground truth.
 - Path replay views (2026-08-23): the after-game moves/clicks overlay
   on the finished board, with the layout-drift re-record fix in the
-  trace recorder that it exposed (PRODUCT.md "Path replay views" and
-  "Raw input traces").
+  trace recorder that it exposed ([Path replay views](docs/product/replay.md) and
+  [Raw input traces](docs/product/storage-and-history.md)).

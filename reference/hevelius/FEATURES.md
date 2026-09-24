@@ -104,7 +104,7 @@ movements of identical nominal difficulty.
 
 ## Our trace, and the assumptions used in the mapping
 
-Per finished game (PRODUCT.md "Raw input traces", IndexedDB `traces`):
+Per finished game ([Raw input traces](../../docs/product/storage-and-history.md), IndexedDB `traces`):
 `sampleT` (ms, relative), `sampleX`, `sampleY` (viewport px), one entry per
 raw mousemove — the same raw stream Hevelius records, so pauses (gaps in raw
 events) are observable identically; plus `events`: {t, kind:

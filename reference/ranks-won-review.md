@@ -13,13 +13,13 @@ standings remain unchanged. The following audit preserves the prior behavior
 and the still-open choices. The user also requested a visual design review for
 absolute rank and percentage standing, including poor placements. The full-row
 tint and podium-number proposal was subsequently approved and implemented;
-PRODUCT.md “Rank highlights” is the current specification.
+[Rank highlights](../docs/product/rankings.md) is the current specification.
 
 The current block answers: **which recent wins currently occupy qualifying
 positions in the charts selected for the latest win?** Its category selection
 depends on one win even though its time selector describes a whole period.
 The current specification explicitly says “every chart this game is ranked on”
-in PRODUCT.md, “Recent placements”.
+in [Recent placements](../docs/product/rankings.md).
 
 For the user's example, with the latest Intermediate win at 3BV 40, only the
 3BV-40 candidate is constructed. An earlier qualifying 3BV-41 win is still in
@@ -170,7 +170,7 @@ category discovery from rendering and from duplicate collapsing.
 
 ## Evidence
 
-- `PRODUCT.md`, “Rank lists” and “Recent placements”: documented policy.
+- `docs/product/rankings.md`, “Rank lists” and “Recent placements”: documented policy.
 - `minesweeper.js`: `rankWindows`, `rankColumns`, `boardShapeCandidates`,
   `dedupeRankCandidates`, `recentPlacementsSummary`, `buildRecentPlacements`,
   `renderRanks`, `renderResult`, `showScoresForCurrentMode`, and `modeKey`.

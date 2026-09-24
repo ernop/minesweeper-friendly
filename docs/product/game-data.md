@@ -1,5 +1,7 @@
 # Game data and the shared session
 
+Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation notes: [docs/implementation/game-data.md](../implementation/game-data.md).
+
 Confirmed and implemented 2026-09-23. This records the user's successive
 requirements and clarifications; it supersedes the earlier compact chart draft.
 
@@ -10,7 +12,7 @@ own full-height column between the board column and the details column (user
 decision 2026-09-23: "a full-height column right next to the board"). That
 column is reserved before the game ends, so the board never moves, and it is
 empty during play and after losses (user decision: "empty"). When the page
-cannot fit it (PRODUCT.md "Layout: the board never moves" gives the rule),
+cannot fit it ([Layout: the board never moves](board-and-layout.md) gives the rule),
 the chart goes into the details column under the outcome, board size,
 mode/generator, and completion date, or into the Game details popover.
 It is not repeated among the lower ranking charts. Losses and trial games
@@ -40,8 +42,8 @@ points: two-line labels pushed far from their markers along tangled leaders,
 and the chart ran below the screen. Geometry now:
 
 - Width: the chart uses the whole width of its column: the game data column
-  when docked, otherwise the fluid details column (PRODUCT.md "Layout: the
-  board never moves").
+  when docked, otherwise the fluid details column ([Layout: the
+  board never moves](board-and-layout.md)).
 - Height: in the game data column the chart is the column's full viewport
   height (at least 480px; the column scrolls below that). In the details
   column it fills the height left below the setup controls, scores

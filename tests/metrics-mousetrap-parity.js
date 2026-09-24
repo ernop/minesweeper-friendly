@@ -5,8 +5,9 @@
 // checked-in synthetic trace. Both sides compute per-game means of the same
 // key measures; they must agree to floating-point noise.
 //
-// Requires the R environment at ~/analysis-envs/r-mousetrap (see agents.md);
-// fails loudly if it is missing rather than skipping.
+// Requires the R environment at ~/analysis-envs/r-mousetrap (see
+// docs/implementation/offline-analysis.md); fails loudly if it is missing
+// rather than skipping.
 //
 // Usage: node tests/metrics-mousetrap-parity.js
 
@@ -28,7 +29,7 @@ vm.runInThisContext(source.slice(startIdx, endIdx));
 
 const rscript = path.join(os.homedir(), 'analysis-envs/r-mousetrap/bin/Rscript');
 if (!fs.existsSync(rscript)) {
-  throw new Error(`R environment missing: ${rscript} (see agents.md for setup)`);
+  throw new Error(`R environment missing: ${rscript} (see docs/implementation/offline-analysis.md for setup)`);
 }
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'mt-parity-'));
 

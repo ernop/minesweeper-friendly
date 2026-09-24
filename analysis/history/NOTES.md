@@ -4,7 +4,7 @@
 the repo) quoted about sixty numbers computed by one-off scripts that were
 never checked in. This script regenerates them from any history export so
 the findings can be re-read as history grows and the "Behavioral
-signatures and state research" work (PRODUCT.md) has a data layer.
+signatures and state research" work ([docs/product/measurement.md](../../docs/product/measurement.md)) has a data layer.
 
 ## Run
 
@@ -21,8 +21,8 @@ into the repo root (`minesweeper-friendly-history-*.json`) are ignored by
 ## What it computes
 
 Every grouping keeps the exact board/mode key (`9x9/10@standard`) and
-reports sample sizes. Nothing here infers a cause (PRODUCT.md "Measurement
-purpose").
+reports sample sizes. Nothing here infers a cause ([Measurement
+purpose](../../docs/product/measurement.md)).
 
 - `totals`, `byKey`: games, wins, Wilson 95% win-rate interval, accumulated
   play time, robust center/spread (median, quartiles, n) for win time,

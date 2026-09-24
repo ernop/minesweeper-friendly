@@ -9,8 +9,8 @@ the player's cause, intention, cognitive state, expertise, health, or hardware.
 Findings cited below belong to the cited studies' tasks and populations and
 are hypotheses—not validations—for Minesweeper data. Implementation status (updated
 later on 2026-08-20): all four systems now run in-page over the raw trace
-and display live plus canonically at game end (PRODUCT.md "Trace metrics
-panel") — the biometrics session set, the mousetrap psychometric
+and display live plus canonically at game end ([Trace metrics
+panel](../docs/product/trace-metrics-panel.md)) — the biometrics session set, the mousetrap psychometric
 measures (exact port, R-verified), the Hevelius-style clinical features
 (FEATURES.md mapping), and this file's own Tier 1/2 proposals in their
 trace-computed form (see the Tier 1/2 notes below).
@@ -135,7 +135,7 @@ Fitts's law pointing research:
 
 ## Proposal shaped to this project's storage rules
 
-Constraint recap (agents.md design rules): store primary facts once,
+Constraint recap (AGENTS.md design rules): store primary facts once,
 derive at read time, small scalars per record, no raw traces in the
 game record.
 
@@ -201,14 +201,14 @@ and stored as a primary measurement; everything else derives:
 Sample entropy, MAD/AUC per segment, tremor spectrum (4-6 Hz band
 power), overshoot analysis, Fitts throughput curves all need the
 (t, x, y) series. Raw traces are now captured for every finished game
-and stored in IndexedDB (see PRODUCT.md "Raw input traces"), which
+and stored in IndexedDB (see [Raw input traces](../docs/product/storage-and-history.md)), which
 sidesteps localStorage's ~5 MB cap. The deciding argument held:
 aggregate definitions freeze at record time, while a stored trace lets
 any future metric apply retroactively. Offline pipelines live under
 analysis/ (mousetrap measures per inter-click segment; biometrics
 feature extraction). Since 2026-08-20 all four systems are also computed
 in-page from the trace and displayed live during play plus canonically
-at game end (PRODUCT.md "Trace metrics panel"): the biometrics session
+at game end ([Trace metrics panel](../docs/product/trace-metrics-panel.md)): the biometrics session
 set (parity-checked against the Python extractor), the mousetrap
 psychometric measures (exact port, parity-checked value-for-value
 against the R package on randomized traces), the Hevelius-style clinical
