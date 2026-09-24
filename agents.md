@@ -87,7 +87,7 @@ the same change. Below is only the implementation mapping.
 Implementation notes:
 
 - Storage (PRODUCT.md "Storage"): one IndexedDB database
-  (`minesweeper-friendly`, version 2), two stores. The open, upgrade,
+  (`minesweeper-friendly`, version 3), two stores. The open, upgrade,
   `readAllUserdata`, and `persistUserdata` live in `storage.js`
   (2026-08-23, shared with the settings page); each page defines two
   late-bound hooks: `storageFailure(what)` (announce + throw) and
@@ -961,8 +961,15 @@ Implementation notes:
   records also qualify. Bulk backfill is initiated by the player.
   `boardMetricBackfillProgress` derives
   checked/total, measured, unavailable, failed, active, and remaining counts
-  from history plus session-local jobs. Stop finishes the current board;
-  Resume skips completed records even after reload. Each result is persisted
+  from history, the source catalog, and session-local jobs. The v3 traces index
+  `boardsByModeAndSize` uses `[mode, finalBoard.cells.length]`; `loadBoardMetricSources`
+  reads matching primary keys once per mode before offering bulk work. Absent
+  boards cannot reappear as work on reload, and no persistent skip flags prevent
+  restored traces from qualifying. `saveTrace` invalidates this catalog on commit
+  through `boardMetricSourcesChanged`; pending batches wait for its refresh.
+  Stop finishes the current board; Resume/Paused require an explicit Stop in
+  this page. After reload the action is `Backfill saved wins` and still skips
+  completed records. Each result is persisted
   separately and immediately eligible for ranks. Missing traces stay
   unmeasured; actual read/calculation errors display their messages. Hide
   the progress panel when no job is active and no unattempted record remains;
@@ -975,7 +982,8 @@ Implementation notes:
   verified by `tests/board-metric-searches-test.js`. No game script loads it.
   `tests/board-metrics-browser-check.js` covers real game completion, worker
   replies across mode switches, storage/reload, incremental backfill progress,
-  partial-table use, pause/reload/resume, exact cohorts, tooltips and layout.
+  partial-table use, pause/reload/resume, v2 index upgrades, repeated reloads
+  after exhaustion, restored sources, exact cohorts, tooltips and layout.
   Research backing the two new fractions and the declined additional proposals: `reference/board-structure-research.md`
   defines 0–1 share and zero-opening coverage over safe cells, largest-opening
   share, remaining safe-work clusters, complete one-/two-equation deduction

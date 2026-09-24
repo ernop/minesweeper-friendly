@@ -1112,10 +1112,22 @@ A progress bar and text show checked /
 total, measured, unavailable, failed, and remaining counts. A missing trace
 stays unmeasured; an actual calculation/read failure displays its error.
 `Stop backfill` lets the current board finish. `Resume backfill` processes only
-missing measurements, including after a reload. Each completed record is saved
+missing measurements. Each completed record is saved
 separately and immediately joins its comparison tables; no whole-batch completion
 is required. Progress is derived from recorded measurements, not a saved cursor.
-Unavailable/error checks are session-local and may be attempted again after reload.
+After the creator reported recurring completed backfills (2026-09-23) and
+requested a complete fix, availability is derived from an IndexedDB index of
+saved final boards, matched by mode and cell count. Missing traces, traces without
+final boards, and mismatched layouts never enter the bulk queue or button count.
+The source check runs before offering work on each page load; unavailable boards
+cannot resurrect an exhausted batch. No permanent skip flags are stored: restoring
+a board makes its missing measurements eligible again. The index reads only keys,
+not whole input traces; trace writes invalidate the current mode's RAM catalog.
+`Resume backfill` and `Paused` appear only after an explicit Stop in the current
+page. After reload, remaining calculable work uses `Backfill saved wins`, preserving
+completed measurements without claiming the player paused. Actual read/calculation
+failures remain visible and may be attempted again after reload; they are never
+recorded as successful measurements or permanent unavailability.
 The progress panel disappears when no calculation is active and no further
 record can be attempted in that operation, including when the remainder has
 unavailable saved boards. It remains available while paused with work left.
@@ -1719,8 +1731,13 @@ runtime state, export field, or result section.
 ## Storage (decided 2026-08-20)
 
 - All persistent data lives in one IndexedDB database
-  (`minesweeper-friendly`, version 2) with two stores: `userdata` (play
+  (`minesweeper-friendly`, version 3) with two stores: `userdata` (play
   history, personal preferences, and trial sessions — one entry per kind) and `traces` (one entry per finished game).
+  The traces store indexes `[mode, finalBoard.cells.length]` as
+  `boardsByModeAndSize`, so backfill can find source boards without loading raw
+  input payloads. The version-3 upgrade indexes existing traces in place; no
+  game records or traces are rewritten. Blocked upgrades explicitly ask the
+  player to close other game/settings tabs and reload.
 - Userdata is RAM-first: every kind is read into RAM once at startup, all
   reads and mutations work on the RAM copy synchronously, and each
   mutation immediately persists that kind's whole RAM object with an

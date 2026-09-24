@@ -6,6 +6,45 @@ const boardMetricQueue = [];
 let boardMetricWorkerBusy = false;
 let boardMetricJobId = 0;
 const boardMetricBackfills = new Set();
+const boardMetricPausedBackfills = new Set();
+const boardMetricSources = new Map();
+
+function loadBoardMetricSources(key) {
+  if (boardMetricSources.has(key)) return boardMetricSources.get(key);
+  const shape = /^(\d+)x(\d+)\//.exec(key);
+  const state = { status: 'loading' };
+  boardMetricSources.set(key, state);
+  const tx = db.transaction(TRACE_STORE);
+  const request = tx.objectStore(TRACE_STORE).index(TRACE_BOARD_INDEX)
+    .getAllKeys([key, Number(shape[1]) * Number(shape[2])]);
+  request.onsuccess = () => { state.endedAts = new Set(request.result); };
+  const finish = (error) => {
+    if (boardMetricSources.get(key) !== state) return;
+    state.status = error ? 'error' : 'ready';
+    if (error) {
+      state.error = 'Could not check saved boards: ' + error;
+      boardMetricBackfills.delete(key);
+    } else {
+      for (const record of history[key] || []) {
+        if (state.endedAts.has(record.endedAt)
+            && boardMetricJobs.get(record)?.status === 'unavailable') boardMetricJobs.delete(record);
+      }
+      continueBoardMetricBackfill(key);
+    }
+    const shown = renderedResult?.record;
+    if (shown && history[key]?.includes(shown)) refreshBoardMetricView(shown);
+  };
+  tx.oncomplete = () => finish();
+  tx.onabort = () => finish(tx.error || 'transaction aborted');
+  return state;
+}
+
+function boardMetricSourcesChanged(key) {
+  if (!boardMetricSources.has(key)) return;
+  boardMetricSources.delete(key);
+  const shown = renderedResult?.record;
+  if (shown && history[key]?.includes(shown)) refreshBoardMetricView(shown);
+}
 
 function boardMetricHistoryKey(record) {
   return Object.keys(history || {}).find((key) => history[key].includes(record));
@@ -24,21 +63,27 @@ function eligibleBoardWins(key) {
 }
 
 function unmeasuredBoardWins(key) {
+  const sources = boardMetricSources.get(key);
+  if (sources?.status !== 'ready') return [];
   return eligibleBoardWins(key).filter((record) => !hasBoardMeasurements(record)
+    && sources.endedAts.has(record.endedAt)
     && !boardMetricJobs.has(record));
 }
 
 // Completed records are the source of truth, so reload/resume needs no saved
-// cursor or all-or-nothing batch commit. Missing traces remain unmeasured.
+// cursor or all-or-nothing batch commit. Source availability comes from the
+// trace index on every page load, never a permanent unavailable marker.
 function boardMetricBackfillProgress(key) {
   const wins = eligibleBoardWins(key);
+  const sources = boardMetricSources.get(key);
   const progress = { total: wins.length, measured: 0, unavailable: 0, failed: 0, active: 0 };
   for (const record of wins) {
     const state = boardMetricJobs.get(record);
     if (hasBoardMeasurements(record)) progress.measured++;
-    else if (state?.status === 'unavailable') progress.unavailable++;
     else if (state?.status === 'error') progress.failed++;
     else if (state && ['loading', 'running'].includes(state.status)) progress.active++;
+    else if (state?.status === 'unavailable'
+        || (sources?.status === 'ready' && !sources.endedAts.has(record.endedAt))) progress.unavailable++;
   }
   progress.checked = progress.measured + progress.unavailable + progress.failed;
   progress.remaining = progress.total - progress.checked;
@@ -46,16 +91,24 @@ function boardMetricBackfillProgress(key) {
 }
 
 function continueBoardMetricBackfill(key) {
-  if (!boardMetricBackfills.has(key)) return;
+  if (!boardMetricBackfills.has(key)) {
+    if (boardMetricPausedBackfills.has(key) && boardMetricSources.get(key)?.status === 'ready'
+        && !boardMetricBackfillProgress(key).remaining) boardMetricPausedBackfills.delete(key);
+    return;
+  }
   // At most one backfill job per mode is in flight, even when a foreground
   // result completes while an older trace is being loaded.
   if ((history[key] || []).some((record) => {
     const state = boardMetricJobs.get(record);
     return state && ['loading', 'running'].includes(state.status);
   })) return;
+  if (loadBoardMetricSources(key).status === 'loading') return;
   const next = unmeasuredBoardWins(key)[0];
   if (next) requestBoardMetrics(next);
-  else boardMetricBackfills.delete(key);
+  else {
+    boardMetricBackfills.delete(key);
+    boardMetricPausedBackfills.delete(key);
+  }
 }
 
 function refreshBoardMetricView(record) {
@@ -156,6 +209,17 @@ function buildBoardMetricStatus(record) {
     box.appendChild(error);
   }
   const key = boardMetricHistoryKey(record);
+  if (key && eligibleBoardWins(key).some((win) => !hasBoardMeasurements(win))) {
+    const sources = settings.shownThings.boardMetricFacts
+      ? loadBoardMetricSources(key) : boardMetricSources.get(key);
+    if (sources?.status === 'error'
+        || (settings.shownThings.boardMetricFacts && sources?.status === 'loading')) {
+      const status = document.createElement('div');
+      status.setAttribute('role', sources.status === 'error' ? 'alert' : 'status');
+      status.textContent = sources.status === 'error' ? sources.error : 'Checking saved boards…';
+      box.appendChild(status);
+    }
+  }
   if (settings.shownThings.boardMetricFacts && key && eligibleBoardWins(key).length) {
     const progress = boardMetricBackfillProgress(key);
     const running = boardMetricBackfills.has(key);
@@ -179,19 +243,25 @@ function buildBoardMetricStatus(record) {
       status.className = 'board-metric-backfill-status';
       status.textContent = running ? 'Calculating…'
         : progress.active ? 'Finishing current board…'
-        : progress.remaining && progress.checked ? 'Paused' : '';
+        : count && boardMetricPausedBackfills.has(key) ? 'Paused' : '';
       panel.append(meter, summary, status);
-      panel.title = 'Each completed win is saved and immediately joins its rank tables. Resume, including after a reload, calculates only missing measurements, including the corrected visible 0–1 count. Counts cover full-board wins with supported measurement versions in the current mode. Unavailable saved boards stay unmeasured.';
+      panel.title = 'Each completed win is saved and immediately joins its rank tables. Backfill calculates only missing measurements for wins with saved final boards, including after a reload. Counts cover full-board wins with supported measurement versions in the current mode. Unavailable saved boards stay unmeasured and are excluded from the button count.';
       if (count || running) {
         const button = document.createElement('button');
         button.className = 'board-metric-backfill';
         button.type = 'button';
         button.textContent = running ? 'Stop backfill'
-          : (progress.checked ? 'Resume backfill (' : 'Backfill saved wins (') + count + ')';
+          : (boardMetricPausedBackfills.has(key) ? 'Resume backfill (' : 'Backfill saved wins (') + count + ')';
         button.title = 'Calculate missing board characteristics, including corrected visible 0–1 counts, from saved final-board traces. Stopping saves the current board and pauses before the next.';
         button.addEventListener('click', () => {
-          if (boardMetricBackfills.has(key)) boardMetricBackfills.delete(key);
-          else { boardMetricBackfills.add(key); continueBoardMetricBackfill(key); }
+          if (boardMetricBackfills.has(key)) {
+            boardMetricBackfills.delete(key);
+            boardMetricPausedBackfills.add(key);
+          } else {
+            boardMetricPausedBackfills.delete(key);
+            boardMetricBackfills.add(key);
+            continueBoardMetricBackfill(key);
+          }
           refreshBoardMetricView(record);
         });
         panel.appendChild(button);

@@ -467,10 +467,15 @@ records missing the new counts or retaining only the obsolete whole-board
 0–1 count. Progress shows checked/total, measured,
 unavailable, failed, and remaining counts. `Stop backfill` lets the current
 board finish. Each completion is saved separately and immediately joins its
-tables. `Resume backfill` skips completed records, including after reload;
-there is no all-or-nothing batch or saved cursor. Missing traces remain
-unmeasured, and failures display their errors. Unavailable/error checks are
-session-local. The progress panel disappears when no job is active and no
+tables. Backfill skips completed records, including after reload;
+there is no all-or-nothing batch or saved cursor. Before offering bulk work,
+the v3 IndexedDB trace index supplies the saved-board keys matching this mode
+and cell count. Missing layouts remain unmeasured and excluded after reload;
+restoring a trace restores eligibility. No permanent skip flags are stored.
+The in-page catalog is invalidated after trace
+writes commit. Resume/Paused only describe an explicit Stop in the current page;
+reload offers actual remaining work as `Backfill saved wins`. Failures display
+their errors and can be attempted again after reload. The progress panel disappears when no job is active and no
 unattempted record remains, including when some boards were unavailable.
 Paused operations with work left retain their controls; actual errors remain
 visible outside the panel. Endgame drills omit whole-board measures.

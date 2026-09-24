@@ -21,6 +21,7 @@
 
 const DB_NAME = 'minesweeper-friendly';
 const TRACE_STORE = 'traces';
+const TRACE_BOARD_INDEX = 'boardsByModeAndSize';
 const USERDATA_STORE = 'userdata';
 const USERDATA_KINDS = ['history', 'settings', 'rankavgSort', 'states', 'trial'];
 
@@ -36,7 +37,7 @@ const LEGACY_LOCALSTORAGE_KEYS = {
   states: 'minesweeper-friendly.states',
 };
 
-const dbRequest = indexedDB.open(DB_NAME, 2);
+const dbRequest = indexedDB.open(DB_NAME, 3);
 dbRequest.onupgradeneeded = (event) => {
   const upgraded = event.target.result;
   if (event.oldVersion < 1) upgraded.createObjectStore(TRACE_STORE, { keyPath: 'endedAt' });
@@ -54,6 +55,12 @@ dbRequest.onupgradeneeded = (event) => {
       for (const storageKey of moved) localStorage.removeItem(storageKey);
     });
   }
+  if (event.oldVersion < 3) {
+    // Index the source itself: absent final boards have no index entry, and
+    // restored/replaced traces update it atomically without skip markers.
+    event.target.transaction.objectStore(TRACE_STORE)
+      .createIndex(TRACE_BOARD_INDEX, ['mode', 'finalBoard.cells.length']);
+  }
 };
 // The open can complete between this script and the page's own script
 // (the open races the network fetch of the later deferred scripts). During
@@ -62,17 +69,36 @@ dbRequest.onupgradeneeded = (event) => {
 // finished declaring its startup path. DOMContentLoaded supplies the second
 // check when the database wins that race.
 let readyAnnounced = false;
+let pendingStorageOpenFailure = null;
 function maybeAnnounceReady() {
+  if (pendingStorageOpenFailure !== null && typeof storageFailure === 'function') {
+    const failure = pendingStorageOpenFailure;
+    pendingStorageOpenFailure = null;
+    storageFailure(failure);
+  }
   if (readyAnnounced || db === null || typeof userdataReady !== 'function') return;
   readyAnnounced = true;
   userdataReady();
 }
 
+function reportStorageOpenFailure(what) {
+  // Open/blocked events can beat the deferred script that owns the visible
+  // error surface, just as a successful open can beat userdataReady.
+  pendingStorageOpenFailure = what;
+  maybeAnnounceReady();
+}
+
 dbRequest.onsuccess = (event) => {
   db = event.target.result;
+  pendingStorageOpenFailure = null;
+  db.onversionchange = () => {
+    db.close();
+    storageFailure('database changed in another tab; reload this page');
+  };
   maybeAnnounceReady();
 };
-dbRequest.onerror = () => storageFailure('database failed to open: ' + dbRequest.error);
+dbRequest.onerror = () => reportStorageOpenFailure('database failed to open: ' + dbRequest.error);
+dbRequest.onblocked = () => reportStorageOpenFailure('database update blocked; close other game/settings tabs and reload this page');
 
 document.addEventListener('DOMContentLoaded', maybeAnnounceReady);
 

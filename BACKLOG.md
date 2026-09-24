@@ -110,17 +110,15 @@ backfills the corrected visible count. Exhausted backfill operations hide
 their progress panel; actual errors stay visible. See PRODUCT.md for the
 implemented behavior.
 
-**Recurring backfill prompt (creator report, 2026-09-23; diagnosed, unresolved):**
-The creator reports finishing `Resume backfill` and seeing it return later.
-An isolated execution of `board-metrics-ui.js` reproduces this after reload:
-one measured win plus one win without a saved board reaches 2/2 checked and
-hides the panel; the same history in a fresh page becomes 1/2 checked with
-`Resume backfill (1)`. Successful measurements persist, but unavailable/error
-results exist only in the page's `boardMetricJobs` WeakMap, so they become
-unattempted again on reload. `Resume` and `Paused` also derive from any checked
-record, not evidence of a paused batch. This confirms a recurrence path, not
-which records caused the creator's instance. The request was clarification;
-the persistence policy and misleading labels have not been changed.
+**Recurring backfill prompt (creator report and fix request, built 2026-09-23):**
+Completed batches returned after reload because missing-board checks were
+session-local. Backfill now queries the saved-board index before offering work,
+excluding unavailable layouts without permanently marking games as skipped.
+Restored traces become eligible again. Resume/Paused now require an explicit
+Stop in the current page; reload offers any real remaining work as
+`Backfill saved wins`. Browser regression covers the v2 database upgrade,
+repeated reloads after exhaustion, and restoring a missing source board.
+PRODUCT.md records the implemented policy.
 
 **Declined for the current UI:** the creator asked to skip the other proposals,
 including largest-opening share, remaining work clusters, deduction coverage/

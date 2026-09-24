@@ -7,11 +7,55 @@ const { chromium } = require(process.argv[2]);
   const browser = await chromium.launch({ executablePath: process.argv[3],
     headless: true, args: ['--no-sandbox'] });
   try {
-    const page = await browser.newPage({ viewport: { width: 1440, height: 1050 } });
+    const context = await browser.newContext({ viewport: { width: 1440, height: 1050 } });
+    const page = await context.newPage();
     const errors = [];
     page.on('pageerror', (error) => errors.push(error.message));
-    await page.goto('http://127.0.0.1:8099/');
+    // Upgrade a real v2 database containing old traces. The index must find
+    // boards without loading trace payloads or depending on new writes.
+    const oldPage = await page.context().newPage();
+    await oldPage.goto('http://127.0.0.1:8099/tests/');
+    await oldPage.evaluate(async () => {
+      await new Promise((resolve, reject) => {
+        const request = indexedDB.open('minesweeper-friendly', 2);
+        request.onupgradeneeded = () => {
+          const oldDb = request.result;
+          oldDb.createObjectStore('userdata');
+          const traces = oldDb.createObjectStore('traces', { keyPath: 'endedAt' });
+          traces.put({ endedAt: 1, mode: '3x3/1@standard', finalBoard: { cells: Array(9).fill({ mine: false }) } });
+          traces.put({ endedAt: 2, mode: '3x3/1@standard' });
+          traces.put({ endedAt: 3, mode: '3x3/1@standard', finalBoard: { cells: [] } });
+          traces.put({ endedAt: 4, mode: '3x3/1@angelic', finalBoard: { cells: Array(9).fill({ mine: false }) } });
+        };
+        request.onsuccess = () => { window.oldDb = request.result; resolve(); };
+        request.onerror = () => reject(request.error);
+      });
+    });
+    // A tab running the old code can block the upgrade before the deferred
+    // game script has supplied storageFailure. Its error must still surface.
+    let releaseGameScript;
+    const gameScriptGate = new Promise((resolve) => { releaseGameScript = resolve; });
+    await page.route('**/minesweeper.js?*', async (route) => {
+      await gameScriptGate;
+      await route.continue();
+    });
+    const navigation = page.goto('http://127.0.0.1:8099/');
+    await page.waitForFunction(() => typeof pendingStorageOpenFailure !== 'undefined'
+      && pendingStorageOpenFailure?.includes('database update blocked'));
+    releaseGameScript();
+    await navigation;
+    assert.match(await page.locator('#startup-status').innerText(), /database update blocked/);
+    assert.deepEqual(errors.splice(0), ['database update blocked; close other game/settings tabs and reload this page']);
+    await oldPage.close();
     await page.waitForFunction(() => preferenceUIReady);
+    assert.deepEqual(await page.evaluate(async () => {
+      const request = db.transaction(TRACE_STORE).objectStore(TRACE_STORE)
+        .index(TRACE_BOARD_INDEX).getAllKeys(['3x3/1@standard', 9]);
+      return await new Promise((resolve, reject) => {
+        request.onsuccess = () => resolve({ version: db.version, keys: request.result });
+        request.onerror = () => reject(request.error);
+      });
+    }), { version: 3, keys: [1] });
     await page.locator('#board .cell').first().click();
     const mine = await page.evaluate(() => cells.findIndex((cell) => cell.mine));
     await page.locator('#board .cell').nth(mine).click();
@@ -59,7 +103,7 @@ const { chromium } = require(process.argv[2]);
 
     // Backfill is optional, uses saved layouts, skips missing traces, and can
     // stop after the in-flight board. All fixture writes remain on port 8099.
-    const stopped = await page.evaluate(async ({ key, endedAt }) => {
+    await page.evaluate(async ({ key, endedAt }) => {
       const base = history[key].find((r) => r.endedAt === endedAt);
       const get = db.transaction(TRACE_STORE).objectStore(TRACE_STORE).get(endedAt);
       const trace = await new Promise((resolve, reject) => {
@@ -88,24 +132,30 @@ const { chromium } = require(process.argv[2]);
       if (boardMetricCandidates(history[key].slice(-3), history[key])
         .some((table) => table.setting === 'zeroOneShareTable')) throw new Error('obsolete counts entered the corrected table');
       if (boardMetricBackfills.has(key)) throw new Error('bulk backfill started without a click');
+    }, saved);
+    await page.waitForFunction((key) => boardMetricSources.get(key)?.status === 'ready', saved.key);
+    assert.equal(await page.locator('.board-metric-backfill').innerText(), 'Backfill saved wins (2)');
+    assert.equal(await page.locator('.board-metric-backfill-status').innerText(), '');
+    const stopped = await page.evaluate(({ key }) => {
       resultRanks.querySelector('.board-metric-backfill').click();
       resultRanks.querySelector('.board-metric-backfill').click();
       return boardMetricBackfillProgress(key);
     }, saved);
-    assert.deepEqual(stopped, { total: 3, measured: 0, unavailable: 0,
-      failed: 0, active: 1, checked: 0, remaining: 3 });
+    assert.deepEqual(stopped, { total: 3, measured: 0, unavailable: 1,
+      failed: 0, active: 1, checked: 1, remaining: 2 });
     await page.waitForFunction((key) => history[key].slice(-3).every((r) =>
       !['loading', 'running'].includes(boardMetricJobs.get(r)?.status)), saved.key);
     assert.equal(await page.evaluate((key) => history[key].slice(-3)
       .filter((r) => BoardMetrics.hasFractions(r.boardMetrics)).length, saved.key), 1);
     assert.deepEqual(await page.evaluate((key) => boardMetricBackfillProgress(key), saved.key),
-      { total: 3, measured: 1, unavailable: 0, failed: 0, active: 0, checked: 1, remaining: 2 });
+      { total: 3, measured: 1, unavailable: 1, failed: 0, active: 0, checked: 2, remaining: 1 });
     assert.equal(await page.locator('.board-metric-backfill-summary').innerText(),
-      '1/3 checked · 1 measured · 2 remaining');
+      '2/3 checked · 1 measured · 1 saved board unavailable · 1 remaining');
     assert.equal(await page.locator('.board-metric-backfill-status').innerText(), 'Paused');
-    assert.equal(await page.locator('.board-metric-backfill').innerText(), 'Resume backfill (2)');
+    assert.equal(await page.locator('.board-metric-backfill').innerText(), 'Resume backfill (1)');
     assert.deepEqual(await page.locator('.board-metric-backfill-panel progress')
-      .evaluate((el) => [el.value, el.max]), [1, 3]);
+      .evaluate((el) => [el.value, el.max]), [2, 3]);
+    await page.locator('.board-metric-backfill-panel').screenshot({ path: '/tmp/minesweeper-backfill-paused.png' });
     assert.deepEqual(await page.evaluate((key) => {
       const wins = history[key].filter((r) => r.outcome === 'win');
       return boardMetricCandidates([wins[0]], wins)
@@ -129,13 +179,16 @@ const { chromium } = require(process.argv[2]);
       settings.playMode = 'standard';
       renderResult(history[key].find((r) => r.endedAt === endedAt), history[key]);
     }, saved);
-    assert.equal(await page.locator('.board-metric-backfill').innerText(), 'Resume backfill (2)');
+    await page.waitForFunction((key) => boardMetricSources.get(key)?.status === 'ready', saved.key);
+    assert.equal(await page.locator('.board-metric-backfill').innerText(), 'Backfill saved wins (1)');
+    assert.equal(await page.locator('.board-metric-backfill-status').innerText(), '');
     assert.equal(await page.evaluate((key) => boardMetricBackfillProgress(key).measured, saved.key), 1);
     await page.locator('.board-metric-backfill').click();
     await page.waitForFunction((key) => !boardMetricBackfills.has(key), saved.key);
     assert.equal(await page.evaluate((key) => history[key].slice(-3)
       .filter((r) => BoardMetrics.hasFractions(r.boardMetrics)).length, saved.key), 2);
-    assert.equal(await page.evaluate((key) => boardMetricJobs.get(history[key].at(-2)).status, saved.key), 'unavailable');
+    assert.equal(await page.evaluate((key) => boardMetricJobs.has(history[key].at(-2)), saved.key), false,
+      'unavailable boards never enter the calculation queue');
     assert.equal(await page.evaluate((key) => boardMetricJobs.has(history[key].at(-3)), saved.key), false);
     assert.deepEqual(await page.evaluate((key) => boardMetricBackfillProgress(key), saved.key),
       { total: 3, measured: 2, unavailable: 1, failed: 0, active: 0, checked: 3, remaining: 0 });
@@ -160,6 +213,82 @@ const { chromium } = require(process.argv[2]);
     }, saved);
     assert.deepEqual(exhausted, { errorVisible: 'Backfill failed: deliberate backfill failure',
       failedPanel: false, allMeasuredIsHidden: true });
+
+    // The reported regression: exhausting a batch must stay exhausted over
+    // repeated reloads, even though one historic win has no saved board.
+    for (let i = 0; i < 2; i++) {
+      await page.reload();
+      await page.waitForFunction(() => preferenceUIReady);
+      await page.evaluate(({ key, endedAt }) => {
+        settings.playMode = 'standard';
+        renderResult(history[key].find((r) => r.endedAt === endedAt), history[key]);
+      }, saved);
+      await page.waitForFunction((key) => boardMetricSources.get(key)?.status === 'ready', saved.key);
+      assert.deepEqual(await page.evaluate((key) => boardMetricBackfillProgress(key), saved.key),
+        { total: 3, measured: 2, unavailable: 1, failed: 0, active: 0, checked: 3, remaining: 0 });
+      assert.equal(await page.locator('.board-metric-backfill-panel').count(), 0);
+      assert.equal(await page.evaluate((key) => history[key].some((r) => boardMetricJobs.has(r)), saved.key), false,
+        'reloading neither repeats completed work nor attempts unavailable boards');
+    }
+
+    // An index read failure must remain visible, not look like no work.
+    await page.evaluate(({ key }) => {
+      const original = db.transaction;
+      db.transaction = function (...args) {
+        const tx = original.apply(this, args);
+        queueMicrotask(() => tx.abort());
+        return tx;
+      };
+      boardMetricSourcesChanged(key);
+      db.transaction = original;
+    }, saved);
+    await page.waitForFunction((key) => boardMetricSources.get(key)?.status === 'error', saved.key);
+    assert.match(await page.locator('.board-metric-status [role=alert]').innerText(), /Could not check saved boards/);
+    assert.equal(await page.locator('.board-metric-backfill').count(), 0);
+    assert.match(await page.evaluate(({ key, endedAt }) => {
+      settings.shownThings.boardMetricFacts = false;
+      const text = buildBoardMetricStatus(history[key].find((r) => r.endedAt === endedAt)).textContent;
+      settings.shownThings.boardMetricFacts = true;
+      return text;
+    }, saved), /Could not check saved boards/, 'hiding progress cannot hide source read failures');
+
+    // Availability is derived from the source, not an irreversible skip flag.
+    // Restoring a trace updates the index; refreshing its in-page catalog is
+    // the same notification used after the game's own trace writes commit.
+    await page.evaluate(async ({ key, endedAt }) => {
+      boardMetricJobs.set(history[key].at(-2), { status: 'unavailable' });
+      const get = db.transaction(TRACE_STORE).objectStore(TRACE_STORE).get(endedAt);
+      const trace = await new Promise((resolve, reject) => {
+        get.onsuccess = () => resolve(get.result); get.onerror = () => reject(get.error);
+      });
+      const tx = db.transaction(TRACE_STORE, 'readwrite');
+      tx.objectStore(TRACE_STORE).put({ ...trace, endedAt: history[key].at(-2).endedAt });
+      await new Promise((resolve, reject) => {
+        tx.oncomplete = resolve; tx.onabort = () => reject(tx.error);
+      });
+      boardMetricSourcesChanged(key);
+    }, saved);
+    await page.waitForFunction((key) => boardMetricSources.get(key)?.status === 'ready', saved.key);
+    assert.equal(await page.evaluate((key) => boardMetricJobs.has(history[key].at(-2)), saved.key), false,
+      'restoring a board clears an earlier unavailable result in the same page');
+    assert.equal(await page.locator('.board-metric-backfill').innerText(), 'Backfill saved wins (1)');
+    await page.reload();
+    await page.waitForFunction(() => preferenceUIReady);
+    await page.evaluate(({ key, endedAt }) => {
+      renderResult(history[key].find((r) => r.endedAt === endedAt), history[key]);
+    }, saved);
+    await page.waitForFunction((key) => boardMetricSources.get(key)?.status === 'ready', saved.key);
+    assert.equal(await page.locator('.board-metric-backfill').innerText(), 'Backfill saved wins (1)');
+    await page.evaluate(() => {
+      resultRanks.querySelector('.board-metric-backfill').click();
+      resultRanks.querySelector('.board-metric-backfill').click();
+    });
+    await page.waitForFunction((key) => history[key].every(hasBoardMeasurements), saved.key);
+    assert.equal(await page.evaluate((key) => boardMetricPausedBackfills.has(key), saved.key), false,
+      'stopping the last board does not leave a paused batch after it finishes');
+    assert.deepEqual(await page.evaluate((key) => boardMetricBackfillProgress(key), saved.key),
+      { total: 3, measured: 3, unavailable: 0, failed: 0, active: 0, checked: 3, remaining: 0 });
+    assert.equal(await page.locator('.board-metric-backfill-panel').count(), 0);
 
     // Renderer fixtures are RAM-only. Existing HZiNi records remain comparable;
     // research ranges never become tables, and spread uses fixed bins.
@@ -256,6 +385,6 @@ const { chromium } = require(process.argv[2]);
     assert.deepEqual(edgeCases, { above100: 120, noIdleStatus: true, lossHasEfficiency: false,
       errorText: 'Board measurement failed: deliberate fixture failure' });
     assert.deepEqual(errors, []);
-    console.log('Board metrics browser: corrected visible 0–1 counts, manual backfill of obsolete counts, persistence/reload, partial ranks, pause/resume, exhausted status hidden with errors retained, worker isolation, rounded cohorts and accessible tooltips passed.');
+    console.log('Board metrics browser: v2 index upgrade, source availability, completed-batch reloads, restored boards, visible read failures, stop/resume, persisted measurements, worker isolation, rounded cohorts and accessible tooltips passed.');
   } finally { await browser.close(); }
 })().catch((error) => { console.error(error); process.exitCode = 1; });
