@@ -62,6 +62,16 @@
       await wait();
       const label = width + 'px ' + size;
       check(label + ': finishing leaves the board in place', sameBoard(before));
+      const beside = !pageLayout.classList.contains('compact-sidebar');
+      const inset = parseFloat(getComputedStyle(pageLayout).getPropertyValue('--board-edge-inset'));
+      const frameRect = rect(gameFrame);
+      const mainRect = rect(mainElement);
+      check(label + (beside ? ': the board rests beside the game data'
+        : ': compact details leave a fitting board centered'),
+        pageLayout.classList.contains('board-beside-game-data') === beside
+          && (beside ? Math.abs(frameRect.right - (mainRect.right - inset)) < 1
+            : frameRect.width > mainRect.width
+              || Math.abs((frameRect.left - mainRect.left) - (mainRect.right - frameRect.right)) < 1));
       const sections = [...resultRanks.children].map(node => node.className);
       const tableItems = resultRanks.querySelector('.result-chart-section-tables .result-chart-section-items');
       check(label + ': daily summary leads the continuous table collection',

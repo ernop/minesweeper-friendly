@@ -122,6 +122,13 @@ const bounds = { left: 0, right: 800, top: 50 };
 
 check('game frame stays centered when surrounding result width changes',
   /#game-frame\s*\{[^}]*width:\s*max-content;[^}]*margin-inline:\s*auto;/s.test(css));
+check('beside game data the frame rests at the edge inset instead of centering',
+  /#page-layout\.board-beside-game-data #game-frame\s*\{[^}]*margin-inline:\s*auto var\(--board-edge-inset\);/s.test(css)
+    && source.includes("pageLayout.classList.toggle('board-beside-game-data', docked && gameDataColumnWanted())"));
+check('offset constraints use the same edge inset as the resting frame',
+  /#page-layout\s*\{[^}]*--board-edge-inset:\s*8px;/s.test(css)
+    && source.includes("getPropertyValue('--board-edge-inset')")
+    && !/mainRect\.(left|right) [+-] 8\b/.test(source));
 check('position editor exposes independent horizontal and vertical values',
   html.includes('id="board-position-x-number"')
     && html.includes('id="board-position-y-number"'));

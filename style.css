@@ -41,6 +41,11 @@ body {
   --game-sidebar-min-width: 320px;
   --game-sidebar-width: clamp(var(--game-sidebar-min-width), 30vw, 760px);
   --game-data-width: clamp(360px, 24vw, 760px);
+  /* The board's clearance from its column's edges, the viewport, and the
+     tabs; Justice callouts keep it from the column's edges too.
+     applyBoardPosition constrains offsets with this same value, so a board
+     resting at it with a zero offset is never clamped. */
+  --board-edge-inset: 8px;
   grid-template-columns: auto minmax(0, 1fr) var(--game-sidebar-docked-width, var(--game-sidebar-width));
   align-items: start;
   gap: 18px;
@@ -731,6 +736,12 @@ body.trial-offboard #game-frame {
   padding: calc(var(--cell-size) / 4);
   border: calc(var(--cell-size) / 8) solid;
   border-color: var(--bevel-light) var(--bevel-dark) var(--bevel-dark) var(--bevel-light);
+}
+
+/* Beside a column holding game data, the board rests against its column's
+   right edge instead of centering, and the saved position counts from there. */
+#page-layout.board-beside-game-data #game-frame {
+  margin-inline: auto var(--board-edge-inset);
 }
 
 /* Startup is a real, fully styled covered Beginner board, not a blank veil or

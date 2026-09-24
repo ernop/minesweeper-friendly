@@ -20,9 +20,12 @@ placed from measured widths (docs/product/game-data.md "Layout pass").
 Decided and built later that day. Labels end with their pool word ("3BV/s
 1.600 (session)", "(life)", "(day)"). The best in a pool is 0%, using
 100 × (rank − 1) ÷ (count − 1). The chart has its own full-height column
-beside the board column, empty during play. Superseding other elements
-waits ("later"). The page-wide standardization sweep was approved ("all").
-Still open:
+beside the board column, empty during play. The board rests beside the
+game data column and the saved position counts from there; the later
+answer "Sit right next to the game data column" replaced the earlier "keep
+centering" (docs/product/board-and-layout.md "Layout: the board never
+moves"). Superseding other elements waits ("later"). The page-wide
+standardization sweep was approved ("all"). Still open:
 
 - **What it supersedes.** Each left-side time marker is the same comparison
   as a time table's "this" row: lifetime time and the lifetime table, session
@@ -40,10 +43,6 @@ Still open:
   (session)"). A single label with one marker per scope would roughly halve
   the left side's labels. For now the creator chose only the trailing pool
   word ("right now we just add the word (session) or (life)").
-- **Board beside the chart (decided 2026-09-23: keep centered).** A wide
-  screen leaves a gap between the centered board and the game data column.
-  The creator kept centering over anchoring the board next to the chart;
-  "position" moves it when wanted.
 - **Standardization sweep (approved "all"; built 2026-09-23).** No gray text
   remains, the primary containers are fluid, headings outrank their body
   text, and the outcome summary takes two lines ([UI doctrine](docs/product/ui-doctrine.md),

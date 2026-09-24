@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Minesweeper - Standard Mode</title>
-<link rel="stylesheet" href="style.css?v=20260923-ending-chip">
+<link rel="stylesheet" href="style.css?v=20260923-board-anchor">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <!-- Defer preserves dependency order while letting every page asset download
      in parallel. Storage starts first so disk access overlaps JS startup. -->
@@ -24,7 +24,7 @@
 <script defer src="game-data.js?v=20260923-lifetime-defaults"></script>
 <script defer src="settings-core.js?v=20260923-lifetime-defaults"></script>
 <script defer src="preferences-game.js?v=20260921-all-preferences"></script>
-<script defer src="minesweeper.js?v=20260923-ending-chip"></script>
+<script defer src="minesweeper.js?v=20260923-board-anchor"></script>
 </head>
 <body aria-busy="true">
 <div id="page-layout">
@@ -220,7 +220,7 @@
 <div id="board-position-panel" role="region" aria-labelledby="board-position-title" hidden>
   <div id="board-position-actions">
     <strong id="board-position-title">Board position</strong>
-    <button type="button" id="board-position-reset">Center</button>
+    <button type="button" id="board-position-reset">Reset</button>
     <button type="button" id="board-position-done">Done</button>
   </div>
   <div class="board-position-row">

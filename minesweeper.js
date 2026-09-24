@@ -276,13 +276,14 @@ function placeBoardPositionPanel() {
 function applyBoardPosition() {
   if (settings === null) return;
   syncGameSidebar();
+  const inset = parseFloat(getComputedStyle(pageLayout).getPropertyValue('--board-edge-inset'));
   const current = boardPageRect(gameFrame);
   const base = boardPositionRect(current, -appliedBoardOffsetX, -appliedBoardOffsetY);
   const mainRect = boardPageRect(mainElement);
   const tabsRect = boardPageRect(difficultyTabs);
-  const viewportRight = Math.max(8, window.innerWidth - 8);
-  let left = Math.max(8, mainRect.left + 8);
-  let right = Math.min(viewportRight, mainRect.right - 8);
+  const viewportRight = Math.max(inset, window.innerWidth - inset);
+  let left = Math.max(inset, mainRect.left + inset);
+  let right = Math.min(viewportRight, mainRect.right - inset);
   if (right < left) {
     left = mainRect.left;
     right = mainRect.right;
@@ -290,7 +291,7 @@ function applyBoardPosition() {
   const placed = constrainBoardOffset(base, {
     left,
     right,
-    top: tabsRect.bottom + 8,
+    top: tabsRect.bottom + inset,
   }, [], settings.boardOffsetX, settings.boardOffsetY);
 
   appliedBoardOffsetX = placed.x;
@@ -398,6 +399,7 @@ function syncGameSidebar() {
   pageLayout.style.setProperty('--game-sidebar-docked-width',
     (dataDocked ? minimum : Math.max(minimum, Math.min(preferred, room))) + 'px');
   pageLayout.classList.toggle('game-data-docked', dataDocked);
+  pageLayout.classList.toggle('board-beside-game-data', docked && gameDataColumnWanted());
   placeGameData();
   const compact = !docked;
   if (pageLayout.classList.contains('compact-sidebar') !== compact) {
@@ -416,9 +418,10 @@ function syncJusticePlacement() {
   justiceLive.classList.remove('justice-left', 'justice-below');
   if (justiceLive.childElementCount === 0) return;
   const mainRect = boardPageRect(mainElement);
+  const inset = parseFloat(getComputedStyle(pageLayout).getPropertyValue('--board-edge-inset'));
   // Keep board callouts within the main column. Sidebar contents, including
   // an open compact popover, must not reposition them or the history below.
-  const collides = (rect) => rect.left < mainRect.left + 8 || rect.right > mainRect.right - 8;
+  const collides = (rect) => rect.left < mainRect.left + inset || rect.right > mainRect.right - inset;
 
   if (!collides(boardPageRect(justiceLive))) return;
   justiceLive.classList.add('justice-left');

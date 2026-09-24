@@ -5,7 +5,14 @@ Spec: [docs/product/board-and-layout.md](../product/board-and-layout.md). Index:
 - Board position: `settings.boardOffsetX/Y` are independent persistent pixel
   preferences. `applyBoardPosition` selects docked/compact details first, then
   constrains the applied offset to the main column without rewriting the
-  saved preference. `#game-frame` centers within `#game-area`; results and
+  saved preference. `#game-frame` centers within `#game-area` except under
+  `#page-layout.board-beside-game-data`, which `syncGameSidebar` sets when
+  the details column is docked and `gameDataColumnWanted()`; the frame then
+  rests at `margin-inline: auto var(--board-edge-inset)`. `applyBoardPosition`
+  bounds and `syncJusticePlacement` collisions read the same
+  `--board-edge-inset` (8px, on `#page-layout`), so a zero offset at the
+  resting place is never clamped. `#board-position-reset` sets both
+  offsets to zero. Results and
   legends are outside that translated area. The editor exposes drag,
   arrows, numeric inputs, and labeled sliders. Browser scroll regressions
   cover docked and compact details and the independent metrics panel.
@@ -61,4 +68,4 @@ Spec: [docs/product/board-and-layout.md](../product/board-and-layout.md). Index:
   and fits the game-data chart's height (see Layout 2026-09-07 above);
   no result-dependent gutter calculations or overhang margins remain.
   ResizeObserver tracks page/main/frame geometry; the root scrollbar gutter
-  remains reserved for stable centering.
+  remains reserved so page growth cannot shift the board.

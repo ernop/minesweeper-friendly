@@ -50,11 +50,17 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   (the ranks-won summary plus a table beside it) with the column at 360px or
   more and the details column at its 320px minimum. It then takes
   `clamp(360px, 24vw, 760px)` of the remaining room. Otherwise the chart
-  falls back to the details column as described below. The board still
-  centers in its own column, so the gap between the board and the chart
-  follows the board position preference. The creator chose to keep this
-  (2026-09-23) over anchoring the board beside the chart; "position" moves
-  the board closer when wanted.
+  falls back to the details column as described below.
+- Board beside game data (user decision 2026-09-23, "Sit right next to the
+  game data column; my saved position then counts from there"; this later
+  answer supersedes the same day's earlier "keep centering"): whenever game
+  data has a column beside the board column (its own column, or the details
+  column holding it), the board rests against the board column's right edge,
+  8px in, instead of centering. A zero position offset is that resting
+  place. With no chart column beside it (chart hidden, trial modes, compact
+  details), the board centers in its column. The choice depends only on the
+  viewport, board, and metrics-column widths, the chart setting, and the
+  play mode, so finishing a game never moves the board.
 - The board is the anchor. Appearing or disappearing content must not move it.
   Its covered startup preview occupies the same explicit main column.
 - Mode, generator, session tags, settings, optional replay/display controls,
@@ -113,13 +119,18 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   preserves page and sidebar scroll. Layout corrections allocate space;
   they do not raise z-index to conceal collisions between ordinary content.
 - Position stores independent X/Y pixel preferences, editable by drag,
-  arrows, labeled sliders, or numbers. The game frame centers within its
-  column; sidebar controls remain outside its translation. Applied offsets may be
-  constrained to its bounds without rewriting the saved preference.
+  arrows, labeled sliders, or numbers. Offsets count from the board's resting
+  place: beside game data or centered, as described above. Sidebar controls
+  remain outside its translation. Applied offsets keep a board that fits at
+  least 8px inside the board column and the viewport and 8px below the tabs
+  (an oversized board keeps its overflow), without rewriting the saved
+  preference; beside game data, a rightward offset is therefore applied as
+  zero.
 - The position editor follows the board, normally directly below it, on all
   screen widths. It switches sides when needed and stays within the visible
-  viewport during dragging, scrolling, resizing, and zooming. Center and a
-  prominent Done button stay at the top of the editor; Escape also closes it.
+  viewport during dragging, scrolling, resizing, and zooming. Reset (both
+  offsets to zero, the resting place) and a prominent Done button stay at
+  the top of the editor; Escape also closes it.
   The editor does not change the board's position or page layout.
 - The results area echoes the in-game numeral face (Arial Black stack);
   the game-data chart inside it uses regular Arial.
