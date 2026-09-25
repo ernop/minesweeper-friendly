@@ -1,7 +1,6 @@
 'use strict';
-// Structural checks for the first-paint contract. Browser layout is visual,
-// but these invariants prevent the empty-board flash and serial asset loading
-// from quietly returning.
+// Structural checks for the first-paint contract. Startup must never show
+// a board before it accepts input; browser checks cover the async waits.
 
 const fs = require('fs');
 const path = require('path');
@@ -22,15 +21,19 @@ function check(name, condition) {
 check('document declares the visible startup state',
   /<html[^>]+class="game-booting"/.test(html));
 check('startup explains the real work',
-  html.includes('Loading your settings and saved history\u2026'));
-check('first paint builds a complete Beginner board',
-  html.includes('for (let i = 0; i < 81; i++)'));
+  html.includes('Preparing your game\u2026'));
+check('first paint reserves space without constructing dummy cells',
+  /<div id="board"[^>]*><\/div>/.test(html)
+    && !html.includes('startup-cell')
+    && /\.game-booting #board:empty\s*\{[^}]*height:/.test(css));
 check('first paint has a default grid width',
   css.includes('--board-width: 9;'));
 check('main keeps its grid column while the sidebar is hidden',
   /main \{\s*grid-column: 2;/.test(css));
-check('loading board stays visible',
-  !css.includes('.game-booting #game-frame { display: none'));
+check('loading board stays concealed without collapsing its layout',
+  /\.game-booting #game-frame\s*\{\s*visibility: hidden;\s*\}/.test(css));
+check('restart rejects input before startup completes',
+  /function requestNewGame\(\) \{\s*if \(document\.documentElement\.classList\.contains\('game-booting'\)\) return;/.test(js));
 
 const externalScripts = [...html.matchAll(/<script([^>]+)src="([^"]+)"/g)]
   .map((match) => ({ attrs: match[1], src: match[2] }));
@@ -56,7 +59,9 @@ check('game scripts share one cache-busting version',
 const newGameAt = js.lastIndexOf('  newGame();');
 const readyAt = js.lastIndexOf("document.documentElement.classList.remove('game-booting')");
 check('the real board exists before startup completes',
-  newGameAt !== -1 && readyAt > newGameAt);
+  newGameAt !== -1 && readyAt > newGameAt
+    && readyAt > js.lastIndexOf('await restorePreferredResult();')
+    && readyAt > js.lastIndexOf('await initGamePreferences();'));
 check('startup accessibility state completes',
   js.includes("boardElement.removeAttribute('aria-busy')")
     && js.includes("document.body.removeAttribute('aria-busy')"));

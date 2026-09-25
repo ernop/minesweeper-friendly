@@ -2,6 +2,20 @@
 
 Spec: [docs/product/board-and-layout.md](../product/board-and-layout.md). Index: [AGENTS.md](../../AGENTS.md).
 
+- Startup readiness (2026-09-25): `index.html` begins with an empty board
+  and “Preparing your game…” status. While `.game-booting` is present,
+  `style.css` reserves the empty board's Beginner footprint and conceals
+  `#game-frame` with `visibility: hidden`, so the real board remains
+  measurable for saved layout restoration. `init` in `game/main.js` removes
+  that class only after `newGame`, `restorePreferredResult`, and
+  `initGamePreferences` finish; the same transition reveals the frame and
+  permits pointer input. `requestNewGame` in `game/controls.js` rejects
+  restarts while booting, including Space before settings exist. Failures
+  retain the concealed frame and use the existing visible startup error.
+  `tests/startup-presentation-test.js` checks the static contract;
+  `tests/startup-browser-check.js` holds script/result/preference restoration
+  separately and verifies concealment, ignored early input, stable geometry,
+  and a working first click/restart after readiness.
 - Board position: `settings.boardOffsetX/Y` are independent persistent pixel
   preferences. `applyBoardPosition` selects docked/compact details first, then
   constrains the applied offset to the main column without rewriting the

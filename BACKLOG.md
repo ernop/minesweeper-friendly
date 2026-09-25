@@ -425,14 +425,6 @@ from the RAM trace of the game just ended. Not built:
   so movement that left the board clips at its edge; a wider canvas
   would show the full excursion (e.g. travel to the face button).
 
-## Space during startup (known issue, confirmed 2026-09-23)
-
-Present before the `game/` split: pressing Space while the page is still
-booting throws "Cannot read properties of null (reading 'playMode')",
-because the Space shortcut calls `requestNewGame` before settings have
-loaded. `.game-booting` already blocks pointer input to the loading
-chrome; the keyboard shortcut has no equivalent guard.
-
 ## Research designs (creator, not built)
 
 - **Secret replay experiment** (2026-08-19 discussion;

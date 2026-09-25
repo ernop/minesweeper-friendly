@@ -83,7 +83,7 @@ Index: [AGENTS.md](../../AGENTS.md).
   spot-checked with `curl https://ernop.github.io/minesweeper-friendly/...`.
 - Test entry points (2026-09-23): `for t in tests/*-test.js; do node "$t"; done`
   runs every Node suite. The browser checks
-  (`tests/board-time-profile-browser-check.js`,
+  (`tests/startup-browser-check.js`, `tests/board-time-profile-browser-check.js`,
   `tests/rank-highlight-browser-check.js`, `tests/preferences-browser-check.js`,
   `tests/board-metrics-browser-check.js`) take a playwright-core directory and
   a Chromium executable as arguments, and need a server for the repository

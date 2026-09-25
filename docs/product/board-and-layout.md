@@ -35,6 +35,20 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   left-click chording with press preview; win auto-flags remaining mines;
   loss shows the red hit cell and crossed-out wrong flags.
 
+## Startup readiness
+
+User report (2026-09-25): the board appeared to be playable while startup
+was still preparing the game, so attempts to click it were frustrating.
+
+- Keep the board and its restart panel concealed until saved settings,
+  history, the selected game/replay view, and layout restoration are complete.
+  Their first visible frame must accept the input appropriate to that view.
+- Show “Preparing your game…” during that work, without drawing a dummy
+  covered board. Reserve the board's space while preparing it; revealing it
+  must not move surrounding content.
+- Space must not restart the game during startup. Loading failures keep
+  the board concealed and display the actual failure in the startup status.
+
 ## Layout: the board never moves
 
 - The page has separate columns for session/motion metrics, the board and
@@ -67,7 +81,7 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   viewport, board, and metrics-column widths, the chart setting, and the
   play mode, so finishing a game never moves the board.
 - The board is the anchor. Appearing or disappearing content must not move it.
-  Its covered startup preview occupies the same explicit main column.
+  Its reserved startup space occupies the same explicit main column.
 - Mode, generator, session tags, settings, optional replay/display controls,
   completed-game stats, and the full replay legend share the right details
   column in that order. They are in

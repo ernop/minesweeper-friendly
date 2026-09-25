@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Minesweeper - Standard Mode</title>
-<link rel="stylesheet" href="style.css?v=20260923-chart-groups">
+<link rel="stylesheet" href="style.css?v=20260925-startup-ready">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <!-- Defer preserves dependency order while letting every page asset download
      in parallel. Storage starts first so disk access overlaps JS startup. -->
@@ -24,30 +24,30 @@
 <script defer src="game-data.js?v=20260923-one-session-picker"></script>
 <script defer src="settings-core.js?v=20260923-chart-groups"></script>
 <script defer src="preferences-game.js?v=20260921-all-preferences"></script>
-<script defer src="game/core.js?v=20260923-chart-groups"></script>
-<script defer src="game/layout.js?v=20260923-chart-groups"></script>
-<script defer src="game/play.js?v=20260923-chart-groups"></script>
-<script defer src="game/play-modes.js?v=20260923-chart-groups"></script>
-<script defer src="game/evaluation.js?v=20260923-chart-groups"></script>
-<script defer src="game/results.js?v=20260923-chart-groups"></script>
-<script defer src="game/history.js?v=20260923-chart-groups"></script>
-<script defer src="game/rankings.js?v=20260923-chart-groups"></script>
-<script defer src="game/charts.js?v=20260923-chart-groups"></script>
-<script defer src="game/trial-review.js?v=20260923-chart-groups"></script>
-<script defer src="game/game-data-chart.js?v=20260923-chart-groups"></script>
-<script defer src="game/result-ranks.js?v=20260923-chart-groups"></script>
-<script defer src="game/input-trace.js?v=20260923-chart-groups"></script>
-<script defer src="game/replay-model.js?v=20260923-chart-groups"></script>
-<script defer src="game/replay-view.js?v=20260923-chart-groups"></script>
-<script defer src="game/music.js?v=20260923-chart-groups"></script>
-<script defer src="game/trace-metrics.js?v=20260923-chart-groups"></script>
-<script defer src="game/metrics-panel.js?v=20260923-chart-groups"></script>
-<script defer src="game/session-stats.js?v=20260923-chart-groups"></script>
-<script defer src="game/session-charts.js?v=20260923-chart-groups"></script>
-<script defer src="game/player-states.js?v=20260923-chart-groups"></script>
-<script defer src="game/controls.js?v=20260923-chart-groups"></script>
-<script defer src="game/backup.js?v=20260923-chart-groups"></script>
-<script defer src="game/main.js?v=20260923-chart-groups"></script>
+<script defer src="game/core.js?v=20260925-startup-ready"></script>
+<script defer src="game/layout.js?v=20260925-startup-ready"></script>
+<script defer src="game/play.js?v=20260925-startup-ready"></script>
+<script defer src="game/play-modes.js?v=20260925-startup-ready"></script>
+<script defer src="game/evaluation.js?v=20260925-startup-ready"></script>
+<script defer src="game/results.js?v=20260925-startup-ready"></script>
+<script defer src="game/history.js?v=20260925-startup-ready"></script>
+<script defer src="game/rankings.js?v=20260925-startup-ready"></script>
+<script defer src="game/charts.js?v=20260925-startup-ready"></script>
+<script defer src="game/trial-review.js?v=20260925-startup-ready"></script>
+<script defer src="game/game-data-chart.js?v=20260925-startup-ready"></script>
+<script defer src="game/result-ranks.js?v=20260925-startup-ready"></script>
+<script defer src="game/input-trace.js?v=20260925-startup-ready"></script>
+<script defer src="game/replay-model.js?v=20260925-startup-ready"></script>
+<script defer src="game/replay-view.js?v=20260925-startup-ready"></script>
+<script defer src="game/music.js?v=20260925-startup-ready"></script>
+<script defer src="game/trace-metrics.js?v=20260925-startup-ready"></script>
+<script defer src="game/metrics-panel.js?v=20260925-startup-ready"></script>
+<script defer src="game/session-stats.js?v=20260925-startup-ready"></script>
+<script defer src="game/session-charts.js?v=20260925-startup-ready"></script>
+<script defer src="game/player-states.js?v=20260925-startup-ready"></script>
+<script defer src="game/controls.js?v=20260925-startup-ready"></script>
+<script defer src="game/backup.js?v=20260925-startup-ready"></script>
+<script defer src="game/main.js?v=20260925-startup-ready"></script>
 </head>
 <body aria-busy="true">
 <div id="page-layout">
@@ -76,7 +76,7 @@
   <div id="game-area">
     <div id="startup-status" role="status">
       <span class="startup-dot" aria-hidden="true"></span>
-      Loading your settings and saved history…
+      Preparing your game…
     </div>
     <div id="trial-stage" hidden>
       <p id="trial-copy"></p>
@@ -97,21 +97,6 @@
         <div id="timer" class="lcd"></div>
       </div>
       <div id="board" aria-busy="true" aria-describedby="startup-status"></div>
-      <script>
-        // Real covered cells give first paint the exact game geometry. The
-        // loaded game replaces them in place; they never pretend to be ready.
-        (() => {
-          const board = document.getElementById('board');
-          const fragment = document.createDocumentFragment();
-          for (let i = 0; i < 81; i++) {
-            const cell = document.createElement('div');
-            cell.className = 'cell hidden startup-cell';
-            cell.setAttribute('aria-hidden', 'true');
-            fragment.appendChild(cell);
-          }
-          board.appendChild(fragment);
-        })();
-      </script>
     </div>
     <div id="board-position-drag-surface" hidden tabindex="0"
       aria-label="Board position. Drag, or use arrow keys to move."></div>

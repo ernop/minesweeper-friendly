@@ -211,6 +211,7 @@ window.addEventListener('resize', () => {
 });
 
 function requestNewGame() {
+  if (document.documentElement.classList.contains('game-booting')) return;
   if (trialPhase() === 'lobby' || trialPhase() === 'review') return;
   if (trialIsActive() && trialPresentation !== null
       && gameState !== 'won' && gameState !== 'lost') {

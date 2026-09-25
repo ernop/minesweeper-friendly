@@ -1,7 +1,6 @@
 :root {
   --cell-size: 28px;
-  /* The honest first-paint preview is the default Beginner board. JS replaces
-     this with the selected game's width when saved state is ready. */
+  /* Reserve the default footprint until saved board dimensions are loaded. */
   --board-width: 9;
   /* Classic Windows minesweeper palette, matching minesweeper.online's skin */
   --silver: #c0c0c0;
@@ -744,17 +743,24 @@ body.trial-offboard #game-frame {
   margin-inline: auto var(--board-edge-inset);
 }
 
-/* Startup is a real, fully styled covered Beginner board, not a blank veil or
-   a fake progress screen. Its plain-language status says exactly what remains
-   before input is ready. Absolute positioning prevents the status appearing
-   or disappearing from moving the board. */
+/* Keep the frame measurable for layout restoration without inviting input
+   before startup completes. Removing game-booting reveals and enables it in
+   the same turn; neither visibility nor the status changes its footprint. */
+.game-booting #game-frame {
+  visibility: hidden;
+}
+
+.game-booting #board:empty {
+  height: calc(9 * var(--cell-size) + 2 * var(--bevel-size));
+}
+
 #startup-status {
   display: none;
 }
 
 .game-booting #startup-status {
   position: absolute;
-  top: calc(100% + 7px);
+  top: 12px;
   left: 50%;
   display: flex;
   align-items: center;
@@ -794,10 +800,6 @@ body.trial-offboard #game-frame {
     var(--cell-size) * 23 / 24
     + 2 * var(--cell-size) * 2 / 24
     + 2px);
-}
-
-.game-booting .startup-cell {
-  pointer-events: none;
 }
 
 /* Event handlers are installed while IndexedDB is still opening. Keep the
