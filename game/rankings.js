@@ -585,11 +585,6 @@ function applyRankHighlight(element, rank, total) {
 function buildRecentPlacements(record, wins, referenceMs, markReferenceRecord = true) {
   const { label: chosenLabel } = SessionScope.choices.find((c) => c.id === settings.sessionDefinition);
   const sourceStartMs = SessionScope.bounds(settings.sessionDefinition, referenceMs).from;
-  const candidates = recentPlacementCandidates(
-    wins, referenceMs, sourceStartMs, settings.collapseDuplicateCharts);
-  const rows = recentPlacementsSummary(
-    candidates, sourceStartMs, markReferenceRecord ? record : undefined);
-
   const box = document.createElement('div');
   box.className = 'rank-list recent-placements';
   const heading = document.createElement('h4');
@@ -602,6 +597,18 @@ function buildRecentPlacements(record, wins, referenceMs, markReferenceRecord = 
   box.addEventListener('session-scope-change', () => box.replaceWith(buildRecentPlacements(record, wins, referenceMs, markReferenceRecord)));
   box.appendChild(heading);
 
+  const loading = document.createElement('div');
+  loading.setAttribute('role', 'status');
+  loading.textContent = 'Calculating ranks…';
+  box.appendChild(loading);
+  box.analysisReady = analysisTask('rankings', 'recent-placements', { wins: wins.map(analysisRecord), referenceMs, sourceStartMs,
+    recordEndedAt: markReferenceRecord ? record.endedAt : null,
+    collapseDuplicates: settings.collapseDuplicateCharts }).then((rows) => {
+    loading.remove();
+    drawRows(rows);
+  });
+  box.analysisReady.catch(analysisFailure);
+  function drawRows(rows) {
   // Lifetime's near-miss rule reports whenever the source window has any
   // win at all, so an empty summary means exactly that: no wins yet.
   if (rows.length === 0) {
@@ -609,7 +616,7 @@ function buildRecentPlacements(record, wins, referenceMs, markReferenceRecord = 
     none.className = 'recent-placements-none';
     none.textContent = 'no wins in session';
     box.appendChild(none);
-    return box;
+    return;
   }
   const grid = document.createElement('div');
   grid.className = 'recent-placements-grid';
@@ -663,6 +670,7 @@ function buildRecentPlacements(record, wins, referenceMs, markReferenceRecord = 
     grid.appendChild(line);
   }
   box.appendChild(grid);
+  }
   return box;
 }
 
@@ -729,4 +737,91 @@ function buildRankList(headingText, rowCount, myIndex, gridClass, buildRowCells,
   }
   list.appendChild(total);
   return list;
+}
+
+//-------STREAK RANKINGS: COMPUTATION-------
+
+function streakRuns(records) {
+  const runs = [{ len: 0, end: null }];
+  for (const record of records) {
+    if (record.outcome === 'win') {
+      const run = runs[runs.length - 1];
+      run.len++;
+      run.end = record.endedAt;
+    } else runs.push({ len: 0, end: null });
+  }
+  return runs;
+}
+
+function rankedStreaks(runs, slack) {
+  const span = Math.min(slack + 1, runs.length);
+  const cores = [];
+  for (let i = 0; i + span <= runs.length; i++) {
+    let a = -1, b = -1, len = 0;
+    for (let j = i; j < i + span; j++) {
+      if (runs[j].len === 0) continue;
+      if (a === -1) a = j;
+      b = j;
+      len += runs[j].len;
+    }
+    if (a === -1) continue;
+    // Fixed-width windows advance both endpoints monotonically. Only the
+    // last core can contain this one, or be contained by it.
+    if (cores.length && cores[cores.length - 1].a === a) cores.pop();
+    if (cores.length && cores[cores.length - 1].b >= b) continue;
+    cores.push({ a, b, len });
+  }
+  return cores.map(({ b, len }) => ({
+    len, end: runs[b].end, current: b === runs.length - 1,
+  })).sort((a, b) => b.len - a.len || b.end - a.end);
+}
+
+//-------STREAK RANKINGS: COMPUTATION END-------
+
+// Compute complete standings in the worker, returning only each table's
+// visible window. History-sized arrays never need to cross back into the UI.
+function resultRankPlan(record, records, options, preferences, referenceMs) {
+  const wins = records.filter((r) => r.outcome === 'win');
+  const boardRecord = options.boardRecord || record;
+  const table = (label, list, help) => {
+    const index = options.historyView ? -1 : list.indexOf(record);
+    const [start, end] = windowBounds(index, list.length);
+    return { label, count: list.length, index, start, rows: list.slice(start, end), help };
+  };
+  let candidates = rankColumns(referenceMs)
+    .filter((column) => preferences.shownThings.lastOneMinute || column.label !== 'past 1 min')
+    .map((column) => ({ ...column, wins: wins.filter(column.filter).sort(compareRankedWins) }));
+  if (preferences.collapseDuplicateCharts) {
+    const kept = new Set(dedupeRankCandidates(candidates, ['lifetime', 'past week']));
+    candidates = candidates.filter((c) => kept.has(c));
+  }
+  const timeTables = preferences.shownThings.timeTables
+    ? candidates.map((c) => table(c.label, c.wins, c.help)) : [];
+  const boardTables = [];
+  for (const c of boardMetricCandidates([boardRecord], wins)) {
+    if (preferences.shownThings[c.setting]) {
+      boardTables.push(table(c.label, c.wins.slice().sort(compareRankedWins), c.help?.(boardRecord)));
+    }
+  }
+  if (preferences.shownThings.boardShapeTables) {
+    let shapes = boardShapeCandidates([boardRecord], wins)
+      .filter((c) => preferences.shownThings.largestIsland || !c.label.startsWith('largest island '))
+      .map((c) => ({ ...c, wins: c.rows }));
+    if (preferences.collapseDuplicateCharts) {
+      const kept = new Set(dedupeRankCandidates(shapes));
+      shapes = shapes.filter((c) => kept.has(c));
+    }
+    for (const c of shapes) boardTables.push(table(c.label, c.wins.slice().sort(compareRankedWins)));
+  }
+  const runs = streakRuns(records);
+  const streakTables = [];
+  for (const [label, key, slack] of [['streak', 'streak', 0], ['near-streak', 'nearStreak', 1],
+    ['near-near-streak', 'nearNearStreak', 2]]) {
+    if (!preferences.shownThings[key]) continue;
+    const list = rankedStreaks(runs, slack);
+    const index = options.historyView ? -1 : list.findIndex((seg) => seg.current);
+    const [start, end] = windowBounds(index, list.length);
+    streakTables.push({ label, count: list.length, index, start, rows: list.slice(start, end) });
+  }
+  return { timeTables, boardTables, streakTables };
 }

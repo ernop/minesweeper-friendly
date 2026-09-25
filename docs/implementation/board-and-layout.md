@@ -8,7 +8,8 @@ Spec: [docs/product/board-and-layout.md](../product/board-and-layout.md). Index:
   `#game-frame` with `visibility: hidden`, so the real board remains
   measurable for saved layout restoration. `init` in `game/main.js` removes
   that class only after `newGame`, `restorePreferredResult`, and
-  `initGamePreferences` finish; the same transition reveals the frame and
+  `initGamePreferences` finish their board/control setup; statistical report
+  reconstruction continues independently in `restoredAnalysisReady`; the same transition reveals the frame and
   permits pointer input. `requestNewGame` in `game/controls.js` rejects
   restarts while booting, including Space before settings exist. Failures
   retain the concealed frame and use the existing visible startup error.
@@ -83,3 +84,57 @@ Spec: [docs/product/board-and-layout.md](../product/board-and-layout.md). Index:
   no result-dependent gutter calculations or overhang margins remain.
   ResizeObserver tracks page/main/frame geometry; the root scrollbar gutter
   remains reserved so page growth cannot shift the board.
+
+## Analysis execution and cost (2026-09-25)
+
+`analysis-client.js` sends immutable structured-cloned snapshots to
+`analysis-worker.js`. Persistent named queues separate live trace samples,
+session aggregation, finished/reloaded reports, rankings, and scatter work.
+The worker imports pure algorithms from the same files tested by Node; it
+never invokes their DOM builders. Calculation errors return the task name
+and error message; worker startup/runtime errors reject pending requests and
+terminate that worker. `analysisFailure` exposes the failure as an alert.
+There is no main-thread calculation substitute.
+
+- `renderLiveTraceMetrics` permits one outstanding sample, coalesces new input,
+  and sends only appended samples/events. Trace generations reject late replies.
+- `reportResult` saves primary record/trace facts before returning, then sends
+  the captured board and trace for metrics and ZiNi/HZiNi. The reply updates
+  that record, even after a restart, but view revision and trace identity gate
+  presentation. Restoring a saved trace computes any unfinished derived board
+  measurements. Statistical completion is independent of starting another game.
+- `renderResult`/`renderRanks` await worker models. Tables receive only their
+  visible 11-row windows. Messages strip raw action evidence from ranking
+  inputs. Sections and motion rows yield against a 4ms presentation budget;
+  scatter dots also check the budget every 128 points. DOM work stays on the
+  main thread, proportional to the output being presented.
+- Original synchronous primary capture, board updates, and IndexedDB cloning
+  still consume UI time. History persistence still writes the whole history
+  value; this change does not claim constant-time storage or rendering.
+
+Measured locally with synthetic data against `7ca3198526ad345e74fe03fc1b6216c29ace6045`
+(median of three Node runs, `tests/performance-benchmark.js`):
+
+| Calculation | Size | Before | After |
+| --- | ---: | ---: | ---: |
+| Exact trend fit | 1,000 points | 254 ms | 22 ms |
+| Exact trend fit | 2,000 points | 1,280 ms | 28 ms |
+| Exact trend fit | 4,000 points | 6,329 ms | 64 ms |
+| Near-near-streak | 20,000 records | 108 ms | 0.43 ms |
+| Trace-series reconstruction | 80 clicks | 869 ms | 218 ms |
+
+These compare computation, independent of worker transport. A separate browser
+fixture with 2,000 historical records measured about 11ms for initial report
+UI work; the previous synchronous report took about 206ms. Full report latency
+includes asynchronous calculations and drawing, so those two numbers do not
+claim an equivalent reduction in time until every chart is visible.
+
+`tests/analysis-isolation-browser-check.js` blocks real worker loading while
+playing, finishing, persisting, restarting, and restoring a saved board. It
+checks late-result ownership and visible task errors. The large-history
+browser fixture poisons main-thread calculation entry points so accidentally
+calling them is a test failure.
+
+The metrics column and its controls are constructed before the initial layout,
+without waiting for a worker reply. Its first computed values fill that reserved
+space; worker latency cannot move the board after startup reveals it.

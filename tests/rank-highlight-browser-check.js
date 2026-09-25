@@ -15,7 +15,7 @@ const { chromium } = require(process.argv[2]);
     await page.goto('http://127.0.0.1:8099/');
     await page.waitForFunction(() =>
       typeof preferenceUIReady !== 'undefined' && preferenceUIReady);
-    await page.evaluate(() => {
+    await page.evaluate(async () => {
       resultRanks.classList.add('sectioned-results');
       const collector = createResultSectionCollector('postGame');
       const examples = [
@@ -47,9 +47,10 @@ const { chromium } = require(process.argv[2]);
       settings.sessionDefinition = 'pastHour';
       settings.collapseDuplicateCharts = false;
       collector.append('tables', buildRecentPlacements(current, wins, now));
+      await collector.ready();
       collector.renderInto(resultRanks);
     });
-    const details = await page.evaluate(() => {
+    const details = await page.evaluate(async () => {
       const records = {};
       for (const list of document.querySelectorAll('[data-example]')) {
         const selected = list.querySelector('.me');
@@ -118,7 +119,7 @@ const { chromium } = require(process.argv[2]);
     assert.equal(details.earlier.standing, 'Top 5%');
     assert.equal(details.earlier.band, 'top5');
     assert.equal(details.earlier.rankColor, records.first.rankColor);
-    const multi = await page.evaluate(() => {
+    const multi = await page.evaluate(async () => {
       const row = [...document.querySelectorAll('.recent-placements .rank-row')]
         .find((row) => row.querySelector('.recent-window-cell').textContent === 'lifetime');
       return {
@@ -142,7 +143,7 @@ const { chromium } = require(process.argv[2]);
       assert.deepEqual(overflow, [], width + 'px table overflow');
       await page.screenshot({ path: '/tmp/rank-highlights-' + width + '.png', fullPage: true });
     }
-    const conditional = await page.evaluate(() => {
+    const conditional = await page.evaluate(async () => {
       const now = Date.now();
       const other = Array.from({ length: 190 }, (_, i) => ({
         outcome: 'win', endedAt: now - (300 + i) * 864e5,
@@ -157,10 +158,11 @@ const { chromium } = require(process.argv[2]);
       settings.shownThings.averageCharts = false;
       settings.shownThings.relationshipCharts = false;
       settings.collapseDuplicateCharts = true;
-      const draw = (options = {}) => {
+      const draw = async (options = {}) => {
         const collector = createResultSectionCollector('postGame');
-        renderRanks(current, records, options, collector);
-        collector.renderInto(resultRanks);
+        await renderRanks(current, records, options, collector);
+        await collector.ready();
+      collector.renderInto(resultRanks);
         return Object.fromEntries([...resultRanks.querySelectorAll('.rank-list')]
           .filter((list) => !list.classList.contains('recent-placements'))
           .map((list) => [list.querySelector('h4').textContent, {
@@ -168,16 +170,16 @@ const { chromium } = require(process.argv[2]);
             selected: list.querySelectorAll('.me').length,
           }]));
       };
-      const full = draw();
+      const full = await draw();
       const boardSection = resultRanks.querySelector('.result-chart-section-boardTables');
       const boardLabels = [...boardSection.querySelectorAll('h4')].map((heading) => heading.textContent);
       const summaryLabels = [...resultRanks.querySelectorAll('.recent-window-cell')]
         .map((cell) => cell.textContent);
       settings.shownThings.exactZiNi = false;
-      const hidden = draw();
+      const hidden = await draw();
       settings.shownThings.exactZiNi = true;
-      const history = draw({ historyView: true });
-      draw();
+      const history = await draw({ historyView: true });
+      await draw();
       return { full, summaryLabels, hidden, history, boardLabels,
         sectionTitle: boardSection.querySelector('h3').textContent };
     });
@@ -196,7 +198,7 @@ const { chromium } = require(process.argv[2]);
     await page.screenshot({ path: '/tmp/board-section-1680.png', fullPage: true });
     // Reproduce a long session whose largest pools are deliberately out of
     // numeric order. The DOM must keep family blocks and every achievement.
-    const longSession = await page.evaluate(() => {
+    const longSession = await page.evaluate(async () => {
       const now = new Date(2026, 8, 21, 12).getTime();
       const variants = [
         { bv3: 74, zini: 51, hzini: 49, maxAdjacent: 8, hasSeven: true,
@@ -217,7 +219,8 @@ const { chromium } = require(process.argv[2]);
       settings.sessionDefinition = 'pastWeek';
       settings.collapseDuplicateCharts = false;
       const collector = createResultSectionCollector('postGame');
-      renderRanks(recent[0], wins, {}, collector);
+      await renderRanks(recent[0], wins, {}, collector);
+      await collector.ready();
       collector.renderInto(resultRanks);
       const rows = [...resultRanks.querySelectorAll('.recent-placements .rank-row')];
       return {
@@ -251,7 +254,7 @@ const { chromium } = require(process.argv[2]);
       assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll('.rank-list')]
         .filter((list) => list.scrollWidth > list.clientWidth + 1)
         .map((list) => list.querySelector('h4').textContent)), [], width + 'px long-session overflow');
-      const flow = await page.evaluate(() => {
+      const flow = await page.evaluate(async () => {
         const items = resultRanks.querySelector('.result-chart-section-tables .result-chart-section-items');
         const bounds = (el) => { const r = el.getBoundingClientRect();
           return { top: r.top, bottom: r.bottom, left: r.left, right: r.right }; };

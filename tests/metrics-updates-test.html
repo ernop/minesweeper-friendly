@@ -43,7 +43,8 @@ frame.addEventListener('load', () => {
   beginTrace();
   refreshMetricsPanel();
   await waitFor(() => metricsUpdateFrame === null && metricsUpdateTimeout === null
-    && boardLayoutFrame === null);
+    && boardLayoutFrame === null && !liveMetricsPending
+    && [...analysisLanes.values()].every(lane => lane.pending.size === 0));
   await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
   const control = metricsPanelContent.querySelector('.session-control');
   const row = metricsPanelView.liveRows[0];
@@ -120,6 +121,7 @@ frame.addEventListener('load', () => {
     mutations === 0 && metricsSeries.tMs.length === endedSamples && layoutCalls === 0);
   gameState = 'ready';
   beginTrace();
+  await waitFor(() => lastLiveMetrics !== null);
   check('next game resets the measurement without replacing live rows',
     lastLiveMetrics.bio.leftClickCount === 0 && metricsPanelView.liveRows[0] === row);
   settings.metricsPanelCollapsed = true;

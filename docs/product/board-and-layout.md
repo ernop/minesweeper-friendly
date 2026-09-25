@@ -49,6 +49,29 @@ was still preparing the game, so attempts to click it were frustrating.
 - Space must not restart the game during startup. Loading failures keep
   the board concealed and display the actual failure in the startup status.
 
+## Preparation and completion cost
+
+User direction (2026-09-25): review delays while a game prepares to draw
+itself and while the previous game finishes. Reduce the underlying
+algorithmic cost and repeated work, rather than only hiding the wait or
+moving the same work behind a loading indicator. Preserve measurement
+and ranking definitions; verify improvements with scaling measurements
+and equivalent-output tests.
+
+### Analysis must not block play (requested 2026-09-25)
+
+Trend fitting, trace reconstruction, live motion analysis, session summaries,
+rankings, chart preparation, and board benchmarks run in background workers. Loading a saved finished board exposes its restart and replay controls before
+statistical reconstruction finishes. Starting the next game and board input never wait for these calculations. Report jobs capture the finished
+game; a late reply can complete that game's data but cannot replace a newer
+board or view. Pending analysis is shown as pending, and worker failure is a
+visible error, never a synchronous substitute. Presentation stays on the UI
+thread and must yield between substantial report sections.
+
+Improve the algorithms as well as moving them: exact Theil–Sen fits retain
+all eligible observations and the specified median slope/intercept; sampling
+may guide exact selection but must not approximate the reported fit.
+
 ## Layout: the board never moves
 
 - The page has separate columns for session/motion metrics, the board and

@@ -1049,6 +1049,7 @@ let sessionPlayModeKey = null;       // exact mode frozen when the span begins
 let sessionLastMoveAt = 0;           // wall time of the last cursor move
 let sessionLastUsefulPressAt = null; // live useful-press timing
 let gameLastUsefulPressAt = null;    // per-game gaps never cross games
+let gameSessionEndEvent = null;
 let gameFastclickGaps = [];          // this game's qualifying gaps, for the
                                      // per-game fastclickGapMs record field
 
@@ -1193,16 +1194,10 @@ function sessionRecordEnd(end, winUnmarked) {
     modeledLifeGap: actionSummary.modeledLifeGap,
     fastGapMs: sessionMedian(gameFastclickGaps),
   };
-  // The same per-game gap-spread ratio the record stores (all button
-  // presses from the trace), for the per-game session aggregation.
-  const endCadence = computeClickCadence(trace.t, trace.events);
-  if (typeof endCadence.gapSpreadRatio === 'number'
-      && Number.isFinite(endCadence.gapSpreadRatio)) {
-    event.cadenceSpread = endCadence.gapSpreadRatio;
-  }
   if (end === 'win') event.unusedMarks = unusedCorrectFlags;
   if (typeof winUnmarked === 'number') event.winUnmarked = winUnmarked;
   sessionEvents.push(event);
+  gameSessionEndEvent = event;
   scheduleMetricsUpdate({ session: true });
 }
 

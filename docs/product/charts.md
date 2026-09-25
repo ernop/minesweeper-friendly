@@ -129,3 +129,11 @@ relationship with substantially less standing table ink. Their old
 `rankavgSort` userdata kind remains recognized by the storage migration so
 an existing database is not damaged, but it has no current visible control,
 runtime state, export field, or result section.
+
+## Computation and responsiveness (2026-09-25)
+
+The requested fitter improvement keeps the exact all-pairs median definition,
+including tied x values, duplicate observations, and the mean of both middle
+slopes for an even count. It must not replace the fit with a sampled estimate.
+The same fitter serves property, relationship, Fitts, and spatial-bias fits.
+Calculations run in workers under the [analysis isolation rule](board-and-layout.md#analysis-must-not-block-play-requested-2026-09-25).

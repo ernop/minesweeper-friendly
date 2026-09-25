@@ -13,10 +13,11 @@ and beyond. The friendliness axis and the solver tiers that define
 
 Runtime: `index.html` + `style.css` load `storage.js`; pure `rng.js` /
 `justice.js` / `board-shape.js` / `zini.js` / `board-metrics.js`;
-`board-metrics-ui.js` (which runs `board-metrics-worker.js`); pure
+`board-metrics-ui.js` (historical backfill in `board-metrics-worker.js`); pure
 `endgame.js` / `solver.js` / `generators.js` / `pregen.js` / `odds.js` /
 `trial.js`; shared `game-data.js` / `settings-core.js` / `preferences-game.js`;
-then the game page's own scripts in `game/` (below). No dependencies, no
+`analysis-client.js` (named worker queues in `analysis-worker.js`, using
+`trend-fit.js` for exact slope selection); then the game page's own scripts in `game/` (below). No dependencies, no
 build step. The settings page is
 `settings.html` + `settings-page.js`, loading the same `style.css`,
 `storage.js`, `generators.js`, `game-data.js`, and `settings-core.js` (both
@@ -56,7 +57,7 @@ Files, in load order:
 | `results.js` | the saved record (`reportResult`), after-game report, result view, High scores view |
 | `history.js` | record version stamps and schema, per-mode history, mode keys, normalization, transfer cleaning |
 | `rankings.js` | rank windows and relative ages, day categories, board families, ranks won in session, rank lists |
-| `charts.js` | chart basics (SVG namespace, displayed numbers, sparkline sizes), axis ticks, trend lines, the (?) help tip, scatter and average-time charts |
+| `charts.js` | chart models and presentation (heavy models execute in the analysis worker); chart basics (SVG namespace, displayed numbers, sparkline sizes), axis ticks, trend lines, the (?) help tip, scatter and average-time charts |
 | `trial-review.js` | after-trial rank rows, identity review, run overlays |
 | `game-data-chart.js` | game data: pure ranking and label layout, then the 0–100% band and its views |
 | `result-ranks.js` | `renderRanks`: result tables and charts in section order |
@@ -65,6 +66,7 @@ Files, in load order:
 | `replay-view.js` | replay controls, frames, path canvas, legends |
 | `music.js` | music state sampling |
 | `trace-metrics.js` | trace metrics, pure (all measurement systems) |
+| `metric-definitions.js` | shared metric display catalog and series projection (pure, also loaded in workers) |
 | `metrics-panel.js` | left stats panel: session heading, live rows, motion charts, scheduling |
 | `session-stats.js` | session series computation, event recording, startup backfill |
 | `session-charts.js` | the one session picker, session controls and charts |
@@ -249,6 +251,13 @@ became the stored ground truth ([Raw input traces](docs/product/storage-and-hist
 scalars are summaries of the trace and definitions can be recomputed
 retroactively; when in doubt, add the straightforward scalar rather than
 a clever reconstruction.
+
+### Analysis isolation
+
+User requirement (2026-09-25): expensive analytics must run in workers, never
+in gameplay/input handlers or the UI thread. Keep result jobs bound to captured
+games and discard stale view updates. No main-thread calculation fallback. See
+[Preparation and completion cost](docs/product/board-and-layout.md#preparation-and-completion-cost).
 
 ### Configuration
 

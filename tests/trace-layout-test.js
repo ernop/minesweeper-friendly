@@ -29,6 +29,7 @@ global.performance = { now: () => nowMs };
 global.Date = Object.assign(function () {}, Date, { now: () => 1700000000000 });
 // beginTrace's metrics-panel hookups are display machinery, inert here.
 global.beginTraceMetricsSeries = () => {};
+global.renderMetricsPanel = () => {};
 global.renderLiveTraceMetrics = () => {};
 global.scheduleMetricsUpdate = () => {};
 

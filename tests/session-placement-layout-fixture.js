@@ -1,6 +1,11 @@
 // Browser fixture: synthetic data and settings stay in RAM; no storage writes.
 (async () => {
-  const wait = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  const wait = async () => {
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    while ([...analysisLanes.values()].some((lane) => lane.pending.size) || liveMetricsPending
+        || resultRanks.hasAttribute('aria-busy')) await new Promise(resolve => setTimeout(resolve, 10));
+    await new Promise(resolve => requestAnimationFrame(resolve));
+  };
   const checks = [];
   const check = (label, ok) => {
     checks.push((ok ? 'PASS ' : 'FAIL ') + label);
@@ -57,7 +62,7 @@
       const before = rect(gameFrame);
       gameState = 'won';
       finalTimeMs = record.timeMs;
-      renderResult(record, records);
+      await renderResult(record, records);
       renderPathViewControls();
       await wait();
       const label = width + 'px ' + size;
@@ -161,7 +166,7 @@
       pathViewLegend.replaceChildren();
     }
   }
-  renderResult({ ...record, outcome: 'loss', endedAt: record.endedAt + 1000 }, records);
+  await renderResult({ ...record, outcome: 'loss', endedAt: record.endedAt + 1000 }, records);
   check('loss keeps prior win placements in the same chart collection',
     !!resultRanks.querySelector('.result-chart-section-tables .recent-placements .rank-row'));
 
@@ -176,7 +181,7 @@
   trace.events.push(...[0, 1].map(i => ({ kind: 'decision', t: i * 300, x: 0, y: 0,
     evaluation: { action: 'reveal', cell: i, atMs: i * 300,
       position: { ...config, revealed: [], flagged: [] } } })));
-  renderResult(record, records);
+  await renderResult(record, records);
   setReplayStep(replayDecisionCount());
   const closedArrow = new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true, cancelable: true });
   document.body.dispatchEvent(closedArrow);

@@ -41,3 +41,9 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
   session windows at a time from primary records; no stored aggregates.
   Pure checks: tests/game-data-test.js, tests/recent-placements-test.js,
   tests/session-buckets-test.js. Browser checks: tests/board-time-profile-browser-check.js.
+
+- Game-data rows and session-history summaries execute in the ranking worker.
+  `buildBoardTimeRankProfile(record, records)` owns a view generation so a
+  slower chart/history reply cannot replace a newer configuration view.
+  Workers materialize help text into data; UI rendering remains responsible
+  for controls, label placement, focus, and the ResizeObserver.

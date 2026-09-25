@@ -114,3 +114,15 @@ uses only `http://127.0.0.1:8099/` in an isolated profile. Include
 `preferences-game.js` between settings-core.js and the `game/` scripts in
 game harnesses. Reload begins a fresh unfinished game, but restores the last
 finished view/replay when that game's trace is available.
+
+Analysis performance checks (2026-09-25):
+`tests/analysis-worker-test.js` loads the real worker without any DOM and
+compares streamed/restored metrics with complete-prefix calculations.
+`tests/analysis-isolation-browser-check.js` holds worker loading while testing
+real play/restart/restoration and error visibility.
+`tests/game-end-performance-browser-check.js` runs a 2,000-record fixture and
+fails if expensive analytics execute in the window. Both browser checks use
+the same Playwright/Chromium arguments and 8099 origin listed above.
+`node tests/performance-benchmark.js BASELINE_GIT_REVISION` compares exact
+outputs and median-of-three computation times with the named git revision;
+it never opens player storage. Timing observations are not pass thresholds.

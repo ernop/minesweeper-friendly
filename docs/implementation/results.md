@@ -18,3 +18,11 @@ Spec: [docs/product/results.md](../product/results.md). Index: [AGENTS.md](../..
   `#game-data-column` (or `#result-stats` when that column is not docked),
   outside the lower chart collector.
   `tests/result-presentation-test.js` checks this in both result contexts.
+
+- `renderResult` returns a completion promise; a view revision invalidates
+  older renders on restart or selection changes. `createResultSectionCollector`
+  waits for node analysis promises before committing its ordered sections.
+  Existing report controls stay mounted during recalculation. `reportResult`
+  captures primary facts synchronously, persists them, and delegates heavy
+  measurements to the report worker. Replies can enrich their saved record
+  after a restart but cannot overwrite a newer game or score view.

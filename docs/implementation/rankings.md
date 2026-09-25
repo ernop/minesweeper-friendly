@@ -97,3 +97,14 @@ Spec: [docs/product/rankings.md](../product/rankings.md). Index: [AGENTS.md](../
   median of its exact ZiNi/maximum-clue cohorts.
 - Streaks: run-splitting and the core-trim/dedupe/domination filter are in
   `renderRanks`; see [Streak lists](../product/rankings.md) for the double-counting rationale.
+
+- `streakRuns` stores each run's length and final timestamp, not arrays of all
+  win times. `rankedStreaks` uses the monotonic endpoints of adjacent-run
+  windows to eliminate contained intervals in one pass. Preparation is O(H)
+  for H historical records; sorting R surviving runs is O(R log R), replacing
+  quadratic containment comparisons. `tests/streak-rankings-test.js` checks
+  49,149 exhaustive sequences and a 100,000-record history.
+- `resultRankPlan` and recent-placement summaries execute in the ranking
+  worker. Rank tables return counts, selected indexes, and the visible window;
+  highlighting, labels, and section order stay in the renderer. Recent
+  placements expose a pending status while their rows are calculated.

@@ -863,27 +863,31 @@ function computeHevelius(sampleT, sampleX, sampleY, events) {
   // segment's ending click with its press and the button-held intervals
   // inside the segment window.
   const per = [];
+  let eventIndex = 0;
+  let layout = null;
+  let openDown = null;
+  let lastDown = null;
   for (const seg of segments) {
     const windowLo = seg.startT;
     const windowHi = seg.click.t;
-    let layout = null;
-    let pressT = null;
     const buttonIntervals = [];
-    let openDown = null;
-    for (const ev of events) {
-      if (ev.t > windowHi) break;
-      if (ev.kind === 'layout') { layout = ev; continue; }
-      if (ev.kind === 'ldown') {
+    // Segments have nonoverlapping time windows. Completed holds before
+    // this window cannot contribute; a hold crossing the boundary remains
+    // in openDown. Include all events at the endpoint, as before.
+    while (eventIndex < events.length && events[eventIndex].t <= windowHi) {
+      const ev = events[eventIndex++];
+      if (ev.kind === 'layout') layout = ev;
+      else if (ev.kind === 'ldown') {
         openDown = ev.t;
-        if (seg.click.kind === 'lup' && ev.t >= windowLo) pressT = ev.t;
+        lastDown = ev.t;
       } else if (ev.kind === 'lup' && openDown !== null) {
-        buttonIntervals.push([openDown, ev.t]);
+        if (ev.t > windowLo) buttonIntervals.push([openDown, ev.t]);
         openDown = null;
-      } else if (ev.kind === 'rdown' && ev === seg.click) {
-        pressT = ev.t;
       }
     }
     if (openDown !== null) buttonIntervals.push([openDown, windowHi]);
+    const pressT = seg.click.kind === 'rdown' ? seg.click.t
+      : lastDown !== null && lastDown >= windowLo ? lastDown : null;
     const targetRect = cellRectAt(layout, seg.click.index);
     per.push(heveliusMovement(seg, buttonIntervals, pressT, targetRect));
   }
@@ -1310,27 +1314,6 @@ function computeFittsMetrics(sampleT, sampleX, sampleY, events) {
 const SPATIAL_REGIONS = 3;      // 3x3 board regions
 const SPATIAL_MIN_PAIRS = 8;    // below this, a fit is noise
 
-// Small local Theil-Sen (median of pairwise slopes, median intercept),
-// kept inside the trace-metrics section so it stays pure and sliceable.
-function spatialTheilSen(points) {
-  const slopes = [];
-  for (let i = 0; i < points.length; i++) {
-    for (let j = i + 1; j < points.length; j++) {
-      const dx = points[j][0] - points[i][0];
-      if (dx !== 0) slopes.push((points[j][1] - points[i][1]) / dx);
-    }
-  }
-  if (slopes.length === 0) return null;
-  const med = (values) => {
-    const s = [...values].sort((a, b) => a - b);
-    const at = Math.floor(s.length / 2);
-    return s.length % 2 === 1 ? s[at] : (s[at - 1] + s[at]) / 2;
-  };
-  const b = med(slopes);
-  const a = med(points.map(([x, y]) => y - b * x));
-  return { a, b };
-}
-
 function computeSpatialBias(events) {
   let layout = null;
   const actions = [];
@@ -1354,7 +1337,7 @@ function computeSpatialBias(events) {
     });
   }
   if (points.length < SPATIAL_MIN_PAIRS) return { pairCount: points.length };
-  const fit = spatialTheilSen(points.map((p) => [p.d, p.gapMs]));
+  const fit = fitTheilSen(points.map((p) => [p.d, p.gapMs]));
   if (fit === null) return { pairCount: points.length };
   const residualsByRegion = Array.from(
     { length: SPATIAL_REGIONS * SPATIAL_REGIONS }, () => []);
@@ -1391,16 +1374,38 @@ function computeSpatialBias(events) {
 // completed inter-click segments, so their values change only when a
 // click lands — the live schedule exploits that (renderLiveTraceMetrics
 // caches them between clicks).
-function computeAllTraceMetrics(sampleT, sampleX, sampleY, events, wallDurationMs) {
+function computeAllTraceMetrics(sampleT, sampleX, sampleY, events, wallDurationMs, segments) {
   return {
     wallDurationMs: wallDurationMs,
     bio: computeTraceMetrics(sampleT, sampleX, sampleY, events, wallDurationMs),
-    psych: computePsychometrics(sampleT, sampleX, sampleY, events),
-    hev: computeHevelius(sampleT, sampleX, sampleY, events),
+    psych: segments === undefined ? computePsychometrics(sampleT, sampleX, sampleY, events) : segments.psych,
+    hev: segments === undefined ? computeHevelius(sampleT, sampleX, sampleY, events) : segments.hev,
     waste: computeWasteMetrics(sampleT, sampleX, sampleY, events),
     cad: computeClickCadence(sampleT, events),
     queue: computeQueueMetrics(sampleT, sampleX, sampleY, events),
     rec: computeRecoveryMetrics(events),
     fitts: computeFittsMetrics(sampleT, sampleX, sampleY, events),
+  };
+}
+
+// One computer per append-only trace, shared by live sampling and restore.
+// Completed segment systems cannot change between completed clicks. Keep a
+// cursor in the event stream instead of recounting its whole prefix each time.
+function createTraceMetricComputer() {
+  let eventIndex = 0, clickEvents = 0, measuredClicks = -1;
+  let segments;
+  return (sampleT, sampleX, sampleY, events, wallDurationMs) => {
+    while (eventIndex < events.length) {
+      const event = events[eventIndex++];
+      if (event.kind === 'lup' || event.kind === 'rdown') clickEvents++;
+    }
+    if (clickEvents !== measuredClicks) {
+      segments = {
+        psych: computePsychometrics(sampleT, sampleX, sampleY, events),
+        hev: computeHevelius(sampleT, sampleX, sampleY, events),
+      };
+      measuredClicks = clickEvents;
+    }
+    return computeAllTraceMetrics(sampleT, sampleX, sampleY, events, wallDurationMs, segments);
   };
 }

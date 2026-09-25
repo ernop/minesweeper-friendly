@@ -284,6 +284,7 @@ function reportResultAfterPaint(outcome) {
 }
 
 function newGame() {
+  resultViewRevision++;
   // Preserve the just-finished game's mutable state if a programmatic restart
   // arrives in the brief post-paint finalization window.
   flushPendingResult();
@@ -304,6 +305,7 @@ function newGame() {
   sessionLastUsefulPressAt = null;
   gameLastUsefulPressAt = null;
   gameFastclickGaps = [];
+  gameSessionEndEvent = null;
   actionEvaluations = [];
   justiceDetails = [];
   gameState = 'ready';
@@ -380,6 +382,7 @@ function newGame() {
   clearResultStats();
   resultAnalysis.textContent = '';
   resultRanks.textContent = '';
+  resultRanks.removeAttribute('aria-busy');
   syncResultClearance();
   if (Trial.isPlayMode(settings.playMode) && trialIsActive()) setupTrialBoard();
   else trialPresentation = null;

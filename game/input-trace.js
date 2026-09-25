@@ -35,6 +35,8 @@ function beginTrace() {
   // the previous game's final values and sparklines must not linger over
   // a running trace.
   beginTraceMetricsSeries();
+  // Reserve the stats column before startup layout, independently of its worker.
+  renderMetricsPanel(null);
   renderLiveTraceMetrics();
 }
 
@@ -144,7 +146,7 @@ function saveTrace(record) {
     boardVersion: record.boardVersion,
     justiceVersion: record.justiceVersion,
     startedAt: trace.startedAt,
-    metricSampleTimes: metricsSeries.tMs,
+    metricSampleTimes: [...metricsSeries.tMs, record.endedAt - trace.startedAt],
     finalBoard: { cells: structuredClone(cells), hitIndices: cellElements.flatMap((el, i) => el.classList.contains('mine-hit') ? [i] : []) },
     sampleT: Float64Array.from(trace.t),
     sampleX: Float32Array.from(trace.x),

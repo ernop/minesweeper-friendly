@@ -69,3 +69,11 @@ Spec: [docs/product/per-game-stats.md](../product/per-game-stats.md), [docs/prod
   calculators; `tests/board-structure-metrics-test.js` compares pair inference
   against 8,704 exhaustive equation cases, structure on 511 boards, and
   complete closure/rounds against an independent tiny-board Boolean solver.
+
+- New game completion uses the report worker to compute ZiNi plus
+  `BoardMetrics.analyze` once from the captured final map, alongside trace
+  metrics. It registers a captured-record job before dispatch, preventing a
+  second board job at first render. The existing dedicated board worker
+  remains responsible for historical backfill. Completed primary records and
+  raw traces are persisted before analysis; restoring unfinished statistics
+  uses that saved final board and trace.

@@ -12,7 +12,7 @@ const { chromium } = require(process.argv[2]);
     page.on('pageerror', (error) => errors.push(error.message));
     await page.goto('http://127.0.0.1:8099/');
     await page.waitForFunction(() => preferenceUIReady);
-    await page.evaluate(() => {
+    await page.evaluate(async () => {
       const now = Date.now();
       const current = { outcome: 'win', endedAt: now, timeMs: 33542,
         clicks: 105, misclicks: 1, wastedClicks: 3, fastclickGapMs: 190, mousePathPx: 980,
@@ -44,14 +44,14 @@ const { chromium } = require(process.argv[2]);
       window.profileFixture = { current, wins };
       for (const key of ['recentPlacements', 'timeTables', 'streak', 'nearStreak',
         'nearNearStreak', 'averageCharts', 'relationshipCharts']) settings.shownThings[key] = false;
-      window.drawProfileFixture = (options = {}) => {
+      window.drawProfileFixture = async (options = {}) => {
         const collector = createResultSectionCollector(options.historyView ? 'scores' : 'postGame');
-        renderRanks(current, wins, options, collector);
+        await renderRanks(current, wins, options, collector);
         resultRanks.classList.add('sectioned-results');
         collector.renderInto(resultRanks);
         resultsBox.hidden = false;
       };
-      drawProfileFixture();
+      await drawProfileFixture();
     });
     const profile = page.locator('.board-time-profile');
     const traits = (side) => profile.locator('.board-trait-line-label[data-side="' + side + '"]')
@@ -61,7 +61,7 @@ const { chromium } = require(process.argv[2]);
       'time (life)', 'unused mark share (life)'], 'defaults: lifetime comparisons and day time');
     assert.deepEqual(await traits('board'), ['0–1 share', '3BV', 'HZiNi', 'MN', 'ZOC', 'ZiNi', 'islands', 'zeros'],
       '3BV spread is off by default');
-    await page.evaluate(() => {
+    await page.evaluate(async () => {
       // A crowded two-pool selection with every board table exercises label
       // collisions and the session controls below.
       window.crowdGameData = () => {
@@ -71,7 +71,7 @@ const { chromium } = require(process.argv[2]);
       };
       crowdGameData();
       settings.shownThings.workSpreadTable = true;
-      drawProfileFixture();
+      await drawProfileFixture();
     });
     assert.equal(await profile.locator('.board-time-profile-views, .board-time-profile-grid').count(), 0);
     assert.equal(await profile.locator('h4').textContent(), 'game data');
@@ -172,7 +172,7 @@ const { chromium } = require(process.argv[2]);
       return el.matches(':popover-open') && el.contains(document.elementFromPoint(r.left + 8, r.top + 8));
     }), 'help stays above the compact sidebar');
     assert.deepEqual(await profile.boundingBox(), lineBefore);
-    const comparisons = await page.evaluate(() => {
+    const comparisons = await page.evaluate(async () => {
       const { current, wins } = profileFixture;
       return boardTraitRankProfile(current, boardMetricCandidates([current], wins), wins)
         .map(({ trait, rank, total, percentile, valueText }) => ({ trait, rank, total, percentile, valueText }));
@@ -190,11 +190,11 @@ const { chromium } = require(process.argv[2]);
     await help.evaluate((button) => button.blur());
     await page.mouse.move(0, 0);
     await page.setViewportSize({ width: 1920, height: 1100 });
-    await page.evaluate(() => {
+    await page.evaluate(async () => {
       syncGameSidebar();
       settings.shownThings.timeTables = true;
       settings.shownThings.recentPlacements = true;
-      drawProfileFixture();
+      await drawProfileFixture();
     });
     assert.equal(await page.locator('#game-data-column .board-time-profile').count(), 1, 'owns the game data column');
     assert.equal(await page.locator('#result-stats .board-time-profile').count(), 0, 'not duplicated in the details column');
@@ -218,9 +218,9 @@ const { chromium } = require(process.argv[2]);
     assert.equal(await profile.locator('[data-trait="time (session)"]').getAttribute('data-percentile'), '50',
       'game data follows the one picker');
     assert.equal(await page.locator('.recent-placements h4').textContent(), 'ranks won in session');
-    await page.evaluate(() => { settings.showSessionStats = false; settings.metricsPanelCollapsed = true; refreshMetricsPanel(); });
+    await page.evaluate(async () => { settings.showSessionStats = false; settings.metricsPanelCollapsed = true; refreshMetricsPanel(); });
     assert(await picker.isVisible(), 'the picker stays when the panel is collapsed and session stats are off');
-    await page.evaluate(() => { settings.showSessionStats = true; settings.metricsPanelCollapsed = false; refreshMetricsPanel(); });
+    await page.evaluate(async () => { settings.showSessionStats = true; settings.metricsPanelCollapsed = false; refreshMetricsPanel(); });
     await profile.getByLabel('show actual value', { exact: true }).uncheck();
     assert.equal(await profile.locator('.board-trait-line-label .board-trait-value:visible').count(), 0);
     assert.equal(await page.evaluate(() => settings.gameDataShowValues), false);
@@ -237,15 +237,17 @@ const { chromium } = require(process.argv[2]);
     await profile.getByLabel('all performance metrics', { exact: true }).uncheck();
     assert.equal(await page.evaluate(() => Object.values(settings.gameDataLifetimeMetrics).some(Boolean)
       || Object.values(settings.gameDataSessionMetrics).some(Boolean)), false);
-    await page.evaluate(() => { crowdGameData(); saveSettings(); });
+    await page.evaluate(async () => { crowdGameData(); saveSettings(); });
     await profile.getByRole('button', { name: 'back to game data', exact: true }).first().click();
     await profile.getByRole('button', { name: 'configure', exact: true }).click();
     await profile.screenshot({ path: '/tmp/game-data-config.png' });
     await profile.getByLabel('session fastclick gap', { exact: true }).uncheck();
     await profile.getByRole('button', { name: 'back to game data', exact: true }).first().click();
+    await profile.locator(':scope[aria-busy="true"]').waitFor({ state: 'hidden' });
     assert.equal(await profile.locator('[data-trait="fastclick gap (session)"]').count(), 0);
     assert.equal(await profile.locator('[data-trait="fastclick gap (life)"]').count(), 1);
     await profile.getByRole('button', { name: 'session history', exact: true }).click();
+    await profile.locator('tbody tr').first().waitFor();
     assert.equal(await profile.locator('tbody tr').count(), 20);
     await profile.getByLabel('measurement', { exact: true }).selectOption('fastclickGap');
     assert((await profile.locator('tbody tr').first().textContent()).includes('180ms'));
@@ -260,33 +262,40 @@ const { chromium } = require(process.argv[2]);
     await page.evaluate(() => drawProfileFixture({ historyView: true,
       boardRecord: { ...profileFixture.current, outcome: 'loss' } }));
     assert.equal(await profile.count(), 0, 'loss is never plotted as a ranked win');
-    await page.evaluate(() => { settings.shownThings.exact3BV = false; drawProfileFixture(); });
+    await page.evaluate(async () => { settings.shownThings.exact3BV = false; await drawProfileFixture(); });
     assert.equal(await profile.locator('.board-trait-line-label[data-side="board"]').count(), 8);
-    await page.evaluate(() => {
+    await page.evaluate(async () => {
       const current = profileFixture.current;
       const identical = [{ ...current, endedAt: current.endedAt - 1000 }, current];
       const collector = createResultSectionCollector('postGame');
-      renderRanks(current, identical, {}, collector);
+      await renderRanks(current, identical, {}, collector);
       collector.renderInto(resultRanks);
     });
     assert.equal(await profile.locator('[data-trait="islands"]').count(), 1);
     assert.equal(await profile.locator('[data-trait="zeros"]').count(), 1, 'distinct traits survive identical table memberships');
-    await page.evaluate(() => { settings.shownThings.boardPercentiles = false; drawProfileFixture(); });
+    await page.evaluate(async () => { settings.shownThings.boardPercentiles = false; await drawProfileFixture(); });
     assert.equal(await profile.count(), 0);
-    await page.evaluate(() => {
+    await page.evaluate(async () => {
       const { current } = profileFixture;
-      resultRanks.replaceChildren(buildBoardTimeRankProfile(current, [{ label: '3BV 75', trait: '3BV', valueText: () => '75', rawValue: (r) => r.bv3, higher: false, wins: [current] }], false, [current]));
+      window.savedShownThings = { ...settings.shownThings };
+      for (const key of ['exactZiNi', 'exactMaxNumber', 'exactHZiNi', 'workSpreadTable',
+        'zeroOneShareTable', 'zeroOpeningTable', 'boardShapeTables']) settings.shownThings[key] = false;
+      settings.shownThings.exact3BV = true;
+      const host = buildBoardTimeRankProfile(current, [current]);
+      resultRanks.replaceChildren(host);
+      await host.analysisReady;
     });
     assert.equal(await profile.locator('.board-trait-line-dot').count(), 0);
     assert((await profile.locator('.board-trait-line-unranked').textContent()).startsWith('Only one measured game:'));
     assert.equal(await profile.locator('.board-trait-line-unranked > [data-side="board"]').textContent(), '3BV 75');
     assert.equal(await profile.locator('.board-trait-line-unranked > [data-side="performance"] button').count(), 17);
-    await page.evaluate(() => {
+    await page.evaluate(async () => {
+      settings.shownThings = { ...savedShownThings };
       settings.shownThings.boardPercentiles = true;
       settings.shownThings.averageCharts = true;
       settings.perfChartMode = 'average';
       settings.boardChartMode = 'distribution';
-      drawProfileFixture();
+      await drawProfileFixture();
     });
     const chartSections = await page.locator('#result-ranks > section').evaluateAll((nodes) =>
       nodes.map((node) => node.getAttribute('aria-label')));

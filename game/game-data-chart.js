@@ -87,7 +87,7 @@ function boardTimeProfileRowHelp(record, row) {
   const rank = row.rankLabel ? row.rankLabel.slice(1) : row.rank.toLocaleString();
   return [
     row.label,
-    ...(row.help ? [].concat(row.help(record)) : []),
+    ...(row.helpText ? [].concat(row.helpText) : []),
     'Percentile = 100 × (rank − 1) ÷ (measured count − 1): the share of the other measured games that beat this one. '
       + (row.direction === 'higher' ? 'Higher' : 'Lower') + ' values receive earlier ranks. '
       + 'The best in the pool is 0% at the top of the chart and the worst is 100%. The current game is included in the count.',
@@ -247,7 +247,7 @@ function buildBoardTraitLine(record, rows, frame) {
   return { header: sides, element: container, layout };
 }
 
-function buildBoardTimeRankProfile(record, comparisons, historyView, records) {
+function buildBoardTimeRankProfile(record, records) {
   if (record.outcome !== 'win') return null;
   const host = document.createElement('div');
   host.className = 'board-time-profile-host';
@@ -264,9 +264,16 @@ function buildBoardTimeRankProfile(record, comparisons, historyView, records) {
     node.addEventListener('click', action);
     return node;
   };
+  function renderAndFocus(selector) {
+    const job = render();
+    const generation = viewGeneration;
+    job.then(() => {
+      if (generation === viewGeneration && profile.isConnected) profile.querySelector(selector).focus();
+    }).catch(analysisFailure);
+  }
   function show(next) {
-    view = next; render();
-    profile.querySelector(next === 'chart' ? '.game-data-controls button' : 'figcaption > button')?.focus();
+    view = next;
+    renderAndFocus(next === 'chart' ? '.game-data-controls button' : 'figcaption > button');
   }
   function checkbox(text, checked, change) {
     const label = document.createElement('label');
@@ -277,7 +284,16 @@ function buildBoardTimeRankProfile(record, comparisons, historyView, records) {
     label.append(input, ' ' + text);
     return label;
   }
+  let viewGeneration = 0;
   function render() {
+    const job = renderView();
+    host.analysisReady = job;
+    job.catch(analysisFailure);
+    return job;
+  }
+  async function renderView() {
+    const generation = ++viewGeneration;
+    profile.setAttribute('aria-busy', 'true');
     observer?.disconnect();
     if (chartHelpOwner && profile.contains(chartHelpOwner)) hideChartHelpTip();
     profile.replaceChildren();
@@ -364,8 +380,8 @@ function buildBoardTimeRankProfile(record, comparisons, historyView, records) {
       for (const metric of GameData.metrics) select.add(new Option(metric.name, metric.id));
       select.value = historyMetric;
       select.addEventListener('change', () => {
-        historyMetric = select.value; historyPage = 0; render();
-        profile.querySelector('[aria-label="measurement"]').focus();
+        historyMetric = select.value; historyPage = 0;
+        renderAndFocus('[aria-label="measurement"]');
       });
       label.appendChild(select);
       const choice = SessionScope.choices.find((c) => c.id === settings.sessionDefinition);
@@ -374,7 +390,9 @@ function buildBoardTimeRankProfile(record, comparisons, historyView, records) {
         + choice.label + ', the one page-wide session chosen at the upper left.'));
       profile.appendChild(controls);
       const pageSize = 20;
-      const groups = GameData.history(records, record.endedAt, settings.sessionDefinition, historyPage, pageSize);
+      const groups = await analysisTask('rankings', 'game-data-history', { records: records.map(analysisRecord), endedAt: record.endedAt,
+        sessionDefinition: settings.sessionDefinition, page: historyPage, pageSize, metric: historyMetric, config });
+      if (generation !== viewGeneration) return;
       const spec = GameData.metrics.find((m) => m.id === historyMetric);
       const scroll = document.createElement('div');
       scroll.className = 'game-data-history';
@@ -389,7 +407,7 @@ function buildBoardTimeRankProfile(record, comparisons, historyView, records) {
       head.appendChild(tr);
       const body = document.createElement('tbody');
       for (const group of groups.windows) {
-        const stats = GameData.summary(group.records, historyMetric, config);
+        const stats = group.stats;
         const row = document.createElement('tr');
         for (const text of [new Date(group.endedAt).toLocaleString(), stats.wins + ' / ' + stats.games,
           stats.measured, stats.median === null ? 'unmeasured' : spec.format(stats.median),
@@ -405,7 +423,8 @@ function buildBoardTimeRankProfile(record, comparisons, historyView, records) {
       pager.append(prev, 'page ' + (historyPage + 1) + ' / ' + Math.max(1, Math.ceil(groups.total / pageSize)), next);
       profile.appendChild(pager);
     } else {
-      const rows = [...performanceTimeRankProfile(record, records, settings, config), ...boardTraitRankProfile(record, comparisons, records)];
+      const rows = await analysisTask('rankings', 'game-data', { ...analysisRecordSnapshot(record, records), preferences: settings, config });
+      if (generation !== viewGeneration) return;
       const line = buildBoardTraitLine(record, rows, profile);
       profile.append(line.header, line.element);
       observer = new ResizeObserver(() => {
@@ -422,13 +441,14 @@ function buildBoardTimeRankProfile(record, comparisons, historyView, records) {
       profile.classList.toggle('game-data-values-hidden', !checked);
       // Values change label heights, not the measurements or percentile domain.
       const viewport = profile.querySelector('.board-trait-line-view');
-      if (viewport) { render(); profile.querySelector('input[type="checkbox"]').focus(); }
+      if (viewport) renderAndFocus('input[type="checkbox"]');
     }));
     if (view === 'chart') footer.append(button('configure', () => show('config')), button('session history', () => show('history')));
     profile.appendChild(footer);
+    profile.removeAttribute('aria-busy');
   }
   profile.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && view !== 'chart') { event.preventDefault(); event.stopPropagation(); show('chart'); profile.querySelector('.game-data-controls button')?.focus(); }
+    if (event.key === 'Escape' && view !== 'chart') { event.preventDefault(); event.stopPropagation(); show('chart'); }
   });
   profile.dataset.sessionScopeView = '';
   profile.addEventListener('session-scope-change', () => { historyPage = 0; render(); });

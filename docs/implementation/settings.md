@@ -72,3 +72,11 @@ Spec: [docs/product/settings.md](../product/settings.md). Index: [AGENTS.md](../
   `collapseDuplicateCharts` gates the progressive-disclosure dedupe in
   `renderRanks` ("lifetime" is exempt: always shown, and identical
   windows collapse into it).
+
+- Saved-board restoration separates interactive setup from statistics.
+  `restorePreferredResult` loads the board/trace and restores replay controls,
+  while `restoredAnalysisReady` reconstructs metrics and reports in workers.
+  `initGamePreferences` releases startup after control layout; it applies saved
+  scroll/focus again after report completion only until the first pointer,
+  key, wheel, or touch input. A late reply never pulls the player back after
+  restarting or navigating the current view.

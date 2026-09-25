@@ -230,7 +230,7 @@ function renderTrialReview(session) {
         const fill = () => {
           if (item.filled) return;
           item.filled = true;
-          appendTrialOverlays(item.box, session, item.group, traces);
+          appendTrialOverlays(item.box, session, item.group, traces).catch(analysisFailure);
         };
         if (item.details.open) fill();
         else {
@@ -326,7 +326,7 @@ function presentedBoard(session, attempt) {
   };
 }
 
-function appendTrialOverlays(box, session, group, traces) {
+async function appendTrialOverlays(box, session, group, traces) {
   const runs = [];
   for (let i = 0; i < group.attempts.length; i++) {
     const stored = traces.get(group.attempts[i].endedAt);
@@ -349,7 +349,7 @@ function appendTrialOverlays(box, session, group, traces) {
       board: Trial.identityBoardSamples(
         samples.t, samples.x, samples.y, stored.events,
         group.attempts[i].transform, session.width, session.height),
-      metrics: computeAllTraceMetrics(samples.t, samples.x, samples.y, stored.events, wall),
+      metrics: (await analysisTask('reports', 'trace', { ...samples, events: stored.events, wallMs: wall })).metrics,
     });
   }
   if (runs.length < 2) return;

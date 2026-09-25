@@ -152,3 +152,9 @@ Spec: [docs/product/session-stats.md](../product/session-stats.md). Index: [AGEN
   preserving `#metrics-panel-content`'s scrollTop. Controls stay mounted
   during data updates. Hover/focus holds chart replacement until leave/out
   events, while trace sampling continues. There is no idle refresh loop.
+
+- `appendSessionCharts` sends a snapshot to the session worker for raw,
+  running, or per-game aggregation. The renderer applies its completed model
+  to the captured container; generation checks discard superseded refreshes.
+  Game-end cadence comes from the finished-game worker's trace calculation,
+  updating the captured session ending event and invalidating session charts.

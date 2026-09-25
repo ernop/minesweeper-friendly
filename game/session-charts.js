@@ -1272,12 +1272,12 @@ function appendSessionSection(container) {
 
   const charts = document.createElement('div');
   charts.className = 'session-charts';
-  appendSessionCharts(charts);
+  appendSessionCharts(charts).catch(analysisFailure);
   container.appendChild(charts);
   return charts;
 }
 
-function appendSessionCharts(container) {
+async function appendSessionCharts(container) {
   const now = Date.now();
   sessionPrune(now);
   const exactModeKey = modeKey();
@@ -1296,22 +1296,11 @@ function appendSessionCharts(container) {
     openPlayFrom: includeOpenPlay ? sessionPlayFrom : undefined,
     playOffsetMs: sessionPlayOffsetMs,
   };
-  const buckets = settings.sessionRateBasis === 'game'
-    ? sessionGameSeries(scopedEvents, {
-      ...seriesOptions,
-      aggregation: settings.sessionAggregation,
-      lookbackGames: settings.sessionLookbackGames,
-    })
-    : settings.sessionAggregation === 'raw'
-      ? sessionRawSeries(scopedEvents, {
-        ...seriesOptions,
-        bucketMs: settings.sessionLookbackSeconds * 1000,
-      })
-      : sessionRunningSeries(scopedEvents, {
-        ...seriesOptions,
-        stepMs: SESSION_STEP_MS,
-        lookbackMs: settings.sessionLookbackSeconds * 1000,
-      });
+  const buckets = await analysisTask('session', 'session', {
+    events: scopedEvents, options: seriesOptions, basis: settings.sessionRateBasis,
+    aggregation: settings.sessionAggregation, lookbackGames: settings.sessionLookbackGames,
+    lookbackSeconds: settings.sessionLookbackSeconds,
+  });
   appendSessionWhenRow(container, buckets);
   appendSessionEndingsRow(container, buckets);
   if (settings.sessionRateBasis === 'game') {

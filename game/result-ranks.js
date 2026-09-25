@@ -5,198 +5,74 @@
 
 //-------RESULT RANKS (tables and charts in section order)-------
 
-function renderRanks(record, modeRecords, options = {}, sections) {
+async function renderRanks(record, modeRecords, options = {}, sections, isCurrent = () => true) {
   const wins = modeRecords.filter((r) => r.outcome === 'win');
   const boardRecord = options.boardRecord || record;
   const historyView = options.historyView === true;
   const referenceMs = historyView ? Date.now() : record.endedAt;
-  const selectedIndex = (list) => historyView ? -1 : list.indexOf(record);
-  // Row builder shared by every time-ranked list: rank, solve time, and the
-  // win's age split into count and unit cells (or a single "this" marking
-  // the game that just finished).
-  const timeAgeRow = (list) => (i) => {
-    const age = relativeAge(referenceMs, list[i].endedAt);
-    const cells = [
-      ['rank-cell', String(i + 1)],
-      // Markless games carry a small (m) before their time (CSS ::before).
-      ['time-cell' + (isMarkless(list[i]) ? ' markless-time' : ''),
-        (list[i].timeMs / 1000).toFixed(3) + 's'],
-    ];
-    if (!historyView && list[i] === record) {
-      cells.push(['age-just-cell age-u-s', 'this']);
-    } else {
-      cells.push(['age-num-cell age-u-' + age.unit, formatAgeCount(age)]);
-      cells.push(['age-unit-cell age-u-' + age.unit, age.unit]);
-    }
+  const plan = await analysisTask('rankings', 'ranks', {
+    ...analysisRecordSnapshot(record, modeRecords, options), preferences: settings, referenceMs, config,
+  });
+  if (!isCurrent()) return;
+  const timeTable = (table) => buildRankList(table.label, table.count, table.index, 'rank-grid', (i) => {
+    const row = table.rows[i - table.start];
+    const age = relativeAge(referenceMs, row.endedAt);
+    const cells = [['rank-cell', String(i + 1)],
+      ['time-cell' + (isMarkless(row) ? ' markless-time' : ''), (row.timeMs / 1000).toFixed(3) + 's']];
+    if (i === table.index) cells.push(['age-just-cell age-u-s', 'this']);
+    else cells.push(['age-num-cell age-u-' + age.unit, formatAgeCount(age)],
+      ['age-unit-cell age-u-' + age.unit, age.unit]);
     return cells;
-  };
-  // Recent placements (requested 2026-08-23): which top-tenth ranks on
-  // the longer charts were earned within the chosen recent window.
+  }, table.help);
   if (settings.shownThings.recentPlacements) {
-    sections.append('tables',
-      buildRecentPlacements(record, wins, referenceMs, !historyView));
+    sections.append('tables', buildRecentPlacements(record, wins, referenceMs, !historyView));
   }
-
-  // Progressive disclosure (the collapseDuplicateCharts setting, on by
-  // default): two lists holding the exact same wins would render
-  // identically, so only the most specific one of each such group is shown,
-  // and broader charts appear on their own once history spreads across
-  // enough hours/days/weekdays to make them differ. Exception: "lifetime"
-  // and "past week" (2026-08-22) always render, and claim their content
-  // first, so any window holding the exact same wins collapses into one
-  // of them rather than the other way around. Switched off, every window
-  // renders its own chart regardless of duplication.
-  const candidates = rankColumns(referenceMs)
-    .filter((column) => settings.shownThings.lastOneMinute || column.label !== 'past 1 min')
-    .map((column) => {
-      const inWindow = wins.filter(column.filter).sort(compareRankedWins);
-      return {
-        label: column.label,
-        displayOrder: column.displayOrder,
-        dedupePriority: column.dedupePriority,
-        column,
-        inWindow,
-        wins: inWindow,
-      };
-    });
-  const kept = new Set(candidates);
-  if (settings.collapseDuplicateCharts) {
-    kept.clear();
-    for (const candidate of dedupeRankCandidates(candidates, ['lifetime', 'past week'])) {
-      kept.add(candidate);
-    }
+  for (const table of plan.timeTables) {
+    sections.append('tables', timeTable(table));
+    await yieldAnalysisPresentation();
+    if (!isCurrent()) return;
   }
-  if (settings.shownThings.timeTables) {
-    for (const c of candidates) {
-      if (!kept.has(c)) continue;
-      const { column, inWindow } = c;
-      sections.append('tables', buildRankList(
-        column.label,
-        inWindow.length, selectedIndex(inWindow), 'rank-grid',
-        timeAgeRow(inWindow), column.help));
-    }
+  for (const table of plan.boardTables) {
+    sections.append('boardTables', timeTable(table));
+    await yieldAnalysisPresentation();
+    if (!isCurrent()) return;
   }
-
-  // Full tables retain all standings, including ordinary and poor results.
-  // Only the recent-achievements summary applies a top-tenth cutoff.
-  const boardComparisons = [];
-  for (const candidate of boardMetricCandidates([boardRecord], wins)) {
-    if (!settings.shownThings[candidate.setting]) continue;
-    const matching = candidate.wins.slice().sort(compareRankedWins);
-    boardComparisons.push({ ...candidate, wins: matching });
-    sections.append('boardTables', buildRankList(
-      candidate.label,
-      matching.length, selectedIndex(matching), 'rank-grid',
-      timeAgeRow(matching), candidate.help?.(boardRecord)));
-  }
-
-  // Board-shape time lists: this win's finished-board family only.
-  // Older wins that lack the measurement stay off the list. Nested
-  // filters (max 2 ⊂ max 3 ⊂ max 4) collapse under the same setting
-  // as the window charts, most specific first.
-  const shapeCandidates = boardShapeCandidates([boardRecord], wins)
-    .filter((candidate) => settings.shownThings.largestIsland
-      || !candidate.label.startsWith('largest island '));
-  const shapeKept = new Set(shapeCandidates);
-  if (settings.collapseDuplicateCharts) {
-    shapeKept.clear();
-    const dedupeCandidates = shapeCandidates
-      .map((candidate) => ({ ...candidate, wins: candidate.rows }));
-    for (const candidate of dedupeRankCandidates(dedupeCandidates)) {
-      shapeKept.add(shapeCandidates.find((original) => original.label === candidate.label));
-    }
-  }
-  if (settings.shownThings.boardShapeTables) {
-    // Identical time-table memberships do not make two board measurements
-    // interchangeable. Keep every scalar trait on the value-rank chart.
-    boardComparisons.push(...shapeCandidates);
-    for (const c of shapeCandidates) {
-      if (!shapeKept.has(c)) continue;
-      const inWindow = c.rows.slice().sort(compareRankedWins);
-      sections.append('boardTables', buildRankList(
-        c.label,
-        inWindow.length, selectedIndex(inWindow), 'rank-grid',
-        timeAgeRow(inWindow)));
-    }
-  }
-
   resultStats.querySelector('.board-time-profile-host')?.remove();
   gameDataColumn.replaceChildren();
   if (settings.shownThings.boardPercentiles) {
-    const profile = buildBoardTimeRankProfile(boardRecord, boardComparisons, historyView, modeRecords);
-    if (profile) (pageLayout.classList.contains('game-data-docked') ? gameDataColumn : resultStats).replaceChildren(profile);
+    const profile = buildBoardTimeRankProfile(boardRecord, modeRecords);
+    if (profile) {
+      (pageLayout.classList.contains('game-data-docked') ? gameDataColumn : resultStats).replaceChildren(profile);
+      await profile.analysisReady;
+      if (!isCurrent()) return;
+    }
   }
 
   if (settings.shownThings.averageCharts && wins.length >= 2) {
     for (const spec of PERF_CHART_SPECS) {
-      const chart = buildAverageScatter(spec, wins, modeRecords, record, historyView, 'perfChartMode');
+      const chart = buildAverageScatter(spec, plan.perfCharts[PERF_CHART_SPECS.indexOf(spec)]);
       if (chart !== null) sections.append('perfCharts', chart);
+      await yieldAnalysisPresentation();
+      if (!isCurrent()) return;
     }
     for (const spec of BOARD_CHART_SPECS) {
       if (spec.setting && !settings.shownThings[spec.setting]) continue;
       if (spec.setting === 'largestIsland' && !settings.shownThings.boardShapeTables) continue;
-      const chart = buildAverageScatter(spec, wins, modeRecords, record, historyView, 'boardChartMode');
+      const chart = buildAverageScatter(spec, plan.boardCharts[BOARD_CHART_SPECS.indexOf(spec)]);
       if (chart !== null) sections.append('boardCharts', chart);
+      await yieldAnalysisPresentation();
+      if (!isCurrent()) return;
     }
   }
 
-  // Streak lists: wins in chronological runs split by losses. A k-loss
-  // streak joins k+1 adjacent runs; the streak ending in this win is "me".
-  // modeRecords is chronological (appended in play order; import re-sorts).
-  const runs = [[]];
-  for (const r of modeRecords) {
-    if (r.outcome === 'win') runs[runs.length - 1].push(r.endedAt);
-    else runs.push([]);
-  }
-  for (const [label, slack] of [['streak', 0], ['near-streak', 1], ['near-near-streak', 2]]) {
-    if (label === 'streak' && !settings.shownThings.streak) continue;
-    if (label === 'near-streak' && !settings.shownThings.nearStreak) continue;
-    if (label === 'near-near-streak' && !settings.shownThings.nearNearStreak) continue;
-    const span = Math.min(slack + 1, runs.length);
-    // Each window of `span` adjacent runs is trimmed to its nonempty core
-    // (consecutive losses leave empty runs that pad windows). Identical
-    // cores are deduped and cores strictly inside a wider core are dropped,
-    // so a sub-streak never appears alongside the wider streak containing
-    // it. Windows that merely overlap (sharing a middle run across two
-    // different losses) are distinct streaks and both stay.
-    const cores = new Map(); // 'a-b' -> {a, b} inclusive run-index range
-    for (let i = 0; i + span <= runs.length; i++) {
-      let a = -1, b = -1;
-      for (let j = i; j < i + span; j++) {
-        if (runs[j].length === 0) continue;
-        if (a === -1) a = j;
-        b = j;
-      }
-      if (a === -1) continue;
-      cores.set(a + '-' + b, { a, b });
-    }
-    const allCores = [...cores.values()];
-    const segments = allCores
-      .filter((c) => !allCores.some((o) => o.a <= c.a && c.b <= o.b && (o.a < c.a || o.b > c.b)))
-      .map(({ a, b }) => {
-        const winsAt = runs.slice(a, b + 1).flat();
-        return { len: winsAt.length, end: winsAt[winsAt.length - 1], current: b === runs.length - 1 };
-      });
-    segments.sort((a, b) => b.len - a.len || b.end - a.end);
-    const myIndex = historyView ? -1 : segments.findIndex((seg) => seg.current);
-    sections.append('tables', buildRankList(
-      label,
-      segments.length, myIndex, 'rank-grid',
-      (i) => {
-        const seg = segments[i];
-        const age = relativeAge(referenceMs, seg.end);
-        const cells = [
-          ['rank-cell', String(i + 1)],
-          ['time-cell', seg.len + (seg.len === 1 ? ' win' : ' wins')],
-        ];
-        if (!historyView && seg.current) {
-          cells.push(['age-just-cell age-u-s', 'this']);
-        } else {
-          cells.push(['age-num-cell age-u-' + age.unit, formatAgeCount(age)]);
-          cells.push(['age-unit-cell age-u-' + age.unit, age.unit]);
-        }
-        return cells;
-      }));
+  for (const table of plan.streakTables) {
+    sections.append('tables', buildRankList(table.label, table.count, table.index, 'rank-grid', (i) => {
+      const seg = table.rows[i - table.start], age = relativeAge(referenceMs, seg.end);
+      const cells = [['rank-cell', String(i + 1)], ['time-cell', seg.len + (seg.len === 1 ? ' win' : ' wins')]];
+      if (!historyView && seg.current) cells.push(['age-just-cell age-u-s', 'this']);
+      else cells.push(['age-num-cell age-u-' + age.unit, formatAgeCount(age)], ['age-unit-cell age-u-' + age.unit, age.unit]);
+      return cells;
+    }));
   }
 
   // Scatter plots at the very bottom, each raw win value against win time
@@ -318,4 +194,5 @@ function renderRanks(record, modeRecords, options = {}, sections) {
     }
     sections.append('relationships', legend);
   }
+  await sections.ready();
 }

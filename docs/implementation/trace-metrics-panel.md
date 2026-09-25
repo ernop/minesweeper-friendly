@@ -35,7 +35,7 @@ Spec: [docs/product/trace-metrics-panel.md](../product/trace-metrics-panel.md). 
     100 ms before the press;
   - `computeAllTraceMetrics` — the combined {bio, psych, hev, waste,
     cad} object the display consumes.
-  The DISPLAY section holds `TRACE_METRIC_GROUPS` (per system: key,
+  `game/metric-definitions.js` holds `TRACE_METRIC_GROUPS` (per system: key,
   name, definition, displays of {label, calc, records, of, fmt} — calc and
   records render as the row's "HOW:/RECORDS:" hover tooltip; series identity is
   metricSeriesKey = group key + label; not everything
@@ -46,9 +46,9 @@ Spec: [docs/product/trace-metrics-panel.md](../product/trace-metrics-panel.md). 
   displays, and `displayableNumber` (undefined and NaN both render as
   the en dash). Live: `scheduleMetricsUpdate` invalidates from trace/session
   mutations and the existing active-game clock. One trailing task coalesces
-  input bursts (250ms minimum sample spacing), then draws on an animation
-  frame; it never reschedules itself. `renderLiveTraceMetrics` appends to
-  the series even with the panel off. `liveSegmentCache` recomputes psych/hev
+  input bursts (250ms minimum sample spacing), then dispatches to the live worker; it never polls while idle. Replies
+  append the sampled metrics and update the mounted view. `renderLiveTraceMetrics` appends to
+  the series even with the panel off. `createTraceMetricComputer` in the worker recomputes psych/hev
   only when the click-event count changes; elapsed-only updates reuse all
   input computations and derive `traceSilenceRatio` from the new duration.
   `renderMetricsPanel(metrics)` maintains `#metrics-panel` as the
@@ -68,13 +68,14 @@ Spec: [docs/product/trace-metrics-panel.md](../product/trace-metrics-panel.md). 
   outcome, exact final time, and loading status (ending with the same
   `syncBoardLayout` renderResult uses, so the shell's one frame is placed
   correctly) before crossing a requestAnimationFrame + timer paint boundary.
-  `reportResult` then persists, computes metrics, and replaces that shell
-  with the complete result. The game-end timestamp is captured before
+  `reportResult` then persists the captured primary facts and dispatches
+  analysis. The worker reply supplies metrics before asynchronous report
+  presentation replaces that shell, if its view is still current. The game-end timestamp is captured before
   deferral. A 250ms fallback covers throttled frames, while the next
   pointer/key input, `newGame`, hidden-visibility, and pagehide all flush
   pending finalization before mutable game state can change or the page can
   unload with an unsaved record. Final:
-  `reportResult` computes
+  the finished-game worker computes
   `computeAllTraceMetrics` with wall time endedAt - trace.startedAt (the
   stored trace's definition), snapshots `finalMotion` {metrics, series},
   and re-renders the panel session-only (the live rows' game is over;
@@ -119,3 +120,19 @@ Spec: [docs/product/trace-metrics-panel.md](../product/trace-metrics-panel.md). 
   Node-harness caution: the music sampler's setInterval keeps a bare
   `node` process alive — full-game harnesses must wrap global.setInterval
   to `.unref()` the handle (or extract only the computation section).
+
+- Hevelius event metadata uses a single chronological sweep through events and
+  nonoverlapping movement segments: O(E+C) preparation for E events/C clicks,
+  instead of rescanning every event prefix per segment. Kinematic and entropy
+  computations retain their definitions and costs. `createTraceMetricComputer`
+  scans new events once and caches completed-segment systems until the next
+  completed click. Restore uses typed-array views and advancing event/sample
+  cursors, then projects only display series in the worker. It still calculates
+  whole-prefix measurements at stored sample times; this is not a claim of
+  linear total trace reconstruction. `tests/trace-segment-sweep-test.js` and
+  `tests/trace-metric-cache-test.js` check independent window/caching parity.
+- Live requests have one job in flight and transfer only trace deltas; idle
+  elapsed updates reuse computed input features in the worker. Game-end
+  cadence is shared with the session ending event. Final time is appended to
+  the stored sample schedule before dispatch. The spatial-bias fitter uses
+  the same exact `trend-fit.js` algorithm as all other trend lines.

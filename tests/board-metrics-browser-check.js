@@ -60,8 +60,11 @@ const { chromium } = require(process.argv[2]);
     await page.locator('#board .cell').first().click();
     const mine = await page.evaluate(() => cells.findIndex((cell) => cell.mine));
     await page.locator('#board .cell').nth(mine).click();
-    await page.waitForFunction(() => gameState === 'lost' && boardMetricJobs.get(history[modeKey()]?.at(-1))?.status === 'done');
-    const saved = await page.evaluate(() => {
+    await page.waitForFunction(() => gameState === 'lost' && hasBoardMeasurements(history[modeKey()]?.at(-1) || {})
+      && !resultRanks.hasAttribute('aria-busy'));
+    assert.equal(await page.evaluate(() => boardMetricJobs.get(history[modeKey()].at(-1)).status), 'done',
+      'a new finished game must compute its board once in the report worker');
+    const saved = await page.evaluate(async () => {
       const record = history[modeKey()].at(-1);
       return { key: modeKey(), endedAt: record.endedAt,
         metrics: record.boardMetrics, count: history[modeKey()].length,
@@ -88,7 +91,7 @@ const { chromium } = require(process.argv[2]);
 
     // Queue a missing measurement then leave the result. A late reply must only amend
     // its original history record, without replacing the new active board.
-    await page.evaluate(({ key, endedAt }) => {
+    await page.evaluate(async ({ key, endedAt }) => {
       const r = history[key].find((r) => r.endedAt === endedAt);
       delete r.boardMetrics;
       boardMetricJobs.delete(r);
@@ -129,7 +132,7 @@ const { chromium } = require(process.argv[2]);
       });
       persistUserdata('history', history);
       settings.playMode = 'standard';
-      renderResult(base, history[key]);
+      await renderResult(base, history[key]);
       if (boardMetricCandidates(history[key].slice(-3), history[key])
         .some((table) => table.setting === 'zeroOneShareTable')) throw new Error('obsolete counts entered the corrected table');
       if (boardMetricBackfills.has(key)) throw new Error('bulk backfill started without a click');
@@ -157,7 +160,7 @@ const { chromium } = require(process.argv[2]);
     assert.deepEqual(await page.locator('.board-metric-backfill-panel progress')
       .evaluate((el) => [el.value, el.max]), [2, 3]);
     await page.locator('.board-metric-backfill-panel').screenshot({ path: '/tmp/minesweeper-backfill-paused.png' });
-    assert.deepEqual(await page.evaluate((key) => {
+    assert.deepEqual(await page.evaluate(async (key) => {
       const wins = history[key].filter((r) => r.outcome === 'win');
       return boardMetricCandidates([wins[0]], wins)
         .filter((table) => ['zeroOneShareTable', 'zeroOpeningTable'].includes(table.setting))
@@ -176,9 +179,9 @@ const { chromium } = require(process.argv[2]);
     }, saved.key), 1);
     await page.reload();
     await page.waitForFunction(() => preferenceUIReady);
-    await page.evaluate(({ key, endedAt }) => {
+    await page.evaluate(async ({ key, endedAt }) => {
       settings.playMode = 'standard';
-      renderResult(history[key].find((r) => r.endedAt === endedAt), history[key]);
+      await renderResult(history[key].find((r) => r.endedAt === endedAt), history[key]);
     }, saved);
     await page.waitForFunction((key) => boardMetricSources.get(key)?.status === 'ready', saved.key);
     assert.equal(await page.locator('.board-metric-backfill').innerText(), 'Backfill saved wins (1)');
@@ -197,7 +200,7 @@ const { chromium } = require(process.argv[2]);
       'no idle progress panel when unavailable boards are the only remainder');
     assert(await page.evaluate((key) => history[key].slice(-3).filter((r) => BoardMetrics.hasFractions(r.boardMetrics))
       .every((r) => Number.isSafeInteger(r.hzini) && r.boardMetrics.chord.upper === 100), saved.key));
-    const exhausted = await page.evaluate(({ key, endedAt }) => {
+    const exhausted = await page.evaluate(async ({ key, endedAt }) => {
       const base = history[key].find((r) => r.endedAt === endedAt);
       const missing = history[key].at(-2);
       boardMetricJobs.set(missing, { status: 'error', error: 'deliberate backfill failure' });
@@ -220,9 +223,9 @@ const { chromium } = require(process.argv[2]);
     for (let i = 0; i < 2; i++) {
       await page.reload();
       await page.waitForFunction(() => preferenceUIReady);
-      await page.evaluate(({ key, endedAt }) => {
+      await page.evaluate(async ({ key, endedAt }) => {
         settings.playMode = 'standard';
-        renderResult(history[key].find((r) => r.endedAt === endedAt), history[key]);
+        await renderResult(history[key].find((r) => r.endedAt === endedAt), history[key]);
       }, saved);
       await page.waitForFunction((key) => boardMetricSources.get(key)?.status === 'ready', saved.key);
       assert.deepEqual(await page.evaluate((key) => boardMetricBackfillProgress(key), saved.key),
@@ -246,7 +249,7 @@ const { chromium } = require(process.argv[2]);
     await page.waitForFunction((key) => boardMetricSources.get(key)?.status === 'error', saved.key);
     assert.match(await page.locator('.board-metric-status [role=alert]').innerText(), /Could not check saved boards/);
     assert.equal(await page.locator('.board-metric-backfill').count(), 0);
-    assert.match(await page.evaluate(({ key, endedAt }) => {
+    assert.match(await page.evaluate(async ({ key, endedAt }) => {
       settings.shownThings.boardMetricFacts = false;
       const text = buildBoardMetricStatus(history[key].find((r) => r.endedAt === endedAt)).textContent;
       settings.shownThings.boardMetricFacts = true;
@@ -275,12 +278,12 @@ const { chromium } = require(process.argv[2]);
     assert.equal(await page.locator('.board-metric-backfill').innerText(), 'Backfill saved wins (1)');
     await page.reload();
     await page.waitForFunction(() => preferenceUIReady);
-    await page.evaluate(({ key, endedAt }) => {
-      renderResult(history[key].find((r) => r.endedAt === endedAt), history[key]);
+    await page.evaluate(async ({ key, endedAt }) => {
+      await renderResult(history[key].find((r) => r.endedAt === endedAt), history[key]);
     }, saved);
     await page.waitForFunction((key) => boardMetricSources.get(key)?.status === 'ready', saved.key);
     assert.equal(await page.locator('.board-metric-backfill').innerText(), 'Backfill saved wins (1)');
-    await page.evaluate(() => {
+    await page.evaluate(async () => {
       resultRanks.querySelector('.board-metric-backfill').click();
       resultRanks.querySelector('.board-metric-backfill').click();
     });
@@ -293,7 +296,7 @@ const { chromium } = require(process.argv[2]);
 
     // Renderer fixtures are RAM-only. Existing HZiNi records remain comparable;
     // research ranges never become tables, and spread uses fixed bins.
-    const rendered = await page.evaluate(() => {
+    const rendered = await page.evaluate(async () => {
       settings.playMode = 'standard';
       settings.shownThings.averageCharts = settings.shownThings.relationshipCharts = false;
       settings.shownThings.workSpreadTable = true;
@@ -314,7 +317,7 @@ const { chromium } = require(process.argv[2]);
         { ...base, endedAt: now - 1000, timeMs: 3000,
           boardMetrics: { ...metrics, version: 2 } }, base,
       ];
-      renderResult(base, records);
+      await renderResult(base, records);
       const tables = Object.fromEntries([...resultRanks.querySelectorAll('.rank-list')]
         .filter((el) => !el.classList.contains('recent-placements'))
         .map((el) => [el.querySelector('h4').textContent, el.querySelector('.rank-total').textContent]));
@@ -372,7 +375,7 @@ const { chromium } = require(process.argv[2]);
       assert.equal(overflow, 0);
       await page.screenshot({ path: '/tmp/board-tools-' + width + '.png', fullPage: true });
     }
-    const edgeCases = await page.evaluate(() => {
+    const edgeCases = await page.evaluate(async () => {
       const r = { outcome: 'win', hzini: 6, clicks: 5,
         boardMetrics: { version: 1, workSpread: 1.2 } };
       const above100 = 100 * hziniEfficiencyOf(r);

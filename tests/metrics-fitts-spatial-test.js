@@ -15,6 +15,7 @@ const source = require('./game-source.js').source;
 const startIdx = source.indexOf('//-------TRACE METRICS: COMPUTATION');
 const endIdx = source.indexOf('//-------TRACE METRICS: DISPLAY');
 if (startIdx === -1 || endIdx === -1) throw new Error('section markers not found');
+vm.runInThisContext(fs.readFileSync(path.join(__dirname, '../trend-fit.js'), 'utf8'));
 vm.runInThisContext(source.slice(startIdx, endIdx));
 
 let checks = 0;

@@ -5,6 +5,8 @@
 let preferenceUIReady = false;
 let restoringPreferenceView = false;
 let preferenceScrollTimer = null;
+let restoredAnalysisReady = Promise.resolve();
+let waitingForRestoredLayout = false;
 
 function rememberPreference(field, value) {
   if (!preferenceUIReady || restoringPreferenceView) return;
@@ -42,7 +44,7 @@ function syncReviewPreferences() {
 function flushViewPosition() {
   clearTimeout(preferenceScrollTimer);
   preferenceScrollTimer = null;
-  if (!preferenceUIReady || restoringPreferenceView) return;
+  if (!preferenceUIReady || restoringPreferenceView || waitingForRestoredLayout) return;
   const active = document.activeElement;
   rememberPreference('viewPosition', {
     pageX: Math.max(0, window.scrollX), pageY: Math.max(0, window.scrollY),
@@ -92,20 +94,32 @@ function initGamePreferences() {
   document.addEventListener('focusin', queueScroll);
   window.addEventListener('pagehide', flushViewPosition);
   document.addEventListener('visibilitychange', () => { if (document.hidden) flushViewPosition(); });
-  // Wait for initial layout, including restored reports and panels, before
-  // applying scroll. Capturing earlier would overwrite the saved offsets.
-  return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => {
+  // Controls become available after their own layout. A saved report can
+  // finish later; restore its scroll only if the player has not interacted.
+  waitingForRestoredLayout = true;
+  const inputEvents = ['pointerdown', 'keydown', 'wheel', 'touchstart'];
+  const cancelSavedScroll = () => {
+    waitingForRestoredLayout = false;
+    for (const name of inputEvents) document.removeEventListener(name, cancelSavedScroll, true);
+  };
+  for (const name of inputEvents) document.addEventListener(name, cancelSavedScroll, { capture: true, passive: true });
+  const restoreScroll = () => {
     const focused = saved.focusId === null ? null : document.getElementById(saved.focusId);
     if (focused && focused.checkVisibility()) focused.focus({ preventScroll: true });
     metricsPanelContent.scrollLeft = saved.metricsX;
     metricsPanelContent.scrollTop = saved.metricsY;
     window.scrollTo(saved.pageX, saved.pageY);
-    requestAnimationFrame(() => {
-      restoringPreferenceView = false;
-      preferenceUIReady = true;
-      resolve();
-    });
+  };
+  restoredAnalysisReady.then(() => new Promise(requestAnimationFrame)).then(() => {
+    if (waitingForRestoredLayout) restoreScroll();
+    cancelSavedScroll();
+  }).catch(analysisFailure);
+  return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => {
+    restoringPreferenceView = false;
+    preferenceUIReady = true;
+    resolve();
   })));
+
 }
 
 function rememberReplayPosition() {
@@ -115,7 +129,7 @@ function rememberReplayPosition() {
 
 async function restorePreferredResult() {
   if (settings.resultView === 'scores') {
-    showScoresForCurrentMode();
+    restoredAnalysisReady = Promise.resolve(showScoresForCurrentMode());
     return;
   }
   const endedAt = settings.replayPosition.endedAt;
@@ -164,21 +178,35 @@ async function restorePreferredResult() {
   setLcd(timerDisplay, Math.min(TIMER_CAP_SECONDS, Math.floor(record.timeMs / 1000)));
   setLcd(mineCounter, gameState === 'won' ? 0 : config.mines - flagsCount);
   beginTraceMetricsSeries();
-  let restoredSamples = 0;
-  for (const at of stored.metricSampleTimes) {
-    const end = trace.t.findIndex((t) => t > at);
-    const count = end < 0 ? trace.t.length : end;
-    appendTraceMetricsSeries(computeAllTraceMetrics(
-      trace.t.slice(0, count), trace.x.slice(0, count), trace.y.slice(0, count),
-      trace.events.filter((event) => event.t <= at), at));
-    if (++restoredSamples % 10 === 0) await new Promise(requestAnimationFrame);
-  }
-  finalMotion = {
-    metrics: computeAllTraceMetrics(trace.t, trace.x, trace.y, trace.events, stored.endedAt - stored.startedAt),
-    series: metricsSeries, spatial: computeSpatialBias(trace.events),
-  };
-  renderMetricsPanel(null);
-  renderResult(record, modeRecords);
+  const restoredTrace = trace;
+  const revision = resultViewRevision;
+  renderImmediateGameEnd(record.outcome, record.endedAt);
+  renderedResult = { record, modeRecords, options: {} };
+  const key = modeKey();
+  const needBoardMetrics = record.playMode !== 'endgame-drill' && !hasBoardMeasurements(record);
+  const needZini = record.playMode !== 'endgame-drill' && record.zini === undefined;
+  const boardState = { status: 'running' };
+  if (needBoardMetrics || needZini) boardMetricJobs.set(record, boardState);
+  restoredAnalysisReady = analysisTask('reports', 'restore-trace', { ...stored,
+    measurementPlan: { width: config.width, height: config.height, mines: cells.map((cell) => cell.mine),
+      drill: record.playMode === 'endgame-drill', needBoardMetrics, needZini,
+      needCadence: record.cadenceSpread === undefined },
+  }).then(async (restored) => {
+    if (Object.keys(restored.measurements).length) {
+      Object.assign(record, restored.measurements);
+      if (history[key]?.includes(record)) persistUserdata('history', history);
+    }
+    boardState.status = 'done';
+    if (trace !== restoredTrace || revision !== resultViewRevision) return;
+    metricsSeries = restored.series;
+    finalMotion = { metrics: restored.metrics, series: metricsSeries, spatial: restored.spatial };
+    renderMetricsPanel(null);
+    await renderResult(record, modeRecords);
+  });
+  restoredAnalysisReady.catch((error) => {
+    boardState.status = 'error'; boardState.error = error.message;
+    analysisFailure(error);
+  });
   replayStep = Math.min(settings.replayPosition.step, replayDecisionCount());
   replayEnabled = settings.panels.replay && replayStep < replayDecisionCount();
   renderPathView();

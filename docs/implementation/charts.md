@@ -27,3 +27,20 @@ Spec: [docs/product/charts.md](../product/charts.md). Index: [AGENTS.md](../../A
 - Retired rankaverage compatibility: storage still recognizes the old
   `rankavgSort` userdata kind during migration, but the runtime does not
   load, mutate, or export it.
+
+- Exact fit implementation (2026-09-25): `trend-fit.js` selects the median
+  intersection in the dual-line arrangement using inversion counts and rank
+  sampling. It uses expected O(n log n) time and O(n) space, replacing
+  enumeration/sorting of O(n²) slopes. Sampling narrows an interval; certified
+  ranks determine the answer. Ambiguous floating-point slope comparisons use
+  exact dyadic-integer determinants, preserving coincident-line/tie handling.
+  The intercept remains median(y − bx). Algorithm reference:
+  [Raymaekers, robslopes](https://journal.r-project.org/articles/RJ-2023-012/).
+  `tests/theil-sen-test.js` compares 5,508 datasets with exhaustive pairwise
+  results, including duplicate x, collinearity, large offsets, and subnormals.
+- `averageScatterData` runs with ranking preparation in the worker, over the
+  same frozen record/config/settings snapshot. `scatterPlotData` handles
+  Tukey trimming and bounds there. `buildScatter` reserves its SVG geometry,
+  then draws the model and fit asynchronously; its `analysisReady` promise
+  joins the report collector. Late chart replies only touch their own detached
+  nodes. Scatter drawing checks the presentation budget every 128 points.

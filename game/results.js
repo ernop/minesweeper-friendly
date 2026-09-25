@@ -27,10 +27,6 @@ function reportResult(outcome, endedAt = Date.now()) {
     // meaningless for a partial solve, so drill records omit it.
     bv3: endgameDrillActive() && drillCurrent !== null
       ? drillCurrent.remaining3BV : compute3BV(),
-    ...(endgameDrillActive() ? {} : {
-      zini: Zini.zini(config.width, config.height, mineAt),
-      hzini: Zini.hzini(config.width, config.height, mineAt),
-    }),
     clicks: clickCount,
     chordClicks: chordClicks,
     wastedClicks: wastedClicks,
@@ -72,16 +68,6 @@ function reportResult(outcome, endedAt = Date.now()) {
   if (gameFastGap !== undefined) {
     record.fastclickGapMs = Math.round(gameFastGap);
   }
-  // Cadence spread: the trace cadence system's gap-spread ratio (press
-  // gap interquartile range over the median gap, all button presses,
-  // wasted included), stored per game for wins and losses alike so
-  // rhythm consistency is chartable across games. Absent when the game
-  // had under two measurable presses or a zero median.
-  const gameCadence = computeClickCadence(trace.t, trace.events);
-  if (typeof gameCadence.gapSpreadRatio === 'number'
-      && Number.isFinite(gameCadence.gapSpreadRatio)) {
-    record.cadenceSpread = Number(gameCadence.gapSpreadRatio.toFixed(3));
-  }
   if (!oddsFailed && guessLedgerAppliesToMode()) {
     record.guesses = guessEvents.length;
     record.guessIdealRisk = guessEvents.filter((e) => e.idealRisk).length;
@@ -117,41 +103,49 @@ function reportResult(outcome, endedAt = Date.now()) {
     if (trialSession.nextIndex >= Trial.gameCount(trialSession)) endTrial('completed');
     persistUserdata('trial', trialSession);
   }
-  // The canonical metrics: the same computation the live panel runs, over
-  // the now-complete trace, with the same wall-time definition the stored
-  // trace carries (endedAt - startedAt). Snapshotted for the after-game
-  // charts; the live panel's game is over, so it goes away.
-  const finalMetrics = computeAllTraceMetrics(
-    trace.t, trace.x, trace.y, trace.events, record.endedAt - trace.startedAt);
-  appendTraceMetricsSeries(finalMetrics);
-  finalMotion = {
-    metrics: finalMetrics,
-    series: metricsSeries,
-    // Spatial bias is an after-game chart only (the fit is meaningless
-    // mid-game and quadratic in actions), so it is computed once here
-    // rather than in the live tick's computeAllTraceMetrics.
-    spatial: computeSpatialBias(trace.events),
-  };
+  // Capture and persist primary facts before returning to input. Everything
+  // below the worker boundary uses this game's snapshot, not mutable globals.
+  const resultRevision = resultViewRevision;
+  const sessionEnding = gameSessionEndEvent;
+  const finishedTrace = trace;
+  const finishedSeries = metricsSeries;
+  const key = modeKey();
+  const boardState = { status: 'running' };
+  if (!endgameDrillActive()) boardMetricJobs.set(record, boardState);
   saveTrace(record);
-  if (!endgameDrillActive()) requestBoardMetrics(record, {
-    width: config.width, height: config.height, mines: mineAt,
-  });
-  // The live per-game rows go away with their game; the session section
-  // stays (it spans games), so the panel re-renders rather than hiding.
   renderMetricsPanel(null);
-  renderResult(record, modeRecords);
-  // The inspection controls appear with the finished board; a view left on
-  // from the previous game renders this game's trace immediately. The
-  // game-history slider starts at its end: every action done, this board.
   replayStep = replayDecisionCount();
   replayEnabled = false;
   updateSettings({ resultView: 'game', replayPosition: { endedAt: record.endedAt, step: replayStep } });
   renderPathView();
+  analysisTask('reports', 'finished-game', {
+    width: config.width, height: config.height, mines: mineAt, drill: endgameDrillActive(),
+    needZini: true, needBoardMetrics: true, needCadence: true,
+    trace: { t: finishedTrace.t, x: finishedTrace.x, y: finishedTrace.y,
+      events: finishedTrace.events, wallMs: record.endedAt - finishedTrace.startedAt },
+  }).then((result) => {
+    Object.assign(record, result.measurements);
+    if (Number.isFinite(result.metrics.cad.gapSpreadRatio)) {
+      sessionEnding.cadenceSpread = result.metrics.cad.gapSpreadRatio;
+      scheduleMetricsUpdate({ session: true });
+    }
+    boardState.status = 'done';
+    if (history[key]?.includes(record)) persistUserdata('history', history);
+    if (trace !== finishedTrace || resultViewRevision !== resultRevision
+        || !['won', 'lost'].includes(gameState)) return;
+    appendMetricSeries(finishedSeries, result.metrics);
+    finalMotion = { metrics: result.metrics, series: finishedSeries, spatial: result.spatial };
+    renderResult(record, modeRecords);
+  }).catch((error) => {
+    boardState.status = 'error'; boardState.error = error.message;
+    analysisFailure(error);
+  });
 }
 
 // The result currently on screen ({record, modeRecords}), kept so a
 // settings toggle can re-render it in place; null while no result shows.
 let renderedResult = null;
+let resultViewRevision = 0;
 
 let resultLayoutFrame = null;
 if (typeof ResizeObserver !== 'undefined') {
@@ -645,6 +639,9 @@ function createResultSectionCollector(context) {
     appendAll(sectionId, additions) {
       for (const node of additions) this.append(sectionId, node);
     },
+    ready() {
+      return Promise.all([...nodes.values()].flat().map((node) => node.analysisReady));
+    },
     renderInto(parent) {
       parent.textContent = '';
       for (const spec of specs) {
@@ -726,6 +723,15 @@ function setResultSummary(lead, generatorLabel, when) {
 }
 
 function renderResult(record, modeRecords, options = {}) {
+  const job = renderResultAsync(record, modeRecords, options);
+  job.catch(analysisFailure);
+  return job;
+}
+
+async function renderResultAsync(record, modeRecords, options = {}) {
+  const revision = ++resultViewRevision;
+  const isCurrent = () => revision === resultViewRevision;
+  resultRanks.setAttribute('aria-busy', 'true');
   if (chartHelpOwner && [resultStats, gameDataColumn, resultRanks].some((el) => el.contains(chartHelpOwner))) hideChartHelpTip();
   renderedResult = { record, modeRecords, options };
   requestBoardMetrics(record);
@@ -897,27 +903,31 @@ function renderResult(record, modeRecords, options = {}) {
     resultRanks.textContent = '';
     renderTrialChrome();
   } else if (record.outcome === 'win') {
-    renderRanks(record, modeRecords, options, resultSections);
+    await renderRanks(record, modeRecords, options, resultSections, isCurrent);
   } else {
-    resultRanks.textContent = '';
     const latestWin = modeRecords.findLast((game) => game.outcome === 'win');
-    renderRanks(latestWin || record, modeRecords,
-      { ...options, historyView: true, boardRecord: record }, resultSections);
+    await renderRanks(latestWin || record, modeRecords,
+      { ...options, historyView: true, boardRecord: record }, resultSections, isCurrent);
   }
+  if (!isCurrent()) return;
   // The after-game motion charts, jammed inline after whatever other
   // bottom charts the outcome produced. Losses retain prior win history;
   // motion describes the just-finished game either way. Trial review has its own charts.
   if (settings.showMotionStatsAfterGame && finalMotion !== null && !options.historyView
       && !Trial.isPlayMode(settings.playMode)) {
-    resultSections.appendAll('diagnostics', buildMotionStatsCharts());
+    resultSections.appendAll('diagnostics', await buildMotionStatsCharts(finalMotion, isCurrent));
   }
   if (!Trial.isPlayMode(settings.playMode) || options.historyView) {
+    await resultSections.ready();
+    if (!isCurrent()) return;
     resultSections.renderInto(resultRanks);
   }
+  resultRanks.removeAttribute('aria-busy');
   syncBoardLayout();
 }
 
 function showScoresForCurrentMode() {
+  resultViewRevision++;
   rememberPreference('resultView', 'scores');
   const modeRecords = history[modeKey()] || [];
   const wins = modeRecords.filter((record) => record.outcome === 'win');
@@ -929,9 +939,10 @@ function showScoresForCurrentMode() {
     clearResultStats();
     resultAnalysis.textContent = '';
     resultRanks.textContent = '';
+    resultRanks.removeAttribute('aria-busy');
     syncBoardLayout();
     return;
   }
   const latest = wins.reduce((a, b) => a.endedAt > b.endedAt ? a : b);
-  renderResult(latest, modeRecords, { historyView: true });
+  return renderResult(latest, modeRecords, { historyView: true });
 }
