@@ -66,8 +66,10 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
     extractor (`analysis/biometrics/extract_features.py`).
   - WASTE — the survey's own whole-game proposals
     (reference/mouse-motion-metrics.md Tier 1/2): wander (total travel
-    over the straight lines between consecutive clicks; 1.0 = perfectly
-    direct), pauses / paused / longest pause (stops of 250ms or more),
+    over the straight lines between consecutive clicks; travel before the
+    first click is in the total, so 1.0 does not mean perfectly direct —
+    a known window mismatch on the roadmap), pauses / paused / longest
+    pause (stops of 250ms or more),
     turnarounds (heading reversals over 90° between movement legs of 8px
     or more), feints (dwelled 300ms or more over a cell, then left it
     without clicking). These are event definitions, not claims about
@@ -82,7 +84,8 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
     before the press — clicking without stopping). The press is the
     unit: a wasted click is the same motor act as an effective one, and
     the trace records the hand, not the board effect (the measurement
-    principle again).
+    principle again). A right press here is the right-click flag trigger
+    (the browser's context-menu event), which Windows fires at the release.
   - TRAJECTORY GEOMETRY — mousetrap-formula measures (Kieslich et al.)
     per inter-click segment, means over segments: segments, MAD,
     AUC, AD, x-flips, y-flips, initiation, idle, vel max, acc max,

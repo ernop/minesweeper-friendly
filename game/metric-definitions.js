@@ -73,9 +73,10 @@ const TRACE_METRIC_GROUPS = [
           + 'this is independent of whether the board state changed',
         of: (m) => m.bio.leftClickCount, fmt: (v) => String(v) },
       { label: 'right clicks',
-        calc: 'right-button presses (flag actions)',
-        records: 'right-button presses found in the trace, including presses '
-          + 'whether or not their board effect was later undone',
+        calc: 'right-click flag triggers: the browser\u2019s context-menu event, '
+          + 'fired at the press on Linux and macOS and at the release on Windows',
+        records: 'right-click flag triggers found in the trace, including those '
+          + 'whose board effect was later undone',
         of: (m) => m.bio.rightClickCount, fmt: (v) => String(v) },
       { label: 'hold',
         calc: 'mean time from left-button press to its release',
@@ -95,8 +96,8 @@ const TRACE_METRIC_GROUPS = [
     displays: [
       { label: 'wander',
         calc: 'total cursor travel divided by the sum of straight lines '
-          + 'between consecutive click positions (1.0 = perfectly direct '
-          + 'all game)',
+          + 'between consecutive click positions; travel before the first '
+          + 'click is in the total, so 1.0 does not mean a perfectly direct game',
         records: 'sampled cursor distance relative to straight lines between '
           + 'successive click positions; the excess distance has no assigned cause',
         of: (m) => m.waste.wanderRatio, fmt: (v) => v.toFixed(2) + '\u00d7' },
@@ -132,7 +133,8 @@ const TRACE_METRIC_GROUPS = [
   { key: 'cad', name: 'click timing', definition:
       'press-to-press rhythm over all button presses, left and right '
       + 'together; wasted presses count the same as effective ones — the '
-      + 'trace records the hand, not the board effect',
+      + 'trace records the hand, not the board effect. A right press is '
+      + 'the right-click flag trigger, which Windows fires at the release',
     displays: [
       { label: 'click gap',
         calc: 'median time between consecutive button presses over the '

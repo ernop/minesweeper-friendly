@@ -55,10 +55,11 @@ const SESSION_SPEED_GAP_SPECS = [
       + 'trailing lookback; a change in the series has no assigned cause',
     of: (b, i) => b.speedPxPerSec[i], fmt: (v) => Math.round(v) + 'px/s' },
   { label: 'fastclick gap', unit: '', color: '#e8710a',
-    calc: 'median gap between consecutive useful presses of the same game '
-      + 'when the press was made on the move (cursor moving within 100ms '
-      + 'before it) and the gap was under 1s',
-    records: 'the median qualifying press-to-press interval within the '
+    calc: 'median gap between consecutive useful actions of the same game '
+      + '(timed at the left release or the right-click flag trigger) when '
+      + 'the cursor moved within 100ms before the later one and the gap was '
+      + 'at most 1s',
+    records: 'the median qualifying action-to-action interval within the '
       + 'trailing lookback; only the timing rule above is observed',
     of: (b, i) => b.fastclickGapMs[i], fmt: (v) => Math.round(v) + 'ms' },
 ];

@@ -147,7 +147,7 @@ const GameData = (() => {
       help: 'Board-changing actions contradicted by visible facts, per minute. Lower rates rank higher.' },
     { id: 'fastclickGap', allOutcomes: true, name: 'fastclick gap', higher: false, default: true,
       value: (r) => r.fastclickGapMs, format: (v) => Math.round(v) + 'ms',
-      help: 'Median gap between useful presses made while moving, with gaps under one second. Shorter gaps rank higher. This is not literal double-click timing.' },
+      help: 'Median gap between useful actions made while moving (timed at the left release or the right-click flag trigger), with gaps of at most one second. Shorter gaps rank higher. This is not literal double-click timing.' },
     { id: 'bvPerSecond', name: '3BV/s', higher: true, default: true,
       value: (r) => r.timeMs > 0 ? bvPerSecond(r) : undefined,
       format: (v) => v.toFixed(3), help: 'Board workload per second. Faster completion ranks higher.' },

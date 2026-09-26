@@ -197,8 +197,9 @@ independently; the retired standalone value cards have no display switch.
 
 Cadence spread (added 2026-08-30, the chosen per-game cadence-consistency
 measure) is stored as `cadenceSpread` on wins and losses alike: the
-interquartile range of all button-press gaps (wasted presses included)
-divided by their median — 0 is metronomic, larger is burstier. A robust
+interquartile range of all recorded-input gaps (left downs and right
+flag-action triggers, no-ops included) divided by their median — 0 means
+no spread in the middle half; larger values mean greater relative spread. A robust
 dimensionless dispersion was chosen over a coefficient of variation
 because press-gap distributions are heavy-tailed; the IQR/median form
 ignores outlier pauses instead of being dominated by them. Needs at
@@ -348,8 +349,9 @@ no longer recorded or shown anywhere; the schema still accepts it so the
 records from that day stay valid.
 
 Fastclick gap — the game's median gap between consecutive board-changing
-presses made on the move (a cursor move within 100ms before the press)
-with gaps under 1s — joined the schema on 2026-08-22 alongside the
+actions with a cursor move within 100ms before the later action and a gap
+of at most 1s (left release/right flag-trigger times, not physical down times;
+wording corrected to the implemented definition 2026-09-26) — joined the schema on 2026-08-22 alongside the
 session stats, whose fastclick series uses the identical qualification.
 Stored (as `fastclickGapMs`) rather than derived because it needs press
 timestamps, which the scalar record does not carry (the trace does, so
