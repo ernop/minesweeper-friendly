@@ -168,7 +168,7 @@ function trainingReplay(trace, outcome, board, deps) {
       standingFlag[index] = episode;
       flagEpisodes.push(episode);
     }
-    steps.push({ kind, gapMs });
+    steps.push({ kind, gapMs, t: event.t, index });
     if (startedAtT !== null) previousT = event.t;
   }
   const won = !exploded && revealedCount === cellCount - board.mines;

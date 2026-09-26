@@ -12,6 +12,63 @@ measures the player against it. The plan's rules and targets are decisions
 made from the player's saved games and the cited sources; they are not
 measurements and can be revised.
 
+## Redo requested: measure against real players first (2026-09-26, afternoon)
+
+The user asked to redo the plan as a teaching, learning, and skill-breakdown
+evaluation done "like a true scientist":
+
+- **Exact comparison.** Use the full movement and timing history of the
+  player's games and the thousands of expert games published online to find
+  exactly how the player compares with strong players, including players who
+  already hold the target time.
+- **Subskills.** Break the game into subskills and practice specific pattern
+  skills and error types intensely, not only endgames. Reason about it as
+  guiding a robot hand like the player's (its misclick rate, its speed): how
+  to guide it, and how to find out its properties.
+- **Minesweeper problems.** Problems taken from real games of high-level
+  players, each beginning just as a square opens, with a set starting mouse
+  position. Identify each pattern or logic situation, look at how players of
+  all levels handle it, find commonalities among high-level players, place the
+  player's level per situation, and show how to move up.
+- **Collaboration.** Getting the needed test data is to be worked out with the
+  user, and the user will take the tests and evaluations as they are created.
+- **Chord binding.** Left-click chording in this clone was an arbitrary choice;
+  the user is not attached to it.
+
+Decisions (this change): the morning's stage plan below stays on the training
+page as a provisional economy dashboard; its stages are not final until the
+comparison study ranks the subskills. The study design, data sources, and pilot
+results are in
+[reference/skill-comparison-2026-09-26.md](../../reference/skill-comparison-2026-09-26.md).
+Chord binding becomes a measured choice: other bindings (both buttons with the
+1.5 click, keyboard keys as buttons) are candidates for a within-player
+experiment, not a change made on reputation.
+
+### Plan v2 (requested; not built unless marked)
+
+1. **Measure the player's hand and eyes.** From existing traces (built as the
+   offline pilot, `analysis/skill-comparison/`): per input, the reaction before
+   the cursor moves, travel, hover on the target, distance, and action kind;
+   economy per 3BV; pauses. Then a pointing test on the real board grid
+   (targets at set distances and directions) for the hand's travel-time law,
+   endpoint accuracy, and misclick rate.
+2. **Measure strong players the same way.** A cross-level corpus of published
+   expert replays, converted to the same per-input format (pilot built).
+3. **Rank the gaps.** Replace one component at a time in the player's own
+   games with a faster level's values for the same situations, and rank
+   subskills by seconds saved.
+4. **Situation classes.** Annotate every input with the logic it needed (from
+   the solver) and a local pattern signature, then compare latency and choices
+   per class across levels and place the player in each class.
+5. **Minesweeper problems.** Positions from real games, each starting when the
+   player clicks a start dot at the original player's recorded cursor
+   position; the board then shows exactly what the original player saw after
+   their click; the task is the next moves. Scored against the original player
+   and all corpus players in the same class.
+6. **Train and test transfer.** Train the top-ranked subskills with adaptive
+   problems and drills; check each against real Expert games; repeat every test
+   to establish its reliability before using it to judge training.
+
 ## Diagnosis the plan is built on (measured 2026-09-26)
 
 From 1,692 Expert games through 2026-09-26 (details and method in the
@@ -21,15 +78,19 @@ input, no-ops included: 0.63) divided by seconds per input. Replayed wins spend 
 of their time placing flags, 19% on chords that open one cell, and 12% on
 clicks that change nothing. Deleting the removable inputs' time from the same
 wins gives a median of about 68 s. Only a quarter of games that reach 20 s are
-won, and most of the rest are lost with a proven-safe move available. The hand
-is already fast (median 0.28 s between inputs); inputs and discarded runs are
-the gap.
+won, and most of the rest are lost with a proven-safe move available.
+Correction (same afternoon): this section first said the hand was already fast
+enough. The replay comparison contradicts it: sub-60 players also spend about
+40% less time per input (213 vs 358 ms), from travel, hover, reaction, and pauses
+(reference/skill-comparison-2026-09-26.md).
 
 ## The plan
 
-Principle shown on the page: time is inputs × seconds per input; remove
-inputs that change nothing, then stop losing started runs to avoidable
-mistakes, then read and move faster. Rules from earlier stages stay on.
+Principle shown on the page: time is inputs × seconds per input; players who
+break 60 s need about a fifth fewer inputs per board and spend about 40% less
+time per input; the stages start with inputs (no new speed needed), then stop
+losing started runs, then read and move faster, until the comparison study
+ranks the speed components. Rules from earlier stages stay on.
 
 **Every session**
 

@@ -11,8 +11,40 @@ on the design axis or in a research note, not requested as a build.
 ## Training toward Expert sub-60 (creator, 2026-09-26)
 
 The plan and the read-only training page are built
-([Training](docs/product/training.md)). Proposed follow-ons, not approved
-builds:
+([Training](docs/product/training.md)). The creator then asked for plan v2:
+measure against real players first, break play into subskills, and build
+"Minesweeper problems" from real positions (same file, "Redo requested").
+Unbuilt parts of plan v2 (creator):
+
+- **Corpus at scale.** Stratified saolei.wang sample across all time bands with
+  several games per player, board difficulty recorded (3BV, openings), and the
+  pilot pipeline in `analysis/skill-comparison/` extended rather than forked.
+- **Situation annotation.** Each input tagged with the logic it needed (basic
+  counting, subset, enumeration), whether it was provable before the previous
+  input or became provable because of it, and a local pattern signature that is
+  the same under rotation and reflection.
+- **Gap ranking.** Replace one component at a time (reaction, travel, hover,
+  economy, pauses) in the player's own games with a faster level's values for
+  the same situations; rank subskills by seconds saved.
+- **Pointing test.** Targets on the real board grid at set distances and
+  directions for travel time, hover, endpoint accuracy, and misclick rate.
+- **Minesweeper problems.** Positions from real games that start when the player
+  clicks a start dot at the original player's cursor position, then show the
+  board exactly as it was after their click; scored against that player and all
+  corpus players in the same situation class; adaptive selection.
+- **Level placement.** A per-class model of latency and choices by level with
+  player effects and uncertainty, placing the player in each class.
+- **Chord-binding experiment.** Optional both-button chording with the 1.5
+  click, and keyboard keys as buttons, compared with left-click chording in
+  alternating blocks.
+- **Measurement defect: cell geometry in trace metrics.** `game/trace-metrics.js`
+  maps cursor samples to cells with `layout.width / layout.boardWidth`, but the
+  layout events measure `#board`'s border box, whose bevel insets the grid by an
+  eighth of a cell. 3.25% of recorded clicks fall in a neighbor under that
+  mapping versus none (all within 0.6 px) with the inset. Feints, queued-click
+  dwells, and sub-movement target rectangles use the mapping.
+
+Earlier proposals, still open:
 
 - **Per-game economy feedback.** After each Expert win, show that game's
   removable inputs, one-cell chords, and flags no multi-cell chord used, so

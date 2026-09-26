@@ -7,6 +7,10 @@ Research notes and external references. Index: [AGENTS.md](../AGENTS.md).
   replay, removable inputs, run conversion, openings), Minesweeper strategy
   and solver sources, and skill-acquisition findings on deliberate practice,
   spacing, and daily dose.
+- `reference/skill-comparison-2026-09-26.md` — plan v2 study design and pilot:
+  the player's replayed wins against 60 published saolei.wang expert replays
+  in four time bands, measured identically (economy, reaction, travel, hover,
+  pauses), with caveats and next steps.
 - `reference/mouse-motion-metrics.md` — 2026-08-20 survey of mouse-motion
   characterization across psychometrics, biometrics, clinical assessment,
   and esports, with a tiered proposal for per-game measurements. All four

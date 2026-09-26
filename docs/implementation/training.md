@@ -59,6 +59,21 @@ after an explosion or a mismatch are `diverged`. Nothing is approximated.
 On the 2026-09-26 history this reproduced 973 of 995 Expert traces; the 22
 diverged were Justice redraws on seed-rebuilt boards.
 
+Each replay step carries `{ kind, gapMs, t, index }`: the input kind, the gap
+since the previous input, the trace time, and the cell.
+
+## Offline comparison pipeline (plan v2)
+
+`analysis/skill-comparison/` compares the player's exported games with
+published expert replays (commands, data rules, and measurement notes in its
+NOTES.md; design and results in reference/skill-comparison-2026-09-26.md).
+`user_games.js` converts the game's history and traces exports through
+`TrainingCore.replay`; `corpus_actions.py` converts saolei.wang replays through
+`ms_toollib`; `compare.py` measures both identically. Trace layout events
+measure `#board`'s border box, so the converter insets the cell grid by the
+bevel (one eighth of a cell) and rejects any game with a click more than 1 px
+outside its own cell.
+
 ## Tests
 
 - `node tests/training-core-test.js`: hand-built 5x4 known answers for every

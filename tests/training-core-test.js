@@ -87,6 +87,8 @@ console.log('replay: every input kind on a hand-built win');
     'first-reveal', 'noop-missing-flag', 'flag', 'flag', 'chord-multi', 'noop-blank', 'noop-right-on-open',
     'flag', 'unflag', 'noop-finished', 'noop-on-flag', 'reveal', 'flag', 'chord-single']));
   check('first reveal has no gap; later gaps are measured', replay.steps[0].gapMs === null && replay.steps[1].gapMs === 300);
+  check('each step keeps its trace time and cell', replay.steps[0].t === 1000 && replay.steps[0].index === at(0, 0)
+    && replay.steps[13].t === 6900 && replay.steps[13].index === at(4, 2));
   check('played time runs from the first reveal to the last input', replay.playedMs === 5900);
   const breakdown = TrainingCore.winBreakdown(replay);
   check('timed inputs exclude the first reveal', breakdown.inputCount === 13);

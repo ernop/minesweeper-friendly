@@ -50,8 +50,11 @@ spent [measured]:
 | wrong flags, flag removals, other no-op clicks | 11.6 | 3.9 |
 
 53% of chords opened exactly one cell. Pauses over 1 s: 7.6 per win,
-12.8 s. The median gap between inputs was 276 ms (10th percentile 191 ms):
-the hand is not the bottleneck. [measured]
+12.8 s. The median gap between inputs was 276 ms (10th percentile 191 ms).
+[measured] This note first concluded that the hand was not the bottleneck; the
+same-afternoon replay comparison
+([skill-comparison-2026-09-26.md](skill-comparison-2026-09-26.md)) contradicts
+that: sub-60 players' median gap is 160 ms.
 
 Of the underflagged number clicks, 89% were one flag short and the median
 gap before them was 269 ms: reflexive "does it chord?" clicks in rhythm, not
@@ -202,8 +205,10 @@ confounded with practice date. [measured]
 - **Dose and spacing.** 45–60 minutes most days, split when longer, following
   the dose-response and spacing results.
 - **Rejected:** grinding more Expert games unchanged (five weeks moved 3BV/s
-  by about 0.1); speed drills before economy (the hands already average
-  0.35 s per input); an immediate switch to no-flag play (see above).
+  by about 0.1); an immediate switch to no-flag play (see above). The original
+  reason for putting speed last (the hands already average 0.35 s per input)
+  was withdrawn after the replay comparison: sub-60 players average about
+  0.21 s.
 
 ## Sources
 
