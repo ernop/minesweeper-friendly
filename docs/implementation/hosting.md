@@ -68,8 +68,11 @@ master-only GitHub environment are installed. The initial committed runtime
 is seeded and hash-verified; an incomplete upload was rejected without
 changing it. The temporary local private key was deleted. Actual SSH tests rejected shell
 commands, command injection, and rsync to Voice-Wei. Public routing is not
-activated: add the DreamHost A record for `minesweeper-friendly.fuseki.net`
-pointing to `146.190.147.109`, then complete TLS and live verification.
+activated. Order (creator, 2026-09-26): first the Fuseki editor moves to
+`edit.fuseki.net` (`scripts/enable_editor_origin.sh` in the Fuseki checkout,
+which also installs the tracked Fuseki configuration the entry redirect
+needs); then add the DreamHost A record for `minesweeper-friendly.fuseki.net`
+pointing to `146.190.147.109`, and complete TLS and live verification.
 
 The authoritative cross-repository procedure and review are in
 [Fuseki's independent application hosting plan](https://github.com/ernop/fuseki4_ai/blob/master/docs/minesweeper-friendly-hosting-plan.md).

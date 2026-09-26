@@ -10,6 +10,22 @@ Nectaris Remake later. Plan and thoroughly test the security and deployment
 boundaries before implementation. Nectaris is a future launch, not a request
 to publish it now.
 
+Clarified goals (creator, 2026-09-26): one generic, security-first
+arrangement for the Fuseki main site and all related projects. New projects
+are posted often, each from its own repository, with minimal per-project
+setup; the main site keeps evolving with its own dynamic features; routes,
+hostnames, deployments, and site links stay coordinated. Security is a
+primary requirement. Fuseki's
+[product requirements](https://github.com/ernop/fuseki4_ai/blob/master/docs/product-requirements.md#independently-deployed-applications)
+own this cross-project requirement; the current implementation serves
+Minesweeper alone.
+
+Launch timing (creator, 2026-09-26): public activation on fuseki.net happens
+"asap, once the overall edit.fuseki.net change is done". That change moves
+the private Fuseki editor to its own origin (`edit.fuseki.net`) first, so no
+page on fuseki.net or on an app subdomain shares the editor's origin or
+cookies.
+
 ## Hosting design
 
 - Each application keeps its own repository and deploys independently.
