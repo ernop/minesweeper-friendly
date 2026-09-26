@@ -175,16 +175,16 @@ function persistGameRecord(historyKey, record) {
   persistGameRecords([[historyKey, record]]);
 }
 
-// Rewrites every stored record from RAM. Load-time normalization can rename
-// history keys as well as upgrade records.
-function replaceGameRecords(history) {
+// Applies load-time normalization in one transaction: deletes entries it
+// moved off legacy keys ([history key, endedAt]) and puts the records it
+// changed. Clearing and rewriting the whole store instead would erase any
+// game another open tab saved between this page's read and its rewrite.
+function persistGameRecordChanges(writes, deletions) {
   if (db === null) storageFailure('game history not saved: database is not open');
   const tx = db.transaction(RECORD_STORE, 'readwrite');
   const store = tx.objectStore(RECORD_STORE);
-  store.clear();
-  for (const [historyKey, records] of Object.entries(history)) {
-    for (const record of records) store.put(record, [historyKey, record.endedAt]);
-  }
+  for (const [historyKey, endedAt] of deletions) store.delete([historyKey, endedAt]);
+  for (const [historyKey, record] of writes) store.put(record, [historyKey, record.endedAt]);
   tx.onerror = () => storageFailure('game history save failed: ' + tx.error);
   tx.commit();
 }

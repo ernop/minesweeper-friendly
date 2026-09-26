@@ -5,7 +5,7 @@ Spec: [docs/product/storage-and-history.md](../product/storage-and-history.md). 
 - Storage ([Storage](../product/storage-and-history.md)): one IndexedDB database
   (`minesweeper-friendly`, version 4), three stores. The open, upgrade,
   `readAllUserdata`, `persistUserdata`, `readGameRecords`,
-  `persistGameRecord(s)`, and `replaceGameRecords` live in `storage.js`
+  `persistGameRecord(s)`, and `persistGameRecordChanges` live in `storage.js`
   (2026-08-23, shared with the settings page); each page defines two
   late-bound hooks: `storageFailure(what)` (announce + throw) and
   `userdataReady()` (called once BOTH the db is open and this callback has
@@ -35,11 +35,14 @@ Spec: [docs/product/storage-and-history.md](../product/storage-and-history.md). 
   written by `appendGameRecord`, the finished-game worker reply
   (`reportResult`), restored-trace measurements, board-metric backfill
   (`persistGameRecord`), and import (`persistGameRecords`, added records
-  only); load-time normalization that changed anything rewrites the store
-  with `replaceGameRecords`, since it can rename history keys. The training
+  only). Load-time normalization returns the exact `writes` and legacy-key
+  `deletions` it implies, applied by `persistGameRecordChanges`; it never
+  clears the store, so a record another tab saved between this page's read
+  and its write survives. The training
   worker reads only its mode's key range. Cross-page consistency: each page reads settings fresh
-  at load and writes through immediately; the game and settings pages
-  are never open as two live views of the same RAM.
+  at load and writes through immediately. Two game tabs are two live RAM
+  copies: each writes only its own games' records, so neither erases the
+  other's; each shows the other's games after a reload.
 - History: the RAM `history` maps mode key to a
   chronological array of game records, one per finished game:
   {endedAt, outcome: 'win'|'loss', timeMs, bv3, clicks, wastedClicks,

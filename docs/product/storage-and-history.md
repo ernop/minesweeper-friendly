@@ -16,6 +16,13 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   game end "is horrible and we should never do that." A game's writes cover
   only what that game created or changed; their cost never grows with the
   size of the history.
+- Open game tabs never erase each other's games. Found 2026-09-26: with the
+  game open in two windows, the whole-history value was rewritten from one
+  tab's older copy, dropping the 11 games finished in the other tab between
+  12:59 and 14:41 (their traces survived; the records were restored from a
+  same-day snapshot by import). Per-game records remove that failure:
+  every write, including load-time normalization, touches only the records
+  it changes.
   The traces store indexes `[mode, finalBoard.cells.length]` as
   `boardsByModeAndSize`, so backfill can find source boards without loading raw
   input payloads. The version-3 upgrade indexes existing traces in place; no

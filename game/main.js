@@ -39,7 +39,7 @@ function userdataReady() {
   readAllUserdata((got) => readGameRecords((storedHistory) => {
     const loaded = normalizeHistory(storedHistory);
     history = loaded.history;
-    if (loaded.changed) replaceGameRecords(history);
+    if (loaded.changed) persistGameRecordChanges(loaded.writes, loaded.deletions);
     // An absent kind is a player who never stored it, not an error.
     loadSettings(got);
     trialSession = got.trial === undefined ? null : got.trial;

@@ -254,27 +254,33 @@ function normalizeGameRecord(record) {
 
 //-------ACTION EVALUATION: HISTORY NORMALIZATION END-------
 
+// Besides the RAM history, lists exactly the stored entries normalization
+// changes: `writes` ([history key, record]) for records whose content or key
+// changed, and `deletions` ([stored key, endedAt]) for entries moved off a
+// legacy key. Persisting only these leaves every other record untouched, so
+// a game another open tab saved meanwhile cannot be erased.
 function normalizeHistory(raw) {
   const out = {};
-  let changed = false;
+  const writes = [];
+  const deletions = [];
   for (const [key, list] of Object.entries(raw)) {
     const norm = normalizeHistoryKey(key);
-    if (norm !== key) changed = true;
     if (!out[norm]) out[norm] = [];
     const seen = new Set(out[norm].map((r) => r.endedAt));
     for (const sourceRecord of list) {
       const modern = normalizeGameRecord(sourceRecord);
-      if (modern.changed) changed = true;
       const r = modern.record;
+      if (norm !== key) deletions.push([key, sourceRecord.endedAt]);
       if (seen.has(r.endedAt)) continue;
       seen.add(r.endedAt);
       out[norm].push(r);
+      if (norm !== key || modern.changed) writes.push([norm, r]);
     }
   }
   for (const key of Object.keys(out)) {
     out[key].sort((a, b) => a.endedAt - b.endedAt);
   }
-  return { history: out, changed: changed };
+  return { history: out, changed: writes.length > 0 || deletions.length > 0, writes, deletions };
 }
 
 //-------PLAY HISTORY: TRANSFER CLEANING (pure)-------
