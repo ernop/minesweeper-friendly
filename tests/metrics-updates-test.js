@@ -8,6 +8,9 @@ const source = require('./game-source.js').source;
 const start = source.indexOf('function refreshMetricsPanel()');
 const end = source.indexOf('//-------SESSION STATS: COMPUTATION', start);
 assert(start >= 0 && end > start, 'metrics computation section is present');
+const drawStart = source.indexOf('let sessionChartsPlayDirty');
+const drawEnd = source.indexOf('function renderMetricsPanel(', drawStart);
+assert(drawStart >= 0 && drawEnd > drawStart, 'session chart draw pacing is present');
 let now = 1000;
 let nextId = 0;
 let activeTrace = true;
@@ -35,7 +38,9 @@ const context = vm.createContext({
   setTimeout: (fn, delay) => { timeouts.set(++nextId, { fn, at: now + delay }); return nextId; },
   clearTimeout: (id) => timeouts.delete(id),
   setInterval: () => { throw new Error('Metrics must not install a repeating refresh'); },
+  SESSION_STEP_MS: 10000,
 });
+vm.runInContext(source.slice(drawStart, drawEnd), context);
 vm.runInContext(source.slice(start, end), context);
 const run = (code) => vm.runInContext(code, context);
 const flushFrame = () => {
@@ -98,5 +103,24 @@ assert.equal(jobs.length, 0, 'session changes cannot sample a finished trace');
 assert.equal(renders.at(-1), null);
 advance(5000);
 assert.equal(frames.size + timeouts.size, 0, 'finished games leave no refresh loop');
-console.log('metrics-updates: worker backpressure, delta transport, stale replies, visibility, and idle checks passed');
+
+// In-game accumulation redraws the session charts once per session step;
+// structural changes (game start/end, settings) redraw at the next update.
+run('markSessionChartsDrawn()');
+run('scheduleMetricsUpdate({ sessionPlay: true }); scheduleMetricsUpdate({ elapsed: true })');
+assert.equal(run('sessionChartsDirty'), false, 'cursor, press, and clock changes are not structural');
+assert.equal(run('sessionChartsPlayDirty'), true);
+assert.equal(run('sessionChartsNeedDraw()'), false, 'no redraw inside the current session step');
+now += 9999;
+assert.equal(run('sessionChartsNeedDraw()'), false);
+now += 1;
+assert.equal(run('sessionChartsNeedDraw()'), true, 'one redraw per elapsed session step');
+run('markSessionChartsDrawn()');
+assert.equal(run('sessionChartsNeedDraw()'), false, 'drawing clears in-game accumulation');
+run('scheduleMetricsUpdate({ session: true })');
+assert.equal(run('sessionChartsNeedDraw()'), true, 'structural changes draw without waiting for a step');
+run('markSessionChartsDrawn(); settings.sessionRateBasis = "game"; scheduleMetricsUpdate({ elapsed: true })');
+assert.equal(run('sessionChartsPlayDirty'), false, 'the per-game basis ignores the running clock');
+advance(5000);
+console.log('metrics-updates: worker backpressure, delta transport, stale replies, visibility, idle checks, and session chart pacing passed');
 })().catch((error) => { console.error(error); process.exitCode = 1; });

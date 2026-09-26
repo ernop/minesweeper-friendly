@@ -307,7 +307,11 @@ inside the same boundary. No old lookback observations leak across it.
   The width persists as the `metricsPanelWidth` setting (default 316px,
   clamped 220–640); collapsing to the corner chip ignores it.
 - Session charts update when session data, grouping, scope, or dimensions
-  change. Their controls and scroll container stay mounted; live metric rows
+  change. Within a game, its cursor travel, presses, mid-game evaluations,
+  and running clock redraw them at most once per 10-second session step,
+  the charts' own sample spacing; game starts and ends, settings, and window
+  changes redraw at once (2026-09-26 input-latency review: redrawing about
+  3.4 times a second competed with board input). Their controls and scroll container stay mounted; live metric rows
   and sparkline SVG nodes update in place. Chart replacement is confined to
   the session chart region and preserves its reader's scroll position.
   Hovered/focused charts defer replacement until pointer leave/focus out,

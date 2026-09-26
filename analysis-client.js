@@ -13,7 +13,7 @@ function analysisFailure(error) {
 async function analysisTask(lane, kind, payload) {
   let state = analysisLanes.get(lane);
   if (!state) {
-    const worker = new Worker('analysis-worker.js?v=20260925-worker-analysis');
+    const worker = new Worker('analysis-worker.js?v=20260926-session-pacing');
     state = { worker, pending: new Map(), error: null };
     analysisLanes.set(lane, state);
     worker.onmessage = ({ data }) => {

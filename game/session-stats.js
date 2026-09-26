@@ -1102,11 +1102,11 @@ function sessionRecordMove(px) {
       && last.modeKey === sessionEventModeKey()
       && now - last.at < SESSION_MOVE_COALESCE_MS) {
     last.px += px;
-    scheduleMetricsUpdate({ session: true });
+    scheduleMetricsUpdate({ sessionPlay: true });
     return;
   }
   sessionEvents.push({ kind: 'move', modeKey: sessionEventModeKey(), at: now, px: px });
-  scheduleMetricsUpdate({ session: true });
+  scheduleMetricsUpdate({ sessionPlay: true });
 }
 
 function sessionRecordPress(useful, flagPlaced, flagRemoved, misclick) {
@@ -1136,7 +1136,7 @@ function sessionRecordPress(useful, flagPlaced, flagRemoved, misclick) {
     }
   }
   sessionEvents.push(press);
-  scheduleMetricsUpdate({ session: true });
+  scheduleMetricsUpdate({ sessionPlay: true });
 }
 
 function sessionRecordDeath(mistake) {
@@ -1160,7 +1160,7 @@ function sessionRecordEvaluation(evaluation) {
       && evaluation.mistakes.includes('chose-lower-modeled-life')
       ? (evaluationLifeGap(evaluation) || 0) : 0,
   });
-  scheduleMetricsUpdate({ session: true });
+  scheduleMetricsUpdate({ sessionPlay: true });
 }
 
 // One ending per finished game ('win', a fatal-action status kind, a

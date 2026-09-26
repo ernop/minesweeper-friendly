@@ -147,8 +147,12 @@ Spec: [docs/product/session-stats.md](../product/session-stats.md). Index: [AGEN
   never hidden, so `#metrics-panel` stays visible in every state after its
   first render; `sessionDefinition` stays in the session controls key so a
   new window rebuilds the charts at once rather than waiting out the
-  hover deferral. Session mutations mark
-  `sessionChartsDirty`; `appendSessionCharts` replaces only the chart region,
+  hover deferral. Structural session mutations (play start/end, deaths,
+  endings, settings) mark `sessionChartsDirty`; in-game accumulation
+  (`sessionRecordMove`, `sessionRecordPress`, `sessionRecordEvaluation`, and
+  the per-time clock) marks `sessionChartsPlayDirty`, which
+  `sessionChartsNeedDraw` honors once `SESSION_STEP_MS` has passed since
+  `markSessionChartsDrawn`. `appendSessionCharts` replaces only the chart region,
   preserving `#metrics-panel-content`'s scrollTop. Controls stay mounted
   during data updates. Hover/focus holds chart replacement until leave/out
   events, while trace sampling continues. There is no idle refresh loop.

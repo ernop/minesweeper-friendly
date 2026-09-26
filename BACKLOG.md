@@ -101,7 +101,8 @@ no cap, sampling, or reduced refresh frequency has been approved.
 
 The creator reported laggy clicks on the GitHub Pages site in Firefox, from
 the first square on ([Input latency](docs/product/board-and-layout.md#input-latency-user-report-2026-09-26)).
-Built: exact, faster click-time proof and odds evidence. Not built:
+Built: exact, faster click-time proof and odds evidence, and session charts
+that redraw once per session step during a game. Not built:
 
 1. **One stored record per game.** Every finished game rewrites the whole
    history value twice (`appendGameRecord`, then the finished-game worker
@@ -113,24 +114,16 @@ Built: exact, faster click-time proof and odds evidence. Not built:
    coordination with concurrent storage work that also claims database
    version 4 (the self-check store) and with the archive exporter, which
    reads the whole-history userdata value.
-2. **Session chart redraws during play.** The session charts are rebuilt
-   from scratch about 3.4 times a second while playing (cursor travel,
-   presses, and the clock each invalidate them), several milliseconds of
-   script plus layout each time; on the per-game basis only the x-axis
-   extent changes between rebuilds. Proposal on the same branch: redraw once
-   per 10-second session step during a game, and at once for game start/end,
-   settings, and window changes. It reduces refresh frequency, so it awaits
-   the creator's decision.
-3. **Proof-budget tail.** About 1% of expert positions exhaust the exact
+2. **Proof-budget tail.** About 1% of expert positions exhaust the exact
    proof's 2,000,000-node budget (about 90ms in Firefox, every click on
    them) and end incomplete. A memoized frontier search would finish them
    in milliseconds but would complete proofs the current rule leaves
    incomplete, changing Justice, misclick, and evidence results; that needs
    a proof-version decision.
-4. **Evidence off the input path.** Odds and misclick evidence could move to
+3. **Evidence off the input path.** Odds and misclick evidence could move to
    a worker, but the exact proof stays synchronous because A Just Universe
    needs it before revealing, and game-end finalization would have to wait
-   for the last action's evidence. After item 3 this would save only a few
+   for the last action's evidence. After item 2 this would save only a few
    milliseconds per click.
 
 ## Game data as the primary result surface (creator, 2026-09-23)

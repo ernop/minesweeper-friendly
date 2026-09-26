@@ -85,6 +85,8 @@ laggy"; asked whether the game is "max efficient" and to test and fix it.
   up to about 0.6 s in Firefox now take a few milliseconds, with a rare
   proof-budget case near 0.1 s
   ([measurements](../implementation/board-and-layout.md#click-time-evidence-cost-2026-09-26)).
+- Session charts redraw once per 10-second session step during a game, not
+  on every cursor sample ([Session stats](session-stats.md)).
 - Finishing a game must not rewrite the whole history. Found: every finished
   game rewrote the entire stored history twice (160 MB for the player's
   6,407 games), blocking input for roughly a second each time, including

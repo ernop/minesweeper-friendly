@@ -3,7 +3,7 @@
 importScripts('trend-fit.js?v=20260925-worker-analysis',
   'game/trace-metrics.js?v=20260925-worker-analysis',
   'game/evaluation.js?v=20260925-worker-analysis',
-  'game/session-stats.js?v=20260925-worker-analysis',
+  'game/session-stats.js?v=20260926-session-pacing',
   'game/metric-definitions.js?v=20260925-worker-analysis',
   'board-shape.js', 'zini.js', 'board-metrics.js?v=20260921-visible-zero-one',
   'game-data.js', 'game/rankings.js?v=20260925-worker-analysis',

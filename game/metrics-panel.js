@@ -159,6 +159,23 @@ let lastLiveMetrics = null;
 // ResizeObserver handles actual changes in the panel's dimensions.
 let metricsPanelView = null;
 let sessionChartsDirty = true;
+// In-game accumulation (cursor travel, presses, mid-game evaluations, the
+// running clock) only extends the newest session sample, so it redraws the
+// session charts at most once per session step. A full redraw costs the
+// page far more than the few pixels that move in between.
+let sessionChartsPlayDirty = false;
+let sessionChartsDrawnAt = -Infinity;
+
+function sessionChartsNeedDraw() {
+  return sessionChartsDirty || (sessionChartsPlayDirty
+    && performance.now() - sessionChartsDrawnAt >= SESSION_STEP_MS);
+}
+
+function markSessionChartsDrawn() {
+  sessionChartsDirty = false;
+  sessionChartsPlayDirty = false;
+  sessionChartsDrawnAt = performance.now();
+}
 
 function renderMetricsPanel(metrics) {
   if (!tracing()) cancelMetricsUpdate();
@@ -244,15 +261,15 @@ function renderMetricsPanelContent(metrics) {
       };
       view.sessionCharts.addEventListener('mouseleave', resumeCharts);
       view.sessionCharts.addEventListener('focusout', resumeCharts);
-      sessionChartsDirty = false;
-    } else if (sessionChartsDirty
+      markSessionChartsDrawn();
+    } else if (sessionChartsNeedDraw()
         && !view.sessionCharts.matches(':hover')
         && !view.sessionCharts.contains(document.activeElement)) {
       const content = document.createDocumentFragment();
       const generation = (view.sessionGeneration || 0) + 1;
       view.sessionGeneration = generation;
       const target = view.sessionCharts;
-      sessionChartsDirty = false;
+      markSessionChartsDrawn();
       appendSessionCharts(content).then(() => {
         if (metricsPanelView !== view || view.sessionCharts !== target
             || view.sessionGeneration !== generation) return;
@@ -479,8 +496,9 @@ function cancelMetricsUpdate() {
 function scheduleMetricsUpdate(changed = {}) {
   if (changed.trace) metricsTraceDirty = true;
   if (changed.elapsed) metricsElapsedDirty = true;
-  if (changed.session || (changed.elapsed && sessionPlayFrom !== null
-      && settings.sessionRateBasis === 'time')) sessionChartsDirty = true;
+  if (changed.session) sessionChartsDirty = true;
+  if (changed.sessionPlay || (changed.elapsed && sessionPlayFrom !== null
+      && settings.sessionRateBasis === 'time')) sessionChartsPlayDirty = true;
   if (document.hidden || metricsUpdateFrame !== null || metricsUpdateTimeout !== null) return;
   const requestFrame = () => {
     metricsUpdateTimeout = null;
