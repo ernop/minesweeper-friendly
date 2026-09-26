@@ -23,7 +23,6 @@ function check(name, condition) {
 function visit(url) {
   const parsed = new URL(url);
   const replaced = [];
-  let stopped = false;
   const location = {
     hostname: parsed.hostname,
     pathname: parsed.pathname,
@@ -31,19 +30,15 @@ function visit(url) {
     hash: parsed.hash,
     replace(next) { replaced.push(next); },
   };
-  vm.runInNewContext(source, {
-    location,
-    window: { stop() { stopped = true; } },
-  });
-  return { replaced, stopped };
+  vm.runInNewContext(source, { location });
+  return { replaced };
 }
 
 {
   const home = visit('https://ernop.github.io/minesweeper-friendly/');
   check('project root goes to the fuseki root',
     home.replaced.length === 1
-    && home.replaced[0] === 'https://minesweeper-friendly.fuseki.net/'
-    && home.stopped);
+    && home.replaced[0] === 'https://minesweeper-friendly.fuseki.net/');
   const deep = visit('https://ernop.github.io/minesweeper-friendly/settings.html?from=pages#scores');
   check('a deep link keeps its path, query, and hash',
     deep.replaced[0] === 'https://minesweeper-friendly.fuseki.net/settings.html?from=pages#scores');
@@ -59,7 +54,7 @@ for (const url of [
   'http://127.0.0.1:8099/training.html',
 ]) {
   const stayed = visit(url);
-  check(url + ' is not redirected', stayed.replaced.length === 0 && !stayed.stopped);
+  check(url + ' is not redirected', stayed.replaced.length === 0);
 }
 
 for (const page of pages) {

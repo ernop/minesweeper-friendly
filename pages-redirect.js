@@ -12,5 +12,4 @@
   }
   if (path.charAt(0) !== '/') path = '/' + path;
   location.replace('https://minesweeper-friendly.fuseki.net' + path + location.search + location.hash);
-  window.stop();
 })();
