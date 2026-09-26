@@ -212,6 +212,22 @@ check('a set: one-number problems, then pattern classes in turn, least tried fir
   assert.equal(next.filter((p) => tried.some((a) => a.problemId === p.id)).length, 0, 'untried problems come first');
 });
 
+check('ladder layout: fastest on top, labels kept apart and in order', () => {
+  const values = [300, 160, 170, 165, 250];
+  const layout = ladderLayout(values, 200, 20);
+  const byValue = values.map((v, i) => i).sort((a, b) => values[a] - values[b]);
+  for (let k = 1; k < byValue.length; k++) {
+    const [a, b] = [byValue[k - 1], byValue[k]];
+    assert.ok(layout.dotY[a] <= layout.dotY[b], 'faster entries sit higher');
+    assert.ok(layout.labelY[b] - layout.labelY[a] >= 20 - 1e-9, 'labels at least the gap apart');
+  }
+  assert.ok(layout.labelY.every((y) => y >= 10 - 1e-9 && y <= 190 + 1e-9), 'labels stay inside');
+  assert.equal(layout.dotY[1] > 0 && layout.dotY[0] < 200, true, 'exact points inside the drawing');
+  assert.ok(layout.ticks.length >= 2 && layout.ticks.every((t, i) => i === 0 || t.ms > layout.ticks[i - 1].ms));
+  const single = ladderLayout([200], 100, 20);
+  assert.equal(single.dotY[0], 50, 'one entry sits in the middle');
+});
+
 check('class names in words', () => {
   assert.equal(describeProblemClass(bank, 'one').name, 'one number at a time');
   const entry = (family) => ({ classes: { x: { family } } });

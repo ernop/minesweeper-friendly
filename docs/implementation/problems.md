@@ -25,6 +25,9 @@ Spec: [docs/product/problems.md](../product/problems.md).
     (replays an attempt's clicks), `problemProfile` (per class, grouped by the
     problem's class in the current bank), `levelThinkMs`, `pickProblemSet`,
     `describeProblemClass`;
+  - `ladderLayout(values, heightPx, gapPx)`: exact positions on a time scale
+    (fastest at the top, 8% padding), label positions pushed apart in order
+    within the drawing, and ticks;
   - `validProblemAttempt`, `problemAttemptsFile`, `readProblemAttemptsFile`.
 - `problems-page.js`:
   - opens IndexedDB `minesweeper-problems` version 1 (stores `attempts`, keyPath
@@ -45,7 +48,10 @@ Spec: [docs/product/problems.md](../product/problems.md).
     chord after a gesture, otherwise open or chord);
   - `finishAttempt` builds and validates the record, `add`s it, and renders the
     result only after the transaction completes; `visibilitychange` to hidden
-    and window `blur` interrupt a running attempt and restart a preview.
+    and window `blur` interrupt a running attempt and restart a preview;
+  - `renderLadder` draws a ladder from `ladderLayout` (band with ticks, dots,
+    SVG leaders, labels); `levelEntries` supplies the levels with enough
+    corpus moves and names the rest.
 
 ## Bank
 
@@ -81,8 +87,8 @@ node analysis/skill-comparison/problems_bank.js SITUATIONS.json problems-bank.js
   every problem's answers re-proved with `justice.js` at two-number strength
   (safe after the new number, not provable before), click semantics on a hand
   board, answer crediting, the movement split, attempt summaries, profile
-  grouping across banks, set picking, class names, validation, backup files,
-  and loud bank failures.
+  grouping across banks, set picking, the ladder layout, class names,
+  validation, backup files, and loud bank failures.
 - `node tests/problems-browser-check.js PLAYWRIGHT_CORE_DIR CHROMIUM [SCREENSHOT_DIR]`
   on `http://127.0.0.1:8099/`: the ring, the preview and its cancel, the timed
   opening, solving, a mine, the 1.5 click, an interruption, Esc, saved records,

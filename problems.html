@@ -6,7 +6,7 @@
 <script src="pages-redirect.js?v=20260926-pages-redirect-2"></script>
 <title>Minesweeper - Problems</title>
 <link rel="stylesheet" href="style.css?v=20260926-problems">
-<link rel="stylesheet" href="problems.css?v=20260926-problems">
+<link rel="stylesheet" href="problems.css?v=20260926-ladders">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 </head>
 <body class="problems-page">
@@ -22,7 +22,7 @@
 
   <section id="problems-start" class="problems-card" hidden>
     <h2>Start a set</h2>
-    <p>Each problem is a real moment from a strong player's Expert game. Rest the cursor on the ringed square; the board appears, and after one second the square opens by itself, exactly as it opened for that player. Then open every square the new number proves safe, as fast as you can. Flags are optional.</p>
+    <p>Real moments from strong players' games. Rest the cursor on the ring; the square opens after 1 second. Open every square the new number proves safe.</p>
     <div class="problems-actions">
       <button type="button" id="problems-start-set"></button>
       <fieldset id="problems-cell-size">
@@ -36,20 +36,19 @@
       <h2 id="problems-play-count"></h2>
       <p id="problems-play-instruction"></p>
     </div>
-    <div id="problems-board-area">
-      <div id="board"></div>
-      <div id="problems-start-ring" hidden></div>
-    </div>
-    <div id="problems-result" class="problems-card" hidden>
-      <div id="problems-result-values"></div>
-      <p id="problems-result-rule"></p>
-      <div class="problems-table-scroll">
-        <table id="problems-result-levels" class="problems-table"></table>
+    <div id="problems-play-body">
+      <div id="problems-board-area">
+        <div id="board"></div>
+        <div id="problems-start-ring" hidden></div>
       </div>
-      <p id="problems-result-original"></p>
-      <div class="problems-actions">
-        <button type="button" id="problems-next"></button>
-        <button type="button" id="problems-stop">End set</button>
+      <div id="problems-result" hidden>
+        <div id="problems-result-values"></div>
+        <div id="problems-result-ladder"></div>
+        <p id="problems-answer-key"><span class="problems-key-safe"></span>safe <span class="problems-key-mine"></span>mine</p>
+        <div class="problems-actions">
+          <button type="button" id="problems-next"></button>
+          <button type="button" id="problems-stop">End set</button>
+        </div>
       </div>
     </div>
   </section>
@@ -65,11 +64,9 @@
   </section>
 
   <section id="problems-profile" class="problems-card" hidden>
-    <h2>Your thinking time by rule</h2>
-    <p>Thinking is the time before the cursor starts moving plus the time it rests on the square before the click: the part of an answer that is not travel. Each level column is the median for fresh moves of that rule in real games at that 3BV/s; green marks the levels whose median is at or above yours.</p>
-    <div class="problems-table-scroll">
-      <table id="problems-profile-table" class="problems-table"></table>
-    </div>
+    <h2>Where you fit <span class="problems-help" title="Thinking time: from the square opening until the cursor starts moving, plus the time it rests on the square before the click. Skill levels are players' 3BV/s in real Expert games; each level's mark is its median for that rule. You: your median over solved problems.">(?)</span></h2>
+    <p>Thinking time at each skill level (players' 3BV/s), fastest on top.</p>
+    <div id="problems-profile-ladders"></div>
   </section>
 
   <section id="problems-history" class="problems-card" hidden>
@@ -93,7 +90,7 @@
   </section>
 </main>
 <script src="board-icons.js?v=20260926-problems"></script>
-<script src="problems-core.js?v=20260926-problems"></script>
-<script src="problems-page.js?v=20260926-problems"></script>
+<script src="problems-core.js?v=20260926-ladders"></script>
+<script src="problems-page.js?v=20260926-ladders"></script>
 </body>
 </html>

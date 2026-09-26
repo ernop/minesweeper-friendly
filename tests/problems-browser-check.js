@@ -31,7 +31,9 @@ const screenshots = process.argv[4];
     await page.waitForSelector('#problems-start:not([hidden])');
     assert.equal(await page.textContent('#problems-start-set'), 'Start 20 problems');
     const classCount = await page.evaluate(() => Object.keys(bank.classes).length);
-    assert.equal(await page.locator('#problems-profile-table tbody tr').count(), classCount, 'one profile row per rule');
+    assert.equal(await page.locator('#problems-profile-ladders .problems-ladder').count(), classCount, 'one ladder per rule');
+    assert.equal(await page.locator('#problems-profile-ladders .problems-ladder-label[data-kind="you"]').count(), 0,
+      'no mark of yours before any attempt');
     await shot('home-empty');
 
     await page.check('#problems-cell-size input[value="16"]');
@@ -108,7 +110,16 @@ const screenshots = process.argv[4];
     assert.ok(saved[0].startT - saved[0].previewT >= 1000);
     assert.ok(saved[0].samples.t.length > 3 && saved[0].samples.t[0] < 0, 'cursor samples from the preview on');
     const values = await page.locator('#problems-result-values .problems-value-number').allTextContents();
-    assert.match(values[2], /^\d+\.\d\d s$/, 'first answer time shown');
+    assert.match(values[0], /^\d+\.\d\d s$/, 'thinking time shown');
+    assert.match(values[2], /^\d+\.\d\d s$/, 'total time shown');
+    assert.equal(await page.locator('#problems-result-ladder .problems-ladder-label[data-kind="you"]').count(), 1,
+      'your time sits in the ladder');
+    assert.ok(await page.locator('#problems-result-ladder .problems-ladder-label[data-kind="level"]').count() > 0,
+      'the skill levels sit in the ladder');
+    const ladderOrder = await page.$$eval('#problems-result-ladder .problems-ladder-label',
+      (labels) => labels.map((l) => ({ top: parseFloat(l.style.top), value: parseFloat(l.firstChild.textContent) }))
+        .sort((a, b) => a.top - b.top).map((l) => l.value));
+    assert.deepEqual(ladderOrder, [...ladderOrder].sort((a, b) => a - b), 'fastest at the top');
     assert.equal(await page.locator('#board .cell.problems-answer-safe').count(),
       await page.evaluate(() => live.problem.freshSafe.length), 'the answer squares are shown');
     await shot('result');
@@ -185,6 +196,10 @@ const screenshots = process.argv[4];
     await page.waitForSelector('#problems-profile:not([hidden])');
     assert.match(await page.textContent('#problems-history-count'), /^5 attempts saved/);
     assert.equal(await page.locator('#problems-history-table tbody tr').count(), 5);
+    const timedRules = await page.evaluate(() => problemProfile(bank, attempts).filter((r) => r.medianThinkMs !== null).length);
+    assert.ok(timedRules >= 1);
+    assert.equal(await page.locator('#problems-profile-ladders .problems-ladder-label[data-kind="you"]').count(), timedRules,
+      'every rule with a timed solve shows your median among the levels');
     await shot('home-history');
 
     // Backup: export, empty the store, import.

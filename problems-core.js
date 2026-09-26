@@ -234,6 +234,35 @@ function levelThinkMs(bank, classId, level) {
   return entry.freshMoves >= PROBLEM_LEVEL_MIN_MOVES ? entry.medianThinkMs : null;
 }
 
+// Layout of a vertical ladder, fastest at the top: each entry's exact
+// position on the scale, label positions pushed apart to at least gapPx
+// without changing their order, and tick values. heightPx is the drawing
+// height; values are ms and must not be empty.
+function ladderLayout(values, heightPx, gapPx) {
+  const low = Math.min(...values);
+  const high = Math.max(...values);
+  const pad = Math.max(10, (high - low) * 0.08);
+  const top = low - pad;
+  const bottom = high + pad;
+  const y = (ms) => ((ms - top) / (bottom - top)) * heightPx;
+  const step = [20, 50, 100, 200, 500, 1000, 2000].find((s) => (bottom - top) / s <= 6);
+  const ticks = [];
+  for (let t = Math.ceil(top / step) * step; t <= bottom; t += step) ticks.push(t);
+  const order = values.map((v, i) => i).sort((a, b) => values[a] - values[b] || a - b);
+  const labelY = new Array(values.length);
+  let previous = -Infinity;
+  for (const i of order) {
+    labelY[i] = Math.max(y(values[i]), previous + gapPx, gapPx / 2);
+    previous = labelY[i];
+  }
+  let next = Infinity;
+  for (const i of [...order].reverse()) {
+    labelY[i] = Math.min(labelY[i], next - gapPx, heightPx - gapPx / 2);
+    next = labelY[i];
+  }
+  return { dotY: values.map(y), labelY, ticks: ticks.map((t) => ({ ms: t, y: y(t) })) };
+}
+
 function problemMedian(values) {
   if (values.length === 0) return null;
   const sorted = [...values].sort((a, b) => a - b);

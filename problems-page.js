@@ -11,6 +11,9 @@ const ATTEMPT_STORE = 'attempts';
 const PREFERENCE_STORE = 'preferences';
 const PROBLEM_BANK_URL = 'problems-bank.json?v=20260926-problems';
 const HISTORY_ROWS = 30;
+const SVG_NS = 'http://www.w3.org/2000/svg';
+// Vertical distance between ladder labels, px.
+const LADDER_GAP_PX = 22;
 const OUTCOME_TEXT = {
   solved: 'Solved',
   mine: 'Opened a mine',
@@ -159,28 +162,115 @@ function levelLabel(level) {
   return level.endsWith('-') ? level.slice(0, -1) + '+' : level.replace('-', '\u2013');
 }
 
-// One cell per level: its median thinking time on the class, green when it
-// is at or above yours, a dash when too few corpus moves stand behind it.
-function levelCells(tr, classId, yourMs) {
+// The skill levels of a class as ladder entries, and the levels left out
+// because too few corpus moves stand behind their median.
+function levelEntries(classId) {
+  const entries = [];
+  const missing = [];
   for (const level of bank.levels) {
-    const median = levelThinkMs(bank, classId, level);
-    const matched = median !== null && yourMs !== null && median >= yourMs;
-    const td = cellText(tr, seconds(median), matched ? 'problems-level-matched' : '');
-    td.title = bank.classes[classId].byLevel[level].freshMoves + ' fresh moves in the replay corpus';
+    const ms = levelThinkMs(bank, classId, level);
+    if (ms === null) {
+      missing.push(levelLabel(level));
+      continue;
+    }
+    entries.push({ ms, kind: 'level', label: levelLabel(level) + ' 3BV/s',
+      title: 'Median of ' + bank.classes[classId].byLevel[level].freshMoves + ' moves in real games' });
+  }
+  return { entries, missing };
+}
+
+// A vertical ladder in the style of the game's 0-100% chart: fastest at the
+// top, every entry at its exact time on the band, labels beside it.
+function renderLadder(container, spec) {
+  const figure = document.createElement('figure');
+  figure.className = 'problems-ladder';
+  const caption = document.createElement('figcaption');
+  const title = document.createElement('span');
+  title.className = 'problems-ladder-title';
+  title.textContent = spec.title;
+  const help = document.createElement('span');
+  help.className = 'problems-help';
+  help.title = spec.help;
+  help.textContent = '(?)';
+  caption.append(title, ' ', help);
+  figure.append(caption);
+  const note = document.createElement('p');
+  note.className = 'problems-ladder-note';
+  note.textContent = spec.entries.length === 0 ? spec.note + '. No times yet.' : spec.note;
+  figure.append(note);
+  container.append(figure);
+  if (spec.entries.length === 0) return;
+  const height = Math.max(200, spec.entries.length * LADDER_GAP_PX + 20);
+  const layout = ladderLayout(spec.entries.map((e) => e.ms), height, LADDER_GAP_PX);
+  const stage = document.createElement('div');
+  stage.className = 'problems-ladder-stage';
+  stage.style.height = height + 'px';
+  const band = document.createElement('div');
+  band.className = 'problems-ladder-band';
+  for (const tick of layout.ticks) {
+    const mark = document.createElement('span');
+    mark.className = 'problems-ladder-tick';
+    mark.style.top = tick.y + 'px';
+    mark.textContent = (tick.ms / 1000).toFixed(2);
+    band.append(mark);
+  }
+  const leaders = document.createElementNS(SVG_NS, 'svg');
+  leaders.setAttribute('class', 'problems-ladder-leaders');
+  leaders.setAttribute('viewBox', '0 0 16 ' + height);
+  leaders.setAttribute('preserveAspectRatio', 'none');
+  leaders.setAttribute('aria-hidden', 'true');
+  stage.append(band, leaders);
+  spec.entries.forEach((entry, i) => {
+    const line = document.createElementNS(SVG_NS, 'line');
+    line.setAttribute('x1', '0');
+    line.setAttribute('y1', String(layout.dotY[i]));
+    line.setAttribute('x2', '16');
+    line.setAttribute('y2', String(layout.labelY[i]));
+    leaders.append(line);
+    const dot = document.createElement('span');
+    dot.className = 'problems-ladder-dot';
+    dot.dataset.kind = entry.kind;
+    dot.style.top = layout.dotY[i] + 'px';
+    const label = document.createElement('span');
+    label.className = 'problems-ladder-label';
+    label.dataset.kind = entry.kind;
+    label.style.top = layout.labelY[i] + 'px';
+    label.title = entry.title;
+    const value = document.createElement('span');
+    value.className = 'problems-ladder-value';
+    value.textContent = seconds(entry.ms);
+    const name = document.createElement('span');
+    name.className = 'problems-ladder-name';
+    name.textContent = entry.label;
+    label.append(value, name);
+    stage.append(dot, label);
+  });
+  figure.append(stage);
+  if (spec.missing.length > 0) {
+    const missing = document.createElement('p');
+    missing.className = 'problems-ladder-note';
+    missing.textContent = 'Too few games yet: ' + spec.missing.join(', ');
+    figure.append(missing);
   }
 }
 
 function renderProfile() {
-  const body = headerRow(byId('problems-profile-table'),
-    ['Rule', 'Solved', 'You', ...bank.levels.map((l) => levelLabel(l) + ' 3BV/s')], [0]);
+  const container = byId('problems-profile-ladders');
+  container.replaceChildren();
   for (const row of problemProfile(bank, attempts)) {
-    const tr = body.insertRow();
     const described = describeProblemClass(bank, row.classId);
-    const name = cellText(tr, described.name, 'problems-rule-name problems-text');
-    name.title = described.rule;
-    cellText(tr, row.solved + ' of ' + row.attempts);
-    cellText(tr, seconds(row.medianThinkMs), 'problems-number');
-    levelCells(tr, row.classId, row.medianThinkMs);
+    const { entries, missing } = levelEntries(row.classId);
+    if (row.medianThinkMs !== null) {
+      entries.push({ ms: row.medianThinkMs, kind: 'you', label: 'You',
+        title: 'Your median over ' + row.thinkCount + ' solved problems' });
+    }
+    renderLadder(container, {
+      title: described.name,
+      help: described.rule,
+      note: row.attempts === 0 ? 'Not tried yet' : row.solved + ' of ' + row.attempts + ' solved',
+      entries,
+      missing,
+    });
   }
 }
 
@@ -189,7 +279,7 @@ function renderHistory() {
   byId('problems-history-count').textContent = attempts.length === 0 ? 'No attempts yet.'
     : attempts.length + ' attempts saved; the latest ' + recent.length + ' are shown.';
   const body = headerRow(byId('problems-history-table'),
-    ['When', 'Rule', 'Result', 'Thinking', 'First answer', 'All squares', 'Other clicks'], [0, 1, 2]);
+    ['When', 'Rule', 'Result', 'Thinking', 'Total', 'Extra clicks'], [0, 1, 2]);
   for (const attempt of recent) {
     const tr = body.insertRow();
     cellText(tr, new Date(attempt.startedAt).toLocaleString(), 'problems-text');
@@ -197,14 +287,13 @@ function renderHistory() {
     if (problem === undefined) {
       cellText(tr, 'a problem not in bank ' + bank.bankId, 'problems-text');
       cellText(tr, OUTCOME_TEXT[attempt.outcome], 'problems-text');
-      for (let i = 0; i < 4; i++) cellText(tr, '\u2013');
+      for (let i = 0; i < 3; i++) cellText(tr, '\u2013');
       continue;
     }
     const summary = summarizeAttempt(bank, attempt);
     cellText(tr, describeProblemClass(bank, problem.classId).name, 'problems-rule-name problems-text');
     cellText(tr, OUTCOME_TEXT[attempt.outcome], 'problems-text');
     cellText(tr, seconds(summary.thinkMs), 'problems-number');
-    cellText(tr, seconds(summary.firstMs), 'problems-number');
     cellText(tr, seconds(summary.doneMs), 'problems-number');
     cellText(tr, String(summary.otherClicks));
   }
@@ -521,40 +610,21 @@ function renderResult(attempt) {
   setInstruction(OUTCOME_TEXT[attempt.outcome]);
 
   const values = byId('problems-result-values');
-  values.replaceChildren();
-  if (attempt.outcome !== 'solved') {
-    const outcome = document.createElement('span');
-    outcome.className = 'problems-outcome';
-    outcome.textContent = OUTCOME_TEXT[attempt.outcome];
-    values.append(outcome);
-  }
-  values.append(valueBlock(seconds(summary.thinkMs), 'thinking'), valueBlock(seconds(summary.travelMs), 'moving'),
-    valueBlock(seconds(summary.firstMs), 'first answer'), valueBlock(seconds(summary.doneMs), 'all squares'));
-  if (summary.otherClicks > 0) {
-    values.append(valueBlock(String(summary.otherClicks), summary.otherClicks === 1
-      ? 'click outside the new number\'s squares' : 'clicks outside the new number\'s squares'));
-  }
+  values.replaceChildren(valueBlock(seconds(summary.thinkMs), 'thinking'),
+    valueBlock(seconds(summary.travelMs), 'moving'), valueBlock(seconds(summary.doneMs), 'total'));
+  if (summary.otherClicks > 0) values.append(valueBlock(String(summary.otherClicks), 'extra clicks'));
 
   const described = describeProblemClass(bank, problem.classId);
-  const rule = byId('problems-result-rule');
-  rule.replaceChildren();
-  const name = document.createElement('strong');
-  name.textContent = described.name + ': ';
-  rule.append(name, described.rule + ' The dashed squares are what the new number proves: green safe, red mines.');
-
-  const profileRow = problemProfile(bank, attempts).find((row) => row.classId === problem.classId);
-  const body = headerRow(byId('problems-result-levels'),
-    ['3BV/s level', ...bank.levels.map(levelLabel), 'You (' + profileRow.thinkCount + ' timed)'], [0]);
-  const tr = body.insertRow();
-  cellText(tr, 'Median thinking on this rule', 'problems-rule-name problems-text');
-  levelCells(tr, problem.classId, profileRow.medianThinkMs);
-  cellText(tr, seconds(profileRow.medianThinkMs), 'problems-number');
-
+  const { entries, missing } = levelEntries(problem.classId);
+  if (summary.thinkMs !== null) entries.push({ ms: summary.thinkMs, kind: 'you', label: 'You', title: 'This problem' });
   const first = problem.original.first;
-  byId('problems-result-original').textContent = first !== null && first.immediate
-    ? 'The original player (' + problem.sourceBvs.toFixed(2) + ' 3BV/s in that game) answered in ' + seconds(first.ms)
-      + (first.thinkMs === undefined ? '.' : ', thinking ' + seconds(first.thinkMs) + '.')
-    : 'The original player (' + problem.sourceBvs.toFixed(2) + ' 3BV/s in that game) did something else first.';
+  if (first !== null && first.immediate && first.thinkMs !== undefined) {
+    entries.push({ ms: first.thinkMs, kind: 'original', label: 'Original player',
+      title: problem.sourceBvs.toFixed(2) + ' 3BV/s in that game' });
+  }
+  const ladder = byId('problems-result-ladder');
+  ladder.replaceChildren();
+  renderLadder(ladder, { title: described.name, help: described.rule, note: 'Thinking time by skill level (3BV/s)', entries, missing });
 
   const last = run.index === run.problems.length - 1;
   byId('problems-next').textContent = last ? 'Finish the set (Enter)' : 'Next problem (Enter)';
@@ -590,8 +660,7 @@ function renderSummary() {
   document.body.classList.remove('problems-running');
   byId('problems-play').hidden = true;
   byId('problems-summary').hidden = false;
-  const body = headerRow(byId('problems-summary-table'),
-    ['#', 'Rule', 'Result', 'Thinking', 'First answer', 'All squares'], [1, 2]);
+  const body = headerRow(byId('problems-summary-table'), ['#', 'Rule', 'Result', 'Thinking', 'Total'], [1, 2]);
   run.results.forEach((attempt, i) => {
     const summary = summarizeAttempt(bank, attempt);
     const tr = body.insertRow();
@@ -599,7 +668,6 @@ function renderSummary() {
     cellText(tr, describeProblemClass(bank, bank.byId.get(attempt.problemId).classId).name, 'problems-rule-name problems-text');
     cellText(tr, OUTCOME_TEXT[attempt.outcome], 'problems-text');
     cellText(tr, seconds(summary.thinkMs), 'problems-number');
-    cellText(tr, seconds(summary.firstMs), 'problems-number');
     cellText(tr, seconds(summary.doneMs), 'problems-number');
   });
   byId('problems-summary-done').focus();

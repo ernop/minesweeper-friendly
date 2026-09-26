@@ -74,41 +74,56 @@ same for every attempt; the square then opens "just as" it did in the game.
 
 Derived when shown, never stored:
 
+- **First answer:** the first click that aims at an answer square: opening
+  one, chording a number into one, or flagging an answer mine. A chain opening
+  from some other square that happens to reach an answer square is not an
+  answer. Its time splits into thinking and moving.
 - **Thinking:** time from zero until the cursor has moved a quarter of a
   square from where it was, plus the time it rests on the first answered
   square before the click. The same split as the replay analysis, so it
   compares with the level medians.
 - **Moving:** the travel between those two parts.
-- **First answer:** the time of the first click that aims at an answer square:
-  opening one, chording a number into one, or flagging an answer mine. A chain
-  opening from some other square that happens to reach an answer square is not
-  an answer.
-- **All squares:** the time the last safe answer square opened.
-- **Clicks outside the new number's squares:** clicks that changed something
-  but were not answers. Version 1 does not judge whether such a click was
-  provable from other numbers or a guess.
+- **Total:** the time the last safe answer square opened.
+- **Extra clicks:** clicks that changed something but were not answers.
+  Version 1 does not judge whether such a click was provable from other
+  numbers or a guess.
 
 ## Display
 
-- **Start a set:** the explanation, "Start 20 problems", and the square size
-  (16, 20, 24, 28, or 32 px; saved). A set holds 5 one-number problems and 15
-  from the pattern classes in turn, each the least-attempted problem of its
-  class, in random order.
+User review (2026-09-26, after the first version): the answers and display
+were too wordy; every column must be unmistakable; a placement among levels
+of other players must be vertical with the best on top, in the style of the
+game data chart's 0-100% band; the player's own number must stand out in the
+player's color among the others; the 3BV/s level numbers must read as skill
+levels with the player shown where they fit; and the layout must show things
+directly instead of making the player hold information in memory. The
+display below implements that.
+
+- **Where you fit** is a **ladder**: the game data band turned into a time
+  scale, fastest at the top, with the band's green-to-red gradient and tick
+  style. Every skill level with enough corpus moves sits at its exact median
+  thinking time; its label reads the time in bold, then the level ("3.5+
+  3BV/s"). The player's mark sits among them in the game's me-row look (bold
+  black on light blue with the dark blue edge). Labels keep their order and
+  move apart only as far as needed, with leaders to their exact points. Levels
+  with fewer than 10 corpus moves are named under the ladder as "Too few games
+  yet". The rule's definition is in the title's (?) tip.
+- **Start a set:** one line of instructions, "Start 20 problems", and the
+  square size (16, 20, 24, 28, or 32 px; saved). A set holds 5 one-number
+  problems and 15 from the pattern classes in turn, each the least-attempted
+  problem of its class, in random order.
 - **During a set:** the page chrome is hidden; the head line shows "Problem N
-  of 20" and one instruction whose line keeps its height. After each problem:
-  the board with the answer squares dashed (green safe, red mines) and the
-  start square outlined; thinking, moving, first answer, and all squares as
-  the largest text; the class name and its rule in words; one row of level
-  medians for the class beside the player's median; and what the original
-  player did (their answer time and thinking, or that they did something else
-  first). Enter or the button goes on; "End set" or Esc stops.
-- **Set finished:** one row per attempt.
-- **Your thinking time by rule:** per class, solved of attempted, the player's
-  median thinking over solved attempts, and each level's median thinking for
-  fresh moves of that class in the replay corpus. A level's cell is green when
-  its median is at or above the player's, and shows a dash when fewer than 10
-  corpus moves stand behind it; hovering shows the count.
-- **Recent attempts:** the latest 30, newest first.
+  of 20" and one instruction whose line keeps its height. After each problem,
+  beside the board: thinking, moving, and total as the largest text (extra
+  clicks when there were any); the ladder for the problem's rule with the
+  player's thinking time on it ("You") and the original player's ("Original
+  player", italic, when they answered with their very next click); a key for
+  the dashed answer squares on the board (green safe, red mine; the start
+  square outlined). Enter or the button goes on; "End set" or Esc stops.
+- **Set finished:** one row per attempt: rule, result, thinking, total.
+- **Home:** one ladder per rule side by side, each with "N of M solved" and
+  the player's median over solved problems as "You"; then the latest 30
+  attempts (when, rule, result, thinking, total, extra clicks).
 - Values are the most legible text: bold, tabular, larger than their labels.
   No gray text; the layout uses the full width.
 
