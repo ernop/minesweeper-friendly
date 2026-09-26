@@ -38,16 +38,17 @@ Specification: [public hosting](../product/hosting.md).
 
 ## Implementation and verification
 
-- `deploy/runtime-files.json` owns the explicit 51-file public runtime list.
+- `deploy/runtime-files.json` owns the explicit public runtime list.
 - `deploy/build-release.py` builds deterministic tar bytes and hashes from one
   commit, including its allowlist; it never reads uncommitted runtime changes.
 - `deploy/publish.py` uses a pinned host key and the sole SSH command `publish`,
   then verifies the public VERSION. The root-installed receiver is maintained
   by the Fuseki repository, not writable by this app's credential.
-- `.github/workflows/hosting.yml` verifies on every master push. Deployment
-  is manual until DNS/TLS activation; its `production-fuseki` environment is
-  restricted to master and contains the dedicated key. No live site change
-  occurs on a hosting-verification-only run.
+- `.github/workflows/hosting.yml` verifies every master push and then releases
+  it (automatic since the 2026-09-26 launch); its `production-fuseki`
+  environment is restricted to master and contains the dedicated key. The
+  workflow writes the key file with its final newline, which OpenSSH requires
+  and the stored secret lacks (the first deploy attempt failed on exactly this).
 - Three artifact tests, nine receiver tests, 41 committed-runtime Node suites,
   and 463 Fuseki Django tests passed. Actual nginx 1.24 checks verified all 52
   published file hashes (runtime plus VERSION), MIME, gzip, 304s, headers,
@@ -67,12 +68,17 @@ The dedicated server account, root-owned receiver, SSH restrictions, and
 master-only GitHub environment are installed. The initial committed runtime
 is seeded and hash-verified; an incomplete upload was rejected without
 changing it. The temporary local private key was deleted. Actual SSH tests rejected shell
-commands, command injection, and rsync to Voice-Wei. Public routing is not
-activated. Order (creator, 2026-09-26): first the Fuseki editor moves to
-`edit.fuseki.net` (`scripts/enable_editor_origin.sh` in the Fuseki checkout,
-which also installs the tracked Fuseki configuration the entry redirect
-needs); then add the DreamHost A record for `minesweeper-friendly.fuseki.net`
-pointing to `146.190.147.109`, and complete TLS and live verification.
+commands, command injection, and rsync to Voice-Wei.
+
+Live since 2026-09-26, after the Fuseki editor moved to `edit.fuseki.net`
+(creator's order): DreamHost A record `minesweeper-friendly.fuseki.net ->
+146.190.147.109` plus CAA `0 issue "letsencrypt.org"` on fuseki.net, a separate
+Let's Encrypt certificate, the vhost with `connect-src 'self'` (music detection
+is local-only), and `fuseki.net/minesweeper`, `/minesweeper/`, and
+`/minesweeper-friendly/...` redirecting there with path and query kept.
+`scripts/enable_minesweeper_https.sh` checked the live VERSION before nginx's
+asynchronous reload had taken effect and stopped; the entry snippet was then
+installed by hand with the same validation.
 
 The authoritative cross-repository procedure and review are in
 [Fuseki's independent application hosting plan](https://github.com/ernop/fuseki4_ai/blob/master/docs/minesweeper-friendly-hosting-plan.md).

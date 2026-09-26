@@ -29,9 +29,9 @@ jobs:
           for test in tests/*-test.js; do node "$test"; done
           python3 deploy/build-release.py HEAD /tmp/minesweeper-release.tar
 
-  # Activation is deliberately manual until the DNS/TLS launch checklist is complete.
+  # Every verified master push is released (launched 2026-09-26).
   deploy:
-    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master'
+    if: github.ref == 'refs/heads/master'
     needs: verify
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -57,7 +57,9 @@ jobs:
           key = ${{ toJSON(secrets.FUSEKI_DEPLOY_SSH_KEY) }}
           if not key.startswith('-----BEGIN OPENSSH PRIVATE KEY-----\n'):
               raise ValueError('FUSEKI_DEPLOY_SSH_KEY is missing or invalid')
-          Path('/tmp/fuseki-deploy-key').write_text(key)
+          # OpenSSH rejects a key file without its final newline, which the
+          # stored secret does not carry.
+          Path('/tmp/fuseki-deploy-key').write_text(key.rstrip('\n') + '\n')
           PY
           ssh-keygen -y -f /tmp/fuseki-deploy-key > /dev/null
       - name: Publish and verify exact revision
