@@ -12,6 +12,10 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   review: the whole history had been one value, rewritten twice per game —
   160 MB for 6,407 games, about a second of blocked input each time). The
   version-4 upgrade moves each stored record to its own entry once.
+  Creator requirement (2026-09-26): writing all that stored data at every
+  game end "is horrible and we should never do that." A game's writes cover
+  only what that game created or changed; their cost never grows with the
+  size of the history.
   The traces store indexes `[mode, finalBoard.cells.length]` as
   `boardsByModeAndSize`, so backfill can find source boards without loading raw
   input payloads. The version-3 upgrade indexes existing traces in place; no
