@@ -1,0 +1,18 @@
+{
+  "note": "Upper bounds in milliseconds (playStallsOver50 is a count) for tests/latency-browser-check.js. Set 2026-09-26 from full and quick runs in Firefox 153 and Chromium 151 on the creator's PC (AMD Ryzen 9 5950X, 60 Hz frame timing in headless browsers), with room for run-to-run noise. Click times run from the input event to the first task after the next frame, so one 60 Hz frame (16.7 ms) is inherent. gameEndLongestStallMs is known work: laying out the finished report takes about 200 ms in Firefox (BACKLOG, Input latency follow-ons). Tighten a budget when the code gets faster; loosen one only as a recorded creator decision.",
+  "budgets": {
+    "startupReadyMs": 1500,
+    "newGameMs": 60,
+    "firstClickMs": 34,
+    "clickP50Ms": 20,
+    "clickP95Ms": 34,
+    "clickMaxMs": 60,
+    "handlerMaxMs": 25,
+    "gameEndClickMs": 34,
+    "resultShellMs": 50,
+    "reportReadyMs": 1500,
+    "gameEndLongestStallMs": 300,
+    "playStallsOver50": 2,
+    "playLongestStallMs": 100
+  }
+}

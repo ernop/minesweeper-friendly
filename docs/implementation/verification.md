@@ -138,6 +138,26 @@ the same Playwright/Chromium arguments and 8099 origin listed above.
 outputs and median-of-three computation times with the named git revision;
 it never opens player storage. Timing observations are not pass thresholds.
 
+Input-latency monitor (2026-09-26, creator request; spec:
+[Input latency](../product/board-and-layout.md#input-latency-user-report-2026-09-26)):
+`node tests/latency-browser-check.js PLAYWRIGHT_CORE_DIR firefox|chromium EXECUTABLE [--quick] [--record]`
+seeds a synthetic 6,500-game history into a fresh profile on 8099, replays
+fixed-seed games through real mouse input, and times startup, new game, first
+click, every play click (p50/p95/max and per kind), click handlers, the
+game-ending click, the result shell, the full report, and main-thread stalls
+during play and within 3 s of each game end. Unlike the checks above, these
+timings are pass thresholds: any value over `tests/latency-budgets.json`
+fails the run. `--quick` plays one intermediate and one expert game (about
+2.5 minutes); the full scenario plays six (about 9 minutes). `--record`
+appends the run to `tests/latency-history.jsonl`, and
+`node tests/latency-history.js [firefox|chromium] [RUNS]` prints recorded
+runs side by side against the budgets. On this machine: Playwright
+`/home/ef/proj/voice-wei/node_modules/playwright-core`, Firefox
+`/home/ef/.cache/ms-playwright/firefox-1538/firefox/firefox` (the engine the
+creator plays in), Chromium
+`/home/ef/.cache/ms-playwright/chromium-1234/chrome-linux64/chrome`. Run one
+browser at a time; parallel runs share CPU and add stalls.
+
 Hosting verification (2026-09-26): `python3 tests/hosting-release-test.py`
 checks the committed-runtime artifact. `tests/hosting-browser-check.js` takes
 the same Playwright and Chromium arguments as the other browser checks and

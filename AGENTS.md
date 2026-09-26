@@ -281,6 +281,16 @@ in gameplay/input handlers or the UI thread. Keep result jobs bound to captured
 games and discard stale view updates. No main-thread calculation fallback. See
 [Preparation and completion cost](docs/product/board-and-layout.md#preparation-and-completion-cost).
 
+### Latency budgets
+
+User requirement (2026-09-26): the system must never get slow again. Before
+pushing any change to gameplay, game end, storage, startup, or result
+presentation, run `tests/latency-browser-check.js` in Firefox with `--quick
+--record` and commit the appended `tests/latency-history.jsonl` line with the
+change. A budget failure blocks the push. Budgets tighten when code gets
+faster and loosen only by recorded creator decision. Commands:
+[verification](docs/implementation/verification.md).
+
 ### Configuration
 
 - Never use environment variables for configuration.

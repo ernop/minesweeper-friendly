@@ -144,6 +144,15 @@ game instead of rewriting the whole history twice per game. Not built:
    needs it before revealing, and game-end finalization would have to wait
    for the last action's evidence. After item 1 this would save only a few
    milliseconds per click.
+3. **Report layout stall after each game.** The latency monitor measures one
+   main-thread block of about 220ms in Firefox (100ms in Chromium) roughly a
+   second after a game ends: the finished report is inserted all at once,
+   then `renderResultAsync` calls `syncBoardLayout`, whose `syncGameSidebar`
+   geometry reads force the whole new report's layout in that task. A
+   restart clicked during it waits. Inserting sections progressively in
+   model order, or skipping offscreen sections' layout, would split it; both
+   change how the report appears, so they await a creator decision. Its
+   budget (`gameEndLongestStallMs`, 300ms) tightens once fixed.
 
 ## Game data as the primary result surface (creator, 2026-09-23)
 

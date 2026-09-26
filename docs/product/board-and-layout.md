@@ -86,6 +86,14 @@ clicking the first square to open, or the 10th, as i play, feels somehow
 laggy"; asked whether the game is "max efficient" and to test and fix it.
 
 - A board input's visible response must not wait on measurement.
+- Tracked latency budgets (creator request 2026-09-26: "add in tests
+  measuring and tracking the timing for all these things such as new game,
+  1st click of new game, etc and we shall be able to monitor them over time
+  as we change things, so that we never again let the system get slow").
+  Startup, new game, first click, play clicks, the game-ending click, the
+  result shell, the full report, and main-thread stalls each have a budget;
+  exceeding one fails the latency check, and recorded runs keep the history
+  in the repository ([how to run](../implementation/verification.md)).
 - Click-time evidence (the visible-position proof, guess odds, and Justice
   certification) keeps its exact definitions and results; only its cost
   may change. Built 2026-09-26: expert flags, chords, and guesses that took
