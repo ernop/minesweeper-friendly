@@ -3015,6 +3015,28 @@ body.vigilance-running #self-check-header {
   margin-top: 16px;
 }
 
+#self-check-test-choice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 18px;
+  margin: 0;
+  border: 0;
+  padding: 0;
+  font-size: 15px;
+}
+
+#self-check-test-choice legend {
+  float: left;
+  margin-right: 6px;
+  font-weight: bold;
+}
+
+#self-check-test-choice label {
+  font-weight: bold;
+  cursor: pointer;
+}
+
 .self-check-actions button {
   font: inherit;
   font-size: 15px;

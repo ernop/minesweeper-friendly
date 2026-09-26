@@ -6,8 +6,11 @@ Spec: [docs/product/self-check.md](../product/self-check.md).
   `self-check-core.js`, and `self-check-page.js`, in that order. It does not
   load the game's settings or game-data scripts.
 - `self-check-core.js` (pure, no DOM): `SLEEPINESS_SCALE`,
-  `VIGILANCE_PROTOCOL`, `VIGILANCE_INTERRUPTIONS`, `drawVigilanceIsiMs`,
-  `scoreVigilance`, `routineBaseline` (up to `SELF_CHECK_BASELINE_COUNT` = 10
+  `VIGILANCE_PROTOCOL` (3 minutes), `SHORT_ALERTNESS_PROTOCOL` (10 stimuli),
+  `ALERTNESS_PROTOCOLS` (by id, the standard first), `VIGILANCE_INTERRUPTIONS`,
+  `drawVigilanceIsiMs(protocol, unitRandom)`, `scoreVigilance` (thresholds of
+  the record's own protocol), `routineBaseline(checks, before, protocolId)` (up
+  to `SELF_CHECK_BASELINE_COUNT` = 10
   earlier complete routine checks), `validSelfCheck`, and the backup format
   (`selfCheckFile`, `readSelfCheckFile`). It uses the validators from
   `observation-context.js`.
@@ -16,15 +19,22 @@ Spec: [docs/product/self-check.md](../product/self-check.md).
   validates each record, and renders the history.
   - Views (`SELF_CHECK_VIEWS`): home, checkin, instructions, test, and result.
     The body class `vigilance-running` hides the titlebar and heading.
-  - Check-in: `beginSelfCheck(occasion)` stamps `startedAt` and the time zone;
-    `selectSleepiness`; Continue validates the sleep hours, including
-    `validity.badInput`.
-  - Test: `startVigilance(startT)` uses the Begin click's `timeStamp`.
+  - Check-in: the start card's test choice is built from `ALERTNESS_PROTOCOLS`
+    and `ALERTNESS_WORDING` (each test's frozen choice label, title, and
+    instructions), the short test checked; `beginSelfCheck(occasion)` stamps
+    `startedAt`, the time zone, and the chosen protocol id; `selectSleepiness`;
+    Continue validates the sleep hours, including `validity.badInput`, and
+    writes the chosen test's instructions.
+  - Test: `startVigilance(startT)` uses the Begin click's `timeStamp`; the run
+    carries its protocol and, for the 3-minute test only, `plannedEndT`.
     `scheduleNextStimulus(anchorT, feedbackText)` draws each interval.
+    `vigilanceStimuliDone(run, t)` says whether the test takes no more stimuli
+    (the clock for the 3-minute test, the 10th stimulus for the short one).
     `onVigilanceFrame(frameT)` is the only per-frame work: it records the frame
     interval, shows a due stimulus, updates the counter, and applies the
-    timeout and the end. `onVigilancePointerDown` (capture phase, button 0)
-    records the response or early press. `interruptVigilance(type, t)` handles
+    timeout and the end (the 3-minute test at its clock, the short test when
+    the last stimulus's feedback has shown). `onVigilancePointerDown` (capture
+    phase, button 0) records the response or early press. `interruptVigilance(type, t)` handles
     Esc, `visibilitychange` to hidden, window `blur`, and `pagehide`.
   - `finishVigilance(status, endT)` builds the record, validates it (failure
     is a visible error), and `add`s it to the store. The result and history
@@ -54,6 +64,7 @@ Spec: [docs/product/self-check.md](../product/self-check.md).
     check-in, answered stimuli with plausible reactions, an early press, a
     stop, stored fields, history, cancel storing nothing, and the backup round
     trip into an emptied store;
+  - a complete 10-counter test (about 30 s) on every run;
   - `--full` adds one complete 3-minute test (about 3.5 minutes);
   - it serves the working tree through Playwright request routing under the
     exact origin `http://127.0.0.1:8099/` and aborts every other request, so

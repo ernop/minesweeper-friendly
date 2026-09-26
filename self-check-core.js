@@ -1,7 +1,7 @@
 'use strict';
 
 // Self-check protocols, pure: the frozen sleepiness scale and alertness
-// test, their scoring, stored-record validation, and the backup file format.
+// tests, their scoring, stored-record validation, and the backup file format.
 // Shared by self-check-page.js and tests/self-check-core-test.js; no DOM.
 // Depends on observation-context.js for the context validators.
 //
@@ -29,7 +29,7 @@ const SLEEPINESS_SCALE = Object.freeze({
   ]),
 });
 
-//-------ALERTNESS TEST (3-minute psychomotor vigilance)-------
+//-------ALERTNESS TESTS (psychomotor vigilance, 3 minutes or 10 counters)-------
 
 // Parameters of the brief psychomotor vigilance test (PVT-B; Basner,
 // Mollicone & Dinges 2011): 3 minutes, 1-4 s from each response to the next
@@ -48,6 +48,27 @@ const VIGILANCE_PROTOCOL = Object.freeze({
   lapseFromMs: 355,
 });
 
+// The short test (the player, 2026-09-26: three minutes is far too long; a
+// check should collect about 10 data points): every rule of vigilance-3min-v1
+// except the end, which is the 10th stimulus instead of a clock, about 30 s.
+// Its scores compare only with its own history.
+const SHORT_ALERTNESS_PROTOCOL = Object.freeze({
+  id: 'alertness-10-v1',
+  stimulusCount: 10,
+  isiMinMs: 1000,
+  isiMaxMs: 4000,
+  feedbackMs: 1000,
+  timeoutMs: 30000,
+  falseStartBelowMs: 100,
+  lapseFromMs: 355,
+});
+
+// Released alertness tests by id, the standard one first.
+const ALERTNESS_PROTOCOLS = Object.freeze({
+  [SHORT_ALERTNESS_PROTOCOL.id]: SHORT_ALERTNESS_PROTOCOL,
+  [VIGILANCE_PROTOCOL.id]: VIGILANCE_PROTOCOL,
+});
+
 // Why a test stopped early: the page lost the player's attention or the
 // player asked to stop. Stopped tests are stored and never scored.
 const VIGILANCE_INTERRUPTIONS = Object.freeze({
@@ -58,9 +79,8 @@ const VIGILANCE_INTERRUPTIONS = Object.freeze({
 });
 
 // unitRandom is uniform on [0, 1).
-function drawVigilanceIsiMs(unitRandom) {
-  return VIGILANCE_PROTOCOL.isiMinMs
-    + unitRandom * (VIGILANCE_PROTOCOL.isiMaxMs - VIGILANCE_PROTOCOL.isiMinMs);
+function drawVigilanceIsiMs(protocol, unitRandom) {
+  return protocol.isiMinMs + unitRandom * (protocol.isiMaxMs - protocol.isiMinMs);
 }
 
 function selfCheckMean(values) {
@@ -80,7 +100,7 @@ function selfCheckMedian(values) {
 // is the response's event time minus the stimulus frame time; the slowest and
 // fastest tenths hold ceil(n / 10) reactions.
 function scoreVigilance(vigilance) {
-  const p = VIGILANCE_PROTOCOL;
+  const p = ALERTNESS_PROTOCOLS[vigilance.protocol];
   const reactionsMs = [];
   let anticipationCount = 0;
   let timeoutCount = 0;
@@ -112,14 +132,15 @@ function scoreVigilance(vigilance) {
   };
 }
 
-// The comparison for a check: earlier complete routine checks only, because
-// extra checks are taken when circumstances prompt them.
+// The comparison for a check: earlier complete routine checks of the same
+// test only, because extra checks are taken when circumstances prompt them and
+// the two tests measure over different lengths.
 const SELF_CHECK_BASELINE_COUNT = 10;
 
-function routineBaseline(selfChecks, beforeStartedAt) {
+function routineBaseline(selfChecks, beforeStartedAt, protocolId) {
   const earlier = selfChecks
     .filter((check) => check.occasion === 'routine' && check.vigilance.status === 'complete'
-      && check.startedAt < beforeStartedAt)
+      && check.vigilance.protocol === protocolId && check.startedAt < beforeStartedAt)
     .sort((a, b) => a.startedAt - b.startedAt)
     .slice(-SELF_CHECK_BASELINE_COUNT);
   const scores = earlier.map((check) => scoreVigilance(check.vigilance));
@@ -146,8 +167,7 @@ function selfCheckObject(v) {
   return v !== null && typeof v === 'object' && !Array.isArray(v);
 }
 
-function validVigilanceTrial(trial) {
-  const p = VIGILANCE_PROTOCOL;
+function validVigilanceTrial(p, trial) {
   if (!selfCheckObject(trial)) return false;
   if (!(selfCheckFinite(trial.isiMs) && trial.isiMs >= p.isiMinMs && trial.isiMs < p.isiMaxMs)) return false;
   if (!selfCheckFinite(trial.onsetT)) return false;
@@ -168,7 +188,8 @@ function vigilanceTrialResolved(trial) {
 }
 
 function validVigilance(vigilance) {
-  if (!selfCheckObject(vigilance) || vigilance.protocol !== VIGILANCE_PROTOCOL.id) return false;
+  if (!selfCheckObject(vigilance) || !Object.hasOwn(ALERTNESS_PROTOCOLS, vigilance.protocol)) return false;
+  const protocol = ALERTNESS_PROTOCOLS[vigilance.protocol];
   if (vigilance.status === 'interrupted') {
     const stop = vigilance.interruption;
     if (!selfCheckObject(stop) || !(stop.type in VIGILANCE_INTERRUPTIONS)
@@ -178,7 +199,9 @@ function validVigilance(vigilance) {
   }
   if (!selfCheckFinite(vigilance.timeOriginMs) || !selfCheckFinite(vigilance.startT)
       || !selfCheckFinite(vigilance.endT) || vigilance.endT < vigilance.startT) return false;
-  if (!Array.isArray(vigilance.trials) || !vigilance.trials.every(validVigilanceTrial)) return false;
+  if (!Array.isArray(vigilance.trials) || !vigilance.trials.every((trial) => validVigilanceTrial(protocol, trial))) return false;
+  if (protocol.stimulusCount !== undefined && (vigilance.status === 'complete'
+    ? vigilance.trials.length !== protocol.stimulusCount : vigilance.trials.length > protocol.stimulusCount)) return false;
   // Only a stop can leave the stimulus on screen unanswered.
   const mustResolve = vigilance.status === 'complete'
     ? vigilance.trials : vigilance.trials.slice(0, -1);

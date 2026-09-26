@@ -1,9 +1,9 @@
 'use strict';
 // Self-check page in a real browser: the version-5 upgrade from version 3 and
 // from both version-4 builds keeps history and self-checks, check-in answers,
-// frame-timed stimuli with event-timed responses, early presses, a stop,
-// storage, history, and backup round trip.
-// `--full` also runs one complete 3-minute test.
+// frame-timed stimuli with event-timed responses, early presses, a stop, one
+// complete 10-counter test (the default), storage, history, and backup round
+// trip. `--full` also runs one complete 3-minute test.
 //
 // The page is served by request routing under the exact test origin
 // http://127.0.0.1:8099/, straight from this working tree; every other
@@ -206,9 +206,31 @@ async function answerStimulus(page, at) {
     await page.locator('#vigilance-cancel').click();
     assert.equal((await storedChecks(page)).length, 1);
 
+    // A complete short test: the default, ended by its 10th counter.
+    assert.equal(await page.isChecked('#self-check-test-choice input[value="alertness-10-v1"]'), true,
+      'the 10-counter test is the default');
+    await startCheck(page, 'routine', 3);
+    await page.locator('#self-check-checkin-continue').click();
+    assert.equal(await page.textContent('#vigilance-title'), 'Alertness test: 10 counters');
+    await beginTest(page);
+    const shortAt = await boxCenter(page);
+    for (let i = 0; i < 10; i++) await answerStimulus(page, shortAt);
+    await page.locator('#self-check-result-heading', { hasText: 'Result' }).waitFor();
+    checks = await storedChecks(page);
+    const short = checks.find((check) => check.vigilance.protocol === 'alertness-10-v1'
+      && check.vigilance.status === 'complete');
+    assert.equal(short.vigilance.trials.length, 10);
+    assert.equal(short.vigilance.trials.every((trial) => trial.responseT !== undefined), true);
+    const shortMs = short.vigilance.endT - short.vigilance.startT;
+    assert(shortMs > 10000 && shortMs < 60000, 'the short test takes about half a minute: ' + shortMs);
+    assert.equal(await page.locator('#self-check-result-table tr').count(), 6);
+    assert.match(await page.locator('#self-check-history-table tr').nth(1).innerText(), /10 counters/);
+
     if (full) {
+      await page.check('#self-check-test-choice input[value="vigilance-3min-v1"]');
       await startCheck(page, 'routine', 3);
       await page.locator('#self-check-checkin-continue').click();
+      assert.equal(await page.textContent('#vigilance-title'), 'Alertness test: 3 minutes');
       await beginTest(page);
       const center = await boxCenter(page);
       while (await page.evaluate(() => vigilanceRun !== null)) {
@@ -221,7 +243,8 @@ async function answerStimulus(page, at) {
       }
       await page.locator('#self-check-result-heading', { hasText: 'Result' }).waitFor();
       checks = await storedChecks(page);
-      const complete = checks.find((check) => check.vigilance.status === 'complete');
+      const complete = checks.find((check) => check.vigilance.protocol === 'vigilance-3min-v1'
+        && check.vigilance.status === 'complete');
       const score = await page.evaluate((check) => scoreVigilance(check.vigilance), complete);
       assert(score.stimulusCount >= 30, 'a 3-minute test shows at least 30 stimuli: ' + score.stimulusCount);
       assert.equal(score.reactionCount + score.anticipationCount + score.timeoutCount, score.stimulusCount);
@@ -236,7 +259,7 @@ async function answerStimulus(page, at) {
     const exported = await page.evaluate(async () =>
       (await fetch(document.getElementById('self-check-download').href)).json());
     assert.equal(exported.format, 'minesweeper-friendly-self-checks');
-    assert.equal(exported.selfChecks.length, full ? 2 : 1);
+    assert.equal(exported.selfChecks.length, full ? 3 : 2);
     await page.evaluate(() => new Promise((resolve, reject) => {
       const tx = db.transaction(SELF_CHECK_STORE, 'readwrite');
       tx.objectStore(SELF_CHECK_STORE).clear();
@@ -255,8 +278,8 @@ async function answerStimulus(page, at) {
     assert.equal(await page.locator('#self-check-history').isVisible(), true);
 
     assert.deepEqual(errors, []);
-    console.log('self-check browser check: upgrade, check-in, timed responses, early press, stop, history, and backup passed'
-      + (full ? ' (with a complete 3-minute test)' : ''));
+    console.log('self-check browser check: upgrade, check-in, timed responses, early press, stop, complete 10-counter test, '
+      + 'history, and backup passed' + (full ? ' (with a complete 3-minute test)' : ''));
   } finally {
     await browser.close();
   }

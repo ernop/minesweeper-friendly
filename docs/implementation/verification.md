@@ -96,8 +96,8 @@ Index: [AGENTS.md](../../AGENTS.md).
   root on `http://127.0.0.1:8099/`. On this machine those arguments are
   `/home/ef/proj/voice-wei/node_modules/playwright-core` and
   `/home/ef/.cache/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-linux64/chrome-headless-shell`.
-  `tests/self-check-browser-check.js` (`--full` adds a complete 3-minute
-  test) and `tests/archive-browser-check.js` take the same two arguments but
+  `tests/self-check-browser-check.js` (runs a complete 10-counter test;
+  `--full` adds a complete 3-minute test) and `tests/archive-browser-check.js` take the same two arguments but
   need no server: they serve the working tree through Playwright request
   routing under the exact origin `http://127.0.0.1:8099/` and abort every
   other request, so they run even while something else holds that port.
