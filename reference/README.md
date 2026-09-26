@@ -2,6 +2,11 @@
 
 Research notes and external references. Index: [AGENTS.md](../AGENTS.md).
 
+- `reference/expert-speed-training-2026-09-26.md` — evidence behind the Expert
+  under-60-seconds training plan: the player's measured diagnosis (input
+  replay, removable inputs, run conversion, openings), Minesweeper strategy
+  and solver sources, and skill-acquisition findings on deliberate practice,
+  spacing, and daily dose.
 - `reference/mouse-motion-metrics.md` — 2026-08-20 survey of mouse-motion
   characterization across psychometrics, biometrics, clinical assessment,
   and esports, with a tiered proposal for per-game measurements. All four

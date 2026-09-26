@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Minesweeper - Training</title>
+<link rel="stylesheet" href="style.css?v=20260926-training">
+<link rel="stylesheet" href="training.css?v=20260926-training">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+</head>
+<body class="training-page">
+<div id="training-titlebar">
+  <span id="training-titlebar-name">minesweeper</span>
+</div>
+<main id="training-layout">
+  <header id="training-page-header">
+    <a class="return-to-game" href="index.html">&larr; return to game</a>
+    <h1>Training: Expert under 60 seconds</h1>
+  </header>
+  <p id="training-status" role="status">Reading your saved Expert games&hellip;</p>
+
+  <section class="training-section" id="training-now" hidden aria-labelledby="training-now-heading">
+    <h2 id="training-now-heading">Now</h2>
+    <div id="training-now-cards"></div>
+  </section>
+
+  <section class="training-section" id="training-stages" hidden aria-labelledby="training-stages-heading">
+    <h2 id="training-stages-heading">Stages</h2>
+    <div id="training-stage-list"></div>
+  </section>
+
+  <section class="training-section" id="training-budget" hidden aria-labelledby="training-budget-heading">
+    <h2 id="training-budget-heading">Where the time goes in your latest wins</h2>
+    <div id="training-budget-content"></div>
+  </section>
+
+  <section class="training-section" id="training-plan" aria-labelledby="training-plan-heading">
+    <h2 id="training-plan-heading">The plan</h2>
+    <p class="training-lead">Your time is inputs &times; seconds per input, so 3BV/s is IOE
+      (3BV per input) divided by seconds per input. Your hands are already fast enough: most
+      of the gap to 60 seconds is inputs that change nothing and good runs lost to avoidable
+      mistakes. The stages take them in that order. Rules from earlier stages stay on.</p>
+
+    <div class="training-plan-block" id="training-plan-session">
+      <h3>Every session</h3>
+      <ul>
+        <li>Play 45&ndash;60 minutes on most days. Split more practice into two sessions
+          hours apart: gains per session level off within about an hour, and practice
+          spread across days is learned faster than the same amount in one sitting.</li>
+        <li>Warm up for 5 minutes on Intermediate with your current stage's rules. Then play
+          Expert in blocks of about 10 minutes, one rule in focus per block.</li>
+        <li>Open in a corner. If the corner shows a number, restart with Space instead of
+          guessing: a numbered start almost never becomes a fast win, and a restart costs
+          a second.</li>
+        <li>Keep mouse, sensitivity, and zoom fixed. When one changes, add a state tag so
+          before and after stay comparable.</li>
+        <li>Stop when a block is clearly worse than your best block of the session, or after
+          two avoidable deaths in a row in games past 20 seconds. Do not wait until you feel
+          tired: play gets worse before fatigue is noticeable.</li>
+        <li>Check this page at the end of each session.</li>
+      </ul>
+    </div>
+
+    <div class="training-plan-block" id="training-plan-economy">
+      <h3>1. Stop wasting inputs</h3>
+      <ul>
+        <li>Click a number only when all of its mines are flagged and it still has covered
+          neighbors. Never click a number to test whether it chords.</li>
+        <li>Before flagging, count: flag and chord only when the chord opens more cells than
+          the flags it needs (one flag for two or more cells, two flags for three or more).
+          Otherwise click the safe cells directly. When the counts are equal, flag: the flag
+          may serve a later chord.</li>
+        <li>Never flag a mine that no chord will use.</li>
+        <li>When several numbers could open the same cells, chord the one that opens the
+          most.</li>
+        <li>Expect to be slower for a few sessions. Judge them by IOE, not time.</li>
+        <li>The game data column's IOE, no-op rate, and unused mark share rank every game
+          against your history; turn them on for this stage.</li>
+      </ul>
+    </div>
+
+    <div class="training-plan-block" id="training-plan-runs">
+      <h3>2. Finish the runs you start</h3>
+      <ul>
+        <li>Chord only when every flag around that number is proven, not assumed.</li>
+        <li>Before any guess, scan the whole board for a safe move. When a guess is truly
+          forced, take it at once instead of after clearing everything else.</li>
+        <li>When you notice a wrong flag, remove it before chording anywhere near it.</li>
+        <li>Drill: 5 minutes of Endgame drill a day. Every drill position is solvable without
+          guessing, so every death there is a reading error.</li>
+        <li>If the rate stalls, play 10 Intermediate games of Proof-or-die, where opening any
+          unproven cell loses.</li>
+      </ul>
+    </div>
+
+    <div class="training-plan-block" id="training-plan-speed">
+      <h3>3. Read and move faster</h3>
+      <ul>
+        <li>Read with your eyes, not the cursor: move only toward a cell you have already
+          solved, and solve the next area while clicking the current one.</li>
+        <li>Clear the board in one sweep direction; avoid crossing back over solved areas.</li>
+        <li>After each session, replay your slowest win with the click-speed path view, find
+          the longest pauses, and name the pattern behind each.</li>
+        <li>Learn the patterns that cost you pauses from the
+          <a href="https://minesweeper.online/help/patterns">pattern catalog</a>
+          (1-2-1, 1-2-2-1, 1-1 against a wall, reductions).</li>
+        <li>Use Intermediate blocks for volume: shorter games give more feedback per hour.</li>
+      </ul>
+    </div>
+
+    <div class="training-plan-block" id="training-plan-goal">
+      <h3>4. Win under 60 seconds</h3>
+      <ul>
+        <li>The first win under 60 seconds usually comes on a low-3BV board (about 150 or
+          less, roughly one Expert board in nine) once your median win is near 70 seconds;
+          at the stage 3 target it becomes routine. Keep every rule on and keep finishing
+          games.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="training-section" id="training-weeks" hidden aria-labelledby="training-weeks-heading">
+    <h2 id="training-weeks-heading">Week by week</h2>
+    <div id="training-weeks-content"></div>
+  </section>
+
+  <footer id="training-page-footer">
+    <a class="return-to-game" href="index.html">&larr; return to game</a>
+  </footer>
+</main>
+<script src="storage.js?v=20260923-board-sources"></script>
+<script src="training-page.js?v=20260926-training"></script>
+</body>
+</html>

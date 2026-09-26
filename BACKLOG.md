@@ -8,6 +8,34 @@ leave new ideas only in chat.
 Status labels: **creator** = the creator asked for it; **mapped** = named
 on the design axis or in a research note, not requested as a build.
 
+## Training toward Expert sub-60 (creator, 2026-09-26)
+
+The plan and the read-only training page are built
+([Training](docs/product/training.md)). Proposed follow-ons, not approved
+builds:
+
+- **Per-game economy feedback.** After each Expert win, show that game's
+  removable inputs, one-cell chords, and flags no multi-cell chord used, so
+  every attempt gets immediate feedback instead of a page visit. Compute it in
+  the analysis worker from the finished trace.
+- **Opening statistics.** First-click position, opening rate, and wins after an
+  opening versus a numbered start, from a per-record first-reveal fact or a
+  worker replay of all traces. Today these numbers exist only in the dated
+  reference analysis.
+- **Drills aimed at the stages.** A timed recognize-and-click drill over local
+  positions taken from the player's own long pauses and misreads, shown in all
+  rotations and reflections with look-alike patterns mixed together (far
+  transfer from generic drills is near zero); a mid-game sprint (a
+  deduction-only mid-game position, the Endgame drill's larger sibling);
+  full-length Expert no-guess practice if generation cost allows.
+- **Technique comparisons.** Matched blocks comparing two styles (for example
+  counted flagging versus no-flag) on IOE, seconds per input, and
+  conversion, with block-level uncertainty.
+- **Intermediate on the page.** The warm-up level's economy and pace beside
+  Expert.
+- **Target review.** The stage targets came from the 2026-09-26 history;
+  revisit them once Stage 1 completes.
+
 ## Fuseki hosting (creator, 2026-09-26)
 
 Add Minesweeper under the Fuseki project site with independent, isolated

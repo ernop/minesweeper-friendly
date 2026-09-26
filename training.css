@@ -1,0 +1,236 @@
+/* Training page (docs/product/training.md). style.css supplies the base
+   font and the return-to-game button dress shared with the settings page. */
+
+body.training-page {
+  min-height: 100vh;
+  padding: 0;
+  background: #f3f6f8;
+  color: #000000;
+  text-align: left;
+}
+
+#training-titlebar {
+  padding: 11px 24px;
+  border-bottom: 1px solid #dbe3e8;
+  background: #ffffff;
+}
+
+#training-titlebar-name {
+  font-size: 13px;
+  font-weight: bold;
+}
+
+/* Block flow, not the game page's centered flex column for main. */
+#training-layout {
+  display: block;
+  width: calc(100% - 48px);
+  margin: 0 auto;
+  padding: 30px 0 56px;
+}
+
+body.training-page .return-to-game {
+  padding: 7px 12px;
+  border-color: #b9c8d2;
+  background: #ffffff;
+  font-size: 12px;
+}
+
+#training-page-header h1 {
+  margin: 34px 0 18px;
+  font-size: 30px;
+  line-height: 1.15;
+}
+
+#training-status {
+  margin: 0 0 18px;
+  font-size: 14px;
+}
+
+#training-status.training-error {
+  border: 1px solid #d6a2a2;
+  border-radius: 7px;
+  background: #fff5f5;
+  padding: 12px 14px;
+  color: #8d3030;
+}
+
+.training-section {
+  margin: 0 0 18px;
+  padding: 18px 22px 20px;
+  border: 1px solid #dbe3e8;
+  border-radius: 8px;
+  background: #ffffff;
+  overflow-x: auto;
+}
+
+.training-section h2 {
+  margin: 0 0 14px;
+  font-size: 22px;
+}
+
+.training-section h3 {
+  margin: 0 0 10px;
+  font-size: 17px;
+}
+
+#training-now-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(170px, 100%), 1fr));
+  gap: 12px;
+}
+
+.training-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid #dbe3e8;
+  border-radius: 6px;
+  background: #f7f9fb;
+}
+
+.training-card-label {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.training-card-value {
+  font-size: 30px;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.training-card-detail {
+  font-size: 12px;
+}
+
+#training-stage-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(520px, 100%), 1fr));
+  gap: 14px;
+}
+
+.training-stage {
+  padding: 12px 14px;
+  border: 1px solid #dbe3e8;
+  border-radius: 6px;
+}
+
+.training-stage-current,
+.training-plan-current {
+  border: 2px solid #417ca4;
+  background: #eef5fb;
+}
+
+.training-stage-state {
+  margin-left: 10px;
+  padding: 1px 8px;
+  border: 1px solid #b9c8d2;
+  border-radius: 9px;
+  background: #ffffff;
+  font-size: 12px;
+  font-weight: normal;
+  vertical-align: middle;
+}
+
+.training-stage-complete .training-stage-state { background: #d9f2d9; }
+
+.training-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.training-table th {
+  padding: 6px 8px;
+  border-bottom: 1px solid #b9c8d2;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: left;
+}
+
+.training-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid #e3e9ee;
+}
+
+.training-table .training-number {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.training-weeks-table td:first-child { white-space: nowrap; }
+
+.training-met td { background: #e3f5e3; }
+.training-unmet td { background: #fdeeee; }
+.training-waste td { background: #fff4e0; }
+
+.training-total td {
+  border-top: 2px solid #b9c8d2;
+  font-weight: 700;
+}
+
+.training-facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 16px;
+  margin: 14px 0 0;
+  font-size: 14px;
+}
+
+.training-facts dt { font-weight: 700; }
+
+.training-facts dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+#training-plan {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(440px, 100%), 1fr));
+  gap: 14px;
+}
+
+#training-plan > h2,
+.training-lead {
+  grid-column: 1 / -1;
+}
+
+#training-plan > h2 { margin-bottom: 0; }
+
+.training-lead {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.training-plan-block {
+  padding: 12px 16px;
+  border: 1px solid #dbe3e8;
+  border-radius: 6px;
+}
+
+.training-plan-block ul {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.training-plan-block li + li { margin-top: 6px; }
+
+#training-page-footer { margin-top: 28px; }
+
+@media (max-width: 760px) {
+  #training-layout {
+    width: calc(100% - 28px);
+    padding-top: 20px;
+  }
+
+  #training-page-header h1 { font-size: 26px; }
+
+  .training-section { padding: 16px 14px; }
+
+  .training-facts { grid-template-columns: 1fr; }
+}

@@ -22,6 +22,11 @@ build step. The settings page is
 `settings.html` + `settings-page.js`, loading the same `style.css`,
 `storage.js`, `generators.js`, `game-data.js`, and `settings-core.js` (both
 pages must load storage.js, game-data.js, and settings-core.js before their own script).
+The training page is `training.html` + `training-page.js`, loading
+`style.css`, `training.css`, and `storage.js`; `training-worker.js` reads the
+saved games and runs the pure `training-core.js` with `justice.js`,
+`solver.js`, `rng.js`, and `game/evaluation.js`. Every page that loads
+`storage.js` uses the same cache tag (`tests/storage-cache-tag-test.js`).
 
 ### Game page code (`game/`)
 
@@ -149,6 +154,7 @@ the file path, plus the section heading when the file holds several.
 | Personal settings | [docs/product/settings.md](docs/product/settings.md) | [docs/implementation/settings.md](docs/implementation/settings.md) |
 | Storage, raw input traces, history, backup | [docs/product/storage-and-history.md](docs/product/storage-and-history.md) | [docs/implementation/storage-and-history.md](docs/implementation/storage-and-history.md) |
 | Measurement purpose, offline analysis | [docs/product/measurement.md](docs/product/measurement.md) | [docs/implementation/offline-analysis.md](docs/implementation/offline-analysis.md) |
+| Training toward an Expert win under 60 s (plan, stage targets, training page) | [docs/product/training.md](docs/product/training.md) | [docs/implementation/training.md](docs/implementation/training.md) |
 
 - Local tooling, test entry points, headless browsers, and deploys:
   [docs/implementation/verification.md](docs/implementation/verification.md).

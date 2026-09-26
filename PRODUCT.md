@@ -58,6 +58,10 @@ single-file spec; older references cite them as `PRODUCT.md "Heading"`.
 - [docs/product/session-stats.md](docs/product/session-stats.md) — The recent-observations section, its player-chosen session window, and the action-rates charts. Section: "Session stats".
 - [docs/product/player-states.md](docs/product/player-states.md) — Self-reported context tags stored on finished games. Section: "Player states".
 
+### Training
+
+- [docs/product/training.md](docs/product/training.md) — The plan toward an Expert win under 60 seconds (stages, rules, targets, session routine) and the read-only training page that measures the player against it.
+
 ### Settings and data
 
 - [docs/product/settings.md](docs/product/settings.md) — The settings page and every preference. Section: "Personal settings".

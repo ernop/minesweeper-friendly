@@ -47,6 +47,11 @@
   "solver.js",
   "storage.js",
   "style.css",
+  "training-core.js",
+  "training-page.js",
+  "training-worker.js",
+  "training.css",
+  "training.html",
   "trend-fit.js",
   "trial.js",
   "zini.js"

@@ -1826,6 +1826,7 @@ body.trial-offboard #game-frame {
    links wear the identical dress — the shared piece of titlebar. */
 #states-add-btn,
 #settings-btn,
+#training-btn,
 .return-to-game {
   font: inherit;
   font-size: 11px;
@@ -1841,6 +1842,7 @@ body.trial-offboard #game-frame {
 
 #states-add-btn:hover,
 #settings-btn:hover,
+#training-btn:hover,
 .return-to-game:hover { background: #e3edf6; }
 
 #states-add-btn.open {
