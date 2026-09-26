@@ -126,9 +126,11 @@ assertEq('deferred record retains the actual game-end timestamp',
     addEventListener: (name, handler) => { handlers[name] = handler; } };
   const window = { addEventListener: (name, handler) => { handlers[name] = handler; } };
   const start = source.indexOf("document.addEventListener('visibilitychange'");
-  const end = source.indexOf("window.addEventListener('pagehide', flushPendingResult);", start)
-    + "window.addEventListener('pagehide', flushPendingResult);".length;
-  vm.runInNewContext(source.slice(start, end), { document, window, settings: null,
+  const endMarker = "window.addEventListener('pageshow', tracePageEvent);";
+  const endAt = source.indexOf(endMarker, start);
+  if (start < 0 || endAt < 0) throw new Error('page lifecycle handlers not found in game source');
+  vm.runInNewContext(source.slice(start, endAt), { document, window, settings: null,
+    tracePageEvent: () => {},
     flushPendingResult: () => { flushed++; }, cancelMetricsUpdate: () => {} });
   handlers.visibilitychange();
   assertEq('hiding the page flushes the pending record', flushed, 1);

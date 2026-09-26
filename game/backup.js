@@ -48,6 +48,11 @@ document.getElementById('export-traces-btn').addEventListener('click', () => {
       sampleT: Array.from(s.sampleT),
       sampleX: Array.from(s.sampleX),
       sampleY: Array.from(s.sampleY),
+      ...(s.captureVersion === undefined ? {} : {
+        sampleSourceT: Array.from(s.sampleSourceT),
+        sampleTrusted: Array.from(s.sampleTrusted),
+        sampleMergeCount: Array.from(s.sampleMergeCount),
+      }),
     }));
     const json = JSON.stringify(games);
     if (exportTracesLink.href) URL.revokeObjectURL(exportTracesLink.href);

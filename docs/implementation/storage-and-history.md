@@ -70,7 +70,8 @@ Spec: [docs/product/storage-and-history.md](../product/storage-and-history.md). 
   and any data under them is ignored.
 - Raw input traces ([Raw input traces](../product/storage-and-history.md)): `beginTrace` (end of
   newGame's board build) starts {startedAt, t0, t/x/y sample arrays,
-  events}; the document mousemove handler appends a sample per move while
+  sourceT/sampleTrusted/sampleMergeCount, initialPageState, events}; the
+  document mousemove handler calls `traceMove` while
   `tracing()` (ready or playing). `traceEvent` logs 'ldown'/'lup'/'rdown'
   from the board handlers (document mouseup catches off-cell releases,
   index null); `traceDecision` logs every accepted action's exact pre-action
@@ -84,19 +85,41 @@ Spec: [docs/product/storage-and-history.md](../product/storage-and-history.md). 
   `node tests/trace-layout-test.js` freezes these
   rules. `saveTrace` (called from reportResult) puts
   {endedAt, mode, outcome, startedAt, sampleT/sampleX/sampleY as typed
-  arrays, events} into the `traces` store, keyPath endedAt (never held
-  in RAM — far too large). Failures go through `storageFailure`
+  arrays, events, captureVersion, clock, initialPageState, sampleSourceT,
+  sampleTrusted, sampleMergeCount} into the `traces` store, keyPath endedAt.
+  Only the active trace remains in RAM during play. Failures go through `storageFailure`
   (#backup-status + throw) — no silent trace loss. "export traces"
   (#export-traces-btn + #export-traces-file) downloads every trace as a
   JSON array with the typed arrays converted back to plain arrays.
 - Trace timestamp invariant ([Raw input traces](../product/storage-and-history.md)): the document
-  mousemove recorder coalesces events whose precision-reduced
+  `traceMove` recorder merges events whose precision-reduced
   performance.now() equals the previous sample's (latest position wins),
   so sampleT is strictly increasing by construction. This is what keeps
   every dt > 0 (no Infinity speeds/jerk in the metrics panel — the
   2026-08-20 bug) and satisfies the offline extractor's validation.
   Simulated-input tests must dispatch mousemoves with real delays
   (~12ms sleeps) or they exercise exactly this coalescing path.
+- Capture v1 ([contract](../product/storage-and-history.md#capture-provenance-v1-2026-09-26)):
+  `traceEventSource` preserves browser timestamp/type/trust independently of
+  the existing receipt-time fields. `traceMove` merges only equal receipt times,
+  updating the surviving sample's source provenance and merge count together.
+  `saveTrace` writes source times as Float64Array, trust as Uint8Array, counts
+  as Uint32Array; `game/backup.js` converts them for JSON export when measured.
+  No database upgrade or historical rewrite is needed for these new fields.
+  `traceRightButton` runs in document capture listeners before gameplay's
+  context-menu handler; distinct kinds prevent duplicate action counts.
+  `tracePageEvent` records window focus/blur and pagehide/pageshow, plus document
+  visibility changes. Existing flush/cancel behavior remains in those handlers.
+  Page-state collection schedules no analysis on its own; the next existing
+  live update/final save includes it. All handlers stop recording at game end.
+  Existing workers, replay, and offline feature formulas continue to select
+  their named action kinds and receipt-time sample arrays. The Python
+  extractor explicitly recognizes the new non-action kinds and decision events;
+  it still rejects unknown kinds. Provenance collection performs no analytics.
+  `tests/trace-layout-test.js` checks clock separation, sample merging/provenance,
+  state transitions and stop boundaries; `tests/trace-capture-browser-check.js`
+  checks real right-click events, queued source time, listener wiring, IndexedDB,
+  export, and worker equality with/without added non-action observations.
 - Backup: `#backup` controls; `importHistory` validates the whole blob
   before writing (arrays of well-formed records only, loud error naming the
   offending mode otherwise), dedupes by `endedAt` within each mode, and

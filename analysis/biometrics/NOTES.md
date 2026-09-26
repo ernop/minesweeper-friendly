@@ -122,7 +122,11 @@ Session:
 TRACES.json is a traces export from the game (or
 `synthetic-trace.json`). Output is a JSON array, one object per game.
 Malformed input raises with the game index and defect named; nothing is
-skipped or defaulted.
+skipped or defaulted. Capture-v1 provenance arrays and non-action events
+(right-button transitions, page-state observations, and decision evidence) are
+accepted. Existing formulas use receipt-time `sampleT` and the original
+`ldown`/`lup`/`rdown` action population; they do not treat a physical right
+transition as another flag action or claim an interruption-adjusted measure.
 
 Regenerate the synthetic fixture (seeded, byte-reproducible):
 

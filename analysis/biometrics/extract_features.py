@@ -52,7 +52,10 @@ import numpy as np
 STROKE_GAP_MS = 100.0
 
 BUTTON_EVENT_KINDS = {'ldown', 'lup', 'rdown'}
-EVENT_KINDS = BUTTON_EVENT_KINDS | {'layout'}
+# These observations do not add game actions to the existing feature population.
+EVENT_KINDS = BUTTON_EVENT_KINDS | {
+    'layout', 'decision', 'right-button-down', 'right-button-up', 'page-state',
+}
 
 GAME_KEYS = {'endedAt', 'mode', 'outcome', 'startedAt',
              'sampleT', 'sampleX', 'sampleY', 'events'}

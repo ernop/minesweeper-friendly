@@ -25,7 +25,10 @@ global.boardElement = { getBoundingClientRect: () => ({ ...boardRect }) };
 global.config = { width: 9, height: 9 };
 global.gameState = 'ready';
 let nowMs = 1000;
-global.performance = { now: () => nowMs };
+global.performance = { now: () => nowMs, timeOrigin: 1699999999000 };
+let focused = true;
+global.document = { visibilityState: 'visible', hasFocus: () => focused };
+global.cellIndexFromEvent = () => null;
 global.Date = Object.assign(function () {}, Date, { now: () => 1700000000000 });
 // beginTrace's metrics-panel hookups are display machinery, inert here.
 global.beginTraceMetricsSeries = () => {};
@@ -68,7 +71,8 @@ check('second check after the same move records nothing',
 // the button event so every event maps through current geometry.
 boardRect = { left: 983, top: 120, width: 200, height: 200 };
 nowMs = 1040;
-traceEvent('lup', { clientX: 1000, clientY: 200 }, 5);
+traceEvent('lup', { clientX: 1000, clientY: 200, timeStamp: 1035,
+  type: 'mouseup', buttons: 0, isTrusted: true }, 5);
 const events = trace.events;
 check('traceEvent re-records first', layouts().length === 3);
 check('layout precedes its button event',
@@ -97,12 +101,57 @@ nowMs = 1050;
 recordLayoutIfMoved();
 check('resized board re-records', layouts().length === 4);
 
+check('initial page state is measured',
+  trace.initialPageState.visibilityState === 'visible' && trace.initialPageState.hasFocus);
+const input = trace.events.find(e => e.kind === 'lup');
+check('source event time remains separate from receipt time',
+  input.sourceT === 35 && input.t === 40 && input.sourceType === 'mouseup');
+check('button state and source trust are retained', input.buttons === 0 && input.isTrusted);
+
+nowMs = 1052;
+traceMove({ timeStamp: 1041, type: 'mousemove', clientX: 10, clientY: 20, isTrusted: true });
+traceMove({ timeStamp: 1042, type: 'mousemove', clientX: 11, clientY: 21, isTrusted: false });
+nowMs = 1054;
+traceMove({ timeStamp: 1043, type: 'mousemove', clientX: 12, clientY: 22, isTrusted: true });
+check('equal receipt times retain the latest point and its provenance',
+  trace.t.length === 2 && trace.x[0] === 11 && trace.y[0] === 21
+  && trace.sourceT[0] === 42 && trace.sampleTrusted[0] === false);
+check('merged observations are counted explicitly',
+  trace.sampleMergeCount.join(',') === '2,1');
+check('source and receipt samples use the same trace origin',
+  trace.t[1] === 54 && trace.sourceT[1] === 43);
+
+nowMs = 1055;
+traceRightButton({ button: 2, buttons: 2, timeStamp: 1053, type: 'mousedown',
+  clientX: 20, clientY: 30, isTrusted: true });
+traceRightButton({ button: 2, buttons: 0, timeStamp: 1054, type: 'mouseup',
+  clientX: 20, clientY: 30, isTrusted: true });
+check('right transitions remain separate from flag-action triggers',
+  trace.events.filter(e => e.kind.startsWith('right-button-')).length === 2
+  && !trace.events.some(e => e.kind === 'rdown'));
+check('physical right releases outside the board are recorded',
+  trace.events.at(-1).kind === 'right-button-up' && trace.events.at(-1).index === null);
+focused = false;
+document.visibilityState = 'hidden';
+tracePageEvent({ timeStamp: 1054, type: 'visibilitychange', isTrusted: true });
+check('interruption stores the observed state and source time',
+  trace.events.at(-1).visibilityState === 'hidden' && !trace.events.at(-1).hasFocus
+  && trace.events.at(-1).sourceT === 54 && trace.events.at(-1).t === 55);
+tracePageEvent({ timeStamp: 1054, type: 'pagehide', persisted: true, isTrusted: true });
+check('page lifecycle retains browser cache state', trace.events.at(-1).persisted === true);
+check('enriched events remain in receipt order',
+  trace.events.every((e, i) => i === 0 || e.t >= trace.events[i - 1].t));
+
 // Outside a running trace nothing records.
 global.gameState = 'won';
 boardRect = { left: 0, top: 0, width: 296, height: 296 };
 nowMs = 1060;
 recordLayoutIfMoved();
-check('no record after game end', layouts().length === 4);
+const finishedEventCount = trace.events.length;
+tracePageEvent({ timeStamp: 1060, type: 'focus', isTrusted: true });
+traceRightButton({ button: 2, timeStamp: 1060, type: 'mouseup' });
+check('no record after game end', layouts().length === 4
+  && trace.events.length === finishedEventCount);
 
 console.log(failures === 0
   ? 'trace-layout: all checks passed'

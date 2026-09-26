@@ -6,12 +6,12 @@
 //-------RAW INPUT TRACE (full per-game cursor and click stream)-------
 
 // Decided 2026-08-20 (docs/product/storage-and-history.md "Raw input
-// traces"): every finished game keeps its complete input stream — cursor
+// traces"): every finished game keeps its sampled input stream — cursor
 // samples, button events, board geometry — as the ground truth behind all
 // motion metrics. Scalar record
 // fields summarize; the trace is what lets any future metric be computed
 // over past games too. Traces live in their own store, keyed by endedAt
-// exactly like the history records, and are never held in RAM.
+// exactly like the history records; only the active trace stays in RAM.
 //
 // A trace runs from board creation (newGame) to finish. Pre-first-click
 // movement is warmup and is real data, so sampling covers 'ready' as well
@@ -27,8 +27,10 @@ function beginTrace() {
   trace = {
     startedAt: Date.now(),
     t0: performance.now(),
-    t: [], x: [], y: [],   // cursor samples, one entry per mousemove
-    events: [],            // button, layout, and decision events
+    sourceT: [], sampleTrusted: [], sampleMergeCount: [],
+    t: [], x: [], y: [],
+    initialPageState: tracePageState(),
+    events: [],
   };
   recordLayout();
   // The metrics panel flips back to live immediately with fresh series:
@@ -45,6 +47,76 @@ function beginTrace() {
 // window must not count as tracing.
 function tracing() {
   return trace !== null && (gameState === 'ready' || gameState === 'playing');
+}
+
+// Event.timeStamp is browser event creation time, not a hardware timestamp.
+// Keep it separate from handler receipt time, including negative source times
+// when an event was created before this trace began and delivered afterwards.
+function traceEventSource(event) {
+  if (!Number.isFinite(event.timeStamp)) {
+    throw new Error('Input trace: invalid timestamp for ' + event.type);
+  }
+  return {
+    sourceT: event.timeStamp - trace.t0,
+    sourceType: event.type,
+    isTrusted: event.isTrusted,
+  };
+}
+
+function tracePageState() {
+  return { visibilityState: document.visibilityState, hasFocus: document.hasFocus() };
+}
+
+function tracePageEvent(event) {
+  if (!tracing()) return;
+  trace.events.push({
+    t: performance.now() - trace.t0,
+    kind: 'page-state',
+    ...traceEventSource(event),
+    ...tracePageState(),
+    ...((event.type === 'pagehide' || event.type === 'pageshow')
+      ? { persisted: event.persisted } : {}),
+  });
+}
+
+// The action stream's rdown is a context-menu trigger. These independently
+// observed transitions support physical right-button timing without silently
+// changing the historical cadence/segment definitions.
+function traceRightButton(event) {
+  if (!tracing() || event.button !== 2) return;
+  recordLayoutIfMoved();
+  const t = performance.now() - trace.t0;
+  trace.events.push({
+    t, kind: event.type === 'mousedown' ? 'right-button-down' : 'right-button-up',
+    ...traceEventSource(event),
+    x: event.clientX, y: event.clientY,
+    buttons: event.buttons,
+    index: cellIndexFromEvent(event),
+  });
+}
+
+function traceMove(event) {
+  const t = performance.now() - trace.t0;
+  const source = traceEventSource(event);
+  const last = trace.t.length - 1;
+  if (last >= 0 && trace.t[last] === t) {
+    // Current metrics require strictly increasing receipt times. Retain the
+    // provenance of the surviving position and count the merged observations;
+    // this stream must not be mistaken for every delivered mouse sample.
+    trace.x[last] = event.clientX;
+    trace.y[last] = event.clientY;
+    trace.sourceT[last] = source.sourceT;
+    trace.sampleTrusted[last] = source.isTrusted;
+    trace.sampleMergeCount[last]++;
+  } else {
+    trace.t.push(t);
+    trace.x.push(event.clientX);
+    trace.y.push(event.clientY);
+    trace.sourceT.push(source.sourceT);
+    trace.sampleTrusted.push(source.isTrusted);
+    trace.sampleMergeCount.push(1);
+  }
+  scheduleMetricsUpdate({ trace: true });
 }
 
 // Board geometry snapshot: with the rect and the board's cell dimensions,
@@ -82,6 +154,7 @@ function recordLayoutIfMoved() {
   recordLayout();
 }
 
+// rdown names the existing flag-action trigger, not a physical right press.
 // kind: 'ldown' | 'lup' | 'rdown'. index is the board cell the event hit,
 // or null (an 'lup' released off the cells while the button was down).
 function traceEvent(kind, event, index) {
@@ -90,6 +163,8 @@ function traceEvent(kind, event, index) {
     t: performance.now() - trace.t0,
     atMs: gameState === 'playing' ? elapsedMs() : 0,
     kind: kind,
+    ...traceEventSource(event),
+    buttons: event.buttons,
     x: event.clientX,
     y: event.clientY,
     index: index,
@@ -146,6 +221,12 @@ function saveTrace(record) {
     boardVersion: record.boardVersion,
     justiceVersion: record.justiceVersion,
     startedAt: trace.startedAt,
+    captureVersion: 1,
+    clock: { timeOriginMs: performance.timeOrigin, traceStartMs: trace.t0 },
+    initialPageState: trace.initialPageState,
+    sampleSourceT: Float64Array.from(trace.sourceT),
+    sampleTrusted: Uint8Array.from(trace.sampleTrusted),
+    sampleMergeCount: Uint32Array.from(trace.sampleMergeCount),
     metricSampleTimes: [...metricsSeries.tMs, record.endedAt - trace.startedAt],
     finalBoard: { cells: structuredClone(cells), hitIndices: cellElements.flatMap((el, i) => el.classList.contains('mine-hit') ? [i] : []) },
     sampleT: Float64Array.from(trace.t),

@@ -70,8 +70,8 @@ frame.addEventListener('load', () => {
   for (let i = 0; i < 20; i++) {
     document.dispatchEvent(new MouseEvent('mousemove', { clientX: 700 + i, clientY: 150 }));
   }
-  traceEvent('ldown', { clientX: 720, clientY: 150 }, 0);
-  traceEvent('lup', { clientX: 720, clientY: 150 }, 0);
+  traceEvent('ldown', new MouseEvent('mousedown', { clientX: 720, clientY: 150 }), 0);
+  traceEvent('lup', new MouseEvent('mouseup', { clientX: 720, clientY: 150 }), 0);
   await waitFor(() => lastLiveMetrics.bio.leftClickCount === 1);
   const clickRow = metricsPanelView.liveRows.find(item =>
     item.querySelector('.metric-label').textContent === 'left clicks');

@@ -42,7 +42,8 @@ document.addEventListener('keydown', flushPendingResult, true);
 // A tab hidden or unloaded inside the deferral window must not lose the
 // finished game: persist immediately rather than waiting on a frame that
 // may never come.
-document.addEventListener('visibilitychange', () => {
+document.addEventListener('visibilitychange', (event) => {
+  tracePageEvent(event);
   if (document.visibilityState === 'hidden') {
     flushPendingResult();
     cancelMetricsUpdate();
@@ -50,7 +51,15 @@ document.addEventListener('visibilitychange', () => {
     scheduleMetricsUpdate({ elapsed: tracing(), session: true });
   }
 });
-window.addEventListener('pagehide', flushPendingResult);
+window.addEventListener('pagehide', (event) => {
+  tracePageEvent(event);
+  flushPendingResult();
+});
+window.addEventListener('pageshow', tracePageEvent);
+window.addEventListener('focus', tracePageEvent);
+window.addEventListener('blur', tracePageEvent);
+document.addEventListener('mousedown', traceRightButton, true);
+document.addEventListener('mouseup', traceRightButton, true);
 
 boardElement.addEventListener('mousedown', (event) => {
   if (event.button !== 0) return;
@@ -137,26 +146,7 @@ document.addEventListener('mousemove', (event) => {
   }
   lastMouseX = event.clientX;
   lastMouseY = event.clientY;
-  if (tracing()) {
-    const t = performance.now() - trace.t0;
-    const last = trace.t.length - 1;
-    if (last >= 0 && trace.t[last] === t) {
-      // performance.now() is precision-reduced (Chromium quantizes to
-      // ~100us), so two mousemove events can carry the same timestamp.
-      // At the timer's resolution both positions exist "at the same
-      // time"; the sample for that instant is the latest known position.
-      // Keeping both entries would put dt = 0 into every rate (speed,
-      // jerk = distance/0 = Infinity) and violate the trace invariant the
-      // offline extractor validates: sampleT strictly increasing.
-      trace.x[last] = event.clientX;
-      trace.y[last] = event.clientY;
-    } else {
-      trace.t.push(t);
-      trace.x.push(event.clientX);
-      trace.y.push(event.clientY);
-    }
-    scheduleMetricsUpdate({ trace: true });
-  }
+  if (tracing()) traceMove(event);
 });
 
 boardElement.addEventListener('contextmenu', (event) => {

@@ -52,9 +52,9 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
 
 ## Raw input traces (decided 2026-08-20)
 
-- Every finished game (win and loss) keeps its complete input stream as
-  the ground truth behind all motion and decision analysis: cursor samples
-  (relative ms timestamp, x, y for every mousemove), button events
+- Every finished game (win and loss) keeps its sampled input stream as
+  the ground truth behind motion and decision analysis: cursor samples
+  (relative ms timestamp, x, y; equal receipt times merge as specified below), button events
   ('ldown'/'lup'/'rdown' with position and the board cell index hit, or null
   for a press released off the cells), layout events (the board's bounding
   rect and dimensions, re-recorded on scroll, resize, and zoom, so every
@@ -82,25 +82,78 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   warmup and is real data, so capture covers the ready state, not just
   play. Post-game movement belongs to no game and is not captured.
   Abandoned boards (restarted mid-game) produce no record and no trace.
+- `rdown` is the context-menu flag-action trigger. Existing calculations
+  continue using this action boundary and handler-time samples; capture
+  provenance v1 below separately records physical right-button transitions,
+  event times, and page-state observations. Full source-sample preservation
+  and complete-attempt retention remain unbuilt; see the
+  [lifelong self-measurement roadmap](../../BACKLOG.md#lifelong-self-measurement-roadmap-creator-2026-09-26).
 - Sample timestamps are strictly increasing, by construction (decided
   2026-08-20): browsers reduce performance.now() precision (Chromium
   quantizes to ~100µs), so two mousemove events can read the same
   timestamp. Such events are one sample — the latest position at that
-  instant — because at the timer's resolution the two positions are not
-  ordered in time, and a zero time step would put Infinity into every
-  rate computed from the trace. Every consumer (the metrics panel, the
+  instant. Their delivery order is known but elapsed time within the tie
+  is not resolved; a zero time step would put Infinity into every
+  rate computed from this computation stream. The discarded positions
+  cannot be reconstructed; capture v1 records the number merged. Every consumer (the metrics panel, the
   offline extractors) may rely on this invariant.
 - Traces live in their own store (`traces`, keyed by endedAt exactly like
-  history records; see Storage) and are never held in RAM — they are far
-  too large for that. Nothing is pruned.
+  history records; see Storage). The active trace stays in RAM; the full
+  historical trace collection is not loaded during play. Nothing is pruned.
 - Scalar record fields are summaries; the trace is what lets any future
   metric be computed over past games retroactively. Failure to capture or
   save a trace is announced visibly and thrown, never tolerated.
 - An "export traces" button beside the backup controls downloads all
   traces as one JSON file (download only — far too large for the
   clipboard) for the offline analysis pipelines under `analysis/`.
-- Recording overhead, measured 2026-08-20: ~100ns per mousemove event and
+- Historical recording overhead, measured 2026-08-20 before capture v1: ~100ns per mousemove event and
   <0.5ms of typed-array conversion at save time — imperceptible.
+
+### Capture provenance v1 (2026-09-26)
+
+The creator's instruction to continue the profiling work starts with better
+observations. This implemented slice adds provenance to new finished-game
+traces; it does not change the numerical definitions of existing statistics.
+
+- `captureVersion: 1` identifies this acquisition contract. `clock` retains
+  `timeOriginMs` and `traceStartMs` from the browser monotonic clock; their sum
+  anchors relative trace time to the browser's epoch estimate. Existing
+  `startedAt` remains the separately observed `Date.now()` value used by current
+  history/session code. A wall-clock adjustment is not a change in elapsed
+  monotonic time; existing wall-time-based summaries are not redefined here.
+- Existing input events keep handler-recorded `t` and gain `sourceT` (browser
+  `Event.timeStamp` minus trace start), `sourceType`, `isTrusted`, and `buttons`.
+  Both times are milliseconds on the same relative clock. Source time is browser
+  event creation time, not measured hardware activation. Do not clamp negative
+  source times: a queued event may predate board creation. Layout and decision
+  events are app observations and do not invent browser-source timestamps.
+- Mouse samples gain parallel `sampleSourceT`, `sampleTrusted` (0/1), and
+  `sampleMergeCount` arrays. A sample's count is the number of delivered
+  `mousemove` observations merged into that receipt-time sample. On a tie, the
+  latest position and its source time/trust survive. Counts expose the loss;
+  they do not recover the discarded observations or browser-coalesced points.
+  No claim of a complete device stream or polling rate follows from these arrays.
+- Document-level mouse down/up listeners independently record
+  `right-button-down` and `right-button-up`, including off-board events, with
+  position, cell index (null off cells), browser button state, and source
+  provenance. They never toggle flags or count as additional game actions.
+  Existing left down/up coverage is unchanged. A button held outside the
+  trace's window may have only one observed transition; no counterpart is invented.
+- `initialPageState` records document visibility and focus at trace start.
+  `page-state` events record `visibilitychange`, window focus/blur, and
+  `pagehide`/`pageshow`, with both times, source trust, and the observed state.
+  Page lifecycle events also retain `persisted`. These identify observed context
+  changes, not proof of distraction, sleepiness, a pause, or a missing input.
+  An abrupt exit may emit no event. A pagehide observation is durable only if
+  that trace later reaches the existing finished-game save path.
+- Capture stops at game end. Export includes all new observations and converts
+  every sample array to a JSON array. Earlier traces remain explicitly
+  unmeasured for these fields; export does not manufacture them.
+
+Still pending: one full Pointer Events acquisition stream with coalesced and
+ordered equal-time samples, every button/cancellation, input-to-action links,
+setup identity, viewport/device context, and partial-attempt checkpointing.
+These remain in the [lifelong self-measurement roadmap](../../BACKLOG.md#lifelong-self-measurement-roadmap-creator-2026-09-26).
 
 ## Play history and backup
 
