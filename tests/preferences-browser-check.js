@@ -37,7 +37,9 @@ const { chromium } = require(process.argv[2]);
   await page.waitForFunction(()=>settings !== null);
   await page.evaluate(()=>importPreferences(JSON.stringify({pathView:'progress',replayOverlays:{moves:false,mines:false,probs:true,pointless:true,purposeful:true,movement:true},metricsPanelCollapsed:true,trialSpeedBucketMs:375,resultView:'scores'})));
   const prefs=await page.evaluate(()=>JSON.parse(exportPreferences()));
-  await page.locator('.return-to-game').first().click();await page.waitForFunction(()=>preferenceUIReady);
+  // Wait for the navigation itself: evaluated on the settings page, the name is undefined.
+  await Promise.all([page.waitForURL('**/index.html'),page.locator('.return-to-game').first().click()]);
+  await page.waitForFunction(()=>typeof preferenceUIReady !== 'undefined' && preferenceUIReady);
   assert.equal(await page.evaluate(()=>settings.pathView),'progress');
   assert.equal(await page.evaluate(()=>settings.metricsPanelCollapsed),true);
   assert.equal(await page.locator('#result-summary').innerText().then(t=>t.startsWith('High scores')),true);

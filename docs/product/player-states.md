@@ -31,6 +31,9 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   states they were stamped with, even if a state is later removed.
 - The states panel sits in the screen's upper-right corner (2026-08-20;
   it previously hung off the board's left edge), sharing a fixed cluster
-  with the play-mode menu (2026-08-21) and the settings button. Fixed to
+  with the play-mode menu (2026-08-21), the settings button, the
+  self-check link (2026-09-26, [Self-check](self-check.md)), and the
+  archive chip, shown only while the archive folder is paused or failing
+  (2026-09-26, [Archive folder](storage-and-history.md#archive-folder-creator-direction-2026-09-26)). Fixed to
   the viewport, it occupies no layout space — using it never moves the
   board — and stays visible while scrolling the charts.

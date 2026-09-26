@@ -4,11 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Minesweeper - Standard Mode</title>
-<link rel="stylesheet" href="style.css?v=20260926-training">
+<link rel="stylesheet" href="style.css?v=20260926-lifelong">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <!-- Defer preserves dependency order while letting every page asset download
      in parallel. Storage starts first so disk access overlaps JS startup. -->
-<script defer src="storage.js?v=20260926-exact-normalization"></script>
+<script defer src="storage.js?v=20260926-lifelong"></script>
+<script defer src="observation-context.js?v=20260926-lifelong"></script>
+<script defer src="archive.js?v=20260926-lifelong"></script>
 <script defer src="rng.js"></script>
 <script defer src="justice.js?v=20260926-fast-evidence"></script>
 <script defer src="board-shape.js"></script>
@@ -21,35 +23,35 @@
 <script defer src="pregen.js?v=20260826-pregen-highlight"></script>
 <script defer src="odds.js?v=20260926-fast-evidence"></script>
 <script defer src="trial.js"></script>
-<script defer src="game-data.js?v=20260923-one-session-picker"></script>
+<script defer src="game-data.js?v=20260926-lifelong"></script>
 <script defer src="settings-core.js?v=20260923-chart-groups"></script>
-<script defer src="analysis-client.js?v=20260926-exact-normalization"></script>
+<script defer src="analysis-client.js?v=20260926-lifelong"></script>
 <script defer src="preferences-game.js?v=20260926-exact-normalization"></script>
-<script defer src="game/core.js?v=20260926-exact-normalization"></script>
-<script defer src="game/layout.js?v=20260926-exact-normalization"></script>
-<script defer src="game/play.js?v=20260926-exact-normalization"></script>
-<script defer src="game/play-modes.js?v=20260926-exact-normalization"></script>
-<script defer src="game/evaluation.js?v=20260926-exact-normalization"></script>
-<script defer src="game/results.js?v=20260926-exact-normalization"></script>
-<script defer src="game/history.js?v=20260926-exact-normalization"></script>
-<script defer src="game/rankings.js?v=20260926-exact-normalization"></script>
-<script defer src="game/charts.js?v=20260926-exact-normalization"></script>
-<script defer src="game/trial-review.js?v=20260926-exact-normalization"></script>
-<script defer src="game/game-data-chart.js?v=20260926-exact-normalization"></script>
-<script defer src="game/result-ranks.js?v=20260926-exact-normalization"></script>
-<script defer src="game/input-trace.js?v=20260926-exact-normalization"></script>
-<script defer src="game/replay-model.js?v=20260926-exact-normalization"></script>
-<script defer src="game/replay-view.js?v=20260926-exact-normalization"></script>
-<script defer src="game/music.js?v=20260926-exact-normalization"></script>
-<script defer src="game/trace-metrics.js?v=20260926-exact-normalization"></script>
-<script defer src="game/metric-definitions.js?v=20260926-exact-normalization"></script>
-<script defer src="game/metrics-panel.js?v=20260926-exact-normalization"></script>
-<script defer src="game/session-stats.js?v=20260926-exact-normalization"></script>
-<script defer src="game/session-charts.js?v=20260926-exact-normalization"></script>
-<script defer src="game/player-states.js?v=20260926-exact-normalization"></script>
-<script defer src="game/controls.js?v=20260926-exact-normalization"></script>
-<script defer src="game/backup.js?v=20260926-exact-normalization"></script>
-<script defer src="game/main.js?v=20260926-exact-normalization"></script>
+<script defer src="game/core.js?v=20260926-lifelong"></script>
+<script defer src="game/layout.js?v=20260926-lifelong"></script>
+<script defer src="game/play.js?v=20260926-lifelong"></script>
+<script defer src="game/play-modes.js?v=20260926-lifelong"></script>
+<script defer src="game/evaluation.js?v=20260926-lifelong"></script>
+<script defer src="game/results.js?v=20260926-lifelong"></script>
+<script defer src="game/history.js?v=20260926-lifelong"></script>
+<script defer src="game/rankings.js?v=20260926-lifelong"></script>
+<script defer src="game/charts.js?v=20260926-lifelong"></script>
+<script defer src="game/trial-review.js?v=20260926-lifelong"></script>
+<script defer src="game/game-data-chart.js?v=20260926-lifelong"></script>
+<script defer src="game/result-ranks.js?v=20260926-lifelong"></script>
+<script defer src="game/input-trace.js?v=20260926-lifelong"></script>
+<script defer src="game/replay-model.js?v=20260926-lifelong"></script>
+<script defer src="game/replay-view.js?v=20260926-lifelong"></script>
+<script defer src="game/music.js?v=20260926-lifelong"></script>
+<script defer src="game/trace-metrics.js?v=20260926-lifelong"></script>
+<script defer src="game/metric-definitions.js?v=20260926-lifelong"></script>
+<script defer src="game/metrics-panel.js?v=20260926-lifelong"></script>
+<script defer src="game/session-stats.js?v=20260926-lifelong"></script>
+<script defer src="game/session-charts.js?v=20260926-lifelong"></script>
+<script defer src="game/player-states.js?v=20260926-lifelong"></script>
+<script defer src="game/controls.js?v=20260926-lifelong"></script>
+<script defer src="game/backup.js?v=20260926-lifelong"></script>
+<script defer src="game/main.js?v=20260926-lifelong"></script>
 </head>
 <body aria-busy="true">
 <div id="page-layout">
@@ -152,6 +154,7 @@
       </label>
     </div>
     <div id="music-indicator" hidden title="This machine is playing audio right now (rechecked about once a minute). Stamped onto each finished game as its music state.">music</div>
+    <button type="button" id="archive-chip" hidden></button>
     <div id="states">
       <div id="states-chips"></div>
       <button type="button" id="states-add-btn" title="Tag your play session (sleepy? new mouse?). Active states are saved onto every game you finish so you can compare measurements by self-reported context; a tag does not establish a cause.">+ state</button>
@@ -169,6 +172,7 @@
       </div>
     </div>
     <a id="settings-btn" href="settings.html">settings</a>
+    <a id="self-check-btn" href="self-check.html" title="Sleepiness rating plus a 3-minute alertness test, saved for comparison over years">self-check</a>
     <a id="training-btn" href="training.html">training</a>
   </div>
   <!-- Optional review and display controls stay in the side column. -->

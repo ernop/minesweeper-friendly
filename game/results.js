@@ -20,6 +20,7 @@ function reportResult(outcome, endedAt = Date.now()) {
   const mineAt = cells.map((cell) => cell.mine);
   const record = {
     endedAt: endedAt,
+    ...observedTimeZone(endedAt),
     outcome: outcome,
     timeMs: Math.round(finalTimeMs),
     // A drill's difficulty is what was actually presented: the remnant's

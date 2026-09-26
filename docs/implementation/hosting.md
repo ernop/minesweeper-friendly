@@ -38,7 +38,9 @@ Specification: [public hosting](../product/hosting.md).
 
 ## Implementation and verification
 
-- `deploy/runtime-files.json` owns the explicit public runtime list.
+- `deploy/runtime-files.json` owns the explicit public runtime list;
+  `tests/hosting-release-test.py` fails when a page or worker loads a file
+  missing from it.
 - `deploy/build-release.py` builds deterministic tar bytes and hashes from one
   commit, including its allowlist; it never reads uncommitted runtime changes.
 - `deploy/publish.py` uses a pinned host key and the sole SSH command `publish`,

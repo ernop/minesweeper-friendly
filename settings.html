@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Minesweeper - Settings</title>
-<link rel="stylesheet" href="style.css?v=20260926-training">
+<link rel="stylesheet" href="style.css?v=20260926-lifelong">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 </head>
 <body class="settings-page">
@@ -35,15 +35,27 @@
         </form>
       </div>
     </section>
+    <section class="settings-group" id="archive-settings">
+      <h2 class="settings-group-heading" title="Every game record, input trace, and self-check is also written to a folder you choose, as open files that outlive this browser. Files are written once and never changed.">Archive</h2>
+      <div class="settings-group-body">
+        <p id="archive-status-text"></p>
+        <p id="storage-persistence-text"></p>
+        <div id="archive-actions">
+          <button type="button" id="archive-choose">Choose folder</button>
+          <button type="button" id="archive-now" hidden>Archive now</button>
+        </div>
+      </div>
+    </section>
   </div>
   <footer id="settings-page-footer">
     <a class="return-to-game" href="index.html">&larr; return to game</a>
   </footer>
 </main>
-<script src="storage.js?v=20260926-exact-normalization"></script>
+<script src="storage.js?v=20260926-lifelong"></script>
+<script src="archive.js?v=20260926-lifelong"></script>
 <script src="generators.js?v=20260921-shared-settings"></script>
-<script src="game-data.js?v=20260923-one-session-picker"></script>
+<script src="game-data.js?v=20260926-lifelong"></script>
 <script src="settings-core.js?v=20260923-chart-groups"></script>
-<script src="settings-page.js?v=20260923-layout-sweep"></script>
+<script src="settings-page.js?v=20260926-lifelong"></script>
 </body>
 </html>

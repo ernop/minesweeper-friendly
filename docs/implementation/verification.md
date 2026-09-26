@@ -82,8 +82,11 @@ Index: [AGENTS.md](../../AGENTS.md).
   `gh run watch <id> --exit-status` confirm it, and the live site can be
   spot-checked with `curl https://ernop.github.io/minesweeper-friendly/...`.
 - Test entry points (2026-09-23): `for t in tests/*-test.js; do node "$t"; done`
-  runs every Node suite. The browser checks
-  (`tests/startup-browser-check.js`, `tests/board-time-profile-browser-check.js`,
+  runs every Node suite; also run `python3 tests/hosting-release-test.py`,
+  which fails when a page loads a file missing from `deploy/runtime-files.json`.
+  The browser checks
+  (`tests/startup-browser-check.js`, `tests/trace-capture-browser-check.js`,
+  `tests/board-time-profile-browser-check.js`,
   `tests/rank-highlight-browser-check.js`, `tests/preferences-browser-check.js`,
   `tests/board-metrics-browser-check.js`, `tests/training-browser-check.js`)
   take a playwright-core directory and
@@ -91,6 +94,11 @@ Index: [AGENTS.md](../../AGENTS.md).
   root on `http://127.0.0.1:8099/`. On this machine those arguments are
   `/home/ef/proj/voice-wei/node_modules/playwright-core` and
   `/home/ef/.cache/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-linux64/chrome-headless-shell`.
+  `tests/self-check-browser-check.js` (`--full` adds a complete 3-minute
+  test) and `tests/archive-browser-check.js` take the same two arguments but
+  need no server: they serve the working tree through Playwright request
+  routing under the exact origin `http://127.0.0.1:8099/` and abort every
+  other request, so they run even while something else holds that port.
   `tests/metrics-*-parity.js` compare in-page metrics with the offline
   pipelines (environments: [offline-analysis.md](offline-analysis.md)).
 

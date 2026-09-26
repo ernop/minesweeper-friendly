@@ -372,6 +372,14 @@ because redraws consume the stream only when the player's path triggers
 them. A bare seed without those version names is not claimed to be a
 permanent replay format.
 
+Time zone (2026-09-26, for [lifelong self-measurement](measurement.md#lifelong-self-measurement-creator-direction-2026-09-26)):
+every new record stores `timeZone` (the IANA name the browser reported) and
+`utcOffsetMin` (minutes east of UTC applied at `endedAt`). Local time of day
+then stays correct after travel or a move, even if the tz database later
+changes. Older records lack both fields (not measured). Local-time displays
+still use the viewer's current zone; switching them to the recorded zone is on
+the roadmap.
+
 Board shape — facts of the finished mine layout, joined the schema on
 2026-08-21 under the same absence rules: `maxAdjacent` (highest number
 on the board), `hasSeven`, `zeroCount` (cells with adjacent-mine count

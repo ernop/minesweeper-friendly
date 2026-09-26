@@ -30,6 +30,7 @@ function beginTrace() {
     sourceT: [], sampleTrusted: [], sampleMergeCount: [],
     t: [], x: [], y: [],
     initialPageState: tracePageState(),
+    environment: observedEnvironment(),
     events: [],
   };
   recordLayout();
@@ -224,6 +225,7 @@ function saveTrace(record) {
     captureVersion: 1,
     clock: { timeOriginMs: performance.timeOrigin, traceStartMs: trace.t0 },
     initialPageState: trace.initialPageState,
+    environment: trace.environment,
     sampleSourceT: Float64Array.from(trace.sourceT),
     sampleTrusted: Uint8Array.from(trace.sampleTrusted),
     sampleMergeCount: Uint32Array.from(trace.sampleMergeCount),
@@ -236,6 +238,9 @@ function saveTrace(record) {
   };
   const tx = db.transaction(TRACE_STORE, 'readwrite');
   tx.objectStore(TRACE_STORE).put(stored);
-  tx.oncomplete = () => boardMetricSourcesChanged(stored.mode);
+  tx.oncomplete = () => {
+    boardMetricSourcesChanged(stored.mode);
+    requestArchiveSync();
+  };
   tx.onerror = () => storageFailure('trace save failed: ' + tx.error);
 }

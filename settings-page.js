@@ -22,8 +22,38 @@ function userdataReady() {
     loadSettings(got);
     buildSettingsColumn();
     initPreferencesTransfer();
+    loadArchive(renderArchiveSettings);
   });
 }
+
+//-------ARCHIVE FOLDER (see archive.js)-------
+
+const archiveChooseButton = document.getElementById('archive-choose');
+const archiveNowButton = document.getElementById('archive-now');
+
+let storagePersisted = null;  // the browser's answer, once known
+navigator.storage.persisted().then((persisted) => {
+  storagePersisted = persisted;
+  if (archiveState.render !== null) renderArchiveSettings();
+});
+
+function renderArchiveSettings() {
+  document.getElementById('archive-status-text').textContent = archiveStatusText();
+  const chosen = archiveState.folder !== null;
+  document.getElementById('storage-persistence-text').textContent = storagePersisted === null ? ''
+    : storagePersisted ? 'The browser keeps this site\u2019s saved data until you delete it.'
+      : 'The browser may delete this site\u2019s saved data when disk space runs low; '
+        + (chosen ? 'the archive folder keeps a copy.' : 'choose an archive folder to keep a copy.');
+  archiveChooseButton.textContent = chosen ? 'Change folder' : 'Choose folder';
+  archiveChooseButton.hidden = !archiveCanChooseFolder();
+  archiveNowButton.hidden = !chosen || archiveState.status === 'loading';
+}
+
+archiveChooseButton.addEventListener('click', chooseArchiveFolder);
+archiveNowButton.addEventListener('click', () => {
+  if (archiveState.status === 'needs-permission') resumeArchive();
+  else runArchiveSync();
+});
 
 // Esc returns to the game, like the ×/Esc on the old drawer did.
 document.addEventListener('keydown', (event) => {

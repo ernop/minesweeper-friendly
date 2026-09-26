@@ -29,6 +29,8 @@ global.performance = { now: () => nowMs, timeOrigin: 1699999999000 };
 let focused = true;
 global.document = { visibilityState: 'visible', hasFocus: () => focused };
 global.cellIndexFromEvent = () => null;
+global.observedEnvironment = () => ({ devicePixelRatio: 1, screenWidth: 1920, screenHeight: 1080,
+  viewportWidth: 1600, viewportHeight: 900, userAgent: 'trace-layout-test' });
 global.Date = Object.assign(function () {}, Date, { now: () => 1700000000000 });
 // beginTrace's metrics-panel hookups are display machinery, inert here.
 global.beginTraceMetricsSeries = () => {};
@@ -47,6 +49,8 @@ const layouts = () => trace.events.filter((e) => e.kind === 'layout');
 
 beginTrace();
 check('beginTrace records one layout event', layouts().length === 1);
+check('beginTrace captures the observed environment',
+  trace.environment.userAgent === 'trace-layout-test' && trace.environment.viewportWidth === 1600);
 check('initial layout carries the board rect',
   layouts()[0].left === 100 && layouts()[0].top === 50
   && layouts()[0].width === 200 && layouts()[0].height === 200);

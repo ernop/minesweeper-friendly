@@ -1,15 +1,17 @@
 'use strict';
 
-//-------PERSISTENT STORAGE (one IndexedDB database: userdata + traces)-------
+//-------PERSISTENT STORAGE (one IndexedDB database: userdata, records, traces, self-checks)-------
 
 // Moved out of minesweeper.js on 2026-08-23 so settings.html opens the
 // same database through the same code (upgrade path included) instead of
 // duplicating it. All storage moved from localStorage into IndexedDB on
-// 2026-08-20. One database holds three stores: 'userdata' (settings,
+// 2026-08-20. One database holds four stores: 'userdata' (settings,
 // rankavg sorts, player states, trial — one entry per kind), 'records'
 // (one entry per finished game, keyed [history key, endedAt]; since
-// 2026-09-26), and 'traces' (see game/input-trace.js). Userdata and records
-// are RAM-first: each page reads what it needs into RAM once at startup,
+// 2026-09-26), 'traces' (see game/input-trace.js), and 'selfChecks' (one
+// record per self-check, see self-check-page.js; since 2026-09-26).
+// Userdata and records are RAM-first: each page reads what it needs into
+// RAM once at startup,
 // all reads and mutations work on RAM synchronously, and each mutation
 // calls persistUserdata or persistGameRecord — an async fire-and-forget
 // write of that kind's RAM object or of that one game record. IndexedDB
@@ -27,6 +29,9 @@ const TRACE_BOARD_INDEX = 'boardsByModeAndSize';
 const USERDATA_STORE = 'userdata';
 const USERDATA_KINDS = ['settings', 'rankavgSort', 'states', 'trial'];
 const RECORD_STORE = 'records';
+// Self-checks accumulate for decades, so each is its own record rather than
+// part of one userdata value rewritten on every save.
+const SELF_CHECK_STORE = 'selfChecks';
 
 let db = null;
 
@@ -40,7 +45,7 @@ const LEGACY_LOCALSTORAGE_KEYS = {
   states: 'minesweeper-friendly.states',
 };
 
-const dbRequest = indexedDB.open(DB_NAME, 4);
+const dbRequest = indexedDB.open(DB_NAME, 5);
 dbRequest.onupgradeneeded = (event) => {
   const upgraded = event.target.result;
   if (event.oldVersion < 1) upgraded.createObjectStore(TRACE_STORE, { keyPath: 'endedAt' });
@@ -64,26 +69,35 @@ dbRequest.onupgradeneeded = (event) => {
     event.target.transaction.objectStore(TRACE_STORE)
       .createIndex(TRACE_BOARD_INDEX, ['mode', 'finalBoard.cells.length']);
   }
-  if (event.oldVersion < 4) {
-    // The whole history was one userdata value, so every finished game
-    // rewrote all of it (160 MB of structured clone for 6,400 games). Each
-    // record moves to its own key, in stored order; the first of two
-    // records sharing a key is kept, as history normalization always did.
-    const records = upgraded.createObjectStore(RECORD_STORE);
-    const userdata = event.target.transaction.objectStore(USERDATA_STORE);
-    const stored = userdata.get('history');
-    stored.onsuccess = () => {
-      if (stored.result === undefined) return;
-      for (const [historyKey, list] of Object.entries(stored.result)) {
-        const seen = new Set();
-        for (const record of list) {
-          if (seen.has(record.endedAt)) continue;
-          seen.add(record.endedAt);
-          records.add(record, [historyKey, record.endedAt]);
+  // Version 4 shipped twice on 2026-09-26 with different contents: the public
+  // build moved history into 'records', and the local player origin's build
+  // added 'selfChecks'. Version 5 completes whichever of the two a database
+  // lacks, so every database ends with both, whichever path it took.
+  if (event.oldVersion < 5) {
+    if (!upgraded.objectStoreNames.contains(RECORD_STORE)) {
+      // The whole history was one userdata value, so every finished game
+      // rewrote all of it (160 MB of structured clone for 6,400 games). Each
+      // record moves to its own key, in stored order; the first of two
+      // records sharing a key is kept, as history normalization always did.
+      const records = upgraded.createObjectStore(RECORD_STORE);
+      const userdata = event.target.transaction.objectStore(USERDATA_STORE);
+      const stored = userdata.get('history');
+      stored.onsuccess = () => {
+        if (stored.result === undefined) return;
+        for (const [historyKey, list] of Object.entries(stored.result)) {
+          const seen = new Set();
+          for (const record of list) {
+            if (seen.has(record.endedAt)) continue;
+            seen.add(record.endedAt);
+            records.add(record, [historyKey, record.endedAt]);
+          }
         }
-      }
-      userdata.delete('history');
-    };
+        userdata.delete('history');
+      };
+    }
+    if (!upgraded.objectStoreNames.contains(SELF_CHECK_STORE)) {
+      upgraded.createObjectStore(SELF_CHECK_STORE, { keyPath: 'startedAt' });
+    }
   }
 };
 // The open can complete between this script and the page's own script
@@ -119,6 +133,10 @@ dbRequest.onsuccess = (event) => {
     db.close();
     storageFailure('database changed in another tab; reload this page');
   };
+  // Browsers may evict a site's storage under disk pressure unless it is
+  // persistent. The browser decides (Chrome from site engagement, Firefox by
+  // asking); the settings page shows the answer.
+  navigator.storage.persist().catch((error) => storageFailure('persistent storage request failed: ' + error.message));
   maybeAnnounceReady();
 };
 dbRequest.onerror = () => reportStorageOpenFailure('database failed to open: ' + dbRequest.error);

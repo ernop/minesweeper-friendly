@@ -52,7 +52,8 @@ single-file spec; older references cite them as `PRODUCT.md "Heading"`.
 
 ### Measurement
 
-- [docs/product/measurement.md](docs/product/measurement.md) — Why games are measured (comparison within one player, no causal inference), and the behavioral-signature research. Section: "Measurement purpose".
+- [docs/product/measurement.md](docs/product/measurement.md) — Why games are measured (comparison within one player, no causal inference), the lifelong self-measurement design, and the behavioral-signature research. Section: "Measurement purpose".
+- [docs/product/self-check.md](docs/product/self-check.md) — The frozen reference check (sleepiness rating plus a 3-minute alertness test) for comparison over years: protocols, versioning, stored record, result, history, and backup.
 - [docs/product/per-game-stats.md](docs/product/per-game-stats.md) — The fields recorded per finished game, derived rates, board measurements and backfill, the guess ledger, and music playing. Section: "Per-game stats".
 - [docs/product/trace-metrics-panel.md](docs/product/trace-metrics-panel.md) — Mouse-dynamics features computed from the trace, live in the left panel and final in the bottom charts. Section: "Trace metrics panel".
 - [docs/product/session-stats.md](docs/product/session-stats.md) — The recent-observations section, its player-chosen session window, and the action-rates charts. Section: "Session stats".
@@ -65,4 +66,4 @@ single-file spec; older references cite them as `PRODUCT.md "Heading"`.
 ### Settings and data
 
 - [docs/product/settings.md](docs/product/settings.md) — The settings page and every preference. Section: "Personal settings".
-- [docs/product/storage-and-history.md](docs/product/storage-and-history.md) — The IndexedDB stores, raw input traces, and play history with backup. Sections: "Storage", "Raw input traces", "Play history and backup".
+- [docs/product/storage-and-history.md](docs/product/storage-and-history.md) — The IndexedDB stores, raw input traces, play history with backup, and the automatic archive folder outside the browser. Sections: "Storage", "Raw input traces", "Play history and backup", "Archive folder".

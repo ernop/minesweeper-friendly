@@ -5,9 +5,11 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
 ## Storage (decided 2026-08-20)
 
 - All persistent data lives in one IndexedDB database
-  (`minesweeper-friendly`, version 4) with three stores: `userdata`
+  (`minesweeper-friendly`, version 5) with four stores: `userdata`
   (personal preferences and trial sessions — one entry per kind),
-  `records` (one game record per finished game), and `traces` (one entry per finished game).
+  `records` (one game record per finished game), `traces` (one entry per finished game),
+  and `selfChecks` (one record per [self-check](self-check.md), keyed by
+  `startedAt`).
   Finishing a game writes only its own record (2026-09-26 input-latency
   review: the whole history had been one value, rewritten twice per game —
   160 MB for 6,407 games, about a second of blocked input each time). The
@@ -16,6 +18,12 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   game end "is horrible and we should never do that." A game's writes cover
   only what that game created or changed; their cost never grows with the
   size of the history.
+- Version 4 shipped twice on 2026-09-26 with different contents. The public
+  build moved history into `records`; the local player origin's build added
+  `selfChecks`. The version-5 upgrade creates whichever of the two stores a
+  database lacks, moving history into `records` if it is still one userdata
+  value. Every path therefore ends with the same four stores, and nothing is
+  moved twice.
 - Open game tabs never erase each other's games. Found 2026-09-26: with the
   game open in two windows, the whole-history value was rewritten from one
   tab's older copy, dropping the 11 games finished in the other tab between
@@ -45,6 +53,23 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   execution.
 - A failure to open the database or to persist anything is announced in
   the backup status line and thrown — never tolerated silently.
+- Persistent storage (2026-09-26): browsers may evict a site's storage under
+  disk pressure unless the site's storage is persistent. Every page therefore
+  asks, via `navigator.storage.persist()`, once the database opens. The browser
+  decides: Chrome from site engagement without a prompt, Firefox by asking.
+  The Settings Archive group states the answer. When it is no, it says the
+  browser may delete the data when disk space runs low, and that the archive
+  folder keeps a copy, or asks for one.
+- Size (measured 2026-09-26, three scripted Expert games of about 230 actions):
+  - A trace is about 750 KB as JSON. The board snapshot before every action
+    is half of it (about 375 KB), the rest of the per-action evidence about a
+    quarter, and cursor samples about 55 KB.
+  - Chrome's database stores it in about 160 KB on disk; the gzip archive
+    copy is about 40 KB.
+  - Values stay uncompressed in the browser. Compressing them would slow
+    every replay, analysis, and backfill read and hide indexed fields, to save
+    about 120 KB per game. Storing board changes instead of full snapshots is
+    the larger saving and belongs with the next trace format change.
 - Before 2026-08-20 the userdata lived in localStorage; the version-2
   database upgrade carries those keys over exactly once and then removes
   them, so existing players (including on the public GitHub Pages origin)
@@ -108,6 +133,11 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   clipboard) for the offline analysis pipelines under `analysis/`.
 - Historical recording overhead, measured 2026-08-20 before capture v1: ~100ns per mousemove event and
   <0.5ms of typed-array conversion at save time — imperceptible.
+- Since 2026-09-26 each new trace also stores `environment`: device pixel
+  ratio, screen and viewport size, and the browser's user-agent string at trace
+  start, which change cursor pixels and input timing. Physical device facts are
+  not observable and are not guessed. Older traces lack the field (not
+  measured). See [Lifelong self-measurement](measurement.md#lifelong-self-measurement-creator-direction-2026-09-26).
 
 ### Capture provenance v1 (2026-09-26)
 
@@ -178,3 +208,60 @@ These remain in the [lifelong self-measurement roadmap](../../BACKLOG.md#lifelon
   stat is derived from them at display time. The card is generated from
   the same field definitions the importer validates against, so it cannot
   lie about the real format.
+
+## Archive folder (creator direction, 2026-09-26)
+
+For [lifelong self-measurement](measurement.md#lifelong-self-measurement-creator-direction-2026-09-26),
+the browser database is a working copy. Every primary item is also written
+to a folder the player chooses, as documented open files that outlive the
+browser, its profile, and this origin.
+
+- **Choose.** Settings, group "Archive": "Choose folder" opens the browser's
+  folder picker; "Change folder" picks another, and the new folder then
+  catches up on everything. The handle is stored as userdata kind `archive`.
+  Browsers without folder access (the File System Access API) show that fact
+  and no picker.
+- **Automatic writes.** After each finished game's trace is saved, after
+  each self-check, after a history or self-check import, on each page load
+  (after the game page's startup), and on "Archive now", a sync writes every
+  record, trace, and self-check the folder does not hold yet.
+  - The sync runs in a worker that reads the database itself, so the page
+    thread does no archive work. A measured first sync of 500 seeded games
+    wrote 1,000 files in about 5 s with no long main-thread task.
+  - The worker keeps directory listings between syncs, so a sync after one
+    game checks only new files (about 10 ms with 1,000 files archived).
+    Each page load lists the folder afresh.
+  - A Web Lock serializes syncs from every open tab.
+- **Write-once.**
+  - Each file is written once, atomically, and never changed or deleted.
+  - A record is archived as it was first written. Values added to it later
+    (board measurements, evidence corrections) are recomputable from the
+    trace and seed.
+  - Deleting data in the browser never deletes archive files.
+- **Layout** (UTC year and month; every name uses only `[A-Za-z0-9._-]`):
+  - `games/YYYY/MM/<endedAt>-<mode>.json.gz`: one finished game's record.
+    Each character of the board key outside `A-Za-z0-9.-` is written as `_`
+    plus four hex digits, so distinct keys never collide.
+  - `traces/YYYY/MM/<endedAt>.json.gz`: that game's raw input trace, with
+    typed arrays as plain number arrays.
+  - `self-checks/YYYY/MM/<startedAt>.json.gz`: one self-check.
+  - `README.txt` describes all of this for a reader without the app.
+- **Format.** Each item is gzip-compressed UTF-8 JSON holding `format`,
+  `formatVersion` (1), and the item. The formats are
+  `minesweeper-friendly-game-record` with `{ mode, record }`,
+  `minesweeper-friendly-trace` with `{ trace }`, and
+  `minesweeper-friendly-self-check` with `{ selfCheck }`.
+- **Permission.**
+  - Browsers may require the player to renew write permission on a later
+    visit. Until then the archive is paused: the settings page says so, the
+    self-check page offers "Allow archive writing", and the game page shows
+    an "archive paused" chip that resumes on click.
+  - Nothing is lost meanwhile: the data stays in the database, and the next
+    sync writes it.
+- **Failures.** A failed sync (for example a folder deleted or moved) shows
+  "archive failed" with the browser's error on the game page chip, in the
+  backup status line, on the settings page, and on the self-check page. It
+  is retried by a click or the next save, and stays visible until a sync
+  succeeds.
+- **Timed tests.** While a self-check test runs, archive work is suspended.
+  A running sync stops, and it restarts after the result is saved.

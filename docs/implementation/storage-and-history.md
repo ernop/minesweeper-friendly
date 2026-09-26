@@ -3,10 +3,18 @@
 Spec: [docs/product/storage-and-history.md](../product/storage-and-history.md). Index: [AGENTS.md](../../AGENTS.md).
 
 - Storage ([Storage](../product/storage-and-history.md)): one IndexedDB database
-  (`minesweeper-friendly`, version 4), three stores. The open, upgrade,
+  (`minesweeper-friendly`, version 5), four stores. The version-5 upgrade
+  checks `objectStoreNames` and creates `records` (moving userdata `history`
+  into it) and/or `selfChecks` (`SELF_CHECK_STORE`, keyPath `startedAt`,
+  [self-check implementation](self-check.md)), because each of the two
+  version-4 builds created only one of them. The open, upgrade,
   `readAllUserdata`, `persistUserdata`, `readGameRecords`,
   `persistGameRecord(s)`, and `persistGameRecordChanges` live in `storage.js`
-  (2026-08-23, shared with the settings page); each page defines two
+  (2026-08-23, shared with the settings page and, since 2026-09-26, the
+  self-check page). Its open success also calls `navigator.storage.persist()`;
+  a rejection is a `storageFailure`. `settings-page.js` reads
+  `navigator.storage.persisted()` into `#storage-persistence-text`. Each page
+  defines two
   late-bound hooks: `storageFailure(what)` (announce + throw) and
   `userdataReady()` (called once BOTH the db is open and this callback has
   been declared — the open can otherwise race later deferred scripts;
@@ -129,3 +137,48 @@ Spec: [docs/product/storage-and-history.md](../product/storage-and-history.md). 
   card, generated at init by `buildFormatPanel` from `GAME_RECORD_SCHEMA`
   and `DIFFICULTIES` — the same schema `importHistory` validates against —
   so the card, the validator, and the writer cannot drift apart.
+- Archive folder ([Archive folder](../product/storage-and-history.md#archive-folder-creator-direction-2026-09-26)):
+  - `archive.js` (page side; loaded by index.html, settings.html, and
+    self-check.html right after `storage.js`/`observation-context.js`):
+    - `archiveState` holds status, detail, worker, and the running, queued,
+      and suspended flags.
+    - `loadArchive(render)` reads userdata kind `archive` (`{ handle,
+      chosenAt }`) and calls `queryPermission`.
+    - `requestArchiveSync` is called after saves. `runArchiveSync` queues
+      exactly one more sync while one runs.
+    - `chooseArchiveFolder` uses `showDirectoryPicker`, id
+      `minesweeper-friendly-archive`; a cancelled picker changes nothing.
+    - `useArchiveFolder(handle)` persists and syncs. Tests pass an
+      origin-private directory handle here.
+    - `resumeArchive` calls `requestPermission`.
+    - `suspendArchiveSync`/`releaseArchiveSync` bracket the self-check's
+      timed test.
+    - `archiveStatusText` gives the sentence every page shows.
+    - Rejections and worker errors become status `error`, with the browser
+      error's name and message.
+  - `archive-worker.js`:
+    - takes `navigator.locks` lock `minesweeper-friendly-archive-sync`;
+    - opens the database without a version and closes on `versionchange`;
+    - reads every game record with its `[history key, endedAt]` key, the
+      trace keys, and every self-check;
+    - lists each month directory once per worker lifetime (the `listings`
+      cache, reset when the folder changes or any sync fails). A name
+      missing from a listing made by an earlier sync is checked with
+      `getFileHandle`, since another tab may have written it;
+    - writes the missing items through `CompressionStream('gzip')` and
+      `createWritable`;
+    - rejects two items mapping to one path, and writes `README.txt` if absent;
+    - reports `progress` every 25 files, then `done` with per-kind written
+      and present counts, or `error` (`NotAllowedError` means the page must
+      ask for permission again).
+  - `archive-format.js` (pure, loaded by the worker and by tests): paths,
+    `archiveNameSlug`, the three document builders, and `ARCHIVE_README_TEXT`.
+  - Triggers:
+    - game page: `saveTrace`'s completion, `importHistory`, and
+      `loadArchive(renderArchiveChip)` at the end of `init` (`game/backup.js`
+      renders `#archive-chip`);
+    - settings page: `renderArchiveSettings` in `settings-page.js`;
+    - self-check page: `renderSelfCheckArchive`, a sync after each saved
+      check and after an import, and suspension from `startVigilance` until
+      the saved check's transaction completes.
+  - Tests: `tests/archive-format-test.js` and `tests/archive-browser-check.js`.

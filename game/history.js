@@ -62,6 +62,8 @@ function validActionEvaluations(value) {
 }
 const GAME_RECORD_SCHEMA = [
   { field: 'endedAt', valid: isNumber, example: '1787201223496', describe: 'when the game finished (Unix epoch, ms)' },
+  { field: 'timeZone', valid: (v) => v === undefined || validTimeZoneName(v), example: '"America/Los_Angeles"', describe: 'IANA time zone the browser reported when the game finished, so local time of day stays correct after travel or a move; absent on games recorded before 2026-09-26' },
+  { field: 'utcOffsetMin', valid: (v) => v === undefined || validUtcOffsetMin(v), example: '-420', describe: 'minutes east of UTC the browser applied at endedAt (-420 = UTC-7); absent on games recorded before 2026-09-26' },
   { field: 'outcome', valid: (v) => v === 'win' || v === 'loss', example: '"win"', describe: '"win" or "loss"' },
   { field: 'timeMs', valid: isNumber, example: '6705', describe: 'solve time in ms (shown as 6.705s)' },
   { field: 'bv3', valid: isNumber, example: '10', describe: "the board's 3BV: minimum clicks to clear it (in Endgame drill, the presented remnant's remaining 3BV — the minimum clicks to finish what was actually left)" },

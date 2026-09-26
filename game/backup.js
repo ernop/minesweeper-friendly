@@ -102,6 +102,7 @@ function importHistory(text) {
     history[mode].sort((a, b) => a.endedAt - b.endedAt);
   }
   persistGameRecords(added);
+  requestArchiveSync();
   const skipped = [];
   if (transfer.skippedRecords > 0) skipped.push(transfer.skippedRecords + ' malformed games');
   if (transfer.skippedLists > 0) skipped.push(transfer.skippedLists + ' malformed lists');
@@ -129,6 +130,27 @@ importFileInput.addEventListener('change', () => {
   const file = importFileInput.files[0];
   if (file) file.text().then(importHistory);
   importFileInput.value = '';
+});
+
+//-------ARCHIVE CHIP (paused or failing archive folder, see archive.js)-------
+
+// Quiet while the archive keeps up; a paused or failing archive shows in the
+// top-right cluster, and a failure also shows its message in the backup line.
+const archiveChip = document.getElementById('archive-chip');
+
+function renderArchiveChip() {
+  const status = archiveState.status;
+  archiveChip.hidden = status !== 'needs-permission' && status !== 'error';
+  if (archiveChip.hidden) return;
+  archiveChip.textContent = status === 'error' ? 'archive failed' : 'archive paused';
+  archiveChip.title = archiveStatusText()
+    + (status === 'error' ? ' Click to try again.' : ' Click to allow writing.');
+  if (status === 'error') backupStatus.textContent = archiveStatusText();
+}
+
+archiveChip.addEventListener('click', () => {
+  if (archiveState.status === 'needs-permission') resumeArchive();
+  else runArchiveSync();
 });
 
 const formatPanel = document.getElementById('format-panel');

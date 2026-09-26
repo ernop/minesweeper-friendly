@@ -73,7 +73,7 @@ const { chromium } = require(process.argv[2]);
         recordOutcomes: (await read(RECORD_STORE, 'getAll')).map((r) => r.outcome),
         normalized: (await read(RECORD_STORE, 'getAll')).every((r) => Array.isArray(r.actionEvaluations)),
         ram: history['3x3/1@angelic'].map((r) => [r.endedAt, r.outcome]) };
-    }), { version: 4, keys: [1], userdataHistory: undefined,
+    }), { version: 5, keys: [1], userdataHistory: undefined,
       recordKeys: [['3x3/1@angelic', 10], ['3x3/1@angelic', 11]], recordOutcomes: ['win', 'loss'],
       normalized: true, ram: [[10, 'win'], [11, 'loss']] });
     await page.locator('#board .cell').first().click();

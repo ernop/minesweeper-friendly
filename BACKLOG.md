@@ -579,3 +579,76 @@ from the RAM trace of the game just ended. Not built:
   on the finished board, with the layout-drift re-record fix in the
   trace recorder that it exposed ([Path replay views](docs/product/replay.md) and
   [Raw input traces](docs/product/storage-and-history.md)).
+
+## Lifelong self-measurement roadmap (creator, 2026-09-26)
+
+The creator asks for something usable "over years and decades to measure and
+check all aspects of myself". Purpose and rules:
+[Lifelong self-measurement](docs/product/measurement.md#lifelong-self-measurement-creator-direction-2026-09-26).
+Built first on 2026-09-26:
+- [self-check v1](docs/product/self-check.md): a sleepiness rating plus a
+  3-minute alertness test, with history and backup;
+- the time zone on finished-game records;
+- screen and browser facts on traces, and input provenance
+  ([capture v1](docs/product/storage-and-history.md#capture-provenance-v1-2026-09-26):
+  browser event times, focus and visibility changes, and physical right-button
+  press and release);
+- the [automatic archive folder](docs/product/storage-and-history.md#archive-folder-creator-direction-2026-09-26);
+- a persistent-storage request.
+
+Remaining, in priority order (earlier items prevent irreversible loss):
+
+1. **Nothing lost.**
+   - **Archive import.** Rebuild a browser database from an archive folder,
+     for a new machine or profile. Writing is built.
+   - **Every attempt.** Restarted and abandoned boards keep a record and a
+     partial trace with an explicit end reason, checkpointed during play, so
+     practice exposure and between-game intervals become countable. Never
+     relabel a restart as a loss.
+   - **Full-rate pointer capture.**
+     - Pointer Events with every coalesced sample, and event time as the sample
+       clock. Chromium's `mousemove` stream delivers one sample per display
+       frame.
+     - Physical press and release for both buttons anywhere, including
+       cancellations, each linked to the game action it caused.
+     - The paint time of each board change.
+     - Pointer exit and re-entry.
+     - Replace capture v1's per-sample trust and merge arrays.
+     - Store each action's board changes instead of the full visible board
+       before every action, which is half of every trace (measured
+       2026-09-26). Replay and analysis rebuild positions by applying the
+       changes in order.
+   - **Declared setup registry.** Mouse, DPI, pointer speed and acceleration,
+     hand, display, and a per-display pixels-per-millimetre calibration, with
+     change events stamped onto games and checks.
+   - **Timestamped state-tag changes**, and a standalone sleepiness rating
+     during play sessions.
+2. **More frozen checks.** Each is 90 s or less, under the self-check
+   versioning rules:
+   - an aimed-pointing test (fixed amplitudes and widths in millimetres after
+     calibration);
+   - a deduction test from a fixed generator, with parallel forms stratified
+     by solver tier, so no position repeats but difficulty matches;
+   - a processing-speed task, only if those two leave a gap.
+3. **Gameplay as a calibrated passive measure.**
+   - The provability replay: when each cell became provable from the visible
+     board, and time to action, by solver tier.
+   - A split between hand slips and decision errors.
+   - Per-movement tables in place of per-game means.
+   - Fix or retire the trace stats with known formula defects: wander's window
+     mismatch, signed MAD/AUC/AD that cancel, recovery runs cut off by the
+     game's end, and idle under event-driven sampling.
+   - Then regroup the displayed core by dimension, rename, and rewrite popups
+     once for the stats that remain.
+   - Local-time groupings use the recorded time zone.
+4. **Long-horizon views.**
+   - A "me over time" page: daily values, personal baseline bands, change
+     detection, time-of-day and seasonal profiles, and annotations for setup
+     and protocol changes and notes.
+   - Automatic reports of day-to-day reliability, and of associations among
+     checks, ratings, and play.
+   - Charts for self-check history.
+5. **Optional body channels.** Heart rate and beat-to-beat intervals from a
+   chest strap through the local base system (the music endpoint's pattern),
+   then others as the creator chooses. Each joins the rest by time; none is
+   inferred from cursor data.

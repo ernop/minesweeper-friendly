@@ -19,6 +19,80 @@ traces are kept (a metric invented years from now must be computable over
 today's games), and why spent effort is never dropped (see the
 measurement principle in reference/mouse-motion-metrics.md).
 
+## Lifelong self-measurement (creator direction, 2026-09-26)
+
+The creator asks to turn the project into something usable "over years and
+decades to measure and check all aspects of myself". This is now the governing
+purpose; the later sections describe measurement layers that serve it.
+
+**Coverage.** Mouse play and short standardized tasks can track:
+- aimed hand movement (speed, precision, corrections, consistency);
+- processing and reasoning speed;
+- sustained alertness;
+- decision and risk style;
+- learning, and fatigue within a session;
+- how each of these varies with sleep, time of day, season, health, and age.
+
+Strength, balance, gait, cardiovascular fitness, and body composition need
+other instruments. Their data joins these records by UTC time and time zone;
+it is never inferred from cursor data.
+
+**Rules for decades:**
+
+1. **Two measurement streams.**
+   - Free play is dense and natural, but its instrument keeps changing (game
+     code, browser, hardware), so on its own it cannot compare one decade with
+     another.
+   - Short frozen reference checks are the ruler: the [self-check](self-check.md)
+     keeps the same stimuli, timing, input, and scoring for as long as its data
+     exists.
+   - A play measure becomes trustworthy only after it is shown to track the
+     checks.
+2. **Frozen protocols.** A released protocol id is never edited. A change ships
+   under a new id, and old and new run side by side for a bridging period so
+   their offset is measured.
+3. **Context travels with every observation:**
+   - UTC time, plus the IANA time zone and the offset then in force;
+   - screen, viewport, and browser facts;
+   - the protocol or capture version;
+   - physical setup facts the browser cannot see (mouse, DPI, pointer
+     acceleration, hand), which are declared, never guessed.
+4. **Paired self-report.** Every check starts with a graded sleepiness rating.
+   The occasion (routine or extra) is stored, because extra checks are chosen
+   by circumstance and would bias a baseline.
+5. **Nothing lost.**
+   - Every attempt, full-rate input, and every check must be kept (restarted
+     games and full-rate input are on the roadmap).
+   - The browser database is only a working copy. The archive folder keeps
+     documented open files outside the browser.
+   - Absent means not measured.
+6. **Low burden.** A check stays under five minutes, the only required answer is
+   one click, and everything else is optional. Adherence over years matters
+   more than any single measurement.
+7. **Like-for-like comparison.**
+   - Change is judged against the person's own baseline under the same protocol
+     version and setup, accounting for practice, time of day, and board
+     difficulty.
+   - The day, not the trial, is the independent unit.
+   - A measure becomes a reported indicator of a state only after this
+     person's data shows both its day-to-day reliability and its association
+     with independent reports, such as sleepiness ratings.
+
+**Built 2026-09-26:**
+- self-check v1: a sleepiness rating plus a 3-minute alertness test, with
+  history and backup;
+- the time zone on every new finished-game record;
+- screen and browser facts on every new trace, and input provenance
+  ([capture v1](storage-and-history.md#capture-provenance-v1-2026-09-26));
+- the [archive folder](storage-and-history.md#archive-folder-creator-direction-2026-09-26):
+  every record, trace, and self-check written automatically, once, as
+  documented gzip JSON files in a folder the player chooses, outside the
+  browser;
+- a persistent-storage request, so the browser does not evict the database
+  under disk pressure.
+
+The rest is the ordered roadmap in [BACKLOG.md](../../BACKLOG.md#lifelong-self-measurement-roadmap-creator-2026-09-26).
+
 ## Behavioral signatures and state research (requested 2026-08-30)
 
 The longitudinal analysis purpose includes characterizing repeatable play

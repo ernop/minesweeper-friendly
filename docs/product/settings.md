@@ -88,7 +88,14 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   buttons stay centered. The groups flow into as many columns of at least
   760px as fit, which is the width that keeps a switch row's name, hint,
   and checkbox on one line. That gives three columns at 2560px and two at
-  1920px. Preferences backup joins the same flow as the last group. A
+  1920px. Preferences backup joins the same flow, followed by the Archive
+  group (2026-09-26): the archive status sentence in bold, the browser's
+  answer to the persistent-storage request, then "Choose folder" (or "Change
+  folder") and "Archive now" once a folder exists; see
+  [Archive folder](storage-and-history.md#archive-folder-creator-direction-2026-09-26).
+  Neither button is ever shown disabled, because disabled controls render
+  gray text: "Choose folder" is absent where the browser cannot pick
+  folders, and an "Archive now" click during a sync queues one more. A
   switch row without a hint lets its name use the hint column. A
   change saves immediately; the game page reads settings fresh on every
   load, so returning applies them. "Changes save automatically" beside
