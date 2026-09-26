@@ -16,9 +16,9 @@ both. Player-facing pitch in `promo/PROMO.md`; unbuilt work in
   mapped in [docs/product/design-axis.md](docs/product/design-axis.md)).
   First variant implemented 2026-08-20: "A just universe"
   ([docs/product/just-universe.md](docs/product/just-universe.md)).
-- A playable version is always live at
-  https://ernop.github.io/minesweeper-friendly/ — the public repo redeploys
-  GitHub Pages on every push. The page links back to the repo via a subtle
+- The public game is https://minesweeper-friendly.fuseki.net/ . Every push
+  to master releases that site. GitHub Pages still publishes the repository
+  and redirects visitors there. The page links back to the repo via a subtle
   footer.
 - Default difficulty is Beginner.
 

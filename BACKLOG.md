@@ -74,10 +74,16 @@ Earlier proposals, still open:
 Add Minesweeper under the Fuseki project site with independent, isolated
 hosting; [the hosting specification](docs/product/hosting.md) and
 [implementation plan/status](docs/implementation/hosting.md) own the detail.
-DNS/TLS activation is pending. Voice-Wei origin migration must preserve its
+Live at https://minesweeper-friendly.fuseki.net/ since 2026-09-26; every
+verified master push is released. Voice-Wei origin migration must preserve its
 saved browser data and deliberate authenticated Articles integration.
 Nectaris Remake is requested for later: prepare the same deployment contract,
 then audit its runtime artifact and origin requirements before launch.
+
+Generic multi-project hosting gaps are tracked in
+[Fuseki's roadmap](https://github.com/ernop/fuseki4_ai/blob/master/docs/todo.md#independent-apps-2026-09-26).
+(Music detection is local-only since 2026-09-26; see
+[Music playing](docs/product/per-game-stats.md).)
 
 ## Long-history trend cost (creator concern, 2026-09-26)
 
@@ -563,7 +569,7 @@ from the RAM trace of the game just ended. Not built:
   system); versioned action-evaluation ledger with exclusive game-loss /
   game-risk / time-loss / optional life-maximization / measurement-note
   report groups, four persistent none / fatal / risk / full display tiers
-  (fatal-only new-player default), protection-aware risk magnitudes,
+  (nothing is the new-player default), protection-aware risk magnitudes,
   explanations/position snapshots, and immediate legacy death-field
   normalization; the session stats
   section (bucketed sliding-hour-of-play series, in-page left column).

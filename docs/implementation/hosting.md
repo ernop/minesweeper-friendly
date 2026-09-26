@@ -78,6 +78,9 @@ Live since 2026-09-26, after the Fuseki editor moved to `edit.fuseki.net`
 Let's Encrypt certificate, the vhost with `connect-src 'self'` (music detection
 is local-only), and `fuseki.net/minesweeper`, `/minesweeper/`, and
 `/minesweeper-friendly/...` redirecting there with path and query kept.
+GitHub Pages (`ernop.github.io/minesweeper-friendly`) redirects visitors to
+the same origin, path, query, and hash kept; the redirect runs only on that
+host.
 `scripts/enable_minesweeper_https.sh` checked the live VERSION before nginx's
 asynchronous reload had taken effect and stopped; the entry snippet was then
 installed by hand with the same validation.

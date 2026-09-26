@@ -262,10 +262,11 @@ report.
   panel also exposes all existing result-section switches, motion charts,
   and duplicate-tablechart grouping; changes persist and apply immediately
   without closing the panel. Charts and defaults remain unchanged:
-  - `none` — no action report, mistake/category counts, or fatal-action
-    mention; evidence is still stored;
-  - `fatal` — **default for every new player**; wins show no analysis,
-    losses show exactly the fatal action and its evidence;
+  - `none` — **default for every new player** (decided 2026-09-26): no
+    action report, mistake/category counts, or fatal-action mention;
+    evidence is still stored;
+  - `fatal` — wins show no analysis, losses show exactly the fatal action
+    and its evidence;
   - `risk` — fatal action plus earlier actions that increased actual
     death probability;
   - `full` — fatal and risky actions plus aggregated time loss,

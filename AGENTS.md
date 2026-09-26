@@ -100,9 +100,9 @@ Anything that writes storage during verification runs on
 `http://127.0.0.1:8099/` instead
 ([docs/implementation/verification.md](docs/implementation/verification.md)).
 
-Hosting: public GitHub repo `ernop/minesweeper-friendly`; GitHub Pages serves
-the playable game from the master branch root at
-https://ernop.github.io/minesweeper-friendly/ and redeploys on every push.
+Hosting: public GitHub repo `ernop/minesweeper-friendly`. The canonical game
+is https://minesweeper-friendly.fuseki.net/ and every master push releases it.
+GitHub Pages still publishes the master branch and redirects visitors there.
 
 ## Standing instructions
 

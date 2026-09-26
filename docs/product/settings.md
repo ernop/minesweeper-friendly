@@ -119,11 +119,11 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   lists' progressive disclosure switch (see [Rank lists](rankings.md));
   `showMotionStatsDuringGame` and `showMotionStatsAfterGame` (both
   default on) — the two stages of the trace metrics display (see [Trace
-  metrics panel](trace-metrics-panel.md)); `reportScope` (`fatal` by default; choices `none`,
+  metrics panel](trace-metrics-panel.md)); `reportScope` (`none` by default; choices `none`,
   `fatal`, `risk`, `full`) — the simple after-game analysis ladder,
   editable on both the report and settings page, which also gates category
   session diagnostics;
-  `showSessionStats` (default on),
+  `showSessionStats` (default off),
   `sessionLookbackSeconds` (default 300), and `sessionDefinition`
   (default `today`, since local midnight; set only by the one picker in the
   stats panel's session heading, never on the settings page) — visibility,
@@ -133,6 +133,13 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   left panel's width, which the session charts fill;
   `numberDisplay` (default numbers; the first choice-row setting) —
   digits / letters / dots for revealed counts (see [Board and chrome](board-and-layout.md)).
+- New-player quiet start (decided 2026-09-26): someone arriving without a
+  saved `showSessionStats` or `reportScope` gets session stats off and
+  after-game action reports off (`none`). The left panel still shows the
+  session heading ("SESSION today"). Session charts and the loss-analysis
+  report stay available from settings, and the report ladder is also in
+  the after-game display controls. A value already saved stays as saved.
+  Live and after-game motion stats stay on.
 - The schema's `helpFile` "?" popover was removed with the caption purge
   (2026-08-23): the just-universe explanation already lives in the hint
   and tooltip. just-universe-help.html remains in the repo as a

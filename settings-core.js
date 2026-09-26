@@ -123,7 +123,8 @@ function reportScopeFromStored(stored) {
     if (old.gameLoss) return 'fatal';
     if (Object.values(old).every((enabled) => enabled === false)) return 'none';
   }
-  return 'fatal';
+  // No stored scope and no legacy category block: the new-player default.
+  return 'none';
 }
 
 function validShownThings(value) {
@@ -361,18 +362,18 @@ const SETTINGS_SCHEMA = [
   },
   {
     field: 'reportScope',
-    default: 'fatal',
+    default: 'none',
     valid: validReportScope,
     migrate: reportScopeFromStored,
     group: 'after-game',
     label: 'after each game, show me',
-    describe: 'how much action analysis appears after games; fatal action only is the new-player default',
+    describe: 'how much action analysis appears after games; nothing is the new-player default',
     control: 'choice',
     choices: REPORT_SCOPE_CHOICES,
   },
   {
     field: 'showSessionStats',
-    default: true,
+    default: false,
     valid: (v) => typeof v === 'boolean',
     group: 'left-panel',
     label: 'show session stats',

@@ -37,11 +37,16 @@ check('restart rejects input before startup completes',
 
 const externalScripts = [...html.matchAll(/<script([^>]+)src="([^"]+)"/g)]
   .map((match) => ({ attrs: match[1], src: match[2] }));
-check('all external scripts are deferred',
-  externalScripts.length > 0
-    && externalScripts.every((script) => /\bdefer\b/.test(script.attrs)));
+check('github pages redirect is the first script and blocks parsing',
+  externalScripts[0].src.split('?')[0] === 'pages-redirect.js'
+    && !/\bdefer\b/.test(externalScripts[0].attrs)
+    && !/\basync\b/.test(externalScripts[0].attrs));
+const deferredScripts = externalScripts.slice(1);
+check('every later external script is deferred',
+  deferredScripts.length > 0
+    && deferredScripts.every((script) => /\bdefer\b/.test(script.attrs)));
 check('storage starts before application scripts',
-  externalScripts[0].src.split('?')[0] === 'storage.js');
+  deferredScripts[0].src.split('?')[0] === 'storage.js');
 check('early database completion waits for the page callback',
   storage.includes("typeof userdataReady !== 'function'"));
 // storage.js starts the page as soon as userdataReady exists, so the hooks

@@ -1,6 +1,6 @@
 # minesweeper-friendly
 
-**Play now: https://ernop.github.io/minesweeper-friendly/**
+**Play now: https://minesweeper-friendly.fuseki.net/**
 
 Minesweeper variant project. Standard first-click-safe play, plus Uniform NG,
 Single-path NG, Proof-or-die, Angelic, an Endgame drill (instantly dealt
@@ -144,8 +144,9 @@ shown right in the row and as a small "(m)" before that game's time in
 every rank list) and, for wins, clicks over
 3BV (clicks beyond the board's minimum). The after-game report groups each
 action once by severity: game loss, game risk, time loss, optional
-one-ply life maximization, or measurement notes. New players see only the
-fatal action after a loss (a win has none at that default scope). Risk/full
+one-ply life maximization, or measurement notes. New players see none of
+that report until they ask for it. Fatal scope shows only the fatal action
+after a loss (a win has none at that scope). Risk/full
 scope reports still show needless or higher-risk actions from games the
 player won. Reports put the fatal action first, then sort survived risks by
 highest selected actual death probability; lower-severity sections follow.
@@ -184,7 +185,8 @@ the latest win's stats and historical charts have no current-game marker.
 
 The in-page left column carries live self-observation without covering
 the board. During a game it
-shows per-game motion metrics recomputed once a second; on top, always, a
+shows per-game motion metrics recomputed once a second; on top, once
+session stats are turned on, a
 "session" section charts the actual play within the session (today by
 default, picked in its own heading) across games (losses
 and abandoned boards included): mouse
@@ -245,9 +247,9 @@ as wins and are recorded in full; they are not ranked.
 - [BACKLOG.md](BACKLOG.md) lists unbuilt work.
 
 
-## Fuseki hosting preparation
+## Public site
 
-Independent hosting at `minesweeper-friendly.fuseki.net` is implemented and
-tested but awaits DNS/TLS activation. GitHub Pages remains the playable public
-site. [Hosting status and deployment](docs/implementation/hosting.md) explains
-the runtime-only artifact, restricted upload account, tests, and launch steps.
+The game is live at `https://minesweeper-friendly.fuseki.net/`. Every push to
+master is tested and then released there. `https://ernop.github.io/minesweeper-friendly/`
+redirects to that origin. [Hosting status and deployment](docs/implementation/hosting.md)
+explains the runtime-only artifact, restricted upload account, and tests.

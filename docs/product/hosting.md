@@ -33,9 +33,14 @@ cookies.
   origin is `https://minesweeper-friendly.fuseki.net/`; the Fuseki project
   path remains a discoverable entry point. Paths alone do not isolate
   IndexedDB, localStorage, service workers, or authenticated editor access.
-- Keep the existing GitHub Pages game available. Scores, traces, and settings
-  stay in the browser at their original origin; use the existing explicit
-  export/import controls to transfer them. Hosting does not upload player data.
+- The public, canonical game is `https://minesweeper-friendly.fuseki.net/`
+  (creator, 2026-09-26). GitHub Pages still publishes the repository, and
+  every page there redirects visitors to that origin, keeping the path,
+  query, and hash. The redirect runs only on `ernop.github.io`. Scores,
+  traces, and settings stay in the browser at the origin where they were
+  saved; a Pages history does not appear on Fuseki. Use the existing
+  explicit export/import controls to transfer them. Hosting does not upload
+  player data.
 - Publish only the playable runtime, including worker dependencies and the
   `game/` directory. Never publish personal exports, research, tests, source
   control metadata, or configuration secrets.

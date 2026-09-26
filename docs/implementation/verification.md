@@ -78,9 +78,10 @@ Index: [AGENTS.md](../../AGENTS.md).
   meta, link, input, br, hr, img). Node v22 is installed and fine for
   one-shot data conversion scripts.
 - Deploys: `gh` CLI is installed and authenticated. Every push to master
-  triggers the "pages build and deployment" workflow; `gh run list` /
+  triggers GitHub Pages and the Fuseki release workflow; `gh run list` /
   `gh run watch <id> --exit-status` confirm it, and the live site can be
-  spot-checked with `curl https://ernop.github.io/minesweeper-friendly/...`.
+  spot-checked with `curl https://minesweeper-friendly.fuseki.net/...`.
+  `https://ernop.github.io/minesweeper-friendly/` redirects there.
 - Test entry points (2026-09-23): `for t in tests/*-test.js; do node "$t"; done`
   runs every Node suite; also run `python3 tests/hosting-release-test.py`,
   which fails when a page loads a file missing from `deploy/runtime-files.json`.

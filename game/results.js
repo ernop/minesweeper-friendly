@@ -281,7 +281,7 @@ function buildEvaluationPosition(evaluation) {
 }
 
 function reportCategoryEnabled(category) {
-  const scope = settings && settings.reportScope ? settings.reportScope : 'fatal';
+  const scope = settings && settings.reportScope ? settings.reportScope : 'none';
   return reportScopeAllows(scope, category);
 }
 

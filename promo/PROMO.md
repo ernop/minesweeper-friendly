@@ -1,6 +1,6 @@
 # Minesweeper Friendly
 
-**Play instantly, free, in your browser: https://ernop.github.io/minesweeper-friendly/**
+**Play instantly, free, in your browser: https://minesweeper-friendly.fuseki.net/**
 
 The classic game you know — crisp bevels, chunky numbers, red LCD counters —
 with a dove where the smiley used to be, and a scoreboard unlike anything
@@ -35,4 +35,4 @@ from your top-20 of the month, or on a fresh streak in the last five minutes.
 
 Beginner, Intermediate, Expert, and fully custom boards. Zoom to taste.
 
-**Play now: https://ernop.github.io/minesweeper-friendly/**
+**Play now: https://minesweeper-friendly.fuseki.net/**

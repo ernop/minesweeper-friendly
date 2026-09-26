@@ -27,8 +27,8 @@ Spec: [docs/product/game-end-evaluation.md](../product/game-end-evaluation.md). 
   `#result-analysis` below the board (never the 320px stat sidebar), where
   each `.verdict-category` is an auto-fit grid of at least 400px columns;
   the builder groups each action once by primary category and obeys
-  `settings.reportScope` through `reportScopeAllows`: none, fatal-only
-  (new-player default), fatal+risk, or full. `buildReportScopeControl`
+  `settings.reportScope` through `reportScopeAllows`: none (new-player
+  default), fatal-only, fatal+risk, or full. `buildReportScopeControl`
   renders in the display options, or above the report for trial review,
   and re-renders immediately; the
   settings page shares `REPORT_SCOPE_CHOICES`.

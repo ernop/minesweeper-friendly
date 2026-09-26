@@ -42,6 +42,7 @@
   "justice.js",
   "observation-context.js",
   "odds.js",
+  "pages-redirect.js",
   "preferences-game.js",
   "pregen.js",
   "rng.js",

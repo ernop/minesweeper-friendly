@@ -209,7 +209,7 @@ inside the same boundary. No old lookback observations leak across it.
   always (not just during games), under one "session" header with compact
   controls and no HOW/RECORDS hover essays. The header's value is the page's
   one session picker ("SESSION today"). The
-  `showSessionStats` setting (default on) turns the stats off; the panel's ×
+  `showSessionStats` setting (default off, decided 2026-09-26) hides the stats; the panel's ×
   chip tucks them away with the rest. Neither hides the header and its
   picker, because ranks won and game data still use the session.
 - Charts: real charts, not sparklines (decided 2026-08-22, same

@@ -17,7 +17,8 @@ function check(name, condition) {
 
 {
   const fresh = settingsFrom({});
-  check('new-player default is fatal only', fresh.reportScope === 'fatal');
+  check('new-player default shows no action report', fresh.reportScope === 'none');
+  check('new-player session stats are off', fresh.showSessionStats === false);
   check('session defaults to running averages', fresh.sessionAggregation === 'average');
   check('session defaults to played-time rates', fresh.sessionRateBasis === 'time');
   check('per-game grouping defaults to five completed games',
