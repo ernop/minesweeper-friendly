@@ -138,3 +138,36 @@ calling them is a test failure.
 The metrics column and its controls are constructed before the initial layout,
 without waiting for a worker reply. Its first computed values fill that reserved
 space; worker latency cannot move the board after startup reveals it.
+
+## Click-time evidence cost (2026-09-26)
+
+Spec: [Input latency](../product/board-and-layout.md#input-latency-user-report-2026-09-26).
+Each board action runs, before it mutates the board, the visible-position
+proof (misclick classification, evidence, and Justice all share one cached
+proof), then guess scoring for reveals or `Odds.analyzeView` for flags and
+chords. These run in the input handler. Measured in the browsers with real
+input and an 80 MB (structured-clone) synthetic history, expert flags,
+chords, and guesses were the slow inputs: in Firefox 10% of expert inputs
+took over 200ms to paint, while ordinary reveals took under 20ms.
+
+Cause: `analyzeView` rechecked every residual clue at every search node and
+then visited every combination of component layouts, adding every sea cell
+per combination; positions near its 250,000-visit budget cost about 250ms
+(V8) to 600ms (SpiderMonkey), frequently only to return unmeasured. The
+join now groups layouts by mine count ([per-game stats](per-game-stats.md))
+and the proof search is flattened ([A just universe](just-universe.md)).
+Visit budgets, completeness, and every threshold decision are unchanged.
+
+- Equivalence: 23,287 positions from seeded full games (9x9, 16x16, 30x16,
+  30x24; reveals, guesses, flags, chords) give identical proofs, guess
+  scores, Justice certificates, and odds (sums within 1e-9 relative; the
+  former per-layout addition itself drifts up to about 3e-11).
+  `node tests/performance-benchmark.js 7ca3198` repeats this on seeded
+  games and reports totals and the slowest position.
+- Firefox, 4,658 positions: expert flags over 100ms fell from 179 of 891 to
+  3; guess p90 from 603ms to 4ms. Positions whose exact proof exhausts its
+  2,000,000-node budget (about 1% of expert positions, all incomplete) fell
+  from 425–1,116ms to 52–113ms for the whole action; that budget case is
+  the remaining tail (V8 about 40ns per node).
+- Benchmark (V8), expert 806 positions: 24,315ms → 389ms total; slowest
+  position 316ms → 3.6ms.

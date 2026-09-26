@@ -55,7 +55,10 @@ function rawClues(view) {
 }
 
 const DEFAULT_PROOF_VISITS = 2000000;
-let lastExactProof = null;
+// The latest exact proof per work budget. One click proves its position
+// several times (misclick, evidence, Justice), and guess scoring interleaves
+// many smaller-budget hypothetical positions that must not evict it.
+const lastExactProofByBudget = new Map();
 
 function exactProofKey(view, clues, maxVisits) {
   const visible = [];
@@ -68,6 +71,10 @@ function exactProofKey(view, clues, maxVisits) {
     + '|' + visible.join(',') + '|' + equations + '|' + maxVisits;
 }
 
+// byMineCount maps each achievable mine count to flags indexed like
+// `cells`: minePossible[i] / safePossible[i] are 1 when some layout with
+// that count puts a mine / no mine on cells[i]; `unseen` counts flags
+// still 0.
 function enumerateProofComponent(cells, clues, work) {
   const clueIndexesByCell = new Map(cells.map((cell) => [cell, []]));
   clues.forEach((clue, clueIndex) => {
@@ -75,52 +82,72 @@ function enumerateProofComponent(cells, clues, work) {
   });
   const ordered = cells.slice().sort((a, b) =>
     clueIndexesByCell.get(b).length - clueIndexesByCell.get(a).length);
-  const remaining = clues.map((clue) => clue.unknown.length);
-  const needed = clues.map((clue) => clue.need);
-  const assignment = new Map();
+  // The clues touching ordered[at] are touching[offsets[at]..offsets[at+1]).
+  const offsets = new Int32Array(ordered.length + 1);
+  ordered.forEach((cell, at) => { offsets[at + 1] = offsets[at] + clueIndexesByCell.get(cell).length; });
+  const touching = new Int32Array(offsets[ordered.length]);
+  ordered.forEach((cell, at) => touching.set(clueIndexesByCell.get(cell), offsets[at]));
+  const remaining = Int32Array.from(clues, (clue) => clue.unknown.length);
+  const needed = Int32Array.from(clues, (clue) => clue.need);
+  const assignment = new Uint8Array(ordered.length);
   const byMineCount = new Map();
+  const maxVisits = work.maxVisits;
+  let visits = work.visits;
   let stopped = false;
 
   const visit = (at, mineCount) => {
-    work.visits++;
-    if (work.visits > work.maxVisits) {
+    visits++;
+    if (visits > maxVisits) {
       stopped = true;
       return;
     }
+    // Assigning a clue's last cell prunes unless it needs exactly zero more
+    // mines, so every clue is satisfied at a leaf.
     if (at === ordered.length) {
-      if (needed.some((need) => need !== 0)) return;
       let summary = byMineCount.get(mineCount);
       if (!summary) {
-        summary = { minePossible: new Set(), safePossible: new Set() };
+        summary = {
+          minePossible: new Uint8Array(ordered.length),
+          safePossible: new Uint8Array(ordered.length),
+          unseen: 2 * ordered.length,
+        };
         byMineCount.set(mineCount, summary);
       }
-      for (const cell of ordered) {
-        (assignment.get(cell) ? summary.minePossible : summary.safePossible).add(cell);
+      if (summary.unseen === 0) return;
+      for (let i = 0; i < ordered.length; i++) {
+        const seen = assignment[i] === 1 ? summary.minePossible : summary.safePossible;
+        if (seen[i] === 0) {
+          seen[i] = 1;
+          summary.unseen--;
+        }
       }
       return;
     }
-    const cell = ordered[at];
-    for (const mine of [false, true]) {
+    const from = offsets[at];
+    const to = offsets[at + 1];
+    for (let mine = 0; mine <= 1; mine++) {
       let possible = true;
-      assignment.set(cell, mine);
-      for (const clueIndex of clueIndexesByCell.get(cell)) {
+      assignment[at] = mine;
+      for (let k = from; k < to; k++) {
+        const clueIndex = touching[k];
         remaining[clueIndex]--;
-        if (mine) needed[clueIndex]--;
+        needed[clueIndex] -= mine;
         if (needed[clueIndex] < 0 || needed[clueIndex] > remaining[clueIndex]) {
           possible = false;
         }
       }
-      if (possible) visit(at + 1, mineCount + (mine ? 1 : 0));
-      for (const clueIndex of clueIndexesByCell.get(cell)) {
-        if (mine) needed[clueIndex]++;
+      if (possible) visit(at + 1, mineCount + mine);
+      for (let k = from; k < to; k++) {
+        const clueIndex = touching[k];
+        needed[clueIndex] += mine;
         remaining[clueIndex]++;
       }
       if (stopped) return;
     }
-    assignment.delete(cell);
   };
 
   visit(0, 0);
+  work.visits = visits;
   if (stopped) return null;
   if (byMineCount.size === 0) throw new Error('visible clues have no valid layout');
   return { cells: ordered, byMineCount };
@@ -239,17 +266,17 @@ function proveExactFacts(view, clues, status, mark, maxVisits) {
     if (feasibleCounts.length === 0) {
       throw new Error('component has no globally valid layout');
     }
-    for (const cell of solved[i].cells) {
+    solved[i].cells.forEach((cell, index) => {
       let canBeMine = false;
       let canBeSafe = false;
       for (const count of feasibleCounts) {
         const summary = solved[i].byMineCount.get(count);
-        if (summary.minePossible.has(cell)) canBeMine = true;
-        if (summary.safePossible.has(cell)) canBeSafe = true;
+        if (summary.minePossible[index] === 1) canBeMine = true;
+        if (summary.safePossible[index] === 1) canBeSafe = true;
       }
       if (!canBeMine) mark(cell, 2);
       else if (!canBeSafe) mark(cell, 1);
-    }
+    });
   }
 
   if ([...possibleSeaCounts].every((count) => count === 0)) {
@@ -279,7 +306,8 @@ function proveFacts(view, clues, opts) {
   const maxVisits = Number.isFinite(opts.maxVisits)
     ? opts.maxVisits : DEFAULT_PROOF_VISITS;
   const cacheKey = useExact ? exactProofKey(view, clues, maxVisits) : null;
-  if (lastExactProof && lastExactProof.key === cacheKey) return lastExactProof.facts;
+  const cached = useExact ? lastExactProofByBudget.get(maxVisits) : undefined;
+  if (cached !== undefined && cached.key === cacheKey) return cached.facts;
   const size = view.width * view.height;
   const status = new Map();
   const mark = (cell, value) => {
@@ -322,8 +350,32 @@ function proveFacts(view, clues, opts) {
     }
 
     if (useSubset && status.size === before) {
+      // After a count pass that marked nothing, every residual needs
+      // strictly between none and all of its cells, so a pair sharing no
+      // cell can neither mark nor contradict. Only overlapping pairs are
+      // compared then, in the same order as the all-pairs loop.
+      const residualsOfCell = new Map();
+      if (useCount) {
+        residuals.forEach((residual, index) => {
+          for (const cell of residual.unknown) {
+            if (!residualsOfCell.has(cell)) residualsOfCell.set(cell, []);
+            residualsOfCell.get(cell).push(index);
+          }
+        });
+      }
       for (let i = 0; i < residuals.length; i++) {
-        for (let j = i + 1; j < residuals.length; j++) {
+        let partners;
+        if (useCount) {
+          const overlapping = new Set();
+          for (const cell of residuals[i].unknown) {
+            for (const other of residualsOfCell.get(cell)) if (other > i) overlapping.add(other);
+          }
+          partners = [...overlapping].sort((a, b) => a - b);
+        } else {
+          partners = [];
+          for (let j = i + 1; j < residuals.length; j++) partners.push(j);
+        }
+        for (const j of partners) {
           const left = residuals[i];
           const right = residuals[j];
           const leftOnly = left.unknown.filter((cell) => !right.set.has(cell));
@@ -371,7 +423,7 @@ function proveFacts(view, clues, opts) {
     status.complete = exact.complete;
     status.visits = exact.visits;
     status.method = exact.complete ? 'all-consistent-layouts' : 'work-limit';
-    lastExactProof = { key: cacheKey, facts: status };
+    lastExactProofByBudget.set(maxVisits, { key: cacheKey, facts: status });
   } else {
     status.complete = false;
     status.visits = 0;

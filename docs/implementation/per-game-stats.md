@@ -104,6 +104,11 @@ Spec: [docs/product/per-game-stats.md](../product/per-game-stats.md). Index: [AG
 - Guess ledger ([Guess ledger](../product/per-game-stats.md)): `odds.js` enumerates remaining
   consistent layouts on residual clue components (budget 22 vars /
   250000 visits) plus a binomial sea, then scores a bare unproven click.
+  Since 2026-09-26 each placement rechecks only the clues touching its
+  cell, and components join by mine-count polynomials instead of visiting
+  every combination; the budget still charges the combination walk's node
+  count (`combinationWalkVisits`), so exactly the same positions are
+  measured, with the same `visits`.
   `analyzeView(view, opts)` can pass proof options through
   `Justice.buildStructure`; one-ply hypothetical next positions cap the
   canonical proof prepass at 80000 visits so up to forty branches cannot

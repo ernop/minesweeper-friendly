@@ -101,3 +101,109 @@ for (const size of [20, 40, 80]) {
   assert.deepEqual(after.value, before.value);
   report('trace restoration (clicks)', size, before, after);
 }
+
+// Per-action evidence: the proof, odds, and Justice calls one click makes,
+// over positions from seeded games. The former join added up to 250,000
+// per-layout weights one at a time, so its sums carry rounding up to about
+// 3e-11 relative; grouped sums may differ within that. Everything else,
+// including every threshold decision, must match exactly.
+function solverOf(read) {
+  const context = vm.createContext({ console, performance });
+  for (const [file, name] of [['justice.js', 'Justice'], ['odds.js', 'Odds'], ['solver.js', 'Solver']]) {
+    context.module = { exports: {} };
+    vm.runInContext(read(file), context, { filename: file });
+    context[name] = context.module.exports;
+  }
+  return context;
+}
+const oldSolver = solverOf(baseline), newSolver = solverOf(current);
+function actionPositions(width, height, mines, games) {
+  const { Justice, Solver } = newSolver;
+  const positions = [];
+  for (let game = 0; game < games; game++) {
+    const n = width * height;
+    const first = Math.floor(random() * n);
+    const mineAt = Solver.randomPlacement(width, height, mines, first, random);
+    const adjacent = Solver.adjacentMap(width, height, mineAt);
+    const revealed = new Array(n).fill(false);
+    const flagged = new Array(n).fill(false);
+    const flood = (start) => {
+      for (const stack = [start]; stack.length > 0;) {
+        const i = stack.pop();
+        if (revealed[i] || flagged[i]) continue;
+        revealed[i] = true;
+        if (adjacent[i] === 0) stack.push(...Justice.neighbors(i, width, height).filter((j) => !revealed[j]));
+      }
+    };
+    flood(first);
+    // Real play flags and chords across the whole game; unproven clicks
+    // pick a truly safe cell so games reach their large mid-game frontiers.
+    const pick = (list) => list[Math.floor(random() * list.length)];
+    while (revealed.filter(Boolean).length < n - mines) {
+      const view = { width, height, mines, revealed: revealed.slice(), adjacent };
+      const facts = Justice.proveFacts(view, Justice.rawClues(view));
+      const open = [...Array(n).keys()].filter((i) => !revealed[i] && !flagged[i]);
+      const safe = open.filter((i) => facts.get(i) === 2);
+      const provenMines = open.filter((i) => facts.get(i) === 1);
+      const chordable = [...Array(n).keys()].filter((i) => revealed[i] && adjacent[i] > 0
+        && Justice.neighbors(i, width, height).filter((j) => flagged[j]).length === adjacent[i]
+        && Justice.neighbors(i, width, height).some((j) => !revealed[j] && !flagged[j]));
+      const roll = random();
+      if (chordable.length > 0 && roll < 0.25) {
+        const cell = pick(chordable);
+        positions.push({ view, cell, flag: true });
+        for (const j of Justice.neighbors(cell, width, height)) if (!flagged[j]) flood(j);
+      } else if (provenMines.length > 0 && roll < 0.55) {
+        const cell = pick(provenMines);
+        positions.push({ view, cell, flag: true });
+        flagged[cell] = true;
+      } else {
+        const cell = safe.length > 0 ? pick(safe) : pick(open.filter((i) => !mineAt[i]));
+        positions.push({ view, cell, flag: false });
+        flood(cell);
+      }
+    }
+  }
+  return positions;
+}
+function actionEvidence({ Justice, Odds, Solver }, positions) {
+  return positions.map(({ view, cell, flag }) => {
+    const copy = () => ({ ...view, revealed: view.revealed.slice(), adjacent: view.adjacent.slice() });
+    const facts = Solver.classifyCells(copy(), [cell]);
+    const kinds = { complete: facts.complete, visits: facts.visits, kinds: facts.kinds };
+    if (flag) {
+      const odds = Odds.analyzeView(copy());
+      return { kinds, odds: odds.measured ? { visits: odds.visits, pMine: odds.pMine } : false };
+    }
+    return { kinds, guess: Odds.scoreGuess(copy(), cell, { considerJustice: true }),
+      justice: Justice.certifyEntry(copy(), cell) };
+  });
+}
+function assertEvidenceEqual(after, before, where = 'evidence') {
+  if (typeof after === 'number' && typeof before === 'number') {
+    assert(after === before || Math.abs(after - before) <= 1e-9 * Math.max(1, Math.abs(before)),
+      where + ': ' + after + ' vs ' + before);
+  } else if (after && before && typeof after === 'object' && typeof before === 'object') {
+    for (const key of new Set([...Object.keys(after), ...Object.keys(before)])) {
+      assertEvidenceEqual(after[key], before[key], where + '.' + key);
+    }
+  } else assert.equal(after, before, where);
+}
+// The player feels the slowest click, so the worst position is reported
+// beside the total.
+const slowestPosition = (solver, positions) => timed(() => Math.max(...positions.map((position) => {
+  const start = performance.now();
+  actionEvidence(solver, [position]);
+  return performance.now() - start;
+})));
+for (const [width, height, mines, games] of [[16, 16, 40, 4], [30, 16, 99, 3]]) {
+  const positions = actionPositions(width, height, mines, games);
+  const before = timed(() => actionEvidence(oldSolver, positions));
+  const after = timed(() => actionEvidence(newSolver, positions));
+  assertEvidenceEqual(after.value, before.value);
+  const name = 'action evidence ' + width + 'x' + height;
+  report(name + ' (positions)', positions.length, before, after);
+  const worstBefore = slowestPosition(oldSolver, positions), worstAfter = slowestPosition(newSolver, positions);
+  report(name + ' slowest position', positions.length,
+    { ms: worstBefore.value }, { ms: worstAfter.value });
+}

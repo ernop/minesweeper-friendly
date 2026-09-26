@@ -5,7 +5,7 @@
 // posts the summary. It only reads. The page's storage.js owns opening and
 // upgrading the database and sends the names and version it opened.
 
-importScripts('justice.js?v=20260825-batched-certification', 'solver.js?v=20260823-exact-solver', 'rng.js',
+importScripts('justice.js?v=20260926-fast-evidence', 'solver.js?v=20260823-exact-solver', 'rng.js',
   'game/evaluation.js?v=20260926-training', 'training-core.js?v=20260926-training');
 
 function requestResult(request) {

@@ -72,6 +72,25 @@ Improve the algorithms as well as moving them: exact Theil–Sen fits retain
 all eligible observations and the specified median slope/intercept; sampling
 may guide exact selection but must not approximate the reported fit.
 
+### Input latency (user report 2026-09-26)
+
+User report, playing the GitHub Pages site in Firefox on the PC: "even
+clicking the first square to open, or the 10th, as i play, feels somehow
+laggy"; asked whether the game is "max efficient" and to test and fix it.
+
+- A board input's visible response must not wait on measurement.
+- Click-time evidence (the visible-position proof, guess odds, and Justice
+  certification) keeps its exact definitions and results; only its cost
+  may change. Built 2026-09-26: expert flags, chords, and guesses that took
+  up to about 0.6 s in Firefox now take a few milliseconds, with a rare
+  proof-budget case near 0.1 s
+  ([measurements](../implementation/board-and-layout.md#click-time-evidence-cost-2026-09-26)).
+- Finishing a game must not rewrite the whole history. Found: every finished
+  game rewrote the entire stored history twice (160 MB for the player's
+  6,407 games), blocking input for roughly a second each time, including
+  the first clicks of the next board. Per-game record storage is designed,
+  not yet shipped ([BACKLOG](../../BACKLOG.md#input-latency-follow-ons-creator-report-2026-09-26)).
+
 ## Layout: the board never moves
 
 - The page has separate columns for session/motion metrics, the board and

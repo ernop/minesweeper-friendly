@@ -32,8 +32,16 @@ Spec: [docs/product/just-universe.md](../product/just-universe.md). Index: [AGEN
   Its canonical proof prepass now has a deterministic two-million-node
   ceiling and returns a Map annotated with `complete`, `visits`, and
   `method`; over-limit results retain only sound facts and cannot justify a
-  negative player judgement. One visible-position cache avoids repeating
-  the same exact proof across click scoring, reports, and mode rules.
+  negative player judgement. A visible-position cache, one entry per work
+  budget, avoids repeating the same exact proof across click scoring,
+  reports, and mode rules; guess scoring's 80,000-node hypothetical
+  positions therefore cannot evict the click's own proof (2026-09-26).
+  The same day's input-latency review made the proof cheaper without
+  changing its results: the node search keeps its cell order, branch order,
+  and node count but uses flat typed arrays and no per-node allocation,
+  leaf summaries stop once every flag is seen, and after a count pass that
+  marked nothing, the pairwise subset rule compares only clue pairs that
+  share a cell (disjoint pairs can then neither mark nor contradict).
   `redrawEntry(certificate, clicked, currentMines, random)` consults the
   witness only after certification: an already-clear entry returns it
   unchanged; a mined cardinality/sea entry directly samples k locations

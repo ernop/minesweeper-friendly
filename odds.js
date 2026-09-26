@@ -27,34 +27,52 @@ function binom(n, k) {
   return r;
 }
 
+const SAFE_THEN_MINE = [false, true];
+
+// Depth-first over the component's cells, safe before mine. Each residual
+// clue keeps its still-needed mines and unassigned cells, so a placement
+// rechecks only the clues touching that cell. Clues elsewhere cannot change
+// satisfiability, so the search tree, its visit count against MAX_VISITS,
+// and the solution order are exactly those of checking every clue per node.
 function enumerateComponent(cells, clues, visits) {
   const n = cells.length;
   if (n > MAX_COMPONENT_VARS) return null;
   const indexOf = new Map();
   for (let i = 0; i < n; i++) indexOf.set(cells[i], i);
-  const residuals = [];
+  const need = [];
+  const open = [];
+  const cluesOfCell = Array.from({ length: n }, () => []);
   for (const clue of clues) {
-    const idx = [];
+    const clueIndex = need.length;
+    let size = 0;
     for (const cell of clue.covered) {
       const i = indexOf.get(cell);
-      if (i !== undefined) idx.push(i);
+      if (i === undefined) continue;
+      cluesOfCell[i].push(clueIndex);
+      size++;
     }
-    if (idx.length > 0) residuals.push({ idx, count: clue.count });
+    if (size === 0) continue;
+    need.push(clue.count);
+    open.push(size);
   }
   const assign = new Array(n);
   const solutions = [];
 
-  function consistent(upto) {
-    for (const clue of residuals) {
-      let mines = 0;
-      let unknown = 0;
-      for (const i of clue.idx) {
-        if (i >= upto) unknown++;
-        else if (assign[i]) mines++;
-      }
-      if (mines > clue.count || mines + unknown < clue.count) return false;
+  function place(i, mine) {
+    let satisfiable = true;
+    for (const clueIndex of cluesOfCell[i]) {
+      open[clueIndex]--;
+      if (mine) need[clueIndex]--;
+      if (need[clueIndex] < 0 || need[clueIndex] > open[clueIndex]) satisfiable = false;
     }
-    return true;
+    return satisfiable;
+  }
+
+  function unplace(i, mine) {
+    for (const clueIndex of cluesOfCell[i]) {
+      open[clueIndex]++;
+      if (mine) need[clueIndex]++;
+    }
   }
 
   function rec(i) {
@@ -70,15 +88,42 @@ function enumerateComponent(cells, clues, visits) {
       solutions.push({ mines, mineCount });
       return true;
     }
-    assign[i] = false;
-    if (consistent(i + 1) && !rec(i + 1)) return false;
-    assign[i] = true;
-    if (consistent(i + 1) && !rec(i + 1)) return false;
+    for (const mine of SAFE_THEN_MINE) {
+      assign[i] = mine;
+      const satisfiable = place(i, mine);
+      if (satisfiable && !rec(i + 1)) return false;
+      unplace(i, mine);
+    }
     return true;
   }
 
   if (!rec(0)) return null;
   return solutions;
+}
+
+// Polynomial product over mine counts: coefficient k of the result counts
+// the combined layouts holding k mines.
+function convolveCounts(a, b) {
+  const product = new Array(a.length + b.length - 1).fill(0);
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] === 0) continue;
+    for (let j = 0; j < b.length; j++) product[i + j] += a[i] * b[j];
+  }
+  return product;
+}
+
+// The number of calls a depth-first walk over every combination of one
+// solution per component makes (one per tree node, leaves included): the
+// work unit the MAX_VISITS budget has always counted for this join.
+function combinationWalkVisits(components, budget) {
+  let nodes = 1;
+  let level = 1;
+  for (const component of components) {
+    level *= component.solutions.length;
+    nodes += level;
+    if (nodes > budget) return budget + 1;
+  }
+  return nodes;
 }
 
 function analyzeView(view, opts) {
@@ -108,42 +153,65 @@ function analyzeView(view, opts) {
     for (const cell of structure.seaCells) mineWeight[cell] += weight * p;
   }
 
-  function walk(index, minesUsed, weight, pick) {
-    visits.n++;
-    if (visits.n > MAX_VISITS) return false;
-    if (index === components.length) {
-      const seaMines = minesLeft - minesUsed;
-      if (seaMines < 0 || seaMines > seaSize) return true;
-      const w = weight * binom(seaSize, seaMines);
-      if (w === 0) return true;
-      totalWeight += w;
-      for (let c = 0; c < components.length; c++) {
-        const sol = components[c].solutions[pick[c]];
-        for (let i = 0; i < components[c].cells.length; i++) {
-          if (sol.mines[i]) mineWeight[components[c].cells[i]] += w;
-        }
-      }
-      addSea(w, seaMines);
-      return true;
-    }
-    const solutions = components[index].solutions;
-    for (let s = 0; s < solutions.length; s++) {
-      pick[index] = s;
-      if (!walk(index + 1, minesUsed + solutions[s].mineCount, weight, pick)) {
-        return false;
-      }
-    }
-    return true;
-  }
-
   if (components.length === 0) {
     if (minesLeft > seaSize) return { measured: false };
     const w = binom(seaSize, minesLeft);
     if (w === 0 && !(seaSize === 0 && minesLeft === 0)) return { measured: false };
     totalWeight = seaSize === 0 && minesLeft === 0 ? 1 : w;
     addSea(totalWeight, minesLeft);
-  } else if (!walk(0, 0, 1, new Array(components.length))) {
-    return { measured: false };
+  } else {
+    visits.n += combinationWalkVisits(components, MAX_VISITS - visits.n);
+    if (visits.n > MAX_VISITS) return { measured: false };
+    // Every combination of one solution per component weighs
+    // binom(sea, seaMines) and depends only on its total mine count, so the
+    // join groups solutions by mine count instead of visiting combinations.
+    // Counts stay exact integers: the budget above bounds the combinations.
+    const byCount = components.map((component) => {
+      const length = component.cells.length;
+      const layouts = new Array(length + 1).fill(0);
+      const mineLayouts = Array.from({ length: length + 1 }, () => new Array(length).fill(0));
+      for (const solution of component.solutions) {
+        layouts[solution.mineCount]++;
+        const perCell = mineLayouts[solution.mineCount];
+        for (let i = 0; i < length; i++) if (solution.mines[i]) perCell[i]++;
+      }
+      return { layouts, mineLayouts };
+    });
+    const prefix = [[1]];
+    for (const component of byCount) prefix.push(convolveCounts(prefix[prefix.length - 1], component.layouts));
+    const suffix = new Array(byCount.length + 1);
+    suffix[byCount.length] = [1];
+    for (let c = byCount.length - 1; c >= 0; c--) suffix[c] = convolveCounts(byCount[c].layouts, suffix[c + 1]);
+    const all = prefix[byCount.length];
+    // seaWeight[k]: the sea's layout count when the components hold k mines.
+    const seaWeight = all.map((_, mines) => {
+      const seaMines = minesLeft - mines;
+      return seaMines < 0 || seaMines > seaSize ? 0 : binom(seaSize, seaMines);
+    });
+    let seaMineWeight = 0;
+    for (let mines = 0; mines < all.length; mines++) {
+      if (all[mines] === 0) continue;
+      const w = all[mines] * seaWeight[mines];
+      totalWeight += w;
+      if (seaSize > 0) seaMineWeight += w * ((minesLeft - mines) / seaSize);
+    }
+    for (const cell of structure.seaCells) mineWeight[cell] = seaMineWeight;
+    for (let c = 0; c < byCount.length; c++) {
+      const others = convolveCounts(prefix[c], suffix[c + 1]);
+      const { mineLayouts } = byCount[c];
+      const cells = components[c].cells;
+      for (let mines = 0; mines < mineLayouts.length; mines++) {
+        let restWeight = 0;
+        for (let otherMines = 0; otherMines < others.length; otherMines++) {
+          if (others[otherMines] !== 0) restWeight += others[otherMines] * seaWeight[mines + otherMines];
+        }
+        if (restWeight === 0) continue;
+        const perCell = mineLayouts[mines];
+        for (let i = 0; i < cells.length; i++) {
+          if (perCell[i] !== 0) mineWeight[cells[i]] += perCell[i] * restWeight;
+        }
+      }
+    }
   }
 
   if (totalWeight <= 0) return { measured: false };
@@ -191,20 +259,25 @@ function minRisk(odds) {
   return best;
 }
 
-function neighborMineCount(view, facts, cell, componentMineAt) {
-  let count = 0;
+// The number `cell` would show under one of its component's layouts: proven
+// mines around it plus that layout's mines among `localNeighbors`. Null
+// when a covered unproven neighbor lies outside the component, so no
+// layout of it alone fixes the number.
+function neighborCountShape(view, facts, cell, component) {
+  let provenMines = 0;
+  const localNeighbors = [];
   for (const nb of Justice.neighbors(cell, view.width, view.height)) {
     if (view.revealed[nb]) continue;
     const fact = facts.get(nb);
-    if (fact === 1) count++;
+    if (fact === 1) provenMines++;
     else if (fact === 2) continue;
-    else if (componentMineAt && componentMineAt.has(nb)) {
-      if (componentMineAt.get(nb)) count++;
-    } else {
-      return null;
+    else {
+      const local = component.cells.indexOf(nb);
+      if (local < 0) return null;
+      localNeighbors.push(local);
     }
   }
-  return count;
+  return { provenMines, localNeighbors };
 }
 
 function nextView(view, cell, number) {
@@ -255,16 +328,14 @@ function expectedLife(view, odds, cell) {
   const local = component.cells.indexOf(cell);
   if (local < 0) return survive;
 
+  const shape = neighborCountShape(view, structure.facts, cell, component);
   const buckets = new Map();
   let safeWeight = 0;
   for (const sol of component.solutions) {
     if (sol.mines[local]) continue;
-    const mineAt = new Map();
-    for (let i = 0; i < component.cells.length; i++) {
-      mineAt.set(component.cells[i], sol.mines[i]);
-    }
-    const number = neighborMineCount(view, structure.facts, cell, mineAt);
-    if (number === null) return survive;
+    if (shape === null) return survive;
+    let number = shape.provenMines;
+    for (const i of shape.localNeighbors) if (sol.mines[i]) number++;
     const key = String(number);
     buckets.set(key, (buckets.get(key) || 0) + 1);
     safeWeight++;
