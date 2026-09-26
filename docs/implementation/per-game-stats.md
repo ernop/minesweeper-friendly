@@ -84,13 +84,16 @@ Spec: [docs/product/per-game-stats.md](../product/per-game-stats.md). Index: [AG
   cache and `Access-Control-Allow-Origin: *`: true = `pw-dump` shows a
   running output stream (speech-dispatcher excluded) AND a ~0.5s
   `pw-record` probe of the default sink's monitor has RMS ≥ -60 dBFS,
-  because paused/idle web players can hold a running stream of silence;
-  Firefox exempts
-  http://localhost from mixed-content blocking, so the GitHub Pages origin
-  can fetch it too). `beginMusicSampling` (called from newGame beside
-  beginTrace) resets `musicObservations` and samples once; a top-level
-  setInterval (`MUSIC_SAMPLE_EVERY_MS`, 15s) polls continuously — not
-  only during games — because `musicNow` also drives the live indicator
+  because paused/idle web players can hold a running stream of silence).
+  Local only (2026-09-26): `musicMeasured` (`location.origin ===
+  MUSIC_ORIGIN`, `http://127.0.0.1:8018`) gates both the first sample and
+  the interval, so every other origin never calls `fetch` on the endpoint;
+  Chrome 142+ would otherwise ask public visitors for local-network access.
+  `tests/music-local-only-test.js` pins this. `beginMusicSampling` (called
+  from newGame beside beginTrace) resets `musicObservations` and, on the
+  local origin, samples once; a top-level setInterval
+  (`MUSIC_SAMPLE_EVERY_MS`, 15s) polls continuously there — not only
+  during games — because `musicNow` also drives the live indicator
   (`#music-indicator`, the olive "music" chip in `#top-right`, rendered
   by `renderMusicIndicator`; hidden unless the latest answer is exactly
   true, so unknown never displays as silence). An answer is pushed onto
@@ -98,9 +101,8 @@ Spec: [docs/product/per-game-stats.md](../product/per-game-stats.md). Index: [AG
   so it belongs to the board now in play; one landing after game end is
   display-only. `reportResult` writes `musicPlaying` (any-sample-true)
   only when at least one answer arrived during the game — a failed fetch
-  sets `musicNow` null and produces no observation, because
-  unreachable-endpoint is the designed "not measured" state on foreign
-  origins, not a hidden error.
+  (launcher down) sets `musicNow` null and produces no observation, the
+  designed "not measured" state, not a hidden error.
 - Guess ledger ([Guess ledger](../product/per-game-stats.md)): `odds.js` enumerates remaining
   consistent layouts on residual clue components (budget 22 vars /
   250000 visits) plus a binomial sea, then scores a bare unproven click.

@@ -15,11 +15,18 @@
 // up to ~75s late (poll interval + cache age), typically under a minute.
 // reportResult stores musicPlaying = true if any sample during the game
 // heard audio, false if every sample heard silence, and no field at all
-// when the endpoint never answered (any other machine, launcher down):
-// absence means "not measured", the usual rule, so the record cannot lie
-// on origins where no base system exists.
+// when the endpoint never answered (launcher down): absence means "not
+// measured", the usual rule.
+//
+// Local only (creator, 2026-09-26): the base system exists only on the
+// player's own machine, which serves the canonical local origin. Every other
+// origin (GitHub Pages, fuseki hosting, the test origin) never contacts
+// localhost at all, so visitors get no request and no browser local-network
+// prompt, the indicator never shows, and records carry no musicPlaying field.
 const MUSIC_ENDPOINT = 'http://localhost/api/is-music-playing';
+const MUSIC_ORIGIN = 'http://127.0.0.1:8018';
 const MUSIC_SAMPLE_EVERY_MS = 15000;
+const musicMeasured = location.origin === MUSIC_ORIGIN;
 let musicObservations = [];
 // The latest answer, for the live indicator: true/false = measured,
 // null = the endpoint is not answering. Unknown shows nothing — it is
@@ -56,7 +63,7 @@ function sampleMusic() {
 
 function beginMusicSampling() {
   musicObservations = [];
-  sampleMusic();
+  if (musicMeasured) sampleMusic();
 }
 
-setInterval(sampleMusic, MUSIC_SAMPLE_EVERY_MS);
+if (musicMeasured) setInterval(sampleMusic, MUSIC_SAMPLE_EVERY_MS);

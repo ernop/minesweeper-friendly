@@ -39,6 +39,10 @@ cookies.
 - Publish only the playable runtime, including worker dependencies and the
   `game/` directory. Never publish personal exports, research, tests, source
   control metadata, or configuration secrets.
+- Local-only features stay local (creator, 2026-09-26): music detection runs
+  only on the player's own local origin, so hosted copies never contact a
+  visitor's localhost and their CSP allows no connection beyond the game's
+  own origin ([Music playing](per-game-stats.md)).
 - A failed or incomplete upload must not change the live release. Deploy
   credentials must not grant shell access, sudo, or writes to another app.
 - Voice-Wei's existing editor integration and saved browser data require

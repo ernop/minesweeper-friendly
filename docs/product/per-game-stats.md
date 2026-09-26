@@ -384,13 +384,22 @@ output stream is running (speech synthesis excluded) AND the speaker mix
 actually carries signal (~0.5s of the default sink's monitor above
 -60 dBFS) — stream state alone lies, since some players hold an open
 "running" stream while feeding silence. It serves a cached boolean at
-localhost/api/is-music-playing, rechecked there at most once a minute. The
-game polls it continuously while the page is open (every 15s, plus once
-the moment a board is dealt); the record stores `musicPlaying` = true if
-any answer arriving while the game ran heard audio, false if every one
-heard silence, and no field at all when the endpoint never answered (any
-other machine, base system down) — absence means "not measured", the
-usual rule, so records cannot lie on origins with no base system.
+localhost/api/is-music-playing, rechecked there at most once a minute. On
+the local player origin the game polls it continuously while the page is
+open (every 15s, plus once the moment a board is dealt); the record stores
+`musicPlaying` = true if any answer arriving while the game ran heard
+audio, false if every one heard silence, and no field at all when the
+endpoint never answered (base system down) — absence means "not
+measured", the usual rule.
+
+Local only (creator, 2026-09-26): music detection was an attempt to see
+whether music distracts the player and lowers the score, and it depends on
+the player's own machine. It runs only on the canonical local origin
+(`http://127.0.0.1:8018`). Every other origin — GitHub Pages, fuseki
+hosting, the test origin — never contacts localhost: no request, no browser
+local-network permission prompt for visitors, no chip, and records carry no
+`musicPlaying` field. Hosted copies' Content-Security-Policy does not allow
+the endpoint.
 Because it is a true state of the world, it is also shown live: an olive
 "music" chip in the fixed upper-right cluster (by the states tags)
 appears while the latest answer is "playing" and goes away when the
