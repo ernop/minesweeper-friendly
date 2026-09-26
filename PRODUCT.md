@@ -61,7 +61,8 @@ single-file spec; older references cite them as `PRODUCT.md "Heading"`.
 
 ### Training
 
-- [docs/product/training.md](docs/product/training.md) — The plan toward an Expert win under 60 seconds (stages, rules, targets, session routine) and the read-only training page that measures the player against it.
+- [docs/product/training.md](docs/product/training.md) — The plan toward an Expert win under 60 seconds (stages, rules, targets, session routine) and the read-only training page that measures the player against it; the situation and memorization comparison with players at every level.
+- [docs/product/problems.md](docs/product/problems.md) — Minesweeper problems: timed real moments from strong players' games, classed by the rule the new number needs, with the player's thinking time against every level.
 
 ### Settings and data
 

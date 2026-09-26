@@ -1,0 +1,249 @@
+'use strict';
+
+// Minesweeper problems, pure core: the released protocol stays frozen, the
+// bank decodes and every problem's answer squares are what the new number
+// proves, clicks do what the game's clicks do, only aimed answers count, the
+// thinking/moving split, profiles, set picking, validation, and backup files
+// (docs/product/problems.md).
+
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
+const assert = require('node:assert/strict');
+
+const repo = path.join(__dirname, '..');
+vm.runInThisContext(fs.readFileSync(path.join(repo, 'problems-core.js'), 'utf8'));
+const Justice = require(path.join(repo, 'justice.js'));
+
+let checks = 0;
+function check(name, fn) {
+  try {
+    fn();
+  } catch (error) {
+    error.message = name + ': ' + error.message;
+    throw error;
+  }
+  checks++;
+}
+
+const bankJson = JSON.parse(fs.readFileSync(path.join(repo, 'problems-bank.json'), 'utf8'));
+const bank = readProblemBank(bankJson);
+
+check('released protocol constants are frozen', () => {
+  assert.equal(PROBLEM_PROTOCOL, 'problems-v1');
+  assert.equal(PROBLEM_PREVIEW_MS, 1000);
+  assert.equal(PROBLEM_TIMEOUT_MS, 20000);
+  assert.equal(PROBLEM_ONSET_CELLS, 0.25);
+});
+
+check('square maps decode four squares per hex digit, most significant first', () => {
+  assert.deepEqual(problemBits('a1', 8), [true, false, true, false, false, false, false, true]);
+  assert.throws(() => problemBits('a1', 12), /12 squares/);
+  assert.throws(() => problemBits('g1', 8), /8 squares/);
+});
+
+check('the bank decodes, and every class has problems', () => {
+  assert.equal(bank.width * bank.height, 480);
+  assert.ok(bank.problems.length > 0);
+  const used = new Set(bank.problems.map((p) => p.classId));
+  assert.deepEqual([...used].sort(), Object.keys(bank.classes).sort());
+  assert.ok(bank.classes.one !== undefined, 'the one-number class is the baseline');
+  for (const problem of bank.problems) assert.equal(problem.mine.filter(Boolean).length, bank.mines, problem.id);
+});
+
+// The bank was built with the full solver; here every problem is re-proved
+// with the game's own engine at the two-number strength the classes name.
+check('every answer square is proven by the new number and was not provable before', () => {
+  const clues = (revealed, adjacent) => {
+    const list = [];
+    for (let i = 0; i < 480; i++) {
+      if (!revealed[i]) continue;
+      const covered = bank.neighbors[i].filter((n) => !revealed[n]);
+      if (covered.length > 0) list.push({ cell: i, covered, count: adjacent[i] });
+    }
+    return list;
+  };
+  const prove = (revealed, adjacent) => Justice.proveFacts(
+    { width: bank.width, height: bank.height, mines: bank.mines, revealed, adjacent },
+    clues(revealed, adjacent), { global: false, exact: false });
+  for (const problem of bank.problems) {
+    const before = prove(problem.opened, problem.adjacent);
+    const after = problem.opened.slice();
+    after[problem.start] = true;
+    const facts = prove(after, problem.adjacent);
+    assert.ok(problem.freshSafe.length > 0, problem.id);
+    for (const cell of problem.freshSafe) {
+      assert.equal(facts.get(cell), 2, problem.id + ' square ' + cell + ' proven safe');
+      assert.equal(before.has(cell), false, problem.id + ' square ' + cell + ' not provable before');
+    }
+    for (const cell of problem.freshMines) assert.equal(facts.get(cell), 1, problem.id + ' square ' + cell + ' proven mine');
+  }
+});
+
+// A hand-made 4 x 4 bank for exact click semantics, mines at 0 and 2:
+//   M 2 M 1
+//   1 2 1 1
+//   0 0 0 0
+//   0 0 0 0
+check('clicks: reveal, chain opening, flags, chords, mines', () => {
+  const hex = (cells) => {
+    const list = new Array(16).fill(false);
+    for (const c of cells) list[c] = true;
+    let out = '';
+    for (let i = 0; i < 16; i += 4) out += ((list[i] << 3) | (list[i + 1] << 2) | (list[i + 2] << 1) | list[i + 3]).toString(16);
+    return out;
+  };
+  const small = readProblemBank({
+    format: 'minesweeper-problems-bank', formatVersion: 1, bankId: 'test', width: 4, height: 4, mines: 2,
+    levels: ['1-1.4'], classes: { one: { family: null, byLevel: {} } },
+    problems: [{ id: 't-1', classId: 'one', mines: hex([0, 2]), opened: hex([]), flags: hex([]), start: 1,
+      startAt: [0.5, 0.5], freshSafe: [4], freshMines: [0], original: { first: null, doneMs: null } }],
+  });
+  const problem = small.problems[0];
+  const board = problemBoard(small, problem);
+  let effect = applyProblemAction(board, 'reveal', 1);
+  assert.deepEqual(effect.opened, [1], 'a numbered square opens alone');
+  effect = applyProblemAction(board, 'chord', 1);
+  assert.deepEqual(effect.opened, [], 'a chord without its flags changes nothing');
+  effect = applyProblemAction(board, 'flag', 0);
+  assert.equal(effect.flagChanged, true);
+  assert.equal(applyProblemAction(board, 'flag', 0).flagChanged, false, 'flagging a flagged square changes nothing');
+  assert.deepEqual(applyProblemAction(board, 'chord', 1).opened, [], 'one flag of two: still nothing');
+  applyProblemAction(board, 'flag', 2);
+  effect = applyProblemAction(board, 'chord', 1);
+  assert.deepEqual(effect.opened.sort((a, b) => a - b), [4, 5, 6], 'the chord opens every unflagged neighbor');
+  assert.equal(effect.mineHit, null);
+  assert.equal(problemSolved(board, problem), true);
+  effect = applyProblemAction(board, 'reveal', 13);
+  assert.deepEqual(effect.opened.sort((a, b) => a - b), [7, 8, 9, 10, 11, 12, 13, 14, 15],
+    'a zero opens its neighbors and the zeros among them theirs; numbers stop it');
+  effect = applyProblemAction(board, 'unflag', 0);
+  assert.equal(effect.flagChanged, true);
+  effect = applyProblemAction(board, 'reveal', 0);
+  assert.equal(effect.mineHit, 0);
+  assert.throws(() => applyProblemAction(board, 'poke', 3), /unknown kind/);
+});
+
+check('only clicks aimed at the answer squares count as answers', () => {
+  const problem = { freshSafe: [4, 9], freshMines: [0] };
+  assert.equal(answersProblem(problem, 'reveal', 4, { opened: [4], flagChanged: false }), true);
+  assert.equal(answersProblem(problem, 'reveal', 7, { opened: [7, 4], flagChanged: false }), false,
+    'a chain opening from another square is not an answer');
+  assert.equal(answersProblem(problem, 'chord', 1, { opened: [9], flagChanged: false }), true);
+  assert.equal(answersProblem(problem, 'flag', 0, { opened: [], flagChanged: true }), true);
+  assert.equal(answersProblem(problem, 'flag', 3, { opened: [], flagChanged: true }), false);
+});
+
+check('thinking and moving: reaction, travel, hover', () => {
+  const samples = {
+    t: [-400, 0, 50, 80, 120, 160, 200],
+    x: [3.5, 3.5, 3.5, 3.9, 5.0, 6.4, 6.5],
+    y: [2.5, 2.5, 2.5, 2.5, 2.6, 2.5, 2.5],
+  };
+  const split = problemMovementSplit(samples, 260, { x: 6, y: 2 });
+  assert.deepEqual(split, { reaction: 80, travel: 80, hover: 100 });
+  assert.equal(problemMovementSplit({ t: [5], x: [1], y: [1] }, 100, { x: 1, y: 1 }), null, 'no position at the start');
+  assert.equal(problemMovementSplit({ t: [0, 50], x: [6.5, 6.6], y: [2.5, 2.5] }, 100, { x: 6, y: 2 }), null,
+    'an answer under the resting cursor has no travel');
+});
+
+function solvedAttempt(problem, t, overrides) {
+  const target = problem.freshSafe[0];
+  const x = target % bank.width + 0.5;
+  const y = Math.floor(target / bank.width) + 0.5;
+  const sx = problem.start % bank.width + 0.5;
+  const sy = Math.floor(problem.start / bank.width) + 0.5;
+  return {
+    startedAt: 1790000000000 + t, protocol: PROBLEM_PROTOCOL, bankId: bank.bankId, problemId: problem.id,
+    classId: problem.classId, setStartedAt: 1790000000000, cellPx: 24, timeOriginMs: 1789999990000,
+    previewT: 1000, startT: 2000, endT: 2000 + 400 + 50 * problem.freshSafe.length, outcome: 'solved',
+    actions: problem.freshSafe.map((cell, i) => ({ t: 400 + 50 * i, kind: 'reveal', cell })),
+    samples: { t: [-900, 0, 150, 250, 350], x: [sx, sx, sx + (x - sx) * 0.3, x, x], y: [sy, sy, sy + (y - sy) * 0.3, y, y] },
+    ...overrides,
+  };
+}
+
+check('an attempt summary replays the clicks', () => {
+  const problem = bank.problems.find((p) => p.freshSafe.length >= 2);
+  const attempt = solvedAttempt(problem, 1);
+  assert.equal(validProblemAttempt(attempt), true);
+  const summary = summarizeAttempt(bank, attempt);
+  assert.equal(summary.firstMs, 400);
+  assert.equal(summary.doneMs, 400 + 50 * (problem.freshSafe.length - 1));
+  assert.equal(summary.otherClicks, 0);
+  assert.equal(summary.thinkMs + summary.travelMs, 400);
+  const mixed = solvedAttempt(problem, 2, { actions: [{ t: 300, kind: 'chord', cell: problem.start }, ...attempt.actions] });
+  const withIdle = summarizeAttempt(bank, mixed);
+  assert.equal(withIdle.firstMs, 400);
+  assert.equal(withIdle.otherClicks + withIdle.idleClicks, 1, 'the first click was not an answer');
+});
+
+check('the profile groups attempts by the class their problem has now', () => {
+  const [a, b] = bank.problems.filter((p) => p.classId === 'one');
+  const list = [
+    solvedAttempt(a, 10),
+    solvedAttempt(b, 11, { classId: 'a class from an older bank' }),
+    solvedAttempt(a, 12, { outcome: 'mine' }),
+    solvedAttempt(a, 13, { outcome: 'abandoned' }),
+    solvedAttempt(a, 14, { problemId: 'not-in-this-bank' }),
+  ];
+  const row = problemProfile(bank, list).find((r) => r.classId === 'one');
+  assert.equal(row.attempts, 3);
+  assert.equal(row.solved, 2);
+  assert.equal(row.thinkCount, 2);
+  assert.equal(problemProfile(bank, []).every((r) => r.medianThinkMs === null), true);
+});
+
+check('a set: one-number problems, then pattern classes in turn, least tried first', () => {
+  let seed = 7;
+  const random = () => {
+    seed = (seed * 16807) % 2147483647;
+    return seed / 2147483647;
+  };
+  const set = pickProblemSet(bank, [], random);
+  assert.equal(set.length, PROBLEM_SET_SIZE);
+  assert.equal(new Set(set.map((p) => p.id)).size, set.length, 'no problem twice in a set');
+  assert.equal(set.filter((p) => p.classId === 'one').length, PROBLEM_SET_ONE_NUMBER);
+  const patternClasses = Object.keys(bank.classes).filter((id) => id !== 'one');
+  const counts = patternClasses.map((id) => set.filter((p) => p.classId === id).length);
+  assert.ok(Math.max(...counts) - Math.min(...counts) <= 1, 'pattern classes share the set evenly');
+  const tried = set.map((p, i) => solvedAttempt(p, 100 + i));
+  const next = pickProblemSet(bank, tried, random);
+  assert.equal(next.filter((p) => tried.some((a) => a.problemId === p.id)).length, 0, 'untried problems come first');
+});
+
+check('class names in words', () => {
+  assert.equal(describeProblemClass(bank, 'one').name, 'one number at a time');
+  const entry = (family) => ({ classes: { x: { family } } });
+  assert.equal(describeProblemClass(entry('1/1 safe'), 'x').name, '1-1 rule');
+  assert.equal(describeProblemClass(entry('1/1 safe wall'), 'x').name, '1-1 rule at the edge');
+  assert.equal(describeProblemClass(entry('1/2 safe'), 'x').name, '1-2 rule');
+  assert.match(describeProblemClass(entry('1/2 safe'), 'x').rule, /only the 1 touches must all be safe/);
+});
+
+check('attempt validation and the backup file', () => {
+  const problem = bank.problems[0];
+  const good = solvedAttempt(problem, 20);
+  assert.equal(validProblemAttempt(good), true);
+  assert.equal(validProblemAttempt({ ...good, protocol: 'problems-v0' }), false);
+  assert.equal(validProblemAttempt({ ...good, outcome: 'won' }), false);
+  assert.equal(validProblemAttempt({ ...good, cellPx: 25 }), false);
+  assert.equal(validProblemAttempt({ ...good, previewT: good.startT - 999 }), false, 'the preview lasts the full second');
+  assert.equal(validProblemAttempt({ ...good, samples: { t: [1], x: [], y: [] } }), false);
+  assert.equal(validProblemAttempt({ ...good, actions: [{ t: 1, kind: 'poke', cell: 3 }] }), false);
+  const file = problemAttemptsFile([good, { ...good, outcome: 'won' }], 1790000000000);
+  const read = readProblemAttemptsFile(JSON.parse(JSON.stringify(file)));
+  assert.equal(read.valid.length, 1);
+  assert.equal(read.rejected, 1);
+  assert.throws(() => readProblemAttemptsFile({ format: 'minesweeper-friendly-self-checks' }), /not a problem attempts file/);
+  assert.throws(() => readProblemAttemptsFile({ ...file, formatVersion: 2 }), /unknown problem attempts file version/);
+});
+
+check('a malformed bank fails loudly', () => {
+  assert.throws(() => readProblemBank({ ...bankJson, format: 'x' }), /not a problem bank/);
+  assert.throws(() => readProblemBank({ ...bankJson, formatVersion: 2 }), /format version/);
+  const broken = { ...bankJson, problems: [{ ...bankJson.problems[0], classId: 'nonexistent' }] };
+  assert.throws(() => readProblemBank(broken), /unknown class/);
+});
+
+console.log('problems core: ' + checks + ' checks passed');

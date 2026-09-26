@@ -61,15 +61,94 @@ only a possible experiment.
    subskills by seconds saved.
 4. **Situation classes.** Annotate every input with the logic it needed (from
    the solver) and a local pattern signature, then compare latency and choices
-   per class across levels and place the player in each class.
-5. **Minesweeper problems.** Positions from real games, each starting when the
-   player clicks a start dot at the original player's recorded cursor
-   position; the board then shows exactly what the original player saw after
-   their click; the task is the next moves. Scored against the original player
-   and all corpus players in the same class.
+   per class across levels and place the player in each class. Built as an
+   offline analysis; see the next section.
+5. **Minesweeper problems.** Positions from real games, starting as the
+   original player's square opens with the cursor on it; the task is what the
+   new number proves. Scored against the original player and the corpus
+   levels in the same class. Built as version 1:
+   [problems.md](problems.md). The start changed from a click on a start dot
+   to a timed one-second view (reason in that spec).
 6. **Train and test transfer.** Train the top-ranked subskills with adaptive
    problems and drills; check each against real Expert games; repeat every test
    to establish its reliability before using it to judge training.
+
+## Situations, memorization, and problems (requested 2026-09-26, evening)
+
+User requests, same day:
+
+- Support the 1.5 click; its absence was an oversight (built:
+  [board rules](board-and-layout.md)).
+- Use normal terms, or define a term where it is first used; fix defects found
+  in a comparison instead of listing them.
+- Board luck is already quantified by the project; do not present it as new.
+- Build the situation classes and the problems, and the problems website.
+- Identify all common logic output sequences (a corner, a straight side reading
+  1-2-2-1, and the like) in any rotation, transform, or inversion; measure them
+  by level, from the best players to far below the user; quantify how much of
+  each level's play is memorized (executed very fast) versus worked out as it
+  goes; and say whether the user memorizes more, the same, or less than the
+  average player at the same speed. The user expects pros to have a larger
+  memorized scope, that memorized patterns are faster, and that they allow
+  skipping flags.
+- Do this for several traits: the trait least developed relative to the
+  user's level is presumably the easiest to advance to that level's standard.
+
+Built (offline analysis `analysis/skill-comparison/situations.js`, method in
+[reference/skill-comparison-2026-09-26.md](../../reference/skill-comparison-2026-09-26.md)):
+
+- Every reveal and flag in the corpus and in the user's games is classed by the
+  logic it needed (the game's proof engine at one-number, two-number, and full
+  strength) and, for two-number moves, by pattern: the exact local
+  configuration, the straight-edge run (a 1-2-2-1 along a flat side reads
+  "1uuu 2uuu 2uuu 1uuu"), and the family (the two numbers' remaining mine
+  counts, what the rule proves, and whether the edge is involved).
+- **Inversion** is read as mirror images: patterns match under all 8
+  rotations and reflections. Mine-for-safe complements stay separate classes,
+  because they show different numbers.
+- **Memorized** is measured, not assumed: a fresh two-number move (made right
+  after the move that revealed its information) is *fluent* when its thinking
+  time, meaning the reaction before the cursor moves plus the hover before the
+  click, is within 60 ms of the same player's median fresh one-number reveal.
+- **Level comparison:** the corpus is stratified into seven 3BV/s levels from
+  1.0 to above 3.5 (about 50 games each, at most 3 per player). The user is
+  compared with the average game at the user's speed, interpolated between the
+  two levels around it, with 95% bootstrap intervals over games. Efficiency
+  uses effective clicks only, because replay parsers count the right half of a
+  both-button chord as a click that changed nothing.
+
+Results (357 corpus games and the user's 80 traced wins at median 1.77 3BV/s;
+refreshed as the corpus grows):
+
+| Trait | You | Average game at your speed | Gap worth |
+| --- | --- | --- | --- |
+| Effective clicks per 3BV | 1.39 | 1.23 | 11 s per game (9 to 13) |
+| Flags that open at most one square through their chords, per 3BV | 0.18 | 0.09 | about 16 clicks per game |
+| Extra thinking on fresh two-number patterns | +34 ms | -10 ms | 0.2 s per game |
+| Fresh two-number moves at single-number speed (fluent) | 64% | 79% | |
+| Fresh pattern moves made without flagging first | 72% | 86% | |
+| Pausing (time past 1 s in a gap), per game | 5.2 s | 4.9 s | none (interval spans zero) |
+| Reading one number (thinking time) | 196 ms | 274 ms | you are faster |
+| Cursor travel, 2-6 square moves | 172 ms | 219 ms | you are faster |
+
+- Memorization answer: **less** than the average player at the user's speed.
+  The expectation that the best players memorize more is not supported in this
+  measure: every level, from 1.0 3BV/s up, makes fresh two-number moves at its
+  own single-number speed (fluent share between 74% and 86% with no steady
+  trend; extra thinking about 0 ms). What rises with level is reading speed as
+  a whole, patterns included (single-number thinking 330 ms at the slowest
+  level, 160 ms at the fastest). Only the user's games show a separate pattern
+  cost (+34 ms). Its direct time cost is small because fresh pattern moves are
+  rare (about 5 per game).
+- Least developed trait relative to level: **click efficiency**, driven by
+  flags that do not pay for themselves (a flag plus a chord that opens one
+  square is two clicks where one direct click does) and chords that open one
+  square (0.34 per 3BV against 0.13). This matches the user's expectation that
+  memorized patterns let a player skip flags: the user flags fresh patterns
+  first more often than the level average.
+- Consequence for the plan: stage 1 (inputs) stays first and now has the flag
+  measure above; the problems page trains the two-number families where the
+  user's fluency trails (the 1-1 rules carry most fresh pattern moves).
 
 ## Diagnosis the plan is built on (measured 2026-09-26)
 

@@ -16,24 +16,23 @@ measure against real players first, break play into subskills, and build
 "Minesweeper problems" from real positions (same file, "Redo requested").
 Unbuilt parts of plan v2 (creator):
 
-- **Corpus at scale.** Stratified saolei.wang sample across all time bands with
-  several games per player, board difficulty recorded (3BV, openings), and the
-  pilot pipeline in `analysis/skill-comparison/` extended rather than forked.
-- **Situation annotation.** Each input tagged with the logic it needed (basic
-  counting, subset, enumeration), whether it was provable before the previous
-  input or became provable because of it, and a local pattern signature that is
-  the same under rotation and reflection.
+- **Corpus at scale.** Built: a 3BV/s-stratified saolei.wang sample (about 50
+  games per level, at most 3 per player), growing to about 150 per level. Still
+  open: board difficulty in the model (3BV, openings).
+- **Situation annotation.** Built (`analysis/skill-comparison/situations.js`;
+  results in [Training](docs/product/training.md#situations-memorization-and-problems-requested-2026-09-26-evening)).
 - **Gap ranking.** Replace one component at a time (reaction, travel, hover,
   economy, pauses) in the player's own games with a faster level's values for
-  the same situations; rank subskills by seconds saved.
+  the same situations; rank subskills by seconds saved. The situation analysis
+  prices each trait's gap from the player's counts; the counterfactual replay
+  is still open.
 - **Pointing test.** Targets on the real board grid at set distances and
   directions for travel time, hover, endpoint accuracy, and misclick rate.
-- **Minesweeper problems.** Positions from real games that start when the player
-  clicks a start dot at the original player's cursor position, then show the
-  board exactly as it was after their click; scored against that player and all
-  corpus players in the same situation class; adaptive selection.
-- **Level placement.** A per-class model of latency and choices by level with
-  player effects and uncertainty, placing the player in each class.
+- **Minesweeper problems.** Version 1 built; follow-ons under
+  [Minesweeper problems](#minesweeper-problems).
+- **Level placement.** Built at the level of the average game at the player's
+  speed with bootstrap intervals. Still open: a per-class model with player
+  effects, once the corpus holds enough fresh moves per class and level.
 - **Keyboard keys as mouse buttons (mapped).** minesweeper.online lets keys act
   as the buttons, separating clicking from aiming; a candidate for alternating
   blocks. Both-button chording and the 1.5 click are built as standard behavior
@@ -68,6 +67,33 @@ Earlier proposals, still open:
   smallest improvement that matters (sources in the training reference).
 - **Target review.** The stage targets came from the 2026-09-26 history;
   revisit them once Stage 1 completes.
+
+## Minesweeper problems
+
+Version 1 is built ([Minesweeper problems](docs/product/problems.md)). Open:
+
+- **Own subdomain (creator request, 2026-09-26).** Serve the page at a
+  Minesweeper-problems subdomain of fuseki.net (transcribed as "mindsweeper
+  problems dot forsake you dot net"; `minesweeper-problems.fuseki.net` by the
+  existing naming). Steps outside this repository, following the procedure
+  that launched `minesweeper-friendly.fuseki.net`: a DreamHost A record to
+  146.190.147.109, a Let's Encrypt certificate, and an nginx site in the
+  Fuseki repository (`setup/nginx/`) whose root is the same release directory,
+  with `index problems.html`. The page keeps its own database, so a separate
+  origin needs no storage change; attempts made on the game's origin stay there
+  unless exported and imported. On that host the return-to-game link must
+  point at the game's own host, whose origin holds the player's history.
+- **Exact click judgement.** Judge each click outside the answer squares in a
+  worker: provable from other numbers at that moment, or a guess.
+- **Adaptive scheduling.** Choose classes by the player's gap to the next level
+  and repeat missed problems after spaced intervals.
+- **More classes.** Mine-answer problems (the answer is a flag or a chord), the
+  two-number families that reach 20 judged corpus moves as the corpus grows,
+  and straight-edge runs as their own classes.
+- **Problems from the player's own games,** timed against the player's in-game
+  response to the same moment.
+- **Archive folder.** Write each attempt to the archive folder like
+  self-checks.
 
 ## Fuseki hosting (creator, 2026-09-26)
 

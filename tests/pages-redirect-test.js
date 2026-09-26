@@ -11,6 +11,7 @@ const pages = [
   'settings.html',
   'self-check.html',
   'training.html',
+  'problems.html',
   'just-universe-help.html',
 ];
 

@@ -1844,6 +1844,7 @@ body.trial-offboard #game-frame {
 #settings-btn,
 #self-check-btn,
 #training-btn,
+#problems-btn,
 .return-to-game {
   font: inherit;
   font-size: 11px;
@@ -1861,6 +1862,7 @@ body.trial-offboard #game-frame {
 #settings-btn:hover,
 #self-check-btn:hover,
 #training-btn:hover,
+#problems-btn:hover,
 .return-to-game:hover { background: #e3edf6; }
 
 #states-add-btn.open {

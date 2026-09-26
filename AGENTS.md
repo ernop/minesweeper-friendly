@@ -15,13 +15,17 @@ Runtime: `index.html` + `style.css` load `storage.js`; pure `rng.js` /
 `justice.js` / `board-shape.js` / `zini.js` / `board-metrics.js`;
 `board-metrics-ui.js` (historical backfill in `board-metrics-worker.js`); pure
 `endgame.js` / `solver.js` / `generators.js` / `pregen.js` / `odds.js` /
-`trial.js`; shared `game-data.js` / `settings-core.js` / `preferences-game.js`;
+`trial.js`; shared `game-data.js` / `board-icons.js` / `settings-core.js` / `preferences-game.js`;
 `analysis-client.js` (named worker queues in `analysis-worker.js`, using
 `trend-fit.js` for exact slope selection); then the game page's own scripts in `game/` (below). No dependencies, no
 build step. The settings page is
 `settings.html` + `settings-page.js`, loading the same `style.css`,
 `storage.js`, `generators.js`, `game-data.js`, and `settings-core.js` (both
 pages must load storage.js, game-data.js, and settings-core.js before their own script).
+The problems page is `problems.html` + `problems-page.js`, loading
+`style.css`, `problems.css`, `board-icons.js`, the pure `problems-core.js`, and
+the generated `problems-bank.json`; it keeps its own IndexedDB database
+(`minesweeper-problems`) and does not load `storage.js`.
 The self-check page is `self-check.html` + `self-check-page.js`, loading
 `style.css`, `storage.js`, `observation-context.js`, `archive.js`, and the pure
 `self-check-core.js`; the game page loads `observation-context.js` and
@@ -165,6 +169,7 @@ the file path, plus the section heading when the file holds several.
 | Measurement purpose, lifelong self-measurement, offline analysis | [docs/product/measurement.md](docs/product/measurement.md) | [docs/implementation/offline-analysis.md](docs/implementation/offline-analysis.md) |
 | Self-check (frozen reference tests: sleepiness rating, alertness test) | [docs/product/self-check.md](docs/product/self-check.md) | [docs/implementation/self-check.md](docs/implementation/self-check.md) |
 | Training toward an Expert win under 60 s (plan, stage targets, training page) | [docs/product/training.md](docs/product/training.md) | [docs/implementation/training.md](docs/implementation/training.md) |
+| Minesweeper problems (situation classes from pro replays, timed problems page, problem bank) | [docs/product/problems.md](docs/product/problems.md) | [docs/implementation/problems.md](docs/implementation/problems.md) |
 
 - Local tooling, test entry points, headless browsers, and deploys:
   [docs/implementation/verification.md](docs/implementation/verification.md).

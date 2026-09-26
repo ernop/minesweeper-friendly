@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="pages-redirect.js?v=20260926-pages-redirect-2"></script>
+<title>Minesweeper - Problems</title>
+<link rel="stylesheet" href="style.css?v=20260926-problems">
+<link rel="stylesheet" href="problems.css?v=20260926-problems">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+</head>
+<body class="problems-page">
+<div id="problems-titlebar">
+  <span id="problems-titlebar-name">minesweeper</span>
+</div>
+<main id="problems-layout">
+  <header id="problems-header">
+    <a class="return-to-game" href="index.html">&larr; return to game</a>
+    <h1>Minesweeper problems</h1>
+  </header>
+  <p id="problems-status" role="status">Loading the problems&hellip;</p>
+
+  <section id="problems-start" class="problems-card" hidden>
+    <h2>Start a set</h2>
+    <p>Each problem is a real moment from a strong player's Expert game. Rest the cursor on the ringed square; the board appears, and after one second the square opens by itself, exactly as it opened for that player. Then open every square the new number proves safe, as fast as you can. Flags are optional.</p>
+    <div class="problems-actions">
+      <button type="button" id="problems-start-set"></button>
+      <fieldset id="problems-cell-size">
+        <legend>Square size</legend>
+      </fieldset>
+    </div>
+  </section>
+
+  <section id="problems-play" hidden>
+    <div id="problems-play-head">
+      <h2 id="problems-play-count"></h2>
+      <p id="problems-play-instruction"></p>
+    </div>
+    <div id="problems-board-area">
+      <div id="board"></div>
+      <div id="problems-start-ring" hidden></div>
+    </div>
+    <div id="problems-result" class="problems-card" hidden>
+      <div id="problems-result-values"></div>
+      <p id="problems-result-rule"></p>
+      <div class="problems-table-scroll">
+        <table id="problems-result-levels" class="problems-table"></table>
+      </div>
+      <p id="problems-result-original"></p>
+      <div class="problems-actions">
+        <button type="button" id="problems-next"></button>
+        <button type="button" id="problems-stop">End set</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="problems-summary" class="problems-card" hidden>
+    <h2>Set finished</h2>
+    <div class="problems-table-scroll">
+      <table id="problems-summary-table" class="problems-table"></table>
+    </div>
+    <div class="problems-actions">
+      <button type="button" id="problems-summary-done">Done</button>
+    </div>
+  </section>
+
+  <section id="problems-profile" class="problems-card" hidden>
+    <h2>Your thinking time by rule</h2>
+    <p>Thinking is the time before the cursor starts moving plus the time it rests on the square before the click: the part of an answer that is not travel. Each level column is the median for fresh moves of that rule in real games at that 3BV/s; green marks the levels whose median is at or above yours.</p>
+    <div class="problems-table-scroll">
+      <table id="problems-profile-table" class="problems-table"></table>
+    </div>
+  </section>
+
+  <section id="problems-history" class="problems-card" hidden>
+    <h2>Recent attempts</h2>
+    <p id="problems-history-count"></p>
+    <div class="problems-table-scroll">
+      <table id="problems-history-table" class="problems-table"></table>
+    </div>
+  </section>
+
+  <section id="problems-backup" class="problems-card" hidden>
+    <h2>Backup</h2>
+    <div class="problems-actions">
+      <button type="button" id="problems-export">Export attempts</button>
+      <a id="problems-download" hidden>Save attempts file</a>
+      <label class="problems-file">Import attempts file
+        <input id="problems-import" type="file" accept=".json,application/json">
+      </label>
+    </div>
+    <p id="problems-backup-status" hidden></p>
+  </section>
+</main>
+<script src="board-icons.js?v=20260926-problems"></script>
+<script src="problems-core.js?v=20260926-problems"></script>
+<script src="problems-page.js?v=20260926-problems"></script>
+</body>
+</html>

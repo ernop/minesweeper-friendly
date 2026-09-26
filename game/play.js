@@ -452,8 +452,8 @@ function setFace(name) {
   faceButton.innerHTML = FACE_SVGS[name];
 }
 
-// FLAG_SVG / MINE_SVG / WRONG_FLAG_SVG live in settings-core.js with the
-// rest of the cell iconography.
+// FLAG_SVG / MINE_SVG / WRONG_FLAG_SVG live in board-icons.js, shared with
+// the problems page.
 function updateCell(i) {
   const cell = cells[i];
   const el = cellElements[i];
