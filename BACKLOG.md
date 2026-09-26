@@ -33,6 +33,11 @@ builds:
   conversion, with block-level uncertainty.
 - **Intermediate on the page.** The warm-up level's economy and pace beside
   Expert.
+- **Board-adjusted pace and plateau detection.** 3BV/s rises with board 3BV, so
+  weekly trends should also show pace adjusted for 3BV (and openings) beside
+  the raw medians. Call a plateau only when changepoint detection finds no
+  recent upward phase and an equivalence test puts the recent slope below the
+  smallest improvement that matters (sources in the training reference).
 - **Target review.** The stage targets came from the 2026-09-26 history;
   revisit them once Stage 1 completes.
 
