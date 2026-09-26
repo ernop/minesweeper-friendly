@@ -149,10 +149,20 @@ no point, label, "Only one measured game:" section, or replacement notice
 session, day, and board-trait comparisons; other eligible rows remain visible.
 Missing facts and undefined divisions are excluded, never converted to zero.
 
-Every item's tooltip states the actual ranked quantity, preferred direction,
-comparison scope, eligible outcomes and measured count, tie rule, formula,
-and resulting position (or constant-value exception). This chart does
-not estimate correlations or attribute time to board traits.
+Every item's tooltip has two short parts (user direction 2026-09-26:
+"write them well without clutter"). First, the measurement's definition in
+one or two plain sentences, the same text the configuration table shows.
+Second, one sentence naming the rank, the counted population and window,
+the preferred direction, and the resulting position, for example "Rank 3
+of 57 wins so far with these board settings. Lower values rank first; 0%
+is the best, and this sits at 3.6%." Ties read "Tied for ranks 3–5 of …";
+a constant metric reads "All N … have the same value, so it sits at 50%."
+The position formula, the tie rules, the pool definition (same size, mines,
+mode, and generator, up to this game), and the (session)/(day) suffixes are
+explained once, in the chart heading's help, instead of in every item.
+This replaced a four-part tooltip that repeated the label and the formula
+with a worked calculation. This chart does not estimate correlations or
+attribute time to board traits.
 
 Each left-side marker ranks **this game's** metric against either lifetime
 or session history of the same size, mine count, play mode, and generator.

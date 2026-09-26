@@ -371,7 +371,7 @@ const { chromium } = require(process.argv[2]);
     assert(spreadTip.includes('root-mean-square'));
     assert(spreadTip.includes('This board: 1.225 cells'));
     assert(spreadTip.includes('nearest 0.5 cell'));
-    assert(spreadTip.includes('Exact halfway values round up'));
+    assert(spreadTip.includes('exact halfway values round up'));
     assert.deepEqual(await boardPosition(), boardBefore);
     await page.mouse.move(0, 0);
     await spreadHelp.focus();

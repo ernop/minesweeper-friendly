@@ -140,56 +140,56 @@ const GameData = (() => {
   const metrics = [
     { id: 'time', name: 'time', higher: false, default: true,
       value: (r) => r.timeMs, format: (v) => (v / 1000).toFixed(3) + 's',
-      help: 'Solve duration. Faster times rank higher; equal times keep earlier-completion-first order.' },
+      help: 'Time from your first click to the win. Equal times rank the earlier game first.' },
     { id: 'misclickRate', allOutcomes: true, name: 'misclick rate', higher: false, default: true,
       value: (r) => r.timeMs > 0 ? r.misclicks * 60000 / r.timeMs : undefined,
       format: (v) => decimal(v) + '/min',
-      help: 'Board-changing actions contradicted by visible facts, per minute. Lower rates rank higher.' },
+      help: 'Actions per minute that the visible board had already proved wrong, such as opening a proven mine or flagging a proven safe cell.' },
     { id: 'fastclickGap', allOutcomes: true, name: 'fastclick gap', higher: false, default: true,
       value: (r) => r.fastclickGapMs, format: (v) => Math.round(v) + 'ms',
-      help: 'Median gap between useful actions made while moving (timed at the left release or the right-click flag trigger), with gaps of at most one second. Shorter gaps rank higher. This is not literal double-click timing.' },
+      help: 'Median time between board-changing actions made while the cursor was moving (within 100 ms before), counting gaps up to 1 second. Flags are timed at the right press, left clicks at their release.' },
     { id: 'bvPerSecond', name: '3BV/s', higher: true, default: true,
       value: (r) => r.timeMs > 0 ? bvPerSecond(r) : undefined,
-      format: (v) => v.toFixed(3), help: 'Board workload per second. Faster completion ranks higher.' },
+      format: (v) => v.toFixed(3), help: '3BV per second. 3BV is the fewest clicks that clear the board without flags.' },
     { id: 'clickRate', allOutcomes: true, name: 'click rate', higher: true, default: true,
       value: perSecond('clicks'), format: (v) => v.toFixed(2) + '/s',
-      help: 'Board-changing clicks per second. Higher means faster activity, separately from efficiency.' },
+      help: 'Board-changing clicks per second: reveals, flags, flag removals, and chords.' },
     { id: 'efficiency', name: 'efficiency', higher: true, default: false,
       value: throughputOf, format: percent,
-      help: '3BV divided by board-changing clicks. Higher ranks higher. Throughput is the same measurement and is not duplicated.' },
+      help: '3BV divided by your board-changing clicks. Chording can push it above 100%.' },
     { id: 'noopRate', allOutcomes: true, name: 'no-op rate', higher: false, default: true,
       value: perSecond('wastedClicks'), format: (v) => v.toFixed(2) + '/s',
-      help: 'Clicks that changed nothing per second. Lower rates rank higher.' },
+      help: 'Clicks per second that changed nothing, such as chording an unsatisfied number or clicking a flag.' },
     { id: 'pathPer3bv', name: 'path / 3BV', higher: false, default: false,
       value: (r) => r.bv3 > 0 ? r.mousePathPx / r.bv3 : undefined,
       format: (v) => Number(v.toFixed(1)) + 'px',
-      help: 'Cursor travel per unit of workload. Less travel ranks higher as movement economy.' },
+      help: 'Cursor travel per unit of 3BV.' },
     { id: 'correctness', allOutcomes: true, name: 'correctness', higher: true, default: true,
       value: (r) => r.clicks + r.wastedClicks > 0 ? r.clicks / (r.clicks + r.wastedClicks) : undefined,
-      format: percent, help: 'Board-changing clicks divided by all clicks, including no-ops. Higher ranks higher.' },
+      format: percent, help: 'Share of your clicks that changed the board. A wrong flag still counts as a change.' },
     { id: 'ioe', name: 'IOE', higher: true, default: false,
       value: ioeOf, format: (v) => v.toFixed(3),
-      help: '3BV divided by all clicks, including no-ops. Higher ranks higher. Unlike efficiency, the denominator includes wasted clicks.' },
+      help: '3BV divided by all your clicks, including clicks that changed nothing.' },
     { id: 'ziniEfficiency', name: 'ZiNi efficiency', higher: true, default: false,
-      value: zniEfficiencyOf, format: percent, help: 'Greedy ZiNi divided by board-changing clicks. Higher ranks higher.' },
+      value: zniEfficiencyOf, format: percent, help: 'ZiNi divided by your board-changing clicks. ZiNi is the click count of a standard greedy flag-and-chord solve of this board.' },
     { id: 'hziniEfficiency', name: 'HZiNi efficiency', higher: true, default: false,
-      value: hziniEfficiencyOf, format: percent, help: 'Human ZiNi divided by board-changing clicks. Higher ranks higher; this can exceed 100%.' },
+      value: hziniEfficiencyOf, format: percent, help: 'HZiNi divided by your board-changing clicks. HZiNi is the action count of a fixed human-style solve; beating it gives more than 100%.' },
     { id: 'ios', name: 'IOS', higher: true, default: false,
-      value: iosOf, format: (v) => v.toFixed(3), help: 'Log(3BV) divided by log(solve seconds). Defined only above one second. Higher ranks higher.' },
+      value: iosOf, format: (v) => v.toFixed(3), help: 'log(3BV) ÷ log(seconds). Only defined for games longer than 1 second.' },
     { id: 'stnb', name: 'STNB', higher: true, default: false,
-      value: stnbOf, format: (v) => v.toFixed(1), help: 'Difficulty-normalized speed on the three standard board shapes, excluding Endgame drill. Higher ranks higher.' },
+      value: stnbOf, format: (v) => v.toFixed(1), help: 'Speed score adjusted for board difficulty, comparable across beginner, intermediate, and expert. Not defined on other boards or in Endgame drill.' },
     { id: 'mouseSpeed', allOutcomes: true, name: 'mouse speed', higher: true, default: true,
       value: perSecond('mousePathPx'), format: (v) => Math.round(v) + 'px/s',
-      help: 'Cursor travel per solve second. Higher means faster movement, not necessarily more efficient or better play.' },
+      help: 'Cursor travel per second of play, pauses included.' },
     { id: 'pathPerClick', allOutcomes: true, name: 'path / click', higher: false, default: false,
       value: (r) => r.clicks > 0 ? r.mousePathPx / r.clicks : undefined,
-      format: (v) => Number(v.toFixed(1)) + 'px', help: 'Cursor travel per board-changing click. Less travel ranks higher as movement economy.' },
+      format: (v) => Number(v.toFixed(1)) + 'px', help: 'Cursor travel per board-changing click.' },
     { id: 'cadenceSpread', allOutcomes: true, name: 'cadence spread', higher: false, default: false,
       value: (r) => r.cadenceSpread, format: (v) => v.toFixed(2) + '×',
-      help: 'All-press gap interquartile range divided by its median. Lower means more even timing, not necessarily better reasoning.' },
+      help: 'How uneven your click timing is: the interquartile range of the gaps between all presses, divided by their median. 0 is perfectly even.' },
     { id: 'unusedMarkShare', name: 'unused mark share', higher: false, default: true,
       value: (r) => r.flagsPlaced > 0 ? r.unusedCorrectFlags / r.flagsPlaced : undefined,
-      format: percent, help: 'Correct placed marks that never contributed to an accepted chord, divided by all placed marks. Lower ranks higher for this observable no-chord-use measure; mental use is unobserved.' },
+      format: percent, help: 'Correct flags that no chord ever used, as a share of all flags you placed.' },
   ];
   // The creator's own configuration (2026-09-23): each metric's `default`
   // against lifetime, plus time (day); no session comparisons.
@@ -199,7 +199,8 @@ const GameData = (() => {
   };
   const defaultsForView = { gameDataSessionMetrics: defaults.session, gameDataLifetimeMetrics: defaults.lifetime, sessionDefinition: SessionScope.defaultId, gameDataDayTime: true };
   const chronological = (records) => records.slice().sort((a, b) => a.endedAt - b.endedAt);
-  function rankedRow(record, pool, spec, scope, params, description) {
+  // poolText names the counted population and window, e.g. "wins so far".
+  function rankedRow(record, pool, spec, scope, params, poolText) {
     const value = spec.value(record, params);
     if (!Number.isFinite(value)) return null;
     const measured = pool.filter((r) => spec.allOutcomes || r.outcome === 'win').map((r) => ({ record: r, value: spec.value(r, params) }))
@@ -212,21 +213,21 @@ const GameData = (() => {
     const rank = time ? better + measured.filter((r) => r.value === value && r.record.endedAt < record.endedAt).length + 1
       : better + (equal + 1) / 2;
     const allEqual = !time && equal === total;
+    // Share of the other measured games that beat this one: the best is 0%, the worst 100%.
+    const percentile = allEqual ? 50 : 100 * (rank - 1) / (total - 1);
     // Lifetime is implicit; only a narrower comparison pool needs a suffix.
     const scopeText = scope && scope !== 'lifetime' ? '(' + scope + ')' : '';
     const trait = spec.name + (scopeText ? ' ' + scopeText : '');
+    const population = total + ' ' + poolText + ' with these board settings';
+    const standing = allEqual
+      ? 'All ' + population + ' have the same value, so it sits at 50%.'
+      : (!time && equal > 1 ? 'Tied for ranks ' + (better + 1) + '–' + (better + equal) : 'Rank ' + rank)
+        + ' of ' + population + '. ' + (spec.higher ? 'Higher' : 'Lower')
+        + ' values rank first; 0% is the best, and this sits at ' + Number(percentile.toFixed(1)) + '%.';
     return { id: spec.id + '.' + scope, metricId: spec.id, scope, trait, name: spec.name, scopeText,
       label: spec.name + ' ' + spec.format(value) + (scopeText ? ' ' + scopeText : ''),
       valueText: spec.format(value), side: 'performance',
-      rank, total, allEqual, direction: spec.higher ? 'higher' : 'lower', population: spec.allOutcomes ? 'completed games' : 'wins',
-      // Share of the other measured games that beat this one: the best is 0%, the worst 100%.
-      percentile: allEqual ? 50 : 100 * (rank - 1) / (total - 1),
-      rankLabel: !time && equal > 1 ? '#' + (better + 1) + '–' + (better + equal) : '#' + rank,
-      help: () => [spec.help, description + ' Only measured ' + (spec.allOutcomes ? 'completed games (wins and losses)' : 'wins')
-        + ' in this size, mine count, mode, and generator count. This game’s measurement is compared with '
-        + total + ' observations, including itself.'
-        + (!time && equal > 1 ? ' Equal values share their mean rank.' : '')
-        + (allEqual ? ' All measured values are equal, shown at 50%.' : '')],
+      rank, total, allEqual, percentile, helpText: [spec.help, standing],
     };
   }
   function rows(record, records, preferences = defaultsForView, params) {
@@ -236,19 +237,20 @@ const GameData = (() => {
     const choice = SessionScope.choices.find((c) => c.id === preferences.sessionDefinition);
     const result = [];
     for (const spec of metrics) {
-      for (const [scope, pool, description] of [
-        ['lifetime', past, 'Lifetime through this game’s completion.'],
-        ['session', session, 'Session (' + choice.label + ', the one page-wide session chosen at the upper left) through this game’s completion.'],
+      const counted = spec.allOutcomes ? 'games' : 'wins';
+      for (const [scope, pool, poolText] of [
+        ['lifetime', past, counted + ' so far'],
+        ['session', session, counted + ' this session (' + choice.label + ')'],
       ]) {
         const selected = scope === 'session' ? preferences.gameDataSessionMetrics : preferences.gameDataLifetimeMetrics;
         if (!selected[spec.id]) continue;
-        const row = rankedRow(record, pool, spec, scope, params, description);
+        const row = rankedRow(record, pool, spec, scope, params, poolText);
         if (row) result.push(row);
       }
     }
     if (preferences.gameDataDayTime) {
       const day = past.filter((r) => r.endedAt >= record.endedAt - 86400000);
-      const row = rankedRow(record, day, metrics[0], 'day', params, 'The trailing 24 hours ending at this game’s completion, across midnight.');
+      const row = rankedRow(record, day, metrics[0], 'day', params, 'wins in the last 24 hours');
       if (row) result.push(row);
     }
     return result;

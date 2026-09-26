@@ -875,7 +875,8 @@ async function renderResultAsync(record, modeRecords, options = {}) {
     const labelCell = document.createElement('span');
     labelCell.className = 'stat-label';
     if (label === 'HZiNi efficiency') {
-      labelCell.appendChild(chartHelpButton('100 × the board’s HZiNi count divided by your board-changing clicks. A performance measure for completed wins; it can exceed 100% when your play beats the fixed HZiNi procedure. This is not a board characteristic or a time-rank percentile.', label));
+      labelCell.appendChild(chartHelpButton(
+        GameData.metrics.find((metric) => metric.id === 'hziniEfficiency').help, label));
     } else labelCell.textContent = label;
     const valueCell = document.createElement('span');
     valueCell.className = 'stat-value' + (valueClass ? ' ' + valueClass : '');

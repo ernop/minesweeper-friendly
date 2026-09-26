@@ -51,11 +51,15 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   the after-game charts (decided 2026-08-20, when the three researched
   systems beyond the first were reimplemented in-page; click timing
   added 2026-08-22; queued clicks, pace recovery, and aimed movement
-  added 2026-08-30). Every row
-  carries a two-part explanation as its hover tooltip — "HOW", exactly
-  how the value is calculated, and "RECORDS", a literal description of
-  the observation without assigning a cause; each section header explains
-  its system the same way. The sections:
+  added 2026-08-30). Every row name and every section header opens a
+  short explanation on hover, focus, or click; the name itself is the
+  trigger, marked by a dotted underline, and the popup never moves the
+  rows. Each explanation is one or two plain sentences: what the number
+  is, then only the defining detail or a caveat that prevents a likely
+  misreading (user direction 2026-09-26: "write them well without
+  clutter"; this replaced the earlier two-part HOW/RECORDS text, which the
+  panel had stopped displaying). A section header states its shared unit
+  or rule once, so its rows do not repeat it. The sections:
   - DYNAMICS — the behavioral-biometrics session set over movement bouts
     (a pause of 100ms or more separates bouts): strokes, moving, silence
     (share of the game with the cursor still), path, speed (mean of
@@ -84,8 +88,9 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
     before the press — clicking without stopping). The press is the
     unit: a wasted click is the same motor act as an effective one, and
     the trace records the hand, not the board effect (the measurement
-    principle again). A right press here is the right-click flag trigger
-    (the browser's context-menu event), which Windows fires at the release.
+    principle again). A right press here is the right-button press on a
+    board cell, whatever it did (since 2026-09-26; before that it was the
+    browser's context-menu event, which Windows fires at the release).
   - TRAJECTORY GEOMETRY — mousetrap-formula measures (Kieslich et al.)
     per inter-click segment, means over segments: segments, MAD,
     AUC, AD, x-flips, y-flips, initiation, idle, vel max, acc max,

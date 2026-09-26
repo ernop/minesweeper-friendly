@@ -289,8 +289,13 @@ inside the same boundary. No old lookback observations leak across it.
 - Chart help buttons (2026-08-30): every session chart's name, and every
   titled property/relationship chart header, carries a small circled (?)
   after the name. Hover, focus, or click shows a plain-language
-  explanation of the metric — built from each spec's `calc`/`records`
-  text for the standard series, and hand-written rich explainers for
+  explanation of the metric: each series' one- or two-sentence `help`
+  text naming what it counts (user direction 2026-09-26: "write them
+  well without clutter"). A multi-series chart states its unit once
+  (per minute of play, per second of play, or per finished game), so the
+  series texts stay true on both the time and the per-game basis. The
+  fastclick gap shares the game-data catalog's definition. Hand-written
+  rich explainers remain for
   **excess game risk** and **modeled life gap**, each with a miniature
   realistic board fragment (classic covered bevels, the digit palette,
   the real mine glyph, probability notes on the cells) walking through a

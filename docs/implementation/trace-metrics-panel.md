@@ -40,8 +40,10 @@ Spec: [docs/product/trace-metrics-panel.md](../product/trace-metrics-panel.md). 
   - `computeAllTraceMetrics` — the combined {bio, psych, hev, waste,
     cad} object the display consumes.
   `game/metric-definitions.js` holds `TRACE_METRIC_GROUPS` (per system: key,
-  name, definition, displays of {label, calc, records, of, fmt} — calc and
-  records render as the row's "HOW:/RECORDS:" hover tooltip; series identity is
+  name, help, displays of {label, help, of, fmt}; `buildMetricRow` and
+  `buildMetricsGroupHead` render each label as a `chartHelpButton(help,
+  label)`, so the label text is the help trigger, and headings without help
+  (session, Fitts curve, spatial grid) stay plain text; series identity is
   metricSeriesKey = group key + label; not everything
   computed is displayed), `metricsSeries` (reset by
   `beginTraceMetricsSeries` from `beginTrace`),

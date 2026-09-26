@@ -44,6 +44,18 @@ assert.equal(row('misclickRate.session').rank, 1.5, 'equal rates share mean ordi
 assert.equal(row('misclickRate.session').percentile, 25);
 assert.equal(row('misclickRate.session').valueText, '0/min');
 assert.equal(row('fastclickGap.session').percentile, 50, 'all-equal timing has neutral rank');
+assert.deepEqual(row('time.lifetime').helpText, [
+  'Time from your first click to the win. Equal times rank the earlier game first.',
+  'Rank 3 of 4 wins so far with these board settings. Lower values rank first; 0% is the best, and this sits at 66.7%.',
+], 'a popup is the definition plus one rank sentence');
+assert.equal(row('misclickRate.session').helpText[1],
+  'Tied for ranks 1–2 of 3 games this session (today) with these board settings. Lower values rank first; 0% is the best, and this sits at 25%.');
+assert.equal(row('fastclickGap.session').helpText[1],
+  'All 2 games this session (today) with these board settings have the same value, so it sits at 50%.');
+assert.equal(row('time.day').helpText[1],
+  'Rank 2 of 3 wins in the last 24 hours with these board settings. Lower values rank first; 0% is the best, and this sits at 50%.');
+assert(GameData.metrics.every((m) => typeof m.help === 'string' && m.help.split(' ').length <= 40),
+  'every metric has a short definition');
 assert.equal(GameData.rows({ ...current, outcome: 'loss' }, records).length, 0);
 assert.deepEqual(GameData.rows(current, [current], both, board), [], 'one measured game produces no comparison rows in any scope');
 const short = GameData.rows(current, records, { ...both, sessionDefinition: 'past10min' }, board);

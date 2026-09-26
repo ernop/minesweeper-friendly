@@ -15,11 +15,9 @@ function boardTraitRankProfile(record, comparisons, records) {
     const spec = { id: comparison.setting || comparison.trait, name: comparison.trait,
       allOutcomes: true, higher: comparison.higher, value: comparison.rawValue,
       format: () => comparison.valueText(record),
-      help: 'Ranked quantity: this board’s ' + (comparison.measurement || comparison.trait)
-        + '. ' + (comparison.higher ? 'Higher' : 'Lower') + ' values are preferred by your chosen direction.'
-        + (comparison.help ? ' ' + [].concat(comparison.help(record))[0] : ''),
+      help: comparison.help(record)[0],
     };
-    const row = GameData.rankedRow(record, past, spec, '', {}, 'Lifetime through this game’s completion.');
+    const row = GameData.rankedRow(record, past, spec, '', {}, 'boards so far');
     if (!row) return [];
     return [{ ...row, side: 'board',
       standing: row.allEqual
@@ -82,21 +80,6 @@ function boardTraitBandCenter(width, performanceWidth, boardWidth, offset) {
 
 //-------GAME DATA CHART (the 0–100% band)-------
 
-function boardTimeProfileRowHelp(record, row) {
-  const rank = row.rankLabel ? row.rankLabel.slice(1) : row.rank.toLocaleString();
-  return [
-    row.label,
-    ...(row.helpText ? [].concat(row.helpText) : []),
-    'Percentile = 100 × (rank − 1) ÷ (measured count − 1): the share of the other measured games that beat this one. '
-      + (row.direction === 'higher' ? 'Higher' : 'Lower') + ' values receive earlier ranks. '
-      + 'The best in the pool is 0% at the top of the chart and the worst is 100%. The current game is included in the count.',
-    row.allEqual ? 'All measured values are equal, so there is no preference ordering. The marker is neutral at 50%.'
-        : 'Here: rank ' + rank + ' of ' + row.total.toLocaleString()
-          + '; 100 × (' + Number(row.rank.toFixed(3)) + ' − 1) ÷ (' + row.total + ' − 1) = '
-          + Number(row.percentile.toFixed(2)) + '%.',
-  ];
-}
-
 function boardTimeRankColor(percentile) {
   const green = [216, 240, 218], blue = [217, 235, 250], red = [250, 216, 216];
   const [from, to, fraction] = percentile <= 50
@@ -104,8 +87,8 @@ function boardTimeRankColor(percentile) {
   return 'rgb(' + from.map((value, index) => Math.round(value + (to[index] - value) * fraction)).join(', ') + ')';
 }
 
-function boardTraitValueLabel(record, row) {
-  const label = chartHelpButton(boardTimeProfileRowHelp(record, row), row.trait);
+function boardTraitValueLabel(row) {
+  const label = chartHelpButton(row.helpText, row.trait);
   const button = label.querySelector('button');
   const name = document.createElement('span');
   name.className = 'board-trait-name';
@@ -173,7 +156,7 @@ function buildBoardTraitLine(record, rows, frame) {
       dot.dataset.side = side;
       dot.style.background = boardTimeRankColor(row.percentile);
       dot.setAttribute('aria-hidden', 'true');
-      const label = boardTraitValueLabel(record, row);
+      const label = boardTraitValueLabel(row);
       label.classList.add('board-trait-line-label');
       label.style.setProperty('--trait-tint', boardTimeRankColor(row.percentile));
       label.dataset.trait = row.trait;
@@ -282,12 +265,10 @@ function buildBoardTimeRankProfile(record, records) {
     const caption = document.createElement('figcaption');
     const heading = document.createElement('h4');
     heading.appendChild(chartHelpButton([
-      'Your perf: this game’s measurement ranked separately against lifetime and session history. Time and workload-completion metrics compare wins; action, timing, and error metrics compare measured wins and losses. Day time uses the trailing 24 hours. Every comparison ends at this game’s finish and uses the same board size, mine count, mode, and generator.',
-      'Board traits: this board’s measured trait values ranked against measured historical boards in this category. Higher 0–1 share, zero count, max number (MN), largest island, and zero-opening coverage (ZOC) are preferred; lower 3BV, ZiNi, HZiNi, spread, and islands are preferred. These directions express your preference, not an estimated effect on solve time.',
-      'Your-perf labels use lifetime comparisons unless marked (session) or (day) for the trailing 24 hours.',
-      'Position is 100 × (rank − 1) ÷ (comparison count − 1), counting this win: the best in its pool is 0% at the top and the worst is 100% at the bottom. Constant performance values are neutral at 50%; other ties share a mean rank, except times which keep earlier-completion-first order.',
-      'The visible percentile range zooms around all shown points with an outward buffer. Colors keep their absolute 0–100% meaning. Dark leaders retain exact point positions when labels need room. Comparisons with fewer than two measured games are omitted.',
-      'Session is the one page-wide window chosen with the picker at the upper left (now: ' + SessionScope.choices.find((c) => c.id === settings.sessionDefinition).label + '), shared with the left-side session stats and ranks won in session; the default is today, since local midnight. Historical session windows end at the selected game’s completion. History shows medians and measured sample counts for those overlapping windows; measurements are reused, never replaced by stored ranks.',
+      'Left: this game’s performance ranked against your earlier games. Right: this board’s traits ranked against earlier boards, in the direction you prefer; MN is max number and ZOC is zero-opening coverage. Only games up to this one with the same size, mines, mode, and generator are compared.',
+      'Position is the share of the other games that ranked better: 0% at the top is the best, 100% at the bottom the worst. Ties share their average rank, except times, where the earlier game ranks first. If every value is equal, the item sits at 50%.',
+      'Left labels compare with your lifetime unless marked (session), the window chosen with the picker at the upper left (now: ' + SessionScope.choices.find((c) => c.id === settings.sessionDefinition).label + '), or (day), the last 24 hours.',
+      'The visible range zooms to the shown items; colors keep their fixed 0–100% meaning. Comparisons with fewer than two games are left out.',
     ], 'game data'));
     caption.appendChild(heading);
     if (view !== 'chart') caption.appendChild(button('back to game data', () => show('chart')));
@@ -365,9 +346,8 @@ function buildBoardTimeRankProfile(record, records) {
       });
       label.appendChild(select);
       const choice = SessionScope.choices.find((c) => c.id === settings.sessionDefinition);
-      controls.append(label, chartHelpButton('Medians and middle halves of measured per-game values; n is the measured-game count. Completion metrics use wins; activity metrics include losses. A median of per-game fastclick medians is not a pooled press-gap median. All completed wins and losses establish sessions. '
-        + 'Rows are overlapping session windows ending at saved games, not independent sessions. Session: '
-        + choice.label + ', the one page-wide session chosen at the upper left.'));
+      controls.append(label, chartHelpButton('Each row is the session window (' + choice.label
+        + ', set with the picker at the upper left) ending at one saved game: the median and middle half of this measurement over that window’s games, with n the games measured. Wins-only measurements skip losses. Windows overlap, so the rows are not separate sessions.'));
       profile.appendChild(controls);
       const pageSize = 20;
       const groups = await analysisTask('rankings', 'game-data-history', { records: records.map(analysisRecord), endedAt: record.endedAt,

@@ -76,7 +76,8 @@ This revises the earlier "(life)" wording (user decision 2026-09-26).
 Comparisons with fewer than two eligible measured games are omitted entirely,
 with no one-game section or notice (user request 2026-09-26).
 Board-trait labels have no pool word. The band also has exact anchors, pastel
-colors, automatic range zoom, and full calculation/scope tooltips. Configuration has separate
+colors, automatic range zoom, and short tooltips: each item's definition plus
+one rank sentence ([game-data.md](game-data.md)). Configuration has separate
 session/lifetime checkbox columns and all-selection controls; a saved bottom
 checkbox shows/hides actual values. By default (user decision 2026-09-23,
 from the creator's own configuration) the left side shows lifetime
@@ -352,8 +353,10 @@ records from that day stay valid.
 
 Fastclick gap — the game's median gap between consecutive board-changing
 actions with a cursor move within 100ms before the later action and a gap
-of at most 1s (left release/right flag-trigger times, not physical down times;
-wording corrected to the implemented definition 2026-09-26) — joined the schema on 2026-08-22 alongside the
+of at most 1s (each action timed when it takes effect: a flag at the right
+press, a reveal or chord at its release; before 2026-09-26 a flag took effect
+at the browser's context-menu event, which Windows fires at the release) —
+joined the schema on 2026-08-22 alongside the
 session stats, whose fastclick series uses the identical qualification.
 Stored (as `fastclickGapMs`) rather than derived because it needs press
 timestamps, which the scalar record does not carry (the trace does, so

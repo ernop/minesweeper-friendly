@@ -15,8 +15,11 @@ Spec: [docs/product/per-game-stats.md](../product/per-game-stats.md), [docs/prod
   `workSpread`, `safeCells`, `zeroOpenedZeroOneCells`, and `zeroOpenedCells`; fraction
   values are derived. This board shows values in tablechart headings only;
   `buildRankList` accepts optional help and uses `chartHelpButton(help, label)`
-  on those headings. Help contains definitions, precise measurements, and
-  group rules. HZiNi efficiency stays win-only in Game stats
+  on those headings. Every `BOARD_METRIC_TABLES` entry has help: a
+  one-sentence definition, plus this board's exact value and the rounding
+  rule for the rounded groups; `boardShapeCandidates` gives the same kind of
+  definition to max-N, islands, largest island, and zeros, and
+  `resultRankPlan` passes it to their tables. HZiNi efficiency stays win-only in Game stats
   (`hziniEfficiencyOf`). HZiNi matches exact integers; `boardShareGroup`
   rounds both fractions to the nearest whole percentage point using integer
   counts (halfway up); `boardSpreadGroup` rounds to the nearest 0.5 cell

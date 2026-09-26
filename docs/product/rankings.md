@@ -62,6 +62,13 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   Progressive disclosure uses the same setting as the window charts:
   identical member sets keep the most specific list (has 8, has 7,
   max 2, then max 3, then max 4, then the grouping lists).
+- Heading help (2026-09-26, user direction "write them well without
+  clutter"): every This-board table heading except "has 8" and "has 7",
+  whose names state their rule, opens a one-sentence definition of its
+  measurement. The rounded groups (3BV spread, 0–1 share, zero-opening
+  coverage) add one sentence with this board's exact value and the
+  rounding rule. The same definitions label the board-trait items of the
+  game-data chart.
 - Row format: rank, time, relative age. Headings carry only the window
   name. With a selected result, the footer always names its rank, complete
   comparison pool, and percentage standing, e.g. "#32 of 1,080 · Top 3%"

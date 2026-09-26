@@ -4,10 +4,10 @@ importScripts('trend-fit.js?v=20260925-worker-analysis',
   'game/trace-metrics.js?v=20260926-chord-buttons',
   'game/evaluation.js?v=20260926-lifelong',
   'game/session-stats.js?v=20260926-chord-buttons',
-  'game/metric-definitions.js?v=20260926-lifelong',
+  'game/metric-definitions.js?v=20260926-short-help',
   'board-shape.js', 'zini.js', 'board-metrics.js?v=20260921-visible-zero-one',
-  'game-data.js?v=20260926-lifelong', 'game/rankings.js?v=20260926-lifelong',
-  'game/charts.js?v=20260926-lifelong', 'game/game-data-chart.js?v=20260926-lifelong');
+  'game-data.js?v=20260926-short-help', 'game/rankings.js?v=20260926-short-help',
+  'game/charts.js?v=20260926-lifelong', 'game/game-data-chart.js?v=20260926-short-help');
 
 let config;
 
@@ -99,8 +99,7 @@ function analyze(kind, data) {
       if (preferences.shownThings.boardShapeTables) comparisons.push(...boardShapeCandidates([record], wins)
         .filter((c) => preferences.shownThings.largestIsland || !c.label.startsWith('largest island ')));
       return [...performanceTimeRankProfile(record, records, preferences, data.config),
-        ...boardTraitRankProfile(record, comparisons, records)]
-        .map(({ help, ...row }) => ({ ...row, helpText: help?.(record) }));
+        ...boardTraitRankProfile(record, comparisons, records)];
     }
     case 'game-data-history': {
       const groups = GameData.history(data.records, data.endedAt, data.sessionDefinition, data.page, data.pageSize);

@@ -225,8 +225,7 @@ function boardShareHelp(record, field, definition) {
   const m = record.boardMetrics;
   return [definition,
     'This board: ' + m[field] + ' of ' + m.safeCells + ' safe cells ('
-      + formatBoardShare(boardFractionOf(record, field)) + ').',
-    'Times compare boards rounded to the nearest whole percentage point. Exact halfway values round up: 71.5% through below 72.5% belongs to 72%. The stored counts keep their full precision.',
+      + formatBoardShare(boardFractionOf(record, field)) + '). Times compare boards rounded to the nearest whole percentage point (exact halfway values round up).',
   ];
 }
 
@@ -236,37 +235,35 @@ function boardShareHelp(record, field, definition) {
 // family, use the numeric measurement. Pool size never changes row order.
 // Matching one feature does not imply equal overall difficulty.
 const BOARD_METRIC_TABLES = [
-  { field: 'bv3', label: '3BV', setting: 'exact3BV', priority: 13, summaryGroup: 2 },
-  { field: 'zini', label: 'ZiNi', setting: 'exactZiNi', priority: 14, summaryGroup: 3 },
-  { field: 'maxAdjacent', label: 'max number', shortLabel: 'MN', setting: 'exactMaxNumber', priority: 15, summaryGroup: 6, higher: true },
+  { field: 'bv3', label: '3BV', setting: 'exact3BV', priority: 13, summaryGroup: 2,
+    help: () => ['The fewest clicks that clear this board without flags: one for each zero region, plus one for each number that no zero region reveals.'] },
+  { field: 'zini', label: 'ZiNi', setting: 'exactZiNi', priority: 14, summaryGroup: 3,
+    help: () => ['The clicks a standard greedy solve with flags and chords needs when every mine is known. Never more than 3BV.'] },
+  { field: 'maxAdjacent', label: 'max number', shortLabel: 'MN', setting: 'exactMaxNumber', priority: 15, summaryGroup: 6, higher: true,
+    help: () => ['Max number (MN): the highest number on this board.'] },
   { field: 'hzini', label: 'HZiNi', setting: 'exactHZiNi', priority: 16, summaryGroup: 4,
-    help: () => [
-      'Human ZiNi is the action count of a fixed opening-first solve with full board knowledge. The same oriented board always gives the same integer.',
-      'Open each zero region once. Then choose the revealed clue with the greatest nonnegative saving: covered safe neighbors minus unflagged mine neighbors minus one chord. Flag its missing mines and chord it. If none qualifies, reveal the next safe cell. Ties and direct reveals scan down columns, left to right.',
-      'Each reveal, flag placement, and chord counts once. This measures that procedure, rather than the global minimum over all possible procedures. Times compare boards with exactly the same HZiNi count.',
-    ] },
+    help: () => ['Human ZiNi: the actions a fixed human-style solve takes when every mine is known. It opens each zero region, then flags and chords around the clue that saves the most clicks, and reveals single cells when chording would cost extra. A reference count, not the true minimum.'] },
   { field: boardSpreadGroup, label: '3BV spread',
     labelOf: (value) => '3BV spread ' + value.toFixed(1) + ' cells',
     valueText: (record) => Number(record.boardMetrics.workSpread.toFixed(1)) + ' cells',
     rawValue: (record) => record.boardMetrics?.version === 1 ? record.boardMetrics.workSpread : undefined,
     setting: 'workSpreadTable', priority: 17, summaryGroup: 5,
     help: (record) => [
-      'How spread out the board’s 3BV work is, measured in cell widths. Larger values mean the work points are more widely spread.',
-      'Each zero region contributes one point at the mean position of its zero squares. Each safe square outside all zero openings contributes its own center. All points have equal weight. The value is the root-mean-square distance of these points from their mean position.',
-      'This board: ' + record.boardMetrics.workSpread.toFixed(3) + ' cells. Times compare boards rounded to the nearest 0.5 cell. Exact halfway values round up: 2.25 through below 2.75 belongs to 2.5. The stored measurement keeps its full precision.',
+      'How spread out the board’s 3BV work is, in cell widths: the root-mean-square distance of its work points from their center. Each zero region is one point at its center, and each safe cell that no zero region reveals is its own point.',
+      'This board: ' + record.boardMetrics.workSpread.toFixed(3) + ' cells. Times compare boards rounded to the nearest 0.5 cell (exact halfway values round up).',
     ] },
   { field: (win) => boardShareGroup(win, 'zeroOpenedZeroOneCells'), label: '0–1 share',
     valueText: (record) => formatBoardShare(boardFractionOf(record, 'zeroOpenedZeroOneCells')),
     rawValue: (record) => boardFractionOf(record, 'zeroOpenedZeroOneCells'), higher: true,
     labelOf: (value) => '0–1 share ' + value + '%', setting: 'zeroOneShareTable', priority: 18, summaryGroup: 12,
     help: (record) => boardShareHelp(record, 'zeroOpenedZeroOneCells',
-      'Open every zero and nothing else. Count only the revealed zeros and ones, divided by all safe squares on the board. Covered ones and revealed clues of two or more do not count. Shared borders count once. No zeros means 0%.') },
+      'Share of safe cells showing 0 or 1 after opening every zero region and nothing else. Covered ones do not count.') },
   { field: (win) => boardShareGroup(win, 'zeroOpenedCells'), label: 'zero-opening coverage', shortLabel: 'ZOC',
     valueText: (record) => formatBoardShare(boardFractionOf(record, 'zeroOpenedCells')),
     rawValue: (record) => boardFractionOf(record, 'zeroOpenedCells'), higher: true,
     labelOf: (value) => 'zero-opening coverage ' + value + '%', setting: 'zeroOpeningTable', priority: 19, summaryGroup: 13,
     help: (record) => boardShareHelp(record, 'zeroOpenedCells',
-      'The fraction of all safe squares exposed after opening every zero region, including bordering numbers of any value. Shared borders count once. This stops after automatic flooding, before deductions or chords. With no zeros the coverage is 0%.') },
+      'Zero-opening coverage (ZOC): the share of safe cells uncovered by opening every zero region, including the numbers on their borders.') },
 ];
 
 function boardMetricCandidates(referenceWins, wins) {
@@ -323,6 +320,7 @@ function boardShapeCandidates(referenceWins, wins) {
       candidates.push({
         id: 'max-' + cap,
         trait: 'MN ≤ ' + cap,
+        help: () => ['Boards with no number higher than ' + cap + '.'],
         valueText: (record) => String(record.maxAdjacent),
         summaryOrder: [8, cap],
         label: 'max ' + cap,
@@ -336,6 +334,7 @@ function boardShapeCandidates(referenceWins, wins) {
     candidates.push({
       id: 'islands-' + count,
       trait: 'islands', rawValue: (record) => record.islandCount, higher: false,
+      help: () => ['Groups of touching mines on this board, diagonals included.'],
       valueText: () => String(count),
       summaryOrder: [9, count],
       label: count === 1 ? '1 island' : count + ' islands',
@@ -348,6 +347,7 @@ function boardShapeCandidates(referenceWins, wins) {
     candidates.push({
       id: 'largest-island-' + size,
       trait: 'largest island', rawValue: (record) => record.largestIsland, higher: true,
+      help: () => ['Mines in the largest group of touching mines, diagonals included.'],
       valueText: () => String(size),
       summaryOrder: [10, size],
       label: 'largest island ' + size,
@@ -360,6 +360,7 @@ function boardShapeCandidates(referenceWins, wins) {
     candidates.push({
       id: 'zeros-' + count,
       trait: 'zeros', rawValue: (record) => record.zeroCount, higher: true,
+      help: () => ['Safe cells with no adjacent mines.'],
       valueText: () => String(count),
       summaryOrder: [11, count],
       label: count === 1 ? '1 zero' : count + ' zeros',
@@ -800,7 +801,7 @@ function resultRankPlan(record, records, options, preferences, referenceMs) {
   const boardTables = [];
   for (const c of boardMetricCandidates([boardRecord], wins)) {
     if (preferences.shownThings[c.setting]) {
-      boardTables.push(table(c.label, c.wins.slice().sort(compareRankedWins), c.help?.(boardRecord)));
+      boardTables.push(table(c.label, c.wins.slice().sort(compareRankedWins), c.help(boardRecord)));
     }
   }
   if (preferences.shownThings.boardShapeTables) {
@@ -811,7 +812,7 @@ function resultRankPlan(record, records, options, preferences, referenceMs) {
       const kept = new Set(dedupeRankCandidates(shapes));
       shapes = shapes.filter((c) => kept.has(c));
     }
-    for (const c of shapes) boardTables.push(table(c.label, c.wins.slice().sort(compareRankedWins)));
+    for (const c of shapes) boardTables.push(table(c.label, c.wins.slice().sort(compareRankedWins), c.help?.(boardRecord)));
   }
   const runs = streakRuns(records);
   const streakTables = [];

@@ -48,49 +48,27 @@ function buildSessionScopeSelect() {
 // either rate basis, so the basis mapping is skipped (rawSpecs).
 const SESSION_SPEED_GAP_SPECS = [
   { label: 'mouse speed', unit: '', color: '#3949ab',
-    calc: 'cursor px traveled while a game was in progress over the '
-      + 'trailing lookback of play, divided by its in-progress seconds; '
-      + 'abandoned games count, between-game movement never does',
-    records: 'cursor travel per in-progress second, averaged over the '
-      + 'trailing lookback; a change in the series has no assigned cause',
+    help: 'Cursor travel per second while a game is in progress. Movement '
+      + 'between games does not count; abandoned games do.',
     of: (b, i) => b.speedPxPerSec[i], fmt: (v) => Math.round(v) + 'px/s' },
   { label: 'fastclick gap', unit: '', color: '#e8710a',
-    calc: 'median gap between consecutive useful actions of the same game '
-      + '(timed at the left release or the right-click flag trigger) when '
-      + 'the cursor moved within 100ms before the later one and the gap was '
-      + 'at most 1s',
-    records: 'the median qualifying action-to-action interval within the '
-      + 'trailing lookback; only the timing rule above is observed',
+    help: GameData.metrics.find((metric) => metric.id === 'fastclickGap').help,
     of: (b, i) => b.fastclickGapMs[i], fmt: (v) => Math.round(v) + 'ms' },
 ];
 
 const SESSION_METRIC_SPECS = [
   { label: 'cadence spread \u00d7',
-    calc: 'interquartile range of useful-press gaps within the trailing '
-      + 'lookback divided by their median (games recorded before this page '
-      + 'load cannot contribute raw gaps); per-game aggregation instead '
-      + 'medians each game\u2019s stored spread, which is measured over all '
-      + 'button presses of that game',
-    records: 'press-rhythm dispersion: 0 means metronomic, larger means '
-      + 'burstier; losses and wins both contribute, and no cause for a '
-      + 'change is inferred',
+    help: 'How uneven your click timing is: the interquartile range of the '
+      + 'gaps between presses, divided by their median. 0 is perfectly '
+      + 'even. Games from before this page load count only in the per-game view.',
     of: (b, i) => b.cadenceSpreadRatio[i], fmt: (v) => v.toFixed(2) + '\u00d7' },
   { label: 'excess game risk pp/m', category: 'gameRisk',
-    calc: 'sum of the extra immediate loss probability chosen by survived '
-      + 'game-risk actions over the trailing played-time lookback, divided '
-      + 'by played minutes; protection rules are applied before comparing',
-    records: 'percentage points of additional immediate loss probability '
-      + 'per played minute; it is a probability sum, not observed deaths',
     of: (b, i) => b.excessRiskPctPerMin[i],
     fmt: (v) => v.toFixed(2) + 'pp/m',
     gameLabel: 'excess game risk pp/game',
     gameOf: (b, i) => b.excessRiskPctPerGame[i],
     gameFmt: (v) => v.toFixed(2) + 'pp/game' },
   { label: 'modeled life gap /m', category: 'lifeMaximization',
-    calc: 'sum of the one-ply best-minus-selected expected-remaining-life '
-      + 'gaps over the trailing played-time lookback, divided by played minutes',
-    records: 'the optional model-relative expected-life gap per played minute; '
-      + 'it is not a claim about player intent or long-horizon optimality',
     of: (b, i) => b.modeledLifeGapPerMin[i],
     fmt: (v) => v.toFixed(3) + '/m',
     gameLabel: 'modeled life gap /game',
@@ -111,97 +89,72 @@ const SESSION_METRIC_SPECS = [
 // number; displays append the unit.
 const SESSION_RATE_SPECS = [
   { label: 'flag removals', unit: '/m', color: '#00838f',
-    calc: 'flags taken back per in-progress minute (win auto-flagging and '
-      + 'flags left standing are not counted, only the removal itself)',
-    records: 'flags removed per in-progress minute over the trailing lookback; '
-      + 'the record does not reveal why a flag was removed',
+    help: 'Flags you took back.',
     of: (b, i) => b.mismarksPerMin[i],
     gameOf: (b, i) => b.mismarksPerGame[i], fmt: (v) => v.toFixed(1) },
   { label: 'unused mine marks (wins)', unit: '/m', color: '#ad1457',
-    calc: 'among won games only, correct mine-flag placements removed or '
-      + 'left standing without ever contributing to an accepted chord, per '
-      + 'minute played in those wins',
-    records: 'a win-only observable no-chord-use proxy for unnecessary '
-      + 'marking; losses are unmeasured, and mental use remains unknowable',
+    help: 'Correct flags that no chord ever used. Measured over wins only.',
     of: (b, i) => b.unusedMarksPerMin[i],
     gameOf: (b, i) => b.unusedMarksPerGame[i], fmt: (v) => v.toFixed(1) },
   { label: 'mine marking', unit: '/s', color: '#388e3c',
-    calc: 'flags placed per in-progress second (removals don\u2019t '
-      + 'subtract; the win\u2019s auto-flagging is not yours and never '
-      + 'counts)',
-    records: 'flags placed per in-progress second over the trailing lookback; '
-      + 'confidence, caution, and intent are not observed',
+    help: 'Flags placed. Removals do not subtract, and the automatic flags '
+      + 'at a win do not count.',
     of: (b, i) => b.flagsPerSec[i],
     gameOf: (b, i) => b.flagsPerGame[i], fmt: (v) => v.toFixed(2) },
   { label: 'misclicks', unit: '/m', color: '#d32f2f',
-    calc: 'board-changing actions contradicted by facts provable from the '
-      + 'visible board at click time, per in-progress minute: opening a proven '
-      + 'mine, flagging a proven safe, removing a proven-mine flag, or chording '
-      + 'through a visible contradiction',
-    records: 'visible-board contradictions, independently of outcome; a fatal '
-      + 'fatal visible contradiction also appears in deaths with mistakes, while a wrong flag can be nonfatal',
+    help: 'Actions the visible board had already proved wrong, such as '
+      + 'opening a proven mine or flagging a proven safe cell.',
     of: (b, i) => b.misclicksPerMin[i],
     gameOf: (b, i) => b.misclicksPerGame[i], fmt: (v) => v.toFixed(1) },
   { label: 'no-op clicks', unit: '/s', color: '#e8a000',
-    calc: 'board clicks that changed nothing (chords on unsatisfied or '
-      + 'empty numbers, left-clicks on flags, right-clicks on revealed '
-      + 'cells), per in-progress second',
-    records: 'clicks that changed no board state per in-progress second; '
-      + 'the record does not distinguish among possible causes',
+    help: 'Clicks that changed nothing, such as chording an unsatisfied '
+      + 'number or clicking a flag.',
     // The series stores per-minute; the spec converts for display.
     of: (b, i) => b.wastedPerMin[i] === undefined
       ? undefined : b.wastedPerMin[i] / 60,
     gameOf: (b, i) => b.wastedPerGame[i],
     fmt: (v) => v.toFixed(2) },
   { label: 'deaths with mistakes', unit: '/m', color: '#7b1fa2',
-    calc: 'deaths whose fatal action carries at least one recorded mistake '
-      + 'tag (for example, opening a proven mine, guessing while a safe move '
-      + 'was available, or choosing higher risk), per in-progress minute',
-    records: 'fatal actions with one or more evidence-backed mistake tags '
-      + 'per in-progress minute; it does not identify intent or mental state',
+    help: 'Deaths whose fatal action was tagged as a mistake, such as '
+      + 'opening a proven mine or guessing while a safe move existed.',
     of: (b, i) => b.avoidablePerMin[i],
     gameOf: (b, i) => b.avoidablePerGame[i], fmt: (v) => v.toFixed(2) },
   { label: 'click rate', unit: '/s', color: '#1565c0',
-    calc: 'board clicks that changed something (reveals, flags, chords) '
-      + 'per in-progress second; no-op clicks are excluded — they have '
-      + 'their own line',
-    records: 'board-changing clicks per in-progress second over the trailing '
-      + 'lookback; it does not measure decisions or identify why the rate changed',
+    help: 'Board-changing clicks. Clicks that changed nothing have their '
+      + 'own line.',
     of: (b, i) => b.clicksPerSec[i],
     gameOf: (b, i) => b.usefulPerGame[i], fmt: (v) => v.toFixed(2) },
 ];
 
 const SESSION_CATEGORY_RATE_SPECS = [
   { category: 'gameLoss', label: 'game loss', unit: '/m', color: '#8f1f0e',
-    calc: 'fatal actions per played minute, whether avoidable, forced, protected, or unjudged',
-    records: 'games ending in a fatal action per played minute; the category does not itself call the action a mistake',
+    help: 'Every fatal action, forced ones included. This counts outcomes, '
+      + 'not mistakes.',
     of: (b, i) => b.categoryPerMin.gameLoss[i],
     gameOf: (b, i) => b.categoryPerGame.gameLoss[i], fmt: (v) => v.toFixed(2) },
   { category: 'gameRisk', label: 'game risk', unit: '/m', color: '#d06a00',
-    calc: 'survived actions that added actual immediate loss probability under the active rules, per played minute',
-    records: 'nonfatal risk-increasing actions per played minute; magnitude has its own excess-game-risk chart',
+    help: 'Survived actions riskier than the safest available move. The '
+      + 'excess game risk chart shows how much risk.',
     of: (b, i) => b.categoryPerMin.gameRisk[i],
     gameOf: (b, i) => b.categoryPerGame.gameRisk[i], fmt: (v) => v.toFixed(2) },
   { category: 'earlyGuess', label: 'early guess', unit: '/m', color: '#c9a227',
-    calc: 'survived non-optimal guesses before a tenth of the safe squares were revealed, per played minute',
-    records: 'early opening gambles, reported below mid-game risk and excluded from excess-game-risk magnitude',
+    help: 'Survived guesses that were not the safest choice, made before a '
+      + 'tenth of the safe cells were open. They are kept out of game risk.',
     of: (b, i) => b.categoryPerMin.earlyGuess[i],
     gameOf: (b, i) => b.categoryPerGame.earlyGuess[i], fmt: (v) => v.toFixed(2) },
   { category: 'timeLoss', label: 'time loss', unit: '/m', color: '#1682b8',
-    calc: 'no-progress inputs, visible board-state regressions, and win-only '
-      + 'correct mine marks never consumed by a chord, per played minute',
-    records: 'classified time-loss actions per played minute; no duration, '
-      + 'mental use, or intent is inferred',
+    help: 'Clicks that made no progress or undid visible progress, plus '
+      + 'correct flags in wins that no chord used.',
     of: (b, i) => b.categoryPerMin.timeLoss[i],
     gameOf: (b, i) => b.categoryPerGame.timeLoss[i], fmt: (v) => v.toFixed(2) },
   { category: 'lifeMaximization', label: 'life maximization', unit: '/m', color: '#8651ad',
-    calc: 'actions with a positive one-ply expected-remaining-life gap per played minute',
-    records: 'optional model-relative opportunities per played minute; magnitude has its own modeled-life-gap chart',
+    help: 'Moves where a one-move survival model saw a safer choice. The '
+      + 'modeled life gap chart shows how much.',
     of: (b, i) => b.categoryPerMin.lifeMaximization[i],
     gameOf: (b, i) => b.categoryPerGame.lifeMaximization[i], fmt: (v) => v.toFixed(2) },
   { category: 'measurementNotes', label: 'measurement notes', unit: '/m', color: '#777777', textColor: '#000000',
-    calc: 'actions whose stored evidence is legacy or incomplete, per played minute',
-    records: 'unclassified evidence notes per played minute, not mistakes',
+    help: 'Actions whose stored evidence is too old or incomplete to '
+      + 'classify. Not mistakes.',
     of: (b, i) => b.categoryPerMin.measurementNotes[i],
     gameOf: (b, i) => b.categoryPerGame.measurementNotes[i], fmt: (v) => v.toFixed(2) },
 ];
@@ -385,14 +338,11 @@ function appendSessionWhenRow(container, buckets) {
   labelEl.className = 'metric-label';
   labelEl.textContent = 'when this play happened';
   labelEl.appendChild(chartHelpButton([
-    'The charts below share a compressed x axis: only played time '
-      + 'advances it, and real-world breaks take no width. This strip '
-      + 'maps that axis back to the real world — each block is one '
-      + 'continuous stretch of wall-clock time (a new block starts after '
-      + 'a break of 15 minutes or more, and always at midnight).',
-    'Blocks from the same calendar day share a color. The dashed '
-      + 'vertical line drawn through every chart below marks where the '
-      + 'play crosses into another day.',
+    'The charts below share an x axis that only moves while you play, so '
+      + 'breaks take no width. Each block here is one stretch of real time; '
+      + 'a break of 15 minutes or more, or midnight, starts a new block.',
+    'Blocks from the same day share a color. The dashed line through the '
+      + 'charts marks a change of day.',
   ]));
   headRow.appendChild(labelEl);
   row.appendChild(headRow);
@@ -1130,27 +1080,37 @@ function modeledLifeGapHelp(unitNote) {
   };
 }
 
-// Default help for a measured metric: its measurement rule and what the
-// series does (and does not) record, straight from the spec.
 function sessionMetricHelp(spec) {
   const unitNote = settings.sessionRateBasis === 'game'
     ? 'shown per finished game' : 'shown per played minute';
   if (spec.category === 'gameRisk') return excessRiskHelp(unitNote);
   if (spec.category === 'lifeMaximization') return modeledLifeGapHelp(unitNote);
-  return ['What it measures: ' + spec.calc + '.',
-    'What it records: ' + spec.records + '.'];
+  return spec.help;
 }
 
+// Series help names only the counted event; the chart's unit is stated once,
+// so the text stays true on both the time and the per-game basis.
+const SESSION_RATE_UNIT_NOTES = {
+  '/m': 'Each line counts per minute of play.',
+  '/s': 'Each line counts per second of play.',
+  '/game': 'Each line counts per finished game.',
+};
+
 // Help for a multi-series chart: one entry per drawn series, naming the
-// series in bold and giving its measurement rule.
-function ratesHelpBuilder(specs) {
+// series in bold and giving its definition.
+function ratesHelpBuilder(specs, unit) {
   return (tip) => {
+    if (unit !== '') {
+      const note = document.createElement('p');
+      note.textContent = SESSION_RATE_UNIT_NOTES[unit];
+      tip.appendChild(note);
+    }
     for (const spec of specs) {
       const p = document.createElement('p');
       const name = document.createElement('b');
       name.textContent = spec.label;
       p.appendChild(name);
-      p.appendChild(document.createTextNode(' \u2014 ' + spec.calc + '.'));
+      p.appendChild(document.createTextNode(' \u2014 ' + spec.help));
       tip.appendChild(p);
     }
   };
@@ -1178,7 +1138,7 @@ function appendSessionRatesRow(
   labelEl.textContent = options.headLabel || (label + unit);
   // Inside the label span, so the (?) rides directly after the name
   // (the head row itself is a space-between flex).
-  labelEl.appendChild(chartHelpButton(options.help || ratesHelpBuilder(specs)));
+  labelEl.appendChild(chartHelpButton(ratesHelpBuilder(specs, unit)));
   headRow.appendChild(labelEl);
   row.appendChild(headRow);
   const { svg, drawn } = buildSessionRatesChart(buckets, specs, unit);
@@ -1349,17 +1309,14 @@ function appendSessionEndingsRow(container, buckets) {
   labelEl.textContent = 'game endings %';
   headRow.appendChild(labelEl);
   labelEl.appendChild(chartHelpButton([
-    'Of the games finished inside the lookback, the percentage that '
-      + 'ended each way. "win" is every win; each "died:" line is one '
-      + 'exclusive reason the fatal action was judged to have lost the '
-      + 'game, so the died-lines plus the win line cover all finished games.',
-    'The dotted blue and purple lines are different quantities on the '
-      + 'same percent axis, measured on wins only: how many of the '
-      + 'board\u2019s mines you never marked, and how many of your placed '
-      + 'marks never did chord work.',
-    'The y axis stretches to just above the highest line rather than '
-      + 'always showing 0\u2013100. Hover a legend entry to spotlight its '
-      + 'line.',
+    'How the games finished in the lookback ended, in percent: "win", or '
+      + 'one "died:" line per reason the fatal action lost the game. '
+      + 'Together they cover every finished game.',
+    'The dotted blue and purple lines are measured on wins only: the share '
+      + 'of the board\u2019s mines you never flagged, and the share of your '
+      + 'flags that no chord used.',
+    'The y axis ends just above the highest line. Hover a legend entry to '
+      + 'highlight its line.',
   ]));
   row.appendChild(headRow);
   const { svg, drawn } = buildSessionEndingsChart(buckets);

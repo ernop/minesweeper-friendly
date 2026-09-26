@@ -132,6 +132,12 @@ Spec: [docs/product/session-stats.md](../product/session-stats.md). Index: [AGEN
   name+value+unit label across low-occlusion plot positions and a fine
   color-matched leader ties it to the still-visible endpoint dot; labels avoid
   one another and minimize covered data, with no HOW/RECORDS hover essays).
+  Each spec's `help` names only the counted event; `ratesHelpBuilder(specs,
+  unit)` leads with the chart's unit from `SESSION_RATE_UNIT_NOTES` (none
+  for the unitless speed/gap chart) and lists each series' `help`, and
+  `sessionMetricHelp` returns a solo row's `help` or, for the two magnitude
+  charts, their board-example explainers. The fastclick gap's `help` is the
+  game-data catalog's `fastclickGap` definition.
   `appendSessionGameMarkers` draws every exact `gameEnds` instant, using the
   matching `SESSION_END_SPECS` color (green only for wins) and a compact
   tooltip with duration, local time of day, and `sessionGamePlacement`'s

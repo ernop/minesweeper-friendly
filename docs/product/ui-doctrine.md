@@ -45,6 +45,16 @@ because they apply app-wide, not just where each was first stated.
   tooltip. Do not add persistent instructional captions. Omit redundant or
   obvious guidance entirely; keep useful help brief and factual. This does
   not hide essential control labels, semantic legends, or error messages.
+- Stat explanations (user direction 2026-09-26: "write them well without
+  clutter"): every displayed stat has one, opened from its name or a (?).
+  Write one or two plain sentences: what the number is, then only the
+  defining detail or a caveat that prevents a likely misreading. Do not
+  repeat the label or value, restate what the chart or section heading
+  already says, or include formulas the reader does not need. Rules shared
+  by many items (a ranking formula, tie rules, a comparison pool, a unit)
+  are stated once, in the chart's or section's own help. Use the player's
+  words (click, flag, chord, zero region), not internal names. Each
+  measurement has one definition, reused wherever it appears.
 - Hover must not inject, swap, or reflow page content. Supplementary help
   may appear as an overlay tooltip on hover or keyboard focus without
   changing the layout; no action control may be reachable only by hovering.

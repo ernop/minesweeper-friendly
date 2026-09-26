@@ -16,9 +16,15 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
   Performance rows carry `name` and `scopeText`: empty for lifetime,
   "(session)" or "(day)" for narrower pools. `trait` = name + optional scope
   suffix (the `data-trait` value); `label` = name, value, optional suffix.
-  `boardTraitValueLabel` renders `.board-trait-name`, `.board-trait-value`,
-  then `.board-trait-scope` only when present. The former one-game section,
-  its styles, and its reserved height are removed.
+  Every row carries `helpText`: the spec's `help` definition, then the one
+  rank sentence `rankedRow` composes from its `poolText` argument ("wins so
+  far", "games this session (today)", "wins in the last 24 hours", or
+  "boards so far" for traits). Board traits take the first paragraph of
+  their comparison's `help` from game/rankings.js, which every ranked trait
+  has. `boardTraitValueLabel(row)` renders `.board-trait-name`,
+  `.board-trait-value`, then `.board-trait-scope` only when present, as the
+  help button for `row.helpText`. The former one-game section, its styles,
+  and its reserved height are removed.
   Configuration has independent session/lifetime columns with mixed/all controls;
   `gameDataSessionMetrics`, `gameDataLifetimeMetrics`, `gameDataDayTime`, and
   `gameDataShowValues` use the shared persistent preference schema.
@@ -50,5 +56,6 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
 - Game-data rows and session-history summaries execute in the ranking worker.
   `buildBoardTimeRankProfile(record, records)` owns a view generation so a
   slower chart/history reply cannot replace a newer configuration view.
-  Workers materialize help text into data; UI rendering remains responsible
-  for controls, label placement, focus, and the ResizeObserver.
+  Rows arrive with their help as plain strings (`helpText`), so the worker
+  posts them unchanged; UI rendering remains responsible for controls, label
+  placement, focus, and the ResizeObserver.

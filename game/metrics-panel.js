@@ -123,7 +123,7 @@ function buildMetricRow(group, display, metrics, series, size, rowClass) {
   head.className = 'metric-head';
   const labelEl = document.createElement('span');
   labelEl.className = 'metric-label';
-  labelEl.textContent = display.label;
+  labelEl.appendChild(chartHelpButton(display.help, display.label));
   const valueEl = document.createElement('span');
   valueEl.className = 'metric-value';
   head.append(labelEl, valueEl);
@@ -142,11 +142,13 @@ function buildMetricRow(group, display, metrics, series, size, rowClass) {
 }
 
 // The section header naming a measurement system, shared by the live
-// panel and the after-game charts.
+// panel and the after-game charts. Headings without help (the session
+// picker's, the Fitts curve's, the spatial grid's) stay plain text.
 function buildMetricsGroupHead(group) {
   const head = document.createElement('div');
   head.className = 'metrics-group-head';
-  head.textContent = group.name;
+  if (group.help) head.appendChild(chartHelpButton(group.help, group.name));
+  else head.textContent = group.name;
   return head;
 }
 

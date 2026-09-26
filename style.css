@@ -3722,6 +3722,8 @@ body.vigilance-running #self-check-header {
   color: inherit;
   font: inherit;
   text-align: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
   text-decoration: underline dotted #84939f;
   text-underline-offset: 3px;
   vertical-align: baseline;
