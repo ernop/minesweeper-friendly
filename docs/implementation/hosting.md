@@ -64,7 +64,9 @@ Specification: [public hosting](../product/hosting.md).
 ## Launch status
 
 The dedicated server account, root-owned receiver, SSH restrictions, and
-master-only GitHub environment are installed. Actual SSH tests rejected shell
+master-only GitHub environment are installed. The initial committed runtime
+is seeded and hash-verified; an incomplete upload was rejected without
+changing it. The temporary local private key was deleted. Actual SSH tests rejected shell
 commands, command injection, and rsync to Voice-Wei. Public routing is not
 activated: add the DreamHost A record for `minesweeper-friendly.fuseki.net`
 pointing to `146.190.147.109`, then complete TLS and live verification.
