@@ -199,35 +199,34 @@ const GameData = (() => {
   };
   const defaultsForView = { gameDataSessionMetrics: defaults.session, gameDataLifetimeMetrics: defaults.lifetime, sessionDefinition: SessionScope.defaultId, gameDataDayTime: true };
   const chronological = (records) => records.slice().sort((a, b) => a.endedAt - b.endedAt);
-  const SCOPE_WORDS = { session: 'session', lifetime: 'life', day: 'day' };
   function rankedRow(record, pool, spec, scope, params, description) {
     const value = spec.value(record, params);
     if (!Number.isFinite(value)) return null;
     const measured = pool.filter((r) => spec.allOutcomes || r.outcome === 'win').map((r) => ({ record: r, value: spec.value(r, params) }))
       .filter((r) => Number.isFinite(r.value));
     const total = measured.length;
+    if (total < 2) return null;
     const better = measured.filter((r) => spec.higher ? r.value > value : r.value < value).length;
     const equal = measured.filter((r) => r.value === value).length;
     const time = spec.id === 'time';
     const rank = time ? better + measured.filter((r) => r.value === value && r.record.endedAt < record.endedAt).length + 1
       : better + (equal + 1) / 2;
     const allEqual = !time && equal === total;
-    // The label names this game's measurement; the trailing word names the
-    // comparison pool (user wording: "(session)", "(life)").
-    const scopeText = scope ? '(' + SCOPE_WORDS[scope] + ')' : '';
+    // Lifetime is implicit; only a narrower comparison pool needs a suffix.
+    const scopeText = scope && scope !== 'lifetime' ? '(' + scope + ')' : '';
     const trait = spec.name + (scopeText ? ' ' + scopeText : '');
     return { id: spec.id + '.' + scope, metricId: spec.id, scope, trait, name: spec.name, scopeText,
       label: spec.name + ' ' + spec.format(value) + (scopeText ? ' ' + scopeText : ''),
       valueText: spec.format(value), side: 'performance',
       rank, total, allEqual, direction: spec.higher ? 'higher' : 'lower', population: spec.allOutcomes ? 'completed games' : 'wins',
       // Share of the other measured games that beat this one: the best is 0%, the worst 100%.
-      percentile: total < 2 ? null : allEqual ? 50 : 100 * (rank - 1) / (total - 1),
+      percentile: allEqual ? 50 : 100 * (rank - 1) / (total - 1),
       rankLabel: !time && equal > 1 ? '#' + (better + 1) + '–' + (better + equal) : '#' + rank,
       help: () => [spec.help, description + ' Only measured ' + (spec.allOutcomes ? 'completed games (wins and losses)' : 'wins')
         + ' in this size, mine count, mode, and generator count. This game’s measurement is compared with '
         + total + ' observations, including itself.'
         + (!time && equal > 1 ? ' Equal values share their mean rank.' : '')
-        + (allEqual && total > 1 ? ' All measured values are equal, shown at 50%.' : '')],
+        + (allEqual ? ' All measured values are equal, shown at 50%.' : '')],
     };
   }
   function rows(record, records, preferences = defaultsForView, params) {
@@ -249,7 +248,8 @@ const GameData = (() => {
     }
     if (preferences.gameDataDayTime) {
       const day = past.filter((r) => r.endedAt >= record.endedAt - 86400000);
-      result.push(rankedRow(record, day, metrics[0], 'day', params, 'The trailing 24 hours ending at this game’s completion, across midnight.'));
+      const row = rankedRow(record, day, metrics[0], 'day', params, 'The trailing 24 hours ending at this game’s completion, across midnight.');
+      if (row) result.push(row);
     }
     return result;
   }

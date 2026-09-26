@@ -69,10 +69,12 @@ in preferred directions on the right. Its 0–100% band places each item at
 100 × (rank − 1) ÷ (count − 1): the best in its pool is 0% at the top and the
 worst is 100% (user decision 2026-09-23: "if my number here was highest the
 entire session, the value would be 0%, i.e. I was the best"). Each left label
-names the measurement and this game's value, then ends with its pool word:
-"3BV/s 1.600 (session)", "time 44.382s (life)", or "(day)" for the trailing
-24 hours (user decision 2026-09-23: add the word to the end of the labels;
-the creator then chose "(day)" over "(24h)").
+names the measurement and this game's value. Lifetime is implicit with no
+suffix ("time 44.382s"); session comparisons use "(session)" ("3BV/s 1.600
+(session)"). The separate trailing-24-hour time comparison keeps "(day)".
+This revises the earlier "(life)" wording (user decision 2026-09-26).
+Comparisons with fewer than two eligible measured games are omitted entirely,
+with no one-game section or notice (user request 2026-09-26).
 Board-trait labels have no pool word. The band also has exact anchors, pastel
 colors, automatic range zoom, and full calculation/scope tooltips. Configuration has separate
 session/lifetime checkbox columns and all-selection controls; a saved bottom

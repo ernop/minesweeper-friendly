@@ -56,9 +56,9 @@ const { chromium } = require(process.argv[2]);
     const profile = page.locator('.board-time-profile');
     const traits = (side) => profile.locator('.board-trait-line-label[data-side="' + side + '"]')
       .evaluateAll((labels) => labels.map((label) => label.dataset.trait).sort());
-    assert.deepEqual(await traits('performance'), ['3BV/s (life)', 'click rate (life)', 'correctness (life)',
-      'fastclick gap (life)', 'misclick rate (life)', 'mouse speed (life)', 'no-op rate (life)', 'time (day)',
-      'time (life)', 'unused mark share (life)'], 'defaults: lifetime comparisons and day time');
+    assert.deepEqual(await traits('performance'), ['3BV/s', 'click rate', 'correctness',
+      'fastclick gap', 'misclick rate', 'mouse speed', 'no-op rate', 'time',
+      'time (day)', 'unused mark share'], 'defaults: lifetime comparisons and day time');
     assert.deepEqual(await traits('board'), ['0–1 share', '3BV', 'HZiNi', 'MN', 'ZOC', 'ZiNi', 'islands', 'zeros'],
       '3BV spread is off by default');
     await page.evaluate(async () => {
@@ -200,8 +200,8 @@ const { chromium } = require(process.argv[2]);
     assert.equal(await page.locator('#result-stats .board-time-profile').count(), 0, 'not duplicated in the details column');
     assert.equal(await page.locator('#result-ranks .board-time-profile').count(), 0, 'no duplicate in the lower chart collection');
     await profile.screenshot({ path: '/tmp/game-data-sidebar.png' });
-    const lifetimeBefore = await profile.locator('[data-trait="time (life)"]').getAttribute('data-percentile');
-    assert.equal(await profile.locator('[data-trait="time (life)"]').textContent(), 'time 33.542s (life)', 'the pool word ends the label');
+    const lifetimeBefore = await profile.locator('[data-trait="time"]').getAttribute('data-percentile');
+    assert.equal(await profile.locator('[data-trait="time"]').textContent(), 'time 33.542s', 'lifetime is the unlabeled default');
     const picker = page.getByLabel('session', { exact: true });
     assert.equal(await page.locator('select:has(option[value="today"])').count(), 1, 'the page has exactly one session picker');
     assert.equal(await page.locator('#metrics-panel .session-scope-head select').getAttribute('id'), 'session-definition-select',
@@ -213,7 +213,7 @@ const { chromium } = require(process.argv[2]);
     await picker.selectOption('past10min');
     assert.equal(await page.evaluate(() => settings.sessionDefinition), 'past10min');
     assert.equal(await profile.locator('[data-trait="time (session)"]').getAttribute('data-percentile'), '100');
-    assert.equal(await profile.locator('[data-trait="time (life)"]').getAttribute('data-percentile'), lifetimeBefore);
+    assert.equal(await profile.locator('[data-trait="time"]').getAttribute('data-percentile'), lifetimeBefore);
     await picker.selectOption('pastHour');
     assert.equal(await profile.locator('[data-trait="time (session)"]').getAttribute('data-percentile'), '50',
       'game data follows the one picker');
@@ -223,6 +223,8 @@ const { chromium } = require(process.argv[2]);
     await page.evaluate(async () => { settings.showSessionStats = true; settings.metricsPanelCollapsed = false; refreshMetricsPanel(); });
     await profile.getByLabel('show actual value', { exact: true }).uncheck();
     assert.equal(await profile.locator('.board-trait-line-label .board-trait-value:visible').count(), 0);
+    assert.equal(await profile.locator('[data-trait="time"] button').innerText(), 'time');
+    assert.equal(await profile.locator('[data-trait="time (session)"] button').innerText(), 'time (session)');
     assert.equal(await page.evaluate(() => settings.gameDataShowValues), false);
     await profile.getByLabel('show actual value', { exact: true }).check();
     assert.equal(await profile.locator('.board-trait-line-label .board-trait-value:visible').count(), 26);
@@ -245,7 +247,7 @@ const { chromium } = require(process.argv[2]);
     await profile.getByRole('button', { name: 'back to game data', exact: true }).first().click();
     await profile.locator(':scope[aria-busy="true"]').waitFor({ state: 'hidden' });
     assert.equal(await profile.locator('[data-trait="fastclick gap (session)"]').count(), 0);
-    assert.equal(await profile.locator('[data-trait="fastclick gap (life)"]').count(), 1);
+    assert.equal(await profile.locator('[data-trait="fastclick gap"]').count(), 1);
     await profile.getByRole('button', { name: 'session history', exact: true }).click();
     await profile.locator('tbody tr').first().waitFor();
     assert.equal(await profile.locator('tbody tr').count(), 20);
@@ -286,9 +288,9 @@ const { chromium } = require(process.argv[2]);
       await host.analysisReady;
     });
     assert.equal(await profile.locator('.board-trait-line-dot').count(), 0);
-    assert((await profile.locator('.board-trait-line-unranked').textContent()).startsWith('Only one measured game:'));
-    assert.equal(await profile.locator('.board-trait-line-unranked > [data-side="board"]').textContent(), '3BV 75');
-    assert.equal(await profile.locator('.board-trait-line-unranked > [data-side="performance"] button').count(), 17);
+    assert.equal(await profile.locator('.board-trait-line-unranked').count(), 0, 'no one-game section');
+    assert.equal(await profile.locator('.board-trait-line-label').count(), 0, 'one-game measurements are omitted');
+    assert.equal(await profile.locator('.board-trait-line-view').textContent(), '');
     await page.evaluate(async () => {
       settings.shownThings = { ...savedShownThings };
       settings.shownThings.boardPercentiles = true;

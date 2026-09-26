@@ -2534,16 +2534,6 @@ body.settings-page .return-to-game {
   outline: 1px solid #819eaf;
   outline-offset: 2px;
 }
-.board-trait-line-unranked {
-  display: grid;
-  grid-template-columns: max(0px, calc(var(--band-x) - 30px)) minmax(0, 1fr);
-  gap: 6px 60px;
-  color: #000000;
-  font-size: 12px;
-}
-.board-trait-line-unranked-heading { grid-column: 1 / -1; }
-.board-trait-line-unranked > div { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
-.board-trait-line-unranked > [data-side="performance"] { align-items: flex-end; text-align: right; }
 .board-time-profile select { font: inherit; color: inherit; max-width: 100%; }
 .board-time-profile button:not(.chart-help) {
   font: inherit;

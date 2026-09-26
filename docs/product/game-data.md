@@ -23,18 +23,19 @@ The chart supports only one vertical band: "game data", "your perf" on the
 left, and "board traits" on the right. Use Arial typography,
 regular-weight 12px labels, white background, ordinary controls, and square
 pastel highlights. The separate "This win" and time caption is removed;
-solve time is available on "time (life)", "time (session)", and "time (day)".
+solve time is available on "time", "time (session)", and "time (day)".
 MN means max number; ZOC means zero-opening coverage, both expanded in help.
 
-Label wording (user decision 2026-09-23). A your-perf label is the
-measurement name, this game's value, and then the comparison pool as a
-trailing word: "3BV/s 1.600 (session)", "time 44.382s (life)", "time 44.382s
-(day)" ("(day)" confirmed over "(24h)" the same day). With values hidden it
-reads "3BV/s (session)". The user rejected
-leading scope words such as "session 3BV/s" because the label describes this
-game's number; the pool word only says what it is ranked against. The
-configuration table keeps its "session" and "lifetime" column headings.
-Board-trait labels have no pool word.
+Label wording (user decisions 2026-09-23, revised 2026-09-26). Lifetime is
+the implicit comparison pool: "time 44.382s" or "3BV/s 1.600", with no
+"(life)" suffix. Session comparisons alone distinguish session from lifetime
+with a trailing "(session)": "3BV/s 1.600 (session)". With values hidden,
+these read "3BV/s" and "3BV/s (session)". The separate trailing-24-hour time
+comparison retains "(day)": "time 44.382s (day)" ("(day)" confirmed over
+"(24h)" on 2026-09-23). The label describes this game's measurement; the
+suffix only identifies a narrower comparison pool. The configuration table
+keeps its explicit "session" and "lifetime" column headings, and tooltips
+still identify each pool. Board-trait labels have no pool word.
 
 Layout pass (2026-09-23). The user found the chart "crushed and badly
 displayed" in a fixed 320px column, with labels that did not "match" their
@@ -63,7 +64,7 @@ and the chart ran below the screen. Geometry now:
   band; displaced labels have explicit leaders, emphasized at 2px stroke
   above 8px displacement. Endpoint padding is only what labels and ticks
   need, not an extra blank region.
-- Text is pure black on white, including ticks, the singleton note, controls,
+- Text is pure black on white, including ticks, controls,
   and disabled buttons (no gray or opacity dimming). Regular-weight Arial:
   "game data" 16px, side headings 14px, labels 12px.
 
@@ -79,7 +80,7 @@ All visible deciles are labeled. Light green, blue, and red retain their
 absolute rank meaning when zooming; a 40% endpoint does not become red.
 
 "show actual value" is a saved bottom checkbox. It immediately toggles values
-beside all plotted and unranked labels. Values are this game's measurements,
+beside all plotted labels. Values are this game's measurements,
 not the aggregate of the chosen comparison pool. Hiding them changes neither
 rankings nor the zoom range. Hover/focus/click still explains the item.
 
@@ -141,12 +142,16 @@ value would be 0%, i.e. I was the best"). Rank 2 of 3 is 50%.
 The selected game counts in its comparison population. All measured ties
 share mean ordinal ranks except solve-time ties, which retain earlier-finish
 order. A constant metric has no preference ordering and is shown neutrally
-at 50%. A singleton has no comparative point and is listed separately.
+at 50%. Comparisons require at least two eligible measured games, including
+the selected game. With fewer measurements, omit the statistic entirely:
+no point, label, "Only one measured game:" section, or replacement notice
+(user request 2026-09-26). Apply this per metric and pool, to lifetime,
+session, day, and board-trait comparisons; other eligible rows remain visible.
 Missing facts and undefined divisions are excluded, never converted to zero.
 
 Every item's tooltip states the actual ranked quantity, preferred direction,
 comparison scope, eligible outcomes and measured count, tie rule, formula,
-and resulting position (or singleton/constant exception). This chart does
+and resulting position (or constant-value exception). This chart does
 not estimate correlations or attribute time to board traits.
 
 Each left-side marker ranks **this game's** metric against either lifetime

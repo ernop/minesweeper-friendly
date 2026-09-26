@@ -22,7 +22,7 @@ function boardTraitRankProfile(record, comparisons, records) {
     const row = GameData.rankedRow(record, past, spec, '', {}, 'Lifetime through this game’s completion.');
     if (!row) return [];
     return [{ ...row, side: 'board',
-      standing: row.allEqual && row.total > 1
+      standing: row.allEqual
         ? { band: 'middle', podium: 0, label: 'All equal' } : rankStanding(row.rank, row.total),
     }];
   });
@@ -32,7 +32,7 @@ function boardTraitRankProfile(record, comparisons, records) {
 // game-data.js; the report adds table-compatible standing labels here.
 function performanceTimeRankProfile(record, records, preferences = GameData.defaultsForView, params = {}) {
   return GameData.rows(record, records, preferences, params).map((row) => ({ ...row,
-    standing: row.allEqual && row.total > 1
+    standing: row.allEqual
       ? { band: 'middle', podium: 0, label: 'All equal' } : rankStanding(row.rank, row.total),
   }));
 }
@@ -41,8 +41,7 @@ function performanceTimeRankProfile(record, records, preferences = GameData.defa
 // violators minimizes squared displacement while preserving rank order;
 // subtracting the gaps turns label spacing into a monotonicity constraint.
 function boardTraitLabelLayout(rows, top, height, gap, domain = [0, 100]) {
-  const sorted = rows.filter((row) => row.percentile !== null)
-    .slice().sort((a, b) => a.percentile - b.percentile);
+  const sorted = rows.slice().sort((a, b) => a.percentile - b.percentile);
   const offsets = [0];
   for (let i = 1; i < sorted.length; i++) {
     const spacing = sorted[i].labelHeight === undefined ? gap
@@ -91,8 +90,7 @@ function boardTimeProfileRowHelp(record, row) {
     'Percentile = 100 × (rank − 1) ÷ (measured count − 1): the share of the other measured games that beat this one. '
       + (row.direction === 'higher' ? 'Higher' : 'Lower') + ' values receive earlier ranks. '
       + 'The best in the pool is 0% at the top of the chart and the worst is 100%. The current game is included in the count.',
-    row.percentile === null ? 'Only one measured game: no comparative percentile is plotted.'
-      : row.allEqual ? 'All measured values are equal, so there is no preference ordering. The marker is neutral at 50%.'
+    row.allEqual ? 'All measured values are equal, so there is no preference ordering. The marker is neutral at 50%.'
         : 'Here: rank ' + rank + ' of ' + row.total.toLocaleString()
           + '; 100 × (' + Number(row.rank.toFixed(3)) + ' − 1) ÷ (' + row.total + ' − 1) = '
           + Number(row.percentile.toFixed(2)) + '%.',
@@ -140,14 +138,12 @@ function buildBoardTraitLine(record, rows, frame) {
   }
   const container = document.createElement('div');
   container.className = 'board-trait-line-view';
-  const ranked = rows.filter((row) => row.percentile !== null);
-  const unranked = rows.filter((row) => row.percentile === null);
   const stage = document.createElement('div');
   stage.className = 'board-trait-line';
   const axis = document.createElement('div');
   axis.className = 'board-trait-line-axis';
   stage.appendChild(axis);
-  const [low, high] = GameData.domain(ranked);
+  const [low, high] = GameData.domain(rows);
   stage.dataset.low = low;
   stage.dataset.high = high;
   const stops = [[low, 0], ...(low < 50 && high > 50 ? [[50, (50 - low) / (high - low) * 100]] : []), [high, 100]];
@@ -168,7 +164,7 @@ function buildBoardTraitLine(record, rows, frame) {
     svg.dataset.side = side;
     svgs.push(svg);
     stage.appendChild(svg);
-    for (const row of ranked.filter((r) => r.side === side).sort((a, b) => a.percentile - b.percentile)) {
+    for (const row of rows.filter((r) => r.side === side).sort((a, b) => a.percentile - b.percentile)) {
       const connector = document.createElementNS(SVG_NS, 'path');
       connector.setAttribute('class', 'board-trait-line-connector');
       svg.appendChild(connector);
@@ -187,22 +183,7 @@ function buildBoardTraitLine(record, rows, frame) {
       entries.push({ ...row, label, dot, connector });
     }
   }
-  if (ranked.length) container.appendChild(stage);
-  if (unranked.length) {
-    const note = document.createElement('div');
-    note.className = 'board-trait-line-unranked';
-    const heading = document.createElement('span');
-    heading.className = 'board-trait-line-unranked-heading';
-    heading.textContent = 'Only one measured game:';
-    note.appendChild(heading);
-    for (const side of ['performance', 'board']) {
-      const column = document.createElement('div');
-      column.dataset.side = side;
-      for (const row of unranked.filter((item) => item.side === side)) column.appendChild(boardTraitValueLabel(record, row));
-      note.appendChild(column);
-    }
-    container.appendChild(note);
-  }
+  if (rows.length) container.appendChild(stage);
   // Natural one-line widths place the band; heights are measured afterwards,
   // once each side's width limit applies. Side headings keep one line only
   // when that costs no data label its single line.
@@ -220,14 +201,13 @@ function buildBoardTraitLine(record, rows, frame) {
       widest.performance, widest.board, BOARD_TRAIT_LABEL_OFFSET) + 'px');
   }
   function layout() {
-    if (!container.isConnected || !container.clientWidth || !ranked.length) return;
+    if (!container.isConnected || !container.clientWidth || !rows.length) return;
     placeBand();
     const measured = entries.map((entry) => ({ ...entry, labelHeight: entry.label.getBoundingClientRect().height }));
     const top = Math.max(7, ...measured.map((r) => r.labelHeight / 2));
     const needed = Math.max(...['performance', 'board'].map((side) =>
       measured.filter((r) => r.side === side).reduce((sum, r) => sum + r.labelHeight + 2, 0)));
-    const noteHeight = container.querySelector('.board-trait-line-unranked')?.offsetHeight || 0;
-    const totalHeight = Math.max(container.clientHeight - noteHeight, needed + top * 2);
+    const totalHeight = Math.max(container.clientHeight, needed + top * 2);
     const height = totalHeight - top * 2;
     stage.style.height = totalHeight + 'px';
     axis.style.top = top + 'px';
@@ -304,9 +284,9 @@ function buildBoardTimeRankProfile(record, records) {
     heading.appendChild(chartHelpButton([
       'Your perf: this game’s measurement ranked separately against lifetime and session history. Time and workload-completion metrics compare wins; action, timing, and error metrics compare measured wins and losses. Day time uses the trailing 24 hours. Every comparison ends at this game’s finish and uses the same board size, mine count, mode, and generator.',
       'Board traits: this board’s measured trait values ranked against measured historical boards in this category. Higher 0–1 share, zero count, max number (MN), largest island, and zero-opening coverage (ZOC) are preferred; lower 3BV, ZiNi, HZiNi, spread, and islands are preferred. These directions express your preference, not an estimated effect on solve time.',
-      'Each your-perf label ends with its comparison pool: (session), (life) for lifetime, or (day) for the trailing 24 hours.',
+      'Your-perf labels use lifetime comparisons unless marked (session) or (day) for the trailing 24 hours.',
       'Position is 100 × (rank − 1) ÷ (comparison count − 1), counting this win: the best in its pool is 0% at the top and the worst is 100% at the bottom. Constant performance values are neutral at 50%; other ties share a mean rank, except times which keep earlier-completion-first order.',
-      'The visible percentile range zooms around all shown points with an outward buffer. Colors keep their absolute 0–100% meaning. Dark leaders retain exact point positions when labels need room. A singleton has no comparative percentile.',
+      'The visible percentile range zooms around all shown points with an outward buffer. Colors keep their absolute 0–100% meaning. Dark leaders retain exact point positions when labels need room. Comparisons with fewer than two measured games are omitted.',
       'Session is the one page-wide window chosen with the picker at the upper left (now: ' + SessionScope.choices.find((c) => c.id === settings.sessionDefinition).label + '), shared with the left-side session stats and ranks won in session; the default is today, since local midnight. Historical session windows end at the selected game’s completion. History shows medians and measured sample counts for those overlapping windows; measurements are reused, never replaced by stored ranks.',
     ], 'game data'));
     caption.appendChild(heading);

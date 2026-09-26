@@ -67,7 +67,7 @@ function assertEq(name, actual, want) {
     highRows.find((r) => r.trait === 'largest island').percentile, 0);
   assertEq('fewer islands stay preferred', highRows.find((r) => r.trait === 'islands').percentile, 0);
   assertEq('higher 0–1 share stays preferred', highRows.find((r) => r.trait === '0–1 share').percentile, 0);
-  assertEq('single board has no comparative rank', boardTraitRankProfile(current, comparisons, [current])[0].percentile, null);
+  assertEq('single board has no comparison rows', boardTraitRankProfile(current, comparisons, [current]).length, 0);
   assertEq('no board profile for a loss', boardTraitRankProfile({ ...current, outcome: 'loss' }, comparisons, past).length, 0);
 }
 
@@ -95,7 +95,7 @@ function assertEq(name, actual, want) {
   assertEq('top trait cluster stays on scale', layout([0, 0, 0]).map((r) => r.labelY).join(','), '0,20,40');
   assertEq('bottom trait cluster stays on scale', layout([100, 100, 100]).map((r) => r.labelY).join(','), '60,80,100');
   assertEq('separated labels keep exact positions', layout([100, 0, 50]).map((r) => r.labelY).join(','), '0,50,100');
-  assertEq('singletons never enter the trait scale', layout([null, 25]).length, 1);
+  assertEq('empty comparisons have no labels', layout([]).length, 0);
 }
 
 // The band stays centered while both one-line label columns fit, shifts

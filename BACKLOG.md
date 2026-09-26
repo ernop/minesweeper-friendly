@@ -126,8 +126,11 @@ must match better". Built the same day: fluid details column, compact setup
 rows, a chart filling the remaining column height, and one-line labels
 placed from measured widths (docs/product/game-data.md "Layout pass").
 
-Decided and built later that day. Labels end with their pool word ("3BV/s
-1.600 (session)", "(life)", "(day)"). The best in a pool is 0%, using
+Decided and built later that day, with label simplification on 2026-09-26:
+lifetime is implicit ("3BV/s 1.600"), while narrower comparisons retain
+"(session)" or "(day)". Comparisons with fewer than two eligible measured
+games are omitted, including the former one-game section
+([Game data](docs/product/game-data.md)). The best in a pool is 0%, using
 100 × (rank − 1) ÷ (count − 1). The chart has its own full-height column
 beside the board column, empty during play. The board rests beside the
 game data column and the saved position counts from there; the later
@@ -149,10 +152,10 @@ standardization sweep was approved ("all"). Still open:
   board's 3BV among boards, while the "3BV 71" This-board table ranks solve
   times among 3BV-71 wins, so the same text names different quantities.
 - **One label per measurement.** Lifetime, session, and day markers of one
-  measurement repeat the same value ("time 44.382s (life)", "time 44.382s
+  measurement repeat the same value ("time 44.382s", "time 44.382s
   (session)"). A single label with one marker per scope would roughly halve
-  the left side's labels. For now the creator chose only the trailing pool
-  word ("right now we just add the word (session) or (life)").
+  the left side's labels. The 2026-09-26 revision removes the lifetime suffix;
+  combining multiple scopes under one measurement label remains unbuilt.
 - **Standardization sweep (approved "all"; built 2026-09-23).** No gray text
   remains, the primary containers are fluid, headings outrank their body
   text, and the outcome summary takes two lines ([UI doctrine](docs/product/ui-doctrine.md),

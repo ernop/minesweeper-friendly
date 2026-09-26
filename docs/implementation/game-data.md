@@ -9,11 +9,16 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
   ranks actual scalar trait values with specified preferred directions.
   `buildBoardTimeRankProfile` renders chart/config/history; `renderRanks` puts
   it in `#game-data-column` when docked, else `#result-stats`.
-  `GameData.rankedRow` sets `percentile` to 100 × (rank − 1) ÷ (count − 1)
-  (best 0%), and gives performance rows `name`, `scopeText` ("(session)",
-  "(life)", "(day)"), `trait` = name + scope word (the `data-trait` value),
-  and `label` = name, value, scope word. `boardTraitValueLabel` renders
-  `.board-trait-name`, `.board-trait-value`, then `.board-trait-scope`.
+  `GameData.rankedRow` omits comparisons with fewer than two eligible measured
+  games, before ranking (2026-09-26). All scopes, including board traits,
+  share this rule. Returned rows have a numeric `percentile`, computed as
+  100 × (rank − 1) ÷ (count − 1) (best 0%), or 50 for constant non-time values.
+  Performance rows carry `name` and `scopeText`: empty for lifetime,
+  "(session)" or "(day)" for narrower pools. `trait` = name + optional scope
+  suffix (the `data-trait` value); `label` = name, value, optional suffix.
+  `boardTraitValueLabel` renders `.board-trait-name`, `.board-trait-value`,
+  then `.board-trait-scope` only when present. The former one-game section,
+  its styles, and its reserved height are removed.
   Configuration has independent session/lifetime columns with mixed/all controls;
   `gameDataSessionMetrics`, `gameDataLifetimeMetrics`, `gameDataDayTime`, and
   `gameDataShowValues` use the shared persistent preference schema.
@@ -23,8 +28,8 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
   ResizeObserver responds to width/value changes. `buildBoardTraitLine` owns
   the side headings; its `placeBand` measures one-line label widths under
   `.board-trait-line-measuring` and sets `--band-x` on the figure from
-  `boardTraitBandCenter`. Band, leaders, dots, labels, side headings, and the
-  singleton note all position from `--band-x`. The chart fills its column's
+  `boardTraitBandCenter`. Band, leaders, dots, labels, and side headings
+  all position from `--band-x`. The chart fills its column's
   width and the height left for it (`fitGameDataToSidebar`), autozooms with
   outward decile bounds, and keeps absolute colors. Only the plot scrolls if
   selections cannot fit readably.
