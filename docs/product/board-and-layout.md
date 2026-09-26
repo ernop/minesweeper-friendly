@@ -90,8 +90,8 @@ laggy"; asked whether the game is "max efficient" and to test and fix it.
 - Finishing a game must not rewrite the whole history. Found: every finished
   game rewrote the entire stored history twice (160 MB for the player's
   6,407 games), blocking input for roughly a second each time, including
-  the first clicks of the next board. Per-game record storage is designed,
-  not yet shipped ([BACKLOG](../../BACKLOG.md#input-latency-follow-ons-creator-report-2026-09-26)).
+  the first clicks of the next board. Each game now writes only its own
+  record ([Storage](storage-and-history.md)).
 
 ## Layout: the board never moves
 

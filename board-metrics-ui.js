@@ -135,7 +135,7 @@ function runBoardMetricQueue() {
       job.record.boardMetrics = { ...job.record.boardMetrics, ...result.boardMetrics };
       job.record.hzini = result.hzini;
       job.state.status = 'done';
-      if (history[job.key] && history[job.key].includes(job.record)) persistUserdata('history', history);
+      if (history[job.key] && history[job.key].includes(job.record)) persistGameRecord(job.key, job.record);
     } else {
       job.state.status = 'error'; job.state.error = error;
     }

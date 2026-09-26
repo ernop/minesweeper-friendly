@@ -143,8 +143,10 @@ function fixture() {
     const { history, traces, records } = fixture();
     await page.evaluate(async ({ history, traces }) => {
       await new Promise((resolve, reject) => {
-        const tx = db.transaction([USERDATA_STORE, TRACE_STORE], 'readwrite');
-        tx.objectStore(USERDATA_STORE).put(history, 'history');
+        const tx = db.transaction([RECORD_STORE, TRACE_STORE], 'readwrite');
+        for (const [key, list] of Object.entries(history)) {
+          for (const record of list) tx.objectStore(RECORD_STORE).put(record, [key, record.endedAt]);
+        }
         for (const trace of traces) tx.objectStore(TRACE_STORE).put(trace);
         tx.oncomplete = resolve;
         tx.onerror = () => reject(tx.error);

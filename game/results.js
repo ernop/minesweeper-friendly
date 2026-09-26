@@ -130,7 +130,7 @@ function reportResult(outcome, endedAt = Date.now()) {
       scheduleMetricsUpdate({ session: true });
     }
     boardState.status = 'done';
-    if (history[key]?.includes(record)) persistUserdata('history', history);
+    if (history[key]?.includes(record)) persistGameRecord(key, record);
     if (trace !== finishedTrace || resultViewRevision !== resultRevision
         || !['won', 'lost'].includes(gameState)) return;
     appendMetricSeries(finishedSeries, result.metrics);

@@ -11,8 +11,10 @@ const { chromium } = require(process.argv[2]);
     const page = await context.newPage();
     const errors = [];
     page.on('pageerror', (error) => errors.push(error.message));
-    // Upgrade a real v2 database containing old traces. The index must find
-    // boards without loading trace payloads or depending on new writes.
+    // Upgrade a real v2 database containing old traces and a whole-history
+    // value. The index must find boards without loading trace payloads or
+    // depending on new writes; every record moves to its own key, keeping the
+    // first of two records that share one.
     const oldPage = await page.context().newPage();
     await oldPage.goto('http://127.0.0.1:8099/tests/');
     await oldPage.evaluate(async () => {
@@ -20,7 +22,11 @@ const { chromium } = require(process.argv[2]);
         const request = indexedDB.open('minesweeper-friendly', 2);
         request.onupgradeneeded = () => {
           const oldDb = request.result;
-          oldDb.createObjectStore('userdata');
+          oldDb.createObjectStore('userdata').put({ '3x3/1@angelic': [
+            { endedAt: 10, outcome: 'win', timeMs: 900, bv3: 2, clicks: 2, mousePathPx: 40 },
+            { endedAt: 10, outcome: 'loss', timeMs: 500, bv3: 2, clicks: 1, mousePathPx: 20 },
+            { endedAt: 11, outcome: 'loss', timeMs: 700, bv3: 2, clicks: 1, mousePathPx: 30 },
+          ] }, 'history');
           const traces = oldDb.createObjectStore('traces', { keyPath: 'endedAt' });
           traces.put({ endedAt: 1, mode: '3x3/1@standard', finalBoard: { cells: Array(9).fill({ mine: false }) } });
           traces.put({ endedAt: 2, mode: '3x3/1@standard' });
@@ -50,13 +56,26 @@ const { chromium } = require(process.argv[2]);
     await oldPage.close();
     await page.waitForFunction(() => preferenceUIReady);
     assert.deepEqual(await page.evaluate(async () => {
-      const request = db.transaction(TRACE_STORE).objectStore(TRACE_STORE)
-        .index(TRACE_BOARD_INDEX).getAllKeys(['3x3/1@standard', 9]);
-      return await new Promise((resolve, reject) => {
-        request.onsuccess = () => resolve({ version: db.version, keys: request.result });
+      const read = (store, method, query) => new Promise((resolve, reject) => {
+        const request = db.transaction(store).objectStore(store)[method](query);
+        request.onsuccess = () => resolve(request.result);
         request.onerror = () => reject(request.error);
       });
-    }), { version: 3, keys: [1] });
+      const boards = await new Promise((resolve, reject) => {
+        const request = db.transaction(TRACE_STORE).objectStore(TRACE_STORE)
+          .index(TRACE_BOARD_INDEX).getAllKeys(['3x3/1@standard', 9]);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      return { version: db.version, keys: boards,
+        userdataHistory: await read(USERDATA_STORE, 'get', 'history'),
+        recordKeys: await read(RECORD_STORE, 'getAllKeys'),
+        recordOutcomes: (await read(RECORD_STORE, 'getAll')).map((r) => r.outcome),
+        normalized: (await read(RECORD_STORE, 'getAll')).every((r) => Array.isArray(r.actionEvaluations)),
+        ram: history['3x3/1@angelic'].map((r) => [r.endedAt, r.outcome]) };
+    }), { version: 4, keys: [1], userdataHistory: undefined,
+      recordKeys: [['3x3/1@angelic', 10], ['3x3/1@angelic', 11]], recordOutcomes: ['win', 'loss'],
+      normalized: true, ram: [[10, 'win'], [11, 'loss']] });
     await page.locator('#board .cell').first().click();
     const mine = await page.evaluate(() => cells.findIndex((cell) => cell.mine));
     await page.locator('#board .cell').nth(mine).click();
@@ -130,7 +149,7 @@ const { chromium } = require(process.argv[2]);
       await new Promise((resolve, reject) => {
         tx.oncomplete = resolve; tx.onerror = () => reject(tx.error);
       });
-      persistUserdata('history', history);
+      persistGameRecords(history[key].slice(-3).map((record) => [key, record]));
       settings.playMode = 'standard';
       await renderResult(base, history[key]);
       if (boardMetricCandidates(history[key].slice(-3), history[key])
@@ -171,11 +190,12 @@ const { chromium } = require(process.argv[2]);
     // Read after the write transaction, then reload the real persisted history.
     // A partial batch must be useful and resumable without replaying its first win.
     assert.equal(await page.evaluate(async (key) => {
-      const request = db.transaction('userdata').objectStore('userdata').get('history');
+      const request = db.transaction(RECORD_STORE).objectStore(RECORD_STORE)
+        .getAll(IDBKeyRange.bound([key, -Infinity], [key, Infinity]));
       const stored = await new Promise((resolve, reject) => {
         request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error);
       });
-      return stored[key].slice(-3).filter((r) => BoardMetrics.hasFractions(r.boardMetrics)).length;
+      return stored.slice(-3).filter((r) => BoardMetrics.hasFractions(r.boardMetrics)).length;
     }, saved.key), 1);
     await page.reload();
     await page.waitForFunction(() => preferenceUIReady);

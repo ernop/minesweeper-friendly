@@ -5,17 +5,23 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
 ## Storage (decided 2026-08-20)
 
 - All persistent data lives in one IndexedDB database
-  (`minesweeper-friendly`, version 3) with two stores: `userdata` (play
-  history, personal preferences, and trial sessions — one entry per kind) and `traces` (one entry per finished game).
+  (`minesweeper-friendly`, version 4) with three stores: `userdata`
+  (personal preferences and trial sessions — one entry per kind),
+  `records` (one game record per finished game), and `traces` (one entry per finished game).
+  Finishing a game writes only its own record (2026-09-26 input-latency
+  review: the whole history had been one value, rewritten twice per game —
+  160 MB for 6,407 games, about a second of blocked input each time). The
+  version-4 upgrade moves each stored record to its own entry once.
   The traces store indexes `[mode, finalBoard.cells.length]` as
   `boardsByModeAndSize`, so backfill can find source boards without loading raw
   input payloads. The version-3 upgrade indexes existing traces in place; no
   game records or traces are rewritten. Blocked upgrades explicitly ask the
   player to close other game/settings tabs and reload.
-- Userdata is RAM-first: every kind is read into RAM once at startup, all
-  reads and mutations work on the RAM copy synchronously, and each
-  mutation immediately persists that kind's whole RAM object with an
-  async fire-and-forget write. Everything the player sees is rendered
+- Userdata and records are RAM-first: every kind and record is read into
+  RAM once at startup, all reads and mutations work on the RAM copy
+  synchronously, and each mutation immediately persists that kind's whole
+  RAM object, or only the changed game records, with an async
+  fire-and-forget write. Everything the player sees is rendered
   from RAM; nothing waits on the disk. Keeping all userdata in RAM is
   fine because scalar records are tiny — revisit only if that ever stops
   being true. Traces are far too large for RAM and are written straight
@@ -87,8 +93,8 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
 
 ## Play history and backup
 
-- Every finished game (win and loss) is kept forever (userdata `history`;
-  see Storage), grouped by mode; nothing is pruned. A mode is identified
+- Every finished game (win and loss) is kept forever (one `records` entry
+  each; see Storage), grouped by mode; nothing is pruned. A mode is identified
   by board parameters plus play mode (e.g. `9x9/10@standard`). Keys
   written before 2026-08-21 as `9x9/10` mean Standard.
 - Export/import game history as a JSON map of mode to game records,

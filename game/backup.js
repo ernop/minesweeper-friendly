@@ -79,7 +79,7 @@ function importHistory(text) {
   }
   const transfer = cleanTransferredHistory(parsed);
   const incoming = transfer.history;
-  let added = 0;
+  const added = [];
   let dups = 0;
   for (const [mode, list] of Object.entries(incoming)) {
     if (!(mode in history)) history[mode] = [];
@@ -91,19 +91,19 @@ function importHistory(text) {
       }
       seen.add(r.endedAt);
       history[mode].push(r);
-      added += 1;
+      added.push([mode, r]);
     }
     // Merged-in records restore the chronological-order invariant.
     history[mode].sort((a, b) => a.endedAt - b.endedAt);
   }
-  persistUserdata('history', history);
+  persistGameRecords(added);
   const skipped = [];
   if (transfer.skippedRecords > 0) skipped.push(transfer.skippedRecords + ' malformed games');
   if (transfer.skippedLists > 0) skipped.push(transfer.skippedLists + ' malformed lists');
   if (transfer.repairedFields > 0) {
     skipped.push(transfer.repairedFields + ' invalid fields');
   }
-  backupStatus.textContent = 'imported ' + added + ' new games, skipped ' + dups + ' duplicates'
+  backupStatus.textContent = 'imported ' + added.length + ' new games, skipped ' + dups + ' duplicates'
     + (skipped.length > 0 ? ', ' + skipped.join(', ') : '');
   importPanel.hidden = true;
   importText.value = '';

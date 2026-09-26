@@ -5,14 +5,16 @@
 // Moved out of minesweeper.js on 2026-08-23 so settings.html opens the
 // same database through the same code (upgrade path included) instead of
 // duplicating it. All storage moved from localStorage into IndexedDB on
-// 2026-08-20. One database holds two stores: 'userdata' (play history,
-// settings, rankavg sorts, player states — one entry per kind) and
-// 'traces' (see game/input-trace.js). Userdata is
-// RAM-first: each page reads the kinds it needs into RAM once at startup,
+// 2026-08-20. One database holds three stores: 'userdata' (settings,
+// rankavg sorts, player states, trial — one entry per kind), 'records'
+// (one entry per finished game, keyed [history key, endedAt]; since
+// 2026-09-26), and 'traces' (see game/input-trace.js). Userdata and records
+// are RAM-first: each page reads what it needs into RAM once at startup,
 // all reads and mutations work on RAM synchronously, and each mutation
-// calls persistUserdata — an async fire-and-forget write of that kind's
-// whole RAM object. IndexedDB structured-clones the value at put() time,
-// so RAM mutations after the call cannot race the write.
+// calls persistUserdata or persistGameRecord — an async fire-and-forget
+// write of that kind's RAM object or of that one game record. IndexedDB
+// structured-clones the value at put() time, so RAM mutations after the
+// call cannot race the write.
 //
 // Each page defines two globals that this file calls late-bound:
 //   userdataReady()      — the database is open; read what you need.
@@ -23,7 +25,8 @@ const DB_NAME = 'minesweeper-friendly';
 const TRACE_STORE = 'traces';
 const TRACE_BOARD_INDEX = 'boardsByModeAndSize';
 const USERDATA_STORE = 'userdata';
-const USERDATA_KINDS = ['history', 'settings', 'rankavgSort', 'states', 'trial'];
+const USERDATA_KINDS = ['settings', 'rankavgSort', 'states', 'trial'];
+const RECORD_STORE = 'records';
 
 let db = null;
 
@@ -37,7 +40,7 @@ const LEGACY_LOCALSTORAGE_KEYS = {
   states: 'minesweeper-friendly.states',
 };
 
-const dbRequest = indexedDB.open(DB_NAME, 3);
+const dbRequest = indexedDB.open(DB_NAME, 4);
 dbRequest.onupgradeneeded = (event) => {
   const upgraded = event.target.result;
   if (event.oldVersion < 1) upgraded.createObjectStore(TRACE_STORE, { keyPath: 'endedAt' });
@@ -60,6 +63,27 @@ dbRequest.onupgradeneeded = (event) => {
     // restored/replaced traces update it atomically without skip markers.
     event.target.transaction.objectStore(TRACE_STORE)
       .createIndex(TRACE_BOARD_INDEX, ['mode', 'finalBoard.cells.length']);
+  }
+  if (event.oldVersion < 4) {
+    // The whole history was one userdata value, so every finished game
+    // rewrote all of it (160 MB of structured clone for 6,400 games). Each
+    // record moves to its own key, in stored order; the first of two
+    // records sharing a key is kept, as history normalization always did.
+    const records = upgraded.createObjectStore(RECORD_STORE);
+    const userdata = event.target.transaction.objectStore(USERDATA_STORE);
+    const stored = userdata.get('history');
+    stored.onsuccess = () => {
+      if (stored.result === undefined) return;
+      for (const [historyKey, list] of Object.entries(stored.result)) {
+        const seen = new Set();
+        for (const record of list) {
+          if (seen.has(record.endedAt)) continue;
+          seen.add(record.endedAt);
+          records.add(record, [historyKey, record.endedAt]);
+        }
+      }
+      userdata.delete('history');
+    };
   }
 };
 // The open can complete between this script and the page's own script
@@ -114,6 +138,55 @@ function readAllUserdata(onLoaded) {
     request.onsuccess = () => { got[kind] = request.result; };
   }
   tx.oncomplete = () => onLoaded(got);
+}
+
+// Reads every saved game record into the RAM history shape: history key to
+// records in play order. Keys sort by history key and then endedAt, so each
+// list arrives chronological.
+function readGameRecords(onLoaded) {
+  const tx = db.transaction(RECORD_STORE);
+  tx.onerror = () => storageFailure('game history load failed: ' + tx.error);
+  const store = tx.objectStore(RECORD_STORE);
+  const keys = store.getAllKeys();
+  const records = store.getAll();
+  tx.oncomplete = () => {
+    const history = {};
+    keys.result.forEach(([historyKey], i) => {
+      if (!Object.hasOwn(history, historyKey)) history[historyKey] = [];
+      history[historyKey].push(records.result[i]);
+    });
+    onLoaded(history);
+  };
+}
+
+// Persists finished-game records, each [history key, record]; a later call
+// for the same game replaces its stored copy. Fire-and-forget like
+// persistUserdata, and only these records are cloned.
+function persistGameRecords(entries) {
+  if (db === null) storageFailure('game record not saved: database is not open');
+  const tx = db.transaction(RECORD_STORE, 'readwrite');
+  const store = tx.objectStore(RECORD_STORE);
+  for (const [historyKey, record] of entries) store.put(record, [historyKey, record.endedAt]);
+  tx.onerror = () => storageFailure('game record save failed: ' + tx.error);
+  tx.commit();
+}
+
+function persistGameRecord(historyKey, record) {
+  persistGameRecords([[historyKey, record]]);
+}
+
+// Rewrites every stored record from RAM. Load-time normalization can rename
+// history keys as well as upgrade records.
+function replaceGameRecords(history) {
+  if (db === null) storageFailure('game history not saved: database is not open');
+  const tx = db.transaction(RECORD_STORE, 'readwrite');
+  const store = tx.objectStore(RECORD_STORE);
+  store.clear();
+  for (const [historyKey, records] of Object.entries(history)) {
+    for (const record of records) store.put(record, [historyKey, record.endedAt]);
+  }
+  tx.onerror = () => storageFailure('game history save failed: ' + tx.error);
+  tx.commit();
 }
 
 // Persists one userdata kind's RAM object. Fire-and-forget: RAM is already

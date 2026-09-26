@@ -101,29 +101,20 @@ no cap, sampling, or reduced refresh frequency has been approved.
 
 The creator reported laggy clicks on the GitHub Pages site in Firefox, from
 the first square on ([Input latency](docs/product/board-and-layout.md#input-latency-user-report-2026-09-26)).
-Built: exact, faster click-time proof and odds evidence, and session charts
-that redraw once per session step during a game. Not built:
+Built: exact, faster click-time proof and odds evidence, session charts
+that redraw once per session step during a game, and one stored record per
+game instead of rewriting the whole history twice per game. Not built:
 
-1. **One stored record per game.** Every finished game rewrites the whole
-   history value twice (`appendGameRecord`, then the finished-game worker
-   reply): 160 MB of structured clone for the creator's 6,407 games, about a
-   second of blocked input each time, often landing on the next board's
-   first clicks. Designed and tested on branch `perf/input-latency`: a
-   `records` store keyed [history key, endedAt], filled once by the
-   database upgrade, so a game writes only its own record. Shipping it needs
-   coordination with concurrent storage work that also claims database
-   version 4 (the self-check store) and with the archive exporter, which
-   reads the whole-history userdata value.
-2. **Proof-budget tail.** About 1% of expert positions exhaust the exact
+1. **Proof-budget tail.** About 1% of expert positions exhaust the exact
    proof's 2,000,000-node budget (about 90ms in Firefox, every click on
    them) and end incomplete. A memoized frontier search would finish them
    in milliseconds but would complete proofs the current rule leaves
    incomplete, changing Justice, misclick, and evidence results; that needs
    a proof-version decision.
-3. **Evidence off the input path.** Odds and misclick evidence could move to
+2. **Evidence off the input path.** Odds and misclick evidence could move to
    a worker, but the exact proof stays synchronous because A Just Universe
    needs it before revealing, and game-end finalization would have to wait
-   for the last action's evidence. After item 2 this would save only a few
+   for the last action's evidence. After item 1 this would save only a few
    milliseconds per click.
 
 ## Game data as the primary result surface (creator, 2026-09-23)

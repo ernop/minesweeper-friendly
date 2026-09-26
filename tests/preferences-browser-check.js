@@ -110,14 +110,14 @@ const { chromium } = require(process.argv[2]);
   await page.goto('http://127.0.0.1:8099/settings.html');
   await page.waitForFunction(() => settings !== null);
   const beforePreferences = await page.evaluate(() => new Promise((resolve) => {
-    const r = db.transaction('userdata').objectStore('userdata').get('history');
+    const r = db.transaction(RECORD_STORE).objectStore(RECORD_STORE).getAll();
     r.onsuccess = () => resolve(JSON.stringify(r.result));
   }));
   await page.locator('#preferences-import-text').fill(JSON.stringify({ cellSize: 56 }));
   await page.locator('#preferences-import-form button').click();
   assert.equal(await page.evaluate(() => settings.cellSize), 56);
   const afterPreferences = await page.evaluate(() => new Promise((resolve) => {
-    const r = db.transaction('userdata').objectStore('userdata').get('history');
+    const r = db.transaction(RECORD_STORE).objectStore(RECORD_STORE).getAll();
     r.onsuccess = () => resolve(JSON.stringify(r.result));
   }));
   assert.equal(beforePreferences, afterPreferences);

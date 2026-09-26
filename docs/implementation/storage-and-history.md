@@ -3,18 +3,21 @@
 Spec: [docs/product/storage-and-history.md](../product/storage-and-history.md). Index: [AGENTS.md](../../AGENTS.md).
 
 - Storage ([Storage](../product/storage-and-history.md)): one IndexedDB database
-  (`minesweeper-friendly`, version 3), two stores. The open, upgrade,
-  `readAllUserdata`, and `persistUserdata` live in `storage.js`
+  (`minesweeper-friendly`, version 4), three stores. The open, upgrade,
+  `readAllUserdata`, `persistUserdata`, `readGameRecords`,
+  `persistGameRecord(s)`, and `replaceGameRecords` live in `storage.js`
   (2026-08-23, shared with the settings page); each page defines two
   late-bound hooks: `storageFailure(what)` (announce + throw) and
   `userdataReady()` (called once BOTH the db is open and this callback has
   been declared — the open can otherwise race later deferred scripts;
   `readyState` cannot signal this because it is already interactive during
   defer execution). `userdata` holds one
-  entry per kind — 'history', 'settings', and 'trial'; retired 'states' and
-  'rankavgSort' keys remain readable for existing data (`USERDATA_KINDS`); `traces` holds one entry per game. Userdata
+  entry per kind — 'settings' and 'trial'; retired 'states' and
+  'rankavgSort' keys remain readable for existing data (`USERDATA_KINDS`);
+  `records` holds one game record per out-of-line key [history key,
+  endedAt], so a key range reads one mode in play order; `traces` holds one entry per game. Userdata
   is RAM-first: the game page's `userdataReady` fills the active RAM objects
-  (`history`, `settings`) via
+  (`settings`, then `history` from `readGameRecords`) via
   `readAllUserdata`, then calls `init()` (states panel, first board —
   everything that reads userdata waits there; only static chrome builds
   at parse). All reads/mutations touch RAM synchronously; every mutation
@@ -25,10 +28,19 @@ Spec: [docs/product/storage-and-history.md](../product/storage-and-history.md). 
   The version-2 upgrade carries the pre-2026-08-20 localStorage keys
   (`LEGACY_LOCALSTORAGE_KEYS`) into `userdata` once, removing them after
   the upgrade transaction commits; deletable once every player's origin
-  has upgraded. Cross-page consistency: each page reads settings fresh
+  has upgraded. The version-4 upgrade (2026-09-26) moves the former
+  whole-history userdata value into `records` inside the upgrade
+  transaction, keeping the first of two records sharing a key as
+  normalization always did, and deletes the old value. Game records are
+  written by `appendGameRecord`, the finished-game worker reply
+  (`reportResult`), restored-trace measurements, board-metric backfill
+  (`persistGameRecord`), and import (`persistGameRecords`, added records
+  only); load-time normalization that changed anything rewrites the store
+  with `replaceGameRecords`, since it can rename history keys. The training
+  worker reads only its mode's key range. Cross-page consistency: each page reads settings fresh
   at load and writes through immediately; the game and settings pages
   are never open as two live views of the same RAM.
-- History: userdata 'history' maps mode key to a
+- History: the RAM `history` maps mode key to a
   chronological array of game records, one per finished game:
   {endedAt, outcome: 'win'|'loss', timeMs, bv3, clicks, wastedClicks,
   misclicks, flagsPlaced, flagsRemoved, unusedCorrectFlags (wins only), mousePathPx,

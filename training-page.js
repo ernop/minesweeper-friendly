@@ -36,7 +36,7 @@ function storageFailure(what) {
 }
 
 function userdataReady() {
-  const worker = new Worker('training-worker.js?v=20260926-training');
+  const worker = new Worker('training-worker.js?v=20260926-game-records');
   worker.onmessage = ({ data }) => {
     worker.terminate();
     if (data.error !== undefined) showTrainingStatus('Training summary failed: ' + data.error, true);
@@ -46,8 +46,8 @@ function userdataReady() {
   worker.onerror = (event) => {
     showTrainingStatus('Training worker failed: ' + event.message, true);
   };
-  worker.postMessage({ database: { name: DB_NAME, version: db.version, userdataStore: USERDATA_STORE,
-    traceStore: TRACE_STORE, historyKey: 'history' } });
+  worker.postMessage({ database: { name: DB_NAME, version: db.version, recordStore: RECORD_STORE,
+    traceStore: TRACE_STORE } });
 }
 
 function trainingElement(tag, className, text) {

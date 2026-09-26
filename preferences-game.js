@@ -194,7 +194,7 @@ async function restorePreferredResult() {
   }).then(async (restored) => {
     if (Object.keys(restored.measurements).length) {
       Object.assign(record, restored.measurements);
-      if (history[key]?.includes(record)) persistUserdata('history', history);
+      if (history[key]?.includes(record)) persistGameRecord(key, record);
     }
     boardState.status = 'done';
     if (trace !== restoredTrace || revision !== resultViewRevision) return;

@@ -32,10 +32,10 @@ function openSavedDatabase(database) {
 async function readTrainingInput(database) {
   const db = await openSavedDatabase(database);
   try {
-    const history = await requestResult(db.transaction(database.userdataStore)
-      .objectStore(database.userdataStore).get(database.historyKey));
-    if (history === undefined || !Object.hasOwn(history, TrainingCore.KEY)) return { records: null, traces: [] };
-    const records = history[TrainingCore.KEY];
+    const records = await requestResult(db.transaction(database.recordStore)
+      .objectStore(database.recordStore)
+      .getAll(IDBKeyRange.bound([TrainingCore.KEY, -Infinity], [TrainingCore.KEY, Infinity])));
+    if (records.length === 0) return { records: null, traces: [] };
     const recentWins = records.filter((r) => r.outcome === 'win')
       .sort((a, b) => a.endedAt - b.endedAt).slice(-TrainingCore.RECENT_WINS);
     const traceStore = db.transaction(database.traceStore).objectStore(database.traceStore);

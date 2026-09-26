@@ -120,7 +120,7 @@ function isMarkless(record) {
 }
 
 // Records are grouped by mode key and kept in chronological order. The RAM
-// copy of the whole history (userdata 'history', filled by userdataReady);
+// copy of the whole history (the 'records' store, filled by userdataReady);
 // scalar records are small enough that all of them stay in RAM — revisit
 // only if that ever stops being true.
 let history = null;
@@ -131,7 +131,7 @@ function appendGameRecord(record) {
   const key = modeKey();
   if (!(key in history)) history[key] = [];
   history[key].push(record);
-  persistUserdata('history', history);
+  persistGameRecord(key, record);
   return history[key];
 }
 
