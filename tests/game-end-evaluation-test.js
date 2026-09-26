@@ -95,17 +95,45 @@ assertEq('win board is updated before post-game work is queued',
     < winSource.indexOf("reportResultAfterPaint('win')"), true);
 assertEq('winning input does not run the result pipeline synchronously',
   winSource.includes("reportResult('win')"), false);
-const postPaintSource = source.slice(
-  source.indexOf('function reportResultAfterPaint('),
-  source.indexOf('\nfunction newGame('));
-assertEq('outcome and final time render before the paint boundary',
-  postPaintSource.indexOf('renderImmediateGameEnd(outcome, endedAt)')
-    < postPaintSource.indexOf('requestAnimationFrame('), true);
-assertEq('loss finalization crosses a browser paint boundary',
-  postPaintSource.includes('requestAnimationFrame(')
-    && postPaintSource.includes('setTimeout(flushPendingResult, 0)'), true);
-assertEq('throttled frames retain a prompt finalization fallback',
-  postPaintSource.includes('setTimeout(flushPendingResult, 250)'), true);
+{
+  // The ending input's frame shows only the finished board; the outcome shell
+  // paints one frame later and the result pipeline after that. Any input or
+  // page exit inside the window flushes both, shell first.
+  const deferral = source.slice(source.indexOf('let pendingResultOutcome = null;'),
+    source.indexOf('\nfunction newGame('));
+  const log = [];
+  let frames = [];
+  let timers = [];
+  const context = vm.createContext({
+    requestAnimationFrame: (fn) => { frames.push(fn); return frames.length; },
+    cancelAnimationFrame: () => { frames = []; },
+    setTimeout: (fn, ms) => { timers.push({ fn, ms }); return timers.length; },
+    clearTimeout: () => {},
+    Date: { now: () => 1000 },
+  });
+  vm.runInContext(deferral, context);
+  context.renderImmediateGameEnd = (outcome, endedAt) => log.push('shell ' + outcome + ' ' + endedAt);
+  context.reportResult = (outcome, endedAt) => log.push('report ' + outcome + ' ' + endedAt);
+  const paint = () => {
+    const callbacks = frames; frames = [];
+    for (const fn of callbacks) fn();
+    const due = timers.filter((t) => t.ms === 0); timers = timers.filter((t) => t.ms !== 0);
+    for (const t of due) t.fn();
+  };
+  vm.runInContext("reportResultAfterPaint('win')", context);
+  assertEq('the ending input renders no result shell before its own paint', log.length, 0);
+  assertEq('throttled frames retain a prompt finalization fallback',
+    timers.some((t) => t.ms === 250), true);
+  paint();
+  assertEq('the outcome shell follows one paint later', log.join(' | '), 'shell win 1000');
+  paint();
+  assertEq('the result pipeline starts only after the shell has painted',
+    log.join(' | '), 'shell win 1000 | report win 1000');
+  log.length = 0;
+  vm.runInContext("reportResultAfterPaint('loss'); flushPendingResult(); flushPendingResult()", context);
+  assertEq('input inside the window shows the shell, then finalizes once',
+    log.join(' | '), 'shell loss 1000 | report loss 1000');
+}
 const immediateSource = source.slice(
   source.indexOf('function renderImmediateGameEnd('),
   source.indexOf('\nfunction reportResultAfterPaint('));

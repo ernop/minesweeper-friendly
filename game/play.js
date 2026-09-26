@@ -213,24 +213,43 @@ function refreshGeneratorSelect() {
 
 //-------GAME FLOW-------
 
-// A game end first updates the board and face. The result pipeline clones and
-// persists history, recomputes trace metrics, and builds every post-game
-// chart; doing all of that in the ending input task prevents the browser
-// from painting the already-updated board and final time. A frame callback
-// followed by a timer crosses a paint boundary before that work begins.
-// The fallback also finalizes promptly if animation frames are throttled.
+// A game end paints the finished board, face, and counters in the ending
+// input's own frame, as fast as any other click. The outcome and final time
+// shell follows one frame later, and only after that paint does the result
+// pipeline (record and trace capture, analysis jobs, every post-game chart)
+// begin. Each step waits for a frame callback followed by a timer, which
+// crosses a paint boundary. The fallback finalizes promptly if animation
+// frames are throttled.
 let pendingResultOutcome = null;
 let pendingResultEndedAt = null;
+let pendingResultShellShown = false;
 let pendingResultFrame = null;
 let pendingResultTimer = null;
 let pendingResultFallbackTimer = null;
 
+function afterNextPaint(step) {
+  pendingResultFrame = requestAnimationFrame(() => {
+    pendingResultFrame = null;
+    pendingResultTimer = setTimeout(() => {
+      pendingResultTimer = null;
+      step();
+    }, 0);
+  });
+}
+
+function showPendingResultShell() {
+  pendingResultShellShown = true;
+  renderImmediateGameEnd(pendingResultOutcome, pendingResultEndedAt);
+}
+
 function flushPendingResult() {
   if (pendingResultOutcome === null) return;
+  if (!pendingResultShellShown) showPendingResultShell();
   const outcome = pendingResultOutcome;
   const endedAt = pendingResultEndedAt;
   pendingResultOutcome = null;
   pendingResultEndedAt = null;
+  pendingResultShellShown = false;
   if (pendingResultFrame !== null) cancelAnimationFrame(pendingResultFrame);
   if (pendingResultTimer !== null) clearTimeout(pendingResultTimer);
   if (pendingResultFallbackTimer !== null) clearTimeout(pendingResultFallbackTimer);
@@ -266,20 +285,19 @@ function renderImmediateGameEnd(outcome, endedAt) {
   loading.setAttribute('role', 'status');
   loading.textContent = 'loading scores and report\u2026';
   resultRanks.appendChild(loading);
-  // Show the result in its reserved column before this task paints.
+  // Place the shell in its reserved column before this task paints.
   syncBoardLayout();
 }
 
 function reportResultAfterPaint(outcome) {
   if (pendingResultOutcome !== null) flushPendingResult();
-  const endedAt = Date.now();
   pendingResultOutcome = outcome;
-  pendingResultEndedAt = endedAt;
-  renderImmediateGameEnd(outcome, endedAt);
+  pendingResultEndedAt = Date.now();
+  pendingResultShellShown = false;
   pendingResultFallbackTimer = setTimeout(flushPendingResult, 250);
-  pendingResultFrame = requestAnimationFrame(() => {
-    pendingResultFrame = null;
-    pendingResultTimer = setTimeout(flushPendingResult, 0);
+  afterNextPaint(() => {
+    showPendingResultShell();
+    afterNextPaint(flushPendingResult);
   });
 }
 

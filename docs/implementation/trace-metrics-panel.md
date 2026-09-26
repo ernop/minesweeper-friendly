@@ -64,10 +64,13 @@ Spec: [docs/product/trace-metrics-panel.md](../product/trace-metrics-panel.md). 
   settings change handler) applies the settings mid-game and between
   games. Game-end transition: `lose` paints the mine-hit board and dead face,
   while `checkWin` paints the completed marks, counter, and cool face; both
-  then use `reportResultAfterPaint`, which synchronously renders only the
-  outcome, exact final time, and loading status (ending with the same
-  `syncBoardLayout` renderResult uses, so the shell's one frame is placed
-  correctly) before crossing a requestAnimationFrame + timer paint boundary.
+  then use `reportResultAfterPaint`, which renders nothing in the ending
+  input's task. After one requestAnimationFrame + timer paint boundary
+  (`afterNextPaint`), `showPendingResultShell` renders the outcome, exact
+  final time, and loading status (ending with the same `syncBoardLayout`
+  renderResult uses, so the shell's first frame is placed correctly); a second
+  boundary precedes `flushPendingResult`, which shows the shell first if an
+  earlier flush arrived inside the window.
   `reportResult` then persists the captured primary facts and dispatches
   analysis. The worker reply supplies metrics before asynchronous report
   presentation replaces that shell, if its view is still current. The game-end timestamp is captured before

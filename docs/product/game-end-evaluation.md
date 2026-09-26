@@ -95,13 +95,16 @@ report.
 - **Game-end feedback precedes result work** (decided 2026-08-29): once the
   ending action has been evaluated, a loss must reveal its mines, mark the hit
   cell, and show the dead face, while a win must complete its mine marks,
-  counter, and cool face, in the current input turn. The outcome and exact
-  final time appear immediately beside the completed board, with a quiet
-  loading status beneath them. Only after that first paint may history
-  cloning and persistence, final trace metrics, session-chart rebuilding,
-  rankings, and the full post-game report begin.
-  The immediate shell runs the same board-layout sync as the full result, so
-  its one visible frame is already correctly placed. A throttled-frame
+  counter, and cool face, in the current input turn, so the final click shows
+  as fast as any other (creator decision 2026-09-26: "having the last click be
+  normal just like the others would indeed be wonderful"; drawing the result
+  shell in that frame had made game-ending clicks the only ones past 20ms).
+  The outcome and exact final time appear beside the completed board one
+  frame later, with a quiet loading status beneath them. Only after that
+  second paint may record and trace capture, final trace metrics,
+  session-chart rebuilding, rankings, and the full post-game report begin.
+  The shell runs the same board-layout sync as the full result, so its first
+  visible frame is already correctly placed. A throttled-frame
   fallback still finalizes the record promptly; any subsequent player input,
   and the tab being hidden or unloaded, flush pending finalization first — a
   finished game is never lost to the deferral window. The pre-action
