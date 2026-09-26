@@ -303,6 +303,12 @@ faster and loosen only by recorded creator decision. Commands:
 - Plain terms (user request 2026-09-26): use normal words; when a technical
   term or a name you coined is needed, define it in the same sentence where it
   first appears, not elsewhere.
+- Questions (user request 2026-09-26): ask in plain text with a recommended
+  answer, not in question forms; forms were closed unanswered twice and cost
+  round trips.
+- Answer first (user request 2026-09-26): answer the user's question in the
+  first message, then do any long audit or fix; a yes/no question once
+  waited 28 minutes behind its fix.
 - Defects found while working get fixed when the fix is clear, not only
   listed (user expectation 2026-09-26); report what was fixed.
 - No emojis anywhere — files, responses, commits.
