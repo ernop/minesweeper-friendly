@@ -27,7 +27,11 @@ Spec: [docs/product/trace-metrics-panel.md](../product/trace-metrics-panel.md). 
     deviation: no Kalman position smoothing, params unpublished);
   - `computeWasteMetrics` — the survey Tier 1/2 whole-game measures
     (250 ms pauses, wander ratio, 8 px/90° turnarounds, 300 ms feints
-    via the layout events' cell mapping);
+    via the layout events' cell mapping: `layoutCellGrid` insets the cell
+    grid by the board's bevel, an eighth of a cell, because layout events
+    measure the border box; before 2026-09-26 the border box itself was
+    treated as the grid, which put 3.25% of recorded clicks in a neighboring
+    cell);
   - `computeClickCadence` — press-to-press click timing over 'ldown' +
     'rdown' events (2026-08-22): gap quartiles (median + IQR/median
     spread), fastest gap, peak presses in a rolling 1 s window, share of

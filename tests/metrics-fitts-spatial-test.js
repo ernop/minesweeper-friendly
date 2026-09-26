@@ -30,8 +30,10 @@ function assertEq(name, actual, want) {
   if (actual !== want) throw new Error(`${name}: got ${actual}, want ${want}`);
 }
 
+// Layout events measure the board's border box: 10px cells plus the bevel,
+// an eighth of a cell (1.25px) on each side, so the cell grid starts at 0.
 const LAYOUT = {
-  t: 0, kind: 'layout', left: 0, top: 0, width: 90, height: 90,
+  t: 0, kind: 'layout', left: -1.25, top: -1.25, width: 92.5, height: 92.5,
   boardWidth: 9, boardHeight: 9,
 };
 

@@ -72,8 +72,12 @@ function convert(record, trace, deps) {
     const [cx, cy] = toCells(layoutAt(layouts, t), trace.sampleX[i], trace.sampleY[i]);
     samples.push([Math.round((t - t0) * 10) / 10, cx, cy]);
   }
+  const firstReveal = replay.steps.find((s) => s.kind === 'first-reveal').index;
+  const mines = trace.finalBoard !== undefined ? trace.finalBoard.cells.map((c) => (c.mine ? '1' : '0')).join('')
+    : deps.randomPlacement(width, TrainingCore.BOARD.height, TrainingCore.BOARD.mines, firstReveal,
+      deps.fromSeed(trace.seed)).map((m) => (m ? '1' : '0')).join('');
   return { status: 'converted', game: { source: 'self', id: String(record.endedAt), player: 'self', band: null,
-    timeMs: record.timeMs, bv3: record.bv3, cellPx: cellPx(layouts[layouts.length - 1])[0], actions, samples } };
+    timeMs: record.timeMs, bv3: record.bv3, cellPx: cellPx(layouts[layouts.length - 1])[0], mines, actions, samples } };
 }
 
 function main() {

@@ -42,6 +42,12 @@ let pregenCurrent = null;     // rank/3BV of the candidate currently being playe
 // Press-preview state (left button held down)
 let leftDown = false;
 let pressedIndices = [];
+// Both-button chords (game/controls.js). chordGesture: both buttons have been
+// down together since the left or right press that began the gesture, so the
+// left release chords and never reveals. pendingRightPress: a right press on
+// an open cell, a no-op only if it ends without a left press joining it.
+let chordGesture = false;
+let pendingRightPress = null;
 
 // Mouse path length during the run (px). The position is tracked at all
 // times so the first in-game segment starts from wherever the cursor

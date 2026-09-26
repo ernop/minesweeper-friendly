@@ -16,6 +16,7 @@ const TRAINING_INPUT_LABELS = {
   'noop-blank': 'click on an open blank cell',
   'noop-on-flag': 'left click on a flag',
   'noop-right-on-open': 'right click on an open cell',
+  'noop-chord-on-unopened': 'both-button release over an unopened cell',
 };
 
 const trainingStatus = document.getElementById('training-status');
@@ -36,7 +37,7 @@ function storageFailure(what) {
 }
 
 function userdataReady() {
-  const worker = new Worker('training-worker.js?v=20260926-game-records');
+  const worker = new Worker('training-worker.js?v=20260926-chord-buttons');
   worker.onmessage = ({ data }) => {
     worker.terminate();
     if (data.error !== undefined) showTrainingStatus('Training summary failed: ' + data.error, true);

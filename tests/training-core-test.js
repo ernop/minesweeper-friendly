@@ -59,7 +59,7 @@ function finalBoard(mineAt) {
   return { cells: mineAt.map((mine) => ({ mine })) };
 }
 function trace(events, extra = {}) {
-  return { events: events.map(([kind, index, t]) => ({ kind, index, t })), ...extra };
+  return { events: events.map(([kind, index, t, marks = {}]) => ({ kind, index, t, ...marks })), ...extra };
 }
 
 console.log('replay: every input kind on a hand-built win');
@@ -100,6 +100,32 @@ console.log('replay: every input kind on a hand-built win');
   check('removable inputs', breakdown.removableCount === 8);
   check('removable time', breakdown.removableMs === 300 * 7 + 300);
   check('chord kinds counted', breakdown.byKind['chord-multi'].count === 1 && breakdown.byKind['chord-single'].count === 1);
+}
+
+console.log('replay: both-button chords and the 1.5 click');
+{
+  const gesture = { chordGesture: true };
+  const events = [
+    ['lup', at(0, 0), 0], // first reveal
+    ['rdown', at(2, 2), 300], // 1.5 click: the right press flags (2,2)...
+    ['rdown', at(4, 0), 600], // ...another flag...
+    ['lup', at(3, 1), 900, gesture], // ...then the left release on the 2 chords it
+    ['rdown', at(2, 3), 1200, gesture], // right press that joined a chord on (2,3)...
+    ['lup', at(2, 3), 1300, gesture], // ...whose release over an unopened cell does not reveal
+    ['lup', at(2, 3), 1600], // a plain left click reveals it
+    ['rdown', at(4, 3), 1900], // flag the last mine
+    ['rdown', at(4, 2), 2200, gesture], // classic both-button chord started with the right button
+    ['lup', at(4, 2), 2300, gesture],
+  ];
+  const replay = TrainingCore.replay(trace(events, { finalBoard: finalBoard(mines) }), 'win', board, deps);
+  check('both-button chords replay to a win', replay.status === 'replayed');
+  check('the right halves of chords are not inputs; the unopened release is a no-op: '
+    + replay.steps.map((s) => s.kind).join(','), JSON.stringify(replay.steps.map((s) => s.kind)) === JSON.stringify(
+    ['first-reveal', 'flag', 'flag', 'chord-multi', 'noop-chord-on-unopened', 'reveal', 'flag', 'chord-single']));
+  const firstGesture = TrainingCore.replay(trace([['lup', at(0, 0), 0, gesture], ['lup', at(2, 2), 100]],
+    { finalBoard: finalBoard(mines) }), 'loss', board, deps);
+  check('a both-button release is never the game-starting reveal', firstGesture.status === 'replayed'
+    && JSON.stringify(firstGesture.steps.map((s) => s.kind)) === JSON.stringify(['noop-chord-on-unopened', 'first-reveal']));
 }
 
 console.log('replay: outcome checks');

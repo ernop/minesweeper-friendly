@@ -81,7 +81,9 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   the ground truth behind motion and decision analysis: cursor samples
   (relative ms timestamp, x, y; equal receipt times merge as specified below), button events
   ('ldown'/'lup'/'rdown' with position and the board cell index hit, or null
-  for a press released off the cells), layout events (the board's bounding
+  for a press released off the cells; `chordGesture: true` marks a right
+  press that was half of a both-button chord and the left release that made
+  the chord attempt, since 2026-09-26), layout events (the board's bounding
   rect and dimensions, re-recorded on scroll, resize, and zoom, so every
   sample maps to a board cell forever), and one decision event per accepted
   board action. A decision event keeps the exact pre-action visible position,
@@ -107,7 +109,9 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   warmup and is real data, so capture covers the ready state, not just
   play. Post-game movement belongs to no game and is not captured.
   Abandoned boards (restarted mid-game) produce no record and no trace.
-- `rdown` is the context-menu flag-action trigger. Existing calculations
+- `rdown` is the board's right press, which flags a covered cell: the press
+  itself since 2026-09-26, before that the context-menu event (fired on the
+  press on Linux and macOS, on the release on Windows). Existing calculations
   continue using this action boundary and handler-time samples; capture
   provenance v1 below separately records physical right-button transitions,
   event times, and page-state observations. Full source-sample preservation

@@ -42,9 +42,10 @@ Spec: [docs/product/per-game-stats.md](../product/per-game-stats.md). Index: [AG
   `winUnmarkedFraction`, and the endings chart draws it as "percent of
   placed marks unused when winning". A markless win is unmeasured (0 of 0).
 - `clickCount` counts only effective clicks; `wastedClicks` counts board
-  clicks that changed nothing — `toggleFlag` and `chord` return whether
-  they had an effect, and the mouseup/contextmenu handlers count the
-  falses plus left-clicks on flagged cells. Stored on the record since
+  clicks that changed nothing — the board mousedown/mouseup handlers
+  (game/controls.js) count unavailable chords, left-clicks on flagged cells,
+  both-button releases over unopened cells, and right presses on revealed
+  cells that `settlePendingRightPress` finds unjoined at release. Stored on the record since
   2026-08-19; `GAME_RECORD_SCHEMA` accepts its absence (older records),
   and the wasted-clicks scatter filters to wins that carry it.
 - `misclicks` counts board-changing actions contradicted by facts provable
@@ -52,7 +53,7 @@ Spec: [docs/product/per-game-stats.md](../product/per-game-stats.md). Index: [AG
   the pure classification: reveal of a certain mine, placement on a
   proven safe, removal from a certain mine, or a chord whose opened set
   contains a certain mine / flagged set contains a proven safe. The
-  mouseup/contextmenu handlers classify and increment before acting so a
+  board mousedown/mouseup handlers classify and increment before acting so a
   fatal action reaches `reportResult`; `newGame` resets it. Stored since
   2026-08-23; older records omit it. A fatal misclick can also carry one
   or more tags in `actionEvaluations`; the count and evidence ledger are

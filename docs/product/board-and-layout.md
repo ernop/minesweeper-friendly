@@ -31,9 +31,16 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   Default 28 px. The chosen size is a saved preference: it survives reloads
   and visits to Settings, and travels with separate preference exports/imports. Zoom
   changes resize the current board in place and update trace geometry.
-- Mechanics: first click never a mine; flood fill; right-click flags;
-  left-click chording with press preview; win auto-flags remaining mines;
-  loss shows the red hit cell and crossed-out wrong flags.
+- Mechanics: first click never a mine; flood fill; the right press flags (on
+  the press, as in the official game, whatever the browser's menu timing);
+  chording with press preview by a left click on a satisfied number or by both
+  buttons held together over it, so the 1.5 click works (right press to flag,
+  keep holding, slide onto the number, press left, release); once both
+  buttons are down together the release chords and never reveals; win
+  auto-flags remaining mines; loss shows the red hit cell and crossed-out
+  wrong flags. Both-button chording and flag-on-press were added 2026-09-26
+  at the user's request: the official game has them, and their absence was an
+  oversight, not a decision.
 
 ## Startup readiness
 

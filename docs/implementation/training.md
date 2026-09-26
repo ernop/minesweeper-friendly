@@ -39,13 +39,16 @@ references, the `new Worker(...)` literal, and the worker's `importScripts`.
 
 Inputs are trace events of kind `lup` or `rdown` with an integer `index`,
 the same events the board handlers in `game/controls.js` log after their
-early-return checks. Semantics mirror `revealCell`/`floodReveal`,
-`chordTargets`/`chord`, and `toggleFlag`: a left release on a covered unflagged
-cell reveals and floods zeros (skipping flags); on a revealed number it chords
-when flags equal the number and covered unflagged neighbors remain; otherwise
-it is a no-op classified as missing flag, extra flag, finished (nothing left
-to open), blank, or on a flag. A flag action toggles a covered cell or is a
-no-op on an open one.
+early-return checks, except a right press marked `chordGesture` (the right
+half of a both-button chord, not an input of its own). Semantics mirror
+`revealCell`/`floodReveal`, `chordTargets`/`chord`, and `toggleFlag`: a left
+release on a covered unflagged cell reveals and floods zeros (skipping flags);
+on a revealed number it chords when flags equal the number and covered
+unflagged neighbors remain; otherwise it is a no-op classified as missing flag,
+extra flag, finished (nothing left to open), blank, or on a flag. A left
+release marked `chordGesture` never reveals: over an unopened cell it is the
+no-op `noop-chord-on-unopened`. A right press toggles a covered cell's flag or
+is a no-op on an open one.
 
 Layout: `trace.finalBoard.cells[i].mine` when saved (post-Justice, and every
 recorded input replays identically on it because redraws only rearrange covered

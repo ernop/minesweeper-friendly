@@ -585,21 +585,41 @@ function resampleUniform(t, x, y, dtMs) {
   return { xs, ys, steps };
 }
 
+// Layout events measure #board's border box. Its bevel border is one eighth
+// of a cell on every side (style.css --bevel-size), so the cell grid starts
+// that far inside the box and each cell is width / (boardWidth + 1/4) wide.
+// Browsers may round the border to whole device pixels, a sub-pixel offset.
+const BOARD_BEVEL_CELLS = 1 / 8;
+
+function layoutCellGrid(layout) {
+  const cellW = layout.width / (layout.boardWidth + 2 * BOARD_BEVEL_CELLS);
+  const cellH = layout.height / (layout.boardHeight + 2 * BOARD_BEVEL_CELLS);
+  return { left: layout.left + BOARD_BEVEL_CELLS * cellW, top: layout.top + BOARD_BEVEL_CELLS * cellH, cellW, cellH };
+}
+
+// The cell under a viewport point, or null off the grid.
+function layoutCellAt(layout, x, y) {
+  const grid = layoutCellGrid(layout);
+  const col = Math.floor((x - grid.left) / grid.cellW);
+  const row = Math.floor((y - grid.top) / grid.cellH);
+  if (col < 0 || col >= layout.boardWidth || row < 0 || row >= layout.boardHeight) return null;
+  return row * layout.boardWidth + col;
+}
+
 // The board cell rect for a click, from the latest layout snapshot at or
 // before the click; null when the click hit no cell or no layout with
 // nonzero cell size is known.
 function cellRectAt(layout, index) {
   if (layout === null || index === null || index === undefined) return null;
   if (!(layout.width > 0) || !(layout.height > 0)) return null;
-  const cellW = layout.width / layout.boardWidth;
-  const cellH = layout.height / layout.boardHeight;
+  const grid = layoutCellGrid(layout);
   const col = index % layout.boardWidth;
   const row = Math.floor(index / layout.boardWidth);
   return {
-    left: layout.left + col * cellW,
-    top: layout.top + row * cellH,
-    width: cellW,
-    height: cellH,
+    left: grid.left + col * grid.cellW,
+    top: grid.top + row * grid.cellH,
+    width: grid.cellW,
+    height: grid.cellH,
   };
 }
 
@@ -1020,14 +1040,8 @@ function computeWasteMetrics(sampleT, sampleX, sampleY, events) {
         else if (ev.kind === 'lup' || ev.kind === 'rdown') clickedDuring = true;
         li++;
       }
-      let cell = null;
-      if (layout !== null && layout.width > 0 && layout.height > 0) {
-        const col = Math.floor((sampleX[i] - layout.left) / (layout.width / layout.boardWidth));
-        const row = Math.floor((sampleY[i] - layout.top) / (layout.height / layout.boardHeight));
-        if (col >= 0 && col < layout.boardWidth && row >= 0 && row < layout.boardHeight) {
-          cell = row * layout.boardWidth + col;
-        }
-      }
+      const cell = layout !== null && layout.width > 0 && layout.height > 0
+        ? layoutCellAt(layout, sampleX[i], sampleY[i]) : null;
       if (cell !== curCell) {
         if (curCell !== null && !clickedDuring && sampleT[i] - enterT >= FEINT_DWELL_MS) {
           feintCount++;
@@ -1137,14 +1151,8 @@ function collectClicklessDwells(sampleT, sampleX, sampleY, events) {
       else if (ev.kind === 'lup' || ev.kind === 'rdown') clickedDuring = true;
       li++;
     }
-    let cell = null;
-    if (layout !== null && layout.width > 0 && layout.height > 0) {
-      const col = Math.floor((sampleX[i] - layout.left) / (layout.width / layout.boardWidth));
-      const row = Math.floor((sampleY[i] - layout.top) / (layout.height / layout.boardHeight));
-      if (col >= 0 && col < layout.boardWidth && row >= 0 && row < layout.boardHeight) {
-        cell = row * layout.boardWidth + col;
-      }
-    }
+    const cell = layout !== null && layout.width > 0 && layout.height > 0
+      ? layoutCellAt(layout, sampleX[i], sampleY[i]) : null;
     if (cell !== curCell) {
       if (curCell !== null && !clickedDuring && sampleT[i] - enterT >= QUEUE_DWELL_MS) {
         dwells.push({ cell: curCell, enterT: enterT, exitT: sampleT[i] });
@@ -1273,7 +1281,7 @@ function computeFittsMetrics(sampleT, sampleX, sampleY, events) {
     if (ev.kind !== 'ldown' && ev.kind !== 'rdown') continue;
     const press = ev;
     if (prevPress !== null && layout !== null && layout.boardWidth > 0) {
-      const cellW = layout.width / layout.boardWidth;
+      const cellW = layoutCellGrid(layout).cellW;
       const d = Math.hypot(press.x - prevPress.x, press.y - prevPress.y);
       // First cursor sample after the previous press: movement start.
       while (si < sampleT.length && sampleT[si] <= prevPress.t) si++;

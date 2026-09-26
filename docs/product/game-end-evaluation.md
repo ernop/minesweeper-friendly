@@ -37,8 +37,9 @@ report.
   - **mechanical contradictions** — proven-safe flag, removal of a
     proven-mine flag, visible chord contradiction, and a wrong-flag chord
     established only by the fatal outcome;
-  - **no-progress input** — unsatisfied chord, left-click on a flag, or
-    right-click on a revealed cell. These carry their exact no-op reason
+  - **no-progress input** — unsatisfied chord, left-click on a flag, or a
+    right press on a revealed cell that no left press joined into a
+    both-button chord (settled at its release, dated at its press). These carry their exact no-op reason
     but omit a full board snapshot to avoid multiplying history size.
   - **unused correct mark (wins only)** — in a won game, a player-placed flag
     that was on a mine when removed or at game end but never contributed to

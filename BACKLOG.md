@@ -34,15 +34,11 @@ Unbuilt parts of plan v2 (creator):
   corpus players in the same situation class; adaptive selection.
 - **Level placement.** A per-class model of latency and choices by level with
   player effects and uncertainty, placing the player in each class.
-- **Chord-binding experiment.** Optional both-button chording with the 1.5
-  click, and keyboard keys as buttons, compared with left-click chording in
-  alternating blocks.
-- **Measurement defect: cell geometry in trace metrics.** `game/trace-metrics.js`
-  maps cursor samples to cells with `layout.width / layout.boardWidth`, but the
-  layout events measure `#board`'s border box, whose bevel insets the grid by an
-  eighth of a cell. 3.25% of recorded clicks fall in a neighbor under that
-  mapping versus none (all within 0.6 px) with the inset. Feints, queued-click
-  dwells, and sub-movement target rectangles use the mapping.
+- **Keyboard keys as mouse buttons (mapped).** minesweeper.online lets keys act
+  as the buttons, separating clicking from aiming; a candidate for alternating
+  blocks. Both-button chording and the 1.5 click are built as standard behavior
+  (2026-09-26), and the trace-metrics cell-geometry defect found by the
+  comparison is fixed.
 
 Earlier proposals, still open:
 

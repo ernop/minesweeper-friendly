@@ -354,6 +354,8 @@ function newGame() {
   clearInterval(timerInterval);
   timerInterval = null;
   leftDown = false;
+  chordGesture = false;
+  pendingRightPress = null;
   pressedIndices = [];
 
   cells = [];

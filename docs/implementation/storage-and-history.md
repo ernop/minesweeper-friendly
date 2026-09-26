@@ -82,7 +82,8 @@ Spec: [docs/product/storage-and-history.md](../product/storage-and-history.md). 
   document mousemove handler calls `traceMove` while
   `tracing()` (ready or playing). `traceEvent` logs 'ldown'/'lup'/'rdown'
   from the board handlers (document mouseup catches off-cell releases,
-  index null); `traceDecision` logs every accepted action's exact pre-action
+  index null) and returns the logged event, so a right press can be marked
+  `chordGesture` when a left press joins it; `traceDecision` logs every accepted action's exact pre-action
   visible position, measured choices, evidence, and result;
   `recordLayout` logs board-geometry events (newGame,
   scroll, resize, zoom), and `recordLayoutIfMoved` (2026-08-23)
@@ -115,7 +116,8 @@ Spec: [docs/product/storage-and-history.md](../product/storage-and-history.md). 
   as Uint32Array; `game/backup.js` converts them for JSON export when measured.
   No database upgrade or historical rewrite is needed for these new fields.
   `traceRightButton` runs in document capture listeners before gameplay's
-  context-menu handler; distinct kinds prevent duplicate action counts.
+  board mousedown handler (the right press); distinct kinds prevent duplicate
+  action counts.
   `tracePageEvent` records window focus/blur and pagehide/pageshow, plus document
   visibility changes. Existing flush/cancel behavior remains in those handlers.
   Page-state collection schedules no analysis on its own; the next existing

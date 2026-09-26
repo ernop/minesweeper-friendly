@@ -285,6 +285,11 @@ games and discard stale view updates. No main-thread calculation fallback. See
 
 ### Communication
 
+- Plain terms (user request 2026-09-26): use normal words; when a technical
+  term or a name you coined is needed, define it in the same sentence where it
+  first appears, not elsewhere.
+- Defects found while working get fixed when the fix is clear, not only
+  listed (user expectation 2026-09-26); report what was fixed.
 - No emojis anywhere — files, responses, commits.
 - No relationship-management speech: no praise, validation, verdicts on the
   user's statements ("You're right"), reassurance, or servile offers. Present

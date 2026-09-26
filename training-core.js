@@ -24,7 +24,7 @@ const TRAINING_AVOIDABLE_FATAL_KINDS = new Set(['mine-safe', 'guess-safe']);
 const TRAINING_INPUT_KINDS = [
   'reveal', 'chord-multi', 'chord-single', 'flag', 'unflag',
   'noop-missing-flag', 'noop-extra-flag', 'noop-finished', 'noop-blank',
-  'noop-on-flag', 'noop-right-on-open',
+  'noop-on-flag', 'noop-right-on-open', 'noop-chord-on-unopened',
 ];
 const TRAINING_NOOP_KINDS = new Set(TRAINING_INPUT_KINDS.filter((kind) => kind.startsWith('noop-')));
 
@@ -72,16 +72,22 @@ function trainingFirstRevealIndex(inputs) {
     if (event.kind === 'rdown') {
       if (flaggedBeforeStart.has(event.index)) flaggedBeforeStart.delete(event.index);
       else flaggedBeforeStart.add(event.index);
-    } else if (!flaggedBeforeStart.has(event.index)) {
+    } else if (event.chordGesture !== true && !flaggedBeforeStart.has(event.index)) {
       return event.index;
     }
   }
   return null;
 }
 
+// Board inputs in trace order. A right press marked as half of a both-button
+// chord is not an input of its own: the chord is its left release.
+function trainingBoardInputs(trace) {
+  return trace.events.filter((event) => Number.isInteger(event.index)
+    && (event.kind === 'lup' || (event.kind === 'rdown' && event.chordGesture !== true)));
+}
+
 function trainingReplay(trace, outcome, board, deps) {
-  const inputs = trace.events.filter((event) => (event.kind === 'lup' || event.kind === 'rdown')
-    && Number.isInteger(event.index));
+  const inputs = trainingBoardInputs(trace);
   const firstRevealIndex = trainingFirstRevealIndex(inputs);
   if (firstRevealIndex === null) return { status: 'no-reveal' };
   const mine = trainingMineLayout(trace, board, firstRevealIndex, deps);
@@ -125,7 +131,9 @@ function trainingReplay(trace, outcome, board, deps) {
     const gapMs = startedAtT === null ? null : event.t - previousT;
     let kind;
     let episode = null;
-    if (event.kind === 'lup') {
+    if (event.kind === 'lup' && event.chordGesture === true && !revealed[index]) {
+      kind = 'noop-chord-on-unopened';
+    } else if (event.kind === 'lup') {
       if (!revealed[index] && !flagged[index]) {
         kind = startedAtT === null ? 'first-reveal' : 'reveal';
         open(index);

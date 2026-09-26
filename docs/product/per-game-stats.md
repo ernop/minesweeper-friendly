@@ -208,8 +208,10 @@ cadence-spread-versus-date relationship scatter (wins with the field,
 Theil–Sen trend on that subset), and as a session series.
 
 Wasted clicks — board clicks that changed nothing (chord attempts on
-unsatisfied or empty numbers, left-clicks on flagged cells, right-clicks
-on revealed cells) — joined the record schema on 2026-08-19 (decided
+unsatisfied or empty numbers or with both buttons over an unopened cell,
+left-clicks on flagged cells, right presses on revealed cells that no left
+press joined into a chord; a both-button chord counts as one click, like a
+left-click chord) — joined the record schema on 2026-08-19 (decided
 2026-08-19: tolerate absence going forward). Games recorded before the
 measurement existed simply lack the field: absence means "not measured"
 and is valid on import (a present value must be a number); displays that

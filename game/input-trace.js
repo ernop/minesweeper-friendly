@@ -80,9 +80,10 @@ function tracePageEvent(event) {
   });
 }
 
-// The action stream's rdown is a context-menu trigger. These independently
-// observed transitions support physical right-button timing without silently
-// changing the historical cadence/segment definitions.
+// Since 2026-09-26 the action stream's rdown is the board's right press itself
+// (earlier it was the context-menu event, which Windows fires on release).
+// These independently observed transitions still record every physical right
+// press and release, on the board or off it.
 function traceRightButton(event) {
   if (!tracing() || event.button !== 2) return;
   recordLayoutIfMoved();
@@ -155,12 +156,15 @@ function recordLayoutIfMoved() {
   recordLayout();
 }
 
-// rdown names the existing flag-action trigger, not a physical right press.
 // kind: 'ldown' | 'lup' | 'rdown'. index is the board cell the event hit,
 // or null (an 'lup' released off the cells while the button was down).
+// 'rdown' is the right press, which flags a covered cell. `chordGesture: true`
+// marks a right press that was part of a both-button chord and the left
+// release that attempted that chord (game/controls.js); such a release never
+// reveals. Returns the logged event.
 function traceEvent(kind, event, index) {
   recordLayoutIfMoved();
-  trace.events.push({
+  const logged = {
     t: performance.now() - trace.t0,
     atMs: gameState === 'playing' ? elapsedMs() : 0,
     kind: kind,
@@ -169,8 +173,10 @@ function traceEvent(kind, event, index) {
     x: event.clientX,
     y: event.clientY,
     index: index,
-  });
+  };
+  trace.events.push(logged);
   scheduleMetricsUpdate({ trace: true });
+  return logged;
 }
 
 // Every accepted board action gets one exact pre-action player view and the

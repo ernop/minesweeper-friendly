@@ -16,7 +16,7 @@ function pressAt(index) {
   if (gameState === 'won' || gameState === 'lost') return;
   const cell = cells[index];
   let targets = [];
-  if (!cell.revealed && !cell.flagged) {
+  if (!cell.revealed && !cell.flagged && !chordGesture) {
     targets = [index];
   } else if (cell.revealed && cell.adjacent > 0) {
     targets = neighbors(index).filter((n) => !cells[n].revealed && !cells[n].flagged);
@@ -61,7 +61,97 @@ window.addEventListener('blur', tracePageEvent);
 document.addEventListener('mousedown', traceRightButton, true);
 document.addEventListener('mouseup', traceRightButton, true);
 
+//-------CHORDING: LEFT CLICK, BOTH BUTTONS, AND THE 1.5 CLICK-------
+
+// Chording works the way the official game does it and the way this clone
+// always has: a left click on a satisfied number, or both buttons held
+// together over it. A right press flags at once (the press, not the release),
+// so the 1.5 click — right press to flag, keep holding, slide onto the number,
+// press left, release — flags and chords in one motion. Once both buttons have
+// been down together the gesture is a chord: its left release never reveals.
+
+function joinChordGesture() {
+  chordGesture = true;
+  if (pendingRightPress !== null) {
+    pendingRightPress.logged.chordGesture = true;
+    pendingRightPress = null;
+  }
+}
+
+function recordNoOp(index, reason) {
+  wastedClicks++;
+  sessionRecordPress(false, false, false, false);
+  recordActionEvaluation(evaluateNoOpAction(index, reason), 'continued');
+}
+
+// A right press on an open cell that ended without a left press joining it
+// changed nothing: count it as the no-op it was, at the time it happened.
+function settlePendingRightPress() {
+  if (pendingRightPress === null) return;
+  const { evaluation, observed } = pendingRightPress;
+  pendingRightPress = null;
+  wastedClicks++;
+  sessionRecordObservedNoop(observed);
+  recordActionEvaluation(evaluation, 'continued');
+}
+
+function flagCell(index) {
+  const removing = cells[index].flagged;
+  const misclick = flagChangeIsMisclick(index, removing);
+  const actionEvaluation = evaluateFlagAction(index, removing);
+  toggleFlag(index, actionEvaluation);
+  if (misclick) recordMisclick();
+  // A removal is still a useful press (it changed the board); only a
+  // placement feeds the mine-marking rate, only a removal feeds the
+  // flag-removal rate.
+  sessionRecordPress(true, cells[index].flagged, !cells[index].flagged, misclick);
+  recordActionEvaluation(actionEvaluation, 'continued');
+}
+
+function rightPress(event) {
+  if (trialBlocksPlay() || boardLabActive()
+      || gameState === 'won' || gameState === 'lost') return;
+  const index = cellIndexFromEvent(event);
+  if (index === null) return;
+  settlePendingRightPress();
+  const logged = traceEvent('rdown', event, index);
+  inputActionCount++;
+  if (leftDown) {
+    logged.chordGesture = true;
+    chordGesture = true;
+    pressAt(index);
+    return;
+  }
+  if (cells[index].revealed) {
+    pendingRightPress = { logged, evaluation: evaluateNoOpAction(index, 'flagged-revealed-cell'),
+      observed: sessionPressObservation() };
+    return;
+  }
+  flagCell(index);
+}
+
+function chordFromNumber(index) {
+  const targets = chordTargets(index);
+  if (targets === null) {
+    recordNoOp(index, 'chord-unavailable');
+    return;
+  }
+  if (proofSearchBlocks(targets, 'chord')) {
+    inputActionCount--;
+    return;
+  }
+  const misclick = chordIsMisclick(index, targets);
+  if (misclick) recordMisclick();
+  // Record before acting because a contradicted chord can end the game.
+  sessionRecordPress(true, false, false, misclick);
+  chord(index);
+}
+
 boardElement.addEventListener('mousedown', (event) => {
+  if (event.button === 2) {
+    rightPress(event);
+    return;
+  }
   if (event.button !== 0) return;
   if (trialBlocksPlay() || boardLabActive()) return;
   if (gameState === 'won' || gameState === 'lost') return;
@@ -69,6 +159,7 @@ boardElement.addEventListener('mousedown', (event) => {
   if (index === null) return;
   traceEvent('ldown', event, index);
   leftDown = true;
+  if ((event.buttons & 2) !== 0) joinChordGesture();
   pressAt(index);
 });
 
@@ -85,9 +176,15 @@ boardElement.addEventListener('mouseup', (event) => {
   if (trialBlocksPlay() || boardLabActive()
       || gameState === 'won' || gameState === 'lost') return;
   // Logged before acting so a game-ending click is inside its own trace.
-  traceEvent('lup', event, index);
+  const logged = traceEvent('lup', event, index);
   inputActionCount++;
   const cell = cells[index];
+  if (chordGesture) {
+    logged.chordGesture = true;
+    if (cell.revealed) chordFromNumber(index);
+    else recordNoOp(index, 'chord-unavailable');
+    return;
+  }
   if (!cell.revealed && !cell.flagged) {
     if (gameState === 'playing' && proofSearchBlocks([index], 'click')) {
       inputActionCount--;
@@ -101,31 +198,22 @@ boardElement.addEventListener('mouseup', (event) => {
     sessionRecordPress(true, false, false, misclick);
     revealCell(index);
   } else if (cell.revealed) {
-    const targets = chordTargets(index);
-    if (targets === null) {
-      wastedClicks++;
-      sessionRecordPress(false, false, false, false);
-      recordActionEvaluation(evaluateNoOpAction(index, 'chord-unavailable'), 'continued');
-    } else {
-      if (proofSearchBlocks(targets, 'chord')) {
-        inputActionCount--;
-        return;
-      }
-      const misclick = chordIsMisclick(index, targets);
-      if (misclick) recordMisclick();
-      // Record before acting because a contradicted chord can end the game.
-      sessionRecordPress(true, false, false, misclick);
-      chord(index);
-    }
+    chordFromNumber(index);
   } else {
     // Left-clicking a flagged cell does nothing.
-    wastedClicks++;
-    sessionRecordPress(false, false, false, false);
-    recordActionEvaluation(evaluateNoOpAction(index, 'left-clicked-flag'), 'continued');
+    recordNoOp(index, 'left-clicked-flag');
   }
 });
 
 document.addEventListener('mouseup', (event) => {
+  if (event.button === 2) {
+    settlePendingRightPress();
+    if (!leftDown) {
+      chordGesture = false;
+      clearPresses();
+    }
+    return;
+  }
   if (event.button !== 0) return;
   // Releases on a cell were already logged by the board handler above
   // (it runs first on the bubble path); this catches the rest — a press
@@ -134,6 +222,8 @@ document.addEventListener('mouseup', (event) => {
     traceEvent('lup', event, null);
   }
   leftDown = false;
+  // Still holding right: the next left press chords again.
+  chordGesture = chordGesture && (event.buttons & 2) !== 0;
   clearPresses();
 });
 
@@ -149,30 +239,11 @@ document.addEventListener('mousemove', (event) => {
   if (tracing()) traceMove(event);
 });
 
+// The right press already acted; the browser menu never opens on the board.
+// (Browsers fire contextmenu on the press on Linux and macOS and on the release
+// on Windows, which is why flagging does not wait for it.)
 boardElement.addEventListener('contextmenu', (event) => {
   event.preventDefault();
-  if (trialBlocksPlay() || boardLabActive()
-      || gameState === 'won' || gameState === 'lost') return;
-  const index = cellIndexFromEvent(event);
-  if (index === null) return;
-  traceEvent('rdown', event, index);
-  inputActionCount++;
-  const removing = cells[index].flagged;
-  const misclick = !cells[index].revealed && flagChangeIsMisclick(index, removing);
-  const actionEvaluation = !cells[index].revealed
-    ? evaluateFlagAction(index, removing) : null;
-  if (!toggleFlag(index, actionEvaluation)) {
-    wastedClicks++;
-    sessionRecordPress(false, false, false, false);
-    recordActionEvaluation(evaluateNoOpAction(index, 'flagged-revealed-cell'), 'continued');
-  } else {
-    if (misclick) recordMisclick();
-    // A removal is still a useful press (it changed the board); only a
-    // placement feeds the mine-marking rate, only a removal feeds the
-    // flag-removal rate.
-    sessionRecordPress(true, cells[index].flagged, !cells[index].flagged, misclick);
-    recordActionEvaluation(actionEvaluation, 'continued');
-  }
 });
 
 // Swallow near misses around the board so an imprecise flag click does not

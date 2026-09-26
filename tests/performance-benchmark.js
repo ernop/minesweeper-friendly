@@ -68,7 +68,7 @@ for (const size of [5000, 10000, 20000]) {
 }
 for (const size of [20, 40, 80]) {
   const t = [], x = [], y = [];
-  const events = [{ t: 0, kind: 'layout', left: 0, top: 0, width: 270, height: 270, boardWidth: 9, boardHeight: 9 }];
+  const events = [{ t: 0, kind: 'layout', left: -3.75, top: -3.75, width: 277.5, height: 277.5, boardWidth: 9, boardHeight: 9 }];
   for (let click = 0; click < size; click++) {
     for (let point = 0; point < 20; point++) {
       t.push(click * 500 + point * 20);

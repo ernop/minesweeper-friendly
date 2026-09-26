@@ -92,7 +92,7 @@ const press = (kind, t) => ({ t: t, kind: kind, x: 0, y: 0, index: 0 });
 // ---- Test 4: no presses at all ----
 {
   const c = computeClickCadence([0, 10, 20], [
-    { t: 0, kind: 'layout', left: 0, top: 0, width: 270, height: 270,
+    { t: 0, kind: 'layout', left: -3.75, top: -3.75, width: 277.5, height: 277.5,
       boardWidth: 9, boardHeight: 9 },
   ]);
   assertUndefined('t4 gapMedian', c.gapMedianMs);

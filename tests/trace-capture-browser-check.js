@@ -21,7 +21,7 @@ const { chromium } = require(process.argv[2]);
     assert.equal(events.filter(e => e.kind === 'right-button-up').length, 1);
     assert.equal(events.filter(e => e.kind === 'rdown').length, 1);
     for (const [kind, type] of [['right-button-down', 'mousedown'], ['right-button-up', 'mouseup'],
-      ['rdown', 'contextmenu']]) {
+      ['rdown', 'mousedown']]) {
       const event = events.find(e => e.kind === kind);
       assert.equal(event.sourceType, type);
       assert.equal(event.isTrusted, true);

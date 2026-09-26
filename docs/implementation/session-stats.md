@@ -73,7 +73,9 @@ Spec: [docs/product/session-stats.md](../product/session-stats.md). Index: [AGEN
   real); `sessionRecordMove` taps the document mousemove handler beside
   mousePathPx; `sessionRecordPress(useful, flagPlaced, flagRemoved,
   misclick)` taps the board
-  mouseup and contextmenu handlers beside the wastedClicks counting
+  mousedown and mouseup handlers beside the wastedClicks counting; a right
+  press on an open cell is settled at its release and, if no left press
+  joined it, `sessionRecordObservedNoop` inserts it at its press time
   (`sessionLastUsefulPressAt` resets in newGame so gaps never span
   games; `sessionLastMoveAt` gives the 100ms moving flag); it also
   collects this game's qualifying gaps into `gameFastclickGaps` (reset

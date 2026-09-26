@@ -41,8 +41,9 @@ function assertUndefined(name, actual) {
 // queued), cell 40 at t=1100 (no completed dwell yet), cell 0 at t=2000
 // (queued; wait 2000-400=1600), cell 2 at t=2200 (its stay was too short).
 {
+  // Border box of 10px cells: a 1.25px bevel on each side, grid at 0.
   const layout = {
-    t: 0, kind: 'layout', left: 0, top: 0, width: 90, height: 90,
+    t: 0, kind: 'layout', left: -1.25, top: -1.25, width: 92.5, height: 92.5,
     boardWidth: 9, boardHeight: 9,
   };
   const events = [

@@ -2,6 +2,7 @@
 
 Shared format (one JSON object per game, also written by user_games.js):
   source, id, player, band, timeMs, bv3,
+  mines: '0'/'1' per cell, row by row (the layout the inputs met)
   actions: [[tMs, cellX, cellY, kind], ...]   kind: reveal | chord | flag | unflag | noop
   samples: [[tMs, x, y], ...]                  cursor position in cell units
 Time zero is the game-starting reveal. Cell (i, j) spans [i, i + 1) x [j, j + 1).
@@ -60,9 +61,11 @@ def convert(entry: dict) -> dict:
         if kind is not None:
             actions.append([t_ms, mouse.x // pix, mouse.y // pix, kind])
         previous = current
+    mines = ''.join('1' if value == -1 else '0' for row in video.board for value in row)
     return {'source': 'saolei', 'id': str(entry['video_id']), 'player': str(entry['player_id']),
             'band': entry['band'], 'timeMs': round(video.rtime * 1000), 'bv3': video.bbbv,
-            'software': video.software, 'actions': actions, 'samples': samples}
+            'openings': video.op, 'software': video.software, 'mines': mines,
+            'actions': actions, 'samples': samples}
 
 
 def main() -> None:

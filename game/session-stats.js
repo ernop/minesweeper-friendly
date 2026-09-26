@@ -1109,6 +1109,31 @@ function sessionRecordMove(px) {
   scheduleMetricsUpdate({ sessionPlay: true });
 }
 
+// When a press happened, for presses whose meaning is settled later: a right
+// press on an open cell is a no-op only if no left press joins it into a
+// both-button chord before it is released.
+function sessionPressObservation() {
+  const now = Date.now();
+  return { at: now, moving: now - sessionLastMoveAt <= SESSION_MOVING_PRESS_MS };
+}
+
+// Records such a settled no-op at its own time, in time order among events
+// logged while the button was held.
+function sessionRecordObservedNoop(observed) {
+  const press = {
+    kind: 'press', modeKey: sessionEventModeKey(), at: observed.at, useful: false,
+    flag: false, unflag: false, misclick: false, moving: observed.moving, gapMs: undefined,
+  };
+  let at = sessionEvents.length;
+  while (at > 0) {
+    const previous = sessionEvents[at - 1];
+    if ((previous.to === undefined ? previous.at : previous.to) <= observed.at) break;
+    at--;
+  }
+  sessionEvents.splice(at, 0, press);
+  scheduleMetricsUpdate({ sessionPlay: true });
+}
+
 function sessionRecordPress(useful, flagPlaced, flagRemoved, misclick) {
   const now = Date.now();
   const press = {

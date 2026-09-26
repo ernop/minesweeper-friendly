@@ -40,9 +40,11 @@ page as a provisional economy dashboard; its stages are not final until the
 comparison study ranks the subskills. The study design, data sources, and pilot
 results are in
 [reference/skill-comparison-2026-09-26.md](../../reference/skill-comparison-2026-09-26.md).
-Chord binding becomes a measured choice: other bindings (both buttons with the
-1.5 click, keyboard keys as buttons) are candidates for a within-player
-experiment, not a change made on reputation.
+Chord binding (revised the same afternoon): the user pointed out that
+both-button chording and the 1.5 click are part of the official game and were
+left out by oversight, so both are now standard behavior beside left-click
+chording ([board rules](board-and-layout.md)); keyboard keys as buttons remains
+only a possible experiment.
 
 ### Plan v2 (requested; not built unless marked)
 

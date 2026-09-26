@@ -88,7 +88,8 @@ Index: [AGENTS.md](../../AGENTS.md).
   (`tests/startup-browser-check.js`, `tests/trace-capture-browser-check.js`,
   `tests/board-time-profile-browser-check.js`,
   `tests/rank-highlight-browser-check.js`, `tests/preferences-browser-check.js`,
-  `tests/board-metrics-browser-check.js`, `tests/training-browser-check.js`)
+  `tests/board-metrics-browser-check.js`, `tests/training-browser-check.js`,
+  `tests/chord-buttons-browser-check.js`)
   take a playwright-core directory and
   a Chromium executable as arguments, and need a server for the repository
   root on `http://127.0.0.1:8099/`. On this machine those arguments are

@@ -37,7 +37,9 @@ function assertUndefined(name, actual) {
 
 // A 9x9 board rect at (0, 0), 30 px cells: cell (col, row) center is at
 // (col*30+15, row*30+15).
-const LAYOUT = { t: 0, kind: 'layout', left: 0, top: 0, width: 270, height: 270,
+// The border box of 30px cells: the grid plus a 3.75px bevel (an eighth of a
+// cell) on each side, placed so the cell grid starts at 0.
+const LAYOUT = { t: 0, kind: 'layout', left: -3.75, top: -3.75, width: 277.5, height: 277.5,
   boardWidth: 9, boardHeight: 9 };
 
 // ---- Test 1: one straight constant-speed movement, clean click ----

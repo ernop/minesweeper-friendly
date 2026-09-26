@@ -6,9 +6,10 @@ has fetched so nothing is requested twice, and stores the corpus outside the
 repository: replays are other players' data and are not redistributed.
 
 Usage:
-  python saolei_fetch.py --bands 40-50:15 50-60:15 60-75:15 75-110:15 [--max-pages 40]
+  python saolei_fetch.py --by bvs --bands 1.0-1.4:50 1.4-1.8:50 ... [--per-player 3] [--max-pages 300]
 
-Each band is MIN-MAX seconds:COUNT. At most PER_PLAYER_PER_BAND replays per
+--by chooses what a band measures: the game's 3BV/s (bvs) or its time in
+seconds (time). Each band is MIN-MAX:COUNT. At most --per-player replays per
 player enter one band, so a band describes several players, not one.
 """
 import argparse
@@ -23,7 +24,6 @@ from pathlib import Path
 SITE = 'http://saolei.wang'
 CACHE = Path.home() / '.cache' / 'minesweeper-friendly' / 'saolei'
 REQUEST_GAP_S = 2.0
-PER_PLAYER_PER_BAND = 2
 USER_AGENT = 'Mozilla/5.0 (X11; Linux x86_64) minesweeper-friendly-research/0.1'
 # Pages are GB2312 with occasional bytes outside it, so they are matched as
 # bytes and never decoded; the replay path is percent-encoded byte for byte.
@@ -37,6 +37,7 @@ class Listing:
     video_id: int
     time_s: float
     bv3: int
+    bvs: float
     player_id: int
     reviewed: bool
 
@@ -68,11 +69,12 @@ def listing_page(page: int) -> list[Listing]:
     for row in rows:
         video = re.search(rb"Video/Show\.asp\?Id=(\d+)[^>]*>([\d.]+)</a>", row)
         bv3 = re.search(rb'id="BV_\d+" class="Title">(\d+)<', row)
+        bvs = re.search(rb'id="BVS_\d+" class="Title">([\d.]+)<', row)
         player = re.search(rb"Player/Show\.asp\?Id=(\d+)'\);\" class=\"High\"", row)
-        if not (video and bv3 and player):
+        if not (video and bv3 and bvs and player):
             raise RuntimeError(f'listing page {page}: unparsed row {row[:200]!r}')
         listings.append(Listing(int(video.group(1)), float(video.group(2)), int(bv3.group(1)),
-                                int(player.group(1)), UNREVIEWED not in row))
+                                float(bvs.group(1)), int(player.group(1)), UNREVIEWED not in row))
     return listings
 
 
@@ -103,10 +105,13 @@ def parse_bands(specs: list[str]) -> list[tuple[float, float, int]]:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
+    parser.add_argument('--by', choices=['bvs', 'time'], required=True)
     parser.add_argument('--bands', nargs='+', required=True)
+    parser.add_argument('--per-player', type=int, default=2)
     parser.add_argument('--max-pages', type=int, default=40)
     args = parser.parse_args()
     bands = parse_bands(args.bands)
+    measure = (lambda listing: listing.bvs) if args.by == 'bvs' else (lambda listing: listing.time_s)
     chosen: dict[int, list[Listing]] = {i: [] for i in range(len(bands))}
     for page in range(1, args.max_pages + 1):
         for listing in listing_page(page):
@@ -114,9 +119,9 @@ def main() -> None:
                 continue
             for i, (low, high, count) in enumerate(bands):
                 picked = chosen[i]
-                if not (low <= listing.time_s < high) or len(picked) >= count:
+                if not (low <= measure(listing) < high) or len(picked) >= count:
                     continue
-                if sum(1 for p in picked if p.player_id == listing.player_id) >= PER_PLAYER_PER_BAND:
+                if sum(1 for p in picked if p.player_id == listing.player_id) >= args.per_player:
                     continue
                 picked.append(listing)
         if all(len(chosen[i]) >= bands[i][2] for i in chosen):
@@ -125,11 +130,12 @@ def main() -> None:
     with index.open('a') as out:
         for i, picked in chosen.items():
             low, high, count = bands[i]
-            print(f'band {low:g}-{high:g} s: {len(picked)} of {count}')
+            label = f'{args.by} {low:g}-{high:g}'
+            print(f'band {label}: {len(picked)} of {count}', flush=True)
             for listing in picked:
                 file = download(listing)
-                out.write(json.dumps({**asdict(listing), 'band': f'{low:g}-{high:g}', 'file': str(file)},
-                                     ensure_ascii=False) + '\n')
+                out.write(json.dumps({**asdict(listing), 'band': label, 'file': str(file)}) + '\n')
+                out.flush()
 
 
 if __name__ == '__main__':
