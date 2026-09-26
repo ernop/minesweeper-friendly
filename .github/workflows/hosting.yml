@@ -1,0 +1,67 @@
+name: Verify and deploy Fuseki hosting
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fuseki-hosting
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '22'
+      - name: Verify runtime and game
+        run: |
+          python3 tests/hosting-release-test.py
+          for test in tests/*-test.js; do node "$test"; done
+          python3 deploy/build-release.py HEAD /tmp/minesweeper-release.tar
+
+  # Activation is deliberately manual until the DNS/TLS launch checklist is complete.
+  deploy:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master'
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    environment:
+      name: production-fuseki
+      url: https://minesweeper-friendly.fuseki.net/
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Refuse an outdated revision
+        run: |
+          test "$(git rev-parse HEAD)" = "$(git ls-remote origin refs/heads/master | cut -f1)"
+      - name: Verify HTTPS before changing the release
+        run: curl --fail --silent --show-error --max-time 30 https://minesweeper-friendly.fuseki.net/VERSION
+      - name: Build committed runtime
+        run: python3 deploy/build-release.py HEAD /tmp/minesweeper-release.tar
+      - name: Write dedicated deployment identity
+        run: |
+          umask 077
+          python3 - <<'PY'
+          from pathlib import Path
+          key = ${{ toJSON(secrets.FUSEKI_DEPLOY_SSH_KEY) }}
+          if not key.startswith('-----BEGIN OPENSSH PRIVATE KEY-----\n'):
+              raise ValueError('FUSEKI_DEPLOY_SSH_KEY is missing or invalid')
+          Path('/tmp/fuseki-deploy-key').write_text(key)
+          PY
+          ssh-keygen -y -f /tmp/fuseki-deploy-key > /dev/null
+      - name: Publish and verify exact revision
+        run: python3 deploy/publish.py /tmp/minesweeper-release.tar /tmp/fuseki-deploy-key deploy/known_hosts
+      - name: Remove deployment identity
+        if: always()
+        run: rm -f /tmp/fuseki-deploy-key

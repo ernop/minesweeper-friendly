@@ -126,3 +126,10 @@ the same Playwright/Chromium arguments and 8099 origin listed above.
 `node tests/performance-benchmark.js BASELINE_GIT_REVISION` compares exact
 outputs and median-of-three computation times with the named git revision;
 it never opens player storage. Timing observations are not pass thresholds.
+
+Hosting verification (2026-09-26): `python3 tests/hosting-release-test.py`
+checks the committed-runtime artifact. `tests/hosting-browser-check.js` takes
+the same Playwright and Chromium arguments as the other browser checks and
+uses only 8099. `python3 tests/hosting-http-check.py` targets the isolated
+nginx fixture with deliberately forbidden files and a symlink probe. Details:
+[hosting implementation](hosting.md).

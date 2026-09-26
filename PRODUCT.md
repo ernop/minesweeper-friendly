@@ -29,6 +29,8 @@ single-file spec; older references cite them as `PRODUCT.md "Heading"`.
 
 ### Foundations
 
+- [docs/product/hosting.md](docs/product/hosting.md) — Independent Fuseki application hosting, browser-origin isolation, and release boundaries.
+
 - [docs/product/design-axis.md](docs/product/design-axis.md) — The friendliness axis from naive random to the angelic dual of Kaboom, and the solver logic tiers behind "solvable".
 - [docs/product/ui-doctrine.md](docs/product/ui-doctrine.md) — App-wide directives (simplicity first, useful optional help, no hover reflow, unshortened legend labels, layout stability). Read before building or reshaping any surface. Section: "UI doctrine".
 - [docs/product/board-and-layout.md](docs/product/board-and-layout.md) — The classic skin and board chrome, and the page columns around a board that never moves. Sections: "Board and chrome", "Layout: the board never moves".

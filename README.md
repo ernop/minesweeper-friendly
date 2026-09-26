@@ -243,3 +243,11 @@ as wins and are recorded in full; they are not ranked.
 - [AGENTS.md](AGENTS.md) is the agent index: standing rules, plus the spec
   and implementation-notes path for every area.
 - [BACKLOG.md](BACKLOG.md) lists unbuilt work.
+
+
+## Fuseki hosting preparation
+
+Independent hosting at `minesweeper-friendly.fuseki.net` is implemented and
+tested but awaits DNS/TLS activation. GitHub Pages remains the playable public
+site. [Hosting status and deployment](docs/implementation/hosting.md) explains
+the runtime-only artifact, restricted upload account, tests, and launch steps.

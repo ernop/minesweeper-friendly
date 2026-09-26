@@ -8,6 +8,16 @@ leave new ideas only in chat.
 Status labels: **creator** = the creator asked for it; **mapped** = named
 on the design axis or in a research note, not requested as a build.
 
+## Fuseki hosting (creator, 2026-09-26)
+
+Add Minesweeper under the Fuseki project site with independent, isolated
+hosting; [the hosting specification](docs/product/hosting.md) and
+[implementation plan/status](docs/implementation/hosting.md) own the detail.
+DNS/TLS activation is pending. Voice-Wei origin migration must preserve its
+saved browser data and deliberate authenticated Articles integration.
+Nectaris Remake is requested for later: prepare the same deployment contract,
+then audit its runtime artifact and origin requirements before launch.
+
 ## Long-history trend cost (creator concern, 2026-09-26)
 
 The user asks whether fits cover every retained game and notes that O(n log n)

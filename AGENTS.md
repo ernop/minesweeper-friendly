@@ -128,6 +128,7 @@ the file path, plus the section heading when the file holds several.
 
 | Area | Product spec | Implementation notes |
 | --- | --- | --- |
+| Public hosting and deployment | [docs/product/hosting.md](docs/product/hosting.md) | [docs/implementation/hosting.md](docs/implementation/hosting.md) |
 | Friendliness axis, solver tiers | [docs/product/design-axis.md](docs/product/design-axis.md) | none |
 | UI doctrine (read before any UI work) | [docs/product/ui-doctrine.md](docs/product/ui-doctrine.md) | none |
 | Board chrome, page layout, board position | [docs/product/board-and-layout.md](docs/product/board-and-layout.md) | [docs/implementation/board-and-layout.md](docs/implementation/board-and-layout.md) |
