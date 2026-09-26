@@ -8,6 +8,20 @@ leave new ideas only in chat.
 Status labels: **creator** = the creator asked for it; **mapped** = named
 on the design axis or in a research note, not requested as a build.
 
+## Long-history trend cost (creator concern, 2026-09-26)
+
+The user asks whether fits cover every retained game and notes that O(n log n)
+still grows. The worker/exact-selection change is built; bounded lifetime cost
+is not. See [Point charts — Lifetime growth concern](docs/product/charts.md#lifetime-growth-concern-2026-09-26)
+and [the current scope and cost](docs/implementation/charts.md#lifetime-scope-and-remaining-cost-2026-09-26-review).
+
+Investigate worker-owned history updated by deltas, exact model caches keyed by
+data revision/scope, incremental bucket aggregates, and calculating charts when
+their views need them. Measure history cloning, repeated loss/view renders, new
+wins, startup, and imports separately. Preserve the existing lifetime coverage
+and exact estimator unless the creator selects a statistical-definition change;
+no cap, sampling, or reduced refresh frequency has been approved.
+
 ## Game data as the primary result surface (creator, 2026-09-23)
 
 The creator likes the game-data band and hopes it can "supercede so many

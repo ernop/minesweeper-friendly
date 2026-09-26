@@ -137,3 +137,15 @@ including tied x values, duplicate observations, and the mean of both middle
 slopes for an even count. It must not replace the fit with a sampled estimate.
 The same fitter serves property, relationship, Fitts, and spatial-bias fits.
 Calculations run in workers under the [analysis isolation rule](board-and-layout.md#analysis-must-not-block-play-requested-2026-09-25).
+
+
+### Lifetime growth concern (2026-09-26)
+
+The user asked whether trend fitting includes every game retained in the memory
+system and pointed out that O(n log n) still grows with that history. This is an
+open scaling concern after worker isolation and the exact fitter improvement.
+The current lifetime scope remains the eligible wins within one board-parameter,
+play-mode, and generator history key. Today's fit is a separate subset; average
+charts fit bucket averages. Retention remains unlimited. No history cap, sampled
+estimate, changed estimator, or less-frequent refresh has been selected.
+Follow-up work is tracked in [BACKLOG.md](../../BACKLOG.md#long-history-trend-cost-creator-concern-2026-09-26).

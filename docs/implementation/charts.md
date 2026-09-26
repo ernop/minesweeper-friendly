@@ -44,3 +44,29 @@ Spec: [docs/product/charts.md](../product/charts.md). Index: [AGENTS.md](../../A
   then draws the model and fit asynchronously; its `analysisReady` promise
   joins the report collector. Late chart replies only touch their own detached
   nodes. Scatter drawing checks the presentation budget every 128 points.
+
+
+## Lifetime scope and remaining cost (2026-09-26 review)
+
+`renderRanks` takes the complete `history[modeKey()]` collection, whose key
+combines board parameters, play mode, and generator. Raw relationship and
+property-distribution trends use every eligible win in that collection, plus a
+separate today subset. Average-mode fits operate on B occupied value buckets;
+constructing those buckets still scans the N eligible wins. Winrate mode includes
+losses in its buckets but does not fit a trend. Fitts and spatial-bias fits use
+observations from one game's trace.
+
+`analysis-worker.js` currently recomputes fits for each report request. There is
+no history revision cache or incremental lifetime dataset in the worker. Repeated
+view rendering and loss reports can repeat unchanged win-only fits. Raw fits cost
+expected O(N log N) each; refitting after each of N successive wins therefore
+accumulates O(N² log N) expected work for a fixed set of raw charts. Grouped charts
+cost O(N + B log B) per model, before rendering. Record projection and structured
+cloning still scale with the supplied history on the UI thread.
+
+Candidate follow-up architecture, not implemented: keep worker datasets updated
+by record deltas, cache exact models by data revision and fit scope, maintain
+bucket sums/counts incrementally, and request chart calculations only when their
+views need them. These remove repeated unchanged work; they do not turn the
+current exact lifetime Theil–Sen fitter into an O(1) update. A fixed observation
+window or different estimator would change the product's statistical definition.
