@@ -38,6 +38,8 @@ Specification: [public hosting](../product/hosting.md).
 
 ## Implementation and verification
 
+- `index.html`'s `#site-footer` links to the canonical game on Fuseki with
+  the label "play on Fuseki" (2026-09-27).
 - `deploy/runtime-files.json` owns the explicit public runtime list;
   `tests/hosting-release-test.py` fails when a page or worker loads a file
   missing from it.

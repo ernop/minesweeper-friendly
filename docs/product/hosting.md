@@ -41,6 +41,9 @@ cookies.
   saved; a Pages history does not appear on Fuseki. Use the existing
   explicit export/import controls to transfer them. Hosting does not upload
   player data.
+- The game page's footer links to `https://minesweeper-friendly.fuseki.net/`
+  with the label "play on Fuseki", replacing its GitHub repository link
+  (creator, 2026-09-27).
 - Visits to `https://minesweeper-friendly.fuseki.net/` are included in the
   Fuseki origin visitor count (decided 2026-09-26). The count is the nginx
   access log, not a script on the page. The game's pages are recorded under
