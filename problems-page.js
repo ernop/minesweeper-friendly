@@ -12,7 +12,7 @@ const ATTEMPT_STORE = 'attempts';
 const PREFERENCE_STORE = 'preferences';
 const POINTING_STORE = 'pointingRuns';
 const DRILL_STORE = 'drillAttempts';
-const PROBLEM_BANK_URL = 'problems-bank.json?v=20260926-last-flag';
+const PROBLEM_BANK_URL = 'problems-bank.json?v=20260927-two-safe';
 const HISTORY_ROWS = 30;
 const SVG_NS = 'http://www.w3.org/2000/svg';
 // Vertical distance between ladder labels, px.
@@ -885,7 +885,11 @@ function renderDrillHome() {
   }
   const summaries = done.map((a) => summarizeDrillAttempt(bank, a));
   const solved = summaries.filter((s) => s.outcome === 'solved');
-  const gestureShare = solved.filter((s) => s.usedGesture).length / Math.max(1, solved.length);
+  if (solved.length === 0) {
+    stats.textContent = done.length + ' positions tried, none solved yet.';
+    return;
+  }
+  const gestureShare = solved.filter((s) => s.usedGesture).length / solved.length;
   stats.textContent = done.length + ' positions tried, ' + solved.length + ' solved; median time '
     + seconds(problemMedian(solved.map((s) => s.doneMs))) + '; 1.5 click in '
     + Math.round(100 * gestureShare) + '% of solved positions.';

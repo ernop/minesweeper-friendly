@@ -308,6 +308,7 @@ check('last-flag positions: one flag short, a provable mine, safe squares to ope
     const facts = Justice.proveFacts({ width: 30, height: 16, mines: 99, revealed: position.opened, adjacent: position.adjacent },
       clues, { global: false, exact: false });
     assert.equal(facts.get(position.mineCell), 1, position.id + ' mine is provable');
+    assert.ok(position.freshSafe.length >= 2, position.id + ': flag and chord cost no more than clicking each safe square');
   }
 });
 

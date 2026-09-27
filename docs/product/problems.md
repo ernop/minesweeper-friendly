@@ -145,8 +145,11 @@ click. On the problems page, in its own card.
 - **Positions:** 60 real moments from the replay corpus, one per game, from
   the fastest games: a player flagged a mine and with the very next click
   chorded a number that flag completed. The number was exactly one flag short,
-  its missing mine provable at that moment, and it still had safe squares to
-  open. The ring sits where that player's cursor was at their previous click.
+  its missing mine provable at that moment, and it had at least two safe
+  squares to open: with one, clicking that square directly takes one input
+  against the 1.5 click's two, and the drill would reward the costlier habit
+  (the first build had 6 such positions; replaced 2026-09-27). The ring sits
+  where that player's cursor was at their previous click.
 - **Run:** a drill is 10 positions, the least practiced first. Resting the
   cursor on the ring shows the board in the next animation frame (time zero),
   with the focus box around the number. The task: open the number's safe

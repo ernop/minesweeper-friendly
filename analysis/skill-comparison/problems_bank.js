@@ -26,6 +26,9 @@ const ONE_PROBLEMS = 40;
 // learn the rule, not the particular position.
 const PER_FAMILY = 40;
 const LAST_FLAG_POSITIONS = 60;
+// The flag and the chord are two inputs. With one safe square, clicking it
+// directly is cheaper, and the drill would reward the costlier habit.
+const LAST_FLAG_MIN_SAFE = 2;
 // A family becomes a problem class only with this many judged fresh moves in
 // the corpus, so its level statistics mean something.
 const MIN_FAMILY_JUDGED = 20;
@@ -166,7 +169,7 @@ function lastFlagCandidatesOf(game) {
     if (board.flagged.some((f, c) => f && !board.mine[c])) return;
     if (around.filter((n) => board.flagged[n]).length !== board.adjacent[number] - 1) return;
     const safe = around.filter((n) => !board.revealed[n] && !board.flagged[n] && n !== mineCell);
-    if (safe.length === 0 || safe.some((n) => board.mine[n])) return;
+    if (safe.length < LAST_FLAG_MIN_SAFE || safe.some((n) => board.mine[n])) return;
     const prior = game.actions[k - 1];
     const start = prior[2] * S.W + prior[1];
     if (start === mineCell) return;
@@ -203,11 +206,9 @@ function main() {
   const keepPath = rest[0] === '--keep' ? rest[1] : null;
   const inputs = keepPath === null ? rest : rest.slice(2);
   const previous = keepPath === null ? null : JSON.parse(fs.readFileSync(keepPath, 'utf8'));
+  const kept = new Set(previous === null ? [] : previous.problems.map((p) => p.id));
   // Banks before format version 3 have no last-flag positions.
-  const kept = new Set(previous === null ? [] : [
-    ...previous.problems.map((p) => p.id),
-    ...(previous.formatVersion >= 3 ? previous.lastFlag.map((p) => p.id) : []),
-  ]);
+  const keptFlags = new Set(previous === null || previous.formatVersion < 3 ? [] : previous.lastFlag.map((p) => p.id));
   const situations = JSON.parse(fs.readFileSync(situationsPath, 'utf8'));
   const levels = S.LEVEL_BANDS.map(S.bandName).filter((b) => situations.levels[b]);
   const classes = {
@@ -293,12 +294,12 @@ function main() {
 
   // Last-flag positions: kept ones first, then the fastest games; one per game.
   const flagId = (c) => `${c.game.id}-${c.k}`;
-  lastFlagFound.sort((a, b) => (Number(kept.has(flagId(b))) - Number(kept.has(flagId(a))))
+  lastFlagFound.sort((a, b) => (Number(keptFlags.has(flagId(b))) - Number(keptFlags.has(flagId(a))))
     || (b.game.bv3 / b.game.timeMs - a.game.bv3 / a.game.timeMs) || (a.k - b.k));
   const lastFlag = [];
   const flagGames = new Set();
   for (const c of lastFlagFound) {
-    if (lastFlag.length === LAST_FLAG_POSITIONS && !kept.has(flagId(c))) break;
+    if (lastFlag.length === LAST_FLAG_POSITIONS && !keptFlags.has(flagId(c))) break;
     if (flagGames.has(c.game.id)) continue;
     flagGames.add(c.game.id);
     lastFlag.push({
@@ -338,8 +339,10 @@ function main() {
   const counts = {};
   for (const p of problems) counts[p.classId] = (counts[p.classId] || 0) + 1;
   const keptFound = problems.filter((p) => kept.has(p.id)).length;
+  const keptFlagsFound = lastFlag.filter((p) => keptFlags.has(p.id)).length;
   console.log(`${problems.length} problems in ${Object.keys(classes).length} classes`, counts,
-    keepPath === null ? '' : `kept ${keptFound} of ${kept.size} earlier problems`,
+    keepPath === null ? '' : `kept ${keptFound} of ${kept.size} earlier problems and ${keptFlagsFound} of `
+      + `${keptFlags.size} earlier last-flag positions`,
     `; ${lastFlag.length} last-flag positions from ${lastFlagFound.length} candidates`);
 }
 
