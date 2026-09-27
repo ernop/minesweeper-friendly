@@ -68,6 +68,9 @@ const MIN_BASELINE = 15;
 // Travel is compared on moves of this length (cells), so players who make
 // longer moves on average are not charged for it.
 const TRAVEL_DISTANCE = [2, 6];
+// Move lengths (squares) for travel by distance.
+const TRAVEL_BUCKETS = [[1, 2], [2, 4], [4, 8], [8, Infinity]];
+const bucketName = ([low, high]) => (high === Infinity ? `${low}+` : `${low}-${high}`);
 const TOP_PATTERNS = 30;
 // A family counts as memorized at a level when this share of its judged
 // fresh moves there is fluent, over at least MEMORIZED_MIN_N moves.
@@ -482,6 +485,11 @@ function traitsOf(games) {
     oneReactionMs: median(one.map((d) => d.reaction)),
     oneHoverMs: median(one.map((d) => d.hover)),
     travelMidMs: median(mid.map((d) => d.travel)),
+    // Median travel by move length in squares, for the pointing test's ladders.
+    travelByDistance: Object.fromEntries(TRAVEL_BUCKETS.map(([low, high]) => {
+      const list = moved.filter((d) => d.distance >= low && d.distance < high);
+      return [bucketName([low, high]), { medianMs: median(list.map((d) => d.travel)), moves: list.length }];
+    })),
     pauseSecondsPerGame: sum((g) => g.pauseMs) / 1000 / gameCount,
     effectivePer3BV: effective / bv3,
     flagsPer3BV: sum((g) => g.kinds.flag) / bv3,
@@ -733,7 +741,7 @@ function report(result, groups) {
 }
 
 module.exports = {
-  W, H, N, MINES, NEIGHBORS, LEVEL_BANDS, FLUENT_MARGIN_MS, DECISION_GAP_MAX_MS,
+  W, H, N, MINES, NEIGHBORS, LEVEL_BANDS, FLUENT_MARGIN_MS, DECISION_GAP_MAX_MS, TRAVEL_BUCKETS, bucketName,
   median, settle, exactFacts, residualClues, decisivePair, patternKey, lineKey, familyKey, picture,
   movementSplit, replayGame, analyzeGame, band, bandName,
 };

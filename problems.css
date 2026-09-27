@@ -192,6 +192,26 @@ body.problems-running #problems-header { display: none; }
   background: #0057d9;
 }
 
+/* The pointing test's current target. */
+.cell.hidden.pointing-target {
+  background: #1f5fd1;
+  border-color: #6f9ae8 #0d3a8f #0d3a8f #6f9ae8;
+}
+
+.pointing-values {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 28px;
+  margin: 4px 0 14px;
+}
+
+.pointing-ladders,
+#problems-result-ladder {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px 40px;
+}
+
 /* After a problem: the squares the new number proved. */
 .cell.problems-answer-safe::after,
 .cell.problems-answer-mine::after {
@@ -253,6 +273,8 @@ body.problems-running #problems-header { display: none; }
   font-size: 13px;
   font-weight: bold;
 }
+
+#problems-answer-key[hidden] { display: none; }
 
 .problems-key-safe,
 .problems-key-mine {

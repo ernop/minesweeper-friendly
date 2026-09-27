@@ -31,7 +31,12 @@ Spec: [docs/product/problems.md](../product/problems.md).
   - `ladderLayout(values, heightPx, gapPx)`: exact positions on a time scale
     (fastest at the top, 8% padding), label positions pushed apart in order
     within the drawing, and ticks;
-  - `validProblemAttempt`, `problemAttemptsFile`, `readProblemAttemptsFile`.
+  - `validProblemAttempt`, `problemAttemptsFile(attempts, pointingRuns,
+    exportedAt)`, `readProblemAttemptsFile(json, width, height)`;
+  - pointing test: `POINTING_PROTOCOL`, `POINTING_START`, `POINTING_MOVES`,
+    `pointingTargets(width, height)`, `movementSplitAt(samples, startT,
+    clickT, square)` (the same split from any start time),
+    `summarizePointing(run, width, height)`, `validPointingRun`.
 - `problems-page.js`:
   - opens IndexedDB `minesweeper-problems` version 1 (stores `attempts`, keyPath
     `startedAt`, and `preferences`, key `cellPx`) and fetches
@@ -57,7 +62,13 @@ Spec: [docs/product/problems.md](../product/problems.md).
     and window `blur` interrupt a running attempt and restart a preview;
   - `renderLadder` draws a ladder from `ladderLayout` (band with ticks, dots,
     SVG leaders, labels); `levelEntries` supplies the levels with enough
-    corpus moves and names the rest.
+    corpus moves and names the rest;
+  - database version 2 adds the `pointingRuns` store; `beginPointing`,
+    `showNextTarget` (draws a target in the next frame and stamps `shownT`),
+    `onPointingMove`, `onPointingPress`, `finishPointing`,
+    `renderPointingResult`, `renderPointingHome`, and `pointingLadders`
+    (the bank's `travelByLevel` against the run's `byDistance`); the shared
+    `boardGrid` from `measureGrid` serves both flows.
 
 ## Bank
 
@@ -68,7 +79,9 @@ node analysis/skill-comparison/situations.js SITUATIONS.json CORPUS.jsonl SELF.j
 node analysis/skill-comparison/problems_bank.js SITUATIONS.json problems-bank.json BANK_ID CORPUS.jsonl
 ```
 
-- Format `minesweeper-problems-bank` version 1: `bankId`, `source`,
+- Format `minesweeper-problems-bank` version 2 (version 2 added
+  `travelByLevel`: each level's median in-game travel and move count by move
+  length, for the pointing test): `bankId`, `source`,
   `corpusGames`, board size, `levels` (3BV/s bands), `fluentMarginMs`,
   `classes` (keyed by family key, or `one`; `family`; `byLevel[level]` with
   `medianThinkMs`, `freshMoves`, and for families `fluentShare` and

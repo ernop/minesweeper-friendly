@@ -27,7 +27,7 @@
 const fs = require('fs');
 const S = require('./situations.js');
 
-const TRAVEL_BUCKETS = [[1, 2], [2, 4], [4, 8], [8, Infinity]];
+const TRAVEL_BUCKETS = S.TRAVEL_BUCKETS;
 const TARGETS = ['1.8-2.2', '2.6-3', '3-3.5'];
 const MIN_CLASS_MOVES = 20;
 

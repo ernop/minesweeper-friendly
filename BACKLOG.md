@@ -26,8 +26,9 @@ Unbuilt parts of plan v2 (creator):
   the same situations; rank subskills by seconds saved. The situation analysis
   prices each trait's gap from the player's counts; the counterfactual replay
   is still open.
-- **Pointing test.** Targets on the real board grid at set distances and
-  directions for travel time, hover, endpoint accuracy, and misclick rate.
+- **Pointing test.** Built as `pointing-v1` on the problems page
+  ([problems.md](docs/product/problems.md)). Open: a within-player zoom block
+  comparing runs at 16 px and the usual square size.
 - **Minesweeper problems.** Version 1 built; follow-ons under
   [Minesweeper problems](#minesweeper-problems).
 - **Level placement.** Built at the level of the average game at the player's

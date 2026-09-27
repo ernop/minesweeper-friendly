@@ -138,6 +138,40 @@ display below implements that.
 - Values are the most legible text: bold, tabular, larger than their labels.
   No gray text; the layout uses the full width.
 
+## Pointing test `pointing-v1` (plan v2, built 2026-09-26 night)
+
+The hand alone, apart from reading the board: how fast and how accurately the
+player moves to a square and presses it. On the problems page, in its own
+card.
+
+- **Route:** from the start square (column 15, row 8), 24 moves of 2 to 13
+  squares in every direction (9 of 2-4 squares, 9 of 4-8, 6 longer), the same
+  every run so runs compare over years. `tests/problems-core-test.js` freezes
+  it.
+- **Run:** the board shows covered squares and a ring on the start square.
+  Pressing the start square starts the run; each target square turns blue in
+  the animation frame after the previous press, and that frame's timestamp is
+  when it was shown. A press on the target counts at the press (mouse button
+  down); a press elsewhere while a target shows is a miss; presses between a
+  press and the next frame count for nothing. Esc stops (saved as stopped); a
+  hidden tab or unfocused window interrupts.
+- **Measures (derived when shown):** per target, movement time (shown to
+  press), reaction, travel, and hover by the problems page's split; the press's
+  offset from the square's center; misses. Over the run: medians by move
+  length, the least-squares line of movement time against Fitts's index of
+  difficulty log2(distance + 1) with a target one square wide, throughput (mean
+  index over movement seconds, bits per second), total misses, and the spread
+  of press positions.
+- **Display:** time per target, throughput, and misses as the largest text,
+  then one ladder per move length (2-4, 4-8, 8+ squares) placing the run's
+  median travel among the skill levels' median in-game travel for moves of that
+  length. The home card shows the latest complete run the same way.
+- **Stored run** (store `pointingRuns`, keyed by `startedAt`): `startedAt`,
+  `protocol`, `cellPx`, `timeOriginMs`, `startT`, `endT`, `outcome`
+  (`complete`, `abandoned`, `interrupted`), `targets[]` (`shownT`, `pressT`,
+  press `x`, `y` in squares, `misses[]` of `{ t, x, y }`), and the cursor
+  `samples`. The backup file (format version 2) carries runs beside attempts.
+
 ## Stored attempt
 
 One record per attempt in the page's own IndexedDB database
@@ -165,9 +199,9 @@ at problems a new bank lacks are listed but not profiled.
 
 ## Backup
 
-Export writes `{ format: "minesweeper-problems-attempts", formatVersion: 1,
-exportedAt, attempts }`. Import merges by `startedAt`, keeps each attempt once,
-and rejects invalid attempts with a visible count.
+Export writes `{ format: "minesweeper-problems-attempts", formatVersion: 2,
+exportedAt, attempts, pointingRuns }`. Import merges each list by `startedAt`,
+keeps each item once, and rejects invalid items with a visible count.
 
 ## Hosting
 

@@ -175,6 +175,15 @@ slow moves. Seconds saved per game (357-game corpus, refreshed as it grows):
 
 Clicks come first; thinking and travel then matter equally for sub-60.
 
+### Pointing test (built)
+
+The hand alone, on the board grid: 24 squares on a fixed route, reaction,
+travel, hover, misses, and a Fitts's-law line, with travel placed among the
+skill levels' in-game travel for the same move lengths
+([problems.md](problems.md#pointing-test-pointing-v1-plan-v2-built-2026-09-26-night)).
+It separates motor speed from decision time: in-game travel slower than
+pointing-test travel at the same length is hesitation, not the hand.
+
 ### What the player's saved games show (2026-09-26)
 
 From the rendered High scores views and the records behind them (6,679 games):

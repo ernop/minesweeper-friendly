@@ -29,9 +29,9 @@ const PROBLEM_DEFAULT_CELL_PX = 24;
 const PROBLEM_OUTCOMES = ['solved', 'mine', 'timeout', 'abandoned', 'interrupted'];
 const PROBLEM_ACTION_KINDS = ['reveal', 'chord', 'flag', 'unflag'];
 const PROBLEM_BANK_FORMAT = 'minesweeper-problems-bank';
-const PROBLEM_BANK_VERSION = 1;
+const PROBLEM_BANK_VERSION = 2;
 const PROBLEM_FILE_FORMAT = 'minesweeper-problems-attempts';
-const PROBLEM_FILE_VERSION = 1;
+const PROBLEM_FILE_VERSION = 2;
 
 function problemBits(hex, count) {
   if (typeof hex !== 'string' || hex.length * 4 !== count || !/^[0-9a-f]*$/.test(hex)) {
@@ -72,6 +72,9 @@ function readProblemBank(json) {
   }
   const { width, height } = json;
   const count = width * height;
+  for (const level of json.levels) {
+    if (json.travelByLevel?.[level] === undefined) throw new Error('problem bank: no travel times for level ' + level);
+  }
   const neighbors = problemNeighbors(width, height);
   const byId = new Map();
   const problems = json.problems.map((raw) => {
@@ -187,8 +190,13 @@ function answersProblem(problem, kind, cell, effect) {
 // square opened) and x, y in squares from the board's top-left corner. Null
 // when the cursor never left its place or never settled on the square.
 function problemMovementSplit(samples, clickT, square) {
+  return movementSplitAt(samples, 0, clickT, square);
+}
+
+// The same split for a move that starts at startT; reaction counts from startT.
+function movementSplitAt(samples, startT, clickT, square) {
   let last = -1;
-  while (last + 1 < samples.t.length && samples.t[last + 1] <= 0) last++;
+  while (last + 1 < samples.t.length && samples.t[last + 1] <= startT) last++;
   if (last < 0) return null;
   const x0 = samples.x[last];
   const y0 = samples.y[last];
@@ -204,7 +212,7 @@ function problemMovementSplit(samples, clickT, square) {
   if (k === end || onset === null) return null;
   const arrival = samples.t[k + 1];
   if (arrival < onset) return null;
-  return { reaction: onset, travel: arrival - onset, hover: clickT - arrival };
+  return { reaction: onset - startT, travel: arrival - onset, hover: clickT - arrival };
 }
 
 // Replays an attempt's clicks on its problem: the answer times, the clicks
@@ -386,16 +394,119 @@ function validProblemAttempt(attempt) {
   return s.t.every(finite) && s.x.every(finite) && s.y.every(finite);
 }
 
-function problemAttemptsFile(attempts, exportedAt) {
-  return { format: PROBLEM_FILE_FORMAT, formatVersion: PROBLEM_FILE_VERSION, exportedAt, attempts };
+//-------POINTING TEST (the hand alone, on the board grid)-------
+
+// A released protocol id names one exact test. The route is fixed so runs
+// compare over years: from the start square, 24 moves of 2 to 13 squares in
+// every direction, each target a square to press as fast as possible.
+const POINTING_PROTOCOL = 'pointing-v1';
+const POINTING_START = Object.freeze([15, 8]);
+const POINTING_MOVES = Object.freeze([
+  [3, 0], [0, 3], [-3, 0], [0, -3], [6, 2], [-2, -6], [-6, 2], [2, 6],
+  [10, -3], [-10, -3], [-10, 3], [10, 3], [2, -2], [-2, -2], [-2, 2], [2, 2],
+  [5, -5], [-5, -5], [-5, 5], [5, 5], [1, -2], [-8, -6], [12, 4], [-5, 0],
+].map((move) => Object.freeze(move)));
+const POINTING_OUTCOMES = ['complete', 'abandoned', 'interrupted'];
+
+// The targets in order: square and distance from the previous square's center.
+function pointingTargets(width, height) {
+  let [col, row] = POINTING_START;
+  return POINTING_MOVES.map(([dx, dy]) => {
+    col += dx;
+    row += dy;
+    if (col < 0 || row < 0 || col >= width || row >= height) throw new Error('pointing route leaves the board');
+    return { col, row, cell: row * width + col, distance: Math.hypot(dx, dy) };
+  });
 }
 
-function readProblemAttemptsFile(json) {
+// Per target: movement time (target shown to press), its reaction, travel, and
+// hover, the press's offset from the square's center (squares), and misses.
+// Over the run: medians by move length, the least-squares line of movement
+// time against Fitts's index of difficulty log2(distance + 1) (target width
+// one square), throughput (mean index over movement seconds, bits per second),
+// misses, and the spread of press positions.
+function summarizePointing(run, width, height) {
+  const targets = pointingTargets(width, height);
+  const moves = run.targets.map((target, i) => {
+    const spec = targets[i];
+    const split = movementSplitAt(run.samples, target.shownT, target.pressT, { x: spec.col, y: spec.row });
+    return {
+      distance: spec.distance,
+      index: Math.log2(spec.distance + 1),
+      movementMs: target.pressT - target.shownT,
+      reactionMs: split === null ? null : split.reaction,
+      travelMs: split === null ? null : split.travel,
+      hoverMs: split === null ? null : split.hover,
+      offsetX: target.x - (spec.col + 0.5),
+      offsetY: target.y - (spec.row + 0.5),
+      misses: target.misses.length,
+    };
+  });
+  const byDistance = {};
+  for (const [low, high, name] of [[1, 2, '1-2'], [2, 4, '2-4'], [4, 8, '4-8'], [8, Infinity, '8+']]) {
+    const list = moves.filter((m) => m.distance >= low && m.distance < high);
+    byDistance[name] = {
+      moves: list.length,
+      medianMovementMs: problemMedian(list.map((m) => m.movementMs)),
+      medianTravelMs: problemMedian(list.filter((m) => m.travelMs !== null).map((m) => m.travelMs)),
+    };
+  }
+  const n = moves.length;
+  const meanIndex = moves.reduce((s, m) => s + m.index, 0) / n;
+  const meanMs = moves.reduce((s, m) => s + m.movementMs, 0) / n;
+  const covariance = moves.reduce((s, m) => s + (m.index - meanIndex) * (m.movementMs - meanMs), 0);
+  const variance = moves.reduce((s, m) => s + (m.index - meanIndex) ** 2, 0);
+  const slope = covariance / variance;
+  const spread = Math.sqrt(moves.reduce((s, m) => s + m.offsetX ** 2 + m.offsetY ** 2, 0) / n);
+  return {
+    moves,
+    byDistance,
+    medianMovementMs: problemMedian(moves.map((m) => m.movementMs)),
+    medianReactionMs: problemMedian(moves.filter((m) => m.reactionMs !== null).map((m) => m.reactionMs)),
+    medianHoverMs: problemMedian(moves.filter((m) => m.hoverMs !== null).map((m) => m.hoverMs)),
+    fittsSlopeMsPerBit: slope,
+    fittsInterceptMs: meanMs - slope * meanIndex,
+    throughputBitsPerSec: moves.reduce((s, m) => s + m.index / (m.movementMs / 1000), 0) / n,
+    misses: moves.reduce((s, m) => s + m.misses, 0),
+    pressSpreadSquares: spread,
+  };
+}
+
+function validPointingRun(run, width, height) {
+  const finite = (v) => typeof v === 'number' && Number.isFinite(v);
+  if (run === null || typeof run !== 'object') return false;
+  if (!finite(run.startedAt) || run.protocol !== POINTING_PROTOCOL || !PROBLEM_CELL_SIZES.includes(run.cellPx)) return false;
+  if (!finite(run.timeOriginMs) || !finite(run.startT) || !finite(run.endT) || run.endT < run.startT) return false;
+  if (!POINTING_OUTCOMES.includes(run.outcome) || !Array.isArray(run.targets)) return false;
+  const route = pointingTargets(width, height);
+  if (run.outcome === 'complete' ? run.targets.length !== route.length : run.targets.length > route.length) return false;
+  const inside = (v, limit) => finite(v) && v >= 0 && v < limit;
+  const ok = run.targets.every((t, i) => finite(t.shownT) && finite(t.pressT) && t.pressT >= t.shownT
+    && inside(t.x, width) && inside(t.y, height)
+    && Math.floor(t.x) === route[i].col && Math.floor(t.y) === route[i].row
+    && Array.isArray(t.misses) && t.misses.every((m) => finite(m.t) && finite(m.x) && finite(m.y)));
+  if (!ok) return false;
+  const s = run.samples;
+  if (s === null || typeof s !== 'object' || !Array.isArray(s.t) || !Array.isArray(s.x) || !Array.isArray(s.y)) return false;
+  return s.t.length === s.x.length && s.t.length === s.y.length && s.t.every(finite) && s.x.every(finite) && s.y.every(finite);
+}
+
+function problemAttemptsFile(attempts, pointingRuns, exportedAt) {
+  return { format: PROBLEM_FILE_FORMAT, formatVersion: PROBLEM_FILE_VERSION, exportedAt, attempts, pointingRuns };
+}
+
+function readProblemAttemptsFile(json, width, height) {
   if (json === null || typeof json !== 'object' || json.format !== PROBLEM_FILE_FORMAT) {
     throw new Error('not a problem attempts file');
   }
   if (json.formatVersion !== PROBLEM_FILE_VERSION) throw new Error('unknown problem attempts file version ' + json.formatVersion);
   if (!Array.isArray(json.attempts)) throw new Error('problem attempts file has no attempt list');
+  if (!Array.isArray(json.pointingRuns)) throw new Error('problem attempts file has no pointing run list');
   const valid = json.attempts.filter(validProblemAttempt);
-  return { valid, rejected: json.attempts.length - valid.length };
+  const validRuns = json.pointingRuns.filter((run) => validPointingRun(run, width, height));
+  return {
+    valid,
+    validRuns,
+    rejected: json.attempts.length - valid.length + json.pointingRuns.length - validRuns.length,
+  };
 }

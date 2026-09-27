@@ -237,7 +237,7 @@ function main() {
   for (const id of Object.keys(classes)) if (!used.has(id)) delete classes[id];
   const bank = {
     format: 'minesweeper-problems-bank',
-    formatVersion: 1,
+    formatVersion: 2,
     bankId,
     source: 'saolei.wang Expert replays, stratified by 3BV/s',
     corpusGames: games.length,
@@ -245,6 +245,8 @@ function main() {
     levels,
     fluentMarginMs: S.FLUENT_MARGIN_MS,
     classes,
+    // Median in-game travel by move length, per level, for the pointing test.
+    travelByLevel: Object.fromEntries(levels.map((b) => [b, situations.levels[b].travelByDistance])),
     problems,
   };
   fs.writeFileSync(outPath, JSON.stringify(bank) + '\n');

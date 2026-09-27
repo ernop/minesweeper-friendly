@@ -109,7 +109,8 @@ check('clicks: reveal, chain opening, flags, chords, mines', () => {
     return out;
   };
   const small = readProblemBank({
-    format: 'minesweeper-problems-bank', formatVersion: 1, bankId: 'test', width: 4, height: 4, mines: 2,
+    format: 'minesweeper-problems-bank', formatVersion: 2, bankId: 'test', width: 4, height: 4, mines: 2,
+    travelByLevel: { '1-1.4': {} },
     levels: ['1-1.4'], classes: { one: { family: null, byLevel: {} } },
     problems: [{ id: 't-1', classId: 'one', mines: hex([0, 2]), opened: hex([]), flags: hex([]), start: 1,
       startAt: [0.5, 0.5], freshSafe: [4], freshMines: [0], original: { first: null, doneMs: null } }],
@@ -265,19 +266,79 @@ check('attempt validation and the backup file', () => {
   assert.equal(validProblemAttempt({ ...good, previewT: good.startT - 999 }), false, 'the preview lasts the full second');
   assert.equal(validProblemAttempt({ ...good, samples: { t: [1], x: [], y: [] } }), false);
   assert.equal(validProblemAttempt({ ...good, actions: [{ t: 1, kind: 'poke', cell: 3 }] }), false);
-  const file = problemAttemptsFile([good, { ...good, outcome: 'won' }], 1790000000000);
-  const read = readProblemAttemptsFile(JSON.parse(JSON.stringify(file)));
+  const run = pointingRun();
+  const file = problemAttemptsFile([good, { ...good, outcome: 'won' }], [run, { ...run, protocol: 'pointing-v0' }], 1790000000000);
+  const read = readProblemAttemptsFile(JSON.parse(JSON.stringify(file)), bank.width, bank.height);
   assert.equal(read.valid.length, 1);
-  assert.equal(read.rejected, 1);
-  assert.throws(() => readProblemAttemptsFile({ format: 'minesweeper-friendly-self-checks' }), /not a problem attempts file/);
-  assert.throws(() => readProblemAttemptsFile({ ...file, formatVersion: 2 }), /unknown problem attempts file version/);
+  assert.equal(read.validRuns.length, 1);
+  assert.equal(read.rejected, 2);
+  assert.throws(() => readProblemAttemptsFile({ format: 'minesweeper-friendly-self-checks' }, 30, 16), /not a problem attempts file/);
+  assert.throws(() => readProblemAttemptsFile({ ...file, formatVersion: 1 }, 30, 16), /unknown problem attempts file version/);
+  assert.throws(() => readProblemAttemptsFile({ ...file, pointingRuns: undefined }, 30, 16), /no pointing run list/);
+});
+
+// A complete pointing run on the fixed route: each target shown 50 ms after
+// the previous press and pressed after 200 + 100 * index of difficulty ms, the
+// cursor resting 60 ms before each press; one miss on the first target.
+function pointingRun() {
+  const route = pointingTargets(bank.width, bank.height);
+  const samples = { t: [1000], x: [15.5], y: [8.5] };
+  const targets = [];
+  let t = 1000;
+  let [x, y] = [15.5, 8.5];
+  for (const target of route) {
+    const shownT = t + 50;
+    const pressT = shownT + 200 + 100 * Math.log2(target.distance + 1);
+    const tx = target.col + 0.5;
+    const ty = target.row + 0.5;
+    samples.t.push(shownT + 30, shownT + 60, pressT - 60, pressT - 1);
+    samples.x.push(x, x + (tx - x) * 0.5, tx, tx);
+    samples.y.push(y, y + (ty - y) * 0.5, ty, ty);
+    targets.push({ shownT, pressT, x: tx + 0.1, y: ty, misses: targets.length === 0 ? [{ t: shownT + 100, x: 1.5, y: 1.5 }] : [] });
+    [x, y, t] = [tx, ty, pressT];
+  }
+  return { startedAt: 1790000000000, protocol: 'pointing-v1', cellPx: 24, timeOriginMs: 1789999990000,
+    startT: 1000, endT: t, outcome: 'complete', targets, samples };
+}
+
+check('the pointing route is frozen and stays on the board', () => {
+  assert.equal(POINTING_PROTOCOL, 'pointing-v1');
+  assert.deepEqual([...POINTING_START], [15, 8]);
+  assert.equal(POINTING_MOVES.length, 24);
+  const route = pointingTargets(bank.width, bank.height);
+  assert.equal(route.length, 24);
+  assert.deepEqual(route.slice(0, 3).map((r) => [r.col, r.row]), [[18, 8], [18, 11], [15, 11]]);
+  assert.ok(route.every((r) => r.distance >= 2 && r.distance <= 13));
+  const lengths = route.map((r) => r.distance);
+  assert.equal(lengths.filter((d) => d >= 2 && d < 4).length, 9);
+  assert.equal(lengths.filter((d) => d >= 4 && d < 8).length, 9);
+  assert.equal(lengths.filter((d) => d >= 8).length, 6);
+});
+
+check('a pointing run summarizes to the line it was built from', () => {
+  const run = pointingRun();
+  assert.equal(validPointingRun(run, bank.width, bank.height), true);
+  const summary = summarizePointing(run, bank.width, bank.height);
+  assert.ok(Math.abs(summary.fittsSlopeMsPerBit - 100) < 1e-9);
+  assert.ok(Math.abs(summary.fittsInterceptMs - 200) < 1e-9);
+  assert.equal(summary.misses, 1);
+  assert.ok(Math.abs(summary.pressSpreadSquares - 0.1) < 1e-9);
+  assert.equal(summary.medianHoverMs, 60);
+  assert.equal(summary.byDistance['2-4'].moves, 9);
+  assert.ok(summary.byDistance['2-4'].medianTravelMs > 0);
+  assert.ok(summary.throughputBitsPerSec > 0);
+  assert.equal(validPointingRun({ ...run, targets: run.targets.slice(1) }, bank.width, bank.height), false, 'a complete run has every target');
+  assert.equal(validPointingRun({ ...run, outcome: 'abandoned', targets: run.targets.slice(0, 5) }, bank.width, bank.height), true);
+  const outside = run.targets.map((t, i) => (i === 3 ? { ...t, x: t.x + 1 } : t));
+  assert.equal(validPointingRun({ ...run, targets: outside }, bank.width, bank.height), false, 'a press counts only on its target');
 });
 
 check('a malformed bank fails loudly', () => {
   assert.throws(() => readProblemBank({ ...bankJson, format: 'x' }), /not a problem bank/);
-  assert.throws(() => readProblemBank({ ...bankJson, formatVersion: 2 }), /format version/);
+  assert.throws(() => readProblemBank({ ...bankJson, formatVersion: 1 }), /format version/);
   const broken = { ...bankJson, problems: [{ ...bankJson.problems[0], classId: 'nonexistent' }] };
   assert.throws(() => readProblemBank(broken), /unknown class/);
+  assert.throws(() => readProblemBank({ ...bankJson, travelByLevel: {} }), /no travel times/);
 });
 
 console.log('problems core: ' + checks + ' checks passed');

@@ -6,7 +6,7 @@
 <script src="pages-redirect.js?v=20260926-pages-redirect-2"></script>
 <title>Minesweeper - Problems</title>
 <link rel="stylesheet" href="style.css?v=20260926-problems">
-<link rel="stylesheet" href="problems.css?v=20260926-focus-box">
+<link rel="stylesheet" href="problems.css?v=20260926-pointing">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 </head>
 <body class="problems-page">
@@ -71,6 +71,16 @@
     <div id="problems-profile-ladders"></div>
   </section>
 
+  <section id="problems-pointing" class="problems-card" hidden>
+    <h2>Pointing test <span class="problems-help" title="Your hand alone: 24 squares, the same route every time, to press as fast as you can. Travel is compared with players' in-game travel for moves of the same length.">(?)</span></h2>
+    <p>24 blue squares, about 30 seconds. Press each one as fast as you can.</p>
+    <div class="problems-actions">
+      <button type="button" id="pointing-start">Start pointing test</button>
+    </div>
+    <p id="pointing-count"></p>
+    <div id="pointing-latest"></div>
+  </section>
+
   <section id="problems-history" class="problems-card" hidden>
     <h2>Recent attempts</h2>
     <p id="problems-history-count"></p>
@@ -92,7 +102,7 @@
   </section>
 </main>
 <script src="board-icons.js?v=20260926-problems"></script>
-<script src="problems-core.js?v=20260926-focus-box"></script>
-<script src="problems-page.js?v=20260926-focus-box"></script>
+<script src="problems-core.js?v=20260926-pointing"></script>
+<script src="problems-page.js?v=20260926-pointing"></script>
 </body>
 </html>

@@ -211,16 +211,49 @@ const screenshots = process.argv[4];
       'every rule with a timed solve shows your median among the levels');
     await shot('home-history');
 
-    // Backup: export, empty the store, import.
+    // Pointing test: press the start square, then 24 targets, missing once.
+    assert.equal(await page.textContent('#pointing-count'), 'Not taken yet.');
+    await page.click('#pointing-start');
+    await page.waitForSelector('#problems-play:not([hidden])');
+    assert.equal(await page.locator('#problems-focus-box').isVisible(), false, 'no focus box in the pointing test');
+    await click(await page.evaluate(() => POINTING_START[1] * bank.width + POINTING_START[0]));
+    for (let i = 0; i < 24; i++) {
+      await page.waitForFunction(() => pointing !== null && pointing.phase === 'showing');
+      const target = await page.evaluate(() => pointing.route[pointing.index].cell);
+      assert.equal(await page.evaluate((cell) => squareElements[cell].classList.contains('pointing-target'), target), true);
+      if (i === 0) await click(0);
+      await click(target);
+    }
+    await page.waitForSelector('#problems-result:not([hidden])');
+    assert.equal(await page.locator('#problems-result-ladder .problems-ladder').count(), 3, 'one travel ladder per move length');
+    assert.equal(await page.locator('#problems-answer-key').isVisible(), false);
+    const runs = await page.evaluate(() => new Promise((resolve, reject) => {
+      const request = problemDb.transaction(POINTING_STORE).objectStore(POINTING_STORE).getAll();
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    }));
+    assert.equal(runs.length, 1);
+    assert.equal(runs[0].outcome, 'complete');
+    assert.equal(runs[0].targets.length, 24);
+    assert.equal(runs[0].targets[0].misses.length, 1);
+    await shot('pointing-result');
+    await page.keyboard.press('Enter');
+    await page.waitForSelector('#problems-pointing:not([hidden])');
+    assert.match(await page.textContent('#pointing-count'), /^1 complete run\. Latest:$/);
+    assert.equal(await page.locator('#pointing-latest .problems-ladder').count(), 3);
+
+    // Backup: export, empty the stores, import.
     const downloaded = page.waitForEvent('download');
     await page.click('#problems-export');
     const file = await (await downloaded).path();
     const exported = JSON.parse(fs.readFileSync(file, 'utf8'));
     assert.equal(exported.format, 'minesweeper-problems-attempts');
     assert.equal(exported.attempts.length, 5);
+    assert.equal(exported.pointingRuns.length, 1);
     await page.evaluate(() => new Promise((resolve, reject) => {
-      const tx = problemDb.transaction(ATTEMPT_STORE, 'readwrite');
+      const tx = problemDb.transaction([ATTEMPT_STORE, POINTING_STORE], 'readwrite');
       tx.objectStore(ATTEMPT_STORE).clear();
+      tx.objectStore(POINTING_STORE).clear();
       tx.oncomplete = resolve;
       tx.onerror = () => reject(tx.error);
     }));
@@ -229,12 +262,13 @@ const screenshots = process.argv[4];
     assert.equal(await page.textContent('#problems-history-count'), 'No attempts yet.');
     await page.setInputFiles('#problems-import', file);
     await page.waitForSelector('#problems-backup-status:not([hidden])');
-    assert.match(await page.textContent('#problems-backup-status'), /^Imported 5 new attempts; 0 were already here\.$/);
+    assert.match(await page.textContent('#problems-backup-status'),
+      /^Imported 5 new attempts and 1 pointing runs; 0 were already here\.$/);
     assert.equal((await savedAttempts()).length, 5);
 
     assert.deepEqual(errors, []);
     console.log('problems page: ring, preview and cancel, timed opening, solve, mine, 1.5 click, interruption, Esc, '
-      + 'saved attempts, profile, history, square size, backup');
+      + 'saved attempts, profile, history, square size, pointing test, backup');
   } finally {
     await browser.close();
   }

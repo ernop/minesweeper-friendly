@@ -6,10 +6,11 @@
 // attempt, and shows the per-rule profile, the history, and the backup.
 
 const PROBLEM_DB_NAME = 'minesweeper-problems';
-const PROBLEM_DB_VERSION = 1;
+const PROBLEM_DB_VERSION = 2;
 const ATTEMPT_STORE = 'attempts';
 const PREFERENCE_STORE = 'preferences';
-const PROBLEM_BANK_URL = 'problems-bank.json?v=20260926-problems';
+const POINTING_STORE = 'pointingRuns';
+const PROBLEM_BANK_URL = 'problems-bank.json?v=20260926-pointing';
 const HISTORY_ROWS = 30;
 const SVG_NS = 'http://www.w3.org/2000/svg';
 // Vertical distance between ladder labels, px.
@@ -32,6 +33,13 @@ let run = null;
 // preview (board shown, start square about to open), running, done.
 let live = null;
 let squareElements = [];
+// The board's grid in page coordinates (measureGrid).
+let boardGrid = null;
+let pointingRuns = [];
+// The pointing test on screen. phase: ready (waiting for the start square's
+// press), showing (a target is drawn), between (pressed; next target not yet
+// drawn), done.
+let pointing = null;
 
 const byId = (id) => document.getElementById(id);
 
@@ -53,9 +61,12 @@ function requestResult(request, what) {
 function openProblemDb() {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(PROBLEM_DB_NAME, PROBLEM_DB_VERSION);
-    request.onupgradeneeded = () => {
-      request.result.createObjectStore(ATTEMPT_STORE, { keyPath: 'startedAt' });
-      request.result.createObjectStore(PREFERENCE_STORE);
+    request.onupgradeneeded = (event) => {
+      if (event.oldVersion < 1) {
+        request.result.createObjectStore(ATTEMPT_STORE, { keyPath: 'startedAt' });
+        request.result.createObjectStore(PREFERENCE_STORE);
+      }
+      if (event.oldVersion < 2) request.result.createObjectStore(POINTING_STORE, { keyPath: 'startedAt' });
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(new Error('problem database failed to open: ' + request.error));
@@ -83,6 +94,11 @@ async function startProblemsPage() {
       if (!validProblemAttempt(attempt)) throw new Error('stored attempt ' + attempt.startedAt + ' is malformed');
     }
     attempts = stored;
+    const runs = await requestResult(db.transaction(POINTING_STORE).objectStore(POINTING_STORE).getAll(), 'pointing runs failed to load');
+    for (const saved of runs) {
+      if (!validPointingRun(saved, bank.width, bank.height)) throw new Error('stored pointing run ' + saved.startedAt + ' is malformed');
+    }
+    pointingRuns = runs;
     const size = await requestResult(db.transaction(PREFERENCE_STORE).objectStore(PREFERENCE_STORE).get('cellPx'), 'preferences failed to load');
     if (size !== undefined) {
       if (!PROBLEM_CELL_SIZES.includes(size)) throw new Error('stored square size ' + size + ' is not offered');
@@ -100,13 +116,15 @@ async function startProblemsPage() {
 function renderHome() {
   run = null;
   live = null;
+  pointing = null;
   document.body.classList.remove('problems-running');
   byId('problems-play').hidden = true;
   byId('problems-summary').hidden = true;
-  for (const id of ['problems-start', 'problems-profile', 'problems-history', 'problems-backup']) byId(id).hidden = false;
+  for (const id of ['problems-start', 'problems-profile', 'problems-pointing', 'problems-history', 'problems-backup']) byId(id).hidden = false;
   byId('problems-start-set').textContent = 'Start ' + PROBLEM_SET_SIZE + ' problems';
   renderCellSizes();
   renderProfile();
+  renderPointingHome();
   renderHistory();
 }
 
@@ -304,7 +322,7 @@ function renderHistory() {
 }
 
 function exportAttempts() {
-  const file = problemAttemptsFile(attempts, Date.now());
+  const file = problemAttemptsFile(attempts, pointingRuns, Date.now());
   const link = byId('problems-download');
   if (link.href) URL.revokeObjectURL(link.href);
   link.href = URL.createObjectURL(new Blob([JSON.stringify(file)], { type: 'application/json' }));
@@ -320,28 +338,31 @@ async function importAttempts(fileInput) {
   if (file === undefined) return;
   let read;
   try {
-    read = readProblemAttemptsFile(JSON.parse(await file.text()));
+    read = readProblemAttemptsFile(JSON.parse(await file.text()), bank.width, bank.height);
   } catch (error) {
     status.textContent = 'Import failed: ' + error.message;
     status.hidden = false;
     return;
   }
-  const known = new Set(attempts.map((a) => a.startedAt));
-  const fresh = [];
-  for (const attempt of read.valid) {
-    if (known.has(attempt.startedAt)) continue;
-    known.add(attempt.startedAt);
-    fresh.push(attempt);
-  }
-  const tx = problemDb.transaction(ATTEMPT_STORE, 'readwrite');
+  const unseen = (list, incoming) => {
+    const known = new Set(list.map((item) => item.startedAt));
+    return incoming.filter((item) => !known.has(item.startedAt) && known.add(item.startedAt));
+  };
+  const fresh = unseen(attempts, read.valid);
+  const freshRuns = unseen(pointingRuns, read.validRuns);
+  const tx = problemDb.transaction([ATTEMPT_STORE, POINTING_STORE], 'readwrite');
   for (const attempt of fresh) tx.objectStore(ATTEMPT_STORE).add(attempt);
+  for (const saved of freshRuns) tx.objectStore(POINTING_STORE).add(saved);
   tx.onerror = () => showFailure('import not saved: ' + tx.error);
   tx.oncomplete = () => {
     attempts.push(...fresh);
-    status.textContent = 'Imported ' + fresh.length + ' new attempts; ' + (read.valid.length - fresh.length)
-      + ' were already here' + (read.rejected > 0 ? '; ' + read.rejected + ' invalid attempts were rejected.' : '.');
+    pointingRuns.push(...freshRuns);
+    const already = read.valid.length - fresh.length + read.validRuns.length - freshRuns.length;
+    status.textContent = 'Imported ' + fresh.length + ' new attempts and ' + freshRuns.length + ' pointing runs; '
+      + already + ' were already here' + (read.rejected > 0 ? '; ' + read.rejected + ' invalid items were rejected.' : '.');
     status.hidden = false;
     renderProfile();
+    renderPointingHome();
     renderHistory();
   };
 }
@@ -351,7 +372,7 @@ async function importAttempts(fileInput) {
 function beginSet() {
   const random = () => crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296;
   run = { problems: pickProblemSet(bank, attempts, random), index: 0, setStartedAt: Date.now(), results: [] };
-  for (const id of ['problems-start', 'problems-profile', 'problems-history', 'problems-backup', 'problems-summary']) byId(id).hidden = true;
+  for (const id of ['problems-start', 'problems-profile', 'problems-pointing', 'problems-history', 'problems-backup', 'problems-summary']) byId(id).hidden = true;
   byId('problems-play').hidden = false;
   document.body.classList.add('problems-running');
   showProblem();
@@ -404,7 +425,6 @@ function showProblem() {
     problem,
     board: problemBoard(bank, problem),
     phase: 'waiting',
-    grid: null,
     previewT: null,
     startT: null,
     actions: [],
@@ -419,18 +439,22 @@ function showProblem() {
   setInstruction('Rest the cursor on the ringed square.');
   buildBoard();
   paintBoard(false);
-  // The grid is measured once per problem, after layout, in page coordinates
-  // so scrolling during an attempt cannot shift the recorded positions.
+  measureGrid();
+  placeRing(problem);
+  placeFocusBox(problem);
+}
+
+// The grid is measured once per problem or pointing run, after layout, in page
+// coordinates, so scrolling during it cannot shift the recorded positions.
+function measureGrid() {
   const first = squareElements[0].getBoundingClientRect();
   const last = squareElements[squareElements.length - 1].getBoundingClientRect();
-  live.grid = {
+  boardGrid = {
     left: first.left + window.scrollX,
     top: first.top + window.scrollY,
     cellW: (last.right - first.left) / bank.width,
     cellH: (last.bottom - first.top) / bank.height,
   };
-  placeRing(problem);
-  placeFocusBox(problem);
 }
 
 // A square's rectangle in the board area's own coordinates (the area scrolls
@@ -445,15 +469,20 @@ function squareInArea(cell) {
 }
 
 function placeRing(problem) {
+  placeRingOver(problem.start, problem.startAt);
+}
+
+// The ring around a square; its dot at `at` (fractions of the square).
+function placeRingOver(cell, at) {
   const ring = byId('problems-start-ring');
-  const square = squareInArea(problem.start);
+  const square = squareInArea(cell);
   const size = cellPx * 1.8;
   ring.style.width = size + 'px';
   ring.style.height = size + 'px';
   ring.style.left = ((square.left + square.right) / 2 - size / 2) + 'px';
   ring.style.top = ((square.top + square.bottom) / 2 - size / 2) + 'px';
-  ring.style.setProperty('--dot-x', (50 + (problem.startAt[0] - 0.5) * cellPx / size * 100) + '%');
-  ring.style.setProperty('--dot-y', (50 + (problem.startAt[1] - 0.5) * cellPx / size * 100) + '%');
+  ring.style.setProperty('--dot-x', (50 + (at[0] - 0.5) * cellPx / size * 100) + '%');
+  ring.style.setProperty('--dot-y', (50 + (at[1] - 0.5) * cellPx / size * 100) + '%');
   ring.hidden = false;
 }
 
@@ -473,8 +502,8 @@ function placeFocusBox(problem) {
 
 function gridPosition(event) {
   return {
-    x: (event.pageX - live.grid.left) / live.grid.cellW,
-    y: (event.pageY - live.grid.top) / live.grid.cellH,
+    x: (event.pageX - boardGrid.left) / boardGrid.cellW,
+    y: (event.pageY - boardGrid.top) / boardGrid.cellH,
   };
 }
 
@@ -486,6 +515,10 @@ function squareAt(position) {
 }
 
 function onPointerMove(event) {
+  if (pointing !== null) {
+    onPointingMove(event);
+    return;
+  }
   if (live === null || live.phase === 'done') return;
   const position = gridPosition(event);
   const square = squareAt(position);
@@ -548,6 +581,10 @@ function act(kind, cell, t) {
 // down the left release chords and never opens a covered square; a plain left
 // release opens a covered square or chords a number.
 function onBoardMouseDown(event) {
+  if (pointing !== null) {
+    onPointingPress(event);
+    return;
+  }
   if (live === null || live.phase !== 'running') return;
   const cell = squareAt(gridPosition(event));
   if (event.button === 2) {
@@ -657,12 +694,18 @@ function renderResult(attempt) {
   renderLadder(ladder, { title: described.name, help: described.rule, note: 'Thinking time by skill level (3BV/s)', entries, missing });
 
   const last = run.index === run.problems.length - 1;
+  byId('problems-answer-key').hidden = false;
+  byId('problems-stop').hidden = false;
   byId('problems-next').textContent = last ? 'Finish the set (Enter)' : 'Next problem (Enter)';
   byId('problems-result').hidden = false;
   byId('problems-next').focus();
 }
 
 function nextProblem() {
+  if (pointing !== null) {
+    if (pointing.phase === 'done') renderHome();
+    return;
+  }
   if (live === null || live.phase !== 'done') return;
   if (run.index === run.problems.length - 1) {
     renderSummary();
@@ -703,9 +746,181 @@ function renderSummary() {
   byId('problems-summary-done').focus();
 }
 
+//-------POINTING TEST-------
+
+const POINTING_BUCKETS = ['2-4', '4-8', '8+'];
+
+function beginPointing() {
+  for (const id of ['problems-start', 'problems-profile', 'problems-pointing', 'problems-history', 'problems-backup', 'problems-summary']) byId(id).hidden = true;
+  byId('problems-play').hidden = false;
+  byId('problems-result').hidden = true;
+  document.body.classList.add('problems-running');
+  live = null;
+  buildBoard();
+  for (const square of squareElements) {
+    square.className = 'cell hidden';
+    square.innerHTML = '';
+  }
+  measureGrid();
+  const route = pointingTargets(bank.width, bank.height);
+  pointing = { route, index: 0, phase: 'ready', startT: null, shownT: null, targets: [], misses: [],
+    samples: { t: [], x: [], y: [] } };
+  byId('problems-play-count').textContent = 'Pointing test';
+  setInstruction('Press the ringed square to begin, then each blue square as fast as you can.');
+  byId('problems-focus-box').hidden = true;
+  placeRingOver(POINTING_START[1] * bank.width + POINTING_START[0], [0.5, 0.5]);
+}
+
+// Each target is drawn in the frame after the previous press; that frame's
+// timestamp is when it was shown.
+function showNextTarget() {
+  pointing.phase = 'between';
+  const target = pointing.route[pointing.index];
+  byId('problems-play-count').textContent = 'Pointing test: target ' + (pointing.index + 1) + ' of ' + pointing.route.length;
+  requestAnimationFrame((frameT) => {
+    if (pointing === null || pointing.phase !== 'between') return;
+    squareElements[target.cell].classList.add('pointing-target');
+    pointing.shownT = frameT;
+    pointing.phase = 'showing';
+  });
+}
+
+function onPointingMove(event) {
+  if (pointing.phase === 'ready' || pointing.phase === 'done') return;
+  const position = gridPosition(event);
+  pointing.samples.t.push(event.timeStamp);
+  pointing.samples.x.push(position.x);
+  pointing.samples.y.push(position.y);
+}
+
+// Presses on the target count; presses elsewhere while it shows are misses;
+// presses in the frame gap between targets count for nothing.
+function onPointingPress(event) {
+  if (event.button !== 0) return;
+  const position = gridPosition(event);
+  const cell = squareAt(position);
+  if (pointing.phase === 'ready') {
+    if (cell !== POINTING_START[1] * bank.width + POINTING_START[0]) return;
+    pointing.startT = event.timeStamp;
+    pointing.samples = { t: [event.timeStamp], x: [position.x], y: [position.y] };
+    byId('problems-start-ring').hidden = true;
+    setInstruction('Press each blue square as fast as you can.');
+    showNextTarget();
+    return;
+  }
+  if (pointing.phase !== 'showing') return;
+  const target = pointing.route[pointing.index];
+  if (cell !== target.cell) {
+    pointing.misses.push({ t: event.timeStamp, x: position.x, y: position.y });
+    return;
+  }
+  pointing.targets.push({ shownT: pointing.shownT, pressT: event.timeStamp, x: position.x, y: position.y, misses: pointing.misses });
+  pointing.misses = [];
+  squareElements[target.cell].classList.remove('pointing-target');
+  pointing.index++;
+  if (pointing.index === pointing.route.length) finishPointing('complete', event.timeStamp);
+  else showNextTarget();
+}
+
+function finishPointing(outcome, endT) {
+  pointing.phase = 'done';
+  const record = {
+    startedAt: Math.round(performance.timeOrigin + pointing.startT),
+    protocol: POINTING_PROTOCOL,
+    cellPx,
+    timeOriginMs: performance.timeOrigin,
+    startT: pointing.startT,
+    endT,
+    outcome,
+    targets: pointing.targets,
+    samples: pointing.samples,
+  };
+  if (!validPointingRun(record, bank.width, bank.height)) {
+    showFailure('pointing run ' + record.startedAt + ' could not be recorded: its record is malformed');
+  }
+  const tx = problemDb.transaction(POINTING_STORE, 'readwrite');
+  tx.objectStore(POINTING_STORE).add(record);
+  tx.onerror = () => showFailure('pointing run not saved: ' + tx.error);
+  tx.oncomplete = () => {
+    pointingRuns.push(record);
+    if (outcome === 'complete') renderPointingResult(record);
+    else renderHome();
+  };
+}
+
+// Ladders for travel by move length: the skill levels' in-game travel and
+// this run's.
+function pointingLadders(container, summary) {
+  container.replaceChildren();
+  for (const bucket of POINTING_BUCKETS) {
+    const entries = [];
+    const missing = [];
+    for (const level of bank.levels) {
+      const entry = bank.travelByLevel[level][bucket];
+      if (entry.moves < PROBLEM_LEVEL_MIN_MOVES) {
+        missing.push(levelLabel(level));
+        continue;
+      }
+      entries.push({ ms: entry.medianMs, kind: 'level', label: levelLabel(level) + ' 3BV/s',
+        title: 'Median in-game travel over ' + entry.moves + ' moves' });
+    }
+    const yours = summary.byDistance[bucket].medianTravelMs;
+    if (yours !== null) entries.push({ ms: yours, kind: 'you', label: 'You', title: 'This pointing run' });
+    renderLadder(container, {
+      title: bucket.replace('-', '\u2013') + ' squares',
+      help: 'Travel: from the cursor starting to move until it enters the square for the last time before the press. Levels: players\' in-game travel for moves of this length.',
+      note: 'Travel by skill level (3BV/s)',
+      entries,
+      missing,
+    });
+  }
+}
+
+function pointingValues(container, summary) {
+  container.replaceChildren(
+    valueBlock(seconds(summary.medianMovementMs), 'per target'),
+    valueBlock(summary.throughputBitsPerSec.toFixed(1) + ' bits/s', 'throughput'),
+    valueBlock(String(summary.misses), summary.misses === 1 ? 'miss' : 'misses'),
+  );
+}
+
+function renderPointingResult(record) {
+  const summary = summarizePointing(record, bank.width, bank.height);
+  byId('problems-play-count').textContent = 'Pointing test';
+  setInstruction('Done');
+  pointingValues(byId('problems-result-values'), summary);
+  pointingLadders(byId('problems-result-ladder'), summary);
+  byId('problems-answer-key').hidden = true;
+  byId('problems-stop').hidden = true;
+  byId('problems-next').textContent = 'Done (Enter)';
+  byId('problems-result').hidden = false;
+  byId('problems-next').focus();
+}
+
+function renderPointingHome() {
+  const complete = pointingRuns.filter((r) => r.outcome === 'complete').sort((a, b) => a.startedAt - b.startedAt);
+  const latest = byId('pointing-latest');
+  latest.replaceChildren();
+  byId('pointing-count').textContent = complete.length === 0 ? 'Not taken yet.'
+    : complete.length + (complete.length === 1 ? ' complete run. Latest:' : ' complete runs. Latest:');
+  if (complete.length === 0) return;
+  const summary = summarizePointing(complete[complete.length - 1], bank.width, bank.height);
+  const values = document.createElement('div');
+  values.className = 'pointing-values';
+  pointingValues(values, summary);
+  const ladders = document.createElement('div');
+  ladders.className = 'pointing-ladders';
+  pointingLadders(ladders, summary);
+  latest.append(values, ladders);
+}
+
 // A hidden tab or an unfocused window makes timing meaningless: a running
 // attempt ends as interrupted, a preview starts over.
 function onInterruption() {
+  if (pointing !== null) {
+    if (pointing.phase === 'showing' || pointing.phase === 'between') finishPointing('interrupted', performance.now());
+    return;
+  }
   if (live === null) return;
   if (live.phase === 'running') finishAttempt('interrupted', performance.now());
   else if (live.phase === 'preview') cancelPreview();
@@ -720,6 +935,18 @@ document.addEventListener('visibilitychange', () => {
 });
 window.addEventListener('blur', onInterruption);
 document.addEventListener('keydown', (event) => {
+  if (pointing !== null) {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      if (pointing.phase === 'showing' || pointing.phase === 'between') finishPointing('abandoned', performance.now());
+      else renderHome();
+    } else if ((event.key === 'Enter' || event.key === ' ') && pointing.phase === 'done'
+        && !(event.target instanceof HTMLButtonElement)) {
+      event.preventDefault();
+      renderHome();
+    }
+    return;
+  }
   if (run === null) return;
   if (event.key === 'Escape') {
     event.preventDefault();
@@ -733,6 +960,7 @@ document.addEventListener('keydown', (event) => {
   }
 });
 byId('problems-start-set').addEventListener('click', beginSet);
+byId('pointing-start').addEventListener('click', beginPointing);
 byId('problems-next').addEventListener('click', nextProblem);
 byId('problems-stop').addEventListener('click', stopSet);
 byId('problems-summary-done').addEventListener('click', renderHome);
