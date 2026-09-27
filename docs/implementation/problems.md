@@ -42,7 +42,9 @@ Spec: [docs/product/problems.md](../product/problems.md).
   - pointing test: `POINTING_PROTOCOL`, `POINTING_START`, `POINTING_MOVES`,
     `pointingTargets(width, height)`, `movementSplitAt(samples, startT,
     clickT, square)` (the same split from any start time),
-    `summarizePointing(run, width, height)`, `validPointingRun`.
+    `summarizePointing(run, width, height)`, `pointingBySize(runs, width,
+    height)` (rendered by the page's `pointingSizeComparison`),
+    `validPointingRun`.
 - `problems-page.js`:
   - opens IndexedDB `minesweeper-problems` version 1 (stores `attempts`, keyPath
     `startedAt`, and `preferences`, key `cellPx`) and fetches

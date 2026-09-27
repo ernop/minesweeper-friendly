@@ -194,6 +194,13 @@ card.
   then one ladder per move length (2-4, 4-8, 8+ squares) placing the run's
   median travel among the skill levels' median in-game travel for moves of that
   length. The home card shows the latest complete run the same way.
+- **By square size** (built 2026-09-27, for the plan's square size
+  experiment): once complete runs exist at two or more square sizes, the home
+  card adds one line per size, smallest first: runs, then the median over runs
+  of each run's median time per target (all targets, and for 2-4, 4-8, and 8+
+  squares), then misses per run, since smaller squares may cost accuracy.
+  With runs at one size only, a sentence says to choose another size and take
+  runs there.
 - **Stored run** (store `pointingRuns`, keyed by `startedAt`): `startedAt`,
   `protocol`, `cellPx`, `timeOriginMs`, `startT`, `endT`, `outcome`
   (`complete`, `abandoned`, `interrupted`), `targets[]` (`shownT`, `pressT`,

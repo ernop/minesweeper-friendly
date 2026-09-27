@@ -27,8 +27,8 @@ Unbuilt parts of plan v2 (creator):
   prices each trait's gap from the player's counts; the counterfactual replay
   is still open.
 - **Pointing test.** Built as `pointing-v1` on the problems page
-  ([problems.md](docs/product/problems.md)). Open: a within-player zoom block
-  comparing runs at 16 px and the usual square size.
+  ([problems.md](docs/product/problems.md)), with runs compared by square size
+  (2026-09-27).
 - **Minesweeper problems.** Version 1 built; follow-ons under
   [Minesweeper problems](#minesweeper-problems).
 - **Level placement.** Built at the level of the average game at the player's

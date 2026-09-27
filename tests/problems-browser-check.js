@@ -275,6 +275,19 @@ const screenshots = process.argv[4];
     await page.waitForSelector('#problems-pointing:not([hidden])');
     assert.match(await page.textContent('#pointing-count'), /^1 complete run\. Latest:$/);
     assert.equal(await page.locator('#pointing-latest .problems-ladder').count(), 3);
+    assert.match(await page.textContent('#pointing-latest'), /All runs so far at \d+ px squares\./);
+    // A run at a second square size turns the hint into the comparison table.
+    const sizeRows = await page.evaluate(() => {
+      pointingRuns.push({ ...pointingRuns[0], startedAt: pointingRuns[0].startedAt + 1, cellPx: 16 });
+      renderPointingHome();
+      return [...document.querySelectorAll('#pointing-latest table tbody tr')].map((tr) => tr.cells[0].textContent);
+    });
+    assert.deepEqual(sizeRows, ['16 px', (await page.evaluate(() => pointingRuns[0].cellPx)) + ' px']);
+    if (screenshots) await page.locator('#problems-pointing').screenshot({ path: path.join(screenshots, 'problems-pointing-sizes.png') });
+    await page.evaluate(() => {
+      pointingRuns.pop();
+      renderPointingHome();
+    });
 
     // Backup: export, empty the stores, import.
     const downloaded = page.waitForEvent('download');

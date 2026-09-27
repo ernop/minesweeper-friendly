@@ -554,6 +554,29 @@ function summarizePointing(run, width, height) {
   };
 }
 
+// Complete runs grouped by square size, smallest first: per size, the median
+// over runs of each run's median time per target (all targets and by move
+// length) and the mean misses per run. Answers the plan's square size
+// experiment: whether smaller squares are faster per square moved, and at
+// what cost in accuracy.
+function pointingBySize(runs, width, height) {
+  const sizes = [...new Set(runs.map((run) => run.cellPx))].sort((a, b) => a - b);
+  return sizes.map((cellPx) => {
+    const summaries = runs.filter((run) => run.cellPx === cellPx).map((run) => summarizePointing(run, width, height));
+    const byDistance = {};
+    for (const name of ['2-4', '4-8', '8+']) {
+      byDistance[name] = problemMedian(summaries.map((s) => s.byDistance[name].medianMovementMs));
+    }
+    return {
+      cellPx,
+      runs: summaries.length,
+      medianMovementMs: problemMedian(summaries.map((s) => s.medianMovementMs)),
+      byDistance,
+      missesPerRun: summaries.reduce((sum, s) => sum + s.moves.reduce((m, move) => m + move.misses, 0), 0) / summaries.length,
+    };
+  });
+}
+
 function validPointingRun(run, width, height) {
   const finite = (v) => typeof v === 'number' && Number.isFinite(v);
   if (run === null || typeof run !== 'object') return false;

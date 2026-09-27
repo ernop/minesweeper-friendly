@@ -1060,7 +1060,36 @@ function renderPointingHome() {
   const ladders = document.createElement('div');
   ladders.className = 'pointing-ladders';
   pointingLadders(ladders, summary);
-  latest.append(values, ladders);
+  latest.append(values, ladders, pointingSizeComparison(complete));
+}
+
+function pointingSizeComparison(complete) {
+  const sizes = pointingBySize(complete, bank.width, bank.height);
+  if (sizes.length === 1) {
+    const hint = document.createElement('p');
+    hint.textContent = 'All runs so far at ' + sizes[0].cellPx + ' px squares. To compare sizes, choose another square size above and take runs there too.';
+    return hint;
+  }
+  const section = document.createElement('div');
+  const heading = document.createElement('h3');
+  heading.textContent = 'By square size';
+  const scroll = document.createElement('div');
+  scroll.className = 'problems-table-scroll';
+  const table = document.createElement('table');
+  table.className = 'problems-table';
+  const body = headerRow(table, ['square size', 'runs', 'per target', '2\u20134 squares', '4\u20138 squares', '8+ squares', 'misses per run'], [0]);
+  const ms = (value) => (value === null ? '\u2013' : Math.round(value) + ' ms');
+  for (const size of sizes) {
+    const row = body.insertRow();
+    cellText(row, size.cellPx + ' px', 'problems-text');
+    cellText(row, String(size.runs), 'problems-number');
+    cellText(row, ms(size.medianMovementMs), 'problems-number');
+    for (const name of ['2-4', '4-8', '8+']) cellText(row, ms(size.byDistance[name]), 'problems-number');
+    cellText(row, size.missesPerRun.toFixed(1), 'problems-number');
+  }
+  scroll.append(table);
+  section.append(heading, scroll);
+  return section;
 }
 
 // A hidden tab or an unfocused window makes timing meaningless: a running

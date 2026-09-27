@@ -382,6 +382,19 @@ check('a pointing run summarizes to the line it was built from', () => {
   assert.equal(validPointingRun({ ...run, targets: outside }, bank.width, bank.height), false, 'a press counts only on its target');
 });
 
+check('pointing runs grouped by square size, smallest first', () => {
+  const run = pointingRun();
+  const slower = { ...run, startedAt: run.startedAt + 1,
+    targets: run.targets.map((t) => ({ ...t, pressT: t.pressT + 40, misses: [] })) };
+  const small = { ...run, startedAt: run.startedAt + 2, cellPx: 16 };
+  const sizes = pointingBySize([run, slower, small], bank.width, bank.height);
+  assert.deepEqual(sizes.map((s) => [s.cellPx, s.runs]), [[16, 1], [24, 2]]);
+  const one = summarizePointing(run, bank.width, bank.height).medianMovementMs;
+  assert.equal(sizes[1].medianMovementMs, one + 20, 'the median of two runs is their mean');
+  assert.equal(sizes[1].missesPerRun, 0.5);
+  assert.equal(sizes[0].byDistance['8+'], summarizePointing(small, bank.width, bank.height).byDistance['8+'].medianMovementMs);
+});
+
 check('a malformed bank fails loudly', () => {
   assert.throws(() => readProblemBank({ ...bankJson, format: 'x' }), /not a problem bank/);
   assert.throws(() => readProblemBank({ ...bankJson, formatVersion: 2 }), /format version/);

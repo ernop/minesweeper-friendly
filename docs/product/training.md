@@ -248,7 +248,8 @@ describes all the evidence so far; the rule is the decision fixed in advance.
    directly. Measures: flags per win, wrong flags, flag-related late deaths,
    IOE, time.
 3. **Square size.** 16 px against the player's usual size. Measures: travel per
-   distance, misclicks, time.
+   distance, misclicks, time. The pointing test's card on the problems page
+   compares its runs by square size, the quick first look before game blocks.
 4. **Problems transfer.** Train two rule families daily on the problems page
    for two weeks and leave one untrained; compare in-game fluency (fresh
    two-number moves at single-number speed) on trained and untrained families
