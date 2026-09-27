@@ -35,10 +35,16 @@ downloads only what is new; `corpus_actions.py` keeps each replay once.
 - **The corpus is kept for good** (player request 2026-09-26: "let's really get
   a lot and store them logically forever") in
   `~/Documents/minesweeper-corpus/saolei/`: `README.txt`, `index.jsonl` (one
-  line per replay picked for a band, with its listing facts, band, file path
-  relative to the folder, and fetch date), `replays/<id>.<ext>` exactly as
-  downloaded, and `shows/<id>.html` (each replay's page). Listing pages are a
-  scan cache in `~/.cache/minesweeper-friendly/saolei/pages/`.
+  line per replay, with its listing facts, file path relative to the folder,
+  and fetch date), `replays/<id>.<ext>` exactly as downloaded, and
+  `shows/<id>.html` (each replay's page). Listing pages are a scan cache in
+  `~/.cache/minesweeper-friendly/saolei/pages/`. Bands are request parameters,
+  not stored facts: replays already in the corpus count toward a band without
+  a request, so an interrupted run resumes when run again. A replay the site
+  answers with an HTTP error is skipped and reported; three in a row stop the
+  run. (Until 2026-09-27 each request appended its own lines with a band
+  label, so repeated requests listed a replay several times; the index was
+  rewritten to one line per replay, keeping the first fetch date.)
 - **minesweepergame.com** hosts ranked players' videos, but its robots.txt
   disallows automated access to the video and file folders; use only with the
   site owner's permission.
@@ -48,7 +54,7 @@ downloads only what is new; `corpus_actions.py` keeps each replay once.
 
 ## Shared per-input format
 
-`source, id, player, band, timeMs, bv3, actions: [[tMs, cellX, cellY, kind]],
+`source, id, player, timeMs, bv3, actions: [[tMs, cellX, cellY, kind]],
 samples: [[tMs, x, y]]` with kind `reveal | chord | flag | unflag | noop`,
 time zero at the game-starting reveal, positions in cell units. Corpus kinds
 come from the parser's running effective-click counters; the player's kinds

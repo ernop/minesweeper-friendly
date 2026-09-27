@@ -21,6 +21,15 @@ ONSET_CELLS = 0.25
 PAUSE_MS = 1000
 FASTEST_OWN = 20
 DISTANCE_BINS = [(1, 2), (2, 4), (4, 8), (8, 99)]
+# Corpus groups by each game's own time in seconds, [low, high).
+TIME_BANDS_S = [(0, 40), (40, 50), (50, 60), (60, 75), (75, 110), (110, 1000)]
+
+
+def time_band(time_s: float) -> str:
+    for low, high in TIME_BANDS_S:
+        if low <= time_s < high:
+            return f'corpus {low}-{high} s'
+    raise ValueError(f'a {time_s} s game is outside every time band')
 
 
 def load(paths: list[str]) -> list[dict]:
@@ -122,7 +131,7 @@ def main() -> None:
         if game['source'] == 'self':
             own.append(measures)
         else:
-            groups[f"corpus {game['band']} s"].append(measures)
+            groups[time_band(game['timeMs'] / 1000)].append(measures)
     own.sort(key=lambda m: m['timeS'])
     result = {'you, all wins': summarize(own), f'you, fastest {FASTEST_OWN}': summarize(own[:FASTEST_OWN])}
     for name in sorted(groups, key=lambda n: float(n.split()[1].split('-')[0])):

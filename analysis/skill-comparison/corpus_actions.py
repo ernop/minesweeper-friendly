@@ -1,7 +1,7 @@
 """Convert cached saolei.wang replays into the shared game format.
 
 Shared format (one JSON object per game, also written by user_games.js):
-  source, id, player, band, timeMs, bv3,
+  source, id, player, timeMs, bv3,
   mines: '0'/'1' per cell, row by row (the layout the inputs met)
   actions: [[tMs, cellX, cellY, kind], ...]   kind: reveal | chord | flag | unflag | noop
   samples: [[tMs, x, y], ...]                  cursor position in cell units
@@ -15,11 +15,10 @@ Usage: python corpus_actions.py OUT.jsonl
 """
 import json
 import sys
-from pathlib import Path
 
 import ms_toollib as ms
 
-from saolei_fetch import CORPUS
+from saolei_fetch import CORPUS, read_index
 
 READERS = {'.avf': ms.AvfVideo, '.evf': ms.EvfVideo, '.mvf': ms.MvfVideo, '.rmv': ms.RmvVideo}
 EXPERT = (16, 30, 99)
@@ -63,16 +62,13 @@ def convert(entry: dict) -> dict:
         previous = current
     mines = ''.join('1' if value == -1 else '0' for row in video.board for value in row)
     return {'source': 'saolei', 'id': str(entry['video_id']), 'player': str(entry['player_id']),
-            'band': entry['band'], 'timeMs': round(video.rtime * 1000), 'bv3': video.bbbv,
+            'timeMs': round(video.rtime * 1000), 'bv3': video.bbbv,
             'openings': video.op, 'software': video.software, 'mines': mines,
             'actions': actions, 'samples': samples}
 
 
 def main() -> None:
-    entries = {}
-    for line in (CORPUS / 'index.jsonl').read_text().splitlines():
-        entry = json.loads(line)
-        entries[entry['video_id']] = entry
+    entries = read_index()
     with open(sys.argv[1], 'w') as out:
         for entry in entries.values():
             out.write(json.dumps(convert(entry)) + '\n')

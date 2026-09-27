@@ -7,8 +7,8 @@ repository: replays are other players' data and are not redistributed.
 
 Storage (kept for good; the player asked to "store them logically forever"):
   CORPUS/README.txt           what the folder is and how it is laid out
-  CORPUS/index.jsonl          one line per replay picked for a band: listing
-                              facts, band, file (relative to CORPUS), fetch date
+  CORPUS/index.jsonl          one line per replay: listing facts, file
+                              (relative to CORPUS), fetch date
   CORPUS/replays/<id>.<ext>   the replay file exactly as downloaded
   CORPUS/shows/<id>.html      the replay's page on the site (its metadata)
 Listing pages are only a cache for scanning and live in PAGE_CACHE.
@@ -17,13 +17,19 @@ Usage:
   python saolei_fetch.py --by bvs --bands 1.0-1.4:50 1.4-1.8:50 ... [--per-player 3] [--max-pages 300]
 
 --by chooses what a band measures: the game's 3BV/s (bvs) or its time in
-seconds (time). Each band is MIN-MAX:COUNT. At most --per-player replays per
-player enter one band, so a band describes several players, not one.
+seconds (time). Each band is MIN-MAX:COUNT: the first COUNT reviewed replays
+in the site's listing order whose measure falls in [MIN, MAX), at most
+--per-player of them from one player, so a band describes several players.
+Replays already in the corpus count toward their band without a request, so
+an interrupted run continues where it stopped when run again. A replay the
+site answers with an HTTP error is skipped and reported; several in a row stop
+the run, since then the site itself is failing.
 """
 import argparse
 import json
 import re
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import asdict, dataclass
@@ -33,16 +39,16 @@ SITE = 'http://saolei.wang'
 CORPUS = Path.home() / 'Documents' / 'minesweeper-corpus' / 'saolei'
 PAGE_CACHE = Path.home() / '.cache' / 'minesweeper-friendly' / 'saolei' / 'pages'
 REQUEST_GAP_S = 2.0
+MAX_CONSECUTIVE_FAILURES = 3
 README = """saolei.wang Expert replays for minesweeper-friendly's skill comparison.
 
 Downloaded politely (one request every 2 s) by analysis/skill-comparison/
 saolei_fetch.py in https://github.com/ernop/minesweeper-friendly. The files are
 other players' published replays: keep them for analysis, never redistribute.
 
-index.jsonl  one JSON object per line: video_id, time_s, bv3, bvs, player_id,
-             reviewed (from the site's listing), band (the request that picked
-             it), file (path relative to this folder), fetched (UTC date).
-             A replay picked by several requests appears once per request.
+index.jsonl  one JSON object per replay: video_id, time_s, bv3, bvs, player_id,
+             reviewed (from the site's listing), file (path relative to this
+             folder), fetched (UTC date of the download).
 replays/     <video_id>.<avf|evf|mvf|rmv>, exactly as downloaded, never edited.
 shows/       <video_id>.html, the replay's page on the site.
 """
@@ -126,6 +132,19 @@ def parse_bands(specs: list[str]) -> list[tuple[float, float, int]]:
     return bands
 
 
+def read_index() -> dict[int, dict]:
+    path = CORPUS / 'index.jsonl'
+    if not path.exists():
+        return {}
+    entries: dict[int, dict] = {}
+    for line in path.read_text().splitlines():
+        entry = json.loads(line)
+        if entry['video_id'] in entries:
+            raise RuntimeError(f"{path}: video {entry['video_id']} is listed twice")
+        entries[entry['video_id']] = entry
+    return entries
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument('--by', choices=['bvs', 'time'], required=True)
@@ -135,34 +154,45 @@ def main() -> None:
     args = parser.parse_args()
     bands = parse_bands(args.bands)
     measure = (lambda listing: listing.bvs) if args.by == 'bvs' else (lambda listing: listing.time_s)
-    chosen: dict[int, list[Listing]] = {i: [] for i in range(len(bands))}
-    for page in range(1, args.max_pages + 1):
-        for listing in listing_page(page):
-            if not listing.reviewed:
-                continue
-            for i, (low, high, count) in enumerate(bands):
-                picked = chosen[i]
-                if not (low <= measure(listing) < high) or len(picked) >= count:
-                    continue
-                if sum(1 for p in picked if p.player_id == listing.player_id) >= args.per_player:
-                    continue
-                picked.append(listing)
-        if all(len(chosen[i]) >= bands[i][2] for i in chosen):
-            break
     CORPUS.mkdir(parents=True, exist_ok=True)
-    readme = CORPUS / 'README.txt'
-    if not readme.exists():
-        readme.write_text(README)
+    (CORPUS / 'README.txt').write_text(README)
+    indexed = read_index()
+    picked: list[list[Listing]] = [[] for _ in bands]
+    fetched_now = [0] * len(bands)
+    skipped: list[str] = []
+    consecutive_failures = 0
     with (CORPUS / 'index.jsonl').open('a') as out:
-        for i, picked in chosen.items():
-            low, high, count = bands[i]
-            label = f'{args.by} {low:g}-{high:g}'
-            print(f'band {label}: {len(picked)} of {count}', flush=True)
-            for listing in picked:
-                file = download(listing)
-                fetched = time.strftime('%Y-%m-%d', time.gmtime())
-                out.write(json.dumps({**asdict(listing), 'band': label, 'file': str(file), 'fetched': fetched}) + '\n')
-                out.flush()
+        for page in range(1, args.max_pages + 1):
+            for listing in listing_page(page):
+                if not listing.reviewed:
+                    continue
+                band = next((i for i, (low, high, _) in enumerate(bands) if low <= measure(listing) < high), None)
+                if band is None or len(picked[band]) >= bands[band][2]:
+                    continue
+                if sum(1 for p in picked[band] if p.player_id == listing.player_id) >= args.per_player:
+                    continue
+                if listing.video_id not in indexed:
+                    try:
+                        file = download(listing)
+                    except urllib.error.HTTPError as error:
+                        skipped.append(f'{listing.video_id} (HTTP {error.code} from {error.filename})')
+                        print(f'video {listing.video_id}: HTTP {error.code} from {error.filename}; skipped', flush=True)
+                        consecutive_failures += 1
+                        if consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
+                            raise RuntimeError(f'{consecutive_failures} replays in a row failed; the site is failing') from error
+                        continue
+                    consecutive_failures = 0
+                    entry = {**asdict(listing), 'file': str(file), 'fetched': time.strftime('%Y-%m-%d', time.gmtime())}
+                    out.write(json.dumps(entry) + '\n')
+                    out.flush()
+                    indexed[listing.video_id] = entry
+                    fetched_now[band] += 1
+                picked[band].append(listing)
+            if all(len(picked[i]) >= count for i, (_, _, count) in enumerate(bands)):
+                break
+    for i, (low, high, count) in enumerate(bands):
+        print(f'{args.by} {low:g}-{high:g}: {len(picked[i])} of {count}, {fetched_now[i]} downloaded now')
+    print(f'{len(skipped)} replays skipped' + (': ' + ', '.join(skipped) if skipped else ''))
 
 
 if __name__ == '__main__':

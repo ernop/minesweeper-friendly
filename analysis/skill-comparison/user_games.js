@@ -76,7 +76,7 @@ function convert(record, trace, deps) {
   const mines = trace.finalBoard !== undefined ? trace.finalBoard.cells.map((c) => (c.mine ? '1' : '0')).join('')
     : deps.randomPlacement(width, TrainingCore.BOARD.height, TrainingCore.BOARD.mines, firstReveal,
       deps.fromSeed(trace.seed)).map((m) => (m ? '1' : '0')).join('');
-  return { status: 'converted', game: { source: 'self', id: String(record.endedAt), player: 'self', band: null,
+  return { status: 'converted', game: { source: 'self', id: String(record.endedAt), player: 'self',
     timeMs: record.timeMs, bv3: record.bv3, cellPx: cellPx(layouts[layouts.length - 1])[0], mines, actions, samples } };
 }
 
