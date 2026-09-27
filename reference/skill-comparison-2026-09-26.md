@@ -84,10 +84,11 @@ Travel by distance (median ms, pooled gaps): 1–2 cells 41 (you) vs 20–30;
 
 ## Situations and memorization (same day, evening)
 
-Corpus: 357 reviewed Expert replays from saolei.wang, stratified into seven
+Corpus: 1,057 reviewed Expert replays from saolei.wang, stratified into seven
 3BV/s levels (1.0-1.4, 1.4-1.8, 1.8-2.2, 2.2-2.6, 2.6-3.0, 3.0-3.5, 3.5 and
-above; 49-56 games each, at most 3 per player), against the player's 80 traced
-wins (median 1.77 3BV/s). Code: `analysis/skill-comparison/situations.js`.
+above; 147-155 games each, at most 3 per player), against the player's 80
+traced wins (median 1.77 3BV/s). A first run on 357 games (about 50 per level)
+gave the same conclusions. Code: `analysis/skill-comparison/situations.js`.
 
 Method:
 
@@ -117,42 +118,50 @@ Level table (medians; thinking in ms; per-3BV counts):
 
 | Level | 1-number thinking | 2-number thinking | Fluent | Travel 2-6 squares | Effective clicks | Flags | Low-value flags | Chords |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1.0-1.4 | 330 | 320 | 80% | 300 | 1.32 | 0.48 | 0.16 | 0.45 |
-| 1.4-1.8 | 300 | 280 | 78% | 250 | 1.25 | 0.31 | 0.10 | 0.30 |
-| 1.8-2.2 | 250 | 250 | 80% | 190 | 1.22 | 0.29 | 0.07 | 0.34 |
-| 2.2-2.6 | 230 | 230 | 74% | 170 | 1.15 | 0.17 | 0.04 | 0.20 |
-| 2.6-3.0 | 200 | 190 | 75% | 130 | 1.16 | 0.18 | 0.04 | 0.22 |
-| 3.0-3.5 | 170 | 160 | 86% | 110 | 1.11 | 0.19 | 0.03 | 0.25 |
-| 3.5+ | 160 | 160 | 78% | 100 | 1.02 | 0.17 | 0.02 | 0.24 |
+| 1.0-1.4 | 340 | 310 | 69% | 300 | 1.32 | 0.43 | 0.14 | 0.43 |
+| 1.4-1.8 | 300 | 280 | 79% | 230 | 1.28 | 0.33 | 0.11 | 0.32 |
+| 1.8-2.2 | 260 | 240 | 76% | 180 | 1.23 | 0.29 | 0.07 | 0.32 |
+| 2.2-2.6 | 220 | 215 | 73% | 150 | 1.19 | 0.19 | 0.04 | 0.23 |
+| 2.6-3.0 | 200 | 190 | 75% | 130 | 1.16 | 0.22 | 0.05 | 0.29 |
+| 3.0-3.5 | 180 | 160 | 78% | 120 | 1.11 | 0.22 | 0.04 | 0.29 |
+| 3.5+ | 160 | 165 | 76% | 110 | 1.01 | 0.18 | 0.02 | 0.26 |
 | player (1.77) | 196 | 230 | 64% | 172 | 1.39 | 0.58 | 0.18 | 0.63 |
 
 A low-value flag is one whose later chords open at most one square in total.
 
 Against the average game at the player's speed (95% intervals):
 
-- effective clicks per 3BV 1.39 [1.37, 1.41] against 1.23 [1.21, 1.26]: 11.3 s
-  per game [9.2, 13.3];
-- low-value flags per 3BV 0.18 [0.17, 0.19] against 0.09 [0.07, 0.11]; chords
-  opening one square per 3BV 0.34 against 0.13 [0.10, 0.16];
-- extra thinking on fresh two-number moves +34 ms [19, 51] against -10 [-35,
-  17]: 0.2 s per game; fluent share 64% [57, 71] against 79% [70, 88]; fresh
-  pattern moves made without flagging first 72% [68, 76] against 86% [79, 91];
-- pausing 5.2 s per game against 4.9 (the gap's interval spans zero);
-- single-number thinking 196 ms [185, 205] against 274 [259, 289] and travel
-  172 ms [167, 176] against 219 [204, 234]: the player is faster on both.
+- effective clicks per 3BV 1.39 [1.37, 1.41] against 1.26 [1.24, 1.27]: 9.7 s
+  per game [8.0, 11.4];
+- low-value flags per 3BV 0.18 [0.17, 0.19] against 0.09 [0.08, 0.10]; chords
+  opening one square per 3BV 0.34 against 0.14 [0.12, 0.16];
+- extra thinking on fresh two-number moves +34 ms [18, 49] against -20 [-34,
+  -1]: 0.3 s per game; fluent share 64% [57, 70] against 78% [72, 83]; fresh
+  pattern moves made without flagging first 72% [68, 76] against 83% [79, 87];
+- pausing 5.2 s per game against 4.3 (the gap's interval spans zero);
+- single-number thinking 196 ms [185, 205] against 282 [271, 293] and travel
+  172 ms [167, 176] against 208 [201, 218]: the player is faster on both.
 
 Pattern families with enough fresh moves: "1/1 safe" (the player 235 ms, 62%
-fluent; levels 155-350 ms, 71-93%) and "1/1 safe wall" (218 ms, 72%; levels
-140-275 ms, 73-88%). The corpus holds too few fresh moves of the other families
-per level for level-by-level medians; the player's slowest are the 2-2
-reductions ("2/2 safe": 330 ms, 25% fluent over 12 moves).
+fluent; levels 160-310 ms, 67-81%, 37-73 moves per level) and "1/1 safe wall"
+(218 ms, 72%; levels 150-325 ms, 61-86%, 41-68 moves). The 1-2 rule's safe side
+has 9-31 fresh moves per level. The player's slowest are the 2-2 reductions
+("2/2 safe": 330 ms, 25% fluent over 12 moves), which the corpus levels meet
+too rarely to compare.
 
-Reading: fluency relative to one's own reading speed does not grow with level;
-speed of reading does, patterns included. The player reads single numbers
-faster than the level average but pays a pattern cost no level shows, and
-spends about 11 s per game on clicks the average game at that speed does not
-make. More than half of those extra clicks are flags that do not pay for
-themselves.
+Reading: fluency relative to one's own reading speed does not grow with level
+from 1.4 3BV/s up (73-79%); only the slowest level is lower (69%). Speed of
+reading does grow, patterns included. The player reads single numbers faster
+than the level average but pays a pattern cost the levels from 1.4 up do not
+show, and spends about 10 s per game on clicks the average game at that speed
+does not make. More than half of those extra clicks are flags that do not pay
+for themselves.
+
+In the player's own saved games the clicks that change nothing (about 41 per
+Expert win) are mostly chords tried one flag early (26) and clicks on finished
+numbers (8); late losses mostly follow wrong flags (chords over them, chords
+contradicting the numbers, misclicks beside them). Details and the experiments
+they suggest: [docs/product/training.md](../docs/product/training.md).
 
 ## Caveats
 
@@ -173,9 +182,9 @@ themselves.
 
 ## Next steps
 
-1. Enlarge the stratified corpus (about 150 games per level, running) so
-   pattern families have level-by-level medians; model board difficulty (3BV,
-   openings).
+1. Enlarge the stratified corpus further (500 per level, running; kept in
+   `~/Documents/minesweeper-corpus/saolei/`) so more pattern families have
+   level-by-level medians; model board difficulty (3BV, openings).
 2. Done: situations annotated and compared per class (section above).
 3. Rank subskills by counterfactual seconds saved in the player's own games.
 4. Tests the player takes: Minesweeper problems from corpus positions (built:

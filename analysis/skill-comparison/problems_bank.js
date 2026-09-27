@@ -136,19 +136,27 @@ function candidatesOf(game, familyIds) {
       return;
     }
     const followed = follow(game, k, { ...board, revealed: revealedAfter }, freshSafe, freshMines);
+    // Only compact facts are kept: a corpus holds tens of thousands of
+    // candidate moments, and the proof states are rebuilt for chosen ones.
     found.push({
-      game, k, start, classId, pattern, before, after, freshSafe, freshMines,
-      opened: board.revealed.slice(), flags: board.flagged.slice(), mine: board.mine, original: followed,
+      game: { id: game.id, bv3: game.bv3, timeMs: game.timeMs }, k, start, classId, pattern, freshSafe, freshMines,
+      opened: Uint8Array.from(board.revealed), flags: Uint8Array.from(board.flagged), mine: Uint8Array.from(board.mine),
+      startAt: cursorInStart(game, k), original: followed,
     });
   });
   return found;
 }
 
 function exactlyFresh(candidate) {
-  const before = S.exactFacts(candidate.before);
-  const after = S.exactFacts(candidate.after);
+  const mine = Array.from(candidate.mine, Boolean);
+  const adjacent = mine.map((_, i) => S.NEIGHBORS[i].filter((n) => mine[n]).length);
+  const revealedBefore = Array.from(candidate.opened, Boolean);
+  const revealedAfter = revealedBefore.slice();
+  revealedAfter[candidate.start] = true;
+  const before = S.exactFacts(S.settle(revealedBefore, adjacent));
+  const after = S.exactFacts(S.settle(revealedAfter, adjacent));
   if (!before.complete || !after.complete) return false;
-  const covered = (c) => !candidate.after.view.revealed[c] && !candidate.flags[c];
+  const covered = (c) => !revealedAfter[c] && !candidate.flags[c];
   const freshSafe = cellsWhere(after, 2, (c) => covered(c) && !before.has(c));
   const freshMines = cellsWhere(after, 1, (c) => covered(c) && !before.has(c));
   const same = (a, b) => a.length === b.length && a.every((v, i) => v === b[i]);
@@ -186,15 +194,21 @@ function main() {
     };
   });
 
-  const games = inputs.flatMap((file) => fs.readFileSync(file, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l)))
-    .filter((g) => g.source === 'saolei');
+  // One game parsed at a time, so only candidates outlive the scan.
   const byClass = new Map();
-  for (const [index, game] of games.entries()) {
-    for (const c of candidatesOf(game, familyIds)) {
-      if (!byClass.has(c.classId)) byClass.set(c.classId, []);
-      byClass.get(c.classId).push(c);
+  let corpusGames = 0;
+  for (const file of inputs) {
+    for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
+      if (line === '') continue;
+      const game = JSON.parse(line);
+      if (game.source !== 'saolei') continue;
+      corpusGames++;
+      for (const c of candidatesOf(game, familyIds)) {
+        if (!byClass.has(c.classId)) byClass.set(c.classId, []);
+        byClass.get(c.classId).push(c);
+      }
+      if (corpusGames % 100 === 0) console.error(`scanned ${corpusGames} games`);
     }
-    if ((index + 1) % 50 === 0) console.error(`scanned ${index + 1}/${games.length} games`);
   }
 
   const problems = [];
@@ -225,7 +239,7 @@ function main() {
         opened: hexOf(c.opened),
         flags: hexOf(c.flags),
         start: c.start,
-        startAt: cursorInStart(c.game, c.k),
+        startAt: c.startAt,
         freshSafe: c.freshSafe,
         freshMines: c.freshMines,
         original: c.original,
@@ -240,7 +254,7 @@ function main() {
     formatVersion: 2,
     bankId,
     source: 'saolei.wang Expert replays, stratified by 3BV/s',
-    corpusGames: games.length,
+    corpusGames,
     width: S.W, height: S.H, mines: S.MINES,
     levels,
     fluentMarginMs: S.FLUENT_MARGIN_MS,
