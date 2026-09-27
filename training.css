@@ -104,13 +104,15 @@ body.training-page .return-to-game {
   font-size: 12px;
 }
 
-#training-stage-list {
+#training-stage-list,
+#training-states-list {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(520px, 100%), 1fr));
   gap: 14px;
 }
 
-.training-stage {
+.training-stage,
+.training-state {
   padding: 12px 14px;
   border: 1px solid #dbe3e8;
   border-radius: 6px;

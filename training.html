@@ -6,7 +6,7 @@
 <script src="pages-redirect.js?v=20260926-pages-redirect-2"></script>
 <title>Minesweeper - Training</title>
 <link rel="stylesheet" href="style.css?v=20260926-training">
-<link rel="stylesheet" href="training.css?v=20260926-training">
+<link rel="stylesheet" href="training.css?v=20260926-states-compared">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 </head>
 <body class="training-page">
@@ -127,11 +127,19 @@
     <div id="training-weeks-content"></div>
   </section>
 
+  <section class="training-section" id="training-states" hidden aria-labelledby="training-states-heading">
+    <h2 id="training-states-heading">Experiments: player states compared</h2>
+    <p>Each state you tagged, on the days you used it: games with the state against games without it on
+      the same days. To run an experiment from the plan, put a state on for about 20 Expert games, take it
+      off for the next 20, and alternate.</p>
+    <div id="training-states-list"></div>
+  </section>
+
   <footer id="training-page-footer">
     <a class="return-to-game" href="index.html">&larr; return to game</a>
   </footer>
 </main>
 <script src="storage.js?v=20260926-lifelong"></script>
-<script src="training-page.js?v=20260926-noop-reasons"></script>
+<script src="training-page.js?v=20260926-states-compared"></script>
 </body>
 </html>

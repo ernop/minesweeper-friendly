@@ -4,7 +4,7 @@
 // whose summary the worker computes straight from IndexedDB, rendered with
 // no page errors and with black neutral text.
 //
-// Usage: node tests/training-browser-check.js /path/to/playwright-core /path/to/chromium
+// Usage: node tests/training-browser-check.js /path/to/playwright-core /path/to/chromium [states-screenshot.png]
 const assert = require('node:assert/strict');
 const { chromium } = require(process.argv[2]);
 const Solver = require('../solver.js');
@@ -116,8 +116,8 @@ function fixture() {
   const records = [];
   const traces = [];
   for (let i = 0; i < 6; i++) {
-    const game = flaggerGame((i + 11).toString(16).padStart(32, '7'), start + i * 3600000, i % 2 === 0);
-    records.push(game.record);
+    const game = flaggerGame((i + 11).toString(16).padStart(32, '7'), start + i * 600000, i % 2 === 0);
+    records.push({ ...game.record, states: i % 2 === 0 ? ['1.5 click'] : [] });
     traces.push(game.trace);
   }
   records.push(lossRecord(start + 100000, 34000, ['opened-proven-mine'], { safeAvailable: true, knowledge: 'proven-mine' }));
@@ -176,6 +176,12 @@ function fixture() {
     assert.match(stages, /75%/, '6 wins among 8 games that reached 20 s');
     assert.match(stages, /50%/, 'one of two classified run losses had a safe move');
     assert.ok(await page.locator('#training-weeks tbody tr').count() >= 1);
+    assert.equal(await page.locator('.training-state').count(), 1);
+    const states = await page.locator('.training-state').innerText();
+    assert.match(states, /^1\.5 click\s*1 day, 6 blocks/, 'three wins with the state alternate with three without');
+    assert.match(states, /chords one flag short, per game/);
+    assert.match(states, /Block rule: 3 of the 4 block pairs it needs so far/);
+    if (process.argv[4]) await page.locator('#training-states').screenshot({ path: process.argv[4] });
 
     const nonBlack = await page.evaluate(() => {
       const offenders = [];
@@ -193,7 +199,7 @@ function fixture() {
     assert.deepEqual(errors, []);
     await page.route('**/index.html', (route) => route.fulfill({ contentType: 'text/html', body: '<!DOCTYPE html><title>game</title>' }));
     await Promise.all([page.waitForURL('**/index.html'), page.keyboard.press('Escape')]);
-    console.log('training page: empty state, worker summary from IndexedDB, stages, budget, weeks, black text, Esc returns');
+    console.log('training page: empty state, worker summary from IndexedDB, stages, budget, weeks, states compared, black text, Esc returns');
   } finally {
     await browser.close();
   }

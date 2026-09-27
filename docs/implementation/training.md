@@ -65,6 +65,22 @@ diverged were Justice redraws on seed-rebuilt boards.
 Each replay step carries `{ kind, gapMs, t, index }`: the input kind, the gap
 since the previous input, the trace time, and the cell.
 
+## Player states compared (`trainingStateComparisons`)
+
+`summary.stateComparisons` holds one entry per state found on the Expert
+records, most recently used first. `trainingStateComparison` builds blocks
+from the records sorted by `endedAt` on the local days (`trainingDayStart`)
+the state was used, pairs each day's blocks in order, and computes
+`trainingGroupStats` per condition (`trainingWinPace`, `flagsPlaced` over the
+wins that carry it, `trainingShortChords`, `trainingRuns`). The rule
+constants are `TRAINING_RULE_PAIRS` (4) and `TRAINING_RULE_FASTER` (3); each
+entry carries `rulePairs` because the page does not load `training-core.js`.
+`rule.stateBetter` is `null` when one side of the four pairs has no game
+reaching 20 s. `trainingShortChords` counts no-op evaluations with reason
+`chord-short-of-flags` and returns `undefined` for a record without a ledger
+or with a `chord-unavailable` no-op (the reason before the 2026-09-26 split).
+The page renders them in `#training-states` with `renderTrainingStates`.
+
 ## Offline comparison pipeline (plan v2)
 
 `analysis/skill-comparison/` compares the player's exported games with
@@ -83,9 +99,12 @@ outside its own cell.
   input kind, gap timing, flag classes, removable counts; outcome and
   divergence checks; seed-rebuilt Expert boards (right and wrong seed, saved
   final board); record pace, runs through the real verdict code, weeks; stage
-  status; an end-to-end summary; a loud failure when trace slots do not match
-  the recent wins.
-- `node tests/training-browser-check.js PLAYWRIGHT CHROMIUM` (8099 only, isolated
-  profile): empty state; a seeded synthetic flagger history with deliberate
-  no-ops; worker summary from IndexedDB; stage, budget, and week rendering;
-  every neutral text element pure black; Esc returns to the game.
+  status; player states compared (scope days, blocks and pairs, the rule
+  decided on the first four pairs only, the old no-op reason unmeasured); an
+  end-to-end summary; a loud failure when trace slots do not match the recent
+  wins.
+- `node tests/training-browser-check.js PLAYWRIGHT CHROMIUM [SCREENSHOT]` (8099
+  only, isolated profile): empty state; a seeded synthetic flagger history with
+  deliberate no-ops and a state on alternate wins; worker summary from
+  IndexedDB; stage, budget, week, and states rendering; every neutral text
+  element pure black; Esc returns to the game.

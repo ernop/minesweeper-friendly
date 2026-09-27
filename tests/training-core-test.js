@@ -246,6 +246,48 @@ console.log('stages');
   check('all complete leaves no current stage', done.currentStageId === null);
 }
 
+console.log('player states compared');
+{
+  const base = new Date(2026, 8, 20, 10, 0, 0).getTime();
+  const noop = (reason) => ({ version: 'action-evaluation-v1', action: 'no-op', result: 'continued',
+    mistakes: ['no-op-click'], evidence: { reason } });
+  const records = [{ endedAt: base - 86400000, outcome: 'win', timeMs: 95000, bv3: 180, clicks: 200, wastedClicks: 0,
+    flagsPlaced: 90, states: ['sleepy'], actionEvaluations: [] }];
+  // Five pairs of blocks, without the state first, each block one win and
+  // one loss past 20 s. With the state the win is faster in pairs 1 and 2
+  // only, so the rule's four pairs say no; pair 5 would tip a five-pair count.
+  const winS = [[100, 90], [100, 95], [90, 99], [80, 100], [200, 70]];
+  winS.forEach(([withoutS, withS]) => {
+    for (const [withState, s] of [[false, withoutS], [true, withS]]) {
+      const states = withState ? ['exp'] : [];
+      const endedAt = base + records.length * 300000;
+      records.push({ endedAt, outcome: 'win', timeMs: s * 1000, bv3: 180, clicks: 200, wastedClicks: withState ? 0 : 2,
+        flagsPlaced: withState ? 60 : 90, states,
+        actionEvaluations: withState ? [] : [noop('chord-short-of-flags'), noop('chord-short-of-flags')] });
+      records.push({ endedAt: endedAt + 60000, outcome: 'loss', timeMs: 30000, bv3: 180, clicks: 50, wastedClicks: 0,
+        flagsPlaced: 20, states, actionEvaluations: [] });
+    }
+  });
+  records.push({ endedAt: base + 50 * 300000, outcome: 'loss', timeMs: 25000, bv3: 180, clicks: 60, wastedClicks: 1,
+    flagsPlaced: 20, states: [], actionEvaluations: [noop('chord-unavailable')] });
+  const comparisons = TrainingCore.stateComparisons(records, deps.fatalKindOf);
+  check('states listed most recently used first', comparisons.map((c) => c.state).join() === 'exp,sleepy');
+  const exp = comparisons[0];
+  check('scope is the days the state was used', exp.days === 1 && exp.without.games === 11 && exp.with.games === 10);
+  check('blocks alternate and pair in order within the day', exp.blocks === 11 && exp.pairs === 5 && exp.comparablePairs === 5);
+  check('the rule decides on the first four pairs only', exp.rule.faster === 2 && exp.rule.stateBetter === false);
+  check('late win rate over the four pairs\u2019 blocks', exp.rule.lateWith === 0.5 && exp.rule.lateWithout === 0.5);
+  check('chords one flag short: counted per game, old combined reason unmeasured',
+    exp.with.meanShortChordsPerGame === 0 && exp.without.meanShortChordsPerGame === 1
+    && exp.without.shortChordMeasuredGames === 10);
+  check('flags per win by condition', exp.with.medianFlagsPerWin === 60 && exp.without.medianFlagsPerWin === 90);
+  const sleepy = comparisons[1];
+  check('a state with no games without it has nothing to compare', sleepy.without.games === 0
+    && sleepy.without.medianWinS === null && sleepy.rule === null && sleepy.comparablePairs === 0);
+  check('the old combined reason reads as unmeasured', TrainingCore.shortChords(records[records.length - 1]) === undefined
+    && TrainingCore.shortChords({ ...records[0], actionEvaluations: undefined }) === undefined);
+}
+
 console.log('summary: end to end over seed-rebuilt Expert wins');
 {
   const records = [];

@@ -217,20 +217,32 @@ common waste directly: the last flag and the chord become one motion.
 
 ### Experiments (designs; the player runs them, the analysis reads them)
 
-Each runs in alternating blocks (A B A B ...) of 20 Expert games on the same
-days, tagged with a player state naming the condition, so time-of-day and
-day-to-day form spread over both conditions. The decision rule is fixed in
-advance: adopt B when its block median time is lower in at least three of four
-block pairs and its win rate among games that reach 20 s is not lower.
+Each runs in alternating blocks (A B A B ...) of about 20 Expert games on the
+same days: B games carry a player state naming the condition, A games do not,
+so time-of-day and day-to-day form spread over both conditions. The decision
+rule is fixed in advance and decided once, on the first four block pairs in
+which both blocks have a win: B is better when its median win time is lower in
+at least three of the four and its games reaching 20 s are won at least as
+often across those eight blocks. Later pairs never change the result: deciding
+at a set size keeps a lucky streak from ending the experiment early.
+
+The training page's section "Experiments: player states compared" (built
+2026-09-26) reads every state on the Expert records this way. Scope: the local
+days the state was used. Blocks: runs of consecutive games on one day with the
+same condition; each day's blocks pair in order, first with second, third with
+fourth. Per condition it shows games, wins, median win time, 3BV/s, IOE,
+seconds per input, flags per win, chords one flag short per game (records
+carrying the old combined no-op reason are left out of that row), and the
+share of games reaching 20 s that are won; then the rule's progress or result.
 
 1. **The 1.5 click for the last flag.** A: as usual. B: whenever a number is
    one flag short, flag the mine with the right button, keep holding, and chord
-   with the left. Measures: clicks on numbers one flag short (expected near 0),
-   clicks per 3BV, time, late win rate.
+   with the left. Measures: chords one flag short per game (expected near 0),
+   IOE, time, late win rate. The last-flag drill on the problems page trains it.
 2. **Flag only when a chord pays.** B: flag a mine only when the chord it
    enables opens two or more squares; otherwise click the safe squares
-   directly. Measures: low-value flags, wrong flags, flag-related late deaths,
-   clicks per 3BV, time.
+   directly. Measures: flags per win, wrong flags, flag-related late deaths,
+   IOE, time.
 3. **Square size.** 16 px against the player's usual size. Measures: travel per
    distance, misclicks, time.
 4. **Problems transfer.** Train two rule families daily on the problems page

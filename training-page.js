@@ -37,7 +37,7 @@ function storageFailure(what) {
 }
 
 function userdataReady() {
-  const worker = new Worker('training-worker.js?v=20260926-noop-reasons');
+  const worker = new Worker('training-worker.js?v=20260926-states-compared');
   worker.onmessage = ({ data }) => {
     worker.terminate();
     if (data.error !== undefined) showTrainingStatus('Training summary failed: ' + data.error, true);
@@ -218,12 +218,54 @@ function renderTrainingWeeks(summary) {
   content.replaceChildren(table);
 }
 
+function trainingRuleText(comparison) {
+  const rule = comparison.rule;
+  if (rule === null) {
+    return 'Block rule: ' + comparison.comparablePairs + ' of the ' + comparison.rulePairs
+      + ' block pairs it needs so far (a pair counts when both blocks have a win).';
+  }
+  const verdict = rule.stateBetter === null ? 'undecided: one side has no game reaching 20 s'
+    : rule.stateBetter ? 'better with the state' : 'not better with the state';
+  return 'Block rule, decided on the first ' + comparison.rulePairs + ' pairs: faster with the state in '
+    + rule.faster + ' of ' + comparison.rulePairs + '; games reaching 20 s won ' + trainingPercent(rule.lateWith)
+    + ' with, ' + trainingPercent(rule.lateWithout) + ' without. Result: ' + verdict + '.';
+}
+
+function renderTrainingStates(summary) {
+  const list = document.getElementById('training-states-list');
+  if (summary.stateComparisons.length === 0) {
+    list.replaceChildren(trainingElement('p', '', 'No Expert game carries a state yet.'));
+    return;
+  }
+  list.replaceChildren(...summary.stateComparisons.map((comparison) => {
+    const block = trainingElement('div', 'training-state');
+    const heading = trainingElement('h3', '', comparison.state);
+    heading.appendChild(trainingElement('span', 'training-stage-state',
+      comparison.days + (comparison.days === 1 ? ' day, ' : ' days, ') + comparison.blocks + ' blocks'));
+    const row = (label, value) => ({ cells: [label, value(comparison.without), value(comparison.with)] });
+    const table = trainingTable([{ text: 'measure' }, { text: 'without' }, { text: 'with' }], [
+      row('games', (s) => String(s.games)),
+      row('wins', (s) => String(s.wins)),
+      row('median win', (s) => trainingSeconds(s.medianWinS, 1)),
+      row('3BV/s', (s) => trainingNumber(s.median3bvPerS, 2)),
+      row('IOE', (s) => trainingNumber(s.medianIoe, 2)),
+      row('seconds per input', (s) => trainingNumber(s.medianSecondsPerInput, 3)),
+      row('flags per win', (s) => trainingNumber(s.medianFlagsPerWin, 0)),
+      row('chords one flag short, per game', (s) => trainingNumber(s.meanShortChordsPerGame, 1)),
+      row('games reaching 20 s won', (s) => (s.conversion === null ? 'not measured' : trainingPercent(s.conversion) + ' of ' + s.runs)),
+    ], [1, 2]);
+    block.append(heading, table, trainingElement('p', '', trainingRuleText(comparison)));
+    return block;
+  }));
+}
+
 function renderTraining(summary) {
   renderTrainingNow(summary);
   renderTrainingStages(summary);
   renderTrainingBudget(summary);
   renderTrainingWeeks(summary);
-  for (const id of ['training-now', 'training-stages', 'training-budget', 'training-weeks']) {
+  renderTrainingStates(summary);
+  for (const id of ['training-now', 'training-stages', 'training-budget', 'training-weeks', 'training-states']) {
     document.getElementById(id).hidden = false;
   }
   const at = new Date();

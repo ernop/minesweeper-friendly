@@ -66,9 +66,11 @@ Earlier proposals, still open:
   transfer from generic drills is near zero); a mid-game sprint (a
   deduction-only mid-game position, the Endgame drill's larger sibling);
   full-length Expert no-guess practice if generation cost allows.
-- **Technique comparisons.** Matched blocks comparing two styles (for example
-  counted flagging versus no-flag) on IOE, seconds per input, and
-  conversion, with block-level uncertainty.
+- **Technique comparisons.** Built: the training page compares games with and
+  without each player state on the same days, in alternating blocks, with the
+  plan's fixed four-pair rule ([training.md](docs/product/training.md),
+  Experiments). Open: an uncertainty interval for the with-without difference
+  over blocks (for example a bootstrap resampling whole blocks).
 - **Intermediate on the page.** The warm-up level's economy and pace beside
   Expert.
 - **Board-adjusted pace and plateau detection.** 3BV/s rises with board 3BV, so

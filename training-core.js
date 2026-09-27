@@ -352,6 +352,121 @@ function trainingWeeks(records, fatalKindOf) {
   });
 }
 
+// Player states compared (docs/product/training.md, Experiments): on each
+// local day a state was used, the games with it against the games without
+// it, and the plan's block rule. Blocks are runs of consecutive games on one
+// day with the same condition; each day's blocks pair in order (first with
+// second, third with fourth), so every pair holds one block of each. The
+// rule is fixed in advance and decided once, on the first four pairs with a
+// win on both sides: the state wins when its block median win time is lower
+// in at least three of them and its games reaching 20 s are won at least as
+// often across those blocks.
+const TRAINING_RULE_PAIRS = 4;
+const TRAINING_RULE_FASTER = 3;
+
+function trainingDayStart(ms) {
+  const date = new Date(ms);
+  date.setHours(0, 0, 0, 0);
+  return date.getTime();
+}
+
+// Records from before 2026-08-20 have no states field: no state existed.
+function trainingHasState(record, state) {
+  return record.states !== undefined && record.states.includes(state);
+}
+
+// Chord clicks on a number still short of flags, or undefined when the
+// record cannot say: no evaluation ledger, or no-op reasons from before the
+// split (one reason, chord-unavailable, for every chord that opened nothing).
+function trainingShortChords(record) {
+  if (record.actionEvaluations === undefined) return undefined;
+  let count = 0;
+  for (const evaluation of record.actionEvaluations) {
+    if (evaluation.action !== 'no-op') continue;
+    if (evaluation.evidence.reason === 'chord-unavailable') return undefined;
+    if (evaluation.evidence.reason === 'chord-short-of-flags') count++;
+  }
+  return count;
+}
+
+function trainingGroupStats(group, fatalKindOf) {
+  const wins = group.filter((r) => r.outcome === 'win');
+  const flagCounts = wins.filter((r) => typeof r.flagsPlaced === 'number').map((r) => r.flagsPlaced);
+  const shortChords = group.map(trainingShortChords).filter((count) => count !== undefined);
+  const runs = trainingRuns(group.filter((r) => r.timeMs >= TRAINING_RUN_MIN_MS), fatalKindOf);
+  return {
+    games: group.length,
+    ...trainingWinPace(wins),
+    flagMeasuredWins: flagCounts.length,
+    medianFlagsPerWin: trainingMedian(flagCounts),
+    shortChordMeasuredGames: shortChords.length,
+    meanShortChordsPerGame: trainingMean(shortChords),
+    runs: runs.runs,
+    conversion: runs.conversion,
+  };
+}
+
+function trainingStateComparison(sorted, state, fatalKindOf) {
+  const days = new Set(sorted.filter((r) => trainingHasState(r, state)).map((r) => trainingDayStart(r.endedAt)));
+  const blocks = [];
+  for (const record of sorted) {
+    const day = trainingDayStart(record.endedAt);
+    if (!days.has(day)) continue;
+    const withState = trainingHasState(record, state);
+    const last = blocks[blocks.length - 1];
+    if (last !== undefined && last.day === day && last.withState === withState) last.records.push(record);
+    else blocks.push({ day, withState, records: [record] });
+  }
+  const pairs = [];
+  for (let i = 0; i < blocks.length; i++) {
+    const next = blocks[i + 1];
+    if (next === undefined || next.day !== blocks[i].day) continue;
+    const [without, withIt] = blocks[i].withState ? [next, blocks[i]] : [blocks[i], next];
+    pairs.push({ without: without.records, with: withIt.records });
+    i++;
+  }
+  const medianWin = (records) => trainingMedian(records.filter((r) => r.outcome === 'win').map((r) => r.timeMs / 1000));
+  const comparable = pairs.map((pair) => ({ ...pair, withoutS: medianWin(pair.without), withS: medianWin(pair.with) }))
+    .filter((pair) => pair.withoutS !== null && pair.withS !== null);
+  let rule = null;
+  if (comparable.length >= TRAINING_RULE_PAIRS) {
+    const decisive = comparable.slice(0, TRAINING_RULE_PAIRS);
+    const faster = decisive.filter((pair) => pair.withS < pair.withoutS).length;
+    const late = (side) => trainingRuns(decisive.flatMap((pair) => pair[side])
+      .filter((r) => r.timeMs >= TRAINING_RUN_MIN_MS), fatalKindOf).conversion;
+    const lateWithout = late('without');
+    const lateWith = late('with');
+    rule = {
+      faster,
+      lateWithout,
+      lateWith,
+      // null: one side has no game reaching 20 s, so the rule cannot decide.
+      stateBetter: lateWith === null || lateWithout === null ? null
+        : faster >= TRAINING_RULE_FASTER && lateWith >= lateWithout,
+    };
+  }
+  const inScope = blocks.flatMap((block) => block.records);
+  return {
+    state,
+    days: days.size,
+    lastUsedAt: Math.max(...sorted.filter((r) => trainingHasState(r, state)).map((r) => r.endedAt)),
+    blocks: blocks.length,
+    pairs: pairs.length,
+    comparablePairs: comparable.length,
+    rulePairs: TRAINING_RULE_PAIRS,
+    without: trainingGroupStats(inScope.filter((r) => !trainingHasState(r, state)), fatalKindOf),
+    with: trainingGroupStats(inScope.filter((r) => trainingHasState(r, state)), fatalKindOf),
+    rule,
+  };
+}
+
+// Every state on the records, most recently used first.
+function trainingStateComparisons(sorted, fatalKindOf) {
+  const states = new Set(sorted.flatMap((r) => (r.states === undefined ? [] : r.states)));
+  return [...states].map((state) => trainingStateComparison(sorted, state, fatalKindOf))
+    .sort((a, b) => b.lastUsedAt - a.lastUsedAt);
+}
+
 // Stage targets are the plan's decisions (docs/product/training.md), not
 // measurements. A stage is complete when every criterion is met; the
 // current stage is the first incomplete one. Rules of earlier stages stay
@@ -452,6 +567,7 @@ function trainingSummary(records, winTraces, deps) {
     replayStatus,
     ...trainingStageStatus(values, sampleSizes),
     weeks: trainingWeeks(sorted, deps.fatalKindOf),
+    stateComparisons: trainingStateComparisons(sorted, deps.fatalKindOf),
   };
 }
 
@@ -472,6 +588,8 @@ const TrainingCore = {
   winPace: trainingWinPace,
   runs: trainingRuns,
   weeks: trainingWeeks,
+  shortChords: trainingShortChords,
+  stateComparisons: trainingStateComparisons,
   stageStatus: trainingStageStatus,
   summary: trainingSummary,
   median: trainingMedian,
