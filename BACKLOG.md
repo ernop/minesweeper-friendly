@@ -86,17 +86,6 @@ Earlier proposals, still open:
 
 Version 1 is built ([Minesweeper problems](docs/product/problems.md)). Open:
 
-- **Own subdomain (creator request, 2026-09-26).** Serve the page at a
-  Minesweeper-problems subdomain of fuseki.net (transcribed as "mindsweeper
-  problems dot forsake you dot net"; `minesweeper-problems.fuseki.net` by the
-  existing naming). Steps outside this repository, following the procedure
-  that launched `minesweeper-friendly.fuseki.net`: a DreamHost A record to
-  146.190.147.109, a Let's Encrypt certificate, and an nginx site in the
-  Fuseki repository (`setup/nginx/`) whose root is the same release directory,
-  with `index problems.html`. The page keeps its own database, so a separate
-  origin needs no storage change; attempts made on the game's origin stay there
-  unless exported and imported. On that host the return-to-game link must
-  point at the game's own host, whose origin holds the player's history.
 - **Exact click judgement.** Judge each click outside the answer squares in a
   worker: provable from other numbers at that moment, or a guess.
 - **Adaptive scheduling.** Choose classes by the player's gap to the next level

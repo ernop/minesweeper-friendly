@@ -1,9 +1,10 @@
 'use strict';
 
-// Minesweeper problems page (docs/product/problems.md). The page keeps its own
-// IndexedDB database, so it runs the same on the game's origin and on a host
-// of its own; it loads the problem bank, runs sets of problems, saves every
-// attempt, and shows the per-rule profile, the history, and the backup.
+// Minesweeper problems page (docs/product/problems.md), a subpage of the game
+// site. It keeps its own IndexedDB database, independent of the game
+// database's versions; it loads the problem bank, runs sets of problems and
+// the pointing test, saves every attempt and run, and shows the ladders, the
+// history, and the backup.
 
 const PROBLEM_DB_NAME = 'minesweeper-problems';
 const PROBLEM_DB_VERSION = 2;

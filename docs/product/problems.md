@@ -8,15 +8,12 @@ position, each beginning just as a square opens, taken from the real games of
 high-level players; identify each pattern or logic situation, see how players
 of all levels handle it, place the player's level, and show how to move up.
 Later the same day: "situation classes and problems, that's really what you
-got to get here. We definitely do need to create this website", to be hosted
-at a Minesweeper-problems subdomain of fuseki.net (the transcribed request
-reads "mindsweeper problems dot forsake you dot net"). The user takes the
-problems and evaluations as they are created.
+got to get here. We definitely do need to create this website". The user takes
+the problems and evaluations as they are created.
 
 Built the same day as version 1: `problems.html`, opened from a "problems"
-button in the game page's upper-right cluster. It is live wherever the game is
-deployed (`/problems.html`). The dedicated subdomain is not set up; see
-[Hosting](#hosting).
+button in the game page's upper-right cluster, part of the game site (see
+[Hosting](#hosting)).
 
 ## A problem
 
@@ -175,8 +172,8 @@ card.
 ## Stored attempt
 
 One record per attempt in the page's own IndexedDB database
-`minesweeper-problems` (store `attempts`, keyed by `startedAt`), so the page
-works the same on the game's origin and on a host of its own. A stopped or
+`minesweeper-problems` (store `attempts`, keyed by `startedAt`), separate from
+the game's database so the two never depend on each other's versions. A stopped or
 interrupted attempt is stored with that outcome; one that never reached time
 zero stores nothing.
 
@@ -205,13 +202,12 @@ keeps each item once, and rejects invalid items with a visible count.
 
 ## Hosting
 
-Requested: the page at its own fuseki.net subdomain. Version 1 ships inside
-the game's release, so it is live at
-`https://minesweeper-friendly.fuseki.net/problems.html`; like every page it
-loads `pages-redirect.js` first, so GitHub Pages visitors are sent there.
-The dedicated hostname needs a DNS record at the fuseki.net registrar and a
-TLS certificate and nginx site on the Fuseki server, outside this repository;
-[BACKLOG.md](../../BACKLOG.md#minesweeper-problems) lists the steps.
+Decision (creator, 2026-09-26 evening): the problems page stays a subpage of
+the Minesweeper site, not a subdomain of its own (the earlier request named a
+separate fuseki.net host). It ships in the game's release at
+`https://minesweeper-friendly.fuseki.net/problems.html` and at `/problems.html`
+on the player's local origin; like every page it loads `pages-redirect.js`
+first, so GitHub Pages visitors are sent to the site.
 
 ## Not built
 
