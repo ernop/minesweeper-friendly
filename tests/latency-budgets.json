@@ -1,12 +1,17 @@
 {
-  "note": "Upper bounds in milliseconds for tests/latency-browser-check.js. Generous on purpose: they catch large slowdowns (this morning's were 0.3-2 s), not frame-level noise. Click times include up to one 60 Hz frame (16.7 ms) of waiting, which no page can avoid. Set 2026-09-26 on the creator's PC; tighten when the code gets faster, loosen only by recorded creator decision.",
+  "note": "Upper bounds in milliseconds for tests/latency-browser-check.js, set 2026-09-26 just above the worst of three Firefox runs on the creator's PC (Chromium is faster everywhere). Creator decision: limits sit at today's real times, not generous ones; any real slowdown must fail. *WorkMs is how long the game's own handlers ran for that input, which only our code affects; the matching *Ms is input to the first task after the next frame, which also includes up to one 60 Hz frame (16.7 ms) of waiting, so a click must show within two frames (34 ms). Known waste, next to cut: new game (26-28 ms of work in Firefox, 8 in Chromium), switching board size (20-21), and the freeze after a game ends (82-91). Tighten when the code gets faster; loosen only by recorded creator decision.",
   "budgets": {
-    "startupMs": 2000,
-    "newGameMs": 100,
-    "firstClickMs": 100,
-    "clickMaxMs": 150,
-    "showMineMs": 100,
-    "afterGameFreezeMs": 400,
-    "switchToExpertMs": 400
+    "startupMs": 700,
+    "newGameWorkMs": 32,
+    "newGameMs": 36,
+    "firstClickWorkMs": 8,
+    "firstClickMs": 34,
+    "clickWorkMs": 10,
+    "clickMs": 34,
+    "showMineWorkMs": 8,
+    "showMineMs": 34,
+    "switchToExpertWorkMs": 25,
+    "switchToExpertMs": 30,
+    "afterGameFreezeMs": 100
   }
 }

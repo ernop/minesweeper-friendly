@@ -157,6 +157,13 @@ game instead of rewriting the whole history twice per game. Not built:
      forced layout in `newGame`'s `syncGameSidebar`.
    - Some expert clicks take 57-92ms in the misclick check, where the exact
      proof exhausts its work budget (item 1).
+4. **Waste the latency check measures (2026-09-26).** Our own handlers, in
+   Firefox, with no report shown: a new intermediate game takes 26-28ms of
+   work (8ms in Chromium) to build 256 cells, and switching to expert takes
+   20-21ms. The largest freeze in the two seconds after a game ends is
+   82-91ms (the report tasks in item 3). The creator's rule is that time with
+   no logical reason to exist is waste; cutting these lowers the limits in
+   `tests/latency-budgets.json`.
 
 ## Game data as the primary result surface (creator, 2026-09-23)
 

@@ -1,10 +1,11 @@
 'use strict';
-// Quick latency check (about 30 seconds) that catches large slowdowns in the
+// Latency check (about 10 seconds) that fails on any real slowdown in the
 // waits a player feels. In a fresh profile on the permanent test origin (a
 // server for the repository root at http://127.0.0.1:8099/) holding a
 // synthetic 6,500-game history, it times page load, new game, the first click,
-// a dozen more clicks, the click that shows a mine, the longest freeze in the
-// two seconds after that game ends, and switching to expert. Any value over
+// a dozen more clicks, the click that shows a mine, and switching to expert,
+// each as our handlers' work and as time to screen, plus the longest freeze in
+// the two seconds after that game ends. Any value over
 // tests/latency-budgets.json fails the run; --record appends it to
 // tests/latency-history.jsonl, which tests/latency-history.js prints.
 //
@@ -52,20 +53,32 @@ function seedHistory() {
   return new Promise((resolve, reject) => { tx.oncomplete = resolve; tx.onerror = () => reject(tx.error); });
 }
 
-// Runs in the page: each click's time from the input event to the first task
-// after the next frame, and every gap over 50ms in a 10ms timer (a freeze).
+// Runs in the page, per click: `work`, how long the game's own handlers ran
+// (from the first listener to the last, including the click event that
+// starts a new game), which only our code affects; and `ms`, from the input
+// event to the first task after the next frame, what the player sees, which
+// also includes up to one 60 Hz frame of waiting. Plus every gap over 50ms in
+// a 10ms timer (a freeze).
 function instrument() {
   const probe = { clicks: [], freezes: [] };
   window.__latency = probe;
+  let current = null;
   for (const type of ['mouseup', 'contextmenu']) {
     window.addEventListener(type, (event) => {
+      current = null;
       if (type === 'mouseup' && event.button !== 0) return;
       if (!event.target.closest || !event.target.closest('#board, #top-panel, #difficulty-tabs')) return;
-      const entry = { at: event.timeStamp };
-      probe.clicks.push(entry);
+      current = { at: event.timeStamp, start: performance.now() };
+      probe.clicks.push(current);
+    }, true);
+    window.addEventListener(type, () => {
+      if (current === null) return;
+      const entry = current;
+      entry.end = performance.now();
       requestAnimationFrame(() => setTimeout(() => { entry.ms = performance.now() - entry.at; }, 0));
     });
   }
+  window.addEventListener('click', () => { if (current !== null) current.end = performance.now(); });
   let previous = performance.now();
   setInterval(() => {
     const now = performance.now();
@@ -145,18 +158,20 @@ async function main() {
 
     const probe = await page.evaluate(() => window.__latency);
     assert.equal(probe.clicks.length, kinds.length, 'every click reached the page');
-    const times = (kind) => probe.clicks.filter((_, i) => kinds[i] === kind).map((c) => Math.round(c.ms));
+    const of = (kinds_, field) => Math.max(...probe.clicks.filter((_, i) => kinds_.includes(kinds[i]))
+      .map((c) => field === 'work' ? c.end - c.start : c.ms));
     const endAt = probe.clicks[kinds.indexOf('show a mine')].at;
-    const metrics = {
-      startupMs: Math.round(startupMs),
-      newGameMs: Math.max(...times('new game')),
-      firstClickMs: Math.max(...times('first')),
-      clickMaxMs: Math.max(...times('click'), ...times('flag')),
-      showMineMs: Math.max(...times('show a mine')),
-      afterGameFreezeMs: Math.round(Math.max(0, ...probe.freezes
-        .filter((f) => f.at + f.ms >= endAt && f.at <= endAt + 2000).map((f) => f.ms))),
-      switchToExpertMs: Math.max(...times('switch to expert')),
-    };
+    const metrics = { startupMs: startupMs };
+    for (const [name, kinds_] of [['newGame', ['new game']], ['firstClick', ['first']], ['click', ['click', 'flag']],
+      ['showMine', ['show a mine']], ['switchToExpert', ['switch to expert']]]) {
+      metrics[name + 'WorkMs'] = of(kinds_, 'work');
+      metrics[name + 'Ms'] = of(kinds_, 'screen');
+    }
+    metrics.afterGameFreezeMs = Math.max(0, ...probe.freezes
+      .filter((f) => f.at + f.ms >= endAt && f.at <= endAt + 2000).map((f) => f.ms));
+    for (const name of Object.keys(metrics)) metrics[name] = Math.round(metrics[name]);
+    assert.deepEqual(Object.keys(budgets).sort(), Object.keys(metrics).sort(),
+      'tests/latency-budgets.json names exactly the measured metrics');
     const over = Object.entries(budgets).filter(([name, limit]) => metrics[name] > limit)
       .map(([name, limit]) => name + ' ' + metrics[name] + ' > ' + limit);
     for (const [name, value] of Object.entries(metrics)) {
@@ -166,7 +181,8 @@ async function main() {
     if (record) {
       const git = (...args) => execFileSync('git', args, { cwd: repo, encoding: 'utf8' }).trim();
       fs.appendFileSync(path.join(__dirname, 'latency-history.jsonl'), JSON.stringify({ date: new Date().toISOString(),
-        commit: git('rev-parse', '--short', 'HEAD'), dirty: git('status', '--porcelain') !== '',
+        commit: git('rev-parse', '--short', 'HEAD'),
+        dirty: git('status', '--porcelain', '--', '.', ':!tests/latency-history.jsonl') !== '',
         browser: browserName + ' ' + browser.version(), metrics, over }) + '\n');
       console.log('recorded in tests/latency-history.jsonl');
     }

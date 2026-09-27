@@ -144,10 +144,15 @@ just basic timing stuff please so we notice if we megaslowdown again"; spec:
 `node tests/latency-browser-check.js PLAYWRIGHT_CORE_DIR firefox|chromium EXECUTABLE [--record]`
 takes about 10 seconds. In a fresh profile on 8099 with a synthetic
 6,500-game history, on a fixed board, it times page load, new game, the first
-click, a dozen more clicks, the click that shows a mine, the longest freeze in
-the two seconds after that game ends, and switching to expert. Unlike the
-checks above, these are pass thresholds: any value over the generous limits in
-`tests/latency-budgets.json` fails. `--record` appends the run to
+click, a dozen more clicks, the click that shows a mine, and switching to
+expert, plus the longest freeze in the two seconds after that game ends. Each
+input gets two numbers: `*WorkMs`, how long the game's own handlers ran for it
+(only our code affects this), and `*Ms`, input to the first task after the
+next frame (what the player sees, including up to one 16.7 ms frame of
+waiting). Unlike the checks above, these are pass thresholds: any value over
+`tests/latency-budgets.json` fails, and the file must name exactly the
+measured metrics. The limits sit just above the worst of three Firefox runs
+(creator decision 2026-09-26, below). `--record` appends the run to
 `tests/latency-history.jsonl`; `node tests/latency-history.js` prints recorded
 runs against the budgets. On this machine: Playwright
 `/home/ef/proj/voice-wei/node_modules/playwright-core`, Firefox

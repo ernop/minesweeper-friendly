@@ -1,2 +1,0 @@
-{"date":"2026-09-27T00:05:53.893Z","commit":"c5522c1","dirty":true,"browser":"chromium 151.0.7922.34","metrics":{"startupMs":357,"newGameMs":12,"firstClickMs":8,"clickMaxMs":18,"showMineMs":17,"afterGameFreezeMs":74,"switchToExpertMs":14},"over":[]}
-{"date":"2026-09-27T00:06:03.233Z","commit":"c5522c1","dirty":true,"browser":"firefox 153.0","metrics":{"startupMs":553,"newGameMs":29,"firstClickMs":7,"clickMaxMs":19,"showMineMs":10,"afterGameFreezeMs":93,"switchToExpertMs":23},"over":[]}

@@ -93,9 +93,21 @@ laggy"; asked whether the game is "max efficient" and to test and fix it.
   Cut to basics the same day ("keep just basic timing stuff please so we
   notice if we megaslowdown again"): a check of about 10 seconds times page
   load, new game, the first click and a dozen more, the click that shows a
-  mine, the freeze after a game ends, and switching to expert, each against a
-  generous limit. Exceeding one fails the check; recorded runs keep the
-  history in the repository ([how to run](../implementation/verification.md)).
+  mine, the freeze after a game ends, and switching to expert. Each input is
+  timed as the game's own work and as time to screen. Exceeding a limit fails
+  the check; recorded runs keep the history in the repository
+  ([how to run](../implementation/verification.md)).
+- Latency limits are tight, not generous (creator decision 2026-09-26: "If
+  we're getting three milliseconds now, 30 milliseconds now, degrading to 100
+  milliseconds per click is absolutely unacceptable ... It's very important
+  that we don't slow down the click frame. That doesn't mean testing it a
+  zillion times in a 12-minute long test ... It means testing it one time
+  properly."). Each limit sits just above today's measured time in Firefox,
+  and a click must reach the screen within two frames (34 ms). Limits tighten
+  when the code gets faster. Time with no logical reason to exist counts as
+  waste to remove, not as a baseline to protect; measured 2026-09-26 and not
+  yet cut: new game (26–28 ms of work in Firefox), switching board size
+  (20–21 ms), and the freeze after a game ends (82–91 ms).
 - Click-time evidence (the visible-position proof, guess odds, and Justice
   certification) keeps its exact definitions and results; only its cost
   may change. Built 2026-09-26: expert flags, chords, and guesses that took
