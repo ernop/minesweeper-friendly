@@ -37,7 +37,7 @@ function storageFailure(what) {
 }
 
 function userdataReady() {
-  const worker = new Worker('training-worker.js?v=20260926-states-compared');
+  const worker = new Worker('training-worker.js?v=20260927-paired-interval');
   worker.onmessage = ({ data }) => {
     worker.terminate();
     if (data.error !== undefined) showTrainingStatus('Training summary failed: ' + data.error, true);
@@ -70,6 +70,10 @@ function trainingNumber(value, digits) {
 
 function trainingSeconds(value, digits) {
   return value === null ? 'not measured' : value.toFixed(digits) + ' s';
+}
+
+function trainingSignedSeconds(value) {
+  return (value > 0 ? '+' : value < 0 ? '\u2212' : '') + Math.abs(value).toFixed(1) + ' s';
 }
 
 function trainingPercent(value) {
@@ -254,7 +258,14 @@ function renderTrainingStates(summary) {
       row('chords one flag short, per game', (s) => trainingNumber(s.meanShortChordsPerGame, 1)),
       row('games reaching 20 s won', (s) => (s.conversion === null ? 'not measured' : trainingPercent(s.conversion) + ' of ' + s.runs)),
     ], [1, 2]);
-    block.append(heading, table, trainingElement('p', '', trainingRuleText(comparison)));
+    const difference = comparison.winTimeDifference;
+    const differenceText = difference === null
+      ? 'Median win time with the state minus without, per block pair: needs 3 pairs with a win on both sides.'
+      : 'Median win time with the state minus without, per block pair: ' + trainingSignedSeconds(difference.meanS)
+        + ' (95% interval ' + trainingSignedSeconds(difference.lowS) + ' to ' + trainingSignedSeconds(difference.highS)
+        + ', ' + difference.pairs + ' pairs).';
+    block.append(heading, table, trainingElement('p', '', differenceText),
+      trainingElement('p', '', trainingRuleText(comparison)));
     return block;
   }));
 }

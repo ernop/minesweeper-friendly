@@ -69,9 +69,10 @@ Earlier proposals, still open:
   full-length Expert no-guess practice if generation cost allows.
 - **Technique comparisons.** Built: the training page compares games with and
   without each player state on the same days, in alternating blocks, with the
-  plan's fixed four-pair rule ([training.md](docs/product/training.md),
-  Experiments). Open: an uncertainty interval for the with-without difference
-  over blocks (for example a bootstrap resampling whole blocks).
+  plan's fixed four-pair rule and a 95% interval for the win-time difference
+  over block pairs ([training.md](docs/product/training.md), Experiments).
+  A paired t interval replaced the bootstrap idea: with a handful of pairs a
+  bootstrap interval comes out too narrow.
 - **Intermediate on the page.** The warm-up level's economy and pace beside
   Expert.
 - **Board-adjusted pace and plateau detection.** 3BV/s rises with board 3BV, so

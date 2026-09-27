@@ -233,7 +233,11 @@ same condition; each day's blocks pair in order, first with second, third with
 fourth. Per condition it shows games, wins, median win time, 3BV/s, IOE,
 seconds per input, flags per win, chords one flag short per game (records
 carrying the old combined no-op reason are left out of that row), and the
-share of games reaching 20 s that are won; then the rule's progress or result.
+share of games reaching 20 s that are won; then, over every block pair with a
+win on both sides, the mean difference in median win time (with minus without)
+with its 95% interval (Student t over the pair differences, shown from 3
+pairs; built 2026-09-27); then the rule's progress or result. The interval
+describes all the evidence so far; the rule is the decision fixed in advance.
 
 1. **The 1.5 click for the last flag.** A: as usual. B: whenever a number is
    one flag short, flag the mine with the right button, keep holding, and chord

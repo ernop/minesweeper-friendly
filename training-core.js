@@ -364,6 +364,66 @@ function trainingWeeks(records, fatalKindOf) {
 const TRAINING_RULE_PAIRS = 4;
 const TRAINING_RULE_FASTER = 3;
 
+// Regularized incomplete beta I_x(a, b) by its continued fraction (Lentz),
+// for the Student t distribution below.
+function trainingIncompleteBeta(x, a, b) {
+  if (x <= 0) return 0;
+  if (x >= 1) return 1;
+  if (x > (a + 1) / (a + b + 2)) return 1 - trainingIncompleteBeta(1 - x, b, a);
+  const logGamma = (z) => {
+    const c = [76.18009172947146, -86.50532032941677, 24.01409824083091,
+      -1.231739572450155, 0.1208650973866179e-2, -0.5395239384953e-5];
+    let y = z;
+    const t = z + 5.5 - (z + 0.5) * Math.log(z + 5.5);
+    let s = 1.000000000190015;
+    for (const coefficient of c) s += coefficient / ++y;
+    return -t + Math.log(2.5066282746310005 * s / z);
+  };
+  const front = Math.exp(logGamma(a + b) - logGamma(a) - logGamma(b) + a * Math.log(x) + b * Math.log(1 - x)) / a;
+  const tiny = 1e-300;
+  let c = 1;
+  let d = 1 - (a + b) * x / (a + 1);
+  d = 1 / (Math.abs(d) < tiny ? tiny : d);
+  let f = d;
+  for (let m = 1; m <= 300; m++) {
+    for (const numerator of [m * (b - m) * x / ((a + 2 * m - 1) * (a + 2 * m)),
+      -(a + m) * (a + b + m) * x / ((a + 2 * m) * (a + 2 * m + 1))]) {
+      d = 1 + numerator * d;
+      d = 1 / (Math.abs(d) < tiny ? tiny : d);
+      c = 1 + numerator / c;
+      if (Math.abs(c) < tiny) c = tiny;
+      f *= c * d;
+    }
+    if (Math.abs(c * d - 1) < 1e-15) return front * f;
+  }
+  throw new Error('incomplete beta did not converge');
+}
+
+// The two-sided 95% quantile of Student's t with df degrees of freedom:
+// the t where P(|T| > t) = 0.05, by bisection on the exact tail.
+function trainingT975(df) {
+  const tail = (t) => trainingIncompleteBeta(df / (df + t * t), df / 2, 0.5);
+  let low = 0;
+  let high = 1000;
+  for (let i = 0; i < 100; i++) {
+    const mid = (low + high) / 2;
+    if (tail(mid) > 0.05) low = mid;
+    else high = mid;
+  }
+  return (low + high) / 2;
+}
+
+// Mean of paired differences with its 95% t interval; null under 3 pairs,
+// where the interval is too wide to say anything.
+function trainingPairedInterval(differences) {
+  const n = differences.length;
+  if (n < 3) return null;
+  const mean = trainingMean(differences);
+  const variance = differences.reduce((sum, d) => sum + (d - mean) ** 2, 0) / (n - 1);
+  const half = trainingT975(n - 1) * Math.sqrt(variance / n);
+  return { pairs: n, meanS: mean, lowS: mean - half, highS: mean + half };
+}
+
 function trainingDayStart(ms) {
   const date = new Date(ms);
   date.setHours(0, 0, 0, 0);
@@ -454,6 +514,9 @@ function trainingStateComparison(sorted, state, fatalKindOf) {
     pairs: pairs.length,
     comparablePairs: comparable.length,
     rulePairs: TRAINING_RULE_PAIRS,
+    // Every comparable pair, not only the rule's four: the interval is a
+    // description of all the evidence, the rule a decision fixed in advance.
+    winTimeDifference: trainingPairedInterval(comparable.map((pair) => pair.withS - pair.withoutS)),
     without: trainingGroupStats(inScope.filter((r) => !trainingHasState(r, state)), fatalKindOf),
     with: trainingGroupStats(inScope.filter((r) => trainingHasState(r, state)), fatalKindOf),
     rule,
@@ -589,6 +652,8 @@ const TrainingCore = {
   runs: trainingRuns,
   weeks: trainingWeeks,
   shortChords: trainingShortChords,
+  t975: trainingT975,
+  pairedInterval: trainingPairedInterval,
   stateComparisons: trainingStateComparisons,
   stageStatus: trainingStageStatus,
   summary: trainingSummary,

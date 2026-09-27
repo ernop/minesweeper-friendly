@@ -286,6 +286,23 @@ console.log('player states compared');
     && sleepy.without.medianWinS === null && sleepy.rule === null && sleepy.comparablePairs === 0);
   check('the old combined reason reads as unmeasured', TrainingCore.shortChords(records[records.length - 1]) === undefined
     && TrainingCore.shortChords({ ...records[0], actionEvaluations: undefined }) === undefined);
+  // Pair differences with minus without: -10, -5, +9, +20, -130 s.
+  const difference = exp.winTimeDifference;
+  const expectedMean = (-10 - 5 + 9 + 20 - 130) / 5;
+  check('the paired interval covers every comparable pair', difference.pairs === 5
+    && Math.abs(difference.meanS - expectedMean) < 1e-9 && difference.lowS < expectedMean && difference.highS > expectedMean);
+  check('fewer than 3 pairs give no interval', sleepy.winTimeDifference === null
+    && TrainingCore.pairedInterval([1, 2]) === null);
+}
+
+console.log('Student t quantiles');
+{
+  // Two-sided 95% quantiles from published tables.
+  const known = [[1, 12.7062], [2, 4.3027], [4, 2.7764], [10, 2.2281], [30, 2.0423], [120, 1.9799]];
+  check('t quantiles match tables to 4 decimals', known.every(([df, t]) => Math.abs(TrainingCore.t975(df) - t) < 5e-5));
+  const interval = TrainingCore.pairedInterval([1, 2, 3]);
+  check('interval of 1, 2, 3 is 2 \u00b1 4.3027 \u00d7 1/\u221a3', Math.abs(interval.meanS - 2) < 1e-12
+    && Math.abs(interval.highS - (2 + 4.3027 / Math.sqrt(3))) < 1e-3);
 }
 
 console.log('summary: end to end over seed-rebuilt Expert wins');

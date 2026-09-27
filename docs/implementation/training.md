@@ -76,7 +76,10 @@ wins that carry it, `trainingShortChords`, `trainingRuns`). The rule
 constants are `TRAINING_RULE_PAIRS` (4) and `TRAINING_RULE_FASTER` (3); each
 entry carries `rulePairs` because the page does not load `training-core.js`.
 `rule.stateBetter` is `null` when one side of the four pairs has no game
-reaching 20 s. `trainingShortChords` counts no-op evaluations with reason
+reaching 20 s. `winTimeDifference` is `trainingPairedInterval` over every
+comparable pair's difference (null under 3 pairs); its quantile comes from
+`trainingT975`, bisection on the exact two-sided Student t tail through
+`trainingIncompleteBeta` (continued fraction with a Lanczos log-gamma). `trainingShortChords` counts no-op evaluations with reason
 `chord-short-of-flags` and returns `undefined` for a record without a ledger
 or with a `chord-unavailable` no-op (the reason before the 2026-09-26 split).
 The page renders them in `#training-states` with `renderTrainingStates`.
