@@ -6,12 +6,9 @@ Spec: [docs/product/self-check.md](../product/self-check.md).
   `self-check-core.js`, and `self-check-page.js`, in that order. It does not
   load the game's settings or game-data scripts.
 - `self-check-core.js` (pure, no DOM): `SLEEPINESS_SCALE`,
-  `ALERTNESS_PROTOCOL` (the test the page runs: 10 stimuli),
-  `VIGILANCE_PROTOCOL` (the retired 3-minute test, kept to read its checks),
-  `ALERTNESS_PROTOCOLS` (every protocol a stored check can carry), `VIGILANCE_INTERRUPTIONS`,
-  `drawVigilanceIsiMs(protocol, unitRandom)`, `scoreVigilance` (thresholds of
-  the record's own protocol), `routineBaseline(checks, before, protocolId)` (up
-  to `SELF_CHECK_BASELINE_COUNT` = 10
+  `ALERTNESS_PROTOCOL` (10 stimuli), `VIGILANCE_INTERRUPTIONS`,
+  `drawVigilanceIsiMs`, `scoreVigilance`, `routineBaseline` (up to
+  `SELF_CHECK_BASELINE_COUNT` = 10
   earlier complete routine checks), `validSelfCheck`, and the backup format
   (`selfCheckFile`, `readSelfCheckFile`). It uses the validators from
   `observation-context.js`.
@@ -32,9 +29,6 @@ Spec: [docs/product/self-check.md](../product/self-check.md).
     early press; presses after the 10th stimulus is resolved are not recorded.
     `interruptVigilance(type, t)` handles Esc, `visibilitychange` to hidden,
     window `blur`, and `pagehide`.
-  - History marks checks of the retired 3-minute test "(old 3-minute test)" in
-    the status column; `routineBaseline` compares each check only with checks
-    of its own protocol.
   - `finishVigilance(status, endT)` builds the record, validates it (failure
     is a visible error), and `add`s it to the store. The result and history
     render only after the transaction completes.

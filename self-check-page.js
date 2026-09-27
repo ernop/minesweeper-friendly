@@ -178,7 +178,7 @@ function startVigilance(startT) {
 // a timeout, an early press, or the start.
 function scheduleNextStimulus(anchorT, feedbackText) {
   vigilanceRun.trial = null;
-  vigilanceRun.isiMs = drawVigilanceIsiMs(ALERTNESS_PROTOCOL, vigilanceUnitRandom());
+  vigilanceRun.isiMs = drawVigilanceIsiMs(vigilanceUnitRandom());
   vigilanceRun.nextOnsetT = anchorT + vigilanceRun.isiMs;
   vigilanceRun.feedbackUntilT = anchorT + ALERTNESS_PROTOCOL.feedbackMs;
   vigilanceCounter.textContent = feedbackText;
@@ -382,7 +382,7 @@ function showSelfCheckResult(check) {
     resultHeading.textContent = 'Result';
     resultNote.hidden = true;
     const score = scoreVigilance(vigilance);
-    const baseline = routineBaseline(selfChecks, check.startedAt, vigilance.protocol);
+    const baseline = routineBaseline(selfChecks, check.startedAt);
     const compared = baseline.checkCount > 0;
     const head = ['', 'this check'];
     if (compared) head.push('earlier routine checks (median of ' + baseline.checkCount + ')');
@@ -443,8 +443,7 @@ function renderSelfCheckHistory() {
       scored('lapseCount', formatCount),
       scored('falseStartCount', formatCount),
       scored('stimulusCount', formatCount),
-      (complete ? 'complete' : 'stopped: ' + VIGILANCE_INTERRUPTIONS[vigilance.interruption.type])
-        + (vigilance.protocol === ALERTNESS_PROTOCOL.id ? '' : ' (old 3-minute test)'),
+      complete ? 'complete' : 'stopped: ' + VIGILANCE_INTERRUPTIONS[vigilance.interruption.type],
       check.note === undefined ? '' : check.note,
     ], false));
   }

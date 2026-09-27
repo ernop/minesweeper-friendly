@@ -15,8 +15,11 @@ Creator decisions (2026-09-26, after trying the first version, a 3-minute
 test): "3 entire minutes of this is way too long"; a check was expected to
 collect "5 or 10 data points, to help later analysis"; then, when a short test
 was added beside the long one: "don't ADD. change the version there to be
-short. 10 max. 3 min is too long. only have one proper version". The 3-minute
-test is retired; checks already saved with it stay readable.
+short. 10 max. 3 min is too long. only have one proper version"; and when the
+old test was kept readable for saved checks: remove a feature's code
+permanently rather than keep backward compatibility for a test that shipped
+minutes earlier; delete its saved test records instead. The 3-minute test's
+code is gone; the one check saved with it is deleted.
 
 ## Flow
 
@@ -102,23 +105,14 @@ creator chose.
   mean of 1000 / reaction, per second; slowest-tenth speed and fastest-tenth
   reaction over the ceil(n / 10) slowest or fastest reactions.
 
-### Retired: alertness test `vigilance-3min-v1`
-
-The first version, released and retired on 2026-09-26: the same rules, but no
-stimulus was scheduled at or after 3 minutes from Begin. It is never run.
-Checks saved with it stay readable and scored by its own rules; history marks
-them "(old 3-minute test)", and they never enter the 10-counter baseline.
-
 ### Protocol versions
 
-A released protocol id names one exact instrument for as long as its data
-exists. Any change to wording, parameters, input, timing convention, or
-scoring ships under a new id, and records keep their protocol id forever.
-Only one version of each measure is offered at a time (creator decision,
-2026-09-26: "only have one proper version"): a new version replaces the old
-one outright, and checks of different versions are never compared or pooled.
-`tests/self-check-core-test.js` fails on any edit to a released protocol's
-constants, retired ones included.
+A protocol id names one exact instrument. Any change to wording, parameters,
+input, timing convention, or scoring ships under a new id. There is only ever
+one version of each measure (creator decisions, 2026-09-26): a new version
+replaces the old one outright, its code is removed, and checks saved with it
+are deleted, never kept readable beside the new ones.
+`tests/self-check-core-test.js` fails on any edit to the protocol's constants.
 
 ## Stored record
 
@@ -133,7 +127,7 @@ One record per check in the `selfChecks` store, keyed by `startedAt`:
 | `sleepHoursPast24h` | optional hours, 0–24 |
 | `note` | optional text |
 | `environment` | device pixel ratio, screen and viewport size, user-agent string at Begin |
-| `vigilance.protocol`, `status` | `alertness-10-v1` (`vigilance-3min-v1` on checks from before its retirement); `complete` or `interrupted` |
+| `vigilance.protocol`, `status` | `alertness-10-v1`; `complete` or `interrupted` |
 | `vigilance.interruption` | stops only: `{ type, t }`, type one of `visibilitychange`, `blur`, `pagehide`, `escape` |
 | `vigilance.timeOriginMs`, `startT`, `endT` | the page clock's epoch anchor and the test's start and end on that clock |
 | `vigilance.trials[]` | per stimulus: `isiMs`, `onsetT`, `nextFrameT`, then `responseT` + `receiptT` (handler time) + `pointerType`, or `timedOut: true`; only a stop may leave the last stimulus unresolved |

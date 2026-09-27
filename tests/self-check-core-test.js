@@ -24,20 +24,6 @@ function check(name, fn) {
   checks++;
 }
 
-check('the retired 3-minute test is frozen for reading its checks', () => {
-  assert.deepEqual({ ...VIGILANCE_PROTOCOL }, {
-    id: 'vigilance-3min-v1',
-    durationMs: 180000,
-    isiMinMs: 1000,
-    isiMaxMs: 4000,
-    feedbackMs: 1000,
-    timeoutMs: 30000,
-    falseStartBelowMs: 100,
-    lapseFromMs: 355,
-  });
-  assert.equal(Object.isFrozen(VIGILANCE_PROTOCOL), true);
-});
-
 check('the alertness test is frozen', () => {
   assert.deepEqual({ ...ALERTNESS_PROTOCOL }, {
     id: 'alertness-10-v1',
@@ -50,9 +36,6 @@ check('the alertness test is frozen', () => {
     lapseFromMs: 355,
   });
   assert.equal(Object.isFrozen(ALERTNESS_PROTOCOL), true);
-  assert.deepEqual(Object.keys(ALERTNESS_PROTOCOLS), ['alertness-10-v1', 'vigilance-3min-v1'],
-    'the retired 3-minute test stays readable');
-  assert.equal(Object.isFrozen(ALERTNESS_PROTOCOLS), true);
 });
 
 check('released sleepiness scale is frozen', () => {
@@ -73,16 +56,13 @@ check('released sleepiness scale is frozen', () => {
 });
 
 check('intervals span 1-4 s', () => {
-  for (const protocol of Object.values(ALERTNESS_PROTOCOLS)) {
-    assert.equal(drawVigilanceIsiMs(protocol, 0), 1000);
-    assert.equal(drawVigilanceIsiMs(protocol, 0.5), 2500);
-    assert.equal(drawVigilanceIsiMs(protocol, 1 - 2 ** -32) < 4000, true);
-  }
+  assert.equal(drawVigilanceIsiMs(0), 1000);
+  assert.equal(drawVigilanceIsiMs(0.5), 2500);
+  assert.equal(drawVigilanceIsiMs(1 - 2 ** -32) < 4000, true);
 });
 
 check('scores follow the frozen thresholds', () => {
   const score = scoreVigilance({
-    protocol: 'vigilance-3min-v1',
     trials: [
       { isiMs: 1500, onsetT: 1000, responseT: 1250 },
       { isiMs: 1500, onsetT: 5000, responseT: 5400 },
@@ -106,25 +86,29 @@ check('scores follow the frozen thresholds', () => {
 });
 
 check('threshold boundaries', () => {
-  for (const protocol of Object.keys(ALERTNESS_PROTOCOLS)) {
-    const at = (reactionMs) => scoreVigilance({
-      protocol, trials: [{ isiMs: 1000, onsetT: 0, responseT: reactionMs }], earlyPresses: [],
-    });
-    assert.equal(at(100).falseStartCount, 0);
-    assert.equal(at(99.9).falseStartCount, 1);
-    assert.equal(at(355).lapseCount, 1);
-    assert.equal(at(354.9).lapseCount, 0);
-  }
+  const at = (reactionMs) => scoreVigilance({
+    trials: [{ isiMs: 1000, onsetT: 0, responseT: reactionMs }], earlyPresses: [],
+  });
+  assert.equal(at(100).falseStartCount, 0);
+  assert.equal(at(99.9).falseStartCount, 1);
+  assert.equal(at(355).lapseCount, 1);
+  assert.equal(at(354.9).lapseCount, 0);
 });
 
 check('no reactions leaves speeds unmeasured', () => {
-  const score = scoreVigilance({
-    protocol: 'vigilance-3min-v1', trials: [{ isiMs: 1000, onsetT: 0, timedOut: true }], earlyPresses: [],
-  });
+  const score = scoreVigilance({ trials: [{ isiMs: 1000, onsetT: 0, timedOut: true }], earlyPresses: [] });
   assert.equal(score.medianReactionMs, undefined);
   assert.equal(score.meanResponseSpeedPerSec, undefined);
   assert.equal(score.lapseCount, 1);
 });
+
+// A complete test: one answered stimulus, one timeout, then eight more answers.
+const TEN_TRIALS = [
+  { isiMs: 2000, onsetT: 7003, nextFrameT: 7020, responseT: 7290, receiptT: 7292, pointerType: 'mouse' },
+  { isiMs: 3999.5, onsetT: 11300, nextFrameT: 11317, timedOut: true },
+  ...Array.from({ length: 8 }, (_, i) => ({ isiMs: 2500, onsetT: 43900 + i * 3000, nextFrameT: 43917 + i * 3000,
+    responseT: 44180 + i * 3000, receiptT: 44182 + i * 3000, pointerType: 'mouse' })),
+];
 
 function validCheck(overrides = {}) {
   return {
@@ -137,17 +121,14 @@ function validCheck(overrides = {}) {
     environment: { devicePixelRatio: 1, screenWidth: 2560, screenHeight: 1440,
       viewportWidth: 2400, viewportHeight: 1300, userAgent: 'test agent' },
     vigilance: {
-      protocol: 'vigilance-3min-v1',
+      protocol: 'alertness-10-v1',
       status: 'complete',
       timeOriginMs: 1790000000500.25,
       startT: 5000,
-      endT: 185020,
-      trials: [
-        { isiMs: 2000, onsetT: 7003, nextFrameT: 7020, responseT: 7290, receiptT: 7292, pointerType: 'mouse' },
-        { isiMs: 3999.5, onsetT: 11300, nextFrameT: 11317, timedOut: true },
-      ],
+      endT: 66200,
+      trials: TEN_TRIALS,
       earlyPresses: [{ t: 9000, receiptT: 9001 }],
-      frameCount: 10800,
+      frameCount: 3700,
       frameIntervalMedianMs: 16.67,
     },
     ...overrides,
@@ -157,6 +138,11 @@ function validCheck(overrides = {}) {
 function withVigilance(changes) {
   const base = validCheck();
   return { ...base, vigilance: { ...base.vigilance, ...changes } };
+}
+
+// A complete test whose first stimulus is replaced, so only that one differs.
+function withFirstTrial(trial) {
+  return withVigilance({ trials: [trial, ...TEN_TRIALS.slice(1)] });
 }
 
 check('a complete check validates', () => {
@@ -181,34 +167,34 @@ check('malformed checks are rejected', () => {
     validCheck({ note: '' }),
     validCheck({ environment: undefined }),
     validCheck({ timeZone: 'Mars/Olympus_Mons' }),
-    withVigilance({ protocol: 'vigilance-3min-v2' }),
+    withVigilance({ protocol: 'alertness-10-v2' }),
     withVigilance({ status: 'complete', interruption: { type: 'blur', t: 9 } }),
     withVigilance({ status: 'interrupted' }),
     withVigilance({ status: 'interrupted', interruption: { type: 'nap', t: 9 } }),
-    withVigilance({ trials: [{ isiMs: 4000, onsetT: 1, responseT: 300, receiptT: 301, pointerType: 'mouse' }] }),
-    withVigilance({ trials: [{ isiMs: 2000, onsetT: 1, responseT: 300, receiptT: 301, pointerType: 'mouse', timedOut: true }] }),
-    withVigilance({ trials: [{ isiMs: 2000, onsetT: 1 }] }),
-    withVigilance({ trials: [{ isiMs: 2000, onsetT: 10, nextFrameT: 10 }] }),
+    withFirstTrial({ isiMs: 4000, onsetT: 1, responseT: 300, receiptT: 301, pointerType: 'mouse' }),
+    withFirstTrial({ isiMs: 2000, onsetT: 1, responseT: 300, receiptT: 301, pointerType: 'mouse', timedOut: true }),
+    withFirstTrial({ isiMs: 2000, onsetT: 1 }),
+    withFirstTrial({ isiMs: 2000, onsetT: 10, nextFrameT: 10 }),
     withVigilance({ frameCount: -1 }),
     withVigilance({ endT: 4000 }),
   ];
   rejected.forEach((candidate, i) => assert.equal(validSelfCheck(candidate), false, 'case ' + i));
 });
 
-check('a complete short test holds exactly its 10 stimuli', () => {
+check('a complete test holds exactly its 10 stimuli', () => {
   const answered = (i) => ({ isiMs: 2000, onsetT: 7000 + i * 3000, responseT: 7280 + i * 3000,
     receiptT: 7282 + i * 3000, pointerType: 'mouse' });
-  const short = (count, status = 'complete') => withVigilance({
-    protocol: 'alertness-10-v1', status, endT: 40000,
+  const test = (count, status = 'complete') => withVigilance({
+    status, endT: 40000,
     ...(status === 'interrupted' ? { interruption: { type: 'escape', t: 30000 } } : {}),
     trials: Array.from({ length: count }, (_, i) => answered(i)),
   });
-  assert.equal(validSelfCheck(short(10)), true);
-  assert.equal(validSelfCheck(short(9)), false);
-  assert.equal(validSelfCheck(short(11)), false);
-  assert.equal(validSelfCheck(short(4, 'interrupted')), true);
-  assert.equal(validSelfCheck(short(11, 'interrupted')), false);
-  assert.equal(scoreVigilance(short(10).vigilance).reactionCount, 10);
+  assert.equal(validSelfCheck(test(10)), true);
+  assert.equal(validSelfCheck(test(9)), false);
+  assert.equal(validSelfCheck(test(11)), false);
+  assert.equal(validSelfCheck(test(4, 'interrupted')), true);
+  assert.equal(validSelfCheck(test(11, 'interrupted')), false);
+  assert.equal(scoreVigilance(test(10).vigilance).reactionCount, 10);
 });
 
 check('only a stop may leave the last stimulus unanswered', () => {
@@ -246,26 +232,13 @@ check('baseline uses the last ten earlier complete routine checks', () => {
   history.push(at(2000, 900, 'extra'));
   history.push(at(2001, 950, 'routine', 'interrupted'));
   history.push(at(3000, 990));
-  const baseline = routineBaseline(history, 2500, 'vigilance-3min-v1');
+  const baseline = routineBaseline(history, 2500);
   assert.equal(baseline.checkCount, 10);
   // Reactions 220..310 ms: the two oldest (200, 210) fall outside the ten.
   assert.equal(baseline.medianReactionMs, 265);
   assert.equal(baseline.lapseCount, 0);
-  assert.equal(routineBaseline(history, 1000, 'vigilance-3min-v1').checkCount, 0);
-  assert.equal(routineBaseline(history, 1000, 'vigilance-3min-v1').medianReactionMs, undefined);
-});
-
-check('baselines never mix the two tests', () => {
-  const at = (startedAt, reactionMs, protocol) => {
-    const base = validCheck({ startedAt, endedAt: startedAt + 1 });
-    return { ...base, vigilance: { ...base.vigilance, protocol,
-      trials: [{ isiMs: 2000, onsetT: 0, responseT: reactionMs, receiptT: reactionMs + 1, pointerType: 'mouse' }],
-      earlyPresses: [] } };
-  };
-  const history = [at(1000, 250, 'vigilance-3min-v1'), at(1001, 400, 'alertness-10-v1'), at(1002, 420, 'alertness-10-v1')];
-  assert.equal(routineBaseline(history, 2000, 'vigilance-3min-v1').medianReactionMs, 250);
-  assert.equal(routineBaseline(history, 2000, 'alertness-10-v1').medianReactionMs, 410);
-  assert.equal(routineBaseline(history, 2000, 'alertness-10-v1').checkCount, 2);
+  assert.equal(routineBaseline(history, 1000).checkCount, 0);
+  assert.equal(routineBaseline(history, 1000).medianReactionMs, undefined);
 });
 
 console.log('self-check-core: all ' + checks + ' checks passed');

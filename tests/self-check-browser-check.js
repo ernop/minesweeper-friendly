@@ -40,8 +40,8 @@ const SEEDED_CHECK = {
   sleepiness: { scale: 'kss-9-v1', rating: 3 },
   environment: { devicePixelRatio: 1, screenWidth: 800, screenHeight: 600,
     viewportWidth: 800, viewportHeight: 600, userAgent: 'seed' },
-  vigilance: { protocol: 'vigilance-3min-v1', status: 'complete', timeOriginMs: 1, startT: 0,
-    endT: 180000, trials: [], earlyPresses: [], frameCount: 0 },
+  vigilance: { protocol: 'alertness-10-v1', status: 'interrupted', interruption: { type: 'escape', t: 0 },
+    timeOriginMs: 1, startT: 0, endT: 0, trials: [], earlyPresses: [], frameCount: 0 },
 };
 
 async function seedDatabase(page, layout) {

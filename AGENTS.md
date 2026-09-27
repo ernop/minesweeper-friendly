@@ -274,6 +274,17 @@ scalars are summaries of the trace and definitions can be recomputed
 retroactively; when in doubt, add the straightforward scalar rather than
 a clever reconstruction.
 
+Removal and replacement (creator direction 2026-09-26, after the self-check's
+3-minute test was first kept beside its replacement and then kept readable):
+
+- Replace, don't add. When the creator rejects a behavior ("too long",
+  "wrong"), change it; never add the fix as an option beside the rejected
+  one. There is one proper version of each feature.
+- Removing a feature deletes its code, tests, and docs, and its saved data is
+  deleted too; no compatibility path keeps records of a removed version
+  readable. Test data is reset, never carried: a record from something that
+  shipped minutes earlier is not legacy.
+
 ### Analysis isolation
 
 User requirement (2026-09-25): expensive analytics must run in workers, never
