@@ -24,7 +24,10 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   and becomes a broken heart on loss.
 - Clicking anywhere in the titlebar (the whole top panel, not just the
   dove) restarts. Space bar also restarts, except when focus is in an
-  input, textarea, button, or link.
+  input, textarea, or button, where Space types or activates. A focused link
+  does not block it (changed 2026-09-27): Space never activates a link, so the
+  old link exception only let the browser page the document down, moving the
+  board under the cursor, and a difficulty tab keeps focus after its click.
 - LCD counters are red seven-segment with visible gaps between digits (the
   digits must not crowd together).
 - Zoom control: 16, 20, 24, 28, 32, 36, 40, 48, 56, 64, 80, or 96 px cell sizes.

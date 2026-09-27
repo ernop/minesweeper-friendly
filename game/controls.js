@@ -292,8 +292,10 @@ function requestNewGame() {
 document.getElementById('top-panel').addEventListener('click', requestNewGame);
 document.getElementById('trial-start-btn').addEventListener('click', startTrial);
 
+// A focused link is not excluded: Space never activates a link, its default
+// only scrolls the page, and a difficulty tab keeps focus after its click.
 document.addEventListener('keydown', (event) => {
-  if (event.code !== 'Space' || ['INPUT', 'TEXTAREA', 'BUTTON', 'A'].includes(event.target.tagName)) return;
+  if (event.code !== 'Space' || ['INPUT', 'TEXTAREA', 'BUTTON'].includes(event.target.tagName)) return;
   event.preventDefault();
   requestNewGame();
 });

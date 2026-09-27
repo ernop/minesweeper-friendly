@@ -21,6 +21,14 @@ const ORIGIN = 'http://127.0.0.1:8099/';
     await page.goto(ORIGIN);
     await page.waitForFunction(() => !document.documentElement.classList.contains('game-booting'));
     await page.click('#difficulty-tabs a[data-difficulty="expert"]');
+    // The tab keeps focus after its click; Space still deals a new game, and
+    // the page does not scroll under the cursor.
+    const gameBefore = await page.evaluate(() => gameSeed);
+    await page.keyboard.press('Space');
+    assert.equal(await page.evaluate(() => document.activeElement.dataset.difficulty), 'expert');
+    assert.notEqual(await page.evaluate(() => gameSeed), gameBefore, 'Space on a focused tab deals a new game');
+    await page.waitForTimeout(300);
+    assert.equal(await page.evaluate(() => window.scrollY), 0, 'Space does not scroll the page');
 
     const center = async (index) => page.evaluate((i) => {
       const r = document.querySelectorAll('#board .cell')[i].getBoundingClientRect();
