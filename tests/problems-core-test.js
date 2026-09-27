@@ -109,7 +109,7 @@ check('clicks: reveal, chain opening, flags, chords, mines', () => {
     return out;
   };
   const small = readProblemBank({
-    format: 'minesweeper-problems-bank', formatVersion: 2, bankId: 'test', width: 4, height: 4, mines: 2,
+    format: 'minesweeper-problems-bank', formatVersion: 3, bankId: 'test', width: 4, height: 4, mines: 2, lastFlag: [],
     travelByLevel: { '1-1.4': {} },
     levels: ['1-1.4'], classes: { one: { family: null, byLevel: {} } },
     problems: [{ id: 't-1', classId: 'one', mines: hex([0, 2]), opened: hex([]), flags: hex([]), start: 1,
@@ -267,14 +267,62 @@ check('attempt validation and the backup file', () => {
   assert.equal(validProblemAttempt({ ...good, samples: { t: [1], x: [], y: [] } }), false);
   assert.equal(validProblemAttempt({ ...good, actions: [{ t: 1, kind: 'poke', cell: 3 }] }), false);
   const run = pointingRun();
-  const file = problemAttemptsFile([good, { ...good, outcome: 'won' }], [run, { ...run, protocol: 'pointing-v0' }], 1790000000000);
+  const drill = drillAttempt(bank.lastFlag[0], true);
+  const file = problemAttemptsFile([good, { ...good, outcome: 'won' }], [run, { ...run, protocol: 'pointing-v0' }],
+    [drill, { ...drill, protocol: 'last-flag-v0' }], 1790000000000);
   const read = readProblemAttemptsFile(JSON.parse(JSON.stringify(file)), bank.width, bank.height);
   assert.equal(read.valid.length, 1);
   assert.equal(read.validRuns.length, 1);
-  assert.equal(read.rejected, 2);
+  assert.equal(read.validDrills.length, 1);
+  assert.equal(read.rejected, 3);
   assert.throws(() => readProblemAttemptsFile({ format: 'minesweeper-friendly-self-checks' }, 30, 16), /not a problem attempts file/);
-  assert.throws(() => readProblemAttemptsFile({ ...file, formatVersion: 1 }, 30, 16), /unknown problem attempts file version/);
+  assert.throws(() => readProblemAttemptsFile({ ...file, formatVersion: 2 }, 30, 16), /unknown problem attempts file version/);
   assert.throws(() => readProblemAttemptsFile({ ...file, pointingRuns: undefined }, 30, 16), /no pointing run list/);
+  assert.throws(() => readProblemAttemptsFile({ ...file, drillAttempts: undefined }, 30, 16), /no drill attempt list/);
+});
+
+// A drill attempt at a position: the 1.5 click (flag, then a both-button
+// chord) or a chord tried first, one flag short, then flag and chord.
+function drillAttempt(position, oneAndHalf) {
+  const flag = { t: 300, kind: 'flag', cell: position.mineCell };
+  const actions = oneAndHalf
+    ? [flag, { t: 420, kind: 'chord', cell: position.number, gesture: true }]
+    : [{ t: 250, kind: 'chord', cell: position.number }, { ...flag, t: 500 }, { t: 700, kind: 'chord', cell: position.number }];
+  return { startedAt: 1790000000000, protocol: 'last-flag-v1', bankId: bank.bankId, positionId: position.id,
+    setStartedAt: 1790000000000, cellPx: 24, timeOriginMs: 1789999990000, startT: 2000, endT: 2800,
+    outcome: 'solved', actions, samples: { t: [0, 100], x: [1, 2], y: [1, 2] } };
+}
+
+check('last-flag positions: one flag short, a provable mine, safe squares to open', () => {
+  assert.equal(LAST_FLAG_PROTOCOL, 'last-flag-v1');
+  assert.equal(LAST_FLAG_TIMEOUT_MS, 10000);
+  assert.equal(LAST_FLAG_SET_SIZE, 10);
+  assert.ok(bank.lastFlag.length >= LAST_FLAG_SET_SIZE);
+  for (const position of bank.lastFlag) {
+    const clues = [];
+    for (let i = 0; i < 480; i++) {
+      if (!position.opened[i]) continue;
+      const covered = bank.neighbors[i].filter((n) => !position.opened[n]);
+      if (covered.length > 0) clues.push({ cell: i, covered, count: position.adjacent[i] });
+    }
+    const facts = Justice.proveFacts({ width: 30, height: 16, mines: 99, revealed: position.opened, adjacent: position.adjacent },
+      clues, { global: false, exact: false });
+    assert.equal(facts.get(position.mineCell), 1, position.id + ' mine is provable');
+  }
+});
+
+check('a drill attempt: the 1.5 click, and a chord tried one flag short', () => {
+  const position = bank.lastFlag[0];
+  const quick = summarizeDrillAttempt(bank, drillAttempt(position, true));
+  assert.deepEqual(quick, { outcome: 'solved', doneMs: 420, clicks: 2, idleClicks: 0, usedGesture: true });
+  const slow = summarizeDrillAttempt(bank, drillAttempt(position, false));
+  assert.deepEqual(slow, { outcome: 'solved', doneMs: 700, clicks: 3, idleClicks: 1, usedGesture: false });
+  assert.equal(validDrillAttempt(drillAttempt(position, true)), true);
+  assert.equal(validDrillAttempt({ ...drillAttempt(position, true), actions: [{ t: 1, kind: 'chord', cell: 3, gesture: false }] }), false);
+  assert.equal(validDrillAttempt({ ...drillAttempt(position, true), positionId: 5 }), false);
+  const set = pickDrillSet(bank, [drillAttempt(position, true)], () => 0.5);
+  assert.equal(set.length, LAST_FLAG_SET_SIZE);
+  assert.equal(set.some((p) => p.id === position.id), false, 'untried positions first');
 });
 
 // A complete pointing run on the fixed route: each target shown 50 ms after
@@ -335,7 +383,9 @@ check('a pointing run summarizes to the line it was built from', () => {
 
 check('a malformed bank fails loudly', () => {
   assert.throws(() => readProblemBank({ ...bankJson, format: 'x' }), /not a problem bank/);
-  assert.throws(() => readProblemBank({ ...bankJson, formatVersion: 1 }), /format version/);
+  assert.throws(() => readProblemBank({ ...bankJson, formatVersion: 2 }), /format version/);
+  const noMine = { ...bankJson, lastFlag: [{ ...bankJson.lastFlag[0], mine: bankJson.lastFlag[0].safe[0] }] };
+  assert.throws(() => readProblemBank(noMine), /last-flag position .* has an invalid mine/);
   const broken = { ...bankJson, problems: [{ ...bankJson.problems[0], classId: 'nonexistent' }] };
   assert.throws(() => readProblemBank(broken), /unknown class/);
   assert.throws(() => readProblemBank({ ...bankJson, travelByLevel: {} }), /no travel times/);

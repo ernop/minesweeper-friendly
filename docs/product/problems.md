@@ -135,6 +135,34 @@ display below implements that.
 - Values are the most legible text: bold, tabular, larger than their labels.
   No gray text; the layout uses the full width.
 
+## Last-flag drill `last-flag-v1` (built 2026-09-26 night)
+
+The most common wasted click in the player's saved Expert wins is a chord
+tried one flag early (about 26 per win): click the number, place its last
+flag, click again. This drill practices doing both in one motion, the 1.5
+click. On the problems page, in its own card.
+
+- **Positions:** 60 real moments from the replay corpus, one per game, from
+  the fastest games: a player flagged a mine and with the very next click
+  chorded a number that flag completed. The number was exactly one flag short,
+  its missing mine provable at that moment, and it still had safe squares to
+  open. The ring sits where that player's cursor was at their previous click.
+- **Run:** a drill is 10 positions, the least practiced first. Resting the
+  cursor on the ring shows the board in the next animation frame (time zero),
+  with the focus box around the number. The task: open the number's safe
+  squares. Any method counts; the 1.5 click (right press on the mine, keep
+  holding, slide onto the number, left press) does it in two clicks and one
+  motion. A mine ends the position; 10 seconds is a timeout.
+- **Result:** time until the squares are open, clicks, and whether a
+  both-button chord opened them (the 1.5 click), with the original player's
+  time from their previous click to the chord. The home card shows positions
+  tried and solved, the median time, and how often the 1.5 click was used.
+- **Stored attempt** (store `drillAttempts`, keyed by `startedAt`): like a
+  problem attempt, with `protocol` `last-flag-v1`, `positionId` instead of
+  `problemId` and `classId`, no preview time, and actions whose both-button
+  chords carry `gesture: true` (problem attempts record the same mark since
+  this change).
+
 ## Pointing test `pointing-v1` (plan v2, built 2026-09-26 night)
 
 The hand alone, apart from reading the board: how fast and how accurately the
@@ -196,9 +224,10 @@ at problems a new bank lacks are listed but not profiled.
 
 ## Backup
 
-Export writes `{ format: "minesweeper-problems-attempts", formatVersion: 2,
-exportedAt, attempts, pointingRuns }`. Import merges each list by `startedAt`,
-keeps each item once, and rejects invalid items with a visible count.
+Export writes `{ format: "minesweeper-problems-attempts", formatVersion: 3,
+exportedAt, attempts, pointingRuns, drillAttempts }`. Import merges each list
+by `startedAt`, keeps each item once, and rejects invalid items with a visible
+count.
 
 ## Hosting
 

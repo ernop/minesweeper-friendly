@@ -211,6 +211,40 @@ const screenshots = process.argv[4];
       'every rule with a timed solve shows your median among the levels');
     await shot('home-history');
 
+    // Last-flag drill: rest on the ring, the board appears, then the 1.5 click
+    // (right press on the missing mine, hold, left press on the number).
+    assert.equal(await page.textContent('#drill-stats'), 'Not tried yet.');
+    await page.click('#drill-start');
+    await page.waitForSelector('#problems-play:not([hidden])');
+    assert.match(await page.textContent('#problems-play-count'), /^Last-flag drill 1 of 10$/);
+    const drill = await page.evaluate(() => ({ start: live.problem.start, mine: live.problem.mineCell, number: live.problem.number }));
+    await moveTo(drill.start);
+    await waitPhase('running');
+    await moveTo(drill.mine);
+    await page.mouse.down({ button: 'right' });
+    await moveTo(drill.number);
+    await page.mouse.down({ button: 'left' });
+    await page.mouse.up({ button: 'left' });
+    await page.mouse.up({ button: 'right' });
+    await page.waitForSelector('#problems-result:not([hidden])');
+    const drillValues = await page.locator('#problems-result-values .problems-value-number').allTextContents();
+    assert.equal(drillValues[1], '2', 'flag and chord: two clicks');
+    assert.equal(drillValues[2], 'yes', 'the 1.5 click was used');
+    const drills = await page.evaluate(() => new Promise((resolve, reject) => {
+      const request = problemDb.transaction(DRILL_STORE).objectStore(DRILL_STORE).getAll();
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    }));
+    assert.equal(drills.length, 1);
+    assert.equal(drills[0].outcome, 'solved');
+    assert.deepEqual(drills[0].actions.map((a) => [a.kind, a.gesture === true]), [['flag', false], ['chord', true]]);
+    await shot('drill-result');
+    await page.click('#problems-stop');
+    await page.waitForSelector('#problems-summary:not([hidden])');
+    await page.click('#problems-summary-done');
+    await page.waitForSelector('#problems-drill:not([hidden])');
+    assert.match(await page.textContent('#drill-stats'), /^1 positions tried, 1 solved; median time \d+\.\d\d s; 1\.5 click in 100% of solved positions\.$/);
+
     // Pointing test: press the start square, then 24 targets, missing once.
     assert.equal(await page.textContent('#pointing-count'), 'Not taken yet.');
     await page.click('#pointing-start');
@@ -250,10 +284,12 @@ const screenshots = process.argv[4];
     assert.equal(exported.format, 'minesweeper-problems-attempts');
     assert.equal(exported.attempts.length, 5);
     assert.equal(exported.pointingRuns.length, 1);
+    assert.equal(exported.drillAttempts.length, 1);
     await page.evaluate(() => new Promise((resolve, reject) => {
-      const tx = problemDb.transaction([ATTEMPT_STORE, POINTING_STORE], 'readwrite');
+      const tx = problemDb.transaction([ATTEMPT_STORE, POINTING_STORE, DRILL_STORE], 'readwrite');
       tx.objectStore(ATTEMPT_STORE).clear();
       tx.objectStore(POINTING_STORE).clear();
+      tx.objectStore(DRILL_STORE).clear();
       tx.oncomplete = resolve;
       tx.onerror = () => reject(tx.error);
     }));
@@ -263,12 +299,12 @@ const screenshots = process.argv[4];
     await page.setInputFiles('#problems-import', file);
     await page.waitForSelector('#problems-backup-status:not([hidden])');
     assert.match(await page.textContent('#problems-backup-status'),
-      /^Imported 5 new attempts and 1 pointing runs; 0 were already here\.$/);
+      /^Imported 5 new attempts, 1 pointing runs, and 1 drill attempts; 0 were already here\.$/);
     assert.equal((await savedAttempts()).length, 5);
 
     assert.deepEqual(errors, []);
     console.log('problems page: ring, preview and cancel, timed opening, solve, mine, 1.5 click, interruption, Esc, '
-      + 'saved attempts, profile, history, square size, pointing test, backup');
+      + 'saved attempts, profile, history, square size, last-flag drill with the 1.5 click, pointing test, backup');
   } finally {
     await browser.close();
   }

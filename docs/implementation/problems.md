@@ -33,6 +33,12 @@ Spec: [docs/product/problems.md](../product/problems.md).
     within the drawing, and ticks;
   - `validProblemAttempt`, `problemAttemptsFile(attempts, pointingRuns,
     exportedAt)`, `readProblemAttemptsFile(json, width, height)`;
+  - last-flag drill: `LAST_FLAG_PROTOCOL`, `LAST_FLAG_TIMEOUT_MS`,
+    `LAST_FLAG_SET_SIZE`; `readProblemBank` decodes and validates
+    `bank.lastFlag` into the problem shape (`freshSafe` = the number's safe
+    squares, `freshMines` = its missing mine, `mineCell`, `number`) with
+    `bank.lastFlagById`; `summarizeDrillAttempt`, `validDrillAttempt`,
+    `pickDrillSet`;
   - pointing test: `POINTING_PROTOCOL`, `POINTING_START`, `POINTING_MOVES`,
     `pointingTargets(width, height)`, `movementSplitAt(samples, startT,
     clickT, square)` (the same split from any start time),
@@ -63,6 +69,12 @@ Spec: [docs/product/problems.md](../product/problems.md).
   - `renderLadder` draws a ladder from `ladderLayout` (band with ticks, dots,
     SVG leaders, labels); `levelEntries` supplies the levels with enough
     corpus moves and names the rest;
+  - drills run through the set flow with `run.mode` / `live.mode` `drill`:
+    `beginDrill`, `startDrillPosition` (the board appears in the next frame,
+    time zero), `finishCurrent` (dispatches to `finishDrillAttempt` or
+    `finishAttempt`), `renderDrillResult`, `renderDrillHome`; `act` records
+    `gesture: true` on both-button chords; database version 3 adds the
+    `drillAttempts` store;
   - database version 2 adds the `pointingRuns` store; `beginPointing`,
     `showNextTarget` (draws a target in the next frame and stamps `shownT`),
     `onPointingMove`, `onPointingPress`, `finishPointing`,
@@ -79,9 +91,11 @@ node analysis/skill-comparison/situations.js SITUATIONS.json CORPUS.jsonl SELF.j
 node analysis/skill-comparison/problems_bank.js SITUATIONS.json problems-bank.json BANK_ID CORPUS.jsonl
 ```
 
-- Format `minesweeper-problems-bank` version 2 (version 2 added
+- Format `minesweeper-problems-bank` version 3 (version 2 added
   `travelByLevel`: each level's median in-game travel and move count by move
-  length, for the pointing test): `bankId`, `source`,
+  length, for the pointing test; version 3 added `lastFlag`: drill positions
+  with `id`, `videoId`, `sourceBvs`, hex square maps, `number`, `mine`, `safe`,
+  `start`, `startAt`, and `originalMs`): `bankId`, `source`,
   `corpusGames`, board size, `levels` (3BV/s bands), `fluentMarginMs`,
   `classes` (keyed by family key, or `one`; `family`; `byLevel[level]` with
   `medianThinkMs`, `freshMoves`, and for families `fluentShare` and

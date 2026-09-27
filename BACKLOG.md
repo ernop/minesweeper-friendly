@@ -49,12 +49,9 @@ Earlier proposals, still open:
   ([evaluation](docs/product/game-end-evaluation.md)). Still open: one-cell
   chords and flags no multi-cell chord used, per game, from the finished trace
   in the analysis worker.
-- **Last-flag drill (from the 2026-09-26 diagnosis).** The player's most common
-  wasted click is a chord tried one flag early (26 per Expert win). A drill of
-  real positions where a number is one flag short, answered by flagging the
-  mine and chording in one motion (the 1.5 click), timed and click-counted;
-  positions from the replay corpus, or from the player's own premature-chord
-  moments read from their traces in the browser.
+- **Last-flag drill.** Built from replay-corpus positions
+  ([problems.md](docs/product/problems.md)). Open: positions from the player's
+  own premature-chord moments, read from their traces in the browser.
 - **Wrong-flag drill.** Most late Expert deaths follow a wrong flag (a chord
   over it, a chord contradicting the numbers, a misclick next to it). A timed
   check-before-chording drill: positions with one wrong flag near a number

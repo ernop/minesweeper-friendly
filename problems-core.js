@@ -29,9 +29,14 @@ const PROBLEM_DEFAULT_CELL_PX = 24;
 const PROBLEM_OUTCOMES = ['solved', 'mine', 'timeout', 'abandoned', 'interrupted'];
 const PROBLEM_ACTION_KINDS = ['reveal', 'chord', 'flag', 'unflag'];
 const PROBLEM_BANK_FORMAT = 'minesweeper-problems-bank';
-const PROBLEM_BANK_VERSION = 2;
+const PROBLEM_BANK_VERSION = 3;
+// The last-flag drill: a number one flag short, answered by flagging its mine
+// and chording (in one motion with the 1.5 click).
+const LAST_FLAG_PROTOCOL = 'last-flag-v1';
+const LAST_FLAG_TIMEOUT_MS = 10000;
+const LAST_FLAG_SET_SIZE = 10;
 const PROBLEM_FILE_FORMAT = 'minesweeper-problems-attempts';
-const PROBLEM_FILE_VERSION = 2;
+const PROBLEM_FILE_VERSION = 3;
 
 function problemBits(hex, count) {
   if (typeof hex !== 'string' || hex.length * 4 !== count || !/^[0-9a-f]*$/.test(hex)) {
@@ -96,7 +101,25 @@ function readProblemBank(json) {
     byId.set(raw.id, problem);
     return problem;
   });
-  return { ...json, neighbors, problems, byId };
+  // Last-flag positions reuse the problem shape: the squares to open are the
+  // number's safe squares, the mine to flag its missing one.
+  const lastFlagById = new Map();
+  const lastFlag = json.lastFlag.map((raw) => {
+    const mine = problemBits(raw.mines, count);
+    const adjacent = mine.map((_, i) => neighbors[i].filter((n) => mine[n]).length);
+    const opened = problemBits(raw.opened, count);
+    const flags = problemBits(raw.flags, count);
+    const around = neighbors[raw.number];
+    const fail = (why) => { throw new Error('problem bank: last-flag position ' + raw.id + ' ' + why); };
+    if (!opened[raw.number]) fail('has a covered number');
+    if (around.filter((n) => flags[n]).length !== adjacent[raw.number] - 1) fail('is not one flag short');
+    if (!around.includes(raw.mine) || !mine[raw.mine] || opened[raw.mine] || flags[raw.mine]) fail('has an invalid mine');
+    if (raw.safe.length === 0 || raw.safe.some((c) => !around.includes(c) || mine[c] || opened[c] || flags[c])) fail('has an invalid safe square');
+    const position = { ...raw, mine, adjacent, opened, flags, mineCell: raw.mine, freshSafe: raw.safe, freshMines: [raw.mine] };
+    lastFlagById.set(raw.id, position);
+    return position;
+  });
+  return { ...json, neighbors, problems, byId, lastFlag, lastFlagById };
 }
 
 // The board just before the start square opens.
@@ -394,6 +417,65 @@ function validProblemAttempt(attempt) {
   return s.t.every(finite) && s.x.every(finite) && s.y.every(finite);
 }
 
+//-------LAST-FLAG DRILL-------
+
+// Replays a drill attempt: when the number's safe squares were all open, how
+// many clicks it took, how many changed nothing, and whether a both-button
+// chord (the second half of the 1.5 click) opened them.
+function summarizeDrillAttempt(bank, attempt) {
+  const position = bank.lastFlagById.get(attempt.positionId);
+  if (position === undefined) throw new Error('drill attempt ' + attempt.startedAt + ': position ' + attempt.positionId + ' is not in this bank');
+  const board = problemBoard(bank, position);
+  let doneMs = null;
+  let idleClicks = 0;
+  let usedGesture = false;
+  for (const action of attempt.actions) {
+    const effect = applyProblemAction(board, action.kind, action.cell);
+    if (effect.opened.length === 0 && !effect.flagChanged) idleClicks++;
+    if (action.kind === 'chord' && action.gesture === true && effect.opened.length > 0) usedGesture = true;
+    if (doneMs === null && problemSolved(board, position)) doneMs = action.t;
+  }
+  return {
+    outcome: attempt.outcome,
+    doneMs: attempt.outcome === 'solved' ? doneMs : null,
+    clicks: attempt.actions.length,
+    idleClicks,
+    usedGesture,
+  };
+}
+
+function validDrillAttempt(attempt) {
+  const finite = (v) => typeof v === 'number' && Number.isFinite(v);
+  if (attempt === null || typeof attempt !== 'object') return false;
+  if (!finite(attempt.startedAt) || attempt.protocol !== LAST_FLAG_PROTOCOL) return false;
+  if (typeof attempt.bankId !== 'string' || typeof attempt.positionId !== 'string') return false;
+  if (!finite(attempt.setStartedAt) || !PROBLEM_CELL_SIZES.includes(attempt.cellPx)) return false;
+  if (!finite(attempt.timeOriginMs) || !finite(attempt.startT) || !finite(attempt.endT) || attempt.endT < attempt.startT) return false;
+  if (!PROBLEM_OUTCOMES.includes(attempt.outcome) || !Array.isArray(attempt.actions)) return false;
+  if (!attempt.actions.every((a) => finite(a.t) && PROBLEM_ACTION_KINDS.includes(a.kind) && Number.isInteger(a.cell)
+    && (a.gesture === undefined || a.gesture === true))) return false;
+  const s = attempt.samples;
+  if (s === null || typeof s !== 'object' || !Array.isArray(s.t) || !Array.isArray(s.x) || !Array.isArray(s.y)) return false;
+  if (s.t.length !== s.x.length || s.t.length !== s.y.length) return false;
+  return s.t.every(finite) && s.x.every(finite) && s.y.every(finite);
+}
+
+// LAST_FLAG_SET_SIZE positions, the least attempted first (random among ties),
+// in random order.
+function pickDrillSet(bank, drillAttempts, random) {
+  const tries = new Map();
+  for (const attempt of drillAttempts) tries.set(attempt.positionId, (tries.get(attempt.positionId) || 0) + 1);
+  const picked = bank.lastFlag.map((position) => ({ position, tries: tries.get(position.id) || 0, tie: random() }))
+    .sort((a, b) => a.tries - b.tries || a.tie - b.tie)
+    .slice(0, LAST_FLAG_SET_SIZE)
+    .map((entry) => entry.position);
+  for (let i = picked.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [picked[i], picked[j]] = [picked[j], picked[i]];
+  }
+  return picked;
+}
+
 //-------POINTING TEST (the hand alone, on the board grid)-------
 
 // A released protocol id names one exact test. The route is fixed so runs
@@ -491,8 +573,8 @@ function validPointingRun(run, width, height) {
   return s.t.length === s.x.length && s.t.length === s.y.length && s.t.every(finite) && s.x.every(finite) && s.y.every(finite);
 }
 
-function problemAttemptsFile(attempts, pointingRuns, exportedAt) {
-  return { format: PROBLEM_FILE_FORMAT, formatVersion: PROBLEM_FILE_VERSION, exportedAt, attempts, pointingRuns };
+function problemAttemptsFile(attempts, pointingRuns, drillAttempts, exportedAt) {
+  return { format: PROBLEM_FILE_FORMAT, formatVersion: PROBLEM_FILE_VERSION, exportedAt, attempts, pointingRuns, drillAttempts };
 }
 
 function readProblemAttemptsFile(json, width, height) {
@@ -502,11 +584,15 @@ function readProblemAttemptsFile(json, width, height) {
   if (json.formatVersion !== PROBLEM_FILE_VERSION) throw new Error('unknown problem attempts file version ' + json.formatVersion);
   if (!Array.isArray(json.attempts)) throw new Error('problem attempts file has no attempt list');
   if (!Array.isArray(json.pointingRuns)) throw new Error('problem attempts file has no pointing run list');
+  if (!Array.isArray(json.drillAttempts)) throw new Error('problem attempts file has no drill attempt list');
   const valid = json.attempts.filter(validProblemAttempt);
   const validRuns = json.pointingRuns.filter((run) => validPointingRun(run, width, height));
+  const validDrills = json.drillAttempts.filter(validDrillAttempt);
   return {
     valid,
     validRuns,
-    rejected: json.attempts.length - valid.length + json.pointingRuns.length - validRuns.length,
+    validDrills,
+    rejected: json.attempts.length - valid.length + json.pointingRuns.length - validRuns.length
+      + json.drillAttempts.length - validDrills.length,
   };
 }

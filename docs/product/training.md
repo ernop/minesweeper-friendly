@@ -177,6 +177,15 @@ the same ranking):
 
 Clicks come first; thinking and travel then matter equally for sub-60.
 
+### Last-flag drill (built)
+
+Ten real positions per drill where a number is one flag short, answered by
+flagging its mine and chording in one motion (the 1.5 click), timed and
+click-counted against the original player
+([problems.md](problems.md#last-flag-drill-last-flag-v1-built-2026-09-26-night)).
+It trains the habit behind about 26 wasted clicks per Expert win; experiment 1
+below measures whether the habit moves into real games.
+
 ### Pointing test (built)
 
 The hand alone, on the board grid: 24 squares on a fixed route, reaction,

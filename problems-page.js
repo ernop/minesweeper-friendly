@@ -7,11 +7,12 @@
 // history, and the backup.
 
 const PROBLEM_DB_NAME = 'minesweeper-problems';
-const PROBLEM_DB_VERSION = 2;
+const PROBLEM_DB_VERSION = 3;
 const ATTEMPT_STORE = 'attempts';
 const PREFERENCE_STORE = 'preferences';
 const POINTING_STORE = 'pointingRuns';
-const PROBLEM_BANK_URL = 'problems-bank.json?v=20260926-corpus-1057';
+const DRILL_STORE = 'drillAttempts';
+const PROBLEM_BANK_URL = 'problems-bank.json?v=20260926-last-flag';
 const HISTORY_ROWS = 30;
 const SVG_NS = 'http://www.w3.org/2000/svg';
 // Vertical distance between ladder labels, px.
@@ -37,6 +38,7 @@ let squareElements = [];
 // The board's grid in page coordinates (measureGrid).
 let boardGrid = null;
 let pointingRuns = [];
+let drillAttempts = [];
 // The pointing test on screen. phase: ready (waiting for the start square's
 // press), showing (a target is drawn), between (pressed; next target not yet
 // drawn), done.
@@ -68,6 +70,7 @@ function openProblemDb() {
         request.result.createObjectStore(PREFERENCE_STORE);
       }
       if (event.oldVersion < 2) request.result.createObjectStore(POINTING_STORE, { keyPath: 'startedAt' });
+      if (event.oldVersion < 3) request.result.createObjectStore(DRILL_STORE, { keyPath: 'startedAt' });
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(new Error('problem database failed to open: ' + request.error));
@@ -100,6 +103,11 @@ async function startProblemsPage() {
       if (!validPointingRun(saved, bank.width, bank.height)) throw new Error('stored pointing run ' + saved.startedAt + ' is malformed');
     }
     pointingRuns = runs;
+    const drills = await requestResult(db.transaction(DRILL_STORE).objectStore(DRILL_STORE).getAll(), 'drill attempts failed to load');
+    for (const saved of drills) {
+      if (!validDrillAttempt(saved)) throw new Error('stored drill attempt ' + saved.startedAt + ' is malformed');
+    }
+    drillAttempts = drills;
     const size = await requestResult(db.transaction(PREFERENCE_STORE).objectStore(PREFERENCE_STORE).get('cellPx'), 'preferences failed to load');
     if (size !== undefined) {
       if (!PROBLEM_CELL_SIZES.includes(size)) throw new Error('stored square size ' + size + ' is not offered');
@@ -121,12 +129,19 @@ function renderHome() {
   document.body.classList.remove('problems-running');
   byId('problems-play').hidden = true;
   byId('problems-summary').hidden = true;
-  for (const id of ['problems-start', 'problems-profile', 'problems-pointing', 'problems-history', 'problems-backup']) byId(id).hidden = false;
+  for (const id of HOME_SECTIONS) byId(id).hidden = false;
   byId('problems-start-set').textContent = 'Start ' + PROBLEM_SET_SIZE + ' problems';
   renderCellSizes();
   renderProfile();
+  renderDrillHome();
   renderPointingHome();
   renderHistory();
+}
+
+const HOME_SECTIONS = ['problems-start', 'problems-profile', 'problems-drill', 'problems-pointing', 'problems-history', 'problems-backup'];
+
+function hideHome() {
+  for (const id of [...HOME_SECTIONS, 'problems-summary']) byId(id).hidden = true;
 }
 
 function renderCellSizes() {
@@ -323,7 +338,7 @@ function renderHistory() {
 }
 
 function exportAttempts() {
-  const file = problemAttemptsFile(attempts, pointingRuns, Date.now());
+  const file = problemAttemptsFile(attempts, pointingRuns, drillAttempts, Date.now());
   const link = byId('problems-download');
   if (link.href) URL.revokeObjectURL(link.href);
   link.href = URL.createObjectURL(new Blob([JSON.stringify(file)], { type: 'application/json' }));
@@ -351,29 +366,45 @@ async function importAttempts(fileInput) {
   };
   const fresh = unseen(attempts, read.valid);
   const freshRuns = unseen(pointingRuns, read.validRuns);
-  const tx = problemDb.transaction([ATTEMPT_STORE, POINTING_STORE], 'readwrite');
+  const freshDrills = unseen(drillAttempts, read.validDrills);
+  const tx = problemDb.transaction([ATTEMPT_STORE, POINTING_STORE, DRILL_STORE], 'readwrite');
   for (const attempt of fresh) tx.objectStore(ATTEMPT_STORE).add(attempt);
   for (const saved of freshRuns) tx.objectStore(POINTING_STORE).add(saved);
+  for (const saved of freshDrills) tx.objectStore(DRILL_STORE).add(saved);
   tx.onerror = () => showFailure('import not saved: ' + tx.error);
   tx.oncomplete = () => {
     attempts.push(...fresh);
     pointingRuns.push(...freshRuns);
-    const already = read.valid.length - fresh.length + read.validRuns.length - freshRuns.length;
-    status.textContent = 'Imported ' + fresh.length + ' new attempts and ' + freshRuns.length + ' pointing runs; '
-      + already + ' were already here' + (read.rejected > 0 ? '; ' + read.rejected + ' invalid items were rejected.' : '.');
+    drillAttempts.push(...freshDrills);
+    const already = read.valid.length - fresh.length + read.validRuns.length - freshRuns.length
+      + read.validDrills.length - freshDrills.length;
+    status.textContent = 'Imported ' + fresh.length + ' new attempts, ' + freshRuns.length + ' pointing runs, and '
+      + freshDrills.length + ' drill attempts; ' + already + ' were already here'
+      + (read.rejected > 0 ? '; ' + read.rejected + ' invalid items were rejected.' : '.');
     status.hidden = false;
     renderProfile();
     renderPointingHome();
+    renderDrillHome();
     renderHistory();
   };
 }
 
 //-------PLAYING A SET-------
 
+const cryptoRandom = () => crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296;
+
+// run.mode: 'problems' (a set of problems) or 'drill' (a last-flag drill set).
 function beginSet() {
-  const random = () => crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296;
-  run = { problems: pickProblemSet(bank, attempts, random), index: 0, setStartedAt: Date.now(), results: [] };
-  for (const id of ['problems-start', 'problems-profile', 'problems-pointing', 'problems-history', 'problems-backup', 'problems-summary']) byId(id).hidden = true;
+  run = { mode: 'problems', problems: pickProblemSet(bank, attempts, cryptoRandom), index: 0, setStartedAt: Date.now(), results: [] };
+  hideHome();
+  byId('problems-play').hidden = false;
+  document.body.classList.add('problems-running');
+  showProblem();
+}
+
+function beginDrill() {
+  run = { mode: 'drill', problems: pickDrillSet(bank, drillAttempts, cryptoRandom), index: 0, setStartedAt: Date.now(), results: [] };
+  hideHome();
   byId('problems-play').hidden = false;
   document.body.classList.add('problems-running');
   showProblem();
@@ -423,6 +454,7 @@ function setInstruction(text) {
 function showProblem() {
   const problem = run.problems[run.index];
   live = {
+    mode: run.mode,
     problem,
     board: problemBoard(bank, problem),
     phase: 'waiting',
@@ -436,13 +468,15 @@ function showProblem() {
     timeoutTimer: null,
   };
   byId('problems-result').hidden = true;
-  byId('problems-play-count').textContent = 'Problem ' + (run.index + 1) + ' of ' + run.problems.length;
+  byId('problems-play-count').textContent = (run.mode === 'drill' ? 'Last-flag drill ' : 'Problem ')
+    + (run.index + 1) + ' of ' + run.problems.length;
   setInstruction('Rest the cursor on the ringed square.');
   buildBoard();
   paintBoard(false);
   measureGrid();
   placeRing(problem);
-  placeFocusBox(problem);
+  // A drill's box surrounds the number whose last flag is missing.
+  placeFocusBox(run.mode === 'drill' ? { ...problem, start: problem.number } : problem);
 }
 
 // The grid is measured once per problem or pointing run, after layout, in page
@@ -524,13 +558,36 @@ function onPointerMove(event) {
   const position = gridPosition(event);
   const square = squareAt(position);
   if (live.phase === 'waiting') {
-    if (square === live.problem.start) beginPreview(event.timeStamp, position);
+    if (square !== live.problem.start) return;
+    if (live.mode === 'drill') startDrillPosition(event.timeStamp, position);
+    else beginPreview(event.timeStamp, position);
     return;
   }
   live.samples.t.push(event.timeStamp);
   live.samples.x.push(position.x);
   live.samples.y.push(position.y);
   if (live.phase === 'preview' && square !== live.problem.start) cancelPreview();
+}
+
+// A drill position has nothing to open first: the board appears in the frame
+// after the cursor reaches the ring, and that frame's timestamp is time zero.
+function startDrillPosition(t, position) {
+  live.phase = 'appearing';
+  live.samples = { t: [t], x: [position.x], y: [position.y] };
+  requestAnimationFrame((frameT) => {
+    if (live === null || live.phase !== 'appearing') return;
+    paintBoard(true);
+    byId('problems-start-ring').hidden = true;
+    live.startT = frameT;
+    live.phase = 'running';
+    setInstruction('Open the boxed number\'s squares: flag its missing mine and chord in one motion.');
+    live.timeoutTimer = setTimeout(() => finishDrillAttempt('timeout', performance.now()), LAST_FLAG_TIMEOUT_MS);
+  });
+}
+
+function finishCurrent(outcome, t) {
+  if (live.mode === 'drill') finishDrillAttempt(outcome, t);
+  else finishAttempt(outcome, t);
 }
 
 function beginPreview(t, position) {
@@ -569,13 +626,14 @@ function openStartSquare() {
   });
 }
 
-function act(kind, cell, t) {
+// gesture: the chord came from both buttons (the second half of a 1.5 click).
+function act(kind, cell, t, gesture) {
   const effect = applyProblemAction(live.board, kind, cell);
-  live.actions.push({ t: t - live.startT, kind, cell });
+  live.actions.push({ t: t - live.startT, kind, cell, ...(gesture ? { gesture: true } : {}) });
   for (const opened of effect.opened) paintSquare(opened, true);
   if (effect.flagChanged) paintSquare(cell, true);
-  if (effect.mineHit !== null) finishAttempt('mine', t);
-  else if (problemSolved(live.board, live.problem)) finishAttempt('solved', t);
+  if (effect.mineHit !== null) finishCurrent('mine', t);
+  else if (problemSolved(live.board, live.problem)) finishCurrent('solved', t);
 }
 
 // Buttons as in the game: a right press flags at once; once both buttons are
@@ -614,7 +672,7 @@ function onMouseUp(event) {
   const cell = squareAt(gridPosition(event));
   if (cell === null) return;
   if (gesture) {
-    if (live.board.revealed[cell]) act('chord', cell, event.timeStamp);
+    if (live.board.revealed[cell]) act('chord', cell, event.timeStamp, true);
     return;
   }
   act(live.board.revealed[cell] ? 'chord' : 'reveal', cell, event.timeStamp);
@@ -718,7 +776,7 @@ function nextProblem() {
 
 function stopSet() {
   if (live !== null && live.phase === 'running') {
-    finishAttempt('abandoned', performance.now());
+    finishCurrent('abandoned', performance.now());
     return;
   }
   if (live !== null && live.phase === 'preview') clearTimeout(live.previewTimer);
@@ -734,17 +792,103 @@ function renderSummary() {
   document.body.classList.remove('problems-running');
   byId('problems-play').hidden = true;
   byId('problems-summary').hidden = false;
-  const body = headerRow(byId('problems-summary-table'), ['#', 'Rule', 'Result', 'Thinking', 'Total'], [1, 2]);
-  run.results.forEach((attempt, i) => {
-    const summary = summarizeAttempt(bank, attempt);
-    const tr = body.insertRow();
-    cellText(tr, String(i + 1));
-    cellText(tr, describeProblemClass(bank, bank.byId.get(attempt.problemId).classId).name, 'problems-rule-name problems-text');
-    cellText(tr, OUTCOME_TEXT[attempt.outcome], 'problems-text');
-    cellText(tr, seconds(summary.thinkMs), 'problems-number');
-    cellText(tr, seconds(summary.doneMs), 'problems-number');
-  });
+  if (run.mode === 'drill') {
+    const body = headerRow(byId('problems-summary-table'), ['#', 'Result', 'Time', 'Clicks', '1.5 click'], [1, 4]);
+    run.results.forEach((attempt, i) => {
+      const summary = summarizeDrillAttempt(bank, attempt);
+      const tr = body.insertRow();
+      cellText(tr, String(i + 1));
+      cellText(tr, OUTCOME_TEXT[attempt.outcome], 'problems-text');
+      cellText(tr, seconds(summary.doneMs), 'problems-number');
+      cellText(tr, String(summary.clicks), 'problems-number');
+      cellText(tr, summary.usedGesture ? 'yes' : 'no', 'problems-text');
+    });
+  } else {
+    const body = headerRow(byId('problems-summary-table'), ['#', 'Rule', 'Result', 'Thinking', 'Total'], [1, 2]);
+    run.results.forEach((attempt, i) => {
+      const summary = summarizeAttempt(bank, attempt);
+      const tr = body.insertRow();
+      cellText(tr, String(i + 1));
+      cellText(tr, describeProblemClass(bank, bank.byId.get(attempt.problemId).classId).name, 'problems-rule-name problems-text');
+      cellText(tr, OUTCOME_TEXT[attempt.outcome], 'problems-text');
+      cellText(tr, seconds(summary.thinkMs), 'problems-number');
+      cellText(tr, seconds(summary.doneMs), 'problems-number');
+    });
+  }
   byId('problems-summary-done').focus();
+}
+
+//-------LAST-FLAG DRILL-------
+
+function finishDrillAttempt(outcome, endT) {
+  clearTimeout(live.timeoutTimer);
+  live.phase = 'done';
+  const attempt = {
+    startedAt: Math.round(performance.timeOrigin + live.startT),
+    protocol: LAST_FLAG_PROTOCOL,
+    bankId: bank.bankId,
+    positionId: live.problem.id,
+    setStartedAt: run.setStartedAt,
+    cellPx,
+    timeOriginMs: performance.timeOrigin,
+    startT: live.startT,
+    endT,
+    outcome,
+    actions: live.actions,
+    samples: { t: live.samples.t.map((t) => t - live.startT), x: live.samples.x, y: live.samples.y },
+  };
+  if (!validDrillAttempt(attempt)) showFailure('drill attempt ' + attempt.startedAt + ' could not be recorded: its record is malformed');
+  const tx = problemDb.transaction(DRILL_STORE, 'readwrite');
+  tx.objectStore(DRILL_STORE).add(attempt);
+  tx.onerror = () => showFailure('drill attempt not saved: ' + tx.error);
+  tx.oncomplete = () => {
+    drillAttempts.push(attempt);
+    run.results.push(attempt);
+    if (outcome === 'abandoned') renderSummary();
+    else renderDrillResult(attempt);
+  };
+}
+
+function renderDrillResult(attempt) {
+  const summary = summarizeDrillAttempt(bank, attempt);
+  const position = live.problem;
+  paintBoard(true);
+  for (const cell of position.freshSafe) squareElements[cell].classList.add('problems-answer-safe');
+  squareElements[position.mineCell].classList.add('problems-answer-mine');
+  squareElements[position.number].classList.add('problems-start-square');
+  setInstruction(OUTCOME_TEXT[attempt.outcome]);
+  byId('problems-result-values').replaceChildren(
+    valueBlock(seconds(summary.doneMs), 'time'),
+    valueBlock(String(summary.clicks), summary.clicks === 1 ? 'click' : 'clicks'),
+    valueBlock(summary.usedGesture ? 'yes' : 'no', '1.5 click'),
+  );
+  const ladder = byId('problems-result-ladder');
+  const original = document.createElement('p');
+  original.textContent = 'The original player (' + position.sourceBvs.toFixed(2) + ' 3BV/s in that game) flagged and chorded '
+    + seconds(position.originalMs) + ' after their previous click.';
+  ladder.replaceChildren(original);
+  byId('problems-answer-key').hidden = false;
+  byId('problems-stop').hidden = false;
+  const last = run.index === run.problems.length - 1;
+  byId('problems-next').textContent = last ? 'Finish the drill (Enter)' : 'Next position (Enter)';
+  byId('problems-result').hidden = false;
+  byId('problems-next').focus();
+}
+
+function renderDrillHome() {
+  const done = drillAttempts.filter((a) => bank.lastFlagById.has(a.positionId)
+    && a.outcome !== 'abandoned' && a.outcome !== 'interrupted');
+  const stats = byId('drill-stats');
+  if (done.length === 0) {
+    stats.textContent = 'Not tried yet.';
+    return;
+  }
+  const summaries = done.map((a) => summarizeDrillAttempt(bank, a));
+  const solved = summaries.filter((s) => s.outcome === 'solved');
+  const gestureShare = solved.filter((s) => s.usedGesture).length / Math.max(1, solved.length);
+  stats.textContent = done.length + ' positions tried, ' + solved.length + ' solved; median time '
+    + seconds(problemMedian(solved.map((s) => s.doneMs))) + '; 1.5 click in '
+    + Math.round(100 * gestureShare) + '% of solved positions.';
 }
 
 //-------POINTING TEST-------
@@ -752,7 +896,7 @@ function renderSummary() {
 const POINTING_BUCKETS = ['2-4', '4-8', '8+'];
 
 function beginPointing() {
-  for (const id of ['problems-start', 'problems-profile', 'problems-pointing', 'problems-history', 'problems-backup', 'problems-summary']) byId(id).hidden = true;
+  hideHome();
   byId('problems-play').hidden = false;
   byId('problems-result').hidden = true;
   document.body.classList.add('problems-running');
@@ -923,7 +1067,7 @@ function onInterruption() {
     return;
   }
   if (live === null) return;
-  if (live.phase === 'running') finishAttempt('interrupted', performance.now());
+  if (live.phase === 'running') finishCurrent('interrupted', performance.now());
   else if (live.phase === 'preview') cancelPreview();
 }
 
@@ -962,6 +1106,7 @@ document.addEventListener('keydown', (event) => {
 });
 byId('problems-start-set').addEventListener('click', beginSet);
 byId('pointing-start').addEventListener('click', beginPointing);
+byId('drill-start').addEventListener('click', beginDrill);
 byId('problems-next').addEventListener('click', nextProblem);
 byId('problems-stop').addEventListener('click', stopSet);
 byId('problems-summary-done').addEventListener('click', renderHome);

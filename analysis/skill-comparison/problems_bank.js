@@ -25,6 +25,7 @@ const ONE_PROBLEMS = 40;
 // Enough moments per family that sets rarely repeat a board: the aim is to
 // learn the rule, not the particular position.
 const PER_FAMILY = 40;
+const LAST_FLAG_POSITIONS = 60;
 // A family becomes a problem class only with this many judged fresh moves in
 // the corpus, so its level statistics mean something.
 const MIN_FAMILY_JUDGED = 20;
@@ -147,6 +148,39 @@ function candidatesOf(game, familyIds) {
   return found;
 }
 
+// Last-flag drill moments: the player flagged a mine and, with the very next
+// click, chorded a number that flag completed: the number was exactly one flag
+// short and still had safe squares to open. The mine must be provable at that
+// moment (counting or a two-number rule), so flagging it was a deduction.
+function lastFlagCandidatesOf(game) {
+  const found = [];
+  S.replayGame(game, (k, action, board) => {
+    const [, x, y, kind] = action;
+    if (k === 0 || kind !== 'flag' || k + 1 >= game.actions.length) return;
+    const next = game.actions[k + 1];
+    if (next[3] !== 'chord') return;
+    const mineCell = y * S.W + x;
+    const number = next[2] * S.W + next[1];
+    const around = S.NEIGHBORS[number];
+    if (!board.mine[mineCell] || !around.includes(mineCell) || !board.revealed[number]) return;
+    if (board.flagged.some((f, c) => f && !board.mine[c])) return;
+    if (around.filter((n) => board.flagged[n]).length !== board.adjacent[number] - 1) return;
+    const safe = around.filter((n) => !board.revealed[n] && !board.flagged[n] && n !== mineCell);
+    if (safe.length === 0 || safe.some((n) => board.mine[n])) return;
+    const prior = game.actions[k - 1];
+    const start = prior[2] * S.W + prior[1];
+    if (start === mineCell) return;
+    if (S.settle(board.revealed.slice(), board.adjacent).two.get(mineCell) !== 1) return;
+    found.push({
+      game: { id: game.id, bv3: game.bv3, timeMs: game.timeMs }, k, number, mineCell, safe, start,
+      startAt: cursorInStart(game, k - 1),
+      opened: Uint8Array.from(board.revealed), flags: Uint8Array.from(board.flagged), mine: Uint8Array.from(board.mine),
+      originalMs: next[0] - prior[0],
+    });
+  });
+  return found;
+}
+
 function exactlyFresh(candidate) {
   const mine = Array.from(candidate.mine, Boolean);
   const adjacent = mine.map((_, i) => S.NEIGHBORS[i].filter((n) => mine[n]).length);
@@ -168,7 +202,12 @@ function main() {
   if (!/^[A-Za-z0-9._-]+$/.test(bankId ?? '')) throw new Error('BANK_ID must be [A-Za-z0-9._-]+');
   const keepPath = rest[0] === '--keep' ? rest[1] : null;
   const inputs = keepPath === null ? rest : rest.slice(2);
-  const kept = new Set(keepPath === null ? [] : JSON.parse(fs.readFileSync(keepPath, 'utf8')).problems.map((p) => p.id));
+  const previous = keepPath === null ? null : JSON.parse(fs.readFileSync(keepPath, 'utf8'));
+  // Banks before format version 3 have no last-flag positions.
+  const kept = new Set(previous === null ? [] : [
+    ...previous.problems.map((p) => p.id),
+    ...(previous.formatVersion >= 3 ? previous.lastFlag.map((p) => p.id) : []),
+  ]);
   const situations = JSON.parse(fs.readFileSync(situationsPath, 'utf8'));
   const levels = S.LEVEL_BANDS.map(S.bandName).filter((b) => situations.levels[b]);
   const classes = {
@@ -196,6 +235,7 @@ function main() {
 
   // One game parsed at a time, so only candidates outlive the scan.
   const byClass = new Map();
+  const lastFlagFound = [];
   let corpusGames = 0;
   for (const file of inputs) {
     for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
@@ -207,6 +247,7 @@ function main() {
         if (!byClass.has(c.classId)) byClass.set(c.classId, []);
         byClass.get(c.classId).push(c);
       }
+      lastFlagFound.push(...lastFlagCandidatesOf(game));
       if (corpusGames % 100 === 0) console.error(`scanned ${corpusGames} games`);
     }
   }
@@ -249,9 +290,37 @@ function main() {
   problems.sort((a, b) => (a.classId < b.classId ? -1 : a.classId > b.classId ? 1 : a.id < b.id ? -1 : 1));
   const used = new Set(problems.map((p) => p.classId));
   for (const id of Object.keys(classes)) if (!used.has(id)) delete classes[id];
+
+  // Last-flag positions: kept ones first, then the fastest games; one per game.
+  const flagId = (c) => `${c.game.id}-${c.k}`;
+  lastFlagFound.sort((a, b) => (Number(kept.has(flagId(b))) - Number(kept.has(flagId(a))))
+    || (b.game.bv3 / b.game.timeMs - a.game.bv3 / a.game.timeMs) || (a.k - b.k));
+  const lastFlag = [];
+  const flagGames = new Set();
+  for (const c of lastFlagFound) {
+    if (lastFlag.length === LAST_FLAG_POSITIONS && !kept.has(flagId(c))) break;
+    if (flagGames.has(c.game.id)) continue;
+    flagGames.add(c.game.id);
+    lastFlag.push({
+      id: flagId(c),
+      videoId: c.game.id,
+      sourceBvs: Number((c.game.bv3 / (c.game.timeMs / 1000)).toFixed(2)),
+      mines: hexOf(c.mine),
+      opened: hexOf(c.opened),
+      flags: hexOf(c.flags),
+      number: c.number,
+      mine: c.mineCell,
+      safe: c.safe,
+      start: c.start,
+      startAt: c.startAt,
+      originalMs: c.originalMs,
+    });
+  }
+  lastFlag.sort((a, b) => (a.id < b.id ? -1 : 1));
+
   const bank = {
     format: 'minesweeper-problems-bank',
-    formatVersion: 2,
+    formatVersion: 3,
     bankId,
     source: 'saolei.wang Expert replays, stratified by 3BV/s',
     corpusGames,
@@ -262,13 +331,16 @@ function main() {
     // Median in-game travel by move length, per level, for the pointing test.
     travelByLevel: Object.fromEntries(levels.map((b) => [b, situations.levels[b].travelByDistance])),
     problems,
+    // Last-flag drill positions (bank format version 3).
+    lastFlag,
   };
   fs.writeFileSync(outPath, JSON.stringify(bank) + '\n');
   const counts = {};
   for (const p of problems) counts[p.classId] = (counts[p.classId] || 0) + 1;
   const keptFound = problems.filter((p) => kept.has(p.id)).length;
   console.log(`${problems.length} problems in ${Object.keys(classes).length} classes`, counts,
-    keepPath === null ? '' : `kept ${keptFound} of ${kept.size} earlier problems`);
+    keepPath === null ? '' : `kept ${keptFound} of ${kept.size} earlier problems`,
+    `; ${lastFlag.length} last-flag positions from ${lastFlagFound.length} candidates`);
 }
 
 main();
