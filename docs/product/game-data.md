@@ -190,7 +190,8 @@ marker. Identical time-table memberships do not collapse distinct scalar
 traits on this chart. Matching-board solve-time tables remain a separate analysis.
 
 Left-side performance directions are unchanged: lower time, misclick rate,
-fastclick gap, no-op rate, path, cadence spread, and unused mark share;
+fastclick gap, no-op rate, path, cadence spread, unused mark share, and flags
+no multi-cell chord used;
 higher 3BV/s, click rate, the efficiency family, correctness, IOS, STNB,
 and mouse speed.
 
@@ -214,8 +215,16 @@ fastclick gap, 3BV/s, click rate, efficiency, no-op rate, and path / 3BV.
 Preferences are saved in full, so a profile that has saved any preference
 keeps its selections; the defaults reach new profiles.
 
+Added 2026-09-27 for the training plan's per-game feedback: **flags no
+multi-cell chord used**, on by default in the lifetime scope. It counts a
+win's flags standing at the end that no chord opening two or more squares used
+(`flagsWithoutMultiCellChord`; each could have been one direct click or
+nothing), the per-game form of stage 1's target of 10 or fewer
+([Training](training.md)). A saved selection map is laid over the defaults, so
+existing profiles see the new metric on and keep every earlier choice.
+
 Completion-dependent metrics (time, 3BV/s, efficiency variants, IOS/STNB,
-path / 3BV, unused mark share) compare wins. Observable action/error/timing
+path / 3BV, unused mark share, flags no multi-cell chord used) compare wins. Observable action/error/timing
 metrics (misclicks, no-ops, click rate, fastclick gap, correctness, mouse
 speed, path / click, cadence spread) compare measured wins and losses.
 Their directional wording describes that metric, not overall player skill.

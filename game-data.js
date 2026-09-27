@@ -190,6 +190,9 @@ const GameData = (() => {
     { id: 'unusedMarkShare', name: 'unused mark share', higher: false, default: true,
       value: (r) => r.flagsPlaced > 0 ? r.unusedCorrectFlags / r.flagsPlaced : undefined,
       format: percent, help: 'Correct flags that no chord ever used, as a share of all flags you placed.' },
+    { id: 'flagsWithoutMultiCellChord', name: 'flags no multi-cell chord used', higher: false, default: true,
+      value: (r) => r.flagsWithoutMultiCellChord, format: (v) => String(v),
+      help: 'Flags standing at the win that no chord opening two or more squares used. Each could have been one direct click, or nothing. Stage 1 of the training plan aims for 10 or fewer on Expert.' },
   ];
   // The creator's own configuration (2026-09-23): each metric's `default`
   // against lifetime, plus time (day); no session comparisons.

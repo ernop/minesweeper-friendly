@@ -260,6 +260,18 @@ because they are different observable events. The record does not say why
 either event occurred: a no-op is not automatically a motor slip, and a
 removed flag does not prove a changed mind.
 
+Flags no multi-cell chord used (`flagsWithoutMultiCellChord`, wins only,
+added 2026-09-27 for the training plan's per-game feedback): the win's flags
+standing at the end that no chord opening two or more squares used, meaning
+never used, or used only by chords that opened one square, where clicking that
+square directly costs the same one input. It is the per-game form of the
+training plan's stage 1 measure and is computed by the same replay the training
+page uses (`TrainingCore.replay` over the game's inputs, in the analysis
+worker, from the final board). It is absent on losses, on Endgame drill games,
+on wins whose inputs do not replay to the same board (a Justice redraw), and on
+games recorded before the measure existed. It shows in game data as a lifetime
+comparison ([Game data](game-data.md)).
+
 Justice — how many bare entries into certified sealed pockets were
 guaranteed safe (see [A just universe](just-universe.md)) — joined the schema on 2026-08-20
 under the same absence rules as wasted clicks. It increments on every

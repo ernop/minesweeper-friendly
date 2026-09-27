@@ -25,6 +25,14 @@ Spec: [docs/product/per-game-stats.md](../product/per-game-stats.md). Index: [AG
   unmeasured on the per-time basis).
 - `mousePathPx`: cursor distance accumulated on document mousemove only
   while `gameState === 'playing'`.
+- `flagsWithoutMultiCellChord`: `reportResult` asks the `finished-game`
+  analysis task for it on wins (`needFlagUse`). `analysis-worker.js`
+  (`finishedFlagsWithoutMultiCellChord`) replays the trace events with
+  `TrainingCore.replay` from the final board and returns
+  `neverUsed + usedOnlyBySingleChord` of `TrainingCore.winBreakdown`, or
+  nothing when the replay does not reproduce the win; the result is merged
+  into the record with the board measurements and persisted. The restore path
+  does not backfill it.
 - Unused correct marks: `activeFlagEpisodes` and `flagEpisodes` retain every
   player flag placement and removal until the outcome is known.
   `markChordFlagUsage` consumes neighboring episodes only for an accepted

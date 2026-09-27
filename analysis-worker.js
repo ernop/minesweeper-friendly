@@ -6,8 +6,9 @@ importScripts('trend-fit.js?v=20260925-worker-analysis',
   'game/session-stats.js?v=20260926-chord-buttons',
   'game/metric-definitions.js?v=20260926-short-help',
   'board-shape.js', 'zini.js', 'board-metrics.js?v=20260921-visible-zero-one',
-  'game-data.js?v=20260926-short-help', 'game/rankings.js?v=20260926-short-help',
-  'game/charts.js?v=20260926-lifelong', 'game/game-data-chart.js?v=20260926-short-help');
+  'game-data.js?v=20260927-flag-use', 'game/rankings.js?v=20260926-short-help',
+  'game/charts.js?v=20260926-lifelong', 'game/game-data-chart.js?v=20260926-short-help',
+  'training-core.js?v=20260926-states-compared');
 
 let config;
 
@@ -21,11 +22,27 @@ function analyzeTrace(data) {
     spatial: computeSpatialBias(events) };
 }
 
-function finishedMeasurements(plan, metrics) {
+// A win's flags standing at the end that no chord opening two or more cells
+// used, by the training page's replay from the final board; null when the
+// inputs do not reproduce the game (a Justice redraw moved a mine).
+function finishedFlagsWithoutMultiCellChord(plan, events) {
+  const board = { width: plan.width, height: plan.height, mines: plan.mines.filter(Boolean).length };
+  const trace = { events, finalBoard: { cells: plan.mines.map((mine) => ({ mine })) } };
+  const replay = TrainingCore.replay(trace, 'win', board, null);
+  if (replay.status !== 'replayed') return null;
+  const flags = TrainingCore.winBreakdown(replay).flags;
+  return flags.neverUsed + flags.usedOnlyBySingleChord;
+}
+
+function finishedMeasurements(plan, metrics, events) {
   const measurements = {};
   if (!plan.drill) {
     if (plan.needZini) measurements.zini = Zini.zini(plan.width, plan.height, plan.mines);
     if (plan.needBoardMetrics) Object.assign(measurements, BoardMetrics.analyze(plan.width, plan.height, plan.mines));
+    if (plan.needFlagUse) {
+      const flags = finishedFlagsWithoutMultiCellChord(plan, events);
+      if (flags !== null) measurements.flagsWithoutMultiCellChord = flags;
+    }
   }
   if (plan.needCadence && Number.isFinite(metrics.cad.gapSpreadRatio)) {
     measurements.cadenceSpread = Number(metrics.cad.gapSpreadRatio.toFixed(3));
@@ -40,7 +57,7 @@ function analyze(kind, data) {
     case 'trace': return analyzeTrace(data);
     case 'finished-game': {
       const motion = analyzeTrace(data.trace);
-      return { ...motion, measurements: finishedMeasurements(data, motion.metrics) };
+      return { ...motion, measurements: finishedMeasurements(data, motion.metrics, data.trace.events) };
     }
     case 'live-trace': {
       if (liveTrace === null || liveTrace.id !== data.traceId) {
@@ -70,7 +87,7 @@ function analyze(kind, data) {
       }
       const metrics = computer(t, x, y, events, data.endedAt - data.startedAt);
       return { series, metrics, spatial: computeSpatialBias(events),
-        measurements: finishedMeasurements(data.measurementPlan, metrics) };
+        measurements: finishedMeasurements(data.measurementPlan, metrics, events) };
     }
     case 'ranks': {
       config = data.config;

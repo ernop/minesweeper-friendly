@@ -16,7 +16,8 @@ const records = [
 ];
 const on = (selection) => Object.keys(selection).filter((id) => selection[id]);
 assert.deepEqual(on(GameData.defaults.lifetime), ['time', 'misclickRate', 'fastclickGap', 'bvPerSecond',
-  'clickRate', 'noopRate', 'correctness', 'mouseSpeed', 'unusedMarkShare'], 'the creator’s lifetime defaults');
+  'clickRate', 'noopRate', 'correctness', 'mouseSpeed', 'unusedMarkShare', 'flagsWithoutMultiCellChord'],
+  'the creator’s lifetime defaults, plus the training plan’s stage 1 flag count');
 assert.deepEqual(on(GameData.defaults.session), [], 'no session comparisons by default');
 assert.deepEqual(GameData.rows(current, records).map((r) => r.trait), ['time', 'misclick rate',
   'fastclick gap', '3BV/s', 'click rate', 'no-op rate', 'correctness',

@@ -42,13 +42,14 @@ Unbuilt parts of plan v2 (creator):
 
 Earlier proposals, still open:
 
-- **Per-game economy feedback.** Partly built (2026-09-26 night): the
-  after-game report counts chord clicks on numbers still short of flags and
-  clicks on finished numbers on their own lines, the two habits behind most of
-  the player's clicks that change nothing
-  ([evaluation](docs/product/game-end-evaluation.md)). Still open: one-cell
-  chords and flags no multi-cell chord used, per game, from the finished trace
-  in the analysis worker.
+- **Per-game economy feedback.** Built. The after-game report counts chord
+  clicks on numbers still short of flags and clicks on finished numbers on
+  their own lines ([evaluation](docs/product/game-end-evaluation.md)), and game
+  data ranks each win's flags no multi-cell chord used, replayed from the
+  finished trace in the analysis worker (2026-09-27,
+  [per-game stats](docs/product/per-game-stats.md)). One-cell chords need no
+  count of their own: such a chord costs the same one input as a direct click,
+  and the flags placed for it are in that count.
 - **Last-flag drill.** Built from replay-corpus positions
   ([problems.md](docs/product/problems.md)). Open: positions from the player's
   own premature-chord moments, read from their traces in the browser.

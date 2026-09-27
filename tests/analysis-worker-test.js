@@ -57,7 +57,25 @@ for (const [traceId, fixture] of fixtures.entries()) {
   })()`, context));
   assert.deepEqual(restored.series, expectedSeries);
 }
+// A 3x2 win with the mine at the top left:  * 1 0 / 1 1 0. Opening the right
+// column floods it; the flag on the mine then serves one chord on the top 1,
+// which opens a single cell. That flag counts: a direct click would do.
+{
+  const events = [
+    { kind: 'lup', index: 2, t: 1000, atMs: 0 },
+    { kind: 'rdown', index: 0, t: 1400, atMs: 400 },
+    { kind: 'lup', index: 1, t: 1800, atMs: 800 },
+  ];
+  const plan = { width: 3, height: 2, mines: [true, false, false, false, false, false], drill: false,
+    needZini: false, needBoardMetrics: false, needCadence: false, needFlagUse: true,
+    trace: { t: [1000, 1800], x: [5, 20], y: [5, 5], events, wallMs: 800 } };
+  assert.equal(task('finished-game', plan).measurements.flagsWithoutMultiCellChord, 1);
+  const redrawn = { ...plan, mines: [false, false, false, true, false, false] };
+  assert.equal('flagsWithoutMultiCellChord' in task('finished-game', redrawn).measurements, false,
+    'inputs that do not replay to the final board store nothing');
+  assert.equal('flagsWithoutMultiCellChord' in task('finished-game', { ...plan, needFlagUse: false }).measurements, false);
+}
 assert.deepEqual(task('trends', { pairs: [[0, 1], [1, 3], [2, 5]], todayPairs: [] }),
   [{ a: 1, b: 2, cls: 'trend-all', xMin: 0, xMax: 2 }]);
 assert.throws(() => task('invalid-analysis-kind', {}), /Unknown analysis task/);
-console.log(`analysis-worker: DOM-free initialization, ${snapshots} streamed snapshots, full-prefix restoration parity, exact trends, and task errors passed`);
+console.log(`analysis-worker: DOM-free initialization, ${snapshots} streamed snapshots, full-prefix restoration parity, flags no multi-cell chord used, exact trends, and task errors passed`);
