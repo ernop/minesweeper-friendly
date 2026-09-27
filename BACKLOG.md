@@ -144,15 +144,19 @@ game instead of rewriting the whole history twice per game. Not built:
    needs it before revealing, and game-end finalization would have to wait
    for the last action's evidence. After item 1 this would save only a few
    milliseconds per click.
-3. **Report layout stall after each game.** The latency monitor measures one
-   main-thread block of about 220ms in Firefox (100ms in Chromium) roughly a
-   second after a game ends: the finished report is inserted all at once,
-   then `renderResultAsync` calls `syncBoardLayout`, whose `syncGameSidebar`
-   geometry reads force the whole new report's layout in that task. A
-   restart clicked during it waits. Inserting sections progressively in
-   model order, or skipping offscreen sections' layout, would split it; both
-   change how the report appears, so they await a creator decision. Its
-   budget (`gameEndLongestStallMs`, 300ms) tightens once fixed.
+3. **Remaining freezes found by attributed measurement (2026-09-26).** In
+   Firefox with the stats panel open, all measured as our own code:
+   - After a game, the report arrives in tasks of 60-160ms: `renderResult`
+     work between yields, the trace copy in `saveTrace` (about 45ms on
+     expert), and a forced layout of the whole finished report when
+     `renderResultAsync` ends with `syncBoardLayout` (58-94ms; once 783ms).
+     Inserting sections progressively, or skipping offscreen sections'
+     layout, would split the layout; both change how the report appears,
+     so they await a creator decision.
+   - Switching board size while a report is shown takes about 200ms: the
+     forced layout in `newGame`'s `syncGameSidebar`.
+   - Some expert clicks take 57-92ms in the misclick check, where the exact
+     proof exhausts its work budget (item 1).
 
 ## Game data as the primary result surface (creator, 2026-09-23)
 

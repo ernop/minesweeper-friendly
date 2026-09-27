@@ -138,25 +138,22 @@ the same Playwright/Chromium arguments and 8099 origin listed above.
 outputs and median-of-three computation times with the named git revision;
 it never opens player storage. Timing observations are not pass thresholds.
 
-Input-latency monitor (2026-09-26, creator request; spec:
+Latency check (2026-09-26, creator request, cut to basics the same day: "keep
+just basic timing stuff please so we notice if we megaslowdown again"; spec:
 [Input latency](../product/board-and-layout.md#input-latency-user-report-2026-09-26)):
-`node tests/latency-browser-check.js PLAYWRIGHT_CORE_DIR firefox|chromium EXECUTABLE [--quick] [--record]`
-seeds a synthetic 6,500-game history into a fresh profile on 8099, replays
-fixed-seed games through real mouse input, and times startup, new game, first
-click, every play click (p50/p95/max and per kind), click handlers, the
-game-ending click, the result shell, the full report, and main-thread stalls
-during play and within 3 s of each game end. Unlike the checks above, these
-timings are pass thresholds: any value over `tests/latency-budgets.json`
-fails the run. `--quick` plays one intermediate and one expert game (about
-2.5 minutes); the full scenario plays six (about 9 minutes). `--record`
-appends the run to `tests/latency-history.jsonl`, and
-`node tests/latency-history.js [firefox|chromium] [RUNS]` prints recorded
-runs side by side against the budgets. On this machine: Playwright
+`node tests/latency-browser-check.js PLAYWRIGHT_CORE_DIR firefox|chromium EXECUTABLE [--record]`
+takes about 10 seconds. In a fresh profile on 8099 with a synthetic
+6,500-game history, on a fixed board, it times page load, new game, the first
+click, a dozen more clicks, the click that shows a mine, the longest freeze in
+the two seconds after that game ends, and switching to expert. Unlike the
+checks above, these are pass thresholds: any value over the generous limits in
+`tests/latency-budgets.json` fails. `--record` appends the run to
+`tests/latency-history.jsonl`; `node tests/latency-history.js` prints recorded
+runs against the budgets. On this machine: Playwright
 `/home/ef/proj/voice-wei/node_modules/playwright-core`, Firefox
 `/home/ef/.cache/ms-playwright/firefox-1538/firefox/firefox` (the engine the
 creator plays in), Chromium
-`/home/ef/.cache/ms-playwright/chromium-1234/chrome-linux64/chrome`. Run one
-browser at a time; parallel runs share CPU and add stalls.
+`/home/ef/.cache/ms-playwright/chromium-1234/chrome-linux64/chrome`.
 
 Hosting verification (2026-09-26): `python3 tests/hosting-release-test.py`
 checks the committed-runtime artifact. `tests/hosting-browser-check.js` takes

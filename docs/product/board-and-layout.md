@@ -90,10 +90,12 @@ laggy"; asked whether the game is "max efficient" and to test and fix it.
   measuring and tracking the timing for all these things such as new game,
   1st click of new game, etc and we shall be able to monitor them over time
   as we change things, so that we never again let the system get slow").
-  Startup, new game, first click, play clicks, the game-ending click, the
-  result shell, the full report, and main-thread stalls each have a budget;
-  exceeding one fails the latency check, and recorded runs keep the history
-  in the repository ([how to run](../implementation/verification.md)).
+  Cut to basics the same day ("keep just basic timing stuff please so we
+  notice if we megaslowdown again"): a check of about 10 seconds times page
+  load, new game, the first click and a dozen more, the click that shows a
+  mine, the freeze after a game ends, and switching to expert, each against a
+  generous limit. Exceeding one fails the check; recorded runs keep the
+  history in the repository ([how to run](../implementation/verification.md)).
 - Click-time evidence (the visible-position proof, guess odds, and Justice
   certification) keeps its exact definitions and results; only its cost
   may change. Built 2026-09-26: expert flags, chords, and guesses that took

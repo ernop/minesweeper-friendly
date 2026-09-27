@@ -285,9 +285,9 @@ games and discard stale view updates. No main-thread calculation fallback. See
 
 User requirement (2026-09-26): the system must never get slow again. Before
 pushing any change to gameplay, game end, storage, startup, or result
-presentation, run `tests/latency-browser-check.js` in Firefox with `--quick
---record` and commit the appended `tests/latency-history.jsonl` line with the
-change. A budget failure blocks the push. Budgets tighten when code gets
+presentation, run `tests/latency-browser-check.js` in Firefox with `--record`
+(about 10 seconds) and commit the appended `tests/latency-history.jsonl` line
+with the change. A budget failure blocks the push. Budgets tighten when code gets
 faster and loosen only by recorded creator decision. Commands:
 [verification](docs/implementation/verification.md).
 
