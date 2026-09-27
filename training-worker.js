@@ -6,7 +6,7 @@
 // upgrading the database and sends the names and version it opened.
 
 importScripts('justice.js?v=20260926-fast-evidence', 'solver.js?v=20260823-exact-solver', 'rng.js',
-  'game/evaluation.js?v=20260926-training', 'training-core.js?v=20260926-chord-buttons');
+  'game/evaluation.js?v=20260926-noop-reasons', 'training-core.js?v=20260926-chord-buttons');
 
 function requestResult(request) {
   return new Promise((resolve, reject) => {

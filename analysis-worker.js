@@ -2,7 +2,7 @@
 
 importScripts('trend-fit.js?v=20260925-worker-analysis',
   'game/trace-metrics.js?v=20260926-chord-buttons',
-  'game/evaluation.js?v=20260926-lifelong',
+  'game/evaluation.js?v=20260926-noop-reasons',
   'game/session-stats.js?v=20260926-chord-buttons',
   'game/metric-definitions.js?v=20260926-short-help',
   'board-shape.js', 'zini.js', 'board-metrics.js?v=20260921-visible-zero-one',

@@ -37,7 +37,7 @@ function storageFailure(what) {
 }
 
 function userdataReady() {
-  const worker = new Worker('training-worker.js?v=20260926-chord-buttons');
+  const worker = new Worker('training-worker.js?v=20260926-noop-reasons');
   worker.onmessage = ({ data }) => {
     worker.terminate();
     if (data.error !== undefined) showTrainingStatus('Training summary failed: ' + data.error, true);

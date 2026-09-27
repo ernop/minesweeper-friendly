@@ -667,6 +667,17 @@ function chordTargets(index) {
   return toReveal.length === 0 ? null : toReveal;
 }
 
+// Why a click on a revealed square did not chord (chordTargets gave null):
+// the no-op reason stored with the click. Short of flags is the common case,
+// a chord tried before the number's last flag.
+function chordUnavailableReason(index) {
+  const cell = cells[index];
+  const flaggedCount = neighbors(index).filter((n) => cells[n].flagged).length;
+  if (flaggedCount < cell.adjacent) return 'chord-short-of-flags';
+  if (flaggedCount > cell.adjacent) return 'chord-too-many-flags';
+  return 'chord-nothing-to-open';
+}
+
 function proofSearchBlocks(candidates, inputLabel) {
   if (settings.playMode !== 'proof-or-die') return false;
   const proof = Solver.classifyCells(playerView(), candidates);

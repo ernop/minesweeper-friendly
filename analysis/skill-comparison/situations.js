@@ -735,7 +735,7 @@ function report(result, groups) {
 module.exports = {
   W, H, N, MINES, NEIGHBORS, LEVEL_BANDS, FLUENT_MARGIN_MS, DECISION_GAP_MAX_MS,
   median, settle, exactFacts, residualClues, decisivePair, patternKey, lineKey, familyKey, picture,
-  movementSplit, replayGame, band, bandName,
+  movementSplit, replayGame, analyzeGame, band, bandName,
 };
 
 if (require.main === module) main();

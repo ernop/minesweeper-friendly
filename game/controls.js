@@ -133,7 +133,7 @@ function rightPress(event) {
 function chordFromNumber(index) {
   const targets = chordTargets(index);
   if (targets === null) {
-    recordNoOp(index, 'chord-unavailable');
+    recordNoOp(index, chordUnavailableReason(index));
     return;
   }
   if (proofSearchBlocks(targets, 'chord')) {
@@ -182,7 +182,7 @@ boardElement.addEventListener('mouseup', (event) => {
   if (chordGesture) {
     logged.chordGesture = true;
     if (cell.revealed) chordFromNumber(index);
-    else recordNoOp(index, 'chord-unavailable');
+    else recordNoOp(index, 'chord-over-covered');
     return;
   }
   if (!cell.revealed && !cell.flagged) {

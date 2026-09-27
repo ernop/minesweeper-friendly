@@ -362,6 +362,10 @@ function actionEvaluationText(evaluation) {
   }
   if (mistakes.has('no-op-click')) {
     const reason = {
+      'chord-short-of-flags': 'The number was still short of flags, so nothing opened. The 1.5 click flags its last mine and chords in one motion.',
+      'chord-nothing-to-open': 'The number had nothing left to open.',
+      'chord-too-many-flags': 'The number had more flags than its count, so nothing opened.',
+      'chord-over-covered': 'Both buttons were released over a covered square; a chord needs a number.',
       'chord-unavailable': 'The chord conditions were not met, so the board did not change.',
       'left-clicked-flag': 'Left-clicking a flagged square did not change the board.',
       'flagged-revealed-cell': 'A revealed square cannot be flagged, so the board did not change.',
@@ -430,7 +434,13 @@ function actionEvaluationText(evaluation) {
   return parts.join(' ') || 'The action was recorded, but no further judgement was measurable.';
 }
 
+// Games recorded before 2026-09-26 night carry the one chord reason
+// chord-unavailable; later games carry the four specific chord reasons.
 const NO_OP_AGGREGATE_LABELS = {
+  'chord-short-of-flags': 'Chord clicks on numbers still short of flags',
+  'chord-nothing-to-open': 'Clicks on finished numbers',
+  'chord-too-many-flags': 'Chord clicks with too many flags',
+  'chord-over-covered': 'Chords released over covered squares',
   'chord-unavailable': 'Unsatisfied chord clicks',
   'left-clicked-flag': 'Left-clicks on flagged squares',
   'flagged-revealed-cell': 'Flag attempts on revealed squares',
@@ -652,6 +662,10 @@ function actionEvaluationLines(evaluation) {
   }
   if (mistakes.has('no-op-click')) {
     const reason = {
+      'chord-short-of-flags': 'number still short of flags',
+      'chord-nothing-to-open': 'number had nothing left to open',
+      'chord-too-many-flags': 'number had too many flags',
+      'chord-over-covered': 'chord released over a covered square',
       'chord-unavailable': 'chord conditions were not met',
       'left-clicked-flag': 'left-clicked a flagged square',
       'flagged-revealed-cell': 'tried to flag a revealed square',

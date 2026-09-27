@@ -58,6 +58,13 @@ const ORIGIN = 'http://127.0.0.1:8099/';
     };
 
     const first = await nextPlan();
+    const lastReason = () => page.evaluate(() => actionEvaluations[actionEvaluations.length - 1].evidence.reason);
+
+    // A click on the number one flag short changes nothing and says why.
+    await moveTo(first.number);
+    await page.mouse.down({ button: 'left' });
+    await page.mouse.up({ button: 'left' });
+    assert.equal(await lastReason(), 'chord-short-of-flags', 'a chord tried before the last flag is recorded as such');
 
     // A right press flags at once; 1.5 click: keep holding, press left on the number, release both.
     let before = await counters();
@@ -118,6 +125,7 @@ const ORIGIN = 'http://127.0.0.1:8099/';
     after = await counters();
     assert.equal(await page.evaluate((i) => cells[i].revealed, unopened), false, 'no reveal from a chord gesture');
     assert.equal(after.wasted, before.wasted + 1, 'the chord attempt changed nothing');
+    assert.equal(await lastReason(), 'chord-over-covered');
 
     // Left-click chording still works: flag the third mine, then click the number.
     await moveTo(third.mine);

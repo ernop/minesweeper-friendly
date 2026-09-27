@@ -300,9 +300,18 @@ report.
   `chord-visible-contradiction`, `chord-wrong-flag-outcome`,
   `opened-unproven-with-safe-move`, `no-op-click`,
   `unused-correct-flag`, and `legacy-avoidable`. `no-op-click` further records
-  one of `chord-unavailable`, `left-clicked-flag`, or
-  `flagged-revealed-cell`. An action may carry several tags, but severity
-  assigns it to one primary category so category totals never double-count it.
+  why nothing changed: `chord-short-of-flags` (a chord tried before the
+  number's last flag), `chord-nothing-to-open` (a finished number),
+  `chord-too-many-flags`, `chord-over-covered` (both buttons released over a
+  covered square), `left-clicked-flag`, or `flagged-revealed-cell`. Games
+  recorded before 2026-09-26 night carry `chord-unavailable` for all four chord
+  reasons. The after-game report counts each reason on its own line (for
+  example "Chord clicks on numbers still short of flags: 26"), because the
+  player's saved wins showed these two habits to be most of the clicks that
+  change nothing (about 26 and 8 per Expert win); the short-of-flags line's
+  detail names the 1.5 click, which removes that click. An action may carry
+  several tags, but severity assigns it to one primary category so category
+  totals never double-count it.
 - Modern Game-loss items use one of eight fatal statuses:
   `mine-safe`, `mine-forced`, `proof-safe`, `proof-forced`, `guess-safe`,
   `guess-higher`, `guess-min`, or `guess-unmeasured`; evidence-free losses

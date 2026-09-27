@@ -150,6 +150,78 @@ refreshed as the corpus grows):
   measure above; the problems page trains the two-number families where the
   user's fluency trails (the 1-1 rules carry most fresh pattern moves).
 
+## Plan v2 in progress (requested 2026-09-26, night)
+
+User requests: do plan v2; think about experiments to run; push on the training
+ideas in the backlog after looking at the player's rendered stats at every
+level; keep collecting many more replays and store them logically forever; and
+on the problems page, box the area of interest (built: [problems.md](problems.md)).
+
+### Gap ranking (built: `analysis/skill-comparison/gaps.js`)
+
+Each of the player's 80 traced wins is rebuilt with one skill at a time set to
+a faster level's mean for the same situation (thinking time by kind of move,
+logic, and freshness; travel by distance; long pauses per 3BV; effective clicks
+per 3BV). Means, not medians, because the player's own totals include their
+slow moves. Seconds saved per game (357-game corpus, refreshed as it grows):
+
+| Skill set to | next level (1.95 3BV/s) | 2.84 3BV/s | 3.28 3BV/s |
+| --- | --- | --- | --- |
+| Clicks per 3BV | 10.4 | 13.9 | 17.0 |
+| Thinking | -1.1 | 10.8 | 13.4 |
+| Travel | -1.9 | 10.0 | 13.6 |
+| Long pauses | 1.9 | 2.0 | 2.0 |
+| All together (median game, from 101.3 s) | 91.3 s | 67.5 s | 60.3 s |
+
+Clicks come first; thinking and travel then matter equally for sub-60.
+
+### What the player's saved games show (2026-09-26)
+
+From the rendered High scores views and the records behind them (6,679 games):
+Beginner best 2.82 s (1,251 wins); Intermediate best 20.76 s (1,072 wins);
+Expert best 71.03 s, with 50 wins in the last 509 Expert games. Expert times
+have been flat since late August. In the latest 80 traced Expert wins:
+
+- **Clicks that change nothing: about 41 per game.** 26 are clicks on a number
+  exactly one flag short (a chord attempted before its last flag), 3.7 on
+  numbers two or more flags short, 8 on finished numbers with nothing left to
+  open, 2 on flags.
+- **Late losses:** of games that reach 20 s, 27% are won. The fatal click's
+  recorded mistakes are mostly flag-related: chording over a wrong flag (40 of
+  138 late deaths in 14 days), a chord contradicting the visible numbers (37),
+  a likely misclick after a wrong flag (34), and opening a proven mine (36).
+
+The heavy flag-and-chord style (100 flags and 112 chords per win) therefore
+costs both clicks and wins. The 1.5 click, now supported, removes the most
+common waste directly: the last flag and the chord become one motion.
+
+### Experiments (designs; the player runs them, the analysis reads them)
+
+Each runs in alternating blocks (A B A B ...) of 20 Expert games on the same
+days, tagged with a player state naming the condition, so time-of-day and
+day-to-day form spread over both conditions. The decision rule is fixed in
+advance: adopt B when its block median time is lower in at least three of four
+block pairs and its win rate among games that reach 20 s is not lower.
+
+1. **The 1.5 click for the last flag.** A: as usual. B: whenever a number is
+   one flag short, flag the mine with the right button, keep holding, and chord
+   with the left. Measures: clicks on numbers one flag short (expected near 0),
+   clicks per 3BV, time, late win rate.
+2. **Flag only when a chord pays.** B: flag a mine only when the chord it
+   enables opens two or more squares; otherwise click the safe squares
+   directly. Measures: low-value flags, wrong flags, flag-related late deaths,
+   clicks per 3BV, time.
+3. **Square size.** 16 px against the player's usual size. Measures: travel per
+   distance, misclicks, time.
+4. **Problems transfer.** Train two rule families daily on the problems page
+   for two weeks and leave one untrained; compare in-game fluency (fresh
+   two-number moves at single-number speed) on trained and untrained families
+   before and after, from the traces.
+5. **Focus box.** Problem thinking times with the box (`problems-v2`) against
+   the 45 attempts made without it (`problems-v1`), on the same rules.
+6. **Warm-up and alertness (observational).** Time and win rate by position
+   in the session, and by the self-check taken before the session.
+
 ## Diagnosis the plan is built on (measured 2026-09-26)
 
 From 1,692 Expert games through 2026-09-26 (details and method in the

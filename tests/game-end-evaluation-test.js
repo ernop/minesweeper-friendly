@@ -528,6 +528,17 @@ assertEq('identical positionless actions aggregate', noOpGroups.length, 2);
 assertEq('aggregate carries the repeated count', noOpGroups[0].count, 2);
 assertEq('aggregate title is a count, not action numbers',
   aggregateReportTitle(noOpGroups[0]), 'Left-clicks on flagged squares: 2');
+const withReason = (reason, actionNumber) => {
+  const evaluation = { ...noOp, actionNumber, evidence: { reason } };
+  return { evaluation, shown: evaluation, category: 'timeLoss' };
+};
+const chordGroups = aggregateReportEntries([
+  withReason('chord-short-of-flags', 3), withReason('chord-short-of-flags', 5),
+  withReason('chord-nothing-to-open', 6), withReason('chord-unavailable', 7),
+]);
+assertEq('each chord reason counts on its own line; old records keep their label',
+  chordGroups.map(aggregateReportTitle).join(' | '),
+  'Chord clicks on numbers still short of flags: 2 | Clicks on finished numbers: 1 | Unsatisfied chord clicks: 1');
 
 const flaggedSafe = {
   version: ACTION_EVALUATION_VERSION,
