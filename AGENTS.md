@@ -274,16 +274,18 @@ scalars are summaries of the trace and definitions can be recomputed
 retroactively; when in doubt, add the straightforward scalar rather than
 a clever reconstruction.
 
-Removal and replacement (creator direction 2026-09-26, after the self-check's
-3-minute test was first kept beside its replacement and then kept readable):
+Removal and replacement (creator direction 2026-09-26; the case was the
+self-check's 3-minute test, rejected minutes after release, then kept beside
+its replacement and then kept readable for one saved check):
 
 - Replace, don't add. When the creator rejects a behavior ("too long",
-  "wrong"), change it; never add the fix as an option beside the rejected
-  one. There is one proper version of each feature.
-- Removing a feature deletes its code, tests, and docs, and its saved data is
-  deleted too; no compatibility path keeps records of a removed version
-  readable. Test data is reset, never carried: a record from something that
-  shipped minutes earlier is not legacy.
+  "wrong"), change it rather than adding the fix as an option beside the
+  rejected one, unless a choice is what they asked for.
+- Weigh a removal by its situation. A feature the creator rejected right after
+  it shipped, with nothing real built on it, goes outright: code, tests, docs,
+  and its test data, with no compatibility path. That is not a license to
+  remove freely: anything holding real accumulated data, or in real use, keeps
+  its data or waits for the creator's decision before anything is deleted.
 
 ### Analysis isolation
 

@@ -108,10 +108,12 @@ creator chose.
 ### Protocol versions
 
 A protocol id names one exact instrument. Any change to wording, parameters,
-input, timing convention, or scoring ships under a new id. There is only ever
-one version of each measure (creator decisions, 2026-09-26): a new version
-replaces the old one outright, its code is removed, and checks saved with it
-are deleted, never kept readable beside the new ones.
+input, timing convention, or scoring ships under a new id. One version of each
+measure is offered at a time (creator decision, 2026-09-26: "only have one
+proper version"). What happens to checks saved with a replaced version depends
+on the situation: the 3-minute test, rejected minutes after release, was
+removed with its one saved check; a version with real accumulated history
+keeps its checks, or waits for the creator's decision before they are deleted.
 `tests/self-check-core-test.js` fails on any edit to the protocol's constants.
 
 ## Stored record
