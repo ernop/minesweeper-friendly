@@ -114,8 +114,8 @@ function rebuilt(game, target, replace) {
 
 function main() {
   const [outPath, ...inputs] = process.argv.slice(2);
-  const files = inputs.flatMap((p) => fs.readFileSync(p, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l)));
-  const games = files.map((g) => S.analyzeGame(g));
+  const games = [];
+  for (const input of inputs) S.forEachJsonLine(input, (game) => games.push(S.analyzeGame(game)));
   const yours = games.filter((g) => g.group === 'you');
   if (yours.length === 0) throw new Error('no games of yours: pass the self.jsonl from user_games.js');
   const choices = {

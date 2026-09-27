@@ -117,34 +117,38 @@ Built (offline analysis `analysis/skill-comparison/situations.js`, method in
   uses effective clicks only, because replay parsers count the right half of a
   both-button chord as a click that changed nothing.
 
-Results (1,057 corpus games, about 150 per level, and the user's 80 traced
-wins at median 1.77 3BV/s; first computed on 357 games, the same conclusions):
+Results (3,498 corpus games, 500 per level, refreshed 2026-09-27, and the
+user's 80 traced wins at median 1.77 3BV/s; the earlier runs on 357 and 1,057
+games gave the same conclusions):
 
 | Trait | You | Average game at your speed | Gap worth |
 | --- | --- | --- | --- |
 | Effective clicks per 3BV | 1.39 | 1.26 | 10 s per game (8 to 11) |
-| Flags that open at most one square through their chords, per 3BV | 0.18 | 0.09 | about 16 clicks per game |
-| Extra thinking on fresh two-number patterns | +34 ms | -20 ms | 0.3 s per game |
-| Fresh two-number moves at single-number speed (fluent) | 64% | 78% (72 to 83) | |
-| Fresh pattern moves made without flagging first | 72% | 83% | |
-| Pausing (time past 1 s in a gap), per game | 5.2 s | 4.3 s | none (interval spans zero) |
-| Reading one number (thinking time) | 196 ms | 282 ms | you are faster |
-| Cursor travel, 2-6 square moves | 172 ms | 208 ms | you are faster |
+| Flags that open at most one square through their chords, per 3BV | 0.18 | 0.10 | about 14 clicks per game |
+| Extra thinking on fresh two-number patterns | +34 ms | -10 ms | 0.2 s per game |
+| Fresh two-number moves at single-number speed (fluent) | 64% | 77% (74 to 80) | |
+| Fresh pattern moves made without flagging first | 72% | 82% | |
+| Pausing (time past 1 s in a gap), per game | 5.2 s | 4.0 s | 1.1 s per game (0.1 to 2.2) |
+| Reading one number (thinking time) | 196 ms | 272 ms | you are faster |
+| Cursor travel, 2-6 square moves | 172 ms | 202 ms | you are faster |
+
+The pausing gap was not measurable on 1,057 games (its interval spanned zero);
+on 3,498 it is, and small.
 
 - Memorization answer: **less** than the average player at the user's speed.
   The expectation that the best players memorize more is not supported in this
   measure: every level from 1.4 3BV/s up makes fresh two-number moves at its
-  own single-number speed (fluent share 73% to 79% with no steady trend; extra
+  own single-number speed (fluent share 74% to 80% with no steady trend; extra
   thinking about 0 ms or below); only the slowest level (1.0-1.4) is lower, at
-  69%. What rises with level is reading speed as a whole, patterns included
-  (single-number thinking 340 ms at the slowest level, 160 ms at the fastest).
+  63%. What rises with level is reading speed as a whole, patterns included
+  (single-number thinking 330 ms at the slowest level, 160 ms at the fastest).
   The user's games show a separate pattern cost (+34 ms) that no level from
   1.4 up shows. Its direct time cost is small because fresh pattern moves are
   rare (about 5 per game).
 - Least developed trait relative to level: **click efficiency**, driven by
   flags that do not pay for themselves (a flag plus a chord that opens one
   square is two clicks where one direct click does) and chords that open one
-  square (0.34 per 3BV against 0.13). This matches the user's expectation that
+  square (0.34 per 3BV against 0.16). This matches the user's expectation that
   memorized patterns let a player skip flags: the user flags fresh patterns
   first more often than the level average.
 - Consequence for the plan: stage 1 (inputs) stays first and now has the flag
@@ -164,16 +168,16 @@ Each of the player's 80 traced wins is rebuilt with one skill at a time set to
 a faster level's mean for the same situation (thinking time by kind of move,
 logic, and freshness; travel by distance; long pauses per 3BV; effective clicks
 per 3BV). Means, not medians, because the player's own totals include their
-slow moves. Seconds saved per game (1,057-game corpus; the 357-game run gave
-the same ranking):
+slow moves. Seconds saved per game (3,498-game corpus, 2026-09-27; the 357-
+and 1,057-game runs gave the same ranking):
 
-| Skill set to | next level (1.99 3BV/s) | 2.79 3BV/s | 3.24 3BV/s |
+| Skill set to | next level (1.99 3BV/s) | 2.80 3BV/s | 3.26 3BV/s |
 | --- | --- | --- | --- |
-| Clicks per 3BV | 9.8 | 14.0 | 17.3 |
-| Thinking | -0.6 | 10.4 | 13.5 |
-| Travel | 0.3 | 10.5 | 13.1 |
-| Long pauses | 1.7 | 2.0 | 2.0 |
-| All together (median game, from 101.3 s) | 89.8 s | 67.5 s | 60.3 s |
+| Clicks per 3BV | 9.8 | 13.7 | 16.6 |
+| Thinking | -0.5 | 11.0 | 13.8 |
+| Travel | 0.5 | 10.5 | 13.5 |
+| Long pauses | 1.6 | 2.0 | 2.0 |
+| All together (median game, from 101.3 s) | 89.6 s | 67.3 s | 60.2 s |
 
 Clicks come first; thinking and travel then matter equally for sub-60.
 

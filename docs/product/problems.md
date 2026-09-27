@@ -34,10 +34,15 @@ opened a square whose number made one to four covered squares provably safe.
   families: the two numbers of the pairwise difference rule that settle the
   answer, written as the mines each still needs, with whether either number
   touches the board edge. The page names them in words: "1-1 rule", "1-1 rule
-  at the edge", "1-2 rule". A family becomes a class once the replay corpus
-  holds at least 20 judged fresh moves of it (see the analysis in
+  at the edge", "1-2 rule". A family becomes a class once every skill level in
+  the replay corpus holds at least 10 fresh moves of it, the number a ladder
+  level needs, so its ladder can place the player among all the levels
+  (changed 2026-09-27: the earlier rule, 20 judged moves in the whole corpus,
+  would have admitted the 1-2 rule at the edge with at most 7 per level and an
+  empty ladder; see the analysis in
   [training.md](training.md#situations-memorization-and-problems-requested-2026-09-26-evening)).
-  Version 1 has four classes and 40 problems each.
+  The bank has four classes and 40 problems each; since 2026-09-27 its level
+  statistics come from 3,498 corpus games (bank `saolei-3498-20260927`).
 
 ## Protocol `problems-v2`
 

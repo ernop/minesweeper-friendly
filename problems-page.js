@@ -7,7 +7,7 @@
 // and shows the ladders, the history, and the backup.
 
 const PROBLEM_DB_VERSION = 3;
-const PROBLEM_BANK_URL = 'problems-bank.json?v=20260927-two-safe';
+const PROBLEM_BANK_URL = 'problems-bank.json?v=20260927-bank-3498';
 const HISTORY_ROWS = 30;
 const SVG_NS = 'http://www.w3.org/2000/svg';
 // Vertical distance between ladder labels, px.

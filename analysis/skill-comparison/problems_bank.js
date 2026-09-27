@@ -18,6 +18,8 @@
 // attempts made with it keep their problems.
 
 const fs = require('fs');
+const path = require('path');
+const vm = require('vm');
 const S = require('./situations.js');
 
 const MAX_FRESH_SAFE = 4;
@@ -29,9 +31,13 @@ const LAST_FLAG_POSITIONS = 60;
 // The flag and the chord are two inputs. With one safe square, clicking it
 // directly is cheaper, and the drill would reward the costlier habit.
 const LAST_FLAG_MIN_SAFE = 2;
-// A family becomes a problem class only with this many judged fresh moves in
-// the corpus, so its level statistics mean something.
-const MIN_FAMILY_JUDGED = 20;
+// The page shows a level on a class's ladder only with this many fresh corpus
+// moves behind its median; read from problems-core.js so the two cannot drift.
+// A family becomes a problem class only when every level clears it, so its
+// ladder places the player among all the levels.
+const coreContext = vm.createContext({});
+vm.runInContext(fs.readFileSync(path.join(__dirname, '..', '..', 'problems-core.js'), 'utf8'), coreContext);
+const LEVEL_MIN_MOVES = vm.runInContext('PROBLEM_LEVEL_MIN_MOVES', coreContext);
 // The original player's response is followed this far after the start square.
 const FOLLOW_ACTIONS = 10;
 const FOLLOW_MS = 10000;
@@ -221,8 +227,8 @@ function main() {
   };
   // A family's key is its class id, so ids stay the same across rebuilds.
   const familyIds = new Map();
-  const corpusJudged = (f) => levels.reduce((s, b) => s + f.byGroup[b].judged, 0);
-  situations.families.filter((f) => f.key.includes(' safe') && corpusJudged(f) >= MIN_FAMILY_JUDGED).forEach((f) => {
+  situations.families.filter((f) => f.key.includes(' safe')
+    && levels.every((b) => f.byGroup[b].fresh >= LEVEL_MIN_MOVES)).forEach((f) => {
     familyIds.set(f.key, f.key);
     classes[f.key] = {
       family: f.key,
@@ -239,10 +245,8 @@ function main() {
   const lastFlagFound = [];
   let corpusGames = 0;
   for (const file of inputs) {
-    for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
-      if (line === '') continue;
-      const game = JSON.parse(line);
-      if (game.source !== 'saolei') continue;
+    S.forEachJsonLine(file, (game) => {
+      if (game.source !== 'saolei') return;
       corpusGames++;
       for (const c of candidatesOf(game, familyIds)) {
         if (!byClass.has(c.classId)) byClass.set(c.classId, []);
@@ -250,7 +254,7 @@ function main() {
       }
       lastFlagFound.push(...lastFlagCandidatesOf(game));
       if (corpusGames % 100 === 0) console.error(`scanned ${corpusGames} games`);
-    }
+    });
   }
 
   const problems = [];

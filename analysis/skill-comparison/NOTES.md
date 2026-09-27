@@ -26,6 +26,14 @@ page's runtime bank: board positions and level statistics from the public
 corpus only, never the player's games. Rerunning the fetcher with larger counts
 downloads only what is new; `corpus_actions.py` keeps each replay once.
 
+At 500 per level (3,501 replays, 2026-09-27) the converted corpus is about
+1.5 GB, more than one JavaScript string holds, so the Node tools read JSONL
+line by line (`forEachJsonLine` in `situations.js`) and keep only analyzed
+games (situations 3.7 min and 0.8 GB, gaps 1.3 min, bank 1.3 min).
+`corpus_actions.py` parses in a child process and names every replay it leaves
+out: one aborts ms_toollib 1.5.18 (replays/337163.avf), and two it does not
+read as completed (replays/332786.avf, replays/331271.avf).
+
 ## Data sources and rules
 
 - **saolei.wang** publishes replay files of Chinese-ranked players at every

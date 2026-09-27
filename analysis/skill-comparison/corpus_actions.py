@@ -12,8 +12,17 @@ an effective chord, an effective left click, an effective right click (flag
 or unflag by the flag count), or a click that changed nothing.
 
 Usage: python corpus_actions.py OUT.jsonl
+
+Parsing runs in a child process: ms_toollib aborts the whole process on some
+replays (1.5.18 on replays/337163.avf, a 130 s Arbiter game), which no Python
+code can catch. The parent names each such file, leaves it out, and restarts
+the child after it. A replay the parser reads but not as a completed Expert
+game is named and left out too (two reviewed Arbiter games on 2026-09-27).
+Any other failure stops the run.
 """
 import json
+import signal
+import subprocess
 import sys
 
 import ms_toollib as ms
@@ -29,13 +38,19 @@ def counters(event) -> tuple[int, ...]:
     return (k.left, k.right, k.double, k.lce, k.rce, k.dce, k.flag)
 
 
+class UnusableReplay(Exception):
+    """A replay the parser reads, but not as a completed Expert game."""
+
+
 def convert(entry: dict) -> dict:
     file = CORPUS / entry['file']
     video = READERS[file.suffix.lower()](str(file))
     video.parse()
     video.analyse()
-    if (video.row, video.column, video.mine_num) != EXPERT or not video.is_completed:
-        raise ValueError(f"{file}: not a completed Expert game ({video.row}x{video.column}/{video.mine_num})")
+    if (video.row, video.column, video.mine_num) != EXPERT:
+        raise UnusableReplay(f'not Expert ({video.row}x{video.column}/{video.mine_num})')
+    if not video.is_completed:
+        raise UnusableReplay('the parser does not read it as completed')
     pix = video.pix_size
     actions, samples = [], []
     previous = (0, 0, 0, 0, 0, 0, 0)
@@ -67,13 +82,52 @@ def convert(entry: dict) -> dict:
             'actions': actions, 'samples': samples}
 
 
+def child(start: int) -> None:
+    """Converts from index position start on, announcing each replay first."""
+    entries = list(read_index().values())
+    for i in range(start, len(entries)):
+        print('S', i, flush=True)
+        try:
+            game = convert(entries[i])
+        except UnusableReplay as reason:
+            print('U', reason, flush=True)
+            continue
+        print('G', json.dumps(game), flush=True)
+
+
 def main() -> None:
-    entries = read_index()
+    entries = list(read_index().values())
+    left_out: list[str] = []
+    converted = 0
+    start = 0
     with open(sys.argv[1], 'w') as out:
-        for entry in entries.values():
-            out.write(json.dumps(convert(entry)) + '\n')
-    print(f'converted {len(entries)} replays')
+        while start < len(entries):
+            process = subprocess.Popen([sys.executable, __file__, '--child', str(start)],
+                                       stdout=subprocess.PIPE, text=True)
+            current = None
+            for line in process.stdout:
+                kind, _, rest = line.partition(' ')
+                if kind == 'S':
+                    current = int(rest)
+                elif kind == 'U':
+                    left_out.append(f'{entries[current]["file"]} ({rest.strip()})')
+                else:
+                    out.write(rest)
+                    converted += 1
+            code = process.wait()
+            if code == 0:
+                break
+            if code != -signal.SIGABRT or current is None:
+                raise RuntimeError(f'converter child failed with exit code {code}'
+                                   + ('' if current is None else f' on {entries[current]["file"]}'))
+            left_out.append(f'{entries[current]["file"]} (ms_toollib aborted while parsing it)')
+            start = current + 1
+    print(f'converted {converted} of {len(entries)} replays; left out {len(left_out)}'
+          + (': ' + ', '.join(left_out) if left_out else ''))
 
 
 if __name__ == '__main__':
-    main()
+    if sys.argv[1] == '--child':
+        child(int(sys.argv[2]))
+    else:
+        main()

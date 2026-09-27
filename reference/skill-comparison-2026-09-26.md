@@ -163,6 +163,51 @@ numbers (8); late losses mostly follow wrong flags (chords over them, chords
 contradicting the numbers, misclicks beside them). Details and the experiments
 they suggest: [docs/product/training.md](../docs/product/training.md).
 
+## Refresh on 3,498 replays (2026-09-27)
+
+The same code on the full stratified corpus: 3,501 downloaded, 500 per level,
+at most 10 per player per level; 3 left out by the converter (one aborts the
+ms_toollib 1.5.18 parser, two it does not read as completed games). The
+conclusions above stand; intervals narrow.
+
+| Level | 1-number thinking | 2-number thinking | Fluent | Travel 2-6 squares | Effective clicks | Flags | Low-value flags | Chords | Games |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1.0-1.4 | 330 | 320 | 63% | 290 | 1.34 | 0.42 | 0.16 | 0.40 | 500 |
+| 1.4-1.8 | 290 | 280 | 80% | 220 | 1.28 | 0.39 | 0.12 | 0.41 | 498 |
+| 1.8-2.2 | 250 | 240 | 74% | 180 | 1.23 | 0.28 | 0.07 | 0.32 | 499 |
+| 2.2-2.6 | 220 | 210 | 76% | 150 | 1.19 | 0.21 | 0.05 | 0.26 | 502 |
+| 2.6-3.0 | 190 | 190 | 76% | 130 | 1.17 | 0.21 | 0.04 | 0.27 | 502 |
+| 3.0-3.5 | 170 | 170 | 79% | 120 | 1.12 | 0.20 | 0.03 | 0.27 | 495 |
+| 3.5+ | 160 | 160 | 76% | 110 | 1.02 | 0.19 | 0.02 | 0.27 | 497 |
+| player (1.77) | 196 | 230 | 64% | 172 | 1.39 | 0.58 | 0.18 | 0.63 | 80 |
+
+Against the average game at the player's speed (95% intervals):
+
+- effective clicks per 3BV 1.39 [1.37, 1.41] against 1.26 [1.25, 1.26]: 9.7 s
+  per game [8.1, 11.1];
+- flags per 3BV 0.58 against 0.34 [0.32, 0.36]; low-value flags 0.18 against
+  0.10 [0.09, 0.10]; chords opening one square 0.34 against 0.16 [0.15, 0.17];
+- pausing 5.2 s per game against 4.0 [3.8, 4.4]: 1.1 s per game [0.1, 2.2],
+  the one change: on 1,057 games this interval spanned zero;
+- extra thinking on fresh two-number moves +34 ms against -10 [-21, -4]:
+  0.2 s per game; fluent share 64% [57, 70] against 77% [74, 80];
+- faster than the average game at that speed at reading one number (196 against
+  272 ms) and at travel over 2-6 squares (172 against 202 ms).
+
+Time bands (`compare.py`, by each game's own time): the 40-50 and 50-60 s bands
+(597 and 556 games) have IOE 0.77 and 0.74, 0.18 and 0.17 flags per 3BV, and
+0.64 and 0.59 direct reveals per 3BV, against the player's 0.62, 0.58, and
+0.16, with a median gap between inputs of 160-180 ms against 275 ms.
+
+Gap ranking (`gaps.js`, seconds saved per game toward 2.80 and 3.26 3BV/s):
+clicks 13.7 and 16.6, thinking 11.0 and 13.8, travel 10.5 and 13.5, long
+pauses 2.0; all together the median game falls from 101.3 s to 67.3 and 60.2 s.
+
+The problem bank was rebuilt on this corpus (`saolei-3498-20260927`): the same
+four classes and 160 problems, with level statistics from 500 games per level.
+The 1-2 rule at the edge has 43 corpus moves but at most 7 fresh ones per
+level, below the 10 a ladder level needs, so it is not a class yet.
+
 ## Caveats
 
 - 15 games per band in the pilot and about 50 per level in the situation
@@ -182,9 +227,9 @@ they suggest: [docs/product/training.md](../docs/product/training.md).
 
 ## Next steps
 
-1. Enlarge the stratified corpus further (500 per level, running; kept in
-   `~/Documents/minesweeper-corpus/saolei/`) so more pattern families have
-   level-by-level medians; model board difficulty (3BV, openings).
+1. Done 2026-09-27: 500 per level, kept in
+   `~/Documents/minesweeper-corpus/saolei/` (refresh above). Open: model board
+   difficulty (3BV, openings).
 2. Done: situations annotated and compared per class (section above).
 3. Rank subskills by counterfactual seconds saved in the player's own games.
 4. Tests the player takes: Minesweeper problems from corpus positions (built:

@@ -554,15 +554,38 @@ function interpolate(levels, x, value) {
   throw new Error(`3BV/s ${Math.exp(x).toFixed(2)} lies outside the measured levels`);
 }
 
+// Calls fn with each parsed line of a JSONL file. A corpus file outgrows one
+// JavaScript string (about 512 MB), so it is read in chunks.
+function forEachJsonLine(path, fn) {
+  const fd = fs.openSync(path, 'r');
+  const chunk = Buffer.alloc(1 << 24);
+  let carry = Buffer.alloc(0);
+  try {
+    for (let read = fs.readSync(fd, chunk); read > 0; read = fs.readSync(fd, chunk)) {
+      const data = Buffer.concat([carry, chunk.subarray(0, read)]);
+      let start = 0;
+      for (let end = data.indexOf(10); end !== -1; end = data.indexOf(10, start)) {
+        if (end > start) fn(JSON.parse(data.toString('utf8', start, end)));
+        start = end + 1;
+      }
+      carry = data.subarray(start);
+    }
+    if (carry.length > 0) fn(JSON.parse(carry.toString('utf8')));
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
 function main() {
   const [outPath, ...inputs] = process.argv.slice(2);
-  const files = inputs.flatMap((p) => fs.readFileSync(p, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l)));
   const started = Date.now();
-  const games = files.map((game, index) => {
-    const analyzed = analyzeGame(game);
-    if ((index + 1) % 100 === 0) console.error(`analyzed ${index + 1}/${files.length} games (${Math.round((Date.now() - started) / 1000)} s)`);
-    return analyzed;
-  });
+  const games = [];
+  for (const input of inputs) {
+    forEachJsonLine(input, (game) => {
+      games.push(analyzeGame(game));
+      if (games.length % 100 === 0) console.error(`analyzed ${games.length} games (${Math.round((Date.now() - started) / 1000)} s)`);
+    });
+  }
   const yourGames = games.filter((g) => g.group === 'you');
   if (yourGames.length === 0) throw new Error('no games of yours: pass the self.jsonl from user_games.js');
 
@@ -743,7 +766,7 @@ function report(result, groups) {
 module.exports = {
   W, H, N, MINES, NEIGHBORS, LEVEL_BANDS, FLUENT_MARGIN_MS, DECISION_GAP_MAX_MS, TRAVEL_BUCKETS, bucketName,
   median, settle, exactFacts, residualClues, decisivePair, patternKey, lineKey, familyKey, picture,
-  movementSplit, replayGame, analyzeGame, band, bandName,
+  movementSplit, replayGame, analyzeGame, band, bandName, forEachJsonLine,
 };
 
 if (require.main === module) main();

@@ -1,0 +1,4 @@
+Rust panic at src/videos.rs:404:1
+message: called `Result::unwrap()` on an `Err` value: InvalidVideoEvent
+
+stack trace omitted (run with RUST_BACKTRACE=1 for backtrace)

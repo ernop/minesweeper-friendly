@@ -16,9 +16,10 @@ measure against real players first, break play into subskills, and build
 "Minesweeper problems" from real positions (same file, "Redo requested").
 Unbuilt parts of plan v2 (creator):
 
-- **Corpus at scale.** Built: a 3BV/s-stratified saolei.wang sample (about 50
-  games per level, at most 3 per player), growing to about 150 per level. Still
-  open: board difficulty in the model (3BV, openings).
+- **Corpus at scale.** Built: a 3BV/s-stratified saolei.wang sample of 500
+  games per level (3,498 usable, at most 10 per player per level, 2026-09-27;
+  [reference](reference/skill-comparison-2026-09-26.md)). Still open: board
+  difficulty in the model (3BV, openings).
 - **Situation annotation.** Built (`analysis/skill-comparison/situations.js`;
   results in [Training](docs/product/training.md#situations-memorization-and-problems-requested-2026-09-26-evening)).
 - **Gap ranking.** Replace one component at a time (reaction, travel, hover,
@@ -92,8 +93,9 @@ Version 1 is built ([Minesweeper problems](docs/product/problems.md)). Open:
 - **Adaptive scheduling.** Choose classes by the player's gap to the next level
   and repeat missed problems after spaced intervals.
 - **More classes.** Mine-answer problems (the answer is a flag or a chord), the
-  two-number families that reach 20 judged corpus moves as the corpus grows,
-  and straight-edge runs as their own classes.
+  two-number families once every level holds 10 fresh corpus moves of them
+  (the 1-2 rule at the edge had at most 7 per level in 3,498 games), and
+  straight-edge runs as their own classes.
 - **Problems from the player's own games,** timed against the player's in-game
   response to the same moment.
 - **Archive folder.** Built 2026-09-27: syncs of the game, settings, and
