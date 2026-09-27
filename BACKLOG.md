@@ -623,9 +623,9 @@ The creator asks for something usable "over years and decades to measure and
 check all aspects of myself". Purpose and rules:
 [Lifelong self-measurement](docs/product/measurement.md#lifelong-self-measurement-creator-direction-2026-09-26).
 Built first on 2026-09-26:
-- [self-check v1](docs/product/self-check.md): a sleepiness rating plus an
-  alertness test (10 counters as the standard since the creator found 3 minutes
-  too long; the 3-minute test still available), with history and backup;
+- [self-check v1](docs/product/self-check.md): a sleepiness rating plus a
+  10-counter alertness test (it replaced the first 3-minute test, which the
+  creator found too long), with history and backup;
 - the time zone on finished-game records;
 - screen and browser facts on traces, and input provenance
   ([capture v1](docs/product/storage-and-history.md#capture-provenance-v1-2026-09-26):

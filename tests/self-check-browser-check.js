@@ -2,14 +2,13 @@
 // Self-check page in a real browser: the version-5 upgrade from version 3 and
 // from both version-4 builds keeps history and self-checks, check-in answers,
 // frame-timed stimuli with event-timed responses, early presses, a stop, one
-// complete 10-counter test (the default), storage, history, and backup round
-// trip. `--full` also runs one complete 3-minute test.
+// complete 10-counter test, storage, history, and backup round trip.
 //
 // The page is served by request routing under the exact test origin
 // http://127.0.0.1:8099/, straight from this working tree; every other
 // request is aborted, so no server is needed and nothing leaves the browser.
 //
-// Usage: node tests/self-check-browser-check.js PLAYWRIGHT_CORE_DIR CHROMIUM [--full]
+// Usage: node tests/self-check-browser-check.js PLAYWRIGHT_CORE_DIR CHROMIUM
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -17,8 +16,6 @@ const { chromium } = require(process.argv[2]);
 
 const ORIGIN = 'http://127.0.0.1:8099';
 const repo = path.join(__dirname, '..');
-const full = process.argv.includes('--full');
-
 async function serveWorkingTree(context) {
   await context.route('**/*', (route) => {
     const url = new URL(route.request().url());
@@ -206,12 +203,10 @@ async function answerStimulus(page, at) {
     await page.locator('#vigilance-cancel').click();
     assert.equal((await storedChecks(page)).length, 1);
 
-    // A complete short test: the default, ended by its 10th counter.
-    assert.equal(await page.isChecked('#self-check-test-choice input[value="alertness-10-v1"]'), true,
-      'the 10-counter test is the default');
+    // A complete test, ended by its 10th counter.
     await startCheck(page, 'routine', 3);
     await page.locator('#self-check-checkin-continue').click();
-    assert.equal(await page.textContent('#vigilance-title'), 'Alertness test: 10 counters');
+    assert.equal(await page.textContent('#self-check-instructions h2'), 'Alertness test: 10 counters');
     await beginTest(page);
     const shortAt = await boxCenter(page);
     for (let i = 0; i < 10; i++) await answerStimulus(page, shortAt);
@@ -224,42 +219,14 @@ async function answerStimulus(page, at) {
     const shortMs = short.vigilance.endT - short.vigilance.startT;
     assert(shortMs > 10000 && shortMs < 60000, 'the short test takes about half a minute: ' + shortMs);
     assert.equal(await page.locator('#self-check-result-table tr').count(), 6);
-    assert.match(await page.locator('#self-check-history-table tr').nth(1).innerText(), /10 counters/);
-
-    if (full) {
-      await page.check('#self-check-test-choice input[value="vigilance-3min-v1"]');
-      await startCheck(page, 'routine', 3);
-      await page.locator('#self-check-checkin-continue').click();
-      assert.equal(await page.textContent('#vigilance-title'), 'Alertness test: 3 minutes');
-      await beginTest(page);
-      const center = await boxCenter(page);
-      while (await page.evaluate(() => vigilanceRun !== null)) {
-        const shown = await page.evaluate(() => vigilanceRun !== null && vigilanceRun.trial !== null);
-        if (shown) {
-          await page.waitForTimeout(230);
-          await page.mouse.click(center.x, center.y);
-        }
-        await page.waitForTimeout(40);
-      }
-      await page.locator('#self-check-result-heading', { hasText: 'Result' }).waitFor();
-      checks = await storedChecks(page);
-      const complete = checks.find((check) => check.vigilance.protocol === 'vigilance-3min-v1'
-        && check.vigilance.status === 'complete');
-      const score = await page.evaluate((check) => scoreVigilance(check.vigilance), complete);
-      assert(score.stimulusCount >= 30, 'a 3-minute test shows at least 30 stimuli: ' + score.stimulusCount);
-      assert.equal(score.reactionCount + score.anticipationCount + score.timeoutCount, score.stimulusCount);
-      assert(complete.vigilance.endT - complete.vigilance.startT >= 180000);
-      assert.equal(await page.locator('#self-check-result-table tr').count(), 6);
-      console.log('full test: ' + score.stimulusCount + ' stimuli, median reaction '
-        + Math.round(score.medianReactionMs) + ' ms');
-    }
+    assert.match(await page.locator('#self-check-history-table tr').nth(1).innerText(), /complete/);
 
     // Backup round trip into an emptied store.
     await page.locator('#self-check-export').click();
     const exported = await page.evaluate(async () =>
       (await fetch(document.getElementById('self-check-download').href)).json());
     assert.equal(exported.format, 'minesweeper-friendly-self-checks');
-    assert.equal(exported.selfChecks.length, full ? 3 : 2);
+    assert.equal(exported.selfChecks.length, 2);
     await page.evaluate(() => new Promise((resolve, reject) => {
       const tx = db.transaction(SELF_CHECK_STORE, 'readwrite');
       tx.objectStore(SELF_CHECK_STORE).clear();
@@ -279,7 +246,7 @@ async function answerStimulus(page, at) {
 
     assert.deepEqual(errors, []);
     console.log('self-check browser check: upgrade, check-in, timed responses, early press, stop, complete 10-counter test, '
-      + 'history, and backup passed' + (full ? ' (with a complete 3-minute test)' : ''));
+      + 'history, and backup passed');
   } finally {
     await browser.close();
   }

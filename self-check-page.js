@@ -3,8 +3,7 @@
 //-------THE SELF-CHECK PAGE (self-check.html)-------
 
 // A frozen reference check for comparison over years: a sleepiness rating
-// paired with an alertness test of 10 counters or 3 minutes
-// (docs/product/self-check.md). While
+// paired with a 10-counter alertness test (docs/product/self-check.md). While
 // the test runs the page shows only the test box and does no other work, so
 // nothing competes with the frame that displays each stimulus.
 
@@ -95,37 +94,9 @@ function selectSleepiness(rating) {
   checkinContinue.disabled = false;
 }
 
-// Each released test's wording is part of its protocol: a change ships under
-// a new id (docs/product/self-check.md "Protocol versions").
-const ALERTNESS_WORDING = Object.freeze({
-  'alertness-10-v1': {
-    choice: '10 counters (about 30 s)',
-    title: 'Alertness test: 10 counters',
-    text: 'A counter appears in the black box at random moments, 10 times. Press the left mouse button as soon as you see it, then wait for the next one. A press while no counter is showing counts as early. Switching tabs or windows, or pressing Esc, stops the test.',
-  },
-  'vigilance-3min-v1': {
-    choice: '3 minutes',
-    title: 'Alertness test: 3 minutes',
-    text: 'A counter appears in the black box at random moments. Press the left mouse button as soon as you see it, then wait for the next one. A press while no counter is showing counts as early. Switching tabs or windows, or pressing Esc, stops the test.',
-  },
-});
-
-const testChoice = document.getElementById('self-check-test-choice');
-for (const id of Object.keys(ALERTNESS_PROTOCOLS)) {
-  const label = document.createElement('label');
-  const input = document.createElement('input');
-  input.type = 'radio';
-  input.name = 'self-check-test';
-  input.value = id;
-  input.checked = id === SHORT_ALERTNESS_PROTOCOL.id;
-  label.append(input, ' ' + ALERTNESS_WORDING[id].choice);
-  testChoice.append(label);
-}
-
 function beginSelfCheck(occasion) {
   const startedAt = Date.now();
-  const protocolId = testChoice.querySelector('input:checked').value;
-  pendingCheck = { startedAt, ...observedTimeZone(startedAt), occasion, protocolId, sleepinessRating: null };
+  pendingCheck = { startedAt, ...observedTimeZone(startedAt), occasion, sleepinessRating: null };
   for (const button of sleepinessChoices.children) button.setAttribute('aria-checked', 'false');
   sleepHoursInput.value = '';
   noteInput.value = '';
@@ -158,8 +129,6 @@ checkinContinue.addEventListener('click', () => {
   const note = noteInput.value.trim();
   if (note === '') delete pendingCheck.note;
   else pendingCheck.note = note;
-  document.getElementById('vigilance-title').textContent = ALERTNESS_WORDING[pendingCheck.protocolId].title;
-  document.getElementById('vigilance-text').textContent = ALERTNESS_WORDING[pendingCheck.protocolId].text;
   showSelfCheckView('instructions');
 });
 
@@ -176,12 +145,8 @@ document.getElementById('vigilance-begin').addEventListener('click', (event) => 
 });
 
 function startVigilance(startT) {
-  const protocol = ALERTNESS_PROTOCOLS[pendingCheck.protocolId];
   vigilanceRun = {
-    protocol,
     startT,
-    // A clock ends the 3-minute test; the 10th stimulus ends the short one.
-    plannedEndT: protocol.durationMs === undefined ? null : startT + protocol.durationMs,
     environment: observedEnvironment(),
     trials: [],
     earlyPresses: [],
@@ -213,16 +178,10 @@ function startVigilance(startT) {
 // a timeout, an early press, or the start.
 function scheduleNextStimulus(anchorT, feedbackText) {
   vigilanceRun.trial = null;
-  vigilanceRun.isiMs = drawVigilanceIsiMs(vigilanceRun.protocol, vigilanceUnitRandom());
+  vigilanceRun.isiMs = drawVigilanceIsiMs(ALERTNESS_PROTOCOL, vigilanceUnitRandom());
   vigilanceRun.nextOnsetT = anchorT + vigilanceRun.isiMs;
-  vigilanceRun.feedbackUntilT = anchorT + vigilanceRun.protocol.feedbackMs;
+  vigilanceRun.feedbackUntilT = anchorT + ALERTNESS_PROTOCOL.feedbackMs;
   vigilanceCounter.textContent = feedbackText;
-}
-
-// Whether the test takes no more stimuli: the 3-minute test schedules none at
-// or after its end; the short test has shown all of its stimuli.
-function vigilanceStimuliDone(run, t) {
-  return run.plannedEndT === null ? run.trials.length === run.protocol.stimulusCount : t >= run.plannedEndT;
 }
 
 // A stimulus is dated by the frame callback that first draws it: the moment
@@ -237,9 +196,9 @@ function onVigilanceFrame(frameT) {
   if (trial !== null) {
     if (trial.nextFrameT === undefined && frameT > trial.onsetT) trial.nextFrameT = frameT;
     const shownMs = frameT - trial.onsetT;
-    if (shownMs >= run.protocol.timeoutMs) {
+    if (shownMs >= ALERTNESS_PROTOCOL.timeoutMs) {
       trial.timedOut = true;
-      scheduleNextStimulus(trial.onsetT + run.protocol.timeoutMs, 'no response');
+      scheduleNextStimulus(trial.onsetT + ALERTNESS_PROTOCOL.timeoutMs, 'no response');
     } else {
       vigilanceCounter.textContent = String(Math.floor(shownMs));
     }
@@ -247,10 +206,9 @@ function onVigilanceFrame(frameT) {
     if (frameT >= run.feedbackUntilT && vigilanceCounter.textContent !== '') {
       vigilanceCounter.textContent = '';
     }
-    // The 3-minute test ends at its clock; the short test after the last
-    // stimulus's feedback has shown.
-    if (vigilanceStimuliDone(run, run.nextOnsetT)) {
-      if (frameT >= (run.plannedEndT === null ? run.feedbackUntilT : run.plannedEndT)) {
+    // The test ends once the last stimulus's feedback has shown.
+    if (run.trials.length === ALERTNESS_PROTOCOL.stimulusCount) {
+      if (frameT >= run.feedbackUntilT) {
         finishVigilance('complete', frameT);
         return;
       }
@@ -275,8 +233,8 @@ function onVigilancePointerDown(event) {
     trial.pointerType = event.pointerType;
     const reactionMs = event.timeStamp - trial.onsetT;
     scheduleNextStimulus(event.timeStamp,
-      reactionMs < run.protocol.falseStartBelowMs ? 'early' : String(Math.round(reactionMs)));
-  } else if (!vigilanceStimuliDone(run, event.timeStamp)) {
+      reactionMs < ALERTNESS_PROTOCOL.falseStartBelowMs ? 'early' : String(Math.round(reactionMs)));
+  } else if (run.trials.length < ALERTNESS_PROTOCOL.stimulusCount) {
     run.earlyPresses.push({ t: event.timeStamp, receiptT });
     scheduleNextStimulus(event.timeStamp, 'early');
   }
@@ -332,7 +290,7 @@ function finishVigilance(status, endT) {
     ...(pendingCheck.note === undefined ? {} : { note: pendingCheck.note }),
     environment: run.environment,
     vigilance: {
-      protocol: run.protocol.id,
+      protocol: ALERTNESS_PROTOCOL.id,
       status,
       ...(run.interruption === undefined ? {} : { interruption: run.interruption }),
       timeOriginMs: performance.timeOrigin,
@@ -463,7 +421,7 @@ function renderSelfCheckHistory() {
     ? total + (total === 1 ? ' check' : ' checks')
     : 'The ' + SELF_CHECK_HISTORY_ROWS + ' most recent of ' + total + ' checks';
   historyTable.textContent = '';
-  historyTable.appendChild(tableRow(['when', 'occasion', 'test', 'sleepiness', 'sleep',
+  historyTable.appendChild(tableRow(['when', 'occasion', 'sleepiness', 'sleep',
     'median reaction', 'response speed', 'lapses', 'false starts', 'stimuli', 'status', 'note'], true));
   const newestFirst = selfChecks.slice(-SELF_CHECK_HISTORY_ROWS).reverse();
   for (const check of newestFirst) {
@@ -476,7 +434,6 @@ function renderSelfCheckHistory() {
     historyTable.appendChild(tableRow([
       formatCheckTime(check),
       check.occasion,
-      ALERTNESS_WORDING[vigilance.protocol].choice,
       { text: String(check.sleepiness.rating), className: 'self-check-value',
         title: SLEEPINESS_SCALE.labels[check.sleepiness.rating - 1] },
       { text: check.sleepHoursPast24h === undefined ? EN_DASH : check.sleepHoursPast24h + ' h',
@@ -486,7 +443,8 @@ function renderSelfCheckHistory() {
       scored('lapseCount', formatCount),
       scored('falseStartCount', formatCount),
       scored('stimulusCount', formatCount),
-      complete ? 'complete' : 'stopped: ' + VIGILANCE_INTERRUPTIONS[vigilance.interruption.type],
+      (complete ? 'complete' : 'stopped: ' + VIGILANCE_INTERRUPTIONS[vigilance.interruption.type])
+        + (vigilance.protocol === ALERTNESS_PROTOCOL.id ? '' : ' (old 3-minute test)'),
       check.note === undefined ? '' : check.note,
     ], false));
   }

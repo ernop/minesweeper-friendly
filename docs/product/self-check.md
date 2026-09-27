@@ -6,21 +6,21 @@ Purpose: [Lifelong self-measurement](measurement.md#lifelong-self-measurement-cr
 A short reference check the creator can take regularly for years and decades.
 Gameplay changes as the game, browser, and hardware change; the self-check's
 protocols do not, so its results stay comparable across decades and can
-calibrate the gameplay measurements. A check pairs a sleepiness rating with an
-alertness test: 10 counters, about 30 seconds (the standard check since
-2026-09-26), or the original 3-minute test. The page is `self-check.html`,
+calibrate the gameplay measurements. A check pairs a sleepiness rating with a
+10-counter alertness test of about 30 seconds. The page is `self-check.html`,
 linked as "self-check" beside "settings" in the game page's upper-right
 cluster.
 
-Creator decision (2026-09-26, after trying version 1): "3 entire minutes of
-this is way too long"; a check was expected to collect "5 or 10 data points,
-to help later analysis." The 10-counter test became the default; the 3-minute
-test stays available as a choice, so its records stay reproducible.
+Creator decisions (2026-09-26, after trying the first version, a 3-minute
+test): "3 entire minutes of this is way too long"; a check was expected to
+collect "5 or 10 data points, to help later analysis"; then, when a short test
+was added beside the long one: "don't ADD. change the version there to be
+short. 10 max. 3 min is too long. only have one proper version". The 3-minute
+test is retired; checks already saved with it stay readable.
 
 ## Flow
 
-1. **Start.** Choose the alertness test (10 counters, chosen by default, or 3
-   minutes). "Start routine check" is for the player's usual time and forms the
+1. **Start.** "Start routine check" is for the player's usual time and forms the
    baseline. "Start extra check" is for a moment prompted by circumstances,
    such as feeling unusual; it is stored as `extra` and kept out of the
    baseline because its timing was chosen rather than scheduled.
@@ -36,9 +36,9 @@ test stays available as a choice, so its records stay reproducible.
    page work competes with stimulus frames.
 5. **Result.** A complete test shows median reaction, response speed, lapses,
    false starts, and stimuli, beside the median of up to 10 earlier complete
-   routine checks of the same test when any exist. An extra check is compared
-   with the same routine baseline. A stopped test shows why it stopped; it is
-   saved and never scored.
+   routine 10-counter checks when any exist. An extra check is compared with
+   the same routine baseline. A stopped test shows why it stopped; it is saved
+   and never scored.
 6. **History and backup** stay below: the 60 most recent checks, newest first,
    with the total count, and JSON export/import.
 
@@ -52,12 +52,21 @@ extremely alert; very alert; alert; rather alert; neither alert nor sleepy;
 some signs of sleepiness; sleepy, but no effort to keep awake; sleepy, some
 effort to keep awake; very sleepy, great effort to keep awake, fighting sleep.
 
-### Alertness test `vigilance-3min-v1`
+### Alertness test `alertness-10-v1`
 
-Parameters follow the brief psychomotor vigilance test, PVT-B (Basner,
-Mollicone & Dinges 2011): 3 minutes, 1–4 s intervals, lapses from 355 ms,
-reactions under 100 ms counted as false starts. Response speed and lapses are
-the outcomes the vigilance literature treats as primary for sleep loss.
+Rules follow the brief psychomotor vigilance test, PVT-B (Basner, Mollicone &
+Dinges 2011): 1–4 s intervals, lapses from 355 ms, reactions under 100 ms
+counted as false starts; the test ends after 10 stimuli, about 30 seconds.
+10 reactions give a median reaction time good to roughly 15 ms for one check,
+enough to follow over many checks. Lapses, the PVT's most sleep-sensitive
+outcome, are rare in 10 stimuli; that is the cost of the short length the
+creator chose.
+
+- **Instructions (frozen wording):** "Alertness test: 10 counters", then "A
+  counter appears in the black box at random moments, 10 times. Press the left
+  mouse button as soon as you see it, then wait for the next one. A press while
+  no counter is showing counts as early. Switching tabs or windows, or pressing
+  Esc, stops the test."
 
 - **Stimulus:** a millisecond counter in white on the black box, counting up
   from 0 on every frame while shown.
@@ -72,9 +81,10 @@ the outcomes the vigilance literature treats as primary for sleep loss.
   100 ms also shows "early".
 - **Timeout:** a stimulus unanswered for 30 s ends as "no response", counts as
   a lapse, and the next interval starts at the timeout instant.
-- **End:** no stimulus is scheduled at or after 3 minutes from Begin; a
-  stimulus still on screen at that moment runs to its response or timeout.
-  Early presses after the 3-minute mark are not recorded.
+- **End:** the test takes 10 stimuli. It ends when the 10th stimulus is
+  answered or times out and its 1-second feedback has shown; presses after the
+  10th stimulus is resolved are not recorded. A complete test holds exactly 10
+  stimuli; a stopped one at most 10.
 - **Stops:** the tab becoming hidden, the window losing focus, the page
   closing, or Esc stop the test immediately. The record keeps the reason and
   time. A test stopped by closing the page may not reach disk.
@@ -92,34 +102,23 @@ the outcomes the vigilance literature treats as primary for sleep loss.
   mean of 1000 / reaction, per second; slowest-tenth speed and fastest-tenth
   reaction over the ceil(n / 10) slowest or fastest reactions.
 
-### Alertness test `alertness-10-v1` (the standard test since 2026-09-26)
+### Retired: alertness test `vigilance-3min-v1`
 
-Every rule of `vigilance-3min-v1` above (stimulus, 1–4 s intervals, response,
-feedback, 30 s timeout, stops, timing convention, scoring) except the end:
-
-- **End:** the test takes 10 stimuli. It ends when the 10th stimulus is
-  answered or times out and its 1-second feedback has shown; presses after the
-  10th stimulus is resolved are not recorded. A complete test holds exactly 10
-  stimuli; a stopped one at most 10. It takes about 30 seconds.
-- **Instructions (frozen wording):** "Alertness test: 10 counters", then "A
-  counter appears in the black box at random moments, 10 times. Press the left
-  mouse button as soon as you see it, then wait for the next one. A press while
-  no counter is showing counts as early. Switching tabs or windows, or pressing
-  Esc, stops the test." The 3-minute test keeps its own wording unchanged.
-- 10 reactions give a median reaction time good to roughly 15 ms for one
-  check, enough to follow over many checks; lapses, the 3-minute test's most
-  sleep-sensitive outcome, are rare in 10 stimuli, so the two tests' scores are
-  never mixed in one baseline or comparison.
+The first version, released and retired on 2026-09-26: the same rules, but no
+stimulus was scheduled at or after 3 minutes from Begin. It is never run.
+Checks saved with it stay readable and scored by its own rules; history marks
+them "(old 3-minute test)", and they never enter the 10-counter baseline.
 
 ### Protocol versions
 
 A released protocol id names one exact instrument for as long as its data
 exists. Any change to wording, parameters, input, timing convention, or
-scoring ships under a new id. The old protocol stays available, and old and new
-run side by side for a bridging period (for example both daily for two weeks)
-so their offset is measured rather than assumed. Records keep their protocol id
-forever. `tests/self-check-core-test.js` fails on any edit to a released
-protocol's constants.
+scoring ships under a new id, and records keep their protocol id forever.
+Only one version of each measure is offered at a time (creator decision,
+2026-09-26: "only have one proper version"): a new version replaces the old
+one outright, and checks of different versions are never compared or pooled.
+`tests/self-check-core-test.js` fails on any edit to a released protocol's
+constants, retired ones included.
 
 ## Stored record
 
@@ -134,7 +133,7 @@ One record per check in the `selfChecks` store, keyed by `startedAt`:
 | `sleepHoursPast24h` | optional hours, 0–24 |
 | `note` | optional text |
 | `environment` | device pixel ratio, screen and viewport size, user-agent string at Begin |
-| `vigilance.protocol`, `status` | `alertness-10-v1` or `vigilance-3min-v1`; `complete` or `interrupted` |
+| `vigilance.protocol`, `status` | `alertness-10-v1` (`vigilance-3min-v1` on checks from before its retirement); `complete` or `interrupted` |
 | `vigilance.interruption` | stops only: `{ type, t }`, type one of `visibilitychange`, `blur`, `pagehide`, `escape` |
 | `vigilance.timeOriginMs`, `startT`, `endT` | the page clock's epoch anchor and the test's start and end on that clock |
 | `vigilance.trials[]` | per stimulus: `isiMs`, `onsetT`, `nextFrameT`, then `responseT` + `receiptT` (handler time) + `pointerType`, or `timedOut: true`; only a stop may leave the last stimulus unresolved |

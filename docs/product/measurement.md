@@ -80,8 +80,8 @@ it is never inferred from cursor data.
 
 **Built 2026-09-26:**
 - self-check v1: a sleepiness rating plus a 3-minute alertness test, with
-  history and backup; the same day the 10-counter test (about 30 s) became the
-  standard check at the creator's request, the 3-minute test staying available;
+  history and backup; the same day the creator replaced the 3-minute test with
+  a single 10-counter test (about 30 s);
 - the time zone on every new finished-game record;
 - screen and browser facts on every new trace, and input provenance
   ([capture v1](storage-and-history.md#capture-provenance-v1-2026-09-26));

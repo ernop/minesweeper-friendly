@@ -1,7 +1,7 @@
 'use strict';
 
 // Self-check protocols, pure: the frozen sleepiness scale and alertness
-// tests, their scoring, stored-record validation, and the backup file format.
+// test, their scoring, stored-record validation, and the backup file format.
 // Shared by self-check-page.js and tests/self-check-core-test.js; no DOM.
 // Depends on observation-context.js for the context validators.
 //
@@ -29,14 +29,29 @@ const SLEEPINESS_SCALE = Object.freeze({
   ]),
 });
 
-//-------ALERTNESS TESTS (psychomotor vigilance, 3 minutes or 10 counters)-------
+//-------ALERTNESS TEST (10 counters)-------
 
-// Parameters of the brief psychomotor vigilance test (PVT-B; Basner,
-// Mollicone & Dinges 2011): 3 minutes, 1-4 s from each response to the next
-// stimulus, lapses from 355 ms, reactions under 100 ms are false starts.
-// This web version answers with the primary mouse button and dates each
-// stimulus by the animation frame that displays it, so its values compare
-// with its own history, not with laboratory PVT hardware.
+// The one alertness test (the player, 2026-09-26: three minutes is far too
+// long; one version of at most 10 data points). Rules of the brief
+// psychomotor vigilance test (PVT-B; Basner, Mollicone & Dinges 2011): 1-4 s
+// from each response to the next stimulus, lapses from 355 ms, reactions under
+// 100 ms are false starts; it ends after its 10th stimulus, about 30 s. This
+// web version answers with the primary mouse button and dates each stimulus by
+// the animation frame that displays it, so its values compare with its own
+// history, not with laboratory PVT hardware.
+const ALERTNESS_PROTOCOL = Object.freeze({
+  id: 'alertness-10-v1',
+  stimulusCount: 10,
+  isiMinMs: 1000,
+  isiMaxMs: 4000,
+  feedbackMs: 1000,
+  timeoutMs: 30000,
+  falseStartBelowMs: 100,
+  lapseFromMs: 355,
+});
+
+// The first test, retired the same day: the same rules over 3 minutes. It is
+// never run; it stays defined so checks saved with it remain readable.
 const VIGILANCE_PROTOCOL = Object.freeze({
   id: 'vigilance-3min-v1',
   durationMs: 180000,
@@ -48,24 +63,9 @@ const VIGILANCE_PROTOCOL = Object.freeze({
   lapseFromMs: 355,
 });
 
-// The short test (the player, 2026-09-26: three minutes is far too long; a
-// check should collect about 10 data points): every rule of vigilance-3min-v1
-// except the end, which is the 10th stimulus instead of a clock, about 30 s.
-// Its scores compare only with its own history.
-const SHORT_ALERTNESS_PROTOCOL = Object.freeze({
-  id: 'alertness-10-v1',
-  stimulusCount: 10,
-  isiMinMs: 1000,
-  isiMaxMs: 4000,
-  feedbackMs: 1000,
-  timeoutMs: 30000,
-  falseStartBelowMs: 100,
-  lapseFromMs: 355,
-});
-
-// Released alertness tests by id, the standard one first.
+// Every test a stored check can carry, by id.
 const ALERTNESS_PROTOCOLS = Object.freeze({
-  [SHORT_ALERTNESS_PROTOCOL.id]: SHORT_ALERTNESS_PROTOCOL,
+  [ALERTNESS_PROTOCOL.id]: ALERTNESS_PROTOCOL,
   [VIGILANCE_PROTOCOL.id]: VIGILANCE_PROTOCOL,
 });
 

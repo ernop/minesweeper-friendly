@@ -24,7 +24,7 @@ function check(name, fn) {
   checks++;
 }
 
-check('released alertness protocol is frozen', () => {
+check('the retired 3-minute test is frozen for reading its checks', () => {
   assert.deepEqual({ ...VIGILANCE_PROTOCOL }, {
     id: 'vigilance-3min-v1',
     durationMs: 180000,
@@ -38,8 +38,8 @@ check('released alertness protocol is frozen', () => {
   assert.equal(Object.isFrozen(VIGILANCE_PROTOCOL), true);
 });
 
-check('released short alertness protocol is frozen', () => {
-  assert.deepEqual({ ...SHORT_ALERTNESS_PROTOCOL }, {
+check('the alertness test is frozen', () => {
+  assert.deepEqual({ ...ALERTNESS_PROTOCOL }, {
     id: 'alertness-10-v1',
     stimulusCount: 10,
     isiMinMs: 1000,
@@ -49,8 +49,9 @@ check('released short alertness protocol is frozen', () => {
     falseStartBelowMs: 100,
     lapseFromMs: 355,
   });
-  assert.equal(Object.isFrozen(SHORT_ALERTNESS_PROTOCOL), true);
-  assert.deepEqual(Object.keys(ALERTNESS_PROTOCOLS), ['alertness-10-v1', 'vigilance-3min-v1'], 'the standard test first');
+  assert.equal(Object.isFrozen(ALERTNESS_PROTOCOL), true);
+  assert.deepEqual(Object.keys(ALERTNESS_PROTOCOLS), ['alertness-10-v1', 'vigilance-3min-v1'],
+    'the retired 3-minute test stays readable');
   assert.equal(Object.isFrozen(ALERTNESS_PROTOCOLS), true);
 });
 

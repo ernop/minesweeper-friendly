@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="pages-redirect.js?v=20260926-pages-redirect-2"></script>
 <title>Minesweeper - Self-check</title>
-<link rel="stylesheet" href="style.css?v=20260926-short-check">
+<link rel="stylesheet" href="style.css?v=20260926-one-check">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 </head>
 <body class="self-check-page">
@@ -21,9 +21,6 @@
 
   <section id="self-check-start" class="self-check-card" hidden>
     <h2>New check</h2>
-    <fieldset id="self-check-test-choice">
-      <legend>Alertness test</legend>
-    </fieldset>
     <div class="self-check-actions">
       <button type="button" id="self-check-start-routine" title="A check at your usual time. Routine checks form your baseline.">Start routine check</button>
       <button type="button" id="self-check-start-extra" title="A check prompted by circumstances, such as feeling unusual. Kept apart from the routine baseline because the moment was chosen, not scheduled.">Start extra check</button>
@@ -47,8 +44,8 @@
   </section>
 
   <section id="self-check-instructions" class="self-check-card" hidden>
-    <h2 id="vigilance-title"></h2>
-    <p id="vigilance-text"></p>
+    <h2>Alertness test: 10 counters</h2>
+    <p>A counter appears in the black box at random moments, 10 times. Press the left mouse button as soon as you see it, then wait for the next one. A press while no counter is showing counts as early. Switching tabs or windows, or pressing Esc, stops the test.</p>
     <div class="self-check-actions">
       <button type="button" id="vigilance-begin">Begin</button>
       <button type="button" id="vigilance-cancel">Cancel</button>
@@ -92,7 +89,7 @@
 <script src="storage.js?v=20260926-lifelong"></script>
 <script src="observation-context.js?v=20260926-lifelong"></script>
 <script src="archive.js?v=20260926-lifelong"></script>
-<script src="self-check-core.js?v=20260926-short-check"></script>
-<script src="self-check-page.js?v=20260926-short-check"></script>
+<script src="self-check-core.js?v=20260926-one-check"></script>
+<script src="self-check-page.js?v=20260926-one-check"></script>
 </body>
 </html>
