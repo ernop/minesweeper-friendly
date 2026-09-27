@@ -11,8 +11,11 @@ Spec: [docs/product/problems.md](../product/problems.md).
 - `board-icons.js`: `FLAG_SVG`, `MINE_SVG`, `WRONG_FLAG_SVG`, shared with the
   game page (moved out of `settings-core.js`, which only hosted them).
 - `problems-core.js` (pure, no DOM, globals like `self-check-core.js`):
-  - protocol constants `PROBLEM_PROTOCOL`, `PROBLEM_PREVIEW_MS`,
-    `PROBLEM_TIMEOUT_MS`, `PROBLEM_ONSET_CELLS`; set constants
+  - protocol constants `PROBLEM_PROTOCOL` (`problems-v2`, the one the page
+    runs), `PROBLEM_RECORDED_PROTOCOLS` (what a stored attempt may carry),
+    `PROBLEM_PREVIEW_MS`, `PROBLEM_TIMEOUT_MS`, `PROBLEM_ONSET_CELLS`,
+    `PROBLEM_FOCUS_MARGIN`; `problemFocusBox(bank, problem)` gives the focus
+    box in squares; set constants
     `PROBLEM_SET_SIZE`, `PROBLEM_SET_ONE_NUMBER`; `PROBLEM_CELL_SIZES`;
     `PROBLEM_LEVEL_MIN_MOVES`;
   - `readProblemBank` validates the bank and decodes each problem's hex square
@@ -42,6 +45,9 @@ Spec: [docs/product/problems.md](../product/problems.md).
   - positions come from `pageX`/`pageY` against the grid measured once per
     problem from the first and last square's rectangles, so scrolling cannot
     shift them; the square under the cursor is computed from the same numbers;
+  - `squareInArea` places the ring and the focus box from square rectangles in
+    the board area's coordinates (including its sideways scroll), so they sit
+    exactly over the squares inside the board's bevel;
   - clicks: board `mousedown` (right press flags at once, or marks a chord
     gesture when the left button is down; left press starts a click and marks a
     gesture if the right button is down) and document `mouseup` (left release:

@@ -30,10 +30,25 @@ const bankJson = JSON.parse(fs.readFileSync(path.join(repo, 'problems-bank.json'
 const bank = readProblemBank(bankJson);
 
 check('released protocol constants are frozen', () => {
-  assert.equal(PROBLEM_PROTOCOL, 'problems-v1');
+  assert.equal(PROBLEM_PROTOCOL, 'problems-v2');
+  assert.deepEqual([...PROBLEM_RECORDED_PROTOCOLS], ['problems-v1', 'problems-v2']);
   assert.equal(PROBLEM_PREVIEW_MS, 1000);
   assert.equal(PROBLEM_TIMEOUT_MS, 20000);
   assert.equal(PROBLEM_ONSET_CELLS, 0.25);
+  assert.equal(PROBLEM_FOCUS_MARGIN, 1);
+});
+
+check('the focus box holds the start and every answer square, one square wider, inside the board', () => {
+  for (const problem of bank.problems) {
+    const box = problemFocusBox(bank, problem);
+    assert.ok(box.col0 >= 0 && box.row0 >= 0 && box.col1 < bank.width && box.row1 < bank.height, problem.id);
+    for (const cell of [problem.start, ...problem.freshSafe, ...problem.freshMines]) {
+      const col = cell % bank.width;
+      const row = Math.floor(cell / bank.width);
+      assert.ok(col >= box.col0 && col <= box.col1 && row >= box.row0 && row <= box.row1, problem.id + ' square ' + cell);
+      assert.ok(col - box.col0 >= 1 || box.col0 === 0, 'margin on the left unless at the edge');
+    }
+  }
 });
 
 check('square maps decode four squares per hex digit, most significant first', () => {
@@ -186,9 +201,11 @@ check('the profile groups attempts by the class their problem has now', () => {
     solvedAttempt(a, 12, { outcome: 'mine' }),
     solvedAttempt(a, 13, { outcome: 'abandoned' }),
     solvedAttempt(a, 14, { problemId: 'not-in-this-bank' }),
+    solvedAttempt(a, 15, { protocol: 'problems-v1' }),
   ];
+  assert.equal(validProblemAttempt(list[list.length - 1]), true, 'attempts made before the focus box stay valid');
   const row = problemProfile(bank, list).find((r) => r.classId === 'one');
-  assert.equal(row.attempts, 3);
+  assert.equal(row.attempts, 3, 'the ladders count only attempts made with the focus box');
   assert.equal(row.solved, 2);
   assert.equal(row.thinkCount, 2);
   assert.equal(problemProfile(bank, []).every((r) => r.medianThinkMs === null), true);
@@ -242,6 +259,7 @@ check('attempt validation and the backup file', () => {
   const good = solvedAttempt(problem, 20);
   assert.equal(validProblemAttempt(good), true);
   assert.equal(validProblemAttempt({ ...good, protocol: 'problems-v0' }), false);
+  assert.equal(validProblemAttempt({ ...good, protocol: 'problems-v1' }), true);
   assert.equal(validProblemAttempt({ ...good, outcome: 'won' }), false);
   assert.equal(validProblemAttempt({ ...good, cellPx: 25 }), false);
   assert.equal(validProblemAttempt({ ...good, previewT: good.startT - 999 }), false, 'the preview lasts the full second');

@@ -6,7 +6,7 @@
 <script src="pages-redirect.js?v=20260926-pages-redirect-2"></script>
 <title>Minesweeper - Problems</title>
 <link rel="stylesheet" href="style.css?v=20260926-problems">
-<link rel="stylesheet" href="problems.css?v=20260926-ladders">
+<link rel="stylesheet" href="problems.css?v=20260926-focus-box">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 </head>
 <body class="problems-page">
@@ -22,7 +22,7 @@
 
   <section id="problems-start" class="problems-card" hidden>
     <h2>Start a set</h2>
-    <p>Real moments from strong players' games. Rest the cursor on the ring; the square opens after 1 second. Open every square the new number proves safe.</p>
+    <p>Real moments from strong players' games. Rest the cursor on the ring; the square opens after 1 second. Open every square the new number proves safe; the orange box shows where they are.</p>
     <div class="problems-actions">
       <button type="button" id="problems-start-set"></button>
       <fieldset id="problems-cell-size">
@@ -39,6 +39,7 @@
     <div id="problems-play-body">
       <div id="problems-board-area">
         <div id="board"></div>
+        <div id="problems-focus-box" hidden></div>
         <div id="problems-start-ring" hidden></div>
       </div>
       <div id="problems-result" hidden>
@@ -66,6 +67,7 @@
   <section id="problems-profile" class="problems-card" hidden>
     <h2>Where you fit <span class="problems-help" title="Thinking time: from the square opening until the cursor starts moving, plus the time it rests on the square before the click. Skill levels are players' 3BV/s in real Expert games; each level's mark is its median for that rule. You: your median over solved problems.">(?)</span></h2>
     <p>Thinking time at each skill level (players' 3BV/s), fastest on top.</p>
+    <p id="problems-profile-earlier" hidden></p>
     <div id="problems-profile-ladders"></div>
   </section>
 
@@ -90,7 +92,7 @@
   </section>
 </main>
 <script src="board-icons.js?v=20260926-problems"></script>
-<script src="problems-core.js?v=20260926-ladders"></script>
-<script src="problems-page.js?v=20260926-ladders"></script>
+<script src="problems-core.js?v=20260926-focus-box"></script>
+<script src="problems-page.js?v=20260926-focus-box"></script>
 </body>
 </html>

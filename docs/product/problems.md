@@ -42,13 +42,24 @@ opened a square whose number made one to four covered squares provably safe.
   [training.md](training.md#situations-memorization-and-problems-requested-2026-09-26-evening)).
   Version 1 has four classes and 40 problems each.
 
-## Protocol `problems-v1`
+## Protocol `problems-v2`
 
 A released protocol id names one exact procedure. Any change to these values
 or to how an attempt runs ships under a new id; `tests/problems-core-test.js`
 freezes them.
 
-1. The board shows only covered squares and a ring around the start square.
+User review (2026-09-26, evening): the board is big, and the wait-and-reorient
+step before each problem is a lot; "box" the area of interest so the player
+knows to open that area as fast as possible. `problems-v2` adds the **focus
+box**: an orange outline around the start square and every answer square, one
+square wider on each side (so the numbers that decide them are inside),
+clipped to the board, shown from the moment the problem appears through the
+result. It is the only difference from `problems-v1`. Because the box shortens
+the search, attempts made under `problems-v1` stay in the history but are left
+out of the ladders, and the home page says how many.
+
+1. The board shows only covered squares, the focus box, and a ring around the
+   start square.
 2. When the cursor enters the start square, the real board appears. If the
    cursor leaves the square, the board is covered again and the wait starts
    over.
@@ -138,7 +149,7 @@ zero stores nothing.
 | Field | Meaning |
 | --- | --- |
 | `startedAt` | Unix epoch ms of time zero |
-| `protocol` | `problems-v1` |
+| `protocol` | `problems-v2` (`problems-v1` for attempts made before the focus box) |
 | `bankId`, `problemId`, `classId` | the bank it was made with, the problem, and its class then |
 | `setStartedAt` | epoch ms the set began |
 | `cellPx` | square size in px |

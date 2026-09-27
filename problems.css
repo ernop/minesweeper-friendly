@@ -158,6 +158,17 @@ body.problems-running #problems-header { display: none; }
   overflow-x: auto;
 }
 
+/* The focus box: the area where the answer lies. An outline only, so the
+   squares inside and outside keep full contrast. */
+#problems-focus-box {
+  position: absolute;
+  box-sizing: border-box;
+  border: 3px solid #e07000;
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 2;
+}
+
 /* The ring shows where to rest the cursor; the dot is where the original
    player's cursor was when the square opened for them. */
 #problems-start-ring {

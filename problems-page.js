@@ -257,6 +257,10 @@ function renderLadder(container, spec) {
 function renderProfile() {
   const container = byId('problems-profile-ladders');
   container.replaceChildren();
+  const earlier = attempts.filter((a) => a.protocol !== PROBLEM_PROTOCOL).length;
+  const earlierNote = byId('problems-profile-earlier');
+  earlierNote.textContent = earlier + ' earlier attempts, made without the focus box, are in the history but not in the ladders.';
+  earlierNote.hidden = earlier === 0;
   for (const row of problemProfile(bank, attempts)) {
     const described = describeProblemClass(bank, row.classId);
     const { entries, missing } = levelEntries(row.classId);
@@ -426,19 +430,45 @@ function showProblem() {
     cellH: (last.bottom - first.top) / bank.height,
   };
   placeRing(problem);
+  placeFocusBox(problem);
+}
+
+// A square's rectangle in the board area's own coordinates (the area scrolls
+// sideways on narrow screens, and its overlays scroll with it).
+function squareInArea(cell) {
+  const area = byId('problems-board-area');
+  const areaRect = area.getBoundingClientRect();
+  const rect = squareElements[cell].getBoundingClientRect();
+  const left = rect.left - areaRect.left + area.scrollLeft;
+  const top = rect.top - areaRect.top + area.scrollTop;
+  return { left, top, right: left + rect.width, bottom: top + rect.height };
 }
 
 function placeRing(problem) {
   const ring = byId('problems-start-ring');
-  const square = squareElements[problem.start];
+  const square = squareInArea(problem.start);
   const size = cellPx * 1.8;
   ring.style.width = size + 'px';
   ring.style.height = size + 'px';
-  ring.style.left = (square.offsetLeft + cellPx / 2 - size / 2) + 'px';
-  ring.style.top = (square.offsetTop + cellPx / 2 - size / 2) + 'px';
+  ring.style.left = ((square.left + square.right) / 2 - size / 2) + 'px';
+  ring.style.top = ((square.top + square.bottom) / 2 - size / 2) + 'px';
   ring.style.setProperty('--dot-x', (50 + (problem.startAt[0] - 0.5) * cellPx / size * 100) + '%');
   ring.style.setProperty('--dot-y', (50 + (problem.startAt[1] - 0.5) * cellPx / size * 100) + '%');
   ring.hidden = false;
+}
+
+// The area where the answer lies, shown from the start through the result.
+function placeFocusBox(problem) {
+  const box = problemFocusBox(bank, problem);
+  const first = squareInArea(box.row0 * bank.width + box.col0);
+  const last = squareInArea(box.row1 * bank.width + box.col1);
+  const element = byId('problems-focus-box');
+  const pad = 3;
+  element.style.left = (first.left - pad) + 'px';
+  element.style.top = (first.top - pad) + 'px';
+  element.style.width = (last.right - first.left + 2 * pad) + 'px';
+  element.style.height = (last.bottom - first.top + 2 * pad) + 'px';
+  element.hidden = false;
 }
 
 function gridPosition(event) {

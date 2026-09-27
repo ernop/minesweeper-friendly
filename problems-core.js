@@ -7,11 +7,17 @@
 // tests/problems-core-test.js load it.
 
 // A released protocol id names one exact procedure; any change to these values
-// or to how an attempt runs ships under a new id.
-const PROBLEM_PROTOCOL = 'problems-v1';
+// or to how an attempt runs ships under a new id. problems-v2 (2026-09-26,
+// evening) adds the focus box; problems-v1 attempts, made without it, stay in
+// the history but out of the ladders, because the box shortens the search.
+const PROBLEM_PROTOCOL = 'problems-v2';
+const PROBLEM_RECORDED_PROTOCOLS = Object.freeze(['problems-v1', 'problems-v2']);
 const PROBLEM_PREVIEW_MS = 1000;
 const PROBLEM_TIMEOUT_MS = 20000;
 const PROBLEM_ONSET_CELLS = 0.25;
+// The focus box reaches this many squares past the start and answer squares,
+// so the numbers that decide them sit inside it.
+const PROBLEM_FOCUS_MARGIN = 1;
 
 // A level's median thinking time on a rule is shown only when it rests on at
 // least this many fresh moves in the replay corpus.
@@ -147,6 +153,20 @@ function applyProblemAction(board, kind, cell) {
   return effect;
 }
 
+// The rectangle to look at, in squares, inclusive: the start and answer
+// squares with PROBLEM_FOCUS_MARGIN around them, inside the board.
+function problemFocusBox(bank, problem) {
+  const cells = [problem.start, ...problem.freshSafe, ...problem.freshMines];
+  const cols = cells.map((c) => c % bank.width);
+  const rows = cells.map((c) => Math.floor(c / bank.width));
+  return {
+    col0: Math.max(0, Math.min(...cols) - PROBLEM_FOCUS_MARGIN),
+    row0: Math.max(0, Math.min(...rows) - PROBLEM_FOCUS_MARGIN),
+    col1: Math.min(bank.width - 1, Math.max(...cols) + PROBLEM_FOCUS_MARGIN),
+    row1: Math.min(bank.height - 1, Math.max(...rows) + PROBLEM_FOCUS_MARGIN),
+  };
+}
+
 function problemSolved(board, problem) {
   return problem.freshSafe.every((cell) => board.revealed[cell]);
 }
@@ -278,7 +298,8 @@ function problemProfile(bank, attempts) {
   const rows = new Map(Object.keys(bank.classes).map((id) => [id, { classId: id, attempts: 0, solved: 0, think: [], first: [] }]));
   for (const attempt of attempts) {
     const problem = bank.byId.get(attempt.problemId);
-    if (problem === undefined || attempt.outcome === 'abandoned' || attempt.outcome === 'interrupted') continue;
+    if (problem === undefined || attempt.protocol !== PROBLEM_PROTOCOL
+      || attempt.outcome === 'abandoned' || attempt.outcome === 'interrupted') continue;
     const row = rows.get(problem.classId);
     const summary = summarizeAttempt(bank, attempt);
     row.attempts++;
@@ -352,7 +373,7 @@ function describeProblemClass(bank, classId) {
 function validProblemAttempt(attempt) {
   const finite = (v) => typeof v === 'number' && Number.isFinite(v);
   if (attempt === null || typeof attempt !== 'object') return false;
-  if (!finite(attempt.startedAt) || attempt.protocol !== PROBLEM_PROTOCOL) return false;
+  if (!finite(attempt.startedAt) || !PROBLEM_RECORDED_PROTOCOLS.includes(attempt.protocol)) return false;
   if (typeof attempt.bankId !== 'string' || typeof attempt.problemId !== 'string' || typeof attempt.classId !== 'string') return false;
   if (!finite(attempt.setStartedAt) || !PROBLEM_CELL_SIZES.includes(attempt.cellPx)) return false;
   if (!finite(attempt.timeOriginMs) || !finite(attempt.previewT) || !finite(attempt.startT) || !finite(attempt.endT)) return false;

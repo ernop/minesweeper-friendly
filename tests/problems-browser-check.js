@@ -81,6 +81,15 @@ const screenshots = process.argv[4];
     assert.equal(await phase(), 'waiting');
     assert.equal(await page.locator('#problems-start-ring').isVisible(), true, 'the ring shows where to rest');
     assert.equal(await page.locator('#board .cell.revealed').count(), 0, 'the board stays covered until the cursor rests');
+    assert.equal(await page.locator('#problems-focus-box').isVisible(), true, 'the focus box shows where to look');
+    const boxHolds = await page.evaluate(() => {
+      const box = document.getElementById('problems-focus-box').getBoundingClientRect();
+      return [live.problem.start, ...live.problem.freshSafe].every((cell) => {
+        const r = squareElements[cell].getBoundingClientRect();
+        return r.left >= box.left && r.right <= box.right && r.top >= box.top && r.bottom <= box.bottom;
+      });
+    });
+    assert.equal(boxHolds, true, 'the box encloses the start square and every answer square');
     await shot('waiting');
 
     // The preview starts over when the cursor leaves the start square.
@@ -106,7 +115,7 @@ const screenshots = process.argv[4];
     let saved = await savedAttempts();
     assert.equal(saved.length, 1);
     assert.equal(saved[0].outcome, 'solved');
-    assert.equal(saved[0].protocol, 'problems-v1');
+    assert.equal(saved[0].protocol, 'problems-v2');
     assert.ok(saved[0].startT - saved[0].previewT >= 1000);
     assert.ok(saved[0].samples.t.length > 3 && saved[0].samples.t[0] < 0, 'cursor samples from the preview on');
     const values = await page.locator('#problems-result-values .problems-value-number').allTextContents();
