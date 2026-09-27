@@ -40,6 +40,7 @@ function reportResult(outcome, endedAt = Date.now()) {
     justice: justiceEvents,
     justiceEnabled: justiceEnabledForGame,
     seed: gameSeed,
+    ...(firstRevealIndex !== null ? { firstRevealIndex } : {}),
     rngVersion: RNG_VERSION,
     boardVersion: BoardGenerators.byId(gameGenerator.id).version,
     justiceVersion: JUSTICE_VERSION,

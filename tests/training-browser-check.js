@@ -98,7 +98,7 @@ function flaggerGame(seed, endedAt, withFinalBoard) {
   }
   const record = { endedAt, outcome: 'win', timeMs: events[events.length - 1].t - 1000, bv3: threeBV(mine, adjacent),
     clicks, wastedClicks: noops, flagsPlaced: flagged.reduce((a, b) => a + b, 0), actionEvaluations: [],
-    seed, rngVersion: GameRandom.VERSION, boardVersion: 'uniform-first-safe-fisher-yates-v1' };
+    seed, firstRevealIndex: first, rngVersion: GameRandom.VERSION, boardVersion: 'uniform-first-safe-fisher-yates-v1' };
   const trace = { endedAt, mode: '30x16/99@standard', seed, rngVersion: GameRandom.VERSION,
     boardVersion: 'uniform-first-safe-fisher-yates-v1', events,
     ...(withFinalBoard ? { finalBoard: { cells: mine.map((m) => ({ mine: m })) } } : {}) };
@@ -176,6 +176,9 @@ function fixture() {
     assert.match(stages, /75%/, '6 wins among 8 games that reached 20 s');
     assert.match(stages, /50%/, 'one of two classified run losses had a safe move');
     assert.ok(await page.locator('#training-weeks tbody tr').count() >= 1);
+    const openings = await page.locator('#training-openings').innerText();
+    assert.match(openings, /first click in a corner\s+100%\s+6/, 'all six wins started in the top-left corner');
+    assert.match(openings, /won after an opening\s+100%/);
     assert.equal(await page.locator('.training-state').count(), 1);
     const states = await page.locator('.training-state').innerText();
     assert.match(states, /^1\.5 click\s*1 day, 6 blocks/, 'three wins with the state alternate with three without');

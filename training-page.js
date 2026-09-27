@@ -37,7 +37,7 @@ function storageFailure(what) {
 }
 
 function userdataReady() {
-  const worker = new Worker('training-worker.js?v=20260927-paired-interval');
+  const worker = new Worker('training-worker.js?v=20260927-openings');
   worker.onmessage = ({ data }) => {
     worker.terminate();
     if (data.error !== undefined) showTrainingStatus('Training summary failed: ' + data.error, true);
@@ -203,6 +203,28 @@ function renderTrainingBudget(summary) {
   content.replaceChildren(trainingElement('p', '', coverageText), table, facts);
 }
 
+function renderTrainingOpenings(summary) {
+  const content = document.getElementById('training-openings-content');
+  const o = summary.openings;
+  if (o.starts === 0) {
+    content.replaceChildren(trainingElement('p', '', 'Games record their first click from 2026-09-27 on; no Expert game here has it yet.'));
+    return;
+  }
+  const share = (part, whole) => (whole === 0 ? 'not measured' : trainingPercent(part / whole));
+  const table = trainingTable([{ text: 'measure' }, { text: 'share' }, { text: 'of games' }], [
+    { cells: ['first click in a corner', share(o.cornerStarts, o.starts), String(o.starts)] },
+    { cells: ['corner first clicks that opened a zero', share(o.cornerOpened, o.cornerStarts), String(o.cornerStarts)] },
+    { cells: ['won after an opening', share(o.openedWins, o.openedStarts), String(o.openedStarts)] },
+    { cells: ['won after a numbered start', share(o.numberedWins, o.numberedStarts), String(o.numberedStarts)] },
+  ], [1, 2]);
+  const notes = [
+    'A corner click opens a zero about half the time by chance. The plan restarts a numbered start with Space;'
+      + ' a restarted game is not recorded, so the ' + o.numberedStarts + ' numbered starts above were played on.',
+  ];
+  if (o.notRebuildable > 0) notes.push(o.notRebuildable + ' games on boards from other generators are not counted.');
+  content.replaceChildren(table, ...notes.map((text) => trainingElement('p', '', text)));
+}
+
 function renderTrainingWeeks(summary) {
   const content = document.getElementById('training-weeks-content');
   const table = trainingTable([
@@ -274,9 +296,10 @@ function renderTraining(summary) {
   renderTrainingNow(summary);
   renderTrainingStages(summary);
   renderTrainingBudget(summary);
+  renderTrainingOpenings(summary);
   renderTrainingWeeks(summary);
   renderTrainingStates(summary);
-  for (const id of ['training-now', 'training-stages', 'training-budget', 'training-weeks', 'training-states']) {
+  for (const id of ['training-now', 'training-stages', 'training-budget', 'training-openings', 'training-weeks', 'training-states']) {
     document.getElementById(id).hidden = false;
   }
   const at = new Date();

@@ -57,10 +57,10 @@ Earlier proposals, still open:
   over it, a chord contradicting the numbers, a misclick next to it). A timed
   check-before-chording drill: positions with one wrong flag near a number
   about to be chorded, answered by removing it, from the player's own losses.
-- **Opening statistics.** First-click position, opening rate, and wins after an
-  opening versus a numbered start, from a per-record first-reveal fact or a
-  worker replay of all traces. Today these numbers exist only in the dated
-  reference analysis.
+- **Opening statistics.** Built 2026-09-27 from a new per-record fact,
+  `firstRevealIndex`, on the training page ([training.md](docs/product/training.md),
+  Openings). Open: the games before that date, whose first click only their
+  traces hold (a one-time worker replay of all traces).
 - **Drills aimed at the stages.** A timed recognize-and-click drill over local
   positions taken from the player's own long pauses and misreads, shown in all
   rotations and reflections with look-alike patterns mixed together (far

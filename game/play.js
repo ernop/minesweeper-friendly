@@ -349,6 +349,7 @@ function newGame() {
   oddsFailed = false;
   gameSeed = GameRandom.createSeed();
   gameRandom = GameRandom.fromSeed(gameSeed);
+  firstRevealIndex = null;
   gameGenerator = activeGenerator();
   justiceLive.textContent = '';
   clearInterval(timerInterval);
@@ -494,6 +495,7 @@ function revealCell(index) {
     firstReveal = true;
   }
 
+  if (firstReveal && revealedCount === 0) firstRevealIndex = index;
   const guessEvent = !firstReveal && guessLedgerAppliesToMode()
     ? noteGuess(index) : null;
   const action = settings.playMode === 'proof-or-die' && !firstReveal

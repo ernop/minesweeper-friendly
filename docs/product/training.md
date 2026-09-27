@@ -177,6 +177,20 @@ the same ranking):
 
 Clicks come first; thinking and travel then matter equally for sub-60.
 
+### Openings (built 2026-09-27)
+
+The session rule "open in a corner; if the corner shows a number, restart with
+Space" rests on the dated measurement (96% corner first clicks; wins after an
+opening 14.1% against 2.5% after a numbered start). The training page's
+Openings section tracks it live over the games whose record names the first
+click (`firstRevealIndex`, recorded from 2026-09-27): the share of first
+clicks in a corner, the share of corner clicks that opened a zero (about half
+by chance), and the win rate after an opening and after a numbered start, each
+with its number of games. A restarted game is not recorded, so recorded
+numbered starts count the times the restart rule was not used. Games on boards
+from other generators are named and left out, since their layout cannot be
+rebuilt from the seed with the uniform placement.
+
 ### Last-flag drill (built)
 
 Ten real positions per drill where a number is one flag short, answered by

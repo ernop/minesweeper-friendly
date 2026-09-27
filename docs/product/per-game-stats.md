@@ -272,6 +272,14 @@ on wins whose inputs do not replay to the same board (a Justice redraw), and on
 games recorded before the measure existed. It shows in game data as a lifetime
 comparison ([Game data](game-data.md)).
 
+First reveal (`firstRevealIndex`, added 2026-09-27): the cell of the
+game-starting reveal on an unopened board, as row × width + column. With the
+seed, RNG version, and board version it rebuilds the initial mine layout from
+the record alone; before it, only the trace could. Whether that click opened
+a zero is a pure function of the layout and is computed where it is shown
+(the training page's Openings). Absent on Endgame drill games, whose first
+input meets pre-opened cells, and on games recorded before it existed.
+
 Justice — how many bare entries into certified sealed pockets were
 guaranteed safe (see [A just universe](just-universe.md)) — joined the schema on 2026-08-20
 under the same absence rules as wasted clicks. It increments on every

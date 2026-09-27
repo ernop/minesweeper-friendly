@@ -352,6 +352,50 @@ function trainingWeeks(records, fatalKindOf) {
   });
 }
 
+// Openings (docs/product/training.md, Openings): for every game whose record
+// names its game-starting reveal, where that click was and whether it opened
+// a zero on the layout rebuilt from the seed. A numbered start that was
+// played on is recorded; one restarted with Space is not, so recorded
+// numbered starts count the times the plan's restart rule was not used.
+function trainingCellPlace(index, width, height) {
+  const x = index % width;
+  const y = Math.floor(index / width);
+  const sideX = x === 0 || x === width - 1;
+  const sideY = y === 0 || y === height - 1;
+  return sideX && sideY ? 'corner' : sideX || sideY ? 'edge' : 'inside';
+}
+
+function trainingOpenings(records, deps) {
+  const board = TRAINING_BOARD;
+  const around = trainingNeighborLists(board.width, board.height);
+  const starts = [];
+  let notRebuildable = 0;
+  for (const record of records) {
+    if (record.firstRevealIndex === undefined) continue;
+    if (record.boardVersion !== TRAINING_UNIFORM_BOARD_VERSION || record.rngVersion !== deps.rngVersion) {
+      notRebuildable++;
+      continue;
+    }
+    const first = record.firstRevealIndex;
+    const mine = deps.randomPlacement(board.width, board.height, board.mines, first, deps.fromSeed(record.seed));
+    starts.push({ place: trainingCellPlace(first, board.width, board.height),
+      opened: around[first].every((neighbor) => !mine[neighbor]), won: record.outcome === 'win' });
+  }
+  const corner = starts.filter((s) => s.place === 'corner');
+  const opened = starts.filter((s) => s.opened);
+  const numbered = starts.filter((s) => !s.opened);
+  return {
+    starts: starts.length,
+    notRebuildable,
+    cornerStarts: corner.length,
+    cornerOpened: corner.filter((s) => s.opened).length,
+    openedStarts: opened.length,
+    openedWins: opened.filter((s) => s.won).length,
+    numberedStarts: numbered.length,
+    numberedWins: numbered.filter((s) => s.won).length,
+  };
+}
+
 // Player states compared (docs/product/training.md, Experiments): on each
 // local day a state was used, the games with it against the games without
 // it, and the plan's block rule. Blocks are runs of consecutive games on one
@@ -630,6 +674,7 @@ function trainingSummary(records, winTraces, deps) {
     replayStatus,
     ...trainingStageStatus(values, sampleSizes),
     weeks: trainingWeeks(sorted, deps.fatalKindOf),
+    openings: trainingOpenings(sorted, deps),
     stateComparisons: trainingStateComparisons(sorted, deps.fatalKindOf),
   };
 }
@@ -652,6 +697,7 @@ const TrainingCore = {
   runs: trainingRuns,
   weeks: trainingWeeks,
   shortChords: trainingShortChords,
+  openings: trainingOpenings,
   t975: trainingT975,
   pairedInterval: trainingPairedInterval,
   stateComparisons: trainingStateComparisons,

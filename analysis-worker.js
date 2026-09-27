@@ -8,7 +8,7 @@ importScripts('trend-fit.js?v=20260925-worker-analysis',
   'board-shape.js', 'zini.js', 'board-metrics.js?v=20260921-visible-zero-one',
   'game-data.js?v=20260927-flag-use', 'game/rankings.js?v=20260926-short-help',
   'game/charts.js?v=20260926-lifelong', 'game/game-data-chart.js?v=20260926-short-help',
-  'training-core.js?v=20260927-paired-interval');
+  'training-core.js?v=20260927-openings');
 
 let config;
 

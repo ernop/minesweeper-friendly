@@ -65,6 +65,16 @@ diverged were Justice redraws on seed-rebuilt boards.
 Each replay step carries `{ kind, gapMs, t, index }`: the input kind, the gap
 since the previous input, the trace time, and the cell.
 
+## Openings (`trainingOpenings`)
+
+`summary.openings` counts the Expert records carrying `firstRevealIndex`.
+Each is rebuilt with `deps.randomPlacement` from its seed when its board
+version is `TRAINING_UNIFORM_BOARD_VERSION` and its RNG version matches (the
+others count in `notRebuildable`); `trainingCellPlace` names corner, edge, or
+inside, and the start opened a zero when no neighbor of the first cell is a
+mine. The page renders it in `#training-openings` with
+`renderTrainingOpenings`.
+
 ## Player states compared (`trainingStateComparisons`)
 
 `summary.stateComparisons` holds one entry per state found on the Expert

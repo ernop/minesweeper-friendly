@@ -295,6 +295,49 @@ console.log('player states compared');
     && TrainingCore.pairedInterval([1, 2]) === null);
 }
 
+console.log('openings');
+{
+  const firsts = [0, 29, 450, 479, 15, 200, 31, 448];  // four corners, a top-edge cell, inside cells
+  const records = [];
+  const expected = { cornerOpened: 0, opened: 0, openedWins: 0, numbered: 0, numberedWins: 0 };
+  firsts.forEach((first, i) => {
+    const seed = (i + 1).toString(16).padStart(32, 'b');
+    const mine = Solver.randomPlacement(30, 16, 99, first, GameRandom.fromSeed(seed));
+    const x = first % 30;
+    const y = Math.floor(first / 30);
+    let opened = true;
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        const nx = x + dx;
+        const ny = y + dy;
+        if ((dx || dy) && nx >= 0 && nx < 30 && ny >= 0 && ny < 16 && mine[ny * 30 + nx]) opened = false;
+      }
+    }
+    const won = i % 2 === 0;
+    if (opened) {
+      expected.opened++;
+      if (won) expected.openedWins++;
+      if (i < 4) expected.cornerOpened++;
+    } else {
+      expected.numbered++;
+      if (won) expected.numberedWins++;
+    }
+    records.push({ endedAt: 1790000000000 + i, outcome: won ? 'win' : 'loss', timeMs: 50000, bv3: 150, clicks: 1,
+      wastedClicks: 0, seed, firstRevealIndex: first, rngVersion: GameRandom.VERSION,
+      boardVersion: 'uniform-first-safe-fisher-yates-v1' });
+  });
+  records.push({ ...records[0], endedAt: 1790000000100, boardVersion: 'pink-noise-v1' });
+  records.push({ ...records[0], endedAt: 1790000000200, firstRevealIndex: undefined });
+  check('the sample holds both kinds of start', expected.opened > 0 && expected.numbered > 0);
+  const openings = TrainingCore.openings(records, deps);
+  check('starts counted once each; another generator\u2019s board is not rebuilt; old records are left out',
+    openings.starts === 8 && openings.notRebuildable === 1);
+  check('corner starts and their openings', openings.cornerStarts === 4 && openings.cornerOpened === expected.cornerOpened);
+  check('wins after an opening and after a numbered start', openings.openedStarts === expected.opened
+    && openings.openedWins === expected.openedWins && openings.numberedStarts === expected.numbered
+    && openings.numberedWins === expected.numberedWins);
+}
+
 console.log('Student t quantiles');
 {
   // Two-sided 95% quantiles from published tables.
