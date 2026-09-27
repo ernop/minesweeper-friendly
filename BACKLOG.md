@@ -96,8 +96,11 @@ Version 1 is built ([Minesweeper problems](docs/product/problems.md)). Open:
   and straight-edge runs as their own classes.
 - **Problems from the player's own games,** timed against the player's in-game
   response to the same moment.
-- **Archive folder.** Write each attempt to the archive folder like
-  self-checks.
+- **Archive folder.** Built 2026-09-27: syncs of the game, settings, and
+  self-check pages archive problem attempts, pointing runs, and drill attempts
+  ([storage-and-history.md](docs/product/storage-and-history.md), Archive
+  folder). Open: a sync started by the problems page itself, which needs that
+  page to open the game database where the folder is stored.
 
 ## Fuseki hosting (creator, 2026-09-26)
 

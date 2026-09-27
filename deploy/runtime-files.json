@@ -49,6 +49,7 @@
   "problems-bank.json",
   "problems-core.js",
   "problems-page.js",
+  "problems-storage.js",
   "problems.css",
   "problems.html",
   "rng.js",

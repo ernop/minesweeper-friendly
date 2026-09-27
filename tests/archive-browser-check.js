@@ -93,6 +93,8 @@ async function loseGame(page, gamesAfter) {
     // A finished game is archived automatically, exactly as stored.
     await loseGame(page, 1);
     await waitForStatus(page, 'up-to-date', '1 game record, 1 trace, 0 self-checks (2 newly archived)');
+    assert.equal(await page.evaluate(async () => (await indexedDB.databases()).some((known) => known.name === 'minesweeper-problems')),
+      false, 'a sync never creates the problems page\u2019s database');
     const stored = await page.evaluate(async () => {
       const [mode, records] = Object.entries(history).find(([, list]) => list.length > 0);
       const record = records[0];
@@ -202,9 +204,45 @@ async function loseGame(page, gamesAfter) {
     await page.locator('#archive-now').click();
     await waitForStatus(page, 'up-to-date', '(0 newly archived)');
 
+    // The problems page keeps its own database; the next sync archives its
+    // attempts and runs, and rewrites a README written for an older layout.
+    await page.goto(ORIGIN + '/problems.html');
+    await page.waitForFunction(() => problemDb !== null);
+    const problemItems = await page.evaluate(() => new Promise((resolve, reject) => {
+      const items = {
+        problemAttempts: { startedAt: 1790000000001, protocol: 'problems-v2' },
+        pointingRuns: { startedAt: 1790000000002, protocol: 'pointing-v1' },
+        drillAttempts: { startedAt: 1790000000003, protocol: 'last-flag-v1' },
+      };
+      const tx = problemDb.transaction([ATTEMPT_STORE, POINTING_STORE, DRILL_STORE], 'readwrite');
+      tx.objectStore(ATTEMPT_STORE).put(items.problemAttempts);
+      tx.objectStore(POINTING_STORE).put(items.pointingRuns);
+      tx.objectStore(DRILL_STORE).put(items.drillAttempts);
+      tx.oncomplete = () => resolve(items);
+      tx.onerror = () => reject(tx.error);
+    }));
+    const readmeText = () => page.evaluate(async () => {
+      const folder = await (await navigator.storage.getDirectory()).getDirectoryHandle('archive-2');
+      return (await (await folder.getFileHandle('README.txt')).getFile()).text();
+    });
+    await page.evaluate(async () => {
+      const folder = await (await navigator.storage.getDirectory()).getDirectoryHandle('archive-2');
+      const writable = await (await folder.getFileHandle('README.txt')).createWritable();
+      await writable.write('an older layout');
+      await writable.close();
+    });
+    await page.goto(ORIGIN + '/settings.html');
+    await waitForStatus(page, 'up-to-date',
+      '1 self-check, 1 problem attempt, 1 pointing run, 1 drill attempt (3 newly archived)');
+    for (const [kind, item] of Object.entries(problemItems)) {
+      const archived = await readArchived(page, 'archive-2', archiveProblemItemPath(kind, item.startedAt));
+      assert.deepEqual(archived, JSON.parse(JSON.stringify(archiveProblemItemDocument(kind, item))));
+    }
+    assert.equal(await readmeText(), ARCHIVE_README_TEXT, 'an outdated README is rewritten');
+
     assert.deepEqual(errors, []);
     console.log('archive browser check: automatic writes, exact contents, write-once reload, other-tab files, '
-      + 'paused and resumed, visible failure, self-check suspension, and settings status passed');
+      + 'paused and resumed, visible failure, self-check suspension, settings status, and problems-page items passed');
   } finally {
     await browser.close();
   }

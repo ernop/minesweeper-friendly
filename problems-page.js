@@ -1,17 +1,12 @@
 'use strict';
 
 // Minesweeper problems page (docs/product/problems.md), a subpage of the game
-// site. It keeps its own IndexedDB database, independent of the game
-// database's versions; it loads the problem bank, runs sets of problems and
-// the pointing test, saves every attempt and run, and shows the ladders, the
-// history, and the backup.
+// site. It keeps its own IndexedDB database (names in problems-storage.js),
+// independent of the game database's versions; it loads the problem bank,
+// runs sets of problems and the pointing test, saves every attempt and run,
+// and shows the ladders, the history, and the backup.
 
-const PROBLEM_DB_NAME = 'minesweeper-problems';
 const PROBLEM_DB_VERSION = 3;
-const ATTEMPT_STORE = 'attempts';
-const PREFERENCE_STORE = 'preferences';
-const POINTING_STORE = 'pointingRuns';
-const DRILL_STORE = 'drillAttempts';
 const PROBLEM_BANK_URL = 'problems-bank.json?v=20260927-two-safe';
 const HISTORY_ROWS = 30;
 const SVG_NS = 'http://www.w3.org/2000/svg';

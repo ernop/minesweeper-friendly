@@ -37,6 +37,22 @@ function archiveSelfCheckPath(startedAt) {
   return ['self-checks', ...archiveMonthDirectories(startedAt), startedAt + '.json.gz'];
 }
 
+// The problems page's items, each keyed by startedAt like its store.
+const ARCHIVE_PROBLEM_KINDS = {
+  problemAttempts: { directory: 'problem-attempts', format: 'minesweeper-problems-attempt', field: 'attempt' },
+  pointingRuns: { directory: 'pointing-runs', format: 'minesweeper-problems-pointing-run', field: 'run' },
+  drillAttempts: { directory: 'drill-attempts', format: 'minesweeper-problems-drill-attempt', field: 'attempt' },
+};
+
+function archiveProblemItemPath(kind, startedAt) {
+  return [ARCHIVE_PROBLEM_KINDS[kind].directory, ...archiveMonthDirectories(startedAt), startedAt + '.json.gz'];
+}
+
+function archiveProblemItemDocument(kind, item) {
+  const spec = ARCHIVE_PROBLEM_KINDS[kind];
+  return { format: spec.format, formatVersion: ARCHIVE_FORMAT_VERSION, [spec.field]: item };
+}
+
 function archiveRecordDocument(mode, record) {
   return { format: 'minesweeper-friendly-game-record', formatVersion: ARCHIVE_FORMAT_VERSION, mode, record };
 }
@@ -67,6 +83,9 @@ const ARCHIVE_README_TEXT = [
   '  games/YYYY/MM/<endedAt>-<mode>.json.gz   one finished game\'s record',
   '  traces/YYYY/MM/<endedAt>.json.gz         that game\'s raw input trace',
   '  self-checks/YYYY/MM/<startedAt>.json.gz  one self-check',
+  '  problem-attempts/YYYY/MM/<startedAt>.json.gz  one attempt at a Minesweeper problem',
+  '  pointing-runs/YYYY/MM/<startedAt>.json.gz     one pointing test run',
+  '  drill-attempts/YYYY/MM/<startedAt>.json.gz    one last-flag drill attempt',
   '<endedAt> and <startedAt> are Unix epoch milliseconds; a record and its trace',
   'share endedAt. In a file name, every character of the board key <mode> outside',
   'A-Z a-z 0-9 . - is written as _ plus its four-digit hexadecimal code; the exact',
@@ -76,10 +95,16 @@ const ARCHIVE_README_TEXT = [
   '  minesweeper-friendly-game-record  { mode, record }',
   '  minesweeper-friendly-trace        { trace }  typed arrays as plain number arrays',
   '  minesweeper-friendly-self-check   { selfCheck }',
+  '  minesweeper-problems-attempt       { attempt }',
+  '  minesweeper-problems-pointing-run  { run }',
+  '  minesweeper-problems-drill-attempt { attempt }',
   '',
   'Field meanings are specified in the repository: docs/product/per-game-stats.md',
-  'and docs/product/storage-and-history.md for records and traces, and',
-  'docs/product/self-check.md for self-checks. Values the game derives when it',
+  'and docs/product/storage-and-history.md for records and traces,',
+  'docs/product/self-check.md for self-checks, and docs/product/problems.md for',
+  'the problems page. Problem and drill attempts name their problem bank by',
+  'bankId; every bank is problems-bank.json in the repository\'s history.',
+  'Values the game derives when it',
   'displays them (rates, ranks, charts) are not stored; recompute them from these',
   'files. A record is archived as it was first written; measurements the game adds',
   'to it later are recomputable from the trace and the board seed.',

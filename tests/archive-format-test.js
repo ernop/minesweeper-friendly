@@ -45,6 +45,9 @@ check('paths', () => {
   for (const part of archiveRecordPath('30x16/99@angelic+pink-noise(alpha=1)', { endedAt })) {
     assert.match(part, SAFE_NAME);
   }
+  assert.deepEqual(archiveProblemItemPath('problemAttempts', endedAt), ['problem-attempts', '2026', '09', endedAt + '.json.gz']);
+  assert.deepEqual(archiveProblemItemPath('pointingRuns', endedAt), ['pointing-runs', '2026', '09', endedAt + '.json.gz']);
+  assert.deepEqual(archiveProblemItemPath('drillAttempts', endedAt), ['drill-attempts', '2026', '09', endedAt + '.json.gz']);
 });
 
 check('trace samples survive JSON exactly', () => {
@@ -70,12 +73,19 @@ check('documents name their format', () => {
     mode: '9x9/10@standard', record: { endedAt: 1 } });
   assert.deepEqual(archiveSelfCheckDocument({ startedAt: 2 }), {
     format: 'minesweeper-friendly-self-check', formatVersion: 1, selfCheck: { startedAt: 2 } });
+  assert.deepEqual(archiveProblemItemDocument('problemAttempts', { startedAt: 3 }), {
+    format: 'minesweeper-problems-attempt', formatVersion: 1, attempt: { startedAt: 3 } });
+  assert.deepEqual(archiveProblemItemDocument('pointingRuns', { startedAt: 4 }), {
+    format: 'minesweeper-problems-pointing-run', formatVersion: 1, run: { startedAt: 4 } });
+  assert.deepEqual(archiveProblemItemDocument('drillAttempts', { startedAt: 5 }), {
+    format: 'minesweeper-problems-drill-attempt', formatVersion: 1, attempt: { startedAt: 5 } });
 });
 
 check('README documents every directory and format', () => {
   for (const text of ['games/YYYY/MM/', 'traces/YYYY/MM/', 'self-checks/YYYY/MM/',
     'minesweeper-friendly-game-record', 'minesweeper-friendly-trace', 'minesweeper-friendly-self-check',
-    'UTC', 'zcat']) {
+    ...Object.values(ARCHIVE_PROBLEM_KINDS).flatMap((kind) => [kind.directory + '/YYYY/MM/', kind.format]),
+    'UTC', 'zcat', 'bankId']) {
     assert.equal(ARCHIVE_README_TEXT.includes(text), true, text);
   }
   assert.equal(ARCHIVE_README_NAME, 'README.txt');

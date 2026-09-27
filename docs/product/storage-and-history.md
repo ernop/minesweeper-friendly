@@ -228,7 +228,13 @@ browser, its profile, and this origin.
 - **Automatic writes.** After each finished game's trace is saved, after
   each self-check, after a history or self-check import, on each page load
   (after the game page's startup), and on "Archive now", a sync writes every
-  record, trace, and self-check the folder does not hold yet.
+  record, trace, and self-check the folder does not hold yet, and every
+  problem attempt, pointing run, and drill attempt from the problems page's
+  own database (added 2026-09-27: they are primary items too). The problems
+  page does not open the game database, where the folder is stored, so its
+  items are written by the next sync of the game, settings, or self-check
+  page. A sync never creates the problems database: until the player opens
+  that page there is nothing of it to archive.
   - The sync runs in a worker that reads the database itself, so the page
     thread does no archive work. A measured first sync of 500 seeded games
     wrote 1,000 files in about 5 s with no long main-thread task.
@@ -237,7 +243,10 @@ browser, its profile, and this origin.
     Each page load lists the folder afresh.
   - A Web Lock serializes syncs from every open tab.
 - **Write-once.**
-  - Each file is written once, atomically, and never changed or deleted.
+  - Each item file is written once, atomically, and never changed or deleted.
+    `README.txt` is the one exception (2026-09-27): a sync rewrites it when
+    its text differs from the current layout's description, because a README
+    that omits directories would mislead its reader.
   - A record is archived as it was first written. Values added to it later
     (board measurements, evidence corrections) are recomputable from the
     trace and seed.
@@ -249,12 +258,21 @@ browser, its profile, and this origin.
   - `traces/YYYY/MM/<endedAt>.json.gz`: that game's raw input trace, with
     typed arrays as plain number arrays.
   - `self-checks/YYYY/MM/<startedAt>.json.gz`: one self-check.
+  - `problem-attempts/`, `pointing-runs/`, and `drill-attempts/`, each
+    `YYYY/MM/<startedAt>.json.gz`: one item of the problems page
+    ([problems.md](problems.md)). Attempts name their problem bank by
+    `bankId`; every bank is `problems-bank.json` in the repository history.
   - `README.txt` describes all of this for a reader without the app.
 - **Format.** Each item is gzip-compressed UTF-8 JSON holding `format`,
   `formatVersion` (1), and the item. The formats are
   `minesweeper-friendly-game-record` with `{ mode, record }`,
-  `minesweeper-friendly-trace` with `{ trace }`, and
-  `minesweeper-friendly-self-check` with `{ selfCheck }`.
+  `minesweeper-friendly-trace` with `{ trace }`,
+  `minesweeper-friendly-self-check` with `{ selfCheck }`,
+  `minesweeper-problems-attempt` with `{ attempt }`,
+  `minesweeper-problems-pointing-run` with `{ run }`, and
+  `minesweeper-problems-drill-attempt` with `{ attempt }`.
+- **Status counts.** The status sentence counts game records, traces, and
+  self-checks, then each problems-page kind once the folder holds any.
 - **Permission.**
   - Browsers may require the player to renew write permission on a later
     visit. Until then the archive is paused: the settings page says so, the

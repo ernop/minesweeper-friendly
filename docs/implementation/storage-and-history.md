@@ -164,18 +164,26 @@ Spec: [docs/product/storage-and-history.md](../product/storage-and-history.md). 
     - opens the database without a version and closes on `versionchange`;
     - reads every game record with its `[history key, endedAt]` key, the
       trace keys, and every self-check;
+    - `readProblemItems`: when `indexedDB.databases()` lists the problems
+      page's database (`problems-storage.js` names it and its stores), opens
+      it without a version and reads the attempt, pointing-run, and drill
+      stores it has;
     - lists each month directory once per worker lifetime (the `listings`
       cache, reset when the folder changes or any sync fails). A name
       missing from a listing made by an earlier sync is checked with
       `getFileHandle`, since another tab may have written it;
     - writes the missing items through `CompressionStream('gzip')` and
       `createWritable`;
-    - rejects two items mapping to one path, and writes `README.txt` if absent;
+    - rejects two items mapping to one path, and writes `README.txt` when it
+      is absent or its text differs from `ARCHIVE_README_TEXT`
+      (`readmeCurrent`);
     - reports `progress` every 25 files, then `done` with per-kind written
       and present counts, or `error` (`NotAllowedError` means the page must
       ask for permission again).
   - `archive-format.js` (pure, loaded by the worker and by tests): paths,
-    `archiveNameSlug`, the three document builders, and `ARCHIVE_README_TEXT`.
+    `archiveNameSlug`, the document builders (`ARCHIVE_PROBLEM_KINDS` with
+    `archiveProblemItemPath` and `archiveProblemItemDocument` for the problems
+    page's three kinds), and `ARCHIVE_README_TEXT`.
   - Triggers:
     - game page: `saveTrace`'s completion, `importHistory`, and
       `loadArchive(renderArchiveChip)` at the end of `init` (`game/backup.js`

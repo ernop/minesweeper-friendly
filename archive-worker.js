@@ -1,12 +1,13 @@
 'use strict';
 
 // Archive sync off the page thread (docs/product/storage-and-history.md
-// "Archive folder"): reads the database directly and writes every record,
-// trace, and self-check the chosen folder does not hold yet. A Web Lock
+// "Archive folder"): reads the databases directly and writes every record,
+// trace, self-check, and problems-page attempt and run the chosen folder does
+// not hold yet. A Web Lock
 // serializes syncs from every open tab, and each sync lists the folder after
 // taking the lock, so a file another tab just wrote is seen.
 
-importScripts('archive-format.js?v=20260926-lifelong');
+importScripts('archive-format.js?v=20260927-problems', 'problems-storage.js?v=20260927-archive');
 
 const ARCHIVE_PROGRESS_EVERY = 25;
 
@@ -97,6 +98,30 @@ async function archived(listing, name) {
   return exists;
 }
 
+// The problems page keeps its own database, which exists only once the player
+// has opened that page; opening it by name here would create an empty one. A
+// store the page's database does not have yet holds nothing to archive.
+async function readProblemItems() {
+  const items = { problemAttempts: [], pointingRuns: [], drillAttempts: [] };
+  if (!(await indexedDB.databases()).some((known) => known.name === PROBLEM_DB_NAME)) return items;
+  const db = await openDatabase(PROBLEM_DB_NAME);
+  try {
+    const stores = { problemAttempts: ATTEMPT_STORE, pointingRuns: POINTING_STORE, drillAttempts: DRILL_STORE };
+    for (const [kind, store] of Object.entries(stores)) {
+      if (db.objectStoreNames.contains(store)) items[kind] = await readAll(db, store, 'getAll');
+    }
+    return items;
+  } finally {
+    db.close();
+  }
+}
+
+async function readmeCurrent(handle) {
+  if (!(await directoryNames(handle)).has(ARCHIVE_README_NAME)) return false;
+  const file = await (await handle.getFileHandle(ARCHIVE_README_NAME)).getFile();
+  return (await file.text()) === ARCHIVE_README_TEXT;
+}
+
 async function syncArchive({ handle, database }) {
   syncNumber++;
   if (listedFolder === null || !(await handle.isSameEntry(listedFolder))) {
@@ -126,6 +151,12 @@ async function syncArchive({ handle, database }) {
       items.push({ kind: 'selfChecks', path: archiveSelfCheckPath(selfCheck.startedAt),
         document: async () => archiveSelfCheckDocument(selfCheck) });
     }
+    for (const [kind, list] of Object.entries(await readProblemItems())) {
+      for (const item of list) {
+        items.push({ kind, path: archiveProblemItemPath(kind, item.startedAt),
+          document: async () => archiveProblemItemDocument(kind, item) });
+      }
+    }
 
     // A path claimed twice would overwrite one item with another.
     const claimed = new Set();
@@ -139,6 +170,9 @@ async function syncArchive({ handle, database }) {
       records: { written: 0, present: 0 },
       traces: { written: 0, present: 0 },
       selfChecks: { written: 0, present: 0 },
+      problemAttempts: { written: 0, present: 0 },
+      pointingRuns: { written: 0, present: 0 },
+      drillAttempts: { written: 0, present: 0 },
     };
     const missing = [];
     for (const item of items) {
@@ -156,7 +190,9 @@ async function syncArchive({ handle, database }) {
         postMessage({ type: 'progress', written: i + 1, total: missing.length });
       }
     }
-    if (!(await directoryNames(handle)).has(ARCHIVE_README_NAME)) {
+    // The one file that changes: a README that no longer describes the
+    // layout would mislead its reader, so a new layout rewrites it.
+    if (!(await readmeCurrent(handle))) {
       await writeFile(handle, ARCHIVE_README_NAME, new Blob([ARCHIVE_README_TEXT]));
     }
     return counts;

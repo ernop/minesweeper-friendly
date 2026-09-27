@@ -57,10 +57,16 @@ function describeArchiveCounts(counts) {
     const total = entry.written + entry.present;
     return total + ' ' + (total === 1 ? singular : plural);
   };
-  const written = counts.records.written + counts.traces.written + counts.selfChecks.written;
+  const written = Object.values(counts).reduce((sum, entry) => sum + entry.written, 0);
+  // The problems page's kinds appear once the folder holds any of them.
+  const problemKinds = [['problemAttempts', 'problem attempt', 'problem attempts'],
+    ['pointingRuns', 'pointing run', 'pointing runs'], ['drillAttempts', 'drill attempt', 'drill attempts']]
+    .filter(([kind]) => counts[kind].written + counts[kind].present > 0)
+    .map(([kind, singular, plural]) => ', ' + amount(counts[kind], singular, plural));
   return amount(counts.records, 'game record', 'game records') + ', '
     + amount(counts.traces, 'trace', 'traces') + ', '
-    + amount(counts.selfChecks, 'self-check', 'self-checks') + ' (' + written + ' newly archived)';
+    + amount(counts.selfChecks, 'self-check', 'self-checks') + problemKinds.join('')
+    + ' (' + written + ' newly archived)';
 }
 
 // render(state) is called on every status change. The page must have opened
@@ -104,7 +110,7 @@ function runArchiveSync() {
   archiveState.running = true;
   setArchiveStatus('syncing', '');
   if (archiveState.worker === null) {
-    archiveState.worker = new Worker('archive-worker.js?v=20260926-lifelong');
+    archiveState.worker = new Worker('archive-worker.js?v=20260927-problems');
     archiveState.worker.onmessage = onArchiveWorkerMessage;
     archiveState.worker.onerror = (event) => {
       event.preventDefault();

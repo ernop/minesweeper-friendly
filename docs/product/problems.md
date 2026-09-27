@@ -239,6 +239,10 @@ exportedAt, attempts, pointingRuns, drillAttempts }`. Import merges each list
 by `startedAt`, keeps each item once, and rejects invalid items with a visible
 count.
 
+Every attempt, run, and drill attempt is also written to the archive folder
+by the next sync of the game, settings, or self-check page (2026-09-27;
+[Archive folder](storage-and-history.md#archive-folder-creator-direction-2026-09-26)).
+
 ## Hosting
 
 Decision (creator, 2026-09-26 evening): the problems page stays a subpage of
