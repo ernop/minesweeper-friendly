@@ -23,9 +23,11 @@ build step. The settings page is
 `storage.js`, `generators.js`, `game-data.js`, and `settings-core.js` (both
 pages must load storage.js, game-data.js, and settings-core.js before their own script).
 The problems page is `problems.html` + `problems-page.js`, loading
-`style.css`, `problems.css`, `board-icons.js`, the pure `problems-core.js`, and
-the generated `problems-bank.json`; it keeps its own IndexedDB database
-(`minesweeper-problems`) and does not load `storage.js`.
+`style.css`, `problems.css`, `board-icons.js`, the pure `problems-core.js`,
+`problems-storage.js`, and the generated `problems-bank.json`; it keeps its own
+IndexedDB database (`minesweeper-problems`, names in `problems-storage.js`,
+which `archive-worker.js` also imports to archive it) and does not load
+`storage.js`.
 The self-check page is `self-check.html` + `self-check-page.js`, loading
 `style.css`, `storage.js`, `observation-context.js`, `archive.js`, and the pure
 `self-check-core.js`; the game page loads `observation-context.js` and

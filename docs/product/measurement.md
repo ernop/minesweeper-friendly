@@ -86,7 +86,8 @@ it is never inferred from cursor data.
 - screen and browser facts on every new trace, and input provenance
   ([capture v1](storage-and-history.md#capture-provenance-v1-2026-09-26));
 - the [archive folder](storage-and-history.md#archive-folder-creator-direction-2026-09-26):
-  every record, trace, and self-check written automatically, once, as
+  every record, trace, self-check, and problems-page attempt and run written
+  automatically, once, as
   documented gzip JSON files in a folder the player chooses, outside the
   browser;
 - a persistent-storage request, so the browser does not evict the database
