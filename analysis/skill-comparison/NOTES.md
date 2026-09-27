@@ -30,9 +30,15 @@ downloads only what is new; `corpus_actions.py` keeps each replay once.
 
 - **saolei.wang** publishes replay files of Chinese-ranked players at every
   level (hundreds of thousands of games). It has no robots.txt. The fetcher
-  requests one page or file every 2 s, caches everything under
-  `~/.cache/minesweeper-friendly/saolei/`, skips unreviewed uploads, takes at
-  most two replays per player per time band, and never redistributes files.
+  requests one page or file every 2 s, skips unreviewed uploads, caps replays
+  per player per band (`--per-player`), and never redistributes files.
+- **The corpus is kept for good** (player request 2026-09-26: "let's really get
+  a lot and store them logically forever") in
+  `~/Documents/minesweeper-corpus/saolei/`: `README.txt`, `index.jsonl` (one
+  line per replay picked for a band, with its listing facts, band, file path
+  relative to the folder, and fetch date), `replays/<id>.<ext>` exactly as
+  downloaded, and `shows/<id>.html` (each replay's page). Listing pages are a
+  scan cache in `~/.cache/minesweeper-friendly/saolei/pages/`.
 - **minesweepergame.com** hosts ranked players' videos, but its robots.txt
   disallows automated access to the video and file folders; use only with the
   site owner's permission.

@@ -19,7 +19,7 @@ from pathlib import Path
 
 import ms_toollib as ms
 
-from saolei_fetch import CACHE
+from saolei_fetch import CORPUS
 
 READERS = {'.avf': ms.AvfVideo, '.evf': ms.EvfVideo, '.mvf': ms.MvfVideo, '.rmv': ms.RmvVideo}
 EXPERT = (16, 30, 99)
@@ -31,7 +31,7 @@ def counters(event) -> tuple[int, ...]:
 
 
 def convert(entry: dict) -> dict:
-    file = Path(entry['file'])
+    file = CORPUS / entry['file']
     video = READERS[file.suffix.lower()](str(file))
     video.parse()
     video.analyse()
@@ -70,7 +70,7 @@ def convert(entry: dict) -> dict:
 
 def main() -> None:
     entries = {}
-    for line in (CACHE / 'index.jsonl').read_text().splitlines():
+    for line in (CORPUS / 'index.jsonl').read_text().splitlines():
         entry = json.loads(line)
         entries[entry['video_id']] = entry
     with open(sys.argv[1], 'w') as out:

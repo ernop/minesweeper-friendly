@@ -1,9 +1,17 @@
-"""Download reviewed Expert replays from saolei.wang into a local cache.
+"""Download reviewed Expert replays from saolei.wang into a lasting local corpus.
 
 The site publishes players' replay files for viewing and saving. This tool
 fetches slowly (one request per REQUEST_GAP_S), keeps every file and page it
 has fetched so nothing is requested twice, and stores the corpus outside the
 repository: replays are other players' data and are not redistributed.
+
+Storage (kept for good; the player asked to "store them logically forever"):
+  CORPUS/README.txt           what the folder is and how it is laid out
+  CORPUS/index.jsonl          one line per replay picked for a band: listing
+                              facts, band, file (relative to CORPUS), fetch date
+  CORPUS/replays/<id>.<ext>   the replay file exactly as downloaded
+  CORPUS/shows/<id>.html      the replay's page on the site (its metadata)
+Listing pages are only a cache for scanning and live in PAGE_CACHE.
 
 Usage:
   python saolei_fetch.py --by bvs --bands 1.0-1.4:50 1.4-1.8:50 ... [--per-player 3] [--max-pages 300]
@@ -22,8 +30,22 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 SITE = 'http://saolei.wang'
-CACHE = Path.home() / '.cache' / 'minesweeper-friendly' / 'saolei'
+CORPUS = Path.home() / 'Documents' / 'minesweeper-corpus' / 'saolei'
+PAGE_CACHE = Path.home() / '.cache' / 'minesweeper-friendly' / 'saolei' / 'pages'
 REQUEST_GAP_S = 2.0
+README = """saolei.wang Expert replays for minesweeper-friendly's skill comparison.
+
+Downloaded politely (one request every 2 s) by analysis/skill-comparison/
+saolei_fetch.py in https://github.com/ernop/minesweeper-friendly. The files are
+other players' published replays: keep them for analysis, never redistribute.
+
+index.jsonl  one JSON object per line: video_id, time_s, bv3, bvs, player_id,
+             reviewed (from the site's listing), band (the request that picked
+             it), file (path relative to this folder), fetched (UTC date).
+             A replay picked by several requests appears once per request.
+replays/     <video_id>.<avf|evf|mvf|rmv>, exactly as downloaded, never edited.
+shows/       <video_id>.html, the replay's page on the site.
+"""
 USER_AGENT = 'Mozilla/5.0 (X11; Linux x86_64) minesweeper-friendly-research/0.1'
 # Pages are GB2312 with occasional bytes outside it, so they are matched as
 # bytes and never decoded; the replay path is percent-encoded byte for byte.
@@ -61,7 +83,7 @@ def fetch(url: str, cache_path: Path) -> bytes:
 
 
 def listing_page(page: int) -> list[Listing]:
-    html = fetch(f'{SITE}/Video/Video_Exp.asp?Page={page}&Order=Time&tmp=', CACHE / 'pages' / f'exp-{page}.html')
+    html = fetch(f'{SITE}/Video/Video_Exp.asp?Page={page}&Order=Time&tmp=', PAGE_CACHE / f'exp-{page}.html')
     rows = re.findall(rb'<tr class="Text".*?</tr>', html, re.S)
     if not rows:
         raise RuntimeError(f'listing page {page} has no rows; the page layout changed')
@@ -79,7 +101,7 @@ def listing_page(page: int) -> list[Listing]:
 
 
 def replay_path(video_id: int) -> bytes:
-    html = fetch(f'{SITE}/Video/Show.asp?Id={video_id}', CACHE / 'shows' / f'{video_id}.html')
+    html = fetch(f'{SITE}/Video/Show.asp?Id={video_id}', CORPUS / 'shows' / f'{video_id}.html')
     match = re.search(rb"PlayVideo\('([^']+)'\)", html)
     if match is None:
         raise RuntimeError(f'video {video_id}: no replay file link on its page')
@@ -87,11 +109,12 @@ def replay_path(video_id: int) -> bytes:
 
 
 def download(listing: Listing) -> Path:
+    """The replay's file, relative to CORPUS."""
     path = replay_path(listing.video_id)
     suffix = '.' + path.rsplit(b'.', 1)[1].decode('ascii').lower()
-    target = CACHE / 'replays' / f'{listing.video_id}{suffix}'
-    fetch(SITE + urllib.parse.quote(path), target)
-    return target
+    relative = Path('replays') / f'{listing.video_id}{suffix}'
+    fetch(SITE + urllib.parse.quote(path), CORPUS / relative)
+    return relative
 
 
 def parse_bands(specs: list[str]) -> list[tuple[float, float, int]]:
@@ -126,15 +149,19 @@ def main() -> None:
                 picked.append(listing)
         if all(len(chosen[i]) >= bands[i][2] for i in chosen):
             break
-    index = CACHE / 'index.jsonl'
-    with index.open('a') as out:
+    CORPUS.mkdir(parents=True, exist_ok=True)
+    readme = CORPUS / 'README.txt'
+    if not readme.exists():
+        readme.write_text(README)
+    with (CORPUS / 'index.jsonl').open('a') as out:
         for i, picked in chosen.items():
             low, high, count = bands[i]
             label = f'{args.by} {low:g}-{high:g}'
             print(f'band {label}: {len(picked)} of {count}', flush=True)
             for listing in picked:
                 file = download(listing)
-                out.write(json.dumps({**asdict(listing), 'band': label, 'file': str(file)}) + '\n')
+                fetched = time.strftime('%Y-%m-%d', time.gmtime())
+                out.write(json.dumps({**asdict(listing), 'band': label, 'file': str(file), 'fetched': fetched}) + '\n')
                 out.flush()
 
 

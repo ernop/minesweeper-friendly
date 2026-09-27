@@ -42,10 +42,23 @@ Unbuilt parts of plan v2 (creator):
 
 Earlier proposals, still open:
 
-- **Per-game economy feedback.** After each Expert win, show that game's
-  removable inputs, one-cell chords, and flags no multi-cell chord used, so
-  every attempt gets immediate feedback instead of a page visit. Compute it in
-  the analysis worker from the finished trace.
+- **Per-game economy feedback.** Partly built (2026-09-26 night): the
+  after-game report counts chord clicks on numbers still short of flags and
+  clicks on finished numbers on their own lines, the two habits behind most of
+  the player's clicks that change nothing
+  ([evaluation](docs/product/game-end-evaluation.md)). Still open: one-cell
+  chords and flags no multi-cell chord used, per game, from the finished trace
+  in the analysis worker.
+- **Last-flag drill (from the 2026-09-26 diagnosis).** The player's most common
+  wasted click is a chord tried one flag early (26 per Expert win). A drill of
+  real positions where a number is one flag short, answered by flagging the
+  mine and chording in one motion (the 1.5 click), timed and click-counted;
+  positions from the replay corpus, or from the player's own premature-chord
+  moments read from their traces in the browser.
+- **Wrong-flag drill.** Most late Expert deaths follow a wrong flag (a chord
+  over it, a chord contradicting the numbers, a misclick next to it). A timed
+  check-before-chording drill: positions with one wrong flag near a number
+  about to be chorded, answered by removing it, from the player's own losses.
 - **Opening statistics.** First-click position, opening rate, and wins after an
   opening versus a numbered start, from a per-record first-reveal fact or a
   worker replay of all traces. Today these numbers exist only in the dated
