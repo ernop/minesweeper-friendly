@@ -75,6 +75,20 @@ because they apply app-wide, not just where each was first stated.
   where it is essential, in one canonical place. Summary tables, rankings,
   and comparison surfaces show stable completed facts; they do not echo the
   game timer or add other ticking/readjusting values.
+- Options are never more than one step deep (creator direction 2026-09-26,
+  on the after-game display panel whose lower half was a collapsed
+  "Analysis & chart display" section: "that is TOO DEEP of menus. move this
+  and all such things higher up in the hierarchy, we shouldn't have such
+  deep option config menus and to the extent possible this all shall be
+  centralized and combined logically"). Every option is on the page itself
+  or in the one panel a single bordered button opens. A panel shows all of
+  its options at once: never behind a collapsed section, a "more" toggle,
+  or a second panel. Related options live together in one place, under
+  headings named for what they control, in the order those things appear
+  on the page. When the settings page also lists the same options, both
+  render one shared definition with the same groups. Where a narrow window
+  folds the whole side column into its Game details popover, a panel from
+  that column shows inline inside it instead of opening a second popover.
 - Clear ways in and out: a surface opens from an obvious bordered button
   and closes just as obviously — for a page, a visible way back at both
   the top and the bottom of the body (not tucked at a far edge), plus

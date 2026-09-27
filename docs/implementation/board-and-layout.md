@@ -52,7 +52,8 @@ Spec: [docs/product/board-and-layout.md](../product/board-and-layout.md). Index:
   between `#result-stats` and the column when the layout changes;
   `clearResultStats` empties both wherever results are cleared.
   The sidebar contains `#top-right`, `#scores-nav`,
-  `#results`, and `#path-view-legend` in normal flow, with independent scrolling. It is
+  `#results`, and `#path-view-legend` in normal flow, then `#review-options`
+  (a popover when docked, inline at the end when compact), with independent scrolling. It is
   reserved before game end. `syncGameSidebar` compares the viewport, metrics
   width, and board frame width; when they cannot fit together, it removes the
   sidebar from the grid and makes it an auto popover opened by Game details.

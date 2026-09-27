@@ -6,7 +6,8 @@
 // this module to load, validate, default, migrate, clone, and save the same
 // flat settings object in IndexedDB userdata['settings']. Preferences have
 // their own JSON export/import; game history never reads or writes them.
-// Control 'none' means the editor lives on the game page, not a second store.
+// Control 'none' means the editor lives on the game page, not a second store;
+// control 'result-section' means the switch renders in RESULT_SECTION_GROUPS.
 // Choices and bounds live here; generator definitions come from the shared
 // generators.js registry, loaded before this module on both pages.
 
@@ -102,6 +103,41 @@ const SHOWN_THINGS_OPTIONS = [
   ['relationshipCharts', 'relationship charts', 'the raw win scatter plots at the bottom'],
 ];
 
+// The result-section switches, grouped under what they control and ordered
+// as the result shows it. The game's Overlays & display panel and the
+// settings page both render exactly these groups. 'shownThings.x' is a
+// shownThings key; a bare name is a boolean setting with control
+// 'result-section'.
+const RESULT_SECTION_GROUPS = [
+  ['This game', ['shownThings.gameStats', 'shownThings.boardPercentiles']],
+  ['Tables', ['shownThings.recentPlacements', 'shownThings.timeTables', 'shownThings.lastOneMinute',
+    'collapseDuplicateCharts', 'shownThings.streak', 'shownThings.nearStreak', 'shownThings.nearNearStreak']],
+  ['This board', ['shownThings.boardMetricFacts', 'shownThings.exact3BV', 'shownThings.exactZiNi',
+    'shownThings.exactMaxNumber', 'shownThings.exactHZiNi', 'shownThings.workSpreadTable',
+    'shownThings.zeroOneShareTable', 'shownThings.zeroOpeningTable', 'shownThings.boardShapeTables',
+    'shownThings.largestIsland']],
+  ['Charts', ['shownThings.averageCharts', 'shownThings.relationshipCharts', 'showMotionStatsAfterGame']],
+];
+
+function resultSectionSwitch(path) {
+  const [field, key = null] = path.split('.');
+  if (key === null) {
+    const s = SETTINGS_SCHEMA.find((entry) => entry.field === field);
+    return { path, field, key, label: s.label, describe: s.describe };
+  }
+  const [, label, describe] = SHOWN_THINGS_OPTIONS.find(([id]) => id === key);
+  return { path, field, key, label, describe };
+}
+
+function resultSectionShown(entry) {
+  return entry.key === null ? settings[entry.field] : settings[entry.field][entry.key];
+}
+
+function setResultSectionShown(entry, shown) {
+  if (entry.key === null) settings[entry.field] = shown;
+  else settings[entry.field][entry.key] = shown;
+}
+
 const REPORT_SCOPE_CHOICES = [
   ['none', 'nothing', 'no action analysis, mistake counts, or fatal-action mention; evidence is still stored in history'],
   ['fatal', 'fatal action only', 'the one fatal action after a loss; wins show no action analysis'],
@@ -166,7 +202,7 @@ const REPLAY_OVERLAY_DEFAULTS = {
 };
 const PANEL_OPEN_DEFAULTS = {
   boardPosition: false, gameDetails: false, states: false, replay: false,
-  reviewOptions: false, reviewDisplay: false, importHistory: false, dataFormat: false,
+  reviewOptions: false, importHistory: false, dataFormat: false,
 };
 const DEFAULT_STATE_NAMES = ['sleepy', 'just woke up', 'inebriated'];
 const preferenceObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
@@ -343,6 +379,7 @@ const SETTINGS_SCHEMA = [
     group: 'after-game',
     label: 'collapse duplicate tablecharts',
     describe: 'when several time windows hold the exact same wins (e.g. every win this week happened today), show only the most specific chart in both the tablecharts and ranks-won summary (lifetime and past week always render); off = every window always renders its own chart',
+    control: 'result-section',
   },
   {
     field: 'showMotionStatsDuringGame',
@@ -357,8 +394,9 @@ const SETTINGS_SCHEMA = [
     default: true,
     valid: (v) => typeof v === 'boolean',
     group: 'after-game',
-    label: 'show motion stats after game ends',
+    label: 'motion charts',
     describe: 'when a game finishes, the canonical motion values, each with its over-the-game chart, inline at the bottom after the other charts',
+    control: 'result-section',
   },
   {
     field: 'reportScope',
@@ -504,7 +542,7 @@ const SETTINGS_SCHEMA = [
     group: 'after-game',
     label: 'shown things',
     describe: 'which result sections appear after a game or in the score viewer',
-    control: 'shown-things',
+    control: 'result-sections',
   },
   {
     field: 'playMode',

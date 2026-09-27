@@ -257,11 +257,14 @@ report.
   played time. See [Session stats](session-stats.md).
 - `reportScope` is the single persistent “After each game, show me”
   setting (changes apply immediately) and is also available on the settings
-  page. After a game, its control stays in the “Analysis & chart display”
-  panel within “Overlays & display” for every scope. The
-  panel also exposes all existing result-section switches, motion charts,
-  and duplicate-tablechart grouping; changes persist and apply immediately
-  without closing the panel. Charts and defaults remain unchanged:
+  page. After a game, its control sits in “Overlays & display” for every
+  scope, visible with everything else in that panel (the collapsed
+  “Analysis & chart display” section was removed 2026-09-26; see
+  [UI doctrine](ui-doctrine.md)). Below it the panel shows every
+  result-section switch, including motion charts and duplicate-tablechart
+  grouping, in the same This game / Tables / This board / Charts groups as
+  the settings page; changes persist and apply immediately without closing
+  the panel. Charts and defaults remain unchanged:
   - `none` — **default for every new player** (decided 2026-09-26): no
     action report, mistake/category counts, or fatal-action mention;
     evidence is still stored;

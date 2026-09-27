@@ -255,9 +255,17 @@ function syncGameSidebar() {
   const compact = !docked;
   if (pageLayout.classList.contains('compact-sidebar') !== compact) {
     if (gameSidebar.matches(':popover-open')) gameSidebar.hidePopover();
+    if (reviewOptions.matches(':popover-open')) reviewOptions.hidePopover();
     pageLayout.classList.toggle('compact-sidebar', compact);
-    if (compact) gameSidebar.setAttribute('popover', 'auto');
-    else gameSidebar.removeAttribute('popover');
+    // Inside the compact popover the display options end the column inline,
+    // so no panel ever opens inside another.
+    if (compact) {
+      gameSidebar.setAttribute('popover', 'auto');
+      reviewOptions.removeAttribute('popover');
+    } else {
+      gameSidebar.removeAttribute('popover');
+      reviewOptions.setAttribute('popover', 'auto');
+    }
   }
   gameSidebarButton.hidden = docked;
   gameSidebarClose.hidden = docked;

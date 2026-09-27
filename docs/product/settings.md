@@ -79,9 +79,13 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   the column between them — never below the name where it could look like
   another list item. The schema's full description remains a plain
   tooltip. A multi-option setting such as `reportScope` puts one radio
-  group to the right of its name. The numerous shown-things switches form
-  a compact option grid (as many columns of at least 260px as fit) under
-  their own subheading rather than extending the primary list. The layout
+  group to the right of its name. The result-section switches (every
+  shown-things switch plus motion charts and duplicate-tablechart grouping)
+  form compact option grids (as many columns of at least 260px as fit) under
+  four subheadings named for what they control, in result order: This game,
+  Tables, This board, Charts (2026-09-26, with the game's Overlays & display
+  panel, which renders the same groups from one definition; see
+  [UI doctrine](ui-doctrine.md)). The layout
   collapses to one section column on narrow screens while retaining the
   name/control relationship. Width (2026-09-23 sweep): the body spans the
   window less 48px (28px on narrow screens), and the title and return
@@ -118,7 +122,8 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   `collapseDuplicateCharts` (default on) — the rank
   lists' progressive disclosure switch (see [Rank lists](rankings.md));
   `showMotionStatsDuringGame` and `showMotionStatsAfterGame` (both
-  default on) — the two stages of the trace metrics display (see [Trace
+  default on; the second is named "motion charts" in the Charts group) —
+  the two stages of the trace metrics display (see [Trace
   metrics panel](trace-metrics-panel.md)); `reportScope` (`none` by default; choices `none`,
   `fatal`, `risk`, `full`) — the simple after-game analysis ladder,
   editable on both the report and settings page, which also gates category

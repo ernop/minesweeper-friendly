@@ -126,7 +126,8 @@ affected section before changing behavior, and keep it and the code in sync
 in the same change. Implementation notes only map the spec onto code.
 
 App-wide UI rules (simplicity first, optional help must be useful and hidden
-behind a subtle tooltip affordance, hover never reflows page content,
+behind a subtle tooltip affordance, options never more than one step deep
+and grouped in one place, hover never reflows page content,
 semantic legend/key labels are never shortened,
 layout stability, no distracting duplicate live values, clear ways in and out) live in
 [docs/product/ui-doctrine.md](docs/product/ui-doctrine.md) — read it before

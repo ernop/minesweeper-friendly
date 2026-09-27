@@ -88,7 +88,7 @@ const choices = {
   pathView: 'click-speed', replayOverlays: { moves: false, mines: false, probs: true, pointless: true, purposeful: true, movement: true },
   metricsPanelCollapsed: true, trialSpeedBucketMs: 375, resultView: 'scores',
   replayPosition: { endedAt: 12345, step: 7 },
-  panels: { boardPosition: true, gameDetails: true, states: true, replay: true, reviewOptions: true, reviewDisplay: true, importHistory: true, dataFormat: true },
+  panels: { boardPosition: true, gameDetails: true, states: true, replay: true, reviewOptions: true, importHistory: true, dataFormat: true },
   trialSections: { '123:identity:1': false, '123:action:456': true },
   drafts: { stateName: 'draft', historyImport: '{', preferencesImport: '{' },
   viewPosition: { pageX: 14, pageY: 400, metricsX: 2, metricsY: 120, focusId: 'custom-width' },

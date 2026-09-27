@@ -248,7 +248,8 @@ main {
 }
 #replay-review[open] > summary { margin-bottom: 8px; }
 
-#scores-nav button {
+#scores-nav button,
+#review-options button {
   min-height: 25px;
   padding: 2px 9px;
   border: 1px solid #c9d4de;
@@ -260,7 +261,9 @@ main {
 }
 
 #scores-nav button:hover,
-#scores-nav button:focus-visible {
+#scores-nav button:focus-visible,
+#review-options button:hover,
+#review-options button:focus-visible {
   border-color: #8aa8bb;
   background: #edf5fa;
   color: #000000;
@@ -2129,7 +2132,8 @@ body.settings-page .return-to-game {
   padding: 10px 0;
 }
 
-.settings-group-body > .setting-row:last-child {
+.settings-group-body > .setting-row:last-child,
+.settings-group-body > .setting-row:has(+ .settings-subgroup) {
   border-bottom: none;
 }
 
@@ -3873,22 +3877,21 @@ body.vigilance-running #self-check-header {
 #replay-slider-wrap { min-width: 0; }
 #replay-overlay-control, #path-view-control { justify-content: flex-start; }
 .path-view-heading { flex-basis: 100%; margin: 3px 0; text-align: left; }
-#review-display { width: 100%; text-align: left; }
-#review-display[hidden] { display: none; }
-#review-display summary {
-  padding: 8px 10px;
-  border: 1px solid #c9d4de;
-  border-radius: 3px;
-  background: #f7fafc;
-  color: #000000;
-  cursor: pointer;
-  font-size: 12px;
+#review-display { text-align: left; }
+#review-display .report-scope-control { flex-wrap: wrap; margin: 0 0 12px; }
+/* Result-section groups fill as many columns as the panel's width allows. */
+.review-display-groups { columns: 200px; column-gap: 20px; }
+.review-display-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  margin-bottom: 12px;
+  break-inside: avoid;
 }
-#review-display-content { padding: 10px; border: 1px solid #c9d4de; border-top: 0; }
-.review-display-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 9px 14px; margin-top: 12px; }
-.review-display-options label { display: flex; align-items: center; gap: 6px; }
-.review-display-options input { margin: 0; }
-#review-display .report-scope-control { flex-wrap: wrap; margin: 0; }
+.review-display-group .path-view-heading { margin: 0; }
+.review-display-group label { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.review-display-group input { margin: 0; }
 @media (max-width: 700px) {
   #page-layout, #page-layout.compact-sidebar { grid-template-columns: minmax(0, 1fr); }
   main { grid-column: 1; grid-row: 2; }
@@ -3905,26 +3908,30 @@ body.vigilance-running #self-check-header {
   #zoom-label { margin-left: 0; }
 }
 
-/* Display options open in the top layer, leaving rankings in place. */
-#review-options-button[hidden] { display: none; }
-#review-options {
+/* Beside the docked column the display options open in the top layer over
+   that column, leaving rankings in place. The compact Game details popover
+   already is the column, so there they end it inline, with no opener. */
+#review-options-button[hidden],
+#page-layout.compact-sidebar #review-options-button { display: none; }
+#review-options { color: #000000; font: 12px Arial, sans-serif; }
+#review-options[hidden] { display: none; }
+#review-options[popover] {
   position: fixed;
   inset: auto 16px 16px auto;
-  width: min(460px, calc(100vw - 32px));
-  max-height: min(650px, calc(100dvh - 32px));
+  width: min(calc(100vw - 32px), max(460px, var(--game-sidebar-docked-width)));
+  max-height: calc(100dvh - 32px);
   overflow-y: auto;
   margin: 0;
   padding: 14px;
   border: 1px solid #a5b7c3;
   border-radius: 5px;
   background: #fff;
-  color: #000000;
   box-shadow: 0 4px 20px #0002;
-  font: 12px Arial, sans-serif;
 }
+#review-options:not([popover]) .review-options-heading button { display: none; }
 .review-options-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.review-options-heading strong { font-size: 14px; }
 #review-options #replay-overlay-control, #review-options #path-view-control { margin-bottom: 12px; }
-#review-options #review-display { margin-top: 10px; }
 
 /* Reserve the early-session geometry before any measurements exist. */
 #metrics-panel-content { scrollbar-gutter: stable; }

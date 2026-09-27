@@ -62,21 +62,18 @@ document.addEventListener('keydown', (event) => {
 
 // A switch row is one wide click target: name on the left, the rare
 // visible hint in its own middle column, and the control at the right.
-// `subfield` marks one of the compact shown-things switches.
-function buildSettingRow(s, subfield, labelText, titleText) {
+function buildSettingRow(s) {
   const row = document.createElement('label');
-  row.className = subfield === null
-    ? 'setting-row setting-toggle-row'
-    : 'setting-option';
-  row.dataset.setting = subfield === null ? s.field : `${s.field}.${subfield}`;
+  row.className = 'setting-row setting-toggle-row';
+  row.dataset.setting = s.field;
 
   const name = document.createElement('span');
   name.className = 'setting-name';
-  name.textContent = labelText;
-  name.title = titleText;
+  name.textContent = s.label;
+  name.title = s.describe;
   row.appendChild(name);
 
-  if (s.hint !== undefined && subfield === null) {
+  if (s.hint !== undefined) {
     const describe = document.createElement('span');
     describe.className = 'setting-describe';
     describe.textContent = s.hint;
@@ -85,10 +82,9 @@ function buildSettingRow(s, subfield, labelText, titleText) {
 
   const box = document.createElement('input');
   box.type = 'checkbox';
-  box.checked = subfield !== null ? settings[s.field][subfield] : settings[s.field];
+  box.checked = settings[s.field];
   box.addEventListener('change', () => {
-    if (subfield !== null) settings[s.field][subfield] = box.checked;
-    else settings[s.field] = box.checked;
+    settings[s.field] = box.checked;
     saveSettings();
   });
   row.appendChild(box);
@@ -130,27 +126,45 @@ function buildChoiceRow(s) {
   return row;
 }
 
-function buildShownThings(s) {
-  const subgroup = document.createElement('section');
-  subgroup.className = 'settings-subgroup';
-
-  const heading = document.createElement('h3');
-  heading.className = 'settings-subheading';
-  heading.textContent = s.label;
-  heading.title = s.describe;
-  subgroup.appendChild(heading);
-
-  const options = document.createElement('div');
-  options.className = 'setting-options-grid';
-  for (const [key, label, description] of SHOWN_THINGS_OPTIONS) {
-    options.appendChild(buildSettingRow(s, key, label, description));
+// The same groups as the game's Overlays & display panel, each a compact
+// option grid under its own subheading.
+function buildResultSections() {
+  const groups = document.createDocumentFragment();
+  for (const [groupLabel, paths] of RESULT_SECTION_GROUPS) {
+    const subgroup = document.createElement('section');
+    subgroup.className = 'settings-subgroup';
+    const heading = document.createElement('h3');
+    heading.className = 'settings-subheading';
+    heading.textContent = groupLabel;
+    const options = document.createElement('div');
+    options.className = 'setting-options-grid';
+    for (const entry of paths.map(resultSectionSwitch)) {
+      const row = document.createElement('label');
+      row.className = 'setting-option';
+      row.dataset.setting = entry.path;
+      const name = document.createElement('span');
+      name.className = 'setting-name';
+      name.textContent = entry.label;
+      name.title = entry.describe;
+      const box = document.createElement('input');
+      box.type = 'checkbox';
+      box.checked = resultSectionShown(entry);
+      box.addEventListener('change', () => {
+        setResultSectionShown(entry, box.checked);
+        saveSettings();
+      });
+      row.append(name, box);
+      options.appendChild(row);
+    }
+    subgroup.append(heading, options);
+    groups.appendChild(subgroup);
   }
-  subgroup.appendChild(options);
-  return subgroup;
+  return groups;
 }
 
 // Each schema group becomes one panel with a stable heading column and a
-// control body. Control-'none' entries remain editable where they live.
+// control body. Control-'none' entries remain editable where they live;
+// control-'result-section' entries render inside the result sections.
 function buildSettingsColumn() {
   const column = document.getElementById('settings-column');
   const transfer = document.getElementById('preferences-transfer');
@@ -168,16 +182,16 @@ function buildSettingsColumn() {
     const body = document.createElement('div');
     body.className = 'settings-group-body';
     for (const s of SETTINGS_SCHEMA) {
-      if (s.group !== groupId || s.control === 'none') continue;
-      if (s.control === 'shown-things') {
-        body.appendChild(buildShownThings(s));
+      if (s.group !== groupId || s.control === 'none' || s.control === 'result-section') continue;
+      if (s.control === 'result-sections') {
+        body.appendChild(buildResultSections());
         continue;
       }
       if (s.control === 'choice') {
         body.appendChild(buildChoiceRow(s));
         continue;
       }
-      body.appendChild(buildSettingRow(s, null, s.label, s.describe));
+      body.appendChild(buildSettingRow(s));
     }
     section.appendChild(body);
     column.insertBefore(section, transfer);

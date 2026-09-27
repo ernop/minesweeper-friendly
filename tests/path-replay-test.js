@@ -411,10 +411,16 @@ check('replay stays separate from path modes and is available after game end',
   const navStart = html.indexOf('id="scores-nav"');
   const navEnd = html.indexOf('</nav>', navStart);
   const nav = html.slice(navStart, navEnd);
-  check('sidebar review groups replay, overlays, path, and scores',
-    nav.indexOf('id="replay-controls"') < nav.indexOf('id="replay-overlay-control"')
-      && nav.indexOf('id="replay-overlay-control"') < nav.indexOf('id="path-view-control"')
-      && nav.indexOf('id="path-view-control"') < nav.indexOf('id="see-scores-btn"'));
+  check('sidebar review groups replay, the display opener, and scores',
+    nav.indexOf('id="replay-controls"') < nav.indexOf('id="review-options-button"')
+      && nav.indexOf('id="review-options-button"') < nav.indexOf('id="see-scores-btn"'));
+  const panelStart = html.indexOf('id="review-options"');
+  check('the display panel ends the side column and holds overlays, path, and report',
+    panelStart > html.indexOf('id="path-view-legend"')
+      && html.indexOf('</aside>', panelStart) < html.indexOf('id="board-position-panel"')
+      && panelStart < html.indexOf('id="replay-overlay-control"')
+      && html.indexOf('id="replay-overlay-control"') < html.indexOf('id="path-view-control"')
+      && html.indexOf('id="path-view-control"') < html.indexOf('id="review-display"'));
   check('the legend lives in the separate game sidebar',
     !nav.includes('id="path-view-legend"')
       && html.indexOf('id="path-view-legend"') > html.indexOf('id="game-sidebar"'));

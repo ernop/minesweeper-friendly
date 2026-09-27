@@ -76,9 +76,9 @@ function renderPathViewControls() {
   const available = pathViewAvailable();
   // Review is available in the side column after game end. Its transport
   // stays collapsed until opened; display options remain separately accessible.
-  document.getElementById('review-display').hidden = !available;
+  reviewOptions.hidden = !available;
   document.getElementById('review-options-button').hidden = !available;
-  if (!available) document.getElementById('review-options').hidePopover();
+  if (!available && reviewOptions.matches(':popover-open')) reviewOptions.hidePopover();
   pathViewControl.hidden = !available;
   for (const button of pathViewButtons) {
     button.setAttribute('aria-pressed', String(button.dataset.pathView === settings.pathView));

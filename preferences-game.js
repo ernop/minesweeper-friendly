@@ -37,8 +37,8 @@ function bindTrialSection(element, key, initiallyOpen) {
 function syncReviewPreferences() {
   if (!pathViewAvailable()) return;
   replayReview.open = settings.panels.replay;
-  const options = document.getElementById('review-options');
-  if (settings.panels.reviewOptions && !options.matches(':popover-open')) options.showPopover();
+  if (settings.panels.reviewOptions && reviewOptions.popover !== null
+      && !reviewOptions.matches(':popover-open')) reviewOptions.showPopover();
 }
 
 function flushViewPosition() {
@@ -62,18 +62,15 @@ function initGamePreferences() {
   importPanel.hidden = !settings.panels.importHistory;
   formatPanel.hidden = !settings.panels.dataFormat;
   replayReview.open = settings.panels.replay;
-  document.getElementById('review-display').open = settings.panels.reviewDisplay;
   importText.value = settings.drafts.historyImport;
   statesAddInput.value = settings.drafts.stateName;
   if (settings.panels.gameDetails && pageLayout.classList.contains('compact-sidebar')) gameSidebar.showPopover();
   syncReviewPreferences();
 
-  const reviewDisplay = document.getElementById('review-display');
-  reviewDisplay.addEventListener('toggle', () => rememberPanel('reviewDisplay', reviewDisplay.open));
-  for (const [element, key] of [[gameSidebar, 'gameDetails'], [document.getElementById('review-options'), 'reviewOptions']]) {
+  for (const [element, key] of [[gameSidebar, 'gameDetails'], [reviewOptions, 'reviewOptions']]) {
     element.addEventListener('toggle', () => {
       if (key === 'gameDetails' && !pageLayout.classList.contains('compact-sidebar')) return;
-      if (key === 'reviewOptions' && !pathViewAvailable()) return;
+      if (key === 'reviewOptions' && (!pathViewAvailable() || pageLayout.classList.contains('compact-sidebar'))) return;
       rememberPanel(key, element.matches(':popover-open'));
     });
   }

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="pages-redirect.js?v=20260926-pages-redirect-2"></script>
 <title>Minesweeper - Standard Mode</title>
-<link rel="stylesheet" href="style.css?v=20260926-problems">
+<link rel="stylesheet" href="style.css?v=20260926-flat-options">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <!-- Defer preserves dependency order while letting every page asset download
      in parallel. The Pages redirect is the one blocking script; storage
@@ -27,34 +27,34 @@
 <script defer src="trial.js"></script>
 <script defer src="game-data.js?v=20260926-short-help"></script>
 <script defer src="board-icons.js?v=20260926-problems"></script>
-<script defer src="settings-core.js?v=20260926-problems"></script>
+<script defer src="settings-core.js?v=20260926-flat-options"></script>
 <script defer src="analysis-client.js?v=20260926-chord-buttons"></script>
-<script defer src="preferences-game.js?v=20260926-exact-normalization"></script>
-<script defer src="game/core.js?v=20260926-problems"></script>
-<script defer src="game/layout.js?v=20260926-problems"></script>
-<script defer src="game/play.js?v=20260926-problems"></script>
-<script defer src="game/play-modes.js?v=20260926-problems"></script>
-<script defer src="game/evaluation.js?v=20260926-problems"></script>
-<script defer src="game/results.js?v=20260926-problems"></script>
-<script defer src="game/history.js?v=20260926-problems"></script>
-<script defer src="game/rankings.js?v=20260926-problems"></script>
-<script defer src="game/charts.js?v=20260926-problems"></script>
-<script defer src="game/trial-review.js?v=20260926-problems"></script>
-<script defer src="game/game-data-chart.js?v=20260926-problems"></script>
-<script defer src="game/result-ranks.js?v=20260926-problems"></script>
-<script defer src="game/input-trace.js?v=20260926-problems"></script>
-<script defer src="game/replay-model.js?v=20260926-problems"></script>
-<script defer src="game/replay-view.js?v=20260926-problems"></script>
-<script defer src="game/music.js?v=20260926-problems"></script>
-<script defer src="game/trace-metrics.js?v=20260926-problems"></script>
-<script defer src="game/metric-definitions.js?v=20260926-problems"></script>
-<script defer src="game/metrics-panel.js?v=20260926-problems"></script>
-<script defer src="game/session-stats.js?v=20260926-problems"></script>
-<script defer src="game/session-charts.js?v=20260926-problems"></script>
-<script defer src="game/player-states.js?v=20260926-problems"></script>
-<script defer src="game/controls.js?v=20260926-problems"></script>
-<script defer src="game/backup.js?v=20260926-problems"></script>
-<script defer src="game/main.js?v=20260926-problems"></script>
+<script defer src="preferences-game.js?v=20260926-flat-options"></script>
+<script defer src="game/core.js?v=20260926-flat-options"></script>
+<script defer src="game/layout.js?v=20260926-flat-options"></script>
+<script defer src="game/play.js?v=20260926-flat-options"></script>
+<script defer src="game/play-modes.js?v=20260926-flat-options"></script>
+<script defer src="game/evaluation.js?v=20260926-flat-options"></script>
+<script defer src="game/results.js?v=20260926-flat-options"></script>
+<script defer src="game/history.js?v=20260926-flat-options"></script>
+<script defer src="game/rankings.js?v=20260926-flat-options"></script>
+<script defer src="game/charts.js?v=20260926-flat-options"></script>
+<script defer src="game/trial-review.js?v=20260926-flat-options"></script>
+<script defer src="game/game-data-chart.js?v=20260926-flat-options"></script>
+<script defer src="game/result-ranks.js?v=20260926-flat-options"></script>
+<script defer src="game/input-trace.js?v=20260926-flat-options"></script>
+<script defer src="game/replay-model.js?v=20260926-flat-options"></script>
+<script defer src="game/replay-view.js?v=20260926-flat-options"></script>
+<script defer src="game/music.js?v=20260926-flat-options"></script>
+<script defer src="game/trace-metrics.js?v=20260926-flat-options"></script>
+<script defer src="game/metric-definitions.js?v=20260926-flat-options"></script>
+<script defer src="game/metrics-panel.js?v=20260926-flat-options"></script>
+<script defer src="game/session-stats.js?v=20260926-flat-options"></script>
+<script defer src="game/session-charts.js?v=20260926-flat-options"></script>
+<script defer src="game/player-states.js?v=20260926-flat-options"></script>
+<script defer src="game/controls.js?v=20260926-flat-options"></script>
+<script defer src="game/backup.js?v=20260926-flat-options"></script>
+<script defer src="game/main.js?v=20260926-flat-options"></script>
 </head>
 <body aria-busy="true">
 <div id="page-layout">
@@ -198,34 +198,6 @@
       </div>
     </details>
     <button type="button" id="review-options-button" popovertarget="review-options" hidden>Overlays &amp; display</button>
-    <div id="review-options" popover>
-      <div class="review-options-heading"><strong>Review display</strong>
-        <button type="button" popovertarget="review-options" popovertargetaction="hide">Close</button>
-      </div>
-      <div id="replay-overlay-control" hidden aria-label="Board overlays while stepping through the game">
-        <span class="path-view-heading">Board overlays</span>
-        <button type="button" data-replay-overlay="moves">available moves</button>
-        <button type="button" data-replay-overlay="mines">forced mines</button>
-        <button type="button" data-replay-overlay="probs">mine&nbsp;%</button>
-        <button type="button" data-replay-overlay="pointless">pointless clicks</button>
-        <button type="button" data-replay-overlay="purposeful">purposeful clicks</button>
-        <button type="button" data-replay-overlay="movement">rough movement</button>
-      </div>
-      <div id="path-view-control" hidden aria-label="Path overlay">
-        <span class="path-view-heading">Mouse path</span>
-        <button type="button" data-path-view="off">off</button>
-        <button type="button" data-path-view="raw-path">raw path</button>
-        <button type="button" data-path-view="click-locations">click locations</button>
-        <button type="button" data-path-view="movement-speed">movement speed</button>
-        <button type="button" data-path-view="click-speed">click speed</button>
-        <button type="button" data-path-view="progress">game progress</button>
-        <button type="button" data-path-view="less-useful">less useful</button>
-      </div>
-      <details id="review-display" hidden>
-        <summary>Analysis &amp; chart display</summary>
-        <div id="review-display-content"></div>
-      </details>
-    </div>
     <button type="button" id="see-scores-btn">see scores</button>
   </nav>
   <div id="results" hidden>
@@ -233,6 +205,33 @@
     <div id="result-stats"></div>
   </div>
   <div id="path-view-legend" hidden></div>
+  <!-- Every display option at one level: a popover beside the docked column,
+       inline at the end of the compact Game details popover. -->
+  <div id="review-options" popover hidden>
+    <div class="review-options-heading"><strong>Overlays &amp; display</strong>
+      <button type="button" popovertarget="review-options" popovertargetaction="hide">Close</button>
+    </div>
+    <div id="replay-overlay-control" hidden aria-label="Board overlays while stepping through the game">
+      <span class="path-view-heading">Board overlays</span>
+      <button type="button" data-replay-overlay="moves">available moves</button>
+      <button type="button" data-replay-overlay="mines">forced mines</button>
+      <button type="button" data-replay-overlay="probs">mine&nbsp;%</button>
+      <button type="button" data-replay-overlay="pointless">pointless clicks</button>
+      <button type="button" data-replay-overlay="purposeful">purposeful clicks</button>
+      <button type="button" data-replay-overlay="movement">rough movement</button>
+    </div>
+    <div id="path-view-control" hidden aria-label="Path overlay">
+      <span class="path-view-heading">Mouse path</span>
+      <button type="button" data-path-view="off">off</button>
+      <button type="button" data-path-view="raw-path">raw path</button>
+      <button type="button" data-path-view="click-locations">click locations</button>
+      <button type="button" data-path-view="movement-speed">movement speed</button>
+      <button type="button" data-path-view="click-speed">click speed</button>
+      <button type="button" data-path-view="progress">game progress</button>
+      <button type="button" data-path-view="less-useful">less useful</button>
+    </div>
+    <div id="review-display" aria-label="After-game report and result sections"></div>
+  </div>
 </aside>
 </div>
 <div id="board-position-panel" role="region" aria-labelledby="board-position-title" hidden>

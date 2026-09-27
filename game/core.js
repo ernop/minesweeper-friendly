@@ -77,6 +77,7 @@ const pageLayout = document.getElementById('page-layout');
 const gameSidebar = document.getElementById('game-sidebar');
 const gameSidebarButton = document.getElementById('game-sidebar-button');
 const gameSidebarClose = document.getElementById('game-sidebar-close');
+const reviewOptions = document.getElementById('review-options');
 const topRight = document.getElementById('top-right');
 const difficultyTabs = document.getElementById('difficulty-tabs');
 const customForm = document.getElementById('custom-form');

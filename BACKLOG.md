@@ -164,6 +164,11 @@ game instead of rewriting the whole history twice per game. Not built:
    82-91ms (the report tasks in item 3). The creator's rule is that time with
    no logical reason to exist is waste; cutting these lowers the limits in
    `tests/latency-budgets.json`.
+   Occasional spike (2026-09-26): one latency run in nine on the same code
+   measured switching to expert at 45ms of work (usual 15-23ms; master
+   showed 17-21ms over the same alternating runs). Not yet attributed; a
+   profile of a spiking run would show whether it is garbage collection or
+   background analysis landing during the switch.
 
 ## Game data as the primary result surface (creator, 2026-09-23)
 

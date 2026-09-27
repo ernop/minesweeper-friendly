@@ -538,39 +538,44 @@ function buildReportScopeControl(onChange) {
 // The display panel remains in one place for every analysis scope. Update
 // the report without rebuilding the focused controls or closing the panel.
 function renderReviewDisplay(onChange) {
-  const host = document.getElementById('review-display-content');
+  const host = document.getElementById('review-display');
   host.reviewChange = onChange;
   if (host.childElementCount > 0) {
     host.querySelector('select').value = settings.reportScope;
     for (const input of host.querySelectorAll('input')) {
-      input.checked = input.dataset.shownThing
-        ? settings.shownThings[input.dataset.shownThing] : settings[input.dataset.setting];
+      input.checked = resultSectionShown(resultSectionSwitch(input.dataset.setting));
     }
     return;
   }
   host.appendChild(buildReportScopeControl(() => host.reviewChange()));
-  const options = document.createElement('div');
-  options.className = 'review-display-options';
-  const add = (key, name, description, shownThing) => {
-    const label = document.createElement('label');
-    label.title = description;
-    const input = document.createElement('input');
-    input.type = 'checkbox';
-    input.dataset[shownThing ? 'shownThing' : 'setting'] = key;
-    input.checked = shownThing ? settings.shownThings[key] : settings[key];
-    input.addEventListener('change', () => {
-      (shownThing ? settings.shownThings : settings)[key] = input.checked;
-      saveSettings();
-      host.reviewChange();
-      scheduleBoardLayout();
-    });
-    label.append(input, name);
-    options.appendChild(label);
-  };
-  for (const [key, name, description] of SHOWN_THINGS_OPTIONS) add(key, name, description, true);
-  add('showMotionStatsAfterGame', 'motion charts', 'Motion measurements over the completed game', false);
-  add('collapseDuplicateCharts', 'collapse duplicate tablecharts', 'Combine time windows containing the same wins', false);
-  host.appendChild(options);
+  const groups = document.createElement('div');
+  groups.className = 'review-display-groups';
+  for (const [groupLabel, paths] of RESULT_SECTION_GROUPS) {
+    const group = document.createElement('div');
+    group.className = 'review-display-group';
+    const heading = document.createElement('span');
+    heading.className = 'path-view-heading';
+    heading.textContent = groupLabel;
+    group.appendChild(heading);
+    for (const entry of paths.map(resultSectionSwitch)) {
+      const label = document.createElement('label');
+      label.title = entry.describe;
+      const input = document.createElement('input');
+      input.type = 'checkbox';
+      input.dataset.setting = entry.path;
+      input.checked = resultSectionShown(entry);
+      input.addEventListener('change', () => {
+        setResultSectionShown(entry, input.checked);
+        saveSettings();
+        host.reviewChange();
+        scheduleBoardLayout();
+      });
+      label.append(input, entry.label);
+      group.appendChild(label);
+    }
+    groups.appendChild(group);
+  }
+  host.appendChild(groups);
 }
 
 //-------RESULT PRESENTATION MODEL (pure; tests extract this span)-------

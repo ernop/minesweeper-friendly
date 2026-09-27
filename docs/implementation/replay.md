@@ -3,7 +3,7 @@
 Spec: [docs/product/replay.md](../product/replay.md). Index: [AGENTS.md](../../AGENTS.md).
 
 - Path and choice replay views ([Path and choice replay views](../product/replay.md)):
-  `#path-view-control` (in `#scores-nav`) exposes separate buttons for off,
+  `#path-view-control` (in `#review-options`) exposes separate buttons for off,
   raw every-sample path, numbered raw click locations, movement speed, click
   speed, game progress, and less useful—never a dropdown.
   The game-history slider `#replay-slider` (inside collapsed sidebar Replay
@@ -96,7 +96,15 @@ Spec: [docs/product/replay.md](../product/replay.md). Index: [AGENTS.md](../../A
   leaders (`--replay-area`) to side labels with non-misleading mine risk and
   cell count, choosing left or right to avoid the result summary/viewport
   edge. Sidebar `#scores-nav` contains `#replay-review`, a native details
-  disclosure collapsed for each new game, plus display options and scores.
+  disclosure collapsed for each new game, plus the `#review-options-button`
+  opener and scores. `#review-options` ends `#game-sidebar` after the legend:
+  `#replay-overlay-control`, `#path-view-control`, and `#review-display`
+  (the report-scope select and `RESULT_SECTION_GROUPS`, built once by
+  `renderReviewDisplay` and re-synced on each report redraw). It is an auto
+  popover beside the docked column; `syncGameSidebar` removes its `popover`
+  attribute in the compact layout, where it renders inline at the end of the
+  Game details popover (CSS hides its opener and Close there), and
+  `renderPathViewControls` sets its `hidden` while no finished board is shown.
   Its transport uses a full-width slider above four navigation buttons.
   Closing review restores the finished board; keyboard replay shortcuts only
   apply while the transport is visible. These controls take no space beneath

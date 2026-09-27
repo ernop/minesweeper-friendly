@@ -6,7 +6,8 @@ Spec: [docs/product/settings.md](../product/settings.md). Index: [AGENTS.md](../
   object lives in `settings-core.js` (userdata 'settings', filled by each
   page's `userdataReady` via `settingsFrom`, which fills absent fields
   from `SETTINGS_SCHEMA` defaults). `SETTINGS_SCHEMA`, `SETTINGS_GROUPS`,
-  `SHOWN_THINGS_*`, `REPORT_SCOPE_CHOICES`,
+  `SHOWN_THINGS_*`, `RESULT_SECTION_GROUPS` (with `resultSectionSwitch`,
+  `resultSectionShown`, `setResultSectionShown`), `REPORT_SCOPE_CHOICES`,
   `NUMBER_DISPLAY_CHOICES`, `settingsFrom`,
   `saveSettings`, `cleanTransferredSettings`, all preference choices/bounds,
   the cell iconography SVGs, and `paintCellGlyph` live in `settings-core.js`,
@@ -47,8 +48,14 @@ Spec: [docs/product/settings.md](../product/settings.md). Index: [AGENTS.md](../
   far right, and the rare schema `hint` in a dedicated middle column
   (only `justUniverse`); `describe` remains the name's title tooltip.
   `buildChoiceRow` puts its radio group to the right of the setting name.
-  `buildShownThings` lays its many switches out as a compact auto-fill
-  option grid of at least 260px columns, collapsing responsively. A change just saves; the static
+  `buildResultSections` renders `RESULT_SECTION_GROUPS` where the
+  `shownThings` entry (control `result-sections`) sits: one subheading and
+  compact auto-fill option grid of at least 260px columns per group,
+  collapsing responsively. Boolean fields with control `result-section`
+  (`collapseDuplicateCharts`, `showMotionStatsAfterGame`) render only inside
+  those groups; `renderReviewDisplay` on the game page renders the same
+  groups, and `tests/report-settings-test.js` checks that every switch is in
+  exactly one group. A change just saves; the static
   note beside the page title explains the absent save button. No hover
   behavior at all — no hover-injected or
   hover-swapped text, ever (two note mechanisms were removed for this on

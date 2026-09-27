@@ -8,6 +8,17 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   the panel occupies the browser top layer without pushing rankings down.
   Close, Escape, or clicking outside dismisses it. The control hides whenever no
   finished board is on screen (a new board or trial lobby/review phase).
+  Every option in the panel is visible at once (creator direction
+  2026-09-26, [UI doctrine](ui-doctrine.md): options are never more than
+  one step deep). It holds, in order: Board overlays, Mouse path, the “After
+  each game, show me” report choice, and the result-section switches under
+  This game, Tables, This board, and Charts. The former collapsed “Analysis
+  & chart display” section is gone. The panel's width follows the docked
+  side column (at least 460px), so it covers that column rather than the
+  board, and its groups fill as many columns as fit, one line per switch.
+  When a narrow window turns the side column into the Game details popover,
+  the same options end that popover inline, with no opener and no Close,
+  so no panel opens inside another.
 - Raw path restores the original complete every-sample tool, shaded from light
   early movement to dark late movement. Click locations restores the original
   raw left-release/right-press inputs as numbered positions in action order;
@@ -86,7 +97,8 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   “Finished board”. The separate details column keeps the legend out of the
   transport layout, so changing frames or overlays never moves its buttons.
   Board overlays and Mouse path have separate labeled
-  groups inside “Overlays & display”, followed by Analysis & chart display.
+  groups inside “Overlays & display”, followed by the report choice and the
+  result-section groups, all visible at once.
   The compact transport and panel opener stay in the sidebar; opening them
   does not move lifetime or daily rankings.
   ‹ / › and Left/Right keys step one action while replay is open and visible,

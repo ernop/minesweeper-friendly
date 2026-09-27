@@ -58,4 +58,20 @@ check('all four scope choices are schema-valid',
     && REPORT_SCOPE_CHOICES.every(([id]) => validReportScope(id)));
 check('unknown scope rejected', validReportScope('everything-ish') === false);
 
+{
+  const paths = RESULT_SECTION_GROUPS.flatMap(([, groupPaths]) => groupPaths);
+  const expected = [
+    ...SHOWN_THINGS_OPTIONS.map(([key]) => 'shownThings.' + key),
+    ...SETTINGS_SCHEMA.filter((s) => s.control === 'result-section').map((s) => s.field),
+  ];
+  check('every result-section switch is in exactly one group',
+    paths.length === new Set(paths).size
+      && JSON.stringify(paths.slice().sort()) === JSON.stringify(expected.sort()));
+  check('every grouped switch has a name and a description',
+    paths.map(resultSectionSwitch).every((entry) => entry.label && entry.describe));
+  check('grouped settings are booleans',
+    SETTINGS_SCHEMA.filter((s) => s.control === 'result-section')
+      .every((s) => typeof s.default === 'boolean'));
+}
+
 console.log(`report-settings: all ${checks} checks passed`);
