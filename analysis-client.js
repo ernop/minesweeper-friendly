@@ -10,10 +10,17 @@ function analysisFailure(error) {
   throw error;
 }
 
+// Each lane is one worker. The analysis lanes compute on data the page sends;
+// the switch-cost lane's worker reads the saved traces it needs itself.
+function startAnalysisWorker(lane) {
+  if (lane === 'switch-cost') return new Worker('switch-cost-worker.js?v=20260928-switch-cost');
+  return new Worker('analysis-worker.js?v=20260928-switch-cost');
+}
+
 async function analysisTask(lane, kind, payload) {
   let state = analysisLanes.get(lane);
   if (!state) {
-    const worker = new Worker('analysis-worker.js?v=20260927-openings');
+    const worker = startAnalysisWorker(lane);
     state = { worker, pending: new Map(), error: null };
     analysisLanes.set(lane, state);
     worker.onmessage = ({ data }) => {

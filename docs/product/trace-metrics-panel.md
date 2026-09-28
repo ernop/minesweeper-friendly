@@ -173,3 +173,65 @@ strip reserves its space even before any play exists. Ending legends keep
 a bounded scroll area, and rate charts retain the empty-note line's space
 when data arrives. The sidebar reserves its scrollbar gutter. The first
 play span, measured action, and completed game must not move other charts.
+
+## Switching (creator request and approval, 2026-09-28)
+
+Creator request (verbatim): "what about a new type of user perf stat for
+"frequency of switching button presses"? i.e. from going between "marking"
+mode and "chording" or "clicking"? that swap reaquires some mental work
+compared to continuing doing the current action (e.g. mark mark vs mark
+chord) etc. maybe explore this statistically and see if you notice
+patterns?" The study ([reference/mode-switch-2026-09-28.md](../../reference/mode-switch-2026-09-28.md))
+proposed one stat; the creator approved it the same day: "yes let's at lesat
+create the perf stat(s) for this and apply, release them,".
+
+- **Where.** A "switching" section of the stats panel, between the session
+  charts and the live rows (the live rows come and go with each game;
+  nothing above them moves). It shows whenever the panel is open and hides
+  with it. It is never shown per game: one game has too few presses to
+  measure the cost (split-half reliability of a per-game estimate about
+  0.05 in the study), so every value pools many games.
+- **Rows** (one line each; each label opens its explanation):
+  - switch cost, for example "+7.4% (+6.4 to +8.4)": how much longer the
+    next press takes after changing buttons (flag versus click or chord)
+    than after repeating the same move over the same distance at the same
+    point in the game; in brackets, the 95% interval.
+  - per switch, "+18ms": the same extra time at the median press-to-press
+    time of the pooled games' switches.
+  - moves that switch, "54%": share of consecutive moves that change
+    buttons.
+  - games, "500": games pooled.
+- **Games pooled.** The latest standard games on the three standard boards
+  (Beginner, Intermediate, and Expert with Standard play and the default
+  generator) that have a saved trace and at least one timed transition, up
+  to 500. Other play modes, custom boards, and other generators stay out:
+  the study measured standard play only. Under 30 such games the three
+  value rows show the en dash and the games row the count.
+- **Estimate** (the study's pre-registered model P1). A transition is two
+  consecutive board inputs that are both moves (reveal, chord, flag) with no
+  other input between them, the first not the game-starting reveal, timed
+  press to press (a left move by its left press, a flag by its right press)
+  and kept when 40 ms to 5 s apart. Least squares on the log interval with
+  one intercept per game; terms for the previous and the next move type,
+  the button switch, the same-button change between reveal and chord,
+  natural cubic splines of travel distance (Fitts index), of the cells the
+  previous move opened, and of board progress; whether the previous move
+  opened an empty region; whether single-number logic offered the next
+  target; and how many chordable numbers, proven-safe cells, and proven
+  mines the visible board showed. The interval is cluster-robust by game.
+  Spline knots follow patsy's rule (extremes plus equally spaced
+  percentiles of the distinct values) with values within 1e-9 counted as
+  one, so the value does not depend on how an engine rounds the last bit
+  of a distance (the exact rule moved knots between numpy and JavaScript).
+- **Updates.** Computed from the saved traces when the page loads, so the
+  existing history counts at once without new play, and again after each
+  standard game's trace is saved. Nothing new is stored.
+- **Not shown, by decision:** a per-game switch cost or switch index (noise
+  at one game), the raw switch rate as a performance measure (it mostly
+  restates how often the player flags, and the rate relative to chance did
+  not track speed), and breakdowns by direction or distance (in the
+  study, not panel stats; see [BACKLOG.md](../../BACKLOG.md)).
+- **Reading.** The pooled value is a summary, not the cost of every switch:
+  in the study the cost sat in moves of one or two cells, vanished at three
+  or more, and was about 13 ms for flag and chord pairs, larger where a
+  reveal was involved.

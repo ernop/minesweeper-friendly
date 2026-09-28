@@ -96,7 +96,9 @@ Index: [AGENTS.md](../../AGENTS.md).
   root on `http://127.0.0.1:8099/`. On this machine those arguments are
   `/home/ef/proj/voice-wei/node_modules/playwright-core` and
   `/home/ef/.cache/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-linux64/chrome-headless-shell`.
-  `tests/self-check-browser-check.js` (runs a complete 10-counter test) and
+  `tests/self-check-browser-check.js` (runs a complete 10-counter test),
+  `tests/switch-cost-browser-check.js` (optional third argument: a panel
+  screenshot path), and
   `tests/archive-browser-check.js` take the same two arguments but
   need no server: they serve the working tree through Playwright request
   routing under the exact origin `http://127.0.0.1:8099/` and abort every
@@ -163,6 +165,9 @@ creator plays in), Chromium
 Hosting verification (2026-09-26): `python3 tests/hosting-release-test.py`
 checks the committed-runtime artifact. `tests/hosting-browser-check.js` takes
 the same Playwright and Chromium arguments as the other browser checks and
-uses only 8099. `python3 tests/hosting-http-check.py` targets the isolated
+uses only 8099. It asserts the hosted response headers, so a plain
+`python3 -m http.server` fails its first header check; a server that adds the
+live site's headers (as `curl -sI https://minesweeper-friendly.fuseki.net/`
+shows them) runs it (2026-09-28). `python3 tests/hosting-http-check.py` targets the isolated
 nginx fixture with deliberately forbidden files and a symlink probe. Details:
 [hosting implementation](hosting.md).

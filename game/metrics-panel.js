@@ -1,7 +1,8 @@
 'use strict';
 
 // The left stats panel: its session heading, live trace-metric rows and
-// sparklines, the after-game motion charts, and update scheduling.
+// sparklines, the switching section pooled over the latest games, the
+// after-game motion charts, and update scheduling.
 
 //-------TRACE METRICS: DISPLAY (the #metrics-panel column)-------
 
@@ -220,13 +221,16 @@ function renderMetricsPanelContent(metrics) {
     sessionHead.classList.add('session-scope-head');
     sessionHead.appendChild(buildSessionScopeSelect());
     const session = document.createElement('div');
+    // Between the session charts and the live rows: the live rows come and go
+    // with each game, and nothing above them moves when they do.
+    const switching = buildSwitchCostSection();
     const live = document.createElement('div');
     const grip = buildMetricsResizeGrip();
-    metricsPanelContent.append(restore, head, sessionHead, session, live);
+    metricsPanelContent.append(restore, head, sessionHead, session, switching, live);
     metricsPanel.appendChild(grip);
     setMetricHidden(metricsPanel, false);
     metricsPanelView = {
-      head, phase, restore, session, live, grip,
+      head, phase, restore, session, switching, live, grip,
       sessionControlsKey: null, sessionCharts: null, liveRows: [], metrics: null,
     };
   }
@@ -239,6 +243,7 @@ function renderMetricsPanelContent(metrics) {
   setMetricHidden(view.grip, settings.metricsPanelCollapsed);
   setMetricHidden(view.phase, !showLive);
   setMetricHidden(view.session, settings.metricsPanelCollapsed || !showSession);
+  setMetricHidden(view.switching, settings.metricsPanelCollapsed);
   setMetricHidden(view.live, settings.metricsPanelCollapsed || !showLive);
   setMetricAttribute(view.grip, 'aria-valuenow', settings.metricsPanelWidth);
   if (settings.metricsPanelCollapsed) return;
@@ -557,4 +562,122 @@ function renderLiveTraceMetrics() {
     renderMetricsPanel(metrics);
     if (metricsTraceDirty || metricsElapsedDirty) scheduleMetricsUpdate();
   }).catch(analysisFailure);
+}
+
+//-------SWITCH COST (the panel's section pooled over the latest standard games)-------
+
+// Never per game: one game has too few presses to measure it (split-half
+// reliability near zero in the study), so every value pools the latest
+// standard games that have a saved trace (switch-cost-worker.js).
+function switchCostSigned(value, digits) {
+  const text = Math.abs(value).toFixed(digits);
+  return (value < 0 && Number(text) !== 0 ? '\u2212' : '+') + text;
+}
+
+// Each display reads the worker's fit (SwitchCost.fit); `of` is undefined
+// where the fit has no value, rendered as the en dash like any other
+// not-yet-measurable panel value.
+const SWITCH_COST_GROUP = {
+  name: 'switching',
+  help: 'Your latest standard games with a saved trace, up to ' + SwitchCost.WINDOW_GAMES
+    + ', pooled: what changing between flagging and clicking or chording does to the '
+    + 'time from one press to the next.',
+  displays: [
+    { label: 'switch cost',
+      help: 'Extra time before the next press after you change buttons, compared with '
+        + 'repeating the same move over the same distance at the same point in the game. '
+        + 'In brackets, the 95% interval.',
+      of: (fit) => (fit.status === 'measured' ? fit : undefined),
+      fmt: (fit) => switchCostSigned(fit.percent, 1) + '% (' + switchCostSigned(fit.percentLow, 1)
+        + ' to ' + switchCostSigned(fit.percentHigh, 1) + ')' },
+    { label: 'per switch',
+      help: 'The same extra time in milliseconds, at your median time between presses '
+        + 'around a switch.',
+      of: (fit) => (fit.status === 'measured' ? fit.msPerSwitch : undefined),
+      fmt: (v) => switchCostSigned(v, 0) + 'ms' },
+    { label: 'moves that switch',
+      help: 'Share of consecutive moves where you changed buttons: a flag after a click '
+        + 'or chord, or the reverse.',
+      of: (fit) => (fit.status === 'measured' ? fit.switchShare : undefined),
+      fmt: (v) => Math.round(v * 100) + '%' },
+    { label: 'games',
+      help: 'Games in the estimate. One game has too few presses to measure the cost, '
+        + 'so the estimate waits for ' + SwitchCost.MIN_GAMES + '.',
+      of: (fit) => fit.games,
+      fmt: (v) => String(v) },
+  ],
+};
+
+// The latest fit; null until the worker's first reply.
+let switchCostLatest = null;
+let switchCostPending = false;
+let switchCostRefreshAgain = false;
+
+// Rows keep their DOM identity: a new fit changes only their text, and the
+// section's height never depends on the data.
+function buildSwitchCostSection() {
+  const section = document.createElement('div');
+  section.className = 'switch-cost-section';
+  section.appendChild(buildMetricsGroupHead(SWITCH_COST_GROUP));
+  const rows = SWITCH_COST_GROUP.displays.map((display) => {
+    const row = document.createElement('div');
+    row.className = 'metric-row switch-cost-row';
+    const head = document.createElement('div');
+    head.className = 'metric-head';
+    const labelEl = document.createElement('span');
+    labelEl.className = 'metric-label';
+    labelEl.appendChild(chartHelpButton(display.help, display.label));
+    const valueEl = document.createElement('span');
+    valueEl.className = 'metric-value';
+    head.append(labelEl, valueEl);
+    row.appendChild(head);
+    row.updateFit = (fit) => {
+      const value = fit === null ? undefined : display.of(fit);
+      setMetricText(valueEl, value === undefined ? '\u2013' : display.fmt(value));
+    };
+    section.appendChild(row);
+    return row;
+  });
+  section.updateFit = (fit) => {
+    for (const row of rows) row.updateFit(fit);
+  };
+  section.updateFit(switchCostLatest);
+  return section;
+}
+
+// Every standard game on the three standard boards, newest first; the worker
+// reads saved traces down this list until the window is full.
+function switchCostCandidates() {
+  const candidates = [];
+  for (const key of Object.keys(SwitchCost.KEYS)) {
+    for (const record of history[key] || []) candidates.push({ endedAt: record.endedAt, key, outcome: record.outcome });
+  }
+  return candidates.sort((a, b) => b.endedAt - a.endedAt);
+}
+
+// One request in flight; a refresh asked for meanwhile runs after its reply,
+// over the history as it is then.
+function refreshSwitchCost() {
+  if (switchCostPending) {
+    switchCostRefreshAgain = true;
+    return;
+  }
+  switchCostPending = true;
+  analysisTask('switch-cost', 'estimate', {
+    database: { name: DB_NAME, version: db.version, traceStore: TRACE_STORE },
+    candidates: switchCostCandidates(),
+  }).then((fit) => {
+    switchCostPending = false;
+    switchCostLatest = fit;
+    if (metricsPanelView !== null) metricsPanelView.switching.updateFit(fit);
+    if (switchCostRefreshAgain) {
+      switchCostRefreshAgain = false;
+      refreshSwitchCost();
+    }
+  }).catch(analysisFailure);
+}
+
+// A saved trace of a standard game can change the window.
+function switchCostSourcesChanged(key) {
+  if (Object.hasOwn(SwitchCost.KEYS, key)) refreshSwitchCost();
 }

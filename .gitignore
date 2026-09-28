@@ -1,4 +1,5 @@
 analysis/biometrics/.venv/
+analysis/switch-cost/.venv/
 __pycache__/
 # editor swap files
 *.kate-swp

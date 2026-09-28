@@ -7,6 +7,11 @@ Research notes and external references. Index: [AGENTS.md](../AGENTS.md).
   replay, removable inputs, run conversion, openings), Minesweeper strategy
   and solver sources, and skill-acquisition findings on deliberate practice,
   spacing, and daily dose.
+- `reference/mode-switch-2026-09-28.md` — the study behind the stats panel's
+  switch cost: the pre-registered estimate of the time a button switch costs
+  (flag versus click or chord), its distance pattern, held-out
+  confirmations, switch frequency against speed, and a between-player check
+  on the replay corpus.
 - `reference/skill-comparison-2026-09-26.md` — plan v2 study design and pilot:
   the player's replayed wins against 60 published saolei.wang expert replays
   in four time bands, measured identically (economy, reaction, travel, hover,

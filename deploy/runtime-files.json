@@ -62,6 +62,8 @@
   "solver.js",
   "storage.js",
   "style.css",
+  "switch-cost-worker.js",
+  "switch-cost.js",
   "training-core.js",
   "training-page.js",
   "training-worker.js",

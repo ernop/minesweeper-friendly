@@ -8,6 +8,23 @@ leave new ideas only in chat.
 Status labels: **creator** = the creator asked for it; **mapped** = named
 on the design axis or in a research note, not requested as a build.
 
+## Switching between marking and clicking (creator, 2026-09-28)
+
+The creator asked for a performance stat on switching between marking and
+clicking or chording and for a statistical look first; the study is
+[reference/mode-switch-2026-09-28.md](reference/mode-switch-2026-09-28.md).
+
+- **Switch cost in the stats panel.** Built and released 2026-09-28 on the
+  creator's approval ([Switching](docs/product/trace-metrics-panel.md#switching-creator-request-and-approval-2026-09-28)).
+- **Breakdowns by direction and distance** (mapped). Flag then chord against
+  chord then flag, and one, two, or three or more cells, differ widely in
+  the study; showing them needs its own reliability check per breakdown.
+- **The estimate over time** (mapped). A history of the pooled value across
+  successive 500-game windows, to see whether practice shrinks it.
+- **Standing among other players** (mapped). Alternation relative to chance
+  and speed across 545 replay-corpus players are in the study; the corpus
+  chords with both buttons, so its switch costs do not compare directly.
+
 ## Training toward Expert sub-60 (creator, 2026-09-26)
 
 The plan and the read-only training page are built

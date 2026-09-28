@@ -246,6 +246,7 @@ function saveTrace(record) {
   tx.objectStore(TRACE_STORE).put(stored);
   tx.oncomplete = () => {
     boardMetricSourcesChanged(stored.mode);
+    switchCostSourcesChanged(stored.mode);
     requestArchiveSync();
   };
   tx.onerror = () => storageFailure('trace save failed: ' + tx.error);

@@ -145,3 +145,70 @@ Spec: [docs/product/trace-metrics-panel.md](../product/trace-metrics-panel.md). 
   cadence is shared with the session ending event. Final time is appended to
   the stored sample schedule before dispatch. The spatial-bias fitter uses
   the same exact `trend-fit.js` algorithm as all other trend lines.
+
+## Switching section (2026-09-28)
+
+Spec: [Switching](../product/trace-metrics-panel.md#switching-creator-request-and-approval-2026-09-28).
+
+- `switch-cost.js` (pure; the page loads it for `SwitchCost.KEYS`,
+  `WINDOW_GAMES`, and `MIN_GAMES`; the worker and Node tests run it):
+  - `gameRows(trace, outcome, board, deps)` replays the game with
+    `deps.training.replay` (TrainingCore) and its `beforeInput` hook, which
+    records progress and the single-number offers (chordable numbers,
+    proven-safe cells, proven mines) before every input. Each left release is
+    paired with its latest left press, in `TrainingCore.boardInputs` order;
+    rows are consecutive move pairs timed press to press within 40-5,000 ms.
+    Distance is between the two press positions when the layout rect is the
+    same at both presses, else between cell centres; the cell size comes from
+    the last layout event with the eighth-of-a-cell bevel.
+  - `window(candidates, gameOf)` walks newest first to 500 games with a
+    transition, loading no candidate past the window (`gameOf` may be async).
+  - `fit(games)` builds P1's 20 columns in the study's order. Each spline
+    uses the natural cubic basis x, d_k - d_{K-1} (ESL 5.4-5.5), which spans
+    patsy's `cr` space less the constant the game intercepts absorb. It
+    demeans by game, solves by Householder QR in column order (a column that
+    earlier ones already span is left out, as the study's fit did), and
+    returns beta, the CR1 standard error by game with the study's correction
+    g/(g-1) x (n-1)/(n-p), the percentage and its 95% interval, ms at the
+    median switch interval, and the switch share. Under `MIN_GAMES` (30) the
+    status is `too-few-games`; unidentifiable data give `not-measurable`.
+  - `knots` places patsy's knots on distinct values within `KNOT_TOLERANCE`
+    (1e-9): with exact distinct doubles, last-bit differences between numpy's
+    and V8's `log2`/`hypot` moved the Fitts knots (1.46084/1.94262 against
+    1.46115/1.92487 on the same 25,970 rows) and the estimate by 0.012
+    points. Percentiles reproduce numpy's two-sided linear interpolation.
+- `training-core.js`: replay steps carry `opened` and `openedZeros` (cells
+  the input opened, empty ones among them); `beforeInput(event, view)` sees
+  the visible board before each input and its return value becomes
+  `step.before`; `boardInputs` is exported.
+- `switch-cost-worker.js` is `analysisTask`'s `switch-cost` lane
+  (`startAnalysisWorker` in `analysis-client.js`; one task kind, `estimate`).
+  It opens the database with the page's name and version as
+  `training-worker.js` does, reads each trace in its own transaction, keeps
+  every saved game's rows for the page's lifetime, and does not remember a
+  missing trace (a just-finished game's trace may not be committed when an
+  earlier request lists it). `solver.js` needs `justice.js` loaded first.
+- `game/metrics-panel.js`, section "SWITCH COST": `SWITCH_COST_GROUP` (labels,
+  help, formatting with a true minus sign), `buildSwitchCostSection` (built
+  once with the panel; rows keep identity and only their text changes),
+  `switchCostCandidates` (the three keys' records, newest first),
+  `refreshSwitchCost` (one request in flight, one rerun queued; failures
+  through `analysisFailure`), `switchCostSourcesChanged` (called when
+  `saveTrace` completes). `init` calls `refreshSwitchCost` after startup.
+- Verification: `tests/switch-cost-test.js` (known-answer transitions from a
+  hand-built game, numpy knots, the fit against `tests/switch-cost-reference.json`
+  within 1e-9, coverage of the fixture's planted effect, window rules);
+  `tests/training-core-test.js` (the replay additions);
+  `tests/switch-cost-browser-check.js` (the worker's fit from IndexedDB equals
+  Node's within 1e-12, rendered rows, a refresh after a finished game,
+  collapse; request routing under 8099, no server; an optional third argument
+  saves a panel screenshot). After a fixture or estimator change, regenerate
+  the reference: `node tests/switch-cost-fixture.js ROWS.jsonl` then
+  `python analysis/switch-cost/reference.py ROWS.jsonl tests/switch-cost-reference.json`.
+- Real-data parity (2026-09-28, the study's latest 500 standard games,
+  25,970 transitions, the same window by end time as by start time): in-game
+  +7.383% (+6.371 to +8.405), 17.9 ms per switch, 53.62% of moves switching;
+  `analysis/switch-cost/reference.py` on the same rows agrees to 4e-13; the
+  study's own run with exact-double knots gave +7.382% (+6.370 to +8.405).
+  Node timing on this machine: rows for all 3,220 traces 0.52 s, the fit
+  0.06 s.

@@ -91,4 +91,5 @@ async function init() {
   document.documentElement.classList.remove('game-booting');
   // After startup, so catching up on older data never delays the first board.
   loadArchive(renderArchiveChip);
+  refreshSwitchCost();
 }

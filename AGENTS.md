@@ -17,7 +17,10 @@ Runtime: `index.html` + `style.css` load `storage.js`; pure `rng.js` /
 `endgame.js` / `solver.js` / `generators.js` / `pregen.js` / `odds.js` /
 `trial.js`; shared `game-data.js` / `board-icons.js` / `settings-core.js` / `preferences-game.js`;
 `analysis-client.js` (named worker queues in `analysis-worker.js`, using
-`trend-fit.js` for exact slope selection); then the game page's own scripts in `game/` (below). No dependencies, no
+`trend-fit.js` for exact slope selection; its switch-cost lane runs
+`switch-cost-worker.js`, which reads saved traces and runs the pure
+`switch-cost.js` with `training-core.js`, `justice.js`, `solver.js`, and
+`rng.js`); pure `switch-cost.js` (the page reads its constants); then the game page's own scripts in `game/` (below). No dependencies, no
 build step. The settings page is
 `settings.html` + `settings-page.js`, loading the same `style.css`,
 `storage.js`, `generators.js`, `game-data.js`, and `settings-core.js` (both
@@ -87,7 +90,7 @@ Files, in load order:
 | `music.js` | music state sampling |
 | `trace-metrics.js` | trace metrics, pure (all measurement systems) |
 | `metric-definitions.js` | shared metric display catalog and series projection (pure, also loaded in workers) |
-| `metrics-panel.js` | left stats panel: session heading, live rows, motion charts, scheduling |
+| `metrics-panel.js` | left stats panel: session heading, live rows, switching section, motion charts, scheduling |
 | `session-stats.js` | session series computation, event recording, startup backfill |
 | `session-charts.js` | the one session picker, session controls and charts |
 | `player-states.js` | player state tags and their menu |

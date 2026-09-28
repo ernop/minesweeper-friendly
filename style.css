@@ -3410,6 +3410,11 @@ body.vigilance-running #self-check-header {
   color: #000000;
 }
 
+/* A switching value with its interval stays on its label's line. */
+#metrics-panel .switch-cost-row .metric-value {
+  white-space: nowrap;
+}
+
 /* When tucked away via its own toggler, the panel shrinks to a small
    restore chip in the same corner. */
 #metrics-panel.collapsed {

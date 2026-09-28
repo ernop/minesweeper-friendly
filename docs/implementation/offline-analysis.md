@@ -24,3 +24,8 @@ Spec: [docs/product/measurement.md](../product/measurement.md). Index: [AGENTS.m
   `analysis/history/NOTES.md`. History exports dropped into the repo root
   are ignored by name pattern (personal data; also served by the local
   origin).
+- `analysis/switch-cost/reference.py` (numpy, pandas, patsy; see
+  `analysis/switch-cost/NOTES.md`) is the independent reference for the
+  stats panel's switch cost ([Switching](../product/trace-metrics-panel.md#switching-creator-request-and-approval-2026-09-28)):
+  the study's model P1 over transitions as `switch-cost.js` emits them.
+  `tests/switch-cost-reference.json` is its output on the synthetic fixture.

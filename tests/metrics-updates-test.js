@@ -39,6 +39,8 @@ const context = vm.createContext({
   clearTimeout: (id) => timeouts.delete(id),
   setInterval: () => { throw new Error('Metrics must not install a repeating refresh'); },
   SESSION_STEP_MS: 10000,
+  // index.html loads switch-cost.js before the game scripts.
+  SwitchCost: require('../switch-cost.js'),
 });
 vm.runInContext(source.slice(drawStart, drawEnd), context);
 vm.runInContext(source.slice(start, end), context);
