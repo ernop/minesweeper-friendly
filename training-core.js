@@ -86,7 +86,12 @@ function trainingBoardInputs(trace) {
     && (event.kind === 'lup' || (event.kind === 'rdown' && event.chordGesture !== true)));
 }
 
-function trainingReplay(trace, outcome, board, deps) {
+// Each step records the cells its input opened (`opened`, of them `openedZeros`
+// empty ones). `beforeInput(event, view)`, when given, sees the visible board
+// just before each input (view: revealed, flagged, adjacent, around,
+// revealedCount, safeCount; read-only) and its return value is kept as that
+// step's `before`.
+function trainingReplay(trace, outcome, board, deps, beforeInput) {
   const inputs = trainingBoardInputs(trace);
   const firstRevealIndex = trainingFirstRevealIndex(inputs);
   if (firstRevealIndex === null) return { status: 'no-reveal' };
@@ -108,6 +113,8 @@ function trainingReplay(trace, outcome, board, deps) {
   let startedAtT = null;
   let previousT = null;
 
+  let opened = 0;
+  let openedZeros = 0;
   function open(start) {
     const stack = [start];
     while (stack.length > 0) {
@@ -115,20 +122,27 @@ function trainingReplay(trace, outcome, board, deps) {
       if (revealed[index] || flagged[index]) continue;
       revealed[index] = 1;
       revealedCount++;
+      opened++;
       if (mine[index]) {
         exploded = true;
         continue;
       }
       if (adjacent[index] === 0) {
+        openedZeros++;
         for (const neighbor of around[index]) if (!revealed[neighbor]) stack.push(neighbor);
       }
     }
   }
 
+  const safeCount = cellCount - board.mines;
   for (const event of inputs) {
     if (exploded) return { status: 'diverged' };
     const index = event.index;
     const gapMs = startedAtT === null ? null : event.t - previousT;
+    const before = beforeInput === undefined ? undefined
+      : beforeInput(event, { revealed, flagged, adjacent, around, revealedCount, safeCount });
+    opened = 0;
+    openedZeros = 0;
     let kind;
     let episode = null;
     if (event.kind === 'lup' && event.chordGesture === true && !revealed[index]) {
@@ -176,10 +190,10 @@ function trainingReplay(trace, outcome, board, deps) {
       standingFlag[index] = episode;
       flagEpisodes.push(episode);
     }
-    steps.push({ kind, gapMs, t: event.t, index });
+    steps.push({ kind, gapMs, t: event.t, index, opened, openedZeros, ...(before === undefined ? {} : { before }) });
     if (startedAtT !== null) previousT = event.t;
   }
-  const won = !exploded && revealedCount === cellCount - board.mines;
+  const won = !exploded && revealedCount === safeCount;
   if (outcome === 'win' ? !won : !exploded) return { status: 'diverged' };
   return { status: 'replayed', outcome, steps, flagEpisodes, playedMs: previousT - startedAtT };
 }
@@ -690,6 +704,7 @@ const TrainingCore = {
   INPUT_KINDS: TRAINING_INPUT_KINDS,
   STAGES: TRAINING_STAGES,
   AVOIDABLE_FATAL_KINDS: TRAINING_AVOIDABLE_FATAL_KINDS,
+  boardInputs: trainingBoardInputs,
   replay: trainingReplay,
   winBreakdown: trainingWinBreakdown,
   timeBudget: trainingTimeBudget,

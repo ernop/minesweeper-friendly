@@ -100,6 +100,20 @@ console.log('replay: every input kind on a hand-built win');
   check('removable inputs', breakdown.removableCount === 8);
   check('removable time', breakdown.removableMs === 300 * 7 + 300);
   check('chord kinds counted', breakdown.byKind['chord-multi'].count === 1 && breakdown.byKind['chord-single'].count === 1);
+  check('each step records the cells it opened: ' + replay.steps.map((s) => s.opened).join(','),
+    JSON.stringify(replay.steps.map((s) => s.opened)) === JSON.stringify([12, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 1, 0, 1]));
+  check('and how many of them were empty', replay.steps[0].openedZeros === 6
+    && replay.steps.slice(1).every((s) => s.openedZeros === 0));
+  const seen = [];
+  const observed = TrainingCore.replay(trace(events, { finalBoard: finalBoard(mines) }), 'win', board, deps,
+    (event, view) => {
+      seen.push({ index: event.index, revealed: view.revealedCount, flagged: view.flagged.reduce((a, b) => a + b, 0) });
+      return view.revealed[event.index] === 1;
+    });
+  check('beforeInput sees the board before each input', JSON.stringify(seen.slice(0, 6).map((s) => [s.revealed, s.flagged]))
+    === JSON.stringify([[0, 0], [12, 0], [12, 0], [12, 1], [12, 2], [15, 2]]) && observed.steps[0].before === false
+    && observed.steps[1].before === true);
+  check('without beforeInput steps carry no before', replay.steps.every((s) => !('before' in s)));
 }
 
 console.log('replay: both-button chords and the 1.5 click');
