@@ -37,6 +37,14 @@ Index: [AGENTS.md](../../AGENTS.md).
   for a drawn frame, and a tab Cursor is not showing draws none (2026-10-07
   findings, local patch, and stock recipe:
   `~/proj/mybrowser/config/cursor-browser-screenshots.md`).
+- Looking at the player's live page on 8018 without writing to it: do not
+  scroll it. A scroll saves the page offset to `settings.viewPosition`
+  after 150 ms (`flushViewPosition` in `preferences-game.js`). To see the
+  whole page, read `document.documentElement.outerHTML` (read-only), strip
+  the `<script>` elements, add `<base href="http://127.0.0.1:8018/">`, and
+  render the file in Playwright's Chromium with a full-page screenshot.
+  Charts are inline SVG, so they survive; `<select>` choices and checkbox
+  states do not, and mockups can edit that copy freely.
 - Running game code without a browser: load the `game/` scripts, in
   `index.html` order, in Node via `vm.runInThisContext`, not `eval` (each
   file's 'use strict' makes eval declarations local, so nothing would be

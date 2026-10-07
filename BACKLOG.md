@@ -8,6 +8,65 @@ leave new ideas only in chat.
 Status labels: **creator** = the creator asked for it; **mapped** = named
 on the design axis or in a research note, not requested as a build.
 
+## After-game self-evaluation review (creator request 2026-10-07; proposals not decided)
+
+The creator asked to rethink the after-game view around its questions: how
+well did I just do, how am I playing and feeling this session, how did this
+game go, how does the screen look, and what do the colors mean. Cutting is
+allowed when done consciously; the review itself changes no code. Observed
+on a 40.270 s Intermediate win in the Cursor browser's profile (13
+Intermediate games, 5 wins), compact layout at 1154 px wide.
+
+Findings:
+
+- The page is 10,238 px tall, about 11 screens. Its 98 charts take about 88%
+  of that height: 20 your perf, 9 board traits, 8 relationships, 61 motion
+  diagnostics. With 5 wins each history chart has about five dots.
+- In the compact layout the outcome line and the game-data band exist only
+  inside the Game details popover, so the page states the time only in table
+  rows and the timer.
+- No element states a verdict. The time ranked 3rd of 5, while 3BV/s, path
+  per 3BV, and flags no multi-cell chord used were each the worst of 5, and
+  the board's 3BV was 6th lowest of 13. The page shows these as separate
+  ranks and leaves the conclusion to the player.
+- Small pools give extreme colors: with 2 session wins every session marker
+  sits at 0% or 100%, so a mid-lifetime game shows red "time (session)" and
+  "time (day)" markers and a brown "Last place" row.
+- Six color codes share the screen: board numbers, rank tints and podium,
+  age units, chart dots and trend lines, the band gradient, and the session
+  panel's ending markers. Green means "minutes old" on dots and ages but
+  "better" in tints and the band; red means "days old", "worse", a board 3,
+  or an avoidable mistake. Nothing on screen keys the table or dot colors.
+- One concept, standing within a pool, uses two scales: rank-table tints run
+  green, cool gray, brown, while the band (and the UI doctrine's performance
+  gradient) runs green, blue, red.
+- Seven of nine This-board tables and "past 5 min" held one row ("#1 of 1,
+  Only result"). "max number 4" and "max 4" listed the same games, as the
+  nested max-N rule allows when no board has a 5.
+- The session's three games (a 3.1 s loss, the 28.846 s lifetime best, this
+  win) appear nowhere as a sequence; the picker read "last hour".
+
+Proposals (mocked up on a script-free copy of the live page, not decided):
+
+1. A verdict block under the board in every layout, one line per row:
+   Result (time, lifetime rank, gap to best), Pace (3BV/s, path per 3BV,
+   efficiency, each with its rank), Board (3BV and zero-opening coverage
+   ranks), Training (flags no multi-cell chord used against the stage 1
+   target), Session (the window's games in order).
+2. A one-line key for table colors above the tables: tint scale, podium,
+   this-game edge, age units.
+3. One standing scale everywhere: the band's green/blue/red or the tables'
+   green/gray/brown.
+4. Data-sufficiency thresholds: show a history chart once its pool has
+   enough games (the mock used 10 wins) and say so in one line; omit
+   one-row "Only result" tables; fold motion diagnostics behind one button.
+   The mock page was 1,271 px instead of 10,238.
+5. Small-pool wording on the band: "2 of 2" instead of a red 100%, or a
+   minimum pool size per marker.
+
+Keep: the classic board, the compact rank rows (rank, time, colored age),
+the "this" marker, and the band as the detailed layer.
+
 ## Switching between marking and clicking (creator, 2026-09-28)
 
 The creator asked for a performance stat on switching between marking and
