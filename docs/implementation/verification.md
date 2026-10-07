@@ -45,6 +45,15 @@ Index: [AGENTS.md](../../AGENTS.md).
   render the file in Playwright's Chromium with a full-page screenshot.
   Charts are inline SVG, so they survive; `<select>` choices and checkbox
   states do not, and mockups can edit that copy freely.
+- Mocking the result screen with real history (used 2026-10-07): open
+  `http://127.0.0.1:8099/` in a Playwright Firefox persistent profile under
+  `/tmp` at the player's viewport, call `importPreferences` with the
+  creator's exported preferences (`viewPosition` zeroed) and `importHistory`
+  with their history export, reload until the game count matches, then play
+  one game by clicking known-safe cells (`cells[i].mine` is false). Reopening
+  the same profile restores that result view, so each mock run injects its
+  CSS and DOM changes with `page.evaluate` and screenshots the first screen.
+  One Firefox process at a time can hold the profile; parallel launches fail.
 - Running game code without a browser: load the `game/` scripts, in
   `index.html` order, in Node via `vm.runInThisContext`, not `eval` (each
   file's 'use strict' makes eval declarations local, so nothing would be

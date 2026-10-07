@@ -14,6 +14,9 @@ because they apply app-wide, not just where each was first stated.
   spacing, and restrained color to establish hierarchy instead of relying
   on bolding. Performance gradients use light green for stronger standings,
   light blue around the middle, and light red for weaker standings.
+  Pending (2026-10-07): the creator asked for light blue to mark the
+  just-completed game in rank tables; if adopted, standing gradients lose the
+  blue middle ([Rank highlights](rankings.md#rank-highlights-approved-and-built-2026-09-21)).
 - Contrast, hierarchy, and width (user rules, recorded 2026-09-23): neutral
   text is pure black on light backgrounds and pure white on dark ones. No
   gray labels, gray placeholders, or opacity-dimmed text; secondary hierarchy

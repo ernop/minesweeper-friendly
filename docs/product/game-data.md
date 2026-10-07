@@ -68,6 +68,22 @@ and the chart ran below the screen. Geometry now:
   and disabled buttons (no gray or opacity dimming). Regular-weight Arial:
   "game data" 16px, side headings 14px, labels 12px.
 
+Requested directions (creator review 2026-10-07, not built; the built
+behavior above stays until implemented). The creator: "game-data band is
+nice". Directions given:
+
+- Labels perhaps need no color; the bar keeps its color.
+- Label placement and the sub-data, the percentile and the measured value,
+  could be split out and made legible.
+- A mouseover could show the item within its distribution, or a toggle could
+  show all of the distributions.
+- The band is logically related to the property minicharts (board traits and
+  your perf) and "this linkage should be very tight and clear".
+
+The round-2 mockup of these directions, and the conflict between light blue
+for "this game" and the band's light-blue middle, are in BACKLOG.md
+"After-game self-evaluation review".
+
 The user intends game data to supersede many other result elements. Label
 wording and placement beside the board were settled on 2026-09-23 (above).
 Which elements it replaces is deferred ("later"); BACKLOG.md "Game data as

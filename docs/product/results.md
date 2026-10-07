@@ -64,3 +64,26 @@ own average / distribution / winrate control (creator decision 2026-09-23;
 [Point charts](charts.md)). Calendar, day-category, and streak leaderboards
 stay the time-placement collection above them. This board's exact-value
 tables stay pagetables and still precede both chart groups.
+
+## The first screen carries the result (creator direction 2026-10-07)
+
+What a player sees without scrolling matters almost exclusively, "perhaps,
+80% weight". The creator's description of play: players "play the game for
+a while, win/lose, review the screen they see without scrolling, then go to
+next game. only rarely will they go down!" Result-view decisions are judged
+first by the first screen at the player's real viewport (the creator's PC:
+2560 x 970 browser viewport, wide layout); the scrolled sections serve the
+occasional deeper look.
+
+Session summary (requested 2026-10-07, not built). The result screen gets
+a session summary: games, wins, and win rate for each board type played in
+the session, together with the information of "ranks won in session". The
+table form of ranks won in session stays (the creator: "I really like the
+table version of 'ranks won in session' so you'd better keep that"). It
+follows the one page-wide session and says only "session"
+([One session definition](game-data.md#one-session-definition)). Placement
+and the remaining design are open; the round-2 mockup and its questions are
+in BACKLOG.md "After-game self-evaluation review".
+
+Rejected 2026-10-07: the verdict rows of the first review mockup (Result,
+Pace, Board, and Training lines under the board): "not a super fan really."

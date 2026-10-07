@@ -133,6 +133,23 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
 - This changes presentation only. Ranking order, source-window selection,
   top-tenth eligibility, and duplicate collapsing are unchanged.
 
+Requested 2026-10-07, not built (creator review of the after-game view; the
+built behavior above stays until this is implemented):
+
+- Standing colors become "green good red bad", chosen over "green good,
+  faded green bad", and replace gold, silver, and bronze.
+- Light blue marks the just-completed game's row, "so you can always see
+  'this' just-completed run".
+- No double indication: the dark-blue left edge goes. The current row keeps
+  only its color and the word "this".
+- The relative-age colors stay as they are ("the age colorations to me seem
+  fine").
+- Open: whether the current row's rank number also carries its standing
+  color inside the light-blue row (the round-2 mockup does), and the exact
+  green-to-red tones. Light blue meaning "this game" conflicts with the blue
+  middle of the game-data band and of the UI doctrine's performance gradient;
+  see BACKLOG.md "After-game self-evaluation review".
+
 ## Recent placements (requested and decided 2026-08-23; charts and the lifetime near-miss rule extended later the same day)
 
 - One summary block, "ranks won in session", leading the below-board chart

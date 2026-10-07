@@ -67,6 +67,62 @@ Proposals (mocked up on a script-free copy of the live page, not decided):
 Keep: the classic board, the compact rank rows (rank, time, colored age),
 the "this" marker, and the band as the detailed layer.
 
+Creator responses (2026-10-07, afternoon). The first screen carries about
+80% of the weight, because players rarely scroll
+([The first screen carries the result](docs/product/results.md#the-first-screen-carries-the-result-creator-direction-2026-10-07)).
+Proposal 1's verdict rows are rejected; its session summary is wanted, with
+game counts, wins, and win rate by type plus ranks won in session, whose
+table form stays. Rank colors become green good, red bad, light blue for
+the just-completed game, no dark-blue edge
+([Rank highlights](docs/product/rankings.md#rank-highlights-approved-and-built-2026-09-21)).
+Band directions are in [game data](docs/product/game-data.md). Age colors
+stay.
+
+Round 2 (mocked on 8099 with the creator's production history, 7,436 games,
+at the real 2560 x 970 viewport; Beginner win 8.971 s; not decided):
+
+- Finding: in the wide layout the board sits at the right of the main column,
+  so the first screen has an empty area of about 1,000 x 330 px left of it
+  (Beginner; about 830 px wide on Intermediate, about 400 px on Expert). The
+  tables start under the board.
+- Session block in that area: a "session" table (board, games, wins, win
+  rate, best time, that time's lifetime rank, an "all" row) beside the kept
+  ranks-won table. The time and streak tables then move down about 70 px and
+  all nine still fit on the first screen; This board's heading stays at the
+  fold. Where the area is too narrow (Expert), the block would lead the table
+  collection under the board. Conflict to decide: the always-applied rule
+  `.cursor/rules/result-table-before-charts.mdc` forbids extracting the
+  time-period summary into a separate section; the block keeps ranks won
+  first in DOM order but puts it beside the board.
+- Rank tables: standing tones from strong green (top 1%) through light gray
+  (middle) to red (last); the current row light blue with "this"; its rank
+  number keeps its standing tone; no edge, no podium. In ranks won only the
+  rank chips carry tones; the full-row tint goes.
+- Band: black, uncolored labels in aligned columns (your perf: name, value,
+  session %, lifetime %; board traits: boards %, name, value); the bar runs
+  green, white, red with deciles printed inside it; one row per measurement
+  instead of separate lifetime and session labels (18 labels become 9 on the
+  left). The "day" time comparison leaves the rows for the hover card because
+  the 614 px column cannot fit a third percentage column; that cut needs the
+  creator's decision. A "points: lifetime | session" switch picks which pool
+  the dots show.
+- Hover card over a band row opens across the bar: this game's ranks in each
+  pool, a histogram of the pool colored by standing, a blue line for this
+  game, ticks for the session's games, and a link to the matching chart,
+  which is outlined while hovering.
+- "show distributions" switches the band to one line per measurement: name,
+  value, a strip histogram with the same marks, and the percentage.
+- Chart titles in your perf and board traits carry the band's numbers, e.g.
+  "time by 3BV/s · this 1.784 · 55%", tinted by standing.
+- Naming mismatch found: one board measurement has up to three names: band
+  "MN 4", This board "max number 4", chart "time by max number"; "ZOC
+  81.69%" against "zero-opening coverage 82%"; "islands 8" against "8
+  islands". This board's "3BV spread 3.5 cells" names the rounded group while
+  the band shows the exact 3.4 cells, which reads as two values for one fact.
+  Tight linkage needs one name and a visible group range.
+- Charts mark this game with the age palette's seconds green dot, while the
+  tables would mark it light blue; open whether charts follow.
+
 ## Switching between marking and clicking (creator, 2026-09-28)
 
 The creator asked for a performance stat on switching between marking and
