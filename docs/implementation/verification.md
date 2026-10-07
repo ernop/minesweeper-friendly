@@ -33,7 +33,10 @@ Index: [AGENTS.md](../../AGENTS.md).
   puppeteer-core` plus that executablePath. The Cursor IDE browser (MCP
   server `cursor-ide-browser`) also works when registered, but it exists
   only while an IDE browser tab is open and can disappear mid-session,
-  so check availability before planning around it.
+  so check availability before planning around it. Its screenshots wait
+  for a drawn frame, and a tab Cursor is not showing draws none (2026-10-07
+  findings, local patch, and stock recipe:
+  `~/proj/mybrowser/config/cursor-browser-screenshots.md`).
 - Running game code without a browser: load the `game/` scripts, in
   `index.html` order, in Node via `vm.runInThisContext`, not `eval` (each
   file's 'use strict' makes eval declarations local, so nothing would be
