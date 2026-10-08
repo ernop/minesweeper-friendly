@@ -57,8 +57,8 @@ report.
     rises with playing speed; the share is dimensionless and answers "of
     the marking work done, how much was pointless" directly, and a
     markless win stays unmeasured (0 of 0) rather than counting as
-    perfect. It draws on the endings chart as "percent of placed marks
-    unused when winning" beside the unmarked-mines-at-win line; the /m
+    perfect. It draws on the endings chart as "percent of placed flags
+    unused when winning" beside the unflagged-mines-at-win line; the /m
     and /game rate views remain as time and volume companions, and the
     game record shows the count with its share ("2 of 14 placed (14%)").
 - **Needless guess** has one precise meaning: the player revealed an
@@ -228,10 +228,11 @@ report.
   their lines directly (2026-08-23, evening), because cumulative-share
   lines converge and stack at identical values, leaving no honest room
   for on-chart names.
-- The same chart carries the **percent of mines unmarked when winning**
+- The same chart carries the **percent of mines unflagged when winning**
   line
   (2026-08-23, evening; renamed from "win-with-unmarked-mines" minutes
-  later — that read like a share of wins, not a share of mines), a
+  later — that read like a share of wins, not a share of mines; "unmarked"
+  became "unflagged" on 2026-10-07), a
   different quantity on the same percent axis,
   drawn dotted: across the window's wins so far, the average share of
   the board's mines carrying no flag at the instant of winning

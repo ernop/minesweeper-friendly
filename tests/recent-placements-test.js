@@ -21,6 +21,7 @@ vm.runInThisContext(section('//-------RECENT PLACEMENTS: COMPUTATION', '//------
 vm.runInThisContext(section('//-------RANK WINDOWS AND AGES', '//-------DAY CATEGORIES'));
 vm.runInThisContext(section('//-------DAY CATEGORIES', '//-------RECENT PLACEMENTS: COMPUTATION'));
 vm.runInThisContext(section('//-------GAME DATA RANKING', '//-------GAME DATA CHART'));
+vm.runInThisContext(section('//-------SESSION SUMMARY: COMPUTATION', '//-------SESSION SUMMARY: DISPLAY'));
 
 let checks = 0;
 function assertEq(name, actual, want) {
@@ -35,15 +36,18 @@ function assertEq(name, actual, want) {
     { outcome: 'loss', endedAt: 2, bv3: 60, zeroCount: 50 }, current];
   const comparisons = [...boardMetricCandidates([current], past),
     ...boardShapeCandidates([current], past)];
-  const rows = boardTraitRankProfile(current, comparisons, past);
-  const workload = rows.find((r) => r.trait === '3BV');
-  const zeros = rows.find((r) => r.trait === 'zeros');
+  const rows = boardTraitRankProfile(current, comparisons, past, 'today');
+  const workload = rows.find((r) => r.metricId === 'bv3');
+  const zeros = rows.find((r) => r.metricId === 'zeroCount');
   assertEq('lower 3BV preferred', workload.rank, 3);
   assertEq('higher zero count preferred', zeros.rank, 1);
   assertEq('trait values compare all measured boards including losses', workload.total, 3);
   assertEq('trait measured value stays visible', workload.valueText, '75');
   assertEq('the best board in the pool is 0%', zeros.percentile, 0);
   assertEq('the worst board in the pool is 100%', workload.percentile, 100);
+  assertEq('a board trait has the same name as its table and chart', workload.name, '3BV');
+  assertEq('board traits count boards', workload.counted, 'boards');
+  assertEq('board trait distributions carry the session boards', workload.sessionValues.length, 3);
   const low = { outcome: 'win', endedAt: 1, maxAdjacent: 2, largestIsland: 3, islandCount: 12,
     boardMetrics: { version: 1, safeCells: 100, zeroOpenedCells: 20, zeroOpenedZeroOneCells: 10 } };
   const mid = { outcome: 'win', endedAt: 2, maxAdjacent: 5, largestIsland: 8, islandCount: 6,
@@ -52,23 +56,26 @@ function assertEq(name, actual, want) {
     boardMetrics: { version: 1, safeCells: 100, zeroOpenedCells: 90, zeroOpenedZeroOneCells: 80 } };
   const pool = [low, mid, high];
   const preferred = (record) => boardTraitRankProfile(record,
-    [...boardMetricCandidates([record], pool), ...boardShapeCandidates([record], pool)], pool);
+    [...boardMetricCandidates([record], pool), ...boardShapeCandidates([record], pool)], pool, 'today');
   const highRows = preferred(high);
   const lateLow = { ...low, endedAt: 4 };
   const worstRows = boardTraitRankProfile(lateLow,
     [...boardMetricCandidates([lateLow], [mid, high, lateLow]),
       ...boardShapeCandidates([lateLow], [mid, high, lateLow])],
-    [mid, high, lateLow]);
-  assertEq('higher MN is the preferred end', highRows.find((r) => r.trait === 'MN').percentile, 0);
-  assertEq('lower MN is the worst end', worstRows.find((r) => r.trait === 'MN').percentile, 100);
-  assertEq('higher ZOC is the preferred end', highRows.find((r) => r.trait === 'ZOC').percentile, 0);
-  assertEq('lower ZOC is the worst end', worstRows.find((r) => r.trait === 'ZOC').percentile, 100);
-  assertEq('higher largest island is the preferred end',
-    highRows.find((r) => r.trait === 'largest island').percentile, 0);
-  assertEq('fewer islands stay preferred', highRows.find((r) => r.trait === 'islands').percentile, 0);
-  assertEq('higher 0–1 share stays preferred', highRows.find((r) => r.trait === '0–1 share').percentile, 0);
-  assertEq('single board has no comparison rows', boardTraitRankProfile(current, comparisons, [current]).length, 0);
-  assertEq('no board profile for a loss', boardTraitRankProfile({ ...current, outcome: 'loss' }, comparisons, past).length, 0);
+    [mid, high, lateLow], 'today');
+  const of = (list, id) => list.find((r) => r.metricId === id);
+  assertEq('higher max number is the preferred end', of(highRows, 'maxAdjacent').percentile, 0);
+  assertEq('lower max number is the worst end', of(worstRows, 'maxAdjacent').percentile, 100);
+  assertEq('max number keeps its full name', of(highRows, 'maxAdjacent').name, 'max number');
+  assertEq('higher zero-opening coverage is the preferred end', of(highRows, 'zeroOpeningCoverage').percentile, 0);
+  assertEq('lower zero-opening coverage is the worst end', of(worstRows, 'zeroOpeningCoverage').percentile, 100);
+  assertEq('zero-opening coverage keeps its full name', of(highRows, 'zeroOpeningCoverage').name, 'zero-opening coverage');
+  assertEq('higher largest island is the preferred end', of(highRows, 'largestIsland').percentile, 0);
+  assertEq('fewer islands stay preferred', of(highRows, 'islandCount').percentile, 0);
+  assertEq('higher 0–1 share stays preferred', of(highRows, 'zeroOneShare').percentile, 0);
+  assertEq('a share axis labels values as shares', of(highRows, 'zeroOneShare').distribution.labels[0].text, '10%');
+  assertEq('single board has no comparison rows', boardTraitRankProfile(current, comparisons, [current], 'today').length, 0);
+  assertEq('no board profile for a loss', boardTraitRankProfile({ ...current, outcome: 'loss' }, comparisons, past, 'today').length, 0);
 }
 
 // Visible board measurements are independent of rounded comparison buckets.
@@ -79,13 +86,16 @@ function assertEq(name, actual, want) {
       zeroOpenedZeroOneCells: 604, zeroOpenedCells: 694 } };
   const candidates = boardMetricCandidates([record], [record]);
   const spread = candidates.find((r) => r.trait === '3BV spread');
-  assertEq('spread cohort stays rounded to half a cell', spread.label, '3BV spread 6.5 cells');
-  assertEq('spread label displays the measurement', spread.valueText(record), '6.4 cells');
-  const coverage = candidates.find((r) => r.trait === 'ZOC');
+  assertEq('a spread table names its half-cell group range', spread.label, '3BV spread 6.25–6.75 cells');
+  assertEq('spread label displays the measurement', spread.format(spread.rawValue(record)), '6.4 cells');
+  const coverage = candidates.find((r) => r.trait === 'zero-opening coverage');
   assertEq('coverage cohort stays a whole percentage', coverage.label, 'zero-opening coverage 69%');
-  assertEq('coverage label displays the measured share', coverage.valueText(record), '69.4%');
-  assertEq('shape label displays its actual count', boardShapeCandidates([record], [record])
-    .find((r) => r.trait === 'zeros').valueText(record), '59');
+  assertEq('coverage label displays the measured share', coverage.format(coverage.rawValue(record)), '69.4%');
+  const zeros = boardShapeCandidates([record], [record]).find((r) => r.trait === 'zeros');
+  assertEq('shape label displays its actual count', zeros.format(zeros.rawValue(record)), '59');
+  const capped = { ...record, maxAdjacent: 3 };
+  assertEq('a max number cap names the measurement', boardShapeCandidates([capped], [capped])
+    .filter((r) => r.id.startsWith('max-')).map((r) => r.label).join(', '), 'max number ≤ 4, max number ≤ 3');
 }
 
 {
@@ -96,17 +106,6 @@ function assertEq(name, actual, want) {
   assertEq('bottom trait cluster stays on scale', layout([100, 100, 100]).map((r) => r.labelY).join(','), '60,80,100');
   assertEq('separated labels keep exact positions', layout([100, 0, 50]).map((r) => r.labelY).join(','), '0,50,100');
   assertEq('empty comparisons have no labels', layout([]).length, 0);
-}
-
-// The band stays centered while both one-line label columns fit, shifts
-// toward the narrower side when one needs more, and only then shares room.
-{
-  assertEq('band centered when both sides fit', boardTraitBandCenter(600, 185, 110, 30), 300);
-  assertEq('band shifts right for wide performance labels', boardTraitBandCenter(390, 185, 110, 30), 215);
-  assertEq('band shifts left for wide board labels', boardTraitBandCenter(390, 60, 200, 30), 160);
-  assertEq('overfull sides share room by widest label',
-    Math.round(boardTraitBandCenter(260, 185, 110, 30) * 100) / 100, 155.42);
-  assertEq('empty chart keeps the band centered', boardTraitBandCenter(300, 0, 0, 30), 150);
 }
 
 // Ordinals, including the 11th/12th/13th rule and its 111th recurrence.
@@ -128,45 +127,45 @@ assertEq('run then single', formatRankRuns([2, 3, 4, 7]), '2\u20134th, 7th');
 
 // Highlight semantics must agree between full tables and the compact
 // summary, including inclusive lower-tail counts and exact band boundaries.
-for (const [rank, total, band, podium, label] of [
-  [1, 1, 'only', 0, 'Only result'],
-  [1, 2, 'top50', 1, 'Top 50%'],
-  [2, 2, 'last', 2, 'Last place'],
-  [1, 3, 'top50', 1, 'Top 34%'],
-  [2, 3, 'middle', 2, 'Middle place'],
-  [3, 3, 'last', 3, 'Last place'],
-  [2, 5, 'top50', 2, 'Top 40%'],
-  [3, 5, 'middle', 3, 'Middle place'],
-  [4, 5, 'lower50', 0, 'Bottom 40%'],
-  [4, 7, 'middle', 0, 'Middle place'],
-  [51, 101, 'middle', 0, 'Middle place'],
-  [1, 9, 'top25', 1, 'Top 12%'],
-  [1, 91, 'top2', 1, 'Top 2%'],
-  [2, 1000, 'top1', 2, 'Top 0.2%'],
-  [3, 1000, 'top1', 3, 'Top 0.3%'],
-  [10, 1000, 'top1', 0, 'Top 1%'],
-  [11, 1000, 'top2', 0, 'Top 2%'],
-  [20, 1000, 'top2', 0, 'Top 2%'],
-  [21, 1000, 'top5', 0, 'Top 3%'],
-  [50, 1000, 'top5', 0, 'Top 5%'],
-  [51, 1000, 'top10', 0, 'Top 6%'],
-  [100, 1000, 'top10', 0, 'Top 10%'],
-  [101, 1000, 'top25', 0, 'Top 11%'],
-  [250, 1000, 'top25', 0, 'Top 25%'],
-  [251, 1000, 'top50', 0, 'Top 26%'],
-  [500, 1000, 'top50', 0, 'Top 50%'],
-  [501, 1000, 'lower50', 0, 'Bottom 50%'],
-  [900, 1000, 'lower50', 0, 'Bottom 11%'],
-  [901, 1000, 'bottom10', 0, 'Bottom 10%'],
-  [999, 1000, 'bottom10', 0, 'Bottom 0.2%'],
-  [1000, 1000, 'last', 0, 'Last place'],
-  [32, 1080, 'top5', 0, 'Top 3%'],
-  [155, 287, 'lower50', 0, 'Bottom 47%'],
-  [1, 100000, 'top1', 1, 'Top 0.1%'],
+for (const [rank, total, band, label] of [
+  [1, 1, 'only', 'Only result'],
+  [1, 2, 'top50', 'Top 50%'],
+  [2, 2, 'last', 'Last place'],
+  [1, 3, 'top50', 'Top 34%'],
+  [2, 3, 'middle', 'Middle place'],
+  [3, 3, 'last', 'Last place'],
+  [2, 5, 'top50', 'Top 40%'],
+  [3, 5, 'middle', 'Middle place'],
+  [4, 5, 'lower50', 'Bottom 40%'],
+  [4, 7, 'middle', 'Middle place'],
+  [51, 101, 'middle', 'Middle place'],
+  [1, 9, 'top25', 'Top 12%'],
+  [1, 91, 'top2', 'Top 2%'],
+  [2, 1000, 'top1', 'Top 0.2%'],
+  [3, 1000, 'top1', 'Top 0.3%'],
+  [10, 1000, 'top1', 'Top 1%'],
+  [11, 1000, 'top2', 'Top 2%'],
+  [20, 1000, 'top2', 'Top 2%'],
+  [21, 1000, 'top5', 'Top 3%'],
+  [50, 1000, 'top5', 'Top 5%'],
+  [51, 1000, 'top10', 'Top 6%'],
+  [100, 1000, 'top10', 'Top 10%'],
+  [101, 1000, 'top25', 'Top 11%'],
+  [250, 1000, 'top25', 'Top 25%'],
+  [251, 1000, 'top50', 'Top 26%'],
+  [500, 1000, 'top50', 'Top 50%'],
+  [501, 1000, 'lower50', 'Bottom 50%'],
+  [900, 1000, 'lower50', 'Bottom 11%'],
+  [901, 1000, 'bottom10', 'Bottom 10%'],
+  [999, 1000, 'bottom10', 'Bottom 0.2%'],
+  [1000, 1000, 'last', 'Last place'],
+  [32, 1080, 'top5', 'Top 3%'],
+  [155, 287, 'lower50', 'Bottom 47%'],
+  [1, 100000, 'top1', 'Top 0.1%'],
 ]) {
   const standing = rankStanding(rank, total);
   assertEq(rank + '/' + total + ' band', standing.band, band);
-  assertEq(rank + '/' + total + ' podium', standing.podium, podium);
+  assertEq(rank + '/' + total + ' has no podium', 'podium' in standing, false);
   assertEq(rank + '/' + total + ' percentage label', standing.label, label);
 }
 
@@ -176,18 +175,42 @@ assertEq('middle placement wording is shared by the recent summary',
 {
   const ranks = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 20, 21];
   const runs = recentPlacementRuns(ranks, 1000, 7);
-  assertEq('run compression preserves podiums, color bands, and current game',
+  assertEq('run compression preserves color bands and the current game',
     runs.map((run) => run.first + '-' + run.last).join(','),
-    '1-1,2-2,3-3,4-6,7-7,8-10,11-12,20-20,21-21');
+    '1-6,7-7,8-10,11-12,20-20,21-21');
   assertEq('exactly one run identifies the current game',
     runs.filter((run) => run.current).map((run) => run.first).join(','), '7');
-  assertEq('earlier first place keeps its podium color', runs[0].podium, 1);
+  assertEq('an earlier first place takes its band color', runs[0].band, 'top1');
   assertEq('summary percentage range covers every reported rank',
     recentPlacementStanding([1, 2, 3, 10], 1000), 'Top 0.1% \u2013 Top 1%');
   assertEq('same percentage labels are not repeated',
     recentPlacementStanding([11, 20], 1000), 'Top 2%');
-  assertEq('history summary still creates all earlier achievement runs',
-    recentPlacementRuns([1, 2, 3], 1000).length, 3);
+  assertEq('history summary joins earlier achievements of one band',
+    recentPlacementRuns([1, 2, 3], 1000).length, 1);
+}
+
+// Session summary: games and wins per board type in the window, and the
+// session's best time ranked among that type's wins so far.
+{
+  const game = (endedAt, outcome, timeMs) => ({ endedAt, outcome, timeMs });
+  const historyByKey = {
+    '30x16/99@standard': [game(1, 'win', 90000), game(50, 'loss', 1000), game(60, 'win', 95000)],
+    '9x9/10@standard': [game(2, 'win', 5000), game(3, 'win', 4000), game(55, 'win', 4500),
+      game(56, 'loss', 900), game(57, 'win', 4000), game(61, 'win', 100)],
+    '8x8/10@standard': [game(4, 'win', 3000)],
+    '9x9/10@standard+pink-noise(scale=12)': [game(58, 'loss', 700)],
+  };
+  const rows = sessionSummaryRows(historyByKey, 50, 60, ['9x9/10', '16x16/40', '30x16/99']);
+  assertEq('types follow difficulty order, then key order; types without session games are absent',
+    rows.map((row) => row.key).join(' '), '9x9/10@standard 9x9/10@standard+pink-noise(scale=12) 30x16/99@standard');
+  const [beginner, pink, expert] = rows;
+  assertEq('session games and wins, later games excluded', beginner.games + '/' + beginner.wins, '3/2');
+  assertEq('the best is the session’s fastest win', beginner.best.record.endedAt, 57);
+  assertEq('an equal earlier time ranks ahead of the session best', beginner.best.rank + '/' + beginner.best.total, '2/4');
+  assertEq('a type without session wins has no best', pink.best, null);
+  assertEq('window bounds are inclusive', expert.games + '/' + expert.wins, '2/1');
+  assertEq('the lifetime pool ends with the window', expert.best.rank + '/' + expert.best.total, '2/2');
+  assertEq('the latest session game names the type', pink.latest.endedAt, 58);
 }
 
 const HOUR = 3600e3;
@@ -217,11 +240,11 @@ const windowCandidate = (label, specificity, startMs, wins) =>
     'lifetime,past week,past hour');
 
   const shapeKept = dedupeRankCandidates([
-    { label: 'max 4', specificity: 4, wins: [a] },
-    { label: 'max 2', specificity: 2, wins: [a] },
+    { label: 'max number ≤ 4', specificity: 4, wins: [a] },
+    { label: 'max number ≤ 2', specificity: 2, wins: [a] },
   ]);
   assertEq('shape duplicate keeps most specific',
-    shapeKept.map((candidate) => candidate.label).join(','), 'max 2');
+    shapeKept.map((candidate) => candidate.label).join(','), 'max number ≤ 2');
 
   const explicit = dedupeRankCandidates([
     { label: 'broad', dedupePriority: 8, summaryOrder: [0, 10], wins: [a] },
@@ -400,9 +423,9 @@ const windowCandidate = (label, specificity, startMs, wins) =>
   const candidates = recentPlacementCandidates(wins, now, start, false);
   const rows = recentPlacementsSummary(candidates, start, current);
   for (const label of ['3BV 40', '3BV 41', 'ZiNi 30', 'ZiNi 31',
-    'max number 2', 'max number 8', 'has 8', 'has 7',
-    'max 2', 'max 3', 'max 4', '7 islands', '8 islands',
-    'largest island 9', 'largest island 10', '70 zeros', '80 zeros']) {
+    'max number 2', 'max number 8', 'has an 8', 'has a 7',
+    'max number ≤ 2', 'max number ≤ 3', 'max number ≤ 4', 'islands 7', 'islands 8',
+    'largest island 9', 'largest island 10', 'zeros 70', 'zeros 80']) {
     const row = rows.find((candidate) => candidate.label === label);
     assertEq(label + ' represented despite a different latest board', row !== undefined, true);
     assertEq(label + ' compares against full historical pool', row.total, 21);
@@ -416,14 +439,14 @@ const windowCandidate = (label, specificity, startMs, wins) =>
   assertEq('exact-value shapes have distinct identities',
     new Set(shapes.map((candidate) => candidate.id)).size, shapes.length);
   assertEq('full tablecharts remain specific to current board',
-    boardShapeCandidates([current], wins).some((candidate) => candidate.label === 'has 8'), false);
+    boardShapeCandidates([current], wins).some((candidate) => candidate.label === 'has an 8'), false);
   assertEq('full tablechart membership still covers all history',
-    boardShapeCandidates([current], wins).find((candidate) => candidate.label === '7 islands').rows.length, 21);
+    boardShapeCandidates([current], wins).find((candidate) => candidate.label === 'islands 7').rows.length, 21);
   const short = recentPlacementCandidates(wins, now, now - HOUR, false);
   assertEq('shorter selection removes earlier 3BV category',
     short.some((candidate) => candidate.label === '3BV 41'), false);
   assertEq('shorter selection removes earlier shape category',
-    short.some((candidate) => candidate.label === 'has 8'), false);
+    short.some((candidate) => candidate.label === 'has an 8'), false);
   const week = recentPlacementCandidates(wins, now, startOfDay(now, 6), false);
   assertEq('current weekday category kept',
     week.some((candidate) => candidate.label === 'on Mondays'), true);
@@ -439,7 +462,7 @@ const windowCandidate = (label, specificity, startMs, wins) =>
   assertEq('collapse keeps independent ZiNi benchmarks',
     collapsed.filter((candidate) => candidate.label.startsWith('ZiNi ')).length, 2);
   assertEq('collapse keeps exact maximum clues identifiable beside caps',
-    collapsed.filter((candidate) => candidate.label.startsWith('max number ')).length, 2);
+    collapsed.filter((candidate) => /^max number \d/.test(candidate.label)).length, 2);
   assertEq('earlier ZiNi does not acquire current-game marker',
     rows.find((row) => row.label === 'ZiNi 31').currentRank, undefined);
   assertEq('shorter window removes earlier ZiNi category',
@@ -453,7 +476,7 @@ const windowCandidate = (label, specificity, startMs, wins) =>
   assertEq('current 3BV remains listed beside earlier 3BV ranks',
     multipleRows.find((row) => row.label === '3BV 40').ranks.join(','), '1');
   assertEq('collapse still merges identical shape member sets',
-    collapsed.some((candidate) => candidate.label === 'has 7'), false);
+    collapsed.some((candidate) => candidate.label === 'has a 7'), false);
   const noRecent = recentPlacementCandidates(old, now, start, false);
   assertEq('no recent wins creates no shape or 3BV candidates',
     noRecent.some((candidate) => candidate.label.startsWith('3BV ')
@@ -488,7 +511,7 @@ const windowCandidate = (label, specificity, startMs, wins) =>
   const records = [...old, earlier, current];
   const rows = recentPlacementsSummary(
     recentPlacementCandidates(records, NOW, NOW - 60000, true), NOW - 60000, current);
-  for (const label of ['HZiNi 5', 'HZiNi 6', '3BV spread 3.0 cells', '3BV spread 2.0 cells']) {
+  for (const label of ['HZiNi 5', 'HZiNi 6', '3BV spread 2.75–3.25 cells', '3BV spread 1.75–2.25 cells']) {
     assertEq('period summary retains every qualifying measured family: ' + label,
       rows.find((row) => row.label === label).ranks.join(','), '1');
   }
@@ -504,7 +527,7 @@ const windowCandidate = (label, specificity, startMs, wins) =>
     families.some((c) => /minimum clicks|RCW/.test(c.label)), false);
   assertEq('exact half-cell value keeps its centered group',
     boardMetricCandidates([{ ...current, boardMetrics: { ...b.boardMetrics, workSpread: 2.5 } }], records)
-      .find((c) => c.label.startsWith('3BV spread')).label, '3BV spread 2.5 cells');
+      .find((c) => c.label.startsWith('3BV spread')).label, '3BV spread 2.25–2.75 cells');
 }
 
 {
@@ -587,7 +610,7 @@ for (const [spread, expected] of [[0, 0], [0.24999999999, 0], [0.25, 0.5],
   const full = boardMetricCandidates([current], records);
   const rows = recentPlacementsSummary(
     recentPlacementCandidates(records, NOW, NOW - 60000, true), NOW - 60000, current);
-  for (const label of ['0–1 share 50%', 'zero-opening coverage 50%', '3BV spread 2.5 cells']) {
+  for (const label of ['0–1 share 50%', 'zero-opening coverage 50%', '3BV spread 2.25–2.75 cells']) {
     assertEq(label + ' table merges nearby values and excludes next group',
       full.find((c) => c.label === label).wins.length, 22);
     const row = rows.find((r) => r.label === label);
@@ -622,11 +645,11 @@ for (const [spread, expected] of [[0, 0], [0.24999999999, 0], [0.25, 0.5],
   const records = [...old, ...recent];
   const expected = ['3BV 55', '3BV 60', '3BV 74',
     'ZiNi 49', 'ZiNi 50', 'ZiNi 51', 'HZiNi 46', 'HZiNi 48', 'HZiNi 49',
-    '3BV spread 6.0 cells', '3BV spread 6.5 cells', '3BV spread 7.0 cells',
-    'max number 2', 'max number 7', 'max number 8', 'has 7', 'has 8',
-    'max 2', 'max 3', 'max 4', '9 islands', '20 islands', '26 islands',
+    '3BV spread 5.75–6.25 cells', '3BV spread 6.25–6.75 cells', '3BV spread 6.75–7.25 cells',
+    'max number 2', 'max number 7', 'max number 8', 'has a 7', 'has an 8',
+    'max number ≤ 2', 'max number ≤ 3', 'max number ≤ 4', 'islands 9', 'islands 20', 'islands 26',
     'largest island 3', 'largest island 5', 'largest island 10',
-    '9 zeros', '62 zeros', '71 zeros', '0–1 share 9%', '0–1 share 72%', '0–1 share 80%',
+    'zeros 9', 'zeros 62', 'zeros 71', '0–1 share 9%', '0–1 share 72%', '0–1 share 80%',
     'zero-opening coverage 10%', 'zero-opening coverage 80%', 'zero-opening coverage 90%'];
   const summarize = (history, collapse) => recentPlacementsSummary(
     recentPlacementCandidates(history, now, sourceStart, collapse), sourceStart, recent[0]);

@@ -7,18 +7,23 @@ alwaysApply: true
 
 - Every pagetable or row-based data display must appear before every chart
   that plots individual points.
-- Pagetables include recent placements, time and day-category rankings such
-  as "on weekends", board-shape rankings, streak, near-streak, and
-  near-near-streak.
+- Pagetables include the session summary, recent placements, time and
+  day-category rankings such as "on weekends", board-shape rankings, streak,
+  near-streak, and near-near-streak.
 - Point charts include the your-perf property charts, the board-trait
   property charts, and the raw relationship scatterplots.
 - Preserve this sequence in both DOM and visual order:
-  one table collection (recent placements, other rank tables, then all streak
-  variants) → This board tables → your-perf charts → board-trait charts →
-  relationship charts.
+  one table collection (session summary, recent placements, other rank
+  tables, then all streak variants) → This board tables → your-perf charts →
+  board-trait charts → relationship charts.
 - The upper tables share one continuous wrapping list without Rankings or
   Streaks section headings. Retain individual table labels such as lifetime
   and near-streak, which identify their data.
+- The session summary and recent placements sit left and right of the board
+  where each fits (creator decision 2026-10-07). They stay first in the table
+  collection's DOM order, not a section of their own. Below the board they
+  float as one left column, the summary on top, with nothing above or left
+  of it.
 - Never extract the time-period summary or streaks into a separate section.
 - Responsive wrapping must stay within each semantic section and must not
   interleave a pagetable with point charts.

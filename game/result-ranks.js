@@ -24,6 +24,11 @@ async function renderRanks(record, modeRecords, options = {}, sections, isCurren
       ['age-unit-cell age-u-' + age.unit, age.unit]);
     return cells;
   }, table.help);
+  // The session summary and ranks won lead the table collection; layout
+  // moves them beside the board, left and right, where they fit.
+  if (settings.shownThings.sessionSummary) {
+    sections.append('tables', buildSessionSummary(historyView ? null : record, referenceMs));
+  }
   if (settings.shownThings.recentPlacements) {
     sections.append('tables', buildRecentPlacements(record, wins, referenceMs, !historyView));
   }
@@ -39,18 +44,20 @@ async function renderRanks(record, modeRecords, options = {}, sections, isCurren
   }
   resultStats.querySelector('.board-time-profile-host')?.remove();
   gameDataColumn.replaceChildren();
+  let gameDataRows = [];
   if (settings.shownThings.boardPercentiles) {
     const profile = buildBoardTimeRankProfile(boardRecord, modeRecords);
     if (profile) {
       (pageLayout.classList.contains('game-data-docked') ? gameDataColumn : resultStats).replaceChildren(profile);
       await profile.analysisReady;
       if (!isCurrent()) return;
+      gameDataRows = profile.rows;
     }
   }
 
   if (settings.shownThings.averageCharts && wins.length >= 2) {
     for (const spec of PERF_CHART_SPECS) {
-      const chart = buildAverageScatter(spec, plan.perfCharts[PERF_CHART_SPECS.indexOf(spec)]);
+      const chart = buildAverageScatter(spec, plan.perfCharts[PERF_CHART_SPECS.indexOf(spec)], gameDataRows);
       if (chart !== null) sections.append('perfCharts', chart);
       await yieldAnalysisPresentation();
       if (!isCurrent()) return;
@@ -58,7 +65,7 @@ async function renderRanks(record, modeRecords, options = {}, sections, isCurren
     for (const spec of BOARD_CHART_SPECS) {
       if (spec.setting && !settings.shownThings[spec.setting]) continue;
       if (spec.setting === 'largestIsland' && !settings.shownThings.boardShapeTables) continue;
-      const chart = buildAverageScatter(spec, plan.boardCharts[BOARD_CHART_SPECS.indexOf(spec)]);
+      const chart = buildAverageScatter(spec, plan.boardCharts[BOARD_CHART_SPECS.indexOf(spec)], gameDataRows);
       if (chart !== null) sections.append('boardCharts', chart);
       await yieldAnalysisPresentation();
       if (!isCurrent()) return;

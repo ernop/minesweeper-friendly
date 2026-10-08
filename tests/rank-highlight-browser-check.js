@@ -16,6 +16,7 @@ const { chromium } = require(process.argv[2]);
     await page.waitForFunction(() =>
       typeof preferenceUIReady !== 'undefined' && preferenceUIReady);
     await page.evaluate(async () => {
+      settings.shownThings.sessionSummary = false;
       resultRanks.classList.add('sectioned-results');
       const collector = createResultSectionCollector('postGame');
       const examples = [
@@ -58,12 +59,14 @@ const { chromium } = require(process.argv[2]);
         const time = selected && selected.querySelector('.time-cell');
         records[list.dataset.example] = {
           band: selected && selected.dataset.rankBand,
-          podium: selected && selected.dataset.rankPodium,
+          podium: selected && selected.dataset.rankPodium !== undefined,
           footer: list.querySelector('.rank-total').textContent,
           rankColor: rank && getComputedStyle(rank).backgroundColor,
           timeColor: time && getComputedStyle(time).backgroundColor,
+          weight: rank && getComputedStyle(rank).fontWeight,
+          color: rank && getComputedStyle(rank).color,
           edge: rank && getComputedStyle(rank).boxShadow,
-          underline: rank && getComputedStyle(rank).textDecorationStyle,
+          underline: rank && getComputedStyle(rank).textDecorationLine,
           selectedCount: list.querySelectorAll('.me').length,
         };
       }
@@ -72,67 +75,71 @@ const { chromium } = require(process.argv[2]);
         .find((row) => row.querySelector('.recent-window-cell').textContent === label);
       const current = row('3BV 40');
       const earlier = row('3BV 41');
+      // Computed color-mix() values may serialize as color(srgb 0..1 ...).
+      const rgb = (color) => {
+        const numbers = color.match(/[\d.]+/g).map(Number).slice(0, 3);
+        return color.startsWith('color(') ? numbers.map((value) => Math.round(value * 255)) : numbers;
+      };
       return { records, current: {
         label: current.querySelector('.recent-standing-cell').textContent,
-        podium: current.dataset.rankPodium,
+        rowTinted: getComputedStyle(current).backgroundColor !== 'rgba(0, 0, 0, 0)',
         rankColor: getComputedStyle(current.querySelector('.recent-current-rank')).backgroundColor,
         cells: current.children.length,
       }, earlier: {
         highlighted: earlier.classList.contains('recent-row-current'),
         standing: earlier.querySelector('.recent-standing-cell').textContent,
-        band: earlier.dataset.rankBand,
-        rankColor: getComputedStyle(earlier.querySelector('.recent-rank-run')).backgroundColor,
+        band: earlier.querySelector('.recent-rank-run').dataset.rankBand,
+        rankColor: rgb(getComputedStyle(earlier.querySelector('.recent-rank-run')).backgroundColor),
       } };
     });
     const records = details.records;
-    assert.equal(records.first.rankColor, 'rgb(239, 197, 88)');
-    assert.equal(records.second.rankColor, 'rgb(201, 210, 220)');
-    assert.equal(records.third.rankColor, 'rgb(219, 175, 135)');
-    assert.notEqual(records.first.rankColor, records.first.timeColor);
-    assert.notEqual(records.top1.timeColor, records.top2.timeColor);
-    assert.equal(records.lifetime.footer, '#32 of 1,080Top 3%');
-    assert.equal(records['3BV 42'].footer, '#2 of 3Middle place');
-    assert.equal(records['3BV 42'].band, 'middle');
-    assert.equal(records['3BV 42'].podium, '2');
-    assert.equal(records['3BV 42'].rankColor, records.second.rankColor);
-    assert.equal(records['3BV 42'].timeColor, records.middle.timeColor);
-    await page.locator('[data-example="3BV 42"]').screenshot({ path: '/tmp/rank-middle-place.png' });
-    assert.equal(records['near-streak'].footer, '#155 of 287Bottom 47%');
-    assert.equal(records.last.footer, '#1000 of 1,000Last place');
-    assert.equal(records.last.underline, 'double');
-    assert.equal(records.only.footer, '#1 of 1Only result');
-    assert.equal(records.only.podium, '0');
-    assert.equal(records.only.rankColor, records.only.timeColor);
-    assert.equal(records.history.selectedCount, 0);
-    assert.equal(records.history.footer, '1000 total');
+    const THIS_GAME = 'rgb(207, 229, 250)';
+    // A this-game row is light blue across, bold black, with no edge bar or
+    // podium color: color plus "this" is the only mark; standing stays in
+    // the footer.
     for (const [name, record] of Object.entries(records)) {
       if (name === 'history') continue;
       assert.equal(record.selectedCount, 1);
-      assert.notEqual(record.edge, 'none');
-      assert.notEqual(record.timeColor, 'rgba(0, 0, 0, 0)');
+      assert.equal(record.rankColor, THIS_GAME, name + ' rank cell');
+      assert.equal(record.timeColor, THIS_GAME, name + ' time cell');
+      assert.equal(record.weight, '700');
+      assert.equal(record.color, 'rgb(0, 0, 0)');
+      assert.equal(record.edge, 'none', name + ' has no edge bar');
+      assert.equal(record.podium, false, name + ' has no podium');
+      assert.equal(record.underline, 'none');
     }
-    assert.equal(details.current.podium, '2');
-    assert.equal(details.current.rankColor, records.second.rankColor);
+    assert.equal(records.lifetime.footer, '#32 of 1,080Top 3%');
+    assert.equal(records['3BV 42'].footer, '#2 of 3Middle place');
+    assert.equal(records['3BV 42'].band, 'middle');
+    await page.locator('[data-example="3BV 42"]').screenshot({ path: '/tmp/rank-middle-place.png' });
+    assert.equal(records['near-streak'].footer, '#155 of 287Bottom 47%');
+    assert.equal(records.last.footer, '#1000 of 1,000Last place');
+    assert.equal(records.only.footer, '#1 of 1Only result');
+    assert.equal(records.history.selectedCount, 0);
+    assert.equal(records.history.footer, '1000 total');
+    assert.equal(details.current.rowTinted, false, 'ranks won rows carry no tint');
+    assert.equal(details.current.rankColor, THIS_GAME, 'this game’s chip is light blue');
     assert.equal(details.current.label, 'Top 10%');
     assert.equal(details.current.cells, 4);
     assert.equal(details.earlier.highlighted, false);
     assert.equal(details.earlier.standing, 'Top 5%');
     assert.equal(details.earlier.band, 'top5');
-    assert.equal(details.earlier.rankColor, records.first.rankColor);
+    const [red, green, blue] = details.earlier.rankColor;
+    assert(green > red && green > blue, 'an earlier top-5% chip is green: ' + details.earlier.rankColor);
     const multi = await page.evaluate(async () => {
       const row = [...document.querySelectorAll('.recent-placements .rank-row')]
         .find((row) => row.querySelector('.recent-window-cell').textContent === 'lifetime');
       return {
         places: [...row.querySelectorAll('.recent-rank-run')].map((rank) => ({
-          text: rank.textContent, podium: rank.dataset.rankPodium,
+          text: rank.textContent, band: rank.dataset.rankBand,
           color: getComputedStyle(rank).backgroundColor,
         })),
         standing: row.querySelector('.recent-standing-cell').textContent,
       };
     });
     assert.deepEqual(multi.places.map((rank) => rank.text), ['2nd', '3rd this']);
-    assert.equal(multi.places[0].color, records.second.rankColor);
-    assert.equal(multi.places[1].color, records.third.rankColor);
+    assert.notEqual(multi.places[0].color, THIS_GAME, 'an earlier rank keeps its standing color');
+    assert.equal(multi.places[1].color, THIS_GAME);
     assert.equal(multi.standing, 'Top 5% \u2013 Top 8%');
     for (const width of [1680, 1216, 650]) {
       await page.setViewportSize({ width, height: 1100 });
@@ -232,11 +239,11 @@ const { chromium } = require(process.argv[2]);
     for (const family of [
       ['3BV 55', '3BV 60', '3BV 74'], ['ZiNi 49', 'ZiNi 50', 'ZiNi 51'],
       ['HZiNi 46', 'HZiNi 48', 'HZiNi 49'],
-      ['3BV spread 6.0 cells', '3BV spread 6.5 cells', '3BV spread 7.0 cells'],
-      ['max number 2', 'max number 7', 'max number 8'], ['has 7', 'has 8'],
-      ['max 2', 'max 3', 'max 4'], ['9 islands', '20 islands', '26 islands'],
+      ['3BV spread 5.75–6.25 cells', '3BV spread 6.25–6.75 cells', '3BV spread 6.75–7.25 cells'],
+      ['max number 2', 'max number 7', 'max number 8'], ['has a 7', 'has an 8'],
+      ['max number ≤ 2', 'max number ≤ 3', 'max number ≤ 4'], ['islands 9', 'islands 20', 'islands 26'],
       ['largest island 3', 'largest island 5', 'largest island 10'],
-      ['9 zeros', '62 zeros', '71 zeros'], ['0–1 share 9%', '0–1 share 62%', '0–1 share 71%'],
+      ['zeros 9', 'zeros 62', 'zeros 71'], ['0–1 share 9%', '0–1 share 62%', '0–1 share 71%'],
       ['zero-opening coverage 14%', 'zero-opening coverage 67%', 'zero-opening coverage 76%'],
     ]) {
       const start = longSession.labels.indexOf(family[0]);
@@ -277,8 +284,58 @@ const { chromium } = require(process.argv[2]);
         'next section overlaps flowing tables');
       await page.screenshot({ path: '/tmp/ranks-won-ordered-' + width + '.png', fullPage: true });
     }
+    // Session summary: games, wins, and win rate per board type in the one
+    // session window, the session's best time with its lifetime rank, and
+    // a light blue "this" when that best is the game just finished.
+    const sessionSummary = await page.evaluate(async () => {
+      const now = Date.now();
+      const game = (minutesAgo, outcome, timeMs) => ({ endedAt: now - minutesAgo * 60000, outcome, timeMs, flagsPlaced: 3 });
+      const current = game(0, 'win', 4100);
+      history = {
+        '9x9/10@standard': [game(60 * 24 * 40, 'win', 4000), game(50, 'loss', 900), game(40, 'win', 4500), current],
+        '30x16/99@standard': [game(30, 'loss', 20000), game(20, 'loss', 30000)],
+        '16x16/40@standard+pink-noise(alpha=1,scale=12,contrast=2,stretch=0)': [{ ...game(10, 'win', 21000),
+          generator: { id: 'pink-noise', params: { alpha: 1, scale: 12, contrast: 2, stretch: 0 } } }],
+      };
+      settings.sessionDefinition = 'pastHour';
+      settings.shownThings.sessionSummary = true;
+      const collector = createResultSectionCollector('postGame');
+      collector.append('tables', buildSessionSummary(current, now));
+      await collector.ready();
+      collector.renderInto(resultRanks);
+      const read = () => {
+        const box = resultRanks.querySelector('.session-summary');
+        return {
+          heading: box.querySelector('h4').textContent,
+          rows: [...box.querySelectorAll('.session-summary-row, .session-summary-total')]
+            .map((row) => [...row.children].map((cell) => cell.textContent)),
+          head: [...box.querySelectorAll('.session-summary-head > span')].map((cell) => cell.textContent),
+          thisColor: box.querySelector('.session-summary-current') && getComputedStyle(box.querySelector('.session-summary-current')).backgroundColor,
+          rowHeights: [...box.querySelectorAll('.session-summary-row > span:first-child')].map((cell) => cell.getBoundingClientRect().height),
+        };
+      };
+      const hour = read();
+      document.getElementById('session-definition-select').value = 'past10min';
+      document.getElementById('session-definition-select').dispatchEvent(new Event('change'));
+      return { hour, short: read() };
+    });
+    assert.equal(sessionSummary.hour.heading, 'session', 'only the picker names the window');
+    assert.deepEqual(sessionSummary.hour.head, ['board type', 'games', 'wins', 'win rate', 'best', 'lifetime rank']);
+    assert.deepEqual(sessionSummary.hour.rows, [
+      ['Beginner · Standard', '3', '2', '67%', '4.100s', '2nd this of 3'],
+      ['Intermediate · Standard · Pink noise (spectral exponent 1, feature size 12, contrast 2, stretch 0)', '1', '1', '100%', '21.000s', '1st of 1'],
+      ['Expert · Standard', '2', '0', '0%', '', ''],
+      ['all', '6', '3', '50%', '', ''],
+    ]);
+    assert.equal(sessionSummary.hour.thisColor, THIS_GAME);
+    assert(sessionSummary.hour.rowHeights.every((height) => height < 20), 'summary rows stay one line');
+    assert.deepEqual(sessionSummary.short.rows, [
+      ['Beginner · Standard', '1', '1', '100%', '4.100s', '2nd this of 3'],
+      ['Intermediate · Standard · Pink noise (spectral exponent 1, feature size 12, contrast 2, stretch 0)', '1', '1', '100%', '21.000s', '1st of 1'],
+      ['all', '2', '2', '100%', '', ''],
+    ]);
     assert.deepEqual(errors, []);
-    console.log('Rank highlights: podium, percentage bands, full/compact tables, low/last/only results, history view, conditional board comparisons, stable numeric family ordering, contiguous summary rows, surrounding table flow, day-of-month headings, and three viewport widths passed.');
+    console.log('Rank highlights: this-game rows, standing chips, session summary, percentage bands, full/compact tables, low/last/only results, history view, conditional board comparisons, stable numeric family ordering, contiguous summary rows, surrounding table flow, day-of-month headings, and three viewport widths passed.');
   } finally {
     await browser.close();
   }

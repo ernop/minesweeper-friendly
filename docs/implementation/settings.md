@@ -72,7 +72,10 @@ Spec: [docs/product/settings.md](../product/settings.md). Index: [AGENTS.md](../
   on the Settings page; `importHistory` ignores old embedded settings.
   `reportScopeFromStored` maps the retired `shownThings.endVerdict` /
   `reportCategories` forms to the nearest tier; explicit modern
-  `reportScope` always wins.
+  `reportScope` always wins. `gameDataMetricsFromStored` merges the retired
+  `gameDataLifetimeMetrics` / `gameDataSessionMetrics` selections into
+  `gameDataMetrics` (shown in either stays shown); a stored
+  `gameDataMetrics` always wins.
   `justUniverse` is frozen into `justiceEnabledForGame` at first reveal —
   a change on the settings page applies from the next game (the old
   drawer's mid-game lock UI retired with the drawer).

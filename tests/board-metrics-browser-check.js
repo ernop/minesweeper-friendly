@@ -320,7 +320,7 @@ const { chromium } = require(process.argv[2]);
       settings.playMode = 'standard';
       settings.shownThings.averageCharts = settings.shownThings.relationshipCharts = false;
       settings.shownThings.workSpreadTable = true;
-      settings.gameDataLifetimeMetrics.hziniEfficiency = true;
+      settings.gameDataMetrics.hziniEfficiency = true;
       const now = Date.now();
       const metrics = BoardMetrics.analyze(3, 3, [false, false, false, false, true, false, false, false, false]).boardMetrics;
       const base = { outcome: 'win', endedAt: now, timeMs: 4000, states: [],
@@ -338,12 +338,13 @@ const { chromium } = require(process.argv[2]);
           boardMetrics: { ...metrics, version: 2 } }, base,
       ];
       await renderResult(base, records);
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
       const tables = Object.fromEntries([...resultRanks.querySelectorAll('.rank-list')]
-        .filter((el) => !el.classList.contains('recent-placements'))
+        .filter((el) => !el.classList.contains('recent-placements') && !el.classList.contains('session-summary'))
         .map((el) => [el.querySelector('h4').textContent, el.querySelector('.rank-total').textContent]));
       return { tables, values: [...resultRanks.querySelectorAll('.board-metric-value')].map((el) => el.textContent),
         details: [...resultRanks.querySelectorAll('.board-metric-detail')].map((el) => el.textContent),
-        efficiency: document.querySelector('.board-time-profile [data-trait="HZiNi efficiency"] .board-trait-value').textContent,
+        efficiency: document.querySelector('.board-time-profile .game-data-row[data-measurement="hziniEfficiency"] .game-data-value').textContent,
         labels: [...resultRanks.querySelectorAll('.board-metric-fact h4')].map((el) => el.textContent),
         controls: [...resultRanks.querySelectorAll('button')].map((el) => el.textContent) };
     });
@@ -355,7 +356,7 @@ const { chromium } = require(process.argv[2]);
     assert.deepEqual(rendered.labels, []);
     assert.equal(rendered.tables['0–1 share 0%'], '#3 of 3Last place');
     assert.equal(rendered.tables['zero-opening coverage 0%'], '#3 of 3Last place');
-    assert.equal(rendered.tables['3BV spread 1.0 cells'], '#2 of 2Last place');
+    assert.equal(rendered.tables['3BV spread 0.75–1.25 cells'], '#2 of 2Last place');
     assert.deepEqual(rendered.values, []);
     // Hover scrolls lower tables into view; compare document coordinates
     // so scrolling cannot masquerade as board reflow.
@@ -365,13 +366,12 @@ const { chromium } = require(process.argv[2]);
     });
     const boardBefore = await boardPosition();
     const tableHelp = page.locator('.rank-list');
-    const spreadHelp = tableHelp.getByRole('button', { name: 'About 3BV spread 1.0 cells', exact: true });
+    const spreadHelp = tableHelp.getByRole('button', { name: 'About 3BV spread 0.75–1.25 cells', exact: true });
     await spreadHelp.hover();
     const spreadTip = await page.locator('.chart-help-tip').innerText();
     assert(spreadTip.includes('root-mean-square'));
     assert(spreadTip.includes('This board: 1.225 cells'));
-    assert(spreadTip.includes('nearest 0.5 cell'));
-    assert(spreadTip.includes('exact halfway values round up'));
+    assert(spreadTip.includes('Its table holds boards from 0.75 cells up to, not including, 1.25 cells.'));
     assert.deepEqual(await boardPosition(), boardBefore);
     await page.mouse.move(0, 0);
     await spreadHelp.focus();

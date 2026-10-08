@@ -50,7 +50,7 @@
   const rect = element => element.getBoundingClientRect();
   const sameBoard = before => Math.abs(rect(gameFrame).left - before.left) < 1
     && Math.abs(rect(gameFrame).top - before.top) < 1;
-  for (const [width, sidebar] of [[1680, false], [1216, true], [650, false]]) {
+  for (const [width, sidebar] of [[2560, false], [1680, false], [1216, true], [650, false]]) {
     frame.style.width = width + 'px';
     settings.showSessionStats = sidebar;
     renderMetricsPanel(null);
@@ -58,6 +58,7 @@
       window.scrollTo(0, 0);
       config = { ...DIFFICULTIES[size] };
       newGame();
+      history[modeKey()] = records;
       await wait();
       const before = rect(gameFrame);
       gameState = 'won';
@@ -67,26 +68,41 @@
       await wait();
       const label = width + 'px ' + size;
       check(label + ': finishing leaves the board in place', sameBoard(before));
-      const beside = !pageLayout.classList.contains('compact-sidebar');
       const inset = parseFloat(getComputedStyle(pageLayout).getPropertyValue('--board-edge-inset'));
       const frameRect = rect(gameFrame);
       const mainRect = rect(mainElement);
-      check(label + (beside ? ': the board rests beside the game data'
-        : ': compact details leave a fitting board centered'),
-        pageLayout.classList.contains('board-beside-game-data') === beside
-          && (beside ? Math.abs(frameRect.right - (mainRect.right - inset)) < 1
-            : frameRect.width > mainRect.width
-              || Math.abs((frameRect.left - mainRect.left) - (mainRect.right - frameRect.right)) < 1));
+      check(label + ': the board rests centered in its column',
+        frameRect.width > mainRect.width
+          || Math.abs((frameRect.left - mainRect.left) - (mainRect.right - frameRect.right)) < 1);
       const sections = [...resultRanks.children].map(node => node.className);
       const tableItems = resultRanks.querySelector('.result-chart-section-tables .result-chart-section-items');
-      check(label + ': daily summary leads the continuous table collection',
+      const summary = resultRanks.querySelector('.session-summary');
+      const ranksWon = resultRanks.querySelector('.recent-placements');
+      check(label + ': the session summary and ranks won lead the continuous table collection',
         sections[0].includes('result-chart-section-tables')
           && (pageLayout.classList.contains('game-data-docked') ? gameDataColumn : resultStats)
             .querySelector('.board-time-profile') !== null
           && resultStats.querySelector('#stats-grid') === null
-          && tableItems.firstElementChild.classList.contains('recent-placements')
+          && tableItems.children[0] === summary && tableItems.children[1] === ranksWon
+          && summary.querySelectorAll('.session-summary-row').length >= 1
           && !resultRanks.querySelector('.result-chart-section-placements')
           && !document.getElementById('history-placements'));
+      // Beside the board: the summary on the left and ranks won on the
+      // right, tops aligned with the board, wherever each fits the column.
+      const sideRoom = (mainRect.width - frameRect.width) / 2 - inset - 16;
+      check(label + ': the session summary rests left of the board exactly where it fits',
+        summary.classList.contains('beside-board') === (rect(summary).width <= sideRoom)
+          && (!summary.classList.contains('beside-board')
+            || (Math.abs(rect(summary).right - (frameRect.left - 16)) < 1 && Math.abs(rect(summary).top - frameRect.top) < 1)));
+      check(label + ': ranks won rests right of the board exactly where it fits',
+        ranksWon.classList.contains('beside-board') === (rect(ranksWon).width <= sideRoom)
+          && (!ranksWon.classList.contains('beside-board')
+            || (Math.abs(rect(ranksWon).left - (frameRect.right + 16)) < 1 && Math.abs(rect(ranksWon).top - frameRect.top) < 1)));
+      if (width === 2560 && size === 'beginner') check(label + ': at the creator’s width both blocks sit beside a beginner board',
+        summary.classList.contains('beside-board') && ranksWon.classList.contains('beside-board'));
+      checks.push('INFO ' + label + ': main ' + Math.round(mainRect.width) + ', board ' + Math.round(frameRect.width)
+        + ', summary ' + Math.round(rect(summary).width) + (summary.classList.contains('beside-board') ? ' beside' : ' below')
+        + ', ranks won ' + Math.round(rect(ranksWon).width) + (ranksWon.classList.contains('beside-board') ? ' beside' : ' below'));
       const tableLabels = [...tableItems.querySelectorAll('h4')].map(el => el.textContent);
       const boardTables = resultRanks.querySelector('.result-chart-section-boardTables');
       const boardLabels = [...boardTables.querySelectorAll('h4')].map(el => el.textContent);
@@ -100,10 +116,25 @@
           && !resultRanks.querySelector('.result-chart-section-streaks'));
       check(label + ': table collection has no section heading',
         !tableItems.parentElement.querySelector('.result-chart-section-title'));
-      if (width === 1680) check(label + ': the summary and rank tables share the first row',
-        Math.abs(rect(tableItems.children[0]).top - rect(tableItems.children[1]).top) < 1);
-      check(label + ': tables begin directly below the board',
-        rect(resultRanks).top - rect(gameFrame).bottom < 32);
+      const inFlow = [...tableItems.children].filter((item) => !item.classList.contains('beside-board'));
+      // Below the board the summary and ranks won form one left column, the
+      // summary on top; later tables sit beside that column or under it.
+      const lead = inFlow.filter((item) => item === summary || item === ranksWon);
+      const overlaps = (a, b) => rect(a).left < rect(b).right - 1 && rect(b).left < rect(a).right - 1
+        && rect(a).top < rect(b).bottom - 1 && rect(b).top < rect(a).bottom - 1;
+      check(label + ': below the board the summary heads one column with ranks won under it',
+        lead.length === 0 || (lead[0] === inFlow[0]
+          && inFlow.every((item) => rect(item).top >= rect(lead[0]).top - 1 && rect(item).left >= rect(lead[0]).left - 1)
+          && (lead.length === 1 || (Math.abs(rect(ranksWon).left - rect(summary).left) < 1
+            && rect(ranksWon).top >= rect(summary).bottom - 1))
+          && inFlow.filter((item) => !lead.includes(item)).every((item) => lead.every((block) => !overlaps(item, block)))));
+      if (width === 1680) check(label + ': the next table uses the space beside that column',
+        Math.abs(rect(inFlow[lead.length]).top - rect(inFlow[0]).top) < 1
+          && rect(inFlow[lead.length]).left >= Math.max(...lead.map((item) => rect(item).right)) - 1);
+      const boardRowsBottom = Math.max(rect(gameFrame).bottom,
+        ...[...resultRanks.querySelectorAll('.beside-board')].map((block) => rect(block).bottom));
+      check(label + ': tables begin directly below the board and the blocks beside it',
+        rect(resultRanks).top - boardRowsBottom < 32 && rect(resultRanks).top >= boardRowsBottom);
       check(label + ': replay is collapsed and all inspection controls are in the sidebar',
         !replayReview.open && !replayControls.checkVisibility()
           && gameSidebar.contains(scoresNav) && !gameArea.contains(scoresNav));

@@ -23,8 +23,7 @@ const origin = 'http://127.0.0.1:8099/';
       // Any accidental execution in the window fails the test, including
       // attempts to substitute synchronous work when the worker is delayed.
       for (const name of ['computeAllTraceMetrics', 'computeSpatialBias', 'computeClickCadence',
-        'resultRankPlan', 'averageScatterData', 'scatterPlotData', 'performanceTimeRankProfile',
-        'boardTraitRankProfile', 'recentPlacementCandidates', 'recentPlacementsSummary',
+        'resultRankPlan', 'averageScatterData', 'scatterPlotData', 'boardTraitRankProfile', 'recentPlacementCandidates', 'recentPlacementsSummary',
         'sessionRunningSeries', 'sessionRawSeries', 'sessionGameSeries']) {
         window[name] = () => { throw new Error('Analytics ran on UI thread: ' + name); };
       }

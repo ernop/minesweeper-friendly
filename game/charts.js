@@ -127,7 +127,8 @@ function hideChartHelpTip() {
   chartHelpOwner = null;
 }
 
-function chartHelpButton(help, label) {
+// `place(tip, buttonRect)` may return the tip's viewport {left, top} instead.
+function chartHelpButton(help, label, place) {
   const wrap = document.createElement('span');
   wrap.className = label ? 'chart-help-wrap chart-help-label-wrap' : 'chart-help-wrap';
   const btn = document.createElement('button');
@@ -155,6 +156,12 @@ function chartHelpButton(help, label) {
     // Fixed positioning clamped to the viewport: below the button where
     // room allows, above it otherwise, never off either side edge.
     const rect = btn.getBoundingClientRect();
+    if (place) {
+      const placed = place(tip, rect);
+      tip.style.left = placed.left + 'px';
+      tip.style.top = placed.top + 'px';
+      return;
+    }
     const left = Math.max(4, Math.min(rect.left - 10,
       window.innerWidth - tip.offsetWidth - 6));
     const below = rect.bottom + 5;
@@ -382,11 +389,17 @@ function roundTo(value, step) {
   return Number((Math.round(value / step) * step).toFixed(decimals));
 }
 
+function metricName(id) {
+  return GameData.metrics.find((item) => item.id === id).name;
+}
+
+// measurementId names the game data measurement a chart plots, so the two
+// can be linked; charts of chart-only quantities have none.
 function steppedMetric(id, step, extra = {}) {
   const metric = GameData.metrics.find((item) => item.id === id);
   const read = (record) => metric.value(record, config);
   return {
-    label: metric.name,
+    label: metric.name, measurementId: id,
     value: (record) => {
       const value = read(record);
       return Number.isFinite(value) ? roundTo(value, step) : undefined;
@@ -398,7 +411,7 @@ function steppedMetric(id, step, extra = {}) {
 
 const PERF_CHART_SPECS = [
   { label: 'clicks', value: (s) => s.clicks },
-  { label: 'mouse path', value: (s) => Math.round(s.mousePathPx / 100) * 100 },
+  { label: 'path', value: (s) => Math.round(s.mousePathPx / 100) * 100 },
   { label: 'clicks over 3BV', value: (s) => s.clicks - s.bv3 },
   steppedMetric('misclickRate', 0.1),
   steppedMetric('fastclickGap', 10),
@@ -407,12 +420,12 @@ const PERF_CHART_SPECS = [
   steppedMetric('noopRate', 0.1),
   steppedMetric('efficiency', 0.01, { winBound: true }),
   {
-    label: 'path / 3BV',
+    label: metricName('pathPer3bv'), measurementId: 'pathPer3bv',
     value: (s) => s.bv3 > 0 ? Math.round((s.mousePathPx / s.bv3) / 10) * 10 : undefined,
     has: (s) => s.bv3 > 0,
   },
   {
-    label: 'path / click',
+    label: metricName('pathPerClick'), measurementId: 'pathPerClick',
     value: (s) => s.clicks > 0 ? Math.round((s.mousePathPx / s.clicks) / 10) * 10 : undefined,
     has: (s) => s.clicks > 0,
   },
@@ -421,7 +434,7 @@ const PERF_CHART_SPECS = [
   steppedMetric('ziniEfficiency', 0.01, { winBound: true }),
   steppedMetric('hziniEfficiency', 0.01, { winBound: true }),
   {
-    label: 'IOS',
+    label: metricName('ios'), measurementId: 'ios',
     value: (s) => iosOf(s) === undefined ? undefined : Number(iosOf(s).toFixed(2)),
     has: (s) => iosOf(s) !== undefined,
     winBound: true,
@@ -433,47 +446,47 @@ const PERF_CHART_SPECS = [
 ];
 
 const BOARD_CHART_SPECS = [
-  { label: '3BV', value: (s) => s.bv3, setting: 'exact3BV' },
+  { label: BOARD_TRAIT_NAMES.bv3, measurementId: 'bv3', value: (s) => s.bv3, setting: 'exact3BV' },
   {
-    label: 'ZiNi', value: (s) => s.zini, setting: 'exactZiNi',
+    label: BOARD_TRAIT_NAMES.zini, measurementId: 'zini', value: (s) => s.zini, setting: 'exactZiNi',
     has: (s) => typeof s.zini === 'number',
   },
   {
-    label: 'HZiNi', value: (s) => s.hzini, setting: 'exactHZiNi',
+    label: BOARD_TRAIT_NAMES.hzini, measurementId: 'hzini', value: (s) => s.hzini, setting: 'exactHZiNi',
     has: (s) => typeof s.hzini === 'number',
   },
   {
-    label: '3BV spread', setting: 'workSpreadTable',
+    label: BOARD_TRAIT_NAMES.workSpread, measurementId: 'workSpread', setting: 'workSpreadTable',
     value: (s) => boardSpreadGroup(s),
     has: (s) => boardSpreadGroup(s) !== undefined,
   },
   {
-    label: 'max number', setting: 'exactMaxNumber',
+    label: BOARD_TRAIT_NAMES.maxAdjacent, measurementId: 'maxAdjacent', setting: 'exactMaxNumber',
     value: (s) => s.maxAdjacent,
     has: (s) => typeof s.maxAdjacent === 'number',
   },
   {
-    label: 'islands', setting: 'boardShapeTables',
+    label: BOARD_TRAIT_NAMES.islandCount, measurementId: 'islandCount', setting: 'boardShapeTables',
     value: (s) => s.islandCount,
     has: (s) => typeof s.islandCount === 'number',
   },
   {
-    label: 'largest island', setting: 'largestIsland',
+    label: BOARD_TRAIT_NAMES.largestIsland, measurementId: 'largestIsland', setting: 'largestIsland',
     value: (s) => s.largestIsland,
     has: (s) => typeof s.largestIsland === 'number',
   },
   {
-    label: 'zeros', setting: 'boardShapeTables',
+    label: BOARD_TRAIT_NAMES.zeroCount, measurementId: 'zeroCount', setting: 'boardShapeTables',
     value: (s) => s.zeroCount,
     has: (s) => typeof s.zeroCount === 'number',
   },
   {
-    label: '0–1 share', setting: 'zeroOneShareTable', xTickUnit: '%',
+    label: BOARD_TRAIT_NAMES.zeroOneShare, measurementId: 'zeroOneShare', setting: 'zeroOneShareTable', xTickUnit: '%',
     value: (s) => boardShareGroup(s, 'zeroOpenedZeroOneCells'),
     has: (s) => boardFractionOf(s, 'zeroOpenedZeroOneCells') !== undefined,
   },
   {
-    label: 'zero-opening coverage', setting: 'zeroOpeningTable', xTickUnit: '%',
+    label: BOARD_TRAIT_NAMES.zeroOpeningCoverage, measurementId: 'zeroOpeningCoverage', setting: 'zeroOpeningTable', xTickUnit: '%',
     value: (s) => boardShareGroup(s, 'zeroOpenedCells'),
     has: (s) => boardFractionOf(s, 'zeroOpenedCells') !== undefined,
   },
@@ -618,12 +631,19 @@ function averageScatterData(spec, wins, allRecords, record, historyView, mode, r
       ...(mode === 'winrate' ? {} : { trendLines: fitTrendLines(points.map((p) => [p.x, p.y]), todayPairs) }) } };
 }
 
-function buildAverageScatter(spec, model) {
+// gameDataRows are the band's rows for the same result; a chart of a plotted
+// measurement repeats this game's value and standing in its heading.
+function buildAverageScatter(spec, model, gameDataRows) {
   if (model === null) return null;
   const { points, currentIndex, referenceMs, yLabel, opts } = model;
-  return buildScatter(points, currentIndex < 0 ? null : points[currentIndex], (p) => p.x, (p) => p.y,
+  const chart = buildScatter(points, currentIndex < 0 ? null : points[currentIndex], (p) => p.x, (p) => p.y,
     spec.label, yLabel, '', (p) => ageInfo(referenceMs, p.endedAt),
     { ...opts, ...(opts.trendLines ? { trendLines: Promise.resolve(opts.trendLines) } : {}) });
+  if (spec.measurementId === undefined) return chart;
+  chart.dataset.measurement = spec.measurementId;
+  const row = gameDataRows.find((r) => r.metricId === spec.measurementId && r.scope === 'lifetime');
+  if (row) chart.querySelector('h4').firstChild.after(gameDataChartChip(row));
+  return chart;
 }
 
 function scatterPlotData(points, trimY) {

@@ -29,7 +29,7 @@ const TRACE_METRIC_GROUPS = [
       { label: 'path',
         help: 'Total cursor travel in pixels, including jumps across pauses.',
         of: (m) => m.bio.totalPathPx, fmt: (v) => Math.round(v) + 'px' },
-      { label: 'speed',
+      { label: 'moving speed',
         help: 'Average cursor speed while moving: each bout\u2019s mean speed, '
           + 'averaged over bouts.',
         of: (m) => m.bio.speedMeanPxPerMs, fmt: (v) => Math.round(v * 1000) + 'px/s' },
@@ -98,7 +98,7 @@ const TRACE_METRIC_GROUPS = [
       { label: 'click gap',
         help: 'Median time between consecutive presses.',
         of: (m) => m.cad.gapMedianMs, fmt: (v) => Math.round(v) + 'ms' },
-      { label: 'gap spread',
+      { label: 'cadence spread',
         help: 'How uneven the press timing is: the interquartile range of the '
           + 'gaps divided by their median. 0 is perfectly even.',
         of: (m) => m.cad.gapSpreadRatio, fmt: (v) => v.toFixed(2) + '\u00d7' },
@@ -227,7 +227,7 @@ const TRACE_METRIC_GROUPS = [
       { label: 'exec no pauses',
         help: 'Execution time minus mid-movement stops of 100 ms or more.',
         of: (m) => m.hev.executionTimeNoPausesMs, fmt: (v) => (v / 1000).toFixed(2) + 's' },
-      { label: 'peak speed*',
+      { label: 'smoothed peak speed',
         help: 'Peak smoothed speed of each movement.',
         of: (m) => m.hev.peakSpeedPxPerMs, fmt: (v) => Math.round(v * 1000) + 'px/s' },
       { label: 'peak accel',
@@ -274,8 +274,8 @@ const TRACE_METRIC_GROUPS = [
     ] },
 ];
 
-// Series keys must be unique across groups (labels repeat, e.g. "peak
-// speed"); group key + label is the identity of a displayed series.
+// Series keys must be unique across groups, and a label may repeat in
+// another group; group key + label is the identity of a displayed series.
 function metricSeriesKey(group, display) {
   return group.key + ':' + display.label;
 }

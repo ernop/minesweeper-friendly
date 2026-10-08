@@ -268,6 +268,7 @@ window.addEventListener('resize', () => {
   applyBoardPosition();
   if (tracing()) recordLayout();
   syncJusticePlacement();
+  placeBoardSides();
   syncResultClearance();
 });
 

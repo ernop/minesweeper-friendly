@@ -10,29 +10,16 @@ function bvPerSecond(record) {
   return record.bv3 / secondsOf(record);
 }
 
-function efficiencyPercent(record) {
-  return Math.round((record.bv3 / record.clicks) * 100);
-}
-
-// Effective / (effective + wasted). Absence of wastedClicks means the
-// denominator was never measured, so this is undefined rather than 100%.
-function correctnessPercent(record) {
-  if (!('wastedClicks' in record)) return undefined;
-  const total = record.clicks + record.wastedClicks;
-  if (total === 0) return undefined;
-  return Math.round((record.clicks / total) * 100);
-}
-
-// 3BV / effective clicks. Same quantity as efficiency, as a ratio.
-// Wins only: a lost board was never finished, so the 3BV numerator is
-// the whole board and the ratio would flatter a short loss.
-function throughputOf(record) {
+// Efficiency: 3BV / effective clicks (the clone name "throughput" is the
+// same quantity). Wins only: a lost board was never finished, so the 3BV
+// numerator is the whole board and the ratio would flatter a short loss.
+function efficiencyOf(record) {
   if (record.outcome !== 'win' || record.clicks === 0) return undefined;
   return record.bv3 / record.clicks;
 }
 
 // log(3BV) / log(time in seconds). MSO blanks t≤1; we do the same.
-// Wins only, same unfinished-board honesty as throughput.
+// Wins only, same unfinished-board honesty as efficiency.
 function iosOf(record) {
   if (record.outcome !== 'win') return undefined;
   const t = secondsOf(record);
@@ -41,7 +28,7 @@ function iosOf(record) {
 }
 
 // IOE (index of efficiency): 3BV / total clicks, wasted included — the
-// total-click cousin of throughput. Wins only for the same
+// total-click cousin of efficiency. Wins only for the same
 // unfinished-board reason; undefined where wastedClicks was never
 // measured (a missing denominator part, not zero).
 function ioeOf(record) {
@@ -88,10 +75,10 @@ function stnbOf(record, params) {
   return constant / (Math.pow(t, 1.7) / record.bv3);
 }
 
-// ZiNi efficiency: the flagger analog of throughput (ZNE on the stats
+// ZiNi efficiency: the flagger analog of efficiency (ZNE on the stats
 // sites) — greedy ZiNi over effective clicks. Wins only, and only on
 // games whose records carry the stored zini.
-function zniEfficiencyOf(record) {
+function ziniEfficiencyOf(record) {
   if (record.outcome !== 'win' || record.zini === undefined
       || record.clicks === 0) return undefined;
   return record.zini / record.clicks;
@@ -155,7 +142,7 @@ const GameData = (() => {
       value: perSecond('clicks'), format: (v) => v.toFixed(2) + '/s',
       help: 'Board-changing clicks per second: reveals, flags, flag removals, and chords.' },
     { id: 'efficiency', name: 'efficiency', higher: true, default: false,
-      value: throughputOf, format: percent,
+      value: efficiencyOf, format: percent,
       help: '3BV divided by your board-changing clicks. Chording can push it above 100%.' },
     { id: 'noopRate', allOutcomes: true, name: 'no-op rate', higher: false, default: true,
       value: perSecond('wastedClicks'), format: (v) => v.toFixed(2) + '/s',
@@ -171,7 +158,7 @@ const GameData = (() => {
       value: ioeOf, format: (v) => v.toFixed(3),
       help: '3BV divided by all your clicks, including clicks that changed nothing.' },
     { id: 'ziniEfficiency', name: 'ZiNi efficiency', higher: true, default: false,
-      value: zniEfficiencyOf, format: percent, help: 'ZiNi divided by your board-changing clicks. ZiNi is the click count of a standard greedy flag-and-chord solve of this board.' },
+      value: ziniEfficiencyOf, format: percent, help: 'ZiNi divided by your board-changing clicks. ZiNi is the click count of a standard greedy flag-and-chord solve of this board.' },
     { id: 'hziniEfficiency', name: 'HZiNi efficiency', higher: true, default: false,
       value: hziniEfficiencyOf, format: percent, help: 'HZiNi divided by your board-changing clicks. HZiNi is the action count of a fixed human-style solve; beating it gives more than 100%.' },
     { id: 'ios', name: 'IOS', higher: true, default: false,
@@ -187,23 +174,23 @@ const GameData = (() => {
     { id: 'cadenceSpread', allOutcomes: true, name: 'cadence spread', higher: false, default: false,
       value: (r) => r.cadenceSpread, format: (v) => v.toFixed(2) + '×',
       help: 'How uneven your click timing is: the interquartile range of the gaps between all presses, divided by their median. 0 is perfectly even.' },
-    { id: 'unusedMarkShare', name: 'unused mark share', higher: false, default: true,
+    { id: 'unusedMarkShare', name: 'unused flag share', higher: false, default: true,
       value: (r) => r.flagsPlaced > 0 ? r.unusedCorrectFlags / r.flagsPlaced : undefined,
       format: percent, help: 'Correct flags that no chord ever used, as a share of all flags you placed.' },
     { id: 'flagsWithoutMultiCellChord', name: 'flags no multi-cell chord used', higher: false, default: true,
       value: (r) => r.flagsWithoutMultiCellChord, format: (v) => String(v),
       help: 'Flags standing at the win that no chord opening two or more squares used. Each could have been one direct click, or nothing. Stage 1 of the training plan aims for 10 or fewer on Expert.' },
   ];
-  // The creator's own configuration (2026-09-23): each metric's `default`
-  // against lifetime, plus time (day); no session comparisons.
-  const defaults = {
-    lifetime: Object.fromEntries(metrics.map((m) => [m.id, m.default])),
-    session: Object.fromEntries(metrics.map((m) => [m.id, false])),
-  };
-  const defaultsForView = { gameDataSessionMetrics: defaults.session, gameDataLifetimeMetrics: defaults.lifetime, sessionDefinition: SessionScope.defaultId, gameDataDayTime: true };
+  // The creator's own selection (2026-09-23), compared since 2026-10-07 with
+  // both lifetime and the session; time also against the last 24 hours.
+  const defaults = Object.fromEntries(metrics.map((m) => [m.id, m.default]));
+  const defaultsForView = { gameDataMetrics: defaults, sessionDefinition: SessionScope.defaultId, gameDataDayTime: true };
   const chronological = (records) => records.slice().sort((a, b) => a.endedAt - b.endedAt);
-  // poolText names the counted population and window, e.g. "wins so far".
-  function rankedRow(record, pool, spec, scope, params, poolText) {
+  const poolValues = (pool, spec, params) => pool.filter((r) => spec.allOutcomes || r.outcome === 'win')
+    .map((r) => spec.value(r, params)).filter(Number.isFinite);
+  // `counted` names the population (wins, games, boards) and windowText its
+  // window, e.g. "so far".
+  function rankedRow(record, pool, spec, scope, params, counted, windowText) {
     const value = spec.value(record, params);
     if (!Number.isFinite(value)) return null;
     const measured = pool.filter((r) => spec.allOutcomes || r.outcome === 'win').map((r) => ({ record: r, value: spec.value(r, params) }))
@@ -218,43 +205,99 @@ const GameData = (() => {
     const allEqual = !time && equal === total;
     // Share of the other measured games that beat this one: the best is 0%, the worst 100%.
     const percentile = allEqual ? 50 : 100 * (rank - 1) / (total - 1);
-    // Lifetime is implicit; only a narrower comparison pool needs a suffix.
-    const scopeText = scope && scope !== 'lifetime' ? '(' + scope + ')' : '';
-    const trait = spec.name + (scopeText ? ' ' + scopeText : '');
-    const population = total + ' ' + poolText + ' with these board settings';
+    const population = total + ' ' + counted + ' ' + windowText + ' with these board settings';
+    const tied = !time && equal > 1;
     const standing = allEqual
       ? 'All ' + population + ' have the same value, so it sits at 50%.'
-      : (!time && equal > 1 ? 'Tied for ranks ' + (better + 1) + '–' + (better + equal) : 'Rank ' + rank)
+      : (tied ? 'Tied for ranks ' + (better + 1) + '–' + (better + equal) : 'Rank ' + rank)
         + ' of ' + population + '. ' + (spec.higher ? 'Higher' : 'Lower')
         + ' values rank first; 0% is the best, and this sits at ' + Number(percentile.toFixed(1)) + '%.';
-    return { id: spec.id + '.' + scope, metricId: spec.id, scope, trait, name: spec.name, scopeText,
-      label: spec.name + ' ' + spec.format(value) + (scopeText ? ' ' + scopeText : ''),
-      valueText: spec.format(value), side: 'performance',
-      rank, total, allEqual, percentile, helpText: [spec.help, standing],
+    return { id: spec.id + '.' + scope, metricId: spec.id, scope, name: spec.name,
+      value, valueText: spec.format(value), higher: spec.higher, side: 'performance',
+      rank, firstRank: tied ? better + 1 : rank, lastRank: tied ? better + equal : rank,
+      total, counted, allEqual, percentile, helpText: [spec.help, standing],
     };
+  }
+  // The drawn axis of one measurement, shared by all its pools: one bin per
+  // value for integers spanning at most 60 values, otherwise 36 bins over the
+  // lifetime range trimmed to its 1st–99th percentiles. This game is always inside.
+  function axisOf(values, value) {
+    const sorted = values.slice().sort((a, b) => a - b);
+    const low = Math.min(sorted[0], value), high = Math.max(sorted[sorted.length - 1], value);
+    if (Number.isInteger(value) && sorted.every(Number.isInteger) && high - low <= 60) {
+      return { lo: low - 0.5, hi: high + 0.5, bins: high - low + 1, integer: true };
+    }
+    const at = (p) => sorted[Math.round(p * (sorted.length - 1))];
+    const lo = Math.min(at(0.01), value), hi = Math.max(at(0.99), value);
+    return lo === hi ? { lo: lo - 0.5, hi: hi + 0.5, bins: 1, integer: false } : { lo, hi, bins: 36, integer: false };
+  }
+  // At most five labeled axis values, whole values on a per-value axis.
+  function axisLabels(axis, format) {
+    if (!axis.integer) {
+      return [0, 1, 2, 3, 4].map((i) => axis.lo + i * (axis.hi - axis.lo) / 4)
+        .map((value) => ({ value, text: format(value) }));
+    }
+    const first = axis.lo + 0.5, last = axis.hi - 0.5;
+    const step = Math.max(1, Math.ceil((last - first) / 4));
+    const labels = [];
+    for (let value = first; value <= last; value += step) labels.push({ value, text: format(value) });
+    return labels;
+  }
+  // Counts per bin, and each bin's standing: the mean percentile of its games
+  // (0 best; equal values share their mean rank, so a bin of ties stands
+  // where each of them does), null for a bin without games. Values beyond
+  // the axis are counted in `outside`, never drawn into an edge bin, and
+  // still rank.
+  function distribution(values, higher, axis) {
+    const width = (axis.hi - axis.lo) / axis.bins;
+    const counts = new Array(axis.bins).fill(0);
+    let below = 0, above = 0;
+    for (const v of values) {
+      if (v < axis.lo) below++;
+      else if (v > axis.hi) above++;
+      else counts[Math.min(axis.bins - 1, Math.floor((v - axis.lo) / width))]++;
+    }
+    const standing = new Array(axis.bins).fill(null);
+    let better = higher ? above : below;
+    for (let step = 0; step < axis.bins; step++) {
+      const i = higher ? axis.bins - 1 - step : step;
+      if (counts[i] > 0) standing[i] = 100 * (better + (counts[i] - 1) / 2) / (values.length - 1);
+      better += counts[i];
+    }
+    return { ...axis, counts, standing, outside: below + above };
+  }
+  // Each pool's histogram uses the lifetime axis, so one measurement's strips
+  // line up; the lifetime row also carries the session games' values, drawn
+  // as ticks under its axis.
+  function addDistributions(poolRows, poolValuesByScope, sessionValues, format) {
+    const lifetime = poolRows.find((row) => row.scope === 'lifetime');
+    const axis = axisOf(poolValuesByScope.lifetime, lifetime.value);
+    const labels = axisLabels(axis, format);
+    return poolRows.map((row) => ({ ...row,
+      distribution: { ...distribution(poolValuesByScope[row.scope], row.higher, axis), labels },
+      ...(row === lifetime ? { sessionValues } : {}) }));
   }
   function rows(record, records, preferences = defaultsForView, params) {
     if (record.outcome !== 'win' || !records.includes(record)) return [];
     const past = records.filter((r) => r.endedAt <= record.endedAt);
-    const session = SessionScope.records(records, preferences.sessionDefinition, record.endedAt);
+    const session = SessionScope.records(past, preferences.sessionDefinition, record.endedAt);
+    const day = past.filter((r) => r.endedAt >= record.endedAt - 86400000);
     const choice = SessionScope.choices.find((c) => c.id === preferences.sessionDefinition);
     const result = [];
     for (const spec of metrics) {
+      if (!preferences.gameDataMetrics[spec.id]) continue;
       const counted = spec.allOutcomes ? 'games' : 'wins';
-      for (const [scope, pool, poolText] of [
-        ['lifetime', past, counted + ' so far'],
-        ['session', session, counted + ' this session (' + choice.label + ')'],
-      ]) {
-        const selected = scope === 'session' ? preferences.gameDataSessionMetrics : preferences.gameDataLifetimeMetrics;
-        if (!selected[spec.id]) continue;
-        const row = rankedRow(record, pool, spec, scope, params, poolText);
-        if (row) result.push(row);
-      }
-    }
-    if (preferences.gameDataDayTime) {
-      const day = past.filter((r) => r.endedAt >= record.endedAt - 86400000);
-      const row = rankedRow(record, day, metrics[0], 'day', params, 'wins in the last 24 hours');
-      if (row) result.push(row);
+      const pools = [
+        ['lifetime', past, 'so far'],
+        ['session', session, 'this session (' + choice.label + ')'],
+        ...(spec.id === 'time' && preferences.gameDataDayTime ? [['day', day, 'in the last 24 hours']] : []),
+      ];
+      // Session and day pools are subsets of lifetime, so any row implies a lifetime row.
+      const poolRows = pools.map(([scope, pool, windowText]) => rankedRow(record, pool, spec, scope, params, counted, windowText))
+        .filter((row) => row !== null);
+      if (poolRows.length === 0) continue;
+      const valuesByScope = Object.fromEntries(pools.map(([scope, pool]) => [scope, poolValues(pool, spec, params)]));
+      result.push(...addDistributions(poolRows, valuesByScope, valuesByScope.session, spec.format));
     }
     return result;
   }
@@ -289,5 +332,5 @@ const GameData = (() => {
     return [Math.max(0, Math.floor((low - padding) / 10) * 10),
       Math.min(100, Math.ceil((high + padding) / 10) * 10)];
   }
-  return { metrics, defaults, defaultsForView, rows, rankedRow, summary, history, domain };
+  return { metrics, defaults, defaultsForView, rows, rankedRow, addDistributions, summary, history, domain };
 })();

@@ -11,6 +11,13 @@ Spec: [docs/product/charts.md](../product/charts.md). Index: [AGENTS.md](../../A
   Bucket steps are in [Point charts](../product/charts.md). A board chart
   follows its tablechart `shownThings` switch. `tests/average-scatter-test.js`
   freezes both orders, metric definitions, eligibility, and aggregation.
+  Chart titles take their names from the measurement's one source
+  (2026-10-07): `metricName(id)` reads the GameData catalog for
+  performance measurements, and board charts read `BOARD_TRAIT_NAMES`
+  (game/rankings.js). A spec's `measurementId` names the game data row it
+  plots; `buildAverageScatter` stamps it as `data-measurement` (the hook
+  for `linkGameDataCharts`) and puts `gameDataChartChip(row)`, this game's
+  value and lifetime standing, after the title.
 - Scatters: `buildScatter` + `niceTicks` (`timeTicks` for the date axis;
   `minorTicks` adds edge tickmarks between labeled divisions, skipped on
   the date axis), emitted in the relationships section; dots colored by age unit (`.age-dot-*`),

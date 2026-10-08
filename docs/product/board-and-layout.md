@@ -146,16 +146,26 @@ laggy"; asked whether the game is "max efficient" and to test and fix it.
   more and the details column at its 320px minimum. It then takes
   `clamp(360px, 24vw, 760px)` of the remaining room. Otherwise the chart
   falls back to the details column as described below.
-- Board beside game data (user decision 2026-09-23, "Sit right next to the
-  game data column; my saved position then counts from there"; this later
-  answer supersedes the same day's earlier "keep centering"): whenever game
-  data has a column beside the board column (its own column, or the details
-  column holding it), the board rests against the board column's right edge,
-  8px in, instead of centering. A zero position offset is that resting
-  place. With no chart column beside it (chart hidden, trial modes, compact
-  details), the board centers in its column. The choice depends only on the
-  viewport, board, and metrics-column widths, the chart setting, and the
-  play mode, so finishing a game never moves the board.
+- Board in the middle (creator decision 2026-10-07: "perhaps the session sum
+  could be to the left of the board, ranks won to the right, board in
+  middle? that's okay"): the board always centers in its column. This
+  supersedes the 2026-09-23 decision that the board rest against game data
+  ("Sit right next to the game data column; my saved position then counts
+  from there"), which had left an empty area about 1,000 x 330 px wide on the
+  first screen left of a Beginner board at 2560 px. A zero position offset is
+  the centered place, so finishing a game never moves the board.
+- Beside the board (same decision): after a game, the session summary rests
+  left of the board frame and ranks won right of it, 16px from the frame,
+  tops aligned with the board. Each goes beside the board only where its
+  whole width fits inside the board column (8px from its edges); otherwise
+  it stays at the head of the table list under the board, summary first.
+  Both keep their places at the head of the table list's DOM order, so the
+  table order rule is unchanged. The tables below start after the board or
+  after the lower of the two side blocks, whichever ends lower. On the
+  creator's 2560 x 970 viewport both fit beside a Beginner board; beside an
+  Intermediate board the room is about 379px each side, narrower than the two
+  blocks with production history (about 391 and 418px), so both lead the
+  tables instead. The side blocks never move the board.
 - The board is the anchor. Appearing or disappearing content must not move it.
   Its reserved startup space occupies the same explicit main column.
 - Mode, generator, session tags, settings, optional replay/display controls,
@@ -188,9 +198,11 @@ laggy"; asked whether the game is "max efficient" and to test and fix it.
   no space below the board. Replay arrow shortcuts apply only while its
   transport is open and visible.
 - The tables begin directly below the board when no action report is shown.
-  The time-period summary ("ranks won", today by default), time/category,
-  streak, near-streak, and near-near-streak tables share one continuous,
-  left-aligned wrapping list without a section heading. A separate **This
+  The session summary and the time-period summary ("ranks won in session",
+  today by default) lead them, unless they sit beside the board (above);
+  then come the time/category, streak, near-streak, and near-near-streak
+  tables. All share one continuous, left-aligned wrapping list without a
+  section heading. A separate **This
   board** section follows (2026-09-21): exact 3BV, ZiNi, HZiNi, maximum number,
   has-7/8, maximum-clue caps, zero-count, mine-island count, and enabled
   largest-island tablecharts. Each table keeps its own identifying label.
@@ -215,13 +227,13 @@ laggy"; asked whether the game is "max efficient" and to test and fix it.
   preserves page and sidebar scroll. Layout corrections allocate space;
   they do not raise z-index to conceal collisions between ordinary content.
 - Position stores independent X/Y pixel preferences, editable by drag,
-  arrows, labeled sliders, or numbers. Offsets count from the board's resting
-  place: beside game data or centered, as described above. Sidebar controls
+  arrows, labeled sliders, or numbers. Offsets count from the board's
+  centered resting place (2026-10-07; formerly from beside game data). A
+  saved offset therefore now moves the board from the center. Sidebar controls
   remain outside its translation. Applied offsets keep a board that fits at
   least 8px inside the board column and the viewport and 8px below the tabs
   (an oversized board keeps its overflow), without rewriting the saved
-  preference; beside game data, a rightward offset is therefore applied as
-  zero.
+  preference.
 - The position editor follows the board, normally directly below it, on all
   screen widths. It switches sides when needed and stays within the visible
   viewport during dragging, scrolling, resizing, and zooming. Reset (both

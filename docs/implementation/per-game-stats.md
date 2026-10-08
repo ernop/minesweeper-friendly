@@ -48,7 +48,7 @@ Spec: [docs/product/per-game-stats.md](../product/per-game-stats.md). Index: [AG
   (live 'end' and backfilled 'game' alike), the series flows through every
   session aggregation as `unusedMarkShareFraction` mirroring
   `winUnmarkedFraction`, and the endings chart draws it as "percent of
-  placed marks unused when winning". A markless win is unmeasured (0 of 0).
+  placed flags unused when winning". A markless win is unmeasured (0 of 0).
 - `clickCount` counts only effective clicks; `wastedClicks` counts board
   clicks that changed nothing — the board mousedown/mouseup handlers
   (game/controls.js) count unavailable chords, left-clicks on flagged cells,

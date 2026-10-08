@@ -20,11 +20,10 @@ Spec: [docs/product/board-and-layout.md](../product/board-and-layout.md). Index:
 - Board position: `settings.boardOffsetX/Y` are independent persistent pixel
   preferences. `applyBoardPosition` selects docked/compact details first, then
   constrains the applied offset to the main column without rewriting the
-  saved preference. `#game-frame` centers within `#game-area` except under
-  `#page-layout.board-beside-game-data`, which `syncGameSidebar` sets when
-  the details column is docked and `gameDataColumnWanted()`; the frame then
-  rests at `margin-inline: auto var(--board-edge-inset)`. `applyBoardPosition`
-  bounds and `syncJusticePlacement` collisions read the same
+  saved preference. `#game-frame` always centers within `#game-area`
+  (2026-10-07; the former `#page-layout.board-beside-game-data` resting place
+  at the column's right edge is removed). `applyBoardPosition` bounds,
+  `syncJusticePlacement` collisions, and `placeBoardSides` read the same
   `--board-edge-inset` (8px, on `#page-layout`), so a zero offset at the
   resting place is never clamped. `#board-position-reset` sets both
   offsets to zero. Results and
@@ -64,9 +63,18 @@ Spec: [docs/product/board-and-layout.md](../product/board-and-layout.md). Index:
   (minimum 480px) when the chart is in `#result-stats`; in the game data
   column CSS makes it fill the column. `#scores-nav` joins the layout
   ResizeObserver so its changes refit the chart.
-  `syncBoardLayout` applies board position, Justice placement, and callout
-  clearance. `syncResultClearance` considers only Justice; stats and legend
-  need no overhang margins, floating/below-board classes, or z-index fixes.
+  `syncBoardLayout` applies board position, Justice placement, the blocks
+  beside the board, and callout clearance. `placeBoardSides` (2026-10-07)
+  measures `.session-summary` and `.recent-placements` inside `#result-ranks`
+  and gives each `.beside-board` (absolute in `main`, which is
+  `position: relative`) with `left`/`top` only when its width fits between
+  the board frame (`BOARD_SIDE_GAP`, 16px) and the main column's inset;
+  trial layouts without a board skip it. `applyCellSize` and the window resize
+  handler call it before `syncResultClearance`, which takes the lowest of
+  the Justice callout and the `.beside-board` blocks as the overhang the
+  first result section clears. Stats and legend need no overhang margins,
+  floating/below-board classes, or z-index fixes. `newGame` empties
+  `#result-ranks`, so the side blocks leave with the old result.
   ResizeObserver responds to the main column, page layout, and board frame.
   Legend items retain their complete vertical encoding labels. Replay choice
   callouts measure visible stats and legend bounds to avoid the sidebar.

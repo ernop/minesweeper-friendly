@@ -62,8 +62,10 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   or rule once, so its rows do not repeat it. The sections:
   - DYNAMICS — the behavioral-biometrics session set over movement bouts
     (a pause of 100ms or more separates bouts): strokes, moving, silence
-    (share of the game with the cursor still), path, speed (mean of
-    per-stroke mean speeds), peak speed, straightness (chord/path),
+    (share of the game with the cursor still), path, moving speed (mean of
+    per-stroke mean speeds; "speed" until 2026-10-07, renamed so it is not
+    read as game data's "mouse speed", which is path per second of play,
+    pauses included), peak speed, straightness (chord/path),
     jerk (mean |da/dt|, px/ms³), turn rate (rad/ms), left clicks, right
     clicks, hold (mean button-down time), pause-and-click (mean stillness
     before a press). Definitions are exactly those of the offline
@@ -80,7 +82,9 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
     intention.
   - CLICK TIMING — press-to-press cadence over all button presses, left
     and right together (added 2026-08-22): click gap (median gap between
-    consecutive presses), gap spread (interquartile range over median —
+    consecutive presses), cadence spread (interquartile range over median,
+    the same value game data and the session charts call cadence spread;
+    "gap spread" until 2026-10-07 —
     near 0 = metronomic, systematic clicking; high = rapid-fire runs
     mixed with long stalls), fastest gap, peak rate (most presses in any
     rolling 1-second window), burst share (share of gaps under 250ms),
@@ -99,7 +103,9 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
     value-for-value against Rscript (see [docs/implementation/trace-metrics-panel.md](../implementation/trace-metrics-panel.md)).
   - MOVEMENT GEOMETRY — Hevelius-formula movement features (Gajos et al. 2020;
     reference/hevelius/FEATURES.md) per inter-click movement, means over
-    movements: execution, exec no pauses, peak speed, peak accel,
+    movements: execution, exec no pauses, smoothed peak speed ("peak
+    speed*" until 2026-10-07; the asterisk only told it apart from
+    DYNAMICS' raw peak speed), peak accel,
     submovements, main sub, sub end dist, axis dev, movement error, axis
     crossings, norm jerk (without pauses), click slip, verification,
     re-entries. More features are computed than displayed (offsets,

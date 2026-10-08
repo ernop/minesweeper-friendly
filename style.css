@@ -7,6 +7,9 @@
   --bevel-light: #ffffff;
   --bevel-dark: #808080;
   --bevel-size: calc(var(--cell-size) / 8);
+  /* This game in every result table, chart line, and band row. */
+  --this-game: #cfe5fa;
+  --this-game-line: #1f6fd1;
 }
 
 * { box-sizing: border-box; }
@@ -51,8 +54,11 @@ body {
   width: 100%;
 }
 
+/* Positioned so placeBoardSides can rest the session summary and ranks won
+   beside the board in main's coordinates. */
 main {
   grid-column: 2;
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -738,12 +744,6 @@ body.trial-offboard #game-frame {
   padding: calc(var(--cell-size) / 4);
   border: calc(var(--cell-size) / 8) solid;
   border-color: var(--bevel-light) var(--bevel-dark) var(--bevel-dark) var(--bevel-light);
-}
-
-/* Beside a column holding game data, the board rests against its column's
-   right edge instead of centering, and the saved position counts from there. */
-#page-layout.board-beside-game-data #game-frame {
-  margin-inline: auto var(--board-edge-inset);
 }
 
 /* Keep the frame measurable for layout restoration without inviting input
@@ -2356,8 +2356,9 @@ body.settings-page .return-to-game {
   gap: 18px;
 }
 
-/* Float the tall summary so successive rows of time/streak tables can use
-   the space beside it, then continue at full width underneath. */
+/* The session summary and ranks won, when not beside the board, float as
+   one left column, the summary on top, so successive rows of time/streak
+   tables use the space beside them and then the full width underneath. */
 .result-chart-section-tables > .result-chart-section-items {
   display: flow-root;
   text-align: left;
@@ -2369,8 +2370,16 @@ body.settings-page .return-to-game {
   vertical-align: top;
   margin: 0 18px 18px 0;
 }
+.result-chart-section-tables > .result-chart-section-items > .session-summary {
+  float: left;
+}
 .result-chart-section-tables > .result-chart-section-items > .recent-placements {
   float: left;
+  clear: left;
+}
+#result-ranks .rank-list.beside-board {
+  position: absolute;
+  margin: 0;
 }
 
 .result-chart-section-boardTables > .result-chart-section-items { justify-content: flex-start; }
@@ -2407,11 +2416,7 @@ body.settings-page .return-to-game {
   flex: 0 0 100%;
   min-width: 0;
 }
-/* --band-x is the band center measured from the chart's left edge. Layout
-   sets it from the labels' one-line widths; every horizontal position on
-   both sides (band, leaders, dots, labels, side headings) derives from it. */
 .board-time-profile {
-  --band-x: 50%;
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
@@ -2437,127 +2442,202 @@ body.settings-page .return-to-game {
 }
 .board-time-profile h4 { margin: 0; font-size: 16px; font-weight: 400; color: #000000; }
 .board-time-profile .chart-help-label { font-weight: 400; }
-.board-time-profile-sides {
-  display: grid;
-  grid-template-columns: max(0px, calc(var(--band-x) - 30px)) minmax(0, 1fr);
-  column-gap: 60px;
-  margin-bottom: 2px;
-  color: #000000;
+.board-time-profile figcaption h4 { margin-right: auto; }
+.board-time-profile figcaption h4 .chart-help-label { font-weight: 700; }
+.game-data-pool-switch { display: inline-flex; align-items: baseline; gap: 0; }
+.board-time-profile .game-data-pool-switch button {
+  padding: 1px 7px;
+  border-radius: 0;
+  border-color: #000000;
+  background: #ffffff;
+}
+.board-time-profile .game-data-pool-switch button + button { border-left: 0; }
+.board-time-profile .game-data-pool-switch button[aria-pressed="true"] {
+  background: var(--this-game);
+  font-weight: 700;
+}
+
+/* The band: rows, column heads, bar, dots, and leaders are absolutely
+   placed by buildGameDataBand from measured column widths. Every row is
+   one line; values lead in weight and size, names and heads stay black. */
+.game-data-band {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.game-data-block { position: relative; flex-shrink: 0; }
+.game-data-measuring { position: relative; visibility: hidden; }
+.game-data-side-title {
+  position: absolute;
   font-size: 14px;
-  flex-shrink: 0;
+  font-weight: 700;
+  line-height: 18px;
+  white-space: nowrap;
 }
-.board-time-profile-sides > span:first-child { text-align: right; }
-.board-trait-line-view { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
-.board-trait-line { position: relative; width: 100%; }
-.board-trait-line > svg {
+.game-data-column-heads,
+.game-data-row > .chart-help-label {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: max-content;
+  column-gap: 8px;
+  align-items: baseline;
+  white-space: nowrap;
+}
+.game-data-column-heads {
   position: absolute;
-  top: 0;
-  left: calc(var(--band-x) + 16px);
-  width: 14px;
-  height: 100%;
-  overflow: visible;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 14px;
 }
-.board-trait-line > svg[data-side="performance"] {
-  left: calc(var(--band-x) - 30px);
-  transform: scaleX(-1);
+.game-data-rule { position: absolute; border-top: 1px solid #000000; }
+.board-time-profile .game-data-row { position: absolute; display: block; margin: 0; }
+.board-time-profile .game-data-row > .chart-help-label {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #000000;
+  font-size: 12px;
+  line-height: 16px;
+  text-align: left;
+  text-decoration: none;
 }
-.board-trait-line-axis {
+.game-data-row > .chart-help-label:hover,
+.game-data-row > .chart-help-label:focus-visible {
+  background: var(--this-game);
+  outline: 1px solid var(--this-game-line);
+}
+.game-data-name { text-align: left; }
+.game-data-value,
+.game-data-pct { text-align: right; font-variant-numeric: tabular-nums; }
+.game-data-value { font-size: 13px; font-weight: 700; }
+.game-data-pct.plotted { font-size: 13px; font-weight: 700; }
+.game-data-block[data-orientation="around"] [data-side="board"] .game-data-pct { text-align: left; }
+.game-data-block[data-orientation="left"] [data-side="board"] .game-data-pct { order: 1; }
+.game-data-band[data-pool-columns="1"] .game-data-pct:not(.plotted) { display: none; }
+.game-data-values-hidden .game-data-value { display: none; }
+.game-data-bar {
   position: absolute;
-  left: calc(var(--band-x) - 16px);
-  width: 32px;
-  border-radius: 4px;
-  background: linear-gradient(#d8f0da, #d9ebfa 50%, #fad8d8);
-  box-shadow: 0 0 0 1px #cad9e0;
+  box-sizing: border-box;
+  border: 1px solid #000000;
 }
-.board-trait-line-tick {
+.game-data-decile {
   position: absolute;
   left: 0;
   width: 100%;
-  transform: translateY(-50%);
-  color: #000000;
   font-size: 10px;
-  line-height: 1;
+  font-weight: 700;
+  line-height: 12px;
   text-align: center;
   font-variant-numeric: tabular-nums;
 }
-.board-trait-line-tick::before, .board-trait-line-tick::after {
-  content: '';
+.game-data-leaders { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
+.game-data-leader { fill: none; stroke: #000000; stroke-width: 1; stroke-linejoin: round; }
+.game-data-leader[data-displaced="true"] { stroke-width: 1.6; }
+.game-data-dot {
   position: absolute;
-  top: 50%;
-  width: 4px;
-  height: 1px;
-  background: #56798b;
-}
-.board-trait-line-tick::before { left: 0; }
-.board-trait-line-tick::after { right: 0; }
-.board-trait-line-connector {
-  fill: none;
-  stroke: #58798d;
-  stroke-width: 1.4;
-  stroke-linejoin: round;
-  vector-effect: non-scaling-stroke;
-}
-.board-trait-line-connector[data-displaced="true"] {
-  stroke: #355d75;
-  stroke-width: 2;
-}
-.board-trait-line-dot {
-  box-sizing: border-box;
-  position: absolute;
-  left: calc(var(--band-x) + 16px);
-  width: 5px;
-  height: 5px;
-  border: 1.4px solid #355d75;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
+  background: #000000;
+  box-shadow: 0 0 0 1px #ffffff;
   transform: translate(-50%, -50%);
+  pointer-events: none;
 }
-.board-trait-line-dot[data-side="performance"] { left: calc(var(--band-x) - 16px); }
-.board-trait-line .board-trait-line-label {
-  display: flex;
-  position: absolute;
-  left: calc(var(--band-x) + 30px);
-  max-width: max(0px, calc(100% - var(--band-x) - 30px));
-  transform: translateY(-50%);
-  font-size: inherit;
+.game-data-unplotted { margin: 0 0 6px; font-size: 12px; }
+
+/* The distribution card, opened from a band or distributions row. */
+.chart-help-tip:has(> .game-data-card) { width: auto; max-width: none; }
+.game-data-card { display: flex; flex-direction: column; gap: 5px; width: 330px; color: #000000; }
+.game-data-card p { margin: 0; font-size: 11px; }
+.game-data-card-title .game-data-name { font-size: 14px; font-weight: 700; }
+.game-data-card-title .game-data-value { font-size: 15px; }
+.game-data-card-ranks {
+  display: grid;
+  grid-template-columns: max-content max-content max-content;
+  column-gap: 10px;
+  font-size: 12px;
 }
-.board-trait-line .board-trait-line-label[data-side="performance"] {
-  left: auto;
-  right: calc(100% - var(--band-x) + 30px);
-  max-width: max(0px, calc(var(--band-x) - 30px));
-  justify-content: flex-end;
+.game-data-card-ranks .game-data-pct { font-weight: 700; }
+.game-data-histogram { display: block; overflow: visible; }
+.game-data-histogram[data-size="card"] { width: 320px; height: 118px; }
+.game-data-histogram text { font: 700 11px Arial, Helvetica, sans-serif; fill: #000000; }
+.game-data-histogram-axis,
+.game-data-histogram-tick { stroke: #000000; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.game-data-histogram-this { stroke: var(--this-game-line); stroke-width: 3; vector-effect: non-scaling-stroke; }
+.game-data-histogram[data-size="strip"] .game-data-histogram-this { stroke-width: 2; }
+
+/* Distributions: one strip per measurement, sections per comparison pool,
+   all sections on one set of columns so their strips line up. */
+.game-data-distributions {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  display: grid;
+  grid-template-columns: max-content max-content minmax(80px, 1fr) max-content;
+  align-content: start;
+  column-gap: 10px;
 }
-.board-time-profile .board-trait-name { white-space: normal; }
-.board-time-profile .board-trait-value,
-.board-time-profile .board-trait-scope { white-space: nowrap; }
-.board-time-profile.game-data-values-hidden .board-trait-value { display: none; }
-.board-time-profile .board-trait-value { font-variant-numeric: tabular-nums; color: inherit; }
-.board-trait-line-measuring .board-trait-line-label,
-.board-trait-line-measuring .board-trait-line-label[data-side="performance"] { max-width: none; }
-.board-time-profile.board-trait-line-measuring .board-trait-line-label .chart-help-label,
-.board-trait-line-measuring .board-trait-line-label .board-trait-name,
-.board-trait-line-measuring .board-time-profile-sides > span { white-space: nowrap; }
-.board-trait-line-measuring .board-time-profile-sides > span { justify-self: start; }
-.board-trait-line .board-trait-line-label .chart-help-label {
-  display: block;
-  box-sizing: border-box;
-  max-width: 100%;
-  padding: 1px 2px;
+.game-data-values-hidden .game-data-distributions { grid-template-columns: max-content minmax(80px, 1fr) max-content; }
+.game-data-dist-section {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: subgrid;
+  row-gap: 4px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.game-data-dist-head,
+.board-time-profile .game-data-dist-row,
+.game-data-dist-row > .chart-help-label {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: subgrid;
+  align-items: center;
+}
+.game-data-dist-head { align-items: baseline; border-bottom: 1px solid #000000; }
+.game-data-dist-head .game-data-side-title { position: static; }
+.game-data-dist-head .game-data-value,
+.game-data-dist-head .game-data-strip-head,
+.game-data-dist-head .game-data-pct { font-size: 11px; font-weight: 700; }
+.game-data-strip-head { text-align: center; }
+.board-time-profile .game-data-dist-row > .chart-help-label {
+  padding: 0;
   border: 0;
   border-radius: 0;
-  background: var(--trait-tint);
-  color: inherit;
+  background: transparent;
+  color: #000000;
+  font-size: 12px;
   text-align: left;
   text-decoration: none;
-  line-height: 1.2;
-  white-space: normal;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
 }
-.board-trait-line .board-trait-line-label[data-side="performance"] .chart-help-label { text-align: right; }
-.board-trait-line-label .chart-help-label:hover,
-.board-trait-line-label .chart-help-label:focus-visible {
-  outline: 1px solid #819eaf;
-  outline-offset: 2px;
+.game-data-dist-row > .chart-help-label:hover,
+.game-data-dist-row > .chart-help-label:focus-visible {
+  background: var(--this-game);
+  outline: 1px solid var(--this-game-line);
 }
+.game-data-strip { display: block; height: 26px; }
+.game-data-strip > svg { width: 100%; height: 26px; }
+.game-data-dist-key { grid-column: 1 / -1; margin: 0; font-size: 11px; }
+
+/* A chart heading's copy of this game's band row, and the chart outline
+   while its band row is hovered or focused. */
+.game-data-chart-chip {
+  margin-left: 6px;
+  padding: 0 4px;
+  border: 1px solid #000000;
+  background: color-mix(in srgb, var(--standing) 45%, #ffffff);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.game-data-linked { outline: 3px solid var(--this-game-line); outline-offset: 2px; }
 .board-time-profile select { font: inherit; color: inherit; max-width: 100%; }
 .board-time-profile button:not(.chart-help) {
   font: inherit;
@@ -2875,6 +2955,34 @@ body.settings-page .return-to-game {
 }
 .scatter-legend .legend-item { margin-left: 8px; }
 
+/* Session summary: one row per board type played in the session. Counts
+   and the best time are the values, so they lead in weight. */
+.session-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(6, auto);
+}
+.session-summary-head > span {
+  font-size: 11px;
+  font-weight: bold;
+  text-align: right;
+  border-bottom: 1px solid #000000;
+}
+.session-summary-head > span:first-child { text-align: left; }
+.session-summary-type { font-weight: normal; }
+.session-summary-number,
+.session-summary-rank-cell {
+  font-weight: bold;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.session-summary-grid .session-summary-rank {
+  padding: 0 2px;
+  background: var(--rank-tint);
+}
+.session-summary-grid .session-summary-rank.session-summary-current { background: var(--this-game); }
+.session-summary-grid .recent-current-label { padding: 0; font-size: 10px; }
+.session-summary-total > span { border-top: 1px solid #000000; }
+
 /* Recent placements ("ranks won in session"): one row per longer chart,
    listing the top-tenth ranks earned within the session. */
 .recent-placements-grid {
@@ -2891,8 +2999,8 @@ body.settings-page .return-to-game {
   color: #000000;
 }
 
-/* Every reported achievement gets its rank treatment, including earlier
-   games. Only the current game gets the blue identity edge and "this". */
+/* Rows carry no tint; every reported rank is a chip in its standing color,
+   earlier games included. This game's chip is light blue and says "this". */
 .recent-placements-grid .recent-rank-run {
   padding: 0 2px;
   background: var(--rank-tint);
@@ -2900,10 +3008,7 @@ body.settings-page .return-to-game {
   font-weight: bold;
 }
 
-.recent-placements-grid .recent-current-rank {
-  box-shadow: inset 2px 0 #245b8b;
-  padding-left: 4px;
-}
+.recent-placements-grid .recent-current-rank { background: var(--this-game); }
 
 .recent-placements-grid .recent-current-label { padding: 0; font-size: 10px; }
 .recent-standing-cell { font-size: 11px; }
@@ -3323,42 +3428,29 @@ body.vigilance-running #self-check-header {
 .age-u-mo { color: #800000; }
 .age-u-y  { color: #008080; }
 
-/* Percentage tint covers the selected row; absolute podium place colors
-   only its rank. The blue edge means latest game at every standing. */
+/* Two color meanings across the report (docs/product/ui-doctrine.md):
+   light blue is this game, wherever it appears; the standing scale (green
+   better, light neutral in the middle, red worse) colors rank chips. A
+   this-game row is all light blue, standing stays in its footer. */
 .rank-highlight { --rank-tint: color-mix(in srgb, var(--rank-tone) 85%, #ffffff); }
-.rank-highlight[data-rank-band="top1"] { --rank-tone: #4fcca0; }
-.rank-highlight[data-rank-band="top2"] { --rank-tone: #84d6bc; }
-.rank-highlight[data-rank-band="top5"] { --rank-tone: #acdccc; }
-.rank-highlight[data-rank-band="top10"] { --rank-tone: #cae5dc; }
-.rank-highlight[data-rank-band="top25"] { --rank-tone: #d5e2e9; }
+.rank-highlight[data-rank-band="top1"] { --rank-tone: #1e9e4f; }
+.rank-highlight[data-rank-band="top2"] { --rank-tone: #43b367; }
+.rank-highlight[data-rank-band="top5"] { --rank-tone: #70c88a; }
+.rank-highlight[data-rank-band="top10"] { --rank-tone: #9fdcaf; }
+.rank-highlight[data-rank-band="top25"] { --rank-tone: #c9ecd2; }
 .rank-highlight[data-rank-band="top50"],
 .rank-highlight[data-rank-band="middle"],
-.rank-highlight[data-rank-band="only"] { --rank-tone: #e0e4e7; }
-.rank-highlight[data-rank-band="lower50"] { --rank-tone: #e6ded4; }
-.rank-highlight[data-rank-band="bottom10"] { --rank-tone: #d7c9b9; }
-.rank-highlight[data-rank-band="last"] { --rank-tone: #bfb3a5; }
-.rank-highlight[data-rank-podium="1"] { --rank-podium: #efc558; }
-.rank-highlight[data-rank-podium="2"] { --rank-podium: #c9d2dc; }
-.rank-highlight[data-rank-podium="3"] { --rank-podium: #dbaf87; }
+.rank-highlight[data-rank-band="only"] { --rank-tone: #e6e6e6; }
+.rank-highlight[data-rank-band="lower50"] { --rank-tone: #f6cdcd; }
+.rank-highlight[data-rank-band="bottom10"] { --rank-tone: #ec9f9f; }
+.rank-highlight[data-rank-band="last"] { --rank-tone: #df6a6a; }
 
-.rank-row.me > span,
-.rank-row.recent-row-ranked > span {
+.rank-row.me > span {
   font-weight: bold;
   color: #000000;
-  background: var(--rank-tint);
+  background: var(--this-game);
 }
 
-.rank-row.me > .rank-cell,
-.rank-row.recent-row-current > .recent-window-cell {
-  box-shadow: inset 2px 0 #245b8b;
-}
-
-.rank-highlight:not([data-rank-podium="0"]) > .rank-cell,
-.recent-rank-run.rank-highlight:not([data-rank-podium="0"]) {
-  background: var(--rank-podium);
-}
-
-.rank-highlight[data-rank-band="last"] > .rank-cell,
 .recent-rank-run.rank-highlight[data-rank-band="last"] {
   text-decoration: underline double;
   text-underline-offset: 2px;

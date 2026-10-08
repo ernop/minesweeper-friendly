@@ -182,6 +182,7 @@ function applyBoardPosition() {
 function syncBoardLayout() {
   applyBoardPosition();
   syncJusticePlacement();
+  placeBoardSides();
   syncResultClearance();
   recordLayoutIfMoved();
 }
@@ -250,7 +251,6 @@ function syncGameSidebar() {
   pageLayout.style.setProperty('--game-sidebar-docked-width',
     (dataDocked ? minimum : Math.max(minimum, Math.min(preferred, room))) + 'px');
   pageLayout.classList.toggle('game-data-docked', dataDocked);
-  pageLayout.classList.toggle('board-beside-game-data', docked && gameDataColumnWanted());
   placeGameData();
   const compact = !docked;
   if (pageLayout.classList.contains('compact-sidebar') !== compact) {
@@ -289,13 +289,47 @@ function syncJusticePlacement() {
   justiceLive.classList.add('justice-below');
 }
 
-// Justice callouts belong to the board. The stats and replay legend have
-// their own column and contribute no height to the history below the board.
+// Beside the board (user decision 2026-10-07: "the session sum could be to
+// the left of the board, ranks won to the right, board in middle"): the
+// session summary rests left of the board frame and ranks won right of it,
+// tops aligned, each only where it fits inside the board column. A block
+// that does not fit stays first in the table list below the board. Both
+// keep their place in the table list's DOM order.
+const BOARD_SIDE_GAP = 16;
+function placeBoardSides() {
+  const blocks = [['left', resultRanks.querySelector('.session-summary')],
+    ['right', resultRanks.querySelector('.recent-placements')]].filter(([, block]) => block !== null);
+  for (const [, block] of blocks) {
+    block.classList.remove('beside-board');
+    block.style.removeProperty('left');
+    block.style.removeProperty('top');
+  }
+  if (gameArea.classList.contains('trial-no-board')) return;
+  const inset = parseFloat(getComputedStyle(pageLayout).getPropertyValue('--board-edge-inset'));
+  const frame = gameFrame.getBoundingClientRect();
+  const main = mainElement.getBoundingClientRect();
+  for (const [side, block] of blocks) {
+    const width = block.getBoundingClientRect().width;
+    const left = side === 'left' ? frame.left - BOARD_SIDE_GAP - width : frame.right + BOARD_SIDE_GAP;
+    if (left < main.left + inset || left + width > main.right - inset) continue;
+    block.classList.add('beside-board');
+    block.style.left = (left - main.left) + 'px';
+    block.style.top = (frame.top - main.top) + 'px';
+  }
+}
+
+// Justice callouts and the blocks beside the board belong to the board's
+// rows: the history below starts after the lowest of them. The stats and
+// replay legend have their own column and contribute no height here.
 function syncResultClearance() {
   const sections = [pregenCharts, resultAnalysis, resultRanks];
-  const extra = !gameArea.classList.contains('trial-no-board') && justiceLive.childElementCount > 0
-    ? Math.max(0, Math.ceil(justiceLive.getBoundingClientRect().bottom
-      - gameArea.getBoundingClientRect().bottom)) : 0;
+  const areaBottom = gameArea.getBoundingClientRect().bottom;
+  const overhangs = [...resultRanks.querySelectorAll('.beside-board')]
+    .map((block) => block.getBoundingClientRect().bottom - areaBottom);
+  if (!gameArea.classList.contains('trial-no-board') && justiceLive.childElementCount > 0) {
+    overhangs.push(justiceLive.getBoundingClientRect().bottom - areaBottom);
+  }
+  const extra = Math.max(0, Math.ceil(Math.max(0, ...overhangs)));
   const target = !pregenCharts.hidden ? pregenCharts
     : resultAnalysis.childElementCount > 0 ? resultAnalysis : resultRanks;
   target.style.setProperty('--result-overflow', extra + 'px');
@@ -438,6 +472,7 @@ function applyCellSize() {
   applyBoardPosition();
   if (tracing()) recordLayout();
   syncJusticePlacement();
+  placeBoardSides();
   syncResultClearance();
 }
 

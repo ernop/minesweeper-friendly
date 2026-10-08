@@ -203,8 +203,8 @@ function boardFractionOf(record, field) {
     ? m[field] / m.safeCells : undefined;
 }
 
-function formatBoardShare(fraction) {
-  return Number((100 * fraction).toFixed(3)) + '%';
+function formatBoardShare(fraction, digits) {
+  return Number((100 * fraction).toFixed(digits)) + '%';
 }
 
 function boardShareGroup(record, field) {
@@ -221,11 +221,19 @@ function boardSpreadGroup(record) {
     ? Math.round(2 * m.workSpread) / 2 : undefined;
 }
 
+// One measurement has one name in every table, game data row, chart, and
+// report (creator direction 2026-10-07); all of them read it here.
+const BOARD_TRAIT_NAMES = {
+  bv3: '3BV', zini: 'ZiNi', hzini: 'HZiNi', workSpread: '3BV spread',
+  maxAdjacent: 'max number', islandCount: 'islands', largestIsland: 'largest island',
+  zeroCount: 'zeros', zeroOneShare: '0–1 share', zeroOpeningCoverage: 'zero-opening coverage',
+};
+
 function boardShareHelp(record, field, definition) {
   const m = record.boardMetrics;
   return [definition,
     'This board: ' + m[field] + ' of ' + m.safeCells + ' safe cells ('
-      + formatBoardShare(boardFractionOf(record, field)) + '). Times compare boards rounded to the nearest whole percentage point (exact halfway values round up).',
+      + formatBoardShare(boardFractionOf(record, field), 3) + '). Times compare boards rounded to the nearest whole percentage point (exact halfway values round up).',
   ];
 }
 
@@ -233,47 +241,51 @@ function boardShareHelp(record, field, definition) {
 // earlier group. Summary groups follow time/day (0/1): workload (2–5),
 // clues (6–8), islands (9–10), then zeros/fractions (11–13). Within each
 // family, use the numeric measurement. Pool size never changes row order.
-// Matching one feature does not imply equal overall difficulty.
+// Matching one feature does not imply equal overall difficulty. A grouped
+// table names its group's range.
 const BOARD_METRIC_TABLES = [
-  { field: 'bv3', label: '3BV', setting: 'exact3BV', priority: 13, summaryGroup: 2,
+  { id: 'bv3', field: 'bv3', format: String, setting: 'exact3BV', priority: 13, summaryGroup: 2,
     help: () => ['The fewest clicks that clear this board without flags: one for each zero region, plus one for each number that no zero region reveals.'] },
-  { field: 'zini', label: 'ZiNi', setting: 'exactZiNi', priority: 14, summaryGroup: 3,
+  { id: 'zini', field: 'zini', format: String, setting: 'exactZiNi', priority: 14, summaryGroup: 3,
     help: () => ['The clicks a standard greedy solve with flags and chords needs when every mine is known. Never more than 3BV.'] },
-  { field: 'maxAdjacent', label: 'max number', shortLabel: 'MN', setting: 'exactMaxNumber', priority: 15, summaryGroup: 6, higher: true,
-    help: () => ['Max number (MN): the highest number on this board.'] },
-  { field: 'hzini', label: 'HZiNi', setting: 'exactHZiNi', priority: 16, summaryGroup: 4,
+  { id: 'maxAdjacent', field: 'maxAdjacent', format: String, setting: 'exactMaxNumber', priority: 15, summaryGroup: 6, higher: true,
+    help: () => ['Max number: the highest number on this board.'] },
+  { id: 'hzini', field: 'hzini', format: String, setting: 'exactHZiNi', priority: 16, summaryGroup: 4,
     help: () => ['Human ZiNi: the actions a fixed human-style solve takes when every mine is known. It opens each zero region, then flags and chords around the clue that saves the most clicks, and reveals single cells when chording would cost extra. A reference count, not the true minimum.'] },
-  { field: boardSpreadGroup, label: '3BV spread',
-    labelOf: (value) => '3BV spread ' + value.toFixed(1) + ' cells',
-    valueText: (record) => Number(record.boardMetrics.workSpread.toFixed(1)) + ' cells',
+  { id: 'workSpread', field: boardSpreadGroup,
+    labelOf: (value) => BOARD_TRAIT_NAMES.workSpread + ' ' + (value - 0.25).toFixed(2) + '–' + (value + 0.25).toFixed(2) + ' cells',
+    format: (value) => Number(value.toFixed(1)) + ' cells',
     rawValue: (record) => record.boardMetrics?.version === 1 ? record.boardMetrics.workSpread : undefined,
     setting: 'workSpreadTable', priority: 17, summaryGroup: 5,
     help: (record) => [
       'How spread out the board’s 3BV work is, in cell widths: the root-mean-square distance of its work points from their center. Each zero region is one point at its center, and each safe cell that no zero region reveals is its own point.',
-      'This board: ' + record.boardMetrics.workSpread.toFixed(3) + ' cells. Times compare boards rounded to the nearest 0.5 cell (exact halfway values round up).',
+      'This board: ' + record.boardMetrics.workSpread.toFixed(3) + ' cells. Its table holds boards from '
+        + (boardSpreadGroup(record) - 0.25).toFixed(2) + ' cells up to, not including, '
+        + (boardSpreadGroup(record) + 0.25).toFixed(2) + ' cells.',
     ] },
-  { field: (win) => boardShareGroup(win, 'zeroOpenedZeroOneCells'), label: '0–1 share',
-    valueText: (record) => formatBoardShare(boardFractionOf(record, 'zeroOpenedZeroOneCells')),
+  { id: 'zeroOneShare', field: (win) => boardShareGroup(win, 'zeroOpenedZeroOneCells'),
+    format: (value) => formatBoardShare(value, 1),
     rawValue: (record) => boardFractionOf(record, 'zeroOpenedZeroOneCells'), higher: true,
-    labelOf: (value) => '0–1 share ' + value + '%', setting: 'zeroOneShareTable', priority: 18, summaryGroup: 12,
+    labelOf: (value) => BOARD_TRAIT_NAMES.zeroOneShare + ' ' + value + '%', setting: 'zeroOneShareTable', priority: 18, summaryGroup: 12,
     help: (record) => boardShareHelp(record, 'zeroOpenedZeroOneCells',
       'Share of safe cells showing 0 or 1 after opening every zero region and nothing else. Covered ones do not count.') },
-  { field: (win) => boardShareGroup(win, 'zeroOpenedCells'), label: 'zero-opening coverage', shortLabel: 'ZOC',
-    valueText: (record) => formatBoardShare(boardFractionOf(record, 'zeroOpenedCells')),
+  { id: 'zeroOpeningCoverage', field: (win) => boardShareGroup(win, 'zeroOpenedCells'),
+    format: (value) => formatBoardShare(value, 1),
     rawValue: (record) => boardFractionOf(record, 'zeroOpenedCells'), higher: true,
-    labelOf: (value) => 'zero-opening coverage ' + value + '%', setting: 'zeroOpeningTable', priority: 19, summaryGroup: 13,
+    labelOf: (value) => BOARD_TRAIT_NAMES.zeroOpeningCoverage + ' ' + value + '%', setting: 'zeroOpeningTable', priority: 19, summaryGroup: 13,
     help: (record) => boardShareHelp(record, 'zeroOpenedCells',
-      'Zero-opening coverage (ZOC): the share of safe cells uncovered by opening every zero region, including the numbers on their borders.') },
+      'Zero-opening coverage: the share of safe cells uncovered by opening every zero region, including the numbers on their borders.') },
 ];
 
 function boardMetricCandidates(referenceWins, wins) {
   return BOARD_METRIC_TABLES.flatMap((spec) =>
     [...rankValueGroups(referenceWins, wins, spec.field)].map(([value, rows]) => ({
-      label: spec.labelOf ? spec.labelOf(value) : spec.label + ' ' + value,
-      trait: spec.shortLabel || spec.label,
-      valueText: spec.valueText || (() => String(value)),
+      label: spec.labelOf ? spec.labelOf(value) : BOARD_TRAIT_NAMES[spec.id] + ' ' + value,
+      measurementId: spec.id,
+      trait: BOARD_TRAIT_NAMES[spec.id],
+      format: spec.format,
       rawValue: spec.rawValue || ((record) => record[spec.field]),
-      higher: spec.higher === true, measurement: spec.label,
+      higher: spec.higher === true,
       setting: spec.setting,
       help: spec.help,
       dedupePriority: spec.priority,
@@ -283,20 +295,19 @@ function boardMetricCandidates(referenceWins, wins) {
 }
 
 // Board-shape chart candidates for the reference wins' finished-board families:
-// {label, displayOrder, dedupePriority, summaryOrder, rows}. Older wins lacking a
+// {id, label, displayOrder, dedupePriority, summaryOrder, rows}. Older wins lacking a
 // measurement stay off their list. Shared by the board-shape tablecharts
 // and the recent-placements summary so the two chart sets cannot drift;
 // the largestIsland display gate is applied at the tablechart render
-// site, not here.
+// site, not here. Families of one measured count also carry what game data
+// plots (measurementId, trait, rawValue, higher, format).
 function boardShapeCandidates(referenceWins, wins) {
   const candidates = [];
   if (referenceWins.some((record) => record.maxAdjacent === 8)) {
     candidates.push({
       id: 'has-8',
-      trait: 'has an 8',
-      valueText: () => 'yes',
       summaryOrder: [7, 8],
-      label: 'has 8',
+      label: 'has an 8',
       displayOrder: 10,
       dedupePriority: 0,
       rows: wins.filter((s) => s.maxAdjacent === 8),
@@ -305,10 +316,8 @@ function boardShapeCandidates(referenceWins, wins) {
   if (referenceWins.some((record) => record.hasSeven === true)) {
     candidates.push({
       id: 'has-7',
-      trait: 'has a 7',
-      valueText: () => 'yes',
       summaryOrder: [7, 7],
-      label: 'has 7',
+      label: 'has a 7',
       displayOrder: 20,
       dedupePriority: 1,
       rows: wins.filter((s) => s.hasSeven === true),
@@ -319,11 +328,9 @@ function boardShapeCandidates(referenceWins, wins) {
       typeof record.maxAdjacent === 'number' && record.maxAdjacent <= cap)) {
       candidates.push({
         id: 'max-' + cap,
-        trait: 'MN ≤ ' + cap,
         help: () => ['Boards with no number higher than ' + cap + '.'],
-        valueText: (record) => String(record.maxAdjacent),
         summaryOrder: [8, cap],
-        label: 'max ' + cap,
+        label: BOARD_TRAIT_NAMES.maxAdjacent + ' ≤ ' + cap,
         displayOrder: 70 - cap * 10,
         dedupePriority: cap,
         rows: wins.filter((s) => typeof s.maxAdjacent === 'number' && s.maxAdjacent <= cap),
@@ -332,12 +339,12 @@ function boardShapeCandidates(referenceWins, wins) {
   }
   for (const [count, rows] of rankValueGroups(referenceWins, wins, 'islandCount')) {
     candidates.push({
-      id: 'islands-' + count,
-      trait: 'islands', rawValue: (record) => record.islandCount, higher: false,
+      id: 'islands-' + count, measurementId: 'islandCount',
+      trait: BOARD_TRAIT_NAMES.islandCount, rawValue: (record) => record.islandCount, higher: false,
       help: () => ['Groups of touching mines on this board, diagonals included.'],
-      valueText: () => String(count),
+      format: String,
       summaryOrder: [9, count],
-      label: count === 1 ? '1 island' : count + ' islands',
+      label: BOARD_TRAIT_NAMES.islandCount + ' ' + count,
       displayOrder: 80,
       dedupePriority: 10,
       rows,
@@ -345,12 +352,12 @@ function boardShapeCandidates(referenceWins, wins) {
   }
   for (const [size, rows] of rankValueGroups(referenceWins, wins, 'largestIsland')) {
     candidates.push({
-      id: 'largest-island-' + size,
-      trait: 'largest island', rawValue: (record) => record.largestIsland, higher: true,
+      id: 'largest-island-' + size, measurementId: 'largestIsland',
+      trait: BOARD_TRAIT_NAMES.largestIsland, rawValue: (record) => record.largestIsland, higher: true,
       help: () => ['Mines in the largest group of touching mines, diagonals included.'],
-      valueText: () => String(size),
+      format: String,
       summaryOrder: [10, size],
-      label: 'largest island ' + size,
+      label: BOARD_TRAIT_NAMES.largestIsland + ' ' + size,
       displayOrder: 90,
       dedupePriority: 11,
       rows,
@@ -358,18 +365,23 @@ function boardShapeCandidates(referenceWins, wins) {
   }
   for (const [count, rows] of rankValueGroups(referenceWins, wins, 'zeroCount')) {
     candidates.push({
-      id: 'zeros-' + count,
-      trait: 'zeros', rawValue: (record) => record.zeroCount, higher: true,
+      id: 'zeros-' + count, measurementId: 'zeroCount',
+      trait: BOARD_TRAIT_NAMES.zeroCount, rawValue: (record) => record.zeroCount, higher: true,
       help: () => ['Safe cells with no adjacent mines.'],
-      valueText: () => String(count),
+      format: String,
       summaryOrder: [11, count],
-      label: count === 1 ? '1 zero' : count + ' zeros',
+      label: BOARD_TRAIT_NAMES.zeroCount + ' ' + count,
       displayOrder: 100,
       dedupePriority: 12,
       rows,
     });
   }
   return candidates.sort((a, b) => a.displayOrder - b.displayOrder);
+}
+
+// The largest-island families show only with their own switch.
+function largestIslandShown(candidate, shownThings) {
+  return shownThings.largestIsland || candidate.measurementId !== 'largestIsland';
 }
 
 //-------RECENT PLACEMENTS: COMPUTATION (pure; tests extract this span)-------
@@ -388,16 +400,15 @@ function ordinal(n) {
   return n + ({ 1: 'st', 2: 'nd', 3: 'rd' }[n % 10] || 'th');
 }
 
-// Absolute place and percentage standing are independent: first of a small
-// pool can have a modest percentage, while a large pool's 32nd can be top 3%.
-// Integer comparisons keep the color thresholds identical to ranking cutoffs.
+// Standing is the percentage band alone: first of a small pool can have a
+// modest percentage, while a large pool's 32nd can be top 3%. Integer
+// comparisons keep the color thresholds identical to ranking cutoffs.
 function rankStanding(rank, total) {
-  if (total === 1) return { band: 'only', podium: 0, label: 'Only result' };
-  const podium = rank <= 3 ? rank : 0;
-  if (rank === total) return { band: 'last', podium, label: 'Last place' };
+  if (total === 1) return { band: 'only', label: 'Only result' };
+  if (rank === total) return { band: 'last', label: 'Last place' };
   // An odd pool's center has equal numbers ahead and behind. Including it
   // in either tail makes that tail exceed half, e.g. "Bottom 67%" for #2/3.
-  if (rank * 2 === total + 1) return { band: 'middle', podium, label: 'Middle place' };
+  if (rank * 2 === total + 1) return { band: 'middle', label: 'Middle place' };
   const thresholds = [[1, 'top1'], [2, 'top2'], [5, 'top5'], [10, 'top10'],
     [25, 'top25'], [50, 'top50'], [90, 'lower50'], [100, 'bottom10']];
   const [, band] = thresholds.find(([percent]) => rank * 100 <= total * percent);
@@ -408,7 +419,7 @@ function rankStanding(rank, total) {
   const percent = count * 100 < total
     ? Math.ceil(count * 1000 / total) / 10
     : Math.ceil(count * 100 / total);
-  return { band, podium, label: (upper ? 'Top ' : 'Bottom ') + percent + '%' };
+  return { band, label: (upper ? 'Top ' : 'Bottom ') + percent + '%' };
 }
 
 // Sorted ranks compressed into runs, the ordinal suffix only closing each
@@ -424,8 +435,8 @@ function formatRankRuns(ranks) {
   return parts.join(', ');
 }
 
-// Compress only placements with the same visual meaning. Podium places,
-// percentage-band boundaries, and the current game remain individually legible.
+// Compress only placements with the same visual meaning. Percentage-band
+// boundaries and the current game remain individually legible.
 function recentPlacementRuns(ranks, total, currentRank) {
   const runs = [];
   for (const rank of ranks) {
@@ -433,8 +444,7 @@ function recentPlacementRuns(ranks, total, currentRank) {
     const current = rank === currentRank;
     const previous = runs[runs.length - 1];
     if (previous && !previous.current && !current
-        && previous.last + 1 === rank && previous.band === standing.band
-        && previous.podium === standing.podium) {
+        && previous.last + 1 === rank && previous.band === standing.band) {
       previous.last = rank;
     } else {
       runs.push({ first: rank, last: rank, current, ...standing });
@@ -578,7 +588,6 @@ function applyRankHighlight(element, rank, total) {
   const standing = rankStanding(rank, total);
   element.classList.add('rank-highlight');
   element.dataset.rankBand = standing.band;
-  element.dataset.rankPodium = String(standing.podium);
   element.title = ordinal(rank) + ' of ' + total + ' · ' + standing.label;
   return standing;
 }
@@ -589,11 +598,10 @@ function buildRecentPlacements(record, wins, referenceMs, markReferenceRecord = 
   const box = document.createElement('div');
   box.className = 'rank-list recent-placements';
   const heading = document.createElement('h4');
-  heading.textContent = 'ranks won in session';
-  heading.title = 'top ranks on every longer chart (time windows, day '
-    + 'categories, exact board benchmarks, 3BV-spread bands, and board shapes of session wins) that were earned '
-    + 'in the session (' + chosenLabel + ', the one page-wide session chosen at the upper left); only ranks within the top tenth of a list count, '
-    + 'except that lifetime shows its closest rank when none made the tenth. Ordered by category, with board values ascending.';
+  heading.appendChild(chartHelpButton([
+    'Top ranks earned in the session (' + chosenLabel + ', the one page-wide session chosen at the upper left) on every longer chart: time windows, day categories, exact board benchmarks, 3BV-spread groups, and board shapes of session wins.',
+    'Only ranks within the top tenth of a list count, except that lifetime shows its closest rank when none made the tenth. Rows go by category, board values ascending. Each rank is colored by its standing, green better and red worse; this game’s rank is light blue and says “this”.',
+  ], 'ranks won in session'));
   box.dataset.sessionScopeView = '';
   box.addEventListener('session-scope-change', () => box.replaceWith(buildRecentPlacements(record, wins, referenceMs, markReferenceRecord)));
   box.appendChild(heading);
@@ -607,6 +615,8 @@ function buildRecentPlacements(record, wins, referenceMs, markReferenceRecord = 
     collapseDuplicates: settings.collapseDuplicateCharts }).then((rows) => {
     loading.remove();
     drawRows(rows);
+    // Its width decides whether it fits beside the board.
+    scheduleBoardLayout();
   });
   box.analysisReady.catch(analysisFailure);
   function drawRows(rows) {
@@ -623,11 +633,7 @@ function buildRecentPlacements(record, wins, referenceMs, markReferenceRecord = 
   grid.className = 'recent-placements-grid';
   for (const row of rows) {
     const line = document.createElement('div');
-    line.className = 'rank-row recent-row-ranked';
-    applyRankHighlight(line, row.ranks[0], row.total);
-    if (row.currentRank !== undefined) {
-      line.classList.add('recent-row-current');
-    }
+    line.className = 'rank-row';
     line.title = formatRankRuns(row.ranks) + ' of ' + row.total + ' · '
       + recentPlacementStanding(row.ranks, row.total);
     if (row.nearMiss) {
@@ -672,6 +678,118 @@ function buildRecentPlacements(record, wins, referenceMs, markReferenceRecord = 
   }
   box.appendChild(grid);
   }
+  return box;
+}
+
+//-------SESSION SUMMARY: COMPUTATION (pure; tests extract this span)-------
+
+// The session summary (docs/product/rankings.md "Session summary"): for each
+// board type played in the session window, its games and wins, and the
+// session's best time with that time's rank among the type's wins so far. A
+// board type is one history key (board, play mode, and generator). Rows
+// follow difficultyKeys (board keys in difficulty order), then other keys.
+function sessionSummaryRows(historyByKey, from, to, difficultyKeys) {
+  const rows = [];
+  for (const [key, records] of Object.entries(historyByKey)) {
+    const session = records.filter((r) => r.endedAt >= from && r.endedAt <= to);
+    if (session.length === 0) continue;
+    const wins = session.filter((r) => r.outcome === 'win').sort(compareRankedWins);
+    let best = null;
+    if (wins.length > 0) {
+      const lifetime = records.filter((r) => r.outcome === 'win' && r.endedAt <= to);
+      best = { record: wins[0], total: lifetime.length,
+        rank: lifetime.filter((r) => compareRankedWins(r, wins[0]) < 0).length + 1 };
+    }
+    rows.push({ key, latest: session[session.length - 1], games: session.length, wins: wins.length, best });
+  }
+  const order = (key) => {
+    const index = difficultyKeys.indexOf(key.split('@')[0]);
+    return index === -1 ? difficultyKeys.length : index;
+  };
+  return rows.sort((a, b) => order(a.key) - order(b.key) || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
+}
+
+//-------SESSION SUMMARY: DISPLAY-------
+
+// The type name matches the result summary line: board, mode, generator.
+function sessionSummaryTypeLabel(row) {
+  const [board, mode] = row.key.split('@');
+  const [size, mines] = board.split('/');
+  const [width, height] = size.split('x').map(Number);
+  return [boardDisplayLabelOf({ width, height, mines: Number(mines) }), playModeLabel(mode.split('+')[0]),
+    row.latest.generator === undefined ? null : BoardGenerators.displayLabel(row.latest.generator)]
+    .filter((part) => part !== null).join(' · ');
+}
+
+// `record` is the game just finished, whose best-time chip says "this";
+// history views pass null.
+function buildSessionSummary(record, referenceMs) {
+  const box = document.createElement('div');
+  box.className = 'rank-list session-summary';
+  box.dataset.sessionScopeView = '';
+  box.addEventListener('session-scope-change', () => {
+    box.replaceWith(buildSessionSummary(record, referenceMs));
+    scheduleBoardLayout();
+  });
+  const choice = SessionScope.choices.find((c) => c.id === settings.sessionDefinition);
+  const { from, to } = SessionScope.bounds(settings.sessionDefinition, referenceMs);
+  const heading = document.createElement('h4');
+  heading.appendChild(chartHelpButton([
+    'Games, wins, and win rate for every board type played in the session (' + choice.label
+      + ', the one page-wide session chosen at the upper left). A board type is one size, mine count, mode, and generator.',
+    'Best is the session’s fastest win of that type. Its lifetime rank compares it with every win of that type so far; among equal times the earlier finish ranks first.',
+  ], 'session'));
+  box.appendChild(heading);
+  const rows = sessionSummaryRows(history, from, to, Object.values(DIFFICULTIES).map(boardKeyOf));
+  if (rows.length === 0) {
+    const none = document.createElement('div');
+    none.className = 'recent-placements-none';
+    none.textContent = 'no games in session';
+    box.appendChild(none);
+    return box;
+  }
+  const grid = document.createElement('div');
+  grid.className = 'session-summary-grid';
+  const cell = (className, text) => {
+    const node = document.createElement('span');
+    node.className = className;
+    node.textContent = text;
+    return node;
+  };
+  const line = (className, cells) => {
+    const node = document.createElement('div');
+    node.className = 'rank-row ' + className;
+    node.append(...cells);
+    grid.appendChild(node);
+  };
+  const rate = (wins, games) => Math.round(100 * wins / games) + '%';
+  line('session-summary-head', ['board type', 'games', 'wins', 'win rate', 'best', 'lifetime rank']
+    .map((text) => cell('', text)));
+  for (const row of rows) {
+    const rank = cell('session-summary-rank-cell', '');
+    let best = cell('session-summary-number', '');
+    if (row.best !== null) {
+      const chip = cell('session-summary-rank', ordinal(row.best.rank));
+      applyRankHighlight(chip, row.best.rank, row.best.total);
+      if (row.best.record === record) {
+        chip.classList.add('session-summary-current');
+        chip.appendChild(cell('recent-current-label', ' this'));
+      }
+      rank.append(chip, ' of ' + row.best.total);
+      best = cell('session-summary-number' + (isMarkless(row.best.record) ? ' markless-time' : ''),
+        (row.best.record.timeMs / 1000).toFixed(3) + 's');
+    }
+    line('session-summary-row', [cell('session-summary-type', sessionSummaryTypeLabel(row)),
+      cell('session-summary-number', String(row.games)), cell('session-summary-number', String(row.wins)),
+      cell('session-summary-number', rate(row.wins, row.games)), best, rank]);
+  }
+  if (rows.length > 1) {
+    const games = rows.reduce((sum, row) => sum + row.games, 0);
+    const wins = rows.reduce((sum, row) => sum + row.wins, 0);
+    line('session-summary-total', [cell('session-summary-type', 'all'), cell('session-summary-number', String(games)),
+      cell('session-summary-number', String(wins)), cell('session-summary-number', rate(wins, games)), cell('', ''), cell('', '')]);
+  }
+  box.appendChild(grid);
   return box;
 }
 
@@ -806,7 +924,7 @@ function resultRankPlan(record, records, options, preferences, referenceMs) {
   }
   if (preferences.shownThings.boardShapeTables) {
     let shapes = boardShapeCandidates([boardRecord], wins)
-      .filter((c) => preferences.shownThings.largestIsland || !c.label.startsWith('largest island '))
+      .filter((c) => largestIslandShown(c, preferences.shownThings))
       .map((c) => ({ ...c, wins: c.rows }));
     if (preferences.collapseDuplicateCharts) {
       const kept = new Set(dedupeRankCandidates(shapes));

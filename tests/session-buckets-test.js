@@ -824,9 +824,9 @@ const runOpts = {
   const labels = Array.from({ length: 6 }, (_, i) => ({
     x: 320,
     y: 92 + i * 4,
-    text: ['click rate 14.50/game', 'mine marking 5.25/game',
-      'no-op clicks 2.00/game', 'deaths with mistakes 0.33/game',
-      'flag removals 0.2/game', 'misclicks 0.1/game'][i],
+    text: ['click rate 14.50/game', 'flag rate 5.25/game',
+      'no-op rate 2.00/game', 'deaths with mistakes 0.33/game',
+      'flag-removal rate 0.2/game', 'misclick rate 0.1/game'][i],
     points: Array.from({ length: 12 }, (__, j) => ({
       x: 58 + j * 23,
       y: 25 + ((i * 19 + j * 11) % 105),

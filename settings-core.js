@@ -70,6 +70,7 @@ const SHOWN_THINGS_DEFAULTS = Object.freeze({
   workSpreadTable: false,
   zeroOneShareTable: true,
   zeroOpeningTable: true,
+  sessionSummary: true,
   recentPlacements: true,
   boardShapeTables: true,
   largestIsland: false,
@@ -82,19 +83,20 @@ const SHOWN_THINGS_DEFAULTS = Object.freeze({
 
 const SHOWN_THINGS_OPTIONS = [
   ['gameStats', 'loss and trial stats', 'the label/value stats for losses and trial games; regular wins use game data'],
-  ['recentPlacements', 'recent placements', 'the leading summary of top-tenth ranks earned within a chosen recent window; lifetime always shows at least its closest rank'],
+  ['sessionSummary', 'session summary', 'games, wins, and win rate per board type in the session, with each type’s best session time and that time’s lifetime rank; left of the board when it fits'],
+  ['recentPlacements', 'ranks won in session', 'top-tenth ranks earned in the session on every longer tablechart; lifetime always shows at least its closest rank; right of the board when it fits'],
   ['timeTables', 'time-window tablecharts', 'lifetime, calendar, rolling-window, and day-category rankings'],
   ['lastOneMinute', 'last 1 minute', 'the very short rolling time tablechart'],
   ['exact3BV', 'same-3BV tablechart', 'times on boards with exactly the same 3BV'],
   ['exactZiNi', 'same-ZiNi tablechart', 'times on boards with exactly the same greedy ZiNi click benchmark'],
-  ['exactMaxNumber', 'same-maximum-number tablechart', 'times on boards whose highest clue is exactly the same number; distinct from the max 2/3/4 caps'],
+  ['exactMaxNumber', 'same-max-number tablechart', 'times on boards whose max number (highest clue) is exactly the same; distinct from the max number ≤ 4/3/2 tablecharts'],
   ['boardMetricFacts', 'board backfill progress', 'progress and Stop/Resume controls for measuring saved wins in This board'],
-  ['boardPercentiles', 'game data', 'the winning-game sidebar chart: scoped performance ranks on the left and preferred board-trait ranks on the right'],
-  ['exactHZiNi', 'Human ZiNi tablechart', 'times on boards with the same opening-first chord benchmark (HZiNi)'],
+  ['boardPercentiles', 'game data', 'the winning-game chart: your performance ranked against your lifetime and session games on the left, this board’s traits ranked against earlier boards on the right'],
+  ['exactHZiNi', 'same-HZiNi tablechart', 'times on boards with the same HZiNi (human ZiNi, the opening-first chord benchmark)'],
   ['workSpreadTable', '3BV-spread tablechart', 'times on boards with 3BV spread rounded to the same nearest 0.5 cell'],
   ['zeroOneShareTable', '0–1-share tablechart', 'times on boards whose zeros and ones revealed by opening every zero, as a fraction of all safe squares, round to the same nearest whole percentage point'],
   ['zeroOpeningTable', 'zero-opening-coverage tablechart', 'times on boards whose fraction of safe squares exposed by opening every zero region rounds to the same nearest whole percentage point'],
-  ['boardShapeTables', 'board-shape tablecharts', 'high clues, maximum-clue caps, mine islands, and zero-count rankings'],
+  ['boardShapeTables', 'board-shape tablecharts', 'has an 8, has a 7, max number ≤ 4/3/2, islands, and zeros rankings'],
   ['largestIsland', 'largest island', 'the largest-island stat and matching tablechart'],
   ['averageCharts', 'average-time charts', 'your-perf and board-trait property charts, each with its own average, distribution, or winrate reading'],
   ['streak', 'streak', 'consecutive-win ranking'],
@@ -110,7 +112,7 @@ const SHOWN_THINGS_OPTIONS = [
 // 'result-section'.
 const RESULT_SECTION_GROUPS = [
   ['This game', ['shownThings.gameStats', 'shownThings.boardPercentiles']],
-  ['Tables', ['shownThings.recentPlacements', 'shownThings.timeTables', 'shownThings.lastOneMinute',
+  ['Tables', ['shownThings.sessionSummary', 'shownThings.recentPlacements', 'shownThings.timeTables', 'shownThings.lastOneMinute',
     'collapseDuplicateCharts', 'shownThings.streak', 'shownThings.nearStreak', 'shownThings.nearNearStreak']],
   ['This board', ['shownThings.boardMetricFacts', 'shownThings.exact3BV', 'shownThings.exactZiNi',
     'shownThings.exactMaxNumber', 'shownThings.exactHZiNi', 'shownThings.workSpreadTable',
@@ -161,6 +163,21 @@ function reportScopeFromStored(stored) {
   }
   // No stored scope and no legacy category block: the new-player default.
   return 'none';
+}
+
+function validGameDataMetrics(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    && Object.entries(value).every(([key, shown]) => Object.hasOwn(GameData.defaults, key) && typeof shown === 'boolean');
+}
+
+// One selection replaced the separate lifetime and session selections
+// (2026-10-07); a measurement either of them showed stays shown.
+function gameDataMetricsFromStored(stored) {
+  if (Object.hasOwn(stored, 'gameDataMetrics')) return stored.gameDataMetrics;
+  const old = [stored.gameDataLifetimeMetrics, stored.gameDataSessionMetrics].filter(validGameDataMetrics);
+  if (old.length === 0) return GameData.defaults;
+  return Object.fromEntries(Object.keys(GameData.defaults).map((id) =>
+    [id, old.some((selection) => selection[id] ?? GameData.defaults[id])]));
 }
 
 function validShownThings(value) {
@@ -484,7 +501,7 @@ const SETTINGS_SCHEMA = [
     field: 'sessionDefinition', default: SessionScope.defaultId,
     valid: (v) => SessionScope.choices.some((choice) => choice.id === v),
     group: 'after-game', label: 'page-wide session',
-    describe: 'the one wall-clock session window for session stats, ranks won in session, and game data session comparisons; chosen only with the picker in the session heading at the upper left; default today (since local midnight, not the last 24 hours)',
+    describe: 'the one wall-clock session window for session stats, the session summary, ranks won in session, and game data session comparisons; chosen only with the picker in the session heading at the upper left; default today (since local midnight, not the last 24 hours)',
     control: 'none',
   },
   {
@@ -495,18 +512,24 @@ const SETTINGS_SCHEMA = [
   {
     field: 'gameDataDayTime', default: true,
     valid: (v) => typeof v === 'boolean', group: 'after-game',
-    label: 'day time in game data', describe: 'rank this solve time among wins in the trailing 24 hours', control: 'none',
+    label: 'day time in game data', describe: 'also rank this solve time among wins in the trailing 24 hours', control: 'none',
   },
-  ...['Session', 'Lifetime'].map((scope) => {
-    const scopeDefaults = GameData.defaults[scope.toLowerCase()];
-    return {
-      field: 'gameData' + scope + 'Metrics', default: scopeDefaults, mergeDefaults: true,
-      valid: (v) => v !== null && typeof v === 'object' && !Array.isArray(v)
-        && Object.entries(v).every(([key, value]) => Object.hasOwn(scopeDefaults, key) && typeof value === 'boolean'),
-      group: 'after-game', label: 'game data ' + scope.toLowerCase() + ' metrics',
-      describe: 'which performance comparisons appear in the ' + scope.toLowerCase() + ' scope', control: 'none',
-    };
-  }),
+  {
+    field: 'gameDataMetrics', default: GameData.defaults, mergeDefaults: true,
+    valid: validGameDataMetrics, migrate: gameDataMetricsFromStored,
+    group: 'after-game', label: 'game data measurements',
+    describe: 'which of your performance measurements game data compares with your lifetime and your session', control: 'none',
+  },
+  {
+    field: 'gameDataBandPool', default: 'lifetime',
+    valid: (v) => v === 'lifetime' || v === 'session', group: 'after-game',
+    label: 'game data plotted comparison', describe: 'whether the game data bar places your performance among your lifetime games or your session games; chosen on the chart', control: 'none',
+  },
+  {
+    field: 'gameDataDistributions', default: false,
+    valid: (v) => typeof v === 'boolean', group: 'after-game',
+    label: 'game data distributions', describe: 'show game data as one distribution strip per measurement and comparison instead of the bar; chosen on the chart', control: 'none',
+  },
   {
     field: 'metricsPanelWidth',
     default: 316,

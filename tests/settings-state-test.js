@@ -76,12 +76,26 @@ assert.equal(run('settingsFrom({ shownThings: { endVerdict: false } }).reportSco
 assert.equal(run('settingsFrom({ reportScope: "full", shownThings: { endVerdict: false } }).reportScope'), 'full');
 assert.deepEqual(plain(run('settingsFrom(Object.create({ cellSize: 96 }))')), defaults);
 
+// One game data selection replaced the separate lifetime and session ones.
+const merged = plain(run(`settingsFrom({
+  gameDataLifetimeMetrics: { time: false, clickRate: false, ioe: true },
+  gameDataSessionMetrics: { time: true, clickRate: false },
+})`));
+assert.equal(merged.gameDataMetrics.time, true, 'a measurement either old selection showed stays shown');
+assert.equal(merged.gameDataMetrics.clickRate, false, 'a measurement both old selections hid stays hidden');
+assert.equal(merged.gameDataMetrics.ioe, true);
+assert.equal(merged.gameDataMetrics.misclickRate, defaults.gameDataMetrics.misclickRate, 'unset measurements keep their defaults');
+assert(!('gameDataLifetimeMetrics' in merged) && !('gameDataSessionMetrics' in merged), 'the old selections are not kept');
+assert.equal(run('settingsFrom({ gameDataMetrics: { time: false } }).gameDataMetrics.time'), false);
+assert.equal(run('settingsFrom({ gameDataMetrics: { time: false } }).gameDataMetrics.clickRate'), true);
+assert.equal(run('settingsFrom({ gameDataBandPool: "day" }).gameDataBandPool'), 'lifetime');
+
 console.log('settings-state: shared validation, defaults, migration, isolation, and backup round trips passed');
 
 const choices = {
   sessionDefinition: 'past30min', gameDataShowValues: false, gameDataDayTime: false,
-  gameDataSessionMetrics: { ...defaults.gameDataSessionMetrics, fastclickGap: false, ioe: true },
-  gameDataLifetimeMetrics: { ...defaults.gameDataLifetimeMetrics, clickRate: false },
+  gameDataMetrics: { ...defaults.gameDataMetrics, fastclickGap: false, ioe: true },
+  gameDataBandPool: 'session', gameDataDistributions: true,
   difficulty: 'custom', customBoard: { width: 24, height: 12, mines: 45 },
   customBoardDraft: { width: '25', height: '12', mines: '45' },
   playerStates: [{ name: 'new mouse', active: true }, { name: 'sleepy', active: false }],

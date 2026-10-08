@@ -12,11 +12,15 @@ append timing or from how many cards fit on a row:
    the date and time in bold tabular digits.
 2. **Facts / game data** — the winning-game chart in its own column beside the board (or under its outcome context in the details column when that column cannot fit); losses and trials retain label/value stats.
 3. **Analysis** — post-game action interpretation only.
-4. **Tables** — the recent "ranks won" time-period summary first, then
-   time/category and all consecutive/loss-tolerant streak tablecharts.
-   They share one left-aligned wrapping collection with no section heading.
-   Each table retains its own identifying label. Losses
-   retain existing win history without marking the loss as a ranked win.
+4. **Tables** — the session summary first, then the "ranks won in session"
+   time-period summary, then time/category and all consecutive/loss-tolerant
+   streak tablecharts (session summary added 2026-10-07). They share one
+   left-aligned wrapping collection with no section heading. In the wide
+   layout the session summary sits left of the board and ranks won right of
+   it wherever each fits; they keep their places at the head of the
+   collection's DOM order ([Layout](board-and-layout.md)). Each table retains
+   its own identifying label. Losses retain existing win history without
+   marking the loss as a ranked win.
 5. **This board** — the selected reference board's exact-benchmark and
    shape time tablecharts, in a separate named, left-aligned wrapping section.
    Empty sections are omitted. The period-wide ranks-won summary above still
@@ -39,12 +43,15 @@ before visual correlation charts gives the page a stable transition from exact
 records to graphical analysis.
 
 The upper table collection fills the main column; This board and later sections
-span its full width below. In the upper collection, ranks won floats at the left;
-successive rows of period/day/streak tables flow alongside its remaining
-height, then use the full width underneath. Narrow layouts wrap below it
-when there is insufficient horizontal room. The section contains the float,
-so This board and later chart sections begin below all upper tables. DOM
-order is preserved, and table flow cannot mix tables with point charts.
+span its full width below. In the upper collection, the session summary and
+ranks won that are not beside the board float at the left as one column, the
+summary on top and ranks won directly under it (2026-10-07); successive rows
+of period/day/streak tables flow alongside that column's height, then use the
+full width underneath. Narrow layouts wrap below it when there is
+insufficient horizontal room. The section contains the floats, so This board
+and later chart sections begin below all upper tables. DOM order is
+preserved, nothing sits above or left of the summary, and table flow cannot
+mix tables with point charts.
 
 The score viewer deliberately omits post-game action analysis and motion
 diagnostics. Its reference record is explicitly the latest win, named alongside
@@ -75,15 +82,25 @@ first by the first screen at the player's real viewport (the creator's PC:
 2560 x 970 browser viewport, wide layout); the scrolled sections serve the
 occasional deeper look.
 
-Session summary (requested 2026-10-07, not built). The result screen gets
-a session summary: games, wins, and win rate for each board type played in
-the session, together with the information of "ranks won in session". The
-table form of ranks won in session stays (the creator: "I really like the
-table version of 'ranks won in session' so you'd better keep that"). It
-follows the one page-wide session and says only "session"
-([One session definition](game-data.md#one-session-definition)). Placement
-and the remaining design are open; the round-2 mockup and its questions are
-in BACKLOG.md "After-game self-evaluation review".
+Built 2026-10-07 from the creator's review of the round-2 mockup ("Please
+go forward with this!"):
+
+- A session summary of games, wins, and win rate per board type, with each
+  type's best session time and its lifetime rank, left of the board; ranks
+  won in session, kept in its table form, right of the board; the board in
+  the middle ([Session summary](rankings.md#session-summary-requested-and-built-2026-10-07),
+  [Layout](board-and-layout.md)). On the creator's 2560 x 970 viewport this
+  fills the area that was empty beside a Beginner board.
+- Rank colors: green good, red bad, light blue for this game's row, no edge
+  or podium ([Rank highlights](rankings.md#rank-highlights-built-2026-09-21-recolored-2026-10-07)).
+- Game data: uncolored labels in aligned columns, one row per measurement
+  with session and lifetime percentages, a colored bar, a hover card with
+  the distribution, a distributions mode with lifetime and session sections,
+  and chart chips that link each chart to its row ([Game data](game-data.md)).
+- One name per measurement across tables, game data, charts, and the
+  label/value report ([Rank lists](rankings.md), [Per-game stats](per-game-stats.md)).
+- One session picker, the upper-left one, regenerates every session surface
+  in place.
 
 Rejected 2026-10-07: the verdict rows of the first review mockup (Result,
 Pace, Board, and Training lines under the board): "not a super fan really."

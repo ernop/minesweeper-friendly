@@ -79,7 +79,7 @@ Files, in load order:
 | `evaluation.js` | game-end evaluation: pure verdict model, live capture |
 | `results.js` | the saved record (`reportResult`), after-game report, result view, High scores view |
 | `history.js` | record version stamps and schema, per-mode history, mode keys, normalization, transfer cleaning |
-| `rankings.js` | rank windows and relative ages, day categories, board families, ranks won in session, rank lists |
+| `rankings.js` | rank windows and relative ages, day categories, board families and their one name each (`BOARD_TRAIT_NAMES`), session summary, ranks won in session, rank lists |
 | `charts.js` | chart models and presentation (heavy models execute in the analysis worker); chart basics (SVG namespace, displayed numbers, sparkline sizes), axis ticks, trend lines, the (?) help tip, scatter and average-time charts |
 | `trial-review.js` | after-trial rank rows, identity review, run overlays |
 | `game-data-chart.js` | game data: pure ranking and label layout, then the 0–100% band and its views |

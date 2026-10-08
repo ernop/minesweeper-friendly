@@ -14,8 +14,7 @@ const { chromium } = require(process.argv[2]);
     await page.evaluate(() => {
       settings.justUniverse = false;
       for (const name of ['computeAllTraceMetrics', 'computeSpatialBias', 'computeClickCadence',
-        'resultRankPlan', 'averageScatterData', 'scatterPlotData', 'performanceTimeRankProfile',
-        'boardTraitRankProfile', 'recentPlacementCandidates', 'recentPlacementsSummary',
+        'resultRankPlan', 'averageScatterData', 'scatterPlotData', 'boardTraitRankProfile', 'recentPlacementCandidates', 'recentPlacementsSummary',
         'sessionRunningSeries', 'sessionRawSeries', 'sessionGameSeries']) {
         window[name] = () => { throw new Error('Analytics ran on UI thread: ' + name); };
       }

@@ -36,13 +36,12 @@ const { chromium } = require(process.argv[2]);
           timeMs: current.timeMs + (index < rank - 1 ? index - rank + 1 : index - rank + 2) * 75,
         })));
       wins.push(current);
-      
       wins.push(...[30000, 36000].map((timeMs, index) => ({ outcome: 'win',
         timeMs, endedAt: now - (index === 0 ? 5 : 20) * 60000, clicks: 110, bv3: 74,
         misclicks: 0, wastedClicks: 2, fastclickGapMs: 180, mousePathPx: 1000 })));
       wins.sort((a, b) => a.endedAt - b.endedAt);
       window.profileFixture = { current, wins };
-      for (const key of ['recentPlacements', 'timeTables', 'streak', 'nearStreak',
+      for (const key of ['sessionSummary', 'recentPlacements', 'timeTables', 'streak', 'nearStreak',
         'nearNearStreak', 'averageCharts', 'relationshipCharts']) settings.shownThings[key] = false;
       window.drawProfileFixture = async (options = {}) => {
         const collector = createResultSectionCollector(options.historyView ? 'scores' : 'postGame');
@@ -54,35 +53,40 @@ const { chromium } = require(process.argv[2]);
       await drawProfileFixture();
     });
     const profile = page.locator('.board-time-profile');
-    const traits = (side) => profile.locator('.board-trait-line-label[data-side="' + side + '"]')
-      .evaluateAll((labels) => labels.map((label) => label.dataset.trait).sort());
-    assert.deepEqual(await traits('performance'), ['3BV/s', 'click rate', 'correctness',
-      'fastclick gap', 'misclick rate', 'mouse speed', 'no-op rate', 'time',
-      'time (day)', 'unused mark share'], 'defaults: lifetime comparisons and day time');
-    assert.deepEqual(await traits('board'), ['0–1 share', '3BV', 'HZiNi', 'MN', 'ZOC', 'ZiNi', 'islands', 'zeros'],
-      '3BV spread is off by default');
+    const names = (side) => profile.locator('.game-data-row[data-side="' + side + '"] .game-data-name')
+      .evaluateAll((cells) => cells.map((cell) => cell.textContent).sort());
+    const bandReady = () => page.waitForFunction(() => document.querySelector('.game-data-bar') !== null);
+    await bandReady();
+    assert.deepEqual(await names('performance'), ['3BV/s', 'click rate', 'correctness',
+      'fastclick gap', 'misclick rate', 'mouse speed', 'no-op rate', 'time', 'unused flag share'],
+      'defaults: one row per shown measurement');
+    assert.deepEqual(await names('board'), ['0–1 share', '3BV', 'HZiNi', 'ZiNi', 'islands', 'max number',
+      'zero-opening coverage', 'zeros'], 'board traits keep their table names; 3BV spread is off by default');
     await page.evaluate(async () => {
-      // A crowded two-pool selection with every board table exercises label
-      // collisions and the session controls below.
+      // A crowded selection with every board table exercises row collisions
+      // and the session controls below.
       window.crowdGameData = () => {
         const crowded = ['time', 'misclickRate', 'fastclickGap', 'bvPerSecond', 'clickRate', 'efficiency', 'noopRate', 'pathPer3bv'];
-        settings.gameDataSessionMetrics = Object.fromEntries(GameData.metrics.map((m) => [m.id, crowded.includes(m.id)]));
-        settings.gameDataLifetimeMetrics = { ...settings.gameDataSessionMetrics };
+        settings.gameDataMetrics = Object.fromEntries(GameData.metrics.map((m) => [m.id, crowded.includes(m.id)]));
       };
       crowdGameData();
       settings.shownThings.workSpreadTable = true;
       await drawProfileFixture();
     });
-    assert.equal(await profile.locator('.board-time-profile-views, .board-time-profile-grid').count(), 0);
-    assert.equal(await profile.locator('h4').textContent(), 'game data');
-    assert.deepEqual(await profile.locator('.board-time-profile-sides > span').allTextContents(), ['your perf', 'board traits']);
-    await page.waitForFunction(() => document.querySelector('.board-trait-line-axis').style.height !== '');
-    assert.deepEqual(await profile.locator('.board-trait-line-tick').allTextContents(), Array.from({ length: 11 }, (_, i) => i * 10 + '%'),
-      'the best board in its pool sits at 0%');
-    assert.equal(await profile.locator('.board-trait-line-label[data-side="board"]').count(), 9);
-    assert.equal(await profile.locator('.board-trait-line-label[data-side="performance"]').count(), 17);
-    assert.equal(await profile.locator('.board-trait-line-label[data-trait="3BV"]').textContent(), '3BV 75');
-    assert.equal(await profile.locator('.board-trait-line-label[data-trait="ZOC"]').textContent(), 'ZOC 69%');
+    await bandReady();
+    assert.equal(await profile.locator('h4').first().textContent(), 'game data');
+    assert.deepEqual(await profile.locator('.game-data-side-title').allTextContents(), ['your perf', 'board traits']);
+    assert.equal(await profile.locator('.game-data-row[data-side="board"]').count(), 9);
+    assert.equal(await profile.locator('.game-data-row[data-side="performance"]').count(), 8,
+      'one row per measurement, its pools side by side');
+    assert.deepEqual(await profile.locator('.game-data-column-heads[data-side="performance"] > span').allTextContents(),
+      ['', 'value', 'session', 'lifetime']);
+    assert.deepEqual(await profile.locator('.game-data-column-heads[data-side="board"] > span').allTextContents(),
+      ['boards', '', 'value']);
+    assert.equal(await profile.locator('.game-data-row[data-measurement="bv3"] .game-data-value').textContent(), '75');
+    assert.equal(await profile.locator('.game-data-row[data-measurement="zeroOpeningCoverage"] .game-data-name').textContent(),
+      'zero-opening coverage');
+    assert.equal(await profile.locator('.game-data-row[data-measurement="zeroOpeningCoverage"] .game-data-value').textContent(), '69%');
     assert.equal(await page.locator('#result-stats .board-time-profile').count(), 1,
       'with the metrics column open at 1440px, game data shares the details column');
     assert.equal(await page.locator('#game-data-column .board-time-profile, #result-ranks .board-time-profile').count(), 0);
@@ -93,99 +97,101 @@ const { chromium } = require(process.argv[2]);
           && !(await page.locator('#game-sidebar').evaluate((el) => el.matches(':popover-open'))))
         await page.locator('#game-sidebar-button').click();
       await profile.scrollIntoViewIfNeeded();
-      await page.waitForTimeout(60);
+      await page.waitForTimeout(80);
       const layout = await profile.evaluate((el) => {
         const bounds = el.getBoundingClientRect();
-        const axis = el.querySelector('.board-trait-line-axis').getBoundingClientRect();
-        const center = axis.left + axis.width / 2;
+        const band = el.querySelector('.game-data-band');
         const column = el.closest('#game-data-column, #game-sidebar');
         const columnStyle = getComputedStyle(column);
-        const [perfHeading, boardHeading] = el.querySelectorAll('.board-time-profile-sides > span');
         return {
           host: column.id,
-          overflow: el.scrollWidth > el.clientWidth + 1,
-          width: bounds.width, height: bounds.height, bandWidth: axis.width,
+          overflow: band.scrollWidth > band.clientWidth + 1 && getComputedStyle(band).overflowX === 'auto',
+          width: bounds.width, height: bounds.height,
           columnSlack: column.id === 'game-data-column'
             ? column.getBoundingClientRect().bottom - bounds.bottom
             : parseFloat(columnStyle.maxHeight) - parseFloat(columnStyle.paddingBottom)
               - parseFloat(columnStyle.borderBottomWidth)
               - (bounds.bottom - column.getBoundingClientRect().top + column.scrollTop),
-          headingEdges: [center - perfHeading.getBoundingClientRect().right, boardHeading.getBoundingClientRect().left - center],
-          low: Number(el.querySelector('.board-trait-line').dataset.low), high: Number(el.querySelector('.board-trait-line').dataset.high),
-          ticks: [...el.querySelectorAll('.board-trait-line-tick')].map((tick) => {
-            const rect = tick.getBoundingClientRect();
-            return (rect.top + rect.height / 2 - axis.top) / axis.height * 100;
+          hiddenPools: [...el.querySelectorAll('.game-data-row .game-data-pct')].filter((cell) => !cell.checkVisibility())
+            .map((cell) => cell.dataset.pool),
+          nameWeight: getComputedStyle(el.querySelector('.game-data-row .game-data-name')).fontWeight,
+          valueWeight: getComputedStyle(el.querySelector('.game-data-row .game-data-value')).fontWeight,
+          blocks: [...el.querySelectorAll('.game-data-block')].map((block) => {
+            const bar = block.querySelector('.game-data-bar').getBoundingClientRect();
+            const deciles = [...block.querySelectorAll('.game-data-decile')].map((label) => parseInt(label.textContent, 10));
+            return {
+              barWidth: bar.width,
+              leaders: block.querySelectorAll('.game-data-leader').length,
+              title: [...block.querySelectorAll('.game-data-side-title')].map((title) => title.getBoundingClientRect().left),
+              heads: [...block.querySelectorAll('.game-data-column-heads')].map((head) => head.getBoundingClientRect().left),
+              rows: [...block.querySelectorAll('.game-data-row')].map((row) => {
+                const rect = row.getBoundingClientRect();
+                const dot = row.nextElementSibling.getBoundingClientRect();
+                const percentile = Number(row.dataset.percentile);
+                return { side: row.dataset.side, top: rect.top, bottom: rect.bottom, height: rect.height,
+                  inside: rect.left >= bounds.left - 0.5 && rect.right <= bounds.right + 0.5,
+                  dotOffset: dot.top + dot.height / 2 - (bar.top + (percentile - deciles[0])
+                    / (deciles[deciles.length - 1] - deciles[0]) * bar.height) };
+              }),
+            };
           }),
-          leaders: [...el.querySelectorAll('.board-trait-line-connector')].map((line) => ({
-            strong: line.dataset.displaced === 'true', width: Number(getComputedStyle(line).strokeWidth.replace('px', '')),
-            d: line.getAttribute('d'),
-          })),
-          labels: [...el.querySelectorAll('.board-trait-line-label button')].map((button) => {
-            const rect = button.getBoundingClientRect();
-            return { top: rect.top, bottom: rect.bottom, height: rect.height,
-              side: button.parentElement.dataset.side,
-              displacement: Math.abs(parseFloat(button.parentElement.style.top) - Number(button.parentElement.dataset.pointY)),
-              nameRight: button.querySelector('.board-trait-name').getBoundingClientRect().right,
-              valueLeft: button.querySelector('.board-trait-value').getBoundingClientRect().left,
-              value: button.querySelector('.board-trait-value').textContent,
-              distance: button.parentElement.dataset.side === 'board' ? rect.left - center : center - rect.right,
-              inside: rect.left >= bounds.left && rect.right <= bounds.right,
-              weight: getComputedStyle(button).fontWeight };
-          }),
-          dots: [...el.querySelectorAll('.board-trait-line-dot')].map((dot) => {
-            const rect = dot.getBoundingClientRect();
-            return (rect.top + rect.height / 2 - axis.top) / axis.height * 100;
-          }),
-          percentiles: [...el.querySelectorAll('.board-trait-line-label')].map((label) => Number(label.dataset.percentile)),
         };
       });
       assert.equal(layout.host, { 1920: 'game-data-column' }[width] ?? 'game-sidebar', width + 'px game data host');
-      assert.equal(layout.overflow, false, width + 'px line overflow');
-      assert.equal(layout.bandWidth, 32);
-      assert(layout.ticks.every((position, i) => Math.abs(position - i * 10 / (layout.high - layout.low) * 100) < .02), 'ticks retain absolute decile labels in the zoomed range');
-      assert.equal(layout.leaders.length, layout.labels.length);
-      assert(layout.labels.every((label, i) => label.value
-        && (label.displacement <= 8 || (layout.leaders[i].strong && layout.leaders[i].width >= 2))),
-        'every displaced label has a strong leader and every value follows its name');
+      // Below the narrowest plan the band scrolls inside its own box rather
+      // than shortening names or hiding values; only 320px gets there.
+      assert.equal(layout.overflow, width === 320, width + 'px band overflow');
+      assert.equal(layout.nameWeight, '400');
+      assert.equal(layout.valueWeight, '700', 'values outweigh their names');
+      assert(layout.hiddenPools.every((pool) => pool === 'session'),
+        width + 'px only the unplotted percentage column may yield: ' + JSON.stringify(layout.hiddenPools));
+      for (const block of layout.blocks) {
+        assert.equal(block.barWidth, 32);
+        assert.equal(block.leaders, block.rows.length, 'every row has a leader');
+        assert.deepEqual(block.title, block.heads, 'side titles start at their columns');
+        assert(block.rows.every((row) => row.height < 20 && (layout.overflow || row.inside)),
+          width + 'px rows stay one line inside the chart: ' + JSON.stringify(block.rows));
+        for (const side of ['performance', 'board']) {
+          const rows = block.rows.filter((row) => row.side === side).sort((a, b) => a.top - b.top);
+          assert(rows.every((row, i) => i === 0 || row.top >= rows[i - 1].bottom - 0.5),
+            width + 'px ' + side + ' rows overlap: ' + JSON.stringify(rows));
+        }
+        assert(block.rows.every((row) => Math.abs(row.dotOffset) < 0.6),
+          width + 'px row collisions must never move the dots off their percentiles: ' + JSON.stringify(block.rows.map((r) => r.dotOffset)));
+      }
       assert(layout.width <= width && layout.height >= 480
         && (layout.height === 480 || Math.abs(layout.columnSlack) <= 1),
         width + 'px chart fills its column below any other content: ' + JSON.stringify([layout.height, layout.columnSlack]));
-      assert(layout.headingEdges.every((edge) => edge >= 29 && edge <= 31),
-        width + 'px side headings align with their label columns: ' + JSON.stringify(layout.headingEdges));
-      if (layout.host === 'game-data-column') assert(layout.labels.every((label) => label.height < 20),
-        width + 'px labels keep one line in the game data column: ' + JSON.stringify(layout.labels.map((l) => l.height)));
-      assert(layout.labels.every((label, i) => label.inside && label.weight === '400'
-        && label.distance >= 29 && label.distance <= 31
-        && (i === 0 || label.side !== layout.labels[i - 1].side || label.top >= layout.labels[i - 1].bottom + 1)),
-      width + 'px trait labels overlap or overflow: ' + JSON.stringify(layout.labels));
-      assert(layout.dots.every((position, i) => Math.abs(position - (layout.percentiles[i] - layout.low) / (layout.high - layout.low) * 100) < .04),
-        'label collision handling must never displace the percentile dots');
       await profile.screenshot({ path: '/tmp/game-data-scoped-' + width + '.png' });
     }
-    const zeros = profile.locator('.board-trait-line-label').getByRole('button', { name: 'About zeros: 59', exact: true });
-    const lineBefore = await profile.boundingBox();
+    const zeros = profile.locator('.game-data-row[data-measurement="zeroCount"] button');
+    const bandBefore = await profile.boundingBox();
     await zeros.focus();
-    const detail = await page.locator('.chart-help-tip').innerText();
-    assert.equal(detail, 'Safe cells with no adjacent mines.\n\nAll 50 boards so far with these board settings have the same value, so it sits at 50%.');
+    const card = page.locator('.chart-help-tip .game-data-card');
+    assert.equal(await card.locator('.game-data-card-title').innerText(), 'zeros 59');
+    assert.deepEqual(await card.locator('.game-data-card-ranks > span').allTextContents(), ['boards', 'all 50 boards equal', '50%']);
+    assert((await card.innerText()).includes('Safe cells with no adjacent mines.'));
+    assert.equal(await card.locator('svg.game-data-histogram').count(), 1, 'the card draws the distribution');
     assert(await page.locator('.chart-help-tip').evaluate((el) => {
       const r = el.getBoundingClientRect();
       return el.matches(':popover-open') && el.contains(document.elementFromPoint(r.left + 8, r.top + 8));
-    }), 'help stays above the compact sidebar');
-    assert.deepEqual(await profile.boundingBox(), lineBefore);
+    }), 'the card stays above the compact sidebar');
+    assert.deepEqual(await profile.boundingBox(), bandBefore, 'the card does not reflow the chart');
+    await zeros.evaluate((button) => button.blur());
     const comparisons = await page.evaluate(async () => {
       const { current, wins } = profileFixture;
-      return boardTraitRankProfile(current, boardMetricCandidates([current], wins), wins)
-        .map(({ trait, rank, total, percentile, valueText }) => ({ trait, rank, total, percentile, valueText }));
+      return boardTraitRankProfile(current, boardMetricCandidates([current], wins), wins, settings.sessionDefinition)
+        .map(({ metricId, name, rank, total, percentile, valueText }) => ({ metricId, name, rank, total, percentile, valueText }));
     });
-    assert.deepEqual(comparisons.find((row) => row.trait === 'MN'),
-      { trait: 'MN', rank: 142, total: 283, percentile: 50, valueText: '5' });
-    assert.equal(comparisons.find((row) => row.trait === 'ZOC').percentile, 50);
-    assert.equal(comparisons.find((row) => row.trait === '0–1 share').valueText, '60%');
+    assert.deepEqual(comparisons.find((row) => row.metricId === 'maxAdjacent'),
+      { metricId: 'maxAdjacent', name: 'max number', rank: 142, total: 283, percentile: 50, valueText: '5' });
+    assert.equal(comparisons.find((row) => row.metricId === 'zeroOpeningCoverage').percentile, 50);
+    assert.equal(comparisons.find((row) => row.metricId === 'zeroOneShare').valueText, '60%');
     const help = profile.getByRole('button', { name: 'About game data', exact: true });
     const before = await profile.boundingBox();
     await help.focus();
     assert(await page.locator('.chart-help-tip').isVisible());
-    assert((await page.locator('.chart-help-tip').textContent()).includes('this board’s traits ranked against earlier boards'));
+    assert((await page.locator('.chart-help-tip').textContent()).includes('this board’s traits ranked against every earlier board'));
     assert.deepEqual(await profile.boundingBox(), before, 'help does not reflow the chart');
     await help.evaluate((button) => button.blur());
     await page.mouse.move(0, 0);
@@ -196,12 +202,14 @@ const { chromium } = require(process.argv[2]);
       settings.shownThings.recentPlacements = true;
       await drawProfileFixture();
     });
+    await bandReady();
     assert.equal(await page.locator('#game-data-column .board-time-profile').count(), 1, 'owns the game data column');
     assert.equal(await page.locator('#result-stats .board-time-profile').count(), 0, 'not duplicated in the details column');
     assert.equal(await page.locator('#result-ranks .board-time-profile').count(), 0, 'no duplicate in the lower chart collection');
     await profile.screenshot({ path: '/tmp/game-data-sidebar.png' });
-    const lifetimeBefore = await profile.locator('[data-trait="time"]').getAttribute('data-percentile');
-    assert.equal(await profile.locator('[data-trait="time"]').textContent(), 'time 33.542s', 'lifetime is the unlabeled default');
+    const timeRow = profile.locator('.game-data-row[data-measurement="time"]');
+    const lifetimeBefore = await timeRow.locator('[data-pool="lifetime"]').textContent();
+    assert.equal(await timeRow.locator('.game-data-value').textContent(), '33.542s');
     const picker = page.getByLabel('session', { exact: true });
     assert.equal(await page.locator('select:has(option[value="today"])').count(), 1, 'the page has exactly one session picker');
     assert.equal(await page.locator('#metrics-panel .session-scope-head select').getAttribute('id'), 'session-definition-select',
@@ -212,42 +220,66 @@ const { chromium } = require(process.argv[2]);
     assert.equal(await page.locator('.recent-placements select').count(), 0, 'ranks won only says session');
     await picker.selectOption('past10min');
     assert.equal(await page.evaluate(() => settings.sessionDefinition), 'past10min');
-    assert.equal(await profile.locator('[data-trait="time (session)"]').getAttribute('data-percentile'), '100');
-    assert.equal(await profile.locator('[data-trait="time"]').getAttribute('data-percentile'), lifetimeBefore);
+    await page.waitForFunction(() => document.querySelector('.game-data-row[data-measurement="time"] [data-pool="session"]')?.textContent === '100%');
+    assert.equal(await timeRow.locator('[data-pool="lifetime"]').textContent(), lifetimeBefore);
     await picker.selectOption('pastHour');
-    assert.equal(await profile.locator('[data-trait="time (session)"]').getAttribute('data-percentile'), '50',
-      'game data follows the one picker');
+    await page.waitForFunction(() => document.querySelector('.game-data-row[data-measurement="time"] [data-pool="session"]')?.textContent === '50%',
+      null, { timeout: 5000 });
     assert.equal(await page.locator('.recent-placements h4').textContent(), 'ranks won in session');
     await page.evaluate(async () => { settings.showSessionStats = false; settings.metricsPanelCollapsed = true; refreshMetricsPanel(); });
     assert(await picker.isVisible(), 'the picker stays when the panel is collapsed and session stats are off');
     await page.evaluate(async () => { settings.showSessionStats = true; settings.metricsPanelCollapsed = false; refreshMetricsPanel(); });
+    // The points switch places the performance dots by either pool.
+    await profile.getByRole('button', { name: 'session', exact: true }).click();
+    await bandReady();
+    assert.equal(await page.evaluate(() => settings.gameDataBandPool), 'session');
+    assert.equal(await profile.locator('.game-data-pool-switch [aria-pressed="true"]').textContent(), 'session');
+    assert.equal(await profile.locator('.game-data-column-heads [data-pool="session"]').evaluate((el) => el.classList.contains('plotted')), true);
+    assert.equal(Math.round(Number(await timeRow.getAttribute('data-percentile'))) + '%',
+      await timeRow.locator('[data-pool="session"]').textContent(), 'the session switch plots session standings');
+    await profile.getByRole('button', { name: 'lifetime', exact: true }).click();
+    await bandReady();
+    assert.equal(Math.round(Number(await timeRow.getAttribute('data-percentile'))) + '%', lifetimeBefore);
+    // Distributions: one strip per measurement and pool, with the session as
+    // its own section.
+    await profile.getByLabel('show distributions', { exact: true }).check();
+    await profile.locator('.game-data-distributions').waitFor();
+    assert.equal(await page.evaluate(() => settings.gameDataDistributions), true);
+    assert.deepEqual(await profile.locator('.game-data-dist-head .game-data-side-title').allTextContents(),
+      ['lifetime', 'session', 'last 24 hours', 'board traits']);
+    assert.equal(await profile.locator('.game-data-pool-switch').count(), 0, 'every pool is shown, so there is nothing to switch');
+    assert.equal(await profile.locator('.game-data-dist-row').count(),
+      await profile.locator('.game-data-dist-row svg.game-data-histogram').count());
+    const stripLefts = await profile.locator('.game-data-strip').evaluateAll((strips) =>
+      [...new Set(strips.map((strip) => Math.round(strip.getBoundingClientRect().left)))]);
+    assert.equal(stripLefts.length, 1, 'all sections line up their strips: ' + JSON.stringify(stripLefts));
+    await profile.screenshot({ path: '/tmp/game-data-distributions.png' });
+    await profile.getByLabel('show distributions', { exact: true }).uncheck();
+    await bandReady();
     await profile.getByLabel('show actual value', { exact: true }).uncheck();
-    assert.equal(await profile.locator('.board-trait-line-label .board-trait-value:visible').count(), 0);
-    assert.equal(await profile.locator('[data-trait="time"] button').innerText(), 'time');
-    assert.equal(await profile.locator('[data-trait="time (session)"] button').innerText(), 'time (session)');
+    await bandReady();
+    assert.equal(await profile.locator('.game-data-row .game-data-value:visible').count(), 0);
+    assert.equal(await timeRow.locator('.game-data-name').innerText(), 'time');
     assert.equal(await page.evaluate(() => settings.gameDataShowValues), false);
     await profile.getByLabel('show actual value', { exact: true }).check();
-    assert.equal(await profile.locator('.board-trait-line-label .board-trait-value:visible').count(), 26);
+    await bandReady();
+    assert.equal(await profile.locator('.game-data-row .game-data-value:visible').count(), 17);
     await profile.getByRole('button', { name: 'configure', exact: true }).click();
-    await profile.getByLabel('lifetime', { exact: true }).check();
-    await profile.getByLabel('lifetime', { exact: true }).uncheck();
-    assert.equal(await page.evaluate(() => Object.values(settings.gameDataLifetimeMetrics).some(Boolean)), false);
-    assert.equal(await page.evaluate(() => settings.gameDataSessionMetrics.clickRate), true);
-    await profile.getByLabel('all performance metrics', { exact: true }).check();
-    assert.equal(await page.evaluate(() => Object.values(settings.gameDataLifetimeMetrics).every(Boolean)
-      && Object.values(settings.gameDataSessionMetrics).every(Boolean)), true);
-    await profile.getByLabel('all performance metrics', { exact: true }).uncheck();
-    assert.equal(await page.evaluate(() => Object.values(settings.gameDataLifetimeMetrics).some(Boolean)
-      || Object.values(settings.gameDataSessionMetrics).some(Boolean)), false);
+    await profile.getByLabel('all performance measurements', { exact: true }).check();
+    assert.equal(await page.evaluate(() => Object.values(settings.gameDataMetrics).every(Boolean)), true);
+    await profile.getByLabel('all performance measurements', { exact: true }).uncheck();
+    assert.equal(await page.evaluate(() => Object.values(settings.gameDataMetrics).some(Boolean)), false);
     await page.evaluate(async () => { crowdGameData(); saveSettings(); });
     await profile.getByRole('button', { name: 'back to game data', exact: true }).first().click();
     await profile.getByRole('button', { name: 'configure', exact: true }).click();
     await profile.screenshot({ path: '/tmp/game-data-config.png' });
-    await profile.getByLabel('session fastclick gap', { exact: true }).uncheck();
+    await profile.getByLabel('fastclick gap', { exact: true }).uncheck();
+    assert.equal(await page.evaluate(() => settings.gameDataMetrics.fastclickGap), false);
     await profile.getByRole('button', { name: 'back to game data', exact: true }).first().click();
     await profile.locator(':scope[aria-busy="true"]').waitFor({ state: 'hidden' });
-    assert.equal(await profile.locator('[data-trait="fastclick gap (session)"]').count(), 0);
-    assert.equal(await profile.locator('[data-trait="fastclick gap"]').count(), 1);
+    await bandReady();
+    assert.equal(await profile.locator('.game-data-row[data-measurement="fastclickGap"]').count(), 0);
+    assert.equal(await profile.locator('.game-data-row[data-measurement="clickRate"]').count(), 1);
     await profile.getByRole('button', { name: 'session history', exact: true }).click();
     await profile.locator('tbody tr').first().waitFor();
     assert.equal(await profile.locator('tbody tr').count(), 20);
@@ -257,15 +289,17 @@ const { chromium } = require(process.argv[2]);
     await page.keyboard.press('Escape');
     assert.equal(await profile.getAttribute('data-screen'), 'chart');
     await profile.getByRole('button', { name: 'configure', exact: true }).click();
-    await profile.getByLabel('session fastclick gap', { exact: true }).check();
+    await profile.getByLabel('fastclick gap', { exact: true }).check();
     await page.keyboard.press('Escape');
     await page.evaluate(() => drawProfileFixture({ historyView: true }));
-    assert.equal(await profile.locator('.board-time-profile-time').count(), 0, 'time lives in the scoped labels');
+    await bandReady();
+    assert.equal(await profile.locator('.game-data-row[data-measurement="time"]').count(), 1, 'history views rank the shown win');
     await page.evaluate(() => drawProfileFixture({ historyView: true,
       boardRecord: { ...profileFixture.current, outcome: 'loss' } }));
     assert.equal(await profile.count(), 0, 'loss is never plotted as a ranked win');
     await page.evaluate(async () => { settings.shownThings.exact3BV = false; await drawProfileFixture(); });
-    assert.equal(await profile.locator('.board-trait-line-label[data-side="board"]').count(), 8);
+    await bandReady();
+    assert.equal(await profile.locator('.game-data-row[data-side="board"]').count(), 8);
     await page.evaluate(async () => {
       const current = profileFixture.current;
       const identical = [{ ...current, endedAt: current.endedAt - 1000 }, current];
@@ -273,8 +307,10 @@ const { chromium } = require(process.argv[2]);
       await renderRanks(current, identical, {}, collector);
       collector.renderInto(resultRanks);
     });
-    assert.equal(await profile.locator('[data-trait="islands"]').count(), 1);
-    assert.equal(await profile.locator('[data-trait="zeros"]').count(), 1, 'distinct traits survive identical table memberships');
+    await bandReady();
+    assert.equal(await profile.locator('.game-data-row[data-measurement="islandCount"]').count(), 1);
+    assert.equal(await profile.locator('.game-data-row[data-measurement="zeroCount"]').count(), 1,
+      'distinct traits survive identical table memberships');
     await page.evaluate(async () => { settings.shownThings.boardPercentiles = false; await drawProfileFixture(); });
     assert.equal(await profile.count(), 0);
     await page.evaluate(async () => {
@@ -287,18 +323,19 @@ const { chromium } = require(process.argv[2]);
       resultRanks.replaceChildren(host);
       await host.analysisReady;
     });
-    assert.equal(await profile.locator('.board-trait-line-dot').count(), 0);
-    assert.equal(await profile.locator('.board-trait-line-unranked').count(), 0, 'no one-game section');
-    assert.equal(await profile.locator('.board-trait-line-label').count(), 0, 'one-game measurements are omitted');
-    assert.equal(await profile.locator('.board-trait-line-view').textContent(), '');
+    assert.equal(await profile.locator('.game-data-dot, .game-data-row').count(), 0, 'one-game measurements are omitted');
+    assert.equal(await profile.locator('.game-data-unplotted').textContent(),
+      'Nothing to rank yet: every comparison needs at least two measured games.');
     await page.evaluate(async () => {
       settings.shownThings = { ...savedShownThings };
       settings.shownThings.boardPercentiles = true;
+      settings.shownThings.exact3BV = true;
       settings.shownThings.averageCharts = true;
       settings.perfChartMode = 'average';
-      settings.boardChartMode = 'distribution';
+      settings.boardChartMode = 'average';
       await drawProfileFixture();
     });
+    await bandReady();
     const chartSections = await page.locator('#result-ranks > section').evaluateAll((nodes) =>
       nodes.map((node) => node.getAttribute('aria-label')));
     const boardAt = chartSections.indexOf('This board');
@@ -306,6 +343,19 @@ const { chromium } = require(process.argv[2]);
     const traitsAt = chartSections.indexOf('board traits');
     assert(boardAt !== -1 && boardAt < perfAt && perfAt < traitsAt,
       'pagetables precede your perf charts, which precede board-trait charts: ' + chartSections.join(','));
+    // Linkage: a chart of a band measurement repeats this game's value and
+    // lifetime standing, and hovering the band row outlines that chart.
+    const bvRow = profile.locator('.game-data-row[data-measurement="bv3"]');
+    const bvPercent = Math.round(Number(await bvRow.getAttribute('data-percentile'))) + '%';
+    assert.equal(await page.locator('.result-chart-section-boardCharts [data-measurement="bv3"] .game-data-chart-chip').textContent(),
+      'this 75 · ' + bvPercent);
+    assert.equal(await page.locator('.result-chart-section-perfCharts [data-measurement="bvPerSecond"] .game-data-chart-chip').count(), 1);
+    await bvRow.hover();
+    assert.deepEqual(await page.locator('.game-data-linked').evaluateAll((charts) => charts.map((chart) => chart.dataset.measurement)),
+      ['bv3'], 'hovering a band row outlines its chart');
+    await page.mouse.move(0, 0);
+    assert.equal(await page.locator('.game-data-linked').count(), 0);
+    await page.evaluate(async () => { settings.boardChartMode = 'distribution'; await drawProfileFixture(); });
     assert.equal(await page.locator('.result-chart-section-perfCharts select').inputValue(), 'average');
     assert.equal(await page.locator('.result-chart-section-boardCharts select').inputValue(), 'distribution');
     assert(await page.locator('.result-chart-section-boardCharts h4').first().textContent()
@@ -320,6 +370,7 @@ const { chromium } = require(process.argv[2]);
     assert((await page.locator('.result-chart-section-boardCharts h4').first().textContent()).startsWith('times by '),
       'the board-trait group stays on distribution');
     await page.screenshot({ path: '/tmp/chart-groups.png', fullPage: true });
+    await bandReady();
     await profile.getByLabel('show actual value', { exact: true }).uncheck();
     await page.getByLabel('session', { exact: true }).selectOption('past30min');
     await page.reload();
@@ -327,15 +378,16 @@ const { chromium } = require(process.argv[2]);
     assert.equal(await page.evaluate(() => settings.gameDataShowValues), false);
     assert.equal(await page.evaluate(() => settings.sessionDefinition), 'past30min');
     assert.equal(await page.getByLabel('session', { exact: true }).inputValue(), 'past30min');
-    assert.equal(await page.evaluate(() => settings.gameDataSessionMetrics.fastclickGap), true);
+    assert.equal(await page.evaluate(() => settings.gameDataMetrics.fastclickGap), true);
     const layoutPage = await browser.newPage({ viewport: { width: 1740, height: 1100 } });
+    layoutPage.on('pageerror', (error) => errors.push('layout fixture: ' + error.message));
     await layoutPage.goto('http://127.0.0.1:8099/tests/session-placement-layout-test.html');
     await layoutPage.waitForFunction(() => document.getElementById('checks').textContent.includes('DONE'), null, { timeout: 60000 });
     const layoutChecks = await layoutPage.locator('#checks').textContent();
     assert.deepEqual(layoutChecks.split('\n').filter((line) => line.startsWith('FAIL')), [], 'post-game layout regression');
     await layoutPage.close();
     assert.deepEqual(errors, []);
-    console.log('board-time-profile: table parity, sparse groups, responsive layout, help, history, losses, and settings passed');
+    console.log('board-time-profile: band rows, pools, distributions, chart linkage, responsive layout, help, history, losses, and settings passed');
   } finally {
     await browser.close();
   }

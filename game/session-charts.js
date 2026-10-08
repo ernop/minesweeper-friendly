@@ -9,8 +9,9 @@ const SESSION_GROUP = {
   name: 'session',
 };
 
-// Session stats, ranks won, and game data share this setting; rebuild only
-// their own content so selecting a window never resets the board or replay.
+// Session stats, the session summary, ranks won, and game data share this
+// setting; rebuild only their own content so selecting a window never resets
+// the board or replay.
 function setSessionDefinition(value) {
   settings.sessionDefinition = value;
   saveSettings();
@@ -20,13 +21,14 @@ function setSessionDefinition(value) {
 }
 
 // The page's only session picker, built once for the stats panel's session
-// heading at the upper left. Ranks won and game data only say "session".
+// heading at the upper left. The session summary, ranks won, and game data
+// only say "session".
 function buildSessionScopeSelect() {
   const select = document.createElement('select');
   select.id = 'session-definition-select';
   select.className = 'session-scope-select';
   select.setAttribute('aria-label', 'session');
-  select.title = 'The one page-wide session: these session stats, ranks won in session, and game data’s (session) comparisons all use this wall-clock window. “today” starts at local midnight; it is not the last 24 hours.';
+  select.title = 'The one page-wide session: these session stats, the session summary, ranks won in session, and game data’s session comparisons all use this wall-clock window. “today” starts at local midnight; it is not the last 24 hours.';
   for (const choice of SessionScope.choices) select.add(new Option(choice.label, choice.id));
   select.value = settings.sessionDefinition;
   select.addEventListener('change', () => setSessionDefinition(select.value));
@@ -88,25 +90,25 @@ const SESSION_METRIC_SPECS = [
 // on the /s chart's 0..1 scale next to click rate. fmt is the bare
 // number; displays append the unit.
 const SESSION_RATE_SPECS = [
-  { label: 'flag removals', unit: '/m', color: '#00838f',
+  { label: 'flag-removal rate', unit: '/m', color: '#00838f',
     help: 'Flags you took back.',
     of: (b, i) => b.mismarksPerMin[i],
     gameOf: (b, i) => b.mismarksPerGame[i], fmt: (v) => v.toFixed(1) },
-  { label: 'unused mine marks (wins)', unit: '/m', color: '#ad1457',
+  { label: 'unused flag rate (wins)', unit: '/m', color: '#ad1457',
     help: 'Correct flags that no chord ever used. Measured over wins only.',
     of: (b, i) => b.unusedMarksPerMin[i],
     gameOf: (b, i) => b.unusedMarksPerGame[i], fmt: (v) => v.toFixed(1) },
-  { label: 'mine marking', unit: '/s', color: '#388e3c',
+  { label: 'flag rate', unit: '/s', color: '#388e3c',
     help: 'Flags placed. Removals do not subtract, and the automatic flags '
       + 'at a win do not count.',
     of: (b, i) => b.flagsPerSec[i],
     gameOf: (b, i) => b.flagsPerGame[i], fmt: (v) => v.toFixed(2) },
-  { label: 'misclicks', unit: '/m', color: '#d32f2f',
+  { label: 'misclick rate', unit: '/m', color: '#d32f2f',
     help: 'Actions the visible board had already proved wrong, such as '
       + 'opening a proven mine or flagging a proven safe cell.',
     of: (b, i) => b.misclicksPerMin[i],
     gameOf: (b, i) => b.misclicksPerGame[i], fmt: (v) => v.toFixed(1) },
-  { label: 'no-op clicks', unit: '/s', color: '#e8a000',
+  { label: 'no-op rate', unit: '/s', color: '#e8a000',
     help: 'Clicks that changed nothing, such as chording an unsatisfied '
       + 'number or clicking a flag.',
     // The series stores per-minute; the spec converts for display.
@@ -190,12 +192,12 @@ function sessionMetricSpecForBasis(spec) {
 // marker tooltip sets their text on a black chip, like the seconds age unit.
 const SESSION_END_SPECS = [
   { kind: 'win', label: 'win', color: '#2e7d32' },
-  { kind: 'win-unmarked', label: 'percent of mines unmarked when winning',
+  { kind: 'win-unmarked', label: 'percent of mines unflagged when winning',
     color: '#1565c0', dash: '2 3', series: (b) => b.winUnmarkedFraction },
   // The per-mark calibration of unused correct marks — the primary
   // reading (decided 2026-08-30; see sessionUnusedMarkShare). The /m and
   // /game views on the rate charts remain as volume/time companions.
-  { kind: 'win-unused-marks', label: 'percent of placed marks unused when winning',
+  { kind: 'win-unused-marks', label: 'percent of placed flags unused when winning',
     color: '#7b1fa2', dash: '2 3', series: (b) => b.unusedMarkShareFraction },
   { kind: 'likely-misclick', label: 'died: likely misclick',
     color: '#c2185b', dash: '4 2', series: (b) => b.likelyMisclickFraction },

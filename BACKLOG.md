@@ -8,16 +8,17 @@ leave new ideas only in chat.
 Status labels: **creator** = the creator asked for it; **mapped** = named
 on the design axis or in a research note, not requested as a build.
 
-## After-game self-evaluation review (creator request 2026-10-07; proposals not decided)
+## After-game self-evaluation review (creator request 2026-10-07; round 2 built the same day)
 
 The creator asked to rethink the after-game view around its questions: how
 well did I just do, how am I playing and feeling this session, how did this
 game go, how does the screen look, and what do the colors mean. Cutting is
-allowed when done consciously; the review itself changes no code. Observed
-on a 40.270 s Intermediate win in the Cursor browser's profile (13
-Intermediate games, 5 wins), compact layout at 1154 px wide.
+allowed when done consciously. Observed first on a 40.270 s Intermediate win
+in the Cursor browser's profile (13 Intermediate games, 5 wins), compact
+layout at 1154 px wide; round 2 used the creator's production history (7,436
+games) at their 2560 x 970 viewport.
 
-Findings:
+Findings (round 1, before the changes):
 
 - The page is 10,238 px tall, about 11 screens. Its 98 charts take about 88%
   of that height: 20 your perf, 9 board traits, 8 relationships, 61 motion
@@ -46,82 +47,56 @@ Findings:
 - The session's three games (a 3.1 s loss, the 28.846 s lifetime best, this
   win) appear nowhere as a sequence; the picker read "last hour".
 
-Proposals (mocked up on a script-free copy of the live page, not decided):
+Built 2026-10-07 on the creator's approval ("Please go forward with
+this!"), specified where each lives:
 
-1. A verdict block under the board in every layout, one line per row:
-   Result (time, lifetime rank, gap to best), Pace (3BV/s, path per 3BV,
-   efficiency, each with its rank), Board (3BV and zero-opening coverage
-   ranks), Training (flags no multi-cell chord used against the stage 1
-   target), Session (the window's games in order).
-2. A one-line key for table colors above the tables: tint scale, podium,
-   this-game edge, age units.
-3. One standing scale everywhere: the band's green/blue/red or the tables'
-   green/gray/brown.
-4. Data-sufficiency thresholds: show a history chart once its pool has
-   enough games (the mock used 10 wins) and say so in one line; omit
-   one-row "Only result" tables; fold motion diagnostics behind one button.
-   The mock page was 1,271 px instead of 10,238.
-5. Small-pool wording on the band: "2 of 2" instead of a red 100%, or a
-   minimum pool size per marker.
+- The first screen carries the result
+  ([results](docs/product/results.md#the-first-screen-carries-the-result-creator-direction-2026-10-07)):
+  the board centered in its column, the session summary left of it and
+  ranks won right of it wherever each fits
+  ([layout](docs/product/board-and-layout.md#layout-the-board-never-moves)).
+- Session summary (wanted from the first mockup, whose verdict rows the
+  creator rejected):
+  [Session summary](docs/product/rankings.md#session-summary-requested-and-built-2026-10-07).
+- One standing scale, green better, red worse, and light blue only for this
+  game: [UI doctrine](docs/product/ui-doctrine.md) and
+  [Rank highlights](docs/product/rankings.md#rank-highlights-built-2026-09-21-recolored-2026-10-07).
+- Game data rebuilt: one row per measurement in aligned columns, plain
+  labels, the colored bar, the lifetime/session switch, the hover card with
+  the distribution, the distributions view with lifetime, session, last 24
+  hours, and board sections, and chart titles carrying each row's value and
+  standing ([game data](docs/product/game-data.md#position-and-presentation)).
+- One session picker, upper left, for every session surface
+  ([One session definition](docs/product/game-data.md#one-session-definition)).
+- One name per measurement across game data, tables, charts, the stats
+  table, session charts, and the stats panel ("max number", "zero-opening
+  coverage", "islands", "flag" for placed flags), with grouped tables naming
+  their range ([UI doctrine](docs/product/ui-doctrine.md),
+  [per-game stats](docs/product/per-game-stats.md)).
 
-Keep: the classic board, the compact rank rows (rank, time, colored age),
-the "this" marker, and the band as the detailed layer.
+Still open:
 
-Creator responses (2026-10-07, afternoon). The first screen carries about
-80% of the weight, because players rarely scroll
-([The first screen carries the result](docs/product/results.md#the-first-screen-carries-the-result-creator-direction-2026-10-07)).
-Proposal 1's verdict rows are rejected; its session summary is wanted, with
-game counts, wins, and win rate by type plus ranks won in session, whose
-table form stays. Rank colors become green good, red bad, light blue for
-the just-completed game, no dark-blue edge
-([Rank highlights](docs/product/rankings.md#rank-highlights-approved-and-built-2026-09-21)).
-Band directions are in [game data](docs/product/game-data.md). Age colors
-stay.
-
-Round 2 (mocked on 8099 with the creator's production history, 7,436 games,
-at the real 2560 x 970 viewport; Beginner win 8.971 s; not decided):
-
-- Finding: in the wide layout the board sits at the right of the main column,
-  so the first screen has an empty area of about 1,000 x 330 px left of it
-  (Beginner; about 830 px wide on Intermediate, about 400 px on Expert). The
-  tables start under the board.
-- Session block in that area: a "session" table (board, games, wins, win
-  rate, best time, that time's lifetime rank, an "all" row) beside the kept
-  ranks-won table. The time and streak tables then move down about 70 px and
-  all nine still fit on the first screen; This board's heading stays at the
-  fold. Where the area is too narrow (Expert), the block would lead the table
-  collection under the board. Conflict to decide: the always-applied rule
-  `.cursor/rules/result-table-before-charts.mdc` forbids extracting the
-  time-period summary into a separate section; the block keeps ranks won
-  first in DOM order but puts it beside the board.
-- Rank tables: standing tones from strong green (top 1%) through light gray
-  (middle) to red (last); the current row light blue with "this"; its rank
-  number keeps its standing tone; no edge, no podium. In ranks won only the
-  rank chips carry tones; the full-row tint goes.
-- Band: black, uncolored labels in aligned columns (your perf: name, value,
-  session %, lifetime %; board traits: boards %, name, value); the bar runs
-  green, white, red with deciles printed inside it; one row per measurement
-  instead of separate lifetime and session labels (18 labels become 9 on the
-  left). The "day" time comparison leaves the rows for the hover card because
-  the 614 px column cannot fit a third percentage column; that cut needs the
-  creator's decision. A "points: lifetime | session" switch picks which pool
-  the dots show.
-- Hover card over a band row opens across the bar: this game's ranks in each
-  pool, a histogram of the pool colored by standing, a blue line for this
-  game, ticks for the session's games, and a link to the matching chart,
-  which is outlined while hovering.
-- "show distributions" switches the band to one line per measurement: name,
-  value, a strip histogram with the same marks, and the percentage.
-- Chart titles in your perf and board traits carry the band's numbers, e.g.
-  "time by 3BV/s · this 1.784 · 55%", tinted by standing.
-- Naming mismatch found: one board measurement has up to three names: band
-  "MN 4", This board "max number 4", chart "time by max number"; "ZOC
-  81.69%" against "zero-opening coverage 82%"; "islands 8" against "8
-  islands". This board's "3BV spread 3.5 cells" names the rounded group while
-  the band shows the exact 3.4 cells, which reads as two values for one fact.
-  Tight linkage needs one name and a visible group range.
-- Charts mark this game with the age palette's seconds green dot, while the
-  tables would mark it light blue; open whether charts follow.
+- **Color key** (proposed, not decided). One line keying the remaining
+  codes: the standing scale, light blue for this game, and age units.
+- **Data sufficiency** (proposed, not decided). Show a history chart once
+  its pool has enough games and say so in one line; omit one-row "Only
+  result" tables; fold motion diagnostics behind one button.
+- **Small pools** (proposed, not decided). With two session games every
+  session standing is 0% or 100%; "2 of 2" wording or a minimum pool size.
+- **This game in charts** (open question). Charts mark this game with the age
+  palette's green seconds dot, while tables and game data mark it light
+  blue.
+- **Fit beside an Intermediate board at 2560** (found while building). With
+  production history the session summary (391 px) and ranks won (418 px)
+  exceed the 379 px beside an Intermediate board, so both sit below it.
+  Narrower blocks or a narrower game data column would put them beside it.
+- **The 24-hour time comparison** (creator decision pending). Round 2 moved
+  it from its own band row into the hover card and the distributions view,
+  because the column has no room for a third percentage column.
+- **"Mark" wording in the game-end evaluation and replay** (found while
+  building). Game data, the stats table, and the session charts now say
+  "flag"; the evaluation's "Mark use" and "unused correct mark" and the
+  replay legend still say "mark".
 
 ## Switching between marking and clicking (creator, 2026-09-28)
 

@@ -121,9 +121,15 @@ const bounds = { left: 0, right: 800, top: 50 };
 
 check('game frame stays centered when surrounding result width changes',
   /#game-frame\s*\{[^}]*width:\s*max-content;[^}]*margin-inline:\s*auto;/s.test(css));
-check('beside game data the frame rests at the edge inset instead of centering',
-  /#page-layout\.board-beside-game-data #game-frame\s*\{[^}]*margin-inline:\s*auto var\(--board-edge-inset\);/s.test(css)
-    && source.includes("pageLayout.classList.toggle('board-beside-game-data', docked && gameDataColumnWanted())"));
+check('the board rests centered with the session summary left of it and ranks won right of it',
+  !css.includes('board-beside-game-data') && !source.includes('board-beside-game-data')
+    && source.includes("['left', resultRanks.querySelector('.session-summary')]")
+    && source.includes("['right', resultRanks.querySelector('.recent-placements')]"));
+check('a side block leaves the table list only where it fits inside the edge inset',
+  source.includes('if (left < main.left + inset || left + width > main.right - inset) continue;')
+    && /#result-ranks \.rank-list\.beside-board\s*\{[^}]*position:\s*absolute;/s.test(css));
+check('the history below clears the lowest block beside the board',
+  source.includes("resultRanks.querySelectorAll('.beside-board')"));
 check('offset constraints use the same edge inset as the resting frame',
   /#page-layout\s*\{[^}]*--board-edge-inset:\s*8px;/s.test(css)
     && source.includes("getPropertyValue('--board-edge-inset')")

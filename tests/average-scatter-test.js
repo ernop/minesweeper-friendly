@@ -34,7 +34,7 @@ function assertEq(name, actual, want) {
 assertEq(
   'your-perf chart order',
   tested.PERF_CHART_SPECS.map((spec) => spec.label).join(','),
-  'clicks,mouse path,clicks over 3BV,misclick rate,fastclick gap,3BV/s,click rate,no-op rate,efficiency,path / 3BV,path / click,correctness,IOE,ZiNi efficiency,HZiNi efficiency,IOS,STNB,mouse speed,cadence spread,unused mark share');
+  'clicks,path,clicks over 3BV,misclick rate,fastclick gap,3BV/s,click rate,no-op rate,efficiency,path / 3BV,path / click,correctness,IOE,ZiNi efficiency,HZiNi efficiency,IOS,STNB,mouse speed,cadence spread,unused flag share');
 assertEq(
   'board-trait chart order',
   tested.BOARD_CHART_SPECS.map((spec) => spec.label).join(','),

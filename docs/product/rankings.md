@@ -33,14 +33,18 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   default; switched off, every window always renders its own chart.
 - Exact board comparisons: "3BV N", "ZiNi N", "HZiNi N", and "max number N"
   (the latter three added 2026-09-21) rank solve times among wins matching
-  that one measured value. Maximum number means equality, unlike the
-  existing "max 2/3/4" upper bounds. ZiNi uses the recorded greedy click
+  that one measured value. "max number N" means equality, unlike the
+  "max number ≤ 2/3/4" upper bounds. ZiNi uses the recorded greedy click
   benchmark; HZiNi uses the opening-first benchmark. Neither is a proven
   minimum. Missing measurements create no table and do not enter a comparison pool; drill records still
   omit ZiNi and HZiNi. Each table has an independent display switch, on by default.
   The 0–1 share and zero-opening coverage tables match values rounded to the
   nearest whole percentage point; 3BV spread uses the nearest 0.5 cell.
-  All halfway ties round up. All three have default-on
+  All halfway ties round up. A 3BV spread table names its group's range,
+  "3BV spread 3.25–3.75 cells": boards from 3.25 cells up to, not including,
+  3.75 (2026-10-07; the former "3BV spread 3.5 cells" named the rounded group
+  while game data showed the exact 3.4 cells, which read as two values for one
+  fact). All three have default-on
   independent display switches and omit missing measurements.
   Like the original same-3BV table, these comparisons retain their
   names even when their member sets coincide with another table's.
@@ -52,23 +56,29 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   game. Measured at game end and stored: `maxAdjacent`, `hasSeven`,
   `zeroCount`, `islandCount`, `largestIsland`. Absence on earlier
   records means not measured; those games stay off these lists.
-  - "has 8" / "has 7" — at least one cell with that number.
-  - "max 4" / "max 3" / "max 2" — no number higher than that cap.
-    Nested; a max-2 board also qualifies for max 3 and max 4.
-  - "N islands" — 8-connected mine components (diagonals count, edges
+  - "has an 8" / "has a 7" — at least one cell with that number.
+  - "max number ≤ 4" / "≤ 3" / "≤ 2" — no number higher than that cap.
+    Nested; a ≤ 2 board also qualifies for ≤ 3 and ≤ 4.
+  - "islands N" — 8-connected mine components (diagonals count, edges
     empty, no wrap).
   - "largest island N" — mine count in the largest such component.
-  - "N zeros" — cells whose adjacent-mine count is 0.
+  - "zeros N" — cells whose adjacent-mine count is 0.
   Progressive disclosure uses the same setting as the window charts:
-  identical member sets keep the most specific list (has 8, has 7,
-  max 2, then max 3, then max 4, then the grouping lists).
+  identical member sets keep the most specific list (has an 8, has a 7,
+  max number ≤ 2, then ≤ 3, then ≤ 4, then the grouping lists).
+- One name per measurement (creator direction 2026-10-07: "those are
+  literally the same data, one name one thing"): a board measurement has the
+  same name in its tables, game data rows, chart titles, ranks won, and the
+  after-game report. Tables append the value or the group's range ("max
+  number 4", "zero-opening coverage 82%", "islands 8"). Abbreviations such as
+  MN and ZOC are gone.
 - Heading help (2026-09-26, user direction "write them well without
-  clutter"): every This-board table heading except "has 8" and "has 7",
+  clutter"): every This-board table heading except "has an 8" and "has a 7",
   whose names state their rule, opens a one-sentence definition of its
-  measurement. The rounded groups (3BV spread, 0–1 share, zero-opening
-  coverage) add one sentence with this board's exact value and the
-  rounding rule. The same definitions label the board-trait items of the
-  game-data chart.
+  measurement. The rounded groups add one sentence with this board's exact
+  value and the grouping: the rounding rule for 0–1 share and zero-opening
+  coverage, the range the table holds for 3BV spread. The same definitions
+  label the board-trait items of the game-data chart.
 - Row format: rank, time, relative age. Headings carry only the window
   name. With a selected result, the footer always names its rank, complete
   comparison pool, and percentage standing, e.g. "#32 of 1,080 · Top 3%"
@@ -91,71 +101,102 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   because the placement itself is fresh information. (This replaced the
   earned-detail collapse, which greyed non-top placements to a single row.)
 
-## Rank highlights (approved and built 2026-09-21)
+## Rank highlights (built 2026-09-21, recolored 2026-10-07)
 
-- The selected result's row combines independent meanings: a thin blue
-  left edge and “this” identify the latest game; a full-row tint indicates
-  percentage standing; gold, silver, and bronze apply only to the rank
-  number for first, second, and third. A single-result list is neutral and
-  says “Only result”, with no podium color.
-- Percentage colors use rank/list size, with successive bands at 1%, 2%,
-  5%, 10%, 25%, 50%, and 90%. The strongest greens mark the top; middle
-  placements are cool gray, the lower half warm gray, and the bottom 10%
-  muted brown. Last place has a distinct brown tint and double underline
-  on the rank number. Text remains black, bold, and fully readable at all
-  standings; poor results are never hidden or faded to illegibility.
+Creator direction 2026-10-07: "rather than gold, silver, bronze, let's just
+do 'green good red bad'" (chosen over "green good, faded green bad"); "light
+blue = the one we just did so you can always see 'this' just-completed run";
+"don't double-indicate (by leading the this row with a vbar of dark blue and
+then ALSO coloring it and also saying THIS). keep color+this only"; then "no
+need to color the today number red. just making everything light blue for
+'this' is fine". The relative-age colors stay ("the age colorations to me
+seem fine").
+
+- The selected result's row is light blue (`--this-game`, #cfe5fa) across
+  its rank, time, and age cells, in bold black; right after the game its age
+  reads "this" (a 0-second age). That is its only mark: no left edge, no podium color,
+  no standing tint on the row. The footer states its standing ("#18 of 124
+  · Top 15%"). A single-result list says "Only result".
+- Standing tones, green good and red bad, color every other reported rank:
+  the rank chips in ranks won and the best-time ranks in the session summary.
+  Bands at 1%, 2%, 5%, 10%, and 25% run from strong green (#1e9e4f) to pale
+  green; the rest of the upper half, the exact middle, and an only result
+  are light gray (#e6e6e6); the lower half is pale red, the bottom 10%
+  stronger red, and last place the strongest red (#df6a6a) with a double
+  underline on its chip. Each chip shows its tone at 85% strength on white.
+  Text remains black, bold, and fully readable at all standings; poor
+  results are never hidden or faded to illegibility.
+- The same green, neutral, red scale colors the game-data bar, its
+  histograms, and the chart chips ([UI doctrine](ui-doctrine.md)), so one
+  standing reads one way on the whole result screen.
 - In an odd-sized pool with more than one result, the exact middle rank
-  (`2 * rank = N + 1`) says **Middle place** with the neutral cool-gray tint.
-  It has equally many results ahead and behind: #2 of 3, #3 of 5, #51 of 101.
-  It retains its absolute podium color where applicable. Including the middle
-  result in the lower tail formerly produced labels such as “Bottom 67%”;
-  the explicit middle label replaces those labels without changing rank.
+  (`2 * rank = N + 1`) says **Middle place**, neutral gray. It has equally
+  many results ahead and behind: #2 of 3, #3 of 5, #51 of 101. Including
+  the middle result in the lower tail formerly produced labels such as
+  "Bottom 67%"; the explicit middle label replaces those labels without
+  changing rank.
 - Percentage text names the upper tail when rank/list size is at most
   one half, otherwise the inclusive lower tail: (N - rank + 1)/N, apart from
   the exact middle and only/last-result labels above. Round
   outward to the next whole percent, or next tenth of a percent below 1%.
   Examples: #1 of 91 is Top 2%; #32 of 1,080 is Top 3%; #155 of 287 is
-  Bottom 47%. Last place says “Last place”. The numeric pool size always
+  Bottom 47%. Last place says "Last place". The numeric pool size always
   remains visible, including small pools.
 - Shared by time, exact-3BV, shape, streak, and trial ranking tables.
   A ranked position is required: the Pregen batch progress table lists
   deal order and keeps its existing plain blue current-row marker.
-- In the compact ranks-won summary, every listed achievement receives its
-  percentage tint and podium color, including earlier qualifying games at
-  other 3BV values. A row's background uses its best reported placement;
-  the fourth cell gives the percentage or percentage range of all ranks
-  reported there. Ordinals use their own colors. Consecutive ranks compress
-  only within the same tint/podium treatment; the current game's ordinal
-  stays separate, with a blue edge and “this”. Earlier achievements retain
-  the same emphasis without the current-game marker. This also applies in
-  score/history views. Lifetime's near-miss placement keeps its standing
-  treatment and explanatory tooltip.
+- In ranks won, rows carry no tint. Every reported rank is a chip in its
+  standing tone, earlier games included; the current game's chip is light
+  blue and says "this". Consecutive ranks compress only within one tone; the
+  current game's ordinal stays separate. The fourth cell gives the
+  percentage or percentage range of all ranks reported in the row. This also
+  applies in score/history views. Lifetime's near-miss placement keeps its
+  tone and explanatory tooltip.
 - This changes presentation only. Ranking order, source-window selection,
   top-tenth eligibility, and duplicate collapsing are unchanged.
 
-Requested 2026-10-07, not built (creator review of the after-game view; the
-built behavior above stays until this is implemented):
+## Session summary (requested and built 2026-10-07)
 
-- Standing colors become "green good red bad", chosen over "green good,
-  faded green bad", and replace gold, silver, and bronze.
-- Light blue marks the just-completed game's row, "so you can always see
-  'this' just-completed run".
-- No double indication: the dark-blue left edge goes. The current row keeps
-  only its color and the word "this".
-- The relative-age colors stay as they are ("the age colorations to me seem
-  fine").
-- Open: whether the current row's rank number also carries its standing
-  color inside the light-blue row (the round-2 mockup does), and the exact
-  green-to-red tones. Light blue meaning "this game" conflicts with the blue
-  middle of the game-data band and of the UI doctrine's performance gradient;
-  see BACKLOG.md "After-game self-evaluation review".
+The creator, reviewing the first mockup: "the fact that we have a session
+summary here. That should include game counts by type, wincount and winrate
+by type, and that should basically also include the info from 'ranks won in
+session'. I really like the table version of 'ranks won in session' so you'd
+better keep that". Placement, from the round-2 review: "perhaps the session
+sum could be to the left of the board, ranks won to the right, board in
+middle? that's okay."
+
+- One table, heading "session". Its help names the current window and the
+  picker; like every other session surface it has no picker or window name
+  of its own ([One session definition](game-data.md#one-session-definition)).
+  Changing the one picker regenerates it in place.
+- One row per board type played in the session window. A board type is one
+  history key: board size and mines, play mode, and generator with its
+  parameters, named as on the result summary line ("Beginner · Standard",
+  "Intermediate · Standard · Pink noise (spectral exponent 1, …)"). Columns:
+  board type, games, wins, win rate, best (the session's fastest win of that
+  type), and that time's lifetime rank among the type's wins so far ("2nd of
+  57", a standing-toned chip; light blue with "this" when the best is the
+  game just finished). Types without a session win leave best and rank
+  empty. Rows follow difficulty order, then other boards; an "all" row totals
+  games, wins, and win rate when more than one type was played.
+- Ranks won in session stays its own table beside it; the summary does not
+  repeat its rows.
+- Every row is one line. Numbers are bold, right-aligned tabular digits; the
+  type name is regular weight.
+- Wide layout: left of the board when it fits, ranks won right of the board
+  ([Layout](board-and-layout.md)). Otherwise both lead the table collection
+  under the board, summary first.
+- Gated by shownThings.sessionSummary (on by default). An empty window says
+  "no games in session".
 
 ## Recent placements (requested and decided 2026-08-23; charts and the lifetime near-miss rule extended later the same day)
 
-- One summary block, "ranks won in session", leading the below-board chart
-  sections: for the session it reports, per longer chart, which of that
-  chart's top ranks were earned within the session — e.g.
-  "this month: 1st, 3rd, 8–12th / lifetime: 7th, 14th".
+- One summary block, "ranks won in session": for the session it reports,
+  per longer chart, which of that chart's top ranks were earned within the
+  session — e.g. "this month: 1st, 3rd, 8–12th / lifetime: 7th, 14th". In
+  the wide layout it sits right of the board when it fits (2026-10-07);
+  otherwise it follows the session summary at the head of the table
+  collection.
 - Source window: the shared page-wide `sessionDefinition`, default today
   (since local midnight). The heading reads "ranks won in session" and has no
   selector of its own (user decision 2026-09-23: it "should merely say
@@ -176,8 +217,8 @@ built behavior above stays until this is implemented):
   is one, and the day of the month). Within that scope, every exact 3BV, ZiNi, HZiNi, maximum clue,
   0–1 share, zero-opening coverage, 3BV-spread band, and measured board-shape
   category represented by a win in the selected period
-  competes: has 8 / has 7 /
-  max 2, 3, 4 / N islands / largest island N / N zeros. An earlier 3BV-41
+  competes: has an 8 / has a 7 /
+  max number ≤ 2, 3, 4 / islands N / largest island N / zeros N. An earlier 3BV-41
   placement remains eligible after a 3BV-40 win. Each category compares
   against all its saved member wins, including those before the source
   period; the source selects which wins' placements are reported and which
@@ -216,8 +257,8 @@ built behavior above stays until this is implemented):
   reorder the categories. Duplicate collapsing and top-tenth eligibility
   still determine which rows exist. Rows remain contiguous across families,
   without white gaps or extra heading rows. Full-table order stays unchanged.
-  Current and earlier achievements share the same tint and podium treatment;
-  only the current game gets the blue edge and “this” (see Rank highlights).
+  Every reported rank is a chip in its standing tone; only the current
+  game's chip is light blue and says "this" (see Rank highlights).
 - Gated by shownThings.recentPlacements (on by default).
 
 ## Relative age display
@@ -235,9 +276,8 @@ built behavior above stays until this is implemented):
   w = navy, mo = maroon, y = teal. The scatter legend uses the same
   colors. The chip is the creator's choice (2026-09-23): bold green on
   white had about 1.4:1 contrast.
-- Your own row is bolded on its percentage-standing tint (see Rank
-  highlights), with text overridden to black for readability. That
-  override replaces the seconds chip too.
+- Your own row is bold black on the light blue this-game color (see Rank
+  highlights). That override replaces the seconds chip too.
 
 ## Streak lists
 

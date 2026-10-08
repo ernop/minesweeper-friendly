@@ -104,9 +104,10 @@ inside the same boundary. No old lookback observations leak across it.
   - **deaths with mistakes** — fatal actions carrying at least one
     evidence-backed mistake tag per in-progress minute; untagged deaths
     do not count.
-  - **misclicks** — the visible-state contradiction definition above per
+  - **misclick rate** ("misclicks" until 2026-10-07, renamed to its game
+    data name) — the visible-state contradiction definition above per
     in-progress minute, whether or not the action ended the game.
-  - **no-op clicks** — clicks that changed no board state per
+  - **no-op rate** (formerly "no-op clicks") — clicks that changed no board state per
     in-progress second (stored under the legacy field name
     `wastedClicks`; charted /m until 2026-08-23, see the action-rates
     charts below).
@@ -122,9 +123,10 @@ inside the same boundary. No old lookback observations leak across it.
     (records hold no press timestamps), so per-time backfilled spans
     leave the series unmeasured while the per-game basis medians each
     game's stored spread instead. Needs at least two gaps.
-  - **mine marking** — flags placed per in-progress second (removals
+  - **flag rate** (formerly "mine marking") — flags placed per in-progress second (removals
     don't subtract; win auto-flagging never counts).
-  - **flag removals** (added 2026-08-22, same evening) — flags taken
+  - **flag-removal rate** (added 2026-08-22, same evening, as "flag
+    removals") — flags taken
     back per in-progress minute. Counts the removal, not the placement;
     flags left standing are invisible here, and the reason for removal
     is not observed.
@@ -143,9 +145,9 @@ inside the same boundary. No old lookback observations leak across it.
     never disagree because both derive from `fatalActionStatusKind`. The
     y axis auto-ranges to just above the highest plotted line (capped at
     100, floored at 10) instead of always spanning 0–100. The dotted
-    "percent of mines unmarked when winning" line (the wins' average
+    "percent of mines unflagged when winning" line (the wins' average
     share of mines left unflagged at the winning instant) draws in a
-    deliberately un-endings blue (#1565c0), and "percent of placed marks
+    deliberately un-endings blue (#1565c0), and "percent of placed flags
     unused when winning" in purple (#7b1fa2), so neither is misread as
     an ending share. See [Game-end evaluation](game-end-evaluation.md).
   - **report categories** (added 2026-08-23; scope independence decided
@@ -233,9 +235,10 @@ inside the same boundary. No old lookback observations leak across it.
 - The action-rates charts (combined 2026-08-23 afternoon; split by
   unit that evening): the six per-play-time rates draw as two shared
   charts right after game endings, replacing their six solo charts.
-  "action rates/m" holds every per-minute series — flag removals,
-  misclicks, deaths with mistakes — and "action rates/s" the per-second
-  trio, mine marking, click rate, and no-op clicks, so the lines on a
+  "action rates/m" holds every per-minute series — flag-removal rate,
+  misclick rate, deaths with mistakes, unused flag rate (wins) — and
+  "action rates/s" the per-second trio, flag rate, click rate, and no-op
+  rate, so the lines on a
   chart are directly comparable and neither unit's magnitudes squash
   the other's (the single dual-axis chart tried first put a ~20/m no-op
   line and a ~1/s marking line on one numeric scale, flattening the
@@ -256,9 +259,11 @@ inside the same boundary. No old lookback observations leak across it.
   1/2/5/10… stay readable, each labeled with the chart's unit
   ("0/m, 1/m, 2/m…"). Each series keeps
   the unit that gives it a meaty, clearly visible value (the choice
-  delegated in the original request): click rate, mine marking, and
-  no-op clicks read as /s; misclicks, deaths with mistakes, and flag
-  removals as /m. No-op clicks changed unit twice: sketched /s,
+  delegated in the original request): click rate, flag rate, and
+  no-op rate read as /s; misclick rate, deaths with mistakes, and
+  flag-removal rate as /m. Series names match game data and the label/value
+  table (2026-10-07, one name per measurement; "flag" is the one term for a
+  placed flag, where some series said "mark"). No-op clicks changed unit twice: sketched /s,
   implemented /m because ~3/m beat ~0.05/s pinned to the floor, then
   moved back to /s later on 2026-08-23 (user call, "to improve
   distribution") once real sessions showed its ~19/m line towering

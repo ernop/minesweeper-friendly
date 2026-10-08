@@ -137,7 +137,15 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   by dragging the stats panel's right edge, not a panel checkbox) — the
   left panel's width, which the session charts fill;
   `numberDisplay` (default numbers; the first choice-row setting) —
-  digits / letters / dots for revealed counts (see [Board and chrome](board-and-layout.md)).
+  digits / letters / dots for revealed counts (see [Board and chrome](board-and-layout.md));
+  `gameDataMetrics` (one selection for both comparisons since 2026-10-07,
+  replacing separate lifetime and session selections; a measurement either
+  of them showed stays shown), `gameDataDayTime`, `gameDataShowValues`,
+  `gameDataBandPool` (default lifetime), and `gameDataDistributions`
+  (default off; the last two chosen on the chart itself) — the game data
+  column (see [Game data](game-data.md)); `shownThings.sessionSummary`
+  (default on) — the session summary table (see
+  [Rank lists](rankings.md#session-summary-requested-and-built-2026-10-07)).
 - New-player quiet start (decided 2026-09-26): someone arriving without a
   saved `showSessionStats` or `reportScope` gets session stats off and
   after-game action reports off (`none`). The left panel still shows the

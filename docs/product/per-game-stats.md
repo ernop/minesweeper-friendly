@@ -10,23 +10,34 @@ the versioned action-evaluation ledger (`actionEvaluations`), plus
 the finished-board shape facts (max number, whether a 7 is present,
 zero count, island count, largest island). The stored click count includes only
 clicks that changed the board (reveals, flags, chords). Everything else is
-derived at display time: 3BV/s (4 decimals), clicks over 3BV (clicks minus
+derived at display time: 3BV/s (wins only), clicks over 3BV (clicks minus
 3BV; wins only — a lost board was never finished, so the subtraction means
-nothing), efficiency % (3BV / effective clicks, as a percent), correctness %
+nothing), efficiency (3BV / effective clicks, as a percent; wins only, the
+same unfinished-board honesty; the clone name "throughput" is the same
+quantity and no longer has a row of its own), correctness
 (effective / (effective + wasted); omitted when wasted clicks were never
-measured), throughput (3BV / effective clicks, as a 4-decimal ratio — the
-same quantity as efficiency, clone name; wins only, same unfinished-board
-honesty as clicks over 3BV), IOS (log(3BV) / log(time in seconds); wins
+measured), IOS (log(3BV) / log(time in seconds); wins
 only; blank when time is 1s or less, matching minesweeper.online), mouse
-speed (px/s), path per click, path per 3BV, and (2026-08-22, the per-game
+speed (px/s), path / click, path / 3BV (wins only), and (2026-08-22, the per-game
 forms of the session series) click rate (effective clicks per second),
 no-op rate (no-op clicks per second — per minute until 2026-08-23,
 when it followed the session chart's unit move; the rate is derived
 from the stored count, so old and new records alike show the new unit
 with no migration), misclick rate (visible-board
-contradictions per minute), and mark rate (flags placed per second) —
+contradictions per minute), and flag rate (flags placed per second) —
 all derived from the stored counts and time, so they
 appear on historical games too.
+
+One name, one format (creator direction 2026-10-07, "one name one thing"):
+every row of the label/value table that shows a game data measurement uses
+that measurement's game data name and format, and, like game data, shows a
+completion-dependent measurement only on wins. 3BV/s therefore shows three
+decimals as in game data (formerly four), ZiNi and HZiNi efficiency show as
+percentages, the throughput row (a duplicate of efficiency) is gone, and a
+loss no longer shows 3BV/s, efficiency, or path / 3BV computed from the
+whole board's 3BV. "Mouse path", "Path per click", "Path per 3BV", "Mark
+rate", and "Unused mine marks" became "Path", "Path / click", "Path / 3BV",
+"Flag rate", and "Unused flags".
 Regular wins show these measurements through the game-data chart and its
 configuration; the complete replacement inventory is in
 [the game-data design](game-data.md). Losses and trial results retain the
@@ -46,7 +57,7 @@ Endgame drill games, where a full-board measure misdescribes the partial
 solve. Derived at display time: IOE (3BV / total board-changing clicks,
 wins only), chord share (accepted chords / board-changing clicks, any
 outcome — how much of the play is chord-driven), ZiNi efficiency
-(zini / clicks, the flagger analog of throughput, wins only), and STNB
+(zini / clicks, the flagger analog of efficiency, wins only), and STNB
 (difficulty-normalized speed: constant / (time^1.7 / 3BV) with the
 community constants 47.299 beginner, 153.73 intermediate, 435.001
 expert; only defined on those exact board shapes, wins only, and never
@@ -122,9 +133,11 @@ This is descriptive comparison, not a trait–performance correlation model.
   point; each zero component contributes its zero-cell centroid with weight
   one. Store the unrounded value; time comparisons round to the nearest
   0.5 cell, with exact halfway values upward (`round(2 * value) / 2`). The
-  heading gives the group, e.g. `3BV spread 2.5 cells`; its mouseover gives
-  the underlying measurement to three decimals and the definition. A 2.5-cell
-  group covers [2.25, 2.75); the zero group is clipped at zero.
+  heading gives the group's range, e.g. `3BV spread 2.25–2.75 cells`
+  (2026-10-07; formerly `3BV spread 2.5 cells`); its mouseover gives the
+  underlying measurement to three decimals, the definition, and the range as
+  "from 2.25 cells up to, not including, 2.75 cells". The zero group is
+  clipped at zero.
 - **0–1 share:** open every zero and nothing else, then count only the
   revealed zeros and ones, divided by all safe cells on the board. Covered
   ones and revealed clues of two or more do not count. Shared borders count

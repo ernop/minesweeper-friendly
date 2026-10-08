@@ -13,14 +13,20 @@ Spec: [docs/product/rankings.md](../product/rankings.md). Index: [AGENTS.md](../
   `windowBounds` (11-row windowing), `buildRankList` (shared renderer,
   always the full window), `relativeAge` / `formatAgeCount` + `.age-u-*`
   classes (age display and unit colors, shared with the scatter legend;
-  h/d/w/y counts are one decimal including .0).   Board-shape lists
-  (`has 8` / `has 7` / `max N` / `N islands` / `largest island N` /
-  `N zeros`) are defined once in `boardShapeCandidates(referenceWins, wins)`
+  h/d/w/y counts are one decimal including .0). Board-shape lists
+  (`has an 8` / `has a 7` / `max number ≤ N` / `islands N` /
+  `largest island N` / `zeros N`) are defined once in
+  `boardShapeCandidates(referenceWins, wins)`
   (shared with the recent-placements summary) and rendered in
   `renderRanks` with `[record]` from the finished-board scalars computed by
   `board-shape.js` (`BoardShape.of`) at `reportResult`.
   `node tests/board-shape-test.js` freezes the neighborhood and island
   rules.
+  `BOARD_TRAIT_NAMES` (2026-10-07) holds the one name of each board
+  measurement; `BOARD_METRIC_TABLES`, `boardShapeCandidates`, and
+  `BOARD_CHART_SPECS` in game/charts.js all read it, so table, game-data, and
+  chart names cannot drift. A spec's `labelOf` names a grouped table by its
+  range (`3BV spread 3.25–3.75 cells`).
   `BOARD_METRIC_TABLES` / `boardMetricCandidates` define the independent
   same-3BV, same-greedy-ZiNi, and exact-maximum-clue time comparisons.
   They share category discovery between full tables and the summary, skip
@@ -49,8 +55,10 @@ Spec: [docs/product/rankings.md](../product/rankings.md). Index: [AGENTS.md](../
   scans once per exact-value field; shape IDs contain their value. The summary
   ignores the largestIsland display gate. This period-wide board-category
   discovery (2026-09-21) prevents later boards hiding earlier placements.
-  The builder emits the first item in the upper table collection, gated by
-  shownThings.recentPlacements; nearMiss rows retain an explanatory tooltip.
+  The builder emits the second item in the upper table collection, after the
+  session summary, gated by shownThings.recentPlacements; nearMiss rows retain
+  an explanatory tooltip. `placeBoardSides` (game/layout.js) may move it right
+  of the board ([layout notes](board-and-layout.md)).
   `dedupeRankCandidates` is shared
   with the full time/day and board-shape tablecharts, so the summary
   obeys `collapseDuplicateCharts` with the same pinned lifetime/week
@@ -64,27 +72,48 @@ Spec: [docs/product/rankings.md](../product/rankings.md). Index: [AGENTS.md](../
   and `boardShapeCandidates.summaryOrder` own board-family metadata; no
   display-label parsing. Rows stay contiguous across family boundaries, with
   no added gap. The exact current record's ordinal carries `.recent-current-rank`.
-  `rankStanding(rank, total)` owns
-  percentage labels, tint bands, and independent podium places;
-  `applyRankHighlight` attaches the shared CSS metadata. `buildRankList`
-  uses it on `.me`, with a rank/pool/percentage footer even for short lists;
-  the compact summary colors every listed achievement, including earlier
-  games. `recentPlacementRuns` splits compression at podium/tint boundaries
-  and at the current ordinal, whose `.recent-current-rank` adds a blue edge
-  and “this”. `.recent-row-ranked` takes the best reported rank's tint;
-  `recentPlacementStanding` gives the fourth cell's percentage/range.
-  One-result lists are neutral; last place stays visible. An odd pool's exact
-  middle (`2 * rank === total + 1`, after only/last checks) has band `middle`,
-  neutral tint, and label “Middle place”; its podium color remains independent.
-  This avoids “Bottom 67%” for #2 of 3. These highlight
-  rules (2026-09-21) do not change ranking or summary qualification.
+  `rankStanding(rank, total)` owns percentage labels and standing bands
+  (`top1` … `top50`, `middle`, `lower50`, `bottom10`, `last`, `only`);
+  `applyRankHighlight(element, rank, total)` adds `.rank-highlight`,
+  `data-rank-band`, and the title, and returns the standing. CSS maps each
+  band to `--rank-tone` and `.rank-highlight` mixes it 85% with white into
+  `--rank-tint` (2026-10-07: green good, red bad; no podium). `buildRankList`
+  marks `.me` (its cells use `--this-game`, #cfe5fa, bold black) and writes
+  the rank/pool/percentage footer even for short lists. In ranks won, rows
+  carry no tint: `recentPlacementRuns` splits compression at band
+  boundaries and at the current ordinal; each `.recent-rank-run` chip gets
+  `applyRankHighlight` and `--rank-tint`, the current one
+  `.recent-current-rank` (light blue) and “this”; only a last-place chip keeps
+  the double underline. `recentPlacementStanding` gives the fourth cell's
+  percentage/range. An odd pool's exact middle (`2 * rank === total + 1`,
+  after only/last checks) has band `middle` and label “Middle place”, which
+  avoids “Bottom 67%” for #2 of 3. These highlight rules do not change
+  ranking or summary qualification.
+- Session summary (2026-10-07; [spec](../product/rankings.md#session-summary-requested-and-built-2026-10-07)):
+  `sessionSummaryRows(historyByKey, from, to, difficultyKeys)` (the pure span
+  "SESSION SUMMARY: COMPUTATION") returns one row per history key with games
+  in the window: `{key, latest, games, wins, best}`, where `best` is the
+  session's fastest win (`compareRankedWins`) with its rank and total among
+  that key's wins up to the window's end. Rows follow `difficultyKeys`, then
+  other keys alphabetically. It is a linear filter over saved records, so it
+  runs on the page. `buildSessionSummary(record, referenceMs)` renders
+  `.rank-list.session-summary` (heading "session", help naming the window)
+  with `sessionSummaryTypeLabel` (the result summary's board, mode, and
+  generator wording), a `.session-summary-rank` chip per best time, and an
+  "all" row for more than one type. It carries `data-session-scope-view` and
+  rebuilds itself on `session-scope-change`, then calls
+  `scheduleBoardLayout` so its side placement follows its new width.
+  `renderRanks` appends it first in the table collection, gated by
+  shownThings.sessionSummary.
   `node tests/recent-placements-test.js` freezes the formatting and
   summary rules; `node tests/result-presentation-test.js` freezes the
   cross-context section order.
 - Rank-highlight browser verification:
   `node tests/rank-highlight-browser-check.js /path/to/playwright /path/to/chromium`
   uses an isolated profile on the permanent test origin, with renderer-only
-  fixtures. It checks podium colors, percentage bands, compact-summary marking,
+  fixtures. It checks light blue this-game rows without edge or podium,
+  green standing chips, percentage bands, compact-summary marking, the
+  session summary's rows and regeneration from the one picker,
   low/last/only-result states, history without a selection, and 1680/1216/650px
   table layout, plus a long-session fixture with unequal pool sizes,
   contiguous numeric families and preserved current-rank marking. It checks

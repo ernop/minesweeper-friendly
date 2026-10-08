@@ -684,15 +684,19 @@ function difficultyDisplayName(name) {
   return name.charAt(0).toUpperCase() + name.slice(1);
 }
 
-function boardDisplayLabel() {
-  let board = 'Custom ' + config.width + 'x' + config.height + '-' + config.mines;
+function boardDisplayLabelOf(params) {
+  let board = 'Custom ' + params.width + 'x' + params.height + '-' + params.mines;
   for (const [name, d] of Object.entries(DIFFICULTIES)) {
-    if (d.width === config.width && d.height === config.height && d.mines === config.mines) {
+    if (d.width === params.width && d.height === params.height && d.mines === params.mines) {
       board = difficultyDisplayName(name);
       break;
     }
   }
   return board;
+}
+
+function boardDisplayLabel() {
+  return boardDisplayLabelOf(config);
 }
 
 function formatDate(timestampMs) {
@@ -781,6 +785,15 @@ async function renderResultAsync(record, modeRecords, options = {}) {
   }
   const statsGrid = document.createElement('div');
   statsGrid.id = 'stats-grid';
+  // A game data measurement shows under its game data name and format, and,
+  // as there, only on wins unless it is defined for every outcome: a lost
+  // board's 3BV is the whole board's, which would flatter a short loss.
+  const measurementRow = (id) => {
+    const metric = GameData.metrics.find((item) => item.id === id);
+    const value = metric.value(record, config);
+    return (metric.allOutcomes || record.outcome === 'win') && Number.isFinite(value)
+      ? [[metric.name[0].toUpperCase() + metric.name.slice(1), metric.format(value)]] : [];
+  };
   // "Clicks over 3BV" only exists for wins: a lost board was never
   // finished, so the subtraction means nothing.
   for (const [label, value, valueClass] of [
@@ -797,7 +810,7 @@ async function renderResultAsync(record, modeRecords, options = {}) {
     ...(record.islandCount !== undefined ? [['Islands', String(record.islandCount)]] : []),
     ...(settings.shownThings.largestIsland && record.largestIsland !== undefined
       ? [['Largest island', String(record.largestIsland)]] : []),
-    ['3BV/s', bvPerSecond(record).toFixed(4)],
+    ...measurementRow('bvPerSecond'),
     ['Clicks', String(record.clicks)],
     ...(fullAnalysis ? [['No-op clicks', String(record.wastedClicks)]] : []),
     ...(fullAnalysis && record.misclicks !== undefined
@@ -809,7 +822,7 @@ async function renderResultAsync(record, modeRecords, options = {}) {
     // known, so "2 of 14 placed (14%)" reads at a glance.
     ...(record.outcome === 'win' && typeof record.unusedCorrectFlags === 'number'
         && record.unusedCorrectFlags > 0
-      ? [['Unused mine marks',
+      ? [['Unused flags',
           typeof record.flagsPlaced === 'number' && record.flagsPlaced > 0
             ? record.unusedCorrectFlags + ' of ' + record.flagsPlaced
               + ' placed ('
@@ -823,23 +836,15 @@ async function renderResultAsync(record, modeRecords, options = {}) {
     ...(record.outcome === 'win'
       ? [['Clicks over 3BV', String(record.clicks - record.bv3)]]
       : []),
-    ['Efficiency', efficiencyPercent(record) + '%'],
+    ...measurementRow('efficiency'),
     ...(chordShareOf(record) !== undefined
       ? [['Chord share', Math.round(chordShareOf(record) * 100) + '%']] : []),
-    ...(correctnessPercent(record) !== undefined
-      ? [['Correctness', correctnessPercent(record) + '%']] : []),
-    ...(throughputOf(record) !== undefined
-      ? [['Throughput', throughputOf(record).toFixed(4)]] : []),
-    ...(ioeOf(record) !== undefined
-      ? [['IOE', ioeOf(record).toFixed(4)]] : []),
-    ...(hziniEfficiencyOf(record) !== undefined
-      ? [['HZiNi efficiency', (100 * hziniEfficiencyOf(record)).toFixed(1) + '%']] : []),
-    ...(fullAnalysis && zniEfficiencyOf(record) !== undefined
-      ? [['ZiNi efficiency', zniEfficiencyOf(record).toFixed(4)]] : []),
-    ...(iosOf(record) !== undefined
-      ? [['IOS', iosOf(record).toFixed(4)]] : []),
-    ...(stnbOf(record, config) !== undefined
-      ? [['STNB', stnbOf(record, config).toFixed(1)]] : []),
+    ...measurementRow('correctness'),
+    ...measurementRow('ioe'),
+    ...measurementRow('hziniEfficiency'),
+    ...(fullAnalysis ? measurementRow('ziniEfficiency') : []),
+    ...measurementRow('ios'),
+    ...measurementRow('stnb'),
     ...(fullAnalysis && record.lifeLost !== undefined
       ? [['Life lost', record.lifeLost.toFixed(3)]] : []),
     ...(fullAnalysis && record.lifeNeedless !== undefined
@@ -848,30 +853,22 @@ async function renderResultAsync(record, modeRecords, options = {}) {
       ? [['Guesses', formatGuesses(record)]] : []),
     ...categoryStatRows,
     ...categoryMagnitudeRows,
-    ['Mouse path', record.mousePathPx + 'px'],
-    ['Mouse speed', Math.round(record.mousePathPx / seconds) + 'px/s'],
+    ['Path', record.mousePathPx + 'px'],
+    ...measurementRow('mouseSpeed'),
     // The per-game forms of the session series, derived from stored
     // fields at display time (so they exist on historical games too);
     // fastclick gap is the one stored measurement among them.
-    ...(seconds > 0
-      ? [['Click rate', (record.clicks / seconds).toFixed(2) + '/s']] : []),
-    // Per second since 2026-08-23, matching the session chart's unit
-    // move; derived from the stored count, so every record old or new
-    // shows the same unit with no migration.
-    ...(fullAnalysis && seconds > 0 && 'wastedClicks' in record
-      ? [['No-op rate', (record.wastedClicks / seconds).toFixed(2) + '/s']] : []),
-    ...(fullAnalysis && seconds > 0 && record.misclicks !== undefined
-      ? [['Misclick rate', (record.misclicks / (seconds / 60)).toFixed(1) + '/min']] : []),
+    ...measurementRow('clickRate'),
+    ...(fullAnalysis ? measurementRow('noopRate') : []),
+    ...(fullAnalysis ? measurementRow('misclickRate') : []),
     ...(seconds > 0 && record.flagsPlaced !== undefined
-      ? [['Mark rate', (record.flagsPlaced / seconds).toFixed(2) + '/s']] : []),
+      ? [['Flag rate', (record.flagsPlaced / seconds).toFixed(2) + '/s']] : []),
     ...(fullAnalysis && seconds > 0 && record.flagsRemoved !== undefined
       ? [['Flag-removal rate', (record.flagsRemoved / (seconds / 60)).toFixed(1) + '/min']] : []),
-    ...(record.fastclickGapMs !== undefined
-      ? [['Fastclick gap', Math.round(record.fastclickGapMs) + 'ms']] : []),
-    ...(record.cadenceSpread !== undefined
-      ? [['Cadence spread', record.cadenceSpread.toFixed(2) + '\u00d7']] : []),
-    ['Path per click', Math.round(record.mousePathPx / record.clicks) + 'px'],
-    ['Path per 3BV', Math.round(record.mousePathPx / record.bv3) + 'px'],
+    ...measurementRow('fastclickGap'),
+    ...measurementRow('cadenceSpread'),
+    ...measurementRow('pathPerClick'),
+    ...measurementRow('pathPer3bv'),
     // The states row appears only when the game carries at least one state
     // tag; a tagless game shows nothing rather than an empty row.
     ...(record.states.length > 0 ? [['States', record.states.join(', ')]] : []),

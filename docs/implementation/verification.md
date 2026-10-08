@@ -54,6 +54,9 @@ Index: [AGENTS.md](../../AGENTS.md).
   the same profile restores that result view, so each mock run injects its
   CSS and DOM changes with `page.evaluate` and screenshots the first screen.
   One Firefox process at a time can hold the profile; parallel launches fail.
+  The profile keeps Firefox's HTTP cache (`<profile>/cache2`), and
+  `http.server` sends no cache headers, so a reopened profile can run
+  scripts older than the working tree; delete `cache2` before each launch.
 - Running game code without a browser: load the `game/` scripts, in
   `index.html` order, in Node via `vm.runInThisContext`, not `eval` (each
   file's 'use strict' makes eval declarations local, so nothing would be
@@ -128,10 +131,14 @@ Index: [AGENTS.md](../../AGENTS.md).
 
 Session/placement layout regression (2026-09-07):
 `tests/session-placement-layout-test.html` runs RAM-only fixtures on the test
-origin. It checks session chart stability, all three board sizes at 1680/1216/
-650px widths, board stability at game end, daily placements within the first
-table row, all streak variants in that same collection without section
-headings, tables directly beneath the board, collapsed sidebar replay,
+origin. It checks session chart stability, all three board sizes at 2560/1680/
+1216/650px widths, board stability at game end, the board centered in its
+column, the session summary left of the board and ranks won right of it
+exactly where each fits (both beside a beginner board at 2560), below the
+board the summary heading one left column with ranks won under it and later
+tables beside or under that column (beside it at 1680), all streak variants
+in that same collection without section
+headings, tables directly beneath the board and the blocks beside it, collapsed sidebar replay,
 tall stats/legend isolation, and compact details opening/closing. It also
 checks replay scroll retention, closing back to the finished board, resetting
 on a new game, and arrow keys leaving a collapsed replay alone.

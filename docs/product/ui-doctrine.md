@@ -12,11 +12,17 @@ because they apply app-wide, not just where each was first stated.
   day on this rule.
 - Prefer regular-weight chart names, labels, and values. Use position,
   spacing, and restrained color to establish hierarchy instead of relying
-  on bolding. Performance gradients use light green for stronger standings,
-  light blue around the middle, and light red for weaker standings.
-  Pending (2026-10-07): the creator asked for light blue to mark the
-  just-completed game in rank tables; if adopted, standing gradients lose the
-  blue middle ([Rank highlights](rankings.md#rank-highlights-approved-and-built-2026-09-21)).
+  on bolding.
+- One standing scale, one this-game color (creator direction 2026-10-07:
+  "green good red bad", and "light blue = the one we just did so you can
+  always see 'this' just-completed run"). Standing within a pool runs green
+  (better) through a neutral light gray or white middle to red (worse)
+  everywhere: rank chips, the game-data bar and histograms, and chart chips.
+  Light blue (#cfe5fa, with #1f6fd1 for lines) means only "this game": its
+  table rows, its "this" chips, its line on histograms, and the outline of a
+  chart linked to a hovered game-data row. Standing scales therefore have no
+  blue middle (formerly light green, light blue, light red). The age-unit
+  palette is a separate code and stays as it is.
 - Contrast, hierarchy, and width (user rules, recorded 2026-09-23): neutral
   text is pure black on light backgrounds and pure white on dark ones. No
   gray labels, gray placeholders, or opacity-dimmed text; secondary hierarchy
@@ -67,10 +73,9 @@ because they apply app-wide, not just where each was first stated.
   ellipsize it, replace it with an abbreviation, or require hover to
   recover it. Wrap the label, expand/reflow the key, use direct labels,
   or replace the chart legend with a full-text table; available width is
-  a layout resource, not a reason to remove meaning.
-  Requested compact names on the percentile overview are an explicit
-  exception: MN = max number and ZOC = zero-opening coverage, expanded in
-  the chart help and each item's value tooltip.
+  a layout resource, not a reason to remove meaning. The former exception
+  for MN and ZOC on game data ended 2026-10-07: game data now says "max
+  number" and "zero-opening coverage", one name per measurement.
 - Layout stability: content appearing or disappearing must not shift
   unrelated content. "The board never moves" (previous section) is the
   oldest case of this rule; it holds on every page.
