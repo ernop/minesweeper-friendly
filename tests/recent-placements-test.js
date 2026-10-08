@@ -76,15 +76,13 @@ function assertEq(name, actual, want) {
   const shareAxis = of(highRows, 'zeroOneShare').distribution;
   assertEq('a share axis labels round shares', shareAxis.labels.map((label) => label.text).join(' '), '20% 40% 60% 80%');
   assertEq('a share of safe cells bins whole cells', shareAxis.step + ' ' + shareAxis.perBin, 0.01 + ' 2');
-  assertEq('its key names the cell step', shareAxis.binText, 'one bar per 2 possible values (one cell in 100 is 1%)');
+  assertEq('its key names the cell step', shareAxis.binText, 'Each bar spans 2 safe cells.');
   assertEq('a board trait also ranks against the session’s boards',
     highRows.filter((r) => r.metricId === 'zeroOneShare').map((r) => r.scope).join(' '), 'lifetime session');
-  assertEq('a board trait’s card shows this board’s arithmetic', of(highRows, 'zeroOneShare').calculation,
-    'This board: 80 of 100 safe cells = 80%.');
-  assertEq('a board trait names its example board', of(highRows, 'islandCount').example, 'islandCount');
-  assertEq('a board trait says what it is in plain words', of(highRows, 'islandCount').plain,
-    'how many separate clumps of mines this board has');
-  assertEq('every ranked board trait has a plain phrase', highRows.every((r) => typeof r.plain === 'string'), true);
+  assertEq('a self-evident trait’s card has no definition', of(highRows, 'maxAdjacent').definition, undefined);
+  assertEq('a trait the name leaves open keeps its definition', of(highRows, 'islandCount').definition,
+    'Groups of touching mines on this board, diagonals included.');
+  assertEq('a board trait’s card gives the rank alone', of(highRows, 'maxAdjacent').standingText, '1st of 3 boards');
   assertEq('single board has no comparison rows', boardTraitRankProfile(current, comparisons, [current], 'today').length, 0);
   assertEq('no board profile for a loss', boardTraitRankProfile({ ...current, outcome: 'loss' }, comparisons, past, 'today').length, 0);
 }

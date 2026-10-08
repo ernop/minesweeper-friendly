@@ -4,12 +4,13 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
 
 - Game data (2026-09-23, band rebuilt 2026-10-07, panel and cards revised 2026-10-08): [complete design and removed-field inventory](../product/game-data.md).
   `game-data.js` owns shared metric formulas, the GameData catalog (one
-  `name`, `plain`, `format`, `help`, `explain`, direction, and `allOutcomes`
-  per measurement), rows, history, domain, and SessionScope
-  choices/bounds/records. `plain` is a short phrase the card and the
-  configuration list read as "This is <plain>."; board traits carry the same
-  field in `BOARD_METRIC_TABLES` and the shape families, and `rankedRow`
-  copies it onto every row.
+  `name`, `format`, direction, and `allOutcomes` per measurement, and a
+  `help` definition only where the name and unit leave it open), rows,
+  history, domain, and SessionScope choices/bounds/records. Board traits
+  keep their table `help(record)` in `BOARD_METRIC_TABLES` and the shape
+  families (game/rankings.js), since the "This board" tables show it;
+  `selfEvident: true` (3BV, max number, zeros) keeps its first line off the
+  game data card.
   `settings-core.js` depends on it.
 - Rows: `GameData.rows(record, records, preferences, params)` ranks every
   chosen measurement (`preferences.gameDataMetrics`) against lifetime and the
@@ -21,20 +22,19 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
   ranked better, an equal time set earlier included), `tiedOthers` (other
   games with an equal value; always 0 for time), `total`, `counted` (wins,
   games, boards), `allEqual`, `percentile` (100 × (better + tiedOthers ÷ 2)
-  ÷ (total − 1), best 0%; 50 for constant non-time values), and `helpText`
-  (the definition, then the standing sentence with that arithmetic).
+  ÷ (total − 1), best 0%; 50 for constant non-time values), `definition`
+  (the catalog `help`, undefined for a self-evident measurement), and
+  `standingText`, the rank alone ("19th of 1,201 wins", "tied 3rd–5th of
+  56 games", "all 50 boards have this value"): no pool description and no
+  arithmetic (creator 2026-10-08).
   `boardTraitRankProfile` (game/game-data-chart.js) ranks this board's
   scalar traits against every earlier board and against the session's
   boards through the same `rankedRow`, side `board`, scopes `lifetime` and
-  `session`, and adds `example` (the miniature board's id, or undefined).
-- Calculations: each catalog entry's `explain(record, params, value)` and
-  each board trait's `explain(record)` (`BOARD_METRIC_TABLES` and the shape
-  families in game/rankings.js) print this game's worked calculation from
-  its stored fields; `addDistributions` puts it on the lifetime row as
-  `calculation`. The share traits also declare `step(record)`, one safe
-  cell (`boardShareStep`).
+  `session`, its definition `help(record)[0]` unless `selfEvident`. The
+  share traits also declare `step(record)`, one safe cell
+  (`boardShareStep`).
 - Distributions: `GameData.addDistributions(poolRows, valuesByScope,
-  sessionValues, format, calculation, step)` gives each row `distribution`
+  sessionValues, format, step)` gives each row `distribution`
   on one axis per measurement (`axisOf`): a discrete measurement (whole
   values, found from the data, or a declared `step`) bins whole groups of
   possible values, one per bin up to 60 values, otherwise `perBin` values per
@@ -45,7 +45,8 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
   `standing` per bin (the mean percentile of the bin's games, ties sharing
   their mean rank; null when empty), `outside` (values beyond the axis,
   counted but never drawn into an edge bin), `labels` (at most six round
-  values, `axisLabels`), `binText` (what one bar covers), and, for a pool of
+  values, `axisLabels`), `binText` (what one bar covers, a sentence such as
+  "Each bar spans 4 values."), and, for a pool of
   at most `DOT_POOL` (30) games, its sorted `values`. The lifetime row also
   carries `sessionValues` for the lifetime card's session ticks.
 - All of this runs in the analysis worker's `game-data` job
@@ -53,11 +54,12 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
   ranks or histograms. `buildBoardTimeRankProfile(record, records)` owns a
   view generation so a slower reply cannot replace a newer view.
 - Band: `gameDataItems` groups rows into one item per measurement with a row
-  per pool. `buildGameDataBand(rows, pool, valuesShown, sideHelp)` builds
+  per pool. `buildGameDataBand(rows, pool, valuesShown)` builds
   `.game-data-row` buttons (cells `.game-data-name`, `.game-data-value`,
   `.game-data-pct` with `data-pool`); both sides plot `pool`, and an item
   without that pool's row goes into the `.game-data-unplotted` note. Side
-  titles are `chartHelpButton` labels holding `sideHelp`. `layout()`
+  titles are `chartHelpButton` labels holding `GAME_DATA_SIDE_HELP[side]`,
+  which says only what that side's percentages are. `layout()`
   measures every column at scale 1 (`measure`), computes each plan's needed
   width and height (`geometry`: side by side with both pool columns, with
   one (`data-pool-columns="1"`), stacked with two, stacked with one), takes
@@ -72,15 +74,16 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
   (histogram marks, chips): green, neutral, red.
 - Card: `fillGameDataCard(tip, item, scope)` fills the shared help tip for
   one pool (the band passes the points switch's pool; a distributions row
-  passes its section's): title, definition, `calculation`,
-  `gameDataExampleBoard(example)`, direction, the pool's standing sentence,
-  `gameDataHistogram(row, true)`, the key, the time card's day sentence, and
-  the linked chart. The tip is the one owned manual popover, so it never
-  reflows the page. `gameDataHistogram` draws bars, or for a row whose
-  distribution carries `values`, one dot per game at its value, stacked
-  where dots touch and colored by that game's standing in the pool; card
-  size adds the "better" end and round labels. `GAME_DATA_EXAMPLE` is the
-  fixed 8 × 6 board; its captions' counts are computed from it.
+  passes its section's) with only what the row does not show: the pool's
+  label and `standingText` (`.game-data-card-standing`),
+  `gameDataHistogram(row, true)`, a one-line key (`binText` or "One dot per
+  win.", the session ticks, the blue line, games not drawn), the time card's
+  `day` rank, and last the `definition` when there is one. The tip is the
+  one owned manual popover, so it never reflows the page. The chart chip's
+  `title` is the same pool label and `standingText`. `gameDataHistogram`
+  draws bars, or for a row whose distribution carries `values`, one dot per
+  game at its value, stacked where dots touch and colored by that game's
+  standing in the pool; card size adds the "better" end and round labels.
 - Distributions view: `buildGameDataDistributions(rows)` renders the
   `settings.gameDataDistributions` mode as `.game-data-dist-section`s in one
   `.game-data-distributions` grid with subgrid rows, so every strip shares
@@ -116,10 +119,12 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
   won), which rebuild in place without rebuilding the board. Historical pages
   derive twenty overlapping session windows at a time from primary records;
   no stored aggregates.
-- Checks: tests/game-data-test.js (rows, standing arithmetic, calculations,
-  ties, standing, binning of whole and share values, labels), tests/recent-
-  placements-test.js (board-trait pools, share bins, calculations),
+- Checks: tests/game-data-test.js (rows, ties, rank text without pool
+  descriptions or arithmetic, which measurements have definitions and how
+  long they are, binning of whole and share values, labels), tests/recent-
+  placements-test.js (board-trait pools, share bins, definitions),
   tests/session-buckets-test.js, and tests/board-time-profile-browser-check.js
   (no heading, options row, centered titles, no scrolling at five widths,
-  regular-weight numbers, no help cursor, cards in both pool modes with dots,
-  distributions fit, linkage, one picker, configuration).
+  regular-weight numbers, no help cursor, cards in both pool modes opening
+  with the rank, dots, distributions fit, linkage, one picker,
+  configuration).

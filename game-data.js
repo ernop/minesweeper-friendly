@@ -124,113 +124,65 @@ const GameData = (() => {
   const percent = (v) => Number((v * 100).toFixed(2)) + '%';
   const decimal = (v) => Number(v.toFixed(2)).toString();
   const perSecond = (field) => (r) => r.timeMs > 0 ? r[field] * 1000 / r.timeMs : undefined;
-  // The worked calculations below print this game's stored inputs.
   const count = (n) => n.toLocaleString('en-US');
-  const plural = (n, word) => count(n) + ' ' + word + (n === 1 ? '' : 's');
-  const seconds = (r) => (r.timeMs / 1000).toFixed(3) + ' s';
-  const pixels = (r) => count(Math.round(r.mousePathPx)) + ' px of cursor travel';
-  // `plain` says what the number is in the player's words; a card reads it as
-  // "This is <plain>." before the exact definition in `help`.
+  // `help` says only what a measurement's name and unit leave open; its card
+  // and configuration row show it. A measurement whose name and unit already
+  // say what it is has none (creator 2026-10-08, of the time card's
+  // definition: it "just state[s] what the user already knows").
   const metrics = [
     { id: 'time', name: 'time', higher: false, default: true,
-      plain: 'your time from start to the win',
-      value: (r) => r.timeMs, format: (v) => (v / 1000).toFixed(3) + 's',
-      help: 'Seconds from your first click to the click that opened the last safe cell.',
-      explain: (r) => 'This game took ' + seconds(r) + ' on the game clock.' },
+      value: (r) => r.timeMs, format: (v) => (v / 1000).toFixed(3) + 's' },
     { id: 'misclickRate', allOutcomes: true, name: 'misclick rate', higher: false, default: true,
-      plain: 'how often you misclicked',
       value: (r) => r.timeMs > 0 ? r.misclicks * 60000 / r.timeMs : undefined,
       format: (v) => decimal(v) + '/min',
-      help: 'Misclicks per minute. A misclick is an action the visible board had already proved wrong: opening a cell proven to be a mine, or flagging a cell proven safe.',
-      explain: (r, params, v) => plural(r.misclicks, 'misclick') + ' ÷ ' + (r.timeMs / 60000).toFixed(3) + ' minutes = ' + decimal(v) + ' per minute.' },
+      help: 'A misclick is an action the visible board had already proved wrong: opening a cell proven to be a mine, or flagging a cell proven safe.' },
     { id: 'fastclickGap', allOutcomes: true, name: 'fastclick gap', higher: false, default: true,
-      plain: 'your typical time from one move to the next while your mouse keeps moving',
       value: (r) => r.fastclickGapMs, format: (v) => Math.round(v) + 'ms',
-      help: 'The median gap between consecutive board-changing actions made while the cursor was moving (it moved in the 100 ms before), counting gaps up to 1 second. Flags are timed at the right press, left clicks at release.',
-      explain: (r) => 'Half of this game’s qualifying gaps were shorter than ' + Math.round(r.fastclickGapMs) + ' ms and half longer.' },
+      help: 'The median gap between consecutive board-changing actions made while the cursor was moving (it moved in the 100 ms before), counting gaps up to 1 second. Flags are timed at the right press, left clicks at release.' },
     { id: 'bvPerSecond', name: '3BV/s', higher: true, default: true,
-      plain: 'your speed: how much of the board’s work you cleared per second',
       value: (r) => r.timeMs > 0 ? bvPerSecond(r) : undefined,
-      format: (v) => v.toFixed(3),
-      help: '3BV divided by your time in seconds. 3BV is the fewest clicks that clear the board without flags.',
-      explain: (r, params, v) => r.bv3 + ' 3BV ÷ ' + seconds(r) + ' = ' + v.toFixed(3) + ' 3BV per second.' },
+      format: (v) => v.toFixed(3) },
     { id: 'clickRate', allOutcomes: true, name: 'click rate', higher: true, default: true,
-      plain: 'how fast you clicked',
       value: perSecond('clicks'), format: (v) => v.toFixed(2) + '/s',
-      help: 'Board-changing clicks per second: reveals, flags, flag removals, and chords. Clicks that changed nothing are not counted.',
-      explain: (r, params, v) => plural(r.clicks, 'board-changing click') + ' ÷ ' + seconds(r) + ' = ' + v.toFixed(2) + ' per second.' },
+      help: 'Counts board-changing clicks only: reveals, flags, flag removals, and chords.' },
     { id: 'efficiency', name: 'efficiency', higher: true, default: false,
-      plain: 'how few clicks you needed for the board’s work',
       value: efficiencyOf, format: percent,
-      help: '3BV divided by your board-changing clicks. 100% means as many clicks as the board’s 3BV; chords that open several cells at once can push it above 100%.',
-      explain: (r, params, v) => r.bv3 + ' 3BV ÷ ' + plural(r.clicks, 'board-changing click') + ' = ' + percent(v) + '.' },
+      help: '3BV divided by board-changing clicks.' },
     { id: 'noopRate', allOutcomes: true, name: 'no-op rate', higher: false, default: true,
-      plain: 'how often your clicks did nothing',
       value: perSecond('wastedClicks'), format: (v) => v.toFixed(2) + '/s',
-      help: 'Clicks per second that changed nothing, such as chording a number whose mines are not all flagged, or clicking a flag.',
-      explain: (r, params, v) => plural(r.wastedClicks, 'click') + ' that changed nothing ÷ ' + seconds(r) + ' = ' + v.toFixed(2) + ' per second.' },
+      help: 'Clicks that changed nothing, such as chording a number whose mines are not all flagged, or clicking a flag.' },
     { id: 'pathPer3bv', name: 'path / 3BV', higher: false, default: false,
-      plain: 'how far your mouse traveled for each unit of the board’s work',
       value: (r) => r.bv3 > 0 ? r.mousePathPx / r.bv3 : undefined,
-      format: (v) => Number(v.toFixed(1)) + 'px',
-      help: 'Cursor travel in screen pixels divided by the board’s 3BV.',
-      explain: (r, params, v) => pixels(r) + ' ÷ ' + r.bv3 + ' 3BV = ' + Number(v.toFixed(1)) + ' px per 3BV.' },
+      format: (v) => Number(v.toFixed(1)) + 'px' },
     { id: 'correctness', allOutcomes: true, name: 'correctness', higher: true, default: true,
-      plain: 'the share of your clicks that did something',
       value: (r) => r.clicks + r.wastedClicks > 0 ? r.clicks / (r.clicks + r.wastedClicks) : undefined,
-      format: percent, help: 'Board-changing clicks divided by all your clicks. Clicks that changed nothing lower it; a wrong flag still counts as a change.',
-      explain: (r, params, v) => r.clicks + ' board-changing ÷ (' + r.clicks + ' + ' + r.wastedClicks + ' that changed nothing) = ' + percent(v) + '.' },
+      format: percent, help: 'Board-changing clicks divided by all clicks; a wrong flag still counts as a change.' },
     { id: 'ioe', name: 'IOE', higher: true, default: false,
-      plain: 'how much of the board’s work each click did, wasted clicks included',
       value: ioeOf, format: (v) => v.toFixed(3),
-      help: '3BV divided by all your clicks, including the clicks that changed nothing.',
-      explain: (r, params, v) => r.bv3 + ' 3BV ÷ (' + r.clicks + ' board-changing + ' + r.wastedClicks + ' that changed nothing) = ' + v.toFixed(3) + '.' },
+      help: '3BV divided by all clicks, including those that changed nothing.' },
     { id: 'ziniEfficiency', name: 'ZiNi efficiency', higher: true, default: false,
-      plain: 'how your clicks compare with a benchmark flag-and-chord solve',
-      value: ziniEfficiencyOf, format: percent, help: 'ZiNi divided by your board-changing clicks. ZiNi is the click count of a standard greedy flag-and-chord solve of this board.',
-      explain: (r, params, v) => r.zini + ' ZiNi ÷ ' + plural(r.clicks, 'board-changing click') + ' = ' + percent(v) + '.' },
+      value: ziniEfficiencyOf, format: percent, help: 'ZiNi divided by board-changing clicks. ZiNi is the click count of a standard greedy flag-and-chord solve of this board.' },
     { id: 'hziniEfficiency', name: 'HZiNi efficiency', higher: true, default: false,
-      plain: 'how your clicks compare with a human-style benchmark solve',
-      value: hziniEfficiencyOf, format: percent, help: 'HZiNi divided by your board-changing clicks. HZiNi is the action count of a fixed human-style flag-and-chord solve of this board; beating it gives more than 100%.',
-      explain: (r, params, v) => r.hzini + ' HZiNi ÷ ' + plural(r.clicks, 'board-changing click') + ' = ' + percent(v) + '.' },
+      value: hziniEfficiencyOf, format: percent, help: 'HZiNi divided by board-changing clicks. HZiNi is the action count of a fixed human-style flag-and-chord solve of this board.' },
     { id: 'ios', name: 'IOS', higher: true, default: false,
-      plain: 'a speed index that is gentler on long games than 3BV/s',
-      value: iosOf, format: (v) => v.toFixed(3), help: 'log(3BV) ÷ log(seconds). Only defined for games longer than 1 second.',
-      explain: (r, params, v) => 'log ' + r.bv3 + ' ÷ log ' + (r.timeMs / 1000).toFixed(3) + ' = ' + Math.log(r.bv3).toFixed(3)
-        + ' ÷ ' + Math.log(secondsOf(r)).toFixed(3) + ' = ' + v.toFixed(3) + ' (natural logarithms; any base gives the same ratio).' },
+      value: iosOf, format: (v) => v.toFixed(3), help: 'log(3BV) divided by log(seconds).' },
     { id: 'stnb', name: 'STNB', higher: true, default: false,
-      plain: 'your speed adjusted for board difficulty, comparable across levels',
-      value: stnbOf, format: (v) => v.toFixed(1), help: 'The level’s constant (36, 162, 435) ÷ (seconds^1.7 ÷ 3BV), so beginner, intermediate, and expert compare. Not defined on other boards or in Endgame drill.',
-      explain: (r, params, v) => {
-        const constant = stnbConstantOf(params), t = (r.timeMs / 1000).toFixed(3);
-        return constant + ' ÷ (' + t + '^1.7 ÷ ' + r.bv3 + ') = ' + constant + ' ÷ ' + (Math.pow(secondsOf(r), 1.7) / r.bv3).toFixed(2)
-          + ' = ' + v.toFixed(1) + '.';
-      } },
+      value: stnbOf, format: (v) => v.toFixed(1),
+      help: '3BV times the level’s constant (beginner 36, intermediate 162, expert 435), divided by seconds^1.7.' },
     { id: 'mouseSpeed', allOutcomes: true, name: 'mouse speed', higher: true, default: true,
-      plain: 'how fast your mouse moved',
       value: perSecond('mousePathPx'), format: (v) => Math.round(v) + 'px/s',
-      help: 'How far the cursor moved, in screen pixels, per second of play, pauses included.',
-      explain: (r, params, v) => pixels(r) + ' ÷ ' + seconds(r) + ' = ' + Math.round(v) + ' px per second.' },
+      help: 'Total cursor travel divided by the game’s time, pauses included.' },
     { id: 'pathPerClick', allOutcomes: true, name: 'path / click', higher: false, default: false,
-      plain: 'how far your mouse traveled per click',
       value: (r) => r.clicks > 0 ? r.mousePathPx / r.clicks : undefined,
-      format: (v) => Number(v.toFixed(1)) + 'px', help: 'Cursor travel in screen pixels divided by board-changing clicks.',
-      explain: (r, params, v) => pixels(r) + ' ÷ ' + plural(r.clicks, 'board-changing click') + ' = ' + Number(v.toFixed(1)) + ' px per click.' },
+      format: (v) => Number(v.toFixed(1)) + 'px' },
     { id: 'cadenceSpread', allOutcomes: true, name: 'cadence spread', higher: false, default: false,
-      plain: 'how uneven your click rhythm was',
       value: (r) => r.cadenceSpread, format: (v) => v.toFixed(2) + '×',
-      help: 'The width of the middle half of the gaps between all presses (the interquartile range) divided by their median. 0 is perfectly even.',
-      explain: (r, params, v) => 'The middle half of this game’s press gaps spanned ' + v.toFixed(2) + ' times their median gap.' },
+      help: 'The width of the middle half of the gaps between all presses (the interquartile range) divided by their median. 0 is perfectly even.' },
     { id: 'unusedMarkShare', name: 'unused flag share', higher: false, default: true,
-      plain: 'the share of your flags that no chord used',
       value: (r) => r.flagsPlaced > 0 ? r.unusedCorrectFlags / r.flagsPlaced : undefined,
-      format: percent, help: 'Correct flags that no chord ever used, as a share of all flags you placed.',
-      explain: (r, params, v) => plural(r.unusedCorrectFlags, 'correct flag') + ' no chord used ÷ ' + plural(r.flagsPlaced, 'flag') + ' placed = ' + percent(v) + '.' },
+      format: percent, help: 'Correct flags that no chord ever used, as a share of all flags placed.' },
     { id: 'flagsWithoutMultiCellChord', name: 'flags no multi-cell chord used', higher: false, default: true,
-      plain: 'how many of your flags never paid off in a chord',
-      value: (r) => r.flagsWithoutMultiCellChord, format: (v) => String(v),
-      help: 'Flags standing at the win that no chord opening two or more cells used. Each could have been one direct click, or nothing. Stage 1 of the training plan aims for 10 or fewer on Expert.',
-      explain: (r) => 'Replaying this game’s inputs found ' + plural(r.flagsWithoutMultiCellChord, 'such flag') + ' at the win.' },
+      value: (r) => r.flagsWithoutMultiCellChord, format: (v) => String(v) },
   ];
   // The creator's own selection (2026-09-23), compared since 2026-10-07 with
   // both lifetime and the session; time also against the last 24 hours.
@@ -239,11 +191,12 @@ const GameData = (() => {
   const chronological = (records) => records.slice().sort((a, b) => a.endedAt - b.endedAt);
   const poolValues = (pool, spec, params) => pool.filter((r) => spec.allOutcomes || r.outcome === 'win')
     .map((r) => spec.value(r, params)).filter(Number.isFinite);
-  // `counted` names the population (wins, games, boards) and windowText its
-  // window, e.g. "so far". The standing sentence shows the percentage's
-  // arithmetic: the share of the other games that ranked better, a tie
-  // counting as half.
-  function rankedRow(record, pool, spec, scope, params, counted, windowText) {
+  // `counted` names the population (wins, games, boards). `standingText` is
+  // the rank alone, "19th of 1,201 wins": the card's label names the pool,
+  // the row shows the percentage, and every pool has this game's board
+  // settings (creator 2026-10-08: no "with these board settings", no
+  // "pointless actual division equation").
+  function rankedRow(record, pool, spec, scope, params, counted) {
     const value = spec.value(record, params);
     if (!Number.isFinite(value)) return null;
     const measured = pool.filter((r) => spec.allOutcomes || r.outcome === 'win').map((r) => ({ record: r, value: spec.value(r, params) }))
@@ -260,21 +213,14 @@ const GameData = (() => {
     const allEqual = !time && equal === total;
     // Share of the other measured games that beat this one: the best is 0%, the worst 100%.
     const percentile = allEqual ? 50 : 100 * (rank - 1) / (total - 1);
-    const others = total - 1;
-    const population = count(total) + ' ' + counted + ' ' + windowText + ' with these board settings';
-    const place = tiedOthers > 0 ? 'Tied ' + ordinalOf(better + 1) + '–' + ordinalOf(better + equal) : ordinalOf(rank);
-    const share = tiedOthers > 0
-      ? count(better) + ' of the ' + count(others) + ' others ranked better and ' + count(tiedOthers)
-        + ' tied, a tie counting as half: (' + count(better) + ' + ' + count(tiedOthers) + ' ÷ 2) ÷ ' + count(others)
-      : count(better) + ' of the ' + count(others) + ' others ranked better' + (earlierEqual > 0
-        ? ' (' + plural(earlierEqual, 'equal time') + ' set earlier counted as better)' : '') + ': ' + count(better) + ' ÷ ' + count(others);
-    const standing = allEqual
-      ? 'All ' + population + ' have the same value, so it sits at 50%.'
-      : place + ' of ' + population + '. ' + share + ' = ' + Number(percentile.toFixed(1)) + '%.';
-    return { id: spec.id + '.' + scope, metricId: spec.id, scope, name: spec.name, plain: spec.plain,
+    const place = tiedOthers > 0 ? 'tied ' + ordinalOf(better + 1) + '–' + ordinalOf(better + equal) : ordinalOf(rank);
+    const standingText = allEqual
+      ? (total === 2 ? 'both ' + counted : 'all ' + count(total) + ' ' + counted) + ' have this value'
+      : place + ' of ' + count(total) + ' ' + counted;
+    return { id: spec.id + '.' + scope, metricId: spec.id, scope, name: spec.name,
       value, valueText: spec.format(value), higher: spec.higher, side: 'performance',
       rank, firstRank: better + 1, lastRank: better + 1 + tiedOthers, better, tiedOthers,
-      total, counted, allEqual, percentile, helpText: [spec.help, standing],
+      total, counted, allEqual, percentile, definition: spec.help, standingText,
     };
   }
   function ordinalOf(n) {
@@ -335,15 +281,15 @@ const GameData = (() => {
   function tidyNumber(text) {
     return text.replace(/(\.\d*?)0+(?=\D*$)/, '$1').replace(/\.(?=\D*$)/, '');
   }
-  // What one bar covers, for the card's key.
+  // What one bar covers, for the card's key. A declared step is one safe
+  // cell: only the board shares declare one.
   function binText(axis, format) {
-    if (axis.step === 1 && axis.perBin === 1) return 'one bar per value';
-    if (axis.step === 1 && /\d$/.test(format(axis.perBin))) return 'one bar per ' + axis.perBin + ' consecutive values';
+    if (axis.step === 1 && axis.perBin === 1) return 'One bar per value.';
+    if (axis.step === 1 && /\d$/.test(format(axis.perBin))) return 'Each bar spans ' + axis.perBin + ' values.';
     if (axis.step !== null && axis.step !== 1) {
-      return 'one bar per ' + (axis.perBin === 1 ? 'possible value' : axis.perBin + ' possible values')
-        + ' (one cell in ' + count(Math.round(1 / axis.step)) + ' is ' + format(axis.step) + ')';
+      return 'Each bar spans ' + (axis.perBin === 1 ? 'one safe cell' : axis.perBin + ' safe cells') + '.';
     }
-    return 'each bar spans ' + tidyNumber(format((axis.hi - axis.lo) / axis.bins));
+    return 'Each bar spans ' + tidyNumber(format((axis.hi - axis.lo) / axis.bins)) + '.';
   }
   // Counts per bin, and each bin's standing: the mean percentile of its games
   // (0 best; equal values share their mean rank, so a bin of ties stands
@@ -371,11 +317,10 @@ const GameData = (() => {
   // Each pool's histogram uses the lifetime axis, so one measurement's strips
   // and both card modes share bins. A pool of at most DOT_POOL games also
   // carries its values, so a card draws each game as its own dot. The
-  // lifetime row also carries what the card shows once: the session games'
-  // values, drawn as ticks under the lifetime axis, and this game's worked
-  // calculation. `step` is a declared spacing of possible values.
+  // lifetime row also carries the session games' values, drawn as ticks
+  // under the lifetime axis. `step` is a declared spacing of possible values.
   const DOT_POOL = 30;
-  function addDistributions(poolRows, poolValuesByScope, sessionValues, format, calculation, step) {
+  function addDistributions(poolRows, poolValuesByScope, sessionValues, format, step) {
     const lifetime = poolRows.find((row) => row.scope === 'lifetime');
     const axis = axisOf(poolValuesByScope.lifetime, [lifetime.value, ...sessionValues], step);
     const labels = axisLabels(axis, format);
@@ -385,7 +330,7 @@ const GameData = (() => {
       return { ...row,
         distribution: { ...distribution(values, row.higher, axis), labels, binText: bars,
           ...(values.length <= DOT_POOL ? { values: values.slice().sort((a, b) => a - b) } : {}) },
-        ...(row === lifetime ? { sessionValues, calculation } : {}) };
+        ...(row === lifetime ? { sessionValues } : {}) };
     });
   }
   function rows(record, records, preferences = defaultsForView, params) {
@@ -393,23 +338,18 @@ const GameData = (() => {
     const past = records.filter((r) => r.endedAt <= record.endedAt);
     const session = SessionScope.records(past, preferences.sessionDefinition, record.endedAt);
     const day = past.filter((r) => r.endedAt >= record.endedAt - 86400000);
-    const choice = SessionScope.choices.find((c) => c.id === preferences.sessionDefinition);
     const result = [];
     for (const spec of metrics) {
       if (!preferences.gameDataMetrics[spec.id]) continue;
       const counted = spec.allOutcomes ? 'games' : 'wins';
-      const pools = [
-        ['lifetime', past, 'so far'],
-        ['session', session, 'this session (' + choice.label + ')'],
-        ...(spec.id === 'time' && preferences.gameDataDayTime ? [['day', day, 'in the last 24 hours']] : []),
-      ];
+      const pools = [['lifetime', past], ['session', session],
+        ...(spec.id === 'time' && preferences.gameDataDayTime ? [['day', day]] : [])];
       // Session and day pools are subsets of lifetime, so any row implies a lifetime row.
-      const poolRows = pools.map(([scope, pool, windowText]) => rankedRow(record, pool, spec, scope, params, counted, windowText))
+      const poolRows = pools.map(([scope, pool]) => rankedRow(record, pool, spec, scope, params, counted))
         .filter((row) => row !== null);
       if (poolRows.length === 0) continue;
       const valuesByScope = Object.fromEntries(pools.map(([scope, pool]) => [scope, poolValues(pool, spec, params)]));
-      result.push(...addDistributions(poolRows, valuesByScope, valuesByScope.session, spec.format,
-        spec.explain(record, params, spec.value(record, params))));
+      result.push(...addDistributions(poolRows, valuesByScope, valuesByScope.session, spec.format));
     }
     return result;
   }

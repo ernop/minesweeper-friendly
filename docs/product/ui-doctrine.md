@@ -56,7 +56,8 @@ because they apply app-wide, not just where each was first stated.
   not hide essential control labels, semantic legends, or error messages.
 - Stat explanations (user direction 2026-09-26: "write them well without
   clutter"): every displayed stat has one, opened from its name or a (?).
-  Write one or two plain sentences: what the number is, then only the
+  Write one or two plain sentences: what the number is (left out where the
+  name and unit already say it; "No fluff in mouseovers" below), then only the
   defining detail or a caveat that prevents a likely misreading. Do not
   repeat the label or value, restate what the chart or section heading
   already says, or include formulas the reader does not need. Rules shared
@@ -72,13 +73,18 @@ because they apply app-wide, not just where each was first stated.
   the '?' mark, cause I don't like that"). Requested for game data; applied
   to every help label, (?) button, and the problems page's help, since the
   reason given is the cursor itself. The pointer stays the default arrow.
-- Measurement explanations (creator 2026-10-08, extending "write them well
-  without clutter"): where a stat's card has room, it first says what the
-  number is in plain words ("This is your time from start to the win."),
-  then defines it exactly, works this game's calculation with its own
-  numbers, shows how its standing's percentage is computed, and may
-  demonstrate a board concept on a small example board
-  ([Game data](game-data.md), hover card).
+- No fluff in mouseovers (creator 2026-10-08, of the game data cards: "the
+  first 4 lines are useless since they just state what the user already
+  knows/has on screen. also remove stuff like 'with these boards settings'
+  which are obvious. dont include that pointless actual division equation
+  please ... please just cut all the fluff here for all mouseovers"). A
+  tooltip or card never restates the name, value, percentage, or anything
+  else already on screen; never describes a pool or setting that is
+  obvious from context; never shows arithmetic the reader does not need;
+  and gives a definition only where the name and unit leave the thing
+  open, after the data. It replaced the same day's "measurement
+  explanations" rule (plain lead sentence, worked calculation, percentage
+  arithmetic, example boards) ([Game data](game-data.md), hover card).
 - A data panel whose content can outgrow its box shrinks to fit rather than
   growing a scroll bar when the creator asks for no scrolling there (game
   data, 2026-10-08: "careful not to allow this part of the UI to gain any

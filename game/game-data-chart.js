@@ -14,19 +14,18 @@ function boardTraitRankProfile(record, comparisons, records, sessionDefinition) 
   if (record.outcome !== 'win') return [];
   const past = records.filter((r) => r.endedAt <= record.endedAt);
   const session = SessionScope.records(past, sessionDefinition, record.endedAt);
-  const sessionText = 'this session (' + SessionScope.choices.find((c) => c.id === sessionDefinition).label + ')';
   return comparisons.filter((c) => c.rawValue).flatMap((comparison) => {
-    const spec = { id: comparison.measurementId, name: comparison.trait, plain: comparison.plain, allOutcomes: true,
+    const spec = { id: comparison.measurementId, name: comparison.trait, allOutcomes: true,
       higher: comparison.higher, value: comparison.rawValue, format: comparison.format,
-      help: comparison.help(record)[0] };
+      help: comparison.selfEvident ? undefined : comparison.help(record)[0] };
     // Session boards are a subset of lifetime, so a session row implies a lifetime row.
-    const poolRows = [['lifetime', past, 'so far'], ['session', session, sessionText]]
-      .map(([scope, pool, windowText]) => GameData.rankedRow(record, pool, spec, scope, {}, 'boards', windowText))
-      .filter((row) => row !== null).map((row) => ({ ...row, side: 'board', example: comparison.example }));
+    const poolRows = [['lifetime', past], ['session', session]]
+      .map(([scope, pool]) => GameData.rankedRow(record, pool, spec, scope, {}, 'boards'))
+      .filter((row) => row !== null).map((row) => ({ ...row, side: 'board' }));
     if (poolRows.length === 0) return [];
     const values = (pool) => pool.map((r) => comparison.rawValue(r)).filter(Number.isFinite);
     return GameData.addDistributions(poolRows, { lifetime: values(past), session: values(session) }, values(session),
-      comparison.format, comparison.explain(record), comparison.step?.(record));
+      comparison.format, comparison.step?.(record));
   });
 }
 
@@ -76,6 +75,12 @@ function standingColor(percentile, stops) {
 }
 
 const GAME_DATA_POOL_LABELS = { lifetime: 'lifetime', session: 'session', day: 'last 24 hours' };
+// Each side title's help says what its percentages are, which nothing else
+// on the panel says.
+const GAME_DATA_SIDE_HELP = {
+  performance: 'Each percentage is the share of your other games that ranked better, a tie counting as half: 0% is your best, 100% your worst.',
+  board: 'Each percentage is the share of the other boards that ranked better, better meaning each trait’s preferred end: a declared preference, not a measured difficulty.',
+};
 // Band geometry at full size; the band scales all of it, with its text,
 // by --game-data-scale when it would not otherwise fit its box.
 const GAME_DATA_BAR_WIDTH = 32;
@@ -114,7 +119,7 @@ function gameDataItems(rows) {
 function gameDataChartChip(row) {
   const chip = gameDataCell('game-data-chart-chip', 'this ' + row.valueText + ' · ' + gameDataPercentText(row));
   chip.style.setProperty('--standing', standingColor(row.percentile, STANDING_MARK_STOPS));
-  chip.title = row.helpText[1];
+  chip.title = GAME_DATA_POOL_LABELS[row.scope] + ': ' + row.standingText;
   return chip;
 }
 
@@ -207,113 +212,12 @@ function gameDataHistogram(row, card) {
   return svg;
 }
 
-// The card's miniature board: one fixed 8 × 6 layout, fully shown, whose
-// counts are computed here the way the board measurements count them, so a
-// caption can never disagree with its picture.
-const GAME_DATA_EXAMPLE = (() => {
-  const width = 8, height = 6;
-  const mines = new Set([1 * 8 + 5, 2 * 8 + 6, 3 * 8 + 5, 4 * 8 + 1]);
-  const around = (i) => {
-    const list = [];
-    for (let dy = -1; dy <= 1; dy++) {
-      for (let dx = -1; dx <= 1; dx++) {
-        const x = i % width + dx, y = Math.floor(i / width) + dy;
-        if ((dx || dy) && x >= 0 && x < width && y >= 0 && y < height) list.push(y * width + x);
-      }
-    }
-    return list;
-  };
-  const cells = Array.from({ length: width * height }, (_, i) => i);
-  const clue = cells.map((i) => around(i).filter((j) => mines.has(j)).length);
-  const safe = cells.filter((i) => !mines.has(i));
-  const regions = [], opened = new Set();
-  for (const start of safe) {
-    if (clue[start] !== 0 || regions.some((region) => region.zeros.has(start))) continue;
-    const zeros = new Set(), stack = [start];
-    while (stack.length) {
-      const i = stack.pop();
-      if (zeros.has(i)) continue;
-      zeros.add(i);
-      for (const j of around(i)) if (clue[j] === 0 && !mines.has(j)) stack.push(j);
-    }
-    regions.push({ zeros });
-    for (const i of zeros) for (const j of [i, ...around(i)]) opened.add(j);
-  }
-  const islands = [];
-  for (const mine of mines) {
-    if (islands.some((island) => island.has(mine))) continue;
-    const island = new Set(), stack = [mine];
-    while (stack.length) {
-      const i = stack.pop();
-      if (island.has(i)) continue;
-      island.add(i);
-      for (const j of around(i)) if (mines.has(j)) stack.push(j);
-    }
-    islands.push(island);
-  }
-  islands.sort((a, b) => b.size - a.size);
-  const unopenedNumbers = safe.filter((i) => !opened.has(i));
-  const zeroOne = [...opened].filter((i) => clue[i] <= 1);
-  const maxNumber = Math.max(...safe.map((i) => clue[i]));
-  const zerosAll = safe.filter((i) => clue[i] === 0);
-  const percent = (part) => Number((100 * part / safe.length).toFixed(1)) + '%';
-  // Each example: the cells to fill (a second fill for a second island), the
-  // cells to outline, and the caption.
-  const examples = {
-    bv3: { fill: zerosAll, outline: unopenedNumbers,
-      caption: regions.length + ' zero regions (yellow) + ' + unopenedNumbers.length
-        + ' numbers no zero region opens (outlined) = 3BV ' + (regions.length + unopenedNumbers.length) + '.' },
-    zeroCount: { fill: zerosAll, caption: zerosAll.length + ' zeros (yellow): safe cells with no mine next to them.' },
-    zeroOpeningCoverage: { fill: [...opened],
-      caption: 'Opening both zero regions uncovers ' + opened.size + ' of the ' + safe.length + ' safe cells (yellow) = '
-        + percent(opened.size) + '.' },
-    zeroOneShare: { fill: zeroOne,
-      caption: zeroOne.length + ' of the ' + safe.length + ' safe cells show 0 or 1 once both zero regions are open (yellow) = '
-        + percent(zeroOne.length) + '.' },
-    islandCount: { fill: [...islands[0]], second: [...islands[1]],
-      caption: islands.length + ' groups of touching mines (yellow and orange); diagonal neighbors touch.' },
-    largestIsland: { fill: [...islands[0]],
-      caption: 'Largest group of touching mines: ' + islands[0].size + ' (yellow); diagonal neighbors touch.' },
-    maxAdjacent: { fill: safe.filter((i) => clue[i] === maxNumber),
-      caption: 'Max number ' + maxNumber + ' (yellow): the most mines next to any cell.' },
-  };
-  return { width, mines, clue, examples };
-})();
-
-function gameDataExampleBoard(id) {
-  const example = GAME_DATA_EXAMPLE.examples[id];
-  const wrap = document.createElement('div');
-  wrap.className = 'game-data-example';
-  const board = document.createElement('div');
-  board.className = 'game-data-example-board';
-  board.style.gridTemplateColumns = 'repeat(' + GAME_DATA_EXAMPLE.width + ', 16px)';
-  board.setAttribute('aria-hidden', 'true');
-  GAME_DATA_EXAMPLE.clue.forEach((clue, i) => {
-    const cell = document.createElement('span');
-    cell.className = 'game-data-example-cell';
-    if (GAME_DATA_EXAMPLE.mines.has(i)) cell.innerHTML = MINE_SVG;
-    else if (clue > 0) {
-      cell.textContent = String(clue);
-      cell.classList.add('n' + clue);
-    }
-    if (example.fill.includes(i)) cell.classList.add('fill');
-    if (example.second?.includes(i)) cell.classList.add('fill-second');
-    if (example.outline?.includes(i)) cell.classList.add('outline');
-    board.appendChild(cell);
-  });
-  const caption = document.createElement('p');
-  caption.textContent = 'Example: ' + example.caption;
-  wrap.append(board, caption);
-  return wrap;
-}
-
 // The hover card for one pool, the one whose standing placed the row's point
-// (or whose strip was hovered): what the measurement is, first in plain words
-// and then exactly, this game's calculation with its own numbers, an example
-// board for board traits, the pool's standing with its arithmetic, and the
-// pool's games on the measurement's axis. Every count and color in it comes
-// from that pool; only the time card adds its separate last-24-hours rank,
-// which has no switch.
+// (or whose strip was hovered). It holds only what the row and the panel do
+// not already show or say (creator 2026-10-08: "just cut all the fluff"):
+// the pool's rank, its games on the measurement's axis with a one-line key,
+// the time card's separate last-24-hours rank (which has no switch), and,
+// last, a definition where the name leaves the measurement open.
 function fillGameDataCard(tip, item, scope) {
   const card = document.createElement('div');
   card.className = 'game-data-card';
@@ -324,38 +228,22 @@ function fillGameDataCard(tip, item, scope) {
     node.textContent = text;
     return node;
   };
-  const standing = (poolScope, label) => {
+  const standing = (poolScope) => {
     const node = paragraph('game-data-card-standing', '');
-    node.append(gameDataCell('game-data-card-pool', label + ':'), ' ', item.pools[poolScope].helpText[1]);
+    node.append(gameDataCell('game-data-card-pool', GAME_DATA_POOL_LABELS[poolScope] + ':'), ' ',
+      item.pools[poolScope].standingText);
     return node;
   };
-  const title = document.createElement('div');
-  title.className = 'game-data-card-title';
-  title.append(gameDataCell('game-data-name', item.name), ' ', gameDataCell('game-data-value', item.valueText));
-  const lifetime = item.pools.lifetime, row = item.pools[scope];
-  const d = row.distribution;
-  card.append(title, paragraph('game-data-card-plain', 'This is ' + lifetime.plain + '.'),
-    paragraph('game-data-card-definition', lifetime.helpText[0]), paragraph('game-data-card-calculation', lifetime.calculation));
-  if (lifetime.example) card.appendChild(gameDataExampleBoard(lifetime.example));
-  card.append(paragraph('game-data-card-direction', item.side === 'board'
-    ? (row.higher ? 'Higher' : 'Lower') + ' is the preferred end: a declared preference, not a measured difficulty.'
-    : (row.higher ? 'Higher' : 'Lower') + ' is better.'), standing(scope, GAME_DATA_POOL_LABELS[scope]));
-  const windowText = { lifetime: 'so far', day: 'in the last 24 hours',
-    session: 'this session (' + SessionScope.choices.find((c) => c.id === settings.sessionDefinition).label + ')' }[scope];
-  const games = 'your ' + row.total.toLocaleString('en-US') + ' ' + row.counted + ' ' + windowText;
-  const marks = d.values !== undefined
-    ? 'Dots: ' + games + ', one per game, placed by ' + item.name + ' (touching dots stack)'
-    : 'Bars: ' + games + ' by ' + item.name + ', ' + d.binText;
-  const rankedAmong = { lifetime: '', session: 'in the session ', day: 'in the last 24 hours ' }[scope];
-  card.append(gameDataHistogram(row, true), paragraph('game-data-card-key', marks + ', colored by how they rank '
-    + rankedAmong + '(green better, red worse).' + (row.sessionValues ? ' Ticks: this session’s ' + row.sessionValues.length + '.' : '')
-    + ' Blue line: this game.' + (d.outside ? ' ' + d.outside + ' fall outside the drawn range (beyond the 1st and 99th percentiles).' : '')));
-  if (item.pools.day && scope !== 'day') card.appendChild(standing('day', 'also, last 24 hours'));
-  const chart = resultRanks.querySelector('[data-measurement="' + item.metricId + '"]');
-  if (chart) {
-    card.appendChild(paragraph('game-data-card-key', 'Chart below: ' + chart.querySelector('h4').firstChild.textContent
-      + ', outlined while you hover.'));
-  }
+  const row = item.pools[scope], d = row.distribution;
+  const one = row.counted.slice(0, -1);
+  const key = [d.values !== undefined ? 'One dot per ' + one + '.' : d.binText,
+    ...(row.sessionValues ? ['Ticks: this session’s ' + row.counted + '.'] : []),
+    'Blue line: this ' + (item.side === 'board' ? 'board' : 'game') + '.',
+    ...(d.outside ? [d.outside + ' ' + (d.outside === 1 ? one + ' beyond the 1st–99th percentiles is'
+      : row.counted + ' beyond the 1st–99th percentiles are') + ' not drawn.'] : [])];
+  card.append(standing(scope), gameDataHistogram(row, true), paragraph('game-data-card-key', key.join(' ')));
+  if (item.pools.day && scope !== 'day') card.appendChild(standing('day'));
+  if (row.definition) card.appendChild(paragraph('game-data-card-definition', row.definition));
   tip.appendChild(card);
 }
 
@@ -366,8 +254,8 @@ function fillGameDataCard(tip, item, scope) {
 // plotted one, then the sides stacked, each with its own bar and both sides'
 // rows on its left. The band never scrolls: the plan that needs the least
 // shrinking wins (the earlier one on a tie), and the whole band scales to fit
-// its box. `sideHelp` holds each side title's help.
-function buildGameDataBand(rows, pool, valuesShown, sideHelp) {
+// its box.
+function buildGameDataBand(rows, pool, valuesShown) {
   const items = gameDataItems(rows);
   const element = document.createElement('div');
   element.className = 'game-data-band';
@@ -433,7 +321,7 @@ function buildGameDataBand(rows, pool, valuesShown, sideHelp) {
     const title = document.createElement('div');
     title.className = 'game-data-side-title';
     title.dataset.side = side;
-    title.appendChild(chartHelpButton(sideHelp[side], text));
+    title.appendChild(chartHelpButton(GAME_DATA_SIDE_HELP[side], text));
     const columns = document.createElement('div');
     columns.className = 'game-data-column-heads';
     columns.dataset.side = side;
@@ -672,8 +560,7 @@ function buildGameDataDistributions(rows) {
   }
   const key = document.createElement('p');
   key.className = 'game-data-dist-key';
-  key.textContent = 'Bars: games per value range, green toward the better side. Blue line: this game. '
-    + 'Ticks under a lifetime or board strip: this session’s games.';
+  key.textContent = 'Blue line: this game. Ticks under a lifetime or board strip: this session’s games.';
   element.appendChild(key);
   function layout() {
     if (!element.isConnected || element.clientWidth === 0) return;
@@ -750,20 +637,6 @@ function buildBoardTimeRankProfile(record, records) {
     input.addEventListener('change', () => change(input.checked));
     label.append(input, ' ' + text);
     return label;
-  }
-  // Each side title's help carries what the removed chart heading explained.
-  function sideHelp(sessionLabel) {
-    return {
-      performance: [
-        'This game’s performance ranked against your earlier games with the same board size, mines, mode, and generator. Lifetime is every such game so far; session is the window chosen with the session picker at the upper left (now: ' + sessionLabel + ').',
-        'The points switch below picks which pool places the dots, on both sides, and which pool a row’s card shows. A row’s position is the share of the other games that ranked better, a tie counting as half: 0% at the top is the best, 100% at the bottom the worst.',
-        'Hover or focus a row for its definition, this game’s calculation, its standing’s arithmetic, and its games; its chart below is outlined.',
-      ],
-      board: [
-        'This board’s traits ranked against the earlier boards with the same settings, won or lost, toward the end you prefer: a declared preference, not a measured difficulty. The points switch picks every such board so far or the session’s.',
-        'The bar zooms to the shown rows; its colors keep their meaning, green better and red worse. A comparison needs at least two measured games, so rows without one are left out.',
-      ],
-    };
   }
   function observeFit(fitted) {
     observer = new ResizeObserver(() => {
@@ -843,7 +716,7 @@ function buildBoardTimeRankProfile(record, records) {
       for (const metric of GameData.metrics) {
         const row = document.createElement('tr');
         const name = document.createElement('td');
-        name.appendChild(chartHelpButton(['This is ' + metric.plain + '.', metric.help], metric.name));
+        name.append(metric.help ? chartHelpButton(metric.help, metric.name) : metric.name);
         row.appendChild(name);
         const cell = document.createElement('td');
         const input = document.createElement('input'); input.type = 'checkbox';
@@ -875,9 +748,7 @@ function buildBoardTimeRankProfile(record, records) {
         renderAndFocus('[aria-label="measurement"]');
       });
       label.appendChild(select);
-      const choice = SessionScope.choices.find((c) => c.id === settings.sessionDefinition);
-      controls.append(label, chartHelpButton('Each row is the session window (' + choice.label
-        + ', set with the picker at the upper left) ending at one saved game: the median and middle half of this measurement over that window’s games, with n the games measured. Wins-only measurements skip losses. Windows overlap, so the rows are not separate sessions.'));
+      controls.append(label, chartHelpButton('Windows overlap, so the rows are not separate sessions. Wins-only measurements skip losses.'));
       profile.appendChild(controls);
       const pageSize = 20;
       const groups = await analysisTask('rankings', 'game-data-history', { records: records.map(analysisRecord), endedAt: record.endedAt,
@@ -927,8 +798,7 @@ function buildBoardTimeRankProfile(record, records) {
         profile.appendChild(distributions.element);
         observeFit(distributions);
       } else {
-        const band = buildGameDataBand(rows, settings.gameDataBandPool, settings.gameDataShowValues,
-          sideHelp(SessionScope.choices.find((c) => c.id === settings.sessionDefinition).label));
+        const band = buildGameDataBand(rows, settings.gameDataBandPool, settings.gameDataShowValues);
         profile.appendChild(band.element);
         observeFit(band);
       }

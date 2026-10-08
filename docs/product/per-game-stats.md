@@ -88,8 +88,9 @@ color, and one checkbox list chooses the measurements for both pools
 (earlier: "(session)" and "(day)" label suffixes, pastel colors, and
 separate checkbox columns). Since 2026-10-08 the chart has no heading, one
 options row under the data, a points switch that picks the pool for both
-sides and for every hover card, cards that explain each measurement in plain
-words and work its calculation, and no scroll bars. The page's one session
+sides and for every hover card, cards that hold only what the panel does not
+already show (the pool's rank, its games, and a definition where the name
+leaves the measurement open), and no scroll bars. The page's one session
 picker, the left stats panel's session heading, sets the session for this
 chart, left-side session stats, the session summary, and ranks won in session
 together, defaulting to today (since local midnight); the chart has no picker

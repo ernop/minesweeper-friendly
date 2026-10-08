@@ -65,10 +65,14 @@ any kind of vscroll bar or hscroll bar", and "the mouse shall not change to
 the '?' mark"), built the same day:
 
 - No chart heading. The band starts with "your perf" and "board traits",
-  each centered over its own side's columns. Each title carries its side's
-  help, which absorbed the removed heading's: the pools, the session
-  window, what the points switch picks, the position formula, the bar's
-  zoom, and the two-game minimum.
+  each centered over its own side's columns. Each title's help says only
+  what its side's percentages are, which nothing else on the panel says:
+  the share of the other games (or boards) that ranked better, a tie
+  counting as half, 0% the best; for board traits, that better is each
+  trait's declared preferred end, not a measured difficulty. Since the cut
+  of 2026-10-08 (Hover card, below) it no longer repeats the pools, the
+  session window, the points switch, the zoom, or the two-game minimum,
+  which the panel itself shows.
 - Every chart option sits in one small wrapping row under the data:
   points switch, "show distributions", "show values", "configure", and
   "session history". Configuration and session history keep a "back to
@@ -93,64 +97,61 @@ their exact points with minimum squared displacement, and exact percentile
 points never move. Text is pure black on white, including ticks, controls,
 and disabled buttons.
 
-Hover card (built 2026-10-07; rebuilt 2026-10-08 on the creator's direction:
-"for each of the mouseovers, let's really refine the text so it's super
-clear. it's good you use real numbers in there but it's really vital we
-explain what the number/stat/perf item is and really show how it is
-calculated exactly. you may even have little miniboards demonstrating it",
-then "mousing over any kind of stat in the percentile displayer should
-display info related to our selection of lifetime vs session stats ... in
-session mode, the bars etc. should reflect SESSION info"). Hovering or
-focusing a row opens a card over the band, never reflowing it. In order:
+Hover card (built 2026-10-07; rebuilt 2026-10-08, then cut back the same
+day). The creator first asked that each card "explain what the
+number/stat/perf item is and really show how it is calculated exactly",
+then that it follow the points switch ("in session mode, the bars etc.
+should reflect SESSION info"). Of the rebuilt time card the creator then
+said: "I confirm that the first 4 lines are useless since they just state
+what the user already knows/has on screen. also remove stuff like 'with
+these boards settings' which are obvious. dont include that pointless
+actual division equation please. Get the point? please just cut all the
+fluff here for all mouseovers around here". So a card holds only what the
+row and the panel do not already show or say. Hovering or focusing a row
+opens it over the band, never reflowing it. In order:
 
-1. The name and this game's value.
-2. What the number is, in plain words, as one "This is …" sentence
-   (creator 2026-10-08: "also, things like the mouseover chart for 'time'
-   saying 'this is your time from start to the win'"): "This is your time
-   from start to the win.", "This is your speed: how much of the board's work
-   you cleared per second.", "This is how many separate clumps of mines this
-   board has." Each measurement has one such phrase; the configuration list
-   shows it too.
-   Then the exact definition: the measurement's one definition, worded so
-   it does not repeat the plain sentence.
-3. This game's calculation with its own stored numbers, for example
-   "75 3BV ÷ 37.119 s = 2.021 3BV per second", "108 board-changing ÷ (108 +
-   11 that changed nothing) = 90.76%", or for a board share "This board: 131
-   of 216 safe cells = 60.6%". A measurement stored only as its result
-   (fastclick gap, cadence spread, flags no multi-cell chord used) says
-   what that number is for this game instead.
-4. Board traits with a picture: a miniature 8 × 6 example board, fully
-   shown, with the counted cells colored and a caption whose numbers the
-   code computes from that board: 3BV ("2 zero regions + 6 numbers no zero
-   region opens = 3BV 8"), zeros, zero-opening coverage, 0–1 share, islands,
-   largest island, and max number. ZiNi, HZiNi, and 3BV spread have none.
-5. The direction: "Lower is better." (board traits: "… is the preferred
-   end: a declared preference, not a measured difficulty").
-6. The standing in the chosen pool with its arithmetic: the share of the
-   other games that ranked better, a tie counting as half, for example
-   "18th of 124 wins so far with these board settings. 17 of the 123 others
-   ranked better: 17 ÷ 123 = 13.8%", "Tied 3rd–5th … 2 of the 56 others
-   ranked better and 2 tied, a tie counting as half: (2 + 2 ÷ 2) ÷ 56 =
-   5.4%", an equal time set earlier "counted as better", and a constant pool
-   "All N … have the same value, so it sits at 50%".
-7. The pool's games on the measurement's axis: bars per value range for a
+1. The chosen pool's rank, the card's largest text: "lifetime: 19th of
+   1,201 wins", "session: tied 3rd–5th of 56 games", or for a constant
+   pool "lifetime: all 50 boards have this value". The population word is
+   wins, games, or boards.
+2. The pool's games on the measurement's axis: bars per value range for a
    pool of more than 30 games, one dot per game at its exact value for 30
    or fewer (touching dots stack), each colored by standing within that
    pool (green better, red worse); a blue line marks this game; "better →"
    or "← better" names the better end; the lifetime card ticks the
-   session's games under the axis. The key names the pool and its count, the
-   measurement on the axis ("by time"), and what one bar covers ("one bar
-   per value", "one bar per 4 consecutive values", "each bar spans 0.037"),
-   and counts any games beyond the drawn range.
-8. Time only: its separate last-24-hours rank ("also, last 24 hours: …"),
-   which has no position on the points switch.
-9. The chart below that plots the measurement, outlined while hovering.
+   session's games under the axis. One line of key follows: what one bar
+   covers ("One bar per value.", "Each bar spans 4 values.", "Each bar
+   spans 0.834s.", "Each bar spans 2 safe cells.") or "One dot per win.",
+   then "Ticks: this session's wins." on the lifetime card, "Blue line: this
+   game." ("this board" for a board trait), and a count of any games beyond
+   the 1st–99th percentiles, which are not drawn.
+3. Time only: its separate last-24-hours rank ("last 24 hours: 2nd of 3
+   wins"), which has no position on the points switch.
+4. Last, a definition, only where the name and unit leave the measurement
+   open, and never opening with its name: misclick rate, fastclick gap,
+   click rate, efficiency, no-op rate, correctness, IOE, ZiNi and HZiNi
+   efficiency, IOS, STNB, mouse speed, cadence spread, unused flag share,
+   and the board traits ZiNi, HZiNi, 3BV spread, 0–1 share, zero-opening
+   coverage, islands, and largest island. Time, 3BV/s, path / 3BV, path /
+   click, flags no multi-cell chord used, 3BV, max number, and zeros have
+   none. The configuration list shows the same definitions.
 
-The chosen pool is the points switch's: in session mode the standing,
-counts, dots or bars, and their colors all come from this session's games
-with these board settings (same size, mines, mode, generator), up to this
-game, under the one session definition; the lifetime mode uses every such
-game so far. Wins-only measurements count the session's wins, action
+Removed by the cut (2026-10-08): the name-and-value title, the "This is …"
+plain sentence (added earlier the same day in answer to the creator's
+"also, things like the mouseover chart for 'time' saying 'this is your time
+from start to the win'"), definitions of self-evident measurements, this
+game's worked calculation, the example boards, the direction sentence (the
+histogram's "better →" stays), the pool descriptions "so far with these
+board settings" and "this session (last hour)", the percentage arithmetic
+("17 ÷ 123 = 13.8%"), and the "Chart below" line (hovering still outlines
+that chart). Every pool holds only games with this game's board settings,
+and the row already shows the name, value, and percentage.
+
+The chosen pool is the points switch's: in session mode the rank, dots or
+bars, and their colors all come from this session's games with these board
+settings (same size, mines, mode, generator), up to this game, under the
+one session definition; the lifetime mode uses every such game so far.
+Wins-only measurements count the session's wins, action
 measurements its wins and losses, board traits its boards. Both modes share
 the measurement's lifetime axis and bins (extended to include every
 session game), so switching modes shows where the session sits in the
@@ -195,8 +196,9 @@ first shortens the strips (from 26 px down to 10 px), then shrinks the text.
 Linkage to the charts (creator: "this linkage should be very tight and
 clear"): each your-perf and board-trait chart heading carries a chip, "this
 1.784 · 55%", with this game's value and lifetime standing on the standing
-color. Hovering or focusing a game-data row outlines the charts that plot
-the same measurement.
+color; its tooltip is the card's rank ("lifetime: 19th of 1,201 wins").
+Hovering or focusing a game-data row outlines the charts that plot the same
+measurement.
 
 The user intends game data to supersede many other result elements. Label
 wording and placement beside the board were settled on 2026-09-23 (above).
@@ -212,8 +214,8 @@ absolute rank meaning when zooming; a 40% endpoint does not become red.
 "show values" (formerly "show actual value") is a saved checkbox in the
 options row. It immediately toggles the value column. Values are this
 game's measurements, not the aggregate of the chosen comparison pool. Hiding
-them changes neither rankings nor the zoom range. Hover/focus/click still
-explains the item.
+them changes neither rankings nor the zoom range. Hovering, focusing, or
+clicking a row still opens its card.
 
 ## One session definition
 
@@ -238,8 +240,10 @@ all implemented the same day:
   session" use the one picked value and carry no picker or window name of
   their own; changing the picker regenerates each in place. The user:
   "Both the latter things should merely say 'session' and the value used
-  should be the single one picked in the dropdown!" Their help tooltips
-  name the current window and point to the picker.
+  should be the single one picked in the dropdown!" The session summary's
+  and ranks won's help tooltips name the current window and point to the
+  picker; game data's no longer do (2026-10-08, Hover card above): the
+  picker shows the window.
 
 Saved preferences are stored in full, so a profile saved under the old
 last-hour default keeps "last hour" until the picker is changed once.
@@ -281,17 +285,14 @@ no point, label, "Only one measured game:" section, or replacement notice
 session, day, and board-trait comparisons; other eligible rows remain visible.
 Missing facts and undefined divisions are excluded, never converted to zero.
 
-Every item's card is listed under "Hover card" above (rebuilt 2026-10-08):
-the definition in one or two plain sentences (the same text the
-configuration table shows), this game's worked calculation, an example board
-for board traits, the direction, and the chosen pool's standing with its
-arithmetic. It superseded the 2026-09-26 two-part tooltip (definition plus
-one rank sentence, with the formula explained once in the chart heading's
-help; user direction then: "write them well without clutter"), because the
-creator asked on 2026-10-08 that each card show exactly how its number is
-calculated. The side titles' help still explains the pools and the
-position formula once. This chart does not estimate correlations or
-attribute time to board traits.
+Every item's card is listed under "Hover card" above: the chosen pool's
+rank, its games on the measurement's axis, time's 24-hour rank, and a
+definition only where the name leaves the measurement open. The worked
+calculations, example boards, and percentage arithmetic added earlier on
+2026-10-08 were cut the same day as fluff; the 2026-09-26 direction "write
+them well without clutter" holds. The side titles' help states the position
+formula once. This chart does not estimate correlations or attribute time to
+board traits.
 
 Each left-side row ranks **this game's** metric against both lifetime and
 session history of the same size, mine count, play mode, and generator.

@@ -185,16 +185,12 @@ const { chromium } = require(process.argv[2]);
     const bandBefore = await profile.boundingBox();
     await zeros.focus();
     const card = page.locator('.chart-help-tip .game-data-card');
-    assert.equal(await card.locator('.game-data-card-title').innerText(), 'zeros 59');
     assert.equal(await card.getAttribute('data-pool'), 'lifetime', 'the card follows the points switch');
-    assert.equal(await card.locator('.game-data-card-standing').innerText(),
-      'lifetime: All 50 boards so far with these board settings have the same value, so it sits at 50%.');
-    assert.equal(await card.locator('.game-data-card-plain').innerText(), 'This is how many zeros (blank cells) this board has.',
-      'a card first says what the number is in plain words');
-    assert((await card.innerText()).includes('Safe cells with no adjacent mines.'));
-    assert.equal(await card.locator('.game-data-card-calculation').innerText(), '59 safe cells on this board have no adjacent mine.');
-    assert.equal(await card.locator('.game-data-example-cell').count(), 48, 'a board trait shows its example board');
-    assert((await card.locator('.game-data-example p').innerText()).startsWith('Example: 21 zeros'));
+    // The card opens with the rank: the row already shows the name, value,
+    // and percentage (creator 2026-10-08: "just cut all the fluff").
+    assert.equal(await card.locator('p').first().innerText(), 'lifetime: all 50 boards have this value');
+    assert.equal(await card.locator('.game-data-card-definition').count(), 0, 'a self-evident trait has no definition');
+    assert(!/÷|=|settings|so far|This is/.test(await card.innerText()), await card.innerText());
     assert.equal(await card.locator('svg.game-data-histogram').count(), 1, 'the card draws the distribution');
     assert.equal(await card.locator('.game-data-histogram-better').textContent(), 'better →', 'more zeros is the preferred end');
     assert(await page.locator('.chart-help-tip').evaluate((el) => {
@@ -216,8 +212,8 @@ const { chromium } = require(process.argv[2]);
     const before = await profile.boundingBox();
     await help.focus();
     assert(await page.locator('.chart-help-tip').isVisible());
-    assert((await page.locator('.chart-help-tip').textContent()).includes('This board’s traits ranked against the earlier boards'),
-      'the side titles carry the removed heading’s help');
+    assert((await page.locator('.chart-help-tip').textContent()).includes('better meaning each trait’s preferred end'),
+      'the board side title says what its percentages are');
     assert.deepEqual(await profile.boundingBox(), before, 'help does not reflow the chart');
     await help.evaluate((button) => button.blur());
     await page.mouse.move(0, 0);
@@ -269,14 +265,14 @@ const { chromium } = require(process.argv[2]);
     await timeRow.locator('button').hover();
     const sessionCard = page.locator('.chart-help-tip .game-data-card');
     assert.equal(await sessionCard.getAttribute('data-pool'), 'session');
-    assert((await sessionCard.locator('.game-data-card-standing').first().innerText()).startsWith('session: '),
-      await sessionCard.locator('.game-data-card-standing').first().innerText());
-    assert((await sessionCard.locator('.game-data-card-standing').first().innerText()).includes('this session (last hour)'));
+    assert.equal(await sessionCard.locator('p').first().innerText(), 'session: 2nd of 3 wins',
+      'the card opens with the rank alone');
     assert.equal(await sessionCard.locator('.game-data-histogram-tick').count(), 0, 'no lifetime ticks in a session card');
     assert.equal(await sessionCard.locator('.game-data-histogram-dot').count(), 3, 'the session’s 3 wins, one dot each');
-    assert.equal(await sessionCard.locator('.game-data-card-plain').innerText(), 'This is your time from start to the win.');
-    assert((await sessionCard.innerText()).includes('Dots: your 3 wins this session (last hour), one per game, placed by time'));
-    assert((await sessionCard.innerText()).includes('also, last 24 hours:'), 'time keeps its separate 24-hour rank');
+    assert.equal(await sessionCard.locator('.game-data-card-definition').count(), 0, 'time needs no definition');
+    assert((await sessionCard.innerText()).includes('One dot per win.'));
+    assert((await sessionCard.innerText()).includes('last 24 hours: '), 'time keeps its separate 24-hour rank');
+    assert(!/÷|=|settings|so far|This is|this session/.test(await sessionCard.innerText()), await sessionCard.innerText());
     await page.mouse.move(0, 0);
     await profile.getByRole('button', { name: 'lifetime', exact: true }).click();
     await bandReady();

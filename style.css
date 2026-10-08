@@ -2548,44 +2548,16 @@ body.settings-page .return-to-game {
 }
 .game-data-unplotted { margin: 0 0 6px; font-size: 12px; }
 
-/* The card, opened from a band or distributions row: definition, this
-   game's calculation, an example board for board traits, the pool's
-   standing, and its games. Numbers are regular weight; only the name and
-   each line's pool label are bold. */
+/* The card, opened from a band or distributions row: the pool's rank, its
+   games, and a definition where the name leaves the measurement open. The
+   rank is the card's largest text; numbers are regular weight, and only
+   each rank's pool label is bold. */
 .chart-help-tip:has(> .game-data-card) { width: auto; max-width: calc(100vw - 12px); }
 .game-data-card { display: flex; flex-direction: column; gap: 6px; width: 330px; max-width: 100%; color: #000000; }
 .game-data-card p { margin: 0; font-size: 12px; line-height: 1.4; }
-.game-data-card p.game-data-card-plain { font-size: 13px; }
+.game-data-card p.game-data-card-standing { font-size: 14px; }
 .game-data-card p.game-data-card-key { font-size: 11px; }
-.game-data-card-title .game-data-name { font-size: 14px; font-weight: 700; }
-.game-data-card-title .game-data-value { font-size: 15px; font-weight: 400; }
 .game-data-card-pool { font-weight: 700; }
-.game-data-example { display: flex; align-items: center; gap: 10px; }
-.game-data-example p { flex: 1; font-size: 11px; }
-.game-data-example-board {
-  display: grid;
-  flex-shrink: 0;
-  border: 1px solid #808080;
-}
-.game-data-example-cell {
-  box-sizing: border-box;
-  width: 16px;
-  height: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid #a0a0a0;
-  background: #c0c0c0;
-  font: bold 11px/1 Arial, sans-serif;
-}
-.game-data-example-cell svg { width: 12px; height: 12px; display: block; }
-.game-data-example-cell.n1 { color: #0000ff; }
-.game-data-example-cell.n2 { color: #008000; }
-.game-data-example-cell.n3 { color: #ff0000; }
-.game-data-example-cell.n4 { color: #000080; }
-.game-data-example-cell.fill { background: #ffd84d; }
-.game-data-example-cell.fill-second { background: #ff9f43; }
-.game-data-example-cell.outline { border: 2px solid #000000; }
 .game-data-histogram { display: block; overflow: visible; }
 .game-data-histogram[data-size="card"] { width: 100%; height: auto; aspect-ratio: 320 / 132; }
 .game-data-histogram text { font: 400 11px Arial, Helvetica, sans-serif; fill: #000000; }

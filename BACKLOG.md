@@ -76,7 +76,9 @@ this!"), specified where each lives:
 - Game data panel polish (creator review 2026-10-08, built the same day): no
   heading, one options row under the data, centered side titles, no
   "boards" head, regular-weight numbers, no scroll bars, no help cursor,
-  cards that work each calculation and follow the points switch, whole-value
+  cards cut to what the panel does not already show (rank, games, a needed
+  definition; no restated lines, pool descriptions, or arithmetic) that
+  follow the points switch, whole-value
   histogram bins, and the session summary's means without the default mode
   name ([game data](docs/product/game-data.md#position-and-presentation),
   [session summary](docs/product/rankings.md#session-summary-requested-and-built-2026-10-07)).
