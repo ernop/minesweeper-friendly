@@ -64,8 +64,10 @@ this!"), specified where each lives:
   [Rank highlights](docs/product/rankings.md#rank-highlights-built-2026-09-21-recolored-2026-10-07).
 - Game data rebuilt: one row per measurement in aligned columns, plain
   labels, the colored bar, the lifetime/session switch, the hover card with
-  the distribution, the distributions view with lifetime, session, last 24
-  hours, and board sections, and chart titles carrying each row's value and
+  the distribution, the distributions view with lifetime and session
+  sections for your perf and board traits (a sections switch shows either
+  or both since 2026-10-08, and the strips grow to fill the height), and
+  chart titles carrying each row's value and
   standing ([game data](docs/product/game-data.md#position-and-presentation)).
 - One session picker, upper left, for every session surface
   ([One session definition](docs/product/game-data.md#one-session-definition)).

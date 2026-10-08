@@ -89,13 +89,15 @@ assert(!('gameDataLifetimeMetrics' in merged) && !('gameDataSessionMetrics' in m
 assert.equal(run('settingsFrom({ gameDataMetrics: { time: false } }).gameDataMetrics.time'), false);
 assert.equal(run('settingsFrom({ gameDataMetrics: { time: false } }).gameDataMetrics.clickRate'), true);
 assert.equal(run('settingsFrom({ gameDataBandPool: "day" }).gameDataBandPool'), 'lifetime');
+assert.equal(defaults.gameDataDistributionPools, 'both', 'distributions show both pools until the switch says otherwise');
+assert.equal(run('settingsFrom({ gameDataDistributionPools: "day" }).gameDataDistributionPools'), 'both');
 
 console.log('settings-state: shared validation, defaults, migration, isolation, and backup round trips passed');
 
 const choices = {
   sessionDefinition: 'past30min', gameDataShowValues: false,
   gameDataMetrics: { ...defaults.gameDataMetrics, fastclickGap: false, ioe: true },
-  gameDataBandPool: 'session', gameDataDistributions: true,
+  gameDataBandPool: 'session', gameDataDistributions: true, gameDataDistributionPools: 'session',
   difficulty: 'custom', customBoard: { width: 24, height: 12, mines: 45 },
   customBoardDraft: { width: '25', height: '12', mines: '45' },
   playerStates: [{ name: 'new mouse', active: true }, { name: 'sleepy', active: false }],

@@ -74,7 +74,8 @@ the '?' mark"), built the same day:
   session window, the points switch, the zoom, or the two-game minimum,
   which the panel itself shows.
 - Every chart option sits in one small wrapping row under the data:
-  points switch, "show distributions", "show values", "configure", and
+  points switch (in distributions mode the sections switch, below, takes
+  its place), "show distributions", "show values", "configure", and
   "session history". Configuration and session history keep a "back to
   game data" button at their top and bottom.
 - Nothing in the band or the distributions view scrolls, at any panel or
@@ -183,13 +184,40 @@ Distributions mode (built 2026-10-07; the creator: "switch distributions
 mode is incredible, too!", and "showing both optionally is good. e.g. in the
 distribution mode ui there would just be a section for 'session' and another
 for 'lifetime'"): the saved "show distributions" checkbox replaces the bar
-with one strip per measurement in sections: lifetime, session, and board
-traits. Each row reads name, value (when shown), the
-strip histogram with the same marks as the card, and the percentage. All
-strips share one left edge and width across sections, and a measurement
-keeps its catalog position in every section. A row's card shows its own
-section's pool. The view never scrolls (2026-10-08): to fit its box it
-first shortens the strips (from 26 px down to 10 px), then shrinks the text.
+with one strip per measurement in sections. Each row reads name, value
+(when shown), the strip histogram with the same marks as the card, and the
+percentage. All strips share one left edge and width across sections, and
+a measurement keeps its catalog position in every section. A row's card
+shows its own section's pool.
+
+Sections switch and strips that fill the height (creator 2026-10-08, of the
+distributions view: "for this ui, i also still want the same ability to
+choose to show lifetime/session or both. plus, i want if i remove items
+then the remaining ones should expand vertically to fill the space! it's
+vital, since that way i can see things more nicely"), built the same day:
+
+- "sections: lifetime | session | both" takes the points switch's place in
+  the options row while distributions are shown; saved, default both. Like
+  the points switch it applies to your perf and board traits alike: each
+  chosen pool gets a your-perf section and a board-traits section, in the
+  order your perf against lifetime, your perf against the session, board
+  traits against lifetime, board traits against the session. Each
+  section's percentage head names its pool. (Until then the view always
+  showed your perf against both pools and board traits against lifetime
+  only.)
+- Only lifetime strips tick the session's games, and the key under the
+  strips mentions ticks only while a lifetime section is shown. With the
+  session alone, measurements without a session rank are listed in the
+  band's note above the strips ("Not ranked in this session yet: …")
+  instead of vanishing.
+- The strips take all the height the rows leave: every strip gets the
+  tallest height at which the view still fits its box, so hiding
+  measurements (configure) or a pool (the sections switch) makes the
+  remaining strips taller. The text keeps its size; only when even 10 px
+  strips do not fit does it shrink. The view never scrolls (2026-10-08).
+  The bars take the extra height: the axis gap and the 5 px ticks keep
+  their size on strips 26 px or taller and shrink in proportion on shorter
+  ones.
 
 Linkage to the charts (creator: "this linkage should be very tight and
 clear"): each your-perf and board-trait chart heading carries a chip, "this

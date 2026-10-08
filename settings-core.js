@@ -526,6 +526,11 @@ const SETTINGS_SCHEMA = [
     label: 'game data distributions', describe: 'show game data as one distribution strip per measurement and comparison instead of the bar; chosen on the chart', control: 'none',
   },
   {
+    field: 'gameDataDistributionPools', default: 'both',
+    valid: (v) => v === 'lifetime' || v === 'session' || v === 'both', group: 'after-game',
+    label: 'game data distribution sections', describe: 'whether game data’s distributions show the lifetime sections, the session sections, or both, for your perf and board traits alike; chosen with the sections switch on the chart', control: 'none',
+  },
+  {
     field: 'metricsPanelWidth',
     default: 316,
     valid: (v) => typeof v === 'number' && Number.isFinite(v) && v >= METRICS_PANEL_WIDTH_MIN && v <= METRICS_PANEL_WIDTH_MAX,

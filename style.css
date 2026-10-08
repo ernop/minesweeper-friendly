@@ -2572,8 +2572,9 @@ body.settings-page .return-to-game {
 
 /* Distributions: one strip per measurement, sections per comparison pool,
    all sections on one set of columns so their strips line up. Its layout
-   shortens --game-data-strip, then shrinks --game-data-scale, so the view
-   always fits its box and never scrolls. */
+   sets --game-data-strip to the tallest strip that fits, so fewer rows get
+   taller strips, and shrinks --game-data-scale only below the shortest
+   strip: the view always fills its box and never scrolls. */
 .game-data-distributions {
   flex: 1;
   min-height: 0;
@@ -2591,10 +2592,11 @@ body.settings-page .return-to-game {
   grid-column: 1 / -1;
   display: grid;
   grid-template-columns: subgrid;
-  row-gap: clamp(1px, calc(var(--game-data-strip, 26px) * 0.15), 4px);
+  row-gap: clamp(1px, calc(var(--game-data-strip) * 0.15), 4px);
   align-items: center;
-  margin-bottom: clamp(4px, calc(var(--game-data-strip, 26px) * 0.54), 14px);
+  margin-bottom: clamp(4px, calc(var(--game-data-strip) * 0.54), 14px);
 }
+.game-data-distributions > .game-data-unplotted { grid-column: 1 / -1; font-size: 1em; }
 .game-data-dist-head,
 .board-time-profile .game-data-dist-row,
 .game-data-dist-row > .chart-help-label {
@@ -2626,8 +2628,8 @@ body.settings-page .return-to-game {
   background: var(--this-game);
   outline: 1px solid #000000;
 }
-.game-data-strip { display: block; height: var(--game-data-strip, 26px); }
-.game-data-strip > svg { width: 100%; height: var(--game-data-strip, 26px); }
+.game-data-strip { display: block; height: var(--game-data-strip); }
+.game-data-strip > svg { width: 100%; height: var(--game-data-strip); }
 .game-data-dist-key { grid-column: 1 / -1; margin: 0; font-size: 0.9167em; }
 
 /* A chart heading's copy of this game's band row, and the chart outline

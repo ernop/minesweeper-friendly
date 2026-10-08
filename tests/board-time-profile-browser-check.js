@@ -281,22 +281,85 @@ const { chromium } = require(process.argv[2]);
     await profile.getByRole('button', { name: 'lifetime', exact: true }).click();
     await bandReady();
     assert.equal(Math.round(Number(await timeRow.getAttribute('data-percentile'))) + '%', lifetimeBefore);
-    // Distributions: one strip per measurement and pool, with the session as
-    // its own section.
+    // Distributions: one strip per measurement and pool. The sections switch
+    // shows the lifetime sections, the session sections, or both, for your
+    // perf and board traits alike, and the strips take whatever height the
+    // rows leave.
+    const distributionsShown = async (pressed) => {
+      await page.waitForFunction((text) => document.querySelector('.game-data-pool-switch [aria-pressed="true"]')?.textContent === text
+        && !document.querySelector('.board-time-profile').hasAttribute('aria-busy'), pressed);
+      await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+      return profile.locator('.game-data-distributions').evaluate((view) => {
+        const strips = [...view.querySelectorAll('.game-data-strip')];
+        return {
+          heads: [...view.querySelectorAll('.game-data-dist-head')].map((head) =>
+            head.querySelector('.game-data-side-title').textContent + ' · ' + head.querySelector('.game-data-pct').textContent),
+          rows: strips.length,
+          stripHeights: [...new Set(strips.map((strip) => strip.getBoundingClientRect().height))],
+          drawnHeights: [...new Set(strips.map((strip) => strip.querySelector('svg').viewBox.baseVal.height))],
+          slack: view.clientHeight - (view.lastElementChild.getBoundingClientRect().bottom - view.firstElementChild.getBoundingClientRect().top),
+          scrolls: view.scrollHeight > view.clientHeight + 1 || view.scrollWidth > view.clientWidth + 1,
+          note: view.querySelector('.game-data-unplotted')?.textContent ?? null,
+          key: view.querySelector('.game-data-dist-key').textContent,
+          ticks: view.querySelectorAll('.game-data-histogram-tick').length,
+        };
+      });
+    };
+    // One more pixel of strip would overflow the box, and every strip is
+    // drawn at its laid-out height, so its ticks and axis gap keep their size.
+    const fillsBox = (shown, label) => {
+      assert.equal(shown.scrolls, false, label + ': no scrolling');
+      assert.equal(shown.stripHeights.length, 1, label + ': one strip height');
+      assert.deepEqual(shown.drawnHeights, shown.stripHeights, label + ': strips drawn at their laid-out height');
+      assert(shown.slack >= 0 && shown.slack < shown.rows * 1.2 + 4, label + ': the strips fill the box: ' + JSON.stringify(shown));
+    };
     await profile.getByLabel('show distributions', { exact: true }).check();
-    await profile.locator('.game-data-distributions').waitFor();
+    let shown = await distributionsShown('both');
     assert.equal(await page.evaluate(() => settings.gameDataDistributions), true);
-    assert.deepEqual(await profile.locator('.game-data-dist-head .game-data-side-title').allTextContents(),
-      ['lifetime', 'session', 'board traits']);
-    assert.equal(await profile.locator('.game-data-pool-switch').count(), 0, 'every pool is shown, so there is nothing to switch');
-    assert.equal(await profile.locator('.game-data-dist-row').count(),
-      await profile.locator('.game-data-dist-row svg.game-data-histogram').count());
+    assert.equal(await profile.locator('.game-data-pool-switch').evaluate((group) => group.textContent), 'sections: lifetimesessionboth');
+    assert.deepEqual(shown.heads, ['lifetime · lifetime', 'session · session', 'board traits · lifetime', 'board traits · session'],
+      'both pools, for your perf and for board traits');
+    assert.equal(shown.note, null, 'the lifetime sections list every measurement');
+    assert.equal(shown.rows, await profile.locator('.game-data-dist-row svg.game-data-histogram').count());
     const stripLefts = await profile.locator('.game-data-strip').evaluateAll((strips) =>
       [...new Set(strips.map((strip) => Math.round(strip.getBoundingClientRect().left)))]);
     assert.equal(stripLefts.length, 1, 'all sections line up their strips: ' + JSON.stringify(stripLefts));
     await profile.screenshot({ path: '/tmp/game-data-distributions.png' });
-    assert.equal(await profile.locator('.game-data-distributions').evaluate((el) =>
-      el.scrollHeight <= el.clientHeight + 1 && el.scrollWidth <= el.clientWidth + 1), true, 'distributions fit without scrolling');
+    fillsBox(shown, 'both');
+    const bothStrip = shown.stripHeights[0];
+    await profile.getByRole('button', { name: 'lifetime', exact: true }).click();
+    shown = await distributionsShown('lifetime');
+    assert.equal(await page.evaluate(() => settings.gameDataDistributionPools), 'lifetime');
+    assert.deepEqual(shown.heads, ['lifetime · lifetime', 'board traits · lifetime']);
+    fillsBox(shown, 'lifetime');
+    assert(shown.stripHeights[0] > bothStrip, 'fewer rows, taller strips: ' + shown.stripHeights[0] + ' px vs ' + bothStrip + ' px');
+    assert.equal(shown.key, 'Green line: this game. Ticks under a lifetime strip: this session’s games.');
+    assert(shown.ticks > 0, 'lifetime strips tick the session’s games');
+    // Removing measurements gives the rest their height.
+    const lifetimeStrip = shown.stripHeights[0];
+    await profile.locator('.game-data-controls [data-view="config"]').click();
+    const allMeasurements = profile.getByLabel('all performance measurements', { exact: true });
+    await allMeasurements.check();
+    await allMeasurements.uncheck();
+    await profile.locator('.game-data-config input[aria-label="time"]').check();
+    await profile.getByRole('button', { name: 'back to game data' }).first().click();
+    shown = await distributionsShown('lifetime');
+    assert.equal(shown.rows, 1 + 9, 'time and the board traits');
+    fillsBox(shown, 'one measurement');
+    assert(shown.stripHeights[0] > lifetimeStrip, 'removed measurements give the rest their height: '
+      + shown.stripHeights[0] + ' px vs ' + lifetimeStrip + ' px');
+    await profile.screenshot({ path: '/tmp/game-data-distributions-few.png' });
+    // Session alone: no lifetime ticks, and a measurement without a session
+    // rank is listed rather than dropped.
+    await profile.getByRole('button', { name: 'session', exact: true }).click();
+    shown = await distributionsShown('session');
+    assert.deepEqual(shown.heads, ['session · session', 'board traits · session']);
+    assert.equal(shown.key, 'Green line: this game.');
+    assert.equal(shown.ticks, 0);
+    assert.match(shown.note, /^Not ranked in this session yet: ZiNi, .*zeros\. A session rank needs two measured games in the session window\.$/);
+    fillsBox(shown, 'session');
+    await page.evaluate(async () => { crowdGameData(); settings.gameDataDistributionPools = 'both'; await drawProfileFixture(); });
+    await distributionsShown('both');
     await profile.getByLabel('show distributions', { exact: true }).uncheck();
     await bandReady();
     await profile.getByLabel('show values', { exact: true }).uncheck();

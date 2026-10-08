@@ -85,18 +85,30 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
   draws bars, or for a row whose distribution carries `values`, one dot per
   game at its value, stacked where dots touch and colored by that game's
   standing in the pool; card size adds the "better" end and round labels.
-- Distributions view: `buildGameDataDistributions(rows)` renders the
-  `settings.gameDataDistributions` mode as `.game-data-dist-section`s in one
-  `.game-data-distributions` grid with subgrid rows, so every strip shares
-  one column, and returns `layout()`, which fits the view by lowering
-  `--game-data-strip` from 26 px to 10 px, then `--game-data-scale`.
+- Distributions view: `buildGameDataDistributions(rows, pools)` renders the
+  `settings.gameDataDistributions` mode as `.game-data-dist-section`s
+  (`data-side`, `data-pool`), each side's sections in `pools` order
+  (`settings.gameDataDistributionPools`: `['lifetime']`, `['session']`, or
+  both), in one `.game-data-distributions` grid with subgrid rows, so every
+  strip shares one column. Without lifetime it opens with
+  `gameDataUnrankedNote(items)`, the band's session note. It returns
+  `layout()`, which fits the width with `--game-data-scale`, then binary
+  searches `--game-data-strip` for the tallest strip whose content fits the
+  box's height, shrinking `--game-data-scale` only when 10 px strips
+  overflow. The content height is measured from the first child to the key:
+  the box's height comes from its column, and `scrollHeight` never reports
+  less than the box. When the height changed, `layout` redraws every strip
+  with `gameDataHistogram(row, false, stripPx)`, whose vertical units are px
+  (marks at full size from `GAME_DATA_STRIP_FULL_MARKS`, 26 px, up).
   `observeFit` reruns either view's layout on every resize.
 - Options: one `.game-data-controls` row under the chart view: the
-  `.game-data-pool-switch` buttons (`settings.gameDataBandPool`, hidden in
-  distributions mode), the "show distributions" and "show values"
-  checkboxes (`data-option`), and the "configure" and "session history"
-  openers (`data-view`, which returning focuses). Subviews start with a
-  `figcaption` back button and end with another.
+  `.game-data-pool-switch` from `poolSwitch(label, field, choices)`
+  ("points" for `settings.gameDataBandPool` under the band, "sections" for
+  `settings.gameDataDistributionPools` under the distributions), the "show
+  distributions" and "show values" checkboxes (`data-option`), and the
+  "configure" and "session history" openers (`data-view`, which returning
+  focuses). Subviews start with a `figcaption` back button and end with
+  another.
 - Chart linkage: `buildAverageScatter(spec, model, gameDataRows)` sets
   `data-measurement` from the spec's `measurementId` and adds
   `gameDataChartChip(row)` for the lifetime row; `renderRanks` awaits the
@@ -111,8 +123,8 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
   (one map; `gameDataMetricsFromStored` carries over the former
   `gameDataLifetimeMetrics`/`gameDataSessionMetrics`, a measurement shown in
   either staying shown), `gameDataBandPool`, `gameDataDistributions`,
-  and `gameDataShowValues`, all in the shared persistent
-  schema.
+  `gameDataDistributionPools`, and `gameDataShowValues`, all in the shared
+  persistent schema.
 - Session: `SessionScope.defaultId` ('today') is the one default: the
   settings schema and `GameData.defaultsForView` both read it.
   `buildSessionScopeSelect` builds the only picker

@@ -141,8 +141,9 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   `gameDataMetrics` (one selection for both comparisons since 2026-10-07,
   replacing separate lifetime and session selections; a measurement either
   of them showed stays shown), `gameDataShowValues`,
-  `gameDataBandPool` (default lifetime), and `gameDataDistributions`
-  (default off; the last two chosen on the chart itself) — the game data
+  `gameDataBandPool` (default lifetime), `gameDataDistributions`
+  (default off), and `gameDataDistributionPools` (default both; the last
+  three chosen on the chart itself) — the game data
   column (see [Game data](game-data.md)); `shownThings.sessionSummary`
   (default on) — the session summary table (see
   [Rank lists](rankings.md#session-summary-requested-and-built-2026-10-07)).
