@@ -237,21 +237,39 @@ function boardShareHelp(record, field, definition) {
   ];
 }
 
+function boardShareCalculation(record, field) {
+  const m = record.boardMetrics;
+  return 'This board: ' + m[field] + ' of ' + m.safeCells + ' safe cells = ' + formatBoardShare(boardFractionOf(record, field), 1) + '.';
+}
+
+// A share of safe cells moves in steps of one cell, and every board with
+// these settings has the same number of safe cells.
+function boardShareStep(record) {
+  return 1 / record.boardMetrics.safeCells;
+}
+
 // Shared by full tables and recent achievements, including every qualifying
 // earlier group. Summary groups follow time/day (0/1): workload (2–5),
 // clues (6–8), islands (9–10), then zeros/fractions (11–13). Within each
 // family, use the numeric measurement. Pool size never changes row order.
 // Matching one feature does not imply equal overall difficulty. A grouped
 // table names its group's range.
+// `explain(record)` is this board's worked line in the game data card, and
+// `example` names its miniature board demonstration (game-data-chart.js).
 const BOARD_METRIC_TABLES = [
-  { id: 'bv3', field: 'bv3', format: String, setting: 'exact3BV', priority: 13, summaryGroup: 2,
-    help: () => ['The fewest clicks that clear this board without flags: one for each zero region, plus one for each number that no zero region reveals.'] },
+  { id: 'bv3', field: 'bv3', format: String, setting: 'exact3BV', priority: 13, summaryGroup: 2, example: 'bv3',
+    help: () => ['The fewest clicks that clear this board without flags: one for each zero region, plus one for each number that no zero region reveals.'],
+    explain: (record) => 'This board needs ' + record.bv3 + ' such clicks.' },
   { id: 'zini', field: 'zini', format: String, setting: 'exactZiNi', priority: 14, summaryGroup: 3,
-    help: () => ['The clicks a standard greedy solve with flags and chords needs when every mine is known. Never more than 3BV.'] },
+    help: () => ['The clicks a standard greedy solve with flags and chords needs when every mine is known. Never more than 3BV.'],
+    explain: (record) => 'That solve of this board takes ' + record.zini + ' clicks; its 3BV is ' + record.bv3 + '.' },
   { id: 'maxAdjacent', field: 'maxAdjacent', format: String, setting: 'exactMaxNumber', priority: 15, summaryGroup: 6, higher: true,
-    help: () => ['Max number: the highest number on this board.'] },
+    example: 'maxAdjacent',
+    help: () => ['Max number: the highest number on this board.'],
+    explain: (record) => 'The highest number on this board is ' + record.maxAdjacent + '.' },
   { id: 'hzini', field: 'hzini', format: String, setting: 'exactHZiNi', priority: 16, summaryGroup: 4,
-    help: () => ['Human ZiNi: the actions a fixed human-style solve takes when every mine is known. It opens each zero region, then flags and chords around the clue that saves the most clicks, and reveals single cells when chording would cost extra. A reference count, not the true minimum.'] },
+    help: () => ['Human ZiNi: the actions a fixed human-style solve takes when every mine is known. It opens each zero region, then flags and chords around the clue that saves the most clicks, and reveals single cells when chording would cost extra. A reference count, not the true minimum.'],
+    explain: (record) => 'That solve of this board takes ' + record.hzini + ' actions; its 3BV is ' + record.bv3 + '.' },
   { id: 'workSpread', field: boardSpreadGroup,
     labelOf: (value) => BOARD_TRAIT_NAMES.workSpread + ' ' + (value - 0.25).toFixed(2) + '–' + (value + 0.25).toFixed(2) + ' cells',
     format: (value) => Number(value.toFixed(1)) + ' cells',
@@ -262,19 +280,25 @@ const BOARD_METRIC_TABLES = [
       'This board: ' + record.boardMetrics.workSpread.toFixed(3) + ' cells. Its table holds boards from '
         + (boardSpreadGroup(record) - 0.25).toFixed(2) + ' cells up to, not including, '
         + (boardSpreadGroup(record) + 0.25).toFixed(2) + ' cells.',
-    ] },
+    ],
+    explain: (record) => 'This board’s work points sit ' + record.boardMetrics.workSpread.toFixed(3)
+      + ' cell widths from their center, as a root mean square.' },
   { id: 'zeroOneShare', field: (win) => boardShareGroup(win, 'zeroOpenedZeroOneCells'),
     format: (value) => formatBoardShare(value, 1),
     rawValue: (record) => boardFractionOf(record, 'zeroOpenedZeroOneCells'), higher: true,
     labelOf: (value) => BOARD_TRAIT_NAMES.zeroOneShare + ' ' + value + '%', setting: 'zeroOneShareTable', priority: 18, summaryGroup: 12,
+    example: 'zeroOneShare', step: boardShareStep,
     help: (record) => boardShareHelp(record, 'zeroOpenedZeroOneCells',
-      'Share of safe cells showing 0 or 1 after opening every zero region and nothing else. Covered ones do not count.') },
+      'Share of safe cells showing 0 or 1 after opening every zero region and nothing else. Covered ones do not count.'),
+    explain: (record) => boardShareCalculation(record, 'zeroOpenedZeroOneCells') },
   { id: 'zeroOpeningCoverage', field: (win) => boardShareGroup(win, 'zeroOpenedCells'),
     format: (value) => formatBoardShare(value, 1),
     rawValue: (record) => boardFractionOf(record, 'zeroOpenedCells'), higher: true,
     labelOf: (value) => BOARD_TRAIT_NAMES.zeroOpeningCoverage + ' ' + value + '%', setting: 'zeroOpeningTable', priority: 19, summaryGroup: 13,
+    example: 'zeroOpeningCoverage', step: boardShareStep,
     help: (record) => boardShareHelp(record, 'zeroOpenedCells',
-      'Zero-opening coverage: the share of safe cells uncovered by opening every zero region, including the numbers on their borders.') },
+      'Zero-opening coverage: the share of safe cells uncovered by opening every zero region, including the numbers on their borders.'),
+    explain: (record) => boardShareCalculation(record, 'zeroOpenedCells') },
 ];
 
 function boardMetricCandidates(referenceWins, wins) {
@@ -288,6 +312,9 @@ function boardMetricCandidates(referenceWins, wins) {
       higher: spec.higher === true,
       setting: spec.setting,
       help: spec.help,
+      explain: spec.explain,
+      example: spec.example,
+      step: spec.step,
       dedupePriority: spec.priority,
       summaryOrder: [spec.summaryGroup, value],
       wins: rows,
@@ -342,6 +369,8 @@ function boardShapeCandidates(referenceWins, wins) {
       id: 'islands-' + count, measurementId: 'islandCount',
       trait: BOARD_TRAIT_NAMES.islandCount, rawValue: (record) => record.islandCount, higher: false,
       help: () => ['Groups of touching mines on this board, diagonals included.'],
+      explain: (record) => 'The mines on this board form ' + record.islandCount + ' such groups.',
+      example: 'islandCount',
       format: String,
       summaryOrder: [9, count],
       label: BOARD_TRAIT_NAMES.islandCount + ' ' + count,
@@ -355,6 +384,8 @@ function boardShapeCandidates(referenceWins, wins) {
       id: 'largest-island-' + size, measurementId: 'largestIsland',
       trait: BOARD_TRAIT_NAMES.largestIsland, rawValue: (record) => record.largestIsland, higher: true,
       help: () => ['Mines in the largest group of touching mines, diagonals included.'],
+      explain: (record) => 'This board’s largest group holds ' + record.largestIsland + ' mines.',
+      example: 'largestIsland',
       format: String,
       summaryOrder: [10, size],
       label: BOARD_TRAIT_NAMES.largestIsland + ' ' + size,
@@ -368,6 +399,8 @@ function boardShapeCandidates(referenceWins, wins) {
       id: 'zeros-' + count, measurementId: 'zeroCount',
       trait: BOARD_TRAIT_NAMES.zeroCount, rawValue: (record) => record.zeroCount, higher: true,
       help: () => ['Safe cells with no adjacent mines.'],
+      explain: (record) => record.zeroCount + ' safe cells on this board have no adjacent mine.',
+      example: 'zeroCount',
       format: String,
       summaryOrder: [11, count],
       label: BOARD_TRAIT_NAMES.zeroCount + ' ' + count,
@@ -684,10 +717,13 @@ function buildRecentPlacements(record, wins, referenceMs, markReferenceRecord = 
 //-------SESSION SUMMARY: COMPUTATION (pure; tests extract this span)-------
 
 // The session summary (docs/product/rankings.md "Session summary"): for each
-// board type played in the session window, its games and wins, and the
-// session's best time with that time's rank among the type's wins so far. A
-// board type is one history key (board, play mode, and generator). Rows
+// board type played in the session window, its games and wins, the
+// session's best time with that time's rank among the type's wins so far,
+// and the session's mean of each SESSION_SUMMARY_MEANS measurement over the
+// wins that measured it (`means[id]`: {value, measured}, null without one).
+// A board type is one history key (board, play mode, and generator). Rows
 // follow difficultyKeys (board keys in difficulty order), then other keys.
+const SESSION_SUMMARY_MEANS = ['time', 'bvPerSecond', 'ioe'];
 function sessionSummaryRows(historyByKey, from, to, difficultyKeys) {
   const rows = [];
   for (const [key, records] of Object.entries(historyByKey)) {
@@ -700,7 +736,12 @@ function sessionSummaryRows(historyByKey, from, to, difficultyKeys) {
       best = { record: wins[0], total: lifetime.length,
         rank: lifetime.filter((r) => compareRankedWins(r, wins[0]) < 0).length + 1 };
     }
-    rows.push({ key, latest: session[session.length - 1], games: session.length, wins: wins.length, best });
+    const means = Object.fromEntries(SESSION_SUMMARY_MEANS.map((id) => {
+      const spec = GameData.metrics.find((m) => m.id === id);
+      const values = wins.map((r) => spec.value(r)).filter(Number.isFinite);
+      return [id, values.length ? { value: values.reduce((sum, v) => sum + v, 0) / values.length, measured: values.length } : null];
+    }));
+    rows.push({ key, latest: session[session.length - 1], games: session.length, wins: wins.length, best, means });
   }
   const order = (key) => {
     const index = difficultyKeys.indexOf(key.split('@')[0]);
@@ -711,14 +752,18 @@ function sessionSummaryRows(historyByKey, from, to, difficultyKeys) {
 
 //-------SESSION SUMMARY: DISPLAY-------
 
-// The type name matches the result summary line: board, mode, generator.
-function sessionSummaryTypeLabel(row) {
+// A type's board, then its variant: the play mode unless it is the default
+// Standard, and the generator unless it is the default. The variant has its
+// own column, so variants line up and the usual case shows the board alone.
+function sessionSummaryTypeParts(row) {
   const [board, mode] = row.key.split('@');
   const [size, mines] = board.split('/');
   const [width, height] = size.split('x').map(Number);
-  return [boardDisplayLabelOf({ width, height, mines: Number(mines) }), playModeLabel(mode.split('+')[0]),
-    row.latest.generator === undefined ? null : BoardGenerators.displayLabel(row.latest.generator)]
-    .filter((part) => part !== null).join(' · ');
+  const modeId = mode.split('+')[0];
+  return { board: boardDisplayLabelOf({ width, height, mines: Number(mines) }),
+    variant: [modeId === 'standard' ? null : playModeLabel(modeId),
+      row.latest.generator === undefined ? null : BoardGenerators.displayLabel(row.latest.generator)]
+      .filter((part) => part !== null).join(' · ') };
 }
 
 // `record` is the game just finished, whose best-time chip says "this";
@@ -736,8 +781,9 @@ function buildSessionSummary(record, referenceMs) {
   const heading = document.createElement('h4');
   heading.appendChild(chartHelpButton([
     'Games, wins, and win rate for every board type played in the session (' + choice.label
-      + ', the one page-wide session chosen at the upper left). A board type is one size, mine count, mode, and generator.',
+      + ', the one page-wide session chosen at the upper left). A board type is one size, mine count, mode, and generator; the mode is named only when it is not Standard, the generator only when it is not the default.',
     'Best is the session’s fastest win of that type. Its lifetime rank compares it with every win of that type so far; among equal times the earlier finish ranks first.',
+    'Mean time, mean 3BV/s, and mean IOE average the session’s wins of that type, each over the wins that measured it, as game data defines them; for the board just played they are the session baseline for its time, 3BV/s, and IOE.',
   ], 'session'));
   box.appendChild(heading);
   const rows = sessionSummaryRows(history, from, to, Object.values(DIFFICULTIES).map(boardKeyOf));
@@ -763,9 +809,18 @@ function buildSessionSummary(record, referenceMs) {
     grid.appendChild(node);
   };
   const rate = (wins, games) => Math.round(100 * wins / games) + '%';
-  line('session-summary-head', ['board type', 'games', 'wins', 'win rate', 'best', 'lifetime rank']
-    .map((text) => cell('', text)));
-  for (const row of rows) {
+  const parts = rows.map(sessionSummaryTypeParts);
+  const variants = parts.some((part) => part.variant !== '');
+  const typeCells = (board, variant) => variants
+    ? [cell('session-summary-type', board), cell('session-summary-type session-summary-variant', variant)]
+    : [cell('session-summary-type', board)];
+  const meanSpecs = SESSION_SUMMARY_MEANS.map((id) => GameData.metrics.find((m) => m.id === id));
+  grid.style.gridTemplateColumns = 'repeat(' + ((variants ? 7 : 6) + meanSpecs.length) + ', auto)';
+  const typeHead = cell('', 'board type');
+  if (variants) typeHead.style.gridColumn = 'span 2';
+  line('session-summary-head', [typeHead, ...['games', 'wins', 'win rate', 'best', 'lifetime rank',
+    ...meanSpecs.map((spec) => 'mean ' + spec.name)].map((text) => cell('', text))]);
+  rows.forEach((row, index) => {
     const rank = cell('session-summary-rank-cell', '');
     let best = cell('session-summary-number', '');
     if (row.best !== null) {
@@ -779,15 +834,17 @@ function buildSessionSummary(record, referenceMs) {
       best = cell('session-summary-number' + (isMarkless(row.best.record) ? ' markless-time' : ''),
         (row.best.record.timeMs / 1000).toFixed(3) + 's');
     }
-    line('session-summary-row', [cell('session-summary-type', sessionSummaryTypeLabel(row)),
+    line('session-summary-row', [...typeCells(parts[index].board, parts[index].variant),
       cell('session-summary-number', String(row.games)), cell('session-summary-number', String(row.wins)),
-      cell('session-summary-number', rate(row.wins, row.games)), best, rank]);
-  }
+      cell('session-summary-number', rate(row.wins, row.games)), best, rank,
+      ...meanSpecs.map((spec) => cell('session-summary-number', row.means[spec.id] === null ? '' : spec.format(row.means[spec.id].value)))]);
+  });
   if (rows.length > 1) {
     const games = rows.reduce((sum, row) => sum + row.games, 0);
     const wins = rows.reduce((sum, row) => sum + row.wins, 0);
-    line('session-summary-total', [cell('session-summary-type', 'all'), cell('session-summary-number', String(games)),
-      cell('session-summary-number', String(wins)), cell('session-summary-number', rate(wins, games)), cell('', ''), cell('', '')]);
+    line('session-summary-total', [...typeCells('all', ''), cell('session-summary-number', String(games)),
+      cell('session-summary-number', String(wins)), cell('session-summary-number', rate(wins, games)), cell('', ''), cell('', ''),
+      ...meanSpecs.map(() => cell('', ''))]);
   }
   box.appendChild(grid);
   return box;

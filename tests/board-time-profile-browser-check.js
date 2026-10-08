@@ -74,15 +74,20 @@ const { chromium } = require(process.argv[2]);
       await drawProfileFixture();
     });
     await bandReady();
-    assert.equal(await profile.locator('h4').first().textContent(), 'game data');
+    assert.equal(await profile.locator('figcaption, h4').count(), 0, 'the chart starts with its data, no heading');
     assert.deepEqual(await profile.locator('.game-data-side-title').allTextContents(), ['your perf', 'board traits']);
+    assert.deepEqual(await profile.locator('.game-data-controls').evaluate((row) => [...row.children]
+      .map((child) => child.matches('.game-data-pool-switch') ? 'points' : child.textContent.trim())),
+    ['points', 'show distributions', 'show values', 'configure', 'session history'], 'every option in one row at the bottom');
     assert.equal(await profile.locator('.game-data-row[data-side="board"]').count(), 9);
     assert.equal(await profile.locator('.game-data-row[data-side="performance"]').count(), 8,
       'one row per measurement, its pools side by side');
     assert.deepEqual(await profile.locator('.game-data-column-heads[data-side="performance"] > span').allTextContents(),
       ['', 'value', 'session', 'lifetime']);
     assert.deepEqual(await profile.locator('.game-data-column-heads[data-side="board"] > span').allTextContents(),
-      ['boards', '', 'value']);
+      ['', '', 'value'], 'no "boards" head');
+    assert.deepEqual(await profile.locator('.game-data-row button').evaluateAll((buttons) =>
+      [...new Set(buttons.map((button) => getComputedStyle(button).cursor))]), ['default'], 'never the help cursor');
     assert.equal(await profile.locator('.game-data-row[data-measurement="bv3"] .game-data-value').textContent(), '75');
     assert.equal(await profile.locator('.game-data-row[data-measurement="zeroOpeningCoverage"] .game-data-name').textContent(),
       'zero-opening coverage');
@@ -103,9 +108,12 @@ const { chromium } = require(process.argv[2]);
         const band = el.querySelector('.game-data-band');
         const column = el.closest('#game-data-column, #game-sidebar');
         const columnStyle = getComputedStyle(column);
+        const scrolls = (node) => node.scrollWidth > node.clientWidth + 1 || node.scrollHeight > node.clientHeight + 1;
         return {
           host: column.id,
-          overflow: band.scrollWidth > band.clientWidth + 1 && getComputedStyle(band).overflowX === 'auto',
+          overflow: scrolls(band) || [el, ...el.querySelectorAll('*')].some((node) =>
+            /auto|scroll/.test(getComputedStyle(node).overflow) && scrolls(node)),
+          scale: Number(band.style.getPropertyValue('--game-data-scale')),
           width: bounds.width, height: bounds.height,
           columnSlack: column.id === 'game-data-column'
             ? column.getBoundingClientRect().bottom - bounds.bottom
@@ -116,14 +124,19 @@ const { chromium } = require(process.argv[2]);
             .map((cell) => cell.dataset.pool),
           nameWeight: getComputedStyle(el.querySelector('.game-data-row .game-data-name')).fontWeight,
           valueWeight: getComputedStyle(el.querySelector('.game-data-row .game-data-value')).fontWeight,
+          numberWeights: [...new Set([...el.querySelectorAll('.game-data-row .game-data-pct, .game-data-decile')]
+            .map((cell) => getComputedStyle(cell).fontWeight))],
+          sizes: ['.game-data-name', '.game-data-value'].map((name) =>
+            parseFloat(getComputedStyle(el.querySelector('.game-data-row ' + name)).fontSize)),
           blocks: [...el.querySelectorAll('.game-data-block')].map((block) => {
             const bar = block.querySelector('.game-data-bar').getBoundingClientRect();
             const deciles = [...block.querySelectorAll('.game-data-decile')].map((label) => parseInt(label.textContent, 10));
+            const center = (node) => { const r = node.getBoundingClientRect(); return r.left + r.width / 2; };
             return {
               barWidth: bar.width,
               leaders: block.querySelectorAll('.game-data-leader').length,
-              title: [...block.querySelectorAll('.game-data-side-title')].map((title) => title.getBoundingClientRect().left),
-              heads: [...block.querySelectorAll('.game-data-column-heads')].map((head) => head.getBoundingClientRect().left),
+              title: [...block.querySelectorAll('.game-data-side-title')].map(center),
+              heads: [...block.querySelectorAll('.game-data-column-heads')].map(center),
               rows: [...block.querySelectorAll('.game-data-row')].map((row) => {
                 const rect = row.getBoundingClientRect();
                 const dot = row.nextElementSibling.getBoundingClientRect();
@@ -138,18 +151,22 @@ const { chromium } = require(process.argv[2]);
         };
       });
       assert.equal(layout.host, { 1920: 'game-data-column' }[width] ?? 'game-sidebar', width + 'px game data host');
-      // Below the narrowest plan the band scrolls inside its own box rather
-      // than shortening names or hiding values; only 320px gets there.
-      assert.equal(layout.overflow, width === 320, width + 'px band overflow');
+      // Below the narrowest plan the band shrinks as a whole rather than
+      // scrolling, shortening names, or hiding values.
+      assert.equal(layout.overflow, false, width + 'px nothing in game data scrolls');
+      assert.equal(layout.scale < 1, width === 320, width + 'px only the narrowest width scales the band: ' + layout.scale);
       assert.equal(layout.nameWeight, '400');
-      assert.equal(layout.valueWeight, '700', 'values outweigh their names');
+      assert.equal(layout.valueWeight, '400', 'numbers are never bold');
+      assert.deepEqual(layout.numberWeights, ['400'], 'percentages and bar labels are never bold');
+      assert(layout.sizes[1] > layout.sizes[0], 'values outsize their names: ' + layout.sizes);
       assert(layout.hiddenPools.every((pool) => pool === 'session'),
         width + 'px only the unplotted percentage column may yield: ' + JSON.stringify(layout.hiddenPools));
       for (const block of layout.blocks) {
-        assert.equal(block.barWidth, 32);
+        assert(Math.abs(block.barWidth - 32 * layout.scale) < 0.6, width + 'px bar width ' + block.barWidth);
         assert.equal(block.leaders, block.rows.length, 'every row has a leader');
-        assert.deepEqual(block.title, block.heads, 'side titles start at their columns');
-        assert(block.rows.every((row) => row.height < 20 && (layout.overflow || row.inside)),
+        assert(block.title.every((center, i) => Math.abs(center - block.heads[i]) <= 1),
+          width + 'px side titles center over their columns: ' + JSON.stringify([block.title, block.heads]));
+        assert(block.rows.every((row) => row.height < 20 && row.inside),
           width + 'px rows stay one line inside the chart: ' + JSON.stringify(block.rows));
         for (const side of ['performance', 'board']) {
           const rows = block.rows.filter((row) => row.side === side).sort((a, b) => a.top - b.top);
@@ -169,9 +186,15 @@ const { chromium } = require(process.argv[2]);
     await zeros.focus();
     const card = page.locator('.chart-help-tip .game-data-card');
     assert.equal(await card.locator('.game-data-card-title').innerText(), 'zeros 59');
-    assert.deepEqual(await card.locator('.game-data-card-ranks > span').allTextContents(), ['boards', 'all 50 boards equal', '50%']);
+    assert.equal(await card.getAttribute('data-pool'), 'lifetime', 'the card follows the points switch');
+    assert.equal(await card.locator('.game-data-card-standing').innerText(),
+      'lifetime: All 50 boards so far with these board settings have the same value, so it sits at 50%.');
     assert((await card.innerText()).includes('Safe cells with no adjacent mines.'));
+    assert.equal(await card.locator('.game-data-card-calculation').innerText(), '59 safe cells on this board have no adjacent mine.');
+    assert.equal(await card.locator('.game-data-example-cell').count(), 48, 'a board trait shows its example board');
+    assert((await card.locator('.game-data-example p').innerText()).startsWith('Example: 21 zeros'));
     assert.equal(await card.locator('svg.game-data-histogram').count(), 1, 'the card draws the distribution');
+    assert.equal(await card.locator('.game-data-histogram-better').textContent(), 'better →', 'more zeros is the preferred end');
     assert(await page.locator('.chart-help-tip').evaluate((el) => {
       const r = el.getBoundingClientRect();
       return el.matches(':popover-open') && el.contains(document.elementFromPoint(r.left + 8, r.top + 8));
@@ -187,11 +210,12 @@ const { chromium } = require(process.argv[2]);
       { metricId: 'maxAdjacent', name: 'max number', rank: 142, total: 283, percentile: 50, valueText: '5' });
     assert.equal(comparisons.find((row) => row.metricId === 'zeroOpeningCoverage').percentile, 50);
     assert.equal(comparisons.find((row) => row.metricId === 'zeroOneShare').valueText, '60%');
-    const help = profile.getByRole('button', { name: 'About game data', exact: true });
+    const help = profile.getByRole('button', { name: 'About board traits', exact: true });
     const before = await profile.boundingBox();
     await help.focus();
     assert(await page.locator('.chart-help-tip').isVisible());
-    assert((await page.locator('.chart-help-tip').textContent()).includes('this board’s traits ranked against every earlier board'));
+    assert((await page.locator('.chart-help-tip').textContent()).includes('This board’s traits ranked against the earlier boards'),
+      'the side titles carry the removed heading’s help');
     assert.deepEqual(await profile.boundingBox(), before, 'help does not reflow the chart');
     await help.evaluate((button) => button.blur());
     await page.mouse.move(0, 0);
@@ -234,9 +258,23 @@ const { chromium } = require(process.argv[2]);
     await bandReady();
     assert.equal(await page.evaluate(() => settings.gameDataBandPool), 'session');
     assert.equal(await profile.locator('.game-data-pool-switch [aria-pressed="true"]').textContent(), 'session');
-    assert.equal(await profile.locator('.game-data-column-heads [data-pool="session"]').evaluate((el) => el.classList.contains('plotted')), true);
+    assert.equal(await profile.locator('.game-data-column-heads[data-side="performance"] [data-pool="session"]')
+      .evaluate((el) => el.classList.contains('plotted')), true);
     assert.equal(Math.round(Number(await timeRow.getAttribute('data-percentile'))) + '%',
       await timeRow.locator('[data-pool="session"]').textContent(), 'the session switch plots session standings');
+    // In session mode every card shows the session: its standing, its games
+    // (one dot each for a small pool), and its counts.
+    await timeRow.locator('button').hover();
+    const sessionCard = page.locator('.chart-help-tip .game-data-card');
+    assert.equal(await sessionCard.getAttribute('data-pool'), 'session');
+    assert((await sessionCard.locator('.game-data-card-standing').first().innerText()).startsWith('session: '),
+      await sessionCard.locator('.game-data-card-standing').first().innerText());
+    assert((await sessionCard.locator('.game-data-card-standing').first().innerText()).includes('this session (last hour)'));
+    assert.equal(await sessionCard.locator('.game-data-histogram-tick').count(), 0, 'no lifetime ticks in a session card');
+    assert.equal(await sessionCard.locator('.game-data-histogram-dot').count(), 3, 'the session’s 3 wins, one dot each');
+    assert((await sessionCard.innerText()).includes('Dots: your 3 wins this session (last hour), one per game'));
+    assert((await sessionCard.innerText()).includes('also, last 24 hours:'), 'time keeps its separate 24-hour rank');
+    await page.mouse.move(0, 0);
     await profile.getByRole('button', { name: 'lifetime', exact: true }).click();
     await bandReady();
     assert.equal(Math.round(Number(await timeRow.getAttribute('data-percentile'))) + '%', lifetimeBefore);
@@ -254,14 +292,16 @@ const { chromium } = require(process.argv[2]);
       [...new Set(strips.map((strip) => Math.round(strip.getBoundingClientRect().left)))]);
     assert.equal(stripLefts.length, 1, 'all sections line up their strips: ' + JSON.stringify(stripLefts));
     await profile.screenshot({ path: '/tmp/game-data-distributions.png' });
+    assert.equal(await profile.locator('.game-data-distributions').evaluate((el) =>
+      el.scrollHeight <= el.clientHeight + 1 && el.scrollWidth <= el.clientWidth + 1), true, 'distributions fit without scrolling');
     await profile.getByLabel('show distributions', { exact: true }).uncheck();
     await bandReady();
-    await profile.getByLabel('show actual value', { exact: true }).uncheck();
+    await profile.getByLabel('show values', { exact: true }).uncheck();
     await bandReady();
     assert.equal(await profile.locator('.game-data-row .game-data-value:visible').count(), 0);
     assert.equal(await timeRow.locator('.game-data-name').innerText(), 'time');
     assert.equal(await page.evaluate(() => settings.gameDataShowValues), false);
-    await profile.getByLabel('show actual value', { exact: true }).check();
+    await profile.getByLabel('show values', { exact: true }).check();
     await bandReady();
     assert.equal(await profile.locator('.game-data-row .game-data-value:visible').count(), 17);
     await profile.getByRole('button', { name: 'configure', exact: true }).click();
@@ -371,7 +411,7 @@ const { chromium } = require(process.argv[2]);
       'the board-trait group stays on distribution');
     await page.screenshot({ path: '/tmp/chart-groups.png', fullPage: true });
     await bandReady();
-    await profile.getByLabel('show actual value', { exact: true }).uncheck();
+    await profile.getByLabel('show values', { exact: true }).uncheck();
     await page.getByLabel('session', { exact: true }).selectOption('past30min');
     await page.reload();
     await page.waitForFunction(() => preferenceUIReady);

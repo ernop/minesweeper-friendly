@@ -290,7 +290,7 @@ body.problems-running #problems-header { display: none; }
 .problems-help {
   font-size: 12px;
   font-weight: bold;
-  cursor: help;
+  cursor: default;
 }
 
 /* Ladders: the game data chart's 0-100% band as a time scale, fastest at the

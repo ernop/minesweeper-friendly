@@ -73,7 +73,15 @@ function assertEq(name, actual, want) {
   assertEq('higher largest island is the preferred end', of(highRows, 'largestIsland').percentile, 0);
   assertEq('fewer islands stay preferred', of(highRows, 'islandCount').percentile, 0);
   assertEq('higher 0–1 share stays preferred', of(highRows, 'zeroOneShare').percentile, 0);
-  assertEq('a share axis labels values as shares', of(highRows, 'zeroOneShare').distribution.labels[0].text, '10%');
+  const shareAxis = of(highRows, 'zeroOneShare').distribution;
+  assertEq('a share axis labels round shares', shareAxis.labels.map((label) => label.text).join(' '), '20% 40% 60% 80%');
+  assertEq('a share of safe cells bins whole cells', shareAxis.step + ' ' + shareAxis.perBin, 0.01 + ' 2');
+  assertEq('its key names the cell step', shareAxis.binText, 'one bar per 2 possible values (one cell in 100 is 1%)');
+  assertEq('a board trait also ranks against the session’s boards',
+    highRows.filter((r) => r.metricId === 'zeroOneShare').map((r) => r.scope).join(' '), 'lifetime session');
+  assertEq('a board trait’s card shows this board’s arithmetic', of(highRows, 'zeroOneShare').calculation,
+    'This board: 80 of 100 safe cells = 80%.');
+  assertEq('a board trait names its example board', of(highRows, 'islandCount').example, 'islandCount');
   assertEq('single board has no comparison rows', boardTraitRankProfile(current, comparisons, [current], 'today').length, 0);
   assertEq('no board profile for a loss', boardTraitRankProfile({ ...current, outcome: 'loss' }, comparisons, past, 'today').length, 0);
 }

@@ -171,14 +171,33 @@ middle? that's okay."
   Changing the one picker regenerates it in place.
 - One row per board type played in the session window. A board type is one
   history key: board size and mines, play mode, and generator with its
-  parameters, named as on the result summary line ("Beginner · Standard",
-  "Intermediate · Standard · Pink noise (spectral exponent 1, …)"). Columns:
-  board type, games, wins, win rate, best (the session's fastest win of that
-  type), and that time's lifetime rank among the type's wins so far ("2nd of
-  57", a standing-toned chip; light blue with "this" when the best is the
-  game just finished). Types without a session win leave best and rank
-  empty. Rows follow difficulty order, then other boards; an "all" row totals
-  games, wins, and win rate when more than one type was played.
+  parameters. Its name is the board ("Beginner", "Custom 20x20-60"), then,
+  in its own column so variants line up, the play mode unless it is the
+  default Standard and the generator unless it is the default
+  ("Uniform NG", "Pink noise (spectral exponent 1, …)"). The variant column
+  appears only when some row has one (creator 2026-10-08: "we must must
+  valign the 'Standard' aspect. actually, do we even need that? it's
+  default, how about just not having that?"). Columns: board type, games,
+  wins, win rate, best (the session's fastest win of that type), that time's
+  lifetime rank among the type's wins so far ("2nd of 57", a standing-toned
+  chip; light blue with "this" when the best is the game just finished),
+  mean time, mean 3BV/s, and mean IOE. Types without a session win leave
+  best, rank, and the means empty. Rows follow difficulty order, then other
+  boards; an "all" row totals games, wins, and win rate when more than one
+  type was played.
+- The means (creator 2026-10-08: "in this session info section, I think we
+  shall show the averages and/or other numerical values which are
+  referenced on the right side, my perf for this board") average the
+  session's wins of that type, each over the wins that measured it, with
+  game data's definitions and formats, so the row of the board just played
+  is the session baseline for game data's time, 3BV/s, and IOE. These three
+  were chosen of the nineteen performance measurements because they fit
+  beside the other columns and together describe a session's play: time is
+  what the best column ranks, 3BV/s is speed with the board's work factored
+  out, and IOE is the click economy that, with seconds per input, makes up
+  3BV/s (the training plan's stage 1 and stage 3 measures). With them the
+  table is about 505 px wide for one type, more than the 433 px beside a
+  Beginner board at 2560 px, so there it leads the tables under the board.
 - Ranks won in session stays its own table beside it; the summary does not
   repeat its rows.
 - Every row is one line. Numbers are bold, right-aligned tabular digits; the

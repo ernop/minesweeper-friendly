@@ -289,12 +289,15 @@ const { chromium } = require(process.argv[2]);
     // a light blue "this" when that best is the game just finished.
     const sessionSummary = await page.evaluate(async () => {
       const now = Date.now();
-      const game = (minutesAgo, outcome, timeMs) => ({ endedAt: now - minutesAgo * 60000, outcome, timeMs, flagsPlaced: 3 });
+      const game = (minutesAgo, outcome, timeMs) => ({ endedAt: now - minutesAgo * 60000, outcome, timeMs, flagsPlaced: 3,
+        bv3: 10, clicks: 10, wastedClicks: 2 });
       const current = game(0, 'win', 4100);
+      // A win from before no-op clicks were measured has no IOE.
+      const { wastedClicks, ...unmeasured } = game(10, 'win', 21000);
       history = {
         '9x9/10@standard': [game(60 * 24 * 40, 'win', 4000), game(50, 'loss', 900), game(40, 'win', 4500), current],
         '30x16/99@standard': [game(30, 'loss', 20000), game(20, 'loss', 30000)],
-        '16x16/40@standard+pink-noise(alpha=1,scale=12,contrast=2,stretch=0)': [{ ...game(10, 'win', 21000),
+        '16x16/40@standard+pink-noise(alpha=1,scale=12,contrast=2,stretch=0)': [{ ...unmeasured,
           generator: { id: 'pink-noise', params: { alpha: 1, scale: 12, contrast: 2, stretch: 0 } } }],
       };
       settings.sessionDefinition = 'pastHour';
@@ -317,23 +320,34 @@ const { chromium } = require(process.argv[2]);
       const hour = read();
       document.getElementById('session-definition-select').value = 'past10min';
       document.getElementById('session-definition-select').dispatchEvent(new Event('change'));
-      return { hour, short: read() };
+      const short = read();
+      history = { '9x9/10@standard': history['9x9/10@standard'] };
+      resultRanks.replaceChildren(buildSessionSummary(current, now));
+      const plain = [...resultRanks.querySelectorAll('.session-summary-head, .session-summary-row')]
+        .map((row) => [...row.children].map((cell) => cell.textContent));
+      return { hour, short, plain };
     });
     assert.equal(sessionSummary.hour.heading, 'session', 'only the picker names the window');
-    assert.deepEqual(sessionSummary.hour.head, ['board type', 'games', 'wins', 'win rate', 'best', 'lifetime rank']);
+    assert.deepEqual(sessionSummary.hour.head, ['board type', 'games', 'wins', 'win rate', 'best', 'lifetime rank',
+      'mean time', 'mean 3BV/s', 'mean IOE']);
     assert.deepEqual(sessionSummary.hour.rows, [
-      ['Beginner · Standard', '3', '2', '67%', '4.100s', '2nd this of 3'],
-      ['Intermediate · Standard · Pink noise (spectral exponent 1, feature size 12, contrast 2, stretch 0)', '1', '1', '100%', '21.000s', '1st of 1'],
-      ['Expert · Standard', '2', '0', '0%', '', ''],
-      ['all', '6', '3', '50%', '', ''],
-    ]);
+      ['Beginner', '', '3', '2', '67%', '4.100s', '2nd this of 3', '4.300s', '2.331', '0.833'],
+      ['Intermediate', 'Pink noise (spectral exponent 1, feature size 12, contrast 2, stretch 0)', '1', '1', '100%', '21.000s', '1st of 1',
+        '21.000s', '0.476', ''],
+      ['Expert', '', '2', '0', '0%', '', '', '', '', ''],
+      ['all', '', '6', '3', '50%', '', '', '', '', ''],
+    ], 'the default mode goes unnamed; a generator has its own aligned column; means average the session’s wins');
     assert.equal(sessionSummary.hour.thisColor, THIS_GAME);
     assert(sessionSummary.hour.rowHeights.every((height) => height < 20), 'summary rows stay one line');
     assert.deepEqual(sessionSummary.short.rows, [
-      ['Beginner · Standard', '1', '1', '100%', '4.100s', '2nd this of 3'],
-      ['Intermediate · Standard · Pink noise (spectral exponent 1, feature size 12, contrast 2, stretch 0)', '1', '1', '100%', '21.000s', '1st of 1'],
-      ['all', '2', '2', '100%', '', ''],
+      ['Beginner', '', '1', '1', '100%', '4.100s', '2nd this of 3', '4.100s', '2.439', '0.833'],
+      ['Intermediate', 'Pink noise (spectral exponent 1, feature size 12, contrast 2, stretch 0)', '1', '1', '100%', '21.000s', '1st of 1',
+        '21.000s', '0.476', ''],
+      ['all', '', '2', '2', '100%', '', '', '', '', ''],
     ]);
+    assert.deepEqual(sessionSummary.plain, [['board type', 'games', 'wins', 'win rate', 'best', 'lifetime rank', 'mean time', 'mean 3BV/s', 'mean IOE'],
+      ['Beginner', '1', '1', '100%', '4.100s', '2nd this of 3', '4.100s', '2.439', '0.833']],
+    'without a variant to name, the board stands alone in its column');
     assert.deepEqual(errors, []);
     console.log('Rank highlights: this-game rows, standing chips, session summary, percentage bands, full/compact tables, low/last/only results, history view, conditional board comparisons, stable numeric family ordering, contiguous summary rows, surrounding table flow, day-of-month headings, and three viewport widths passed.');
   } finally {

@@ -124,62 +124,92 @@ const GameData = (() => {
   const percent = (v) => Number((v * 100).toFixed(2)) + '%';
   const decimal = (v) => Number(v.toFixed(2)).toString();
   const perSecond = (field) => (r) => r.timeMs > 0 ? r[field] * 1000 / r.timeMs : undefined;
+  // The worked calculations below print this game's stored inputs.
+  const count = (n) => n.toLocaleString('en-US');
+  const plural = (n, word) => count(n) + ' ' + word + (n === 1 ? '' : 's');
+  const seconds = (r) => (r.timeMs / 1000).toFixed(3) + ' s';
+  const pixels = (r) => count(Math.round(r.mousePathPx)) + ' px of cursor travel';
   const metrics = [
     { id: 'time', name: 'time', higher: false, default: true,
       value: (r) => r.timeMs, format: (v) => (v / 1000).toFixed(3) + 's',
-      help: 'Time from your first click to the win. Equal times rank the earlier game first.' },
+      help: 'Seconds from your first click to the click that opened the last safe cell.',
+      explain: (r) => 'This game took ' + seconds(r) + ' on the game clock.' },
     { id: 'misclickRate', allOutcomes: true, name: 'misclick rate', higher: false, default: true,
       value: (r) => r.timeMs > 0 ? r.misclicks * 60000 / r.timeMs : undefined,
       format: (v) => decimal(v) + '/min',
-      help: 'Actions per minute that the visible board had already proved wrong, such as opening a proven mine or flagging a proven safe cell.' },
+      help: 'Misclicks per minute. A misclick is an action the visible board had already proved wrong: opening a cell proven to be a mine, or flagging a cell proven safe.',
+      explain: (r, params, v) => plural(r.misclicks, 'misclick') + ' ÷ ' + (r.timeMs / 60000).toFixed(3) + ' minutes = ' + decimal(v) + ' per minute.' },
     { id: 'fastclickGap', allOutcomes: true, name: 'fastclick gap', higher: false, default: true,
       value: (r) => r.fastclickGapMs, format: (v) => Math.round(v) + 'ms',
-      help: 'Median time between board-changing actions made while the cursor was moving (within 100 ms before), counting gaps up to 1 second. Flags are timed at the right press, left clicks at their release.' },
+      help: 'The median gap between consecutive board-changing actions made while the cursor was moving (it moved in the 100 ms before), counting gaps up to 1 second. Flags are timed at the right press, left clicks at release.',
+      explain: (r) => 'Half of this game’s qualifying gaps were shorter than ' + Math.round(r.fastclickGapMs) + ' ms and half longer.' },
     { id: 'bvPerSecond', name: '3BV/s', higher: true, default: true,
       value: (r) => r.timeMs > 0 ? bvPerSecond(r) : undefined,
-      format: (v) => v.toFixed(3), help: '3BV per second. 3BV is the fewest clicks that clear the board without flags.' },
+      format: (v) => v.toFixed(3),
+      help: '3BV divided by seconds: how much of the board’s minimum work you cleared per second. 3BV is the fewest clicks that clear the board without flags.',
+      explain: (r, params, v) => r.bv3 + ' 3BV ÷ ' + seconds(r) + ' = ' + v.toFixed(3) + ' 3BV per second.' },
     { id: 'clickRate', allOutcomes: true, name: 'click rate', higher: true, default: true,
       value: perSecond('clicks'), format: (v) => v.toFixed(2) + '/s',
-      help: 'Board-changing clicks per second: reveals, flags, flag removals, and chords.' },
+      help: 'Board-changing clicks per second: reveals, flags, flag removals, and chords. Clicks that changed nothing are not counted.',
+      explain: (r, params, v) => plural(r.clicks, 'board-changing click') + ' ÷ ' + seconds(r) + ' = ' + v.toFixed(2) + ' per second.' },
     { id: 'efficiency', name: 'efficiency', higher: true, default: false,
       value: efficiencyOf, format: percent,
-      help: '3BV divided by your board-changing clicks. Chording can push it above 100%.' },
+      help: '3BV divided by your board-changing clicks. 100% means as many clicks as the board’s 3BV; chords that open several cells at once can push it above 100%.',
+      explain: (r, params, v) => r.bv3 + ' 3BV ÷ ' + plural(r.clicks, 'board-changing click') + ' = ' + percent(v) + '.' },
     { id: 'noopRate', allOutcomes: true, name: 'no-op rate', higher: false, default: true,
       value: perSecond('wastedClicks'), format: (v) => v.toFixed(2) + '/s',
-      help: 'Clicks per second that changed nothing, such as chording an unsatisfied number or clicking a flag.' },
+      help: 'Clicks per second that changed nothing, such as chording a number whose mines are not all flagged, or clicking a flag.',
+      explain: (r, params, v) => plural(r.wastedClicks, 'click') + ' that changed nothing ÷ ' + seconds(r) + ' = ' + v.toFixed(2) + ' per second.' },
     { id: 'pathPer3bv', name: 'path / 3BV', higher: false, default: false,
       value: (r) => r.bv3 > 0 ? r.mousePathPx / r.bv3 : undefined,
       format: (v) => Number(v.toFixed(1)) + 'px',
-      help: 'Cursor travel per unit of 3BV.' },
+      help: 'How far the cursor moved, in screen pixels, per unit of the board’s 3BV.',
+      explain: (r, params, v) => pixels(r) + ' ÷ ' + r.bv3 + ' 3BV = ' + Number(v.toFixed(1)) + ' px per 3BV.' },
     { id: 'correctness', allOutcomes: true, name: 'correctness', higher: true, default: true,
       value: (r) => r.clicks + r.wastedClicks > 0 ? r.clicks / (r.clicks + r.wastedClicks) : undefined,
-      format: percent, help: 'Share of your clicks that changed the board. A wrong flag still counts as a change.' },
+      format: percent, help: 'The share of your clicks that changed the board. Clicks that changed nothing lower it; a wrong flag still counts as a change.',
+      explain: (r, params, v) => r.clicks + ' board-changing ÷ (' + r.clicks + ' + ' + r.wastedClicks + ' that changed nothing) = ' + percent(v) + '.' },
     { id: 'ioe', name: 'IOE', higher: true, default: false,
       value: ioeOf, format: (v) => v.toFixed(3),
-      help: '3BV divided by all your clicks, including clicks that changed nothing.' },
+      help: '3BV divided by all your clicks, including the clicks that changed nothing.',
+      explain: (r, params, v) => r.bv3 + ' 3BV ÷ (' + r.clicks + ' board-changing + ' + r.wastedClicks + ' that changed nothing) = ' + v.toFixed(3) + '.' },
     { id: 'ziniEfficiency', name: 'ZiNi efficiency', higher: true, default: false,
-      value: ziniEfficiencyOf, format: percent, help: 'ZiNi divided by your board-changing clicks. ZiNi is the click count of a standard greedy flag-and-chord solve of this board.' },
+      value: ziniEfficiencyOf, format: percent, help: 'ZiNi divided by your board-changing clicks. ZiNi is the click count of a standard greedy flag-and-chord solve of this board.',
+      explain: (r, params, v) => r.zini + ' ZiNi ÷ ' + plural(r.clicks, 'board-changing click') + ' = ' + percent(v) + '.' },
     { id: 'hziniEfficiency', name: 'HZiNi efficiency', higher: true, default: false,
-      value: hziniEfficiencyOf, format: percent, help: 'HZiNi divided by your board-changing clicks. HZiNi is the action count of a fixed human-style solve; beating it gives more than 100%.' },
+      value: hziniEfficiencyOf, format: percent, help: 'HZiNi divided by your board-changing clicks. HZiNi is the action count of a fixed human-style flag-and-chord solve of this board; beating it gives more than 100%.',
+      explain: (r, params, v) => r.hzini + ' HZiNi ÷ ' + plural(r.clicks, 'board-changing click') + ' = ' + percent(v) + '.' },
     { id: 'ios', name: 'IOS', higher: true, default: false,
-      value: iosOf, format: (v) => v.toFixed(3), help: 'log(3BV) ÷ log(seconds). Only defined for games longer than 1 second.' },
+      value: iosOf, format: (v) => v.toFixed(3), help: 'log(3BV) ÷ log(seconds), a speed index that grows more slowly than 3BV/s. Only defined for games longer than 1 second.',
+      explain: (r, params, v) => 'log ' + r.bv3 + ' ÷ log ' + (r.timeMs / 1000).toFixed(3) + ' = ' + Math.log(r.bv3).toFixed(3)
+        + ' ÷ ' + Math.log(secondsOf(r)).toFixed(3) + ' = ' + v.toFixed(3) + ' (natural logarithms; any base gives the same ratio).' },
     { id: 'stnb', name: 'STNB', higher: true, default: false,
-      value: stnbOf, format: (v) => v.toFixed(1), help: 'Speed score adjusted for board difficulty, comparable across beginner, intermediate, and expert. Not defined on other boards or in Endgame drill.' },
+      value: stnbOf, format: (v) => v.toFixed(1), help: 'A speed score adjusted for board difficulty, so beginner, intermediate, and expert compare: the level’s constant (36, 162, 435) ÷ (seconds^1.7 ÷ 3BV). Not defined on other boards or in Endgame drill.',
+      explain: (r, params, v) => {
+        const constant = stnbConstantOf(params), t = (r.timeMs / 1000).toFixed(3);
+        return constant + ' ÷ (' + t + '^1.7 ÷ ' + r.bv3 + ') = ' + constant + ' ÷ ' + (Math.pow(secondsOf(r), 1.7) / r.bv3).toFixed(2)
+          + ' = ' + v.toFixed(1) + '.';
+      } },
     { id: 'mouseSpeed', allOutcomes: true, name: 'mouse speed', higher: true, default: true,
       value: perSecond('mousePathPx'), format: (v) => Math.round(v) + 'px/s',
-      help: 'Cursor travel per second of play, pauses included.' },
+      help: 'How far the cursor moved, in screen pixels, per second of play, pauses included.',
+      explain: (r, params, v) => pixels(r) + ' ÷ ' + seconds(r) + ' = ' + Math.round(v) + ' px per second.' },
     { id: 'pathPerClick', allOutcomes: true, name: 'path / click', higher: false, default: false,
       value: (r) => r.clicks > 0 ? r.mousePathPx / r.clicks : undefined,
-      format: (v) => Number(v.toFixed(1)) + 'px', help: 'Cursor travel per board-changing click.' },
+      format: (v) => Number(v.toFixed(1)) + 'px', help: 'How far the cursor moved, in screen pixels, per board-changing click.',
+      explain: (r, params, v) => pixels(r) + ' ÷ ' + plural(r.clicks, 'board-changing click') + ' = ' + Number(v.toFixed(1)) + ' px per click.' },
     { id: 'cadenceSpread', allOutcomes: true, name: 'cadence spread', higher: false, default: false,
       value: (r) => r.cadenceSpread, format: (v) => v.toFixed(2) + '×',
-      help: 'How uneven your click timing is: the interquartile range of the gaps between all presses, divided by their median. 0 is perfectly even.' },
+      help: 'How uneven your click timing is: the width of the middle half of the gaps between all presses (the interquartile range) divided by their median. 0 is perfectly even.',
+      explain: (r, params, v) => 'The middle half of this game’s press gaps spanned ' + v.toFixed(2) + ' times their median gap.' },
     { id: 'unusedMarkShare', name: 'unused flag share', higher: false, default: true,
       value: (r) => r.flagsPlaced > 0 ? r.unusedCorrectFlags / r.flagsPlaced : undefined,
-      format: percent, help: 'Correct flags that no chord ever used, as a share of all flags you placed.' },
+      format: percent, help: 'Correct flags that no chord ever used, as a share of all flags you placed.',
+      explain: (r, params, v) => plural(r.unusedCorrectFlags, 'correct flag') + ' no chord used ÷ ' + plural(r.flagsPlaced, 'flag') + ' placed = ' + percent(v) + '.' },
     { id: 'flagsWithoutMultiCellChord', name: 'flags no multi-cell chord used', higher: false, default: true,
       value: (r) => r.flagsWithoutMultiCellChord, format: (v) => String(v),
-      help: 'Flags standing at the win that no chord opening two or more squares used. Each could have been one direct click, or nothing. Stage 1 of the training plan aims for 10 or fewer on Expert.' },
+      help: 'Flags standing at the win that no chord opening two or more cells used. Each could have been one direct click, or nothing. Stage 1 of the training plan aims for 10 or fewer on Expert.',
+      explain: (r) => 'Replaying this game’s inputs found ' + plural(r.flagsWithoutMultiCellChord, 'such flag') + ' at the win.' },
   ];
   // The creator's own selection (2026-09-23), compared since 2026-10-07 with
   // both lifetime and the session; time also against the last 24 hours.
@@ -189,7 +219,9 @@ const GameData = (() => {
   const poolValues = (pool, spec, params) => pool.filter((r) => spec.allOutcomes || r.outcome === 'win')
     .map((r) => spec.value(r, params)).filter(Number.isFinite);
   // `counted` names the population (wins, games, boards) and windowText its
-  // window, e.g. "so far".
+  // window, e.g. "so far". The standing sentence shows the percentage's
+  // arithmetic: the share of the other games that ranked better, a tie
+  // counting as half.
   function rankedRow(record, pool, spec, scope, params, counted, windowText) {
     const value = spec.value(record, params);
     if (!Number.isFinite(value)) return null;
@@ -197,51 +229,100 @@ const GameData = (() => {
       .filter((r) => Number.isFinite(r.value));
     const total = measured.length;
     if (total < 2) return null;
-    const better = measured.filter((r) => spec.higher ? r.value > value : r.value < value).length;
+    const strictlyBetter = measured.filter((r) => spec.higher ? r.value > value : r.value < value).length;
     const equal = measured.filter((r) => r.value === value).length;
     const time = spec.id === 'time';
-    const rank = time ? better + measured.filter((r) => r.value === value && r.record.endedAt < record.endedAt).length + 1
-      : better + (equal + 1) / 2;
+    const earlierEqual = time ? measured.filter((r) => r.value === value && r.record.endedAt < record.endedAt).length : 0;
+    const better = strictlyBetter + earlierEqual;
+    const tiedOthers = time ? 0 : equal - 1;
+    const rank = better + tiedOthers / 2 + 1;
     const allEqual = !time && equal === total;
     // Share of the other measured games that beat this one: the best is 0%, the worst 100%.
     const percentile = allEqual ? 50 : 100 * (rank - 1) / (total - 1);
-    const population = total + ' ' + counted + ' ' + windowText + ' with these board settings';
-    const tied = !time && equal > 1;
+    const others = total - 1;
+    const population = count(total) + ' ' + counted + ' ' + windowText + ' with these board settings';
+    const place = tiedOthers > 0 ? 'Tied ' + ordinalOf(better + 1) + '–' + ordinalOf(better + equal) : ordinalOf(rank);
+    const share = tiedOthers > 0
+      ? count(better) + ' of the ' + count(others) + ' others ranked better and ' + count(tiedOthers)
+        + ' tied, a tie counting as half: (' + count(better) + ' + ' + count(tiedOthers) + ' ÷ 2) ÷ ' + count(others)
+      : count(better) + ' of the ' + count(others) + ' others ranked better' + (earlierEqual > 0
+        ? ' (' + plural(earlierEqual, 'equal time') + ' set earlier counted as better)' : '') + ': ' + count(better) + ' ÷ ' + count(others);
     const standing = allEqual
       ? 'All ' + population + ' have the same value, so it sits at 50%.'
-      : (tied ? 'Tied for ranks ' + (better + 1) + '–' + (better + equal) : 'Rank ' + rank)
-        + ' of ' + population + '. ' + (spec.higher ? 'Higher' : 'Lower')
-        + ' values rank first; 0% is the best, and this sits at ' + Number(percentile.toFixed(1)) + '%.';
+      : place + ' of ' + population + '. ' + share + ' = ' + Number(percentile.toFixed(1)) + '%.';
     return { id: spec.id + '.' + scope, metricId: spec.id, scope, name: spec.name,
       value, valueText: spec.format(value), higher: spec.higher, side: 'performance',
-      rank, firstRank: tied ? better + 1 : rank, lastRank: tied ? better + equal : rank,
+      rank, firstRank: better + 1, lastRank: better + 1 + tiedOthers, better, tiedOthers,
       total, counted, allEqual, percentile, helpText: [spec.help, standing],
     };
   }
-  // The drawn axis of one measurement, shared by all its pools: one bin per
-  // value for integers spanning at most 60 values, otherwise 36 bins over the
-  // lifetime range trimmed to its 1st–99th percentiles. This game is always inside.
-  function axisOf(values, value) {
-    const sorted = values.slice().sort((a, b) => a - b);
-    const low = Math.min(sorted[0], value), high = Math.max(sorted[sorted.length - 1], value);
-    if (Number.isInteger(value) && sorted.every(Number.isInteger) && high - low <= 60) {
-      return { lo: low - 0.5, hi: high + 0.5, bins: high - low + 1, integer: true };
-    }
-    const at = (p) => sorted[Math.round(p * (sorted.length - 1))];
-    const lo = Math.min(at(0.01), value), hi = Math.max(at(0.99), value);
-    return lo === hi ? { lo: lo - 0.5, hi: hi + 0.5, bins: 1, integer: false } : { lo, hi, bins: 36, integer: false };
+  function ordinalOf(n) {
+    const rem100 = n % 100, rem10 = n % 10;
+    return count(n) + (rem100 >= 11 && rem100 <= 13 ? 'th' : rem10 === 1 ? 'st' : rem10 === 2 ? 'nd' : rem10 === 3 ? 'rd' : 'th');
   }
-  // At most five labeled axis values, whole values on a per-value axis.
-  function axisLabels(axis, format) {
-    if (!axis.integer) {
-      return [0, 1, 2, 3, 4].map((i) => axis.lo + i * (axis.hi - axis.lo) / 4)
-        .map((value) => ({ value, text: format(value) }));
+  // The drawn axis of one measurement, shared by all its pools. A discrete
+  // measurement takes only multiples of `step`: whole counts (step 1, found
+  // from the values) or a share of a fixed cell count (step 1 ÷ that count,
+  // declared by the measurement). Its bins are whole groups of possible
+  // values, one value per bin while at most 60 values are drawn, otherwise
+  // equally many values per bin for about 36 bins. Equal-width bins that
+  // ignored the values' spacing held 1 or 2 possible values alternately and
+  // drew a comb that was not in the data. Continuous measurements get 36
+  // bins. Either way the range is the lifetime range, trimmed to its
+  // 1st–99th percentiles when wider than 60 values; this game and the
+  // session's games (`inside`) are always inside.
+  const VALUE_BINS = 60, GROUPED_BINS = 36;
+  function axisOf(values, inside, declaredStep) {
+    const sorted = values.slice().sort((a, b) => a - b);
+    const at = (p) => sorted[Math.round(p * (sorted.length - 1))];
+    const least = Math.min(...inside), most = Math.max(...inside);
+    const step = declaredStep ?? ([...sorted, ...inside].every(Number.isInteger) ? 1 : undefined);
+    if (step === undefined) {
+      const lo = Math.min(at(0.01), least), hi = Math.max(at(0.99), most);
+      return lo === hi ? { lo: lo - 0.5, hi: hi + 0.5, bins: 1, step: null, perBin: null }
+        : { lo, hi, bins: GROUPED_BINS, step: null, perBin: null };
     }
-    const first = axis.lo + 0.5, last = axis.hi - 0.5;
-    const step = Math.max(1, Math.ceil((last - first) / 4));
-    const labels = [];
-    for (let value = first; value <= last; value += step) labels.push({ value, text: format(value) });
-    return labels;
+    const index = (v) => Math.round(v / step);
+    let first = Math.min(index(sorted[0]), index(least)), last = Math.max(index(sorted[sorted.length - 1]), index(most));
+    if (last - first + 1 > VALUE_BINS) {
+      first = Math.min(index(at(0.01)), index(least));
+      last = Math.max(index(at(0.99)), index(most));
+    }
+    const valueCount = last - first + 1;
+    const perBin = valueCount <= VALUE_BINS ? 1 : Math.ceil(valueCount / GROUPED_BINS);
+    const bins = Math.ceil(valueCount / perBin);
+    const start = first - Math.floor((bins * perBin - valueCount) / 2);
+    return { lo: (start - 0.5) * step, hi: (start + bins * perBin - 0.5) * step, bins, step, perBin };
+  }
+  // At most six labels at round values: the finest multiple of 1, 2, 2.5, or
+  // 5 times a power of ten that fits, whole values on a whole-count axis.
+  // Trailing zeros after a decimal point are dropped, so 2.000 reads 2.
+  function axisLabels(axis, format) {
+    const power = 10 ** Math.floor(Math.log10((axis.hi - axis.lo) / 4));
+    const multiples = (labelStep) => {
+      const ks = [];
+      for (let k = Math.ceil(axis.lo / labelStep - 1e-9); k * labelStep <= axis.hi + 1e-9; k++) ks.push(k);
+      return ks;
+    };
+    const labelStep = [1, 2, 2.5, 5, 10].map((m) => m * power)
+      .filter((s) => axis.step !== 1 || Number.isInteger(s)).find((s) => multiples(s).length <= 6);
+    return multiples(labelStep).map((k) => {
+      const value = Number((k * labelStep).toPrecision(12));
+      return { value, text: tidyNumber(format(value)) };
+    });
+  }
+  function tidyNumber(text) {
+    return text.replace(/(\.\d*?)0+(?=\D*$)/, '$1').replace(/\.(?=\D*$)/, '');
+  }
+  // What one bar covers, for the card's key.
+  function binText(axis, format) {
+    if (axis.step === 1 && axis.perBin === 1) return 'one bar per value';
+    if (axis.step === 1 && /\d$/.test(format(axis.perBin))) return 'one bar per ' + axis.perBin + ' consecutive values';
+    if (axis.step !== null && axis.step !== 1) {
+      return 'one bar per ' + (axis.perBin === 1 ? 'possible value' : axis.perBin + ' possible values')
+        + ' (one cell in ' + count(Math.round(1 / axis.step)) + ' is ' + format(axis.step) + ')';
+    }
+    return 'each bar spans ' + tidyNumber(format((axis.hi - axis.lo) / axis.bins));
   }
   // Counts per bin, and each bin's standing: the mean percentile of its games
   // (0 best; equal values share their mean rank, so a bin of ties stands
@@ -267,15 +348,24 @@ const GameData = (() => {
     return { ...axis, counts, standing, outside: below + above };
   }
   // Each pool's histogram uses the lifetime axis, so one measurement's strips
-  // line up; the lifetime row also carries the session games' values, drawn
-  // as ticks under its axis.
-  function addDistributions(poolRows, poolValuesByScope, sessionValues, format) {
+  // and both card modes share bins. A pool of at most DOT_POOL games also
+  // carries its values, so a card draws each game as its own dot. The
+  // lifetime row also carries what the card shows once: the session games'
+  // values, drawn as ticks under the lifetime axis, and this game's worked
+  // calculation. `step` is a declared spacing of possible values.
+  const DOT_POOL = 30;
+  function addDistributions(poolRows, poolValuesByScope, sessionValues, format, calculation, step) {
     const lifetime = poolRows.find((row) => row.scope === 'lifetime');
-    const axis = axisOf(poolValuesByScope.lifetime, lifetime.value);
+    const axis = axisOf(poolValuesByScope.lifetime, [lifetime.value, ...sessionValues], step);
     const labels = axisLabels(axis, format);
-    return poolRows.map((row) => ({ ...row,
-      distribution: { ...distribution(poolValuesByScope[row.scope], row.higher, axis), labels },
-      ...(row === lifetime ? { sessionValues } : {}) }));
+    const bars = binText(axis, format);
+    return poolRows.map((row) => {
+      const values = poolValuesByScope[row.scope];
+      return { ...row,
+        distribution: { ...distribution(values, row.higher, axis), labels, binText: bars,
+          ...(values.length <= DOT_POOL ? { values: values.slice().sort((a, b) => a - b) } : {}) },
+        ...(row === lifetime ? { sessionValues, calculation } : {}) };
+    });
   }
   function rows(record, records, preferences = defaultsForView, params) {
     if (record.outcome !== 'win' || !records.includes(record)) return [];
@@ -297,7 +387,8 @@ const GameData = (() => {
         .filter((row) => row !== null);
       if (poolRows.length === 0) continue;
       const valuesByScope = Object.fromEntries(pools.map(([scope, pool]) => [scope, poolValues(pool, spec, params)]));
-      result.push(...addDistributions(poolRows, valuesByScope, valuesByScope.session, spec.format));
+      result.push(...addDistributions(poolRows, valuesByScope, valuesByScope.session, spec.format,
+        spec.explain(record, params, spec.value(record, params))));
     }
     return result;
   }

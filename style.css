@@ -1583,13 +1583,15 @@ body.trial-offboard #game-frame {
   overflow-y: auto;
 }
 #page-layout.game-data-docked #game-sidebar { grid-column: 4; }
+/* Zero bases: the column's height, never the chart's content, sizes the
+   chart, so the band and distributions fit it instead of stretching it. */
 #game-data-column > .board-time-profile-host {
-  flex: 1 0 auto;
+  flex: 1 0 0;
   display: flex;
   flex-direction: column;
   min-height: 480px;
 }
-#game-data-column .board-time-profile { flex: 1 1 auto; height: auto; }
+#game-data-column .board-time-profile { flex: 1 1 0; min-height: 0; height: auto; }
 #game-sidebar[popover] { display: none; }
 #game-sidebar[popover]:popover-open {
   display: flex;
@@ -2442,54 +2444,51 @@ body.settings-page .return-to-game {
 }
 .board-time-profile h4 { margin: 0; font-size: 16px; font-weight: 400; color: #000000; }
 .board-time-profile .chart-help-label { font-weight: 400; }
-.board-time-profile figcaption h4 { margin-right: auto; }
-.board-time-profile figcaption h4 .chart-help-label { font-weight: 700; }
 .game-data-pool-switch { display: inline-flex; align-items: baseline; gap: 0; }
 .board-time-profile .game-data-pool-switch button {
-  padding: 1px 7px;
+  padding: 0 6px;
   border-radius: 0;
   border-color: #000000;
   background: #ffffff;
 }
 .board-time-profile .game-data-pool-switch button + button { border-left: 0; }
-.board-time-profile .game-data-pool-switch button[aria-pressed="true"] {
-  background: var(--this-game);
-  font-weight: 700;
-}
+.board-time-profile .game-data-pool-switch button[aria-pressed="true"] { background: var(--this-game); }
 
 /* The band: rows, column heads, bar, dots, and leaders are absolutely
    placed by buildGameDataBand from measured column widths. Every row is
-   one line; values lead in weight and size, names and heads stay black. */
+   one line. Values lead by size, never weight; names and heads stay black.
+   Text sizes are ems of the band's font, which --game-data-scale shrinks
+   so the band always fits its box and never scrolls. */
 .game-data-band {
   position: relative;
   flex: 1;
   min-height: 0;
-  overflow: auto;
-  overscroll-behavior: contain;
+  overflow: hidden;
+  font-size: calc(12px * var(--game-data-scale, 1));
 }
 .game-data-block { position: relative; flex-shrink: 0; }
 .game-data-measuring { position: relative; visibility: hidden; }
 .game-data-side-title {
   position: absolute;
-  font-size: 14px;
-  font-weight: 700;
-  line-height: 18px;
+  font-size: 1.1667em;
+  line-height: 1.2857em;
   white-space: nowrap;
 }
+.board-time-profile .game-data-side-title .chart-help-label { font-weight: 700; }
 .game-data-column-heads,
 .game-data-row > .chart-help-label {
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: max-content;
-  column-gap: 8px;
+  column-gap: calc(8px * var(--game-data-scale, 1));
   align-items: baseline;
   white-space: nowrap;
 }
 .game-data-column-heads {
   position: absolute;
-  font-size: 11px;
+  font-size: 0.9167em;
   font-weight: 700;
-  line-height: 14px;
+  line-height: 1.2727em;
 }
 .game-data-rule { position: absolute; border-top: 1px solid #000000; }
 .board-time-profile .game-data-row { position: absolute; display: block; margin: 0; }
@@ -2501,8 +2500,8 @@ body.settings-page .return-to-game {
   border-radius: 0;
   background: transparent;
   color: #000000;
-  font-size: 12px;
-  line-height: 16px;
+  font-size: 1em;
+  line-height: 1.3333em;
   text-align: left;
   text-decoration: none;
 }
@@ -2514,8 +2513,8 @@ body.settings-page .return-to-game {
 .game-data-name { text-align: left; }
 .game-data-value,
 .game-data-pct { text-align: right; font-variant-numeric: tabular-nums; }
-.game-data-value { font-size: 13px; font-weight: 700; }
-.game-data-pct.plotted { font-size: 13px; font-weight: 700; }
+.game-data-row .game-data-value,
+.game-data-row .game-data-pct.plotted { font-size: 1.0833em; }
 .game-data-block[data-orientation="around"] [data-side="board"] .game-data-pct { text-align: left; }
 .game-data-block[data-orientation="left"] [data-side="board"] .game-data-pct { order: 1; }
 .game-data-band[data-pool-columns="1"] .game-data-pct:not(.plotted) { display: none; }
@@ -2529,9 +2528,8 @@ body.settings-page .return-to-game {
   position: absolute;
   left: 0;
   width: 100%;
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 12px;
+  font-size: 0.8333em;
+  line-height: 1.2em;
   text-align: center;
   font-variant-numeric: tabular-nums;
 }
@@ -2550,47 +2548,76 @@ body.settings-page .return-to-game {
 }
 .game-data-unplotted { margin: 0 0 6px; font-size: 12px; }
 
-/* The distribution card, opened from a band or distributions row. */
-.chart-help-tip:has(> .game-data-card) { width: auto; max-width: none; }
-.game-data-card { display: flex; flex-direction: column; gap: 5px; width: 330px; color: #000000; }
-.game-data-card p { margin: 0; font-size: 11px; }
+/* The card, opened from a band or distributions row: definition, this
+   game's calculation, an example board for board traits, the pool's
+   standing, and its games. Numbers are regular weight; only the name and
+   each line's pool label are bold. */
+.chart-help-tip:has(> .game-data-card) { width: auto; max-width: calc(100vw - 12px); }
+.game-data-card { display: flex; flex-direction: column; gap: 6px; width: 330px; max-width: 100%; color: #000000; }
+.game-data-card p { margin: 0; font-size: 12px; line-height: 1.4; }
+.game-data-card p.game-data-card-key { font-size: 11px; }
 .game-data-card-title .game-data-name { font-size: 14px; font-weight: 700; }
-.game-data-card-title .game-data-value { font-size: 15px; }
-.game-data-card-ranks {
+.game-data-card-title .game-data-value { font-size: 15px; font-weight: 400; }
+.game-data-card-pool { font-weight: 700; }
+.game-data-example { display: flex; align-items: center; gap: 10px; }
+.game-data-example p { flex: 1; font-size: 11px; }
+.game-data-example-board {
   display: grid;
-  grid-template-columns: max-content max-content max-content;
-  column-gap: 10px;
-  font-size: 12px;
+  flex-shrink: 0;
+  border: 1px solid #808080;
 }
-.game-data-card-ranks .game-data-pct { font-weight: 700; }
+.game-data-example-cell {
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #a0a0a0;
+  background: #c0c0c0;
+  font: bold 11px/1 Arial, sans-serif;
+}
+.game-data-example-cell svg { width: 12px; height: 12px; display: block; }
+.game-data-example-cell.n1 { color: #0000ff; }
+.game-data-example-cell.n2 { color: #008000; }
+.game-data-example-cell.n3 { color: #ff0000; }
+.game-data-example-cell.n4 { color: #000080; }
+.game-data-example-cell.fill { background: #ffd84d; }
+.game-data-example-cell.fill-second { background: #ff9f43; }
+.game-data-example-cell.outline { border: 2px solid #000000; }
 .game-data-histogram { display: block; overflow: visible; }
-.game-data-histogram[data-size="card"] { width: 320px; height: 118px; }
-.game-data-histogram text { font: 700 11px Arial, Helvetica, sans-serif; fill: #000000; }
+.game-data-histogram[data-size="card"] { width: 100%; height: auto; aspect-ratio: 320 / 132; }
+.game-data-histogram text { font: 400 11px Arial, Helvetica, sans-serif; fill: #000000; }
+.game-data-histogram-dot { stroke: #000000; stroke-width: 0.6; }
 .game-data-histogram-axis,
 .game-data-histogram-tick { stroke: #000000; stroke-width: 1; vector-effect: non-scaling-stroke; }
 .game-data-histogram-this { stroke: var(--this-game-line); stroke-width: 3; vector-effect: non-scaling-stroke; }
 .game-data-histogram[data-size="strip"] .game-data-histogram-this { stroke-width: 2; }
 
 /* Distributions: one strip per measurement, sections per comparison pool,
-   all sections on one set of columns so their strips line up. */
+   all sections on one set of columns so their strips line up. Its layout
+   shortens --game-data-strip, then shrinks --game-data-scale, so the view
+   always fits its box and never scrolls. */
 .game-data-distributions {
   flex: 1;
   min-height: 0;
-  overflow: auto;
-  overscroll-behavior: contain;
+  overflow: hidden;
   display: grid;
-  grid-template-columns: max-content max-content minmax(80px, 1fr) max-content;
+  grid-template-columns: max-content max-content minmax(calc(80px * var(--game-data-scale, 1)), 1fr) max-content;
   align-content: start;
-  column-gap: 10px;
+  column-gap: calc(10px * var(--game-data-scale, 1));
+  font-size: calc(12px * var(--game-data-scale, 1));
 }
-.game-data-values-hidden .game-data-distributions { grid-template-columns: max-content minmax(80px, 1fr) max-content; }
+.game-data-values-hidden .game-data-distributions {
+  grid-template-columns: max-content minmax(calc(80px * var(--game-data-scale, 1)), 1fr) max-content;
+}
 .game-data-dist-section {
   grid-column: 1 / -1;
   display: grid;
   grid-template-columns: subgrid;
-  row-gap: 4px;
+  row-gap: clamp(1px, calc(var(--game-data-strip, 26px) * 0.15), 4px);
   align-items: center;
-  margin-bottom: 14px;
+  margin-bottom: clamp(4px, calc(var(--game-data-strip, 26px) * 0.54), 14px);
 }
 .game-data-dist-head,
 .board-time-profile .game-data-dist-row,
@@ -2601,10 +2628,10 @@ body.settings-page .return-to-game {
   align-items: center;
 }
 .game-data-dist-head { align-items: baseline; border-bottom: 1px solid #000000; }
-.game-data-dist-head .game-data-side-title { position: static; }
+.game-data-dist-head .game-data-side-title { position: static; font-weight: 700; }
 .game-data-dist-head .game-data-value,
 .game-data-dist-head .game-data-strip-head,
-.game-data-dist-head .game-data-pct { font-size: 11px; font-weight: 700; }
+.game-data-dist-head .game-data-pct { font-size: 0.9167em; font-weight: 700; }
 .game-data-strip-head { text-align: center; }
 .board-time-profile .game-data-dist-row > .chart-help-label {
   padding: 0;
@@ -2612,7 +2639,8 @@ body.settings-page .return-to-game {
   border-radius: 0;
   background: transparent;
   color: #000000;
-  font-size: 12px;
+  font-size: 1em;
+  line-height: 1.2;
   text-align: left;
   text-decoration: none;
   white-space: nowrap;
@@ -2622,9 +2650,9 @@ body.settings-page .return-to-game {
   background: var(--this-game);
   outline: 1px solid var(--this-game-line);
 }
-.game-data-strip { display: block; height: 26px; }
-.game-data-strip > svg { width: 100%; height: 26px; }
-.game-data-dist-key { grid-column: 1 / -1; margin: 0; font-size: 11px; }
+.game-data-strip { display: block; height: var(--game-data-strip, 26px); }
+.game-data-strip > svg { width: 100%; height: var(--game-data-strip, 26px); }
+.game-data-dist-key { grid-column: 1 / -1; margin: 0; font-size: 0.9167em; }
 
 /* A chart heading's copy of this game's band row, and the chart outline
    while its band row is hovered or focused. */
@@ -2658,25 +2686,25 @@ body.settings-page .return-to-game {
   flex-shrink: 0;
   padding-top: 5px;
 }
-.game-data-controls { border-top: 1px solid #d9e2e8; }
+/* The chart's options: one small wrapping row under the data. */
+.game-data-controls { gap: 3px 10px; padding-top: 3px; border-top: 1px solid #d9e2e8; font-size: 11px; }
+.board-time-profile .game-data-controls button:not(.chart-help) { padding: 0 6px; }
 .game-data-controls label { display: inline-flex; align-items: center; gap: 3px; }
 .game-data-controls input { margin: 0; }
 .game-data-config {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
+  flex: 1 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 10px 0;
+  gap: 8px;
+  padding: 8px 0;
 }
 .game-data-config table { border-collapse: collapse; width: 100%; }
-.game-data-config th, .game-data-config td { font-weight: 400; padding: 5px 2px; border-bottom: 1px solid #d9e2e8; text-align: center; }
+.game-data-config th, .game-data-config td { font-weight: 400; padding: 3px 2px; border-bottom: 1px solid #d9e2e8; text-align: center; }
 .game-data-config td:first-child, .game-data-config th:first-child { text-align: left; }
 .game-data-config th label { white-space: nowrap; }
 .game-data-config th input { margin-inline: 0 2px; }
 .game-data-config > button { align-self: flex-start; }
-.game-data-history { flex: 1; min-height: 0; overflow: auto; }
+.game-data-history { flex: 1 0 auto; }
 .game-data-history table { border-collapse: collapse; width: 100%; font-size: inherit; }
 .game-data-history caption { text-align: left; padding: 8px 0; }
 .game-data-history th, .game-data-history td { font-weight: 400; text-align: right; padding: 5px; border-bottom: 1px solid #d9e2e8; white-space: nowrap; }
@@ -2955,12 +2983,11 @@ body.settings-page .return-to-game {
 }
 .scatter-legend .legend-item { margin-left: 8px; }
 
-/* Session summary: one row per board type played in the session. Counts
-   and the best time are the values, so they lead in weight. */
-.session-summary-grid {
-  display: grid;
-  grid-template-columns: repeat(6, auto);
-}
+/* Session summary: one row per board type played in the session. Counts,
+   the best time, and the means are the values, so they lead in weight.
+   buildSessionSummary sets the column count: a variant column joins the
+   board column only when some type has a mode or generator to name. */
+.session-summary-grid { display: grid; }
 .session-summary-head > span {
   font-size: 11px;
   font-weight: bold;
@@ -3811,7 +3838,8 @@ body.vigilance-running #self-check-header {
   background: #ffffff;
   color: #000000;
   font: bold 10px/13px Arial, sans-serif;
-  cursor: help;
+  /* Not the question-mark help cursor, which the creator rejected. */
+  cursor: default;
   vertical-align: 2px;
 }
 .chart-help-label-wrap { margin-left: 0; }

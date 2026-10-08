@@ -73,6 +73,13 @@ this!"), specified where each lives:
   coverage", "islands", "flag" for placed flags), with grouped tables naming
   their range ([UI doctrine](docs/product/ui-doctrine.md),
   [per-game stats](docs/product/per-game-stats.md)).
+- Game data panel polish (creator review 2026-10-08, built the same day): no
+  heading, one options row under the data, centered side titles, no
+  "boards" head, regular-weight numbers, no scroll bars, no help cursor,
+  cards that work each calculation and follow the points switch, whole-value
+  histogram bins, and the session summary's means without the default mode
+  name ([game data](docs/product/game-data.md#position-and-presentation),
+  [session summary](docs/product/rankings.md#session-summary-requested-and-built-2026-10-07)).
 
 Still open:
 
@@ -90,6 +97,9 @@ Still open:
   production history the session summary (391 px) and ranks won (418 px)
   exceed the 379 px beside an Intermediate board, so both sit below it.
   Narrower blocks or a narrower game data column would put them beside it.
+  Since the session means were added (2026-10-08) the summary is about
+  505 px for one type and no longer fits beside a Beginner board (433 px)
+  either; ranks won still does.
 - **The 24-hour time comparison** (creator decision pending). Round 2 moved
   it from its own band row into the hover card and the distributions view,
   because the column has no room for a third percentage column.

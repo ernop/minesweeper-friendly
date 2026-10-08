@@ -90,7 +90,11 @@ go forward with this!"):
   won in session, kept in its table form, right of the board; the board in
   the middle ([Session summary](rankings.md#session-summary-requested-and-built-2026-10-07),
   [Layout](board-and-layout.md)). On the creator's 2560 x 970 viewport this
-  fills the area that was empty beside a Beginner board.
+  filled the area that was empty beside a Beginner board. Since 2026-10-08
+  the summary also shows the session's mean time, 3BV/s, and IOE per type;
+  that makes it too wide for the room left of a Beginner board at 2560, so
+  it leads the tables under the board there, while ranks won stays right of
+  the board.
 - Rank colors: green good, red bad, light blue for this game's row, no edge
   or podium ([Rank highlights](rankings.md#rank-highlights-built-2026-09-21-recolored-2026-10-07)).
 - Game data: uncolored labels in aligned columns, one row per measurement

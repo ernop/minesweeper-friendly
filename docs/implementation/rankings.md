@@ -92,15 +92,21 @@ Spec: [docs/product/rankings.md](../product/rankings.md). Index: [AGENTS.md](../
 - Session summary (2026-10-07; [spec](../product/rankings.md#session-summary-requested-and-built-2026-10-07)):
   `sessionSummaryRows(historyByKey, from, to, difficultyKeys)` (the pure span
   "SESSION SUMMARY: COMPUTATION") returns one row per history key with games
-  in the window: `{key, latest, games, wins, best}`, where `best` is the
-  session's fastest win (`compareRankedWins`) with its rank and total among
-  that key's wins up to the window's end. Rows follow `difficultyKeys`, then
-  other keys alphabetically. It is a linear filter over saved records, so it
-  runs on the page. `buildSessionSummary(record, referenceMs)` renders
+  in the window: `{key, latest, games, wins, best, means}`, where `best` is
+  the session's fastest win (`compareRankedWins`) with its rank and total
+  among that key's wins up to the window's end, and `means[id]` is
+  `{value, measured}` (or null) for each `SESSION_SUMMARY_MEANS` measurement
+  (`time`, `bvPerSecond`, `ioe`), averaged over the session wins whose
+  `GameData` value is finite. Rows follow `difficultyKeys`, then other keys
+  alphabetically. It is a linear filter over saved records, so it runs on
+  the page. `buildSessionSummary(record, referenceMs)` renders
   `.rank-list.session-summary` (heading "session", help naming the window)
-  with `sessionSummaryTypeLabel` (the result summary's board, mode, and
-  generator wording), a `.session-summary-rank` chip per best time, and an
-  "all" row for more than one type. It carries `data-session-scope-view` and
+  with `sessionSummaryTypeParts` (the board, and a variant naming a
+  non-Standard mode and a non-default generator, in its own
+  `.session-summary-variant` column only when some row has one; the grid's
+  column count is set inline), a `.session-summary-rank` chip per best
+  time, the three means in the catalog's formats, and an "all" row for more
+  than one type. It carries `data-session-scope-view` and
   rebuilds itself on `session-scope-change`, then calls
   `scheduleBoardLayout` so its side placement follows its new width.
   `renderRanks` appends it first in the table collection, gated by

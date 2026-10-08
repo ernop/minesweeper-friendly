@@ -98,8 +98,10 @@
         ranksWon.classList.contains('beside-board') === (rect(ranksWon).width <= sideRoom)
           && (!ranksWon.classList.contains('beside-board')
             || (Math.abs(rect(ranksWon).left - (frameRect.right + 16)) < 1 && Math.abs(rect(ranksWon).top - frameRect.top) < 1)));
-      if (width === 2560 && size === 'beginner') check(label + ': at the creator’s width both blocks sit beside a beginner board',
-        summary.classList.contains('beside-board') && ranksWon.classList.contains('beside-board'));
+      // With its session means the summary is wider than the room beside a
+      // beginner board at 2560 (2026-10-08), so only ranks won sits there.
+      if (width === 2560 && size === 'beginner') check(label + ': at the creator’s width ranks won sits beside a beginner board',
+        ranksWon.classList.contains('beside-board'));
       checks.push('INFO ' + label + ': main ' + Math.round(mainRect.width) + ', board ' + Math.round(frameRect.width)
         + ', summary ' + Math.round(rect(summary).width) + (summary.classList.contains('beside-board') ? ' beside' : ' below')
         + ', ranks won ' + Math.round(rect(ranksWon).width) + (ranksWon.classList.contains('beside-board') ? ' beside' : ' below'));

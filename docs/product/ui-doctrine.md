@@ -67,6 +67,20 @@ because they apply app-wide, not just where each was first stated.
 - Hover must not inject, swap, or reflow page content. Supplementary help
   may appear as an overlay tooltip on hover or keyboard focus without
   changing the layout; no action control may be reachable only by hovering.
+- No help affordance changes the pointer to the question-mark help cursor
+  (creator 2026-10-08, of the game data rows: "the mouse shall not change to
+  the '?' mark, cause I don't like that"). Requested for game data; applied
+  to every help label, (?) button, and the problems page's help, since the
+  reason given is the cursor itself. The pointer stays the default arrow.
+- Measurement explanations (creator 2026-10-08, extending "write them well
+  without clutter"): where a stat's card has room, it says what the number
+  is, works this game's calculation with its own numbers, shows how its
+  standing's percentage is computed, and may demonstrate a board concept on
+  a small example board ([Game data](game-data.md), hover card).
+- A data panel whose content can outgrow its box shrinks to fit rather than
+  growing a scroll bar when the creator asks for no scrolling there (game
+  data, 2026-10-08: "careful not to allow this part of the UI to gain any
+  kind of vscroll bar or hscroll bar").
 - Semantic labels are never shortened: when legend, key, series, color,
   region, or section text is the unique explanation of what a visual
   encoding means, render the complete wording. Never truncate it,
