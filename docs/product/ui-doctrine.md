@@ -89,6 +89,21 @@ because they apply app-wide, not just where each was first stated.
   open, after the data. It replaced the same day's "measurement
   explanations" rule (plain lead sentence, worked calculation, percentage
   arithmetic, example boards) ([Game data](game-data.md), hover card).
+- No narrated marks (creator 2026-10-08: "'Green line: this game. Ticks
+  under a lifetime or board strip: this session's games.' and similar
+  rather pointless text shall not appear in this project, please"). No
+  caption, key line, or tooltip says what a chart's marks are: which line,
+  dot, tick, bar, ring, or strip stands for what ("Green line: this game.",
+  "Ticks: this session's wins."), how much one dot or bar holds ("One dot
+  per win.", "Each bar spans 0.834s."), or what the axes are ("across is
+  the game's 3BV, up is its solve time"). This game's green is one
+  page-wide convention (above) and needs no key; titles and axis labels
+  name what is plotted. A legend for an arbitrary code still says what each
+  color or style means (the age palette, the trend lines' teal and blue,
+  the game-endings lines, the replay's buttons), and definitions and
+  caveats stay ("Semantic labels are never shortened", below).
+  `tests/chart-captions-test.js` searches every shipped file for the
+  narrating form.
 - A data panel whose content can outgrow its box shrinks to fit rather than
   growing a scroll bar when the creator asks for no scrolling there (game
   data, 2026-10-08: "careful not to allow this part of the UI to gain any

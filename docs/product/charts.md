@@ -45,8 +45,15 @@ at or below one second, and path ratios exclude zero denominators.
     HZiNi efficiency, and STNB. Their winrate would read 100% everywhere.
     Loss records carry clicks, path, rates, and board-shape facts, so the
     other specs stay measurable.
-- Each header also carries a (?) help button explaining the current mode
-  (see "Chart help buttons" under [Session stats](session-stats.md)).
+- Each header also carries a (?) help button (see "Chart help buttons"
+  under [Session stats](session-stats.md)) with only what the title and
+  axes leave open: in average and distribution modes the dot colors (the
+  win's age, or the age of the newest win at that value, keyed under the
+  relationship charts) and the trend lines (teal over all wins, blue over
+  today's); in winrate mode, that a value seen in only a game or two swings
+  to 0% or 100%. Since 2026-10-08 it no longer narrates the dots and axes
+  ("Every win is its own dot: across is …"; [UI doctrine](ui-doctrine.md),
+  "No narrated marks").
 - Trend lines (decided 2026-08-22, chosen by eye from a five-fit
   sampling): the Theil–Sen line y = a + b·x — b is the median slope over
   all point pairs, a the median of y − b·x. Chosen over least squares

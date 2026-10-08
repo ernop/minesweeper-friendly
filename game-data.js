@@ -220,7 +220,7 @@ const GameData = (() => {
     return { id: spec.id + '.' + scope, metricId: spec.id, scope, name: spec.name,
       value, valueText: spec.format(value), higher: spec.higher, side: 'performance',
       rank, firstRank: better + 1, lastRank: better + 1 + tiedOthers, better, tiedOthers,
-      total, counted, allEqual, percentile, definition: spec.help, standingText,
+      total, allEqual, percentile, definition: spec.help, standingText,
     };
   }
   function ordinalOf(n) {
@@ -281,21 +281,10 @@ const GameData = (() => {
   function tidyNumber(text) {
     return text.replace(/(\.\d*?)0+(?=\D*$)/, '$1').replace(/\.(?=\D*$)/, '');
   }
-  // What one bar covers, for the card's key. A declared step is one safe
-  // cell: only the board shares declare one.
-  function binText(axis, format) {
-    if (axis.step === 1 && axis.perBin === 1) return 'One bar per value.';
-    if (axis.step === 1 && /\d$/.test(format(axis.perBin))) return 'Each bar spans ' + axis.perBin + ' values.';
-    if (axis.step !== null && axis.step !== 1) {
-      return 'Each bar spans ' + (axis.perBin === 1 ? 'one safe cell' : axis.perBin + ' safe cells') + '.';
-    }
-    return 'Each bar spans ' + tidyNumber(format((axis.hi - axis.lo) / axis.bins)) + '.';
-  }
   // Counts per bin, and each bin's standing: the mean percentile of its games
   // (0 best; equal values share their mean rank, so a bin of ties stands
   // where each of them does), null for a bin without games. Values beyond
-  // the axis are counted in `outside`, never drawn into an edge bin, and
-  // still rank.
+  // the axis are never drawn into an edge bin, and still rank.
   function distribution(values, higher, axis) {
     const width = (axis.hi - axis.lo) / axis.bins;
     const counts = new Array(axis.bins).fill(0);
@@ -312,7 +301,7 @@ const GameData = (() => {
       if (counts[i] > 0) standing[i] = 100 * (better + (counts[i] - 1) / 2) / (values.length - 1);
       better += counts[i];
     }
-    return { ...axis, counts, standing, outside: below + above };
+    return { ...axis, counts, standing };
   }
   // Each pool's histogram uses the lifetime axis, so one measurement's strips
   // and both card modes share bins. A pool of at most DOT_POOL games also
@@ -324,11 +313,10 @@ const GameData = (() => {
     const lifetime = poolRows.find((row) => row.scope === 'lifetime');
     const axis = axisOf(poolValuesByScope.lifetime, [lifetime.value, ...sessionValues], step);
     const labels = axisLabels(axis, format);
-    const bars = binText(axis, format);
     return poolRows.map((row) => {
       const values = poolValuesByScope[row.scope];
       return { ...row,
-        distribution: { ...distribution(values, row.higher, axis), labels, binText: bars,
+        distribution: { ...distribution(values, row.higher, axis), labels,
           ...(values.length <= DOT_POOL ? { values: values.slice().sort((a, b) => a - b) } : {}) },
         ...(row === lifetime ? { sessionValues } : {}) };
     });

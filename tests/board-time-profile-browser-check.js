@@ -270,10 +270,12 @@ const { chromium } = require(process.argv[2]);
     assert.equal(await sessionCard.locator('.game-data-histogram-tick').count(), 0, 'no lifetime ticks in a session card');
     assert.equal(await sessionCard.locator('.game-data-histogram-dot').count(), 3, 'the session’s 3 wins, one dot each');
     assert.equal(await sessionCard.locator('.game-data-card-definition').count(), 0, 'time needs no definition');
-    assert((await sessionCard.innerText()).includes('One dot per win.'));
+    // No key narrates the marks (creator 2026-10-08: "Green line: this
+    // game. ..." and similar text shall not appear): the rank and the chart.
+    assert.deepEqual(await sessionCard.evaluate((card) => [...card.children].map((child) => child.tagName.toLowerCase())),
+      ['p', 'svg'], 'the card holds the rank and the chart, no key');
     assert(!(await sessionCard.innerText()).includes('24 hours'), 'no separate 24-hour rank: session and lifetime only');
-    assert(!/÷|=|settings|so far|This is|this session/.test(await sessionCard.innerText()), await sessionCard.innerText());
-    assert((await sessionCard.innerText()).includes('Green line: this game.'));
+    assert(!/÷|=|settings|so far|This is|this session|line:|Ticks|per win/.test(await sessionCard.innerText()), await sessionCard.innerText());
     assert.deepEqual(await sessionCard.locator('.game-data-histogram-this-edge, .game-data-histogram-this').evaluateAll((lines) =>
       lines.map((line) => getComputedStyle(line).stroke)), ['rgb(0, 0, 0)', 'rgb(57, 255, 20)'],
       'this game is the charts’ green line, edged in black');
@@ -300,7 +302,8 @@ const { chromium } = require(process.argv[2]);
           slack: view.clientHeight - (view.lastElementChild.getBoundingClientRect().bottom - view.firstElementChild.getBoundingClientRect().top),
           scrolls: view.scrollHeight > view.clientHeight + 1 || view.scrollWidth > view.clientWidth + 1,
           note: view.querySelector('.game-data-unplotted')?.textContent ?? null,
-          key: view.querySelector('.game-data-dist-key').textContent,
+          captions: [...view.children].filter((child) => !child.matches('.game-data-dist-section, .game-data-unplotted'))
+            .map((child) => child.textContent),
           ticks: view.querySelectorAll('.game-data-histogram-tick').length,
         };
       });
@@ -333,7 +336,7 @@ const { chromium } = require(process.argv[2]);
     assert.deepEqual(shown.heads, ['lifetime · lifetime', 'board traits · lifetime']);
     fillsBox(shown, 'lifetime');
     assert(shown.stripHeights[0] > bothStrip, 'fewer rows, taller strips: ' + shown.stripHeights[0] + ' px vs ' + bothStrip + ' px');
-    assert.equal(shown.key, 'Green line: this game. Ticks under a lifetime strip: this session’s games.');
+    assert.deepEqual(shown.captions, [], 'nothing but sections under the strips: no key');
     assert(shown.ticks > 0, 'lifetime strips tick the session’s games');
     // Removing measurements gives the rest their height.
     const lifetimeStrip = shown.stripHeights[0];
@@ -354,7 +357,7 @@ const { chromium } = require(process.argv[2]);
     await profile.getByRole('button', { name: 'session', exact: true }).click();
     shown = await distributionsShown('session');
     assert.deepEqual(shown.heads, ['session · session', 'board traits · session']);
-    assert.equal(shown.key, 'Green line: this game.');
+    assert.deepEqual(shown.captions, [], 'the note and sections only: no key');
     assert.equal(shown.ticks, 0);
     assert.match(shown.note, /^Not ranked in this session yet: ZiNi, .*zeros\. A session rank needs two measured games in the session window\.$/);
     fillsBox(shown, 'session');

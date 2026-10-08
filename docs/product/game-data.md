@@ -120,12 +120,8 @@ opens it over the band, never reflowing it. In order:
    fewer (touching dots stack), each colored by standing within that pool
    (green better, red worse); the this-game green line, edged in black,
    marks this game; "better →" or "← better" names the better end; the
-   lifetime card ticks the session's games under the axis. One line of key
-   follows: what one bar covers ("One bar per value.", "Each bar spans 4
-   values.", "Each bar spans 0.834s.", "Each bar spans 2 safe cells.") or
-   "One dot per win.", then "Ticks: this session's wins." on the lifetime
-   card, "Green line: this game." ("this board" for a board trait), and a
-   count of any games beyond the 1st–99th percentiles, which are not drawn.
+   lifetime card ticks the session's games under the axis. No key line
+   names the marks (removed 2026-10-08, below).
 3. Last, a definition, only where the name and unit leave the measurement
    open, and never opening with its name: misclick rate, fastclick gap,
    click rate, efficiency, no-op rate, correctness, IOE, ZiNi and HZiNi
@@ -145,6 +141,18 @@ board settings" and "this session (last hour)", the percentage arithmetic
 ("17 ÷ 123 = 13.8%"), and the "Chart below" line (hovering still outlines
 that chart). Every pool holds only games with this game's board settings,
 and the row already shows the name, value, and percentage.
+
+Removed later the same day (creator: "'Green line: this game. Ticks under a
+lifetime or board strip: this session's games.' and similar rather
+pointless text shall not appear in this project, please"): the card's key
+line ("One bar per value.", "Each bar spans 0.834s.", "One dot per win.",
+"Ticks: this session's wins.", "Green line: this game.") and the line under
+the distributions strips ("Green line: this game. Ticks under a lifetime
+strip: this session's games."). The key's last part, a count of games
+beyond the 1st–99th percentiles ("2 wins beyond the 1st–99th percentiles
+are not drawn."), went with it: the rank above the chart counts every game,
+and the count only described the drawing. The marks are unchanged
+([UI doctrine](ui-doctrine.md), "No narrated marks").
 
 The chosen pool is the points switch's: in session mode the rank, dots or
 bars, and their colors all come from this session's games with these board
@@ -205,8 +213,8 @@ vital, since that way i can see things more nicely"), built the same day:
   section's percentage head names its pool. (Until then the view always
   showed your perf against both pools and board traits against lifetime
   only.)
-- Only lifetime strips tick the session's games, and the key under the
-  strips mentions ticks only while a lifetime section is shown. With the
+- Only lifetime strips tick the session's games. No key under the strips
+  names the marks (removed 2026-10-08, Hover card above). With the
   session alone, measurements without a session rank are listed in the
   band's note above the strips ("Not ranked in this session yet: …")
   instead of vanishing.

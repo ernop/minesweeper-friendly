@@ -46,7 +46,7 @@ function assertEq(name, actual, want) {
   assertEq('the best board in the pool is 0%', zeros.percentile, 0);
   assertEq('the worst board in the pool is 100%', workload.percentile, 100);
   assertEq('a board trait has the same name as its table and chart', workload.name, '3BV');
-  assertEq('board traits count boards', workload.counted, 'boards');
+  assertEq('board traits count boards', workload.standingText, '3rd of 3 boards');
   assertEq('board trait distributions carry the session boards', workload.sessionValues.length, 3);
   const low = { outcome: 'win', endedAt: 1, maxAdjacent: 2, largestIsland: 3, islandCount: 12,
     boardMetrics: { version: 1, safeCells: 100, zeroOpenedCells: 20, zeroOpenedZeroOneCells: 10 } };
@@ -76,7 +76,6 @@ function assertEq(name, actual, want) {
   const shareAxis = of(highRows, 'zeroOneShare').distribution;
   assertEq('a share axis labels round shares', shareAxis.labels.map((label) => label.text).join(' '), '20% 40% 60% 80%');
   assertEq('a share of safe cells bins whole cells', shareAxis.step + ' ' + shareAxis.perBin, 0.01 + ' 2');
-  assertEq('its key names the cell step', shareAxis.binText, 'Each bar spans 2 safe cells.');
   assertEq('a board trait also ranks against the session’s boards',
     highRows.filter((r) => r.metricId === 'zeroOneShare').map((r) => r.scope).join(' '), 'lifetime session');
   assertEq('a self-evident trait’s card has no definition', of(highRows, 'maxAdjacent').definition, undefined);

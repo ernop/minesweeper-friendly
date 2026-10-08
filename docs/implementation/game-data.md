@@ -21,13 +21,14 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
   `scope` (`lifetime`, `session`), `name`, `value`, `valueText`,
   `rank`, `firstRank`/`lastRank` (a tie's span), `better` (other games
   ranked better, an equal time set earlier included), `tiedOthers` (other
-  games with an equal value; always 0 for time), `total`, `counted` (wins,
-  games, boards), `allEqual`, `percentile` (100 × (better + tiedOthers ÷ 2)
-  ÷ (total − 1), best 0%; 50 for constant non-time values), `definition`
-  (the catalog `help`, undefined for a self-evident measurement), and
-  `standingText`, the rank alone ("19th of 1,201 wins", "tied 3rd–5th of
-  56 games", "all 50 boards have this value"): no pool description and no
-  arithmetic (creator 2026-10-08).
+  games with an equal value; always 0 for time), `total`, `allEqual`,
+  `percentile` (100 × (better + tiedOthers ÷ 2) ÷ (total − 1), best 0%; 50
+  for constant non-time values), `definition` (the catalog `help`,
+  undefined for a self-evident measurement), and `standingText`, the rank
+  alone ("19th of 1,201 wins", "tied 3rd–5th of 56 games", "all 50 boards
+  have this value"), its population word `rankedRow`'s `counted` argument
+  (wins, games, boards): no pool description and no arithmetic (creator
+  2026-10-08).
   `boardTraitRankProfile` (game/game-data-chart.js) ranks this board's
   scalar traits against every earlier board and against the session's
   boards through the same `rankedRow`, side `board`, scopes `lifetime` and
@@ -44,11 +45,9 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
   always including this game and the session values. Each distribution has
   `lo`, `hi`, `bins`, `step` (null when continuous), `perBin`, `counts`,
   `standing` per bin (the mean percentile of the bin's games, ties sharing
-  their mean rank; null when empty), `outside` (values beyond the axis,
-  counted but never drawn into an edge bin), `labels` (at most six round
-  values, `axisLabels`), `binText` (what one bar covers, a sentence such as
-  "Each bar spans 4 values."), and, for a pool of
-  at most `DOT_POOL` (30) games, its sorted `values`. The lifetime row also
+  their mean rank; null when empty; values beyond the axis are never drawn
+  into an edge bin), `labels` (at most six round values, `axisLabels`),
+  and, for a pool of at most `DOT_POOL` (30) games, its sorted `values`. The lifetime row also
   carries `sessionValues` for the lifetime card's session ticks.
 - All of this runs in the analysis worker's `game-data` job
   (analysis-worker.js), which posts plain rows; the page never computes
@@ -77,9 +76,8 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
   one pool (the band passes the points switch's pool; a distributions row
   passes its section's) with only what the row does not show: the pool's
   label and `standingText` (`.game-data-card-standing`),
-  `gameDataHistogram(row, true)`, a one-line key (`binText` or "One dot per
-  win.", the session ticks, the green line, games not drawn), and last the
-  `definition` when there is one. The tip is the
+  `gameDataHistogram(row, true)`, and last the `definition` when there is
+  one; no key line (removed 2026-10-08). The tip is the
   one owned manual popover, so it never reflows the page. The chart chip's
   `title` is the same pool label and `standingText`. `gameDataHistogram`
   draws bars, or for a row whose distribution carries `values`, one dot per
@@ -95,9 +93,10 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
   `layout()`, which fits the width with `--game-data-scale`, then binary
   searches `--game-data-strip` for the tallest strip whose content fits the
   box's height, shrinking `--game-data-scale` only when 10 px strips
-  overflow. The content height is measured from the first child to the key:
-  the box's height comes from its column, and `scrollHeight` never reports
-  less than the box. When the height changed, `layout` redraws every strip
+  overflow. The content height is measured from the first child to the last
+  (the last section, whose bottom margin is zero, so nothing overflows
+  below it): the box's height comes from its column, and `scrollHeight`
+  never reports less than the box. When the height changed, `layout` redraws every strip
   with `gameDataHistogram(row, false, stripPx)`, whose vertical units are px
   (marks at full size from `GAME_DATA_STRIP_FULL_MARKS`, 26 px, up).
   `observeFit` reruns either view's layout on every resize.
@@ -139,8 +138,9 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
   descriptions or arithmetic, which measurements have definitions and how
   long they are, binning of whole and share values, labels), tests/recent-
   placements-test.js (board-trait pools, share bins, definitions),
-  tests/session-buckets-test.js, and tests/board-time-profile-browser-check.js
+  tests/session-buckets-test.js, tests/chart-captions-test.js (no shipped
+  text narrates chart marks), and tests/board-time-profile-browser-check.js
   (no heading, options row, centered titles, no scrolling at five widths,
   regular-weight numbers, no help cursor, cards in both pool modes opening
-  with the rank, dots, distributions fit, linkage, one picker,
-  configuration).
+  with the rank and holding no key, dots, distributions fit with nothing but
+  sections and the note, linkage, one picker, configuration).

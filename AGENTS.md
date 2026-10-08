@@ -133,7 +133,8 @@ in the same change. Implementation notes only map the spec onto code.
 App-wide UI rules (simplicity first, optional help must be useful and hidden
 behind a subtle tooltip affordance, options never more than one step deep
 and grouped in one place, hover never reflows page content,
-semantic legend/key labels are never shortened,
+semantic legend/key labels are never shortened, no text narrating what a
+chart's marks are ("Green line: this game."),
 layout stability, no distracting duplicate live values, clear ways in and out) live in
 [docs/product/ui-doctrine.md](docs/product/ui-doctrine.md) — read it before
 building or reshaping any surface.

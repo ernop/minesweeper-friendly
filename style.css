@@ -2557,7 +2557,6 @@ body.settings-page .return-to-game {
 .game-data-card { display: flex; flex-direction: column; gap: 6px; width: 330px; max-width: 100%; color: #000000; }
 .game-data-card p { margin: 0; font-size: 12px; line-height: 1.4; }
 .game-data-card p.game-data-card-standing { font-size: 14px; }
-.game-data-card p.game-data-card-key { font-size: 11px; }
 .game-data-card-pool { font-weight: 700; }
 .game-data-histogram { display: block; overflow: visible; }
 .game-data-histogram[data-size="card"] { width: 100%; height: auto; aspect-ratio: 320 / 132; }
@@ -2596,6 +2595,9 @@ body.settings-page .return-to-game {
   align-items: center;
   margin-bottom: clamp(4px, calc(var(--game-data-strip) * 0.54), 14px);
 }
+/* The layout measures the content to the last section's border box, so a
+   margin below it would overflow the box. */
+.game-data-dist-section:last-child { margin-bottom: 0; }
 .game-data-distributions > .game-data-unplotted { grid-column: 1 / -1; font-size: 1em; }
 .game-data-dist-head,
 .board-time-profile .game-data-dist-row,
@@ -2630,7 +2632,6 @@ body.settings-page .return-to-game {
 }
 .game-data-strip { display: block; height: var(--game-data-strip); }
 .game-data-strip > svg { width: 100%; height: var(--game-data-strip); }
-.game-data-dist-key { grid-column: 1 / -1; margin: 0; font-size: 0.9167em; }
 
 /* A chart heading's copy of this game's band row, and the chart outline
    while its band row is hovered or focused. */

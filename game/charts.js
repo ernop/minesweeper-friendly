@@ -571,28 +571,15 @@ function chartModeSelect(modeField) {
   return select;
 }
 
-function averageChartHelp(spec, mode) {
+// Only what the title and axes leave open: the colors' key and a caveat.
+function averageChartHelp(mode) {
   if (mode === 'winrate') {
-    return ['Every finished game \u2014 wins and losses \u2014 is grouped by '
-      + 'its ' + spec.label + ' value. Each dot\u2019s height is the '
-      + 'percentage of that group\u2019s games you won.',
-    'Values seen in only a game or two swing to 0% or 100% easily; trust '
-      + 'the middle of the chart, where the groups are big.'];
+    return 'Values seen in only a game or two swing to 0% or 100% easily; trust '
+      + 'the middle of the chart, where each value has many games.';
   }
-  if (mode === 'distribution') {
-    return ['Every win is its own dot: across is the game\u2019s '
-      + spec.label + ' value, up is that game\u2019s solve time in seconds. '
-      + 'Unlike the average view, this shows the full spread of times at '
-      + 'each value.',
-    'Dot color is the win\u2019s age (see the legend at the bottom of the '
-      + 'relationship charts); dashed lines are outlier-resistant trend '
-      + 'fits \u2014 teal over all wins, blue over today\u2019s.'];
-  }
-  return ['Wins are grouped by their ' + spec.label + ' value; each '
-    + 'dot\u2019s height is that group\u2019s average solve time in seconds.',
-  'Dot color is the group\u2019s newest win\u2019s age; dashed lines are '
-    + 'outlier-resistant Theil\u2013Sen trend fits \u2014 teal over all '
-    + 'wins, blue over today\u2019s only.'];
+  return (mode === 'distribution' ? 'Dot color is the win\u2019s age' : 'Dot color is the age of the newest win at that value')
+    + ' (see the legend at the bottom of the relationship charts). Dashed lines are outlier-resistant '
+    + 'Theil\u2013Sen trend fits: teal over all wins, blue over today\u2019s.';
 }
 
 // One property chart in the selected mode: "time by X" (bucket averages
@@ -627,7 +614,7 @@ function averageScatterData(spec, wins, allRecords, record, historyView, mode, r
   }
   return { points, currentIndex, referenceMs, yLabel,
     opts: { title: title + spec.label, yTickUnit: mode === 'winrate' ? '%' : 's',
-      help: averageChartHelp(spec, mode), xTickUnit: spec.xTickUnit, trimY: mode === 'distribution',
+      help: averageChartHelp(mode), xTickUnit: spec.xTickUnit, trimY: mode === 'distribution',
       ...(mode === 'winrate' ? {} : { trendLines: fitTrendLines(points.map((p) => [p.x, p.y]), todayPairs) }) } };
 }
 

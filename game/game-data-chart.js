@@ -235,8 +235,9 @@ function gameDataHistogram(row, card, stripHeight) {
 // The hover card for one pool, the one whose standing placed the row's point
 // (or whose strip was hovered). It holds only what the row and the panel do
 // not already show or say (creator 2026-10-08: "just cut all the fluff"):
-// the pool's rank, its games on the measurement's axis with a one-line key,
-// and, last, a definition where the name leaves the measurement open.
+// the pool's rank, its games on the measurement's axis, and, last, a
+// definition where the name leaves the measurement open. No key narrates the
+// marks (creator 2026-10-08).
 function fillGameDataCard(tip, item, scope) {
   const card = document.createElement('div');
   card.className = 'game-data-card';
@@ -253,14 +254,8 @@ function fillGameDataCard(tip, item, scope) {
       item.pools[poolScope].standingText);
     return node;
   };
-  const row = item.pools[scope], d = row.distribution;
-  const one = row.counted.slice(0, -1);
-  const key = [d.values !== undefined ? 'One dot per ' + one + '.' : d.binText,
-    ...(row.sessionValues ? ['Ticks: this session’s ' + row.counted + '.'] : []),
-    'Green line: this ' + (item.side === 'board' ? 'board' : 'game') + '.',
-    ...(d.outside ? [d.outside + ' ' + (d.outside === 1 ? one + ' beyond the 1st–99th percentiles is'
-      : row.counted + ' beyond the 1st–99th percentiles are') + ' not drawn.'] : [])];
-  card.append(standing(scope), gameDataHistogram(row, true), paragraph('game-data-card-key', key.join(' ')));
+  const row = item.pools[scope];
+  card.append(standing(scope), gameDataHistogram(row, true));
   if (row.definition) card.appendChild(paragraph('game-data-card-definition', row.definition));
   tip.appendChild(card);
 }
@@ -574,10 +569,6 @@ function buildGameDataDistributions(rows, pools) {
       element.appendChild(section);
     }
   }
-  const key = document.createElement('p');
-  key.className = 'game-data-dist-key';
-  key.textContent = 'Green line: this game.' + (pools.includes('lifetime') ? ' Ticks under a lifetime strip: this session’s games.' : '');
-  element.appendChild(key);
   let drawnHeight;
   const set = (strip, scale) => {
     element.style.setProperty('--game-data-strip', strip + 'px');
@@ -597,8 +588,9 @@ function buildGameDataDistributions(rows, pools) {
     const room = element.clientHeight, available = element.clientWidth;
     // The box's height never follows its content (its column sizes it), and
     // its scrollHeight never reports less than the box, so the content's own
-    // height is measured from its first child to the key.
-    const contentHeight = () => key.getBoundingClientRect().bottom - element.firstElementChild.getBoundingClientRect().top;
+    // height is measured from its first child to its last.
+    const contentHeight = () => element.lastElementChild.getBoundingClientRect().bottom
+      - element.firstElementChild.getBoundingClientRect().top;
     for (let pass = 0; pass < 4 && element.scrollWidth > available; pass++) {
       scale *= available / element.scrollWidth * 0.99;
       set(strip, scale);
