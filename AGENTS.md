@@ -181,10 +181,14 @@ the file path, plus the section heading when the file holds several.
   [docs/implementation/verification.md](docs/implementation/verification.md).
 - Research notes and external references: [reference/README.md](reference/README.md).
 - Promotion: `promo/PROMO.md` is the promotional page — player-facing pitch
-  only, nothing technical — with `promo/win-screen-2026-08-19.png` as its hero
-  image. Keep it free of implementation detail.
-  `promo/win-screen-2026-08-19-full-layout.png` (current layout: stats beside
-  the board, charts below) is the README's screenshot.
+  only, nothing technical — with `promo/win-screen-2026-10-08.png` (the board
+  and its tables after a win) as its hero image. Keep it free of
+  implementation detail. `promo/win-screen-2026-10-08-full-layout.png`
+  (current layout at 1920 x 1080: session stats left, board and tables
+  center, game data docked right) is the README's top screenshot; the
+  README's close-ups sit beside it in `promo/` under the same date. How they
+  were made: [verification](docs/implementation/verification.md), "README
+  and promo screenshots".
 - [2026-09-22 retained stash review](docs/stash-review-2026-09-22.md): recovered reporting work, superseded chart changes, and archived hosting proposal.
 
 ## Rules for agents
