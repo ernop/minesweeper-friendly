@@ -150,9 +150,10 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
 - New-player quiet start (decided 2026-09-26): someone arriving without a
   saved `showSessionStats` or `reportScope` gets session stats off and
   after-game action reports off (`none`). The left panel still shows the
-  session heading ("SESSION today"). Session charts and the loss-analysis
-  report stay available from settings, and the report ladder is also in
-  the after-game display controls. A value already saved stays as saved.
+  session heading ("SESSION today"). Session stats (since 2026-10-08 also
+  the switch-cost row) and the loss-analysis report stay available from
+  settings, and the report ladder is also in the after-game display
+  controls. A value already saved stays as saved.
   Live and after-game motion stats stay on.
 - The schema's `helpFile` "?" popover was removed with the caption purge
   (2026-08-23): the just-universe explanation already lives in the hint
