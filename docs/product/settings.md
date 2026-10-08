@@ -140,7 +140,7 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   digits / letters / dots for revealed counts (see [Board and chrome](board-and-layout.md));
   `gameDataMetrics` (one selection for both comparisons since 2026-10-07,
   replacing separate lifetime and session selections; a measurement either
-  of them showed stays shown), `gameDataDayTime`, `gameDataShowValues`,
+  of them showed stays shown), `gameDataShowValues`,
   `gameDataBandPool` (default lifetime), and `gameDataDistributions`
   (default off; the last two chosen on the chart itself) — the game data
   column (see [Game data](game-data.md)); `shownThings.sessionSummary`

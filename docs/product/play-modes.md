@@ -26,7 +26,7 @@ Beginner Standard win never appears on Beginner Uniform NG lists.
   `run`, `3BV`, and `time`. Each finished board adds one row in ranked deal
   order; a loss is named in its time cell. Only completed facts appear here:
   there is no second live timer or transient current-board row. The latest
-  completed run keeps the standard light-blue "me" background, including
+  completed run keeps the page-wide this-game green "me" background, including
   while the next board is underway.
   Two persistent 3BV → solve-time scatters sit below the board throughout
   play and after each result: "this challenge" contains wins completed since

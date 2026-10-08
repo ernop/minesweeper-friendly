@@ -110,9 +110,12 @@ blue = the one we just did so you can always see 'this' just-completed run";
 then ALSO coloring it and also saying THIS). keep color+this only"; then "no
 need to color the today number red. just making everything light blue for
 'this' is fine". The relative-age colors stay ("the age colorations to me
-seem fine").
+seem fine"). Creator direction 2026-10-08: "for charts, keep the green. and
+let's backport the green to replace blue as the 'this' pointer color": every
+light blue this-game mark became the charts' this-game dot color, the
+fluorescent seconds green (#39ff14).
 
-- The selected result's row is light blue (`--this-game`, #cfe5fa) across
+- The selected result's row is the this-game green (`--this-game`, #39ff14) across
   its rank, time, and age cells, in bold black; right after the game its age
   reads "this" (a 0-second age). That is its only mark: no left edge, no podium color,
   no standing tint on the row. The footer states its standing ("#18 of 124
@@ -180,7 +183,7 @@ middle? that's okay."
   default, how about just not having that?"). Columns: board type, games,
   wins, win rate, best (the session's fastest win of that type), that time's
   lifetime rank among the type's wins so far ("2nd of 57", a standing-toned
-  chip; light blue with "this" when the best is the game just finished),
+  chip; the this-game green with "this" when the best is the game just finished),
   mean time, mean 3BV/s, and mean IOE. Types without a session win leave
   best, rank, and the means empty. Rows follow difficulty order, then other
   boards; an "all" row totals games, wins, and win rate when more than one
@@ -277,7 +280,7 @@ middle? that's okay."
   still determine which rows exist. Rows remain contiguous across families,
   without white gaps or extra heading rows. Full-table order stays unchanged.
   Every reported rank is a chip in its standing tone; only the current
-  game's chip is light blue and says "this" (see Rank highlights).
+  game's chip is the this-game green and says "this" (see Rank highlights).
 - Gated by shownThings.recentPlacements (on by default).
 
 ## Relative age display
@@ -295,7 +298,7 @@ middle? that's okay."
   w = navy, mo = maroon, y = teal. The scatter legend uses the same
   colors. The chip is the creator's choice (2026-09-23): bold green on
   white had about 1.4:1 contrast.
-- Your own row is bold black on the light blue this-game color (see Rank
+- Your own row is bold black on the this-game green (see Rank
   highlights). That override replaces the seconds chip too.
 
 ## Streak lists

@@ -58,8 +58,9 @@ this!"), specified where each lives:
 - Session summary (wanted from the first mockup, whose verdict rows the
   creator rejected):
   [Session summary](docs/product/rankings.md#session-summary-requested-and-built-2026-10-07).
-- One standing scale, green better, red worse, and light blue only for this
-  game: [UI doctrine](docs/product/ui-doctrine.md) and
+- One standing scale, green better, red worse, and one this-game color (light
+  blue at first; since 2026-10-08 the charts' fluorescent green, which the
+  creator kept for charts and moved everywhere): [UI doctrine](docs/product/ui-doctrine.md) and
   [Rank highlights](docs/product/rankings.md#rank-highlights-built-2026-09-21-recolored-2026-10-07).
 - Game data rebuilt: one row per measurement in aligned columns, plain
   labels, the colored bar, the lifetime/session switch, the hover card with
@@ -86,15 +87,12 @@ this!"), specified where each lives:
 Still open:
 
 - **Color key** (proposed, not decided). One line keying the remaining
-  codes: the standing scale, light blue for this game, and age units.
+  codes: the standing scale, the this-game green, and age units.
 - **Data sufficiency** (proposed, not decided). Show a history chart once
   its pool has enough games and say so in one line; omit one-row "Only
   result" tables; fold motion diagnostics behind one button.
 - **Small pools** (proposed, not decided). With two session games every
   session standing is 0% or 100%; "2 of 2" wording or a minimum pool size.
-- **This game in charts** (open question). Charts mark this game with the age
-  palette's green seconds dot, while tables and game data mark it light
-  blue.
 - **Fit beside an Intermediate board at 2560** (found while building). With
   production history the session summary (391 px) and ranks won (418 px)
   exceed the 379 px beside an Intermediate board, so both sit below it.
@@ -102,9 +100,6 @@ Still open:
   Since the session means were added (2026-10-08) the summary is about
   505 px for one type and no longer fits beside a Beginner board (433 px)
   either; ranks won still does.
-- **The 24-hour time comparison** (creator decision pending). Round 2 moved
-  it from its own band row into the hover card and the distributions view,
-  because the column has no room for a third percentage column.
 - **"Mark" wording in the game-end evaluation and replay** (found while
   building). Game data, the stats table, and the session charts now say
   "flag"; the evaluation's "Mark use" and "unused correct mark" and the
@@ -322,21 +317,17 @@ standardization sweep was approved ("all"). Still open:
 
 - **What it supersedes.** Each left-side time marker is the same comparison
   as a time table's "this" row: lifetime time and the lifetime table, session
-  time and the session's time table ("today" under the default session),
-  day time and the trailing-24-hours table. The chart gives rank and top
+  time and the session's time table ("today" under the default session).
+  The chart gives rank and top
   share but not the neighboring times,
   cross-category achievements (ranks won), or the scatterplots. Options:
   hide tables whose standing the chart already shows, link a label to its
   table, or keep tables as the detailed layer.
-- **Shared vocabulary.** Chart "time (session)" / "time (day)" versus table
-  headings "today" / "last 24 hours"; the board-side "3BV 71" ranks this
+- **Shared vocabulary.** The board-side "3BV 71" ranks this
   board's 3BV among boards, while the "3BV 71" This-board table ranks solve
   times among 3BV-71 wins, so the same text names different quantities.
-- **One label per measurement.** Lifetime, session, and day markers of one
-  measurement repeat the same value ("time 44.382s", "time 44.382s
-  (session)"). A single label with one marker per scope would roughly halve
-  the left side's labels. The 2026-09-26 revision removes the lifetime suffix;
-  combining multiple scopes under one measurement label remains unbuilt.
+- **One label per measurement.** Built 2026-10-07: one row per measurement
+  with session and lifetime columns ([game data](docs/product/game-data.md)).
 - **Standardization sweep (approved "all"; built 2026-09-23).** No gray text
   remains, the primary containers are fluid, headings outrank their body
   text, and the outcome summary takes two lines ([UI doctrine](docs/product/ui-doctrine.md),
@@ -344,7 +335,7 @@ standardization sweep was approved ("all"). Still open:
   age green `#39ff14` (about 1.4:1 on white) now sits on a black chip, the
   creator's choice over a darker green. The same chip now carries the
   session tooltip text of the three ending colors under 4.5:1 on white
-  (yellow, gold, orange). The trailing-24-hours pool word stays "(day)".
+  (yellow, gold, orange).
   Still open:
   - "see scores" sits alone on its row only when no replay trace exists
     (history views); after a live game it shares the row with Replay game.

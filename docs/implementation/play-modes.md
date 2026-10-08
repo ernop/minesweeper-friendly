@@ -42,7 +42,7 @@ Spec: [docs/product/play-modes.md](../product/play-modes.md). Index: [AGENTS.md]
   then the existing `buildScatter` grammar renders 3BV → time once each scope
   has the normal two-win minimum. `Pregen.progressRows` feeds the adjacent
   run/3BV/time table from completed `pregenBatch.results` only — no live clock
-  or active-board row. Its latest completed row keeps the light-blue
+  or active-board row. Its latest completed row keeps the `--this-game`
   `me` marker during the next game. This is deal order, so the percentage
   and podium treatments used for performance rankings do not apply.
   `node tests/pregen-test.js`.

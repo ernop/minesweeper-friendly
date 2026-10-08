@@ -510,11 +510,6 @@ const SETTINGS_SCHEMA = [
     label: 'show values in game data', describe: 'show each measurement’s value for this game beside its name in game data; chosen on the chart', control: 'none',
   },
   {
-    field: 'gameDataDayTime', default: true,
-    valid: (v) => typeof v === 'boolean', group: 'after-game',
-    label: 'day time in game data', describe: 'also rank this solve time among wins in the trailing 24 hours', control: 'none',
-  },
-  {
     field: 'gameDataMetrics', default: GameData.defaults, mergeDefaults: true,
     valid: validGameDataMetrics, migrate: gameDataMetricsFromStored,
     group: 'after-game', label: 'game data measurements',

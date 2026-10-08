@@ -185,9 +185,9 @@ const GameData = (() => {
       value: (r) => r.flagsWithoutMultiCellChord, format: (v) => String(v) },
   ];
   // The creator's own selection (2026-09-23), compared since 2026-10-07 with
-  // both lifetime and the session; time also against the last 24 hours.
+  // both lifetime and the session.
   const defaults = Object.fromEntries(metrics.map((m) => [m.id, m.default]));
-  const defaultsForView = { gameDataMetrics: defaults, sessionDefinition: SessionScope.defaultId, gameDataDayTime: true };
+  const defaultsForView = { gameDataMetrics: defaults, sessionDefinition: SessionScope.defaultId };
   const chronological = (records) => records.slice().sort((a, b) => a.endedAt - b.endedAt);
   const poolValues = (pool, spec, params) => pool.filter((r) => spec.allOutcomes || r.outcome === 'win')
     .map((r) => spec.value(r, params)).filter(Number.isFinite);
@@ -337,14 +337,12 @@ const GameData = (() => {
     if (record.outcome !== 'win' || !records.includes(record)) return [];
     const past = records.filter((r) => r.endedAt <= record.endedAt);
     const session = SessionScope.records(past, preferences.sessionDefinition, record.endedAt);
-    const day = past.filter((r) => r.endedAt >= record.endedAt - 86400000);
     const result = [];
     for (const spec of metrics) {
       if (!preferences.gameDataMetrics[spec.id]) continue;
       const counted = spec.allOutcomes ? 'games' : 'wins';
-      const pools = [['lifetime', past], ['session', session],
-        ...(spec.id === 'time' && preferences.gameDataDayTime ? [['day', day]] : [])];
-      // Session and day pools are subsets of lifetime, so any row implies a lifetime row.
+      const pools = [['lifetime', past], ['session', session]];
+      // The session pool is a subset of lifetime, so any row implies a lifetime row.
       const poolRows = pools.map(([scope, pool]) => rankedRow(record, pool, spec, scope, params, counted))
         .filter((row) => row !== null);
       if (poolRows.length === 0) continue;

@@ -18,12 +18,12 @@ const on = (selection) => Object.keys(selection).filter((id) => selection[id]);
 assert.deepEqual(on(GameData.defaults), ['time', 'misclickRate', 'fastclickGap', 'bvPerSecond',
   'clickRate', 'noopRate', 'correctness', 'mouseSpeed', 'unusedMarkShare', 'flagsWithoutMultiCellChord'],
   'the creator’s defaults, plus the training plan’s stage 1 flag count');
-assert.deepEqual(GameData.rows(current, records).map((r) => r.id), ['time.lifetime', 'time.session', 'time.day',
+assert.deepEqual(GameData.rows(current, records).map((r) => r.id), ['time.lifetime', 'time.session',
   'misclickRate.lifetime', 'misclickRate.session', 'fastclickGap.lifetime', 'fastclickGap.session',
   'bvPerSecond.lifetime', 'bvPerSecond.session', 'clickRate.lifetime', 'clickRate.session',
   'noopRate.lifetime', 'noopRate.session', 'correctness.lifetime', 'correctness.session',
   'mouseSpeed.lifetime', 'mouseSpeed.session'],
-  'one selection ranks each shown measurement against lifetime and the session, time also the last 24 hours; unmeasured flag measurements are absent');
+  'one selection ranks each shown measurement against lifetime and the session; unmeasured flag measurements are absent');
 const board = { width: 9, height: 9, mines: 10 };
 const all = Object.fromEntries(GameData.metrics.map((m) => [m.id, true]));
 const none = Object.fromEntries(GameData.metrics.map((m) => [m.id, false]));
@@ -32,16 +32,15 @@ const rows = GameData.rows(current, records, both, board);
 const row = (id) => rows.find((r) => r.id === id);
 assert.equal(row('time.lifetime').name, 'time');
 assert.equal(row('time.lifetime').metricId, 'time');
-assert.deepEqual(['time.lifetime', 'time.session', 'time.day'].map((id) => row(id).scope), ['lifetime', 'session', 'day']);
+assert.deepEqual(['time.lifetime', 'time.session'].map((id) => row(id).scope), ['lifetime', 'session']);
 assert.equal(row('time.lifetime').counted, 'wins');
 assert.equal(row('clickRate.lifetime').counted, 'games');
 assert.equal(row('time.lifetime').rank, 3);
 assert.equal(row('time.lifetime').percentile, 100 * 2 / 3, '100 × (rank − 1) ÷ (count − 1)');
 assert.equal(row('time.session').percentile, 0, 'the best in the pool is 0%');
 assert.equal(row('time.lifetime').total, 4, 'future games and losses cannot enter solve-time background');
-assert.equal(row('time.day').total, 3, 'day is trailing 24 hours, crossing midnight');
 assert.equal(row('time.session').total, 2);
-assert.equal(row('time.day').valueText, '30.000s');
+assert.equal(row('time.lifetime').valueText, '30.000s');
 assert.equal(row('clickRate.session').total, 3, 'measured action rates include wins and losses');
 assert.equal(row('efficiency.session').total, 2, 'completion ratios exclude incomplete boards');
 assert.equal(row('fastclickGap.session').total, 2, 'missing is not zero');
@@ -58,7 +57,6 @@ assert.equal(row('time.lifetime').standingText, '3rd of 4 wins');
 assert.equal(row('misclickRate.session').standingText, 'tied 1st–2nd of 3 games');
 assert.deepEqual([row('misclickRate.session').better, row('misclickRate.session').tiedOthers], [0, 1]);
 assert.equal(row('fastclickGap.session').standingText, 'both games have this value');
-assert.equal(row('time.day').standingText, '2nd of 3 wins');
 const equalTimes = [{ ...current, endedAt: now - 60000 }, current];
 assert.equal(GameData.rows(current, equalTimes)[0].standingText, '2nd of 2 wins', 'an equal time set earlier ranks ahead');
 const constant = GameData.rows(current, [1, 2, 3].map((i) => ({ ...current, endedAt: now - i * 60000 })).concat(current),
@@ -106,7 +104,7 @@ assert.deepEqual(GameData.domain([{ percentile: 32 }, { percentile: 43 }]), [30,
 assert.deepEqual(GameData.domain([{ percentile: 50 }]), [40, 60]);
 assert.deepEqual(GameData.domain([]), [0, 100]);
 assert.deepEqual(GameData.domain([{ percentile: 98 }, { percentile: 100 }]), [90, 100]);
-assert.equal(GameData.rows(current, records, { ...GameData.defaultsForView, gameDataMetrics: none, gameDataDayTime: false }).length, 0);
+assert.equal(GameData.rows(current, records, { ...GameData.defaultsForView, gameDataMetrics: none }).length, 0);
 
 // Distributions: every pool on the lifetime axis, session values as ticks.
 // Whole milliseconds are whole values: 30,001 possible times in about 36

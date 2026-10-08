@@ -271,8 +271,12 @@ const { chromium } = require(process.argv[2]);
     assert.equal(await sessionCard.locator('.game-data-histogram-dot').count(), 3, 'the session’s 3 wins, one dot each');
     assert.equal(await sessionCard.locator('.game-data-card-definition').count(), 0, 'time needs no definition');
     assert((await sessionCard.innerText()).includes('One dot per win.'));
-    assert((await sessionCard.innerText()).includes('last 24 hours: '), 'time keeps its separate 24-hour rank');
+    assert(!(await sessionCard.innerText()).includes('24 hours'), 'no separate 24-hour rank: session and lifetime only');
     assert(!/÷|=|settings|so far|This is|this session/.test(await sessionCard.innerText()), await sessionCard.innerText());
+    assert((await sessionCard.innerText()).includes('Green line: this game.'));
+    assert.deepEqual(await sessionCard.locator('.game-data-histogram-this-edge, .game-data-histogram-this').evaluateAll((lines) =>
+      lines.map((line) => getComputedStyle(line).stroke)), ['rgb(0, 0, 0)', 'rgb(57, 255, 20)'],
+      'this game is the charts’ green line, edged in black');
     await page.mouse.move(0, 0);
     await profile.getByRole('button', { name: 'lifetime', exact: true }).click();
     await bandReady();
@@ -283,7 +287,7 @@ const { chromium } = require(process.argv[2]);
     await profile.locator('.game-data-distributions').waitFor();
     assert.equal(await page.evaluate(() => settings.gameDataDistributions), true);
     assert.deepEqual(await profile.locator('.game-data-dist-head .game-data-side-title').allTextContents(),
-      ['lifetime', 'session', 'last 24 hours', 'board traits']);
+      ['lifetime', 'session', 'board traits']);
     assert.equal(await profile.locator('.game-data-pool-switch').count(), 0, 'every pool is shown, so there is nothing to switch');
     assert.equal(await profile.locator('.game-data-dist-row').count(),
       await profile.locator('.game-data-dist-row svg.game-data-histogram').count());
@@ -392,6 +396,8 @@ const { chromium } = require(process.argv[2]);
     await bvRow.hover();
     assert.deepEqual(await page.locator('.game-data-linked').evaluateAll((charts) => charts.map((chart) => chart.dataset.measurement)),
       ['bv3'], 'hovering a band row outlines its chart');
+    assert.match(await page.locator('.game-data-linked').evaluate((chart) => getComputedStyle(chart).boxShadow),
+      /rgb\(57, 255, 20\)/, 'the outline is the this-game green');
     await page.mouse.move(0, 0);
     assert.equal(await page.locator('.game-data-linked').count(), 0);
     await page.evaluate(async () => { settings.boardChartMode = 'distribution'; await drawProfileFixture(); });

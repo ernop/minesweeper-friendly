@@ -93,10 +93,10 @@ const { chromium } = require(process.argv[2]);
       } };
     });
     const records = details.records;
-    const THIS_GAME = 'rgb(207, 229, 250)';
-    // A this-game row is light blue across, bold black, with no edge bar or
-    // podium color: color plus "this" is the only mark; standing stays in
-    // the footer.
+    const THIS_GAME = 'rgb(57, 255, 20)';
+    // A this-game row is the charts' this-game green across, bold black,
+    // with no edge bar or podium color: color plus "this" is the only mark;
+    // standing stays in the footer.
     for (const [name, record] of Object.entries(records)) {
       if (name === 'history') continue;
       assert.equal(record.selectedCount, 1);
@@ -118,7 +118,7 @@ const { chromium } = require(process.argv[2]);
     assert.equal(records.history.selectedCount, 0);
     assert.equal(records.history.footer, '1000 total');
     assert.equal(details.current.rowTinted, false, 'ranks won rows carry no tint');
-    assert.equal(details.current.rankColor, THIS_GAME, 'this game’s chip is light blue');
+    assert.equal(details.current.rankColor, THIS_GAME, 'this game’s chip is the this-game green');
     assert.equal(details.current.label, 'Top 10%');
     assert.equal(details.current.cells, 4);
     assert.equal(details.earlier.highlighted, false);
@@ -289,7 +289,7 @@ const { chromium } = require(process.argv[2]);
     }
     // Session summary: games, wins, and win rate per board type in the one
     // session window, the session's best time with its lifetime rank, and
-    // a light blue "this" when that best is the game just finished.
+    // a this-game green "this" when that best is the game just finished.
     const sessionSummary = await page.evaluate(async () => {
       const now = Date.now();
       const game = (minutesAgo, outcome, timeMs) => ({ endedAt: now - minutesAgo * 60000, outcome, timeMs, flagsPlaced: 3,

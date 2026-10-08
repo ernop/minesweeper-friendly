@@ -93,7 +93,7 @@ assert.equal(run('settingsFrom({ gameDataBandPool: "day" }).gameDataBandPool'), 
 console.log('settings-state: shared validation, defaults, migration, isolation, and backup round trips passed');
 
 const choices = {
-  sessionDefinition: 'past30min', gameDataShowValues: false, gameDataDayTime: false,
+  sessionDefinition: 'past30min', gameDataShowValues: false,
   gameDataMetrics: { ...defaults.gameDataMetrics, fastclickGap: false, ioe: true },
   gameDataBandPool: 'session', gameDataDistributions: true,
   difficulty: 'custom', customBoard: { width: 24, height: 12, mines: 45 },

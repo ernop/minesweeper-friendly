@@ -410,12 +410,11 @@ body.problems-running #problems-header { display: none; }
   text-align: right;
 }
 
-/* Your mark wears the game's me-row look: bold black on light blue with the
-   dark blue edge. */
+/* Your mark wears the game's me-row look: bold black on the this-game green. */
 .problems-ladder-label[data-kind="you"] {
+  color: #000000;
   font-weight: bold;
-  background: #d8ebfa;
-  box-shadow: inset 2px 0 #245b8b;
+  background: var(--this-game);
 }
 
 .problems-ladder-label[data-kind="original"] { font-style: italic; }

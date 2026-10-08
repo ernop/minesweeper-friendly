@@ -14,15 +14,19 @@ because they apply app-wide, not just where each was first stated.
   spacing, and restrained color to establish hierarchy instead of relying
   on bolding.
 - One standing scale, one this-game color (creator direction 2026-10-07:
-  "green good red bad", and "light blue = the one we just did so you can
-  always see 'this' just-completed run"). Standing within a pool runs green
-  (better) through a neutral light gray or white middle to red (worse)
-  everywhere: rank chips, the game-data bar and histograms, and chart chips.
-  Light blue (#cfe5fa, with #1f6fd1 for lines) means only "this game": its
-  table rows, its "this" chips, its line on histograms, and the outline of a
-  chart linked to a hovered game-data row. Standing scales therefore have no
-  blue middle (formerly light green, light blue, light red). The age-unit
-  palette is a separate code and stays as it is.
+  "green good red bad"; 2026-10-08: "for charts, keep the green. and let's
+  backport the green to replace blue as the 'this' pointer color"). Standing
+  within a pool runs muted green (better) through a neutral light gray or
+  white middle to red (worse) everywhere: rank chips, the game-data bar and
+  histograms, and chart chips. This game is the charts' this-game dot color,
+  the age palette's fluorescent seconds green (#39ff14), and nothing else
+  uses it: its table rows and "this" chips (bold black on it), the hovered
+  game-data row, its line on histograms, and the ring around a chart linked
+  to a hovered game-data row. As a line or ring on white it has black edges,
+  as the chart dot has its black ring, because the green alone is about
+  1.4:1 on white. Light blue marked this game from 2026-10-07 until this
+  change; pressed toggles keep the app's pale blue pressed fill (#dcecf5).
+  The age-unit palette is a separate code and stays as it is.
 - Contrast, hierarchy, and width (user rules, recorded 2026-09-23): neutral
   text is pure black on light backgrounds and pure white on dark ones. No
   gray labels, gray placeholders, or opacity-dimmed text; secondary hierarchy

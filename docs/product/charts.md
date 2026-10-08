@@ -87,7 +87,9 @@ at or below one second, and path ratios exclude zero denominators.
   far edge, so a 6-day-old red dot is visibly paler than a 1-day-old one
   (2026-08-20). A shared legend below the plots spells out the mapping.
 - The just-finished game is a larger black-ringed dot (colored like the
-  rest, i.e. fluorescent green since it is seconds old) tagged with its
+  rest, i.e. fluorescent green since it is seconds old; the creator kept it
+  on 2026-10-08 and made this green the page-wide this-game color, see
+  [UI doctrine](ui-doctrine.md)) tagged with its
   rank among today's wins ("#N today"); the tag flips to the left when
   the dot is near the right edge.
 - No chart titles (2026-08-20): the axis labels name the chart. Labels

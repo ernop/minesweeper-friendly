@@ -11,7 +11,7 @@ and deals them in that order with the upper-right cell opened automatically.
 Persistent 3BV-versus-time charts below the board track the current ten-board
 challenge and all wins in this mode/configuration since local midnight.
 A run/3BV/time table beside them adds each result as the challenge proceeds
-and keeps the latest completed run highlighted in light blue; it never adds
+and keeps the latest completed run highlighted in fluorescent green; it never adds
 a distracting second live clock.
 The Mode menu is in the upper right; each mode keeps its own rankings.
 

@@ -74,7 +74,7 @@ function standingColor(percentile, stops) {
   return 'rgb(' + from.map((value, i) => Math.round(value + (to[i] - value) * fraction)).join(', ') + ')';
 }
 
-const GAME_DATA_POOL_LABELS = { lifetime: 'lifetime', session: 'session', day: 'last 24 hours' };
+const GAME_DATA_POOL_LABELS = { lifetime: 'lifetime', session: 'session' };
 // Each side title's help says what its percentages are, which nothing else
 // on the panel says.
 const GAME_DATA_SIDE_HELP = {
@@ -135,9 +135,9 @@ function linkGameDataCharts(metricId, linked) {
 // card draws a small pool (one that carries its values) as one dot per game
 // at its exact value instead, colored by that game's own standing, so a few
 // games read as a few games rather than as bars of height one. The lifetime
-// pool also ticks the session's games under the axis; the blue line is this
-// game. The card size names its better end and labels its axis; a strip
-// stretches to its cell.
+// pool also ticks the session's games under the axis; the green line is this
+// game, edged in black like the charts' this-game dot. The card size names
+// its better end and labels its axis; a strip stretches to its cell.
 function gameDataHistogram(row, card) {
   const d = row.distribution;
   const width = card ? 320 : 200, height = card ? 132 : 26;
@@ -199,7 +199,9 @@ function gameDataHistogram(row, card) {
       add('line', { class: 'game-data-histogram-tick', x1: x(value), x2: x(value), y1: base + 1, y2: tickEnd });
     }
   }
-  add('line', { class: 'game-data-histogram-this', x1: x(row.value), x2: x(row.value), y1: top, y2: tickEnd });
+  for (const part of ['game-data-histogram-this-edge', 'game-data-histogram-this']) {
+    add('line', { class: part, x1: x(row.value), x2: x(row.value), y1: top, y2: tickEnd });
+  }
   if (card) {
     add('text', { class: 'game-data-histogram-better', x: row.higher ? width : 0, y: 10,
       'text-anchor': row.higher ? 'end' : 'start' }).textContent = row.higher ? 'better →' : '← better';
@@ -216,8 +218,7 @@ function gameDataHistogram(row, card) {
 // (or whose strip was hovered). It holds only what the row and the panel do
 // not already show or say (creator 2026-10-08: "just cut all the fluff"):
 // the pool's rank, its games on the measurement's axis with a one-line key,
-// the time card's separate last-24-hours rank (which has no switch), and,
-// last, a definition where the name leaves the measurement open.
+// and, last, a definition where the name leaves the measurement open.
 function fillGameDataCard(tip, item, scope) {
   const card = document.createElement('div');
   card.className = 'game-data-card';
@@ -238,11 +239,10 @@ function fillGameDataCard(tip, item, scope) {
   const one = row.counted.slice(0, -1);
   const key = [d.values !== undefined ? 'One dot per ' + one + '.' : d.binText,
     ...(row.sessionValues ? ['Ticks: this session’s ' + row.counted + '.'] : []),
-    'Blue line: this ' + (item.side === 'board' ? 'board' : 'game') + '.',
+    'Green line: this ' + (item.side === 'board' ? 'board' : 'game') + '.',
     ...(d.outside ? [d.outside + ' ' + (d.outside === 1 ? one + ' beyond the 1st–99th percentiles is'
       : row.counted + ' beyond the 1st–99th percentiles are') + ' not drawn.'] : [])];
   card.append(standing(scope), gameDataHistogram(row, true), paragraph('game-data-card-key', key.join(' ')));
-  if (item.pools.day && scope !== 'day') card.appendChild(standing('day'));
   if (row.definition) card.appendChild(paragraph('game-data-card-definition', row.definition));
   tip.appendChild(card);
 }
@@ -513,8 +513,7 @@ function buildGameDataBand(rows, pool, valuesShown) {
 }
 
 // Every measurement's distribution as a strip, in sections: performance
-// against lifetime, the session, and (time only) the last 24 hours, then
-// board traits. Rows keep catalog order, so a measurement sits at the same
+// against lifetime, then the session, then board traits. Rows keep catalog order, so a measurement sits at the same
 // place in every section. A row's card shows its own section's pool. Like
 // the band it never scrolls: `layout` shortens the strips first, then the
 // text, to fit its box.
@@ -526,7 +525,6 @@ function buildGameDataDistributions(rows) {
   const sections = [
     ['lifetime', 'lifetime', 'lifetime', 'performance'],
     ['session', 'session', 'session', 'performance'],
-    ['day', 'last 24 hours', 'last 24 hours', 'performance'],
     ['lifetime', 'board traits', 'lifetime', 'board'],
   ];
   for (const [scope, titleText, columnText, side] of sections) {
@@ -560,7 +558,7 @@ function buildGameDataDistributions(rows) {
   }
   const key = document.createElement('p');
   key.className = 'game-data-dist-key';
-  key.textContent = 'Blue line: this game. Ticks under a lifetime or board strip: this session’s games.';
+  key.textContent = 'Green line: this game. Ticks under a lifetime or board strip: this session’s games.';
   element.appendChild(key);
   function layout() {
     if (!element.isConnected || element.clientWidth === 0) return;
@@ -728,9 +726,6 @@ function buildBoardTimeRankProfile(record, records) {
         body.appendChild(row);
       }
       table.append(head, body); configView.appendChild(table); sync();
-      configView.appendChild(checkbox('also rank time against the last 24 hours', settings.gameDataDayTime, (checked) => {
-        settings.gameDataDayTime = checked; rows = null; saveSettings();
-      }));
       const historyButton = button('session history', () => show('history'));
       configView.appendChild(historyButton);
       profile.append(configView, button('back to game data', () => show('chart')));

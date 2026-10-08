@@ -115,19 +115,17 @@ opens it over the band, never reflowing it. In order:
    pool "lifetime: all 50 boards have this value". The population word is
    wins, games, or boards.
 2. The pool's games on the measurement's axis: bars per value range for a
-   pool of more than 30 games, one dot per game at its exact value for 30
-   or fewer (touching dots stack), each colored by standing within that
-   pool (green better, red worse); a blue line marks this game; "better →"
-   or "← better" names the better end; the lifetime card ticks the
-   session's games under the axis. One line of key follows: what one bar
-   covers ("One bar per value.", "Each bar spans 4 values.", "Each bar
-   spans 0.834s.", "Each bar spans 2 safe cells.") or "One dot per win.",
-   then "Ticks: this session's wins." on the lifetime card, "Blue line: this
-   game." ("this board" for a board trait), and a count of any games beyond
-   the 1st–99th percentiles, which are not drawn.
-3. Time only: its separate last-24-hours rank ("last 24 hours: 2nd of 3
-   wins"), which has no position on the points switch.
-4. Last, a definition, only where the name and unit leave the measurement
+   pool of more than 30 games, one dot per game at its exact value for 30 or
+   fewer (touching dots stack), each colored by standing within that pool
+   (green better, red worse); the this-game green line, edged in black,
+   marks this game; "better →" or "← better" names the better end; the
+   lifetime card ticks the session's games under the axis. One line of key
+   follows: what one bar covers ("One bar per value.", "Each bar spans 4
+   values.", "Each bar spans 0.834s.", "Each bar spans 2 safe cells.") or
+   "One dot per win.", then "Ticks: this session's wins." on the lifetime
+   card, "Green line: this game." ("this board" for a board trait), and a
+   count of any games beyond the 1st–99th percentiles, which are not drawn.
+3. Last, a definition, only where the name and unit leave the measurement
    open, and never opening with its name: misclick rate, fastclick gap,
    click rate, efficiency, no-op rate, correctness, IOE, ZiNi and HZiNi
    efficiency, IOS, STNB, mouse speed, cadence spread, unused flag share,
@@ -185,8 +183,8 @@ Distributions mode (built 2026-10-07; the creator: "switch distributions
 mode is incredible, too!", and "showing both optionally is good. e.g. in the
 distribution mode ui there would just be a section for 'session' and another
 for 'lifetime'"): the saved "show distributions" checkbox replaces the bar
-with one strip per measurement in sections: lifetime, session, last 24 hours
-(time only), and board traits. Each row reads name, value (when shown), the
+with one strip per measurement in sections: lifetime, session, and board
+traits. Each row reads name, value (when shown), the
 strip histogram with the same marks as the card, and the percentage. All
 strips share one left edge and width across sections, and a measurement
 keeps its catalog position in every section. A row's card shows its own
@@ -282,12 +280,11 @@ at 50%. Comparisons require at least two eligible measured games, including
 the selected game. With fewer measurements, omit the statistic entirely:
 no point, label, "Only one measured game:" section, or replacement notice
 (user request 2026-09-26). Apply this per metric and pool, to lifetime,
-session, day, and board-trait comparisons; other eligible rows remain visible.
+session, and board-trait comparisons; other eligible rows remain visible.
 Missing facts and undefined divisions are excluded, never converted to zero.
 
 Every item's card is listed under "Hover card" above: the chosen pool's
-rank, its games on the measurement's axis, time's 24-hour rank, and a
-definition only where the name leaves the measurement open. The worked
+rank, its games on the measurement's axis, and a definition only where the name leaves the measurement open. The worked
 calculations, example boards, and percentage arithmetic added earlier on
 2026-10-08 were cut the same day as fluff; the 2026-09-26 direction "write
 them well without clutter" holds. The side titles' help states the position
@@ -296,11 +293,10 @@ board traits.
 
 Each left-side row ranks **this game's** metric against both lifetime and
 session history of the same size, mine count, play mode, and generator.
-Time also ranks against wins in the trailing 24 hours, crossing midnight;
-that comparison has its own switch, shows in the time card and the
-distributions (the 614 px column cannot fit a third percentage column), and
-is not the session (whose default, today, starts at local midnight).
-Historical comparisons end at the selected game.
+Historical comparisons end at the selected game. A third comparison, time
+against wins in the trailing 24 hours, was removed on 2026-10-08 (creator:
+"we have sssion, we have alltime. what is this 24hrs? seems unnecessary"):
+the session picker's "last 24 hours" choice covers that window.
 
 Right-side markers rank **board values themselves**, not solve times within
 matched-trait pools. Background is measured completed boards in the same
@@ -335,8 +331,7 @@ measurement (2026-10-07; formerly separate session and lifetime columns,
 replaced when every row came to show both): each chosen measurement is
 compared with both lifetime and the session. An "all performance
 measurements" checkbox sets them all; a mixed selection shows an
-indeterminate state. "also rank time against the last 24 hours" keeps the
-day comparison. Each choice, the plotted pool, distributions mode, and value
+indeterminate state. Each choice, the plotted pool, distributions mode, and value
 visibility persist in the common preference schema and export. A saved
 profile's former selections carry over: a measurement either former column
 showed stays shown. Back buttons and Escape return to the chart.
@@ -344,8 +339,8 @@ showed stays shown. Back buttons and Escape return to the chart.
 Defaults (user decision 2026-09-23, from a screenshot of the creator's own
 configuration: "the attached image also is the defaults we should show for
 leftside"): time, misclick rate, fastclick gap, 3BV/s, click rate, no-op
-rate, correctness, mouse speed, and unused flag share, plus the 24-hour time
-comparison; since 2026-10-07 each also compares with the session. Optional:
+rate, correctness, mouse speed, and unused flag share; since 2026-10-07
+each also compares with the session. Optional:
 efficiency, path / 3BV, IOE, ZiNi efficiency, HZiNi efficiency, IOS, STNB,
 path / click, and cadence spread. Before this, both scopes defaulted to time, misclick rate,
 fastclick gap, 3BV/s, click rate, efficiency, no-op rate, and path / 3BV.

@@ -78,12 +78,12 @@ Spec: [docs/product/rankings.md](../product/rankings.md). Index: [AGENTS.md](../
   `data-rank-band`, and the title, and returns the standing. CSS maps each
   band to `--rank-tone` and `.rank-highlight` mixes it 85% with white into
   `--rank-tint` (2026-10-07: green good, red bad; no podium). `buildRankList`
-  marks `.me` (its cells use `--this-game`, #cfe5fa, bold black) and writes
+  marks `.me` (its cells use `--this-game`, #39ff14, bold black) and writes
   the rank/pool/percentage footer even for short lists. In ranks won, rows
   carry no tint: `recentPlacementRuns` splits compression at band
   boundaries and at the current ordinal; each `.recent-rank-run` chip gets
   `applyRankHighlight` and `--rank-tint`, the current one
-  `.recent-current-rank` (light blue) and “this”; only a last-place chip keeps
+  `.recent-current-rank` (`--this-game`) and “this”; only a last-place chip keeps
   the double underline. `recentPlacementStanding` gives the fourth cell's
   percentage/range. An odd pool's exact middle (`2 * rank === total + 1`,
   after only/last checks) has band `middle` and label “Middle place”, which
@@ -117,7 +117,7 @@ Spec: [docs/product/rankings.md](../product/rankings.md). Index: [AGENTS.md](../
 - Rank-highlight browser verification:
   `node tests/rank-highlight-browser-check.js /path/to/playwright /path/to/chromium`
   uses an isolated profile on the permanent test origin, with renderer-only
-  fixtures. It checks light blue this-game rows without edge or podium,
+  fixtures. It checks this-game green rows without edge or podium,
   green standing chips, percentage bands, compact-summary marking, the
   session summary's rows and regeneration from the one picker,
   low/last/only-result states, history without a selection, and 1680/1216/650px

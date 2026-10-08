@@ -14,10 +14,11 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
   `settings-core.js` depends on it.
 - Rows: `GameData.rows(record, records, preferences, params)` ranks every
   chosen measurement (`preferences.gameDataMetrics`) against lifetime and the
-  session, and time against the trailing 24 hours when `gameDataDayTime`.
+  session (the trailing-24-hours `day` pool and its `gameDataDayTime`
+  preference were removed 2026-10-08).
   `GameData.rankedRow` omits a pool with fewer than two eligible measured
   games (2026-09-26). A row carries `id` (`metricId.scope`), `metricId`,
-  `scope` (`lifetime`, `session`, `day`), `name`, `value`, `valueText`,
+  `scope` (`lifetime`, `session`), `name`, `value`, `valueText`,
   `rank`, `firstRank`/`lastRank` (a tie's span), `better` (other games
   ranked better, an equal time set earlier included), `tiedOthers` (other
   games with an equal value; always 0 for time), `total`, `counted` (wins,
@@ -77,8 +78,8 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
   passes its section's) with only what the row does not show: the pool's
   label and `standingText` (`.game-data-card-standing`),
   `gameDataHistogram(row, true)`, a one-line key (`binText` or "One dot per
-  win.", the session ticks, the blue line, games not drawn), the time card's
-  `day` rank, and last the `definition` when there is one. The tip is the
+  win.", the session ticks, the green line, games not drawn), and last the
+  `definition` when there is one. The tip is the
   one owned manual popover, so it never reflows the page. The chart chip's
   `title` is the same pool label and `standingText`. `gameDataHistogram`
   draws bars, or for a row whose distribution carries `values`, one dot per
@@ -101,13 +102,16 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
   `gameDataChartChip(row)` for the lifetime row; `renderRanks` awaits the
   game-data job before building charts so the chips exist. Hover and focus
   on a band or distribution row call `linkGameDataCharts`, which toggles
-  `.game-data-linked` on those charts.
+  `.game-data-linked` on those charts: a `--this-game` ring with black edges
+  (two box-shadows plus a 1px outline, so it never reflows). The histogram's
+  this-game mark is two lines, `.game-data-histogram-this-edge` (black,
+  wider) under `.game-data-histogram-this` (`--this-game`).
 - Configuration: one checkbox per measurement plus "all performance
-  measurements" and the 24-hour time switch. Preferences: `gameDataMetrics`
+  measurements". Preferences: `gameDataMetrics`
   (one map; `gameDataMetricsFromStored` carries over the former
   `gameDataLifetimeMetrics`/`gameDataSessionMetrics`, a measurement shown in
   either staying shown), `gameDataBandPool`, `gameDataDistributions`,
-  `gameDataDayTime`, and `gameDataShowValues`, all in the shared persistent
+  and `gameDataShowValues`, all in the shared persistent
   schema.
 - Session: `SessionScope.defaultId` ('today') is the one default: the
   settings schema and `GameData.defaultsForView` both read it.

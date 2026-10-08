@@ -7,9 +7,10 @@
   --bevel-light: #ffffff;
   --bevel-dark: #808080;
   --bevel-size: calc(var(--cell-size) / 8);
-  /* This game in every result table, chart line, and band row. */
-  --this-game: #cfe5fa;
-  --this-game-line: #1f6fd1;
+  /* This game, wherever it appears: the charts' this-game dot color (the age
+     palette's seconds green). Behind text it carries bold black; as a line
+     or ring on white it gets a black edge, as the dot has its black ring. */
+  --this-game: #39ff14;
 }
 
 * { box-sizing: border-box; }
@@ -1824,8 +1825,8 @@ body.trial-offboard #game-frame {
 
 #states-chips:empty { display: none; }
 
-/* An active state: the me-row highlight (bold black on light blue), with
-   its trailing x signaling one click takes it off. */
+/* An active state: bold black on light blue, with its trailing x signaling
+   one click takes it off. */
 .state-chip {
   font: inherit;
   font-size: 11px;
@@ -2452,7 +2453,7 @@ body.settings-page .return-to-game {
   background: #ffffff;
 }
 .board-time-profile .game-data-pool-switch button + button { border-left: 0; }
-.board-time-profile .game-data-pool-switch button[aria-pressed="true"] { background: var(--this-game); }
+.board-time-profile .game-data-pool-switch button[aria-pressed="true"] { background: #dcecf5; }
 
 /* The band: rows, column heads, bar, dots, and leaders are absolutely
    placed by buildGameDataBand from measured column widths. Every row is
@@ -2508,7 +2509,7 @@ body.settings-page .return-to-game {
 .game-data-row > .chart-help-label:hover,
 .game-data-row > .chart-help-label:focus-visible {
   background: var(--this-game);
-  outline: 1px solid var(--this-game-line);
+  outline: 1px solid #000000;
 }
 .game-data-name { text-align: left; }
 .game-data-value,
@@ -2564,7 +2565,9 @@ body.settings-page .return-to-game {
 .game-data-histogram-dot { stroke: #000000; stroke-width: 0.6; }
 .game-data-histogram-axis,
 .game-data-histogram-tick { stroke: #000000; stroke-width: 1; vector-effect: non-scaling-stroke; }
-.game-data-histogram-this { stroke: var(--this-game-line); stroke-width: 3; vector-effect: non-scaling-stroke; }
+.game-data-histogram-this-edge { stroke: #000000; stroke-width: 5; vector-effect: non-scaling-stroke; }
+.game-data-histogram-this { stroke: var(--this-game); stroke-width: 3; vector-effect: non-scaling-stroke; }
+.game-data-histogram[data-size="strip"] .game-data-histogram-this-edge { stroke-width: 4; }
 .game-data-histogram[data-size="strip"] .game-data-histogram-this { stroke-width: 2; }
 
 /* Distributions: one strip per measurement, sections per comparison pool,
@@ -2621,7 +2624,7 @@ body.settings-page .return-to-game {
 .game-data-dist-row > .chart-help-label:hover,
 .game-data-dist-row > .chart-help-label:focus-visible {
   background: var(--this-game);
-  outline: 1px solid var(--this-game-line);
+  outline: 1px solid #000000;
 }
 .game-data-strip { display: block; height: var(--game-data-strip, 26px); }
 .game-data-strip > svg { width: 100%; height: var(--game-data-strip, 26px); }
@@ -2638,7 +2641,7 @@ body.settings-page .return-to-game {
   font-weight: 700;
   white-space: nowrap;
 }
-.game-data-linked { outline: 3px solid var(--this-game-line); outline-offset: 2px; }
+.game-data-linked { outline: 1px solid #000000; box-shadow: 0 0 0 4px var(--this-game), 0 0 0 5px #000000; }
 .board-time-profile select { font: inherit; color: inherit; max-width: 100%; }
 .board-time-profile button:not(.chart-help) {
   font: inherit;
@@ -2795,7 +2798,7 @@ body.settings-page .return-to-game {
 .pregen-progress-panel tr.loss td { color: #aa3333; }
 .pregen-progress-panel tr.me td {
   color: #000000;
-  background: #d8ebfa;
+  background: var(--this-game);
   font-weight: bold;
 }
 .pregen-progress-outcome {
@@ -3000,7 +3003,8 @@ body.settings-page .return-to-game {
 }
 
 /* Rows carry no tint; every reported rank is a chip in its standing color,
-   earlier games included. This game's chip is light blue and says "this". */
+   earlier games included. This game's chip is the this-game green and says
+   "this". */
 .recent-placements-grid .recent-rank-run {
   padding: 0 2px;
   background: var(--rank-tint);
@@ -3429,9 +3433,10 @@ body.vigilance-running #self-check-header {
 .age-u-y  { color: #008080; }
 
 /* Two color meanings across the report (docs/product/ui-doctrine.md):
-   light blue is this game, wherever it appears; the standing scale (green
-   better, light neutral in the middle, red worse) colors rank chips. A
-   this-game row is all light blue, standing stays in its footer. */
+   the fluorescent this-game green marks this game wherever it appears; the
+   standing scale (muted green better, light neutral in the middle, red
+   worse) colors rank chips. A this-game row is all this-game green,
+   standing stays in its footer. */
 .rank-highlight { --rank-tint: color-mix(in srgb, var(--rank-tone) 85%, #ffffff); }
 .rank-highlight[data-rank-band="top1"] { --rank-tone: #1e9e4f; }
 .rank-highlight[data-rank-band="top2"] { --rank-tone: #43b367; }

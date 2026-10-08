@@ -612,7 +612,7 @@ function buildRecentPlacements(record, wins, referenceMs, markReferenceRecord = 
   const heading = document.createElement('h4');
   heading.appendChild(chartHelpButton([
     'Top ranks earned in the session (' + chosenLabel + ', the one page-wide session chosen at the upper left) on every longer chart: time windows, day categories, exact board benchmarks, 3BV-spread groups, and board shapes of session wins.',
-    'Only ranks within the top tenth of a list count, except that lifetime shows its closest rank when none made the tenth. Rows go by category, board values ascending. Each rank is colored by its standing, green better and red worse; this game’s rank is light blue and says “this”.',
+    'Only ranks within the top tenth of a list count, except that lifetime shows its closest rank when none made the tenth. Rows go by category, board values ascending. Each rank is colored by its standing, green better and red worse; this game’s rank is fluorescent green and says “this”.',
   ], 'ranks won in session'));
   box.dataset.sessionScopeView = '';
   box.addEventListener('session-scope-change', () => box.replaceWith(buildRecentPlacements(record, wins, referenceMs, markReferenceRecord)));
