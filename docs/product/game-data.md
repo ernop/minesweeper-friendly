@@ -252,7 +252,8 @@ all implemented the same day:
 
 - **Where the picker is.** The picker is the value of the "session" heading
   at the top of the left stats panel, the page's upper-left corner. It reads
-  "SESSION today". The session stats in that panel reflect it. The heading
+  "SESSION today". The session stats in that panel reflect it, including the
+  switch-cost row's session column (2026-10-08). The heading
   and its picker stay in every panel state. When the panel is collapsed they
   sit under the "stats ▸" chip. When session stats are switched off the panel
   keeps only this heading. Ranks won and game data still use the session in

@@ -191,28 +191,53 @@ patterns?" The study ([reference/mode-switch-2026-09-28.md](../../reference/mode
 proposed one stat; the creator approved it the same day: "yes let's at lesat
 create the perf stat(s) for this and apply, release them,".
 
-- **Where.** A "switching" section of the stats panel, between the session
-  charts and the live rows (the live rows come and go with each game;
-  nothing above them moves). It shows whenever the panel is open and hides
-  with it. It is never shown per game: one game has too few presses to
-  measure the cost (split-half reliability of a per-game estimate about
-  0.05 in the study), so every value pools many games.
-- **Rows** (one line each; each label opens its explanation):
-  - switch cost, for example "+7.4% (+6.4 to +8.4)": how much longer the
-    next press takes after changing buttons (flag versus click or chord)
-    than after repeating the same move over the same distance at the same
-    point in the game; in brackets, the 95% interval.
-  - per switch, "+18ms": the same extra time at the median press-to-press
-    time of the pooled games' switches.
-  - moves that switch, "54%": share of consecutive moves that change
-    buttons.
-  - games, "500": games pooled.
-- **Games pooled.** The latest standard games on the three standard boards
-  (Beginner, Intermediate, and Expert with Standard play and the default
-  generator) that have a saved trace and at least one timed transition, up
-  to 500. Other play modes, custom boards, and other generators stay out:
-  the study measured standard play only. Under 30 such games the three
-  value rows show the en dash and the games row the count.
+Session row (creator request, 2026-10-08, verbatim): "this entire sections
+seems weird. the switching stuff should really be made into a normal perf
+stat right? once that's done we can think about where this session definition
+chooser really belings, right?" Asked "Should I build the session row as
+described? I recommend yes.", the creator answered "YES". The four-row
+switching section became the one row below. Where the session picker belongs
+is the next question ([BACKLOG.md](../../BACKLOG.md)).
+
+- **Where.** One row of the session stats, directly under the session
+  heading and its picker, which sets the row's session column. The session
+  controls (grouping, rate basis, grouping length, mode scope) come after
+  it, because they shape only the charts. The row shows with the session
+  stats ("show session stats", off for new players), and hides with them and
+  with the collapsed panel. Nothing is read while it is hidden. It is never
+  shown per game: one game has too few presses to measure the cost
+  (split-half reliability of a per-game estimate about 0.05 in the study),
+  so every value pools many games.
+- **The row.** One line, "switch cost" and two estimates, under a line that
+  names the columns. Each estimate is how much longer the next press takes
+  after changing buttons, as a signed percent such as "+7.4%":
+  - **session**: the standard games that ended in the page-wide session
+    window ([One session definition](game-data.md#one-session-definition)),
+    however many.
+  - **latest 500**: the latest 500 standard games, whenever played.
+
+  A column with fewer than 30 games, or whose moves cannot separate switching
+  from the model's other terms, shows the en dash. Column names are bold and
+  the estimates larger, in fixed-width digits; a reply never resizes the row.
+- **Why "latest 500", not "lifetime".** The long-run column pools at most the
+  latest 500 games, the window approved on 2026-09-28, so "lifetime" would be
+  false for any player with more games than that. A true lifetime pool was
+  not chosen: every page load would replay every saved trace, a cost that
+  grows without limit, and years of old play would outweigh how the hand
+  works now.
+- **The card.** The label opens it on hover, focus, or click. Per column:
+  95% interval ("+6.4 to +8.4%"); per switch, the same extra time in
+  milliseconds at the median press-to-press time of the pooled switches
+  ("+18ms"); moves that switch, the share of consecutive moves that change
+  buttons ("54%"); and games, the count pooled. Then what the estimate is,
+  and which games count, with the 30-game minimum. A column whose data cannot
+  measure it gets one sentence saying so. A reply closes an open card, which
+  would otherwise still show the previous values.
+- **Games pooled.** Standard games on the three standard boards (Beginner,
+  Intermediate, and Expert with Standard play and the default generator)
+  that have a saved trace and at least one timed transition. Other play
+  modes, custom boards, and other generators stay out: the study measured
+  standard play only.
 - **Estimate** (the study's pre-registered model P1). A transition is two
   consecutive board inputs that are both moves (reveal, chord, flag) with no
   other input between them, the first not the game-starting reveal, timed
@@ -229,9 +254,14 @@ create the perf stat(s) for this and apply, release them,".
   percentiles of the distinct values) with values within 1e-9 counted as
   one, so the value does not depend on how an engine rounds the last bit
   of a distance (the exact rule moved knots between numpy and JavaScript).
-- **Updates.** Computed from the saved traces when the page loads, so the
-  existing history counts at once without new play, and again after each
-  standard game's trace is saved. Nothing new is stored.
+- **Updates.** Computed from the saved traces when the row first shows (at
+  page load when session stats are on), so the existing history counts at
+  once without new play; again after each standard game's trace is saved;
+  and again when the session column's games change, because another session
+  was picked or the window's start has passed a game. Like the session
+  charts, the row has no timer of its own: a window start that passes a game
+  while nothing redraws the panel is caught at the next redraw. Nothing new
+  is stored.
 - **Not shown, by decision:** a per-game switch cost or switch index (noise
   at one game), the raw switch rate as a performance measure (it mostly
   restates how often the player flags, and the rate relative to chance did
@@ -241,3 +271,7 @@ create the perf stat(s) for this and apply, release them,".
   in the study the cost sat in moves of one or two cells, vanished at three
   or more, and was about 13 ms for flag and chord pairs, larger where a
   reveal was involved.
+- **Superseded form (2026-09-28 to 2026-10-08).** A "switching" section of
+  four rows between the session charts and the live rows, shown whenever the
+  panel was open, over the latest 500 games only: "switch cost +7.4% (+6.4
+  to +8.4)", "per switch +18ms", "moves that switch 54%", "games 500".

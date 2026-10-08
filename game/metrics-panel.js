@@ -1,8 +1,8 @@
 'use strict';
 
-// The left stats panel: its session heading, live trace-metric rows and
-// sparklines, the switching section pooled over the latest games, the
-// after-game motion charts, and update scheduling.
+// The left stats panel: its session heading, the switch-cost row of the
+// session stats, live trace-metric rows and sparklines, the after-game motion
+// charts, and update scheduling.
 
 //-------TRACE METRICS: DISPLAY (the #metrics-panel column)-------
 
@@ -220,17 +220,19 @@ function renderMetricsPanelContent(metrics) {
     const sessionHead = buildMetricsGroupHead(SESSION_GROUP);
     sessionHead.classList.add('session-scope-head');
     sessionHead.appendChild(buildSessionScopeSelect());
+    // Directly under the picker that sets its session column, above the
+    // controls that shape only the charts.
+    const switchCost = buildSwitchCostRow();
     const session = document.createElement('div');
-    // Between the session charts and the live rows: the live rows come and go
-    // with each game, and nothing above them moves when they do.
-    const switching = buildSwitchCostSection();
+    // Last: the live rows come and go with each game, and nothing above them
+    // moves when they do.
     const live = document.createElement('div');
     const grip = buildMetricsResizeGrip();
-    metricsPanelContent.append(restore, head, sessionHead, session, switching, live);
+    metricsPanelContent.append(restore, head, sessionHead, switchCost, session, live);
     metricsPanel.appendChild(grip);
     setMetricHidden(metricsPanel, false);
     metricsPanelView = {
-      head, phase, restore, session, switching, live, grip,
+      head, phase, restore, switchCost, session, live, grip,
       sessionControlsKey: null, sessionCharts: null, liveRows: [], metrics: null,
     };
   }
@@ -242,13 +244,14 @@ function renderMetricsPanelContent(metrics) {
   setMetricHidden(view.head, settings.metricsPanelCollapsed);
   setMetricHidden(view.grip, settings.metricsPanelCollapsed);
   setMetricHidden(view.phase, !showLive);
+  setMetricHidden(view.switchCost, !switchCostShown());
   setMetricHidden(view.session, settings.metricsPanelCollapsed || !showSession);
-  setMetricHidden(view.switching, settings.metricsPanelCollapsed);
   setMetricHidden(view.live, settings.metricsPanelCollapsed || !showLive);
   setMetricAttribute(view.grip, 'aria-valuenow', settings.metricsPanelWidth);
   if (settings.metricsPanelCollapsed) return;
 
   if (showSession) {
+    keepSwitchCostCurrent();
     const controlsKey = JSON.stringify([
       settings.sessionAggregation, settings.sessionRateBasis,
       settings.sessionLookbackGames, settings.sessionLookbackSeconds,
@@ -564,89 +567,130 @@ function renderLiveTraceMetrics() {
   }).catch(analysisFailure);
 }
 
-//-------SWITCH COST (the panel's section pooled over the latest standard games)-------
+//-------SWITCH COST (the session stats' row: the session's and the latest standard games, pooled)-------
 
 // Never per game: one game has too few presses to measure it (split-half
-// reliability near zero in the study), so every value pools the latest
-// standard games that have a saved trace (switch-cost-worker.js).
+// reliability near zero in the study), so each value pools many standard
+// games that have a saved trace (switch-cost-worker.js).
 function switchCostSigned(value, digits) {
   const text = Math.abs(value).toFixed(digits);
   return (value < 0 && Number(text) !== 0 ? '\u2212' : '+') + text;
 }
 
-// Each display reads the worker's fit (SwitchCost.fit); `of` is undefined
-// where the fit has no value, rendered as the en dash like any other
-// not-yet-measurable panel value.
-const SWITCH_COST_GROUP = {
-  name: 'switching',
-  help: 'Your latest standard games with a saved trace, up to ' + SwitchCost.WINDOW_GAMES
-    + ', pooled: what changing between flagging and clicking or chording does to the '
-    + 'time from one press to the next.',
-  displays: [
-    { label: 'switch cost',
-      help: 'Extra time before the next press after you change buttons, compared with '
-        + 'repeating the same move over the same distance at the same point in the game. '
-        + 'In brackets, the 95% interval.',
-      of: (fit) => (fit.status === 'measured' ? fit : undefined),
-      fmt: (fit) => switchCostSigned(fit.percent, 1) + '% (' + switchCostSigned(fit.percentLow, 1)
-        + ' to ' + switchCostSigned(fit.percentHigh, 1) + ')' },
-    { label: 'per switch',
-      help: 'The same extra time in milliseconds, at your median time between presses '
-        + 'around a switch.',
-      of: (fit) => (fit.status === 'measured' ? fit.msPerSwitch : undefined),
-      fmt: (v) => switchCostSigned(v, 0) + 'ms' },
-    { label: 'moves that switch',
-      help: 'Share of consecutive moves where you changed buttons: a flag after a click '
-        + 'or chord, or the reverse.',
-      of: (fit) => (fit.status === 'measured' ? fit.switchShare : undefined),
-      fmt: (v) => Math.round(v * 100) + '%' },
-    { label: 'games',
-      help: 'Games in the estimate. One game has too few presses to measure the cost, '
-        + 'so the estimate waits for ' + SwitchCost.MIN_GAMES + '.',
-      of: (fit) => fit.games,
-      fmt: (v) => String(v) },
-  ],
-};
+// The row's columns, keyed as in the worker's reply.
+const SWITCH_COST_POOLS = [
+  { id: 'session', label: 'session' },
+  { id: 'latest', label: 'latest ' + SwitchCost.WINDOW_GAMES },
+];
 
-// The latest fit; null until the worker's first reply.
-let switchCostLatest = null;
+// The card's rows: what each pool's fit holds besides its estimate.
+// `of` is undefined where the fit has no value, shown as the en dash.
+const SWITCH_COST_DETAILS = [
+  { label: '95% interval', of: (fit) => (fit.status === 'measured'
+    ? switchCostSigned(fit.percentLow, 1) + ' to ' + switchCostSigned(fit.percentHigh, 1) + '%' : undefined) },
+  { label: 'per switch', of: (fit) => (fit.status === 'measured' ? switchCostSigned(fit.msPerSwitch, 0) + 'ms' : undefined) },
+  { label: 'moves that switch', of: (fit) => (fit.status === 'measured' ? Math.round(fit.switchShare * 100) + '%' : undefined) },
+  { label: 'games', of: (fit) => String(fit.games) },
+];
+
+// The worker's latest reply, { session, latest } fits; null until the first.
+let switchCostFits = null;
+// The request in flight or last answered: its candidates, newest first, the
+// session window's start it used, and how many candidates ended inside it.
+let switchCostRequest = null;
 let switchCostPending = false;
 let switchCostRefreshAgain = false;
+// A refresh asked for while the row was hidden; it runs when the row shows.
+let switchCostStale = false;
 
-// Rows keep their DOM identity: a new fit changes only their text, and the
-// section's height never depends on the data.
-function buildSwitchCostSection() {
-  const section = document.createElement('div');
-  section.className = 'switch-cost-section';
-  section.appendChild(buildMetricsGroupHead(SWITCH_COST_GROUP));
-  const rows = SWITCH_COST_GROUP.displays.map((display) => {
-    const row = document.createElement('div');
-    row.className = 'metric-row switch-cost-row';
-    const head = document.createElement('div');
-    head.className = 'metric-head';
-    const labelEl = document.createElement('span');
-    labelEl.className = 'metric-label';
-    labelEl.appendChild(chartHelpButton(display.help, display.label));
-    const valueEl = document.createElement('span');
-    valueEl.className = 'metric-value';
-    head.append(labelEl, valueEl);
-    row.appendChild(head);
-    row.updateFit = (fit) => {
-      const value = fit === null ? undefined : display.of(fit);
-      setMetricText(valueEl, value === undefined ? '\u2013' : display.fmt(value));
-    };
-    section.appendChild(row);
-    return row;
-  });
-  section.updateFit = (fit) => {
-    for (const row of rows) row.updateFit(fit);
-  };
-  section.updateFit(switchCostLatest);
-  return section;
+// The row is part of the session stats.
+function switchCostShown() {
+  return settings.showSessionStats && !settings.metricsPanelCollapsed;
 }
 
-// Every standard game on the three standard boards, newest first; the worker
-// reads saved traces down this list until the window is full.
+// The pool names over the value columns; body rows come from switchCostTableRow.
+function switchCostTable() {
+  const table = document.createElement('table');
+  const head = table.createTHead().insertRow();
+  head.appendChild(document.createElement('td'));
+  for (const pool of SWITCH_COST_POOLS) {
+    const th = document.createElement('th');
+    th.scope = 'col';
+    th.textContent = pool.label;
+    head.appendChild(th);
+  }
+  table.createTBody();
+  return table;
+}
+
+// A body row named by `name` (text or a node); returns its value cells in
+// SWITCH_COST_POOLS order.
+function switchCostTableRow(table, name) {
+  const row = table.tBodies[0].insertRow();
+  const th = document.createElement('th');
+  th.scope = 'row';
+  th.append(name);
+  row.appendChild(th);
+  return SWITCH_COST_POOLS.map(() => row.insertCell());
+}
+
+// The label's card: what each pool's fit holds besides the estimates the row
+// shows, then what the estimate is and which games count.
+function fillSwitchCostCard(tip) {
+  const card = document.createElement('div');
+  card.className = 'switch-cost-card';
+  const paragraph = (text) => {
+    const p = document.createElement('p');
+    p.textContent = text;
+    card.appendChild(p);
+  };
+  if (switchCostFits === null) paragraph('Calculating from your saved games.');
+  else {
+    const table = switchCostTable();
+    for (const detail of SWITCH_COST_DETAILS) {
+      switchCostTableRow(table, detail.label).forEach((cell, i) => {
+        const value = detail.of(switchCostFits[SWITCH_COST_POOLS[i].id]);
+        cell.textContent = value === undefined ? '\u2013' : value;
+      });
+    }
+    card.appendChild(table);
+    for (const pool of SWITCH_COST_POOLS) {
+      if (switchCostFits[pool.id].status === 'not-measurable') {
+        paragraph('The ' + pool.label + ' games cannot be measured: their moves do not separate '
+          + 'switching from move type, distance, and board progress.');
+      }
+    }
+  }
+  paragraph('Extra time before your next press after changing buttons (flag versus click or chord), '
+    + 'compared with repeating the same move over the same distance at the same point in the game; '
+    + 'per switch gives it in milliseconds at your median gap around a switch.');
+  paragraph('Only Beginner, Intermediate, and Expert games in Standard play with the default generator '
+    + 'and a saved trace count, and each column needs ' + SwitchCost.MIN_GAMES
+    + ' of them: one game is too few to measure.');
+  tip.appendChild(card);
+}
+
+// Built once with the panel. Its cells keep their identity, and a reply
+// changes only their text.
+function buildSwitchCostRow() {
+  const table = switchCostTable();
+  table.className = 'switch-cost-table';
+  const cells = switchCostTableRow(table, chartHelpButton(fillSwitchCostCard, 'switch cost'));
+  table.updateFits = (fits) => {
+    SWITCH_COST_POOLS.forEach((pool, i) => {
+      const fit = fits === null ? null : fits[pool.id];
+      setMetricText(cells[i], fit !== null && fit.status === 'measured'
+        ? switchCostSigned(fit.percent, 1) + '%' : '\u2013');
+    });
+    // An open card would still show the previous reply.
+    if (chartHelpOwner !== null && table.contains(chartHelpOwner)) hideChartHelpTip();
+  };
+  table.updateFits(switchCostFits);
+  return table;
+}
+
+// Every game on the three standard boards, newest first; the worker reads
+// saved traces down this list as far as each pool needs.
 function switchCostCandidates() {
   const candidates = [];
   for (const key of Object.keys(SwitchCost.KEYS)) {
@@ -655,29 +699,63 @@ function switchCostCandidates() {
   return candidates.sort((a, b) => b.endedAt - a.endedAt);
 }
 
+// How many candidates, from the newest, ended at or after `fromMs`.
+function switchCostSessionCount(candidates, fromMs) {
+  let count = 0;
+  while (count < candidates.length && candidates[count].endedAt >= fromMs) count++;
+  return count;
+}
+
 // One request in flight; a refresh asked for meanwhile runs after its reply,
-// over the history as it is then.
+// over the history and the session window as they are then. Nothing is read
+// while the row is hidden.
 function refreshSwitchCost() {
+  if (!switchCostShown()) {
+    switchCostStale = true;
+    return;
+  }
   if (switchCostPending) {
     switchCostRefreshAgain = true;
     return;
   }
+  switchCostStale = false;
   switchCostPending = true;
+  const candidates = switchCostCandidates();
+  const sessionFromMs = SessionScope.bounds(settings.sessionDefinition, Date.now()).from;
+  switchCostRequest = { candidates, sessionFromMs,
+    sessionCount: switchCostSessionCount(candidates, sessionFromMs) };
+  const row = metricsPanelView.switchCost;
+  row.setAttribute('aria-busy', 'true');
   analysisTask('switch-cost', 'estimate', {
     database: { name: DB_NAME, version: db.version, traceStore: TRACE_STORE },
-    candidates: switchCostCandidates(),
-  }).then((fit) => {
+    candidates, sessionFromMs,
+  }).then((fits) => {
     switchCostPending = false;
-    switchCostLatest = fit;
-    if (metricsPanelView !== null) metricsPanelView.switching.updateFit(fit);
+    switchCostFits = fits;
+    row.updateFits(fits);
     if (switchCostRefreshAgain) {
       switchCostRefreshAgain = false;
       refreshSwitchCost();
     }
+    if (!switchCostPending) row.removeAttribute('aria-busy');
   }).catch(analysisFailure);
 }
 
-// A saved trace of a standard game can change the window.
+// Every render that shows the row: a refresh skipped while it was hidden runs
+// now, and so does one for a session window whose start has crossed a game
+// since the last request (another session picked, or time passing). Renders
+// during startup, before init's first request, leave that request to init.
+function keepSwitchCostCurrent() {
+  if (switchCostStale) refreshSwitchCost();
+  else if (switchCostRequest !== null) {
+    const fromMs = SessionScope.bounds(settings.sessionDefinition, Date.now()).from;
+    if (switchCostSessionCount(switchCostRequest.candidates, fromMs) !== switchCostRequest.sessionCount) {
+      refreshSwitchCost();
+    }
+  }
+}
+
+// A saved trace of a standard game can change both pools.
 function switchCostSourcesChanged(key) {
   if (Object.hasOwn(SwitchCost.KEYS, key)) refreshSwitchCost();
 }

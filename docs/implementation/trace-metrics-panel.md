@@ -59,7 +59,8 @@ Spec: [docs/product/trace-metrics-panel.md](../product/trace-metrics-panel.md). 
   input computations and derive `traceSilenceRatio` from the new duration.
   `renderMetricsPanel(metrics)` maintains `#metrics-panel` as the
   always-shown session heading with the page's one session picker +
-  session section (settings.showSessionStats) + live per-game rows
+  the switch-cost row and the session section (both
+  settings.showSessionStats) + live per-game rows
   (settings.showMotionStatsDuringGame, only while tracing with metrics
   non-null — null means "no live rows", the between-games render); the
   panel is unhidden on its first render and never hidden again;
@@ -146,7 +147,7 @@ Spec: [docs/product/trace-metrics-panel.md](../product/trace-metrics-panel.md). 
   the stored sample schedule before dispatch. The spatial-bias fitter uses
   the same exact `trend-fit.js` algorithm as all other trend lines.
 
-## Switching section (2026-09-28)
+## Switch cost row (2026-09-28 section; session row 2026-10-08)
 
 Spec: [Switching](../product/trace-metrics-panel.md#switching-creator-request-and-approval-2026-09-28).
 
@@ -163,6 +164,10 @@ Spec: [Switching](../product/trace-metrics-panel.md#switching-creator-request-an
     the last layout event with the eighth-of-a-cell bevel.
   - `window(candidates, gameOf)` walks newest first to 500 games with a
     transition, loading no candidate past the window (`gameOf` may be async).
+  - `since(candidates, fromMs, gameOf)` walks newest first through every
+    candidate that ended at or after `fromMs` (inclusive, as
+    `SessionScope.bounds`) and keeps those with a transition, however many;
+    it loads no candidate that ended earlier.
   - `fit(games)` builds P1's 20 columns in the study's order. Each spline
     uses the natural cubic basis x, d_k - d_{K-1} (ESL 5.4-5.5), which spans
     patsy's `cr` space less the constant the game intercepts absorb. It
@@ -182,28 +187,60 @@ Spec: [Switching](../product/trace-metrics-panel.md#switching-creator-request-an
   the visible board before each input and its return value becomes
   `step.before`; `boardInputs` is exported.
 - `switch-cost-worker.js` is `analysisTask`'s `switch-cost` lane
-  (`startAnalysisWorker` in `analysis-client.js`; one task kind, `estimate`).
-  It opens the database with the page's name and version as
-  `training-worker.js` does, reads each trace in its own transaction, keeps
-  every saved game's rows for the page's lifetime, and does not remember a
-  missing trace (a just-finished game's trace may not be committed when an
-  earlier request lists it). `solver.js` needs `justice.js` loaded first.
-- `game/metrics-panel.js`, section "SWITCH COST": `SWITCH_COST_GROUP` (labels,
-  help, formatting with a true minus sign), `buildSwitchCostSection` (built
-  once with the panel; rows keep identity and only their text changes),
-  `switchCostCandidates` (the three keys' records, newest first),
-  `refreshSwitchCost` (one request in flight, one rerun queued; failures
-  through `analysisFailure`), `switchCostSourcesChanged` (called when
-  `saveTrace` completes). `init` calls `refreshSwitchCost` after startup.
+  (`startAnalysisWorker` in `analysis-client.js`; one task kind, `estimate`,
+  payload `{ database, candidates, sessionFromMs }`, reply
+  `{ session, latest }`, one `fit` result per pool). It opens the database
+  with the page's name and version as `training-worker.js` does, reads each
+  trace in its own transaction, keeps every saved game's rows for the page's
+  lifetime, and does not remember a missing trace (a just-finished game's
+  trace may not be committed when an earlier request lists it). It keeps the
+  previous reply's fits keyed by their games' end times, so a pool whose
+  games did not change (the latest 500 when another session is picked, or
+  the session when both pools hold the same games) is not fitted again.
+  `solver.js` needs `justice.js` loaded first.
+- `game/metrics-panel.js`, section "SWITCH COST":
+  - `buildSwitchCostRow`: built once with the panel and placed right after
+    the session heading. A table whose header row names `SWITCH_COST_POOLS`
+    and whose one body row holds the label (`chartHelpButton`) and a cell
+    per pool; its `updateFits` changes only those cells' text, with a true
+    minus sign, and closes an open card.
+  - `fillSwitchCostCard`: `SWITCH_COST_DETAILS` per pool, a sentence per
+    `not-measurable` pool, the definition, and which games count.
+  - `switchCostCandidates`: the three keys' records, newest first.
+  - `refreshSwitchCost`: while the row is hidden (`switchCostShown`: session
+    stats on and the panel open) it only sets `switchCostStale`. Otherwise
+    one request in flight and one rerun queued; `switchCostRequest` keeps the
+    request's candidates, its session start, and how many candidates ended
+    inside the window. Failures go through `analysisFailure`.
+  - `keepSwitchCostCurrent`: called by `renderMetricsPanelContent` whenever
+    it shows the session stats. It runs a stale refresh, or one when the
+    session window now holds a different number of the request's
+    candidates (another session picked, or the window's start passing a
+    game).
+  - `switchCostSourcesChanged`: called when `saveTrace` completes. `init`
+    calls `refreshSwitchCost` after startup.
+- `style.css`, `.switch-cost-table`: the value cells are `width: 6ch` with
+  `box-sizing: content-box`, since the page's global border-box would put
+  the padding inside the six characters, and the label column, the only one
+  without a width, takes the slack. With the label column at `width: 100%`
+  instead, Chromium sizes the value columns to their content alone, so a
+  dash and an estimate differ in width.
 - Verification: `tests/switch-cost-test.js` (known-answer transitions from a
   hand-built game, numpy knots, the fit against `tests/switch-cost-reference.json`
-  within 1e-9, coverage of the fixture's planted effect, window rules);
-  `tests/training-core-test.js` (the replay additions);
-  `tests/switch-cost-browser-check.js` (the worker's fit from IndexedDB equals
-  Node's within 1e-12, rendered rows, a refresh after a finished game,
-  collapse; request routing under 8099, no server; an optional third argument
-  saves a panel screenshot). After a fixture or estimator change, regenerate
-  the reference: `node tests/switch-cost-fixture.js ROWS.jsonl` then
+  within 1e-9, coverage of the fixture's planted effect, window and session
+  rules); `tests/training-core-test.js` (the replay additions);
+  `tests/switch-cost-browser-check.js`: hidden, with nothing read, while
+  session stats are off; the row directly under the picker; both pools' fits
+  from IndexedDB equal Node's within 1e-12 over the past 4 hours, the past
+  hour, the past 10 minutes, and the past hour ten minutes later (a shifted
+  `Date.now`); the rendered row and card; a finished game joining both
+  pools; hiding with the panel and with session stats; row heights and value
+  widths unchanged through replies and at 220, 640, and 316 px. It serves
+  the working tree by request routing under 8099, so it needs no server, and
+  runs in Chromium only: Firefox does not route the requests a worker makes
+  itself (`importScripts`). An optional third argument saves a screenshot of
+  the panel's top with the card open. After a fixture or estimator change,
+  regenerate the reference: `node tests/switch-cost-fixture.js ROWS.jsonl` then
   `python analysis/switch-cost/reference.py ROWS.jsonl tests/switch-cost-reference.json`.
 - Real-data parity (2026-09-28, the study's latest 500 standard games,
   25,970 transitions, the same window by end time as by start time): in-game

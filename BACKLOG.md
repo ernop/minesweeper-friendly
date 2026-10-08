@@ -114,7 +114,13 @@ clicking or chording and for a statistical look first; the study is
 [reference/mode-switch-2026-09-28.md](reference/mode-switch-2026-09-28.md).
 
 - **Switch cost in the stats panel.** Built and released 2026-09-28 on the
-  creator's approval ([Switching](docs/product/trace-metrics-panel.md#switching-creator-request-and-approval-2026-09-28)).
+  creator's approval, and made one session-stats row with a session and a
+  latest-500 column on 2026-10-08 ([Switching](docs/product/trace-metrics-panel.md#switching-creator-request-and-approval-2026-09-28)).
+- **Where the session picker belongs** (creator, 2026-10-08). Raised with
+  the row: "once that's done we can think about where this session
+  definition chooser really belings, right?" The row is built; the picker
+  stays in the session heading until this is decided
+  ([One session definition](docs/product/game-data.md#one-session-definition)).
 - **Breakdowns by direction and distance** (mapped). Flag then chord against
   chord then flag, and one, two, or three or more cells, differ widely in
   the study; showing them needs its own reliability check per breakdown.

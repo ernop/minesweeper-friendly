@@ -90,7 +90,7 @@ Files, in load order:
 | `music.js` | music state sampling |
 | `trace-metrics.js` | trace metrics, pure (all measurement systems) |
 | `metric-definitions.js` | shared metric display catalog and series projection (pure, also loaded in workers) |
-| `metrics-panel.js` | left stats panel: session heading, live rows, switching section, motion charts, scheduling |
+| `metrics-panel.js` | left stats panel: session heading, switch-cost row, live rows, motion charts, scheduling |
 | `session-stats.js` | session series computation, event recording, startup backfill |
 | `session-charts.js` | the one session picker, session controls and charts |
 | `player-states.js` | player state tags and their menu |

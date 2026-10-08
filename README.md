@@ -272,12 +272,13 @@ cause from a change in a line. The
 window survives a reload: startup reconstructs the selectable session windows
 from saved records, then applies the shared page-wide choice (today by
 default). Closing the tab does not wipe the measured game history.
-Below the session charts, a "switching" section pools your latest 500
-standard games with saved traces: how much longer the next press takes after
-you change buttons (flag versus click or chord) than after repeating the same
-move over the same distance, with its 95% interval, the same in milliseconds,
-and the share of moves that switch. One game is too few to measure it, so it
-never appears per game.
+The first session stat, directly under the picker, is switch cost: how much
+longer the next press takes after you change buttons (flag versus click or
+chord) than after repeating the same move over the same distance. It pools
+standard games with saved traces twice, the session's and your latest 500,
+and its label opens each pool's 95% interval, the same cost in milliseconds,
+the share of moves that switch, and the game count. One game is too few to
+measure it, so it never appears per game.
 
 The home-page score buttons open the same full result view for Beginner,
 Intermediate, or Expert without requiring a new game; historical views have

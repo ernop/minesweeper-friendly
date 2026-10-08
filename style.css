@@ -3509,10 +3509,55 @@ body.vigilance-running #self-check-header {
   color: #000000;
 }
 
-/* A switching value with its interval stays on its label's line. */
-#metrics-panel .switch-cost-row .metric-value {
+/* The session stats' switch-cost row: each pool's estimate under the pool's
+   name. Values lead by size, the pool names by weight, as in game data's
+   band; every cell stays on one line. The label column, the only one
+   without a width, takes the slack. */
+#metrics-panel .switch-cost-table {
+  width: 100%;
+  margin: 4px 0 6px;
+  border-collapse: collapse;
+  color: #000000;
+}
+#metrics-panel .switch-cost-table th,
+#metrics-panel .switch-cost-table td {
+  padding: 0 0 0 8px;
+  font-weight: normal;
+  text-align: right;
   white-space: nowrap;
 }
+#metrics-panel .switch-cost-table thead th {
+  font-size: 11px;
+  font-weight: bold;
+}
+#metrics-panel .switch-cost-table tbody th {
+  padding-left: 0;
+  font-size: 12px;
+  text-align: left;
+}
+/* Six characters hold every estimate under 100% either way, so a reply
+   does not widen its column: a cell's width is its column's minimum, and
+   the content box keeps the padding outside the six characters. */
+#metrics-panel .switch-cost-table tbody td {
+  box-sizing: content-box;
+  width: 6ch;
+  font-family: monospace;
+  font-size: 13px;
+}
+
+.chart-help-tip:has(> .switch-cost-card) { width: auto; max-width: calc(100vw - 12px); }
+.switch-cost-card { width: 330px; max-width: 100%; }
+.switch-cost-card table { margin: 0 0 7px; border-collapse: collapse; }
+.switch-cost-card th,
+.switch-cost-card td {
+  padding: 0 0 0 14px;
+  font-weight: normal;
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.switch-cost-card thead th { font-weight: bold; }
+.switch-cost-card tbody th { padding-left: 0; text-align: left; }
 
 /* When tucked away via its own toggler, the panel shrinks to a small
    restore chip in the same corner. */

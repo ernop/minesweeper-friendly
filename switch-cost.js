@@ -3,9 +3,10 @@
 // Switch cost: how much longer the next press takes after changing mouse
 // buttons (flag versus click or chord) than after repeating the same move.
 // Spec: docs/product/trace-metrics-panel.md ("Switching"); study and
-// estimator choice: reference/mode-switch-2026-09-28.md. Pure: the stats
-// panel runs it in switch-cost-worker.js over the latest standard games'
-// saved traces, and Node tests load it directly.
+// estimator choice: reference/mode-switch-2026-09-28.md. Pure: the session
+// stats' switch-cost row runs it in switch-cost-worker.js over the saved
+// traces of the session's and the latest standard games, and Node tests load
+// it directly.
 //
 // Per game, every pair of consecutive board inputs that are both moves
 // (reveal, chord, flag; no other input between them) is one transition,
@@ -399,6 +400,21 @@ async function switchCostWindow(candidates, gameOf) {
   return games;
 }
 
+// The session: walking `candidates` newest first, every game that ended at or
+// after `fromMs` (the session window's inclusive start) and has a timed
+// transition, however many. `gameOf` is as for the window; no candidate that
+// ended before `fromMs` is loaded.
+async function switchCostSince(candidates, fromMs, gameOf) {
+  const games = [];
+  for (const candidate of candidates) {
+    if (candidate.endedAt < fromMs) break;
+    const game = await gameOf(candidate);
+    if (game === null || game.rows.length === 0) continue;
+    games.push(game);
+  }
+  return games;
+}
+
 const SwitchCost = {
   WINDOW_GAMES: SWITCH_COST_WINDOW_GAMES,
   MIN_GAMES: SWITCH_COST_MIN_GAMES,
@@ -413,6 +429,7 @@ const SwitchCost = {
   design: switchCostDesign,
   fit: switchCostFit,
   window: switchCostWindow,
+  since: switchCostSince,
 };
 
 if (typeof module !== 'undefined' && module.exports) module.exports = SwitchCost;

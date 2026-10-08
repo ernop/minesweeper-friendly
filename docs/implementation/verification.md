@@ -135,12 +135,15 @@ Index: [AGENTS.md](../../AGENTS.md).
   `/home/ef/proj/voice-wei/node_modules/playwright-core` and
   `/home/ef/.cache/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-linux64/chrome-headless-shell`.
   `tests/self-check-browser-check.js` (runs a complete 10-counter test),
-  `tests/switch-cost-browser-check.js` (optional third argument: a panel
-  screenshot path), and
+  `tests/switch-cost-browser-check.js` (optional third argument: a
+  screenshot path for the panel's top with the switch-cost card open), and
   `tests/archive-browser-check.js` take the same two arguments but
   need no server: they serve the working tree through Playwright request
   routing under the exact origin `http://127.0.0.1:8099/` and abort every
   other request, so they run even while something else holds that port.
+  Routing serves workers in Chromium only: Firefox does not route the
+  requests a worker makes itself (`importScripts`), so a Firefox check that
+  runs workers needs the 8099 server.
   `tests/metrics-*-parity.js` compare in-page metrics with the offline
   pipelines (environments: [offline-analysis.md](offline-analysis.md)).
 

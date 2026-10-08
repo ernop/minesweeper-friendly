@@ -214,6 +214,12 @@ inside the same boundary. No old lookback observations leak across it.
   `showSessionStats` setting (default off, decided 2026-09-26) hides the stats; the panel's ×
   chip tucks them away with the rest. Neither hides the header and its
   picker, because ranks won and game data still use the session.
+- Switch cost row (2026-10-08): the first line under the session header,
+  above the controls, which shape only the charts. It reads "switch cost"
+  with two signed percents: the standard games that ended in the session
+  window, and the latest 500. Both pool many games, never one; the spec is
+  [Switching](trace-metrics-panel.md#switching-creator-request-and-approval-2026-09-28).
+  It shows and hides with the session stats.
 - Charts: real charts, not sparklines (decided 2026-08-22, same
   evening) — the scatter plots' visual grammar at panel width (the
   panel widened to fit): plot frame, light gridlines, 1/2/5-step y

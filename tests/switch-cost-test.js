@@ -1,12 +1,13 @@
 'use strict';
-// Tests for switch-cost.js, the stats panel's switch cost: transitions from a
+// Tests for switch-cost.js, the session stats' switch cost: transitions from a
 // hand-built game (press pairing, distance with and without a board move,
 // what the board offered, chain breaks, a release without its press,
 // interval bounds), knot placement
 // against numpy, the fit against the independent Python reference on the
 // synthetic fixture (tests/switch-cost-reference.json, written by
 // analysis/switch-cost/reference.py from `node tests/switch-cost-fixture.js
-// ROWS.jsonl`), recovery of the fixture's planted effect, and the window.
+// ROWS.jsonl`), recovery of the fixture's planted effect, and both pools: the
+// latest-500 window and the session window.
 //
 // Usage: node tests/switch-cost-test.js
 
@@ -164,6 +165,29 @@ console.log('fit: the independent Python reference on the synthetic fixture');
   check('games without a saved trace or transition are skipped',
     games.every((g) => g.endedAt % 7 !== 3 && g.endedAt % 11 !== 5));
   check('no game past the window is loaded', loads.at(-1) === games.at(-1).endedAt);
+
+  console.log('since: the session window, newest first, however many games');
+  const total = 2 * SwitchCost.WINDOW_GAMES;
+  const sessionCandidates = Array.from({ length: total }, (_, i) => ({ endedAt: total - i }));
+  const fromMs = total / 4 + 1;
+  const sessionLoads = [];
+  const sessionGame = (candidate) => {
+    sessionLoads.push(candidate.endedAt);
+    if (candidate.endedAt % 7 === 3) return null;
+    return { endedAt: candidate.endedAt, rows: candidate.endedAt % 11 === 5 ? [] : [{}] };
+  };
+  const session = await SwitchCost.since(sessionCandidates, fromMs, sessionGame);
+  const inSession = sessionCandidates.filter((c) => c.endedAt >= fromMs && c.endedAt % 7 !== 3 && c.endedAt % 11 !== 5);
+  check('every game with a transition since the start, past the ' + SwitchCost.WINDOW_GAMES + '-game window ('
+    + session.length + ')', session.length > SwitchCost.WINDOW_GAMES && session.length === inSession.length
+      && session.every((game, i) => game.endedAt === inSession[i].endedAt));
+  check('the start is inclusive', session.at(-1).endedAt === fromMs);
+  check('no game that ended before the start is loaded',
+    sessionLoads.length === total - fromMs + 1 && sessionLoads.every((endedAt) => endedAt >= fromMs));
+  sessionLoads.length = 0;
+  check('a window after every game is empty and loads nothing',
+    (await SwitchCost.since(sessionCandidates, total + 1, sessionGame)).length === 0 && sessionLoads.length === 0);
+
   const few = SwitchCost.fit(window.slice(0, SwitchCost.MIN_GAMES - 1));
   check('under ' + SwitchCost.MIN_GAMES + ' games: too few games, counted',
     few.status === 'too-few-games' && few.games === SwitchCost.MIN_GAMES - 1 && few.percent === undefined);
