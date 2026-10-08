@@ -507,7 +507,7 @@ const SETTINGS_SCHEMA = [
   {
     field: 'gameDataShowValues', default: true,
     valid: (v) => typeof v === 'boolean', group: 'after-game',
-    label: 'show actual value in game data', describe: 'show measured values beside game-data labels', control: 'none',
+    label: 'show values in game data', describe: 'show each measurement’s value for this game beside its name in game data; chosen on the chart', control: 'none',
   },
   {
     field: 'gameDataDayTime', default: true,
@@ -523,7 +523,7 @@ const SETTINGS_SCHEMA = [
   {
     field: 'gameDataBandPool', default: 'lifetime',
     valid: (v) => v === 'lifetime' || v === 'session', group: 'after-game',
-    label: 'game data plotted comparison', describe: 'whether the game data bar places your performance among your lifetime games or your session games; chosen on the chart', control: 'none',
+    label: 'game data comparison pool', describe: 'whether game data places both sides’ points, and shows every hover card, among your lifetime games or your session games; chosen with the points switch on the chart', control: 'none',
   },
   {
     field: 'gameDataDistributions', default: false,

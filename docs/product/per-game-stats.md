@@ -74,38 +74,31 @@ Previously saved research measurements remain in exports without entering
 comparison tables.
 
 **Game data** replaces the winning-game scalar stat block in the sidebar.
-It compares this game's performance with independently configurable lifetime
-and session pools on the left, and ranks the board's measured trait values
-in preferred directions on the right. Its 0–100% band places each item at
-100 × (rank − 1) ÷ (count − 1): the best in its pool is 0% at the top and the
-worst is 100% (user decision 2026-09-23: "if my number here was highest the
-entire session, the value would be 0%, i.e. I was the best"). Each left label
-names the measurement and this game's value. Lifetime is implicit with no
-suffix ("time 44.382s"); session comparisons use "(session)" ("3BV/s 1.600
-(session)"). The separate trailing-24-hour time comparison keeps "(day)".
-This revises the earlier "(life)" wording (user decision 2026-09-26).
+It ranks this game's performance against your lifetime and your session on
+the left ("your perf") and the board's measured trait values, in preferred
+directions, on the right ("board traits"). Its 0–100% band places each item
+at 100 × (rank − 1) ÷ (count − 1): the best in its pool is 0% at the top and
+the worst is 100% (user decision 2026-09-23: "if my number here was highest
+the entire session, the value would be 0%, i.e. I was the best").
 Comparisons with fewer than two eligible measured games are omitted entirely,
-with no one-game section or notice (user request 2026-09-26).
-Board-trait labels have no pool word. The band also has exact anchors, pastel
-colors, automatic range zoom, and short tooltips: each item's definition plus
-one rank sentence ([game-data.md](game-data.md)). Configuration has separate
-session/lifetime checkbox columns and all-selection controls; a saved bottom
-checkbox shows/hides actual values. By default (user decision 2026-09-23,
-from the creator's own configuration) the left side shows lifetime
-comparisons for time, misclick rate, fastclick gap, 3BV/s, click rate, no-op
-rate, correctness, mouse speed, and unused mark share, plus time (day), and
-no session comparisons; the right side omits 3BV spread, whose tablechart
-switch is off by default. The page's one session picker, the left stats
-panel's session heading, controls this chart's (session) comparisons,
-left-side session stats, and ranks won in session together, defaulting to
-today (since local midnight); the chart itself only says "session" and has
-no picker (user decision 2026-09-23). The chart includes paginated historical-window
-summaries from saved primary facts. The separate This win/time caption is gone.
-Its band sits where both sides' labels fit on one line (2026-09-23). It lives
-in its own full-height column beside the board column when that fits, and
-otherwise fills the details column's width and remaining height (see [Layout](board-and-layout.md)).
-Replacing other result surfaces with it is planned for later (user decision
-2026-09-23); see BACKLOG.md.
+with no one-game section or notice (user request 2026-09-26). Since
+2026-10-07 each measurement is one row with its value and its session and
+lifetime percentages in columns, the bar carries the green-to-red standing
+color, and one checkbox list chooses the measurements for both pools
+(earlier: "(session)" and "(day)" label suffixes, pastel colors, and
+separate checkbox columns). Since 2026-10-08 the chart has no heading, one
+options row under the data, a points switch that picks the pool for both
+sides and for every hover card, cards that explain each measurement in plain
+words and work its calculation, and no scroll bars. The page's one session
+picker, the left stats panel's session heading, sets the session for this
+chart, left-side session stats, the session summary, and ranks won in session
+together, defaulting to today (since local midnight); the chart has no picker
+(user decision 2026-09-23). The chart includes paginated historical-window
+summaries from saved primary facts. The separate This win/time caption is
+gone. It lives in its own full-height column beside the board column when
+that fits, and otherwise fills the details column's width and remaining
+height (see [Layout](board-and-layout.md)). Replacing other result surfaces
+with it is planned for later (user decision 2026-09-23); see BACKLOG.md.
 
 The complete specification, catalog, formula rules, responsive behavior,
 historical data design, and explicit inventory of old stat-block fields no
