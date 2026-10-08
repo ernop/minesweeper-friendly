@@ -258,6 +258,9 @@ const { chromium } = require(process.argv[2]);
     await page.mouse.move(0, 0);
     for (const width of [1680, 650]) {
       await page.setViewportSize({ width, height: 1100 });
+      // The board layout that places blocks beside the board runs in the
+      // next animation frame; measuring before it read the previous width.
+      await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
       assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll('.rank-list')]
         .filter((list) => list.scrollWidth > list.clientWidth + 1)
         .map((list) => list.querySelector('h4').textContent)), [], width + 'px long-session overflow');
