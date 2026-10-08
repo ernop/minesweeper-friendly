@@ -4,8 +4,12 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
 
 - Game data (2026-09-23, band rebuilt 2026-10-07, panel and cards revised 2026-10-08): [complete design and removed-field inventory](../product/game-data.md).
   `game-data.js` owns shared metric formulas, the GameData catalog (one
-  `name`, `format`, `help`, `explain`, direction, and `allOutcomes` per
-  measurement), rows, history, domain, and SessionScope choices/bounds/records.
+  `name`, `plain`, `format`, `help`, `explain`, direction, and `allOutcomes`
+  per measurement), rows, history, domain, and SessionScope
+  choices/bounds/records. `plain` is a short phrase the card and the
+  configuration list read as "This is <plain>."; board traits carry the same
+  field in `BOARD_METRIC_TABLES` and the shape families, and `rankedRow`
+  copies it onto every row.
   `settings-core.js` depends on it.
 - Rows: `GameData.rows(record, records, preferences, params)` ranks every
   chosen measurement (`preferences.gameDataMetrics`) against lifetime and the

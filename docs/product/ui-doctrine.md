@@ -73,10 +73,12 @@ because they apply app-wide, not just where each was first stated.
   to every help label, (?) button, and the problems page's help, since the
   reason given is the cursor itself. The pointer stays the default arrow.
 - Measurement explanations (creator 2026-10-08, extending "write them well
-  without clutter"): where a stat's card has room, it says what the number
-  is, works this game's calculation with its own numbers, shows how its
-  standing's percentage is computed, and may demonstrate a board concept on
-  a small example board ([Game data](game-data.md), hover card).
+  without clutter"): where a stat's card has room, it first says what the
+  number is in plain words ("This is your time from start to the win."),
+  then defines it exactly, works this game's calculation with its own
+  numbers, shows how its standing's percentage is computed, and may
+  demonstrate a board concept on a small example board
+  ([Game data](game-data.md), hover card).
 - A data panel whose content can outgrow its box shrinks to fit rather than
   growing a scroll bar when the creator asks for no scrolling there (game
   data, 2026-10-08: "careful not to allow this part of the UI to gain any

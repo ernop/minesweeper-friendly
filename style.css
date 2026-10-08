@@ -2555,6 +2555,7 @@ body.settings-page .return-to-game {
 .chart-help-tip:has(> .game-data-card) { width: auto; max-width: calc(100vw - 12px); }
 .game-data-card { display: flex; flex-direction: column; gap: 6px; width: 330px; max-width: 100%; color: #000000; }
 .game-data-card p { margin: 0; font-size: 12px; line-height: 1.4; }
+.game-data-card p.game-data-card-plain { font-size: 13px; }
 .game-data-card p.game-data-card-key { font-size: 11px; }
 .game-data-card-title .game-data-name { font-size: 14px; font-weight: 700; }
 .game-data-card-title .game-data-value { font-size: 15px; font-weight: 400; }

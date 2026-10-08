@@ -6,8 +6,8 @@ importScripts('trend-fit.js?v=20260925-worker-analysis',
   'game/session-stats.js?v=20260926-chord-buttons',
   'game/metric-definitions.js?v=20261007-result-redesign',
   'board-shape.js', 'zini.js', 'board-metrics.js?v=20260921-visible-zero-one',
-  'game-data.js?v=20261008-game-data-panel', 'game/rankings.js?v=20261008-game-data-panel',
-  'game/charts.js?v=20261007-result-redesign', 'game/game-data-chart.js?v=20261008-game-data-panel',
+  'game-data.js?v=20261008-game-data-plain', 'game/rankings.js?v=20261008-game-data-plain',
+  'game/charts.js?v=20261007-result-redesign', 'game/game-data-chart.js?v=20261008-game-data-plain',
   'training-core.js?v=20260928-switch-cost');
 
 let config;

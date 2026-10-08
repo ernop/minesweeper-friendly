@@ -16,7 +16,7 @@ function boardTraitRankProfile(record, comparisons, records, sessionDefinition) 
   const session = SessionScope.records(past, sessionDefinition, record.endedAt);
   const sessionText = 'this session (' + SessionScope.choices.find((c) => c.id === sessionDefinition).label + ')';
   return comparisons.filter((c) => c.rawValue).flatMap((comparison) => {
-    const spec = { id: comparison.measurementId, name: comparison.trait, allOutcomes: true,
+    const spec = { id: comparison.measurementId, name: comparison.trait, plain: comparison.plain, allOutcomes: true,
       higher: comparison.higher, value: comparison.rawValue, format: comparison.format,
       help: comparison.help(record)[0] };
     // Session boards are a subset of lifetime, so a session row implies a lifetime row.
@@ -308,11 +308,12 @@ function gameDataExampleBoard(id) {
 }
 
 // The hover card for one pool, the one whose standing placed the row's point
-// (or whose strip was hovered): what the measurement is, this game's
-// calculation with its own numbers, an example board for board traits, the
-// pool's standing with its arithmetic, and the pool's games on the
-// measurement's axis. Every count and color in it comes from that pool; only
-// the time card adds its separate last-24-hours rank, which has no switch.
+// (or whose strip was hovered): what the measurement is, first in plain words
+// and then exactly, this game's calculation with its own numbers, an example
+// board for board traits, the pool's standing with its arithmetic, and the
+// pool's games on the measurement's axis. Every count and color in it comes
+// from that pool; only the time card adds its separate last-24-hours rank,
+// which has no switch.
 function fillGameDataCard(tip, item, scope) {
   const card = document.createElement('div');
   card.className = 'game-data-card';
@@ -333,8 +334,8 @@ function fillGameDataCard(tip, item, scope) {
   title.append(gameDataCell('game-data-name', item.name), ' ', gameDataCell('game-data-value', item.valueText));
   const lifetime = item.pools.lifetime, row = item.pools[scope];
   const d = row.distribution;
-  card.append(title, paragraph('game-data-card-definition', lifetime.helpText[0]),
-    paragraph('game-data-card-calculation', lifetime.calculation));
+  card.append(title, paragraph('game-data-card-plain', 'This is ' + lifetime.plain + '.'),
+    paragraph('game-data-card-definition', lifetime.helpText[0]), paragraph('game-data-card-calculation', lifetime.calculation));
   if (lifetime.example) card.appendChild(gameDataExampleBoard(lifetime.example));
   card.append(paragraph('game-data-card-direction', item.side === 'board'
     ? (row.higher ? 'Higher' : 'Lower') + ' is the preferred end: a declared preference, not a measured difficulty.'
@@ -343,8 +344,8 @@ function fillGameDataCard(tip, item, scope) {
     session: 'this session (' + SessionScope.choices.find((c) => c.id === settings.sessionDefinition).label + ')' }[scope];
   const games = 'your ' + row.total.toLocaleString('en-US') + ' ' + row.counted + ' ' + windowText;
   const marks = d.values !== undefined
-    ? 'Dots: ' + games + ', one per game at its value (touching dots stack)'
-    : 'Bars: ' + games + ', ' + d.binText;
+    ? 'Dots: ' + games + ', one per game, placed by ' + item.name + ' (touching dots stack)'
+    : 'Bars: ' + games + ' by ' + item.name + ', ' + d.binText;
   const rankedAmong = { lifetime: '', session: 'in the session ', day: 'in the last 24 hours ' }[scope];
   card.append(gameDataHistogram(row, true), paragraph('game-data-card-key', marks + ', colored by how they rank '
     + rankedAmong + '(green better, red worse).' + (row.sessionValues ? ' Ticks: this session’s ' + row.sessionValues.length + '.' : '')
@@ -841,7 +842,9 @@ function buildBoardTimeRankProfile(record, records) {
       const body = document.createElement('tbody');
       for (const metric of GameData.metrics) {
         const row = document.createElement('tr');
-        const name = document.createElement('td'); name.appendChild(chartHelpButton(metric.help, metric.name)); row.appendChild(name);
+        const name = document.createElement('td');
+        name.appendChild(chartHelpButton(['This is ' + metric.plain + '.', metric.help], metric.name));
+        row.appendChild(name);
         const cell = document.createElement('td');
         const input = document.createElement('input'); input.type = 'checkbox';
         input.setAttribute('aria-label', metric.name);

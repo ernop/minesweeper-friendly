@@ -189,6 +189,8 @@ const { chromium } = require(process.argv[2]);
     assert.equal(await card.getAttribute('data-pool'), 'lifetime', 'the card follows the points switch');
     assert.equal(await card.locator('.game-data-card-standing').innerText(),
       'lifetime: All 50 boards so far with these board settings have the same value, so it sits at 50%.');
+    assert.equal(await card.locator('.game-data-card-plain').innerText(), 'This is how many zeros (blank cells) this board has.',
+      'a card first says what the number is in plain words');
     assert((await card.innerText()).includes('Safe cells with no adjacent mines.'));
     assert.equal(await card.locator('.game-data-card-calculation').innerText(), '59 safe cells on this board have no adjacent mine.');
     assert.equal(await card.locator('.game-data-example-cell').count(), 48, 'a board trait shows its example board');
@@ -272,7 +274,8 @@ const { chromium } = require(process.argv[2]);
     assert((await sessionCard.locator('.game-data-card-standing').first().innerText()).includes('this session (last hour)'));
     assert.equal(await sessionCard.locator('.game-data-histogram-tick').count(), 0, 'no lifetime ticks in a session card');
     assert.equal(await sessionCard.locator('.game-data-histogram-dot').count(), 3, 'the session’s 3 wins, one dot each');
-    assert((await sessionCard.innerText()).includes('Dots: your 3 wins this session (last hour), one per game'));
+    assert.equal(await sessionCard.locator('.game-data-card-plain').innerText(), 'This is your time from start to the win.');
+    assert((await sessionCard.innerText()).includes('Dots: your 3 wins this session (last hour), one per game, placed by time'));
     assert((await sessionCard.innerText()).includes('also, last 24 hours:'), 'time keeps its separate 24-hour rank');
     await page.mouse.move(0, 0);
     await profile.getByRole('button', { name: 'lifetime', exact: true }).click();

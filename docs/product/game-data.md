@@ -104,7 +104,15 @@ session mode, the bars etc. should reflect SESSION info"). Hovering or
 focusing a row opens a card over the band, never reflowing it. In order:
 
 1. The name and this game's value.
-2. What it is: the measurement's one definition.
+2. What the number is, in plain words, as one "This is …" sentence
+   (creator 2026-10-08: "also, things like the mouseover chart for 'time'
+   saying 'this is your time from start to the win'"): "This is your time
+   from start to the win.", "This is your speed: how much of the board's work
+   you cleared per second.", "This is how many separate clumps of mines this
+   board has." Each measurement has one such phrase; the configuration list
+   shows it too.
+   Then the exact definition: the measurement's one definition, worded so
+   it does not repeat the plain sentence.
 3. This game's calculation with its own stored numbers, for example
    "75 3BV ÷ 37.119 s = 2.021 3BV per second", "108 board-changing ÷ (108 +
    11 that changed nothing) = 90.76%", or for a board share "This board: 131
@@ -130,10 +138,10 @@ focusing a row opens a card over the band, never reflowing it. In order:
    or fewer (touching dots stack), each colored by standing within that
    pool (green better, red worse); a blue line marks this game; "better →"
    or "← better" names the better end; the lifetime card ticks the
-   session's games under the axis. The key names the pool and its count and
-   what one bar covers ("one bar per value", "one bar per 4 consecutive
-   values", "each bar spans 0.037"), and counts any games beyond the drawn
-   range.
+   session's games under the axis. The key names the pool and its count, the
+   measurement on the axis ("by time"), and what one bar covers ("one bar
+   per value", "one bar per 4 consecutive values", "each bar spans 0.037"),
+   and counts any games beyond the drawn range.
 8. Time only: its separate last-24-hours rank ("also, last 24 hours: …"),
    which has no position on the points switch.
 9. The chart below that plots the measurement, outlined while hovering.

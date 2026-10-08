@@ -69,6 +69,9 @@ assert.equal(GameData.rows(current, equalTimes)[0].helpText[1],
   'an equal time set earlier ranks ahead and says so');
 assert(GameData.metrics.every((m) => typeof m.help === 'string' && m.help.split(' ').length <= 40),
   'every metric has a short definition');
+assert(GameData.metrics.every((m) => typeof m.plain === 'string' && m.plain.split(' ').length <= 16 && !m.plain.endsWith('.')),
+  'every metric says what it is in a short plain phrase, read as "This is <plain>."');
+assert.equal(row('time.lifetime').plain, 'your time from start to the win');
 assert.equal(row('time.lifetime').calculation, 'This game took 30.000 s on the game clock.');
 assert.equal(row('bvPerSecond.lifetime').calculation, '60 3BV ÷ 30.000 s = 2.000 3BV per second.',
   'the card works the calculation with this game’s own numbers');

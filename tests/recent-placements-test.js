@@ -82,6 +82,9 @@ function assertEq(name, actual, want) {
   assertEq('a board trait’s card shows this board’s arithmetic', of(highRows, 'zeroOneShare').calculation,
     'This board: 80 of 100 safe cells = 80%.');
   assertEq('a board trait names its example board', of(highRows, 'islandCount').example, 'islandCount');
+  assertEq('a board trait says what it is in plain words', of(highRows, 'islandCount').plain,
+    'how many separate clumps of mines this board has');
+  assertEq('every ranked board trait has a plain phrase', highRows.every((r) => typeof r.plain === 'string'), true);
   assertEq('single board has no comparison rows', boardTraitRankProfile(current, comparisons, [current], 'today').length, 0);
   assertEq('no board profile for a loss', boardTraitRankProfile({ ...current, outcome: 'loss' }, comparisons, past, 'today').length, 0);
 }

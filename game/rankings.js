@@ -254,27 +254,31 @@ function boardShareStep(record) {
 // family, use the numeric measurement. Pool size never changes row order.
 // Matching one feature does not imply equal overall difficulty. A grouped
 // table names its group's range.
-// `explain(record)` is this board's worked line in the game data card, and
-// `example` names its miniature board demonstration (game-data-chart.js).
+// `plain` says what the trait is in the player's words (a game data card
+// reads "This is <plain>."), `explain(record)` is this board's worked line
+// in the card, and `example` names its miniature board (game-data-chart.js).
 const BOARD_METRIC_TABLES = [
   { id: 'bv3', field: 'bv3', format: String, setting: 'exact3BV', priority: 13, summaryGroup: 2, example: 'bv3',
+    plain: 'how much work this board takes, counted in clicks',
     help: () => ['The fewest clicks that clear this board without flags: one for each zero region, plus one for each number that no zero region reveals.'],
     explain: (record) => 'This board needs ' + record.bv3 + ' such clicks.' },
   { id: 'zini', field: 'zini', format: String, setting: 'exactZiNi', priority: 14, summaryGroup: 3,
+    plain: 'a benchmark click count for this board when you flag and chord',
     help: () => ['The clicks a standard greedy solve with flags and chords needs when every mine is known. Never more than 3BV.'],
     explain: (record) => 'That solve of this board takes ' + record.zini + ' clicks; its 3BV is ' + record.bv3 + '.' },
   { id: 'maxAdjacent', field: 'maxAdjacent', format: String, setting: 'exactMaxNumber', priority: 15, summaryGroup: 6, higher: true,
-    example: 'maxAdjacent',
-    help: () => ['Max number: the highest number on this board.'],
+    example: 'maxAdjacent', plain: 'the highest number on this board',
+    help: () => ['Max number: the most mines touching any one safe cell, from 1 to 8.'],
     explain: (record) => 'The highest number on this board is ' + record.maxAdjacent + '.' },
   { id: 'hzini', field: 'hzini', format: String, setting: 'exactHZiNi', priority: 16, summaryGroup: 4,
+    plain: 'a second benchmark click count for this board, from a human-style solve',
     help: () => ['Human ZiNi: the actions a fixed human-style solve takes when every mine is known. It opens each zero region, then flags and chords around the clue that saves the most clicks, and reveals single cells when chording would cost extra. A reference count, not the true minimum.'],
     explain: (record) => 'That solve of this board takes ' + record.hzini + ' actions; its 3BV is ' + record.bv3 + '.' },
   { id: 'workSpread', field: boardSpreadGroup,
     labelOf: (value) => BOARD_TRAIT_NAMES.workSpread + ' ' + (value - 0.25).toFixed(2) + '–' + (value + 0.25).toFixed(2) + ' cells',
     format: (value) => Number(value.toFixed(1)) + ' cells',
     rawValue: (record) => record.boardMetrics?.version === 1 ? record.boardMetrics.workSpread : undefined,
-    setting: 'workSpreadTable', priority: 17, summaryGroup: 5,
+    setting: 'workSpreadTable', priority: 17, summaryGroup: 5, plain: 'how spread out this board’s work is',
     help: (record) => [
       'How spread out the board’s 3BV work is, in cell widths: the root-mean-square distance of its work points from their center. Each zero region is one point at its center, and each safe cell that no zero region reveals is its own point.',
       'This board: ' + record.boardMetrics.workSpread.toFixed(3) + ' cells. Its table holds boards from '
@@ -287,7 +291,7 @@ const BOARD_METRIC_TABLES = [
     format: (value) => formatBoardShare(value, 1),
     rawValue: (record) => boardFractionOf(record, 'zeroOpenedZeroOneCells'), higher: true,
     labelOf: (value) => BOARD_TRAIT_NAMES.zeroOneShare + ' ' + value + '%', setting: 'zeroOneShareTable', priority: 18, summaryGroup: 12,
-    example: 'zeroOneShare', step: boardShareStep,
+    example: 'zeroOneShare', step: boardShareStep, plain: 'how much of this board shows 0 or 1 once its zero regions are open',
     help: (record) => boardShareHelp(record, 'zeroOpenedZeroOneCells',
       'Share of safe cells showing 0 or 1 after opening every zero region and nothing else. Covered ones do not count.'),
     explain: (record) => boardShareCalculation(record, 'zeroOpenedZeroOneCells') },
@@ -295,7 +299,7 @@ const BOARD_METRIC_TABLES = [
     format: (value) => formatBoardShare(value, 1),
     rawValue: (record) => boardFractionOf(record, 'zeroOpenedCells'), higher: true,
     labelOf: (value) => BOARD_TRAIT_NAMES.zeroOpeningCoverage + ' ' + value + '%', setting: 'zeroOpeningTable', priority: 19, summaryGroup: 13,
-    example: 'zeroOpeningCoverage', step: boardShareStep,
+    example: 'zeroOpeningCoverage', step: boardShareStep, plain: 'how much of this board its zero regions open by themselves',
     help: (record) => boardShareHelp(record, 'zeroOpenedCells',
       'Zero-opening coverage: the share of safe cells uncovered by opening every zero region, including the numbers on their borders.'),
     explain: (record) => boardShareCalculation(record, 'zeroOpenedCells') },
@@ -311,6 +315,7 @@ function boardMetricCandidates(referenceWins, wins) {
       rawValue: spec.rawValue || ((record) => record[spec.field]),
       higher: spec.higher === true,
       setting: spec.setting,
+      plain: spec.plain,
       help: spec.help,
       explain: spec.explain,
       example: spec.example,
@@ -368,6 +373,7 @@ function boardShapeCandidates(referenceWins, wins) {
     candidates.push({
       id: 'islands-' + count, measurementId: 'islandCount',
       trait: BOARD_TRAIT_NAMES.islandCount, rawValue: (record) => record.islandCount, higher: false,
+      plain: 'how many separate clumps of mines this board has',
       help: () => ['Groups of touching mines on this board, diagonals included.'],
       explain: (record) => 'The mines on this board form ' + record.islandCount + ' such groups.',
       example: 'islandCount',
@@ -383,6 +389,7 @@ function boardShapeCandidates(referenceWins, wins) {
     candidates.push({
       id: 'largest-island-' + size, measurementId: 'largestIsland',
       trait: BOARD_TRAIT_NAMES.largestIsland, rawValue: (record) => record.largestIsland, higher: true,
+      plain: 'the size of this board’s biggest clump of mines',
       help: () => ['Mines in the largest group of touching mines, diagonals included.'],
       explain: (record) => 'This board’s largest group holds ' + record.largestIsland + ' mines.',
       example: 'largestIsland',
@@ -398,6 +405,7 @@ function boardShapeCandidates(referenceWins, wins) {
     candidates.push({
       id: 'zeros-' + count, measurementId: 'zeroCount',
       trait: BOARD_TRAIT_NAMES.zeroCount, rawValue: (record) => record.zeroCount, higher: true,
+      plain: 'how many zeros (blank cells) this board has',
       help: () => ['Safe cells with no adjacent mines.'],
       explain: (record) => record.zeroCount + ' safe cells on this board have no adjacent mine.',
       example: 'zeroCount',
