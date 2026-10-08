@@ -57,6 +57,21 @@ Index: [AGENTS.md](../../AGENTS.md).
   The profile keeps Firefox's HTTP cache (`<profile>/cache2`), and
   `http.server` sends no cache headers, so a reopened profile can run
   scripts older than the working tree; delete `cache2` before each launch.
+- README and promo screenshots (2026-10-08): the same sandbox, with
+  `updateSettings` opening the stats panel and setting the session to
+  "last 7 calendar days" (`pastWeek`), since the history export ended the
+  day before and a "today" session would hold only scripted games. Scripted
+  Beginner wins (safe-cell clicks about 0.3 s apart) were played until one
+  finished in about 5 s, so its rows read as a strong game. Captures: the
+  viewport at 1920 x 1080 for the README's top image; at 2560 x 1440,
+  element screenshots of `#game-data-column` (band, then distributions),
+  `#metrics-panel`, the 3BV/s row's `.chart-help-tip`, and
+  `.result-chart-section-perfCharts` / `-relationships`, plus `main` cut
+  above "This board" for the promo hero. The card overhangs the game data
+  column at that width, so it is captured alone. Restore every changed
+  preference afterwards, save the PNGs with Pillow `optimize=True` into
+  `promo/` under the capture date, and replace the old files and every
+  reference to them (README, `promo/PROMO.md`, AGENTS.md).
 - Running game code without a browser: load the `game/` scripts, in
   `index.html` order, in Node via `vm.runInThisContext`, not `eval` (each
   file's 'use strict' makes eval declarations local, so nothing would be
