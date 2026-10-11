@@ -70,7 +70,8 @@ Spec: [docs/product/trace-metrics-panel.md](../product/trace-metrics-panel.md). 
   × / "stats ▸" session toggler; `refreshMetricsPanel` (called from the
   settings change handler) applies the settings mid-game and between
   games. Game-end transition: `lose` paints the mine-hit board and dead face,
-  while `checkWin` paints the completed marks, counter, and cool face; both
+  while `checkWin` paints only the cool face (the board and mine counter
+  keep the player's own flags); both
   then use `reportResultAfterPaint`, which renders nothing in the ending
   input's task. After one requestAnimationFrame + timer paint boundary
   (`afterNextPaint`), `showPendingResultShell` renders the outcome, exact

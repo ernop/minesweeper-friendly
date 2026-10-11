@@ -124,7 +124,7 @@ inside the same boundary. No old lookback observations leak across it.
     leave the series unmeasured while the per-game basis medians each
     game's stored spread instead. Needs at least two gaps.
   - **flag rate** (formerly "mine marking") — flags placed per in-progress second (removals
-    don't subtract; win auto-flagging never counts).
+    don't subtract).
   - **flag-removal rate** (added 2026-08-22, same evening, as "flag
     removals") — flags taken
     back per in-progress minute. Counts the removal, not the placement;

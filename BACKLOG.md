@@ -587,6 +587,14 @@ Generation that aims at the same families the new lists rank:
 
 ## Deferred product (already decided, not built)
 
+- **Win screenshots still show the removed auto-flagging (2026-10-10).**
+  `promo/win-screen-2026-10-08.png` (PROMO.md hero, README) and
+  `promo/win-screen-2026-10-08-full-layout.png` (README top) show a won
+  board with every mine flagged beside an "(m)" no-flags marker for the
+  same game. Since the creator's [Won board](docs/product/board-and-layout.md)
+  decision a win keeps only the player's flags. Retake both with the
+  procedure in [verification](docs/implementation/verification.md), "README
+  and promo screenshots", and replace every reference.
 - **Separate Justice-on and Justice-off rankings: decided against
   (2026-08-23).** Originally deferred 2026-08-20. The creator confirmed
   the mixed lists are the product: Justice stays on and its games rank

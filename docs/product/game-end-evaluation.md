@@ -237,8 +237,8 @@ report.
   drawn dotted: across the window's wins so far, the average share of
   the board's mines carrying no flag at the instant of winning
   (measured only on wins; 0% means every mine was flagged, 100% a
-  markless win). Live wins count unflagged mines just before the
-  auto-flag sweep repaints them; stored wins derive the share (never
+  markless win). Live wins count unflagged mines at the winning
+  action; stored wins derive the share (never
   store it) from `flagsPlaced - flagsRemoved` against the mode's mine
   count — at a win every flag still on the board provably sits on a
   mine, since flagged cells cannot be revealed. Wins recorded before

@@ -129,6 +129,15 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
 - Traces live in their own store (`traces`, keyed by endedAt exactly like
   history records; see Storage). The active trace stays in RAM; the full
   historical trace collection is not loaded during play. Nothing is pruned.
+- Each trace also stores the finished board (`finalBoard`: every cell's
+  mine, revealed, and flagged state, plus a loss's hit cells), which redraws
+  the last finished game after a reload. Its flags are the player's own
+  flags at the end, except on wins saved before 2026-10-10: the win then
+  flagged every remaining mine before the save (removed that day, see
+  [Won board](board-and-layout.md)), so those wins store every mine as
+  flagged. For them the player's final flags are the last decision event's
+  pre-action position (a win comes from a reveal or chord, which changes no
+  flag), and their count is `flagsPlaced − flagsRemoved`.
 - Scalar record fields are summaries; the trace is what lets any future
   metric be computed over past games retroactively. Failure to capture or
   save a trace is announced visibly and thrown, never tolerated.

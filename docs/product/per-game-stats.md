@@ -249,8 +249,7 @@ under `likely-misclick-after-wrong-flag`. This is intentionally labeled
 motor-slip pattern from a claim about what the player believed.
 
 Flags placed — how many flags the player set during the game (removing a
-flag doesn't subtract; the auto-flagging of remaining mines on a win is
-not the player's doing and is not counted) — joined the schema on
+flag doesn't subtract) — joined the schema on
 2026-08-19 under the same absence rules as wasted clicks. A game with
 zero flags placed holds the special status "markless": the stats table's
 "Flags placed" row reads "0 - markless", and wherever an individual game's

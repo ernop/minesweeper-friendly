@@ -39,11 +39,22 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   chording with press preview by a left click on a satisfied number or by both
   buttons held together over it, so the 1.5 click works (right press to flag,
   keep holding, slide onto the number, press left, release); once both
-  buttons are down together the release chords and never reveals; win
-  auto-flags remaining mines; loss shows the red hit cell and crossed-out
-  wrong flags. Both-button chording and flag-on-press were added 2026-09-26
-  at the user's request: the official game has them, and their absence was an
-  oversight, not a decision.
+  buttons are down together the release chords and never reveals; a win
+  leaves the board as the player left it (next item); loss shows the red hit
+  cell and crossed-out wrong flags. Both-button chording and flag-on-press
+  were added 2026-09-26 at the user's request: the official game has them,
+  and their absence was an oversight, not a decision.
+- Won board (user decision 2026-10-10, a deliberate departure from the
+  classic game): classic Windows Minesweeper flags every remaining mine and
+  sets the mine counter to 0 on a win; this game does neither. The won board
+  shows only the flags the player placed, unflagged mines stay covered
+  (every covered square on a won board is a mine, since a win means every
+  safe square is open), and the mine counter keeps showing mines minus the
+  player's flags. The user asked why the mines not yet marked "show up as if
+  you HAD marked them" and rejected it: the automatic flags claimed marks the
+  player never made, hid the flagged/unflagged split the game measures
+  (markless wins, the unflagged-mines share, unused correct flags), and were
+  saved into each win's trace as its final board.
 
 ## Startup readiness
 

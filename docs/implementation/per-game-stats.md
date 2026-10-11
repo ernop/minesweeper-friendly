@@ -75,8 +75,7 @@ Spec: [docs/product/per-game-stats.md](../product/per-game-stats.md). Index: [AG
   it never replaces `sessionEndingKind`, increments the exact visible-state
   `misclicks` count, or qualifies removed/correct/distant flags.
 - `flagsPlaced` counts flag placements by the player (removals don't
-  subtract; the win auto-flagging in `checkWin` bypasses `toggleFlag` and
-  is not counted). `isMarkless(record)` derives the markless status
+  subtract). `isMarkless(record)` derives the markless status
   (flagsPlaced === 0); records from before the measurement have it
   undefined and never qualify. Same absence rules as wastedClicks.
   Display: the `.markless-time` class on a time cell draws a small

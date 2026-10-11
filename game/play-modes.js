@@ -277,9 +277,9 @@ function renderDrillChrome() {
 
 //-------BOARD LAB (the non-play mode for exploring board generation)-------
 
-// The lab shows every board as if it had just been solved: safe cells
-// open with their numbers, mines flagged, counters at their win values.
-// No timer runs, no input reaches the cells, and nothing is recorded.
+// The lab shows every board fully known: safe cells open with their
+// numbers, every mine flagged, mine counter and timer at 0. No timer
+// runs, no input reaches the cells, and nothing is recorded.
 function buildLabBoard() {
   applyMineMap(BoardGenerators.place(
     gameGenerator, config.width, config.height, config.mines, null, gameRandom));

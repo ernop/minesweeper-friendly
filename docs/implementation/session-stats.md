@@ -96,7 +96,7 @@ Spec: [docs/product/session-stats.md](../product/session-stats.md). Index: [AGEN
   overlapped bucket, a stored win's unmarked-mine share derived (never
   stored) by `recordWinUnmarkedShare(record, minesOfModeKey(key))` from
   flagsPlaced − flagsRemoved (live wins count unflagged mines in
-  checkWin before the auto-flag sweep and pass the share to
+  checkWin and pass the share to
   `sessionRecordEnd('win', share)`); live and backfill cannot overlap
   because every backfilled game ended before the page load. DISPLAY: `SESSION_GROUP` +
   `SESSION_METRIC_SPECS` (solo rows: cadence spread and the

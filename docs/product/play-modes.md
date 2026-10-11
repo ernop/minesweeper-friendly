@@ -159,8 +159,10 @@ or remain explicitly unmeasured.
   layout is already fixed.
 - **Board lab (decided 2026-08-25).** The non-play mode for exploring
   board generation. Every board appears the instant it is dealt, shown
-  as if it had just been solved: safe cells open with their numbers,
-  mines flagged, counters at their win values (mine LCD 0, timer 0).
+  fully known: safe cells open with their numbers, every mine flagged,
+  mine LCD 0, timer 0. (Since 2026-10-10 a won game no longer flags the
+  remaining mines; the lab still flags every mine, because nobody plays
+  its boards and its flags only show where the mines are.)
   No input reaches the cells, no timer runs, and nothing is ever
   recorded — the mode exists to look at generated boards, not to play
   them. A panel above the board holds free size adjustment (width

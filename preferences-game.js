@@ -173,7 +173,7 @@ async function restorePreferredResult() {
   }
   setFace(gameState === 'won' ? 'cool' : 'dead');
   setLcd(timerDisplay, Math.min(TIMER_CAP_SECONDS, Math.floor(record.timeMs / 1000)));
-  setLcd(mineCounter, gameState === 'won' ? 0 : config.mines - flagsCount);
+  setLcd(mineCounter, config.mines - flagsCount);
   beginTraceMetricsSeries();
   const restoredTrace = trace;
   const revision = resultViewRevision;
