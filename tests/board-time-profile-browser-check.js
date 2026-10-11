@@ -16,7 +16,7 @@ const { chromium } = require(process.argv[2]);
       const now = Date.now();
       const current = { outcome: 'win', endedAt: now, timeMs: 33542,
         clicks: 105, misclicks: 1, wastedClicks: 3, fastclickGapMs: 190, mousePathPx: 980,
-        flagsPlaced: 8, unusedCorrectFlags: 1, bv3: 75, zini: 49, maxAdjacent: 5, hzini: 50, islandCount: 21, zeroCount: 59,
+        flagsPlaced: 8, flagsRemoved: 0, unusedCorrectFlags: 1, bv3: 75, zini: 49, maxAdjacent: 5, hzini: 50, islandCount: 21, zeroCount: 59,
         boardMetrics: { version: 1, workSpread: 6.5, safeCells: 100,
           zeroOpenedZeroOneCells: 60, zeroOpenedCells: 69 } };
       const groups = [
@@ -32,7 +32,7 @@ const { chromium } = require(process.argv[2]);
           ...fields, outcome: 'win', endedAt: now - (1000 + group * 1000 + index) * 864e5,
           clicks: 75 + index % 90, misclicks: index % 4, wastedClicks: index % 9,
           fastclickGapMs: 100 + index % 300, mousePathPx: 400 + index * 10,
-          flagsPlaced: 8, unusedCorrectFlags: index % 4,
+          flagsPlaced: 8, flagsRemoved: index % 3, unusedCorrectFlags: index % 4,
           timeMs: current.timeMs + (index < rank - 1 ? index - rank + 1 : index - rank + 2) * 75,
         })));
       wins.push(current);
@@ -58,8 +58,10 @@ const { chromium } = require(process.argv[2]);
     const bandReady = () => page.waitForFunction(() => document.querySelector('.game-data-bar') !== null);
     await bandReady();
     assert.deepEqual(await names('performance'), ['3BV/s', 'click rate', 'correctness',
-      'fastclick gap', 'misclick rate', 'mouse speed', 'no-op rate', 'time', 'unused flag share'],
+      'fastclick gap', 'misclick rate', 'mouse speed', 'no-op rate', 'time', 'unflagged mine share', 'unused flag share'],
       'defaults: one row per shown measurement');
+    assert.equal(await profile.locator('.game-data-row[data-measurement="unflaggedMineShare"] .game-data-value').textContent(), '20%',
+      'a beginner win with 8 flags standing left 2 of its 10 mines unflagged');
     assert.deepEqual(await names('board'), ['0–1 share', '3BV', 'HZiNi', 'ZiNi', 'islands', 'max number',
       'zero-opening coverage', 'zeros'], 'board traits keep their table names; 3BV spread is off by default');
     await page.evaluate(async () => {

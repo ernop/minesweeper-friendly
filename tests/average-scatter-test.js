@@ -34,7 +34,7 @@ function assertEq(name, actual, want) {
 assertEq(
   'your-perf chart order',
   tested.PERF_CHART_SPECS.map((spec) => spec.label).join(','),
-  'clicks,path,clicks over 3BV,misclick rate,fastclick gap,3BV/s,click rate,no-op rate,efficiency,path / 3BV,path / click,correctness,IOE,ZiNi efficiency,HZiNi efficiency,IOS,STNB,mouse speed,cadence spread,unused flag share');
+  'clicks,path,clicks over 3BV,misclick rate,fastclick gap,3BV/s,click rate,no-op rate,efficiency,path / 3BV,path / click,correctness,IOE,ZiNi efficiency,HZiNi efficiency,IOS,STNB,mouse speed,cadence spread,unused flag share,unflagged mine share');
 assertEq(
   'board-trait chart order',
   tested.BOARD_CHART_SPECS.map((spec) => spec.label).join(','),
@@ -66,6 +66,22 @@ assertEq('path / 3BV buckets to 10px',
   byLabel('path / 3BV').value(base), 120);
 assertEq('efficiency is win-only', byLabel('efficiency').winBound, true);
 assertEq('3BV/s keeps losses for winrate', byLabel('3BV/s').winBound, undefined);
+// The flag shares are win-only and plot in percent: unused flag share in
+// 5-point groups, unflagged mine share at its exact values, one per count
+// of unflagged mines.
+assertEq('unused flag share is win-only', byLabel('unused flag share').winBound, true);
+assertEq('unused flag share ticks in percent', byLabel('unused flag share').xTickUnit, '%');
+assertEq('unused flag share groups in 5 points',
+  byLabel('unused flag share').value({ ...base, flagsPlaced: 8, unusedCorrectFlags: 1 }), 15);
+const unflagged = byLabel('unflagged mine share');
+assertEq('unflagged mine share is win-only', unflagged.winBound, true);
+assertEq('unflagged mine share ticks in percent', unflagged.xTickUnit, '%');
+assertEq('unflagged mine share links its game data row', unflagged.measurementId, 'unflaggedMineShare');
+assertEq('unflagged mine share plots the exact percent',
+  unflagged.value({ ...base, flagsPlaced: 9, flagsRemoved: 2 }), 30);
+assertEq('a markless win plots 100%', unflagged.value({ ...base, flagsPlaced: 0 }), 100);
+assertEq('unflagged mine share needs the flag counters',
+  tested.averageEligibleWins(unflagged, [{ ...base, flagsPlaced: 4 }]).length, 0);
 
 assertEq('legacy shape records are ineligible',
   tested.averageEligibleWins(byLabel('zeros'), [{ ...base, zeroCount: undefined }]).length,

@@ -744,15 +744,10 @@ function chord(index) {
 function checkWin() {
   if (revealedCount !== cells.length - config.mines) return;
   gameState = 'won';
-  // The unflagged-mines-at-win share (the "percent of mines unflagged
-  // when winning" chart line). The won board keeps only the player's own
-  // flags: unflagged mines stay covered and the mine counter keeps
-  // showing mines minus flags.
-  let unflaggedMines = 0;
-  for (let i = 0; i < cells.length; i++) {
-    if (cells[i].mine && !cells[i].flagged) unflaggedMines++;
-  }
-  sessionRecordEnd('win', unflaggedMines / config.mines);
+  // The won board keeps only the player's own flags: unflagged mines stay
+  // covered and the mine counter keeps showing mines minus flags.
+  sessionRecordEnd('win', unflaggedMineShareOf({ outcome: 'win', playMode: settings.playMode,
+    flagsPlaced, flagsRemoved }, config.mines));
   finish();
   setFace('cool');
   reportResultAfterPaint('win');

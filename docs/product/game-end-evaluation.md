@@ -237,11 +237,15 @@ report.
   drawn dotted: across the window's wins so far, the average share of
   the board's mines carrying no flag at the instant of winning
   (measured only on wins; 0% means every mine was flagged, 100% a
-  markless win). Live wins count unflagged mines at the winning
-  action; stored wins derive the share (never
-  store it) from `flagsPlaced - flagsRemoved` against the mode's mine
-  count — at a win every flag still on the board provably sits on a
-  mine, since flagged cells cannot be revealed. Wins recorded before
+  markless win). Each win's share is game data's **unflagged mine
+  share** ([Game data](game-data.md), one definition since 2026-10-10):
+  live and stored wins alike derive it (never store it) from
+  `flagsPlaced - flagsRemoved` against the board's mine count — at a win
+  every flag still on the board provably sits on a mine, since flagged
+  cells cannot be revealed. Until 2026-10-10 live wins counted the
+  unflagged mine cells instead, which gave the same value but also
+  measured Endgame drill wins; drills are now unmeasured, since their
+  mines outside the remnant were never in play. Wins recorded before
   the flag counters existed are unmeasured and stay out of both the
   numerator and the denominator; the line draws once any win in the
   window measured it, even at 0% (flagging every mine is a reading

@@ -15,7 +15,11 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
 - Rows: `GameData.rows(record, records, preferences, params)` ranks every
   chosen measurement (`preferences.gameDataMetrics`) against lifetime and the
   session (the trailing-24-hours `day` pool and its `gameDataDayTime`
-  preference were removed 2026-10-08).
+  preference were removed 2026-10-08). `params` is the game's board `config`
+  (STNB and unflagged mine share read it; callers always pass it). A
+  catalog measurement whose values are a share of a fixed count declares
+  `step(params)`, passed to `addDistributions` (unflagged mine share: one
+  mine, `1 / params.mines`).
   `GameData.rankedRow` omits a pool with fewer than two eligible measured
   games (2026-09-26). A row carries `id` (`metricId.scope`), `metricId`,
   `scope` (`lifetime`, `session`), `name`, `value`, `valueText`,

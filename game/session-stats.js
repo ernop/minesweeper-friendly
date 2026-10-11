@@ -183,22 +183,6 @@ function minesOfModeKey(key) {
   return Number.isFinite(mines) && mines > 0 ? mines : undefined;
 }
 
-// The share of the board's mines carrying no flag when a stored win
-// ended, derived (never stored) from the flag counters: a flagged cell
-// cannot be revealed, so at a win every flag still on the board provably
-// sits on a mine, and flags-on-board = flagsPlaced - flagsRemoved. Not
-// measured when the counters predate their fields — a nonzero
-// flagsPlaced without flagsRemoved coverage cannot give the net.
-function recordWinUnmarkedShare(record, mines) {
-  if (record.outcome !== 'win' || mines === undefined) return undefined;
-  if (typeof record.flagsPlaced !== 'number') return undefined;
-  if (record.flagsPlaced !== 0 && typeof record.flagsRemoved !== 'number') {
-    return undefined;
-  }
-  const onBoard = record.flagsPlaced - (record.flagsRemoved || 0);
-  return Math.min(1, Math.max(0, (mines - onBoard) / mines));
-}
-
 // The per-mark calibration of unused correct marks (decided 2026-08-30):
 // among a won game's placed flags, the share never consumed by an accepted
 // chord. Chosen as the primary reading because it is dimensionless — per
@@ -1266,7 +1250,7 @@ function sessionBackfillFromHistory() {
         cadenceSpread: record.cadenceSpread,
         end: record.outcome === 'win' ? 'win'
           : sessionEndingKind(fatal),
-        winUnmarked: recordWinUnmarkedShare(record, mines),
+        winUnmarked: mines === undefined ? undefined : unflaggedMineShareOf(record, mines),
         timeMs: record.timeMs,
         boardKey: historyModeKey.split('@')[0],
         endedAt: record.endedAt,

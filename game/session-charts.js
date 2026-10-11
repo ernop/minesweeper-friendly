@@ -183,7 +183,7 @@ function sessionMetricSpecForBasis(spec) {
 // its sentence wording (FATAL_STATUS_LABELS), and the two can never
 // disagree because both derive from fatalActionStatusKind.
 // Legacy-imported verdicts keep their old five-way lines as dashed
-// provenance; 'win' leads. The "percent of mines unmarked when winning"
+// provenance; 'win' leads. The "percent of mines unflagged when winning"
 // line is a different quantity on the same percent axis (see
 // appendSessionEndingsRow), drawn dotted in a deliberately un-endings
 // blue so it can't be misread as an ending share. The color travels

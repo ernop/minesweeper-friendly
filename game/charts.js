@@ -394,17 +394,22 @@ function metricName(id) {
 }
 
 // measurementId names the game data measurement a chart plots, so the two
-// can be linked; charts of chart-only quantities have none.
-function steppedMetric(id, step, extra = {}) {
+// can be linked; charts of chart-only quantities have none. A `percent`
+// share plots in percent, `step` in percentage points; a null step keeps
+// the exact values of a measurement that is already discrete.
+function steppedMetric(id, step, { percent = false, ...extra } = {}) {
   const metric = GameData.metrics.find((item) => item.id === id);
-  const read = (record) => metric.value(record, config);
+  const read = percent ? (record) => 100 * metric.value(record, config)
+    : (record) => metric.value(record, config);
   return {
     label: metric.name, measurementId: id,
     value: (record) => {
       const value = read(record);
-      return Number.isFinite(value) ? roundTo(value, step) : undefined;
+      if (!Number.isFinite(value)) return undefined;
+      return step === null ? value : roundTo(value, step);
     },
     has: (record) => Number.isFinite(read(record)),
+    ...(percent ? { xTickUnit: '%' } : {}),
     ...extra,
   };
 }
@@ -442,7 +447,8 @@ const PERF_CHART_SPECS = [
   steppedMetric('stnb', 1, { winBound: true }),
   steppedMetric('mouseSpeed', 50),
   steppedMetric('cadenceSpread', 0.1),
-  steppedMetric('unusedMarkShare', 0.05),
+  steppedMetric('unusedMarkShare', 5, { percent: true, winBound: true }),
+  steppedMetric('unflaggedMineShare', null, { percent: true, winBound: true }),
 ];
 
 const BOARD_CHART_SPECS = [

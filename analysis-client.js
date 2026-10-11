@@ -14,7 +14,7 @@ function analysisFailure(error) {
 // the switch-cost lane's worker reads the saved traces it needs itself.
 function startAnalysisWorker(lane) {
   if (lane === 'switch-cost') return new Worker('switch-cost-worker.js?v=20261010-switch-cost-game-fit');
-  return new Worker('analysis-worker.js?v=20261010-streak-ties-earlier');
+  return new Worker('analysis-worker.js?v=20261010-unflagged-mine-share');
 }
 
 async function analysisTask(lane, kind, payload) {

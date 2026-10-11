@@ -146,7 +146,8 @@ inside the same boundary. No old lookback observations leak across it.
     y axis auto-ranges to just above the highest plotted line (capped at
     100, floored at 10) instead of always spanning 0–100. The dotted
     "percent of mines unflagged when winning" line (the wins' average
-    share of mines left unflagged at the winning instant) draws in a
+    share of mines left unflagged at the winning instant, each win's
+    share being game data's unflagged mine share) draws in a
     deliberately un-endings blue (#1565c0), and "percent of placed flags
     unused when winning" in purple (#7b1fa2), so neither is misread as
     an ending share. See [Game-end evaluation](game-end-evaluation.md).

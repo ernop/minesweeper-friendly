@@ -91,6 +91,20 @@ function hziniEfficiencyOf(record) {
   return record.hzini / record.clicks;
 }
 
+// The share of the board's mines with no flag when the game was won: the
+// mine counter at the win over the mine count. A flagged cell cannot be
+// opened, so at a win every standing flag sits on a mine, and
+// flagsPlaced - flagsRemoved flags stand. Wins only; unmeasured where the
+// counters predate their fields, and on Endgame drills, whose mines outside
+// the remnant were never in play.
+function unflaggedMineShareOf(record, mines) {
+  if (record.outcome !== 'win' || record.playMode === 'endgame-drill'
+      || typeof record.flagsPlaced !== 'number') return undefined;
+  if (record.flagsPlaced === 0) return 1;
+  if (typeof record.flagsRemoved !== 'number') return undefined;
+  return (mines - record.flagsPlaced + record.flagsRemoved) / mines;
+}
+
 
 // One page-wide definition, shared by live stats, ranks won, and game data.
 // "today" starts at local midnight; it is not the trailing 24 hours.
@@ -181,6 +195,9 @@ const GameData = (() => {
     { id: 'unusedMarkShare', name: 'unused flag share', higher: false, default: true,
       value: (r) => r.flagsPlaced > 0 ? r.unusedCorrectFlags / r.flagsPlaced : undefined,
       format: percent, help: 'Correct flags that no chord ever used, as a share of all flags placed.' },
+    { id: 'unflaggedMineShare', name: 'unflagged mine share', higher: true, default: true,
+      value: (r, params) => unflaggedMineShareOf(r, params.mines), step: (params) => 1 / params.mines,
+      format: percent, help: 'Mines without a flag when you won, as a share of all the board’s mines.' },
     { id: 'flagsWithoutMultiCellChord', name: 'flags no multi-cell chord used', higher: false, default: true,
       value: (r) => r.flagsWithoutMultiCellChord, format: (v) => String(v) },
   ];
@@ -335,7 +352,7 @@ const GameData = (() => {
         .filter((row) => row !== null);
       if (poolRows.length === 0) continue;
       const valuesByScope = Object.fromEntries(pools.map(([scope, pool]) => [scope, poolValues(pool, spec, params)]));
-      result.push(...addDistributions(poolRows, valuesByScope, valuesByScope.session, spec.format));
+      result.push(...addDistributions(poolRows, valuesByScope, valuesByScope.session, spec.format, spec.step?.(params)));
     }
     return result;
   }

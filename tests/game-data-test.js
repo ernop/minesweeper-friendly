@@ -16,15 +16,16 @@ const records = [
 ];
 const on = (selection) => Object.keys(selection).filter((id) => selection[id]);
 assert.deepEqual(on(GameData.defaults), ['time', 'misclickRate', 'fastclickGap', 'bvPerSecond',
-  'clickRate', 'noopRate', 'correctness', 'mouseSpeed', 'unusedMarkShare', 'flagsWithoutMultiCellChord'],
-  'the creator’s defaults, plus the training plan’s stage 1 flag count');
-assert.deepEqual(GameData.rows(current, records).map((r) => r.id), ['time.lifetime', 'time.session',
+  'clickRate', 'noopRate', 'correctness', 'mouseSpeed', 'unusedMarkShare', 'unflaggedMineShare',
+  'flagsWithoutMultiCellChord'],
+  'the creator’s defaults, plus the training plan’s stage 1 flag count and the requested unflagged mine share');
+const board = { width: 9, height: 9, mines: 10 };
+assert.deepEqual(GameData.rows(current, records, GameData.defaultsForView, board).map((r) => r.id), ['time.lifetime', 'time.session',
   'misclickRate.lifetime', 'misclickRate.session', 'fastclickGap.lifetime', 'fastclickGap.session',
   'bvPerSecond.lifetime', 'bvPerSecond.session', 'clickRate.lifetime', 'clickRate.session',
   'noopRate.lifetime', 'noopRate.session', 'correctness.lifetime', 'correctness.session',
   'mouseSpeed.lifetime', 'mouseSpeed.session'],
   'one selection ranks each shown measurement against lifetime and the session; unmeasured flag measurements are absent');
-const board = { width: 9, height: 9, mines: 10 };
 const all = Object.fromEntries(GameData.metrics.map((m) => [m.id, true]));
 const none = Object.fromEntries(GameData.metrics.map((m) => [m.id, false]));
 const both = { ...GameData.defaultsForView, gameDataMetrics: all };
@@ -56,7 +57,7 @@ assert.equal(row('misclickRate.session').standingText, 'tied 1st–2nd of 3 game
 assert.deepEqual([row('misclickRate.session').better, row('misclickRate.session').tiedOthers], [0, 1]);
 assert.equal(row('fastclickGap.session').standingText, 'both games have this value');
 const equalTimes = [{ ...current, endedAt: now - 60000 }, current];
-assert.equal(GameData.rows(current, equalTimes)[0].standingText, '2nd of 2 wins', 'an equal time set earlier ranks ahead');
+assert.equal(GameData.rows(current, equalTimes, GameData.defaultsForView, board)[0].standingText, '2nd of 2 wins', 'an equal time set earlier ranks ahead');
 const constant = GameData.rows(current, [1, 2, 3].map((i) => ({ ...current, endedAt: now - i * 60000 })).concat(current),
   { ...both, gameDataMetrics: { ...none, correctness: true } }, board);
 assert.equal(constant.find((r) => r.id === 'correctness.lifetime').standingText, 'all 4 games have this value');
@@ -156,6 +157,34 @@ assert.deepEqual(flagRow.distribution.counts, [1, 1, 0, 2]);
 assert.equal(Math.round(flagRow.distribution.standing[3] * 10), 833, 'tied games stand at their shared mean rank, as their percentiles do');
 assert.equal(flagRow.percentile, flagRow.distribution.standing[3], 'this game’s bin stands where this game does');
 assert.deepEqual(flagRow.distribution.labels.map((label) => label.text), ['0', '1', '2', '3']);
+
+// Unflagged mine share (requested 2026-10-10): the mine counter at the win
+// over the mine count, from the stored flag counters.
+const unflagged = GameData.metrics.find((m) => m.id === 'unflaggedMineShare');
+const shareOf = (fields) => unflagged.value({ ...current, ...fields }, board);
+assert.equal(shareOf({ flagsPlaced: 4, flagsRemoved: 1 }), 0.7, 'placed minus removed flags stand, all on mines at a win');
+assert.equal(shareOf({ flagsPlaced: 10, flagsRemoved: 0 }), 0, 'every mine flagged');
+assert.equal(shareOf({ flagsPlaced: 3, flagsRemoved: 3 }), 1, 'flags all taken back');
+assert.equal(shareOf({ flagsPlaced: 0 }), 1, 'a markless win, even from before removals were counted');
+assert.equal(shareOf({ flagsPlaced: 3 }), undefined, 'placements without the removal count give no net');
+assert.equal(shareOf({}), undefined, 'records from before the flag counters are unmeasured');
+assert.equal(shareOf({ outcome: 'loss', flagsPlaced: 0, flagsRemoved: 0 }), undefined, 'wins only');
+assert.equal(shareOf({ playMode: 'endgame-drill', flagsPlaced: 2, flagsRemoved: 0 }), undefined,
+  'a drill’s mines outside the remnant were never in play');
+assert.equal(unflaggedMineShareOf({ ...current, flagsPlaced: 90, flagsRemoved: 3 }, 99), 12 / 99);
+const shareGames = [[8, 0], [6, 1], [10, 0], [7, 0], [9, 1]].map(([flagsPlaced, flagsRemoved], i) =>
+  ({ ...current, endedAt: now - (5 - i) * 60000, flagsPlaced, flagsRemoved }));
+const shareRow = GameData.rows(shareGames[4], shareGames,
+  { ...GameData.defaultsForView, gameDataMetrics: { ...none, unflaggedMineShare: true } }, board)
+  .find((r) => r.id === 'unflaggedMineShare.lifetime');
+assert.equal(shareRow.valueText, '20%');
+assert.equal(shareRow.higher, true, 'more mines left unflagged is better');
+assert.deepEqual([shareRow.standingText, shareRow.percentile], ['tied 3rd–4th of 5 wins', 62.5],
+  '50% and 30% beat this 20%, which ties the other 20%');
+assert.deepEqual([shareRow.distribution.step, shareRow.distribution.perBin, shareRow.distribution.bins], [0.1, 1, 6],
+  'one bin per count of unflagged mines');
+assert.deepEqual(shareRow.distribution.counts, [1, 0, 2, 1, 0, 1]);
+assert.deepEqual(shareRow.distribution.labels.map((label) => label.text), ['0%', '10%', '20%', '30%', '40%', '50%']);
 assert.equal(GameData.metrics.find((m) => m.id === 'stnb').value(current, board), stnbOf(current, board));
 assert.equal(GameData.metrics.find((m) => m.id === 'ioe').value(current), 60 / 82);
 assert.equal(new Set(GameData.metrics.map((m) => m.id)).size, GameData.metrics.length);

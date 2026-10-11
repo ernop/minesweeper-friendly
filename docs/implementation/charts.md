@@ -8,6 +8,10 @@ Spec: [docs/product/charts.md](../product/charts.md). Index: [AGENTS.md](../../A
   The section heading carries that group's selector (`chartModeSelect`).
   Board-shape specs exclude legacy records lacking their field; IOS excludes
   times at or below one second; path-ratio specs exclude zero denominators.
+  `steppedMetric(id, step, { percent, ...extra })` charts a GameData
+  measurement: `percent` plots a share ×100 with `xTickUnit: '%'` and a
+  step in percentage points; a null step keeps exact values (unflagged mine
+  share, already one value per mine count).
   Bucket steps are in [Point charts](../product/charts.md). A board chart
   follows its tablechart `shownThings` switch. `tests/average-scatter-test.js`
   freezes both orders, metric definitions, eligibility, and aggregation.

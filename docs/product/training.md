@@ -321,7 +321,7 @@ Flag and chord only when the chord opens more cells than the flags it needs
 safe cells; when equal, flag. Never flag a mine no chord will use. When
 several numbers could open the same cells, chord the one that opens the most.
 Expect a few slower sessions; judge them by IOE. The game data column's IOE, no-op
-rate, and unused mark share give per-game feedback.
+rate, and unused flag share give per-game feedback.
 
 **2. Finish the runs you start.** Chord only over proven flags. Before any
 guess, scan the whole board for a safe move; take a truly forced guess at

@@ -93,11 +93,12 @@ Spec: [docs/product/session-stats.md](../product/session-stats.md). Index: [AGEN
   sessionBucketSeries, death in the
   bucket containing to − 1 (an end on a bucket boundary must not spill
   into the next bucket), stored fastclick median as one gap sample per
-  overlapped bucket, a stored win's unmarked-mine share derived (never
-  stored) by `recordWinUnmarkedShare(record, minesOfModeKey(key))` from
-  flagsPlaced − flagsRemoved (live wins count unflagged mines in
-  checkWin and pass the share to
-  `sessionRecordEnd('win', share)`); live and backfill cannot overlap
+  overlapped bucket, a stored win's unflagged mine share derived (never
+  stored) by game-data.js's `unflaggedMineShareOf(record,
+  minesOfModeKey(key))` from flagsPlaced − flagsRemoved (unmeasured when the
+  key holds no mine count; live wins pass the live counters through the
+  same function in checkWin to `sessionRecordEnd('win', share)`, so drill
+  wins are unmeasured on both paths); live and backfill cannot overlap
   because every backfilled game ended before the page load. DISPLAY: `SESSION_GROUP` +
   `SESSION_METRIC_SPECS` (solo rows: cadence spread and the
   excess-risk / modeled-life magnitude charts;

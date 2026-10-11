@@ -126,6 +126,7 @@ opens it over the band, never reflowing it. In order:
    open, and never opening with its name: misclick rate, fastclick gap,
    click rate, efficiency, no-op rate, correctness, IOE, ZiNi and HZiNi
    efficiency, IOS, STNB, mouse speed, cadence spread, unused flag share,
+   unflagged mine share,
    and the board traits ZiNi, HZiNi, 3BV spread, 0–1 share, zero-opening
    coverage, islands, and largest island. Time, 3BV/s, path / 3BV, path /
    click, flags no multi-cell chord used, 3BV, max number, and zeros have
@@ -359,7 +360,7 @@ Left-side performance directions are unchanged: lower time, misclick rate,
 fastclick gap, no-op rate, path, cadence spread, unused flag share, and flags
 no multi-cell chord used;
 higher 3BV/s, click rate, the efficiency family, correctness, IOS, STNB,
-and mouse speed.
+mouse speed, and unflagged mine share.
 
 ## Catalog and configuration
 
@@ -392,8 +393,33 @@ nothing), the per-game form of stage 1's target of 10 or fewer
 ([Training](training.md)). A saved selection map is laid over the defaults, so
 existing profiles see the new metric on and keep every earlier choice.
 
+Added 2026-10-10 at the creator's request ("we need some way of tracking and
+evaluating a perf stat for 'fraction of mines which never needed to be
+marked'"): **unflagged mine share**, on by default, placed after unused flag
+share. It is the share of the board's mines with no flag on them when the
+game was won: the mine counter at the win divided by the mine count, since
+the won board keeps only the player's own flags
+([Board chrome](board-and-layout.md)). Higher ranks better: the player
+finished while flagging fewer of the mines. A markless win is 100%. The
+creator asked for it as a performance measure, so it takes a direction,
+unlike flagging volume in general (below). It is derived, never stored, from the
+record's flag counters: a flagged cell cannot be opened, so at a win every
+standing flag sits on a mine, and `flagsPlaced − flagsRemoved` flags stand.
+Every saved win since the removal counter (2026-08-20) is therefore measured
+retroactively, as are markless wins since 2026-08-19. Losses, Endgame drills
+(their mines outside the remnant were never in play), and wins recorded
+before the counters are unmeasured. Its histogram bins one bar per possible
+count of unflagged mines (step 1 ÷ the mine count). It also has a your-perf
+property chart and a row in the label/value table, and it is the per-game
+form of the session endings chart's "percent of mines unflagged when
+winning" line ([Game-end evaluation](game-end-evaluation.md)), which derives
+each win's share with the same definition. "Never needed" is read as "not
+flagged at the win": a flag that no chord used still counts as flagged here,
+and unused flag share measures those flags.
+
 Completion-dependent metrics (time, 3BV/s, efficiency variants, IOS/STNB,
-path / 3BV, unused flag share, flags no multi-cell chord used) compare wins. Observable action/error/timing
+path / 3BV, unused flag share, unflagged mine share, flags no multi-cell chord
+used) compare wins. Observable action/error/timing
 metrics (misclicks, no-ops, click rate, fastclick gap, correctness, mouse
 speed, path / click, cadence spread) compare measured wins and losses.
 Their directional wording describes that metric, not overall player skill.

@@ -85,6 +85,19 @@ Spec: [docs/product/per-game-stats.md](../product/per-game-stats.md). Index: [AG
   `toggleFlag`). It stays separate from no-op clicks because removal
   changed the board; its reason is not inferred. Same absence rules as
   wastedClicks (absent before 2026-08-20).
+- Unflagged mine share (2026-10-10): `unflaggedMineShareOf(record, mines)`
+  in game-data.js, (mines − flagsPlaced + flagsRemoved) ÷ mines on wins, 1
+  for a markless win, undefined on losses, Endgame drills, and records
+  without the counters. No clamp: `toggleFlag` is the only path that sets a
+  flag in a recorded game (Board lab sets them directly and records
+  nothing), and at a win every standing flag is on a mine. Its one
+  definition serves the `unflaggedMineShare` GameData metric (params are
+  the game's `config`; `step(params)` is one mine), the your-perf property
+  chart (`steppedMetric('unflaggedMineShare', null, { percent: true,
+  winBound: true })`), the stats grid's `measurementRow`, `checkWin`'s
+  session ending (live counters plus `settings.playMode`), and
+  `sessionBackfillFromHistory`. `tests/game-data-test.js` holds its known
+  answers.
 - Music state ([Music playing](../product/per-game-stats.md)): `sampleMusic` fetches
   `MUSIC_ENDPOINT` (http://localhost/api/is-music-playing — the resident
   ProjectLauncher at `~/proj/mybrowser/utilities/caddy/launcher/launcher.py`,

@@ -509,24 +509,12 @@ const press = (at, useful, flag, moving, gapMs, unflag, misclick) => ({
     sessionGamePlacement({ end: 'guess-safe', timeMs: 500 }, records), undefined);
 }
 
-// Derived win-with-unmarked-mines inputs: the mode key's mine count and
-// a stored win's unmarked share reconstructed from its flag counters.
+// The mode key's mine count: a backfilled win's unflagged mine share
+// divides by it.
 {
   assertEq('mode key mines', minesOfModeKey('30x16/99@standard'), 99);
   assertEq('legacy mode key mines', minesOfModeKey('9x9/10'), 10);
   assertUndefined('malformed mode key mines', minesOfModeKey('junk'));
-  const win = { outcome: 'win', flagsPlaced: 4, flagsRemoved: 1 };
-  assertClose('stored win unmarked share', recordWinUnmarkedShare(win, 10), 0.7);
-  assertClose('markless win is fully unmarked',
-    recordWinUnmarkedShare({ outcome: 'win', flagsPlaced: 0 }, 10), 1);
-  assertUndefined('loss has no unmarked share',
-    recordWinUnmarkedShare({ outcome: 'loss', flagsPlaced: 0, flagsRemoved: 0 }, 10));
-  assertUndefined('pre-flag-counter win is unmeasured',
-    recordWinUnmarkedShare({ outcome: 'win' }, 10));
-  assertUndefined('nonzero flags without removal coverage is unmeasured',
-    recordWinUnmarkedShare({ outcome: 'win', flagsPlaced: 3 }, 10));
-  assertUndefined('unknown mine count is unmeasured',
-    recordWinUnmarkedShare(win, undefined));
 }
 
 // A backfilled game's ending lands in the bucket containing its final

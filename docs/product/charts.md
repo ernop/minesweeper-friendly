@@ -12,7 +12,8 @@ point chart. Then **your perf**, then **board traits**.
 - **Your perf** (`PERF_CHART_SPECS`): clicks, mouse path, clicks over 3BV,
   misclick rate, fastclick gap, 3BV/s, click rate, no-op rate, efficiency,
   path / 3BV, path / click, correctness, IOE, ZiNi efficiency, HZiNi
-  efficiency, IOS, STNB, mouse speed, cadence spread, and unused mark share.
+  efficiency, IOS, STNB, mouse speed, cadence spread, unused flag share, and
+  unflagged mine share (added 2026-10-10 with its game data measurement).
 - **Board traits** (`BOARD_CHART_SPECS`): 3BV, ZiNi, HZiNi, 3BV spread, max
   number, islands, largest island, zeros, 0–1 share, and zero-opening
   coverage. A board chart follows its tablechart switch, so 3BV spread and
@@ -21,7 +22,9 @@ point chart. Then **your perf**, then **board traits**.
 Integer measurements group exactly. Mouse path uses 100px buckets, IOS 0.01,
 both path ratios 10px, fastclick gap 10ms, mouse speed 50px/s, 3BV/s and the
 per-second rates 0.1, efficiency-family ratios 0.01, cadence spread 0.1,
-unused mark share 0.05, misclick rate 0.1/min, and STNB 1. 0–1 share and
+unused flag share 5 percentage points, misclick rate 0.1/min, and STNB 1.
+Unflagged mine share groups exactly: its values are already one per count
+of unflagged mines. 0–1 share and
 zero-opening coverage use the same whole-percentage groups as their time
 tables; 3BV spread uses the same 0.5-cell groups. The grouped value is on x
 and that group's average solve time on y; dots are colored by the age of the
@@ -30,7 +33,10 @@ value. Older records missing a measurement are excluded. IOS excludes times
 at or below one second, and path ratios exclude zero denominators.
 
 - Each chart header names its reading and grouping ("time by clicks"). Y
-  ticks carry the unit ("25s", "40%"). Share charts add "%" on the x ticks.
+  ticks carry the unit ("25s", "40%"). Share charts (0–1 share,
+  zero-opening coverage, unused flag share, unflagged mine share) plot in
+  percent and add "%" on the x ticks; unused flag share read 0–1 without
+  "%" until 2026-10-10.
   The rotated y-axis caption stays gone. The x axis label remains.
 - Each group has its own three-way **mode** selector on the section heading
   (`settings.perfChartMode` and `settings.boardChartMode`):
@@ -42,7 +48,9 @@ at or below one second, and path ratios exclude zero denominators.
   - **winrate** — all finished games (wins AND losses) group by the value;
     each dot is the percentage won. Measurements defined only for wins
     sit this mode out (`winBound`): IOS, efficiency, IOE, ZiNi efficiency,
-    HZiNi efficiency, and STNB. Their winrate would read 100% everywhere.
+    HZiNi efficiency, STNB, unused flag share, and unflagged mine share.
+    Their winrate would read 100% everywhere (unused flag share's did until
+    2026-10-10).
     Loss records carry clicks, path, rates, and board-shape facts, so the
     other specs stay measurable.
 - Each header also carries a (?) help button (see "Chart help buttons"

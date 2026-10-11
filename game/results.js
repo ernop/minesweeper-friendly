@@ -829,6 +829,7 @@ async function renderResultAsync(record, modeRecords, options = {}) {
               + Math.round(100 * record.unusedCorrectFlags / record.flagsPlaced)
               + '%)'
             : String(record.unusedCorrectFlags)]] : []),
+    ...measurementRow('unflaggedMineShare'),
     // A Justice event is any qualifying sealed-pocket entry — a forced
     // coinflip the rule guarantees the player wins.
     ...(fullAnalysis && record.justice !== undefined

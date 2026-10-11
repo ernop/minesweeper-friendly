@@ -266,6 +266,17 @@ because they are different observable events. The record does not say why
 either event occurred: a no-op is not automatically a motor slip, and a
 removed flag does not prove a changed mind.
 
+Unflagged mine share (derived, added 2026-10-10 at the creator's request for
+a perf stat of the "fraction of mines which never needed to be marked"): on a
+win, the board's mines with no flag on them over all its mines, which is the
+mine counter at the win over the mine count. At a win every standing flag sits
+on a mine (a flagged cell cannot be opened), so the share is
+(mines − flagsPlaced + flagsRemoved) ÷ mines, derived at read time and never
+stored; a markless win is 100%. Higher is better. Unmeasured on losses, on
+Endgame drills, and on records without the flag counters. It is a game data
+measurement with a property chart, and the label/value table shows it as
+"Unflagged mine share" ([Game data](game-data.md)).
+
 Flags no multi-cell chord used (`flagsWithoutMultiCellChord`, wins only,
 added 2026-09-27 for the training plan's per-game feedback): the win's flags
 standing at the end that no chord opening two or more squares used, meaning
