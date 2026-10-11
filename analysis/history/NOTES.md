@@ -36,11 +36,16 @@ purpose](../../docs/product/measurement.md)).
   time, the same aggregates, per-key breakdown, state tags seen, and an
   early-half versus late-half contrast for sessions of 6+ games (warm-up or
   fatigue, day and equipment held fixed).
-- `losses`: the fatal-action taxonomy in the report's exact wording. The
-  script loads the game's own `GAME-END EVALUATION: VERDICT` span (the way
-  the tests do) and calls `fatalActionStatusKind` / `FATAL_STATUS_LABELS`;
+- `losses`: the loss types in the report's exact wording (`byLossType`),
+  and `likelyMisclicks` per reason, which recount losses already filed by
+  type. The script loads the game's own `GAME-END EVALUATION: VERDICT` span
+  (the way the tests do) with `justice.js`, adds the proof tiers the page's
+  history load adds to losses saved before 2026-10-11 (`fatalProofTiers`),
+  and calls `lossTypeOf` / `LOSS_TYPE_LABELS` and `likelyMisclickReasonsOf`;
   it never re-implements the classification. Legacy-provenance deaths and
-  unevaluated losses are counted separately, never upgraded.
+  unevaluated losses are counted separately, never upgraded. On the
+  creator's 2026-10-11 export (8,203 games, 60 MB) the whole script runs in
+  about 1.3 s.
 - `guessPolicy[key]`: ledger coverage, guesses per game, share of guesses
   off ideal risk, share perfect, life lost and needless per game.
 - `luckCalibration`: Justice-free games bucketed by summed modeled risk

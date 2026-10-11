@@ -45,13 +45,16 @@ const outPath = option('--out', null);
 //-------THE GAME'S OWN VERDICT CODE-------
 
 const repo = path.join(__dirname, '..', '..');
+// The loss type reads the saved position through the solver.
+globalThis.Justice = require(path.join(repo, 'justice.js'));
 const source = fs.readFileSync(path.join(repo, 'game', 'evaluation.js'), 'utf8');
 const startIdx = source.indexOf('//-------GAME-END EVALUATION: VERDICT');
 const endIdx = source.indexOf('//-------GAME-END EVALUATION: CAPTURE');
 if (startIdx === -1 || endIdx === -1) throw new Error('verdict section markers not found');
 vm.runInThisContext(source.slice(startIdx, endIdx));
-/* global FATAL_STATUS_LABELS, DEATH_KIND_LABELS, fatalActionStatusKind,
-   fatalEvaluationOf, ACTION_EVALUATION_VERSION */
+/* global FATAL_STATUS_LABELS, LOSS_TYPE_LABELS, LIKELY_MISCLICK_REASON_LABELS,
+   DEATH_KIND_LABELS, fatalActionStatusKind, fatalEvaluationOf, fatalProofTiers,
+   lossTypeOf, likelyMisclickReasonsOf, ACTION_EVALUATION_VERSION */
 
 //-------STATISTICS (stdlib)-------
 
@@ -288,32 +291,42 @@ summary.sessions = sessions.map((session, index) => {
 //-------LOSS TAXONOMY (the report's own wording)-------
 
 const lossKinds = {};
+const misclickReasons = {};
 const legacyKinds = {};
 let unjudged = 0;
 for (const game of games) {
   if (isWin(game)) continue;
-  const fatal = fatalEvaluationOf(game);
-  if (!fatal || fatal.version !== ACTION_EVALUATION_VERSION) {
+  const saved = fatalEvaluationOf(game);
+  if (!saved || saved.version !== ACTION_EVALUATION_VERSION) {
     unjudged++;
     continue;
   }
-  if (fatal.legacy) {
-    const label = fatal.legacy.deathKind && DEATH_KIND_LABELS[fatal.legacy.deathKind]
-      ? DEATH_KIND_LABELS[fatal.legacy.deathKind]
-      : 'legacy: ' + (fatal.legacy.source || 'unknown provenance');
+  if (saved.legacy) {
+    const label = saved.legacy.deathKind && DEATH_KIND_LABELS[saved.legacy.deathKind]
+      ? DEATH_KIND_LABELS[saved.legacy.deathKind]
+      : 'legacy: ' + (saved.legacy.source || 'unknown provenance');
     legacyKinds[label] = (legacyKinds[label] || 0) + 1;
     continue;
   }
-  const kind = fatalActionStatusKind(fatal);
-  const label = kind === undefined ? 'unjudged death' : FATAL_STATUS_LABELS[kind];
+  // The page adds these proof tiers to losses saved before 2026-10-11 when
+  // history loads; an export written before that load lacks them.
+  const fatal = { ...saved, evidence: { ...saved.evidence, ...fatalProofTiers(saved) } };
+  const kind = lossTypeOf(fatal);
+  const label = kind === undefined ? 'unjudged death' : LOSS_TYPE_LABELS[kind];
   lossKinds[label] = (lossKinds[label] || 0) + 1;
+  for (const reason of likelyMisclickReasonsOf(fatal, game.actionEvaluations)) {
+    const reasonLabel = LIKELY_MISCLICK_REASON_LABELS[reason];
+    misclickReasons[reasonLabel] = (misclickReasons[reasonLabel] || 0) + 1;
+  }
 }
 const modernLosses = Object.values(lossKinds).reduce((s, n) => s + n, 0);
 summary.losses = {
   total: games.filter((g) => !isWin(g)).length,
   modernClassified: modernLosses,
-  byStatus: Object.fromEntries(Object.entries(lossKinds)
+  byLossType: Object.fromEntries(Object.entries(lossKinds)
     .sort((a, b) => b[1] - a[1])
+    .map(([label, n]) => [label, { losses: n, share: n / modernLosses }])),
+  likelyMisclicks: Object.fromEntries(Object.entries(misclickReasons)
     .map(([label, n]) => [label, { losses: n, share: n / modernLosses }])),
   legacyProvenance: legacyKinds,
   withoutFatalEvaluation: unjudged,
@@ -433,11 +446,14 @@ const lines = [
     + `win ${pct(summary.byKey[key].winRate)}, median win `
     + (summary.byKey[key].winTimeMs.median === null ? 'n/a'
       : (summary.byKey[key].winTimeMs.median / 1000).toFixed(1) + 's')),
-  `losses: ${summary.losses.total} total, ${summary.losses.modernClassified} with complete fatal status, `
+  `losses: ${summary.losses.total} total, ${summary.losses.modernClassified} with a loss type, `
   + `${Object.values(summary.losses.legacyProvenance).reduce((s, n) => s + n, 0)} legacy, `
   + `${summary.losses.withoutFatalEvaluation} without evaluation`,
-  ...Object.entries(summary.losses.byStatus).map(([label, v]) =>
+  ...Object.entries(summary.losses.byLossType).map(([label, v]) =>
     `  ${String(v.losses).padStart(5)}  ${(v.share * 100).toFixed(1).padStart(5)}%  ${label}`),
+  ...Object.entries(summary.losses.likelyMisclicks).map(([label, v]) =>
+    `  ${String(v.losses).padStart(5)}  ${(v.share * 100).toFixed(1).padStart(5)}%  `
+    + `of these, likely misclick: ${label}`),
   outPath ? `full summary written to ${outPath}` : '',
 ];
 process.stderr.write(lines.filter((l) => l !== '').join('\n') + '\n');

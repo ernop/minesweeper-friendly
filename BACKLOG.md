@@ -144,9 +144,6 @@ Open:
   columns were dropped because a generator's full name made a header about
   1,000 px wide; a per-type view needs short type names or one grid per
   type.
-- **Offline summary.** `analysis/history/summarize-history.js` still counts
-  fatal-action statuses; loss types need its records to carry proof tiers
-  first (the history upgrade adds them on load in the page).
 
 ## Switching between marking and clicking (creator, 2026-09-28)
 

@@ -16,9 +16,9 @@ Spec: [docs/product/measurement.md](../product/measurement.md). Index: [AGENTS.m
   with Wilson intervals, Theil–Sen daily trends, Spearman shape/time
   correlations, gap-based sessions with early/late halves and the
   physical-state aggregates (mouse speed, click rate, fastclick gap), the
-  loss taxonomy in the report's exact wording (it loads the GAME-END
-  EVALUATION: VERDICT span, like the tests, so it can never re-implement
-  `fatalActionStatusKind`), guess-policy per key, a summed-risk luck
+  loss types and likely-misclick reasons in the report's exact wording (it
+  loads the GAME-END EVALUATION: VERDICT span and `justice.js`, like the
+  tests, so it can never re-implement `lossTypeOf`), guess-policy per key, a summed-risk luck
   calibration table, and paired state-tag/music contrasts. Output JSON goes
   to `--out` (`analysis/history/out/` is ignored); see
   `analysis/history/NOTES.md`. History exports dropped into the repo root
