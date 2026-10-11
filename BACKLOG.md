@@ -116,6 +116,23 @@ clicking or chording and for a statistical look first; the study is
 - **Switch cost in the stats panel.** Built and released 2026-09-28 on the
   creator's approval, and made one session-stats row with a session and a
   latest-500 column on 2026-10-08 ([Switching](docs/product/trace-metrics-panel.md#switching-creator-request-and-approval-2026-09-28)).
+- **Each game's own switch cost** (partly built 2026-10-08; the request was
+  not written down, so its scope is unconfirmed). Built and tested in
+  `switch-cost.js`: `SwitchCost.gameFit`, one game's estimate from its own
+  transitions (intercept, previous and next move type, T, the Fitts index
+  and its square, board progress, then S), measured only when all four
+  button orders occur; and `SwitchCost.gameMeasurements`, the fields a game
+  would carry (`switchCostTransitions`, `switchCostSwitches`,
+  `switchCostPercent`). Not built: computing it as each game ends, filling it
+  in for saved games in `switch-cost-worker.js`, the record schema, and any
+  display. The game-end step was drafted in `analysis-worker.js` (build a
+  trace from the plan's mines and the events, run `SwitchCost.gameRows`,
+  assign `gameMeasurements` when the plan's `needSwitchCost` is set) and left
+  out of the 2026-10-10 commit because nothing set that flag. Open: the spec
+  lists a per-game switch cost under "Not shown, by decision" (the study
+  found one game's value has split-half reliability near zero), so the
+  creator decides whether and where it shows; the draft pointed at a "Switch
+  cost" section of [per-game stats](docs/product/per-game-stats.md).
 - **Where the session picker belongs** (creator, 2026-10-08). Raised with
   the row: "once that's done we can think about where this session
   definition chooser really belings, right?" The row is built; the picker

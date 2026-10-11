@@ -10,14 +10,15 @@
 //
 // Per game, every pair of consecutive board inputs that are both moves
 // (reveal, chord, flag; no other input between them) is one transition,
-// timed press to press. The estimate is the pre-registered model P1 of the
-// study: least squares on log interval with one intercept per game,
-// previous and next move type, the button switch S and the same-button
-// change of move T, natural cubic splines of travel distance (Fitts index),
-// of the cells the previous move opened, and of board progress, whether the
-// previous move opened an empty region, whether single-number logic offered
-// the next target, and what the board offered before the next move. Its
-// interval is cluster-robust by game.
+// timed press to press. The row's estimate pools many games in the
+// pre-registered model P1 of the study: least squares on log interval with
+// one intercept per game, previous and next move type, the button switch S
+// and the same-button change of move T, natural cubic splines of travel
+// distance (Fitts index), of the cells the previous move opened, and of
+// board progress, whether the previous move opened an empty region, whether
+// single-number logic offered the next target, and what the board offered
+// before the next move. Its interval is cluster-robust by game. Each game's
+// own value fits the game's transitions alone (switchCostGameFit).
 
 // The latest standard games that have a timed transition.
 const SWITCH_COST_WINDOW_GAMES = 500;
@@ -385,6 +386,48 @@ function switchCostFit(games) {
   };
 }
 
+// One game's own switch cost from its transitions alone: least squares on
+// log interval with an intercept, previous and next move type, T, the Fitts
+// index and its square, board progress, and S last. S's coefficient is the
+// estimate when the other terms leave it identified, which needs every
+// button order (left then left, left then right, right then left, right then
+// right): S is the exclusive or of the previous and the next button. P1's
+// splines and board terms need more transitions than most single games have.
+// In the study one game's value had split-half reliability near zero
+// (reference/mode-switch-2026-09-28.md): alone it is mostly noise.
+function switchCostGameFit(rows) {
+  const counted = { transitions: rows.length, switches: rows.filter((row) => row.switched).length };
+  const column = (of) => Float64Array.from(rows, (row) => Number(of(row)));
+  const columns = [
+    ['previous chord', column((r) => r.prev === 'chord')],
+    ['previous flag', column((r) => r.prev === 'flag')],
+    ['next chord', column((r) => r.next === 'chord')],
+    ['next flag', column((r) => r.next === 'flag')],
+    ['T', column((r) => r.leftMoveChanged)],
+    ['fitts', column((r) => r.fitts)],
+    ['fitts squared', column((r) => r.fitts * r.fitts)],
+    ['progress', column((r) => r.progress)],
+    ['S', column((r) => r.switched)],
+  ];
+  const single = new Uint8Array(rows.length);
+  const fit = switchCostLeastSquares(columns.map(([name, values]) => [name, switchCostDemean(values, single, 1)]),
+    switchCostDemean(Float64Array.from(rows, (row) => Math.log(row.intervalMs)), single, 1));
+  if (fit.kept[fit.kept.length - 1] !== columns.length - 1) return { status: 'not-measurable', ...counted };
+  const beta = fit.beta[fit.kept.length - 1];
+  return { status: 'measured', ...counted, beta, percent: 100 * Math.expm1(beta) };
+}
+
+// One game's switch-cost fields: how many transitions and button switches
+// its replay timed, and its own estimate when they identify one.
+function switchCostGameMeasurements(rows) {
+  const fit = switchCostGameFit(rows);
+  return {
+    switchCostTransitions: fit.transitions,
+    switchCostSwitches: fit.switches,
+    ...(fit.status === 'measured' ? { switchCostPercent: Number(fit.percent.toFixed(2)) } : {}),
+  };
+}
+
 // The window: walking `candidates` newest first, the first
 // SWITCH_COST_WINDOW_GAMES games with a timed transition. `gameOf` loads one
 // candidate's { endedAt, rows }, or null when its trace is not saved; it may
@@ -428,6 +471,8 @@ const SwitchCost = {
   splineColumns: switchCostSplineColumns,
   design: switchCostDesign,
   fit: switchCostFit,
+  gameFit: switchCostGameFit,
+  gameMeasurements: switchCostGameMeasurements,
   window: switchCostWindow,
   since: switchCostSince,
 };

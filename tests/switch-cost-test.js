@@ -1,13 +1,15 @@
 'use strict';
-// Tests for switch-cost.js, the session stats' switch cost: transitions from a
-// hand-built game (press pairing, distance with and without a board move,
-// what the board offered, chain breaks, a release without its press,
-// interval bounds), knot placement
-// against numpy, the fit against the independent Python reference on the
-// synthetic fixture (tests/switch-cost-reference.json, written by
-// analysis/switch-cost/reference.py from `node tests/switch-cost-fixture.js
-// ROWS.jsonl`), recovery of the fixture's planted effect, and both pools: the
-// latest-500 window and the session window.
+// Tests for switch-cost.js, the switch cost: transitions from a hand-built
+// game (press pairing, distance with and without a board move, what the
+// board offered, chain breaks, a release without its press, interval
+// bounds), knot placement against numpy, one game's own value (exact
+// recovery, the identification rule, record fields, the fixture's planted
+// effect on average), the pooled fit against the independent Python
+// reference on the synthetic fixture (tests/switch-cost-reference.json,
+// written by analysis/switch-cost/reference.py from `node
+// tests/switch-cost-fixture.js ROWS.jsonl`), recovery of the fixture's
+// planted effect, and both pools: the latest-500 window and the session
+// window.
 //
 // Usage: node tests/switch-cost-test.js
 
@@ -134,9 +136,59 @@ console.log('knots: patsy cr placement, near-equal values counted once');
   check('one distinct value gives no knots', SwitchCost.knots([3, 3, 3 + 1e-12], 4) === null);
 }
 
+console.log('one game\'s own value: exact recovery, the identification rule, record fields');
+{
+  const kinds = ['reveal', 'chord', 'flag'];
+  const exactRows = (switchEffect) => Array.from({ length: 60 }, (_, k) => {
+    const prev = kinds[k % 3];
+    const next = kinds[Math.floor(k / 3) % 3];
+    const fitts = 0.3 + ((k * 0.37) % 3.1);
+    const progress = (k + 1) / 61;
+    const switched = (prev === 'flag') !== (next === 'flag');
+    const leftMoveChanged = prev !== 'flag' && next !== 'flag' && prev !== next;
+    const logMs = 5.5 + 0.1 * (prev === 'chord') - 0.05 * (prev === 'flag') + 0.07 * (next === 'chord')
+      + 0.02 * (next === 'flag') + 0.2 * leftMoveChanged + 0.15 * fitts - 0.01 * fitts * fitts + 0.3 * progress
+      + switchEffect * switched;
+    return { intervalMs: Math.exp(logMs), prev, next, switched, leftMoveChanged, fitts, progress };
+  });
+  const rows = exactRows(0.12);
+  const fit = SwitchCost.gameFit(rows);
+  check('recovers an exact switch effect of 0.12 beside every other term',
+    fit.status === 'measured' && close(fit.beta, 0.12, 1e-9) && close(fit.percent, 100 * Math.expm1(0.12), 1e-9));
+  check('counts its transitions and button switches', fit.transitions === 60 && fit.switches === 26);
+  const large = SwitchCost.gameFit(exactRows(1.5));
+  check('a large value is the value: ' + large.percent.toFixed(2) + '%', close(large.percent, 100 * Math.expm1(1.5), 1e-9));
+  const noRightRepeat = rows.filter((r) => !(r.prev === 'flag' && r.next === 'flag'));
+  const unidentified = SwitchCost.gameFit(noRightRepeat);
+  check('without one button order (flag then flag) the other terms span the switch: not measurable, counted',
+    unidentified.status === 'not-measurable' && unidentified.transitions === noRightRepeat.length
+      && unidentified.switches === 26 && unidentified.percent === undefined);
+  check('no transitions: not measurable, zero counted',
+    JSON.stringify(SwitchCost.gameFit([])) === JSON.stringify({ status: 'not-measurable', transitions: 0, switches: 0 }));
+  const handBuilt = SwitchCost.gameFit(SwitchCost.gameRows(gameTrace(winMoves), 'win', board, deps).rows);
+  check('the hand-built win: five transitions cannot separate the switch from eight other terms',
+    handBuilt.status === 'not-measurable' && handBuilt.transitions === 5 && handBuilt.switches === 3);
+  check('record fields: counts, and the percent to two decimals',
+    JSON.stringify(SwitchCost.gameMeasurements(rows))
+      === JSON.stringify({ switchCostTransitions: 60, switchCostSwitches: 26, switchCostPercent: 12.75 }));
+  check('record fields of a game it cannot measure: the counts only',
+    JSON.stringify(SwitchCost.gameMeasurements(noRightRepeat))
+      === JSON.stringify({ switchCostTransitions: noRightRepeat.length, switchCostSwitches: 26 }));
+}
+
 const fixture = switchCostFixtureGames();
 const measured = fixture.map((game) => ({ endedAt: game.record.endedAt,
   rows: SwitchCost.gameRows(game.trace, game.record.outcome, SwitchCost.KEYS[game.key], deps).rows }));
+
+console.log('game values on the synthetic fixture');
+{
+  const fits = measured.map((game) => SwitchCost.gameFit(game.rows)).filter((fit) => fit.status === 'measured');
+  const betas = fits.map((fit) => fit.beta);
+  const mean = betas.reduce((sum, b) => sum + b, 0) / betas.length;
+  const se = Math.sqrt(betas.reduce((sum, b) => sum + (b - mean) ** 2, 0) / (betas.length - 1) / betas.length);
+  check('the measured games\' mean (' + mean.toFixed(4) + ', ' + fits.length + ' games) is within two standard errors ('
+    + se.toFixed(4) + ') of the planted ' + PLANTED.switch, Math.abs(mean - PLANTED.switch) < 2 * se);
+}
 
 console.log('fit: the independent Python reference on the synthetic fixture');
 (async () => {
