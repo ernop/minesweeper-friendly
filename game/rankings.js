@@ -953,9 +953,10 @@ function rankedStreaks(runs, slack) {
     if (cores.length && cores[cores.length - 1].b >= b) continue;
     cores.push({ a, b, len });
   }
+  // The first to reach a length holds its rank; an equal streak ranks after it.
   return cores.map(({ b, len }) => ({
     len, end: runs[b].end, current: b === runs.length - 1,
-  })).sort((a, b) => b.len - a.len || b.end - a.end);
+  })).sort((a, b) => b.len - a.len || a.end - b.end);
 }
 
 //-------STREAK RANKINGS: COMPUTATION END-------

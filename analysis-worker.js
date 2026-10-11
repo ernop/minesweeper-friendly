@@ -6,7 +6,7 @@ importScripts('trend-fit.js?v=20260925-worker-analysis',
   'game/session-stats.js?v=20260926-chord-buttons',
   'game/metric-definitions.js?v=20261007-result-redesign',
   'board-shape.js', 'zini.js', 'board-metrics.js?v=20260921-visible-zero-one',
-  'game-data.js?v=20261008-no-mark-keys', 'game/rankings.js?v=20261010-ranks-won-streaks',
+  'game-data.js?v=20261008-no-mark-keys', 'game/rankings.js?v=20261010-streak-ties-earlier',
   'game/charts.js?v=20261008-no-mark-keys', 'game/game-data-chart.js?v=20261008-no-mark-keys',
   'training-core.js?v=20260928-switch-cost');
 

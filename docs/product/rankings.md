@@ -270,8 +270,9 @@ middle? that's okay."
 - Streak lists (added 2026-10-10, after the creator asked why new streak
   and near-streak records did not show up here): the streak, near-streak,
   and near-near-streak lists report like the other charts, with their
-  tables' ranks (longer first, then more recent). A streak is earned at its
-  last win. It reports when that win is in the session, at its full length
+  tables' ranks (longer first; an equal streak after the earlier one). A
+  streak is earned at its last win. It reports when that win is in the
+  session, at its full length
   including wins from before the session began, because that is the streak
   its table lists. A streak whose last win came before the session does not
   report, even when a session loss ended it. The lists span the mode's whole
@@ -323,7 +324,11 @@ middle? that's okay."
   core; identical cores dedupe; a core strictly inside a wider core is
   dropped (consecutive losses otherwise re-list sub-streaks). Two streaks
   that merely overlap across different losses are both real and both stay.
-- Ranked by length, then recency. Row: rank, "N wins", relative age of the
+- Ranked by length. An equal streak ranks after the earlier one: the first
+  to reach a length holds its rank, as with tied times (creator decision
+  2026-10-10: "first to get N wins in a row is better than 2nd"; before it
+  the newer ranked first, so tying a common length outranked every earlier
+  streak of that length). Row: rank, "N wins", relative age of the
   streak's last win. The streak ending in this win is your row.
 - Ranks won in session reports each list's top-tenth streaks whose last win
   is in the session (2026-10-10; see Recent placements above).

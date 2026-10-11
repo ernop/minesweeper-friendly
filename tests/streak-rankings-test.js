@@ -25,8 +25,13 @@ function exhaustive(records, slack) {
     o !== c && o.a <= c.a && o.b >= c.b)).map(({ a, b }) => ({
     len: runs.slice(a, b + 1).flat().length,
     end: runs[b].at(-1), current: b === runs.length - 1,
-  })).sort((a, b) => b.len - a.len || b.end - a.end);
+  })).sort((a, b) => b.len - a.len || a.end - b.end);
 }
+// The first to reach a length holds its rank: the current single win ranks
+// after the earlier one.
+const tie = [{ endedAt: 1, outcome: 'win' }, { endedAt: 2, outcome: 'loss' }, { endedAt: 3, outcome: 'win' }];
+assert.deepEqual(rankedStreaks(streakRuns(tie), 0),
+  [{ len: 1, end: 1, current: false }, { len: 1, end: 3, current: true }]);
 let cases = 0;
 for (let length = 0; length <= 13; length++) {
   for (let bits = 0; bits < 2 ** length; bits++) {

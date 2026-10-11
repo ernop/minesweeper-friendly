@@ -729,7 +729,8 @@ for (let day = 1; day <= 31; day++) {
 }
 
 // Streak lists report like the other lists, in their own table order
-// (length, then the more recent): a streak is earned at its last win, so one
+// (longer first; an equal streak after the earlier one): a streak is earned
+// at its last win, so one
 // the session continued counts at its full length, and one that ended before
 // the session never reports, however high it ranks. Losses carry only what
 // the streaks read.
@@ -760,12 +761,13 @@ for (let day = 1; day <= 31; day++) {
   // Streaks: 6 (before the session), 5 (continued into it), 2 (current), 28 single wins.
   assertEq('a streak the session continued reports beside the current one',
     row('streak'), '2,3 of 31, current 3');
-  // Near-streaks: 7 (current) ranks ahead of the equal earlier 7, then the 6.
-  assertEq('a newer equal near-streak ranks first; the earlier one is not the session’s',
-    row('near-streak'), '1,3 of 30, current 1');
-  // Near-near-streaks: 8 (current), 8 (before), 7: the tenth of 29 stops at 2.
+  // Near-streaks: the earlier 7 holds first, the equal current 7 is second,
+  // then the 6.
+  assertEq('an equal near-streak ranks after the earlier one',
+    row('near-streak'), '2,3 of 30, current 2');
+  // Near-near-streaks: 8 (before), 8 (current), 7: the tenth of 29 stops at 2.
   assertEq('near-near-streak keeps the top-tenth cutoff',
-    row('near-near-streak'), '1 of 29, current 1');
+    row('near-near-streak'), '2 of 29, current 2');
   assertEq('a history view marks no current streak',
     recentPlacementsSummary(recentPlacementCandidates(records, NOW, sourceStart, true), sourceStart)
       .filter((r) => r.label.includes('streak')).every((r) => r.currentRank === undefined), true);

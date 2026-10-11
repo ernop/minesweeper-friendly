@@ -155,7 +155,8 @@ Spec: [docs/product/rankings.md](../product/rankings.md). Index: [AGENTS.md](../
 
 - `streakRuns` stores each run's length and final timestamp, not arrays of all
   win times. `rankedStreaks` uses the monotonic endpoints of adjacent-run
-  windows to eliminate contained intervals in one pass. Preparation is O(H)
+  windows to eliminate contained intervals in one pass, then sorts by length,
+  equal lengths by earlier last win. Preparation is O(H)
   for H historical records; sorting R surviving runs is O(R log R), replacing
   quadratic containment comparisons. `tests/streak-rankings-test.js` checks
   49,149 exhaustive sequences and a 100,000-record history.
