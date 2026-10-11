@@ -54,10 +54,15 @@ Spec: [docs/product/session-stats.md](../product/session-stats.md). Index: [AGEN
   covered, fastclick median pooled over the lookback's gaps, endings
   fractions and the wins' unmarked-mine average (`winUnmarkedFraction`,
   measured wins only) cumulative over the chart window and ignoring the
-  lookback. Ending kinds (SESSION_END_KINDS) are win, the modern
-  fatal-action statuses (`sessionEndingKind` in the verdict section —
+  lookback. Ending kinds (SESSION_END_KINDS) are win, the modern loss
+  types (`sessionEndingKind` in the verdict section, through `lossTypeOf` —
   the report's exact loss categories), the five legacy verdicts as
-  provenance, and 'other'.
+  provenance, and 'other'. `countEnd` throws on a kind outside the list, and
+  `appendSessionGameMarkers` throws on a kind without a SESSION_END_SPECS
+  entry; both used to file it silently as 'other'. Each end event's
+  `likelyMisclick` is true when `likelyMisclickReasonsOf` finds any reason,
+  live (`sessionRecordEnd`, from the live ledger) and backfilled (from the
+  record's ledger).
   `sessionGameSeries(events, {lookbackGames, aggregation, ...})` takes the
   completed game summaries attached to exact game-end markers: running mode
   samples the last N games at each ending, raw mode forms disjoint N-game

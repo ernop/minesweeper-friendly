@@ -286,69 +286,13 @@ function reportCategoryEnabled(category) {
   return reportScopeAllows(scope, category);
 }
 
-// Recheck the one proof-derived mistake that an older, deliberately
-// incomplete prover could falsely assign. The saved position contains every
-// revealed clue needed for a hidden-layout-independent correction.
-function proofCorrectedEvaluation(evaluation) {
-  if (!evaluation || evaluation.version !== ACTION_EVALUATION_VERSION
-      || !evaluation.position || !Array.isArray(evaluation.mistakes)
-      || !Array.isArray(evaluation.selected) || evaluation.selected.length === 0
-      || !evaluation.mistakes.includes('opened-unproven-with-safe-move')) {
-    return evaluation;
-  }
-  const position = evaluation.position;
-  const size = position.width * position.height;
-  const revealed = new Array(size).fill(false);
-  const adjacent = new Array(size).fill(0);
-  for (const pair of position.revealed || []) {
-    if (!Array.isArray(pair) || !Number.isInteger(pair[0])
-        || pair[0] < 0 || pair[0] >= size) return evaluation;
-    revealed[pair[0]] = true;
-    adjacent[pair[0]] = pair[1];
-  }
-  try {
-    const facts = Justice.proveFacts({
-      width: position.width,
-      height: position.height,
-      mines: position.mines,
-      revealed,
-      adjacent,
-    }, Justice.rawClues({
-      width: position.width,
-      height: position.height,
-      mines: position.mines,
-      revealed,
-      adjacent,
-    }));
-    if (!facts.complete
-        || !(evaluation.selected || []).every((cell) => facts.get(cell) === 2)) {
-      return evaluation;
-    }
-    return {
-      ...evaluation,
-      mistakes: evaluation.mistakes.filter(
-        (mistake) => mistake !== 'opened-unproven-with-safe-move'),
-      evidence: {
-        ...(evaluation.evidence || {}),
-        factsMeasured: true,
-        knowledge: 'proven-safe',
-        proofVersion: Justice.PROOF_VERSION,
-        proofCorrection: 'rechecked-saved-position',
-      },
-    };
-  } catch (err) {
-    return evaluation;
-  }
-}
-
 function evaluationForReport(evaluation) {
-  const corrected = proofCorrectedEvaluation(evaluation);
-  if (reportCategoryEnabled('lifeMaximization')) return corrected;
+  if (reportCategoryEnabled('lifeMaximization')) return evaluation;
   return {
-    ...corrected,
-    mistakes: (Array.isArray(corrected.mistakes) ? corrected.mistakes : [])
+    ...evaluation,
+    mistakes: (Array.isArray(evaluation.mistakes) ? evaluation.mistakes : [])
       .filter((kind) => kind !== 'chose-lower-modeled-life'),
-    alternatives: (Array.isArray(corrected.alternatives) ? corrected.alternatives : [])
+    alternatives: (Array.isArray(evaluation.alternatives) ? evaluation.alternatives : [])
       .filter((alternative) => alternative.kind !== 'higher-modeled-life-reveal'),
   };
 }
@@ -456,7 +400,7 @@ function buildVerdictBlocks(record) {
         ? 'A forced coinflip before the board opened up came up wrong. '
           + 'Over enough games this ending is part of the mode; full '
           + 'analysis shows the measured odds.'
-        : actionEvaluationLines(shown));
+        : actionEvaluationLines(shown, fatalEvidenceLines(fatal, evaluations)));
     const position = detail === 'positions' && !compactEarly
       ? buildEvaluationPosition(shown) : null;
     if (position) box.appendChild(position);

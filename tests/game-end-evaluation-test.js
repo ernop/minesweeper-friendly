@@ -12,6 +12,7 @@ const source = require('./game-source.js').source;
 const startIdx = source.indexOf('//-------GAME-END EVALUATION: VERDICT');
 const endIdx = source.indexOf('//-------GAME-END EVALUATION: CAPTURE');
 if (startIdx === -1 || endIdx === -1) throw new Error('section markers not found');
+globalThis.Justice = require(path.join(repo, 'justice.js'));
 vm.runInThisContext(source.slice(startIdx, endIdx));
 
 let checks = 0;
@@ -647,5 +648,138 @@ assertEq('event detail never reveals mine reality',
   /redraw|moved|already clear|mined/.test(
     justiceEventDetail({ type: 'sea', clearWays: 3, totalWays: 5 }, 0)),
   false);
+
+// Loss types refine the fatal status with facts from the saved position.
+// The positions are real: fatalProofTiers runs the solver on them.
+const fatalReveal = (cell, position, evidence, mistakes, extra = {}) => {
+  const evaluation = {
+    version: ACTION_EVALUATION_VERSION, action: 'reveal', actionNumber: 9, atMs: 5000,
+    result: 'death', selected: [cell], mistakes, evidence: { ...evidence }, alternatives: [],
+    position, ...extra,
+  };
+  Object.assign(evaluation.evidence, fatalProofTiers(evaluation));
+  return evaluation;
+};
+const provenMine = ['opened-proven-mine'];
+// 1 x 3, one mine: the 1 on the left proves its neighbor mined; only the
+// mine total proves the far square safe.
+const countingMine = fatalReveal(1, { width: 3, height: 1, mines: 1, revealed: [[0, 1]], flagged: [] },
+  { safeAvailable: true }, [...provenMine, 'ignored-safe-move']);
+assertEq('counting tier stored for the opened mine', countingMine.evidence.mineProofTier, 'counting');
+assertEq('whole-board tier stored for the safe square', countingMine.evidence.safeProofTier, 'whole-board');
+assertEq('a counting-proven mine is its own loss type', lossTypeOf(countingMine), 'mine-counting');
+assertEq('loss type label names the proof',
+  actionEvaluationLabel(countingMine), 'opened a mine that counting single numbers proved');
+assertEq('certainty line names the tier',
+  actionEvaluationLines(countingMine).find((line) => line.label === 'Certainty').value,
+  'selected square was proven mined by counting single numbers');
+assertEq('safe alternative line names the tier',
+  actionEvaluationLines(countingMine).find((line) => line.label === 'Safe alternative').value,
+  'a square was proven safe by only whole-board reasoning');
+assertEq('stored tiers are not measured again', JSON.stringify(fatalProofTiers(countingMine)), '{}');
+// 4 x 2 with 1-2-1-1 along the top: no single number settles anything, but
+// subtracting overlapping numbers proves square 6 mined and 5 and 7 safe.
+const overlapMine = fatalReveal(6, { width: 4, height: 2, mines: 2,
+  revealed: [[0, 1], [1, 2], [2, 1], [3, 1]], flagged: [] },
+{ safeAvailable: true }, [...provenMine, 'ignored-safe-move']);
+assertEq('overlap tier for the mine', overlapMine.evidence.mineProofTier, 'overlap');
+assertEq('overlap tier for the safe square', overlapMine.evidence.safeProofTier, 'overlap');
+assertEq('an overlap-proven mine', lossTypeOf(overlapMine), 'mine-overlap');
+// 1 x 3, one mine, a 0 on the left: counting proves the middle safe; only
+// the mine total proves the far square mined.
+const wholeBoardMine = fatalReveal(2, { width: 3, height: 1, mines: 1, revealed: [[0, 0]], flagged: [] },
+  { safeAvailable: true }, [...provenMine, 'ignored-safe-move']);
+assertEq('whole-board tier for the mine', wholeBoardMine.evidence.mineProofTier, 'whole-board');
+assertEq('counting tier for the safe square', wholeBoardMine.evidence.safeProofTier, 'counting');
+assertEq('a whole-board-proven mine', lossTypeOf(wholeBoardMine), 'mine-whole-board');
+// The same top row over a third row no number touches: one mine hides in
+// that row, so opening any of its squares there was a 1-in-4 guess.
+const needless = fatalReveal(9, { width: 4, height: 3, mines: 3,
+  revealed: [[0, 1], [1, 2], [2, 1], [3, 1]], flagged: [] },
+{ safeAvailable: true, chosenRisk: 0.25, bestRisk: 0 }, ['opened-unproven-with-safe-move']);
+assertEq('a needless guess carries the safe square tier only',
+  [needless.evidence.mineProofTier, needless.evidence.safeProofTier].join(','), ',overlap');
+assertEq('a needless guess graded by the safe square tier', lossTypeOf(needless), 'guess-safe-overlap');
+assertEq('the endings chart files the same loss type', sessionEndingKind(needless), 'guess-safe-overlap');
+const justiceOnly = fatalReveal(2, { width: 3, height: 1, mines: 1, revealed: [], flagged: [] },
+  { safeAvailable: false, chosenRisk: 1 / 3, bestRisk: 1 / 3, actualRisk: 1 / 3, bestActualRisk: 0 }, []);
+assertEq('a guess past an A Just Universe safe entry', lossTypeOf(justiceOnly), 'guess-safe-justice');
+// A 1 already carrying its flag declares its other neighbors safe, so
+// opening a mine beside it proves the flag wrong, whatever the odds said.
+const flagSatisfied = fatalReveal(2, { width: 3, height: 1, mines: 1, revealed: [[1, 1]], flagged: [0] },
+  { safeAvailable: false, chosenRisk: 0.5, bestRisk: 0.5 }, []);
+assertEq('a reveal beside a flag-satisfied number is a wrong flag', lossTypeOf(flagSatisfied), 'flag-wrong');
+assertEq('the wrong flag is explained',
+  fatalEvidenceLines(flagSatisfied, []).find((line) => line.label === 'Wrong flag').value,
+  'a number beside this square already had all its flags, so one of them was on a safe square');
+const positionedChord = { ...uncertainChordDeath, triggerCell: 1, selected: [2],
+  position: { width: 3, height: 1, mines: 1, revealed: [[1, 1]], flagged: [0] } };
+assertEq('every positioned chord death is a wrong flag', lossTypeOf(positionedChord), 'flag-wrong');
+assertEq('a chord death without a saved position keeps its status',
+  lossTypeOf(uncertainChordDeath), 'guess-unmeasured');
+assertEq('a Proof-or-die chord over unproven squares is a rule death',
+  lossTypeOf({ ...positionedChord, evidence: { playMode: 'proof-or-die', safeAvailable: true } }),
+  'proof-safe');
+const higherAt = (lowerCell) => fatalReveal(0, { width: 10, height: 10, mines: 20,
+  revealed: [[55, 1]], flagged: [] },
+{ chosenRisk: 0.3, bestRisk: 0.1, safeAvailable: false, boardProgress: 0.5 }, ['chose-higher-risk'],
+  { alternatives: [{ kind: 'lower-risk-reveal', cells: [lowerCell] }] });
+assertEq('a lowest-risk square 2 away is near', lossTypeOf(higherAt(22)), 'guess-higher-near');
+assertEq('a lowest-risk square 3 away is far', lossTypeOf(higherAt(3)), 'guess-higher-far');
+assertEq('the distance is stated',
+  fatalEvidenceLines(higherAt(3), []).find((line) => line.label === 'Lowest-risk square').value,
+  '3 squares away');
+assertEq('a higher-risk guess without a lower-risk alternative keeps its status',
+  lossTypeOf({ ...higherAt(3), alternatives: [] }), 'guess-higher');
+{
+  let thrown = null;
+  try {
+    lossTypeOf({ ...countingMine, evidence: { safeAvailable: true } });
+  } catch (err) {
+    thrown = err.message;
+  }
+  assertEq('a positioned proven mine without its stored tier fails loudly', thrown,
+    'positioned fatal action has no stored proof tier (got undefined)');
+}
+
+// The wrong-button slip: a left click on a proven mine under a second after
+// a chord on the number beside it failed for lack of flags.
+const shortChord = (atMs, numberCell) => ({
+  version: ACTION_EVALUATION_VERSION, action: 'no-op', actionNumber: 8, atMs, result: 'continued',
+  selected: [numberCell], mistakes: ['no-op-click'], evidence: { reason: 'chord-short-of-flags' },
+});
+assertEq('a mine clicked 999ms after a short chord beside it is a likely misclick',
+  likelyMisclickReasonsOf(countingMine, [shortChord(4001, 0), countingMine]).join(), 'wrong-button');
+assertEq('exactly 1000ms does not qualify',
+  likelyMisclickReasonsOf(countingMine, [shortChord(4000, 0), countingMine]).join(), '');
+assertEq('the chord must be on a number beside the mine',
+  likelyMisclickReasonsOf(wholeBoardMine, [shortChord(4700, 0), wholeBoardMine]).join(), '');
+assertEq('a guess is never a wrong-button slip',
+  likelyMisclickReasonsOf(needless, [shortChord(4700, 0), needless]).join(), '');
+assertEq('the chord must be the action just before',
+  likelyMisclickReasonsOf({ ...countingMine, actionNumber: 10 }, [shortChord(4700, 0)]).join(), '');
+assertEq('the slip is explained with its interval',
+  fatalEvidenceLines(countingMine, [shortChord(4700, 0)]).find((line) => line.label === 'Likely misclick').value,
+  'left-clicked this proven mine 300ms after a chord on the number beside it failed for lack of flags');
+assertEq('the captured wrong-flag tag is the other reason',
+  likelyMisclickReasonsOf({ ...countingMine, mistakes: [...countingMine.mistakes, 'likely-misclick-after-wrong-flag'] },
+    []).join(), 'wrong-flag');
+
+// Every loss type has its own endings-chart kind and line.
+{
+  const kindsStart = source.indexOf('const SESSION_END_KINDS = [');
+  const specsStart = source.indexOf('const SESSION_END_SPECS = [');
+  const kinds = vm.runInThisContext('(' + source.slice(source.indexOf('[', kindsStart),
+    source.indexOf('];', kindsStart) + 1) + ')');
+  const specs = vm.runInThisContext('(' + source.slice(source.indexOf('[', specsStart),
+    source.indexOf('\n];', specsStart) + 2) + ')');
+  const missing = Object.keys(LOSS_TYPE_LABELS).filter((kind) => !kinds.includes(kind)
+    || !specs.some((spec) => spec.kind === kind && spec.series === undefined));
+  assertEq('every loss type is an ending kind with a chart line', missing.join(), '');
+  assertEq('every ending kind is in the spec list exactly once',
+    kinds.every((kind) => specs.filter((spec) => spec.kind === kind).length === 1), true);
+  assertEq('every likely-misclick reason has summary wording',
+    Object.keys(LIKELY_MISCLICK_REASON_LABELS).join(), 'wrong-flag,wrong-button');
+}
 
 console.log(`game-end-evaluation: all ${checks} checks passed`);

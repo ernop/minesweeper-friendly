@@ -297,9 +297,19 @@ const { chromium } = require(process.argv[2]);
       const current = game(0, 'win', 4100);
       // A win from before no-op clicks were measured has no IOE.
       const { wastedClicks, ...unmeasured } = game(10, 'win', 21000);
+      // A modern loss: a left click on a mine that counting proved, under a
+      // second after a chord on the number beside it found too few flags.
+      const evaluation = { version: ACTION_EVALUATION_VERSION, result: 'continued', alternatives: [],
+        position: { width: 3, height: 1, mines: 1, revealed: [[0, 1]], flagged: [] } };
+      const shortChord = { ...evaluation, action: 'no-op', actionNumber: 8, atMs: 4700, selected: [0],
+        mistakes: ['no-op-click'], evidence: { reason: 'chord-short-of-flags' } };
+      const provenMine = { ...evaluation, action: 'reveal', actionNumber: 9, atMs: 5000, result: 'death', selected: [1],
+        mistakes: ['opened-proven-mine', 'ignored-safe-move'],
+        evidence: { safeAvailable: true, mineProofTier: 'counting', safeProofTier: 'whole-board' } };
       history = {
         '9x9/10@standard': [game(60 * 24 * 40, 'win', 4000), game(50, 'loss', 900), game(40, 'win', 4500), current],
-        '30x16/99@standard': [game(30, 'loss', 20000), game(20, 'loss', 30000)],
+        '30x16/99@standard': [game(30, 'loss', 20000),
+          { ...game(20, 'loss', 30000), actionEvaluations: [shortChord, provenMine] }],
         '16x16/40@standard+pink-noise(alpha=1,scale=12,contrast=2,stretch=0)': [{ ...unmeasured,
           generator: { id: 'pink-noise', params: { alpha: 1, scale: 12, contrast: 2, stretch: 0 } } }],
       };
@@ -311,13 +321,19 @@ const { chromium } = require(process.argv[2]);
       collector.renderInto(resultRanks);
       const read = () => {
         const box = resultRanks.querySelector('.session-summary');
+        const main = box.querySelector('.session-summary-grid:not(.session-summary-losses)');
+        const losses = box.querySelector('.session-summary-losses');
         return {
           heading: box.querySelector('h4').textContent,
-          rows: [...box.querySelectorAll('.session-summary-row, .session-summary-total')]
+          rows: [...main.querySelectorAll('.session-summary-row, .session-summary-total')]
             .map((row) => [...row.children].map((cell) => cell.textContent)),
-          head: [...box.querySelectorAll('.session-summary-head > span')].map((cell) => cell.textContent),
+          head: [...main.querySelectorAll('.session-summary-head > span')].map((cell) => cell.textContent),
           thisColor: box.querySelector('.session-summary-current') && getComputedStyle(box.querySelector('.session-summary-current')).backgroundColor,
           rowHeights: [...box.querySelectorAll('.session-summary-row > span:first-child')].map((cell) => cell.getBoundingClientRect().height),
+          losses: losses === null ? box.querySelector('.recent-placements-none').textContent
+            : [...losses.querySelectorAll('.rank-row')].map((row) => [...row.children].map((cell) => cell.textContent)),
+          swatches: [...box.querySelectorAll('.session-summary-loss .end-swatch')].map((swatch) => getComputedStyle(swatch).backgroundColor),
+          lossesWithinSummary: losses === null || losses.getBoundingClientRect().right <= box.getBoundingClientRect().right + 1,
         };
       };
       const hour = read();
@@ -342,6 +358,16 @@ const { chromium } = require(process.argv[2]);
     ], 'the default mode goes unnamed; a generator has its own aligned column; means average the session’s wins');
     assert.equal(sessionSummary.hour.thisColor, THIS_GAME);
     assert(sessionSummary.hour.rowHeights.every((height) => height < 20), 'summary rows stay one line');
+    assert.deepEqual(sessionSummary.hour.losses, [
+      ['loss type', 'losses', 'share of losses'],
+      ['died: opened a mine proven by counting single numbers', '1', '33%'],
+      ['died: unjudged', '2', '67%'],
+      ['of these, likely misclick: left click on a proven mine under a second after a chord beside it lacked flags', '1', '33%'],
+    ], 'losses split by the endings chart’s kinds across board types, then the overlapping likely misclicks');
+    assert.deepEqual(sessionSummary.hour.swatches, ['rgb(109, 13, 13)', 'rgb(153, 153, 153)'],
+      'each loss type carries its endings-chart line color');
+    assert(sessionSummary.hour.lossesWithinSummary, 'the loss grid stays inside the summary');
+    assert.equal(sessionSummary.short.losses, 'no losses in session');
     assert.deepEqual(sessionSummary.short.rows, [
       ['Beginner', '', '1', '1', '100%', '4.100s', '2nd this of 3', '4.100s', '2.439', '0.833'],
       ['Intermediate', 'Pink noise (spectral exponent 1, feature size 12, contrast 2, stretch 0)', '1', '1', '100%', '21.000s', '1st of 1',

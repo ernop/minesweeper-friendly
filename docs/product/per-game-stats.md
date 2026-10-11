@@ -247,6 +247,14 @@ technical mistake tags and adds the measured flag cell, target cell, and gap
 under `likely-misclick-after-wrong-flag`. This is intentionally labeled
 “likely”: hidden-board truth is used only after the game to distinguish a
 motor-slip pattern from a claim about what the player believed.
+Both times are input-event times since 2026-10-11: the flag's from its own
+evaluation, the fatal action's from the board input that made it. Until
+then the fatal side used the moment its evaluation was built, after the
+click's odds work, which could push a real sub-second slip past the
+1,000 ms limit. A second likely-misclick reason, a left click on a proven
+mine just after a chord beside it lacked flags, is read from the saved
+ledger rather than captured; see [Game-end evaluation](game-end-evaluation.md),
+"Loss types".
 
 Flags placed — how many flags the player set during the game (removing a
 flag doesn't subtract) — joined the schema on
@@ -338,7 +346,14 @@ guess in the game exceeded the enumerator budget): `guesses`,
   live) but absolute life-lost still uses the raw p. If the remaining
   region is too large to enumerate, `guessPerfect` falls back to
   “same as ideal-risk” rather than inventing information value, and if
-  even p cannot be measured the whole ledger is omitted.
+  even p cannot be measured the whole ledger is omitted. When the model
+  does not run and no square is proven safe, the action evaluation stores
+  no one-ply life values (since 2026-10-11): until then the chosen and best
+  values were both bare survival odds, and the full report called them
+  "tied" though nothing had compared them. Evaluations saved earlier keep
+  the values they stored; a stored tie cannot be told apart from a real
+  modeled tie, so an older full report can still show such a "tied" line
+  ([BACKLOG](../../BACKLOG.md)).
 
 A chip (olive, in the Justice stack, shown at game end like the rest of
 the stack) prints the raw p and either

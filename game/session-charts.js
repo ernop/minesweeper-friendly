@@ -179,9 +179,10 @@ function sessionMetricSpecForBasis(spec) {
 // in one chart (docs/product/game-end-evaluation.md). The chart carries its
 // own compact labels (2026-08-30): every death ending starts with
 // "died: " so the losses read as one family, while the classification
-// kinds stay exactly the report's fatal-action kinds — the report keeps
-// its sentence wording (FATAL_STATUS_LABELS), and the two can never
-// disagree because both derive from fatalActionStatusKind.
+// kinds stay exactly the report's loss types — the report keeps its
+// sentence wording (LOSS_TYPE_LABELS), and the two can never disagree
+// because both derive from lossTypeOf. A kind refined by proof tier or
+// distance keeps its family's hue, darkest for the most avoidable.
 // Legacy-imported verdicts keep their old five-way lines as dashed
 // provenance; 'win' leads. The "percent of mines unflagged when winning"
 // line is a different quantity on the same percent axis (see
@@ -203,11 +204,28 @@ const SESSION_END_SPECS = [
     color: '#c2185b', dash: '4 2', series: (b) => b.likelyMisclickFraction },
   { kind: 'guess-early', label: 'died: early-game guess', color: '#c9a227', textChip: true },
   { kind: 'guess-min', label: 'died: minimum-risk forced guess', color: '#b8860b', textChip: true },
+  { kind: 'guess-higher-near', label: 'died: higher-risk forced guess, lowest-risk square within 2 squares',
+    color: '#c43d00' },
+  { kind: 'guess-higher-far', label: 'died: higher-risk forced guess, every lowest-risk square 3 or more squares away',
+    color: '#f28c28', textChip: true },
   { kind: 'guess-higher', label: 'died: higher-risk forced guess', color: '#d95f02', textChip: true },
   { kind: 'guess-unmeasured', label: 'died: forced guess (risk unmeasured)', color: '#9a6b2f' },
+  { kind: 'guess-safe-counting', label: 'died: guessed while counting single numbers proved a safe square',
+    color: '#004d40' },
+  { kind: 'guess-safe-overlap', label: 'died: guessed while comparing overlapping numbers proved a safe square',
+    color: '#00897b', textChip: true },
+  { kind: 'guess-safe-whole-board', label: 'died: guessed while only whole-board reasoning proved a safe square',
+    color: '#4db6ac', textChip: true },
+  { kind: 'guess-safe-justice', label: 'died: guessed while A Just Universe guaranteed a safe entry',
+    color: '#827717' },
   { kind: 'guess-safe', label: 'died: guessed despite available safe move', color: '#c62828' },
-  { kind: 'mine-safe', label: 'died: clicked forced mine despite available safe move', color: '#8e1111' },
-  { kind: 'mine-forced', label: 'died: clicked forced mine when a guess was required', color: '#b71c1c' },
+  { kind: 'flag-wrong', label: 'died: wrong flag made a mine look safe', color: '#4527a0' },
+  { kind: 'mine-counting', label: 'died: opened a mine proven by counting single numbers', color: '#6d0d0d' },
+  { kind: 'mine-overlap', label: 'died: opened a mine proven by comparing overlapping numbers', color: '#a61b1b' },
+  { kind: 'mine-whole-board', label: 'died: opened a mine proven only by whole-board reasoning',
+    color: '#e04848', textChip: true },
+  { kind: 'mine-safe', label: 'died: opened a proven mine while a safe move was available', color: '#8e1111' },
+  { kind: 'mine-forced', label: 'died: opened a proven mine when a guess was required', color: '#b71c1c' },
   { kind: 'proof-safe', label: 'died: Proof-or-die rule (safe move available)', color: '#8e1111' },
   { kind: 'proof-forced', label: 'died: Proof-or-die rule (no safe move)', color: '#d95f02', textChip: true },
   { kind: 'angel', label: 'died: ' + DEATH_KIND_LABELS.angel + ' (legacy)', color: '#b8860b', dash: '6 3', textChip: true },
@@ -495,14 +513,14 @@ function hideSessionGameTooltip(chart) {
 // losses reuse the endings chart's correctness-aware colors. Hover is handled
 // once by the SVG, with nearest-line lookup for deterministic overlaps.
 function appendSessionGameMarkers(svg, buckets, geometry, px) {
-  const gameEnds = Array.isArray(buckets.gameEnds)
-    ? buckets.gameEnds
-    : (Array.isArray(buckets.wins)
-      ? buckets.wins.map((win) => ({ ...win, end: 'win' })) : []);
+  const gameEnds = buckets.gameEnds;
   if (gameEnds.length === 0) return;
-  const endingSpec = (end) => SESSION_END_SPECS.find(
-    (spec) => spec.kind === end && spec.series === undefined)
-      || SESSION_END_SPECS.find((spec) => spec.kind === 'other');
+  const endingSpec = (end) => {
+    const spec = SESSION_END_SPECS.find((candidate) =>
+      candidate.kind === end && candidate.series === undefined);
+    if (spec === undefined) throw new Error('session ending kind ' + end + ' has no SESSION_END_SPECS entry');
+    return spec;
+  };
   const lines = gameEnds.map((game) => {
     const line = document.createElementNS(SVG_NS, 'line');
     const x = px(game.playAt).toFixed(1);
@@ -1312,8 +1330,14 @@ function appendSessionEndingsRow(container, buckets) {
   headRow.appendChild(labelEl);
   labelEl.appendChild(chartHelpButton([
     'How the games finished in the lookback ended, in percent: "win", or '
-      + 'one "died:" line per reason the fatal action lost the game. '
-      + 'Together they cover every finished game.',
+      + 'one "died:" line per loss type. Together they cover every finished '
+      + 'game. A proof named in a loss type is the easiest one that worked: '
+      + 'counting single numbers, comparing overlapping numbers, or only '
+      + 'whole-board reasoning.',
+    'The dashed pink "died: likely misclick" line overlaps the loss types: '
+      + 'losses whose fatal click was most likely a slip, either right after '
+      + 'a wrong flag or a left click on a proven mine just after a chord on '
+      + 'the number beside it failed for lack of flags.',
     'The dotted blue and purple lines are measured on wins only: the share '
       + 'of the board\u2019s mines you never flagged, and the share of your '
       + 'flags that no chord used.',

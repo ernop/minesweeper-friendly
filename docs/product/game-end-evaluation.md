@@ -14,11 +14,14 @@ report.
 - New evidence records carry `proofVersion: "all-consistent-layouts-v1"`.
   An exhaustive result may call an unresolved cell uncertain; an
   explicitly incomplete work-limit result may preserve facts already
-  proved, but cannot generate an “unproven” criticism. Older
-  `opened-unproven-with-safe-move` entries that include a saved position
-  are rechecked by the canonical solver; if the selected cell is now
-  proved safe, that obsolete mistake tag is removed and the correction is
-  persisted.
+  proved, but cannot generate an “unproven” criticism. From 2026-08-23
+  until 2026-10-11, every page load rechecked older
+  `opened-unproven-with-safe-move` entries with the canonical solver and
+  removed the tag where the selected cell was proved safe. The recheck was
+  retired on 2026-10-11 as a finished migration: capture uses the same
+  solver with the same budget, so it could no longer change anything, and
+  on the creator's history it re-proved 96 saved positions on every load
+  (about 150 ms of main-thread time) and corrected none.
 - The independent dimensions are preserved together:
   - **action and outcome** — reveal, chord, flag placement/removal, or a
     proof-or-die open; continued play or death;
@@ -182,15 +185,12 @@ report.
   modeled-life-gap magnitudes. Lower tiers omit those diagnostic rows.
   Under the default fatal-only tier a clean win shows no analysis block;
   the persistent scope selector remains available.
-- The session endings chart classifies losses through the **same
-  fatal-action status the report labels** (2026-08-23, evening: the
-  chart's categories must be the report's reasons for losing, word for
-  word): opened a proven mine (safe move available / guess required),
-  Proof-or-die rule death (with / without a proven-safe move), died
-  after guessing while a safe move was available, and forced guesses
-  that were higher-risk, minimum-risk, or risk-rank-unmeasured. One
-  classifier produces both the report label and the chart kind, so the
-  two can never disagree. The five old ending names (`mine`, `chord`,
+- The session endings chart classifies losses through the **same loss
+  type the report labels** (2026-08-23, evening: the chart's categories
+  must be the report's reasons for losing, word for word; refined from the
+  fatal-action status to the loss type on 2026-10-11, see "Loss types"
+  below). One classifier produces both the report label and the chart
+  kind, so the two can never disagree. The five old ending names (`mine`, `chord`,
   `needless`, `forced`, `angel`) survive only as **legacy provenance**:
   losses imported from records that stored the old five-way verdict
   keep their old line (dashed on the chart) rather than having modern
@@ -218,7 +218,7 @@ report.
   back. Coarse old evidence is never upgraded by inventing detail.
 - The left panel's session section gains a **game endings** chart: one
   chart, one cumulative percent line per ending kind (win plus the
-  report's fatal-action statuses plus dashed legacy-verdict lines plus
+  report's loss types plus dashed legacy-verdict lines plus
   "unjudged loss"), each line the kind's share of the games finished so
   far in the played-time window. Kinds that never occurred stay off the
   chart, except the win line, which always draws once any game has
@@ -317,8 +317,95 @@ report.
   detail names the 1.5 click, which removes that click. An action may carry
   several tags, but severity assigns it to one primary category so category
   totals never double-count it.
-- Modern Game-loss items use one of eight fatal statuses:
+- Modern Game-loss items use one of nine fatal statuses:
   `mine-safe`, `mine-forced`, `proof-safe`, `proof-forced`, `guess-safe`,
-  `guess-higher`, `guess-min`, or `guess-unmeasured`; evidence-free losses
-  are `unjudged`. Older imports may preserve the legacy `mine`, `chord`,
-  `needless`, `forced`, or `angel` verdict as provenance.
+  `guess-early`, `guess-higher`, `guess-min`, or `guess-unmeasured`;
+  evidence-free losses are `unjudged`. Older imports may preserve the
+  legacy `mine`, `chord`, `needless`, `forced`, or `angel` verdict as
+  provenance. The status stays the technical classification (training
+  reads it); the report, the endings chart, and the session summary name
+  the finer loss type below.
+
+## Loss types (requested 2026-10-11)
+
+The creator asked whether the game can tell apart a physical misclick, a
+wrong mine flag followed by death, a guess that was truly forced, a forced
+guess taken locally to save time, and a guess taken while a real move
+existed, and asked for the session summary to break losses down by type.
+The review found the fatal status already separated proven-mine clicks,
+needless guesses, and forced-guess risk ranks, but filed every chord death
+by its odds even though a chord death always proves a wrong flag, did not
+say how hard the missed proof was, and caught only one misclick pattern.
+
+Every modern loss now has exactly one **loss type**, a refinement of its
+fatal status that uses only facts: the saved position, the solver's proof
+tiers ([design axis](design-axis.md)), and the death itself. In order of
+precedence:
+
+1. **Wrong flag** (`flag-wrong`, "opened a mine that a wrong flag made
+   look safe") — every chord death, and every reveal beside a number that
+   already carried as many flags as its count. A chord opens only around a
+   number whose flags match its count, and a number with all its flags
+   declares its other squares safe, so opening a mine there proves one of
+   those flags was on a safe square. In Proof-or-die, a chord over unproven
+   squares is instead the mode's rule death (`proof-safe`/`proof-forced`),
+   unless it opened a proven mine.
+2. **Opened a proven mine**, graded by the easiest proof tier that proves
+   it: `mine-counting` (counting single numbers), `mine-overlap` (comparing
+   overlapping numbers), or `mine-whole-board` (only whole-board reasoning:
+   every consistent layout, or the mine total).
+3. **Guessed while a safe move existed**, graded by the easiest tier that
+   proves any covered square safe: `guess-safe-counting`,
+   `guess-safe-overlap`, `guess-safe-whole-board`; or `guess-safe-justice`
+   when no square was proven safe but A Just Universe guaranteed a safe
+   entry.
+4. **Higher-risk forced guess**, graded by distance (squares in any
+   direction, so a diagonal neighbor is 1): `guess-higher-near` when a
+   lowest-risk square was within 2 squares of the chosen one,
+   `guess-higher-far` when every lowest-risk square was 3 or more away —
+   the local guess that saved travel.
+5. Every other status is its own loss type: `guess-early`, `guess-min`
+   (the truly forced guess at minimum risk), `guess-unmeasured`, and the
+   Proof-or-die rule deaths. A refinable status whose record has no saved
+   position keeps the status as its loss type.
+
+The tiers are measured once, at the death, and stored on the fatal
+evaluation's evidence as `mineProofTier` (when the opened square was a
+proven mine) and `safeProofTier` (when any covered square was proven
+safe), each `'counting'`, `'overlap'`, or `'whole-board'`. Losses saved
+before 2026-10-11 gain them once from their saved position when history
+loads, and the change is persisted (on the creator's history: 1,257
+losses, about 0.2 s of work and an 11 MB rewrite, once). Measuring them at
+read time instead cost about 50 ms per startup for the busiest week.
+Chord deaths carry no tiers: their loss type is the wrong flag. A
+positioned fatal action whose loss type needs a tier and lacks one is a
+bug and fails loudly. The report's evidence lines name the tier ("selected
+square was proven mined by counting single numbers"; "a square was proven
+safe by comparing overlapping numbers"), and add a "Wrong flag" line for a
+reveal beside a flag-satisfied number and a "Lowest-risk square: N squares
+away" line for a higher-risk forced guess.
+
+**Likely misclicks stay an overlay**, never a loss type (creator decision
+2026-08-28): they are inferences about motor slips, not facts, so a loss
+keeps its loss type and may also carry one or both reasons:
+
+- `wrong-flag` — the captured `likely-misclick-after-wrong-flag` tag: a
+  still-standing flag on a safe square, adjacent to the fatal square,
+  placed under a second before the fatal action
+  ([per-game stats](per-game-stats.md)).
+- `wrong-button` (added 2026-10-11) — a left click on a proven mine under a
+  second after a chord on an adjacent number did nothing because the
+  number was still short of flags, with no input between them. The mine
+  was one of that number's missing flags, so the player most likely meant
+  to flag it. It is read from the saved ledger (the failed chord is the
+  no-op entry with the previous action number), so it applies to every
+  saved game. The report adds a "Likely misclick" line with the measured
+  interval. Exactly 1,000 ms does not qualify, as for `wrong-flag`.
+
+The endings chart's dashed "died: likely misclick" line counts losses with
+either reason; the session summary counts each reason on its own row.
+
+What the evidence cannot separate: a guess taken "to save time" is visible
+only as the distance to a lowest-risk square, not as intent, and a
+minimum-risk guess at a forced position is `guess-min` whether or not the
+player knew it was forced.

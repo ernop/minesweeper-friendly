@@ -9,10 +9,19 @@ const start = source.indexOf('function cellsTouch(');
 const end = source.indexOf('\n// Returns whether the click changed anything', start);
 if (start < 0 || end < 0) throw new Error('likely-misclick functions not found');
 
+const windowMatch = source.match(/const LIKELY_MISCLICK_MAX_MS = (\d+);/);
+if (windowMatch === null) throw new Error('LIKELY_MISCLICK_MAX_MS not found');
+
+// The fatal click's input event; the evaluation itself is built later, after
+// the click's odds work, so its own atMs runs behind.
+let fatalInputAtMs;
+const BUILD_DELAY_MS = 300;
 const context = {
   config: { width: 3 },
   cells: Array.from({ length: 9 }, () => ({ flagged: false, mine: false })),
   activeFlagEpisodes: new Map(),
+  LIKELY_MISCLICK_MAX_MS: Number(windowMatch[1]),
+  latestBoardInput: () => ({ atMs: fatalInputAtMs }),
 };
 vm.createContext(context);
 vm.runInContext(source.slice(start, end), context);
@@ -23,9 +32,10 @@ function check(name, condition) {
   if (!condition) throw new Error(name);
 }
 function evaluation(action, target, atMs) {
+  fatalInputAtMs = atMs;
   return {
     action,
-    atMs,
+    atMs: atMs + BUILD_DELAY_MS,
     selected: action === 'chord' ? [2] : [target],
     ...(action === 'chord' ? { triggerCell: target } : {}),
     result: 'continued',
@@ -57,6 +67,14 @@ check('inference records its measured gap and both cells',
   quickReveal.evidence.likelyMisclick.gapMs === 999
     && quickReveal.evidence.likelyMisclick.flagCell === 4
     && quickReveal.evidence.likelyMisclick.targetCell === 8);
+
+reset();
+setFlag(4, 100);
+const slowEvaluation = evaluation('reveal', 8, 900);
+context.annotateLikelyMisclickDeath(slowEvaluation);
+check('the gap runs between input events, not to when the fatal evaluation was built',
+  slowEvaluation.mistakes.includes('likely-misclick-after-wrong-flag')
+    && slowEvaluation.evidence.likelyMisclick.gapMs === 800);
 
 reset();
 setFlag(4, 100);

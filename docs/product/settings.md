@@ -146,7 +146,10 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   three chosen on the chart itself) — the game data
   column (see [Game data](game-data.md)); `shownThings.sessionSummary`
   (default on) — the session summary table (see
-  [Rank lists](rankings.md#session-summary-requested-and-built-2026-10-07)).
+  [Rank lists](rankings.md#session-summary-requested-and-built-2026-10-07));
+  `shownThings.sessionEndings` (default on, added 2026-10-11, "session loss
+  types") — the summary's loss-type grid under it, listed under Tables right
+  after the summary.
 - New-player quiet start (decided 2026-09-26): someone arriving without a
   saved `showSessionStats` or `reportScope` gets session stats off and
   after-game action reports off (`none`). The left panel still shows the

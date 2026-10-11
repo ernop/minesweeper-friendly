@@ -150,7 +150,7 @@ const press = (at, useful, flag, moving, gapMs, unflag, misclick) => ({
       end: 'win', useful: 2, wasted: 1, movePx: 100, unusedMarks: 0,
       categoryCounts: { timeLoss: 1 }, excessRisk: 0.1, cadenceSpread: 0.8 },
     { kind: 'game', from: NOW - 5 * MIN, to: NOW - 5 * MIN + 20000,
-      end: 'loss', useful: 4, wasted: 2, px: 200, likelyMisclick: true,
+      end: 'guess-safe-counting', useful: 4, wasted: 2, px: 200, likelyMisclick: true,
       categoryCounts: { timeLoss: 2 }, excessRisk: 0.2, cadenceSpread: 1.2 },
     { kind: 'game', from: NOW - MIN, to: NOW - MIN + 30000,
       end: 'win', useful: 8, wasted: 3, movePx: 600, unusedMarks: 2, flags: 8,
@@ -207,7 +207,7 @@ const press = (at, useful, flag, moving, gapMs, unflag, misclick) => ({
   assertUndefined('legacy game has no unused-mark per-game rate',
     unmeasured.unusedMarksPerGame[last(unmeasured)]);
   const loss = sessionBucketSeries([
-    { kind: 'game', from, to: NOW, end: 'loss', unusedMarks: 9 },
+    { kind: 'game', from, to: NOW, end: 'mine-counting', unusedMarks: 9 },
   ], opts);
   assertUndefined('loss stays outside unused-mark time rate even with stale data',
     loss.unusedMarksPerMin[last(loss)]);
@@ -371,7 +371,7 @@ const press = (at, useful, flag, moving, gapMs, unflag, misclick) => ({
     { kind: 'end', at: from + 30000, end: 'win' },
     { kind: 'end', at: from + 90000, end: 'angel' },
     { kind: 'end', at: from + 150000, end: 'win' },
-    { kind: 'end', at: from + 170000, end: 'never-heard-of-it' },
+    { kind: 'end', at: from + 170000, end: 'flag-wrong' },
   ];
   const s = sessionBucketSeries(events, opts);
   const i = last(s);
@@ -382,9 +382,18 @@ const press = (at, useful, flag, moving, gapMs, unflag, misclick) => ({
   assertClose('endings mid angel share', s.endFractions.angel[i - 1], 0.5);
   assertClose('endings final win share', s.endFractions.win[i], 0.5);
   assertClose('endings final angel share', s.endFractions.angel[i], 0.25);
-  assertClose('endings unknown kind files under other', s.endFractions.other[i], 0.25);
+  assertClose('endings loss type has its own share', s.endFractions['flag-wrong'][i], 0.25);
   assertClose('endings untouched kind stays zero', s.endFractions.chord[i], 0);
   assertEq('endings cumulative game count', s.endGames[i], 4);
+  let thrown = null;
+  try {
+    sessionBucketSeries([{ kind: 'play', from, to: NOW },
+      { kind: 'end', at: from + 30000, end: 'never-heard-of-it' }], opts);
+  } catch (err) {
+    thrown = err.message;
+  }
+  assertEq('an unknown ending kind fails loudly instead of filing under other', thrown,
+    'session ending kind never-heard-of-it is not in SESSION_END_KINDS');
 }
 
 // Modern fatal-action statuses are their own ending kinds, and the

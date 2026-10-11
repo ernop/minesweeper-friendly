@@ -210,6 +210,26 @@ middle? that's okay."
   under the board, summary first.
 - Gated by shownThings.sessionSummary (on by default). An empty window says
   "no games in session".
+- **Session loss types** (creator request 2026-10-11: "we should also offer
+  an expanded win/loss view to the session summary, further breaking down
+  the TYPE of losses"). Under the main grid, a second grid splits the
+  session's losses by loss type
+  ([Game-end evaluation](game-end-evaluation.md), "Loss types"), filed
+  exactly as the game endings chart files them and in its order, labels,
+  and line colors (a swatch leads each label). Columns: loss type, losses
+  (count across every board type in the window), and share of losses (a
+  nonzero share that rounds to 0% reads "<1%"). Only kinds that occurred
+  get a row. Under a rule follow the likely-misclick rows, one per reason
+  ("of these, likely misclick: adjacent wrong flag placed under a second
+  before", "of these, likely misclick: left click on a proven mine under a
+  second after a chord beside it lacked flags"); they recount losses
+  already filed above, so they never add to the total. A window without
+  losses says "no losses in session". The main grid already gives each
+  board type's games, wins, and win rate, so the loss grid has no win row.
+  Board-type count columns were built first and dropped the same day: a
+  generator's full name as a column header made the grid about 1,000 px
+  wide. Gated by shownThings.sessionEndings ("session loss types", on by
+  default), listed under Tables right after the summary's own switch.
 
 ## Recent placements (requested and decided 2026-08-23; charts and the lifetime near-miss rule extended later the same day)
 

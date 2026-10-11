@@ -71,6 +71,7 @@ const SHOWN_THINGS_DEFAULTS = Object.freeze({
   zeroOneShareTable: true,
   zeroOpeningTable: true,
   sessionSummary: true,
+  sessionEndings: true,
   recentPlacements: true,
   boardShapeTables: true,
   largestIsland: false,
@@ -84,6 +85,7 @@ const SHOWN_THINGS_DEFAULTS = Object.freeze({
 const SHOWN_THINGS_OPTIONS = [
   ['gameStats', 'loss and trial stats', 'the label/value stats for losses and trial games; regular wins use game data'],
   ['sessionSummary', 'session summary', 'games, wins, and win rate per board type in the session, with each type’s best session time and that time’s lifetime rank; left of the board when it fits'],
+  ['sessionEndings', 'session loss types', 'under the session summary: the session’s losses split by loss type, as the game endings chart files them, with how many were likely misclicks'],
   ['recentPlacements', 'ranks won in session', 'top-tenth ranks earned in the session on every longer tablechart; lifetime always shows at least its closest rank; right of the board when it fits'],
   ['timeTables', 'time-window tablecharts', 'lifetime, calendar, rolling-window, and day-category rankings'],
   ['lastOneMinute', 'last 1 minute', 'the very short rolling time tablechart'],
@@ -112,7 +114,8 @@ const SHOWN_THINGS_OPTIONS = [
 // 'result-section'.
 const RESULT_SECTION_GROUPS = [
   ['This game', ['shownThings.gameStats', 'shownThings.boardPercentiles']],
-  ['Tables', ['shownThings.sessionSummary', 'shownThings.recentPlacements', 'shownThings.timeTables', 'shownThings.lastOneMinute',
+  ['Tables', ['shownThings.sessionSummary', 'shownThings.sessionEndings', 'shownThings.recentPlacements',
+    'shownThings.timeTables', 'shownThings.lastOneMinute',
     'collapseDuplicateCharts', 'shownThings.streak', 'shownThings.nearStreak', 'shownThings.nearNearStreak']],
   ['This board', ['shownThings.boardMetricFacts', 'shownThings.exact3BV', 'shownThings.exactZiNi',
     'shownThings.exactMaxNumber', 'shownThings.exactHZiNi', 'shownThings.workSpreadTable',

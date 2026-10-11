@@ -67,21 +67,32 @@ inside the same boundary. No old lookback observations leak across it.
   green is a win,
   gold is an unavoidable/minimum-risk death, orange is an inferior or
   rule-breaking forced choice, red is an avoidable/proven-wrong action, and
-  grey is unjudged (its marker tooltip text is black). The three lightest
-  ending colors (early-game guess yellow `#c9a227`, minimum-risk gold
-  `#b8860b`, higher-risk orange `#d95f02`) measure under 4.5:1 on white, so
-  their tooltip text sits on a black chip, following the creator's seconds
-  age-unit choice (2026-09-23). Marker hover is
+  grey is unjudged (its marker tooltip text is black). The loss types added
+  2026-10-11 ([Game-end evaluation](game-end-evaluation.md), "Loss types")
+  keep their family's hue, darkest for the most avoidable: wrong flag deep
+  purple `#4527a0`; proven mines dark red by proof tier (counting
+  `#6d0d0d`, overlap `#a61b1b`, whole-board `#e04848`); guesses past a
+  proven-safe square teal by tier (`#004d40`, `#00897b`, `#4db6ac`), with
+  A Just Universe's guaranteed entry olive `#827717`; higher-risk forced
+  guesses orange by distance (near `#c43d00`, far `#f28c28`). Colors that
+  measure under 4.5:1 on white (early-game guess yellow `#c9a227`,
+  minimum-risk gold `#b8860b`, higher-risk orange `#d95f02`, far orange
+  `#f28c28`, overlap and whole-board teal, whole-board red) set their
+  tooltip text on a black chip, following the creator's seconds age-unit
+  choice (2026-09-23). Marker hover is
   intentionally compact: finish duration,
   current lifetime rank among the player's saved wins for that exact mode,
   time of day (no full date), and a `likely misclick` badge when that
   independent inference applies. A #1 finish earns `PB`; a finish in the best
   10% of at least ten saved wins earns `top 10%`. No worldwide rank or WR
   claim appears because the app has no global leaderboard data. The
-  unmarked-mines-on-win measurement remains teal. The magenta dotted `likely
-  misclick deaths` line is the inferred subset divided by all finished games
-  in the same running, raw, or N-game group. It may overlap any technical
-  loss line, so those exact ending percentages remain intact.
+  unmarked-mines-on-win measurement remains teal. The pink dashed "died:
+  likely misclick" line is the inferred subset divided by all finished games
+  in the same running, raw, or N-game group: losses with either
+  likely-misclick reason (a wrong flag just before, or since 2026-10-11 a
+  left click on a proven mine just after a chord beside it lacked flags).
+  It may overlap any loss-type line, so those exact ending percentages
+  remain intact.
 
 - Scope: only time a game was actually in progress (first reveal — or
   first flag once mines exist — to game end). Losses count. Abandoned
@@ -138,11 +149,13 @@ inside the same boundary. No old lookback observations leak across it.
     per ending kind, each the kind's share of the games finished so far
     in the window, with a color legend of current shares. Chart labels
     are compact forms prefixed **"died: "** for every death ending
-    ("died: likely misclick", "died: clicked forced mine despite
-    available safe move", "died: unjudged", legacy verdicts as "died: …
+    ("died: likely misclick", "died: opened a mine proven by counting
+    single numbers", "died: unjudged", legacy verdicts as "died: …
     (legacy)"), so the losses read as one family; the after-game report
-    keeps its sentence wording (`FATAL_STATUS_LABELS`), and the two can
-    never disagree because both derive from `fatalActionStatusKind`. The
+    keeps its sentence wording (`LOSS_TYPE_LABELS`), and the two can
+    never disagree because both derive from `lossTypeOf` (the loss type
+    since 2026-10-11; the fatal-action status before). An ending kind the
+    chart does not know is an error, never filed as "unjudged". The
     y axis auto-ranges to just above the highest plotted line (capped at
     100, floored at 10) instead of always spanning 0–100. The dotted
     "percent of mines unflagged when winning" line (the wins' average

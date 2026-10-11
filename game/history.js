@@ -240,12 +240,16 @@ function normalizeGameRecord(record) {
       ? [legacyFatalEvaluation(normalized)]
       : [legacyCoverageEvaluation(normalized)];
     changed = true;
-  } else if (typeof proofCorrectedEvaluation === 'function') {
-    normalized.actionEvaluations = normalized.actionEvaluations.map((evaluation) => {
-      const corrected = proofCorrectedEvaluation(evaluation);
-      if (corrected !== evaluation) changed = true;
-      return corrected;
-    });
+  }
+  // Losses saved before their fatal reveal recorded its proof tiers
+  // (2026-10-11) get them once from the saved position.
+  const fatal = fatalEvaluationOf(normalized);
+  const tiers = fatal === undefined ? {} : fatalProofTiers(fatal);
+  if (Object.keys(tiers).length > 0) {
+    const measured = { ...fatal, evidence: { ...fatal.evidence, ...tiers } };
+    normalized.actionEvaluations = normalized.actionEvaluations.map((evaluation) =>
+      evaluation === fatal ? measured : evaluation);
+    changed = true;
   }
   for (const field of ['stupidDeath', 'deathKind', 'deathRisk', 'deathBestRisk']) {
     if (field in normalized) {

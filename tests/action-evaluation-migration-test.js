@@ -11,6 +11,7 @@ function runSection(startMarker, endMarker) {
   if (start < 0 || end < 0) throw new Error('section marker missing');
   vm.runInThisContext(source.slice(start, end));
 }
+globalThis.Justice = require(path.join(__dirname, '..', 'justice.js'));
 runSection('//-------GAME-END EVALUATION: VERDICT',
   '//-------GAME-END EVALUATION: CAPTURE');
 runSection('//-------ACTION EVALUATION: HISTORY NORMALIZATION (pure)',
@@ -89,6 +90,30 @@ const base = {
   check('modern record stays unchanged', modern.changed === false);
   check('modern evidence object retained',
     modern.record.actionEvaluations[0] === evaluation);
+}
+
+// A loss saved before its fatal reveal stored proof tiers gains them once
+// from the saved position; loading it again changes nothing.
+{
+  const fatal = {
+    version: ACTION_EVALUATION_VERSION,
+    action: 'reveal',
+    actionNumber: 3,
+    atMs: 900,
+    result: 'death',
+    selected: [1],
+    mistakes: ['opened-proven-mine', 'ignored-safe-move'],
+    evidence: { safeAvailable: true },
+    alternatives: [],
+    position: { width: 3, height: 1, mines: 1, revealed: [[0, 1]], flagged: [] },
+  };
+  const first = normalizeGameRecord({ ...base, actionEvaluations: [fatal] });
+  check('an untiered loss is upgraded and persisted', first.changed);
+  const measured = first.record.actionEvaluations[0];
+  check('the opened mine tier is stored', measured.evidence.mineProofTier === 'counting');
+  check('the safe square tier is stored', measured.evidence.safeProofTier === 'whole-board');
+  check('the loaded record is not mutated', fatal.evidence.mineProofTier === undefined);
+  check('a tiered loss is left unchanged', normalizeGameRecord(first.record).changed === false);
 }
 
 console.log(`action-evaluation-migration: all ${checks} checks passed`);

@@ -124,6 +124,18 @@ Spec: [docs/product/rankings.md](../product/rankings.md). Index: [AGENTS.md](../
   `scheduleBoardLayout` so its side placement follows its new width.
   `renderRanks` appends it first in the table collection, gated by
   shownThings.sessionSummary.
+  Session loss types (2026-10-11): each row also carries `endings` (games
+  per ending kind: 'win', or `sessionEndingKind(fatalEvaluationOf(record))`
+  as the session backfill files it, so they sum to `games`) and
+  `likelyMisclicks` (losses per `likelyMisclickReasonsOf` reason). The span
+  calls the verdict functions at run time, so its test loads the verdict
+  span and justice.js. `buildSessionSummaryLosses(rows)` sums them across
+  rows into `.session-summary-losses` under the main grid (three columns;
+  kinds in SESSION_END_SPECS order with the spec's label and swatch, then
+  the reasons in LIKELY_MISCLICK_REASON_LABELS order under
+  `.session-summary-misclick-first`), gated by shownThings.sessionEndings.
+  `lossTypeOf` memoizes per evaluation object (a WeakMap), so rebuilding the
+  summary after each game classifies only the new loss.
   `node tests/recent-placements-test.js` freezes the formatting and
   summary rules, including streak rows across the session start, the
   current streak's chip, and their place after the day categories;

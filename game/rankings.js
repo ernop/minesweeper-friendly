@@ -719,14 +719,29 @@ function buildRecentPlacements(record, modeRecords, referenceMs, markReferenceRe
 // session's best time with that time's rank among the type's wins so far,
 // and the session's mean of each SESSION_SUMMARY_MEANS measurement over the
 // wins that measured it (`means[id]`: {value, measured}, null without one).
-// A board type is one history key (board, play mode, and generator). Rows
-// follow difficultyKeys (board keys in difficulty order), then other keys.
+// `endings` counts the session's games per ending kind, filed exactly as the
+// session endings chart files them, so they sum to `games`;
+// `likelyMisclicks` counts losses per likely-misclick reason, which overlap
+// the loss types. A board type is one history key (board, play mode, and
+// generator). Rows follow difficultyKeys (board keys in difficulty order),
+// then other keys.
 const SESSION_SUMMARY_MEANS = ['time', 'bvPerSecond', 'ioe'];
 function sessionSummaryRows(historyByKey, from, to, difficultyKeys) {
   const rows = [];
   for (const [key, records] of Object.entries(historyByKey)) {
     const session = records.filter((r) => r.endedAt >= from && r.endedAt <= to);
     if (session.length === 0) continue;
+    const endings = {};
+    const likelyMisclicks = {};
+    for (const r of session) {
+      const fatal = r.outcome === 'win' ? undefined : fatalEvaluationOf(r);
+      const end = r.outcome === 'win' ? 'win' : sessionEndingKind(fatal);
+      endings[end] = (endings[end] || 0) + 1;
+      if (fatal === undefined) continue;
+      for (const reason of likelyMisclickReasonsOf(fatal, r.actionEvaluations)) {
+        likelyMisclicks[reason] = (likelyMisclicks[reason] || 0) + 1;
+      }
+    }
     const wins = session.filter((r) => r.outcome === 'win').sort(compareRankedWins);
     let best = null;
     if (wins.length > 0) {
@@ -739,7 +754,8 @@ function sessionSummaryRows(historyByKey, from, to, difficultyKeys) {
       const values = wins.map((r) => spec.value(r)).filter(Number.isFinite);
       return [id, values.length ? { value: values.reduce((sum, v) => sum + v, 0) / values.length, measured: values.length } : null];
     }));
-    rows.push({ key, latest: session[session.length - 1], games: session.length, wins: wins.length, best, means });
+    rows.push({ key, latest: session[session.length - 1], games: session.length, wins: wins.length, best, means,
+      endings, likelyMisclicks });
   }
   const order = (key) => {
     const index = difficultyKeys.indexOf(key.split('@')[0]);
@@ -782,6 +798,10 @@ function buildSessionSummary(record, referenceMs) {
       + ', the one page-wide session chosen at the upper left). A board type is one size, mine count, mode, and generator; the mode is named only when it is not Standard, the generator only when it is not the default.',
     'Best is the session’s fastest win of that type. Its lifetime rank compares it with every win of that type so far; among equal times the earlier finish ranks first.',
     'Mean time, mean 3BV/s, and mean IOE average the session’s wins of that type, each over the wins that measured it, as game data defines them; for the board just played they are the session baseline for its time, 3BV/s, and IOE.',
+    ...(settings.shownThings.sessionEndings ? [
+      'Loss types split the session’s losses the way the game endings chart files them, with its colors. A proof named in a loss type is the easiest one that worked: counting single numbers, comparing overlapping numbers, or only whole-board reasoning.',
+      'The likely-misclick rows count losses whose fatal click was most likely a slip. They are already counted in a loss type above, so they never add to the total.',
+    ] : []),
   ], 'session'));
   box.appendChild(heading);
   const rows = sessionSummaryRows(history, from, to, Object.values(DIFFICULTIES).map(boardKeyOf));
@@ -845,7 +865,67 @@ function buildSessionSummary(record, referenceMs) {
       ...meanSpecs.map(() => cell('', ''))]);
   }
   box.appendChild(grid);
+  if (settings.shownThings.sessionEndings) box.appendChild(buildSessionSummaryLosses(rows));
   return box;
+}
+
+// The session's losses split by loss type across every board type, as the
+// endings chart counts them: one row per kind that occurred, in the chart's
+// order with its label and line color, with its count and share of the
+// session's losses. Board-type columns were tried first; a generator's full
+// name made a column header hundreds of pixels wide. The likely-misclick
+// rows follow under a rule; they count losses already filed above, so they
+// never add to the total.
+function buildSessionSummaryLosses(rows) {
+  const losses = rows.reduce((sum, row) => sum + row.games - row.wins, 0);
+  if (losses === 0) {
+    const none = document.createElement('div');
+    none.className = 'recent-placements-none';
+    none.textContent = 'no losses in session';
+    return none;
+  }
+  const lossSpecs = SESSION_END_SPECS.filter((spec) => spec.series === undefined && spec.kind !== 'win'
+    && rows.some((row) => row.endings[spec.kind] !== undefined));
+  const reasons = Object.keys(LIKELY_MISCLICK_REASON_LABELS)
+    .filter((reason) => rows.some((row) => row.likelyMisclicks[reason] !== undefined));
+  const grid = document.createElement('div');
+  grid.className = 'session-summary-grid session-summary-losses';
+  grid.style.gridTemplateColumns = 'repeat(3, auto)';
+  const cell = (className, text) => {
+    const node = document.createElement('span');
+    node.className = className;
+    node.textContent = text;
+    return node;
+  };
+  const line = (className, cells) => {
+    const node = document.createElement('div');
+    node.className = 'rank-row ' + className;
+    node.append(...cells);
+    grid.appendChild(node);
+  };
+  // A share that rounds to 0% still names a loss, so it reads "<1%".
+  const share = (count) => {
+    const percent = Math.round(100 * count / losses);
+    return percent === 0 ? '<1%' : percent + '%';
+  };
+  const countCells = (countOf) => {
+    const total = rows.reduce((sum, row) => sum + countOf(row), 0);
+    return [cell('session-summary-number', String(total)), cell('session-summary-number', share(total))];
+  };
+  line('session-summary-head', ['loss type', 'losses', 'share of losses'].map((text) => cell('', text)));
+  for (const spec of lossSpecs) {
+    const label = cell('session-summary-loss', '');
+    const swatch = cell('end-swatch', '');
+    swatch.style.background = spec.color;
+    label.append(swatch, spec.label);
+    line('session-summary-row', [label, ...countCells((row) => row.endings[spec.kind] || 0)]);
+  }
+  reasons.forEach((reason, index) => {
+    line('session-summary-row' + (index === 0 ? ' session-summary-misclick-first' : ''),
+      [cell('session-summary-loss', 'of these, likely misclick: ' + LIKELY_MISCLICK_REASON_LABELS[reason]),
+        ...countCells((row) => row.likelyMisclicks[reason] || 0)]);
+  });
+  return grid;
 }
 
 //-------RANK LISTS (the 11-row ranked table)-------

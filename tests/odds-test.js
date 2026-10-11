@@ -176,6 +176,33 @@ console.log('a proven safe makes any guess needless');
   check('not perfect', guess.perfectPlay === false);
 }
 
+console.log('no one-ply life values when the model did not run');
+{
+  // Ninety-nine covered squares and no proven-safe one: too many for the
+  // one-ply model, so the chosen and best values would both be bare
+  // survival odds and read as a tie nobody measured.
+  const board = makeBoard([
+    '.#########',
+    '#*########',
+    '##########',
+    '##########',
+    '##########',
+    '**********',
+    '*********#',
+    '##########',
+    '##########',
+    '##########',
+  ]);
+  const odds = Odds.analyzeView(board.view);
+  check('no proven-safe square', !odds.provenSafeOpen);
+  check('over the one-ply limit', odds.unproven.length > 40);
+  const guess = Odds.scoreGuess(board.view, board.at(9, 9));
+  check('the guess is still scored', guess !== null && guess.measured);
+  check('life values are absent',
+    guess.expectedLife === undefined && guess.bestExpectedLife === undefined
+      && guess.bestExpectedCells === undefined);
+}
+
 console.log('enumeration-safe is not a guess');
 {
   // One mine in the 50/50 at col 2. The two cells behind it are sea

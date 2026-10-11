@@ -214,12 +214,10 @@ function fatalEvaluationOf(record) {
   return undefined;
 }
 
-// The modern fatal-action status: one exclusive kind per fatal action.
-// The after-game report label and the session endings chart both derive
-// from this single classification (requested 2026-08-23 evening: the
-// chart's loss categories must be the report's reasons for losing), so
-// the two can never disagree. FATAL_STATUS_LABELS carries the exact
-// report wording per kind.
+// The modern fatal-action status: one exclusive kind per fatal action,
+// refined below into the loss type that the after-game report and the
+// session endings chart both name. FATAL_STATUS_LABELS words each status;
+// a status the loss type does not refine keeps these words.
 const FATAL_STATUS_LABELS = {
   'mine-safe': 'opened a proven mine while a safe move was available',
   'mine-forced': 'opened a proven mine when a guess was required',
@@ -232,6 +230,20 @@ const FATAL_STATUS_LABELS = {
   'guess-unmeasured': 'died from a forced guess (risk rank unmeasured)',
 };
 
+// A covered square was proven safe: the canonical prover or the
+// remaining-layout odds found one.
+function evaluationProvenSafeAvailable(evidence) {
+  return evidence.safeAvailable === true
+    || (typeof evidence.bestRisk === 'number' && evidence.bestRisk <= 1e-12);
+}
+
+// A safe entry existed under the active rules (A Just Universe certifies
+// some guesses) even where no square was proven safe.
+function evaluationJusticeSafeAvailable(evidence) {
+  return typeof evidence.bestActualRisk === 'number'
+    && evidence.bestActualRisk <= 1e-12;
+}
+
 function fatalActionStatusKind(evaluation) {
   if (!evaluation || evaluation.result !== 'death') return undefined;
   const evidence = evaluation.evidence || {};
@@ -241,10 +253,8 @@ function fatalActionStatusKind(evaluation) {
     || evidence.knowledge === 'proven-mine'
     || (Array.isArray(evidence.openedProvenMines)
       && evidence.openedProvenMines.length > 0);
-  const safeAvailable = evidence.safeAvailable === true
-    || (typeof evidence.bestActualRisk === 'number'
-      && evidence.bestActualRisk <= 1e-12)
-    || (typeof evidence.bestRisk === 'number' && evidence.bestRisk <= 1e-12);
+  const safeAvailable = evaluationProvenSafeAvailable(evidence)
+    || evaluationJusticeSafeAvailable(evidence);
   if (provenMine) return safeAvailable ? 'mine-safe' : 'mine-forced';
   if (evaluation.action === 'proof-open') {
     return safeAvailable ? 'proof-safe' : 'proof-forced';
@@ -261,16 +271,261 @@ function fatalActionStatusKind(evaluation) {
   return 'guess-unmeasured';
 }
 
-function fatalActionStatusLabel(evaluation) {
-  const kind = fatalActionStatusKind(evaluation);
-  return kind === undefined ? 'unjudged death' : FATAL_STATUS_LABELS[kind];
+// The loss type (creator request 2026-10-11): one exclusive kind per modern
+// loss naming the error that ended it. It refines the fatal-action status
+// with facts only: the saved position, the solver's proof rules, and the
+// death itself.
+// - A wrong flag comes first. A chord opens only around a number whose
+//   flags match its count, and a reveal beside a number already carrying
+//   all its flags opened a square those flags declared safe; either way,
+//   opening a mine proves one of those flags wrong.
+// - A clicked proven mine and a guess past a proven-safe square are graded
+//   by the cheapest solver tier that settles them (docs/product/design-axis.md):
+//   counting single numbers, comparing overlapping numbers, or only
+//   whole-board reasoning (every consistent layout, or the mine total). The
+//   tiers are measured once on the evidence (fatalProofTiers). A guess where
+//   only A Just Universe guaranteed a safe entry is its own kind.
+// - A higher-risk forced guess is graded by how far the nearest
+//   lowest-risk square was from the chosen one.
+// Every other status is its own loss type, as is a refinable status whose
+// record has no saved position. Likely misclicks are inferences, not facts,
+// and stay an overlay (likelyMisclickReasonsOf).
+const LOSS_TYPE_LABELS = {
+  'flag-wrong': 'opened a mine that a wrong flag made look safe',
+  'mine-counting': 'opened a mine that counting single numbers proved',
+  'mine-overlap': 'opened a mine that comparing overlapping numbers proved',
+  'mine-whole-board': 'opened a mine that only whole-board reasoning proved',
+  'guess-safe-counting': 'died after guessing while counting single numbers proved a square safe',
+  'guess-safe-overlap': 'died after guessing while comparing overlapping numbers proved a square safe',
+  'guess-safe-whole-board': 'died after guessing while only whole-board reasoning proved a square safe',
+  'guess-safe-justice': 'died after guessing while A Just Universe guaranteed a safe entry',
+  'guess-higher-near': 'died from a higher-risk forced guess with a lowest-risk square within 2 squares',
+  'guess-higher-far': 'died from a higher-risk forced guess with every lowest-risk square 3 or more squares away',
+  ...FATAL_STATUS_LABELS,
+};
+
+// Lowest-risk squares at most this many squares away in any direction
+// count as near the chosen square.
+const LOWER_RISK_NEAR_SQUARES = 2;
+
+const PROOF_TIER_PHRASES = {
+  counting: 'counting single numbers',
+  overlap: 'comparing overlapping numbers',
+  'whole-board': 'only whole-board reasoning',
+};
+
+function positionView(position) {
+  const size = position.width * position.height;
+  const revealed = new Array(size).fill(false);
+  const adjacent = new Array(size).fill(0);
+  for (const [cell, number] of position.revealed) {
+    revealed[cell] = true;
+    adjacent[cell] = number;
+  }
+  return {
+    width: position.width, height: position.height, mines: position.mines,
+    revealed, adjacent,
+  };
 }
 
-// The endings-chart kind for a loss: the modern fatal-action status
-// verbatim, so the chart's categories are exactly the report's reasons
-// for losing; a legacy-imported record's stored five-way verdict stays
-// its own provenance line (coarse old evidence is never upgraded by
-// inventing detail); 'other' when nothing was measurable.
+function squareDistance(width, a, b) {
+  return Math.max(Math.abs((a % width) - (b % width)),
+    Math.abs(Math.floor(a / width) - Math.floor(b / width)));
+}
+
+// Whether a revealed number next to `cell` already carried exactly as many
+// flags as its count, which declares every other covered neighbor safe.
+function besideFlagSatisfiedNumber(position, cell) {
+  const flagged = new Set(position.flagged);
+  for (const [number, count] of position.revealed) {
+    if (count === 0 || squareDistance(position.width, number, cell) !== 1) continue;
+    let flags = 0;
+    for (const around of Justice.neighbors(number, position.width, position.height)) {
+      if (flagged.has(around)) flags++;
+    }
+    if (flags === count) return true;
+  }
+  return false;
+}
+
+// The cheapest solver tier whose rules prove `fact` (1 mine, 2 safe) for
+// `cell`, or for any covered square when `cell` is undefined. The caller
+// knows the fact holds, so what the counting and overlap rules miss needed
+// whole-board reasoning and the exhaustive prover never runs.
+function easiestProofTier(position, fact, cell) {
+  const view = positionView(position);
+  const clues = Justice.rawClues(view);
+  const proves = (facts) => (cell === undefined
+    ? [...facts.values()].includes(fact) : facts.get(cell) === fact);
+  if (proves(Justice.proveFacts(view, clues, { subset: false, global: false, exact: false }))) {
+    return 'counting';
+  }
+  if (proves(Justice.proveFacts(view, clues, { global: false, exact: false }))) return 'overlap';
+  return 'whole-board';
+}
+
+// The fatal reveal's proof tiers, measured from its saved position and kept
+// on its evidence: mineProofTier when the opened square was a proven mine,
+// safeProofTier when any covered square was proven safe. A chord's loss type
+// is its wrong flag, so chords carry neither. Recorded at the death
+// (recordActionEvaluation); history normalization adds them once to losses
+// saved before 2026-10-11. Returns only the tiers the evaluation lacks.
+function fatalProofTiers(evaluation) {
+  if (evaluation.version !== ACTION_EVALUATION_VERSION || evaluation.legacy
+      || evaluation.result !== 'death' || evaluation.action === 'chord'
+      || evaluation.position === undefined) return {};
+  const evidence = evaluation.evidence || {};
+  const status = fatalActionStatusKind(evaluation);
+  const tiers = {};
+  if ((status === 'mine-safe' || status === 'mine-forced')
+      && evidence.mineProofTier === undefined) {
+    tiers.mineProofTier = easiestProofTier(evaluation.position, 1, evaluation.selected[0]);
+  }
+  if (evaluationProvenSafeAvailable(evidence) && evidence.safeProofTier === undefined) {
+    tiers.safeProofTier = easiestProofTier(evaluation.position, 2);
+  }
+  return tiers;
+}
+
+// The death stores both tiers and history normalization adds them to older
+// losses, so a positioned fatal action without its tier is a bug.
+function storedProofTier(tier) {
+  if (!Object.hasOwn(PROOF_TIER_PHRASES, tier)) {
+    throw new Error('positioned fatal action has no stored proof tier (got ' + tier + ')');
+  }
+  return tier;
+}
+
+function nearestLowestRiskDistance(evaluation) {
+  const lower = evaluation.alternatives.find((alternative) =>
+    alternative.kind === 'lower-risk-reveal');
+  if (lower === undefined) return undefined;
+  const chosen = evaluation.selected[0];
+  return Math.min(...lower.cells.map((cell) =>
+    squareDistance(evaluation.position.width, cell, chosen)));
+}
+
+// Memoized per evaluation object: the session summary recounts every loss
+// in its window at each game end.
+const lossTypeCache = new WeakMap();
+
+function lossTypeOf(evaluation) {
+  if (evaluation.version !== ACTION_EVALUATION_VERSION || evaluation.legacy) return undefined;
+  const status = fatalActionStatusKind(evaluation);
+  if (status === undefined) return undefined;
+  if (!lossTypeCache.has(evaluation)) {
+    lossTypeCache.set(evaluation, refinedLossType(evaluation, status));
+  }
+  return lossTypeCache.get(evaluation);
+}
+
+function refinedLossType(evaluation, status) {
+  const evidence = evaluation.evidence || {};
+  const position = evaluation.position;
+  const provenMine = status === 'mine-safe' || status === 'mine-forced';
+  const proofOrDie = evidence.playMode === 'proof-or-die';
+  // Proof-or-die ends a game on any unproven open, so there a chord over
+  // unproven squares is a rule death like an unproven reveal, and only a
+  // proven mine shows the opened square was mined.
+  if (proofOrDie && evaluation.action === 'chord' && !provenMine) {
+    return evaluationProvenSafeAvailable(evidence)
+      || evaluationJusticeSafeAvailable(evidence) ? 'proof-safe' : 'proof-forced';
+  }
+  if (position === undefined || status === 'proof-safe' || status === 'proof-forced') {
+    return status;
+  }
+  if ((!proofOrDie || provenMine) && (evaluation.action === 'chord'
+      || besideFlagSatisfiedNumber(position, evaluation.selected[0]))) {
+    return 'flag-wrong';
+  }
+  if (provenMine) return 'mine-' + storedProofTier(evidence.mineProofTier);
+  if (status === 'guess-safe') {
+    return evaluationProvenSafeAvailable(evidence)
+      ? 'guess-safe-' + storedProofTier(evidence.safeProofTier) : 'guess-safe-justice';
+  }
+  if (status === 'guess-higher') {
+    const distance = nearestLowestRiskDistance(evaluation);
+    if (distance === undefined) return status;
+    return distance <= LOWER_RISK_NEAR_SQUARES ? 'guess-higher-near' : 'guess-higher-far';
+  }
+  return status;
+}
+
+// A slip shows as an input under a second after the one it follows
+// (creator rule 2026-08-28; exactly 1,000ms does not qualify). Shared by the
+// captured recent-wrong-flag tag and the wrong-button pattern below.
+const LIKELY_MISCLICK_MAX_MS = 1000;
+
+// The wrong-button slip (creator request 2026-10-11): a direct reveal of a
+// proven mine under a second after a chord on a neighboring number failed
+// for lack of flags, with no input between them. The mine was one of that
+// number's missing flags, so the player most likely meant to flag it.
+// Read from the saved ledger: the failed chord is a no-op entry, and every
+// accepted input takes the next action number.
+function wrongButtonEvidenceOf(evaluation, ledger) {
+  const status = fatalActionStatusKind(evaluation);
+  if (evaluation.action !== 'reveal' || evaluation.position === undefined
+      || (status !== 'mine-safe' && status !== 'mine-forced')) return undefined;
+  const chord = ledger.find((entry) => entry.action === 'no-op'
+    && entry.actionNumber === evaluation.actionNumber - 1);
+  if (chord === undefined || chord.evidence.reason !== 'chord-short-of-flags') return undefined;
+  const gapMs = evaluation.atMs - chord.atMs;
+  const number = chord.selected[0];
+  if (!(gapMs >= 0 && gapMs < LIKELY_MISCLICK_MAX_MS)
+      || squareDistance(evaluation.position.width, number, evaluation.selected[0]) !== 1) {
+    return undefined;
+  }
+  return { numberCell: number, gapMs };
+}
+
+// The likely-misclick reasons in display order, worded for the session
+// summary's rows.
+const LIKELY_MISCLICK_REASON_LABELS = {
+  'wrong-flag': 'adjacent wrong flag placed under a second before',
+  'wrong-button': 'left click on a proven mine under a second after a chord beside it lacked flags',
+};
+
+// The likely-misclick overlay: inferred slips, any number per loss, never a
+// loss type (creator decision 2026-08-28). 'wrong-flag' is the captured
+// tag; 'wrong-button' is read from the ledger.
+function likelyMisclickReasonsOf(evaluation, ledger) {
+  if (evaluation.version !== ACTION_EVALUATION_VERSION) return [];
+  const reasons = [];
+  if (evaluation.mistakes.includes('likely-misclick-after-wrong-flag')) reasons.push('wrong-flag');
+  if (wrongButtonEvidenceOf(evaluation, ledger) !== undefined) reasons.push('wrong-button');
+  return reasons;
+}
+
+// The evidence lines a modern fatal action adds for its loss type and the
+// ledger-read misclick reason.
+function fatalEvidenceLines(evaluation, ledger) {
+  if (evaluation.version !== ACTION_EVALUATION_VERSION || evaluation.legacy) return [];
+  const lines = [];
+  const type = lossTypeOf(evaluation);
+  if (type === 'flag-wrong' && evaluation.action !== 'chord') {
+    lines.push({ label: 'Wrong flag', value: 'a number beside this square already had all '
+      + 'its flags, so one of them was on a safe square' });
+  }
+  if (type === 'guess-higher-near' || type === 'guess-higher-far') {
+    const distance = nearestLowestRiskDistance(evaluation);
+    lines.push({ label: 'Lowest-risk square',
+      value: distance + (distance === 1 ? ' square' : ' squares') + ' away' });
+  }
+  const wrongButton = wrongButtonEvidenceOf(evaluation, ledger);
+  if (wrongButton !== undefined) {
+    lines.push({ label: 'Likely misclick', value: 'left-clicked this proven mine '
+      + Math.round(wrongButton.gapMs) + 'ms after a chord on the number beside it '
+      + 'failed for lack of flags' });
+  }
+  return lines;
+}
+
+// The endings-chart kind for a loss: the modern loss type, the same
+// classification the report's fatal-action heading names, so the chart's
+// categories are exactly the report's reasons for losing; a
+// legacy-imported record's stored five-way verdict stays its own
+// provenance line (coarse old evidence is never upgraded by inventing
+// detail); 'other' when nothing was measurable.
 function sessionEndingKind(evaluation) {
   if (!evaluation) return 'other';
   if (evaluation.version !== ACTION_EVALUATION_VERSION) return 'other';
@@ -278,7 +533,7 @@ function sessionEndingKind(evaluation) {
     return DEATH_KIND_LABELS[evaluation.legacy.deathKind]
       ? evaluation.legacy.deathKind : 'other';
   }
-  return fatalActionStatusKind(evaluation) || 'other';
+  return lossTypeOf(evaluation) || 'other';
 }
 
 function actionEvaluationLabel(evaluation) {
@@ -289,7 +544,7 @@ function actionEvaluationLabel(evaluation) {
   if (evaluation.result === 'death') {
     if (!evaluation.legacy
         && evaluation.version === ACTION_EVALUATION_VERSION) {
-      return fatalActionStatusLabel(evaluation);
+      return LOSS_TYPE_LABELS[lossTypeOf(evaluation)];
     }
     const kind = evaluationEndingKind(evaluation);
     return kind === 'other' ? 'unjudged death' : DEATH_KIND_LABELS[kind];
@@ -559,7 +814,8 @@ function evaluationAlternativeLabel(kind) {
   }[kind] || kind;
 }
 
-function actionEvaluationLines(evaluation) {
+// extraLines: lines only the caller can measure, such as fatalEvidenceLines.
+function actionEvaluationLines(evaluation, extraLines = []) {
   if (evaluation.version !== ACTION_EVALUATION_VERSION || evaluation.legacy) {
     return [{ label: 'Note', value: actionEvaluationText(evaluation) }];
   }
@@ -567,8 +823,10 @@ function actionEvaluationLines(evaluation) {
   const mistakes = new Set(Array.isArray(evaluation.mistakes)
     ? evaluation.mistakes : []);
   const lines = [];
+  const byTier = (tier) => (tier === undefined ? '' : ' by ' + PROOF_TIER_PHRASES[tier]);
   if (mistakes.has('opened-proven-mine')) {
-    lines.push({ label: 'Certainty', value: 'selected square was proven mined' });
+    lines.push({ label: 'Certainty',
+      value: 'selected square was proven mined' + byTier(evidence.mineProofTier) });
   } else if (evidence.knowledge === 'proven-safe') {
     lines.push({ label: 'Certainty', value: 'selected square was proven safe' });
   }
@@ -576,7 +834,8 @@ function actionEvaluationLines(evaluation) {
       || mistakes.has('ignored-safe-move')
       || mistakes.has('guessed-with-safe-move')
       || mistakes.has('opened-unproven-with-safe-move')) {
-    lines.push({ label: 'Safe alternative', value: 'available' });
+    lines.push({ label: 'Safe alternative', value: evidence.safeProofTier === undefined
+      ? 'available' : 'a square was proven safe' + byTier(evidence.safeProofTier) });
   }
   if (mistakes.has('flagged-proven-safe')) {
     lines.push({ label: 'Difference', value: 'flagged a proven-safe square' });
@@ -684,6 +943,7 @@ function actionEvaluationLines(evaluation) {
     });
     lines.push({ label: 'Alternatives', value: parts.join(' · ') });
   }
+  lines.push(...extraLines);
   return lines.length > 0
     ? lines : [{ label: 'Note', value: 'No further difference was measurable.' }];
 }
@@ -875,8 +1135,10 @@ function evaluateRevealAction(index, firstReveal, guessEvent, action = 'reveal')
     evaluation.evidence.bestActualRisk = guessEvent.actualMinP;
     evaluation.evidence.justiceProtected = guessEvent.justice === true;
     evaluation.evidence.bestRiskTaken = guessEvent.p <= guessEvent.minP + 1e-12;
-    evaluation.evidence.expectedLife = guessEvent.expectedLife;
-    evaluation.evidence.bestExpectedLife = guessEvent.bestExpectedLife;
+    if (typeof guessEvent.expectedLife === 'number') {
+      evaluation.evidence.expectedLife = guessEvent.expectedLife;
+      evaluation.evidence.bestExpectedLife = guessEvent.bestExpectedLife;
+    }
   } else if (firstReveal) {
     const blindRisk = config.mines / cells.length;
     evaluation.evidence.oddsMeasured = true;
@@ -1047,6 +1309,7 @@ function evaluateNoOpAction(index, reason) {
 function recordActionEvaluation(evaluation, result) {
   if (!evaluation) return;
   evaluation.result = result;
+  if (result === 'death') Object.assign(evaluation.evidence, fatalProofTiers(evaluation));
   traceDecision(evaluation);
   if (result === 'death' || evaluationHasMistake(evaluation)) {
     actionEvaluations.push(evaluation);

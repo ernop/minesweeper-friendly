@@ -33,7 +33,7 @@
 // - {kind:'death', at, mistake} — a lost game; mistake says whether the
 //   fatal action carried at least one recorded mistake tag.
 // - {kind:'end', at, end, winUnmarked} — a finished game's ending: 'win',
-//   a fatal-action status kind (see FATAL_STATUS_LABELS), a legacy
+//   a loss type (see LOSS_TYPE_LABELS), a legacy
 //   verdict kind (see DEATH_KIND_LABELS), or 'other' for an unjudged
 //   loss. On a measured win, winUnmarked is the share of the board's
 //   mines carrying no flag at the winning instant (0..1); absent
@@ -64,15 +64,19 @@ const FASTCLICK_MAX_GAP_MS = 1000;
 const SESSION_MIN_PLAY_MS = 1000;
 
 // Every game ending files into exactly one of these kinds: 'win', a
-// modern fatal-action status (the FATAL_STATUS_LABELS keys — the exact
-// categories the after-game report uses for its reasons for losing), a
-// legacy-imported record's five-way verdict kept as provenance (the
-// DEATH_KIND_LABELS keys), or 'other' — an unjudged loss. The endings
-// chart draws one cumulative percent line per kind.
+// modern loss type (the LOSS_TYPE_LABELS keys — the exact categories the
+// after-game report heads its fatal action with), a legacy-imported
+// record's five-way verdict kept as provenance (the DEATH_KIND_LABELS
+// keys), or 'other' — an unjudged loss. The endings chart draws one
+// cumulative percent line per kind.
 const SESSION_END_KINDS = [
   'win',
-  'guess-early', 'guess-min', 'guess-higher', 'guess-unmeasured', 'guess-safe',
-  'mine-safe', 'mine-forced', 'proof-safe', 'proof-forced',
+  'guess-early', 'guess-min', 'guess-higher-near', 'guess-higher-far', 'guess-higher',
+  'guess-unmeasured',
+  'guess-safe-counting', 'guess-safe-overlap', 'guess-safe-whole-board', 'guess-safe-justice',
+  'guess-safe',
+  'flag-wrong', 'mine-counting', 'mine-overlap', 'mine-whole-board', 'mine-safe', 'mine-forced',
+  'proof-safe', 'proof-forced',
   'angel', 'forced', 'needless', 'mine', 'chord',
   'other',
 ];
@@ -293,7 +297,8 @@ function sessionBucketSeries(events, opts) {
   const countEnd = (i, end, winUnmarked, unusedShare, likelyMisclick) => {
     if (i < 0 || i >= bucketCount) return;
     const k = SESSION_END_KINDS.indexOf(end);
-    endCounts[k >= 0 ? k : SESSION_END_KINDS.indexOf('other')][i]++;
+    if (k < 0) throw new Error('session ending kind ' + end + ' is not in SESSION_END_KINDS');
+    endCounts[k][i]++;
     if (end === 'win' && typeof winUnmarked === 'number') {
       winUnmarkedSum[i] += winUnmarked;
       winUnmarkedWins[i]++;
@@ -1172,7 +1177,7 @@ function sessionRecordEvaluation(evaluation) {
   scheduleMetricsUpdate({ sessionPlay: true });
 }
 
-// One ending per finished game ('win', a fatal-action status kind, a
+// One ending per finished game ('win', a loss type, a
 // legacy verdict kind, or 'other'), recorded while the play span is
 // still open so it lands inside it. On a win, winUnmarked carries the
 // share of the board's mines that had no flag at the winning instant.
@@ -1196,8 +1201,8 @@ function sessionRecordEnd(end, winUnmarked) {
     flags: flagsPlaced,
     unflags: flagsRemoved,
     fatalMistake: evaluationHasMistake(fatal),
-    likelyMisclick: Array.isArray(fatal && fatal.mistakes)
-      && fatal.mistakes.includes('likely-misclick-after-wrong-flag'),
+    likelyMisclick: fatal !== undefined
+      && likelyMisclickReasonsOf(fatal, actionEvaluations).length > 0,
     categoryCounts: actionSummary.counts,
     excessRisk: actionSummary.excessRisk,
     modeledLifeGap: actionSummary.modeledLifeGap,
@@ -1241,8 +1246,8 @@ function sessionBackfillFromHistory() {
         ...(record.outcome === 'win' && typeof record.unusedCorrectFlags === 'number'
           ? { unusedMarks: record.unusedCorrectFlags } : {}),
         fatalMistake: evaluationHasMistake(fatal),
-        likelyMisclick: Array.isArray(fatal && fatal.mistakes)
-          && fatal.mistakes.includes('likely-misclick-after-wrong-flag'),
+        likelyMisclick: fatal !== undefined
+          && likelyMisclickReasonsOf(fatal, record.actionEvaluations).length > 0,
         categoryCounts: actionSummary.counts,
         excessRisk: actionSummary.excessRisk,
         modeledLifeGap: actionSummary.modeledLifeGap,

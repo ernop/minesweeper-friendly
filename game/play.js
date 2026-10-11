@@ -610,17 +610,19 @@ function cellsTouch(a, b) {
 
 // Post-hoc physical-misclick heuristic. It deliberately supplements rather
 // than replaces the exact fatal status: a still-active flag on an actual safe
-// cell, placed under one second before an adjacent fatal chord/reveal.
-const LIKELY_MISCLICK_MAX_MS = 1000;
+// cell, placed under one second before an adjacent fatal chord/reveal. Both
+// times are input-event times: the fatal evaluation's own atMs is still its
+// build time here, after the click's odds work, until traceDecision sets it.
 function annotateLikelyMisclickDeath(evaluation) {
   if (!evaluation || evaluation.result === 'death') return;
   const target = evaluation.action === 'chord'
     ? evaluation.triggerCell : evaluation.selected[0];
   if (!Number.isInteger(target)) return;
+  const fatalAtMs = latestBoardInput().atMs;
   let best;
   for (const episode of activeFlagEpisodes.values()) {
     const flag = episode.index;
-    const gapMs = evaluation.atMs - episode.evaluation.atMs;
+    const gapMs = fatalAtMs - episode.evaluation.atMs;
     if (!cells[flag].flagged || cells[flag].mine || gapMs < 0
         || gapMs >= LIKELY_MISCLICK_MAX_MS || !cellsTouch(flag, target)) continue;
     if (best === undefined || gapMs < best.gapMs) best = { flag, gapMs };

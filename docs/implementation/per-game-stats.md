@@ -73,7 +73,16 @@ Spec: [docs/product/per-game-stats.md](../product/per-game-stats.md). Index: [AG
   center orthogonally/diagonally. It adds
   `likely-misclick-after-wrong-flag` plus `{flagCell,targetCell,gapMs}` evidence;
   it never replaces `sessionEndingKind`, increments the exact visible-state
-  `misclicks` count, or qualifies removed/correct/distant flags.
+  `misclicks` count, or qualifies removed/correct/distant flags. The gap is
+  `latestBoardInput().atMs` (input-trace.js: the newest lup/rdown board
+  event, the same clock `traceDecision` stamps evaluations with) minus the
+  flag evaluation's `atMs`; the fatal evaluation's own `atMs` is still its
+  build time at this point. `LIKELY_MISCLICK_MAX_MS` lives in the verdict
+  (evaluation.js), shared with the ledger-read wrong-button reason
+  (`wrongButtonEvidenceOf`).
+- `scoreGuess` (odds.js) returns `expectedLife`, `bestExpectedLife`, and
+  `bestExpectedCells` only when the one-ply model ran or a proven-safe open
+  exists; `evaluateRevealAction` stores the life fields only when present.
 - `flagsPlaced` counts flag placements by the player (removals don't
   subtract). `isMarkless(record)` derives the markless status
   (flagsPlaced === 0); records from before the measurement have it

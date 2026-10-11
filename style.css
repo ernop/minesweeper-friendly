@@ -2988,6 +2988,16 @@ body.settings-page .return-to-game {
 .session-summary-grid .session-summary-rank.session-summary-current { background: var(--this-game); }
 .session-summary-grid .recent-current-label { padding: 0; font-size: 10px; }
 .session-summary-total > span { border-top: 1px solid #000000; }
+/* Loss types under the summary: the label column leads with the endings
+   chart's line swatch; likely-misclick rows sit under a rule because they
+   recount losses already filed above. */
+.session-summary-losses { margin-top: 6px; }
+.session-summary-loss .end-swatch {
+  margin-right: 4px;
+  padding: 0;
+  vertical-align: middle;
+}
+.session-summary-misclick-first > span { border-top: 1px solid #000000; }
 
 /* Recent placements ("ranks won in session"): one row per longer chart,
    listing the top-tenth ranks earned within the session. */

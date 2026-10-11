@@ -22,6 +22,8 @@ vm.runInThisContext(section('//-------RECENT PLACEMENTS: COMPUTATION', '//------
 vm.runInThisContext(section('//-------RANK WINDOWS AND AGES', '//-------DAY CATEGORIES'));
 vm.runInThisContext(section('//-------DAY CATEGORIES', '//-------RECENT PLACEMENTS: COMPUTATION'));
 vm.runInThisContext(section('//-------GAME DATA RANKING', '//-------GAME DATA CHART'));
+globalThis.Justice = require(path.join(repo, 'justice.js'));
+vm.runInThisContext(section('//-------GAME-END EVALUATION: VERDICT', '//-------GAME-END EVALUATION: CAPTURE'));
 vm.runInThisContext(section('//-------SESSION SUMMARY: COMPUTATION', '//-------SESSION SUMMARY: DISPLAY'));
 vm.runInThisContext(section('//-------STREAK RANKINGS: COMPUTATION-------', '//-------STREAK RANKINGS: COMPUTATION END'));
 
@@ -221,6 +223,36 @@ assertEq('middle placement wording is shared by the recent summary',
   assertEq('window bounds are inclusive', expert.games + '/' + expert.wins, '2/1');
   assertEq('the lifetime pool ends with the window', expert.best.rank + '/' + expert.best.total, '2/2');
   assertEq('the latest session game names the type', pink.latest.endedAt, 58);
+  assertEq('a loss without saved evidence is unjudged, as the endings chart files it',
+    JSON.stringify(beginner.endings), '{"win":2,"other":1}');
+  assertEq('no misclicks without evidence', JSON.stringify(beginner.likelyMisclicks), '{}');
+}
+
+// Session summary endings: each game files under the endings chart's kind
+// (wins, then each loss type), and likely misclicks count separately.
+{
+  const fatal = (actionNumber, atMs, extra) => ({
+    version: ACTION_EVALUATION_VERSION, action: 'reveal', actionNumber, atMs, result: 'death',
+    selected: [1], alternatives: [],
+    position: { width: 3, height: 1, mines: 1, revealed: [[0, 1]], flagged: [] }, ...extra,
+  });
+  const provenMine = fatal(9, 5000, { mistakes: ['opened-proven-mine'],
+    evidence: { safeAvailable: true, mineProofTier: 'counting', safeProofTier: 'whole-board' } });
+  const shortChord = { version: ACTION_EVALUATION_VERSION, action: 'no-op', actionNumber: 8, atMs: 4700,
+    result: 'continued', selected: [0], mistakes: ['no-op-click'], evidence: { reason: 'chord-short-of-flags' } };
+  const slipLoss = { endedAt: 10, outcome: 'loss', actionEvaluations: [shortChord, provenMine] };
+  const wrongFlagLoss = { endedAt: 11, outcome: 'loss', actionEvaluations: [fatal(4, 2000, {
+    mistakes: ['opened-proven-mine', 'likely-misclick-after-wrong-flag'],
+    evidence: { safeAvailable: true, mineProofTier: 'counting', safeProofTier: 'whole-board',
+      likelyMisclick: { gapMs: 200 } } })] };
+  const [row] = sessionSummaryRows({ '3x1/1@standard': [
+    { endedAt: 9, outcome: 'win', timeMs: 900 }, slipLoss, wrongFlagLoss,
+    { endedAt: 12, outcome: 'loss', actionEvaluations: [] },
+  ] }, 0, 20, []);
+  assertEq('endings sum to the games and use the chart kinds',
+    JSON.stringify(row.endings), '{"win":1,"mine-counting":2,"other":1}');
+  assertEq('each likely-misclick reason counts its losses',
+    JSON.stringify(row.likelyMisclicks), '{"wrong-button":1,"wrong-flag":1}');
 }
 
 const HOUR = 3600e3;

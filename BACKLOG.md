@@ -119,6 +119,35 @@ Still open:
   "flag"; the evaluation's "Mark use" and "unused correct mark" and the
   replay legend still say "mark".
 
+## Loss-type follow-ons (found while building loss types, 2026-10-11)
+
+Loss types and the session summary's loss grid are built
+([Game-end evaluation](docs/product/game-end-evaluation.md), "Loss types";
+[Session summary](docs/product/rankings.md#session-summary-requested-and-built-2026-10-07)).
+Open:
+
+- **False ties in older full reports.** Until 2026-10-11, when the one-ply
+  model did not run and nothing was proven safe, the action evaluation
+  stored bare survival odds as both the chosen and the best one-ply life
+  value, and the full-scope report shows the pair as "tied". New records no
+  longer store them. Saved values cannot tell these apart from real modeled
+  ties. Options: recompute the one-ply values from saved positions once in
+  a worker, as the proof tiers were added; or stop showing a tie line for
+  evaluations saved before that date.
+- **Proof tiers for survived guesses past a safe move.** Only losses carry
+  the tier. A survived reveal past a proven-safe square (game risk) does
+  not, so the report and session series cannot yet tell a missed counting
+  move from a missed whole-board deduction when the guess happened to
+  survive. The measurement would be the one losses get (the creator's 1,257
+  saved losses took about 0.2 s together).
+- **Per-board-type loss counts.** The loss grid is session-wide. Board-type
+  columns were dropped because a generator's full name made a header about
+  1,000 px wide; a per-type view needs short type names or one grid per
+  type.
+- **Offline summary.** `analysis/history/summarize-history.js` still counts
+  fatal-action statuses; loss types need its records to carry proof tiers
+  first (the history upgrade adds them on load in the page).
+
 ## Switching between marking and clicking (creator, 2026-09-28)
 
 The creator asked for a performance stat on switching between marking and

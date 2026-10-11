@@ -52,12 +52,32 @@ Spec: [docs/product/game-end-evaluation.md](../product/game-end-evaluation.md). 
   context cells; `buildEvaluationPosition` labels and draws that source
   range without revealing hidden mines. Trial result payloads copy the ledger, and
   `renderTrialReview` exposes the same blocks under each run's nested
-  action report. `fatalActionStatusKind` is the single fatal-action
-  classifier: `fatalActionStatusLabel` looks its kind up in
-  FATAL_STATUS_LABELS for the report, and `sessionEndingKind` returns
-  the same kind for the endings chart (legacy records keep their stored
-  five-way verdict as provenance), so chart categories and report
-  wording can never disagree. `evaluationEndingKind` remains only as
+  action report. `fatalActionStatusKind` is the technical fatal-action
+  status (training's avoidable kinds read it). `lossTypeOf` refines it into
+  the loss type ([spec](../product/game-end-evaluation.md#loss-types-requested-2026-10-11)),
+  memoized per evaluation object in a WeakMap: `refinedLossType` checks a
+  Proof-or-die chord, then the wrong flag (`besideFlagSatisfiedNumber` on
+  the saved position, or any chord), then the stored tier
+  (`storedProofTier` throws when a positioned fatal action lacks it), then
+  `nearestLowestRiskDistance` against `LOWER_RISK_NEAR_SQUARES` (2). The
+  report's death label is `LOSS_TYPE_LABELS[lossTypeOf(...)]`, and
+  `sessionEndingKind` returns the same kind for the endings chart (legacy
+  records keep their stored five-way verdict as provenance), so chart
+  categories and report wording can never disagree. `fatalProofTiers`
+  measures `mineProofTier` and `safeProofTier` with `easiestProofTier`
+  (Justice.proveFacts with counting only, then with overlaps, else
+  whole-board) and returns only the tiers an evaluation lacks;
+  `recordActionEvaluation` stores them on a death, and
+  `normalizeGameRecord` adds them once to older losses (a fresh evaluation
+  object, so the change persists). `likelyMisclickReasonsOf` combines the
+  captured wrong-flag tag with `wrongButtonEvidenceOf` (the ledger's no-op
+  `chord-short-of-flags` entry with the previous action number, on a number
+  adjacent to the opened proven mine, `0 <= gap < LIKELY_MISCLICK_MAX_MS`).
+  `fatalEvidenceLines(fatal, ledger)` adds the Wrong flag, Lowest-risk
+  square, and wrong-button Likely misclick lines, which `buildVerdictBlocks`
+  passes to `actionEvaluationLines` as `extraLines`; the Certainty and Safe
+  alternative lines name the stored tier (`PROOF_TIER_PHRASES`).
+  `evaluationEndingKind` remains only as
   the old five-way view for the report's legacy labels and verdict
   styling; modern chords classify
   by proven/needless/forced mine-opening evidence, while only legacy chord
@@ -65,9 +85,8 @@ Spec: [docs/product/game-end-evaluation.md](../product/game-end-evaluation.md). 
   runs inside history load and import: it converts `stupidDeath`,
   `deathKind`, `deathRisk`, and `deathBestRisk` to an explicitly
   provenance-marked fatal evaluation, deletes all four fields, and causes
-  normalized history to be persisted. `proofCorrectedEvaluation` also
-  reruns saved-position entries carrying the old
-  `opened-unproven-with-safe-move` tag; a complete proof that the selected
-  cell was safe removes and persists that obsolete tag. A pre-ledger win becomes a
+  normalized history to be persisted. `proofCorrectedEvaluation`, which
+  re-proved saved-position entries carrying `opened-unproven-with-safe-move`
+  on every load, was removed on 2026-10-11 (see the spec). A pre-ledger win becomes a
   `pre-action-evaluation-coverage` measurement note instead of an
   invented clean ledger. Runtime code never reads the old fields.

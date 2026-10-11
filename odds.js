@@ -404,7 +404,8 @@ function scoreGuess(view, clicked, opts) {
     perfectPlay = false;
   }
   const cheap = !odds.provenSafeOpen && odds.visits < 80000 && odds.unproven.length <= 40;
-  if (cheap && odds.unproven.length > 0) {
+  const modeled = cheap && odds.unproven.length > 0;
+  if (modeled) {
     expected = expectedLife(view, odds, clicked);
     if (justice) expected = Math.max(expected, 1 - minRisk({
       measured: true,
@@ -433,6 +434,9 @@ function scoreGuess(view, clicked, opts) {
     }
   }
 
+  // Without a proven-safe open and without the one-ply model, both values
+  // would be bare survival odds and read as a tie the model never measured.
+  const lifeCompared = modeled || odds.provenSafeOpen;
   return {
     measured: true,
     cell: clicked,
@@ -443,9 +447,11 @@ function scoreGuess(view, clicked, opts) {
     bestCells,
     lifeLost: p,
     lifeNeedless,
-    expectedLife: expected,
-    bestExpectedLife: bestExpected,
-    bestExpectedCells,
+    ...(lifeCompared ? {
+      expectedLife: expected,
+      bestExpectedLife: bestExpected,
+      bestExpectedCells,
+    } : {}),
     idealRisk,
     perfectPlay,
     justice,

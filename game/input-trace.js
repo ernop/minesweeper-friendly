@@ -179,24 +179,23 @@ function traceEvent(kind, event, index) {
   return logged;
 }
 
+// The input an accepted board action answers: the latest release or right
+// press on a cell.
+function latestBoardInput() {
+  for (let i = trace.events.length - 1; i >= 0; i--) {
+    const event = trace.events[i];
+    if ((event.kind === 'lup' || event.kind === 'rdown') && event.index !== null) return event;
+  }
+  throw new Error('accepted board action has no input trace event');
+}
+
 // Every accepted board action gets one exact pre-action player view and the
 // choices measured from it. This belongs in the raw trace: it is the durable
 // time-aligned source for replay and later decision analysis, while the game
 // record keeps only the reportable mistake subset.
 function traceDecision(evaluation) {
   if (!tracing()) return;
-  let input;
-  for (let i = trace.events.length - 1; i >= 0; i--) {
-    const event = trace.events[i];
-    if ((event.kind === 'lup' || event.kind === 'rdown')
-        && event.index !== null) {
-      input = event;
-      break;
-    }
-  }
-  if (input === undefined) {
-    throw new Error('accepted board action has no input trace event');
-  }
+  const input = latestBoardInput();
   evaluation.atMs = input.atMs;
   // No-op report entries deliberately stay compact in scalar history. Their
   // unchanged pre-action board is added only to the raw trace copy needed by
