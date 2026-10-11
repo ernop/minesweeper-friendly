@@ -102,6 +102,28 @@ Still open:
   Since the session means were added (2026-10-08) the summary is about
   505 px for one type and no longer fits beside a Beginner board (433 px)
   either; ranks won still does.
+- **Ranks won rows wrap** (found while building 2026-10-10). The ranks cell
+  is capped at 28ch (set 2026-09-21, when the block began listing every
+  session rank), so about four chips, one of them a range or the "this"
+  chip, wrap to a second line, against the one-line row rule. Streak rows
+  hit it often: on the player's 2026-10-07 Intermediate session the
+  near-streak row was "2nd, 8–9th, 39th this" over "40–42nd". Options: drop
+  the cap, so a row wraps only when it is wider than the space it has (the
+  block widens to its longest row and in long sessions leaves the board's
+  side sooner); a wider cap (fewer wraps, not none); or a per-row chip limit
+  with the rest in a tooltip (hides ranks the 2026-09-21 decision chose to
+  show).
+- **Streak ties** (found 2026-10-10). The streak tables rank equal lengths
+  newer first, so a streak that only equals a common length outranks every
+  earlier one of that length, and ranks won reports that rank. Times rank
+  ties older first: a rank is taken by beating, not equaling. Replaying the
+  player's history through 2026-10-07, play days with a streak row in ranks
+  won would fall from 21 to 16 (Beginner), 22 to 18 (Intermediate), and 18
+  to 8 (Expert, whose streaks are 1–3 wins, so most ranks are ties) with
+  ties older first. On 2026-09-28 a 2-win Expert near-streak reported 7th
+  of 148. Options: keep newer first, or older first in the streak tables
+  and ranks won together. Ranks won alone cannot differ: it reports the
+  tables' ranks.
 - **"Mark" wording in the game-end evaluation and replay** (found while
   building). Game data, the stats table, and the session charts now say
   "flag"; the evaluation's "Mark use" and "unused correct mark" and the

@@ -30,7 +30,7 @@ async function renderRanks(record, modeRecords, options = {}, sections, isCurren
     sections.append('tables', buildSessionSummary(historyView ? null : record, referenceMs));
   }
   if (settings.shownThings.recentPlacements) {
-    sections.append('tables', buildRecentPlacements(record, wins, referenceMs, !historyView));
+    sections.append('tables', buildRecentPlacements(record, modeRecords, referenceMs, !historyView));
   }
   for (const table of plan.timeTables) {
     sections.append('tables', timeTable(table));

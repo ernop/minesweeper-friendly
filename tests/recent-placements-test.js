@@ -2,7 +2,8 @@
 // Known-answer tests for the recent-placements summary: ordinal and
 // run formatting, chart-set dedupe, the strictly-longer-window rule,
 // membership charts (no startMs), the top-tenth cutoff, tie-breaking,
-// row order, current-game marking, and lifetime's near-miss rule.
+// row order, current-game marking, lifetime's near-miss rule, and the
+// streak lists.
 
 const fs = require('fs');
 const vm = require('vm');
@@ -22,6 +23,7 @@ vm.runInThisContext(section('//-------RANK WINDOWS AND AGES', '//-------DAY CATE
 vm.runInThisContext(section('//-------DAY CATEGORIES', '//-------RECENT PLACEMENTS: COMPUTATION'));
 vm.runInThisContext(section('//-------GAME DATA RANKING', '//-------GAME DATA CHART'));
 vm.runInThisContext(section('//-------SESSION SUMMARY: COMPUTATION', '//-------SESSION SUMMARY: DISPLAY'));
+vm.runInThisContext(section('//-------STREAK RANKINGS: COMPUTATION-------', '//-------STREAK RANKINGS: COMPUTATION END'));
 
 let checks = 0;
 function assertEq(name, actual, want) {
@@ -224,11 +226,14 @@ assertEq('middle placement wording is shared by the recent summary',
 const HOUR = 3600e3;
 const DAY = 24 * HOUR;
 const NOW = 1000 * DAY;
-const win = (endedAt, timeMs) => ({ endedAt, timeMs });
-// A time-window candidate the way buildRecentPlacements makes them: the
+const win = (endedAt, timeMs) => ({ outcome: 'win', endedAt, timeMs });
+// A time-ranked list in its table order, as recentPlacementCandidates
+// hands it to the summary.
+const ranked = (wins) => wins.slice().sort(compareRankedWins);
+// A time-window candidate the way recentPlacementCandidates makes them: the
 // window's own member wins plus its start for the strictly-longer rule.
 const windowCandidate = (label, specificity, startMs, wins) =>
-  ({ label, specificity, startMs, wins: wins.filter((s) => s.endedAt >= startMs) });
+  ({ label, specificity, startMs, ranked: ranked(wins.filter((s) => s.endedAt >= startMs)) });
 
 // Tablechart progressive disclosure: pinned lifetime and past week both
 // survive even when identical, claim their member set from ordinary charts,
@@ -276,7 +281,7 @@ const windowCandidate = (label, specificity, startMs, wins) =>
   const mid = win(NOW - 120e3, 25500); // rank 8 of 22 lifetime: past the tenth
   const wins = [...old, fast, mid];
   const candidates = [
-    { label: 'lifetime', specificity: 12, startMs: -Infinity, wins, alwaysShowBest: true },
+    { label: 'lifetime', specificity: 12, startMs: -Infinity, ranked: ranked(wins), alwaysShowBest: true },
     windowCandidate('past week', 8, NOW - 7 * DAY, wins),
     windowCandidate('today', 4, NOW - 5 * HOUR, wins),
     windowCandidate('past hour', 3, sourceStart, wins),
@@ -319,7 +324,7 @@ const windowCandidate = (label, specificity, startMs, wins) =>
   for (let i = 0; i < 9; i++) wins.push(win(NOW - 3 * DAY - i * HOUR, 20000 + i * 1000));
   wins.push(win(NOW - 60e3, 10000));
   const rows = recentPlacementsSummary(
-    [{ label: '3BV 25', specificity: 13, wins }], sourceStart);
+    [{ label: '3BV 25', specificity: 13, ranked: ranked(wins) }], sourceStart);
   assertEq('membership chart reports without a startMs', rows.length, 1);
   assertEq('membership ranks', rows[0].ranks.join(','), '1');
 }
@@ -339,7 +344,7 @@ const windowCandidate = (label, specificity, startMs, wins) =>
   wins.push(win(NOW - 30 * 60e3, 6000));
   wins.push(win(NOW - 10 * 60e3, 30000));
   const candidates = [
-    { label: 'lifetime', specificity: 12, startMs: -Infinity, wins, alwaysShowBest: true },
+    { label: 'lifetime', specificity: 12, startMs: -Infinity, ranked: ranked(wins), alwaysShowBest: true },
     windowCandidate('this month', 9, NOW - 20 * DAY, wins),
   ];
   const rows = recentPlacementsSummary(candidates, sourceStart);
@@ -360,15 +365,15 @@ const windowCandidate = (label, specificity, startMs, wins) =>
   for (let i = 0; i < 9; i++) wins.push(win(NOW - 2 * DAY - i * HOUR, 20000 + i * 1000));
   wins.push(win(NOW - 60e3, 10000));
   const rows = recentPlacementsSummary([
-    { label: 'this month', specificity: 9, wins },
-    { label: 'lifetime', specificity: 12, wins, alwaysShowBest: true },
+    { label: 'this month', specificity: 9, ranked: ranked(wins) },
+    { label: 'lifetime', specificity: 12, ranked: ranked(wins), alwaysShowBest: true },
   ], sourceStart);
   assertEq('first supplied category stays first at equal pool size', rows[0].label, 'this month');
   assertEq('second supplied category stays second', rows[1].label, 'lifetime');
 
   const explicitRows = recentPlacementsSummary([
-    { label: 'narrow', dedupePriority: 1, summaryOrder: [1, 10], wins },
-    { label: 'broad', dedupePriority: 9, summaryOrder: [0, 10], wins },
+    { label: 'narrow', dedupePriority: 1, summaryOrder: [1, 10], ranked: ranked(wins) },
+    { label: 'broad', dedupePriority: 9, summaryOrder: [0, 10], ranked: ranked(wins) },
   ], sourceStart);
   assertEq('summary filtering does not re-sort by duplicate priority',
     explicitRows.map((row) => row.label).join(','), 'narrow,broad');
@@ -382,13 +387,13 @@ const windowCandidate = (label, specificity, startMs, wins) =>
   for (let i = 0; i < 19; i++) old.push(win(NOW - 2 * DAY - i * HOUR, 20000 + i * 1000));
   const current = win(NOW, 10000);
   const rows = recentPlacementsSummary([
-    { label: 'lifetime', specificity: 12, wins: [...old, current], alwaysShowBest: true },
+    { label: 'lifetime', specificity: 12, ranked: ranked([...old, current]), alwaysShowBest: true },
   ], sourceStart, current);
   assertEq('current top rank identified', rows[0].currentRank, 1);
 
   const nearCurrent = win(NOW, 21500);
   const nearRows = recentPlacementsSummary([
-    { label: 'lifetime', specificity: 12, wins: [...old, nearCurrent], alwaysShowBest: true },
+    { label: 'lifetime', specificity: 12, ranked: ranked([...old, nearCurrent]), alwaysShowBest: true },
   ], sourceStart, nearCurrent);
   assertEq('current near-miss rank identified', nearRows[0].currentRank, 3);
 }
@@ -402,7 +407,7 @@ const windowCandidate = (label, specificity, startMs, wins) =>
   for (let i = 0; i < 19; i++) old.push(win(NOW - 2 * DAY - i * HOUR, 20000 + i * 1000));
   const recent = win(NOW - 60e3, 21500); // rank 3 of 20; the tenth reaches rank 2
   const lifetime = (list) =>
-    [{ label: 'lifetime', specificity: 12, startMs: -Infinity, wins: list, alwaysShowBest: true }];
+    [{ label: 'lifetime', specificity: 12, startMs: -Infinity, ranked: ranked(list), alwaysShowBest: true }];
   const rows = recentPlacementsSummary(lifetime([...old, recent]), sourceStart);
   assertEq('near miss reports', rows.length, 1);
   assertEq('near miss flag', rows[0].nearMiss, true);
@@ -663,7 +668,7 @@ for (const [spread, expected] of [[0, 0], [0.24999999999, 0], [0.25, 0.5],
     recentPlacementCandidates(history, now, sourceStart, collapse), sourceStart, recent[0]);
   const rows = summarize(records, false);
   assertEq('all board families are stable and numeric in a long period',
-    rows.filter((row) => row.summaryOrder[0] >= 2).map((row) => row.label).join('|'), expected.join('|'));
+    rows.filter((row) => row.summaryOrder[0] >= 3).map((row) => row.label).join('|'), expected.join('|'));
   assertEq('lifetime remains first', rows[0].label, 'lifetime');
   assertEq('pool sizes do not reorder 3BV values',
     rows.filter((row) => row.label.startsWith('3BV ') && !row.label.startsWith('3BV spread'))
@@ -721,6 +726,59 @@ for (let day = 1; day <= 31; day++) {
     now - HOUR, current).find((r) => r.label === 'on the 29th');
   assertEq('day-of-month summary compares all earlier months', row.total, 21);
   assertEq('day-of-month summary preserves current placement', row.currentRank, 1);
+}
+
+// Streak lists report like the other lists, in their own table order
+// (length, then the more recent): a streak is earned at its last win, so one
+// the session continued counts at its full length, and one that ended before
+// the session never reports, however high it ranks. Losses carry only what
+// the streaks read.
+{
+  const sourceStart = NOW - HOUR;
+  const records = [];
+  let at = NOW - 10 * DAY;
+  const add = (outcome) => {
+    at += 60e3;
+    records.push(outcome === 'win' ? { ...win(at, 30000), bv3: 40 } : { outcome, endedAt: at });
+  };
+  for (let i = 0; i < 6; i++) add('win');
+  add('loss');
+  for (let i = 0; i < 28; i++) { add('win'); add('loss'); }
+  // Two wins before the session, three in it, then a loss and the current run.
+  at = sourceStart - 3 * 60e3;
+  for (let i = 0; i < 5; i++) add('win');
+  add('loss');
+  add('win');
+  const current = { ...win(NOW, 30000), bv3: 40 };
+  records.push(current);
+  const rows = recentPlacementsSummary(recentPlacementCandidates(records, NOW, sourceStart, true),
+    sourceStart, current);
+  const row = (label) => {
+    const found = rows.find((r) => r.label === label);
+    return found.ranks.join(',') + ' of ' + found.total + ', current ' + found.currentRank;
+  };
+  // Streaks: 6 (before the session), 5 (continued into it), 2 (current), 28 single wins.
+  assertEq('a streak the session continued reports beside the current one',
+    row('streak'), '2,3 of 31, current 3');
+  // Near-streaks: 7 (current) ranks ahead of the equal earlier 7, then the 6.
+  assertEq('a newer equal near-streak ranks first; the earlier one is not the session’s',
+    row('near-streak'), '1,3 of 30, current 1');
+  // Near-near-streaks: 8 (current), 8 (before), 7: the tenth of 29 stops at 2.
+  assertEq('near-near-streak keeps the top-tenth cutoff',
+    row('near-near-streak'), '1 of 29, current 1');
+  assertEq('a history view marks no current streak',
+    recentPlacementsSummary(recentPlacementCandidates(records, NOW, sourceStart, true), sourceStart)
+      .filter((r) => r.label.includes('streak')).every((r) => r.currentRank === undefined), true);
+  const candidates = recentPlacementCandidates(records, NOW, sourceStart, false);
+  const labels = candidates.map((c) => c.label);
+  const first = labels.indexOf('streak');
+  assertEq('streak lists keep their table order',
+    labels.slice(first, first + 3).join(','), 'streak,near-streak,near-near-streak');
+  assertEq('time windows and day categories precede the streak lists',
+    candidates.slice(0, first).every((c) => c.summaryOrder[0] <= 1), true);
+  assertEq('board families follow the streak lists', labels.slice(first + 3).join(','), '3BV 40');
+  assertEq('a session without wins earns no streak',
+    recentPlacementsSummary(recentPlacementCandidates(records, NOW, NOW + 1, true), NOW + 1).length, 0);
 }
 
 console.log(`recent-placements: all ${checks} checks passed`);

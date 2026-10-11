@@ -75,7 +75,19 @@ for (const [traceId, fixture] of fixtures.entries()) {
     'inputs that do not replay to the final board store nothing');
   assert.equal('flagsWithoutMultiCellChord' in task('finished-game', { ...plan, needFlagUse: false }).measurements, false);
 }
+// Ranks won reads the mode's records with their losses, so streaks report.
+{
+  const now = 1000 * 864e5;
+  const win = (endedAt) => ({ outcome: 'win', endedAt, timeMs: 9000 });
+  const records = [];
+  for (let i = 0; i < 9; i++) records.push(win(now - 864e5 + 2 * i), { outcome: 'loss', endedAt: now - 864e5 + 2 * i + 1 });
+  records.push(win(now - 2), win(now - 1), win(now));
+  const rows = task('recent-placements', { records, referenceMs: now, sourceStartMs: now - 60e3,
+    recordEndedAt: now, collapseDuplicates: true });
+  const streak = rows.find((row) => row.label === 'streak');
+  assert.deepEqual([streak.ranks, streak.total, streak.currentRank], [[1], 10, 1]);
+}
 assert.deepEqual(task('trends', { pairs: [[0, 1], [1, 3], [2, 5]], todayPairs: [] }),
   [{ a: 1, b: 2, cls: 'trend-all', xMin: 0, xMax: 2 }]);
 assert.throws(() => task('invalid-analysis-kind', {}), /Unknown analysis task/);
-console.log(`analysis-worker: DOM-free initialization, ${snapshots} streamed snapshots, full-prefix restoration parity, flags no multi-cell chord used, exact trends, and task errors passed`);
+console.log(`analysis-worker: DOM-free initialization, ${snapshots} streamed snapshots, full-prefix restoration parity, flags no multi-cell chord used, ranks won with streaks, exact trends, and task errors passed`);

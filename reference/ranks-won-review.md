@@ -15,6 +15,12 @@ absolute rank and percentage standing, including poor placements. The full-row
 tint and podium-number proposal was subsequently approved and implemented;
 [Rank highlights](../docs/product/rankings.md) is the current specification.
 
+**Streaks added 2026-10-10:** item 10's "never feed this block" and
+recommendation 6 are superseded. The streak, near-streak, and
+near-near-streak lists feed it; a streak crossing the session start counts
+when its last win is in the session, at its full length
+([Recent placements](../docs/product/rankings.md)).
+
 The current block answers: **which recent wins currently occupy qualifying
 positions in the charts selected for the latest win?** Its category selection
 depends on one win even though its time selector describes a whole period.

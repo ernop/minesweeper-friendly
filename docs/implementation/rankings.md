@@ -39,14 +39,22 @@ Spec: [docs/product/rankings.md](../product/rankings.md). Index: [AGENTS.md](../
   between the "RECENT PLACEMENTS: COMPUTATION" and ": DISPLAY" markers —
   `compareRankedWins`, `ordinal`, `formatRankRuns` (run compression),
   `recentPlacementsSummary`
-  over candidates {label, dedupePriority, summaryOrder, wins, startMs (time windows only:
-  the strictly-longer rule; membership charts omit it and always
-  qualify), alwaysShowBest (lifetime's near-miss rule, rows flagged
-  nearMiss)} — computes the rows. `SessionScope` supplies the shared source
+  over candidates {label, summaryOrder, ranked (the chart's entries in table
+  order, each carrying the `endedAt` of the win that earned it), startMs
+  (time windows only: the strictly-longer rule; membership charts and the
+  streak lists omit it and always qualify), alwaysShowBest (lifetime's
+  near-miss rule, rows flagged nearMiss)} — computes the rows. The current
+  record's rank is the entry whose `endedAt` is its own. `SessionScope` supplies the shared source
   window. The "ranks won in session" heading has no selector; the box listens
   for `session-scope-change` from the one picker and rebuilds itself.
-  `buildRecentPlacements(record, wins, referenceMs, markReferenceRecord)` uses
-  `recentPlacementCandidates`;
+  `buildRecentPlacements(record, modeRecords, referenceMs, markReferenceRecord)`
+  sends the mode's records in finish order to the worker's
+  `recent-placements` task: wins as `analysisRecord`, losses as
+  `{outcome, endedAt}`. A loss only breaks streaks; on the player's
+  2026-10-07 Intermediate and Expert histories (2,795 and 2,214 games), full
+  loss records added 15–18 ms of game-end mapping and copying, the two-field
+  form about 1 ms (Node, 2026-10-10). The task finds the reference record
+  among them by `recordEndedAt` and calls `recentPlacementCandidates`;
   `rankColumns` retains the reference date's day categories; window columns
   carry startMs. Every recent win contributes its exact 3BV, ZiNi, HZiNi,
   maximum-clue, rounded fraction/spread, and board-shape families through `boardMetricCandidates`
@@ -62,11 +70,16 @@ Spec: [docs/product/rankings.md](../product/rankings.md). Index: [AGENTS.md](../
   `dedupeRankCandidates` is shared
   with the full time/day and board-shape tablecharts, so the summary
   obeys `collapseDuplicateCharts` with the same pinned lifetime/week
-  and most-specific-shape rules. `recentPlacementCandidates` sorts survivors
+  and most-specific-shape rules. `recentPlacementCandidates` dedupes on the
+  member `wins`, sorts each survivor's wins with `compareRankedWins` into
+  `ranked`, appends one candidate per `STREAK_TABLES` entry (its `ranked` is
+  `rankedStreaks` in table order, each streak carrying its last win's
+  `endedAt`), and sorts all
   by explicit `summaryOrder: [family, value]`; `recentPlacementsSummary`
   filters achievements while preserving that order. Families are time/day
-  (0/1), 3BV/ZiNi/HZiNi/spread (2–5), exact max/has/caps (6–8), mine islands/
-  largest island (9/10), then zeros/0–1 share/zero-opening coverage (11–13).
+  (0/1), streaks (2, by allowed losses), 3BV/ZiNi/HZiNi/spread (3–6), exact
+  max/has/caps (7–9), mine islands/largest island (10/11), then zeros/0–1
+  share/zero-opening coverage (12–14).
   Time/day use their full-table display order; board values ascend numerically.
   Pool size and rank never reorder rows. `BOARD_METRIC_TABLES.summaryGroup`
   and `boardShapeCandidates.summaryOrder` own board-family metadata; no
@@ -112,7 +125,10 @@ Spec: [docs/product/rankings.md](../product/rankings.md). Index: [AGENTS.md](../
   `renderRanks` appends it first in the table collection, gated by
   shownThings.sessionSummary.
   `node tests/recent-placements-test.js` freezes the formatting and
-  summary rules; `node tests/result-presentation-test.js` freezes the
+  summary rules, including streak rows across the session start, the
+  current streak's chip, and their place after the day categories;
+  `node tests/analysis-worker-test.js` runs the worker task with losses;
+  `node tests/result-presentation-test.js` freezes the
   cross-context section order.
 - Rank-highlight browser verification:
   `node tests/rank-highlight-browser-check.js /path/to/playwright /path/to/chromium`
@@ -130,8 +146,12 @@ Spec: [docs/product/rankings.md](../product/rankings.md). Index: [AGENTS.md](../
   leap day and local midnight live in recent-placements-test.
   It also exercises real `renderRanks` with a poor overall result at the
   median of its exact ZiNi/maximum-clue cohorts.
-- Streaks: run-splitting and the core-trim/dedupe/domination filter are in
-  `renderRanks`; see [Streak lists](../product/rankings.md) for the double-counting rationale.
+- Streaks: run-splitting (`streakRuns`) and the core-trim/dedupe/domination
+  filter (`rankedStreaks`) are the "STREAK RANKINGS: COMPUTATION" span; see
+  [Streak lists](../product/rankings.md) for the double-counting rationale.
+  `STREAK_TABLES` (label, display setting, allowed losses) drives both
+  `resultRankPlan` and `recentPlacementCandidates`, so ranks won uses the
+  tables' ranks; only `resultRankPlan` reads the display setting.
 
 - `streakRuns` stores each run's length and final timestamp, not arrays of all
   win times. `rankedStreaks` uses the monotonic endpoints of adjacent-run

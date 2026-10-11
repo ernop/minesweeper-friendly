@@ -267,11 +267,23 @@ middle? that's okay."
   an explanatory tooltip — how close the window came stays visible. Because
   of this rule, the block's one-line empty state means exactly "no wins
   in session" and says so.
+- Streak lists (added 2026-10-10, after the creator asked why new streak
+  and near-streak records did not show up here): the streak, near-streak,
+  and near-near-streak lists report like the other charts, with their
+  tables' ranks (longer first, then more recent). A streak is earned at its
+  last win. It reports when that win is in the session, at its full length
+  including wins from before the session began, because that is the streak
+  its table lists. A streak whose last win came before the session does not
+  report, even when a session loss ended it. The lists span the mode's whole
+  history, so they count as longer than any session. The top-tenth rule
+  applies; the lifetime near-miss rule does not. They report whether or not
+  their tables are shown. The streak ending in this win is the "this" chip.
 - Row format: chart name, the earned ranks with compatible consecutive runs
   compressed ("8–12th", the ordinal suffix closing each run), "of N"
   naming the list length, and the reported ranks' percentage standing.
   Rows use a stable category order (revised 2026-09-21 for long sessions):
   time windows in full-table order starting with lifetime, then day categories,
+  streak, near-streak, near-near-streak,
   3BV, ZiNi, HZiNi, 3BV spread, exact maximum number, has-number, maximum-clue
   caps, mine-island count, largest island, zeros, 0–1 share, and zero-opening
   coverage. Board values within each family ascend numerically, including
@@ -313,3 +325,5 @@ middle? that's okay."
   that merely overlap across different losses are both real and both stay.
 - Ranked by length, then recency. Row: rank, "N wins", relative age of the
   streak's last win. The streak ending in this win is your row.
+- Ranks won in session reports each list's top-tenth streaks whose last win
+  is in the session (2026-10-10; see Recent placements above).

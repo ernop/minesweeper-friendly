@@ -244,27 +244,27 @@ function boardShareStep(record) {
 }
 
 // Shared by full tables and recent achievements, including every qualifying
-// earlier group. Summary groups follow time/day (0/1): workload (2–5),
-// clues (6–8), islands (9–10), then zeros/fractions (11–13). Within each
-// family, use the numeric measurement. Pool size never changes row order.
+// earlier group. Summary groups follow time/day/streaks (0/1/2): workload
+// (3–6), clues (7–9), islands (10–11), then zeros/fractions (12–14). Within
+// each family, use the numeric measurement. Pool size never changes row order.
 // Matching one feature does not imply equal overall difficulty. A grouped
 // table names its group's range.
 // `selfEvident` marks a trait whose name says what it is: its game data
 // card shows no definition (creator 2026-10-08); its table keeps its help.
 const BOARD_METRIC_TABLES = [
-  { id: 'bv3', field: 'bv3', format: String, setting: 'exact3BV', priority: 13, summaryGroup: 2, selfEvident: true,
+  { id: 'bv3', field: 'bv3', format: String, setting: 'exact3BV', priority: 13, summaryGroup: 3, selfEvident: true,
     help: () => ['The fewest clicks that clear this board without flags: one for each zero region, plus one for each number that no zero region reveals.'] },
-  { id: 'zini', field: 'zini', format: String, setting: 'exactZiNi', priority: 14, summaryGroup: 3,
+  { id: 'zini', field: 'zini', format: String, setting: 'exactZiNi', priority: 14, summaryGroup: 4,
     help: () => ['The clicks a standard greedy solve with flags and chords needs when every mine is known. Never more than 3BV.'] },
-  { id: 'maxAdjacent', field: 'maxAdjacent', format: String, setting: 'exactMaxNumber', priority: 15, summaryGroup: 6, higher: true,
+  { id: 'maxAdjacent', field: 'maxAdjacent', format: String, setting: 'exactMaxNumber', priority: 15, summaryGroup: 7, higher: true,
     selfEvident: true, help: () => ['Max number: the most mines touching any one safe cell, from 1 to 8.'] },
-  { id: 'hzini', field: 'hzini', format: String, setting: 'exactHZiNi', priority: 16, summaryGroup: 4,
+  { id: 'hzini', field: 'hzini', format: String, setting: 'exactHZiNi', priority: 16, summaryGroup: 5,
     help: () => ['Human ZiNi: the actions a fixed human-style solve takes when every mine is known. It opens each zero region, then flags and chords around the clue that saves the most clicks, and reveals single cells when chording would cost extra. A reference count, not the true minimum.'] },
   { id: 'workSpread', field: boardSpreadGroup,
     labelOf: (value) => BOARD_TRAIT_NAMES.workSpread + ' ' + (value - 0.25).toFixed(2) + '–' + (value + 0.25).toFixed(2) + ' cells',
     format: (value) => Number(value.toFixed(1)) + ' cells',
     rawValue: (record) => record.boardMetrics?.version === 1 ? record.boardMetrics.workSpread : undefined,
-    setting: 'workSpreadTable', priority: 17, summaryGroup: 5,
+    setting: 'workSpreadTable', priority: 17, summaryGroup: 6,
     help: (record) => [
       'How spread out the board’s 3BV work is, in cell widths: the root-mean-square distance of its work points from their center. Each zero region is one point at its center, and each safe cell that no zero region reveals is its own point.',
       'This board: ' + record.boardMetrics.workSpread.toFixed(3) + ' cells. Its table holds boards from '
@@ -274,14 +274,14 @@ const BOARD_METRIC_TABLES = [
   { id: 'zeroOneShare', field: (win) => boardShareGroup(win, 'zeroOpenedZeroOneCells'),
     format: (value) => formatBoardShare(value, 1),
     rawValue: (record) => boardFractionOf(record, 'zeroOpenedZeroOneCells'), higher: true,
-    labelOf: (value) => BOARD_TRAIT_NAMES.zeroOneShare + ' ' + value + '%', setting: 'zeroOneShareTable', priority: 18, summaryGroup: 12,
+    labelOf: (value) => BOARD_TRAIT_NAMES.zeroOneShare + ' ' + value + '%', setting: 'zeroOneShareTable', priority: 18, summaryGroup: 13,
     step: boardShareStep,
     help: (record) => boardShareHelp(record, 'zeroOpenedZeroOneCells',
       'Share of safe cells showing 0 or 1 after opening every zero region and nothing else. Covered ones do not count.') },
   { id: 'zeroOpeningCoverage', field: (win) => boardShareGroup(win, 'zeroOpenedCells'),
     format: (value) => formatBoardShare(value, 1),
     rawValue: (record) => boardFractionOf(record, 'zeroOpenedCells'), higher: true,
-    labelOf: (value) => BOARD_TRAIT_NAMES.zeroOpeningCoverage + ' ' + value + '%', setting: 'zeroOpeningTable', priority: 19, summaryGroup: 13,
+    labelOf: (value) => BOARD_TRAIT_NAMES.zeroOpeningCoverage + ' ' + value + '%', setting: 'zeroOpeningTable', priority: 19, summaryGroup: 14,
     step: boardShareStep,
     help: (record) => boardShareHelp(record, 'zeroOpenedCells',
       'Share of safe cells uncovered by opening every zero region, including the numbers on their borders.') },
@@ -318,7 +318,7 @@ function boardShapeCandidates(referenceWins, wins) {
   if (referenceWins.some((record) => record.maxAdjacent === 8)) {
     candidates.push({
       id: 'has-8',
-      summaryOrder: [7, 8],
+      summaryOrder: [8, 8],
       label: 'has an 8',
       displayOrder: 10,
       dedupePriority: 0,
@@ -328,7 +328,7 @@ function boardShapeCandidates(referenceWins, wins) {
   if (referenceWins.some((record) => record.hasSeven === true)) {
     candidates.push({
       id: 'has-7',
-      summaryOrder: [7, 7],
+      summaryOrder: [8, 7],
       label: 'has a 7',
       displayOrder: 20,
       dedupePriority: 1,
@@ -341,7 +341,7 @@ function boardShapeCandidates(referenceWins, wins) {
       candidates.push({
         id: 'max-' + cap,
         help: () => ['Boards with no number higher than ' + cap + '.'],
-        summaryOrder: [8, cap],
+        summaryOrder: [9, cap],
         label: BOARD_TRAIT_NAMES.maxAdjacent + ' ≤ ' + cap,
         displayOrder: 70 - cap * 10,
         dedupePriority: cap,
@@ -355,7 +355,7 @@ function boardShapeCandidates(referenceWins, wins) {
       trait: BOARD_TRAIT_NAMES.islandCount, rawValue: (record) => record.islandCount, higher: false,
       help: () => ['Groups of touching mines on this board, diagonals included.'],
       format: String,
-      summaryOrder: [9, count],
+      summaryOrder: [10, count],
       label: BOARD_TRAIT_NAMES.islandCount + ' ' + count,
       displayOrder: 80,
       dedupePriority: 10,
@@ -368,7 +368,7 @@ function boardShapeCandidates(referenceWins, wins) {
       trait: BOARD_TRAIT_NAMES.largestIsland, rawValue: (record) => record.largestIsland, higher: true,
       help: () => ['Mines in the largest group of touching mines, diagonals included.'],
       format: String,
-      summaryOrder: [10, size],
+      summaryOrder: [11, size],
       label: BOARD_TRAIT_NAMES.largestIsland + ' ' + size,
       displayOrder: 90,
       dedupePriority: 11,
@@ -381,7 +381,7 @@ function boardShapeCandidates(referenceWins, wins) {
       trait: BOARD_TRAIT_NAMES.zeroCount, rawValue: (record) => record.zeroCount, higher: true,
       selfEvident: true, help: () => ['Safe cells with no adjacent mines.'],
       format: String,
-      summaryOrder: [11, count],
+      summaryOrder: [12, count],
       label: BOARD_TRAIT_NAMES.zeroCount + ' ' + count,
       displayOrder: 100,
       dedupePriority: 12,
@@ -509,30 +509,33 @@ function dedupeRankCandidates(candidates, pinnedLabels = []) {
 }
 
 // The recent-placements rows (docs/product/rankings.md "Recent placements"). Each
-// candidate names one tablechart: {label, ordering priorities, wins (that chart's
-// member wins), startMs (present only on time windows — a window reports
-// only when it starts strictly before the source window, since a window
-// no longer than the source could only echo its own chart; membership
-// charts like weekend/weekday and same-3BV span lifetime and always
-// qualify), alwaysShowBest (lifetime's near-miss rule: when no rank is
-// within the top tenth, report the single best source-window rank anyway,
-// marked nearMiss, so how close it came stays visible)}. Within each
-// chart, wins rank fastest-first (ties by earlier finish) and a rank r is
-// reported only when it is earned within the source window and sits in
-// the list's top tenth (r * 10 <= list length; a 9-win list reports
-// nothing). Rows preserve the supplied category/value order, independent
-// of changing comparison-pool sizes or earned placements. Each row is
+// candidate names one tablechart: {label, ordering priorities, ranked (that
+// chart's entries in its table order, each carrying the endedAt of the win
+// that earned it: the win itself, or a streak's last win), startMs (present
+// only on time windows — a window reports only when it starts strictly
+// before the source window, since a window no longer than the source could
+// only echo its own chart; membership charts like weekend/weekday and
+// same-3BV, and the streak lists, span lifetime and always qualify),
+// alwaysShowBest (lifetime's near-miss rule: when no rank is within the top
+// tenth, report the single best source-window rank anyway, marked nearMiss,
+// so how close it came stays visible)}. A rank r is reported only when it
+// is earned within the source window and sits in the list's top tenth
+// (r * 10 <= list length; a 9-win list reports nothing). The current
+// record's rank is the entry its finish earned. Rows preserve the supplied
+// category/value order, independent of changing comparison-pool sizes or
+// earned placements. Each row is
 // {label, ranks (ascending, 1-based), total, nearMiss, currentRank}.
 function recentPlacementsSummary(candidates, sourceStartMs, currentRecord) {
   const rows = [];
   for (const c of candidates) {
     if (c.startMs !== undefined && !(c.startMs < sourceStartMs)) continue;
-    const list = c.wins.slice().sort(compareRankedWins);
+    const list = c.ranked;
     const ranks = [];
     for (let i = 0; (i + 1) * 10 <= list.length; i++) {
       if (list[i].endedAt >= sourceStartMs) ranks.push(i + 1);
     }
-    const currentIndex = currentRecord === undefined ? -1 : list.indexOf(currentRecord);
+    const currentIndex = currentRecord === undefined ? -1
+      : list.findIndex((entry) => entry.endedAt === currentRecord.endedAt);
     const currentRank = currentIndex === -1 ? undefined : currentIndex + 1;
     if (ranks.length > 0) {
       rows.push({
@@ -563,7 +566,10 @@ function recentPlacementsSummary(candidates, sourceStartMs, currentRecord) {
 // Keep the current mode and date's chart scope, but let every recent win
 // contribute its exact benchmarks and board-shape families. The reference game controls
 // highlighting only; a later unrelated board must not erase earlier ranks.
-function recentPlacementCandidates(wins, referenceMs, sourceStartMs, collapseDuplicates) {
+// `records` is the mode's history in finish order; the streak lists need
+// its losses.
+function recentPlacementCandidates(records, referenceMs, sourceStartMs, collapseDuplicates) {
+  const wins = records.filter((record) => record.outcome === 'win');
   const recentWins = wins.filter((win) => win.endedAt >= sourceStartMs);
   let rankCandidates = rankColumns(referenceMs).map((column) => ({
     label: column.label,
@@ -590,7 +596,15 @@ function recentPlacementCandidates(wins, referenceMs, sourceStartMs, collapseDup
       wins: c.wins,
     });
   }
-  return candidates.sort((a, b) =>
+  const ranked = candidates.map((c) => ({ ...c, ranked: c.wins.slice().sort(compareRankedWins) }));
+  // A streak is earned at its last win, so one the session extended counts
+  // at its full length.
+  const runs = streakRuns(records);
+  for (const { label, slack } of STREAK_TABLES) {
+    ranked.push({ label, summaryOrder: [2, slack],
+      ranked: rankedStreaks(runs, slack).map((streak) => ({ endedAt: streak.end })) });
+  }
+  return ranked.sort((a, b) =>
     a.summaryOrder[0] - b.summaryOrder[0] || a.summaryOrder[1] - b.summaryOrder[1]);
 }
 
@@ -604,25 +618,30 @@ function applyRankHighlight(element, rank, total) {
   return standing;
 }
 
-function buildRecentPlacements(record, wins, referenceMs, markReferenceRecord = true) {
+// `modeRecords` is the mode's history in finish order, losses included.
+function buildRecentPlacements(record, modeRecords, referenceMs, markReferenceRecord = true) {
   const { label: chosenLabel } = SessionScope.choices.find((c) => c.id === settings.sessionDefinition);
   const sourceStartMs = SessionScope.bounds(settings.sessionDefinition, referenceMs).from;
   const box = document.createElement('div');
   box.className = 'rank-list recent-placements';
   const heading = document.createElement('h4');
   heading.appendChild(chartHelpButton([
-    'Top ranks earned in the session (' + chosenLabel + ', the one page-wide session chosen at the upper left) on every longer chart: time windows, day categories, exact board benchmarks, 3BV-spread groups, and board shapes of session wins.',
+    'Top ranks earned in the session (' + chosenLabel + ', the one page-wide session chosen at the upper left) on every longer chart: time windows, day categories, streaks, exact board benchmarks, 3BV-spread groups, and board shapes of session wins. A streak counts when its last win is in the session, at its full length.',
     'Only ranks within the top tenth of a list count, except that lifetime shows its closest rank when none made the tenth. Rows go by category, board values ascending. Each rank is colored by its standing, green better and red worse; this game’s rank is fluorescent green and says “this”.',
   ], 'ranks won in session'));
   box.dataset.sessionScopeView = '';
-  box.addEventListener('session-scope-change', () => box.replaceWith(buildRecentPlacements(record, wins, referenceMs, markReferenceRecord)));
+  box.addEventListener('session-scope-change', () => box.replaceWith(buildRecentPlacements(record, modeRecords, referenceMs, markReferenceRecord)));
   box.appendChild(heading);
 
   const loading = document.createElement('div');
   loading.setAttribute('role', 'status');
   loading.textContent = 'Calculating ranks…';
   box.appendChild(loading);
-  box.analysisReady = analysisTask('rankings', 'recent-placements', { wins: wins.map(analysisRecord), referenceMs, sourceStartMs,
+  // A loss matters here only where it breaks a streak; its other fields
+  // would only add main-thread copying at game end.
+  const records = modeRecords.map((r) => r.outcome === 'win' ? analysisRecord(r)
+    : { outcome: r.outcome, endedAt: r.endedAt });
+  box.analysisReady = analysisTask('rankings', 'recent-placements', { records, referenceMs, sourceStartMs,
     recordEndedAt: markReferenceRecord ? record.endedAt : null,
     collapseDuplicates: settings.collapseDuplicateCharts }).then((rows) => {
     loading.remove();
@@ -896,6 +915,14 @@ function buildRankList(headingText, rowCount, myIndex, gridClass, buildRowCells,
 
 //-------STREAK RANKINGS: COMPUTATION-------
 
+// The streak tables, shared with ranks won: each joins slack + 1 adjacent
+// win runs, so it may hold `slack` losses; `setting` is its display switch.
+const STREAK_TABLES = [
+  { label: 'streak', setting: 'streak', slack: 0 },
+  { label: 'near-streak', setting: 'nearStreak', slack: 1 },
+  { label: 'near-near-streak', setting: 'nearNearStreak', slack: 2 },
+];
+
 function streakRuns(records) {
   const runs = [{ len: 0, end: null }];
   for (const record of records) {
@@ -970,9 +997,8 @@ function resultRankPlan(record, records, options, preferences, referenceMs) {
   }
   const runs = streakRuns(records);
   const streakTables = [];
-  for (const [label, key, slack] of [['streak', 'streak', 0], ['near-streak', 'nearStreak', 1],
-    ['near-near-streak', 'nearNearStreak', 2]]) {
-    if (!preferences.shownThings[key]) continue;
+  for (const { label, setting, slack } of STREAK_TABLES) {
+    if (!preferences.shownThings[setting]) continue;
     const list = rankedStreaks(runs, slack);
     const index = options.historyView ? -1 : list.findIndex((seg) => seg.current);
     const [start, end] = windowBounds(index, list.length);
