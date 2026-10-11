@@ -202,10 +202,18 @@ function gameDataHistogram(row, card, stripHeight) {
     }
   } else {
     const most = Math.max(...d.counts);
+    // A point mass (half the games at one rate, the rest spread thin) would
+    // otherwise draw every other bar at 1px. The tallest stays the tallest.
+    // When it is at least 6× the next, that next bar is drawn at half height
+    // and the shorter bars keep their ratios to it.
+    const next = d.counts.reduce((best, count) => count < most ? Math.max(best, count) : best, 0);
+    const peakGap = next > 0 && most / next >= 6;
+    const room = base - 3 * unit;
     const binWidth = width / d.bins;
     d.counts.forEach((count, i) => {
       if (count === 0) return;
-      const barHeight = Math.max(1, count / most * (base - 3 * unit));
+      const share = peakGap && count < most ? 0.5 * count / next : count / most;
+      const barHeight = Math.max(1, share * room);
       const slot = row.higher ? d.bins - 1 - i : i;
       add('rect', { x: slot * binWidth + 0.5, y: base - barHeight, width: Math.max(1, binWidth - 1), height: barHeight,
         fill: standingColor(d.standing[i], STANDING_MARK_STOPS) });
@@ -219,8 +227,11 @@ function gameDataHistogram(row, card, stripHeight) {
       add('line', { class: 'game-data-histogram-tick', x1: x(value), x2: x(value), y1: base + 1, y2: tickEnd });
     }
   }
+  // A game past the fence stays on the strip: the value column has the
+  // number, and stretching the axis out to it is what flattened the bars.
+  const mark = Math.max(0, Math.min(width, x(row.value)));
   for (const part of ['game-data-histogram-this-edge', 'game-data-histogram-this']) {
-    add('line', { class: part, x1: x(row.value), x2: x(row.value), y1: 0, y2: tickEnd });
+    add('line', { class: part, x1: mark, x2: mark, y1: 0, y2: tickEnd });
   }
   if (card) {
     for (const label of d.labels) {

@@ -252,26 +252,48 @@ const GameData = (() => {
   // equally many values per bin for about 36 bins. Equal-width bins that
   // ignored the values' spacing held 1 or 2 possible values alternately and
   // drew a comb that was not in the data. Continuous measurements get 36
-  // bins. Either way the range is the lifetime range, trimmed to its
-  // 1st–99th percentiles when wider than 60 values; this game and the
-  // session's games (`inside`) are always inside.
+  // bins. The range is the box-plot whisker of the lifetime values (below);
+  // this game and the session do not stretch it.
   const VALUE_BINS = 60, GROUPED_BINS = 36;
-  function axisOf(values, inside, declaredStep) {
+  // Q1 − 1.5·IQR through Q3 + 1.5·IQR, the fence path colors and the scatter
+  // y-axes already use. A per-minute rate's far tail is a short game (one
+  // misclick in a few seconds), and trimming only the outer 1% still left
+  // that tail as the end of the axis, so the games that differ sat in a
+  // sliver. The ends are the most extreme values inside the fence, not the
+  // fence itself, so it is not padded with empty bins. Fewer than 8 values
+  // leave the fence unstable, as path colors do, and the whole range is
+  // drawn. A zero interquartile range has no whisker — at least half the
+  // values are one number — and the narrowest window that still holds 90%
+  // of them keeps the tail beside that mass.
+  function drawnRange(sorted) {
+    const n = sorted.length;
+    if (n < 8) return [sorted[0], sorted[n - 1]];
+    const q1 = quantile(sorted, 0.25), q3 = quantile(sorted, 0.75), iqr = q3 - q1;
+    if (iqr === 0) {
+      const span = Math.round(0.9 * (n - 1));
+      let best = Infinity, start = 0;
+      for (let i = 0; i + span < n; i++) {
+        const width = sorted[i + span] - sorted[i];
+        if (width < best) { best = width; start = i; }
+      }
+      return [sorted[start], sorted[start + span]];
+    }
+    const low = q1 - 1.5 * iqr, high = q3 + 1.5 * iqr;
+    let first = 0, last = n - 1;
+    while (sorted[first] < low) first++;
+    while (sorted[last] > high) last--;
+    return [sorted[first], sorted[last]];
+  }
+  function axisOf(values, declaredStep) {
     const sorted = values.slice().sort((a, b) => a - b);
-    const at = (p) => sorted[Math.round(p * (sorted.length - 1))];
-    const least = Math.min(...inside), most = Math.max(...inside);
-    const step = declaredStep ?? ([...sorted, ...inside].every(Number.isInteger) ? 1 : undefined);
+    const [least, most] = drawnRange(sorted);
+    const step = declaredStep ?? (sorted.every(Number.isInteger) ? 1 : undefined);
     if (step === undefined) {
-      const lo = Math.min(at(0.01), least), hi = Math.max(at(0.99), most);
-      return lo === hi ? { lo: lo - 0.5, hi: hi + 0.5, bins: 1, step: null, perBin: null }
-        : { lo, hi, bins: GROUPED_BINS, step: null, perBin: null };
+      return least === most ? { lo: least - 0.5, hi: most + 0.5, bins: 1, step: null, perBin: null }
+        : { lo: least, hi: most, bins: GROUPED_BINS, step: null, perBin: null };
     }
     const index = (v) => Math.round(v / step);
-    let first = Math.min(index(sorted[0]), index(least)), last = Math.max(index(sorted[sorted.length - 1]), index(most));
-    if (last - first + 1 > VALUE_BINS) {
-      first = Math.min(index(at(0.01)), index(least));
-      last = Math.max(index(at(0.99)), index(most));
-    }
+    const first = index(least), last = index(most);
     const valueCount = last - first + 1;
     const perBin = valueCount <= VALUE_BINS ? 1 : Math.ceil(valueCount / GROUPED_BINS);
     const bins = Math.ceil(valueCount / perBin);
@@ -328,7 +350,7 @@ const GameData = (() => {
   const DOT_POOL = 30;
   function addDistributions(poolRows, poolValuesByScope, sessionValues, format, step) {
     const lifetime = poolRows.find((row) => row.scope === 'lifetime');
-    const axis = axisOf(poolValuesByScope.lifetime, [lifetime.value, ...sessionValues], step);
+    const axis = axisOf(poolValuesByScope.lifetime, step);
     const labels = axisLabels(axis, format);
     return poolRows.map((row) => {
       const values = poolValuesByScope[row.scope];

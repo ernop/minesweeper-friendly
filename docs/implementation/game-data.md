@@ -45,8 +45,14 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
   values, found from the data, or a declared `step`) bins whole groups of
   possible values, one per bin up to 60 values, otherwise `perBin` values per
   bin for about 36 bins, centered; continuous measurements get 36 bins. The
-  range is the lifetime 1st–99th percentiles when wider than 60 values,
-  always including this game and the session values. Each distribution has
+  range is `drawnRange`: the Tukey fence Q1 − 1.5·IQR through Q3 + 1.5·IQR
+  of the lifetime values, tightened to the most extreme values still inside
+  it. Fewer than 8 values keep the full range. A zero interquartile range
+  uses the narrowest window holding 90% of the values. This game and the
+  session do not extend it; `gameDataHistogram` clamps a this-game line
+  past the fence to the strip's edge. Bar height is `count / most` of the
+  strip; when the tallest bar is at least 6× the next, that next bar is
+  drawn at half height and shorter bars keep their ratios to it. Each distribution has
   `lo`, `hi`, `bins`, `step` (null when continuous), `perBin`, `counts`,
   `standing` per bin (the mean percentile of the bin's games, ties sharing
   their mean rank; null when empty; values beyond the axis are never drawn

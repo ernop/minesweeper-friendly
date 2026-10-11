@@ -125,13 +125,15 @@ assert.deepEqual([bvRow.step, bvRow.bins], [null, 36], 'a continuous measurement
 
 // The comb a 3BV histogram showed: whole counts spanning more than 60
 // values in 36 equal bins put 1 or 2 possible values in alternate bins.
-// Every bin now covers the same number of whole values.
+// Every bin now covers the same number of whole values. A uniform spread
+// has no outliers, so the fence keeps every value.
 const spread = Array.from({ length: 121 }, (_, i) => 110 + i);
 const bv3Records = spread.map((bv3, i) => ({ ...current, endedAt: now - (200 - i) * 60000, bv3 }));
 const bv3Axis = GameData.addDistributions([{ scope: 'lifetime', value: 150, higher: false }], { lifetime: spread }, [], String)[0].distribution;
-assert.deepEqual([bv3Axis.step, bv3Axis.perBin, bv3Axis.bins, bv3Axis.lo, bv3Axis.hi], [1, 4, 30, 110.5, 230.5],
-  'the 1st–99th percentiles, 111 to 229 (119 values), in 30 bins of 4 values: 111 to 230');
-assert.deepEqual([...new Set(bv3Axis.counts)], [4], 'every bin of a uniform spread holds 4 values; 110 is not drawn');
+assert.deepEqual([bv3Axis.step, bv3Axis.perBin, bv3Axis.bins, bv3Axis.lo, bv3Axis.hi], [1, 4, 31, 108.5, 232.5],
+  '121 whole values, 110 to 230, in 31 bins of 4, the spare slots split around the range');
+assert.equal(bv3Axis.counts.reduce((a, b) => a + b, 0), 121, 'every value of a uniform spread is drawn');
+assert(bv3Axis.counts.every((count) => count >= 2 && count <= 4), 'only the padding at the ends is short a value');
 assert(bv3Records.length === 121);
 const narrow = GameData.addDistributions([{ scope: 'lifetime', value: 75, higher: false }],
   { lifetime: Array.from({ length: 55 }, (_, i) => 41 + i) }, [], String)[0].distribution;
@@ -144,10 +146,23 @@ assert(share.counts.every((count) => count === 1), 'one board per cell value dra
 const wideShare = GameData.addDistributions([{ scope: 'lifetime', value: 130 / 216, higher: true }],
   { lifetime: Array.from({ length: 108 }, (_, i) => (100 + i) / 216) }, [], percentOf, 1 / 216)[0].distribution;
 assert.deepEqual([wideShare.perBin, [...new Set(wideShare.counts)]], [3, [3]], 'wider shares group whole cells evenly');
-const outlier = GameData.addDistributions([{ scope: 'lifetime', value: 2, higher: true }],
-  { lifetime: [...Array.from({ length: 200 }, (_, i) => 1 + i / 200), 9] }, [9], (v) => v.toFixed(3))[0].distribution;
-assert.equal(outlier.hi, 9, 'a session game is always inside the drawn range');
-assert.equal(outlier.counts.reduce((a, b) => a + b, 0), 199, 'the lowest 1%, 2 of 201 values, still falls outside the drawn range');
+// A far tail, and a session game sitting in it, must not stretch the axis
+// out to themselves. The bulk is 0 and then 0.1–4; 8, 12, and 20 are past
+// the fence (Q3 is 2, so the whisker ends at 5).
+const skewed = [...Array(50).fill(0), ...Array.from({ length: 40 }, (_, i) => (i + 1) / 10), 8, 12, 20];
+const skewedAxis = GameData.addDistributions([{ scope: 'lifetime', value: 0.5, higher: false }],
+  { lifetime: skewed }, [20], (v) => v.toFixed(1))[0].distribution;
+assert.deepEqual([skewedAxis.lo, skewedAxis.hi, skewedAxis.bins], [0, 4, 36],
+  'the axis ends at the last value inside the fence, not at the tail or the session game');
+assert.equal(skewedAxis.counts.reduce((a, b) => a + b, 0), 90, 'the three tail values are not drawn');
+// At least half the values tied, so there is no whisker: the narrowest
+// window holding 90% is drawn instead of collapsing onto the tied value.
+const mass = [...Array(80).fill(0), 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+const massAxis = GameData.addDistributions([{ scope: 'lifetime', value: 0, higher: false }],
+  { lifetime: mass }, [], String)[0].distribution;
+assert.deepEqual([massAxis.lo, massAxis.hi], [-0.5, 1.5],
+  'a point mass keeps the nearest tail value the 90% window needs');
+assert.equal(massAxis.counts.reduce((a, b) => a + b, 0), 81);
 const flagged = [0, 3, 1, 3].map((count, i) => ({ ...current, endedAt: now - (4 - i) * 60000, flagsWithoutMultiCellChord: count }));
 const flagRow = GameData.rows(flagged[3], flagged, { ...GameData.defaultsForView, gameDataMetrics: { ...none, flagsWithoutMultiCellChord: true } }, board)
   .find((r) => r.id === 'flagsWithoutMultiCellChord.lifetime');

@@ -162,9 +162,9 @@ settings (same size, mines, mode, generator), up to this game, under the
 one session definition; the lifetime mode uses every such game so far.
 Wins-only measurements count the session's wins, action
 measurements its wins and losses, board traits its boards. Both modes share
-the measurement's lifetime axis and bins (extended to include every
-session game), so switching modes shows where the session sits in the
-lifetime range. A session pool needs two measured games, like any pool;
+the measurement's lifetime axis and bins, so switching modes shows where
+the session sits in the lifetime range. A session game past that range
+is not drawn. A session pool needs two measured games, like any pool;
 with fewer, the row has no session point and the note above the band lists
 it. A small session (most are) draws one dot per game.
 
@@ -204,10 +204,33 @@ groups of its possible values: whole counts and whole milliseconds (step
 1), and the two shares of safe cells (step one cell, the same for every
 board with these settings). Up to 60 possible values get one bar each;
 wider ranges get equally many values per bar, for about 36 bars.
-Continuous measurements keep 36 equal bins. The range is the lifetime range,
-trimmed to its 1st–99th percentiles when wider than 60 values, always
-including this game and the session's games. Axis labels sit at round
+Continuous measurements keep 36 equal bins. Axis labels sit at round
 values.
+
+Drawn range (creator 2026-10-11, of the misclick strip and the other
+strips flattened the same way: "so compressed horizontally i'm having
+trouble seeing the actual meaningful part"). A log axis was considered
+and not used. The tail that flattens a strip is not a smooth
+multiplicative scale — a per-minute rate in particular explodes on a game
+that lasted a few seconds — and a log axis would still spend most of an
+unlabeled strip on that tail, while a bar would stop covering a fixed
+interval. The strip stays linear. Its range is the box-plot whisker, the
+same fence path colors and the scatter y-axes use: Q1 − 1.5·IQR through
+Q3 + 1.5·IQR, then in to the most extreme values that still fall inside,
+so the axis is not padded with empty bins out to the fence itself. Fewer
+than 8 values leave the fence unstable, and the whole range is drawn.
+When the interquartile range is 0, at least half the values are one
+number and there is no whisker; the narrowest window that still holds
+90% of the values is drawn, so a point mass keeps the tail beside it
+instead of the strip collapsing onto the mass. Values past the fence are
+not drawn and are not folded into an edge bin. The rank still counts
+every game. This game and the session's games do not stretch the axis; a
+this-game line past the fence sits on that edge. The value column still
+shows the untrimmed number. Bar height stays proportional to the count,
+except when the tallest bar is at least six times the next: that next bar
+is drawn at half the strip and shorter bars keep their ratios to it, so a
+point mass (most games at one value) does not flatten every other bar to
+a pixel. The tallest bar stays the tallest.
 
 Distributions mode (built 2026-10-07; the creator: "switch distributions
 mode is incredible, too!", and "showing both optionally is good. e.g. in the
