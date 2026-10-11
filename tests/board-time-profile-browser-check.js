@@ -50,6 +50,22 @@ const { chromium } = require(process.argv[2]);
         collector.renderInto(resultRanks);
         resultsBox.hidden = false;
       };
+      // A histogram's marks from left to right by redness, red minus green,
+      // which rises from the standing scale's green end to its red end, and
+      // its axis labels' values from left to right.
+      window.histogramReading = (svg) => {
+        const redness = (fill) => { const [r, g] = fill.match(/\d+/g).map(Number); return r - g; };
+        const marks = [...svg.querySelectorAll('rect, circle')].map((mark) => ({
+          x: Number(mark.getAttribute(mark.localName === 'circle' ? 'cx' : 'x')), redness: redness(mark.getAttribute('fill')) }))
+          .sort((a, b) => a.x - b.x || a.redness - b.redness);
+        return {
+          // Rounding each channel can lower the difference by up to 2.
+          greenToRed: marks.every((mark, i) => i === 0 || mark.redness >= marks[i - 1].redness - 2),
+          spread: marks.length > 1 && marks[0].redness < marks[marks.length - 1].redness,
+          labels: [...svg.querySelectorAll('text')].sort((a, b) => a.getAttribute('x') - b.getAttribute('x'))
+            .map((label) => parseFloat(label.textContent)),
+        };
+      };
       await drawProfileFixture();
     });
     const profile = page.locator('.board-time-profile');
@@ -194,13 +210,31 @@ const { chromium } = require(process.argv[2]);
     assert.equal(await card.locator('.game-data-card-definition').count(), 0, 'a self-evident trait has no definition');
     assert(!/÷|=|settings|so far|This is/.test(await card.innerText()), await card.innerText());
     assert.equal(await card.locator('svg.game-data-histogram').count(), 1, 'the card draws the distribution');
-    assert.equal(await card.locator('.game-data-histogram-better').textContent(), 'better →', 'more zeros is the preferred end');
+    assert.deepEqual(await card.locator('svg text').allTextContents(), ['59'],
+      'the card labels its axis and names no better end: better is always on the left');
     assert(await page.locator('.chart-help-tip').evaluate((el) => {
       const r = el.getBoundingClientRect();
       return el.matches(':popover-open') && el.contains(document.elementFromPoint(r.left + 8, r.top + 8));
     }), 'the card stays above the compact sidebar');
     assert.deepEqual(await profile.boundingBox(), bandBefore, 'the card does not reflow the chart');
     await zeros.evaluate((button) => button.blur());
+    // Better is always on the left (creator 2026-10-11): a card's marks run
+    // from green to red, and a higher-is-better axis reads high to low.
+    const cardReading = async (measurement) => {
+      const button = profile.locator('.game-data-row[data-measurement="' + measurement + '"] button');
+      await button.focus();
+      const reading = await page.locator('.chart-help-tip .game-data-card svg').evaluate((svg) => histogramReading(svg));
+      await page.locator('.chart-help-tip').screenshot({ path: '/tmp/game-data-card-' + measurement + '.png' });
+      await button.evaluate((node) => node.blur());
+      return reading;
+    };
+    for (const [measurement, higher] of [['clickRate', true], ['time', false]]) {
+      const reading = await cardReading(measurement);
+      assert(reading.greenToRed && reading.spread, measurement + ' card: green on the left: ' + JSON.stringify(reading));
+      assert(reading.labels.length > 1 && reading.labels.every((value, i) => i === 0
+        || (higher ? value < reading.labels[i - 1] : value > reading.labels[i - 1])),
+      measurement + ' card labels run ' + (higher ? 'high to low' : 'low to high') + ': ' + reading.labels);
+    }
     const comparisons = await page.evaluate(async () => {
       const { current, wins } = profileFixture;
       return boardTraitRankProfile(current, boardMetricCandidates([current], wins), wins, settings.sessionDefinition)
@@ -326,6 +360,12 @@ const { chromium } = require(process.argv[2]);
       'both pools, for your perf and for board traits');
     assert.equal(shown.note, null, 'the lifetime sections list every measurement');
     assert.equal(shown.rows, await profile.locator('.game-data-dist-row svg.game-data-histogram').count());
+    const stripReadings = await profile.locator('.game-data-dist-row').evaluateAll((rows) => rows.map((row) =>
+      ({ measurement: row.dataset.measurement, ...histogramReading(row.querySelector('svg')) })));
+    assert.deepEqual(stripReadings.filter((strip) => !strip.greenToRed), [], 'every strip has its better end on the left');
+    assert(['clickRate', 'bvPerSecond', 'time'].every((measurement) =>
+      stripReadings.some((strip) => strip.measurement === measurement && strip.spread)),
+    'higher- and lower-is-better strips both run green to red: ' + JSON.stringify(stripReadings));
     const stripLefts = await profile.locator('.game-data-strip').evaluateAll((strips) =>
       [...new Set(strips.map((strip) => Math.round(strip.getBoundingClientRect().left)))]);
     assert.equal(stripLefts.length, 1, 'all sections line up their strips: ' + JSON.stringify(stripLefts));

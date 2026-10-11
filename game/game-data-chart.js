@@ -149,17 +149,18 @@ function linkGameDataCharts(metricId, linked) {
 // at its exact value instead, colored by that game's own standing, so a few
 // games read as a few games rather than as bars of height one. The lifetime
 // pool also ticks the session's games under the axis; the green line is this
-// game, edged in black like the charts' this-game dot. The card size names
-// its better end and labels its axis. A strip stretches to its cell's width
-// and is drawn at its cell's height in px: its axis gap and ticks keep their
-// px size on a strip 26 px or taller, so a taller strip gives its bars all
-// the extra height, and shrink with a shorter strip, so its bars keep room.
+// game, edged in black like the charts' this-game dot. Better is always on
+// the left, so a higher-is-better measurement's axis runs from its highest
+// value at the left to its lowest at the right. The card size labels its
+// axis. A strip stretches to its cell's width and is drawn at its cell's
+// height in px: its axis gap and ticks keep their px size on a strip 26 px or
+// taller, so a taller strip gives its bars all the extra height, and shrink
+// with a shorter strip, so its bars keep room.
 const GAME_DATA_STRIP_FULL_MARKS = 26;
 function gameDataHistogram(row, card, stripHeight) {
   const d = row.distribution;
   const width = card ? 320 : 200, height = card ? 132 : stripHeight;
   const unit = card ? 1 : Math.min(1, stripHeight / GAME_DATA_STRIP_FULL_MARKS);
-  const top = card ? 14 : 0;
   const base = card ? height - 26 : height - 6 * unit;
   const dots = card && d.values !== undefined;
   const svg = document.createElementNS(SVG_NS, 'svg');
@@ -174,7 +175,7 @@ function gameDataHistogram(row, card, stripHeight) {
     svg.appendChild(node);
     return node;
   };
-  const x = (value) => (value - d.lo) / (d.hi - d.lo) * width;
+  const x = (value) => (row.higher ? d.hi - value : value - d.lo) / (d.hi - d.lo) * width;
   if (dots) {
     // Each dot rests on the lowest level where it touches no earlier dot; a
     // stack too tall for the plot shrinks every dot.
@@ -194,7 +195,7 @@ function gameDataHistogram(row, card, stripHeight) {
       return placed;
     };
     let size = 8, placed = stack(size);
-    while (size > 3 && (Math.max(...placed.map((dot) => dot.level)) + 1) * size > base - top - 3) placed = stack(--size);
+    while (size > 3 && (Math.max(...placed.map((dot) => dot.level)) + 1) * size > base - 3) placed = stack(--size);
     for (const dot of placed) {
       add('circle', { class: 'game-data-histogram-dot', cx: Math.max(size / 2, Math.min(width - size / 2, dot.x)),
         cy: base - 1 - size * (dot.level + 0.5), r: size / 2 - 0.3, fill: standingColor(standing(dot.value), STANDING_MARK_STOPS) });
@@ -204,8 +205,9 @@ function gameDataHistogram(row, card, stripHeight) {
     const binWidth = width / d.bins;
     d.counts.forEach((count, i) => {
       if (count === 0) return;
-      const barHeight = Math.max(1, count / most * (base - top - 3 * unit));
-      add('rect', { x: i * binWidth + 0.5, y: base - barHeight, width: Math.max(1, binWidth - 1), height: barHeight,
+      const barHeight = Math.max(1, count / most * (base - 3 * unit));
+      const slot = row.higher ? d.bins - 1 - i : i;
+      add('rect', { x: slot * binWidth + 0.5, y: base - barHeight, width: Math.max(1, binWidth - 1), height: barHeight,
         fill: standingColor(d.standing[i], STANDING_MARK_STOPS) });
     });
   }
@@ -218,11 +220,9 @@ function gameDataHistogram(row, card, stripHeight) {
     }
   }
   for (const part of ['game-data-histogram-this-edge', 'game-data-histogram-this']) {
-    add('line', { class: part, x1: x(row.value), x2: x(row.value), y1: top, y2: tickEnd });
+    add('line', { class: part, x1: x(row.value), x2: x(row.value), y1: 0, y2: tickEnd });
   }
   if (card) {
-    add('text', { class: 'game-data-histogram-better', x: row.higher ? width : 0, y: 10,
-      'text-anchor': row.higher ? 'end' : 'start' }).textContent = row.higher ? 'better →' : '← better';
     for (const label of d.labels) {
       const at = x(label.value);
       const anchor = at < 18 ? 'start' : at > width - 18 ? 'end' : 'middle';

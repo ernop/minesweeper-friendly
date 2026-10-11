@@ -86,7 +86,10 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
   `title` is the same pool label and `standingText`. `gameDataHistogram`
   draws bars, or for a row whose distribution carries `values`, one dot per
   game at its value, stacked where dots touch and colored by that game's
-  standing in the pool; card size adds the "better" end and round labels.
+  standing in the pool; card size adds the round labels. For a `higher` row
+  its `x` runs from `hi` at the left to `lo` and bin `i` takes slot
+  `bins − 1 − i`, so every strip and card has its better end on the left
+  (2026-10-11); the worker's distributions keep value order.
 - Distributions view: `buildGameDataDistributions(rows, pools)` renders the
   `settings.gameDataDistributions` mode as `.game-data-dist-section`s
   (`data-side`, `data-pool`), each side's sections in `pools` order
@@ -146,5 +149,7 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
   text narrates chart marks), and tests/board-time-profile-browser-check.js
   (no heading, options row, centered titles, no scrolling at five widths,
   regular-weight numbers, no help cursor, cards in both pool modes opening
-  with the rank and holding no key, dots, distributions fit with nothing but
-  sections and the note, linkage, one picker, configuration).
+  with the rank and holding no key, dots, every strip and card running green
+  to red from left to right with a higher-is-better card's labels
+  descending, distributions fit with nothing but sections and the note,
+  linkage, one picker, configuration).

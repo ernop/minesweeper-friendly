@@ -115,11 +115,12 @@ opens it over the band, never reflowing it. In order:
    1,201 wins", "session: tied 3rd–5th of 56 games", or for a constant
    pool "lifetime: all 50 boards have this value". The population word is
    wins, games, or boards.
-2. The pool's games on the measurement's axis: bars per value range for a
+2. The pool's games on the measurement's axis, its better end on the left
+   (since 2026-10-11, below): bars per value range for a
    pool of more than 30 games, one dot per game at its exact value for 30 or
    fewer (touching dots stack), each colored by standing within that pool
    (green better, red worse); the this-game green line, edged in black,
-   marks this game; "better →" or "← better" names the better end; the
+   marks this game; the
    lifetime card ticks the session's games under the axis. No key line
    names the marks (removed 2026-10-08, below).
 3. Last, a definition, only where the name and unit leave the measurement
@@ -137,7 +138,7 @@ plain sentence (added earlier the same day in answer to the creator's
 "also, things like the mouseover chart for 'time' saying 'this is your time
 from start to the win'"), definitions of self-evident measurements, this
 game's worked calculation, the example boards, the direction sentence (the
-histogram's "better →" stays), the pool descriptions "so far with these
+histogram's "better →" stayed until 2026-10-11, below), the pool descriptions "so far with these
 board settings" and "this session (last hour)", the percentage arithmetic
 ("17 ÷ 123 = 13.8%"), and the "Chart below" line (hovering still outlines
 that chart). Every pool holds only games with this game's board settings,
@@ -167,11 +168,30 @@ lifetime range. A session pool needs two measured games, like any pool;
 with fewer, the row has no session point and the note above the band lists
 it. A small session (most are) draws one dot per game.
 
-Green on the left or the right (creator question 2026-10-08: "some have
+Better on the left (creator decision 2026-10-11, built the same day to try
+it). On 2026-10-08 the creator asked about the mixed sides ("some have
 good(green) on left, others on right. I do know the reason for that though
-and it makes sense too"): the axis keeps the measurement's own numeric
-order, and the card names the better end on the histogram itself instead of
-reversing axes for lower-is-better measurements.
+and it makes sense too"), and each axis kept its numeric order while the card
+printed "better →" or "← better". On 2026-10-10 the creator asked "what if we
+flipped (left/right) some of the distributions, so that rather than some
+being left-green, right-red, and others revesred, they all had this
+property, that the green end of the distribution were drawn on the left
+side?", and of the resulting proposal: "I mean, i don't think this logically
+is good at all. let's try this please."
+
+- Every strip and card draws its better end on the left. A higher-is-better
+  measurement's axis runs from its highest value at the left to its lowest
+  at the right, so its card's axis labels descend (3BV/s: 3, 2.5, 2, …);
+  lower-is-better measurements, time among them, keep their numeric order.
+- A column of strips reads by position alone. A row's percentage, the share
+  of the other games that ranked better, is the share of its strip's games
+  left of the line (a tie counting half), and the best comes first, as in
+  the band, whose 0% is at the top.
+- The card's "better →" / "← better" is removed: it would read "← better"
+  on every card.
+- The your-perf and board-trait charts keep numeric order on x (their tick
+  values and trend lines read that way), so a mirrored row's strip runs
+  opposite to the chart its hover outlines.
 
 Bins (creator question 2026-10-08: "how do we choose bucketsize? i saw what
 might be artifacting on our 3bv count ones"). It was an artifact: whole
