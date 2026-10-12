@@ -154,23 +154,30 @@ function reportResult(outcome, endedAt = Date.now()) {
 // The finished game as fuseki-stats.js game fields, sent once from
 // reportResult (docs/product/hosting.md, "Play statistics"). Only facts the
 // record and the board already hold; a measurement is present exactly where
-// the result screen shows it.
+// the result screen shows it. `m` names the unit within which times compare:
+// the top score key's level, play mode, and generator id, in the protocol's
+// token alphabet, which lacks the key's own @ + ( = , characters. The
+// generator's parameters would overflow the 64-character token, so they
+// follow as g_<key> fields in schema order.
 function playStatisticsFields(record) {
   const difficulty = difficultyNameOf(config);
+  const level = difficulty === undefined
+    ? 'custom-' + config.width + 'x' + config.height + '-' + config.mines : difficulty;
+  const generator = generatorAppliesToMode(record.playMode) && gameGenerator.id !== BoardGenerators.DEFAULT_ID
+    ? BoardGenerators.byId(gameGenerator.id) : null;
   const measured = (key, id, scale = 1) => {
     const value = shownMeasurement(record, id);
     return value === undefined ? {} : { [key]: value * scale };
   };
   return {
-    m: difficulty === undefined
-      ? 'custom-' + config.width + 'x' + config.height + '-' + config.mines : difficulty,
+    m: level + ':' + record.playMode + (generator === null ? '' : ':' + generator.id),
     r: record.outcome,
     d: record.timeMs / 1000,
     w: config.width,
     h: config.height,
     mines: config.mines,
-    pm: record.playMode,
-    ...(generatorAppliesToMode(record.playMode) ? { gen: gameGenerator.id } : {}),
+    ...(generator === null ? {} : Object.fromEntries(
+      generator.params.map((param) => ['g_' + param.key, gameGenerator.params[param.key]]))),
     just: record.justiceEnabled,
     bbbv: record.bv3,
     clicks: record.clicks,

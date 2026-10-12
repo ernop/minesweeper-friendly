@@ -91,16 +91,22 @@ data are allowed. The creator's own play counts like anyone's (no exclusion).
 
   | Key | Value |
   | --- | --- |
-  | `m` | level: `beginner`, `intermediate`, or `expert` when the board is exactly that preset, otherwise `custom-<W>x<H>-<M>` |
+  | `m` | `<level>:<play mode>`, plus `:<generator id>` when the mode places mines with the Generator menu's choice and that choice is not the default `uniform`; for example `expert:standard`, `expert:standard:pink-noise`, `custom-20x12-50:single-path-ng` |
   | `r` | `win` or `loss` |
   | `d` | the final time in seconds as the result shows it (millisecond precision) |
   | `w`, `h`, `mines` | board width, height, and mine count |
-  | `pm` | play mode id, such as `standard`, `uniform-ng`, `endgame-drill`, or `trial` |
-  | `gen` | board generator id, only in modes that place mines with the Generator menu's choice (not Single-path NG or trials) |
+  | `g_<key>` | each parameter of the generator in `m`, in schema order, present exactly when `m` names a generator (pink noise: `g_alpha`, `g_scale`, `g_contrast`, `g_stretch`) |
   | `just` | whether A just universe was on for the game |
   | `bbbv` | the record's 3BV (an Endgame drill's: the presented remnant's) |
   | `clicks`, `flags` | board-changing clicks; flags placed |
   | `bbbvs`, `eff`, `ioe` | 3BV/s, efficiency in percent, and IOE, present exactly where the result screen shows them (wins) |
+
+  The level is `beginner`, `intermediate`, or `expert` when the board is
+  exactly that preset, otherwise `custom-<W>x<H>-<M>`; the play mode is its
+  id, such as `standard`, `uniform-ng`, `endgame-drill`, or `trial`. `m` is
+  the comparable unit (level, play mode, generator) so per-mode best and
+  median times stay meaningful; it is the game's top score key without the
+  generator's parameters, which follow as `g_<key>`.
 
 - Problems page and self-check: one `game` event when a problem attempt, a
   last-flag drill attempt, a pointing-test run, or a self-check's alertness

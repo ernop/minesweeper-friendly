@@ -1,8 +1,9 @@
 'use strict';
 // Play statistics (docs/product/hosting.md, "Play statistics"): every page
 // loads the vendored fuseki-stats.js, which sends only from the hosted origin;
-// a finished game sends exactly one game event built from its saved record;
-// each subpage sends one event per saved attempt, run, or check.
+// a finished game sends exactly one game event built from its saved record,
+// whose m (level, play mode, generator) stays one protocol token; each
+// subpage sends one event per saved attempt, run, or check.
 //
 // Usage: node tests/play-statistics-test.js
 
@@ -11,6 +12,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const { source } = require('./game-source.js');
+const BoardGenerators = require('../generators.js');
 
 const repo = path.join(__dirname, '..');
 const read = (file) => fs.readFileSync(path.join(repo, file), 'utf8');
@@ -168,6 +170,10 @@ async function playToEnd(outcome, state) {
   return { fields: sent[0], url: hosted.fetched[0] };
 }
 
+// The encoded event the hosted module sends for the n-th game of the test.
+const eventUrl = (n, fields) => '/_event?v=1&e=game&p=abababababababab&s=abababababababab&n=' + n
+  + '&t=0&pg=%2F&' + fields;
+
 (async () => {
   const expertWin = await playToEnd('win', {
     config: { width: 30, height: 16, mines: 99 },
@@ -183,13 +189,36 @@ async function playToEnd(outcome, state) {
     flagsRemoved: 2,
   });
   assert.deepEqual(expertWin.fields, {
-    m: 'expert', r: 'win', d: 61.234, w: 30, h: 16, mines: 99, pm: 'standard', gen: 'uniform',
+    m: 'expert:standard', r: 'win', d: 61.234, w: 30, h: 16, mines: 99,
     just: true, bbbv: 152, clicks: 180, flags: 70,
     bbbvs: 152 / 61.234, eff: 152 / 180 * 100, ioe: 152 / 186,
   });
-  assert.equal(expertWin.url, '/_event?v=1&e=game&p=abababababababab&s=abababababababab&n=0&t=0&pg=%2F'
-    + '&m=expert&r=win&d=61.234&w=30&h=16&mines=99&pm=standard&gen=uniform&just=1&bbbv=152'
-    + '&clicks=180&flags=70&bbbvs=2.482&eff=84.444&ioe=0.817');
+  assert.equal(expertWin.url, eventUrl(0, 'm=expert%3Astandard&r=win&d=61.234&w=30&h=16&mines=99'
+    + '&just=1&bbbv=152&clicks=180&flags=70&bbbvs=2.482&eff=84.444&ioe=0.817'));
+
+  // A non-default generator in a mode that places mines with it joins m,
+  // and its parameters follow in schema order.
+  const pinkWin = await playToEnd('win', {
+    config: { width: 30, height: 16, mines: 99 },
+    settings: { playMode: 'standard' },
+    gameGenerator: { id: 'pink-noise',
+      params: BoardGenerators.paramsFrom('pink-noise', { alpha: 1.5, stretch: -1.5 }) },
+    justiceEnabledForGame: true,
+    finalTimeMs: 98765.2,
+    compute3BV: () => 181,
+    clickCount: 230,
+    wastedClicks: 9,
+    flagsPlaced: 85,
+  });
+  assert.deepEqual(pinkWin.fields, {
+    m: 'expert:standard:pink-noise', r: 'win', d: 98.765, w: 30, h: 16, mines: 99,
+    g_alpha: 1.5, g_scale: 8, g_contrast: 2, g_stretch: -1.5,
+    just: true, bbbv: 181, clicks: 230, flags: 85,
+    bbbvs: 181 / 98.765, eff: 181 / 230 * 100, ioe: 181 / 239,
+  });
+  assert.equal(pinkWin.url, eventUrl(1, 'm=expert%3Astandard%3Apink-noise&r=win&d=98.765&w=30&h=16'
+    + '&mines=99&g_alpha=1.5&g_scale=8&g_contrast=2&g_stretch=-1.5&just=1&bbbv=181&clicks=230&flags=85'
+    + '&bbbvs=1.833&eff=78.696&ioe=0.757'));
 
   // Single-path NG places no mines with the generator, and a loss shows no
   // win-only measurement.
@@ -204,15 +233,17 @@ async function playToEnd(outcome, state) {
     flagsPlaced: 3,
   });
   assert.deepEqual(customLoss.fields, {
-    m: 'custom-20x12-50', r: 'loss', d: 18.766, w: 20, h: 12, mines: 50, pm: 'single-path-ng',
+    m: 'custom-20x12-50:single-path-ng', r: 'loss', d: 18.766, w: 20, h: 12, mines: 50,
     just: false, bbbv: 64, clicks: 25, flags: 3,
   });
+  assert.equal(customLoss.url, eventUrl(2, 'm=custom-20x12-50%3Asingle-path-ng&r=loss&d=18.766'
+    + '&w=20&h=12&mines=50&just=0&bbbv=64&clicks=25&flags=3'));
 
   // An Endgame drill's 3BV is the presented remnant's, as in its record.
   const drillWin = await playToEnd('win', {
     config: { width: 16, height: 16, mines: 40 },
     settings: { playMode: 'endgame-drill' },
-    gameGenerator: { id: 'blue-noise', params: { scale: 3 } },
+    gameGenerator: { id: 'blue-noise', params: BoardGenerators.paramsFrom('blue-noise', { spread: 3 }) },
     endgameDrillActive: () => true,
     drillCurrent: { remaining3BV: 9, safeLeft: 14 },
     finalTimeMs: 4000,
@@ -221,9 +252,53 @@ async function playToEnd(outcome, state) {
     wastedClicks: 1,
   });
   assert.deepEqual(drillWin.fields, {
-    m: 'intermediate', r: 'win', d: 4, w: 16, h: 16, mines: 40, pm: 'endgame-drill', gen: 'blue-noise',
+    m: 'intermediate:endgame-drill:blue-noise', r: 'win', d: 4, w: 16, h: 16, mines: 40, g_spread: 3,
     just: false, bbbv: 9, clicks: 12, flags: 0, bbbvs: 9 / 4, eff: 9 / 12 * 100, ioe: 9 / 13,
   });
+  assert.equal(drillWin.url, eventUrl(3, 'm=intermediate%3Aendgame-drill%3Ablue-noise&r=win&d=4'
+    + '&w=16&h=16&mines=40&g_spread=3&just=0&bbbv=9&clicks=12&flags=0&bbbvs=2.25&eff=75&ioe=0.692'));
+
+  //-------m STAYS ONE TOKEN AND NO FIELD IS DROPPED-------
+
+  // The largest custom board the app accepts, with every play mode and every
+  // generator: m stays one protocol token, and the module would send every
+  // field the app builds.
+  const largestAccepted = (start, accepts) => {
+    let value = start;
+    while (accepts(value + 1)) {
+      value++;
+      assert(value < 1e6, 'custom boards have an upper bound');
+    }
+    return value;
+  };
+  const width = largestAccepted(8, (w) => game.validCustomBoard({ width: w, height: 1, mines: 1 }));
+  const height = largestAccepted(1, (h) => game.validCustomBoard({ width: 8, height: h, mines: 1 }));
+  const mines = largestAccepted(1, (n) => game.validCustomBoard({ width, height, mines: n }));
+  const TOKEN = /^[A-Za-z0-9_.:/-]{1,64}$/;
+  const KEY = /^[a-z][a-z0-9_]{0,23}$/;
+  const CORE_KEYS = ['v', 'e', 'p', 's', 'n', 't', 'pg'];
+  let longest = '';
+  let mostFields = 0;
+  for (const playMode of vm.runInContext('PLAY_MODES', game).map((mode) => mode.id)) {
+    for (const spec of BoardGenerators.SPECS) {
+      Object.assign(game, {
+        config: { width, height, mines },
+        gameGenerator: { id: spec.id, params: BoardGenerators.paramsFrom(spec.id) },
+        statsRecord: { outcome: 'win', timeMs: 1000, bv3: 1, clicks: 1, wastedClicks: 0,
+          flagsPlaced: 0, playMode, justiceEnabled: false },
+      });
+      const fields = plain(vm.runInContext('playStatisticsFields(statsRecord)', game));
+      for (const [key, value] of Object.entries(fields)) {
+        assert(KEY.test(key) && !CORE_KEYS.includes(key), key + ' is a game field key');
+        assert(typeof value === 'boolean' || (Number.isFinite(value) && Math.abs(value) < 1e12)
+          || (typeof value === 'string' && TOKEN.test(value)), key + ' has a value the module sends');
+      }
+      if (fields.m.length > longest.length) longest = fields.m;
+      mostFields = Math.max(mostFields, Object.keys(fields).length);
+    }
+  }
+  assert.match(longest, TOKEN, 'the longest m, ' + longest + ' (' + longest.length + ' characters), is one token');
+  assert(mostFields <= 24, 'at most 24 game fields, got ' + mostFields);
 
   assert.equal(source.split('FusekiStats.game(').length, 2, 'the game page sends from one place');
   assert(functionSource(source, 'reportResult').includes('FusekiStats.game(playStatisticsFields(record))'));
@@ -327,7 +402,8 @@ async function playToEnd(outcome, state) {
     'a saved self-check sends only its status and duration');
 
   console.log('play-statistics: page loading, hosted-only sending, one event per finished game, '
-    + 'and one event per saved subpage attempt passed');
+    + 'and one event per saved subpage attempt passed; longest m ' + longest
+    + ' (' + longest.length + ' characters)');
 })().catch((error) => {
   console.error(error);
   process.exit(1);

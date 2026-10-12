@@ -85,26 +85,42 @@ Specification: [Play statistics](../product/hosting.md#play-statistics).
   `appendGameRecord`. `flushPendingResult` clears the pending outcome before
   calling `reportResult`, so a game is finalized once, and nothing else calls
   the module. `playStatisticsFields` reads only the record, `config`, and
-  `gameGenerator`: `difficultyNameOf` (shared with `boardDisplayLabelOf`)
-  names the level, `generatorAppliesToMode` decides `gen`, and
-  `shownMeasurement` (shared with the result screen's `measurementRow`)
-  supplies 3BV/s, efficiency, and IOE where the result screen shows them.
+  `gameGenerator`. `difficultyNameOf` (shared with `boardDisplayLabelOf`)
+  names the level; `m` joins it with `record.playMode` and, when
+  `generatorAppliesToMode` holds and `gameGenerator.id` is not
+  `BoardGenerators.DEFAULT_ID`, the generator id, the parts of
+  `topScoreKeyOf`. That generator's parameters follow as `g_<key>` in schema
+  order. `shownMeasurement` (shared with the result screen's
+  `measurementRow`) supplies 3BV/s, efficiency, and IOE where the result
+  screen shows them.
+- Why `m` is not the top score key itself: protocol tokens are
+  `[A-Za-z0-9_.:/-]{1,64}`, without the key's `@ + ( = ,`, and a
+  parameterized key can exceed 64 characters. The longest `m` the app can
+  produce is `custom-100x100-9801:pregen-10-3bv-desc:green-noise`, 50
+  characters; the most fields are 17 (13 plus pink noise's 4 parameters) of
+  the protocol's 24. The module sends `:` as `%3A`, which Fuseki's worker
+  decodes.
 - Subpages: `problems-page.js` `reportPlayStatistics` runs on transaction
   completion in `finishAttempt`, `finishDrillAttempt`, and `finishPointing`;
   `self-check-page.js` `finishVigilance` sends on its transaction completion.
 - Each call is `try { if (window.FusekiStats) ... } catch (error) {
   console.error(error); }`; these are the runtime's only `console.error`
   calls.
-- An Expert win sends, for example:
-  `/_event?v=1&e=game&p=<player>&s=<page load>&n=2&t=74&pg=%2F&m=expert&r=win&d=61.234&w=30&h=16&mines=99&pm=standard&gen=uniform&just=1&bbbv=152&clicks=180&flags=70&bbbvs=2.482&eff=84.444&ioe=0.817`.
+- An Expert Standard win and a pink-noise Expert win send, for example:
+  `/_event?v=1&e=game&p=<player>&s=<page load>&n=2&t=74&pg=%2F&m=expert%3Astandard&r=win&d=61.234&w=30&h=16&mines=99&just=1&bbbv=152&clicks=180&flags=70&bbbvs=2.482&eff=84.444&ioe=0.817`
+  and
+  `/_event?v=1&e=game&p=<player>&s=<page load>&n=3&t=112&pg=%2F&m=expert%3Astandard%3Apink-noise&r=win&d=98.765&w=30&h=16&mines=99&g_alpha=1.5&g_scale=8&g_contrast=2&g_stretch=-1.5&just=1&bbbv=181&clicks=230&flags=85&bbbvs=1.833&eff=78.696&ioe=0.757`.
 - `tests/play-statistics-test.js` checks that every page loads the module
   under one tag and that local, test, and Pages origins send nothing. It
-  runs the real deferral chain and `reportResult` for three games (Expert
-  Standard win, custom Single-path NG loss, Endgame drill win). Each sends
-  exactly one event, after the record is saved, with the exact fields and
-  encoded URL; a second flush, the fallback timer, and the analysis answer
-  send nothing more. It also checks that the four subpage finish points send
-  once, only after the save completes.
+  runs the real deferral chain and `reportResult` for four games (Expert
+  Standard win, pink-noise Expert Standard win, custom Single-path NG loss,
+  Endgame drill win with blue noise). Each sends exactly one event, after
+  the record is saved, with the exact fields and encoded URL; a second
+  flush, the fallback timer, and the analysis answer send nothing more. For
+  the largest custom board `validCustomBoard` accepts, with every play mode
+  and generator, `m` must be one token and every field one the module
+  sends, at most 24 of them. It also checks that the four subpage finish
+  points send once, only after the save completes.
 - The hosted pings need Fuseki's `/_event` location (fuseki4_ai
   `setup/nginx/minesweeper-friendly.conf`). Before it serves, they get 404
   responses, which the module ignores but browsers list as failed requests
