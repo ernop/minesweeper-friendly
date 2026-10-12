@@ -2992,6 +2992,11 @@ body.settings-page .return-to-game {
    chart's line swatch; likely-misclick rows sit under a rule because they
    recount losses already filed above. */
 .session-summary-losses { margin-top: 6px; }
+/* A size's count starts its pair (count, then that size's share). */
+.session-summary-losses .session-summary-size {
+  border-left: 1px solid #000000;
+  padding-left: 8px;
+}
 .session-summary-loss .end-swatch {
   margin-right: 4px;
   padding: 0;

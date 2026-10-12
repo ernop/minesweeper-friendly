@@ -337,6 +337,11 @@ const { chromium } = require(process.argv[2]);
         };
       };
       const hour = read();
+      const savedHistory = history;
+      history = { '9x9/10@standard': savedHistory['9x9/10@standard'] };
+      resultRanks.replaceChildren(buildSessionSummary(current, now));
+      const oneSize = read().losses;
+      history = savedHistory;
       document.getElementById('session-definition-select').value = 'past10min';
       document.getElementById('session-definition-select').dispatchEvent(new Event('change'));
       const short = read();
@@ -344,7 +349,7 @@ const { chromium } = require(process.argv[2]);
       resultRanks.replaceChildren(buildSessionSummary(current, now));
       const plain = [...resultRanks.querySelectorAll('.session-summary-head, .session-summary-row')]
         .map((row) => [...row.children].map((cell) => cell.textContent));
-      return { hour, short, plain };
+      return { hour, oneSize, short, plain };
     });
     assert.equal(sessionSummary.hour.heading, 'session', 'only the picker names the window');
     assert.deepEqual(sessionSummary.hour.head, ['board type', 'games', 'wins', 'win rate', 'best', 'lifetime rank',
@@ -359,11 +364,15 @@ const { chromium } = require(process.argv[2]);
     assert.equal(sessionSummary.hour.thisColor, THIS_GAME);
     assert(sessionSummary.hour.rowHeights.every((height) => height < 20), 'summary rows stay one line');
     assert.deepEqual(sessionSummary.hour.losses, [
+      ['loss type', 'Beginner', 'share', 'Expert', 'share'],
+      ['died: opened a mine proven by counting single numbers', '0', '0%', '1', '50%'],
+      ['died: unjudged', '1', '100%', '1', '50%'],
+      ['of these, likely misclick: left click on a proven mine under a second after a chord beside it lacked flags', '0', '0%', '1', '50%'],
+    ], 'losses split by the endings chart’s kinds and by board size; a size with no losses has no columns');
+    assert.deepEqual(sessionSummary.oneSize, [
       ['loss type', 'losses', 'share of losses'],
-      ['died: opened a mine proven by counting single numbers', '1', '33%'],
-      ['died: unjudged', '2', '67%'],
-      ['of these, likely misclick: left click on a proven mine under a second after a chord beside it lacked flags', '1', '33%'],
-    ], 'losses split by the endings chart’s kinds across board types, then the overlapping likely misclicks');
+      ['died: unjudged', '1', '100%'],
+    ], 'one board size keeps a single losses column');
     assert.deepEqual(sessionSummary.hour.swatches, ['rgb(109, 13, 13)', 'rgb(153, 153, 153)'],
       'each loss type carries its endings-chart line color');
     assert(sessionSummary.hour.lossesWithinSummary, 'the loss grid stays inside the summary');

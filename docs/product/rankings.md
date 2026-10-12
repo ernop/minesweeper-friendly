@@ -216,17 +216,25 @@ middle? that's okay."
   session's losses by loss type
   ([Game-end evaluation](game-end-evaluation.md), "Loss types"), filed
   exactly as the game endings chart files them and in its order, labels,
-  and line colors (a swatch leads each label). Columns: loss type, losses
-  (count across every board type in the window), and share of losses (a
-  nonzero share that rounds to 0% reads "<1%"). Only kinds that occurred
-  get a row. Under a rule follow the likely-misclick rows, one per reason
+  and line colors (a swatch leads each label). Columns: loss type, then a
+  count and a share for each main board size that lost a game in the window
+  — Beginner, Intermediate, Expert, and a custom size under its own label
+  ("Custom 20x20-60"). A mode or generator counts with its size, so Expert
+  and Pink noise Expert share the Expert columns (creator request
+  2026-10-12: "loss-type should be split by main game type (small, medium,
+  expert)"). Each share is of that size's losses; a nonzero share that
+  rounds to 0% reads "<1%". A size with no losses has no columns. When only
+  one size lost games, the columns stay "losses" and "share of losses".
+  Only kinds that occurred get a row. Under a rule follow the
+  likely-misclick rows, one per reason
   ("of these, likely misclick: adjacent wrong flag placed under a second
   before", "of these, likely misclick: left click on a proven mine under a
   second after a chord beside it lacked flags"); they recount losses
-  already filed above, so they never add to the total. A window without
+  already filed above, so they never add to the total, and they use the
+  same size columns. A window without
   losses says "no losses in session". The main grid already gives each
   board type's games, wins, and win rate, so the loss grid has no win row.
-  Board-type count columns were built first and dropped the same day: a
+  Per-key count columns were built first and dropped the same day: a
   generator's full name as a column header made the grid about 1,000 px
   wide. Gated by shownThings.sessionEndings ("session loss types", on by
   default), listed under Tables right after the summary's own switch.

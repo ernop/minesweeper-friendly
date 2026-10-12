@@ -800,6 +800,7 @@ function buildSessionSummary(record, referenceMs) {
     'Mean time, mean 3BV/s, and mean IOE average the session’s wins of that type, each over the wins that measured it, as game data defines them; for the board just played they are the session baseline for its time, 3BV/s, and IOE.',
     ...(settings.shownThings.sessionEndings ? [
       'Loss types split the session’s losses the way the game endings chart files them, with its colors. A proof named in a loss type is the easiest one that worked: counting single numbers, comparing overlapping numbers, or only whole-board reasoning.',
+      'When more than one board size lost a game, each size has its own count and its share of that size’s losses: Beginner, Intermediate, Expert, and a custom size under its own name. A different mode or generator counts with its size.',
       'The likely-misclick rows count losses whose fatal click was most likely a slip. They are already counted in a loss type above, so they never add to the total.',
     ] : []),
   ], 'session'));
@@ -869,16 +870,28 @@ function buildSessionSummary(record, referenceMs) {
   return box;
 }
 
-// The session's losses split by loss type across every board type, as the
-// endings chart counts them: one row per kind that occurred, in the chart's
-// order with its label and line color, with its count and share of the
-// session's losses. Board-type columns were tried first; a generator's full
-// name made a column header hundreds of pixels wide. The likely-misclick
-// rows follow under a rule; they count losses already filed above, so they
-// never add to the total.
+// The session's losses split by loss type, as the endings chart counts them:
+// one row per kind that occurred, in the chart's order with its label and
+// line color. When more than one board size lost a game, each size has its
+// own count and its share of that size's losses (Beginner, Intermediate,
+// Expert, or a custom size's label; a mode or generator counts with its
+// size). Per-key columns were tried first; a generator's full name made a
+// header hundreds of pixels wide. One size keeps a single losses column and
+// its share of those losses. The likely-misclick rows follow under a rule;
+// they count losses already filed above, so they never add to the total.
 function buildSessionSummaryLosses(rows) {
-  const losses = rows.reduce((sum, row) => sum + row.games - row.wins, 0);
-  if (losses === 0) {
+  const sizes = [];
+  for (const row of rows) {
+    if (row.games === row.wins) continue;
+    const label = sessionSummaryTypeParts(row).board;
+    let size = sizes.find((candidate) => candidate.label === label);
+    if (size === undefined) {
+      size = { label, rows: [] };
+      sizes.push(size);
+    }
+    size.rows.push(row);
+  }
+  if (sizes.length === 0) {
     const none = document.createElement('div');
     none.className = 'recent-placements-none';
     none.textContent = 'no losses in session';
@@ -888,9 +901,10 @@ function buildSessionSummaryLosses(rows) {
     && rows.some((row) => row.endings[spec.kind] !== undefined));
   const reasons = Object.keys(LIKELY_MISCLICK_REASON_LABELS)
     .filter((reason) => rows.some((row) => row.likelyMisclicks[reason] !== undefined));
+  const split = sizes.length > 1;
   const grid = document.createElement('div');
   grid.className = 'session-summary-grid session-summary-losses';
-  grid.style.gridTemplateColumns = 'repeat(3, auto)';
+  grid.style.gridTemplateColumns = 'repeat(' + (1 + sizes.length * 2) + ', auto)';
   const cell = (className, text) => {
     const node = document.createElement('span');
     node.className = className;
@@ -904,15 +918,22 @@ function buildSessionSummaryLosses(rows) {
     grid.appendChild(node);
   };
   // A share that rounds to 0% still names a loss, so it reads "<1%".
-  const share = (count) => {
-    const percent = Math.round(100 * count / losses);
-    return percent === 0 ? '<1%' : percent + '%';
+  const shareText = (count, total) => {
+    const percent = Math.round(100 * count / total);
+    return count > 0 && percent === 0 ? '<1%' : percent + '%';
   };
-  const countCells = (countOf) => {
-    const total = rows.reduce((sum, row) => sum + countOf(row), 0);
-    return [cell('session-summary-number', String(total)), cell('session-summary-number', share(total))];
-  };
-  line('session-summary-head', ['loss type', 'losses', 'share of losses'].map((text) => cell('', text)));
+  const countIn = (size, countOf) => size.rows.reduce((sum, row) => sum + countOf(row), 0);
+  const sizeLosses = (size) => size.rows.reduce((sum, row) => sum + row.games - row.wins, 0);
+  const countCells = (countOf) => sizes.flatMap((size) => {
+    const count = countIn(size, countOf);
+    return [cell('session-summary-number' + (split ? ' session-summary-size' : ''), String(count)),
+      cell('session-summary-number', shareText(count, sizeLosses(size)))];
+  });
+  line('session-summary-head', [cell('', 'loss type'), ...sizes.flatMap((size) => {
+    const countHead = cell('', split ? size.label : 'losses');
+    if (split) countHead.classList.add('session-summary-size');
+    return [countHead, cell('', split ? 'share' : 'share of losses')];
+  })]);
   for (const spec of lossSpecs) {
     const label = cell('session-summary-loss', '');
     const swatch = cell('end-swatch', '');

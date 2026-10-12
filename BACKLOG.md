@@ -140,11 +140,6 @@ Open:
   move from a missed whole-board deduction when the guess happened to
   survive. The measurement would be the one losses get (the creator's 1,257
   saved losses took about 0.2 s together).
-- **Per-board-type loss counts.** The loss grid is session-wide. Board-type
-  columns were dropped because a generator's full name made a header about
-  1,000 px wide; a per-type view needs short type names or one grid per
-  type.
-
 ## Switching between marking and clicking (creator, 2026-09-28)
 
 The creator asked for a performance stat on switching between marking and

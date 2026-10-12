@@ -129,11 +129,15 @@ Spec: [docs/product/rankings.md](../product/rankings.md). Index: [AGENTS.md](../
   as the session backfill files it, so they sum to `games`) and
   `likelyMisclicks` (losses per `likelyMisclickReasonsOf` reason). The span
   calls the verdict functions at run time, so its test loads the verdict
-  span and justice.js. `buildSessionSummaryLosses(rows)` sums them across
-  rows into `.session-summary-losses` under the main grid (three columns;
-  kinds in SESSION_END_SPECS order with the spec's label and swatch, then
-  the reasons in LIKELY_MISCLICK_REASON_LABELS order under
-  `.session-summary-misclick-first`), gated by shownThings.sessionEndings.
+  span and justice.js. `buildSessionSummaryLosses(rows)` groups rows by
+  `sessionSummaryTypeParts(row).board` (sizes with no losses omitted) into
+  `.session-summary-losses` under the main grid. One size: loss type,
+  losses, share of losses. More than one: loss type, then that size's name
+  and "share" per size, with `.session-summary-size` on each count column.
+  Kinds follow SESSION_END_SPECS order with the spec's label and swatch,
+  then the reasons in LIKELY_MISCLICK_REASON_LABELS order under
+  `.session-summary-misclick-first`. Each share divides by that size's
+  losses. Gated by shownThings.sessionEndings.
   `lossTypeOf` memoizes per evaluation object (a WeakMap), so rebuilding the
   summary after each game classifies only the new loss.
   `node tests/recent-placements-test.js` freezes the formatting and
