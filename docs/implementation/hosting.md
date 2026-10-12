@@ -66,6 +66,50 @@ Specification: [public hosting](../product/hosting.md).
   `tests/hosting-http-check.py` also requires the deliberate forbidden-file
   and symlink fixtures described in the host review.
 
+## Play statistics (2026-10-11)
+
+Specification: [Play statistics](../product/hosting.md#play-statistics).
+
+- `fuseki-stats.js` is fuseki4_ai's `setup/apps/fuseki-stats.js`, copied
+  byte for byte (sha256 `8401cc4aa487031fdd58513e532d29973fa0159e65f823de01415fca37bef30f`
+  on 2026-10-11, when that file was not yet committed there). Never edit it
+  here: copy the canonical file again and confirm with `cmp`. It sends only on
+  `minesweeper-friendly.fuseki.net`, to `/_event`; on any other host its
+  `game` and `engaged` do nothing and it installs no listener or timer.
+- Every root page loads it with one shared `?v=` tag: `index.html` deferred,
+  just before the `game/` scripts (`game/main.js` stays last); the other
+  pages as their first body script. It is in `deploy/runtime-files.json`.
+  Fuseki's receiver policy for this app already accepts root `.js` files.
+- Game page: `reportResult` (`game/results.js`) calls
+  `FusekiStats.game(playStatisticsFields(record))` right after
+  `appendGameRecord`. `flushPendingResult` clears the pending outcome before
+  calling `reportResult`, so a game is finalized once, and nothing else calls
+  the module. `playStatisticsFields` reads only the record, `config`, and
+  `gameGenerator`: `difficultyNameOf` (shared with `boardDisplayLabelOf`)
+  names the level, `generatorAppliesToMode` decides `gen`, and
+  `shownMeasurement` (shared with the result screen's `measurementRow`)
+  supplies 3BV/s, efficiency, and IOE where the result screen shows them.
+- Subpages: `problems-page.js` `reportPlayStatistics` runs on transaction
+  completion in `finishAttempt`, `finishDrillAttempt`, and `finishPointing`;
+  `self-check-page.js` `finishVigilance` sends on its transaction completion.
+- Each call is `try { if (window.FusekiStats) ... } catch (error) {
+  console.error(error); }`; these are the runtime's only `console.error`
+  calls.
+- An Expert win sends, for example:
+  `/_event?v=1&e=game&p=<player>&s=<page load>&n=2&t=74&pg=%2F&m=expert&r=win&d=61.234&w=30&h=16&mines=99&pm=standard&gen=uniform&just=1&bbbv=152&clicks=180&flags=70&bbbvs=2.482&eff=84.444&ioe=0.817`.
+- `tests/play-statistics-test.js` checks that every page loads the module
+  under one tag and that local, test, and Pages origins send nothing. It
+  runs the real deferral chain and `reportResult` for three games (Expert
+  Standard win, custom Single-path NG loss, Endgame drill win). Each sends
+  exactly one event, after the record is saved, with the exact fields and
+  encoded URL; a second flush, the fallback timer, and the analysis answer
+  send nothing more. It also checks that the four subpage finish points send
+  once, only after the save completes.
+- The hosted pings need Fuseki's `/_event` location (fuseki4_ai
+  `setup/nginx/minesweeper-friendly.conf`). Before it serves, they get 404
+  responses, which the module ignores but browsers list as failed requests
+  and the vhost access log records. Release this after the location is live.
+
 ## Launch status
 
 The dedicated server account, root-owned receiver, SSH restrictions, and

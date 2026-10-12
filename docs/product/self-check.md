@@ -36,7 +36,10 @@ code is gone; the one check saved with it is deleted.
    the instructions stores nothing.
 4. **Test.** Only the black test box is shown; the titlebar, heading, history,
    and backup are hidden so nothing can be clicked by accident and no other
-   page work competes with stimulus frames.
+   page work competes with stimulus frames. On the hosted site the
+   [play statistics](hosting.md#play-statistics) module still notes the time
+   of each input and adds up active time every 5 seconds, a few arithmetic
+   steps; local origins run none of it.
 5. **Result.** A complete test shows median reaction, response speed, lapses,
    false starts, and stimuli, beside the median of up to 10 earlier complete
    routine 10-counter checks when any exist. An extra check is compared with

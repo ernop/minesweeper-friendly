@@ -140,7 +140,9 @@ Spec: [docs/product/storage-and-history.md](../product/storage-and-history.md). 
   `#format-panel` (toggled by `#format-btn`) is the data-format reference
   card, generated at init by `buildFormatPanel` from `GAME_RECORD_SCHEMA`
   and `DIFFICULTIES` — the same schema `importHistory` validates against —
-  so the card, the validator, and the writer cannot drift apart.
+  so the card, the validator, and the writer cannot drift apart. Its last
+  paragraph, `statisticsNote`, is the fixed play-statistics disclosure
+  ([hosting](hosting.md#play-statistics-2026-10-11)).
 - Archive folder ([Archive folder](../product/storage-and-history.md#archive-folder-creator-direction-2026-09-26)):
   - `archive.js` (page side; loaded by index.html, settings.html, and
     self-check.html right after `storage.js`/`observation-context.js`):

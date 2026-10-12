@@ -220,7 +220,8 @@ These remain in the [lifelong self-measurement roadmap](../../BACKLOG.md#lifelon
   with example values and units, plus the note that every other displayed
   stat is derived from them at display time. The card is generated from
   the same field definitions the importer validates against, so it cannot
-  lie about the real format.
+  lie about the real format. Its last line states which play statistics the
+  hosted site records ([Play statistics](hosting.md#play-statistics)).
 
 ## Archive folder (creator direction, 2026-09-26)
 

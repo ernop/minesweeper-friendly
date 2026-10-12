@@ -292,6 +292,12 @@ saved browser data and deliberate authenticated Articles integration.
 Nectaris Remake is requested for later: prepare the same deployment contract,
 then audit its runtime artifact and origin requirements before launch.
 
+[Play statistics](docs/product/hosting.md#play-statistics) (creator decision
+2026-10-11) are committed but not released, because Fuseki's `/_event`
+location for this host was not live yet. Any master push releases them, so
+push only after that location answers 204; until then the hosted pings get 404
+responses. Delete this paragraph once they are released.
+
 Generic multi-project hosting gaps are tracked in
 [Fuseki's roadmap](https://github.com/ernop/fuseki4_ai/blob/master/docs/todo.md#independent-apps-2026-09-26).
 (Music detection is local-only since 2026-09-26; see

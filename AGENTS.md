@@ -41,6 +41,13 @@ changes together: a stale copy would open an older database version and fail
 (`tests/storage-cache-tag-test.js` enforces it). Every file a page or worker
 loads must be listed in `deploy/runtime-files.json`, or the hosted release
 breaks; `python3 tests/hosting-release-test.py` fails on a missing one.
+Every page also loads `fuseki-stats.js`, Fuseki's play-statistics module,
+copied byte for byte from fuseki4_ai `setup/apps/fuseki-stats.js`; never edit
+it here. On the game page it loads deferred, just before the `game/` scripts.
+Calls to it log a failure to the console instead of raising it, a deliberate
+exception to the Anti-Fallback Principle below: statistics must never
+interrupt play (creator decision 2026-10-11;
+[Play statistics](docs/product/hosting.md#play-statistics)).
 The training page is `training.html` + `training-page.js`, loading
 `style.css`, `training.css`, and `storage.js`; `training-worker.js` reads the
 saved games and runs the pure `training-core.js` with `justice.js`,
@@ -153,7 +160,7 @@ the file path, plus the section heading when the file holds several.
 
 | Area | Product spec | Implementation notes |
 | --- | --- | --- |
-| Public hosting and deployment | [docs/product/hosting.md](docs/product/hosting.md) | [docs/implementation/hosting.md](docs/implementation/hosting.md) |
+| Public hosting and deployment, play statistics | [docs/product/hosting.md](docs/product/hosting.md) | [docs/implementation/hosting.md](docs/implementation/hosting.md) |
 | Friendliness axis, solver tiers | [docs/product/design-axis.md](docs/product/design-axis.md) | none |
 | UI doctrine (read before any UI work) | [docs/product/ui-doctrine.md](docs/product/ui-doctrine.md) | none |
 | Board chrome, page layout, board position | [docs/product/board-and-layout.md](docs/product/board-and-layout.md) | [docs/implementation/board-and-layout.md](docs/implementation/board-and-layout.md) |

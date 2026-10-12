@@ -11,6 +11,7 @@
   "board-shape.js",
   "endgame.js",
   "favicon.svg",
+  "fuseki-stats.js",
   "game-data.js",
   "game/backup.js",
   "game/charts.js",

@@ -49,6 +49,18 @@ function showFailure(message) {
   throw new Error(message);
 }
 
+// One saved attempt or run as fuseki-stats.js game fields
+// (docs/product/hosting.md, "Play statistics"). Play statistics must never
+// interrupt the page (creator decision 2026-10-11): a failure is logged,
+// never raised.
+function reportPlayStatistics(mode, outcome, startT, endT) {
+  try {
+    if (window.FusekiStats) window.FusekiStats.game({ m: mode, r: outcome, d: (endT - startT) / 1000 });
+  } catch (error) {
+    console.error(error);
+  }
+}
+
 function requestResult(request, what) {
   return new Promise((resolve, reject) => {
     request.onsuccess = () => resolve(request.result);
@@ -703,6 +715,7 @@ function finishAttempt(outcome, endT) {
   tx.oncomplete = () => {
     attempts.push(attempt);
     run.results.push(attempt);
+    reportPlayStatistics('problem', outcome, attempt.startT, endT);
     if (outcome === 'abandoned') renderSummary();
     else renderResult(attempt);
   };
@@ -839,6 +852,7 @@ function finishDrillAttempt(outcome, endT) {
   tx.oncomplete = () => {
     drillAttempts.push(attempt);
     run.results.push(attempt);
+    reportPlayStatistics('last-flag-drill', outcome, attempt.startT, endT);
     if (outcome === 'abandoned') renderSummary();
     else renderDrillResult(attempt);
   };
@@ -987,6 +1001,7 @@ function finishPointing(outcome, endT) {
   tx.onerror = () => showFailure('pointing run not saved: ' + tx.error);
   tx.oncomplete = () => {
     pointingRuns.push(record);
+    reportPlayStatistics('pointing-test', outcome, record.startT, endT);
     if (outcome === 'complete') renderPointingResult(record);
     else renderHome();
   };

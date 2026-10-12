@@ -89,6 +89,13 @@ function reportResult(outcome, endedAt = Date.now()) {
     pregenBatch.results.push({ run: pregenCurrent.rank, record });
   }
   const modeRecords = appendGameRecord(record);
+  // Play statistics must never interrupt a game's end (creator decision
+  // 2026-10-11): a failure is logged, never raised.
+  try {
+    if (window.FusekiStats) window.FusekiStats.game(playStatisticsFields(record));
+  } catch (error) {
+    console.error(error);
+  }
   renderPregenCharts();
   if (Trial.isPlayMode(settings.playMode) && trialIsActive() && trialPresentation !== null) {
     Trial.recordResult(trialSession, {
@@ -142,6 +149,36 @@ function reportResult(outcome, endedAt = Date.now()) {
     boardState.status = 'error'; boardState.error = error.message;
     analysisFailure(error);
   });
+}
+
+// The finished game as fuseki-stats.js game fields, sent once from
+// reportResult (docs/product/hosting.md, "Play statistics"). Only facts the
+// record and the board already hold; a measurement is present exactly where
+// the result screen shows it.
+function playStatisticsFields(record) {
+  const difficulty = difficultyNameOf(config);
+  const measured = (key, id, scale = 1) => {
+    const value = shownMeasurement(record, id);
+    return value === undefined ? {} : { [key]: value * scale };
+  };
+  return {
+    m: difficulty === undefined
+      ? 'custom-' + config.width + 'x' + config.height + '-' + config.mines : difficulty,
+    r: record.outcome,
+    d: record.timeMs / 1000,
+    w: config.width,
+    h: config.height,
+    mines: config.mines,
+    pm: record.playMode,
+    ...(generatorAppliesToMode(record.playMode) ? { gen: gameGenerator.id } : {}),
+    just: record.justiceEnabled,
+    bbbv: record.bv3,
+    clicks: record.clicks,
+    flags: record.flagsPlaced,
+    ...measured('bbbvs', 'bvPerSecond'),
+    ...measured('eff', 'efficiency', 100),
+    ...measured('ioe', 'ioe'),
+  };
 }
 
 // The result currently on screen ({record, modeRecords}), kept so a
@@ -628,15 +665,17 @@ function difficultyDisplayName(name) {
   return name.charAt(0).toUpperCase() + name.slice(1);
 }
 
+// The named difficulty with exactly these board parameters; undefined for a
+// custom board.
+function difficultyNameOf(params) {
+  return Object.keys(DIFFICULTIES).find((name) => DIFFICULTIES[name].width === params.width
+    && DIFFICULTIES[name].height === params.height && DIFFICULTIES[name].mines === params.mines);
+}
+
 function boardDisplayLabelOf(params) {
-  let board = 'Custom ' + params.width + 'x' + params.height + '-' + params.mines;
-  for (const [name, d] of Object.entries(DIFFICULTIES)) {
-    if (d.width === params.width && d.height === params.height && d.mines === params.mines) {
-      board = difficultyDisplayName(name);
-      break;
-    }
-  }
-  return board;
+  const name = difficultyNameOf(params);
+  return name === undefined
+    ? 'Custom ' + params.width + 'x' + params.height + '-' + params.mines : difficultyDisplayName(name);
 }
 
 function boardDisplayLabel() {
@@ -675,6 +714,16 @@ function setResultSummary(lead, generatorLabel, when) {
   whenNode.className = 'result-summary-when';
   whenNode.textContent = when;
   resultSummary.replaceChildren(leadNode, ' ', context, '\n', whenNode);
+}
+
+// A game data measurement of this record as the result screen shows it: only
+// on wins unless it is defined for every outcome (a lost board's 3BV is the
+// whole board's, which would flatter a short loss); undefined where it is not
+// shown.
+function shownMeasurement(record, id) {
+  const metric = GameData.metrics.find((item) => item.id === id);
+  const value = metric.value(record, config);
+  return (metric.allOutcomes || record.outcome === 'win') && Number.isFinite(value) ? value : undefined;
 }
 
 function renderResult(record, modeRecords, options = {}) {
@@ -729,14 +778,12 @@ async function renderResultAsync(record, modeRecords, options = {}) {
   }
   const statsGrid = document.createElement('div');
   statsGrid.id = 'stats-grid';
-  // A game data measurement shows under its game data name and format, and,
-  // as there, only on wins unless it is defined for every outcome: a lost
-  // board's 3BV is the whole board's, which would flatter a short loss.
+  // A game data measurement shows under its game data name and format.
   const measurementRow = (id) => {
     const metric = GameData.metrics.find((item) => item.id === id);
-    const value = metric.value(record, config);
-    return (metric.allOutcomes || record.outcome === 'win') && Number.isFinite(value)
-      ? [[metric.name[0].toUpperCase() + metric.name.slice(1), metric.format(value)]] : [];
+    const value = shownMeasurement(record, id);
+    return value === undefined
+      ? [] : [[metric.name[0].toUpperCase() + metric.name.slice(1), metric.format(value)]];
   };
   // "Clicks over 3BV" only exists for wins: a lost board was never
   // finished, so the subtraction means nothing.

@@ -318,3 +318,6 @@ The game is live at `https://minesweeper-friendly.fuseki.net/`. Every push to
 master is tested and then released there. `https://ernop.github.io/minesweeper-friendly/`
 redirects to that origin. [Hosting status and deployment](docs/implementation/hosting.md)
 explains the runtime-only artifact, restricted upload account, and tests.
+The hosted site records [play statistics](docs/product/hosting.md#play-statistics)
+(a random player number, active time, and game results) on its own server;
+local copies send nothing.

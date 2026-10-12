@@ -312,6 +312,16 @@ function finishVigilance(status, endT) {
   tx.onerror = () => storageFailure('self-check not saved: ' + tx.error);
   tx.oncomplete = () => {
     selfChecks.push(check);
+    // Play statistics (docs/product/hosting.md) carry only the test's status
+    // and duration, never its answers or measurements, and must never
+    // interrupt the page (creator decision 2026-10-11).
+    try {
+      if (window.FusekiStats) {
+        window.FusekiStats.game({ m: 'self-check', r: status, d: (endT - run.startT) / 1000 });
+      }
+    } catch (error) {
+      console.error(error);
+    }
     renderSelfCheckHistory();
     showSelfCheckResult(check);
     // Queued while still suspended, so release runs exactly one sync.

@@ -46,8 +46,8 @@ you pick.
 - Chording, press preview, and flag counting exactly as the classics did it
 - Times to the millisecond, 3BV, 3BV/s, clicks, efficiency — even how far
   your mouse traveled
-- Nothing to install, no account, no server: your scores live in your browser
-  and load instantly
+- Nothing to install, no account: your scores live in your browser and load
+  instantly
 
 Beginner, Intermediate, Expert, and fully custom boards. Zoom to taste.
 

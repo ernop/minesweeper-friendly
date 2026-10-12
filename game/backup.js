@@ -223,5 +223,9 @@ function buildFormatPanel() {
     + 'Everything else on the win screen (3BV/s, clicks over 3BV, efficiency, correctness, '
     + 'throughput, IOS, mouse speed, path per click, path per 3BV, every rank and chart) is '
     + 'recomputed from them at display time.';
-  recordBlock.append(table, recordNote);
+  const statisticsNote = document.createElement('p');
+  statisticsNote.textContent = 'On minesweeper-friendly.fuseki.net, play statistics \u2014 a random player '
+    + 'number, active time, and game results such as level, time and 3BV/s \u2014 are recorded on the '
+    + 'site\u2019s server.';
+  recordBlock.append(table, recordNote, statisticsNote);
 }

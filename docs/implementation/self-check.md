@@ -31,7 +31,9 @@ Spec: [docs/product/self-check.md](../product/self-check.md).
     window `blur`, and `pagehide`.
   - `finishVigilance(status, endT)` builds the record, validates it (failure
     is a visible error), and `add`s it to the store. The result and history
-    render only after the transaction completes.
+    render only after the transaction completes, which also sends the
+    status and duration as play statistics
+    ([hosting](hosting.md#play-statistics-2026-10-11)).
   - `importSelfChecks` merges by `startedAt` in one transaction.
   - Archive (`archive.js`): `userdataReady` calls
     `loadArchive(renderSelfCheckArchive)`. `startVigilance` calls

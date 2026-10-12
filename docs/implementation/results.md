@@ -25,7 +25,9 @@ Spec: [docs/product/results.md](../product/results.md). Index: [AGENTS.md](../..
 - The label/value stats grid (losses, trials, history views) shows each
   GameData catalog measurement through `measurementRow(id)` in
   `renderResultAsync`: the catalog's name (first letter capitalized) and
-  format, and only on wins unless the metric is `allOutcomes` (2026-10-07).
+  format. `shownMeasurement(record, id)` decides whether it shows: only on
+  wins unless the metric is `allOutcomes` (2026-10-07), and only when finite.
+  The play-statistics fields use the same function.
   Rows without a catalog measurement (counts, board facts, chord share, flag
   rate, Justice, ledger facts) keep their own formatting.
 

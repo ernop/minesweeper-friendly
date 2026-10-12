@@ -68,6 +68,9 @@ Spec: [docs/product/problems.md](../product/problems.md).
   - `finishAttempt` builds and validates the record, `add`s it, and renders the
     result only after the transaction completes; `visibilitychange` to hidden
     and window `blur` interrupt a running attempt and restart a preview;
+  - `reportPlayStatistics` sends one play-statistics event on each saved
+    attempt or run, from `finishAttempt`, `finishDrillAttempt`, and
+    `finishPointing` ([hosting](hosting.md#play-statistics-2026-10-11));
   - `renderLadder` draws a ladder from `ladderLayout` (band with ticks, dots,
     SVG leaders, labels); `levelEntries` supplies the levels with enough
     corpus moves and names the rest;
