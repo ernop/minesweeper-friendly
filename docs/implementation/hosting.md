@@ -122,9 +122,8 @@ Specification: [Play statistics](../product/hosting.md#play-statistics).
   sends, at most 24 of them. It also checks that the four subpage finish
   points send once, only after the save completes.
 - The hosted pings need Fuseki's `/_event` location (fuseki4_ai
-  `setup/nginx/minesweeper-friendly.conf`). Before it serves, they get 404
-  responses, which the module ignores but browsers list as failed requests
-  and the vhost access log records. Release this after the location is live.
+  `setup/nginx/minesweeper-friendly.conf`), live since 2026-10-11. Without
+  it they get 404 responses, which the module ignores.
 
 ## Launch status
 
