@@ -8,6 +8,30 @@ leave new ideas only in chat.
 Status labels: **creator** = the creator asked for it; **mapped** = named
 on the design axis or in a research note, not requested as a build.
 
+## More daily play limits (proposed 2026-10-13 with the built ones)
+
+The creator asked "What else can you think of like this?" when requesting
+[daily play limits](docs/product/play-limits.md). Proposed, not requested
+as builds; each would join `PLAY_LIMIT_KINDS` under the same 4:00 day, two
+confirmations, and loosening lock:
+
+- **Breaks.** After N minutes of play, no new board for M minutes. Caps a
+  single sitting, which a daily total does not.
+- **Start time.** No board before a time of day (the morning counterpart of
+  the stop time), or allowed hours as one window.
+- **Losing streak stop.** After N losses in a row, done for the day (or for
+  a break): a stop against playing on tilt.
+- **Weekly totals.** Play time or games per week, for someone who wants a
+  long day sometimes but a bounded week.
+- **Wall-clock time on the page.** Time with the game open and visible,
+  including reviewing results between games; the built play time counts
+  only game time.
+- **Mode limits.** Games per play mode (trials, Endgame drill) or Custom.
+- **A warning before the limit.** The board's notice at, say, 5 minutes or
+  5 games left, so the last game is chosen rather than cut off.
+- **Archive the play spans.** They are the only record of abandoned boards'
+  time; the archive folder does not hold them yet.
+
 ## After-game self-evaluation review (creator request 2026-10-07; round 2 built the same day)
 
 The creator asked to rethink the after-game view around its questions: how

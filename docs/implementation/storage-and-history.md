@@ -3,7 +3,10 @@
 Spec: [docs/product/storage-and-history.md](../product/storage-and-history.md). Index: [AGENTS.md](../../AGENTS.md).
 
 - Storage ([Storage](../product/storage-and-history.md)): one IndexedDB database
-  (`minesweeper-friendly`, version 5), four stores. The version-5 upgrade
+  (`minesweeper-friendly`, version 6), five stores. The version-6 upgrade
+  creates `playSpans` (`PLAY_SPAN_STORE`, keyPath `startedAt`; read with
+  `readPlaySpansSince`, written with `persistPlaySpan`;
+  [play limits implementation](play-limits.md)). The version-5 upgrade
   checks `objectStoreNames` and creates `records` (moving userdata `history`
   into it) and/or `selfChecks` (`SELF_CHECK_STORE`, keyPath `startedAt`,
   [self-check implementation](self-check.md)), because each of the two
@@ -20,7 +23,7 @@ Spec: [docs/product/storage-and-history.md](../product/storage-and-history.md). 
   been declared — the open can otherwise race later deferred scripts;
   `readyState` cannot signal this because it is already interactive during
   defer execution). `userdata` holds one
-  entry per kind — 'settings' and 'trial'; retired 'states' and
+  entry per kind — 'settings', 'trial', and 'playLimits'; retired 'states' and
   'rankavgSort' keys remain readable for existing data (`USERDATA_KINDS`);
   `records` holds one game record per out-of-line key [history key,
   endedAt], so a key range reads one mode in play order; `traces` holds one entry per game. Userdata

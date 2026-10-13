@@ -5,11 +5,14 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
 ## Storage (decided 2026-08-20)
 
 - All persistent data lives in one IndexedDB database
-  (`minesweeper-friendly`, version 5) with four stores: `userdata`
-  (personal preferences and trial sessions — one entry per kind),
+  (`minesweeper-friendly`, version 6) with five stores: `userdata`
+  (personal preferences, trial sessions, and play limits — one entry per kind),
   `records` (one game record per finished game), `traces` (one entry per finished game),
-  and `selfChecks` (one record per [self-check](self-check.md), keyed by
-  `startedAt`).
+  `selfChecks` (one record per [self-check](self-check.md), keyed by
+  `startedAt`), and `playSpans` (version 6, 2026-10-13: one entry per board
+  put into play, finished or abandoned, keyed by `startedAt`, for
+  [daily play limits](play-limits.md); each tab writes only its own boards'
+  entries, so open tabs add up their play).
   Finishing a game writes only its own record (2026-09-26 input-latency
   review: the whole history had been one value, rewritten twice per game —
   160 MB for 6,407 games, about a second of blocked input each time). The

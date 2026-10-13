@@ -20,11 +20,13 @@ Runtime: `index.html` + `style.css` load `storage.js`; pure `rng.js` /
 `trend-fit.js` for exact slope selection; its switch-cost lane runs
 `switch-cost-worker.js`, which reads saved traces and runs the pure
 `switch-cost.js` with `training-core.js`, `justice.js`, `solver.js`, and
-`rng.js`); pure `switch-cost.js` (the page reads its constants); then the game page's own scripts in `game/` (below). No dependencies, no
+`rng.js`); pure `switch-cost.js` (the page reads its constants); the pure
+`play-limits.js` (daily play limits, after `settings-core.js`); then the game page's own scripts in `game/` (below). No dependencies, no
 build step. The settings page is
 `settings.html` + `settings-page.js`, loading the same `style.css`,
-`storage.js`, `generators.js`, `game-data.js`, and `settings-core.js` (both
-pages must load storage.js, game-data.js, and settings-core.js before their own script).
+`storage.js`, `generators.js`, `game-data.js`, `settings-core.js`, and
+`play-limits.js` (both pages must load storage.js, game-data.js,
+settings-core.js, and play-limits.js before their own script).
 The problems page is `problems.html` + `problems-page.js`, loading
 `style.css`, `problems.css`, `board-icons.js`, the pure `problems-core.js`,
 `problems-storage.js`, and the generated `problems-bank.json`; it keeps its own
@@ -83,6 +85,7 @@ Files, in load order:
 | `layout.js` | board position solver, wiring, and editor; zoom; docked columns; clearance |
 | `play.js` | top panel (LCDs, face), generator glue and Generator menu, new-game flow, reveal/flag/chord, win/loss, A just universe |
 | `play-modes.js` | Mode menu, mode predicates and labels; Pregen 10, Endgame drill, Board lab, trials on the live board |
+| `play-limits.js` | daily play limits: this tab's play spans, the closed-board gate and notice, the limits link |
 | `evaluation.js` | game-end evaluation: pure verdict model, live capture |
 | `results.js` | the saved record (`reportResult`), after-game report, result view, High scores view |
 | `history.js` | record version stamps and schema, per-mode history, mode keys, normalization, transfer cleaning |
@@ -179,6 +182,7 @@ the file path, plus the section heading when the file holds several.
 | Session stats | [docs/product/session-stats.md](docs/product/session-stats.md) | [docs/implementation/session-stats.md](docs/implementation/session-stats.md) |
 | Player states | [docs/product/player-states.md](docs/product/player-states.md) | [docs/implementation/player-states.md](docs/implementation/player-states.md) |
 | Personal settings | [docs/product/settings.md](docs/product/settings.md) | [docs/implementation/settings.md](docs/implementation/settings.md) |
+| Daily play limits (play time, games, games per level, stop time; 4:00 play day; two confirmations; 2-minute loosening lock) | [docs/product/play-limits.md](docs/product/play-limits.md) | [docs/implementation/play-limits.md](docs/implementation/play-limits.md) |
 | Storage, raw input traces, history, backup, archive folder | [docs/product/storage-and-history.md](docs/product/storage-and-history.md) | [docs/implementation/storage-and-history.md](docs/implementation/storage-and-history.md) |
 | Measurement purpose, lifelong self-measurement, offline analysis | [docs/product/measurement.md](docs/product/measurement.md) | [docs/implementation/offline-analysis.md](docs/implementation/offline-analysis.md) |
 | Self-check (frozen reference tests: sleepiness rating, alertness test) | [docs/product/self-check.md](docs/product/self-check.md) | [docs/implementation/self-check.md](docs/implementation/self-check.md) |

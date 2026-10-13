@@ -150,6 +150,10 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   `shownThings.sessionEndings` (default on, added 2026-10-11, "session loss
   types") — the summary's loss-type grid under it, split by board size when
   more than one size lost a game, listed under Tables right after the summary.
+- Daily limits (2026-10-13): the first panel on the page, "Daily limits",
+  holds the [daily play limits](play-limits.md). They are not schema
+  settings and do not save automatically: each change goes through two
+  confirmations, and preferences backup neither exports nor imports them.
 - New-player quiet start (decided 2026-09-26): someone arriving without a
   saved `showSessionStats` or `reportScope` gets session stats off and
   after-game action reports off (`none`). The left panel still shows the

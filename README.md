@@ -37,7 +37,15 @@ ever moves the board:
   games, your performance on one side and the board's traits on the other.
 - **Game details, far right.** Mode, generator, player states, settings,
   links to the self-check, training, and problems pages, replay, and the
-  game's outcome.
+  game's outcome. With a daily limit set, a link there shows today's use
+  against it.
+
+**Daily limits** (top of the settings page): play time, games, games per
+level, and a stop time, each per play day from 4:00 to 4:00. A reached
+limit lets the game in progress finish and closes the board until 4:00.
+Every change is confirmed twice, and raising or removing a limit works only
+before 2 minutes of play that day
+([spec](docs/product/play-limits.md)).
 
 On narrower windows game data moves into the details column, and below that
 the details open from a **Game details** button.
