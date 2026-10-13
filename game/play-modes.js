@@ -515,6 +515,7 @@ function endTrial(how) {
   lastTrialReview = trialSession;
   clearInterval(timerInterval);
   timerInterval = null;
+  playSpanEnd();
 }
 
 function abandonTrial() {

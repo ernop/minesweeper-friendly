@@ -159,7 +159,7 @@ assertEq('deferred record retains the actual game-end timestamp',
   const endAt = source.indexOf(endMarker, start);
   if (start < 0 || endAt < 0) throw new Error('page lifecycle handlers not found in game source');
   vm.runInNewContext(source.slice(start, endAt), { document, window, settings: null,
-    tracePageEvent: () => {},
+    tracePageEvent: () => {}, savePlaySpanProgress: () => {},
     flushPendingResult: () => { flushed++; }, cancelMetricsUpdate: () => {} });
   handlers.visibilitychange();
   assertEq('hiding the page flushes the pending record', flushed, 1);

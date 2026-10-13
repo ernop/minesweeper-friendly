@@ -46,6 +46,7 @@ document.addEventListener('visibilitychange', (event) => {
   tracePageEvent(event);
   if (document.visibilityState === 'hidden') {
     flushPendingResult();
+    savePlaySpanProgress();
     cancelMetricsUpdate();
   } else if (settings !== null) {
     scheduleMetricsUpdate({ elapsed: tracing(), session: true });
@@ -54,6 +55,7 @@ document.addEventListener('visibilitychange', (event) => {
 window.addEventListener('pagehide', (event) => {
   tracePageEvent(event);
   flushPendingResult();
+  savePlaySpanProgress();
 });
 window.addEventListener('pageshow', tracePageEvent);
 window.addEventListener('focus', tracePageEvent);
@@ -109,7 +111,7 @@ function flagCell(index) {
 }
 
 function rightPress(event) {
-  if (trialBlocksPlay() || boardLabActive()
+  if (trialBlocksPlay() || boardLabActive() || playLimitBlocksStart()
       || gameState === 'won' || gameState === 'lost') return;
   const index = cellIndexFromEvent(event);
   if (index === null) return;
@@ -153,7 +155,7 @@ boardElement.addEventListener('mousedown', (event) => {
     return;
   }
   if (event.button !== 0) return;
-  if (trialBlocksPlay() || boardLabActive()) return;
+  if (trialBlocksPlay() || boardLabActive() || playLimitBlocksStart()) return;
   if (gameState === 'won' || gameState === 'lost') return;
   const index = cellIndexFromEvent(event);
   if (index === null) return;
@@ -173,7 +175,7 @@ boardElement.addEventListener('mouseup', (event) => {
   if (event.button !== 0 || !leftDown) return;
   const index = cellIndexFromEvent(event);
   if (index === null) return;
-  if (trialBlocksPlay() || boardLabActive()
+  if (trialBlocksPlay() || boardLabActive() || playLimitBlocksStart()
       || gameState === 'won' || gameState === 'lost') return;
   // Logged before acting so a game-ending click is inside its own trace.
   const logged = traceEvent('lup', event, index);

@@ -320,6 +320,7 @@ function newGame() {
   // time played and the motion were real: close the session play interval
   // so the session stats keep them. Useful-press gaps never span games.
   sessionPlayEnd();
+  playSpanEnd();
   sessionLastUsefulPressAt = null;
   gameLastUsefulPressAt = null;
   gameFastclickGaps = [];
@@ -405,9 +406,12 @@ function newGame() {
   resultRanks.textContent = '';
   resultRanks.removeAttribute('aria-busy');
   syncResultClearance();
-  if (Trial.isPlayMode(settings.playMode) && trialIsActive()) setupTrialBoard();
+  // A reached limit closes the board before modes that deal an already
+  // opened board (and start its clock) get to deal it.
+  boardDealtClosed = reachedPlayLimitsNow().length > 0;
+  if (!boardDealtClosed && Trial.isPlayMode(settings.playMode) && trialIsActive()) setupTrialBoard();
   else trialPresentation = null;
-  if (pregenActive()) setupPregenBoard();
+  if (!boardDealtClosed && pregenActive()) setupPregenBoard();
   else pregenCurrent = null;
   if (boardLabActive()) buildLabBoard();
   if (endgameDrillActive()) setupEndgameDrill();
@@ -419,14 +423,17 @@ function newGame() {
   renderPregenCharts();
   syncLabChrome();
   syncGameSidebar();
+  renderPlayLimits();
 }
 
 //-------BOARD PLAY (timer, face, reveal, flag, chord, win, loss)-------
 
 function startTimer() {
   // Every transition into 'playing' passes through here, so this is the
-  // one place the session stats learn a game is actually in progress.
+  // one place the session stats and the daily play limits learn a game is
+  // actually in progress.
   sessionPlayBegin();
+  playSpanBegin();
   startTime = performance.now();
   let shownSeconds = -1;
   timerInterval = setInterval(() => {
@@ -477,7 +484,7 @@ function repaintRevealedCells() {
 }
 
 function revealCell(index) {
-  if (trialBlocksPlay()) return;
+  if (trialBlocksPlay() || playLimitBlocksStart()) return;
   const cell = cells[index];
   if (cell.revealed || cell.flagged) return;
 
@@ -639,7 +646,7 @@ function annotateLikelyMisclickDeath(evaluation) {
 
 // Returns whether the click changed anything (false on a revealed cell).
 function toggleFlag(index, evaluation) {
-  if (trialBlocksPlay()) return false;
+  if (trialBlocksPlay() || playLimitBlocksStart()) return false;
   const cell = cells[index];
   if (cell.revealed) return false;
   if (gameState === 'ready' && minesPlaced) {
@@ -783,6 +790,7 @@ function lose(hitIndices, evaluation) {
 
 function finish() {
   sessionPlayEnd();
+  playSpanEnd();
   finalTimeMs = elapsedMs();
   clearInterval(timerInterval);
   timerInterval = null;

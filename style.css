@@ -4136,3 +4136,159 @@ body.vigilance-running #self-check-header {
   flex-wrap: wrap;
   gap: 8px;
 }
+
+/*-------DAILY LIMITS (settings page panel and dialog, game page notice and link)-------*/
+
+/* One grid for the whole table so the today and limit columns align; each
+   row is one line, its cells carrying the row rule. */
+#play-limit-table {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) auto auto auto;
+  column-gap: 28px;
+}
+.play-limit-row { display: contents; }
+.play-limit-row > [role="cell"],
+.play-limit-row > [role="columnheader"] {
+  display: flex;
+  align-items: center;
+  min-height: 52px;
+  border-bottom: 1px solid #e8edf0;
+}
+.play-limit-head > [role="columnheader"] {
+  min-height: 0;
+  padding-bottom: 8px;
+  font-size: 13px;
+  font-weight: bold;
+  color: #000000;
+  justify-content: flex-end;
+}
+.play-limit-row:last-child > [role="cell"] { border-bottom: none; }
+.play-limit-used,
+.play-limit-value,
+.play-limit-none {
+  justify-content: flex-end;
+  color: #000000;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.play-limit-used { font-size: 20px; }
+.play-limit-value { font-size: 20px; font-weight: bold; }
+.play-limit-none { font-size: 14px; }
+.play-limit-row.reached .play-limit-used { color: #a40000; font-weight: bold; }
+.play-limit-actions {
+  justify-content: flex-end;
+  gap: 14px;
+  white-space: nowrap;
+}
+.play-limit-reached { color: #a40000; font-size: 13px; font-weight: bold; }
+.play-limit-lock { color: #000000; font-size: 13px; }
+
+#play-limit-table button,
+#play-limit-dialog button {
+  font: inherit;
+  font-size: 13px;
+  color: #000000;
+  background: #ffffff;
+  border: 1px solid #b9c8d2;
+  border-radius: 4px;
+  padding: 6px 14px;
+  cursor: pointer;
+}
+#play-limit-table button:hover,
+#play-limit-dialog button:hover { background: #e3edf6; }
+#play-limit-dialog button.primary {
+  border-color: #417ca4;
+  background: #edf5fa;
+  font-weight: bold;
+}
+
+#play-limit-dialog {
+  width: min(520px, calc(100vw - 32px));
+  box-sizing: border-box;
+  border: 1px solid #b9c8d2;
+  border-radius: 10px;
+  padding: 26px 28px;
+  color: #000000;
+  font-size: 14px;
+  line-height: 1.45;
+}
+#play-limit-dialog::backdrop { background: rgba(20, 34, 44, 0.45); }
+#play-limit-dialog h2 { margin: 0 0 14px; font-size: 20px; }
+#play-limit-dialog p { margin: 0 0 12px; }
+.play-limit-amount { font-weight: bold; font-variant-numeric: tabular-nums; }
+#play-limit-dialog .play-limit-amount { font-size: 17px; }
+.play-limit-field {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 0;
+  font-size: 15px;
+}
+.play-limit-field input {
+  width: 7em;
+  font: inherit;
+  font-size: 20px;
+  font-weight: bold;
+  font-variant-numeric: tabular-nums;
+  color: #000000;
+  padding: 4px 8px;
+  border: 1px solid #7ba3bc;
+  border-radius: 4px;
+}
+.play-limit-change { font-size: 20px; font-weight: bold; }
+.play-limit-warning { color: #a40000; font-weight: bold; }
+.play-limit-dialog-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+.play-limit-dialog-buttons.confirm-step { justify-content: space-between; }
+
+/* Covers the board and its top panel while no new board may start; the
+   frame keeps its size, so nothing around it moves. */
+#game-frame { position: relative; }
+#play-limit-closed {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px;
+  box-sizing: border-box;
+  background: var(--silver);
+  border: calc(var(--cell-size) / 8) solid;
+  border-color: var(--bevel-light) var(--bevel-dark) var(--bevel-dark) var(--bevel-light);
+  color: #000000;
+  font-size: 13px;
+  text-align: center;
+  overflow: hidden;
+}
+#play-limit-closed[hidden] { display: none; }
+#play-limit-closed p { margin: 0; }
+#play-limit-closed .play-limit-heading { font-size: 18px; font-weight: bold; }
+#play-limit-closed .play-limit-amount { font-size: 16px; }
+
+#play-limits-btn {
+  font: inherit;
+  font-size: 11px;
+  color: #000000;
+  background: #f7f9fb;
+  border: 1px solid #c5d0da;
+  border-radius: 3px;
+  padding: 3px 10px;
+  text-decoration: none;
+  font-variant-numeric: tabular-nums;
+}
+#play-limits-btn:hover { background: #e3edf6; }
+#play-limits-btn.reached {
+  color: #a40000;
+  font-weight: bold;
+  background: #fff5f5;
+  border-color: #c77;
+}
+#play-limits-btn[hidden] { display: none; }

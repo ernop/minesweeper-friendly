@@ -23,7 +23,277 @@ function userdataReady() {
     buildSettingsColumn();
     initPreferencesTransfer();
     loadArchive(renderArchiveSettings);
+    readPlaySpansSince(playDayStart(Date.now()), (spans) => initPlayLimits(got.playLimits, spans));
   });
+}
+
+//-------DAILY LIMITS (rules in play-limits.js)-------
+
+// Limits are their own userdata kind, outside SETTINGS_SCHEMA, so a
+// preferences import can never lift one. Each change goes through two
+// confirmations; the second checks the lock again at the moment it applies.
+let playLimits = null;
+const playSpans = new Map();
+const playLimitsChannel = new BroadcastChannel(PLAY_LIMITS_CHANNEL);
+const playLimitTable = document.getElementById('play-limit-table');
+const playLimitDialog = document.getElementById('play-limit-dialog');
+let playLimitChangeTimer = null;
+let playLimitEdit = null;  // { kind, step: 'edit' | 'confirm', value, error }
+
+function initPlayLimits(stored, spans) {
+  playLimits = playLimitsFrom(stored);
+  for (const span of spans) playSpans.set(span.startedAt, span);
+  playLimitsChannel.addEventListener('message', ({ data }) => {
+    if (data.span !== undefined) playSpans.set(data.span.startedAt, data.span);
+    if (data.limits !== undefined) playLimits = playLimitsFrom(data.limits);
+    renderPlayLimitTable();
+  });
+  renderPlayLimitTable();
+}
+
+function playDayUseNow() {
+  return playDayUse(playSpans.values(), Date.now());
+}
+
+function playLimitCell(className, text) {
+  const cell = document.createElement('span');
+  cell.className = className;
+  cell.setAttribute('role', 'cell');
+  cell.textContent = text;
+  return cell;
+}
+
+function playLimitLockText(lock) {
+  return lock === 'reached' ? 'reached, so locked until ' + PLAY_DAY_START_TEXT
+    : 'over ' + formatPlayLimitDuration(PLAY_LIMIT_LOOSEN_MAX_PLAYED_MS) + ' played today, so locked until '
+      + PLAY_DAY_START_TEXT;
+}
+
+function renderPlayLimitTable() {
+  const now = Date.now();
+  const use = playDayUse(playSpans.values(), now);
+  const head = document.createElement('div');
+  head.className = 'play-limit-row play-limit-head';
+  head.setAttribute('role', 'row');
+  for (const text of ['', 'today', 'limit', '']) {
+    const cell = playLimitCell('play-limit-column-name', text);
+    cell.setAttribute('role', 'columnheader');
+    head.appendChild(cell);
+  }
+  const rows = PLAY_LIMIT_KINDS.map((kind) => {
+    const row = document.createElement('div');
+    row.className = 'play-limit-row';
+    row.dataset.limit = kind.id;
+    row.setAttribute('role', 'row');
+    const set = Object.hasOwn(playLimits, kind.id);
+    const reached = set && playLimitReached(kind, playLimits[kind.id], use, now);
+    row.classList.toggle('reached', reached);
+    const name = playLimitCell('setting-name', kind.label);
+    name.title = kind.describe;
+    const used = playLimitCell('play-limit-used', formatPlayLimitUsed(kind, use));
+    const value = playLimitCell(set ? 'play-limit-value' : 'play-limit-none',
+      set ? formatPlayLimitValue(kind, playLimits[kind.id]) : 'none');
+    const actions = playLimitCell('play-limit-actions', '');
+    const lock = set ? playLimitLoosenLock(kind, playLimits, use, now) : null;
+    if (reached) {
+      const mark = document.createElement('span');
+      mark.className = 'play-limit-reached';
+      mark.textContent = 'reached';
+      actions.appendChild(mark);
+    }
+    if (lock !== null) {
+      const locked = document.createElement('span');
+      locked.className = 'play-limit-lock';
+      locked.textContent = 'locked until ' + PLAY_DAY_START_TEXT;
+      locked.title = (kind.type === 'clock' ? 'Making it later or removing it: ' : 'Raising or removing it: ')
+        + playLimitLockText(lock);
+      actions.appendChild(locked);
+    }
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = set ? 'Change' : 'Set';
+    button.addEventListener('click', () => openPlayLimitDialog(kind));
+    actions.appendChild(button);
+    row.append(name, used, value, actions);
+    return row;
+  });
+  playLimitTable.replaceChildren(head, ...rows);
+  clearTimeout(playLimitChangeTimer);
+  playLimitChangeTimer = setTimeout(renderPlayLimitTable, nextPlayLimitChange(playLimits, now) - now);
+}
+
+function openPlayLimitDialog(kind) {
+  const current = playLimits[kind.id];
+  playLimitEdit = { kind, step: 'edit', value: current, error: null };
+  renderPlayLimitDialog();
+  playLimitDialog.showModal();
+  const input = playLimitDialog.querySelector('input');
+  input.focus();
+  input.select();
+}
+
+function playLimitDialogButton(text, onClick, className) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.textContent = text;
+  if (className !== undefined) button.className = className;
+  button.addEventListener('click', onClick);
+  return button;
+}
+
+function playLimitChangeText(kind, value) {
+  if (value === undefined) return 'Remove the ' + kind.label + ' limit';
+  if (kind.type === 'clock') return 'No new games from ' + formatMinuteOfDay(value) + ' until ' + PLAY_DAY_START_TEXT;
+  if (kind.type === 'minutes') return formatPlayLimitMinutes(value) + ' of play time per day';
+  return value + ' ' + kind.label + ' per day';
+}
+
+function readPlayLimitInput(kind) {
+  const input = playLimitDialog.querySelector('input');
+  if (kind.type === 'clock') {
+    const match = /^(\d\d):(\d\d)$/.exec(input.value);
+    return match === null ? null : Number(match[1]) * 60 + Number(match[2]);
+  }
+  return input.value.trim() === '' ? null : Number(input.value);
+}
+
+// Refusal text for moving this limit from its current value to `value`, or
+// null when the change is allowed now.
+function playLimitChangeRefusal(kind, value) {
+  const current = playLimits[kind.id];
+  if (value === current) return 'That is the current limit.';
+  if (!playLimitLoosens(kind, current, value)) return null;
+  const lock = playLimitLoosenLock(kind, playLimits, playDayUseNow(), Date.now());
+  if (lock === null) return null;
+  return (value === undefined ? 'Removing' : kind.type === 'clock' ? 'Making it later' : 'Raising')
+    + ' is locked: ' + playLimitLockText(lock) + '.';
+}
+
+function proposePlayLimit(value) {
+  const { kind } = playLimitEdit;
+  const refusal = value === null || (value !== undefined && !validPlayLimitValue(kind, value))
+    ? (kind.type === 'clock' ? 'Enter a time of day.'
+      : 'Enter a whole number from 1 to '
+        + (kind.type === 'minutes' ? PLAY_LIMIT_MAX_MINUTES : PLAY_LIMIT_MAX_GAMES) + '.')
+    : playLimitChangeRefusal(kind, value);
+  playLimitEdit = refusal === null ? { kind, step: 'confirm', value, error: null }
+    : { kind, step: 'edit', value: value === null || value === undefined ? playLimitEdit.value : value,
+      error: refusal };
+  renderPlayLimitDialog();
+}
+
+function applyPlayLimit() {
+  const { kind, value } = playLimitEdit;
+  const refusal = playLimitChangeRefusal(kind, value);
+  if (refusal !== null) {
+    playLimitEdit = { kind, step: 'edit', value: playLimits[kind.id], error: refusal };
+    renderPlayLimitDialog();
+    return;
+  }
+  const next = { ...playLimits };
+  if (value === undefined) delete next[kind.id];
+  else next[kind.id] = value;
+  playLimits = next;
+  persistUserdata('playLimits', playLimits);
+  playLimitsChannel.postMessage({ limits: playLimits });
+  playLimitDialog.close();
+  renderPlayLimitTable();
+}
+
+function renderPlayLimitDialog() {
+  const { kind, step, value, error } = playLimitEdit;
+  const set = Object.hasOwn(playLimits, kind.id);
+  const title = document.createElement('h2');
+  title.id = 'play-limit-dialog-title';
+  const parts = [title];
+  const buttons = document.createElement('div');
+  buttons.className = 'play-limit-dialog-buttons';
+  if (step === 'edit') {
+    title.textContent = kind.type === 'clock' ? 'Stop time' : 'Daily ' + kind.label + ' limit';
+    const describe = document.createElement('p');
+    describe.textContent = kind.describe[0].toUpperCase() + kind.describe.slice(1) + '.';
+    parts.push(describe);
+    if (kind.type !== 'clock') {
+      const today = document.createElement('p');
+      const amount = document.createElement('span');
+      amount.className = 'play-limit-amount';
+      amount.textContent = formatPlayLimitUsed(kind, playDayUseNow());
+      today.append('Today: ', amount, kind.type === 'minutes' ? ' played' : ' ' + kind.label);
+      parts.push(today);
+    }
+    const field = document.createElement('label');
+    field.className = 'play-limit-field';
+    const input = document.createElement('input');
+    if (kind.type === 'clock') {
+      input.type = 'time';
+      input.step = '60';
+      input.value = value === undefined ? '23:00'
+        : String(Math.floor(value / 60)).padStart(2, '0') + ':' + String(value % 60).padStart(2, '0');
+      field.append('no new games from ', input, ' until ' + PLAY_DAY_START_TEXT);
+    } else {
+      input.type = 'number';
+      input.min = '1';
+      input.step = '1';
+      input.max = String(kind.type === 'minutes' ? PLAY_LIMIT_MAX_MINUTES : PLAY_LIMIT_MAX_GAMES);
+      input.value = value === undefined ? '' : String(value);
+      field.append(input, kind.type === 'minutes' ? ' minutes per day' : ' ' + kind.label + ' per day');
+    }
+    input.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter') return;
+      event.preventDefault();
+      proposePlayLimit(readPlayLimitInput(kind));
+    });
+    parts.push(field);
+    const rule = document.createElement('p');
+    rule.textContent = kind.type === 'clock'
+      ? 'Adding a stop time or making it earlier works any time. Making it later or removing it works only while the day\u2019s play is at most '
+        + formatPlayLimitDuration(PLAY_LIMIT_LOOSEN_MAX_PLAYED_MS) + ' and the stop time has not come.'
+      : 'Adding or lowering a limit works any time. Raising or removing it works only while the day\u2019s play is at most '
+        + formatPlayLimitDuration(PLAY_LIMIT_LOOSEN_MAX_PLAYED_MS) + ' and it is not reached.';
+    parts.push(rule);
+    const lock = set ? playLimitLoosenLock(kind, playLimits, playDayUseNow(), Date.now()) : null;
+    if (lock !== null && error === null) {
+      const locked = document.createElement('p');
+      locked.className = 'play-limit-warning';
+      locked.textContent = 'Today it can only be ' + (kind.type === 'clock' ? 'made earlier' : 'lowered')
+        + ': ' + playLimitLockText(lock) + '.';
+      parts.push(locked);
+    }
+    buttons.append(playLimitDialogButton('Cancel', () => playLimitDialog.close()));
+    if (set) buttons.append(playLimitDialogButton('Remove limit', () => proposePlayLimit(undefined)));
+    buttons.append(playLimitDialogButton('Continue', () => proposePlayLimit(readPlayLimitInput(kind)), 'primary'));
+  } else {
+    title.textContent = 'Confirm again';
+    const change = document.createElement('p');
+    change.className = 'play-limit-change';
+    change.textContent = playLimitChangeText(kind, value);
+    parts.push(change);
+    const now = Date.now();
+    if (value !== undefined && playLimitReached(kind, value, playDayUseNow(), now)) {
+      const reached = document.createElement('p');
+      reached.className = 'play-limit-warning';
+      reached.textContent = 'Already reached today: no new games until ' + PLAY_DAY_START_TEXT + '.';
+      parts.push(reached);
+    }
+    // The confirm button sits where the first step had Cancel, so a double
+    // click on Continue cannot confirm.
+    buttons.classList.add('confirm-step');
+    buttons.append(
+      playLimitDialogButton(value === undefined ? 'Remove limit' : 'Set limit', applyPlayLimit, 'primary'),
+      playLimitDialogButton('Back', () => {
+        playLimitEdit = { kind, step: 'edit', value, error: null };
+        renderPlayLimitDialog();
+      }));
+  }
+  if (error !== null) {
+    const problem = document.createElement('p');
+    problem.className = 'play-limit-warning';
+    problem.setAttribute('role', 'alert');
+    problem.textContent = error;
+    parts.push(problem);
+  }
+  parts.push(buttons);
+  playLimitDialog.replaceChildren(...parts);
 }
 
 //-------ARCHIVE FOLDER (see archive.js)-------
@@ -57,7 +327,7 @@ archiveNowButton.addEventListener('click', () => {
 
 // Esc returns to the game, like the ×/Esc on the old drawer did.
 document.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape') location.href = 'index.html';
+  if (event.key === 'Escape' && !playLimitDialog.open) location.href = 'index.html';
 });
 
 // A switch row is one wide click target: name on the left, the rare

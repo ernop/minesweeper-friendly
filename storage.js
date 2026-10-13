@@ -1,15 +1,17 @@
 'use strict';
 
-//-------PERSISTENT STORAGE (one IndexedDB database: userdata, records, traces, self-checks)-------
+//-------PERSISTENT STORAGE (one IndexedDB database: userdata, records, traces, self-checks, play spans)-------
 
 // Moved out of minesweeper.js on 2026-08-23 so settings.html opens the
 // same database through the same code (upgrade path included) instead of
 // duplicating it. All storage moved from localStorage into IndexedDB on
-// 2026-08-20. One database holds four stores: 'userdata' (settings,
-// rankavg sorts, player states, trial — one entry per kind), 'records'
-// (one entry per finished game, keyed [history key, endedAt]; since
-// 2026-09-26), 'traces' (see game/input-trace.js), and 'selfChecks' (one
-// record per self-check, see self-check-page.js; since 2026-09-26).
+// 2026-08-20. One database holds five stores: 'userdata' (settings,
+// rankavg sorts, player states, trial, play limits — one entry per kind),
+// 'records' (one entry per finished game, keyed [history key, endedAt];
+// since 2026-09-26), 'traces' (see game/input-trace.js), 'selfChecks' (one
+// record per self-check, see self-check-page.js; since 2026-09-26), and
+// 'playSpans' (one entry per board put into play, see play-limits.js; since
+// 2026-10-13).
 // Userdata and records are RAM-first: each page reads what it needs into
 // RAM once at startup,
 // all reads and mutations work on RAM synchronously, and each mutation
@@ -27,11 +29,15 @@ const DB_NAME = 'minesweeper-friendly';
 const TRACE_STORE = 'traces';
 const TRACE_BOARD_INDEX = 'boardsByModeAndSize';
 const USERDATA_STORE = 'userdata';
-const USERDATA_KINDS = ['settings', 'rankavgSort', 'states', 'trial'];
+const USERDATA_KINDS = ['settings', 'rankavgSort', 'states', 'trial', 'playLimits'];
 const RECORD_STORE = 'records';
 // Self-checks accumulate for decades, so each is its own record rather than
 // part of one userdata value rewritten on every save.
 const SELF_CHECK_STORE = 'selfChecks';
+// One entry per board put into play, finished or not (see play-limits.js).
+// Each tab writes only its own boards' entries, so two open game tabs add
+// up their play instead of overwriting each other's.
+const PLAY_SPAN_STORE = 'playSpans';
 
 let db = null;
 
@@ -45,7 +51,7 @@ const LEGACY_LOCALSTORAGE_KEYS = {
   states: 'minesweeper-friendly.states',
 };
 
-const dbRequest = indexedDB.open(DB_NAME, 5);
+const dbRequest = indexedDB.open(DB_NAME, 6);
 dbRequest.onupgradeneeded = (event) => {
   const upgraded = event.target.result;
   if (event.oldVersion < 1) upgraded.createObjectStore(TRACE_STORE, { keyPath: 'endedAt' });
@@ -99,6 +105,7 @@ dbRequest.onupgradeneeded = (event) => {
       upgraded.createObjectStore(SELF_CHECK_STORE, { keyPath: 'startedAt' });
     }
   }
+  if (event.oldVersion < 6) upgraded.createObjectStore(PLAY_SPAN_STORE, { keyPath: 'startedAt' });
 };
 // The open can complete between this script and the page's own script
 // (the open races the network fetch of the later deferred scripts). During
@@ -204,6 +211,23 @@ function persistGameRecordChanges(writes, deletions) {
   for (const [historyKey, endedAt] of deletions) store.delete([historyKey, endedAt]);
   for (const [historyKey, record] of writes) store.put(record, [historyKey, record.endedAt]);
   tx.onerror = () => storageFailure('game history save failed: ' + tx.error);
+  tx.commit();
+}
+
+// Reads the play spans that started at or after fromMs (one play day's).
+function readPlaySpansSince(fromMs, onLoaded) {
+  const tx = db.transaction(PLAY_SPAN_STORE);
+  tx.onerror = () => storageFailure('play time load failed: ' + tx.error);
+  const spans = tx.objectStore(PLAY_SPAN_STORE).getAll(IDBKeyRange.lowerBound(fromMs));
+  tx.oncomplete = () => onLoaded(spans.result);
+}
+
+// Persists one play span; a later call for the same board replaces it.
+function persistPlaySpan(span) {
+  if (db === null) storageFailure('play time not saved: database is not open');
+  const tx = db.transaction(PLAY_SPAN_STORE, 'readwrite');
+  tx.objectStore(PLAY_SPAN_STORE).put(span);
+  tx.onerror = () => storageFailure('play time save failed: ' + tx.error);
   tx.commit();
 }
 
