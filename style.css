@@ -4144,7 +4144,6 @@ body.vigilance-running #self-check-header {
 #play-limit-table {
   display: grid;
   grid-template-columns: minmax(140px, 1fr) auto auto auto;
-  column-gap: 28px;
 }
 .play-limit-row { display: contents; }
 .play-limit-row > [role="cell"],
@@ -4154,6 +4153,7 @@ body.vigilance-running #self-check-header {
   min-height: 52px;
   border-bottom: 1px solid #e8edf0;
 }
+.play-limit-row > :not(:first-child) { padding-left: 28px; }
 .play-limit-head > [role="columnheader"] {
   min-height: 0;
   padding-bottom: 8px;
