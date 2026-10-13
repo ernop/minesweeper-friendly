@@ -8,7 +8,7 @@ leave new ideas only in chat.
 Status labels: **creator** = the creator asked for it; **mapped** = named
 on the design axis or in a research note, not requested as a build.
 
-## More daily play limits (proposed 2026-10-13 with the built ones)
+## More daily play limits (proposed 2026-10-12 with the built ones)
 
 The creator asked "What else can you think of like this?" when requesting
 [daily play limits](docs/product/play-limits.md). Proposed, not requested

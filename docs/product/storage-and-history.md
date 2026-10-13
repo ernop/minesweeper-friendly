@@ -9,7 +9,7 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   (personal preferences, trial sessions, and play limits — one entry per kind),
   `records` (one game record per finished game), `traces` (one entry per finished game),
   `selfChecks` (one record per [self-check](self-check.md), keyed by
-  `startedAt`), and `playSpans` (version 6, 2026-10-13: one entry per board
+  `startedAt`), and `playSpans` (version 6, 2026-10-12: one entry per board
   put into play, finished or abandoned, keyed by `startedAt`, for
   [daily play limits](play-limits.md); each tab writes only its own boards'
   entries, so open tabs add up their play).

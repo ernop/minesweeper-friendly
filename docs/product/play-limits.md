@@ -1,4 +1,4 @@
-# Daily play limits (creator request 2026-10-13; built the same day)
+# Daily play limits (creator request 2026-10-12; built the same day)
 
 Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation notes: [docs/implementation/play-limits.md](../implementation/play-limits.md).
 
@@ -22,7 +22,7 @@ coherent and beautifully integrated way!"
   all games together.
 - A limit by wall-clock time.
 
-## Decisions (made while building, 2026-10-13; each open to the creator)
+## Decisions (made while building, 2026-10-12; each open to the creator)
 
 - **One play day for everything.** A play day runs from local 4:00 to the
   next local 4:00 (23 or 25 hours across a clock change). Every limit is per

@@ -11,7 +11,7 @@
 // since 2026-09-26), 'traces' (see game/input-trace.js), 'selfChecks' (one
 // record per self-check, see self-check-page.js; since 2026-09-26), and
 // 'playSpans' (one entry per board put into play, see play-limits.js; since
-// 2026-10-13).
+// 2026-10-12).
 // Userdata and records are RAM-first: each page reads what it needs into
 // RAM once at startup,
 // all reads and mutations work on RAM synchronously, and each mutation

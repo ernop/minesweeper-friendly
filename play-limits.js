@@ -2,7 +2,7 @@
 
 //-------DAILY PLAY LIMITS (pure; loaded by the game and settings pages)-------
 
-// Limits the player sets on their own play (requested 2026-10-13): game time,
+// Limits the player sets on their own play (requested 2026-10-12): game time,
 // games on every board, games per named level, and a stop time, all per play
 // day. A play day runs from 4:00 local time to the next 4:00, so late-night
 // play belongs to the evening it started in. Spec:
