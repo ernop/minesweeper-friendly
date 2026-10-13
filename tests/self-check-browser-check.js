@@ -134,12 +134,12 @@ async function answerStimulus(page, at) {
     const errors = [];
     page.on('pageerror', (error) => errors.push(error.message));
 
-    // Every pre-version-5 database ends with the same four stores: history in
+    // Every pre-version-5 database ends with the same five stores: history in
     // records, self-checks kept, nothing lost or duplicated.
     for (const layout of ['version-3', 'local-version-4', 'public-version-4']) {
       const state = await upgradedFrom(browser, layout);
-      assert.equal(state.version, 5, layout);
-      assert.deepEqual(state.stores, ['records', 'selfChecks', 'traces', 'userdata'], layout);
+      assert.equal(state.version, 6, layout);
+      assert.deepEqual(state.stores, ['playSpans', 'records', 'selfChecks', 'traces', 'userdata'], layout);
       assert.equal(state.userdataHistory, undefined, layout + ': history left userdata');
       assert.deepEqual(state.recordKeys, [['9x9/10@standard', 1]], layout);
       assert.deepEqual(state.records, [SEEDED_RECORD], layout);
