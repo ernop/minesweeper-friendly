@@ -7,13 +7,12 @@
 // result categories in BACKLOG.md, "Game results as one tree per board type".
 //
 //   node analysis/judgment/build-problems.js <history-export.json>
-//        [--out analysis/judgment/out/judgment-problems.json] [--survey]
+//        [--out analysis/judgment/judgment-problems.json] [--survey]
 //
 // --survey prints how many games each kind of problem could draw from and
 // writes nothing. Reads only saved records: every judged action keeps the
 // visible position before it, its risk facts, and its alternatives; clean
-// wins are rebuilt from their seed. The bank holds the player's own games,
-// so it is written under out/ (git-ignored) and never deployed.
+// wins are rebuilt from their seed.
 
 const fs = require('fs');
 const path = require('path');
@@ -30,7 +29,7 @@ if (args.length === 0 || args.includes('--help')) {
 const outAt = args.indexOf('--out');
 if (outAt !== -1 && outAt + 1 >= args.length) throw new Error('--out needs a value');
 const outPath = outAt === -1
-  ? path.join(__dirname, 'out', 'judgment-problems.json') : args[outAt + 1];
+  ? path.join(__dirname, 'judgment-problems.json') : args[outAt + 1];
 const survey = args.includes('--survey');
 const inputPath = args.find((arg, i) => !arg.startsWith('--') && (i === 0 || args[i - 1] !== '--out'));
 if (!inputPath) throw new Error('no history export path given');

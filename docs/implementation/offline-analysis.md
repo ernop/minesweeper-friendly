@@ -32,10 +32,11 @@ Spec: [docs/product/measurement.md](../product/measurement.md). Index: [AGENTS.m
   as one tree per board type"). Like the history summary it loads the
   VERDICT span with `justice.js`, and adds `odds.js`, `solver.js`, and
   `rng.js` for every covered square's mine chance, the recomputed one-step
-  model, and clean wins' final boards. The bank goes to
-  `analysis/judgment/out/` (ignored); neither it nor the page is a runtime
-  file. Answers stay in the browser's `minesweeper-judgments` IndexedDB until
-  exported; see `analysis/judgment/NOTES.md`.
+  model, and clean wins' final boards. The bank
+  (`analysis/judgment/judgment-problems.json`) and the creator's latest
+  exported answers (`judgment-answers.json`) are committed beside the page
+  (creator, 2026-10-14: the judgments are not private); neither the page nor
+  the bank is a runtime file. See `analysis/judgment/NOTES.md`.
 - `analysis/switch-cost/reference.py` (numpy, pandas, patsy; see
   `analysis/switch-cost/NOTES.md`) is the independent reference for the
   stats panel's switch cost ([Switching](../product/trace-metrics-panel.md#switching-creator-request-and-approval-2026-09-28)):

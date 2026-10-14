@@ -176,8 +176,9 @@ earlier choice), and quiz the creator on how the game should be judged. A won
 game where a safe and useful move was passed over for a guess is judged bad.
 At least 100 problems of every kind, then classify the answers "to truly
 discover the best possible way to evaluate and judge the result of the games
-someone starts". Built as a local research page, because the problems are the
-player's own games and stay out of the repository and the release:
+someone starts". Built as a local research page outside the release, with the
+problems and the creator's exported answers committed beside it (the creator:
+"its only me doing this and my minesweeper opinions are rather public"):
 `analysis/judgment/` ([notes](analysis/judgment/NOTES.md)), 163 problems of 45
 kinds from the 2026-10-11 export. Each asks for a rating of every shown move,
 the game's category, how much of the result came from the player's choices,

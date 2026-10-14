@@ -14,7 +14,7 @@ outcome (BACKLOG.md, "Game results as one tree per board type").
 
 ```
 node analysis/judgment/build-problems.js <minesweeper-friendly-history-*.json> \
-     [--out analysis/judgment/out/judgment-problems.json] [--survey]
+     [--out analysis/judgment/judgment-problems.json] [--survey]
 ```
 
 Then open `http://127.0.0.1:8018/analysis/judgment/judge.html` on the local
@@ -24,9 +24,13 @@ nothing. Node only, standard library plus the game's own `justice.js`,
 of `game/evaluation.js`. On the 2026-10-11 export (6,817 games with full
 evidence) a build takes about 3 s and writes 163 problems (1.1 MB).
 
-The bank holds the player's own games: `out/` is git-ignored, and neither the
-page nor the bank is in `deploy/runtime-files.json`, so the hosted site never
-serves them. The page fails with the build command when the bank is missing.
+The bank, `judgment-problems.json` beside the page, is committed: answers
+refer to its problems, so every version they were given against stays in git
+history (`bankId` names the version). The games and the creator's judgments
+are not private (creator, 2026-10-14: "its only me doing this and my
+minesweeper opinions are rather public"). Only the creator answers, so the
+page stays out of `deploy/runtime-files.json` and the hosted site. The page
+fails with the build command when the bank is missing.
 
 ## A problem
 
@@ -92,4 +96,6 @@ game, `<board key>|<endedAt>`, so they survive a rebuilt bank). Each record
 keeps the answer as first given before the analysis (`blind`) and as it stands
 (`answer`: `ratings` by move number, `category`, `share`, `note`). Export
 answers downloads `minesweeper-judgment-answers-<date>.json`
-(`format: 'minesweeper-judgment-answers'`, version 1) for analysis.
+(`format: 'minesweeper-judgment-answers'`, version 1). Every export holds all
+the answers so far, so the latest is committed as `judgment-answers.json`
+beside the bank, replacing the one before.

@@ -7,7 +7,7 @@
 
 //-------DEFINITIONS-------
 
-const BANK_URL = 'out/judgment-problems.json';
+const BANK_URL = 'judgment-problems.json';
 const BANK_FORMAT = 'minesweeper-judgment-problems';
 const BANK_FORMAT_VERSION = 1;
 const ANSWERS_DB = 'minesweeper-judgments';
