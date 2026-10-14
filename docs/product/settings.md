@@ -5,7 +5,7 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
 - The design doctrine (settled 2026-08-23 after several same-day
   revisions; the general rules it produced live in [UI doctrine](ui-doctrine.md)):
   settings live on their own full page, settings.html, reached from the
-  clear "settings" button in the game's upper-right; the way back is
+  clear "settings" button in the game's top bar, at the upper right; the way back is
   equally clear — "return to game" buttons at the top and bottom of the
   page body, Esc, or the browser's Back. The page stays focused on the
   settings themselves. A change shows its meaning where the thing itself
@@ -54,8 +54,9 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   highlights, and tooltips are transient input state, not preferences. File
   selections are applied immediately. An unfinished board still starts fresh
   on reload; saved Trial progress remains separate from personal preferences.
-- A "settings" button in the game's upper-right corner (the fixed
-  cluster it shares with the states tags, 2026-08-20; a real bordered
+- A "settings" button in the game's top bar at the upper right (since
+  2026-10-14; before that in the details column's cluster it shared with the
+  states tags, 2026-08-20; a real bordered
   button since 2026-08-23) is a plain link to settings.html (2026-08-23;
   before that it opened an in-page surface — first a small corner
   dropdown, then briefly a full-height right-edge drawer that same day).
@@ -130,8 +131,8 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   session diagnostics;
   `showSessionStats` (default off),
   `sessionLookbackSeconds` (default 300), and `sessionDefinition`
-  (default `today`, since local midnight; set only by the one picker in the
-  stats panel's session heading, never on the settings page) — visibility,
+  (default `today`, since local midnight; set only by the one session picker
+  in the game page's top bar, never on the settings page) — visibility,
   played-time grouping, and the shared
   wall-clock session window (see [Session stats](session-stats.md)); `metricsPanelWidth` (default 316, clamped 220–640; set
   by dragging the stats panel's right edge, not a panel checkbox) — the
@@ -147,17 +148,19 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   column (see [Game data](game-data.md)); `shownThings.sessionSummary`
   (default on) — the session summary table (see
   [Rank lists](rankings.md#session-summary-requested-and-built-2026-10-07));
-  `shownThings.sessionEndings` (default on, added 2026-10-11, "session loss
-  types") — the summary's loss-type grid under it, split by board size when
-  more than one size lost a game, listed under Tables right after the summary.
+  `shownThings.sessionEndings` (default on, added 2026-10-11 as "session
+  loss types"; "session results by type" since 2026-10-14) — the summary's
+  results grid under it: win types, then loss types, split by board size
+  when more than one size was played, listed under Tables right after the
+  summary.
 - Daily limits (2026-10-12): the first panel on the page, "Daily limits",
   holds the [daily play limits](play-limits.md). They are not schema
   settings and do not save automatically: each change goes through two
   confirmations, and preferences backup neither exports nor imports them.
 - New-player quiet start (decided 2026-09-26): someone arriving without a
   saved `showSessionStats` or `reportScope` gets session stats off and
-  after-game action reports off (`none`). The left panel still shows the
-  session heading ("SESSION today"). Session stats (since 2026-10-08 also
+  after-game action reports off (`none`). The session picker stays in the
+  top bar ("session today"). Session stats (since 2026-10-08 also
   the switch-cost row) and the loss-analysis report stay available from
   settings, and the report ladder is also in the after-game display
   controls. A value already saved stays as saved.

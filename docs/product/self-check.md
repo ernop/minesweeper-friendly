@@ -8,8 +8,9 @@ Gameplay changes as the game, browser, and hardware change; the self-check's
 protocols do not, so its results stay comparable across decades and can
 calibrate the gameplay measurements. A check pairs a sleepiness rating with a
 10-counter alertness test of about 30 seconds. The page is `self-check.html`,
-linked as "self-check" beside "settings" in the game page's upper-right
-cluster.
+linked as "self-check" in the game page's "other pages ▾" menu in the top bar
+(creator request 2026-10-14: "move self-check, training, problems into
+submenus"; a button beside "settings" before).
 
 Creator decisions (2026-09-26, after trying the first version, a 3-minute
 test): "3 entire minutes of this is way too long"; a check was expected to

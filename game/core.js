@@ -75,6 +75,7 @@ const resultsBox = document.getElementById('results');
 const gameDataColumn = document.getElementById('game-data-column');
 const mainElement = document.querySelector('main');
 const pageLayout = document.getElementById('page-layout');
+const topBar = document.getElementById('top-bar');
 const gameSidebar = document.getElementById('game-sidebar');
 const gameSidebarButton = document.getElementById('game-sidebar-button');
 const gameSidebarClose = document.getElementById('game-sidebar-close');

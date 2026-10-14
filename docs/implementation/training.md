@@ -12,8 +12,8 @@ Specification: [docs/product/training.md](../product/training.md).
 | `training-worker.js` | reads IndexedDB, replays, posts the summary |
 | `training-core.js` | pure measurements (`TrainingCore`), loaded by the worker and by Node tests |
 
-The game page links it with `#training-btn` in `#top-right` (styled with
-`#settings-btn` in `style.css`). All five files are in
+The game page links it from `#other-pages-menu` in `#top-bar` (2026-10-14;
+the `#training-btn` button in `#top-right` before). All five files are in
 `deploy/runtime-files.json`; the release validator checks the page's `src`/`href`
 references, the `new Worker(...)` literal, and the worker's `importScripts`.
 

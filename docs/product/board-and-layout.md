@@ -142,11 +142,35 @@ laggy"; asked whether the game is "max efficient" and to test and fix it.
   tablecharts, game data, and game details. The game data and details columns
   are reserved before a game finishes; results and replay never change the
   board column's width.
-- The metrics column always exists: its "session" heading at the upper left
-  is the page's one session picker (user decision 2026-09-23;
-  [One session definition](game-data.md#one-session-definition)). The
-  former session chooser above the board column's difficulty tabs is
-  removed.
+- The metrics column exists only for the stats it can show: it is gone when
+  both session stats and live motion stats are switched off. Both are
+  settings, so it never comes or goes during play. When a game has ended
+  and session stats are off, it has nothing to show until the next board;
+  the box is then invisible but keeps its width, so the board column never
+  changes. Until 2026-10-14 the column always existed because its
+  "session" heading held the page's one session picker (user decision
+  2026-09-23); the picker is now in the top bar (below).
+- Top bar (creator request 2026-10-14: "there should be a toplevel thing in
+  the UR. also, move the session definition to the upper right fully;
+  there's no point to having it as the single only thing in the UL! also
+  move position there. also, move self-check, training, problems into
+  submenus"). One row at the page's upper right, right-aligned, holding in
+  order: the daily play-limits link (when limits are set,
+  [Daily play limits](play-limits.md)), the session picker labeled "session"
+  ([One session definition](game-data.md#one-session-definition)), the
+  board **position** button, **settings**, and **other pages ▾**, a menu
+  holding self-check, training, and problems. The menu opens under its
+  button and closes on a choice, Escape, or a click outside; it is one step
+  deep, as the UI doctrine requires.
+  - With the details column docked, the bar sits above the right columns
+    (game data, when docked, and details) and spans them; it is sticky with
+    them, and they start just below it. Its items wrap onto a second row when
+    those columns are too narrow for one.
+  - With the details column as the Game details popover, the bar sits above
+    the board column, right-aligned, and scrolls with the page. Below 700px
+    it is the first row, above the session metrics.
+  - Mode, generator, music, archive, and session tags stay at the top of the
+    details column; the Game details button stays beside the difficulty tabs.
 - Game data column (user decision 2026-09-23: "a full-height column right
   next to the board", empty during play): a sticky column of the full viewport
   height between the board column and the details column. It is empty during
@@ -179,7 +203,7 @@ laggy"; asked whether the game is "max efficient" and to test and fix it.
   tables instead. The side blocks never move the board.
 - The board is the anchor. Appearing or disappearing content must not move it.
   Its reserved startup space occupies the same explicit main column.
-- Mode, generator, session tags, settings, optional replay/display controls,
+- Mode, generator, session tags, optional replay/display controls,
   completed-game stats, and the full replay legend share the right details
   column in that order. They are in
   normal flow inside an independently scrollable, sticky column. Stats precede
@@ -190,8 +214,8 @@ laggy"; asked whether the game is "max efficient" and to test and fix it.
   column stays at its 320px minimum. When it holds game data itself, it is
   fluid, `clamp(320px, 30vw, 760px)`, and the compact popover is
   `max(420px, 45vw)` within the viewport. Mode and
-  generator share a row when they fit; music, tags, + state, and settings
-  follow on wrapping rows. Game data there takes the column height left below them,
+  generator share a row when they fit; music, the archive chip, tags, and
+  + state follow on wrapping rows. Game data there takes the column height left below them,
   the scores navigation, and the outcome summary (at least 480px), so it ends
   at the screen bottom with its controls visible instead of running below it.
   The column gives way to the board down to 320px before the Game details
@@ -250,6 +274,10 @@ laggy"; asked whether the game is "max efficient" and to test and fix it.
   viewport during dragging, scrolling, resizing, and zooming. Reset (both
   offsets to zero, the resting place) and a prominent Done button stay at
   the top of the editor; Escape also closes it.
-  The editor does not change the board's position or page layout.
+  The editor does not change the board's position or page layout. Its
+  **position** opener is in the top bar (2026-10-14; it sat after Zoom beside
+  the difficulty tabs before). Closing the editor returns keyboard focus to
+  the opener; loading the page does not (until 2026-10-14 every load gave
+  the opener focus and its focus ring).
 - The results area echoes the in-game numeral face (Arial Black stack);
   the game-data chart inside it uses regular Arial.

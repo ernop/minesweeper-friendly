@@ -257,7 +257,7 @@ report.
   evidence; legacy losses retain their old line through provenance, and
   evidence-free losses are "unjudged loss".
 - The session window uses the page-wide `sessionDefinition`, set by the one
-  picker in the session heading and shared with ranks won and game data;
+  picker in the top bar and shared with ranks won and game data;
   default today (since local midnight). Aggregation lookbacks still use
   played time. See [Session stats](session-stats.md).
 - `reportScope` is the single persistent “After each game, show me”
@@ -417,3 +417,47 @@ forced-guess death in the opening as "early-game guess" whatever its risk.
 On the creator's history, 222 of 233 such Beginner deaths chose a square
 riskier than the safest one. Proposed design and the history check:
 [BACKLOG](../../BACKLOG.md), "Game results as one tree per board type".
+
+## Win types (requested 2026-10-14)
+
+The creator asked for the session summary to break down wins as well as
+losses: "yes, there are types of wins, since sometimes you'll WIN by
+accident! or even though you made horrible guesses and even unnece" (the
+message was cut off there; "unnecessary guesses" is the likely end, and the
+types below cover it).
+
+Every win has exactly one **win type**, named by the worst guess it
+survived. A guess is a click on a square that might hold a mine, after the
+first click (the guess ledger's definition, [per-game stats](per-game-stats.md));
+a chord is never one. Its risk is the actual risk under the active rules, the
+same risk the Game risk category uses, so a guess that A Just Universe made
+safe risked nothing. Worst first, the first that applies:
+
+1. `win-guess-safe`, "won despite guessing while a safe move was
+   available": a survived guess past a proven-safe square
+   (`guessed-with-safe-move`, or `opened-unproven-with-safe-move` when the
+   odds were unmeasured).
+2. `win-guess-higher`, "won despite a higher-risk forced guess": a survived
+   guess riskier than the lowest available, after the opening
+   (`chose-higher-risk` at a tenth or more of the safe squares revealed).
+3. `win-guess-early`, "won despite a higher-risk early-game guess": the
+   same, in the opening only (the early-game line of the Early-game guess
+   category above).
+4. `win-guess-min`, "won guessing only at the lowest risk": the guess
+   ledger counted guesses and none of them carries a tag above.
+5. `win-no-guess`, "won without guessing": the ledger counted no guess.
+   Every Proof-or-die win is this type, because the mode kills every
+   unproven open.
+6. `win-unmeasured`, "won; guesses not measured": the game has no guess
+   ledger (recorded before the ledger, an Angelic game, or a guess whose odds
+   exceeded the enumerator budget) and no tag above, or its action evidence
+   predates the action evaluations and its ledger counted guesses.
+
+The saved action evaluations keep every survived guess that was riskier than
+necessary, and the ledger counts all guesses, so the type is derived at read
+time for every saved win. The session summary lists win types in this order,
+cleanest first ([Session summary](rankings.md), "Session results"). The
+endings chart keeps one "win" line. The proposed results tree
+([BACKLOG](../../BACKLOG.md), "Game results as one tree per board type")
+would refine the guess past a safe square by proof tier, as the loss types
+do.

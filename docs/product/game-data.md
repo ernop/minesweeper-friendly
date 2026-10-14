@@ -302,15 +302,17 @@ picker for it (user decision 2026-09-23: "there shall only be one session
 length picker? i think it should be in the upper left"). Requested behavior,
 all implemented the same day:
 
-- **Where the picker is.** The picker is the value of the "session" heading
-  at the top of the left stats panel, the page's upper-left corner. It reads
-  "SESSION today". The session stats in that panel reflect it, including the
-  switch-cost row's session column (2026-10-08). The heading
-  and its picker stay in every panel state. When the panel is collapsed they
-  sit under the "stats ▸" chip. When session stats are switched off the panel
-  keeps only this heading. Ranks won and game data still use the session in
-  both cases. The former top-of-board-column chooser and the mirrored
-  selectors in session stats, ranks won, and game data are removed.
+- **Where the picker is.** In the top bar at the page's upper right, labeled
+  "session" (creator request 2026-10-14: "move the session definition to the
+  upper right fully; there's no point to having it as the single only thing
+  in the UL!"; [Top bar](board-and-layout.md#layout-the-board-never-moves)).
+  It reads "session today" and stays whatever the stats panel shows,
+  including when the panel is collapsed or gone. The session stats reflect
+  it, including the switch-cost row's session column (2026-10-08). From
+  2026-09-23 to 2026-10-14 it was the value of the "session" heading at the
+  top of the left stats panel, at the upper left, and kept that panel present
+  with session stats off. The former top-of-board-column chooser and the
+  mirrored selectors in session stats, ranks won, and game data are removed.
 - **Default "today".** Today means back to the most recent local midnight
   (the user: "meaning back in time to midnight the night before"). It does
   not mean the last 24 hours, which stays a separate choice.

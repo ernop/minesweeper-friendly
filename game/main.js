@@ -27,7 +27,7 @@ function storageFailure(what) {
 }
 
 // The in-page settings drawer became a full page on 2026-08-23: the
-// "settings" opener in the top-right is now a plain link to settings.html
+// "settings" opener in the top bar is now a plain link to settings.html
 // (see index.html), which shares this page's schema (settings-core.js)
 // and database (storage.js). Changes save straight to the shared
 // database; this page reads them fresh on every load, and the return
@@ -57,6 +57,27 @@ buildLcd(mineCounter);
 buildLcd(timerDisplay);
 buildFormatPanel();
 
+// The other-pages menu hangs under its button, right edges aligned. The top
+// bar scrolls with the page when the details are the compact popover, so the
+// menu follows it while open.
+const otherPagesButton = document.getElementById('other-pages-btn');
+const otherPagesMenu = document.getElementById('other-pages-menu');
+function placeOtherPagesMenu() {
+  const rect = otherPagesButton.getBoundingClientRect();
+  otherPagesMenu.style.top = rect.bottom + 2 + 'px';
+  otherPagesMenu.style.right = document.documentElement.clientWidth - rect.right + 'px';
+}
+otherPagesMenu.addEventListener('beforetoggle', (event) => {
+  if (event.newState === 'open') {
+    placeOtherPagesMenu();
+    window.addEventListener('scroll', placeOtherPagesMenu, { passive: true });
+    window.addEventListener('resize', placeOtherPagesMenu);
+  } else {
+    window.removeEventListener('scroll', placeOtherPagesMenu);
+    window.removeEventListener('resize', placeOtherPagesMenu);
+  }
+});
+
 async function init() {
   config = boardFromPreferences();
   for (const field of ['width', 'height', 'mines']) {
@@ -64,6 +85,7 @@ async function init() {
   }
   syncDifficultyTabs();
   initCellSizeControl();
+  initSessionScopeSelect();
   buildPlayModeSwitcher();
   buildBoardGeneratorSwitcher();
   renderStates();

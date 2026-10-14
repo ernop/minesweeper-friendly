@@ -70,7 +70,8 @@ coherent and beautifully integrated way!"
   panel at the top: one single-line row per limit with today's use, the
   limit, "reached" and "locked until 4:00" when they apply, and a Set or
   Change button. Today's use updates live while another tab plays. The
-  game page shows a link in the side column only while a limit is set,
+  game page shows a link at the start of the top bar, at the upper right
+  (2026-10-14; in the side column before), only while a limit is set,
   "today: 12m 34s of 30m · 14 of 50 games", in red as "limit reached: ..."
   once one is reached. It updates when a board starts or ends, not every
   second, following the no-ticking-duplicates rule

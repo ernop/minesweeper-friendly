@@ -49,16 +49,23 @@ body {
      applyBoardPosition constrains offsets with this same value, so a board
      resting at it with a zero offset is never clamped. */
   --board-edge-inset: 8px;
+  /* The top bar's measured height (syncGameSidebar), reserved until then.
+     The docked right columns start below it and the row gap. */
+  --top-bar-height: 25px;
+  --top-bar-block: calc(var(--top-bar-height) + 8px);
   grid-template-columns: auto minmax(0, 1fr) var(--game-sidebar-docked-width, var(--game-sidebar-width));
+  grid-template-rows: auto 1fr;
   align-items: start;
-  gap: 18px;
+  gap: 8px 18px;
   width: 100%;
 }
+#page-layout.compact-sidebar { --top-bar-block: 0px; }
 
 /* Positioned so placeBoardSides can rest the session summary and ranks won
    beside the board in main's coordinates. */
 main {
   grid-column: 2;
+  grid-row: 1 / span 2;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -101,21 +108,86 @@ main {
   color: #000000;
 }
 
-#board-position-btn {
+/*-------TOP BAR (play limits, session, position, settings, other pages)-------*/
+
+/* The page's upper right: above the docked game data and details columns,
+   sticky with them, or above the board column when the details are the
+   compact popover. Its items wrap rather than shrink. */
+#top-bar {
+  grid-column: 3;
+  grid-row: 1;
+  position: sticky;
+  top: 12px;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 4px 10px;
+  min-width: 0;
+  background: #ffffff;
+  color: #000000;
+  font-size: 11px;
+}
+#page-layout.game-data-docked #top-bar { grid-column: 3 / span 2; }
+#page-layout.compact-sidebar #top-bar { grid-column: 2; position: static; justify-self: end; }
+#page-layout.compact-sidebar main { grid-row: 2; }
+#top-bar > * { white-space: nowrap; }
+
+#session-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: bold;
+}
+#session-definition-select {
+  font: 12px Arial, Helvetica, sans-serif;
+  color: #000000;
+  background: #f7f9fb;
+  border: 1px solid #c5d0da;
+  padding: 2px 4px;
+}
+
+#board-position-btn,
+#other-pages-btn {
   border: 1px solid #c5d0da;
   border-radius: 3px;
   background: #f7f9fb;
-  padding: 3px 8px;
+  padding: 3px 10px;
   color: #000000;
   font: 11px Arial, Helvetica, sans-serif;
   cursor: pointer;
 }
 
 #board-position-btn:hover,
-#board-position-btn[aria-expanded="true"] {
+#board-position-btn[aria-expanded="true"],
+#other-pages-btn:hover,
+#other-pages-btn:has(+ #other-pages-menu:popover-open) {
   border-color: #8aa0b5;
   background: #e3edf6;
 }
+
+/* Opens under its button; the toggle handler places it (main.js). */
+#other-pages-menu {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  padding: 3px 0;
+  border: 1px solid #8aa0b5;
+  border-radius: 3px;
+  background: #ffffff;
+  box-shadow: 0 3px 10px rgba(34, 56, 70, 0.16);
+}
+#other-pages-menu:popover-open { display: flex; flex-direction: column; }
+#other-pages-menu a {
+  padding: 4px 14px;
+  color: #000000;
+  font-size: 12px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+#other-pages-menu a:hover,
+#other-pages-menu a:focus-visible { background: #e3edf6; }
 
 #board-position-panel {
   position: fixed;
@@ -809,6 +881,7 @@ body.trial-offboard #game-frame {
 /* Event handlers are installed while IndexedDB is still opening. Keep the
    visibly loading chrome from accepting an action it cannot honor yet. */
 .game-booting #difficulty-tabs,
+.game-booting #top-bar,
 .game-booting #top-right,
 .game-booting #game-frame,
 .game-booting #scores-nav,
@@ -1519,21 +1592,21 @@ body.trial-offboard #game-frame {
 }
 .verdict-justice .verdict-title { color: #b3121b; letter-spacing: 2px; }
 
-/*-------TOP-RIGHT SCREEN CHROME (session tags + settings)-------*/
+/*-------DETAILS COLUMN (mode, generator, session tags, results)-------*/
 
 /* Options, final stats, and the legend own one grid column. Its scroll
    stays independent of the board and history, regardless of content height. */
 #game-sidebar {
   grid-column: 3;
-  grid-row: 1;
+  grid-row: 2;
   position: sticky;
-  top: 12px;
+  top: calc(12px + var(--top-bar-block));
   align-self: start;
   display: flex;
   flex-direction: column;
   gap: 16px;
   width: var(--game-sidebar-docked-width, var(--game-sidebar-width));
-  max-height: calc(100dvh - 24px);
+  max-height: calc(100dvh - 24px - var(--top-bar-block));
   overflow-y: auto;
   scrollbar-gutter: stable;
   padding: 0 8px;
@@ -1542,7 +1615,7 @@ body.trial-offboard #game-frame {
   background: #fff;
 }
 /* Game setup packs into wrapping rows: the two selects share a row when the
-   column is wide enough, then tags and settings follow, right-aligned. */
+   column is wide enough, then music, archive, and tags follow, right-aligned. */
 #top-right {
   display: flex;
   flex-wrap: wrap;
@@ -1573,14 +1646,14 @@ body.trial-offboard #game-frame {
 #game-data-column { display: none; }
 #page-layout.game-data-docked #game-data-column {
   grid-column: 3;
-  grid-row: 1;
+  grid-row: 2;
   position: sticky;
-  top: 12px;
+  top: calc(12px + var(--top-bar-block));
   align-self: start;
   display: flex;
   flex-direction: column;
   min-width: 0;
-  height: calc(100dvh - 24px);
+  height: calc(100dvh - 24px - var(--top-bar-block));
   overflow-y: auto;
 }
 #page-layout.game-data-docked #game-sidebar { grid-column: 4; }
@@ -1841,16 +1914,13 @@ body.trial-offboard #game-frame {
 
 .state-chip:hover { background: #c4dff5; }
 
-/* The two top-right openers are real, obvious buttons (2026-08-23; they
-   were dotted-underline text before). "settings" is a plain link to the
+/* The openers are real, obvious buttons (2026-08-23; they were
+   dotted-underline text before). "settings" is a plain link to the
    settings page dressed as the same button; "+ state" holds its pressed
    look via .open while its menu is up. The settings page's return-to-game
    links wear the identical dress — the shared piece of titlebar. */
 #states-add-btn,
 #settings-btn,
-#self-check-btn,
-#training-btn,
-#problems-btn,
 .return-to-game {
   font: inherit;
   font-size: 11px;
@@ -1866,9 +1936,6 @@ body.trial-offboard #game-frame {
 
 #states-add-btn:hover,
 #settings-btn:hover,
-#self-check-btn:hover,
-#training-btn:hover,
-#problems-btn:hover,
 .return-to-game:hover { background: #e3edf6; }
 
 #states-add-btn.open {
@@ -2988,21 +3055,22 @@ body.settings-page .return-to-game {
 .session-summary-grid .session-summary-rank.session-summary-current { background: var(--this-game); }
 .session-summary-grid .recent-current-label { padding: 0; font-size: 10px; }
 .session-summary-total > span { border-top: 1px solid #000000; }
-/* Loss types under the summary: the label column leads with the endings
-   chart's line swatch; likely-misclick rows sit under a rule because they
-   recount losses already filed above. */
-.session-summary-losses { margin-top: 6px; }
+/* Results under the summary: the label column leads with the endings
+   chart's line swatch. Loss types sit under a rule below the win types, and
+   likely-misclick rows under another because they recount losses already
+   filed above. */
+.session-summary-results { margin-top: 6px; }
 /* A size's count starts its pair (count, then that size's share). */
-.session-summary-losses .session-summary-size {
+.session-summary-results .session-summary-size {
   border-left: 1px solid #000000;
   padding-left: 8px;
 }
-.session-summary-loss .end-swatch {
+.session-summary-result .end-swatch {
   margin-right: 4px;
   padding: 0;
   vertical-align: middle;
 }
-.session-summary-misclick-first > span { border-top: 1px solid #000000; }
+.session-summary-group-first > span { border-top: 1px solid #000000; }
 
 /* Recent placements ("ranks won in session"): one row per longer chart,
    listing the top-tenth ranks earned within the session. */
@@ -3486,6 +3554,8 @@ body.vigilance-running #self-check-header {
    than covering the page, and stays available while its own tall contents
    scroll. */
 #metrics-panel {
+  grid-column: 1;
+  grid-row: 1 / span 2;
   position: sticky;
   top: 6px;
   align-self: start;
@@ -3498,6 +3568,8 @@ body.vigilance-running #self-check-header {
   border: 1px solid #dddddd;
   font-size: 11px;
 }
+
+#metrics-panel.idle { visibility: hidden; }
 
 #metrics-panel-content {
   max-height: calc(100vh - 14px);
@@ -3633,8 +3705,7 @@ body.vigilance-running #self-check-header {
   gap: 4px;
   margin: 4px 0 8px;
 }
-.session-control,
-.session-scope-select {
+.session-control {
   min-height: 24px;
   border: 1px solid #c7d1d9;
   border-radius: 3px;
@@ -3647,17 +3718,6 @@ body.vigilance-running #self-check-header {
   letter-spacing: normal;
 }
 .session-control { max-width: 126px; }
-/* The page's one session picker rides the session heading, so the chosen
-   window reads as the heading's value: "SESSION today". */
-#metrics-panel .session-scope-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 2px 8px;
-  padding-bottom: 2px;
-}
-.session-scope-select { font-size: 14px; }
-
 /* The panel's right-edge resize grip belongs to the in-page panel. */
 .metrics-resize {
   position: absolute;
@@ -4059,11 +4119,12 @@ body.vigilance-running #self-check-header {
 .review-display-group label { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
 .review-display-group input { margin: 0; }
 @media (max-width: 700px) {
-  #page-layout, #page-layout.compact-sidebar { grid-template-columns: minmax(0, 1fr); }
-  main { grid-column: 1; grid-row: 2; }
+  #page-layout, #page-layout.compact-sidebar { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; }
+  #top-bar, #page-layout.compact-sidebar #top-bar { grid-column: 1; grid-row: 1; }
+  main, #page-layout.compact-sidebar main { grid-column: 1; grid-row: 3; }
   #metrics-panel {
     grid-column: 1;
-    grid-row: 1;
+    grid-row: 2;
     position: static;
     width: 100% !important;
     max-height: 220px;

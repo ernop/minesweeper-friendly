@@ -11,8 +11,9 @@ Later the same day: "situation classes and problems, that's really what you
 got to get here. We definitely do need to create this website". The user takes
 the problems and evaluations as they are created.
 
-Built the same day as version 1: `problems.html`, opened from a "problems"
-button in the game page's upper-right cluster, part of the game site (see
+Built the same day as version 1: `problems.html`, opened from "problems" in
+the game page's "other pages ▾" menu in the top bar (2026-10-14; a button in
+the upper-right cluster before), part of the game site (see
 [Hosting](#hosting)).
 
 ## A problem

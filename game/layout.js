@@ -269,6 +269,9 @@ function syncGameSidebar() {
   }
   gameSidebarButton.hidden = docked;
   gameSidebarClose.hidden = docked;
+  // The docked columns stick below the top bar, which wraps to two rows when
+  // their width cannot hold its items.
+  pageLayout.style.setProperty('--top-bar-height', topBar.offsetHeight + 'px');
   resultsBox.hidden = resultSummary.textContent === '' && resultStats.textContent === '';
   fitGameDataToSidebar();
 }
@@ -349,6 +352,9 @@ function setBoardPositionPreference(x, y, persist) {
 }
 
 function setBoardPositionEditing(open) {
+  // Startup restores the saved state through here; only closing an open
+  // editor hands focus back to its button.
+  const wasOpen = !boardPositionPanel.hidden;
   rememberPanel('boardPosition', open);
   if (!open && stopBoardPositionDrag !== null) stopBoardPositionDrag();
   boardPositionPanel.hidden = !open;
@@ -356,7 +362,7 @@ function setBoardPositionEditing(open) {
   boardPositionButton.setAttribute('aria-expanded', String(open));
   syncBoardLayout();
   if (open) boardPositionDragSurface.focus({ preventScroll: true });
-  else boardPositionButton.focus({ preventScroll: true });
+  else if (wasOpen) boardPositionButton.focus({ preventScroll: true });
 }
 
 function bindBoardPositionInput(range, number, axis) {
@@ -453,6 +459,7 @@ function initBoardPositionControls() {
 
   if (typeof ResizeObserver !== 'undefined') {
     const observer = new ResizeObserver(scheduleBoardLayout);
+    observer.observe(topBar);
     observer.observe(topRight);
     observer.observe(scoresNav);
     observer.observe(gameFrame);

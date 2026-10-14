@@ -151,15 +151,15 @@ Spec: [docs/product/session-stats.md](../product/session-stats.md). Index: [AGEN
   rank/total <= 10% with at least ten saved wins is `top 10%` (never WR/global,
   because no worldwide leaderboard is available),
   `latestDefined` (measurability),
-  `appendSessionSection` (renders below the persistent session heading and
+  `appendSessionSection` (renders below the session heading and
   hosts the grouping <select> writing `settings.sessionLookbackSeconds` in
   played-time mode or `settings.sessionLookbackGames` in per-game mode.
   Grouping choices live beside SETTINGS_SCHEMA; `SessionScope.choices` is the
-  shared window catalog). The heading itself (`.session-scope-head`, built once
-  in `renderMetricsPanelContent`) carries the page's one window picker from
-  `buildSessionScopeSelect`, whose change calls `setSessionDefinition`. It is
-  never hidden, so `#metrics-panel` stays visible in every state after its
-  first render; `sessionDefinition` stays in the session controls key so a
+  shared window catalog). The heading itself (`metricsPanelView.sessionHead`,
+  built once in `renderMetricsPanelContent`) is plain text, hidden with the
+  session section. The page's one window picker is `#session-definition-select`
+  in `#top-bar`, filled by `initSessionScopeSelect`, whose change calls
+  `setSessionDefinition`; `sessionDefinition` stays in the session controls key so a
   new window rebuilds the charts at once rather than waiting out the
   hover deferral. Structural session mutations (play start/end, deaths,
   endings, settings) mark `sessionChartsDirty`; in-game accumulation

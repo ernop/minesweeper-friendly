@@ -124,20 +124,23 @@ Spec: [docs/product/rankings.md](../product/rankings.md). Index: [AGENTS.md](../
   `scheduleBoardLayout` so its side placement follows its new width.
   `renderRanks` appends it first in the table collection, gated by
   shownThings.sessionSummary.
-  Session loss types (2026-10-11): each row also carries `endings` (games
-  per ending kind: 'win', or `sessionEndingKind(fatalEvaluationOf(record))`
-  as the session backfill files it, so they sum to `games`) and
-  `likelyMisclicks` (losses per `likelyMisclickReasonsOf` reason). The span
-  calls the verdict functions at run time, so its test loads the verdict
-  span and justice.js. `buildSessionSummaryLosses(rows)` groups rows by
-  `sessionSummaryTypeParts(row).board` (sizes with no losses omitted) into
-  `.session-summary-losses` under the main grid. One size: loss type,
-  losses, share of losses. More than one: loss type, then that size's name
-  and "share" per size, with `.session-summary-size` on each count column.
-  Kinds follow SESSION_END_SPECS order with the spec's label and swatch,
-  then the reasons in LIKELY_MISCLICK_REASON_LABELS order under
-  `.session-summary-misclick-first`. Each share divides by that size's
-  losses. Gated by shownThings.sessionEndings.
+  Session results (2026-10-11 as loss types; wins added 2026-10-14): each
+  row also carries `endings` (games per result: `winTypeOf(record)` for a
+  win, `sessionEndingKind(fatalEvaluationOf(record))` for a loss as the
+  session backfill files it, so they sum to `games`) and `likelyMisclicks`
+  (losses per `likelyMisclickReasonsOf` reason). The span calls the verdict
+  functions at run time, so its test loads the verdict span and justice.js.
+  `buildSessionSummaryResults(rows)` groups rows by
+  `sessionSummaryTypeParts(row).board` (every size played) into
+  `.session-summary-results` under the main grid. One size: result, games,
+  share of games. More than one: result, then that size's name and "share"
+  per size, with `.session-summary-size` on each count column. Win types
+  follow WIN_TYPE_LABELS order with the `SESSION_END_SPECS` win color
+  (`.session-summary-win`); loss kinds follow SESSION_END_SPECS order with
+  the spec's label and swatch (`.session-summary-loss`); then the reasons in
+  LIKELY_MISCLICK_REASON_LABELS order. The first loss row and the first
+  misclick row carry `.session-summary-group-first` (a rule above). Each
+  share divides by that size's games. Gated by shownThings.sessionEndings.
   `lossTypeOf` memoizes per evaluation object (a WeakMap), so rebuilding the
   summary after each game classifies only the new loss.
   `node tests/recent-placements-test.js` freezes the formatting and

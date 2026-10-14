@@ -139,9 +139,9 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
   persistent schema.
 - Session: `SessionScope.defaultId` ('today') is the one default: the
   settings schema and `GameData.defaultsForView` both read it.
-  `buildSessionScopeSelect` builds the only picker
-  (`#session-definition-select`, accessible name "session") once, inside
-  the stats panel's persistent `.session-scope-head`. `setSessionDefinition`
+  The only picker is the static `#session-definition-select` (accessible
+  name "session") in `#top-bar`; `initSessionScopeSelect` fills its options
+  from `SessionScope.choices` and enables it during `init`. `setSessionDefinition`
   saves it and dispatches `session-scope-change` to every
   `[data-session-scope-view]` node (game data, the session summary, and ranks
   won), which rebuild in place without rebuilding the board. Historical pages

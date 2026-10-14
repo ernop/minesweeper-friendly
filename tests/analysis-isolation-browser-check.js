@@ -17,7 +17,8 @@ const origin = 'http://127.0.0.1:8099/';
     await page.goto(origin);
     await page.waitForFunction(() => preferenceUIReady);
     const initialBoard = await page.locator('#game-frame').boundingBox();
-    assert.equal(await page.locator('#metrics-panel').isVisible(), true, 'stats column exists before worker replies');
+    assert.equal(await page.locator('#metrics-panel').evaluate((panel) => !panel.hidden
+      && panel.getBoundingClientRect().width > 0), true, 'stats column is reserved before worker replies');
     await page.evaluate(() => {
       settings.justUniverse = false;
       // Any accidental execution in the window fails the test, including

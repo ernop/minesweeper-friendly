@@ -782,4 +782,38 @@ assertEq('the captured wrong-flag tag is the other reason',
     Object.keys(LIKELY_MISCLICK_REASON_LABELS).join(), 'wrong-flag,wrong-button');
 }
 
+// Win types: the worst survived guess names the win. Tags on the saved
+// evaluations outrank the guess ledger; legacy evidence trusts only a
+// ledger that counted no guess.
+{
+  const survived = (mistakes, boardProgress) => ({
+    version: ACTION_EVALUATION_VERSION, action: 'reveal', actionNumber: 5, atMs: 3000,
+    result: 'continued', selected: [4], mistakes, alternatives: [], evidence: { boardProgress },
+  });
+  const win = (actionEvaluations, extra = {}) => ({
+    outcome: 'win', playMode: 'standard', actionEvaluations, ...extra });
+  assertEq('a ledger with no guess is a win without guessing', winTypeOf(win([], { guesses: 0 })), 'win-no-guess');
+  assertEq('untagged counted guesses were all lowest-risk', winTypeOf(win([], { guesses: 3 })), 'win-guess-min');
+  assertEq('without tags or a ledger the guesses are unmeasured', winTypeOf(win([])), 'win-unmeasured');
+  assertEq('a higher-risk guess mid-game', winTypeOf(win([survived(['chose-higher-risk'], 0.5)], { guesses: 2 })),
+    'win-guess-higher');
+  assertEq('a higher-risk guess before the board opened up files apart',
+    winTypeOf(win([survived(['chose-higher-risk'], 0.05)], { guesses: 2 })), 'win-guess-early');
+  assertEq('a mid-game higher-risk guess outranks an early one', winTypeOf(win([
+    survived(['chose-higher-risk'], 0.05), survived(['chose-higher-risk'], 0.5)])), 'win-guess-higher');
+  assertEq('a guess past a proven-safe square is the worst', winTypeOf(win([
+    survived(['chose-higher-risk'], 0.5), survived(['guessed-with-safe-move'], 0.6)])), 'win-guess-safe');
+  assertEq('an unmeasured unproven open past a safe move is the same kind',
+    winTypeOf(win([survived(['opened-unproven-with-safe-move'], 0.6)])), 'win-guess-safe');
+  assertEq('time-loss tags never make a guess',
+    winTypeOf(win([survived(['no-op-click'], 0.5)], { guesses: 0 })), 'win-no-guess');
+  const coverage = { version: ACTION_EVALUATION_VERSION, action: 'history-coverage', result: 'continued',
+    mistakes: [], legacy: { source: 'pre-action-evaluation-coverage' } };
+  assertEq('a legacy win with a no-guess ledger', winTypeOf(win([coverage], { guesses: 0 })), 'win-no-guess');
+  assertEq('a legacy win with guesses stays unmeasured', winTypeOf(win([coverage], { guesses: 2 })), 'win-unmeasured');
+  assertEq('a Proof-or-die win never guessed', winTypeOf(win([], { playMode: 'proof-or-die' })), 'win-no-guess');
+  assertEq('win types list from cleanest to worst, then unmeasured', Object.keys(WIN_TYPE_LABELS).join(),
+    'win-no-guess,win-guess-min,win-guess-early,win-guess-higher,win-guess-safe,win-unmeasured');
+}
+
 console.log(`game-end-evaluation: all ${checks} checks passed`);

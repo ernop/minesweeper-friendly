@@ -77,6 +77,14 @@ Spec: [docs/product/game-end-evaluation.md](../product/game-end-evaluation.md). 
   square, and wrong-button Likely misclick lines, which `buildVerdictBlocks`
   passes to `actionEvaluationLines` as `extraLines`; the Certainty and Safe
   alternative lines name the stored tier (`PROOF_TIER_PHRASES`).
+  `winTypeOf(record)` (2026-10-14; [spec](../product/game-end-evaluation.md#win-types-requested-2026-10-14))
+  sits after `sessionEndingKind` in the pure verdict span: Proof-or-die is
+  `win-no-guess`; any legacy or other-version evaluation leaves only the
+  ledger's `guesses === 0`; otherwise the stored `guessed-with-safe-move` /
+  `opened-unproven-with-safe-move` tags, then `chose-higher-risk` split by
+  `evaluationIsEarlyGame`, then `record.guesses` decide. `WIN_TYPE_LABELS`
+  holds the summary wording in display order. Its known answers are in
+  `tests/game-end-evaluation-test.js`.
   `evaluationEndingKind` remains only as
   the old five-way view for the report's legacy labels and verdict
   styling; modern chords classify

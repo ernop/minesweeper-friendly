@@ -85,7 +85,7 @@ const SHOWN_THINGS_DEFAULTS = Object.freeze({
 const SHOWN_THINGS_OPTIONS = [
   ['gameStats', 'loss and trial stats', 'the label/value stats for losses and trial games; regular wins use game data'],
   ['sessionSummary', 'session summary', 'games, wins, and win rate per board type in the session, with each type’s best session time and that time’s lifetime rank; left of the board when it fits'],
-  ['sessionEndings', 'session loss types', 'under the session summary: the session’s losses split by loss type and by board size (Beginner, Intermediate, Expert), as the game endings chart files them, with how many were likely misclicks'],
+  ['sessionEndings', 'session results by type', 'under the session summary: the session’s games split by result and by board size (Beginner, Intermediate, Expert): wins by the worst guess they survived, losses by loss type as the game endings chart files them, and how many losses were likely misclicks'],
   ['recentPlacements', 'ranks won in session', 'top-tenth ranks earned in the session on every longer tablechart; lifetime always shows at least its closest rank; right of the board when it fits'],
   ['timeTables', 'time-window tablecharts', 'lifetime, calendar, rolling-window, and day-category rankings'],
   ['lastOneMinute', 'last 1 minute', 'the very short rolling time tablechart'],
@@ -504,7 +504,7 @@ const SETTINGS_SCHEMA = [
     field: 'sessionDefinition', default: SessionScope.defaultId,
     valid: (v) => SessionScope.choices.some((choice) => choice.id === v),
     group: 'after-game', label: 'page-wide session',
-    describe: 'the one wall-clock session window for session stats, the session summary, ranks won in session, and game data session comparisons; chosen only with the picker in the session heading at the upper left; default today (since local midnight, not the last 24 hours)',
+    describe: 'the one wall-clock session window for session stats, the session summary, ranks won in session, and game data session comparisons; chosen only with the session picker in the game page’s top bar at the upper right; default today (since local midnight, not the last 24 hours)',
     control: 'none',
   },
   {

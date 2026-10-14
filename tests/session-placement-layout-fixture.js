@@ -42,7 +42,7 @@
   const record = { outcome: 'win', endedAt: Date.now(), timeMs: 33249,
     states: ['just woke up', 'the gaming m3 gen II'],
     bv3: 62, clicks: 95, wastedClicks: 0, flagsPlaced: 39, mousePathPx: 1500,
-    maxAdjacent: 5, zeroCount: 68, islandCount: 20, zini: 47 };
+    maxAdjacent: 5, zeroCount: 68, islandCount: 20, zini: 47, playMode: 'standard', actionEvaluations: [] };
   const records = Array.from({length: 24}, (_, i) => ({ ...record,
     endedAt: record.endedAt - (23 - i) * 60000, timeMs: 33000 + i * 500 }));
   records[23] = record;
@@ -165,12 +165,19 @@
             && rect(resultsBox).left >= rect(gameSidebar).left
             && rect(resultsBox).top >= rect(topRight).bottom
             && rect(pathViewLegend).top >= rect(resultsBox).bottom);
+        const topBarBlock = rect(topBar).height + parseFloat(getComputedStyle(pageLayout).rowGap);
         if (pageLayout.classList.contains('game-data-docked')) check(label + ': game data has its own full-height column beside the board column',
           rect(gameDataColumn).left >= rect(mainElement).right && rect(gameSidebar).left >= rect(gameDataColumn).right
-            && Math.abs(rect(gameDataColumn).height - (innerHeight - 24)) < 1);
+            && Math.abs(rect(gameDataColumn).height - (innerHeight - 24 - topBarBlock)) < 1);
+        const rightColumn = pageLayout.classList.contains('game-data-docked') ? gameDataColumn : gameSidebar;
+        check(label + ': the top bar heads the right columns',
+          Math.abs(rect(topBar).left - rect(rightColumn).left) < 1 && Math.abs(rect(topBar).right - rect(gameSidebar).right) < 1
+            && Math.abs(rect(rightColumn).top - rect(topBar).bottom - (topBarBlock - rect(topBar).height)) < 1);
         check(label + ': showing the legend leaves stats in place',
           Math.abs(rect(resultsBox).top - statsTop) < 1);
       } else {
+        check(label + ': with compact details the top bar sits above the board column',
+          rect(topBar).bottom <= rect(mainElement).top);
         check(label + ': compact details stay out of document flow',
           gameSidebar.hasAttribute('popover') && !gameSidebarButton.hidden);
         gameSidebarButton.click();

@@ -13,9 +13,11 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
     input computations; ready boards and finished games have no idle stats
     timer. Live numbers are transient
     readings of an unfinished trace. The live rows go away when the game
-    finishes; the panel itself stays, because since 2026-08-22 it also
-    hosts the session stats section (see [Session stats](session-stats.md)), which spans
-    games.
+    finishes. Since 2026-08-22 the panel also hosts the session stats
+    section (see [Session stats](session-stats.md)), which spans games and
+    stays. With session stats off, a finished game leaves the panel nothing
+    to show until the next board: it is invisible then but keeps its width
+    (2026-10-14), so the board column never changes.
   - FINAL (the after-game charts): the moment a game finishes, the same
     computation runs once over the complete trace, and each metric
     renders as a larger chart inline at the page bottom, after whatever
@@ -35,10 +37,11 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   clicking it tucks the panel down to a "stats ▸" chip in the same
   corner (renamed from "motion ▸" when the session section moved in,
   2026-08-22), and the chip click brings it back. The collapsed state is
-  the saved `metricsPanelCollapsed` preference. Since 2026-09-23 the
-  session heading, which holds the page's one session picker, stays under
-  the chip, and the panel no longer disappears when both stats stages are
-  off ([One session definition](game-data.md#one-session-definition)).
+  the saved `metricsPanelCollapsed` preference. The panel is gone when
+  session stats and the live stage are both off (2026-10-14, when the page's
+  one session picker moved to the top bar; from 2026-09-23 the picker sat in
+  the panel's session heading and kept the panel in every state;
+  [One session definition](game-data.md#one-session-definition)).
 - One row per metric: the name, the current value, and a sparkline chart
   of the value's evolution over this game (one point per live sample
   plus the final one). The sparkline carries labeled axes: y is the

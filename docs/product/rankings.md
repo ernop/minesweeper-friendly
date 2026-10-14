@@ -210,34 +210,40 @@ middle? that's okay."
   under the board, summary first.
 - Gated by shownThings.sessionSummary (on by default). An empty window says
   "no games in session".
-- **Session loss types** (creator request 2026-10-11: "we should also offer
+- **Session results** (creator requests 2026-10-11: "we should also offer
   an expanded win/loss view to the session summary, further breaking down
-  the TYPE of losses"). Under the main grid, a second grid splits the
-  session's losses by loss type
-  ([Game-end evaluation](game-end-evaluation.md), "Loss types"), filed
-  exactly as the game endings chart files them and in its order, labels,
-  and line colors (a swatch leads each label). Columns: loss type, then a
-  count and a share for each main board size that lost a game in the window
-  — Beginner, Intermediate, Expert, and a custom size under its own label
+  the TYPE of losses"; 2026-10-14: "right now if you haven't lost on a level
+  in a session, it just says 'no losses yet' and that doesn't make sense. it
+  should really be shown as a breakdown of the results! so like, losses and
+  type, and wins (and type::: yes, there are types of wins, since sometimes
+  you'll WIN by accident! or even though you made horrible guesses and even
+  unnece" — the message was cut off there). Under the main grid, a second
+  grid splits every session game by result: first the wins by win type
+  ([Game-end evaluation](game-end-evaluation.md), "Win types"), each label
+  led by the game endings chart's win color; then, under a rule, the losses
+  by loss type ("Loss types" there), filed exactly as the endings chart
+  files them and in its order, labels, and line colors. Columns: result,
+  then a count and a share for each board size played in the window —
+  Beginner, Intermediate, Expert, and a custom size under its own label
   ("Custom 20x20-60"). A mode or generator counts with its size, so Expert
   and Pink noise Expert share the Expert columns (creator request
   2026-10-12: "loss-type should be split by main game type (small, medium,
-  expert)"). Each share is of that size's losses; a nonzero share that
-  rounds to 0% reads "<1%". A size with no losses has no columns. When only
-  one size lost games, the columns stay "losses" and "share of losses".
-  Only kinds that occurred get a row. Under a rule follow the
-  likely-misclick rows, one per reason
-  ("of these, likely misclick: adjacent wrong flag placed under a second
-  before", "of these, likely misclick: left click on a proven mine under a
-  second after a chord beside it lacked flags"); they recount losses
-  already filed above, so they never add to the total, and they use the
-  same size columns. A window without
-  losses says "no losses in session". The main grid already gives each
-  board type's games, wins, and win rate, so the loss grid has no win row.
-  Per-key count columns were built first and dropped the same day: a
+  expert)"). Each share is of that size's games, so a size's rows sum to
+  100%; a nonzero share that rounds to 0% reads "<1%". When only one size
+  was played, the columns are "games" and "share of games". Only kinds that
+  occurred get a row. Under another rule follow the likely-misclick rows,
+  one per reason ("of these losses, likely misclick: adjacent wrong flag
+  placed under a second before", "of these losses, likely misclick: left
+  click on a proven mine under a second after a chord beside it lacked
+  flags"); they recount losses already filed above, so they never add to
+  the total, and they use the same size columns. Until 2026-10-14 the grid
+  held only losses, had columns only for sizes that lost a game, took shares
+  of losses, and said "no losses in session" for a window without losses.
+  Per-key count columns were built first and dropped on 2026-10-11: a
   generator's full name as a column header made the grid about 1,000 px
-  wide. Gated by shownThings.sessionEndings ("session loss types", on by
-  default), listed under Tables right after the summary's own switch.
+  wide. Gated by shownThings.sessionEndings ("session results by type", on
+  by default; "session loss types" until 2026-10-14), listed under Tables
+  right after the summary's own switch.
 - **Requested next (creator, 2026-10-14):** while playing a size, show only
   that size, as one tree from all games started through won, lost, and
   abandoned to finer kinds, with win types beside the loss types. Proposed
@@ -255,8 +261,8 @@ middle? that's okay."
 - Source window: the shared page-wide `sessionDefinition`, default today
   (since local midnight). The heading reads "ranks won in session" and has no
   selector of its own (user decision 2026-09-23: it "should merely say
-  'session'"); the one picker is the stats panel's session heading at the
-  upper left ([One session definition](game-data.md#one-session-definition)).
+  'session'"); the one picker is in the top bar at the upper right
+  ([One session definition](game-data.md#one-session-definition)).
   The heading tooltip names the current window. Bounds come from the same
   `SessionScope` model; there is no independent recent-placements preference.
   Changing the session rebuilds only scope-dependent content in place.

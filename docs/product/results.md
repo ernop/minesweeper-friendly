@@ -104,8 +104,8 @@ go forward with this!"):
   and chart chips that link each chart to its row ([Game data](game-data.md)).
 - One name per measurement across tables, game data, charts, and the
   label/value report ([Rank lists](rankings.md), [Per-game stats](per-game-stats.md)).
-- One session picker, the upper-left one, regenerates every session surface
-  in place.
+- One session picker, in the top bar at the upper right (the upper-left one
+  until 2026-10-14), regenerates every session surface in place.
 
 Rejected 2026-10-07: the verdict rows of the first review mockup (Result,
 Pace, Board, and Training lines under the board): "not a super fan really."

@@ -22,11 +22,14 @@ The Mode menu is in the upper right; each mode keeps its own rankings.
 The page is a row of fixed columns, so nothing that appears or disappears
 ever moves the board:
 
-- **Session stats, left.** Its "session" heading is the page's one session
-  picker (today by default), shared by every session comparison on the
-  page. Under it, charts of your play across the session: when you played,
-  how games ended, action and report rates, mouse speed, fastclick gap, and
-  cadence spread.
+- **Top bar, upper right.** The page's one session picker (today by
+  default), shared by every session comparison on the page; "position",
+  which opens the board position editor; settings; and an "other pages"
+  menu with the self-check, training, and problems pages. With a daily limit
+  set, a link at its start shows today's use against it.
+- **Session stats, left**, when turned on: charts of your play across the
+  session: when you played, how games ended, action and report rates, mouse
+  speed, fastclick gap, and cadence spread.
 - **The board, center.** After a game the session summary and "ranks won in
   session" sit beside it where they fit, otherwise they lead the tables
   under it. Then come the time-window, day-category, and streak rank lists,
@@ -35,10 +38,8 @@ ever moves the board:
 - **Game data, right of the board**, after a win: each measurement of this
   game placed on one percentile band against your lifetime and session
   games, your performance on one side and the board's traits on the other.
-- **Game details, far right.** Mode, generator, player states, settings,
-  links to the self-check, training, and problems pages, replay, and the
-  game's outcome. With a daily limit set, a link there shows today's use
-  against it.
+- **Game details, far right.** Mode, generator, player states, replay, and
+  the game's outcome.
 
 **Daily limits** (top of the settings page): play time, games, games per
 level, and a stop time, each per play day from 4:00 to 4:00. A reached
@@ -153,7 +154,10 @@ highest number (has an 8, has a 7, or no number above 4 / 3 / 2),
 mine-island count, largest mine-island, and zero count.
 Two blocks lead those lists. The session summary gives, per board type
 played in the session, games, wins, win rate, the best time with its
-lifetime rank, and mean time, 3BV/s, and IOE. "Ranks won in session" names,
+lifetime rank, and mean time, 3BV/s, and IOE, then every game by result:
+wins by how much guessing they survived (none, only the lowest risk, a
+riskier guess in the opening or later, a guess past a proven-safe square)
+and losses by what went wrong. "Ranks won in session" names,
 for every longer list, the top-tenth ranks earned within the session.
 
 ![The board after a Beginner win, with the session summary, ranks won in session, and the time-window, day-category, and streak rank lists](promo/win-screen-2026-10-08.png)
@@ -254,7 +258,7 @@ the board. During a game it
 shows per-game motion metrics recomputed once a second; on top, once
 session stats are turned on, a
 "session" section charts the actual play within the session (today by
-default, picked in its own heading) across games (losses
+default, picked in the top bar) across games (losses
 and abandoned boards included): mouse
 speed, board-changing clicks per second, deaths with recorded mistake
 tags per minute (fatal actions such as opening a proven mine or guessing
@@ -280,7 +284,7 @@ cause from a change in a line. The
 window survives a reload: startup reconstructs the selectable session windows
 from saved records, then applies the shared page-wide choice (today by
 default). Closing the tab does not wipe the measured game history.
-The first session stat, directly under the picker, is switch cost: how much
+The first session stat, directly under the "session" heading, is switch cost: how much
 longer the next press takes after you change buttons (flag versus click or
 chord) than after repeating the same move over the same distance. It pools
 standard games with saved traces twice, the session's and your latest 500,

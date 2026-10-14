@@ -128,7 +128,7 @@ const shots = process.argv[4];
     assert.equal(await gamePage.locator('#play-limit-closed').isVisible(), true, 'limits survive a reload');
     assert.match(await gamePage.locator('#play-limits-btn').innerText(),
       /^limit reached: 2m 3\ds of 30m · 3 of 1 games$/);
-    await shot(gamePage, 'game-limits-link', '#top-right');
+    await shot(gamePage, 'game-limits-link', '#top-bar');
 
     // Stop time: a past one closes a ready board in another tab at once.
     const fresh = await browser.newContext({ viewport: { width: 1600, height: 1000 } });

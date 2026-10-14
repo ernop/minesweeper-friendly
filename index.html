@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="pages-redirect.js?v=20260926-pages-redirect-2"></script>
 <title>Minesweeper - Standard Mode</title>
-<link rel="stylesheet" href="style.css?v=20261013-play-limits">
+<link rel="stylesheet" href="style.css?v=20261014-top-bar">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <!-- Defer preserves dependency order while letting every page asset download
      in parallel. The Pages redirect is the one blocking script; storage
@@ -27,41 +27,58 @@
 <script defer src="trial.js"></script>
 <script defer src="game-data.js?v=20261011-histogram-shape"></script>
 <script defer src="board-icons.js?v=20260926-problems"></script>
-<script defer src="settings-core.js?v=20261012-loss-types-by-size"></script>
+<script defer src="settings-core.js?v=20261014-result-types"></script>
 <script defer src="play-limits.js?v=20261013-play-limits"></script>
 <script defer src="analysis-client.js?v=20261011-histogram-shape"></script>
 <script defer src="switch-cost.js?v=20261010-switch-cost-game-fit"></script>
 <script defer src="preferences-game.js?v=20261010-win-keeps-flags"></script>
 <script defer src="fuseki-stats.js?v=20261011-play-statistics"></script>
-<script defer src="game/core.js?v=20261013-play-limits"></script>
-<script defer src="game/layout.js?v=20261013-play-limits"></script>
-<script defer src="game/play.js?v=20261013-play-limits"></script>
-<script defer src="game/play-modes.js?v=20261013-play-limits"></script>
-<script defer src="game/play-limits.js?v=20261013-play-limits"></script>
-<script defer src="game/evaluation.js?v=20261013-play-limits"></script>
-<script defer src="game/results.js?v=20261013-play-limits"></script>
-<script defer src="game/history.js?v=20261013-play-limits"></script>
-<script defer src="game/rankings.js?v=20261013-play-limits"></script>
-<script defer src="game/charts.js?v=20261013-play-limits"></script>
-<script defer src="game/trial-review.js?v=20261013-play-limits"></script>
-<script defer src="game/game-data-chart.js?v=20261013-play-limits"></script>
-<script defer src="game/result-ranks.js?v=20261013-play-limits"></script>
-<script defer src="game/input-trace.js?v=20261013-play-limits"></script>
-<script defer src="game/replay-model.js?v=20261013-play-limits"></script>
-<script defer src="game/replay-view.js?v=20261013-play-limits"></script>
-<script defer src="game/music.js?v=20261013-play-limits"></script>
-<script defer src="game/trace-metrics.js?v=20261013-play-limits"></script>
-<script defer src="game/metric-definitions.js?v=20261013-play-limits"></script>
-<script defer src="game/metrics-panel.js?v=20261013-play-limits"></script>
-<script defer src="game/session-stats.js?v=20261013-play-limits"></script>
-<script defer src="game/session-charts.js?v=20261013-play-limits"></script>
-<script defer src="game/player-states.js?v=20261013-play-limits"></script>
-<script defer src="game/controls.js?v=20261013-play-limits"></script>
-<script defer src="game/backup.js?v=20261013-play-limits"></script>
-<script defer src="game/main.js?v=20261013-play-limits"></script>
+<script defer src="game/core.js?v=20261014-top-bar"></script>
+<script defer src="game/layout.js?v=20261014-top-bar"></script>
+<script defer src="game/play.js?v=20261014-top-bar"></script>
+<script defer src="game/play-modes.js?v=20261014-top-bar"></script>
+<script defer src="game/play-limits.js?v=20261014-top-bar"></script>
+<script defer src="game/evaluation.js?v=20261014-top-bar"></script>
+<script defer src="game/results.js?v=20261014-top-bar"></script>
+<script defer src="game/history.js?v=20261014-top-bar"></script>
+<script defer src="game/rankings.js?v=20261014-top-bar"></script>
+<script defer src="game/charts.js?v=20261014-top-bar"></script>
+<script defer src="game/trial-review.js?v=20261014-top-bar"></script>
+<script defer src="game/game-data-chart.js?v=20261014-top-bar"></script>
+<script defer src="game/result-ranks.js?v=20261014-top-bar"></script>
+<script defer src="game/input-trace.js?v=20261014-top-bar"></script>
+<script defer src="game/replay-model.js?v=20261014-top-bar"></script>
+<script defer src="game/replay-view.js?v=20261014-top-bar"></script>
+<script defer src="game/music.js?v=20261014-top-bar"></script>
+<script defer src="game/trace-metrics.js?v=20261014-top-bar"></script>
+<script defer src="game/metric-definitions.js?v=20261014-top-bar"></script>
+<script defer src="game/metrics-panel.js?v=20261014-top-bar"></script>
+<script defer src="game/session-stats.js?v=20261014-top-bar"></script>
+<script defer src="game/session-charts.js?v=20261014-top-bar"></script>
+<script defer src="game/player-states.js?v=20261014-top-bar"></script>
+<script defer src="game/controls.js?v=20261014-top-bar"></script>
+<script defer src="game/backup.js?v=20261014-top-bar"></script>
+<script defer src="game/main.js?v=20261014-top-bar"></script>
 </head>
 <body aria-busy="true">
 <div id="page-layout">
+<nav id="top-bar" aria-label="Session, board position, settings, and other pages">
+  <a id="play-limits-btn" href="settings.html#play-limits" hidden></a>
+  <label id="session-picker">session
+    <select id="session-definition-select" aria-label="session" disabled>
+      <option>Loading saved session…</option>
+    </select>
+  </label>
+  <button type="button" id="board-position-btn" aria-expanded="false"
+    aria-controls="board-position-panel">position</button>
+  <a id="settings-btn" href="settings.html">settings</a>
+  <button type="button" id="other-pages-btn" popovertarget="other-pages-menu">other pages &#9662;</button>
+  <div id="other-pages-menu" popover>
+    <a href="self-check.html" title="Sleepiness rating plus a 30-second alertness test, saved for comparison over years">self-check</a>
+    <a href="training.html">training</a>
+    <a href="problems.html" title="Real moments from strong players' games: open what a new number proves, timed">problems</a>
+  </div>
+</nav>
 <div id="metrics-panel" hidden><div id="metrics-panel-content"></div></div>
 <main>
   <nav id="difficulty-tabs">
@@ -73,8 +90,6 @@
     <label id="zoom-label">Zoom
       <select id="zoom-select" disabled></select>
     </label>
-    <button type="button" id="board-position-btn" aria-expanded="false"
-      aria-controls="board-position-panel">position</button>
   </nav>
   <form id="custom-form" hidden>
     <label>Width <input id="custom-width" type="number" min="8" max="100" value="30"></label>
@@ -179,11 +194,6 @@
         <p id="states-status"></p>
       </div>
     </div>
-    <a id="play-limits-btn" href="settings.html#play-limits" hidden></a>
-    <a id="settings-btn" href="settings.html">settings</a>
-    <a id="self-check-btn" href="self-check.html" title="Sleepiness rating plus a 30-second alertness test, saved for comparison over years">self-check</a>
-    <a id="training-btn" href="training.html">training</a>
-    <a id="problems-btn" href="problems.html" title="Real moments from strong players' games: open what a new number proves, timed">problems</a>
   </div>
   <!-- Optional review and display controls stay in the side column. -->
   <nav id="scores-nav" aria-label="Inspect the finished game or view high scores">

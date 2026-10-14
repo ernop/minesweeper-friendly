@@ -204,7 +204,7 @@ assertEq('middle placement wording is shared by the recent summary',
 // Session summary: games and wins per board type in the window, and the
 // session's best time ranked among that type's wins so far.
 {
-  const game = (endedAt, outcome, timeMs) => ({ endedAt, outcome, timeMs });
+  const game = (endedAt, outcome, timeMs) => ({ endedAt, outcome, timeMs, actionEvaluations: [] });
   const historyByKey = {
     '30x16/99@standard': [game(1, 'win', 90000), game(50, 'loss', 1000), game(60, 'win', 95000)],
     '9x9/10@standard': [game(2, 'win', 5000), game(3, 'win', 4000), game(55, 'win', 4500),
@@ -223,13 +223,14 @@ assertEq('middle placement wording is shared by the recent summary',
   assertEq('window bounds are inclusive', expert.games + '/' + expert.wins, '2/1');
   assertEq('the lifetime pool ends with the window', expert.best.rank + '/' + expert.best.total, '2/2');
   assertEq('the latest session game names the type', pink.latest.endedAt, 58);
-  assertEq('a loss without saved evidence is unjudged, as the endings chart files it',
-    JSON.stringify(beginner.endings), '{"win":2,"other":1}');
+  assertEq('a loss without saved evidence is unjudged, as the endings chart files it; '
+    + 'a win without a guess ledger is unmeasured',
+    JSON.stringify(beginner.endings), '{"win-unmeasured":2,"other":1}');
   assertEq('no misclicks without evidence', JSON.stringify(beginner.likelyMisclicks), '{}');
 }
 
-// Session summary endings: each game files under the endings chart's kind
-// (wins, then each loss type), and likely misclicks count separately.
+// Session summary results: each win files under its win type, each loss
+// under the endings chart's loss type, and likely misclicks count separately.
 {
   const fatal = (actionNumber, atMs, extra) => ({
     version: ACTION_EVALUATION_VERSION, action: 'reveal', actionNumber, atMs, result: 'death',
@@ -246,11 +247,11 @@ assertEq('middle placement wording is shared by the recent summary',
     evidence: { safeAvailable: true, mineProofTier: 'counting', safeProofTier: 'whole-board',
       likelyMisclick: { gapMs: 200 } } })] };
   const [row] = sessionSummaryRows({ '3x1/1@standard': [
-    { endedAt: 9, outcome: 'win', timeMs: 900 }, slipLoss, wrongFlagLoss,
+    { endedAt: 9, outcome: 'win', timeMs: 900, actionEvaluations: [], guesses: 0 }, slipLoss, wrongFlagLoss,
     { endedAt: 12, outcome: 'loss', actionEvaluations: [] },
   ] }, 0, 20, []);
-  assertEq('endings sum to the games and use the chart kinds',
-    JSON.stringify(row.endings), '{"win":1,"mine-counting":2,"other":1}');
+  assertEq('endings sum to the games and use the win types and chart kinds',
+    JSON.stringify(row.endings), '{"win-no-guess":1,"mine-counting":2,"other":1}');
   assertEq('each likely-misclick reason counts its losses',
     JSON.stringify(row.likelyMisclicks), '{"wrong-button":1,"wrong-flag":1}');
 }

@@ -20,19 +20,16 @@ function setSessionDefinition(value) {
   refreshMetricsPanel();
 }
 
-// The page's only session picker, built once for the stats panel's session
-// heading at the upper left. The session summary, ranks won, and game data
-// only say "session".
-function buildSessionScopeSelect() {
-  const select = document.createElement('select');
-  select.id = 'session-definition-select';
-  select.className = 'session-scope-select';
-  select.setAttribute('aria-label', 'session');
-  select.title = 'The one page-wide session: these session stats, the session summary, ranks won in session, and game data’s session comparisons all use this wall-clock window. “today” starts at local midnight; it is not the last 24 hours.';
-  for (const choice of SessionScope.choices) select.add(new Option(choice.label, choice.id));
+// The page's only session picker, in the top bar at the upper right (creator
+// request 2026-10-14). The session stats, the session summary, ranks won,
+// and game data only say "session".
+function initSessionScopeSelect() {
+  const select = document.getElementById('session-definition-select');
+  select.title = 'The one page-wide session: session stats, the session summary, ranks won in session, and game data’s session comparisons all use this wall-clock window. “today” starts at local midnight; it is not the last 24 hours.';
+  select.replaceChildren(...SessionScope.choices.map((choice) => new Option(choice.label, choice.id)));
   select.value = settings.sessionDefinition;
+  select.disabled = false;
   select.addEventListener('change', () => setSessionDefinition(select.value));
-  return select;
 }
 
 // Titles carry the unit (decided 2026-08-23, afternoon): "mouse speed

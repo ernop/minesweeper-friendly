@@ -212,11 +212,11 @@ function pickSession(page, id) {
       tx.oncomplete = resolve;
       tx.onerror = () => reject(tx.error);
     }));
-    const order = await page.evaluate(() => [metricsPanelContent.querySelector('.session-scope-head'),
+    const order = await page.evaluate(() => [metricsPanelView.sessionHead,
       metricsPanelView.switchCost, metricsPanelView.session, metricsPanelView.live]
       .map((el) => [...metricsPanelContent.children].indexOf(el)));
     assert.ok(order[1] === order[0] + 1 && order[1] < order[2] && order[2] < order[3],
-      'directly under the session picker, above the session charts and the live rows: ' + order.join(','));
+      'directly under the session heading, above the session charts and the live rows: ' + order.join(','));
     let state = await settled(page);
     assertFits(state.fits, await nodeFits([], state.sessionFromMs), 'no saved games');
     assert.deepEqual(await shownRow(page), rowText(state.fits), 'no saved games: dashes');

@@ -1,8 +1,8 @@
 'use strict';
 
-// The left stats panel: its session heading, the switch-cost row of the
-// session stats, live trace-metric rows and sparklines, the after-game motion
-// charts, and update scheduling.
+// The left stats panel: the session stats' heading and switch-cost row, live
+// trace-metric rows and sparklines, the after-game motion charts, and update
+// scheduling.
 
 //-------TRACE METRICS: DISPLAY (the #metrics-panel column)-------
 
@@ -144,7 +144,7 @@ function buildMetricRow(group, display, metrics, series, size, rowClass) {
 
 // The section header naming a measurement system, shared by the live
 // panel and the after-game charts. Headings without help (the session
-// picker's, the Fitts curve's, the spatial grid's) stay plain text.
+// stats', the Fitts curve's, the spatial grid's) stay plain text.
 function buildMetricsGroupHead(group) {
   const head = document.createElement('div');
   head.className = 'metrics-group-head';
@@ -214,14 +214,9 @@ function renderMetricsPanelContent(metrics) {
       updateSettings({ metricsPanelCollapsed: false });
       refreshMetricsPanel();
     });
-    // The session heading holds the page's one session picker, so it stays in
-    // every panel state, collapsed or with session stats switched off: ranks
-    // won and game data still use the session. The panel never disappears.
     const sessionHead = buildMetricsGroupHead(SESSION_GROUP);
-    sessionHead.classList.add('session-scope-head');
-    sessionHead.appendChild(buildSessionScopeSelect());
-    // Directly under the picker that sets its session column, above the
-    // controls that shape only the charts.
+    // Directly under the session heading, above the controls that shape
+    // only the charts.
     const switchCost = buildSwitchCostRow();
     const session = document.createElement('div');
     // Last: the live rows come and go with each game, and nothing above them
@@ -230,13 +225,18 @@ function renderMetricsPanelContent(metrics) {
     const grip = buildMetricsResizeGrip();
     metricsPanelContent.append(restore, head, sessionHead, switchCost, session, live);
     metricsPanel.appendChild(grip);
-    setMetricHidden(metricsPanel, false);
     metricsPanelView = {
-      head, phase, restore, switchCost, session, live, grip,
+      head, phase, restore, sessionHead, switchCost, session, live, grip,
       sessionControlsKey: null, sessionCharts: null, liveRows: [], metrics: null,
     };
   }
   const view = metricsPanelView;
+  // The column exists only for the stats it can show. Both switches are
+  // settings, so it never comes or goes during play and the board stays put.
+  setMetricHidden(metricsPanel, !showSession && !settings.showMotionStatsDuringGame);
+  // A finished game with session stats off leaves nothing to show until the
+  // next board: the box goes invisible but keeps its width.
+  metricsPanel.classList.toggle('idle', !settings.metricsPanelCollapsed && !showSession && !showLive);
   metricsPanel.classList.toggle('collapsed', settings.metricsPanelCollapsed);
   const width = settings.metricsPanelCollapsed ? '' : settings.metricsPanelWidth + 'px';
   if (metricsPanel.style.width !== width) metricsPanel.style.width = width;
@@ -244,6 +244,7 @@ function renderMetricsPanelContent(metrics) {
   setMetricHidden(view.head, settings.metricsPanelCollapsed);
   setMetricHidden(view.grip, settings.metricsPanelCollapsed);
   setMetricHidden(view.phase, !showLive);
+  setMetricHidden(view.sessionHead, settings.metricsPanelCollapsed || !showSession);
   setMetricHidden(view.switchCost, !switchCostShown());
   setMetricHidden(view.session, settings.metricsPanelCollapsed || !showSession);
   setMetricHidden(view.live, settings.metricsPanelCollapsed || !showLive);
@@ -260,8 +261,7 @@ function renderMetricsPanelContent(metrics) {
     if (view.sessionControlsKey !== controlsKey) {
       // Only an explicit settings change alters the control structure. A new
       // session definition rebuilds here too, not through the hover-deferred
-      // path: the picker's option list closes over these charts, and charts
-      // of the previous window must not linger under the pointer.
+      // path: charts of the previous window must not linger under the pointer.
       const content = document.createDocumentFragment();
       view.sessionCharts = appendSessionSection(content);
       view.session.replaceChildren(content);

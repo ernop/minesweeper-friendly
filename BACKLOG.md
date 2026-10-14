@@ -18,9 +18,12 @@ few moves had to guess, a "dumb" early death such as clicking beside a corner
 wins, since some wins follow no bad moves while others survive needless bad
 guesses. The request: "think very carefully and present me an ontology of
 wins / complete categorization system". Built today
-([Session summary](docs/product/rankings.md), "Session loss types"): losses
-by loss type, one count and share pair per board size. Another session was
-adding win types to that table the same day.
+([Session summary](docs/product/rankings.md), "Session results"): every game
+by result, one count and share pair per board size; wins by win type
+([Game-end evaluation](docs/product/game-end-evaluation.md), "Win types":
+no guess, lowest-risk guesses only, a riskier guess in the opening only, a
+riskier guess after it, a guess past a proven-safe square, not measured),
+then losses by loss type.
 
 Proposed, not decided:
 
@@ -232,7 +235,8 @@ this!"), specified where each lives:
   or both since 2026-10-08, and the strips grow to fill the height), and
   chart titles carrying each row's value and
   standing ([game data](docs/product/game-data.md#position-and-presentation)).
-- One session picker, upper left, for every session surface
+- One session picker for every session surface, at the upper left; moved
+  to the top bar at the upper right on 2026-10-14
   ([One session definition](docs/product/game-data.md#one-session-definition)).
 - One name per measurement across game data, tables, charts, the stats
   table, session charts, and the stats panel ("max number", "zero-opening
@@ -258,6 +262,14 @@ Still open:
   result" tables; fold motion diagnostics behind one button.
 - **Small pools** (proposed, not decided). With two session games every
   session standing is 0% or 100%; "2 of 2" wording or a minimum pool size.
+- **Session summary clipped in a narrow board column** (found 2026-10-14,
+  unchanged by that day's top bar). With the details column docked and game
+  data inside it, as at 1216-1280 px wide, the board column is about 400-440
+  px, narrower than the summary (about 505-515 px), so its right columns
+  (mean IOE, and a second size's share in the results grid) are cut off at
+  the column's edge. Options: let the summary scroll sideways inside its
+  block; wrap the means onto their own grid under the counts; or undock the
+  details column into the Game details popover sooner.
 - **Fit beside an Intermediate board at 2560** (found while building). With
   production history the session summary (391 px) and ranks won (418 px)
   exceed the 379 px beside an Intermediate board, so both sit below it.
@@ -284,7 +296,7 @@ Still open:
 
 ## Loss-type follow-ons (found while building loss types, 2026-10-11)
 
-Loss types and the session summary's loss grid are built
+Loss types and the session summary's results grid are built
 ([Game-end evaluation](docs/product/game-end-evaluation.md), "Loss types";
 [Session summary](docs/product/rankings.md#session-summary-requested-and-built-2026-10-07)).
 Open:
@@ -329,11 +341,6 @@ clicking or chording and for a statistical look first; the study is
   found one game's value has split-half reliability near zero), so the
   creator decides whether and where it shows; the draft pointed at a "Switch
   cost" section of [per-game stats](docs/product/per-game-stats.md).
-- **Where the session picker belongs** (creator, 2026-10-08). Raised with
-  the row: "once that's done we can think about where this session
-  definition chooser really belings, right?" The row is built; the picker
-  stays in the session heading until this is decided
-  ([One session definition](docs/product/game-data.md#one-session-definition)).
 - **Breakdowns by direction and distance** (mapped). Flag then chord against
   chord then flag, and one, two, or three or more cells, differ widely in
   the study; showing them needs its own reliability check per breakdown.

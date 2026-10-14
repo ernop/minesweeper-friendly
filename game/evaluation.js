@@ -536,6 +536,49 @@ function sessionEndingKind(evaluation) {
   return lossTypeOf(evaluation) || 'other';
 }
 
+// The win type (creator request 2026-10-14: "there are types of wins, since
+// sometimes you'll WIN by accident"): one exclusive kind per win, named by
+// the worst guess the player survived. A guess is a click on a square that
+// might hold a mine, after the first click; its risk is the actual risk
+// under the active rules, so a guess A Just Universe made safe risked
+// nothing. Worst first: a guess past a proven-safe square, a higher-risk
+// forced guess, the same before the board opened up (filed apart, as early
+// losses are), lowest-risk guesses only, none. The saved action evaluations
+// hold every survived guess riskier than necessary; the guess ledger counts
+// the rest, and without it a clean-looking win stays unmeasured.
+const WIN_TYPE_LABELS = {
+  'win-no-guess': 'won without guessing',
+  'win-guess-min': 'won guessing only at the lowest risk',
+  'win-guess-early': 'won despite a higher-risk early-game guess',
+  'win-guess-higher': 'won despite a higher-risk forced guess',
+  'win-guess-safe': 'won despite guessing while a safe move was available',
+  'win-unmeasured': 'won; guesses not measured',
+};
+
+function winTypeOf(record) {
+  // Proof-or-die kills every unproven open, so its wins never guessed.
+  if (record.playMode === 'proof-or-die') return 'win-no-guess';
+  const evaluations = record.actionEvaluations;
+  if (evaluations.some((evaluation) => evaluation.legacy
+      || evaluation.version !== ACTION_EVALUATION_VERSION)) {
+    return record.guesses === 0 ? 'win-no-guess' : 'win-unmeasured';
+  }
+  let higher = false;
+  let early = false;
+  for (const evaluation of evaluations) {
+    if (evaluation.mistakes.includes('guessed-with-safe-move')
+        || evaluation.mistakes.includes('opened-unproven-with-safe-move')) return 'win-guess-safe';
+    if (evaluation.mistakes.includes('chose-higher-risk')) {
+      if (evaluationIsEarlyGame(evaluation)) early = true;
+      else higher = true;
+    }
+  }
+  if (higher) return 'win-guess-higher';
+  if (early) return 'win-guess-early';
+  if (record.guesses === undefined) return 'win-unmeasured';
+  return record.guesses > 0 ? 'win-guess-min' : 'win-no-guess';
+}
+
 function actionEvaluationLabel(evaluation) {
   if (evaluation.legacy
       && evaluation.legacy.source === 'pre-action-evaluation-coverage') {

@@ -10,7 +10,8 @@ Spec: [docs/product/player-states.md](../product/player-states.md). Index: [AGEN
   onto every record as `states` (always written, `[]` when none active;
   absent on pre-2026-08-20 records, same absence rules as wastedClicks).
   UI: `#states` lives in `#top-right` inside the independently scrolling
-  game sidebar, shared with mode, generator, and `#settings-btn`. Expanding
+  game sidebar, shared with mode, generator, music, and the archive chip
+  (`#settings-btn` moved to `#top-bar` on 2026-10-14). Expanding
   state controls never changes the board column. Only active
   states render (chips; click = take off); `#states-add-btn` (a real
   bordered button holding a pressed `.open` look while the menu is up,

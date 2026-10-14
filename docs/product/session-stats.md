@@ -4,10 +4,12 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
 
 The recent-observations section uses the same page-wide session definition as
 ranks won in session and game data: `sessionDefinition`, default today (since
-the most recent local midnight, not the last 24 hours). Its one picker is this
-section's "session" heading, at the page's upper left (user decision
-2026-09-23; see [One session definition](game-data.md#one-session-definition)).
-No other surface has a picker. Choices are last 10/30 minutes, last 1/2/4/24
+the most recent local midnight, not the last 24 hours). Its one picker is in
+the top bar at the page's upper right (creator request 2026-10-14; from
+2026-09-23 it was this section's "session" heading at the upper left; see
+[One session definition](game-data.md#one-session-definition)). This
+section's "session" heading shows only with the section. No other surface
+has a picker. Choices are last 10/30 minutes, last 1/2/4/24
 hours, today, today since 6am, and last 7 calendar days. Live stats end at now;
 historical game comparisons end at the selected game's completion. The former
 independent played-time window and Clear-session override are removed.

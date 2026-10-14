@@ -270,8 +270,10 @@ const { chromium } = require(process.argv[2]);
     assert.equal(await timeRow.locator('.game-data-value').textContent(), '33.542s');
     const picker = page.getByLabel('session', { exact: true });
     assert.equal(await page.locator('select:has(option[value="today"])').count(), 1, 'the page has exactly one session picker');
-    assert.equal(await page.locator('#metrics-panel .session-scope-head select').getAttribute('id'), 'session-definition-select',
-      'the one picker is the stats panel’s session heading at the upper left');
+    assert.equal(await page.locator('#top-bar select').getAttribute('id'), 'session-definition-select',
+      'the one picker is in the top bar at the upper right');
+    assert.equal(await page.locator('#metrics-panel select:has(option[value="today"])').count(), 0,
+      'the stats panel holds no picker');
     assert.equal(await picker.inputValue(), 'today', 'the session defaults to today');
     assert.equal(await profile.locator('select').count(), 0, 'game data only says session');
     assert.equal(await page.locator('.recent-placements h4').textContent(), 'ranks won in session');
@@ -286,7 +288,13 @@ const { chromium } = require(process.argv[2]);
     assert.equal(await page.locator('.recent-placements h4').textContent(), 'ranks won in session');
     await page.evaluate(async () => { settings.showSessionStats = false; settings.metricsPanelCollapsed = true; refreshMetricsPanel(); });
     assert(await picker.isVisible(), 'the picker stays when the panel is collapsed and session stats are off');
-    await page.evaluate(async () => { settings.showSessionStats = true; settings.metricsPanelCollapsed = false; refreshMetricsPanel(); });
+    await page.evaluate(async () => { settings.showMotionStatsDuringGame = false; refreshMetricsPanel(); });
+    assert(await page.locator('#metrics-panel').isHidden(), 'without session or live stats the panel is gone');
+    assert(await picker.isVisible(), 'the picker stays without the panel');
+    await page.evaluate(async () => {
+      settings.showSessionStats = true; settings.showMotionStatsDuringGame = true;
+      settings.metricsPanelCollapsed = false; refreshMetricsPanel();
+    });
     // The points switch places the performance dots by either pool.
     await profile.getByRole('button', { name: 'session', exact: true }).click();
     await bandReady();

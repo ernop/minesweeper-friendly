@@ -293,21 +293,25 @@ const { chromium } = require(process.argv[2]);
     const sessionSummary = await page.evaluate(async () => {
       const now = Date.now();
       const game = (minutesAgo, outcome, timeMs) => ({ endedAt: now - minutesAgo * 60000, outcome, timeMs, flagsPlaced: 3,
-        bv3: 10, clicks: 10, wastedClicks: 2 });
-      const current = game(0, 'win', 4100);
-      // A win from before no-op clicks were measured has no IOE.
+        bv3: 10, clicks: 10, wastedClicks: 2, playMode: 'standard', actionEvaluations: [] });
+      const evaluation = { version: ACTION_EVALUATION_VERSION, result: 'continued', alternatives: [],
+        position: { width: 3, height: 1, mines: 1, revealed: [[0, 1]], flagged: [] } };
+      // The game just won survived a mid-game guess riskier than the lowest.
+      const current = { ...game(0, 'win', 4100), guesses: 2, actionEvaluations: [{ ...evaluation, action: 'reveal',
+        actionNumber: 6, atMs: 2000, selected: [2], mistakes: ['chose-higher-risk'], evidence: { boardProgress: 0.5 } }] };
+      // A win from before no-op clicks and guesses were measured has no IOE
+      // and no win type.
       const { wastedClicks, ...unmeasured } = game(10, 'win', 21000);
       // A modern loss: a left click on a mine that counting proved, under a
       // second after a chord on the number beside it found too few flags.
-      const evaluation = { version: ACTION_EVALUATION_VERSION, result: 'continued', alternatives: [],
-        position: { width: 3, height: 1, mines: 1, revealed: [[0, 1]], flagged: [] } };
       const shortChord = { ...evaluation, action: 'no-op', actionNumber: 8, atMs: 4700, selected: [0],
         mistakes: ['no-op-click'], evidence: { reason: 'chord-short-of-flags' } };
       const provenMine = { ...evaluation, action: 'reveal', actionNumber: 9, atMs: 5000, result: 'death', selected: [1],
         mistakes: ['opened-proven-mine', 'ignored-safe-move'],
         evidence: { safeAvailable: true, mineProofTier: 'counting', safeProofTier: 'whole-board' } };
       history = {
-        '9x9/10@standard': [game(60 * 24 * 40, 'win', 4000), game(50, 'loss', 900), game(40, 'win', 4500), current],
+        '9x9/10@standard': [game(60 * 24 * 40, 'win', 4000), game(50, 'loss', 900),
+          { ...game(40, 'win', 4500), guesses: 0 }, current],
         '30x16/99@standard': [game(30, 'loss', 20000),
           { ...game(20, 'loss', 30000), actionEvaluations: [shortChord, provenMine] }],
         '16x16/40@standard+pink-noise(alpha=1,scale=12,contrast=2,stretch=0)': [{ ...unmeasured,
@@ -321,8 +325,8 @@ const { chromium } = require(process.argv[2]);
       collector.renderInto(resultRanks);
       const read = () => {
         const box = resultRanks.querySelector('.session-summary');
-        const main = box.querySelector('.session-summary-grid:not(.session-summary-losses)');
-        const losses = box.querySelector('.session-summary-losses');
+        const main = box.querySelector('.session-summary-grid:not(.session-summary-results)');
+        const results = box.querySelector('.session-summary-results');
         return {
           heading: box.querySelector('h4').textContent,
           rows: [...main.querySelectorAll('.session-summary-row, .session-summary-total')]
@@ -330,17 +334,17 @@ const { chromium } = require(process.argv[2]);
           head: [...main.querySelectorAll('.session-summary-head > span')].map((cell) => cell.textContent),
           thisColor: box.querySelector('.session-summary-current') && getComputedStyle(box.querySelector('.session-summary-current')).backgroundColor,
           rowHeights: [...box.querySelectorAll('.session-summary-row > span:first-child')].map((cell) => cell.getBoundingClientRect().height),
-          losses: losses === null ? box.querySelector('.recent-placements-none').textContent
-            : [...losses.querySelectorAll('.rank-row')].map((row) => [...row.children].map((cell) => cell.textContent)),
-          swatches: [...box.querySelectorAll('.session-summary-loss .end-swatch')].map((swatch) => getComputedStyle(swatch).backgroundColor),
-          lossesWithinSummary: losses === null || losses.getBoundingClientRect().right <= box.getBoundingClientRect().right + 1,
+          results: [...results.querySelectorAll('.rank-row')].map((row) => [...row.children].map((cell) => cell.textContent)),
+          ruled: [...results.querySelectorAll('.session-summary-group-first')].map((row) => row.firstChild.textContent),
+          swatches: [...box.querySelectorAll('.session-summary-result .end-swatch')].map((swatch) => getComputedStyle(swatch).backgroundColor),
+          resultsWithinSummary: results.getBoundingClientRect().right <= box.getBoundingClientRect().right + 1,
         };
       };
       const hour = read();
       const savedHistory = history;
       history = { '9x9/10@standard': savedHistory['9x9/10@standard'] };
       resultRanks.replaceChildren(buildSessionSummary(current, now));
-      const oneSize = read().losses;
+      const oneSize = read().results;
       history = savedHistory;
       document.getElementById('session-definition-select').value = 'past10min';
       document.getElementById('session-definition-select').dispatchEvent(new Event('change'));
@@ -363,20 +367,33 @@ const { chromium } = require(process.argv[2]);
     ], 'the default mode goes unnamed; a generator has its own aligned column; means average the session’s wins');
     assert.equal(sessionSummary.hour.thisColor, THIS_GAME);
     assert(sessionSummary.hour.rowHeights.every((height) => height < 20), 'summary rows stay one line');
-    assert.deepEqual(sessionSummary.hour.losses, [
-      ['loss type', 'Beginner', 'share', 'Expert', 'share'],
-      ['died: opened a mine proven by counting single numbers', '0', '0%', '1', '50%'],
-      ['died: unjudged', '1', '100%', '1', '50%'],
-      ['of these, likely misclick: left click on a proven mine under a second after a chord beside it lacked flags', '0', '0%', '1', '50%'],
-    ], 'losses split by the endings chart’s kinds and by board size; a size with no losses has no columns');
+    assert.deepEqual(sessionSummary.hour.results, [
+      ['result', 'Beginner', 'share', 'Intermediate', 'share', 'Expert', 'share'],
+      ['won without guessing', '1', '33%', '0', '0%', '0', '0%'],
+      ['won despite a higher-risk forced guess', '1', '33%', '0', '0%', '0', '0%'],
+      ['won; guesses not measured', '0', '0%', '1', '100%', '0', '0%'],
+      ['died: opened a mine proven by counting single numbers', '0', '0%', '0', '0%', '1', '50%'],
+      ['died: unjudged', '1', '33%', '0', '0%', '1', '50%'],
+      ['of these losses, likely misclick: left click on a proven mine under a second after a chord beside it lacked flags',
+        '0', '0%', '0', '0%', '1', '50%'],
+    ], 'every game split by win type, then loss type as the endings chart files it, per board size played');
+    assert.deepEqual(sessionSummary.hour.ruled, ['died: opened a mine proven by counting single numbers',
+      'of these losses, likely misclick: left click on a proven mine under a second after a chord beside it lacked flags'],
+    'a rule starts the losses and another the misclick rows');
     assert.deepEqual(sessionSummary.oneSize, [
-      ['loss type', 'losses', 'share of losses'],
-      ['died: unjudged', '1', '100%'],
-    ], 'one board size keeps a single losses column');
-    assert.deepEqual(sessionSummary.hour.swatches, ['rgb(109, 13, 13)', 'rgb(153, 153, 153)'],
-      'each loss type carries its endings-chart line color');
-    assert(sessionSummary.hour.lossesWithinSummary, 'the loss grid stays inside the summary');
-    assert.equal(sessionSummary.short.losses, 'no losses in session');
+      ['result', 'games', 'share of games'],
+      ['won without guessing', '1', '33%'],
+      ['won despite a higher-risk forced guess', '1', '33%'],
+      ['died: unjudged', '1', '33%'],
+    ], 'one board size keeps a single games column');
+    assert.deepEqual(sessionSummary.hour.swatches, ['rgb(46, 125, 50)', 'rgb(46, 125, 50)', 'rgb(46, 125, 50)',
+      'rgb(109, 13, 13)', 'rgb(153, 153, 153)'], 'wins carry the chart’s win color and each loss type its line color');
+    assert(sessionSummary.hour.resultsWithinSummary, 'the results grid stays inside the summary');
+    assert.deepEqual(sessionSummary.short.results, [
+      ['result', 'Beginner', 'share', 'Intermediate', 'share'],
+      ['won despite a higher-risk forced guess', '1', '100%', '0', '0%'],
+      ['won; guesses not measured', '0', '0%', '1', '100%'],
+    ], 'a session without losses still breaks down its results');
     assert.deepEqual(sessionSummary.short.rows, [
       ['Beginner', '', '1', '1', '100%', '4.100s', '2nd this of 3', '4.100s', '2.439', '0.833'],
       ['Intermediate', 'Pink noise (spectral exponent 1, feature size 12, contrast 2, stretch 0)', '1', '1', '100%', '21.000s', '1st of 1',
@@ -384,7 +401,8 @@ const { chromium } = require(process.argv[2]);
       ['all', '', '2', '2', '100%', '', '', '', '', ''],
     ]);
     assert.deepEqual(sessionSummary.plain, [['board type', 'games', 'wins', 'win rate', 'best', 'lifetime rank', 'mean time', 'mean 3BV/s', 'mean IOE'],
-      ['Beginner', '1', '1', '100%', '4.100s', '2nd this of 3', '4.100s', '2.439', '0.833']],
+      ['Beginner', '1', '1', '100%', '4.100s', '2nd this of 3', '4.100s', '2.439', '0.833'],
+      ['result', 'games', 'share of games'], ['won despite a higher-risk forced guess', '1', '100%']],
     'without a variant to name, the board stands alone in its column');
     assert.deepEqual(errors, []);
     console.log('Rank highlights: this-game rows, standing chips, session summary, percentage bands, full/compact tables, low/last/only results, history view, conditional board comparisons, stable numeric family ordering, contiguous summary rows, surrounding table flow, day-of-month headings, and three viewport widths passed.');

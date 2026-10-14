@@ -58,12 +58,12 @@ Spec: [docs/product/trace-metrics-panel.md](../product/trace-metrics-panel.md). 
   only when the click-event count changes; elapsed-only updates reuse all
   input computations and derive `traceSilenceRatio` from the new duration.
   `renderMetricsPanel(metrics)` maintains `#metrics-panel` as the
-  always-shown session heading with the page's one session picker +
-  the switch-cost row and the session section (both
+  session heading, the switch-cost row, and the session section (all
   settings.showSessionStats) + live per-game rows
   (settings.showMotionStatsDuringGame, only while tracing with metrics
   non-null — null means "no live rows", the between-games render); the
-  panel is unhidden on its first render and never hidden again;
+  panel is hidden exactly when both settings are off, and `.idle`
+  (invisible, width kept) when expanded with nothing to show;
   `metricsPanelView` retains controls, rows, SVGs, and the resize grip;
   `updateMetrics`/`updateSeries` mutate only live text and geometry.
   `metricsPanelCollapsed` + `lastLiveMetrics` implement the panel's own

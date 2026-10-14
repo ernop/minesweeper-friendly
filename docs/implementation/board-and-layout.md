@@ -86,6 +86,34 @@ Spec: [docs/product/board-and-layout.md](../product/board-and-layout.md). Index:
   wrapping collection. `boardTables` follows, labeled "This board", with
   exact 3BV/ZiNi/maximum-clue and board-shape time tables. Both precede
   point-chart sections and retain individual table labels.
+- Top bar (2026-10-14): `<nav id="top-bar">` is the first child of
+  `#page-layout` and holds `#play-limits-btn`, `#session-picker` (a static
+  `select#session-definition-select`, disabled with a loading option until
+  `initSessionScopeSelect` in `game/session-charts.js` fills it from `init`),
+  `#board-position-btn`, `#settings-btn`, and `#other-pages-btn`, whose
+  `popovertarget` opens the `popover` menu `#other-pages-menu` (plain links to
+  self-check.html, training.html, problems.html). The menu is fixed in the
+  top layer; `placeOtherPagesMenu` in `game/main.js` sets its `top` and
+  `right` from the button on `beforetoggle` and follows scroll and resize
+  while open. Grid: two rows, `auto 1fr`; the metrics panel and `main` span
+  both; the bar is row 1 of column 3 (`3 / span 2` with game data docked),
+  sticky at 12px; `#game-sidebar` and the docked `#game-data-column` are row 2,
+  sticky at `12px + --top-bar-block` with heights reduced by it.
+  `--top-bar-block` is `--top-bar-height` plus the 8px row gap;
+  `syncGameSidebar` sets `--top-bar-height` from `topBar.offsetHeight` (the
+  bar wraps in a narrow column) and the layout ResizeObserver watches the
+  bar. In `.compact-sidebar` the bar is row 1 of column 2, static, and `main`
+  row 2 (`--top-bar-block: 0`). Below 700px: bar row 1, metrics row 2, main
+  row 3. `.game-booting #top-bar` blocks pointer input like the other chrome.
+  `tests/session-placement-layout-fixture.js` checks the bar heads the right
+  columns, or sits above main when compact, at four widths.
+- Metrics panel visibility (2026-10-14): `renderMetricsPanelContent` hides
+  `#metrics-panel` when `showSessionStats` and `showMotionStatsDuringGame`
+  are both off and toggles `.idle` (`visibility: hidden`, width kept) when it
+  is expanded with neither the session section nor live rows to show.
+- `setBoardPositionEditing` focuses `#board-position-btn` only when it closes
+  an editor that was open; `initGamePreferences` restoring a closed editor
+  no longer moves focus.
 - Layout: `#results` (summary + `#stats-grid`) is a normal-flow child of
   `#game-sidebar`, after options and before the legend. The grid columns
   (three, or four with `#game-data-column`) prevent overlaps. `syncGameSidebar` controls its compact popover
@@ -146,7 +174,8 @@ calling them is a test failure.
 
 The metrics column and its controls are constructed before the initial layout,
 without waiting for a worker reply. Its first computed values fill that reserved
-space; worker latency cannot move the board after startup reveals it.
+space (the box is `.idle`, invisible at full width, until the first live sample
+arrives); worker latency cannot move the board after startup reveals it.
 
 ## Click-time evidence cost (2026-09-26)
 
