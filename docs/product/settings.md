@@ -141,7 +141,10 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   digits / letters / dots for revealed counts (see [Board and chrome](board-and-layout.md));
   `gameDataMetrics` (one selection for both comparisons since 2026-10-07,
   replacing separate lifetime and session selections; a measurement either
-  of them showed stays shown), `gameDataShowValues`,
+  of them showed stays shown), `gameDataBoardTraits` (since 2026-10-14: which
+  board traits game data ranks, chosen in its configure, apart from the This
+  board table switches; a profile saved before then starts from what those
+  switches showed), `gameDataShowValues`,
   `gameDataBandPool` (default lifetime), `gameDataDistributions`
   (default off), and `gameDataDistributionPools` (default both; the last
   three chosen on the chart itself) — the game data

@@ -34,9 +34,10 @@ Spec: [docs/product/rankings.md](../product/rankings.md). Index: [AGENTS.md](../
   They share category discovery between full tables and the summary, skip
   unmeasured values, retain all full-table standings, and keep their names
   outside the shape/time duplicate groups. `exact3BV`, `exactZiNi`, and
-  `exactMaxNumber` are independent shownThings switches, default on. Each
-  board table switch also gates its game-data board-trait marker (the
-  `boardComparisons` list in `renderRanks`); `workSpreadTable` defaults off.
+  `exactMaxNumber` are independent shownThings switches, default on;
+  `workSpreadTable` defaults off. They gate the tables and the board-trait
+  charts, not game data's board-trait rows, which `gameDataBoardTraits`
+  chooses since 2026-10-14 ([game data](game-data.md)).
 - Recent placements ([Recent placements](../product/rankings.md)): the pure span
   between the "RECENT PLACEMENTS: COMPUTATION" and ": DISPLAY" markers —
   `compareRankedWins`, `ordinal`, `formatRankRuns` (run compression),

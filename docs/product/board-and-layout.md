@@ -274,8 +274,9 @@ laggy"; asked whether the game is "max efficient" and to test and fix it.
   HZiNi, 3BV spread, 0–1 share, and zero-opening coverage values appear in
   their tablechart headings; there are no separate value cards. The
   3BV-spread tablechart is off by default (user decision 2026-09-23: "i don't
-  think we need to show 3bv spread by default"); its switch also controls the
-  3BV spread marker in game data. Heading
+  think we need to show 3bv spread by default"). Game data's board-trait
+  rows, the 3BV spread marker among them, are chosen in its configure since
+  2026-10-14, not by these switches ([Game data](game-data.md)). Heading
   mouseovers/focus expose definitions, more precise values, and grouping
   rules without moving the layout. Backfill progress stays above the tables.
   After a loss these comparison families describe the lost board, including
