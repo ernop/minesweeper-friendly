@@ -92,6 +92,61 @@ Open decisions, each recommended: split opening guess deaths by risk; scope
 by board type rather than by size; count abandoned boards; the half-second
 rushed line.
 
+**Direction, the same day: judge from the decision tree.** The creator: every
+click is a move from one position to its possible next positions (death, or
+each number the square could show, and on from there); at a win or a death,
+look back at the choices made and the other options the player had, and
+whether better ones were turned down; categorize the actual outcomes by that,
+judged against what the player could know at the time, not usually against
+where the mines turned out to be. Proposed questions for every death, in
+order (Beginner Standard counts from the 2026-10-11 export, 490 deaths):
+
+1. Could the player have known the click would kill? *Known* (179): the
+   numbers proved it, a proven mine or a chord through a flag the numbers
+   contradicted. *A gamble* (311): the numbers left a chance it was safe.
+2. For a known death, why it was clicked, inferred from timing and context
+   and never certain: rushed (the proving number had just appeared), slipped
+   (aiming at a neighboring safe square), wrong button (meant to flag),
+   misled by the player's own flag that the numbers contradicted (34), or
+   overlooked (the proof had been on screen a while), graded by proof level.
+3. For a gamble, whether it was needed: *unnecessary* (51, a certainly-safe
+   move existed); *a worse gamble than available* (241: a safer square, or
+   looking ahead, a square whose number would have told more); *the best
+   gamble available* (14: the board's doing, at a blind start, mid-game, or a
+   final coin flip); *a gamble on the player's own guessed flag* (5: a chord
+   or click trusting a flag that was itself a guess).
+4. How the game got there: whether the forced position was in the board from
+   the start or made by an earlier choice (a riskier or less informative
+   guess, a wrong flag), and how much avoidable risk was survived before.
+5. When, and how much was lost: opening, mid-game, or endgame, and how close
+   the game was to won.
+
+Consequences:
+
+- The built "wrong flag" loss type is decided by the death itself, which is
+  hindsight. Judged by the screen, 34 of the 39 Beginner wrong-flag deaths
+  were known (the numbers contradicted the flag) and 5 were gambles on a
+  guessed flag; Intermediate 217 and 15, Expert 242 and 20.
+- Each death can carry its *choice share*: the share of its risk that the
+  best available move would have avoided, (risk taken - lowest risk) / risk
+  taken. Known deaths and unnecessary gambles are all choice, the best gamble
+  all luck, a 33% guess where 12% existed about two thirds choice. Summed over
+  a set of deaths it estimates how many came from choices rather than forced
+  risk: Beginner 403 of 486 measurable, Intermediate 998 of 1,276, Expert
+  1,369 of 1,922. A chord on guessed flags has no stored joint risk yet.
+- Lookahead: a move's value is its win chance over all its branches. The game
+  measures the immediate risk of every click and, for guesses, one step
+  further (the guess ledger's modeled life); an exact win chance over every
+  future position is feasible only for small unknown regions such as most
+  endgames.
+- Wins ask the same questions of every survived choice and are named by the
+  worst: no gamble, only best gambles, a worse gamble than available, an
+  unnecessary gamble.
+
+Proposed next: these kinds become the loss levels of the tree above (known,
+unnecessary gamble, worse gamble, best gamble, gamble on a guessed flag), with
+opening, mid-game, and endgame beneath each.
+
 ## More daily play limits (proposed 2026-10-12 with the built ones)
 
 The creator asked "What else can you think of like this?" when requesting
