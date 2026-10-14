@@ -162,6 +162,11 @@ checks replay scroll retention, closing back to the finished board, resetting
 on a new game, and arrow keys leaving a collapsed replay alone.
 Its replay fixture waits for native toggle delivery before rendering the first
 frame, so the saved panel state has caught up with the opened details element.
+`tests/board-time-profile-browser-check.js` runs it in Chromium; it also
+completes in Firefox. Every fixture page gives its results box a fixed height
+above the iframe (found 2026-10-14): Firefox throttles animation frames in an
+iframe scrolled out of view, and the fixtures wait on frames, so a results list
+that grew past the window once stalled this page in Firefox.
 `tests/scroll-position-test.html` checks page and metrics-panel scroll retention
 with hidden/tall legends, docked stats, and compact details.
 
