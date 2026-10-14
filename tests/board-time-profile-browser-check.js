@@ -81,14 +81,14 @@ const { chromium } = require(process.argv[2]);
     assert.deepEqual(await names('board'), ['0–1 share', '3BV', 'HZiNi', 'ZiNi', 'islands', 'max number',
       'zero-opening coverage', 'zeros'], 'board traits keep their table names; 3BV spread is off by default');
     await page.evaluate(async () => {
-      // A crowded selection with every board table exercises row collisions
-      // and the session controls below.
+      // A crowded selection with every board trait the fixture measures
+      // exercises row collisions and the session controls below.
       window.crowdGameData = () => {
         const crowded = ['time', 'misclickRate', 'fastclickGap', 'bvPerSecond', 'clickRate', 'efficiency', 'noopRate', 'pathPer3bv'];
         settings.gameDataMetrics = Object.fromEntries(GameData.metrics.map((m) => [m.id, crowded.includes(m.id)]));
       };
       crowdGameData();
-      settings.shownThings.workSpreadTable = true;
+      settings.gameDataBoardTraits.workSpread = true;
       await drawProfileFixture();
     });
     await bandReady();
@@ -439,6 +439,47 @@ const { chromium } = require(process.argv[2]);
     await bandReady();
     assert.equal(await profile.locator('.game-data-row[data-measurement="fastclickGap"]').count(), 0);
     assert.equal(await profile.locator('.game-data-row[data-measurement="clickRate"]').count(), 1);
+    // Board traits have their own list in configure, apart from the This
+    // board table switches (creator 2026-10-14).
+    await profile.getByRole('button', { name: 'configure', exact: true }).click();
+    assert.deepEqual(await profile.locator('.game-data-config h4').allTextContents(),
+      ['performance measurements', 'board traits']);
+    const traitList = profile.locator('.game-data-config table').nth(1);
+    assert.deepEqual(await traitList.locator('tbody input').evaluateAll((inputs) => inputs.map((input) => input.getAttribute('aria-label'))),
+      ['3BV', 'ZiNi', 'max number', 'HZiNi', '3BV spread', '0–1 share', 'zero-opening coverage', 'islands', 'largest island', 'zeros'],
+      'one box per board trait, in game data’s row order');
+    assert.deepEqual(await traitList.locator('tbody button').allTextContents(),
+      ['ZiNi', 'HZiNi', '3BV spread', '0–1 share', 'zero-opening coverage', 'islands', 'largest island'],
+      'a definition exactly where the trait’s card has one');
+    const allTraits = profile.getByLabel('all board traits', { exact: true });
+    assert.equal(await allTraits.evaluate((input) => input.indeterminate), true, 'largest island is off: a mixed list');
+    await allTraits.check();
+    assert.equal(await page.evaluate(() => Object.values(settings.gameDataBoardTraits).every(Boolean)), true);
+    await allTraits.uncheck();
+    assert.equal(await page.evaluate(() => Object.values(settings.gameDataBoardTraits).some(Boolean)), false);
+    await profile.getByLabel('islands', { exact: true }).check();
+    await profile.getByLabel('zeros', { exact: true }).check();
+    await profile.screenshot({ path: '/tmp/game-data-config-board-traits.png' });
+    await profile.getByRole('button', { name: 'back to game data', exact: true }).first().click();
+    await profile.locator(':scope[aria-busy="true"]').waitFor({ state: 'hidden' });
+    await bandReady();
+    assert.deepEqual(await names('board'), ['islands', 'zeros'], 'only the chosen board traits');
+    // With nothing chosen on either list, the note says so, not the two-game minimum.
+    await page.evaluate(async () => {
+      window.savedPerformance = { ...settings.gameDataMetrics };
+      settings.gameDataMetrics = Object.fromEntries(Object.keys(savedPerformance).map((id) => [id, false]));
+      settings.gameDataBoardTraits = Object.fromEntries(Object.keys(GAME_DATA_BOARD_TRAIT_DEFAULTS).map((id) => [id, false]));
+      await drawProfileFixture();
+    });
+    assert.equal(await profile.locator('.game-data-unplotted').textContent(),
+      'Nothing chosen to rank: choose measurements or board traits with configure.');
+    await page.evaluate(async () => {
+      settings.gameDataMetrics = savedPerformance;
+      settings.gameDataBoardTraits = { ...GAME_DATA_BOARD_TRAIT_DEFAULTS, workSpread: true };
+      saveSettings();
+      await drawProfileFixture();
+    });
+    await bandReady();
     await profile.getByRole('button', { name: 'session history', exact: true }).click();
     await profile.locator('tbody tr').first().waitFor();
     assert.equal(await profile.locator('tbody tr').count(), 20);
@@ -458,7 +499,8 @@ const { chromium } = require(process.argv[2]);
     assert.equal(await profile.count(), 0, 'loss is never plotted as a ranked win');
     await page.evaluate(async () => { settings.shownThings.exact3BV = false; await drawProfileFixture(); });
     await bandReady();
-    assert.equal(await profile.locator('.game-data-row[data-side="board"]').count(), 8);
+    assert.equal(await profile.locator('.game-data-row[data-side="board"]').count(), 9,
+      'a This board table switch leaves game data’s board traits alone');
     await page.evaluate(async () => {
       const current = profileFixture.current;
       const identical = [{ ...current, endedAt: current.endedAt - 1000 }, current];
@@ -474,10 +516,8 @@ const { chromium } = require(process.argv[2]);
     assert.equal(await profile.count(), 0);
     await page.evaluate(async () => {
       const { current } = profileFixture;
-      window.savedShownThings = { ...settings.shownThings };
-      for (const key of ['exactZiNi', 'exactMaxNumber', 'exactHZiNi', 'workSpreadTable',
-        'zeroOneShareTable', 'zeroOpeningTable', 'boardShapeTables']) settings.shownThings[key] = false;
-      settings.shownThings.exact3BV = true;
+      window.savedBoardTraits = { ...settings.gameDataBoardTraits };
+      settings.gameDataBoardTraits = Object.fromEntries(Object.keys(savedBoardTraits).map((id) => [id, id === 'bv3']));
       const host = buildBoardTimeRankProfile(current, [current]);
       resultRanks.replaceChildren(host);
       await host.analysisReady;
@@ -486,7 +526,7 @@ const { chromium } = require(process.argv[2]);
     assert.equal(await profile.locator('.game-data-unplotted').textContent(),
       'Nothing to rank yet: every comparison needs at least two measured games.');
     await page.evaluate(async () => {
-      settings.shownThings = { ...savedShownThings };
+      settings.gameDataBoardTraits = savedBoardTraits;
       settings.shownThings.boardPercentiles = true;
       settings.shownThings.exact3BV = true;
       settings.shownThings.averageCharts = true;
@@ -540,6 +580,7 @@ const { chromium } = require(process.argv[2]);
     assert.equal(await page.evaluate(() => settings.sessionDefinition), 'past30min');
     assert.equal(await page.getByLabel('session', { exact: true }).inputValue(), 'past30min');
     assert.equal(await page.evaluate(() => settings.gameDataMetrics.fastclickGap), true);
+    assert.equal(await page.evaluate(() => settings.gameDataBoardTraits.workSpread), true, 'the board-trait selection persists');
     const layoutPage = await browser.newPage({ viewport: { width: 1740, height: 1100 } });
     layoutPage.on('pageerror', (error) => errors.push('layout fixture: ' + error.message));
     await layoutPage.goto('http://127.0.0.1:8099/tests/session-placement-layout-test.html');

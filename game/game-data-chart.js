@@ -734,46 +734,55 @@ function buildBoardTimeRankProfile(record, records) {
     if (view === 'config') {
       const configView = document.createElement('div');
       configView.className = 'game-data-config';
-      const title = document.createElement('h4');
-      title.textContent = 'performance measurements';
-      configView.appendChild(title);
-      const inputs = [];
-      let all;
-      function sync() {
-        for (const { input, id } of inputs) input.checked = settings.gameDataMetrics[id];
-        const values = Object.values(settings.gameDataMetrics);
-        all.checked = values.every(Boolean);
-        all.indeterminate = values.some(Boolean) && !all.checked;
-      }
-      const allLabel = checkbox('all performance measurements', false, (checked) => {
-        settings.gameDataMetrics = Object.fromEntries(GameData.metrics.map((m) => [m.id, checked]));
-        rows = null; saveSettings(); sync();
-      });
-      all = allLabel.querySelector('input');
-      configView.appendChild(allLabel);
-      const table = document.createElement('table');
-      const head = document.createElement('thead');
-      const headRow = document.createElement('tr');
-      for (const text of ['measurement', 'shown']) {
-        const cell = document.createElement('th'); cell.textContent = text; headRow.appendChild(cell);
-      }
-      head.appendChild(headRow);
-      const body = document.createElement('tbody');
-      for (const metric of GameData.metrics) {
-        const row = document.createElement('tr');
-        const name = document.createElement('td');
-        name.append(metric.help ? chartHelpButton(metric.help, metric.name) : metric.name);
-        row.appendChild(name);
-        const cell = document.createElement('td');
-        const input = document.createElement('input'); input.type = 'checkbox';
-        input.setAttribute('aria-label', metric.name);
-        input.addEventListener('change', () => {
-          settings.gameDataMetrics[metric.id] = input.checked; rows = null; saveSettings(); sync();
+      // One list per side of the chart, in its row order, with a box that
+      // sets the whole list; `field` is that side's saved selection.
+      function selectionList(titleText, allText, nameHead, field, entries) {
+        const title = document.createElement('h4');
+        title.textContent = titleText;
+        const inputs = [];
+        let all;
+        function sync() {
+          for (const { input, id } of inputs) input.checked = settings[field][id];
+          const values = Object.values(settings[field]);
+          all.checked = values.every(Boolean);
+          all.indeterminate = values.some(Boolean) && !all.checked;
+        }
+        const allLabel = checkbox(allText, false, (checked) => {
+          settings[field] = Object.fromEntries(entries.map((entry) => [entry.id, checked]));
+          rows = null; saveSettings(); sync();
         });
-        inputs.push({ input, id: metric.id }); cell.appendChild(input); row.appendChild(cell);
-        body.appendChild(row);
+        all = allLabel.querySelector('input');
+        const table = document.createElement('table');
+        const head = document.createElement('thead');
+        const headRow = document.createElement('tr');
+        for (const text of [nameHead, 'shown']) {
+          const cell = document.createElement('th'); cell.textContent = text; headRow.appendChild(cell);
+        }
+        head.appendChild(headRow);
+        const body = document.createElement('tbody');
+        for (const entry of entries) {
+          const row = document.createElement('tr');
+          const name = document.createElement('td');
+          name.append(entry.help ? chartHelpButton(entry.help, entry.name) : entry.name);
+          row.appendChild(name);
+          const cell = document.createElement('td');
+          const input = document.createElement('input'); input.type = 'checkbox';
+          input.setAttribute('aria-label', entry.name);
+          input.addEventListener('change', () => {
+            settings[field][entry.id] = input.checked; rows = null; saveSettings(); sync();
+          });
+          inputs.push({ input, id: entry.id }); cell.appendChild(input); row.appendChild(cell);
+          body.appendChild(row);
+        }
+        table.append(head, body);
+        configView.append(title, allLabel, table);
+        sync();
       }
-      table.append(head, body); configView.appendChild(table); sync();
+      selectionList('performance measurements', 'all performance measurements', 'measurement',
+        'gameDataMetrics', GameData.metrics);
+      selectionList('board traits', 'all board traits', 'trait', 'gameDataBoardTraits',
+        Object.keys(GAME_DATA_BOARD_TRAIT_DEFAULTS).map((id) =>
+          ({ id, name: BOARD_TRAIT_NAMES[id], help: BOARD_TRAIT_DEFINITIONS[id] })));
       const historyButton = button('session history', () => show('history'));
       configView.appendChild(historyButton);
       profile.append(configView, button('back to game data', () => show('chart')));
@@ -835,7 +844,11 @@ function buildBoardTimeRankProfile(record, records) {
       }
       host.rows = rows;
       if (rows.length === 0) {
-        profile.appendChild(gameDataCell('game-data-unplotted', 'Nothing to rank yet: every comparison needs at least two measured games.'));
+        const chosen = [settings.gameDataMetrics, settings.gameDataBoardTraits]
+          .some((selection) => Object.values(selection).some(Boolean));
+        profile.appendChild(gameDataCell('game-data-unplotted', chosen
+          ? 'Nothing to rank yet: every comparison needs at least two measured games.'
+          : 'Nothing chosen to rank: choose measurements or board traits with configure.'));
       } else if (settings.gameDataDistributions) {
         const distributions = buildGameDataDistributions(rows,
           settings.gameDataDistributionPools === 'both' ? ['lifetime', 'session'] : [settings.gameDataDistributionPools]);

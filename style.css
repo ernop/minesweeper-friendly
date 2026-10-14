@@ -2696,6 +2696,7 @@ body.settings-page .return-to-game {
 }
 .game-data-config table { border-collapse: collapse; width: 100%; }
 .game-data-config th, .game-data-config td { font-weight: 400; padding: 3px 2px; border-bottom: 1px solid #d9e2e8; text-align: center; }
+.game-data-config th { font-size: 14px; }
 .game-data-config td:first-child, .game-data-config th:first-child { text-align: left; }
 .game-data-config th label { white-space: nowrap; }
 .game-data-config th input { margin-inline: 0 2px; }

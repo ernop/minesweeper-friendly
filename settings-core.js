@@ -183,6 +183,27 @@ function gameDataMetricsFromStored(stored) {
     [id, old.some((selection) => selection[id] ?? GameData.defaults[id])]));
 }
 
+// Game data's board traits in its row order, and whether each shows by
+// default: as the This board table switches showed them by default.
+const GAME_DATA_BOARD_TRAIT_DEFAULTS = Object.freeze({
+  bv3: true, zini: true, maxAdjacent: true, hzini: true, workSpread: false,
+  zeroOneShare: true, zeroOpeningCoverage: true, islandCount: true, largestIsland: false, zeroCount: true,
+});
+
+// Game data's board traits followed the This board table switches until
+// configure chose them (2026-10-14); a saved profile starts from what its
+// switches showed.
+function gameDataBoardTraitsFromStored(stored) {
+  if (Object.hasOwn(stored, 'gameDataBoardTraits')) return stored.gameDataBoardTraits;
+  const shown = { ...SHOWN_THINGS_DEFAULTS, ...(validShownThings(stored.shownThings) ? stored.shownThings : {}) };
+  return {
+    bv3: shown.exact3BV, zini: shown.exactZiNi, maxAdjacent: shown.exactMaxNumber, hzini: shown.exactHZiNi,
+    workSpread: shown.workSpreadTable, zeroOneShare: shown.zeroOneShareTable, zeroOpeningCoverage: shown.zeroOpeningTable,
+    islandCount: shown.boardShapeTables, largestIsland: shown.boardShapeTables && shown.largestIsland,
+    zeroCount: shown.boardShapeTables,
+  };
+}
+
 function validShownThings(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
     && Object.entries(value).every(([key, enabled]) =>
@@ -517,6 +538,12 @@ const SETTINGS_SCHEMA = [
     valid: validGameDataMetrics, migrate: gameDataMetricsFromStored,
     group: 'after-game', label: 'game data measurements',
     describe: 'which of your performance measurements game data compares with your lifetime and your session', control: 'none',
+  },
+  {
+    field: 'gameDataBoardTraits', default: GAME_DATA_BOARD_TRAIT_DEFAULTS, mergeDefaults: true,
+    valid: preferenceBooleans(GAME_DATA_BOARD_TRAIT_DEFAULTS), migrate: gameDataBoardTraitsFromStored,
+    group: 'after-game', label: 'game data board traits',
+    describe: 'which of this board’s traits game data ranks against your lifetime and your session boards; chosen with configure on the chart, apart from the This board tables', control: 'none',
   },
   {
     field: 'gameDataBandPool', default: 'lifetime',

@@ -88,6 +88,23 @@ assert.equal(merged.gameDataMetrics.misclickRate, defaults.gameDataMetrics.miscl
 assert(!('gameDataLifetimeMetrics' in merged) && !('gameDataSessionMetrics' in merged), 'the old selections are not kept');
 assert.equal(run('settingsFrom({ gameDataMetrics: { time: false } }).gameDataMetrics.time'), false);
 assert.equal(run('settingsFrom({ gameDataMetrics: { time: false } }).gameDataMetrics.clickRate'), true);
+// Game data's board traits followed the This board table switches until
+// configure chose them (2026-10-14).
+assert.deepEqual(defaults.gameDataBoardTraits, plain(run('GAME_DATA_BOARD_TRAIT_DEFAULTS')));
+assert.equal(defaults.gameDataBoardTraits.workSpread, false, '3BV spread stays off by default');
+assert.deepEqual(plain(run(`settingsFrom({ shownThings: {
+  exactHZiNi: false, workSpreadTable: true, boardShapeTables: false, largestIsland: true,
+} }).gameDataBoardTraits`)), {
+  bv3: true, zini: true, maxAdjacent: true, hzini: false, workSpread: true, zeroOneShare: true,
+  zeroOpeningCoverage: true, islandCount: false, largestIsland: false, zeroCount: false,
+}, 'a saved profile starts from what its table switches showed');
+assert.equal(run('settingsFrom({ shownThings: { largestIsland: true } }).gameDataBoardTraits.largestIsland'), true);
+assert.equal(run('settingsFrom({ gameDataBoardTraits: { hzini: true }, shownThings: { exactHZiNi: false } }).gameDataBoardTraits.hzini'),
+  true, 'a saved board-trait selection wins over the table switches');
+assert.equal(run('settingsFrom({ gameDataBoardTraits: { hzini: false } }).gameDataBoardTraits.bv3'), true,
+  'unset traits keep their defaults');
+assert.deepEqual(plain(run('settingsFrom({ gameDataBoardTraits: { unknown: true } }).gameDataBoardTraits')),
+  defaults.gameDataBoardTraits);
 assert.equal(run('settingsFrom({ gameDataBandPool: "day" }).gameDataBandPool'), 'lifetime');
 assert.equal(defaults.gameDataDistributionPools, 'both', 'distributions show both pools until the switch says otherwise');
 assert.equal(run('settingsFrom({ gameDataDistributionPools: "day" }).gameDataDistributionPools'), 'both');
@@ -97,6 +114,7 @@ console.log('settings-state: shared validation, defaults, migration, isolation, 
 const choices = {
   sessionDefinition: 'past30min', gameDataShowValues: false,
   gameDataMetrics: { ...defaults.gameDataMetrics, fastclickGap: false, ioe: true },
+  gameDataBoardTraits: { ...defaults.gameDataBoardTraits, hzini: false, largestIsland: true },
   gameDataBandPool: 'session', gameDataDistributions: true, gameDataDistributionPools: 'session',
   difficulty: 'custom', customBoard: { width: 24, height: 12, mines: 45 },
   customBoardDraft: { width: '25', height: '12', mines: '45' },

@@ -6,11 +6,12 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
   `game-data.js` owns shared metric formulas, the GameData catalog (one
   `name`, `format`, direction, and `allOutcomes` per measurement, and a
   `help` definition only where the name and unit leave it open), rows,
-  history, domain, and SessionScope choices/bounds/records. Board traits
-  keep their table `help(record)` in `BOARD_METRIC_TABLES` and the shape
-  families (game/rankings.js), since the "This board" tables show it;
-  `selfEvident: true` (3BV, max number, zeros) keeps its first line off the
-  game data card.
+  history, domain, and SessionScope choices/bounds/records. A board trait's
+  definition is `BOARD_TRAIT_DEFINITIONS[id]` (game/rankings.js, beside
+  `BOARD_TRAIT_NAMES`); its "This board" table's `help(record)` in
+  `BOARD_METRIC_TABLES` or the shape families opens with it. 3BV, max
+  number, and zeros have no entry, so their cards and configure rows show
+  none, and their tables keep their own help.
   `settings-core.js` depends on it.
 - Rows: `GameData.rows(record, records, preferences, params)` ranks every
   chosen measurement (`preferences.gameDataMetrics`) against lifetime and the
@@ -36,9 +37,13 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
   `boardTraitRankProfile` (game/game-data-chart.js) ranks this board's
   scalar traits against every earlier board and against the session's
   boards through the same `rankedRow`, side `board`, scopes `lifetime` and
-  `session`, its definition `help(record)[0]` unless `selfEvident`. The
+  `session`, its definition `BOARD_TRAIT_DEFINITIONS[measurementId]`. The
   share traits also declare `step(record)`, one safe cell
-  (`boardShareStep`).
+  (`boardShareStep`). The worker's `game-data` job passes it the
+  `boardMetricCandidates` and `boardShapeCandidates` comparisons whose
+  `measurementId` is on in `preferences.gameDataBoardTraits` (the has-7/8
+  and max-number-cap families have none); the This board table switches
+  no longer enter (2026-10-14).
 - Distributions: `GameData.addDistributions(poolRows, valuesByScope,
   sessionValues, format, step)` gives each row `distribution`
   on one axis per measurement (`axisOf`): a discrete measurement (whole
@@ -130,11 +135,25 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
   (two box-shadows plus a 1px outline, so it never reflows). The histogram's
   this-game mark is two lines, `.game-data-histogram-this-edge` (black,
   wider) under `.game-data-histogram-this` (`--this-game`).
-- Configuration: one checkbox per measurement plus "all performance
-  measurements". Preferences: `gameDataMetrics`
+- Configuration: `selectionList(title, allLabel, nameHead, field, entries)`
+  builds one list per side, each an "all …" checkbox over a table with one
+  checkbox per entry (`aria-label` its name) and the name as a
+  `chartHelpButton` where the entry has a definition: performance
+  measurements (`gameDataMetrics`, entries `GameData.metrics`), then board
+  traits (`gameDataBoardTraits`, ids in `GAME_DATA_BOARD_TRAIT_DEFAULTS`
+  order, names `BOARD_TRAIT_NAMES`, definitions `BOARD_TRAIT_DEFINITIONS`).
+  Any change sets `rows = null`, so the chart asks the worker again. With
+  no rows and nothing on in either map, the chart's note names that
+  instead of the two-game minimum. Preferences: `gameDataMetrics`
   (one map; `gameDataMetricsFromStored` carries over the former
   `gameDataLifetimeMetrics`/`gameDataSessionMetrics`, a measurement shown in
-  either staying shown), `gameDataBandPool`, `gameDataDistributions`,
+  either staying shown), `gameDataBoardTraits` (settings-core.js; defaults
+  `GAME_DATA_BOARD_TRAIT_DEFAULTS`; a stored profile without it starts
+  from its stored `shownThings` through `gameDataBoardTraitsFromStored`:
+  `exact3BV`, `exactZiNi`, `exactMaxNumber`, `exactHZiNi`,
+  `workSpreadTable`, `zeroOneShareTable`, `zeroOpeningTable`;
+  `boardShapeTables` for islands and zeros, and with `largestIsland` for
+  largest island), `gameDataBandPool`, `gameDataDistributions`,
   `gameDataDistributionPools`, and `gameDataShowValues`, all in the shared
   persistent schema.
 - Session: `SessionScope.defaultId` ('today') is the one default: the
@@ -158,4 +177,7 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
   with the rank and holding no key, dots, every strip and card running green
   to red from left to right with a higher-is-better card's labels
   descending, distributions fit with nothing but sections and the note,
-  linkage, one picker, configuration).
+  linkage, one picker, configuration, including the board-trait list, its
+  independence from the table switches, and the nothing-chosen note), and
+  tests/settings-state-test.js (`gameDataBoardTraits` defaults and the
+  carryover from `shownThings`).

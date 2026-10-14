@@ -393,10 +393,11 @@ from zeros, needs fewer benchmark clicks, and keeps its mines in one dense
 clump that can show a high number. These are declared preferences, not
 claims about a trait's causal difficulty.
 Raw spread/share measurements rank without rounded comparison buckets.
-Each board-trait marker follows its tablechart's shown-things switch. The
-3BV-spread tablechart, and with it the 3BV spread marker, is off by default
-(user decision 2026-09-23: "i don't think we need to show 3bv spread by
-default").
+Which traits get markers is chosen in configure (Catalog and configuration,
+below), apart from the This board tablecharts since 2026-10-14; until then
+each marker followed its tablechart's shown-things switch. The 3BV spread
+marker is off by default (user decision 2026-09-23: "i don't think we need
+to show 3bv spread by default"), as is largest island.
 Binary clue-presence and capped max-number table families do not duplicate
 the max number row. Identical time-table memberships do not collapse distinct scalar
 traits on this chart. Matching-board solve-time tables remain a separate analysis.
@@ -418,6 +419,35 @@ indeterminate state. Each choice, the plotted pool, distributions mode, and valu
 visibility persist in the common preference schema and export. A saved
 profile's former selections carry over: a measurement either former column
 showed stays shown. Back buttons and Escape return to the chart.
+
+Board traits in configure (creator request 2026-10-14: "'configure' below
+the distributions list should also let me configure any/all/some board
+traits viz status too"; built the same day):
+
+- Under the performance measurements, a "board traits" list has one
+  checkbox per trait in the board side's row order: 3BV, ZiNi, max number,
+  HZiNi, 3BV spread, 0–1 share, zero-opening coverage, islands, largest
+  island, zeros. An "all board traits" checkbox sets them all; a mixed
+  selection shows it indeterminate. A trait whose card has a definition
+  opens it from its name, as the performance list does.
+- Each choice decides whether that trait gets a row on the board-traits
+  side, in the band and the distributions alike, and persists in the
+  preference schema and export.
+- It is its own choice. Until then a trait's row followed its This board
+  tablechart's switch (same-3BV, same-ZiNi, and the rest, the board-shape
+  switch for islands and zeros, and that and the largest-island switch for
+  largest island). Now configure decides what game data ranks, and the
+  result-section switches decide only which tables and board-trait charts
+  show.
+- Defaults are what the switches showed by default: every trait except 3BV
+  spread and largest island. A profile saved before 2026-10-14 starts from
+  what its own switches showed, so its game data does not change.
+- With nothing chosen on either list, the chart says "Nothing chosen to
+  rank: choose measurements or board traits with configure." instead of the
+  two-game minimum, which would not be the reason.
+
+The configuration tables' column heads ("measurement" or "trait", and
+"shown") are 14px over 12px rows, so they outrank the text beneath them.
 
 Defaults (user decision 2026-09-23, from a screenshot of the creator's own
 configuration: "the attached image also is the defaults we should show for
