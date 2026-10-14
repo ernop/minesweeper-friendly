@@ -689,6 +689,18 @@ function boardDisplayLabel() {
   return boardDisplayLabelOf(config);
 }
 
+// The lifetime list of a no-mark win: "top expert no-mark times". The
+// board name is the named difficulty, or the custom size. Mode and
+// generator stay on the outcome line; the list itself is already that
+// history key's no-mark games only.
+function noMarkTimeLabel() {
+  const name = difficultyNameOf(config);
+  const board = name === undefined
+    ? 'custom ' + config.width + 'x' + config.height + '-' + config.mines
+    : name;
+  return 'top ' + board + ' no-mark times';
+}
+
 function formatDate(timestampMs) {
   const d = new Date(timestampMs);
   const pad = (n) => String(n).padStart(2, '0');
@@ -709,13 +721,14 @@ function clearResultStats() {
 }
 
 // Two lines: the outcome with its board, mode, and generator, then when.
-function setResultSummary(lead, generatorLabel, when) {
+function setResultSummary(lead, generatorLabel, when, noMark = false) {
   const leadNode = document.createElement('span');
   leadNode.className = 'result-summary-lead';
   leadNode.textContent = lead;
   const context = document.createElement('span');
   context.className = 'result-summary-context';
-  context.textContent = [boardDisplayLabel(), playModeLabel(), generatorLabel]
+  context.textContent = [boardDisplayLabel(), playModeLabel(), generatorLabel,
+    noMark ? 'no-mark' : null]
     .filter((part) => part !== null).join(' \u00b7 ');
   const whenNode = document.createElement('span');
   whenNode.className = 'result-summary-when';
@@ -768,9 +781,11 @@ async function renderResultAsync(record, modeRecords, options = {}) {
   const summaryLead = options.historyView
     ? 'High scores'
     : (record.outcome === 'win' ? 'Win' : 'Loss');
+  const noMarkWin = record.outcome === 'win' && isMarkless(record);
   setResultSummary(summaryLead,
     record.generator === undefined ? null : BoardGenerators.displayLabel(record.generator),
-    (options.historyView ? 'Latest win · ' : '') + formatDate(record.endedAt));
+    (options.historyView ? 'Latest win · ' : '') + formatDate(record.endedAt),
+    noMarkWin);
   clearResultStats();
   resultAnalysis.textContent = '';
   const historyView = options.historyView === true;
@@ -907,7 +922,9 @@ async function renderResultAsync(record, modeRecords, options = {}) {
     resultRanks.textContent = '';
     renderTrialChrome();
   } else if (record.outcome === 'win') {
-    await renderRanks(record, modeRecords, options, resultSections, isCurrent);
+    await renderRanks(record, noMarkComparison(record, modeRecords),
+      noMarkWin ? { ...options, noMarkTimeLabel: noMarkTimeLabel() } : options,
+      resultSections, isCurrent);
   } else {
     const latestWin = modeRecords.findLast((game) => game.outcome === 'win');
     await renderRanks(latestWin || record, modeRecords,

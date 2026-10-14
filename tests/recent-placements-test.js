@@ -26,6 +26,7 @@ globalThis.Justice = require(path.join(repo, 'justice.js'));
 vm.runInThisContext(section('//-------GAME-END EVALUATION: VERDICT', '//-------GAME-END EVALUATION: CAPTURE'));
 vm.runInThisContext(section('//-------SESSION SUMMARY: COMPUTATION', '//-------SESSION SUMMARY: DISPLAY'));
 vm.runInThisContext(section('//-------STREAK RANKINGS: COMPUTATION-------', '//-------STREAK RANKINGS: COMPUTATION END'));
+globalThis.isMarkless = (record) => record.flagsPlaced === 0;
 
 let checks = 0;
 function assertEq(name, actual, want) {
@@ -221,6 +222,7 @@ assertEq('middle placement wording is shared by the recent summary',
   assertEq('a type without session wins has no best', pink.best, null);
   assertEq('window bounds are inclusive', expert.games + '/' + expert.wins, '2/1');
   assertEq('the lifetime pool ends with the window', expert.best.rank + '/' + expert.best.total, '2/2');
+  assertEq('a history without the flag count is not a no-mark row', expert.noMark, false);
   assertEq('the latest session game names the type', pink.latest.endedAt, 58);
   assertEq('a loss without saved evidence is unjudged, as the endings chart files it; '
     + 'a win without a guess ledger is unmeasured',
@@ -813,6 +815,44 @@ for (let day = 1; day <= 31; day++) {
   assertEq('board families follow the streak lists', labels.slice(first + 3).join(','), '3BV 40');
   assertEq('a session without wins earns no streak',
     recentPlacementsSummary(recentPlacementCandidates(records, NOW, NOW + 1, true), NOW + 1).length, 0);
+}
+
+// No-mark is a way of winning the current board, not a mode. A no-mark win's
+// comparisons keep only no-mark games, and the lifetime list is named for them.
+{
+  const marked = { outcome: 'win', endedAt: NOW - 1000, timeMs: 10000, flagsPlaced: 3, bv3: 10 };
+  const markless = { outcome: 'win', endedAt: NOW, timeMs: 12000, flagsPlaced: 0, bv3: 10 };
+  const marklessLoss = { outcome: 'loss', endedAt: NOW - 500, flagsPlaced: 0, timeMs: 4000 };
+  const all = [marked, marklessLoss, markless];
+  assertEq('a no-mark win compares only with no-mark games',
+    noMarkComparison(markless, all).map((r) => r.endedAt).join(','), (NOW - 500) + ',' + NOW);
+  assertEq('a marked win keeps the shared list', noMarkComparison(marked, all).length, 3);
+  assertEq('a no-mark loss keeps the shared list', noMarkComparison(marklessLoss, all).length, 3);
+  const labels = recentPlacementCandidates([marked, markless], NOW, startOfDay(NOW, 6), false,
+    'top expert no-mark times').map((c) => c.label);
+  assertEq('lifetime names the no-mark list', labels.includes('top expert no-mark times'), true);
+  assertEq('the shared lifetime name is not also shown', labels.includes('lifetime'), false);
+  assertEq('other windows name the no-mark pool', labels.includes('past week · no-mark'), true);
+  assertEq('streaks name the no-mark pool', labels.includes('no-mark streak'), true);
+  const shared = recentPlacementCandidates([marked, markless], NOW, startOfDay(NOW, 6), false)
+    .map((c) => c.label);
+  assertEq('without the label the shared names stay', shared.includes('lifetime') && shared.includes('streak'), true);
+  const marklessOnly = (endedAt, timeMs) => ({
+    endedAt, outcome: 'win', timeMs, flagsPlaced: 0, actionEvaluations: [],
+  });
+  const [row] = sessionSummaryRows({
+    '30x16/99@standard': [marklessOnly(10, 80000), marklessOnly(20, 70000)],
+  }, 10, 20, ['30x16/99']);
+  assertEq('a no-mark history row is no-mark', row.noMark, true);
+  assertEq('its lifetime rank counts only those wins', row.best.rank + '/' + row.best.total, '1/2');
+  const [mixed] = sessionSummaryRows({
+    '30x16/99@standard': [
+      { endedAt: 10, outcome: 'win', timeMs: 50000, flagsPlaced: 4, actionEvaluations: [] },
+      marklessOnly(20, 70000),
+    ],
+  }, 10, 20, ['30x16/99']);
+  assertEq('a marked win in the same key keeps the shared row', mixed.noMark, false);
+  assertEq('the shared row still ranks the faster marked win first', mixed.best.rank + '/' + mixed.best.total, '1/2');
 }
 
 console.log(`recent-placements: all ${checks} checks passed`);

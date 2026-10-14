@@ -12,7 +12,9 @@ Spec: [docs/product/rankings.md](../product/rankings.md). Index: [AGENTS.md](../
   The other helpers are
   `windowBounds` (11-row windowing), `buildRankList` (shared renderer,
   always the full window), `relativeAge` / `formatAgeCount` + `.age-u-*`
-  classes (age display and unit colors, shared with the scatter legend;
+  classes (age display and unit colors; a rank row's sub-minute age that
+  is not this game is minutes green with no chip, while the scatter
+  legend keeps the fluorescent seconds chip;
   h/d/w/y counts are one decimal including .0). Board-shape lists
   (`has an 8` / `has a 7` / `max number ≤ N` / `islands N` /
   `largest island N` / `zeros N`) are defined once in
@@ -108,14 +110,15 @@ Spec: [docs/product/rankings.md](../product/rankings.md). Index: [AGENTS.md](../
 - Session summary (2026-10-07; [spec](../product/rankings.md#session-summary-requested-and-built-2026-10-07)):
   `sessionSummaryRows(historyByKey, from, to, difficultyKeys)` (the pure span
   "SESSION SUMMARY: COMPUTATION") returns one row per history key with games
-  in the window: `{key, latest, games, wins, best, means}`, where `best` is
+  in the window: `{key, latest, games, wins, best, means, noMark}`, where `best` is
   the session's fastest win (`compareRankedWins`) with its rank and total
   among that key's wins up to the window's end, and `means[id]` is
   `{value, measured}` (or null) for each `SESSION_SUMMARY_MEANS` measurement
   (`time`, `bvPerSecond`, `ioe`), averaged over the session wins whose
   `GameData` value is finite. Rows follow `difficultyKeys`, then other keys
   alphabetically. It is a linear filter over saved records, so it runs on
-  the page. `buildSessionSummary(record, referenceMs)` renders
+  the page. `noMark` is true when every record of that key is markless.
+  `buildSessionSummary(record, referenceMs, markCurrent, noMark)` renders
   `.rank-list.session-summary` (heading "session", help naming the window)
   with `sessionSummaryTypeParts` (the board, and a variant naming a
   non-Standard mode and a non-default generator, in its own
@@ -152,6 +155,19 @@ Spec: [docs/product/rankings.md](../product/rankings.md). Index: [AGENTS.md](../
   `node tests/analysis-worker-test.js` runs the worker task with losses;
   `node tests/result-presentation-test.js` freezes the
   cross-context section order.
+- No-mark wins (2026-10-14; [spec](../product/rankings.md#no-mark-wins-decided-2026-10-14)):
+  `noMarkComparison(record, records)` keeps every record unless the result
+  is a markless win, in which case it keeps `isMarkless` records of that
+  same history key. `renderResultAsync` passes that list into `renderRanks`
+  with `options.noMarkTimeLabel` from `noMarkTimeLabel()` ("top expert
+  no-mark times", or the current board's name). `noMarkRankLabel` applies
+  it to the lifetime list and suffixes every other list; streaks get a
+  "no-mark " prefix. `noMarkSessionHistory` narrows only the result's own
+  key, and only when `buildSessionSummary` is called with `noMark` set, so
+  a loss keeps the shared session. Game data pool text is
+  `gameDataPoolLabel`, switched by `gameDataNoMark` inside
+  `buildBoardTimeRankProfile`. Known answers are in
+  `tests/recent-placements-test.js`.
 - Rank-highlight browser verification:
   `node tests/rank-highlight-browser-check.js /path/to/playwright /path/to/chromium`
   uses an isolated profile on the permanent test origin, with renderer-only

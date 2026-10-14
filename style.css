@@ -3453,11 +3453,12 @@ body.vigilance-running #self-check-header {
   border: 1px solid #cccccc;
 }
 
-/* Age colors by unit, following the board-number palette: seconds
-   hyper-fluorescent green, bold on a black chip because the green is
-   illegible on white, then 2-green, 1-blue, 3-red, 4-navy, 5-maroon,
-   6-teal. Shared by the rank-list age cells and the scatter legend; the
-   me-row override replaces the chip with the row tint. */
+/* Age colors by unit. Rank-list records from the last minute that are
+   not this game use the minutes green with no chip. The fluorescent
+   seconds green stays on the scatter legend's seconds swatch, bold on a
+   black chip because that green is illegible on white; scatter dots use
+   the same green. Longer units follow the board-number palette:
+   2-green, 1-blue, 3-red, 4-navy, 5-maroon, 6-teal. */
 .age-u-s  {
   color: #39ff14;
   font-weight: bold;
@@ -3465,8 +3466,15 @@ body.vigilance-running #self-check-header {
   padding: 0 3px;
   border-radius: 3px;
 }
-.rank-row .age-num-cell.age-u-s { border-radius: 3px 0 0 3px; }
-.rank-row .age-unit-cell.age-u-s { border-radius: 0 3px 3px 0; }
+.rank-row:not(.me) .age-num-cell.age-u-s,
+.rank-row:not(.me) .age-unit-cell.age-u-s {
+  color: #008000;
+  font-weight: inherit;
+  background: transparent;
+  border-radius: 0;
+}
+.rank-row:not(.me) .age-num-cell.age-u-s { padding: 0 0 0 4px; }
+.rank-row:not(.me) .age-unit-cell.age-u-s { padding: 0 4px 0 2px; }
 .age-u-m  { color: #008000; }
 .age-u-h  { color: #0000ff; }
 .age-u-d  { color: #ff0000; }

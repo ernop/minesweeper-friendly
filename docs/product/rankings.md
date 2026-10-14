@@ -101,6 +101,39 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   because the placement itself is fresh information. (This replaced the
   earned-detail collapse, which greyed non-top placements to a single row.)
 
+## No-mark wins (decided 2026-10-14)
+
+No-mark is not a play mode and not its own history key. It is a way of
+solving the board you are already playing: a win with no flags placed
+(`flagsPlaced === 0`, the "(m)" mark). The Mode menu does not offer it.
+The game stays on that board, mode, and generator — Expert Standard, for
+example, stays Expert Standard.
+
+When the result on screen is a no-mark win, the post-game records are only
+the no-mark games of that same history key. That covers the time lists,
+day categories, This-board tables, streaks, ranks won, property charts,
+relationship charts, and game data. The outcome line adds "no-mark". The
+lifetime time list is named for the board: "top expert no-mark times"
+(beginner and intermediate the same way; a custom board is "top custom
+WxH-M no-mark times"). Every other list of that view keeps its own name
+and adds "· no-mark". Streaks read "no-mark streak", "no-mark near-streak",
+and "no-mark near-near-streak". Game data pools read "no-mark" and
+"no-mark session".
+
+A no-mark streak is consecutive no-mark wins, broken by a no-mark loss.
+A game played with flags is outside this comparison, so it does not appear
+and does not break the streak.
+
+The session summary still lists every other board type played in the
+session. The no-mark win's own type counts only its no-mark games, and
+that row's variant says "no-mark". Its best time's lifetime rank is among
+that type's no-mark wins.
+
+A win that used flags, and every loss, keeps the shared lists. No-mark
+times inside those lists still show "(m)". Games recorded before flags
+were counted never count as no-mark. High scores follow the latest win, so
+a no-mark latest win opens these no-mark lists.
+
 ## Rank highlights (built 2026-09-21, recolored 2026-10-07)
 
 Creator direction 2026-10-07: "rather than gold, silver, bronze, let's just
@@ -355,14 +388,17 @@ middle? that's okay."
 - A 0-second age renders as "this" (the game that just finished), spanning
   the age columns, right-aligned so its right edge is flush with the other
   rows' age labels (2026-08-20; replaced the left-aligned "just now").
-- The age (count + unit) is color-coded by unit: s = hyper-fluorescent
-  green (#39ff14), bold on a small black chip; then the board-number
+- The age (count + unit) is color-coded by unit. On a rank list, a record
+  from the last minute that is not this game uses the same green as
+  minutes (#008000), with no chip (creator 2026-10-14: those rows do not
+  need the seconds treatment). Longer units follow the board-number
   palette: m = green, h = blue (the "1" blue), d = red (the game red),
-  w = navy, mo = maroon, y = teal. The scatter legend uses the same
-  colors. The chip is the creator's choice (2026-09-23): bold green on
-  white had about 1.4:1 contrast.
+  w = navy, mo = maroon, y = teal.
+- Scatter dots keep seconds as hyper-fluorescent green (#39ff14). The
+  scatter legend's seconds swatch is that green, bold on a small black
+  chip, because the green is illegible on white (creator 2026-09-23).
 - Your own row is bold black on the this-game green (see Rank
-  highlights). That override replaces the seconds chip too.
+  highlights). That row says "this" and carries no seconds chip.
 
 ## Streak lists
 

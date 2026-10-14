@@ -90,6 +90,8 @@ Spec: [docs/product/per-game-stats.md](../product/per-game-stats.md). Index: [AG
   Display: the `.markless-time` class on a time cell draws a small
   olive-green "(m)" before the time via CSS `::before` — applied in
   `timeAgeRow` (every time-ranked list) and the stats table's Time row.
+  A markless win's post-game pool is `noMarkComparison` in rankings.js
+  ([No-mark wins](../product/rankings.md#no-mark-wins-decided-2026-10-14)).
 - `flagsRemoved` counts flag removals by the player (both branches live in
   `toggleFlag`). It stays separate from no-op clicks because removal
   changed the board; its reason is not inferred. Same absence rules as

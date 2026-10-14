@@ -17,7 +17,7 @@ function boardTraitRankProfile(record, comparisons, records, sessionDefinition) 
   return comparisons.filter((c) => c.rawValue).flatMap((comparison) => {
     const spec = { id: comparison.measurementId, name: comparison.trait, allOutcomes: true,
       higher: comparison.higher, value: comparison.rawValue, format: comparison.format,
-      help: comparison.selfEvident ? undefined : comparison.help(record)[0] };
+      help: BOARD_TRAIT_DEFINITIONS[comparison.measurementId] };
     // Session boards are a subset of lifetime, so a session row implies a lifetime row.
     const poolRows = [['lifetime', past], ['session', session]]
       .map(([scope, pool]) => GameData.rankedRow(record, pool, spec, scope, {}, 'boards'))
@@ -75,6 +75,15 @@ function standingColor(percentile, stops) {
 }
 
 const GAME_DATA_POOL_LABELS = { lifetime: 'lifetime', session: 'session' };
+// A no-mark win's game data ranks only no-mark games, so the pool names
+// say that instead of the shared "lifetime" / "session".
+let gameDataNoMark = false;
+function gameDataPoolLabel(scope) {
+  if (!gameDataNoMark) return GAME_DATA_POOL_LABELS[scope];
+  if (scope === 'lifetime') return 'no-mark';
+  if (scope === 'session') return 'no-mark session';
+  return GAME_DATA_POOL_LABELS[scope];
+}
 // Each side title's help says what its percentages are, which nothing else
 // on the panel says.
 const GAME_DATA_SIDE_HELP = {
@@ -132,7 +141,7 @@ function gameDataUnrankedNote(items) {
 function gameDataChartChip(row) {
   const chip = gameDataCell('game-data-chart-chip', 'this ' + row.valueText + ' · ' + gameDataPercentText(row));
   chip.style.setProperty('--standing', standingColor(row.percentile, STANDING_MARK_STOPS));
-  chip.title = GAME_DATA_POOL_LABELS[row.scope] + ': ' + row.standingText;
+  chip.title = gameDataPoolLabel(row.scope) + ': ' + row.standingText;
   return chip;
 }
 
@@ -261,7 +270,7 @@ function fillGameDataCard(tip, item, scope) {
   };
   const standing = (poolScope) => {
     const node = paragraph('game-data-card-standing', '');
-    node.append(gameDataCell('game-data-card-pool', GAME_DATA_POOL_LABELS[poolScope] + ':'), ' ',
+    node.append(gameDataCell('game-data-card-pool', gameDataPoolLabel(poolScope) + ':'), ' ',
       item.pools[poolScope].standingText);
     return node;
   };
@@ -325,7 +334,7 @@ function buildGameDataBand(rows, pool, valuesShown) {
         gameDataCell('game-data-value', item.valueText)]));
     button.setAttribute('aria-label', item.name + ' ' + item.valueText + ': ' + Object.entries(item.pools)
       .filter(([scope]) => item.side === 'performance' || scope === pool)
-      .map(([scope, row]) => GAME_DATA_POOL_LABELS[scope] + ' ' + gameDataPercentText(row)).join(', '));
+      .map(([scope, row]) => gameDataPoolLabel(scope) + ' ' + gameDataPercentText(row)).join(', '));
     wrap.addEventListener('mouseenter', () => linkGameDataCharts(item.metricId, true));
     wrap.addEventListener('mouseleave', () => linkGameDataCharts(item.metricId, false));
     button.addEventListener('focus', () => linkGameDataCharts(item.metricId, true));
@@ -351,7 +360,7 @@ function buildGameDataBand(rows, pool, valuesShown) {
     columns.dataset.side = side;
     columns.append(...(side === 'performance'
       ? [headCell('game-data-name', ''), headCell('game-data-value', 'value'),
-        ...perfPools.map((scope) => headCell('game-data-pct', GAME_DATA_POOL_LABELS[scope], scope))]
+        ...perfPools.map((scope) => headCell('game-data-pct', gameDataPoolLabel(scope), scope))]
       : [headCell('game-data-pct', '', pool), headCell('game-data-name', ''), headCell('game-data-value', 'value')]));
     return { side, title, columns, entries: list.filter((item) => item.pools[pool])
       .map((item) => ({ item, row: rowElement(item), percentile: item.pools[pool].percentile })) };
@@ -630,6 +639,7 @@ function buildGameDataDistributions(rows, pools) {
 }
 
 function buildBoardTimeRankProfile(record, records) {
+  gameDataNoMark = record.outcome === 'win' && isMarkless(record);
   if (record.outcome !== 'win') return null;
   const host = document.createElement('div');
   host.className = 'board-time-profile-host';
@@ -689,7 +699,7 @@ function buildBoardTimeRankProfile(record, records) {
     group.setAttribute('aria-label', label);
     group.append(label + ': ');
     for (const value of choices) {
-      const choice = button(value, () => {
+      const choice = button(value === 'both' ? 'both' : gameDataPoolLabel(value), () => {
         settings[field] = value;
         saveSettings();
         renderAndFocus('.game-data-pool-switch [aria-pressed="true"]');

@@ -6,8 +6,8 @@ importScripts('trend-fit.js?v=20260925-worker-analysis',
   'game/session-stats.js?v=20261011-loss-types',
   'game/metric-definitions.js?v=20261007-result-redesign',
   'board-shape.js', 'zini.js', 'board-metrics.js?v=20260921-visible-zero-one',
-  'game-data.js?v=20261011-histogram-fence', 'game/rankings.js?v=20261014-ranks-won-plain',
-  'game/charts.js?v=20261010-unflagged-mine-share', 'game/game-data-chart.js?v=20261008-no-mark-keys',
+  'game-data.js?v=20261011-histogram-fence', 'game/rankings.js?v=20261014-no-mark-ranks',
+  'game/charts.js?v=20261010-unflagged-mine-share', 'game/game-data-chart.js?v=20261014-no-mark-ranks',
   'training-core.js?v=20260928-switch-cost');
 
 let config;
@@ -107,14 +107,13 @@ function analyze(kind, data) {
     case 'recent-placements': {
       const record = data.records.find((r) => r.endedAt === data.recordEndedAt);
       return recentPlacementsSummary(recentPlacementCandidates(data.records, data.referenceMs,
-        data.sourceStartMs, data.collapseDuplicates), data.sourceStartMs, record);
+        data.sourceStartMs, data.collapseDuplicates, data.noMarkTimeLabel), data.sourceStartMs, record);
     }
     case 'game-data': {
       const { record, records, preferences } = data;
       const wins = records.filter((r) => r.outcome === 'win');
-      const comparisons = boardMetricCandidates([record], wins).filter((c) => preferences.shownThings[c.setting]);
-      if (preferences.shownThings.boardShapeTables) comparisons.push(...boardShapeCandidates([record], wins)
-        .filter((c) => largestIslandShown(c, preferences.shownThings)));
+      const comparisons = [...boardMetricCandidates([record], wins), ...boardShapeCandidates([record], wins)]
+        .filter((c) => preferences.gameDataBoardTraits[c.measurementId]);
       return [...GameData.rows(record, records, preferences, data.config),
         ...boardTraitRankProfile(record, comparisons, records, preferences.sessionDefinition)];
     }

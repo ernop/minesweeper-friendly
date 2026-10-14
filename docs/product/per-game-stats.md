@@ -265,6 +265,9 @@ time appears in a table chart (rank-list time cells, the stats table's
 Time row) a small olive-green "(m)" precedes it. Average-time chart dots
 carry no marker, since they aggregate games. Records from before the
 measurement never claim the status, since for them it is unknown.
+A markless win is not a separate mode. It is a way of solving the current
+board, and its post-game records are only the other markless games of that
+same history key ([No-mark wins](rankings.md#no-mark-wins-decided-2026-10-14)).
 
 Flags removed — how many flag states the player turned off — joined the
 schema on 2026-08-20 under the same absence rules. Placement and removal

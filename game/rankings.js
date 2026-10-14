@@ -229,6 +229,21 @@ const BOARD_TRAIT_NAMES = {
   zeroCount: 'zeros', zeroOneShare: '0–1 share', zeroOpeningCoverage: 'zero-opening coverage',
 };
 
+// What a trait is, for the traits whose name leaves it open. Its table's
+// help opens with it, and game data shows it on the trait's card and in
+// configure. 3BV, max number, and zeros say what they are (creator
+// 2026-10-08), so game data shows them no definition; their tables keep
+// their own help.
+const BOARD_TRAIT_DEFINITIONS = {
+  zini: 'The clicks a standard greedy solve with flags and chords needs when every mine is known. Never more than 3BV.',
+  hzini: 'Human ZiNi: the actions a fixed human-style solve takes when every mine is known. It opens each zero region, then flags and chords around the clue that saves the most clicks, and reveals single cells when chording would cost extra. A reference count, not the true minimum.',
+  workSpread: 'How spread out the board’s 3BV work is, in cell widths: the root-mean-square distance of its work points from their center. Each zero region is one point at its center, and each safe cell that no zero region reveals is its own point.',
+  zeroOneShare: 'Share of safe cells showing 0 or 1 after opening every zero region and nothing else. Covered ones do not count.',
+  zeroOpeningCoverage: 'Share of safe cells uncovered by opening every zero region, including the numbers on their borders.',
+  islandCount: 'Groups of touching mines on this board, diagonals included.',
+  largestIsland: 'Mines in the largest group of touching mines, diagonals included.',
+};
+
 function boardShareHelp(record, field, definition) {
   const m = record.boardMetrics;
   return [definition,
@@ -249,24 +264,22 @@ function boardShareStep(record) {
 // each family, use the numeric measurement. Pool size never changes row order.
 // Matching one feature does not imply equal overall difficulty. A grouped
 // table names its group's range.
-// `selfEvident` marks a trait whose name says what it is: its game data
-// card shows no definition (creator 2026-10-08); its table keeps its help.
 const BOARD_METRIC_TABLES = [
-  { id: 'bv3', field: 'bv3', format: String, setting: 'exact3BV', priority: 13, summaryGroup: 3, selfEvident: true,
+  { id: 'bv3', field: 'bv3', format: String, setting: 'exact3BV', priority: 13, summaryGroup: 3,
     help: () => ['The fewest clicks that clear this board without flags: one for each zero region, plus one for each number that no zero region reveals.'] },
   { id: 'zini', field: 'zini', format: String, setting: 'exactZiNi', priority: 14, summaryGroup: 4,
-    help: () => ['The clicks a standard greedy solve with flags and chords needs when every mine is known. Never more than 3BV.'] },
+    help: () => [BOARD_TRAIT_DEFINITIONS.zini] },
   { id: 'maxAdjacent', field: 'maxAdjacent', format: String, setting: 'exactMaxNumber', priority: 15, summaryGroup: 7, higher: true,
-    selfEvident: true, help: () => ['Max number: the most mines touching any one safe cell, from 1 to 8.'] },
+    help: () => ['Max number: the most mines touching any one safe cell, from 1 to 8.'] },
   { id: 'hzini', field: 'hzini', format: String, setting: 'exactHZiNi', priority: 16, summaryGroup: 5,
-    help: () => ['Human ZiNi: the actions a fixed human-style solve takes when every mine is known. It opens each zero region, then flags and chords around the clue that saves the most clicks, and reveals single cells when chording would cost extra. A reference count, not the true minimum.'] },
+    help: () => [BOARD_TRAIT_DEFINITIONS.hzini] },
   { id: 'workSpread', field: boardSpreadGroup,
     labelOf: (value) => BOARD_TRAIT_NAMES.workSpread + ' ' + (value - 0.25).toFixed(2) + '–' + (value + 0.25).toFixed(2) + ' cells',
     format: (value) => Number(value.toFixed(1)) + ' cells',
     rawValue: (record) => record.boardMetrics?.version === 1 ? record.boardMetrics.workSpread : undefined,
     setting: 'workSpreadTable', priority: 17, summaryGroup: 6,
     help: (record) => [
-      'How spread out the board’s 3BV work is, in cell widths: the root-mean-square distance of its work points from their center. Each zero region is one point at its center, and each safe cell that no zero region reveals is its own point.',
+      BOARD_TRAIT_DEFINITIONS.workSpread,
       'This board: ' + record.boardMetrics.workSpread.toFixed(3) + ' cells. Its table holds boards from '
         + (boardSpreadGroup(record) - 0.25).toFixed(2) + ' cells up to, not including, '
         + (boardSpreadGroup(record) + 0.25).toFixed(2) + ' cells.',
@@ -276,15 +289,13 @@ const BOARD_METRIC_TABLES = [
     rawValue: (record) => boardFractionOf(record, 'zeroOpenedZeroOneCells'), higher: true,
     labelOf: (value) => BOARD_TRAIT_NAMES.zeroOneShare + ' ' + value + '%', setting: 'zeroOneShareTable', priority: 18, summaryGroup: 13,
     step: boardShareStep,
-    help: (record) => boardShareHelp(record, 'zeroOpenedZeroOneCells',
-      'Share of safe cells showing 0 or 1 after opening every zero region and nothing else. Covered ones do not count.') },
+    help: (record) => boardShareHelp(record, 'zeroOpenedZeroOneCells', BOARD_TRAIT_DEFINITIONS.zeroOneShare) },
   { id: 'zeroOpeningCoverage', field: (win) => boardShareGroup(win, 'zeroOpenedCells'),
     format: (value) => formatBoardShare(value, 1),
     rawValue: (record) => boardFractionOf(record, 'zeroOpenedCells'), higher: true,
     labelOf: (value) => BOARD_TRAIT_NAMES.zeroOpeningCoverage + ' ' + value + '%', setting: 'zeroOpeningTable', priority: 19, summaryGroup: 14,
     step: boardShareStep,
-    help: (record) => boardShareHelp(record, 'zeroOpenedCells',
-      'Share of safe cells uncovered by opening every zero region, including the numbers on their borders.') },
+    help: (record) => boardShareHelp(record, 'zeroOpenedCells', BOARD_TRAIT_DEFINITIONS.zeroOpeningCoverage) },
 ];
 
 function boardMetricCandidates(referenceWins, wins) {
@@ -297,7 +308,6 @@ function boardMetricCandidates(referenceWins, wins) {
       rawValue: spec.rawValue || ((record) => record[spec.field]),
       higher: spec.higher === true,
       setting: spec.setting,
-      selfEvident: spec.selfEvident === true,
       help: spec.help,
       step: spec.step,
       dedupePriority: spec.priority,
@@ -353,7 +363,7 @@ function boardShapeCandidates(referenceWins, wins) {
     candidates.push({
       id: 'islands-' + count, measurementId: 'islandCount',
       trait: BOARD_TRAIT_NAMES.islandCount, rawValue: (record) => record.islandCount, higher: false,
-      help: () => ['Groups of touching mines on this board, diagonals included.'],
+      help: () => [BOARD_TRAIT_DEFINITIONS.islandCount],
       format: String,
       summaryOrder: [10, count],
       label: BOARD_TRAIT_NAMES.islandCount + ' ' + count,
@@ -366,7 +376,7 @@ function boardShapeCandidates(referenceWins, wins) {
     candidates.push({
       id: 'largest-island-' + size, measurementId: 'largestIsland',
       trait: BOARD_TRAIT_NAMES.largestIsland, rawValue: (record) => record.largestIsland, higher: true,
-      help: () => ['Mines in the largest group of touching mines, diagonals included.'],
+      help: () => [BOARD_TRAIT_DEFINITIONS.largestIsland],
       format: String,
       summaryOrder: [11, size],
       label: BOARD_TRAIT_NAMES.largestIsland + ' ' + size,
@@ -379,7 +389,7 @@ function boardShapeCandidates(referenceWins, wins) {
     candidates.push({
       id: 'zeros-' + count, measurementId: 'zeroCount',
       trait: BOARD_TRAIT_NAMES.zeroCount, rawValue: (record) => record.zeroCount, higher: true,
-      selfEvident: true, help: () => ['Safe cells with no adjacent mines.'],
+      help: () => ['Safe cells with no adjacent mines.'],
       format: String,
       summaryOrder: [12, count],
       label: BOARD_TRAIT_NAMES.zeroCount + ' ' + count,
@@ -569,8 +579,9 @@ function recentPlacementsSummary(candidates, sourceStartMs, currentRecord) {
 // contribute its exact benchmarks and board-shape families. The reference game controls
 // highlighting only; a later unrelated board must not erase earlier ranks.
 // `records` is the mode's history in finish order; the streak lists need
-// its losses.
-function recentPlacementCandidates(records, referenceMs, sourceStartMs, collapseDuplicates) {
+// its losses. `noMarkTimeLabel` is set when this result is a no-mark win:
+// the caller has already kept only no-mark games, and the labels say so.
+function recentPlacementCandidates(records, referenceMs, sourceStartMs, collapseDuplicates, noMarkTimeLabel) {
   const wins = records.filter((record) => record.outcome === 'win');
   const recentWins = wins.filter((win) => win.endedAt >= sourceStartMs);
   let rankCandidates = rankColumns(referenceMs).map((column) => ({
@@ -607,7 +618,29 @@ function recentPlacementCandidates(records, referenceMs, sourceStartMs, collapse
       ranked: rankedStreaks(runs, slack).map((streak) => ({ endedAt: streak.end })) });
   }
   return ranked.sort((a, b) =>
-    a.summaryOrder[0] - b.summaryOrder[0] || a.summaryOrder[1] - b.summaryOrder[1]);
+    a.summaryOrder[0] - b.summaryOrder[0] || a.summaryOrder[1] - b.summaryOrder[1])
+    .map((candidate) => ({ ...candidate, label: noMarkRankLabel(candidate.label, noMarkTimeLabel) }));
+}
+
+// A no-mark win (flags never placed) is one way of solving the current
+// board, mode, and generator — not a mode of its own. Its post-game
+// comparisons use only the other no-mark games of that same history key.
+// A marked win, and every loss, keeps the shared list; no-mark times in
+// it still carry the (m) mark.
+function noMarkComparison(record, records) {
+  if (record.outcome !== 'win' || !isMarkless(record)) return records;
+  return records.filter(isMarkless);
+}
+
+// The lifetime time list takes the board's no-mark name ("top expert
+// no-mark times"). Every other list of that view names the same pool.
+function noMarkRankLabel(label, noMarkTimeLabel) {
+  if (!noMarkTimeLabel) return label;
+  if (label === 'lifetime') return noMarkTimeLabel;
+  if (label === 'streak' || label === 'near-streak' || label === 'near-near-streak') {
+    return 'no-mark ' + label;
+  }
+  return label + ' · no-mark';
 }
 
 //-------RECENT PLACEMENTS: DISPLAY-------
@@ -621,7 +654,7 @@ function applyRankHighlight(element, rank, total) {
 }
 
 // `modeRecords` is the mode's history in finish order, losses included.
-function buildRecentPlacements(record, modeRecords, referenceMs, markReferenceRecord = true) {
+function buildRecentPlacements(record, modeRecords, referenceMs, markReferenceRecord = true, noMarkTimeLabel = null) {
   const { label: chosenLabel } = SessionScope.choices.find((c) => c.id === settings.sessionDefinition);
   const sourceStartMs = SessionScope.bounds(settings.sessionDefinition, referenceMs).from;
   const box = document.createElement('div');
@@ -630,9 +663,13 @@ function buildRecentPlacements(record, modeRecords, referenceMs, markReferenceRe
   heading.appendChild(chartHelpButton([
     'Top ranks earned in the session (' + chosenLabel + ', the one page-wide session chosen in the top bar at the upper right) on every longer chart: time windows, day categories, streaks, exact board benchmarks, 3BV-spread groups, and board shapes of session wins. A streak counts when its last win is in the session, at its full length.',
     'Only ranks within the top tenth of a list count, except that lifetime shows its closest rank when none made the tenth. Rows go by category, board values ascending. The last column gives the percentage standing of the row’s ranks; this game’s rank is fluorescent green and says “this”.',
+    ...(noMarkTimeLabel ? [
+      'This win placed no flags, so every rank here is among no-mark games of this same board, mode, and generator. ' + noMarkTimeLabel.charAt(0).toUpperCase() + noMarkTimeLabel.slice(1) + ' is that lifetime list.',
+    ] : []),
   ], 'ranks won in session'));
   box.dataset.sessionScopeView = '';
-  box.addEventListener('session-scope-change', () => box.replaceWith(buildRecentPlacements(record, modeRecords, referenceMs, markReferenceRecord)));
+  box.addEventListener('session-scope-change', () => box.replaceWith(
+    buildRecentPlacements(record, modeRecords, referenceMs, markReferenceRecord, noMarkTimeLabel)));
   box.appendChild(heading);
 
   const loading = document.createElement('div');
@@ -645,7 +682,7 @@ function buildRecentPlacements(record, modeRecords, referenceMs, markReferenceRe
     : { outcome: r.outcome, endedAt: r.endedAt });
   box.analysisReady = analysisTask('rankings', 'recent-placements', { records, referenceMs, sourceStartMs,
     recordEndedAt: markReferenceRecord ? record.endedAt : null,
-    collapseDuplicates: settings.collapseDuplicateCharts }).then((rows) => {
+    collapseDuplicates: settings.collapseDuplicateCharts, noMarkTimeLabel }).then((rows) => {
     loading.remove();
     drawRows(rows);
     // Its width decides whether it fits beside the board.
@@ -760,7 +797,7 @@ function sessionSummaryRows(historyByKey, from, to, difficultyKeys) {
       return [id, values.length ? { value: values.reduce((sum, v) => sum + v, 0) / values.length, measured: values.length } : null];
     }));
     rows.push({ key, latest: session[session.length - 1], games: session.length, wins: wins.length, best, means,
-      endings, likelyMisclicks });
+      endings, likelyMisclicks, noMark: records.every((r) => isMarkless(r)) });
   }
   const order = (key) => {
     const index = difficultyKeys.indexOf(key.split('@')[0]);
@@ -781,18 +818,32 @@ function sessionSummaryTypeParts(row) {
   const modeId = mode.split('+')[0];
   return { board: boardDisplayLabelOf({ width, height, mines: Number(mines) }),
     variant: [modeId === 'standard' ? null : playModeLabel(modeId),
-      row.latest.generator === undefined ? null : BoardGenerators.displayLabel(row.latest.generator)]
+      row.latest.generator === undefined ? null : BoardGenerators.displayLabel(row.latest.generator),
+      row.noMark ? 'no-mark' : null]
       .filter((part) => part !== null).join(' · ') };
 }
 
-// `record` is the game just finished, whose best-time chip says "this";
-// history views pass null.
-function buildSessionSummary(record, referenceMs) {
+// The history the session summary counts. A no-mark win narrows its own
+// history key to no-mark games, so that row's counts and lifetime rank
+// match the no-mark lists. Every other board type stays whole.
+function noMarkSessionHistory(record) {
+  if (!record || record.outcome !== 'win' || !isMarkless(record)) return history;
+  const narrowed = {};
+  for (const [key, records] of Object.entries(history)) {
+    narrowed[key] = records.includes(record) ? records.filter(isMarkless) : records;
+  }
+  return narrowed;
+}
+
+// `record` is the game just finished, whose best-time chip says "this"
+// when `markCurrent` is set. `noMark` narrows that game's history key to
+// no-mark games; a loss leaves it off, so the shared session stays.
+function buildSessionSummary(record, referenceMs, markCurrent = true, noMark = false) {
   const box = document.createElement('div');
   box.className = 'rank-list session-summary';
   box.dataset.sessionScopeView = '';
   box.addEventListener('session-scope-change', () => {
-    box.replaceWith(buildSessionSummary(record, referenceMs));
+    box.replaceWith(buildSessionSummary(record, referenceMs, markCurrent, noMark));
     scheduleBoardLayout();
   });
   const choice = SessionScope.choices.find((c) => c.id === settings.sessionDefinition);
@@ -802,6 +853,7 @@ function buildSessionSummary(record, referenceMs) {
     'Games, wins, and win rate for every board type played in the session (' + choice.label
       + ', the one page-wide session chosen in the top bar at the upper right). A board type is one size, mine count, mode, and generator; the mode is named only when it is not Standard, the generator only when it is not the default.',
     'Best is the session’s fastest win of that type. Its lifetime rank compares it with every win of that type so far; among equal times the earlier finish ranks first.',
+    'A row marked no-mark counts only games with no flags placed. Its best time’s lifetime rank is among that board type’s no-mark wins.',
     'Mean time, mean 3BV/s, and mean IOE average the session’s wins of that type, each over the wins that measured it, as game data defines them; for the board just played they are the session baseline for its time, 3BV/s, and IOE.',
     ...(settings.shownThings.sessionEndings ? [
       'Results split every session game by how it ended: wins by win type, then losses by loss type, with the game endings chart’s colors. Each size has its own count and its share of that size’s games: Beginner, Intermediate, Expert, and a custom size under its own name. A different mode or generator counts with its size.',
@@ -811,7 +863,8 @@ function buildSessionSummary(record, referenceMs) {
     ] : []),
   ], 'session'));
   box.appendChild(heading);
-  const rows = sessionSummaryRows(history, from, to, Object.values(DIFFICULTIES).map(boardKeyOf));
+  const rows = sessionSummaryRows(noMark ? noMarkSessionHistory(record) : history, from, to,
+    Object.values(DIFFICULTIES).map(boardKeyOf));
   if (rows.length === 0) {
     const none = document.createElement('div');
     none.className = 'recent-placements-none';
@@ -851,7 +904,7 @@ function buildSessionSummary(record, referenceMs) {
     if (row.best !== null) {
       const chip = cell('session-summary-rank', ordinal(row.best.rank));
       applyRankHighlight(chip, row.best.rank, row.best.total);
-      if (row.best.record === record) {
+      if (markCurrent && row.best.record === record) {
         chip.classList.add('session-summary-current');
         chip.appendChild(cell('recent-current-label', ' this'));
       }
@@ -1088,11 +1141,14 @@ function resultRankPlan(record, records, options, preferences, referenceMs) {
     candidates = candidates.filter((c) => kept.has(c));
   }
   const timeTables = preferences.shownThings.timeTables
-    ? candidates.map((c) => table(c.label, c.wins, c.help)) : [];
+    ? candidates.map((c) => table(noMarkRankLabel(c.label, options.noMarkTimeLabel), c.wins,
+      c.help || (options.noMarkTimeLabel && c.id === 'lifetime'
+        ? ['Wins with no flags placed, on this same board, mode, and generator.'] : undefined))) : [];
   const boardTables = [];
   for (const c of boardMetricCandidates([boardRecord], wins)) {
     if (preferences.shownThings[c.setting]) {
-      boardTables.push(table(c.label, c.wins.slice().sort(compareRankedWins), c.help(boardRecord)));
+      boardTables.push(table(noMarkRankLabel(c.label, options.noMarkTimeLabel),
+        c.wins.slice().sort(compareRankedWins), c.help(boardRecord)));
     }
   }
   if (preferences.shownThings.boardShapeTables) {
@@ -1103,7 +1159,8 @@ function resultRankPlan(record, records, options, preferences, referenceMs) {
       const kept = new Set(dedupeRankCandidates(shapes));
       shapes = shapes.filter((c) => kept.has(c));
     }
-    for (const c of shapes) boardTables.push(table(c.label, c.wins.slice().sort(compareRankedWins), c.help?.(boardRecord)));
+    for (const c of shapes) boardTables.push(table(noMarkRankLabel(c.label, options.noMarkTimeLabel),
+      c.wins.slice().sort(compareRankedWins), c.help?.(boardRecord)));
   }
   const runs = streakRuns(records);
   const streakTables = [];
@@ -1112,7 +1169,8 @@ function resultRankPlan(record, records, options, preferences, referenceMs) {
     const list = rankedStreaks(runs, slack);
     const index = options.historyView ? -1 : list.findIndex((seg) => seg.current);
     const [start, end] = windowBounds(index, list.length);
-    streakTables.push({ label, count: list.length, index, start, rows: list.slice(start, end) });
+    streakTables.push({ label: noMarkRankLabel(label, options.noMarkTimeLabel),
+      count: list.length, index, start, rows: list.slice(start, end) });
   }
   return { timeTables, boardTables, streakTables };
 }

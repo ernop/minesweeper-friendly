@@ -209,7 +209,10 @@ since
 2026-08-19; older records lack the measurement), flags placed (same
 recording rules; a zero-flag game earns the special status "markless",
 shown right in the row and as a small "(m)" before that game's time in
-every rank list) and, for wins, clicks over
+every rank list; a win played that way is not its own mode — its post-game
+records are only the other markless games of that same board, and the
+lifetime list is named "top expert no-mark times" or the matching board)
+and, for wins, clicks over
 3BV (clicks beyond the board's minimum). The after-game report groups each
 action once by severity: game loss, game risk, time loss, optional
 one-ply life maximization, or measurement notes. New players see none of

@@ -27,10 +27,12 @@ async function renderRanks(record, modeRecords, options = {}, sections, isCurren
   // The session summary and ranks won lead the table collection; layout
   // moves them beside the board, left and right, where they fit.
   if (settings.shownThings.sessionSummary) {
-    sections.append('tables', buildSessionSummary(historyView ? null : record, referenceMs));
+    sections.append('tables', buildSessionSummary(record, referenceMs, !historyView,
+      Boolean(options.noMarkTimeLabel)));
   }
   if (settings.shownThings.recentPlacements) {
-    sections.append('tables', buildRecentPlacements(record, modeRecords, referenceMs, !historyView));
+    sections.append('tables', buildRecentPlacements(record, modeRecords, referenceMs, !historyView,
+      options.noMarkTimeLabel || null));
   }
   for (const table of plan.timeTables) {
     sections.append('tables', timeTable(table));
