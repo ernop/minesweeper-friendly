@@ -74,8 +74,8 @@ Beginner Standard (1,093 wins, 490 losses):
   10 times, never by counting single numbers. 80 of the 145 proven-mine deaths
   came in the endgame.
 - Intermediate and Expert have the same shape: the opening holds 56% and 61%
-  of losses. On Expert the riskier opening guess is often a far square where a
-  square beside a 1 was safer.
+  of losses, and the riskier opening guess death is mostly a square beside a
+  revealed number (558 of 589 on Intermediate, 789 of 896 on Expert).
 
 Needs, beyond what is measured:
 
