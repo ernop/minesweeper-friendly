@@ -73,9 +73,12 @@ coherent and beautifully integrated way!"
   game page always shows a link to that panel at the start of the top bar,
   at the upper right (creator request 2026-10-14: "play limits button/info
   be on toplevel"; before, it showed in the side column and only while a
-  limit was set). With no limit set it reads "daily limits"; with limits it
-  shows today's use against them, "today: 12m 34s of 30m · 14 of 50 games",
-  in red as "limit reached: ..." once one is reached. It updates when a
+  limit was set). The link always reads "daily limits". Once any limit is
+  set, today's use against them shows just before it as plain bold text,
+  not part of the link, "today: 12m 34s of 30m · 14 of 50 games", in red as
+  "limit reached: ..." once one is reached (2026-10-14, under
+  [One look per kind of thing](ui-doctrine.md): earlier that day the use
+  replaced the link's own label, so a fact read as a button). It updates when a
   board starts or ends, not every second, following the no-ticking-duplicates
   rule ([UI doctrine](ui-doctrine.md)).
 - **Not a preference.** Limits are their own stored kind outside the

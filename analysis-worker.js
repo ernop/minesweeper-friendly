@@ -6,7 +6,7 @@ importScripts('trend-fit.js?v=20260925-worker-analysis',
   'game/session-stats.js?v=20261011-loss-types',
   'game/metric-definitions.js?v=20261007-result-redesign',
   'board-shape.js', 'zini.js', 'board-metrics.js?v=20260921-visible-zero-one',
-  'game-data.js?v=20261011-histogram-fence', 'game/rankings.js?v=20261011-loss-types',
+  'game-data.js?v=20261011-histogram-fence', 'game/rankings.js?v=20261014-ranks-won-plain',
   'game/charts.js?v=20261010-unflagged-mine-share', 'game/game-data-chart.js?v=20261008-no-mark-keys',
   'training-core.js?v=20260928-switch-cost');
 

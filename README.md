@@ -22,12 +22,13 @@ The Mode menu is in the upper right; each mode keeps its own rankings.
 The page is a row of fixed columns, so nothing that appears or disappears
 ever moves the board:
 
-- **Top bar, upper right.** The page's one session picker (today by
-  default), shared by every session comparison on the page; "position",
-  which opens the board position editor; settings; and an "other pages"
-  menu with the self-check, training, and problems pages. At its start, a
-  "daily limits" link to the limits, which shows today's use against them
-  once any is set.
+- **Top bar, upper right.** Today's use against your daily limits, once
+  any is set, and a "daily limits" link to them; the page's one session
+  picker (today by default), shared by every session comparison on the
+  page; the board display controls together: Zoom, "position" (opens the
+  board position editor), and the pixel ratio, which moves with the
+  browser zoom; then settings and an "other pages" menu with the
+  self-check, training, and problems pages.
 - **Session stats, left**, when turned on: charts of your play across the
   session: when you played, how games ended, action and report rates, mouse
   speed, fastclick gap, and cadence spread.
@@ -39,8 +40,9 @@ ever moves the board:
 - **Game data, right of the board**, after a win: each measurement of this
   game placed on one percentile band against your lifetime and session
   games, your performance on one side and the board's traits on the other.
-- **Game details, far right.** Mode, generator, player states, replay, and
-  the game's outcome.
+- **Game details, far right.** Mode, generator, a line of plain text
+  naming whether music is on and which of your states are on (changed
+  through "edit states"), replay, and the game's outcome.
 
 **Daily limits** (top of the settings page): play time, games, games per
 level, and a stop time, each per play day from 4:00 to 4:00. A reached

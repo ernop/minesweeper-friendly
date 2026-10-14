@@ -82,10 +82,10 @@ Files, in load order:
 | File | Holds |
 | --- | --- |
 | `core.js` | the current game's state, shared DOM handles (incl. the page status line) |
-| `layout.js` | board position solver, wiring, and editor; zoom; docked columns; clearance |
+| `layout.js` | board position solver, wiring, and editor; zoom and pixel ratio; docked columns; clearance |
 | `play.js` | top panel (LCDs, face), generator glue and Generator menu, new-game flow, reveal/flag/chord, win/loss, A just universe |
 | `play-modes.js` | Mode menu, mode predicates and labels; Pregen 10, Endgame drill, Board lab, trials on the live board |
-| `play-limits.js` | daily play limits: this tab's play spans, the closed-board gate and notice, the limits link |
+| `play-limits.js` | daily play limits: this tab's play spans, the closed-board gate and notice, today's use beside the limits link |
 | `evaluation.js` | game-end evaluation: pure verdict model, live capture |
 | `results.js` | the saved record (`reportResult`), after-game report, result view, High scores view |
 | `history.js` | record version stamps and schema, per-mode history, mode keys, normalization, transfer cleaning |

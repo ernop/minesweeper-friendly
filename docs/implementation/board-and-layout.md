@@ -87,12 +87,21 @@ Spec: [docs/product/board-and-layout.md](../product/board-and-layout.md). Index:
   exact 3BV/ZiNi/maximum-clue and board-shape time tables. Both precede
   point-chart sections and retain individual table labels.
 - Top bar (2026-10-14): `<nav id="top-bar">` is the first child of
-  `#page-layout` and holds `#play-limits-btn`, `#session-picker` (a static
-  `select#session-definition-select`, disabled with a loading option until
-  `initSessionScopeSelect` in `game/session-charts.js` fills it from `init`),
-  `#board-position-btn`, `#settings-btn`, and `#other-pages-btn`, whose
-  `popovertarget` opens the `popover` menu `#other-pages-menu` (plain links to
-  self-check.html, training.html, problems.html). The menu is fixed in the
+  `#page-layout` and holds, in order, `#play-limits-use` (plain text, hidden
+  until a limit is set) and the link `#play-limits-btn`, `#session-picker` (a
+  static `select#session-definition-select`, disabled with a loading option
+  until `initSessionScopeSelect` in `game/session-charts.js` fills it from
+  `init`), the group `#board-display` (`#zoom-label` with `#zoom-select`,
+  `#board-position-btn`, and `#pixel-ratio`), and the group `#page-links`
+  (`#settings-btn` and `#other-pages-btn`, whose `popovertarget` opens the
+  `popover` menu `#other-pages-menu`, plain links to self-check.html,
+  training.html, problems.html). Each group is an `inline-flex` box, so it
+  wraps as a unit; `margin-left: 10px` on the last three groups adds to the
+  bar's 6px gap. `renderPixelRatio` (ZOOM section of `game/layout.js`, called
+  from `initCellSizeControl`) writes `devicePixelRatio`, rounded to two
+  places, into `#pixel-ratio-value`, then listens once on
+  `matchMedia('(resolution: <ratio>dppx)')`, which stops matching when the
+  browser zoom changes, and re-renders. The menu is fixed in the
   top layer; `placeOtherPagesMenu` in `game/main.js` sets its `top` and
   `right` from the button on `beforetoggle` and follows scroll and resize
   while open. Grid: two rows, `auto 1fr`; the metrics panel and `main` span

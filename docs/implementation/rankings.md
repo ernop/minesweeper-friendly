@@ -93,12 +93,15 @@ Spec: [docs/product/rankings.md](../product/rankings.md). Index: [AGENTS.md](../
   `--rank-tint` (2026-10-07: green good, red bad; no podium). `buildRankList`
   marks `.me` (its cells use `--this-game`, #39ff14, bold black) and writes
   the rank/pool/percentage footer even for short lists. In ranks won, rows
-  carry no tint: `recentPlacementRuns` splits compression at band
-  boundaries and at the current ordinal; each `.recent-rank-run` chip gets
-  `applyRankHighlight` and `--rank-tint`, the current one
-  `.recent-current-rank` (`--this-game`) and “this”; only a last-place chip keeps
-  the double underline. `recentPlacementStanding` gives the fourth cell's
-  percentage/range. An odd pool's exact middle (`2 * rank === total + 1`,
+  carry no tint: `recentPlacementRuns(ranks, currentRank)` joins consecutive
+  ranks and splits only at the current ordinal; each `.recent-rank-run` is
+  plain bold black (no `applyRankHighlight`), the current one
+  `.recent-current-rank` (`--this-game`) and “this”. Each row has five grid
+  cells: name, ranks, `.recent-of-cell` (“of”), `.recent-total-cell` (the
+  list size, right-aligned, tabular digits), and `.recent-standing-cell`.
+  `rankStanding` also returns `side` and `percent` for percentage labels;
+  `recentPlacementStanding` joins two different labels as
+  `side percent – percent%`. An odd pool's exact middle (`2 * rank === total + 1`,
   after only/last checks) has band `middle` and label “Middle place”, which
   avoids “Bottom 67%” for #2 of 3. These highlight rules do not change
   ranking or summary qualification.

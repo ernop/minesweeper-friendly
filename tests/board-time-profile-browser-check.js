@@ -270,7 +270,7 @@ const { chromium } = require(process.argv[2]);
     assert.equal(await timeRow.locator('.game-data-value').textContent(), '33.542s');
     const picker = page.getByLabel('session', { exact: true });
     assert.equal(await page.locator('select:has(option[value="today"])').count(), 1, 'the page has exactly one session picker');
-    assert.equal(await page.locator('#top-bar select').getAttribute('id'), 'session-definition-select',
+    assert.equal(await page.locator('#top-bar #session-definition-select').count(), 1,
       'the one picker is in the top bar at the upper right');
     assert.equal(await page.locator('#metrics-panel select:has(option[value="today"])').count(), 0,
       'the stats panel holds no picker');

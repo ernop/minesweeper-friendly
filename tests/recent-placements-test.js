@@ -186,19 +186,18 @@ assertEq('middle placement wording is shared by the recent summary',
 
 {
   const ranks = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 20, 21];
-  const runs = recentPlacementRuns(ranks, 1000, 7);
-  assertEq('run compression preserves color bands and the current game',
+  const runs = recentPlacementRuns(ranks, 7);
+  assertEq('runs join consecutive ranks across standing bands, apart from the current game',
     runs.map((run) => run.first + '-' + run.last).join(','),
-    '1-6,7-7,8-10,11-12,20-20,21-21');
+    '1-6,7-7,8-12,20-21');
   assertEq('exactly one run identifies the current game',
     runs.filter((run) => run.current).map((run) => run.first).join(','), '7');
-  assertEq('an earlier first place takes its band color', runs[0].band, 'top1');
-  assertEq('summary percentage range covers every reported rank',
-    recentPlacementStanding([1, 2, 3, 10], 1000), 'Top 0.1% \u2013 Top 1%');
+  assertEq('summary percentage range names Top once and the percent sign once',
+    recentPlacementStanding([1, 2, 3, 10], 1000), 'Top 0.1 \u2013 1%');
   assertEq('same percentage labels are not repeated',
     recentPlacementStanding([11, 20], 1000), 'Top 2%');
-  assertEq('history summary joins earlier achievements of one band',
-    recentPlacementRuns([1, 2, 3], 1000).length, 1);
+  assertEq('history summary joins consecutive earlier ranks',
+    recentPlacementRuns([1, 2, 3]).length, 1);
 }
 
 // Session summary: games and wins per board type in the window, and the

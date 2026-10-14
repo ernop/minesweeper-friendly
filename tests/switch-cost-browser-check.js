@@ -332,8 +332,14 @@ function pickSession(page, id) {
       switchCostSourcesChanged('9x9/10@standard');
       return [switchCostPending, switchCostStale, switchCostRequest === asked];
     }), [false, true, true], 'nothing is read while the row is hidden');
-    await page.evaluate(() => { updateSettings({ showSessionStats: true }); refreshMetricsPanel(); });
-    assert.equal(await page.evaluate(() => switchCostPending), true, 'showing the row again catches up');
+    // Read in the same task as the show: a fast worker reply can clear
+    // switchCostPending before a second evaluate runs.
+    assert.deepEqual(await page.evaluate(() => {
+      const asked = switchCostRequest;
+      updateSettings({ showSessionStats: true });
+      refreshMetricsPanel();
+      return [switchCostPending, switchCostRequest !== asked];
+    }), [true, true], 'showing the row again catches up');
     await settled(page);
 
     // Every row stays one line, inside the panel, from the narrowest panel to the widest.

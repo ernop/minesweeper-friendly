@@ -12,91 +12,94 @@
 // records keep whatever states they were stamped with.
 
 // The current list lives in settings.playerStates; completed games keep
-// their own record of which tags applied when they were played.
-function savePlayerStates() {
-  saveSettings();
+// their own record of which tags applied when they were played. Every save
+// replaces settings with a clone, so handlers find a state by its name (names
+// are unique) in the list current at the click, never through an object
+// captured when the menu was drawn.
+function savePlayerStates(states) {
+  updateSettings({ playerStates: states });
 }
 
 function activeStateNames() {
   return settings.playerStates.filter((s) => s.active).map((s) => s.name);
 }
 
-const statesChips = document.getElementById('states-chips');
-const statesAddBtn = document.getElementById('states-add-btn');
+const playContext = document.getElementById('play-context');
+const statesEditBtn = document.getElementById('states-edit-btn');
 const statesMenu = document.getElementById('states-menu');
 const statesOptions = document.getElementById('states-options');
 const statesAddForm = document.getElementById('states-add-form');
 const statesAddInput = document.getElementById('states-add-input');
 const statesStatus = document.getElementById('states-status');
 
-// Only ACTIVE states are visible: each is a chip, and clicking it takes the
-// state off. Everything inactive lives out of sight behind the "+ state"
-// button, whose menu lists the inactive options (click one to put it on,
-// its x to delete it from the list) plus the new-state field. An untagged
-// session shows nothing but the one small button.
+// The states on are facts about this session, so they show as plain text in
+// the play context line after the measured music state, never as buttons.
+// All changes happen in the one menu behind "edit states": a checkbox per
+// state puts it on or takes it off, its x deletes it from the list, and the
+// field at the bottom creates a new one.
 function renderStates() {
-  statesChips.textContent = '';
-  for (const state of settings.playerStates) {
-    if (!state.active) continue;
-    const chip = document.createElement('button');
-    chip.type = 'button';
-    chip.className = 'state-chip';
-    chip.title = 'click to take this state off (future games only)';
-    chip.textContent = state.name + ' \u00d7';
-    chip.addEventListener('click', () => {
-      state.active = false;
-      savePlayerStates();
-      renderStates();
-    });
-    statesChips.appendChild(chip);
-  }
-  statesOptions.textContent = '';
-  for (const state of settings.playerStates) {
-    if (state.active) continue;
-    const option = document.createElement('button');
-    option.type = 'button';
+  renderPlayContext();
+  renderStatesMenu();
+}
+
+function renderPlayContext() {
+  const items = settings.playerStates.filter((state) => state.active).map((state) => {
+    const item = document.createElement('span');
+    item.className = 'context-item';
+    item.title = 'Your state, stamped onto each game you finish';
+    item.textContent = state.name;
+    return item;
+  });
+  playContext.replaceChildren(musicStateItem, ...items);
+}
+
+// A checkbox change redraws only the context line, so keyboard focus stays
+// on the checkbox.
+function renderStatesMenu() {
+  statesOptions.replaceChildren(...settings.playerStates.map(({ name, active }) => {
+    const option = document.createElement('div');
     option.className = 'state-option';
-    option.textContent = state.name;
-    option.addEventListener('click', () => {
-      state.active = true;
-      setStatesMenuOpen(false);
-      savePlayerStates();
-      renderStates();
+    const label = document.createElement('label');
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = active;
+    checkbox.addEventListener('change', () => {
+      savePlayerStates(settings.playerStates.map((s) => (s.name === name ? { name, active: checkbox.checked } : s)));
+      renderPlayContext();
     });
-    const remove = document.createElement('span');
+    label.append(checkbox, name);
+    const remove = document.createElement('button');
+    remove.type = 'button';
     remove.className = 'state-remove';
     remove.textContent = '\u00d7';
     remove.title = 'delete from the list (past games keep their recorded states)';
-    remove.addEventListener('click', (event) => {
-      event.stopPropagation();
-      settings.playerStates = settings.playerStates.filter((s) => s !== state);
-      savePlayerStates();
+    remove.setAttribute('aria-label', 'delete ' + name);
+    remove.addEventListener('click', () => {
+      savePlayerStates(settings.playerStates.filter((s) => s.name !== name));
       renderStates();
     });
-    option.appendChild(remove);
-    statesOptions.appendChild(option);
-  }
+    option.append(label, remove);
+    return option;
+  }));
 }
 
 // Every open/close goes through here so the button always shows its
-// pressed ("open") state while the menu is up (the settings panel's
-// helper is the same shape). Esc and outside-click closing live with the
-// settings panel's handlers.
+// pressed state while the menu is up.
 function setStatesMenuOpen(open) {
   rememberPanel('states', open);
   statesMenu.hidden = !open;
-  statesAddBtn.classList.toggle('open', open);
+  statesEditBtn.setAttribute('aria-expanded', String(open));
 }
 
-statesAddBtn.addEventListener('click', () => {
+statesEditBtn.addEventListener('click', () => {
   setStatesMenuOpen(statesMenu.hidden);
   statesStatus.textContent = '';
 });
 
 document.getElementById('states-close').addEventListener('click', () => setStatesMenuOpen(false));
 
-// A state created here goes on immediately (typing it mid-session means
-// "I am in this state now"); one chip-click takes it off.
+// A state created here goes on immediately: typing it mid-session means
+// "I am in this state now".
 statesAddForm.addEventListener('submit', (event) => {
   event.preventDefault();
   const name = statesAddInput.value.trim();
@@ -108,8 +111,7 @@ statesAddForm.addEventListener('submit', (event) => {
     statesStatus.textContent = '"' + name + '" already exists';
     return;
   }
-  settings.playerStates.push({ name, active: true });
-  savePlayerStates();
+  savePlayerStates([...settings.playerStates, { name, active: true }]);
   statesAddInput.value = '';
   rememberPreference('drafts', { ...settings.drafts, stateName: '' });
   setStatesMenuOpen(false);
@@ -122,10 +124,12 @@ document.addEventListener('keydown', (event) => {
 });
 
 // A click outside the open states menu closes it; the menu's own button
-// is excluded because its handler already toggles.
+// is excluded because its handler already toggles. The dispatch path, not
+// the target's current parent, decides: a delete has already removed its
+// row from the menu by the time the click reaches the document.
 document.addEventListener('click', (event) => {
-  if (!statesMenu.hidden
-      && !statesMenu.contains(event.target) && !statesAddBtn.contains(event.target)) {
+  const path = event.composedPath();
+  if (!statesMenu.hidden && !path.includes(statesMenu) && !path.includes(statesEditBtn)) {
     setStatesMenuOpen(false);
   }
 });

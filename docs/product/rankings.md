@@ -120,13 +120,13 @@ fluorescent seconds green (#39ff14).
   reads "this" (a 0-second age). That is its only mark: no left edge, no podium color,
   no standing tint on the row. The footer states its standing ("#18 of 124
   · Top 15%"). A single-result list says "Only result".
-- Standing tones, green good and red bad, color every other reported rank:
-  the rank chips in ranks won and the best-time ranks in the session summary.
+- Standing tones, green good and red bad, color the best-time ranks in the
+  session summary (until 2026-10-14 also the ranks in ranks won; see below).
   Bands at 1%, 2%, 5%, 10%, and 25% run from strong green (#1e9e4f) to pale
   green; the rest of the upper half, the exact middle, and an only result
   are light gray (#e6e6e6); the lower half is pale red, the bottom 10%
-  stronger red, and last place the strongest red (#df6a6a) with a double
-  underline on its chip. Each chip shows its tone at 85% strength on white.
+  stronger red, and last place the strongest red (#df6a6a). Each chip shows
+  its tone at 85% strength on white.
   Text remains black, bold, and fully readable at all standings; poor
   results are never hidden or faded to illegibility.
 - The same green, neutral, red scale colors the game-data bar, its
@@ -148,13 +148,20 @@ fluorescent seconds green (#39ff14).
 - Shared by time, exact-3BV, shape, streak, and trial ranking tables.
   A ranked position is required: the Pregen batch progress table lists
   deal order and keeps its existing plain blue current-row marker.
-- In ranks won, rows carry no tint. Every reported rank is a chip in its
-  standing tone, earlier games included; the current game's chip is light
-  blue and says "this". Consecutive ranks compress only within one tone; the
-  current game's ordinal stays separate. The fourth cell gives the
-  percentage or percentage range of all ranks reported in the row. This also
-  applies in score/history views. Lifetime's near-miss placement keeps its
-  tone and explanatory tooltip.
+- In ranks won, rows carry no tint, and the ranks are plain bold black text
+  with no standing color (creator 2026-10-14: "these are not 'this' right?
+  so why green? i think this 'ranks won this session' one might be fine
+  using just the normal viz rules"). Every rank it reports is in its list's
+  top tenth, so the tones were all green: they repeated the standing column
+  and looked like the this-game green. Only the current game's rank is a
+  chip, the this-game green, and says "this". Consecutive ranks compress
+  into one run whatever their bands; the current game's ordinal stays
+  separate. The last cell gives the percentage or percentage range of all
+  ranks reported in the row. This also applies in score/history views.
+  Lifetime's near-miss placement keeps its explanatory tooltip. From
+  2026-09-21 until this change each rank was a chip in its standing tone,
+  runs split at band boundaries, and a last-place chip had a double
+  underline.
 - This changes presentation only. Ranking order, source-window selection,
   top-tenth eligibility, and duplicate collapsing are unchanged.
 
@@ -302,8 +309,8 @@ middle? that's okay."
   order — fastest first, ties by earlier finish.
 - Lifetime always answers (added later on 2026-08-23): when the source
   window has wins but none reached lifetime's top tenth, the single best
-  (closest) recent lifetime rank reports anyway, with its standing tint and
-  an explanatory tooltip — how close the window came stays visible. Because
+  (closest) recent lifetime rank reports anyway, with an explanatory
+  tooltip — how close the window came stays visible. Because
   of this rule, the block's one-line empty state means exactly "no wins
   in session" and says so.
 - Streak lists (added 2026-10-10, after the creator asked why new streak
@@ -318,9 +325,13 @@ middle? that's okay."
   history, so they count as longer than any session. The top-tenth rule
   applies; the lifetime near-miss rule does not. They report whether or not
   their tables are shown. The streak ending in this win is the "this" chip.
-- Row format: chart name, the earned ranks with compatible consecutive runs
+- Row format: chart name, the earned ranks with consecutive runs
   compressed ("8–12th", the ordinal suffix closing each run), "of N"
   naming the list length, and the reported ranks' percentage standing.
+  N has its own right-aligned column in tabular digits, so "of" stays in
+  line and the sizes' digits line up ("of   54" above "of 1383"; creator
+  2026-10-14). A range names the side and the percent sign once:
+  "Top 4 – 10%", not "Top 4% – Top 10%" (creator 2026-10-14).
   Rows use a stable category order (revised 2026-09-21 for long sessions):
   time windows in full-table order starting with lifetime, then day categories,
   streak, near-streak, near-near-streak,
@@ -331,8 +342,8 @@ middle? that's okay."
   reorder the categories. Duplicate collapsing and top-tenth eligibility
   still determine which rows exist. Rows remain contiguous across families,
   without white gaps or extra heading rows. Full-table order stays unchanged.
-  Every reported rank is a chip in its standing tone; only the current
-  game's chip is the this-game green and says "this" (see Rank highlights).
+  Reported ranks are plain text; only the current game's rank is a chip,
+  the this-game green, and says "this" (see Rank highlights).
 - Gated by shownThings.recentPlacements (on by default).
 
 ## Relative age display

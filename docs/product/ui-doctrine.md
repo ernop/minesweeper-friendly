@@ -10,6 +10,24 @@ because they apply app-wide, not just where each was first stated.
   strip it rather than polish it — the settings demo world (a pretend
   mid-game that reacted to every switch) was built and removed the same
   day on this rule.
+- One look per kind of thing (creator direction 2026-10-14, of the top bar
+  and the details column: "the tags/playstate (music on/off, mouse,
+  computer, mental and physical state) shall not visually be identical to
+  BUTTONS. it's a totally diff datatype after all. 2. why so many similar
+  diffs everywhere? let's make it simpler."). On the game page every action
+  or opener wears one bordered button look and every choice one select look;
+  a fact (a player state that is on, the measured music state, today's use
+  against the daily limits, the pixel ratio) is plain text with no border,
+  fill, pointer, or hover. A fact is never a button's label: the button says
+  what it does and the value sits beside it. A fact the player can change is
+  changed in the one panel its button opens. Found that day: nine CSS rules
+  had each copied the button look with small differences (three border
+  colors, two fills, five paddings), and the Zoom select had none, so it
+  showed the browser's default. Surfaces with deliberate sizes of their own
+  (the position editor's Reset and Done, the other pages' return links)
+  override only what differs. Game data's joined pool switch and the backup
+  row's link-styled actions still have their own rules
+  ([BACKLOG.md](../../BACKLOG.md)).
 - Prefer regular-weight chart names, labels, and values. Use position,
   spacing, and restrained color to establish hierarchy instead of relying
   on bolding.
@@ -18,7 +36,12 @@ because they apply app-wide, not just where each was first stated.
   backport the green to replace blue as the 'this' pointer color"). Standing
   within a pool runs muted green (better) through a neutral light gray or
   white middle to red (worse) everywhere: rank chips, the game-data bar and
-  histograms, and chart chips. This game is the charts' this-game dot color,
+  histograms, and chart chips. A display whose every value has one standing
+  carries no standing color: ranks won in session reports only top-tenth
+  ranks, so there its ranks are plain text (creator 2026-10-14: "these are
+  not 'this' right? so why green?";
+  [Rank highlights](rankings.md#rank-highlights-built-2026-09-21-recolored-2026-10-07)).
+  This game is the charts' this-game dot color,
   the age palette's fluorescent seconds green (#39ff14), and nothing else
   uses it: its table rows and "this" chips (bold black on it), the hovered
   game-data row, its line on histograms, and the ring around a chart linked

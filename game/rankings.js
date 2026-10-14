@@ -431,7 +431,8 @@ function rankStanding(rank, total) {
   const percent = count * 100 < total
     ? Math.ceil(count * 1000 / total) / 10
     : Math.ceil(count * 100 / total);
-  return { band, label: (upper ? 'Top ' : 'Bottom ') + percent + '%' };
+  const side = upper ? 'Top' : 'Bottom';
+  return { band, side, percent, label: side + ' ' + percent + '%' };
 }
 
 // Sorted ranks compressed into runs, the ordinal suffix only closing each
@@ -447,28 +448,29 @@ function formatRankRuns(ranks) {
   return parts.join(', ');
 }
 
-// Compress only placements with the same visual meaning. Percentage-band
-// boundaries and the current game remain individually legible.
-function recentPlacementRuns(ranks, total, currentRank) {
+// Consecutive ranks share one run; the current game's rank stays a run of
+// its own, so its "this" chip names exactly that rank.
+function recentPlacementRuns(ranks, currentRank) {
   const runs = [];
   for (const rank of ranks) {
-    const standing = rankStanding(rank, total);
     const current = rank === currentRank;
     const previous = runs[runs.length - 1];
-    if (previous && !previous.current && !current
-        && previous.last + 1 === rank && previous.band === standing.band) {
+    if (previous && !previous.current && !current && previous.last + 1 === rank) {
       previous.last = rank;
     } else {
-      runs.push({ first: rank, last: rank, current, ...standing });
+      runs.push({ first: rank, last: rank, current });
     }
   }
   return runs;
 }
 
+// A row holds several ranks only from its list's top tenth, so two
+// different labels are two Top percentages, written "Top 4 – 10%".
 function recentPlacementStanding(ranks, total) {
-  const first = rankStanding(ranks[0], total).label;
-  const last = rankStanding(ranks[ranks.length - 1], total).label;
-  return first === last ? first : first + ' \u2013 ' + last;
+  const first = rankStanding(ranks[0], total);
+  const last = rankStanding(ranks[ranks.length - 1], total);
+  return first.label === last.label ? first.label
+    : first.side + ' ' + first.percent + ' \u2013 ' + last.percent + '%';
 }
 
 // Progressive-disclosure dedupe shared by the tablecharts and their
@@ -627,7 +629,7 @@ function buildRecentPlacements(record, modeRecords, referenceMs, markReferenceRe
   const heading = document.createElement('h4');
   heading.appendChild(chartHelpButton([
     'Top ranks earned in the session (' + chosenLabel + ', the one page-wide session chosen in the top bar at the upper right) on every longer chart: time windows, day categories, streaks, exact board benchmarks, 3BV-spread groups, and board shapes of session wins. A streak counts when its last win is in the session, at its full length.',
-    'Only ranks within the top tenth of a list count, except that lifetime shows its closest rank when none made the tenth. Rows go by category, board values ascending. Each rank is colored by its standing, green better and red worse; this game’s rank is fluorescent green and says “this”.',
+    'Only ranks within the top tenth of a list count, except that lifetime shows its closest rank when none made the tenth. Rows go by category, board values ascending. The last column gives the percentage standing of the row’s ranks; this game’s rank is fluorescent green and says “this”.',
   ], 'ranks won in session'));
   box.dataset.sessionScopeView = '';
   box.addEventListener('session-scope-change', () => box.replaceWith(buildRecentPlacements(record, modeRecords, referenceMs, markReferenceRecord)));
@@ -677,13 +679,12 @@ function buildRecentPlacements(record, modeRecords, referenceMs, markReferenceRe
     line.appendChild(labelCell);
     const ranksCell = document.createElement('span');
     ranksCell.className = 'recent-ranks-cell';
-    for (const run of recentPlacementRuns(row.ranks, row.total, row.currentRank)) {
+    for (const run of recentPlacementRuns(row.ranks, row.currentRank)) {
       if (ranksCell.childNodes.length > 0) ranksCell.appendChild(document.createTextNode(', '));
       const rank = document.createElement('span');
       rank.className = 'recent-rank-run' + (run.current ? ' recent-current-rank' : '');
       const text = run.first === run.last ? ordinal(run.first)
         : run.first + '\u2013' + ordinal(run.last);
-      applyRankHighlight(rank, run.first, row.total);
       rank.textContent = text;
       rank.title = text + ' of ' + row.total + ' · '
         + recentPlacementStanding([run.first, run.last], row.total);
@@ -697,9 +698,13 @@ function buildRecentPlacements(record, modeRecords, referenceMs, markReferenceRe
       ranksCell.appendChild(rank);
     }
     line.appendChild(ranksCell);
+    const ofCell = document.createElement('span');
+    ofCell.className = 'recent-of-cell';
+    ofCell.textContent = 'of';
+    line.appendChild(ofCell);
     const totalCell = document.createElement('span');
-    totalCell.className = 'recent-of-cell';
-    totalCell.textContent = 'of ' + row.total;
+    totalCell.className = 'recent-total-cell';
+    totalCell.textContent = String(row.total);
     line.appendChild(totalCell);
     const standingCell = document.createElement('span');
     standingCell.className = 'recent-standing-cell';

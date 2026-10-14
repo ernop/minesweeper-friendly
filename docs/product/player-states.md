@@ -6,23 +6,37 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   sleepiness, mood, hardware ("bad mouse"), location. Active tags are
   stored on finished-game records for later grouping and comparison; the
   tag and any observed association do not establish a cause.
-- Only ACTIVE states are visible. Each shows as a chip (the me-row
-  highlight: bold black on light blue, with a trailing x); clicking a
-  chip takes the state off. An untagged session shows nothing but one
-  small "+ state" button, which carries a hover tooltip explaining the
-  feature.
-- The "+ state" button opens a menu of the inactive options: clicking a
-  name puts it on (and closes the menu). The menu also manages the list
-  itself: an x beside each option deletes it outright, and a text field
-  at the bottom creates a new state — a created state goes on
-  immediately, since typing it mid-session means "I am in this state
-  now". Duplicate or empty names are refused with a visible message.
-- Since 2026-08-23 the "+ state" opener is a real bordered button (it was
-  dotted-underline text) that holds a pressed look while the menu is up,
-  and the menu carries a "session states" header with an ×; ×, Esc, and a
-  click outside all close it. (It shares the button dress with the
-  "settings" link beside it, which since later that day leads to the full
-  settings page rather than opening a surface here.)
+- Only ACTIVE states are visible on the page, as facts, not buttons
+  (creator direction 2026-10-14: "the tags/playstate (music on/off, mouse,
+  computer, mental and physical state) shall not visually be identical to
+  BUTTONS. it's a totally diff datatype after all";
+  [One look per kind of thing](ui-doctrine.md)). They form the play context
+  line: the measured music state first ("music on" or "music off";
+  [Music playing](per-game-stats.md)), then each state that is on, in list
+  order, as bold black text separated by dots, with no border, fill,
+  pointer, hover, or x. Clicking one does nothing. The line wraps after a
+  dot, never inside a name, and is absent when nothing is on and music is
+  not measured. From 2026-08-20 until then each state was a clickable chip
+  (bold black on light blue, a trailing x, a click took it off) and music an
+  olive bordered box, both dressed like buttons.
+- One bordered **edit states** button follows the line; its tooltip explains
+  the feature. It opens the one menu that changes states: every state in
+  the list, on or off, as a checkbox row (check puts it on, uncheck takes it
+  off, and the menu stays open), an x at the end of each row that deletes
+  it outright, and a text field at the bottom with an **add** button that
+  creates a new state. A created state goes on immediately, since typing it
+  mid-session means "I am in this state now", and closes the menu.
+  Duplicate or empty names are refused with a visible message. Until
+  2026-10-14 the opener was "+ state" and its menu listed only the inactive
+  states, a click putting one on and closing the menu.
+- The button holds a pressed look while the menu is up, and the menu carries
+  a "session states" header with an ×; ×, Esc, and a click outside all close
+  it (since 2026-08-23, when the opener became a real bordered button).
+- Defect fixed 2026-10-14: every saved setting replaces the stored settings
+  with a copy, and opening the menu itself saves (it remembers the open
+  panel), so a click in the old menu put nothing on, and a chip click after
+  any other saved setting (a Zoom change, for one) took nothing off. States
+  are now found by name at the moment of the click.
 - A new player's menu offers three suggested options: sleepy, just woke
   up, inebriated — none active.
 - The active set is stamped onto each game record at the moment it
@@ -31,9 +45,9 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   states they were stamped with, even if a state is later removed.
 - The states panel sits at the top of the details column at the right
   (2026-08-20 in the upper-right corner; it previously hung off the board's
-  left edge), sharing a cluster with the play-mode menu (2026-08-21), the
-  generator menu, the music chip, and the archive chip, shown only while the
-  archive folder is paused or failing
+  left edge), under the play-mode menu (2026-08-21) and the generator menu,
+  and after the archive alert, shown only while the archive folder is paused
+  or failing
   (2026-09-26, [Archive folder](storage-and-history.md#archive-folder-creator-direction-2026-09-26)).
   The settings button and the other-page links moved to the top bar above
   that column on 2026-10-14 ([Layout](board-and-layout.md#layout-the-board-never-moves)).

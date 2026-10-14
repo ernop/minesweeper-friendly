@@ -8,6 +8,25 @@ leave new ideas only in chat.
 Status labels: **creator** = the creator asked for it; **mapped** = named
 on the design axis or in a research note, not requested as a build.
 
+## One look per kind of thing: the rest of the page (follows the creator's 2026-10-14 direction)
+
+The top bar and the details column follow
+[One look per kind of thing](docs/product/ui-doctrine.md) since 2026-10-14.
+Two other controls keep their own looks:
+
+- Game data's pool switch (`.game-data-pool-switch`, joined buttons with a
+  pressed one) is a choice between pools, so under the rule it would take
+  the select's look or the shared button look with its pressed state.
+  Not yet changed.
+- The backup row under the board (export history, export traces, import
+  history, data format, and the import panel's apply and open file) uses
+  dotted underlined link text for actions. Under the rule they become
+  buttons, which puts four bordered boxes under the board in place of one
+  quiet line.
+  Recommended: convert them, since the creator asked for one look for
+  actions; waiting for the creator's decision.
+- The left session stats panel was not reviewed for this rule.
+
 ## Game results as one tree per board type (creator request 2026-10-14; proposed design, awaiting review)
 
 The creator asked to rethink the session's results table. In Beginner, show

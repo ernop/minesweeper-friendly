@@ -471,7 +471,20 @@ function initBoardPositionControls() {
   }
 }
 
-//-------ZOOM (the persistent cell size)-------
+//-------ZOOM (the persistent cell size) and the pixel ratio beside it-------
+
+// Pages cannot read the browser zoom: devicePixelRatio is the browser zoom
+// times the system display scale (2 on a 200%-scaled display at browser
+// zoom 100%), so it must not be labeled as the zoom. A media query on the
+// current ratio fires once when it changes.
+const pixelRatioValue = document.getElementById('pixel-ratio-value');
+
+function renderPixelRatio() {
+  const ratio = window.devicePixelRatio;
+  pixelRatioValue.textContent = String(Number(ratio.toFixed(2)));
+  matchMedia('(resolution: ' + ratio + 'dppx)')
+    .addEventListener('change', renderPixelRatio, { once: true });
+}
 
 function applyCellSize() {
   document.getElementById('zoom-select').value = String(settings.cellSize);
@@ -494,6 +507,7 @@ function initCellSizeControl() {
     select.appendChild(option);
   }
   applyCellSize();
+  renderPixelRatio();
   select.disabled = false;
   select.addEventListener('change', () => {
     const size = Number(select.value);

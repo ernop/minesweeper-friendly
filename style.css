@@ -75,6 +75,66 @@ main {
   container-type: inline-size;
 }
 
+/*-------SHARED CONTROLS (one look per kind of thing)-------*/
+
+/* docs/product/ui-doctrine.md, "One look per kind of thing": every action or
+   opener wears this one bordered button, every choice this one select, and
+   facts are plain text with no border, fill, or pointer. Surfaces with their
+   own sizes (the position editor, game data, the other pages' return links)
+   override only what differs. */
+.ui-button,
+.return-to-game,
+#replay-controls button,
+#review-options button {
+  display: inline-block;
+  padding: 3px 10px;
+  border: 1px solid #c5d0da;
+  border-radius: 3px;
+  background: #f7f9fb;
+  color: #000000;
+  font: 11px Arial, Helvetica, sans-serif;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.ui-button:hover,
+.ui-button:focus-visible,
+.return-to-game:hover,
+#replay-controls button:hover,
+#replay-controls button:focus-visible,
+#review-options button:hover,
+#review-options button:focus-visible {
+  border-color: #8aa0b5;
+  background: #e3edf6;
+}
+
+/* An opener holds this pressed look while its menu, editor, or replay is open. */
+.ui-button[aria-expanded="true"],
+#other-pages-btn:has(+ #other-pages-menu:popover-open),
+#replay-review[open] > summary {
+  border-color: #8aa0b5;
+  background: #dcebf7;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+/* An action that repairs a failure (the archive folder): error red stays
+   legible on its light fill. */
+.ui-button.alert {
+  border-color: #cc7777;
+  background: #fff5f5;
+  color: #8d3030;
+  font-weight: bold;
+}
+
+.ui-select {
+  padding: 2px 4px;
+  border: 1px solid #c5d0da;
+  border-radius: 3px;
+  background: #f7f9fb;
+  color: #000000;
+  font: 11px Arial, Helvetica, sans-serif;
+}
+
 /*-------DIFFICULTY TABS-------*/
 
 #difficulty-tabs {
@@ -102,17 +162,13 @@ main {
   text-decoration: none;
 }
 
-#zoom-label {
-  margin-left: 20px;
-  font-size: 13px;
-  color: #000000;
-}
-
-/*-------TOP BAR (play limits, session, position, settings, other pages)-------*/
+/*-------TOP BAR (play limits, session, board display, settings, other pages)-------*/
 
 /* The page's upper right: above the docked game data and details columns,
    sticky with them, or above the board column when the details are the
-   compact popover. Its items wrap rather than shrink. */
+   compact popover. Its items wrap rather than shrink; each group (limits,
+   session, board display, other surfaces) keeps together and wider gaps
+   separate the groups. */
 #top-bar {
   grid-column: 3;
   grid-row: 1;
@@ -123,7 +179,7 @@ main {
   flex-wrap: wrap;
   justify-content: flex-end;
   align-items: center;
-  gap: 4px 10px;
+  gap: 4px 6px;
   min-width: 0;
   background: #ffffff;
   color: #000000;
@@ -133,38 +189,35 @@ main {
 #page-layout.compact-sidebar #top-bar { grid-column: 2; position: static; justify-self: end; }
 #page-layout.compact-sidebar main { grid-row: 2; }
 #top-bar > * { white-space: nowrap; }
+#session-picker,
+#board-display,
+#page-links { margin-left: 10px; }
 
-#session-picker {
+/* Today's use is a fact, so plain text beside its link, never inside it. */
+#play-limits-use {
+  font-weight: bold;
+  font-variant-numeric: tabular-nums;
+}
+#play-limits-use[hidden] { display: none; }
+#play-limits-use.reached { color: #a40000; }
+
+#session-picker,
+#zoom-label {
   display: inline-flex;
   align-items: center;
   gap: 5px;
+}
+
+#board-display,
+#page-links {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+#pixel-ratio-value {
   font-weight: bold;
-}
-#session-definition-select {
-  font: 12px Arial, Helvetica, sans-serif;
-  color: #000000;
-  background: #f7f9fb;
-  border: 1px solid #c5d0da;
-  padding: 2px 4px;
-}
-
-#board-position-btn,
-#other-pages-btn {
-  border: 1px solid #c5d0da;
-  border-radius: 3px;
-  background: #f7f9fb;
-  padding: 3px 10px;
-  color: #000000;
-  font: 11px Arial, Helvetica, sans-serif;
-  cursor: pointer;
-}
-
-#board-position-btn:hover,
-#board-position-btn[aria-expanded="true"],
-#other-pages-btn:hover,
-#other-pages-btn:has(+ #other-pages-menu:popover-open) {
-  border-color: #8aa0b5;
-  background: #e3edf6;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Opens under its button; the toggle handler places it (main.js). */
@@ -316,37 +369,9 @@ main {
 
 #replay-review { width: 100%; min-width: 0; }
 #replay-review[hidden] { display: none; }
-#replay-review > summary {
-  width: fit-content;
-  padding: 5px 9px;
-  border: 1px solid #c9d4de;
-  border-radius: 3px;
-  background: #f7fafc;
-  color: #000000;
-  cursor: pointer;
-}
+/* list-item keeps the disclosure triangle the button look would drop. */
+#replay-review > summary { display: list-item; width: fit-content; }
 #replay-review[open] > summary { margin-bottom: 8px; }
-
-#scores-nav button,
-#review-options button {
-  min-height: 25px;
-  padding: 2px 9px;
-  border: 1px solid #c9d4de;
-  border-radius: 3px;
-  background: #f7fafc;
-  color: #000000;
-  font: inherit;
-  cursor: pointer;
-}
-
-#scores-nav button:hover,
-#scores-nav button:focus-visible,
-#review-options button:hover,
-#review-options button:focus-visible {
-  border-color: #8aa8bb;
-  background: #edf5fa;
-  color: #000000;
-}
 
 #path-view-control {
   display: flex;
@@ -793,14 +818,8 @@ main {
 
 #board-lab-new {
   margin-top: 4px;
-  font: inherit;
-  font-size: 12px;
   padding: 3px 12px;
-  border: 1px solid #c9d4de;
-  border-radius: 3px;
-  background: #f7fafc;
-  color: #000000;
-  cursor: pointer;
+  font-size: 12px;
 }
 
 /*-------GAME FRAME (classic chrome)-------*/
@@ -1615,7 +1634,8 @@ body.trial-offboard #game-frame {
   background: #fff;
 }
 /* Game setup packs into wrapping rows: the two selects share a row when the
-   column is wide enough, then music, archive, and tags follow, right-aligned. */
+   column is wide enough, then the archive alert and the play context line
+   with its edit button follow, right-aligned. */
 #top-right {
   display: flex;
   flex-wrap: wrap;
@@ -1625,15 +1645,6 @@ body.trial-offboard #game-frame {
   text-align: right;
   font-size: 11px;
   color: #000000;
-}
-#game-sidebar-button, #game-sidebar-close {
-  border: 1px solid #c5d0da;
-  border-radius: 3px;
-  background: #f7f9fb;
-  padding: 4px 8px;
-  color: #000000;
-  font: 11px Arial, sans-serif;
-  cursor: pointer;
 }
 #game-sidebar-button[hidden], #game-sidebar-close[hidden] { display: none; }
 #game-sidebar-close { align-self: flex-end; }
@@ -1699,12 +1710,6 @@ body.trial-offboard #game-frame {
 #board-generator-select {
   min-width: 0;
   width: 100%;
-  font: inherit;
-  font-size: 11px;
-  color: #000000;
-  background: #f7f9fb;
-  border: 1px solid #c5d0da;
-  padding: 2px 4px;
 }
 
 #board-generator-select:disabled {
@@ -1845,38 +1850,8 @@ body.trial-offboard #game-frame {
   margin: 0;
 }
 
-/* The measured music state: shown while the machine is playing audio
-   (asked of the local base system, see docs/product/per-game-stats.md
-   "Music playing").
-   Display only — a measured fact, not a player tag, so no x and no
-   click; olive (the measured-fact accent of the guess chips), never
-   the player-tag blue. */
-#music-indicator {
-  display: inline-block;
-  font-size: 11px;
-  font-weight: bold;
-  color: #000000;
-  background: #eef2e4;
-  border: 1px solid #6b7a4e;
-  padding: 2px 8px;
-}
-
-#music-indicator[hidden] { display: none; }
-
 /* Shown only when the archive folder is paused or failing; a click resumes
-   or retries. Error red stays legible on its light fill. */
-#archive-chip {
-  font: inherit;
-  font-size: 11px;
-  font-weight: bold;
-  color: #8d3030;
-  background: #fff5f5;
-  border: 1px solid #c77;
-  border-radius: 3px;
-  padding: 2px 8px;
-  cursor: pointer;
-}
-
+   or retries. */
 #archive-chip[hidden] { display: none; }
 
 #states {
@@ -1889,69 +1864,38 @@ body.trial-offboard #game-frame {
 
 #states:has(> #states-menu:not([hidden])) { flex-basis: 100%; }
 
-#states-chips {
+/* The play context line: the measured music state and the player's states
+   that are on, facts stamped onto each finished game. Plain bold text with
+   no border, fill, or pointer, so it never reads as a button. A dot ends
+   every item but the last, since names hold spaces; at the end of an item
+   it never starts a wrapped row. */
+#play-context {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 4px;
-}
-
-#states-chips:empty { display: none; }
-
-/* An active state: bold black on light blue, with its trailing x signaling
-   one click takes it off. */
-.state-chip {
-  font: inherit;
-  font-size: 11px;
+  gap: 2px 6px;
+  margin: 0;
   color: #000000;
+  font-size: 12px;
   font-weight: bold;
-  background: #d8ebfa;
-  border: 1px solid #8aa0b5;
-  border-radius: 9px;
-  padding: 2px 8px;
-  cursor: pointer;
+}
+#play-context:not(:has(> .context-item:not([hidden]))) { display: none; }
+.context-item { white-space: nowrap; }
+.context-item[hidden] { display: none; }
+.context-item:not(:last-child)::after {
+  content: "\00b7";
+  margin-left: 6px;
+  font-weight: normal;
 }
 
-.state-chip:hover { background: #c4dff5; }
-
-/* The openers are real, obvious buttons (2026-08-23; they were
-   dotted-underline text before). "settings" is a plain link to the
-   settings page dressed as the same button; "+ state" holds its pressed
-   look via .open while its menu is up. The settings page's return-to-game
-   links wear the identical dress — the shared piece of titlebar. */
-#states-add-btn,
-#settings-btn,
-.return-to-game {
-  font: inherit;
-  font-size: 11px;
-  color: #000000;
-  background: #f7f9fb;
-  border: 1px solid #c5d0da;
-  border-radius: 3px;
-  padding: 3px 10px;
-  cursor: pointer;
-  text-decoration: none;
-  display: inline-block;
-}
-
-#states-add-btn:hover,
-#settings-btn:hover,
-.return-to-game:hover { background: #e3edf6; }
-
-#states-add-btn.open {
-  background: #dcebf7;
-  border-color: #8aa0b5;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.12);
-}
-
-/* The menu of inactive states: click a name to put it on, its x to delete
-   it from the list; the field at the bottom creates (and puts on) a new
-   state. */
+/* Every state with a checkbox (on or off), its x to delete it from the
+   list, and the field at the bottom that creates (and puts on) a new one. */
 #states-menu {
   flex: 1 0 100%;
   padding: 6px 8px;
   background: #f7f9fb;
   border: 1px solid #e0e6ec;
+  text-align: left;
 }
 
 #states-menu[hidden] { display: none; }
@@ -1965,7 +1909,7 @@ body.trial-offboard #game-frame {
 
 #states-menu-head span {
   color: #000000;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: bold;
 }
 
@@ -1983,50 +1927,54 @@ body.trial-offboard #game-frame {
 #states-close:hover { background: #e3edf6; }
 
 .state-option {
-  display: block;
-  width: 100%;
-  font: inherit;
-  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 1px 0;
   color: #000000;
-  background: none;
-  border: none;
-  padding: 2px 0;
-  cursor: pointer;
-  text-align: right;
+  font-size: 12px;
 }
 
-.state-option:hover {
-  color: #000000;
-  background: #eaf2fa;
+.state-option label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  cursor: pointer;
 }
+
+.state-option input { margin: 0; }
 
 .state-remove {
-  margin-left: 5px;
+  padding: 0 5px;
+  border: none;
+  background: none;
   color: #b05050;
-  font-weight: bold;
+  font: bold 13px Arial, Helvetica, sans-serif;
+  line-height: 1;
+  cursor: pointer;
 }
 
-#states-add-form { margin-top: 5px; }
+.state-remove:hover,
+.state-remove:focus-visible { background: #f6e3e3; }
+
+#states-add-form {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+}
 
 #states-add-form input {
-  width: 100px;
-  font-size: 11px;
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 2px 4px;
+  border: 1px solid #c5d0da;
   color: #000000;
-  border: 1px solid #cccccc;
+  font-size: 11px;
 }
 
 #states-add-form input::placeholder { color: #000000; opacity: 1; font-style: italic; }
-
-#states-add-form button {
-  font: inherit;
-  color: #000000;
-  background: none;
-  border: none;
-  padding: 0;
-  margin-left: 4px;
-  cursor: pointer;
-  text-decoration: underline dotted;
-}
 
 #states-status {
   margin: 4px 0 0;
@@ -2051,7 +1999,7 @@ body.trial-offboard #game-frame {
   }
 
   #states,
-  #states-chips {
+  #play-context {
     justify-content: center;
   }
 }
@@ -3074,26 +3022,34 @@ body.settings-page .return-to-game {
 
 /* Recent placements ("ranks won in session"): one row per longer chart,
    listing the top-tenth ranks earned within the session. */
+/* Columns: chart name, ranks, "of", list size, standing. The list size has
+   its own right-aligned column so its digits line up down the table. */
 .recent-placements-grid {
   display: grid;
   width: 100%;
-  grid-template-columns: repeat(4, auto);
+  grid-template-columns: repeat(5, auto);
 }
 
 .recent-placements-grid .recent-window-cell { text-align: right; }
 .recent-placements-grid .recent-ranks-cell { max-width: 28ch; white-space: normal; }
 
 .recent-placements-grid .recent-of-cell {
+  padding-right: 0;
   font-size: 11px;
   color: #000000;
 }
+.recent-placements-grid .recent-total-cell {
+  padding-left: 3px;
+  text-align: right;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
 
-/* Rows carry no tint; every reported rank is a chip in its standing color,
-   earlier games included. This game's chip is the this-game green and says
-   "this". */
+/* Ranks are plain bold black: every one here is in its list's top tenth, so
+   a standing color would only repeat the last column, and green reads as
+   "this". This game's chip alone is the this-game green and says "this". */
 .recent-placements-grid .recent-rank-run {
   padding: 0 2px;
-  background: var(--rank-tint);
   color: #000000;
   font-weight: bold;
 }
@@ -3540,11 +3496,6 @@ body.vigilance-running #self-check-header {
   font-weight: bold;
   color: #000000;
   background: var(--this-game);
-}
-
-.recent-rank-run.rank-highlight[data-rank-band="last"] {
-  text-decoration: underline double;
-  text-underline-offset: 2px;
 }
 
 /*-------METRICS PANEL (live / final mouse-dynamics column)-------*/
@@ -4132,7 +4083,6 @@ body.vigilance-running #self-check-header {
   #metrics-panel-content { max-height: 218px; }
   body { padding: 12px; }
   #difficulty-tabs { flex-wrap: wrap; justify-content: center; gap: 10px; }
-  #zoom-label { margin-left: 0; }
 }
 
 /* Beside the docked column the display options open in the top layer over
@@ -4333,22 +4283,3 @@ body.vigilance-running #self-check-header {
 #play-limit-closed p { margin: 0; }
 #play-limit-closed .play-limit-heading { font-size: 18px; font-weight: bold; }
 #play-limit-closed .play-limit-amount { font-size: 16px; }
-
-#play-limits-btn {
-  font: inherit;
-  font-size: 11px;
-  color: #000000;
-  background: #f7f9fb;
-  border: 1px solid #c5d0da;
-  border-radius: 3px;
-  padding: 3px 10px;
-  text-decoration: none;
-  font-variant-numeric: tabular-nums;
-}
-#play-limits-btn:hover { background: #e3edf6; }
-#play-limits-btn.reached {
-  color: #a40000;
-  font-weight: bold;
-  background: #fff5f5;
-  border-color: #c77;
-}

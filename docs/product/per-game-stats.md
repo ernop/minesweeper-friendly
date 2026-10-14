@@ -469,14 +469,17 @@ hosting, the test origin — never contacts localhost: no request, no browser
 local-network permission prompt for visitors, no chip, and records carry no
 `musicPlaying` field. Hosted copies' Content-Security-Policy does not allow
 the endpoint.
-Because it is a true state of the world, it is also shown live: an olive
-"music" chip in the fixed upper-right cluster (by the states tags)
-appears while the latest answer is "playing" and goes away when the
-music stops — within about a minute either way, since the base system
-rechecks at most once a minute (worst case ~75s: poll interval + cache
-age). An unreachable endpoint shows nothing: unknown is never displayed
-as silence. The chip is display only — a measured fact, not a player
-tag, so it has no x and takes no clicks. The stats table shows a "Music"
+Because it is a true state of the world, it is also shown live, first on
+the play context line at the top of the details column
+([Player states](player-states.md)): "music on" while the latest answer is
+"playing", "music off" while it is silence (2026-10-14, when the line
+replaced the chips; before that an olive "music" chip showed only while
+playing, so silence and not measured looked the same). It changes within
+about a minute either way, since the base system rechecks at most once a
+minute (worst case ~75s: poll interval + cache age). An unreachable
+endpoint, or an answer without a true/false value, shows nothing and
+measures nothing: unknown is never displayed or stored as silence. It is
+plain text, a measured fact rather than a button, so it takes no clicks. The stats table shows a "Music"
 row (playing / none) when the field exists. Deliberately a boolean, not
 the stream titles: titles are personal data that would live forever in
 records and exports.

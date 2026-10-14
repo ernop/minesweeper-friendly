@@ -3,8 +3,8 @@
 // Daily play limits on the game page: this tab's play spans (saved while
 // each board plays and shared live with other tabs), the gate that keeps a
 // new board from starting while a limit is reached, the notice over a
-// closed board, and the limits link in the top bar. The rules are the
-// pure play-limits.js; limits are set only on the settings page.
+// closed board, and today's use beside the limits link in the top bar. The
+// rules are the pure play-limits.js; limits are set only on the settings page.
 
 //-------DAILY PLAY LIMITS-------
 
@@ -17,7 +17,7 @@ let playLimitChangeTimer = null;
 // themselves (Pregen 10, trials with a given opening) skipped the deal.
 let boardDealtClosed = false;
 const playLimitsChannel = new BroadcastChannel(PLAY_LIMITS_CHANNEL);
-const playLimitsLink = document.getElementById('play-limits-btn');
+const playLimitsUse = document.getElementById('play-limits-use');
 const playLimitClosedNotice = document.getElementById('play-limit-closed');
 
 function loadPlayLimits(stored, spans) {
@@ -84,7 +84,7 @@ function savePlaySpanProgress() {
   if (currentPlaySpan !== null) touchPlaySpan();
 }
 
-function playLimitLinkPart(kind, value, use) {
+function playLimitUsePart(kind, value, use) {
   if (kind.type === 'minutes') {
     return formatPlayLimitDuration(use.playedMs) + ' of ' + formatPlayLimitMinutes(value);
   }
@@ -119,10 +119,10 @@ function renderPlayLimits() {
     return;
   }
   const set = PLAY_LIMIT_KINDS.filter((kind) => Object.hasOwn(playLimits, kind.id));
-  playLimitsLink.classList.toggle('reached', reached.length > 0);
-  playLimitsLink.textContent = set.length === 0 ? 'daily limits'
-    : (reached.length > 0 ? 'limit reached: ' : 'today: ')
-      + set.map((kind) => playLimitLinkPart(kind, playLimits[kind.id], use)).join(' \u00b7 ');
+  playLimitsUse.hidden = set.length === 0;
+  playLimitsUse.classList.toggle('reached', reached.length > 0);
+  playLimitsUse.textContent = (reached.length > 0 ? 'limit reached: ' : 'today: ')
+    + set.map((kind) => playLimitUsePart(kind, playLimits[kind.id], use)).join(' \u00b7 ');
   playLimitClosedNotice.hidden = !closed;
   if (closed) {
     const heading = document.createElement('p');

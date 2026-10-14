@@ -123,10 +123,12 @@ Spec: [docs/product/per-game-stats.md](../product/per-game-stats.md). Index: [AG
   from newGame beside beginTrace) resets `musicObservations` and, on the
   local origin, samples once; a top-level setInterval
   (`MUSIC_SAMPLE_EVERY_MS`, 15s) polls continuously there — not only
-  during games — because `musicNow` also drives the live indicator
-  (`#music-indicator`, the olive "music" chip in `#top-right`, rendered
-  by `renderMusicIndicator`; hidden unless the latest answer is exactly
-  true, so unknown never displays as silence). An answer is pushed onto
+  during games — because `musicNow` also drives the live music state
+  (`#music-state`, the first item of the play context line `#play-context`
+  in `#top-right`, rendered by `renderMusicState`: "music on" or "music
+  off", hidden while `musicNow` is null). A failed fetch, a non-OK status,
+  and an answer whose `is_music_playing` is not a boolean all set `musicNow`
+  to null, so unknown never displays or records as silence. An answer is pushed onto
   `musicObservations` only while `tracing()` — it is at most seconds old,
   so it belongs to the board now in play; one landing after game end is
   display-only. `reportResult` writes `musicPlaying` (any-sample-true)

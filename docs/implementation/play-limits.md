@@ -38,9 +38,10 @@ Spec: [docs/product/play-limits.md](../product/play-limits.md). Index: [AGENTS.m
   start its clock; `renderPlayLimits` calls `newGame` once the limits
   reopen on a board dealt closed. `renderPlayLimits` (end of `newGame`,
   span begin/end, after the startup result restore, each broadcast, and a
-  timer at `nextPlayLimitChange`) draws `#play-limits-btn` (first in
-  `#top-bar` since 2026-10-14, never hidden: "daily limits" with no limit
-  set) and
+  timer at `nextPlayLimitChange`) draws `#play-limits-use` (first in
+  `#top-bar`, hidden while no limit is set, `.reached` in red; its parts
+  come from `playLimitUsePart`) before the link `#play-limits-btn` (fixed
+  text "daily limits", never hidden; both since 2026-10-14) and
   `#play-limit-closed`, absolutely positioned over `#game-frame`.
 - Settings page, `settings-page.js` "DAILY LIMITS": `#play-limit-table` is
   one CSS grid (rows `display: contents`) built by `renderPlayLimitTable`;

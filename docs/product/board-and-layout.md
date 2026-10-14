@@ -33,7 +33,19 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
 - Zoom control: 16, 20, 24, 28, 32, 36, 40, 48, 56, 64, 80, or 96 px cell sizes.
   Default 28 px. The chosen size is a saved preference: it survives reloads
   and visits to Settings, and travels with separate preference exports/imports. Zoom
-  changes resize the current board in place and update trace geometry.
+  changes resize the current board in place and update trace geometry. It
+  sits in the top bar's board display group with **position** and the pixel
+  ratio (2026-10-14; it sat at the end of the difficulty tabs before).
+- Pixel ratio (creator request 2026-10-14: "a new viz which shows your
+  *browser* zoomlevel (just in case)"): the board display group shows
+  "pixel ratio 2", the browser's device pixel ratio, updated the moment it
+  changes. A page cannot read the browser zoom: the ratio is the browser
+  zoom times the system display scale, and the two cannot be told apart. The
+  creator's monitor runs at system scale 2 (5120 x 2160 shown as 2560 x
+  1080), so there the readout is 2 at browser zoom 100% and 2.2 at 110%;
+  labeling it "browser zoom" would claim 200%. It is the same number every
+  trace stores as `environment.devicePixelRatio`. Its tooltip gives the
+  definition.
 - Mechanics: first click never a mine; flood fill; the right press flags (on
   the press, as in the official game, whatever the browser's menu timing);
   chording with press preview by a left click on a satisfied number or by both
@@ -154,24 +166,39 @@ laggy"; asked whether the game is "max efficient" and to test and fix it.
   the UR. also, move the session definition to the upper right fully;
   there's no point to having it as the single only thing in the UL! also
   move position there. also, move self-check, training, problems into
-  submenus"). One row at the page's upper right, right-aligned, holding in
-  order: the daily play-limits link, always shown ("daily limits", or
-  today's use against the limits once any is set;
-  [Daily play limits](play-limits.md)), the session picker labeled "session"
-  ([One session definition](game-data.md#one-session-definition)), the
-  board **position** button, **settings**, and **other pages ▾**, a menu
-  holding self-check, training, and problems. The menu opens under its
-  button and closes on a choice, Escape, or a click outside; it is one step
-  deep, as the UI doctrine requires.
+  submenus"). One row at the page's upper right, right-aligned, holding four
+  groups in order (regrouped 2026-10-14 under
+  [One look per kind of thing](ui-doctrine.md); creator request the same
+  day: "zoom dropdown, position and a new viz whichshows your *browser*
+  zoomlevel (just in case) shall also be near each other"):
+  1. Daily limits: today's use against the limits as plain text once any
+     limit is set ("today: 12m 34s of 30m · 14 of 50 games", red once one
+     is reached), then the **daily limits** link, always shown and always
+     so labeled ([Daily play limits](play-limits.md)).
+  2. The session picker labeled "session"
+     ([One session definition](game-data.md#one-session-definition)).
+  3. Board display: Zoom, the board **position** button, and the pixel
+     ratio (above).
+  4. **settings** and **other pages ▾**, a menu holding self-check,
+     training, and problems. The menu opens under its button and closes on
+     a choice, Escape, or a click outside; it is one step deep, as the UI
+     doctrine requires.
+
+  Items within a group sit 6px apart and groups 16px apart. A group never
+  splits across rows.
   - With the details column docked, the bar sits above the right columns
     (game data, when docked, and details) and spans them; it is sticky with
-    them, and they start just below it. Its items wrap onto a second row when
-    those columns are too narrow for one.
+    them, and they start just below it. Its groups wrap onto further rows
+    when those columns are too narrow for one (one row at 1920 and 2560px
+    wide with no limit set; three at 1280px).
   - With the details column as the Game details popover, the bar sits above
     the board column, right-aligned, and scrolls with the page. Below 700px
     it is the first row, above the session metrics.
-  - Mode, generator, music, archive, and session tags stay at the top of the
-    details column; the Game details button stays beside the difficulty tabs.
+  - Mode, generator, the archive alert, and the play context line (the
+    music state and the player states that are on, as plain text, with the
+    **edit states** button; [Player states](player-states.md)) stay at the
+    top of the details column; the Game details button stays beside the
+    difficulty tabs, which hold nothing else.
 - Game data column (user decision 2026-09-23: "a full-height column right
   next to the board", empty during play): a sticky column of the full viewport
   height between the board column and the details column. It is empty during
@@ -215,8 +242,8 @@ laggy"; asked whether the game is "max efficient" and to test and fix it.
   column stays at its 320px minimum. When it holds game data itself, it is
   fluid, `clamp(320px, 30vw, 760px)`, and the compact popover is
   `max(420px, 45vw)` within the viewport. Mode and
-  generator share a row when they fit; music, the archive chip, tags, and
-  + state follow on wrapping rows. Game data there takes the column height left below them,
+  generator share a row when they fit; the archive alert, the play context
+  line, and edit states follow on wrapping rows. Game data there takes the column height left below them,
   the scores navigation, and the outcome summary (at least 480px), so it ends
   at the screen bottom with its controls visible instead of running below it.
   The column gives way to the board down to 320px before the Game details
@@ -276,8 +303,10 @@ laggy"; asked whether the game is "max efficient" and to test and fix it.
   offsets to zero, the resting place) and a prominent Done button stay at
   the top of the editor; Escape also closes it.
   The editor does not change the board's position or page layout. Its
-  **position** opener is in the top bar (2026-10-14; it sat after Zoom beside
-  the difficulty tabs before). Closing the editor returns keyboard focus to
+  **position** opener is in the top bar's board display group, after Zoom
+  again (2026-10-14; earlier that day it had moved to the top bar alone,
+  leaving Zoom beside the difficulty tabs). It holds a pressed look while the
+  editor is open. Closing the editor returns keyboard focus to
   the opener; loading the page does not (until 2026-10-14 every load gave
   the opener focus and its focus ring).
 - The results area echoes the in-game numeral face (Arial Black stack);

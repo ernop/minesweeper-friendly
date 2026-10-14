@@ -75,11 +75,6 @@ const { chromium } = require(process.argv[2]);
         .find((row) => row.querySelector('.recent-window-cell').textContent === label);
       const current = row('3BV 40');
       const earlier = row('3BV 41');
-      // Computed color-mix() values may serialize as color(srgb 0..1 ...).
-      const rgb = (color) => {
-        const numbers = color.match(/[\d.]+/g).map(Number).slice(0, 3);
-        return color.startsWith('color(') ? numbers.map((value) => Math.round(value * 255)) : numbers;
-      };
       return { records, current: {
         label: current.querySelector('.recent-standing-cell').textContent,
         rowTinted: getComputedStyle(current).backgroundColor !== 'rgba(0, 0, 0, 0)',
@@ -89,8 +84,12 @@ const { chromium } = require(process.argv[2]);
         highlighted: earlier.classList.contains('recent-row-current'),
         standing: earlier.querySelector('.recent-standing-cell').textContent,
         band: earlier.querySelector('.recent-rank-run').dataset.rankBand,
-        rankColor: rgb(getComputedStyle(earlier.querySelector('.recent-rank-run')).backgroundColor),
-      } };
+        rankColor: getComputedStyle(earlier.querySelector('.recent-rank-run')).backgroundColor,
+      }, totals: [...summary.querySelectorAll('.recent-total-cell')].map((cell) => {
+        const box = cell.getBoundingClientRect();
+        return { text: cell.textContent, right: Math.round(box.right),
+          align: getComputedStyle(cell).textAlign };
+      }) };
     });
     const records = details.records;
     const THIS_GAME = 'rgb(57, 255, 20)';
@@ -120,12 +119,15 @@ const { chromium } = require(process.argv[2]);
     assert.equal(details.current.rowTinted, false, 'ranks won rows carry no tint');
     assert.equal(details.current.rankColor, THIS_GAME, 'this game’s chip is the this-game green');
     assert.equal(details.current.label, 'Top 10%');
-    assert.equal(details.current.cells, 4);
+    assert.equal(details.current.cells, 5);
     assert.equal(details.earlier.highlighted, false);
     assert.equal(details.earlier.standing, 'Top 5%');
-    assert.equal(details.earlier.band, 'top5');
-    const [red, green, blue] = details.earlier.rankColor;
-    assert(green > red && green > blue, 'an earlier top-5% chip is green: ' + details.earlier.rankColor);
+    assert.equal(details.earlier.band, undefined, 'an earlier rank carries no standing band');
+    assert.equal(details.earlier.rankColor, 'rgba(0, 0, 0, 0)', 'an earlier rank is plain text');
+    assert(details.totals.length > 1);
+    assert(details.totals.every((total) => total.align === 'right'
+      && total.right === details.totals[0].right), 'list sizes share one right edge: '
+      + JSON.stringify(details.totals));
     const multi = await page.evaluate(async () => {
       const row = [...document.querySelectorAll('.recent-placements .rank-row')]
         .find((row) => row.querySelector('.recent-window-cell').textContent === 'lifetime');
@@ -138,9 +140,9 @@ const { chromium } = require(process.argv[2]);
       };
     });
     assert.deepEqual(multi.places.map((rank) => rank.text), ['2nd', '3rd this']);
-    assert.notEqual(multi.places[0].color, THIS_GAME, 'an earlier rank keeps its standing color');
+    assert.equal(multi.places[0].color, 'rgba(0, 0, 0, 0)', 'an earlier rank is plain text');
     assert.equal(multi.places[1].color, THIS_GAME);
-    assert.equal(multi.standing, 'Top 5% \u2013 Top 8%');
+    assert.equal(multi.standing, 'Top 5 \u2013 8%');
     for (const width of [1680, 1216, 650]) {
       await page.setViewportSize({ width, height: 1100 });
       await page.waitForTimeout(80);

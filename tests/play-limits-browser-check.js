@@ -54,14 +54,16 @@ const shots = process.argv[4];
     watch(gamePage);
     await gamePage.goto('http://127.0.0.1:8099/');
     await gamePage.waitForFunction(() => !document.documentElement.classList.contains('game-booting'));
-    assert.equal(await gamePage.locator('#play-limits-btn').innerText(), 'today: 0 of 2 games');
+    assert.equal(await gamePage.locator('#play-limits-use').innerText(), 'today: 0 of 2 games');
+    assert.equal(await gamePage.locator('#play-limits-btn').innerText(), 'daily limits',
+      'today\'s use is text beside the link, never the link\'s label');
     const clickCell = async (index) => {
       const cell = gamePage.locator('#board .cell').nth(index);
       await cell.click();
     };
     await clickCell(40);
     assert.equal(await gamePage.evaluate(() => gameState === 'playing' || gameState === 'won'), true);
-    assert.equal(await gamePage.locator('#play-limits-btn').innerText(), 'today: 1 of 2 games');
+    assert.equal(await gamePage.locator('#play-limits-use').innerText(), 'today: 1 of 2 games');
     await settingsPage.waitForFunction(() => document.querySelector(
       '#play-limit-table [data-limit="games"] .play-limit-used').textContent === '1');
     // Restarting abandons the board; the second board reaches the limit
@@ -70,7 +72,7 @@ const shots = process.argv[4];
     await clickCell(40);
     assert.equal(await gamePage.evaluate(() => gameState === 'playing' || gameState === 'won'), true,
       'the board that reaches the limit plays on');
-    assert.match(await gamePage.locator('#play-limits-btn').innerText(), /^limit reached: 2 of 2 games$/);
+    assert.match(await gamePage.locator('#play-limits-use').innerText(), /^limit reached: 2 of 2 games$/);
     await gamePage.locator('#face-button').click();
     assert.equal(await gamePage.locator('#play-limit-closed').isVisible(), true);
     assert.match(await gamePage.locator('#play-limit-closed').innerText(),
@@ -100,7 +102,7 @@ const shots = process.argv[4];
     assert.match(await dialog.innerText(), /1 games per day[\s\S]*Already reached today/);
     await dialog.getByRole('button', { name: 'Set limit' }).click();
     assert.equal(await rowText('games'), 'games|2|1|reached locked until 4:00 Change');
-    await gamePage.waitForFunction(() => document.getElementById('play-limits-btn').textContent
+    await gamePage.waitForFunction(() => document.getElementById('play-limits-use').textContent
       === 'limit reached: 2 of 1 games');
 
     // More than two minutes of play locks raising any limit, reached or not.
@@ -126,7 +128,7 @@ const shots = process.argv[4];
     await gamePage.reload();
     await gamePage.waitForFunction(() => !document.documentElement.classList.contains('game-booting'));
     assert.equal(await gamePage.locator('#play-limit-closed').isVisible(), true, 'limits survive a reload');
-    assert.match(await gamePage.locator('#play-limits-btn').innerText(),
+    assert.match(await gamePage.locator('#play-limits-use').innerText(),
       /^limit reached: 2m 3\ds of 30m · 3 of 1 games$/);
     await shot(gamePage, 'game-limits-link', '#top-bar');
 
@@ -140,6 +142,8 @@ const shots = process.argv[4];
     await freshGame.waitForFunction(() => !document.documentElement.classList.contains('game-booting'));
     assert.equal(await freshGame.locator('#top-bar #play-limits-btn').innerText(), 'daily limits',
       'with no limit set the top bar still links to the limits');
+    assert.equal(await freshGame.locator('#play-limits-use').isVisible(), false,
+      'with no limit set there is no use to show');
     await shot(freshGame, 'game-no-limits-link', '#top-bar');
     await freshSettings.bringToFront();
     await freshSettings.goto('http://127.0.0.1:8099/settings.html');

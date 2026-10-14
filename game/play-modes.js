@@ -383,6 +383,7 @@ function buildLabPanel() {
   const remake = document.createElement('button');
   remake.type = 'button';
   remake.id = 'board-lab-new';
+  remake.className = 'ui-button';
   remake.textContent = 'make new board';
   remake.addEventListener('click', () => newGame());
   panel.appendChild(remake);

@@ -324,7 +324,7 @@ const { chromium } = require(process.argv[2]);
       const now = Date.now();
       const metrics = BoardMetrics.analyze(3, 3, [false, false, false, false, true, false, false, false, false]).boardMetrics;
       const base = { outcome: 'win', endedAt: now, timeMs: 4000, states: [],
-        bv3: 8, zini: 5, hzini: 6, clicks: 8, wastedClicks: 0, flagsPlaced: 0,
+        bv3: 8, zini: 5, hzini: 6, clicks: 8, wastedClicks: 0, flagsPlaced: 1,
         flagsRemoved: 0, mousePathPx: 100, maxAdjacent: 1, zeroCount: 0,
         boardMetrics: metrics };
       const records = [
