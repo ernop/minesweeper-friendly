@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Minesweeper - Judge your games</title>
+<link rel="stylesheet" href="../../style.css">
+<link rel="stylesheet" href="judge.css?v=20261014-1">
+<link rel="icon" type="image/svg+xml" href="../../favicon.svg">
+</head>
+<body class="judge-page">
+<header id="judge-titlebar">
+  <span id="judge-titlebar-name">Judge your games</span>
+  <span id="judge-progress"></span>
+  <nav id="judge-nav">
+    <button type="button" class="ui-button" id="judge-prev">Previous</button>
+    <button type="button" class="ui-button" id="judge-next">Next</button>
+    <button type="button" class="ui-button" id="judge-next-open">Next unanswered</button>
+    <button type="button" class="ui-button" id="judge-export">Export answers</button>
+    <a class="ui-button" href="../../index.html">Game</a>
+  </nav>
+</header>
+<main id="judge-layout">
+  <p id="judge-status" role="status"></p>
+  <section id="judge-problem" hidden>
+    <h1 id="judge-heading"></h1>
+    <p id="judge-game-facts"></p>
+    <div id="judge-moments"></div>
+    <section id="judge-game-questions">
+      <h2>File this game as</h2>
+      <div id="judge-categories" class="judge-choices"></div>
+      <h2 id="judge-share-heading"></h2>
+      <div id="judge-shares" class="judge-choices"></div>
+      <h2><label for="judge-note">Note</label></h2>
+      <textarea id="judge-note" rows="2"></textarea>
+    </section>
+    <div id="judge-reveal-row">
+      <button type="button" class="ui-button" id="judge-reveal">Show the analysis</button>
+      <span id="judge-keys">Enter: show the analysis, then the next problem</span>
+    </div>
+    <section id="judge-analysis" hidden>
+      <h2>The analysis</h2>
+      <table id="judge-game-analysis" class="judge-facts"></table>
+    </section>
+  </section>
+</main>
+<script src="../../board-icons.js"></script>
+<script src="judge.js?v=20261014-1"></script>
+</body>
+</html>

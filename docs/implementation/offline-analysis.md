@@ -24,6 +24,18 @@ Spec: [docs/product/measurement.md](../product/measurement.md). Index: [AGENTS.m
   `analysis/history/NOTES.md`. History exports dropped into the repo root
   are ignored by name pattern (personal data; also served by the local
   origin).
+- `analysis/judgment/build-problems.js` (Node; input: a history export)
+  picks wins and losses from the player's own games, one or more saved
+  moves each, for the judgment quiz `analysis/judgment/judge.html`, a local
+  research page opened at `http://127.0.0.1:8018/analysis/judgment/judge.html`
+  (creator request 2026-10-14; [BACKLOG.md](../../BACKLOG.md), "Game results
+  as one tree per board type"). Like the history summary it loads the
+  VERDICT span with `justice.js`, and adds `odds.js`, `solver.js`, and
+  `rng.js` for every covered square's mine chance, the recomputed one-step
+  model, and clean wins' final boards. The bank goes to
+  `analysis/judgment/out/` (ignored); neither it nor the page is a runtime
+  file. Answers stay in the browser's `minesweeper-judgments` IndexedDB until
+  exported; see `analysis/judgment/NOTES.md`.
 - `analysis/switch-cost/reference.py` (numpy, pandas, patsy; see
   `analysis/switch-cost/NOTES.md`) is the independent reference for the
   stats panel's switch cost ([Switching](../product/trace-metrics-panel.md#switching-creator-request-and-approval-2026-09-28)):

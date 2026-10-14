@@ -8,3 +8,4 @@ __pycache__/
 /minesweeper-friendly-history-*.json
 /minesweeper-friendly-traces-*.json
 /analysis/history/out/
+/analysis/judgment/out/

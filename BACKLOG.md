@@ -169,6 +169,28 @@ Proposed next: these kinds become the loss levels of the tree above (known,
 unnecessary gamble, worse gamble, best gamble, gamble on a guessed flag), with
 opening, mid-game, and endgame beneath each.
 
+**Judgment problems, the same day (creator request).** "let's make a new type
+of problem! let's actually iteratively do this": pick many interesting wins
+and losses, show one or more situations from each (the moment of loss or an
+earlier choice), and quiz the creator on how the game should be judged. A won
+game where a safe and useful move was passed over for a guess is judged bad.
+At least 100 problems of every kind, then classify the answers "to truly
+discover the best possible way to evaluate and judge the result of the games
+someone starts". Built as a local research page, because the problems are the
+player's own games and stay out of the repository and the release:
+`analysis/judgment/` ([notes](analysis/judgment/NOTES.md)), 163 problems of 45
+kinds from the 2026-10-11 export. Each asks for a rating of every shown move,
+the game's category, how much of the result came from the player's choices,
+and a note, then shows the analysis and the proposed category. Waiting for
+the creator's answers; next, compare them with the proposed categories kind by
+kind, and settle the tree's levels and thresholds: how much riskier counts,
+whether a safe square only whole-board reasoning finds counts against the
+player, whether a win's flag mistakes matter. A game's avoidable risk comes
+from the actual risks its saved moves record, not from the guess ledger,
+whose totals deliberately keep raw mine chances under A Just Universe
+([per-game stats](docs/product/per-game-stats.md), "Life lost"); the quiz
+measures wins that way.
+
 ## More daily play limits (proposed 2026-10-12 with the built ones)
 
 The creator asked "What else can you think of like this?" when requesting

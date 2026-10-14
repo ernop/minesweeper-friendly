@@ -263,3 +263,6 @@ first, so GitHub Pages visitors are sent to the site.
 Exact judgement of clicks outside the answer squares (provable or a guess),
 adaptive scheduling by class, mine-answer problems, problems from the player's
 own games, and archive-folder copies: [BACKLOG.md](../../BACKLOG.md#minesweeper-problems).
+Judging the player's own games (how a game should be filed, not solving a
+position) exists only as a local research page for the creator, outside this
+page and the release: `analysis/judgment/NOTES.md`.
