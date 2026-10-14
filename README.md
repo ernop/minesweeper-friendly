@@ -25,8 +25,9 @@ ever moves the board:
 - **Top bar, upper right.** The page's one session picker (today by
   default), shared by every session comparison on the page; "position",
   which opens the board position editor; settings; and an "other pages"
-  menu with the self-check, training, and problems pages. With a daily limit
-  set, a link at its start shows today's use against it.
+  menu with the self-check, training, and problems pages. At its start, a
+  "daily limits" link to the limits, which shows today's use against them
+  once any is set.
 - **Session stats, left**, when turned on: charts of your play across the
   session: when you played, how games ended, action and report rates, mouse
   speed, fastclick gap, and cadence spread.

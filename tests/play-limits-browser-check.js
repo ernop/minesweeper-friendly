@@ -138,6 +138,9 @@ const shots = process.argv[4];
     watch(freshGame);
     await freshGame.goto('http://127.0.0.1:8099/');
     await freshGame.waitForFunction(() => !document.documentElement.classList.contains('game-booting'));
+    assert.equal(await freshGame.locator('#top-bar #play-limits-btn').innerText(), 'daily limits',
+      'with no limit set the top bar still links to the limits');
+    await shot(freshGame, 'game-no-limits-link', '#top-bar');
     await freshSettings.bringToFront();
     await freshSettings.goto('http://127.0.0.1:8099/settings.html');
     await freshSettings.waitForSelector('#play-limit-table [data-limit="stopAt"]');

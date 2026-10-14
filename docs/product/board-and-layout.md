@@ -155,7 +155,8 @@ laggy"; asked whether the game is "max efficient" and to test and fix it.
   there's no point to having it as the single only thing in the UL! also
   move position there. also, move self-check, training, problems into
   submenus"). One row at the page's upper right, right-aligned, holding in
-  order: the daily play-limits link (when limits are set,
+  order: the daily play-limits link, always shown ("daily limits", or
+  today's use against the limits once any is set;
   [Daily play limits](play-limits.md)), the session picker labeled "session"
   ([One session definition](game-data.md#one-session-definition)), the
   board **position** button, **settings**, and **other pages ▾**, a menu

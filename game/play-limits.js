@@ -3,7 +3,7 @@
 // Daily play limits on the game page: this tab's play spans (saved while
 // each board plays and shared live with other tabs), the gate that keeps a
 // new board from starting while a limit is reached, the notice over a
-// closed board, and the limits link in the side column. The rules are the
+// closed board, and the limits link in the top bar. The rules are the
 // pure play-limits.js; limits are set only on the settings page.
 
 //-------DAILY PLAY LIMITS-------
@@ -119,10 +119,10 @@ function renderPlayLimits() {
     return;
   }
   const set = PLAY_LIMIT_KINDS.filter((kind) => Object.hasOwn(playLimits, kind.id));
-  playLimitsLink.hidden = set.length === 0;
   playLimitsLink.classList.toggle('reached', reached.length > 0);
-  playLimitsLink.textContent = (reached.length > 0 ? 'limit reached: ' : 'today: ')
-    + set.map((kind) => playLimitLinkPart(kind, playLimits[kind.id], use)).join(' \u00b7 ');
+  playLimitsLink.textContent = set.length === 0 ? 'daily limits'
+    : (reached.length > 0 ? 'limit reached: ' : 'today: ')
+      + set.map((kind) => playLimitLinkPart(kind, playLimits[kind.id], use)).join(' \u00b7 ');
   playLimitClosedNotice.hidden = !closed;
   if (closed) {
     const heading = document.createElement('p');
