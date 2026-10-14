@@ -238,6 +238,11 @@ middle? that's okay."
   generator's full name as a column header made the grid about 1,000 px
   wide. Gated by shownThings.sessionEndings ("session loss types", on by
   default), listed under Tables right after the summary's own switch.
+- **Requested next (creator, 2026-10-14):** while playing a size, show only
+  that size, as one tree from all games started through won, lost, and
+  abandoned to finer kinds, with win types beside the loss types. Proposed
+  design, awaiting review: [BACKLOG](../../BACKLOG.md), "Game results as one
+  tree per board type".
 
 ## Recent placements (requested and decided 2026-08-23; charts and the lifetime near-miss rule extended later the same day)
 

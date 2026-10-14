@@ -409,3 +409,11 @@ What the evidence cannot separate: a guess taken "to save time" is visible
 only as the distance to a lowest-risk square, not as intent, and a
 minimum-risk guess at a forced position is `guess-min` whether or not the
 player knew it was forced.
+
+**Under review (creator request 2026-10-14):** a tree of results per board
+type that makes the opening its own level and splits its guess deaths by risk
+like any other, replacing the 2026-08-24 rule above that files every
+forced-guess death in the opening as "early-game guess" whatever its risk.
+On the creator's history, 222 of 233 such Beginner deaths chose a square
+riskier than the safest one. Proposed design and the history check:
+[BACKLOG](../../BACKLOG.md), "Game results as one tree per board type".

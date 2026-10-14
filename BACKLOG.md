@@ -8,6 +8,90 @@ leave new ideas only in chat.
 Status labels: **creator** = the creator asked for it; **mapped** = named
 on the design axis or in a research note, not requested as a build.
 
+## Game results as one tree per board type (creator request 2026-10-14; proposed design, awaiting review)
+
+The creator asked to rethink the session's results table. In Beginner, show
+only Beginner, starting from all games started, then break them into finer
+and finer kinds: won or lost; within losses, an opening loss where the first
+few moves had to guess, a "dumb" early death such as clicking beside a corner
+3 while rushing, then the known loss types and possibly more; and types of
+wins, since some wins follow no bad moves while others survive needless bad
+guesses. The request: "think very carefully and present me an ontology of
+wins / complete categorization system". Built today
+([Session summary](docs/product/rankings.md), "Session loss types"): losses
+by loss type, one count and share pair per board size. Another session was
+adding win types to that table the same day.
+
+Proposed, not decided:
+
+- **Scope.** The board type being played (size, play mode, and generator;
+  Standard Beginner is simply Beginner) in the page-wide session. Other types
+  do not appear. Modes stay apart because their rules change what a guess
+  can do (Angelic, Proof-or-die, NG).
+- **Level 1, how the board ended:** won, lost, or abandoned (restarted, or
+  the page closed before the end). A board counts once it ends. Shares are of
+  games started, so every level sums to its parent; every game is in exactly
+  one leaf.
+- **Won, named by the worst risk survived:**
+  - *clean*, no risk the board did not force: no guess after the first
+    click; or forced guesses only, each at the lowest risk available;
+  - *won despite avoidable risk*: a guess while a square was proven safe, by
+    the easiest proof of a safe square (counting single numbers, comparing
+    overlapping numbers, whole-board reasoning, or only A Just Universe's
+    guarantee); otherwise a riskier guess than necessary, after the opening
+    or in the opening only;
+  - guesses not measured (records from before the guess ledger).
+- **Lost, level 2, when** the fatal click came, by the board's progress
+  before it: the opening (under a tenth of the safe squares open, today's
+  early-game line; Beginner: 7 or fewer), mid-game, or the endgame (at least
+  nine tenths open; Beginner: 7 or fewer safe squares left).
+- **Lost, level 3, what** the fatal click was, the first that applies: wrong
+  flag; opened a proven mine (by proof level); guessed while a square was
+  proven safe (by proof level, or A Just Universe); a riskier guess than
+  necessary (after the opening, near or far as today); a forced guess at the
+  lowest risk available. Proof-or-die rule deaths and unmeasured risk keep
+  their own rows; losses without evidence are "not judged".
+- **Overlays**, counted within the losses, never adding to them: the two
+  likely-misclick reasons, and a new *rushed* row: the fatal click came under
+  half a second after the click before it.
+- **Replaces the 2026-08-24 rule** that files every forced-guess death in the
+  opening as one "early-game guess" whatever its risk. The opening becomes a
+  level, and its guesses split by risk like any other. Any lower-risk square
+  makes a guess "riskier than necessary", with no tolerance: in the history,
+  guesses under 1.05 times the lowest risk number 0 on Beginner, 1 on
+  Intermediate, and 9 on Expert, deaths and survivals together.
+
+Checked against the creator's 2026-10-11 export, games with full evidence.
+Beginner Standard (1,093 wins, 490 losses):
+
+- Wins: no guess 726, forced lowest-risk guesses only 154, a riskier guess
+  140 (113 in the opening only), a guess past a proven-safe square 73.
+- Losses: opening 266, mid-game 122, endgame 102. In the opening, 222 of the
+  233 forced-guess deaths chose a square riskier than the safest one; 216 of
+  them were beside a revealed number, typically the 1 or 2 shown by a corner
+  first click, at 33-67% where 11.7% was available; 148 of the 222 came under
+  half a second after the first click. A proven mine opened in the opening happened
+  10 times, never by counting single numbers. 80 of the 145 proven-mine deaths
+  came in the endgame.
+- Intermediate and Expert have the same shape: the opening holds 56% and 61%
+  of losses. On Expert the riskier opening guess is often a far square where a
+  square beside a 1 was safer.
+
+Needs, beyond what is measured:
+
+- Proof levels for survived guesses past a safe square (the item under
+  "Loss-type follow-ons" below), computed once from saved positions.
+- Abandoned boards: the play span must record that it was abandoned and how
+  far the board got. Play spans exist since 2026-10-12, so an older window
+  must say its abandoned count is incomplete.
+- The rushed row: the time since the previous click on the fatal evaluation.
+  A game's second click already has it as `atMs`; older games get it from
+  their traces.
+
+Open decisions, each recommended: split opening guess deaths by risk; scope
+by board type rather than by size; count abandoned boards; the half-second
+rushed line.
+
 ## More daily play limits (proposed 2026-10-12 with the built ones)
 
 The creator asked "What else can you think of like this?" when requesting
