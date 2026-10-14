@@ -29,7 +29,7 @@ const DB_NAME = 'minesweeper-friendly';
 const TRACE_STORE = 'traces';
 const TRACE_BOARD_INDEX = 'boardsByModeAndSize';
 const USERDATA_STORE = 'userdata';
-const USERDATA_KINDS = ['settings', 'rankavgSort', 'states', 'trial', 'playLimits'];
+const USERDATA_KINDS = ['settings', 'rankavgSort', 'states', 'trial', 'playLimits', 'playLimitPenalty'];
 const RECORD_STORE = 'records';
 // Self-checks accumulate for decades, so each is its own record rather than
 // part of one userdata value rewritten on every save.

@@ -100,6 +100,7 @@ Object.assign(game, {
   observedTimeZone: () => ({ timeZone: 'America/Los_Angeles', utcOffsetMin: -420 }),
   computeBoardShape: () => ({ maxAdjacent: 5, hasSeven: false, zeroCount: 150, islandCount: 31, largestIsland: 9 }),
   activeStateNames: () => ['sleepy'],
+  boardFlagsBlocked: false,
   sessionMedian: () => 212,
   guessLedgerAppliesToMode: () => false,
   pregenActive: () => false,

@@ -43,7 +43,7 @@ function userdataReady() {
       if (loaded.changed) persistGameRecordChanges(loaded.writes, loaded.deletions);
       // An absent kind is a player who never stored it, not an error.
       loadSettings(got);
-      loadPlayLimits(got.playLimits, spans);
+      loadPlayLimits(got.playLimits, got.playLimitPenalty, spans);
       trialSession = got.trial === undefined ? null : got.trial;
       init().catch((error) => storageFailure(error.message));
     })));

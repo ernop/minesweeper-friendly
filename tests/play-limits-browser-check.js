@@ -67,16 +67,47 @@ const shots = process.argv[4];
     await settingsPage.waitForFunction(() => document.querySelector(
       '#play-limit-table [data-limit="games"] .play-limit-used').textContent === '1');
     // Restarting abandons the board; the second board reaches the limit
-    // when it starts and still plays on.
+    // when it starts and still plays on, flags and all.
     await gamePage.locator('#face-button').click();
     await clickCell(40);
     assert.equal(await gamePage.evaluate(() => gameState === 'playing' || gameState === 'won'), true,
       'the board that reaches the limit plays on');
-    assert.match(await gamePage.locator('#play-limits-use').innerText(), /^limit reached: 2 of 2 games$/);
+    assert.equal(await gamePage.locator('#play-limits-use').innerText(), 'no flags: 2 of 2 games, closes at 3');
+    assert.equal(await gamePage.evaluate(() => boardFlagsBlocked), false, 'a board keeps the flags it started with');
+
+    // The default penalty: the next half-limit of boards (one, for 2) is
+    // dealt without flags. A right press on a covered square is refused,
+    // before and after the first click.
+    await gamePage.locator('#face-button').click();
+    assert.equal(await gamePage.locator('#play-limit-closed').isVisible(), false, 'no flags is not closed');
+    const coveredIndex = () => gamePage.evaluate(() => cells.findIndex((cell) => !cell.revealed && !cell.mine));
+    const rightClick = async (index) => {
+      await gamePage.locator('#board .cell').nth(index).click({ button: 'right' });
+    };
+    await rightClick(0);
+    assert.equal(await gamePage.evaluate(() => flagsCount), 0, 'no flag on a ready no-flags board');
+    assert.equal(await gamePage.locator('#play-limits-use').evaluate((use) => use.classList.contains('refused')),
+      true, 'today\u2019s use answers a refused flag');
+    await shot(gamePage, 'game-no-flags-link', '#top-bar');
+    await clickCell(40);
+    assert.equal(await gamePage.evaluate(() => boardFlagsBlocked), true);
+    await rightClick(await coveredIndex());
+    assert.equal(await gamePage.evaluate(() => flagsCount), 0, 'no flag once the no-flags board is in play');
+    assert.equal(await gamePage.locator('#play-limits-use').innerText(),
+      'limit reached: 3 of 2 games and 1 without flags');
+    // Lose on a mine beside an open number, outside any sealed pocket, so the
+    // record is written: it states that flags were blocked.
+    await gamePage.evaluate(() => {
+      const mine = cells.findIndex((cell, index) => cell.mine
+        && neighbors(index).some((n) => cells[n].revealed));
+      revealCell(mine);
+    });
+    await gamePage.waitForFunction(() => gameState === 'lost'
+      && history[modeKey()] !== undefined && history[modeKey()].at(-1).flagsBlocked === true);
     await gamePage.locator('#face-button').click();
     assert.equal(await gamePage.locator('#play-limit-closed').isVisible(), true);
     assert.match(await gamePage.locator('#play-limit-closed').innerText(),
-      /Done for today\s+2 of 2 games\s+new games from 4:00/);
+      /Done for today\s+3 of 2 games and 1 without flags\s+new games from 4:00/);
     await shot(gamePage, 'game-closed-board', '#game-area');
     await gamePage.locator('#play-limit-closed').click();
     await gamePage.evaluate(() => { revealCell(0); toggleFlag(1, null); });
@@ -88,7 +119,7 @@ const shots = process.argv[4];
     await settingsPage.bringToFront();
     await settingsPage.waitForFunction(() => document.querySelector(
       '#play-limit-table [data-limit="games"]').classList.contains('reached'));
-    assert.equal(await rowText('games'), 'games|2|2|reached locked until 4:00 Change');
+    assert.equal(await rowText('games'), 'games|3|2|closed locked until 4:00 Change');
     await shot(settingsPage, 'settings-reached', '#play-limits');
     await row('games').getByRole('button', { name: 'Change' }).click();
     assert.match(await dialog.innerText(), /Today it can only be lowered: reached, so locked until 4:00/);
@@ -101,9 +132,9 @@ const shots = process.argv[4];
     await dialog.getByRole('button', { name: 'Continue' }).click();
     assert.match(await dialog.innerText(), /1 games per day[\s\S]*Already reached today/);
     await dialog.getByRole('button', { name: 'Set limit' }).click();
-    assert.equal(await rowText('games'), 'games|2|1|reached locked until 4:00 Change');
+    assert.equal(await rowText('games'), 'games|3|1|closed locked until 4:00 Change');
     await gamePage.waitForFunction(() => document.getElementById('play-limits-use').textContent
-      === 'limit reached: 2 of 1 games');
+      === 'limit reached: 3 of 1 games and 1 without flags');
 
     // More than two minutes of play locks raising any limit, reached or not.
     await gamePage.evaluate(() => {
@@ -124,12 +155,32 @@ const shots = process.argv[4];
     assert.equal(await dialog.evaluate((d) => d.open), false);
     assert.equal(settingsPage.url(), 'http://127.0.0.1:8099/settings.html', 'Esc closes only the dialog');
 
+    // The penalty: closing at once tightens, so it works any time; going
+    // back to no flags first is then locked for the day.
+    const penaltyLine = settingsPage.locator('#play-limit-penalty');
+    assert.equal((await penaltyLine.innerText()).replace(/\s+/g, ' '), 'when a limit is reached no flags first Change');
+    await penaltyLine.getByRole('button', { name: 'Change' }).click();
+    await dialog.getByLabel(/closed at once/).check();
+    await shot(settingsPage, 'penalty-dialog', '#play-limit-dialog');
+    await dialog.getByRole('button', { name: 'Continue' }).dblclick();
+    assert.equal(await dialog.evaluate((d) => d.open), true, 'a double click must not confirm the penalty');
+    assert.match(await dialog.innerText(), /Confirm again[\s\S]*When a limit is reached: closed at once/);
+    await dialog.getByRole('button', { name: 'Change' }).click();
+    assert.equal(await dialog.evaluate((d) => d.open), false);
+    assert.equal((await penaltyLine.innerText()).replace(/\s+/g, ' '),
+      'when a limit is reached closed at once locked until 4:00 Change');
+    await penaltyLine.getByRole('button', { name: 'Change' }).click();
+    await dialog.getByLabel(/no flags first/).check();
+    await dialog.getByRole('button', { name: 'Continue' }).click();
+    assert.match(await dialog.innerText(), /Going back to no flags first is locked: over 2m 00s played today/);
+    await settingsPage.keyboard.press('Escape');
+
     await gamePage.bringToFront();
     await gamePage.reload();
     await gamePage.waitForFunction(() => !document.documentElement.classList.contains('game-booting'));
     assert.equal(await gamePage.locator('#play-limit-closed').isVisible(), true, 'limits survive a reload');
     assert.match(await gamePage.locator('#play-limits-use').innerText(),
-      /^limit reached: 2m 3\ds of 30m · 3 of 1 games$/);
+      /^limit reached: 2m 3\ds of 30m · 4 of 1 games$/);
     await shot(gamePage, 'game-limits-link', '#top-bar');
 
     // Stop time: a past one closes a ready board in another tab at once.

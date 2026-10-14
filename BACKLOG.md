@@ -213,6 +213,13 @@ confirmations, and loosening lock:
 - **Mode limits.** Games per play mode (trials, Endgame drill) or Custom.
 - **A warning before the limit.** The board's notice at, say, 5 minutes or
   5 games left, so the last game is chosen rather than cut off.
+- **No-flags penalty alternatives** (found while building the penalty,
+  2026-10-14; [the penalty](docs/product/play-limits.md#the-penalty-no-flags-first-creator-request-2026-10-14)).
+  Built: a stop time closes at once, and a board keeps the flag permission
+  it went into play with. Open: a no-flags stage for the stop time (half the
+  time from the stop time to 4:00, so 23:00 would allow flagless play until
+  1:30); taking flags away mid-game at the moment a play-time limit is
+  reached, which would leave one game played under two rules.
 - **Archive the play spans.** They are the only record of abandoned boards'
   time; the archive folder does not hold them yet.
 

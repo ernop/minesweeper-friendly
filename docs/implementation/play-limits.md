@@ -15,9 +15,19 @@ Spec: [docs/product/play-limits.md](../product/play-limits.md). Index: [AGENTS.m
   `playLimitLoosenLock` ('played' over `PLAY_LIMIT_LOOSEN_MAX_PLAYED_MS`,
   'reached', or null), and the shared formatters. Stop times are minutes
   after local midnight; `playDayMinuteOf` reorders them from 4:00 so 1:00
-  is later than 23:00.
+  is later than 23:00. The penalty (2026-10-14): `PLAY_LIMIT_PENALTIES`
+  (ids `no-flags-first`, the `DEFAULT_PLAY_LIMIT_PENALTY`, and `closed`),
+  `playLimitPenaltySpec` / `playLimitPenaltyFrom` (userdata
+  `playLimitPenalty`, absent = the default, unknown id throws),
+  `playLimitNoFlagsAmount` (half the limit in its unit, games rounded up, 0
+  for a stop time), `playLimitClosingUse`, `playLimitStage` ('open',
+  'no-flags', 'closed'), `playDayStage` (the strictest set limit),
+  `playLimitPenaltyLoosens`, and `playLimitPenaltyLoosenLock` (any reached
+  limit counts as 'reached').
 - Storage: database version 6 adds the `playSpans` store (`PLAY_SPAN_STORE`,
-  keyPath `startedAt`); userdata gains the `playLimits` kind.
+  keyPath `startedAt`); userdata gains the `playLimits` kind, and on
+  2026-10-14 `playLimitPenalty` (no database version change: userdata kinds
+  are keys in one store).
   `readPlaySpansSince(fromMs)` reads one play day by key range;
   `persistPlaySpan` puts one span. A span is
   `{ startedAt, lastSeenAt, endedAt | null, width, height, mines, playMode }`.
@@ -30,9 +40,18 @@ Spec: [docs/product/play-limits.md](../product/play-limits.md). Index: [AGENTS.m
   it; `savePlaySpanProgress` runs from the page-lifecycle handlers in
   `controls.js` on hide and pagehide. Each save also posts the span on the
   `BroadcastChannel` `PLAY_LIMITS_CHANNEL`, so every open game or settings
-  tab counts every tab's play live; the settings page posts `{ limits }`
-  after a change. `playLimitBlocksStart()` (ready board and a limit reached)
-  guards `revealCell`, `toggleFlag`, and the three board press handlers.
+  tab counts every tab's play live; the settings page posts `{ limits }` or
+  `{ penalty }` after a change. `playLimitBlocksStart()` (ready board and
+  `playDayStage` 'closed') guards `revealCell`, `toggleFlag`, and the three
+  board press handlers. The no-flags stage: `playSpanBegin` fixes
+  `boardFlagsBlocked` from the day's stage before saving the board's span
+  (so the stage counts the boards before it); `flagPlacementBlocked()` is
+  the live stage on a ready board and `boardFlagsBlocked` after; `rightPress`
+  in `controls.js` returns before tracing when it would place a flag on a
+  covered square, calling `showFlagRefused` (the `.refused` outline on
+  `#play-limits-use` for 1.2 s). `reportResult` writes `flagsBlocked: true`
+  from `boardFlagsBlocked`; `GAME_RECORD_SCHEMA` accepts only `true` or
+  absent.
   `newGame` sets `boardDealtClosed` and skips `setupTrialBoard` /
   `setupPregenBoard` while closed, because those deal an opened board and
   start its clock; `renderPlayLimits` calls `newGame` once the limits
@@ -49,7 +68,11 @@ Spec: [docs/product/play-limits.md](../product/play-limits.md). Index: [AGENTS.m
   `renderPlayLimitDialog` from `playLimitEdit` (`step` edit / confirm).
   `proposePlayLimit` validates and checks `playLimitChangeRefusal`;
   `applyPlayLimit` checks it again, persists, and broadcasts. Esc closes
-  only the dialog while it is open.
+  only the dialog while it is open. The penalty line `#play-limit-penalty`
+  (`renderPlayLimitPenaltyLine`, from `renderPlayLimitTable`) opens the same
+  `<dialog>`, drawn by `renderPlayLimitPenaltyDialog` from
+  `playLimitPenaltyEdit` (radio choices, then the confirm step);
+  `applyPlayLimitPenalty` rechecks `playLimitPenaltyChangeRefusal`.
 - Tests: `tests/play-limits-test.js` (rules, clock changes in
   America/Los_Angeles, and the game hooks by source);
   `tests/play-limits-browser-check.js PLAYWRIGHT_CORE_DIR EXECUTABLE

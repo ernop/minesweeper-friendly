@@ -23,29 +23,36 @@ function userdataReady() {
     buildSettingsColumn();
     initPreferencesTransfer();
     loadArchive(renderArchiveSettings);
-    readPlaySpansSince(playDayStart(Date.now()), (spans) => initPlayLimits(got.playLimits, spans));
+    readPlaySpansSince(playDayStart(Date.now()),
+      (spans) => initPlayLimits(got.playLimits, got.playLimitPenalty, spans));
   });
 }
 
 //-------DAILY LIMITS (rules in play-limits.js)-------
 
-// Limits are their own userdata kind, outside SETTINGS_SCHEMA, so a
-// preferences import can never lift one. Each change goes through two
-// confirmations; the second checks the lock again at the moment it applies.
+// Limits and the penalty are their own userdata kinds, outside
+// SETTINGS_SCHEMA, so a preferences import can never lift one. Each change
+// goes through two confirmations; the second checks the lock again at the
+// moment it applies.
 let playLimits = null;
+let playLimitPenalty = null;
 const playSpans = new Map();
 const playLimitsChannel = new BroadcastChannel(PLAY_LIMITS_CHANNEL);
 const playLimitTable = document.getElementById('play-limit-table');
+const playLimitPenaltyLine = document.getElementById('play-limit-penalty');
 const playLimitDialog = document.getElementById('play-limit-dialog');
 let playLimitChangeTimer = null;
 let playLimitEdit = null;  // { kind, step: 'edit' | 'confirm', value, error }
+let playLimitPenaltyEdit = null;  // { step: 'edit' | 'confirm', value, error }
 
-function initPlayLimits(stored, spans) {
+function initPlayLimits(stored, storedPenalty, spans) {
   playLimits = playLimitsFrom(stored);
+  playLimitPenalty = playLimitPenaltyFrom(storedPenalty);
   for (const span of spans) playSpans.set(span.startedAt, span);
   playLimitsChannel.addEventListener('message', ({ data }) => {
     if (data.span !== undefined) playSpans.set(data.span.startedAt, data.span);
     if (data.limits !== undefined) playLimits = playLimitsFrom(data.limits);
+    if (data.penalty !== undefined) playLimitPenalty = playLimitPenaltyFrom(data.penalty);
     renderPlayLimitTable();
   });
   renderPlayLimitTable();
@@ -86,8 +93,8 @@ function renderPlayLimitTable() {
     row.dataset.limit = kind.id;
     row.setAttribute('role', 'row');
     const set = Object.hasOwn(playLimits, kind.id);
-    const reached = set && playLimitReached(kind, playLimits[kind.id], use, now);
-    row.classList.toggle('reached', reached);
+    const stage = set ? playLimitStage(kind, playLimits[kind.id], playLimitPenalty, use, now) : 'open';
+    row.classList.toggle('reached', stage !== 'open');
     const name = playLimitCell('setting-name', kind.label);
     name.title = kind.describe;
     const used = playLimitCell('play-limit-used', formatPlayLimitUsed(kind, use));
@@ -95,10 +102,12 @@ function renderPlayLimitTable() {
       set ? formatPlayLimitValue(kind, playLimits[kind.id]) : 'none');
     const actions = playLimitCell('play-limit-actions', '');
     const lock = set ? playLimitLoosenLock(kind, playLimits, use, now) : null;
-    if (reached) {
+    if (stage !== 'open') {
       const mark = document.createElement('span');
       mark.className = 'play-limit-reached';
-      mark.textContent = 'reached';
+      mark.textContent = stage === 'closed' ? 'closed'
+        : 'no flags, closes at '
+          + formatPlayLimitAmount(kind, playLimitClosingUse(kind, playLimits[kind.id], playLimitPenalty));
       actions.appendChild(mark);
     }
     if (lock !== null) {
@@ -118,6 +127,7 @@ function renderPlayLimitTable() {
     return row;
   });
   playLimitTable.replaceChildren(head, ...rows);
+  renderPlayLimitPenaltyLine(use, now);
   clearTimeout(playLimitChangeTimer);
   playLimitChangeTimer = setTimeout(renderPlayLimitTable, nextPlayLimitChange(playLimits, now) - now);
 }
@@ -268,11 +278,16 @@ function renderPlayLimitDialog() {
     change.className = 'play-limit-change';
     change.textContent = playLimitChangeText(kind, value);
     parts.push(change);
-    const now = Date.now();
-    if (value !== undefined && playLimitReached(kind, value, playDayUseNow(), now)) {
+    const stage = value === undefined ? 'open'
+      : playLimitStage(kind, value, playLimitPenalty, playDayUseNow(), Date.now());
+    if (stage !== 'open') {
       const reached = document.createElement('p');
       reached.className = 'play-limit-warning';
-      reached.textContent = 'Already reached today: no new games until ' + PLAY_DAY_START_TEXT + '.';
+      reached.textContent = stage === 'closed'
+        ? 'Already reached today: no new games until ' + PLAY_DAY_START_TEXT + '.'
+        : 'Already reached today: no new flags on the next boards, and no new games from '
+          + formatPlayLimitAmount(kind, playLimitClosingUse(kind, value, playLimitPenalty))
+          + (kind.type === 'minutes' ? ' played' : ' ' + kind.label) + '.';
       parts.push(reached);
     }
     // The confirm button sits where the first step had Cancel, so a double
@@ -283,6 +298,143 @@ function renderPlayLimitDialog() {
       playLimitDialogButton('Back', () => {
         playLimitEdit = { kind, step: 'edit', value, error: null };
         renderPlayLimitDialog();
+      }));
+  }
+  if (error !== null) {
+    const problem = document.createElement('p');
+    problem.className = 'play-limit-warning';
+    problem.setAttribute('role', 'alert');
+    problem.textContent = error;
+    parts.push(problem);
+  }
+  parts.push(buttons);
+  playLimitDialog.replaceChildren(...parts);
+}
+
+// What reaching a limit does: one line under the table, changed through the
+// same two confirmations and loosening lock as a limit.
+function renderPlayLimitPenaltyLine(use, now) {
+  const name = document.createElement('span');
+  name.className = 'setting-name';
+  name.textContent = 'when a limit is reached';
+  const penalty = playLimitPenaltySpec(playLimitPenalty);
+  const value = document.createElement('span');
+  value.className = 'play-limit-value';
+  value.textContent = penalty.label;
+  value.title = penalty.describe[0].toUpperCase() + penalty.describe.slice(1) + '.';
+  const actions = document.createElement('span');
+  actions.className = 'play-limit-actions';
+  if (playLimitPenalty === 'closed') {
+    const lock = playLimitPenaltyLoosenLock(playLimits, use, now);
+    if (lock !== null) {
+      const locked = document.createElement('span');
+      locked.className = 'play-limit-lock';
+      locked.textContent = 'locked until ' + PLAY_DAY_START_TEXT;
+      locked.title = 'Going back to no flags first: ' + playLimitLockText(lock);
+      actions.appendChild(locked);
+    }
+  }
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.textContent = 'Change';
+  button.addEventListener('click', openPlayLimitPenaltyDialog);
+  actions.appendChild(button);
+  playLimitPenaltyLine.replaceChildren(name, value, actions);
+}
+
+function openPlayLimitPenaltyDialog() {
+  playLimitPenaltyEdit = { step: 'edit', value: playLimitPenalty, error: null };
+  renderPlayLimitPenaltyDialog();
+  playLimitDialog.showModal();
+  playLimitDialog.querySelector('input:checked').focus();
+}
+
+function playLimitPenaltyChangeRefusal(value) {
+  if (value === playLimitPenalty) return 'That is the current choice.';
+  if (!playLimitPenaltyLoosens(playLimitPenalty, value)) return null;
+  const lock = playLimitPenaltyLoosenLock(playLimits, playDayUseNow(), Date.now());
+  return lock === null ? null : 'Going back to no flags first is locked: ' + playLimitLockText(lock) + '.';
+}
+
+function proposePlayLimitPenalty(value) {
+  const refusal = playLimitPenaltyChangeRefusal(value);
+  playLimitPenaltyEdit = { step: refusal === null ? 'confirm' : 'edit', value, error: refusal };
+  renderPlayLimitPenaltyDialog();
+}
+
+function applyPlayLimitPenalty() {
+  const { value } = playLimitPenaltyEdit;
+  const refusal = playLimitPenaltyChangeRefusal(value);
+  if (refusal !== null) {
+    playLimitPenaltyEdit = { step: 'edit', value: playLimitPenalty, error: refusal };
+    renderPlayLimitPenaltyDialog();
+    return;
+  }
+  playLimitPenalty = value;
+  persistUserdata('playLimitPenalty', playLimitPenalty);
+  playLimitsChannel.postMessage({ penalty: playLimitPenalty });
+  playLimitDialog.close();
+  renderPlayLimitTable();
+}
+
+function renderPlayLimitPenaltyDialog() {
+  const { step, value, error } = playLimitPenaltyEdit;
+  const title = document.createElement('h2');
+  title.id = 'play-limit-dialog-title';
+  const parts = [title];
+  const buttons = document.createElement('div');
+  buttons.className = 'play-limit-dialog-buttons';
+  if (step === 'edit') {
+    title.textContent = 'When a limit is reached';
+    const intro = document.createElement('p');
+    intro.textContent = 'The board in play always finishes. Then:';
+    parts.push(intro);
+    const choices = document.createElement('div');
+    choices.className = 'play-limit-choices';
+    for (const penalty of PLAY_LIMIT_PENALTIES) {
+      const choice = document.createElement('label');
+      choice.className = 'play-limit-choice';
+      const input = document.createElement('input');
+      input.type = 'radio';
+      input.name = 'play-limit-penalty';
+      input.value = penalty.id;
+      input.checked = penalty.id === value;
+      const label = document.createElement('span');
+      label.className = 'play-limit-choice-label';
+      label.textContent = penalty.label + ':';
+      choice.append(input, label, penalty.describe
+        + (penalty.id === DEFAULT_PLAY_LIMIT_PENALTY ? ' (the default)' : ''));
+      choices.appendChild(choice);
+    }
+    parts.push(choices);
+    const rule = document.createElement('p');
+    rule.textContent = 'A stop time closes at once either way. Boards dealt without flags still let you remove a flag. '
+      + 'Changing to closed at once works any time. Going back to no flags first works only while the day\u2019s play is at most '
+      + formatPlayLimitDuration(PLAY_LIMIT_LOOSEN_MAX_PLAYED_MS) + ' and no limit is reached.';
+    parts.push(rule);
+    const lock = playLimitPenalty === 'closed'
+      ? playLimitPenaltyLoosenLock(playLimits, playDayUseNow(), Date.now()) : null;
+    if (lock !== null && error === null) {
+      const locked = document.createElement('p');
+      locked.className = 'play-limit-warning';
+      locked.textContent = 'Today it stays closed at once: ' + playLimitLockText(lock) + '.';
+      parts.push(locked);
+    }
+    buttons.append(playLimitDialogButton('Cancel', () => playLimitDialog.close()),
+      playLimitDialogButton('Continue', () => proposePlayLimitPenalty(
+        playLimitDialog.querySelector('input[name="play-limit-penalty"]:checked').value), 'primary'));
+  } else {
+    title.textContent = 'Confirm again';
+    const change = document.createElement('p');
+    change.className = 'play-limit-change';
+    change.textContent = 'When a limit is reached: ' + playLimitPenaltySpec(value).label;
+    parts.push(change);
+    buttons.classList.add('confirm-step');
+    buttons.append(
+      playLimitDialogButton('Change', applyPlayLimitPenalty, 'primary'),
+      playLimitDialogButton('Back', () => {
+        playLimitPenaltyEdit = { step: 'edit', value, error: null };
+        renderPlayLimitPenaltyDialog();
       }));
   }
   if (error !== null) {

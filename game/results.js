@@ -63,6 +63,7 @@ function reportResult(outcome, endedAt = Date.now()) {
   if (musicObservations.length > 0) {
     record.musicPlaying = musicObservations.some((heard) => heard);
   }
+  if (boardFlagsBlocked) record.flagsBlocked = true;
   // Fastclick gap: the game's median gap between consecutive useful
   // presses made on the move with gaps under 1s (the session series'
   // qualification, over this one game). Absent when no gap qualified.
@@ -888,6 +889,7 @@ async function renderResultAsync(record, modeRecords, options = {}) {
     ...(record.states.length > 0 ? [['States', record.states.join(', ')]] : []),
     ...(record.musicPlaying !== undefined
       ? [['Music', record.musicPlaying ? 'playing' : 'none']] : []),
+    ...(record.flagsBlocked ? [['Flags', 'blocked by a daily limit']] : []),
   ]) {
     const labelCell = document.createElement('span');
     labelCell.className = 'stat-label';

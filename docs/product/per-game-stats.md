@@ -487,6 +487,10 @@ row (playing / none) when the field exists. Deliberately a boolean, not
 the stream titles: titles are personal data that would live forever in
 records and exports.
 
+A game a daily limit's no-flags penalty dealt without flags carries
+`flagsBlocked: true`, and its stats table shows a "Flags" row, "blocked by a
+daily limit" (2026-10-14, [the penalty](play-limits.md#the-penalty-no-flags-first-creator-request-2026-10-14)).
+
 States — the player's state tags active at the moment the game finished
 (see [Player states](player-states.md)) — joined the schema on 2026-08-20. Every game
 recorded from now on carries the field (an empty list when nothing was

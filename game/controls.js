@@ -115,6 +115,11 @@ function rightPress(event) {
       || gameState === 'won' || gameState === 'lost') return;
   const index = cellIndexFromEvent(event);
   if (index === null) return;
+  // A refused input is never traced, as while a board is closed.
+  if (!leftDown && !cells[index].revealed && !cells[index].flagged && flagPlacementBlocked()) {
+    showFlagRefused();
+    return;
+  }
   settlePendingRightPress();
   const logged = traceEvent('rdown', event, index);
   inputActionCount++;

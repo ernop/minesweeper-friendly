@@ -39,6 +39,30 @@ const PLAY_LIMIT_KINDS = [
 ];
 const PLAY_LIMIT_KIND_BY_ID = new Map(PLAY_LIMIT_KINDS.map((kind) => [kind.id, kind]));
 
+// What reaching a limit does (creator request 2026-10-14). The default first
+// takes away placing flags for half the limit again, then closes the board;
+// the other closes it at once. One choice covers every limit.
+const PLAY_LIMIT_PENALTIES = [
+  { id: 'no-flags-first', label: 'no flags first',
+    describe: 'no new flags for half the limit again (half the minutes, or half the games rounded up), then no new boards' },
+  { id: 'closed', label: 'closed at once', describe: 'no new boards as soon as a limit is reached' },
+];
+const DEFAULT_PLAY_LIMIT_PENALTY = 'no-flags-first';
+const PLAY_LIMIT_PENALTY_BY_ID = new Map(PLAY_LIMIT_PENALTIES.map((penalty) => [penalty.id, penalty]));
+
+function playLimitPenaltySpec(id) {
+  const penalty = PLAY_LIMIT_PENALTY_BY_ID.get(id);
+  if (penalty === undefined) throw new Error('unknown play limit penalty: ' + id);
+  return penalty;
+}
+
+// userdata 'playLimitPenalty': a penalty id; absent until the player first
+// changes it, which leaves the default.
+function playLimitPenaltyFrom(stored) {
+  if (stored === undefined) return DEFAULT_PLAY_LIMIT_PENALTY;
+  return playLimitPenaltySpec(stored).id;
+}
+
 function playLimitKind(id) {
   const kind = PLAY_LIMIT_KIND_BY_ID.get(id);
   if (kind === undefined) throw new Error('unknown play limit: ' + id);
@@ -154,11 +178,49 @@ function playLimitReached(kind, value, use, nowMs) {
   return playDayMinuteOf(minuteOfDayAt(nowMs)) >= playDayMinuteOf(value);
 }
 
-// The set limits that are reached now, in PLAY_LIMIT_KINDS order. Any one
-// keeps a new board from starting; a board already in play finishes.
+// The set limits that are reached now, in PLAY_LIMIT_KINDS order.
 function reachedPlayLimits(limits, use, nowMs) {
   return PLAY_LIMIT_KINDS.filter((kind) => Object.hasOwn(limits, kind.id)
     && playLimitReached(kind, limits[kind.id], use, nowMs));
+}
+
+// The no-flags stage of the default penalty: half the limit again, in the
+// kind's own unit (ms, games). Games round up, so a limit of 1 still gets
+// one game without flags. A stop time has no amount to halve.
+function playLimitNoFlagsAmount(kind, value) {
+  if (kind.type === 'minutes') return value * 30000;
+  if (kind.type === 'games') return Math.ceil(value / 2);
+  return 0;
+}
+
+// The use at which a reached count or time limit stops new boards, in the
+// unit playLimitUsed reports.
+function playLimitClosingUse(kind, value, penalty) {
+  const limit = kind.type === 'minutes' ? value * 60000 : value;
+  return penalty === 'closed' ? limit : limit + playLimitNoFlagsAmount(kind, value);
+}
+
+// One limit's stage now: 'open' (not reached), 'no-flags' (reached, under
+// the default penalty, short of its closing use), or 'closed'. A stop time
+// closes at once under either penalty.
+function playLimitStage(kind, value, penalty, use, nowMs) {
+  if (!playLimitReached(kind, value, use, nowMs)) return 'open';
+  if (kind.type === 'clock') return 'closed';
+  return playLimitUsed(kind, use) >= playLimitClosingUse(kind, value, penalty) ? 'closed' : 'no-flags';
+}
+
+// The day's stage, the strictest among the set limits. 'closed' keeps a new
+// board from starting; 'no-flags' deals boards on which no flag can be
+// placed. A board already in play keeps what it started with.
+function playDayStage(limits, penalty, use, nowMs) {
+  let stage = 'open';
+  for (const kind of PLAY_LIMIT_KINDS) {
+    if (!Object.hasOwn(limits, kind.id)) continue;
+    const kindStage = playLimitStage(kind, limits[kind.id], penalty, use, nowMs);
+    if (kindStage === 'closed') return 'closed';
+    if (kindStage === 'no-flags') stage = 'no-flags';
+  }
+  return stage;
 }
 
 // When the reached set can next change without any play: the next 4:00 or
@@ -191,6 +253,19 @@ function playLimitLoosenLock(kind, limits, use, nowMs) {
   return null;
 }
 
+// Going from closing at once to no flags first lets the player play more;
+// the other way never does.
+function playLimitPenaltyLoosens(oldId, newId) {
+  return oldId === 'closed' && newId !== 'closed';
+}
+
+// The same rule as a limit's: refused once more than two minutes were
+// played today ('played'), or while any set limit is reached ('reached').
+function playLimitPenaltyLoosenLock(limits, use, nowMs) {
+  if (use.playedMs > PLAY_LIMIT_LOOSEN_MAX_PLAYED_MS) return 'played';
+  return reachedPlayLimits(limits, use, nowMs).length > 0 ? 'reached' : null;
+}
+
 //-------PRESENTATION (shared by both pages)-------
 
 function formatPlayLimitDuration(ms) {
@@ -218,6 +293,13 @@ function formatPlayLimitValue(kind, value) {
   if (kind.type === 'minutes') return formatPlayLimitMinutes(value);
   if (kind.type === 'games') return String(value);
   return formatMinuteOfDay(value);
+}
+
+// An amount in a count or time kind's own unit (ms, games): "45m", "22m 30s",
+// "75".
+function formatPlayLimitAmount(kind, amount) {
+  if (kind.type === 'games') return String(amount);
+  return amount % 60000 === 0 ? formatPlayLimitMinutes(amount / 60000) : formatPlayLimitDuration(amount);
 }
 
 function formatPlayLimitUsed(kind, use) {

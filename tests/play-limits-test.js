@@ -21,7 +21,9 @@ vm.runInContext(fs.readFileSync(path.join(repo, 'play-limits.js'), 'utf8')
   + '\nthis.L = { PLAY_LIMIT_LOOSEN_MAX_PLAYED_MS, PLAY_SPAN_LIVE_MS, playDayStart, nextPlayDayStart,'
   + ' playSpanPlayedMs, playDayUse, playLimitKind, playLimitReached, reachedPlayLimits,'
   + ' nextPlayLimitChange, playLimitLoosens, playLimitLoosenLock, playLimitsFrom,'
-  + ' formatPlayLimitDuration, formatPlayLimitMinutes, formatMinuteOfDay };', context);
+  + ' DEFAULT_PLAY_LIMIT_PENALTY, playLimitPenaltyFrom, playLimitNoFlagsAmount, playLimitClosingUse,'
+  + ' playLimitStage, playDayStage, playLimitPenaltyLoosens, playLimitPenaltyLoosenLock,'
+  + ' formatPlayLimitAmount, formatPlayLimitDuration, formatPlayLimitMinutes, formatMinuteOfDay };', context);
 const L = context.L;
 
 let checks = 0;
@@ -87,6 +89,45 @@ check('the next change is 4:00 without a stop time', L.nextPlayLimitChange({ gam
 check('after the stop time the next change is 4:00',
   L.nextPlayLimitChange({ stopAt: stop23 }, at(2026, 10, 13, 23, 30)), at(2026, 10, 14, 4));
 
+// The penalty (creator request 2026-10-14): no flags for half the limit
+// again, then closed; or closed at once.
+check('no stored penalty is the default', L.playLimitPenaltyFrom(undefined), 'no-flags-first');
+check('the default is no flags first', L.DEFAULT_PLAY_LIMIT_PENALTY, 'no-flags-first');
+check('a stored penalty loads', L.playLimitPenaltyFrom('closed'), 'closed');
+assert.throws(() => L.playLimitPenaltyFrom('gentle'), /unknown play limit penalty/);
+checks++;
+check('half the minutes again', L.playLimitNoFlagsAmount(kind('playMinutes'), 30), 15 * 60000);
+check('half the games again, rounded up',
+  [50, 5, 1].map((value) => L.playLimitNoFlagsAmount(kind('games'), value)), [25, 3, 1]);
+check('a 30m limit closes at 45m', L.playLimitClosingUse(kind('playMinutes'), 30, 'no-flags-first'), 45 * 60000);
+check('closed at once closes at the limit', L.playLimitClosingUse(kind('games'), 50, 'closed'), 50);
+const minutesStage = (playedMs, penalty) => L.playLimitStage(kind('playMinutes'), 30, penalty,
+  { ...use, playedMs }, now);
+check('under the limit is open', minutesStage(30 * 60000 - 1, 'no-flags-first'), 'open');
+check('at the limit flags stop', minutesStage(30 * 60000, 'no-flags-first'), 'no-flags');
+check('just short of half again is still no flags', minutesStage(45 * 60000 - 1, 'no-flags-first'), 'no-flags');
+check('at half again the board closes', minutesStage(45 * 60000, 'no-flags-first'), 'closed');
+check('closed at once skips the no-flags stage', minutesStage(30 * 60000, 'closed'), 'closed');
+const gamesStage = (games) => L.playLimitStage(kind('games'), 50, 'no-flags-first', { ...use, games }, now);
+check('the 51st to 75th boards of a 50-game limit are dealt without flags',
+  [49, 50, 74, 75].map(gamesStage), ['open', 'no-flags', 'no-flags', 'closed']);
+check('a stop time closes at once under either penalty',
+  L.playLimitStage(kind('stopAt'), stop23, 'no-flags-first', use, at(2026, 10, 13, 23)), 'closed');
+check('the day takes the strictest stage',
+  [L.playDayStage({}, 'no-flags-first', use, now),
+    L.playDayStage({ games: 4, playMinutes: 600 }, 'no-flags-first', use, now),
+    L.playDayStage({ games: 4, stopAt: 21 * 60 }, 'no-flags-first', use, now)],
+  ['open', 'no-flags', 'closed']);
+check('only closed to no flags first loosens the penalty',
+  [['closed', 'no-flags-first'], ['no-flags-first', 'closed']].map(([a, b]) => L.playLimitPenaltyLoosens(a, b)),
+  [true, false]);
+check('loosening the penalty is locked by more than two minutes of play',
+  L.playLimitPenaltyLoosenLock({}, { ...use, playedMs: L.PLAY_LIMIT_LOOSEN_MAX_PLAYED_MS + 1 }, now), 'played');
+check('loosening the penalty is locked while any limit is reached',
+  L.playLimitPenaltyLoosenLock({ games: 4 }, { ...use, playedMs: 0 }, now), 'reached');
+check('loosening the penalty is free early in an unreached day',
+  L.playLimitPenaltyLoosenLock({ games: 5 }, { ...use, playedMs: 0 }, now), null);
+
 // Loosening.
 check('adding a limit never loosens', L.playLimitLoosens(kind('games'), undefined, 50), false);
 check('lowering does not loosen', L.playLimitLoosens(kind('games'), 50, 40), false);
@@ -123,6 +164,9 @@ check('minutes and seconds', L.formatPlayLimitDuration(754000), '12m 34s');
 check('hours and minutes', L.formatPlayLimitDuration(3900000), '1h 05m');
 check('limit minutes', [30, 60, 90].map(L.formatPlayLimitMinutes), ['30m', '1h', '1h 30m']);
 check('clock times', [0, 240, 1380].map(L.formatMinuteOfDay), ['0:00', '4:00', '23:00']);
+check('closing amounts', [L.formatPlayLimitAmount(kind('playMinutes'), 45 * 60000),
+  L.formatPlayLimitAmount(kind('playMinutes'), 22.5 * 60000), L.formatPlayLimitAmount(kind('games'), 75)],
+['45m', '22m 30s', '75']);
 
 // The game page's hooks.
 const js = game.source;
@@ -140,7 +184,8 @@ check('reveal and flag refuse to start a board while closed',
 check('board presses refuse to start a board while closed',
   (js.match(/playLimitBlocksStart\(\)/g) || []).length >= 6, true);
 check('modes that deal an opened board skip the deal while closed',
-  /!boardDealtClosed && Trial\.isPlayMode/.test(body('newGame'))
+  body('newGame').includes("boardDealtClosed = playDayStageNow() === 'closed';")
+    && /!boardDealtClosed && Trial\.isPlayMode/.test(body('newGame'))
     && /!boardDealtClosed && pregenActive\(\)/.test(body('newGame')), true);
 check('a hidden or closing tab saves its board\u2019s progress',
   (js.match(/savePlaySpanProgress\(\);/g) || []).length, 2);

@@ -200,6 +200,8 @@ main {
 }
 #play-limits-use[hidden] { display: none; }
 #play-limits-use.reached { color: #a40000; }
+/* Answers a refused flag press; an outline takes no layout space. */
+#play-limits-use.refused { outline: 3px solid #a40000; outline-offset: 2px; }
 
 #session-picker,
 #zoom-label {
@@ -4201,8 +4203,23 @@ body.vigilance-running #self-check-header {
 }
 .play-limit-reached { color: #a40000; font-size: 13px; font-weight: bold; }
 .play-limit-lock { color: #000000; font-size: 13px; }
+#play-limit-penalty {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  min-height: 52px;
+  border-top: 1px solid #b9c8d2;
+  white-space: nowrap;
+}
+#play-limit-penalty .setting-name { flex: 1; }
+#play-limit-penalty .play-limit-value { font-size: 17px; }
+#play-limit-penalty .play-limit-actions { display: flex; align-items: center; }
+.play-limit-choices { display: grid; gap: 10px; margin: 14px 0 16px; }
+.play-limit-choice { display: flex; align-items: baseline; gap: 8px; }
+.play-limit-choice-label { font-size: 16px; font-weight: bold; white-space: nowrap; }
 
 #play-limit-table button,
+#play-limit-penalty button,
 #play-limit-dialog button {
   font: inherit;
   font-size: 13px;
@@ -4214,6 +4231,7 @@ body.vigilance-running #self-check-header {
   cursor: pointer;
 }
 #play-limit-table button:hover,
+#play-limit-penalty button:hover,
 #play-limit-dialog button:hover { background: #e3edf6; }
 #play-limit-dialog button.primary {
   border-color: #417ca4;

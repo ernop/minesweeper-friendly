@@ -408,7 +408,7 @@ function newGame() {
   syncResultClearance();
   // A reached limit closes the board before modes that deal an already
   // opened board (and start its clock) get to deal it.
-  boardDealtClosed = reachedPlayLimitsNow().length > 0;
+  boardDealtClosed = playDayStageNow() === 'closed';
   if (!boardDealtClosed && Trial.isPlayMode(settings.playMode) && trialIsActive()) setupTrialBoard();
   else trialPresentation = null;
   if (!boardDealtClosed && pregenActive()) setupPregenBoard();

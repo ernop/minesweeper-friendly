@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="pages-redirect.js?v=20260926-pages-redirect-2"></script>
 <title>Minesweeper - Settings</title>
-<link rel="stylesheet" href="style.css?v=20261014-no-mark-ranks">
+<link rel="stylesheet" href="style.css?v=20261014-no-flags">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 </head>
 <body class="settings-page">
@@ -23,9 +23,10 @@
   <p id="settings-status" hidden></p>
   <div id="settings-column">
     <section class="settings-group" id="play-limits">
-      <h2 class="settings-group-heading" title="A play day runs from 4:00 to 4:00. A reached limit lets the board in play finish and keeps new boards from starting until 4:00. Adding or lowering a limit works any time; raising or removing one works only while the day's play is at most 2 minutes and that limit is not reached. Every change is confirmed twice.">Daily limits</h2>
+      <h2 class="settings-group-heading" title="A play day runs from 4:00 to 4:00. A reached limit lets the board in play finish. By default the next boards then take no new flags for half the limit again, and after that no new board starts until 4:00; the other choice stops new boards at once. Adding or lowering a limit works any time; raising or removing one works only while the day's play is at most 2 minutes and that limit is not reached. Every change is confirmed twice.">Daily limits</h2>
       <div class="settings-group-body">
         <div id="play-limit-table" role="table" aria-label="Daily limits"></div>
+        <div id="play-limit-penalty" role="group" aria-label="When a limit is reached"></div>
       </div>
     </section>
     <!-- groups and rows built by settings-page.js from SETTINGS_SCHEMA, before this backup group -->
@@ -60,12 +61,12 @@
 </main>
 <dialog id="play-limit-dialog" aria-labelledby="play-limit-dialog-title"></dialog>
 <script src="fuseki-stats.js?v=20261011-play-statistics"></script>
-<script src="storage.js?v=20261013-play-limits"></script>
+<script src="storage.js?v=20261014-no-flags"></script>
 <script src="archive.js?v=20260927-problems"></script>
 <script src="generators.js?v=20260921-shared-settings"></script>
 <script src="game-data.js?v=20261011-histogram-fence"></script>
 <script src="settings-core.js?v=20261014-result-types"></script>
-<script src="play-limits.js?v=20261013-play-limits"></script>
-<script src="settings-page.js?v=20261013-play-limits"></script>
+<script src="play-limits.js?v=20261014-no-flags"></script>
+<script src="settings-page.js?v=20261014-no-flags"></script>
 </body>
 </html>

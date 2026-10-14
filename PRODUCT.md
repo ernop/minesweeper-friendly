@@ -67,5 +67,5 @@ single-file spec; older references cite them as `PRODUCT.md "Heading"`.
 ### Settings and data
 
 - [docs/product/settings.md](docs/product/settings.md) — The settings page and every preference. Section: "Personal settings".
-- [docs/product/play-limits.md](docs/product/play-limits.md) — Daily play limits the player sets on themself (play time, games, games per level, a stop time) per 4:00 play day, with two confirmations and the 2-minute loosening lock.
+- [docs/product/play-limits.md](docs/product/play-limits.md) — Daily play limits the player sets on themself (play time, games, games per level, a stop time) per 4:00 play day, with two confirmations and the 2-minute loosening lock; reaching one first takes away flags for half the limit again by default, then closes the board.
 - [docs/product/storage-and-history.md](docs/product/storage-and-history.md) — The IndexedDB stores, raw input traces, play history with backup, and the automatic archive folder outside the browser. Sections: "Storage", "Raw input traces", "Play history and backup", "Archive folder".

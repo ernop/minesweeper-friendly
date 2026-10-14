@@ -46,13 +46,15 @@ coherent and beautifully integrated way!"
   restarting is never a way around a limit. Play in every open tab adds up.
   Play before a limit was set still counts toward it that day.
 - **When a limit is reached.** The board in play always finishes: stopping
-  it would destroy a game the player is in the middle of. No new board can
-  start until 4:00: the board shows "Done for today", the reached limits
-  with their values, and "new games from 4:00" over the board frame (the
-  frame keeps its size; nothing moves). The count limits are reached when
-  the board that makes the count starts, so the 50th game is played and the
-  51st is refused. A stop time that comes while a board is ready closes it
-  at that minute, without a reload.
+  it would destroy a game the player is in the middle of. What follows is
+  the penalty (below). Once the day is closed, no new board can start until
+  4:00: the board shows "Done for today", the limits that closed it with
+  their values, and "new games from 4:00" over the board frame (the frame
+  keeps its size; nothing moves). The count limits are reached when the
+  board that makes the count starts, so the 50th game is played and the
+  51st is refused (under the closed-at-once penalty). A stop time that
+  comes while a board is ready closes it at that minute, without a reload.
+
 - **Changing a limit.** Tightening (adding a limit, lowering one, an earlier
   stop time) works any time. Loosening (raising, removing, a later stop
   time) is refused while today's play is over 2 minutes, and refused while
@@ -76,7 +78,8 @@ coherent and beautifully integrated way!"
   limit was set). The link always reads "daily limits". Once any limit is
   set, today's use against them shows just before it as plain bold text,
   not part of the link, "today: 12m 34s of 30m · 14 of 50 games", in red as
-  "limit reached: ..." once one is reached (2026-10-14, under
+  "no flags: ..." in the no-flags stage and "limit reached: ..." once the
+  day is closed (2026-10-14, under
   [One look per kind of thing](ui-doctrine.md): earlier that day the use
   replaced the link's own label, so a fact read as a button). It updates when a
   board starts or ends, not every second, following the no-ticking-duplicates
@@ -91,3 +94,67 @@ coherent and beautifully integrated way!"
   feature is a commitment the player makes to themself, not a lock against
   a determined player. Closing a tab mid-game without the browser saving
   loses at most 5 seconds of that board's time.
+
+## The penalty: no flags first (creator request 2026-10-14)
+
+The request, in the creator's words: "i think that the default punishment
+should be that after time is up, you LOST THE ability to mark mines. that's
+the initial penalty setup; that lasts for 1/2 the time you set the
+punishment to be, (or half the number of agmes or whatever) after that time
+is up, you really have no perms at all. ofc someone cna also just set the
+default punishment to be no playing instantly rather than initially just
+losing marking permissions. i do think that, as the default punishment,
+would be really funny".
+
+Requested behavior:
+
+- The default penalty: once a limit is reached, flags are taken away for
+  half the limit again; after that, no play at all.
+- The player can instead choose to have play stop at once.
+
+Built the same day; decisions made while building, each open to the
+creator:
+
+- **Two penalties, one choice for every limit.** *No flags first* (the
+  default): reaching a play-time or count limit starts a no-flags stage
+  that lasts half the limit again, and the day closes at the end of it.
+  *Closed at once*: the day closes when a limit is reached, as before.
+- **How long the no-flags stage lasts.** Half the limit, in its own unit: a
+  30-minute play-time limit is reached at 30m and closes at 45m; a 50-game
+  limit deals games 51 to 75 without flags and refuses the 76th. Half a
+  game count rounds up, so a limit of 1 or 5 still gets 1 or 3 games without
+  flags.
+- **A stop time closes at once under either penalty.** A time of day has no
+  amount to halve. (One reading that would give it a stage: half the time
+  from the stop time to 4:00. Not built: a 23:00 stop would then allow
+  flagless play until 1:30.)
+- **Which boards lose flags.** A board's permission is fixed when it goes
+  into play, as a board in play always finishes: a board started before the
+  limit was reached keeps its flags to the end, and every board dealt in the
+  no-flags stage has none. While a board is ready it follows the day's stage
+  as it changes (another tab's play can move it).
+- **What "no flags" means.** A right press on a covered square places
+  nothing; removing a flag still works, so a flag placed earlier never locks
+  its square shut. Chords still work but need flags around a number to do
+  anything. A refused press changes nothing on the board and is not saved
+  in the input trace (as presses on a closed board are not); today's use in
+  the top bar flashes a red outline to answer it.
+- **What the player sees.** Today's use in the top bar reads "no flags: 32m
+  10s of 30m, closes at 45m" (one part per set limit, the reached ones naming
+  where they close) in red; once closed, "limit reached: 46m 02s of 30m and
+  15m without flags", and the closed board lists the same. On the settings
+  page a reached limit's row says "no flags, closes at 45m" or "closed".
+- **The record says so.** A game played with flags blocked stores
+  `flagsBlocked: true`, and its game details show "Flags: blocked by a daily
+  limit", so a flagless game imposed by a limit is never mistaken for the
+  player's choice to play without flags. Ranking needs no rule of its own:
+  a game dealt without flags places no flags, so its win is a no-mark win
+  and ranks among the no-mark games of its board and mode
+  ([No-mark wins](rankings.md#no-mark-wins-decided-2026-10-14)).
+- **Changing the penalty.** One line under the limits table, "when a limit
+  is reached", with the current choice and a Change button, through the
+  same two confirmations as a limit. Switching to closed at once tightens,
+  so it works any time. Switching back to no flags first loosens, so it
+  follows the loosening rule: refused while today's play is over 2 minutes
+  or while any limit is reached. Like the limits, the penalty is its own
+  stored kind, outside preferences, and is not exported.

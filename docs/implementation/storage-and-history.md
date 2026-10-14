@@ -23,7 +23,8 @@ Spec: [docs/product/storage-and-history.md](../product/storage-and-history.md). 
   been declared — the open can otherwise race later deferred scripts;
   `readyState` cannot signal this because it is already interactive during
   defer execution). `userdata` holds one
-  entry per kind — 'settings', 'trial', and 'playLimits'; retired 'states' and
+  entry per kind — 'settings', 'trial', 'playLimits', and 'playLimitPenalty'
+  (absent until the player first changes it); retired 'states' and
   'rankavgSort' keys remain readable for existing data (`USERDATA_KINDS`);
   `records` holds one game record per out-of-line key [history key,
   endedAt], so a key range reads one mode in play order; `traces` holds one entry per game. Userdata
@@ -66,7 +67,8 @@ Spec: [docs/product/storage-and-history.md](../product/storage-and-history.md). 
   playMode, identityIndex, transform, trialStartedAt, guesses,
   guessIdealRisk, guessNonideal, guessPerfect, lifeLost, lifeNeedless,
   oddsVersion, actionEvaluations,
-  fastclickGapMs, musicPlaying} —
+  fastclickGapMs, musicPlaying, flagsBlocked (only `true`, on games a daily
+  limit's no-flags penalty dealt without flags; 2026-10-14)} —
   (`justiceSaves` is historical: written only during part of 2026-08-23,
   no longer recorded or shown; the schema still accepts it) —
   primary measurements only
