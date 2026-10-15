@@ -9,7 +9,7 @@
 // a count color, the red hit square and wrong-flag cross, the bomb's fuse,
 // or any replay overlay, so a mark never reads as anything else.
 const FLAG_COLOR = '#ff00ff';
-const FLAG_SVG = '<svg viewBox="0 0 16 16"><path d="M11 0.9 L11 10.3 L0.7 5.6 Z" fill="' + FLAG_COLOR + '" stroke="#000" stroke-width="1.1" stroke-linejoin="round"/><rect x="10.5" y="0.5" width="2.3" height="12.3" fill="#000"/><rect x="8.2" y="12" width="7" height="1.7" fill="#000"/><rect x="6.4" y="13.5" width="9.4" height="2.2" fill="#000"/></svg>';
+const FLAG_SVG = '<svg viewBox="0 0 16 16"><path d="M9 3 L9 8.5 L3.5 5.75 Z" fill="' + FLAG_COLOR + '"/><rect x="8.4" y="3" width="1.2" height="9" fill="#000"/><rect x="5" y="11.5" width="8" height="1.5" fill="#000"/><rect x="3.5" y="13" width="11" height="2" fill="#000"/></svg>';
 
 // The mine styles the player chooses from (settings.mineStyle), in picker
 // order. Every style draws in black with white highlights on the 16-unit

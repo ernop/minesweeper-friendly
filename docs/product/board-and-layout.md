@@ -21,8 +21,10 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   included.
 - The mark (the flag; creator request 2026-10-15: "the MARK to be very
   very visually distinct and not overlapping in color with any other
-  item"): a large magenta pennant, outlined in black, on a heavy black pole
-  and base, drawn at 0.7 of the square inside the covered bevel. Magenta is
+  item"): the classic flag's shape and size with a solid magenta pennant
+  and no outline. A larger, black-outlined version was rejected minutes
+  later ("too big ... same size as prior but with stronger colors and no
+  black border"). Magenta is
   reserved for the mark: no count color, the red hit square, the red
   wrong-flag cross, the bomb style's fuse, or any replay overlay uses it.
   The classic red pennant shared its red with the 3s, the hit square, and

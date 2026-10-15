@@ -1222,9 +1222,9 @@ body.trial-offboard #game-frame {
 }
 
 .cell.hidden svg {
-  /* flag icon sits inside the bevel, which leaves 0.75 of the square */
-  width: calc(var(--cell-size) * 0.7);
-  height: calc(var(--cell-size) * 0.7);
+  /* flag icon sits inside the bevel */
+  width: calc(var(--cell-size) * 0.62);
+  height: calc(var(--cell-size) * 0.62);
 }
 
 /* The large mine styles fill the open square like the large digits. */

@@ -138,7 +138,7 @@ Spec: [docs/product/board-and-layout.md](../product/board-and-layout.md). Index:
   Liberation Sans Bold (canvas `measureText` widths, 2026-10-14), whose digits
   are 0.68 em tall: 0.94 of the square makes them about two thirds of it.
 - The mark (2026-10-15): `FLAG_COLOR` (`#ff00ff`) and `FLAG_SVG` in
-  `board-icons.js`; `.cell.hidden svg` draws it at 0.7 of `--cell-size`.
+  `board-icons.js`; `.cell.hidden svg` draws it at 0.62 of `--cell-size`.
   The replay's `mark-mine` encoding (`game/replay-model.js`) reads
   `FLAG_COLOR`, so `board-icons.js` loads before the `game/` scripts and
   `tests/path-replay-test.js` loads it first.
