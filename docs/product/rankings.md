@@ -261,8 +261,9 @@ middle? that's okay."
   list that request produced: "this display should be changed. 1. the
   division should be multilevel. 1st split: wins/losses. 2. then within each
   cat, break them down by the variety and type of worst offenses against
-  perfect play."). Under the main grid, a second grid shows every session
-  game as one tree, each game in exactly one leaf
+  perfect play."). Under the main grid, a second grid shows the session's
+  games of one board size (next item) as one tree, each game in exactly one
+  leaf
   ([Game-end evaluation](game-end-evaluation.md), "Session result kinds"):
   - **Level 1:** won, then lost under a rule, in bold. Both always show,
     even at 0, since the split itself is the first reading.
@@ -289,37 +290,63 @@ middle? that's okay."
   endings chart line its games are on (the win color for wins, the early-game
   guess color for all three opening kinds); "survived it, died later" has
   no line and keeps an empty swatch so its label aligns. Below level 1 only
-  rows with a game in some column show. The flat list it replaced (built
-  earlier on 2026-10-14) had win types, then loss types exactly as the
-  endings chart files them. Columns: result,
-  then a count and a share for each board size played in the window —
-  Beginner, Intermediate, Expert, and a custom size under its own label
-  ("Custom 20x20-60"). A mode or generator counts with its size, so Expert
-  and Pink noise Expert share the Expert columns (creator request
-  2026-10-12: "loss-type should be split by main game type (small, medium,
-  expert)"). Each share is of that size's games, so every level sums to its
-  parent and won plus lost is 100%; a nonzero share that rounds to 0% reads
-  "<1%". When only one size was played, the columns are "games" and "share
-  of games". Closing the lost branch under another rule follow the
-  likely-misclick rows,
-  one per reason ("of these losses, likely misclick: adjacent wrong flag
-  placed under a second before", "of these losses, likely misclick: left
-  click on a proven mine under a second after a chord beside it lacked
-  flags"); they recount losses already filed above, so they never add to
-  the total, and they use the same size columns. Until 2026-10-14 the grid
-  held only losses, had columns only for sizes that lost a game, took shares
-  of losses, and said "no losses in session" for a window without losses.
-  Per-key count columns were built first and dropped on 2026-10-11: a
-  generator's full name as a column header made the grid about 1,000 px
-  wide. Gated by shownThings.sessionEndings ("session results by type", on
-  by default; "session loss types" until 2026-10-14), listed under Tables
-  right after the summary's own switch.
+  rows with a game show. The flat list it replaced (built earlier on
+  2026-10-14) had win types, then loss types exactly as the endings chart
+  files them.
+- **Session results: one size, one share column per level** (creator
+  request 2026-10-15, of the grid split by Beginner and Intermediate: "the
+  lower part of the image is about the "distribution" of outcomes. make it
+  ONLY be about the currrne mode (only e.g. expert,not all 3 ypese). 2.
+  each division (win/loss) shallhave its own perccent column. THEN, within
+  the SUBSECTIONS each level of subsection shalal alsohave itsown percent
+  too. i.e. 60% wins 40% losses. then 2nd level ,each is split for example
+  40% losses would be: 10% (of absolute) early game forced guerss loss; 2%
+  carelessly clicking a knowably mined square (e.g. next to a 3 in a
+  corner), 10% chose the best guess when forced to do so, etc.)"). The tree
+  counts only the session's games of the shown game's board size:
+  Beginner, Intermediate, Expert, or a custom size under its own label
+  ("Custom 20x20-60"). The shown game is the one the summary is built for:
+  the win just finished, or after a loss and in the scores view the latest
+  win of the board being played (the loss itself when that board has no
+  win), so it is always that board's size. A mode or generator counts with
+  its size, so Expert and Pink noise Expert are both Expert games: the
+  sizes are the creator's three "main game types" (2026-10-12: "loss-type
+  should be split by main game type (small, medium, expert)").
+  - Columns: result; "Expert games", the count; then one share column per
+    level, headed "won or lost", "worst offense", and "type". Every share
+    is of all that size's session games (the creator's "of absolute"), and
+    a row's share stands only in its own level's column, so reading down one
+    column reads one level: won plus lost is 100%, and the shares under a
+    row add up to that row's share, give or take rounding. A nonzero share
+    that rounds to 0% reads "<1%".
+  - Closing the lost branch under another rule follow the likely-misclick
+    rows, one per reason ("of these losses, likely misclick: adjacent wrong
+    flag placed under a second before", "of these losses, likely misclick:
+    left click on a proven mine under a second after a chord beside it
+    lacked flags"). They recount losses already filed above, so they never
+    add to the total; as second-level rows, their shares stand in the worst
+    offense column.
+  - A size with no session games, which the scores view can show when the
+    board's latest win predates the session, reads "no Expert games in
+    session" in place of the tree.
+  - Earlier columns: until 2026-10-15 every size played had a count and a
+    share column of its own ("games" and "share of games" when only one size
+    was played), and every row's share stood in that one share column. Until
+    2026-10-14 the grid held only losses, had columns only for sizes that
+    lost a game, took shares of losses, and said "no losses in session" for
+    a window without losses. Per-key count columns were built first and
+    dropped on 2026-10-11: a generator's full name as a column header made
+    the grid about 1,000 px wide.
+  - Gated by shownThings.sessionEndings ("session results by type", on by
+    default; "session loss types" until 2026-10-14), listed under Tables
+    right after the summary's own switch.
 - **Requested next (creator, 2026-10-14):** while playing a size, show only
   that size, as one tree from all games started through won, lost, and
   abandoned to finer kinds. The won/lost and worst-offense levels above are
-  built; the rest (scope by board type, abandoned boards, when in the game a
-  loss came) is proposed and awaiting review: [BACKLOG](../../BACKLOG.md),
-  "Game results as one tree per board type".
+  built, and since 2026-10-15 the tree shows only the size being played; the
+  rest (splitting a size's modes and generators apart, abandoned boards,
+  when in the game a loss came) is proposed and awaiting review:
+  [BACKLOG](../../BACKLOG.md), "Game results as one tree per board type".
 
 ## Recent placements (requested and decided 2026-08-23; charts and the lifetime near-miss rule extended later the same day)
 

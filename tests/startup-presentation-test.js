@@ -60,6 +60,22 @@ check('the storage hooks live only in the last game script',
 check('game scripts share one cache-busting version',
   new Set(externalScripts.filter((script) => script.src.startsWith('game/'))
     .map((script) => script.src.split('?v=')[1])).size === 1);
+// Workers import some game/ files themselves, under the same tag, so that
+// bump also reaches their copies; on a server without cache headers a
+// worker would otherwise run an older cached copy. A worker whose imports
+// changed then needs its own tag moved where it is created.
+const gameTag = externalScripts.find((script) => script.src.startsWith('game/')).src.split('?v=')[1];
+const workerGameImports = fs.readdirSync(repo).filter((file) => file.endsWith('.js'))
+  .flatMap((file) => {
+    const text = fs.readFileSync(path.join(repo, file), 'utf8');
+    return text.includes('importScripts(')
+      ? [...text.matchAll(/'(game\/[^'?]+)(?:\?v=([^']*))?'/g)].map((match) => ({ file, src: match[1], tag: match[2] }))
+      : [];
+  });
+const staleWorkerImports = workerGameImports.filter((entry) => entry.tag !== gameTag);
+check('workers import game scripts under the game scripts’ version ' + gameTag
+  + staleWorkerImports.map((entry) => '; ' + entry.file + ' imports ' + entry.src + ' as ' + entry.tag).join(''),
+  workerGameImports.length > 0 && staleWorkerImports.length === 0);
 
 const newGameAt = js.lastIndexOf('  newGame();');
 const readyAt = js.lastIndexOf("document.documentElement.classList.remove('game-booting')");

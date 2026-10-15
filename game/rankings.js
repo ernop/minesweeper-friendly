@@ -878,6 +878,8 @@ const SESSION_RESULT_TREE = [
     { kind: 'other', chart: 'other', label: 'not judged' },
   ] },
 ];
+// Each tree level's name, which heads that level's share column.
+const SESSION_RESULT_LEVELS = ['won or lost', 'worst offense', 'type'];
 
 // The tree's rows in display order: { depth (1 for won and lost), label,
 // kinds (the result kinds the row sums), chart (leaves only) }. Won and lost
@@ -902,15 +904,19 @@ function sessionResultLines(rows) {
 
 //-------SESSION SUMMARY: DISPLAY-------
 
+// The board of a board key ("30x16/99") or history key ("30x16/99@standard").
+function boardOfKey(key) {
+  const [size, mines] = key.split('@')[0].split('/');
+  const [width, height] = size.split('x').map(Number);
+  return { width, height, mines: Number(mines) };
+}
+
 // A type's board, then its variant: the play mode unless it is the default
 // Standard, and the generator unless it is the default. The variant has its
 // own column, so variants line up and the usual case shows the board alone.
 function sessionSummaryTypeParts(row) {
-  const [board, mode] = row.key.split('@');
-  const [size, mines] = board.split('/');
-  const [width, height] = size.split('x').map(Number);
-  const modeId = mode.split('+')[0];
-  return { board: boardDisplayLabelOf({ width, height, mines: Number(mines) }),
+  const modeId = row.key.split('@')[1].split('+')[0];
+  return { board: boardDisplayLabelOf(boardOfKey(row.key)),
     variant: [modeId === 'standard' ? null : playModeLabel(modeId),
       row.latest.generator === undefined ? null : BoardGenerators.displayLabel(row.latest.generator),
       row.noMark ? 'no-mark' : null]
@@ -942,6 +948,9 @@ function buildSessionSummary(record, referenceMs, markCurrent = true, noMark = f
   });
   const choice = SessionScope.choices.find((c) => c.id === settings.sessionDefinition);
   const { from, to } = SessionScope.bounds(settings.sessionDefinition, referenceMs);
+  const sessionHistory = noMark ? noMarkSessionHistory(record) : history;
+  const boardKey = Object.keys(sessionHistory).find((key) => sessionHistory[key].includes(record)).split('@')[0];
+  const boardLabel = boardDisplayLabelOf(boardOfKey(boardKey));
   const heading = document.createElement('h4');
   heading.appendChild(chartHelpButton([
     'Games, wins, and win rate for every board type played in the session (' + choice.label
@@ -950,15 +959,15 @@ function buildSessionSummary(record, referenceMs, markCurrent = true, noMark = f
     'A row marked no-mark counts only games with no flags placed. Its best time’s lifetime rank is among that board type’s no-mark wins.',
     'Mean time, mean 3BV/s, and mean IOE average the session’s wins of that type, each over the wins that measured it, as game data defines them; for the board just played they are the session baseline for its time, 3BV/s, and IOE.',
     ...(settings.shownThings.sessionEndings ? [
-      'Results split every session game into won and lost, then by its worst offense against perfect play, least to worst, then by type, with the game endings chart’s colors. Each size has its own count and its share of that size’s games: Beginner, Intermediate, Expert, and a custom size under its own name. A different mode or generator counts with its size.',
+      'Results cover the session’s ' + boardLabel + ' games alone, the size of the game shown; a different mode or generator counts with its size. They split into won and lost, then by each game’s worst offense against perfect play, least to worst, then by type, with the game endings chart’s colors.',
+      'Every share is of all those games and stands in its level’s column: won or lost, worst offense, or type. The shares under a row add up to that row’s share, give or take rounding.',
       'A guess is a click on a square that might hold a mine, after the first click; its risk is the risk under the active rules, so a guess A Just Universe made safe risked nothing. The opening lasts until a tenth of the board’s safe squares are open. A proof named is the easiest one that worked: counting single numbers, comparing overlapping numbers, or only whole-board reasoning.',
       'A loss files under its fatal click, unless the game survived a worse guess earlier: then it is “survived it, died later” under that guess. “Guesses not measured” is a win with no guess record: one from before guesses were measured, an Angelic game, or one whose odds were too large to compute.',
       'The likely-misclick rows count losses whose fatal click was most likely a slip. They are already counted above, so they never add to the total.',
     ] : []),
   ], 'session'));
   box.appendChild(heading);
-  const rows = sessionSummaryRows(noMark ? noMarkSessionHistory(record) : history, from, to,
-    Object.values(DIFFICULTIES).map(boardKeyOf));
+  const rows = sessionSummaryRows(sessionHistory, from, to, Object.values(DIFFICULTIES).map(boardKeyOf));
   if (rows.length === 0) {
     const none = document.createElement('div');
     none.className = 'recent-placements-none';
@@ -1019,38 +1028,33 @@ function buildSessionSummary(record, referenceMs, markCurrent = true, noMark = f
       ...meanSpecs.map(() => cell('', ''))]);
   }
   box.appendChild(grid);
-  if (settings.shownThings.sessionEndings) box.appendChild(buildSessionSummaryResults(rows));
+  if (settings.shownThings.sessionEndings) box.appendChild(buildSessionSummaryResults(rows, boardKey, boardLabel));
   return box;
 }
 
-// The session's results as one tree (sessionResultLines): won, then lost
-// under a rule, each split by worst offense and then by type, indented by
-// depth; a leaf leads with its endings-chart line color. Each board size
-// played has its own count and its share of that size's games (Beginner,
-// Intermediate, Expert, or a custom size's label; a mode or generator counts
-// with its size), so every level sums to its parent. Per-key columns were
-// tried first; a generator's full name made a header hundreds of pixels
-// wide. One size keeps a single games column and its share of those games.
+// The session results of the shown game's board size alone, as one tree
+// (sessionResultLines): won, then lost under a rule, each split by worst
+// offense and then by type, indented by depth; a leaf leads with its
+// endings-chart line color. A mode or generator counts with its size. Every
+// share is of all that size's games and stands in its depth's column, so
+// each column reads one level and the shares under a row sum to that row's.
 // The likely-misclick rows close the lost branch under a rule; they count
 // losses already filed above, so they never add to the total.
-function buildSessionSummaryResults(rows) {
-  const sizes = [];
-  for (const row of rows) {
-    const label = sessionSummaryTypeParts(row).board;
-    let size = sizes.find((candidate) => candidate.label === label);
-    if (size === undefined) {
-      size = { label, rows: [] };
-      sizes.push(size);
-    }
-    size.rows.push(row);
+function buildSessionSummaryResults(rows, boardKey, boardLabel) {
+  const sizeRows = rows.filter((row) => row.key.split('@')[0] === boardKey);
+  if (sizeRows.length === 0) {
+    const none = document.createElement('div');
+    none.className = 'session-summary-results recent-placements-none';
+    none.textContent = 'no ' + boardLabel + ' games in session';
+    return none;
   }
-  const lines = sessionResultLines(rows);
+  const games = sizeRows.reduce((sum, row) => sum + row.games, 0);
+  const lines = sessionResultLines(sizeRows);
   const reasons = Object.keys(LIKELY_MISCLICK_REASON_LABELS)
-    .filter((reason) => rows.some((row) => row.likelyMisclicks[reason] !== undefined));
-  const split = sizes.length > 1;
+    .filter((reason) => sizeRows.some((row) => row.likelyMisclicks[reason] !== undefined));
   const grid = document.createElement('div');
   grid.className = 'session-summary-grid session-summary-results';
-  grid.style.gridTemplateColumns = 'repeat(' + (1 + sizes.length * 2) + ', auto)';
+  grid.style.gridTemplateColumns = 'repeat(' + (2 + SESSION_RESULT_LEVELS.length) + ', auto)';
   const cell = (className, text) => {
     const node = document.createElement('span');
     node.className = className;
@@ -1068,18 +1072,13 @@ function buildSessionSummaryResults(rows) {
     const percent = Math.round(100 * count / total);
     return count > 0 && percent === 0 ? '<1%' : percent + '%';
   };
-  const countIn = (size, countOf) => size.rows.reduce((sum, row) => sum + countOf(row), 0);
-  const sizeGames = (size) => size.rows.reduce((sum, row) => sum + row.games, 0);
-  const countCells = (countOf) => sizes.flatMap((size) => {
-    const count = countIn(size, countOf);
-    return [cell('session-summary-number' + (split ? ' session-summary-size' : ''), String(count)),
-      cell('session-summary-number', shareText(count, sizeGames(size)))];
-  });
-  line('session-summary-head', [cell('', 'result'), ...sizes.flatMap((size) => {
-    const countHead = cell('', split ? size.label : 'games');
-    if (split) countHead.classList.add('session-summary-size');
-    return [countHead, cell('', split ? 'share' : 'share of games')];
-  })]);
+  const countCells = (depth, countOf) => {
+    const count = sizeRows.reduce((sum, row) => sum + countOf(row), 0);
+    return [cell('session-summary-number', String(count)), ...SESSION_RESULT_LEVELS.map((_, index) =>
+      cell('session-summary-number', index + 1 === depth ? shareText(count, games) : ''))];
+  };
+  line('session-summary-head', [cell('', 'result'), cell('', boardLabel + ' games'),
+    ...SESSION_RESULT_LEVELS.map((level) => cell('', level))]);
   // A leaf without a chart line keeps an empty swatch so its label lines up
   // with its siblings'.
   const chartColor = (kind) => {
@@ -1097,12 +1096,12 @@ function buildSessionSummaryResults(rows) {
     label.append(entry.label);
     line('session-summary-row session-summary-depth-' + entry.depth
       + (entry.depth === 1 && entry !== lines[0] ? ' session-summary-group-first' : ''),
-    [label, ...countCells((row) => entry.kinds.reduce((sum, kind) => sum + (row.results[kind] || 0), 0))]);
+    [label, ...countCells(entry.depth, (row) => entry.kinds.reduce((sum, kind) => sum + (row.results[kind] || 0), 0))]);
   }
   reasons.forEach((reason, index) => {
     line('session-summary-row session-summary-depth-2' + (index === 0 ? ' session-summary-group-first' : ''),
       [cell('session-summary-result', 'of these losses, likely misclick: ' + LIKELY_MISCLICK_REASON_LABELS[reason]),
-        ...countCells((row) => row.likelyMisclicks[reason] || 0)]);
+        ...countCells(2, (row) => row.likelyMisclicks[reason] || 0)]);
   });
   return grid;
 }

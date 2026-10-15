@@ -151,19 +151,31 @@ Spec: [docs/product/rankings.md](../product/rankings.md). Index: [AGENTS.md](../
   deeper rows when one of their kinds occurred. It throws when a counted
   kind has no leaf. The tree's legacy family is built from
   `DEATH_KIND_LABELS`, so rankings.js must load after evaluation.js on the
-  page and in the analysis worker. `buildSessionSummaryResults(rows)` groups
-  rows by `sessionSummaryTypeParts(row).board` (every size played) into
-  `.session-summary-results` under the main grid. One size: result, games,
-  share of games. More than one: result, then that size's name and "share"
-  per size, with `.session-summary-size` on each count column. Each line is
-  a `.session-summary-row.session-summary-depth-N` summing its kinds; CSS
-  indents depth 2 and 3 and bolds depth 1. A leaf's label leads with an
-  `.end-swatch` colored from `SESSION_END_SPECS` (an unknown chart kind
-  throws), left uncolored when `chart` is null. Then the reasons in
+  page and in the analysis worker. `SESSION_RESULT_LEVELS` follows the
+  tree: one name per depth, heading that depth's share column
+  (`tests/recent-placements-test.js` checks the tree is exactly that deep).
+  One size only (2026-10-15): `buildSessionSummary` finds the history key
+  whose list holds `record` (by identity, in the history it counts, so a
+  no-mark narrowing keeps it), takes its board key ("30x16/99"; `boardOfKey`
+  parses a board or history key) and that board's `boardDisplayLabelOf`
+  label, and passes both to `buildSessionSummaryResults(rows, boardKey,
+  boardLabel)`. That keeps the rows whose key starts with the board key
+  (every mode and generator of the size) and renders
+  `.session-summary-results` under the main grid, or, when none has session
+  games, a `.session-summary-results.recent-placements-none` reading "no
+  <label> games in session". Columns: result, "<label> games", then one
+  share column per level. Each line is a
+  `.session-summary-row.session-summary-depth-N` summing its kinds; its
+  share of the size's games fills only column N of the share columns, the
+  others being empty `.session-summary-number` cells. CSS indents depth 2
+  and 3 and bolds depth 1. A leaf's label leads with an `.end-swatch`
+  colored from `SESSION_END_SPECS` (an unknown chart kind throws), left
+  uncolored when `chart` is null. Then the reasons in
   LIKELY_MISCLICK_REASON_LABELS order at depth 2. Every depth-1 row after
   the first (lost) and the first misclick row carry
-  `.session-summary-group-first` (a rule above). Each share divides by that
-  size's games. Gated by shownThings.sessionEndings.
+  `.session-summary-group-first` (a rule above). Until 2026-10-15 it
+  grouped rows by `sessionSummaryTypeParts(row).board` into a count and
+  share column pair per size. Gated by shownThings.sessionEndings.
   `lossTypeOf` memoizes per evaluation object (a WeakMap), so rebuilding the
   summary after each game classifies only the new loss.
   `node tests/recent-placements-test.js` freezes the formatting and

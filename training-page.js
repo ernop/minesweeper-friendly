@@ -37,7 +37,7 @@ function storageFailure(what) {
 }
 
 function userdataReady() {
-  const worker = new Worker('training-worker.js?v=20261011-loss-types');
+  const worker = new Worker('training-worker.js?v=20261015-results-levels');
   worker.onmessage = ({ data }) => {
     worker.terminate();
     if (data.error !== undefined) showTrainingStatus('Training summary failed: ' + data.error, true);

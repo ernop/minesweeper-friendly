@@ -356,10 +356,20 @@ const { chromium } = require(process.argv[2]);
       };
       const hour = read();
       const savedHistory = history;
-      history = { '9x9/10@standard': savedHistory['9x9/10@standard'] };
+      // After an Expert loss with no Expert win, the summary is the loss's.
+      resultRanks.replaceChildren(buildSessionSummary(savedHistory['30x16/99@standard'][1], now, false));
+      const expert = read();
+      history = { '9x9/10@standard': savedHistory['9x9/10@standard'],
+        '9x9/10@standard+pink-noise(alpha=1,scale=12,contrast=2,stretch=0)':
+          savedHistory['16x16/40@standard+pink-noise(alpha=1,scale=12,contrast=2,stretch=0)'] };
       resultRanks.replaceChildren(buildSessionSummary(current, now));
-      const oneSize = read().results;
+      const sameSize = read().results;
+      const oldCustom = game(60 * 24 * 40, 'win', 90000);
+      history = { ...savedHistory, '20x20/60@standard': [oldCustom] };
+      resultRanks.replaceChildren(buildSessionSummary(oldCustom, now, false));
+      const noSizeGames = resultRanks.querySelector('.session-summary-results').textContent;
       history = savedHistory;
+      resultRanks.replaceChildren(buildSessionSummary(current, now));
       document.getElementById('session-definition-select').value = 'past10min';
       document.getElementById('session-definition-select').dispatchEvent(new Event('change'));
       const short = read();
@@ -367,7 +377,7 @@ const { chromium } = require(process.argv[2]);
       resultRanks.replaceChildren(buildSessionSummary(current, now));
       const plain = [...resultRanks.querySelectorAll('.session-summary-head, .session-summary-row')]
         .map((row) => [...row.children].map((cell) => cell.textContent));
-      return { hour, oneSize, short, plain };
+      return { hour, expert, sameSize, noSizeGames, short, plain };
     });
     assert.equal(sessionSummary.hour.heading, 'session', 'only the picker names the window');
     assert.deepEqual(sessionSummary.hour.head, ['board type', 'games', 'wins', 'win rate', 'best', 'lifetime rank',
@@ -381,47 +391,58 @@ const { chromium } = require(process.argv[2]);
     ], 'the default mode goes unnamed; a generator has its own aligned column; means average the session’s wins');
     assert.equal(sessionSummary.hour.thisColor, THIS_GAME);
     assert(sessionSummary.hour.rowHeights.every((height) => height < 20), 'summary rows stay one line');
+    const levels = ['won or lost', 'worst offense', 'type'];
     assert.deepEqual(sessionSummary.hour.results, [
-      ['result', 'Beginner', 'share', 'Intermediate', 'share', 'Expert', 'share'],
-      ['won', '2', '67%', '1', '100%', '0', '0%'],
-      ['no avoidable risk', '1', '33%', '0', '0%', '0', '0%'],
-      ['without guessing', '1', '33%', '0', '0%', '0', '0%'],
-      ['riskier guess than necessary', '1', '33%', '0', '0%', '0', '0%'],
-      ['after the opening', '1', '33%', '0', '0%', '0', '0%'],
-      ['guesses not measured', '0', '0%', '1', '100%', '0', '0%'],
-      ['lost', '1', '33%', '0', '0%', '2', '100%'],
-      ['opened a proven mine', '0', '0%', '0', '0%', '1', '50%'],
-      ['counting single numbers proved it', '0', '0%', '0', '0%', '1', '50%'],
-      ['not judged', '1', '33%', '0', '0%', '1', '50%'],
+      ['result', 'Beginner games', ...levels],
+      ['won', '2', '67%', '', ''],
+      ['no avoidable risk', '1', '', '33%', ''],
+      ['without guessing', '1', '', '', '33%'],
+      ['riskier guess than necessary', '1', '', '33%', ''],
+      ['after the opening', '1', '', '', '33%'],
+      ['lost', '1', '33%', '', ''],
+      ['not judged', '1', '', '33%', ''],
+    ], 'only the shown game’s size; each share of all its games stands in its level’s column');
+    assert.deepEqual(sessionSummary.hour.ruled, ['lost'], 'a rule starts the lost branch');
+    assert.deepEqual(sessionSummary.hour.indents, ['4px', '18px', '32px', '18px', '32px', '4px', '18px'],
+      'depth shows as indentation');
+    assert.deepEqual(sessionSummary.hour.bold, ['won', 'lost'], 'won and lost head their branches');
+    assert.deepEqual(sessionSummary.hour.swatches, ['rgb(46, 125, 50)', 'rgb(46, 125, 50)', 'rgb(153, 153, 153)'],
+      'wins carry the chart’s win color and each loss type its line color');
+    assert(sessionSummary.hour.resultsWithinSummary, 'the results grid stays inside the summary');
+    assert.deepEqual(sessionSummary.expert.results, [
+      ['result', 'Expert games', ...levels],
+      ['won', '0', '0%', '', ''],
+      ['lost', '2', '100%', '', ''],
+      ['opened a proven mine', '1', '', '50%', ''],
+      ['counting single numbers proved it', '1', '', '', '50%'],
+      ['not judged', '1', '', '50%', ''],
       ['of these losses, likely misclick: left click on a proven mine under a second after a chord beside it lacked flags',
-        '0', '0%', '0', '0%', '1', '50%'],
-    ], 'every game split into won and lost, then by worst offense and its type, per board size played');
-    assert.deepEqual(sessionSummary.hour.ruled, ['lost',
+        '1', '', '50%', ''],
+    ], 'another size’s tree holds only its own games, misclick rows included');
+    assert.deepEqual(sessionSummary.expert.ruled, ['lost',
       'of these losses, likely misclick: left click on a proven mine under a second after a chord beside it lacked flags'],
     'a rule starts the lost branch and another the misclick rows');
-    assert.deepEqual(sessionSummary.hour.indents, ['4px', '18px', '32px', '18px', '32px', '18px', '4px', '18px', '32px',
-      '18px', '18px'], 'depth shows as indentation');
-    assert.deepEqual(sessionSummary.hour.bold, ['won', 'lost'], 'won and lost head their branches');
-    assert.deepEqual(sessionSummary.oneSize, [
-      ['result', 'games', 'share of games'],
-      ['won', '2', '67%'],
-      ['no avoidable risk', '1', '33%'],
-      ['without guessing', '1', '33%'],
-      ['riskier guess than necessary', '1', '33%'],
-      ['after the opening', '1', '33%'],
-      ['lost', '1', '33%'],
-      ['not judged', '1', '33%'],
-    ], 'one board size keeps a single games column');
-    assert.deepEqual(sessionSummary.hour.swatches, ['rgb(46, 125, 50)', 'rgb(46, 125, 50)', 'rgb(46, 125, 50)',
-      'rgb(109, 13, 13)', 'rgb(153, 153, 153)'], 'wins carry the chart’s win color and each loss type its line color');
-    assert(sessionSummary.hour.resultsWithinSummary, 'the results grid stays inside the summary');
+    assert.deepEqual(sessionSummary.expert.indents, ['4px', '4px', '18px', '32px', '18px', '18px'],
+      'misclick rows sit at the second level');
+    assert.deepEqual(sessionSummary.sameSize, [
+      ['result', 'Beginner games', ...levels],
+      ['won', '3', '75%', '', ''],
+      ['no avoidable risk', '1', '', '25%', ''],
+      ['without guessing', '1', '', '', '25%'],
+      ['riskier guess than necessary', '1', '', '25%', ''],
+      ['after the opening', '1', '', '', '25%'],
+      ['guesses not measured', '1', '', '25%', ''],
+      ['lost', '1', '25%', '', ''],
+      ['not judged', '1', '', '25%', ''],
+    ], 'a generator’s games count with their size');
+    assert.equal(sessionSummary.noSizeGames, 'no Custom 20x20-60 games in session',
+      'a size without session games says so in place of its tree');
     assert.deepEqual(sessionSummary.short.results, [
-      ['result', 'Beginner', 'share', 'Intermediate', 'share'],
-      ['won', '1', '100%', '1', '100%'],
-      ['riskier guess than necessary', '1', '100%', '0', '0%'],
-      ['after the opening', '1', '100%', '0', '0%'],
-      ['guesses not measured', '0', '0%', '1', '100%'],
-      ['lost', '0', '0%', '0', '0%'],
+      ['result', 'Beginner games', ...levels],
+      ['won', '1', '100%', '', ''],
+      ['riskier guess than necessary', '1', '', '100%', ''],
+      ['after the opening', '1', '', '', '100%'],
+      ['lost', '0', '0%', '', ''],
     ], 'a session without losses still breaks down its results and shows lost at zero');
     assert.deepEqual(sessionSummary.short.rows, [
       ['Beginner', '', '1', '1', '100%', '4.100s', '2nd this of 3', '4.100s', '2.439', '0.833'],
@@ -431,8 +452,8 @@ const { chromium } = require(process.argv[2]);
     ]);
     assert.deepEqual(sessionSummary.plain, [['board type', 'games', 'wins', 'win rate', 'best', 'lifetime rank', 'mean time', 'mean 3BV/s', 'mean IOE'],
       ['Beginner', '1', '1', '100%', '4.100s', '2nd this of 3', '4.100s', '2.439', '0.833'],
-      ['result', 'games', 'share of games'], ['won', '1', '100%'], ['riskier guess than necessary', '1', '100%'],
-      ['after the opening', '1', '100%'], ['lost', '0', '0%']],
+      ['result', 'Beginner games', 'won or lost', 'worst offense', 'type'], ['won', '1', '100%', '', ''],
+      ['riskier guess than necessary', '1', '', '100%', ''], ['after the opening', '1', '', '', '100%'], ['lost', '0', '0%', '', '']],
     'without a variant to name, the board stands alone in its column');
     assert.deepEqual(errors, []);
     console.log('Rank highlights: this-game rows, standing chips, session summary, percentage bands, full/compact tables, low/last/only results, history view, conditional board comparisons, stable numeric family ordering, contiguous summary rows, surrounding table flow, day-of-month headings, and three viewport widths passed.');

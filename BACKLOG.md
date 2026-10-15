@@ -38,7 +38,11 @@ wins, since some wins follow no bad moves while others survive needless bad
 guesses. The request: "think very carefully and present me an ontology of
 wins / complete categorization system". Built today
 ([Session summary](docs/product/rankings.md), "Session results"): one tree
-per session, one count and share pair per board size. Level 1 is won or
+per session, then on 2026-10-15 only the shown game's board size, with one
+share column per level, every share of all that size's games (creator:
+"ONLY be about the currrne mode (only e.g. expert,not all 3 ypese)"; "each
+level of subsection shalal alsohave itsown percent too"; "10% (of
+absolute)"). Level 1 is won or
 lost; level 2 the game's worst offense against perfect play (no avoidable
 risk, a riskier guess than necessary, a guess past a safe move, a wrong
 flag, a proven mine, then the measurement gaps); level 3 its type
@@ -55,7 +59,10 @@ Proposed, not decided:
 - **Scope.** The board type being played (size, play mode, and generator;
   Standard Beginner is simply Beginner) in the page-wide session. Other types
   do not appear. Modes stay apart because their rules change what a guess
-  can do (Angelic, Proof-or-die, NG).
+  can do (Angelic, Proof-or-die, NG). Built 2026-10-15 by size: other sizes
+  no longer appear, but a size's modes and generators still count together
+  (the 2026-10-12 rule, from "split by main game type (small, medium,
+  expert)"), so an NG Expert game and a Standard Expert game share one tree.
 - **Level 1, how the board ended:** won, lost, or abandoned (restarted, or
   the page closed before the end). A board counts once it ends. Shares are of
   games started, so every level sums to its parent; every game is in exactly
@@ -118,7 +125,8 @@ Needs, beyond what is measured:
 
 Open decisions, each recommended: split opening guess deaths by risk in the
 report and the endings chart too (the session tree does since 2026-10-14);
-scope by board type rather than by size; count abandoned boards; the
+scope by board type rather than by size (the tree shows one size since
+2026-10-15, its modes and generators together); count abandoned boards; the
 half-second rushed line.
 
 **Direction, the same day: judge from the decision tree.** The creator: every

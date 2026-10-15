@@ -71,9 +71,14 @@ file name what its parts hold. The rules:
 - `game/main.js` loads last and alone declares `storageFailure` and
   `userdataReady`: `storage.js` starts the page as soon as `userdataReady`
   exists, so every other file must be loaded by then.
-- All `game/` script tags share one `?v=` tag. Bump it in every tag (one
-  replace) whenever any `game/` file changes.
-- `tests/startup-presentation-test.js` enforces the last two rules. Tests
+- All `game/` script tags share one `?v=` tag, including the `game/` files
+  that `analysis-worker.js` and `training-worker.js` import. Bump it in every
+  tag (one replace) whenever any `game/` file changes, then each changed
+  worker's own tag where it is created (`analysis-client.js`,
+  `training-page.js`) and that file's tag in its page. The workers' copies
+  once kept older tags while the page moved on (2026-10-14).
+- `tests/startup-presentation-test.js` enforces the last two rules, except
+  the workers' own tags. Tests
   read the code through `tests/game-source.js`, which concatenates the files
   in load order, so section-marker spans keep working across files.
 

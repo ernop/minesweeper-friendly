@@ -282,6 +282,9 @@ assertEq('middle placement wording is shared by the recent summary',
     'survived-guess-safe', 'survived-guess-higher', ...Object.keys(DEATH_KIND_LABELS), 'other'];
   assertEq('every result kind has one row', [...treeKinds].sort().join(), [...expected].sort().join());
   assertEq('no kind appears twice', new Set(treeKinds).size, treeKinds.length);
+  const depthOf = (node) => (node.children ? 1 + Math.max(...node.children.map(depthOf)) : 1);
+  assertEq('every tree level names its own share column',
+    Math.max(...SESSION_RESULT_TREE.map(depthOf)), SESSION_RESULT_LEVELS.length);
   let thrown = null;
   try {
     sessionResultLines([{ results: { 'guess-early': 1 } }]);

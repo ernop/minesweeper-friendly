@@ -1,13 +1,13 @@
 "use strict";
 
 importScripts('trend-fit.js?v=20260925-worker-analysis',
-  'game/trace-metrics.js?v=20260926-chord-buttons',
-  'game/evaluation.js?v=20261011-loss-types',
-  'game/session-stats.js?v=20261011-loss-types',
-  'game/metric-definitions.js?v=20261007-result-redesign',
+  'game/trace-metrics.js?v=20261015-results-levels',
+  'game/evaluation.js?v=20261015-results-levels',
+  'game/session-stats.js?v=20261015-results-levels',
+  'game/metric-definitions.js?v=20261015-results-levels',
   'board-shape.js', 'zini.js', 'board-metrics.js?v=20260921-visible-zero-one',
-  'game-data.js?v=20261011-histogram-fence', 'game/rankings.js?v=20261014-session-boards',
-  'game/charts.js?v=20261010-unflagged-mine-share', 'game/game-data-chart.js?v=20261014-board-trait-choice',
+  'game-data.js?v=20261011-histogram-fence', 'game/rankings.js?v=20261015-results-levels',
+  'game/charts.js?v=20261015-results-levels', 'game/game-data-chart.js?v=20261015-results-levels',
   'training-core.js?v=20260928-switch-cost');
 
 let config;
