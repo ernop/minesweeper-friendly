@@ -1192,8 +1192,13 @@ body.trial-offboard #game-frame {
      fattens glyphs even when no true black-weight font is installed */
   font-family: "Arial Black", "Arial Bold", Arial, sans-serif;
   font-weight: 900;
-  font-size: calc(var(--cell-size) * 0.66);
-  -webkit-text-stroke: calc(var(--cell-size) / 26) currentColor;
+  /* 0.66 of the square up to zoom 28 and 0.94 from zoom 40, straight between,
+     so large squares are not left mostly empty and no zoom step jumps */
+  font-size: clamp(
+    calc(var(--cell-size) * 0.66),
+    calc(28px * 0.66 + (var(--cell-size) - 28px) * (40 * 0.94 - 28 * 0.66) / (40 - 28)),
+    calc(var(--cell-size) * 0.94));
+  -webkit-text-stroke: calc(1em / 17) currentColor;
   line-height: 1;
   background: var(--silver);
 }

@@ -8,6 +8,11 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   dependencies, no build step.
 - Cell numbers use a chunky face (Arial Black stack); the classic
   number-color palette (1 blue, 2 green, 3 red, ...).
+- Number size follows the zoom (creator request 2026-10-14: at zoom 40 and
+  above the numerals were "difficult to read"; "expand the numerals within
+  the squares"). Up to 28 px a digit is about half the square's height; from
+  40 px it is about two thirds, the classic proportion; 32 and 36 px sit in
+  between, so no zoom step jumps. The face keeps its weight at every size.
 - Number display (2026-08-23): a gameplay setting draws revealed counts
   as the classic digits (default), as letters A–H (A=1 … H=8), or as one
   colored dot per cell. All three use the classic color palette, so the

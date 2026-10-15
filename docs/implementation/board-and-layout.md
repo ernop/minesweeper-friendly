@@ -130,6 +130,13 @@ Spec: [docs/product/board-and-layout.md](../product/board-and-layout.md). Index:
   no result-dependent gutter calculations or overhang margins remain.
   ResizeObserver tracks page/main/frame geometry; the root scrollbar gutter
   remains reserved so page growth cannot shift the board.
+- Cell digits (2026-10-14): `.cell` in `style.css` sets `font-size` with
+  `clamp()`: 0.66 of `--cell-size` up to 28 px, 0.94 from 40 px, the straight
+  line through those two points between. `-webkit-text-stroke` is `1em / 17`,
+  so the stroke follows the digit (the old `--cell-size / 26` at 28 px). No
+  Arial is installed on the creator's PC, so Firefox draws the stack in
+  Liberation Sans Bold (canvas `measureText` widths, 2026-10-14), whose digits
+  are 0.68 em tall: 0.94 of the square makes them about two thirds of it.
 
 ## Analysis execution and cost (2026-09-25)
 
