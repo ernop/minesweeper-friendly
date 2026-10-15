@@ -796,6 +796,17 @@ const NO_OP_AGGREGATE_LABELS = {
   'flagged-revealed-cell': 'Flag attempts on revealed squares',
 };
 
+// Why a click changed nothing, as a short phrase.
+const NO_OP_REASON_PHRASES = {
+  'chord-short-of-flags': 'number still short of flags',
+  'chord-nothing-to-open': 'number had nothing left to open',
+  'chord-too-many-flags': 'number had too many flags',
+  'chord-over-covered': 'chord released over a covered square',
+  'chord-unavailable': 'chord conditions were not met',
+  'left-clicked-flag': 'left-clicked a flagged square',
+  'flagged-revealed-cell': 'tried to flag a revealed square',
+};
+
 const DISCLOSURE_AGGREGATE_LABELS = {
   'flagged-proven-safe': 'Proven-safe squares flagged',
 };
@@ -1015,16 +1026,7 @@ function actionEvaluationLines(evaluation, extraLines = []) {
     });
   }
   if (mistakes.has('no-op-click')) {
-    const reason = {
-      'chord-short-of-flags': 'number still short of flags',
-      'chord-nothing-to-open': 'number had nothing left to open',
-      'chord-too-many-flags': 'number had too many flags',
-      'chord-over-covered': 'chord released over a covered square',
-      'chord-unavailable': 'chord conditions were not met',
-      'left-clicked-flag': 'left-clicked a flagged square',
-      'flagged-revealed-cell': 'tried to flag a revealed square',
-    }[evidence.reason] || 'board state did not change';
-    lines.push({ label: 'No-op', value: reason });
+    lines.push({ label: 'No-op', value: NO_OP_REASON_PHRASES[evidence.reason] || 'board state did not change' });
   }
   if (evidence.factsMeasured === false) {
     lines.push({ label: 'Visible facts', value: 'not measured' });

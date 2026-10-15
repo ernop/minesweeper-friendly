@@ -76,6 +76,7 @@ const SHOWN_THINGS_DEFAULTS = Object.freeze({
   recentPlacementsOtherBoards: false,
   boardShapeTables: true,
   largestIsland: false,
+  duringGame: true,
   averageCharts: true,
   streak: true,
   nearStreak: true,
@@ -102,6 +103,7 @@ const SHOWN_THINGS_OPTIONS = [
   ['zeroOpeningTable', 'zero-opening-coverage tablechart', 'times on boards whose fraction of safe squares exposed by opening every zero region rounds to the same nearest whole percentage point'],
   ['boardShapeTables', 'board-shape tablecharts', 'has an 8, has a 7, max number ≤ 4/3/2, islands, and zeros rankings'],
   ['largestIsland', 'largest island', 'the largest-island stat and matching tablechart'],
+  ['duringGame', 'during the game', 'how the game just played unfolded on its own clock: progress, pace, what the board offered, and detected events such as moves, forks, and pauses, one row each on one time axis'],
   ['averageCharts', 'average-time charts', 'your-perf and board-trait property charts, each with its own average, distribution, or winrate reading'],
   ['streak', 'streak', 'consecutive-win ranking'],
   ['nearStreak', 'near-streak', 'win runs spanning at most one loss'],
@@ -123,7 +125,8 @@ const RESULT_SECTION_GROUPS = [
     'shownThings.exactMaxNumber', 'shownThings.exactHZiNi', 'shownThings.workSpreadTable',
     'shownThings.zeroOneShareTable', 'shownThings.zeroOpeningTable', 'shownThings.boardShapeTables',
     'shownThings.largestIsland']],
-  ['Charts', ['shownThings.averageCharts', 'shownThings.relationshipCharts', 'showMotionStatsAfterGame']],
+  ['Charts', ['shownThings.duringGame', 'shownThings.averageCharts', 'shownThings.relationshipCharts',
+    'showMotionStatsAfterGame']],
 ];
 
 function resultSectionSwitch(path) {
@@ -560,6 +563,16 @@ const SETTINGS_SCHEMA = [
     valid: preferenceBooleans(GAME_DATA_BOARD_TRAIT_DEFAULTS), migrate: gameDataBoardTraitsFromStored,
     group: 'after-game', label: 'game data board traits',
     describe: 'which of this board’s traits game data ranks against your lifetime and your session boards; chosen with configure on the chart, apart from the This board tables', control: 'none',
+  },
+  {
+    field: 'duringGameRows', default: DuringGame.defaults, mergeDefaults: true,
+    valid: preferenceBooleans(DuringGame.defaults), group: 'after-game', label: 'during-the-game rows',
+    describe: 'which progress, pace, board, and event rows the during the game section shows; chosen with configure on that section', control: 'none',
+  },
+  {
+    field: 'duringGameAverage', default: DuringGame.DEFAULT_AVERAGE,
+    valid: (v) => DuringGame.AVERAGES.some(([id]) => id === v), group: 'after-game', label: 'during-the-game averaging',
+    describe: 'how the during the game rows average: raw incidents, fixed 2, 5, or 10 second buckets from the first click, or a rolling 2, 5, or 10 second average; chosen on that section', control: 'none',
   },
   {
     field: 'gameDataBandPool', default: 'lifetime',

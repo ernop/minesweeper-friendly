@@ -1,15 +1,29 @@
 "use strict";
 
 importScripts('trend-fit.js?v=20260925-worker-analysis',
-  'game/trace-metrics.js?v=20261015-this-blue',
-  'game/evaluation.js?v=20261015-this-blue',
-  'game/session-stats.js?v=20261015-this-blue',
-  'game/metric-definitions.js?v=20261015-this-blue',
+  'game/trace-metrics.js?v=20261015-during-game-rows',
+  'game/evaluation.js?v=20261015-during-game-rows',
+  'game/session-stats.js?v=20261015-during-game-rows',
+  'game/metric-definitions.js?v=20261015-during-game-rows',
   'board-shape.js', 'zini.js', 'board-metrics.js?v=20260921-visible-zero-one',
-  'game-data.js?v=20261015-click-share', 'game/rankings.js?v=20261015-this-blue',
-  'game/charts.js?v=20261015-this-blue', 'game/game-data-chart.js?v=20261015-this-blue');
+  'game-data.js?v=20261015-click-share', 'game/rankings.js?v=20261015-during-game-rows',
+  'game/charts.js?v=20261015-during-game-rows', 'game/game-data-chart.js?v=20261015-during-game-rows',
+  'justice.js?v=20260926-fast-evidence', 'board-icons.js?v=20261015-flag-size',
+  'game/replay-model.js?v=20261015-during-game-rows',
+  'during-game.js?v=20261015-during-game-rows');
 
 let config;
+
+// The latest finished or restored game's trace and final board, and the
+// during-the-game model built from them on first request: the rows read the
+// game by its endedAt, so the after-game window clones the trace only once.
+let duringGameSource = null;
+let duringGameModel = null;
+
+function holdDuringGameSource(source) {
+  duringGameSource = source;
+  duringGameModel = null;
+}
 
 let liveTrace = null;
 let liveComputer = null;
@@ -39,6 +53,9 @@ function analyze(kind, data) {
     case 'scatter': return scatterPlotData(data.points, data.trimY);
     case 'trace': return analyzeTrace(data);
     case 'finished-game': {
+      holdDuringGameSource({ id: data.gameId, width: data.width, height: data.height, mines: data.mines,
+        t: data.trace.t, x: data.trace.x, y: data.trace.y, events: data.trace.events,
+        initialPageState: data.trace.initialPageState });
       const motion = analyzeTrace(data.trace);
       return { ...motion, measurements: finishedMeasurements(data, motion.metrics) };
     }
@@ -59,6 +76,8 @@ function analyze(kind, data) {
     }
     case 'restore-trace': {
       const { sampleT: t, sampleX: x, sampleY: y, events, metricSampleTimes } = data;
+      holdDuringGameSource({ id: data.endedAt, width: data.measurementPlan.width, height: data.measurementPlan.height,
+        mines: data.measurementPlan.mines, t, x, y, events, initialPageState: data.initialPageState });
       const computer = createTraceMetricComputer();
       const includedEvents = [], series = createMetricSeries();
       let samples = 0, eventIndex = 0;
@@ -71,6 +90,15 @@ function analyze(kind, data) {
       const metrics = computer(t, x, y, events, data.endedAt - data.startedAt);
       return { series, metrics, spatial: computeSpatialBias(events),
         measurements: finishedMeasurements(data.measurementPlan, metrics, events) };
+    }
+    case 'during-game': {
+      if (duringGameSource === null || duringGameSource.id !== data.gameId) {
+        throw new Error('game ' + data.gameId + ' is not the latest finished or restored game');
+      }
+      if (duringGameModel === null) {
+        duringGameModel = DuringGame.model({ ...duringGameSource, timeMs: data.timeMs, outcome: data.outcome });
+      }
+      return DuringGame.view(duringGameModel, data.rows, data.average);
     }
     case 'ranks': {
       config = data.config;

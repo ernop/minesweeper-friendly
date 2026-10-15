@@ -17,6 +17,7 @@ globalThis.GAME_RECORD_SCHEMA = [
 ];
 globalThis.BoardGenerators = require('../generators.js');
 vm.runInThisContext(fs.readFileSync(path.join(__dirname, '..', 'game-data.js'), 'utf8'));
+vm.runInThisContext(fs.readFileSync(path.join(__dirname, '..', 'during-game.js'), 'utf8'));
 vm.runInThisContext(fs.readFileSync(path.join(__dirname, '..', 'board-icons.js'), 'utf8'));
 vm.runInThisContext(fs.readFileSync(path.join(__dirname, '..', 'settings-core.js'), 'utf8'));
 globalThis.normalizeHistoryKey = (key) => key.includes('@') ? key : key + '@standard';

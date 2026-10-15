@@ -15,7 +15,8 @@ Runtime: `index.html` + `style.css` load `storage.js`; pure `rng.js` /
 `justice.js` / `board-shape.js` / `zini.js` / `board-metrics.js`;
 `board-metrics-ui.js` (historical backfill in `board-metrics-worker.js`); pure
 `endgame.js` / `solver.js` / `generators.js` / `pregen.js` / `odds.js` /
-`trial.js`; shared `game-data.js` / `board-icons.js` / `settings-core.js` / `preferences-game.js`;
+`trial.js`; shared `game-data.js` / `during-game.js` (pure, the during-the-game
+model and rows, also in `analysis-worker.js`) / `board-icons.js` / `settings-core.js` / `preferences-game.js`;
 `analysis-client.js` (named worker queues in `analysis-worker.js`, using
 `trend-fit.js` for exact slope selection; its switch-cost lane runs
 `switch-cost-worker.js`, which reads saved traces and runs the pure
@@ -24,10 +25,11 @@ Runtime: `index.html` + `style.css` load `storage.js`; pure `rng.js` /
 `play-limits.js` (daily play limits, after `settings-core.js`); then the game page's own scripts in `game/` (below). No dependencies, no
 build step. The settings page is
 `settings.html` + `settings-page.js`, loading the same `style.css`,
-`storage.js`, `generators.js`, `game-data.js`, `board-icons.js`,
+`storage.js`, `generators.js`, `game-data.js`, `during-game.js`, `board-icons.js`,
 `settings-core.js`, and `play-limits.js` (both pages must load storage.js,
-game-data.js, board-icons.js, settings-core.js, and play-limits.js before
-their own script; the schema's mine-style choices come from board-icons.js).
+game-data.js, during-game.js, board-icons.js, settings-core.js, and
+play-limits.js before their own script; the schema's mine-style choices come
+from board-icons.js, its during-the-game rows from during-game.js).
 The problems page is `problems.html` + `problems-page.js`, loading
 `style.css`, `problems.css`, `board-icons.js`, the pure `problems-core.js`,
 `problems-storage.js`, and the generated `problems-bank.json`; it keeps its own
@@ -99,6 +101,7 @@ Files, in load order:
 | `charts.js` | chart models and presentation (heavy models execute in the analysis worker); chart basics (SVG namespace, displayed numbers, sparkline sizes), axis ticks, trend lines, the (?) help tip, scatter and average-time charts |
 | `trial-review.js` | after-trial rank rows, identity review, run overlays |
 | `game-data-chart.js` | game data: pure ranking and label layout, then the 0–100% band and its views |
+| `during-game-chart.js` | during the game: the rows on one time axis, hover line and card, replay link, configure |
 | `result-ranks.js` | `renderRanks`: result tables and charts in section order |
 | `input-trace.js` | the raw input trace |
 | `replay-model.js` | path and choice replay, pure part |
@@ -179,6 +182,7 @@ the file path, plus the section heading when the file holds several.
 | Game-end evaluation, action evidence | [docs/product/game-end-evaluation.md](docs/product/game-end-evaluation.md) | [docs/implementation/game-end-evaluation.md](docs/implementation/game-end-evaluation.md) |
 | Result presentation and ordering | [docs/product/results.md](docs/product/results.md) | [docs/implementation/results.md](docs/implementation/results.md) |
 | Game data chart, shared session | [docs/product/game-data.md](docs/product/game-data.md) | [docs/implementation/game-data.md](docs/implementation/game-data.md) |
+| During the game (in-game rows over time, detected events: moves, forks, pauses) | [docs/product/during-game.md](docs/product/during-game.md) | [docs/implementation/during-game.md](docs/implementation/during-game.md) |
 | Rank lists, highlights, recent placements, streaks | [docs/product/rankings.md](docs/product/rankings.md) | [docs/implementation/rankings.md](docs/implementation/rankings.md) |
 | Average-time charts, scatter plots | [docs/product/charts.md](docs/product/charts.md) | [docs/implementation/charts.md](docs/implementation/charts.md) |
 | Path and choice replay | [docs/product/replay.md](docs/product/replay.md) | [docs/implementation/replay.md](docs/implementation/replay.md) |

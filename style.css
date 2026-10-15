@@ -2430,6 +2430,82 @@ body.settings-page .return-to-game {
   margin-right: 0;
 }
 
+/* During the game (docs/product/during-game.md): one row per measurement on
+   a shared time axis; name, plot, and the value at the right. */
+.result-chart-section-duringGame > .result-chart-section-items { display: block; }
+.during-game {
+  width: calc(100% - 24px);
+  margin: 0 auto;
+  text-align: left;
+  color: #000000;
+}
+.during-game-grid {
+  position: relative;
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr) 11ch;
+  align-items: center;
+  column-gap: 8px;
+  cursor: crosshair;
+}
+.during-game-grid.during-game-empty { display: block; cursor: auto; }
+.during-game-name {
+  font-size: 13px;
+  white-space: nowrap;
+  cursor: auto;
+}
+.during-game-plot { display: block; min-width: 0; }
+.during-game-plot > svg { display: block; }
+.during-game-value,
+.during-game-value-head {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.during-game-value { font-size: 15px; font-weight: 400; }
+.during-game-value-head { font-size: 13px; font-weight: 700; }
+.during-game-group-start { margin-top: 10px; }
+.during-game-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: #000000;
+  pointer-events: none;
+}
+.during-game-line[hidden] { display: none; }
+.during-game-baseline { stroke: #c9d3da; stroke-width: 1; }
+.during-game-scale { font-size: 10px; fill: #000000; }
+.during-game-axis-tick { stroke: #000000; stroke-width: 1; }
+.during-game-axis-label { font-size: 11px; fill: #000000; }
+.during-game-step { fill: none; stroke: #1565c0; stroke-width: 2; }
+.during-game-dot { fill: #8a8a8a; }
+.during-game-tick { fill: #8a8a8a; }
+.during-game-average { fill: none; stroke: #1565c0; stroke-width: 2.5; stroke-linecap: round; }
+.during-game-mark { fill: #000000; }
+.during-game-mark-death { fill: #d00000; }
+.during-game-span { fill: #b0bec5; }
+.during-game-card {
+  position: fixed;
+  z-index: 1000;
+  pointer-events: none;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  border: 1px solid #000000;
+  border-radius: 3px;
+  background: #ffffff;
+  color: #000000;
+  font-size: 12px;
+}
+.during-game-card[hidden] { display: none; }
+.during-game-card-head { white-space: nowrap; margin-bottom: 3px; }
+.during-game-card-time { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.during-game-card-fact { white-space: nowrap; }
+.during-game-card-board { display: block; margin-top: 5px; }
+.during-game-config table { border-collapse: collapse; }
+.during-game-config td { padding: 3px 8px 3px 0; border-bottom: 1px solid #d9e2e8; font-size: 13px; }
+.during-game-config h4 { margin: 10px 0 4px; font-size: 14px; }
+.result-chart-section-duringGame .result-chart-section-head button[aria-pressed="true"] { font-weight: 700; }
+
 .board-metric-status {
   flex-basis: 100%;
   display: flex;

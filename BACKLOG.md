@@ -8,6 +8,30 @@ leave new ideas only in chat.
 Status labels: **creator** = the creator asked for it; **mapped** = named
 on the design axis or in a research note, not requested as a build.
 
+## During the game follow-ons (creator request 2026-10-15; base built the same day)
+
+The section itself is built ([During the game](docs/product/during-game.md)).
+Not built yet:
+
+- **creator** — Forks inside one work area. The request's "two choices for
+  which way to go" also covers one frontier with work in two directions (an
+  opening with proven-safe squares on its left and right edges). Built forks
+  count only separate areas (squares more than 2 apart); splitting one
+  area by direction along its frontier would catch the rest.
+- **creator** — Learning from move habits across games ("individuals would
+  vary a lot in this way too! which could be useful to learn from"): per-game
+  counts of moved on, left work, forks, came back, and how often a fork went
+  to the nearest area, as game data measurements or session and lifetime
+  trends.
+- Calibrate the first-choice thresholds against the creator's saved games:
+  2 squares near, 3 squares a jump, 1 second a long gap, 1 second a quick
+  undo, 2 squares linking a work area. Check the event counts against what
+  the replays show.
+- Rows plotted against progress (3BV solved share) instead of seconds, so
+  games of different length line up.
+- A cadence-spread row (game data's cadence spread within the game).
+- The same rows live during play.
+
 ## One look per kind of thing: the rest of the page (follows the creator's 2026-10-14 direction)
 
 The top bar and the details column follow

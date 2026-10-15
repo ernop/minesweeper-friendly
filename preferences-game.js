@@ -186,6 +186,7 @@ async function restorePreferredResult() {
   const needZini = record.playMode !== 'endgame-drill' && record.zini === undefined;
   const boardState = { status: 'running' };
   if (needBoardMetrics || needZini) boardMetricJobs.set(record, boardState);
+  duringGameSourceId = record.endedAt;
   restoredAnalysisReady = analysisTask('reports', 'restore-trace', { ...stored,
     measurementPlan: { width: config.width, height: config.height, mines: cells.map((cell) => cell.mine),
       drill: record.playMode === 'endgame-drill', needBoardMetrics, needZini,

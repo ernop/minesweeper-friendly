@@ -128,11 +128,13 @@ function reportResult(outcome, endedAt = Date.now()) {
   replayEnabled = false;
   updateSettings({ resultView: 'game', replayPosition: { endedAt: record.endedAt, step: replayStep } });
   renderPathView();
+  duringGameSourceId = record.endedAt;
   analysisTask('reports', 'finished-game', {
     width: config.width, height: config.height, mines: mineAt, drill: endgameDrillActive(),
-    needZini: true, needBoardMetrics: true, needCadence: true,
+    needZini: true, needBoardMetrics: true, needCadence: true, gameId: record.endedAt,
     trace: { t: finishedTrace.t, x: finishedTrace.x, y: finishedTrace.y,
-      events: finishedTrace.events, wallMs: record.endedAt - finishedTrace.startedAt },
+      events: finishedTrace.events, wallMs: record.endedAt - finishedTrace.startedAt,
+      initialPageState: finishedTrace.initialPageState },
   }).then((result) => {
     Object.assign(record, result.measurements);
     if (Number.isFinite(result.metrics.cad.gapSpreadRatio)) {
@@ -581,6 +583,7 @@ const RESULT_PRESENTATION_PHASES = Object.freeze([
   { id: 'analysis', order: 30, contexts: ['postGame'] },
   { id: 'tables', order: 50 },
   { id: 'boardTables', order: 60 },
+  { id: 'duringGame', order: 65, contexts: ['postGame'] },
   { id: 'perfCharts', order: 70 },
   { id: 'boardCharts', order: 75 },
   { id: 'relationships', order: 80 },
@@ -590,6 +593,7 @@ const RESULT_PRESENTATION_PHASES = Object.freeze([
 const RESULT_CHART_SECTIONS = Object.freeze([
   { id: 'tables', phase: 'tables', label: 'Game tables', heading: false },
   { id: 'boardTables', phase: 'boardTables', label: 'This board' },
+  { id: 'duringGame', phase: 'duringGame', label: 'during the game', contexts: ['postGame'] },
   { id: 'perfCharts', phase: 'perfCharts', label: 'your perf', chartMode: 'perfChartMode' },
   { id: 'boardCharts', phase: 'boardCharts', label: 'board traits', chartMode: 'boardChartMode' },
   { id: 'relationships', phase: 'relationships', label: 'relationships' },
@@ -650,10 +654,14 @@ function createResultSectionCollector(context) {
           const heading = document.createElement('h3');
           heading.className = 'result-chart-section-title';
           heading.textContent = spec.label;
-          if (spec.chartMode) {
+          // A section's choices sit beside its title: the chart mode, and
+          // any controls its nodes offer for themselves.
+          const controls = [...(spec.chartMode ? [chartModeSelect(spec.chartMode)] : []),
+            ...children.flatMap((child) => child.headControls || [])];
+          if (controls.length > 0) {
             const head = document.createElement('div');
             head.className = 'result-chart-section-head';
-            head.append(heading, chartModeSelect(spec.chartMode));
+            head.append(heading, ...controls);
             section.appendChild(head);
           } else {
             section.appendChild(heading);
@@ -933,6 +941,10 @@ async function renderResultAsync(record, modeRecords, options = {}) {
       { ...options, historyView: true, boardRecord: record }, resultSections, isCurrent);
   }
   if (!isCurrent()) return;
+  if (settings.shownThings.duringGame && !historyView && !Trial.isPlayMode(settings.playMode)
+      && duringGameAvailable(record)) {
+    resultSections.append('duringGame', buildDuringGameSection(record, isCurrent));
+  }
   // The after-game motion charts, jammed inline after whatever other
   // bottom charts the outcome produced. Losses retain prior win history;
   // motion describes the just-finished game either way. Trial review has its own charts.

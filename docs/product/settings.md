@@ -151,7 +151,12 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   `gameDataBandPool` (default lifetime), `gameDataDistributions`
   (default off), and `gameDataDistributionPools` (default both; the last
   three chosen on the chart itself) — the game data
-  column (see [Game data](game-data.md)); `shownThings.sessionSummary`
+  column (see [Game data](game-data.md)); `shownThings.duringGame` (default
+  on; "during the game", first in the Charts group), `duringGameRows`
+  (which rows it shows, chosen with its configure), and `duringGameAverage`
+  (default 5 s buckets, chosen on the section; all added 2026-10-15) — the
+  during the game section (see [During the game](during-game.md));
+  `shownThings.sessionSummary`
   (default on) — the session summary table (see
   [Rank lists](rankings.md#session-summary-requested-and-built-2026-10-07));
   `shownThings.sessionEndings` (default on, added 2026-10-11 as "session

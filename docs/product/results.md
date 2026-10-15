@@ -29,13 +29,18 @@ append timing or from how many cards fit on a row:
    shape time tablecharts, in a separate named, left-aligned wrapping section.
    Empty sections are omitted. The period-wide ranks-won summary above still
    includes all qualifying board categories from its selected period.
-6. **Your perf** — property charts for the left-side measurements, with that
+6. **During the game** — the game just played (or the restored one) on its
+   own clock: progress, pace, board, and event rows on one time axis
+   (requested 2026-10-15; [During the game](during-game.md)). After a game
+   only, never in the score viewer. It plots individual points, so it
+   follows every table.
+7. **Your perf** — property charts for the left-side measurements, with that
    group's average / distribution / winrate control.
-7. **Board traits** — property charts for the right-side measurements, with
+8. **Board traits** — property charts for the right-side measurements, with
    that group's own control. Exact-value time tables stay in This board, above
    both chart groups.
-8. **Relationships** — raw-win scatterplots.
-9. **Diagnostics** — post-game motion systems.
+9. **Relationships** — raw-win scatterplots.
+10. **Diagnostics** — post-game motion systems.
 
 The compact percentile overview occupies the winning-game sidebar. All pagetables
 and row-based data displays still precede the historical scatterplots.
@@ -57,8 +62,8 @@ and later chart sections begin below all upper tables. DOM order is
 preserved, nothing sits above or left of the summary, and table flow cannot
 mix tables with point charts.
 
-The score viewer deliberately omits post-game action analysis and motion
-diagnostics. Its reference record is explicitly the latest win, named alongside
+The score viewer deliberately omits post-game action analysis, during the
+game, and motion diagnostics. Its reference record is explicitly the latest win, named alongside
 the completion date above game data; ordinary ranking rows and plots have no
 "this game" highlight. Ranking-table rolling windows use the time at which
 scores are viewed; game-data comparisons end at that latest win. A post-game

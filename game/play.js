@@ -387,6 +387,7 @@ function newGame() {
   setFace('smile');
   renderedResult = null;
   finalMotion = null;
+  duringGameSourceId = null;
   // The board rebuild above removed the path overlay's canvas node; the
   // controls hide with the finished game they belonged to.
   pathCanvas = null;

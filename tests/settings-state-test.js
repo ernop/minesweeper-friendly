@@ -11,7 +11,7 @@ const context = vm.createContext({
   structuredClone,
   persistUserdata: (kind, value) => saved.set(kind, structuredClone(value)),
 });
-for (const file of ['generators.js', 'game-data.js', 'board-icons.js', 'settings-core.js']) {
+for (const file of ['generators.js', 'game-data.js', 'during-game.js', 'board-icons.js', 'settings-core.js']) {
   vm.runInContext(fs.readFileSync(path.join(__dirname, '..', file), 'utf8'), context);
 }
 const run = (source) => vm.runInContext(source, context);

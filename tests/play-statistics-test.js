@@ -69,7 +69,7 @@ const hosted = loadStats('https://minesweeper-friendly.fuseki.net/');
 
 // The real deferral chain and record, run against stub collaborators.
 const game = vm.createContext({ console });
-for (const file of ['generators.js', 'game-data.js', 'board-icons.js', 'settings-core.js']) {
+for (const file of ['generators.js', 'game-data.js', 'during-game.js', 'board-icons.js', 'settings-core.js']) {
   vm.runInContext(read(file), game, { filename: file });
 }
 vm.runInContext("'use strict';\n"
@@ -97,6 +97,7 @@ Object.assign(game, {
   RNG_VERSION: 'rng-test',
   JUSTICE_VERSION: 'justice-test',
   boardMetricJobs: new Map(),
+  duringGameSourceId: null,
   observedTimeZone: () => ({ timeZone: 'America/Los_Angeles', utcOffsetMin: -420 }),
   computeBoardShape: () => ({ maxAdjacent: 5, hasSeven: false, zeroCount: 150, islandCount: 31, largestIsland: 9 }),
   activeStateNames: () => ['sleepy'],
