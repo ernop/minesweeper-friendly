@@ -137,11 +137,25 @@ Spec: [docs/product/board-and-layout.md](../product/board-and-layout.md). Index:
   Arial is installed on the creator's PC, so Firefox draws the stack in
   Liberation Sans Bold (canvas `measureText` widths, 2026-10-14), whose digits
   are 0.68 em tall: 0.94 of the square makes them about two thirds of it.
-- The mark (2026-10-15): `FLAG_COLOR` (`#ff00ff`) and `FLAG_SVG` in
-  `board-icons.js`; `.cell.hidden svg` draws it at 0.62 of `--cell-size`.
-  The replay's `mark-mine` encoding (`game/replay-model.js`) reads
-  `FLAG_COLOR`, so `board-icons.js` loads before the `game/` scripts and
-  `tests/path-replay-test.js` loads it first.
+- Flags (2026-10-15): `board-icons.js` holds `FLAG_COLOR` (`#ff00ff`, full
+  strength), `FLAG_STYLES` (id, label, describe, `body(color)` spanning the
+  whole 16-unit box), `CLASSIC_FLAG` (the settings defaults and what the
+  problems page and judgment tool draw), `flagColor(intensityPercent)`
+  (HSL at hue 300, saturation = strength, lightness 50% + (1 - strength) x
+  25%), `flagSvg(styleId, intensityPercent)` (cached, class `flag`, throws on
+  an unknown style), and `setFlagSize(sizePercent)`, which sets
+  `--flag-size` on the root. `.cell.hidden > svg.flag` sizes the flag to
+  `--cell-size x --flag-size` with `flex-shrink: 0`, so a flag wider than
+  the bevel's 0.75 overflows evenly instead of squeezing; the child
+  combinator leaves the replay's corner badge to its own rule.
+  `chosenFlagSvg()` in `settings-core.js` draws `settings.flagStyle` at
+  `settings.flagIntensity`; `updateCell` (`game/play.js`) and the replay
+  frames, badge, and legend (`game/replay-view.js`) use it, and `init`
+  (`game/main.js`) calls `setFlagSize(settings.flagSize)`. The replay's
+  `mark-mine` encoding (`game/replay-model.js`) and the during-the-game
+  chart read `FLAG_COLOR`, so `board-icons.js` loads before the `game/`
+  scripts and in the analysis worker, and `tests/path-replay-test.js`
+  loads it first.
 - Mine styles (2026-10-15): `MINE_STYLES` in `board-icons.js` lists the five
   styles (id, label, describe, SVG body on the 16-unit square, `fullSize`).
   `mineSvg(id)` and `wrongFlagSvg(id)` return the prebuilt SVGs (the wrong

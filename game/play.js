@@ -461,7 +461,7 @@ function setFace(name) {
   faceButton.innerHTML = FACE_SVGS[name];
 }
 
-// FLAG_SVG and the mine styles live in board-icons.js, shared with the
+// The flag and mine styles live in board-icons.js, shared with the
 // settings and problems pages.
 function updateCell(i) {
   const cell = cells[i];
@@ -471,7 +471,7 @@ function updateCell(i) {
     paintCellGlyph(el, cell.adjacent);
   } else {
     el.className = 'cell hidden';
-    el.innerHTML = cell.flagged ? FLAG_SVG : '';
+    el.innerHTML = cell.flagged ? chosenFlagSvg() : '';
   }
 }
 

@@ -139,6 +139,10 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   left panel's width, which the session charts fill;
   `numberDisplay` (default numbers; the first choice-row setting) —
   digits / letters / dots for revealed counts (see [Board and chrome](board-and-layout.md));
+  `flagStyle` (default classic), `flagSize` (default 45, percent of the
+  square's width, 20–100 by 5), and `flagIntensity` (default 100, color
+  strength, 10–100 by 10; all added 2026-10-15) — the flag's look, the two
+  numbers set with sliders (see [Board and chrome](board-and-layout.md));
   `mineStyle` (default classic; added 2026-10-15) — classic / bold / sea
   mine / bomb / star, each choice shown as board squares in the picker (see
   [Board and chrome](board-and-layout.md));

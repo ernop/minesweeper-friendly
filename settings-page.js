@@ -526,48 +526,113 @@ function previewCountCell(count, numberDisplay) {
   return cell;
 }
 
-// A lost board, five by three, row by row: M an unflagged mine, H the mine
-// that was hit, F a flagged mine, W a flag on a safe square, # a covered
-// safe square, and . an open square showing its count.
+// Demo boards, five by three, row by row: M an unflagged mine shown after a
+// loss, H the mine that was hit, F a flagged mine, W a flag on a safe square
+// shown after a loss, m a covered mine, # a covered safe square, and . an
+// open square showing its count.
+const FLAG_STYLE_DEMO_BOARD = ['.F..#', '...Fm', 'F...#'];
 const MINE_STYLE_DEMO_BOARD = ['.M.F.', '..H.W', '#..M.'];
 
 function demoBoardCount(rows, row, column) {
   let count = 0;
   for (let r = row - 1; r <= row + 1; r++) {
     for (let c = column - 1; c <= column + 1; c++) {
-      if ('MHF'.includes(rows[r]?.[c] ?? '.')) count++;
+      if ('MHFm'.includes(rows[r]?.[c] ?? '.')) count++;
     }
   }
   return count;
 }
 
-function mineStyleDemoCells(styleId) {
-  const rows = MINE_STYLE_DEMO_BOARD;
+function demoBoardCells(rows, mineStyle, flagStyle) {
+  const flag = flagSvg(flagStyle, settings.flagIntensity);
   return rows.flatMap((line, row) => [...line].map((mark, column) => {
-    if (mark === 'M') return previewCell('cell revealed', mineSvg(styleId));
-    if (mark === 'H') return previewCell('cell revealed mine-hit', mineSvg(styleId));
-    if (mark === 'F') return previewCell('cell hidden', FLAG_SVG);
-    if (mark === 'W') return previewCell('cell revealed', wrongFlagSvg(styleId));
-    if (mark === '#') return previewCell('cell hidden', '');
+    if (mark === 'M') return previewCell('cell revealed', mineSvg(mineStyle));
+    if (mark === 'H') return previewCell('cell revealed mine-hit', mineSvg(mineStyle));
+    if (mark === 'F') return previewCell('cell hidden', flag);
+    if (mark === 'W') return previewCell('cell revealed', wrongFlagSvg(mineStyle));
+    if (mark === 'm' || mark === '#') return previewCell('cell hidden', '');
     return previewCountCell(demoBoardCount(rows, row, column), settings.numberDisplay);
   }));
 }
 
 // Choices that are pictures show each value on board squares beside its
-// name: every count it draws, or a lost board in that mine style (with the
-// chosen number display, so it looks like the player's own board).
+// name: every count it draws, a board in play with that flag style, or a
+// lost board in that mine style. Each board otherwise uses the player's
+// other choices, so it looks like their own board.
 const CHOICE_PREVIEWS = {
   numberDisplay: {
     columns: 8,
     cells: (numberDisplay) => [1, 2, 3, 4, 5, 6, 7, 8].map((count) => previewCountCell(count, numberDisplay)),
   },
-  mineStyle: { columns: MINE_STYLE_DEMO_BOARD[0].length, cells: mineStyleDemoCells },
+  flagStyle: {
+    columns: FLAG_STYLE_DEMO_BOARD[0].length,
+    cells: (flagStyle) => demoBoardCells(FLAG_STYLE_DEMO_BOARD, settings.mineStyle, flagStyle),
+  },
+  mineStyle: {
+    columns: MINE_STYLE_DEMO_BOARD[0].length,
+    cells: (mineStyle) => demoBoardCells(MINE_STYLE_DEMO_BOARD, mineStyle, settings.flagStyle),
+  },
 };
 
-function renderChoicePreviews() {
+// Redraws everything on this page that shows how the board will look.
+function renderBoardLook() {
+  setFlagSize(settings.flagSize);
   for (const preview of document.querySelectorAll('.setting-choice-preview')) {
     preview.replaceChildren(...CHOICE_PREVIEWS[preview.dataset.field].cells(preview.dataset.value));
   }
+}
+
+// A slider row: the current value large beside the name, then the slider
+// with a notch at every step and a number at every labelStep, both ends
+// included. Dragging redraws the board demos at once; letting go saves.
+function buildSliderRow(s) {
+  const { min, max, step, labelStep, unit } = s.scale;
+  const row = document.createElement('div');
+  row.className = 'setting-row setting-choice-row setting-slider-row';
+  row.dataset.setting = s.field;
+  const name = document.createElement('label');
+  name.className = 'setting-name';
+  name.htmlFor = 'setting-slider-' + s.field;
+  name.title = s.describe;
+  const value = document.createElement('span');
+  value.className = 'setting-slider-value';
+  name.append(s.label, ' ', value);
+  const control = document.createElement('div');
+  control.className = 'setting-slider';
+  const input = document.createElement('input');
+  input.type = 'range';
+  input.id = 'setting-slider-' + s.field;
+  input.min = String(min);
+  input.max = String(max);
+  input.step = String(step);
+  input.value = String(settings[s.field]);
+  const scale = document.createElement('div');
+  scale.className = 'setting-slider-scale';
+  scale.setAttribute('aria-hidden', 'true');
+  for (let v = min; v <= max; v += step) {
+    const at = String((v - min) / (max - min));
+    const notch = document.createElement('span');
+    notch.className = (v - min) % labelStep === 0 ? 'setting-slider-notch major' : 'setting-slider-notch';
+    notch.style.setProperty('--at', at);
+    scale.appendChild(notch);
+    if ((v - min) % labelStep !== 0) continue;
+    const number = document.createElement('span');
+    number.className = 'setting-slider-number';
+    number.style.setProperty('--at', at);
+    number.textContent = String(v);
+    scale.appendChild(number);
+  }
+  const show = () => { value.textContent = settings[s.field] + unit; };
+  input.addEventListener('input', () => {
+    settings[s.field] = Number(input.value);
+    show();
+    renderBoardLook();
+  });
+  input.addEventListener('change', saveSettings);
+  show();
+  control.append(input, scale);
+  row.append(name, control);
+  return row;
 }
 
 // Choice settings use the same two-column row, with the complete radio
@@ -597,7 +662,7 @@ function buildChoiceRow(s) {
       if (!radio.checked) return;
       settings[s.field] = value;
       saveSettings();
-      renderChoicePreviews();
+      renderBoardLook();
     });
     item.append(radio);
     if (Object.hasOwn(CHOICE_PREVIEWS, s.field)) {
@@ -680,12 +745,16 @@ function buildSettingsColumn() {
         body.appendChild(buildChoiceRow(s));
         continue;
       }
+      if (s.control === 'slider') {
+        body.appendChild(buildSliderRow(s));
+        continue;
+      }
       body.appendChild(buildSettingRow(s));
     }
     section.appendChild(body);
     column.insertBefore(section, transfer);
   }
-  renderChoicePreviews();
+  renderBoardLook();
 }
 
 function initPreferencesTransfer() {

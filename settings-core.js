@@ -246,6 +246,14 @@ const NUMBER_DISPLAY_CHOICES = [
 // The drawings live in board-icons.js, which every page with this schema
 // loads first.
 const MINE_STYLE_CHOICES = MINE_STYLES.map((style) => [style.id, style.label, style.describe]);
+const FLAG_STYLE_CHOICES = FLAG_STYLES.map((style) => [style.id, style.label, style.describe]);
+
+// Slider settings: whole numbers from min to max in steps, with a numbered
+// notch every labelStep.
+const FLAG_SIZE_SCALE = { min: 20, max: 100, step: 5, labelStep: 10, unit: '%' };
+const FLAG_INTENSITY_SCALE = { min: 10, max: 100, step: 10, labelStep: 10, unit: '' };
+const onScale = (scale) => (v) => Number.isInteger(v) && v >= scale.min && v <= scale.max
+  && (v - scale.min) % scale.step === 0;
 
 const CELL_SIZE_CHOICES = [16, 20, 24, 28, 32, 36, 40, 48, 56, 64, 80, 96];
 
@@ -664,6 +672,36 @@ const SETTINGS_SCHEMA = [
     choices: NUMBER_DISPLAY_CHOICES,
   },
   {
+    field: 'flagStyle',
+    default: CLASSIC_FLAG.style,
+    valid: (v) => FLAG_STYLE_CHOICES.some(([id]) => id === v),
+    group: 'gameplay',
+    label: 'flag style',
+    describe: 'how a flag on a covered square is drawn; each choice is shown on a board in play',
+    control: 'choice',
+    choices: FLAG_STYLE_CHOICES,
+  },
+  {
+    field: 'flagSize',
+    default: CLASSIC_FLAG.sizePercent,
+    valid: onScale(FLAG_SIZE_SCALE),
+    group: 'gameplay',
+    label: 'flag size',
+    describe: 'how much of the square a flag covers, as a percent of the square\u2019s width',
+    control: 'slider',
+    scale: FLAG_SIZE_SCALE,
+  },
+  {
+    field: 'flagIntensity',
+    default: CLASSIC_FLAG.intensityPercent,
+    valid: onScale(FLAG_INTENSITY_SCALE),
+    group: 'gameplay',
+    label: 'flag color strength',
+    describe: 'how vivid the flag\u2019s magenta is: 100 is full-strength magenta, and lower values are paler, closer to the gray of a covered square',
+    control: 'slider',
+    scale: FLAG_INTENSITY_SCALE,
+  },
+  {
     field: 'mineStyle',
     default: 'classic',
     valid: (v) => MINE_STYLE_CHOICES.some(([id]) => id === v),
@@ -769,6 +807,11 @@ function importPreferences(text) {
 // renders a setting's value.
 function paintCellGlyph(el, adjacent) {
   paintCountGlyph(el, adjacent, settings.numberDisplay);
+}
+
+// The flag as the player chose it; its size comes from setFlagSize.
+function chosenFlagSvg() {
+  return flagSvg(settings.flagStyle, settings.flagIntensity);
 }
 
 function paintCountGlyph(el, adjacent, numberDisplay) {

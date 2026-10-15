@@ -84,6 +84,7 @@ async function init() {
     document.getElementById('custom-' + field).value = settings.customBoardDraft[field];
   }
   syncDifficultyTabs();
+  setFlagSize(settings.flagSize);
   initCellSizeControl();
   initSessionScopeSelect();
   buildPlayModeSwitcher();

@@ -21,14 +21,36 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   included.
 - The mark (the flag; creator request 2026-10-15: "the MARK to be very
   very visually distinct and not overlapping in color with any other
-  item"): the classic flag's shape and size with a solid magenta pennant
-  and no outline. A larger, black-outlined version was rejected minutes
-  later ("too big ... same size as prior but with stronger colors and no
-  black border"). Magenta is
-  reserved for the mark: no count color, the red hit square, the red
-  wrong-flag cross, the bomb style's fuse, or any replay overlay uses it.
-  The classic red pennant shared its red with the 3s, the hit square, and
-  the wrong-flag cross. The replay's mark-mine badge is the same flag.
+  item"). Its hue is magenta, reserved for the flag: no count color, the
+  red hit square, the red wrong-flag cross, the bomb style's fuse, or any
+  replay overlay uses it. The classic red pennant shared its red with the
+  3s, the hit square, and the wrong-flag cross. A larger, black-outlined
+  magenta flag was rejected minutes later ("too big ... same size as prior
+  but with stronger colors and no black border").
+- Flag controls (creator request 2026-10-15, "redo this more carefully":
+  "control of the overall SIZE of the indicator on a gradient, as in, how
+  much of the square it takes up", "control of the INTENSITY ... the
+  brightness and strength of the color used", "another chooser for the
+  overall STYLE of the indicator"; "the MINE marker is very important. The
+  'exploded mine' marker is whatever", so the hit square has no controls).
+  Three gameplay settings, all on the settings page:
+  - flag style: classic (a magenta pennant on the black pole and base),
+    pennant (a large pennant and pole, all magenta, no black), diamond,
+    square, and ring, each solid magenta. Every choice shows a five-by-three
+    board in play with three flags, drawn at the chosen size and strength.
+  - flag size: a slider from 20% to 100% of the square's width in steps of
+    5, numbered every 10. Default 45%, the classic flag's original size.
+    Above 75% the flag reaches over the covered square's bevel.
+  - flag color strength: a slider from 10 to 100 in steps of 10. 100 is
+    full-strength magenta (`#ff00ff`, the default); lower values lose
+    saturation and lighten toward the gray of a covered square.
+  Both sliders show a notch at every step, a number at every 10 including
+  both ends, and the current value large beside the name. Dragging redraws
+  every board demo on the page at once (the mine-style boards show the
+  chosen flag too); releasing saves. The replay's mark-mine badge and its
+  legend swatch are the chosen flag. The problems page and the judgment
+  tool draw the classic flag at the default size and strength: they do not
+  read the game's settings.
 - Mine style (creator request 2026-10-15: "5 variant visual styles for
   mines, which i'll be able to choose from visually in my config", at least
   two "more visually distinct and clear", as the enlarged numbers are): a

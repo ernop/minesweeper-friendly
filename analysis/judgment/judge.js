@@ -18,6 +18,8 @@ const EXPORT_FORMAT_VERSION = 1;
 // Rings mark the safest or most informative squares only when they are few;
 // otherwise the percentages already show them.
 const RING_LIMIT = 12;
+
+setFlagSize(CLASSIC_FLAG.sizePercent);
 const CELL_MIN_PX = 14;
 const CELL_MAX_PX = 32;
 // Cards wrap to a new row before their boards' squares drop below this, so
@@ -227,7 +229,8 @@ function boardElement(moment, revealed) {
     } else {
       classes.push('hidden');
       if (flagged.has(cell)) {
-        square.innerHTML = revealed && contradicted.has(cell) ? wrongFlagSvg('classic') : FLAG_SVG;
+        square.innerHTML = revealed && contradicted.has(cell) ? wrongFlagSvg('classic')
+          : flagSvg(CLASSIC_FLAG.style, CLASSIC_FLAG.intensityPercent);
       } else if (revealed && pMine.has(cell)) {
         const text = element('span', 'judge-p' + (lowestText.has(cell) ? ' judge-p-lowest' : ''),
           cellPercent(pMine.get(cell)));

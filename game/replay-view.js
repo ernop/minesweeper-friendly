@@ -390,12 +390,12 @@ function paintReplayFrame(model) {
       paintCellGlyph(element, cell.adjacent);
       continue;
     }
-    element.innerHTML = cell.flagged ? FLAG_SVG
+    element.innerHTML = cell.flagged ? chosenFlagSvg()
       : cell.marks.has('mine') ? mineSvg(settings.mineStyle) : '';
     if (cell.marks.has('mark-mine')) {
       const hint = document.createElement('span');
       hint.className = 'replay-flag-hint';
-      hint.innerHTML = FLAG_SVG;
+      hint.innerHTML = chosenFlagSvg();
       element.appendChild(hint);
     }
     if (cell.badge !== null) {
@@ -546,7 +546,7 @@ function pathLegendSwatch(key) {
   const swatch = document.createElement('span');
   swatch.className = 'path-legend-swatch form-' + form;
   swatch.style.setProperty('--swatch-color', key.color);
-  if (form === 'flag') swatch.innerHTML = FLAG_SVG;
+  if (form === 'flag') swatch.innerHTML = chosenFlagSvg();
   else if (form === 'badge') swatch.textContent = '17';
   else if (form === 'crosshair') swatch.textContent = '\u2316';
   else if (form === 'leader') swatch.textContent = '\u2192';

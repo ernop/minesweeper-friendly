@@ -128,6 +128,37 @@ for (const id of mineStyleIds) {
   assert(run('wrongFlagSvg(id)').includes('stroke="#ff0000"'));
 }
 assert.equal(run('settingsFrom({ mineStyle: "skull" }).mineStyle'), 'classic');
+
+// Flags: five styles, a size slider and a color-strength slider; the
+// defaults are the classic flag, which the problems page also draws.
+const flagStyleIds = plain(run('FLAG_STYLES.map((style) => style.id)'));
+assert.equal(flagStyleIds.length, 5);
+assert.equal(new Set(flagStyleIds).size, 5);
+assert.deepEqual(plain(run('FLAG_STYLE_CHOICES.map(([id]) => id)')), flagStyleIds);
+assert.deepEqual([defaults.flagStyle, defaults.flagSize, defaults.flagIntensity],
+  plain(run('[CLASSIC_FLAG.style, CLASSIC_FLAG.sizePercent, CLASSIC_FLAG.intensityPercent]')));
+for (const [field, good, bad] of [['flagSize', [20, 45, 100], [15, 47, 105, 45.5, '45']],
+  ['flagIntensity', [10, 50, 100], [0, 55, 110, '100']]]) {
+  context.field = field;
+  for (const value of good) {
+    context.value = value;
+    assert.equal(run('settingsFrom({ [field]: value })[field]'), value, field + ' keeps ' + value);
+  }
+  for (const value of bad) {
+    context.value = value;
+    assert.equal(run('settingsFrom({ [field]: value })[field]'), defaults[field], field + ' rejects ' + value);
+  }
+}
+assert.equal(run('flagColor(100)'), run('FLAG_COLOR'), 'full strength is the reserved magenta');
+assert.notEqual(run('flagColor(50)'), run('FLAG_COLOR'));
+for (const id of flagStyleIds) {
+  context.id = id;
+  const svg = run('flagSvg(id, 100)');
+  assert.match(svg, /^<svg viewBox="0 0 16 16" class="flag">.*<\/svg>$/);
+  assert(svg.includes('#ff00ff'), id + ' draws in the flag color');
+  assert(run('flagSvg(id, 30)').includes(run('flagColor(30)')), id + ' follows the color strength');
+}
+assert.throws(() => run('flagSvg("banner", 100)'), /unknown flag style: banner/);
 assert.throws(() => run('mineSvg("skull")'), /unknown mine style: skull/);
 
 console.log('settings-state: shared validation, defaults, migration, isolation, and backup round trips passed');

@@ -20,6 +20,9 @@ const OUTCOME_TEXT = {
   interrupted: 'Interrupted (tab or window changed)',
 };
 
+// This page never reads the game's settings, so its flag is the classic one.
+setFlagSize(CLASSIC_FLAG.sizePercent);
+
 let problemDb = null;
 let bank = null;
 let attempts = [];
@@ -448,7 +451,8 @@ function paintSquare(i, showContext) {
     return;
   }
   element.className = 'cell hidden';
-  element.innerHTML = showContext && board.flagged[i] ? FLAG_SVG : '';
+  element.innerHTML = showContext && board.flagged[i]
+    ? flagSvg(CLASSIC_FLAG.style, CLASSIC_FLAG.intensityPercent) : '';
 }
 
 function paintBoard(showContext) {

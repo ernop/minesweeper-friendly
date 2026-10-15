@@ -5,11 +5,78 @@
 // The board's flag and mine glyphs, shared by every page that draws a board
 // (the game, the settings page's mine-style picker, and the problems page).
 
-// The mark's color is the one strong hue nothing else on a board uses: not
+// The flag's hue is the one strong hue nothing else on a board uses: not
 // a count color, the red hit square and wrong-flag cross, the bomb's fuse,
-// or any replay overlay, so a mark never reads as anything else.
+// or any replay overlay, so a flag never reads as anything else.
+// FLAG_COLOR is that hue at full strength (color strength 100).
 const FLAG_COLOR = '#ff00ff';
-const FLAG_SVG = '<svg viewBox="0 0 16 16"><path d="M9 3 L9 8.5 L3.5 5.75 Z" fill="' + FLAG_COLOR + '"/><rect x="8.4" y="3" width="1.2" height="9" fill="#000"/><rect x="5" y="11.5" width="8" height="1.5" fill="#000"/><rect x="3.5" y="13" width="11" height="2" fill="#000"/></svg>';
+const FLAG_HUE_DEGREES = 300;
+
+// The flag styles the player chooses from (settings.flagStyle), in picker
+// order. Every body spans the whole 16-unit box, so the flag size setting
+// is exactly the share of the square's width the flag covers.
+const FLAG_STYLES = [
+  {
+    id: 'classic', label: 'classic', describe: 'the classic Windows flag: a pennant on a black pole and base',
+    body: (color) => '<g transform="translate(0.667 0) scale(1.3333) translate(-3.5 -3)"><path d="M9 3 L9 8.5 L3.5 5.75 Z" fill="' + color + '"/><rect x="8.4" y="3" width="1.2" height="9" fill="#000"/><rect x="5" y="11.5" width="8" height="1.5" fill="#000"/><rect x="3.5" y="13" width="11" height="2" fill="#000"/></g>',
+  },
+  {
+    id: 'pennant', label: 'pennant', describe: 'a large pennant on its pole, all in the flag color, no black',
+    body: (color) => '<path d="M12.6 0.5 L12.6 10.5 L0.5 5.5 Z" fill="' + color + '"/><rect x="12.4" y="0" width="2.2" height="16" fill="' + color + '"/>',
+  },
+  {
+    id: 'diamond', label: 'diamond', describe: 'a solid diamond in the flag color',
+    body: (color) => '<path d="M8 0 L16 8 L8 16 L0 8 Z" fill="' + color + '"/>',
+  },
+  {
+    id: 'square', label: 'square', describe: 'a solid rounded square in the flag color',
+    body: (color) => '<rect x="0.5" y="0.5" width="15" height="15" rx="2.5" fill="' + color + '"/>',
+  },
+  {
+    id: 'ring', label: 'ring', describe: 'a thick ring in the flag color',
+    body: (color) => '<circle cx="8" cy="8" r="6.2" fill="none" stroke="' + color + '" stroke-width="3.6"/>',
+  },
+];
+
+// What the problems page and the judgment tool draw: they never read the
+// game's settings. Also the settings defaults: the classic flag at about
+// its original size (the old 0.62-wide box held a 12-unit-tall flag).
+const CLASSIC_FLAG = { style: 'classic', sizePercent: 45, intensityPercent: 100 };
+
+function hslHex(hueDegrees, saturation, lightness) {
+  const chroma = (1 - Math.abs(2 * lightness - 1)) * saturation;
+  const channel = (n) => {
+    const k = (n + hueDegrees / 30) % 12;
+    const value = lightness - chroma / 2 * Math.max(-1, Math.min(k - 3, 9 - k, 1));
+    return Math.round(value * 255).toString(16).padStart(2, '0');
+  };
+  return '#' + channel(0) + channel(8) + channel(4);
+}
+
+// Color strength 100 is FLAG_COLOR; lower strengths lose saturation and
+// lighten toward the gray of a covered square at the same rate.
+function flagColor(intensityPercent) {
+  const strength = intensityPercent / 100;
+  return hslHex(FLAG_HUE_DEGREES, strength, 0.5 + (1 - strength) * 0.25);
+}
+
+const FLAG_SVGS = new Map();
+
+function flagSvg(styleId, intensityPercent) {
+  const key = styleId + ' ' + intensityPercent;
+  if (!FLAG_SVGS.has(key)) {
+    const style = FLAG_STYLES.find((s) => s.id === styleId);
+    if (style === undefined) throw new Error('unknown flag style: ' + styleId);
+    FLAG_SVGS.set(key, '<svg viewBox="0 0 16 16" class="flag">' + style.body(flagColor(intensityPercent)) + '</svg>');
+  }
+  return FLAG_SVGS.get(key);
+}
+
+// A flag on a covered square spans this share of the square's width
+// (style.css reads --flag-size).
+function setFlagSize(sizePercent) {
+  document.documentElement.style.setProperty('--flag-size', String(sizePercent / 100));
+}
 
 // The mine styles the player chooses from (settings.mineStyle), in picker
 // order. Every style draws in black with white highlights on the 16-unit

@@ -1222,9 +1222,17 @@ body.trial-offboard #game-frame {
 }
 
 .cell.hidden svg {
-  /* flag icon sits inside the bevel */
+  /* a replay's proven-mine glyph sits inside the bevel */
   width: calc(var(--cell-size) * 0.62);
   height: calc(var(--cell-size) * 0.62);
+}
+
+/* The flag's size is the player's share of the square (set by setFlagSize);
+   above 0.75 it reaches over the bevel, so it must not shrink to fit. */
+.cell.hidden > svg.flag {
+  width: calc(var(--cell-size) * var(--flag-size));
+  height: calc(var(--cell-size) * var(--flag-size));
+  flex-shrink: 0;
 }
 
 /* The large mine styles fill the open square like the large digits. */
@@ -2209,6 +2217,59 @@ body.settings-page .return-to-game {
   display: inline-grid;
   border-right: 1px solid var(--bevel-dark);
   border-bottom: 1px solid var(--bevel-dark);
+}
+
+/* The value is the row's most legible element; the slider's notches and
+   numbers sit under its track, inset by half the thumb so each lines up
+   with the thumb's center at that value. */
+.setting-slider-value {
+  margin-left: 6px;
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The side padding leaves room for the end numbers, centered on the ends. */
+.setting-slider {
+  --thumb-half: 8px;
+  min-width: 0;
+  padding: 0 14px;
+}
+
+.setting-slider input[type="range"] {
+  display: block;
+  width: 100%;
+  margin: 0;
+}
+
+.setting-slider-scale {
+  position: relative;
+  height: 26px;
+  margin: 0 var(--thumb-half);
+}
+
+.setting-slider-notch {
+  position: absolute;
+  top: 0;
+  left: calc(var(--at) * 100%);
+  width: 1px;
+  height: 5px;
+  background: #000000;
+}
+
+.setting-slider-notch.major {
+  width: 2px;
+  height: 9px;
+  margin-left: -0.5px;
+}
+
+.setting-slider-number {
+  position: absolute;
+  top: 10px;
+  left: calc(var(--at) * 100%);
+  transform: translateX(-50%);
+  color: #000000;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
 }
 
 .setting-choice:has(input:checked) {
