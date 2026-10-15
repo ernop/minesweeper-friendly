@@ -415,7 +415,9 @@ type that makes the opening its own level and splits its guess deaths by risk
 like any other, replacing the 2026-08-24 rule above that files every
 forced-guess death in the opening as "early-game guess" whatever its risk.
 On the creator's history, 222 of 233 such Beginner deaths chose a square
-riskier than the safest one. Proposed design and the history check:
+riskier than the safest one. The session summary's results tree already
+splits them ("Session result kinds" below); the report and the endings chart
+still use the 2026-08-24 rule. Proposed design and the history check:
 [BACKLOG](../../BACKLOG.md), "Game results as one tree per board type".
 
 ## Win types (requested 2026-10-14)
@@ -455,9 +457,60 @@ safe risked nothing. Worst first, the first that applies:
 
 The saved action evaluations keep every survived guess that was riskier than
 necessary, and the ledger counts all guesses, so the type is derived at read
-time for every saved win. The session summary lists win types in this order,
-cleanest first ([Session summary](rankings.md), "Session results"). The
-endings chart keeps one "win" line. The proposed results tree
+time for every saved win. The session summary files wins by these types
+under its "won" branch ([Session summary](rankings.md), "Session results").
+The endings chart keeps one "win" line. The proposed results tree
 ([BACKLOG](../../BACKLOG.md), "Game results as one tree per board type")
 would refine the guess past a safe square by proof tier, as the loss types
 do.
+
+## Session result kinds (requested 2026-10-14)
+
+The creator, of the session summary's flat list of win types and loss
+types: "this display should be changed. 1. the division should be
+multilevel. 1st split: wins/losses. 2. then within each cat, break them down
+by the variety and type of worst offenses against perfect play." The session
+summary's results tree ([Session summary](rankings.md), "Session results")
+files every game under one **session result kind**, named by the game's
+worst offense against perfect play. The offenses, least to worst:
+
+1. none: no guess, or forced guesses only, each at the lowest risk;
+2. a riskier guess than necessary;
+3. a guess while a safe move was available;
+4. opening a mine: through a wrong flag, or a proven mine.
+
+A win's kind is its win type (above), which already names the worst guess it
+survived. A loss's kind is its loss type, with two refinements:
+
+- **An early-game guess death splits by risk rank**, as every other guess
+  does: `guess-early-min` (the lowest risk available, no offense),
+  `guess-early-higher` (a riskier square than necessary), or
+  `guess-early-unmeasured`. The 2026-08-24 rule files every forced-guess
+  death in the opening as one routine "early-game guess" whatever its risk;
+  sorted by offense, that one kind hid the most common avoidable death. On
+  the creator's 2026-10-11 export, 222 of 233 Beginner, 589 of 618
+  Intermediate, and 896 of 978 Expert opening guess deaths chose a riskier
+  square than the safest one. The report and the endings chart keep the one
+  early-game guess status; only the session results split it.
+- **A survived guess worse than the fatal click files the loss under that
+  guess**: `survived-guess-safe` when the game survived a guess past a
+  proven-safe square and then died on a riskier forced guess or less;
+  `survived-guess-higher` when it survived a riskier guess than necessary
+  and then died on a lowest-risk or unmeasured forced guess. The fatal
+  click is ranked by the list above: a lowest-risk forced guess 1, a
+  riskier one 2, a guess past a safe square or a Proof-or-die rule death
+  past a proven-safe move 3, a wrong flag or a proven mine 4; a forced guess
+  of unmeasured risk counts as 1, since if it was riskier, the survived
+  riskier guess was just as bad. An equally bad fatal click keeps its own
+  kind, since it is itself an instance of the worst offense. The survived
+  guesses are the same ones win types use (the same stored tags, so a guess
+  A Just Universe made safe is no offense). On the 2026-10-11 export this
+  moves 1 Beginner, 35 Intermediate, and 103 Expert losses.
+- Proof-or-die's rule death with no proven-safe move, legacy verdicts, and
+  unjudged losses are not ranked, so they keep their kinds.
+
+Time-loss actions (no-op clicks, flags on proven-safe squares, unused
+correct flags) are not on this ladder: the families name risk taken, so a
+win with only time loss is still "no avoidable risk". Survived guesses past a
+safe square carry no stored proof tier, so their leaf is not split by proof
+(the backlog's "Loss-type follow-ons").

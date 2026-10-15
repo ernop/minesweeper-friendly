@@ -816,4 +816,49 @@ assertEq('the captured wrong-flag tag is the other reason',
     'win-no-guess,win-guess-min,win-guess-early,win-guess-higher,win-guess-safe,win-unmeasured');
 }
 
+// Session result kinds: a game files under its worst offense. An opening
+// guess death splits by risk rank; a loss that survived a worse guess than
+// its fatal click files under that guess; an equal or worse fatal click
+// keeps its own kind.
+{
+  const survived = (mistakes, boardProgress) => ({
+    version: ACTION_EVALUATION_VERSION, action: 'reveal', actionNumber: 5, atMs: 3000,
+    result: 'continued', selected: [4], mistakes, alternatives: [], evidence: { boardProgress },
+  });
+  const loss = (...actionEvaluations) => ({ outcome: 'loss', actionEvaluations });
+  const forcedDeath = (risk, bestRisk, boardProgress) => ({
+    version: ACTION_EVALUATION_VERSION, action: 'reveal', result: 'death',
+    mistakes: risk > bestRisk ? ['chose-higher-risk'] : [],
+    evidence: { chosenRisk: risk, bestRisk, actualRisk: risk, bestActualRisk: bestRisk, boardProgress },
+  });
+  const earlyMin = forcedDeath(0.15, 0.15, 4 / 216);
+  const midMin = forcedDeath(0.15, 0.15, 0.5);
+  const earlyUnmeasured = { version: ACTION_EVALUATION_VERSION, action: 'reveal', result: 'death',
+    mistakes: [], evidence: { boardProgress: 4 / 216 } };
+  assertEq('a riskier opening guess death files with the riskier guesses',
+    sessionResultKind(loss(earlyDeath)), 'guess-early-higher');
+  assertEq('a lowest-risk opening guess death took no avoidable risk',
+    sessionResultKind(loss(earlyMin)), 'guess-early-min');
+  assertEq('an opening guess death without measured risk',
+    sessionResultKind(loss(earlyUnmeasured)), 'guess-early-unmeasured');
+  assertEq('a lowest-risk death after the opening keeps its loss type', sessionResultKind(loss(midMin)), 'guess-min');
+  assertEq('a survived guess past a safe square outranks a lowest-risk death',
+    sessionResultKind(loss(survived(['guessed-with-safe-move'], 0.4), midMin)), 'survived-guess-safe');
+  assertEq('a survived riskier opening guess outranks a lowest-risk death',
+    sessionResultKind(loss(survived(['chose-higher-risk'], 0.05), earlyMin)), 'survived-guess-higher');
+  assertEq('a survived riskier guess outranks a death of unmeasured risk',
+    sessionResultKind(loss(survived(['chose-higher-risk'], 0.5), earlyUnmeasured)), 'survived-guess-higher');
+  assertEq('an equally bad fatal click keeps its own kind',
+    sessionResultKind(loss(survived(['chose-higher-risk'], 0.5), earlyDeath)), 'guess-early-higher');
+  assertEq('a fatal guess past a safe square keeps its proof tier',
+    sessionResultKind(loss(survived(['guessed-with-safe-move'], 0.4), needless)), 'guess-safe-overlap');
+  assertEq('a proven mine is the worst offense whatever was survived',
+    sessionResultKind(loss(survived(['guessed-with-safe-move'], 0.4), countingMine)), 'mine-counting');
+  assertEq('time-loss tags are no offense against the risk ladder',
+    sessionResultKind(loss(survived(['no-op-click'], 0.4), midMin)), 'guess-min');
+  assertEq('a loss without evidence stays unjudged', sessionResultKind(loss()), 'other');
+  assertEq('a win is its win type', sessionResultKind({ outcome: 'win', playMode: 'standard', guesses: 2,
+    actionEvaluations: [survived(['chose-higher-risk'], 0.05)] }), 'win-guess-early');
+}
+
 console.log(`game-end-evaluation: all ${checks} checks passed`);

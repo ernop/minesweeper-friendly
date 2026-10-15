@@ -226,12 +226,12 @@ assertEq('middle placement wording is shared by the recent summary',
   assertEq('the latest session game names the type', pink.latest.endedAt, 58);
   assertEq('a loss without saved evidence is unjudged, as the endings chart files it; '
     + 'a win without a guess ledger is unmeasured',
-    JSON.stringify(beginner.endings), '{"win-unmeasured":2,"other":1}');
+    JSON.stringify(beginner.results), '{"win-unmeasured":2,"other":1}');
   assertEq('no misclicks without evidence', JSON.stringify(beginner.likelyMisclicks), '{}');
 }
 
-// Session summary results: each win files under its win type, each loss
-// under the endings chart's loss type, and likely misclicks count separately.
+// Session summary results: each game files under its session result kind,
+// and likely misclicks count separately.
 {
   const fatal = (actionNumber, atMs, extra) => ({
     version: ACTION_EVALUATION_VERSION, action: 'reveal', actionNumber, atMs, result: 'death',
@@ -251,10 +251,45 @@ assertEq('middle placement wording is shared by the recent summary',
     { endedAt: 9, outcome: 'win', timeMs: 900, actionEvaluations: [], guesses: 0 }, slipLoss, wrongFlagLoss,
     { endedAt: 12, outcome: 'loss', actionEvaluations: [] },
   ] }, 0, 20, []);
-  assertEq('endings sum to the games and use the win types and chart kinds',
-    JSON.stringify(row.endings), '{"win-no-guess":1,"mine-counting":2,"other":1}');
+  assertEq('results sum to the games and use the session result kinds',
+    JSON.stringify(row.results), '{"win-no-guess":1,"mine-counting":2,"other":1}');
   assertEq('each likely-misclick reason counts its losses',
     JSON.stringify(row.likelyMisclicks), '{"wrong-button":1,"wrong-flag":1}');
+  const lines = sessionResultLines([row]);
+  assertEq('won and lost head the tree; a family shows only when one of its kinds occurred',
+    lines.map((line) => line.depth + ' ' + line.label).join(' | '),
+    '1 won | 2 no avoidable risk | 3 without guessing | 1 lost | 2 opened a proven mine'
+      + ' | 3 counting single numbers proved it | 2 not judged');
+  assertEq('a family sums every kind beneath it',
+    lines.find((line) => line.label === 'opened a proven mine').kinds.join(),
+    'mine-counting,mine-overlap,mine-whole-board,mine-safe,mine-forced');
+  assertEq('a leaf names its endings-chart line', lines.find((line) => line.label === 'without guessing').chart, 'win');
+  assertEq('a branch has no chart line', 'chart' in lines.find((line) => line.label === 'won'), false);
+  assertEq('a session without losses still shows the lost row',
+    sessionResultLines([{ results: { 'win-guess-early': 1 } }]).map((line) => line.label).join(' | '),
+    'won | riskier guess than necessary | in the opening | lost');
+}
+
+// The session results tree holds every result kind exactly once: every win
+// type, every loss type except the early-game guess (split by risk), the
+// split and survived-guess kinds, the legacy verdicts, and unjudged.
+{
+  const kindsOf = (node) => (node.children ? node.children.flatMap(kindsOf) : [node.kind]);
+  const treeKinds = SESSION_RESULT_TREE.flatMap(kindsOf);
+  const expected = [...Object.keys(WIN_TYPE_LABELS),
+    ...Object.keys(LOSS_TYPE_LABELS).filter((kind) => kind !== 'guess-early'),
+    'guess-early-min', 'guess-early-higher', 'guess-early-unmeasured',
+    'survived-guess-safe', 'survived-guess-higher', ...Object.keys(DEATH_KIND_LABELS), 'other'];
+  assertEq('every result kind has one row', [...treeKinds].sort().join(), [...expected].sort().join());
+  assertEq('no kind appears twice', new Set(treeKinds).size, treeKinds.length);
+  let thrown = null;
+  try {
+    sessionResultLines([{ results: { 'guess-early': 1 } }]);
+  } catch (err) {
+    thrown = err.message;
+  }
+  assertEq('a counted kind outside the tree fails loudly', thrown,
+    'session results tree has no row for result kind guess-early');
 }
 
 const HOUR = 3600e3;

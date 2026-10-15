@@ -3011,11 +3011,15 @@ body.settings-page .return-to-game {
 .session-summary-grid .session-summary-rank.session-summary-current { background: var(--this-game); }
 .session-summary-grid .recent-current-label { padding: 0; font-size: 10px; }
 .session-summary-total > span { border-top: 1px solid #000000; }
-/* Results under the summary: the label column leads with the endings
-   chart's line swatch. Loss types sit under a rule below the win types, and
-   likely-misclick rows under another because they recount losses already
-   filed above. */
+/* Results under the summary: one tree, won then lost under a rule, each
+   split by worst offense and then by type. Depth shows as indentation; won
+   and lost head their branches in bold. A leaf's label leads with its
+   endings-chart line swatch. Likely-misclick rows sit under another rule
+   because they recount losses already filed above. */
 .session-summary-results { margin-top: 6px; }
+.session-summary-depth-1 > .session-summary-result { font-weight: bold; }
+.session-summary-depth-2 > .session-summary-result { padding-left: 18px; }
+.session-summary-depth-3 > .session-summary-result { padding-left: 32px; }
 /* A size's count starts its pair (count, then that size's share). */
 .session-summary-results .session-summary-size {
   border-left: 1px solid #000000;

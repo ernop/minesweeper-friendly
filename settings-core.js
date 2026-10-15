@@ -86,7 +86,7 @@ const SHOWN_THINGS_DEFAULTS = Object.freeze({
 const SHOWN_THINGS_OPTIONS = [
   ['gameStats', 'loss and trial stats', 'the label/value stats for losses and trial games; regular wins use game data'],
   ['sessionSummary', 'session summary', 'games, wins, and win rate per board type in the session, with each type’s best session time and that time’s lifetime rank; left of the board when it fits'],
-  ['sessionEndings', 'session results by type', 'under the session summary: the session’s games split by result and by board size (Beginner, Intermediate, Expert): wins by the worst guess they survived, losses by loss type as the game endings chart files them, and how many losses were likely misclicks'],
+  ['sessionEndings', 'session results by type', 'under the session summary: the session’s games per board size (Beginner, Intermediate, Expert) split into won and lost, then by the worst offense against perfect play and its type, and how many losses were likely misclicks'],
   ['recentPlacements', 'ranks won in session', 'top-tenth ranks earned in the session on every longer tablechart; lifetime always shows at least its closest rank; right of the board when it fits'],
   ['recentPlacementsOtherBoards', 'ranks on other session boards', 'ranks won in session also lists the board categories of the session’s other wins (3BV, ZiNi, HZiNi, 3BV spread, max number, board shapes, 0–1 share, zero-opening coverage), e.g. 1st in 3BV 30 when this win’s 3BV is 40; off lists only this win’s board categories'],
   ['timeTables', 'time-window tablecharts', 'lifetime, calendar, rolling-window, and day-category rankings'],

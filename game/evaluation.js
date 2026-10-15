@@ -563,20 +563,72 @@ function winTypeOf(record) {
       || evaluation.version !== ACTION_EVALUATION_VERSION)) {
     return record.guesses === 0 ? 'win-no-guess' : 'win-unmeasured';
   }
-  let higher = false;
-  let early = false;
-  for (const evaluation of evaluations) {
-    if (evaluation.mistakes.includes('guessed-with-safe-move')
-        || evaluation.mistakes.includes('opened-unproven-with-safe-move')) return 'win-guess-safe';
-    if (evaluation.mistakes.includes('chose-higher-risk')) {
-      if (evaluationIsEarlyGame(evaluation)) early = true;
-      else higher = true;
-    }
-  }
-  if (higher) return 'win-guess-higher';
-  if (early) return 'win-guess-early';
+  const survived = worstSurvivedGuess(evaluations);
+  if (survived !== undefined) return 'win-guess-' + survived;
   if (record.guesses === undefined) return 'win-unmeasured';
   return record.guesses > 0 ? 'win-guess-min' : 'win-no-guess';
+}
+
+// The worst guess a game survived, worst first: 'safe', past a proven-safe
+// square; 'higher', riskier than the lowest available after the opening;
+// 'early', the same in the opening. Undefined when the saved evaluations
+// hold none. The tags are stored only where the risk under the active rules
+// was higher, so a guess A Just Universe made safe is no such guess.
+function worstSurvivedGuess(evaluations) {
+  let worst;
+  for (const evaluation of evaluations) {
+    if (evaluation.result === 'death') continue;
+    if (evaluation.mistakes.includes('guessed-with-safe-move')
+        || evaluation.mistakes.includes('opened-unproven-with-safe-move')) return 'safe';
+    if (evaluation.mistakes.includes('chose-higher-risk')) {
+      if (!evaluationIsEarlyGame(evaluation)) worst = 'higher';
+      else if (worst === undefined) worst = 'early';
+    }
+  }
+  return worst;
+}
+
+// How bad a loss's fatal click was against perfect play, for comparing it
+// with the worst guess the game survived: 0, a lowest-risk forced guess;
+// 1, a riskier guess than necessary; 2, a guess past a safe move; 3, a wrong
+// flag or a proven mine. A forced guess of unmeasured risk takes its lowest
+// possible rank, 0: if it was riskier, a survived riskier guess was just as
+// bad, so the game's worst offense is that guess's either way. Proof-or-die's
+// forced rule death, legacy verdicts, and unjudged losses are not ranked and
+// keep their own kind.
+const FATAL_OFFENSE_RANKS = {
+  'guess-early-min': 0, 'guess-min': 0, 'guess-early-unmeasured': 0, 'guess-unmeasured': 0,
+  'guess-early-higher': 1, 'guess-higher-near': 1, 'guess-higher-far': 1, 'guess-higher': 1,
+  'guess-safe-counting': 2, 'guess-safe-overlap': 2, 'guess-safe-whole-board': 2,
+  'guess-safe-justice': 2, 'guess-safe': 2, 'proof-safe': 2,
+  'flag-wrong': 3, 'mine-counting': 3, 'mine-overlap': 3, 'mine-whole-board': 3,
+  'mine-safe': 3, 'mine-forced': 3,
+};
+const SURVIVED_GUESS_RANKS = { safe: 2, higher: 1, early: 1 };
+
+// The session results tree's kind for a game (creator request 2026-10-14:
+// "1st split: wins/losses. then within each cat, break them down by the
+// variety and type of worst offenses against perfect play"). A win is its
+// win type. A loss is its loss type, with two refinements:
+// - an early-game guess death splits by its risk rank like any other guess:
+//   'guess-early-min', 'guess-early-higher', or 'guess-early-unmeasured';
+// - when the game survived a guess worse than its fatal click, that guess
+//   was the worst offense: 'survived-guess-safe' or 'survived-guess-higher'.
+function sessionResultKind(record) {
+  if (record.outcome === 'win') return winTypeOf(record);
+  const fatal = fatalEvaluationOf(record);
+  let kind = sessionEndingKind(fatal);
+  if (kind === 'guess-early') {
+    const delta = evaluationRiskDelta(fatal);
+    if (delta === undefined) kind = 'guess-early-unmeasured';
+    else kind = delta > 1e-12 ? 'guess-early-higher' : 'guess-early-min';
+  }
+  if (!Object.hasOwn(FATAL_OFFENSE_RANKS, kind)) return kind;
+  const survived = worstSurvivedGuess(record.actionEvaluations);
+  if (survived !== undefined && SURVIVED_GUESS_RANKS[survived] > FATAL_OFFENSE_RANKS[kind]) {
+    return survived === 'safe' ? 'survived-guess-safe' : 'survived-guess-higher';
+  }
+  return kind;
 }
 
 function actionEvaluationLabel(evaluation) {

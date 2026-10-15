@@ -37,12 +37,18 @@ few moves had to guess, a "dumb" early death such as clicking beside a corner
 wins, since some wins follow no bad moves while others survive needless bad
 guesses. The request: "think very carefully and present me an ontology of
 wins / complete categorization system". Built today
-([Session summary](docs/product/rankings.md), "Session results"): every game
-by result, one count and share pair per board size; wins by win type
-([Game-end evaluation](docs/product/game-end-evaluation.md), "Win types":
-no guess, lowest-risk guesses only, a riskier guess in the opening only, a
-riskier guess after it, a guess past a proven-safe square, not measured),
-then losses by loss type.
+([Session summary](docs/product/rankings.md), "Session results"): one tree
+per session, one count and share pair per board size. Level 1 is won or
+lost; level 2 the game's worst offense against perfect play (no avoidable
+risk, a riskier guess than necessary, a guess past a safe move, a wrong
+flag, a proven mine, then the measurement gaps); level 3 its type
+([Game-end evaluation](docs/product/game-end-evaluation.md), "Session result
+kinds"). That tree already splits opening guess deaths by risk and files a
+loss under an earlier survived guess when that guess was worse than the
+fatal click (creator request the same evening: "1st split: wins/losses.
+then within each cat, break them down by the variety and type of worst
+offenses against perfect play"). The report and the endings chart still
+file every opening forced-guess death as one "early-game guess".
 
 Proposed, not decided:
 
@@ -110,9 +116,10 @@ Needs, beyond what is measured:
   A game's second click already has it as `atMs`; older games get it from
   their traces.
 
-Open decisions, each recommended: split opening guess deaths by risk; scope
-by board type rather than by size; count abandoned boards; the half-second
-rushed line.
+Open decisions, each recommended: split opening guess deaths by risk in the
+report and the endings chart too (the session tree does since 2026-10-14);
+scope by board type rather than by size; count abandoned boards; the
+half-second rushed line.
 
 **Direction, the same day: judge from the decision tree.** The creator: every
 click is a move from one position to its possible next positions (death, or
@@ -362,8 +369,10 @@ Open:
   the tier. A survived reveal past a proven-safe square (game risk) does
   not, so the report and session series cannot yet tell a missed counting
   move from a missed whole-board deduction when the guess happened to
-  survive. The measurement would be the one losses get (the creator's 1,257
-  saved losses took about 0.2 s together).
+  survive. The session results tree shows the gap: a win's guess past a safe
+  square and a loss's "survived it, died later" have no proof split. The
+  measurement would be the one losses get (the creator's 1,257 saved losses
+  took about 0.2 s together).
 ## Switching between marking and clicking (creator, 2026-09-28)
 
 The creator asked for a performance stat on switching between marking and

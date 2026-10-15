@@ -80,11 +80,21 @@ Spec: [docs/product/game-end-evaluation.md](../product/game-end-evaluation.md). 
   `winTypeOf(record)` (2026-10-14; [spec](../product/game-end-evaluation.md#win-types-requested-2026-10-14))
   sits after `sessionEndingKind` in the pure verdict span: Proof-or-die is
   `win-no-guess`; any legacy or other-version evaluation leaves only the
-  ledger's `guesses === 0`; otherwise the stored `guessed-with-safe-move` /
-  `opened-unproven-with-safe-move` tags, then `chose-higher-risk` split by
-  `evaluationIsEarlyGame`, then `record.guesses` decide. `WIN_TYPE_LABELS`
-  holds the summary wording in display order. Its known answers are in
+  ledger's `guesses === 0`; otherwise `worstSurvivedGuess(evaluations)`
+  (the stored `guessed-with-safe-move` / `opened-unproven-with-safe-move`
+  tags as 'safe', then `chose-higher-risk` split by `evaluationIsEarlyGame`
+  into 'higher' and 'early'; fatal evaluations skipped), then
+  `record.guesses` decide. `WIN_TYPE_LABELS` holds the win types in order,
+  cleanest first. Its known answers are in
   `tests/game-end-evaluation-test.js`.
+  `sessionResultKind(record)` (2026-10-14; [spec](../product/game-end-evaluation.md#session-result-kinds-requested-2026-10-14))
+  follows: a win's `winTypeOf`; a loss's `sessionEndingKind`, with
+  `guess-early` split by `evaluationRiskDelta` into `guess-early-min`,
+  `guess-early-higher`, or `guess-early-unmeasured`; then, for kinds in
+  `FATAL_OFFENSE_RANKS`, `worstSurvivedGuess` ranked by
+  `SURVIVED_GUESS_RANKS` replaces a lower-ranked fatal kind with
+  `survived-guess-safe` or `survived-guess-higher`. The session summary
+  counts these (`docs/implementation/rankings.md`, "Session results").
   `evaluationEndingKind` remains only as
   the old five-way view for the report's legacy labels and verdict
   styling; modern chords classify

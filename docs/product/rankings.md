@@ -257,21 +257,51 @@ middle? that's okay."
   should really be shown as a breakdown of the results! so like, losses and
   type, and wins (and type::: yes, there are types of wins, since sometimes
   you'll WIN by accident! or even though you made horrible guesses and even
-  unnece" — the message was cut off there). Under the main grid, a second
-  grid splits every session game by result: first the wins by win type
-  ([Game-end evaluation](game-end-evaluation.md), "Win types"), each label
-  led by the game endings chart's win color; then, under a rule, the losses
-  by loss type ("Loss types" there), filed exactly as the endings chart
-  files them and in its order, labels, and line colors. Columns: result,
+  unnece" — the message was cut off there; later the same day, of the flat
+  list that request produced: "this display should be changed. 1. the
+  division should be multilevel. 1st split: wins/losses. 2. then within each
+  cat, break them down by the variety and type of worst offenses against
+  perfect play."). Under the main grid, a second grid shows every session
+  game as one tree, each game in exactly one leaf
+  ([Game-end evaluation](game-end-evaluation.md), "Session result kinds"):
+  - **Level 1:** won, then lost under a rule, in bold. Both always show,
+    even at 0, since the split itself is the first reading.
+  - **Level 2, the worst offense against perfect play,** least to worst,
+    then the measurement gaps. Won: no avoidable risk; riskier guess than
+    necessary; guessed while a safe move was available; guesses not
+    measured. Lost: no avoidable risk; riskier guess than necessary;
+    guessed while a safe move was available; wrong flag made a mine look
+    safe; opened a proven mine; Proof-or-die rule death with no proven-safe
+    move available; risk not measured; judged before loss types (the legacy
+    verdicts); not judged.
+  - **Level 3, the type:** under won, without guessing or guessing only at
+    the lowest risk; a riskier guess in the opening or after it. Under
+    lost, a lowest-risk forced guess in the opening or after it; a riskier
+    guess in the opening, or after it with a lowest-risk square within 2
+    squares or every one 3 or more away; the proof that showed a safe
+    square or the mine (counting single numbers, comparing overlapping
+    numbers, only whole-board reasoning; for a safe entry also A Just
+    Universe's guarantee, and Proof-or-die's rule death); and "survived it,
+    died later" under a guess family when an earlier survived guess was
+    worse than the fatal click. A family that has only one type (the wrong
+    flag; a win's guess past a safe square) is itself the leaf.
+  Depth shows as indentation. Each leaf leads with the swatch of the game
+  endings chart line its games are on (the win color for wins, the early-game
+  guess color for all three opening kinds); "survived it, died later" has
+  no line and keeps an empty swatch so its label aligns. Below level 1 only
+  rows with a game in some column show. The flat list it replaced (built
+  earlier on 2026-10-14) had win types, then loss types exactly as the
+  endings chart files them. Columns: result,
   then a count and a share for each board size played in the window —
   Beginner, Intermediate, Expert, and a custom size under its own label
   ("Custom 20x20-60"). A mode or generator counts with its size, so Expert
   and Pink noise Expert share the Expert columns (creator request
   2026-10-12: "loss-type should be split by main game type (small, medium,
-  expert)"). Each share is of that size's games, so a size's rows sum to
-  100%; a nonzero share that rounds to 0% reads "<1%". When only one size
-  was played, the columns are "games" and "share of games". Only kinds that
-  occurred get a row. Under another rule follow the likely-misclick rows,
+  expert)"). Each share is of that size's games, so every level sums to its
+  parent and won plus lost is 100%; a nonzero share that rounds to 0% reads
+  "<1%". When only one size was played, the columns are "games" and "share
+  of games". Closing the lost branch under another rule follow the
+  likely-misclick rows,
   one per reason ("of these losses, likely misclick: adjacent wrong flag
   placed under a second before", "of these losses, likely misclick: left
   click on a proven mine under a second after a chord beside it lacked
@@ -286,9 +316,10 @@ middle? that's okay."
   right after the summary's own switch.
 - **Requested next (creator, 2026-10-14):** while playing a size, show only
   that size, as one tree from all games started through won, lost, and
-  abandoned to finer kinds, with win types beside the loss types. Proposed
-  design, awaiting review: [BACKLOG](../../BACKLOG.md), "Game results as one
-  tree per board type".
+  abandoned to finer kinds. The won/lost and worst-offense levels above are
+  built; the rest (scope by board type, abandoned boards, when in the game a
+  loss came) is proposed and awaiting review: [BACKLOG](../../BACKLOG.md),
+  "Game results as one tree per board type".
 
 ## Recent placements (requested and decided 2026-08-23; charts and the lifetime near-miss rule extended later the same day)
 

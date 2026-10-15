@@ -347,6 +347,9 @@ const { chromium } = require(process.argv[2]);
           rowHeights: [...box.querySelectorAll('.session-summary-row > span:first-child')].map((cell) => cell.getBoundingClientRect().height),
           results: [...results.querySelectorAll('.rank-row')].map((row) => [...row.children].map((cell) => cell.textContent)),
           ruled: [...results.querySelectorAll('.session-summary-group-first')].map((row) => row.firstChild.textContent),
+          indents: [...results.querySelectorAll('.session-summary-row')].map((row) => getComputedStyle(row.firstChild).paddingLeft),
+          bold: [...results.querySelectorAll('.session-summary-row')]
+            .filter((row) => Number(getComputedStyle(row.firstChild).fontWeight) >= 700).map((row) => row.firstChild.textContent),
           swatches: [...box.querySelectorAll('.session-summary-result .end-swatch')].map((swatch) => getComputedStyle(swatch).backgroundColor),
           resultsWithinSummary: results.getBoundingClientRect().right <= box.getBoundingClientRect().right + 1,
         };
@@ -380,31 +383,46 @@ const { chromium } = require(process.argv[2]);
     assert(sessionSummary.hour.rowHeights.every((height) => height < 20), 'summary rows stay one line');
     assert.deepEqual(sessionSummary.hour.results, [
       ['result', 'Beginner', 'share', 'Intermediate', 'share', 'Expert', 'share'],
-      ['won without guessing', '1', '33%', '0', '0%', '0', '0%'],
-      ['won despite a higher-risk forced guess', '1', '33%', '0', '0%', '0', '0%'],
-      ['won; guesses not measured', '0', '0%', '1', '100%', '0', '0%'],
-      ['died: opened a mine proven by counting single numbers', '0', '0%', '0', '0%', '1', '50%'],
-      ['died: unjudged', '1', '33%', '0', '0%', '1', '50%'],
+      ['won', '2', '67%', '1', '100%', '0', '0%'],
+      ['no avoidable risk', '1', '33%', '0', '0%', '0', '0%'],
+      ['without guessing', '1', '33%', '0', '0%', '0', '0%'],
+      ['riskier guess than necessary', '1', '33%', '0', '0%', '0', '0%'],
+      ['after the opening', '1', '33%', '0', '0%', '0', '0%'],
+      ['guesses not measured', '0', '0%', '1', '100%', '0', '0%'],
+      ['lost', '1', '33%', '0', '0%', '2', '100%'],
+      ['opened a proven mine', '0', '0%', '0', '0%', '1', '50%'],
+      ['counting single numbers proved it', '0', '0%', '0', '0%', '1', '50%'],
+      ['not judged', '1', '33%', '0', '0%', '1', '50%'],
       ['of these losses, likely misclick: left click on a proven mine under a second after a chord beside it lacked flags',
         '0', '0%', '0', '0%', '1', '50%'],
-    ], 'every game split by win type, then loss type as the endings chart files it, per board size played');
-    assert.deepEqual(sessionSummary.hour.ruled, ['died: opened a mine proven by counting single numbers',
+    ], 'every game split into won and lost, then by worst offense and its type, per board size played');
+    assert.deepEqual(sessionSummary.hour.ruled, ['lost',
       'of these losses, likely misclick: left click on a proven mine under a second after a chord beside it lacked flags'],
-    'a rule starts the losses and another the misclick rows');
+    'a rule starts the lost branch and another the misclick rows');
+    assert.deepEqual(sessionSummary.hour.indents, ['4px', '18px', '32px', '18px', '32px', '18px', '4px', '18px', '32px',
+      '18px', '18px'], 'depth shows as indentation');
+    assert.deepEqual(sessionSummary.hour.bold, ['won', 'lost'], 'won and lost head their branches');
     assert.deepEqual(sessionSummary.oneSize, [
       ['result', 'games', 'share of games'],
-      ['won without guessing', '1', '33%'],
-      ['won despite a higher-risk forced guess', '1', '33%'],
-      ['died: unjudged', '1', '33%'],
+      ['won', '2', '67%'],
+      ['no avoidable risk', '1', '33%'],
+      ['without guessing', '1', '33%'],
+      ['riskier guess than necessary', '1', '33%'],
+      ['after the opening', '1', '33%'],
+      ['lost', '1', '33%'],
+      ['not judged', '1', '33%'],
     ], 'one board size keeps a single games column');
     assert.deepEqual(sessionSummary.hour.swatches, ['rgb(46, 125, 50)', 'rgb(46, 125, 50)', 'rgb(46, 125, 50)',
       'rgb(109, 13, 13)', 'rgb(153, 153, 153)'], 'wins carry the chart’s win color and each loss type its line color');
     assert(sessionSummary.hour.resultsWithinSummary, 'the results grid stays inside the summary');
     assert.deepEqual(sessionSummary.short.results, [
       ['result', 'Beginner', 'share', 'Intermediate', 'share'],
-      ['won despite a higher-risk forced guess', '1', '100%', '0', '0%'],
-      ['won; guesses not measured', '0', '0%', '1', '100%'],
-    ], 'a session without losses still breaks down its results');
+      ['won', '1', '100%', '1', '100%'],
+      ['riskier guess than necessary', '1', '100%', '0', '0%'],
+      ['after the opening', '1', '100%', '0', '0%'],
+      ['guesses not measured', '0', '0%', '1', '100%'],
+      ['lost', '0', '0%', '0', '0%'],
+    ], 'a session without losses still breaks down its results and shows lost at zero');
     assert.deepEqual(sessionSummary.short.rows, [
       ['Beginner', '', '1', '1', '100%', '4.100s', '2nd this of 3', '4.100s', '2.439', '0.833'],
       ['Intermediate', 'Pink noise (spectral exponent 1, feature size 12, contrast 2, stretch 0)', '1', '1', '100%', '21.000s', '1st of 1',
@@ -413,7 +431,8 @@ const { chromium } = require(process.argv[2]);
     ]);
     assert.deepEqual(sessionSummary.plain, [['board type', 'games', 'wins', 'win rate', 'best', 'lifetime rank', 'mean time', 'mean 3BV/s', 'mean IOE'],
       ['Beginner', '1', '1', '100%', '4.100s', '2nd this of 3', '4.100s', '2.439', '0.833'],
-      ['result', 'games', 'share of games'], ['won despite a higher-risk forced guess', '1', '100%']],
+      ['result', 'games', 'share of games'], ['won', '1', '100%'], ['riskier guess than necessary', '1', '100%'],
+      ['after the opening', '1', '100%'], ['lost', '0', '0%']],
     'without a variant to name, the board stands alone in its column');
     assert.deepEqual(errors, []);
     console.log('Rank highlights: this-game rows, standing chips, session summary, percentage bands, full/compact tables, low/last/only results, history view, conditional board comparisons, stable numeric family ordering, contiguous summary rows, surrounding table flow, day-of-month headings, and three viewport widths passed.');
