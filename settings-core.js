@@ -751,12 +751,17 @@ function importPreferences(text) {
 
 // Draws a revealed cell's adjacent-count glyph per settings.numberDisplay
 // (digits, letters A–H, or a color-only dot; the cell's nN class carries
-// the color). Only the game page paints cells today; this stays here
-// with the schema because it renders a setting's value.
+// the color). The game page paints its board with it, and the settings
+// page its choice previews; it stays here with the schema because it
+// renders a setting's value.
 function paintCellGlyph(el, adjacent) {
+  paintCountGlyph(el, adjacent, settings.numberDisplay);
+}
+
+function paintCountGlyph(el, adjacent, numberDisplay) {
   el.innerHTML = '';
   if (adjacent <= 0) return;
-  if (settings.numberDisplay === 'dots') el.innerHTML = '<span class="num-dot"></span>';
-  else if (settings.numberDisplay === 'letters') el.textContent = String.fromCharCode(64 + adjacent);
+  if (numberDisplay === 'dots') el.innerHTML = '<span class="num-dot"></span>';
+  else if (numberDisplay === 'letters') el.textContent = String.fromCharCode(64 + adjacent);
   else el.textContent = adjacent;
 }

@@ -50,9 +50,13 @@ Spec: [docs/product/settings.md](../product/settings.md). Index: [AGENTS.md](../
   far right, and the rare schema `hint` in a dedicated middle column
   (only `justUniverse`); `describe` remains the name's title tooltip.
   `buildChoiceRow` puts its radio group to the right of the setting name.
-  A field listed in `CHOICE_PREVIEWS` (`mineStyle`) also shows each choice
-  as `.cell` squares in a `.setting-choice-preview` at 36 px between the
-  radio and the label.
+  A field listed in `CHOICE_PREVIEWS` (`numberDisplay`, `mineStyle`) also
+  shows each choice as `.cell` squares in a `.setting-choice-preview` grid
+  at 36 px between the radio and the label: the counts 1–8 through
+  `paintCountGlyph`, or the lost board `MINE_STYLE_DEMO_BOARD` (counts
+  computed from its mines, drawn in `settings.numberDisplay`).
+  `renderChoicePreviews` fills them after every build and every choice
+  change, so the mine boards follow a new number display at once.
   `buildResultSections` renders `RESULT_SECTION_GROUPS` where the
   `shownThings` entry (control `result-sections`) sits: one subheading and
   compact auto-fill option grid of at least 260px columns per group,

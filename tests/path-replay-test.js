@@ -10,6 +10,7 @@ const css = fs.readFileSync(path.join(__dirname, '..', 'style.css'), 'utf8');
 const start = source.indexOf('//-------PATH REPLAY: COMPUTATION');
 const end = source.indexOf('//-------PATH REPLAY: DISPLAY');
 if (start < 0 || end <= start) throw new Error('path replay markers not found');
+vm.runInThisContext(fs.readFileSync(path.join(__dirname, '..', 'board-icons.js'), 'utf8'));
 vm.runInThisContext(source.slice(start, end));
 
 let checks = 0;

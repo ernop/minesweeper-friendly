@@ -1222,9 +1222,9 @@ body.trial-offboard #game-frame {
 }
 
 .cell.hidden svg {
-  /* flag icon sits inside the bevel */
-  width: calc(var(--cell-size) * 0.62);
-  height: calc(var(--cell-size) * 0.62);
+  /* flag icon sits inside the bevel, which leaves 0.75 of the square */
+  width: calc(var(--cell-size) * 0.7);
+  height: calc(var(--cell-size) * 0.7);
 }
 
 /* The large mine styles fill the open square like the large digits. */
@@ -2206,7 +2206,7 @@ body.settings-page .return-to-game {
    board's edge. */
 .setting-choice-preview {
   --cell-size: 36px;
-  display: inline-flex;
+  display: inline-grid;
   border-right: 1px solid var(--bevel-dark);
   border-bottom: 1px solid var(--bevel-dark);
 }

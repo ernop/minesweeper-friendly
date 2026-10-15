@@ -520,14 +520,55 @@ function previewCell(className, svg) {
   return cell;
 }
 
-// Choices that are pictures show each value as board squares beside its name.
+function previewCountCell(count, numberDisplay) {
+  const cell = previewCell('cell revealed' + (count > 0 ? ' n' + count : ''), '');
+  paintCountGlyph(cell, count, numberDisplay);
+  return cell;
+}
+
+// A lost board, five by three, row by row: M an unflagged mine, H the mine
+// that was hit, F a flagged mine, W a flag on a safe square, # a covered
+// safe square, and . an open square showing its count.
+const MINE_STYLE_DEMO_BOARD = ['.M.F.', '..H.W', '#..M.'];
+
+function demoBoardCount(rows, row, column) {
+  let count = 0;
+  for (let r = row - 1; r <= row + 1; r++) {
+    for (let c = column - 1; c <= column + 1; c++) {
+      if ('MHF'.includes(rows[r]?.[c] ?? '.')) count++;
+    }
+  }
+  return count;
+}
+
+function mineStyleDemoCells(styleId) {
+  const rows = MINE_STYLE_DEMO_BOARD;
+  return rows.flatMap((line, row) => [...line].map((mark, column) => {
+    if (mark === 'M') return previewCell('cell revealed', mineSvg(styleId));
+    if (mark === 'H') return previewCell('cell revealed mine-hit', mineSvg(styleId));
+    if (mark === 'F') return previewCell('cell hidden', FLAG_SVG);
+    if (mark === 'W') return previewCell('cell revealed', wrongFlagSvg(styleId));
+    if (mark === '#') return previewCell('cell hidden', '');
+    return previewCountCell(demoBoardCount(rows, row, column), settings.numberDisplay);
+  }));
+}
+
+// Choices that are pictures show each value on board squares beside its
+// name: every count it draws, or a lost board in that mine style (with the
+// chosen number display, so it looks like the player's own board).
 const CHOICE_PREVIEWS = {
-  mineStyle: (styleId) => [
-    previewCell('cell revealed', mineSvg(styleId)),
-    previewCell('cell revealed mine-hit', mineSvg(styleId)),
-    previewCell('cell revealed', wrongFlagSvg(styleId)),
-  ],
+  numberDisplay: {
+    columns: 8,
+    cells: (numberDisplay) => [1, 2, 3, 4, 5, 6, 7, 8].map((count) => previewCountCell(count, numberDisplay)),
+  },
+  mineStyle: { columns: MINE_STYLE_DEMO_BOARD[0].length, cells: mineStyleDemoCells },
 };
+
+function renderChoicePreviews() {
+  for (const preview of document.querySelectorAll('.setting-choice-preview')) {
+    preview.replaceChildren(...CHOICE_PREVIEWS[preview.dataset.field].cells(preview.dataset.value));
+  }
+}
 
 // Choice settings use the same two-column row, with the complete radio
 // group occupying the control column.
@@ -556,12 +597,15 @@ function buildChoiceRow(s) {
       if (!radio.checked) return;
       settings[s.field] = value;
       saveSettings();
+      renderChoicePreviews();
     });
     item.append(radio);
     if (Object.hasOwn(CHOICE_PREVIEWS, s.field)) {
       const preview = document.createElement('span');
       preview.className = 'setting-choice-preview';
-      preview.append(...CHOICE_PREVIEWS[s.field](value));
+      preview.dataset.field = s.field;
+      preview.dataset.value = value;
+      preview.style.gridTemplateColumns = 'repeat(' + CHOICE_PREVIEWS[s.field].columns + ', var(--cell-size))';
       item.append(preview);
     }
     item.append(document.createTextNode(label));
@@ -641,6 +685,7 @@ function buildSettingsColumn() {
     section.appendChild(body);
     column.insertBefore(section, transfer);
   }
+  renderChoicePreviews();
 }
 
 function initPreferencesTransfer() {

@@ -19,6 +19,14 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   color always carries the count; in the dots display it is the only
   carrier. Changing the setting repaints the board in place, mid-game
   included.
+- The mark (the flag; creator request 2026-10-15: "the MARK to be very
+  very visually distinct and not overlapping in color with any other
+  item"): a large magenta pennant, outlined in black, on a heavy black pole
+  and base, drawn at 0.7 of the square inside the covered bevel. Magenta is
+  reserved for the mark: no count color, the red hit square, the red
+  wrong-flag cross, the bomb style's fuse, or any replay overlay uses it.
+  The classic red pennant shared its red with the 3s, the hit square, and
+  the wrong-flag cross. The replay's mark-mine badge is the same flag.
 - Mine style (creator request 2026-10-15: "5 variant visual styles for
   mines, which i'll be able to choose from visually in my config", at least
   two "more visually distinct and clear", as the enlarged numbers are): a
@@ -30,8 +38,13 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   These four fill nearly the whole open square, matching the large digits.
   Every style is black with white highlights, so it reads on the silver
   square and on the red hit square, and a wrong flag is that style's mine
-  crossed out in red. The settings page shows every choice as three board
-  squares (the mine, the mine you hit, a wrong flag) beside its name. The
+  crossed out in red. The settings page shows every choice on a small lost
+  board beside its name (creator request 2026-10-15: the choosers "need to
+  demo what each option really means, more"): five by three squares with
+  counts, unflagged mines, the mine you hit, a flagged mine, a wrong flag,
+  and a covered square, its counts drawn in the chosen number display.
+  The number display choices likewise show the counts 1 to 8 as each
+  draws them. The
   problems page keeps the classic mine: it does not read the game's
   settings. The style applies to the next board drawn, not a board already
   shown.

@@ -348,7 +348,7 @@ const REPLAY_ENCODINGS = replayEncodingTable({
     means: 'number you can chord now',
   },
   'mark-mine': {
-    color: '#c62828', form: 'flag', look: 'mini flag',
+    color: FLAG_COLOR, form: 'flag', look: 'mini flag',
     means: 'mark-mine move on a proven mine',
   },
   'chord-after-marks': {
