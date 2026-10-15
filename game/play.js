@@ -460,8 +460,8 @@ function setFace(name) {
   faceButton.innerHTML = FACE_SVGS[name];
 }
 
-// FLAG_SVG / MINE_SVG / WRONG_FLAG_SVG live in board-icons.js, shared with
-// the problems page.
+// FLAG_SVG and the mine styles live in board-icons.js, shared with the
+// settings and problems pages.
 function updateCell(i) {
   const cell = cells[i];
   const el = cellElements[i];
@@ -769,20 +769,22 @@ function lose(hitIndices, evaluation) {
   sessionRecordEnd(sessionEndingKind(evaluation));
   gameState = 'lost';
   finish();
+  const mine = mineSvg(settings.mineStyle);
+  const wrongFlag = wrongFlagSvg(settings.mineStyle);
   for (let i = 0; i < cells.length; i++) {
     const cell = cells[i];
     const el = cellElements[i];
     if (cell.mine && !cell.flagged) {
       el.className = 'cell revealed';
-      el.innerHTML = MINE_SVG;
+      el.innerHTML = mine;
     } else if (!cell.mine && cell.flagged) {
       el.className = 'cell revealed';
-      el.innerHTML = WRONG_FLAG_SVG;
+      el.innerHTML = wrongFlag;
     }
   }
   for (const i of hitIndices) {
     cellElements[i].className = 'cell revealed mine-hit';
-    cellElements[i].innerHTML = MINE_SVG;
+    cellElements[i].innerHTML = mine;
   }
   setFace('dead');
   reportResultAfterPaint('loss');

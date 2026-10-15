@@ -157,19 +157,21 @@ async function restorePreferredResult() {
   revealedCount = cells.filter((c) => c.revealed).length;
   trace = { startedAt: stored.startedAt, t0: performance.now() - (stored.endedAt - stored.startedAt),
     t: Array.from(stored.sampleT), x: Array.from(stored.sampleX), y: Array.from(stored.sampleY), events: stored.events };
+  const mine = mineSvg(settings.mineStyle);
+  const wrongFlag = wrongFlagSvg(settings.mineStyle);
   for (let i = 0; i < cells.length; i++) {
     updateCell(i);
     if (gameState === 'lost' && cells[i].mine && !cells[i].flagged) {
       cellElements[i].className = 'cell revealed';
-      cellElements[i].innerHTML = MINE_SVG;
+      cellElements[i].innerHTML = mine;
     } else if (gameState === 'lost' && !cells[i].mine && cells[i].flagged) {
       cellElements[i].className = 'cell revealed';
-      cellElements[i].innerHTML = WRONG_FLAG_SVG;
+      cellElements[i].innerHTML = wrongFlag;
     }
   }
   for (const i of stored.finalBoard.hitIndices) {
     cellElements[i].className = 'cell revealed mine-hit';
-    cellElements[i].innerHTML = MINE_SVG;
+    cellElements[i].innerHTML = mine;
   }
   setFace(gameState === 'won' ? 'cool' : 'dead');
   setLcd(timerDisplay, Math.min(TIMER_CAP_SECONDS, Math.floor(record.timeMs / 1000)));

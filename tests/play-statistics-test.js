@@ -69,7 +69,7 @@ const hosted = loadStats('https://minesweeper-friendly.fuseki.net/');
 
 // The real deferral chain and record, run against stub collaborators.
 const game = vm.createContext({ console });
-for (const file of ['generators.js', 'game-data.js', 'settings-core.js']) {
+for (const file of ['generators.js', 'game-data.js', 'board-icons.js', 'settings-core.js']) {
   vm.runInContext(read(file), game, { filename: file });
 }
 vm.runInContext("'use strict';\n"

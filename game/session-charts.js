@@ -1021,7 +1021,7 @@ function helpBoardExample(rows, caption) {
         el.classList.add('help-n' + cell.n);
         el.textContent = String(cell.n);
       } else if (cell.kind === 'mine') {
-        el.innerHTML = MINE_SVG;
+        el.innerHTML = mineSvg(settings.mineStyle);
       }
       if (cell.note) {
         const note = document.createElement('span');

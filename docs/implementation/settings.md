@@ -8,10 +8,12 @@ Spec: [docs/product/settings.md](../product/settings.md). Index: [AGENTS.md](../
   from `SETTINGS_SCHEMA` defaults). `SETTINGS_SCHEMA`, `SETTINGS_GROUPS`,
   `SHOWN_THINGS_*`, `RESULT_SECTION_GROUPS` (with `resultSectionSwitch`,
   `resultSectionShown`, `setResultSectionShown`), `REPORT_SCOPE_CHOICES`,
-  `NUMBER_DISPLAY_CHOICES`, `settingsFrom`,
+  `NUMBER_DISPLAY_CHOICES`, `MINE_STYLE_CHOICES`, `settingsFrom`,
   `saveSettings`, `cleanTransferredSettings`, all preference choices/bounds,
-  the cell iconography SVGs, and `paintCellGlyph` live in `settings-core.js`,
-  shared by both pages. Both load `generators.js` for the shared registry;
+  and `paintCellGlyph` live in `settings-core.js`, shared by both pages.
+  `MINE_STYLE_CHOICES` is derived from `MINE_STYLES` in `board-icons.js`,
+  so both pages (and the node tests that load the schema) load
+  `board-icons.js` before `settings-core.js`. Both load `generators.js` for the shared registry;
   its browser load does not require a solver unless actually placing boards.
   Every schema validator runs on either page. `settingsFrom` rejects malformed
   fields to defaults and clones object values; schema `migrate` handles older
@@ -48,6 +50,9 @@ Spec: [docs/product/settings.md](../product/settings.md). Index: [AGENTS.md](../
   far right, and the rare schema `hint` in a dedicated middle column
   (only `justUniverse`); `describe` remains the name's title tooltip.
   `buildChoiceRow` puts its radio group to the right of the setting name.
+  A field listed in `CHOICE_PREVIEWS` (`mineStyle`) also shows each choice
+  as `.cell` squares in a `.setting-choice-preview` at 36 px between the
+  radio and the label.
   `buildResultSections` renders `RESULT_SECTION_GROUPS` where the
   `shownThings` entry (control `result-sections`) sits: one subheading and
   compact auto-fill option grid of at least 260px columns per group,

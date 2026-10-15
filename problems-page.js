@@ -438,7 +438,8 @@ function paintSquare(i, showContext) {
   if (showContext && board.revealed[i]) {
     if (board.mine[i]) {
       element.className = 'cell revealed mine-hit';
-      element.innerHTML = MINE_SVG;
+      // This page never reads the game's settings, so the mine style is fixed.
+      element.innerHTML = mineSvg('classic');
       return;
     }
     const n = board.adjacent[i];

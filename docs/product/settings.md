@@ -139,6 +139,9 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   left panel's width, which the session charts fill;
   `numberDisplay` (default numbers; the first choice-row setting) —
   digits / letters / dots for revealed counts (see [Board and chrome](board-and-layout.md));
+  `mineStyle` (default classic; added 2026-10-15) — classic / bold / sea
+  mine / bomb / star, each choice shown as board squares in the picker (see
+  [Board and chrome](board-and-layout.md));
   `gameDataMetrics` (one selection for both comparisons since 2026-10-07,
   replacing separate lifetime and session selections; a measurement either
   of them showed stays shown), `gameDataBoardTraits` (since 2026-10-14: which

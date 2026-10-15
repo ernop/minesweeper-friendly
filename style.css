@@ -1227,6 +1227,12 @@ body.trial-offboard #game-frame {
   height: calc(var(--cell-size) * 0.62);
 }
 
+/* The large mine styles fill the open square like the large digits. */
+.cell.revealed svg.mine-full-size {
+  width: calc(var(--cell-size) * 0.92);
+  height: calc(var(--cell-size) * 0.92);
+}
+
 .cell.mine-hit { background: #ff0000; }
 
 /* The dots number display: the count lives only in the classic color,
@@ -2194,6 +2200,15 @@ body.settings-page .return-to-game {
   color: #000000;
   font-size: 13px;
   cursor: pointer;
+}
+
+/* Board squares at a common zoom, closed on the right and bottom like the
+   board's edge. */
+.setting-choice-preview {
+  --cell-size: 36px;
+  display: inline-flex;
+  border-right: 1px solid var(--bevel-dark);
+  border-bottom: 1px solid var(--bevel-dark);
 }
 
 .setting-choice:has(input:checked) {
@@ -3984,6 +3999,10 @@ body.vigilance-running #self-check-header {
   width: 16px;
   height: 16px;
   display: block;
+}
+.help-mine svg.mine-full-size {
+  width: 22px;
+  height: 22px;
 }
 .help-n1 { color: #0000ff; }
 .help-n2 { color: #008000; }

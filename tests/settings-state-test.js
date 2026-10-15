@@ -11,7 +11,7 @@ const context = vm.createContext({
   structuredClone,
   persistUserdata: (kind, value) => saved.set(kind, structuredClone(value)),
 });
-for (const file of ['generators.js', 'game-data.js', 'settings-core.js']) {
+for (const file of ['generators.js', 'game-data.js', 'board-icons.js', 'settings-core.js']) {
   vm.runInContext(fs.readFileSync(path.join(__dirname, '..', file), 'utf8'), context);
 }
 const run = (source) => vm.runInContext(source, context);
@@ -112,6 +112,23 @@ assert.deepEqual(plain(run('settingsFrom({ gameDataBoardTraits: { unknown: true 
 assert.equal(run('settingsFrom({ gameDataBandPool: "day" }).gameDataBandPool'), 'lifetime');
 assert.equal(defaults.gameDataDistributionPools, 'both', 'distributions show both pools until the switch says otherwise');
 assert.equal(run('settingsFrom({ gameDataDistributionPools: "day" }).gameDataDistributionPools'), 'both');
+
+// Mine styles: the setting offers exactly the drawn styles, classic first
+// and by default, and every style draws a mine and a crossed-out wrong flag.
+const mineStyleIds = plain(run('MINE_STYLES.map((style) => style.id)'));
+assert.equal(mineStyleIds.length, 5);
+assert.equal(new Set(mineStyleIds).size, 5);
+assert.equal(defaults.mineStyle, 'classic');
+assert.equal(mineStyleIds[0], 'classic');
+assert.deepEqual(plain(run('MINE_STYLE_CHOICES.map(([id]) => id)')), mineStyleIds);
+for (const id of mineStyleIds) {
+  context.id = id;
+  assert.equal(run('settingsFrom({ mineStyle: id }).mineStyle'), id);
+  assert.match(run('mineSvg(id)'), /^<svg viewBox="0 0 16 16"( class="mine-full-size")?>.*<\/svg>$/);
+  assert(run('wrongFlagSvg(id)').includes('stroke="#ff0000"'));
+}
+assert.equal(run('settingsFrom({ mineStyle: "skull" }).mineStyle'), 'classic');
+assert.throws(() => run('mineSvg("skull")'), /unknown mine style: skull/);
 
 console.log('settings-state: shared validation, defaults, migration, isolation, and backup round trips passed');
 

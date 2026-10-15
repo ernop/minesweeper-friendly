@@ -513,6 +513,22 @@ function buildSettingRow(s) {
   return row;
 }
 
+function previewCell(className, svg) {
+  const cell = document.createElement('span');
+  cell.className = className;
+  cell.innerHTML = svg;
+  return cell;
+}
+
+// Choices that are pictures show each value as board squares beside its name.
+const CHOICE_PREVIEWS = {
+  mineStyle: (styleId) => [
+    previewCell('cell revealed', mineSvg(styleId)),
+    previewCell('cell revealed mine-hit', mineSvg(styleId)),
+    previewCell('cell revealed', wrongFlagSvg(styleId)),
+  ],
+};
+
 // Choice settings use the same two-column row, with the complete radio
 // group occupying the control column.
 function buildChoiceRow(s) {
@@ -541,7 +557,14 @@ function buildChoiceRow(s) {
       settings[s.field] = value;
       saveSettings();
     });
-    item.append(radio, document.createTextNode(label));
+    item.append(radio);
+    if (Object.hasOwn(CHOICE_PREVIEWS, s.field)) {
+      const preview = document.createElement('span');
+      preview.className = 'setting-choice-preview';
+      preview.append(...CHOICE_PREVIEWS[s.field](value));
+      item.append(preview);
+    }
+    item.append(document.createTextNode(label));
     group.appendChild(item);
   }
   row.appendChild(group);

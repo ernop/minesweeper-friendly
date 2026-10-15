@@ -19,6 +19,22 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   color always carries the count; in the dots display it is the only
   carrier. Changing the setting repaints the board in place, mid-game
   included.
+- Mine style (creator request 2026-10-15: "5 variant visual styles for
+  mines, which i'll be able to choose from visually in my config", at least
+  two "more visually distinct and clear", as the enlarged numbers are): a
+  gameplay setting picks how mines are drawn on a lost board, in replays,
+  and in help boards. Classic (default) is the original Windows mine: a
+  small ball with thin spikes at its original size. Bold is the same mine at
+  heavy weight; sea mine is a large ball with six round-tipped horns; bomb
+  is a round cartoon bomb with a lit fuse; star is a solid eight-point star.
+  These four fill nearly the whole open square, matching the large digits.
+  Every style is black with white highlights, so it reads on the silver
+  square and on the red hit square, and a wrong flag is that style's mine
+  crossed out in red. The settings page shows every choice as three board
+  squares (the mine, the mine you hit, a wrong flag) beside its name. The
+  problems page keeps the classic mine: it does not read the game's
+  settings. The style applies to the next board drawn, not a board already
+  shown.
 - Favicon (2026-08-23; letter and color revised same day): a raised
   minesweeper cell in the game's exact palette (silver face, light/dark
   bevels) carrying a blocky letter M in the board's strong classic blue

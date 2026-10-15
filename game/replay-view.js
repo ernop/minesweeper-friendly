@@ -391,7 +391,7 @@ function paintReplayFrame(model) {
       continue;
     }
     element.innerHTML = cell.flagged ? FLAG_SVG
-      : cell.marks.has('mine') ? MINE_SVG : '';
+      : cell.marks.has('mine') ? mineSvg(settings.mineStyle) : '';
     if (cell.marks.has('mark-mine')) {
       const hint = document.createElement('span');
       hint.className = 'replay-flag-hint';

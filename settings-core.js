@@ -240,6 +240,10 @@ const NUMBER_DISPLAY_CHOICES = [
   ['dots', 'dots', 'one dot per cell \u2014 the count lives only in the color'],
 ];
 
+// The drawings live in board-icons.js, which every page with this schema
+// loads first.
+const MINE_STYLE_CHOICES = MINE_STYLES.map((style) => [style.id, style.label, style.describe]);
+
 const CELL_SIZE_CHOICES = [16, 20, 24, 28, 32, 36, 40, 48, 56, 64, 80, 96];
 
 const DIFFICULTIES = {
@@ -645,6 +649,16 @@ const SETTINGS_SCHEMA = [
     describe: 'how a revealed cell\u2019s adjacent-mine count is drawn: the classic digits, letters A\u2013H in the same colors, or a bare colored dot',
     control: 'choice',
     choices: NUMBER_DISPLAY_CHOICES,
+  },
+  {
+    field: 'mineStyle',
+    default: 'classic',
+    valid: (v) => MINE_STYLE_CHOICES.some(([id]) => id === v),
+    group: 'gameplay',
+    label: 'mine style',
+    describe: 'how mines are drawn when a game is lost, in replays, and in help boards; each choice is shown as it looks on the board',
+    control: 'choice',
+    choices: MINE_STYLE_CHOICES,
   },
   {
     field: 'trialGiveOpening',

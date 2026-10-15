@@ -24,9 +24,10 @@ Runtime: `index.html` + `style.css` load `storage.js`; pure `rng.js` /
 `play-limits.js` (daily play limits, after `settings-core.js`); then the game page's own scripts in `game/` (below). No dependencies, no
 build step. The settings page is
 `settings.html` + `settings-page.js`, loading the same `style.css`,
-`storage.js`, `generators.js`, `game-data.js`, `settings-core.js`, and
-`play-limits.js` (both pages must load storage.js, game-data.js,
-settings-core.js, and play-limits.js before their own script).
+`storage.js`, `generators.js`, `game-data.js`, `board-icons.js`,
+`settings-core.js`, and `play-limits.js` (both pages must load storage.js,
+game-data.js, board-icons.js, settings-core.js, and play-limits.js before
+their own script; the schema's mine-style choices come from board-icons.js).
 The problems page is `problems.html` + `problems-page.js`, loading
 `style.css`, `problems.css`, `board-icons.js`, the pure `problems-core.js`,
 `problems-storage.js`, and the generated `problems-bank.json`; it keeps its own

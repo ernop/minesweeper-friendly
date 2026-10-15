@@ -137,6 +137,17 @@ Spec: [docs/product/board-and-layout.md](../product/board-and-layout.md). Index:
   Arial is installed on the creator's PC, so Firefox draws the stack in
   Liberation Sans Bold (canvas `measureText` widths, 2026-10-14), whose digits
   are 0.68 em tall: 0.94 of the square makes them about two thirds of it.
+- Mine styles (2026-10-15): `MINE_STYLES` in `board-icons.js` lists the five
+  styles (id, label, describe, SVG body on the 16-unit square, `fullSize`).
+  `mineSvg(id)` and `wrongFlagSvg(id)` return the prebuilt SVGs (the wrong
+  flag is the body plus the red cross) and throw on an unknown id. A
+  `fullSize` SVG carries class `mine-full-size`, which `.cell.revealed
+  svg.mine-full-size` sizes to 0.92 of `--cell-size` (classic stays at the
+  0.72 of `.cell svg`); a replay's proven mine on a closed square keeps the
+  closed-square size. `lose` (`game/play.js`), `restorePreferredResult`
+  (`preferences-game.js`), the replay frames (`game/replay-view.js`), and the
+  help boards (`game/session-charts.js`) draw `settings.mineStyle`; the
+  problems page and `analysis/judgment/judge.js` draw `'classic'`.
 
 ## Analysis execution and cost (2026-09-25)
 

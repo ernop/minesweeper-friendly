@@ -216,7 +216,7 @@ function boardElement(moment, revealed) {
     const classes = ['cell'];
     if (cell === deathSquare) {
       classes.push('revealed', 'mine-hit');
-      square.innerHTML = MINE_SVG;
+      square.innerHTML = mineSvg('classic');
     } else if (numbers.has(cell)) {
       const count = numbers.get(cell);
       classes.push('revealed');
@@ -227,7 +227,7 @@ function boardElement(moment, revealed) {
     } else {
       classes.push('hidden');
       if (flagged.has(cell)) {
-        square.innerHTML = revealed && contradicted.has(cell) ? WRONG_FLAG_SVG : FLAG_SVG;
+        square.innerHTML = revealed && contradicted.has(cell) ? wrongFlagSvg('classic') : FLAG_SVG;
       } else if (revealed && pMine.has(cell)) {
         const text = element('span', 'judge-p' + (lowestText.has(cell) ? ' judge-p-lowest' : ''),
           cellPercent(pMine.get(cell)));
