@@ -75,8 +75,9 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
 - Band: `gameDataItems` groups rows into one item per measurement with a row
   per pool. `buildGameDataBand(rows, pool, valuesShown, boardName)` builds
   `.game-data-row` buttons (cells `.game-data-name`, `.game-data-value`,
-  `.game-data-pct` with `data-pool`) under `.game-data-column-heads` whose
-  `.game-data-name` head is `boardName`; both sides plot `pool`, and an item
+  `.game-data-pct` with `data-pool`) under `.game-data-column-heads`; the
+  performance side's `.game-data-name` head is `boardName`, the board
+  side's is empty. Both sides plot `pool`, and an item
   without that pool's row goes into the `.game-data-unplotted` note. Side
   titles are `chartHelpButton` labels holding `GAME_DATA_SIDE_HELP[side]`,
   which says only what that side's percentages are. `layout()`
@@ -108,10 +109,12 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
   (2026-10-11); the worker's distributions keep value order.
 - Distributions view: `buildGameDataDistributions(rows, pools, boardName)` renders the
   `settings.gameDataDistributions` mode as `.game-data-dist-section`s
-  (`data-side`, `data-pool`), each headed by a `.game-data-dist-head` whose
-  `.game-data-side-title` is the pool label (or "board traits"), a space, and
-  `.game-data-board-name` (0.7857em of the 1.1667em title, the other head
-  cells' 0.9167em), each side's sections in `pools` order
+  (`data-side`, `data-pool`), each opened by a `.game-data-side-title` on a
+  line of its own spanning the grid ("your performance this game, " or
+  "board traits, " and `gameDataPoolPhrase(scope)`; it wraps rather than
+  widening the name column), then a `.game-data-dist-head` whose
+  `.game-data-name` cell holds `boardName` in the first section only (the
+  head cells' 0.9167em bold), each side's sections in `pools` order
   (`settings.gameDataDistributionPools`: `['lifetime']`, `['session']`, or
   both), in one `.game-data-distributions` grid with subgrid rows, so every
   strip shares one column. Without lifetime it opens with

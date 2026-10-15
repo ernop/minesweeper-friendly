@@ -260,9 +260,12 @@ laggy"; asked whether the game is "max efficient" and to test and fix it.
 - Game data column (user decision 2026-09-23: "a full-height column right
   next to the board", empty during play): a sticky column of the full viewport
   height between the board column and the details column. It is empty during
-  play and after losses, and holds the winning game's chart. It is reserved
-  only when a win can plot the chart (the chart is enabled and the mode is not
-  a trial). It docks when the board column keeps at least the board and 640px
+  play. After a game it holds "during this game, second by second" (creator
+  2026-10-15; [During the game](during-game.md)) above the winning game's
+  chart; after a loss, that block alone. It is reserved only when it can hold
+  one of them (during the game or game data is enabled and the mode is not a
+  trial). When the column cannot dock, both go to the details column in the
+  same order. It docks when the board column keeps at least the board and 640px
   (the ranks-won summary plus a table beside it) with the column at 360px or
   more and the details column at its 320px minimum. It then takes
   `clamp(360px, 24vw, 760px)` of the remaining room. Otherwise the chart

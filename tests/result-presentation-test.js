@@ -22,7 +22,7 @@ function assertEq(name, actual, want) {
 assertEq(
   'post-game phase order',
   resultPresentationPhases('postGame').map((phase) => phase.id).join(','),
-  'outcome,facts,analysis,tables,boardTables,duringGame,perfCharts,boardCharts,relationships,diagnostics');
+  'outcome,facts,analysis,tables,boardTables,perfCharts,boardCharts,relationships,diagnostics');
 
 assertEq(
   'score phase order',
@@ -32,7 +32,7 @@ assertEq(
 assertEq(
   'post-game chart order',
   resultChartSections('postGame').map((section) => section.id).join(','),
-  'tables,boardTables,duringGame,perfCharts,boardCharts,relationships,diagnostics');
+  'tables,boardTables,perfCharts,boardCharts,relationships,diagnostics');
 
 assertEq(
   'score chart order',
@@ -58,13 +58,9 @@ assertEq(
   false);
 
 assertEq(
-  'during the game follows the board tables and leads the point charts',
-  resultChartSections('postGame').map((section) => section.id).slice(1, 4).join(','),
-  'boardTables,duringGame,perfCharts');
-
-assertEq(
-  'score viewer excludes during the game',
-  resultChartSections('scores').some((section) => section.id === 'duringGame'),
+  'during the game leads the game data column, not a lower section',
+  ['postGame', 'scores'].some((context) =>
+    resultChartSections(context).some((section) => section.id === 'duringGame')),
   false);
 
 assertEq(

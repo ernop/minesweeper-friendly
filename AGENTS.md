@@ -101,7 +101,7 @@ Files, in load order:
 | `charts.js` | chart models and presentation (heavy models execute in the analysis worker); chart basics (SVG namespace, displayed numbers, sparkline sizes), axis ticks, trend lines, the (?) help tip, scatter and average-time charts |
 | `trial-review.js` | after-trial rank rows, identity review, run overlays |
 | `game-data-chart.js` | game data: pure ranking and label layout, then the 0–100% band and its views |
-| `during-game-chart.js` | during the game: the rows on one time axis, hover line and card, replay link, configure |
+| `during-game-chart.js` | during the game (head of the game data column): charts and event lanes on one time axis, hover line, card, and the board at a moment in the player's style, replay link, configure |
 | `result-ranks.js` | `renderRanks`: result tables and charts in section order |
 | `input-trace.js` | the raw input trace |
 | `replay-model.js` | path and choice replay, pure part |

@@ -208,22 +208,29 @@ function fitGameDataToSidebar() {
   profile.style.height = Math.max(GAME_DATA_MIN_HEIGHT, Math.floor(bottom - offset)) + 'px';
 }
 
-// Game data gets its own column only where a win can plot it, so trial modes
-// and a hidden chart do not reserve an empty strip.
+// The game data column (during this game, then game data) exists only where
+// a finished game can fill it, so trial modes and hidden blocks do not
+// reserve an empty strip.
 const GAME_DATA_MIN_WIDTH = 360;
 // Keeps the ranks-won summary and a table beside it under the board.
 const MAIN_MIN_WITH_GAME_DATA = 640;
 function gameDataColumnWanted() {
-  return settings !== null && settings.shownThings.boardPercentiles
+  return settings !== null && (settings.shownThings.boardPercentiles || settings.shownThings.duringGame)
     && !Trial.isPlayMode(settings.playMode);
 }
 
+// Undocked, both lead the details column, above the losing game's statistics.
 function placeGameData() {
   const docked = pageLayout.classList.contains('game-data-docked');
-  const host = (docked ? resultStats : gameDataColumn).querySelector('.board-time-profile-host');
-  if (host === null) return;
-  host.querySelector('.board-time-profile').style.height = '';
-  (docked ? gameDataColumn : resultStats).appendChild(host);
+  const source = docked ? resultStats : gameDataColumn;
+  const target = docked ? gameDataColumn : resultStats;
+  const host = source.querySelector('.board-time-profile-host');
+  if (host !== null) {
+    host.querySelector('.board-time-profile').style.height = '';
+    target.appendChild(host);
+  }
+  const duringGame = source.querySelector('.during-game');
+  if (duringGame !== null) target.prepend(duringGame);
 }
 
 // Reserve the options/stats column before results exist. A finished game's

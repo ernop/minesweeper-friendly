@@ -10,7 +10,7 @@ on the design axis or in a research note, not requested as a build.
 
 ## During the game follow-ons (creator request 2026-10-15; base built the same day)
 
-The section itself is built ([During the game](docs/product/during-game.md)).
+The block itself is built ([During the game](docs/product/during-game.md)).
 Not built yet:
 
 - **creator** — Forks inside one work area. The request's "two choices for

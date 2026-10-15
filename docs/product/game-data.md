@@ -11,16 +11,22 @@ For regular wins, game data replaces the scalar statistics grid. It has its
 own full-height column between the board column and the details column (user
 decision 2026-09-23: "a full-height column right next to the board"). That
 column is reserved before the game ends, so the board never moves, and it is
-empty during play and after losses (user decision: "empty"). When the page
-cannot fit it ([Layout: the board never moves](board-and-layout.md) gives the rule),
+empty during play (user decision: "empty"). Since 2026-10-15 the column
+opens with "during this game, second by second", the game just played on its
+own clock, and game data follows it (creator: "so it's "during this game
+second by second", "your perf totals for this game", then "board traits"";
+[During the game](during-game.md)); after a loss that block is all it holds.
+When the page cannot fit the column ([Layout: the board never moves](board-and-layout.md) gives the rule),
 the chart goes into the details column under the outcome, board size,
-mode/generator, and completion date, or into the Game details popover.
+mode/generator, and completion date, or into the Game details popover, with
+the during-the-game block above it.
 It is not repeated among the lower ranking charts. Losses and trial games
 retain their scalar statistics because an unfinished board has no completed
 solve-time or efficiency rank. High scores uses its latest winning game.
 
-The chart supports only one vertical band: "your perf" on the left and
-"board traits" on the right. Use Arial typography, white background, and
+The chart supports only one vertical band: "your performance this game"
+(titled "your perf" until 2026-10-15) on the left and "board traits" on the
+right. Use Arial typography, white background, and
 ordinary controls. The separate "This win" and time caption is removed;
 solve time is the "time" row.
 
@@ -32,8 +38,9 @@ do that!"; revised 2026-10-08, below):
 - One row per measurement, in aligned columns: your perf reads name, value,
   session %, lifetime %; board traits read %, name, value. Column heads name
   the performance pools ("session", "lifetime") and "value"; the board
-  side's percentage column has no head. Each side's name column is headed
-  by the board's name ("Beginner"; Board name, below). This
+  side's percentage column has no head. The performance side's name column
+  is headed by the board's name ("Beginner"), and the board side's name
+  column by nothing, so the name appears once (Board name, below). This
   replaced one label per pool
   with "(session)" and "(day)" suffixes, which doubled the left side's labels.
 - Labels are black and uncolored. Names, values, and percentages are all
@@ -66,8 +73,9 @@ point to it", "we should be careful not to allow this part of the UI to gain
 any kind of vscroll bar or hscroll bar", and "the mouse shall not change to
 the '?' mark"), built the same day:
 
-- No chart heading. The band starts with "your perf" and "board traits",
-  each centered over its own side's columns. Each title's help says only
+- No chart heading. The band starts with "your performance this game" and
+  "board traits" (Section titles, below), each centered over its own side's
+  columns. Each title's help says only
   what its side's percentages are, which nothing else on the panel says:
   the share of the other games (or boards) that ranked better, a tie
   counting as half, 0% the best; for board traits, that better is each
@@ -256,8 +264,8 @@ vital, since that way i can see things more nicely"), built the same day:
   chosen pool gets a your-perf section and a board-traits section, in the
   order your perf against lifetime, your perf against the session, board
   traits against lifetime, board traits against the session. Each
-  section's percentage head names its pool, and its title is followed by the
-  board's name ("session Beginner"; Board name, below). (Until then the view always
+  section's percentage head names its pool, and its title says what it
+  compares (Section titles, below). (Until then the view always
   showed your perf against both pools and board traits against lifetime
   only.)
 - Only lifetime strips tick the session's games. No key under the strips
@@ -284,13 +292,16 @@ only its no-mark games ([No-mark wins](rankings.md#no-mark-wins-decided-2026-10-
 The indicator:
 
 - The board's name as the outcome line gives it: "Beginner",
-  "Intermediate", "Expert", or "Custom 20x20-60". In the distributions view
-  it follows every section's title ("lifetime Beginner", "session
-  Beginner", "board traits Beginner"); in the band it heads each side's
-  name column, the head that was empty. It is set like the other heads
+  "Intermediate", "Expert", or "Custom 20x20-60", once per view (creator
+  2026-10-15: "you should not repeat "beginner" above every section too!
+  that's bad."). In the distributions view it heads the first section's
+  name column; in the band it heads the performance side's name column.
+  The other name columns have no head. It is set like the other heads
   (smaller than the title, bold, black), never as a sentence: the cut of
   2026-10-08 removed "so far with these board settings" from the cards as
-  fluff (Hover card, above).
+  fluff (Hover card, above). From its first build until that message it
+  followed every section title ("session Beginner", "board traits
+  Beginner") and headed both of the band's name columns.
 - The band carries it too, though the request named the distributions
   view: both views show the same pools under the same "lifetime" and
   "session" heads.
@@ -306,6 +317,30 @@ The indicator:
   "no-mark" and "no-mark session" as the band's heads do. Until 2026-10-15
   they read "lifetime" and "session" even there, against the No-mark wins
   rule.
+
+### Section titles (creator 2026-10-15)
+
+"the section labels are wrong. The top which says "session" beginner shoulds
+say "your performance this game, within this session"", in the same message
+that put "during this game, second by second" above game data and named the
+column's order: "during this game second by second", "your perf totals for
+this game", then "board traits" ([During the game](during-game.md)). Built
+the same day:
+
+- Distributions view: a performance section is titled "your performance
+  this game, within this session" or "your performance this game, within
+  your lifetime"; a no-mark win's read "within this session's no-mark games"
+  and "within your no-mark games". A board-trait section ends with the same
+  pool phrase ("board traits, within this session"): with both pools shown
+  there are two board-trait sections, and a bare "board traits" over each
+  left only the small pool head on the right to tell them apart. The
+  creator's message named the section "board traits" while viewing one
+  pool; the pool phrase extends that name rather than replacing it.
+- The band: "your performance this game" over the performance side (its
+  columns name both pools) and "board traits" over the board side.
+- A distributions section's title has a line of its own above the column
+  heads ("value", "your games", and the pool), and it wraps rather than
+  widening the name column: a title that wide would squeeze every strip.
 
 Linkage to the charts (creator: "this linkage should be very tight and
 clear"): each your-perf and board-trait chart heading carries a chip, "this

@@ -583,7 +583,6 @@ const RESULT_PRESENTATION_PHASES = Object.freeze([
   { id: 'analysis', order: 30, contexts: ['postGame'] },
   { id: 'tables', order: 50 },
   { id: 'boardTables', order: 60 },
-  { id: 'duringGame', order: 65, contexts: ['postGame'] },
   { id: 'perfCharts', order: 70 },
   { id: 'boardCharts', order: 75 },
   { id: 'relationships', order: 80 },
@@ -593,7 +592,6 @@ const RESULT_PRESENTATION_PHASES = Object.freeze([
 const RESULT_CHART_SECTIONS = Object.freeze([
   { id: 'tables', phase: 'tables', label: 'Game tables', heading: false },
   { id: 'boardTables', phase: 'boardTables', label: 'This board' },
-  { id: 'duringGame', phase: 'duringGame', label: 'during the game', contexts: ['postGame'] },
   { id: 'perfCharts', phase: 'perfCharts', label: 'your perf', chartMode: 'perfChartMode' },
   { id: 'boardCharts', phase: 'boardCharts', label: 'board traits', chartMode: 'boardChartMode' },
   { id: 'relationships', phase: 'relationships', label: 'relationships' },
@@ -654,14 +652,10 @@ function createResultSectionCollector(context) {
           const heading = document.createElement('h3');
           heading.className = 'result-chart-section-title';
           heading.textContent = spec.label;
-          // A section's choices sit beside its title: the chart mode, and
-          // any controls its nodes offer for themselves.
-          const controls = [...(spec.chartMode ? [chartModeSelect(spec.chartMode)] : []),
-            ...children.flatMap((child) => child.headControls || [])];
-          if (controls.length > 0) {
+          if (spec.chartMode) {
             const head = document.createElement('div');
             head.className = 'result-chart-section-head';
-            head.append(heading, ...controls);
+            head.append(heading, chartModeSelect(spec.chartMode));
             section.appendChild(head);
           } else {
             section.appendChild(heading);
@@ -727,6 +721,7 @@ function formatGuesses(record) {
 function clearResultStats() {
   resultStats.textContent = '';
   gameDataColumn.textContent = '';
+  hideDuringGameHover();
 }
 
 // Two lines: the outcome with its board, mode, and generator, then when.
@@ -928,23 +923,23 @@ async function renderResultAsync(record, modeRecords, options = {}) {
   resultRanks.classList.toggle(
     'sectioned-results',
     !Trial.isPlayMode(settings.playMode) || historyView);
+  // Built now so its analysis runs beside the rank tables'; renderRanks
+  // places it at the head of the game data column.
+  const duringGame = settings.shownThings.duringGame && !historyView && !Trial.isPlayMode(settings.playMode)
+    && duringGameAvailable(record) ? buildDuringGameBlock(record, isCurrent) : null;
   if (Trial.isPlayMode(settings.playMode) && !options.historyView) {
     resultRanks.textContent = '';
     renderTrialChrome();
   } else if (record.outcome === 'win') {
     await renderRanks(record, noMarkComparison(record, modeRecords),
-      noMarkWin ? { ...options, noMarkTimeLabel: noMarkTimeLabel() } : options,
+      { ...options, duringGame, ...(noMarkWin ? { noMarkTimeLabel: noMarkTimeLabel() } : {}) },
       resultSections, isCurrent);
   } else {
     const latestWin = modeRecords.findLast((game) => game.outcome === 'win');
     await renderRanks(latestWin || record, modeRecords,
-      { ...options, historyView: true, boardRecord: record }, resultSections, isCurrent);
+      { ...options, duringGame, historyView: true, boardRecord: record }, resultSections, isCurrent);
   }
   if (!isCurrent()) return;
-  if (settings.shownThings.duringGame && !historyView && !Trial.isPlayMode(settings.playMode)
-      && duringGameAvailable(record)) {
-    resultSections.append('duringGame', buildDuringGameSection(record, isCurrent));
-  }
   // The after-game motion charts, jammed inline after whatever other
   // bottom charts the outcome produced. Losses retain prior win history;
   // motion describes the just-finished game either way. Trial review has its own charts.

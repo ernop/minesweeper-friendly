@@ -42,14 +42,16 @@ Spec: [docs/product/board-and-layout.md](../product/board-and-layout.md). Index:
   `--game-sidebar-min-width`, and docks only when that minimum fits).
   A fourth column, `#game-data-column` (2026-09-23), sits between main and
   the sidebar when `#page-layout.game-data-docked` is set: `syncGameSidebar`
-  docks it when `gameDataColumnWanted()` (chart enabled, not a trial mode) and
+  docks it when `gameDataColumnWanted()` (game data or during the game
+  enabled, not a trial mode) and
   main keeps `max(board + 16, MAIN_MIN_WITH_GAME_DATA)` with the column at
   `GAME_DATA_MIN_WIDTH` or more and the sidebar at its minimum. It sets
   `--game-data-docked-width` (preferred registered `--game-data-width`,
   `clamp(360px, 24vw, 760px)`, capped by that room) and pins the sidebar to
-  its minimum. `placeGameData` moves an existing `.board-time-profile-host`
-  between `#result-stats` and the column when the layout changes;
-  `clearResultStats` empties both wherever results are cleared.
+  its minimum. `placeGameData` moves an existing `.during-game` block (first)
+  and `.board-time-profile-host` between `#result-stats` and the column when
+  the layout changes; `clearResultStats` empties both wherever results are
+  cleared and hides the during-the-game board and card.
   The sidebar contains `#top-right`, `#scores-nav`,
   `#results`, and `#path-view-legend` in normal flow, then `#review-options`
   (a popover when docked, inline at the end when compact), with independent scrolling. It is

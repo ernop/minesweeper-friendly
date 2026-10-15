@@ -10,14 +10,15 @@ alwaysApply: true
 - Pagetables include the session summary, recent placements, time and
   day-category rankings such as "on weekends", board-shape rankings, streak,
   near-streak, and near-near-streak.
-- Point charts include the during-the-game rows, the your-perf property
-  charts, the board-trait property charts, and the raw relationship
-  scatterplots.
+- Point charts include the your-perf property charts, the board-trait
+  property charts, and the raw relationship scatterplots.
 - Preserve this sequence in both DOM and visual order:
   one table collection (session summary, recent placements, other rank
-  tables, then all streak variants) → This board tables → during the game
-  (after a game only) → your-perf charts → board-trait charts →
-  relationship charts.
+  tables, then all streak variants) → This board tables → your-perf charts →
+  board-trait charts → relationship charts.
+- "During this game, second by second" is not in this sequence: it leads the
+  game data column beside the board, above game data (creator decision
+  2026-10-15).
 - The upper tables share one continuous wrapping list without Rankings or
   Streaks section headings. Retain individual table labels such as lifetime
   and near-streak, which identify their data.

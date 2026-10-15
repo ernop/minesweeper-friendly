@@ -84,6 +84,15 @@ function gameDataPoolLabel(scope) {
   if (scope === 'session') return 'no-mark session';
   return GAME_DATA_POOL_LABELS[scope];
 }
+// A distributions section's title ends with its pool, as both sides show
+// both pools: the shared one, then a no-mark win's.
+const GAME_DATA_POOL_PHRASES = {
+  lifetime: ['within your lifetime', 'within your no-mark games'],
+  session: ['within this session', 'within this session\u2019s no-mark games'],
+};
+function gameDataPoolPhrase(scope) {
+  return GAME_DATA_POOL_PHRASES[scope][gameDataNoMark ? 1 : 0];
+}
 // Each side title's help says what its percentages are, which nothing else
 // on the panel says.
 const GAME_DATA_SIDE_HELP = {
@@ -287,8 +296,8 @@ function fillGameDataCard(tip, item, scope) {
 // plotted one, then the sides stacked, each with its own bar and both sides'
 // rows on its left. The band never scrolls: the plan that needs the least
 // shrinking wins (the earlier one on a tie), and the whole band scales to fit
-// its box. Each side's name column is headed by `boardName`, since every pool
-// holds that board's games alone.
+// its box. The performance side's name column is headed by `boardName`, once,
+// since every pool holds that board's games alone.
 function buildGameDataBand(rows, pool, valuesShown, boardName) {
   const items = gameDataItems(rows);
   const element = document.createElement('div');
@@ -350,7 +359,7 @@ function buildGameDataBand(rows, pool, valuesShown, boardName) {
     }
     return cell;
   }
-  const sides = [['performance', 'your perf'], ['board', 'board traits']].map(([side, text]) => {
+  const sides = [['performance', 'your performance this game'], ['board', 'board traits']].map(([side, text]) => {
     const list = items.filter((item) => item.side === side);
     const title = document.createElement('div');
     title.className = 'game-data-side-title';
@@ -362,7 +371,7 @@ function buildGameDataBand(rows, pool, valuesShown, boardName) {
     columns.append(...(side === 'performance'
       ? [headCell('game-data-name', boardName), headCell('game-data-value', 'value'),
         ...perfPools.map((scope) => headCell('game-data-pct', gameDataPoolLabel(scope), scope))]
-      : [headCell('game-data-pct', '', pool), headCell('game-data-name', boardName), headCell('game-data-value', 'value')]));
+      : [headCell('game-data-pct', '', pool), headCell('game-data-name', ''), headCell('game-data-value', 'value')]));
     return { side, title, columns, entries: list.filter((item) => item.pools[pool])
       .map((item) => ({ item, row: rowElement(item), percentile: item.pools[pool].percentile })) };
   }).filter((side) => side.entries.length);
@@ -539,16 +548,17 @@ function buildGameDataBand(rows, pool, valuesShown, boardName) {
   return { element, layout };
 }
 
-// Every measurement's distribution as a strip: your perf's sections, then
-// board traits', one per pool the sections switch shows (lifetime, session,
+// Every measurement's distribution as a strip: your performance's sections,
+// then board traits', one per pool the sections switch shows (lifetime, session,
 // or both). Rows keep catalog order, so a measurement sits at the same place
 // in every section. A row's card shows its own section's pool. Like the band
 // it never scrolls, and the strips take all the height the rows leave
 // (creator 2026-10-08: "if i remove items then the remaining ones should
 // expand vertically to fill the space"): `layout` gives them the tallest
 // height that fits its box, and only below the shortest strip does it
-// shrink the text. Each section's title is followed by `boardName`, the
-// board its pool holds alone.
+// shrink the text. The first section's name column is headed by `boardName`,
+// the board every pool holds alone. A title has its own line and wraps, so a
+// long one never widens the name column and squeezes the strips.
 const GAME_DATA_STRIP_SHORTEST = 10;
 function buildGameDataDistributions(rows, pools, boardName) {
   const element = document.createElement('div');
@@ -567,13 +577,14 @@ function buildGameDataDistributions(rows, pools, boardName) {
       section.className = 'game-data-dist-section';
       section.dataset.side = side;
       section.dataset.pool = scope;
+      const title = gameDataCell('game-data-side-title',
+        (side === 'board' ? 'board traits, ' : 'your performance this game, ') + gameDataPoolPhrase(scope));
       const head = document.createElement('div');
       head.className = 'game-data-dist-head';
-      const title = gameDataCell('game-data-side-title', side === 'board' ? 'board traits' : gameDataPoolLabel(scope));
-      title.append(' ', gameDataCell('game-data-board-name', boardName));
-      head.append(title, gameDataCell('game-data-value', 'value'),
+      head.append(gameDataCell('game-data-name', strips.length === 0 ? boardName : ''),
+        gameDataCell('game-data-value', 'value'),
         gameDataCell('game-data-strip-head', 'your games'), gameDataCell('game-data-pct', gameDataPoolLabel(scope)));
-      section.appendChild(head);
+      section.append(title, head);
       for (const item of shown) {
         const row = item.pools[scope];
         const wrap = chartHelpButton((tip) => fillGameDataCard(tip, item, scope), item.name);

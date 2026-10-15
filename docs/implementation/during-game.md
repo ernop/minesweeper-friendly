@@ -16,10 +16,18 @@ Spec: [docs/product/during-game.md](../product/during-game.md). Index: [AGENTS.m
   (`game/session-stats.js`), `FASTCLICK_MAX_GAP_MS`, and `GameData` formats.
 - `game/during-game-chart.js` (after `game/game-data-chart.js`): the page
   side. `duringGameSourceId` names the game whose trace the reports worker
-  holds; `buildDuringGameSection(record, isCurrent)` builds the section
-  host, its head controls, and configure; `renderDuringGameRows` draws the
-  grid and wires hover and the replay link; `drawDuringGameBoard` draws the
-  hover card's board.
+  holds. `buildDuringGameBlock(record, isCurrent)` builds the block: title,
+  charts, the averaging and configure row (game data's
+  `.game-data-controls`), and the configure view. `renderDuringGameCharts`
+  draws `DuringGame.CHARTS` and the event lanes on one time axis and wires
+  hover and the replay link. The board at a moment (`duringGameBoard`,
+  `paintDuringGameBoard`, `placeDuringGameBoard`) and the card
+  (`duringGameCard`, `placeDuringGameCard`) are body-level manual popovers,
+  so they show above the Game details popover too; `hideDuringGameHover`
+  closes both, and `clearResultStats` calls it.
+- `game/replay-view.js` lends the board at a moment
+  `paintReplayFrame(model, elements)`, which paints any list of squares, and
+  `finishedBoardCells()`.
 - `analysis-worker.js` imports `justice.js`, `board-icons.js` (whose
   `FLAG_COLOR` `game/replay-model.js` reads at load), `game/replay-model.js`,
   and `during-game.js`.
@@ -78,15 +86,19 @@ decisions. Otherwise:
 
 Cost (2026-10-15, scripted Expert wins of 290–340 actions in Node):
 about 120 ms for the model and 10–20 ms for a view of every row with the
-rolling average. The result collector waits for the section's
-`analysisReady`, so the lower result sections wait for it too; the reports
-lane runs it after `finished-game`.
+rolling average. `renderResultAsync` builds the block, which starts its
+task, before `renderRanks`, so the reports lane (after `finished-game`)
+runs it beside the rankings lane's tables. `renderRanks` waits for it after
+the board tables, before game data and the charts.
 
 ## Rows and averaging
 
-`ROWS` entries hold `id`, `group`, `name`, `default`, `help`, `format`, and
-`data(model)`, whose `kind` (progress, state, rate, ratio, value, speed,
-events, unrecorded) decides drawing and averaging. Rows named like a game
+`CHARTS` lists the shared charts in order: `id`, `name`, `unit`, `scale`
+('share' for a fixed 0 to 1, 'log', else linear from 0), and `percent`
+(fractions labeled as percentages). `ROWS` entries hold `id`, `group`,
+`name`, `default`, `help`, `format`, `chart` (every row but the events),
+and `data(model)`, whose `kind` (progress, state, rate, ratio, value,
+speed, events, unrecorded) decides drawing and averaging. Rows named like a game
 data measurement take its format from `GameData.metrics`. `windowValue`
 measures a row over a time window (undefined under `SESSION_MIN_PLAY_MS`);
 `gameValue` is the right-hand whole-game value; `drawn` returns `steps`,
@@ -97,20 +109,40 @@ toleranceMs)` answers the hover. Unknown rows and averages throw.
 
 ## Page
 
-- `renderResultAsync` appends the section after the rank tables when
-  `shownThings.duringGame` is on, outside the score viewer and trial play,
-  and the trace is held. The result phase and section `duringGame` (order
-  65, `postGame` only) sit between `boardTables` and `perfCharts`. The
-  collector puts every node's `headControls` (here the averaging select,
-  configure, and the help button) beside the section title.
-- `renderDuringGameRows` throws if the page's replay frames and the view's
-  actions differ in number: hover and the replay link index one by the
-  other. A click calls `rememberPanel('replay', true)` before
+- `renderResultAsync` builds the block when `shownThings.duringGame` is on,
+  outside the score viewer and trial play, and the trace is held, and hands
+  it to `renderRanks` as `options.duringGame`. `renderRanks` keeps it out of
+  the options it sends the rankings worker (a DOM node does not clone) and
+  puts it first in game data's target, the docked column or else
+  `#result-stats`, in the same task as game data's frame.
+  `placeGameData` (`game/layout.js`) moves both when docking changes, and
+  `gameDataColumnWanted` docks the column for either switch.
+- Charts: one SVG per chart under its HTML legend; the lanes are one SVG
+  beside an HTML names column. `duringGameLeftMargin` measures every y tick
+  label and every lane name with its count (canvas `measureText` in the CSS
+  fonts), so every part's plot starts at the same x. The time axis takes
+  `niceTicks` at about one tick per 56 px, labeled under the first and last
+  parts. `duringGameScale` gives the y ticks: progress every 20%, gaps at
+  powers of ten with minor ticks 2 to 9, the rest at 0, the middle, and the
+  top. The block's `ResizeObserver` redraws at the column's width; legend
+  values are whole-game values, so hover changes no width.
+- Hover: `stepAt` turns the moment into a replay step, the first action
+  after it, or the finished board within hover reach of the axis's end.
+  The board is repainted only when its step or proven-safe set changes:
+  `replayFrameModel` with no solver read, every mark but `selected`
+  cleared, then `safe` on the proven-safe squares. Its squares are real
+  `.cell` divs, so `paintCellGlyph`, `chosenFlagSvg`, and `mineSvg` apply
+  the player's number display, flag style and color strength, and mine
+  style, and `--flag-size` scales with the grid's own `--cell-size` (from
+  a 400 x 300 px box, narrower in a narrow window, 6 to 24 px a square).
+  The grid restates `--bevel-size`, which `:root` resolves at the page's
+  square size. The head's min-width is measured once per game for its
+  longest text, so the panel keeps its size.
+- `renderDuringGameCharts` throws if the page's replay frames and the
+  view's actions differ in number: hover and the replay link index one by
+  the other. A click calls `rememberPanel('replay', true)` before
   `setReplayStep`, because every replay render re-syncs the panel from
   `settings.panels.replay`.
-- The section host's `ResizeObserver` redraws the plots at the plot
-  column's width; the value column is a fixed 11ch, so hover changes no
-  width.
 
 ## Tests
 
@@ -121,8 +153,15 @@ toleranceMs)` answers the hover. Unknown rows and averages throw.
   trace.
 - `tests/during-game-browser-check.js PLAYWRIGHT_CORE_DIR CHROMIUM
   [SCREENSHOT_DIR]`: real games with real mouse input under the routed test
-  origin: section order, rows and values, hover line, values, and card, the
-  replay link, configure, averaging, restore after reload, a loss, and a
-  390 px viewport.
-- `tests/result-presentation-test.js` holds the section order; the settings
-  tests load `during-game.js` before `settings-core.js`.
+  origin: the block at the head of the docked column, the charts and legend
+  rows, one plot x and width for every part, the progress chart's labels,
+  hover line, card, and the board in the player's number and flag style
+  beside the block, fixed while the pointer moves, the finished board at
+  the end, the long-gap lane's proven-safe ring, the replay link,
+  configure, averaging, restore after reload, a loss, an 1100 px viewport
+  (the block in the details column, the board beside it, the card inside
+  the window), and a 390 px viewport (block first in the details popover,
+  board clear of the chart and card).
+- `tests/result-presentation-test.js` holds that no result section carries
+  the block; the settings tests load `during-game.js` before
+  `settings-core.js`.

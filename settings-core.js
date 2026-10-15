@@ -103,7 +103,7 @@ const SHOWN_THINGS_OPTIONS = [
   ['zeroOpeningTable', 'zero-opening-coverage tablechart', 'times on boards whose fraction of safe squares exposed by opening every zero region rounds to the same nearest whole percentage point'],
   ['boardShapeTables', 'board-shape tablecharts', 'has an 8, has a 7, max number ≤ 4/3/2, islands, and zeros rankings'],
   ['largestIsland', 'largest island', 'the largest-island stat and matching tablechart'],
-  ['duringGame', 'during the game', 'how the game just played unfolded on its own clock: progress, pace, what the board offered, and detected events such as moves, forks, and pauses, one row each on one time axis'],
+  ['duringGame', 'during this game, second by second', 'at the head of the game data column: how the game just played unfolded on its own clock, in charts on one time axis (progress, pace, what the board offered) with lanes of detected events such as moves, forks, and pauses; pointing at a moment shows the values and the board then'],
   ['averageCharts', 'average-time charts', 'your-perf and board-trait property charts, each with its own average, distribution, or winrate reading'],
   ['streak', 'streak', 'consecutive-win ranking'],
   ['nearStreak', 'near-streak', 'win runs spanning at most one loss'],
@@ -117,7 +117,7 @@ const SHOWN_THINGS_OPTIONS = [
 // shownThings key; a bare name is a boolean setting with control
 // 'result-section'.
 const RESULT_SECTION_GROUPS = [
-  ['This game', ['shownThings.gameStats', 'shownThings.boardPercentiles']],
+  ['This game', ['shownThings.gameStats', 'shownThings.duringGame', 'shownThings.boardPercentiles']],
   ['Tables', ['shownThings.sessionSummary', 'shownThings.sessionEndings', 'shownThings.recentPlacements',
     'shownThings.recentPlacementsOtherBoards', 'shownThings.timeTables', 'shownThings.lastOneMinute',
     'collapseDuplicateCharts', 'shownThings.streak', 'shownThings.nearStreak', 'shownThings.nearNearStreak']],
@@ -125,7 +125,7 @@ const RESULT_SECTION_GROUPS = [
     'shownThings.exactMaxNumber', 'shownThings.exactHZiNi', 'shownThings.workSpreadTable',
     'shownThings.zeroOneShareTable', 'shownThings.zeroOpeningTable', 'shownThings.boardShapeTables',
     'shownThings.largestIsland']],
-  ['Charts', ['shownThings.duringGame', 'shownThings.averageCharts', 'shownThings.relationshipCharts',
+  ['Charts', ['shownThings.averageCharts', 'shownThings.relationshipCharts',
     'showMotionStatsAfterGame']],
 ];
 

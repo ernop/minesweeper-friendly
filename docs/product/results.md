@@ -11,7 +11,7 @@ append timing or from how many cards fit on a row:
    outcome followed by board · mode · generator in regular weight, then
    the date and time in bold tabular digits. A no-mark win adds "no-mark"
    on that context line ([No-mark wins](rankings.md#no-mark-wins-decided-2026-10-14)).
-2. **Facts / game data** — the winning-game chart in its own column beside the board (or under its outcome context in the details column when that column cannot fit); losses and trials retain label/value stats.
+2. **Facts / game data** — the column beside the board (or the details column under the outcome context when that column cannot fit): "during this game, second by second" after any game, outside the score viewer and trials ([During the game](during-game.md)), then the winning-game chart; losses and trials retain label/value stats.
 3. **Analysis** — post-game action interpretation only.
 4. **Tables** — the session summary first, then the "ranks won in session"
    time-period summary, then time/category and all consecutive/loss-tolerant
@@ -29,18 +29,17 @@ append timing or from how many cards fit on a row:
    shape time tablecharts, in a separate named, left-aligned wrapping section.
    Empty sections are omitted. The period-wide ranks-won summary above still
    includes all qualifying board categories from its selected period.
-6. **During the game** — the game just played (or the restored one) on its
-   own clock: progress, pace, board, and event rows on one time axis
-   (requested 2026-10-15; [During the game](during-game.md)). After a game
-   only, never in the score viewer. It plots individual points, so it
-   follows every table.
-7. **Your perf** — property charts for the left-side measurements, with that
+6. **Your perf** — property charts for the left-side measurements, with that
    group's average / distribution / winrate control.
-8. **Board traits** — property charts for the right-side measurements, with
+7. **Board traits** — property charts for the right-side measurements, with
    that group's own control. Exact-value time tables stay in This board, above
    both chart groups.
-9. **Relationships** — raw-win scatterplots.
-10. **Diagnostics** — post-game motion systems.
+8. **Relationships** — raw-win scatterplots.
+9. **Diagnostics** — post-game motion systems.
+
+During the game's first build (2026-10-15) was a section here between This
+board and your perf; the creator moved it the same day to lead the game data
+column.
 
 The compact percentile overview occupies the winning-game sidebar. All pagetables
 and row-based data displays still precede the historical scatterplots.

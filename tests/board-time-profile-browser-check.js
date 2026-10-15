@@ -93,19 +93,19 @@ const { chromium } = require(process.argv[2]);
     });
     await bandReady();
     assert.equal(await profile.locator('figcaption, h4').count(), 0, 'the chart starts with its data, no heading');
-    assert.deepEqual(await profile.locator('.game-data-side-title').allTextContents(), ['your perf', 'board traits']);
+    assert.deepEqual(await profile.locator('.game-data-side-title').allTextContents(), ['your performance this game', 'board traits']);
     assert.deepEqual(await profile.locator('.game-data-controls').evaluate((row) => [...row.children]
       .map((child) => child.matches('.game-data-pool-switch') ? 'points' : child.textContent.trim())),
     ['points', 'show distributions', 'show values', 'configure', 'session history'], 'every option in one row at the bottom');
     assert.equal(await profile.locator('.game-data-row[data-side="board"]').count(), 9);
     assert.equal(await profile.locator('.game-data-row[data-side="performance"]').count(), 8,
       'one row per measurement, its pools side by side');
-    // Every pool holds this board's games alone, and the name columns say
-    // which board (creator 2026-10-15).
+    // Every pool holds this board's games alone, and the performance side's
+    // name column says which board, once (creator 2026-10-15).
     assert.deepEqual(await profile.locator('.game-data-column-heads[data-side="performance"] > span').allTextContents(),
       ['Beginner', 'value', 'session', 'lifetime']);
     assert.deepEqual(await profile.locator('.game-data-column-heads[data-side="board"] > span').allTextContents(),
-      ['', 'Beginner', 'value'], 'no "boards" head');
+      ['', '', 'value'], 'no "boards" head and no second board name');
     assert.deepEqual(await profile.locator('.game-data-row button').evaluateAll((buttons) =>
       [...new Set(buttons.map((button) => getComputedStyle(button).cursor))]), ['default'], 'never the help cursor');
     assert.equal(await profile.locator('.game-data-row[data-measurement="bv3"] .game-data-value').textContent(), '75');
@@ -339,15 +339,23 @@ const { chromium } = require(process.argv[2]);
       await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
       return profile.locator('.game-data-distributions').evaluate((view) => {
         const strips = [...view.querySelectorAll('.game-data-strip')];
+        const firstHead = view.querySelector('.game-data-dist-head');
+        const firstTitle = view.querySelector('.game-data-dist-section > .game-data-side-title');
         return {
-          heads: [...view.querySelectorAll('.game-data-dist-head')].map((head) =>
-            head.querySelector('.game-data-side-title').textContent + ' · ' + head.querySelector('.game-data-pct').textContent),
+          // Each section: its title line, then its head's name and pool cells.
+          heads: [...view.querySelectorAll('.game-data-dist-section')].map((section) => [
+            section.querySelector(':scope > .game-data-side-title').textContent,
+            section.querySelector('.game-data-dist-head .game-data-name').textContent,
+            section.querySelector('.game-data-dist-head .game-data-pct').textContent]),
           // The board name next to its head's value cell: [size px, weight, color].
-          boardNameStyles: [...view.querySelectorAll('.game-data-dist-head')].map((head) =>
-            [head.querySelector('.game-data-board-name'), head.querySelector('.game-data-value')].map((cell) => {
-              const style = getComputedStyle(cell);
-              return [parseFloat(style.fontSize), style.fontWeight, style.color];
-            })),
+          boardNameStyles: [firstHead.querySelector('.game-data-name'), firstHead.querySelector('.game-data-value')].map((cell) => {
+            const style = getComputedStyle(cell);
+            return [parseFloat(style.fontSize), style.fontWeight, style.color];
+          }),
+          // The title runs over the strip column instead of widening the
+          // name column.
+          titleOverStrips: firstTitle.getBoundingClientRect().right > strips[0].getBoundingClientRect().left,
+          titleAboveHead: firstTitle.getBoundingClientRect().bottom <= firstHead.getBoundingClientRect().top + 0.5,
           rows: strips.length,
           stripHeights: [...new Set(strips.map((strip) => strip.getBoundingClientRect().height))],
           drawnHeights: [...new Set(strips.map((strip) => strip.querySelector('svg').viewBox.baseVal.height))],
@@ -372,15 +380,17 @@ const { chromium } = require(process.argv[2]);
     let shown = await distributionsShown('both');
     assert.equal(await page.evaluate(() => settings.gameDataDistributions), true);
     assert.equal(await profile.locator('.game-data-pool-switch').evaluate((group) => group.textContent), 'sections: lifetimesessionboth');
-    assert.deepEqual(shown.heads, ['lifetime Beginner · lifetime', 'session Beginner · session',
-      'board traits Beginner · lifetime', 'board traits Beginner · session'],
-    'both pools, for your perf and for board traits, each section naming its board');
-    // Its em nests in the title's, so the sizes agree to rounding only.
-    for (const [[nameSize, ...nameLook], [valueSize, ...valueLook]] of shown.boardNameStyles) {
-      assert(Math.abs(nameSize - valueSize) < 0.01, 'the board name is the value head’s size: ' + [nameSize, valueSize]);
-      assert.deepEqual(nameLook, valueLook, 'and its weight and color');
-      assert.deepEqual(nameLook, ['700', 'rgb(0, 0, 0)'], 'bold black');
-    }
+    assert.deepEqual(shown.heads, [
+      ['your performance this game, within your lifetime', 'Beginner', 'lifetime'],
+      ['your performance this game, within this session', '', 'session'],
+      ['board traits, within your lifetime', '', 'lifetime'], ['board traits, within this session', '', 'session']],
+    'both pools, for your performance and for board traits, the board named once');
+    const [[nameSize, ...nameLook], [valueSize, ...valueLook]] = shown.boardNameStyles;
+    assert.equal(nameSize, valueSize, 'the board name is the value head’s size');
+    assert.deepEqual(nameLook, valueLook, 'and its weight and color');
+    assert.deepEqual(nameLook, ['700', 'rgb(0, 0, 0)'], 'bold black');
+    assert.equal(shown.titleOverStrips, true, 'a section title spans the columns');
+    assert.equal(shown.titleAboveHead, true, 'on its own line above the column heads');
     assert.equal(shown.note, null, 'the lifetime sections list every measurement');
     assert.equal(shown.rows, await profile.locator('.game-data-dist-row svg.game-data-histogram').count());
     const stripReadings = await profile.locator('.game-data-dist-row').evaluateAll((rows) => rows.map((row) =>
@@ -398,7 +408,8 @@ const { chromium } = require(process.argv[2]);
     await profile.getByRole('button', { name: 'lifetime', exact: true }).click();
     shown = await distributionsShown('lifetime');
     assert.equal(await page.evaluate(() => settings.gameDataDistributionPools), 'lifetime');
-    assert.deepEqual(shown.heads, ['lifetime Beginner · lifetime', 'board traits Beginner · lifetime']);
+    assert.deepEqual(shown.heads, [['your performance this game, within your lifetime', 'Beginner', 'lifetime'],
+      ['board traits, within your lifetime', '', 'lifetime']]);
     fillsBox(shown, 'lifetime');
     assert(shown.stripHeights[0] > bothStrip, 'fewer rows, taller strips: ' + shown.stripHeights[0] + ' px vs ' + bothStrip + ' px');
     assert.deepEqual(shown.captions, [], 'nothing but sections under the strips: no key');
@@ -421,7 +432,8 @@ const { chromium } = require(process.argv[2]);
     // rank is listed rather than dropped.
     await profile.getByRole('button', { name: 'session', exact: true }).click();
     shown = await distributionsShown('session');
-    assert.deepEqual(shown.heads, ['session Beginner · session', 'board traits Beginner · session']);
+    assert.deepEqual(shown.heads, [['your performance this game, within this session', 'Beginner', 'session'],
+      ['board traits, within this session', '', 'session']]);
     assert.deepEqual(shown.captions, [], 'the note and sections only: no key');
     assert.equal(shown.ticks, 0);
     assert.match(shown.note, /^Not ranked in this session yet: ZiNi, .*zeros\. A session rank needs two measured games in the session window\.$/);
@@ -437,8 +449,11 @@ const { chromium } = require(process.argv[2]);
       collector.renderInto(resultRanks);
     });
     shown = await distributionsShown('both');
-    assert.deepEqual(shown.heads, ['no-mark Beginner · no-mark', 'no-mark session Beginner · no-mark session',
-      'board traits Beginner · no-mark', 'board traits Beginner · no-mark session']);
+    assert.deepEqual(shown.heads, [
+      ['your performance this game, within your no-mark games', 'Beginner', 'no-mark'],
+      ['your performance this game, within this session\u2019s no-mark games', '', 'no-mark session'],
+      ['board traits, within your no-mark games', '', 'no-mark'],
+      ['board traits, within this session\u2019s no-mark games', '', 'no-mark session']]);
     assert.match(await profile.locator('.game-data-dist-section[data-side="performance"][data-pool="session"] '
       + '.game-data-dist-row[data-measurement="time"] button').getAttribute('aria-label'), /^time 33\.542s: no-mark session \d+%$/);
     fillsBox(shown, 'no-mark');

@@ -1670,8 +1670,9 @@ body.trial-offboard #game-frame {
 #game-sidebar-button[hidden], #game-sidebar-close[hidden] { display: none; }
 #game-sidebar-close { align-self: flex-end; }
 #page-layout.compact-sidebar { grid-template-columns: auto minmax(0, 1fr); }
-/* Game data's own full-height column beside the board column. It is
-   reserved before a win and stays empty during play and after losses. */
+/* The game data column, full height beside the board column: during this
+   game, then game data (a loss shows the first alone). It is reserved
+   before a game ends and stays empty during play. */
 #page-layout.game-data-docked {
   grid-template-columns: auto minmax(0, 1fr) var(--game-data-docked-width) var(--game-sidebar-docked-width);
 }
@@ -2491,40 +2492,55 @@ body.settings-page .return-to-game {
   margin-right: 0;
 }
 
-/* During the game (docs/product/during-game.md): one row per measurement on
-   a shared time axis; name, plot, and the value at the right. */
-.result-chart-section-duringGame > .result-chart-section-items { display: block; }
+/* During this game, second by second (docs/product/during-game.md): the
+   game data column's first block, sized by its content. Its charts take the
+   session charts' grammar (plot frame, gridlines, tick text, series lines
+   and legend swatches); the options row is game data's. */
 .during-game {
-  width: calc(100% - 24px);
-  margin: 0 auto;
-  text-align: left;
+  flex: 0 0 auto;
+  min-width: 0;
+  margin-bottom: 10px;
   color: #000000;
+  font: 400 12px Arial, Helvetica, sans-serif;
+  text-align: left;
 }
-.during-game-grid {
-  position: relative;
-  display: grid;
-  grid-template-columns: max-content minmax(0, 1fr) 11ch;
-  align-items: center;
-  column-gap: 8px;
-  cursor: crosshair;
-}
-.during-game-grid.during-game-empty { display: block; cursor: auto; }
-.during-game-name {
-  font-size: 13px;
-  white-space: nowrap;
+/* Set like game data's section titles, which follow it. */
+.during-game-title { margin-bottom: 2px; font-size: 14px; font-weight: 700; line-height: 18px; }
+.during-game-charts { position: relative; cursor: crosshair; }
+.during-game-charts.during-game-empty { padding: 6px 0; font-size: 13px; cursor: auto; }
+.during-game-chart { position: relative; }
+.during-game-chart + .during-game-chart { margin-top: 2px; }
+.during-game-chart > svg { display: block; }
+.during-game-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 12px;
+  line-height: 17px;
   cursor: auto;
 }
-.during-game-plot { display: block; min-width: 0; }
-.during-game-plot > svg { display: block; }
-.during-game-value,
-.during-game-value-head {
-  text-align: right;
+.during-game-legend-value { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+/* Raw marks are context under an average's line, the data itself in raw. */
+.during-game-dot,
+.during-game-tick { opacity: 0.45; }
+.during-game-raw .during-game-dot,
+.during-game-raw .during-game-tick { opacity: 1; }
+.during-game-lane-names { position: absolute; top: 1px; left: 0; cursor: auto; }
+.during-game-lane-name {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  box-sizing: border-box;
+  height: 14px;
+  padding-right: 8px;
+  line-height: 14px;
   white-space: nowrap;
-  font-variant-numeric: tabular-nums;
 }
-.during-game-value { font-size: 15px; font-weight: 400; }
-.during-game-value-head { font-size: 13px; font-weight: 700; }
-.during-game-group-start { margin-top: 10px; }
+.during-game-lane-count { font-weight: 700; font-variant-numeric: tabular-nums; }
+.during-game-mark { fill: #000000; }
+.during-game-mark-death { fill: #d00000; }
+.during-game-span { fill: #90a4ae; }
+.during-game-unrecorded { font: 11px Arial, sans-serif; fill: #000000; }
 .during-game-line {
   position: absolute;
   top: 0;
@@ -2534,38 +2550,46 @@ body.settings-page .return-to-game {
   pointer-events: none;
 }
 .during-game-line[hidden] { display: none; }
-.during-game-baseline { stroke: #c9d3da; stroke-width: 1; }
-.during-game-scale { font-size: 10px; fill: #000000; }
-.during-game-axis-tick { stroke: #000000; stroke-width: 1; }
-.during-game-axis-label { font-size: 11px; fill: #000000; }
-.during-game-step { fill: none; stroke: #1565c0; stroke-width: 2; }
-.during-game-dot { fill: #8a8a8a; }
-.during-game-tick { fill: #8a8a8a; }
-.during-game-average { fill: none; stroke: #1565c0; stroke-width: 2.5; stroke-linecap: round; }
-.during-game-mark { fill: #000000; }
-.during-game-mark-death { fill: #d00000; }
-.during-game-span { fill: #b0bec5; }
-.during-game-card {
-  position: fixed;
-  z-index: 1000;
-  pointer-events: none;
-  box-sizing: border-box;
-  padding: 6px 8px;
-  border: 1px solid #000000;
-  border-radius: 3px;
-  background: #ffffff;
-  color: #000000;
-  font-size: 12px;
-}
-.during-game-card[hidden] { display: none; }
-.during-game-card-head { white-space: nowrap; margin-bottom: 3px; }
-.during-game-card-time { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.during-game-card-fact { white-space: nowrap; }
-.during-game-card-board { display: block; margin-top: 5px; }
+.during-game-controls { margin-top: 4px; }
+.during-game-controls button[aria-pressed="true"] { font-weight: 700; }
 .during-game-config table { border-collapse: collapse; }
 .during-game-config td { padding: 3px 8px 3px 0; border-bottom: 1px solid #d9e2e8; font-size: 13px; }
 .during-game-config h4 { margin: 10px 0 4px; font-size: 14px; }
-.result-chart-section-duringGame .result-chart-section-head button[aria-pressed="true"] { font-weight: 700; }
+/* The board at a moment and the value card float in the top layer, above
+   the compact details popover, and never take the pointer. */
+.during-game-board,
+.during-game-card {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  overflow: visible;
+  pointer-events: none;
+  border: 1px solid #000000;
+  background: #ffffff;
+  color: #000000;
+  box-shadow: 2px 3px 8px rgba(0, 0, 0, 0.3);
+  font: 12px/18px Arial, Helvetica, sans-serif;
+}
+/* The head is one line; its width is set to the game's longest head, so the
+   board neither resizes nor moves while the pointer does. */
+.during-game-board { padding: 4px 8px 8px; }
+.during-game-board-head { box-sizing: content-box; margin-bottom: 4px; white-space: nowrap; }
+.during-game-board-time,
+.during-game-card-time { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
+/* The board's own squares at a smaller size: the bevel follows it. */
+.during-game-board-grid {
+  --bevel-size: calc(var(--cell-size) / 8);
+  display: grid;
+  width: max-content;
+  margin: 0 auto;
+  border: var(--bevel-size) solid;
+  border-color: var(--bevel-dark) var(--bevel-light) var(--bevel-light) var(--bevel-dark);
+}
+.during-game-card { padding: 4px 8px 6px; }
+.during-game-card-row { white-space: nowrap; }
+.during-game-card-row .end-swatch { vertical-align: middle; }
+.during-game-card-value { font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.during-game-card-lane { font-weight: 700; }
 
 .board-metric-status {
   flex-basis: 100%;
@@ -2781,13 +2805,19 @@ body.settings-page .return-to-game {
   grid-template-columns: subgrid;
   align-items: center;
 }
+/* A section's title has a line of its own across the columns and wraps
+   there, so a long title never widens the name column. */
+.game-data-dist-section > .game-data-side-title {
+  grid-column: 1 / -1;
+  position: static;
+  font-weight: 700;
+  white-space: normal;
+}
 .game-data-dist-head { align-items: baseline; border-bottom: 1px solid #000000; }
-.game-data-dist-head .game-data-side-title { position: static; font-weight: 700; }
+.game-data-dist-head .game-data-name,
 .game-data-dist-head .game-data-value,
 .game-data-dist-head .game-data-strip-head,
 .game-data-dist-head .game-data-pct { font-size: 0.9167em; font-weight: 700; }
-/* The other head cells' 0.9167em, inside the 1.1667em title. */
-.game-data-dist-head .game-data-board-name { font-size: 0.7857em; }
 .game-data-strip-head { text-align: center; }
 .board-time-profile .game-data-dist-row > .chart-help-label {
   padding: 0;
@@ -2822,7 +2852,8 @@ body.settings-page .return-to-game {
 }
 .game-data-linked { outline: 1px solid #000000; box-shadow: 0 0 0 4px var(--this-game), 0 0 0 5px #000000; }
 .board-time-profile select { font: inherit; color: inherit; max-width: 100%; }
-.board-time-profile button:not(.chart-help) {
+.board-time-profile button:not(.chart-help),
+.during-game button:not(.chart-help) {
   font: inherit;
   color: #000000;
   background: #f7f9fb;
@@ -2843,7 +2874,8 @@ body.settings-page .return-to-game {
 }
 /* The chart's options: one small wrapping row under the data. */
 .game-data-controls { gap: 3px 10px; padding-top: 3px; border-top: 1px solid #d9e2e8; font-size: 11px; }
-.board-time-profile .game-data-controls button:not(.chart-help) { padding: 0 6px; }
+.board-time-profile .game-data-controls button:not(.chart-help),
+.during-game-controls button:not(.chart-help) { padding: 0 6px; }
 .game-data-controls label { display: inline-flex; align-items: center; gap: 3px; }
 .game-data-controls input { margin: 0; }
 .game-data-config {
@@ -4040,10 +4072,14 @@ body.vigilance-running #self-check-header {
 .end-legend-item.series-hotspot:hover { text-decoration: underline; }
 .session-chart.series-focus .end-line:not(.hot),
 .session-chart.series-focus .end-dot:not(.hot),
-.session-chart.series-focus .rate-label-leader:not(.hot) {
+.session-chart.series-focus .rate-label-leader:not(.hot),
+.during-game-chart-svg.series-focus .end-line:not(.hot),
+.during-game-chart-svg.series-focus .during-game-dot:not(.hot),
+.during-game-chart-svg.series-focus .during-game-tick:not(.hot) {
   opacity: 0.16;
 }
-.session-chart .end-line.hot { stroke-width: 2.6; }
+.session-chart .end-line.hot,
+.during-game-chart-svg .end-line.hot { stroke-width: 2.6; }
 
 /* The (?) after a chart name: hover/focus it for a plain-language
    explanation of the metric. Pure black on white per the contrast rule. */

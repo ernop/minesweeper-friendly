@@ -1,16 +1,16 @@
 "use strict";
 
 importScripts('trend-fit.js?v=20260925-worker-analysis',
-  'game/trace-metrics.js?v=20261015-flag-controls',
-  'game/evaluation.js?v=20261015-flag-controls',
-  'game/session-stats.js?v=20261015-flag-controls',
-  'game/metric-definitions.js?v=20261015-flag-controls',
+  'game/trace-metrics.js?v=20261015-during-game-column',
+  'game/evaluation.js?v=20261015-during-game-column',
+  'game/session-stats.js?v=20261015-during-game-column',
+  'game/metric-definitions.js?v=20261015-during-game-column',
   'board-shape.js', 'zini.js', 'board-metrics.js?v=20260921-visible-zero-one',
-  'game-data.js?v=20261015-click-share', 'game/rankings.js?v=20261015-flag-controls',
-  'game/charts.js?v=20261015-flag-controls', 'game/game-data-chart.js?v=20261015-flag-controls',
+  'game-data.js?v=20261015-click-share', 'game/rankings.js?v=20261015-during-game-column',
+  'game/charts.js?v=20261015-during-game-column', 'game/game-data-chart.js?v=20261015-during-game-column',
   'justice.js?v=20260926-fast-evidence', 'board-icons.js?v=20261015-flag-controls',
-  'game/replay-model.js?v=20261015-flag-controls',
-  'during-game.js?v=20261015-during-game-rows');
+  'game/replay-model.js?v=20261015-during-game-column',
+  'during-game.js?v=20261015-during-game-column');
 
 let config;
 

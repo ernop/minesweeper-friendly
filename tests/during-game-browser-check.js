@@ -1,8 +1,10 @@
 'use strict';
-// The during the game section after a real game played with real mouse input:
-// its place among the result sections, its rows, the hover line, values and
-// card, the replay link, configure and averaging, and its return after a
-// reload restores the game. Writes storage, so it runs on the test origin;
+// During this game, second by second, after a real game played with real
+// mouse input: its place at the head of the game data column, its charts on
+// one time axis and event lanes, the hover line and card, the board at a
+// moment beside the block in the player's board style, the replay link,
+// configure and averaging, its return after a reload restores the game, a
+// loss, a middle width, and phone width. Writes storage, so it runs on the test origin;
 // pages are served from the working tree by request routing under that
 // origin and every other request is aborted, so no server is needed.
 //
@@ -17,7 +19,7 @@ const shotDir = process.argv[4] || null;
 (async () => {
   const browser = await chromium.launch({ executablePath: process.argv[3], headless: true, args: ['--no-sandbox'] });
   try {
-    const context = await browser.newContext({ viewport: { width: 1600, height: 1000 } });
+    const context = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
     await context.route('**/*', (route) => {
       const url = new URL(route.request().url());
       if (url.origin + '/' !== origin) return route.abort();
@@ -64,50 +66,152 @@ const shotDir = process.argv[4] || null;
     }
     assert.equal(now.state === 'won' || (await board()).state === 'won', true, 'the scripted game is a win');
 
-    const section = page.locator('#result-ranks .result-chart-section-duringGame');
-    await section.locator('.during-game-grid svg').first().waitFor({ timeout: 30000 });
-    const order = await page.locator('#result-ranks > section').evaluateAll((nodes) =>
-      nodes.map((node) => [...node.classList].find((name) => name.startsWith('result-chart-section-')).slice(21)));
-    const at = (id) => order.indexOf(id);
-    assert(at('duringGame') > at('boardTables') && at('boardTables') >= 0, 'after This board: ' + order);
-    assert(at('perfCharts') === -1 || at('duringGame') < at('perfCharts'), 'before your perf: ' + order);
-    assert.equal(await section.locator('.result-chart-section-title').textContent(), 'during the game');
+    const block = page.locator('.during-game');
+    const drawn = () => page.waitForFunction(() => {
+      const svg = document.querySelector('.during-game .during-game-chart svg');
+      return svg !== null && svg.getBoundingClientRect().width > 0;
+    }, null, { timeout: 30000 });
+    await drawn();
 
-    const defaults = await page.evaluate(() => DuringGame.ROWS.filter((row) => row.default).map((row) => row.name));
-    const names = () => section.locator('.during-game-name').allTextContents();
-    assert.deepEqual(await names(), defaults, 'one row per default row, in catalog order');
-    const valueOf = async (name) => {
-      const i = (await names()).indexOf(name);
-      return section.locator('.during-game-value').nth(i).textContent();
+    // Placement: the column's first block, game data under it, nothing in
+    // the lower sections.
+    const placement = await page.evaluate(() => ({
+      docked: pageLayout.classList.contains('game-data-docked'),
+      column: [...gameDataColumn.children].map((el) => el.className),
+      inRanks: resultRanks.querySelector('.during-game') !== null,
+    }));
+    assert.equal(placement.docked, true, 'the game data column docks at 1920px');
+    assert.deepEqual(placement.column, ['during-game', 'board-time-profile-host'], 'during this game, then game data');
+    assert.equal(placement.inRanks, false, 'not a lower result section');
+    assert.equal(await block.locator('.during-game-title').textContent(), 'during this game, second by second');
+
+    // Charts: rows sharing a unit share a chart, in catalog order, then the
+    // lanes; every plot on one time axis.
+    const layout = await page.evaluate(() => {
+      const shownRows = DuringGame.ROWS.filter((row) => settings.duringGameRows[row.id]);
+      const parts = [...document.querySelectorAll('.during-game .during-game-chart')];
+      const plotOf = (svg) => {
+        const rect = svg.querySelector('rect.scatter-plot');
+        return [Number(rect.getAttribute('x')), Number(rect.getAttribute('width'))];
+      };
+      return {
+        expectedCharts: [...DuringGame.CHARTS.filter((chart) => shownRows.some((row) => row.chart === chart.id))
+          .map((chart) => chart.id), 'events'],
+        charts: parts.map((part) => part.dataset.chart),
+        expectedLegend: DuringGame.CHARTS.flatMap((chart) => shownRows.filter((row) => row.chart === chart.id).map((row) => row.id)),
+        legend: [...document.querySelectorAll('.during-game-legend-item')].map((item) => item.dataset.row),
+        expectedLanes: shownRows.filter((row) => row.chart === undefined).map((row) => row.id),
+        lanes: [...document.querySelectorAll('.during-game-lane-name')].map((name) => name.dataset.row),
+        plots: parts.map((part) => plotOf(part.querySelector('svg'))),
+        progressY: [...document.querySelectorAll('[data-chart="progress"] text.tick-y')].map((t) => t.textContent),
+        xLabels: parts.map((part) => [...part.querySelectorAll('text.tick-x')].map((t) => t.textContent)),
+        blockOverflow: document.querySelector('.during-game').scrollWidth - document.querySelector('.during-game').clientWidth,
+      };
+    });
+    assert.deepEqual(layout.charts, layout.expectedCharts, 'one chart per unit, then the event lanes');
+    assert.deepEqual(layout.legend, layout.expectedLegend, 'each chart names its rows');
+    assert.deepEqual(layout.lanes, layout.expectedLanes, 'one lane per event row');
+    assert(layout.plots.every(([x, w]) => x === layout.plots[0][0] && w === layout.plots[0][1] && w > 150),
+      'one time axis: ' + JSON.stringify(layout.plots));
+    assert.deepEqual(layout.progressY, ['0%', '20%', '40%', '60%', '80%', '100%'], 'progress labeled every 20%');
+    assert(layout.xLabels[0].length >= 3 && layout.xLabels[0].every((label) => /^\d+(\.\d+)?s$/.test(label)),
+      'seconds under the first chart: ' + layout.xLabels[0]);
+    assert.deepEqual(layout.xLabels.at(-1), layout.xLabels[0], 'and under the last');
+    assert(layout.xLabels.slice(1, -1).every((labels) => labels.length === 0), 'only there');
+    assert.equal(layout.blockOverflow, 0, 'nothing spills past the block');
+    const legendValue = (id) => block.locator('.during-game-legend-item[data-row="' + id + '"] .during-game-legend-value').textContent();
+    const laneCount = (id) => block.locator('.during-game-lane-name[data-row="' + id + '"] .during-game-lane-count').textContent();
+    assert.equal(await legendValue('bv3Solved'), '100%');
+    assert.equal(await legendValue('safeOpened'), '100%');
+    assert.equal(await laneCount('flagRemovedEvents'), '1');
+    assert.equal(await laneCount('longGapEvents'), '1');
+
+    // Hover in the progress chart: the line, the card with that chart's
+    // values, and the board then beside the block in the player's style.
+    await page.evaluate(() => updateSettings({ numberDisplay: 'dots' }));
+    const plotBox = async (chart) => {
+      const svg = await block.locator('[data-chart="' + chart + '"] svg').boundingBox();
+      const plot = await block.locator('[data-chart="' + chart + '"] rect.scatter-plot').boundingBox();
+      return { svg, plot };
     };
-    assert.equal(await valueOf('3BV solved'), '100%');
-    assert.equal(await valueOf('squares opened'), '100%');
-    assert.equal(await valueOf('flags removed'), '1');
-    assert.equal(await valueOf('long gaps'), '1');
-    const plotWidths = await section.locator('.during-game-plot svg').evaluateAll((svgs) =>
-      svgs.map((svg) => svg.getBoundingClientRect().width));
-    assert(plotWidths.every((width) => width > 300), 'plots use the width: ' + plotWidths);
-    const overflow = await section.evaluate((el) => el.scrollWidth - el.clientWidth);
-    assert.equal(overflow, 0, 'nothing spills past the section');
-
-    // Hovering a moment: the line, every row's value then, and the card.
-    const plot = await section.locator('.during-game-plot').nth(1).boundingBox();
-    const valuesBefore = await section.locator('.during-game-value').allTextContents();
-    const hoverWidth = await section.locator('.during-game-value').first().evaluate((el) => el.getBoundingClientRect().width);
-    await page.mouse.move(plot.x + plot.width * 0.6, plot.y + plot.height / 2, { steps: 4 });
-    assert.equal(await section.locator('.during-game-line').isVisible(), true);
-    assert.match(await section.locator('.during-game-value-head').textContent(), /^at \d/);
-    assert.notDeepEqual(await section.locator('.during-game-value').allTextContents(), valuesBefore);
-    assert.equal(await section.locator('.during-game-value').first().evaluate((el) => el.getBoundingClientRect().width),
-      hoverWidth, 'hover never reflows the value column');
+    const progress = await plotBox('progress');
+    const hoverX = progress.plot.x + progress.plot.width * 0.6;
+    await page.mouse.move(hoverX, progress.plot.y + progress.plot.height / 2, { steps: 4 });
+    assert.equal(await block.locator('.during-game-line').isVisible(), true);
     const card = page.locator('.during-game-card');
+    const boardPanel = page.locator('.during-game-board');
     assert.equal(await card.isVisible(), true);
-    assert.match(await card.locator('.during-game-card-time').textContent(), /\d s$/);
-    const canvas = await card.locator('canvas').boundingBox();
-    assert(canvas.width > 50 && canvas.height > 50, 'the board as it was');
+    assert.match(await card.locator('.during-game-card-time').textContent(), /^\d+\.\d s$/);
+    const cardRows = await card.locator('.during-game-card-row').allTextContents();
+    assert(cardRows.some((row) => /^ 3BV solved \d+%$/.test(row)), 'the hovered chart\u2019s values: ' + cardRows);
+    assert.equal(await boardPanel.isVisible(), true);
+    const hovered = await page.evaluate(() => {
+      // A string as innerHTML gives it back.
+      const parsed = document.createElement('div');
+      parsed.innerHTML = chosenFlagSvg();
+      const panel = document.querySelector('.during-game-board');
+      const cellsShown = [...panel.querySelectorAll('.during-game-board-grid > div')];
+      const blockRect = document.querySelector('.during-game').getBoundingClientRect();
+      const panelRect = panel.getBoundingClientRect();
+      return {
+        head: panel.querySelector('.during-game-board-head').textContent,
+        count: cellsShown.length,
+        side: panel.dataset.side,
+        clear: panelRect.right <= blockRect.left || panelRect.left >= blockRect.right,
+        top: [panelRect.top, Math.max(4, Math.min(blockRect.top, innerHeight - panelRect.height - 4))],
+        inside: panelRect.left >= 0 && panelRect.right <= innerWidth,
+        flags: cellsShown.filter((cell) => cell.classList.contains('hidden') && cell.querySelector('svg.flag'))
+          .map((cell) => cell.innerHTML === parsed.innerHTML),
+        dots: cellsShown.filter((cell) => /\bn[1-8]\b/.test(cell.className)).map((cell) => cell.querySelector('.num-dot') !== null),
+        shaded: cellsShown.filter((cell) => cell.classList.contains('replay-selected')).length,
+      };
+    });
+    assert.match(hovered.head, /^\d+\.\d s \u00b7 next: .+ at row \d, column \d$/, 'the moment and the next click');
+    assert.equal(hovered.count, 81, 'the Beginner board');
+    assert.equal(hovered.clear, true, 'beside the block, not over it: ' + hovered.side);
+    assert(Math.abs(hovered.top[0] - hovered.top[1]) < 1, 'level with the block\u2019s top: ' + hovered.top);
+    assert.equal(hovered.inside, true);
+    assert(hovered.flags.length > 0 && hovered.flags.every(Boolean), 'the player\u2019s flag: ' + hovered.flags);
+    assert(hovered.dots.length > 0 && hovered.dots.every(Boolean), 'the player\u2019s number display');
+    assert(hovered.shaded > 0, 'the next click\u2019s squares shaded');
     if (shotDir) await page.screenshot({ path: shotDir + '/during-game-hover.png' });
 
+    // The board stays put while the pointer moves; past the last action it
+    // is the finished board.
+    const before = await boardPanel.boundingBox();
+    await page.mouse.move(progress.plot.x + progress.plot.width * 0.3, progress.plot.y + 10, { steps: 3 });
+    assert.deepEqual(await boardPanel.boundingBox(), before, 'the board does not follow the pointer');
+    await page.mouse.move(progress.plot.x + progress.plot.width - 1, progress.plot.y + 10, { steps: 3 });
+    const finished = await page.evaluate(() => ({
+      head: document.querySelector('.during-game-board-head').textContent,
+      same: [...document.querySelectorAll('.during-game-board-grid > div')].every((cell, i) =>
+        cell.className === finishedBoardCells()[i].className && cell.innerHTML === finishedBoardCells()[i].innerHTML),
+    }));
+    assert.match(finished.head, /the finished board$/);
+    assert.equal(finished.same, true, 'the finished board as the game board shows it');
+
+    // An event lane: the long gap's card in words and its proven-safe
+    // squares ringed on the board.
+    const gapSpan = await page.evaluate(() => {
+      const lanes = [...document.querySelectorAll('.during-game-lane-name')].map((name) => name.dataset.row);
+      const y = 1 + lanes.indexOf('longGapEvents') * 14 + 3;
+      const span = [...document.querySelectorAll('.during-game-lanes-svg rect.during-game-span')]
+        .find((rect) => Number(rect.getAttribute('y')) === y);
+      const box = span.getBoundingClientRect();
+      return { x: box.left + box.width / 2, y: box.top + box.height / 2 };
+    });
+    await page.mouse.move(gapSpan.x, gapSpan.y, { steps: 3 });
+    const gapCard = await card.locator('.during-game-card-row').allTextContents();
+    assert.equal(gapCard[0], 'long gaps');
+    assert.match(gapCard[1], /^\d+\.\d s pause, ended by /);
+    const known = gapCard.map((row) => /^(\d+) proven-safe squares? known/.exec(row)).find(Boolean);
+    if (known) {
+      assert.equal(await page.locator('.during-game-board-grid > .replay-safe').count(), Number(known[1]),
+        'the pause\u2019s proven-safe squares ringed');
+    }
+
     // Clicking opens the replay at the board of that moment.
+    await page.mouse.move(hoverX, progress.plot.y + progress.plot.height / 2, { steps: 3 });
     await page.mouse.down();
     await page.mouse.up();
     const replay = await page.evaluate(() => ({ open: replayReview.open, step: replayStep, count: replayDecisionCount() }));
@@ -115,54 +219,100 @@ const shotDir = process.argv[4] || null;
     assert(replay.step > 0 && replay.step < replay.count, 'a mid-game step: ' + JSON.stringify(replay));
     await page.mouse.move(5, 5);
     assert.equal(await card.isVisible(), false);
-    if (shotDir) await section.screenshot({ path: shotDir + '/during-game-section.png' });
+    assert.equal(await boardPanel.isVisible(), false);
+    if (shotDir) await block.screenshot({ path: shotDir + '/during-game-block.png' });
 
-    // Configure: one row off, back, and the row is gone.
-    await section.locator('.result-chart-section-head button', { hasText: 'configure' }).click();
-    await section.locator('input[aria-label="mouse speed"]').uncheck();
-    await section.locator('.during-game-config button', { hasText: 'back to during the game' }).first().click();
-    await section.locator('.during-game-grid svg').first().waitFor();
-    assert.deepEqual(await names(), defaults.filter((name) => name !== 'mouse speed'));
+    // Configure: one row off, back, and its chart is gone.
+    await block.locator('.during-game-controls button', { hasText: 'configure' }).click();
+    await block.locator('input[aria-label="mouse speed"]').uncheck();
+    await block.locator('.during-game-config button', { hasText: 'back to during this game' }).first().click();
+    await drawn();
+    const chartIds = () => block.locator('.during-game-chart').evaluateAll((parts) => parts.map((part) => part.dataset.chart));
+    assert.equal((await chartIds()).includes('speed'), false);
     assert.equal(await page.evaluate(() => settings.duringGameRows.mouseSpeed), false);
 
-    // Raw averaging: dots and ticks, no averages drawn.
-    await section.locator('select.avg-mode-select').selectOption('raw');
+    // Raw averaging: dots and ticks, no average lines; a rate chart in raw
+    // has only its ticks and no scale.
+    await block.locator('select.avg-mode-select').selectOption('raw');
     await page.waitForFunction(() => settings.duringGameAverage === 'raw'
-      && document.querySelector('.during-game-grid .during-game-average') === null
-      && document.querySelector('.during-game-grid .during-game-dot') !== null);
+      && document.querySelector('[data-chart="gaps"] .during-game-dot') !== null
+      && document.querySelector('[data-chart="gaps"] path.end-line') === null);
+    assert.equal(await block.locator('[data-chart="perSecond"] path.end-line').count(), 0);
+    assert.equal(await block.locator('[data-chart="perSecond"] text.tick-y').count(), 0);
+    assert(await block.locator('[data-chart="perSecond"] .during-game-tick').count() > 0);
 
-    // A reload restores the game and its section with the saved choices.
+    // A reload restores the game and its block with the saved choices.
     const endedAt = await page.evaluate(() => renderedResult.record.endedAt);
     await page.evaluate((ended) => updateSettings({ resultView: 'game', replayPosition: { endedAt: ended, step: 0 } }), endedAt);
     await page.reload();
     await page.waitForFunction(() => preferenceUIReady);
-    await section.locator('.during-game-grid svg').first().waitFor({ timeout: 30000 });
-    assert.deepEqual(await names(), defaults.filter((name) => name !== 'mouse speed'));
-    assert.equal(await section.locator('select.avg-mode-select').inputValue(), 'raw');
-    assert.equal(await valueOf('flags removed'), '1');
+    await drawn();
+    assert.equal((await chartIds()).includes('speed'), false);
+    assert.equal(await block.locator('select.avg-mode-select').inputValue(), 'raw');
+    assert.equal(await laneCount('flagRemovedEvents'), '1');
 
-    // A loss shows its own game, not the latest win the rank tables use.
+    // A loss shows its own game, not the latest win the rank tables use, and
+    // the column holds the block alone.
     await page.locator('#face-button').click();
     await press(40);
     now = await board();
     await press(now.cells.findIndex((c) => c.mine));
     assert.equal((await board()).state, 'lost');
     await page.waitForFunction(() => {
-      const value = [...document.querySelectorAll('.during-game-name')].findIndex((name) => name.textContent === '3BV solved');
-      return value >= 0 && document.querySelectorAll('.during-game-value')[value].textContent !== '100%';
+      const value = document.querySelector('.during-game-legend-item[data-row="bv3Solved"] .during-game-legend-value');
+      return value !== null && value.textContent !== '100%';
     }, null, { timeout: 30000 });
-    const ending = Number(await valueOf('guesses')) + Number(await valueOf('misclicks'));
-    assert.equal(ending, 1, 'the click on a mine is a guess or a misclick');
+    assert.equal(Number(await laneCount('guessEvents')) + Number(await laneCount('misclickEvents')), 1,
+      'the click on a mine is a guess or a misclick');
+    assert.deepEqual(await page.evaluate(() => [...gameDataColumn.children].map((el) => el.className)), ['during-game']);
 
-    // Phone width: the plots shrink with the column and nothing spills.
+    // A middle width: wherever the block sits, the board at a moment stands
+    // beside it, not over it, inside the window.
+    await page.setViewportSize({ width: 1100, height: 900 });
+    await page.waitForTimeout(300);
+    await page.locator('.during-game').scrollIntoViewIfNeeded();
+    const middle = await plotBox('progress');
+    await page.mouse.move(middle.plot.x + middle.plot.width * 0.5, middle.plot.y + middle.plot.height / 2, { steps: 3 });
+    const middleBoard = await boardPanel.boundingBox();
+    const middleBlock = await page.locator('.during-game').boundingBox();
+    assert(middleBoard.x >= 0 && middleBoard.x + middleBoard.width <= 1100, 'the board inside the window at 1100px');
+    assert(middleBoard.x >= middleBlock.x + middleBlock.width || middleBoard.x + middleBoard.width <= middleBlock.x,
+      'the board beside the block at 1100px: ' + JSON.stringify([middleBoard, middleBlock]));
+    const middleCard = await page.locator('.during-game-card').boundingBox();
+    const middleRoom = await page.evaluate(() => document.documentElement.clientWidth);
+    assert(middleCard.x >= 0 && middleCard.x + middleCard.width <= middleRoom,
+      'the card inside the window at 1100px: ' + JSON.stringify([middleCard, middleRoom]));
+    if (shotDir) await page.screenshot({ path: shotDir + '/during-game-1100.png' });
+    await page.mouse.move(0, 0);
+
+    // Phone width: the block leads the Game details popover, its plots
+    // follow the width, and the board at a moment stays in the window,
+    // clear of the chart being read and of the card.
     await page.setViewportSize({ width: 390, height: 900 });
     await page.waitForTimeout(300);
-    assert.equal(await section.evaluate((el) => el.scrollWidth - el.clientWidth), 0, 'nothing spills at 390px');
-    const narrow = await section.locator('.during-game-plot svg').evaluateAll((svgs) =>
-      svgs.map((svg) => svg.getBoundingClientRect().width));
-    assert(narrow.every((width) => width > 80 && width < 300), 'plots follow the column: ' + narrow);
-    if (shotDir) await section.screenshot({ path: shotDir + '/during-game-390.png' });
+    await page.locator('#game-sidebar-button').click();
+    await page.waitForTimeout(200);
+    const phone = await page.evaluate(() => {
+      const el = document.querySelector('.during-game');
+      return { first: resultStats.firstElementChild === el, overflow: el.scrollWidth - el.clientWidth,
+        widths: [...el.querySelectorAll('.during-game-chart svg')].map((svg) => svg.getBoundingClientRect().width) };
+    });
+    assert.equal(phone.first, true, 'first in the details column');
+    assert.equal(phone.overflow, 0, 'nothing spills at 390px');
+    assert(phone.widths.every((width) => width > 200 && width < 390), 'plots follow the column: ' + phone.widths);
+    const narrow = await plotBox('progress');
+    const pointerY = narrow.plot.y + narrow.plot.height / 2;
+    await page.mouse.move(narrow.plot.x + narrow.plot.width * 0.5, pointerY, { steps: 3 });
+    const phoneBoard = await boardPanel.boundingBox();
+    assert(phoneBoard.x >= 0 && phoneBoard.x + phoneBoard.width <= 390, 'the board inside the window: ' + JSON.stringify(phoneBoard));
+    assert(phoneBoard.y >= 0 && phoneBoard.y + phoneBoard.height <= 900, 'the board inside the window: ' + JSON.stringify(phoneBoard));
+    assert(pointerY < phoneBoard.y || pointerY > phoneBoard.y + phoneBoard.height,
+      'the board clear of the chart being read: ' + pointerY + ' ' + JSON.stringify(phoneBoard));
+    const phoneCard = await page.locator('.during-game-card').boundingBox();
+    assert(phoneCard.y + phoneCard.height <= phoneBoard.y || phoneCard.y >= phoneBoard.y + phoneBoard.height,
+      'the card clear of the board: ' + JSON.stringify([phoneCard, phoneBoard]));
+    if (shotDir) await page.screenshot({ path: shotDir + '/during-game-390.png' });
     assert.deepEqual(errors, []);
-    console.log('during the game: section order, rows and values, hover line and card, replay link, configure, averaging, and restore passed');
+    console.log('during the game: column placement, charts on one axis, lanes, hover card and board in the player\u2019s style, replay link, configure, averaging, restore, loss, middle width, and phone width passed');
   } finally { await browser.close(); }
 })().catch((error) => { console.error(error); process.exitCode = 1; });

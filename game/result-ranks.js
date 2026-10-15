@@ -6,12 +6,14 @@
 //-------RESULT RANKS (tables and charts in section order)-------
 
 async function renderRanks(record, modeRecords, options = {}, sections, isCurrent = () => true) {
+  // The during-the-game block is page content, not a ranking input.
+  const { duringGame, ...rankOptions } = options;
   const wins = modeRecords.filter((r) => r.outcome === 'win');
   const boardRecord = options.boardRecord || record;
   const historyView = options.historyView === true;
   const referenceMs = historyView ? Date.now() : record.endedAt;
   const plan = await analysisTask('rankings', 'ranks', {
-    ...analysisRecordSnapshot(record, modeRecords, options), preferences: settings, referenceMs, config,
+    ...analysisRecordSnapshot(record, modeRecords, rankOptions), preferences: settings, referenceMs, config,
   });
   if (!isCurrent()) return;
   const timeTable = (table) => buildRankList(table.label, table.count, table.index, 'rank-grid', (i) => {
@@ -45,12 +47,21 @@ async function renderRanks(record, modeRecords, options = {}, sections, isCurren
     if (!isCurrent()) return;
   }
   resultStats.querySelector('.board-time-profile-host')?.remove();
+  resultStats.querySelector('.during-game')?.remove();
   gameDataColumn.replaceChildren();
+  // During this game goes in with its charts built, in the same task as game
+  // data's frame, so neither moves the other once shown.
+  if (duringGame) {
+    await duringGame.analysisReady;
+    if (!isCurrent()) return;
+  }
+  const gameDataTarget = pageLayout.classList.contains('game-data-docked') ? gameDataColumn : resultStats;
+  if (duringGame) gameDataTarget.prepend(duringGame);
   let gameDataRows = [];
   if (settings.shownThings.boardPercentiles) {
     const profile = buildBoardTimeRankProfile(boardRecord, modeRecords);
     if (profile) {
-      (pageLayout.classList.contains('game-data-docked') ? gameDataColumn : resultStats).replaceChildren(profile);
+      gameDataTarget.appendChild(profile);
       await profile.analysisReady;
       if (!isCurrent()) return;
       gameDataRows = profile.rows;

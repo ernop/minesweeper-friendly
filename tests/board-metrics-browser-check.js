@@ -312,7 +312,9 @@ const { chromium } = require(process.argv[2]);
       'stopping the last board does not leave a paused batch after it finishes');
     assert.deepEqual(await page.evaluate((key) => boardMetricBackfillProgress(key), saved.key),
       { total: 3, measured: 3, unavailable: 0, failed: 0, active: 0, checked: 3, remaining: 0 });
-    assert.equal(await page.locator('.board-metric-backfill-panel').count(), 0);
+    // The panel goes with the result's re-render after the last measurement,
+    // which waits for the analysis workers, so it trails the measurements.
+    await page.locator('.board-metric-backfill-panel').waitFor({ state: 'detached', timeout: 5000 });
 
     // Renderer fixtures are RAM-only. Existing HZiNi records remain comparable;
     // research ranges never become tables, and spread uses fixed bins.
@@ -323,7 +325,7 @@ const { chromium } = require(process.argv[2]);
       settings.gameDataMetrics.hziniEfficiency = true;
       const now = Date.now();
       const metrics = BoardMetrics.analyze(3, 3, [false, false, false, false, true, false, false, false, false]).boardMetrics;
-      const base = { outcome: 'win', endedAt: now, timeMs: 4000, states: [],
+      const base = { outcome: 'win', endedAt: now, timeMs: 4000, states: [], actionEvaluations: [],
         bv3: 8, zini: 5, hzini: 6, clicks: 8, wastedClicks: 0, flagsPlaced: 1,
         flagsRemoved: 0, mousePathPx: 100, maxAdjacent: 1, zeroCount: 0,
         boardMetrics: metrics };
@@ -337,6 +339,9 @@ const { chromium } = require(process.argv[2]);
         { ...base, endedAt: now - 1000, timeMs: 3000,
           boardMetrics: { ...metrics, version: 2 } }, base,
       ];
+      // The session summary finds the shown game's board by its history key:
+      // a real result is in history when it renders.
+      history[modeKeyOf({ width: 3, height: 3, mines: 1 }, 'standard')] = records;
       await renderResult(base, records);
       await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
       const tables = Object.fromEntries([...resultRanks.querySelectorAll('.rank-list')]

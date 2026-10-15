@@ -232,6 +232,12 @@ function refreshReplayChoiceAreas() {
   renderReplayChoiceAreas(decisions[replayStep].evaluation);
 }
 
+// The finished board as the game board shows it: its own squares, or the
+// copy kept while a replay frame is painted over them.
+function finishedBoardCells() {
+  return replayFinishedCells === null ? cellElements : replayFinishedCells;
+}
+
 function restoreFinishedBoard() {
   removeReplayCallouts();
   if (replayFinishedCells === null) return;
@@ -375,12 +381,13 @@ function renderReplaySliderScale(positions) {
 // painted, for the legend's enumeration caveat.
 let replayLegendSolverState = 'off';
 
-// Translates the frame model onto the real cell elements: base classes from
-// the stored position, one `replay-<key>` class per encoding, the glyph or
-// flag/mine icon, then the mark-mine hint and the probability badge.
-function paintReplayFrame(model) {
-  for (let i = 0; i < cellElements.length; i++) {
-    const element = cellElements[i];
+// Translates the frame model onto board square elements (the board's own, or
+// the during-the-game board's): base classes from the stored position, one
+// `replay-<key>` class per encoding, the glyph or flag/mine icon, then the
+// mark-mine hint and the probability badge.
+function paintReplayFrame(model, elements) {
+  for (let i = 0; i < elements.length; i++) {
+    const element = elements[i];
     const cell = model.cells[i];
     const classes = ['cell', cell.revealed ? 'revealed' : 'hidden'];
     if (cell.revealed && cell.adjacent > 0) classes.push('n' + cell.adjacent);
@@ -443,7 +450,7 @@ function renderReplayFrame() {
   const solver = wantSolver ? replaySolverAt(replayStep, position) : null;
   const model = replayFrameModel(evaluation, solver, settings.replayOverlays);
   replayLegendSolverState = model.solverState;
-  paintReplayFrame(model);
+  paintReplayFrame(model, cellElements);
   renderReplayChoiceAreas(evaluation);
   renderReplayStatus(replayStatusParts(replayStep, decisions.length, evaluation));
   renderPathOverlay();
