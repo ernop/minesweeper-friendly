@@ -312,22 +312,33 @@ middle? that's okay."
   source at the past hour, "today", "past week", "this month" and up
   qualify while "past hour" and shorter never do, and "today" as source
   (the default) excludes the "today" chart itself.
-- Category scope (revised 2026-09-21): retain the current board size/mine
+- Category scope: retain the current board size/mine
   count, play mode, and generator with its parameters. Retain the reference
   date's day categories (this weekday, weekend/weekday, holidays when today
-  is one, and the day of the month). Within that scope, every exact 3BV, ZiNi, HZiNi, maximum clue,
-  0–1 share, zero-opening coverage, 3BV-spread band, and measured board-shape
-  category represented by a win in the selected period
-  competes: has an 8 / has a 7 /
-  max number ≤ 2, 3, 4 / islands N / largest island N / zeros N. An earlier 3BV-41
-  placement remains eligible after a 3BV-40 win. Each category compares
-  against all its saved member wins, including those before the source
-  period; the source selects which wins' placements are reported and which
-  board categories are considered. Lifetime membership charts qualify as
-  longer. The latest win controls only its highlight, not the board-category
-  selection. The neighboring full tablecharts still use that win's exact
-  measurements and shape. The summary ignores individual tablechart display
-  switches, and shares its category definitions with the tablecharts
+  is one, and the day of the month).
+- Board categories (creator decision 2026-10-14, reverting the 2026-09-21
+  default: "when THIS win's 3BV was 40 but in the session we ALSO have
+  gotten e.g. 1st place in '3BV 30' ... change the default back to NOT
+  showing this"): by default only the shown win's own exact 3BV, ZiNi,
+  HZiNi, maximum clue, 0–1 share, zero-opening coverage, 3BV-spread band,
+  and measured board-shape categories compete (has an 8 / has a 7 /
+  max number ≤ 2, 3, 4 / islands N / largest island N / zeros N), the same
+  categories as the This board tablecharts. After a 3BV-40 win, an earlier
+  session win's 1st place in 3BV 30 is not listed; session wins on the same
+  3BV-40 board still report there. In a history view (scores, or after a
+  loss) the shown win is the latest win, as for the upper tables.
+- The switch shownThings.recentPlacementsOtherBoards ("ranks on other
+  session boards", off by default, listed under Tables right after
+  "ranks won in session") restores the 2026-09-21 rule: every board
+  category represented by a win in the session competes, so an earlier
+  3BV-41 placement stays listed after a 3BV-40 win. The latest win then
+  controls only its highlight, not the board-category selection, and a
+  later unrelated board never erases earlier ranks.
+- Either way, each category compares against all its saved member wins,
+  including those before the source period; the source selects which wins'
+  placements are reported. Lifetime membership charts qualify as longer.
+  The summary ignores individual tablechart display switches, and shares
+  its category definitions with the tablecharts
   (`boardMetricCandidates`, `boardShapeCandidates`, `rankColumns`).
   Unmeasured fields remain excluded. Exact-value and 3BV-spread comparisons
   remain independent of duplicate collapsing in the other families.

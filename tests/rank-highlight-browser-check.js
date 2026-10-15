@@ -47,10 +47,18 @@ const { chromium } = require(process.argv[2]);
       wins.push(current);
       settings.sessionDefinition = 'pastHour';
       settings.collapseDuplicateCharts = false;
+      const own = buildRecentPlacements(current, wins, now);
+      await own.analysisReady;
+      window.ownBoardLabels = [...own.querySelectorAll('.recent-window-cell')].map((cell) => cell.textContent);
+      settings.shownThings.recentPlacementsOtherBoards = true;
       collector.append('tables', buildRecentPlacements(current, wins, now));
       await collector.ready();
       collector.renderInto(resultRanks);
     });
+    const ownBoardLabels = await page.evaluate(() => window.ownBoardLabels);
+    assert(ownBoardLabels.includes('3BV 40'), 'this win’s board category is listed by default');
+    assert(!ownBoardLabels.includes('3BV 41') && !ownBoardLabels.includes('has an 8'),
+      'an earlier session board’s categories are not listed by default: ' + ownBoardLabels.join(', '));
     const details = await page.evaluate(async () => {
       const records = {};
       for (const list of document.querySelectorAll('[data-example]')) {
@@ -227,6 +235,7 @@ const { chromium } = require(process.argv[2]);
       wins.push(...recent);
       settings.sessionDefinition = 'pastWeek';
       settings.collapseDuplicateCharts = false;
+      settings.shownThings.recentPlacementsOtherBoards = true;
       const collector = createResultSectionCollector('postGame');
       await renderRanks(recent[0], wins, {}, collector);
       await collector.ready();

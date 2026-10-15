@@ -264,6 +264,8 @@ const win = (endedAt, timeMs) => ({ outcome: 'win', endedAt, timeMs });
 // A time-ranked list in its table order, as recentPlacementCandidates
 // hands it to the summary.
 const ranked = (wins) => wins.slice().sort(compareRankedWins);
+// The board wins with "ranks on other session boards" on: every session win.
+const sessionBoards = (records, sourceStartMs) => recentPlacementBoardWins(records, null, sourceStartMs, true);
 // A time-window candidate the way recentPlacementCandidates makes them: the
 // window's own member wins plus its start for the strictly-longer rule.
 const windowCandidate = (label, specificity, startMs, wins) =>
@@ -451,8 +453,10 @@ const windowCandidate = (label, specificity, startMs, wins) =>
     recentPlacementsSummary(lifetime(old), sourceStart).length, 0);
 }
 
-// Category discovery follows all wins in the selected period while the
-// date categories and the full tablecharts retain their reference scope.
+// By default only the shown win's board categories compete. With other
+// session boards on, category discovery follows all wins in the selected
+// period while the date categories and the full tablecharts retain their
+// reference scope.
 {
   const now = new Date(2026, 8, 21, 12).getTime(); // Monday in the viewer's timezone.
   const start = startOfDay(now);
@@ -467,7 +471,23 @@ const windowCandidate = (label, specificity, startMs, wins) =>
   const current = { ...low, ...win(now, 15000) };
   const unmeasured = win(now - 30 * DAY, 5000);
   const wins = [...old, unmeasured, earlier, current];
-  const candidates = recentPlacementCandidates(wins, now, start, false);
+  const thisBoard = recentPlacementsSummary(recentPlacementCandidates(wins, now, start,
+    recentPlacementBoardWins(wins, current.endedAt, start, false), false), start, current);
+  for (const label of ['3BV 40', 'ZiNi 30', 'max number 2', 'max number ≤ 2', 'islands 7',
+    'largest island 9', 'zeros 80']) {
+    assertEq(label + ' of this win is listed by default',
+      thisBoard.find((row) => row.label === label).ranks.join(','), '1');
+  }
+  for (const label of ['3BV 41', 'ZiNi 31', 'max number 8', 'has an 8', 'has a 7',
+    'islands 8', 'largest island 10', 'zeros 70']) {
+    assertEq(label + ' of an earlier session board is not listed by default',
+      thisBoard.some((row) => row.label === label), false);
+  }
+  assertEq('time windows still report the earlier session win by default',
+    thisBoard.find((row) => row.label === 'lifetime').ranks.join(','), '2,3');
+  assertEq('a loss shown without any win supplies no board categories',
+    recentPlacementBoardWins([{ outcome: 'loss', endedAt: now, bv3: 40 }], now, start, false).length, 0);
+  const candidates = recentPlacementCandidates(wins, now, start, sessionBoards(wins, start), false);
   const rows = recentPlacementsSummary(candidates, start, current);
   for (const label of ['3BV 40', '3BV 41', 'ZiNi 30', 'ZiNi 31',
     'max number 2', 'max number 8', 'has an 8', 'has a 7',
@@ -489,12 +509,13 @@ const windowCandidate = (label, specificity, startMs, wins) =>
     boardShapeCandidates([current], wins).some((candidate) => candidate.label === 'has an 8'), false);
   assertEq('full tablechart membership still covers all history',
     boardShapeCandidates([current], wins).find((candidate) => candidate.label === 'islands 7').rows.length, 21);
-  const short = recentPlacementCandidates(wins, now, now - HOUR, false);
+  const short = recentPlacementCandidates(wins, now, now - HOUR, sessionBoards(wins, now - HOUR), false);
   assertEq('shorter selection removes earlier 3BV category',
     short.some((candidate) => candidate.label === '3BV 41'), false);
   assertEq('shorter selection removes earlier shape category',
     short.some((candidate) => candidate.label === 'has an 8'), false);
-  const week = recentPlacementCandidates(wins, now, startOfDay(now, 6), false);
+  const week = recentPlacementCandidates(wins, now, startOfDay(now, 6),
+    sessionBoards(wins, startOfDay(now, 6)), false);
   assertEq('current weekday category kept',
     week.some((candidate) => candidate.label === 'on Mondays'), true);
   assertEq('current weekday class kept',
@@ -503,7 +524,7 @@ const windowCandidate = (label, specificity, startMs, wins) =>
     week.some((candidate) => candidate.label === 'on weekends'), false);
   assertEq('other weekdays not added',
     week.some((candidate) => candidate.label === 'on Sundays'), false);
-  const collapsed = recentPlacementCandidates(wins, now, start, true);
+  const collapsed = recentPlacementCandidates(wins, now, start, sessionBoards(wins, start), true);
   assertEq('collapse keeps both distinct 3BV values',
     collapsed.filter((candidate) => candidate.label.startsWith('3BV ')).length, 2);
   assertEq('collapse keeps independent ZiNi benchmarks',
@@ -517,14 +538,14 @@ const windowCandidate = (label, specificity, startMs, wins) =>
   const anotherEarlier = { ...high, ...win(now - HOUR, 12000) };
   const multipleWins = [...wins, anotherEarlier];
   const multipleRows = recentPlacementsSummary(
-    recentPlacementCandidates(multipleWins, now, start, true), start, current);
+    recentPlacementCandidates(multipleWins, now, start, sessionBoards(multipleWins, start), true), start, current);
   assertEq('all qualifying earlier ranks at another 3BV remain listed',
     multipleRows.find((row) => row.label === '3BV 41').ranks.join(','), '1,2');
   assertEq('current 3BV remains listed beside earlier 3BV ranks',
     multipleRows.find((row) => row.label === '3BV 40').ranks.join(','), '1');
   assertEq('collapse still merges identical shape member sets',
     collapsed.some((candidate) => candidate.label === 'has a 7'), false);
-  const noRecent = recentPlacementCandidates(old, now, start, false);
+  const noRecent = recentPlacementCandidates(old, now, start, sessionBoards(old, start), false);
   assertEq('no recent wins creates no shape or 3BV candidates',
     noRecent.some((candidate) => candidate.label.startsWith('3BV ')
       || candidate.label.startsWith('max ')), false);
@@ -556,8 +577,8 @@ const windowCandidate = (label, specificity, startMs, wins) =>
   const earlier = { ...win(NOW - 1000, 9000), ...a };
   const current = { ...win(NOW, 9000), ...b };
   const records = [...old, earlier, current];
-  const rows = recentPlacementsSummary(
-    recentPlacementCandidates(records, NOW, NOW - 60000, true), NOW - 60000, current);
+  const rows = recentPlacementsSummary(recentPlacementCandidates(records, NOW, NOW - 60000,
+    sessionBoards(records, NOW - 60000), true), NOW - 60000, current);
   for (const label of ['HZiNi 5', 'HZiNi 6', '3BV spread 2.75–3.25 cells', '3BV spread 1.75–2.25 cells']) {
     assertEq('period summary retains every qualifying measured family: ' + label,
       rows.find((row) => row.label === label).ranks.join(','), '1');
@@ -589,8 +610,8 @@ const windowCandidate = (label, specificity, startMs, wins) =>
   const unmeasured = { ...win(NOW - DAY, 5000), boardMetrics: { version: 1, workSpread: 2 } };
   const future = { ...win(NOW - DAY, 6000), boardMetrics: { ...b, version: 2 } };
   const records = [...old, unmeasured, future, earlier, current];
-  const rows = recentPlacementsSummary(
-    recentPlacementCandidates(records, NOW, NOW - 60000, true), NOW - 60000, current);
+  const rows = recentPlacementsSummary(recentPlacementCandidates(records, NOW, NOW - 60000,
+    sessionBoards(records, NOW - 60000), true), NOW - 60000, current);
   for (const label of ['0–1 share 72%', '0–1 share 70%',
     'zero-opening coverage 80%', 'zero-opening coverage 79%']) {
     const row = rows.find((r) => r.label === label);
@@ -655,8 +676,8 @@ for (const [spread, expected] of [[0, 0], [0.24999999999, 0], [0.25, 0.5],
   const records = [...old, outside, earlier, current];
   const before = JSON.stringify(records);
   const full = boardMetricCandidates([current], records);
-  const rows = recentPlacementsSummary(
-    recentPlacementCandidates(records, NOW, NOW - 60000, true), NOW - 60000, current);
+  const rows = recentPlacementsSummary(recentPlacementCandidates(records, NOW, NOW - 60000,
+    recentPlacementBoardWins(records, current.endedAt, NOW - 60000, false), true), NOW - 60000, current);
   for (const label of ['0–1 share 50%', 'zero-opening coverage 50%', '3BV spread 2.25–2.75 cells']) {
     assertEq(label + ' table merges nearby values and excludes next group',
       full.find((c) => c.label === label).wins.length, 22);
@@ -699,7 +720,8 @@ for (const [spread, expected] of [[0, 0], [0.24999999999, 0], [0.25, 0.5],
     'zeros 9', 'zeros 62', 'zeros 71', '0–1 share 9%', '0–1 share 72%', '0–1 share 80%',
     'zero-opening coverage 10%', 'zero-opening coverage 80%', 'zero-opening coverage 90%'];
   const summarize = (history, collapse) => recentPlacementsSummary(
-    recentPlacementCandidates(history, now, sourceStart, collapse), sourceStart, recent[0]);
+    recentPlacementCandidates(history, now, sourceStart, sessionBoards(history, sourceStart), collapse),
+    sourceStart, recent[0]);
   const rows = summarize(records, false);
   assertEq('all board families are stable and numeric in a long period',
     rows.filter((row) => row.summaryOrder[0] >= 3).map((row) => row.label).join('|'), expected.join('|'));
@@ -756,7 +778,7 @@ for (let day = 1; day <= 31; day++) {
   const otherDate = win(new Date(2024, 1, 28, 12).getTime(), 1000);
   assertEq('leap-day label is the 29th', column.label, 'on the 29th');
   const row = recentPlacementsSummary(
-    recentPlacementCandidates([...previous, otherDate, current], now, now - HOUR, false),
+    recentPlacementCandidates([...previous, otherDate, current], now, now - HOUR, [current], false),
     now - HOUR, current).find((r) => r.label === 'on the 29th');
   assertEq('day-of-month summary compares all earlier months', row.total, 21);
   assertEq('day-of-month summary preserves current placement', row.currentRank, 1);
@@ -786,7 +808,7 @@ for (let day = 1; day <= 31; day++) {
   add('win');
   const current = { ...win(NOW, 30000), bv3: 40 };
   records.push(current);
-  const rows = recentPlacementsSummary(recentPlacementCandidates(records, NOW, sourceStart, true),
+  const rows = recentPlacementsSummary(recentPlacementCandidates(records, NOW, sourceStart, [current], true),
     sourceStart, current);
   const row = (label) => {
     const found = rows.find((r) => r.label === label);
@@ -803,9 +825,9 @@ for (let day = 1; day <= 31; day++) {
   assertEq('near-near-streak keeps the top-tenth cutoff',
     row('near-near-streak'), '2 of 29, current 2');
   assertEq('a history view marks no current streak',
-    recentPlacementsSummary(recentPlacementCandidates(records, NOW, sourceStart, true), sourceStart)
+    recentPlacementsSummary(recentPlacementCandidates(records, NOW, sourceStart, [current], true), sourceStart)
       .filter((r) => r.label.includes('streak')).every((r) => r.currentRank === undefined), true);
-  const candidates = recentPlacementCandidates(records, NOW, sourceStart, false);
+  const candidates = recentPlacementCandidates(records, NOW, sourceStart, [current], false);
   const labels = candidates.map((c) => c.label);
   const first = labels.indexOf('streak');
   assertEq('streak lists keep their table order',
@@ -814,7 +836,7 @@ for (let day = 1; day <= 31; day++) {
     candidates.slice(0, first).every((c) => c.summaryOrder[0] <= 1), true);
   assertEq('board families follow the streak lists', labels.slice(first + 3).join(','), '3BV 40');
   assertEq('a session without wins earns no streak',
-    recentPlacementsSummary(recentPlacementCandidates(records, NOW, NOW + 1, true), NOW + 1).length, 0);
+    recentPlacementsSummary(recentPlacementCandidates(records, NOW, NOW + 1, [current], true), NOW + 1).length, 0);
 }
 
 // No-mark is a way of winning the current board, not a mode. A no-mark win's
@@ -828,13 +850,13 @@ for (let day = 1; day <= 31; day++) {
     noMarkComparison(markless, all).map((r) => r.endedAt).join(','), (NOW - 500) + ',' + NOW);
   assertEq('a marked win keeps the shared list', noMarkComparison(marked, all).length, 3);
   assertEq('a no-mark loss keeps the shared list', noMarkComparison(marklessLoss, all).length, 3);
-  const labels = recentPlacementCandidates([marked, markless], NOW, startOfDay(NOW, 6), false,
+  const labels = recentPlacementCandidates([marked, markless], NOW, startOfDay(NOW, 6), [markless], false,
     'top expert no-mark times').map((c) => c.label);
   assertEq('lifetime names the no-mark list', labels.includes('top expert no-mark times'), true);
   assertEq('the shared lifetime name is not also shown', labels.includes('lifetime'), false);
   assertEq('other windows name the no-mark pool', labels.includes('past week · no-mark'), true);
   assertEq('streaks name the no-mark pool', labels.includes('no-mark streak'), true);
-  const shared = recentPlacementCandidates([marked, markless], NOW, startOfDay(NOW, 6), false)
+  const shared = recentPlacementCandidates([marked, markless], NOW, startOfDay(NOW, 6), [markless], false)
     .map((c) => c.label);
   assertEq('without the label the shared names stay', shared.includes('lifetime') && shared.includes('streak'), true);
   const marklessOnly = (endedAt, timeMs) => ({

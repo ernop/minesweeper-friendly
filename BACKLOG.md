@@ -627,6 +627,9 @@ Built: all 3BV and measured shape categories represented by wins in the selected
 period now compete, within the current board-size/play-mode/generator key and
 reference date's day-category scope. Full tablecharts retain their per-game
 scope. [Recent placements](docs/product/rankings.md) records the resulting policy.
+Reverted as the default on 2026-10-14 (creator): only the shown win's board
+categories compete again; the period-wide discovery is the switch "ranks on
+other session boards", off by default.
 
 Appearance approved and built the same day: independent podium rank numbers
 and full-row percentage tints, readable low/last/only-result states, a latest-game

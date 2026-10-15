@@ -575,15 +575,22 @@ function recentPlacementsSummary(candidates, sourceStartMs, currentRecord) {
   return rows;
 }
 
-// Keep the current mode and date's chart scope, but let every recent win
-// contribute its exact benchmarks and board-shape families. The reference game controls
-// highlighting only; a later unrelated board must not erase earlier ranks.
+// The wins whose exact benchmarks and board-shape families compete in ranks
+// won: the shown win alone (the one finishing at `boardEndedAt`), or with
+// `otherBoards` every session win, so an earlier 3BV-41 placement stays
+// listed after a 3BV-40 win. A loss shown without any win yields none.
+function recentPlacementBoardWins(records, boardEndedAt, sourceStartMs, otherBoards) {
+  return records.filter((record) => record.outcome === 'win'
+    && (otherBoards ? record.endedAt >= sourceStartMs : record.endedAt === boardEndedAt));
+}
+
+// Keep the current mode and date's chart scope; `boardWins` supply the
+// board categories. The reference game controls highlighting only.
 // `records` is the mode's history in finish order; the streak lists need
 // its losses. `noMarkTimeLabel` is set when this result is a no-mark win:
 // the caller has already kept only no-mark games, and the labels say so.
-function recentPlacementCandidates(records, referenceMs, sourceStartMs, collapseDuplicates, noMarkTimeLabel) {
+function recentPlacementCandidates(records, referenceMs, sourceStartMs, boardWins, collapseDuplicates, noMarkTimeLabel) {
   const wins = records.filter((record) => record.outcome === 'win');
-  const recentWins = wins.filter((win) => win.endedAt >= sourceStartMs);
   let rankCandidates = rankColumns(referenceMs).map((column) => ({
     label: column.label,
     dedupePriority: column.dedupePriority,
@@ -595,8 +602,8 @@ function recentPlacementCandidates(records, referenceMs, sourceStartMs, collapse
   if (collapseDuplicates) {
     rankCandidates = dedupeRankCandidates(rankCandidates, ['lifetime', 'past week']);
   }
-  const candidates = [...rankCandidates, ...boardMetricCandidates(recentWins, wins)];
-  let shapeCandidates = boardShapeCandidates(recentWins, wins)
+  const candidates = [...rankCandidates, ...boardMetricCandidates(boardWins, wins)];
+  let shapeCandidates = boardShapeCandidates(boardWins, wins)
     .map((candidate) => ({ ...candidate, wins: candidate.rows }));
   if (collapseDuplicates) {
     shapeCandidates = dedupeRankCandidates(shapeCandidates);
@@ -657,11 +664,15 @@ function applyRankHighlight(element, rank, total) {
 function buildRecentPlacements(record, modeRecords, referenceMs, markReferenceRecord = true, noMarkTimeLabel = null) {
   const { label: chosenLabel } = SessionScope.choices.find((c) => c.id === settings.sessionDefinition);
   const sourceStartMs = SessionScope.bounds(settings.sessionDefinition, referenceMs).from;
+  const otherBoards = settings.shownThings.recentPlacementsOtherBoards;
+  const boardsOf = otherBoards ? 'every session win'
+    : (markReferenceRecord ? 'this win' : 'the latest win')
+      + ' (the “ranks on other session boards” switch adds the boards of the session’s other wins)';
   const box = document.createElement('div');
   box.className = 'rank-list recent-placements';
   const heading = document.createElement('h4');
   heading.appendChild(chartHelpButton([
-    'Top ranks earned in the session (' + chosenLabel + ', the one page-wide session chosen in the top bar at the upper right) on every longer chart: time windows, day categories, streaks, exact board benchmarks, 3BV-spread groups, and board shapes of session wins. A streak counts when its last win is in the session, at its full length.',
+    'Top ranks earned in the session (' + chosenLabel + ', the one page-wide session chosen in the top bar at the upper right) on every longer chart: time windows, day categories, streaks, and the exact board benchmarks, 3BV-spread groups, and board shapes of ' + boardsOf + '. A streak counts when its last win is in the session, at its full length.',
     'Only ranks within the top tenth of a list count, except that lifetime shows its closest rank when none made the tenth. Rows go by category, board values ascending. The last column gives the percentage standing of the row’s ranks; this game’s rank is fluorescent green and says “this”.',
     ...(noMarkTimeLabel ? [
       'This win placed no flags, so every rank here is among no-mark games of this same board, mode, and generator. ' + noMarkTimeLabel.charAt(0).toUpperCase() + noMarkTimeLabel.slice(1) + ' is that lifetime list.',
@@ -681,7 +692,7 @@ function buildRecentPlacements(record, modeRecords, referenceMs, markReferenceRe
   const records = modeRecords.map((r) => r.outcome === 'win' ? analysisRecord(r)
     : { outcome: r.outcome, endedAt: r.endedAt });
   box.analysisReady = analysisTask('rankings', 'recent-placements', { records, referenceMs, sourceStartMs,
-    recordEndedAt: markReferenceRecord ? record.endedAt : null,
+    recordEndedAt: markReferenceRecord ? record.endedAt : null, boardEndedAt: record.endedAt, otherBoards,
     collapseDuplicates: settings.collapseDuplicateCharts, noMarkTimeLabel }).then((rows) => {
     loading.remove();
     drawRows(rows);

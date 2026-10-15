@@ -83,11 +83,29 @@ for (const [traceId, fixture] of fixtures.entries()) {
   for (let i = 0; i < 9; i++) records.push(win(now - 864e5 + 2 * i), { outcome: 'loss', endedAt: now - 864e5 + 2 * i + 1 });
   records.push(win(now - 2), win(now - 1), win(now));
   const rows = task('recent-placements', { records, referenceMs: now, sourceStartMs: now - 60e3,
-    recordEndedAt: now, collapseDuplicates: true });
+    recordEndedAt: now, boardEndedAt: now, otherBoards: false, collapseDuplicates: true });
   const streak = rows.find((row) => row.label === 'streak');
   assert.deepEqual([streak.ranks, streak.total, streak.currentRank], [[1], 10, 1]);
+}
+// Board categories come from the shown win alone unless other session
+// boards are on.
+{
+  const now = 1000 * 864e5;
+  const records = [];
+  for (let i = 0; i < 9; i++) {
+    records.push({ outcome: 'win', endedAt: now - 864e5 * (i + 2), timeMs: 20000 + i, bv3: 30 },
+      { outcome: 'win', endedAt: now - 864e5 * (i + 2) + 1, timeMs: 20000 + i, bv3: 40 });
+  }
+  records.sort((a, b) => a.endedAt - b.endedAt);
+  records.push({ outcome: 'win', endedAt: now - 1, timeMs: 9000, bv3: 30 },
+    { outcome: 'win', endedAt: now, timeMs: 9500, bv3: 40 });
+  const labels = (otherBoards) => task('recent-placements', { records, referenceMs: now,
+    sourceStartMs: now - 60e3, recordEndedAt: now, boardEndedAt: now, otherBoards, collapseDuplicates: true })
+    .map((row) => row.label).filter((label) => label.startsWith('3BV '));
+  assert.deepEqual(labels(false), ['3BV 40']);
+  assert.deepEqual(labels(true), ['3BV 30', '3BV 40']);
 }
 assert.deepEqual(task('trends', { pairs: [[0, 1], [1, 3], [2, 5]], todayPairs: [] }),
   [{ a: 1, b: 2, cls: 'trend-all', xMin: 0, xMax: 2 }]);
 assert.throws(() => task('invalid-analysis-kind', {}), /Unknown analysis task/);
-console.log(`analysis-worker: DOM-free initialization, ${snapshots} streamed snapshots, full-prefix restoration parity, flags no multi-cell chord used, ranks won with streaks, exact trends, and task errors passed`);
+console.log(`analysis-worker: DOM-free initialization, ${snapshots} streamed snapshots, full-prefix restoration parity, flags no multi-cell chord used, ranks won with streaks and the shown win's board categories, exact trends, and task errors passed`);

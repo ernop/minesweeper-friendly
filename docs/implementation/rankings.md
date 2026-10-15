@@ -59,13 +59,20 @@ Spec: [docs/product/rankings.md](../product/rankings.md). Index: [AGENTS.md](../
   form about 1 ms (Node, 2026-10-10). The task finds the reference record
   among them by `recordEndedAt` and calls `recentPlacementCandidates`;
   `rankColumns` retains the reference date's day categories; window columns
-  carry startMs. Every recent win contributes its exact 3BV, ZiNi, HZiNi,
-  maximum-clue, rounded fraction/spread, and board-shape families through `boardMetricCandidates`
-  and `boardShapeCandidates(recentWins, wins)`.
+  carry startMs. The task data also carries `boardEndedAt` (the shown
+  record, always set, unlike `recordEndedAt`) and `otherBoards`
+  (shownThings.recentPlacementsOtherBoards). `recentPlacementBoardWins`
+  turns them into the `boardWins` argument of `recentPlacementCandidates`:
+  the win finishing at `boardEndedAt` (none when the shown record is a loss
+  in a mode without wins), or with `otherBoards` every win from
+  `sourceStartMs` on. Those wins contribute their exact 3BV, ZiNi, HZiNi,
+  maximum-clue, rounded fraction/spread, and board-shape families through
+  `boardMetricCandidates` and `boardShapeCandidates(boardWins, wins)`.
   Each category still ranks against the full supplied mode history. Grouping
   scans once per exact-value field; shape IDs contain their value. The summary
-  ignores the largestIsland display gate. This period-wide board-category
-  discovery (2026-09-21) prevents later boards hiding earlier placements.
+  ignores the largestIsland display gate. The period-wide discovery
+  (2026-09-21) was the default until 2026-10-14 and now sits behind the
+  switch; the heading's help names which wins' boards are listed.
   The builder emits the second item in the upper table collection, after the
   session summary, gated by shownThings.recentPlacements; nearMiss rows retain
   an explanatory tooltip. `placeBoardSides` (game/layout.js) may move it right

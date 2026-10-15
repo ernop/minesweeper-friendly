@@ -15,6 +15,12 @@ absolute rank and percentage standing, including poor placements. The full-row
 tint and podium-number proposal was subsequently approved and implemented;
 [Rank highlights](../docs/product/rankings.md) is the current specification.
 
+**Default reverted 2026-10-14 (creator):** the period summary again lists
+only the shown win's board categories, as described below. The period-wide
+discovery stays available as the switch "ranks on other session boards"
+(shownThings.recentPlacementsOtherBoards), off by default
+([Recent placements](../docs/product/rankings.md)).
+
 **Streaks added 2026-10-10:** item 10's "never feed this block" and
 recommendation 6 are superseded. The streak, near-streak, and
 near-near-streak lists feed it; a streak crossing the session start counts
