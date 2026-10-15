@@ -73,7 +73,7 @@ const { chromium } = require(process.argv[2]);
       .evaluateAll((cells) => cells.map((cell) => cell.textContent).sort());
     const bandReady = () => page.waitForFunction(() => document.querySelector('.game-data-bar') !== null);
     await bandReady();
-    assert.deepEqual(await names('performance'), ['3BV/s', 'click rate', 'correctness',
+    assert.deepEqual(await names('performance'), ['3BV/s', 'board-changing click share', 'click rate',
       'fastclick gap', 'misclick rate', 'mouse speed', 'no-op rate', 'time', 'unflagged mine share', 'unused flag share'],
       'defaults: one row per shown measurement');
     assert.equal(await profile.locator('.game-data-row[data-measurement="unflaggedMineShare"] .game-data-value').textContent(), '20%',

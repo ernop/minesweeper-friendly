@@ -16,9 +16,8 @@ const records = [
 ];
 const on = (selection) => Object.keys(selection).filter((id) => selection[id]);
 assert.deepEqual(on(GameData.defaults), ['time', 'misclickRate', 'fastclickGap', 'bvPerSecond',
-  'clickRate', 'noopRate', 'correctness', 'mouseSpeed', 'unusedMarkShare', 'unflaggedMineShare',
-  'flagsWithoutMultiCellChord'],
-  'the creator’s defaults, plus the training plan’s stage 1 flag count and the requested unflagged mine share');
+  'clickRate', 'noopRate', 'correctness', 'mouseSpeed', 'unusedMarkShare', 'unflaggedMineShare'],
+  'the creator’s defaults, plus the requested unflagged mine share');
 const board = { width: 9, height: 9, mines: 10 };
 assert.deepEqual(GameData.rows(current, records, GameData.defaultsForView, board).map((r) => r.id), ['time.lifetime', 'time.session',
   'misclickRate.lifetime', 'misclickRate.session', 'fastclickGap.lifetime', 'fastclickGap.session',
@@ -65,7 +64,7 @@ assert(rows.every((r) => !/÷|=|settings|so far/.test(r.standingText)), 'no rank
 // A definition says only what the name and unit leave open; a measurement
 // they already explain has none.
 assert.deepEqual(GameData.metrics.filter((m) => m.help === undefined).map((m) => m.id),
-  ['time', 'bvPerSecond', 'pathPer3bv', 'pathPerClick', 'flagsWithoutMultiCellChord']);
+  ['time', 'bvPerSecond', 'pathPer3bv', 'pathPerClick']);
 assert(GameData.metrics.every((m) => m.help === undefined
   || (m.help.split(' ').length <= 40 && !m.help.toLowerCase().startsWith(m.name.toLowerCase()))),
   'every definition is short and never opens by repeating the name');
@@ -163,15 +162,13 @@ const massAxis = GameData.addDistributions([{ scope: 'lifetime', value: 0, highe
 assert.deepEqual([massAxis.lo, massAxis.hi], [-0.5, 1.5],
   'a point mass keeps the nearest tail value the 90% window needs');
 assert.equal(massAxis.counts.reduce((a, b) => a + b, 0), 81);
-const flagged = [0, 3, 1, 3].map((count, i) => ({ ...current, endedAt: now - (4 - i) * 60000, flagsWithoutMultiCellChord: count }));
-const flagRow = GameData.rows(flagged[3], flagged, { ...GameData.defaultsForView, gameDataMetrics: { ...none, flagsWithoutMultiCellChord: true } }, board)
-  .find((r) => r.id === 'flagsWithoutMultiCellChord.lifetime');
-assert.deepEqual([flagRow.distribution.lo, flagRow.distribution.hi, flagRow.distribution.bins, flagRow.distribution.step], [-0.5, 3.5, 4, 1],
+const wholeAxis = GameData.addDistributions([{ scope: 'lifetime', value: 3, higher: false }],
+  { lifetime: [0, 3, 1, 3] }, [], String)[0].distribution;
+assert.deepEqual([wholeAxis.lo, wholeAxis.hi, wholeAxis.bins, wholeAxis.step], [-0.5, 3.5, 4, 1],
   'whole values spanning at most 60 get one bin each');
-assert.deepEqual(flagRow.distribution.counts, [1, 1, 0, 2]);
-assert.equal(Math.round(flagRow.distribution.standing[3] * 10), 833, 'tied games stand at their shared mean rank, as their percentiles do');
-assert.equal(flagRow.percentile, flagRow.distribution.standing[3], 'this game’s bin stands where this game does');
-assert.deepEqual(flagRow.distribution.labels.map((label) => label.text), ['0', '1', '2', '3']);
+assert.deepEqual(wholeAxis.counts, [1, 1, 0, 2]);
+assert.equal(Math.round(wholeAxis.standing[3] * 10), 833, 'tied games stand at their shared mean rank, as their percentiles do');
+assert.deepEqual(wholeAxis.labels.map((label) => label.text), ['0', '1', '2', '3']);
 
 // Unflagged mine share (requested 2026-10-10): the mine counter at the win
 // over the mine count, from the stored flag counters.

@@ -14,9 +14,12 @@ derived at display time: 3BV/s (wins only), clicks over 3BV (clicks minus
 3BV; wins only — a lost board was never finished, so the subtraction means
 nothing), efficiency (3BV / effective clicks, as a percent; wins only, the
 same unfinished-board honesty; the clone name "throughput" is the same
-quantity and no longer has a row of its own), correctness
+quantity and no longer has a row of its own), board-changing click share
 (effective / (effective + wasted); omitted when wasted clicks were never
-measured), IOS (log(3BV) / log(time in seconds); wins
+measured; named "correctness" until 2026-10-15, when the creator chose the
+new name: wrong flags and fatal reveals change the board and count, so the
+community's "correctness" claimed more than it measures, and "click
+efficiency" would read as one of the 3BV-per-click efficiencies), IOS (log(3BV) / log(time in seconds); wins
 only; blank when time is 1s or less, matching minesweeper.online), mouse
 speed (px/s), path / click, path / 3BV (wins only), and (2026-08-22, the per-game
 forms of the session series) click rate (effective clicks per second),
@@ -287,18 +290,6 @@ stored; a markless win is 100%. Higher is better. Unmeasured on losses, on
 Endgame drills, and on records without the flag counters. It is a game data
 measurement with a property chart, and the label/value table shows it as
 "Unflagged mine share" ([Game data](game-data.md)).
-
-Flags no multi-cell chord used (`flagsWithoutMultiCellChord`, wins only,
-added 2026-09-27 for the training plan's per-game feedback): the win's flags
-standing at the end that no chord opening two or more squares used, meaning
-never used, or used only by chords that opened one square, where clicking that
-square directly costs the same one input. It is the per-game form of the
-training plan's stage 1 measure and is computed by the same replay the training
-page uses (`TrainingCore.replay` over the game's inputs, in the analysis
-worker, from the final board). It is absent on losses, on Endgame drill games,
-on wins whose inputs do not replay to the same board (a Justice redraw), and on
-games recorded before the measure existed. It shows in game data as a lifetime
-comparison ([Game data](game-data.md)).
 
 First reveal (`firstRevealIndex`, added 2026-09-27): the cell of the
 game-starting reveal on an unopened board, as row × width + column. With the

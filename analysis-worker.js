@@ -1,14 +1,13 @@
 "use strict";
 
 importScripts('trend-fit.js?v=20260925-worker-analysis',
-  'game/trace-metrics.js?v=20261015-results-levels',
-  'game/evaluation.js?v=20261015-results-levels',
-  'game/session-stats.js?v=20261015-results-levels',
-  'game/metric-definitions.js?v=20261015-results-levels',
+  'game/trace-metrics.js?v=20261015-click-share',
+  'game/evaluation.js?v=20261015-click-share',
+  'game/session-stats.js?v=20261015-click-share',
+  'game/metric-definitions.js?v=20261015-click-share',
   'board-shape.js', 'zini.js', 'board-metrics.js?v=20260921-visible-zero-one',
-  'game-data.js?v=20261011-histogram-fence', 'game/rankings.js?v=20261015-results-levels',
-  'game/charts.js?v=20261015-results-levels', 'game/game-data-chart.js?v=20261015-results-levels',
-  'training-core.js?v=20260928-switch-cost');
+  'game-data.js?v=20261015-click-share', 'game/rankings.js?v=20261015-click-share',
+  'game/charts.js?v=20261015-click-share', 'game/game-data-chart.js?v=20261015-click-share');
 
 let config;
 
@@ -22,27 +21,11 @@ function analyzeTrace(data) {
     spatial: computeSpatialBias(events) };
 }
 
-// A win's flags standing at the end that no chord opening two or more cells
-// used, by the training page's replay from the final board; null when the
-// inputs do not reproduce the game (a Justice redraw moved a mine).
-function finishedFlagsWithoutMultiCellChord(plan, events) {
-  const board = { width: plan.width, height: plan.height, mines: plan.mines.filter(Boolean).length };
-  const trace = { events, finalBoard: { cells: plan.mines.map((mine) => ({ mine })) } };
-  const replay = TrainingCore.replay(trace, 'win', board, null);
-  if (replay.status !== 'replayed') return null;
-  const flags = TrainingCore.winBreakdown(replay).flags;
-  return flags.neverUsed + flags.usedOnlyBySingleChord;
-}
-
-function finishedMeasurements(plan, metrics, events) {
+function finishedMeasurements(plan, metrics) {
   const measurements = {};
   if (!plan.drill) {
     if (plan.needZini) measurements.zini = Zini.zini(plan.width, plan.height, plan.mines);
     if (plan.needBoardMetrics) Object.assign(measurements, BoardMetrics.analyze(plan.width, plan.height, plan.mines));
-    if (plan.needFlagUse) {
-      const flags = finishedFlagsWithoutMultiCellChord(plan, events);
-      if (flags !== null) measurements.flagsWithoutMultiCellChord = flags;
-    }
   }
   if (plan.needCadence && Number.isFinite(metrics.cad.gapSpreadRatio)) {
     measurements.cadenceSpread = Number(metrics.cad.gapSpreadRatio.toFixed(3));
@@ -57,7 +40,7 @@ function analyze(kind, data) {
     case 'trace': return analyzeTrace(data);
     case 'finished-game': {
       const motion = analyzeTrace(data.trace);
-      return { ...motion, measurements: finishedMeasurements(data, motion.metrics, data.trace.events) };
+      return { ...motion, measurements: finishedMeasurements(data, motion.metrics) };
     }
     case 'live-trace': {
       if (liveTrace === null || liveTrace.id !== data.traceId) {

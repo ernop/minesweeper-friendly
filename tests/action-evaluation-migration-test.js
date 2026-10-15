@@ -53,6 +53,13 @@ const base = {
 }
 
 {
+  const win = { ...base, outcome: 'win', actionEvaluations: [] };
+  const modern = normalizeGameRecord({ ...win, flagsWithoutMultiCellChord: 4 });
+  check('removed win measure deleted', modern.changed && !('flagsWithoutMultiCellChord' in modern.record));
+  check('record without it unchanged', !normalizeGameRecord(win).changed);
+}
+
+{
   const modern = normalizeGameRecord({ ...base, stupidDeath: true });
   const fatal = modern.record.actionEvaluations[0];
   check('boolean-only source retained', fatal.legacy.source === 'avoidable-boolean-v1');

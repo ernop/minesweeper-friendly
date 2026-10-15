@@ -278,7 +278,6 @@ function trainingTimeBudget(winBreakdowns, records) {
     flagsPerWin: Object.fromEntries(Object.keys(winBreakdowns[0].flags)
       .map((key) => [key, trainingMean(winBreakdowns.map((b) => b.flags[key]))])),
     medianNoopsPerWin: trainingMedian(winBreakdowns.map((b) => b.noopCount)),
-    medianRemovableFlagsPerWin: trainingMedian(winBreakdowns.map((b) => b.flags.neverUsed + b.flags.usedOnlyBySingleChord)),
     meanWrongFlagsPerWin: trainingMean(winBreakdowns.map((b) => b.flags.onSafeCell)),
     medianPausesPerWin: trainingMedian(winBreakdowns.map((b) => b.pauseCount)),
     medianWithoutRemovableS: trainingMedian(withoutRemovableS),
@@ -596,7 +595,6 @@ const TRAINING_STAGES = [
   { id: 'economy', title: 'Stop wasting inputs', criteria: [
     { id: 'ioe', label: 'IOE (3BV per input, no-ops included)', target: 0.91, better: 'higher', digits: 2 },
     { id: 'noopsPerWin', label: 'no-op clicks per win', target: 5, better: 'lower', digits: 0 },
-    { id: 'removableFlagsPerWin', label: 'flags no multi-cell chord used, per win', target: 10, better: 'lower', digits: 0 },
   ] },
   { id: 'runs', title: 'Finish the runs you start', criteria: [
     { id: 'runConversion', label: 'games reaching 20 s that are won', target: 0.45, better: 'higher', percent: true },
@@ -657,7 +655,6 @@ function trainingSummary(records, winTraces, deps) {
   const values = {
     ioe: pace.medianIoe,
     noopsPerWin: pace.medianNoopsPerWin,
-    removableFlagsPerWin: budget === null ? null : budget.medianRemovableFlagsPerWin,
     runConversion: runs.conversion,
     avoidableShare: runs.avoidableShare,
     wrongFlagsPerWin: budget === null ? null : budget.meanWrongFlagsPerWin,
@@ -668,7 +665,6 @@ function trainingSummary(records, winTraces, deps) {
   const sampleSizes = {
     ioe: `${pace.inputMeasuredWins} latest wins`,
     noopsPerWin: `${pace.inputMeasuredWins} latest wins`,
-    removableFlagsPerWin: `${breakdowns.length} replayed wins`,
     runConversion: `${runs.runs} latest games reaching 20 s`,
     avoidableShare: `${runs.classifiedLosses} classified losses of those`,
     wrongFlagsPerWin: `${breakdowns.length} replayed wins`,

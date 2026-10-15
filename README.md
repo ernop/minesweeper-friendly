@@ -137,7 +137,7 @@ clicks, chords, mouse path (total cursor distance in px from first click to
 game end), the board's greedy and human ZiNi (the flaggers' counterparts to
 3BV), the game's cadence spread (press-rhythm dispersion, wins and losses
 alike), and the finished board's max number, sevens, zeros, and mine
-islands; derived stats (3BV/s, efficiency, correctness, throughput, IOS,
+islands; derived stats (3BV/s, efficiency, board-changing click share, IOS,
 IOE, chord share, ZiNi efficiency, STNB on the standard board sizes, mouse
 speed, and the rest) are
 computed at display time. After each win the tables under the board rank it
@@ -198,8 +198,8 @@ Charts omit games where that measurement is absent.
 
 ![Your-perf charts in average mode: average win time for each value of every performance measurement, dots colored by the age of their newest win, chips giving this game's value and lifetime standing](promo/perf-charts-2026-10-08.png)
 
-After a loss or a trial game, the stats themselves (time, 3BV, 3BV/s, clicks, efficiency, correctness,
-throughput, IOS, mouse path,
+After a loss or a trial game, the stats themselves (time, 3BV, 3BV/s, clicks, efficiency, board-changing click share,
+IOS, mouse path,
 mouse speed, path per click, path per 3BV, plus the per-game forms of the
 session series: click rate, no-op rate, misclick rate, mark rate — derived
 from stored counts — and the stored fastclick gap)

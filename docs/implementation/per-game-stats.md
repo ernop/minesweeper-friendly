@@ -2,12 +2,12 @@
 
 Spec: [docs/product/per-game-stats.md](../product/per-game-stats.md). Index: [AGENTS.md](../../AGENTS.md).
 
-- Derived metrics (3BV/s, efficiency %, correctness %, throughput, IOS,
-  mouse speed, path/click, path/3BV) are computed at read time via
-  `secondsOf`/`bvPerSecond`/`efficiencyPercent`/`correctnessPercent`/
-  `throughputOf`/`iosOf`, never stored. Correctness needs `wastedClicks`
-  (absent = unmeasured). Throughput and IOS are wins-only; IOS is also
-  blank when time ≤ 1s.
+- Derived metrics (3BV/s, efficiency %, board-changing click share %, IOS,
+  mouse speed, path/click, path/3BV) are computed at read time by the
+  `value` functions of `GameData.metrics` in `game-data.js`, never stored.
+  Board-changing click share (id `correctness`, its name until 2026-10-15)
+  needs `wastedClicks` (absent = unmeasured). Efficiency and IOS are
+  wins-only; IOS is also blank when time ≤ 1s.
 - Flagger metrics (2026-08-30, [Per-game stats](../product/per-game-stats.md)): `zini.js`
   (`Zini` global / CommonJS) ports the community Rust reference's greedy
   ZiNi and human ZiNi; `reportResult` stores `zini`/`hzini` (except in
@@ -25,14 +25,6 @@ Spec: [docs/product/per-game-stats.md](../product/per-game-stats.md). Index: [AG
   unmeasured on the per-time basis).
 - `mousePathPx`: cursor distance accumulated on document mousemove only
   while `gameState === 'playing'`.
-- `flagsWithoutMultiCellChord`: `reportResult` asks the `finished-game`
-  analysis task for it on wins (`needFlagUse`). `analysis-worker.js`
-  (`finishedFlagsWithoutMultiCellChord`) replays the trace events with
-  `TrainingCore.replay` from the final board and returns
-  `neverUsed + usedOnlyBySingleChord` of `TrainingCore.winBreakdown`, or
-  nothing when the replay does not reproduce the win; the result is merged
-  into the record with the board measurements and persisted. The restore path
-  does not backfill it.
 - Unused correct marks: `activeFlagEpisodes` and `flagEpisodes` retain every
   player flag placement and removal until the outcome is known.
   `markChordFlagUsage` consumes neighboring episodes only for an accepted

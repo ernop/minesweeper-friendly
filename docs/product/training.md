@@ -151,8 +151,7 @@ on 3,498 it is, and small.
   square (0.34 per 3BV against 0.16). This matches the user's expectation that
   memorized patterns let a player skip flags: the user flags fresh patterns
   first more often than the level average.
-- Consequence for the plan: stage 1 (inputs) stays first and now has the flag
-  measure above; the problems page trains the two-number families where the
+- Consequence for the plan: stage 1 (inputs) stays first; the problems page trains the two-number families where the
   user's fluency trails (the 1-1 rules carry most fresh pattern moves).
 
 ## Plan v2 in progress (requested 2026-09-26, night)
@@ -346,7 +345,6 @@ keep finishing games.
 | --- | --- | --- | --- |
 | 1 | IOE (3BV per input, no-ops included), median of the latest 20 wins | at least 0.91 | the removable-input arithmetic on this player's own wins gives 0.92 (1.09 inputs per 3BV) |
 | 1 | no-op clicks per win, median of the latest 20 wins | at most 5 | test-chord and finished-number clicks should vanish |
-| 1 | flags no multi-cell chord used, per win, median of replayed latest wins | at most 10 | every such flag costs an input a direct click avoids |
 | 2 | games reaching 20 s that are won, latest 60 such games | at least 45% | the 41% solver ceiling is from the first click; runs past the opening convert higher |
 | 2 | losses after 20 s with a safe move available (share of classified losses) | at most 35% | most losses should be forced guesses, not misreads |
 | 2 | wrong flags per win, mean of replayed latest wins | at most 0.5 | each wrong flag risks a chord death |

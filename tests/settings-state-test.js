@@ -88,6 +88,10 @@ assert.equal(merged.gameDataMetrics.misclickRate, defaults.gameDataMetrics.miscl
 assert(!('gameDataLifetimeMetrics' in merged) && !('gameDataSessionMetrics' in merged), 'the old selections are not kept');
 assert.equal(run('settingsFrom({ gameDataMetrics: { time: false } }).gameDataMetrics.time'), false);
 assert.equal(run('settingsFrom({ gameDataMetrics: { time: false } }).gameDataMetrics.clickRate'), true);
+// A selection saved before a measurement's removal keeps its other choices.
+const beforeRemoval = plain(run('settingsFrom({ gameDataMetrics: { time: false, flagsWithoutMultiCellChord: true } }).gameDataMetrics'));
+assert.equal(beforeRemoval.time, false, 'the removed measurement does not discard the saved selection');
+assert(!('flagsWithoutMultiCellChord' in beforeRemoval));
 // Game data's board traits followed the This board table switches until
 // configure chose them (2026-10-14).
 assert.deepEqual(defaults.gameDataBoardTraits, plain(run('GAME_DATA_BOARD_TRAIT_DEFAULTS')));

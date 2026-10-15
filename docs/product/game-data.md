@@ -125,12 +125,12 @@ opens it over the band, never reflowing it. In order:
    names the marks (removed 2026-10-08, below).
 3. Last, a definition, only where the name and unit leave the measurement
    open, and never opening with its name: misclick rate, fastclick gap,
-   click rate, efficiency, no-op rate, correctness, IOE, ZiNi and HZiNi
+   click rate, efficiency, no-op rate, board-changing click share, IOE, ZiNi and HZiNi
    efficiency, IOS, STNB, mouse speed, cadence spread, unused flag share,
    unflagged mine share,
    and the board traits ZiNi, HZiNi, 3BV spread, 0–1 share, zero-opening
    coverage, islands, and largest island. Time, 3BV/s, path / 3BV, path /
-   click, flags no multi-cell chord used, 3BV, max number, and zeros have
+   click, 3BV, max number, and zeros have
    none. The configuration list shows the same definitions.
 
 Removed by the cut (2026-10-08): the name-and-value title, the "This is …"
@@ -403,9 +403,8 @@ the max number row. Identical time-table memberships do not collapse distinct sc
 traits on this chart. Matching-board solve-time tables remain a separate analysis.
 
 Left-side performance directions are unchanged: lower time, misclick rate,
-fastclick gap, no-op rate, path, cadence spread, unused flag share, and flags
-no multi-cell chord used;
-higher 3BV/s, click rate, the efficiency family, correctness, IOS, STNB,
+fastclick gap, no-op rate, path, cadence spread, and unused flag share;
+higher 3BV/s, click rate, the efficiency family, board-changing click share, IOS, STNB,
 mouse speed, and unflagged mine share.
 
 ## Catalog and configuration
@@ -452,21 +451,13 @@ The configuration tables' column heads ("measurement" or "trait", and
 Defaults (user decision 2026-09-23, from a screenshot of the creator's own
 configuration: "the attached image also is the defaults we should show for
 leftside"): time, misclick rate, fastclick gap, 3BV/s, click rate, no-op
-rate, correctness, mouse speed, and unused flag share; since 2026-10-07
+rate, board-changing click share, mouse speed, and unused flag share; since 2026-10-07
 each also compares with the session. Optional:
 efficiency, path / 3BV, IOE, ZiNi efficiency, HZiNi efficiency, IOS, STNB,
 path / click, and cadence spread. Before this, both scopes defaulted to time, misclick rate,
 fastclick gap, 3BV/s, click rate, efficiency, no-op rate, and path / 3BV.
 Preferences are saved in full, so a profile that has saved any preference
 keeps its selections; the defaults reach new profiles.
-
-Added 2026-09-27 for the training plan's per-game feedback: **flags no
-multi-cell chord used**, on by default in the lifetime scope. It counts a
-win's flags standing at the end that no chord opening two or more squares used
-(`flagsWithoutMultiCellChord`; each could have been one direct click or
-nothing), the per-game form of stage 1's target of 10 or fewer
-([Training](training.md)). A saved selection map is laid over the defaults, so
-existing profiles see the new metric on and keep every earlier choice.
 
 Added 2026-10-10 at the creator's request ("we need some way of tracking and
 evaluating a perf stat for 'fraction of mines which never needed to be
@@ -493,9 +484,8 @@ flagged at the win": a flag that no chord used still counts as flagged here,
 and unused flag share measures those flags.
 
 Completion-dependent metrics (time, 3BV/s, efficiency variants, IOS/STNB,
-path / 3BV, unused flag share, unflagged mine share, flags no multi-cell chord
-used) compare wins. Observable action/error/timing
-metrics (misclicks, no-ops, click rate, fastclick gap, correctness, mouse
+path / 3BV, unused flag share, unflagged mine share) compare wins. Observable action/error/timing
+metrics (misclicks, no-ops, click rate, fastclick gap, board-changing click share, mouse
 speed, path / click, cadence spread) compare measured wins and losses.
 Their directional wording describes that metric, not overall player skill.
 Faster click/mouse activity is not inherently more efficient; less cadence

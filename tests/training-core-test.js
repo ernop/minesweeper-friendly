@@ -249,7 +249,7 @@ console.log('records: pace, runs, weeks');
 
 console.log('stages');
 {
-  const values = { ioe: 0.95, noopsPerWin: 3, removableFlagsPerWin: 8, runConversion: 0.3,
+  const values = { ioe: 0.95, noopsPerWin: 3, runConversion: 0.3,
     avoidableShare: 0.5, wrongFlagsPerWin: 0.2, pausesPerWin: 7, bvPerS: 1.8, goalWins: 0 };
   const status = TrainingCore.stageStatus(values, {});
   check('economy complete', status.stages[0].complete);

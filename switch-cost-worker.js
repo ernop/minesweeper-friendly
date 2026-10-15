@@ -11,7 +11,7 @@
 
 // solver.js builds on Justice, so justice.js loads first (as in training-worker.js).
 importScripts('justice.js?v=20260926-fast-evidence', 'rng.js', 'solver.js?v=20260823-exact-solver',
-  'training-core.js?v=20260928-switch-cost', 'switch-cost.js?v=20261010-switch-cost-game-fit');
+  'training-core.js?v=20261015-click-share', 'switch-cost.js?v=20261010-switch-cost-game-fit');
 
 const switchCostDeps = {
   training: TrainingCore,

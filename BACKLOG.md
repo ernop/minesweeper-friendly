@@ -256,8 +256,8 @@ Findings (round 1, before the changes):
 - In the compact layout the outcome line and the game-data band exist only
   inside the Game details popover, so the page states the time only in table
   rows and the timer.
-- No element states a verdict. The time ranked 3rd of 5, while 3BV/s, path
-  per 3BV, and flags no multi-cell chord used were each the worst of 5, and
+- No element states a verdict. The time ranked 3rd of 5, while 3BV/s and path
+  per 3BV were each the worst of 5, and
   the board's 3BV was 6th lowest of 13. The page shows these as separate
   ranks and leaves the conclusion to the player.
 - Small pools give extreme colors: with 2 session wins every session marker
@@ -453,12 +453,7 @@ Earlier proposals, still open:
 
 - **Per-game economy feedback.** Built. The after-game report counts chord
   clicks on numbers still short of flags and clicks on finished numbers on
-  their own lines ([evaluation](docs/product/game-end-evaluation.md)), and game
-  data ranks each win's flags no multi-cell chord used, replayed from the
-  finished trace in the analysis worker (2026-09-27,
-  [per-game stats](docs/product/per-game-stats.md)). One-cell chords need no
-  count of their own: such a chord costs the same one input as a direct click,
-  and the flags placed for it are in that count.
+  their own lines ([evaluation](docs/product/game-end-evaluation.md)).
 - **Last-flag drill.** Built from replay-corpus positions
   ([problems.md](docs/product/problems.md)). Open: positions from the player's
   own premature-chord moments, read from their traces in the browser.

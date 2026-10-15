@@ -168,7 +168,7 @@ const GameData = (() => {
     { id: 'pathPer3bv', name: 'path / 3BV', higher: false, default: false,
       value: (r) => r.bv3 > 0 ? r.mousePathPx / r.bv3 : undefined,
       format: (v) => Number(v.toFixed(1)) + 'px' },
-    { id: 'correctness', allOutcomes: true, name: 'correctness', higher: true, default: true,
+    { id: 'correctness', allOutcomes: true, name: 'board-changing click share', higher: true, default: true,
       value: (r) => r.clicks + r.wastedClicks > 0 ? r.clicks / (r.clicks + r.wastedClicks) : undefined,
       format: percent, help: 'Board-changing clicks divided by all clicks; a wrong flag still counts as a change.' },
     { id: 'ioe', name: 'IOE', higher: true, default: false,
@@ -198,8 +198,6 @@ const GameData = (() => {
     { id: 'unflaggedMineShare', name: 'unflagged mine share', higher: true, default: true,
       value: (r, params) => unflaggedMineShareOf(r, params.mines), step: (params) => 1 / params.mines,
       format: percent, help: 'Mines without a flag when you won, as a share of all the board’s mines.' },
-    { id: 'flagsWithoutMultiCellChord', name: 'flags no multi-cell chord used', higher: false, default: true,
-      value: (r) => r.flagsWithoutMultiCellChord, format: (v) => String(v) },
   ];
   // The creator's own selection (2026-09-23), compared since 2026-10-07 with
   // both lifetime and the session.

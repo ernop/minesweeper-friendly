@@ -58,8 +58,7 @@ Spec: [docs/product/storage-and-history.md](../product/storage-and-history.md). 
 - History: the RAM `history` maps mode key to a
   chronological array of game records, one per finished game:
   {endedAt, outcome: 'win'|'loss', timeMs, bv3, clicks, wastedClicks,
-  misclicks, flagsPlaced, flagsRemoved, unusedCorrectFlags (wins only),
-  flagsWithoutMultiCellChord (wins only, set by the analysis worker), mousePathPx,
+  misclicks, flagsPlaced, flagsRemoved, unusedCorrectFlags (wins only), mousePathPx,
   states, justice,
   justiceEnabled, seed, firstRevealIndex (absent on Endgame drill games),
   rngVersion, boardVersion, justiceVersion,

@@ -220,8 +220,8 @@ function buildFormatPanel() {
   }
   const recordNote = document.createElement('p');
   recordNote.textContent = 'Only these ' + storedFields.length + ' measurements are stored. '
-    + 'Everything else on the win screen (3BV/s, clicks over 3BV, efficiency, correctness, '
-    + 'throughput, IOS, mouse speed, path per click, path per 3BV, every rank and chart) is '
+    + 'Everything else on the win screen (3BV/s, clicks over 3BV, efficiency, board-changing click share, '
+    + 'IOS, mouse speed, path per click, path per 3BV, every rank and chart) is '
     + 'recomputed from them at display time.';
   const statisticsNote = document.createElement('p');
   statisticsNote.textContent = 'On minesweeper-friendly.fuseki.net, play statistics \u2014 a random player '

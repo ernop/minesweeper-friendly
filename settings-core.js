@@ -175,11 +175,21 @@ function validGameDataMetrics(value) {
     && Object.entries(value).every(([key, shown]) => Object.hasOwn(GameData.defaults, key) && typeof shown === 'boolean');
 }
 
+// The creator removed one measurement on 2026-10-15; selections saved before
+// then still name it, and validGameDataMetrics rejects any unknown entry.
+function withoutRemovedGameDataMetric(selection) {
+  if (selection === null || typeof selection !== 'object' || Array.isArray(selection)) return selection;
+  const kept = { ...selection };
+  delete kept.flagsWithoutMultiCellChord;
+  return kept;
+}
+
 // One selection replaced the separate lifetime and session selections
 // (2026-10-07); a measurement either of them showed stays shown.
 function gameDataMetricsFromStored(stored) {
-  if (Object.hasOwn(stored, 'gameDataMetrics')) return stored.gameDataMetrics;
-  const old = [stored.gameDataLifetimeMetrics, stored.gameDataSessionMetrics].filter(validGameDataMetrics);
+  if (Object.hasOwn(stored, 'gameDataMetrics')) return withoutRemovedGameDataMetric(stored.gameDataMetrics);
+  const old = [stored.gameDataLifetimeMetrics, stored.gameDataSessionMetrics]
+    .map(withoutRemovedGameDataMetric).filter(validGameDataMetrics);
   if (old.length === 0) return GameData.defaults;
   return Object.fromEntries(Object.keys(GameData.defaults).map((id) =>
     [id, old.some((selection) => selection[id] ?? GameData.defaults[id])]));

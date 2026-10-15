@@ -11,7 +11,7 @@ point chart. Then **your perf**, then **board traits**.
 
 - **Your perf** (`PERF_CHART_SPECS`): clicks, mouse path, clicks over 3BV,
   misclick rate, fastclick gap, 3BV/s, click rate, no-op rate, efficiency,
-  path / 3BV, path / click, correctness, IOE, ZiNi efficiency, HZiNi
+  path / 3BV, path / click, board-changing click share, IOE, ZiNi efficiency, HZiNi
   efficiency, IOS, STNB, mouse speed, cadence spread, unused flag share, and
   unflagged mine share (added 2026-10-10 with its game data measurement).
 - **Board traits** (`BOARD_CHART_SPECS`): 3BV, ZiNi, HZiNi, 3BV spread, max

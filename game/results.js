@@ -130,7 +130,7 @@ function reportResult(outcome, endedAt = Date.now()) {
   renderPathView();
   analysisTask('reports', 'finished-game', {
     width: config.width, height: config.height, mines: mineAt, drill: endgameDrillActive(),
-    needZini: true, needBoardMetrics: true, needCadence: true, needFlagUse: outcome === 'win',
+    needZini: true, needBoardMetrics: true, needCadence: true,
     trace: { t: finishedTrace.t, x: finishedTrace.x, y: finishedTrace.y,
       events: finishedTrace.events, wallMs: record.endedAt - finishedTrace.startedAt },
   }).then((result) => {
