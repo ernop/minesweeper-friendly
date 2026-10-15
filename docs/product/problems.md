@@ -118,7 +118,7 @@ display below implements that.
   style. Every skill level with enough corpus moves sits at its exact median
   thinking time; its label reads the time in bold, then the level ("3.5+
   3BV/s"). The player's mark sits among them in the game's me-row look (bold
-  black on the this-game green, since 2026-10-08). Labels keep their order and
+  black on the this-game light blue, since 2026-10-15). Labels keep their order and
   move apart only as far as needed, with leaders to their exact points. Levels
   with fewer than 10 corpus moves are named under the ladder as "Too few games
   yet". The rule's definition is in the title's (?) tip.

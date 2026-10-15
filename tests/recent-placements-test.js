@@ -255,6 +255,11 @@ assertEq('middle placement wording is shared by the recent summary',
     JSON.stringify(row.results), '{"win-no-guess":1,"mine-counting":2,"other":1}');
   assertEq('each likely-misclick reason counts its losses',
     JSON.stringify(row.likelyMisclicks), '{"wrong-button":1,"wrong-flag":1}');
+  assertEq('a row keeps the session games it counts', row.records.length, row.games);
+  assertEq('a game’s places in the tree: its leaf’s kind and the misclick rows that recount it',
+    JSON.stringify(sessionGameResult(slipLoss)), '{"kind":"mine-counting","likelyMisclicks":["wrong-button"]}');
+  assertEq('a win is recounted by no misclick row',
+    JSON.stringify(sessionGameResult(row.records[0])), '{"kind":"win-no-guess","likelyMisclicks":[]}');
   const lines = sessionResultLines([row]);
   assertEq('won and lost head the tree; a family shows only when one of its kinds occurred',
     lines.map((line) => line.depth + ' ' + line.label).join(' | '),

@@ -25,7 +25,8 @@ Spec: [docs/product/charts.md](../product/charts.md). Index: [AGENTS.md](../../A
 - Scatters: `buildScatter` + `niceTicks` (`timeTicks` for the date axis;
   `minorTicks` adds edge tickmarks between labeled divisions, skipped on
   the date axis), emitted in the relationships section; dots colored by age unit (`.age-dot-*`),
-  the current game ringed and tagged with its today-rank, on-chart axis
+  the current game `.scatter-me` (`--this-game`, no age class) ringed and
+  tagged with its today-rank, on-chart axis
   labels, legend appended last. Options: `timeAxis` (local calendar
   x-ticks), `idealLine` (y = x dashed floor), `trendLines`
   (`trendLinesFor`: the Theil–Sen line fit twice — all data in the age

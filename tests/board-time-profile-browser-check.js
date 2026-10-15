@@ -100,10 +100,12 @@ const { chromium } = require(process.argv[2]);
     assert.equal(await profile.locator('.game-data-row[data-side="board"]').count(), 9);
     assert.equal(await profile.locator('.game-data-row[data-side="performance"]').count(), 8,
       'one row per measurement, its pools side by side');
+    // Every pool holds this board's games alone, and the name columns say
+    // which board (creator 2026-10-15).
     assert.deepEqual(await profile.locator('.game-data-column-heads[data-side="performance"] > span').allTextContents(),
-      ['', 'value', 'session', 'lifetime']);
+      ['Beginner', 'value', 'session', 'lifetime']);
     assert.deepEqual(await profile.locator('.game-data-column-heads[data-side="board"] > span').allTextContents(),
-      ['', '', 'value'], 'no "boards" head');
+      ['', 'Beginner', 'value'], 'no "boards" head');
     assert.deepEqual(await profile.locator('.game-data-row button').evaluateAll((buttons) =>
       [...new Set(buttons.map((button) => getComputedStyle(button).cursor))]), ['default'], 'never the help cursor');
     assert.equal(await profile.locator('.game-data-row[data-measurement="bv3"] .game-data-value').textContent(), '75');
@@ -321,8 +323,8 @@ const { chromium } = require(process.argv[2]);
     assert(!(await sessionCard.innerText()).includes('24 hours'), 'no separate 24-hour rank: session and lifetime only');
     assert(!/÷|=|settings|so far|This is|this session|line:|Ticks|per win/.test(await sessionCard.innerText()), await sessionCard.innerText());
     assert.deepEqual(await sessionCard.locator('.game-data-histogram-this-edge, .game-data-histogram-this').evaluateAll((lines) =>
-      lines.map((line) => getComputedStyle(line).stroke)), ['rgb(0, 0, 0)', 'rgb(57, 255, 20)'],
-      'this game is the charts’ green line, edged in black');
+      lines.map((line) => getComputedStyle(line).stroke)), ['rgb(0, 0, 0)', 'rgb(135, 206, 250)'],
+      'this game is the this-game light blue line, edged in black');
     await page.mouse.move(0, 0);
     await profile.getByRole('button', { name: 'lifetime', exact: true }).click();
     await bandReady();
@@ -340,6 +342,12 @@ const { chromium } = require(process.argv[2]);
         return {
           heads: [...view.querySelectorAll('.game-data-dist-head')].map((head) =>
             head.querySelector('.game-data-side-title').textContent + ' · ' + head.querySelector('.game-data-pct').textContent),
+          // The board name next to its head's value cell: [size px, weight, color].
+          boardNameStyles: [...view.querySelectorAll('.game-data-dist-head')].map((head) =>
+            [head.querySelector('.game-data-board-name'), head.querySelector('.game-data-value')].map((cell) => {
+              const style = getComputedStyle(cell);
+              return [parseFloat(style.fontSize), style.fontWeight, style.color];
+            })),
           rows: strips.length,
           stripHeights: [...new Set(strips.map((strip) => strip.getBoundingClientRect().height))],
           drawnHeights: [...new Set(strips.map((strip) => strip.querySelector('svg').viewBox.baseVal.height))],
@@ -364,8 +372,15 @@ const { chromium } = require(process.argv[2]);
     let shown = await distributionsShown('both');
     assert.equal(await page.evaluate(() => settings.gameDataDistributions), true);
     assert.equal(await profile.locator('.game-data-pool-switch').evaluate((group) => group.textContent), 'sections: lifetimesessionboth');
-    assert.deepEqual(shown.heads, ['lifetime · lifetime', 'session · session', 'board traits · lifetime', 'board traits · session'],
-      'both pools, for your perf and for board traits');
+    assert.deepEqual(shown.heads, ['lifetime Beginner · lifetime', 'session Beginner · session',
+      'board traits Beginner · lifetime', 'board traits Beginner · session'],
+    'both pools, for your perf and for board traits, each section naming its board');
+    // Its em nests in the title's, so the sizes agree to rounding only.
+    for (const [[nameSize, ...nameLook], [valueSize, ...valueLook]] of shown.boardNameStyles) {
+      assert(Math.abs(nameSize - valueSize) < 0.01, 'the board name is the value head’s size: ' + [nameSize, valueSize]);
+      assert.deepEqual(nameLook, valueLook, 'and its weight and color');
+      assert.deepEqual(nameLook, ['700', 'rgb(0, 0, 0)'], 'bold black');
+    }
     assert.equal(shown.note, null, 'the lifetime sections list every measurement');
     assert.equal(shown.rows, await profile.locator('.game-data-dist-row svg.game-data-histogram').count());
     const stripReadings = await profile.locator('.game-data-dist-row').evaluateAll((rows) => rows.map((row) =>
@@ -383,7 +398,7 @@ const { chromium } = require(process.argv[2]);
     await profile.getByRole('button', { name: 'lifetime', exact: true }).click();
     shown = await distributionsShown('lifetime');
     assert.equal(await page.evaluate(() => settings.gameDataDistributionPools), 'lifetime');
-    assert.deepEqual(shown.heads, ['lifetime · lifetime', 'board traits · lifetime']);
+    assert.deepEqual(shown.heads, ['lifetime Beginner · lifetime', 'board traits Beginner · lifetime']);
     fillsBox(shown, 'lifetime');
     assert(shown.stripHeights[0] > bothStrip, 'fewer rows, taller strips: ' + shown.stripHeights[0] + ' px vs ' + bothStrip + ' px');
     assert.deepEqual(shown.captions, [], 'nothing but sections under the strips: no key');
@@ -406,11 +421,27 @@ const { chromium } = require(process.argv[2]);
     // rank is listed rather than dropped.
     await profile.getByRole('button', { name: 'session', exact: true }).click();
     shown = await distributionsShown('session');
-    assert.deepEqual(shown.heads, ['session · session', 'board traits · session']);
+    assert.deepEqual(shown.heads, ['session Beginner · session', 'board traits Beginner · session']);
     assert.deepEqual(shown.captions, [], 'the note and sections only: no key');
     assert.equal(shown.ticks, 0);
     assert.match(shown.note, /^Not ranked in this session yet: ZiNi, .*zeros\. A session rank needs two measured games in the session window\.$/);
     fillsBox(shown, 'session');
+    // A no-mark win ranks among no-mark games alone, and its sections say so
+    // as the band's heads do.
+    await page.evaluate(async () => {
+      settings.gameDataDistributionPools = 'both';
+      const marklessWins = profileFixture.wins.map((win) => ({ ...win, flagsPlaced: 0 }));
+      const current = marklessWins.find((win) => win.endedAt === profileFixture.current.endedAt);
+      const collector = createResultSectionCollector('postGame');
+      await renderRanks(current, marklessWins, {}, collector);
+      collector.renderInto(resultRanks);
+    });
+    shown = await distributionsShown('both');
+    assert.deepEqual(shown.heads, ['no-mark Beginner · no-mark', 'no-mark session Beginner · no-mark session',
+      'board traits Beginner · no-mark', 'board traits Beginner · no-mark session']);
+    assert.match(await profile.locator('.game-data-dist-section[data-side="performance"][data-pool="session"] '
+      + '.game-data-dist-row[data-measurement="time"] button').getAttribute('aria-label'), /^time 33\.542s: no-mark session \d+%$/);
+    fillsBox(shown, 'no-mark');
     await page.evaluate(async () => { crowdGameData(); settings.gameDataDistributionPools = 'both'; await drawProfileFixture(); });
     await distributionsShown('both');
     await profile.getByLabel('show distributions', { exact: true }).uncheck();
@@ -553,7 +584,7 @@ const { chromium } = require(process.argv[2]);
     assert.deepEqual(await page.locator('.game-data-linked').evaluateAll((charts) => charts.map((chart) => chart.dataset.measurement)),
       ['bv3'], 'hovering a band row outlines its chart');
     assert.match(await page.locator('.game-data-linked').evaluate((chart) => getComputedStyle(chart).boxShadow),
-      /rgb\(57, 255, 20\)/, 'the outline is the this-game green');
+      /rgb\(135, 206, 250\)/, 'the outline is the this-game light blue');
     await page.mouse.move(0, 0);
     assert.equal(await page.locator('.game-data-linked').count(), 0);
     await page.evaluate(async () => { settings.boardChartMode = 'distribution'; await drawProfileFixture(); });

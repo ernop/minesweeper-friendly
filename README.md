@@ -11,7 +11,7 @@ and deals them in that order with the upper-right cell opened automatically.
 Persistent 3BV-versus-time charts below the board track the current ten-board
 challenge and all wins in this mode/configuration since local midnight.
 A run/3BV/time table beside them adds each result as the challenge proceeds
-and keeps the latest completed run highlighted in fluorescent green; it never adds
+and keeps the latest completed run highlighted in light blue; it never adds
 a distracting second live clock.
 The Mode menu is in the upper right; each mode keeps its own rankings.
 
@@ -173,8 +173,8 @@ ranked toward each trait's preferred end. Every pool holds only games with
 this game's board settings. "points: lifetime | session" picks which pool
 places the dots; the session is the page's one picker, shared with the
 session stats and "ranks won in session". Hovering a row opens a card with
-that pool's rank and a histogram of your games, this game marked by a green
-line. "show distributions" swaps the band for one histogram strip per
+that pool's rank and a histogram of your games, this game marked by a light
+blue line. "show distributions" swaps the band for one histogram strip per
 measurement, in lifetime and session sections ("sections: lifetime |
 session | both"); the strips grow to fill the column when measurements or a
 section are hidden. "configure" picks the measurements from one list, "show

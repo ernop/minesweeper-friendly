@@ -101,10 +101,11 @@ at or below one second, and path ratios exclude zero denominators.
   fades with age — full opacity on entering the unit down to 30% at its
   far edge, so a 6-day-old red dot is visibly paler than a 1-day-old one
   (2026-08-20). A shared legend below the plots spells out the mapping.
-- The just-finished game is a larger black-ringed dot (colored like the
-  rest, i.e. fluorescent green since it is seconds old; the creator kept it
-  on 2026-10-08 and made this green the page-wide this-game color, see
-  [UI doctrine](ui-doctrine.md)) tagged with its
+- The just-finished game is a larger black-ringed dot in the page-wide
+  this-game light blue (since 2026-10-15; from 2026-10-08 it was colored
+  like the rest, fluorescent green since it is seconds old, and that green
+  was the page-wide this-game color; see [UI doctrine](ui-doctrine.md)),
+  tagged with its
   rank among today's wins ("#N today"); the tag flips to the left when
   the dot is near the right edge.
 - No chart titles (2026-08-20): the axis labels name the chart. Labels

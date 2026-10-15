@@ -146,9 +146,13 @@ need to color the today number red. just making everything light blue for
 seem fine"). Creator direction 2026-10-08: "for charts, keep the green. and
 let's backport the green to replace blue as the 'this' pointer color": every
 light blue this-game mark became the charts' this-game dot color, the
-fluorescent seconds green (#39ff14).
+fluorescent seconds green (#39ff14). Creator direction 2026-10-15: "lets
+globally switch 'this' color to light blue, not light green now.": every
+this-game mark became light blue (#87cefa), the scatter charts' this-game
+dot included; the age palette keeps its seconds green
+([UI doctrine](ui-doctrine.md)).
 
-- The selected result's row is the this-game green (`--this-game`, #39ff14) across
+- The selected result's row is the this-game light blue (`--this-game`, #87cefa) across
   its rank, time, and age cells, in bold black; right after the game its age
   reads "this" (a 0-second age). That is its only mark: no left edge, no podium color,
   no standing tint on the row. The footer states its standing ("#18 of 124
@@ -186,8 +190,8 @@ fluorescent seconds green (#39ff14).
   so why green? i think this 'ranks won this session' one might be fine
   using just the normal viz rules"). Every rank it reports is in its list's
   top tenth, so the tones were all green: they repeated the standing column
-  and looked like the this-game green. Only the current game's rank is a
-  chip, the this-game green, and says "this". Consecutive ranks compress
+  and looked like the this-game mark, then green. Only the current game's
+  rank is a chip, the this-game light blue, and says "this". Consecutive ranks compress
   into one run whatever their bands; the current game's ordinal stays
   separate. The last cell gives the percentage or percentage range of all
   ranks reported in the row. This also applies in score/history views.
@@ -223,7 +227,7 @@ middle? that's okay."
   default, how about just not having that?"). Columns: board type, games,
   wins, win rate, best (the session's fastest win of that type), that time's
   lifetime rank among the type's wins so far ("2nd of 57", a standing-toned
-  chip; the this-game green with "this" when the best is the game just finished),
+  chip; the this-game light blue with "this" when the best is the game just finished),
   mean time, mean 3BV/s, and mean IOE. Types without a session win leave
   best, rank, and the means empty. Rows follow difficulty order, then other
   boards; an "all" row totals games, wins, and win rate when more than one
@@ -329,6 +333,23 @@ middle? that's okay."
   - A size with no session games, which the scores view can show when the
     board's latest win predates the session, reads "no Expert games in
     session" in place of the tree.
+  - **This game** (creator 2026-10-15: "relating to the outcome
+    distribution display, it would b natural for that to also  have a
+    "this" section, right?"; read as marking the game's place in the tree,
+    as every rank list marks this game in place). The game the result
+    describes is marked where the tree files it: its leaf, and the
+    likely-misclick row that recounts it when its loss was one. That game is
+    the one just finished, win or loss (after a loss the rest of the summary
+    follows the board's latest win, but the tree marks the loss), or in the
+    scores view the latest win. A marked row is the this-game light blue,
+    bold black, with "this" after its label
+    ([Rank highlights](#rank-highlights-built-2026-09-21-recolored-2026-10-07)).
+    The branch and family above the leaf stay unmarked: the indentation
+    already shows them, and the creator asked for one mark per row ("keep
+    color+this only"). A game outside the session window, such as a latest
+    win from before it in the scores view, marks nothing. Decided while
+    building, each open to the creator: the leaf rather than the whole path,
+    and after a loss the loss rather than the latest win.
   - Earlier columns: until 2026-10-15 every size played had a count and a
     share column of its own ("games" and "share of games" when only one size
     was played), and every row's share stood in that one share column. Until
@@ -445,7 +466,7 @@ middle? that's okay."
   still determine which rows exist. Rows remain contiguous across families,
   without white gaps or extra heading rows. Full-table order stays unchanged.
   Reported ranks are plain text; only the current game's rank is a chip,
-  the this-game green, and says "this" (see Rank highlights).
+  the this-game light blue, and says "this" (see Rank highlights).
 - Gated by shownThings.recentPlacements (on by default).
 
 ## Relative age display
@@ -466,7 +487,10 @@ middle? that's okay."
 - Scatter dots keep seconds as hyper-fluorescent green (#39ff14). The
   scatter legend's seconds swatch is that green, bold on a small black
   chip, because the green is illegible on white (creator 2026-09-23).
-- Your own row is bold black on the this-game green (see Rank
+  This game's own dot is the black-ringed this-game light blue instead
+  (since 2026-10-15), so seconds green marks only other games under a
+  minute old.
+- Your own row is bold black on the this-game light blue (see Rank
   highlights). That row says "this" and carries no seconds chip.
 
 ## Streak lists

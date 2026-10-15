@@ -157,14 +157,14 @@ function linkGameDataCharts(metricId, linked) {
 // card draws a small pool (one that carries its values) as one dot per game
 // at its exact value instead, colored by that game's own standing, so a few
 // games read as a few games rather than as bars of height one. The lifetime
-// pool also ticks the session's games under the axis; the green line is this
-// game, edged in black like the charts' this-game dot. Better is always on
-// the left, so a higher-is-better measurement's axis runs from its highest
-// value at the left to its lowest at the right. The card size labels its
-// axis. A strip stretches to its cell's width and is drawn at its cell's
-// height in px: its axis gap and ticks keep their px size on a strip 26 px or
-// taller, so a taller strip gives its bars all the extra height, and shrink
-// with a shorter strip, so its bars keep room.
+// pool also ticks the session's games under the axis; this game is a line in
+// the this-game color, edged in black like the charts' this-game dot. Better
+// is always on the left, so a higher-is-better measurement's axis runs from
+// its highest value at the left to its lowest at the right. The card size
+// labels its axis. A strip stretches to its cell's width and is drawn at its
+// cell's height in px: its axis gap and ticks keep their px size on a strip
+// 26 px or taller, so a taller strip gives its bars all the extra height, and
+// shrink with a shorter strip, so its bars keep room.
 const GAME_DATA_STRIP_FULL_MARKS = 26;
 function gameDataHistogram(row, card, stripHeight) {
   const d = row.distribution;
@@ -287,8 +287,9 @@ function fillGameDataCard(tip, item, scope) {
 // plotted one, then the sides stacked, each with its own bar and both sides'
 // rows on its left. The band never scrolls: the plan that needs the least
 // shrinking wins (the earlier one on a tie), and the whole band scales to fit
-// its box.
-function buildGameDataBand(rows, pool, valuesShown) {
+// its box. Each side's name column is headed by `boardName`, since every pool
+// holds that board's games alone.
+function buildGameDataBand(rows, pool, valuesShown, boardName) {
   const items = gameDataItems(rows);
   const element = document.createElement('div');
   element.className = 'game-data-band';
@@ -359,9 +360,9 @@ function buildGameDataBand(rows, pool, valuesShown) {
     columns.className = 'game-data-column-heads';
     columns.dataset.side = side;
     columns.append(...(side === 'performance'
-      ? [headCell('game-data-name', ''), headCell('game-data-value', 'value'),
+      ? [headCell('game-data-name', boardName), headCell('game-data-value', 'value'),
         ...perfPools.map((scope) => headCell('game-data-pct', gameDataPoolLabel(scope), scope))]
-      : [headCell('game-data-pct', '', pool), headCell('game-data-name', ''), headCell('game-data-value', 'value')]));
+      : [headCell('game-data-pct', '', pool), headCell('game-data-name', boardName), headCell('game-data-value', 'value')]));
     return { side, title, columns, entries: list.filter((item) => item.pools[pool])
       .map((item) => ({ item, row: rowElement(item), percentile: item.pools[pool].percentile })) };
   }).filter((side) => side.entries.length);
@@ -546,9 +547,10 @@ function buildGameDataBand(rows, pool, valuesShown) {
 // (creator 2026-10-08: "if i remove items then the remaining ones should
 // expand vertically to fill the space"): `layout` gives them the tallest
 // height that fits its box, and only below the shortest strip does it
-// shrink the text.
+// shrink the text. Each section's title is followed by `boardName`, the
+// board its pool holds alone.
 const GAME_DATA_STRIP_SHORTEST = 10;
-function buildGameDataDistributions(rows, pools) {
+function buildGameDataDistributions(rows, pools, boardName) {
   const element = document.createElement('div');
   element.className = 'game-data-distributions';
   const items = gameDataItems(rows);
@@ -567,8 +569,10 @@ function buildGameDataDistributions(rows, pools) {
       section.dataset.pool = scope;
       const head = document.createElement('div');
       head.className = 'game-data-dist-head';
-      head.append(gameDataCell('game-data-side-title', side === 'board' ? 'board traits' : scope), gameDataCell('game-data-value', 'value'),
-        gameDataCell('game-data-strip-head', 'your games'), gameDataCell('game-data-pct', scope));
+      const title = gameDataCell('game-data-side-title', side === 'board' ? 'board traits' : gameDataPoolLabel(scope));
+      title.append(' ', gameDataCell('game-data-board-name', boardName));
+      head.append(title, gameDataCell('game-data-value', 'value'),
+        gameDataCell('game-data-strip-head', 'your games'), gameDataCell('game-data-pct', gameDataPoolLabel(scope)));
       section.appendChild(head);
       for (const item of shown) {
         const row = item.pools[scope];
@@ -581,7 +585,7 @@ function buildGameDataDistributions(rows, pools) {
         strips.push({ strip, row });
         button.replaceChildren(gameDataCell('game-data-name', item.name), gameDataCell('game-data-value', item.valueText),
           strip, gameDataCell('game-data-pct', gameDataPercentText(row)));
-        button.setAttribute('aria-label', item.name + ' ' + item.valueText + ': ' + scope + ' ' + gameDataPercentText(row));
+        button.setAttribute('aria-label', item.name + ' ' + item.valueText + ': ' + gameDataPoolLabel(scope) + ' ' + gameDataPercentText(row));
         wrap.addEventListener('mouseenter', () => linkGameDataCharts(item.metricId, true));
         wrap.addEventListener('mouseleave', () => linkGameDataCharts(item.metricId, false));
         section.appendChild(wrap);
@@ -641,6 +645,9 @@ function buildGameDataDistributions(rows, pools) {
 function buildBoardTimeRankProfile(record, records) {
   gameDataNoMark = record.outcome === 'win' && isMarkless(record);
   if (record.outcome !== 'win') return null;
+  // The outcome line's board name; its mode and generator stay there, as in
+  // the no-mark list titles, so the heads fit the narrowest docked column.
+  const boardName = boardDisplayLabel();
   const host = document.createElement('div');
   host.className = 'board-time-profile-host';
   const profile = document.createElement('figure');
@@ -851,11 +858,11 @@ function buildBoardTimeRankProfile(record, records) {
           : 'Nothing chosen to rank: choose measurements or board traits with configure.'));
       } else if (settings.gameDataDistributions) {
         const distributions = buildGameDataDistributions(rows,
-          settings.gameDataDistributionPools === 'both' ? ['lifetime', 'session'] : [settings.gameDataDistributionPools]);
+          settings.gameDataDistributionPools === 'both' ? ['lifetime', 'session'] : [settings.gameDataDistributionPools], boardName);
         profile.appendChild(distributions.element);
         observeFit(distributions);
       } else {
-        const band = buildGameDataBand(rows, settings.gameDataBandPool, settings.gameDataShowValues);
+        const band = buildGameDataBand(rows, settings.gameDataBandPool, settings.gameDataShowValues, boardName);
         profile.appendChild(band.element);
         observeFit(band);
       }

@@ -100,8 +100,8 @@ const { chromium } = require(process.argv[2]);
       }) };
     });
     const records = details.records;
-    const THIS_GAME = 'rgb(57, 255, 20)';
-    // A this-game row is the charts' this-game green across, bold black,
+    const THIS_GAME = 'rgb(135, 206, 250)';
+    // A this-game row is the this-game light blue across, bold black,
     // with no edge bar or podium color: color plus "this" is the only mark;
     // standing stays in the footer.
     for (const [name, record] of Object.entries(records)) {
@@ -125,7 +125,7 @@ const { chromium } = require(process.argv[2]);
     assert.equal(records.history.selectedCount, 0);
     assert.equal(records.history.footer, '1000 total');
     assert.equal(details.current.rowTinted, false, 'ranks won rows carry no tint');
-    assert.equal(details.current.rankColor, THIS_GAME, 'this game’s chip is the this-game green');
+    assert.equal(details.current.rankColor, THIS_GAME, 'this game’s chip is the this-game light blue');
     assert.equal(details.current.label, 'Top 10%');
     assert.equal(details.current.cells, 5);
     assert.equal(details.earlier.highlighted, false);
@@ -300,7 +300,7 @@ const { chromium } = require(process.argv[2]);
     }
     // Session summary: games, wins, and win rate per board type in the one
     // session window, the session's best time with its lifetime rank, and
-    // a this-game green "this" when that best is the game just finished.
+    // a this-game light blue "this" when that best is the game just finished.
     const sessionSummary = await page.evaluate(async () => {
       const now = Date.now();
       const game = (minutesAgo, outcome, timeMs) => ({ endedAt: now - minutesAgo * 60000, outcome, timeMs, flagsPlaced: 3,
@@ -352,10 +352,20 @@ const { chromium } = require(process.argv[2]);
             .filter((row) => Number(getComputedStyle(row.firstChild).fontWeight) >= 700).map((row) => row.firstChild.textContent),
           swatches: [...box.querySelectorAll('.session-summary-result .end-swatch')].map((swatch) => getComputedStyle(swatch).backgroundColor),
           resultsWithinSummary: results.getBoundingClientRect().right <= box.getBoundingClientRect().right + 1,
+          marked: [...results.querySelectorAll('.rank-row.me')].map((row) => row.firstChild.textContent),
+          markedCells: [...results.querySelectorAll('.rank-row.me > span')].map((cell) => {
+            const style = getComputedStyle(cell);
+            return [style.backgroundColor, style.color, Number(style.fontWeight) >= 700];
+          }),
         };
       };
       const hour = read();
       const savedHistory = history;
+      // After a loss the summary is its board's latest win; the tree marks the loss.
+      resultRanks.replaceChildren(buildSessionSummary(current, now, false, false, savedHistory['9x9/10@standard'][1]));
+      const afterLoss = read();
+      resultRanks.replaceChildren(buildSessionSummary(savedHistory['9x9/10@standard'][0], now, false));
+      const outsideWindow = read();
       // After an Expert loss with no Expert win, the summary is the loss's.
       resultRanks.replaceChildren(buildSessionSummary(savedHistory['30x16/99@standard'][1], now, false));
       const expert = read();
@@ -377,7 +387,7 @@ const { chromium } = require(process.argv[2]);
       resultRanks.replaceChildren(buildSessionSummary(current, now));
       const plain = [...resultRanks.querySelectorAll('.session-summary-head, .session-summary-row')]
         .map((row) => [...row.children].map((cell) => cell.textContent));
-      return { hour, expert, sameSize, noSizeGames, short, plain };
+      return { hour, afterLoss, outsideWindow, expert, sameSize, noSizeGames, short, plain };
     });
     assert.equal(sessionSummary.hour.heading, 'session', 'only the picker names the window');
     assert.deepEqual(sessionSummary.hour.head, ['board type', 'games', 'wins', 'win rate', 'best', 'lifetime rank',
@@ -398,14 +408,23 @@ const { chromium } = require(process.argv[2]);
       ['no avoidable risk', '1', '', '33%', ''],
       ['without guessing', '1', '', '', '33%'],
       ['riskier guess than necessary', '1', '', '33%', ''],
-      ['after the opening', '1', '', '', '33%'],
+      ['after the opening this', '1', '', '', '33%'],
       ['lost', '1', '33%', '', ''],
       ['not judged', '1', '', '33%', ''],
     ], 'only the shown game’s size; each share of all its games stands in its level’s column');
+    assert.deepEqual(sessionSummary.hour.marked, ['after the opening this'],
+      'the game shown is marked on its leaf alone, since the indentation shows its branch');
+    assert.deepEqual(sessionSummary.hour.markedCells, Array(5).fill([THIS_GAME, 'rgb(0, 0, 0)', true]),
+      'a this-game row is bold black on the this-game light blue across its cells');
+    assert.deepEqual(sessionSummary.afterLoss.marked, ['not judged this'],
+      'after a loss the tree marks the loss, not the latest win the summary is built for');
+    assert.equal(sessionSummary.afterLoss.rows[0][6], '2nd of 3', 'the best-time chip still marks only a win just finished');
+    assert.deepEqual(sessionSummary.outsideWindow.marked, [], 'a game outside the session has no row to mark');
     assert.deepEqual(sessionSummary.hour.ruled, ['lost'], 'a rule starts the lost branch');
     assert.deepEqual(sessionSummary.hour.indents, ['4px', '18px', '32px', '18px', '32px', '4px', '18px'],
       'depth shows as indentation');
-    assert.deepEqual(sessionSummary.hour.bold, ['won', 'lost'], 'won and lost head their branches');
+    assert.deepEqual(sessionSummary.hour.bold, ['won', 'after the opening this', 'lost'],
+      'won and lost head their branches; the this-game row is bold too');
     assert.deepEqual(sessionSummary.hour.swatches, ['rgb(46, 125, 50)', 'rgb(46, 125, 50)', 'rgb(153, 153, 153)'],
       'wins carry the chart’s win color and each loss type its line color');
     assert(sessionSummary.hour.resultsWithinSummary, 'the results grid stays inside the summary');
@@ -414,13 +433,16 @@ const { chromium } = require(process.argv[2]);
       ['won', '0', '0%', '', ''],
       ['lost', '2', '100%', '', ''],
       ['opened a proven mine', '1', '', '50%', ''],
-      ['counting single numbers proved it', '1', '', '', '50%'],
+      ['counting single numbers proved it this', '1', '', '', '50%'],
       ['not judged', '1', '', '50%', ''],
-      ['of these losses, likely misclick: left click on a proven mine under a second after a chord beside it lacked flags',
+      ['of these losses, likely misclick: left click on a proven mine under a second after a chord beside it lacked flags this',
         '1', '', '50%', ''],
     ], 'another size’s tree holds only its own games, misclick rows included');
+    assert.deepEqual(sessionSummary.expert.marked, ['counting single numbers proved it this',
+      'of these losses, likely misclick: left click on a proven mine under a second after a chord beside it lacked flags this'],
+    'a likely-misclick loss is marked on its leaf and on the misclick row that recounts it');
     assert.deepEqual(sessionSummary.expert.ruled, ['lost',
-      'of these losses, likely misclick: left click on a proven mine under a second after a chord beside it lacked flags'],
+      'of these losses, likely misclick: left click on a proven mine under a second after a chord beside it lacked flags this'],
     'a rule starts the lost branch and another the misclick rows');
     assert.deepEqual(sessionSummary.expert.indents, ['4px', '4px', '18px', '32px', '18px', '18px'],
       'misclick rows sit at the second level');
@@ -430,7 +452,7 @@ const { chromium } = require(process.argv[2]);
       ['no avoidable risk', '1', '', '25%', ''],
       ['without guessing', '1', '', '', '25%'],
       ['riskier guess than necessary', '1', '', '25%', ''],
-      ['after the opening', '1', '', '', '25%'],
+      ['after the opening this', '1', '', '', '25%'],
       ['guesses not measured', '1', '', '25%', ''],
       ['lost', '1', '25%', '', ''],
       ['not judged', '1', '', '25%', ''],
@@ -441,7 +463,7 @@ const { chromium } = require(process.argv[2]);
       ['result', 'Beginner games', ...levels],
       ['won', '1', '100%', '', ''],
       ['riskier guess than necessary', '1', '', '100%', ''],
-      ['after the opening', '1', '', '', '100%'],
+      ['after the opening this', '1', '', '', '100%'],
       ['lost', '0', '0%', '', ''],
     ], 'a session without losses still breaks down its results and shows lost at zero');
     assert.deepEqual(sessionSummary.short.rows, [
@@ -453,7 +475,7 @@ const { chromium } = require(process.argv[2]);
     assert.deepEqual(sessionSummary.plain, [['board type', 'games', 'wins', 'win rate', 'best', 'lifetime rank', 'mean time', 'mean 3BV/s', 'mean IOE'],
       ['Beginner', '1', '1', '100%', '4.100s', '2nd this of 3', '4.100s', '2.439', '0.833'],
       ['result', 'Beginner games', 'won or lost', 'worst offense', 'type'], ['won', '1', '100%', '', ''],
-      ['riskier guess than necessary', '1', '', '100%', ''], ['after the opening', '1', '', '', '100%'], ['lost', '0', '0%', '', '']],
+      ['riskier guess than necessary', '1', '', '100%', ''], ['after the opening this', '1', '', '', '100%'], ['lost', '0', '0%', '', '']],
     'without a variant to name, the board stands alone in its column');
     assert.deepEqual(errors, []);
     console.log('Rank highlights: this-game rows, standing chips, session summary, percentage bands, full/compact tables, low/last/only results, history view, conditional board comparisons, stable numeric family ordering, contiguous summary rows, surrounding table flow, day-of-month headings, and three viewport widths passed.');

@@ -289,8 +289,9 @@ this!"), specified where each lives:
   creator rejected):
   [Session summary](docs/product/rankings.md#session-summary-requested-and-built-2026-10-07).
 - One standing scale, green better, red worse, and one this-game color (light
-  blue at first; since 2026-10-08 the charts' fluorescent green, which the
-  creator kept for charts and moved everywhere): [UI doctrine](docs/product/ui-doctrine.md) and
+  blue at first; from 2026-10-08 the charts' fluorescent green, which the
+  creator kept for charts and moved everywhere; since 2026-10-15 light blue
+  again everywhere, the charts' this-game dot included): [UI doctrine](docs/product/ui-doctrine.md) and
   [Rank highlights](docs/product/rankings.md#rank-highlights-built-2026-09-21-recolored-2026-10-07).
 - Game data rebuilt: one row per measurement in aligned columns, plain
   labels, the colored bar, the lifetime/session switch, the hover card with
@@ -320,7 +321,7 @@ this!"), specified where each lives:
 Still open:
 
 - **Color key** (proposed, not decided). One line keying the remaining
-  codes: the standing scale, the this-game green, and age units.
+  codes: the standing scale, the this-game light blue, and age units.
 - **Data sufficiency** (proposed, not decided). Show a history chart once
   its pool has enough games and say so in one line; omit one-row "Only
   result" tables; fold motion diagnostics behind one button.

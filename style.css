@@ -7,10 +7,10 @@
   --bevel-light: #ffffff;
   --bevel-dark: #808080;
   --bevel-size: calc(var(--cell-size) / 8);
-  /* This game, wherever it appears: the charts' this-game dot color (the age
-     palette's seconds green). Behind text it carries bold black; as a line
-     or ring on white it gets a black edge, as the dot has its black ring. */
-  --this-game: #39ff14;
+  /* This game, wherever it appears, the charts' this-game dot included.
+     Behind text it carries bold black; as a line or ring on white it gets a
+     black edge, as the dot has its black ring. */
+  --this-game: #87cefa;
 }
 
 * { box-sizing: border-box; }
@@ -2649,6 +2649,8 @@ body.settings-page .return-to-game {
 .game-data-dist-head .game-data-value,
 .game-data-dist-head .game-data-strip-head,
 .game-data-dist-head .game-data-pct { font-size: 0.9167em; font-weight: 700; }
+/* The other head cells' 0.9167em, inside the 1.1667em title. */
+.game-data-dist-head .game-data-board-name { font-size: 0.7857em; }
 .game-data-strip-head { text-align: center; }
 .board-time-profile .game-data-dist-row > .chart-help-label {
   padding: 0;
@@ -2952,7 +2954,7 @@ body.settings-page .return-to-game {
 .tick-x { text-anchor: middle; }
 .tick-y { text-anchor: end; }
 /* Dots take the age-unit palette (same as rank-list ages); the current game
-   is the black-ringed dot with its today-rank tag beside it. */
+   is the black-ringed this-game dot with its today-rank tag beside it. */
 .scatter-svg .age-dot-s  { fill: #39ff14; }
 .scatter-svg .age-dot-m  { fill: #008000; }
 .scatter-svg .age-dot-h  { fill: #0000ff; }
@@ -2960,7 +2962,7 @@ body.settings-page .return-to-game {
 .scatter-svg .age-dot-w  { fill: #000080; }
 .scatter-svg .age-dot-mo { fill: #800000; }
 .scatter-svg .age-dot-y  { fill: #008080; }
-.scatter-me { stroke: #000000; stroke-width: 1; }
+.scatter-me { fill: var(--this-game); stroke: #000000; stroke-width: 1; }
 /* The y = x floor on clicks vs 3BV: a game on the line used only the
    board's minimum clicks */
 .scatter-ideal { stroke: #b0b8c0; stroke-dasharray: 4 3; }
@@ -3069,8 +3071,8 @@ body.settings-page .return-to-game {
 }
 
 /* Ranks are plain bold black: every one here is in its list's top tenth, so
-   a standing color would only repeat the last column, and green reads as
-   "this". This game's chip alone is the this-game green and says "this". */
+   a standing color would only repeat the last column. This game's chip
+   alone is the this-game color and says "this". */
 .recent-placements-grid .recent-rank-run {
   padding: 0 2px;
   color: #000000;
@@ -3479,8 +3481,9 @@ body.vigilance-running #self-check-header {
 /* Age colors by unit. Rank-list records from the last minute that are
    not this game use the minutes green with no chip. The fluorescent
    seconds green stays on the scatter legend's seconds swatch, bold on a
-   black chip because that green is illegible on white; scatter dots use
-   the same green. Longer units follow the board-number palette:
+   black chip because that green is illegible on white; scatter dots of
+   other games under a minute old use the same green. Longer units follow
+   the board-number palette:
    2-green, 1-blue, 3-red, 4-navy, 5-maroon, 6-teal. */
 .age-u-s  {
   color: #39ff14;
@@ -3506,9 +3509,9 @@ body.vigilance-running #self-check-header {
 .age-u-y  { color: #008080; }
 
 /* Two color meanings across the report (docs/product/ui-doctrine.md):
-   the fluorescent this-game green marks this game wherever it appears; the
+   the light blue this-game color marks this game wherever it appears; the
    standing scale (muted green better, light neutral in the middle, red
-   worse) colors rank chips. A this-game row is all this-game green,
+   worse) colors rank chips. A this-game row is all this-game color,
    standing stays in its footer. */
 .rank-highlight { --rank-tint: color-mix(in srgb, var(--rank-tone) 85%, #ffffff); }
 .rank-highlight[data-rank-band="top1"] { --rank-tone: #1e9e4f; }

@@ -68,10 +68,15 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
   (analysis-worker.js), which posts plain rows; the page never computes
   ranks or histograms. `buildBoardTimeRankProfile(record, records)` owns a
   view generation so a slower reply cannot replace a newer view.
+- Board name: `buildBoardTimeRankProfile` takes `boardDisplayLabel()` once,
+  the outcome line's board name from `config`, the board its worker jobs
+  already rank, and passes it to both views. Pool text everywhere is
+  `gameDataPoolLabel(scope)`.
 - Band: `gameDataItems` groups rows into one item per measurement with a row
-  per pool. `buildGameDataBand(rows, pool, valuesShown)` builds
+  per pool. `buildGameDataBand(rows, pool, valuesShown, boardName)` builds
   `.game-data-row` buttons (cells `.game-data-name`, `.game-data-value`,
-  `.game-data-pct` with `data-pool`); both sides plot `pool`, and an item
+  `.game-data-pct` with `data-pool`) under `.game-data-column-heads` whose
+  `.game-data-name` head is `boardName`; both sides plot `pool`, and an item
   without that pool's row goes into the `.game-data-unplotted` note. Side
   titles are `chartHelpButton` labels holding `GAME_DATA_SIDE_HELP[side]`,
   which says only what that side's percentages are. `layout()`
@@ -101,9 +106,12 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
   its `x` runs from `hi` at the left to `lo` and bin `i` takes slot
   `bins − 1 − i`, so every strip and card has its better end on the left
   (2026-10-11); the worker's distributions keep value order.
-- Distributions view: `buildGameDataDistributions(rows, pools)` renders the
+- Distributions view: `buildGameDataDistributions(rows, pools, boardName)` renders the
   `settings.gameDataDistributions` mode as `.game-data-dist-section`s
-  (`data-side`, `data-pool`), each side's sections in `pools` order
+  (`data-side`, `data-pool`), each headed by a `.game-data-dist-head` whose
+  `.game-data-side-title` is the pool label (or "board traits"), a space, and
+  `.game-data-board-name` (0.7857em of the 1.1667em title, the other head
+  cells' 0.9167em), each side's sections in `pools` order
   (`settings.gameDataDistributionPools`: `['lifetime']`, `['session']`, or
   both), in one `.game-data-distributions` grid with subgrid rows, so every
   strip shares one column. Without lifetime it opens with

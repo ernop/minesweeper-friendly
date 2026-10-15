@@ -673,7 +673,7 @@ function buildRecentPlacements(record, modeRecords, referenceMs, markReferenceRe
   const heading = document.createElement('h4');
   heading.appendChild(chartHelpButton([
     'Top ranks earned in the session (' + chosenLabel + ', the one page-wide session chosen in the top bar at the upper right) on every longer chart: time windows, day categories, streaks, and the exact board benchmarks, 3BV-spread groups, and board shapes of ' + boardsOf + '. A streak counts when its last win is in the session, at its full length.',
-    'Only ranks within the top tenth of a list count, except that lifetime shows its closest rank when none made the tenth. Rows go by category, board values ascending. The last column gives the percentage standing of the row’s ranks; this game’s rank is fluorescent green and says “this”.',
+    'Only ranks within the top tenth of a list count, except that lifetime shows its closest rank when none made the tenth. Rows go by category, board values ascending. The last column gives the percentage standing of the row’s ranks; this game’s rank is light blue and says “this”.',
     ...(noMarkTimeLabel ? [
       'This win placed no flags, so every rank here is among no-mark games of this same board, mode, and generator. ' + noMarkTimeLabel.charAt(0).toUpperCase() + noMarkTimeLabel.slice(1) + ' is that lifetime list.',
     ] : []),
@@ -772,11 +772,11 @@ function buildRecentPlacements(record, modeRecords, referenceMs, markReferenceRe
 // session's best time with that time's rank among the type's wins so far,
 // and the session's mean of each SESSION_SUMMARY_MEANS measurement over the
 // wins that measured it (`means[id]`: {value, measured}, null without one).
-// `results` counts the session's games per sessionResultKind, so they sum to
-// `games`; `likelyMisclicks` counts losses per likely-misclick reason, which
-// overlap the result kinds. A board type is one history key (board, play mode, and
-// generator). Rows follow difficultyKeys (board keys in difficulty order),
-// then other keys.
+// `records` are the session's games of that type; `results` counts them per
+// sessionResultKind, so they sum to `games`; `likelyMisclicks` counts losses
+// per likely-misclick reason, which overlap the result kinds. A board type is
+// one history key (board, play mode, and generator). Rows follow
+// difficultyKeys (board keys in difficulty order), then other keys.
 const SESSION_SUMMARY_MEANS = ['time', 'bvPerSecond', 'ioe'];
 function sessionSummaryRows(historyByKey, from, to, difficultyKeys) {
   const rows = [];
@@ -786,13 +786,9 @@ function sessionSummaryRows(historyByKey, from, to, difficultyKeys) {
     const results = {};
     const likelyMisclicks = {};
     for (const r of session) {
-      const kind = sessionResultKind(r);
-      results[kind] = (results[kind] || 0) + 1;
-      const fatal = r.outcome === 'win' ? undefined : fatalEvaluationOf(r);
-      if (fatal === undefined) continue;
-      for (const reason of likelyMisclickReasonsOf(fatal, r.actionEvaluations)) {
-        likelyMisclicks[reason] = (likelyMisclicks[reason] || 0) + 1;
-      }
+      const result = sessionGameResult(r);
+      results[result.kind] = (results[result.kind] || 0) + 1;
+      for (const reason of result.likelyMisclicks) likelyMisclicks[reason] = (likelyMisclicks[reason] || 0) + 1;
     }
     const wins = session.filter((r) => r.outcome === 'win').sort(compareRankedWins);
     let best = null;
@@ -806,8 +802,8 @@ function sessionSummaryRows(historyByKey, from, to, difficultyKeys) {
       const values = wins.map((r) => spec.value(r)).filter(Number.isFinite);
       return [id, values.length ? { value: values.reduce((sum, v) => sum + v, 0) / values.length, measured: values.length } : null];
     }));
-    rows.push({ key, latest: session[session.length - 1], games: session.length, wins: wins.length, best, means,
-      results, likelyMisclicks, noMark: records.every((r) => isMarkless(r)) });
+    rows.push({ key, records: session, latest: session[session.length - 1], games: session.length, wins: wins.length,
+      best, means, results, likelyMisclicks, noMark: records.every((r) => isMarkless(r)) });
   }
   const order = (key) => {
     const index = difficultyKeys.indexOf(key.split('@')[0]);
@@ -881,6 +877,14 @@ const SESSION_RESULT_TREE = [
 // Each tree level's name, which heads that level's share column.
 const SESSION_RESULT_LEVELS = ['won or lost', 'worst offense', 'type'];
 
+// A game's places in the tree: its result kind, which names its one leaf, and
+// for a loss the likely-misclick reasons whose rows recount it.
+function sessionGameResult(record) {
+  const fatal = record.outcome === 'win' ? undefined : fatalEvaluationOf(record);
+  return { kind: sessionResultKind(record),
+    likelyMisclicks: fatal === undefined ? [] : likelyMisclickReasonsOf(fatal, record.actionEvaluations) };
+}
+
 // The tree's rows in display order: { depth (1 for won and lost), label,
 // kinds (the result kinds the row sums), chart (leaves only) }. Won and lost
 // always show; a deeper row shows when one of its kinds occurred. A counted
@@ -938,12 +942,15 @@ function noMarkSessionHistory(record) {
 // `record` is the game just finished, whose best-time chip says "this"
 // when `markCurrent` is set. `noMark` narrows that game's history key to
 // no-mark games; a loss leaves it off, so the shared session stays.
-function buildSessionSummary(record, referenceMs, markCurrent = true, noMark = false) {
+// `boardRecord` is the game the result describes: a loss just finished, whose
+// summary is its board's latest win, or else `record` itself. The results
+// tree marks that game's rows "this".
+function buildSessionSummary(record, referenceMs, markCurrent = true, noMark = false, boardRecord = record) {
   const box = document.createElement('div');
   box.className = 'rank-list session-summary';
   box.dataset.sessionScopeView = '';
   box.addEventListener('session-scope-change', () => {
-    box.replaceWith(buildSessionSummary(record, referenceMs, markCurrent, noMark));
+    box.replaceWith(buildSessionSummary(record, referenceMs, markCurrent, noMark, boardRecord));
     scheduleBoardLayout();
   });
   const choice = SessionScope.choices.find((c) => c.id === settings.sessionDefinition);
@@ -1028,7 +1035,9 @@ function buildSessionSummary(record, referenceMs, markCurrent = true, noMark = f
       ...meanSpecs.map(() => cell('', ''))]);
   }
   box.appendChild(grid);
-  if (settings.shownThings.sessionEndings) box.appendChild(buildSessionSummaryResults(rows, boardKey, boardLabel));
+  if (settings.shownThings.sessionEndings) {
+    box.appendChild(buildSessionSummaryResults(rows, boardKey, boardLabel, boardRecord));
+  }
   return box;
 }
 
@@ -1039,8 +1048,10 @@ function buildSessionSummary(record, referenceMs, markCurrent = true, noMark = f
 // share is of all that size's games and stands in its depth's column, so
 // each column reads one level and the shares under a row sum to that row's.
 // The likely-misclick rows close the lost branch under a rule; they count
-// losses already filed above, so they never add to the total.
-function buildSessionSummaryResults(rows, boardKey, boardLabel) {
+// losses already filed above, so they never add to the total. When the tree
+// counts `thisGame`, its leaf and any misclick row recounting it are this-game
+// rows; the indentation above the leaf already shows its branch and family.
+function buildSessionSummaryResults(rows, boardKey, boardLabel, thisGame) {
   const sizeRows = rows.filter((row) => row.key.split('@')[0] === boardKey);
   if (sizeRows.length === 0) {
     const none = document.createElement('div');
@@ -1052,6 +1063,7 @@ function buildSessionSummaryResults(rows, boardKey, boardLabel) {
   const lines = sessionResultLines(sizeRows);
   const reasons = Object.keys(LIKELY_MISCLICK_REASON_LABELS)
     .filter((reason) => sizeRows.some((row) => row.likelyMisclicks[reason] !== undefined));
+  const thisResult = sizeRows.some((row) => row.records.includes(thisGame)) ? sessionGameResult(thisGame) : null;
   const grid = document.createElement('div');
   grid.className = 'session-summary-grid session-summary-results';
   grid.style.gridTemplateColumns = 'repeat(' + (2 + SESSION_RESULT_LEVELS.length) + ', auto)';
@@ -1086,6 +1098,9 @@ function buildSessionSummaryResults(rows, boardKey, boardLabel) {
     if (spec === undefined) throw new Error('session results leaf names no endings-chart line: ' + kind);
     return spec.color;
   };
+  // A this-game row (class `me`) is bold black on the this-game color and
+  // its label ends in "this".
+  const markThis = (label) => label.appendChild(cell('recent-current-label', ' this'));
   for (const entry of lines) {
     const label = cell('session-summary-result', '');
     if (entry.chart !== undefined) {
@@ -1094,14 +1109,18 @@ function buildSessionSummaryResults(rows, boardKey, boardLabel) {
       label.appendChild(swatch);
     }
     label.append(entry.label);
+    const isThis = thisResult !== null && entry.chart !== undefined && entry.kinds.includes(thisResult.kind);
+    if (isThis) markThis(label);
     line('session-summary-row session-summary-depth-' + entry.depth
-      + (entry.depth === 1 && entry !== lines[0] ? ' session-summary-group-first' : ''),
+      + (entry.depth === 1 && entry !== lines[0] ? ' session-summary-group-first' : '') + (isThis ? ' me' : ''),
     [label, ...countCells(entry.depth, (row) => entry.kinds.reduce((sum, kind) => sum + (row.results[kind] || 0), 0))]);
   }
   reasons.forEach((reason, index) => {
-    line('session-summary-row session-summary-depth-2' + (index === 0 ? ' session-summary-group-first' : ''),
-      [cell('session-summary-result', 'of these losses, likely misclick: ' + LIKELY_MISCLICK_REASON_LABELS[reason]),
-        ...countCells(2, (row) => row.likelyMisclicks[reason] || 0)]);
+    const label = cell('session-summary-result', 'of these losses, likely misclick: ' + LIKELY_MISCLICK_REASON_LABELS[reason]);
+    const isThis = thisResult !== null && thisResult.likelyMisclicks.includes(reason);
+    if (isThis) markThis(label);
+    line('session-summary-row session-summary-depth-2' + (index === 0 ? ' session-summary-group-first' : '')
+      + (isThis ? ' me' : ''), [label, ...countCells(2, (row) => row.likelyMisclicks[reason] || 0)]);
   });
   return grid;
 }

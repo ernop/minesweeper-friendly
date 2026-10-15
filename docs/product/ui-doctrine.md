@@ -33,7 +33,9 @@ because they apply app-wide, not just where each was first stated.
   on bolding.
 - One standing scale, one this-game color (creator direction 2026-10-07:
   "green good red bad"; 2026-10-08: "for charts, keep the green. and let's
-  backport the green to replace blue as the 'this' pointer color"). Standing
+  backport the green to replace blue as the 'this' pointer color";
+  2026-10-15: "lets globally switch 'this' color to light blue, not light
+  green now."). Standing
   within a pool runs muted green (better) through a neutral light gray or
   white middle to red (worse) everywhere: rank chips, the game-data bar and
   histograms, and chart chips. A display whose every value has one standing
@@ -41,15 +43,21 @@ because they apply app-wide, not just where each was first stated.
   ranks, so there its ranks are plain text (creator 2026-10-14: "these are
   not 'this' right? so why green?";
   [Rank highlights](rankings.md#rank-highlights-built-2026-09-21-recolored-2026-10-07)).
-  This game is the charts' this-game dot color,
-  the age palette's fluorescent seconds green (#39ff14), and nothing else
-  uses it: its table rows and "this" chips (bold black on it), the hovered
-  game-data row, its line on histograms, and the ring around a chart linked
-  to a hovered game-data row. As a line or ring on white it has black edges,
-  as the chart dot has its black ring, because the green alone is about
-  1.4:1 on white. Light blue marked this game from 2026-10-07 until this
-  change; pressed toggles keep the app's pale blue pressed fill (#dcecf5).
-  The age-unit palette is a separate code and stays as it is.
+  This game is light blue (`--this-game`, #87cefa), and nothing else uses
+  it: its table rows and "this" chips (bold black on it, about 12:1), the
+  hovered game-data row, its line on histograms, the ring around a chart
+  linked to a hovered game-data row, its black-ringed dot on the scatter
+  charts, and your mark on the problems page. As a line or ring on white it
+  has black edges, as the chart dot has its black ring, because the light
+  blue alone is about 1.7:1 on white. It is deeper than the app's pale
+  blues, the pressed toggle fill (#dcecf5) and the session day fill
+  (#d3e7f5), so a this-game row does not read as a pressed control. History:
+  a paler light blue (#cfe5fa) marked this game from 2026-10-07, the charts'
+  fluorescent seconds green (#39ff14) from 2026-10-08, and this light blue
+  from 2026-10-15. The age-unit palette is a separate code and stays as it
+  is: its seconds green still colors other games under a minute old on the
+  scatter charts and the legend's seconds swatch; this game's dot is light
+  blue whatever its age.
 - Contrast, hierarchy, and width (user rules, recorded 2026-09-23): neutral
   text is pure black on light backgrounds and pure white on dark ones. No
   gray labels, gray placeholders, or opacity-dimmed text; secondary hierarchy
@@ -119,7 +127,7 @@ because they apply app-wide, not just where each was first stated.
   dot, tick, bar, ring, or strip stands for what ("Green line: this game.",
   "Ticks: this session's wins."), how much one dot or bar holds ("One dot
   per win.", "Each bar spans 0.834s."), or what the axes are ("across is
-  the game's 3BV, up is its solve time"). This game's green is one
+  the game's 3BV, up is its solve time"). This game's color is one
   page-wide convention (above) and needs no key; titles and axis labels
   name what is plotted. A legend for an arbitrary code still says what each
   color or style means (the age palette, the trend lines' teal and blue,

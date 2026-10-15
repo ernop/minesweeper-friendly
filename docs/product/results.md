@@ -99,8 +99,8 @@ go forward with this!"):
   that makes it too wide for the room left of a Beginner board at 2560, so
   it leads the tables under the board there, while ranks won stays right of
   the board.
-- Rank colors: green good, red bad, the charts' fluorescent this-game green
-  for this game's row (light blue until 2026-10-08), no edge
+- Rank colors: green good, red bad, the this-game light blue for this
+  game's row (fluorescent green from 2026-10-08 to 2026-10-15), no edge
   or podium ([Rank highlights](rankings.md#rank-highlights-built-2026-09-21-recolored-2026-10-07)).
 - Game data: uncolored labels in aligned columns, one row per measurement
   with session and lifetime percentages, a colored bar, a hover card with

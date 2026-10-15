@@ -101,7 +101,7 @@ Spec: [docs/product/rankings.md](../product/rankings.md). Index: [AGENTS.md](../
   `data-rank-band`, and the title, and returns the standing. CSS maps each
   band to `--rank-tone` and `.rank-highlight` mixes it 85% with white into
   `--rank-tint` (2026-10-07: green good, red bad; no podium). `buildRankList`
-  marks `.me` (its cells use `--this-game`, #39ff14, bold black) and writes
+  marks `.me` (its cells use `--this-game`, #87cefa, bold black) and writes
   the rank/pool/percentage footer even for short lists. In ranks won, rows
   carry no tint: `recentPlacementRuns(ranks, currentRank)` joins consecutive
   ranks and splits only at the current ordinal; each `.recent-rank-run` is
@@ -118,7 +118,8 @@ Spec: [docs/product/rankings.md](../product/rankings.md). Index: [AGENTS.md](../
 - Session summary (2026-10-07; [spec](../product/rankings.md#session-summary-requested-and-built-2026-10-07)):
   `sessionSummaryRows(historyByKey, from, to, difficultyKeys)` (the pure span
   "SESSION SUMMARY: COMPUTATION") returns one row per history key with games
-  in the window: `{key, latest, games, wins, best, means, noMark}`, where `best` is
+  in the window: `{key, records, latest, games, wins, best, means, noMark}`,
+  where `records` are the window's games of that key and `best` is
   the session's fastest win (`compareRankedWins`) with its rank and total
   among that key's wins up to the window's end, and `means[id]` is
   `{value, measured}` (or null) for each `SESSION_SUMMARY_MEANS` measurement
@@ -126,7 +127,8 @@ Spec: [docs/product/rankings.md](../product/rankings.md). Index: [AGENTS.md](../
   `GameData` value is finite. Rows follow `difficultyKeys`, then other keys
   alphabetically. It is a linear filter over saved records, so it runs on
   the page. `noMark` is true when every record of that key is markless.
-  `buildSessionSummary(record, referenceMs, markCurrent, noMark)` renders
+  `buildSessionSummary(record, referenceMs, markCurrent, noMark, boardRecord)`
+  renders
   `.rank-list.session-summary` (heading "session", help naming the window)
   with `sessionSummaryTypeParts` (the board, and a variant naming a
   non-Standard mode and a non-default generator, in its own
@@ -141,7 +143,10 @@ Spec: [docs/product/rankings.md](../product/rankings.md). Index: [AGENTS.md](../
   Session results (2026-10-11 as loss types; wins added 2026-10-14; a tree
   by worst offense later that day): each row also carries `results` (games
   per `sessionResultKind(record)`, so they sum to `games`) and
-  `likelyMisclicks` (losses per `likelyMisclickReasonsOf` reason). The span
+  `likelyMisclicks` (losses per `likelyMisclickReasonsOf` reason), both
+  counted from `sessionGameResult(record)`, a game's `{kind,
+  likelyMisclicks}` (its leaf's kind and the misclick reasons of a loss's
+  fatal evaluation), which the "this" mark also uses. The span
   calls the verdict functions at run time, so its test loads the verdict
   span and justice.js. The same span holds `SESSION_RESULT_TREE` (won and
   lost, their offense families, and leaves `{kind, chart, label}`, where
@@ -159,7 +164,7 @@ Spec: [docs/product/rankings.md](../product/rankings.md). Index: [AGENTS.md](../
   no-mark narrowing keeps it), takes its board key ("30x16/99"; `boardOfKey`
   parses a board or history key) and that board's `boardDisplayLabelOf`
   label, and passes both to `buildSessionSummaryResults(rows, boardKey,
-  boardLabel)`. That keeps the rows whose key starts with the board key
+  boardLabel, thisGame)`. That keeps the rows whose key starts with the board key
   (every mode and generator of the size) and renders
   `.session-summary-results` under the main grid, or, when none has session
   games, a `.session-summary-results.recent-placements-none` reading "no
@@ -176,6 +181,15 @@ Spec: [docs/product/rankings.md](../product/rankings.md). Index: [AGENTS.md](../
   `.session-summary-group-first` (a rule above). Until 2026-10-15 it
   grouped rows by `sessionSummaryTypeParts(row).board` into a count and
   share column pair per size. Gated by shownThings.sessionEndings.
+  This game (2026-10-15): `renderRanks` passes its `boardRecord`: for a
+  loss, whose tables follow its board's latest win, results.js sets
+  `options.boardRecord` to the loss; otherwise it is `record`, which is also
+  the parameter's default. When some size row's `records` holds it (by identity), the
+  leaf whose kinds include its `sessionGameResult` kind and each misclick
+  row of its reasons get the rank lists' `.rank-row.me` class (the
+  this-game light blue, bold black, on every cell) and end their label with a
+  `.recent-current-label` " this", the session chip's span. Ancestors stay
+  unmarked.
   `lossTypeOf` memoizes per evaluation object (a WeakMap), so rebuilding the
   summary after each game classifies only the new loss.
   `node tests/recent-placements-test.js` freezes the formatting and
@@ -200,7 +214,7 @@ Spec: [docs/product/rankings.md](../product/rankings.md). Index: [AGENTS.md](../
 - Rank-highlight browser verification:
   `node tests/rank-highlight-browser-check.js /path/to/playwright /path/to/chromium`
   uses an isolated profile on the permanent test origin, with renderer-only
-  fixtures. It checks this-game green rows without edge or podium,
+  fixtures. It checks this-game light blue rows without edge or podium,
   green standing chips, percentage bands, compact-summary marking, the
   session summary's rows and regeneration from the one picker,
   low/last/only-result states, history without a selection, and 1680/1216/650px

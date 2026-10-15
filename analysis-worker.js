@@ -1,13 +1,13 @@
 "use strict";
 
 importScripts('trend-fit.js?v=20260925-worker-analysis',
-  'game/trace-metrics.js?v=20261015-magenta-mark',
-  'game/evaluation.js?v=20261015-magenta-mark',
-  'game/session-stats.js?v=20261015-magenta-mark',
-  'game/metric-definitions.js?v=20261015-magenta-mark',
+  'game/trace-metrics.js?v=20261015-this-blue',
+  'game/evaluation.js?v=20261015-this-blue',
+  'game/session-stats.js?v=20261015-this-blue',
+  'game/metric-definitions.js?v=20261015-this-blue',
   'board-shape.js', 'zini.js', 'board-metrics.js?v=20260921-visible-zero-one',
-  'game-data.js?v=20261015-click-share', 'game/rankings.js?v=20261015-magenta-mark',
-  'game/charts.js?v=20261015-magenta-mark', 'game/game-data-chart.js?v=20261015-magenta-mark');
+  'game-data.js?v=20261015-click-share', 'game/rankings.js?v=20261015-this-blue',
+  'game/charts.js?v=20261015-this-blue', 'game/game-data-chart.js?v=20261015-this-blue');
 
 let config;
 

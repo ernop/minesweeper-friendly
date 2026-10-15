@@ -124,8 +124,8 @@ const screenshots = process.argv[4];
     assert.equal(await page.locator('#problems-result-ladder .problems-ladder-label[data-kind="you"]').count(), 1,
       'your time sits in the ladder');
     assert.equal(await page.locator('#problems-result-ladder .problems-ladder-label[data-kind="you"]')
-      .evaluate((label) => getComputedStyle(label).backgroundColor), 'rgb(57, 255, 20)',
-      'your mark wears the game’s this-game green');
+      .evaluate((label) => getComputedStyle(label).backgroundColor), 'rgb(135, 206, 250)',
+      'your mark wears the game’s this-game light blue');
     assert.ok(await page.locator('#problems-result-ladder .problems-ladder-label[data-kind="level"]').count() > 0,
       'the skill levels sit in the ladder');
     const ladderOrder = await page.$$eval('#problems-result-ladder .problems-ladder-label',

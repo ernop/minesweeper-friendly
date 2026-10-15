@@ -32,7 +32,9 @@ do that!"; revised 2026-10-08, below):
 - One row per measurement, in aligned columns: your perf reads name, value,
   session %, lifetime %; board traits read %, name, value. Column heads name
   the performance pools ("session", "lifetime") and "value"; the board
-  side's percentage column has no head. This replaced one label per pool
+  side's percentage column has no head. Each side's name column is headed
+  by the board's name ("Beginner"; Board name, below). This
+  replaced one label per pool
   with "(session)" and "(day)" suffixes, which doubled the left side's labels.
 - Labels are black and uncolored. Names, values, and percentages are all
   regular weight; values and the plotted percentage are one size larger
@@ -119,8 +121,8 @@ opens it over the band, never reflowing it. In order:
    (since 2026-10-11, below): bars per value range for a
    pool of more than 30 games, one dot per game at its exact value for 30 or
    fewer (touching dots stack), each colored by standing within that pool
-   (green better, red worse); the this-game green line, edged in black,
-   marks this game; the
+   (green better, red worse); the this-game light blue line, edged in
+   black, marks this game; the
    lifetime card ticks the session's games under the axis. No key line
    names the marks (removed 2026-10-08, below).
 3. Last, a definition, only where the name and unit leave the measurement
@@ -254,7 +256,8 @@ vital, since that way i can see things more nicely"), built the same day:
   chosen pool gets a your-perf section and a board-traits section, in the
   order your perf against lifetime, your perf against the session, board
   traits against lifetime, board traits against the session. Each
-  section's percentage head names its pool. (Until then the view always
+  section's percentage head names its pool, and its title is followed by the
+  board's name ("session Beginner"; Board name, below). (Until then the view always
   showed your perf against both pools and board traits against lifetime
   only.)
 - Only lifetime strips tick the session's games. No key under the strips
@@ -270,6 +273,39 @@ vital, since that way i can see things more nicely"), built the same day:
   The bars take the extra height: the axis gap and the 5 px ticks keep
   their size on strips 26 px or taller and shrink in proportion on shorter
   ones.
+
+Board name (creator request 2026-10-15, built the same day): "dosession
+timings (in distribution view) include ONLYthat sizze game? i thinkthey
+should. e.g. beginner, intermed etc. ) make it clear to users with a subtle
+indicator too." They already did: every pool, lifetime and session, on
+both sides and in both views, holds only games with this game's board
+settings (size and mines, mode, and generator), and a no-mark win's pools
+only its no-mark games ([No-mark wins](rankings.md#no-mark-wins-decided-2026-10-14)).
+The indicator:
+
+- The board's name as the outcome line gives it: "Beginner",
+  "Intermediate", "Expert", or "Custom 20x20-60". In the distributions view
+  it follows every section's title ("lifetime Beginner", "session
+  Beginner", "board traits Beginner"); in the band it heads each side's
+  name column, the head that was empty. It is set like the other heads
+  (smaller than the title, bold, black), never as a sentence: the cut of
+  2026-10-08 removed "so far with these board settings" from the cards as
+  fluff (Hover card, above).
+- The band carries it too, though the request named the distributions
+  view: both views show the same pools under the same "lifetime" and
+  "session" heads.
+- Mode and generator are not repeated. They stay on the outcome line beside
+  the chart, as in the no-mark list titles ("top expert no-mark times",
+  [No-mark wins](rankings.md#no-mark-wins-decided-2026-10-14)), so every
+  head stays one line in the narrowest docked column (360 px), whose strip
+  column is 100 px wide: "your Intermediate games" already wraps there, and
+  the Pregen 10 mode's name alone runs past 80 characters. Open to the
+  creator: naming the mode in the heads when it is not Standard.
+- With it, the distributions view's section titles, percentage heads, and
+  row labels use the pool names, so a no-mark win's sections read
+  "no-mark" and "no-mark session" as the band's heads do. Until 2026-10-15
+  they read "lifetime" and "session" even there, against the No-mark wins
+  rule.
 
 Linkage to the charts (creator: "this linkage should be very tight and
 clear"): each your-perf and board-trait chart heading carries a chip, "this

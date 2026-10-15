@@ -342,9 +342,7 @@ function buildScatter(wins, me, fx, fy, xLabel, yLabel, meLabel, ageInfoOf, opts
     }
     const selectedPoint = shown.find((p) => p.current);
     if (selectedPoint) {
-      const meClass = opts.neutralDots ? 'scatter-me average-dot' :
-        'scatter-me age-dot-' + selectedPoint.age.unit;
-      dot(selectedPoint, meClass, '3.5', '1');
+      dot(selectedPoint, 'scatter-me', '3.5', '1');
       // Today-rank tag beside the me-dot; flips to the left near the right edge.
       if (meLabel) {
         const meX = px(selectedPoint.x);

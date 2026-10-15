@@ -28,7 +28,7 @@ async function renderRanks(record, modeRecords, options = {}, sections, isCurren
   // moves them beside the board, left and right, where they fit.
   if (settings.shownThings.sessionSummary) {
     sections.append('tables', buildSessionSummary(record, referenceMs, !historyView,
-      Boolean(options.noMarkTimeLabel)));
+      Boolean(options.noMarkTimeLabel), boardRecord));
   }
   if (settings.shownThings.recentPlacements) {
     sections.append('tables', buildRecentPlacements(record, modeRecords, referenceMs, !historyView,
