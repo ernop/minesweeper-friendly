@@ -331,10 +331,14 @@ games and discard stale view updates. No main-thread calculation fallback. See
 User requirement (2026-09-26): the system must never get slow again. Before
 pushing any change to gameplay, game end, storage, startup, or result
 presentation, run `tests/latency-browser-check.js` in Firefox with `--record`
-(about 10 seconds) and commit the appended `tests/latency-history.jsonl` line
-with the change. A budget failure blocks the push. Budgets sit just above
-today's measured times, never at generous round numbers; they tighten when code
-gets faster and loosen only by recorded creator decision. Commands:
+(about 10 seconds on the PC, 25 on the laptop) and commit the appended
+`tests/latency-history.jsonl` line with the change. A budget failure blocks the
+push. Budgets are per machine (creator request 2026-10-18): the gitignored
+`tests/latency-machine.txt` names the machine running the check (`linux-pc`,
+`windows-laptop`), and a run is judged only against that machine's budgets.
+Budgets sit just above that machine's measured times, never at generous round
+numbers; they tighten when code gets faster and loosen only by recorded
+creator decision. Commands:
 [verification](docs/implementation/verification.md).
 
 ### Test speed

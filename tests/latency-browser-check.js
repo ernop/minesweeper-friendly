@@ -5,9 +5,13 @@
 // synthetic 6,500-game history, it times page load, new game, the first click,
 // a dozen more clicks, the click that shows a mine, and switching to expert,
 // each as our handlers' work and as time to screen, plus the longest freeze in
-// the two seconds after that game ends. Any value over
+// the two seconds after that game ends. Timings depend on the machine, so
+// tests/latency-machine.txt (not committed) names the machine running the
+// check, and any value over that machine's budgets in
 // tests/latency-budgets.json fails the run; --record appends it to
-// tests/latency-history.jsonl, which tests/latency-history.js prints.
+// tests/latency-history.jsonl, which tests/latency-history.js prints. A
+// machine without budgets yet gets its measurements printed and fails, so
+// its budgets can be set from three runs.
 //
 // node tests/latency-browser-check.js PLAYWRIGHT_CORE_DIR firefox|chromium EXECUTABLE [--record]
 const assert = require('node:assert/strict');
@@ -20,7 +24,14 @@ assert(playwrightDir && ['firefox', 'chromium'].includes(browserName) && executa
   'usage: node tests/latency-browser-check.js PLAYWRIGHT_CORE_DIR firefox|chromium EXECUTABLE [--record]');
 const record = process.argv.includes('--record');
 const repo = path.join(__dirname, '..');
-const budgets = JSON.parse(fs.readFileSync(path.join(__dirname, 'latency-budgets.json'), 'utf8')).budgets;
+const machines = JSON.parse(fs.readFileSync(path.join(__dirname, 'latency-budgets.json'), 'utf8')).machines;
+const machineFile = path.join(__dirname, 'latency-machine.txt');
+assert(fs.existsSync(machineFile), 'tests/latency-machine.txt is missing: create it holding this machine\'s label, one of '
+  + Object.keys(machines).join(', ') + ' (see tests/latency-budgets.json), or a new label for a new machine');
+const machine = fs.readFileSync(machineFile, 'utf8').trim();
+assert(/^[a-z0-9-]+$/.test(machine), 'tests/latency-machine.txt must hold one label of a-z, 0-9, and -: ' + JSON.stringify(machine));
+const budgets = machine in machines ? machines[machine].budgets : null;
+assert(!(record && budgets === null), 'no budgets for machine ' + machine + ' in tests/latency-budgets.json, so nothing to record against');
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // Runs in the page: 6,500 standard games with board positions in their action
@@ -170,8 +181,13 @@ async function main() {
     metrics.afterGameFreezeMs = Math.max(0, ...probe.freezes
       .filter((f) => f.at + f.ms >= endAt && f.at <= endAt + 2000).map((f) => f.ms));
     for (const name of Object.keys(metrics)) metrics[name] = Math.round(metrics[name]);
+    if (budgets === null) {
+      for (const [name, value] of Object.entries(metrics)) console.log(name.padEnd(20) + String(value).padStart(6) + ' ms');
+      assert.deepEqual(errors, [], 'page errors');
+      assert.fail('no budgets for machine ' + machine + ' in tests/latency-budgets.json: set them just above the worst of three runs');
+    }
     assert.deepEqual(Object.keys(budgets).sort(), Object.keys(metrics).sort(),
-      'tests/latency-budgets.json names exactly the measured metrics');
+      'tests/latency-budgets.json names exactly the measured metrics for ' + machine);
     const over = Object.entries(budgets).filter(([name, limit]) => metrics[name] > limit)
       .map(([name, limit]) => name + ' ' + metrics[name] + ' > ' + limit);
     for (const [name, value] of Object.entries(metrics)) {
@@ -181,14 +197,14 @@ async function main() {
     if (record) {
       const git = (...args) => execFileSync('git', args, { cwd: repo, encoding: 'utf8' }).trim();
       fs.appendFileSync(path.join(__dirname, 'latency-history.jsonl'), JSON.stringify({ date: new Date().toISOString(),
-        commit: git('rev-parse', '--short', 'HEAD'),
+        machine, commit: git('rev-parse', '--short', 'HEAD'),
         dirty: git('status', '--porcelain', '--', '.', ':!tests/latency-history.jsonl') !== '',
         browser: browserName + ' ' + browser.version(), metrics, over }) + '\n');
       console.log('recorded in tests/latency-history.jsonl');
     }
     assert.deepEqual(errors, [], 'page errors');
-    assert.deepEqual(over, [], 'latency budgets exceeded');
-    console.log('latency: all within budget');
+    assert.deepEqual(over, [], 'latency budgets exceeded on ' + machine);
+    console.log('latency: all within budget on ' + machine);
   } finally {
     await browser.close();
   }

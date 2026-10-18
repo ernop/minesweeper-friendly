@@ -1,17 +1,39 @@
 {
-  "note": "Upper bounds in milliseconds for tests/latency-browser-check.js, set 2026-09-26 just above the worst of three Firefox runs on the creator's PC (Chromium is faster everywhere). Creator decision: limits sit at today's real times, not generous ones; any real slowdown must fail. *WorkMs is how long the game's own handlers ran for that input, which only our code affects; the matching *Ms is input to the first task after the next frame, which also includes up to one 60 Hz frame (16.7 ms) of waiting, so a click must show within two frames (34 ms). Known waste, next to cut: new game (26-28 ms of work in Firefox, 8 in Chromium), switching board size (20-21), and the freeze after a game ends (82-91). Tighten when the code gets faster; loosen only by recorded creator decision.",
-  "budgets": {
-    "startupMs": 700,
-    "newGameWorkMs": 32,
-    "newGameMs": 36,
-    "firstClickWorkMs": 8,
-    "firstClickMs": 34,
-    "clickWorkMs": 10,
-    "clickMs": 34,
-    "showMineWorkMs": 8,
-    "showMineMs": 34,
-    "switchToExpertWorkMs": 25,
-    "switchToExpertMs": 30,
-    "afterGameFreezeMs": 100
+  "note": "Upper bounds in milliseconds for tests/latency-browser-check.js, one set per machine, because the same code takes different times on different machines and browsers (creator request 2026-10-18, after the PC's budgets judged a run on the Windows laptop). tests/latency-machine.txt, not committed, names the machine running the check. Creator decision 2026-09-26: limits sit at today's real times, not generous ones; any real slowdown must fail. *WorkMs is how long the game's own handlers ran for that input, which only our code affects; the matching *Ms is input to the first task after the next frame, which also includes up to one 60 Hz frame (16.7 ms) of waiting, so a click must show within two frames (34 ms). Tighten when the code gets faster; loosen only by recorded creator decision.",
+  "machines": {
+    "linux-pc": {
+      "note": "The creator's Linux PC. Set 2026-09-26 just above the worst of three Firefox runs (Chromium is faster everywhere). Known waste, next to cut: new game (26-28 ms of work in Firefox, 8 in Chromium), switching board size (20-21), and the freeze after a game ends (82-91).",
+      "budgets": {
+        "startupMs": 700,
+        "newGameWorkMs": 32,
+        "newGameMs": 36,
+        "firstClickWorkMs": 8,
+        "firstClickMs": 34,
+        "clickWorkMs": 10,
+        "clickMs": 34,
+        "showMineWorkMs": 8,
+        "showMineMs": 34,
+        "switchToExpertWorkMs": 25,
+        "switchToExpertMs": 30,
+        "afterGameFreezeMs": 100
+      }
+    },
+    "windows-laptop": {
+      "note": "The creator's Windows laptop. Set 2026-10-18 just above the worst of five Firefox 155 runs of release d211d15 (four in one sitting, one earlier that evening), leaving out Firefox's first launch on this machine (startup 1704, firstClickWorkMs 44); on mains power, the Balanced power plan, with other programs keeping the processor about 40% busy. The click time-to-screen budgets keep the two-frame 34 ms except clickMs, which reached 36 ms here (38). Its times vary far more than the PC's, so these budgets catch only large slowdowns: across the five runs startup took 1276-2306 ms, new game work 29-55, newGameMs 36-219, and the after-game freeze 89-198.",
+      "budgets": {
+        "startupMs": 2400,
+        "newGameWorkMs": 60,
+        "newGameMs": 230,
+        "firstClickWorkMs": 12,
+        "firstClickMs": 34,
+        "clickWorkMs": 17,
+        "clickMs": 38,
+        "showMineWorkMs": 18,
+        "showMineMs": 34,
+        "switchToExpertWorkMs": 25,
+        "switchToExpertMs": 32,
+        "afterGameFreezeMs": 210
+      }
+    }
   }
 }

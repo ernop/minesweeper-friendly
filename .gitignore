@@ -8,3 +8,5 @@ __pycache__/
 /minesweeper-friendly-history-*.json
 /minesweeper-friendly-traces-*.json
 /analysis/history/out/
+# which machine runs the latency check; each machine names itself
+/tests/latency-machine.txt

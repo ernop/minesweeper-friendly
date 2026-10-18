@@ -181,6 +181,13 @@ laggy"; asked whether the game is "max efficient" and to test and fix it.
   timed as the game's own work and as time to screen. Exceeding a limit fails
   the check; recorded runs keep the history in the repository
   ([how to run](../implementation/verification.md)).
+- Limits per machine (creator request 2026-10-18, after the first run on the
+  Windows laptop failed the limits set on the Linux PC while the previous
+  release failed them by as much there: "i suggest adding labels so that we
+  can track and notice & prevent regressions appropriately for each"). The
+  same code takes different times on different machines and browsers, so
+  each machine has a label, its own limits, and its own runs in the history;
+  a run is judged only against its own machine's limits and earlier runs.
 - Latency limits are tight, not generous (creator decision 2026-09-26: "If
   we're getting three milliseconds now, 30 milliseconds now, degrading to 100
   milliseconds per click is absolutely unacceptable ... It's very important
