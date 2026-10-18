@@ -560,6 +560,19 @@ Generic multi-project hosting gaps are tracked in
 (Music detection is local-only since 2026-09-26; see
 [Music playing](docs/product/per-game-stats.md).)
 
+Welcome search engines and LLM crawlers (built 2026-09-04 on branch
+`cursor/welcome-crawlers-7966`, commit 09e014a, for the GitHub Pages address
+and never merged; the branch was deleted 2026-10-18, when the creator had the
+old branches pulled in or removed, because every address in it pointed at
+Pages, which now redirects to Fuseki): a `robots.txt` allowing every crawler,
+naming the AI crawlers too; a `sitemap.xml` of the pages; an `llms.txt`
+describing the project, its pages, and its documentation; and on each page a
+meta description, an index-and-follow robots tag, a canonical link, and Open
+Graph and Twitter tags with the promo screenshot. Rebuilding it for
+https://minesweeper-friendly.fuseki.net/ means adding the files to
+`deploy/runtime-files.json` and finding how Fuseki's server answers
+`/robots.txt` today.
+
 ## Long-history trend cost (creator concern, 2026-09-26)
 
 The user asks whether fits cover every retained game and notes that O(n log n)
