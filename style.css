@@ -27,30 +27,22 @@ body {
   padding: 24px;
 }
 
-/* Registered as lengths so layout code reads the resolved pixel widths. */
-@property --game-sidebar-width {
-  syntax: '<length>';
-  inherits: true;
-  initial-value: 320px;
-}
-@property --game-data-width {
-  syntax: '<length>';
-  inherits: true;
-  initial-value: 360px;
-}
-
+/* One details column holds the summary, the setup and review controls, and
+   the stat sections; its width is the player's share of the window, set by
+   dragging its left edge (syncGameSidebar). Until the settings load it
+   holds the default share, nearly half the window, so the during-game
+   charts and game data read at full size. */
 #page-layout {
   display: grid;
   --game-sidebar-min-width: 320px;
-  --game-sidebar-width: clamp(var(--game-sidebar-min-width), 30vw, 760px);
-  --game-data-width: clamp(360px, 24vw, 760px);
+  --game-sidebar-width: max(var(--game-sidebar-min-width), 46vw);
   /* The board's clearance from its column's edges, the viewport, and the
      tabs; Justice callouts keep it from the column's edges too.
      applyBoardPosition constrains offsets with this same value, so a board
      resting at it with a zero offset is never clamped. */
   --board-edge-inset: 8px;
   /* The top bar's measured height (syncGameSidebar), reserved until then.
-     The docked right columns start below it and the row gap. */
+     The docked details column starts below it and the row gap. */
   --top-bar-height: 25px;
   --top-bar-block: calc(var(--top-bar-height) + 8px);
   grid-template-columns: auto minmax(0, 1fr) var(--game-sidebar-docked-width, var(--game-sidebar-width));
@@ -164,9 +156,8 @@ main {
 
 /*-------TOP BAR (play limits, session, board display, settings, other pages)-------*/
 
-/* The page's upper right: above the docked game data and details columns,
-   sticky with them, or above the board column when the details are the
-   compact popover. Its items wrap rather than shrink; each group (limits,
+/* The page's upper right: above the docked details column, sticky with it,
+   or above the board column when the details are the compact popover. Its items wrap rather than shrink; each group (limits,
    session, board display, other surfaces) keeps together and wider gaps
    separate the groups. */
 #top-bar {
@@ -185,7 +176,6 @@ main {
   color: #000000;
   font-size: 11px;
 }
-#page-layout.game-data-docked #top-bar { grid-column: 3 / span 2; }
 #page-layout.compact-sidebar #top-bar { grid-column: 2; position: static; justify-self: end; }
 #page-layout.compact-sidebar main { grid-row: 2; }
 #top-bar > * { white-space: nowrap; }
@@ -355,21 +345,25 @@ main {
 
 #scores-nav[hidden] { display: none; }
 
-/* Review and display controls take space only in the side column. */
+/* Review and display controls take space only in the side column: one
+   small row beside the setup controls while the replay is closed; the open
+   replay's transport takes the column's whole width. */
 #scores-nav {
   display: flex;
+  flex: 0 1 auto;
   flex-wrap: wrap;
-  align-items: stretch;
-  justify-content: flex-start;
-  gap: 6px;
-  margin: 0;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px 6px;
+  margin: 0 0 0 auto;
   font-size: 11px;
-  width: 100%;
   min-width: 0;
   overflow-anchor: none;
 }
+#scores-nav:has(> #replay-review[open]) { flex-basis: 100%; }
 
-#replay-review { width: 100%; min-width: 0; }
+#replay-review { min-width: 0; }
+#replay-review[open] { flex-basis: 100%; }
 #replay-review[hidden] { display: none; }
 /* list-item keeps the disclosure triangle the button look would drop. */
 #replay-review > summary { display: list-item; width: fit-content; }
@@ -1304,12 +1298,7 @@ body.trial-offboard #game-frame {
   font-family: "Arial Black", "Arial Bold", Arial, sans-serif;
 }
 #results[hidden] { display: none; }
-
-#results p {
-  font-size: 13px;
-  color: #000000;
-  margin: 2px 0;
-}
+#result-stats { display: flex; flex-direction: column; gap: 6px; }
 
 /* Full action explanations and rankings follow the board in normal flow. */
 #result-analysis {
@@ -1402,19 +1391,26 @@ body.trial-offboard #game-frame {
   padding: 8px 20px;
 }
 
-/* Outcome, mode, and end date each on their own line */
+/* The details column's head: the outcome with its board, mode, and
+   generator on one line; a high scores view's note takes a second. */
 #result-summary {
-  font-weight: bold;
+  margin: 0;
+  font: bold 15px "Arial Black", "Arial Bold", Arial, sans-serif;
   line-height: 1.3;
   white-space: pre-line;
   color: #000000;
 }
-.result-summary-lead { font-size: 17px; }
+#result-summary:empty { display: none; }
+.result-summary-lead { font-size: 20px; }
 .result-summary-context {
   font-family: Arial, Helvetica, sans-serif;
   font-weight: normal;
 }
-.result-summary-when { font-variant-numeric: tabular-nums; }
+.result-summary-note {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 13px;
+  font-weight: normal;
+}
 
 /* The game's stats as a small label/value tablechart */
 #stats-grid {
@@ -1632,10 +1628,11 @@ body.trial-offboard #game-frame {
 }
 .verdict-justice .verdict-title { color: #b3121b; letter-spacing: 2px; }
 
-/*-------DETAILS COLUMN (mode, generator, session tags, results)-------*/
+/*-------DETAILS COLUMN (summary, setup and review controls, stat sections)-------*/
 
-/* Options, final stats, and the legend own one grid column. Its scroll
-   stays independent of the board and history, regardless of content height. */
+/* The summary, controls, stat sections, and legend own one grid column,
+   reserved before a game ends. Its scroll stays independent of the board
+   and history, regardless of content height. */
 #game-sidebar {
   grid-column: 3;
   grid-row: 2;
@@ -1644,7 +1641,7 @@ body.trial-offboard #game-frame {
   align-self: start;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 8px;
   width: var(--game-sidebar-docked-width, var(--game-sidebar-width));
   max-height: calc(100dvh - 24px - var(--top-bar-block));
   overflow-y: auto;
@@ -1654,15 +1651,42 @@ body.trial-offboard #game-frame {
   margin: 0;
   background: #fff;
 }
-/* Game setup packs into wrapping rows: the two selects share a row when the
-   column is wide enough, then the archive alert and the play context line
-   with its edit button follow, right-aligned. */
-#top-right {
+/* The column's resize grip, centered in the 18px column gap left of it and
+   sticky with it; syncGameSidebar shows it only while the column docks. */
+#details-resize {
+  grid-column: 3;
+  grid-row: 2;
+  justify-self: start;
+  align-self: start;
+  position: sticky;
+  top: calc(12px + var(--top-bar-block));
+  width: 7px;
+  margin-left: -12.5px;
+  background: linear-gradient(#c7d1d9, #c7d1d9) center / 1px 100% no-repeat;
+  cursor: ew-resize;
+  touch-action: none;
+}
+#details-resize:hover, #details-resize.dragging { background-color: #dde6ee; }
+#details-resize:focus-visible { outline: 2px solid #417ca4; }
+#details-resize[hidden] { display: none; }
+/* Setup and review controls share wrapping rows: mode, generator, and
+   states, then replay, display options, and scores where the column has
+   room beside them. */
+#sidebar-controls {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
   align-items: center;
-  gap: 6px 10px;
+  gap: 4px 12px;
+}
+#top-right {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 4px 10px;
+  min-width: 0;
   text-align: right;
   font-size: 11px;
   color: #000000;
@@ -1670,50 +1694,67 @@ body.trial-offboard #game-frame {
 #game-sidebar-button[hidden], #game-sidebar-close[hidden] { display: none; }
 #game-sidebar-close { align-self: flex-end; }
 #page-layout.compact-sidebar { grid-template-columns: auto minmax(0, 1fr); }
-/* The game data column, full height beside the board column: during this
-   game, then game data (a loss shows the first alone). It is reserved
-   before a game ends and stays empty during play. */
-#page-layout.game-data-docked {
-  grid-template-columns: auto minmax(0, 1fr) var(--game-data-docked-width) var(--game-sidebar-docked-width);
-}
-#game-data-column { display: none; }
-#page-layout.game-data-docked #game-data-column {
-  grid-column: 3;
-  grid-row: 2;
-  position: sticky;
-  top: calc(12px + var(--top-bar-block));
-  align-self: start;
-  display: flex;
-  flex-direction: column;
+
+/* A stat section (during this game): its title is the button that opens
+   and closes it. Game data's two side titles share this look. */
+.stat-section {
   min-width: 0;
-  height: calc(100dvh - 24px - var(--top-bar-block));
-  overflow-y: auto;
+  color: #000000;
+  font: 400 12px Arial, Helvetica, sans-serif;
+  text-align: left;
 }
-#page-layout.game-data-docked #game-sidebar { grid-column: 4; }
-/* Zero bases: the column's height, never the chart's content, sizes the
-   chart, so the band and distributions fit it instead of stretching it. */
-#game-data-column > .board-time-profile-host {
-  flex: 1 0 0;
+.stat-section-head {
   display: flex;
-  flex-direction: column;
-  min-height: 480px;
+  align-items: center;
+  gap: 6px;
+  border-bottom: 1px solid #000000;
 }
-#game-data-column .board-time-profile { flex: 1 1 0; min-height: 0; height: auto; }
+/* Three classes: the section's own button rules (.during-game button,
+   .board-time-profile button) must not restyle its title. */
+.stat-section > .stat-section-head > .stat-section-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px 2px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #000000;
+  font: 700 15px Arial, Helvetica, sans-serif;
+  text-align: left;
+}
+.stat-section > .stat-section-head > .stat-section-toggle::before {
+  content: "";
+  border: 5px solid transparent;
+  border-left: 7px solid #000000;
+  border-right-width: 0;
+}
+.stat-section > .stat-section-head > .stat-section-toggle[aria-expanded="true"]::before {
+  border: 5px solid transparent;
+  border-top: 7px solid #000000;
+  border-bottom-width: 0;
+}
+.stat-section > .stat-section-head > .stat-section-toggle:hover,
+.stat-section > .stat-section-head > .stat-section-toggle:focus-visible { background: #e3edf6; }
+.stat-section-body { padding-top: 4px; min-width: 0; }
+.stat-section-body[hidden] { display: none; }
 #game-sidebar[popover] { display: none; }
 #game-sidebar[popover]:popover-open {
   display: flex;
   position: fixed;
   inset: 12px 12px auto auto;
-  width: min(calc(100vw - 24px), max(420px, 45vw));
+  width: min(calc(100vw - 24px), max(420px, 60vw));
   padding: 12px;
   border: 1px solid #a5b7c3;
   border-radius: 5px;
   box-shadow: 0 4px 20px #0002;
 }
 
+/* Long mode and generator names stay inside a modest select rather than
+   widening the row. */
 #play-mode,
 #board-generator {
-  flex: 1 1 135px;
+  flex: 0 1 160px;
   min-width: 0;
   text-align: right;
 }
@@ -2493,19 +2534,10 @@ body.settings-page .return-to-game {
 }
 
 /* During this game, second by second (docs/product/during-game.md): the
-   game data column's first block, sized by its content. Its charts take the
-   session charts' grammar (plot frame, gridlines, tick text, series lines
-   and legend swatches); the options row is game data's. */
-.during-game {
-  flex: 0 0 auto;
-  min-width: 0;
-  margin-bottom: 10px;
-  color: #000000;
-  font: 400 12px Arial, Helvetica, sans-serif;
-  text-align: left;
-}
-/* Set like game data's section titles, which follow it. */
-.during-game-title { margin-bottom: 2px; font-size: 14px; font-weight: 700; line-height: 18px; }
+   details column's first stat section, sized by its content. Its charts
+   take the session charts' grammar (plot frame, gridlines, tick text,
+   series lines and legend swatches); the options row is game data's. */
+.during-game { flex: 0 0 auto; }
 .during-game-charts { position: relative; cursor: crosshair; }
 .during-game-charts.during-game-empty { padding: 6px 0; font-size: 13px; cursor: auto; }
 .during-game-chart { position: relative; }
@@ -2613,10 +2645,10 @@ body.settings-page .return-to-game {
 .board-metric-backfill-panel progress { width: 120px; height: 12px; }
 .board-metric-backfill-error { flex-basis: 100%; color: #a52121; }
 
-.board-time-profile-host {
-  flex: 0 0 100%;
-  min-width: 0;
-}
+.board-time-profile-host { min-width: 0; }
+/* Its height is set by fitGameDataToSidebar while a section is open or a
+   subview shows; zero bases let the open sections share that height, never
+   their content's, so the band and distributions fit it. */
 .board-time-profile {
   box-sizing: border-box;
   width: 100%;
@@ -2629,10 +2661,58 @@ body.settings-page .return-to-game {
   font: 400 12px Arial, Helvetica, sans-serif;
   display: flex;
   flex-direction: column;
-  height: calc(100dvh - 48px);
+  gap: 6px;
   text-align: left;
   container-type: inline-size;
 }
+.game-data-section { flex: 0 0 auto; }
+.game-data-section.open { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
+/* A side's title opens and closes that side, drawn like the stat section
+   titles but in ems, so it scales with the band. */
+.game-data-side-title {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+  font-size: 1.25em;
+  line-height: 1.3333em;
+  white-space: nowrap;
+}
+.board-time-profile .game-data-side-title > .stat-section-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+  padding: 0 0.2667em 0 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #000000;
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+}
+.board-time-profile .game-data-side-title > .stat-section-toggle::before {
+  content: "";
+  border: 0.3333em solid transparent;
+  border-left: 0.4667em solid #000000;
+  border-right-width: 0;
+}
+.board-time-profile .game-data-side-title > .stat-section-toggle[aria-expanded="true"]::before {
+  border: 0.3333em solid transparent;
+  border-top: 0.4667em solid #000000;
+  border-bottom-width: 0;
+}
+.board-time-profile .game-data-side-title > .stat-section-toggle:hover,
+.board-time-profile .game-data-side-title > .stat-section-toggle:focus-visible { background: #e3edf6; }
+/* Both sides closed: their titles share one wrapping line. */
+.game-data-titles {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0 12px;
+  border-bottom: 1px solid #000000;
+}
+.game-data-titles > .game-data-side-title { position: static; }
 .board-time-profile figcaption {
   display: flex;
   flex-wrap: wrap;
@@ -2667,13 +2747,6 @@ body.settings-page .return-to-game {
 }
 .game-data-block { position: relative; flex-shrink: 0; }
 .game-data-measuring { position: relative; visibility: hidden; }
-.game-data-side-title {
-  position: absolute;
-  font-size: 1.1667em;
-  line-height: 1.2857em;
-  white-space: nowrap;
-}
-.board-time-profile .game-data-side-title .chart-help-label { font-weight: 700; }
 .game-data-column-heads,
 .game-data-row > .chart-help-label {
   display: grid;
@@ -2805,14 +2878,15 @@ body.settings-page .return-to-game {
   grid-template-columns: subgrid;
   align-items: center;
 }
-/* A section's title has a line of its own across the columns and wraps
-   there, so a long title never widens the name column. */
-.game-data-dist-section > .game-data-side-title {
+/* With both pools shown, a group's pool title has a line of its own across
+   the columns and wraps there, so it never widens the name column. */
+.game-data-dist-section > .game-data-pool-title {
   grid-column: 1 / -1;
-  position: static;
+  font-size: 1.0833em;
   font-weight: 700;
-  white-space: normal;
 }
+/* A side's title spans the columns above its groups. */
+.game-data-distributions > .game-data-side-title { grid-column: 1 / -1; position: static; }
 .game-data-dist-head { align-items: baseline; border-bottom: 1px solid #000000; }
 .game-data-dist-head .game-data-name,
 .game-data-dist-head .game-data-value,

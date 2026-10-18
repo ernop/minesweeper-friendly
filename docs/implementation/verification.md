@@ -64,7 +64,8 @@ Index: [AGENTS.md](../../AGENTS.md).
   Beginner wins (safe-cell clicks about 0.3 s apart) were played until one
   finished in about 5 s, so its rows read as a strong game. Captures: the
   viewport at 1920 x 1080 for the README's top image; at 2560 x 1440,
-  element screenshots of `#game-data-column` (band, then distributions),
+  element screenshots of the game data column (band, then distributions;
+  since 2026-10-17 `.board-time-profile` in `#game-sidebar`),
   `#metrics-panel`, the 3BV/s row's `.chart-help-tip`, and
   `.result-chart-section-perfCharts` / `-relationships`, plus `main` cut
   above "This board" for the promo hero. The card overhangs the game data
@@ -120,6 +121,18 @@ Index: [AGENTS.md](../../AGENTS.md).
   `gh run watch <id> --exit-status` confirm it, and the live site can be
   spot-checked with `curl https://minesweeper-friendly.fuseki.net/...`.
   `https://ernop.github.io/minesweeper-friendly/` redirects there.
+- Test speed (creator request 2026-10-17, verbatim: "it's important to not
+  do super slow tests please"; it followed a run of every browser check,
+  over two minutes, for a change that two of them covered, and a script left
+  stalled for minutes):
+  - Run the browser checks that exercise the changed code, not the whole
+    browser-check list. They average about 10 seconds each; all of them
+    together take over two minutes.
+  - The Node suites (about 25 seconds together) and the latency check (about
+    10 seconds, required before a push) stay as they are.
+  - A command expected to finish in under a minute that is still running
+    after two is stalled: stop it and find the cause before running it
+    again. Never wait on it a second time.
 - Test entry points (2026-09-23): `for t in tests/*-test.js; do node "$t"; done`
   runs every Node suite; also run `python3 tests/hosting-release-test.py`,
   which fails when a page loads a file missing from `deploy/runtime-files.json`.

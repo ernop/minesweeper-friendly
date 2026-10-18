@@ -1,16 +1,16 @@
 "use strict";
 
 importScripts('trend-fit.js?v=20260925-worker-analysis',
-  'game/trace-metrics.js?v=20261015-during-game-column',
-  'game/evaluation.js?v=20261015-during-game-column',
-  'game/session-stats.js?v=20261015-during-game-column',
-  'game/metric-definitions.js?v=20261015-during-game-column',
+  'game/trace-metrics.js?v=20261017-details-resize',
+  'game/evaluation.js?v=20261017-details-resize',
+  'game/session-stats.js?v=20261017-details-resize',
+  'game/metric-definitions.js?v=20261017-details-resize',
   'board-shape.js', 'zini.js', 'board-metrics.js?v=20260921-visible-zero-one',
-  'game-data.js?v=20261015-click-share', 'game/rankings.js?v=20261015-during-game-column',
-  'game/charts.js?v=20261015-during-game-column', 'game/game-data-chart.js?v=20261015-during-game-column',
+  'game-data.js?v=20261015-click-share', 'game/rankings.js?v=20261017-details-resize',
+  'game/charts.js?v=20261017-details-resize', 'game/game-data-chart.js?v=20261017-details-resize',
   'justice.js?v=20260926-fast-evidence', 'board-icons.js?v=20261015-flag-controls',
-  'game/replay-model.js?v=20261015-during-game-column',
-  'during-game.js?v=20261015-during-game-column');
+  'game/replay-model.js?v=20261017-details-resize',
+  'during-game.js?v=20261017-shared-game-data');
 
 let config;
 

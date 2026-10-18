@@ -154,8 +154,7 @@ function renderReplayChoiceAreas(evaluation) {
   const areas = pathChoiceAreas(evaluation);
   if (areas.length === 0) return;
   const boardRect = boardElement.getBoundingClientRect();
-  const resultsVisible = resultSummary.textContent !== '' || resultStats.textContent !== '';
-  const resultRect = resultsVisible ? resultsBox.getBoundingClientRect() : null;
+  const resultRect = resultStats.textContent !== '' ? resultsBox.getBoundingClientRect() : null;
   const blocks = (rect) => rect !== null
     && rect.left < boardRect.right + 150
     && rect.right > boardRect.right
@@ -164,8 +163,7 @@ function renderReplayChoiceAreas(evaluation) {
   // Keep pocket labels out of the sidebar when it is near the board.
   const legendRect = !pathViewLegend.hidden
     ? pathViewLegend.getBoundingClientRect() : null;
-  const dataRect = gameDataColumn.childElementCount > 0 ? gameDataColumn.getBoundingClientRect() : null;
-  const rightBlocked = blocks(resultRect) || blocks(legendRect) || blocks(dataRect);
+  const rightBlocked = blocks(resultRect) || blocks(legendRect);
   const rightRoom = window.innerWidth - boardRect.right;
   const leftRoom = boardRect.left;
   const onRight = (!rightBlocked && rightRoom >= 150) || leftRoom < 150;

@@ -7,26 +7,36 @@ requirements and clarifications; it supersedes the earlier compact chart draft.
 
 ## Position and presentation
 
-For regular wins, game data replaces the scalar statistics grid. It has its
-own full-height column between the board column and the details column (user
-decision 2026-09-23: "a full-height column right next to the board"). That
-column is reserved before the game ends, so the board never moves, and it is
-empty during play (user decision: "empty"). Since 2026-10-15 the column
-opens with "during this game, second by second", the game just played on its
-own clock, and game data follows it (creator: "so it's "during this game
-second by second", "your perf totals for this game", then "board traits"";
-[During the game](during-game.md)); after a loss that block is all it holds.
-When the page cannot fit the column ([Layout: the board never moves](board-and-layout.md) gives the rule),
-the chart goes into the details column under the outcome, board size,
-mode/generator, and completion date, or into the Game details popover, with
-the during-the-game block above it.
+For regular wins, game data replaces the scalar statistics grid. Since
+2026-10-17 it lives in the one details column right of the board (creator:
+"make the entire rightside (two columns) into one"; [Layout: the board never
+moves](board-and-layout.md)), below "during this game, second by second"
+(creator 2026-10-15: "so it's "during this game second by second", "your
+perf totals for this game", then "board traits""; [During the
+game](during-game.md)), and takes the column height left below the outcome
+line, the controls, and "during this game". After a loss "during this game"
+and the loss's statistics fill the column instead. From 2026-09-23 to
+2026-10-17 game data had its own
+full-height column between the board and a 320px details column (user
+decision 2026-09-23: "a full-height column right next to the board"), which
+the creator found "too compressed" on a laptop. Where the column cannot dock,
+everything goes into the Game details popover in the same order.
 It is not repeated among the lower ranking charts. Losses and trial games
 retain their scalar statistics because an unfinished board has no completed
 solve-time or efficiency rank. High scores uses its latest winning game.
 
 The chart supports only one vertical band: "your performance this game"
 (titled "your perf" until 2026-10-15) on the left and "board traits" on the
-right. Use Arial typography, white background, and
+right, both read against one percentile bar (creator 2026-10-17, after the
+first one-column build had split them into two stat sections with a band
+each: "its necessary / hoped for that "board traits" and "your perf" share
+the same percentile distribution chart"). Each side's title is the button
+that opens and closes that side, remembered across games and reloads
+(creator 2026-10-17, of the details column's stat sections: "each of those
+shall be toggleable open/closed so that we use space well"). A closed side
+keeps only its title, beside the bar on its own side, and the open side
+keeps the bar and takes the room; with both closed the chart is one line
+holding the two titles. Use Arial typography, white background, and
 ordinary controls. The separate "This win" and time caption is removed;
 solve time is the "time" row.
 
@@ -60,10 +70,12 @@ do that!"; revised 2026-10-08, below):
   ZOC.
 - Responsive: both sides share one row with both percentage columns while
   they fit, then drop the session column (the points switch still offers
-  it), then stack board traits under your perf with two columns and then
-  one. The band never scrolls: of these layouts it takes the one that needs
-  the least shrinking (the earlier one on a tie) and scales its text and
-  geometry together to fit its box.
+  it), then, with both sides open, stack board traits under your perf with
+  two columns and then one. The band never scrolls: of these layouts it
+  takes the one that needs the least shrinking (the earlier one on a tie)
+  and scales its text and geometry together to fit its box. A title wider
+  than its columns stays centered over them, and the band's width keeps
+  room for it (2026-10-17, when the titles gained their open/close arrows).
 
 Revision 2026-10-08 (creator, of the band at 2560 px: "top 'game data' -
 remove. options - condense top options and bottom options, out of the way.
@@ -75,7 +87,9 @@ the '?' mark"), built the same day:
 
 - No chart heading. The band starts with "your performance this game" and
   "board traits" (Section titles, below), each centered over its own side's
-  columns. Each title's help says only
+  columns. Since 2026-10-17 each title opens and closes its side and a (?)
+  beside it opens its help; until then the title itself opened the help.
+  Each title's help says only
   what its side's percentages are, which nothing else on the panel says:
   the share of the other games (or boards) that ranked better, a tie
   counting as half, 0% the best; for board traits, that better is each
@@ -84,25 +98,25 @@ the '?' mark"), built the same day:
   session window, the points switch, the zoom, or the two-game minimum,
   which the panel itself shows.
 - Every chart option sits in one small wrapping row under the data:
-  points switch (in distributions mode the sections switch, below, takes
+  points switch (in distributions mode the pools switch, below, takes
   its place), "show distributions", "show values", "configure", and
   "session history". Configuration and session history keep a "back to
   game data" button at their top and bottom.
 - Nothing in the band or the distributions view scrolls, at any panel or
   window size: both scale to fit (below). Configuration and session history
-  take their natural height. The container's own scrolling (the game data
-  column below 504 px of window height, the details column) is unchanged.
+  take their natural height. The details column's own scrolling, when its
+  contents need more than the window's height, is unchanged.
 - No help affordance changes the pointer to the question-mark help cursor
   ([UI doctrine](ui-doctrine.md)).
 
 Geometry (layout pass 2026-09-23, after the user found the chart "crushed
-and badly displayed" in a fixed 320px column; still current): the chart uses
-the whole width of its column, the game data column when docked, otherwise
-the fluid details column ([Layout: the board never moves](board-and-layout.md)).
-In the game data column it is the column's full viewport height (at least
-480px; the column scrolls below that). In the details column it fills the
-height left below the setup controls, scores navigation, and outcome
-summary, so its bottom controls stay on screen, again at least 480px. The
+and badly displayed" in a fixed 320px column; heights revised 2026-10-17):
+the chart uses the whole width of the fluid details column
+([Layout: the board never moves](board-and-layout.md)). It fills the height
+left below the outcome line, the controls, and "during this game", so its
+options row stays on screen, keeping at least 240px per open side (480px
+with both); the column scrolls below that. Configuration and session
+history take that height as one view, at least 480px. The
 bar is 32px wide at full size (it scales with the band); rows are fitted to
 their exact points with minimum squared displacement, and exact percentile
 points never move. Text is pure black on white, including ticks, controls,
@@ -252,31 +266,32 @@ percentage. All strips share one left edge and width across sections, and
 a measurement keeps its catalog position in every section. A row's card
 shows its own section's pool.
 
-Sections switch and strips that fill the height (creator 2026-10-08, of the
+Pools switch and strips that fill the height (creator 2026-10-08, of the
 distributions view: "for this ui, i also still want the same ability to
 choose to show lifetime/session or both. plus, i want if i remove items
 then the remaining ones should expand vertically to fill the space! it's
 vital, since that way i can see things more nicely"), built the same day:
 
-- "sections: lifetime | session | both" takes the points switch's place in
-  the options row while distributions are shown; saved, default both. Like
-  the points switch it applies to your perf and board traits alike: each
-  chosen pool gets a your-perf section and a board-traits section, in the
-  order your perf against lifetime, your perf against the session, board
-  traits against lifetime, board traits against the session. Each
-  section's percentage head names its pool, and its title says what it
-  compares (Section titles, below). (Until then the view always
-  showed your perf against both pools and board traits against lifetime
-  only.)
+- "pools: lifetime | session | both" takes the points switch's place in
+  the options row while distributions are shown; saved, default both. It
+  was labeled "sections" until 2026-10-17, when the details column gained
+  stat sections that open and close. Like the points switch it applies to
+  your perf and board traits alike: each chosen pool gets a group under
+  each side's title, in the order your perf against lifetime, your perf
+  against the session, board traits against lifetime, board traits against
+  the session. Each group's percentage head names its pool; with both pools
+  shown each group also has a pool title (Section titles, below). (Until
+  2026-10-08 the view always showed your perf against both pools and board
+  traits against lifetime only.)
 - Only lifetime strips tick the session's games. No key under the strips
   names the marks (removed 2026-10-08, Hover card above). With the
   session alone, measurements without a session rank are listed in the
-  band's note above the strips ("Not ranked in this session yet: …")
+  note above the strips ("Not ranked in this session yet: …")
   instead of vanishing.
 - The strips take all the height the rows leave: every strip gets the
   tallest height at which the view still fits its box, so hiding
-  measurements (configure) or a pool (the sections switch) makes the
-  remaining strips taller. The text keeps its size; only when even 10 px
+  measurements (configure), a pool (the pools switch), or a side (its
+  title) makes the remaining strips taller. The text keeps its size; only when even 10 px
   strips do not fit does it shrink. The view never scrolls (2026-10-08).
   The bars take the extra height: the axis gap and the 5 px ticks keep
   their size on strips 26 px or taller and shrink in proportion on shorter
@@ -294,8 +309,9 @@ The indicator:
 - The board's name as the outcome line gives it: "Beginner",
   "Intermediate", "Expert", or "Custom 20x20-60", once per view (creator
   2026-10-15: "you should not repeat "beginner" above every section too!
-  that's bad."). In the distributions view it heads the first section's
-  name column; in the band it heads the performance side's name column.
+  that's bad."). In the distributions view it heads the first shown
+  group's name column (board traits' first while your performance is
+  closed); in the band it heads the performance side's name column.
   The other name columns have no head. It is set like the other heads
   (smaller than the title, bold, black), never as a sentence: the cut of
   2026-10-08 removed "so far with these board settings" from the cards as
@@ -308,10 +324,9 @@ The indicator:
 - Mode and generator are not repeated. They stay on the outcome line beside
   the chart, as in the no-mark list titles ("top expert no-mark times",
   [No-mark wins](rankings.md#no-mark-wins-decided-2026-10-14)), so every
-  head stays one line in the narrowest docked column (360 px), whose strip
-  column is 100 px wide: "your Intermediate games" already wraps there, and
-  the Pregen 10 mode's name alone runs past 80 characters. Open to the
-  creator: naming the mode in the heads when it is not Standard.
+  head stays one line in the narrowest details column (320 px): the Pregen
+  10 mode's name alone runs past 80 characters. Open to the creator: naming
+  the mode in the heads when it is not Standard.
 - With it, the distributions view's section titles, percentage heads, and
   row labels use the pool names, so a no-mark win's sections read
   "no-mark" and "no-mark session" as the band's heads do. Until 2026-10-15
@@ -327,20 +342,24 @@ column's order: "during this game second by second", "your perf totals for
 this game", then "board traits" ([During the game](during-game.md)). Built
 the same day:
 
-- Distributions view: a performance section is titled "your performance
-  this game, within this session" or "your performance this game, within
-  your lifetime"; a no-mark win's read "within this session's no-mark games"
-  and "within your no-mark games". A board-trait section ends with the same
-  pool phrase ("board traits, within this session"): with both pools shown
-  there are two board-trait sections, and a bare "board traits" over each
-  left only the small pool head on the right to tell them apart. The
-  creator's message named the section "board traits" while viewing one
-  pool; the pool phrase extends that name rather than replacing it.
-- The band: "your performance this game" over the performance side (its
-  columns name both pools) and "board traits" over the board side.
-- A distributions section's title has a line of its own above the column
-  heads ("value", "your games", and the pool), and it wraps rather than
-  widening the name column: a title that wide would squeeze every strip.
+- Both views: "your performance this game" over the performance side and
+  "board traits" over the board side; since 2026-10-17 each title is the
+  button that opens and closes its side. In the distributions view each
+  heads its side's groups.
+- Distributions view with both pools: each pool group is titled by its
+  pool phrase, "within your lifetime" or "within this session"; a no-mark
+  win's read "within your no-mark games" and "within this session's no-mark
+  games". With one pool the group has no title: the side title above names
+  the side and the percentage head names the pool. From 2026-10-15 to
+  2026-10-17 every group's title joined side and pool ("your performance
+  this game, within this session", "board traits, within this session"), so
+  two board-trait groups did not rely on the small pool head alone to tell
+  them apart; the side titles above the groups now name the side once.
+- The band: the performance side's columns name both pools; the board
+  side's percentage column has no head.
+- A pool title has a line of its own above the column heads ("value",
+  "your games", and the pool), and it wraps rather than widening the name
+  column: a title that wide would squeeze every strip.
 
 Linkage to the charts (creator: "this linkage should be very tight and
 clear"): each your-perf and board-trait chart heading carries a chip, "this
@@ -441,11 +460,11 @@ Every item's card is listed under "Hover card" above: the chosen pool's
 rank, its games on the measurement's axis, and a definition only where the name leaves the measurement open. The worked
 calculations, example boards, and percentage arithmetic added earlier on
 2026-10-08 were cut the same day as fluff; the 2026-09-26 direction "write
-them well without clutter" holds. The side titles' help states the position
-formula once. This chart does not estimate correlations or attribute time to
-board traits.
+them well without clutter" holds. The side titles' help states the
+position formula once. This chart does not estimate correlations or
+attribute time to board traits.
 
-Each left-side row ranks **this game's** metric against both lifetime and
+Each performance row ranks **this game's** metric against both lifetime and
 session history of the same size, mine count, play mode, and generator.
 Historical comparisons end at the selected game. A third comparison, time
 against wins in the trailing 24 hours, was removed on 2026-10-08 (creator:

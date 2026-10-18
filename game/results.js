@@ -704,14 +704,6 @@ function noMarkTimeLabel() {
   return 'top ' + board + ' no-mark times';
 }
 
-function formatDate(timestampMs) {
-  const d = new Date(timestampMs);
-  const pad = (n) => String(n).padStart(2, '0');
-  return WEEKDAY_NAMES[d.getDay()] + ' '
-    + d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate())
-    + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
-}
-
 function formatGuesses(record) {
   if (record.guesses === 0) return '0';
   return record.guesses + ' · ' + record.guessIdealRisk + ' ideal · '
@@ -720,12 +712,12 @@ function formatGuesses(record) {
 
 function clearResultStats() {
   resultStats.textContent = '';
-  gameDataColumn.textContent = '';
   hideDuringGameHover();
 }
 
-// Two lines: the outcome with its board, mode, and generator, then when.
-function setResultSummary(lead, generatorLabel, when, noMark = false) {
+// The outcome with its board, mode, and generator on one line; a high
+// scores view adds which game its sections describe on a second.
+function setResultSummary(lead, generatorLabel, note, noMark = false) {
   const leadNode = document.createElement('span');
   leadNode.className = 'result-summary-lead';
   leadNode.textContent = lead;
@@ -734,10 +726,50 @@ function setResultSummary(lead, generatorLabel, when, noMark = false) {
   context.textContent = [boardDisplayLabel(), playModeLabel(), generatorLabel,
     noMark ? 'no-mark' : null]
     .filter((part) => part !== null).join(' \u00b7 ');
-  const whenNode = document.createElement('span');
-  whenNode.className = 'result-summary-when';
-  whenNode.textContent = when;
-  resultSummary.replaceChildren(leadNode, ' ', context, '\n', whenNode);
+  resultSummary.replaceChildren(leadNode, ' ', context);
+  if (note !== null) {
+    const noteNode = document.createElement('span');
+    noteNode.className = 'result-summary-note';
+    noteNode.textContent = note;
+    resultSummary.append('\n', noteNode);
+  }
+}
+
+// A stat section of the details column: its title is the button that opens
+// and closes it, and the open state is a remembered panel.
+let statSectionCount = 0;
+function buildStatSection(panelKey, title, help) {
+  const section = document.createElement('section');
+  section.className = 'stat-section';
+  section.dataset.panel = panelKey;
+  section.setAttribute('aria-label', title);
+  const head = document.createElement('div');
+  head.className = 'stat-section-head';
+  const toggle = document.createElement('button');
+  toggle.type = 'button';
+  toggle.className = 'ui-button stat-section-toggle';
+  toggle.textContent = title;
+  const body = document.createElement('div');
+  body.className = 'stat-section-body';
+  body.id = 'stat-section-body-' + ++statSectionCount;
+  toggle.setAttribute('aria-controls', body.id);
+  const helpWrap = chartHelpButton(help);
+  helpWrap.querySelector('button').setAttribute('aria-label', 'About ' + title);
+  head.append(toggle, helpWrap);
+  section.append(head, body);
+  const show = () => {
+    const open = settings.panels[panelKey];
+    toggle.setAttribute('aria-expanded', String(open));
+    section.classList.toggle('open', open);
+    body.hidden = !open;
+  };
+  toggle.addEventListener('click', () => {
+    rememberPanel(panelKey, !settings.panels[panelKey]);
+    show();
+    scheduleBoardLayout();
+  });
+  show();
+  return { section, body };
 }
 
 // A game data measurement of this record as the result screen shows it: only
@@ -760,7 +792,7 @@ async function renderResultAsync(record, modeRecords, options = {}) {
   const revision = ++resultViewRevision;
   const isCurrent = () => revision === resultViewRevision;
   resultRanks.setAttribute('aria-busy', 'true');
-  if (chartHelpOwner && [resultStats, gameDataColumn, resultRanks].some((el) => el.contains(chartHelpOwner))) hideChartHelpTip();
+  if (chartHelpOwner && [resultStats, resultRanks].some((el) => el.contains(chartHelpOwner))) hideChartHelpTip();
   renderedResult = { record, modeRecords, options };
   requestBoardMetrics(record);
   const seconds = secondsOf(record);
@@ -788,7 +820,7 @@ async function renderResultAsync(record, modeRecords, options = {}) {
   const noMarkWin = record.outcome === 'win' && isMarkless(record);
   setResultSummary(summaryLead,
     record.generator === undefined ? null : BoardGenerators.displayLabel(record.generator),
-    (options.historyView ? 'Latest win · ' : '') + formatDate(record.endedAt),
+    options.historyView ? 'Latest win' : null,
     noMarkWin);
   clearResultStats();
   resultAnalysis.textContent = '';
@@ -924,7 +956,7 @@ async function renderResultAsync(record, modeRecords, options = {}) {
     'sectioned-results',
     !Trial.isPlayMode(settings.playMode) || historyView);
   // Built now so its analysis runs beside the rank tables'; renderRanks
-  // places it at the head of the game data column.
+  // places it above game data in the details column.
   const duringGame = settings.shownThings.duringGame && !historyView && !Trial.isPlayMode(settings.playMode)
     && duringGameAvailable(record) ? buildDuringGameBlock(record, isCurrent) : null;
   if (Trial.isPlayMode(settings.playMode) && !options.historyView) {

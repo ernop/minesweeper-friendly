@@ -34,36 +34,59 @@ Spec: [docs/product/board-and-layout.md](../product/board-and-layout.md). Index:
   to the visible viewport. The panel is a body child so board transforms and
   column containment cannot change its fixed coordinate system; scroll and
   visual-viewport changes update it without changing the board's layout.
-- Layout (2026-09-07): `#page-layout` owns three grid columns: metrics, main,
-  and a fluid `#game-sidebar` (2026-09-23: the preferred `--game-sidebar-width`
-  is `clamp(320px, 30vw, 760px)`, registered with `@property` as a length so
-  `syncGameSidebar` reads resolved pixels; it sets `--game-sidebar-docked-width`
-  to the preferred width capped by the room beside the board, never below
-  `--game-sidebar-min-width`, and docks only when that minimum fits).
-  A fourth column, `#game-data-column` (2026-09-23), sits between main and
-  the sidebar when `#page-layout.game-data-docked` is set: `syncGameSidebar`
-  docks it when `gameDataColumnWanted()` (game data or during the game
-  enabled, not a trial mode) and
-  main keeps `max(board + 16, MAIN_MIN_WITH_GAME_DATA)` with the column at
-  `GAME_DATA_MIN_WIDTH` or more and the sidebar at its minimum. It sets
-  `--game-data-docked-width` (preferred registered `--game-data-width`,
-  `clamp(360px, 24vw, 760px)`, capped by that room) and pins the sidebar to
-  its minimum. `placeGameData` moves an existing `.during-game` block (first)
-  and `.board-time-profile-host` between `#result-stats` and the column when
-  the layout changes; `clearResultStats` empties both wherever results are
-  cleared and hides the during-the-game board and card.
-  The sidebar contains `#top-right`, `#scores-nav`,
-  `#results`, and `#path-view-legend` in normal flow, then `#review-options`
-  (a popover when docked, inline at the end when compact), with independent scrolling. It is
-  reserved before game end. `syncGameSidebar` compares the viewport, metrics
-  width, and board frame width; when they cannot fit together, it removes the
-  sidebar from the grid and makes it an auto popover opened by Game details.
-  Results or legend visibility/height never enters that width decision.
-  `#top-right` and `#states` are wrapping flex rows (selects share a row when
-  they fit). `syncGameSidebar` ends with `fitGameDataToSidebar`, which sets
-  the game-data figure's height to the sidebar height below its offset
-  (minimum 480px) when the chart is in `#result-stats`; in the game data
-  column CSS makes it fill the column. `#scores-nav` joins the layout
+- Layout (2026-09-07; one details column since 2026-10-17): `#page-layout`
+  owns three grid columns: metrics, main, and a fluid `#game-sidebar`.
+  `detailsColumnFit` (`game/layout.js`) returns whether it docks (the room
+  beside the board frame (+16) holds `--game-sidebar-min-width`, 320px) and
+  its width limits: that minimum, and the room left when main keeps
+  `max(board + 16, MAIN_MIN_BESIDE_DETAILS)` (640px). `syncGameSidebar` sets
+  `--game-sidebar-docked-width` to `detailsColumnWidth`: the setting
+  `detailsColumnShare` (default 0.46, `settings-core.js`) times
+  `window.innerWidth`, rounded, within those limits. Before the settings
+  load, CSS reserves `--game-sidebar-width`, `max(320px, 46vw)`, the default
+  share. The grip `#details-resize` (`index.html`, between `main` and the
+  sidebar) is a grid item in the sidebar's cell, sticky like it, pulled
+  12.5px left into the 18px column gap; a ResizeObserver on the sidebar
+  copies its height. `syncGameSidebar` hides it unless docked and sets its
+  `aria-valuemin/max/now` (px). Pointerdown captures the pointer and reads
+  `detailsColumnFit` once; each move stores the clamped width as
+  `detailsColumnShare` and schedules one `syncBoardLayout` per frame, whose
+  sidebar width change reaches the charts through their own ResizeObservers;
+  `lostpointercapture` (after pointerup or pointercancel) saves the settings
+  and lays out once more. Left/Right arrows step 10px and save. The former
+  fourth column (`#game-data-column`,
+  `.game-data-docked`, `placeGameData`, `gameDataColumnWanted`) is removed.
+  The sidebar contains `#result-summary` (the outcome line,
+  `setResultSummary`: lead, then board · mode · generator · no-mark, no
+  date), `#sidebar-controls` (a wrapping flex row holding `#top-right` and
+  `#scores-nav`), `#results`, and `#path-view-legend` in normal flow, then
+  `#review-options` (a popover when docked, inline at the end when
+  compact), with independent scrolling. It is reserved before game end.
+  When the board and minimum column cannot fit together, `syncGameSidebar`
+  removes the sidebar from the grid and makes it an auto popover opened by
+  Game details. Results or legend visibility/height never enters that
+  width decision. `#top-right` and `#states` are wrapping flex rows
+  (selects share a row when they fit).
+  Stat sections: `buildStatSection(panelKey, title, help)`
+  (`game/results.js`) returns a `section.stat-section` whose title button
+  (`.stat-section-toggle`, `aria-expanded`, `aria-controls`) flips the
+  remembered panel `settings.panels[panelKey]` through `rememberPanel` and
+  schedules a board layout; its (?) is labeled "About <title>". Panels
+  `duringGame`, `gamePerformance`, and `boardTraits` default open
+  (`settings-core.js`); the last two are game data's sides, whose titles
+  `gameDataSideTitle` (`game/game-data-chart.js`) builds as
+  `.stat-section-toggle` buttons inside the chart. `renderRanks` mounts the
+  during-game section and `.board-time-profile-host` into `#result-stats`;
+  `clearResultStats` empties it and hides the during-the-game board and card.
+  `syncGameSidebar` ends with `fitGameDataToSidebar`: in chart view it sets
+  the game-data figure's height to the larger of the sidebar height below
+  its offset and its fixed part (the options row) plus
+  `GAME_DATA_SIDE_MIN_HEIGHT` (240px) per open side (the chart's
+  `.game-data-section.open` and its `data-open-sides`); CSS (`flex: 1 1 0`)
+  gives that height to the chart. With both sides closed the section drops
+  `open`, the figure's height is cleared, and the chart is one line. The
+  configure and history subviews take the room as one view, at least
+  `GAME_DATA_SUBVIEW_MIN_HEIGHT` (480px). `#scores-nav` joins the layout
   ResizeObserver so its changes refit the chart.
   `syncBoardLayout` applies board position, Justice placement, the blocks
   beside the board, and callout clearance. `placeBoardSides` (2026-10-07)
@@ -107,9 +130,8 @@ Spec: [docs/product/board-and-layout.md](../product/board-and-layout.md). Index:
   top layer; `placeOtherPagesMenu` in `game/main.js` sets its `top` and
   `right` from the button on `beforetoggle` and follows scroll and resize
   while open. Grid: two rows, `auto 1fr`; the metrics panel and `main` span
-  both; the bar is row 1 of column 3 (`3 / span 2` with game data docked),
-  sticky at 12px; `#game-sidebar` and the docked `#game-data-column` are row 2,
-  sticky at `12px + --top-bar-block` with heights reduced by it.
+  both; the bar is row 1 of column 3, sticky at 12px; `#game-sidebar` is
+  row 2, sticky at `12px + --top-bar-block` with its height reduced by it.
   `--top-bar-block` is `--top-bar-height` plus the 8px row gap;
   `syncGameSidebar` sets `--top-bar-height` from `topBar.offsetHeight` (the
   bar wraps in a narrow column) and the layout ResizeObserver watches the
@@ -125,9 +147,10 @@ Spec: [docs/product/board-and-layout.md](../product/board-and-layout.md). Index:
 - `setBoardPositionEditing` focuses `#board-position-btn` only when it closes
   an editor that was open; `initGamePreferences` restoring a closed editor
   no longer moves focus.
-- Layout: `#results` (summary + `#stats-grid`) is a normal-flow child of
-  `#game-sidebar`, after options and before the legend. The grid columns
-  (three, or four with `#game-data-column`) prevent overlaps. `syncGameSidebar` controls its compact popover
+- Layout: `#results` (`#result-stats`: the stat sections or `#stats-grid`) is
+  a normal-flow child of `#game-sidebar`, after the outcome line and
+  controls and before the legend. The three grid columns prevent overlaps.
+  `syncGameSidebar` controls its compact popover
   and fits the game-data chart's height (see Layout 2026-09-07 above);
   no result-dependent gutter calculations or overhang margins remain.
   ResizeObserver tracks page/main/frame geometry; the root scrollbar gutter

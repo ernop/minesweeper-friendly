@@ -80,8 +80,7 @@
       const ranksWon = resultRanks.querySelector('.recent-placements');
       check(label + ': the session summary and ranks won lead the continuous table collection',
         sections[0].includes('result-chart-section-tables')
-          && (pageLayout.classList.contains('game-data-docked') ? gameDataColumn : resultStats)
-            .querySelector('.board-time-profile') !== null
+          && resultStats.querySelector('.board-time-profile') !== null
           && resultStats.querySelector('#stats-grid') === null
           && tableItems.children[0] === summary && tableItems.children[1] === ranksWon
           && summary.querySelectorAll('.session-summary-row').length >= 1
@@ -160,19 +159,17 @@
       check(label + ': tall stats and legend cannot push history down',
         Math.abs(rect(resultRanks).top - historyTop) < 1 && sameBoard(before));
       if (!pageLayout.classList.contains('compact-sidebar')) {
-        check(label + ': stats and controls own a separate column',
+        check(label + ': summary, controls, and stats share one column, the summary first',
           rect(gameSidebar).left >= rect(mainElement).right
+            && rect(resultSummary).bottom <= Math.min(rect(topRight).top, rect(scoresNav).top) + 0.5
             && rect(resultsBox).left >= rect(gameSidebar).left
-            && rect(resultsBox).top >= rect(topRight).bottom
-            && rect(pathViewLegend).top >= rect(resultsBox).bottom);
+            && rect(resultsBox).top >= Math.max(rect(topRight).bottom, rect(scoresNav).bottom)
+            && rect(pathViewLegend).top >= rect(resultsBox).bottom
+            && !document.getElementById('game-data-column'));
         const topBarBlock = rect(topBar).height + parseFloat(getComputedStyle(pageLayout).rowGap);
-        if (pageLayout.classList.contains('game-data-docked')) check(label + ': game data has its own full-height column beside the board column',
-          rect(gameDataColumn).left >= rect(mainElement).right && rect(gameSidebar).left >= rect(gameDataColumn).right
-            && Math.abs(rect(gameDataColumn).height - (innerHeight - 24 - topBarBlock)) < 1);
-        const rightColumn = pageLayout.classList.contains('game-data-docked') ? gameDataColumn : gameSidebar;
-        check(label + ': the top bar heads the right columns',
-          Math.abs(rect(topBar).left - rect(rightColumn).left) < 1 && Math.abs(rect(topBar).right - rect(gameSidebar).right) < 1
-            && Math.abs(rect(rightColumn).top - rect(topBar).bottom - (topBarBlock - rect(topBar).height)) < 1);
+        check(label + ': the top bar heads the details column',
+          Math.abs(rect(topBar).left - rect(gameSidebar).left) < 1 && Math.abs(rect(topBar).right - rect(gameSidebar).right) < 1
+            && Math.abs(rect(gameSidebar).top - rect(topBar).bottom - (topBarBlock - rect(topBar).height)) < 1);
         check(label + ': showing the legend leaves stats in place',
           Math.abs(rect(resultsBox).top - statsTop) < 1);
       } else {

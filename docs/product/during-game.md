@@ -51,23 +51,25 @@ the right, a card with a small board following the pointer) is gone.
 
 ## Placement
 
-- A block titled "during this game, second by second" leads the game data
-  column beside the board: it sits above game data's "your performance this
-  game" and "board traits" ([Game data](game-data.md)). Where the page
-  cannot dock that column, the block leads the details column instead, above
-  game data or the losing game's statistics, and it moves with game data
-  between the two ([Layout](board-and-layout.md)).
+- A stat section titled "during this game, second by second" heads the
+  details column's statistics beside the board: it sits above game data's
+  one chart, whose sides are "your performance this game" and "board
+  traits" ([Game data](game-data.md)), or above a lost game's statistics. Its title
+  opens and closes it, remembered across games; closed, it gives its height
+  to game data ([Layout](board-and-layout.md), creator 2026-10-17). From
+  2026-10-15 to 2026-10-17 it led a separate game data column.
 - The block is not among the lower result sections (the first build put it
   between This board and your perf).
 - It describes the game that just ended, won or lost, or the saved game whose
   replay is restored, so it appears after a game and not in the score viewer
   or trial review.
-- The game data column is reserved, before the game ends, whenever this block
-  or game data is switched on outside trial modes, so finishing a game never
-  moves the board.
+- The details column is reserved before the game ends, so finishing a game
+  never moves the board.
 - The "during this game, second by second" switch hides it. It sits in the
   result sections' This game group, just before game data, the order the
   column shows them (the first build's switch was in the Charts group).
+  Closing the section by its title keeps it on the page, one line high;
+  the switch removes it.
 
 ## Charts
 

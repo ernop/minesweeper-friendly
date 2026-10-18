@@ -28,8 +28,8 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
     (endedAt - startedAt) — live and final can never disagree in
     definition, only in how much of the game they saw.
 - Two settings govern the two stages (see [Personal settings](settings.md); both default
-  on): "show motion stats during game" (the live panel) and "show motion
-  stats after game ends" (the bottom charts). Toggling either applies
+  off since 2026-10-17, on before): "show motion stats during game" (the
+  live panel) and "motion charts" (the bottom charts). Toggling either applies
   immediately — the panel updates mid-game, the bottom charts appear or
   vanish on the shown result. Finer stage-by-stage configurability of
   what is shown when is planned, not built.

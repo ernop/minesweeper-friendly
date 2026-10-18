@@ -84,8 +84,8 @@ function gameDataPoolLabel(scope) {
   if (scope === 'session') return 'no-mark session';
   return GAME_DATA_POOL_LABELS[scope];
 }
-// A distributions section's title ends with its pool, as both sides show
-// both pools: the shared one, then a no-mark win's.
+// With both pools shown, each distributions group is titled with its pool:
+// the shared phrase, then a no-mark win's.
 const GAME_DATA_POOL_PHRASES = {
   lifetime: ['within your lifetime', 'within your no-mark games'],
   session: ['within this session', 'within this session\u2019s no-mark games'],
@@ -93,12 +93,45 @@ const GAME_DATA_POOL_PHRASES = {
 function gameDataPoolPhrase(scope) {
   return GAME_DATA_POOL_PHRASES[scope][gameDataNoMark ? 1 : 0];
 }
+// The two sides of the one chart. Each side's title opens and closes it,
+// remembered across games; a closed side keeps only its title.
+const GAME_DATA_SIDES = [
+  { side: 'performance', panel: 'gamePerformance', title: 'your performance this game' },
+  { side: 'board', panel: 'boardTraits', title: 'board traits' },
+];
+function gameDataSideOpen(side) {
+  return settings.panels[GAME_DATA_SIDES.find((entry) => entry.side === side).panel];
+}
 // Each side title's help says what its percentages are, which nothing else
 // on the panel says.
 const GAME_DATA_SIDE_HELP = {
   performance: 'Each percentage is the share of your other games that ranked better, a tie counting as half: 0% is your best, 100% your worst.',
   board: 'Each percentage is the share of the other boards that ranked better, better meaning each trait’s preferred end: a declared preference, not a measured difficulty.',
 };
+// A side's title: the button that opens and closes the side, and its help.
+function gameDataSideTitle({ side, panel, title: text }, toggled) {
+  const title = document.createElement('div');
+  title.className = 'game-data-side-title';
+  title.dataset.side = side;
+  const toggle = document.createElement('button');
+  toggle.type = 'button';
+  toggle.className = 'stat-section-toggle';
+  toggle.textContent = text;
+  toggle.setAttribute('aria-expanded', String(settings.panels[panel]));
+  toggle.addEventListener('click', () => {
+    rememberPanel(panel, !settings.panels[panel]);
+    toggle.setAttribute('aria-expanded', String(settings.panels[panel]));
+    toggled();
+  });
+  const help = chartHelpButton(GAME_DATA_SIDE_HELP[side]);
+  help.querySelector('button').setAttribute('aria-label', 'About ' + text);
+  title.append(toggle, help);
+  return title;
+}
+// Moving a laid-out view's nodes drops the page focus; give it back.
+function restoreGameDataFocus(focused) {
+  if (focused && focused.isConnected && document.activeElement !== focused) focused.focus({ preventScroll: true });
+}
 // Band geometry at full size; the band scales all of it, with its text,
 // by --game-data-scale when it would not otherwise fit its box.
 const GAME_DATA_BAR_WIDTH = 32;
@@ -291,22 +324,20 @@ function fillGameDataCard(tip, item, scope) {
 
 // The band: each side's rows in aligned single-line columns, joined by
 // leaders to dots on the bar's edge at their standing, under its title
-// centered over them. Columns are measured, then plans are tried in order:
-// both sides around one bar with both percentage columns, then with only the
-// plotted one, then the sides stacked, each with its own bar and both sides'
-// rows on its left. The band never scrolls: the plan that needs the least
-// shrinking wins (the earlier one on a tie), and the whole band scales to fit
-// its box. The performance side's name column is headed by `boardName`, once,
-// since every pool holds that board's games alone.
-function buildGameDataBand(rows, pool, valuesShown, boardName) {
+// centered over them. Both sides share the bar, so their standings read on
+// one scale. A closed side, or one with no rank in the plotted pool, keeps
+// only its title (`titles`, one per side with rows). Columns are measured,
+// then plans are tried in order: both sides around one bar with both
+// percentage columns, then with only the plotted one, then, with both sides
+// drawn, the sides stacked, each with its own bar and both sides' rows on its
+// left. The band never scrolls: the plan that needs the least shrinking wins
+// (the earlier one on a tie), and the whole band scales to fit its box. The
+// performance side's name column is headed by `boardName`, once, since every
+// pool holds that board's games alone.
+function buildGameDataBand(rows, pool, valuesShown, boardName, titles) {
   const items = gameDataItems(rows);
   const element = document.createElement('div');
   element.className = 'game-data-band';
-  // Both sides plot the switch's pool; a row without a rank there is listed
-  // in the note instead.
-  const plotted = items.filter((item) => item.pools[pool]);
-  const note = pool === 'session' ? gameDataUnrankedNote(items) : null;
-  const [low, high] = GameData.domain(plotted.map((item) => item.pools[pool]));
   const perfPools = ['session', 'lifetime'].filter((scope) => items.some((item) => item.pools[scope] && item.side === 'performance'));
   let stacked = false;
   const bars = {};
@@ -359,12 +390,7 @@ function buildGameDataBand(rows, pool, valuesShown, boardName) {
     }
     return cell;
   }
-  const sides = [['performance', 'your performance this game'], ['board', 'board traits']].map(([side, text]) => {
-    const list = items.filter((item) => item.side === side);
-    const title = document.createElement('div');
-    title.className = 'game-data-side-title';
-    title.dataset.side = side;
-    title.appendChild(chartHelpButton(GAME_DATA_SIDE_HELP[side], text));
+  const sides = GAME_DATA_SIDES.filter(({ side }) => titles[side]).map(({ side }) => {
     const columns = document.createElement('div');
     columns.className = 'game-data-column-heads';
     columns.dataset.side = side;
@@ -372,42 +398,43 @@ function buildGameDataBand(rows, pool, valuesShown, boardName) {
       ? [headCell('game-data-name', boardName), headCell('game-data-value', 'value'),
         ...perfPools.map((scope) => headCell('game-data-pct', gameDataPoolLabel(scope), scope))]
       : [headCell('game-data-pct', '', pool), headCell('game-data-name', ''), headCell('game-data-value', 'value')]));
-    return { side, title, columns, entries: list.filter((item) => item.pools[pool])
+    // Both sides plot the switch's pool; a row without a rank there is
+    // listed in the note instead.
+    return { side, title: titles[side], columns, entries: items.filter((item) => item.side === side && item.pools[pool])
       .map((item) => ({ item, row: rowElement(item), percentile: item.pools[pool].percentile })) };
-  }).filter((side) => side.entries.length);
+  });
 
-  const hasPerf = sides.some((side) => side.side === 'performance');
-  const hasBoard = sides.some((side) => side.side === 'board');
-  const plans = [...(perfPools.length === 2 ? [2, 1] : [1]).map((k) => ({ stacked: false, k })),
-    ...(hasPerf && hasBoard ? (perfPools.length === 2 ? [2, 1] : [1]).map((k) => ({ stacked: true, k })) : [])];
   // Every size at one scale: measured text, and the fixed geometry scaled.
-  function measure(scale) {
+  // Closed sides measure only their titles.
+  function measure(scale, drawn, note) {
     element.style.setProperty('--game-data-scale', String(scale));
     element.removeAttribute('data-pool-columns');
     const measuring = document.createElement('div');
     measuring.className = 'game-data-measuring';
     for (const side of sides) {
-      for (const node of [side.title, side.columns, ...side.entries.map((entry) => entry.row)]) node.removeAttribute('style');
+      const nodes = [side.title, ...(drawn.includes(side) ? [side.columns, ...side.entries.map((entry) => entry.row)] : [])];
+      for (const node of nodes) node.removeAttribute('style');
       for (const entry of side.entries) entry.row.querySelector('button').style.gridTemplateColumns = '';
-      measuring.append(side.title, side.columns, ...side.entries.map((entry) => entry.row));
+      measuring.append(...nodes);
     }
     element.replaceChildren(...(note ? [note] : []), measuring);
     const width = (node) => Math.ceil(node.getBoundingClientRect().width);
     const columnWidths = {}, titleWidths = {};
     for (const side of sides) {
+      titleWidths[side.side] = width(side.title);
+      if (!drawn.includes(side)) continue;
       const holders = [side.columns, ...side.entries.map((entry) => entry.row.querySelector('button'))];
       columnWidths[side.side] = [...side.columns.children].map((_, i) =>
         Math.max(...holders.map((holder) => width(holder.children[i]))));
-      titleWidths[side.side] = width(side.title);
     }
     return { scale, columnWidths, titleWidths,
-      rowHeight: sides[0].entries[0].row.getBoundingClientRect().height,
+      rowHeight: drawn[0].entries[0].row.getBoundingClientRect().height,
       titleHeight: sides[0].title.getBoundingClientRect().height,
-      columnHeadHeight: sides[0].columns.getBoundingClientRect().height,
+      columnHeadHeight: drawn[0].columns.getBoundingClientRect().height,
       noteHeight: note ? note.getBoundingClientRect().height : 0 };
   }
   // A plan's columns and the width and height it needs at a measured scale.
-  function geometry(m, plan) {
+  function geometry(m, plan, drawn) {
     const gap = GAME_DATA_COLUMN_GAP * m.scale;
     const perfWidths = m.columnWidths.performance, boardWidths = m.columnWidths.board;
     const pct = Math.max(...(perfWidths ? perfWidths.slice(2) : []), ...(boardWidths ? [boardWidths[0]] : []));
@@ -416,38 +443,63 @@ function buildGameDataBand(rows, pool, valuesShown, boardName) {
     const columnsOf = (side) => side === 'performance'
       ? [perfWidths[0], ...value(perfWidths[1]), ...Array(plan.k).fill(pct)]
       : plan.stacked ? [boardWidths[1], ...value(boardWidths[2]), pct] : [pct, boardWidths[1], ...value(boardWidths[2])];
-    const sideSpan = (side) => span(columnsOf(side));
+    const isDrawn = (side) => drawn.some((entry) => entry.side === side);
+    const sideSpan = (side) => isDrawn(side) ? span(columnsOf(side)) : m.titleWidths[side];
     const barWidth = GAME_DATA_BAR_WIDTH * m.scale, leader = GAME_DATA_LEADER_WIDTH * m.scale;
-    const needWidth = plan.stacked
-      ? Math.max(...sides.map((side) => sideSpan(side.side))) + leader + barWidth
-      : sides.reduce((sum, side) => sum + sideSpan(side.side) + leader, 0) + barWidth;
+    const blockSpan = plan.stacked ? Math.max(...drawn.map((side) => sideSpan(side.side))) : 0;
+    // A title wider than its columns, centered over them, reaches past the
+    // composition's outer edge; the composition is centered, so the band
+    // keeps that much room on both sides.
+    const overhang = Math.max(0, ...drawn.map((side) => (m.titleWidths[side.side] - sideSpan(side.side)) / 2
+      - (plan.stacked ? blockSpan - sideSpan(side.side) : 0)));
+    const needWidth = 2 * overhang + (plan.stacked
+      ? blockSpan + leader + barWidth
+      : sides.reduce((sum, side) => sum + sideSpan(side.side) + leader, 0) + barWidth);
     const headHeight = m.titleHeight + m.columnHeadHeight + 4 * m.scale;
     const pad = Math.max(7 * m.scale, m.rowHeight / 2) + 1;
-    const blocks = plan.stacked ? sides.map((side) => [side]) : [sides];
-    const blockNeed = (blockSides) => headHeight + Math.max(...blockSides.map((side) => side.entries.length))
-      * (m.rowHeight + 2) + 2 * pad;
-    return { ...plan, m, columnsOf, sideSpan, span, barWidth, leader, needWidth, headHeight, pad, blocks, blockNeed,
+    const blocks = plan.stacked ? drawn.map((side) => [side]) : [sides];
+    const rowsIn = (blockSides) => blockSides.filter((side) => isDrawn(side.side)).map((side) => side.entries.length);
+    const blockNeed = (blockSides) => headHeight + Math.max(...rowsIn(blockSides)) * (m.rowHeight + 2) + 2 * pad;
+    return { ...plan, m, columnsOf, isDrawn, sideSpan, span, barWidth, leader, blockSpan, needWidth, headHeight, pad, blocks, rowsIn, blockNeed,
       needHeight: blocks.reduce((sum, blockSides) => sum + blockNeed(blockSides), 0) };
   }
 
   function layout() {
     if (!element.isConnected || element.clientWidth === 0) return;
-    if (sides.length === 0) {
-      element.replaceChildren(note);
-      return;
+    const focused = element.contains(document.activeElement) ? document.activeElement : null;
+    const drawn = sides.filter((side) => side.entries.length && gameDataSideOpen(side.side));
+    const note = pool === 'session' ? gameDataUnrankedNote(items.filter((item) => gameDataSideOpen(item.side))) : null;
+    if (drawn.length) layoutDrawn(drawn, note);
+    else layoutTitles(note);
+    restoreGameDataFocus(focused);
+  }
+  // Nothing to plot: the titles share one wrapping line.
+  function layoutTitles(note) {
+    element.style.setProperty('--game-data-scale', '1');
+    const line = document.createElement('div');
+    line.className = 'game-data-titles';
+    for (const side of sides) {
+      side.title.removeAttribute('style');
+      line.appendChild(side.title);
     }
+    element.replaceChildren(...(note ? [note] : []), line);
+  }
+  function layoutDrawn(drawn, note) {
+    const [low, high] = GameData.domain(drawn.flatMap((side) => side.entries.map((entry) => entry.item.pools[pool])));
+    const ks = drawn.some((side) => side.side === 'performance') && perfPools.length === 2 ? [2, 1] : [1];
+    const plans = [...ks.map((k) => ({ stacked: false, k })), ...(drawn.length === 2 ? ks.map((k) => ({ stacked: true, k })) : [])];
     const available = element.clientWidth;
-    const base = measure(1);
+    const base = measure(1, drawn, note);
     const room = element.clientHeight - base.noteHeight;
     const fit = (g) => Math.min(1, available / g.needWidth, room / g.needHeight);
-    const ranked = plans.map((plan) => ({ plan, fit: fit(geometry(base, plan)) }));
+    const ranked = plans.map((plan) => ({ plan, fit: fit(geometry(base, plan, drawn)) }));
     const best = Math.max(...ranked.map((entry) => entry.fit));
     const plan = ranked.find((entry) => entry.fit >= best - 0.001).plan;
-    let g = geometry(base, plan);
+    let g = geometry(base, plan, drawn);
     // Text sizes scale almost, not exactly, with the font: correct until the
     // measured band fits.
     for (let scale = fit(g), pass = 0; scale < 1 && pass < 4; pass++) {
-      g = geometry(measure(scale), plan);
+      g = geometry(measure(scale, drawn, note), plan, drawn);
       const over = Math.max(g.needWidth / available, g.needHeight / room);
       if (over <= 1) break;
       scale /= over * 1.01;
@@ -458,13 +510,15 @@ function buildGameDataBand(rows, pool, valuesShown, boardName) {
     const contentWidth = Math.max(available, g.needWidth);
     const sideCount = plan.stacked ? 1 : sides.length;
     const lead = g.leader + Math.min(GAME_DATA_LEADER_EXTRA * m.scale, (contentWidth - g.needWidth) / (2 * sideCount));
-    const blockSpan = plan.stacked ? Math.max(...sides.map((side) => g.sideSpan(side.side))) : 0;
+    const { blockSpan } = g;
+    const hasPerf = sides.some((side) => side.side === 'performance');
+    const hasBoard = sides.some((side) => side.side === 'board');
 
     element.replaceChildren();
     if (note) element.appendChild(note);
     const { headHeight, pad, blocks, barWidth } = g;
     const rowHeight = m.rowHeight;
-    const rowCount = sides.reduce((sum, side) => sum + side.entries.length, 0);
+    const rowCount = drawn.reduce((sum, side) => sum + side.entries.length, 0);
     const leaderOf = (block) => {
       const svg = document.createElementNS(SVG_NS, 'svg');
       svg.setAttribute('class', 'game-data-leaders');
@@ -479,13 +533,12 @@ function buildGameDataBand(rows, pool, valuesShown, boardName) {
       const block = document.createElement('div');
       block.className = 'game-data-block';
       block.dataset.orientation = plan.stacked ? 'left' : 'around';
-      const height = g.blockNeed(blockSides) + spare * blockSides.reduce((sum, side) => sum + side.entries.length, 0) / rowCount;
+      const height = g.blockNeed(blockSides) + spare * g.rowsIn(blockSides).reduce((sum, n) => sum + n, 0) / rowCount;
       const plotTop = headHeight + pad, plotHeight = height - headHeight - 2 * pad;
       block.style.width = contentWidth + 'px';
       block.style.height = height + 'px';
       // Horizontal positions: left side, bar, right side, centered as a whole.
-      const perfSide = blockSides.find((side) => side.side === 'performance');
-      const leftSpan = plan.stacked ? blockSpan : (perfSide ? g.sideSpan('performance') : 0);
+      const leftSpan = plan.stacked ? blockSpan : (hasPerf ? g.sideSpan('performance') : 0);
       const composition = (leftSpan ? leftSpan + lead : 0) + barWidth
         + (!plan.stacked && hasBoard ? g.sideSpan('board') + lead : 0);
       const margin = (contentWidth - composition) / 2;
@@ -510,16 +563,17 @@ function buildGameDataBand(rows, pool, valuesShown, boardName) {
       svg.setAttribute('height', height);
       svg.setAttribute('viewBox', '0 0 ' + contentWidth + ' ' + height);
       for (const side of blockSides) {
-        bars[side.side] = bar;
         const onLeft = plan.stacked || side.side === 'performance';
-        const columns = g.columnsOf(side.side);
-        const thisSpan = g.span(columns);
+        const thisSpan = g.sideSpan(side.side);
         const left = onLeft ? barX - lead - thisSpan : barX + barWidth + lead;
-        const template = columns.map((w) => w + 'px').join(' ');
         const titleLeft = Math.max(0, Math.min(contentWidth - m.titleWidths[side.side], left + (thisSpan - m.titleWidths[side.side]) / 2));
         Object.assign(side.title.style, { left: titleLeft + 'px', top: '0px' });
+        block.appendChild(side.title);
+        if (!g.isDrawn(side.side)) continue;
+        bars[side.side] = bar;
+        const template = g.columnsOf(side.side).map((w) => w + 'px').join(' ');
         Object.assign(side.columns.style, { left: left + 'px', top: m.titleHeight + 'px', width: thisSpan + 'px', gridTemplateColumns: template });
-        block.append(side.title, side.columns);
+        block.appendChild(side.columns);
         const laid = boardTraitLabelLayout(side.entries.map((entry) => ({ ...entry, labelHeight: rowHeight })),
           plotTop, plotHeight, 0, [low, high]);
         for (const entry of laid) {
@@ -548,28 +602,28 @@ function buildGameDataBand(rows, pool, valuesShown, boardName) {
   return { element, layout };
 }
 
-// Every measurement's distribution as a strip: your performance's sections,
-// then board traits', one per pool the sections switch shows (lifetime, session,
-// or both). Rows keep catalog order, so a measurement sits at the same place
-// in every section. A row's card shows its own section's pool. Like the band
-// it never scrolls, and the strips take all the height the rows leave
-// (creator 2026-10-08: "if i remove items then the remaining ones should
-// expand vertically to fill the space"): `layout` gives them the tallest
-// height that fits its box, and only below the shortest strip does it
-// shrink the text. The first section's name column is headed by `boardName`,
-// the board every pool holds alone. A title has its own line and wraps, so a
-// long one never widens the name column and squeezes the strips.
+// Every measurement's distribution as a strip: your performance's groups,
+// then board traits', one per pool the pools switch shows (lifetime,
+// session, or both), each side under its title. All groups share one set of
+// columns, so every strip lines up. Rows keep catalog order, so a
+// measurement sits at the same place in every group. A row's card shows its
+// own group's pool. A closed side keeps only its title. Like the band it
+// never scrolls, and the strips take all the height the rows leave (creator
+// 2026-10-08: "if i remove items then the remaining ones should expand
+// vertically to fill the space"): `layout` gives them the tallest height that
+// fits its box, and only below the shortest strip does it shrink the text.
+// The first group shown has its name column headed by `boardName`, the board
+// every pool holds alone. With both pools shown, each group is titled with
+// its pool on its own wrapping line, so a long one never widens the name
+// column.
 const GAME_DATA_STRIP_SHORTEST = 10;
-function buildGameDataDistributions(rows, pools, boardName) {
+function buildGameDataDistributions(rows, pools, boardName, titles) {
   const element = document.createElement('div');
   element.className = 'game-data-distributions';
   const items = gameDataItems(rows);
-  // Without the lifetime sections, a measurement with no session rank would
-  // vanish, so the note lists it, as the band's does in session mode.
-  const note = pools.includes('lifetime') ? null : gameDataUnrankedNote(items);
-  if (note) element.appendChild(note);
   const strips = [];
-  for (const side of ['performance', 'board']) {
+  const sides = GAME_DATA_SIDES.filter(({ side }) => titles[side]).map(({ side }) => {
+    const groups = [];
     for (const scope of pools) {
       const shown = items.filter((item) => item.side === side && item.pools[scope]);
       if (!shown.length) continue;
@@ -577,14 +631,13 @@ function buildGameDataDistributions(rows, pools, boardName) {
       section.className = 'game-data-dist-section';
       section.dataset.side = side;
       section.dataset.pool = scope;
-      const title = gameDataCell('game-data-side-title',
-        (side === 'board' ? 'board traits, ' : 'your performance this game, ') + gameDataPoolPhrase(scope));
+      const nameHead = gameDataCell('game-data-name', '');
       const head = document.createElement('div');
       head.className = 'game-data-dist-head';
-      head.append(gameDataCell('game-data-name', strips.length === 0 ? boardName : ''),
-        gameDataCell('game-data-value', 'value'),
+      head.append(nameHead, gameDataCell('game-data-value', 'value'),
         gameDataCell('game-data-strip-head', 'your games'), gameDataCell('game-data-pct', gameDataPoolLabel(scope)));
-      section.append(title, head);
+      if (pools.length > 1) section.appendChild(gameDataCell('game-data-pool-title', gameDataPoolPhrase(scope)));
+      section.appendChild(head);
       for (const item of shown) {
         const row = item.pools[scope];
         const wrap = chartHelpButton((tip) => fillGameDataCard(tip, item, scope), item.name);
@@ -593,7 +646,7 @@ function buildGameDataDistributions(rows, pools, boardName) {
         const button = wrap.querySelector('button');
         const strip = document.createElement('span');
         strip.className = 'game-data-strip';
-        strips.push({ strip, row });
+        strips.push({ strip, row, side, height: null });
         button.replaceChildren(gameDataCell('game-data-name', item.name), gameDataCell('game-data-value', item.valueText),
           strip, gameDataCell('game-data-pct', gameDataPercentText(row)));
         button.setAttribute('aria-label', item.name + ' ' + item.valueText + ': ' + gameDataPoolLabel(scope) + ' ' + gameDataPercentText(row));
@@ -601,31 +654,67 @@ function buildGameDataDistributions(rows, pools, boardName) {
         wrap.addEventListener('mouseleave', () => linkGameDataCharts(item.metricId, false));
         section.appendChild(wrap);
       }
-      element.appendChild(section);
+      groups.push({ section, nameHead });
     }
+    return { side, title: titles[side], groups };
+  });
+  // The open sides' groups under their titles; rebuilt only when a side
+  // opens or closes.
+  let arranged = null;
+  function arrange() {
+    const key = sides.map((side) => gameDataSideOpen(side.side)).join();
+    if (key === arranged) return;
+    arranged = key;
+    const focused = element.contains(document.activeElement) ? document.activeElement : null;
+    // Without the lifetime groups, a measurement with no session rank would
+    // vanish, so the note lists it, as the band's does in session mode.
+    const note = pools.includes('lifetime') ? null : gameDataUnrankedNote(items.filter((item) => gameDataSideOpen(item.side)));
+    const children = note ? [note] : [];
+    let named = false;
+    for (const side of sides) {
+      children.push(side.title);
+      if (!gameDataSideOpen(side.side)) continue;
+      for (const group of side.groups) {
+        group.nameHead.textContent = named ? '' : boardName;
+        named = true;
+        children.push(group.section);
+      }
+    }
+    element.replaceChildren(...children);
+    restoreGameDataFocus(focused);
   }
-  let drawnHeight;
   const set = (strip, scale) => {
     element.style.setProperty('--game-data-strip', strip + 'px');
     element.style.setProperty('--game-data-scale', String(scale));
   };
+  // Only the open sides' strips are drawn; each keeps the height it was
+  // drawn at.
   function draw(strip) {
-    if (strip === drawnHeight) return;
-    drawnHeight = strip;
-    for (const { strip: cell, row } of strips) cell.replaceChildren(gameDataHistogram(row, false, strip));
+    for (const entry of strips) {
+      if (entry.height === strip || !gameDataSideOpen(entry.side)) continue;
+      entry.height = strip;
+      entry.strip.replaceChildren(gameDataHistogram(entry.row, false, strip));
+    }
   }
   set(GAME_DATA_STRIP_SHORTEST, 1);
+  arrange();
   draw(GAME_DATA_STRIP_SHORTEST);
   function layout() {
     if (!element.isConnected || element.clientWidth === 0) return;
+    arrange();
+    if (!sides.some((side) => side.groups.length && gameDataSideOpen(side.side))) {
+      set(GAME_DATA_STRIP_SHORTEST, 1);
+      return;
+    }
     let scale = 1, strip = GAME_DATA_STRIP_SHORTEST;
     set(strip, scale);
     const room = element.clientHeight, available = element.clientWidth;
     // The box's height never follows its content (its column sizes it), and
     // its scrollHeight never reports less than the box, so the content's own
-    // height is measured from its first child to its last.
+    // height is measured from the box's top, which counts a first child's
+    // margin, to its last child.
     const contentHeight = () => element.lastElementChild.getBoundingClientRect().bottom
-      - element.firstElementChild.getBoundingClientRect().top;
+      - element.getBoundingClientRect().top - element.clientTop;
     for (let pass = 0; pass < 4 && element.scrollWidth > available; pass++) {
       scale *= available / element.scrollWidth * 0.99;
       set(strip, scale);
@@ -657,7 +746,7 @@ function buildBoardTimeRankProfile(record, records) {
   gameDataNoMark = record.outcome === 'win' && isMarkless(record);
   if (record.outcome !== 'win') return null;
   // The outcome line's board name; its mode and generator stay there, as in
-  // the no-mark list titles, so the heads fit the narrowest docked column.
+  // the no-mark list titles, so the heads fit the narrowest details column.
   const boardName = boardDisplayLabel();
   const host = document.createElement('div');
   host.className = 'board-time-profile-host';
@@ -709,7 +798,7 @@ function buildBoardTimeRankProfile(record, records) {
     requestAnimationFrame(fitted.layout);
   }
   // The band's points switch picks the one pool it plots; the distributions'
-  // sections switch picks which pools get sections.
+  // pools switch picks which pools get strip groups.
   function poolSwitch(label, field, choices) {
     const group = document.createElement('span');
     group.className = 'game-data-pool-switch';
@@ -867,21 +956,39 @@ function buildBoardTimeRankProfile(record, records) {
         profile.appendChild(gameDataCell('game-data-unplotted', chosen
           ? 'Nothing to rank yet: every comparison needs at least two measured games.'
           : 'Nothing chosen to rank: choose measurements or board traits with configure.'));
-      } else if (settings.gameDataDistributions) {
-        const distributions = buildGameDataDistributions(rows,
-          settings.gameDataDistributionPools === 'both' ? ['lifetime', 'session'] : [settings.gameDataDistributionPools], boardName);
-        profile.appendChild(distributions.element);
-        observeFit(distributions);
-      } else {
-        const band = buildGameDataBand(rows, settings.gameDataBandPool, settings.gameDataShowValues, boardName);
-        profile.appendChild(band.element);
-        observeFit(band);
+      }
+      const sides = GAME_DATA_SIDES.filter(({ side }) => rows.some((row) => row.side === side));
+      if (sides.length) {
+        // One chart for both sides; it takes the column's room while either
+        // side is open, and only its titles' line while both are closed.
+        const section = document.createElement('div');
+        section.className = 'game-data-section';
+        let fitted = null;
+        const syncOpen = () => {
+          const open = sides.filter(({ side }) => gameDataSideOpen(side)).length;
+          section.dataset.openSides = String(open);
+          section.classList.toggle('open', open > 0);
+        };
+        const titles = Object.fromEntries(sides.map((entry) => [entry.side, gameDataSideTitle(entry, () => {
+          syncOpen();
+          fitGameDataToSidebar();
+          fitted.layout();
+          scheduleBoardLayout();
+        })]));
+        const pools = settings.gameDataDistributionPools === 'both' ? ['lifetime', 'session'] : [settings.gameDataDistributionPools];
+        fitted = settings.gameDataDistributions
+          ? buildGameDataDistributions(rows, pools, boardName, titles)
+          : buildGameDataBand(rows, settings.gameDataBandPool, settings.gameDataShowValues, boardName, titles);
+        syncOpen();
+        section.appendChild(fitted.element);
+        profile.appendChild(section);
+        observeFit(fitted);
       }
       // Every chart option in one small row at the bottom, out of the data's way.
       const footer = document.createElement('div');
       footer.className = 'game-data-controls';
       footer.appendChild(settings.gameDataDistributions
-        ? poolSwitch('sections', 'gameDataDistributionPools', ['lifetime', 'session', 'both'])
+        ? poolSwitch('pools', 'gameDataDistributionPools', ['lifetime', 'session', 'both'])
         : poolSwitch('points', 'gameDataBandPool', ['lifetime', 'session']));
       footer.append(checkbox('show distributions', settings.gameDataDistributions, (checked) => {
         settings.gameDataDistributions = checked; saveSettings();

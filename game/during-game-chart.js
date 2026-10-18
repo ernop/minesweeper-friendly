@@ -681,20 +681,16 @@ function renderDuringGameCharts(charts, view, block, raw) {
 const DURING_GAME_TITLE = 'during this game, second by second';
 
 function buildDuringGameBlock(record, isCurrent) {
-  const host = document.createElement('section');
-  host.className = 'during-game';
-  host.setAttribute('aria-label', DURING_GAME_TITLE);
-  const title = document.createElement('div');
-  title.className = 'during-game-title';
-  title.appendChild(chartHelpButton([
+  const { section: host, body: sectionBody } = buildStatSection('duringGame', DURING_GAME_TITLE, [
     'Each chart follows this game on one time axis, from the first click to the end; rows that share a unit share a chart, and the event lanes run under them.',
     'Point at a moment for the values then and, beside this block, the board as it was; click to open the replay there.',
-  ], DURING_GAME_TITLE));
+  ]);
+  host.classList.add('during-game');
   const body = document.createElement('div');
   body.className = 'during-game-body';
   const controls = document.createElement('div');
   controls.className = 'game-data-controls during-game-controls';
-  host.append(title, body, controls);
+  sectionBody.append(body, controls);
   let configuring = false;
   let generation = 0;
   let layout = () => {};

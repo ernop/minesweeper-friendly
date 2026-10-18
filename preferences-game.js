@@ -179,7 +179,7 @@ async function restorePreferredResult() {
   beginTraceMetricsSeries();
   const restoredTrace = trace;
   const revision = resultViewRevision;
-  renderImmediateGameEnd(record.outcome, record.endedAt);
+  renderImmediateGameEnd(record.outcome);
   renderedResult = { record, modeRecords, options: {} };
   const key = modeKey();
   const needBoardMetrics = record.playMode !== 'endgame-drill' && !hasBoardMeasurements(record);

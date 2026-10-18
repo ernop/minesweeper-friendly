@@ -17,8 +17,9 @@ Spec: [docs/product/results.md](../product/results.md). Index: [AGENTS.md](../..
   sidebar outcome + game-data facts → tables (session summary, placements,
   time/category tables, all streak variants) → boardTables ("This board") → perfCharts ("your perf")
   → boardCharts ("board traits") → relationship scatters. Game data replaces regular winning stats in
-  `#game-data-column` (or `#result-stats` when that column is not docked),
-  outside the lower chart collector.
+  `#result-stats`, as one chart with "your performance this game" and
+  "board traits" sides under "during this game", outside the lower chart
+  collector.
   `tests/result-presentation-test.js` checks this in both result contexts;
   `tests/session-placement-layout-fixture.js` checks the side placement and
   the column below the board at four widths.

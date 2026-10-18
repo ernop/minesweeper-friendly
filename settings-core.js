@@ -271,6 +271,7 @@ const REPLAY_OVERLAY_DEFAULTS = {
 const PANEL_OPEN_DEFAULTS = {
   boardPosition: false, gameDetails: false, states: false, replay: false,
   reviewOptions: false, importHistory: false, dataFormat: false,
+  duringGame: true, gamePerformance: true, boardTraits: true,
 };
 const DEFAULT_STATE_NAMES = ['sleepy', 'just woke up', 'inebriated'];
 const preferenceObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
@@ -451,7 +452,7 @@ const SETTINGS_SCHEMA = [
   },
   {
     field: 'showMotionStatsDuringGame',
-    default: true,
+    default: false,
     valid: (v) => typeof v === 'boolean',
     group: 'left-panel',
     label: 'show motion stats during game',
@@ -459,7 +460,7 @@ const SETTINGS_SCHEMA = [
   },
   {
     field: 'showMotionStatsAfterGame',
-    default: true,
+    default: false,
     valid: (v) => typeof v === 'boolean',
     group: 'after-game',
     label: 'motion charts',
@@ -595,7 +596,7 @@ const SETTINGS_SCHEMA = [
   {
     field: 'gameDataDistributionPools', default: 'both',
     valid: (v) => v === 'lifetime' || v === 'session' || v === 'both', group: 'after-game',
-    label: 'game data distribution sections', describe: 'whether game data’s distributions show the lifetime sections, the session sections, or both, for your perf and board traits alike; chosen with the sections switch on the chart', control: 'none',
+    label: 'game data distribution pools', describe: 'whether game data’s distributions show the lifetime groups, the session groups, or both, for your perf and board traits alike; chosen with the pools switch on the chart', control: 'none',
   },
   {
     field: 'metricsPanelWidth',
@@ -604,6 +605,15 @@ const SETTINGS_SCHEMA = [
     group: 'left-panel',
     label: 'stats panel width',
     describe: 'px width of the left stats panel; set by dragging the panel\u2019s right edge, not from here',
+    control: 'none',
+  },
+  {
+    field: 'detailsColumnShare',
+    default: 0.46,
+    valid: (v) => typeof v === 'number' && Number.isFinite(v) && v > 0 && v < 1,
+    group: 'after-game',
+    label: 'details column width',
+    describe: 'share of the window width the details column right of the board takes, never under 320px and never taking room the board column needs for the board or 640px, whichever is wider; set by dragging the column\u2019s left edge, not from here',
     control: 'none',
   },
   {

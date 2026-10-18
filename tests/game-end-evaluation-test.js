@@ -113,7 +113,7 @@ assertEq('winning input does not run the result pipeline synchronously',
     Date: { now: () => 1000 },
   });
   vm.runInContext(deferral, context);
-  context.renderImmediateGameEnd = (outcome, endedAt) => log.push('shell ' + outcome + ' ' + endedAt);
+  context.renderImmediateGameEnd = (outcome) => log.push('shell ' + outcome);
   context.reportResult = (outcome, endedAt) => log.push('report ' + outcome + ' ' + endedAt);
   const paint = () => {
     const callbacks = frames; frames = [];
@@ -126,14 +126,14 @@ assertEq('winning input does not run the result pipeline synchronously',
   assertEq('throttled frames retain a prompt finalization fallback',
     timers.some((t) => t.ms === 250), true);
   paint();
-  assertEq('the outcome shell follows one paint later', log.join(' | '), 'shell win 1000');
+  assertEq('the outcome shell follows one paint later', log.join(' | '), 'shell win');
   paint();
   assertEq('the result pipeline starts only after the shell has painted',
-    log.join(' | '), 'shell win 1000 | report win 1000');
+    log.join(' | '), 'shell win | report win 1000');
   log.length = 0;
   vm.runInContext("reportResultAfterPaint('loss'); flushPendingResult(); flushPendingResult()", context);
   assertEq('input inside the window shows the shell, then finalizes once',
-    log.join(' | '), 'shell loss 1000 | report loss 1000');
+    log.join(' | '), 'shell loss | report loss 1000');
 }
 const immediateSource = source.slice(
   source.indexOf('function renderImmediateGameEnd('),

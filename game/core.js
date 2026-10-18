@@ -72,7 +72,6 @@ const gameArea = document.getElementById('game-area');
 const gameFrame = document.getElementById('game-frame');
 const scoresNav = document.getElementById('scores-nav');
 const resultsBox = document.getElementById('results');
-const gameDataColumn = document.getElementById('game-data-column');
 const mainElement = document.querySelector('main');
 const pageLayout = document.getElementById('page-layout');
 const topBar = document.getElementById('top-bar');

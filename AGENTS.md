@@ -337,6 +337,13 @@ today's measured times, never at generous round numbers; they tighten when code
 gets faster and loosen only by recorded creator decision. Commands:
 [verification](docs/implementation/verification.md).
 
+### Test speed
+
+User requirement (2026-10-17): no slow test runs. Run only the browser checks
+that exercise the change, never the whole list by routine, and stop any
+command that has stalled instead of waiting on it again. Details:
+[verification](docs/implementation/verification.md), "Test speed".
+
 ### Configuration
 
 - Never use environment variables for configuration.

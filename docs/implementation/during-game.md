@@ -113,10 +113,11 @@ toleranceMs)` answers the hover. Unknown rows and averages throw.
   outside the score viewer and trial play, and the trace is held, and hands
   it to `renderRanks` as `options.duringGame`. `renderRanks` keeps it out of
   the options it sends the rankings worker (a DOM node does not clone) and
-  puts it first in game data's target, the docked column or else
-  `#result-stats`, in the same task as game data's frame.
-  `placeGameData` (`game/layout.js`) moves both when docking changes, and
-  `gameDataColumnWanted` docks the column for either switch.
+  puts it first in `#result-stats`, in the same task as game data's frame.
+  `buildDuringGameBlock` builds it with `buildStatSection('duringGame', …)`,
+  so its title opens and closes it as the remembered panel
+  `settings.panels.duringGame`; the charts, lanes, and controls sit in the
+  section body.
 - Charts: one SVG per chart under its HTML legend; the lanes are one SVG
   beside an HTML names column. `duringGameLeftMargin` measures every y tick
   label and every lane name with its count (canvas `measureText` in the CSS

@@ -1,6 +1,7 @@
 'use strict';
 // During this game, second by second, after a real game played with real
-// mouse input: its place at the head of the game data column, its charts on
+// mouse input: its place as the details column's first stat section, its
+// title opening and closing it, its charts on
 // one time axis and event lanes, the hover line and card, the board at a
 // moment beside the block in the player's board style, the replay link,
 // configure and averaging, its return after a reload restores the game, a
@@ -73,17 +74,26 @@ const shotDir = process.argv[4] || null;
     }, null, { timeout: 30000 });
     await drawn();
 
-    // Placement: the column's first block, game data under it, nothing in
-    // the lower sections.
+    // Placement: the details column's first stat section, game data under
+    // it, nothing in the lower sections.
     const placement = await page.evaluate(() => ({
-      docked: pageLayout.classList.contains('game-data-docked'),
-      column: [...gameDataColumn.children].map((el) => el.className),
+      compact: pageLayout.classList.contains('compact-sidebar'),
+      column: [...resultStats.children].map((el) => (el.matches('.stat-section.during-game') ? 'during-game' : el.className)),
       inRanks: resultRanks.querySelector('.during-game') !== null,
     }));
-    assert.equal(placement.docked, true, 'the game data column docks at 1920px');
+    assert.equal(placement.compact, false, 'the details column docks at 1920px');
     assert.deepEqual(placement.column, ['during-game', 'board-time-profile-host'], 'during this game, then game data');
     assert.equal(placement.inRanks, false, 'not a lower result section');
-    assert.equal(await block.locator('.during-game-title').textContent(), 'during this game, second by second');
+    const toggle = block.locator('.stat-section-toggle');
+    assert.equal(await toggle.textContent(), 'during this game, second by second');
+    assert.equal(await toggle.getAttribute('aria-expanded'), 'true');
+    // Its title closes and reopens it, remembered as a panel.
+    await toggle.click();
+    assert.equal(await block.locator('.stat-section-body').isHidden(), true, 'closed by its title');
+    assert.equal(await page.evaluate(() => settings.panels.duringGame), false);
+    await toggle.click();
+    assert.equal(await block.locator('.stat-section-body').isVisible(), true, 'reopened');
+    assert.equal(await page.evaluate(() => settings.panels.duringGame), true);
 
     // Charts: rows sharing a unit share a chart, in catalog order, then the
     // lanes; every plot on one time axis.
@@ -134,9 +144,15 @@ const shotDir = process.argv[4] || null;
       const plot = await block.locator('[data-chart="' + chart + '"] rect.scatter-plot').boundingBox();
       return { svg, plot };
     };
+    // Along the plot's own row: a diagonal path from the board can cross a
+    // legend name, whose definition then opens over the plot.
+    const glideInto = async (box, x, y) => {
+      await page.mouse.move(box.plot.x + 1, y);
+      await page.mouse.move(x, y, { steps: 3 });
+    };
     const progress = await plotBox('progress');
     const hoverX = progress.plot.x + progress.plot.width * 0.6;
-    await page.mouse.move(hoverX, progress.plot.y + progress.plot.height / 2, { steps: 4 });
+    await glideInto(progress, hoverX, progress.plot.y + progress.plot.height / 2);
     assert.equal(await block.locator('.during-game-line').isVisible(), true);
     const card = page.locator('.during-game-card');
     const boardPanel = page.locator('.during-game-board');
@@ -252,7 +268,8 @@ const shotDir = process.argv[4] || null;
     assert.equal(await laneCount('flagRemovedEvents'), '1');
 
     // A loss shows its own game, not the latest win the rank tables use, and
-    // the column holds the block alone.
+    // the details column holds the block and the loss's statistics, no game
+    // data.
     await page.locator('#face-button').click();
     await press(40);
     now = await board();
@@ -262,9 +279,16 @@ const shotDir = process.argv[4] || null;
       const value = document.querySelector('.during-game-legend-item[data-row="bv3Solved"] .during-game-legend-value');
       return value !== null && value.textContent !== '100%';
     }, null, { timeout: 30000 });
+    // The finished-game analysis renders the result once more; a hover
+    // before then reaches a block about to be replaced.
+    await page.waitForFunction(() => boardMetricJobs.get(renderedResult.record).status === 'done'
+      && !resultRanks.hasAttribute('aria-busy'), null, { timeout: 30000 });
+    await drawn();
     assert.equal(Number(await laneCount('guessEvents')) + Number(await laneCount('misclickEvents')), 1,
       'the click on a mine is a guess or a misclick');
-    assert.deepEqual(await page.evaluate(() => [...gameDataColumn.children].map((el) => el.className)), ['during-game']);
+    assert.deepEqual(await page.evaluate(() => [...resultStats.children]
+      .map((el) => (el.matches('.stat-section.during-game') ? 'during-game' : el.id || el.className))),
+    ['during-game', 'stats-grid'], 'a loss: during this game, then its statistics');
 
     // A middle width: wherever the block sits, the board at a moment stands
     // beside it, not over it, inside the window.
@@ -272,7 +296,7 @@ const shotDir = process.argv[4] || null;
     await page.waitForTimeout(300);
     await page.locator('.during-game').scrollIntoViewIfNeeded();
     const middle = await plotBox('progress');
-    await page.mouse.move(middle.plot.x + middle.plot.width * 0.5, middle.plot.y + middle.plot.height / 2, { steps: 3 });
+    await glideInto(middle, middle.plot.x + middle.plot.width * 0.5, middle.plot.y + middle.plot.height / 2);
     const middleBoard = await boardPanel.boundingBox();
     const middleBlock = await page.locator('.during-game').boundingBox();
     assert(middleBoard.x >= 0 && middleBoard.x + middleBoard.width <= 1100, 'the board inside the window at 1100px');
@@ -302,7 +326,7 @@ const shotDir = process.argv[4] || null;
     assert(phone.widths.every((width) => width > 200 && width < 390), 'plots follow the column: ' + phone.widths);
     const narrow = await plotBox('progress');
     const pointerY = narrow.plot.y + narrow.plot.height / 2;
-    await page.mouse.move(narrow.plot.x + narrow.plot.width * 0.5, pointerY, { steps: 3 });
+    await glideInto(narrow, narrow.plot.x + narrow.plot.width * 0.5, pointerY);
     const phoneBoard = await boardPanel.boundingBox();
     assert(phoneBoard.x >= 0 && phoneBoard.x + phoneBoard.width <= 390, 'the board inside the window: ' + JSON.stringify(phoneBoard));
     assert(phoneBoard.y >= 0 && phoneBoard.y + phoneBoard.height <= 900, 'the board inside the window: ' + JSON.stringify(phoneBoard));
@@ -313,6 +337,6 @@ const shotDir = process.argv[4] || null;
       'the card clear of the board: ' + JSON.stringify([phoneCard, phoneBoard]));
     if (shotDir) await page.screenshot({ path: shotDir + '/during-game-390.png' });
     assert.deepEqual(errors, []);
-    console.log('during the game: column placement, charts on one axis, lanes, hover card and board in the player\u2019s style, replay link, configure, averaging, restore, loss, middle width, and phone width passed');
+    console.log('during the game: details-column placement and toggle, charts on one axis, lanes, hover card and board in the player\u2019s style, replay link, configure, averaging, restore, loss, middle width, and phone width passed');
   } finally { await browser.close(); }
 })().catch((error) => { console.error(error); process.exitCode = 1; });

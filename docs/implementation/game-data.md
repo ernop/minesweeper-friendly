@@ -73,23 +73,34 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
   already rank, and passes it to both views. Pool text everywhere is
   `gameDataPoolLabel(scope)`.
 - Band: `gameDataItems` groups rows into one item per measurement with a row
-  per pool. `buildGameDataBand(rows, pool, valuesShown, boardName)` builds
-  `.game-data-row` buttons (cells `.game-data-name`, `.game-data-value`,
-  `.game-data-pct` with `data-pool`) under `.game-data-column-heads`; the
-  performance side's `.game-data-name` head is `boardName`, the board
-  side's is empty. Both sides plot `pool`, and an item
-  without that pool's row goes into the `.game-data-unplotted` note. Side
-  titles are `chartHelpButton` labels holding `GAME_DATA_SIDE_HELP[side]`,
-  which says only what that side's percentages are. `layout()`
-  measures every column at scale 1 (`measure`), computes each plan's needed
-  width and height (`geometry`: side by side with both pool columns, with
-  one (`data-pool-columns="1"`), stacked with two, stacked with one), takes
-  the plan with the largest fit (min of 1, width ratio, height ratio; the
-  earlier plan on a tie), and sets `--game-data-scale` on the band, re-
-  measuring until it fits. Band text sizes are ems of the band's font, and
-  the bar, leader, and gap constants are multiplied by the scale, so the
+  per pool. `buildGameDataBand(rows, pool, valuesShown, boardName, titles)`
+  builds `.game-data-row` buttons (cells `.game-data-name`,
+  `.game-data-value`, `.game-data-pct` with `data-pool`) under
+  `.game-data-column-heads`; the performance side's `.game-data-name` head
+  is `boardName`, the board side's is empty. Both sides plot `pool`, and an
+  item without that pool's row goes into the `.game-data-unplotted` note.
+  Side titles (`titles`, one per side with rows) come from
+  `gameDataSideTitle`: a `.game-data-side-title` holding a
+  `.stat-section-toggle` that flips `settings.panels.gamePerformance` or
+  `.boardTraits` (`GAME_DATA_SIDES`, `gameDataSideOpen`) and a (?) holding
+  `GAME_DATA_SIDE_HELP[side]`, which says only what that side's
+  percentages are. `layout()` reads the open state each time: the drawn
+  sides are the open ones with plotted rows, and the note and the zoom
+  domain come from them. With none drawn the titles share one wrapping
+  `.game-data-titles` line. Otherwise it measures every column at scale 1
+  (`measure`; a closed side measures only its title), computes each plan's
+  needed width and height (`geometry`: side by side with both pool columns,
+  with one (`data-pool-columns="1"`), and, with both sides drawn, stacked
+  with two, stacked with one; a closed side's span is its title's width,
+  and a title wider than its columns adds its overhang on both sides),
+  takes the plan with the largest fit (min of 1, width ratio, height ratio;
+  the earlier plan on a tie), and sets `--game-data-scale` on the band,
+  re-measuring until it fits. Band text sizes are ems of the band's font,
+  and the bar, leader, and gap constants are multiplied by the scale, so the
   band (overflow hidden) never scrolls. Titles center over their side's
-  columns. `boardTraitLabelLayout` fits rows to exact percentile points;
+  columns; a closed side's title sits beside the bar on its side. Laying out
+  moves the band's nodes, so `restoreGameDataFocus` gives the focus back to
+  the toggle or row that held it. `boardTraitLabelLayout` fits rows to exact percentile points;
   leaders and `.game-data-dot` mark each point. `standingColor`
   interpolates `STANDING_BAR_STOPS` (bar) or `STANDING_MARK_STOPS`
   (histogram marks, chips): green, neutral, red.
@@ -107,31 +118,37 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
   its `x` runs from `hi` at the left to `lo` and bin `i` takes slot
   `bins − 1 − i`, so every strip and card has its better end on the left
   (2026-10-11); the worker's distributions keep value order.
-- Distributions view: `buildGameDataDistributions(rows, pools, boardName)` renders the
-  `settings.gameDataDistributions` mode as `.game-data-dist-section`s
-  (`data-side`, `data-pool`), each opened by a `.game-data-side-title` on a
-  line of its own spanning the grid ("your performance this game, " or
-  "board traits, " and `gameDataPoolPhrase(scope)`; it wraps rather than
-  widening the name column), then a `.game-data-dist-head` whose
-  `.game-data-name` cell holds `boardName` in the first section only (the
-  head cells' 0.9167em bold), each side's sections in `pools` order
-  (`settings.gameDataDistributionPools`: `['lifetime']`, `['session']`, or
-  both), in one `.game-data-distributions` grid with subgrid rows, so every
-  strip shares one column. Without lifetime it opens with
-  `gameDataUnrankedNote(items)`, the band's session note. It returns
-  `layout()`, which fits the width with `--game-data-scale`, then binary
-  searches `--game-data-strip` for the tallest strip whose content fits the
-  box's height, shrinking `--game-data-scale` only when 10 px strips
-  overflow. The content height is measured from the first child to the last
-  (the last section, whose bottom margin is zero, so nothing overflows
-  below it): the box's height comes from its column, and `scrollHeight`
-  never reports less than the box. When the height changed, `layout` redraws every strip
-  with `gameDataHistogram(row, false, stripPx)`, whose vertical units are px
+- Distributions view: `buildGameDataDistributions(rows, pools, boardName, titles)`
+  renders the `settings.gameDataDistributions` mode as each side's
+  `.game-data-side-title` on a line of its own spanning the grid, then,
+  while that side is open, its `.game-data-dist-section`s (`data-side`,
+  `data-pool`) in `pools` order (`settings.gameDataDistributionPools`:
+  `['lifetime']`, `['session']`, or both). With both pools each section
+  opens with a `.game-data-pool-title` (`gameDataPoolPhrase(scope)`, which
+  wraps rather than widening the name column); then a `.game-data-dist-head`
+  whose `.game-data-name` cell holds `boardName` in the first shown section
+  only (the head cells' 0.9167em bold). Everything sits in one
+  `.game-data-distributions` grid with subgrid rows, so every strip of both
+  sides shares one column. `arrange()` rebuilds the children only when a
+  side opens or closes; without lifetime they open with
+  `gameDataUnrankedNote` over the open sides' items, the band's session
+  note. It returns `layout()`, which arranges, fits the width with
+  `--game-data-scale`, then binary searches `--game-data-strip` for the
+  tallest strip whose content fits the box's height, shrinking
+  `--game-data-scale` only when 10 px strips overflow. The content height
+  is measured from the box's top to the last child (the last section, whose
+  bottom margin is zero, or a closed side's title): the box's height comes
+  from its column, and `scrollHeight` never reports less than the box. Each
+  open side's strip is redrawn when its drawn height differs, with
+  `gameDataHistogram(row, false, stripPx)`, whose vertical units are px
   (marks at full size from `GAME_DATA_STRIP_FULL_MARKS`, 26 px, up).
-  `observeFit` reruns either view's layout on every resize.
+  `observeFit` reruns either view's layout on every resize. Both views sit
+  in one `.game-data-section`, `open` while either side is open, with
+  `data-open-sides` for `fitGameDataToSidebar`; a toggle refits the column
+  and lays the view out at once.
 - Options: one `.game-data-controls` row under the chart view: the
   `.game-data-pool-switch` from `poolSwitch(label, field, choices)`
-  ("points" for `settings.gameDataBandPool` under the band, "sections" for
+  ("points" for `settings.gameDataBandPool` under the band, "pools" for
   `settings.gameDataDistributionPools` under the distributions), the "show
   distributions" and "show values" checkboxes (`data-option`), and the
   "configure" and "session history" openers (`data-view`, which returning

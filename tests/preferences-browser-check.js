@@ -76,7 +76,7 @@ const { chromium } = require(process.argv[2]);
   console.log('History import/export do not transfer preferences');
   await page.evaluate(() => importPreferences(JSON.stringify({
     difficulty: 'beginner', cellSize: 28, resultView: 'game', justUniverse: false,
-    replayPosition: { endedAt: null, step: 0 }, metricsPanelCollapsed: false,
+    replayPosition: { endedAt: null, step: 0 }, metricsPanelCollapsed: false, showMotionStatsAfterGame: true,
     panels: { ...PANEL_OPEN_DEFAULTS }, pathView: 'off', replayOverlays: { ...REPLAY_OVERLAY_DEFAULTS },
   })));
   await page.reload(); await page.waitForFunction(() => preferenceUIReady);
@@ -97,6 +97,7 @@ const { chromium } = require(process.argv[2]);
   await page.waitForFunction(() => !resultRanks.hasAttribute('aria-busy') && finalMotion !== null);
   const historyBefore = await page.evaluate(() => JSON.stringify(history));
   const motionCharts = await page.locator('.motion-chart').count();
+  assert(motionCharts > 0, 'the finished game shows its motion charts');
   await page.reload(); await page.waitForFunction(() => preferenceUIReady);
   await page.evaluate(() => restoredAnalysisReady);
   await page.waitForFunction(() => !waitingForRestoredLayout);

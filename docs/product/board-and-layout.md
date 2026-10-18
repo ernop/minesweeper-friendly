@@ -213,7 +213,8 @@ laggy"; asked whether the game is "max efficient" and to test and fix it.
   are reserved before a game finishes; results and replay never change the
   board column's width.
 - The metrics column exists only for the stats it can show: it is gone when
-  both session stats and live motion stats are switched off. Both are
+  both session stats and live motion stats are switched off, as both are
+  for a new player (since 2026-10-17). Both are
   settings, so it never comes or goes during play. When a game has ended
   and session stats are off, it has nothing to show until the next board;
   the box is then invisible but keeps its width, so the board column never
@@ -244,32 +245,51 @@ laggy"; asked whether the game is "max efficient" and to test and fix it.
 
   Items within a group sit 6px apart and groups 16px apart. A group never
   splits across rows.
-  - With the details column docked, the bar sits above the right columns
-    (game data, when docked, and details) and spans them; it is sticky with
-    them, and they start just below it. Its groups wrap onto further rows
-    when those columns are too narrow for one (one row at 1920 and 2560px
-    wide with no limit set; three at 1280px).
+  - With the details column docked, the bar sits above it; it is sticky with
+    it, and the column starts just below it. Its groups wrap onto further
+    rows when the column is too narrow for one.
   - With the details column as the Game details popover, the bar sits above
     the board column, right-aligned, and scrolls with the page. Below 700px
     it is the first row, above the session metrics.
   - Mode, generator, the archive alert, and the play context line (the
     music state and the player states that are on, as plain text, with the
     **edit states** button; [Player states](player-states.md)) stay at the
-    top of the details column; the Game details button stays beside the
-    difficulty tabs, which hold nothing else.
-- Game data column (user decision 2026-09-23: "a full-height column right
-  next to the board", empty during play): a sticky column of the full viewport
-  height between the board column and the details column. It is empty during
-  play. After a game it holds "during this game, second by second" (creator
-  2026-10-15; [During the game](during-game.md)) above the winning game's
-  chart; after a loss, that block alone. It is reserved only when it can hold
-  one of them (during the game or game data is enabled and the mode is not a
-  trial). When the column cannot dock, both go to the details column in the
-  same order. It docks when the board column keeps at least the board and 640px
-  (the ranks-won summary plus a table beside it) with the column at 360px or
-  more and the details column at its 320px minimum. It then takes
-  `clamp(360px, 24vw, 760px)` of the remaining room. Otherwise the chart
-  falls back to the details column as described below.
+    top of the details column, under the outcome line after a game; the
+    Game details button stays beside the difficulty tabs, which hold
+    nothing else.
+- One details column (creator 2026-10-17, of the laptop layout with game data
+  docked between the board and a 320px details column: "it's too compressed!
+  Let's make the entire rightside (two columns) into one, and make the upper
+  part be things like "intermediate" and "win" ... (actually, remove the
+  date) and make the rest part of the UI, which can compress/shrink, so
+  there's proper room for during-game, game-average, and board-profile stat
+  sections. and, each of those shall be toggleable open/closed so that we use
+  space well and can expand to be visible enough."). The separate game data
+  column (2026-09-23 to 2026-10-17) is gone; everything right of the board is
+  one sticky column, top to bottom:
+  - The outcome line: "Win" or "Loss", then the board, mode, generator, and
+    "no-mark" where it applies ("Win Intermediate · Standard"). It has no
+    completion date.
+  - The setup and review controls on compact wrapping rows: mode, generator,
+    and edit states, then Replay game, Overlays & display, and see scores.
+  - "during this game, second by second" ([During the game](during-game.md)),
+    a stat section titled by a button that opens and closes it, with a (?)
+    beside the title for its help; then game data's one chart
+    ([Game data](game-data.md)), whose two sides, "your performance this
+    game" and "board traits", share its percentile bar (creator 2026-10-17,
+    after the first build split them into two sections with a bar each:
+    "its necessary / hoped for that "board traits" and "your perf" share the
+    same percentile distribution chart"). Each side's title opens and closes
+    that side the same way. Each open or closed state is a remembered panel
+    (`duringGame`, `gamePerformance`, `boardTraits`), open by default, kept
+    across games and reloads. After a loss the column holds "during this
+    game" and the loss's statistics.
+  - Game data's chart takes the column height left below everything above
+    it, so its options row stays at the screen's bottom. It keeps at least
+    240px per open side, and the column scrolls below that rather than
+    crushing it. A closed side keeps only its title and the open side takes
+    its room; with both sides closed the chart is one line holding the two
+    titles. Closing "during this game" lets the chart fill the column.
 - Board in the middle (creator decision 2026-10-07: "perhaps the session sum
   could be to the left of the board, ranks won to the right, board in
   middle? that's okay"): the board always centers in its column. This
@@ -292,24 +312,35 @@ laggy"; asked whether the game is "max efficient" and to test and fix it.
   tables instead. The side blocks never move the board.
 - The board is the anchor. Appearing or disappearing content must not move it.
   Its reserved startup space occupies the same explicit main column.
-- Mode, generator, session tags, optional replay/display controls,
-  completed-game stats, and the full replay legend share the right details
-  column in that order. They are in
+- The outcome line, mode, generator, session tags, optional replay/display
+  controls, the stat sections or completed-game stats, and the full replay
+  legend share the right details column in that order. They are in
   normal flow inside an independently scrollable, sticky column. Stats precede
   the legend, so changing replay frames does not move the stats. These panels
   never cover the board or tablecharts and never add height between them.
-- Details column sizing (2026-09-23, after the user found game data crushed
-  in a fixed 320px strip): with the game data column docked, the details
-  column stays at its 320px minimum. When it holds game data itself, it is
-  fluid, `clamp(320px, 30vw, 760px)`, and the compact popover is
-  `max(420px, 45vw)` within the viewport. Mode and
-  generator share a row when they fit; the archive alert, the play context
-  line, and edit states follow on wrapping rows. Game data there takes the column height left below them,
-  the scores navigation, and the outcome summary (at least 480px), so it ends
-  at the screen bottom with its controls visible instead of running below it.
-  The column gives way to the board down to 320px before the Game details
-  popover takes over, so widening it never undocks a board that fit beside
-  the former 320px column.
+- Details column sizing (2026-10-17, replacing the 2026-09-23 split between
+  a game data column and a 320px details column): the column prefers a
+  share of the window width, 46% by default, and gives way to the board
+  column, which keeps the larger of the board and 640px (the ranks-won
+  summary plus a table beside it), down to 320px. Below that the Game
+  details popover takes over, `max(420px, 60vw)` within the viewport, so
+  widening the column never undocks a board that fit beside a 320px column.
+  On a 1504px laptop window with the stats panel open it is about 450px wide
+  by default.
+- Resizable details column (creator 2026-10-17, of the details column with
+  game data: "you must allow that section, also, to be widenable/narrowable
+  with mouse", the stats panel's right edge being the existing drag grip):
+  the docked column's left edge is a drag grip in the gap between the board
+  column and the details column, the height of the column, marked by a thin
+  line that highlights on hover and while dragging. Dragging left widens the
+  column and dragging right narrows it, within the same limits (320px, and
+  the board column's room); the board recenters in its column, and the
+  during-the-game charts and game data follow the pointer each animation
+  frame rather than catching up on release. Release saves the width as the
+  `detailsColumnShare` setting, a share of the window width, so the column
+  keeps its proportion when the window changes size. With keyboard focus on
+  the grip, the left and right arrows widen and narrow the column by 10px.
+  The grip is absent while the details are the Game details popover.
 - When the board and side columns cannot fit, a bordered **Game details**
   button opens the same details as a native popover. Close, Escape, or clicking
   outside dismisses it. Opening it does not reflow the board or history.

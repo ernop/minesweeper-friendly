@@ -11,10 +11,23 @@ const origin = 'http://127.0.0.1:8099/';
     const page = await context.newPage();
     const errors = [];
     page.on('pageerror', (error) => errors.push(error.message));
+    // Live motion stats are off for a new player; the column checked below
+    // exists only with them on.
+    await page.goto(origin);
+    await page.waitForFunction(() => preferenceUIReady);
+    await page.evaluate(() => {
+      updateSettings({ showMotionStatsDuringGame: true });
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(USERDATA_STORE);
+        tx.objectStore(USERDATA_STORE).get('settings');
+        tx.oncomplete = resolve;
+        tx.onerror = () => reject(tx.error);
+      });
+    });
     let releaseWorkers;
     let gate = new Promise((resolve) => { releaseWorkers = resolve; });
     await page.route('**/analysis-worker.js?*', async (route) => { await gate; await route.continue(); });
-    await page.goto(origin);
+    await page.reload();
     await page.waitForFunction(() => preferenceUIReady);
     const initialBoard = await page.locator('#game-frame').boundingBox();
     assert.equal(await page.locator('#metrics-panel').evaluate((panel) => !panel.hidden

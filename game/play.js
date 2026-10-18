@@ -239,7 +239,7 @@ function afterNextPaint(step) {
 
 function showPendingResultShell() {
   pendingResultShellShown = true;
-  renderImmediateGameEnd(pendingResultOutcome, pendingResultEndedAt);
+  renderImmediateGameEnd(pendingResultOutcome);
 }
 
 function flushPendingResult() {
@@ -259,10 +259,10 @@ function flushPendingResult() {
   reportResult(outcome, endedAt);
 }
 
-function renderImmediateGameEnd(outcome, endedAt) {
+function renderImmediateGameEnd(outcome) {
   setResultSummary(outcome === 'win' ? 'Win' : 'Loss',
     gameGenerator.id === BoardGenerators.DEFAULT_ID ? null : BoardGenerators.displayLabel(gameGenerator),
-    formatDate(endedAt), outcome === 'win' && flagsPlaced === 0);
+    null, outcome === 'win' && flagsPlaced === 0);
   clearResultStats();
   resultAnalysis.textContent = '';
   resultRanks.textContent = '';

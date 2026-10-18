@@ -113,7 +113,8 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   same day — hiding things is the settings page's job, not something the
   pointer stumbles into. The remaining one-click precedents stand: the
   session lookback and window selectors living on the session section
-  itself, and the stats panel width set by dragging the panel's own edge.
+  itself, and the widths of the stats panel and the details column, each set
+  by dragging its own edge.
 - Settings so far: `cellSize` (default 28) — saved Zoom in pixels;
   `justUniverse` (default on) — sealed-pocket mercy (see
   [A just universe](just-universe.md);
@@ -123,8 +124,9 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   `collapseDuplicateCharts` (default on) — the rank
   lists' progressive disclosure switch (see [Rank lists](rankings.md));
   `showMotionStatsDuringGame` and `showMotionStatsAfterGame` (both
-  default on; the second is named "motion charts" in the Charts group) —
-  the two stages of the trace metrics display (see [Trace
+  default off since 2026-10-17, on before; the second is named "motion
+  charts" in the Charts group) — the two stages of the trace metrics
+  display, the mouse-dynamics values (see [Trace
   metrics panel](trace-metrics-panel.md)); `reportScope` (`none` by default; choices `none`,
   `fatal`, `risk`, `full`) — the simple after-game analysis ladder,
   editable on both the report and settings page, which also gates category
@@ -137,6 +139,10 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   wall-clock session window (see [Session stats](session-stats.md)); `metricsPanelWidth` (default 316, clamped 220–640; set
   by dragging the stats panel's right edge, not a panel checkbox) — the
   left panel's width, which the session charts fill;
+  `detailsColumnShare` (default 0.46; set by dragging the details column's
+  left edge) — the docked details column's share of the window width,
+  within 320px and the board column's room (see [Board and
+  layout](board-and-layout.md));
   `numberDisplay` (default numbers; the first choice-row setting) —
   digits / letters / dots for revealed counts (see [Board and chrome](board-and-layout.md));
   `flagStyle` (default classic), `flagSize` (default 45, percent of the
@@ -183,7 +189,14 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   the switch-cost row) and the loss-analysis report stay available from
   settings, and the report ladder is also in the after-game display
   controls. A value already saved stays as saved.
-  Live and after-game motion stats stay on.
+- Motion stats off by default (creator decision 2026-10-17, verbatim: "by
+  default, dynamics shall be off"): both stages of the mouse-dynamics
+  display, the live left panel and the after-game motion charts, default
+  off. With session stats also off, a new player's page has no left stats
+  column, leaving its width to the board and the details column. Saving any
+  setting stores every field, so a profile that saved anything before
+  2026-10-17 keeps both switches on until they are turned off on the
+  settings page; only a profile with no saved settings gets the new default.
 - The schema's `helpFile` "?" popover was removed with the caption purge
   (2026-08-23): the just-universe explanation already lives in the hint
   and tooltip. just-universe-help.html remains in the repo as a

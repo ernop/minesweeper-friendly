@@ -1,8 +1,8 @@
 'use strict';
 
 // Board position (a pure constraint solver, its page wiring, and the position
-// editor), zoom (cell size), and page layout: docked sidebar and game data
-// columns, Justice callout placement, and result clearance.
+// editor), zoom (cell size), and page layout: the docked details column,
+// Justice callout placement, and result clearance.
 
 //-------PERSISTENT BOARD POSITION (pure constraint solver)-------
 
@@ -195,70 +195,69 @@ function scheduleBoardLayout() {
   });
 }
 
-// The game data chart takes the column height left below the controls and
-// summary, so its footer stays in view. A column too short for a readable
-// plot scrolls instead of crushing it.
-const GAME_DATA_MIN_HEIGHT = 480;
+// Game data's chart takes the column height left below the summary,
+// controls, and during-this-game section, so the options row under it stays
+// in view. Each open side keeps a readable plot's height; a column too short
+// for that scrolls instead of crushing them. The subviews (configure,
+// session history) take the column height as one view.
+const GAME_DATA_SIDE_MIN_HEIGHT = 240;
+const GAME_DATA_SUBVIEW_MIN_HEIGHT = 480;
 function fitGameDataToSidebar() {
   const profile = resultStats.querySelector('.board-time-profile');
   if (profile === null || !profile.checkVisibility()) return;
   const column = getComputedStyle(gameSidebar);
   const offset = profile.getBoundingClientRect().top - gameSidebar.getBoundingClientRect().top + gameSidebar.scrollTop;
   const bottom = parseFloat(column.maxHeight) - parseFloat(column.paddingBottom) - parseFloat(column.borderBottomWidth);
-  profile.style.height = Math.max(GAME_DATA_MIN_HEIGHT, Math.floor(bottom - offset)) + 'px';
-}
-
-// The game data column (during this game, then game data) exists only where
-// a finished game can fill it, so trial modes and hidden blocks do not
-// reserve an empty strip.
-const GAME_DATA_MIN_WIDTH = 360;
-// Keeps the ranks-won summary and a table beside it under the board.
-const MAIN_MIN_WITH_GAME_DATA = 640;
-function gameDataColumnWanted() {
-  return settings !== null && (settings.shownThings.boardPercentiles || settings.shownThings.duringGame)
-    && !Trial.isPlayMode(settings.playMode);
-}
-
-// Undocked, both lead the details column, above the losing game's statistics.
-function placeGameData() {
-  const docked = pageLayout.classList.contains('game-data-docked');
-  const source = docked ? resultStats : gameDataColumn;
-  const target = docked ? gameDataColumn : resultStats;
-  const host = source.querySelector('.board-time-profile-host');
-  if (host !== null) {
-    host.querySelector('.board-time-profile').style.height = '';
-    target.appendChild(host);
+  const room = Math.floor(bottom - offset);
+  if (profile.dataset.screen !== 'chart') {
+    profile.style.height = Math.max(GAME_DATA_SUBVIEW_MIN_HEIGHT, room) + 'px';
+    return;
   }
-  const duringGame = source.querySelector('.during-game');
-  if (duringGame !== null) target.prepend(duringGame);
+  const section = profile.querySelector('.game-data-section.open');
+  if (section === null) {
+    profile.style.height = '';
+    return;
+  }
+  // Everything but the chart keeps its own height: the options row.
+  const fixed = profile.getBoundingClientRect().height - section.getBoundingClientRect().height;
+  const openSides = Number(section.dataset.openSides);
+  profile.style.height = Math.max(Math.ceil(fixed) + openSides * GAME_DATA_SIDE_MIN_HEIGHT, room) + 'px';
 }
 
-// Reserve the options/stats column before results exist. A finished game's
+// Reserve the details column before results exist. A finished game's
 // content never decides how much room the board or history receives.
-function syncGameSidebar() {
+// Keeps the session summary and a table beside it under a small board.
+const MAIN_MIN_BESIDE_DETAILS = 640;
+// One details column beside the board column: docked while the board column
+// leaves it its minimum; below that the details become the Game details
+// popover. Its width is the player's share of the window, yielding to the
+// board column down to the minimum.
+function detailsColumnFit() {
   const layoutStyle = getComputedStyle(pageLayout);
   const gap = parseFloat(layoutStyle.columnGap);
   const metricsBeside = !metricsPanel.hidden && window.innerWidth > 700;
   const metricsWidth = metricsBeside ? metricsPanel.getBoundingClientRect().width : 0;
-  // Game data takes a full-height column beside the board column when the
-  // board, two tables' width, and the details column at its minimum still
-  // fit. Otherwise the details column holds it, taking its preferred share of
-  // the viewport but yielding to the board down to its minimum; below that
-  // the details become the Game details popover.
-  const preferred = parseFloat(layoutStyle.getPropertyValue('--game-sidebar-width'));
   const minimum = parseFloat(layoutStyle.getPropertyValue('--game-sidebar-min-width'));
   const free = pageLayout.clientWidth - metricsWidth;
   const board = gameFrame.offsetWidth + 16;
-  const room = free - gap * 2 - board;
-  const docked = window.innerWidth > 700 && room >= minimum;
-  const dataRoom = free - gap * 3 - minimum - Math.max(board, MAIN_MIN_WITH_GAME_DATA);
-  const dataDocked = docked && gameDataColumnWanted() && dataRoom >= GAME_DATA_MIN_WIDTH;
-  const dataPreferred = parseFloat(layoutStyle.getPropertyValue('--game-data-width'));
-  pageLayout.style.setProperty('--game-data-docked-width', Math.min(dataPreferred, dataRoom) + 'px');
-  pageLayout.style.setProperty('--game-sidebar-docked-width',
-    (dataDocked ? minimum : Math.max(minimum, Math.min(preferred, room))) + 'px');
-  pageLayout.classList.toggle('game-data-docked', dataDocked);
-  placeGameData();
+  return {
+    docked: window.innerWidth > 700 && free - gap * 2 - board >= minimum,
+    minimum,
+    maximum: Math.max(minimum, Math.floor(free - gap * 2 - Math.max(board, MAIN_MIN_BESIDE_DETAILS))),
+  };
+}
+function detailsColumnWidth(fit, share) {
+  return Math.max(fit.minimum, Math.min(fit.maximum, Math.round(share * window.innerWidth)));
+}
+function syncGameSidebar() {
+  const fit = detailsColumnFit();
+  const docked = fit.docked;
+  const width = detailsColumnWidth(fit, settings.detailsColumnShare);
+  pageLayout.style.setProperty('--game-sidebar-docked-width', width + 'px');
+  detailsResize.hidden = !docked;
+  detailsResize.setAttribute('aria-valuemin', String(fit.minimum));
+  detailsResize.setAttribute('aria-valuemax', String(fit.maximum));
+  detailsResize.setAttribute('aria-valuenow', String(width));
   const compact = !docked;
   if (pageLayout.classList.contains('compact-sidebar') !== compact) {
     if (gameSidebar.matches(':popover-open')) gameSidebar.hidePopover();
@@ -276,12 +275,64 @@ function syncGameSidebar() {
   }
   gameSidebarButton.hidden = docked;
   gameSidebarClose.hidden = docked;
-  // The docked columns stick below the top bar, which wraps to two rows when
-  // their width cannot hold its items.
+  // The docked column sticks below the top bar, which wraps to two rows when
+  // its width cannot hold the bar's items.
   pageLayout.style.setProperty('--top-bar-height', topBar.offsetHeight + 'px');
-  resultsBox.hidden = resultSummary.textContent === '' && resultStats.textContent === '';
+  resultsBox.hidden = resultStats.textContent === '';
   fitGameDataToSidebar();
 }
+
+// The docked column's left-edge grip sits in the column gap, outside the
+// column's own scroll, at the column's height. The column and its charts
+// follow the pointer on the next animation frame; release saves the share.
+// The room the board leaves cannot change during a drag, so its limits are
+// read once when it starts.
+const detailsResize = document.getElementById('details-resize');
+const DETAILS_RESIZE_KEY_STEP = 10;
+new ResizeObserver(() => {
+  detailsResize.style.height = gameSidebar.offsetHeight + 'px';
+}).observe(gameSidebar);
+function setDetailsColumnWidth(fit, width) {
+  settings.detailsColumnShare = Math.max(fit.minimum, Math.min(fit.maximum, width)) / window.innerWidth;
+}
+detailsResize.addEventListener('keydown', (event) => {
+  if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+  event.preventDefault();
+  const fit = detailsColumnFit();
+  const step = event.key === 'ArrowLeft' ? DETAILS_RESIZE_KEY_STEP : -DETAILS_RESIZE_KEY_STEP;
+  setDetailsColumnWidth(fit, detailsColumnWidth(fit, settings.detailsColumnShare) + step);
+  saveSettings();
+  syncBoardLayout();
+});
+detailsResize.addEventListener('pointerdown', (event) => {
+  if (event.button !== 0) return;
+  event.preventDefault();
+  detailsResize.setPointerCapture(event.pointerId);
+  detailsResize.classList.add('dragging');
+  const fit = detailsColumnFit();
+  const startX = event.clientX;
+  const startWidth = detailsColumnWidth(fit, settings.detailsColumnShare);
+  let frame = null;
+  const move = (ev) => {
+    setDetailsColumnWidth(fit, startWidth + startX - ev.clientX);
+    if (frame === null) {
+      frame = requestAnimationFrame(() => {
+        frame = null;
+        syncBoardLayout();
+      });
+    }
+  };
+  const stop = () => {
+    detailsResize.removeEventListener('pointermove', move);
+    detailsResize.removeEventListener('lostpointercapture', stop);
+    detailsResize.classList.remove('dragging');
+    if (frame !== null) cancelAnimationFrame(frame);
+    saveSettings();
+    syncBoardLayout();
+  };
+  detailsResize.addEventListener('pointermove', move);
+  detailsResize.addEventListener('lostpointercapture', stop);
+});
 
 function syncJusticePlacement() {
   justiceLive.classList.remove('justice-left', 'justice-below');
