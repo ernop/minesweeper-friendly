@@ -57,7 +57,7 @@ Spec: [docs/product/board-and-layout.md](../product/board-and-layout.md). Index:
   fourth column (`#game-data-column`,
   `.game-data-docked`, `placeGameData`, `gameDataColumnWanted`) is removed.
   The sidebar contains `#result-summary` (the outcome line,
-  `setResultSummary`: lead, then board · mode · generator · no-mark, no
+  `setResultSummary`: lead, then board · no-mark, no mode, generator, or
   date), `#sidebar-controls` (a wrapping flex row holding `#top-right` and
   `#scores-nav`), `#results`, and `#path-view-legend` in normal flow, then
   `#review-options` (a popover when docked, inline at the end when

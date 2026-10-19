@@ -260,9 +260,8 @@ function flushPendingResult() {
 }
 
 function renderImmediateGameEnd(outcome) {
-  setResultSummary(outcome === 'win' ? 'Win' : 'Loss',
-    gameGenerator.id === BoardGenerators.DEFAULT_ID ? null : BoardGenerators.displayLabel(gameGenerator),
-    null, outcome === 'win' && flagsPlaced === 0);
+  setResultSummary(outcome === 'win' ? 'Win' : 'Loss', null,
+    outcome === 'win' && flagsPlaced === 0);
   clearResultStats();
   resultAnalysis.textContent = '';
   resultRanks.textContent = '';

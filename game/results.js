@@ -694,7 +694,7 @@ function boardDisplayLabel() {
 
 // The lifetime list of a no-mark win: "top expert no-mark times". The
 // board name is the named difficulty, or the custom size. Mode and
-// generator stay on the outcome line; the list itself is already that
+// generator stay in their pickers; the list itself is already that
 // history key's no-mark games only.
 function noMarkTimeLabel() {
   const name = difficultyNameOf(config);
@@ -717,14 +717,14 @@ function clearResultStats() {
 
 // The outcome with its board, mode, and generator on one line; a high
 // scores view adds which game its sections describe on a second.
-function setResultSummary(lead, generatorLabel, note, noMark = false) {
+// Mode and generator are left to their pickers just below the line.
+function setResultSummary(lead, note, noMark = false) {
   const leadNode = document.createElement('span');
   leadNode.className = 'result-summary-lead';
   leadNode.textContent = lead;
   const context = document.createElement('span');
   context.className = 'result-summary-context';
-  context.textContent = [boardDisplayLabel(), playModeLabel(), generatorLabel,
-    noMark ? 'no-mark' : null]
+  context.textContent = [boardDisplayLabel(), noMark ? 'no-mark' : null]
     .filter((part) => part !== null).join(' \u00b7 ');
   resultSummary.replaceChildren(leadNode, ' ', context);
   if (note !== null) {
@@ -818,10 +818,7 @@ async function renderResultAsync(record, modeRecords, options = {}) {
     ? 'High scores'
     : (record.outcome === 'win' ? 'Win' : 'Loss');
   const noMarkWin = record.outcome === 'win' && isMarkless(record);
-  setResultSummary(summaryLead,
-    record.generator === undefined ? null : BoardGenerators.displayLabel(record.generator),
-    options.historyView ? 'Latest win' : null,
-    noMarkWin);
+  setResultSummary(summaryLead, options.historyView ? 'Latest win' : null, noMarkWin);
   clearResultStats();
   resultAnalysis.textContent = '';
   const historyView = options.historyView === true;
@@ -995,9 +992,7 @@ function showScoresForCurrentMode() {
   const wins = modeRecords.filter((record) => record.outcome === 'win');
   if (wins.length === 0) {
     renderedResult = null;
-    setResultSummary('High scores',
-      gameGenerator.id === BoardGenerators.DEFAULT_ID ? null : BoardGenerators.displayLabel(gameGenerator),
-      'No wins yet');
+    setResultSummary('High scores', 'No wins yet');
     clearResultStats();
     resultAnalysis.textContent = '';
     resultRanks.textContent = '';

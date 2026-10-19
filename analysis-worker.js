@@ -1,15 +1,15 @@
 "use strict";
 
 importScripts('trend-fit.js?v=20260925-worker-analysis',
-  'game/trace-metrics.js?v=20261017-details-resize',
-  'game/evaluation.js?v=20261017-details-resize',
-  'game/session-stats.js?v=20261017-details-resize',
-  'game/metric-definitions.js?v=20261017-details-resize',
+  'game/trace-metrics.js?v=20261019-outcome-line',
+  'game/evaluation.js?v=20261019-outcome-line',
+  'game/session-stats.js?v=20261019-outcome-line',
+  'game/metric-definitions.js?v=20261019-outcome-line',
   'board-shape.js', 'zini.js', 'board-metrics.js?v=20260921-visible-zero-one',
-  'game-data.js?v=20261015-click-share', 'game/rankings.js?v=20261017-details-resize',
-  'game/charts.js?v=20261017-details-resize', 'game/game-data-chart.js?v=20261017-details-resize',
+  'game-data.js?v=20261015-click-share', 'game/rankings.js?v=20261019-outcome-line',
+  'game/charts.js?v=20261019-outcome-line', 'game/game-data-chart.js?v=20261019-outcome-line',
   'justice.js?v=20260926-fast-evidence', 'board-icons.js?v=20261015-flag-controls',
-  'game/replay-model.js?v=20261017-details-resize',
+  'game/replay-model.js?v=20261019-outcome-line',
   'during-game.js?v=20261017-shared-game-data');
 
 let config;

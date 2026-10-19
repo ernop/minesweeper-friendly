@@ -745,8 +745,8 @@ function buildGameDataDistributions(rows, pools, boardName, titles) {
 function buildBoardTimeRankProfile(record, records) {
   gameDataNoMark = record.outcome === 'win' && isMarkless(record);
   if (record.outcome !== 'win') return null;
-  // The outcome line's board name; its mode and generator stay there, as in
-  // the no-mark list titles, so the heads fit the narrowest details column.
+  // The outcome line's board name; mode and generator stay in their pickers,
+  // as in the no-mark list titles, so the heads fit the narrowest details column.
   const boardName = boardDisplayLabel();
   const host = document.createElement('div');
   host.className = 'board-time-profile-host';

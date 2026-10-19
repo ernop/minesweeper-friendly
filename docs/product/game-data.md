@@ -321,8 +321,8 @@ The indicator:
 - The band carries it too, though the request named the distributions
   view: both views show the same pools under the same "lifetime" and
   "session" heads.
-- Mode and generator are not repeated. They stay on the outcome line beside
-  the chart, as in the no-mark list titles ("top expert no-mark times",
+- Mode and generator are not repeated. Their pickers above the chart show
+  them, as in the no-mark list titles ("top expert no-mark times",
   [No-mark wins](rankings.md#no-mark-wins-decided-2026-10-14)), so every
   head stays one line in the narrowest details column (320 px): the Pregen
   10 mode's name alone runs past 80 characters. The creator declined naming

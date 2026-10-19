@@ -274,9 +274,12 @@ laggy"; asked whether the game is "max efficient" and to test and fix it.
   space well and can expand to be visible enough."). The separate game data
   column (2026-09-23 to 2026-10-17) is gone; everything right of the board is
   one sticky column, top to bottom:
-  - The outcome line: "Win" or "Loss", then the board, mode, generator, and
-    "no-mark" where it applies ("Win Intermediate · Standard"). It has no
-    completion date.
+  - The outcome line: "Win" or "Loss", then the board and "no-mark" where
+    it applies ("Win Intermediate", "Win Expert · no-mark"). It has no
+    completion date. It named the mode and generator too until 2026-10-19,
+    when the creator dropped the mode: "no need to name mode, it's in the
+    picker"; the generator went with it, its picker sitting beside the
+    mode's.
   - The setup and review controls on compact wrapping rows: mode, generator,
     and edit states, then Replay game, Overlays & display, and see scores.
   - "during this game, second by second" ([During the game](during-game.md)),
