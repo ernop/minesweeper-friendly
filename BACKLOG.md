@@ -8,17 +8,6 @@ leave new ideas only in chat.
 Status labels: **creator** = the creator asked for it; **mapped** = named
 on the design axis or in a research note, not requested as a build.
 
-## Default lettering (creator request 2026-10-17; awaiting clarification)
-
-- **creator** — Verbatim: "by default, ... big/thick lettering shall be
-  used." No setting is named for lettering. The candidates: the number
-  display's letters A–H (`numberDisplay: 'letters'`), the bold mine style
-  (`mineStyle: 'bold'`, a large ball with thick spikes), or larger cell
-  digits at the default zoom (today about half the square's height up to
-  28 px). Asked the creator which one is meant. The same request's other
-  half, motion stats off by default, is built
-  ([Personal settings](docs/product/settings.md)).
-
 ## During the game follow-ons (creator request 2026-10-15; base built the same day)
 
 The block itself is built ([During the game](docs/product/during-game.md)).

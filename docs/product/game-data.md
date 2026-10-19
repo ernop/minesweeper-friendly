@@ -325,8 +325,9 @@ The indicator:
   the chart, as in the no-mark list titles ("top expert no-mark times",
   [No-mark wins](rankings.md#no-mark-wins-decided-2026-10-14)), so every
   head stays one line in the narrowest details column (320 px): the Pregen
-  10 mode's name alone runs past 80 characters. Open to the creator: naming
-  the mode in the heads when it is not Standard.
+  10 mode's name alone runs past 80 characters. The creator declined naming
+  the mode in the heads on 2026-10-19: "no need to name mode, it's in the
+  picker."
 - With it, the distributions view's section titles, percentage heads, and
   row labels use the pool names, so a no-mark win's sections read
   "no-mark" and "no-mark session" as the band's heads do. Until 2026-10-15

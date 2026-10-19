@@ -197,6 +197,9 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   setting stores every field, so a profile that saved anything before
   2026-10-17 keeps both switches on until they are turned off on the
   settings page; only a profile with no saved settings gets the new default.
+- The same 2026-10-17 request asked for "big/thick lettering" by default;
+  the creator withdrew it on 2026-10-19 ("the way it is now, is okay"), so
+  the number display, mine style, and digit size keep their defaults.
 - The schema's `helpFile` "?" popover was removed with the caption purge
   (2026-08-23): the just-universe explanation already lives in the hint
   and tooltip. just-universe-help.html remains in the repo as a
