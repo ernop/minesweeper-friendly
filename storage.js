@@ -222,6 +222,16 @@ function readPlaySpansSince(fromMs, onLoaded) {
   tx.oncomplete = () => onLoaded(spans.result);
 }
 
+// Reads every play span: the game page counts abandoned boards over the
+// session and lifetime as well as today's use. A span is a few numbers, so
+// all of them stay in RAM as the scalar records do.
+function readAllPlaySpans(onLoaded) {
+  const tx = db.transaction(PLAY_SPAN_STORE);
+  tx.onerror = () => storageFailure('play spans load failed: ' + tx.error);
+  const spans = tx.objectStore(PLAY_SPAN_STORE).getAll();
+  tx.oncomplete = () => onLoaded(spans.result);
+}
+
 // Persists one play span; a later call for the same board replaces it.
 function persistPlaySpan(span) {
   if (db === null) storageFailure('play time not saved: database is not open');

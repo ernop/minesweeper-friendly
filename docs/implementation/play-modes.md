@@ -47,7 +47,8 @@ Spec: [docs/product/play-modes.md](../product/play-modes.md). Index: [AGENTS.md]
   per expert deal. `node tests/endgame-drill-test.js` (known-answer
   remaining 3BV, closure, 50/50 rejection, full deals through the real
   stack on three sizes, seed-replay determinism).
-- Pregen 10 mode: `pregen.js` provides pure 3BV scoring and descending
+- 3BV countdown mode (id `pregen-10-3bv-desc`; "Pregen 10" until
+  2026-10-20, still "pregen" in the code): `pregen.js` provides pure 3BV scoring and descending
   seed ranking. The game page creates ten independently seeded candidates
   through the selected generator with `width - 1` (upper right) safe, deals
   each by regenerating its map from the ranked seed, and automatically opens

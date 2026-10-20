@@ -33,20 +33,20 @@ function storageFailure(what) {
 // database; this page reads them fresh on every load, and the return
 // trip from settings.html is a load.
 
-// Reads every userdata kind and game record into RAM, then finishes startup:
-// init() builds the states panel and the first board, all of which read RAM.
+// Reads every userdata kind, game record, and play span into RAM, then
+// finishes startup: init() builds the states panel and the first board, all
+// of which read RAM.
 function userdataReady() {
-  readAllUserdata((got) => readGameRecords((storedHistory) => readPlaySpansSince(
-    playDayStart(Date.now()), (spans) => {
-      const loaded = normalizeHistory(storedHistory);
-      history = loaded.history;
-      if (loaded.changed) persistGameRecordChanges(loaded.writes, loaded.deletions);
-      // An absent kind is a player who never stored it, not an error.
-      loadSettings(got);
-      loadPlayLimits(got.playLimits, got.playLimitPenalty, spans);
-      trialSession = got.trial === undefined ? null : got.trial;
-      init().catch((error) => storageFailure(error.message));
-    })));
+  readAllUserdata((got) => readGameRecords((storedHistory) => readAllPlaySpans((spans) => {
+    const loaded = normalizeHistory(storedHistory);
+    history = loaded.history;
+    if (loaded.changed) persistGameRecordChanges(loaded.writes, loaded.deletions);
+    // An absent kind is a player who never stored it, not an error.
+    loadSettings(got);
+    loadPlayLimits(got.playLimits, got.playLimitPenalty, spans);
+    trialSession = got.trial === undefined ? null : got.trial;
+    init().catch((error) => storageFailure(error.message));
+  })));
 }
 
 //-------INIT-------

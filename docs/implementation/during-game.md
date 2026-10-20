@@ -73,11 +73,17 @@ decisions. Otherwise:
   (`LONG_GAP_MS`), and moves. "Near" is a zone stamp: every square within
   `NEAR_SQUARES` of what the previous board-changing action opened or
   marked. A move is a board-changing click outside that zone and not within
-  `NEAR_SQUARES` of a proven-safe square in it; left work when such squares
-  remained, moved on when none did; a fork when the exact proof's
+  `NEAR_SQUARES` of a proven-safe square in it; moved on when no such
+  squares remained, else left easy work when the counting proof
+  (`countingFactsAt`) marks one of them safe and left hard work when it
+  marks none (counting's facts are always complete and inside the full
+  proof's, so the split holds where the full proof stopped at its limit);
+  every move carries its `gapMs`; a fork when the exact proof's
   proven-safe squares formed 2 or more areas (`areasOf`, linking squares
   within `AREA_LINK_SQUARES`); came back when a later click reaches squares
-  a left-work move left behind, still proven safe and unflagged. Each
+  a move left behind, still proven safe and unflagged. `movesJudged` is
+  false when any move fell on a position whose exact proof was
+  incomplete (its kind or fork unknown). Each
   action also carries its report `category` (`actionEvaluationCategory`),
   a game risk action its `riskDelta`, and a lower-modeled-life choice its
   `lifeGap`, the magnitudes `actionCategorySummary` sums for the record;
@@ -91,12 +97,26 @@ decisions. Otherwise:
   false, the window-left row's data is `{kind: 'unrecorded'}`, and long-gap
   events carry no `windowLeft`.
 
+`DuringGame.moveHabits(model)` gives the record's move habits (`movesRanOut`,
+`movesLeftHardWork`, `movesLeftEasyWork`, `moveGapMedianMs` with
+`medianOf` when there is a move, `forkMoves`, `forkMovesToNearestArea`),
+or nothing for an unrecorded trace or when `movesJudged` is false.
+`finishedMeasurements` in `analysis-worker.js` adds them when the plan's
+`needMoveHabits` is set: always in `finished-game` (`reportResult` sends
+`timeMs` and `outcome`), and in `restore-trace` when the record lacks
+`movesRanOut` (`preferences-game.js`). It builds the held model through
+`heldDuringGameModel`, so the live perf charts' first request reuses it.
+
 Cost (2026-10-15, scripted Expert wins of 290–340 actions in Node):
 about 120 ms for the model and 10–20 ms for a view of every row with the
-rolling average. `renderResultAsync` builds the block, which starts its
-task, before `renderRanks`, so the reports lane (after `finished-game`)
-runs it beside the rankings lane's tables. `renderRanks` waits for it after
-the board tables, before game data and the charts.
+rolling average; 2026-10-20, a scripted Expert win of 201 actions in
+headless Chromium: 46–70 ms. Since 2026-10-20 the model is built inside
+`finished-game`, before the first full result render, which therefore
+comes that much later; the live perf charts then need only the view.
+`renderResultAsync` builds the block, which starts its task, before
+`renderRanks`, so the reports lane (after `finished-game`) runs it beside
+the rankings lane's tables. `renderRanks` waits for it after the board
+tables, before game data and the charts.
 
 ## Rows and averaging
 
@@ -179,9 +199,13 @@ toleranceMs)` answers the hover. Unknown rows and averages throw.
 
 - `tests/during-game-test.js`: the model and rows inside the worker on
   hand-built boards (13×3 and 15×3) with worked-out proofs: progress, known
-  squares, every event type including forks and came back, averaging, the
-  worker round trip and its throws, window-left spans, and an unrecorded
-  trace.
+  squares, every event type including both kinds of left work, forks, and
+  came back, move habits and their round trip through `finished-game`,
+  averaging, the worker round trip and its throws, window-left spans, and
+  an unrecorded trace.
+- `tests/settings-state-test.js`: a row choice saved for `leftWorkEvents`
+  carries to `leftHardWorkEvents` and `leftEasyWorkEvents`
+  (`duringGameRowsFromStored` in `settings-core.js`).
 - `tests/during-game-browser-check.js PLAYWRIGHT_CORE_DIR CHROMIUM
   [SCREENSHOT_DIR]`: real games with real mouse input under the routed test
   origin: the block at the head of the docked column, titled "live perf

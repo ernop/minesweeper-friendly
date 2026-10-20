@@ -23,6 +23,19 @@ Spec: [docs/product/per-game-stats.md](../product/per-game-stats.md). Index: [AG
   (`sessionGapSpread` over raw press gaps live; per-game basis medians
   stored spreads — backfilled spans have no raw gaps and stay
   unmeasured on the per-time basis).
+- Move habits (2026-10-20): `movesRanOut`, `movesLeftHardWork`,
+  `movesLeftEasyWork`, `moveGapMedianMs`, `forkMoves`, and
+  `forkMovesToNearestArea` come from `DuringGame.moveHabits` on the
+  during-the-game model in the reports worker (`finishedMeasurements` with
+  the plan's `needMoveHabits`; see
+  [Live perf charts](during-game.md), "Model"). `reportResult` asks for them
+  in `finished-game` and assigns them before the record's second save; the
+  restore path asks when the record lacks `movesRanOut`. Schema rows in
+  `GAME_RECORD_SCHEMA` (`isCount` for the counts). Game data reads them in
+  `moveTime`, `easyWorkLeftShare` (left easy work over the three kinds'
+  sum), and `nearestAreaShare`; `GameData.examples` gives their boards
+  (`moves`, `easyWorkLeft`, `forks`). `tests/during-game-test.js` and
+  `tests/game-data-test.js` cover them.
 - `mousePathPx`: cursor distance accumulated on document mousemove only
   while `gameState === 'playing'`.
 - Unused correct marks: `activeFlagEpisodes` and `flagEpisodes` retain every

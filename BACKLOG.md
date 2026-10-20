@@ -19,11 +19,17 @@ Not built yet:
   opening with proven-safe squares on its left and right edges). Built forks
   count only separate areas (squares more than 2 apart); splitting one
   area by direction along its frontier would catch the rest.
-- **creator** — Learning from move habits across games ("individuals would
-  vary a lot in this way too! which could be useful to learn from"): per-game
-  counts of moved on, left work, forks, came back, and how often a fork went
-  to the nearest area, as game data measurements or session and lifetime
-  trends.
+- **creator** — Move habits of games saved before 2026-10-20. Learning from
+  move habits across games ("individuals would vary a lot in this way too!
+  which could be useful to learn from") was built on 2026-10-20 with the
+  move characterization ([Per-game stats](docs/product/per-game-stats.md),
+  "Move habits"): each game stores them as it ends, and an earlier game
+  only when its result is next restored, so lifetime comparisons start from
+  that day. A backfill would run `DuringGame.model` over every saved trace
+  in a worker (46–120 ms per Expert game measured, so minutes for a few
+  thousand games), save each record as it finishes, and show progress and
+  failures as the board-measurement backfill does. Not counted per game:
+  came back.
 - Calibrate the first-choice thresholds against the creator's saved games:
   2 squares near, 3 squares a jump, 1 second a long gap, 1 second a quick
   undo, 2 squares linking a work area. Check the event counts against what
@@ -32,38 +38,19 @@ Not built yet:
   games of different length line up.
 - The same rows live during play.
 
-## Other modes menu: the Pregen 10 entry's length (found 2026-10-20)
-
-The game setup rows were built on 2026-10-20
-([Game setup](docs/product/board-and-layout.md#game-setup-top-bar-settings-row-and-footer)).
-The closed other modes menu is capped at 15em so it stays a peer of the
-preset links (a native select is as wide as its longest entry). Every
-entry fits except Pregen 10, whose name is "pregen 10 boards and order by
-3BV descending, assuming auto-click in upper right": closed, it shows only
-its start; the open list shows it whole. Recommended: a short menu name,
-"Pregen 10 (3BV descending)", keeping the full name as the entry's tooltip
-and in the mode's spec. Waiting for the creator's decision, since the name
-is the creator's.
-
 ## One look per kind of thing: the rest of the page (follows the creator's 2026-10-14 direction)
 
 The details column follows
-[One look per kind of thing](docs/product/ui-doctrine.md) since 2026-10-14.
-Two other controls keep their own looks:
+[One look per kind of thing](docs/product/ui-doctrine.md) since 2026-10-14,
+and the backup row under the board since 2026-10-20 (creator: "yes
+standardize"). One control keeps its own look:
 
 - Game data's pool switch (`.game-data-pool-switch`, joined buttons with a
   pressed one) is a choice between pools, so under the rule it would take
   the select's look or the shared button look with its pressed state.
   Not yet changed.
-- The backup row under the board (export history, export traces, import
-  history, data format, and the import panel's apply and open file) uses
-  dotted underlined link text for actions. Under the rule they become
-  buttons, which puts four bordered boxes under the board in place of one
-  quiet line.
-  Recommended: convert them, since the creator asked for one look for
-  actions; waiting for the creator's decision.
 
-## Game results as one tree per board type (creator request 2026-10-14; proposed design, awaiting review)
+## Game results as one tree per board type (creator request 2026-10-14; scope and abandoned built 2026-10-20, the rest proposed, awaiting review)
 
 The creator asked to rethink the session's results table. In Beginner, show
 only Beginner, starting from all games started, then break them into finer
@@ -95,14 +82,16 @@ Proposed, not decided:
 - **Scope.** The board type being played (size, play mode, and generator;
   Standard Beginner is simply Beginner) in the page-wide session. Other types
   do not appear. Modes stay apart because their rules change what a guess
-  can do (Angelic, Proof-or-die, NG). Built 2026-10-15 by size: other sizes
-  no longer appear, but a size's modes and generators still count together
-  (the 2026-10-12 rule, from "split by main game type (small, medium,
-  expert)"), so an NG Expert game and a Standard Expert game share one tree.
+  can do (Angelic, Proof-or-die, NG). Built 2026-10-15 by size, then on
+  2026-10-20 by board type (creator: "yes, spli treethat way"), so an NG
+  Expert game and a Standard Expert game no longer share one tree.
 - **Level 1, how the board ended:** won, lost, or abandoned (restarted, or
   the page closed before the end). A board counts once it ends. Shares are of
   games started, so every level sums to its parent; every game is in exactly
-  one leaf.
+  one leaf. Built 2026-10-20, abandoned also counting a board cut off by its
+  trial's end, with no deeper rows: boards record how they left play from
+  then, and the row says "recorded since" its date when the lifetime
+  reaches back before it ([Session summary](docs/product/rankings.md)).
 - **Won, named by the worst risk survived:**
   - *clean*, no risk the board did not force: no guess after the first
     click; or forced guesses only, each at the lowest risk available;
@@ -152,18 +141,18 @@ Needs, beyond what is measured:
 
 - Proof levels for survived guesses past a safe square (the item under
   "Loss-type follow-ons" below), computed once from saved positions.
-- Abandoned boards: the play span must record that it was abandoned and how
-  far the board got. Play spans exist since 2026-10-12, so an older window
-  must say its abandoned count is incomplete.
+- How far an abandoned board got (an abandoned level 2: in the opening or
+  after it): the play span would also record the safe squares open at each
+  save. Built 2026-10-20 without it: spans record how the board left play,
+  and a window reaching back before then says so on the abandoned row.
 - The rushed row: the time since the previous click on the fatal evaluation.
   A game's second click already has it as `atMs`; older games get it from
   their traces.
 
 Open decisions, each recommended: split opening guess deaths by risk in the
-report too (the session tree does since 2026-10-14);
-scope by board type rather than by size (the tree shows one size since
-2026-10-15, its modes and generators together); count abandoned boards; the
-half-second rushed line.
+report too (the session tree does since 2026-10-14); the half-second rushed
+line. Decided 2026-10-20 and built: scope by board type, and count
+abandoned boards.
 
 **Direction, the same day: judge from the decision tree.** The creator: every
 click is a move from one position to its possible next positions (death, or
@@ -271,8 +260,9 @@ confirmations, and loosening lock:
   time from the stop time to 4:00, so 23:00 would allow flagless play until
   1:30); taking flags away mid-game at the moment a play-time limit is
   reached, which would leave one game played under two rules.
-- **Archive the play spans.** They are the only record of abandoned boards'
-  time; the archive folder does not hold them yet.
+- **Archive the play spans.** They are the only record of abandoned boards,
+  their time and, since 2026-10-20, how each board left play, which the
+  session results count; the archive folder does not hold them yet.
 
 ## After-game self-evaluation review (creator request 2026-10-07; round 2 built the same day)
 
@@ -436,28 +426,19 @@ clicking or chording and for a statistical look first; the study is
   made one session-stats row with a session and a latest-500 column on
   2026-10-08, and an optional line under game data on 2026-10-20, when the
   left panel was removed ([Switch cost line](docs/product/game-data.md#switch-cost-line-creator-request-and-approval-2026-09-28-under-game-data-since-2026-10-20)).
-- **Each game's own switch cost** (partly built 2026-10-08; the request was
-  not written down, so its scope is unconfirmed). Built and tested in
-  `switch-cost.js`: `SwitchCost.gameFit`, one game's estimate from its own
-  transitions (intercept, previous and next move type, T, the Fitts index
-  and its square, board progress, then S), measured only when all four
-  button orders occur; and `SwitchCost.gameMeasurements`, the fields a game
-  would carry (`switchCostTransitions`, `switchCostSwitches`,
-  `switchCostPercent`). Not built: computing it as each game ends, filling it
-  in for saved games in `switch-cost-worker.js`, the record schema, and any
-  display. The game-end step was drafted in `analysis-worker.js` (build a
-  trace from the plan's mines and the events, run `SwitchCost.gameRows`,
-  assign `gameMeasurements` when the plan's `needSwitchCost` is set) and left
-  out of the 2026-10-10 commit because nothing set that flag. Open: the spec
-  lists a per-game switch cost under "Not shown, by decision" (the study
-  found one game's value has split-half reliability near zero), so the
-  creator decides whether and where it shows; the draft pointed at a "Switch
-  cost" section of [per-game stats](docs/product/per-game-stats.md).
+  Finished on 2026-10-20 (creator: "review and finish switch cost please.
+  think about hwo to m ake this useful"): the line shows what the shown
+  game's switches cost in seconds and an earlier-500 pool beside the latest
+  500, and the card the cost per game of each standard board. The half-built
+  per-game regression (`SwitchCost.gameFit`, partly built 2026-10-08) was
+  removed: one game's estimate is noise, so a game's cost prices its
+  switches at the latest 500 games' estimate.
 - **Breakdowns by direction and distance** (mapped). Flag then chord against
   chord then flag, and one, two, or three or more cells, differ widely in
   the study; showing them needs its own reliability check per breakdown.
-- **The estimate over time** (mapped). A history of the pooled value across
-  successive 500-game windows, to see whether practice shrinks it.
+- **The estimate over time** (mapped). The latest and the earlier 500 are
+  two points since 2026-10-20; a history of the pooled value across every
+  successive 500-game window would show the whole course.
 - **Standing among other players** (mapped). Alternation relative to chance
   and speed across 545 replay-corpus players are in the study; the corpus
   chords with both buttons, so its switch costs do not compare directly.

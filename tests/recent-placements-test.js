@@ -300,6 +300,36 @@ assertEq('middle placement wording is shared by the recent summary',
     'session results tree has no row for result kind guess-early');
 }
 
+// Abandoned boards (creator request 2026-10-20): the type's spans that left
+// play by a restart, a trial's end, or a page closed in play, counted from
+// when spans began recording how boards left play.
+{
+  vm.runInThisContext(fs.readFileSync(path.join(repo, 'play-limits.js'), 'utf8'));
+  const keyOf = (span) => span.width + 'x' + span.height + '/' + span.mines + '@' + span.playMode;
+  const span = (startedAt, ending, endedAt, lastSeenAt = endedAt, board = [9, 9, 10]) => ({
+    startedAt, lastSeenAt, endedAt, width: board[0], height: board[1], mines: board[2], playMode: 'standard',
+    ...(ending === undefined ? {} : { ending }) });
+  const now = 1000000;
+  const spans = [
+    span(100, undefined, 150),
+    span(200, 'restarted', 250),
+    span(300, 'finished', 350),
+    span(400, 'restarted', 450),
+    span(500, 'trial-ended', 550),
+    span(600, null, null, 650),
+    span(700, 'restarted', 750, 750, [30, 16, 99]),
+    span(800, null, null, now - 1000),
+    span(900, 'restarted', 2000),
+  ];
+  assertEq('restarted, cut off by a trial, and closed in play count; finished, another type, a board still in play, '
+    + 'one after the game shown, and one from before endings were recorded do not',
+  JSON.stringify(sessionAbandonedCounts(spans, '9x9/10@standard', keyOf, 400, 1000, now)),
+  '{"session":3,"lifetime":4,"recordedFrom":200}');
+  assertEq('before any span records its ending, nothing counts and no start is known',
+    JSON.stringify(sessionAbandonedCounts([span(100, undefined, 150)], '9x9/10@standard', keyOf, 0, 1000, now)),
+    '{"session":0,"lifetime":0,"recordedFrom":null}');
+}
+
 const HOUR = 3600e3;
 const DAY = 24 * HOUR;
 const NOW = 1000 * DAY;

@@ -134,11 +134,30 @@ function nextStopAtStart(minuteOfDay, nowMs) {
 // or the deal in modes that open the board themselves) to its end: won,
 // lost, restarted, or its tab closed. Stored per board in the playSpans
 // store: { startedAt, lastSeenAt, endedAt (null while in play), width,
-// height, mines, playMode }.
+// height, mines, playMode, generator, ending }. generator is the board's
+// non-default generator, absent for the default, as on a game record.
+// ending is how the board left play: null while in play and when its page
+// closed in play, else one of PLAY_SPAN_ENDINGS. Spans saved before
+// 2026-10-20 have neither field.
+const PLAY_SPAN_ENDINGS = ['finished', 'restarted', 'trial-ended'];
+
+function playSpanLive(span, nowMs) {
+  return nowMs - span.lastSeenAt <= PLAY_SPAN_LIVE_MS;
+}
+
 function playSpanPlayedMs(span, nowMs) {
   if (span.endedAt !== null) return span.endedAt - span.startedAt;
-  const live = nowMs - span.lastSeenAt <= PLAY_SPAN_LIVE_MS;
-  return (live ? nowMs : span.lastSeenAt) - span.startedAt;
+  return (playSpanLive(span, nowMs) ? nowMs : span.lastSeenAt) - span.startedAt;
+}
+
+// When a span's board was abandoned, or null when it was not or its ending
+// was not recorded. Abandoned is restarted, cut off by its trial's end, or
+// its page closed in play: no tab has touched the span within
+// PLAY_SPAN_LIVE_MS, and the last touch is when it was abandoned.
+function playSpanAbandonedAt(span, nowMs) {
+  if (span.ending === 'restarted' || span.ending === 'trial-ended') return span.endedAt;
+  if (span.ending === null && !playSpanLive(span, nowMs)) return span.lastSeenAt;
+  return null;
 }
 
 function playLevelOf(width, height, mines) {

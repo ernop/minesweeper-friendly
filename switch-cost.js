@@ -5,8 +5,8 @@
 // Spec: docs/product/game-data.md ("Switch cost line"); study and
 // estimator choice: reference/mode-switch-2026-09-28.md. Pure: game data's
 // switch cost line runs it in switch-cost-worker.js over the saved
-// traces of the session's and the latest standard games, and Node tests load
-// it directly.
+// traces of the session's, the latest, and the earlier standard games, and
+// Node tests load it directly.
 //
 // Per game, every pair of consecutive board inputs that are both moves
 // (reveal, chord, flag; no other input between them) is one transition,
@@ -17,8 +17,10 @@
 // distance (Fitts index), of the cells the previous move opened, and of
 // board progress, whether the previous move opened an empty region, whether
 // single-number logic offered the next target, and what the board offered
-// before the next move. Its interval is cluster-robust by game. Each game's
-// own value fits the game's transitions alone (switchCostGameFit).
+// before the next move. Its interval is cluster-robust by game. One game has
+// too few transitions to estimate its own value (split-half reliability near
+// zero in the study), so a game's cost prices its switches at a pool's
+// estimate instead (switchCostTimeMs).
 
 // The latest standard games that have a timed transition.
 const SWITCH_COST_WINDOW_GAMES = 500;
@@ -386,66 +388,57 @@ function switchCostFit(games) {
   };
 }
 
-// One game's own switch cost from its transitions alone: least squares on
-// log interval with an intercept, previous and next move type, T, the Fitts
-// index and its square, board progress, and S last. S's coefficient is the
-// estimate when the other terms leave it identified, which needs every
-// button order (left then left, left then right, right then left, right then
-// right): S is the exclusive or of the previous and the next button. P1's
-// splines and board terms need more transitions than most single games have.
-// In the study one game's value had split-half reliability near zero
-// (reference/mode-switch-2026-09-28.md): alone it is mostly noise.
-function switchCostGameFit(rows) {
-  const counted = { transitions: rows.length, switches: rows.filter((row) => row.switched).length };
-  const column = (of) => Float64Array.from(rows, (row) => Number(of(row)));
-  const columns = [
-    ['previous chord', column((r) => r.prev === 'chord')],
-    ['previous flag', column((r) => r.prev === 'flag')],
-    ['next chord', column((r) => r.next === 'chord')],
-    ['next flag', column((r) => r.next === 'flag')],
-    ['T', column((r) => r.leftMoveChanged)],
-    ['fitts', column((r) => r.fitts)],
-    ['fitts squared', column((r) => r.fitts * r.fitts)],
-    ['progress', column((r) => r.progress)],
-    ['S', column((r) => r.switched)],
-  ];
-  const single = new Uint8Array(rows.length);
-  const fit = switchCostLeastSquares(columns.map(([name, values]) => [name, switchCostDemean(values, single, 1)]),
-    switchCostDemean(Float64Array.from(rows, (row) => Math.log(row.intervalMs)), single, 1));
-  if (fit.kept[fit.kept.length - 1] !== columns.length - 1) return { status: 'not-measurable', ...counted };
-  const beta = fit.beta[fit.kept.length - 1];
-  return { status: 'measured', ...counted, beta, percent: 100 * Math.expm1(beta) };
+// The time the button switches among `rows` added at the estimate `beta`:
+// each switched transition's interval less the interval it would have taken
+// without the switch, interval / e^beta.
+function switchCostTimeMs(rows, beta) {
+  const share = -Math.expm1(-beta);
+  let ms = 0;
+  for (const row of rows) if (row.switched) ms += row.intervalMs * share;
+  return ms;
 }
 
-// One game's switch-cost fields: how many transitions and button switches
-// its replay timed, and its own estimate when they identify one.
-function switchCostGameMeasurements(rows) {
-  const fit = switchCostGameFit(rows);
-  return {
-    switchCostTransitions: fit.transitions,
-    switchCostSwitches: fit.switches,
-    ...(fit.status === 'measured' ? { switchCostPercent: Number(fit.percent.toFixed(2)) } : {}),
-  };
+// Per board key, the pool's games of that board and the mean time their
+// switches added at the pool's own estimate; null when it has none.
+function switchCostPerGame(games, fit) {
+  if (fit.status !== 'measured') return null;
+  const boards = {};
+  for (const game of games) {
+    const board = boards[game.key] || (boards[game.key] = { games: 0, totalMs: 0 });
+    board.games++;
+    board.totalMs += switchCostTimeMs(game.rows, fit.beta);
+  }
+  return Object.fromEntries(Object.entries(boards)
+    .map(([key, board]) => [key, { games: board.games, meanMs: board.totalMs / board.games }]));
 }
 
-// The window: walking `candidates` newest first, the first
-// SWITCH_COST_WINDOW_GAMES games with a timed transition. `gameOf` loads one
-// candidate's { endedAt, rows }, or null when its trace is not saved; it may
-// be async, and no candidate past the window is loaded.
-async function switchCostWindow(candidates, gameOf) {
-  const games = [];
+// One game's timed transitions and button switches, and at a measured
+// estimate the time those switches added.
+function switchCostGame(rows, fit) {
+  return { transitions: rows.length, switches: rows.filter((row) => row.switched).length,
+    ...(fit.status === 'measured' ? { costMs: switchCostTimeMs(rows, fit.beta) } : {}) };
+}
+
+// The two windows: walking `candidates` newest first, the latest
+// SWITCH_COST_WINDOW_GAMES games with a timed transition, then the earlier
+// as many before them. `gameOf` loads one candidate's { endedAt, key, rows },
+// or null when its trace is not saved; it may be async, and no candidate past
+// the earlier window is loaded.
+async function switchCostWindows(candidates, gameOf) {
+  const latest = [];
+  const earlier = [];
   for (const candidate of candidates) {
     const game = await gameOf(candidate);
     if (game === null || game.rows.length === 0) continue;
-    games.push(game);
-    if (games.length === SWITCH_COST_WINDOW_GAMES) break;
+    (latest.length < SWITCH_COST_WINDOW_GAMES ? latest : earlier).push(game);
+    if (earlier.length === SWITCH_COST_WINDOW_GAMES) break;
   }
-  return games;
+  return { latest, earlier };
 }
 
 // The session: walking `candidates` newest first, every game that ended at or
 // after `fromMs` (the session window's inclusive start) and has a timed
-// transition, however many. `gameOf` is as for the window; no candidate that
+// transition, however many. `gameOf` is as for the windows; no candidate that
 // ended before `fromMs` is loaded.
 async function switchCostSince(candidates, fromMs, gameOf) {
   const games = [];
@@ -471,9 +464,10 @@ const SwitchCost = {
   splineColumns: switchCostSplineColumns,
   design: switchCostDesign,
   fit: switchCostFit,
-  gameFit: switchCostGameFit,
-  gameMeasurements: switchCostGameMeasurements,
-  window: switchCostWindow,
+  timeMs: switchCostTimeMs,
+  perGame: switchCostPerGame,
+  game: switchCostGame,
+  windows: switchCostWindows,
   since: switchCostSince,
 };
 

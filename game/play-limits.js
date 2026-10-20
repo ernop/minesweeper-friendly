@@ -1,7 +1,8 @@
 'use strict';
 
-// Daily play limits on the game page: this tab's play spans (saved while
-// each board plays and shared live with other tabs), the gate that keeps a
+// Daily play limits on the game page: the play spans (this tab's saved while
+// each board plays and shared live with other tabs, every saved one held for
+// the session results' abandoned boards), the gate that keeps a
 // new board from starting while the day is closed, the no-flags penalty
 // stage, the notice over a closed board, and today's use in the top bar (in
 // view during play, where a refused flag press flashes it; the limits link
@@ -12,12 +13,12 @@
 
 let playLimits = null;          // userdata 'playLimits', filled by userdataReady
 let playLimitPenalty = null;    // userdata 'playLimitPenalty', a penalty id
-const playSpans = new Map();    // startedAt -> span, from every tab
+const playSpans = new Map();    // startedAt -> span: every saved span, kept current from every tab
 let currentPlaySpan = null;     // this tab's board in play, or null
 let playSpanHeartbeat = null;
 let playLimitChangeTimer = null;
 // The ready board was dealt while closed, so modes that open their board
-// themselves (Pregen 10, trials with a given opening) skipped the deal.
+// themselves (3BV countdown, trials with a given opening) skipped the deal.
 let boardDealtClosed = false;
 // Fixed when the board goes into play: a board keeps the permission it
 // started with, as a board in play always finishes.
@@ -83,20 +84,25 @@ function playSpanBegin() {
   currentPlaySpan = {
     startedAt: now, lastSeenAt: now, endedAt: null,
     width: config.width, height: config.height, mines: config.mines, playMode: settings.playMode,
+    ...(gameGenerator.id === BoardGenerators.DEFAULT_ID ? {}
+      : { generator: { id: gameGenerator.id, params: { ...gameGenerator.params } } }),
+    ending: null,
   };
   savePlaySpan(currentPlaySpan);
   playSpanHeartbeat = setInterval(touchPlaySpan, PLAY_SPAN_HEARTBEAT_MS);
   renderPlayLimits();
 }
 
-// Called when a board leaves play: finished, restarted, or its trial ended.
-function playSpanEnd() {
+// Called when a board leaves play, with how (PLAY_SPAN_ENDINGS): finished,
+// restarted, or cut off by its trial's end.
+function playSpanEnd(ending) {
   if (currentPlaySpan === null) return;
   clearInterval(playSpanHeartbeat);
   playSpanHeartbeat = null;
   const now = Date.now();
   currentPlaySpan.lastSeenAt = now;
   currentPlaySpan.endedAt = now;
+  currentPlaySpan.ending = ending;
   savePlaySpan(currentPlaySpan);
   currentPlaySpan = null;
   renderPlayLimits();

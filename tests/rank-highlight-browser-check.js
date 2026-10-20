@@ -330,6 +330,9 @@ const { chromium } = require(process.argv[2]);
       };
       settings.sessionDefinition = 'pastHour';
       settings.shownThings.sessionSummary = true;
+      // No span has recorded how its board left play, so no tree counts
+      // abandoned boards until the case that adds them.
+      playSpans.clear();
       const collector = createResultSectionCollector('postGame');
       collector.append('tables', buildSessionSummary(current, now));
       await collector.ready();
@@ -373,6 +376,20 @@ const { chromium } = require(process.argv[2]);
           savedHistory['16x16/40@standard+pink-noise(alpha=1,scale=12,contrast=2,stretch=0)'] };
       resultRanks.replaceChildren(buildSessionSummary(current, now));
       const sameSize = read().results;
+      resultRanks.replaceChildren(buildSessionSummary(
+        history['9x9/10@standard+pink-noise(alpha=1,scale=12,contrast=2,stretch=0)'][0], now, false));
+      const generatorType = read().results;
+      history = savedHistory;
+      // Abandoned boards: a Beginner restart in the hour, a Beginner board
+      // whose page closed in play 3 hours ago, and an Expert restart.
+      const spanOf = (minutesAgo, board, ending) => ({ startedAt: now - minutesAgo * 60000,
+        lastSeenAt: now - minutesAgo * 60000 + 5000, endedAt: ending === null ? null : now - minutesAgo * 60000 + 5000,
+        width: board[0], height: board[1], mines: board[2], playMode: 'standard', ending });
+      for (const span of [spanOf(180, [9, 9, 10], null), spanOf(29, [9, 9, 10], 'restarted'),
+        spanOf(25, [30, 16, 99], 'restarted')]) playSpans.set(span.startedAt, span);
+      resultRanks.replaceChildren(buildSessionSummary(current, now));
+      const abandoned = { results: read().results, recordedFrom: localDateText(now - 180 * 60000) };
+      playSpans.clear();
       const oldCustom = game(60 * 24 * 40, 'win', 90000);
       history = { ...savedHistory, '20x20/60@standard': [oldCustom] };
       resultRanks.replaceChildren(buildSessionSummary(oldCustom, now, false));
@@ -386,7 +403,7 @@ const { chromium } = require(process.argv[2]);
       resultRanks.replaceChildren(buildSessionSummary(current, now));
       const plain = [...resultRanks.querySelectorAll('.session-summary-head, .session-summary-row')]
         .map((row) => [...row.children].map((cell) => cell.textContent));
-      return { hour, afterLoss, outsideWindow, expert, sameSize, noSizeGames, short, plain };
+      return { hour, afterLoss, outsideWindow, expert, sameSize, generatorType, abandoned, noSizeGames, short, plain };
     });
     assert.equal(sessionSummary.hour.heading, 'session', 'only the picker names the window');
     assert.deepEqual(sessionSummary.hour.head, ['board type', 'games', 'wins', 'win rate', 'best', 'lifetime rank',
@@ -400,7 +417,7 @@ const { chromium } = require(process.argv[2]);
     ], 'the default mode goes unnamed; a generator has its own aligned column; means average the session’s wins');
     assert.equal(sessionSummary.hour.thisColor, THIS_GAME);
     assert(sessionSummary.hour.rowHeights.every((height) => height < 20), 'summary rows stay one line');
-    const levels = ['won or lost', 'worst offense', 'type'];
+    const levels = ['how it ended', 'worst offense', 'type'];
     assert.deepEqual(sessionSummary.hour.results, [
       ['result', 'Beginner games', ...levels, 'lifetime'],
       ['won', '2', '67%', '', '', '75%'],
@@ -410,7 +427,7 @@ const { chromium } = require(process.argv[2]);
       ['after the opening this', '1', '', '', '33%', '25%'],
       ['lost', '1', '33%', '', '', '25%'],
       ['not judged', '1', '', '33%', '', '25%'],
-    ], 'only the shown game’s size; each share of all its games stands in its level’s column, and lifetime is the '
+    ], 'only the shown game’s board type; each share of all its games stands in its level’s column, and lifetime is the '
       + 'row’s share of all 4 Beginner games, the unmeasured win from 40 days ago included');
     assert.deepEqual(sessionSummary.hour.marked, ['after the opening this'],
       'the game shown is marked on its leaf alone, since the indentation shows its branch');
@@ -445,17 +462,27 @@ const { chromium } = require(process.argv[2]);
     'a rule starts the lost branch and another the misclick rows');
     assert.deepEqual(sessionSummary.expert.indents, ['4px', '4px', '18px', '32px', '18px', '18px'],
       'misclick rows sit at the second level');
-    assert.deepEqual(sessionSummary.sameSize, [
+    assert.deepEqual(sessionSummary.sameSize, sessionSummary.hour.results,
+      'a generator’s games on the same size are another board type, left out of the Standard tree in the session and in lifetime');
+    assert.deepEqual(sessionSummary.generatorType, [
+      ['result', 'Beginner · Pink noise (spectral exponent 1, feature size 12, contrast 2, stretch 0) games', ...levels, 'lifetime'],
+      ['won', '1', '100%', '', '', '100%'],
+      ['guesses not measured this', '1', '', '100%', '', '100%'],
+      ['lost', '0', '0%', '', '', '0%'],
+    ], 'a generator’s tree holds its own games and names its variant');
+    assert.deepEqual(sessionSummary.abandoned.results, [
       ['result', 'Beginner games', ...levels, 'lifetime'],
-      ['won', '3', '75%', '', '', '80%'],
-      ['no avoidable risk', '1', '', '25%', '', '20%'],
-      ['without guessing', '1', '', '', '25%', '20%'],
-      ['riskier guess than necessary', '1', '', '25%', '', '20%'],
-      ['after the opening this', '1', '', '', '25%', '20%'],
-      ['guesses not measured', '1', '', '25%', '', '40%'],
-      ['lost', '1', '25%', '', '', '20%'],
-      ['not judged', '1', '', '25%', '', '20%'],
-    ], 'a generator’s games count with their size, in the session and in lifetime');
+      ['won', '2', '50%', '', '', '50%'],
+      ['no avoidable risk', '1', '', '25%', '', '17%'],
+      ['without guessing', '1', '', '', '25%', '17%'],
+      ['riskier guess than necessary', '1', '', '25%', '', '17%'],
+      ['after the opening this', '1', '', '', '25%', '17%'],
+      ['lost', '1', '25%', '', '', '17%'],
+      ['not judged', '1', '', '25%', '', '17%'],
+      ['abandoned (recorded since ' + sessionSummary.abandoned.recordedFrom + ')', '1', '25%', '', '', '33%'],
+    ], 'abandoned boards of the type count beside won and lost: the restart in the hour in the session, the closed page '
+      + 'in lifetime too, the Expert restart in neither; the row says since when boards record it, as lifetime reaches '
+      + 'back before then');
     assert.equal(sessionSummary.noSizeGames, 'no Custom 20x20-60 games in session',
       'a size without session games says so in place of its tree');
     assert.deepEqual(sessionSummary.short.results, [
@@ -473,7 +500,7 @@ const { chromium } = require(process.argv[2]);
     ]);
     assert.deepEqual(sessionSummary.plain, [['board type', 'games', 'wins', 'win rate', 'best', 'lifetime rank', 'mean time', 'mean 3BV/s', 'mean IOE'],
       ['Beginner', '1', '1', '100%', '4.100s', '2nd this of 3', '4.100s', '2.439', '0.833'],
-      ['result', 'Beginner games', 'won or lost', 'worst offense', 'type', 'lifetime'], ['won', '1', '100%', '', '', '75%'],
+      ['result', 'Beginner games', ...levels, 'lifetime'], ['won', '1', '100%', '', '', '75%'],
       ['riskier guess than necessary', '1', '', '100%', '', '25%'], ['after the opening this', '1', '', '', '100%', '25%'],
       ['lost', '0', '0%', '', '', '25%']],
     'without a variant to name, the board stands alone in its column');

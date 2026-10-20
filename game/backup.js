@@ -6,9 +6,17 @@
 //-------BACKUP (export / import of the play history)-------
 
 const importPanel = document.getElementById('import-panel');
+const importButton = document.getElementById('import-btn');
 const importText = document.getElementById('import-text');
 const importFileInput = document.getElementById('import-file-input');
 const exportFileLink = document.getElementById('export-file');
+
+// The import and data-format panels open under the row; each opener holds
+// the pressed look while its panel is open.
+function showBackupPanel(panel, opener, open) {
+  panel.hidden = !open;
+  opener.setAttribute('aria-expanded', String(open));
+}
 
 document.getElementById('export-btn').addEventListener('click', () => {
   const games = cleanTransferredHistory(history);
@@ -111,14 +119,14 @@ function importHistory(text) {
   }
   backupStatus.textContent = 'imported ' + added.length + ' new games, skipped ' + dups + ' duplicates'
     + (skipped.length > 0 ? ', ' + skipped.join(', ') : '');
-  importPanel.hidden = true;
+  showBackupPanel(importPanel, importButton, false);
   importText.value = '';
   rememberPanel('importHistory', false);
   rememberPreference('drafts', { ...settings.drafts, historyImport: '' });
 }
 
-document.getElementById('import-btn').addEventListener('click', () => {
-  importPanel.hidden = !importPanel.hidden;
+importButton.addEventListener('click', () => {
+  showBackupPanel(importPanel, importButton, importPanel.hidden);
   rememberPanel('importHistory', !importPanel.hidden);
 });
 
@@ -154,9 +162,10 @@ archiveChip.addEventListener('click', () => {
 });
 
 const formatPanel = document.getElementById('format-panel');
+const formatButton = document.getElementById('format-btn');
 
-document.getElementById('format-btn').addEventListener('click', () => {
-  formatPanel.hidden = !formatPanel.hidden;
+formatButton.addEventListener('click', () => {
+  showBackupPanel(formatPanel, formatButton, formatPanel.hidden);
   rememberPanel('dataFormat', !formatPanel.hidden);
 });
 

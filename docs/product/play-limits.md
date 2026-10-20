@@ -40,11 +40,17 @@ coherent and beautifully integrated way!"
     was read as a time-of-day stop; a limit on wall-clock time spent with the
     page open is not built (BACKLOG).
 - **What counts.** Play time is game time, as the timer counts it: from the
-  board going into play (first click, or the deal in Pregen 10 and trials
+  board going into play (first click, or the deal in 3BV countdown and trials
   with a given opening) to its end. A game is a board that went into play.
   Restarted (abandoned) boards count, both their time and as a game, so
   restarting is never a way around a limit. Play in every open tab adds up.
   Play before a limit was set still counts toward it that day.
+- **How each board left play** (2026-10-20). Each board's play span also
+  records its generator and how it left play: finished (won or lost),
+  restarted (another board started before it ended), or cut off by its
+  trial's end; a span whose page closed in play keeps no ending and stops
+  being touched. The [session results](rankings.md) count abandoned boards
+  from these; the limits do not use them.
 - **When a limit is reached.** The board in play always finishes: stopping
   it would destroy a game the player is in the middle of. What follows is
   the penalty (below). Once the day is closed, no new board can start until

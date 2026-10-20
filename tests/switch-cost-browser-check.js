@@ -1,12 +1,14 @@
 'use strict';
 // Game data's switch cost line in a real browser. While the line is off
 // nothing is read. On, it shows en dashes and zero game counts with no saved
-// games and below the minimum; its session and latest-500 estimates are what
-// the worker computes from traces saved in IndexedDB, equal to the same code
-// run in Node on the same fixture games; the session value follows the picker
-// and the window's start passing games; a finished game joins both; the card
-// shows each pool's details; turning the line off stops reading and turning it
-// on catches up; and no reply or column width wraps the line.
+// games and below the minimum; its session, latest-500, and earlier-500
+// estimates, their per-board costs, and the shown game's cost are what the
+// worker computes from traces saved in IndexedDB, equal to the same code run
+// in Node on the same fixture games; the session value follows the picker
+// and the window's start passing games; a finished game joins the session
+// and the latest 500; the card shows each pool's details; turning the line
+// off stops reading and turning it on catches up; and the line wraps only
+// between items, never overflowing game data, at any column width.
 //
 // Pages are served from the working tree by request routing under the exact
 // test origin; every other request is aborted. Chromium only: Firefox does
@@ -60,30 +62,60 @@ function recentFixture(newestEndedAt) {
   }));
 }
 
-// Both pools as the worker forms them, from the same games in Node.
-async function nodeFits(games, sessionFromMs) {
+const POOLS = ['session', 'latest', 'earlier'];
+
+// Every pool as the worker forms it, and the shown game's cost, from the
+// same games in Node.
+async function nodeFits(games, sessionFromMs, shownEndedAt = null) {
   const candidates = [...games].sort((a, b) => b.record.endedAt - a.record.endedAt)
     .map((game) => ({ endedAt: game.record.endedAt, game }));
-  const gameOf = ({ endedAt, game }) => ({ endedAt,
+  const gameOf = ({ endedAt, game }) => ({ endedAt, key: game.key,
     rows: SwitchCost.gameRows(game.trace, game.record.outcome, SwitchCost.KEYS[game.key], deps).rows });
+  const withPerGame = (pool) => {
+    const fit = SwitchCost.fit(pool);
+    return { ...fit, perGame: SwitchCost.perGame(pool, fit) };
+  };
+  const windows = await SwitchCost.windows(candidates, gameOf);
+  const latest = withPerGame(windows.latest);
+  const shownCandidate = candidates.find((candidate) => candidate.endedAt === shownEndedAt);
+  const shownGame = shownCandidate === undefined || gameOf(shownCandidate).rows.length === 0 ? null : gameOf(shownCandidate);
   return {
-    session: SwitchCost.fit(await SwitchCost.since(candidates, sessionFromMs, gameOf)),
-    latest: SwitchCost.fit(await SwitchCost.window(candidates, gameOf)),
+    session: withPerGame(await SwitchCost.since(candidates, sessionFromMs, gameOf)),
+    latest, earlier: withPerGame(windows.earlier),
+    shown: shownGame === null ? null : { endedAt: shownGame.endedAt, ...SwitchCost.game(shownGame.rows, latest) },
   };
 }
 
+function assertClose(value, want, label) {
+  if (want === undefined) assert.equal(value, undefined, label);
+  else assert.ok(Math.abs(value - want) <= 1e-12 * Math.max(1, Math.abs(want)), label + ', worker ' + value + ', Node ' + want);
+}
+
 function assertFits(actual, expected, when) {
-  for (const pool of ['session', 'latest']) {
+  for (const pool of POOLS) {
     const label = when + ', ' + pool;
     assert.equal(actual[pool].status, expected[pool].status, label + ': status');
     for (const field of ['games', 'transitions', 'columns', 'medianSwitchMs']) {
       assert.equal(actual[pool][field], expected[pool][field], label + ': ' + field);
     }
     for (const field of ['beta', 'se', 'percent', 'percentLow', 'percentHigh', 'msPerSwitch', 'switchShare']) {
-      const [value, want] = [actual[pool][field], expected[pool][field]];
-      if (want === undefined) assert.equal(value, undefined, label + ': ' + field);
-      else assert.ok(Math.abs(value - want) <= 1e-12 * Math.max(1, Math.abs(want)), label + ': ' + field + ', worker ' + value + ', Node ' + want);
+      assertClose(actual[pool][field], expected[pool][field], label + ': ' + field);
     }
+    if (expected[pool].perGame === null) assert.equal(actual[pool].perGame, null, label + ': no per-game cost');
+    else {
+      assert.deepEqual(Object.keys(actual[pool].perGame).sort(), Object.keys(expected[pool].perGame).sort(), label + ': boards');
+      for (const [key, board] of Object.entries(expected[pool].perGame)) {
+        assert.equal(actual[pool].perGame[key].games, board.games, label + ': ' + key + ' games');
+        assertClose(actual[pool].perGame[key].meanMs, board.meanMs, label + ': ' + key + ' cost per game');
+      }
+    }
+  }
+  if (expected.shown === null) assert.equal(actual.shown, null, when + ': no shown game');
+  else {
+    for (const field of ['endedAt', 'transitions', 'switches']) {
+      assert.equal(actual.shown[field], expected.shown[field], when + ': shown ' + field);
+    }
+    assertClose(actual.shown.costMs, expected.shown.costMs, when + ': shown cost');
   }
 }
 
@@ -104,11 +136,13 @@ function pageReady(page) {
   return page.waitForFunction(() => typeof preferenceUIReady !== 'undefined' && preferenceUIReady);
 }
 
-// The latest reply with the session start of the request it answered, read
-// together so a refresh starting in between cannot pair them wrongly.
+// The latest reply with the session start and shown game of the request it
+// answered, read together so a refresh starting in between cannot pair them
+// wrongly. It waits for the reply about the game the line now sits under.
 async function settled(page) {
   const handle = await page.waitForFunction(() => switchCostFits !== null && !switchCostPending
-    && { fits: switchCostFits, sessionFromMs: switchCostRequest.sessionFromMs });
+    && switchCostRequest.shownEndedAt === switchCostShownEndedAt
+    && { fits: switchCostFits, sessionFromMs: switchCostRequest.sessionFromMs, shownEndedAt: switchCostRequest.shownEndedAt });
   return handle.jsonValue();
 }
 
@@ -131,19 +165,29 @@ function ifMeasured(fit, text) {
   return fit.status === 'measured' ? text(fit) : '\u2013';
 }
 
-function lineText(fits) {
-  return ['switch cost', 'session ' + ifMeasured(fits.session, (f) => signed(f.percent, 1) + '%'),
-    'latest ' + SwitchCost.WINDOW_GAMES + ' ' + ifMeasured(fits.latest, (f) => signed(f.percent, 1) + '%')];
+function seconds(ms) {
+  return signed(ms / 1000, Math.abs(ms) < 9995 ? 2 : 1) + 's';
+}
+
+const POOL_LABELS = ['session', 'latest ' + SwitchCost.WINDOW_GAMES, 'earlier ' + SwitchCost.WINDOW_GAMES];
+const BOARDS = [['Beginner', '9x9/10@standard'], ['Intermediate', '16x16/40@standard'], ['Expert', '30x16/99@standard']];
+
+function lineText(fits, shownEndedAt) {
+  const shown = fits.shown !== null && fits.shown.endedAt === shownEndedAt ? fits.shown : null;
+  return ['switch cost', 'this game ' + (shown !== null && shown.costMs !== undefined ? seconds(shown.costMs) : '\u2013'),
+    ...POOLS.map((pool, i) => POOL_LABELS[i] + ' ' + ifMeasured(fits[pool], (f) => signed(f.percent, 1) + '%'))];
 }
 
 function cardText(fits) {
-  const both = (text) => [fits.session, fits.latest].map(text);
+  const all = (text) => POOLS.map((pool) => text(fits[pool]));
   return [
-    ['', 'session', 'latest ' + SwitchCost.WINDOW_GAMES],
-    ['95% interval', ...both((fit) => ifMeasured(fit, (f) => signed(f.percentLow, 1) + ' to ' + signed(f.percentHigh, 1) + '%'))],
-    ['per switch', ...both((fit) => ifMeasured(fit, (f) => signed(f.msPerSwitch, 0) + 'ms'))],
-    ['moves that switch', ...both((fit) => ifMeasured(fit, (f) => Math.round(f.switchShare * 100) + '%'))],
-    ['games', ...both((fit) => String(fit.games))],
+    ['', ...POOL_LABELS],
+    ['95% interval', ...all((fit) => ifMeasured(fit, (f) => signed(f.percentLow, 1) + ' to ' + signed(f.percentHigh, 1) + '%'))],
+    ['per switch', ...all((fit) => ifMeasured(fit, (f) => signed(f.msPerSwitch, 0) + 'ms'))],
+    ...BOARDS.map(([name, key]) => ['per ' + name + ' game',
+      ...all((fit) => (fit.perGame !== null && fit.perGame[key] !== undefined ? seconds(fit.perGame[key].meanMs) : '\u2013'))]),
+    ['moves that switch', ...all((fit) => ifMeasured(fit, (f) => Math.round(f.switchShare * 100) + '%'))],
+    ['games', ...all((fit) => String(fit.games))],
   ];
 }
 
@@ -172,9 +216,13 @@ function closeCard(page) {
   return page.evaluate(() => document.activeElement.blur());
 }
 
-// The line's box: one line, inside game data, through replies and widths.
-function assertOneLine(box, message) {
-  assert.ok(box.height < 2 * box.lineHeight, message + ': ' + box.height + 'px tall, one line is ' + box.lineHeight + 'px');
+// The line's box inside game data: every item on one line of its own, no
+// overflow, and with `whole` the line itself one line.
+function assertLineFits(box, message, whole = false) {
+  for (const height of box.itemHeights) {
+    assert.ok(height < 2 * box.lineHeight, message + ': an item ' + height + 'px tall, one line is ' + box.lineHeight + 'px');
+  }
+  if (whole) assert.ok(box.height < 2 * box.lineHeight, message + ': ' + box.height + 'px tall, one line is ' + box.lineHeight + 'px');
   assert.ok(box.overflow <= 0, message + ': overflow ' + box.overflow + 'px');
 }
 
@@ -183,6 +231,7 @@ function lineBox(page) {
     const line = document.querySelector(lineSelector);
     const profile = line.closest('.board-time-profile');
     return { height: line.getBoundingClientRect().height,
+      itemHeights: [...line.querySelectorAll('.switch-cost-pool')].map((item) => item.getBoundingClientRect().height),
       lineHeight: parseFloat(getComputedStyle(line).lineHeight) || parseFloat(getComputedStyle(line).fontSize) * 1.3,
       overflow: line.getBoundingClientRect().right - profile.getBoundingClientRect().right };
   }, LINE);
@@ -237,12 +286,12 @@ function pickSession(page, id) {
     await page.evaluate(() => {
       const host = document.createElement('div');
       host.id = 'lone-switch-cost';
-      host.appendChild(buildSwitchCostLine());
+      host.appendChild(buildSwitchCostLine({ endedAt: null }));
       resultRanks.before(host);
     });
     let state = await settled(page);
     assertFits(state.fits, await nodeFits([], state.sessionFromMs), 'no saved games');
-    assert.deepEqual(await shownLine(page, '#lone-switch-cost .switch-cost-line'), lineText(state.fits), 'no saved games: dashes');
+    assert.deepEqual(await shownLine(page, '#lone-switch-cost .switch-cost-line'), lineText(state.fits, null), 'no saved games: dashes');
     assert.deepEqual((await openCard(page, '#lone-switch-cost .chart-help-label')).rows, cardText(state.fits),
       'no saved games: the card counts zero games');
     await closeCard(page);
@@ -250,26 +299,28 @@ function pickSession(page, id) {
     await storeGames(page, few);
     await page.reload();
     await pageReady(page);
-    state = await settled(page);
-    const expectedFew = await nodeFits(few, state.sessionFromMs);
-    assert.equal(expectedFew.session.status, 'too-few-games');
-    assertFits(state.fits, expectedFew, 'under the minimum');
     await showGameData(page);
-    assert.deepEqual(await shownLine(page), lineText(state.fits), 'under the minimum: dashes');
+    state = await settled(page);
+    const expectedFew = await nodeFits(few, state.sessionFromMs, state.shownEndedAt);
+    assert.equal(expectedFew.session.status, 'too-few-games');
+    assert.notEqual(expectedFew.shown, null, 'the shown win is a counted game');
+    assertFits(state.fits, expectedFew, 'under the minimum');
+    assert.deepEqual(await shownLine(page), lineText(state.fits, state.shownEndedAt), 'under the minimum: dashes');
     assert.equal(await page.locator(LINE).evaluate((line) => line.nextElementSibling.matches('.game-data-controls')), true,
       'the line sits right above the chart options');
 
     await storeGames(page, fixture.slice(few.length));
     await page.reload();
     await pageReady(page);
+    await showGameData(page);
     state = await settled(page);
-    const expectedAll = await nodeFits(fixture, state.sessionFromMs);
+    const expectedAll = await nodeFits(fixture, state.sessionFromMs, state.shownEndedAt);
     assert.equal(expectedAll.latest.status, 'measured');
     assert.equal(expectedAll.session.games, expectedAll.latest.games, 'the past 4 hours hold every fixture game');
+    assert.ok(expectedAll.shown.costMs > 0, 'the shown win has a cost');
     assertFits(state.fits, expectedAll, 'every fixture game');
-    await showGameData(page);
-    assert.deepEqual(await shownLine(page), lineText(state.fits), 'every fixture game: both estimates');
-    assertOneLine(await lineBox(page), 'estimates shown');
+    assert.deepEqual(await shownLine(page), lineText(state.fits, state.shownEndedAt), 'every fixture game: the estimates and this game');
+    assertLineFits(await lineBox(page), 'estimates shown');
     const latest = state.fits.latest;
 
     // The session value follows the picker; the latest 500 stay as they were.
@@ -277,14 +328,14 @@ function pickSession(page, id) {
     state = await settled(page);
     assert.equal(state.fits.session.status, 'measured', 'the past hour is measured');
     assert.ok(state.fits.session.games < latest.games, 'the past hour holds fewer games than the latest 500');
-    assertFits(state.fits, await nodeFits(fixture, state.sessionFromMs), 'past hour');
+    assertFits(state.fits, await nodeFits(fixture, state.sessionFromMs, state.shownEndedAt), 'past hour');
     assert.deepEqual(state.fits.latest, latest, 'picking a session leaves the latest 500');
     await page.waitForSelector(LINE);
-    assert.deepEqual(await shownLine(page), lineText(state.fits), 'past hour: both estimates');
+    assert.deepEqual(await shownLine(page), lineText(state.fits, state.shownEndedAt), 'past hour: both estimates');
     const card = await openCard(page);
     assert.equal(card.hidden, false, 'the label opens its card');
     assert.deepEqual(card.rows, cardText(state.fits), 'past hour: the card details');
-    assert.equal(card.paragraphs, 2, 'what the estimate is and which games count');
+    assert.equal(card.paragraphs, 4, 'this game, what the estimate is, how to read the earlier 500, and which games count');
     if (screenshotPath) {
       const shot = await page.evaluate(() => {
         const profile = document.querySelector('.board-time-profile').getBoundingClientRect();
@@ -300,9 +351,9 @@ function pickSession(page, id) {
     await pickSession(page, 'past10min');
     state = await settled(page);
     assert.equal(state.fits.session.status, 'too-few-games', 'the past 10 minutes are under the minimum');
-    assertFits(state.fits, await nodeFits(fixture, state.sessionFromMs), 'past 10 minutes');
+    assertFits(state.fits, await nodeFits(fixture, state.sessionFromMs, state.shownEndedAt), 'past 10 minutes');
     await page.waitForSelector(LINE);
-    assert.deepEqual(await shownLine(page), lineText(state.fits), 'past 10 minutes: a dash beside the latest 500');
+    assert.deepEqual(await shownLine(page), lineText(state.fits, state.shownEndedAt), 'past 10 minutes: a dash beside the latest 500');
 
     // The window's start passing games refreshes the session value when the
     // line is next built: ten minutes on, the past hour has lost games.
@@ -318,9 +369,9 @@ function pickSession(page, id) {
     state = await settledNew(page);
     assert.ok(state.sessionFromMs >= pastHour.sessionFromMs + 10 * MINUTE_MS, 'the request used the later window');
     assert.equal(state.fits.session.status, 'too-few-games', 'ten minutes on, the past hour is under the minimum');
-    assertFits(state.fits, await nodeFits(fixture, state.sessionFromMs), 'ten minutes on');
+    assertFits(state.fits, await nodeFits(fixture, state.sessionFromMs, state.shownEndedAt), 'ten minutes on');
     await page.waitForSelector(LINE);
-    assert.deepEqual(await shownLine(page), lineText(state.fits), 'ten minutes on: the session dash');
+    assert.deepEqual(await shownLine(page), lineText(state.fits, state.shownEndedAt), 'ten minutes on: the session dash');
     await markRequest(page);
     await page.evaluate(() => {
       Date.now.restore();
@@ -328,7 +379,7 @@ function pickSession(page, id) {
     });
     state = await settledNew(page);
     assert.equal(state.fits.session.status, 'measured', 'back to the present');
-    assertFits(state.fits, await nodeFits(fixture, state.sessionFromMs), 'back to the present');
+    assertFits(state.fits, await nodeFits(fixture, state.sessionFromMs, state.shownEndedAt), 'back to the present');
 
     // A reply closes an open card, which would still show the previous one.
     await page.waitForSelector(LINE);
@@ -338,8 +389,9 @@ function pickSession(page, id) {
     assert.equal(await page.evaluate(() => document.querySelector('.chart-help-tip').hidden), true, 'a reply closes the card');
     await closeCard(page);
 
-    // A finished standard game with a timed transition joins both pools
-    // (the past 4 hours, which no fixture game leaves during the check).
+    // A finished standard game with a timed transition joins the session
+    // and the latest 500 (the past 4 hours, which no fixture game leaves
+    // during the check).
     await pickSession(page, 'past4h');
     state = await settled(page);
     await page.evaluate(() => { settings.justUniverse = false; });
@@ -355,7 +407,9 @@ function pickSession(page, id) {
       && switchCostFits.session.games === before.session.games + 1
       && switchCostFits.latest.games === before.latest.games + 1 && switchCostFits, state.fits)).jsonValue();
     await showGameData(page);
-    assert.deepEqual(await shownLine(page), lineText(finished), 'both pools after a finished game');
+    const afterFinish = await settled(page);
+    assert.deepEqual(await shownLine(page), lineText(afterFinish.fits, afterFinish.shownEndedAt), 'the pools after a finished game');
+    assert.equal(afterFinish.fits.latest.games, finished.latest.games, 'the shown win changed nothing pooled');
 
     // Off: the line goes, and a refresh waits until it shows again.
     const redrawGameData = () => page.evaluate(() =>
@@ -379,17 +433,17 @@ function pickSession(page, id) {
     })).jsonValue(), [false, true], 'turning the line on again catches up');
     await settled(page);
 
-    // The line stays one line inside game data from the narrowest details
-    // column to the widest.
+    // Inside game data from the narrowest details column to the widest, the
+    // line wraps only between items; the widest holds it on one line.
     for (const share of [0.2, 0.46, 0.3]) {
       await page.evaluate((columnShare) => { settings.detailsColumnShare = columnShare; syncBoardLayout(); }, share);
       await page.waitForTimeout(100);
-      assertOneLine(await lineBox(page), 'details column at ' + share + ' of the window');
+      assertLineFits(await lineBox(page), 'details column at ' + share + ' of the window', share === 0.46);
     }
     assert.deepEqual(errors, [], 'no page errors');
     console.log('switch-cost browser check: passed (' + latest.games + ' fixture games, '
       + latest.transitions + ' transitions; past hour ' + pastHour.fits.session.games + ' games; '
-      + lineText(pastHour.fits).join(' ') + ')');
+      + lineText(pastHour.fits, pastHour.shownEndedAt).join(' ') + ')');
   } finally {
     await browser.close();
   }

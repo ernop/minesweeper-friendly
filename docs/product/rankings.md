@@ -266,11 +266,12 @@ middle? that's okay."
   division should be multilevel. 1st split: wins/losses. 2. then within each
   cat, break them down by the variety and type of worst offenses against
   perfect play."). Under the main grid, a second grid shows the session's
-  games of one board size (next item) as one tree, each game in exactly one
+  games of one board type (next item) as one tree, each game in exactly one
   leaf
   ([Game-end evaluation](game-end-evaluation.md), "Session result kinds"):
   - **Level 1:** won, then lost under a rule, in bold. Both always show,
-    even at 0, since the split itself is the first reading.
+    even at 0, since the split itself is the first reading. Abandoned
+    (2026-10-20, next item) closes the tree under another rule.
   - **Level 2, the worst offense against perfect play,** least to worst,
     then the measurement gaps. Won: no avoidable risk; riskier guess than
     necessary; guessed while a safe move was available; guesses not
@@ -296,7 +297,7 @@ middle? that's okay."
   only rows with a game show. The flat list it replaced (built earlier on
   2026-10-14) had win types, then loss types exactly as the endings chart
   filed them.
-- **Session results: one size, one share column per level** (creator
+- **Session results: one board type, one share column per level** (creator
   request 2026-10-15, of the grid split by Beginner and Intermediate: "the
   lower part of the image is about the "distribution" of outcomes. make it
   ONLY be about the currrne mode (only e.g. expert,not all 3 ypese). 2.
@@ -306,25 +307,47 @@ middle? that's okay."
   40% losses would be: 10% (of absolute) early game forced guerss loss; 2%
   carelessly clicking a knowably mined square (e.g. next to a 3 in a
   corner), 10% chose the best guess when forced to do so, etc.)"). The tree
-  counts only the session's games of the shown game's board size:
-  Beginner, Intermediate, Expert, or a custom size under its own label
-  ("Custom 20x20-60"). The shown game is the one the summary is built for:
-  the win just finished, or after a loss and in the scores view the latest
-  win of the board being played (the loss itself when that board has no
-  win), so it is always that board's size. A mode or generator counts with
-  its size, so Expert and Pink noise Expert are both Expert games: the
-  sizes are the creator's three "main game types" (2026-10-12: "loss-type
-  should be split by main game type (small, medium, expert)").
-  - Columns: result; "Expert games", the count; then one share column per
-    level, headed "won or lost", "worst offense", and "type"; then
-    "lifetime" (below). Every session share is of all that size's session games (the creator's "of absolute"), and
-    a row's share stands only in its own level's column, so reading down one
-    column reads one level: won plus lost is 100%, and the shares under a
-    row add up to that row's share, give or take rounding. A nonzero share
-    that rounds to 0% reads "<1%".
+  counts only the session's games of the shown game's board type: one
+  size and mine count, play mode, and generator, the same type as a
+  summary row and a history key (creator 2026-10-20, asked whether to split
+  a size's modes and generators apart: "yes, spli treethat way"). Modes
+  stay apart because their rules change what a guess can do (Angelic,
+  Proof-or-die, NG), and a generator changes the boards. The shown game is
+  the one the summary is built for: the win just finished, or after a loss
+  and in the scores view the latest win of the board being played (the
+  loss itself when that board has no win), so it is always that board's
+  type. From 2026-10-15 to 2026-10-20 the tree was one size with its modes
+  and generators together, the creator's three "main game types"
+  (2026-10-12: "loss-type should be split by main game type (small,
+  medium, expert)").
+  - Columns: result; the count, headed with the type as a summary row
+    names it ("Expert games", "Expert · NG games", "Custom 20x20-60
+    games"); then one share column per level, headed "how it ended" ("won
+    or lost" until abandoned joined it on 2026-10-20), "worst offense", and
+    "type"; then "lifetime" (below). Every session share is of all that
+    type's session games started, abandoned included (the creator's "of
+    absolute"), and a row's share stands only in its own level's column, so
+    reading down one column reads one level: won, lost, and abandoned make
+    100%, and the shares under a row add up to that row's share, give or
+    take rounding. A nonzero share that rounds to 0% reads "<1%".
+  - **Abandoned** (creator 2026-10-20, answering whether to add it beside
+    won and lost; requested 2026-10-14 as "all games started through won,
+    lost, and abandoned"), the last level-1 row, under a rule: boards of the
+    type that went into play and never finished, because the player
+    started another board, a trial's end cut the board off, or the page
+    closed with it in play. A board counts once it is abandoned; one still
+    in play in any tab is not counted. It has no deeper rows. Boards record
+    how they left play from 2026-10-20 ([Daily play
+    limits](play-limits.md), play spans); earlier games include no
+    abandoned ones, so when the lifetime reaches back before the first board
+    recorded that way the row reads "abandoned (recorded since
+    2026-10-20)", with that board's date. A summary narrowed to no-mark
+    games has no abandoned row, since whether an abandoned board had a flag
+    is not recorded. Abandoned boards never count in the summary rows above
+    the tree, whose games and win rate stay finished games.
   - **Lifetime** (2026-10-20), the last column: the same row's share of
-    every game of that size played up to the shown game, its modes and
-    generators together as in the session columns. It carries the left
+    every game of that type played up to the shown game, abandoned boards
+    included as in the session columns. It carries the left
     panel's game endings percentages, which the creator asked to keep when
     the panel was removed ("same for teh game endings %!"; [Session
     stats](session-stats.md)); recommended as this column, rather than a
@@ -337,9 +360,9 @@ middle? that's okay."
     lacked flags"). They recount losses already filed above, so they never
     add to the total; as second-level rows, their shares stand in the worst
     offense column.
-  - A size with no session games, which the scores view can show when the
-    board's latest win predates the session, reads "no Expert games in
-    session" in place of the tree.
+  - A type with no session games, finished or abandoned, which the scores
+    view can show when the board's latest win predates the session, reads
+    "no Expert games in session" in place of the tree.
   - **This game** (creator 2026-10-15: "relating to the outcome
     distribution display, it would b natural for that to also  have a
     "this" section, right?"; read as marking the game's place in the tree,
@@ -370,11 +393,12 @@ middle? that's okay."
     right after the summary's own switch.
 - **Requested next (creator, 2026-10-14):** while playing a size, show only
   that size, as one tree from all games started through won, lost, and
-  abandoned to finer kinds. The won/lost and worst-offense levels above are
-  built, and since 2026-10-15 the tree shows only the size being played; the
-  rest (splitting a size's modes and generators apart, abandoned boards,
-  when in the game a loss came) is proposed and awaiting review:
-  [BACKLOG](../../BACKLOG.md), "Game results as one tree per board type".
+  abandoned to finer kinds. Built: the won/lost and worst-offense levels
+  above, one size from 2026-10-15, one board type and abandoned boards
+  from 2026-10-20. The rest (when in the game a loss came, how far an
+  abandoned board got, a rushed-click overlay) is proposed and awaiting
+  review: [BACKLOG](../../BACKLOG.md), "Game results as one tree per board
+  type".
 
 ## Recent placements (requested and decided 2026-08-23; charts and the lifetime near-miss rule extended later the same day)
 

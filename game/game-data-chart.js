@@ -309,7 +309,8 @@ const GAME_DATA_EXAMPLE_OF = {
   bvPerSecond: 'bv3', efficiency: 'bv3', ioe: 'bv3', ios: 'bv3', stnb: 'bv3', pathPer3bv: 'bv3',
   ziniEfficiency: 'zini', hziniEfficiency: 'hzini', misclickRate: 'misclickRate', noopRate: 'noopRate',
   correctness: 'noopRate', unusedMarkShare: 'unusedMarkShare', unusedFlagRate: 'unusedMarkShare',
-  unflaggedMineShare: 'unflaggedMineShare',
+  unflaggedMineShare: 'unflaggedMineShare', moveTime: 'moves', easyWorkLeftShare: 'easyWorkLeft',
+  nearestAreaShare: 'forks',
 };
 function gameDataExampleFor(item) {
   if (gameDataExamples === null || gameDataExamples.byMeasurement === null
@@ -339,6 +340,10 @@ const GAME_DATA_EXAMPLE_COUNTS = {
   unusedMarkShare: (example) => [['shade', countPhrase(example.marks.shade.length, 'unused flag', 'unused flags')]],
   unflaggedMineShare: (example) => [['shade', example.marks.shade.length + ' of '
     + countPhrase(example.of, 'mine', 'mines') + ' unflagged']],
+  moves: (example) => [['ring', countPhrase(example.marks.ring.length, 'move', 'moves')]],
+  easyWorkLeft: (example) => [['ring', countPhrase(example.marks.ring.length, 'move leaving easy work', 'moves leaving easy work')],
+    ['shade', countPhrase(example.marks.shade.length, 'proven-safe square left', 'proven-safe squares left')]],
+  forks: (example) => [['ring', countPhrase(example.marks.ring.length, 'fork', 'forks')]],
 };
 
 // The finished board as the game board shows it, in the player's board
@@ -1022,8 +1027,9 @@ function buildBoardTimeRankProfile(record, records) {
       }
       selectionList('performance measurements', 'all performance measurements', 'measurement',
         'gameDataMetrics', GameData.metrics);
-      configView.appendChild(checkbox('switch cost, over the session and the latest ' + SwitchCost.WINDOW_GAMES
-        + ' standard games', settings.gameDataSwitchCost, (checked) => {
+      const switchCostLabel = 'switch cost, this game and over the session, the latest ' + SwitchCost.WINDOW_GAMES
+        + ', and the earlier ' + SwitchCost.WINDOW_GAMES + ' standard games';
+      configView.appendChild(checkbox(switchCostLabel, settings.gameDataSwitchCost, (checked) => {
         settings.gameDataSwitchCost = checked; saveSettings();
       }, 'switch-cost'));
       selectionList('board traits', 'all board traits', 'trait', 'gameDataBoardTraits',
@@ -1128,7 +1134,7 @@ function buildBoardTimeRankProfile(record, records) {
         profile.appendChild(section);
         observeFit(fitted);
       }
-      if (settings.gameDataSwitchCost) profile.appendChild(buildSwitchCostLine());
+      if (settings.gameDataSwitchCost) profile.appendChild(buildSwitchCostLine(record));
       // Every chart option in one small row at the bottom, out of the data's way.
       const footer = document.createElement('div');
       footer.className = 'game-data-controls';

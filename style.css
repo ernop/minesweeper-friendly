@@ -3618,23 +3618,20 @@ body.vigilance-running #self-check-header {
 /*-------BACKUP (subtle export/import controls)-------*/
 
 #backup {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
   margin-top: 30px;
-  text-align: center;
   font-size: 11px;
   color: #000000;
 }
 
-#backup button,
-#backup a {
-  font: inherit;
-  color: #157ba8;
-  background: none;
-  border: none;
-  padding: 0;
-  margin: 0 6px;
-  cursor: pointer;
-  text-decoration: underline dotted;
-}
+#backup > [hidden] { display: none; }
+
+#import-panel,
+#format-panel { flex-basis: 100%; }
 
 #import-panel { margin-top: 6px; }
 
@@ -3802,8 +3799,9 @@ body.vigilance-running #self-check-header {
   letter-spacing: 0.06em;
 }
 
-/* Switch cost, an optional line under game data's chart: each pool's
-   estimate after the pool's name, the values leading by size and weight. */
+/* Switch cost, an optional line under game data's chart: this game's cost
+   and each pool's estimate after its name, the values leading by size and
+   weight. A narrow column wraps it between items, never inside one. */
 .switch-cost-line {
   display: flex;
   flex-wrap: wrap;
@@ -3814,8 +3812,8 @@ body.vigilance-running #self-check-header {
   font-size: 12px;
 }
 .switch-cost-pool { white-space: nowrap; }
-/* Six characters hold every estimate under 100% either way, so a reply
-   does not shift the line. */
+/* Six characters hold every estimate under 100% either way and every cost
+   under 100 s, so a reply does not shift the line. */
 .switch-cost-value {
   display: inline-block;
   min-width: 6ch;
@@ -3826,7 +3824,9 @@ body.vigilance-running #self-check-header {
 }
 
 .chart-help-tip:has(> .switch-cost-card) { width: auto; max-width: calc(100vw - 12px); }
-.switch-cost-card { width: 330px; max-width: 100%; }
+/* The table sets the card's width; the paragraphs wrap to it. */
+.switch-cost-card { width: max-content; min-width: 330px; max-width: 100%; }
+.switch-cost-card p { width: 0; min-width: 100%; }
 .switch-cost-card table { margin: 0 0 7px; border-collapse: collapse; }
 .switch-cost-card th,
 .switch-cost-card td {

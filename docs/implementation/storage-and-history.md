@@ -5,7 +5,8 @@ Spec: [docs/product/storage-and-history.md](../product/storage-and-history.md). 
 - Storage ([Storage](../product/storage-and-history.md)): one IndexedDB database
   (`minesweeper-friendly`, version 6), five stores. The version-6 upgrade
   creates `playSpans` (`PLAY_SPAN_STORE`, keyPath `startedAt`; read with
-  `readPlaySpansSince`, written with `persistPlaySpan`;
+  `readPlaySpansSince` on the settings page and `readAllPlaySpans` on the
+  game page, written with `persistPlaySpan`;
   [play limits implementation](play-limits.md)). The version-5 upgrade
   checks `objectStoreNames` and creates `records` (moving userdata `history`
   into it) and/or `selfChecks` (`SELF_CHECK_STORE`, keyPath `startedAt`,

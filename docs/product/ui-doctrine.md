@@ -29,8 +29,12 @@ because they apply app-wide, not just where each was first stated.
   colors, two fills, five paddings), and the Zoom select had none, so it
   showed the browser's default. Surfaces with deliberate sizes of their own
   (the position editor's Reset and Done, the other pages' return links)
-  override only what differs. Game data's joined pool switch and the backup
-  row's link-styled actions still have their own rules
+  override only what differs. The backup row under the board (export
+  history, export traces, import history, data format, the save-to-file
+  links, and the import panel's apply and open file) wore dotted underlined
+  link text until 2026-10-20, when the creator approved converting it ("yes
+  standardize"); its two panel openers hold the pressed look while their
+  panel is open. Game data's joined pool switch still has its own rule
   ([BACKLOG.md](../../BACKLOG.md)).
 - Prefer regular-weight chart names, labels, and values. Use position,
   spacing, and restrained color to establish hierarchy instead of relying

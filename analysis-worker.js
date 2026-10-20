@@ -1,15 +1,15 @@
 "use strict";
 
 importScripts('trend-fit.js?v=20260925-worker-analysis',
-  'game/trace-metrics.js?v=20261020-no-left-panel',
-  'game/evaluation.js?v=20261020-no-left-panel',
-  'game/metric-definitions.js?v=20261020-no-left-panel',
+  'game/trace-metrics.js?v=20261020-move-habits',
+  'game/evaluation.js?v=20261020-move-habits',
+  'game/metric-definitions.js?v=20261020-move-habits',
   'board-shape.js?v=20261020-no-left-panel', 'zini.js?v=20261020-no-left-panel', 'board-metrics.js?v=20261020-no-left-panel',
-  'game-data.js?v=20261020-no-left-panel', 'game/rankings.js?v=20261020-no-left-panel',
-  'game/charts.js?v=20261020-no-left-panel', 'game/game-data-chart.js?v=20261020-no-left-panel',
+  'game-data.js?v=20261020-move-habits', 'game/rankings.js?v=20261020-move-habits',
+  'game/charts.js?v=20261020-move-habits', 'game/game-data-chart.js?v=20261020-move-habits',
   'justice.js?v=20260926-fast-evidence', 'board-icons.js?v=20261015-flag-controls',
-  'game/replay-model.js?v=20261020-no-left-panel',
-  'during-game.js?v=20261020-no-left-panel');
+  'game/replay-model.js?v=20261020-move-habits',
+  'during-game.js?v=20261020-move-habits');
 
 let config;
 
@@ -55,7 +55,10 @@ function analyzeTrace(data) {
     spatial: computeSpatialBias(events) };
 }
 
-function finishedMeasurements(plan, metrics) {
+// The record's measurements the plan asks for, of the game the worker holds
+// as gameId. Move habits come from the during-the-game model, which the
+// live perf charts then reuse.
+function finishedMeasurements(plan, metrics, gameId) {
   const measurements = {};
   if (!plan.drill) {
     if (plan.needZini) measurements.zini = Zini.zini(plan.width, plan.height, plan.mines);
@@ -63,6 +66,9 @@ function finishedMeasurements(plan, metrics) {
   }
   if (plan.needCadence && Number.isFinite(metrics.cad.gapSpreadRatio)) {
     measurements.cadenceSpread = Number(metrics.cad.gapSpreadRatio.toFixed(3));
+  }
+  if (plan.needMoveHabits) {
+    Object.assign(measurements, DuringGame.moveHabits(heldDuringGameModel({ gameId, timeMs: plan.timeMs, outcome: plan.outcome })));
   }
   return measurements;
 }
@@ -77,7 +83,7 @@ function analyze(kind, data) {
         t: data.trace.t, x: data.trace.x, y: data.trace.y, events: data.trace.events,
         initialPageState: data.trace.initialPageState });
       const motion = analyzeTrace(data.trace);
-      return { ...motion, measurements: finishedMeasurements(data, motion.metrics) };
+      return { ...motion, measurements: finishedMeasurements(data, motion.metrics, data.gameId) };
     }
     case 'live-trace': {
       if (liveTrace === null || liveTrace.id !== data.traceId) {
@@ -109,7 +115,7 @@ function analyze(kind, data) {
       }
       const metrics = computer(t, x, y, events, data.endedAt - data.startedAt);
       return { series, metrics, spatial: computeSpatialBias(events),
-        measurements: finishedMeasurements(data.measurementPlan, metrics, events) };
+        measurements: finishedMeasurements(data.measurementPlan, metrics, data.endedAt) };
     }
     case 'during-game': return DuringGame.view(heldDuringGameModel(data), data.rows, data.average);
     case 'game-data-examples': {

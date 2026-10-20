@@ -56,8 +56,8 @@ function initGamePreferences() {
   const saved = structuredClone(settings.viewPosition);
   setBoardPositionEditing(settings.panels.boardPosition);
   setStatesMenuOpen(settings.panels.states);
-  importPanel.hidden = !settings.panels.importHistory;
-  formatPanel.hidden = !settings.panels.dataFormat;
+  showBackupPanel(importPanel, importButton, settings.panels.importHistory);
+  showBackupPanel(formatPanel, formatButton, settings.panels.dataFormat);
   importText.value = settings.drafts.historyImport;
   statesAddInput.value = settings.drafts.stateName;
   if (settings.panels.gameDetails && pageLayout.classList.contains('compact-sidebar')) gameSidebar.showPopover();
@@ -183,7 +183,8 @@ async function restorePreferredResult() {
   restoredAnalysisReady = analysisTask('reports', 'restore-trace', { ...stored,
     measurementPlan: { width: config.width, height: config.height, mines: cells.map((cell) => cell.mine),
       drill: record.playMode === 'endgame-drill', needBoardMetrics, needZini,
-      needCadence: record.cadenceSpread === undefined },
+      needCadence: record.cadenceSpread === undefined, needMoveHabits: record.movesRanOut === undefined,
+      timeMs: record.timeMs, outcome: record.outcome },
   }).then(async (restored) => {
     if (Object.keys(restored.measurements).length) {
       Object.assign(record, restored.measurements);

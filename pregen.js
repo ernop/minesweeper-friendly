@@ -1,6 +1,7 @@
 'use strict';
 
-// Pure support for the "Pregen 10" play mode. Candidate boards are scored
+// Pure support for the 3BV countdown play mode ("Pregen 10" until
+// 2026-10-20). Candidate boards are scored
 // without touching game-page state, and only their seeds survive ranking so
 // the selected board can be regenerated through the normal replayable stream.
 

@@ -158,36 +158,52 @@ Spec: [docs/product/rankings.md](../product/rankings.md). Index: [AGENTS.md](../
   page and in the analysis worker. `SESSION_RESULT_LEVELS` follows the
   tree: one name per depth, heading that depth's share column
   (`tests/recent-placements-test.js` checks the tree is exactly that deep).
-  One size only (2026-10-15): `buildSessionSummary` finds the history key
-  whose list holds `record` (by identity, in the history it counts, so a
-  no-mark narrowing keeps it), takes its board key ("30x16/99"; `boardOfKey`
-  parses a board or history key) and that board's `boardDisplayLabelOf`
-  label, and passes both to `buildSessionSummaryResults(rows, boardKey,
-  boardLabel, thisGame, lifetimeRecords)`, the last being every record under
-  a history key of that board key that ended by the window's end (the shown
-  game). That keeps the rows whose key starts with the board key
-  (every mode and generator of the size) and renders
-  `.session-summary-results` under the main grid, or, when none has session
-  games, a `.session-summary-results.recent-placements-none` reading "no
-  <label> games in session". Columns: result, "<label> games", one share
-  column per level, then `.session-summary-lifetime` (2026-10-20): each
-  line's share of `lifetimeRecords`, counted by `sessionResultCounts`
-  through the per-record `sessionGameResult` memo, so each saved game is
-  classified once per page load. Each line is a
+  One board type only (one size 2026-10-15, one history key 2026-10-20):
+  `buildSessionSummary` finds the history key whose list holds `record`
+  (by identity, in the history it counts, so a no-mark narrowing keeps it),
+  labels it with `sessionSummaryTypeParts(key, generator, noMark)` (board,
+  then " · " and the variant when there is one; `boardOfKey` parses a board
+  or history key), and passes that key's row (undefined without a finished
+  session game), the label, `boardRecord`, the key's records that ended by
+  the window's end (the shown game), and the abandoned counts to
+  `buildSessionSummaryResults(typeRow, typeLabel, thisGame,
+  lifetimeRecords, abandoned)`. It renders `.session-summary-results` under
+  the main grid, or, when the type has no session game finished or
+  abandoned, a `.session-summary-results.recent-placements-none` reading
+  "no <label> games in session". Columns: result, "<label> games", one
+  share column per level, then `.session-summary-lifetime` (2026-10-20):
+  each line's share of the lifetime's games, counted by
+  `sessionResultCounts` through the per-record `sessionGameResult` memo, so
+  each saved game is classified once per page load. Each line is a
   `.session-summary-row.session-summary-depth-N` summing its kinds; its
-  share of the size's games fills only column N of the share columns, the
+  share of the type's games fills only column N of the share columns, the
   others being empty `.session-summary-number` cells. CSS indents depth 2
   and 3 and bolds depth 1. The leaves' `.end-swatch` color keys went with
   the session endings chart on 2026-10-20. Then the reasons in
-  LIKELY_MISCLICK_REASON_LABELS order at depth 2. Every depth-1 row after
-  the first (lost) and the first misclick row carry
-  `.session-summary-group-first` (a rule above). Until 2026-10-15 it
-  grouped rows by `sessionSummaryTypeParts(row).board` into a count and
-  share column pair per size. Gated by shownThings.sessionEndings.
+  LIKELY_MISCLICK_REASON_LABELS order at depth 2, then the abandoned row at
+  depth 1. Every depth-1 row after the first (lost, abandoned) and the
+  first misclick row carry `.session-summary-group-first` (a rule above).
+  Until 2026-10-15 it grouped rows by board into a count and share column
+  pair per size. Gated by shownThings.sessionEndings.
+  Abandoned (2026-10-20): `sessionAbandonedCounts(spans, typeKey, keyOf,
+  from, to, nowMs)`, in the computation span, walks the play spans
+  (`playSpans`, game/play-limits.js, which since 2026-10-20 holds every
+  saved span: startup reads them all with `readAllPlaySpans`) and returns
+  `{session, lifetime, recordedFrom}`. A span counts when
+  `playSpanAbandonedAt` (play-limits.js) gives a time at or before `to`
+  and `keyOf(span)` (`playSpanKeyOf`, history.js: the key its record would
+  have) is the type's key; `session` also needs that time at or after
+  `from`. `recordedFrom` is the earliest start among spans with an
+  `ending` field, null before any. `buildSessionSummary` passes `abandoned`
+  only when the history is not narrowed to no-mark games and
+  `recordedFrom` is set; the totals then add the counts, and the row's
+  label adds "(recorded since <local date>)" when a lifetime record ended
+  before `recordedFrom`. Liveness uses `Date.now()`, so a board in play in
+  any tab is not yet abandoned.
   This game (2026-10-15): `renderRanks` passes its `boardRecord`: for a
   loss, whose tables follow its board's latest win, results.js sets
   `options.boardRecord` to the loss; otherwise it is `record`, which is also
-  the parameter's default. When some size row's `records` holds it (by identity), the
+  the parameter's default. When the type row's `records` holds it (by identity), the
   leaf whose kinds include its `sessionGameResult` kind and each misclick
   row of its reasons get the rank lists' `.rank-row.me` class (the
   this-game light blue, bold black, on every cell) and end their label with a

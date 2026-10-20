@@ -69,7 +69,10 @@ const shots = process.argv[4];
     await settingsPage.waitForFunction(() => document.querySelector(
       '#play-limit-table [data-limit="games"] .play-limit-used').textContent === '1');
     // Restarting abandons the board; the second board reaches the limit
-    // when it starts and still plays on, flags and all.
+    // when it starts and still plays on, flags and all. A board the first
+    // click won was finished, not abandoned.
+    const endingAtRestart = () => gamePage.evaluate(() => (gameState === 'playing' ? 'restarted' : 'finished'));
+    const expectedEndings = [await endingAtRestart()];
     await gamePage.locator('#face-button').click();
     await clickCell(40);
     assert.equal(await gamePage.evaluate(() => gameState === 'playing' || gameState === 'won'), true,
@@ -80,6 +83,7 @@ const shots = process.argv[4];
     // The default penalty: the next half-limit of boards (one, for 2) is
     // dealt without flags. A right press on a covered square is refused,
     // before and after the first click.
+    expectedEndings.push(await endingAtRestart());
     await gamePage.locator('#face-button').click();
     assert.equal(await gamePage.locator('#play-limit-closed').isVisible(), false, 'no flags is not closed');
     const coveredIndex = () => gamePage.evaluate(() => cells.findIndex((cell) => !cell.revealed && !cell.mine));
@@ -106,6 +110,11 @@ const shots = process.argv[4];
     });
     await gamePage.waitForFunction(() => gameState === 'lost'
       && history[modeKey()] !== undefined && history[modeKey()].at(-1).flagsBlocked === true);
+    // Each saved span says how its board left play, which the session
+    // results count abandoned boards by.
+    assert.deepEqual(await gamePage.evaluate(() => new Promise((resolve) => readAllPlaySpans((spans) =>
+      resolve(spans.map((span) => span.ending))))), [...expectedEndings, 'finished'],
+    'restarted boards and the lost one are saved with how they left play');
     await gamePage.locator('#face-button').click();
     assert.equal(await gamePage.locator('#play-limit-closed').isVisible(), true);
     assert.match(await gamePage.locator('#play-limit-closed').innerText(),

@@ -306,8 +306,9 @@ function newGame() {
   }
   syncTrialBoardVisibility(trialPhase());
   // A restart mid-game abandons the board (no record, no trace), but the
-  // time played was real: close the play span so today's use keeps it.
-  playSpanEnd();
+  // time played was real: close the play span so today's use keeps it, and
+  // the session results count the board as abandoned.
+  playSpanEnd('restarted');
   lastUsefulPressAt = null;
   fastclickGaps = [];
   actionEvaluations = [];
@@ -771,7 +772,7 @@ function lose(hitIndices, evaluation) {
 }
 
 function finish() {
-  playSpanEnd();
+  playSpanEnd('finished');
   finalTimeMs = elapsedMs();
   clearInterval(timerInterval);
   timerInterval = null;

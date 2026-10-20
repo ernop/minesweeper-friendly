@@ -6,7 +6,7 @@ Minesweeper variant project. Standard first-click-safe play, plus Uniform NG,
 Single-path NG, Proof-or-die, Angelic, an Endgame drill (instantly dealt
 realistic late-game remnants, always finishable by pure deduction), a
 100-game Trial of 25 hidden boards shown four times each, Short trial
-(4 boards × 4), and Test trial (1 board × 4). The Pregen 10 mode samples ten boards, ranks them by descending 3BV,
+(4 boards × 4), and Test trial (1 board × 4). The 3BV countdown mode samples ten boards, ranks them by descending 3BV,
 and deals them in that order with the upper-right cell opened automatically.
 Persistent 3BV-versus-time charts below the board track the current ten-board
 challenge and all wins in this mode/configuration since local midnight.
@@ -114,7 +114,7 @@ use `systemctl --user disable --now minesweeper-friendly.service`.
 - Left click on a satisfied number: chord (open all unflagged neighbors)
 - Face button or space bar: new game
 - Presets (Standard play): Beginner 9x9/10 (default), Intermediate 16x16/40, Expert 30x16/99
-- Other modes menu, each on a board you size: Custom (Standard play), Pregen 10 boards by descending 3BV, Uniform NG, Single-path NG, Proof-or-die, Angelic, Endgame drill, Trial, Short trial, Test trial, Board lab
+- Other modes menu, each on a board you size: Custom (Standard play), 3BV countdown (ten boards, highest 3BV first), Uniform NG, Single-path NG, Proof-or-die, Angelic, Endgame drill, Trial, Short trial, Test trial, Board lab
 
 ## Endgame drill
 

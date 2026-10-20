@@ -1,10 +1,11 @@
 'use strict';
 
-// Play modes: the Mode menu, mode predicates, and labels, then the modes that
-// change how boards are dealt or shown: Pregen 10, Endgame drill, Board lab,
-// and trials on the live board.
+// Play modes: the other modes menu, mode predicates, and labels, then the
+// modes that change how boards are dealt or shown: 3BV countdown (the code's
+// "pregen", its id pregen-10-3bv-desc), Endgame drill, Board lab, and trials
+// on the live board.
 
-//-------PLAY MODES (the Mode menu, mode predicates, labels)-------
+//-------PLAY MODES (the other modes menu, mode predicates, labels)-------
 
 // The play mode catalog (PLAY_MODES) lives in settings-core.js with the
 // other preference choices.
@@ -39,6 +40,7 @@ function buildPlayModeSwitcher() {
     const option = document.createElement('option');
     option.value = mode.id;
     option.textContent = mode.id === 'standard' ? 'Custom' : mode.label;
+    if (mode.description !== undefined) option.title = mode.description;
     return option;
   });
   playModeSelect.replaceChildren(prompt, ...entries);
@@ -46,7 +48,7 @@ function buildPlayModeSwitcher() {
   playModeSelect.addEventListener('change', () => chooseGame('custom', playModeSelect.value));
 }
 
-//-------PREGENERATED HIGH-3BV MODE-------
+//-------3BV COUNTDOWN (ten pregenerated boards, highest 3BV first)-------
 
 const PREGEN_BATCH_SIZE = 10;
 
@@ -457,7 +459,7 @@ function endTrial(how) {
   lastTrialReview = trialSession;
   clearInterval(timerInterval);
   timerInterval = null;
-  playSpanEnd();
+  playSpanEnd('trial-ended');
 }
 
 function abandonTrial() {

@@ -323,6 +323,9 @@ function syncGameChoice() {
   }
   playModeSelect.value = custom ? settings.playMode : '';
   playModeSelect.classList.toggle('active', custom);
+  const description = custom ? PLAY_MODES.find((mode) => mode.id === settings.playMode).description : undefined;
+  if (description === undefined) playModeSelect.removeAttribute('title');
+  else playModeSelect.title = description;
   modeOptions.hidden = !custom;
   boardGeneratorChoice.hidden = !generatorAppliesToMode(settings.playMode);
 }

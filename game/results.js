@@ -130,7 +130,8 @@ function reportResult(outcome, endedAt = Date.now()) {
   duringGameSourceId = record.endedAt;
   analysisTask('reports', 'finished-game', {
     width: config.width, height: config.height, mines: mineAt, drill: endgameDrillActive(),
-    needZini: true, needBoardMetrics: true, needCadence: true, gameId: record.endedAt,
+    needZini: true, needBoardMetrics: true, needCadence: true, needMoveHabits: true,
+    gameId: record.endedAt, timeMs: record.timeMs, outcome: record.outcome,
     trace: { t: finishedTrace.t, x: finishedTrace.x, y: finishedTrace.y,
       events: finishedTrace.events, wallMs: record.endedAt - finishedTrace.startedAt,
       initialPageState: finishedTrace.initialPageState },

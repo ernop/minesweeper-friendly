@@ -271,7 +271,7 @@ marked.
 | Track | Rows (mark) |
 | --- | --- |
 | clicks | no-op clicks (ring), misclicks (cross), flags removed (down triangle), flags on safe squares (up triangle), guesses (diamond), openings (square), unused flags (outlined up triangle) |
-| jumps | moved on (chevron right), left work (arrow right), forks (fork), came back (chevron left) |
+| jumps | moved on (chevron right), left hard work (outlined arrow right), left easy work (arrow right), forks (fork), came back (chevron left) |
 | pauses | long gaps (band over the gap), window left (bar along the track's top) |
 
 Shown by default:
@@ -294,13 +294,17 @@ Shown by default:
   no-op clicks fell inside it, and whether the window was left.
 - **moved on** — a jump of 3 or more squares from everything the previous
   board-changing click opened or marked, after the proven-safe squares near
-  it had run out: the local work petered out and the player went elsewhere.
-- **left work** — the same jump made while proven-safe squares near the
-  previous click were still unopened (and not toward them).
-- **forks** — a move (moved on or left work) made while proven-safe squares
-  lay in 2 or more separate places: a choice of where to go next. The card
-  says how many places there were and whether the player went to the
-  nearest one.
+  it had run out: the local work ended and the player went elsewhere.
+- **left hard work** — the same jump made while proven-safe squares near
+  the previous click were still unopened (and not toward them), none of
+  which counting a single number proves: only numbers taken together
+  prove them, so the local work had turned slow.
+- **left easy work** — the same jump made while counting a single number
+  had proved at least one of those squares safe.
+- **forks** — a move (moved on or left either kind of work) made while
+  proven-safe squares lay in 2 or more separate places: a choice of where
+  to go next. The card says how many places there were and whether the
+  player went to the nearest one.
 - **window left** — the game's window hidden or out of focus, drawn over the
   span. Games saved before 26 September 2026 did not record it; their legend
   entry says "not recorded", the card over the pauses track says "window
@@ -309,16 +313,45 @@ Shown by default:
 
 Off by default:
 
-- **came back** — a move back to proven-safe squares an earlier left-work
-  move left behind, with how long they waited.
+- **came back** — a move back to proven-safe squares an earlier move that
+  left work left behind, with how long they waited.
 - **openings** — a click that opened a zero region.
 - **unused flags** — a correct flag no chord used, at its placement; known
   only on wins.
 
-Every move event's card also says whether the move was a guess and how far
-the nearest proven-safe square was. Moves and forks need the exact proof;
-where the prover stopped at its work limit, only "left work" can still be
-judged, from the squares it did prove.
+Every move event's card says how long after the previous board-changing
+click the move came ("moved on after 1.4 s"), whether it was a guess, and
+how far the nearest proven-safe square was; a move that left work says how
+many proven-safe squares it left and how many of them counting proved
+("left hard work after 2.3 s: 2 proven-safe squares unopened, none by
+counting"). Moves and forks need the exact proof; where the prover stopped
+at its work limit, only leaving work can still be judged, from the squares
+it did prove, hard or easy alike: counting's proof is always complete.
+
+### Move characterization and habits (creator request 2026-10-20)
+
+The creator asked to build "move habits and characterization of moves, when
+ih ave to move since local direction ends OR becomes very slow". Each move
+gets its reason: the local work ended (moved on), it had turned slow (left
+hard work: what remained needed numbers taken together), or the player left
+work counting alone would have done (left easy work), with the time it took
+to move and where it went (a guess, the nearest place with proven-safe
+squares, or another place). Built the same day:
+
+- The split of the former "left work" event into left hard work and left
+  easy work (above). A row choice saved before the split carries to both.
+- Per-game habits, stored on every game record from now on, wins and losses
+  alike ([Per-game stats](per-game-stats.md), "Move habits"): the moves of
+  each kind, the median time before a move, and the forks and how many went
+  to the nearest place.
+- Game data ranks three of them against lifetime and the session
+  ([Game data](game-data.md), "Catalog and configuration"): time before a
+  move and moves leaving easy work, shown by default, and forks to the
+  nearest area, off by default.
+
+Games saved earlier get their habits when their result is next restored on
+the game page; a backfill of every saved game is in
+[BACKLOG.md](../../BACKLOG.md).
 
 The thresholds (2 squares near, 3 squares a jump, 1 second a long gap, 1
 second a quick undo) are first choices to be checked against the creator's
@@ -338,10 +371,11 @@ once).
 ## Built and requested
 
 Built 2026-10-15: a first build, then the same day the 2026-10-15
-revision; the 2026-10-20 revision the day it was asked. Requested but not
-built yet, in [BACKLOG.md](../../BACKLOG.md): forks inside one work area
-(several ways forward from the same frontier) and cross-game summaries of
-the move and fork habits. Proposed there with them: threshold calibration,
-rows plotted against progress instead of time, and live rows during play.
+revision; the 2026-10-20 revision the day it was asked, and the move
+characterization and habits (above) later that day. Requested but not built
+yet, in [BACKLOG.md](../../BACKLOG.md): forks inside one work area (several
+ways forward from the same frontier) and the habits of games saved before
+2026-10-20. Proposed there with them: threshold calibration, rows plotted
+against progress instead of time, and live rows during play.
 The cadence-spread row proposed there was built on 2026-10-20 with the
 other rows from the left panel.

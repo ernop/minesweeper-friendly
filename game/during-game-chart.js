@@ -63,12 +63,15 @@ function duringGameEventLines(event) {
         ...(event.noOps > 0 ? [countPhrase(event.noOps, 'no-op click', 'no-op clicks') + ' inside'] : []),
         ...(event.windowLeft ? ['the window was left during it'] : [])];
     case 'moved-on':
-      return ['moved on: ' + jump(event),
+      return ['moved on after ' + duringGameSeconds(event.gapMs) + ': ' + jump(event),
         ...(event.nearestSafeSquares === undefined ? []
           : ['nearest proven-safe square ' + countPhrase(event.nearestSafeSquares, 'square', 'squares') + ' away'])];
-    case 'left-work':
-      return ['left work: ' + countPhrase(event.leftSafe, 'proven-safe square', 'proven-safe squares') + ' unopened',
-        jump(event)];
+    case 'left-hard-work':
+    case 'left-easy-work':
+      return [(event.type === 'left-easy-work' ? 'left easy work' : 'left hard work') + ' after '
+        + duringGameSeconds(event.gapMs) + ': ' + countPhrase(event.leftSafe, 'proven-safe square', 'proven-safe squares')
+        + ' unopened, ' + (event.leftByCounting === 0 ? 'none' : event.leftByCounting) + ' by counting',
+      jump(event)];
     case 'fork':
       return ['fork: ' + event.areas + ' places with proven-safe squares',
         !event.toArea ? 'went to none of them'
@@ -410,6 +413,7 @@ const DURING_GAME_MARKS = {
   chevronRight: { filled: false, d: (x, y, p) => 'M' + p(x - 2) + ' ' + p(y - 4) + 'l4.5 4l-4.5 4' },
   chevronLeft: { filled: false, d: (x, y, p) => 'M' + p(x + 2) + ' ' + p(y - 4) + 'l-4.5 4l4.5 4' },
   arrowRight: { filled: true, d: (x, y, p) => 'M' + p(x - 3.5) + ' ' + p(y - 4) + 'l7.5 4l-7.5 4z' },
+  arrowRightOutline: { filled: false, d: (x, y, p) => 'M' + p(x - 3.5) + ' ' + p(y - 4) + 'l7.5 4l-7.5 4z' },
   fork: { filled: false, d: (x, y, p) => 'M' + p(x - 4) + ' ' + p(y) + 'h4l4 -4m-4 4l4 4' },
 };
 

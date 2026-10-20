@@ -867,8 +867,9 @@ const SESSION_RESULT_TREE = [
     { kind: 'other', label: 'not judged' },
   ] },
 ];
-// Each tree level's name, which heads that level's share column.
-const SESSION_RESULT_LEVELS = ['won or lost', 'worst offense', 'type'];
+// Each tree level's name, which heads that level's share column. The first
+// level also holds abandoned, which is no record's kind (sessionAbandonedCounts).
+const SESSION_RESULT_LEVELS = ['how it ended', 'worst offense', 'type'];
 
 // A game's places in the tree: its result kind, which names its one leaf, and
 // for a loss the likely-misclick reasons whose rows recount it. Kept per
@@ -920,6 +921,26 @@ function sessionResultLines(rows) {
   return lines;
 }
 
+// Abandoned boards of one board type (creator request 2026-10-20): play spans
+// (play-limits.js) of `typeKey` abandoned within the session window [from,
+// to], and up to `to` over the lifetime. `keyOf` gives a span's history key.
+// recordedFrom is when spans began recording how boards left play: the
+// earliest start among spans with an ending field, or null before any.
+function sessionAbandonedCounts(spans, typeKey, keyOf, from, to, nowMs) {
+  let recordedFrom = null;
+  let session = 0;
+  let lifetime = 0;
+  for (const span of spans) {
+    if (!Object.hasOwn(span, 'ending')) continue;
+    if (recordedFrom === null || span.startedAt < recordedFrom) recordedFrom = span.startedAt;
+    const abandonedAt = playSpanAbandonedAt(span, nowMs);
+    if (abandonedAt === null || abandonedAt > to || keyOf(span) !== typeKey) continue;
+    lifetime++;
+    if (abandonedAt >= from) session++;
+  }
+  return { session, lifetime, recordedFrom };
+}
+
 //-------SESSION SUMMARY: DISPLAY-------
 
 // The session summary, ranks won, and game data share this setting; rebuild
@@ -954,15 +975,23 @@ function boardOfKey(key) {
 }
 
 // A type's board, then its variant: the play mode unless it is the default
-// Standard, and the generator unless it is the default. The variant has its
-// own column, so variants line up and the usual case shows the board alone.
-function sessionSummaryTypeParts(row) {
-  const modeId = row.key.split('@')[1].split('+')[0];
-  return { board: boardDisplayLabelOf(boardOfKey(row.key)),
+// Standard, the generator (a record's, absent for the default) unless it is
+// the default, and no-mark when every game counted had no flag. The variant
+// has its own column, so variants line up and the usual case shows the board
+// alone.
+function sessionSummaryTypeParts(key, generator, noMark) {
+  const modeId = key.split('@')[1].split('+')[0];
+  return { board: boardDisplayLabelOf(boardOfKey(key)),
     variant: [modeId === 'standard' ? null : playModeLabel(modeId),
-      row.latest.generator === undefined ? null : BoardGenerators.displayLabel(row.latest.generator),
-      row.noMark ? 'no-mark' : null]
+      generator === undefined ? null : BoardGenerators.displayLabel(generator),
+      noMark ? 'no-mark' : null]
       .filter((part) => part !== null).join(' · ') };
+}
+
+// A moment's local date, as 2026-10-20.
+function localDateText(ms) {
+  const d = new Date(ms);
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
 
 // The history the session summary counts. A no-mark win narrows its own
@@ -994,8 +1023,9 @@ function buildSessionSummary(record, referenceMs, markCurrent = true, noMark = f
   const choice = SessionScope.choices.find((c) => c.id === settings.sessionDefinition);
   const { from, to } = SessionScope.bounds(settings.sessionDefinition, referenceMs);
   const sessionHistory = noMark ? noMarkSessionHistory(record) : history;
-  const boardKey = Object.keys(sessionHistory).find((key) => sessionHistory[key].includes(record)).split('@')[0];
-  const boardLabel = boardDisplayLabelOf(boardOfKey(boardKey));
+  const typeKey = Object.keys(sessionHistory).find((key) => sessionHistory[key].includes(record));
+  const typeParts = sessionSummaryTypeParts(typeKey, record.generator, sessionHistory[typeKey].every(isMarkless));
+  const typeLabel = typeParts.variant === '' ? typeParts.board : typeParts.board + ' · ' + typeParts.variant;
   const heading = document.createElement('h4');
   heading.appendChild(chartHelpButton([
     'Games, wins, and win rate for every board type played in the session (' + choice.label
@@ -1004,9 +1034,10 @@ function buildSessionSummary(record, referenceMs, markCurrent = true, noMark = f
     'A row marked no-mark counts only games with no flags placed. Its best time’s lifetime rank is among that board type’s no-mark wins.',
     'Mean time, mean 3BV/s, and mean IOE average the session’s wins of that type, each over the wins that measured it, as game data defines them; for the board just played they are the session baseline for its time, 3BV/s, and IOE.',
     ...(settings.shownThings.sessionEndings ? [
-      'Results cover the session’s ' + boardLabel + ' games alone, the size of the game shown; a different mode or generator counts with its size. They split into won and lost, then by each game’s worst offense against perfect play, least to worst, then by type.',
-      'Every share is of all those games and stands in its level’s column: won or lost, worst offense, or type. The shares under a row add up to that row’s share, give or take rounding.',
-      'Lifetime is the same row’s share of every ' + boardLabel + ' game you have played, up to the game shown, for comparison with the session.',
+      'Results cover the session’s ' + typeLabel + ' games alone, the board type of the game shown. They split into won, lost, and abandoned; won and lost then split by each game’s worst offense against perfect play, least to worst, then by type.',
+      'Every share is of all those games and stands in its level’s column: how it ended, worst offense, or type. The shares under a row add up to that row’s share, give or take rounding.',
+      'Lifetime is the same row’s share of every ' + typeLabel + ' game you have played, up to the game shown, for comparison with the session.',
+      'Abandoned is a board that went into play and never finished: restarted, cut off by its trial’s end, or still in play when its page closed. Boards record how they left play since 2026-10-20, so earlier games include no abandoned ones; the row names the date when the lifetime reaches back before it. A no-mark summary has no abandoned row, since whether an abandoned board had a flag is not recorded.',
       'A guess is a click on a square that might hold a mine, after the first click; its risk is the risk under the active rules, so a guess A Just Universe made safe risked nothing. The opening lasts until a tenth of the board’s safe squares are open. A proof named is the easiest one that worked: counting single numbers, comparing overlapping numbers, or only whole-board reasoning.',
       'A loss files under its fatal click, unless the game survived a worse guess earlier: then it is “survived it, died later” under that guess. “Guesses not measured” is a win with no guess record: one from before guesses were measured, an Angelic game, or one whose odds were too large to compute.',
       'The likely-misclick rows count losses whose fatal click was most likely a slip. They are already counted above, so they never add to the total.',
@@ -1036,7 +1067,7 @@ function buildSessionSummary(record, referenceMs, markCurrent = true, noMark = f
     grid.appendChild(node);
   };
   const rate = (wins, games) => Math.round(100 * wins / games) + '%';
-  const parts = rows.map(sessionSummaryTypeParts);
+  const parts = rows.map((row) => sessionSummaryTypeParts(row.key, row.latest.generator, row.noMark));
   const variants = parts.some((part) => part.variant !== '');
   const typeCells = (board, variant) => variants
     ? [cell('session-summary-type', board), cell('session-summary-type session-summary-variant', variant)]
@@ -1075,38 +1106,49 @@ function buildSessionSummary(record, referenceMs, markCurrent = true, noMark = f
   }
   box.appendChild(grid);
   if (settings.shownThings.sessionEndings) {
-    const lifetimeRecords = Object.entries(sessionHistory).filter(([key]) => key.split('@')[0] === boardKey)
-      .flatMap(([, records]) => records.filter((r) => r.endedAt <= to));
-    box.appendChild(buildSessionSummaryResults(rows, boardKey, boardLabel, boardRecord, lifetimeRecords));
+    const lifetimeRecords = sessionHistory[typeKey].filter((r) => r.endedAt <= to);
+    // Whether an abandoned board had a flag is not recorded, so a tree
+    // narrowed to no-mark games counts finished games alone.
+    const abandoned = sessionHistory === history
+      ? sessionAbandonedCounts(playSpans.values(), typeKey, playSpanKeyOf, from, to, Date.now()) : null;
+    box.appendChild(buildSessionSummaryResults(rows.find((row) => row.key === typeKey), typeLabel, boardRecord,
+      lifetimeRecords, abandoned !== null && abandoned.recordedFrom !== null ? abandoned : null));
   }
   return box;
 }
 
-// The session results of the shown game's board size alone, as one tree
+// The session results of the shown game's board type alone (creator request
+// 2026-10-20: one size, mines, mode, and generator), as one tree
 // (sessionResultLines): won, then lost under a rule, each split by worst
-// offense and then by type, indented by depth. A mode or generator counts
-// with its size. Every share is of all that size's games and stands in its
-// depth's column, so each column reads one level and the shares under a row
-// sum to that row's. The last column is each row's share of all of
-// `lifetimeRecords`, every game of that size up to the game shown.
-// The likely-misclick rows close the lost branch under a rule; they count
-// losses already filed above, so they never add to the total. When the tree
-// counts `thisGame`, its leaf and any misclick row recounting it are this-game
-// rows; the indentation above the leaf already shows its branch and family.
-function buildSessionSummaryResults(rows, boardKey, boardLabel, thisGame, lifetimeRecords) {
-  const sizeRows = rows.filter((row) => row.key.split('@')[0] === boardKey);
-  if (sizeRows.length === 0) {
+// offense and then by type, indented by depth, then abandoned under a rule.
+// `typeRow` is that type's sessionSummaryRows row, undefined without a
+// finished game in the session. Every share is of all the type's games
+// started, abandoned included, and stands in its depth's column, so each
+// column reads one level and the shares under a row sum to that row's. The
+// last column is each row's share of every game of the type up to the game
+// shown: `lifetimeRecords` and the lifetime's abandoned boards. The
+// likely-misclick rows close the lost branch under a rule; they count losses
+// already filed above, so they never add to the total. When the tree counts
+// `thisGame`, its leaf and any misclick row recounting it are this-game rows;
+// the indentation above the leaf already shows its branch and family.
+// `abandoned` (sessionAbandonedCounts) is null when abandoned boards are not
+// counted: a no-mark summary, or no span has recorded an ending yet.
+function buildSessionSummaryResults(typeRow, typeLabel, thisGame, lifetimeRecords, abandoned) {
+  const sessionAbandoned = abandoned === null ? 0 : abandoned.session;
+  if (typeRow === undefined && sessionAbandoned === 0) {
     const none = document.createElement('div');
     none.className = 'session-summary-results recent-placements-none';
-    none.textContent = 'no ' + boardLabel + ' games in session';
+    none.textContent = 'no ' + typeLabel + ' games in session';
     return none;
   }
-  const games = sizeRows.reduce((sum, row) => sum + row.games, 0);
+  const finished = typeRow === undefined ? { games: 0, records: [], results: {}, likelyMisclicks: {} } : typeRow;
+  const games = finished.games + sessionAbandoned;
+  const lifetimeGames = lifetimeRecords.length + (abandoned === null ? 0 : abandoned.lifetime);
   const lifetime = sessionResultCounts(lifetimeRecords);
-  const lines = sessionResultLines(sizeRows);
+  const lines = sessionResultLines([finished]);
   const reasons = Object.keys(LIKELY_MISCLICK_REASON_LABELS)
-    .filter((reason) => sizeRows.some((row) => row.likelyMisclicks[reason] !== undefined));
-  const thisResult = sizeRows.some((row) => row.records.includes(thisGame)) ? sessionGameResult(thisGame) : null;
+    .filter((reason) => finished.likelyMisclicks[reason] !== undefined);
+  const thisResult = finished.records.includes(thisGame) ? sessionGameResult(thisGame) : null;
   const grid = document.createElement('div');
   grid.className = 'session-summary-grid session-summary-results';
   grid.style.gridTemplateColumns = 'repeat(' + (3 + SESSION_RESULT_LEVELS.length) + ', auto)';
@@ -1127,13 +1169,11 @@ function buildSessionSummaryResults(rows, boardKey, boardLabel, thisGame, lifeti
     const percent = Math.round(100 * count / total);
     return count > 0 && percent === 0 ? '<1%' : percent + '%';
   };
-  const countCells = (depth, countOf, lifetimeCount) => {
-    const count = sizeRows.reduce((sum, row) => sum + countOf(row), 0);
-    return [cell('session-summary-number', String(count)), ...SESSION_RESULT_LEVELS.map((_, index) =>
+  const countCells = (depth, count, lifetimeCount) => [cell('session-summary-number', String(count)),
+    ...SESSION_RESULT_LEVELS.map((_, index) =>
       cell('session-summary-number', index + 1 === depth ? shareText(count, games) : '')),
-    cell('session-summary-number session-summary-lifetime', shareText(lifetimeCount, lifetimeRecords.length))];
-  };
-  line('session-summary-head', [cell('', 'result'), cell('', boardLabel + ' games'),
+    cell('session-summary-number session-summary-lifetime', shareText(lifetimeCount, lifetimeGames))];
+  line('session-summary-head', [cell('', 'result'), cell('', typeLabel + ' games'),
     ...SESSION_RESULT_LEVELS.map((level) => cell('', level)), cell('session-summary-lifetime', 'lifetime')]);
   // A this-game row (class `me`) is bold black on the this-game color and
   // its label ends in "this".
@@ -1145,17 +1185,24 @@ function buildSessionSummaryResults(rows, boardKey, boardLabel, thisGame, lifeti
     if (isThis) markThis(label);
     line('session-summary-row session-summary-depth-' + entry.depth
       + (entry.depth === 1 && entry !== lines[0] ? ' session-summary-group-first' : '') + (isThis ? ' me' : ''),
-    [label, ...countCells(entry.depth, (row) => kindsCount(row.results, entry.kinds),
-      kindsCount(lifetime.results, entry.kinds))]);
+    [label, ...countCells(entry.depth, kindsCount(finished.results, entry.kinds), kindsCount(lifetime.results, entry.kinds))]);
   }
   reasons.forEach((reason, index) => {
     const label = cell('session-summary-result', 'of these losses, likely misclick: ' + LIKELY_MISCLICK_REASON_LABELS[reason]);
     const isThis = thisResult !== null && thisResult.likelyMisclicks.includes(reason);
     if (isThis) markThis(label);
     line('session-summary-row session-summary-depth-2' + (index === 0 ? ' session-summary-group-first' : '')
-      + (isThis ? ' me' : ''), [label, ...countCells(2, (row) => row.likelyMisclicks[reason] || 0,
+      + (isThis ? ' me' : ''), [label, ...countCells(2, finished.likelyMisclicks[reason],
       lifetime.likelyMisclicks[reason] || 0)]);
   });
+  if (abandoned !== null) {
+    // Lifetime games from before boards recorded how they left play include
+    // no abandoned ones, so the row says since when it counts.
+    const partial = lifetimeRecords.some((r) => r.endedAt < abandoned.recordedFrom);
+    line('session-summary-row session-summary-depth-1 session-summary-group-first',
+      [cell('session-summary-result', 'abandoned' + (partial ? ' (recorded since ' + localDateText(abandoned.recordedFrom) + ')' : '')),
+        ...countCells(1, abandoned.session, abandoned.lifetime)]);
+  }
   return grid;
 }
 

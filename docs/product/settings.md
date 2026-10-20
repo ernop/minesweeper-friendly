@@ -197,10 +197,12 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   [Rank lists](rankings.md#session-summary-requested-and-built-2026-10-07));
   `shownThings.sessionEndings` (default on, added 2026-10-11 as "session
   loss types"; "session results by type" since 2026-10-14) — the summary's
-  results tree under it for the current board size alone (since 2026-10-15;
-  before then one column pair per size played): won and lost, then the worst
-  offense against perfect play and its type, each level's shares in their
-  own column, listed under Tables right after the summary.
+  results tree under it for the current board type alone (its size, mode,
+  and generator since 2026-10-20; the size alone from 2026-10-15; before
+  then one column pair per size played): won, lost, and abandoned (since
+  2026-10-20), won and lost then by the worst offense against perfect play
+  and its type, each level's shares in their own column, listed under
+  Tables right after the summary.
 - Daily limits (2026-10-12): the first panel on the page, "Daily limits",
   holds the [daily play limits](play-limits.md). They are not schema
   settings and do not save automatically: each change goes through two

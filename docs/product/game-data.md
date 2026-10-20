@@ -416,6 +416,9 @@ come on!" Built the same day:
   | no-op rate, board-changing click share | each no-op click's square (ring) | N no-op clicks |
   | unused flag share | each unused flag (yellow) | N unused flags |
   | unflagged mine share | each mine without a flag at the end (yellow) | N of M mines unflagged |
+  | time before a move | where each move went (ring) | N moves |
+  | moves leaving easy work | where each move leaving easy work went (ring), the proven-safe squares those moves left (yellow) | N moves leaving easy work, M proven-safe squares left |
+  | forks to the nearest area | where each move at a fork went (ring) | N forks |
 
   Time, click rate, fastclick gap, mouse speed, path / click, and cadence
   spread count nothing on the board and have no example. A no-op click
@@ -556,10 +559,11 @@ the max number row. Identical time-table memberships do not collapse distinct sc
 traits on this chart. Matching-board solve-time tables remain a separate analysis.
 
 Left-side performance directions: lower time, misclick rate, fastclick
-gap, no-op rate, path, cadence spread, unused flag share, and the nine
-measurements added 2026-10-20 (Catalog and configuration, below); higher
-3BV/s, click rate, the efficiency family, board-changing click share, IOS,
-STNB, mouse speed, and unflagged mine share.
+gap, no-op rate, path, cadence spread, unused flag share, the nine
+measurements added 2026-10-20, time before a move, and moves leaving easy
+work (Catalog and configuration, below); higher 3BV/s, click rate, the
+efficiency family, board-changing click share, IOS, STNB, mouse speed,
+unflagged mine share, and forks to the nearest area.
 
 ## Catalog and configuration
 
@@ -606,10 +610,11 @@ Defaults (user decision 2026-09-23, from a screenshot of the creator's own
 configuration: "the attached image also is the defaults we should show for
 leftside"): time, misclick rate, fastclick gap, 3BV/s, click rate, no-op
 rate, board-changing click share, mouse speed, and unused flag share; since 2026-10-07
-each also compares with the session. Optional:
-efficiency, path / 3BV, IOE, ZiNi efficiency, HZiNi efficiency, IOS, STNB,
-path / click, cadence spread, and (since 2026-10-20) the nine measurements
-below. Before this, both scopes defaulted to time, misclick rate,
+each also compares with the session; unflagged mine share since 2026-10-10,
+time before a move and moves leaving easy work since 2026-10-20 (below).
+Optional: efficiency, path / 3BV, IOE, ZiNi efficiency, HZiNi efficiency,
+IOS, STNB, path / click, cadence spread, (since 2026-10-20) the nine
+measurements below, and forks to the nearest area. Before this, both scopes defaulted to time, misclick rate,
 fastclick gap, 3BV/s, click rate, efficiency, no-op rate, and path / 3BV.
 Preferences are saved in full, so a profile that has saved any preference
 keeps its selections; the defaults reach new profiles.
@@ -657,6 +662,31 @@ as better:
 | excess game risk | the game risk actions' extra chance of losing over the safest available move, summed, in percentage points per minute | wins and losses |
 | modeled life gap | the expected remaining life the one-move survival model saw given up in life maximization moves, summed, per minute | wins and losses |
 
+Move habits, added 2026-10-20 (creator: "let's build: move habits and
+characterization of moves, when ih ave to move since local direction ends
+OR becomes very slow"; the moves are defined in
+[Live perf charts](during-game.md), "Events"): three measurements of
+wins and losses alike, read from the record's move habits
+([Per-game stats](per-game-stats.md), "Move habits"):
+
+| Measurement | What it counts | Better | Default |
+| --- | --- | --- | --- |
+| time before a move | the median time from a board-changing click to a move | lower | shown |
+| moves leaving easy work | moves made while counting a single number had proved a square near the click before safe, as a share of all moves | lower | shown |
+| forks to the nearest area | of the moves made at a fork, the share that went to the area nearest the click before | higher | off |
+
+Leaving easy work ranks worse because that work must be come back to; the
+moves that left hard work, and those after the local work ended, are not
+ranked, since moving on from slow work can be the right choice. Going to
+the nearest area ranks better as the shorter way. Both are declared
+preferences. A game without a move has no time before a move or share of
+moves, and one without a fork no fork share. Each card's example board
+rings where the game's moves went (forks for the fork share; for moves
+leaving easy work, those moves, with the squares they left shaded). Games
+recorded before 2026-10-20 are unmeasured until their result is next
+restored, and so is a game where the prover stopped at its work limit at
+a move.
+
 The categories are the report's exclusive ones ([Game-end
 evaluation](game-end-evaluation.md)), counted whatever the after-game
 report's scope shows. A game with any measurement note among its actions (an
@@ -674,8 +704,8 @@ Completion-dependent metrics (time, 3BV/s, efficiency variants, IOS/STNB,
 path / 3BV, unused flag share, unflagged mine share, unused flag rate)
 compare wins. Observable action/error/timing metrics (misclicks, no-ops,
 click rate, fastclick gap, board-changing click share, mouse speed, path /
-click, cadence spread, and the other eight added 2026-10-20) compare
-measured wins and losses.
+click, cadence spread, the other eight added 2026-10-20, and the move
+habits) compare measured wins and losses.
 Their directional wording describes that metric, not overall player skill.
 Faster click/mouse activity is not inherently more efficient; less cadence
 spread means more regular timing; unused flags measure observed chord use,
@@ -749,25 +779,48 @@ creator asked that everything in it be an option in the right-side sections
 ("same for all, actually"). The recommendation, one optional line under
 game data's chart opening the same card, was followed.
 
+Made useful (creator request 2026-10-20: "review and finish switch cost
+please. think about hwo to m ake this useful."). A percentage alone says
+neither what the habit costs nor whether practice is shrinking it, so the
+line gained what this game's switches cost in seconds and an earlier
+500-game pool to compare with, and the card the cost per game of each
+standard board. The half-built per-game estimate (one game's own
+regression, partly built 2026-10-08 and never shown) was removed: the study
+found a single game's estimate is noise (split-half reliability about
+0.05). A game's cost instead prices its own switches at the latest 500
+games' estimate, which is stable.
+
 - **Where.** One line directly under game data's chart, shown when
-  configure's "switch cost, over the session and the latest 500 standard
-  games" is checked (`gameDataSwitchCost`, off by default). It shows with
-  game data, which appears after wins. Nothing is read while it is switched
-  off. It is never shown per game: one game has too few presses to measure
-  the cost (split-half reliability of a per-game estimate about 0.05 in the
-  study), so every value pools many games.
-- **The line.** "switch cost", then each pool's name and estimate: how much
-  longer the next press takes after changing buttons, as a signed percent
-  such as "+7.4%":
-  - **session**: the standard games that ended in the page-wide session
-    window ([One session definition](#one-session-definition)), however
-    many.
-  - **latest 500**: the latest 500 standard games, whenever played.
+  configure's "switch cost, this game and over the session, the latest 500,
+  and the earlier 500 standard games" is checked (`gameDataSwitchCost`, off
+  by default). It shows with game data, which appears after wins. Nothing is
+  read while it is switched off. No game is estimated on its own: one game
+  has too few presses to measure the cost (split-half reliability of a
+  per-game estimate about 0.05 in the study), so every estimate pools many
+  games.
+- **The line.** "switch cost", then:
+  - **this game**: the time the shown game's button switches added, at the
+    latest 500 games' estimate, in seconds such as "+1.31s": each switched
+    transition's interval less the interval it would have taken without the
+    switch (the interval divided by e to the estimate). An en dash when the
+    shown game is not one of the counted games (a standard game with a saved
+    trace and at least one timed move) or the latest 500 have no estimate
+    yet.
+  - then each pool's name and estimate: how much longer the next press
+    takes after changing buttons, as a signed percent such as "+7.4%":
+    - **session**: the standard games that ended in the page-wide session
+      window ([One session definition](#one-session-definition)), however
+      many.
+    - **latest 500**: the latest 500 standard games, whenever played.
+    - **earlier 500**: the 500 standard games before those, so the latest
+      500 read against the play before them; where the two 95% intervals do
+      not overlap, the cost has changed.
 
   A pool with fewer than 30 games, or whose moves cannot separate switching
-  from the model's other terms, shows the en dash. The estimates are bold
-  and larger than the names, in fixed-width digits; a reply never resizes
-  the line.
+  from the model's other terms, shows the en dash. The values are bold and
+  larger than the names, in fixed-width digits, each in a box six
+  characters wide, so a reply never resizes the line. In a narrow details
+  column the line wraps between items, never inside one.
 - **Why "latest 500", not "lifetime".** The long-run pool holds at most the
   latest 500 games, the window approved on 2026-09-28, so "lifetime" would be
   false for any player with more games than that. A true lifetime pool was
@@ -777,9 +830,14 @@ game data's chart opening the same card, was followed.
 - **The card.** The label opens it on hover, focus, or click. Per pool:
   95% interval ("+6.4 to +8.4%"); per switch, the same extra time in
   milliseconds at the median press-to-press time of the pooled switches
-  ("+18ms"); moves that switch, the share of consecutive moves that change
-  buttons ("54%"); and games, the count pooled. Then what the estimate is,
-  and which games count, with the 30-game minimum. A pool whose data cannot
+  ("+18ms"); per Beginner, Intermediate, and Expert game, the mean time an
+  average game of that board in the pool lost to its switches at the pool's
+  own estimate ("+1.38s", an en dash for a board the pool lacks); moves that
+  switch, the share of consecutive moves that change buttons ("54%"); and
+  games, the count pooled. Then this game's switches ("This game: 71 button
+  switches among 152 timed moves; at the latest 500 games' estimate they
+  added 1.31s."), what the estimate is, how to read the earlier 500, and
+  which games count, with the 30-game minimum. A pool whose data cannot
   measure it gets one sentence saying so. A reply closes an open card, which
   would otherwise still show the previous values.
 - **Games pooled.** Standard games on the three standard boards (Beginner,
@@ -806,14 +864,19 @@ game data's chart opening the same card, was followed.
 - **Updates.** Computed from the saved traces when the line is switched on
   (at page load when it is on), so the existing history counts at once
   without new play; again after each standard game's trace is saved; when
-  another session is picked; and, whenever the line is built, if the
-  window's start has passed one of the pooled games since the last
-  estimate. The line has no timer of its own. Nothing new is stored.
-- **Not shown, by decision:** a per-game switch cost or switch index (noise
-  at one game), the raw switch rate as a performance measure (it mostly
-  restates how often the player flags, and the rate relative to chance did
-  not track speed), and breakdowns by direction or distance (in the study,
-  not on the page; see [BACKLOG.md](../../BACKLOG.md)).
+  another session is picked; and, whenever the line is built, if it sits
+  under another game than the last estimate priced or the window's start
+  has passed one of the pooled games since then. The line has no timer of
+  its own. Nothing new is stored. Turning it on reads up to 1,000 saved
+  traces once (the latest and the earlier 500) plus the session's; each
+  later game adds one.
+- **Not shown, by decision:** a game's own switch cost estimate or switch
+  index (noise at one game; the half-built per-game estimate was removed on
+  2026-10-20, and a game's cost uses the pooled estimate instead), the raw
+  switch rate as a performance measure (it mostly restates how often the
+  player flags, and the rate relative to chance did not track speed), and
+  breakdowns by direction or distance (in the study, not on the page; see
+  [BACKLOG.md](../../BACKLOG.md)).
 - **Reading.** The pooled value is a summary, not the cost of every switch:
   in the study the cost sat in moves of one or two cells, vanished at three
   or more, and was about 13 ms for flag and chord pairs, larger where a

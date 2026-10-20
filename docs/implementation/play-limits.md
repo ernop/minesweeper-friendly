@@ -28,16 +28,27 @@ Spec: [docs/product/play-limits.md](../product/play-limits.md). Index: [AGENTS.m
   keyPath `startedAt`); userdata gains the `playLimits` kind, and on
   2026-10-14 `playLimitPenalty` (no database version change: userdata kinds
   are keys in one store).
-  `readPlaySpansSince(fromMs)` reads one play day by key range;
+  `readPlaySpansSince(fromMs)` reads one play day by key range (the
+  settings page); `readAllPlaySpans` reads them all (the game page since
+  2026-10-20, for the session results' abandoned boards);
   `persistPlaySpan` puts one span. A span is
-  `{ startedAt, lastSeenAt, endedAt | null, width, height, mines, playMode }`.
+  `{ startedAt, lastSeenAt, endedAt | null, width, height, mines, playMode,
+  generator?, ending }` (`generator` and `ending` since 2026-10-20;
+  `generator` only when not the default, as on a record; `ending` null in
+  play, else one of `PLAY_SPAN_ENDINGS`).
   Play time derives from the timestamps (`playSpanPlayedMs`): an unfinished
   span seen within `PLAY_SPAN_LIVE_MS` (70 s, above a hidden tab's
-  once-a-minute timer) counts to now, an older one to `lastSeenAt`.
+  once-a-minute timer; `playSpanLive`) counts to now, an older one to
+  `lastSeenAt`. `playSpanAbandonedAt(span, nowMs)` is `endedAt` for
+  'restarted' and 'trial-ended', `lastSeenAt` for a null ending no longer
+  live (its page closed in play), else null (finished, in play, or saved
+  before endings were recorded).
 - Game page, `game/play-limits.js`: `playSpanBegin` (from `startTimer`)
   saves a span and rewrites it every `PLAY_SPAN_HEARTBEAT_MS` (5 s);
-  `playSpanEnd` (from `finish`, the top of `newGame`, and `endTrial`) closes
-  it; `savePlaySpanProgress` runs from the page-lifecycle handlers in
+  `playSpanEnd(ending)` closes it, from `finish` ('finished'), the top of
+  `newGame` ('restarted'), and `endTrial` ('trial-ended');
+  `tests/play-limits-test.js` checks those calls and that every ending
+  passed is in `PLAY_SPAN_ENDINGS`. `savePlaySpanProgress` runs from the page-lifecycle handlers in
   `controls.js` on hide and pagehide. Each save also posts the span on the
   `BroadcastChannel` `PLAY_LIMITS_CHANNEL`, so every open game or settings
   tab counts every tab's play live; the settings page posts `{ limits }` or

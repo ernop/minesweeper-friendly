@@ -136,7 +136,9 @@ const types = (model) => model.events.map((event) => event.type + '@' + event.at
   assert.deepEqual([gap.endMs, gap.known, gap.countingKnown, gap.nearKnown, gap.endedBy, gap.guess, gap.windowLeft],
     [1500, 0, 0, 0, 'reveal', true, false]);
   const move = model.events.find((event) => event.type === 'moved-on');
-  assert.deepEqual([move.squares, move.areas, move.guess], [12, 0, true]);
+  assert.deepEqual([move.squares, move.areas, move.guess, move.gapMs], [12, 0, true, 1500]);
+  assert.deepEqual(structuredClone(DuringGame.moveHabits(model)), { movesRanOut: 1, movesLeftHardWork: 0, movesLeftEasyWork: 0,
+    moveGapMedianMs: 1500, forkMoves: 0, forkMovesToNearestArea: 0 }, 'one move, after the local work ran out');
 
   const view = viewOf(game, ['bv3Solved', 'safeOpened', 'bvPerSecond', 'clickRate', 'actionGap', 'fastclickGap',
     'safeKnown', 'longGapEvents'], 'buckets-2');
@@ -181,16 +183,24 @@ const types = (model) => model.events.map((event) => event.type + '@' + event.at
   ]);
   assert.equal(game.outcome, 'loss');
   const model = modelOf(game);
-  assert.deepEqual(types(model), ['opening@0', 'guess@1000', 'opening@1000', 'left-work@1000', 'long-gap@1600',
-    'left-work@2700', 'fork@2700', 'came-back@2700', 'no-op@2900', 'misclick@3100', 'wrong-flag@3100',
+  // Leaving (4,1), which only two numbers together prove, is leaving hard
+  // work; leaving column 9, which counting proves, is leaving easy work.
+  assert.deepEqual(types(model), ['opening@0', 'guess@1000', 'opening@1000', 'left-hard-work@1000', 'long-gap@1600',
+    'left-easy-work@2700', 'fork@2700', 'came-back@2700', 'no-op@2900', 'misclick@3100', 'wrong-flag@3100',
     'flag-removed@3400', 'guess@3700']);
   const event = (type, atMs) => model.events.find((item) => item.type === type && item.atMs === atMs);
-  assert.deepEqual(event('left-work', 1000).safeCells, [at(4, 1)]);
-  assert.equal(event('left-work', 1000).guess, true);
+  const hard = event('left-hard-work', 1000);
+  assert.deepEqual([hard.safeCells, hard.leftSafe, hard.leftByCounting, hard.guess, hard.gapMs],
+    [[at(4, 1)], 1, 0, true, 300]);
   const gap = event('long-gap', 1600);
   assert.deepEqual([gap.endMs, gap.known, gap.countingKnown, gap.nearKnown],
     [2700, 4, 3, 3], 'counting proves column 9 but not (4,1), which needs two numbers together');
-  assert.deepEqual(event('left-work', 2700).safeCells, [at(9, 0), at(9, 1), at(9, 2)]);
+  const easy = event('left-easy-work', 2700);
+  assert.deepEqual([easy.safeCells, easy.leftSafe, easy.leftByCounting, easy.gapMs],
+    [[at(9, 0), at(9, 1), at(9, 2)], 3, 3, 1100]);
+  assert.equal(model.movesJudged, true);
+  assert.deepEqual(structuredClone(DuringGame.moveHabits(model)), { movesRanOut: 0, movesLeftHardWork: 1, movesLeftEasyWork: 1,
+    moveGapMedianMs: 700, forkMoves: 1, forkMovesToNearestArea: 0 }, 'two moves 0.3 s and 1.1 s after the click before; one fork, past the nearest area');
   const fork = event('fork', 2700);
   assert.deepEqual([fork.areas, fork.nearestSafeSquares, fork.toArea, fork.toNearestArea], [2, 1, true, false]);
   assert.equal(event('came-back', 2700).awayMs, 1700);
@@ -201,12 +211,16 @@ const types = (model) => model.events.map((event) => event.type + '@' + event.at
   assert.deepEqual(model.progress.flaggedMines, [0, 0, 1, 2, 2, 3, 3, 3, 3, 3, 3, 3]);
   assert.deepEqual(model.known.areas.slice(4, 8), [2, 2, 2, 2]);
 
-  // The worker holds the finished game by its endedAt and answers only for it.
+  // The worker holds the finished game by its endedAt and answers only for
+  // it; its move habits go to the record with the finished game's
+  // measurements.
   const gameId = 1760000000000;
-  task('finished-game', { width, height: 3, mines: game.mines, drill: true, needCadence: false, gameId,
+  const finished = task('finished-game', { width, height: 3, mines: game.mines, drill: true, needCadence: false,
+    needMoveHabits: true, gameId, timeMs: game.timeMs, outcome: game.outcome,
     trace: { t: game.t, x: game.x, y: game.y, events: game.events, wallMs: 4000,
       initialPageState: game.initialPageState } });
-  const rows = ['minesFlagged', 'misclickRate', 'fastclickGap', 'forkEvents', 'leftWorkEvents', 'mouseSpeed'];
+  assert.deepEqual(finished.measurements, structuredClone(DuringGame.moveHabits(model)));
+  const rows = ['minesFlagged', 'misclickRate', 'fastclickGap', 'forkEvents', 'leftHardWorkEvents', 'leftEasyWorkEvents', 'mouseSpeed'];
   const view = task('during-game', { gameId, timeMs: game.timeMs, outcome: game.outcome, rows, average: 'rolling-2' });
   assert.deepEqual(view.rows.map((row) => row.id), rows);
   assert.equal(view.actions.length, 11);
@@ -214,7 +228,8 @@ const types = (model) => model.events.map((event) => event.type + '@' + event.at
   assert.equal(row('minesFlagged').summary, 0.6);
   assert.equal(row('misclickRate').summary, 60000 / 3700);
   assert.equal(row('forkEvents').summary, 1);
-  assert.equal(row('leftWorkEvents').summary, 2);
+  assert.equal(row('leftHardWorkEvents').summary, 1);
+  assert.equal(row('leftEasyWorkEvents').summary, 1);
   assert.equal(row('fastclickGap').summary, 300, 'every gap but the 1.1 s pause is a moving fastclick; their median');
   assert.equal(row('mouseSpeed').line.length, 241);
   assert.throws(() => task('during-game', { gameId: gameId + 1, timeMs: 1, outcome: 'win', rows, average: 'raw' }),
@@ -224,9 +239,16 @@ const types = (model) => model.events.map((event) => event.type + '@' + event.at
 }
 
 // A trace without decision events (captured before actions were traced)
-// has no rows to show.
-assert.deepEqual(modelOf({ width: 9, height: 9, mines: new Array(81).fill(false), timeMs: 1000, outcome: 'win',
-  t: [], x: [], y: [], events: [], initialPageState: { visibilityState: 'visible', hasFocus: true } }), { recorded: false });
+// has no rows to show and no move habits.
+{
+  const unrecorded = DuringGame.model({ width: 9, height: 9, mines: new Array(81).fill(false), timeMs: 1000, outcome: 'win',
+    t: [], x: [], y: [], events: [], initialPageState: { visibilityState: 'visible', hasFocus: true } });
+  assert.deepEqual(structuredClone(unrecorded), { recorded: false });
+  assert.deepEqual(structuredClone(DuringGame.moveHabits(unrecorded)), {});
+  // A proof stopped at its work limit at a move leaves that move unjudged,
+  // so the game records no move habits rather than undercounting them.
+  assert.deepEqual(structuredClone(DuringGame.moveHabits({ recorded: true, movesJudged: false, events: [] })), {});
+}
 
 // The window-left spans come from page-state events on the game clock.
 {

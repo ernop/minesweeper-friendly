@@ -19,7 +19,7 @@ vm.runInContext(settingsCore.slice(settingsCore.indexOf('const DIFFICULTIES'),
   settingsCore.indexOf('const PATH_VIEW_IDS')), context);
 vm.runInContext(fs.readFileSync(path.join(repo, 'play-limits.js'), 'utf8')
   + '\nthis.L = { PLAY_LIMIT_LOOSEN_MAX_PLAYED_MS, PLAY_SPAN_LIVE_MS, playDayStart, nextPlayDayStart,'
-  + ' playSpanPlayedMs, playDayUse, playLimitKind, playLimitReached, reachedPlayLimits,'
+  + ' playSpanPlayedMs, playSpanAbandonedAt, playDayUse, playLimitKind, playLimitReached, reachedPlayLimits,'
   + ' nextPlayLimitChange, playLimitLoosens, playLimitLoosenLock, playLimitsFrom,'
   + ' DEFAULT_PLAY_LIMIT_PENALTY, playLimitPenaltyFrom, playLimitNoFlagsAmount, playLimitClosingUse,'
   + ' playLimitStage, playDayStage, playLimitPenaltyLoosens, playLimitPenaltyLoosenLock,'
@@ -57,6 +57,18 @@ check('a span still being played counts up to now', L.playSpanPlayedMs(live, now
 const dead = { ...span(now - 600000, 0), endedAt: null, lastSeenAt: now - L.PLAY_SPAN_LIVE_MS - 1 };
 check('a span whose tab went quiet counts to its last sighting',
   L.playSpanPlayedMs(dead, now), 600000 - L.PLAY_SPAN_LIVE_MS - 1);
+
+// How a board left play (recorded since 2026-10-20): abandoned is restarted,
+// cut off by its trial's end, or its page closed in play.
+const ended = (ending) => ({ ...span(now - 60000, 30000), ending });
+check('a finished board was not abandoned', L.playSpanAbandonedAt(ended('finished'), now), null);
+check('a restarted board was abandoned when it ended',
+  [L.playSpanAbandonedAt(ended('restarted'), now), L.playSpanAbandonedAt(ended('trial-ended'), now)],
+  [now - 30000, now - 30000]);
+check('a board still in play is not abandoned', L.playSpanAbandonedAt({ ...live, ending: null }, now), null);
+check('a board whose page closed in play was abandoned at its last sighting',
+  L.playSpanAbandonedAt({ ...dead, ending: null }, now), dead.lastSeenAt);
+check('a span from before endings were recorded tells nothing', L.playSpanAbandonedAt(dead, now), null);
 const use = L.playDayUse([
   span(at(2026, 10, 13, 3, 50), 600000),          // yesterday's play day
   span(at(2026, 10, 13, 9), 60000),               // Beginner
@@ -176,9 +188,13 @@ const body = (name) => {
   return js.slice(start, js.indexOf('\n}\n', start));
 };
 check('every board going into play opens a span', body('startTimer').includes('playSpanBegin();'), true);
-check('a finished board closes its span', body('finish').includes('playSpanEnd();'), true);
-check('a restarted board closes its span', body('newGame').includes('playSpanEnd();'), true);
-check('an ended trial closes its span', body('endTrial').includes('playSpanEnd();'), true);
+check('a span opens with no ending, which a closed page leaves', body('playSpanBegin').includes('ending: null'), true);
+check('a finished board closes its span', body('finish').includes("playSpanEnd('finished');"), true);
+check('a restarted board closes its span', body('newGame').includes("playSpanEnd('restarted');"), true);
+check('an ended trial closes its span', body('endTrial').includes("playSpanEnd('trial-ended');"), true);
+check('every ending a span is closed with is a known one',
+  [...js.matchAll(/playSpanEnd\('([a-z-]+)'\)/g)].map((match) => match[1]).every((ending) =>
+    vm.runInContext('PLAY_SPAN_ENDINGS', context).includes(ending)), true);
 check('reveal and flag refuse to start a board while closed',
   ['revealCell', 'toggleFlag'].every((name) => body(name).includes('playLimitBlocksStart()')), true);
 check('board presses refuse to start a board while closed',

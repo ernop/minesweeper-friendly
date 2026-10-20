@@ -96,6 +96,14 @@ const panelsBeforeRemoval = plain(run('settingsFrom({ panels: { states: true, re
 assert.equal(panelsBeforeRemoval.states, true, 'the removed replay panel does not discard the saved panel states');
 assert.equal(panelsBeforeRemoval.duringGame, false);
 assert(!('replay' in panelsBeforeRemoval));
+// Row choices saved before left work split into hard and easy work keep the
+// rest, and both new rows take its choice.
+const rowsBeforeSplit = plain(run('settingsFrom({ duringGameRows: { leftWorkEvents: false, forkEvents: false } }).duringGameRows'));
+assert.deepEqual([rowsBeforeSplit.leftHardWorkEvents, rowsBeforeSplit.leftEasyWorkEvents, rowsBeforeSplit.forkEvents],
+  [false, false, false], 'a hidden left work row hides both rows that replaced it');
+assert.equal(rowsBeforeSplit.movedOnEvents, defaults.duringGameRows.movedOnEvents, 'unset rows keep their defaults');
+assert(!('leftWorkEvents' in rowsBeforeSplit));
+assert.equal(run('settingsFrom({ duringGameRows: { leftHardWorkEvents: false } }).duringGameRows.leftEasyWorkEvents'), true);
 
 // The three presets are Standard with the default generator; a block that
 // paired one with another mode continues as that mode on the custom board

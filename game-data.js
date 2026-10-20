@@ -146,6 +146,9 @@ const GameData = (() => {
   // whose evidence predates the categories has none.
   const actionRate = (read) => (r) => r.actionSummary && r.timeMs > 0 ? read(r.actionSummary) * 60000 / r.timeMs : undefined;
   const count = (n) => n.toLocaleString('en-US');
+  // A game's moves (during-game.js, moveHabits): absent on games recorded
+  // before move habits were.
+  const movesOf = (r) => r.movesRanOut + r.movesLeftHardWork + r.movesLeftEasyWork;
   // `help` says only what a measurement's name and unit leave open; its card
   // and configuration row show it. A measurement whose name and unit already
   // say what it is has none (creator 2026-10-08, of the time card's
@@ -199,6 +202,16 @@ const GameData = (() => {
     { id: 'cadenceSpread', allOutcomes: true, name: 'cadence spread', higher: false, default: false,
       value: (r) => r.cadenceSpread, format: (v) => v.toFixed(2) + '×',
       help: 'The width of the middle half of the gaps between all presses (the interquartile range) divided by their median. 0 is perfectly even.' },
+    { id: 'moveTime', allOutcomes: true, name: 'time before a move', higher: false, default: true,
+      value: (r) => r.moveGapMedianMs, format: (v) => Math.round(v) + 'ms',
+      help: 'The median time from a board-changing click to a move: a click 3 or more squares from everything the click before it opened or marked and from the proven-safe squares within 2 squares of those.' },
+    { id: 'easyWorkLeftShare', allOutcomes: true, name: 'moves leaving easy work', higher: false, default: true,
+      value: (r) => (r.movesRanOut !== undefined && movesOf(r) > 0 ? r.movesLeftEasyWork / movesOf(r) : undefined),
+      format: percent,
+      help: 'Moves made while counting a single number had proved a square within 2 squares of the click before safe, as a share of all moves: jumps of 3 or more squares from the work the click before touched.' },
+    { id: 'nearestAreaShare', allOutcomes: true, name: 'forks to the nearest area', higher: true, default: false,
+      value: (r) => (r.forkMoves > 0 ? r.forkMovesToNearestArea / r.forkMoves : undefined), format: percent,
+      help: 'Of the moves made while proven-safe squares lay in 2 or more separate areas (squares at most 2 apart are one area), the share that went to the area nearest the click before.' },
     { id: 'unusedMarkShare', name: 'unused flag share', higher: false, default: true,
       value: (r) => r.flagsPlaced > 0 ? r.unusedCorrectFlags / r.flagsPlaced : undefined,
       format: percent, help: 'Correct flags that no chord ever used, as a share of all flags placed.' },
@@ -443,8 +456,9 @@ const GameData = (() => {
   // shade, ring, or dot; 3BV spread draws its work points, their center,
   // and the spread as a circle, in cell coordinates. Board traits read the
   // final layout. `play` is null for a trace without recorded decisions;
-  // otherwise misclicks, no-op clicks, and unused flags are its
-  // during-the-game events and `play.flagged` the flags standing at the end.
+  // otherwise misclicks, no-op clicks, unused flags, moves, and forks are
+  // its during-the-game events and `play.flagged` the flags standing at the
+  // end. A move's square is where it went.
   // A measurement whose name is a count of the marked squares needs no count
   // beside its board, so only the rest carry counts.
   function examples(width, height, mines, play) {
@@ -476,7 +490,12 @@ const GameData = (() => {
       .map((event) => event.cell);
     const eventCount = (type) => play.events.filter((event) => event.type === type).length;
     const standing = new Set(play.flagged);
+    const easyWorkLeft = play.events.filter((event) => event.type === 'left-easy-work');
     return { ...traits,
+      moves: { marks: { ring: ['moved-on', 'left-hard-work', 'left-easy-work'].flatMap(eventCells) } },
+      easyWorkLeft: { marks: { ring: eventCells('left-easy-work'),
+        shade: [...new Set(easyWorkLeft.flatMap((event) => event.safeCells))] } },
+      forks: { marks: { ring: eventCells('fork') } },
       misclickRate: { marks: { ring: eventCells('misclick') }, clicks: eventCount('misclick') },
       noopRate: { marks: { ring: eventCells('no-op') }, clicks: eventCount('no-op') },
       unusedMarkShare: { marks: { shade: eventCells('unused-flag') } },

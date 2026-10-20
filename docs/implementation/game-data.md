@@ -275,8 +275,9 @@ Spec: [Switch cost line](../product/game-data.md#switch-cost-line-creator-reques
     Distance is between the two press positions when the layout rect is the
     same at both presses, else between cell centres; the cell size comes from
     the last layout event with the eighth-of-a-cell bevel.
-  - `window(candidates, gameOf)` walks newest first to 500 games with a
-    transition, loading no candidate past the window (`gameOf` may be async).
+  - `windows(candidates, gameOf)` walks newest first to 500 games with a
+    transition (`latest`), then 500 more (`earlier`), loading no candidate
+    past the earlier window (`gameOf` may be async).
   - `since(candidates, fromMs, gameOf)` walks newest first through every
     candidate that ended at or after `fromMs` (inclusive, as
     `SessionScope.bounds`) and keeps those with a transition, however many;
@@ -290,6 +291,14 @@ Spec: [Switch cost line](../product/game-data.md#switch-cost-line-creator-reques
     g/(g-1) x (n-1)/(n-p), the percentage and its 95% interval, ms at the
     median switch interval, and the switch share. Under `MIN_GAMES` (30) the
     status is `too-few-games`; unidentifiable data give `not-measurable`.
+  - `timeMs(rows, beta)` prices switches: the sum over switched rows of
+    interval x (1 - e^-beta), the interval less what it would have taken
+    without the switch (the same rule as `msPerSwitch`). `perGame(games,
+    fit)` gives per board key the pool's games and their mean `timeMs` at
+    the pool's own beta (null unless measured); `game(rows, fit)` gives one
+    game's transitions, switches, and `costMs` at a measured fit. The
+    per-game regression (`gameFit`, `gameMeasurements`, partly built
+    2026-10-08 and never wired) was removed on 2026-10-20.
   - `knots` places patsy's knots on distinct values within `KNOT_TOLERANCE`
     (1e-9): with exact distinct doubles, last-bit differences between numpy's
     and V8's `log2`/`hypot` moved the Fitts knots (1.46084/1.94262 against
@@ -301,55 +310,71 @@ Spec: [Switch cost line](../product/game-data.md#switch-cost-line-creator-reques
   `step.before`; `boardInputs` is exported.
 - `switch-cost-worker.js` is `analysisTask`'s `switch-cost` lane
   (`startAnalysisWorker` in `analysis-client.js`; one task kind, `estimate`,
-  payload `{ database, candidates, sessionFromMs }`, reply
-  `{ session, latest }`, one `fit` result per pool). It opens the database
+  payload `{ database, candidates, sessionFromMs, shownEndedAt }`, reply
+  `{ session, latest, earlier, shown }`: per pool a `fit` result with its
+  `perGame`, and `shown`, the candidate ending at `shownEndedAt` as
+  `game(rows, latest)` with its `endedAt`, or null when no candidate ends
+  then or its trace is not saved). Saved games carry their key for
+  `perGame`. It opens the database
   with the page's name and version as `training-worker.js` does, reads each
   trace in its own transaction, keeps every saved game's rows for the page's
   lifetime, and does not remember a missing trace (a just-finished game's
   trace may not be committed when an earlier request lists it). It keeps the
-  previous reply's fits keyed by their games' end times, so a pool whose
-  games did not change (the latest 500 when another session is picked, or
-  the session when both pools hold the same games) is not fitted again.
+  previous reply's fits (with their `perGame`) keyed by their games' end
+  times, so a pool whose games did not change (the latest 500 when another
+  session is picked, or the session when it holds the same games as a
+  window) is not fitted again.
   `solver.js` needs `justice.js` loaded first.
 - `game/switch-cost-line.js` (page only, so the analysis worker's imports
   never reach it):
-  - `buildSwitchCostLine`: built by the game data task's chart view under
-    the chart when `settings.gameDataSwitchCost` is on. One flex line: the
-    label (`chartHelpButton`), then per `SWITCH_COST_POOLS` entry the pool
-    name and a `.switch-cost-value`; its `updateFits` changes only those
-    values' text, with a true minus sign, and closes an open card.
-  - `fillSwitchCostCard`: `SWITCH_COST_DETAILS` per pool, a sentence per
-    `not-measurable` pool, the definition, and which games count.
+  - `buildSwitchCostLine(record)`: built by the game data task's chart
+    view under the chart when `settings.gameDataSwitchCost` is on, for the
+    game game data shows (`switchCostShownEndedAt`). One wrapping flex line:
+    the label (`chartHelpButton`), "this game" and its value, then per
+    `SWITCH_COST_POOLS` entry (session, latest, earlier) the pool name and a
+    `.switch-cost-value`; its `updateFits` changes only those values' text,
+    with a true minus sign, and closes an open card. "this game" shows only
+    a reply whose `shown.endedAt` is the line's game
+    (`switchCostShownGame`).
+  - `fillSwitchCostCard`: `SWITCH_COST_DETAILS` per pool (the per-board rows
+    from `DIFFICULTIES`' standard keys), a sentence per `not-measurable`
+    pool, this game's sentence, the definition, how to read the earlier
+    pool, and which games count. `switchCostSeconds` formats seconds in at
+    most six characters.
   - `switchCostCandidates`: the three keys' records, newest first.
   - `refreshSwitchCost`: while `settings.gameDataSwitchCost` is off it only
     sets `switchCostStale`. Otherwise one request in flight and one rerun
     queued; `switchCostRequest` keeps the request's candidates, its session
-    start, and how many candidates ended inside the window. Failures go
-    through `analysisFailure`.
+    start, the shown game it priced, and how many candidates ended inside
+    the window. Failures go through `analysisFailure`.
   - `keepSwitchCostCurrent`: called by `buildSwitchCostLine` and
-    `setSessionDefinition`. It runs a stale refresh, or one when the
-    session window now holds a different number of the request's
-    candidates (another session picked, or the window's start passing a
-    game).
+    `setSessionDefinition`. It runs a stale refresh, or one when the line
+    now sits under another game or the session window now holds a different
+    number of the request's candidates (another session picked, or the
+    window's start passing a game).
   - `switchCostSourcesChanged`: called when `saveTrace` completes. `init`
     calls `refreshSwitchCost` after startup.
   - Configure's checkbox for `gameDataSwitchCost` sits between the
     performance measurements and the board traits.
 - `style.css`, `.switch-cost-value`: `min-width: 6ch`, 14px bold tabular
-  digits, right-aligned, so every estimate under 100% either way fits and
-  a reply does not shift the line.
+  digits, right-aligned, so every estimate under 100% either way and every
+  cost under 100 s fits and a reply does not shift the line;
+  `.switch-cost-pool` keeps each name with its value.
 - Verification: `tests/switch-cost-test.js` (known-answer transitions from a
   hand-built game, numpy knots, the fit against `tests/switch-cost-reference.json`
-  within 1e-9, coverage of the fixture's planted effect, window and session
-  rules); `tests/training-core-test.js` (the replay additions);
+  within 1e-9, coverage of the fixture's planted effect, a game's cost at a
+  known estimate, per board, the windows and session rules);
+  `tests/training-core-test.js` (the replay additions);
   `tests/switch-cost-browser-check.js`: nothing read while the line is off;
   en dashes and zero game counts with no saved games and under the minimum;
-  the line directly under game data's chart, above its controls row; both
-  pools' fits from IndexedDB equal Node's within 1e-12 over the past 4
-  hours, the past hour, the past 10 minutes, and the past hour ten minutes
-  later (a shifted `Date.now`); the rendered line and card; a finished game
-  joining both pools; turning the line off stops reading and turning it on
-  catches up; no reply or column width wraps the line. It serves the
+  the line directly under game data's chart, above its controls row; every
+  pool's fit and per-board cost, and the shown game's cost, from IndexedDB
+  equal Node's within 1e-12 over the past 4 hours, the past hour, the past
+  10 minutes, and the past hour ten minutes later (a shifted `Date.now`);
+  the rendered line and card; a finished game joining the session and the
+  latest 500; turning the line off stops reading and turning it on catches
+  up; the line wraps only between items and never overflows game data at
+  any column width. It serves the
   working tree by request routing under 8099, so it needs no server, and
   runs in Chromium only: Firefox does not route the requests a worker makes
   itself (`importScripts`). An optional third argument saves a screenshot of

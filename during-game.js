@@ -252,6 +252,7 @@ const DuringGame = (() => {
       flaggedMines: [flaggedMinesOf(decisions[0].evaluation.position)] };
     const known = { startMs: [], all: [], counting: [], areas: [], safeCells: [] };
     const factsAt = [];
+    const countingFactsAt = [];
     const changedBy = [];
     let proofRevealed = -1;
     let proofs = null;
@@ -271,6 +272,7 @@ const DuringGame = (() => {
       const safeAll = safeCellsOf(proofs.all, flagged);
       const complete = proofs.all.complete === true;
       factsAt.push(proofs.all);
+      countingFactsAt.push(proofs.counting);
       known.startMs.push(k === 0 ? 0 : decisions[k - 1].evaluation.atMs);
       known.all.push(complete ? safeAll.length : null);
       known.counting.push(safeCellsOf(proofs.counting, flagged).length);
@@ -332,6 +334,8 @@ const DuringGame = (() => {
     let previous = null;
     let leftBehind = [];
     let noOpsSince = 0;
+    // Whether every move's kind and fork were judged on a complete proof.
+    let movesJudged = true;
     for (let k = 0; k <= last; k++) {
       const decision = decisions[k];
       const evaluation = decision.evaluation;
@@ -394,11 +398,18 @@ const DuringGame = (() => {
                 : { windowLeft: windowLeft.some(([from, to]) => from < atMs && to > previous.atMs) }) });
           }
           const continuing = nearSafe.some((square) => squareDistance(width, cell, square) <= NEAR_SQUARES);
-          if (!near(cell) && !continuing && (nearSafe.length > 0 || safe !== null)) {
+          const moved = !near(cell) && !continuing;
+          if (moved && safe === null) movesJudged = false;
+          if (moved && (nearSafe.length > 0 || safe !== null)) {
             // A move: away from everything the previous board-changing
-            // action touched and from the proven-safe squares near it. Left
-            // work while such squares remained; moved on once none did.
-            const facts = { cell, fromCell: previous.cell, squares: action.squares, guess: action.guess === true };
+            // action touched and from the proven-safe squares near it. Moved
+            // on once none such remained; left work while some did: easy
+            // work when counting a single number proved one of them, hard
+            // work when only combining numbers did. Counting's proof is
+            // always complete and inside the full one, so a proof stopped
+            // at its work limit still tells the two apart.
+            const facts = { cell, fromCell: previous.cell, squares: action.squares, gapMs: action.gapMs,
+              guess: action.guess === true };
             let areas = null;
             if (safe !== null && safe.length > 0) {
               areas = areasOf(safe, width, height);
@@ -422,7 +433,9 @@ const DuringGame = (() => {
               }
             } else if (safe !== null) facts.areas = 0;
             if (nearSafe.length > 0) {
-              at('left-work', { ...facts, leftSafe: nearSafe.length, safeCells: nearSafe });
+              const byCounting = nearSafe.filter((square) => countingFactsAt[k].get(square) === 2).length;
+              at(byCounting > 0 ? 'left-easy-work' : 'left-hard-work',
+                { ...facts, leftSafe: nearSafe.length, leftByCounting: byCounting, safeCells: nearSafe });
               leftBehind.push({ atMs, cells: nearSafe });
             } else at('moved-on', facts);
             if (areas !== null && areas.count >= 2) at('fork', { ...facts, safeCells: safe });
@@ -450,9 +463,33 @@ const DuringGame = (() => {
       recorded: true, timeMs: spanMs, outcome: game.outcome, width, height, mines: mineCount,
       pageStateRecorded: windowLeft !== null,
       categoriesMeasured: actions.every((action) => action.category !== 'measurementNotes'),
+      movesJudged,
       bv3: { total: board.total, atStart: solvedAtStart },
       safe: { total: size - mineCount, atStart: openedAtStart },
       actions, presses, progress, known, path, events,
+    };
+  }
+
+  //-------DURING THE GAME: MOVE HABITS (the record's per-game summary)-------
+
+  const MOVE_TYPES = new Set(['moved-on', 'left-hard-work', 'left-easy-work']);
+
+  // The game's moves as the record stores them (game/history.js): how many
+  // of each kind, the median time before one, and the forks and how many
+  // went to the nearest place. Nothing where a proof stopped at its work
+  // limit at a move, which leaves that move's kind or fork unknown.
+  function moveHabits(m) {
+    if (!m.recorded || !m.movesJudged) return {};
+    const moves = m.events.filter((event) => MOVE_TYPES.has(event.type));
+    const counted = (type) => moves.filter((event) => event.type === type).length;
+    const forks = m.events.filter((event) => event.type === 'fork');
+    return {
+      movesRanOut: counted('moved-on'),
+      movesLeftHardWork: counted('left-hard-work'),
+      movesLeftEasyWork: counted('left-easy-work'),
+      ...(moves.length > 0 ? { moveGapMedianMs: medianOf(moves.map((event) => event.gapMs)) } : {}),
+      forkMoves: forks.length,
+      forkMovesToNearestArea: forks.filter((event) => event.toNearestArea === true).length,
     };
   }
 
@@ -655,11 +692,14 @@ const DuringGame = (() => {
     { id: 'longGapEvents', group: 'events', name: 'long gaps', default: true, format: integer, track: 'pauses', mark: 'band', color: '#90a4ae',
       help: 'A gap of 1 second or more between board-changing clicks.', data: eventsOf('long-gap') },
     { id: 'movedOnEvents', group: 'events', name: 'moved on', default: true, format: integer, track: 'jumps', mark: 'chevronRight', color: '#1565c0',
-      help: 'A jump of 3 or more squares from everything the click before it opened or marked, after the proven-safe squares within 2 squares of those had run out.',
+      help: 'A jump of 3 or more squares from everything the click before it opened or marked, after the proven-safe squares within 2 squares of those had run out: the local work ended.',
       data: eventsOf('moved-on') },
-    { id: 'leftWorkEvents', group: 'events', name: 'left work', default: true, format: integer, track: 'jumps', mark: 'arrowRight', color: '#c62828',
-      help: 'A jump of 3 or more squares from everything the click before it opened or marked, and from the proven-safe squares still within 2 squares of those, leaving them unopened.',
-      data: eventsOf('left-work') },
+    { id: 'leftHardWorkEvents', group: 'events', name: 'left hard work', default: true, format: integer, track: 'jumps', mark: 'arrowRightOutline', color: '#c62828',
+      help: 'The same jump made while proven-safe squares were still within 2 squares, none of which counting a single number proved: the local work had turned slow.',
+      data: eventsOf('left-hard-work') },
+    { id: 'leftEasyWorkEvents', group: 'events', name: 'left easy work', default: true, format: integer, track: 'jumps', mark: 'arrowRight', color: '#c62828',
+      help: 'The same jump made while counting a single number had proved a square within 2 squares safe.',
+      data: eventsOf('left-easy-work') },
     { id: 'forkEvents', group: 'events', name: 'forks', default: true, format: integer, track: 'jumps', mark: 'fork', color: '#00897b',
       help: 'A move made while proven-safe squares lay in 2 or more separate places (squares at most 2 apart count as one place): a choice of where to go next.',
       data: eventsOf('fork') },
@@ -842,5 +882,5 @@ const DuringGame = (() => {
   }
 
   return { NEAR_SQUARES, LONG_GAP_MS, QUICK_UNDO_MS, GROUPS, CHARTS, TRACKS, ROWS, defaults, AVERAGES, DEFAULT_AVERAGE,
-    rowById, model, view, valueAt };
+    rowById, model, moveHabits, view, valueAt };
 })();

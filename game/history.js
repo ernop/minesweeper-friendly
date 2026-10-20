@@ -35,6 +35,7 @@ const JUSTICE_VERSIONS = new Set([
 // JSON turns NaN and infinities into null. Accepting them here would let an
 // export produced by this page fail its own importer after serialization.
 const isNumber = (v) => typeof v === 'number' && Number.isFinite(v);
+const isCount = (v) => Number.isInteger(v) && v >= 0;
 function validActionEvaluations(value) {
   return value === undefined || (Array.isArray(value) && value.every((evaluation) => {
     if (evaluation === null || typeof evaluation !== 'object'
@@ -80,6 +81,12 @@ const GAME_RECORD_SCHEMA = [
   { field: 'mousePathPx', valid: isNumber, example: '1182', describe: 'cursor travel while playing, px' },
   { field: 'fastclickGapMs', valid: (v) => v === undefined || isNumber(v), example: '218', describe: 'median gap between consecutive board-changing presses made on the move (cursor moving within 100ms before) with gaps under 1s; absent when no gap qualified or on games recorded before 2026-08-22' },
   { field: 'cadenceSpread', valid: (v) => v === undefined || isNumber(v), example: '1.42', describe: 'press-to-press rhythm consistency: interquartile range of all button-press gaps (wasted presses included) divided by their median — 0 means metronomic, larger means burstier; measured for wins and losses; absent under two measurable gaps or on games recorded before 2026-08-30' },
+  { field: 'movesRanOut', valid: (v) => v === undefined || isCount(v), example: '4', describe: 'moves made once the local work had run out: a move is a board-changing click 3 or more squares from everything the board-changing click before it opened or marked and from the proven-safe squares within 2 squares of those; measured for wins and losses from the trace; absent where the prover stopped at its work limit at a move, and on games recorded before 2026-10-20 until their result is next restored' },
+  { field: 'movesLeftHardWork', valid: (v) => v === undefined || isCount(v), example: '2', describe: 'moves made while proven-safe squares were still within 2 squares of the click before, none of which counting a single number proved: the local work had turned slow; absent with movesRanOut' },
+  { field: 'movesLeftEasyWork', valid: (v) => v === undefined || isCount(v), example: '1', describe: 'moves made while counting a single number had proved a square within 2 squares of the click before safe; absent with movesRanOut' },
+  { field: 'moveGapMedianMs', valid: (v) => v === undefined || isNumber(v), example: '842', describe: 'median time from the board-changing click before a move to the move, ms; absent with movesRanOut and on games without a move' },
+  { field: 'forkMoves', valid: (v) => v === undefined || isCount(v), example: '2', describe: 'moves made while proven-safe squares lay in 2 or more places (squares at most 2 apart are one place); absent with movesRanOut' },
+  { field: 'forkMovesToNearestArea', valid: (v) => v === undefined || isCount(v), example: '1', describe: 'fork moves that went to the place holding the proven-safe square nearest the click before; absent with movesRanOut' },
   { field: 'states', valid: (v) => v === undefined || (Array.isArray(v) && v.every((s) => typeof s === 'string')), example: '["sleepy"]', describe: 'player-defined state tags active when the game finished (see the states panel); absent on games recorded before 2026-08-20' },
   { field: 'musicPlaying', valid: (v) => v === undefined || typeof v === 'boolean', example: 'true', describe: 'whether this machine heard audio playing during the game (sampled about once a minute from the local base system); absent when that endpoint never answered, on every origin other than the local player origin, or on games recorded before 2026-08-22' },
   { field: 'flagsBlocked', valid: (v) => v === undefined || v === true, example: 'true', describe: 'true when a reached daily play limit\u2019s no-flags penalty kept the player from placing flags for the whole game (fixed when the board went into play; removing a flag stayed allowed); absent = flags allowed, as on every game before 2026-10-14' },
@@ -164,6 +171,12 @@ function topScoreKeyOf(params, playMode, generator) {
 
 function modeKey() {
   return topScoreKeyOf(config, settings.playMode, gameGenerator);
+}
+
+// A play span's top score key, the one its game record would have; a span
+// stores its generator only when it is not the default, as a record does.
+function playSpanKeyOf(span) {
+  return modeKeyOf(span, span.playMode) + (span.generator === undefined ? '' : BoardGenerators.keySuffix(span.generator));
 }
 
 function normalizeHistoryKey(key) {

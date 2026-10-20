@@ -32,8 +32,16 @@ wqhich are duplicative and needlessly complex"):
   applies here and in the Trial modes (frozen from the setting on the
   first click, or when a given opening is used). It does not apply in
   the NG modes or Angelic.
-- **pregen 10 boards and order by 3BV descending, assuming auto-click in
-  upper right (decided 2026-08-26).** Generate ten first-click-safe
+- **3BV countdown (decided 2026-08-26 as "pregen 10 boards and order by 3BV
+  descending, assuming auto-click in upper right"; renamed 2026-10-20).**
+  The creator asked for a better name ("figure outa better pregen10-name")
+  when the long one was found cut off in the closed other modes menu. The
+  new name says what the player meets: the boards count down from the
+  highest 3BV. The menu entry's tooltip, and the closed menu's while the
+  mode is chosen, gives the rest: "Ten boards a batch, played from the
+  highest 3BV down; the upper-right square opens on its own." Its id
+  (`pregen-10-3bv-desc`) and history keys are unchanged, so saved games and
+  rankings carry over. Generate ten first-click-safe
   candidates through the selected board generator, using the upper-right
   cell as every candidate's opening. Compute each full board's 3BV, order
   the candidates from highest to lowest (generation order breaks ties), and

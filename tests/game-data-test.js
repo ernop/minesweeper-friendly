@@ -16,8 +16,8 @@ const records = [
 ];
 const on = (selection) => Object.keys(selection).filter((id) => selection[id]);
 assert.deepEqual(on(GameData.defaults), ['time', 'misclickRate', 'fastclickGap', 'bvPerSecond',
-  'clickRate', 'noopRate', 'correctness', 'mouseSpeed', 'unusedMarkShare', 'unflaggedMineShare'],
-  'the creator’s defaults, plus the requested unflagged mine share');
+  'clickRate', 'noopRate', 'correctness', 'mouseSpeed', 'moveTime', 'easyWorkLeftShare', 'unusedMarkShare', 'unflaggedMineShare'],
+  'the creator’s defaults, plus the requested unflagged mine share and move habits');
 const board = { width: 9, height: 9, mines: 10 };
 assert.deepEqual(GameData.rows(current, records, GameData.defaultsForView, board).map((r) => r.id), ['time.lifetime', 'time.session',
   'misclickRate.lifetime', 'misclickRate.session', 'fastclickGap.lifetime', 'fastclickGap.session',
@@ -227,4 +227,22 @@ assert.deepEqual([playExamples.noopRate.marks.ring, playExamples.noopRate.clicks
   'a no-op click with no square is counted but not marked');
 assert.deepEqual(playExamples.unusedMarkShare.marks.shade, [0]);
 assert.deepEqual([playExamples.unflaggedMineShare.marks.shade, playExamples.unflaggedMineShare.of], [[11], 2]);
+assert.deepEqual([playExamples.moves.marks.ring, playExamples.forks.marks.ring], [[], []], 'no move, no fork');
+const moveExamples = GameData.examples(4, 3, cornerMines, { flagged: [], events: [
+  { type: 'moved-on', cell: 3 }, { type: 'left-easy-work', cell: 8, safeCells: [1, 2] },
+  { type: 'fork', cell: 8 }, { type: 'left-easy-work', cell: 7, safeCells: [2, 4] }, { type: 'left-hard-work', cell: 6 }] });
+assert.deepEqual(moveExamples.moves.marks.ring, [3, 6, 8, 7], 'every move by its kind, each where it went');
+assert.deepEqual([moveExamples.easyWorkLeft.marks.ring, moveExamples.easyWorkLeft.marks.shade], [[8, 7], [1, 2, 4]],
+  'the moves leaving easy work and every square they left, once each');
+assert.deepEqual(moveExamples.forks.marks.ring, [8]);
+
+// Move habits: measured where the record has them, each move kind a share of all moves.
+const metric = (id) => GameData.metrics.find((m) => m.id === id);
+const habits = { movesRanOut: 3, movesLeftHardWork: 2, movesLeftEasyWork: 1, moveGapMedianMs: 840, forkMoves: 4, forkMovesToNearestArea: 3 };
+assert.deepEqual(['moveTime', 'easyWorkLeftShare', 'nearestAreaShare'].map((id) => metric(id).value(habits)), [840, 1 / 6, 0.75]);
+assert.deepEqual(['moveTime', 'easyWorkLeftShare', 'nearestAreaShare'].map((id) => metric(id).value(current)),
+  [undefined, undefined, undefined], 'a game recorded before move habits is unmeasured, never zero');
+assert.deepEqual(['moveTime', 'easyWorkLeftShare', 'nearestAreaShare'].map((id) => metric(id).value({
+  movesRanOut: 0, movesLeftHardWork: 0, movesLeftEasyWork: 0, forkMoves: 0, forkMovesToNearestArea: 0 })),
+[undefined, undefined, undefined], 'a game without a move or a fork has no share of them');
 console.log('game-data: scope boundaries, historical windows, eligible populations, missing values, ties, metric catalog, autozoom, and example boards passed');

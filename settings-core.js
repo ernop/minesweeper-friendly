@@ -15,12 +15,14 @@
 // history keys are per (board, play mode, board generator). Trial
 // results never mix with the other modes' lists. Board lab is the
 // non-play mode for exploring board generation: every board appears
-// already solved, nothing is recorded.
+// already solved, nothing is recorded. A `description` is the menu entry's
+// tooltip where the name alone leaves the rules open.
 const PLAY_MODES = [
   { id: 'standard', label: 'Standard' },
   {
     id: 'pregen-10-3bv-desc',
-    label: 'pregen 10 boards and order by 3BV descending, assuming auto-click in upper right',
+    label: '3BV countdown',
+    description: 'Ten boards a batch, played from the highest 3BV down; the upper-right square opens on its own.',
   },
   { id: 'uniform-ng', label: 'Uniform NG' },
   { id: 'single-path-ng', label: 'Single-path NG' },
@@ -71,7 +73,7 @@ const SHOWN_THINGS_DEFAULTS = Object.freeze({
 const SHOWN_THINGS_OPTIONS = [
   ['gameStats', 'loss and trial stats', 'the label/value stats for losses and trial games; regular wins use game data'],
   ['sessionSummary', 'session summary', 'games, wins, and win rate per board type in the session, with each type’s best session time and that time’s lifetime rank; left of the board when it fits'],
-  ['sessionEndings', 'session results by type', 'under the session summary: the session’s games on the current board size alone (Beginner, Intermediate, or Expert) split into won and lost, then by the worst offense against perfect play and its type, each level’s shares in their own column, and how many losses were likely misclicks'],
+  ['sessionEndings', 'session results by type', 'under the session summary: the session’s games of the current board type alone (its size, mode, and generator) split into won, lost, and abandoned, won and lost then by the worst offense against perfect play and its type, each level’s shares in their own column, and how many losses were likely misclicks'],
   ['recentPlacements', 'ranks won in session', 'top-tenth ranks earned in the session on every longer tablechart; lifetime always shows at least its closest rank; right of the board when it fits'],
   ['recentPlacementsOtherBoards', 'ranks on other session boards', 'ranks won in session also lists the board categories of the session’s other wins (3BV, ZiNi, HZiNi, 3BV spread, max number, board shapes, 0–1 share, zero-opening coverage), e.g. 1st in 3BV 30 when this win’s 3BV is 40; off lists only this win’s board categories'],
   ['timeTables', 'time-window tablecharts', 'lifetime, calendar, rolling-window, and day-category rankings'],
@@ -264,6 +266,16 @@ function panelsFromStored(stored) {
   const kept = { ...stored.panels };
   delete kept.replay;
   return kept;
+}
+// The left work event row split into left hard work and left easy work on
+// 2026-10-20; row choices saved before then still name it, and
+// preferenceBooleans rejects any unknown entry. Both new rows take its choice.
+function duringGameRowsFromStored(stored) {
+  if (!Object.hasOwn(stored, 'duringGameRows')) return DuringGame.defaults;
+  const rows = stored.duringGameRows;
+  if (!preferenceObject(rows) || !Object.hasOwn(rows, 'leftWorkEvents')) return rows;
+  const { leftWorkEvents, ...kept } = rows;
+  return { leftHardWorkEvents: leftWorkEvents, leftEasyWorkEvents: leftWorkEvents, ...kept };
 }
 const DEFAULT_STATE_NAMES = ['sleepy', 'just woke up', 'inebriated'];
 const preferenceObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
@@ -490,11 +502,12 @@ const SETTINGS_SCHEMA = [
   {
     field: 'gameDataSwitchCost', default: false,
     valid: (v) => typeof v === 'boolean', group: 'after-game', label: 'switch cost line',
-    describe: 'your switch cost, the extra time before a press after changing buttons, over the session’s and the latest 500 standard games, shown under game data’s chart; chosen with configure on the chart', control: 'none',
+    describe: 'your switch cost, the extra time before a press after changing buttons: what the shown game’s switches cost, and the estimate over the session’s, the latest 500, and the earlier 500 standard games, shown under game data’s chart; chosen with configure on the chart', control: 'none',
   },
   {
     field: 'duringGameRows', default: DuringGame.defaults, mergeDefaults: true,
-    valid: preferenceBooleans(DuringGame.defaults), group: 'after-game', label: 'during-the-game rows',
+    valid: preferenceBooleans(DuringGame.defaults), migrate: duringGameRowsFromStored,
+    group: 'after-game', label: 'during-the-game rows',
     describe: 'which progress, pace, board, and event rows the live perf charts show; chosen with configure on that section', control: 'none',
   },
   {
@@ -560,7 +573,7 @@ const SETTINGS_SCHEMA = [
     valid: (v) => PLAY_MODE_IDS.has(v),
     group: 'gameplay',
     label: 'play mode',
-    describe: 'Standard, Pregen 10 by descending 3BV, Uniform NG, Single-path NG, Proof-or-die, Angelic, Endgame drill, Trial, Short trial, Test trial, or Board lab, chosen from the other modes menu beside the three presets (Standard on the custom board is its Custom entry). Each mode stores and ranks its own results (Board lab records nothing).',
+    describe: 'Standard, 3BV countdown, Uniform NG, Single-path NG, Proof-or-die, Angelic, Endgame drill, Trial, Short trial, Test trial, or Board lab, chosen from the other modes menu beside the three presets (Standard on the custom board is its Custom entry). Each mode stores and ranks its own results (Board lab records nothing).',
     control: 'none',
   },
   {

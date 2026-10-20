@@ -248,7 +248,7 @@ duplicative and needlessly complex."
   fields, no generator, no mode status.
 - The **other modes** menu reads "other modes" while a preset is chosen. It
   lists Custom (Standard play on a board the player sizes) and then every
-  other mode, one level deep: Pregen 10, Uniform NG, Single-path NG,
+  other mode, one level deep: 3BV countdown, Uniform NG, Single-path NG,
   Proof-or-die, Angelic, Endgame drill, Trial, Short trial, Test trial, and
   Board lab ([Play modes](play-modes.md)). Choosing an entry makes the game
   custom: it plays on the player's custom board, the last size applied in
@@ -261,7 +261,7 @@ duplicative and needlessly complex."
   **Generator** menu when the mode places mines with a generator, so not for
   Single-path NG or the trials
   ([Board generators](board-generators.md)); and the mode's own progress
-  (a trial's progress and its **end trial** button, Pregen 10's board
+  (a trial's progress and its **end trial** button, 3BV countdown's board
   count, the Endgame drill's line). Board lab adds its panel below the row:
   its note, the chosen generator's parameter sliders, and **make new
   board**. Until 2026-10-20 the preset links sat beside a Custom tab, the

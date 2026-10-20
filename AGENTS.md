@@ -92,8 +92,8 @@ Files, in load order:
 | `core.js` | the current game's state, shared DOM handles (incl. the page status line) |
 | `layout.js` | board position solver, wiring, and editor; zoom and pixel ratio; docked columns; clearance |
 | `play.js` | top panel (LCDs, face), generator glue and Generator menu, new-game flow, reveal/flag/chord, win/loss, A just universe |
-| `play-modes.js` | other modes menu, mode predicates and labels; Pregen 10, Endgame drill, Board lab, trials on the live board |
-| `play-limits.js` | daily play limits: this tab's play spans, the closed-board gate and notice, the no-flags penalty gate, today's use in the top bar |
+| `play-modes.js` | other modes menu, mode predicates and labels; 3BV countdown (the code's "pregen"), Endgame drill, Board lab, trials on the live board |
+| `play-limits.js` | daily play limits: the play spans (every saved one; this tab's begin, heartbeat, and ending), the closed-board gate and notice, the no-flags penalty gate, today's use in the top bar |
 | `evaluation.js` | game-end evaluation: pure verdict model, live capture |
 | `results.js` | the saved record (`reportResult`), after-game report, result view, High scores view |
 | `history.js` | record version stamps and schema, per-mode history, mode keys, normalization, transfer cleaning |
@@ -175,17 +175,17 @@ the file path, plus the section heading when the file holds several.
 | Friendliness axis, solver tiers | [docs/product/design-axis.md](docs/product/design-axis.md) | none |
 | UI doctrine (read before any UI work) | [docs/product/ui-doctrine.md](docs/product/ui-doctrine.md) | none |
 | Board chrome, page layout (game setup rows, top bar, settings row, footer), board position | [docs/product/board-and-layout.md](docs/product/board-and-layout.md) | [docs/implementation/board-and-layout.md](docs/implementation/board-and-layout.md) |
-| Play modes (NG variants, Endgame drill, trials, Pregen 10, Board lab) | [docs/product/play-modes.md](docs/product/play-modes.md) | [docs/implementation/play-modes.md](docs/implementation/play-modes.md) |
+| Play modes (NG variants, Endgame drill, trials, 3BV countdown, Board lab) | [docs/product/play-modes.md](docs/product/play-modes.md) | [docs/implementation/play-modes.md](docs/implementation/play-modes.md) |
 | Board generators, top score keys | [docs/product/board-generators.md](docs/product/board-generators.md) | [docs/implementation/board-generators.md](docs/implementation/board-generators.md) |
 | A just universe | [docs/product/just-universe.md](docs/product/just-universe.md) | [docs/implementation/just-universe.md](docs/implementation/just-universe.md) |
 | Game-end evaluation, action evidence | [docs/product/game-end-evaluation.md](docs/product/game-end-evaluation.md) | [docs/implementation/game-end-evaluation.md](docs/implementation/game-end-evaluation.md) |
 | Result presentation and ordering | [docs/product/results.md](docs/product/results.md) | [docs/implementation/results.md](docs/implementation/results.md) |
 | Game data chart, shared session, switch cost line | [docs/product/game-data.md](docs/product/game-data.md) | [docs/implementation/game-data.md](docs/implementation/game-data.md) |
-| Live perf charts (in-game rows over time, detected events: clicks, jumps, pauses) | [docs/product/during-game.md](docs/product/during-game.md) | [docs/implementation/during-game.md](docs/implementation/during-game.md) |
-| Rank lists, highlights, recent placements, streaks | [docs/product/rankings.md](docs/product/rankings.md) | [docs/implementation/rankings.md](docs/implementation/rankings.md) |
+| Live perf charts (in-game rows over time, detected events: clicks, jumps and why each move happened, pauses) | [docs/product/during-game.md](docs/product/during-game.md) | [docs/implementation/during-game.md](docs/implementation/during-game.md) |
+| Rank lists, highlights, recent placements, streaks, session summary and its results tree (incl. abandoned boards) | [docs/product/rankings.md](docs/product/rankings.md) | [docs/implementation/rankings.md](docs/implementation/rankings.md) |
 | Average-time charts, scatter plots | [docs/product/charts.md](docs/product/charts.md) | [docs/implementation/charts.md](docs/implementation/charts.md) |
 | Path and choice replay | [docs/product/replay.md](docs/product/replay.md) | [docs/implementation/replay.md](docs/implementation/replay.md) |
-| Per-game stats and counters, music, guess ledger | [docs/product/per-game-stats.md](docs/product/per-game-stats.md) | [docs/implementation/per-game-stats.md](docs/implementation/per-game-stats.md) |
+| Per-game stats and counters (incl. move habits), music, guess ledger | [docs/product/per-game-stats.md](docs/product/per-game-stats.md) | [docs/implementation/per-game-stats.md](docs/implementation/per-game-stats.md) |
 | Board measurements, "This board" tables, backfill | [docs/product/per-game-stats.md](docs/product/per-game-stats.md), [docs/product/rankings.md](docs/product/rankings.md) | [docs/implementation/board-metrics.md](docs/implementation/board-metrics.md) |
 | Motion stats (the trace metrics, an open/close section at the page foot) | [docs/product/motion-stats.md](docs/product/motion-stats.md) | [docs/implementation/motion-stats.md](docs/implementation/motion-stats.md) |
 | Session stats and the left panel (removed 2026-10-20: the decision, where each part went) | [docs/product/session-stats.md](docs/product/session-stats.md) | none |

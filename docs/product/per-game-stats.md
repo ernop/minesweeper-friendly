@@ -217,6 +217,35 @@ least two measurable gaps. It appears as a stats row, as a
 cadence-spread-versus-date relationship scatter (wins with the field,
 Theil–Sen trend on that subset), and as a session series.
 
+Move habits (added 2026-10-20 at the creator's request: "move habits and
+characterization of moves, when ih ave to move since local direction ends
+OR becomes very slow"). Every game record stores, from its trace, wins and
+losses alike, how the player moved between areas of work. A move is a
+board-changing click 3 or more squares from everything the board-changing
+click before it opened or marked and from the proven-safe squares within 2
+squares of those ([Live perf charts](during-game.md), "Events"):
+
+- `movesRanOut`: moves after those squares had run out (the local work
+  ended).
+- `movesLeftHardWork`: moves while some remained, none of which counting a
+  single number proved (the local work had turned slow).
+- `movesLeftEasyWork`: moves while counting a single number had proved one
+  of them safe.
+- `moveGapMedianMs`: the median time from the click before a move to the
+  move; absent on a game without a move.
+- `forkMoves`: moves made while proven-safe squares lay in 2 or more places
+  (squares at most 2 apart are one place).
+- `forkMovesToNearestArea`: those that went to the place holding the
+  proven-safe square nearest the click before.
+
+The kinds are counted separately rather than one as the total less the
+others, since each is its own judgment. A game where the prover stopped at
+its work limit at a move stores none of them, since that move's kind or
+fork is unknown and the counts would undercount. They are measured as each
+game ends; a game saved earlier gets them when its result is next restored
+on the game page. Game data ranks three of them ([Game data](game-data.md),
+"Catalog and configuration").
+
 Wasted clicks — board clicks that changed nothing (chord attempts on
 unsatisfied or empty numbers or with both buttons over an unopened cell,
 left-clicks on flagged cells, right presses on revealed cells that no left

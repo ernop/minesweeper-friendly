@@ -12,7 +12,9 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   `startedAt`), and `playSpans` (version 6, 2026-10-12: one entry per board
   put into play, finished or abandoned, keyed by `startedAt`, for
   [daily play limits](play-limits.md); each tab writes only its own boards'
-  entries, so open tabs add up their play).
+  entries, so open tabs add up their play. Since 2026-10-20 each also
+  records its generator and how the board left play, and the game page
+  reads them all at startup for the session results' abandoned boards).
   Finishing a game writes only its own record (2026-09-26 input-latency
   review: the whole history had been one value, rewritten twice per game —
   160 MB for 6,407 games, about a second of blocked input each time). The
@@ -217,6 +219,11 @@ These remain in the [lifelong self-measurement roadmap](../../BACKLOG.md#lifelon
   skipped; the status reports each kind of cleanup. Embedded settings in
   older combined exports are ignored.
   Records dedupe by end timestamp, so repeated imports are no-ops.
+- The backup row under the board holds these controls as shared buttons
+  ([One look per kind of thing](ui-doctrine.md)): export history, export
+  traces, import history, data format, and the save-to-file links an export
+  adds. Import history and data format each open a panel below the row and
+  stay pressed while it is open.
 - A "data format" button beside the backup controls raises a reference
   card: the export's overall shape (one mode-keyed
   list per board) and a field-by-field table of the per-game record fields

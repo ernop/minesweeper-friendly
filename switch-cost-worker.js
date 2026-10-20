@@ -2,16 +2,18 @@
 
 // Game data's switch cost line off the page thread: reads the saved traces
 // of standard games straight from IndexedDB, replays them, and fits the
-// estimate (switch-cost.js) for two pools, the session window's games and the
-// latest 500. It only reads. The page's storage.js owns opening and upgrading
-// the database and sends its name and version with the candidate games,
-// newest first, and the session window's start. Each saved game's transitions
-// stay in this worker's memory for the page's lifetime, so a finished game
-// costs one trace read, not a window's worth.
+// estimate (switch-cost.js) for three pools, the session window's games, the
+// latest 500, and the 500 before those, then prices the shown game's switches
+// at the latest 500's estimate. It only reads. The page's storage.js owns
+// opening and upgrading the database and sends its name and version with the
+// candidate games, newest first, the session window's start, and the shown
+// game's end time. Each saved game's transitions stay in this worker's memory
+// for the page's lifetime, so a finished game costs one trace read, not a
+// window's worth.
 
 // solver.js builds on Justice, so justice.js loads first (as in training-worker.js).
 importScripts('justice.js?v=20260926-fast-evidence', 'rng.js', 'solver.js?v=20260823-exact-solver',
-  'training-core.js?v=20261015-click-share', 'switch-cost.js?v=20261010-switch-cost-game-fit');
+  'training-core.js?v=20261015-click-share', 'switch-cost.js?v=20261020-switch-cost-per-game');
 
 const switchCostDeps = {
   training: TrainingCore,
@@ -19,7 +21,7 @@ const switchCostDeps = {
   fromSeed: GameRandom.fromSeed,
   rngVersion: GameRandom.VERSION,
 };
-// endedAt -> { endedAt, rows } for saved traces; games without a saved trace
+// endedAt -> { endedAt, key, rows } for saved traces; games without a saved trace
 // are read again next time, because a just-finished game's trace may not
 // have been committed when an earlier request listed it.
 const switchCostGames = new Map();
@@ -54,7 +56,7 @@ async function savedGame(db, database, candidate) {
   const trace = await requestResult(db.transaction(database.traceStore)
     .objectStore(database.traceStore).get(candidate.endedAt));
   if (trace === undefined) return null;
-  const game = { endedAt: candidate.endedAt,
+  const game = { endedAt: candidate.endedAt, key: candidate.key,
     rows: SwitchCost.gameRows(trace, candidate.outcome, SwitchCost.KEYS[candidate.key], switchCostDeps).rows };
   switchCostGames.set(candidate.endedAt, game);
   return game;
@@ -62,29 +64,45 @@ async function savedGame(db, database, candidate) {
 
 // The analysis-client lane protocol: { id, kind, payload } in, { id, result }
 // or { id, error } out. The one kind, 'estimate', carries the database
-// identity, the candidate games, and the session window's start, and answers
-// { session, latest }, one SwitchCost.fit result per pool.
+// identity, the candidate games, the session window's start, and the shown
+// game's end time (null when no game data shows), and answers { session,
+// latest, earlier, shown }: per pool a SwitchCost.fit result with its
+// `perGame` (SwitchCost.perGame), and the shown game's SwitchCost.game at the
+// latest 500's estimate, with its endedAt; shown is null when that game is
+// not a counted one: not a standard game, no saved trace, or no timed move.
 self.onmessage = async ({ data: { id, kind, payload } }) => {
   try {
     if (kind !== 'estimate') throw new Error('Unknown switch cost task: ' + kind);
-    const { database, candidates, sessionFromMs } = payload;
+    const { database, candidates, sessionFromMs, shownEndedAt } = payload;
     const db = await openSavedDatabase(database);
     const gameOf = (candidate) => savedGame(db, database, candidate);
-    let latest;
+    let windows;
     let session;
+    let shownGame = null;
     try {
-      latest = await SwitchCost.window(candidates, gameOf);
+      windows = await SwitchCost.windows(candidates, gameOf);
       session = await SwitchCost.since(candidates, sessionFromMs, gameOf);
+      const shownCandidate = candidates.find((candidate) => candidate.endedAt === shownEndedAt);
+      const game = shownCandidate === undefined ? null : await gameOf(shownCandidate);
+      if (game !== null && game.rows.length > 0) shownGame = game;
     } finally {
       db.close();
     }
     const fits = new Map();
     const fitOf = (games) => {
       const key = games.map((game) => game.endedAt).join(' ');
-      if (!fits.has(key)) fits.set(key, previousFits.has(key) ? previousFits.get(key) : SwitchCost.fit(games));
+      if (!fits.has(key)) {
+        if (previousFits.has(key)) fits.set(key, previousFits.get(key));
+        else {
+          const fit = SwitchCost.fit(games);
+          fits.set(key, { ...fit, perGame: SwitchCost.perGame(games, fit) });
+        }
+      }
       return fits.get(key);
     };
-    const result = { session: fitOf(session), latest: fitOf(latest) };
+    const latest = fitOf(windows.latest);
+    const result = { session: fitOf(session), latest, earlier: fitOf(windows.earlier),
+      shown: shownGame === null ? null : { endedAt: shownGame.endedAt, ...SwitchCost.game(shownGame.rows, latest) } };
     previousFits = fits;
     self.postMessage({ id, result });
   } catch (error) {
