@@ -58,7 +58,7 @@ Index: [AGENTS.md](../../AGENTS.md).
   `http.server` sends no cache headers, so a reopened profile can run
   scripts older than the working tree; delete `cache2` before each launch.
 - README and promo screenshots (2026-10-08): the same sandbox, with
-  `updateSettings` opening the stats panel and setting the session to
+  `updateSettings` opening the stats panel (removed 2026-10-20) and setting the session to
   "last 7 calendar days" (`pastWeek`), since the history export ended the
   day before and a "today" session would hold only scripted games. Scripted
   Beginner wins (safe-cell clicks about 0.3 s apart) were played until one
@@ -66,7 +66,7 @@ Index: [AGENTS.md](../../AGENTS.md).
   viewport at 1920 x 1080 for the README's top image; at 2560 x 1440,
   element screenshots of the game data column (band, then distributions;
   since 2026-10-17 `.board-time-profile` in `#game-sidebar`),
-  `#metrics-panel`, the 3BV/s row's `.chart-help-tip`, and
+  `#metrics-panel` (gone with the panel), the 3BV/s row's `.chart-help-tip`, and
   `.result-chart-section-perfCharts` / `-relationships`, plus `main` cut
   above "This board" for the promo hero. The card overhangs the game data
   column at that width, so it is captured alone. Restore every changed
@@ -149,7 +149,7 @@ Index: [AGENTS.md](../../AGENTS.md).
   `/home/ef/.cache/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-linux64/chrome-headless-shell`.
   `tests/self-check-browser-check.js` (runs a complete 10-counter test),
   `tests/switch-cost-browser-check.js` (optional third argument: a
-  screenshot path for the panel's top with the switch-cost card open), and
+  screenshot path for game data's switch cost line with its card open), and
   `tests/archive-browser-check.js` take the same two arguments but
   need no server: they serve the working tree through Playwright request
   routing under the exact origin `http://127.0.0.1:8099/` and abort every
@@ -184,8 +184,9 @@ completes in Firefox. Every fixture page gives its results box a fixed height
 above the iframe (found 2026-10-14): Firefox throttles animation frames in an
 iframe scrolled out of view, and the fixtures wait on frames, so a results list
 that grew past the window once stalled this page in Firefox.
-`tests/scroll-position-test.html` checks page and metrics-panel scroll retention
-with hidden/tall legends, docked stats, and compact details.
+`tests/scroll-position-test.html` checks page scroll retention through layout
+and motion stats updates with hidden/tall legends, docked stats, and compact
+details.
 
 Preference verification (2026-09-21): `node tests/settings-state-test.js`
 checks every new preference shape and independent JSON transfer. Browser:

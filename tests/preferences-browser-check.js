@@ -72,13 +72,13 @@ const { chromium } = require(process.argv[2]);
   console.log('Presets are whole choices; other modes play on the custom board');
   await page.goto('http://127.0.0.1:8099/settings.html');
   await page.waitForFunction(()=>settings !== null);
-  await page.evaluate(()=>importPreferences(JSON.stringify({pathView:'progress',replayOverlays:{moves:false,mines:false,probs:true,pointless:true,purposeful:true,movement:true},metricsPanelCollapsed:true,trialSpeedBucketMs:375,resultView:'scores'})));
+  await page.evaluate(()=>importPreferences(JSON.stringify({pathView:'progress',replayOverlays:{moves:false,mines:false,probs:true,pointless:true,purposeful:true,movement:true},gameDataSwitchCost:true,trialSpeedBucketMs:375,resultView:'scores'})));
   const prefs=await page.evaluate(()=>JSON.parse(exportPreferences()));
   // Wait for the navigation itself: evaluated on the settings page, the name is undefined.
   await Promise.all([page.waitForURL('**/index.html'),page.locator('.return-to-game').first().click()]);
   await page.waitForFunction(()=>typeof preferenceUIReady !== 'undefined' && preferenceUIReady);
   assert.equal(await page.evaluate(()=>settings.pathView),'progress');
-  assert.equal(await page.evaluate(()=>settings.metricsPanelCollapsed),true);
+  assert.equal(await page.evaluate(()=>settings.gameDataSwitchCost),true);
   assert.equal(await page.locator('#result-summary').innerText().then(t=>t.startsWith('High scores')),true);
   assert.equal(await page.evaluate(()=>settings.trialSpeedBucketMs),375);
   assert.equal(await page.evaluate(()=>settings.replayOverlays.probs),true);
@@ -95,8 +95,8 @@ const { chromium } = require(process.argv[2]);
   console.log('History import/export do not transfer preferences');
   await page.evaluate(() => importPreferences(JSON.stringify({
     difficulty: 'beginner', cellSize: 28, resultView: 'game', justUniverse: false,
-    replayPosition: { endedAt: null, step: 0 }, metricsPanelCollapsed: false, showMotionStatsAfterGame: true,
-    panels: { ...PANEL_OPEN_DEFAULTS }, pathView: 'off', replayOverlays: { ...REPLAY_OVERLAY_DEFAULTS },
+    replayPosition: { endedAt: null, step: 0 }, gameDataSwitchCost: false,
+    panels: { ...PANEL_OPEN_DEFAULTS, motionStats: true }, pathView: 'off', replayOverlays: { ...REPLAY_OVERLAY_DEFAULTS },
   })));
   await page.reload(); await page.waitForFunction(() => preferenceUIReady);
   await page.evaluate(() => restoredAnalysisReady);

@@ -47,8 +47,6 @@ function flushViewPosition() {
   const active = document.activeElement;
   rememberPreference('viewPosition', {
     pageX: Math.max(0, window.scrollX), pageY: Math.max(0, window.scrollY),
-    metricsX: Math.max(0, metricsPanelContent.scrollLeft),
-    metricsY: Math.max(0, metricsPanelContent.scrollTop),
     focusId: active && active.id ? active.id : null,
   });
 }
@@ -85,7 +83,6 @@ function initGamePreferences() {
     preferenceScrollTimer = setTimeout(flushViewPosition, 150);
   };
   window.addEventListener('scroll', queueScroll, { passive: true });
-  metricsPanelContent.addEventListener('scroll', queueScroll, { passive: true });
   document.addEventListener('focusin', queueScroll);
   window.addEventListener('pagehide', flushViewPosition);
   document.addEventListener('visibilitychange', () => { if (document.hidden) flushViewPosition(); });
@@ -101,8 +98,6 @@ function initGamePreferences() {
   const restoreScroll = () => {
     const focused = saved.focusId === null ? null : document.getElementById(saved.focusId);
     if (focused && focused.checkVisibility()) focused.focus({ preventScroll: true });
-    metricsPanelContent.scrollLeft = saved.metricsX;
-    metricsPanelContent.scrollTop = saved.metricsY;
     window.scrollTo(saved.pageX, saved.pageY);
   };
   restoredAnalysisReady.then(() => new Promise(requestAnimationFrame)).then(() => {
@@ -198,7 +193,7 @@ async function restorePreferredResult() {
     if (trace !== restoredTrace || revision !== resultViewRevision) return;
     metricsSeries = restored.series;
     finalMotion = { metrics: restored.metrics, series: metricsSeries, spatial: restored.spatial };
-    renderMetricsPanel(null);
+    renderMotionStats();
     await renderResult(record, modeRecords);
   });
   restoredAnalysisReady.catch((error) => {

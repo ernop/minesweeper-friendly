@@ -1,7 +1,8 @@
 'use strict';
 
-// Shared completed-game measurements: the stats panel and game-data catalog
-// use the same formulas. Saved history is the only source of observations.
+// Shared completed-game measurements: one formula per measurement for every
+// page and worker that shows it. Saved history is the only source of
+// observations.
 function secondsOf(record) {
   return record.timeMs / 1000;
 }
@@ -138,6 +139,12 @@ const GameData = (() => {
   const percent = (v) => Number((v * 100).toFixed(2)) + '%';
   const decimal = (v) => Number(v.toFixed(2)).toString();
   const perSecond = (field) => (r) => r.timeMs > 0 ? r[field] * 1000 / r.timeMs : undefined;
+  const perMinute = (field) => (r) => r.timeMs > 0 ? r[field] * 60000 / r.timeMs : undefined;
+  // The report-category measurements read `actionSummary`, the game's action
+  // summary (game/evaluation.js, actionCategorySummary), which the game page
+  // adds to the records it sends only while one of them is asked for; a game
+  // whose evidence predates the categories has none.
+  const actionRate = (read) => (r) => r.actionSummary && r.timeMs > 0 ? read(r.actionSummary) * 60000 / r.timeMs : undefined;
   const count = (n) => n.toLocaleString('en-US');
   // `help` says only what a measurement's name and unit leave open; its card
   // and configuration row show it. A measurement whose name and unit already
@@ -198,6 +205,32 @@ const GameData = (() => {
     { id: 'unflaggedMineShare', name: 'unflagged mine share', higher: true, default: true,
       value: (r, params) => unflaggedMineShareOf(r, params.mines), step: (params) => 1 / params.mines,
       format: percent, help: 'Mines without a flag when you won, as a share of all the board’s mines.' },
+    { id: 'flagRate', allOutcomes: true, name: 'flag rate', higher: false, default: false,
+      value: perSecond('flagsPlaced'), format: (v) => v.toFixed(2) + '/s',
+      help: 'Flags placed per second. Removals do not subtract, and the automatic flags at a win do not count.' },
+    { id: 'flagRemovalRate', allOutcomes: true, name: 'flag-removal rate', higher: false, default: false,
+      value: perMinute('flagsRemoved'), format: (v) => decimal(v) + '/min', help: 'Flags you took back.' },
+    { id: 'unusedFlagRate', name: 'unused flag rate', higher: false, default: false,
+      value: perMinute('unusedCorrectFlags'), format: (v) => decimal(v) + '/min',
+      help: 'Correct flags that no chord ever used.' },
+    { id: 'gameRiskRate', allOutcomes: true, name: 'game risk rate', higher: false, default: false, actionSummary: true,
+      value: actionRate((s) => s.counts.gameRisk), format: (v) => decimal(v) + '/min',
+      help: 'Survived actions riskier than the safest available move, once a tenth of the safe squares were open: a guess while a safe move was available, or a riskier guess than necessary.' },
+    { id: 'earlyGuessRate', allOutcomes: true, name: 'early guess rate', higher: false, default: false, actionSummary: true,
+      value: actionRate((s) => s.counts.earlyGuess), format: (v) => decimal(v) + '/min',
+      help: 'Survived guesses that were not the safest choice, made before a tenth of the safe squares were open. They are kept out of game risk.' },
+    { id: 'timeLossRate', allOutcomes: true, name: 'time loss rate', higher: false, default: false, actionSummary: true,
+      value: actionRate((s) => s.counts.timeLoss), format: (v) => decimal(v) + '/min',
+      help: 'Clicks that made no progress or undid visible progress, plus correct flags in wins that no chord used.' },
+    { id: 'lifeMaximizationRate', allOutcomes: true, name: 'life maximization rate', higher: false, default: false, actionSummary: true,
+      value: actionRate((s) => s.counts.lifeMaximization), format: (v) => decimal(v) + '/min',
+      help: 'Moves where a one-move survival model saw a safer choice.' },
+    { id: 'excessGameRisk', allOutcomes: true, name: 'excess game risk', higher: false, default: false, actionSummary: true,
+      value: actionRate((s) => 100 * s.excessRisk), format: (v) => decimal(v) + 'pp/min',
+      help: 'How much riskier the game risk actions were than the safest available move, summed, in percentage points of the chance of losing.' },
+    { id: 'modeledLifeGap', allOutcomes: true, name: 'modeled life gap', higher: false, default: false, actionSummary: true,
+      value: actionRate((s) => s.modeledLifeGap), format: (v) => v.toFixed(3) + '/min',
+      help: 'How much expected remaining life the one-move survival model saw given up in the life maximization moves, summed.' },
   ];
   // The creator's own selection (2026-09-23), compared since 2026-10-07 with
   // both lifetime and the session.

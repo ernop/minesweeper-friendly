@@ -211,8 +211,10 @@ laggy"; asked whether the game is "max efficient" and to test and fix it.
   up to about 0.6 s in Firefox now take a few milliseconds, with a rare
   proof-budget case near 0.1 s
   ([measurements](../implementation/board-and-layout.md#click-time-evidence-cost-2026-09-26)).
-- Session charts redraw once per 10-second session step during a game, not
-  on every cursor sample ([Session stats](session-stats.md)).
+- Motion stats sample at most four times a second during a game, and draw
+  nothing while their section is closed ([Motion stats](motion-stats.md)).
+  The session charts, which redrew once per 10-second session step, left
+  with the left panel on 2026-10-20 ([Session stats](session-stats.md)).
 - Finishing a game must not rewrite the whole history. Found: every finished
   game rewrote the entire stored history twice (160 MB for the player's
   6,407 games), blocking input for roughly a second each time, including
@@ -275,7 +277,8 @@ duplicative and needlessly complex."
   Without limits it is empty. From 2026-10-14 to 2026-10-20 it also held the
   daily limits link, the session picker, settings, and an "other pages"
   menu.
-- **Settings row**, at the page foot under the backup row: everything the
+- **Settings row**, at the page foot under the motion stats section and the
+  backup row: everything the
   player configures for every game, in one place, in three groups:
   1. **settings** (the settings page) and **daily limits** (its limits
      panel), always shown and always so labeled.
@@ -292,20 +295,14 @@ duplicative and needlessly complex."
 
 ## Layout: the board never moves
 
-- The page has separate columns for session/motion metrics, the board and
-  tablecharts, game data, and game details. The game data and details columns
-  are reserved before a game finishes; results and replay never change the
-  board column's width.
-- The metrics column exists only for the stats it can show: it is gone when
-  both session stats and live motion stats are switched off, as both are
-  for a new player (since 2026-10-17). Both are
-  settings, so it never comes or goes during play. When a game has ended
-  and session stats are off, it has nothing to show until the next board;
-  the box is then invisible but keeps its width, so the board column never
-  changes. Until 2026-10-14 the column always existed because its
-  "session" heading held the page's one session picker (user decision
-  2026-09-23); the picker is now in the settings row at the page foot
-  ([below](#game-setup-top-bar-settings-row-and-footer)).
+- The page has two columns: the board with its tablecharts, and the
+  details column (live perf charts, game data, and game details). The
+  details column is reserved before a game finishes; results and replay
+  never change the board column's width.
+- A third column at the left held the session and live motion stats until
+  2026-10-20 ([Session stats](session-stats.md)). The motion stats are now
+  an open/close section at the page foot ([Motion stats](motion-stats.md)),
+  so nothing beside the board comes or goes with them.
 - The archive alert and the play context line (the music state and the
   player states that are on, as tags, with the **edit states** button;
   [Player states](player-states.md)) stay at the top of the details column.
@@ -387,8 +384,8 @@ duplicative and needlessly complex."
   summary plus a table beside it), down to 320px. Below that the Game
   details popover takes over, `max(420px, 60vw)` within the viewport, so
   widening the column never undocks a board that fit beside a 320px column.
-  On a 1504px laptop window with the stats panel open it is about 450px wide
-  by default.
+  On a 1504px laptop window with the stats panel open (until 2026-10-20) it
+  was about 450px wide by default.
 - Resizable details column (creator 2026-10-17, of the details column with
   game data: "you must allow that section, also, to be widenable/narrowable
   with mouse", the stats panel's right edge being the existing drag grip):
@@ -426,8 +423,9 @@ duplicative and needlessly complex."
   board** section follows (2026-09-21): exact 3BV, ZiNi, HZiNi, maximum number,
   has-7/8, maximum-clue caps, zero-count, mine-island count, and enabled
   largest-island tablecharts. Each table keeps its own identifying label.
-  Both sections precede the your-perf charts, the board-trait charts,
-  relationships, and motion diagnostics.
+  Both sections precede the your-perf charts, the board-trait charts, and
+  relationships; the motion stats section follows them at the page foot
+  ([Motion stats](motion-stats.md)).
   HZiNi, 3BV spread, 0–1 share, and zero-opening coverage values appear in
   their tablechart headings; there are no separate value cards. The
   3BV-spread tablechart is off by default (user decision 2026-09-23: "i don't

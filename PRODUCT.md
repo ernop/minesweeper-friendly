@@ -45,7 +45,7 @@ single-file spec; older references cite them as `PRODUCT.md "Heading"`.
 
 - [docs/product/game-end-evaluation.md](docs/product/game-end-evaluation.md) — Every action judged against the position visible before it, with the evidence ledger, verdicts, and reported endings. Section: "Game-end evaluation".
 - [docs/product/results.md](docs/product/results.md) — The one order for post-game and score-view output (outcome, tables, then point charts). Section: "Result presentation and ordering".
-- [docs/product/game-data.md](docs/product/game-data.md) — The performance chart beside the board, its shared session definition, ranking direction, catalog, and removed fields.
+- [docs/product/game-data.md](docs/product/game-data.md) — The performance chart beside the board, its shared session definition, ranking direction, catalog, removed fields, and the optional switch cost line.
 - [docs/product/during-game.md](docs/product/during-game.md) — How the game just played unfolded on its own clock: a progress chart, one chart of every measured line against its own whole-game value, and event tracks (clicks, jumps, pauses) on one time axis, with the hovered line's value, the board at that moment, and a replay link. The block "live perf charts" at the head of the game data column.
 - [docs/product/rankings.md](docs/product/rankings.md) — Time-window and day-category rank lists, row highlights, the recent-placements summary, relative ages, and streaks. Sections: "Rank lists", "Rank highlights", "Recent placements", "Relative age display", "Streak lists".
 - [docs/product/charts.md](docs/product/charts.md) — Grouped average-time scatters, the relationship scatter plots, and the retired rankaverage tables. Sections: "Average-time charts", "Scatter plots", "Retired rankaverage charts".
@@ -56,8 +56,8 @@ single-file spec; older references cite them as `PRODUCT.md "Heading"`.
 - [docs/product/measurement.md](docs/product/measurement.md) — Why games are measured (comparison within one player, no causal inference), the lifelong self-measurement design, and the behavioral-signature research. Section: "Measurement purpose".
 - [docs/product/self-check.md](docs/product/self-check.md) — The frozen reference check (sleepiness rating plus a 10-counter alertness test) for comparison over years: protocols, versioning, stored record, result, history, and backup.
 - [docs/product/per-game-stats.md](docs/product/per-game-stats.md) — The fields recorded per finished game, derived rates, board measurements and backfill, the guess ledger, and music playing. Section: "Per-game stats".
-- [docs/product/trace-metrics-panel.md](docs/product/trace-metrics-panel.md) — Mouse-dynamics features computed from the trace, live in the left panel and final in the bottom charts. Section: "Trace metrics panel".
-- [docs/product/session-stats.md](docs/product/session-stats.md) — The recent-observations section, its player-chosen session window, and the action-rates charts. Section: "Session stats".
+- [docs/product/motion-stats.md](docs/product/motion-stats.md) — Mouse-dynamics features computed from the trace, live during the game and final after it, in one open/close section at the page foot. Section: "Motion stats".
+- [docs/product/session-stats.md](docs/product/session-stats.md) — The left stats panel's session charts, removed 2026-10-20: the creator's decision, where each part went, and the chart ideas worth reusing. Section: "Session stats".
 - [docs/product/player-states.md](docs/product/player-states.md) — Self-reported context tags stored on finished games. Section: "Player states".
 
 ### Training

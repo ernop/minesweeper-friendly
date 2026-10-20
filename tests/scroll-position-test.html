@@ -28,27 +28,23 @@ frame.addEventListener('load', () => {
   // Synthetic results in RAM only: exercise real layout and browser scroll
   // clamping without playing games or persisting settings/history.
   gameState = 'lost';
-  settings.showSessionStats = false;
-  settings.showMotionStatsDuringGame = false;
   settings.boardOffsetX = 0;
   settings.boardOffsetY = 0;
-  renderMetricsPanel(null);
+  renderMotionStats();
   resultSummary.textContent = 'Scroll regression fixture';
   resultStats.innerHTML = '<div style="height:750px">Tall completed-game stats</div>';
   resultRanks.innerHTML = '<div style="height:1000px">Rankings below the stats</div>';
   pathViewLegend.innerHTML = '<div style="height:1000px">Tall review legend</div>';
-  for (const [scenario, width, legendVisible, sidebarVisible] of [
-    ['hidden legend', 1400, false, false],
-    ['sidebar stats', 1900, false, false],
-    ['visible side legend', 1400, true, false],
-    ['narrow details panel', 650, true, false],
-    ['session sidebar', 1400, false, true],
+  for (const [scenario, width, legendVisible] of [
+    ['hidden legend', 1400, false],
+    ['wide page', 1900, false],
+    ['visible side legend', 1400, true],
+    ['narrow details panel', 650, true],
   ]) {
     window.scrollTo(0, 0);
     parent.document.querySelector('iframe').style.width = width + 'px';
     pathViewLegend.hidden = !legendVisible;
-    settings.showSessionStats = sidebarVisible;
-    renderMetricsPanel(null);
+    renderMotionStats();
     await settled();
     syncBoardLayout();
     await settled();
@@ -58,9 +54,7 @@ frame.addEventListener('load', () => {
       window.scrollTo(0, (pageHeight - window.innerHeight) * fraction);
       await settled();
       const before = window.scrollY;
-      const panelBefore = metricsPanelContent.scrollTop = 400;
-      for (const update of [syncResultClearance, syncGameSidebar,
-        syncBoardLayout, () => renderMetricsPanel(null)]) {
+      for (const update of [syncResultClearance, syncGameSidebar, syncBoardLayout, renderMotionStats]) {
         update();
         await settled();
       }
@@ -70,9 +64,6 @@ frame.addEventListener('load', () => {
           && Math.abs(boardPageRect(gameFrame).top - boardTop) < 1,
         'scroll Y ' + before + ' -> ' + window.scrollY
           + ', page height ' + pageHeight + ' -> ' + document.documentElement.scrollHeight);
-      if (sidebarVisible) check('sidebar preserves its independent scroll',
-        metricsPanelContent.scrollTop === panelBefore,
-        panelBefore + ' -> ' + metricsPanelContent.scrollTop);
     }
   }
   parent.document.getElementById('results').textContent += '\\nDONE';

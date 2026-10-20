@@ -53,8 +53,7 @@ at or below one second, and path ratios exclude zero denominators.
     2026-10-10).
     Loss records carry clicks, path, rates, and board-shape facts, so the
     other specs stay measurable.
-- Each header also carries a (?) help button (see "Chart help buttons"
-  under [Session stats](session-stats.md)) with only what the title and
+- Each header also carries a (?) help button with only what the title and
   axes leave open: in average and distribution modes the dot colors (the
   win's age, or the age of the newest win at that value, keyed under the
   relationship charts) and the trend lines (teal over all wins, blue over

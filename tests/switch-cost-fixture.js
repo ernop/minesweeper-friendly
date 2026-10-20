@@ -195,7 +195,7 @@ function playGame(random, gameIndex, endedAtFloor) {
   const record = {
     endedAt, outcome, timeMs: endT - startT, bv3: Math.max(1, moves - flagsPlaced), clicks: moves,
     wastedClicks: 0, flagsPlaced, flagsRemoved: 0, mousePathPx: 0, playMode: 'standard', justiceEnabled: false,
-    seed, rngVersion: GameRandom.VERSION, boardVersion: UNIFORM, actionEvaluations: [],
+    seed, rngVersion: GameRandom.VERSION, boardVersion: UNIFORM, actionEvaluations: [], states: [],
   };
   return { key, record, trace };
 }

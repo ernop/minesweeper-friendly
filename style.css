@@ -45,7 +45,7 @@ body {
      The docked details column starts below it and the row gap. */
   --top-bar-height: 25px;
   --top-bar-block: calc(var(--top-bar-height) + 8px);
-  grid-template-columns: auto minmax(0, 1fr) var(--game-sidebar-docked-width, var(--game-sidebar-width));
+  grid-template-columns: minmax(0, 1fr) var(--game-sidebar-docked-width, var(--game-sidebar-width));
   grid-template-rows: auto 1fr;
   align-items: start;
   gap: 8px 18px;
@@ -56,7 +56,7 @@ body {
 /* Positioned so placeBoardSides can rest the session summary and ranks won
    beside the board in main's coordinates. */
 main {
-  grid-column: 2;
+  grid-column: 1;
   grid-row: 1 / span 2;
   position: relative;
   display: flex;
@@ -185,7 +185,7 @@ main {
    holds only today's use against the daily limits: live status, where the
    settings row at the page foot holds the configuration. */
 #top-bar {
-  grid-column: 3;
+  grid-column: 2;
   grid-row: 1;
   position: sticky;
   top: 12px;
@@ -199,7 +199,7 @@ main {
   font-size: 11px;
   white-space: nowrap;
 }
-#page-layout.compact-sidebar #top-bar { grid-column: 2; position: static; justify-self: end; }
+#page-layout.compact-sidebar #top-bar { grid-column: 1; position: static; justify-self: end; }
 #page-layout.compact-sidebar main { grid-row: 2; }
 
 /* Today's use is a fact: plain text, never a control. */
@@ -1658,7 +1658,7 @@ body.trial-offboard #game-frame {
    reserved before a game ends. Its scroll stays independent of the board
    and history, regardless of content height. */
 #game-sidebar {
-  grid-column: 3;
+  grid-column: 2;
   grid-row: 2;
   position: sticky;
   top: calc(12px + var(--top-bar-block));
@@ -1678,7 +1678,7 @@ body.trial-offboard #game-frame {
 /* The column's resize grip, centered in the 18px column gap left of it and
    sticky with it; syncGameSidebar shows it only while the column docks. */
 #details-resize {
-  grid-column: 3;
+  grid-column: 2;
   grid-row: 2;
   justify-self: start;
   align-self: start;
@@ -1716,7 +1716,7 @@ body.trial-offboard #game-frame {
 }
 #game-sidebar-button[hidden], #game-sidebar-close[hidden] { display: none; }
 #game-sidebar-close { align-self: flex-end; }
-#page-layout.compact-sidebar { grid-template-columns: auto minmax(0, 1fr); }
+#page-layout.compact-sidebar { grid-template-columns: minmax(0, 1fr); }
 
 /* A stat section (live perf charts): its title is the button that opens
    and closes it. Game data's two side titles share this look. */
@@ -2996,8 +2996,7 @@ body.settings-page .return-to-game {
 }
 
 .motion-metric-group > .metrics-group-head {
-  width: calc(100% - 24px);
-  margin: 0 auto 6px;
+  margin: 0 0 6px;
   border-bottom: 1px solid #e5e5e5;
   padding-bottom: 2px;
 }
@@ -3005,7 +3004,6 @@ body.settings-page .return-to-game {
 .motion-metric-group-items {
   display: flex;
   flex-wrap: wrap;
-  justify-content: center;
   align-items: flex-start;
   gap: 18px;
 }
@@ -3292,18 +3290,14 @@ body.settings-page .return-to-game {
 /* Results under the summary: one tree for the shown game's board size, won
    then lost under a rule, each split by worst offense and then by type.
    Depth shows as indentation, and each depth's shares have their own
-   column; won and lost head their branches in bold. A leaf's label leads
-   with its endings-chart line swatch. Likely-misclick rows sit under
-   another rule because they recount losses already filed above. */
+   column; won and lost head their branches in bold. The last column is
+   the row's share of every game of the size, for comparison with the
+   session. Likely-misclick rows sit under another rule because they
+   recount losses already filed above. */
 .session-summary-results { margin-top: 6px; }
 .session-summary-depth-1 > .session-summary-result { font-weight: bold; }
 .session-summary-depth-2 > .session-summary-result { padding-left: 18px; }
 .session-summary-depth-3 > .session-summary-result { padding-left: 32px; }
-.session-summary-result .end-swatch {
-  margin-right: 4px;
-  padding: 0;
-  vertical-align: middle;
-}
 .session-summary-group-first > span { border-top: 1px solid #000000; }
 
 /* Recent placements ("ranks won in session"): one row per longer chart,
@@ -3793,90 +3787,42 @@ body.vigilance-running #self-check-header {
   background: var(--this-game);
 }
 
-/*-------METRICS PANEL (live / final mouse-dynamics column)-------*/
+/*-------MOTION STATS (open/close section at the page foot)-------*/
 
-/* An in-page left column: one row per metric (label, current value,
-   sparkline of the value over the game). It occupies layout width rather
-   than covering the page, and stays available while its own tall contents
-   scroll. */
-#metrics-panel {
-  grid-column: 1;
-  grid-row: 1 / span 2;
-  position: sticky;
-  top: 6px;
-  align-self: start;
-  max-height: calc(100vh - 12px);
-  /* Default only: the real width is the metricsPanelWidth setting, set
-     by dragging the panel's right edge and applied inline on render.
-     Wide enough for the session charts' full axis treatment. */
-  width: 316px;
-  background: #fbfbfb;
-  border: 1px solid #dddddd;
-  font-size: 11px;
-}
+#motion-stats { width: 100%; margin-top: 12px; }
+.motion-stats-idle { margin: 4px 0; }
 
-#metrics-panel.idle { visibility: hidden; }
-
-#metrics-panel-content {
-  max-height: calc(100vh - 14px);
-  overflow-y: auto;
-  overflow-anchor: none;
-  padding: 4px 8px;
-}
-
-#metrics-panel .metric-row {
-  margin: 4px 0 2px;
-}
-
-#metrics-panel .metric-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-}
-
-#metrics-panel .metric-label {
-  color: #000000;
-}
-
-#metrics-panel .metric-value {
-  font-family: monospace;
-  color: #000000;
-}
-
-/* The session stats' switch-cost row: each pool's estimate under the pool's
-   name. Values lead by size, the pool names by weight, as in game data's
-   band; every cell stays on one line. The label column, the only one
-   without a width, takes the slack. */
-#metrics-panel .switch-cost-table {
-  width: 100%;
-  margin: 4px 0 6px;
-  border-collapse: collapse;
-  color: #000000;
-}
-#metrics-panel .switch-cost-table th,
-#metrics-panel .switch-cost-table td {
-  padding: 0 0 0 8px;
-  font-weight: normal;
-  text-align: right;
-  white-space: nowrap;
-}
-#metrics-panel .switch-cost-table thead th {
-  font-size: 11px;
+/* Section header naming a measurement system between the motion chart
+   groups. */
+.metrics-group-head {
+  font-size: 15px;
   font-weight: bold;
+  color: #000000;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
-#metrics-panel .switch-cost-table tbody th {
-  padding-left: 0;
+
+/* Switch cost, an optional line under game data's chart: each pool's
+   estimate after the pool's name, the values leading by size and weight. */
+.switch-cost-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 12px;
+  margin: 4px 0 2px;
+  color: #000000;
   font-size: 12px;
-  text-align: left;
 }
+.switch-cost-pool { white-space: nowrap; }
 /* Six characters hold every estimate under 100% either way, so a reply
-   does not widen its column: a cell's width is its column's minimum, and
-   the content box keeps the padding outside the six characters. */
-#metrics-panel .switch-cost-table tbody td {
-  box-sizing: content-box;
-  width: 6ch;
-  font-family: monospace;
-  font-size: 13px;
+   does not shift the line. */
+.switch-cost-value {
+  display: inline-block;
+  min-width: 6ch;
+  font-size: 14px;
+  font-weight: bold;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
 }
 
 .chart-help-tip:has(> .switch-cost-card) { width: auto; max-width: calc(100vw - 12px); }
@@ -3893,259 +3839,9 @@ body.vigilance-running #self-check-header {
 .switch-cost-card thead th { font-weight: bold; }
 .switch-cost-card tbody th { padding-left: 0; text-align: left; }
 
-/* When tucked away via its own toggler, the panel shrinks to a small
-   restore chip in the same corner. */
-#metrics-panel.collapsed {
-  bottom: auto;
-  width: auto;
-}
-
-#metrics-panel.collapsed #metrics-panel-content {
-  padding: 2px 4px;
-}
-
-#metrics-panel .metrics-panel-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-}
-#metrics-panel .metrics-panel-head .metrics-toggle { margin-left: auto; }
-#metrics-panel .metrics-panel-head[hidden] { display: none; }
-
-#metrics-panel .metric-phase {
-  font-weight: bold;
-  color: #000000;
-}
-
-.metrics-toggle {
-  font: inherit;
-  font-size: 11px;
-  color: #000000;
-  background: none;
-  border: none;
-  padding: 0 2px;
-  cursor: pointer;
-}
-
-/* Section header naming a measurement system, in the live panel and
-   between the after-game chart groups alike. */
-.metrics-group-head {
-  font-size: 15px;
-  font-weight: bold;
-  color: #000000;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
-#metrics-panel .metrics-group-head {
-  margin: 10px 0 2px;
-  border-bottom: 1px solid #e5e5e5;
-}
-
-/* Session controls are intentionally compact beneath the dominant section
-   heading: players can reshape the dataset without opening Settings. */
-.session-controls {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px;
-  margin: 4px 0 8px;
-}
-.session-control {
-  min-height: 24px;
-  border: 1px solid #c7d1d9;
-  border-radius: 3px;
-  background: #f8fafb;
-  color: #000000;
-  font-family: Arial, sans-serif;
-  font-size: 10px;
-  font-weight: normal;
-  text-transform: none;
-  letter-spacing: normal;
-}
-.session-control { max-width: 126px; }
-/* The panel's right-edge resize grip belongs to the in-page panel. */
-.metrics-resize {
-  position: absolute;
-  top: 0;
-  right: -4px;
-  bottom: 0;
-  width: 7px;
-  cursor: ew-resize;
-}
-.metrics-resize:hover { background: #dde6ee; }
-
-/* Session charts reuse the scatter plots' visual grammar (plot frame,
-   gridlines, tick classes) at panel width. */
-.session-chart {
-  display: block;
-  margin-top: 0;
-}
-.session-chart .scatter-tick,
-.session-chart .scatter-axis-label {
-  font-size: 12px;
-  font-weight: bold;
-  fill: #000000;
-}
-.session-game-line {
-  stroke-width: 1;
-  opacity: 0.34;
-  pointer-events: none;
-  shape-rendering: crispEdges;
-}
-/* Real-world provenance: strip blocks per wall-clock stretch, one hue per
-   calendar day, plus the dashed day-change mark repeated in every chart. */
-.session-when-strip {
-  display: block;
-}
-.session-when-block {
-  stroke: #37474f;
-  stroke-width: 0.75;
-}
-.session-when-label {
-  font-family: Arial, sans-serif;
-  font-size: 11px;
-  font-weight: bold;
-  fill: #000000;
-}
-.session-day-boundary {
-  stroke: #1a1a1a;
-  stroke-width: 1.25;
-  stroke-dasharray: 4 3;
-  pointer-events: none;
-}
-.session-when-summary {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2px 12px;
-  margin: 3px 0 4px 54px;
-  color: #000000;
-  font-family: Arial, sans-serif;
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-}
-.session-when-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-.session-when-swatch {
-  display: inline-block;
-  width: 11px;
-  height: 11px;
-  border: 1px solid #37474f;
-  border-radius: 2px;
-}
-.session-game-line.active {
-  stroke-width: 1.5;
-  opacity: 0.9;
-}
-.session-game-tooltip {
-  position: fixed;
-  z-index: 1000;
-  pointer-events: none;
-  box-sizing: border-box;
-  padding: 5px 7px;
-  color: #000000;
-  background: rgba(255, 255, 255, 0.97);
-  border: 1px solid #aebbad;
-  border-radius: 2px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
-  font: 11px/1.25 Arial, sans-serif;
-  white-space: nowrap;
-}
-.session-game-tooltip[hidden] { display: none; }
-.session-game-tooltip-primary {
-  display: flex;
-  align-items: baseline;
-  gap: 7px;
-}
-.session-game-tooltip-time {
-  color: #000000;
-  font-size: 15px;
-  font-weight: bold;
-  font-variant-numeric: tabular-nums;
-}
-.session-game-tooltip-rank {
-  font-size: 12px;
-  font-weight: bold;
-  font-variant-numeric: tabular-nums;
-}
-.session-game-tooltip-rank-chip {
-  padding: 1px 4px;
-  border-radius: 2px;
-  background: #000000;
-}
-.session-game-tooltip-accolade {
-  padding: 1px 4px;
-  border-radius: 2px;
-  background: #173f57;
-  color: #ffffff;
-  font-size: 10px;
-  font-weight: bold;
-}
-.session-game-tooltip-inference {
-  padding: 1px 4px;
-  border-radius: 2px;
-  background: #c2185b;
-  color: #ffffff;
-  font-size: 10px;
-  font-weight: bold;
-}
-.session-game-tooltip-when {
-  margin-top: 2px;
-  color: #000000;
-  font-size: 10px;
-}
-.session-metric-row .metric-head {
-  justify-content: flex-start;
-  margin: 0 0 0 54px;
-}
-#metrics-panel .session-metric-row .metric-label {
-  color: #000000;
-  font-size: 14px;
-  font-weight: bold;
-  line-height: 1.05;
-}
-.session-point-value {
-  font-family: Arial, sans-serif;
-  font-size: 12px;
-  font-weight: bold;
-  fill: #000000;
-  stroke: #ffffff;
-  stroke-width: 3px;
-  paint-order: stroke fill;
-}
-
-/* Game-endings lines (one cumulative percent line per ending kind) and
-   their legend. The per-kind color travels inline from SESSION_END_SPECS
-   (line stroke, last-point dot fill, legend swatch background); only the
-   shared geometry lives here. */
+/* Line charts' series lines and legend entries (live perf charts). The
+   per-series color travels inline; only the shared geometry lives here. */
 .end-line { fill: none; stroke-width: 1.6; }
-/* Per-line current values in the line's own color (fill set inline);
-   the white halo keeps them readable over gridlines and other lines. */
-.rate-point-value {
-  font-family: Arial, sans-serif;
-  font-size: 11px;
-  font-weight: bold;
-  stroke: #ffffff;
-  stroke-width: 3px;
-  paint-order: stroke fill;
-}
-.rate-label-leader {
-  fill: none;
-  stroke-width: 0.8;
-  stroke-dasharray: 2 2;
-  opacity: 0.72;
-}
-.session-end-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2px 10px;
-  font-family: Arial, sans-serif;
-  font-size: 11px;
-  margin: 2px 0 4px 54px;
-}
 .end-legend-item {
   display: inline-flex;
   align-items: center;
@@ -4156,22 +3852,17 @@ body.vigilance-running #self-check-header {
   width: 12px;
   height: 3px;
 }
-.session-end-empty { color: #000000; }
 
-/* Hovering a series' legend entry or in-plot value label spotlights that
-   series: everything else in the chart fades, the hovered line thickens. */
+/* Hovering a series' legend entry spotlights that series: everything else
+   in the chart fades, the hovered line thickens. */
 .series-hotspot { cursor: pointer; }
 .end-legend-item.series-hotspot:hover { text-decoration: underline; }
-.session-chart.series-focus .end-line:not(.hot),
-.session-chart.series-focus .end-dot:not(.hot),
-.session-chart.series-focus .rate-label-leader:not(.hot),
 .during-game-chart-svg.series-focus .end-line:not(.hot),
 .during-game-chart-svg.series-focus .during-game-dot:not(.hot),
 .during-game-chart-svg.series-focus .during-game-tick:not(.hot),
 .during-game-tracks-svg.series-focus .during-game-mark:not(.hot) {
   opacity: 0.16;
 }
-.session-chart .end-line.hot,
 .during-game-chart-svg .end-line.hot { stroke-width: 2.6; }
 
 /* The (?) after a chart name: hover/focus it for a plain-language
@@ -4213,7 +3904,7 @@ body.vigilance-running #self-check-header {
 }
 /* The tip is one shared body-level element, fixed-positioned beside
    whichever (?) is active and clamped to the viewport (an inline tip
-   would be clipped by the scrollable metrics panel). */
+   would be clipped by a scrolling column such as the docked game data). */
 .chart-help-tip {
   position: fixed;
   margin: 0;
@@ -4302,8 +3993,8 @@ body.vigilance-running #self-check-header {
   background: #ffffff;
 }
 
-/* The after-game charts sit inline among the bottom charts; the head
-   line (label + canonical value) doubles as the chart's title. */
+/* A motion chart's head line (label + value) doubles as its title; the
+   value leads it. */
 .motion-chart {
   width: 230px;
   font-size: 11px;
@@ -4320,8 +4011,10 @@ body.vigilance-running #self-check-header {
 }
 
 .motion-chart .metric-value {
-  font-family: monospace;
   color: #000000;
+  font-size: 13px;
+  font-weight: bold;
+  font-variant-numeric: tabular-nums;
 }
 
 .spark { display: block; overflow: hidden; }
@@ -4374,15 +4067,7 @@ body.vigilance-running #self-check-header {
 @media (max-width: 700px) {
   #page-layout, #page-layout.compact-sidebar { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; }
   #top-bar, #page-layout.compact-sidebar #top-bar { grid-column: 1; grid-row: 1; }
-  main, #page-layout.compact-sidebar main { grid-column: 1; grid-row: 3; }
-  #metrics-panel {
-    grid-column: 1;
-    grid-row: 2;
-    position: static;
-    width: 100% !important;
-    max-height: 220px;
-  }
-  #metrics-panel-content { max-height: 218px; }
+  main, #page-layout.compact-sidebar main { grid-column: 1; grid-row: 2; }
   body { padding: 12px; }
   #difficulty-tabs { flex-wrap: wrap; justify-content: center; gap: 10px; }
 }
@@ -4411,14 +4096,6 @@ body.vigilance-running #self-check-header {
 .review-options-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 .review-options-heading strong { font-size: 14px; }
 #review-options #replay-overlay-control, #review-options #path-view-control { margin-bottom: 12px; }
-
-/* Reserve the early-session geometry before any measurements exist. */
-#metrics-panel-content { scrollbar-gutter: stable; }
-.session-when-row { height: 112px; overflow-y: auto; }
-.session-endings-row > .session-end-legend { height: 72px; overflow-y: auto; }
-.session-metric-row > .session-end-empty { min-height: 16px; }
-
-#metrics-panel .session-chart, #metrics-panel .session-when-strip { max-width: 100%; }
 
 
 #preferences-import-form {

@@ -1,4 +1,4 @@
-"""Reference fit for the stats panel's switch cost (switch-cost.js).
+"""Reference fit for game data's switch cost line (switch-cost.js).
 
 The study's model P1 (reference/mode-switch-2026-09-28.md), written
 independently of the game's code with patsy and numpy: OLS on log interval

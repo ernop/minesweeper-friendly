@@ -11,12 +11,12 @@ const origin = 'http://127.0.0.1:8099/';
     const page = await context.newPage();
     const errors = [];
     page.on('pageerror', (error) => errors.push(error.message));
-    // Live motion stats are off for a new player; the column checked below
-    // exists only with them on.
+    // Motion stats start closed for a new player; the section checked below
+    // shows only when open.
     await page.goto(origin);
     await page.waitForFunction(() => preferenceUIReady);
     await page.evaluate(() => {
-      updateSettings({ showMotionStatsDuringGame: true });
+      updateSettings({ panels: { ...settings.panels, motionStats: true } });
       return new Promise((resolve, reject) => {
         const tx = db.transaction(USERDATA_STORE);
         tx.objectStore(USERDATA_STORE).get('settings');
@@ -30,15 +30,15 @@ const origin = 'http://127.0.0.1:8099/';
     await page.reload();
     await page.waitForFunction(() => preferenceUIReady);
     const initialBoard = await page.locator('#game-frame').boundingBox();
-    assert.equal(await page.locator('#metrics-panel').evaluate((panel) => !panel.hidden
-      && panel.getBoundingClientRect().width > 0), true, 'stats column is reserved before worker replies');
+    assert.equal(await page.locator('#motion-stats .stat-section-body').isVisible(), true,
+      'the open motion stats section shows before worker replies');
     await page.evaluate(() => {
       settings.justUniverse = false;
       // Any accidental execution in the window fails the test, including
       // attempts to substitute synchronous work when the worker is delayed.
       for (const name of ['computeAllTraceMetrics', 'computeSpatialBias', 'computeClickCadence',
-        'resultRankPlan', 'averageScatterData', 'scatterPlotData', 'boardTraitRankProfile', 'recentPlacementCandidates', 'recentPlacementsSummary',
-        'sessionRunningSeries', 'sessionRawSeries', 'sessionGameSeries']) {
+        'resultRankPlan', 'averageScatterData', 'scatterPlotData', 'boardTraitRankProfile', 'recentPlacementCandidates',
+        'recentPlacementsSummary']) {
         window[name] = () => { throw new Error('Analytics ran on UI thread: ' + name); };
       }
     });

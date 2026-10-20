@@ -290,13 +290,12 @@ middle? that's okay."
     died later" under a guess family when an earlier survived guess was
     worse than the fatal click. A family that has only one type (the wrong
     flag; a win's guess past a safe square) is itself the leaf.
-  Depth shows as indentation. Each leaf leads with the swatch of the game
-  endings chart line its games are on (the win color for wins, the early-game
-  guess color for all three opening kinds); "survived it, died later" has
-  no line and keeps an empty swatch so its label aligns. Below level 1 only
-  rows with a game show. The flat list it replaced (built earlier on
+  Depth shows as indentation. Until 2026-10-20 each leaf led with the
+  swatch of the session endings chart line its games were on; the swatches
+  went with that chart ([Session stats](session-stats.md)). Below level 1
+  only rows with a game show. The flat list it replaced (built earlier on
   2026-10-14) had win types, then loss types exactly as the endings chart
-  files them.
+  filed them.
 - **Session results: one size, one share column per level** (creator
   request 2026-10-15, of the grid split by Beginner and Intermediate: "the
   lower part of the image is about the "distribution" of outcomes. make it
@@ -317,12 +316,20 @@ middle? that's okay."
   sizes are the creator's three "main game types" (2026-10-12: "loss-type
   should be split by main game type (small, medium, expert)").
   - Columns: result; "Expert games", the count; then one share column per
-    level, headed "won or lost", "worst offense", and "type". Every share
-    is of all that size's session games (the creator's "of absolute"), and
+    level, headed "won or lost", "worst offense", and "type"; then
+    "lifetime" (below). Every session share is of all that size's session games (the creator's "of absolute"), and
     a row's share stands only in its own level's column, so reading down one
     column reads one level: won plus lost is 100%, and the shares under a
     row add up to that row's share, give or take rounding. A nonzero share
     that rounds to 0% reads "<1%".
+  - **Lifetime** (2026-10-20), the last column: the same row's share of
+    every game of that size played up to the shown game, its modes and
+    generators together as in the session columns. It carries the left
+    panel's game endings percentages, which the creator asked to keep when
+    the panel was removed ("same for teh game endings %!"; [Session
+    stats](session-stats.md)); recommended as this column, rather than a
+    game data row, because game data shows only after wins and the results
+    show after every game. Rows stay those with a session game.
   - Closing the lost branch under another rule follow the likely-misclick
     rows, one per reason ("of these losses, likely misclick: adjacent wrong
     flag placed under a second before", "of these losses, likely misclick:

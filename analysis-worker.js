@@ -1,16 +1,15 @@
 "use strict";
 
 importScripts('trend-fit.js?v=20260925-worker-analysis',
-  'game/trace-metrics.js?v=20261020-live-perf',
-  'game/evaluation.js?v=20261020-live-perf',
-  'game/session-stats.js?v=20261020-live-perf',
-  'game/metric-definitions.js?v=20261020-live-perf',
-  'board-shape.js?v=20261020-live-perf', 'zini.js?v=20261020-live-perf', 'board-metrics.js?v=20261020-live-perf',
-  'game-data.js?v=20261020-live-perf', 'game/rankings.js?v=20261020-live-perf',
-  'game/charts.js?v=20261020-live-perf', 'game/game-data-chart.js?v=20261020-live-perf',
+  'game/trace-metrics.js?v=20261020-no-left-panel',
+  'game/evaluation.js?v=20261020-no-left-panel',
+  'game/metric-definitions.js?v=20261020-no-left-panel',
+  'board-shape.js?v=20261020-no-left-panel', 'zini.js?v=20261020-no-left-panel', 'board-metrics.js?v=20261020-no-left-panel',
+  'game-data.js?v=20261020-no-left-panel', 'game/rankings.js?v=20261020-no-left-panel',
+  'game/charts.js?v=20261020-no-left-panel', 'game/game-data-chart.js?v=20261020-no-left-panel',
   'justice.js?v=20260926-fast-evidence', 'board-icons.js?v=20261015-flag-controls',
-  'game/replay-model.js?v=20261020-live-perf',
-  'during-game.js?v=20261020-live-perf');
+  'game/replay-model.js?v=20261020-no-left-panel',
+  'during-game.js?v=20261020-no-left-panel');
 
 let config;
 
@@ -151,12 +150,6 @@ function analyze(kind, data) {
       const groups = GameData.history(data.records, data.endedAt, data.sessionDefinition, data.page, data.pageSize);
       return { total: groups.total, windows: groups.windows.map((group) => ({ endedAt: group.endedAt,
         stats: GameData.summary(group.records, data.metric, data.config) })) };
-    }
-    case 'session': {
-      const { events, options, basis, aggregation, lookbackGames, lookbackSeconds } = data;
-      return basis === 'game' ? sessionGameSeries(events, { ...options, aggregation, lookbackGames })
-        : aggregation === 'raw' ? sessionRawSeries(events, { ...options, bucketMs: lookbackSeconds * 1000 })
-          : sessionRunningSeries(events, { ...options, stepMs: SESSION_STEP_MS, lookbackMs: lookbackSeconds * 1000 });
     }
     default: throw new Error('Unknown analysis task: ' + kind);
   }

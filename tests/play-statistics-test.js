@@ -102,7 +102,7 @@ Object.assign(game, {
   computeBoardShape: () => ({ maxAdjacent: 5, hasSeven: false, zeroCount: 150, islandCount: 31, largestIsland: 9 }),
   activeStateNames: () => ['sleepy'],
   boardFlagsBlocked: false,
-  sessionMedian: () => 212,
+  medianOf: () => 212,
   guessLedgerAppliesToMode: () => false,
   pregenActive: () => false,
   trialIsActive: () => false,
@@ -116,7 +116,7 @@ Object.assign(game, {
   analysisFailure: (error) => failures.push(error),
 });
 for (const name of ['renderImmediateGameEnd', 'renderPregenCharts', 'endTrial', 'persistUserdata',
-  'saveTrace', 'renderMetricsPanel', 'updateSettings', 'renderPathView', 'persistGameRecord',
+  'saveTrace', 'renderMotionStats', 'updateSettings', 'renderPathView', 'persistGameRecord',
   'scheduleMetricsUpdate', 'appendMetricSeries', 'renderResult']) {
   game[name] = () => {};
 }
@@ -138,9 +138,9 @@ async function playToEnd(outcome, state) {
     clickCount: 0, chordClicks: 0, wastedClicks: 0, misclicks: 0, flagsPlaced: 0, flagsRemoved: 0,
     unusedCorrectFlags: 0, mousePathPx: 30000.4, justiceEvents: 0, justiceEnabledForGame: false,
     gameSeed: '0123456789abcdef0123456789abcdef', firstRevealIndex: 0, actionEvaluations: [],
-    musicObservations: [], gameFastclickGaps: [], guessEvents: [], oddsFailed: false,
+    musicObservations: [], fastclickGaps: [], guessEvents: [], oddsFailed: false,
     drillCurrent: null, trialPresentation: null, trialSession: null, pregenBatch: null,
-    pregenCurrent: null, resultViewRevision: 0, gameSessionEndEvent: {}, metricsSeries: [],
+    pregenCurrent: null, resultViewRevision: 0, metricsSeries: [],
     finalMotion: null, trace: { t: [], x: [], y: [], events: [], startedAt: 0 }, replayStep: 0,
     replayEnabled: true, history: {}, endgameDrillActive: () => false,
     gameState: outcome === 'win' ? 'won' : 'lost',

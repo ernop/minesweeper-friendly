@@ -149,10 +149,9 @@ Spec: [docs/product/rankings.md](../product/rankings.md). Index: [AGENTS.md](../
   fatal evaluation), which the "this" mark also uses. The span
   calls the verdict functions at run time, so its test loads the verdict
   span and justice.js. The same span holds `SESSION_RESULT_TREE` (won and
-  lost, their offense families, and leaves `{kind, chart, label}`, where
-  `chart` is the `SESSION_END_SPECS` kind whose color the swatch carries, or
-  null) and `sessionResultLines(rows)`, which flattens it in display order to
-  `{depth, label, kinds, chart}` (chart on leaves only): depth 1 always,
+  lost, their offense families, and leaves `{kind, label}`) and
+  `sessionResultLines(rows)`, which flattens it in display order to
+  `{depth, label, kinds, leaf}`: depth 1 always,
   deeper rows when one of their kinds occurred. It throws when a counted
   kind has no leaf. The tree's legacy family is built from
   `DEATH_KIND_LABELS`, so rankings.js must load after evaluation.js on the
@@ -164,18 +163,22 @@ Spec: [docs/product/rankings.md](../product/rankings.md). Index: [AGENTS.md](../
   no-mark narrowing keeps it), takes its board key ("30x16/99"; `boardOfKey`
   parses a board or history key) and that board's `boardDisplayLabelOf`
   label, and passes both to `buildSessionSummaryResults(rows, boardKey,
-  boardLabel, thisGame)`. That keeps the rows whose key starts with the board key
+  boardLabel, thisGame, lifetimeRecords)`, the last being every record under
+  a history key of that board key that ended by the window's end (the shown
+  game). That keeps the rows whose key starts with the board key
   (every mode and generator of the size) and renders
   `.session-summary-results` under the main grid, or, when none has session
   games, a `.session-summary-results.recent-placements-none` reading "no
-  <label> games in session". Columns: result, "<label> games", then one
-  share column per level. Each line is a
+  <label> games in session". Columns: result, "<label> games", one share
+  column per level, then `.session-summary-lifetime` (2026-10-20): each
+  line's share of `lifetimeRecords`, counted by `sessionResultCounts`
+  through the per-record `sessionGameResult` memo, so each saved game is
+  classified once per page load. Each line is a
   `.session-summary-row.session-summary-depth-N` summing its kinds; its
   share of the size's games fills only column N of the share columns, the
   others being empty `.session-summary-number` cells. CSS indents depth 2
-  and 3 and bolds depth 1. A leaf's label leads with an `.end-swatch`
-  colored from `SESSION_END_SPECS` (an unknown chart kind throws), left
-  uncolored when `chart` is null. Then the reasons in
+  and 3 and bolds depth 1. The leaves' `.end-swatch` color keys went with
+  the session endings chart on 2026-10-20. Then the reasons in
   LIKELY_MISCLICK_REASON_LABELS order at depth 2. Every depth-1 row after
   the first (lost) and the first misclick row carry
   `.session-summary-group-first` (a rule above). Until 2026-10-15 it

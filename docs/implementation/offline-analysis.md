@@ -39,6 +39,6 @@ Spec: [docs/product/measurement.md](../product/measurement.md). Index: [AGENTS.m
   the bank is a runtime file. See `analysis/judgment/NOTES.md`.
 - `analysis/switch-cost/reference.py` (numpy, pandas, patsy; see
   `analysis/switch-cost/NOTES.md`) is the independent reference for the
-  stats panel's switch cost ([Switching](../product/trace-metrics-panel.md#switching-creator-request-and-approval-2026-09-28)):
+  switch cost line under game data ([Switch cost line](../product/game-data.md#switch-cost-line-creator-request-and-approval-2026-09-28-under-game-data-since-2026-10-20)):
   the study's model P1 over transitions as `switch-cost.js` emits them.
   `tests/switch-cost-reference.json` is its output on the synthetic fixture.

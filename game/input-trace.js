@@ -34,12 +34,9 @@ function beginTrace() {
     events: [],
   };
   recordLayout();
-  // The metrics panel flips back to live immediately with fresh series:
-  // the previous game's final values and sparklines must not linger over
-  // a running trace.
+  // Fresh series and an immediate first sample: the previous game's final
+  // values and sparklines must not stay over a running trace.
   beginTraceMetricsSeries();
-  // Reserve the stats column before startup layout, independently of its worker.
-  renderMetricsPanel(null);
   renderLiveTraceMetrics();
 }
 
@@ -135,9 +132,8 @@ function recordLayout() {
 }
 
 // The board also moves when content around it appears or disappears —
-// the metrics panel showing, hiding, collapsing, or being drag-resized
-// shifts the centered column — and no scroll, resize, or zoom event
-// fires then. Rather than enumerating movers, the recorder compares the
+// a docked column or the mode options row showing or hiding — and no
+// scroll, resize, or zoom event fires then. Rather than enumerating movers, the recorder compares the
 // live rect to the last recorded one wherever the trace is already
 // touched: before every button event (clicks always map exactly) and after
 // ResizeObserver schedules a layout pass for a real geometry change.

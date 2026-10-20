@@ -308,7 +308,8 @@ function requestGameDataExamples(record) {
 const GAME_DATA_EXAMPLE_OF = {
   bvPerSecond: 'bv3', efficiency: 'bv3', ioe: 'bv3', ios: 'bv3', stnb: 'bv3', pathPer3bv: 'bv3',
   ziniEfficiency: 'zini', hziniEfficiency: 'hzini', misclickRate: 'misclickRate', noopRate: 'noopRate',
-  correctness: 'noopRate', unusedMarkShare: 'unusedMarkShare', unflaggedMineShare: 'unflaggedMineShare',
+  correctness: 'noopRate', unusedMarkShare: 'unusedMarkShare', unusedFlagRate: 'unusedMarkShare',
+  unflaggedMineShare: 'unflaggedMineShare',
 };
 function gameDataExampleFor(item) {
   if (gameDataExamples === null || gameDataExamples.byMeasurement === null
@@ -854,6 +855,30 @@ function buildGameDataDistributions(rows, pools, titles) {
   return { element, layout };
 }
 
+// The report-category measurements read each game's action summary, which
+// the worker cannot derive: the records it gets carry no action evaluations.
+// A summary is made once per record for the page session and sent only while
+// one of those measurements is asked for. A game with any action filed under
+// measurement notes (older or incomplete evidence) has none: its counts were
+// not measured.
+const GAME_DATA_ACTION_SUMMARIES = new WeakMap();
+function gameDataActionSummary(record) {
+  if (!GAME_DATA_ACTION_SUMMARIES.has(record)) {
+    const measured = record.actionEvaluations.every((evaluation) =>
+      actionEvaluationCategory(evaluation) !== 'measurementNotes');
+    GAME_DATA_ACTION_SUMMARIES.set(record, measured ? actionCategorySummary(record.actionEvaluations) : null);
+  }
+  return GAME_DATA_ACTION_SUMMARIES.get(record);
+}
+function gameDataAnalysisRecords(records, metricIds) {
+  const analysed = records.map(analysisRecord);
+  if (!GameData.metrics.some((metric) => metric.actionSummary && metricIds.includes(metric.id))) return analysed;
+  return analysed.map((fact, i) => {
+    const summary = gameDataActionSummary(records[i]);
+    return summary === null ? fact : { ...fact, actionSummary: summary };
+  });
+}
+
 function buildBoardTimeRankProfile(record, records) {
   gameDataNoMark = record.outcome === 'win' && isMarkless(record);
   if (record.outcome !== 'win') return null;
@@ -997,6 +1022,10 @@ function buildBoardTimeRankProfile(record, records) {
       }
       selectionList('performance measurements', 'all performance measurements', 'measurement',
         'gameDataMetrics', GameData.metrics);
+      configView.appendChild(checkbox('switch cost, over the session and the latest ' + SwitchCost.WINDOW_GAMES
+        + ' standard games', settings.gameDataSwitchCost, (checked) => {
+        settings.gameDataSwitchCost = checked; saveSettings();
+      }, 'switch-cost'));
       selectionList('board traits', 'all board traits', 'trait', 'gameDataBoardTraits',
         Object.keys(GAME_DATA_BOARD_TRAIT_DEFAULTS).map((id) =>
           ({ id, name: BOARD_TRAIT_NAMES[id], help: BOARD_TRAIT_DEFINITIONS[id] })));
@@ -1020,7 +1049,7 @@ function buildBoardTimeRankProfile(record, records) {
       controls.append(label, chartHelpButton('Windows overlap, so the rows are not separate sessions. Wins-only measurements skip losses.'));
       profile.appendChild(controls);
       const pageSize = 20;
-      const groups = await analysisTask('rankings', 'game-data-history', { records: records.map(analysisRecord), endedAt: record.endedAt,
+      const groups = await analysisTask('rankings', 'game-data-history', { records: gameDataAnalysisRecords(records, [historyMetric]), endedAt: record.endedAt,
         sessionDefinition: settings.sessionDefinition, page: historyPage, pageSize, metric: historyMetric, config });
       if (generation !== viewGeneration) return;
       const spec = GameData.metrics.find((m) => m.id === historyMetric);
@@ -1055,7 +1084,12 @@ function buildBoardTimeRankProfile(record, records) {
       profile.appendChild(pager);
     } else {
       if (rows === null) {
-        const computed = await analysisTask('rankings', 'game-data', { ...analysisRecordSnapshot(record, records), preferences: settings, config });
+        const shownIds = Object.keys(settings.gameDataMetrics).filter((id) => settings.gameDataMetrics[id]);
+        const facts = gameDataAnalysisRecords(records, shownIds);
+        const at = records.indexOf(record);
+        const computed = await analysisTask('rankings', 'game-data', {
+          record: at === -1 ? gameDataAnalysisRecords([record], shownIds)[0] : facts[at], records: facts,
+          preferences: settings, config });
         if (generation !== viewGeneration) return;
         rows = computed;
       }
@@ -1094,6 +1128,7 @@ function buildBoardTimeRankProfile(record, records) {
         profile.appendChild(section);
         observeFit(fitted);
       }
+      if (settings.gameDataSwitchCost) profile.appendChild(buildSwitchCostLine());
       // Every chart option in one small row at the bottom, out of the data's way.
       const footer = document.createElement('div');
       footer.className = 'game-data-controls';

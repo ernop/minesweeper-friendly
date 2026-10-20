@@ -12,8 +12,6 @@
     parent.document.getElementById('checks').textContent = checks.join('\n');
   };
   while (settings === null || document.documentElement.classList.contains('game-booting')) await wait();
-  settings.showSessionStats = true;
-  settings.showMotionStatsDuringGame = false;
   settings.boardOffsetX = settings.boardOffsetY = 0;
   settings.playMode = 'standard';
   // Exercise all streak variants, including near-near-streak which is
@@ -21,24 +19,6 @@
   settings.shownThings.streak = true;
   settings.shownThings.nearStreak = true;
   settings.shownThings.nearNearStreak = true;
-  sessionEvents = [];
-  sessionPlayFrom = null;
-  refreshMetricsPanel();
-  await wait();
-  const positions = () => [...metricsPanel.querySelectorAll('.session-metric-row')].map(el => el.offsetTop);
-  const initial = positions();
-  sessionPlayFrom = Date.now() - 2000;
-  sessionPlayModeKey = modeKey();
-  refreshMetricsPanel();
-  await wait();
-  check('first played-time strip leaves chart rows in place', JSON.stringify(initial) === JSON.stringify(positions()));
-  sessionRecordPress(true, 0);
-  sessionRecordEnd('win', 0);
-  sessionPlayEnd();
-  refreshMetricsPanel();
-  await wait();
-  check('first measurements and ending leave chart rows in place', JSON.stringify(initial) === JSON.stringify(positions()));
-  sessionPlayFrom = null;
   const record = { outcome: 'win', endedAt: Date.now(), timeMs: 33249,
     states: ['just woke up', 'the gaming m3 gen II'],
     bv3: 62, clicks: 95, wastedClicks: 0, flagsPlaced: 39, mousePathPx: 1500,
@@ -50,10 +30,8 @@
   const rect = element => element.getBoundingClientRect();
   const sameBoard = before => Math.abs(rect(gameFrame).left - before.left) < 1
     && Math.abs(rect(gameFrame).top - before.top) < 1;
-  for (const [width, sidebar] of [[2560, false], [1680, false], [1216, true], [650, false]]) {
+  for (const width of [2560, 1680, 1216, 650]) {
     frame.style.width = width + 'px';
-    settings.showSessionStats = sidebar;
-    renderMetricsPanel(null);
     for (const size of ['beginner', 'intermediate', 'expert']) {
       window.scrollTo(0, 0);
       config = { ...DIFFICULTIES[size] };

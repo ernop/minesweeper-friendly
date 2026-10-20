@@ -9,7 +9,6 @@ const start = source.indexOf('function beginFlagEpisode(');
 const end = source.indexOf('// Returns whether the click changed anything', start);
 if (start < 0 || end <= start) throw new Error('flag episode span not found');
 
-const recorded = { evaluations: 0 };
 const context = {
   activeFlagEpisodes: new Map(),
   flagEpisodes: [],
@@ -20,7 +19,6 @@ const context = {
     { mine: false, flagged: true },
   ],
   actionEvaluations: [],
-  sessionRecordEvaluation() { recorded.evaluations++; },
   neighbors() { return [0, 1]; },
 };
 vm.createContext(context);
@@ -37,15 +35,10 @@ const resetGame = () => {
   context.flagEpisodes = [];
   context.unusedCorrectFlags = 0;
   context.actionEvaluations = [];
-  recorded.evaluations = 0;
 };
 
 check('stored unused-mark count exists only on wins',
   source.includes("...(outcome === 'win' ? { unusedCorrectFlags: unusedCorrectFlags } : {})"));
-check('live session unused-mark measurement exists only on wins',
-  source.includes("if (end === 'win') event.unusedMarks = unusedCorrectFlags;"));
-check('winning play duration carries the win-only session denominator',
-  source.includes('play.unusedMarks = event.unusedMarks;'));
 
 {
   resetGame();
@@ -69,7 +62,7 @@ check('winning play duration carries the win-only session denominator',
   check('a loss never classifies an unused correct mark',
     context.unusedCorrectFlags === 0
       && removed.mistakes.length === 0
-      && recorded.evaluations === 0);
+      && context.actionEvaluations.length === 0);
 }
 
 {
@@ -83,9 +76,8 @@ check('winning play duration carries the win-only session denominator',
   check('win-only unused mark annotates its original placement',
     removed.mistakes.includes('unused-correct-flag')
       && removed.evidence.unusedFlagEndedBy === 'flag-removed');
-  check('win-only unused mark enters report evidence',
-    context.actionEvaluations.includes(removed)
-      && recorded.evaluations === 1);
+  check('win-only unused mark enters report evidence once',
+    context.actionEvaluations.filter((item) => item === removed).length === 1);
 }
 
 {

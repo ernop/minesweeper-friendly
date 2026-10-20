@@ -11,9 +11,9 @@ Spec: [docs/product/during-game.md](../product/during-game.md). Index: [AGENTS.m
   `DuringGame.defaults`, `DuringGame.AVERAGES`, and
   `DuringGame.DEFAULT_AVERAGE`), and in `analysis-worker.js`. At call time it
   uses `pathDecisionEvents`, `positionView`, and `squareDistance`
-  (`game/replay-model.js`), `Justice`, `sessionMedian`,
-  `SESSION_MOVING_PRESS_MS` and `SESSION_MIN_PLAY_MS`
-  (`game/session-stats.js`), `FASTCLICK_MAX_GAP_MS`, and `GameData` formats.
+  (`game/replay-model.js`), `Justice`, `medianOf`, `gapSpreadRatioOf`,
+  `CADENCE_MOVING_WINDOW_MS`, and `FASTCLICK_MAX_GAP_MS` (`game/trace-metrics.js`),
+  and `GameData` formats.
 - `game/during-game-chart.js` (after `game/game-data-chart.js`): the page
   side. `duringGameSourceId` names the game whose trace the reports worker
   holds. `buildDuringGameBlock(record, isCurrent)` builds the block: title,
@@ -77,7 +77,14 @@ decisions. Otherwise:
   remained, moved on when none did; a fork when the exact proof's
   proven-safe squares formed 2 or more areas (`areasOf`, linking squares
   within `AREA_LINK_SQUARES`); came back when a later click reaches squares
-  a left-work move left behind, still proven safe and unflagged.
+  a left-work move left behind, still proven safe and unflagged. Each
+  action also carries its report `category` (`actionEvaluationCategory`),
+  a game risk action its `riskDelta`, and a lower-modeled-life choice its
+  `lifeGap`, the magnitudes `actionCategorySummary` sums for the record;
+  `categoriesMeasured` is false when any action falls under measurement
+  notes, and the report rows (`categoryRate`) are then `unrecorded`.
+- Presses: every `ldown` and `rdown` on the game clock with its gap from
+  the press before, as the trace's cadence counts them, for cadence spread.
 - Window left: spans from the trace's `page-state` events and
   `initialPageState`. A trace without `initialPageState` (before capture
   version 1, 2026-09-26) recorded no page states: `pageStateRecorded` is
@@ -101,11 +108,12 @@ line against its whole-game value). `TRACKS` lists the event tracks as
 `color` unique within the chart, or (event rows) `track`, `mark` (a shape
 in `DURING_GAME_MARKS`, unique within the track, or `band` or `bar` for a
 span), and `color`; and `data(model)`, whose `kind` (progress, state,
-rate, ratio, value, speed, events, unrecorded) decides drawing and
+rate, ratio, value, spread, speed, events, unrecorded) decides drawing and
 averaging. `AVERAGES` lists the averaging choices in menu order;
 `DEFAULT_AVERAGE` is `rolling-2`. Rows named like a game
 data measurement take its format from `GameData.metrics`. `windowValue`
-measures a row over a time window (undefined under `SESSION_MIN_PLAY_MS`);
+measures a row over a time window (undefined under `MIN_WINDOW_MS`; a
+spread row takes `gapSpreadRatioOf` of the gaps inside it);
 `gameValue` is the right-hand whole-game value; `drawn` returns `steps`,
 `events`, `ticks`, or `points`, plus `buckets` or a 241-point rolling
 `line`. `view(model, rowIds, averageId)` adds each action's time, kind, and

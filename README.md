@@ -16,7 +16,7 @@ a distracting second live clock.
 Beginner, Intermediate, and Expert are one-click choices; every other mode
 is in the "other modes" menu beside them, and each keeps its own rankings.
 
-![A won Beginner game at 1920 x 1080: session charts at left, the board with the session summary, ranks won, and rank tables under it, game data docked at right, and game details at the far right](promo/win-screen-2026-10-08-full-layout.png)
+![A won Beginner game at 1920 x 1080 on 2026-10-08: session charts at left (a column removed on 2026-10-20), the board with the session summary, ranks won, and rank tables under it, game data docked at right, and game details at the far right](promo/win-screen-2026-10-08-full-layout.png)
 
 ## The page
 
@@ -35,9 +35,6 @@ ever moves the board:
   Zoom, "position" (opens the board position editor), and the pixel ratio,
   which moves with the browser zoom. The footer under it links the
   self-check, training, and problems pages.
-- **Session stats, left**, when turned on: charts of your play across the
-  session: when you played, how games ended, action and report rates, mouse
-  speed, fastclick gap, and cadence spread.
 - **The board, center.** After a game the replay controls sit under it like
   a video player's (start, back, play at the pace it was played, forward,
   end). The session summary and "ranks won in
@@ -54,6 +51,9 @@ ever moves the board:
 - **Game details, far right.** A line naming whether music is on and which
   of your states are on, as tags (changed through "edit states"), the
   replay's display options, and the game's statistics.
+- **Motion stats, page foot**, closed until you open them: the
+  mouse-dynamics measurements of the game on the board, live during play
+  and final after it.
 
 **Daily limits** (top of the settings page): play time, games, games per
 level, and a stop time, each per play day from 4:00 to 4:00. A reached
@@ -183,7 +183,7 @@ and its session and lifetime percentages, and board traits on the right,
 ranked toward each trait's preferred end. Every pool holds only games with
 this game's board settings. "points: lifetime | session" picks which pool
 places the dots; the session is the page's one picker, shared with the
-session stats and "ranks won in session". Hovering a row opens a card with
+session summary and "ranks won in session". Hovering a row opens a card with
 that pool's rank, a histogram of your games with this game's bar in light
 blue under a pin, and, where the measurement counts something on the board,
 this game's finished board in your board style with those squares marked
@@ -265,52 +265,32 @@ Post-game output follows stable sections under the board: the action report
 when one is shown; one wrapping list of tables (the session summary, ranks
 won in session, the time and day-category rank lists, then every streak
 list); the "This board" tables; then the your-perf charts, board-trait
-charts, relationships, and motion diagnostics. Data tables always precede
+charts, and relationships. Data tables always precede
 the dot-plot charts, and each section wraps within its own rows, so viewport
 width cannot mix them. The session summary and ranks won move beside the
 board where each fits. The High scores view uses the same history sections but omits post-game
-action analysis and motion diagnostics; its facts are explicitly labeled as
+action analysis; its facts are explicitly labeled as
 the latest win's stats and historical charts have no current-game marker.
 
-<img src="promo/session-stats-2026-10-08.png" alt="Session stats column, the picker set to the last 7 calendar days: when the play happened, game endings, action rates, report categories, mouse speed and fastclick gap, and cadence spread" width="280" align="right">
-The in-page left column carries live self-observation without covering
-the board. During a game it
-shows per-game motion metrics recomputed once a second; on top, once
-session stats are turned on, a
-"session" section charts the actual play within the session (today by
-default, picked in the settings row) across games (losses
-and abandoned boards included): mouse
-speed, board-changing clicks per second, deaths with recorded mistake
-tags per minute (fatal actions such as opening a proven mine or guessing
-while a guaranteed-safe move was available), misclicks per minute
-(board-changing actions contradicted by facts provable from the visible
-board, fatal or nonfatal), no-op clicks per second,
-the fastclick gap (when you're clicking usefully on the move, how fast the
-qualifying press intervals are), flags placed per second, and flags removed
-per minute. It also charts enabled report-category frequencies, excess
-protection-aware game risk, and the optional modeled-life gap. Breaks
-consume no chart time: history is scanned as far back as needed to fill each
-selectable played-time lookback (30s to 15m). Each chart
-uses an accumulated-play axis over the session, black plot-aligned titles, readable
-auto-ranged y axes (not forced to start at zero), and the newest value
-labeled at its point. The game-endings composition alone keeps its meaningful
-full 0–100% range. Thin green vertical lines
-mark actual wins on every session chart; hovering one responds immediately
-with the solve time, board dimensions and mine count, and local completion
-date. The panel preserves its scroll position
-through data updates. These are observations, not explanations: the app
-does not infer fatigue, attention, hardware trouble, judgment, or any other
-cause from a change in a line. The
-window survives a reload: startup reconstructs the selectable session windows
-from saved records, then applies the shared page-wide choice (today by
-default). Closing the tab does not wipe the measured game history.
-The first session stat, directly under the "session" heading, is switch cost: how much
-longer the next press takes after you change buttons (flag versus click or
-chord) than after repeating the same move over the same distance. It pools
+The motion stats section at the page foot (closed until opened; the choice
+is remembered) carries live self-observation without covering the board.
+During a game it shows the game's mouse-dynamics measurements, each with
+its sparkline, updated as you play; when the game ends, the same rows show
+the complete trace, followed by a Fitts curve and a map of which board
+regions your hand serves slower. These are observations, not
+explanations: the app does not infer fatigue, attention, hardware trouble,
+judgment, or any other cause from a change in a value.
+
+Game data can add one line under its chart: switch cost, how much longer
+the next press takes after you change buttons (flag versus click or chord)
+than after repeating the same move over the same distance. It pools
 standard games with saved traces twice, the session's and your latest 500,
-and its label opens each pool's 95% interval, the same cost in milliseconds,
-the share of moves that switch, and the game count. One game is too few to
-measure it, so it never appears per game.
+and its label opens each pool's 95% interval, the same cost in
+milliseconds, the share of moves that switch, and the game count. One game
+is too few to measure it, so it never appears per game. Configure turns it
+on, as it does the optional rows: flag and flag-removal rates, the
+report's mistake categories per minute, excess game risk, and modeled life
+gap.
 
 The home-page score buttons open the same full result view for Beginner,
 Intermediate, or Expert without requiring a new game; historical views have

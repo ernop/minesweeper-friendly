@@ -3,10 +3,10 @@
 // Live perf charts: the block at the head of the game data column
 // (docs/product/during-game.md). The analysis worker builds the rows' series
 // from the finished game's trace (during-game.js); this file draws them as
-// two charts in the session stats' grammar on one time axis, progress and
-// every other line against its whole-game value, with the event tracks under
-// them; shows the value of the line under the pointer and, beside the block,
-// the board at that moment; opens the replay there; and chooses the rows.
+// two framed charts on one time axis, progress and every other line against
+// its whole-game value, with the event tracks under them; shows the value of
+// the line under the pointer and, beside the block, the board at that
+// moment; opens the replay there; and chooses the rows.
 
 //-------DURING THE GAME: SOURCE (the game the reports worker holds)-------
 
@@ -213,11 +213,11 @@ function hideDuringGameHover() {
   if (duringGameCardEl !== null && duringGameCardEl.matches(':popover-open')) duringGameCardEl.hidePopover();
 }
 
-//-------DURING THE GAME: CHARTS (session stats grammar, one time axis)-------
+//-------DURING THE GAME: CHARTS (one time axis)-------
 
 // Heights in px: progress labels its fixed 0-100% scale every 20%, and the
-// relative chart holds every pace and board line. `top` keeps the top
-// tick's label inside the chart.
+// relative chart holds every pace, board, and report line. `top` keeps the
+// top tick's label inside the chart.
 const DURING_GAME_LAYOUT = {
   plots: { progress: 90, relative: 120 }, track: 18, top: 6, xLabels: 16, bottom: 4, right: 8, minLeft: 32,
 };

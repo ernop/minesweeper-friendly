@@ -20,12 +20,11 @@ function check(name, condition) {
 {
   const fresh = settingsFrom({});
   check('new-player default shows no action report', fresh.reportScope === 'none');
-  check('new-player session stats are off', fresh.showSessionStats === false);
-  check('session defaults to running averages', fresh.sessionAggregation === 'average');
-  check('session defaults to played-time rates', fresh.sessionRateBasis === 'time');
-  check('per-game grouping defaults to five completed games',
-    fresh.sessionLookbackGames === 5);
-  check('session defaults to exact current mode', fresh.sessionModeScope === 'current');
+  check('motion stats start closed', fresh.panels.motionStats === false);
+  check('the switch cost line starts off', fresh.gameDataSwitchCost === false);
+  check('the removed left panel\u2019s settings are dropped',
+    !('showSessionStats' in settingsFrom({ showSessionStats: true, metricsPanelWidth: 300 }))
+      && !('metricsPanelWidth' in settingsFrom({ metricsPanelWidth: 300 })));
   check('the one session defaults to today', fresh.sessionDefinition === 'today');
   check('today starts at local midnight, not 24 hours back',
     SessionScope.bounds('today', new Date(2026, 8, 23, 7, 30).getTime()).from

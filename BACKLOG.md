@@ -8,89 +8,6 @@ leave new ideas only in chat.
 Status labels: **creator** = the creator asked for it; **mapped** = named
 on the design axis or in a research note, not requested as a build.
 
-## Remove the left stats panel (creator decision 2026-10-20; in progress)
-
-Creator, verbatim: "many sections within the left side live-charstg are
-actually also covered by the two sections which relate to user perf within
-this game. but i guess the left-sdie ones are mostly about the entire
-session? hmm but we still also have that in those newer right-sdie sections.
-it seems to me we can remove all the left side stat charts and things
-totally? what do you think? but the product solutions and ideas we used and
-invented there coul be useful too".
-
-Decision, answering the recommendation below, verbatim: "yes. for now,
-let's move the live-motion ones down to the bottom area and let the user
-open/close it as wanted. ahh, session charts of per-game charts. true. let's
-make those available as optinos to include in the 3 right-side sections?
-which teh user can add/remove. same for teh game endings %! wonderful! same
-for all, actually hmm but remember the post-game "classifity this loss by
-type (and also even wins by type) " isn't on t he block to be moved here -
-it's still supposed to appear after the game ends, right?"
-
-The plan agreed from it:
-
-- The left panel goes: its column, session charts, session controls,
-  provenance strip, and width and collapse settings. The session picker
-  stays in the settings row at the page foot.
-- The motion stats become one section at the page bottom with an open and
-  close title, closed by default and remembered: the live rows during play,
-  the final charts after the game. The section replaces the two settings
-  "motion stats during game" and "motion charts after game".
-- Every left-panel measurement the right side lacks becomes an optional row
-  in that section's configure list, off by default: flag rate and
-  flag-removal rate (game summary perf and live perf charts), cadence spread
-  within the game (live perf charts), the report categories per minute,
-  excess game risk, and modeled life gap (game summary perf, and over time
-  in live perf charts), and deaths with mistakes as the fatal click's loss
-  type in live perf charts (game summary perf shows only after wins).
-- Not moved: the classification of each loss and win by type stays after
-  the game, in the after-game report's fatal action heading and the session
-  summary's results tree.
-- Recommended, awaiting the creator: game endings % as a lifetime column
-  in "session results by type" (shown after every game) rather than a
-  right-side copy, since game summary perf shows only after wins; switch
-  cost as one optional line under game summary perf with its session and
-  latest-500 values, since it has no per-game value to rank.
-
-Findings given with the recommendation the same day:
-
-- Repeats of the right side: the session charts of per-game rates (click,
-  no-op, misclick, flag, and flag-removal rates; mouse speed and fastclick
-  gap; cadence spread) measure what game summary perf compares with the
-  session; only their order within the session is unique, and game data's
-  session history lists that as a table. Game endings over the session
-  repeat "session results by type" under the session summary.
-- No other home: the live motion rows (eight measurement systems, off by
-  default since 2026-10-17; the after-game motion charts are the same
-  values), the report-category, excess game risk, modeled life gap, and
-  deaths-with-mistakes rates (shown only with the loss-analysis report on),
-  and the switch-cost row. Proposed: drop the first two, or add per-game
-  report measures to game summary perf later; keep the switch-cost
-  calculation and move its row to the training page (or one line under the
-  session summary).
-- Cost of keeping it: its column (316 px by default); `init` rebuilds the
-  last 7 days of records into session series on every load, shown or not;
-  `controls.js` feeds the session recorder on every pointer move and press
-  during play; about 3,400 lines in `game/metrics-panel.js`,
-  `game/session-stats.js`, and `game/session-charts.js`. `sessionMedian`
-  and the session timing constants that results and the live perf charts
-  use would move to their users; `game/trace-metrics.js` stays, since
-  stored per-game values come from it.
-- Conflict: [Measurement purpose](docs/product/measurement.md) asks every
-  analysis to support trailing played-time chunks inside the current
-  session and names fatigue within a session as an aim; the session charts
-  are its only built view. Removal would move that requirement to offline
-  analysis, which the records and traces still serve.
-- Techniques to keep for later surfaces: the played-time axis with breaks
-  compressed and the day-colored "when this play happened" strip (a base for
-  cross-day timelines such as training progress); game markers colored by
-  how the game ended; the axis that grows at once and shrinks only when the
-  data fits 80% of a lower step; the honesty rules (under 1 s of play is a
-  dash, gaps are never bridged; the live perf charts already use them);
-  series spotlight on hover (reused); worked board examples in explanations
-  (the game data cards' example boards follow the same idea); direct line
-  labels with leaders that avoid each other.
-
 ## Live perf charts follow-ons (creator request 2026-10-15; base built the same day)
 
 The block itself is built ([During the game](docs/product/during-game.md));
@@ -113,7 +30,6 @@ Not built yet:
   the replays show.
 - Rows plotted against progress (3BV solved share) instead of seconds, so
   games of different length line up.
-- A cadence-spread row (game data's cadence spread within the game).
 - The same rows live during play.
 
 ## Other modes menu: the Pregen 10 entry's length (found 2026-10-20)
@@ -146,7 +62,6 @@ Two other controls keep their own looks:
   quiet line.
   Recommended: convert them, since the creator asked for one look for
   actions; waiting for the creator's decision.
-- The left session stats panel was not reviewed for this rule.
 
 ## Game results as one tree per board type (creator request 2026-10-14; proposed design, awaiting review)
 
@@ -172,8 +87,8 @@ kinds"). That tree already splits opening guess deaths by risk and files a
 loss under an earlier survived guess when that guess was worse than the
 fatal click (creator request the same evening: "1st split: wins/losses.
 then within each cat, break them down by the variety and type of worst
-offenses against perfect play"). The report and the endings chart still
-file every opening forced-guess death as one "early-game guess".
+offenses against perfect play"). The report still files every opening
+forced-guess death as one "early-game guess".
 
 Proposed, not decided:
 
@@ -245,7 +160,7 @@ Needs, beyond what is measured:
   their traces.
 
 Open decisions, each recommended: split opening guess deaths by risk in the
-report and the endings chart too (the session tree does since 2026-10-14);
+report too (the session tree does since 2026-10-14);
 scope by board type rather than by size (the tree shows one size since
 2026-10-15, its modes and generators together); count abandoned boards; the
 half-second rushed line.
@@ -505,15 +420,22 @@ Open:
   square and a loss's "survived it, died later" have no proof split. The
   measurement would be the one losses get (the creator's 1,257 saved losses
   took about 0.2 s together).
+- **Full historical action-evidence backfill** (moved here from the session
+  stats follow-ons, removed with the panel on 2026-10-20). Legacy death booleans and
+  five-way verdicts are normalized immediately, but old records lack the
+  saved visible position and earlier nonfatal mistakes. Deterministic board
+  replay plus stored traces may be able to reconstruct some of that
+  evidence offline; uncertainty must remain explicit.
 ## Switching between marking and clicking (creator, 2026-09-28)
 
 The creator asked for a performance stat on switching between marking and
 clicking or chording and for a statistical look first; the study is
 [reference/mode-switch-2026-09-28.md](reference/mode-switch-2026-09-28.md).
 
-- **Switch cost in the stats panel.** Built and released 2026-09-28 on the
-  creator's approval, and made one session-stats row with a session and a
-  latest-500 column on 2026-10-08 ([Switching](docs/product/trace-metrics-panel.md#switching-creator-request-and-approval-2026-09-28)).
+- **Switch cost.** Built and released 2026-09-28 on the creator's approval,
+  made one session-stats row with a session and a latest-500 column on
+  2026-10-08, and an optional line under game data on 2026-10-20, when the
+  left panel was removed ([Switch cost line](docs/product/game-data.md#switch-cost-line-creator-request-and-approval-2026-09-28-under-game-data-since-2026-10-20)).
 - **Each game's own switch cost** (partly built 2026-10-08; the request was
   not written down, so its scope is unconfirmed). Built and tested in
   `switch-cost.js`: `SwitchCost.gameFit`, one game's estimate from its own
@@ -985,7 +907,8 @@ Generation that aims at the same families the new lists rank:
   `promo/win-screen-2026-10-08-full-layout.png` (README top) show a won
   board with every mine flagged beside an "(m)" no-flags marker for the
   same game. Since the creator's [Won board](docs/product/board-and-layout.md)
-  decision a win keeps only the player's flags. Retake both with the
+  decision a win keeps only the player's flags. The full-layout one also
+  shows the left stats panel, removed on 2026-10-20. Retake both with the
   procedure in [verification](docs/implementation/verification.md), "README
   and promo screenshots", and replace every reference.
 - **Separate Justice-on and Justice-off rankings: decided against
@@ -1090,47 +1013,6 @@ script's JSON is the intended input for their first versions.
   risk-calibration curves; guess-policy shares by level; same-cell no-op burst
   rasters; and held-out state-classifier calibration/confusion views.
 
-## Session stats follow-ons (creator direction, 2026-08-22)
-
-The session section ([Session stats](docs/product/session-stats.md)) is built: mouse speed,
-mistake-tagged-death / visible-state-misclick / no-op-click / mine-marking / flag-removal rates and
-fastclick gap, bucketed over a sliding hour of actual play with wall-clock
-breaks removed. It displays observations;
-causes, mental states, and traits are not inferred. Context-tag associations
-would require explicit analysis. Not built yet:
-
-- **Finer backfill from traces.** Record-based backfill on reload is
-  built (2026-08-22, same evening; played-time scan revised 2026-08-23):
-  stored records are scanned backward until the last hour of played
-  duration is filled, with totals spread evenly over each game's span. The traces hold
-  exact press/movement timing if bucket-faithful backfill is ever
-  wanted; abandoned boards leave no record and stay lost across
-  reloads either way.
-- **Longer windows and cross-session views.** An hour is the floor the
-  creator asked for; day-scale charts or overlays of different days
-  would show repeatability and differences without assigning their cause.
-- **State-tag overlays.** Mark the session charts where a state tag went
-  on or off ("sleepy" starts here), so the tags and the curves can be
-  read against each other.
-- **More measurements.** Candidates in the same spirit: lowest-risk-death
-  rate alongside mistake-tagged-death rate, justice events per minute, chord
-  share, pre-press stillness trends, and guess-ledger life-lost per minute.
-- **Chart value readout (mapped, 2026-08-23).** The rates charts label
-  only the newest value; a hover crosshair reading every line at any
-  x would expose history without more standing ink.
-- **Solo-chart scale stability (mapped, 2026-08-23).** The rates
-  charts got ladder ceilings with shrink hysteresis ([The
-  action-rates charts](docs/product/session-stats.md)); the solo session charts (mouse speed,
-  fastclick gap, magnitudes) still rescale to max×1.08 every sample.
-  The 1-2-5-10 ladder is coarse for their magnitudes (a 300ms gap
-  pinned under a 500 ceiling wastes 40% of the plot), so extending
-  stability there needs a finer ladder or another rule.
-- **Full historical action-evidence backfill.** Legacy death booleans and
-  five-way verdicts are normalized immediately, but old records lack the
-  saved visible position and earlier nonfatal mistakes. Deterministic board
-  replay plus stored traces may be able to reconstruct some of that
-  evidence offline; uncertainty must remain explicit.
-
 ## Path replay follow-ons (mapped, 2026-08-23)
 
 The after-game path views are built ([Path replay views](docs/product/replay.md)):
@@ -1179,8 +1061,7 @@ from the RAM trace of the game just ended. Not built:
   report groups, four persistent none / fatal / risk / full display tiers
   (nothing is the new-player default), protection-aware risk magnitudes,
   explanations/position snapshots, and immediate legacy death-field
-  normalization; the session stats
-  section (bucketed sliding-hour-of-play series, in-page left column).
+  normalization.
 - Waste metrics (pauses, wander, turnarounds, feints) and the
   biometrics / mousetrap / Hevelius-style displays. The Tier 1/2
   "store a scalar per metric" framing is obsolete: the trace is the

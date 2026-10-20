@@ -783,13 +783,7 @@ function sessionSummaryRows(historyByKey, from, to, difficultyKeys) {
   for (const [key, records] of Object.entries(historyByKey)) {
     const session = records.filter((r) => r.endedAt >= from && r.endedAt <= to);
     if (session.length === 0) continue;
-    const results = {};
-    const likelyMisclicks = {};
-    for (const r of session) {
-      const result = sessionGameResult(r);
-      results[result.kind] = (results[result.kind] || 0) + 1;
-      for (const reason of result.likelyMisclicks) likelyMisclicks[reason] = (likelyMisclicks[reason] || 0) + 1;
-    }
+    const { results, likelyMisclicks } = sessionResultCounts(session);
     const wins = session.filter((r) => r.outcome === 'win').sort(compareRankedWins);
     let best = null;
     if (wins.length > 0) {
@@ -817,76 +811,96 @@ function sessionSummaryRows(historyByKey, from, to, difficultyKeys) {
 // down by the variety and type of worst offenses against perfect play").
 // Under won and lost, each family is a game's worst offense, least to worst,
 // then the measurement gaps; its leaves are the sessionResultKind kinds it
-// holds. A leaf's `chart` is the game endings chart line whose color its
-// swatch carries; a survived guess has no line of its own.
+// holds.
 const SESSION_RESULT_TREE = [
   { label: 'won', children: [
     { label: 'no avoidable risk', children: [
-      { kind: 'win-no-guess', chart: 'win', label: 'without guessing' },
-      { kind: 'win-guess-min', chart: 'win', label: 'guessing only at the lowest risk' },
+      { kind: 'win-no-guess', label: 'without guessing' },
+      { kind: 'win-guess-min', label: 'guessing only at the lowest risk' },
     ] },
     { label: 'riskier guess than necessary', children: [
-      { kind: 'win-guess-early', chart: 'win', label: 'in the opening' },
-      { kind: 'win-guess-higher', chart: 'win', label: 'after the opening' },
+      { kind: 'win-guess-early', label: 'in the opening' },
+      { kind: 'win-guess-higher', label: 'after the opening' },
     ] },
-    { kind: 'win-guess-safe', chart: 'win', label: 'guessed while a safe move was available' },
-    { kind: 'win-unmeasured', chart: 'win', label: 'guesses not measured' },
+    { kind: 'win-guess-safe', label: 'guessed while a safe move was available' },
+    { kind: 'win-unmeasured', label: 'guesses not measured' },
   ] },
   { label: 'lost', children: [
     { label: 'no avoidable risk', children: [
-      { kind: 'guess-early-min', chart: 'guess-early', label: 'lowest-risk forced guess in the opening' },
-      { kind: 'guess-min', chart: 'guess-min', label: 'lowest-risk forced guess after the opening' },
+      { kind: 'guess-early-min', label: 'lowest-risk forced guess in the opening' },
+      { kind: 'guess-min', label: 'lowest-risk forced guess after the opening' },
     ] },
     { label: 'riskier guess than necessary', children: [
-      { kind: 'guess-early-higher', chart: 'guess-early', label: 'in the opening' },
-      { kind: 'guess-higher-near', chart: 'guess-higher-near',
+      { kind: 'guess-early-higher', label: 'in the opening' },
+      { kind: 'guess-higher-near',
         label: 'after the opening, a lowest-risk square within 2 squares' },
-      { kind: 'guess-higher-far', chart: 'guess-higher-far',
+      { kind: 'guess-higher-far',
         label: 'after the opening, every lowest-risk square 3 or more squares away' },
-      { kind: 'guess-higher', chart: 'guess-higher', label: 'after the opening, distance not measured' },
-      { kind: 'survived-guess-higher', chart: null, label: 'survived it, died later' },
+      { kind: 'guess-higher', label: 'after the opening, distance not measured' },
+      { kind: 'survived-guess-higher', label: 'survived it, died later' },
     ] },
     { label: 'guessed while a safe move was available', children: [
-      { kind: 'guess-safe-counting', chart: 'guess-safe-counting', label: 'counting single numbers proved a square safe' },
-      { kind: 'guess-safe-overlap', chart: 'guess-safe-overlap', label: 'comparing overlapping numbers proved a square safe' },
-      { kind: 'guess-safe-whole-board', chart: 'guess-safe-whole-board',
+      { kind: 'guess-safe-counting', label: 'counting single numbers proved a square safe' },
+      { kind: 'guess-safe-overlap', label: 'comparing overlapping numbers proved a square safe' },
+      { kind: 'guess-safe-whole-board',
         label: 'only whole-board reasoning proved a square safe' },
-      { kind: 'guess-safe-justice', chart: 'guess-safe-justice', label: 'A Just Universe guaranteed a safe entry' },
-      { kind: 'guess-safe', chart: 'guess-safe', label: 'proof not graded' },
-      { kind: 'proof-safe', chart: 'proof-safe', label: 'Proof-or-die rule death' },
-      { kind: 'survived-guess-safe', chart: null, label: 'survived it, died later' },
+      { kind: 'guess-safe-justice', label: 'A Just Universe guaranteed a safe entry' },
+      { kind: 'guess-safe', label: 'proof not graded' },
+      { kind: 'proof-safe', label: 'Proof-or-die rule death' },
+      { kind: 'survived-guess-safe', label: 'survived it, died later' },
     ] },
-    { kind: 'flag-wrong', chart: 'flag-wrong', label: 'wrong flag made a mine look safe' },
+    { kind: 'flag-wrong', label: 'wrong flag made a mine look safe' },
     { label: 'opened a proven mine', children: [
-      { kind: 'mine-counting', chart: 'mine-counting', label: 'counting single numbers proved it' },
-      { kind: 'mine-overlap', chart: 'mine-overlap', label: 'comparing overlapping numbers proved it' },
-      { kind: 'mine-whole-board', chart: 'mine-whole-board', label: 'only whole-board reasoning proved it' },
-      { kind: 'mine-safe', chart: 'mine-safe', label: 'proof not graded, a safe move was available' },
-      { kind: 'mine-forced', chart: 'mine-forced', label: 'proof not graded, a guess was required' },
+      { kind: 'mine-counting', label: 'counting single numbers proved it' },
+      { kind: 'mine-overlap', label: 'comparing overlapping numbers proved it' },
+      { kind: 'mine-whole-board', label: 'only whole-board reasoning proved it' },
+      { kind: 'mine-safe', label: 'proof not graded, a safe move was available' },
+      { kind: 'mine-forced', label: 'proof not graded, a guess was required' },
     ] },
-    { kind: 'proof-forced', chart: 'proof-forced', label: 'Proof-or-die rule death with no proven-safe move available' },
+    { kind: 'proof-forced', label: 'Proof-or-die rule death with no proven-safe move available' },
     { label: 'risk not measured', children: [
-      { kind: 'guess-early-unmeasured', chart: 'guess-early', label: 'forced guess in the opening' },
-      { kind: 'guess-unmeasured', chart: 'guess-unmeasured', label: 'forced guess after the opening' },
+      { kind: 'guess-early-unmeasured', label: 'forced guess in the opening' },
+      { kind: 'guess-unmeasured', label: 'forced guess after the opening' },
     ] },
     { label: 'judged before loss types', children: Object.entries(DEATH_KIND_LABELS)
-      .map(([kind, label]) => ({ kind, chart: kind, label })) },
-    { kind: 'other', chart: 'other', label: 'not judged' },
+      .map(([kind, label]) => ({ kind, label })) },
+    { kind: 'other', label: 'not judged' },
   ] },
 ];
 // Each tree level's name, which heads that level's share column.
 const SESSION_RESULT_LEVELS = ['won or lost', 'worst offense', 'type'];
 
 // A game's places in the tree: its result kind, which names its one leaf, and
-// for a loss the likely-misclick reasons whose rows recount it.
+// for a loss the likely-misclick reasons whose rows recount it. Kept per
+// record for the page session: a saved game's result never changes, and the
+// lifetime column counts every game of a size on each result.
+const SESSION_GAME_RESULTS = new WeakMap();
 function sessionGameResult(record) {
-  const fatal = record.outcome === 'win' ? undefined : fatalEvaluationOf(record);
-  return { kind: sessionResultKind(record),
-    likelyMisclicks: fatal === undefined ? [] : likelyMisclickReasonsOf(fatal, record.actionEvaluations) };
+  let result = SESSION_GAME_RESULTS.get(record);
+  if (result === undefined) {
+    const fatal = record.outcome === 'win' ? undefined : fatalEvaluationOf(record);
+    result = { kind: sessionResultKind(record),
+      likelyMisclicks: fatal === undefined ? [] : likelyMisclickReasonsOf(fatal, record.actionEvaluations) };
+    SESSION_GAME_RESULTS.set(record, result);
+  }
+  return result;
+}
+
+// How `records` split over the tree: games per result kind and losses per
+// likely-misclick reason.
+function sessionResultCounts(records) {
+  const results = {};
+  const likelyMisclicks = {};
+  for (const record of records) {
+    const result = sessionGameResult(record);
+    results[result.kind] = (results[result.kind] || 0) + 1;
+    for (const reason of result.likelyMisclicks) likelyMisclicks[reason] = (likelyMisclicks[reason] || 0) + 1;
+  }
+  return { results, likelyMisclicks };
 }
 
 // The tree's rows in display order: { depth (1 for won and lost), label,
-// kinds (the result kinds the row sums), chart (leaves only) }. Won and lost
+// kinds (the result kinds the row sums), leaf }. Won and lost
 // always show; a deeper row shows when one of its kinds occurred. A counted
 // kind outside the tree would drop games from the table, so it throws.
 function sessionResultLines(rows) {
@@ -896,7 +910,7 @@ function sessionResultLines(rows) {
   const visit = (node, depth) => {
     const kinds = kindsOf(node);
     if (depth > 1 && !kinds.some((kind) => occurred.has(kind))) return;
-    lines.push({ depth, label: node.label, kinds, ...(node.children ? {} : { chart: node.chart }) });
+    lines.push({ depth, label: node.label, kinds, leaf: !node.children });
     if (node.children) node.children.forEach((child) => visit(child, depth + 1));
   };
   SESSION_RESULT_TREE.forEach((node) => visit(node, 1));
@@ -907,6 +921,30 @@ function sessionResultLines(rows) {
 }
 
 //-------SESSION SUMMARY: DISPLAY-------
+
+// The session summary, ranks won, and game data share this setting; rebuild
+// only their own content so selecting a window never resets the board or
+// replay.
+function setSessionDefinition(value) {
+  settings.sessionDefinition = value;
+  saveSettings();
+  for (const view of document.querySelectorAll('[data-session-scope-view]')) view.dispatchEvent(new Event('session-scope-change'));
+  // The switch cost's session pool changes with the window itself, before
+  // game data redraws its line.
+  keepSwitchCostCurrent();
+}
+
+// The page's only session picker, in the settings row at the page foot
+// (creator request 2026-10-20). The session summary, ranks won, and game data
+// only say "session".
+function initSessionScopeSelect() {
+  const select = document.getElementById('session-definition-select');
+  select.title = 'The one page-wide session: the session summary, ranks won in session, and game data’s session comparisons all use this wall-clock window. “today” starts at local midnight; it is not the last 24 hours.';
+  select.replaceChildren(...SessionScope.choices.map((choice) => new Option(choice.label, choice.id)));
+  select.value = settings.sessionDefinition;
+  select.disabled = false;
+  select.addEventListener('change', () => setSessionDefinition(select.value));
+}
 
 // The board of a board key ("30x16/99") or history key ("30x16/99@standard").
 function boardOfKey(key) {
@@ -966,8 +1004,9 @@ function buildSessionSummary(record, referenceMs, markCurrent = true, noMark = f
     'A row marked no-mark counts only games with no flags placed. Its best time’s lifetime rank is among that board type’s no-mark wins.',
     'Mean time, mean 3BV/s, and mean IOE average the session’s wins of that type, each over the wins that measured it, as game data defines them; for the board just played they are the session baseline for its time, 3BV/s, and IOE.',
     ...(settings.shownThings.sessionEndings ? [
-      'Results cover the session’s ' + boardLabel + ' games alone, the size of the game shown; a different mode or generator counts with its size. They split into won and lost, then by each game’s worst offense against perfect play, least to worst, then by type, with the game endings chart’s colors.',
+      'Results cover the session’s ' + boardLabel + ' games alone, the size of the game shown; a different mode or generator counts with its size. They split into won and lost, then by each game’s worst offense against perfect play, least to worst, then by type.',
       'Every share is of all those games and stands in its level’s column: won or lost, worst offense, or type. The shares under a row add up to that row’s share, give or take rounding.',
+      'Lifetime is the same row’s share of every ' + boardLabel + ' game you have played, up to the game shown, for comparison with the session.',
       'A guess is a click on a square that might hold a mine, after the first click; its risk is the risk under the active rules, so a guess A Just Universe made safe risked nothing. The opening lasts until a tenth of the board’s safe squares are open. A proof named is the easiest one that worked: counting single numbers, comparing overlapping numbers, or only whole-board reasoning.',
       'A loss files under its fatal click, unless the game survived a worse guess earlier: then it is “survived it, died later” under that guess. “Guesses not measured” is a win with no guess record: one from before guesses were measured, an Angelic game, or one whose odds were too large to compute.',
       'The likely-misclick rows count losses whose fatal click was most likely a slip. They are already counted above, so they never add to the total.',
@@ -1036,22 +1075,25 @@ function buildSessionSummary(record, referenceMs, markCurrent = true, noMark = f
   }
   box.appendChild(grid);
   if (settings.shownThings.sessionEndings) {
-    box.appendChild(buildSessionSummaryResults(rows, boardKey, boardLabel, boardRecord));
+    const lifetimeRecords = Object.entries(sessionHistory).filter(([key]) => key.split('@')[0] === boardKey)
+      .flatMap(([, records]) => records.filter((r) => r.endedAt <= to));
+    box.appendChild(buildSessionSummaryResults(rows, boardKey, boardLabel, boardRecord, lifetimeRecords));
   }
   return box;
 }
 
 // The session results of the shown game's board size alone, as one tree
 // (sessionResultLines): won, then lost under a rule, each split by worst
-// offense and then by type, indented by depth; a leaf leads with its
-// endings-chart line color. A mode or generator counts with its size. Every
-// share is of all that size's games and stands in its depth's column, so
-// each column reads one level and the shares under a row sum to that row's.
+// offense and then by type, indented by depth. A mode or generator counts
+// with its size. Every share is of all that size's games and stands in its
+// depth's column, so each column reads one level and the shares under a row
+// sum to that row's. The last column is each row's share of all of
+// `lifetimeRecords`, every game of that size up to the game shown.
 // The likely-misclick rows close the lost branch under a rule; they count
 // losses already filed above, so they never add to the total. When the tree
 // counts `thisGame`, its leaf and any misclick row recounting it are this-game
 // rows; the indentation above the leaf already shows its branch and family.
-function buildSessionSummaryResults(rows, boardKey, boardLabel, thisGame) {
+function buildSessionSummaryResults(rows, boardKey, boardLabel, thisGame, lifetimeRecords) {
   const sizeRows = rows.filter((row) => row.key.split('@')[0] === boardKey);
   if (sizeRows.length === 0) {
     const none = document.createElement('div');
@@ -1060,13 +1102,14 @@ function buildSessionSummaryResults(rows, boardKey, boardLabel, thisGame) {
     return none;
   }
   const games = sizeRows.reduce((sum, row) => sum + row.games, 0);
+  const lifetime = sessionResultCounts(lifetimeRecords);
   const lines = sessionResultLines(sizeRows);
   const reasons = Object.keys(LIKELY_MISCLICK_REASON_LABELS)
     .filter((reason) => sizeRows.some((row) => row.likelyMisclicks[reason] !== undefined));
   const thisResult = sizeRows.some((row) => row.records.includes(thisGame)) ? sessionGameResult(thisGame) : null;
   const grid = document.createElement('div');
   grid.className = 'session-summary-grid session-summary-results';
-  grid.style.gridTemplateColumns = 'repeat(' + (2 + SESSION_RESULT_LEVELS.length) + ', auto)';
+  grid.style.gridTemplateColumns = 'repeat(' + (3 + SESSION_RESULT_LEVELS.length) + ', auto)';
   const cell = (className, text) => {
     const node = document.createElement('span');
     node.className = className;
@@ -1084,43 +1127,34 @@ function buildSessionSummaryResults(rows, boardKey, boardLabel, thisGame) {
     const percent = Math.round(100 * count / total);
     return count > 0 && percent === 0 ? '<1%' : percent + '%';
   };
-  const countCells = (depth, countOf) => {
+  const countCells = (depth, countOf, lifetimeCount) => {
     const count = sizeRows.reduce((sum, row) => sum + countOf(row), 0);
     return [cell('session-summary-number', String(count)), ...SESSION_RESULT_LEVELS.map((_, index) =>
-      cell('session-summary-number', index + 1 === depth ? shareText(count, games) : ''))];
+      cell('session-summary-number', index + 1 === depth ? shareText(count, games) : '')),
+    cell('session-summary-number session-summary-lifetime', shareText(lifetimeCount, lifetimeRecords.length))];
   };
   line('session-summary-head', [cell('', 'result'), cell('', boardLabel + ' games'),
-    ...SESSION_RESULT_LEVELS.map((level) => cell('', level))]);
-  // A leaf without a chart line keeps an empty swatch so its label lines up
-  // with its siblings'.
-  const chartColor = (kind) => {
-    const spec = SESSION_END_SPECS.find((candidate) => candidate.kind === kind);
-    if (spec === undefined) throw new Error('session results leaf names no endings-chart line: ' + kind);
-    return spec.color;
-  };
+    ...SESSION_RESULT_LEVELS.map((level) => cell('', level)), cell('session-summary-lifetime', 'lifetime')]);
   // A this-game row (class `me`) is bold black on the this-game color and
   // its label ends in "this".
   const markThis = (label) => label.appendChild(cell('recent-current-label', ' this'));
+  const kindsCount = (counts, kinds) => kinds.reduce((sum, kind) => sum + (counts[kind] || 0), 0);
   for (const entry of lines) {
-    const label = cell('session-summary-result', '');
-    if (entry.chart !== undefined) {
-      const swatch = cell('end-swatch', '');
-      if (entry.chart !== null) swatch.style.background = chartColor(entry.chart);
-      label.appendChild(swatch);
-    }
-    label.append(entry.label);
-    const isThis = thisResult !== null && entry.chart !== undefined && entry.kinds.includes(thisResult.kind);
+    const label = cell('session-summary-result', entry.label);
+    const isThis = thisResult !== null && entry.leaf && entry.kinds.includes(thisResult.kind);
     if (isThis) markThis(label);
     line('session-summary-row session-summary-depth-' + entry.depth
       + (entry.depth === 1 && entry !== lines[0] ? ' session-summary-group-first' : '') + (isThis ? ' me' : ''),
-    [label, ...countCells(entry.depth, (row) => entry.kinds.reduce((sum, kind) => sum + (row.results[kind] || 0), 0))]);
+    [label, ...countCells(entry.depth, (row) => kindsCount(row.results, entry.kinds),
+      kindsCount(lifetime.results, entry.kinds))]);
   }
   reasons.forEach((reason, index) => {
     const label = cell('session-summary-result', 'of these losses, likely misclick: ' + LIKELY_MISCLICK_REASON_LABELS[reason]);
     const isThis = thisResult !== null && thisResult.likelyMisclicks.includes(reason);
     if (isThis) markThis(label);
     line('session-summary-row session-summary-depth-2' + (index === 0 ? ' session-summary-group-first' : '')
-      + (isThis ? ' me' : ''), [label, ...countCells(2, (row) => row.likelyMisclicks[reason] || 0)]);
+      + (isThis ? ' me' : ''), [label, ...countCells(2, (row) => row.likelyMisclicks[reason] || 0,
+      lifetime.likelyMisclicks[reason] || 0)]);
   });
   return grid;
 }

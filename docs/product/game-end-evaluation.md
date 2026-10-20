@@ -60,10 +60,10 @@ report.
     rises with playing speed; the share is dimensionless and answers "of
     the marking work done, how much was pointless" directly, and a
     markless win stays unmeasured (0 of 0) rather than counting as
-    perfect. It draws on the endings chart as "percent of placed flags
-    unused when winning" beside the unflagged-mines-at-win line; the /m
-    and /game rate views remain as time and volume companions, and the
-    game record shows the count with its share ("2 of 14 placed (14%)").
+    perfect. Until 2026-10-20 it also drew on the session endings chart as
+    "percent of placed flags unused when winning"; game data's optional
+    unused flag rate is its per-minute companion, and the game record
+    shows the count with its share ("2 of 14 placed (14%)").
 - **Needless guess** has one precise meaning: the player revealed an
   uncertain, positive-risk square while at least one zero-risk reveal
   was available. Merely having a different move with higher modeled
@@ -93,7 +93,8 @@ report.
   line. Guessing past a proven-safe move stays "died after guessing
   while a safe move was available" at any stage, and the status derives
   at read time, so old records reclassify like every other derived
-  view (the endings chart gains a matching muted-gold line).
+  view (the session endings chart, removed 2026-10-20, had a matching
+  muted-gold line).
 - Evidence capture must never block play. Prover/enumerator failure is
   stored as unmeasured rather than filled with an invented conclusion.
 - **Game-end feedback precedes result work** (decided 2026-08-29): once the
@@ -185,16 +186,17 @@ report.
   modeled-life-gap magnitudes. Lower tiers omit those diagnostic rows.
   Under the default fatal-only tier a clean win shows no analysis block;
   the persistent scope selector remains available.
-- The session endings chart classifies losses through the **same loss
-  type the report labels** (2026-08-23, evening: the chart's categories
-  must be the report's reasons for losing, word for word; refined from the
-  fatal-action status to the loss type on 2026-10-11, see "Loss types"
-  below). One classifier produces both the report label and the chart
-  kind, so the two can never disagree. The five old ending names (`mine`, `chord`,
+- The session results classify losses through the **same loss type the
+  report labels** (2026-08-23, evening, for the session endings chart that
+  came first: its categories must be the report's reasons for losing, word
+  for word; refined from the fatal-action status to the loss type on
+  2026-10-11, see "Loss types" below). One classifier, `lossKindOf`,
+  produces both the report label and the session results' kind, so the two
+  can never disagree. The five old ending names (`mine`, `chord`,
   `needless`, `forced`, `angel`) survive only as **legacy provenance**:
-  losses imported from records that stored the old five-way verdict
-  keep their old line (dashed on the chart) rather than having modern
-  detail invented for them, and the report shows their old wording.
+  losses imported from records that stored the old five-way verdict keep
+  their old kind rather than having modern detail invented for them, and
+  the report shows their old wording.
 - The Justice recap (win or loss alike): when the game had Justice
   events, a second block cites the rule by name — 'Due to the rule "A
   Just Universe", you won a forced coinflip' (count-pluralized) — with
@@ -216,58 +218,25 @@ report.
   load/import boundary, converted immediately into a versioned action
   evaluation with explicit legacy provenance, deleted, and persisted
   back. Coarse old evidence is never upgraded by inventing detail.
-- The left panel's session section gains a **game endings** chart: one
-  chart, one cumulative percent line per ending kind (win plus the
-  report's loss types plus dashed legacy-verdict lines plus
-  "unjudged loss"), each line the kind's share of the games finished so
-  far in the played-time window. Kinds that never occurred stay off the
-  chart, except the win line, which always draws once any game has
-  ended (a 0% win line is itself the reading). A
-  color legend under the chart carries each drawn kind's current share;
-  this chart keeps its legend even though the action-rates charts label
-  their lines directly (2026-08-23, evening), because cumulative-share
-  lines converge and stack at identical values, leaving no honest room
-  for on-chart names.
-- The same chart carries the **percent of mines unflagged when winning**
-  line
-  (2026-08-23, evening; renamed from "win-with-unmarked-mines" minutes
-  later — that read like a share of wins, not a share of mines; "unmarked"
-  became "unflagged" on 2026-10-07), a
-  different quantity on the same percent axis,
-  drawn dotted: across the window's wins so far, the average share of
-  the board's mines carrying no flag at the instant of winning
-  (measured only on wins; 0% means every mine was flagged, 100% a
-  markless win). Each win's share is game data's **unflagged mine
-  share** ([Game data](game-data.md), one definition since 2026-10-10):
-  live and stored wins alike derive it (never store it) from
-  `flagsPlaced - flagsRemoved` against the board's mine count — at a win
-  every flag still on the board provably sits on a mine, since flagged
-  cells cannot be revealed. Until 2026-10-10 live wins counted the
-  unflagged mine cells instead, which gave the same value but also
-  measured Endgame drill wins; drills are now unmeasured, since their
-  mines outside the remnant were never in play. Wins recorded before
-  the flag counters existed are unmeasured and stay out of both the
-  numerator and the denominator; the line draws once any win in the
-  window measured it, even at 0% (flagging every mine is a reading
-  too). This win-only line is the positive marking-economy measure:
-  a higher value means the player completed the board while placing marks
-  on a smaller share of its mines. The separate unused-correct-mark measure
-  is likewise win-only, but identifies marks that never enabled a chord.
-  Wins backfill as wins; losses derive their line from the fatal action
-  evidence; legacy losses retain their old line through provenance, and
-  evidence-free losses are "unjudged loss".
-- The session window uses the page-wide `sessionDefinition`, set by the one
+- From 2026-08-23 to 2026-10-20 the left panel's session section had a
+  **game endings** chart: one cumulative percent line per ending kind, with
+  the wins' percent of mines unflagged and percent of placed flags unused
+  drawn beside them. It left with the panel ([Session stats](session-stats.md)).
+  Each kind's share of all of the board's games is now the session results'
+  lifetime column ([Session summary](rankings.md#session-summary-requested-and-built-2026-10-07)),
+  and the two marking lines are game data's unflagged mine share and unused
+  flag share, per game ([Game data](game-data.md)).
+- The session results use the page-wide `sessionDefinition`, set by the one
   picker in the settings row and shared with ranks won and game data;
-  default today (since local midnight). Aggregation lookbacks still use
-  played time. See [Session stats](session-stats.md).
+  default today (since local midnight).
 - `reportScope` is the single persistent “After each game, show me”
   setting (changes apply immediately) and is also available on the settings
   page. After a game, its control sits in “Overlays & display” for every
   scope, visible with everything else in that panel (the collapsed
   “Analysis & chart display” section was removed 2026-09-26; see
   [UI doctrine](ui-doctrine.md)). Below it the panel shows every
-  result-section switch, including motion charts and duplicate-tablechart
-  grouping, in the same This game / Tables / This board / Charts groups as
+  result-section switch, including duplicate-tablechart grouping, in the
+  same This game / Tables / This board / Charts groups as
   the settings page; changes persist and apply immediately without closing
   the panel. Charts and defaults remain unchanged:
   - `none` — **default for every new player** (decided 2026-09-26): no
@@ -323,8 +292,8 @@ report.
   evidence-free losses are `unjudged`. Older imports may preserve the
   legacy `mine`, `chord`, `needless`, `forced`, or `angel` verdict as
   provenance. The status stays the technical classification (training
-  reads it); the report, the endings chart, and the session summary name
-  the finer loss type below.
+  reads it); the report and the session summary name the finer loss type
+  below.
 
 ## Loss types (requested 2026-10-11)
 
@@ -402,8 +371,9 @@ keeps its loss type and may also carry one or both reasons:
   saved game. The report adds a "Likely misclick" line with the measured
   interval. Exactly 1,000 ms does not qualify, as for `wrong-flag`.
 
-The endings chart's dashed "died: likely misclick" line counts losses with
-either reason; the session summary counts each reason on its own row.
+The session summary counts each reason on its own row. The session endings
+chart's dashed "died: likely misclick" line, removed 2026-10-20, counted
+losses with either reason.
 
 What the evidence cannot separate: a guess taken "to save time" is visible
 only as the distance to a lowest-risk square, not as intent, and a
@@ -416,8 +386,8 @@ like any other, replacing the 2026-08-24 rule above that files every
 forced-guess death in the opening as "early-game guess" whatever its risk.
 On the creator's history, 222 of 233 such Beginner deaths chose a square
 riskier than the safest one. The session summary's results tree already
-splits them ("Session result kinds" below); the report and the endings chart
-still use the 2026-08-24 rule. Proposed design and the history check:
+splits them ("Session result kinds" below); the report still uses the
+2026-08-24 rule. Proposed design and the history check:
 [BACKLOG](../../BACKLOG.md), "Game results as one tree per board type".
 
 ## Win types (requested 2026-10-14)
@@ -459,7 +429,7 @@ The saved action evaluations keep every survived guess that was riskier than
 necessary, and the ledger counts all guesses, so the type is derived at read
 time for every saved win. The session summary files wins by these types
 under its "won" branch ([Session summary](rankings.md), "Session results").
-The endings chart keeps one "win" line. The proposed results tree
+The proposed results tree
 ([BACKLOG](../../BACKLOG.md), "Game results as one tree per board type")
 would refine the guess past a safe square by proof tier, as the loss types
 do.
@@ -490,8 +460,8 @@ survived. A loss's kind is its loss type, with two refinements:
   sorted by offense, that one kind hid the most common avoidable death. On
   the creator's 2026-10-11 export, 222 of 233 Beginner, 589 of 618
   Intermediate, and 896 of 978 Expert opening guess deaths chose a riskier
-  square than the safest one. The report and the endings chart keep the one
-  early-game guess status; only the session results split it.
+  square than the safest one. The report keeps the one early-game guess
+  status; only the session results split it.
 - **A survived guess worse than the fatal click files the loss under that
   guess**: `survived-guess-safe` when the game survived a guess past a
   proven-safe square and then died on a riskier forced guess or less;

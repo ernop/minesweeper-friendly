@@ -48,8 +48,8 @@ document.addEventListener('visibilitychange', (event) => {
     flushPendingResult();
     savePlaySpanProgress();
     cancelMetricsUpdate();
-  } else if (settings !== null) {
-    scheduleMetricsUpdate({ elapsed: tracing(), session: true });
+  } else if (tracing()) {
+    scheduleMetricsUpdate({ elapsed: true });
   }
 });
 window.addEventListener('pagehide', (event) => {
@@ -80,9 +80,19 @@ function joinChordGesture() {
   }
 }
 
+// A board-changing press: its gap since the previous one counts toward the
+// fastclick gap when it is short and made on the move.
+function recordUsefulPress() {
+  const now = Date.now();
+  if (lastUsefulPressAt !== null && now - lastUsefulPressAt <= FASTCLICK_MAX_GAP_MS
+      && now - lastCursorMoveAt <= CADENCE_MOVING_WINDOW_MS) {
+    fastclickGaps.push(now - lastUsefulPressAt);
+  }
+  lastUsefulPressAt = now;
+}
+
 function recordNoOp(index, reason) {
   wastedClicks++;
-  sessionRecordPress(false, false, false, false);
   recordActionEvaluation(evaluateNoOpAction(index, reason), 'continued');
 }
 
@@ -90,10 +100,9 @@ function recordNoOp(index, reason) {
 // changed nothing: count it as the no-op it was, at the time it happened.
 function settlePendingRightPress() {
   if (pendingRightPress === null) return;
-  const { evaluation, observed } = pendingRightPress;
+  const { evaluation } = pendingRightPress;
   pendingRightPress = null;
   wastedClicks++;
-  sessionRecordObservedNoop(observed);
   recordActionEvaluation(evaluation, 'continued');
 }
 
@@ -103,10 +112,8 @@ function flagCell(index) {
   const actionEvaluation = evaluateFlagAction(index, removing);
   toggleFlag(index, actionEvaluation);
   if (misclick) recordMisclick();
-  // A removal is still a useful press (it changed the board); only a
-  // placement feeds the mine-marking rate, only a removal feeds the
-  // flag-removal rate.
-  sessionRecordPress(true, cells[index].flagged, !cells[index].flagged, misclick);
+  // A removal is still a useful press: it changed the board.
+  recordUsefulPress();
   recordActionEvaluation(actionEvaluation, 'continued');
 }
 
@@ -130,8 +137,7 @@ function rightPress(event) {
     return;
   }
   if (cells[index].revealed) {
-    pendingRightPress = { logged, evaluation: evaluateNoOpAction(index, 'flagged-revealed-cell'),
-      observed: sessionPressObservation() };
+    pendingRightPress = { logged, evaluation: evaluateNoOpAction(index, 'flagged-revealed-cell') };
     return;
   }
   flagCell(index);
@@ -149,8 +155,7 @@ function chordFromNumber(index) {
   }
   const misclick = chordIsMisclick(index, targets);
   if (misclick) recordMisclick();
-  // Record before acting because a contradicted chord can end the game.
-  sessionRecordPress(true, false, false, misclick);
+  recordUsefulPress();
   chord(index);
 }
 
@@ -200,9 +205,7 @@ boardElement.addEventListener('mouseup', (event) => {
     clickCount++;
     const misclick = revealIsMisclick(index);
     if (misclick) recordMisclick();
-    // Recorded before the reveal so a fatal click's press event precedes
-    // its death event in the session log.
-    sessionRecordPress(true, false, false, misclick);
+    recordUsefulPress();
     revealCell(index);
   } else if (cell.revealed) {
     chordFromNumber(index);
@@ -235,11 +238,9 @@ document.addEventListener('mouseup', (event) => {
 });
 
 document.addEventListener('mousemove', (event) => {
-  sessionLastMoveAt = Date.now();
+  lastCursorMoveAt = Date.now();
   if (lastMouseX !== null && gameState === 'playing') {
-    const px = Math.hypot(event.clientX - lastMouseX, event.clientY - lastMouseY);
-    mousePathPx += px;
-    sessionRecordMove(px);
+    mousePathPx += Math.hypot(event.clientX - lastMouseX, event.clientY - lastMouseY);
   }
   lastMouseX = event.clientX;
   lastMouseY = event.clientY;

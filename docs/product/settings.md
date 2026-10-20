@@ -41,9 +41,9 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
 - All lasting control and view choices are preferences: difficulty/preset,
   applied custom width/height/mines, the separate unsubmitted custom-form
   values, player-state tags and active flags, mouse-path mode, all six replay
-  overlays, panel collapse, trial-speed averaging, score/current-game view,
-  replay action position, all panels/disclosures, trial identity/action-report
-  disclosures, text drafts, page/panel scroll positions, and focused control.
+  overlays, trial-speed averaging, score/current-game view, replay action
+  position, all panels/disclosures, trial identity/action-report
+  disclosures, text drafts, page scroll position, and focused control.
   These use the same schema and settings record as the existing preferences.
 - The game choice is one consistent pair (2026-10-20): a preset difficulty
   always goes with the Standard mode, and every other mode with the custom
@@ -90,7 +90,8 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   cards — that reacted live to every switch. Removed to keep the page
   super simple; the record stays because the idea may return.
 - Switches render under group headings naming where they act — gameplay /
-  left panel / after a game — driven by the schema's `group` field
+  after a game, with a "left panel" group until the panel's removal on
+  2026-10-20 — driven by the schema's `group` field
   (`SETTINGS_GROUPS` orders the sections), so the page and the schema
   cannot drift. Each group is a separate panel with its heading in a
   stable left column and its settings on the right. A switch row puts its
@@ -99,7 +100,8 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   another list item. The schema's full description remains a plain
   tooltip. A multi-option setting such as `reportScope` puts one radio
   group to the right of its name. The result-section switches (every
-  shown-things switch plus motion charts and duplicate-tablechart grouping)
+  shown-things switch plus duplicate-tablechart grouping; motion charts too
+  until 2026-10-20)
   form compact option grids (as many columns of at least 260px as fit) under
   four subheadings named for what they control, in result order: This game,
   Tables, This board, Charts (2026-09-26, with the game's Overlays & display
@@ -129,10 +131,10 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   hover-only controls: the floating "hide ×" chip that appeared over a
   hovered result section (added earlier on 2026-08-23) was removed the
   same day — hiding things is the settings page's job, not something the
-  pointer stumbles into. The remaining one-click precedents stand: the
-  session lookback and window selectors living on the session section
-  itself, and the widths of the stats panel and the details column, each set
-  by dragging its own edge.
+  pointer stumbles into. The remaining one-click precedent stands: the
+  details column's width, set by dragging its own edge. The session
+  section's own selectors and the stats panel's drag edge, the other two,
+  left with the panel on 2026-10-20 ([Session stats](session-stats.md)).
 - Settings so far: `cellSize` (default 28) — saved Zoom in pixels;
   `justUniverse` (default on) — sealed-pocket mercy (see
   [A just universe](just-universe.md);
@@ -141,22 +143,21 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   with the drawer, 2026-08-23);
   `collapseDuplicateCharts` (default on) — the rank
   lists' progressive disclosure switch (see [Rank lists](rankings.md));
-  `showMotionStatsDuringGame` and `showMotionStatsAfterGame` (both
-  default off since 2026-10-17, on before; the second is named "motion
-  charts" in the Charts group) — the two stages of the trace metrics
-  display, the mouse-dynamics values (see [Trace
-  metrics panel](trace-metrics-panel.md)); `reportScope` (`none` by default; choices `none`,
-  `fatal`, `risk`, `full`) — the simple after-game analysis ladder,
-  editable on both the report and settings page, which also gates category
-  session diagnostics;
-  `showSessionStats` (default off),
-  `sessionLookbackSeconds` (default 300), and `sessionDefinition`
-  (default `today`, since local midnight; set only by the one session picker
-  in the game page's settings row, never on the settings page) — visibility,
-  played-time grouping, and the shared
-  wall-clock session window (see [Session stats](session-stats.md)); `metricsPanelWidth` (default 316, clamped 220–640; set
-  by dragging the stats panel's right edge, not a panel checkbox) — the
-  left panel's width, which the session charts fill;
+  `panels.motionStats` (default closed; set by the section's title) — the
+  motion stats section at the page foot, the mouse-dynamics values (see
+  [Motion stats](motion-stats.md)); it replaced `showMotionStatsDuringGame`
+  and `showMotionStatsAfterGame` ("motion charts") on 2026-10-20;
+  `reportScope` (`none` by default; choices `none`, `fatal`, `risk`,
+  `full`) — the simple after-game analysis ladder, editable on both the
+  report and settings page; it does not change what game data's report
+  category rows count;
+  `sessionDefinition` (default `today`, since local midnight; set only by
+  the one session picker in the game page's settings row, never on the
+  settings page) — the shared wall-clock session window (see [One session
+  definition](game-data.md#one-session-definition)). The left panel's
+  `showSessionStats`, `sessionLookbackSeconds`, `metricsPanelWidth`, and
+  the other session chart controls were removed with it on 2026-10-20
+  ([Session stats](session-stats.md));
   `detailsColumnShare` (default 0.46; set by dragging the details column's
   left edge) — the docked details column's share of the window width,
   within 320px and the board column's room (see [Board and
@@ -175,7 +176,9 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   of them showed stays shown), `gameDataBoardTraits` (since 2026-10-14: which
   board traits game data ranks, chosen in its configure, apart from the This
   board table switches; a profile saved before then starts from what those
-  switches showed), `gameDataShowValues`,
+  switches showed), `gameDataSwitchCost` (default off, since 2026-10-20:
+  the switch cost line under the chart, chosen in its configure),
+  `gameDataShowValues`,
   `gameDataBandPool` (default lifetime), `gameDataDistributions`
   (default off), and `gameDataDistributionPools` (default both; the last
   three chosen on the chart itself) — the game data
@@ -203,20 +206,18 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   settings and do not save automatically: each change goes through two
   confirmations, and preferences backup neither exports nor imports them.
 - New-player quiet start (decided 2026-09-26): someone arriving without a
-  saved `showSessionStats` or `reportScope` gets session stats off and
-  after-game action reports off (`none`). The session picker stays in the
-  settings row ("session today"). Session stats (since 2026-10-08 also
-  the switch-cost row) and the loss-analysis report stay available from
-  settings, and the report ladder is also in the after-game display
-  controls. A value already saved stays as saved.
+  saved `reportScope` gets after-game action reports off (`none`); session
+  stats were off for them too until the panel's removal on 2026-10-20. The
+  session picker stays in the settings row ("session today"). The
+  loss-analysis report stays available from settings, and the report ladder
+  is also in the after-game display controls. A value already saved stays
+  as saved.
 - Motion stats off by default (creator decision 2026-10-17, verbatim: "by
   default, dynamics shall be off"): both stages of the mouse-dynamics
-  display, the live left panel and the after-game motion charts, default
-  off. With session stats also off, a new player's page has no left stats
-  column, leaving its width to the board and the details column. Saving any
-  setting stores every field, so a profile that saved anything before
-  2026-10-17 keeps both switches on until they are turned off on the
-  settings page; only a profile with no saved settings gets the new default.
+  display, the live left panel and the after-game motion charts, defaulted
+  off. Since 2026-10-20 the one motion stats section at the page foot
+  carries the decision by starting closed; the two switches are gone, and a
+  profile that had them on starts with the section closed too.
 - The same 2026-10-17 request asked for "big/thick lettering" by default;
   the creator withdrew it on 2026-10-19 ("the way it is now, is okay"), so
   the number display, mine style, and digit size keep their defaults.

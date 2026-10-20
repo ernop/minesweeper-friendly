@@ -3,8 +3,8 @@
 // game/input-trace.js (extracted between its section markers): the initial
 // layout event at beginTrace, and recordLayoutIfMoved — the geometry
 // comparison that re-records when the board moved without a scroll,
-// resize, or zoom event (e.g. the metrics panel appearing shifts the
-// centered column), including the re-record before every button event.
+// resize, or zoom event (e.g. a docked column or the mode options row
+// appearing), including the re-record before every button event.
 
 const fs = require('fs');
 const path = require('path');
@@ -32,9 +32,8 @@ global.cellIndexFromEvent = () => null;
 global.observedEnvironment = () => ({ devicePixelRatio: 1, screenWidth: 1920, screenHeight: 1080,
   viewportWidth: 1600, viewportHeight: 900, userAgent: 'trace-layout-test' });
 global.Date = Object.assign(function () {}, Date, { now: () => 1700000000000 });
-// beginTrace's metrics-panel hookups are display machinery, inert here.
+// beginTrace's motion stats hookups are display machinery, inert here.
 global.beginTraceMetricsSeries = () => {};
-global.renderMetricsPanel = () => {};
 global.renderLiveTraceMetrics = () => {};
 global.scheduleMetricsUpdate = () => {};
 

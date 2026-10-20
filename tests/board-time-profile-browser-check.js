@@ -119,7 +119,7 @@ const { chromium } = require(process.argv[2]);
       'zero-opening coverage');
     assert.equal(await profile.locator('.game-data-row[data-measurement="zeroOpeningCoverage"] .game-data-value').textContent(), '69%');
     assert.equal(await page.locator('#result-stats .board-time-profile').count(), 1,
-      'with the metrics column open at 1440px, game data is in the details column');
+      'at 1440px game data is in the details column');
     assert.equal(await page.locator('#result-ranks .board-time-profile').count(), 0);
     for (const width of [1920, 1100, 650, 390, 320]) {
       await page.setViewportSize({ width, height: 1100 });
@@ -356,8 +356,6 @@ const { chromium } = require(process.argv[2]);
     assert.equal(await page.locator('select:has(option[value="today"])').count(), 1, 'the page has exactly one session picker');
     assert.equal(await page.locator('#settings-row #session-definition-select').count(), 1,
       'the one picker is in the settings row at the page foot');
-    assert.equal(await page.locator('#metrics-panel select:has(option[value="today"])').count(), 0,
-      'the stats panel holds no picker');
     assert.equal(await picker.inputValue(), 'today', 'the session defaults to today');
     assert.equal(await profile.locator('select').count(), 0, 'game data only says session');
     assert.equal(await page.locator('.recent-placements h4').textContent(), 'ranks won in session');
@@ -370,15 +368,7 @@ const { chromium } = require(process.argv[2]);
     await page.waitForFunction(() => document.querySelector('.game-data-row[data-measurement="time"] [data-pool="session"]')?.textContent === '50%',
       null, { timeout: 5000 });
     assert.equal(await page.locator('.recent-placements h4').textContent(), 'ranks won in session');
-    await page.evaluate(async () => { settings.showSessionStats = false; settings.metricsPanelCollapsed = true; refreshMetricsPanel(); });
-    assert(await picker.isVisible(), 'the picker stays when the panel is collapsed and session stats are off');
-    await page.evaluate(async () => { settings.showMotionStatsDuringGame = false; refreshMetricsPanel(); });
-    assert(await page.locator('#metrics-panel').isHidden(), 'without session or live stats the panel is gone');
-    assert(await picker.isVisible(), 'the picker stays without the panel');
-    await page.evaluate(async () => {
-      settings.showSessionStats = true; settings.showMotionStatsDuringGame = true;
-      settings.metricsPanelCollapsed = false; refreshMetricsPanel();
-    });
+    assert.equal(await page.locator('#metrics-panel').count(), 0, 'the page has no left stats panel');
     // The points switch places the performance dots by either pool.
     await profile.getByRole('button', { name: 'session', exact: true }).click();
     await bandReady();

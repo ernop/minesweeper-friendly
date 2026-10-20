@@ -65,9 +65,9 @@ function reportResult(outcome, endedAt = Date.now()) {
   }
   if (boardFlagsBlocked) record.flagsBlocked = true;
   // Fastclick gap: the game's median gap between consecutive useful
-  // presses made on the move with gaps under 1s (the session series'
-  // qualification, over this one game). Absent when no gap qualified.
-  const gameFastGap = sessionMedian(gameFastclickGaps);
+  // presses made on the move with gaps under 1s (recordUsefulPress).
+  // Absent when no gap qualified.
+  const gameFastGap = medianOf(fastclickGaps);
   if (gameFastGap !== undefined) {
     record.fastclickGapMs = Math.round(gameFastGap);
   }
@@ -116,14 +116,13 @@ function reportResult(outcome, endedAt = Date.now()) {
   // Capture and persist primary facts before returning to input. Everything
   // below the worker boundary uses this game's snapshot, not mutable globals.
   const resultRevision = resultViewRevision;
-  const sessionEnding = gameSessionEndEvent;
   const finishedTrace = trace;
   const finishedSeries = metricsSeries;
   const key = modeKey();
   const boardState = { status: 'running' };
   if (!endgameDrillActive()) boardMetricJobs.set(record, boardState);
   saveTrace(record);
-  renderMetricsPanel(null);
+  renderMotionStats();
   replayStep = replayDecisionCount();
   replayEnabled = false;
   updateSettings({ resultView: 'game', replayPosition: { endedAt: record.endedAt, step: replayStep } });
@@ -137,16 +136,13 @@ function reportResult(outcome, endedAt = Date.now()) {
       initialPageState: finishedTrace.initialPageState },
   }).then((result) => {
     Object.assign(record, result.measurements);
-    if (Number.isFinite(result.metrics.cad.gapSpreadRatio)) {
-      sessionEnding.cadenceSpread = result.metrics.cad.gapSpreadRatio;
-      scheduleMetricsUpdate({ session: true });
-    }
     boardState.status = 'done';
     if (history[key]?.includes(record)) persistGameRecord(key, record);
     if (trace !== finishedTrace || resultViewRevision !== resultRevision
         || !['won', 'lost'].includes(gameState)) return;
     appendMetricSeries(finishedSeries, result.metrics);
     finalMotion = { metrics: result.metrics, series: finishedSeries, spatial: result.spatial };
+    renderMotionStats();
     renderResult(record, modeRecords);
   }).catch((error) => {
     boardState.status = 'error'; boardState.error = error.message;
@@ -575,8 +571,8 @@ function renderReviewDisplay(onChange) {
 // Result surfaces share one semantic sequence. A section's order is product
 // meaning, not an accident of DOM append order or the width at which flex
 // items happen to wrap. The score viewer deliberately omits post-game-only
-// action and motion detail; its reference record is context for the history,
-// not a game that just happened.
+// action detail; its reference record is context for the history, not a game
+// that just happened.
 const RESULT_PRESENTATION_PHASES = Object.freeze([
   { id: 'outcome', order: 10 },
   { id: 'facts', order: 20 },
@@ -586,7 +582,6 @@ const RESULT_PRESENTATION_PHASES = Object.freeze([
   { id: 'perfCharts', order: 70 },
   { id: 'boardCharts', order: 75 },
   { id: 'relationships', order: 80 },
-  { id: 'diagnostics', order: 90, contexts: ['postGame'] },
 ]);
 
 const RESULT_CHART_SECTIONS = Object.freeze([
@@ -595,12 +590,6 @@ const RESULT_CHART_SECTIONS = Object.freeze([
   { id: 'perfCharts', phase: 'perfCharts', label: 'your perf', chartMode: 'perfChartMode' },
   { id: 'boardCharts', phase: 'boardCharts', label: 'board traits', chartMode: 'boardChartMode' },
   { id: 'relationships', phase: 'relationships', label: 'relationships' },
-  {
-    id: 'diagnostics',
-    phase: 'diagnostics',
-    label: 'motion diagnostics',
-    contexts: ['postGame'],
-  },
 ]);
 
 function resultPresentationPhases(context) {
@@ -614,8 +603,6 @@ function resultChartSections(context) {
   const phaseOrder = new Map(
     resultPresentationPhases(context).map((phase, index) => [phase.id, index]));
   return RESULT_CHART_SECTIONS
-    .filter((section) =>
-      section.contexts === undefined || section.contexts.includes(context))
     .slice()
     .sort((a, b) => phaseOrder.get(a.phase) - phaseOrder.get(b.phase));
 }
@@ -633,9 +620,6 @@ function createResultSectionCollector(context) {
         throw new Error('unknown result section: ' + sectionId);
       }
       nodes.get(sectionId).push(node);
-    },
-    appendAll(sectionId, additions) {
-      for (const node of additions) this.append(sectionId, node);
     },
     ready() {
       return Promise.all([...nodes.values()].flat().map((node) => node.analysisReady));
@@ -763,7 +747,7 @@ function buildStatSection(panelKey, title) {
     scheduleBoardLayout();
   });
   show();
-  return { section, body };
+  return { section, body, toggle };
 }
 
 // A game data measurement of this record as the result screen shows it: only
@@ -960,13 +944,6 @@ async function renderResultAsync(record, modeRecords, options = {}) {
       { ...options, duringGame, historyView: true, boardRecord: record }, resultSections, isCurrent);
   }
   if (!isCurrent()) return;
-  // The after-game motion charts, jammed inline after whatever other
-  // bottom charts the outcome produced. Losses retain prior win history;
-  // motion describes the just-finished game either way. Trial review has its own charts.
-  if (settings.showMotionStatsAfterGame && finalMotion !== null && !options.historyView
-      && !Trial.isPlayMode(settings.playMode)) {
-    resultSections.appendAll('diagnostics', await buildMotionStatsCharts(finalMotion, isCurrent));
-  }
   if (!Trial.isPlayMode(settings.playMode) || options.historyView) {
     await resultSections.ready();
     if (!isCurrent()) return;

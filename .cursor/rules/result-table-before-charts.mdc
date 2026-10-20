@@ -20,6 +20,9 @@ alwaysApply: true
   2026-10-20) is not in this sequence: it leads the
   game data column beside the board, above game data (creator decision
   2026-10-15).
+- Motion stats is not in this sequence either: one open/close section at
+  the page foot, after every result section (creator decision 2026-10-20,
+  when the left stats panel was removed).
 - The upper tables share one continuous wrapping list without Rankings or
   Streaks section headings. Retain individual table labels such as lifetime
   and near-streak, which identify their data.

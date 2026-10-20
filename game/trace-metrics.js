@@ -1,7 +1,7 @@
 'use strict';
 
 // Trace metrics, pure: every measurement system computed from the raw
-// trace, shared by the live panel and the after-game charts.
+// trace, shared by the motion stats' live rows and after-game charts.
 
 //-------TRACE METRICS: COMPUTATION (pure; shared by live and final)-------
 
@@ -13,7 +13,7 @@
 // pipeline would compute for it.
 //
 // The same computations serve two views:
-// - live: input changes sample the trace for the stats panel; the active
+// - live: input changes sample the trace for the motion stats; the active
 //   game clock advances elapsed-only values using cached input metrics;
 // - final: once from reportResult, over the finished trace, for the
 //   canonical after-game charts. Same functions,
@@ -33,6 +33,14 @@ function traceMetricsMean(values) {
   let sum = 0;
   for (const v of values) sum += v;
   return sum / values.length;
+}
+
+// The middle value, or the mean of the middle two; undefined for no values.
+function medianOf(values) {
+  if (values.length === 0) return undefined;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 1 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
 // Map an angle difference into (-pi, pi] (JS % keeps the sign, so the
@@ -1073,6 +1081,26 @@ function computeWasteMetrics(sampleT, sampleX, sampleY, events) {
 const CADENCE_BURST_GAP_MS = 250;     // a burst gap: successive presses closer than this
 const CADENCE_MOVING_WINDOW_MS = 100; // on the move: a cursor sample within this window before the press
 const CADENCE_PEAK_WINDOW_MS = 1000;  // the rolling window for peak press rate
+// A gap between board-changing actions this short, ending in an action made
+// on the move, counts toward the fastclick gap (the record's fastclickGapMs,
+// game data's fastclick gap). A timing filter only; it assigns no cause.
+const FASTCLICK_MAX_GAP_MS = 1000;
+
+// The interquartile range of `gaps` over their median, quartiles by linear
+// interpolation; undefined under 2 gaps or at a zero median (two presses in
+// the same ms), where the ratio is not measurable.
+function gapSpreadRatioOf(gaps) {
+  if (gaps.length < 2) return undefined;
+  const sorted = [...gaps].sort((a, b) => a - b);
+  // p <= 0.75 and 2+ gaps keep the interpolation index strictly inside.
+  const q = (p) => {
+    const at = (sorted.length - 1) * p;
+    const lo = Math.floor(at);
+    return sorted[lo] + (at - lo) * (sorted[lo + 1] - sorted[lo]);
+  };
+  const median = q(0.5);
+  return median > 0 ? (q(0.75) - q(0.25)) / median : undefined;
+}
 
 function computeClickCadence(sampleT, events) {
   const presses = [];
@@ -1103,20 +1131,9 @@ function computeClickCadence(sampleT, events) {
   if (presses.length >= 2) {
     const gaps = [];
     for (let i = 1; i < presses.length; i++) gaps.push(presses[i] - presses[i - 1]);
-    gaps.sort((a, b) => a - b);
-    // Quartiles by linear interpolation; p <= 0.75 and 2+ gaps keep the
-    // interpolation index strictly inside the array.
-    const q = (p) => {
-      const at = (gaps.length - 1) * p;
-      const lo2 = Math.floor(at);
-      return gaps[lo2] + (at - lo2) * (gaps[lo2 + 1] - gaps[lo2]);
-    };
-    const median = q(0.5);
-    m.gapMedianMs = median;
-    // Two presses at one timestamp (both buttons in the same ms) can zero
-    // the median; a ratio over zero is genuinely not measurable.
-    m.gapSpreadRatio = median > 0 ? (q(0.75) - q(0.25)) / median : undefined;
-    m.fastestGapMs = gaps[0];
+    m.gapMedianMs = medianOf(gaps);
+    m.gapSpreadRatio = gapSpreadRatioOf(gaps);
+    m.fastestGapMs = gaps.reduce((fastest, gap) => Math.min(fastest, gap));
     m.burstGapShare = gaps.filter((g) => g < CADENCE_BURST_GAP_MS).length / gaps.length;
   }
   return m;

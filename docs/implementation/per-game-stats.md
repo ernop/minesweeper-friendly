@@ -32,15 +32,12 @@ Spec: [docs/product/per-game-stats.md](../product/per-game-stats.md). Index: [AG
   unused correct placement with `unused-correct-flag`, adds its time-loss
   evidence to the report/trace, and increments stored `unusedCorrectFlags`.
   On a loss, the episodes are deliberately unmeasured and the record omits
-  that field because later intended chord use is unknowable. The closed
-  winning play span carries the total into win-only `/m` and `/game` session
-  series. This measures observable chord use, never mental use.
-  The primary calibration (decided 2026-08-30) is per mark placed:
-  `sessionUnusedMarkShare(ev)` derives unusedMarks / flags from win events
-  (live 'end' and backfilled 'game' alike), the series flows through every
-  session aggregation as `unusedMarkShareFraction` mirroring
-  `winUnmarkedFraction`, and the endings chart draws it as "percent of
-  placed flags unused when winning". A markless win is unmeasured (0 of 0).
+  that field because later intended chord use is unknowable. This measures
+  observable chord use, never mental use. The primary calibration (decided
+  2026-08-30) is per mark placed, game data's unused flag share; its
+  per-minute form is the optional unused flag rate (`perMinute` in
+  game-data.js). A markless win is unmeasured (0 of 0). Until 2026-10-20 the
+  session series also carried both to the left panel's charts.
 - `clickCount` counts only effective clicks; `wastedClicks` counts board
   clicks that changed nothing — the board mousedown/mouseup handlers
   (game/controls.js) count unavailable chords, left-clicks on flagged cells,
@@ -64,7 +61,7 @@ Spec: [docs/product/per-game-stats.md](../product/per-game-stats.md). Index: [AG
   have been placed 0–999ms earlier and touch the fatal reveal cell or chord
   center orthogonally/diagonally. It adds
   `likely-misclick-after-wrong-flag` plus `{flagCell,targetCell,gapMs}` evidence;
-  it never replaces `sessionEndingKind`, increments the exact visible-state
+  it never replaces `lossKindOf`, increments the exact visible-state
   `misclicks` count, or qualifies removed/correct/distant flags. The gap is
   `latestBoardInput().atMs` (input-trace.js: the newest lup/rdown board
   event, the same clock `traceDecision` stamps evaluations with) minus the

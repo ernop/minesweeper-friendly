@@ -30,14 +30,4 @@ check('display options reuse the shared result-section groups',
     settingsPage.includes('for (const [groupLabel, paths] of RESULT_SECTION_GROUPS)'));
 }
 
-const sessionRenderStart = source.indexOf('function appendSessionSection(');
-const sessionRenderEnd = source.indexOf(
-  '\nfunction appendSessionEndingsRow(', sessionRenderStart);
-const sessionRender = source.slice(sessionRenderStart, sessionRenderEnd);
-check('session category chart always uses every report category',
-  sessionRender.includes(
-    'const categorySpecs = SESSION_CATEGORY_RATE_SPECS;'));
-check('session magnitude charts ignore after-game report scope',
-  !sessionRender.includes('reportCategoryEnabled('));
-
 console.log(`report-control-layout: all ${checks} checks passed`);

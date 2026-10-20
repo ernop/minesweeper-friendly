@@ -9,8 +9,8 @@ the player's cause, intention, cognitive state, expertise, health, or hardware.
 Findings cited below belong to the cited studies' tasks and populations and
 are hypotheses—not validations—for Minesweeper data. Implementation status (updated
 later on 2026-08-20): all four systems now run in-page over the raw trace
-and display live plus canonically at game end ([Trace metrics
-panel](../docs/product/trace-metrics-panel.md)) — the biometrics session set, the mousetrap psychometric
+and display live plus canonically at game end ([Motion
+stats](../docs/product/motion-stats.md)) — the biometrics session set, the mousetrap psychometric
 measures (exact port, R-verified), the Hevelius-style clinical features
 (FEATURES.md mapping), and this file's own Tier 1/2 proposals in their
 trace-computed form (see the Tier 1/2 notes below).
@@ -141,7 +141,8 @@ game record.
 
 Status (2026-08-20): the Tier 1/2 ideas below are implemented as
 trace-computed display metrics (computeWasteMetrics, now in game/trace-metrics.js,
-the "waste" section of the metrics panel), not as stored record fields —
+the motion stats' path and no-action events group, "waste" until
+2026-08-23), not as stored record fields —
 the raw trace decision (Tier 3) made the store-a-scalar-per-metric
 framing moot, since every value is recomputable from the trace forever.
 Implemented from the trace: pauses/paused/longest pause (250 ms bar),
@@ -208,7 +209,7 @@ any future metric apply retroactively. Offline pipelines live under
 analysis/ (mousetrap measures per inter-click segment; biometrics
 feature extraction). Since 2026-08-20 all four systems are also computed
 in-page from the trace and displayed live during play plus canonically
-at game end ([Trace metrics panel](../docs/product/trace-metrics-panel.md)): the biometrics session
+at game end ([Motion stats](../docs/product/motion-stats.md)): the biometrics session
 set (parity-checked against the Python extractor), the mousetrap
 psychometric measures (exact port, parity-checked value-for-value
 against the R package on randomized traces), the Hevelius-style clinical

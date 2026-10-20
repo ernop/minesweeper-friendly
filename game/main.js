@@ -70,9 +70,7 @@ async function init() {
   initSessionScopeSelect();
   renderStates();
   initBoardPositionControls();
-  // The history RAM is filled now and nothing has been played yet: the
-  // one safe moment to rebuild the session window from stored records.
-  sessionBackfillFromHistory();
+  initMotionStats();
   if (Trial.isPlayMode(settings.playMode) && trialSession
       && trialSessionPlayMode() === settings.playMode) {
     config = {

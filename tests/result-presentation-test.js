@@ -22,7 +22,7 @@ function assertEq(name, actual, want) {
 assertEq(
   'post-game phase order',
   resultPresentationPhases('postGame').map((phase) => phase.id).join(','),
-  'outcome,facts,analysis,tables,boardTables,perfCharts,boardCharts,relationships,diagnostics');
+  'outcome,facts,analysis,tables,boardTables,perfCharts,boardCharts,relationships');
 
 assertEq(
   'score phase order',
@@ -32,7 +32,7 @@ assertEq(
 assertEq(
   'post-game chart order',
   resultChartSections('postGame').map((section) => section.id).join(','),
-  'tables,boardTables,perfCharts,boardCharts,relationships,diagnostics');
+  'tables,boardTables,perfCharts,boardCharts,relationships');
 
 assertEq(
   'score chart order',
@@ -64,18 +64,13 @@ assertEq(
   false);
 
 assertEq(
-  'score viewer excludes diagnostics',
-  resultChartSections('scores').some((section) => section.id === 'diagnostics'),
-  false);
-
-assertEq(
   'table collection leads lower chart content',
   resultChartSections('postGame')[0].id,
   'tables');
 
 assertEq(
-  'relationships precede diagnostics',
-  resultChartSections('postGame').slice(-2).map((section) => section.id).join(','),
-  'relationships,diagnostics');
+  'relationships close the lower chart content; motion stats are their own section at the page foot',
+  resultChartSections('postGame').at(-1).id,
+  'relationships');
 
 console.log(`result-presentation: all ${checks} checks passed`);

@@ -95,8 +95,7 @@ sides and for every hover card, cards that hold only what the panel does not
 already show (the pool's rank, its games, and a definition where the name
 leaves the measurement open), and no scroll bars. The page's one session
 picker, in the settings row at the page foot, sets the session for this
-chart, left-side session stats, the session summary, and ranks won in session
-together, defaulting to today (since local midnight); the chart has no picker
+chart, the session summary, and ranks won in session together, defaulting to today (since local midnight); the chart has no picker
 (user decision 2026-09-23). The chart includes paginated historical-window
 summaries from saved primary facts. The separate This win/time caption is
 gone. It lives in its own full-height column beside the board column when
@@ -403,7 +402,8 @@ of at most 1s (each action timed when it takes effect: a flag at the right
 press, a reveal or chord at its release; before 2026-09-26 a flag took effect
 at the browser's context-menu event, which Windows fires at the release) —
 joined the schema on 2026-08-22 alongside the
-session stats, whose fastclick series uses the identical qualification.
+session stats (removed 2026-10-20), whose fastclick series used the
+identical qualification.
 Stored (as `fastclickGapMs`) rather than derived because it needs press
 timestamps, which the scalar record does not carry (the trace does, so
 history from the trace era is backfillable offline). Win or loss alike.

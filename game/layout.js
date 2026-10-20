@@ -246,15 +246,13 @@ const MAIN_MIN_BESIDE_DETAILS = 640;
 function detailsColumnFit() {
   const layoutStyle = getComputedStyle(pageLayout);
   const gap = parseFloat(layoutStyle.columnGap);
-  const metricsBeside = !metricsPanel.hidden && window.innerWidth > 700;
-  const metricsWidth = metricsBeside ? metricsPanel.getBoundingClientRect().width : 0;
   const minimum = parseFloat(layoutStyle.getPropertyValue('--game-sidebar-min-width'));
-  const free = pageLayout.clientWidth - metricsWidth;
+  const free = pageLayout.clientWidth;
   const board = gameFrame.offsetWidth + 16;
   return {
-    docked: window.innerWidth > 700 && free - gap * 2 - board >= minimum,
+    docked: window.innerWidth > 700 && free - gap - board >= minimum,
     minimum,
-    maximum: Math.max(minimum, Math.floor(free - gap * 2 - Math.max(board, MAIN_MIN_BESIDE_DETAILS))),
+    maximum: Math.max(minimum, Math.floor(free - gap - Math.max(board, MAIN_MIN_BESIDE_DETAILS))),
   };
 }
 function detailsColumnWidth(fit, share) {
@@ -542,7 +540,6 @@ function initBoardPositionControls() {
     observer.observe(resultsBox);
     observer.observe(justiceLive);
     observer.observe(difficultyTabs);
-    observer.observe(metricsPanel);
     observer.observe(boardPositionPanel);
   }
 }

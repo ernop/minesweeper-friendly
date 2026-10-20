@@ -67,7 +67,7 @@ Spec: [docs/product/settings.md](../product/settings.md). Index: [AGENTS.md](../
   `shownThings` entry (control `result-sections`) sits: one subheading and
   compact auto-fill option grid of at least 260px columns per group,
   collapsing responsively. Boolean fields with control `result-section`
-  (`collapseDuplicateCharts`, `showMotionStatsAfterGame`) render only inside
+  (`collapseDuplicateCharts`) render only inside
   those groups; `renderReviewDisplay` on the game page renders the same
   groups, and `tests/report-settings-test.js` checks that every switch is in
   exactly one group. A change just saves; the static

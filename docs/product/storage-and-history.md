@@ -94,14 +94,14 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   This is the durable source for faithful choice replay and later analytics;
   the scalar history record still keeps only reportable mistake evidence.
 - The board also moves without any scroll/resize/zoom event when content
-  around it changes — found 2026-08-23: the metrics panel's first render
-  during init shifts the centered board ~880px after the trace's opening
-  layout event, so warmup samples mapped through stale geometry. The
-  recorder therefore also compares the live rect to the last recorded
-  one and re-records on any difference: before every button event (every
-  click maps exactly), and after layout passes scheduled by ResizeObserver
-  when the panel or surrounding controls change size. Stats sampling does
-  not run page layout. Traces
+  around it changes — found 2026-08-23: the left stats panel's first
+  render during init (the panel was removed 2026-10-20) shifted the
+  centered board ~880px after the trace's opening layout event, so warmup
+  samples mapped through stale geometry. The recorder therefore also
+  compares the live rect to the last recorded one and re-records on any
+  difference: before every button event (every click maps exactly), and
+  after layout passes scheduled by ResizeObserver when surrounding
+  controls change size. Motion stats sampling does not run page layout. Traces
   saved before the fix retain the defect for the first game of each
   page load: their samples map through the stale opening rect (button
   events are unaffected — they store the hit cell index directly). The
@@ -127,7 +127,7 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   instant. Their delivery order is known but elapsed time within the tie
   is not resolved; a zero time step would put Infinity into every
   rate computed from this computation stream. The discarded positions
-  cannot be reconstructed; capture v1 records the number merged. Every consumer (the metrics panel, the
+  cannot be reconstructed; capture v1 records the number merged. Every consumer (motion stats, the
   offline extractors) may rely on this invariant.
 - Traces live in their own store (`traces`, keyed by endedAt exactly like
   history records; see Storage). The active trace stays in RAM; the full

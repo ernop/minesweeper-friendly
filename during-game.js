@@ -6,10 +6,10 @@
 // chart, and event track catalog and the rows' defaults, which the settings
 // schema reads on both pages; the per-game model and the rows' drawn series,
 // which the analysis worker builds from the finished game's trace with the
-// prover (justice.js), saved positions (game/evaluation.js), the fastclick
-// rule (game/session-stats.js), and the replay's frame order
-// (game/replay-model.js); and the hover lookup the game page runs on those
-// series.
+// prover (justice.js), saved positions (game/evaluation.js), the on-the-move
+// and fastclick rules and the median (game/trace-metrics.js), and the
+// replay's frame order (game/replay-model.js); and the hover lookup the game
+// page runs on those series.
 
 const DuringGame = (() => {
   //-------DURING THE GAME: MODEL (analysis worker)-------
@@ -19,6 +19,9 @@ const DuringGame = (() => {
   // Proven-safe squares at most 2 squares apart belong to one work area.
   const AREA_LINK_SQUARES = 2;
   const LONG_GAP_MS = 1000;
+  // A window needs this much play before its rates are measurable: one
+  // incident over a 50 ms sliver prints a 1200/min absurdity that reads as data.
+  const MIN_WINDOW_MS = 1000;
   // A flag taken off this soon after it was placed was a quick undo.
   const QUICK_UNDO_MS = 1000;
   const BOARD_CHANGING = new Set(['reveal', 'proof-open', 'chord', 'flag-place', 'flag-remove']);
@@ -312,10 +315,19 @@ const DuringGame = (() => {
     const sampleT = game.t;
     const movingAt = (inputT) => {
       const i = lastIndexAtOrBefore(sampleT, inputT);
-      return i >= 0 && inputT - sampleT[i] <= SESSION_MOVING_PRESS_MS;
+      return i >= 0 && inputT - sampleT[i] <= CADENCE_MOVING_WINDOW_MS;
     };
     const actions = [];
     const events = [];
+    // Every press on the game clock with its gap from the press before, as
+    // the trace's cadence counts presses (cadence spread).
+    const presses = [];
+    let pressT = null;
+    for (const event of game.events) {
+      if (event.kind !== 'ldown' && event.kind !== 'rdown') continue;
+      if (pressT !== null) presses.push({ atMs: event.t - startT, value: event.t - pressT });
+      pressT = event.t;
+    }
     const flagPlacedAt = new Map();
     let previous = null;
     let leftBehind = [];
@@ -329,7 +341,11 @@ const DuringGame = (() => {
       const changes = BOARD_CHANGING.has(evaluation.action);
       const flagged = new Set(evaluation.position.flagged);
       const action = { atMs, kind: evaluation.action, cell, changes, opened: changedBy[k].length,
-        solved: progress.solved[k + 1] - progress.solved[k], result: evaluation.result };
+        solved: progress.solved[k + 1] - progress.solved[k], result: evaluation.result,
+        category: actionEvaluationCategory(evaluation) };
+      // The magnitudes the record's action summary sums (actionCategorySummary).
+      if (action.category === 'gameRisk') action.riskDelta = evaluationRiskDelta(evaluation) || 0;
+      if (evaluation.mistakes.includes('chose-lower-modeled-life')) action.lifeGap = evaluationLifeGap(evaluation) || 0;
       const at = (type, facts = {}) => events.push({ type, atMs, action: k, ...facts });
       if (evaluation.action === 'no-op') {
         noOpsSince++;
@@ -433,9 +449,10 @@ const DuringGame = (() => {
     return {
       recorded: true, timeMs: spanMs, outcome: game.outcome, width, height, mines: mineCount,
       pageStateRecorded: windowLeft !== null,
+      categoriesMeasured: actions.every((action) => action.category !== 'measurementNotes'),
       bv3: { total: board.total, atStart: solvedAtStart },
       safe: { total: size - mineCount, atStart: openedAtStart },
-      actions, progress, known, path, events,
+      actions, presses, progress, known, path, events,
     };
   }
 
@@ -445,6 +462,7 @@ const DuringGame = (() => {
     ['progress', 'progress'],
     ['pace', 'pace'],
     ['board', 'board'],
+    ['report', 'report categories'],
     ['events', 'events'],
   ];
 
@@ -455,7 +473,7 @@ const DuringGame = (() => {
   // marks on the tracks under the charts.
   const CHARTS = [
     { id: 'progress', name: 'progress', scale: 'share' },
-    { id: 'relative', name: 'pace and board against the whole game', scale: 'relative' },
+    { id: 'relative', name: 'against the whole game', scale: 'relative' },
   ];
   // The event tracks (creator 2026-10-20: a compact, meaningful display in
   // place of one lane per event row), by what the events are about: clicks
@@ -473,6 +491,10 @@ const DuringGame = (() => {
     steps: m.progress.startMs.map((atMs, i) => ({ atMs, value: (counts[i] - atStart) / (total - atStart) })),
   });
   const eventsOf = (type) => (m) => ({ kind: 'events', events: m.events.filter((e) => e.type === type) });
+  // A report category's actions per minute, each weighing `weight`; a game
+  // with any action filed under measurement notes has no measured counts.
+  const categoryRate = (test, weight) => (m) => (m.categoriesMeasured ? { kind: 'rate', perMs: 60000,
+    incidents: m.actions.filter(test).map((a) => ({ atMs: a.atMs, weight: weight(a) })) } : { kind: 'unrecorded' });
   const gameDataFormat = (id) => (value) => GameData.metrics.find((metric) => metric.id === id).format(value);
   const percent = (value) => Math.round(value * 100) + '%';
   const ms = (value) => Math.round(value) + 'ms';
@@ -489,6 +511,7 @@ const DuringGame = (() => {
   //   rate      incidents (weighted) per unit of time
   //   ratio     incidents' numerator sum over their denominator sum
   //   value     one measured value per incident, averaged by `aggregate`
+  //   spread    gaps whose spread over their median the row shows
   //   speed     cursor travel over time
   //   events    detected events, at an instant or over a span
   //   unrecorded  the trace did not record what the row needs
@@ -563,6 +586,20 @@ const DuringGame = (() => {
       chart: 'relative', color: '#00acc1',
       help: 'Cursor travel per 3BV solved.',
       data: (m) => ({ kind: 'ratio', incidents: changingActions(m).map((a) => ({ atMs: a.atMs, num: a.pathPx, den: a.solved })) }) },
+    { id: 'flagRate', group: 'pace', name: 'flag rate', default: false, format: gameDataFormat('flagRate'),
+      chart: 'relative', color: '#1b5e20',
+      help: 'Flags placed per second. Removals do not subtract.',
+      data: (m) => ({ kind: 'rate', perMs: 1000,
+        incidents: m.actions.filter((a) => a.kind === 'flag-place').map((a) => ({ atMs: a.atMs, weight: 1 })) }) },
+    { id: 'flagRemovalRate', group: 'pace', name: 'flag-removal rate', default: false, format: gameDataFormat('flagRemovalRate'),
+      chart: 'relative', color: '#006064',
+      help: 'Flags you took back, per minute.',
+      data: (m) => ({ kind: 'rate', perMs: 60000,
+        incidents: m.actions.filter((a) => a.kind === 'flag-remove').map((a) => ({ atMs: a.atMs, weight: 1 })) }) },
+    { id: 'cadenceSpread', group: 'pace', name: 'cadence spread', default: false, format: gameDataFormat('cadenceSpread'),
+      chart: 'relative', color: '#880e4f',
+      help: 'How uneven the timing of all presses was: the width of the middle half of the gaps between presses divided by their median. 0 is perfectly even. Raw shows each press as a tick.',
+      data: (m) => ({ kind: 'spread', incidents: m.presses }) },
     { id: 'safeKnown', group: 'board', name: 'safe squares known', default: true, format: decimal1,
       chart: 'relative', color: '#00897b',
       help: 'Covered squares the visible board had proved safe, between your clicks. The game value is the average over time.',
@@ -580,6 +617,30 @@ const DuringGame = (() => {
       help: 'How far each board-changing click was from the one before, in squares in any direction; averages take the mean.',
       data: (m) => ({ kind: 'value', aggregate: 'mean',
         incidents: changingActions(m).filter((a) => a.squares !== undefined).map((a) => ({ atMs: a.atMs, value: a.squares })) }) },
+    { id: 'gameRiskRate', group: 'report', name: 'game risk rate', default: false, format: gameDataFormat('gameRiskRate'),
+      chart: 'relative', color: '#d06a00',
+      help: 'Survived actions riskier than the safest available move, per minute, once a tenth of the safe squares were open.',
+      data: categoryRate((a) => a.category === 'gameRisk', () => 1) },
+    { id: 'earlyGuessRate', group: 'report', name: 'early guess rate', default: false, format: gameDataFormat('earlyGuessRate'),
+      chart: 'relative', color: '#c9a227',
+      help: 'Survived guesses that were not the safest choice, made before a tenth of the safe squares were open, per minute.',
+      data: categoryRate((a) => a.category === 'earlyGuess', () => 1) },
+    { id: 'timeLossRate', group: 'report', name: 'time loss rate', default: false, format: gameDataFormat('timeLossRate'),
+      chart: 'relative', color: '#1682b8',
+      help: 'Clicks that made no progress or undid visible progress, plus correct flags in a win that no chord used, per minute.',
+      data: categoryRate((a) => a.category === 'timeLoss', () => 1) },
+    { id: 'lifeMaximizationRate', group: 'report', name: 'life maximization rate', default: false,
+      format: gameDataFormat('lifeMaximizationRate'), chart: 'relative', color: '#8651ad',
+      help: 'Moves where a one-move survival model saw a safer choice, per minute.',
+      data: categoryRate((a) => a.category === 'lifeMaximization', () => 1) },
+    { id: 'excessGameRisk', group: 'report', name: 'excess game risk', default: false, format: gameDataFormat('excessGameRisk'),
+      chart: 'relative', color: '#b71c1c',
+      help: 'How much riskier the game risk actions were than the safest available move, in percentage points of the chance of losing, per minute.',
+      data: categoryRate((a) => a.riskDelta !== undefined, (a) => 100 * a.riskDelta) },
+    { id: 'modeledLifeGap', group: 'report', name: 'modeled life gap', default: false, format: gameDataFormat('modeledLifeGap'),
+      chart: 'relative', color: '#311b92',
+      help: 'How much expected remaining life the one-move survival model saw given up, per minute.',
+      data: categoryRate((a) => a.lifeGap !== undefined, (a) => a.lifeGap) },
     { id: 'noOpEvents', group: 'events', name: 'no-op clicks', default: true, format: integer, track: 'clicks', mark: 'ring', color: '#000000',
       help: 'Clicks that changed nothing.', data: eventsOf('no-op') },
     { id: 'misclickEvents', group: 'events', name: 'misclicks', default: true, format: integer, track: 'clicks', mark: 'cross', color: '#c62828',
@@ -648,12 +709,11 @@ const DuringGame = (() => {
   }
 
   // The row's value over [fromMs, toMs] of a game lasting spanMs; undefined
-  // where it is not measured. Under a second of play is no evidence, as in
-  // the session stats.
+  // where it is not measured.
   function windowValue(data, fromMs, toMs, spanMs) {
     const from = Math.max(0, fromMs);
     const to = Math.min(spanMs, toMs);
-    if (to - from < SESSION_MIN_PLAY_MS) return undefined;
+    if (to - from < MIN_WINDOW_MS) return undefined;
     const inside = (item) => item.atMs >= from && item.atMs <= to;
     if (data.kind === 'rate') {
       const weight = data.incidents.filter(inside).reduce((sum, item) => sum + item.weight, 0);
@@ -667,8 +727,9 @@ const DuringGame = (() => {
     if (data.kind === 'value') {
       const values = data.incidents.filter(inside).map((item) => item.value);
       if (values.length === 0) return undefined;
-      return data.aggregate === 'median' ? sessionMedian(values) : mean(values);
+      return data.aggregate === 'median' ? medianOf(values) : mean(values);
     }
+    if (data.kind === 'spread') return gapSpreadRatioOf(data.incidents.filter(inside).map((item) => item.value));
     if (data.kind === 'speed') return (pathAt(data.path, to) - pathAt(data.path, from)) * 1000 / (to - from);
     throw new Error('during the game: ' + data.kind + ' rows do not average');
   }
@@ -704,6 +765,7 @@ const DuringGame = (() => {
     if (data.kind === 'events') return { events: data.events };
     const out = {};
     if (data.kind === 'rate') out.ticks = data.incidents;
+    else if (data.kind === 'spread') out.ticks = data.incidents.map((item) => ({ atMs: item.atMs, weight: 1 }));
     else if (data.kind === 'ratio') {
       out.points = data.incidents.filter((item) => item.den > 0)
         .map((item) => ({ atMs: item.atMs, value: item.num / item.den }));

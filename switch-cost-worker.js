@@ -1,6 +1,6 @@
 'use strict';
 
-// The session stats' switch cost off the page thread: reads the saved traces
+// Game data's switch cost line off the page thread: reads the saved traces
 // of standard games straight from IndexedDB, replays them, and fits the
 // estimate (switch-cost.js) for two pools, the session window's games and the
 // latest 500. It only reads. The page's storage.js owns opening and upgrading

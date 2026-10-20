@@ -108,7 +108,10 @@ and state analysis."
   reports games, wins, win rate, accumulated play time, mouse speed, useful
   click rate and fastclick gap, with robust center/spread and measured sample
   coverage. Additional motion, error, action, and risk measures join the same
-  grouping when present.
+  grouping when present. The left stats panel's session charts drew
+  trailing played-time chunks in the page until 2026-10-20, when the creator
+  removed the panel ([Session stats](session-stats.md)); the requirement
+  stands for the analyses still to be built.
 - A play signature is multidimensional: movement/click cadence and geometry;
   no-op, contradiction, and fatal-action patterns; marking/chording style;
   and the rate, risk rank, one-ply quality, and context of guesses. A total

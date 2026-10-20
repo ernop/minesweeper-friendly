@@ -97,21 +97,20 @@ Files, in load order:
 | `evaluation.js` | game-end evaluation: pure verdict model, live capture |
 | `results.js` | the saved record (`reportResult`), after-game report, result view, High scores view |
 | `history.js` | record version stamps and schema, per-mode history, mode keys, normalization, transfer cleaning |
-| `rankings.js` | rank windows and relative ages, day categories, board families and their one name each (`BOARD_TRAIT_NAMES`), session summary, ranks won in session, rank lists |
+| `rankings.js` | rank windows and relative ages, day categories, board families and their one name each (`BOARD_TRAIT_NAMES`), session summary and its results tree, the one session picker, ranks won in session, rank lists |
 | `charts.js` | chart models and presentation (heavy models execute in the analysis worker); chart basics (SVG namespace, count phrases, text widths, displayed numbers, sparkline sizes), axis ticks, trend lines, the (?) help tip, scatter and average-time charts |
 | `trial-review.js` | after-trial rank rows, identity review, run overlays |
 | `game-data-chart.js` | game data: pure ranking and label layout, then the 0–100% band and its views, the strips, and the cards' example boards |
+| `switch-cost-line.js` | the optional switch cost line under game data: the session's and the latest 500 standard games' estimates, its card, refresh requests |
 | `during-game-chart.js` | live perf charts (head of the game data column): the progress and relative charts and event tracks on one time axis, hover line, the card for the hovered line, the board at a moment in the player's style, replay link, configure |
 | `result-ranks.js` | `renderRanks`: result tables and charts in section order |
 | `input-trace.js` | the raw input trace |
 | `replay-model.js` | path and choice replay, pure part |
 | `replay-view.js` | replay transport and playback, frames, path canvas, legends |
 | `music.js` | music state sampling |
-| `trace-metrics.js` | trace metrics, pure (all measurement systems) |
+| `trace-metrics.js` | trace metrics, pure (all measurement systems), and the press-timing constants and median the results use |
 | `metric-definitions.js` | shared metric display catalog and series projection (pure, also loaded in workers) |
-| `metrics-panel.js` | left stats panel: session heading, switch-cost row, live rows, motion charts, scheduling |
-| `session-stats.js` | session series computation, event recording, startup backfill |
-| `session-charts.js` | the one session picker, session controls and charts |
+| `motion-stats.js` | motion stats, the open/close section at the page foot: live sample scheduling, rows and sparklines, the finished game's Fitts curve and spatial pace bias |
 | `player-states.js` | player state tags and their menu |
 | `controls.js` | board input events, new-game shortcut, game choice (preset links, other modes menu, mode options row), custom board, see-scores button |
 | `backup.js` | history/trace export and import, data-format card |
@@ -181,15 +180,15 @@ the file path, plus the section heading when the file holds several.
 | A just universe | [docs/product/just-universe.md](docs/product/just-universe.md) | [docs/implementation/just-universe.md](docs/implementation/just-universe.md) |
 | Game-end evaluation, action evidence | [docs/product/game-end-evaluation.md](docs/product/game-end-evaluation.md) | [docs/implementation/game-end-evaluation.md](docs/implementation/game-end-evaluation.md) |
 | Result presentation and ordering | [docs/product/results.md](docs/product/results.md) | [docs/implementation/results.md](docs/implementation/results.md) |
-| Game data chart, shared session | [docs/product/game-data.md](docs/product/game-data.md) | [docs/implementation/game-data.md](docs/implementation/game-data.md) |
+| Game data chart, shared session, switch cost line | [docs/product/game-data.md](docs/product/game-data.md) | [docs/implementation/game-data.md](docs/implementation/game-data.md) |
 | Live perf charts (in-game rows over time, detected events: clicks, jumps, pauses) | [docs/product/during-game.md](docs/product/during-game.md) | [docs/implementation/during-game.md](docs/implementation/during-game.md) |
 | Rank lists, highlights, recent placements, streaks | [docs/product/rankings.md](docs/product/rankings.md) | [docs/implementation/rankings.md](docs/implementation/rankings.md) |
 | Average-time charts, scatter plots | [docs/product/charts.md](docs/product/charts.md) | [docs/implementation/charts.md](docs/implementation/charts.md) |
 | Path and choice replay | [docs/product/replay.md](docs/product/replay.md) | [docs/implementation/replay.md](docs/implementation/replay.md) |
 | Per-game stats and counters, music, guess ledger | [docs/product/per-game-stats.md](docs/product/per-game-stats.md) | [docs/implementation/per-game-stats.md](docs/implementation/per-game-stats.md) |
 | Board measurements, "This board" tables, backfill | [docs/product/per-game-stats.md](docs/product/per-game-stats.md), [docs/product/rankings.md](docs/product/rankings.md) | [docs/implementation/board-metrics.md](docs/implementation/board-metrics.md) |
-| Trace metrics panel | [docs/product/trace-metrics-panel.md](docs/product/trace-metrics-panel.md) | [docs/implementation/trace-metrics-panel.md](docs/implementation/trace-metrics-panel.md) |
-| Session stats | [docs/product/session-stats.md](docs/product/session-stats.md) | [docs/implementation/session-stats.md](docs/implementation/session-stats.md) |
+| Motion stats (the trace metrics, an open/close section at the page foot) | [docs/product/motion-stats.md](docs/product/motion-stats.md) | [docs/implementation/motion-stats.md](docs/implementation/motion-stats.md) |
+| Session stats and the left panel (removed 2026-10-20: the decision, where each part went) | [docs/product/session-stats.md](docs/product/session-stats.md) | none |
 | Player states | [docs/product/player-states.md](docs/product/player-states.md) | [docs/implementation/player-states.md](docs/implementation/player-states.md) |
 | Personal settings | [docs/product/settings.md](docs/product/settings.md) | [docs/implementation/settings.md](docs/implementation/settings.md) |
 | Daily play limits (play time, games, games per level, stop time; 4:00 play day; two confirmations; 2-minute loosening lock; no-flags-first penalty) | [docs/product/play-limits.md](docs/product/play-limits.md) | [docs/implementation/play-limits.md](docs/implementation/play-limits.md) |
@@ -206,8 +205,8 @@ the file path, plus the section heading when the file holds several.
   only, nothing technical — with `promo/win-screen-2026-10-08.png` (the board
   and its tables after a win) as its hero image. Keep it free of
   implementation detail. `promo/win-screen-2026-10-08-full-layout.png`
-  (current layout at 1920 x 1080: session stats left, board and tables
-  center, game data docked right) is the README's top screenshot; the
+  (the layout at 1920 x 1080 on 2026-10-08: session stats left, board and
+  tables center, game data docked right) is the README's top screenshot; the
   README's close-ups sit beside it in `promo/` under the same date. How they
   were made: [verification](docs/implementation/verification.md), "README
   and promo screenshots".

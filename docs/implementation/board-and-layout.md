@@ -35,13 +35,14 @@ Spec: [docs/product/board-and-layout.md](../product/board-and-layout.md). Index:
   `#board-position-reset` sets both offsets to zero. Results and
   legends are outside that translated area. The editor exposes drag,
   arrows, numeric inputs, and labeled sliders. Browser scroll regressions
-  cover docked and compact details and the independent metrics panel.
+  cover docked and compact details.
   `boardPositionPanelRect` anchors the editor to the board and constrains it
   to the visible viewport. The panel is a body child so board transforms and
   column containment cannot change its fixed coordinate system; scroll and
   visual-viewport changes update it without changing the board's layout.
-- Layout (2026-09-07; one details column since 2026-10-17): `#page-layout`
-  owns three grid columns: metrics, main, and a fluid `#game-sidebar`.
+- Layout (2026-09-07; one details column since 2026-10-17; the metrics
+  column removed 2026-10-20): `#page-layout` owns two grid columns: main and
+  a fluid `#game-sidebar`.
   `detailsColumnFit` (`game/layout.js`) returns whether it docks (the room
   beside the board frame (+16) holds `--game-sidebar-min-width`, 320px) and
   its width limits: that minimum, and the room left when main keeps
@@ -117,7 +118,7 @@ Spec: [docs/product/board-and-layout.md](../product/board-and-layout.md). Index:
   (`game/results.js`), and in `game/layout.js` to the top bar, `#top-right`,
   `#scores-nav`, `#mode-options`, `#board-lab-panel`, the board frame,
   `#replay-controls`, the results box, the Justice callouts, the game
-  choice row, the metrics panel, and the position editor.
+  choice row, and the position editor.
   Legend items retain their complete vertical encoding labels. Replay choice
   callouts measure visible stats and legend bounds to avoid the sidebar.
   `renderPathOverlay` builds its legend into a detached fragment and replaces
@@ -160,7 +161,7 @@ Spec: [docs/product/board-and-layout.md](../product/board-and-layout.md). Index:
   (`inline-flex`, `nowrap`, so each wraps as a unit): `#settings-btn` with
   `#play-limits-btn`; `label#session-picker` (a static
   `select#session-definition-select`, disabled with a loading option until
-  `initSessionScopeSelect` in `game/session-charts.js` fills it from
+  `initSessionScopeSelect` in `game/rankings.js` fills it from
   `init`); and `span#board-display` (`#zoom-label` with `#zoom-select`,
   `#board-position-btn`, and `#pixel-ratio`). `.game-booting` blocks its
   pointer input like the other chrome. `p#site-footer` links
@@ -169,27 +170,26 @@ Spec: [docs/product/board-and-layout.md](../product/board-and-layout.md). Index:
   from `initCellSizeControl`) writes `devicePixelRatio`, rounded to two
   places, into `#pixel-ratio-value`, then listens once on
   `matchMedia('(resolution: <ratio>dppx)')`, which stops matching when the
-  browser zoom changes, and re-renders. Grid: two rows, `auto 1fr`; the metrics panel and `main` span
-  both; the bar is row 1 of column 3, sticky at 12px; `#game-sidebar` is
+  browser zoom changes, and re-renders. Grid: two rows, `auto 1fr`; `main` spans
+  both; the bar is row 1 of column 2, sticky at 12px; `#game-sidebar` is
   row 2, sticky at `12px + --top-bar-block` with its height reduced by it.
   `--top-bar-block` is `--top-bar-height` plus the 8px row gap;
   `syncGameSidebar` sets `--top-bar-height` from `topBar.offsetHeight` (the
   bar wraps in a narrow column) and the layout ResizeObserver watches the
-  bar. In `.compact-sidebar` the bar is row 1 of column 2, static, and `main`
-  row 2 (`--top-bar-block: 0`). Below 700px: bar row 1, metrics row 2, main
-  row 3. Without limits the bar is empty and 0px high.
+  bar. In `.compact-sidebar` the bar is row 1 of the one column, static, and
+  `main` row 2 (`--top-bar-block: 0`). Below 700px: bar row 1, main row 2.
+  Without limits the bar is empty and 0px high.
   `tests/session-placement-layout-fixture.js` checks the bar heads the right
   columns, or sits above main when compact, at four widths.
-- Metrics panel visibility (2026-10-14): `renderMetricsPanelContent` hides
-  `#metrics-panel` when `showSessionStats` and `showMotionStatsDuringGame`
-  are both off and toggles `.idle` (`visibility: hidden`, width kept) when it
-  is expanded with neither the session section nor live rows to show.
+- Motion stats (2026-10-20): `#motion-stats` sits in `main` after
+  `#result-ranks` and before `#backup`; `initMotionStats` builds its one
+  open/close section ([implementation](motion-stats.md)).
 - `setBoardPositionEditing` focuses `#board-position-btn` only when it closes
   an editor that was open; `initGamePreferences` restoring a closed editor
   no longer moves focus.
 - Layout: `#results` (`#result-stats`: the stat sections or `#stats-grid`) is
   a normal-flow child of `#game-sidebar`, after the controls and before the
-  legend. The three grid columns prevent overlaps.
+  legend. The two grid columns prevent overlaps.
   `syncGameSidebar` controls its compact popover
   and fits the game-data chart's height (see Layout 2026-09-07 above);
   no result-dependent gutter calculations or overhang margins remain.
@@ -229,8 +229,9 @@ Spec: [docs/product/board-and-layout.md](../product/board-and-layout.md). Index:
   svg.mine-full-size` sizes to 0.92 of `--cell-size` (classic stays at the
   0.72 of `.cell svg`); a replay's proven mine on a closed square keeps the
   closed-square size. `lose` (`game/play.js`), `restorePreferredResult`
-  (`preferences-game.js`), the replay frames (`game/replay-view.js`), and the
-  help boards (`game/session-charts.js`) draw `settings.mineStyle`; the
+  (`preferences-game.js`), the replay frames (`game/replay-view.js`), and
+  game data's example boards (`game/game-data-chart.js`) draw
+  `settings.mineStyle`; the
   problems page and `analysis/judgment/judge.js` draw `'classic'`.
 
 ## Analysis execution and cost (2026-09-25)

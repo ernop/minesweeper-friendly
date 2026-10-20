@@ -5,8 +5,9 @@
 
 //-------GAME-END EVALUATION: VERDICT (pure)-------
 
-// Compatibility labels for the derived game-endings chart and legacy
-// imports. Current records store multidimensional action evidence instead.
+// Compatibility labels for legacy records and imports, which stored this
+// five-way verdict. Current records store multidimensional action evidence
+// instead.
 const DEATH_KIND_LABELS = {
   mine: 'clicked clear mine',
   chord: 'chord death',
@@ -170,8 +171,8 @@ function evaluationHasMistake(evaluation) {
 }
 
 // The old five-way verdict, kept as a derived compatibility view for the
-// report's legacy labels and its verdict styling (the endings chart now
-// classifies through sessionEndingKind below). Never the evidence source:
+// report's legacy labels and its verdict styling (the session results
+// classify losses through lossKindOf below). Never the evidence source:
 // independent facts and every applicable mistake remain together on the
 // action evaluation.
 function evaluationEndingKind(evaluation) {
@@ -216,7 +217,7 @@ function fatalEvaluationOf(record) {
 
 // The modern fatal-action status: one exclusive kind per fatal action,
 // refined below into the loss type that the after-game report and the
-// session endings chart both name. FATAL_STATUS_LABELS words each status;
+// session results both name. FATAL_STATUS_LABELS words each status;
 // a status the loss type does not refine keeps these words.
 const FATAL_STATUS_LABELS = {
   'mine-safe': 'opened a proven mine while a safe move was available',
@@ -520,13 +521,12 @@ function fatalEvidenceLines(evaluation, ledger) {
   return lines;
 }
 
-// The endings-chart kind for a loss: the modern loss type, the same
-// classification the report's fatal-action heading names, so the chart's
-// categories are exactly the report's reasons for losing; a
-// legacy-imported record's stored five-way verdict stays its own
-// provenance line (coarse old evidence is never upgraded by inventing
-// detail); 'other' when nothing was measurable.
-function sessionEndingKind(evaluation) {
+// A loss's kind: the modern loss type, the same classification the
+// report's fatal-action heading names, so the session results' rows are
+// exactly the report's reasons for losing; a legacy-imported record's stored
+// five-way verdict stays its own kind (coarse old evidence is never upgraded
+// by inventing detail); 'other' when nothing was measurable.
+function lossKindOf(evaluation) {
   if (!evaluation) return 'other';
   if (evaluation.version !== ACTION_EVALUATION_VERSION) return 'other';
   if (evaluation.legacy) {
@@ -617,7 +617,7 @@ const SURVIVED_GUESS_RANKS = { safe: 2, higher: 1, early: 1 };
 function sessionResultKind(record) {
   if (record.outcome === 'win') return winTypeOf(record);
   const fatal = fatalEvaluationOf(record);
-  let kind = sessionEndingKind(fatal);
+  let kind = lossKindOf(fatal);
   if (kind === 'guess-early') {
     const delta = evaluationRiskDelta(fatal);
     if (delta === undefined) kind = 'guess-early-unmeasured';
@@ -1408,8 +1408,5 @@ function recordActionEvaluation(evaluation, result) {
   evaluation.result = result;
   if (result === 'death') Object.assign(evaluation.evidence, fatalProofTiers(evaluation));
   traceDecision(evaluation);
-  if (result === 'death' || evaluationHasMistake(evaluation)) {
-    actionEvaluations.push(evaluation);
-    sessionRecordEvaluation(evaluation);
-  }
+  if (result === 'death' || evaluationHasMistake(evaluation)) actionEvaluations.push(evaluation);
 }

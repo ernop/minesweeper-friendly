@@ -38,8 +38,8 @@ function chartTextWidth(text, font) {
   return chartMeasureContext.measureText(text).width;
 }
 
-// Chart geometries: small for the live panel's rows, large for the
-// after-game charts inline at the page bottom.
+// Chart geometries: small for the after-trial review's rows, large for
+// the motion stats rows.
 const SPARK_SMALL = { width: 150, height: 46, left: 34, bottom: 11, dotR: 1.7, labelClass: 'spark-label' };
 const SPARK_LARGE = { width: 230, height: 130, left: 40, bottom: 14, dotR: 2.5, labelClass: 'spark-label spark-label-big' };
 

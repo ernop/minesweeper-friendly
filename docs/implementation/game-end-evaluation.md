@@ -61,9 +61,10 @@ Spec: [docs/product/game-end-evaluation.md](../product/game-end-evaluation.md). 
   (`storedProofTier` throws when a positioned fatal action lacks it), then
   `nearestLowestRiskDistance` against `LOWER_RISK_NEAR_SQUARES` (2). The
   report's death label is `LOSS_TYPE_LABELS[lossTypeOf(...)]`, and
-  `sessionEndingKind` returns the same kind for the endings chart (legacy
-  records keep their stored five-way verdict as provenance), so chart
-  categories and report wording can never disagree. `fatalProofTiers`
+  `lossKindOf` returns the same kind for the session results (legacy
+  records keep their stored five-way verdict as provenance), so their rows
+  and the report's wording can never disagree; it was `sessionEndingKind`,
+  serving the session endings chart, until 2026-10-20. `fatalProofTiers`
   measures `mineProofTier` and `safeProofTier` with `easiestProofTier`
   (Justice.proveFacts with counting only, then with overlaps, else
   whole-board) and returns only the tiers an evaluation lacks;
@@ -78,7 +79,7 @@ Spec: [docs/product/game-end-evaluation.md](../product/game-end-evaluation.md). 
   passes to `actionEvaluationLines` as `extraLines`; the Certainty and Safe
   alternative lines name the stored tier (`PROOF_TIER_PHRASES`).
   `winTypeOf(record)` (2026-10-14; [spec](../product/game-end-evaluation.md#win-types-requested-2026-10-14))
-  sits after `sessionEndingKind` in the pure verdict span: Proof-or-die is
+  sits after `lossKindOf` in the pure verdict span: Proof-or-die is
   `win-no-guess`; any legacy or other-version evaluation leaves only the
   ledger's `guesses === 0`; otherwise `worstSurvivedGuess(evaluations)`
   (the stored `guessed-with-safe-move` / `opened-unproven-with-safe-move`
@@ -88,7 +89,7 @@ Spec: [docs/product/game-end-evaluation.md](../product/game-end-evaluation.md). 
   cleanest first. Its known answers are in
   `tests/game-end-evaluation-test.js`.
   `sessionResultKind(record)` (2026-10-14; [spec](../product/game-end-evaluation.md#session-result-kinds-requested-2026-10-14))
-  follows: a win's `winTypeOf`; a loss's `sessionEndingKind`, with
+  follows: a win's `winTypeOf`; a loss's `lossKindOf`, with
   `guess-early` split by `evaluationRiskDelta` into `guess-early-min`,
   `guess-early-higher`, or `guess-early-unmeasured`; then, for kinds in
   `FATAL_OFFENSE_RANKS`, `worstSurvivedGuess` ranked by

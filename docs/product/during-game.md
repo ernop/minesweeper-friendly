@@ -44,7 +44,7 @@ as this should obey the board style choices the user has entered in their
 config too!" And: "the datarows here are of many new types so it's okay to
 use new viz styles for them as you've done. but when we're not needing a new
 style and an old one would work, consider using it to reduce variability".
-The same message renamed game data's sections ([Game data](game-data.md#section-titles-creator-2026-10-15)).
+The same message renamed game data's sections ([Game data](game-data.md#section-titles-creator-2026-10-15-revised-2026-10-20)).
 Everything below follows it; the first build's layout (one row per
 measurement with a small scale label at its top left, values in a column at
 the right, a card with a small board following the pointer) is gone.
@@ -112,7 +112,7 @@ Built the same day:
 
 ## Charts
 
-- Charts follow the session stats' grammar ([Session stats](session-stats.md)):
+- Charts keep the grammar first built for the session stats ([Session stats](session-stats.md)):
   a framed plot with light gridlines, y ticks labeled in bold black, and each
   line in its series' color. Hovering a line's legend entry spotlights it:
   the line thickens and the chart's other lines fade.
@@ -122,7 +122,7 @@ Built the same day:
   | Chart | Rows | Y axis |
   | --- | --- | --- |
   | progress | 3BV solved, squares opened, mines flagged | 0% to 100%, labeled every 20% |
-  | against the whole game | every pace and board row | the line's value divided by its whole-game value, on a doubling scale |
+  | against the whole game | every pace, board, and report row | the line's value divided by its whole-game value, on a doubling scale |
 
 - The second chart's scale doubles at each label: 1× is the line's
   whole-game value, drawn as a black line across the plot, and ½×, ¼×, ⅛×
@@ -200,8 +200,8 @@ click. The default is the 2 second rolling average (creator 2026-10-20; it
 was 5 second buckets). Raw incidents stay drawn under an average: dots in
 the line's color for measured values, and short ticks at the plot's foot
 for rate incidents. A rate in raw draws only its ticks. A bucket or window
-with under one second of play shows no value, as in the session stats: a
-rate over a sliver of time is not evidence. Progress, board-state, and
+with under one second of play shows no value, the rule the session stats
+used: a rate over a sliver of time is not evidence. Progress, board-state, and
 event rows have no average.
 
 ## Rows
@@ -234,6 +234,28 @@ misclick rate, path / click, path / 3BV (each as game data defines it);
 safe by counting (the safe squares known that counting single numbers
 proves, the quickest kind to see); work areas (separate places holding
 proven-safe squares, squares at most 2 apart counting as one place).
+
+Off by default since 2026-10-20, when the left stats panel was removed and
+the creator asked for its measurements as optional rows ("same for all,
+actually"; [Session stats](session-stats.md)), each as game data defines it
+([Catalog and configuration](game-data.md#catalog-and-configuration)):
+
+| Row | Group | Definition |
+| --- | --- | --- |
+| flag rate | pace | flags placed per second; removals do not subtract |
+| flag-removal rate | pace | flags taken back per minute |
+| cadence spread | pace | the width of the middle half of the gaps between all button presses divided by their median; raw shows each press as a tick |
+| game risk rate | report categories | the report's game risk actions per minute |
+| early guess rate | report categories | the report's early guesses per minute |
+| time loss rate | report categories | the report's time loss actions per minute |
+| life maximization rate | report categories | the report's life maximization moves per minute |
+| excess game risk | report categories | the game risk actions' extra chance of losing over the safest available move, in percentage points per minute |
+| modeled life gap | report categories | the expected remaining life the one-move survival model saw given up, per minute |
+
+A report row counts each action when it took effect, in the category the
+after-game report files it under. A game with any action filed under
+measurement notes (judged by an older evaluator) has no measured counts:
+its report rows draw no line, and their legend entries say "not measured".
 
 A progress row starts from what the board showed at the first action, so a
 given opening counts as already done. Safe squares known and work areas say
@@ -305,7 +327,8 @@ games ([BACKLOG.md](../../BACKLOG.md)).
 ## Configure
 
 "configure" in the options row replaces the charts with one checklist of
-every row, grouped as progress, pace, board, events, with back buttons at
+every row, grouped as progress, pace, board, report categories, events,
+with back buttons at
 its top and bottom ("back to live perf charts"); Escape also returns.
 Choices apply at once and persist in the settings (`duringGameRows`); the
 averaging choice persists as `duringGameAveraging` (renamed from
@@ -319,5 +342,6 @@ revision; the 2026-10-20 revision the day it was asked. Requested but not
 built yet, in [BACKLOG.md](../../BACKLOG.md): forks inside one work area
 (several ways forward from the same frontier) and cross-game summaries of
 the move and fork habits. Proposed there with them: threshold calibration,
-rows plotted against progress instead of time, the cadence-spread row, and
-live rows during play.
+rows plotted against progress instead of time, and live rows during play.
+The cadence-spread row proposed there was built on 2026-10-20 with the
+other rows from the left panel.

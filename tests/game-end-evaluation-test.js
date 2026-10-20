@@ -160,7 +160,8 @@ assertEq('deferred record retains the actual game-end timestamp',
   if (start < 0 || endAt < 0) throw new Error('page lifecycle handlers not found in game source');
   vm.runInNewContext(source.slice(start, endAt), { document, window, settings: null,
     tracePageEvent: () => {}, savePlaySpanProgress: () => {},
-    flushPendingResult: () => { flushed++; }, cancelMetricsUpdate: () => {} });
+    flushPendingResult: () => { flushed++; }, cancelMetricsUpdate: () => {},
+    tracing: () => false, scheduleMetricsUpdate: () => {} });
   handlers.visibilitychange();
   assertEq('hiding the page flushes the pending record', flushed, 1);
   document.visibilityState = 'visible';
@@ -325,8 +326,8 @@ assertEq('a fatal early guess files as its own routine status',
   fatalActionStatusKind(earlyDeath), 'guess-early');
 assertEq('early-guess death label is calm',
   actionEvaluationLabel(earlyDeath), 'died on an early-game guess');
-assertEq('the endings chart shares the early-death kind',
-  sessionEndingKind(earlyDeath), 'guess-early');
+assertEq('the loss kind shares the early-death status',
+  lossKindOf(earlyDeath), 'guess-early');
 assertContains('early-guess death text names the routine gamble',
   actionEvaluationText(earlyDeath), 'early-game guess');
 assertEq('a mid-game higher-risk death keeps its status',
@@ -401,7 +402,7 @@ assertEq('legacy chord line survives only as provenance',
     legacy: { deathKind: 'chord' },
   }), 'chord');
 
-// The session endings chart classifies through the same fatal-action
+// The session results classify losses through the same fatal-action
 // status the report labels, so the two can never disagree.
 for (const [evaluation, kind] of [
   [provenMineWithSafe, 'mine-safe'],
@@ -412,35 +413,35 @@ for (const [evaluation, kind] of [
   [{ ...uncertainChordDeath,
     evidence: { safeAvailable: false, openedProvenMines: [4] } }, 'mine-forced'],
 ]) {
-  assertEq(`session ending kind ${kind}`, sessionEndingKind(evaluation), kind);
-  assertEq(`chart kind ${kind} carries the report's exact wording`,
+  assertEq(`loss kind ${kind}`, lossKindOf(evaluation), kind);
+  assertEq(`loss kind ${kind} carries the report's exact wording`,
     FATAL_STATUS_LABELS[kind], actionEvaluationLabel(evaluation));
 }
-assertEq('proof-or-die death with a safe move has its own ending kind',
-  sessionEndingKind({
+assertEq('proof-or-die death with a safe move has its own loss kind',
+  lossKindOf({
     version: ACTION_EVALUATION_VERSION,
     action: 'proof-open',
     result: 'death',
     mistakes: [],
     evidence: { safeAvailable: true },
   }), 'proof-safe');
-assertEq('proof-or-die death without a safe move has its own ending kind',
-  sessionEndingKind({
+assertEq('proof-or-die death without a safe move has its own loss kind',
+  lossKindOf({
     version: ACTION_EVALUATION_VERSION,
     action: 'proof-open',
     result: 'death',
     mistakes: [],
     evidence: { safeAvailable: false },
   }), 'proof-forced');
-assertEq('legacy verdict stays its own provenance ending kind',
-  sessionEndingKind({
+assertEq('legacy verdict stays its own provenance loss kind',
+  lossKindOf({
     ...uncertainChordDeath,
     legacy: { deathKind: 'angel' },
   }), 'angel');
-assertEq('missing fatal evaluation is an unjudged ending',
-  sessionEndingKind(undefined), 'other');
-assertEq('legacy without a stored verdict is an unjudged ending',
-  sessionEndingKind({
+assertEq('missing fatal evaluation is an unjudged loss',
+  lossKindOf(undefined), 'other');
+assertEq('legacy without a stored verdict is an unjudged loss',
+  lossKindOf({
     ...uncertainChordDeath,
     legacy: { avoidable: true },
   }), 'other');
@@ -515,8 +516,8 @@ assertContains('likely misclick report carries the measured interval',
   actionEvaluationText(likelyMisclick), '317ms');
 assertEq('accepted chords consume neighboring flag episodes',
   source.includes('markChordFlagUsage(index);'), true);
-assertEq('only wins classify outstanding flag episodes',
-  source.includes("finishOpenFlagEpisodes(end === 'win');"), true);
+assertEq('a win classifies outstanding flag episodes, a loss closes them unclassified',
+  source.includes('finishOpenFlagEpisodes(true);') && source.includes('finishOpenFlagEpisodes(false);'), true);
 const noOpGroups = aggregateReportEntries([
   { evaluation: noOp, shown: noOp, category: 'timeLoss' },
   { evaluation: { ...noOp, actionNumber: 8 },
@@ -700,7 +701,7 @@ const needless = fatalReveal(9, { width: 4, height: 3, mines: 3,
 assertEq('a needless guess carries the safe square tier only',
   [needless.evidence.mineProofTier, needless.evidence.safeProofTier].join(','), ',overlap');
 assertEq('a needless guess graded by the safe square tier', lossTypeOf(needless), 'guess-safe-overlap');
-assertEq('the endings chart files the same loss type', sessionEndingKind(needless), 'guess-safe-overlap');
+assertEq('the loss kind is the same loss type', lossKindOf(needless), 'guess-safe-overlap');
 const justiceOnly = fatalReveal(2, { width: 3, height: 1, mines: 1, revealed: [], flagged: [] },
   { safeAvailable: false, chosenRisk: 1 / 3, bestRisk: 1 / 3, actualRisk: 1 / 3, bestActualRisk: 0 }, []);
 assertEq('a guess past an A Just Universe safe entry', lossTypeOf(justiceOnly), 'guess-safe-justice');
@@ -765,19 +766,20 @@ assertEq('the captured wrong-flag tag is the other reason',
   likelyMisclickReasonsOf({ ...countingMine, mistakes: [...countingMine.mistakes, 'likely-misclick-after-wrong-flag'] },
     []).join(), 'wrong-flag');
 
-// Every loss type has its own endings-chart kind and line.
+// Every loss type and win type has its row in the session results tree, an
+// early-game guess death split there by its risk rank, and no row twice.
 {
-  const kindsStart = source.indexOf('const SESSION_END_KINDS = [');
-  const specsStart = source.indexOf('const SESSION_END_SPECS = [');
-  const kinds = vm.runInThisContext('(' + source.slice(source.indexOf('[', kindsStart),
-    source.indexOf('];', kindsStart) + 1) + ')');
-  const specs = vm.runInThisContext('(' + source.slice(source.indexOf('[', specsStart),
-    source.indexOf('\n];', specsStart) + 2) + ')');
-  const missing = Object.keys(LOSS_TYPE_LABELS).filter((kind) => !kinds.includes(kind)
-    || !specs.some((spec) => spec.kind === kind && spec.series === undefined));
-  assertEq('every loss type is an ending kind with a chart line', missing.join(), '');
-  assertEq('every ending kind is in the spec list exactly once',
-    kinds.every((kind) => specs.filter((spec) => spec.kind === kind).length === 1), true);
+  const treeStart = source.indexOf('const SESSION_RESULT_TREE = [');
+  const tree = vm.runInThisContext('(' + source.slice(source.indexOf('[', treeStart),
+    source.indexOf('\n];', treeStart) + 2) + ')');
+  const leaves = [];
+  const collect = (nodes) => nodes.forEach((node) => (node.children ? collect(node.children) : leaves.push(node.kind)));
+  collect(tree);
+  const kinds = [...Object.keys(LOSS_TYPE_LABELS).filter((kind) => kind !== 'guess-early'),
+    'guess-early-min', 'guess-early-higher', 'guess-early-unmeasured', 'survived-guess-safe', 'survived-guess-higher',
+    ...Object.keys(DEATH_KIND_LABELS), 'other', ...Object.keys(WIN_TYPE_LABELS)];
+  assertEq('every result kind has a session results row', kinds.filter((kind) => !leaves.includes(kind)).join(), '');
+  assertEq('no session results row repeats a kind', new Set(leaves).size, leaves.length);
   assertEq('every likely-misclick reason has summary wording',
     Object.keys(LIKELY_MISCLICK_REASON_LABELS).join(), 'wrong-flag,wrong-button');
 }

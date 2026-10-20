@@ -41,8 +41,7 @@ for (const size of plain(run('CELL_SIZE_CHOICES'))) {
 assert(saved.get('settings').cellSize > 32);
 
 context.stored = {
-  cellSize: 100000, playMode: 'missing', metricsPanelWidth: NaN,
-  sessionLookbackSeconds: -1, sessionLookbackGames: 2, sessionDefinition: 'never',
+  cellSize: 100000, playMode: 'missing', sessionDefinition: 'never', gameDataSwitchCost: 'yes',
   gameDataSessionMetrics: { unknown: true }, gameDataShowValues: 'yes', boardGenerator: 'missing',
   boardGeneratorParams: { unknown: { scale: 4 } },
   boardOffsetX: Infinity, boardOffsetY: -1001, numberDisplay: 'emoji',
@@ -188,13 +187,13 @@ const choices = {
   customBoardDraft: { width: '25', height: '12', mines: '45' },
   playerStates: [{ name: 'new mouse', active: true }, { name: 'sleepy', active: false }],
   pathView: 'click-speed', replayOverlays: { moves: false, mines: false, probs: true, pointless: true, purposeful: true, movement: true },
-  metricsPanelCollapsed: true, trialSpeedBucketMs: 375, resultView: 'scores',
+  gameDataSwitchCost: true, trialSpeedBucketMs: 375, resultView: 'scores',
   replayPosition: { endedAt: 12345, step: 7 },
   panels: { boardPosition: true, gameDetails: true, states: true, reviewOptions: true, importHistory: true, dataFormat: true,
-    duringGame: false, gamePerformance: false, boardTraits: false },
+    duringGame: false, gamePerformance: false, boardTraits: false, motionStats: true },
   trialSections: { '123:identity:1': false, '123:action:456': true },
   drafts: { stateName: 'draft', historyImport: '{', preferencesImport: '{' },
-  viewPosition: { pageX: 14, pageY: 400, metricsX: 2, metricsY: 120, focusId: 'custom-width' },
+  viewPosition: { pageX: 14, pageY: 400, focusId: 'custom-width' },
 };
 context.choices = choices;
 run('settings = settingsFrom({}); updateSettings(choices)');

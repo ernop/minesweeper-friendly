@@ -1,8 +1,8 @@
 # Switch cost: independent reference fit
 
-2026-09-28. The stats panel's switch cost
-([docs/product/trace-metrics-panel.md](../../docs/product/trace-metrics-panel.md),
-"Switching") comes from `switch-cost.js`. `reference.py` fits the same model,
+2026-09-28. The switch cost line under game data
+([docs/product/game-data.md](../../docs/product/game-data.md),
+"Switch cost line") comes from `switch-cost.js`. `reference.py` fits the same model,
 the study's pre-registered P1 ([reference/mode-switch-2026-09-28.md](../../reference/mode-switch-2026-09-28.md)),
 with patsy and numpy instead of the game's code, so the two can be compared
 value for value.

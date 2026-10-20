@@ -468,13 +468,13 @@ all implemented the same day:
   From 2026-10-14 it was in the top bar at the page's upper right (creator
   request: "move the session definition to the upper right fully; there's
   no point to having it as the single only thing in the UL!").
-  It reads "session today" and stays whatever the stats panel shows,
-  including when the panel is collapsed or gone. The session stats reflect
-  it, including the switch-cost row's session column (2026-10-08). From
-  2026-09-23 to 2026-10-14 it was the value of the "session" heading at the
-  top of the left stats panel, at the upper left, and kept that panel present
-  with session stats off. The former top-of-board-column chooser and the
-  mirrored selectors in session stats, ranks won, and game data are removed.
+  It reads "session today". The switch cost line's session estimate
+  follows it ([Switch cost line](#switch-cost-line-creator-request-and-approval-2026-09-28-under-game-data-since-2026-10-20)).
+  From 2026-09-23 to 2026-10-14 it was the value of the "session" heading
+  at the top of the left stats panel, removed on 2026-10-20
+  ([Session stats](session-stats.md)). The former top-of-board-column
+  chooser and the mirrored selectors in session stats, ranks won, and game
+  data are removed.
 - **Default "today".** Today means back to the most recent local midnight
   (the user: "meaning back in time to midnight the night before"). It does
   not mean the last 24 hours, which stays a separate choice.
@@ -496,19 +496,10 @@ preferences and Clear-session override are removed.
 Choices: last 10/30 minutes, last 1/2/4/24 hours, today, today since 6am, and
 last 7 calendar days. Calendar boundaries use local time. The shared
 `SessionScope.bounds` and `SessionScope.records` implement inclusive endpoints.
-Live session stats end at now. Completed-game comparisons and historical
-session windows end at that game's completion, excluding future records.
-The ranks-won summary retains its selected report/reference date.
-
-This controls the *membership window*. The left panel may still compress
-breaks out of its x axis and divide by actual played time. Its running
-lookback/raw grouping length, time/game rate basis, and exact-mode/all-modes
-choice remain aggregation controls, not competing definitions of session.
-Per-time series clip play spans and live events at the shared wall boundary;
-backfilled counts are prorated over the original whole-game duration.
-Per-game summaries use completed games in the window. Endpoints at the cutoff
-remain eligible. Stored and live events cannot leak older activity into a
-lookback. Retention covers the largest selectable wall window in every mode.
+Completed-game comparisons and historical session windows end at that
+game's completion, excluding future records; the switch cost line's session
+estimate ends at now. The ranks-won summary retains its selected
+report/reference date. Endpoints at the cutoff remain eligible.
 
 ## Ranking and direction
 
@@ -564,10 +555,11 @@ Binary clue-presence and capped max-number table families do not duplicate
 the max number row. Identical time-table memberships do not collapse distinct scalar
 traits on this chart. Matching-board solve-time tables remain a separate analysis.
 
-Left-side performance directions are unchanged: lower time, misclick rate,
-fastclick gap, no-op rate, path, cadence spread, and unused flag share;
-higher 3BV/s, click rate, the efficiency family, board-changing click share, IOS, STNB,
-mouse speed, and unflagged mine share.
+Left-side performance directions: lower time, misclick rate, fastclick
+gap, no-op rate, path, cadence spread, unused flag share, and the nine
+measurements added 2026-10-20 (Catalog and configuration, below); higher
+3BV/s, click rate, the efficiency family, board-changing click share, IOS,
+STNB, mouse speed, and unflagged mine share.
 
 ## Catalog and configuration
 
@@ -616,7 +608,8 @@ leftside"): time, misclick rate, fastclick gap, 3BV/s, click rate, no-op
 rate, board-changing click share, mouse speed, and unused flag share; since 2026-10-07
 each also compares with the session. Optional:
 efficiency, path / 3BV, IOE, ZiNi efficiency, HZiNi efficiency, IOS, STNB,
-path / click, and cadence spread. Before this, both scopes defaulted to time, misclick rate,
+path / click, cadence spread, and (since 2026-10-20) the nine measurements
+below. Before this, both scopes defaulted to time, misclick rate,
 fastclick gap, 3BV/s, click rate, efficiency, no-op rate, and path / 3BV.
 Preferences are saved in full, so a profile that has saved any preference
 keeps its selections; the defaults reach new profiles.
@@ -640,30 +633,63 @@ before the counters are unmeasured. Its histogram bins one bar per possible
 count of unflagged mines (step 1 ÷ the mine count). It also has a your-perf
 property chart and a row in the label/value table, and it is the per-game
 form of the session endings chart's "percent of mines unflagged when
-winning" line ([Game-end evaluation](game-end-evaluation.md)), which derives
+winning" line (removed with the left panel on 2026-10-20), which derived
 each win's share with the same definition. "Never needed" is read as "not
 flagged at the win": a flag that no chord used still counts as flagged here,
 and unused flag share measures those flags.
 
+Added 2026-10-20, when the left stats panel was removed
+([Session stats](session-stats.md)): the creator asked that its per-game
+charts, and then everything in it ("same for all, actually"), be optional
+rows the player can add or remove in the right-side sections. Nine
+measurements joined the catalog, all off by default and all ranking lower
+as better:
+
+| Measurement | What it counts | Games |
+| --- | --- | --- |
+| flag rate | flags placed per second of play; removals do not subtract, and the automatic flags at a win do not count | wins and losses |
+| flag-removal rate | flags taken back, per minute | wins and losses |
+| unused flag rate | correct flags no chord used, per minute | wins |
+| game risk rate | the report's game risk actions, per minute | wins and losses |
+| early guess rate | the report's early guesses, per minute | wins and losses |
+| time loss rate | the report's time loss actions, per minute | wins and losses |
+| life maximization rate | the report's life maximization moves, per minute | wins and losses |
+| excess game risk | the game risk actions' extra chance of losing over the safest available move, summed, in percentage points per minute | wins and losses |
+| modeled life gap | the expected remaining life the one-move survival model saw given up in life maximization moves, summed, per minute | wins and losses |
+
+The categories are the report's exclusive ones ([Game-end
+evaluation](game-end-evaluation.md)), counted whatever the after-game
+report's scope shows. A game with any measurement note among its actions (an
+older evaluator version, a legacy verdict, a game saved before the ledger)
+is unmeasured for the last six rows, never counted as zero. The directions
+are declared preferences: a lower flag rate follows unflagged mine share's
+preference for flagging fewer mines, a removed flag was wrong or not needed,
+and each category is a kind of mistake. Not carried over, by decision: game
+loss and deaths with mistakes per minute and "died: likely misclick" (a game
+has at most one death, so per game these are yes-or-no facts, which the
+session results and the after-game report show), and measurement notes per
+minute (old evidence, not performance).
+
 Completion-dependent metrics (time, 3BV/s, efficiency variants, IOS/STNB,
-path / 3BV, unused flag share, unflagged mine share) compare wins. Observable action/error/timing
-metrics (misclicks, no-ops, click rate, fastclick gap, board-changing click share, mouse
-speed, path / click, cadence spread) compare measured wins and losses.
+path / 3BV, unused flag share, unflagged mine share, unused flag rate)
+compare wins. Observable action/error/timing metrics (misclicks, no-ops,
+click rate, fastclick gap, board-changing click share, mouse speed, path /
+click, cadence spread, and the other eight added 2026-10-20) compare
+measured wins and losses.
 Their directional wording describes that metric, not overall player skill.
 Faster click/mouse activity is not inherently more efficient; less cadence
 spread means more regular timing; unused flags measure observed chord use,
 not mental use. Literal double-click speed is not measured by fastclick gap.
 
 Throughput duplicates efficiency, so it is not a second rank. Raw counts,
-marking/chording style, context tags, and music have no unambiguous preferred
-rank direction; they are not forced onto this good/bad axis. Report-only
-risk/proof-model magnitudes remain in their explanatory analysis surfaces.
+chording style, context tags, and music have no unambiguous preferred rank
+direction; they are not forced onto this good/bad axis. Flag rate ranks only
+by the declared preference above and only when the player adds it.
 
 ## Historical tracking
 
 `game-data.js` owns the shared metric formulas, metric registry, session
-boundaries, ranking, zoom, and paginated historical-window summaries. The
-normal stats panel reuses these formulas. Saved primary game records remain
+boundaries, ranking, zoom, and paginated historical-window summaries. Saved primary game records remain
 the source of truth; no percentile, session ID, or redundant aggregate is
 stored. Old records participate wherever the required facts were measured.
 
@@ -682,15 +708,120 @@ and completion date.
 
 No longer displayed by this replacement (still in saved records or derivable):
 - Click count, flags placed, clicks over 3BV, and total path.
-- Chord share and flag rate (activity/style, no preferred ranking direction).
+- Chord share (activity/style, no preferred ranking direction). Flag rate,
+  dropped here for the same reason, returned on 2026-10-20 as an optional
+  row with a declared direction (Catalog and configuration).
 - Unused-flags absolute count and placed-flag denominator; unused flag share
   keeps the percentage, not those two counts.
 - State tags and music-playing status.
 - Separate throughput value: the same fact is represented by efficiency.
 - When full report scope previously exposed them: raw no-op/misclick counts,
   flag removals/rate, Justice count, guess/life-ledger facts, and report-category
-  counts/magnitudes. Their report/trace/session sources are not erased.
+  counts/magnitudes. Their report/trace/session sources are not erased. The
+  flag-removal rate and the report categories' rates and magnitudes returned
+  on 2026-10-20 as optional rows.
 
 Still available in configuration but off initially: efficiency, path / 3BV,
-IOE, ZiNi and HZiNi efficiency, IOS, STNB, path / click, and cadence spread. This inventory is for the user's next placement
+IOE, ZiNi and HZiNi efficiency, IOS, STNB, path / click, cadence spread, and
+the nine measurements added 2026-10-20. This inventory is for the user's next placement
 choices; it is not approval to add unrelated ranking directions.
+
+## Switch cost line (creator request and approval 2026-09-28; under game data since 2026-10-20)
+
+Creator request (verbatim): "what about a new type of user perf stat for
+"frequency of switching button presses"? i.e. from going between "marking"
+mode and "chording" or "clicking"? that swap reaquires some mental work
+compared to continuing doing the current action (e.g. mark mark vs mark
+chord) etc. maybe explore this statistically and see if you notice
+patterns?" The study ([reference/mode-switch-2026-09-28.md](../../reference/mode-switch-2026-09-28.md))
+proposed one stat; the creator approved it the same day: "yes let's at lesat
+create the perf stat(s) for this and apply, release them,".
+
+Session row (creator request, 2026-10-08, verbatim): "this entire sections
+seems weird. the switching stuff should really be made into a normal perf
+stat right? once that's done we can think about where this session definition
+chooser really belings, right?" Asked "Should I build the session row as
+described? I recommend yes.", the creator answered "YES". The four-row
+switching section became one row of the session stats.
+
+Under game data (2026-10-20): when the left stats panel was removed, the
+creator asked that everything in it be an option in the right-side sections
+("same for all, actually"). The recommendation, one optional line under
+game data's chart opening the same card, was followed.
+
+- **Where.** One line directly under game data's chart, shown when
+  configure's "switch cost, over the session and the latest 500 standard
+  games" is checked (`gameDataSwitchCost`, off by default). It shows with
+  game data, which appears after wins. Nothing is read while it is switched
+  off. It is never shown per game: one game has too few presses to measure
+  the cost (split-half reliability of a per-game estimate about 0.05 in the
+  study), so every value pools many games.
+- **The line.** "switch cost", then each pool's name and estimate: how much
+  longer the next press takes after changing buttons, as a signed percent
+  such as "+7.4%":
+  - **session**: the standard games that ended in the page-wide session
+    window ([One session definition](#one-session-definition)), however
+    many.
+  - **latest 500**: the latest 500 standard games, whenever played.
+
+  A pool with fewer than 30 games, or whose moves cannot separate switching
+  from the model's other terms, shows the en dash. The estimates are bold
+  and larger than the names, in fixed-width digits; a reply never resizes
+  the line.
+- **Why "latest 500", not "lifetime".** The long-run pool holds at most the
+  latest 500 games, the window approved on 2026-09-28, so "lifetime" would be
+  false for any player with more games than that. A true lifetime pool was
+  not chosen: every page load would replay every saved trace, a cost that
+  grows without limit, and years of old play would outweigh how the hand
+  works now.
+- **The card.** The label opens it on hover, focus, or click. Per pool:
+  95% interval ("+6.4 to +8.4%"); per switch, the same extra time in
+  milliseconds at the median press-to-press time of the pooled switches
+  ("+18ms"); moves that switch, the share of consecutive moves that change
+  buttons ("54%"); and games, the count pooled. Then what the estimate is,
+  and which games count, with the 30-game minimum. A pool whose data cannot
+  measure it gets one sentence saying so. A reply closes an open card, which
+  would otherwise still show the previous values.
+- **Games pooled.** Standard games on the three standard boards (Beginner,
+  Intermediate, and Expert with Standard play and the default generator)
+  that have a saved trace and at least one timed transition. Other play
+  modes, custom boards, and other generators stay out: the study measured
+  standard play only.
+- **Estimate** (the study's pre-registered model P1). A transition is two
+  consecutive board inputs that are both moves (reveal, chord, flag) with no
+  other input between them, the first not the game-starting reveal, timed
+  press to press (a left move by its left press, a flag by its right press)
+  and kept when 40 ms to 5 s apart. Least squares on the log interval with
+  one intercept per game; terms for the previous and the next move type,
+  the button switch, the same-button change between reveal and chord,
+  natural cubic splines of travel distance (Fitts index), of the cells the
+  previous move opened, and of board progress; whether the previous move
+  opened an empty region; whether single-number logic offered the next
+  target; and how many chordable numbers, proven-safe cells, and proven
+  mines the visible board showed. The interval is cluster-robust by game.
+  Spline knots follow patsy's rule (extremes plus equally spaced
+  percentiles of the distinct values) with values within 1e-9 counted as
+  one, so the value does not depend on how an engine rounds the last bit
+  of a distance (the exact rule moved knots between numpy and JavaScript).
+- **Updates.** Computed from the saved traces when the line is switched on
+  (at page load when it is on), so the existing history counts at once
+  without new play; again after each standard game's trace is saved; when
+  another session is picked; and, whenever the line is built, if the
+  window's start has passed one of the pooled games since the last
+  estimate. The line has no timer of its own. Nothing new is stored.
+- **Not shown, by decision:** a per-game switch cost or switch index (noise
+  at one game), the raw switch rate as a performance measure (it mostly
+  restates how often the player flags, and the rate relative to chance did
+  not track speed), and breakdowns by direction or distance (in the study,
+  not on the page; see [BACKLOG.md](../../BACKLOG.md)).
+- **Reading.** The pooled value is a summary, not the cost of every switch:
+  in the study the cost sat in moves of one or two cells, vanished at three
+  or more, and was about 13 ms for flag and chord pairs, larger where a
+  reveal was involved.
+- **Superseded forms.** From 2026-09-28 to 2026-10-08, a "switching"
+  section of four rows between the session charts and the live rows of the
+  left panel, over the latest 500 games only: "switch cost +7.4% (+6.4 to
+  +8.4)", "per switch +18ms", "moves that switch 54%", "games 500". From
+  2026-10-08 to 2026-10-20, one row of the session stats directly under the
+  session heading, in a two-column table under a line naming the columns,
+  shown with the session stats and hidden with the collapsed panel.

@@ -57,6 +57,13 @@ let mousePathPx = 0;
 let lastMouseX = null;
 let lastMouseY = null;
 
+// Press timing for the record's fastclick gap (game/controls.js,
+// recordUsefulPress): the latest cursor move and board-changing press, wall
+// clock ms, and this game's qualifying gaps. Gaps never span games.
+let lastCursorMoveAt = 0;
+let lastUsefulPressAt = null;
+let fastclickGaps = [];
+
 //-------DOM-------
 
 const boardElement = document.getElementById('board');

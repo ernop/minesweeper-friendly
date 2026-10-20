@@ -34,22 +34,6 @@ const PLAY_MODES = [
 ];
 const PLAY_MODE_IDS = new Set(PLAY_MODES.map((m) => m.id));
 
-// Selectable running-average lengths (seconds of accumulated play); see
-// the session stats section. "5m" means five minutes of played time,
-// never wall time. The selector lives on the session section itself, not
-// on the settings page, so experimenting with it is one click.
-const SESSION_LOOKBACK_CHOICES = [30, 60, 120, 300, 900];
-// Per-game aggregation uses completed games as both denominator and
-// lookback unit. Five games is the direct counterpart to the default
-// five-minute played-time lookback.
-const SESSION_GAME_LOOKBACK_CHOICES = [1, 3, 5, 10, 20, 50];
-
-// Drag bounds for the left stats panel: narrow enough to get out of the
-// way, wide enough for a chart to be genuinely readable, never so wide
-// it could swallow the board on a laptop screen.
-const METRICS_PANEL_WIDTH_MIN = 220;
-const METRICS_PANEL_WIDTH_MAX = 640;
-
 const AVERAGE_CHART_MODES = [
   ['average', 'average'],
   ['distribution', 'distribution'],
@@ -125,8 +109,7 @@ const RESULT_SECTION_GROUPS = [
     'shownThings.exactMaxNumber', 'shownThings.exactHZiNi', 'shownThings.workSpreadTable',
     'shownThings.zeroOneShareTable', 'shownThings.zeroOpeningTable', 'shownThings.boardShapeTables',
     'shownThings.largestIsland']],
-  ['Charts', ['shownThings.averageCharts', 'shownThings.relationshipCharts',
-    'showMotionStatsAfterGame']],
+  ['Charts', ['shownThings.averageCharts', 'shownThings.relationshipCharts']],
 ];
 
 function resultSectionSwitch(path) {
@@ -230,7 +213,6 @@ function validShownThings(value) {
 // carry a group only for coherence (they never render).
 const SETTINGS_GROUPS = [
   ['gameplay', 'gameplay'],
-  ['left-panel', 'left panel'],
   ['after-game', 'after a game'],
 ];
 
@@ -271,7 +253,7 @@ const REPLAY_OVERLAY_DEFAULTS = {
 const PANEL_OPEN_DEFAULTS = {
   boardPosition: false, gameDetails: false, states: false,
   reviewOptions: false, importHistory: false, dataFormat: false,
-  duringGame: true, gamePerformance: true, boardTraits: true,
+  duringGame: true, gamePerformance: true, boardTraits: true, motionStats: false,
 };
 // The Replay game disclosure was removed on 2026-10-20 (the transport now
 // sits under the board); panel states saved before then still name it, and
@@ -359,15 +341,6 @@ const SETTINGS_SCHEMA = [
     control: 'none',
   },
   {
-    field: 'metricsPanelCollapsed',
-    default: false,
-    valid: (v) => typeof v === 'boolean',
-    group: 'left-panel',
-    label: 'collapse stats panel',
-    describe: 'whether the stats panel is tucked away',
-    control: 'none',
-  },
-  {
     field: 'trialSpeedBucketMs',
     default: 200,
     valid: (v) => Number.isInteger(v) && v >= 0 && v <= 800 && v % 25 === 0,
@@ -425,11 +398,11 @@ const SETTINGS_SCHEMA = [
   },
   {
     field: 'viewPosition',
-    default: { pageX: 0, pageY: 0, metricsX: 0, metricsY: 0, focusId: null },
-    valid: (v) => preferenceObject(v) && ['pageX', 'pageY', 'metricsX', 'metricsY'].every((key) => preferenceNumber(v[key]) && v[key] >= 0) && (v.focusId === null || typeof v.focusId === 'string'),
+    default: { pageX: 0, pageY: 0, focusId: null },
+    valid: (v) => preferenceObject(v) && ['pageX', 'pageY'].every((key) => preferenceNumber(v[key]) && v[key] >= 0) && (v.focusId === null || typeof v.focusId === 'string'),
     group: 'gameplay',
     label: 'view position',
-    describe: 'page and stats-panel scroll offsets plus the focused control',
+    describe: 'page scroll offsets plus the focused control',
     control: 'none',
   },
   {
@@ -462,23 +435,6 @@ const SETTINGS_SCHEMA = [
     control: 'result-section',
   },
   {
-    field: 'showMotionStatsDuringGame',
-    default: false,
-    valid: (v) => typeof v === 'boolean',
-    group: 'left-panel',
-    label: 'show motion stats during game',
-    describe: 'the live motion panel on the left edge: mouse-dynamics values and their sparklines, recomputed once a second while you play (the panel\u2019s own \u00d7 tucks it away for the session; this switch turns it off for good)',
-  },
-  {
-    field: 'showMotionStatsAfterGame',
-    default: false,
-    valid: (v) => typeof v === 'boolean',
-    group: 'after-game',
-    label: 'motion charts',
-    describe: 'when a game finishes, the canonical motion values, each with its over-the-game chart, inline at the bottom after the other charts',
-    control: 'result-section',
-  },
-  {
     field: 'reportScope',
     default: 'none',
     valid: validReportScope,
@@ -488,59 +444,6 @@ const SETTINGS_SCHEMA = [
     describe: 'how much action analysis appears after games; nothing is the new-player default',
     control: 'choice',
     choices: REPORT_SCOPE_CHOICES,
-  },
-  {
-    field: 'showSessionStats',
-    default: false,
-    valid: (v) => typeof v === 'boolean',
-    group: 'left-panel',
-    label: 'show session stats',
-    describe: 'the recent-observations section at the top of the in-page left panel: the switch cost of the session\'s and the latest 500 standard games, mouse speed while playing, the click, deaths-with-mistakes, misclick, no-op, flag, and flag-removal rates, the unused flag rate of wins and the percent of placed flags unused when winning, exclusive report-category frequencies and measured magnitudes, the fastclick gap, and the game-endings percent lines; grouping uses played time for per-time rates or completed-game counts for per-game rates, while the horizontal window remains played time; changes are not assigned a cause',
-  },
-  {
-    field: 'sessionLookbackSeconds',
-    default: 300,
-    valid: (v) => SESSION_LOOKBACK_CHOICES.includes(v),
-    group: 'left-panel',
-    label: 'session grouping length',
-    describe: 'seconds of accumulated play in each running-average lookback or raw bucket; chosen with the selector on the session section itself',
-    control: 'none',
-  },
-  {
-    field: 'sessionLookbackGames',
-    default: 5,
-    valid: (v) => SESSION_GAME_LOOKBACK_CHOICES.includes(v),
-    group: 'left-panel',
-    label: 'session game grouping length',
-    describe: 'completed games in each per-game running lookback or raw group; chosen with the selector on the session section itself',
-    control: 'none',
-  },
-  {
-    field: 'sessionAggregation',
-    default: 'average',
-    valid: (v) => v === 'average' || v === 'raw',
-    group: 'left-panel',
-    label: 'session grouping',
-    describe: 'running average or independent raw groups, measured in played time or completed games according to the selected rate basis; chosen on the session section',
-    control: 'none',
-  },
-  {
-    field: 'sessionRateBasis',
-    default: 'time',
-    valid: (v) => v === 'time' || v === 'game',
-    group: 'left-panel',
-    label: 'session rate basis',
-    describe: 'action and report-category values per played minute/second or per finished game; chosen on the session section',
-    control: 'none',
-  },
-  {
-    field: 'sessionModeScope',
-    default: 'current',
-    valid: (v) => v === 'current' || v === 'all',
-    group: 'left-panel',
-    label: 'session mode scope',
-    describe: 'the exact current board/play-mode/generator history by default, or all modes together; chosen on the session section',
-    control: 'none',
   },
   {
     field: 'perfChartMode',
@@ -564,7 +467,7 @@ const SETTINGS_SCHEMA = [
     field: 'sessionDefinition', default: SessionScope.defaultId,
     valid: (v) => SessionScope.choices.some((choice) => choice.id === v),
     group: 'after-game', label: 'page-wide session',
-    describe: 'the one wall-clock session window for session stats, the session summary, ranks won in session, and game data session comparisons; chosen only with the session picker in the settings row at the foot of the game page; default today (since local midnight, not the last 24 hours)',
+    describe: 'the one wall-clock session window for the session summary, ranks won in session, game data session comparisons, and the switch cost line; chosen only with the session picker in the settings row at the foot of the game page; default today (since local midnight, not the last 24 hours)',
     control: 'none',
   },
   {
@@ -583,6 +486,11 @@ const SETTINGS_SCHEMA = [
     valid: preferenceBooleans(GAME_DATA_BOARD_TRAIT_DEFAULTS), migrate: gameDataBoardTraitsFromStored,
     group: 'after-game', label: 'game data board traits',
     describe: 'which of this board’s traits game data ranks against your lifetime and your session boards; chosen with configure on the chart, apart from the This board tables', control: 'none',
+  },
+  {
+    field: 'gameDataSwitchCost', default: false,
+    valid: (v) => typeof v === 'boolean', group: 'after-game', label: 'switch cost line',
+    describe: 'your switch cost, the extra time before a press after changing buttons, over the session’s and the latest 500 standard games, shown under game data’s chart; chosen with configure on the chart', control: 'none',
   },
   {
     field: 'duringGameRows', default: DuringGame.defaults, mergeDefaults: true,
@@ -608,15 +516,6 @@ const SETTINGS_SCHEMA = [
     field: 'gameDataDistributionPools', default: 'both',
     valid: (v) => v === 'lifetime' || v === 'session' || v === 'both', group: 'after-game',
     label: 'game data distribution pools', describe: 'whether game data’s distributions show the lifetime groups, the session groups, or both, for your perf and board traits alike; chosen with the pools switch on the chart', control: 'none',
-  },
-  {
-    field: 'metricsPanelWidth',
-    default: 316,
-    valid: (v) => typeof v === 'number' && Number.isFinite(v) && v >= METRICS_PANEL_WIDTH_MIN && v <= METRICS_PANEL_WIDTH_MAX,
-    group: 'left-panel',
-    label: 'stats panel width',
-    describe: 'px width of the left stats panel; set by dragging the panel\u2019s right edge, not from here',
-    control: 'none',
   },
   {
     field: 'detailsColumnShare',

@@ -2,9 +2,9 @@
 
 // Switch cost: how much longer the next press takes after changing mouse
 // buttons (flag versus click or chord) than after repeating the same move.
-// Spec: docs/product/trace-metrics-panel.md ("Switching"); study and
-// estimator choice: reference/mode-switch-2026-09-28.md. Pure: the session
-// stats' switch-cost row runs it in switch-cost-worker.js over the saved
+// Spec: docs/product/game-data.md ("Switch cost line"); study and
+// estimator choice: reference/mode-switch-2026-09-28.md. Pure: game data's
+// switch cost line runs it in switch-cost-worker.js over the saved
 // traces of the session's and the latest standard games, and Node tests load
 // it directly.
 //

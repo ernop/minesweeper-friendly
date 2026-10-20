@@ -110,8 +110,8 @@ Spec: [docs/product/storage-and-history.md](../product/storage-and-history.md). 
   `traceMove` recorder merges events whose precision-reduced
   performance.now() equals the previous sample's (latest position wins),
   so sampleT is strictly increasing by construction. This is what keeps
-  every dt > 0 (no Infinity speeds/jerk in the metrics panel — the
-  2026-08-20 bug) and satisfies the offline extractor's validation.
+  every dt > 0 (no Infinity speeds/jerk in the motion stats — the
+  2026-08-20 bug, then in the left stats panel) and satisfies the offline extractor's validation.
   Simulated-input tests must dispatch mousemoves with real delays
   (~12ms sleeps) or they exercise exactly this coalescing path.
 - Capture v1 ([contract](../product/storage-and-history.md#capture-provenance-v1-2026-09-26)):

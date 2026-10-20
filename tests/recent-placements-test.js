@@ -224,7 +224,7 @@ assertEq('middle placement wording is shared by the recent summary',
   assertEq('the lifetime pool ends with the window', expert.best.rank + '/' + expert.best.total, '2/2');
   assertEq('a history without the flag count is not a no-mark row', expert.noMark, false);
   assertEq('the latest session game names the type', pink.latest.endedAt, 58);
-  assertEq('a loss without saved evidence is unjudged, as the endings chart files it; '
+  assertEq('a loss without saved evidence is unjudged, as the after-game report files it; '
     + 'a win without a guess ledger is unmeasured',
     JSON.stringify(beginner.results), '{"win-unmeasured":2,"other":1}');
   assertEq('no misclicks without evidence', JSON.stringify(beginner.likelyMisclicks), '{}');
@@ -268,8 +268,8 @@ assertEq('middle placement wording is shared by the recent summary',
   assertEq('a family sums every kind beneath it',
     lines.find((line) => line.label === 'opened a proven mine').kinds.join(),
     'mine-counting,mine-overlap,mine-whole-board,mine-safe,mine-forced');
-  assertEq('a leaf names its endings-chart line', lines.find((line) => line.label === 'without guessing').chart, 'win');
-  assertEq('a branch has no chart line', 'chart' in lines.find((line) => line.label === 'won'), false);
+  assertEq('a kind is a leaf', lines.find((line) => line.label === 'without guessing').leaf, true);
+  assertEq('a family is not a leaf', lines.find((line) => line.label === 'won').leaf, false);
   assertEq('a session without losses still shows the lost row',
     sessionResultLines([{ results: { 'win-guess-early': 1 } }]).map((line) => line.label).join(' | '),
     'won | riskier guess than necessary | in the opening | lost');

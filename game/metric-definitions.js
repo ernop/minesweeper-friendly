@@ -3,7 +3,7 @@
 // The displayed metrics, grouped by measurement system. Each group and each
 // display has help: one or two plain sentences shown behind its label (what
 // the number is, then only the defining detail or a caveat that prevents a
-// likely misreading; docs/product/trace-metrics-panel.md). Each display also
+// likely misreading; docs/product/motion-stats.md). Each display also
 // has of, the numeric extractor over the combined metrics object of
 // computeAllTraceMetrics (undefined or NaN = not measurable on this trace,
 // rendered as an en dash and a gap in the sparkline), and fmt, the formatter

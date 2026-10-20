@@ -306,14 +306,10 @@ function newGame() {
   }
   syncTrialBoardVisibility(trialPhase());
   // A restart mid-game abandons the board (no record, no trace), but the
-  // time played and the motion were real: close the session play interval
-  // so the session stats keep them. Useful-press gaps never span games.
-  sessionPlayEnd();
+  // time played was real: close the play span so today's use keeps it.
   playSpanEnd();
-  sessionLastUsefulPressAt = null;
-  gameLastUsefulPressAt = null;
-  gameFastclickGaps = [];
-  gameSessionEndEvent = null;
+  lastUsefulPressAt = null;
+  fastclickGaps = [];
   actionEvaluations = [];
   justiceDetails = [];
   gameState = 'ready';
@@ -376,6 +372,7 @@ function newGame() {
   setFace('smile');
   renderedResult = null;
   finalMotion = null;
+  renderMotionStats();
   duringGameSourceId = null;
   // The board rebuild above removed the path overlay's canvas node; the
   // controls hide with the finished game they belonged to.
@@ -420,9 +417,7 @@ function newGame() {
 
 function startTimer() {
   // Every transition into 'playing' passes through here, so this is the
-  // one place the session stats and the daily play limits learn a game is
-  // actually in progress.
-  sessionPlayBegin();
+  // one place the daily play limits learn a game is actually in progress.
   playSpanBegin();
   startTime = performance.now();
   let shownSeconds = -1;
@@ -582,10 +577,7 @@ function finishOpenFlagEpisodes(won) {
       evaluation.mistakes.push('unused-correct-flag');
       evaluation.evidence.unusedFlagEndedBy = episode.endedBy;
     }
-    if (!actionEvaluations.includes(evaluation)) {
-      actionEvaluations.push(evaluation);
-      sessionRecordEvaluation(evaluation);
-    }
+    if (!actionEvaluations.includes(evaluation)) actionEvaluations.push(evaluation);
   }
 }
 
@@ -745,8 +737,7 @@ function checkWin() {
   gameState = 'won';
   // The won board keeps only the player's own flags: unflagged mines stay
   // covered and the mine counter keeps showing mines minus flags.
-  sessionRecordEnd('win', unflaggedMineShareOf({ outcome: 'win', playMode: settings.playMode,
-    flagsPlaced, flagsRemoved }, config.mines));
+  finishOpenFlagEpisodes(true);
   finish();
   setFace('cool');
   reportResultAfterPaint('win');
@@ -755,8 +746,7 @@ function checkWin() {
 function lose(hitIndices, evaluation) {
   annotateLikelyMisclickDeath(evaluation);
   recordActionEvaluation(evaluation, 'death');
-  sessionRecordDeath(evaluationHasMistake(evaluation));
-  sessionRecordEnd(sessionEndingKind(evaluation));
+  finishOpenFlagEpisodes(false);
   gameState = 'lost';
   finish();
   const mine = mineSvg(settings.mineStyle);
@@ -781,7 +771,6 @@ function lose(hitIndices, evaluation) {
 }
 
 function finish() {
-  sessionPlayEnd();
   playSpanEnd();
   finalTimeMs = elapsedMs();
   clearInterval(timerInterval);

@@ -1,7 +1,7 @@
 # Switching between marking and clicking: study (2026-09-28)
 
-The study behind the stats panel's switch cost
-([Switching](../docs/product/trace-metrics-panel.md#switching-creator-request-and-approval-2026-09-28)).
+The study behind the switch cost line under game data
+([Switch cost line](../docs/product/game-data.md#switch-cost-line-creator-request-and-approval-2026-09-28-under-game-data-since-2026-10-20)).
 Creator question: does switching between marking (flag, right button) and
 clicking or chording (left button) cost time, and is its frequency a useful
 performance stat?

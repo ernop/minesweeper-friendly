@@ -28,8 +28,8 @@ check('first paint reserves space without constructing dummy cells',
     && /\.game-booting #board:empty\s*\{[^}]*height:/.test(css));
 check('first paint has a default grid width',
   css.includes('--board-width: 9;'));
-check('main keeps its grid column while the sidebar is hidden',
-  /main \{\s*grid-column: 2;/.test(css));
+check('main keeps its grid column while the game data column is hidden',
+  /main \{\s*grid-column: 1;/.test(css));
 check('loading board stays concealed without collapsing its layout',
   /\.game-booting #game-frame\s*\{\s*visibility: hidden;\s*\}/.test(css));
 check('restart rejects input before startup completes',
