@@ -393,8 +393,8 @@ Still open:
   with the rest in a tooltip (hides ranks the 2026-09-21 decision chose to
   show).
 - **"Mark" wording in the game-end evaluation and replay** (found while
-  building). Game data, the stats table, and the session charts now say
-  "flag"; the evaluation's "Mark use" and "unused correct mark" and the
+  building). Game data and the stats table now say "flag" (the session
+  charts did too, until their removal on 2026-10-20); the evaluation's "Mark use" and "unused correct mark" and the
   replay legend still say "mark".
 
 ## Loss-type follow-ons (found while building loss types, 2026-10-11)
@@ -414,7 +414,7 @@ Open:
   evaluations saved before that date.
 - **Proof tiers for survived guesses past a safe move.** Only losses carry
   the tier. A survived reveal past a proven-safe square (game risk) does
-  not, so the report and session series cannot yet tell a missed counting
+  not, so the report and the session results cannot yet tell a missed counting
   move from a missed whole-board deduction when the guess happened to
   survive. The session results tree shows the gap: a win's guess past a safe
   square and a loss's "survived it, died later" have no proof split. The
@@ -628,13 +628,15 @@ game instead of rewriting the whole history twice per game. Not built:
      forced layout in `newGame`'s `syncGameSidebar`.
    - Some expert clicks take 57-92ms in the misclick check, where the exact
      proof exhausts its work budget (item 1).
-4. **Waste the latency check measures (2026-09-26).** Our own handlers, in
-   Firefox, with no report shown: a new intermediate game takes 26-28ms of
-   work (8ms in Chromium) to build 256 cells, and switching to expert takes
-   20-21ms. The largest freeze in the two seconds after a game ends is
-   82-91ms (the report tasks in item 3). The creator's rule is that time with
-   no logical reason to exist is waste; cutting these lowers the limits in
-   `tests/latency-budgets.json`.
+4. **Waste the latency check measures (2026-09-26; remeasured 2026-10-20).**
+   Our own handlers, in Firefox, with no report shown: a new intermediate
+   game takes 23-24ms of work to build 256 cells (26-28ms on 2026-09-26,
+   8ms in Chromium then). Switching to expert took 20-21ms and was down to
+   7-9ms by 2026-10-19. The largest freeze in the two seconds after a game
+   ends is 68-77ms since the left stats panel's removal (82-91ms on
+   2026-09-26; the report tasks in item 3). The creator's rule is that time
+   with no logical reason to exist is waste; cutting these lowers the limits
+   in `tests/latency-budgets.json` (last tightened 2026-10-20).
    Occasional spike (2026-09-26): one latency run in nine on the same code
    measured switching to expert at 45ms of work (usual 15-23ms; master
    showed 17-21ms over the same alternating runs). Not yet attributed; a
@@ -917,7 +919,9 @@ Generation that aims at the same families the new lists rank:
   within the same lists. Not open for revisiting without a new explicit
   request.
 - **Per-stage motion-stat configurability.** Which metrics appear live
-  vs after the game. Two on/off settings exist; finer control does not.
+  vs after the game. Since 2026-10-20 one open/close section at the page
+  foot holds both (it replaced the two on/off settings); finer control does
+  not exist.
 - **Hevelius features computed but not shown.** Offsets, variability,
   direction changes, normalized jerk with pauses, submovement fractions.
   Same per-stage display question.
