@@ -21,15 +21,21 @@ Spec: [docs/product/board-generators.md](../product/board-generators.md). Index:
   5×7 `LETTERFORMS` font as exp-weights. Game
   side: `settings.boardGenerator` + `settings.boardGeneratorParams`
   (per-generator overrides, deep-copied in `settingsFrom`), the
-  `#board-generator-select` menu (`buildBoardGeneratorSwitcher`,
-  disabled via `generatorAppliesToMode` in single-path NG and trials),
+  `#board-generator-select` menu in `#mode-options`
+  (`buildBoardGeneratorSwitcher`; `syncGameChoice` hides its label
+  `#board-generator` when `generatorAppliesToMode` is false, in
+  single-path NG and trials, and the whole row is hidden for presets),
+  `activeGenerator` (the uniform generator for a preset difficulty or a
+  mode it does not apply to, else the stored choice with its parameters),
   `gameGenerator` frozen per board in `newGame`, `topScoreKeyOf` /
   `BoardGenerators.keySuffix` for the history key, and the record's
   `generator` field (absent = default). Board lab (`playMode
   'board-lab'`, `gameState 'lab'`): `buildLabBoard` deals a solved-view
   board with no records, traces, or timer; `buildLabPanel` /
-  `syncLabChrome` render the size + parameter sliders (`#board-lab-panel`;
-  rebuild only on generator change so a drag never loses its slider).
+  `syncLabChrome` render the note, the parameter sliders, and "make new
+  board" (`#board-lab-panel`; rebuild only on generator change so a drag
+  never loses its slider). The lab's size is `#custom-form`, as in every
+  custom mode.
   `node tests/generators-test.js` freezes placement invariants,
   key-suffix canonical form, validation, and the statistical
   signatures (pink clusters, blue spreads).

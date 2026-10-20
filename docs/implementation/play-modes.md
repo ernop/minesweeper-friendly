@@ -2,6 +2,22 @@
 
 Spec: [docs/product/play-modes.md](../product/play-modes.md). Index: [AGENTS.md](../../AGENTS.md).
 
+- Choosing a mode (2026-10-20): `buildPlayModeSwitcher`
+  (`game/play-modes.js`) fills `#play-mode-select` with the hidden "other
+  modes" prompt and every `PLAY_MODES` entry (`standard` reads "Custom");
+  a change calls `chooseGame('custom', mode)` and a preset link calls
+  `chooseGame(difficulty, 'standard')` (GAME CHOICE section of
+  `game/controls.js`, described in
+  [board and layout](board-and-layout.md)). `saveSettings`
+  (`settings-core.js`) throws on a preset difficulty with any mode but
+  `standard`, so that pair is unreachable, and `presetModeAsCustom` turns
+  such a pair from older stored settings or an imported preference file
+  into `custom` with the preset's dimensions as `customBoard` and
+  `customBoardDraft`. History keys derive from the dimensions, so the
+  conversion keeps every key. The removed `setPlayMode` toggled the
+  custom form for Board lab; the lab now uses `#custom-form` like every
+  custom mode, and `#board-lab-panel` holds only the note, the generator's
+  parameter sliders (`labSliderRow`), and "make new board".
 - Play modes ([Play modes](../product/play-modes.md)): `settings.playMode` plus history
   key `WxH/M@id`. `solver.js` grades NG boards (`analyze` /
   `generate`) and decides proof-or-die / angelic clicks. `trial.js`

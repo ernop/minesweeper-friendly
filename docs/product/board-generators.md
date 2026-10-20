@@ -3,11 +3,19 @@
 Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation notes: [docs/implementation/board-generators.md](../implementation/board-generators.md).
 
 The board generator is the algorithm that places the mines — a third
-uniqueifier next to board size and play mode. The upper-right cluster
-has a Generator menu below the Mode menu. The registry lives in
-`generators.js`; the menu is disabled (never silently ignored) in modes
-that place their own boards: Single-path NG carves corridors, trials
-deal fixed identities.
+uniqueifier next to board size and play mode. The registry lives in
+`generators.js`. The Generator menu sits in the mode options row, beside
+the board size, and shows only for a mode chosen from the other modes menu
+that places mines with a generator (creator request 2026-10-20: "when
+needed, generator shall show up next to the dropdown for mode; ofc, modes
+such as the three default (beginner, intermediate, expert) have no need to
+see this"; [Game setup](board-and-layout.md#game-setup-top-bar-settings-row-and-footer)).
+It is absent, never silently ignored, in modes that place their own
+boards: Single-path NG carves corridors, trials deal fixed identities.
+Beginner, Intermediate, and Expert always use the default generator; the
+chosen generator applies to custom games only. Until 2026-10-20 the menu
+sat in the details column below the Mode menu, disabled where it did not
+apply, and applied to the preset boards too.
 
 - **Default.** The uniform Fisher-Yates placement standard play has
   always used (every layout equally likely, first click never a mine).

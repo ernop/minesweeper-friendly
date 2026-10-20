@@ -24,7 +24,7 @@ function boardTraitRankProfile(record, comparisons, records, sessionDefinition) 
       .filter((row) => row !== null).map((row) => ({ ...row, side: 'board' }));
     if (poolRows.length === 0) return [];
     const values = (pool) => pool.map((r) => comparison.rawValue(r)).filter(Number.isFinite);
-    return GameData.addDistributions(poolRows, { lifetime: values(past), session: values(session) }, values(session),
+    return GameData.addDistributions(poolRows, { lifetime: values(past), session: values(session) },
       comparison.format, comparison.step?.(record));
   });
 }
@@ -84,31 +84,16 @@ function gameDataPoolLabel(scope) {
   if (scope === 'session') return 'no-mark session';
   return GAME_DATA_POOL_LABELS[scope];
 }
-// With both pools shown, each distributions group is titled with its pool:
-// the shared phrase, then a no-mark win's.
-const GAME_DATA_POOL_PHRASES = {
-  lifetime: ['within your lifetime', 'within your no-mark games'],
-  session: ['within this session', 'within this session\u2019s no-mark games'],
-};
-function gameDataPoolPhrase(scope) {
-  return GAME_DATA_POOL_PHRASES[scope][gameDataNoMark ? 1 : 0];
-}
 // The two sides of the one chart. Each side's title opens and closes it,
 // remembered across games; a closed side keeps only its title.
 const GAME_DATA_SIDES = [
-  { side: 'performance', panel: 'gamePerformance', title: 'your performance this game' },
+  { side: 'performance', panel: 'gamePerformance', title: 'game summary perf' },
   { side: 'board', panel: 'boardTraits', title: 'board traits' },
 ];
 function gameDataSideOpen(side) {
   return settings.panels[GAME_DATA_SIDES.find((entry) => entry.side === side).panel];
 }
-// Each side title's help says what its percentages are, which nothing else
-// on the panel says.
-const GAME_DATA_SIDE_HELP = {
-  performance: 'Each percentage is the share of your other games that ranked better, a tie counting as half: 0% is your best, 100% your worst.',
-  board: 'Each percentage is the share of the other boards that ranked better, better meaning each trait’s preferred end: a declared preference, not a measured difficulty.',
-};
-// A side's title: the button that opens and closes the side, and its help.
+// A side's title: the button that opens and closes the side.
 function gameDataSideTitle({ side, panel, title: text }, toggled) {
   const title = document.createElement('div');
   title.className = 'game-data-side-title';
@@ -123,9 +108,7 @@ function gameDataSideTitle({ side, panel, title: text }, toggled) {
     toggle.setAttribute('aria-expanded', String(settings.panels[panel]));
     toggled();
   });
-  const help = chartHelpButton(GAME_DATA_SIDE_HELP[side]);
-  help.querySelector('button').setAttribute('aria-label', 'About ' + text);
-  title.append(toggle, help);
+  title.append(toggle);
   return title;
 }
 // Moving a laid-out view's nodes drops the page focus; give it back.
@@ -194,32 +177,37 @@ function linkGameDataCharts(metricId, linked) {
   }
 }
 
-// One pool's histogram on its measurement's lifetime axis: bars count the
-// pool's games per value range, colored by those games' mean standing. A
-// card draws a small pool (one that carries its values) as one dot per game
-// at its exact value instead, colored by that game's own standing, so a few
-// games read as a few games rather than as bars of height one. The lifetime
-// pool also ticks the session's games under the axis; this game is a line in
-// the this-game color, edged in black like the charts' this-game dot. Better
-// is always on the left, so a higher-is-better measurement's axis runs from
-// its highest value at the left to its lowest at the right. The card size
-// labels its axis. A strip stretches to its cell's width and is drawn at its
-// cell's height in px: its axis gap and ticks keep their px size on a strip
-// 26 px or taller, so a taller strip gives its bars all the extra height, and
-// shrink with a shorter strip, so its bars keep room.
-const GAME_DATA_STRIP_FULL_MARKS = 26;
-function gameDataHistogram(row, card, stripHeight) {
+// One pool's games on its measurement's lifetime axis, drawn at its box's
+// size in px with x ticks, so it is the whole drawing (creator 2026-10-20:
+// "why not just always show the better version"). A pool that carries its
+// values (at most 30 games) is one dot per game at its exact value, touching
+// dots stacked, each colored by that game's standing in the pool, when its
+// tallest stack fits the strip; otherwise, and for a larger pool, bars count
+// its games per value range, colored by their mean standing, none wider than
+// a few labels' width, so a pool of one value is not one bar across the
+// strip. This game's dot or bar takes the this-game color under a pin at
+// its value; a game past the fence pins the axis end, and the value column
+// has its number. Better is always on the left, so a higher-is-better
+// measurement's axis runs from its highest value at the left to its lowest
+// at the right. A tick label that would crowd the one to its left is left
+// out, with its tick. Sizes are px at scale 1.
+const GAME_DATA_STRIP = { pin: 5, pinWidth: 8, plotMin: 7, dot: 8, smallestDot: 4, barWidest: 24,
+  tick: 3, labelGap: 1, label: 9, labelSpace: 6 };
+const GAME_DATA_STRIP_SHORTEST = GAME_DATA_STRIP.pin + GAME_DATA_STRIP.plotMin + GAME_DATA_STRIP.tick
+  + GAME_DATA_STRIP.labelGap + GAME_DATA_STRIP.label;
+function gameDataStrip(row, width, height, scale) {
   const d = row.distribution;
-  const width = card ? 320 : 200, height = card ? 132 : stripHeight;
-  const unit = card ? 1 : Math.min(1, stripHeight / GAME_DATA_STRIP_FULL_MARKS);
-  const base = card ? height - 26 : height - 6 * unit;
-  const dots = card && d.values !== undefined;
+  const px = (size) => size * scale;
+  const labelPx = px(GAME_DATA_STRIP.label);
+  const base = height - px(GAME_DATA_STRIP.tick + GAME_DATA_STRIP.labelGap) - labelPx;
+  const top = px(GAME_DATA_STRIP.pin);
+  const room = base - top;
   const svg = document.createElementNS(SVG_NS, 'svg');
   svg.setAttribute('class', 'game-data-histogram');
+  svg.setAttribute('width', width);
+  svg.setAttribute('height', height);
   svg.setAttribute('viewBox', '0 0 ' + width + ' ' + height);
   svg.setAttribute('aria-hidden', 'true');
-  svg.dataset.size = card ? 'card' : 'strip';
-  if (!card) svg.setAttribute('preserveAspectRatio', 'none');
   const add = (name, attributes) => {
     const node = document.createElementNS(SVG_NS, name);
     for (const [key, value] of Object.entries(attributes)) node.setAttribute(key, value);
@@ -227,29 +215,33 @@ function gameDataHistogram(row, card, stripHeight) {
     return node;
   };
   const x = (value) => (row.higher ? d.hi - value : value - d.lo) / (d.hi - d.lo) * width;
-  if (dots) {
-    // Each dot rests on the lowest level where it touches no earlier dot; a
-    // stack too tall for the plot shrinks every dot.
+  // Each dot rests on the lowest level where it touches no earlier dot; a
+  // stack too tall for the plot shrinks every dot, down to the smallest.
+  const stack = (size) => {
+    const placed = [];
+    for (const value of d.values) {
+      let level = 0;
+      while (placed.some((dot) => dot.level === level && Math.abs(dot.x - x(value)) < size)) level++;
+      placed.push({ value, x: x(value), level });
+    }
+    return placed;
+  };
+  const fits = (placed, size) => (Math.max(...placed.map((dot) => dot.level)) + 1) * size <= room;
+  let size = Math.min(px(GAME_DATA_STRIP.dot), room);
+  let placed = d.values === undefined ? null : stack(size);
+  while (placed !== null && size > GAME_DATA_STRIP.smallestDot && !fits(placed, size)) placed = stack(--size);
+  if (placed !== null && fits(placed, size)) {
     const n = d.values.length;
     const standing = (v) => {
       if (d.values.every((other) => other === v)) return 50;
       const better = d.values.filter((other) => row.higher ? other > v : other < v).length;
       return 100 * (better + (d.values.filter((other) => other === v).length - 1) / 2) / (n - 1);
     };
-    const stack = (size) => {
-      const placed = [];
-      for (const value of d.values) {
-        let level = 0;
-        while (placed.some((dot) => dot.level === level && Math.abs(dot.x - x(value)) < size)) level++;
-        placed.push({ value, x: x(value), level });
-      }
-      return placed;
-    };
-    let size = 8, placed = stack(size);
-    while (size > 3 && (Math.max(...placed.map((dot) => dot.level)) + 1) * size > base - 3) placed = stack(--size);
+    const mine = placed.find((dot) => dot.value === row.value);
     for (const dot of placed) {
-      add('circle', { class: 'game-data-histogram-dot', cx: Math.max(size / 2, Math.min(width - size / 2, dot.x)),
-        cy: base - 1 - size * (dot.level + 0.5), r: size / 2 - 0.3, fill: standingColor(standing(dot.value), STANDING_MARK_STOPS) });
+      add('circle', { class: dot === mine ? 'game-data-histogram-dot game-data-strip-this' : 'game-data-histogram-dot',
+        cx: Math.max(size / 2, Math.min(width - size / 2, dot.x)), cy: base - size * (dot.level + 0.5), r: size / 2 - 0.3,
+        ...(dot === mine ? {} : { fill: standingColor(standing(dot.value), STANDING_MARK_STOPS) }) });
     }
   } else {
     const most = Math.max(...d.counts);
@@ -259,48 +251,168 @@ function gameDataHistogram(row, card, stripHeight) {
     // and the shorter bars keep their ratios to it.
     const next = d.counts.reduce((best, count) => count < most ? Math.max(best, count) : best, 0);
     const peakGap = next > 0 && most / next >= 6;
-    const room = base - 3 * unit;
     const binWidth = width / d.bins;
+    const barWidth = Math.max(1, Math.min(binWidth - 1, px(GAME_DATA_STRIP.barWidest)));
+    const valueBin = row.value >= d.lo && row.value <= d.hi
+      ? Math.min(d.bins - 1, Math.floor((row.value - d.lo) / (d.hi - d.lo) * d.bins)) : -1;
     d.counts.forEach((count, i) => {
       if (count === 0) return;
       const share = peakGap && count < most ? 0.5 * count / next : count / most;
       const barHeight = Math.max(1, share * room);
       const slot = row.higher ? d.bins - 1 - i : i;
-      add('rect', { x: slot * binWidth + 0.5, y: base - barHeight, width: Math.max(1, binWidth - 1), height: barHeight,
-        fill: standingColor(d.standing[i], STANDING_MARK_STOPS) });
+      add('rect', { x: slot * binWidth + (binWidth - barWidth) / 2, y: base - barHeight, width: barWidth, height: barHeight,
+        ...(i === valueBin ? { class: 'game-data-strip-this' } : { fill: standingColor(d.standing[i], STANDING_MARK_STOPS) }) });
     });
   }
+  const half = px(GAME_DATA_STRIP.pinWidth) / 2;
+  const pinX = Math.max(half, Math.min(width - half, x(row.value)));
+  add('path', { class: 'game-data-strip-pin',
+    d: 'M ' + (pinX - half) + ' 0 L ' + (pinX + half) + ' 0 L ' + pinX + ' ' + top + ' Z' });
   add('line', { class: 'game-data-histogram-axis', x1: 0, x2: width, y1: base, y2: base });
-  const tickEnd = base + (card ? 8 : 5 * unit);
-  if (row.sessionValues) {
-    for (const value of row.sessionValues) {
-      if (value < d.lo || value > d.hi) continue;
-      add('line', { class: 'game-data-histogram-tick', x1: x(value), x2: x(value), y1: base + 1, y2: tickEnd });
-    }
-  }
-  // A game past the fence stays on the strip: the value column has the
-  // number, and stretching the axis out to it is what flattened the bars.
-  const mark = Math.max(0, Math.min(width, x(row.value)));
-  for (const part of ['game-data-histogram-this-edge', 'game-data-histogram-this']) {
-    add('line', { class: part, x1: mark, x2: mark, y1: 0, y2: tickEnd });
-  }
-  if (card) {
-    for (const label of d.labels) {
-      const at = x(label.value);
-      const anchor = at < 18 ? 'start' : at > width - 18 ? 'end' : 'middle';
-      add('text', { x: at, y: height - 4, 'text-anchor': anchor }).textContent = label.text;
-    }
+  const font = labelPx + 'px Arial, Helvetica, sans-serif';
+  let right = -Infinity;
+  for (const label of d.labels.map((entry) => ({ ...entry, at: x(entry.value) })).sort((a, b) => a.at - b.at)) {
+    const textWidth = chartTextWidth(label.text, font);
+    const left = Math.max(0, Math.min(width - textWidth, label.at - textWidth / 2));
+    if (left < right + px(GAME_DATA_STRIP.labelSpace)) continue;
+    right = left + textWidth;
+    add('line', { class: 'game-data-histogram-tick', x1: label.at, x2: label.at, y1: base, y2: base + px(GAME_DATA_STRIP.tick) });
+    add('text', { x: left, y: height - labelPx * 0.2, 'font-size': labelPx }).textContent = label.text;
   }
   return svg;
 }
 
+//-------GAME DATA CARD (rank, strip, example board, definition)-------
+
+// The example boards of the game whose game data is on the page (creator
+// 2026-10-20: "visible UI examples of what the number or trait means", drawn
+// in the player's board style), from the reports worker, which holds the
+// latest finished or restored game's board and trace. Only that game's board
+// is on the page to draw them from; an Endgame drill measures only its
+// remnant, so it has none.
+let gameDataGameId = null;
+let gameDataExamples = null;
+function requestGameDataExamples(record) {
+  gameDataGameId = record.endedAt;
+  if (!duringGameAvailable(record) || record.playMode === 'endgame-drill') return;
+  if (gameDataExamples !== null && gameDataExamples.gameId === record.endedAt) return;
+  const request = { gameId: record.endedAt, byMeasurement: null };
+  gameDataExamples = request;
+  analysisTask('reports', 'game-data-examples', { gameId: record.endedAt, timeMs: record.timeMs, outcome: record.outcome })
+    .then((byMeasurement) => { request.byMeasurement = byMeasurement; })
+    .catch(analysisFailure);
+}
+
+// A performance measurement's example is the board fact or the clicks it
+// counts; a board trait's is its own.
+const GAME_DATA_EXAMPLE_OF = {
+  bvPerSecond: 'bv3', efficiency: 'bv3', ioe: 'bv3', ios: 'bv3', stnb: 'bv3', pathPer3bv: 'bv3',
+  ziniEfficiency: 'zini', hziniEfficiency: 'hzini', misclickRate: 'misclickRate', noopRate: 'noopRate',
+  correctness: 'noopRate', unusedMarkShare: 'unusedMarkShare', unflaggedMineShare: 'unflaggedMineShare',
+};
+function gameDataExampleFor(item) {
+  if (gameDataExamples === null || gameDataExamples.byMeasurement === null
+      || gameDataExamples.gameId !== gameDataGameId || gameDataGameId !== duringGameSourceId) return undefined;
+  return gameDataExamples.byMeasurement[item.side === 'board' ? item.metricId : GAME_DATA_EXAMPLE_OF[item.metricId]];
+}
+
+// The counts an example's marks stand for, each after its mark, where the
+// measurement's name and value do not already give them.
+const gameDataZiniCounts = (example) => [
+  ['ring', countPhrase(example.marks.ring.length, 'click', 'clicks')],
+  ['dot', countPhrase(example.marks.dot.length, 'chord', 'chords')],
+  ['shade', countPhrase(example.marks.shade.length, 'flag', 'flags')]];
+const gameDataShareCounts = (example) => [
+  ['shade', example.marks.shade.length + ' of ' + countPhrase(example.of, 'safe square', 'safe squares')]];
+const GAME_DATA_EXAMPLE_COUNTS = {
+  bv3: (example) => [['shade', countPhrase(example.openings, 'opening', 'openings')],
+    ['ring', countPhrase(example.marks.ring.length, 'number outside them', 'numbers outside them')]],
+  zini: gameDataZiniCounts,
+  hzini: gameDataZiniCounts,
+  zeroOneShare: gameDataShareCounts,
+  zeroOpeningCoverage: gameDataShareCounts,
+  workSpread: (example) => [['point', countPhrase(example.spread.points.length, 'work point', 'work points')],
+    ['circle', 'their spread around the center']],
+  misclickRate: (example) => [['ring', countPhrase(example.clicks, 'misclick', 'misclicks')]],
+  noopRate: (example) => [['ring', countPhrase(example.clicks, 'no-op click', 'no-op clicks')]],
+  unusedMarkShare: (example) => [['shade', countPhrase(example.marks.shade.length, 'unused flag', 'unused flags')]],
+  unflaggedMineShare: (example) => [['shade', example.marks.shade.length + ' of '
+    + countPhrase(example.of, 'mine', 'mines') + ' unflagged']],
+};
+
+// The finished board as the game board shows it, in the player's board
+// style, with every mine no flag covers shown as a mine, and the example's
+// marks over its squares; its squares fit the card.
+const GAME_DATA_EXAMPLE_FIT = { width: 314, height: 200, smallest: 5, largest: 20 };
+function gameDataExampleBoard(example) {
+  const { width, height } = config;
+  const cellPx = Math.max(GAME_DATA_EXAMPLE_FIT.smallest, Math.min(GAME_DATA_EXAMPLE_FIT.largest,
+    Math.floor(Math.min(GAME_DATA_EXAMPLE_FIT.width / width, GAME_DATA_EXAMPLE_FIT.height / height))));
+  const grid = document.createElement('div');
+  grid.className = 'game-data-example-board';
+  grid.style.setProperty('--cell-size', cellPx + 'px');
+  grid.style.gridTemplateColumns = 'repeat(' + width + ', var(--cell-size))';
+  const marked = new Map();
+  for (const [kind, squares] of Object.entries(example.marks || {})) {
+    for (const square of squares) marked.set(square, [...(marked.get(square) || []), kind]);
+  }
+  const mine = mineSvg(settings.mineStyle);
+  finishedBoardCells().forEach((source, i) => {
+    const cell = document.createElement('div');
+    if (cells[i].mine && !cells[i].flagged && !source.classList.contains('revealed')) {
+      cell.className = 'cell revealed';
+      cell.innerHTML = mine;
+    } else {
+      cell.className = source.className;
+      cell.innerHTML = source.innerHTML;
+    }
+    for (const kind of marked.get(i) || []) {
+      if (kind === 'dot') cell.appendChild(gameDataCell('game-data-example-dot-mark', ''));
+      else cell.classList.add('game-data-example-' + kind);
+    }
+    grid.appendChild(cell);
+  });
+  if (example.spread) {
+    const svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('class', 'game-data-example-spread');
+    svg.setAttribute('width', width * cellPx);
+    svg.setAttribute('height', height * cellPx);
+    const at = (value) => (value + 0.5) * cellPx;
+    const add = (name, attributes) => {
+      const node = document.createElementNS(SVG_NS, name);
+      for (const [key, value] of Object.entries(attributes)) node.setAttribute(key, value);
+      svg.appendChild(node);
+    };
+    for (const point of example.spread.points) {
+      add('circle', { class: 'game-data-example-point', cx: at(point.x), cy: at(point.y), r: Math.max(2, cellPx * 0.18) });
+    }
+    add('circle', { class: 'game-data-example-circle', cx: at(example.spread.center.x), cy: at(example.spread.center.y),
+      r: example.spread.radius * cellPx });
+    grid.appendChild(svg);
+  }
+  return grid;
+}
+
+function gameDataExampleKey(counts) {
+  const key = document.createElement('p');
+  key.className = 'game-data-example-key';
+  for (const [kind, text] of counts) {
+    const entry = document.createElement('span');
+    entry.className = 'game-data-example-key-entry';
+    entry.append(gameDataCell('game-data-example-swatch game-data-example-swatch-' + kind, ''), text);
+    key.appendChild(entry);
+  }
+  return key;
+}
+
 // The hover card for one pool, the one whose standing placed the row's point
 // (or whose strip was hovered). It holds only what the row and the panel do
-// not already show or say (creator 2026-10-08: "just cut all the fluff"):
-// the pool's rank, its games on the measurement's axis, and, last, a
-// definition where the name leaves the measurement open. No key narrates the
-// marks (creator 2026-10-08).
-function fillGameDataCard(tip, item, scope) {
+// not already show (creator 2026-10-08: "just cut all the fluff"): the pool's
+// rank; its games on the measurement's axis when the row has no strip; this
+// game's board showing what the measurement counts, in the player's board
+// style; and, last, a definition where the name leaves the measurement open.
+const GAME_DATA_CARD_STRIP = { width: 314, height: 72 };
+function fillGameDataCard(tip, item, scope, withStrip) {
   const card = document.createElement('div');
   card.className = 'game-data-card';
   card.dataset.pool = scope;
@@ -310,14 +422,17 @@ function fillGameDataCard(tip, item, scope) {
     node.textContent = text;
     return node;
   };
-  const standing = (poolScope) => {
-    const node = paragraph('game-data-card-standing', '');
-    node.append(gameDataCell('game-data-card-pool', gameDataPoolLabel(poolScope) + ':'), ' ',
-      item.pools[poolScope].standingText);
-    return node;
-  };
   const row = item.pools[scope];
-  card.append(standing(scope), gameDataHistogram(row, true));
+  const standing = paragraph('game-data-card-standing', '');
+  standing.append(gameDataCell('game-data-card-pool', gameDataPoolLabel(scope) + ':'), ' ', row.standingText);
+  card.appendChild(standing);
+  if (withStrip) card.appendChild(gameDataStrip(row, GAME_DATA_CARD_STRIP.width, GAME_DATA_CARD_STRIP.height, 1));
+  const example = gameDataExampleFor(item);
+  if (example !== undefined) {
+    const key = item.side === 'board' ? item.metricId : GAME_DATA_EXAMPLE_OF[item.metricId];
+    card.appendChild(gameDataExampleBoard(example));
+    if (GAME_DATA_EXAMPLE_COUNTS[key]) card.appendChild(gameDataExampleKey(GAME_DATA_EXAMPLE_COUNTS[key](example)));
+  }
   if (row.definition) card.appendChild(paragraph('game-data-card-definition', row.definition));
   tip.appendChild(card);
 }
@@ -332,9 +447,10 @@ function fillGameDataCard(tip, item, scope) {
 // drawn, the sides stacked, each with its own bar and both sides' rows on its
 // left. The band never scrolls: the plan that needs the least shrinking wins
 // (the earlier one on a tie), and the whole band scales to fit its box. The
-// performance side's name column is headed by `boardName`, once, since every
-// pool holds that board's games alone.
-function buildGameDataBand(rows, pool, valuesShown, boardName, titles) {
+// name columns have no head: the board is the one the preset links or the
+// mode options name, and every pool holds its games alone (creator
+// 2026-10-20: never copy a fact visible in its canonical place).
+function buildGameDataBand(rows, pool, valuesShown, titles) {
   const items = gameDataItems(rows);
   const element = document.createElement('div');
   element.className = 'game-data-band';
@@ -362,7 +478,7 @@ function buildGameDataBand(rows, pool, valuesShown, boardName, titles) {
     };
   }
   function rowElement(item) {
-    const wrap = chartHelpButton((tip) => fillGameDataCard(tip, item, pool), item.name,
+    const wrap = chartHelpButton((tip) => fillGameDataCard(tip, item, pool, true), item.name,
       (tip, rect) => placeCard(item, tip, rect));
     wrap.classList.add('game-data-row');
     wrap.dataset.side = item.side;
@@ -395,7 +511,7 @@ function buildGameDataBand(rows, pool, valuesShown, boardName, titles) {
     columns.className = 'game-data-column-heads';
     columns.dataset.side = side;
     columns.append(...(side === 'performance'
-      ? [headCell('game-data-name', boardName), headCell('game-data-value', 'value'),
+      ? [headCell('game-data-name', ''), headCell('game-data-value', 'value'),
         ...perfPools.map((scope) => headCell('game-data-pct', gameDataPoolLabel(scope), scope))]
       : [headCell('game-data-pct', '', pool), headCell('game-data-name', ''), headCell('game-data-value', 'value')]));
     // Both sides plot the switch's pool; a row without a rank there is
@@ -612,12 +728,8 @@ function buildGameDataBand(rows, pool, valuesShown, boardName, titles) {
 // 2026-10-08: "if i remove items then the remaining ones should expand
 // vertically to fill the space"): `layout` gives them the tallest height that
 // fits its box, and only below the shortest strip does it shrink the text.
-// The first group shown has its name column headed by `boardName`, the board
-// every pool holds alone. With both pools shown, each group is titled with
-// its pool on its own wrapping line, so a long one never widens the name
-// column.
-const GAME_DATA_STRIP_SHORTEST = 10;
-function buildGameDataDistributions(rows, pools, boardName, titles) {
+// Each group's pool is named only by its percent column's head.
+function buildGameDataDistributions(rows, pools, titles) {
   const element = document.createElement('div');
   element.className = 'game-data-distributions';
   const items = gameDataItems(rows);
@@ -631,22 +743,20 @@ function buildGameDataDistributions(rows, pools, boardName, titles) {
       section.className = 'game-data-dist-section';
       section.dataset.side = side;
       section.dataset.pool = scope;
-      const nameHead = gameDataCell('game-data-name', '');
       const head = document.createElement('div');
       head.className = 'game-data-dist-head';
-      head.append(nameHead, gameDataCell('game-data-value', 'value'),
-        gameDataCell('game-data-strip-head', 'your games'), gameDataCell('game-data-pct', gameDataPoolLabel(scope)));
-      if (pools.length > 1) section.appendChild(gameDataCell('game-data-pool-title', gameDataPoolPhrase(scope)));
+      head.append(gameDataCell('game-data-name', ''), gameDataCell('game-data-value', 'value'),
+        gameDataCell('game-data-strip-head', ''), gameDataCell('game-data-pct', gameDataPoolLabel(scope)));
       section.appendChild(head);
       for (const item of shown) {
         const row = item.pools[scope];
-        const wrap = chartHelpButton((tip) => fillGameDataCard(tip, item, scope), item.name);
+        const wrap = chartHelpButton((tip) => fillGameDataCard(tip, item, scope, false), item.name);
         wrap.classList.add('game-data-dist-row');
         wrap.dataset.measurement = item.metricId;
         const button = wrap.querySelector('button');
         const strip = document.createElement('span');
         strip.className = 'game-data-strip';
-        strips.push({ strip, row, side, height: null });
+        strips.push({ strip, row, side, drawn: null });
         button.replaceChildren(gameDataCell('game-data-name', item.name), gameDataCell('game-data-value', item.valueText),
           strip, gameDataCell('game-data-pct', gameDataPercentText(row)));
         button.setAttribute('aria-label', item.name + ' ' + item.valueText + ': ' + gameDataPoolLabel(scope) + ' ' + gameDataPercentText(row));
@@ -654,7 +764,7 @@ function buildGameDataDistributions(rows, pools, boardName, titles) {
         wrap.addEventListener('mouseleave', () => linkGameDataCharts(item.metricId, false));
         section.appendChild(wrap);
       }
-      groups.push({ section, nameHead });
+      groups.push(section);
     }
     return { side, title: titles[side], groups };
   });
@@ -670,15 +780,9 @@ function buildGameDataDistributions(rows, pools, boardName, titles) {
     // vanish, so the note lists it, as the band's does in session mode.
     const note = pools.includes('lifetime') ? null : gameDataUnrankedNote(items.filter((item) => gameDataSideOpen(item.side)));
     const children = note ? [note] : [];
-    let named = false;
     for (const side of sides) {
       children.push(side.title);
-      if (!gameDataSideOpen(side.side)) continue;
-      for (const group of side.groups) {
-        group.nameHead.textContent = named ? '' : boardName;
-        named = true;
-        children.push(group.section);
-      }
+      if (gameDataSideOpen(side.side)) children.push(...side.groups);
     }
     element.replaceChildren(...children);
     restoreGameDataFocus(focused);
@@ -687,18 +791,22 @@ function buildGameDataDistributions(rows, pools, boardName, titles) {
     element.style.setProperty('--game-data-strip', strip + 'px');
     element.style.setProperty('--game-data-scale', String(scale));
   };
-  // Only the open sides' strips are drawn; each keeps the height it was
-  // drawn at.
-  function draw(strip) {
-    for (const entry of strips) {
-      if (entry.height === strip || !gameDataSideOpen(entry.side)) continue;
-      entry.height = strip;
-      entry.strip.replaceChildren(gameDataHistogram(entry.row, false, strip));
+  // Only the open sides' strips are drawn, at the px size of their column,
+  // which every strip shares; each keeps the size it was drawn at.
+  function draw(strip, scale) {
+    const open = strips.filter((entry) => gameDataSideOpen(entry.side));
+    if (!open.length) return;
+    const width = open[0].strip.clientWidth;
+    if (width === 0) return;
+    const size = width + ' ' + strip + ' ' + scale;
+    for (const entry of open) {
+      if (entry.drawn === size) continue;
+      entry.drawn = size;
+      entry.strip.replaceChildren(gameDataStrip(entry.row, width, strip, scale));
     }
   }
   set(GAME_DATA_STRIP_SHORTEST, 1);
   arrange();
-  draw(GAME_DATA_STRIP_SHORTEST);
   function layout() {
     if (!element.isConnected || element.clientWidth === 0) return;
     arrange();
@@ -706,7 +814,9 @@ function buildGameDataDistributions(rows, pools, boardName, titles) {
       set(GAME_DATA_STRIP_SHORTEST, 1);
       return;
     }
-    let scale = 1, strip = GAME_DATA_STRIP_SHORTEST;
+    let scale = 1;
+    const shortest = () => Math.ceil(GAME_DATA_STRIP_SHORTEST * scale);
+    let strip = shortest();
     set(strip, scale);
     const room = element.clientHeight, available = element.clientWidth;
     // The box's height never follows its content (its column sizes it), and
@@ -717,11 +827,13 @@ function buildGameDataDistributions(rows, pools, boardName, titles) {
       - element.getBoundingClientRect().top - element.clientTop;
     for (let pass = 0; pass < 4 && element.scrollWidth > available; pass++) {
       scale *= available / element.scrollWidth * 0.99;
+      strip = shortest();
       set(strip, scale);
     }
     if (contentHeight() > room) {
       for (let pass = 0; pass < 6 && contentHeight() > room; pass++) {
         scale *= room / contentHeight() * 0.99;
+        strip = shortest();
         set(strip, scale);
       }
     } else {
@@ -737,7 +849,7 @@ function buildGameDataDistributions(rows, pools, boardName, titles) {
       }
       set(strip, scale);
     }
-    draw(strip);
+    draw(strip, scale);
   }
   return { element, layout };
 }
@@ -745,9 +857,7 @@ function buildGameDataDistributions(rows, pools, boardName, titles) {
 function buildBoardTimeRankProfile(record, records) {
   gameDataNoMark = record.outcome === 'win' && isMarkless(record);
   if (record.outcome !== 'win') return null;
-  // The outcome line's board name; mode and generator stay in their pickers,
-  // as in the no-mark list titles, so the heads fit the narrowest details column.
-  const boardName = boardDisplayLabel();
+  requestGameDataExamples(record);
   const host = document.createElement('div');
   host.className = 'board-time-profile-host';
   const profile = document.createElement('figure');
@@ -977,8 +1087,8 @@ function buildBoardTimeRankProfile(record, records) {
         })]));
         const pools = settings.gameDataDistributionPools === 'both' ? ['lifetime', 'session'] : [settings.gameDataDistributionPools];
         fitted = settings.gameDataDistributions
-          ? buildGameDataDistributions(rows, pools, boardName, titles)
-          : buildGameDataBand(rows, settings.gameDataBandPool, settings.gameDataShowValues, boardName, titles);
+          ? buildGameDataDistributions(rows, pools, titles)
+          : buildGameDataBand(rows, settings.gameDataBandPool, settings.gameDataShowValues, titles);
         syncOpen();
         section.appendChild(fitted.element);
         profile.appendChild(section);

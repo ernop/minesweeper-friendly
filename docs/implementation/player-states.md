@@ -10,8 +10,10 @@ Spec: [docs/product/player-states.md](../product/player-states.md). Index: [AGEN
   onto every record as `states` (always written, `[]` when none active;
   absent on pre-2026-08-20 records, same absence rules as wastedClicks).
   UI: `#states` lives in `#top-right` inside the independently scrolling
-  game sidebar, after mode, generator, and the archive chip
-  (`#settings-btn` moved to `#top-bar` on 2026-10-14). Expanding
+  game sidebar, after the archive chip (the mode and generator selects
+  before it moved to `#difficulty-tabs` and `#mode-options` on 2026-10-20;
+  `#settings-btn` moved to `#top-bar` on 2026-10-14 and to `#settings-row`
+  on 2026-10-20). Expanding
   state controls never changes the board column. `renderStates` calls
   `renderPlayContext` and `renderStatesMenu`. `renderPlayContext` fills
   `#play-context` with `musicStateItem` (`#music-state`, owned by

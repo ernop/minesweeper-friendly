@@ -20,9 +20,9 @@ function setSessionDefinition(value) {
   refreshMetricsPanel();
 }
 
-// The page's only session picker, in the top bar at the upper right (creator
-// request 2026-10-14). The session stats, the session summary, ranks won,
-// and game data only say "session".
+// The page's only session picker, in the settings row at the page foot
+// (creator request 2026-10-20). The session stats, the session summary,
+// ranks won, and game data only say "session".
 function initSessionScopeSelect() {
   const select = document.getElementById('session-definition-select');
   select.title = 'The one page-wide session: session stats, the session summary, ranks won in session, and game data’s session comparisons all use this wall-clock window. “today” starts at local midnight; it is not the last 24 hours.';

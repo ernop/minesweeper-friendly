@@ -37,7 +37,7 @@ function storageFailure(what) {
 }
 
 function userdataReady() {
-  const worker = new Worker('training-worker.js?v=20261019-outcome-line');
+  const worker = new Worker('training-worker.js?v=20261020-live-perf');
   worker.onmessage = ({ data }) => {
     worker.terminate();
     if (data.error !== undefined) showTrainingStatus('Training summary failed: ' + data.error, true);

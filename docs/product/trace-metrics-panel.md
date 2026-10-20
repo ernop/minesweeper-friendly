@@ -39,7 +39,8 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   2026-08-22), and the chip click brings it back. The collapsed state is
   the saved `metricsPanelCollapsed` preference. The panel is gone when
   session stats and the live stage are both off (2026-10-14, when the page's
-  one session picker moved to the top bar; from 2026-09-23 the picker sat in
+  one session picker moved to the top bar, and on to the settings row at the
+  page foot on 2026-10-20; from 2026-09-23 the picker sat in
   the panel's session heading and kept the panel in every state;
   [One session definition](game-data.md#one-session-definition)).
 - One row per metric: the name, the current value, and a sparkline chart

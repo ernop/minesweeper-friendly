@@ -86,17 +86,30 @@
           && summary.querySelectorAll('.session-summary-row').length >= 1
           && !resultRanks.querySelector('.result-chart-section-placements')
           && !document.getElementById('history-placements'));
+      // The replay transport under the board: as wide as its frame but never
+      // narrower than its five buttons need nor wider than the column, and
+      // centered on the board wherever the board fits the column.
+      const transportRect = rect(replayControls);
+      const boardFits = frameRect.width <= rect(gameArea).width;
+      check(label + ': the replay transport sits under the board, centered on it',
+        replayControls.checkVisibility() && gameArea.contains(replayControls)
+          && transportRect.top >= frameRect.bottom && transportRect.top - frameRect.bottom < 12
+          && Math.abs(transportRect.width - Math.min(rect(gameArea).width, Math.max(340, frameRect.width))) < 1
+          && (!boardFits || Math.abs((transportRect.left + transportRect.right) - (frameRect.left + frameRect.right)) < 2));
       // Beside the board: the summary on the left and ranks won on the
-      // right, tops aligned with the board, wherever each fits the column.
-      const sideRoom = (mainRect.width - frameRect.width) / 2 - inset - 16;
+      // right, tops aligned with the board, wherever each fits the column
+      // beside both the board and the transport under it.
+      const boardLeft = Math.min(frameRect.left, transportRect.left);
+      const boardRight = Math.max(frameRect.right, transportRect.right);
+      const sideRoom = (mainRect.width - (boardRight - boardLeft)) / 2 - inset - 16;
       check(label + ': the session summary rests left of the board exactly where it fits',
         summary.classList.contains('beside-board') === (rect(summary).width <= sideRoom)
           && (!summary.classList.contains('beside-board')
-            || (Math.abs(rect(summary).right - (frameRect.left - 16)) < 1 && Math.abs(rect(summary).top - frameRect.top) < 1)));
+            || (Math.abs(rect(summary).right - (boardLeft - 16)) < 1 && Math.abs(rect(summary).top - frameRect.top) < 1)));
       check(label + ': ranks won rests right of the board exactly where it fits',
         ranksWon.classList.contains('beside-board') === (rect(ranksWon).width <= sideRoom)
           && (!ranksWon.classList.contains('beside-board')
-            || (Math.abs(rect(ranksWon).left - (frameRect.right + 16)) < 1 && Math.abs(rect(ranksWon).top - frameRect.top) < 1)));
+            || (Math.abs(rect(ranksWon).left - (boardRight + 16)) < 1 && Math.abs(rect(ranksWon).top - frameRect.top) < 1)));
       // With its session means the summary is wider than the room beside a
       // beginner board at 2560 (2026-10-08), so only ranks won sits there.
       if (width === 2560 && size === 'beginner') check(label + ': at the creator’s width ranks won sits beside a beginner board',
@@ -132,13 +145,12 @@
       if (width === 1680) check(label + ': the next table uses the space beside that column',
         Math.abs(rect(inFlow[lead.length]).top - rect(inFlow[0]).top) < 1
           && rect(inFlow[lead.length]).left >= Math.max(...lead.map((item) => rect(item).right)) - 1);
-      const boardRowsBottom = Math.max(rect(gameFrame).bottom,
+      const boardRowsBottom = Math.max(rect(gameFrame).bottom, rect(replayControls).bottom,
         ...[...resultRanks.querySelectorAll('.beside-board')].map((block) => rect(block).bottom));
-      check(label + ': tables begin directly below the board and the blocks beside it',
+      check(label + ': tables begin directly below the board, its transport, and the blocks beside it',
         rect(resultRanks).top - boardRowsBottom < 32 && rect(resultRanks).top >= boardRowsBottom);
-      check(label + ': replay is collapsed and all inspection controls are in the sidebar',
-        !replayReview.open && !replayControls.checkVisibility()
-          && gameSidebar.contains(scoresNav) && !gameArea.contains(scoresNav));
+      check(label + ': display options and scores are in the sidebar',
+        gameSidebar.contains(scoresNav) && !gameArea.contains(scoresNav));
       check(label + ': redundant review heading is absent',
         !document.querySelector('.review-heading') && !document.getElementById('replay-final-time'));
       check(label + ': details controls and stats fit their column',
@@ -185,14 +197,6 @@
         check(label + ': open details fit their panel',
           gameSidebar.scrollWidth <= gameSidebar.clientWidth);
       }
-      replayReview.querySelector('summary').click();
-      await wait();
-      check(label + ': opening replay leaves the board and tables in place',
-        replayReview.open && replayControls.checkVisibility() && sameBoard(before)
-          && Math.abs(rect(resultRanks).top - historyTop) < 1
-          && gameSidebar.scrollWidth <= gameSidebar.clientWidth);
-      replayReview.querySelector('summary').click();
-      await wait();
       if (pageLayout.classList.contains('compact-sidebar')) {
         gameSidebarClose.click();
         await wait();
@@ -220,14 +224,10 @@
       position: { ...config, revealed: [], flagged: [] } } })));
   await renderResult(record, records);
   setReplayStep(replayDecisionCount());
-  const closedArrow = new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true, cancelable: true });
-  document.body.dispatchEvent(closedArrow);
-  check('arrow keys do not start a hidden replay',
-    !closedArrow.defaultPrevented && !replayEnabled && replayStep === replayDecisionCount());
-  replayReview.open = true;
-  // Native toggle delivery updates the panel preference before a replay
-  // render reads it; an immediate redraw would close the test's own panel.
-  await wait();
+  const arrow = new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true, cancelable: true });
+  document.body.dispatchEvent(arrow);
+  check('after a game the arrow keys step the transport under the board',
+    arrow.defaultPrevented && replayEnabled && replayStep === replayDecisionCount() - 1);
   setReplayStep(0);
   await wait();
   gameSidebar.scrollTop = 200;
@@ -240,16 +240,48 @@
     scrollBeforeReplay > 0 && gameSidebar.scrollTop === scrollBeforeReplay);
   check('stepping replay preserves board and history positions',
     sameBoard(boardBeforeReplay) && rect(resultRanks).top === historyBeforeReplay);
-  replayReview.open = false;
+  document.getElementById('replay-last').click();
   await wait();
-  check('closing replay restores the finished board without shifting history',
+  check('End restores the finished board without shifting history',
     !replayEnabled && replayStep === replayDecisionCount()
       && pathViewLegend.hidden && sameBoard(boardBeforeReplay)
       && rect(resultRanks).top === historyBeforeReplay);
-  replayReview.open = true;
+  // The fixture's two actions are 300 ms apart; the opening frame holds 500 ms.
+  replayPlay.click();
+  check('play from the finished board starts over and shows pause',
+    replayStep === 0 && replayEnabled && replayPlay.classList.contains('playing')
+      && replayPlay.getAttribute('aria-label') === 'Pause');
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  check('playback walks the actions and stops on the finished board',
+    replayStep === replayDecisionCount() && !replayEnabled && !replayPlay.classList.contains('playing')
+      && replayPlay.getAttribute('aria-label') === 'Play' && sameBoard(boardBeforeReplay));
+  replayPlay.click();
+  replayNext.click();
+  check('a step press stops playback', replayStep === 1 && !replayPlay.classList.contains('playing'));
+  await new Promise(resolve => setTimeout(resolve, 600));
+  check('a stopped playback stays where it stopped', replayStep === 1);
+  replayPlay.click();
   newGame();
   await wait();
-  check('a new game resets replay to collapsed and hidden',
-    !replayReview.open && replayReview.hidden);
+  check('a new game stops playback and hides the transport',
+    !replayControls.checkVisibility() && !replayPlay.classList.contains('playing') && !replayEnabled);
+
+  // A trial lobby hides the board frame; repeated layout passes once grew
+  // the board offset from its empty rect until the lobby left the screen.
+  settings.difficulty = 'custom';
+  settings.playMode = 'short-trial';
+  config = { ...settings.customBoard };
+  syncGameChoice();
+  newGame();
+  for (let pass = 0; pass < 4; pass++) {
+    syncBoardLayout();
+    await wait();
+  }
+  const stageRect = rect(document.getElementById('trial-stage'));
+  check('a trial lobby takes no board offset and stays in its column',
+    gameArea.classList.contains('trial-no-board')
+      && appliedBoardOffsetX === 0 && appliedBoardOffsetY === 0
+      && stageRect.left >= rect(mainElement).left && stageRect.right <= rect(mainElement).right
+      && stageRect.top >= rect(modeOptions).bottom && stageRect.top - rect(modeOptions).bottom < 120);
   parent.document.getElementById('checks').textContent += '\nDONE';
 })().catch(error => { parent.document.getElementById('checks').textContent += '\nFAIL ' + error.stack; });

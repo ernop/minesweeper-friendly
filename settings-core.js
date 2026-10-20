@@ -96,14 +96,14 @@ const SHOWN_THINGS_OPTIONS = [
   ['exactZiNi', 'same-ZiNi tablechart', 'times on boards with exactly the same greedy ZiNi click benchmark'],
   ['exactMaxNumber', 'same-max-number tablechart', 'times on boards whose max number (highest clue) is exactly the same; distinct from the max number ≤ 4/3/2 tablecharts'],
   ['boardMetricFacts', 'board backfill progress', 'progress and Stop/Resume controls for measuring saved wins in This board'],
-  ['boardPercentiles', 'game data', 'the winning-game chart: your performance ranked against your lifetime and session games on the left, this board’s traits ranked against earlier boards on the right'],
+  ['boardPercentiles', 'game data', 'the winning-game chart: game summary perf, your performance ranked against your lifetime and session games, on the left; this board’s traits ranked against earlier boards on the right'],
   ['exactHZiNi', 'same-HZiNi tablechart', 'times on boards with the same HZiNi (human ZiNi, the opening-first chord benchmark)'],
   ['workSpreadTable', '3BV-spread tablechart', 'times on boards with 3BV spread rounded to the same nearest 0.5 cell'],
   ['zeroOneShareTable', '0–1-share tablechart', 'times on boards whose zeros and ones revealed by opening every zero, as a fraction of all safe squares, round to the same nearest whole percentage point'],
   ['zeroOpeningTable', 'zero-opening-coverage tablechart', 'times on boards whose fraction of safe squares exposed by opening every zero region rounds to the same nearest whole percentage point'],
   ['boardShapeTables', 'board-shape tablecharts', 'has an 8, has a 7, max number ≤ 4/3/2, islands, and zeros rankings'],
   ['largestIsland', 'largest island', 'the largest-island stat and matching tablechart'],
-  ['duringGame', 'during this game, second by second', 'at the head of the game data column: how the game just played unfolded on its own clock, in charts on one time axis (progress, pace, what the board offered) with lanes of detected events such as moves, forks, and pauses; pointing at a moment shows the values and the board then'],
+  ['duringGame', 'live perf charts', 'at the head of the game data column: how the game just played unfolded on its own clock: progress, and each measured line against its own whole-game value, over tracks of clicks, jumps, and pauses on one time axis; pointing at a line shows its value and the board then'],
   ['averageCharts', 'average-time charts', 'your-perf and board-trait property charts, each with its own average, distribution, or winrate reading'],
   ['streak', 'streak', 'consecutive-win ranking'],
   ['nearStreak', 'near-streak', 'win runs spanning at most one loss'],
@@ -269,10 +269,20 @@ const REPLAY_OVERLAY_DEFAULTS = {
   moves: true, mines: true, probs: false, pointless: false, purposeful: false, movement: false,
 };
 const PANEL_OPEN_DEFAULTS = {
-  boardPosition: false, gameDetails: false, states: false, replay: false,
+  boardPosition: false, gameDetails: false, states: false,
   reviewOptions: false, importHistory: false, dataFormat: false,
   duringGame: true, gamePerformance: true, boardTraits: true,
 };
+// The Replay game disclosure was removed on 2026-10-20 (the transport now
+// sits under the board); panel states saved before then still name it, and
+// preferenceBooleans rejects any unknown entry.
+function panelsFromStored(stored) {
+  if (!Object.hasOwn(stored, 'panels')) return PANEL_OPEN_DEFAULTS;
+  if (!preferenceObject(stored.panels)) return stored.panels;
+  const kept = { ...stored.panels };
+  delete kept.replay;
+  return kept;
+}
 const DEFAULT_STATE_NAMES = ['sleepy', 'just woke up', 'inebriated'];
 const preferenceObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const preferenceNumber = (v) => typeof v === 'number' && Number.isFinite(v);
@@ -299,7 +309,7 @@ const SETTINGS_SCHEMA = [
     valid: (v) => v === 'custom' || Object.hasOwn(DIFFICULTIES, v),
     group: 'gameplay',
     label: 'board selection',
-    describe: 'selected named preset or Custom',
+    describe: 'Beginner, Intermediate, or Expert (each Standard with the default generator), or custom, the board every other mode plays on',
     control: 'none',
   },
   {
@@ -308,7 +318,7 @@ const SETTINGS_SCHEMA = [
     valid: validCustomBoard,
     group: 'gameplay',
     label: 'custom board',
-    describe: 'applied custom width, height, and mine count; also used by Board lab',
+    describe: 'applied custom width, height, and mine count: the board of every mode chosen from the other modes menu',
     control: 'none',
   },
   {
@@ -388,6 +398,7 @@ const SETTINGS_SCHEMA = [
     field: 'panels',
     default: PANEL_OPEN_DEFAULTS,
     valid: preferenceBooleans(PANEL_OPEN_DEFAULTS),
+    migrate: panelsFromStored,
     mergeDefaults: true,
     group: 'gameplay',
     label: 'open panels',
@@ -553,7 +564,7 @@ const SETTINGS_SCHEMA = [
     field: 'sessionDefinition', default: SessionScope.defaultId,
     valid: (v) => SessionScope.choices.some((choice) => choice.id === v),
     group: 'after-game', label: 'page-wide session',
-    describe: 'the one wall-clock session window for session stats, the session summary, ranks won in session, and game data session comparisons; chosen only with the session picker in the game page’s top bar at the upper right; default today (since local midnight, not the last 24 hours)',
+    describe: 'the one wall-clock session window for session stats, the session summary, ranks won in session, and game data session comparisons; chosen only with the session picker in the settings row at the foot of the game page; default today (since local midnight, not the last 24 hours)',
     control: 'none',
   },
   {
@@ -576,12 +587,12 @@ const SETTINGS_SCHEMA = [
   {
     field: 'duringGameRows', default: DuringGame.defaults, mergeDefaults: true,
     valid: preferenceBooleans(DuringGame.defaults), group: 'after-game', label: 'during-the-game rows',
-    describe: 'which progress, pace, board, and event rows the during the game section shows; chosen with configure on that section', control: 'none',
+    describe: 'which progress, pace, board, and event rows the live perf charts show; chosen with configure on that section', control: 'none',
   },
   {
-    field: 'duringGameAverage', default: DuringGame.DEFAULT_AVERAGE,
-    valid: (v) => DuringGame.AVERAGES.some(([id]) => id === v), group: 'after-game', label: 'during-the-game averaging',
-    describe: 'how the during the game rows average: raw incidents, fixed 2, 5, or 10 second buckets from the first click, or a rolling 2, 5, or 10 second average; chosen on that section', control: 'none',
+    field: 'duringGameAveraging', default: DuringGame.DEFAULT_AVERAGE,
+    valid: (v) => DuringGame.AVERAGES.some(([id]) => id === v), group: 'after-game', label: 'live perf charts averaging',
+    describe: 'how the live perf charts average: a rolling 2, 5, or 10 second average (default 2 seconds), raw incidents, or fixed 2, 5, or 10 second buckets from the first click; chosen on that section', control: 'none',
   },
   {
     field: 'gameDataBandPool', default: 'lifetime',
@@ -650,7 +661,7 @@ const SETTINGS_SCHEMA = [
     valid: (v) => PLAY_MODE_IDS.has(v),
     group: 'gameplay',
     label: 'play mode',
-    describe: 'Standard, Pregen 10 by descending 3BV, Uniform NG, Single-path NG, Proof-or-die, Angelic, Endgame drill, Trial, Short trial, Test trial, or Board lab. Each mode stores and ranks its own results (Board lab records nothing).',
+    describe: 'Standard, Pregen 10 by descending 3BV, Uniform NG, Single-path NG, Proof-or-die, Angelic, Endgame drill, Trial, Short trial, Test trial, or Board lab, chosen from the other modes menu beside the three presets (Standard on the custom board is its Custom entry). Each mode stores and ranks its own results (Board lab records nothing).',
     control: 'none',
   },
   {
@@ -659,7 +670,7 @@ const SETTINGS_SCHEMA = [
     valid: (v) => typeof v === 'string' && BoardGenerators.SPECS.some((g) => g.id === v),
     group: 'gameplay',
     label: 'board generator',
-    describe: 'the mine-placement algorithm, chosen with the Generator menu in the game\u2019s upper right (the menu lists them all); each generator + parameter combination keeps its own top score lists',
+    describe: 'the mine-placement algorithm for custom games, chosen with the Generator menu in the mode options row above the board (the menu lists them all; the three presets always use the default); each generator + parameter combination keeps its own top score lists',
     control: 'none',
   },
   {
@@ -751,7 +762,22 @@ function settingsFrom(stored) {
 
 function saveSettings() {
   settings = settingsFrom(settings);
+  if (settings.difficulty !== 'custom' && settings.playMode !== 'standard') {
+    throw new Error('a preset board is played only in Standard, not ' + settings.playMode);
+  }
   persistUserdata('settings', settings);
+}
+
+// Beginner, Intermediate, and Expert are each Standard with the default
+// generator, and every other mode plays on the custom board (creator
+// decision 2026-10-20). A block saved before then may pair a preset with
+// another mode; it continues as that mode on the custom board at the
+// preset's size, the board its stored history is already keyed by.
+function presetModeAsCustom(block) {
+  if (block.difficulty === 'custom' || block.playMode === 'standard') return block;
+  const board = { ...DIFFICULTIES[block.difficulty] };
+  return { ...block, difficulty: 'custom', customBoard: board,
+    customBoardDraft: Object.fromEntries(Object.entries(board).map(([k, v]) => [k, String(v)])) };
 }
 
 // Invalid settings do not make game history unusable. Keep unknown fields on
@@ -788,7 +814,7 @@ function updateSettings(patch) {
 function loadSettings(got) {
   const stored = got.settings === undefined ? {} : got.settings;
   const carryStates = got.states !== undefined && !(preferenceObject(stored) && Object.hasOwn(stored, 'playerStates'));
-  settings = settingsFrom(carryStates ? { ...stored, playerStates: got.states } : stored);
+  settings = presetModeAsCustom(settingsFrom(carryStates ? { ...stored, playerStates: got.states } : stored));
   if (got.states !== undefined) consolidatePlayerStates(settings);
 }
 
@@ -804,7 +830,7 @@ function importPreferences(text) {
     if (!definition) throw new Error('unknown preference: ' + field);
     if (!definition.valid(value)) throw new Error('invalid preference: ' + field);
   }
-  settings = settingsFrom({ ...settings, ...source });
+  settings = presetModeAsCustom(settingsFrom({ ...settings, ...source }));
   saveSettings();
 }
 

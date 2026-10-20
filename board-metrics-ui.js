@@ -145,7 +145,7 @@ function runBoardMetricQueue() {
     runBoardMetricQueue();
   };
   try {
-    worker = new Worker('board-metrics-worker.js?v=20260921-visible-zero-one');
+    worker = new Worker('board-metrics-worker.js?v=20261020-live-perf');
     worker.onmessage = ({ data }) => {
       if (data.id === job.id) finish(data.result, data.error);
     };

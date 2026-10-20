@@ -95,9 +95,8 @@ Spec: [docs/product/replay.md](../product/replay.md). Index: [AGENTS.md](../../A
   reasonable choices into connected pockets; `#replay-choice-areas` draws
   leaders (`--replay-area`) to side labels with non-misleading mine risk and
   cell count, choosing left or right to avoid the result summary/viewport
-  edge. Sidebar `#scores-nav` contains `#replay-review`, a native details
-  disclosure collapsed for each new game, plus the `#review-options-button`
-  opener and scores. `#review-options` ends `#game-sidebar` after the legend:
+  edge. Sidebar `#scores-nav` contains the `#review-options-button` opener
+  and see scores. `#review-options` ends `#game-sidebar` after the legend:
   `#replay-overlay-control`, `#path-view-control`, and `#review-display`
   (the report-scope select and `RESULT_SECTION_GROUPS`, built once by
   `renderReviewDisplay` and re-synced on each report redraw). It is an auto
@@ -105,7 +104,24 @@ Spec: [docs/product/replay.md](../product/replay.md). Index: [AGENTS.md](../../A
   attribute in the compact layout, where it renders inline at the end of the
   Game details popover (CSS hides its opener and Close there), and
   `renderPathViewControls` sets its `hidden` while no finished board is shown.
-  Its transport uses a full-width slider above four navigation buttons.
-  Closing review restores the finished board; keyboard replay shortcuts only
-  apply while the transport is visible. These controls take no space beneath
-  the board and are outside its saved translation.
+  The transport `#replay-controls` (2026-10-20) is inside `#game-area`
+  right after `#game-frame`, so it moves with the board's saved
+  translation: a five-column grid whose width is
+  `min(100%, max(340px, --board-frame-width))` (`syncBoardLayout` sets the
+  variable from the frame), the slider wrap spanning row 1, the buttons
+  `#replay-first`, `#replay-prev`, `#replay-play`, `#replay-next`, and
+  `#replay-last` (inline SVG icons; `aria-label` and `title` name each) in
+  row 2, and `#replay-status` spanning row 3. The former `#replay-review`
+  disclosure and its remembered `settings.panels.replay` are removed
+  (`panelsFromStored` in `settings-core.js` drops the stored key). Keyboard
+  replay shortcuts apply while `replayControls.checkVisibility()`.
+  Playback ("PATH REPLAY: PLAYBACK" in `game/replay-view.js`): `setReplayStep`, the
+  entry point of every user move, calls `stopReplayPlayback` and then
+  `moveReplayStep`, the former body. `scheduleReplayPlayback` sets one
+  timeout of `replayFrameHoldMs(replayStep)`: `REPLAY_OPENING_FRAME_MS`
+  (500) at step 0, else the trace-time gap between decision events
+  `step - 1` and `step` (`pathDecisionEvents(trace.events)[i].t`). Each
+  tick moves one step and reschedules until the finished board. The play
+  button toggles `.playing`, which swaps its play and pause icons, and its
+  label and title; Play at the end first moves to step 0. `newGame` calls
+  `stopReplayPlayback` before clearing `replayEnabled`.

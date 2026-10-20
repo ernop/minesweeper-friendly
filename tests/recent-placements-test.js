@@ -52,7 +52,7 @@ function assertEq(name, actual, want) {
   assertEq('the worst board in the pool is 100%', workload.percentile, 100);
   assertEq('a board trait has the same name as its table and chart', workload.name, '3BV');
   assertEq('board traits count boards', workload.standingText, '3rd of 3 boards');
-  assertEq('board trait distributions carry the session boards', workload.sessionValues.length, 3);
+  assertEq('board trait distributions count every measured board', workload.distribution.counts.reduce((a, b) => a + b, 0), 3);
   const low = { outcome: 'win', endedAt: 1, maxAdjacent: 2, largestIsland: 3, islandCount: 12,
     boardMetrics: { version: 1, safeCells: 100, zeroOpenedCells: 20, zeroOpenedZeroOneCells: 10 } };
   const mid = { outcome: 'win', endedAt: 2, maxAdjacent: 5, largestIsland: 8, islandCount: 6,

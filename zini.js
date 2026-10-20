@@ -146,15 +146,20 @@ function ziniReveal(state, index) {
   }
 }
 
+// Every counted click, in order, by its row-major cell.
+function ziniLog(state, kind, index) {
+  state.actions.push({ kind, cell: (index % state.height) * state.width + Math.floor(index / state.height) });
+}
+
 function ziniClick(state, index) {
   ziniReveal(state, index);
-  state.zini++;
+  ziniLog(state, 'click', index);
 }
 
 function ziniFlag(state, index) {
   const { cells, height } = state;
   if (cells[index].flagged) return;
-  state.zini++;
+  ziniLog(state, 'flag', index);
   cells[index].flagged = true;
   ziniEachNeighborhood(cells, height, index, (i) => {
     cells[i].premium += 1;
@@ -169,7 +174,7 @@ function ziniFlagAround(state, index) {
 }
 
 function ziniChord(state, index) {
-  state.zini++;
+  ziniLog(state, 'chord', index);
   ziniEachNeighborhood(state.cells, state.height, index, (i) => {
     ziniReveal(state, i);
   });
@@ -225,19 +230,22 @@ function ziniRun(width, height, mineAt, human, hitOpenings) {
   for (const cell of cells) {
     if (cell.mine) mines++;
   }
-  const state = { cells, height, zini: 0, closedCells: cells.length };
+  const state = { cells, width, height, actions: [], closedCells: cells.length };
   if (hitOpenings) ziniHitOpenings(state);
   while (state.closedCells > mines) {
     if (!ziniStep(state, human)) break;
   }
-  return state.zini;
+  return state;
 }
 
 // mineAt is row-major (index = row * width + col), matching the rest of
-// this project; the column-major reference order lives only inside.
+// this project; the column-major reference order lives only inside. The
+// actions are the counted clicks, {kind: 'click' | 'flag' | 'chord', cell}.
 const Zini = {
-  zini: (width, height, mineAt) => ziniRun(width, height, mineAt, false, false),
-  hzini: (width, height, mineAt) => ziniRun(width, height, mineAt, true, true),
+  zini: (width, height, mineAt) => ziniRun(width, height, mineAt, false, false).actions.length,
+  hzini: (width, height, mineAt) => ziniRun(width, height, mineAt, true, true).actions.length,
+  ziniActions: (width, height, mineAt) => ziniRun(width, height, mineAt, false, false).actions,
+  hziniActions: (width, height, mineAt) => ziniRun(width, height, mineAt, true, true).actions,
 };
 
 if (typeof module !== 'undefined' && module.exports) module.exports = Zini;

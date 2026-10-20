@@ -92,20 +92,20 @@ Files, in load order:
 | `core.js` | the current game's state, shared DOM handles (incl. the page status line) |
 | `layout.js` | board position solver, wiring, and editor; zoom and pixel ratio; docked columns; clearance |
 | `play.js` | top panel (LCDs, face), generator glue and Generator menu, new-game flow, reveal/flag/chord, win/loss, A just universe |
-| `play-modes.js` | Mode menu, mode predicates and labels; Pregen 10, Endgame drill, Board lab, trials on the live board |
-| `play-limits.js` | daily play limits: this tab's play spans, the closed-board gate and notice, the no-flags penalty gate, today's use beside the limits link |
+| `play-modes.js` | other modes menu, mode predicates and labels; Pregen 10, Endgame drill, Board lab, trials on the live board |
+| `play-limits.js` | daily play limits: this tab's play spans, the closed-board gate and notice, the no-flags penalty gate, today's use in the top bar |
 | `evaluation.js` | game-end evaluation: pure verdict model, live capture |
 | `results.js` | the saved record (`reportResult`), after-game report, result view, High scores view |
 | `history.js` | record version stamps and schema, per-mode history, mode keys, normalization, transfer cleaning |
 | `rankings.js` | rank windows and relative ages, day categories, board families and their one name each (`BOARD_TRAIT_NAMES`), session summary, ranks won in session, rank lists |
-| `charts.js` | chart models and presentation (heavy models execute in the analysis worker); chart basics (SVG namespace, displayed numbers, sparkline sizes), axis ticks, trend lines, the (?) help tip, scatter and average-time charts |
+| `charts.js` | chart models and presentation (heavy models execute in the analysis worker); chart basics (SVG namespace, count phrases, text widths, displayed numbers, sparkline sizes), axis ticks, trend lines, the (?) help tip, scatter and average-time charts |
 | `trial-review.js` | after-trial rank rows, identity review, run overlays |
-| `game-data-chart.js` | game data: pure ranking and label layout, then the 0–100% band and its views |
-| `during-game-chart.js` | during the game (head of the game data column): charts and event lanes on one time axis, hover line, card, and the board at a moment in the player's style, replay link, configure |
+| `game-data-chart.js` | game data: pure ranking and label layout, then the 0–100% band and its views, the strips, and the cards' example boards |
+| `during-game-chart.js` | live perf charts (head of the game data column): the progress and relative charts and event tracks on one time axis, hover line, the card for the hovered line, the board at a moment in the player's style, replay link, configure |
 | `result-ranks.js` | `renderRanks`: result tables and charts in section order |
 | `input-trace.js` | the raw input trace |
 | `replay-model.js` | path and choice replay, pure part |
-| `replay-view.js` | replay controls, frames, path canvas, legends |
+| `replay-view.js` | replay transport and playback, frames, path canvas, legends |
 | `music.js` | music state sampling |
 | `trace-metrics.js` | trace metrics, pure (all measurement systems) |
 | `metric-definitions.js` | shared metric display catalog and series projection (pure, also loaded in workers) |
@@ -113,7 +113,7 @@ Files, in load order:
 | `session-stats.js` | session series computation, event recording, startup backfill |
 | `session-charts.js` | the one session picker, session controls and charts |
 | `player-states.js` | player state tags and their menu |
-| `controls.js` | board input events, new-game shortcut, difficulty tabs, custom board, see-scores button |
+| `controls.js` | board input events, new-game shortcut, game choice (preset links, other modes menu, mode options row), custom board, see-scores button |
 | `backup.js` | history/trace export and import, data-format card |
 | `main.js` | storage hooks, static chrome, `init` (last) |
 
@@ -175,14 +175,14 @@ the file path, plus the section heading when the file holds several.
 | Public hosting and deployment, play statistics | [docs/product/hosting.md](docs/product/hosting.md) | [docs/implementation/hosting.md](docs/implementation/hosting.md) |
 | Friendliness axis, solver tiers | [docs/product/design-axis.md](docs/product/design-axis.md) | none |
 | UI doctrine (read before any UI work) | [docs/product/ui-doctrine.md](docs/product/ui-doctrine.md) | none |
-| Board chrome, page layout, board position | [docs/product/board-and-layout.md](docs/product/board-and-layout.md) | [docs/implementation/board-and-layout.md](docs/implementation/board-and-layout.md) |
+| Board chrome, page layout (game setup rows, top bar, settings row, footer), board position | [docs/product/board-and-layout.md](docs/product/board-and-layout.md) | [docs/implementation/board-and-layout.md](docs/implementation/board-and-layout.md) |
 | Play modes (NG variants, Endgame drill, trials, Pregen 10, Board lab) | [docs/product/play-modes.md](docs/product/play-modes.md) | [docs/implementation/play-modes.md](docs/implementation/play-modes.md) |
 | Board generators, top score keys | [docs/product/board-generators.md](docs/product/board-generators.md) | [docs/implementation/board-generators.md](docs/implementation/board-generators.md) |
 | A just universe | [docs/product/just-universe.md](docs/product/just-universe.md) | [docs/implementation/just-universe.md](docs/implementation/just-universe.md) |
 | Game-end evaluation, action evidence | [docs/product/game-end-evaluation.md](docs/product/game-end-evaluation.md) | [docs/implementation/game-end-evaluation.md](docs/implementation/game-end-evaluation.md) |
 | Result presentation and ordering | [docs/product/results.md](docs/product/results.md) | [docs/implementation/results.md](docs/implementation/results.md) |
 | Game data chart, shared session | [docs/product/game-data.md](docs/product/game-data.md) | [docs/implementation/game-data.md](docs/implementation/game-data.md) |
-| During the game (in-game rows over time, detected events: moves, forks, pauses) | [docs/product/during-game.md](docs/product/during-game.md) | [docs/implementation/during-game.md](docs/implementation/during-game.md) |
+| Live perf charts (in-game rows over time, detected events: clicks, jumps, pauses) | [docs/product/during-game.md](docs/product/during-game.md) | [docs/implementation/during-game.md](docs/implementation/during-game.md) |
 | Rank lists, highlights, recent placements, streaks | [docs/product/rankings.md](docs/product/rankings.md) | [docs/implementation/rankings.md](docs/implementation/rankings.md) |
 | Average-time charts, scatter plots | [docs/product/charts.md](docs/product/charts.md) | [docs/implementation/charts.md](docs/implementation/charts.md) |
 | Path and choice replay | [docs/product/replay.md](docs/product/replay.md) | [docs/implementation/replay.md](docs/implementation/replay.md) |

@@ -144,14 +144,18 @@ function placeBoardPositionPanel() {
   boardPositionPanel.style.top = placed.top + 'px';
 }
 
-function applyBoardPosition() {
-  if (settings === null) return;
-  syncGameSidebar();
+// A trial's lobby and review show no board, so nothing is placed: the hidden
+// frame measures as an empty box at the page origin, and constraining that
+// box would push the offset further on every layout pass.
+function boardPositionOffset() {
+  if (gameArea.classList.contains('trial-no-board')) return { x: 0, y: 0 };
   const inset = parseFloat(getComputedStyle(pageLayout).getPropertyValue('--board-edge-inset'));
   const current = boardPageRect(gameFrame);
   const base = boardPositionRect(current, -appliedBoardOffsetX, -appliedBoardOffsetY);
   const mainRect = boardPageRect(mainElement);
-  const tabsRect = boardPageRect(difficultyTabs);
+  // The board may move up to the game setup rows, never over them.
+  const setupBottom = Math.max(...[difficultyTabs, modeOptions, boardLabPanel]
+    .filter((row) => !row.hidden).map((row) => boardPageRect(row).bottom));
   const viewportRight = Math.max(inset, window.innerWidth - inset);
   let left = Math.max(inset, mainRect.left + inset);
   let right = Math.min(viewportRight, mainRect.right - inset);
@@ -159,12 +163,17 @@ function applyBoardPosition() {
     left = mainRect.left;
     right = mainRect.right;
   }
-  const placed = constrainBoardOffset(base, {
+  return constrainBoardOffset(base, {
     left,
     right,
-    top: tabsRect.bottom + inset,
+    top: setupBottom + inset,
   }, [], settings.boardOffsetX, settings.boardOffsetY);
+}
 
+function applyBoardPosition() {
+  if (settings === null) return;
+  syncGameSidebar();
+  const placed = boardPositionOffset();
   appliedBoardOffsetX = placed.x;
   appliedBoardOffsetY = placed.y;
   gameArea.style.setProperty('--board-position-applied-x', placed.x + 'px');
@@ -180,6 +189,8 @@ function applyBoardPosition() {
 }
 
 function syncBoardLayout() {
+  // The replay transport under the board is as wide as the board frame.
+  gameArea.style.setProperty('--board-frame-width', gameFrame.offsetWidth + 'px');
   applyBoardPosition();
   syncJusticePlacement();
   placeBoardSides();
@@ -368,10 +379,14 @@ function placeBoardSides() {
   if (gameArea.classList.contains('trial-no-board')) return;
   const inset = parseFloat(getComputedStyle(pageLayout).getPropertyValue('--board-edge-inset'));
   const frame = gameFrame.getBoundingClientRect();
+  // The replay transport under a small board is wider than its frame.
+  const transport = replayControls.hidden ? frame : replayControls.getBoundingClientRect();
+  const boardLeft = Math.min(frame.left, transport.left);
+  const boardRight = Math.max(frame.right, transport.right);
   const main = mainElement.getBoundingClientRect();
   for (const [side, block] of blocks) {
     const width = block.getBoundingClientRect().width;
-    const left = side === 'left' ? frame.left - BOARD_SIDE_GAP - width : frame.right + BOARD_SIDE_GAP;
+    const left = side === 'left' ? boardLeft - BOARD_SIDE_GAP - width : boardRight + BOARD_SIDE_GAP;
     if (left < main.left + inset || left + width > main.right - inset) continue;
     block.classList.add('beside-board');
     block.style.left = (left - main.left) + 'px';
@@ -520,7 +535,10 @@ function initBoardPositionControls() {
     observer.observe(topBar);
     observer.observe(topRight);
     observer.observe(scoresNav);
+    observer.observe(modeOptions);
+    observer.observe(boardLabPanel);
     observer.observe(gameFrame);
+    observer.observe(replayControls);
     observer.observe(resultsBox);
     observer.observe(justiceLive);
     observer.observe(difficultyTabs);

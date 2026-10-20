@@ -105,14 +105,14 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
 
 No-mark is not a play mode and not its own history key. It is a way of
 solving the board you are already playing: a win with no flags placed
-(`flagsPlaced === 0`, the "(m)" mark). The Mode menu does not offer it.
+(`flagsPlaced === 0`, the "(m)" mark). The other modes menu does not offer it.
 The game stays on that board, mode, and generator — Expert Standard, for
 example, stays Expert Standard.
 
 When the result on screen is a no-mark win, the post-game records are only
 the no-mark games of that same history key. That covers the time lists,
 day categories, This-board tables, streaks, ranks won, property charts,
-relationship charts, and game data. The outcome line adds "no-mark". The
+relationship charts, and game data. The stats say "0 - markless". The
 lifetime time list is named for the board: "top expert no-mark times"
 (beginner and intermediate the same way; a custom board is "top custom
 WxH-M no-mark times"). Every other list of that view keeps its own name
@@ -380,7 +380,7 @@ middle? that's okay."
 - Source window: the shared page-wide `sessionDefinition`, default today
   (since local midnight). The heading reads "ranks won in session" and has no
   selector of its own (user decision 2026-09-23: it "should merely say
-  'session'"); the one picker is in the top bar at the upper right
+  'session'"); the one picker is in the settings row at the page foot
   ([One session definition](game-data.md#one-session-definition)).
   The heading tooltip names the current window. Bounds come from the same
   `SessionScope` model; there is no independent recent-placements preference.

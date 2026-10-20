@@ -10,15 +10,19 @@ because they apply app-wide, not just where each was first stated.
   strip it rather than polish it — the settings demo world (a pretend
   mid-game that reacted to every switch) was built and removed the same
   day on this rule.
-- One look per kind of thing (creator direction 2026-10-14, of the top bar
-  and the details column: "the tags/playstate (music on/off, mouse,
+- One look per kind of thing (creator direction 2026-10-14, of the then top
+  bar and the details column: "the tags/playstate (music on/off, mouse,
   computer, mental and physical state) shall not visually be identical to
   BUTTONS. it's a totally diff datatype after all. 2. why so many similar
   diffs everywhere? let's make it simpler."). On the game page every action
   or opener wears one bordered button look and every choice one select look;
-  a fact (a player state that is on, the measured music state, today's use
-  against the daily limits, the pixel ratio) is plain text with no border,
-  fill, pointer, or hover. A fact is never a button's label: the button says
+  a fact (today's use against the daily limits, the pixel ratio) is plain
+  text with no border, fill, pointer, or hover. A tag the player has put on
+  a game (a player state, and the measured music state beside them) is a
+  fully rounded sand pill with no pointer or hover (creator 2026-10-20:
+  "they're not buttons, they're tags ... show they're more like props than
+  UI interactive elements"; [Player states](player-states.md)). A fact is
+  never a button's label: the button says
   what it does and the value sits beside it. A fact the player can change is
   changed in the one panel its button opens. Found that day: nine CSS rules
   had each copied the button look with small differences (three border
@@ -44,12 +48,14 @@ because they apply app-wide, not just where each was first stated.
   not 'this' right? so why green?";
   [Rank highlights](rankings.md#rank-highlights-built-2026-09-21-recolored-2026-10-07)).
   This game is light blue (`--this-game`, #87cefa), and nothing else uses
-  it: its table rows and "this" chips (bold black on it, about 12:1), the
-  hovered game-data row, its line on histograms, the ring around a chart
-  linked to a hovered game-data row, its black-ringed dot on the scatter
-  charts, and your mark on the problems page. As a line or ring on white it
-  has black edges, as the chart dot has its black ring, because the light
-  blue alone is about 1.7:1 on white. It is deeper than the app's pale
+  it: its table rows and "this" chips (bold black on it, about 12:1), its
+  bar or dot and the pin over it on game data's strips, the ring around a
+  chart linked to a hovered game-data row, its black-ringed dot on the
+  scatter charts, and your mark on the problems page. As a mark, line, or
+  ring on white it has black edges, as the chart dot has its black ring,
+  because the light blue alone is about 1.7:1 on white. A hovered game-data
+  row no longer takes it (creator 2026-10-20: "entirely remove the
+  blue-background when mousing over effect"). It is deeper than the app's pale
   blues, the pressed toggle fill (#dcecf5) and the session day fill
   (#d3e7f5), so a this-game row does not read as a pressed control. History:
   a paler light blue (#cfe5fa) marked this game from 2026-10-07, the charts'
@@ -83,6 +89,17 @@ because they apply app-wide, not just where each was first stated.
   measurement-system heads such as "session" are 15px over 14px chart
   titles, and settings group headings are 15px over 14px setting names.
   Controls, tooltips, and popovers keep their own size limits.
+- No copies of a visible fact (creator 2026-10-20, of game data's board
+  name heads: "there is already a visible-on-the screen indicator that we
+  are in intermediate mode. it's the fact that Intermediate is already
+  highlighted on top of the whole entire screen! in general, let's avoid
+  copying data from a canonical, visible location, to some other smaller
+  lcoation for "convenience"."). A fact shown in its canonical place (the
+  highlighted preset link for the board, the mode pickers for the mode)
+  is not repeated in a smaller place elsewhere on the page. Different
+  facts may share a word, and a chart may name a measurement it plots;
+  what is banned is a second, smaller copy of the same fact for
+  convenience.
 - Optional instructions and explanatory text must meet both conditions:
   they add useful information, and they stay hidden until requested through
   a subtle help affordance, such as a (?) hover tooltip or a control's
@@ -99,7 +116,11 @@ because they apply app-wide, not just where each was first stated.
   by many items (a ranking formula, tie rules, a comparison pool, a unit)
   are stated once, in the chart's or section's own help. Use the player's
   words (click, flag, chord, zero region), not internal names. Each
-  measurement has one definition, reused wherever it appears.
+  measurement has one definition, reused wherever it appears. The details
+  column's three section titles (live perf charts, game summary perf, board
+  traits) carry no (?) since 2026-10-20 (creator: "remove all three (?)
+  buttosn and mouseovers entirely, not replacing orputting the removed text
+  anywhere; it merely wil lbe gone."); their rows keep their definitions.
 - Hover must not inject, swap, or reflow page content. Supplementary help
   may appear as an overlay tooltip on hover or keyboard focus without
   changing the layout; no action control may be reachable only by hovering.
@@ -120,6 +141,11 @@ because they apply app-wide, not just where each was first stated.
   open, after the data. It replaced the same day's "measurement
   explanations" rule (plain lead sentence, worked calculation, percentage
   arithmetic, example boards) ([Game data](game-data.md), hover card).
+  Example boards came back on 2026-10-20 at the creator's request, as this
+  game's own board in the player's board style showing what the
+  measurement counts, with a key of counts ([Game data](game-data.md),
+  "Strips and example boards"): a picture of the measured thing, not text
+  the screen already shows.
 - No narrated marks (creator 2026-10-08: "'Green line: this game. Ticks
   under a lifetime or board strip: this session's games.' and similar
   rather pointless text shall not appear in this project, please"). No
@@ -169,6 +195,26 @@ because they apply app-wide, not just where each was first stated.
   render one shared definition with the same groups. Where a narrow window
   folds the whole side column into its Game details popover, a panel from
   that column shows inline inside it instead of opening a second popover.
+- Defaults show nothing extra (creator 2026-10-20: "beg, int, exp are
+  "all-in-one settings choosers". when a user choose a mode besides those
+  from the dropdown they shoudl only then be presetned with the variant and
+  other options. that way, simple or new users who only want to play the
+  standard modes don't need to be confronted with any other ui elemtns").
+  A choice that is complete in itself, such as a preset board, brings no
+  further controls with it. A choice's own options appear only once that
+  choice is made, beside it, and leave when it is left. One choice is
+  never split over two pickers that must be set together: the play mode
+  and its variants are entries of one menu, not a mode menu plus a
+  variant menu ("simlify the mode pickers. i don't like the current
+  layers wqhich are duplicative and needlessly complex";
+  [Game setup](board-and-layout.md#game-setup-top-bar-settings-row-and-footer)).
+- Global configuration in one place (creator 2026-10-20: "all usre-specific
+  global configuration should be in the same place"). Everything the player
+  configures for every game (the settings page, the daily limits, the
+  session window, the board display) sits in one row, at the game page's
+  foot; links to the other pages sit in the footer below it. Live status
+  (today's use against the limits) and per-game context (the player
+  states) are not configuration and stay where play needs them.
 - Clear ways in and out: a surface opens from an obvious bordered button
   and closes just as obviously — for a page, a visible way back at both
   the top and the bottom of the body (not tucked at a far edge), plus

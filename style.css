@@ -100,10 +100,8 @@ main {
   background: #e3edf6;
 }
 
-/* An opener holds this pressed look while its menu, editor, or replay is open. */
-.ui-button[aria-expanded="true"],
-#other-pages-btn:has(+ #other-pages-menu:popover-open),
-#replay-review[open] > summary {
+/* An opener holds this pressed look while its menu or editor is open. */
+.ui-button[aria-expanded="true"] {
   border-color: #8aa0b5;
   background: #dcebf7;
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.12);
@@ -127,7 +125,7 @@ main {
   font: 11px Arial, Helvetica, sans-serif;
 }
 
-/*-------DIFFICULTY TABS-------*/
+/*-------GAME CHOICE (the three presets, other modes, mode options)-------*/
 
 #difficulty-tabs {
   position: relative;
@@ -154,12 +152,38 @@ main {
   text-decoration: none;
 }
 
-/*-------TOP BAR (play limits, session, board display, settings, other pages)-------*/
+/* The other modes menu is a peer of the three preset links, so it takes
+   their size, and their weight once a mode from it is chosen. Closed, it
+   stays a link's width; its open list shows every mode's whole name. */
+#play-mode-select { max-width: 15em; font-size: 14px; }
+#play-mode-select.active { font-weight: bold; }
+
+/* Only for a mode from the other modes menu: the board size, the generator
+   where the mode places mines with one, and the mode's own progress. */
+#mode-options {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 6px 18px;
+  max-width: 100%;
+  color: #000000;
+  font-size: 13px;
+}
+#mode-options[hidden],
+#board-generator[hidden] { display: none; }
+#board-generator {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/*-------TOP BAR (today's play)-------*/
 
 /* The page's upper right: above the docked details column, sticky with it,
-   or above the board column when the details are the compact popover. Its items wrap rather than shrink; each group (limits,
-   session, board display, other surfaces) keeps together and wider gaps
-   separate the groups. */
+   or above the board column when the details are the compact popover. It
+   holds only today's use against the daily limits: live status, where the
+   settings row at the page foot holds the configuration. */
 #top-bar {
   grid-column: 3;
   grid-row: 1;
@@ -167,23 +191,18 @@ main {
   top: 12px;
   z-index: 2;
   display: flex;
-  flex-wrap: wrap;
   justify-content: flex-end;
   align-items: center;
-  gap: 4px 6px;
   min-width: 0;
   background: #ffffff;
   color: #000000;
   font-size: 11px;
+  white-space: nowrap;
 }
 #page-layout.compact-sidebar #top-bar { grid-column: 2; position: static; justify-self: end; }
 #page-layout.compact-sidebar main { grid-row: 2; }
-#top-bar > * { white-space: nowrap; }
-#session-picker,
-#board-display,
-#page-links { margin-left: 10px; }
 
-/* Today's use is a fact, so plain text beside its link, never inside it. */
+/* Today's use is a fact: plain text, never a control. */
 #play-limits-use {
   font-weight: bold;
   font-variant-numeric: tabular-nums;
@@ -193,46 +212,39 @@ main {
 /* Answers a refused flag press; an outline takes no layout space. */
 #play-limits-use.refused { outline: 3px solid #a40000; outline-offset: 2px; }
 
-#session-picker,
+/*-------SETTINGS ROW (the player's global configuration, at the page foot)-------*/
+
+/* Everything the player configures for every game sits in this one row:
+   the settings page, the daily limits, the session window, and the board
+   display (Zoom, position, pixel ratio). Each group keeps together when
+   the row wraps, and wider gaps separate the groups. */
+#settings-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 6px 22px;
+  margin-top: 14px;
+  color: #000000;
+  font-size: 11px;
+}
+.settings-row-group {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 5px 6px;
+  white-space: nowrap;
+}
 #zoom-label {
   display: inline-flex;
   align-items: center;
   gap: 5px;
 }
 
-#board-display,
-#page-links {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
 #pixel-ratio-value {
   font-weight: bold;
   font-variant-numeric: tabular-nums;
 }
-
-/* Opens under its button; the toggle handler places it (main.js). */
-#other-pages-menu {
-  position: fixed;
-  inset: auto;
-  margin: 0;
-  padding: 3px 0;
-  border: 1px solid #8aa0b5;
-  border-radius: 3px;
-  background: #ffffff;
-  box-shadow: 0 3px 10px rgba(34, 56, 70, 0.16);
-}
-#other-pages-menu:popover-open { display: flex; flex-direction: column; }
-#other-pages-menu a {
-  padding: 4px 14px;
-  color: #000000;
-  font-size: 12px;
-  text-decoration: none;
-  white-space: nowrap;
-}
-#other-pages-menu a:hover,
-#other-pages-menu a:focus-visible { background: #e3edf6; }
 
 #board-position-panel {
   position: fixed;
@@ -345,9 +357,8 @@ main {
 
 #scores-nav[hidden] { display: none; }
 
-/* Review and display controls take space only in the side column: one
-   small row beside the setup controls while the replay is closed; the open
-   replay's transport takes the column's whole width. */
+/* The display options opener and high scores: one small row in the side
+   column, beside the play context. */
 #scores-nav {
   display: flex;
   flex: 0 1 auto;
@@ -360,14 +371,6 @@ main {
   min-width: 0;
   overflow-anchor: none;
 }
-#scores-nav:has(> #replay-review[open]) { flex-basis: 100%; }
-
-#replay-review { min-width: 0; }
-#replay-review[open] { flex-basis: 100%; }
-#replay-review[hidden] { display: none; }
-/* list-item keeps the disclosure triangle the button look would drop. */
-#replay-review > summary { display: list-item; width: fit-content; }
-#replay-review[open] > summary { margin-bottom: 8px; }
 
 #path-view-control {
   display: flex;
@@ -587,22 +590,45 @@ main {
   text-align: left;
 }
 
+/* The replay transport under the board, laid out as a video player's: the
+   position slider across the top, Start, back, play/pause, forward, End
+   beneath it, then the status. It is as wide as the board frame
+   (--board-frame-width, set by syncBoardLayout), never narrower than its
+   five buttons need, and moves with the board. */
 #replay-controls {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  width: 100%;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  box-sizing: border-box;
+  width: min(100%, max(340px, var(--board-frame-width, 340px)));
+  margin: 8px auto 0;
   align-items: center;
   gap: 6px;
 }
 #replay-controls > button { grid-row: 2; }
 #replay-controls > #replay-slider-wrap { grid-column: 1 / -1; grid-row: 1; }
+#replay-controls > #replay-status { grid-column: 1 / -1; grid-row: 3; }
 
 #replay-controls button {
+  display: flex;
+  justify-content: center;
+  align-items: center;
   min-width: 25px;
+  min-height: 25px;
   padding-inline: 5px;
-  font-size: 16px;
-  line-height: 1;
 }
+#replay-controls button svg {
+  width: 11px;
+  height: 11px;
+  fill: currentColor;
+}
+#replay-controls .replay-chevron {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+}
+#replay-play .replay-pause-icon,
+#replay-play.playing .replay-play-icon { display: none; }
+#replay-play.playing .replay-pause-icon { display: block; }
 
 /* The status line's values (action number, in-game time, action kind) are
    its most legible text; the words between them are secondary. */
@@ -761,13 +787,10 @@ main {
   display: none;
 }
 
-#custom-form[hidden] { display: none; }
-
 #custom-form {
   display: flex;
   gap: 14px;
   align-items: center;
-  font-size: 13px;
 }
 
 #custom-form input { width: 60px; }
@@ -896,11 +919,12 @@ body.trial-offboard #game-frame {
 /* Event handlers are installed while IndexedDB is still opening. Keep the
    visibly loading chrome from accepting an action it cannot honor yet. */
 .game-booting #difficulty-tabs,
-.game-booting #top-bar,
+.game-booting #mode-options,
 .game-booting #top-right,
 .game-booting #game-frame,
 .game-booting #scores-nav,
-.game-booting #backup {
+.game-booting #backup,
+.game-booting #settings-row {
   pointer-events: none;
 }
 
@@ -1391,8 +1415,8 @@ body.trial-offboard #game-frame {
   padding: 8px 20px;
 }
 
-/* The details column's head: the outcome with its board, mode, and
-   generator on one line; a high scores view's note takes a second. */
+/* The High scores view's head: "High scores" and its board on one line,
+   which game its sections describe on a second. Empty after a game. */
 #result-summary {
   margin: 0;
   font: bold 15px "Arial Black", "Arial Bold", Arial, sans-serif;
@@ -1669,9 +1693,8 @@ body.trial-offboard #game-frame {
 #details-resize:hover, #details-resize.dragging { background-color: #dde6ee; }
 #details-resize:focus-visible { outline: 2px solid #417ca4; }
 #details-resize[hidden] { display: none; }
-/* Setup and review controls share wrapping rows: mode, generator, and
-   states, then replay, display options, and scores where the column has
-   room beside them. */
+/* The play context (states) and the review row (display options, scores)
+   share wrapping rows, side by side where the column has room. */
 #sidebar-controls {
   display: flex;
   flex-wrap: wrap;
@@ -1695,7 +1718,7 @@ body.trial-offboard #game-frame {
 #game-sidebar-close { align-self: flex-end; }
 #page-layout.compact-sidebar { grid-template-columns: auto minmax(0, 1fr); }
 
-/* A stat section (during this game): its title is the button that opens
+/* A stat section (live perf charts): its title is the button that opens
    and closes it. Game data's two side titles share this look. */
 .stat-section {
   min-width: 0;
@@ -1750,53 +1773,19 @@ body.trial-offboard #game-frame {
   box-shadow: 0 4px 20px #0002;
 }
 
-/* Long mode and generator names stay inside a modest select rather than
-   widening the row. */
-#play-mode,
-#board-generator {
-  flex: 0 1 160px;
-  min-width: 0;
-  text-align: right;
-}
-
-#play-mode label,
-#board-generator label {
-  display: grid;
-  grid-template-columns: max-content minmax(0, 1fr);
-  align-items: center;
-  gap: 6px;
-  color: #000000;
-  font-size: 11px;
-}
-
-#play-mode-select,
-#board-generator-select {
-  min-width: 0;
-  width: 100%;
-}
-
-#board-generator-select:disabled {
-  color: #000000;
-  background: #e3e8ed;
-  border-style: dashed;
-}
-
+/* A mode's own progress in the mode options row is a value, so it is the
+   row's boldest text. */
 #trial-progress,
 #pregen-progress,
 #endgame-drill-info {
-  margin-top: 4px;
-  color: #000000;
-  font-size: 12px;
   font-weight: bold;
+  font-variant-numeric: tabular-nums;
 }
+#trial-progress[hidden],
+#pregen-progress[hidden],
+#endgame-drill-info[hidden] { display: none; }
 
-#trial-progress button {
-  margin-left: 8px;
-  font: inherit;
-  font-size: 11px;
-  font-weight: normal;
-  cursor: pointer;
-}
+#trial-progress button { margin-left: 8px; }
 
 .trial-verdict {
   font-family: Arial, Helvetica, sans-serif;
@@ -1928,28 +1917,29 @@ body.trial-offboard #game-frame {
 #states:has(> #states-menu:not([hidden])) { flex-basis: 100%; }
 
 /* The play context line: the measured music state and the player's states
-   that are on, facts stamped onto each finished game. Plain bold text with
-   no border, fill, or pointer, so it never reads as a button. A dot ends
-   every item but the last, since names hold spaces; at the end of an item
-   it never starts a wrapped row. */
+   that are on, facts stamped onto each finished game. Each is a tag: a
+   fully rounded sand pill with no pointer or hover, so it never reads as a
+   button (3px corners, blue-gray fill). The sand fill is used nowhere else:
+   light blue is this game, green and red are standing. */
 #play-context {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 2px 6px;
+  gap: 3px 4px;
   margin: 0;
-  color: #000000;
-  font-size: 12px;
-  font-weight: bold;
 }
 #play-context:not(:has(> .context-item:not([hidden]))) { display: none; }
-.context-item { white-space: nowrap; }
-.context-item[hidden] { display: none; }
-.context-item:not(:last-child)::after {
-  content: "\00b7";
-  margin-left: 6px;
-  font-weight: normal;
+.context-item {
+  padding: 1px 9px;
+  border: 1px solid #d8c48a;
+  border-radius: 999px;
+  background: #f8efcf;
+  color: #000000;
+  font: bold 11px Arial, Helvetica, sans-serif;
+  white-space: nowrap;
+  cursor: default;
 }
+.context-item[hidden] { display: none; }
 
 /* Every state with a checkbox (on or off), its x to delete it from the
    list, and the field at the bottom that creates (and puts on) a new one. */
@@ -2053,11 +2043,6 @@ body.trial-offboard #game-frame {
     width: 100%;
     margin-bottom: 14px;
     justify-content: center;
-    text-align: center;
-  }
-
-  #play-mode,
-  #board-generator {
     text-align: center;
   }
 
@@ -2533,10 +2518,10 @@ body.settings-page .return-to-game {
   margin-right: 0;
 }
 
-/* During this game, second by second (docs/product/during-game.md): the
-   details column's first stat section, sized by its content. Its charts
-   take the session charts' grammar (plot frame, gridlines, tick text,
-   series lines and legend swatches); the options row is game data's. */
+/* Live perf charts (docs/product/during-game.md): the details column's
+   first stat section, sized by its content. Its charts take the session
+   charts' grammar (plot frame, gridlines, tick text, series lines and
+   legend swatches); the options row is game data's. */
 .during-game { flex: 0 0 auto; }
 .during-game-charts { position: relative; cursor: crosshair; }
 .during-game-charts.during-game-empty { padding: 6px 0; font-size: 13px; cursor: auto; }
@@ -2551,28 +2536,26 @@ body.settings-page .return-to-game {
   cursor: auto;
 }
 .during-game-legend-value { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.during-game-legend-lead { font-weight: 700; }
+.during-game-legend-mark { display: inline-block; vertical-align: -1px; margin-right: 4px; }
+/* 1x, each line's whole-game value, anchors the relative chart. */
+.during-game-reference { stroke: #000000; stroke-width: 1; }
 /* Raw marks are context under an average's line, the data itself in raw. */
 .during-game-dot,
 .during-game-tick { opacity: 0.45; }
 .during-game-raw .during-game-dot,
 .during-game-raw .during-game-tick { opacity: 1; }
-.during-game-lane-names { position: absolute; top: 1px; left: 0; cursor: auto; }
-.during-game-lane-name {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
+.during-game-track-names { position: absolute; top: 1px; left: 0; cursor: auto; }
+.during-game-track-name {
   box-sizing: border-box;
-  height: 14px;
+  height: 18px;
   padding-right: 8px;
-  line-height: 14px;
+  line-height: 18px;
+  text-align: right;
   white-space: nowrap;
 }
-.during-game-lane-count { font-weight: 700; font-variant-numeric: tabular-nums; }
-.during-game-mark { fill: #000000; }
-.during-game-mark-death { fill: #d00000; }
-.during-game-span { fill: #90a4ae; }
-.during-game-unrecorded { font: 11px Arial, sans-serif; fill: #000000; }
+.during-game-mark { stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.during-game-track-legend { margin-top: 1px; }
 .during-game-line {
   position: absolute;
   top: 0;
@@ -2621,7 +2604,7 @@ body.settings-page .return-to-game {
 .during-game-card-row { white-space: nowrap; }
 .during-game-card-row .end-swatch { vertical-align: middle; }
 .during-game-card-value { font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.during-game-card-lane { font-weight: 700; }
+.during-game-card-track { font-weight: 700; }
 
 .board-metric-status {
   flex-basis: 100%;
@@ -2777,11 +2760,9 @@ body.settings-page .return-to-game {
   text-align: left;
   text-decoration: none;
 }
-.game-data-row > .chart-help-label:hover,
-.game-data-row > .chart-help-label:focus-visible {
-  background: var(--this-game);
-  outline: 1px solid #000000;
-}
+/* No hover background (creator 2026-10-20); the keyboard focus keeps its
+   outline. */
+.game-data-row > .chart-help-label:focus-visible { outline: 1px solid #000000; }
 .game-data-name { text-align: left; }
 .game-data-value,
 .game-data-pct { text-align: right; font-variant-numeric: tabular-nums; }
@@ -2820,25 +2801,75 @@ body.settings-page .return-to-game {
 }
 .game-data-unplotted { margin: 0 0 6px; font-size: 12px; }
 
-/* The card, opened from a band or distributions row: the pool's rank, its
-   games, and a definition where the name leaves the measurement open. The
-   rank is the card's largest text; numbers are regular weight, and only
-   each rank's pool label is bold. */
+/* The card, opened from a band or distributions row: the pool's rank, the
+   pool's games when the row has no strip, this game's board showing what
+   the measurement counts, and a definition where the name leaves the
+   measurement open. The rank is the card's largest text; numbers are
+   regular weight, and only each rank's pool label is bold. */
 .chart-help-tip:has(> .game-data-card) { width: auto; max-width: calc(100vw - 12px); }
 .game-data-card { display: flex; flex-direction: column; gap: 6px; width: 330px; max-width: 100%; color: #000000; }
 .game-data-card p { margin: 0; font-size: 12px; line-height: 1.4; }
 .game-data-card p.game-data-card-standing { font-size: 14px; }
 .game-data-card-pool { font-weight: 700; }
-.game-data-histogram { display: block; overflow: visible; }
-.game-data-histogram[data-size="card"] { width: 100%; height: auto; aspect-ratio: 320 / 132; }
-.game-data-histogram text { font: 400 11px Arial, Helvetica, sans-serif; fill: #000000; }
+/* A strip, in a row or on a card: this game's bar or dot in the this-game
+   color under a pin at its value, both edged in black like the charts'
+   this-game dot. */
+.game-data-histogram { display: block; }
+.game-data-histogram text { font-family: Arial, Helvetica, sans-serif; font-weight: 400; fill: #000000; }
 .game-data-histogram-dot { stroke: #000000; stroke-width: 0.6; }
 .game-data-histogram-axis,
-.game-data-histogram-tick { stroke: #000000; stroke-width: 1; vector-effect: non-scaling-stroke; }
-.game-data-histogram-this-edge { stroke: #000000; stroke-width: 5; vector-effect: non-scaling-stroke; }
-.game-data-histogram-this { stroke: var(--this-game); stroke-width: 3; vector-effect: non-scaling-stroke; }
-.game-data-histogram[data-size="strip"] .game-data-histogram-this-edge { stroke-width: 4; }
-.game-data-histogram[data-size="strip"] .game-data-histogram-this { stroke-width: 2; }
+.game-data-histogram-tick { stroke: #000000; stroke-width: 1; }
+.game-data-strip-this { fill: var(--this-game); stroke: #000000; stroke-width: 1; }
+.game-data-strip-pin { fill: var(--this-game); stroke: #000000; stroke-width: 1; stroke-linejoin: round; }
+/* The example board: the board's own squares at a smaller size, framed like
+   the live perf charts' board; marks tint, ring, or dot a square. The tint
+   is the square's background, so its number or mine stays sharp. */
+.game-data-example-board {
+  --bevel-size: calc(var(--cell-size) / 8);
+  position: relative;
+  display: grid;
+  width: max-content;
+  margin: 0 auto;
+  border: var(--bevel-size) solid;
+  border-color: var(--bevel-dark) var(--bevel-light) var(--bevel-light) var(--bevel-dark);
+}
+.game-data-example-board > .cell.game-data-example-shade { background: #ffe066; }
+.game-data-example-ring::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 2px solid #c000c0;
+  border-radius: 50%;
+  pointer-events: none;
+}
+.game-data-example-dot-mark {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  width: max(3px, calc(var(--cell-size) * 0.28));
+  height: max(3px, calc(var(--cell-size) * 0.28));
+  border-radius: 50%;
+  background: #c000c0;
+  box-shadow: 0 0 0 1px #ffffff;
+}
+.game-data-example-spread { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
+.game-data-example-point { fill: #c000c0; stroke: #ffffff; stroke-width: 1; }
+.game-data-example-circle { fill: none; stroke: #c000c0; stroke-width: 2; }
+.game-data-card p.game-data-example-key { display: flex; flex-wrap: wrap; gap: 2px 12px; font-size: 13px; }
+.game-data-example-key-entry { white-space: nowrap; }
+.game-data-example-swatch {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  margin-right: 4px;
+  vertical-align: -1px;
+  box-sizing: border-box;
+}
+.game-data-example-swatch-shade { background: #ffe066; border: 1px solid #000000; }
+.game-data-example-swatch-ring,
+.game-data-example-swatch-circle { border: 2px solid #c000c0; border-radius: 50%; }
+.game-data-example-swatch-dot,
+.game-data-example-swatch-point { width: 7px; height: 7px; margin: 0 6px 0 2px; border-radius: 50%; background: #c000c0; vertical-align: 1px; }
 
 /* Distributions: one strip per measurement, sections per comparison pool,
    all sections on one set of columns so their strips line up. Its layout
@@ -2878,21 +2909,11 @@ body.settings-page .return-to-game {
   grid-template-columns: subgrid;
   align-items: center;
 }
-/* With both pools shown, a group's pool title has a line of its own across
-   the columns and wraps there, so it never widens the name column. */
-.game-data-dist-section > .game-data-pool-title {
-  grid-column: 1 / -1;
-  font-size: 1.0833em;
-  font-weight: 700;
-}
 /* A side's title spans the columns above its groups. */
 .game-data-distributions > .game-data-side-title { grid-column: 1 / -1; position: static; }
 .game-data-dist-head { align-items: baseline; border-bottom: 1px solid #000000; }
-.game-data-dist-head .game-data-name,
 .game-data-dist-head .game-data-value,
-.game-data-dist-head .game-data-strip-head,
 .game-data-dist-head .game-data-pct { font-size: 0.9167em; font-weight: 700; }
-.game-data-strip-head { text-align: center; }
 .board-time-profile .game-data-dist-row > .chart-help-label {
   padding: 0;
   border: 0;
@@ -2905,13 +2926,10 @@ body.settings-page .return-to-game {
   text-decoration: none;
   white-space: nowrap;
 }
-.game-data-dist-row > .chart-help-label:hover,
-.game-data-dist-row > .chart-help-label:focus-visible {
-  background: var(--this-game);
-  outline: 1px solid #000000;
-}
-.game-data-strip { display: block; height: var(--game-data-strip); }
-.game-data-strip > svg { width: 100%; height: var(--game-data-strip); }
+.game-data-dist-row > .chart-help-label:focus-visible { outline: 1px solid #000000; }
+/* A strip is drawn at its cell's px size; until the next layout redraws it,
+   a strip drawn larger stays inside its cell. */
+.game-data-strip { display: block; height: var(--game-data-strip); overflow: hidden; }
 
 /* A chart heading's copy of this game's band row, and the chart outline
    while its band row is hovered or focused. */
@@ -4149,7 +4167,8 @@ body.vigilance-running #self-check-header {
 .session-chart.series-focus .rate-label-leader:not(.hot),
 .during-game-chart-svg.series-focus .end-line:not(.hot),
 .during-game-chart-svg.series-focus .during-game-dot:not(.hot),
-.during-game-chart-svg.series-focus .during-game-tick:not(.hot) {
+.during-game-chart-svg.series-focus .during-game-tick:not(.hot),
+.during-game-tracks-svg.series-focus .during-game-mark:not(.hot) {
   opacity: 0.16;
 }
 .session-chart .end-line.hot,
@@ -4324,18 +4343,16 @@ body.vigilance-running #self-check-header {
 }
 .spark-label-big { font-size: 11px; }
 
-/* Review controls keep their geometry as frames and legend text change. */
+/* The transport keeps its geometry as frames and status text change, so
+   nothing under the board moves while stepping or playing. */
 #replay-status {
-  grid-column: 1 / -1;
   height: 36px;
   overflow-y: auto;
-  text-align: left;
   line-height: 1.5;
   padding: 0;
   background: transparent;
   border-radius: 3px;
 }
-#replay-controls #replay-first, #replay-controls #replay-last { font-size: 12px; }
 #replay-slider-wrap { min-width: 0; }
 #replay-overlay-control, #path-view-control { justify-content: flex-start; }
 .path-view-heading { flex-basis: 100%; margin: 3px 0; text-align: left; }

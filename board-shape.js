@@ -38,32 +38,38 @@ function boardShapeOf(width, height, mineAt) {
     if (adjacent === 7) hasSeven = true;
     if (adjacent === 0) zeroCount++;
   }
-  const seen = new Array(n).fill(false);
-  let islandCount = 0;
-  let largestIsland = 0;
-  for (let i = 0; i < n; i++) {
+  const islands = boardIslands(width, height, mineAt);
+  return { maxAdjacent, hasSeven, zeroCount, islandCount: islands.length,
+    largestIsland: islands.reduce((largest, island) => Math.max(largest, island.length), 0) };
+}
+
+// Each island's cells: a group of touching mines.
+function boardIslands(width, height, mineAt) {
+  const seen = new Array(width * height).fill(false);
+  const islands = [];
+  for (let i = 0; i < mineAt.length; i++) {
     if (!mineAt[i] || seen[i]) continue;
-    islandCount++;
-    let size = 0;
+    const island = [];
     const stack = [i];
     seen[i] = true;
     while (stack.length > 0) {
       const j = stack.pop();
-      size++;
+      island.push(j);
       for (const nb of shapeNeighbors(j, width, height)) {
         if (!mineAt[nb] || seen[nb]) continue;
         seen[nb] = true;
         stack.push(nb);
       }
     }
-    if (size > largestIsland) largestIsland = size;
+    islands.push(island);
   }
-  return { maxAdjacent, hasSeven, zeroCount, islandCount, largestIsland };
+  return islands;
 }
 
 const BoardShape = {
   neighbors: shapeNeighbors,
   of: boardShapeOf,
+  islands: boardIslands,
 };
 
 if (typeof module !== 'undefined' && module.exports) module.exports = BoardShape;

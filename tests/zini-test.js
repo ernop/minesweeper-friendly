@@ -79,6 +79,15 @@ function board(width, height, marks) {
   check('center-mine 3x3 3BV is 8', Pregen.board3BV(3, 3, mineAt) === 8);
   check('center-mine 3x3 zini is 5', Zini.zini(3, 3, mineAt) === 5);
   check('center-mine 3x3 hzini is 6', Zini.hzini(3, 3, mineAt) === 6);
+  // The game data card draws these clicks on the board, in row-major cells:
+  // the greedy solve opens the left edge's middle (column 0 in the
+  // reference's column-major scan), flags the center, and chords there.
+  const actions = Zini.ziniActions(3, 3, mineAt);
+  check('center-mine 3x3 zini actions are its clicks',
+    actions.length === 5 && actions.filter((a) => a.kind === 'flag').every((a) => a.cell === 4)
+      && actions.filter((a) => a.kind === 'flag').length === 1
+      && actions.every((a) => ['click', 'flag', 'chord'].includes(a.kind) && a.cell >= 0 && a.cell < 9));
+  check('center-mine 3x3 hzini actions are its clicks', Zini.hziniActions(3, 3, mineAt).length === 6);
 }
 
 // Invariants on deterministic pseudo-random boards: both values are at

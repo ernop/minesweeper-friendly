@@ -1,9 +1,9 @@
 'use strict';
 
 // During the game: how one finished game unfolded on its own clock, the block
-// "during this game, second by second" at the head of the game data column
-// (docs/product/during-game.md). This file is the block's pure part: the row
-// and chart catalog and the rows' defaults, which the settings
+// "live perf charts" at the head of the game data column
+// (docs/product/during-game.md). This file is the block's pure part: the row,
+// chart, and event track catalog and the rows' defaults, which the settings
 // schema reads on both pages; the per-game model and the rows' drawn series,
 // which the analysis worker builds from the finished game's trace with the
 // prover (justice.js), saved positions (game/evaluation.js), the fastclick
@@ -448,22 +448,23 @@ const DuringGame = (() => {
     ['events', 'events'],
   ];
 
-  // Rows that share a unit share one chart, in this order; event rows are
-  // lanes under the charts. Scales run linear from 0 unless `scale` says
-  // 'share' (fixed 0 to 1) or 'log'. `percent` charts plot fractions and
-  // label them as percentages.
+  // Two charts, in this order. Progress plots shares of the board on a fixed
+  // 0 to 1 scale. Every other line shares one chart (creator 2026-10-20:
+  // combine the solitary line charts) on a log scale of each line against
+  // its own whole-game value, since their units differ. Event rows are
+  // marks on the tracks under the charts.
   const CHARTS = [
-    { id: 'progress', name: 'progress', unit: '%', scale: 'share', percent: true },
-    { id: 'perSecond', name: 'rates per second', unit: '/s' },
-    { id: 'perMinute', name: 'rates per minute', unit: '/min' },
-    { id: 'gaps', name: 'gaps', unit: 'ms', scale: 'log' },
-    { id: 'speed', name: 'mouse speed', unit: 'px/s' },
-    { id: 'clickShares', name: 'efficiency and click share', unit: '%', percent: true },
-    { id: 'ioe', name: 'IOE', unit: '' },
-    { id: 'path', name: 'path', unit: 'px' },
-    { id: 'known', name: 'safe squares known', unit: '' },
-    { id: 'moved', name: 'squares moved', unit: '' },
-    { id: 'areas', name: 'work areas', unit: '' },
+    { id: 'progress', name: 'progress', scale: 'share' },
+    { id: 'relative', name: 'pace and board against the whole game', scale: 'relative' },
+  ];
+  // The event tracks (creator 2026-10-20: a compact, meaningful display in
+  // place of one lane per event row), by what the events are about: clicks
+  // that changed nothing, went against the proof, or risked a mine; jumps,
+  // where the next click went; and pauses, time without a click.
+  const TRACKS = [
+    ['clicks', 'clicks'],
+    ['jumps', 'jumps'],
+    ['pauses', 'pauses'],
   ];
 
   const changingActions = (m) => m.actions.filter((a) => a.changes);
@@ -478,9 +479,11 @@ const DuringGame = (() => {
   const decimal1 = (value) => (Math.round(value * 10) / 10).toFixed(1);
   const integer = (value) => String(value);
 
-  // Each row: id, group, name, default, help, format, data(model), and for
-  // every row but the event lanes its chart and line color. The data's
-  // kind says how the row draws and averages:
+  // Each row: id, group, name, default, help, format, data(model), and its
+  // chart and line color (unique among the rows of its chart) or, for an
+  // event row, its track and its mark's shape and color (each shape unique
+  // within its track; spans are a band or a bar). The data's kind says how
+  // the row draws and averages:
   //   progress  cumulative share of the board, a step per action
   //   state     what the board offered before each action
   //   rate      incidents (weighted) per unit of time
@@ -504,109 +507,109 @@ const DuringGame = (() => {
       help: 'How many of the board\u2019s mines had a flag at each moment. Flags on safe squares do not count.',
       data: (m) => progressSteps(m, m.progress.flaggedMines, m.mines, 0) },
     { id: 'bvPerSecond', group: 'pace', name: '3BV/s', default: true, format: gameDataFormat('bvPerSecond'),
-      chart: 'perSecond', color: '#2e7d32',
+      chart: 'relative', color: '#2e7d32',
       help: '3BV solved per second.',
       data: (m) => ({ kind: 'rate', perMs: 1000,
         incidents: m.actions.filter((a) => a.solved > 0).map((a) => ({ atMs: a.atMs, weight: a.solved })) }) },
     { id: 'clickRate', group: 'pace', name: 'click rate', default: true, format: gameDataFormat('clickRate'),
-      chart: 'perSecond', color: '#1565c0',
+      chart: 'relative', color: '#1565c0',
       help: 'Board-changing clicks per second: reveals, flags, flag removals, and chords.',
       data: (m) => ({ kind: 'rate', perMs: 1000,
         incidents: changingActions(m).map((a) => ({ atMs: a.atMs, weight: 1 })) }) },
     { id: 'actionGap', group: 'pace', name: 'action gaps', default: true, format: ms,
-      chart: 'gaps', color: '#455a64',
+      chart: 'relative', color: '#546e7a',
       help: 'The time from one board-changing click to the next; averages take the median.',
       data: (m) => ({ kind: 'value', aggregate: 'median',
         incidents: changingActions(m).filter((a) => a.gapMs !== undefined).map((a) => ({ atMs: a.atMs, value: a.gapMs })) }) },
     { id: 'fastclickGap', group: 'pace', name: 'fastclick gap', default: true, format: gameDataFormat('fastclickGap'),
-      chart: 'gaps', color: '#e8710a',
+      chart: 'relative', color: '#ef6c00',
       help: 'Gaps of 1 second or less between board-changing clicks, ending in a click made while the cursor was moving (it moved in the 100 ms before); averages take the median. Flags are timed at the right press, left clicks at release.',
       data: (m) => ({ kind: 'value', aggregate: 'median',
         incidents: changingActions(m).filter((a) => a.gapMs !== undefined && a.gapMs <= FASTCLICK_MAX_GAP_MS && a.moving)
           .map((a) => ({ atMs: a.atMs, value: a.gapMs })) }) },
     { id: 'mouseSpeed', group: 'pace', name: 'mouse speed', default: true, format: gameDataFormat('mouseSpeed'),
-      chart: 'speed', color: '#3949ab',
+      chart: 'relative', color: '#6a1b9a',
       help: 'Cursor travel per second, pauses included. Each dot is the speed between two board-changing clicks.',
       data: (m) => ({ kind: 'speed', path: m.path,
         incidents: changingActions(m).filter((a) => a.gapMs > 0)
           .map((a) => ({ atMs: a.atMs, value: a.pathPx * 1000 / a.gapMs })) }) },
     { id: 'efficiency', group: 'pace', name: 'efficiency', default: false, format: gameDataFormat('efficiency'),
-      chart: 'clickShares', color: '#6a1b9a',
+      chart: 'relative', color: '#9e9d24',
       help: '3BV solved divided by board-changing clicks.',
       data: (m) => ({ kind: 'ratio', incidents: changingActions(m).map((a) => ({ atMs: a.atMs, num: a.solved, den: 1 })) }) },
     { id: 'correctness', group: 'pace', name: 'board-changing click share', default: false, format: gameDataFormat('correctness'),
-      chart: 'clickShares', color: '#00838f',
+      chart: 'relative', color: '#283593',
       help: 'Board-changing clicks divided by all clicks; a wrong flag still counts as a change.',
       data: (m) => ({ kind: 'ratio', incidents: m.actions.map((a) => ({ atMs: a.atMs, num: a.changes ? 1 : 0, den: 1 })) }) },
     { id: 'ioe', group: 'pace', name: 'IOE', default: false, format: gameDataFormat('ioe'),
-      chart: 'ioe', color: '#6a1b9a',
+      chart: 'relative', color: '#ad1457',
       help: '3BV solved divided by all clicks, including those that changed nothing.',
       data: (m) => ({ kind: 'ratio', incidents: m.actions.map((a) => ({ atMs: a.atMs, num: a.solved, den: 1 })) }) },
     { id: 'noopRate', group: 'pace', name: 'no-op rate', default: false, format: gameDataFormat('noopRate'),
-      chart: 'perSecond', color: '#e8a000',
+      chart: 'relative', color: '#c79100',
       help: 'Clicks that changed nothing, per second.',
       data: (m) => ({ kind: 'rate', perMs: 1000,
         incidents: m.actions.filter((a) => a.kind === 'no-op').map((a) => ({ atMs: a.atMs, weight: 1 })) }) },
     { id: 'misclickRate', group: 'pace', name: 'misclick rate', default: false, format: gameDataFormat('misclickRate'),
-      chart: 'perMinute', color: '#d32f2f',
+      chart: 'relative', color: '#c62828',
       help: 'Misclicks per minute: actions the visible board had already proved wrong.',
       data: (m) => ({ kind: 'rate', perMs: 60000,
         incidents: m.events.filter((e) => e.type === 'misclick').map((e) => ({ atMs: e.atMs, weight: 1 })) }) },
     { id: 'pathPerClick', group: 'pace', name: 'path / click', default: false, format: gameDataFormat('pathPerClick'),
-      chart: 'path', color: '#5d4037',
+      chart: 'relative', color: '#37474f',
       help: 'Cursor travel per board-changing click.',
       data: (m) => ({ kind: 'ratio', incidents: changingActions(m).map((a) => ({ atMs: a.atMs, num: a.pathPx, den: 1 })) }) },
     { id: 'pathPer3bv', group: 'pace', name: 'path / 3BV', default: false, format: gameDataFormat('pathPer3bv'),
-      chart: 'path', color: '#00838f',
+      chart: 'relative', color: '#00acc1',
       help: 'Cursor travel per 3BV solved.',
       data: (m) => ({ kind: 'ratio', incidents: changingActions(m).map((a) => ({ atMs: a.atMs, num: a.pathPx, den: a.solved })) }) },
     { id: 'safeKnown', group: 'board', name: 'safe squares known', default: true, format: decimal1,
-      chart: 'known', color: '#2e7d32',
+      chart: 'relative', color: '#00897b',
       help: 'Covered squares the visible board had proved safe, between your clicks. The game value is the average over time.',
       data: (m) => ({ kind: 'state', steps: m.known.startMs.map((atMs, i) => ({ atMs, value: m.known.all[i] })) }) },
     { id: 'safeByCounting', group: 'board', name: 'safe by counting', default: false, format: decimal1,
-      chart: 'known', color: '#1565c0',
+      chart: 'relative', color: '#7cb342',
       help: 'The safe squares known that counting single numbers proves, the quickest kind to see. The game value is the average over time.',
       data: (m) => ({ kind: 'state', steps: m.known.startMs.map((atMs, i) => ({ atMs, value: m.known.counting[i] })) }) },
     { id: 'workAreas', group: 'board', name: 'work areas', default: false, format: decimal1,
-      chart: 'areas', color: '#6a1b9a',
+      chart: 'relative', color: '#8d6e63',
       help: 'Separate places holding safe squares known; squares at most 2 apart count as one place. The game value is the average over time.',
       data: (m) => ({ kind: 'state', steps: m.known.startMs.map((atMs, i) => ({ atMs, value: m.known.areas[i] })) }) },
-    { id: 'squaresMoved', group: 'board', name: 'squares moved', default: true, format: decimal1,
-      chart: 'moved', color: '#5d4037',
+    { id: 'squaresMoved', group: 'board', name: 'squares moved between actions', default: true, format: decimal1,
+      chart: 'relative', color: '#4e342e',
       help: 'How far each board-changing click was from the one before, in squares in any direction; averages take the mean.',
       data: (m) => ({ kind: 'value', aggregate: 'mean',
         incidents: changingActions(m).filter((a) => a.squares !== undefined).map((a) => ({ atMs: a.atMs, value: a.squares })) }) },
-    { id: 'noOpEvents', group: 'events', name: 'no-op clicks', default: true, format: integer,
+    { id: 'noOpEvents', group: 'events', name: 'no-op clicks', default: true, format: integer, track: 'clicks', mark: 'ring', color: '#000000',
       help: 'Clicks that changed nothing.', data: eventsOf('no-op') },
-    { id: 'misclickEvents', group: 'events', name: 'misclicks', default: true, format: integer,
+    { id: 'misclickEvents', group: 'events', name: 'misclicks', default: true, format: integer, track: 'clicks', mark: 'cross', color: '#c62828',
       help: 'Actions the visible board had already proved wrong: opening a proven mine, flagging a proven-safe square, removing a proven mine\u2019s flag, or a chord against the proof.',
       data: eventsOf('misclick') },
-    { id: 'flagRemovedEvents', group: 'events', name: 'flags removed', default: true, format: integer,
+    { id: 'flagRemovedEvents', group: 'events', name: 'flags removed', default: true, format: integer, track: 'clicks', mark: 'down', color: '#6a1b9a',
       help: 'A flag taken off again; one taken off within 1 second of placing it is a quick undo.', data: eventsOf('flag-removed') },
-    { id: 'wrongFlagEvents', group: 'events', name: 'flags on safe squares', default: true, format: integer,
+    { id: 'wrongFlagEvents', group: 'events', name: 'flags on safe squares', default: true, format: integer, track: 'clicks', mark: 'up', color: '#ad1457',
       help: 'A flag placed on a square with no mine under it.', data: eventsOf('wrong-flag') },
-    { id: 'guessEvents', group: 'events', name: 'guesses', default: true, format: integer,
+    { id: 'guessEvents', group: 'events', name: 'guesses', default: true, format: integer, track: 'clicks', mark: 'diamond', color: '#ef6c00',
       help: 'Opening a square the visible board had not proved safe, after the first click.', data: eventsOf('guess') },
-    { id: 'longGapEvents', group: 'events', name: 'long gaps', default: true, format: integer,
+    { id: 'longGapEvents', group: 'events', name: 'long gaps', default: true, format: integer, track: 'pauses', mark: 'band', color: '#90a4ae',
       help: 'A gap of 1 second or more between board-changing clicks.', data: eventsOf('long-gap') },
-    { id: 'movedOnEvents', group: 'events', name: 'moved on', default: true, format: integer,
+    { id: 'movedOnEvents', group: 'events', name: 'moved on', default: true, format: integer, track: 'jumps', mark: 'chevronRight', color: '#1565c0',
       help: 'A jump of 3 or more squares from everything the click before it opened or marked, after the proven-safe squares within 2 squares of those had run out.',
       data: eventsOf('moved-on') },
-    { id: 'leftWorkEvents', group: 'events', name: 'left work', default: true, format: integer,
+    { id: 'leftWorkEvents', group: 'events', name: 'left work', default: true, format: integer, track: 'jumps', mark: 'arrowRight', color: '#c62828',
       help: 'A jump of 3 or more squares from everything the click before it opened or marked, and from the proven-safe squares still within 2 squares of those, leaving them unopened.',
       data: eventsOf('left-work') },
-    { id: 'forkEvents', group: 'events', name: 'forks', default: true, format: integer,
+    { id: 'forkEvents', group: 'events', name: 'forks', default: true, format: integer, track: 'jumps', mark: 'fork', color: '#00897b',
       help: 'A move made while proven-safe squares lay in 2 or more separate places (squares at most 2 apart count as one place): a choice of where to go next.',
       data: eventsOf('fork') },
-    { id: 'cameBackEvents', group: 'events', name: 'came back', default: false, format: integer,
+    { id: 'cameBackEvents', group: 'events', name: 'came back', default: false, format: integer, track: 'jumps', mark: 'chevronLeft', color: '#6a1b9a',
       help: 'A move back to proven-safe squares left behind by an earlier move.', data: eventsOf('came-back') },
-    { id: 'openingEvents', group: 'events', name: 'openings', default: false, format: integer,
+    { id: 'openingEvents', group: 'events', name: 'openings', default: false, format: integer, track: 'clicks', mark: 'square', color: '#2e7d32',
       help: 'A click that opened a zero region.', data: eventsOf('opening') },
-    { id: 'windowLeftEvents', group: 'events', name: 'window left', default: true, format: integer,
+    { id: 'windowLeftEvents', group: 'events', name: 'window left', default: true, format: integer, track: 'pauses', mark: 'bar', color: '#000000',
       help: 'Time the game\u2019s window was hidden or out of focus. Games saved before 26 September 2026 did not record it.',
       data: (m) => (m.pageStateRecorded ? eventsOf('window-left')(m) : { kind: 'unrecorded' }) },
-    { id: 'unusedFlagEvents', group: 'events', name: 'unused flags', default: false, format: integer,
+    { id: 'unusedFlagEvents', group: 'events', name: 'unused flags', default: false, format: integer, track: 'clicks', mark: 'upOutline', color: '#283593',
       help: 'A correct flag that no chord ever used; measured on wins only.', data: eventsOf('unused-flag') },
   ];
   const defaults = Object.freeze(Object.fromEntries(ROWS.map((row) => [row.id, row.default])));
@@ -618,18 +621,19 @@ const DuringGame = (() => {
 
   //-------DURING THE GAME: AVERAGING (analysis worker)-------
 
-  // The one averaging choice: raw incidents, fixed buckets from the first
-  // click, or a rolling window centered on each moment.
+  // The one averaging choice: a rolling window centered on each moment, the
+  // default at 2 s (creator 2026-10-20), raw incidents, or fixed buckets
+  // from the first click.
   const AVERAGES = [
+    ['rolling-2', '2 s rolling average'],
+    ['rolling-5', '5 s rolling average'],
+    ['rolling-10', '10 s rolling average'],
     ['raw', 'raw'],
     ['buckets-2', '2 s buckets'],
     ['buckets-5', '5 s buckets'],
     ['buckets-10', '10 s buckets'],
-    ['rolling-2', 'rolling 2 s'],
-    ['rolling-5', 'rolling 5 s'],
-    ['rolling-10', 'rolling 10 s'],
   ];
-  const DEFAULT_AVERAGE = 'buckets-5';
+  const DEFAULT_AVERAGE = 'rolling-2';
   function averageOf(id) {
     if (!AVERAGES.some(([value]) => value === id)) throw new Error('during the game: unknown average ' + id);
     if (id === 'raw') return { kind: 'raw' };
@@ -775,6 +779,6 @@ const DuringGame = (() => {
     return nearest === undefined ? undefined : nearest.value;
   }
 
-  return { NEAR_SQUARES, LONG_GAP_MS, QUICK_UNDO_MS, GROUPS, CHARTS, ROWS, defaults, AVERAGES, DEFAULT_AVERAGE,
+  return { NEAR_SQUARES, LONG_GAP_MS, QUICK_UNDO_MS, GROUPS, CHARTS, TRACKS, ROWS, defaults, AVERAGES, DEFAULT_AVERAGE,
     rowById, model, view, valueAt };
 })();

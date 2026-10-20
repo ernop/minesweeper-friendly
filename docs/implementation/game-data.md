@@ -45,7 +45,7 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
   and max-number-cap families have none); the This board table switches
   no longer enter (2026-10-14).
 - Distributions: `GameData.addDistributions(poolRows, valuesByScope,
-  sessionValues, format, step)` gives each row `distribution`
+  format, step)` gives each row `distribution`
   on one axis per measurement (`axisOf`): a discrete measurement (whole
   values, found from the data, or a declared `step`) bins whole groups of
   possible values, one per bin up to 60 values, otherwise `perBin` values per
@@ -53,38 +53,35 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
   range is `drawnRange`: the Tukey fence Q1 − 1.5·IQR through Q3 + 1.5·IQR
   of the lifetime values, tightened to the most extreme values still inside
   it. Fewer than 8 values keep the full range. A zero interquartile range
-  uses the narrowest window holding 90% of the values. This game and the
-  session do not extend it; `gameDataHistogram` clamps a this-game line
-  past the fence to the strip's edge. Bar height is `count / most` of the
+  uses the narrowest window holding 90% of the values. This game does not
+  extend it; `gameDataStrip` clamps the pin past the fence to the strip's
+  edge. Bar height is `count / most` of the
   strip; when the tallest bar is at least 6× the next, that next bar is
   drawn at half height and shorter bars keep their ratios to it. Each distribution has
   `lo`, `hi`, `bins`, `step` (null when continuous), `perBin`, `counts`,
   `standing` per bin (the mean percentile of the bin's games, ties sharing
   their mean rank; null when empty; values beyond the axis are never drawn
   into an edge bin), `labels` (at most six round values, `axisLabels`),
-  and, for a pool of at most `DOT_POOL` (30) games, its sorted `values`. The lifetime row also
-  carries `sessionValues` for the lifetime card's session ticks.
+  and, for a pool of at most `DOT_POOL` (30) games, its sorted `values`.
+  Until 2026-10-20 the lifetime row also carried `sessionValues` for
+  session ticks under its axis.
 - All of this runs in the analysis worker's `game-data` job
   (analysis-worker.js), which posts plain rows; the page never computes
   ranks or histograms. `buildBoardTimeRankProfile(record, records)` owns a
   view generation so a slower reply cannot replace a newer view.
-- Board name: `buildBoardTimeRankProfile` takes `boardDisplayLabel()` once,
-  the outcome line's board name from `config`, the board its worker jobs
-  already rank, and passes it to both views. Pool text everywhere is
-  `gameDataPoolLabel(scope)`.
+- Board name: none in either view since 2026-10-20 (the preset links show
+  the board). Pool text everywhere is `gameDataPoolLabel(scope)`.
 - Band: `gameDataItems` groups rows into one item per measurement with a row
-  per pool. `buildGameDataBand(rows, pool, valuesShown, boardName, titles)`
+  per pool. `buildGameDataBand(rows, pool, valuesShown, titles)`
   builds `.game-data-row` buttons (cells `.game-data-name`,
   `.game-data-value`, `.game-data-pct` with `data-pool`) under
-  `.game-data-column-heads`; the performance side's `.game-data-name` head
-  is `boardName`, the board side's is empty. Both sides plot `pool`, and an
+  `.game-data-column-heads`; both `.game-data-name` heads are empty. Both sides plot `pool`, and an
   item without that pool's row goes into the `.game-data-unplotted` note.
   Side titles (`titles`, one per side with rows) come from
   `gameDataSideTitle`: a `.game-data-side-title` holding a
   `.stat-section-toggle` that flips `settings.panels.gamePerformance` or
-  `.boardTraits` (`GAME_DATA_SIDES`, `gameDataSideOpen`) and a (?) holding
-  `GAME_DATA_SIDE_HELP[side]`, which says only what that side's
-  percentages are. `layout()` reads the open state each time: the drawn
+  `.boardTraits` (`GAME_DATA_SIDES`, `gameDataSideOpen`); no (?) since
+  2026-10-20. `layout()` reads the open state each time: the drawn
   sides are the open ones with plotted rows, and the note and the zoom
   domain come from them. With none drawn the titles share one wrapping
   `.game-data-titles` line. Otherwise it measures every column at scale 1
@@ -104,30 +101,65 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
   leaders and `.game-data-dot` mark each point. `standingColor`
   interpolates `STANDING_BAR_STOPS` (bar) or `STANDING_MARK_STOPS`
   (histogram marks, chips): green, neutral, red.
-- Card: `fillGameDataCard(tip, item, scope)` fills the shared help tip for
-  one pool (the band passes the points switch's pool; a distributions row
-  passes its section's) with only what the row does not show: the pool's
-  label and `standingText` (`.game-data-card-standing`),
-  `gameDataHistogram(row, true)`, and last the `definition` when there is
-  one; no key line (removed 2026-10-08). The tip is the
-  one owned manual popover, so it never reflows the page. The chart chip's
-  `title` is the same pool label and `standingText`. `gameDataHistogram`
-  draws bars, or for a row whose distribution carries `values`, one dot per
-  game at its value, stacked where dots touch and colored by that game's
-  standing in the pool; card size adds the round labels. For a `higher` row
-  its `x` runs from `hi` at the left to `lo` and bin `i` takes slot
-  `bins − 1 − i`, so every strip and card has its better end on the left
-  (2026-10-11); the worker's distributions keep value order.
-- Distributions view: `buildGameDataDistributions(rows, pools, boardName, titles)`
+- Strip: `gameDataStrip(row, width, height, scale)` draws one pool's
+  distribution as an SVG of exactly `width` x `height` px; `GAME_DATA_STRIP`
+  holds its sizes in px at scale 1 (pin 5, minimum plot 7, tick 3, label
+  9, dots 8 down to `smallestDot` 4, bars at most `barWidest` 24), and
+  `GAME_DATA_STRIP_SHORTEST` (25) is the shortest strip. A distribution
+  carrying `values` draws one dot per game, stacked where dots touch,
+  shrinking the dots to fit the plot; when even 4 px dots overflow, and
+  for every larger pool, it draws the bars. This game's dot, or the bin
+  holding its value, is `.game-data-strip-this` (`--this-game` fill, black
+  stroke) under `.game-data-strip-pin`. Tick labels sit at the
+  distribution's `labels`, measured with `chartTextWidth`; a label whose
+  box comes within 6 px (at scale 1) of the last drawn one is skipped with
+  its tick. For a `higher` row its `x` runs from `hi` at the left to `lo`
+  and bin `i` takes slot `bins − 1 − i`, so every strip has its better end
+  on the left (2026-10-11); the worker's distributions keep value order.
+- Card: `fillGameDataCard(tip, item, scope, withStrip)` fills the shared
+  help tip for one pool (the band passes the points switch's pool and
+  `withStrip`; a distributions row passes its section's, without the
+  strip it already shows) with only what the row does not show: the pool's
+  label and `standingText` (`.game-data-card-standing`), the strip at
+  `GAME_DATA_CARD_STRIP` (314 x 72) when `withStrip`, the example board
+  and its key, and last the `definition` when there is one; no key line for
+  the strip (removed 2026-10-08). The tip is the one owned manual popover,
+  so it never reflows the page. The chart chip's `title` is the same pool
+  label and `standingText`.
+- Example boards: `requestGameDataExamples(record)`, called when
+  `buildBoardTimeRankProfile` builds a win's panel, sets `gameDataGameId`
+  and, when `duringGameAvailable(record)` and the game is not an Endgame
+  drill, asks the reports worker's `game-data-examples` task once per game
+  (`{gameId, timeMs, outcome}`; the worker reads its held
+  `duringGameSource` and model, as the live perf charts do, and returns
+  `GameData.examples(width, height, mines, play)`). `GameData.examples`
+  (game-data.js) measures the board with `BoardMetrics.board`,
+  `BoardShape.islands`, and `Zini.ziniActions`/`hziniActions` (each
+  action's `kind` and row-major `cell`), and, when the trace has recorded
+  decisions, takes misclicks, no-op clicks, and unused flags from the
+  model's events and the flags standing at the end from the last decision
+  (`standingFlags` in analysis-worker.js). `gameDataExampleFor(item)` maps a
+  performance measurement to its example (`GAME_DATA_EXAMPLE_OF`) and a
+  board trait to its own, and answers only while the examples are the shown
+  panel's game and the page still holds that game's board
+  (`duringGameSourceId`). `gameDataExampleBoard(example)` copies
+  `finishedBoardCells()` into a `.game-data-example-board` grid at its own
+  `--cell-size` (`GAME_DATA_EXAMPLE_FIT`), painting each uncovered mine
+  without a flag (`cells[i].mine`) as `mineSvg(settings.mineStyle)`, and
+  marks squares with `.game-data-example-shade` (the square's background),
+  `.game-data-example-ring` (`::after`), or a `.game-data-example-dot-mark`
+  child; 3BV spread adds a `.game-data-example-spread` SVG of its work
+  points and spread circle. `GAME_DATA_EXAMPLE_COUNTS` builds the key
+  (`gameDataExampleKey`), with `countPhrase` (game/charts.js) for nouns.
+- Distributions view: `buildGameDataDistributions(rows, pools, titles)`
   renders the `settings.gameDataDistributions` mode as each side's
   `.game-data-side-title` on a line of its own spanning the grid, then,
   while that side is open, its `.game-data-dist-section`s (`data-side`,
   `data-pool`) in `pools` order (`settings.gameDataDistributionPools`:
-  `['lifetime']`, `['session']`, or both). With both pools each section
-  opens with a `.game-data-pool-title` (`gameDataPoolPhrase(scope)`, which
-  wraps rather than widening the name column); then a `.game-data-dist-head`
-  whose `.game-data-name` cell holds `boardName` in the first shown section
-  only (the head cells' 0.9167em bold). Everything sits in one
+  `['lifetime']`, `['session']`, or both). Each section opens with a
+  `.game-data-dist-head` whose name and strip cells are empty and whose
+  value and percent cells read "value" and the pool label (0.9167em bold).
+  Everything sits in one
   `.game-data-distributions` grid with subgrid rows, so every strip of both
   sides shares one column. `arrange()` rebuilds the children only when a
   side opens or closes; without lifetime they open with
@@ -135,13 +167,17 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
   note. It returns `layout()`, which arranges, fits the width with
   `--game-data-scale`, then binary searches `--game-data-strip` for the
   tallest strip whose content fits the box's height, shrinking
-  `--game-data-scale` only when 10 px strips overflow. The content height
+  `--game-data-scale` only when the shortest strip overflows; while it
+  shrinks the strip stays at `GAME_DATA_STRIP_SHORTEST` times the scale.
+  The content height
   is measured from the box's top to the last child (the last section, whose
   bottom margin is zero, or a closed side's title): the box's height comes
-  from its column, and `scrollHeight` never reports less than the box. Each
-  open side's strip is redrawn when its drawn height differs, with
-  `gameDataHistogram(row, false, stripPx)`, whose vertical units are px
-  (marks at full size from `GAME_DATA_STRIP_FULL_MARKS`, 26 px, up).
+  from its column, and `scrollHeight` never reports less than the box.
+  `draw(strip, scale)` then measures the strip column's width (every strip
+  shares it) and redraws each open side's strip whose drawn width, height,
+  or scale differs with `gameDataStrip`. `.game-data-strip` clips its SVG,
+  so a strip drawn for a wider column cannot widen the grid before the
+  next layout redraws it.
   `observeFit` reruns either view's layout on every resize. Both views sit
   in one `.game-data-section`, `open` while either side is open, with
   `data-open-sides` for `fitGameDataToSidebar`; a toggle refits the column
@@ -160,9 +196,8 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
   game-data job before building charts so the chips exist. Hover and focus
   on a band or distribution row call `linkGameDataCharts`, which toggles
   `.game-data-linked` on those charts: a `--this-game` ring with black edges
-  (two box-shadows plus a 1px outline, so it never reflows). The histogram's
-  this-game mark is two lines, `.game-data-histogram-this-edge` (black,
-  wider) under `.game-data-histogram-this` (`--this-game`).
+  (two box-shadows plus a 1px outline, so it never reflows). Rows take no
+  hover background (2026-10-20); `:focus-visible` keeps a 1px outline.
 - Configuration: `selectionList(title, allLabel, nameHead, field, entries)`
   builds one list per side, each an "all …" checkbox over a table with one
   checkbox per entry (`aria-label` its name) and the name as a

@@ -25,8 +25,14 @@ Spec: [docs/product/board-and-layout.md](../product/board-and-layout.md). Index:
   at the column's right edge is removed). `applyBoardPosition` bounds,
   `syncJusticePlacement` collisions, and `placeBoardSides` read the same
   `--board-edge-inset` (8px, on `#page-layout`), so a zero offset at the
-  resting place is never clamped. `#board-position-reset` sets both
-  offsets to zero. Results and
+  resting place is never clamped. The top bound is that inset below the
+  lowest visible game setup row (`#difficulty-tabs`, `#mode-options`,
+  `#board-lab-panel`). `boardPositionOffset` returns zero while `#game-area`
+  has `.trial-no-board`: the hidden frame measures as an empty rect at the
+  page origin, and constraining it grew the applied offset by the bounds on
+  every layout pass, which pushed a trial lobby thousands of pixels off
+  screen once the setup rows were observed (found 2026-10-20).
+  `#board-position-reset` sets both offsets to zero. Results and
   legends are outside that translated area. The editor exposes drag,
   arrows, numeric inputs, and labeled sliders. Browser scroll regressions
   cover docked and compact details and the independent metrics panel.
@@ -56,22 +62,23 @@ Spec: [docs/product/board-and-layout.md](../product/board-and-layout.md). Index:
   and lays out once more. Left/Right arrows step 10px and save. The former
   fourth column (`#game-data-column`,
   `.game-data-docked`, `placeGameData`, `gameDataColumnWanted`) is removed.
-  The sidebar contains `#result-summary` (the outcome line,
-  `setResultSummary`: lead, then board · no-mark, no mode, generator, or
-  date), `#sidebar-controls` (a wrapping flex row holding `#top-right` and
-  `#scores-nav`), `#results`, and `#path-view-legend` in normal flow, then
+  The sidebar contains `#result-summary` (empty after a game, which
+  `renderImmediateGameEnd` and `renderResult` clear; the High scores view's
+  head from `setHighScoresSummary(note)`), `#sidebar-controls` (a wrapping
+  flex row holding `#top-right`, the archive chip and `#states`, and
+  `#scores-nav`, `#review-options-button` and `#see-scores-btn`), `#results`,
+  and `#path-view-legend` in normal flow, then
   `#review-options` (a popover when docked, inline at the end when
   compact), with independent scrolling. It is reserved before game end.
   When the board and minimum column cannot fit together, `syncGameSidebar`
   removes the sidebar from the grid and makes it an auto popover opened by
   Game details. Results or legend visibility/height never enters that
-  width decision. `#top-right` and `#states` are wrapping flex rows
-  (selects share a row when they fit).
-  Stat sections: `buildStatSection(panelKey, title, help)`
+  width decision. `#top-right` and `#states` are wrapping flex rows.
+  Stat sections: `buildStatSection(panelKey, title)`
   (`game/results.js`) returns a `section.stat-section` whose title button
   (`.stat-section-toggle`, `aria-expanded`, `aria-controls`) flips the
   remembered panel `settings.panels[panelKey]` through `rememberPanel` and
-  schedules a board layout; its (?) is labeled "About <title>". Panels
+  schedules a board layout; no (?) since 2026-10-20. Panels
   `duringGame`, `gamePerformance`, and `boardTraits` default open
   (`settings-core.js`); the last two are game data's sides, whose titles
   `gameDataSideTitle` (`game/game-data-chart.js`) builds as
@@ -93,14 +100,24 @@ Spec: [docs/product/board-and-layout.md](../product/board-and-layout.md). Index:
   measures `.session-summary` and `.recent-placements` inside `#result-ranks`
   and gives each `.beside-board` (absolute in `main`, which is
   `position: relative`) with `left`/`top` only when its width fits between
-  the board frame (`BOARD_SIDE_GAP`, 16px) and the main column's inset;
-  trial layouts without a board skip it. `applyCellSize` and the window resize
+  the board (`BOARD_SIDE_GAP`, 16px) and the main column's inset; the
+  board's horizontal extent is the union of the frame and the visible
+  `#replay-controls`, which is wider than a small board's frame. Tops align
+  with the frame. Trial layouts without a board skip it. `applyCellSize`
+  and the window resize
   handler call it before `syncResultClearance`, which takes the lowest of
   the Justice callout and the `.beside-board` blocks as the overhang the
-  first result section clears. Stats and legend need no overhang margins,
-  floating/below-board classes, or z-index fixes. `newGame` empties
+  first result section clears; the transport is inside `#game-area`, so the
+  area's bottom already includes it. Stats and legend need no overhang
+  margins, floating/below-board classes, or z-index fixes. `newGame` empties
   `#result-ranks`, so the side blocks leave with the old result.
-  ResizeObserver responds to the main column, page layout, and board frame.
+  `syncBoardLayout` first copies `#game-frame`'s width into
+  `--board-frame-width` on `#game-area`, which sizes the transport.
+  ResizeObservers respond to the main column, page layout, and board frame
+  (`game/results.js`), and in `game/layout.js` to the top bar, `#top-right`,
+  `#scores-nav`, `#mode-options`, `#board-lab-panel`, the board frame,
+  `#replay-controls`, the results box, the Justice callouts, the game
+  choice row, the metrics panel, and the position editor.
   Legend items retain their complete vertical encoding labels. Replay choice
   callouts measure visible stats and legend bounds to avoid the sidebar.
   `renderPathOverlay` builds its legend into a detached fragment and replaces
@@ -111,25 +128,48 @@ Spec: [docs/product/board-and-layout.md](../product/board-and-layout.md). Index:
   wrapping collection. `boardTables` follows, labeled "This board", with
   exact 3BV/ZiNi/maximum-clue and board-shape time tables. Both precede
   point-chart sections and retain individual table labels.
-- Top bar (2026-10-14): `<nav id="top-bar">` is the first child of
-  `#page-layout` and holds, in order, `#play-limits-use` (plain text, hidden
-  until a limit is set) and the link `#play-limits-btn`, `#session-picker` (a
-  static `select#session-definition-select`, disabled with a loading option
-  until `initSessionScopeSelect` in `game/session-charts.js` fills it from
-  `init`), the group `#board-display` (`#zoom-label` with `#zoom-select`,
-  `#board-position-btn`, and `#pixel-ratio`), and the group `#page-links`
-  (`#settings-btn` and `#other-pages-btn`, whose `popovertarget` opens the
-  `popover` menu `#other-pages-menu`, plain links to self-check.html,
-  training.html, problems.html). Each group is an `inline-flex` box, so it
-  wraps as a unit; `margin-left: 10px` on the last three groups adds to the
-  bar's 6px gap. `renderPixelRatio` (ZOOM section of `game/layout.js`, called
+- Game setup rows (2026-10-20), the first children of `main`:
+  `nav#difficulty-tabs` holds `#game-sidebar-button`, the three preset links
+  (`data-difficulty`), and `select#play-mode-select` (static, disabled with
+  a loading option until `buildPlayModeSwitcher` in `game/play-modes.js`
+  fills it from `init`: a hidden, disabled prompt option with value `''`
+  reading "other modes", then one option per `PLAY_MODES` entry, `standard`
+  labeled "Custom"). `div#mode-options` holds `#custom-form`,
+  `label#board-generator` with `#board-generator-select` (filled by
+  `buildBoardGeneratorSwitcher` in `game/play.js`), and the mode progress
+  spans `#trial-progress`, `#pregen-progress`, and `#endgame-drill-info`;
+  `#board-lab-panel` follows it. Every game choice goes through
+  `chooseGame(difficulty, playMode)` (GAME CHOICE section of
+  `game/controls.js`): a preset link passes its difficulty and `standard`,
+  the menu passes `custom` and its value. Leaving a mode abandons an active
+  trial and drops the pregen batch, then it saves both settings, rebuilds
+  `config` with `boardFromPreferences`, calls `syncGameChoice`, and starts a
+  new game. `syncGameChoice` marks the active preset link, sets the menu to
+  the mode (or the prompt), bolds it while custom, shows `#mode-options`
+  only while custom, and hides `#board-generator` when
+  `generatorAppliesToMode` is false. `activeGenerator` (`game/play.js`)
+  returns the uniform generator for presets, so the stored generator choice
+  applies only to custom games.
+- Top bar: `div#top-bar` is the first child of `#page-layout` and holds only
+  `#play-limits-use` (plain text, hidden until a limit is set). From
+  2026-10-14 to 2026-10-20 it was a `nav` that also held the daily limits
+  link, the session picker, settings, and the other pages menu.
+- Settings row (2026-10-20): `div#settings-row` (`role="group"`, "Your
+  settings") sits in `main` between `#backup` and `#site-footer`, a
+  wrapping centered flex row of three `.settings-row-group` boxes
+  (`inline-flex`, `nowrap`, so each wraps as a unit): `#settings-btn` with
+  `#play-limits-btn`; `label#session-picker` (a static
+  `select#session-definition-select`, disabled with a loading option until
+  `initSessionScopeSelect` in `game/session-charts.js` fills it from
+  `init`); and `span#board-display` (`#zoom-label` with `#zoom-select`,
+  `#board-position-btn`, and `#pixel-ratio`). `.game-booting` blocks its
+  pointer input like the other chrome. `p#site-footer` links
+  self-check.html, training.html, problems.html, and the hosted game.
+  `renderPixelRatio` (ZOOM section of `game/layout.js`, called
   from `initCellSizeControl`) writes `devicePixelRatio`, rounded to two
   places, into `#pixel-ratio-value`, then listens once on
   `matchMedia('(resolution: <ratio>dppx)')`, which stops matching when the
-  browser zoom changes, and re-renders. The menu is fixed in the
-  top layer; `placeOtherPagesMenu` in `game/main.js` sets its `top` and
-  `right` from the button on `beforetoggle` and follows scroll and resize
-  while open. Grid: two rows, `auto 1fr`; the metrics panel and `main` span
+  browser zoom changes, and re-renders. Grid: two rows, `auto 1fr`; the metrics panel and `main` span
   both; the bar is row 1 of column 3, sticky at 12px; `#game-sidebar` is
   row 2, sticky at `12px + --top-bar-block` with its height reduced by it.
   `--top-bar-block` is `--top-bar-height` plus the 8px row gap;
@@ -137,7 +177,7 @@ Spec: [docs/product/board-and-layout.md](../product/board-and-layout.md). Index:
   bar wraps in a narrow column) and the layout ResizeObserver watches the
   bar. In `.compact-sidebar` the bar is row 1 of column 2, static, and `main`
   row 2 (`--top-bar-block: 0`). Below 700px: bar row 1, metrics row 2, main
-  row 3. `.game-booting #top-bar` blocks pointer input like the other chrome.
+  row 3. Without limits the bar is empty and 0px high.
   `tests/session-placement-layout-fixture.js` checks the bar heads the right
   columns, or sits above main when compact, at four widths.
 - Metrics panel visibility (2026-10-14): `renderMetricsPanelContent` hides
@@ -148,8 +188,8 @@ Spec: [docs/product/board-and-layout.md](../product/board-and-layout.md). Index:
   an editor that was open; `initGamePreferences` restoring a closed editor
   no longer moves focus.
 - Layout: `#results` (`#result-stats`: the stat sections or `#stats-grid`) is
-  a normal-flow child of `#game-sidebar`, after the outcome line and
-  controls and before the legend. The three grid columns prevent overlaps.
+  a normal-flow child of `#game-sidebar`, after the controls and before the
+  legend. The three grid columns prevent overlaps.
   `syncGameSidebar` controls its compact popover
   and fits the game-data chart's height (see Layout 2026-09-07 above);
   no result-dependent gutter calculations or overhang margins remain.

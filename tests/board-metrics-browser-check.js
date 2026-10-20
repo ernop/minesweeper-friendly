@@ -115,6 +115,9 @@ const { chromium } = require(process.argv[2]);
       delete r.boardMetrics;
       boardMetricJobs.delete(r);
       requestBoardMetrics(r);
+      // Another mode plays on the custom board; this one keeps the size.
+      settings.difficulty = 'custom';
+      settings.customBoard = { ...config };
       settings.playMode = 'angelic';
       newGame();
     }, saved);

@@ -1,8 +1,8 @@
 'use strict';
 
 // Board input and page controls: press preview, mouse and keyboard events,
-// the new-game shortcut, difficulty tabs, the custom board form, and the
-// see-scores button.
+// the new-game shortcut, the game choice (the three presets, the other modes
+// menu, the custom board form), and the see-scores button.
 
 //-------PRESS PREVIEW (held left button)-------
 
@@ -308,38 +308,42 @@ document.addEventListener('keydown', (event) => {
   requestNewGame();
 });
 
-//-------DIFFICULTY TABS, CUSTOM BOARD, AND THE SCORES BUTTON-------
+//-------GAME CHOICE (presets, other modes, custom board) AND THE SCORES BUTTON-------
 
-function syncDifficultyTabs() {
-  const matched = settings.difficulty;
-  for (const tab of document.querySelectorAll('#difficulty-tabs a')) {
-    tab.classList.toggle('active', tab.dataset.difficulty === matched);
+// Beginner, Intermediate, and Expert each choose a whole game: that board,
+// Standard, and the default generator, with nothing more to set. Every other
+// choice is a mode from the other modes menu, played on the custom board;
+// only then does the mode options row appear, holding the board size, the
+// generator where the mode uses one, and the mode's own progress.
+function syncGameChoice() {
+  const custom = settings.difficulty === 'custom';
+  for (const tab of difficultyTabs.querySelectorAll('a')) {
+    tab.classList.toggle('active', tab.dataset.difficulty === settings.difficulty);
   }
-  customForm.hidden = matched !== 'custom' || boardLabActive();
+  playModeSelect.value = custom ? settings.playMode : '';
+  playModeSelect.classList.toggle('active', custom);
+  modeOptions.hidden = !custom;
+  boardGeneratorChoice.hidden = !generatorAppliesToMode(settings.playMode);
 }
 
-for (const tab of document.querySelectorAll('#difficulty-tabs a')) {
+// Every game choice goes through here. Leaving a mode ends what it holds (an
+// active trial, the pregen batch) before the next board deals.
+function chooseGame(difficulty, playMode) {
+  if (playMode !== settings.playMode) {
+    if (Trial.isPlayMode(settings.playMode) && trialIsActive()) abandonTrial();
+    if (pregenActive() || playMode === 'pregen-10-3bv-desc') pregenBatch = null;
+    lastTrialReview = null;
+  }
+  updateSettings({ difficulty, playMode });
+  config = boardFromPreferences();
+  syncGameChoice();
+  newGame();
+}
+
+for (const tab of difficultyTabs.querySelectorAll('a')) {
   tab.addEventListener('click', (event) => {
     event.preventDefault();
-    for (const t of document.querySelectorAll('#difficulty-tabs a')) t.classList.remove('active');
-    tab.classList.add('active');
-    const name = tab.dataset.difficulty;
-    updateSettings({ difficulty: name });
-    if (name === 'custom') {
-      config = { ...settings.customBoard };
-      // In the Board lab the sliders are the custom control; the form
-      // stays hidden and the current size simply remains.
-      if (!boardLabActive()) {
-        customForm.hidden = false;
-        customForm.requestSubmit();
-      } else {
-        newGame();
-      }
-    } else {
-      customForm.hidden = true;
-      config = { ...DIFFICULTIES[name] };
-      newGame();
-    }
+    chooseGame(tab.dataset.difficulty, 'standard');
   });
 }
 
@@ -357,6 +361,5 @@ customForm.addEventListener('submit', (event) => {
   document.getElementById('custom-mines').value = mines;
   config = { width, height, mines };
   rememberCustomBoard();
-  syncDifficultyTabs();
   newGame();
 });

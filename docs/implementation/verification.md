@@ -169,12 +169,16 @@ exactly where each fits (both beside a beginner board at 2560), below the
 board the summary heading one left column with ranks won under it and later
 tables beside or under that column (beside it at 1680), all streak variants
 in that same collection without section
-headings, tables directly beneath the board and the blocks beside it, collapsed sidebar replay,
+headings, tables directly beneath the board, its replay transport, and the
+blocks beside it, the transport under the board (centered on it where the
+board fits its column, as wide as the board within 340px and the column),
 tall stats/legend isolation, and compact details opening/closing. It also
-checks replay scroll retention, closing back to the finished board, resetting
-on a new game, and arrow keys leaving a collapsed replay alone.
-Its replay fixture waits for native toggle delivery before rendering the first
-frame, so the saved panel state has caught up with the opened details element.
+checks arrow keys stepping the transport after a game, replay scroll
+retention, End restoring the finished board, playback (Play at the end
+starting over, walking the fixture's actions to the finished board, a step
+press stopping it), and a new game stopping playback and hiding the
+transport (2026-10-20; before, the replay was a collapsed disclosure in the
+details column).
 `tests/board-time-profile-browser-check.js` runs it in Chromium; it also
 completes in Firefox. Every fixture page gives its results box a fixed height
 above the iframe (found 2026-10-14): Firefox throttles animation frames in an

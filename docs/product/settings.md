@@ -5,7 +5,8 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
 - The design doctrine (settled 2026-08-23 after several same-day
   revisions; the general rules it produced live in [UI doctrine](ui-doctrine.md)):
   settings live on their own full page, settings.html, reached from the
-  clear "settings" button in the game's top bar, at the upper right; the way back is
+  clear "settings" button in the game page's settings row at the page foot;
+  the way back is
   equally clear — "return to game" buttons at the top and bottom of the
   page body, Esc, or the browser's Back. The page stays focused on the
   settings themselves. A change shows its meaning where the thing itself
@@ -44,6 +45,14 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   replay action position, all panels/disclosures, trial identity/action-report
   disclosures, text drafts, page/panel scroll positions, and focused control.
   These use the same schema and settings record as the existing preferences.
+- The game choice is one consistent pair (2026-10-20): a preset difficulty
+  always goes with the Standard mode, and every other mode with the custom
+  board ([Play modes](play-modes.md)). Saving any other pair is an error.
+  A stored or imported preset with another mode, the pair the former
+  separate Mode menu allowed, loads as that mode on a custom board of the
+  preset's size, which keeps its rankings. The replay disclosure's
+  remembered open state (`panels.replay`) is gone with the disclosure, and
+  a stored one is dropped on load.
 - Preference restoration completes before the game becomes interactive.
   Inapplicable panels keep their open preference until available. Replay
   positions refer to finished games by timestamp; the actual completed board
@@ -54,8 +63,17 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   highlights, and tooltips are transient input state, not preferences. File
   selections are applied immediately. An unfinished board still starts fresh
   on reload; saved Trial progress remains separate from personal preferences.
-- A "settings" button in the game's top bar at the upper right (since
-  2026-10-14; before that in the details column's cluster it shared with the
+- One place for the player's global configuration (creator 2026-10-20:
+  "all usre-specific global configuration should be in the same place"):
+  on the game page it is the settings row at the page foot, holding the
+  settings link, the daily limits link, the session picker, and the board
+  display (Zoom, position, pixel ratio)
+  ([Game setup, top bar, settings row, and footer](board-and-layout.md#game-setup-top-bar-settings-row-and-footer)).
+  Choices that belong to one game setup, the board size and the generator,
+  stay beside the mode they configure.
+- A "settings" button in the game page's settings row at the page foot
+  (since 2026-10-20; in the top bar at the upper right from 2026-10-14;
+  before that in the details column's cluster it shared with the
   states tags, 2026-08-20; a real bordered
   button since 2026-08-23) is a plain link to settings.html (2026-08-23;
   before that it opened an in-page surface — first a small corner
@@ -134,7 +152,7 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   `showSessionStats` (default off),
   `sessionLookbackSeconds` (default 300), and `sessionDefinition`
   (default `today`, since local midnight; set only by the one session picker
-  in the game page's top bar, never on the settings page) — visibility,
+  in the game page's settings row, never on the settings page) — visibility,
   played-time grouping, and the shared
   wall-clock session window (see [Session stats](session-stats.md)); `metricsPanelWidth` (default 316, clamped 220–640; set
   by dragging the stats panel's right edge, not a panel checkbox) — the
@@ -162,13 +180,15 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   (default off), and `gameDataDistributionPools` (default both; the last
   three chosen on the chart itself) — the game data
   column (see [Game data](game-data.md)); `shownThings.duringGame` (default
-  on; "during this game, second by second", in the This game group before
-  game data, which it leads in the result; in the Charts group until it
-  moved there on 2026-10-15),
+  on; "live perf charts", titled "during this game, second by second"
+  until 2026-10-20, in the This game group before game data, which it leads
+  in the result; in the Charts group until it moved there on 2026-10-15),
   `duringGameRows` (which rows it shows, chosen with its configure), and
-  `duringGameAverage` (default 5 s buckets, chosen on the block; all added
-  2026-10-15) — the during-the-game block at the head of the game data
-  column (see [During the game](during-game.md));
+  `duringGameAveraging` (default a 2 s rolling average, chosen on the
+  block; added 2026-10-15 as `duringGameAverage` with 5 s buckets, renamed
+  2026-10-20 so the new default reached every player) — the live perf
+  charts at the head of the game data column (see
+  [During the game](during-game.md));
   `shownThings.sessionSummary`
   (default on) — the session summary table (see
   [Rank lists](rankings.md#session-summary-requested-and-built-2026-10-07));
@@ -185,7 +205,7 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
 - New-player quiet start (decided 2026-09-26): someone arriving without a
   saved `showSessionStats` or `reportScope` gets session stats off and
   after-game action reports off (`none`). The session picker stays in the
-  top bar ("session today"). Session stats (since 2026-10-08 also
+  settings row ("session today"). Session stats (since 2026-10-08 also
   the switch-cost row) and the loss-analysis report stay available from
   settings, and the report ladder is also in the after-game display
   controls. A value already saved stays as saved.

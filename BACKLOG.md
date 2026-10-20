@@ -8,9 +8,93 @@ leave new ideas only in chat.
 Status labels: **creator** = the creator asked for it; **mapped** = named
 on the design axis or in a research note, not requested as a build.
 
-## During the game follow-ons (creator request 2026-10-15; base built the same day)
+## Remove the left stats panel (creator decision 2026-10-20; in progress)
 
-The block itself is built ([During the game](docs/product/during-game.md)).
+Creator, verbatim: "many sections within the left side live-charstg are
+actually also covered by the two sections which relate to user perf within
+this game. but i guess the left-sdie ones are mostly about the entire
+session? hmm but we still also have that in those newer right-sdie sections.
+it seems to me we can remove all the left side stat charts and things
+totally? what do you think? but the product solutions and ideas we used and
+invented there coul be useful too".
+
+Decision, answering the recommendation below, verbatim: "yes. for now,
+let's move the live-motion ones down to the bottom area and let the user
+open/close it as wanted. ahh, session charts of per-game charts. true. let's
+make those available as optinos to include in the 3 right-side sections?
+which teh user can add/remove. same for teh game endings %! wonderful! same
+for all, actually hmm but remember the post-game "classifity this loss by
+type (and also even wins by type) " isn't on t he block to be moved here -
+it's still supposed to appear after the game ends, right?"
+
+The plan agreed from it:
+
+- The left panel goes: its column, session charts, session controls,
+  provenance strip, and width and collapse settings. The session picker
+  stays in the settings row at the page foot.
+- The motion stats become one section at the page bottom with an open and
+  close title, closed by default and remembered: the live rows during play,
+  the final charts after the game. The section replaces the two settings
+  "motion stats during game" and "motion charts after game".
+- Every left-panel measurement the right side lacks becomes an optional row
+  in that section's configure list, off by default: flag rate and
+  flag-removal rate (game summary perf and live perf charts), cadence spread
+  within the game (live perf charts), the report categories per minute,
+  excess game risk, and modeled life gap (game summary perf, and over time
+  in live perf charts), and deaths with mistakes as the fatal click's loss
+  type in live perf charts (game summary perf shows only after wins).
+- Not moved: the classification of each loss and win by type stays after
+  the game, in the after-game report's fatal action heading and the session
+  summary's results tree.
+- Recommended, awaiting the creator: game endings % as a lifetime column
+  in "session results by type" (shown after every game) rather than a
+  right-side copy, since game summary perf shows only after wins; switch
+  cost as one optional line under game summary perf with its session and
+  latest-500 values, since it has no per-game value to rank.
+
+Findings given with the recommendation the same day:
+
+- Repeats of the right side: the session charts of per-game rates (click,
+  no-op, misclick, flag, and flag-removal rates; mouse speed and fastclick
+  gap; cadence spread) measure what game summary perf compares with the
+  session; only their order within the session is unique, and game data's
+  session history lists that as a table. Game endings over the session
+  repeat "session results by type" under the session summary.
+- No other home: the live motion rows (eight measurement systems, off by
+  default since 2026-10-17; the after-game motion charts are the same
+  values), the report-category, excess game risk, modeled life gap, and
+  deaths-with-mistakes rates (shown only with the loss-analysis report on),
+  and the switch-cost row. Proposed: drop the first two, or add per-game
+  report measures to game summary perf later; keep the switch-cost
+  calculation and move its row to the training page (or one line under the
+  session summary).
+- Cost of keeping it: its column (316 px by default); `init` rebuilds the
+  last 7 days of records into session series on every load, shown or not;
+  `controls.js` feeds the session recorder on every pointer move and press
+  during play; about 3,400 lines in `game/metrics-panel.js`,
+  `game/session-stats.js`, and `game/session-charts.js`. `sessionMedian`
+  and the session timing constants that results and the live perf charts
+  use would move to their users; `game/trace-metrics.js` stays, since
+  stored per-game values come from it.
+- Conflict: [Measurement purpose](docs/product/measurement.md) asks every
+  analysis to support trailing played-time chunks inside the current
+  session and names fatigue within a session as an aim; the session charts
+  are its only built view. Removal would move that requirement to offline
+  analysis, which the records and traces still serve.
+- Techniques to keep for later surfaces: the played-time axis with breaks
+  compressed and the day-colored "when this play happened" strip (a base for
+  cross-day timelines such as training progress); game markers colored by
+  how the game ended; the axis that grows at once and shrinks only when the
+  data fits 80% of a lower step; the honesty rules (under 1 s of play is a
+  dash, gaps are never bridged; the live perf charts already use them);
+  series spotlight on hover (reused); worked board examples in explanations
+  (the game data cards' example boards follow the same idea); direct line
+  labels with leaders that avoid each other.
+
+## Live perf charts follow-ons (creator request 2026-10-15; base built the same day)
+
+The block itself is built ([During the game](docs/product/during-game.md));
+it was titled "during this game, second by second" until 2026-10-20.
 Not built yet:
 
 - **creator** — Forks inside one work area. The request's "two choices for
@@ -32,9 +116,22 @@ Not built yet:
 - A cadence-spread row (game data's cadence spread within the game).
 - The same rows live during play.
 
+## Other modes menu: the Pregen 10 entry's length (found 2026-10-20)
+
+The game setup rows were built on 2026-10-20
+([Game setup](docs/product/board-and-layout.md#game-setup-top-bar-settings-row-and-footer)).
+The closed other modes menu is capped at 15em so it stays a peer of the
+preset links (a native select is as wide as its longest entry). Every
+entry fits except Pregen 10, whose name is "pregen 10 boards and order by
+3BV descending, assuming auto-click in upper right": closed, it shows only
+its start; the open list shows it whole. Recommended: a short menu name,
+"Pregen 10 (3BV descending)", keeping the full name as the entry's tooltip
+and in the mode's spec. Waiting for the creator's decision, since the name
+is the creator's.
+
 ## One look per kind of thing: the rest of the page (follows the creator's 2026-10-14 direction)
 
-The top bar and the details column follow
+The details column follows
 [One look per kind of thing](docs/product/ui-doctrine.md) since 2026-10-14.
 Two other controls keep their own looks:
 
@@ -326,7 +423,8 @@ this!"), specified where each lives:
   chart titles carrying each row's value and
   standing ([game data](docs/product/game-data.md#position-and-presentation)).
 - One session picker for every session surface, at the upper left; moved
-  to the top bar at the upper right on 2026-10-14
+  to the top bar at the upper right on 2026-10-14, and to the settings row
+  at the page foot on 2026-10-20
   ([One session definition](docs/product/game-data.md#one-session-definition)).
 - One name per measurement across game data, tables, charts, the stats
   table, session charts, and the stats panel ("max number", "zero-opening
@@ -666,7 +764,8 @@ standardization sweep was approved ("all"). Still open:
   (yellow, gold, orange).
   Still open:
   - "see scores" sits alone on its row only when no replay trace exists
-    (history views); after a live game it shares the row with Replay game.
+    (history views); after a live game it shares the row with Overlays &
+    display.
 
 ## Ranks-won visibility and rank appearance (creator, 2026-09-21)
 
@@ -811,7 +910,7 @@ opening-first click optimizer are tracked above.
 
 The board-generator registry exists (2026-08-25, [Board
 generators and top score keys](docs/product/board-generators.md)): Default, Pink noise, and Blue noise,
-each parameterized, chosen from the upper-right Generator menu, with
+each parameterized, chosen from the Generator menu in the mode options row, with
 per-key rankings and the Board lab exploration mode. Everything below
 is still unbuilt.
 

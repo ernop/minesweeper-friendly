@@ -72,16 +72,21 @@ coherent and beautifully integrated way!"
   panel at the top: one single-line row per limit with today's use, the
   limit, "reached" and "locked until 4:00" when they apply, and a Set or
   Change button. Today's use updates live while another tab plays. The
-  game page always shows a link to that panel at the start of the top bar,
-  at the upper right (creator request 2026-10-14: "play limits button/info
-  be on toplevel"; before, it showed in the side column and only while a
-  limit was set). The link always reads "daily limits". Once any limit is
-  set, today's use against them shows just before it as plain bold text,
-  not part of the link, "today: 12m 34s of 30m · 14 of 50 games", in red as
+  game page always shows a link to that panel, "daily limits", beside
+  "settings" in the settings row at the page foot, the one place for the
+  player's global configuration (creator 2026-10-20: "all usre-specific
+  global configuration should be in the same place"). From 2026-10-14 the
+  link sat at the start of the top bar at the upper right (creator request:
+  "play limits button/info be on toplevel"; before, it showed in the side
+  column and only while a limit was set). Once any limit is set, today's use
+  against them is the top bar's whole content, plain bold text at the upper
+  right, "today: 12m 34s of 30m · 14 of 50 games", in red as
   "no flags: ..." in the no-flags stage and "limit reached: ..." once the
-  day is closed (2026-10-14, under
+  day is closed. It stays at the top while the link moved down: it is live
+  status rather than configuration, and a refused flag press flashes it, so
+  it has to be in view during play. (2026-10-14, under
   [One look per kind of thing](ui-doctrine.md): earlier that day the use
-  replaced the link's own label, so a fact read as a button). It updates when a
+  replaced the link's own label, so a fact read as a button.) It updates when a
   board starts or ends, not every second, following the no-ticking-duplicates
   rule ([UI doctrine](ui-doctrine.md)).
 - **Not a preference.** Limits are their own stored kind outside the

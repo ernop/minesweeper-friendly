@@ -24,6 +24,20 @@ function sparkAxisNumber(v) {
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
+// A count with its noun: "1 square", "3 squares".
+function countPhrase(count, one, many) {
+  return count + ' ' + (count === 1 ? one : many);
+}
+
+// A text's width in px at a CSS font, for laying out SVG text before it is
+// drawn.
+let chartMeasureContext = null;
+function chartTextWidth(text, font) {
+  if (chartMeasureContext === null) chartMeasureContext = document.createElement('canvas').getContext('2d');
+  chartMeasureContext.font = font;
+  return chartMeasureContext.measureText(text).width;
+}
+
 // Chart geometries: small for the live panel's rows, large for the
 // after-game charts inline at the page bottom.
 const SPARK_SMALL = { width: 150, height: 46, left: 34, bottom: 11, dotR: 1.7, labelClass: 'spark-label' };

@@ -341,21 +341,18 @@ const GameData = (() => {
     return { ...axis, counts, standing };
   }
   // Each pool's histogram uses the lifetime axis, so one measurement's strips
-  // and both card modes share bins. A pool of at most DOT_POOL games also
-  // carries its values, so a card draws each game as its own dot. The
-  // lifetime row also carries the session games' values, drawn as ticks
-  // under the lifetime axis. `step` is a declared spacing of possible values.
+  // share bins. A pool of at most DOT_POOL games also carries its values, so
+  // its strip draws each game as its own dot. `step` is a declared spacing of
+  // possible values.
   const DOT_POOL = 30;
-  function addDistributions(poolRows, poolValuesByScope, sessionValues, format, step) {
-    const lifetime = poolRows.find((row) => row.scope === 'lifetime');
+  function addDistributions(poolRows, poolValuesByScope, format, step) {
     const axis = axisOf(poolValuesByScope.lifetime, step);
     const labels = axisLabels(axis, format);
     return poolRows.map((row) => {
       const values = poolValuesByScope[row.scope];
       return { ...row,
         distribution: { ...distribution(values, row.higher, axis), labels,
-          ...(values.length <= DOT_POOL ? { values: values.slice().sort((a, b) => a - b) } : {}) },
-        ...(row === lifetime ? { sessionValues } : {}) };
+          ...(values.length <= DOT_POOL ? { values: values.slice().sort((a, b) => a - b) } : {}) } };
     });
   }
   function rows(record, records, preferences = defaultsForView, params) {
@@ -372,7 +369,7 @@ const GameData = (() => {
         .filter((row) => row !== null);
       if (poolRows.length === 0) continue;
       const valuesByScope = Object.fromEntries(pools.map(([scope, pool]) => [scope, poolValues(pool, spec, params)]));
-      result.push(...addDistributions(poolRows, valuesByScope, valuesByScope.session, spec.format, spec.step?.(params)));
+      result.push(...addDistributions(poolRows, valuesByScope, spec.format, spec.step?.(params)));
     }
     return result;
   }
@@ -407,5 +404,52 @@ const GameData = (() => {
     return [Math.max(0, Math.floor((low - padding) / 10) * 10),
       Math.min(100, Math.ceil((high + padding) / 10) * 10)];
   }
-  return { metrics, defaults, defaultsForView, rows, rankedRow, addDistributions, summary, history, domain };
+  // What each measurement counts on this game's board, for the example board
+  // on its card (creator 2026-10-20: "visible UI examples of what the number
+  // or trait means", in the player's board style). Marks are squares to
+  // shade, ring, or dot; 3BV spread draws its work points, their center,
+  // and the spread as a circle, in cell coordinates. Board traits read the
+  // final layout. `play` is null for a trace without recorded decisions;
+  // otherwise misclicks, no-op clicks, and unused flags are its
+  // during-the-game events and `play.flagged` the flags standing at the end.
+  // A measurement whose name is a count of the marked squares needs no count
+  // beside its board, so only the rest carry counts.
+  function examples(width, height, mines, play) {
+    const board = BoardMetrics.board(width, height, mines);
+    const covered = new Set(board.covered);
+    const safeCount = board.safe.length;
+    const isolated = board.safe.filter((cell) => !covered.has(cell));
+    const maxClue = Math.max(...board.safe.map((cell) => board.clues[cell]));
+    const islands = BoardShape.islands(width, height, mines);
+    const largest = islands.reduce((best, island) => (island.length > best.length ? island : best), []);
+    const zini = (actions) => ({ marks: {
+      ring: actions.filter((a) => a.kind === 'click').map((a) => a.cell),
+      dot: actions.filter((a) => a.kind === 'chord').map((a) => a.cell),
+      shade: actions.filter((a) => a.kind === 'flag').map((a) => a.cell) } });
+    const traits = {
+      bv3: { marks: { shade: board.covered, ring: isolated }, openings: board.units.length - isolated.length },
+      zini: zini(Zini.ziniActions(width, height, mines)),
+      hzini: zini(Zini.hziniActions(width, height, mines)),
+      maxAdjacent: { marks: { shade: board.safe.filter((cell) => board.clues[cell] === maxClue) } },
+      workSpread: { spread: { points: board.points, center: board.center, radius: board.workSpread } },
+      zeroOneShare: { marks: { shade: board.covered.filter((cell) => board.clues[cell] <= 1) }, of: safeCount },
+      zeroOpeningCoverage: { marks: { shade: board.covered }, of: safeCount },
+      islandCount: { marks: { shade: islands.flat() } },
+      largestIsland: { marks: { shade: largest } },
+      zeroCount: { marks: { shade: board.safe.filter((cell) => board.clues[cell] === 0) } },
+    };
+    if (play === null) return traits;
+    const eventCells = (type) => play.events.filter((event) => event.type === type && event.cell !== null)
+      .map((event) => event.cell);
+    const eventCount = (type) => play.events.filter((event) => event.type === type).length;
+    const standing = new Set(play.flagged);
+    return { ...traits,
+      misclickRate: { marks: { ring: eventCells('misclick') }, clicks: eventCount('misclick') },
+      noopRate: { marks: { ring: eventCells('no-op') }, clicks: eventCount('no-op') },
+      unusedMarkShare: { marks: { shade: eventCells('unused-flag') } },
+      unflaggedMineShare: { marks: { shade: mines.flatMap((mine, cell) => (mine && !standing.has(cell) ? [cell] : [])) },
+        of: mines.filter(Boolean).length },
+    };
+  }
+  return { metrics, defaults, defaultsForView, rows, rankedRow, addDistributions, summary, history, domain, examples };
 })();

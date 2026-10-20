@@ -16,7 +16,8 @@ alwaysApply: true
   one table collection (session summary, recent placements, other rank
   tables, then all streak variants) → This board tables → your-perf charts →
   board-trait charts → relationship charts.
-- "During this game, second by second" is not in this sequence: it leads the
+- "Live perf charts" (titled "during this game, second by second" until
+  2026-10-20) is not in this sequence: it leads the
   game data column beside the board, above game data (creator decision
   2026-10-15).
 - The upper tables share one continuous wrapping list without Rankings or

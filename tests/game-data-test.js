@@ -104,7 +104,7 @@ assert.deepEqual(GameData.domain([]), [0, 100]);
 assert.deepEqual(GameData.domain([{ percentile: 98 }, { percentile: 100 }]), [90, 100]);
 assert.equal(GameData.rows(current, records, { ...GameData.defaultsForView, gameDataMetrics: none }).length, 0);
 
-// Distributions: every pool on the lifetime axis, session values as ticks.
+// Distributions: every pool on the lifetime axis.
 // Whole milliseconds are whole values: 30,001 possible times in about 36
 // bins of 834 values each, every bin holding the same number.
 const timeLife = row('time.lifetime').distribution;
@@ -115,8 +115,6 @@ assert.deepEqual([0, 12, 35].map((bin) => Math.round(timeLife.standing[bin])), [
   'a bin stands at its games’ percentile');
 assert.equal(timeLife.standing[1], null, 'a bin without games has no standing');
 assert.deepEqual(timeLife.labels.map((label) => label.text), ['10s', '20s', '30s', '40s'], 'labels sit at round values');
-assert.deepEqual(row('time.lifetime').sessionValues.slice().sort(), [30000, 40000], 'the lifetime row carries the session games');
-assert.equal(row('time.session').sessionValues, undefined);
 assert.deepEqual([row('time.session').distribution.lo, row('time.session').distribution.hi], [9988.5, 40012.5], 'pools share the lifetime axis');
 assert.equal(row('time.session').distribution.counts.reduce((a, b) => a + b, 0), 2);
 const bvRow = row('bvPerSecond.lifetime').distribution;
@@ -128,42 +126,42 @@ assert.deepEqual([bvRow.step, bvRow.bins], [null, 36], 'a continuous measurement
 // has no outliers, so the fence keeps every value.
 const spread = Array.from({ length: 121 }, (_, i) => 110 + i);
 const bv3Records = spread.map((bv3, i) => ({ ...current, endedAt: now - (200 - i) * 60000, bv3 }));
-const bv3Axis = GameData.addDistributions([{ scope: 'lifetime', value: 150, higher: false }], { lifetime: spread }, [], String)[0].distribution;
+const bv3Axis = GameData.addDistributions([{ scope: 'lifetime', value: 150, higher: false }], { lifetime: spread }, String)[0].distribution;
 assert.deepEqual([bv3Axis.step, bv3Axis.perBin, bv3Axis.bins, bv3Axis.lo, bv3Axis.hi], [1, 4, 31, 108.5, 232.5],
   '121 whole values, 110 to 230, in 31 bins of 4, the spare slots split around the range');
 assert.equal(bv3Axis.counts.reduce((a, b) => a + b, 0), 121, 'every value of a uniform spread is drawn');
 assert(bv3Axis.counts.every((count) => count >= 2 && count <= 4), 'only the padding at the ends is short a value');
 assert(bv3Records.length === 121);
 const narrow = GameData.addDistributions([{ scope: 'lifetime', value: 75, higher: false }],
-  { lifetime: Array.from({ length: 55 }, (_, i) => 41 + i) }, [], String)[0].distribution;
+  { lifetime: Array.from({ length: 55 }, (_, i) => 41 + i) }, String)[0].distribution;
 assert.deepEqual([narrow.perBin, narrow.bins], [1, 55], 'at most 60 values get one bar each');
 const percentOf = (v) => Number((100 * v).toFixed(1)) + '%';
 const share = GameData.addDistributions([{ scope: 'lifetime', value: 130 / 216, higher: true }],
-  { lifetime: Array.from({ length: 55 }, (_, i) => (100 + i) / 216) }, [], percentOf, 1 / 216)[0].distribution;
+  { lifetime: Array.from({ length: 55 }, (_, i) => (100 + i) / 216) }, percentOf, 1 / 216)[0].distribution;
 assert.deepEqual([share.perBin, share.bins], [1, 55], 'a share of 216 safe cells bins one cell each');
 assert(share.counts.every((count) => count === 1), 'one board per cell value draws an even histogram');
 const wideShare = GameData.addDistributions([{ scope: 'lifetime', value: 130 / 216, higher: true }],
-  { lifetime: Array.from({ length: 108 }, (_, i) => (100 + i) / 216) }, [], percentOf, 1 / 216)[0].distribution;
+  { lifetime: Array.from({ length: 108 }, (_, i) => (100 + i) / 216) }, percentOf, 1 / 216)[0].distribution;
 assert.deepEqual([wideShare.perBin, [...new Set(wideShare.counts)]], [3, [3]], 'wider shares group whole cells evenly');
-// A far tail, and a session game sitting in it, must not stretch the axis
-// out to themselves. The bulk is 0 and then 0.1–4; 8, 12, and 20 are past
-// the fence (Q3 is 2, so the whisker ends at 5).
+// A far tail must not stretch the axis out to itself. The bulk is 0 and
+// then 0.1–4; 8, 12, and 20 are past the fence (Q3 is 2, so the whisker
+// ends at 5).
 const skewed = [...Array(50).fill(0), ...Array.from({ length: 40 }, (_, i) => (i + 1) / 10), 8, 12, 20];
 const skewedAxis = GameData.addDistributions([{ scope: 'lifetime', value: 0.5, higher: false }],
-  { lifetime: skewed }, [20], (v) => v.toFixed(1))[0].distribution;
+  { lifetime: skewed }, (v) => v.toFixed(1))[0].distribution;
 assert.deepEqual([skewedAxis.lo, skewedAxis.hi, skewedAxis.bins], [0, 4, 36],
-  'the axis ends at the last value inside the fence, not at the tail or the session game');
+  'the axis ends at the last value inside the fence, not at the tail');
 assert.equal(skewedAxis.counts.reduce((a, b) => a + b, 0), 90, 'the three tail values are not drawn');
 // At least half the values tied, so there is no whisker: the narrowest
 // window holding 90% is drawn instead of collapsing onto the tied value.
 const mass = [...Array(80).fill(0), 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 const massAxis = GameData.addDistributions([{ scope: 'lifetime', value: 0, higher: false }],
-  { lifetime: mass }, [], String)[0].distribution;
+  { lifetime: mass }, String)[0].distribution;
 assert.deepEqual([massAxis.lo, massAxis.hi], [-0.5, 1.5],
   'a point mass keeps the nearest tail value the 90% window needs');
 assert.equal(massAxis.counts.reduce((a, b) => a + b, 0), 81);
 const wholeAxis = GameData.addDistributions([{ scope: 'lifetime', value: 3, higher: false }],
-  { lifetime: [0, 3, 1, 3] }, [], String)[0].distribution;
+  { lifetime: [0, 3, 1, 3] }, String)[0].distribution;
 assert.deepEqual([wholeAxis.lo, wholeAxis.hi, wholeAxis.bins, wholeAxis.step], [-0.5, 3.5, 4, 1],
   'whole values spanning at most 60 get one bin each');
 assert.deepEqual(wholeAxis.counts, [1, 1, 0, 2]);
@@ -200,4 +198,33 @@ assert.deepEqual(shareRow.distribution.labels.map((label) => label.text), ['0%',
 assert.equal(GameData.metrics.find((m) => m.id === 'stnb').value(current, board), stnbOf(current, board));
 assert.equal(GameData.metrics.find((m) => m.id === 'ioe').value(current), 60 / 82);
 assert.equal(new Set(GameData.metrics.map((m) => m.id)).size, GameData.metrics.length);
-console.log('game-data: scope boundaries, historical windows, eligible populations, missing values, ties, metric catalog, and autozoom passed');
+
+// Example boards: what each measurement counts on one board. A 4×3 board
+// with mines in opposite corners opens in two zero regions that cover
+// every safe square.
+for (const file of ['board-shape.js', 'zini.js', 'board-metrics.js']) {
+  vm.runInThisContext(fs.readFileSync(require('node:path').join(__dirname, '..', file), 'utf8'));
+}
+const cornerMines = Array.from({ length: 12 }, (_, i) => i === 0 || i === 11);
+const traitExamples = GameData.examples(4, 3, cornerMines, null);
+assert.deepEqual([traitExamples.bv3.openings, traitExamples.bv3.marks.shade.length, traitExamples.bv3.marks.ring],
+  [2, 10, []], 'two openings cover all ten safe squares, with no number outside them');
+assert.deepEqual([traitExamples.zeroOpeningCoverage.marks.shade.length, traitExamples.zeroOpeningCoverage.of], [10, 10]);
+assert.deepEqual(traitExamples.maxAdjacent.marks.shade.slice().sort((a, b) => a - b), [1, 4, 5, 6, 7, 10],
+  'every 1 is the largest number');
+assert.deepEqual([traitExamples.islandCount.marks.shade, traitExamples.largestIsland.marks.shade], [[0, 11], [0]]);
+assert.deepEqual(traitExamples.zeroCount.marks.shade, [2, 3, 8, 9]);
+assert.deepEqual([traitExamples.workSpread.spread.center, Number(traitExamples.workSpread.spread.radius.toFixed(4))],
+  [{ x: 1.5, y: 1 }, Number(Math.SQRT2.toFixed(4))], 'the two openings sit √2 squares from their center');
+const ziniMarks = traitExamples.zini.marks;
+assert.equal(ziniMarks.ring.length + ziniMarks.dot.length + ziniMarks.shade.length, Zini.zini(4, 3, cornerMines),
+  'the ZiNi example marks every one of its clicks');
+assert.equal(traitExamples.misclickRate, undefined, 'a trace without decisions has no play examples');
+const playExamples = GameData.examples(4, 3, cornerMines, { flagged: [0], events: [
+  { type: 'misclick', cell: 5 }, { type: 'no-op', cell: null }, { type: 'no-op', cell: 7 }, { type: 'unused-flag', cell: 0 }] });
+assert.deepEqual([playExamples.misclickRate.marks.ring, playExamples.misclickRate.clicks], [[5], 1]);
+assert.deepEqual([playExamples.noopRate.marks.ring, playExamples.noopRate.clicks], [[7], 2],
+  'a no-op click with no square is counted but not marked');
+assert.deepEqual(playExamples.unusedMarkShare.marks.shade, [0]);
+assert.deepEqual([playExamples.unflaggedMineShare.marks.shade, playExamples.unflaggedMineShare.of], [[11], 2]);
+console.log('game-data: scope boundaries, historical windows, eligible populations, missing values, ties, metric catalog, autozoom, and example boards passed');

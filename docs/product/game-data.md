@@ -10,12 +10,13 @@ requirements and clarifications; it supersedes the earlier compact chart draft.
 For regular wins, game data replaces the scalar statistics grid. Since
 2026-10-17 it lives in the one details column right of the board (creator:
 "make the entire rightside (two columns) into one"; [Layout: the board never
-moves](board-and-layout.md)), below "during this game, second by second"
-(creator 2026-10-15: "so it's "during this game second by second", "your
-perf totals for this game", then "board traits""; [During the
-game](during-game.md)), and takes the column height left below the outcome
-line, the controls, and "during this game". After a loss "during this game"
-and the loss's statistics fill the column instead. From 2026-09-23 to
+moves](board-and-layout.md)), below "live perf charts" (titled "during
+this game, second by second" until 2026-10-20; creator 2026-10-15: "so it's
+"during this game second by second", "your perf totals for this game", then
+"board traits""; [During the game](during-game.md)), and takes the column
+height left below the outcome line, the controls, and live perf charts.
+After a loss live perf charts and the loss's statistics fill the column
+instead. From 2026-09-23 to
 2026-10-17 game data had its own
 full-height column between the board and a 320px details column (user
 decision 2026-09-23: "a full-height column right next to the board"), which
@@ -25,8 +26,10 @@ It is not repeated among the lower ranking charts. Losses and trial games
 retain their scalar statistics because an unfinished board has no completed
 solve-time or efficiency rank. High scores uses its latest winning game.
 
-The chart supports only one vertical band: "your performance this game"
-(titled "your perf" until 2026-10-15) on the left and "board traits" on the
+The chart supports only one vertical band: "game summary perf" (titled
+"your perf" until 2026-10-15 and "your performance this game" until
+2026-10-20, creator: "rename the 2nd section to "game summary perf"") on the
+left and "board traits" on the
 right, both read against one percentile bar (creator 2026-10-17, after the
 first one-column build had split them into two stat sections with a band
 each: "its necessary / hoped for that "board traits" and "your perf" share
@@ -48,11 +51,9 @@ do that!"; revised 2026-10-08, below):
 - One row per measurement, in aligned columns: your perf reads name, value,
   session %, lifetime %; board traits read %, name, value. Column heads name
   the performance pools ("session", "lifetime") and "value"; the board
-  side's percentage column has no head. The performance side's name column
-  is headed by the board's name ("Beginner"), and the board side's name
-  column by nothing, so the name appears once (Board name, below). This
-  replaced one label per pool
-  with "(session)" and "(day)" suffixes, which doubled the left side's labels.
+  side's percentage column has no head, and neither side's name column has
+  one (Board name, below). This replaced one label per pool with
+  "(session)" and "(day)" suffixes, which doubled the left side's labels.
 - Labels are black and uncolored. Names, values, and percentages are all
   regular weight; values and the plotted percentage are one size larger
   than names, right-aligned in tabular digits, so the measured values stay
@@ -85,18 +86,17 @@ point to it", "we should be careful not to allow this part of the UI to gain
 any kind of vscroll bar or hscroll bar", and "the mouse shall not change to
 the '?' mark"), built the same day:
 
-- No chart heading. The band starts with "your performance this game" and
-  "board traits" (Section titles, below), each centered over its own side's
-  columns. Since 2026-10-17 each title opens and closes its side and a (?)
-  beside it opens its help; until then the title itself opened the help.
-  Each title's help says only
-  what its side's percentages are, which nothing else on the panel says:
-  the share of the other games (or boards) that ranked better, a tie
-  counting as half, 0% the best; for board traits, that better is each
-  trait's declared preferred end, not a measured difficulty. Since the cut
-  of 2026-10-08 (Hover card, below) it no longer repeats the pools, the
-  session window, the points switch, the zoom, or the two-game minimum,
-  which the panel itself shows.
+- No chart heading. The band starts with "game summary perf" and "board
+  traits" (Section titles, below), each centered over its own side's
+  columns. Since 2026-10-17 each title opens and closes its side. A (?)
+  beside each title opened help saying what its side's percentages are
+  (the share of the other games or boards that ranked better, a tie
+  counting as half; for board traits, better meaning each trait's declared
+  preferred end) until 2026-10-20, when the creator removed both, with
+  their text, and the live perf charts' (?): "remove all three (?) buttosn
+  and mouseovers entirely, not replacing orputting the removed text
+  anywhere; it merely wil lbe gone." Until 2026-10-17 the title itself
+  opened the help.
 - Every chart option sits in one small wrapping row under the data:
   points switch (in distributions mode the pools switch, below, takes
   its place), "show distributions", "show values", "configure", and
@@ -113,7 +113,7 @@ Geometry (layout pass 2026-09-23, after the user found the chart "crushed
 and badly displayed" in a fixed 320px column; heights revised 2026-10-17):
 the chart uses the whole width of the fluid details column
 ([Layout: the board never moves](board-and-layout.md)). It fills the height
-left below the outcome line, the controls, and "during this game", so its
+left below the controls and live perf charts, so its
 options row stays on screen, keeping at least 240px per open side (480px
 with both); the column scrolls below that. Configuration and session
 history take that height as one view, at least 480px. The
@@ -133,21 +133,26 @@ these boards settings' which are obvious. dont include that pointless
 actual division equation please. Get the point? please just cut all the
 fluff here for all mouseovers around here". So a card holds only what the
 row and the panel do not already show or say. Hovering or focusing a row
-opens it over the band, never reflowing it. In order:
+opens it over the band, never reflowing it; the row itself takes no hover
+background (creator 2026-10-20: "entirely remove the blue-background when
+mousing over effect"), and keyboard focus keeps an outline. In order:
 
 1. The chosen pool's rank, the card's largest text: "lifetime: 19th of
    1,201 wins", "session: tied 3rd–5th of 56 games", or for a constant
    pool "lifetime: all 50 boards have this value". The population word is
    wins, games, or boards.
-2. The pool's games on the measurement's axis, its better end on the left
-   (since 2026-10-11, below): bars per value range for a
-   pool of more than 30 games, one dot per game at its exact value for 30 or
-   fewer (touching dots stack), each colored by standing within that pool
-   (green better, red worse); the this-game light blue line, edged in
-   black, marks this game; the
-   lifetime card ticks the session's games under the axis. No key line
-   names the marks (removed 2026-10-08, below).
-3. Last, a definition, only where the name and unit leave the measurement
+2. In the band only, the pool's games on the measurement's axis, drawn as
+   the distributions view's strips are (Strips and example boards, below).
+   A distributions row already shows its strip, so its card does not draw
+   it again (creator 2026-10-20: "if mousing over shows more detail, but
+   the space given to that mouseover popup is smaller than the original
+   allocated space, yet it's more detailed, that's weird. why not just
+   always show the better version"). No key line names the marks (removed
+   2026-10-08, below).
+3. This game's board showing what the measurement counts, with a key of
+   counts, where the measurement has one (Strips and example boards,
+   below).
+4. Last, a definition, only where the name and unit leave the measurement
    open, and never opening with its name: misclick rate, fastclick gap,
    click rate, efficiency, no-op rate, board-changing click share, IOE, ZiNi and HZiNi
    efficiency, IOS, STNB, mouse speed, cadence spread, unused flag share,
@@ -161,7 +166,8 @@ Removed by the cut (2026-10-08): the name-and-value title, the "This is …"
 plain sentence (added earlier the same day in answer to the creator's
 "also, things like the mouseover chart for 'time' saying 'this is your time
 from start to the win'"), definitions of self-evident measurements, this
-game's worked calculation, the example boards, the direction sentence (the
+game's worked calculation, the example boards (back since 2026-10-20, drawn
+from this game's own board), the direction sentence (the
 histogram's "better →" stayed until 2026-10-11, below), the pool descriptions "so far with these
 board settings" and "this session (last hour)", the percentage arithmetic
 ("17 ÷ 123 = 13.8%"), and the "Chart below" line (hovering still outlines
@@ -205,7 +211,7 @@ is good at all. let's try this please."
 
 - Every strip and card draws its better end on the left. A higher-is-better
   measurement's axis runs from its highest value at the left to its lowest
-  at the right, so its card's axis labels descend (3BV/s: 3, 2.5, 2, …);
+  at the right, so its axis labels descend (3BV/s: 3, 2.5, 2, …);
   lower-is-better measurements, time among them, keep their numeric order.
 - A column of strips reads by position alone. A row's percentage, the share
   of the other games that ranked better, is the share of its strip's games
@@ -248,9 +254,8 @@ number and there is no whisker; the narrowest window that still holds
 90% of the values is drawn, so a point mass keeps the tail beside it
 instead of the strip collapsing onto the mass. Values past the fence are
 not drawn and are not folded into an edge bin. The rank still counts
-every game. This game and the session's games do not stretch the axis; a
-this-game line past the fence sits on that edge. The value column still
-shows the untrimmed number. Bar height stays proportional to the count,
+every game. This game does not stretch the axis; its pin past the fence
+sits on that edge. The value column still shows the untrimmed number. Bar height stays proportional to the count,
 except when the tallest bar is at least six times the next: that next bar
 is drawn at half the strip and shorter bars keep their ratios to it, so a
 point mass (most games at one value) does not flatten every other bar to
@@ -261,8 +266,7 @@ mode is incredible, too!", and "showing both optionally is good. e.g. in the
 distribution mode ui there would just be a section for 'session' and another
 for 'lifetime'"): the saved "show distributions" checkbox replaces the bar
 with one strip per measurement in sections. Each row reads name, value
-(when shown), the strip histogram with the same marks as the card, and the
-percentage. All strips share one left edge and width across sections, and
+(when shown), its strip, and the percentage. All strips share one left edge and width across sections, and
 a measurement keeps its catalog position in every section. A row's card
 shows its own section's pool.
 
@@ -279,88 +283,151 @@ vital, since that way i can see things more nicely"), built the same day:
   your perf and board traits alike: each chosen pool gets a group under
   each side's title, in the order your perf against lifetime, your perf
   against the session, board traits against lifetime, board traits against
-  the session. Each group's percentage head names its pool; with both pools
-  shown each group also has a pool title (Section titles, below). (Until
-  2026-10-08 the view always showed your perf against both pools and board
-  traits against lifetime only.)
-- Only lifetime strips tick the session's games. No key under the strips
-  names the marks (removed 2026-10-08, Hover card above). With the
-  session alone, measurements without a session rank are listed in the
-  note above the strips ("Not ranked in this session yet: …")
-  instead of vanishing.
+  the session. Each group's percentage head names its pool, and nothing
+  else does (Section titles, below). (Until 2026-10-08 the view always
+  showed your perf against both pools and board traits against lifetime
+  only.)
+- No strip ticks the session's games under its axis (until 2026-10-20 the
+  lifetime strips did): the session's own strip shows them on the same
+  axis, and the axis now carries its x ticks. No key under the strips names
+  the marks (removed 2026-10-08, Hover card above). With the session alone,
+  measurements without a session rank are listed in the note above the
+  strips ("Not ranked in this session yet: …") instead of vanishing.
 - The strips take all the height the rows leave: every strip gets the
   tallest height at which the view still fits its box, so hiding
   measurements (configure), a pool (the pools switch), or a side (its
-  title) makes the remaining strips taller. The text keeps its size; only when even 10 px
-  strips do not fit does it shrink. The view never scrolls (2026-10-08).
-  The bars take the extra height: the axis gap and the 5 px ticks keep
-  their size on strips 26 px or taller and shrink in proportion on shorter
-  ones.
+  title) makes the remaining strips taller. The text keeps its size; only
+  when even the shortest strip (25 px: pin, plot, ticks, and their labels)
+  does not fit does the view shrink, its text and strips together. The view
+  never scrolls (2026-10-08). The plot takes the extra height; the pin,
+  ticks, and labels keep their size.
 
-Board name (creator request 2026-10-15, built the same day): "dosession
-timings (in distribution view) include ONLYthat sizze game? i thinkthey
-should. e.g. beginner, intermed etc. ) make it clear to users with a subtle
-indicator too." They already did: every pool, lifetime and session, on
-both sides and in both views, holds only games with this game's board
-settings (size and mines, mode, and generator), and a no-mark win's pools
-only its no-mark games ([No-mark wins](rankings.md#no-mark-wins-decided-2026-10-14)).
-The indicator:
+Board name (creator request 2026-10-15, built the same day; removed
+2026-10-20): "dosession timings (in distribution view) include ONLYthat
+sizze game? i thinkthey should. e.g. beginner, intermed etc. ) make it
+clear to users with a subtle indicator too." They already did: every pool,
+lifetime and session, on both sides and in both views, holds only games
+with this game's board settings (size and mines, mode, and generator), and
+a no-mark win's pools only its no-mark games
+([No-mark wins](rankings.md#no-mark-wins-decided-2026-10-14)).
 
-- The board's name as the outcome line gives it: "Beginner",
-  "Intermediate", "Expert", or "Custom 20x20-60", once per view (creator
-  2026-10-15: "you should not repeat "beginner" above every section too!
-  that's bad."). In the distributions view it heads the first shown
-  group's name column (board traits' first while your performance is
-  closed); in the band it heads the performance side's name column.
-  The other name columns have no head. It is set like the other heads
-  (smaller than the title, bold, black), never as a sentence: the cut of
-  2026-10-08 removed "so far with these board settings" from the cards as
-  fluff (Hover card, above). From its first build until that message it
-  followed every section title ("session Beginner", "board traits
-  Beginner") and headed both of the band's name columns.
-- The band carries it too, though the request named the distributions
-  view: both views show the same pools under the same "lifetime" and
-  "session" heads.
-- Mode and generator are not repeated. Their pickers above the chart show
-  them, as in the no-mark list titles ("top expert no-mark times",
-  [No-mark wins](rankings.md#no-mark-wins-decided-2026-10-14)), so every
-  head stays one line in the narrowest details column (320 px): the Pregen
-  10 mode's name alone runs past 80 characters. The creator declined naming
-  the mode in the heads on 2026-10-19: "no need to name mode, it's in the
-  picker."
-- With it, the distributions view's section titles, percentage heads, and
-  row labels use the pool names, so a no-mark win's sections read
-  "no-mark" and "no-mark session" as the band's heads do. Until 2026-10-15
-  they read "lifetime" and "session" even there, against the No-mark wins
-  rule.
+- From 2026-10-15 to 2026-10-20 the indicator was the board's name
+  ("Beginner", "Intermediate", "Expert", or "Custom 20x20-60") heading one
+  name column per view. The creator then removed it: "remove duplicated
+  text "intermediate" hey, let's talk. why did this come bakc? it
+  shouyldn't have. there is already a visible-on-the screen indicator that
+  we are in intermediate mode. it's the fact that Intermediate is already
+  highlighted on top of the whole entire screen! in general, let's avoid
+  copying data from a canonical, visible location, to some other smaller
+  lcoation for "convenience"." It had come back through the 2026-10-15
+  request above. The highlighted preset link, or the other modes menu and
+  the mode options row for any other board, is the indicator; no head
+  repeats it ([UI doctrine](ui-doctrine.md), "No copies of a visible
+  fact").
+- Mode and generator were never repeated in the heads: their pickers show
+  them (creator 2026-10-19: "no need to name mode, it's in the picker.").
+- The distributions view's percentage heads and row labels use the pool
+  names, so a no-mark win's groups read "no-mark" and "no-mark session" as
+  the band's heads do. Until 2026-10-15 they read "lifetime" and "session"
+  even there, against the No-mark wins rule.
 
-### Section titles (creator 2026-10-15)
+### Section titles (creator 2026-10-15; revised 2026-10-20)
 
 "the section labels are wrong. The top which says "session" beginner shoulds
 say "your performance this game, within this session"", in the same message
 that put "during this game, second by second" above game data and named the
 column's order: "during this game second by second", "your perf totals for
-this game", then "board traits" ([During the game](during-game.md)). Built
-the same day:
+this game", then "board traits" ([During the game](during-game.md)). On
+2026-10-20: "rename the 2nd section to "game summary perf"", "someone added
+back in "within your lifetime" to each distribution section again. remove
+that agani.", and "remove topline "your games" which is pointless". Now:
 
-- Both views: "your performance this game" over the performance side and
-  "board traits" over the board side; since 2026-10-17 each title is the
-  button that opens and closes its side. In the distributions view each
-  heads its side's groups.
-- Distributions view with both pools: each pool group is titled by its
-  pool phrase, "within your lifetime" or "within this session"; a no-mark
-  win's read "within your no-mark games" and "within this session's no-mark
-  games". With one pool the group has no title: the side title above names
-  the side and the percentage head names the pool. From 2026-10-15 to
-  2026-10-17 every group's title joined side and pool ("your performance
-  this game, within this session", "board traits, within this session"), so
-  two board-trait groups did not rely on the small pool head alone to tell
-  them apart; the side titles above the groups now name the side once.
+- Both views: "game summary perf" over the performance side and "board
+  traits" over the board side; each title is the button that opens and
+  closes its side (since 2026-10-17). In the distributions view each heads
+  its side's groups.
+- Distributions view: a group has no title of its own. Its column heads
+  are "value" and the pool ("lifetime", "session", "no-mark", "no-mark
+  session"); the name and strip columns have no head. With both pools
+  shown, the pool head is what tells a side's two groups apart. From
+  2026-10-15 each group's title joined side and pool ("your performance
+  this game, within this session"), from 2026-10-17 a pool phrase ("within
+  your lifetime", "within this session") titled each group when both pools
+  were shown, and a "your games" head named the strip column, until the
+  creator removed both on 2026-10-20.
 - The band: the performance side's columns name both pools; the board
   side's percentage column has no head.
-- A pool title has a line of its own above the column heads ("value",
-  "your games", and the pool), and it wraps rather than widening the name
-  column: a title that wide would squeeze every strip.
+
+### Strips and example boards (creator 2026-10-20)
+
+Creator, verbatim: "redo the vertical "two horizontal blue black bars bewteen
+blue" indicator which i don't get what it means at all", "on the mouseover
+of each distribution, entirely remove the blue-background when mousing over
+effect. and rather than re-drawing the entire distribution in some other new
+way, why aren't we just using that way to draw it in the first place? like,
+if mousing over shows more detail, but the spasce given to that mouseover
+popup is smaller than the original allocated space, yet it's more
+detiale,d that's weird. why not just always show th better version and not
+have any mouseover? if mouseover isn't adding anything? actually, mouseover
+can have a function - many of them have text + (should ahve visible UI
+examples of what the nmber or trairt means (using mine boadr drawing code
+which uses the same exact visual styule as the suers' currently chosen
+board style!)). those board trait inline sparkline charst MUST have xticks,
+come on!" Built the same day:
+
+- A strip is drawn at its row's own size in pixels, not stretched to it,
+  and is the full drawing: a pool of at most 30 games draws one dot per
+  game at its exact value (touching dots stack) when its tallest stack
+  fits the strip with dots at least 4 px wide; otherwise, and for a larger
+  pool, bars count the games per value range. Dots and bars are colored by
+  standing, as before. No bar is wider than 24 px at full size, so a pool
+  holding one value is one bar at that value, not a bar across the strip.
+- X ticks: every strip has tick marks under its axis with their values,
+  9 px at full size; a label that would crowd the one to its left is left
+  out, with its tick. The band's cards draw the same strip at card size.
+- This game: its own dot, or the bar holding its value, in the this-game
+  light blue edged in black, under a small light blue pin at its exact
+  value. The pin replaced a full-height light blue line between two black
+  edge lines, which the creator could not read. A game past the fence pins
+  the axis end.
+- The card adds this game's board where the measurement counts something
+  on it: the finished board as the game board shows it, drawn with the game
+  board's own squares in the player's board style (number display, flag
+  style, flag size, flag color strength, mine style), every mine no flag
+  covers shown as a mine, sized to fit the card (5 to 20 px a square). Marks
+  on its squares show what the measurement counts: a yellow square
+  background, a magenta ring, a small magenta dot in a square's corner, and
+  for 3BV spread its work points as magenta dots with a magenta circle of
+  the spread around their center. A key under the board gives each mark's
+  count where the name and value do not already give it:
+
+  | Measurement | Marked | Key |
+  | --- | --- | --- |
+  | 3BV, and 3BV/s, efficiency, IOE, IOS, STNB, path / 3BV | each opening's squares (yellow), each number outside every opening (ring) | N openings, M numbers outside them |
+  | ZiNi, HZiNi, and their efficiencies | the solve's clicks (ring), chords (dot), flags (yellow) | N clicks, N chords, N flags |
+  | max number | the squares holding it (yellow) | none |
+  | 3BV spread | work points, their spread around the center | N work points, their spread around the center |
+  | 0–1 share | 0s and 1s the openings reveal (yellow) | N of S safe squares |
+  | zero-opening coverage | squares the openings reveal (yellow) | N of S safe squares |
+  | islands | every mine (yellow), so touching groups read as islands | none |
+  | largest island | its mines (yellow) | none |
+  | zeros | every 0 (yellow) | none |
+  | misclick rate | each misclick's square (ring) | N misclicks |
+  | no-op rate, board-changing click share | each no-op click's square (ring) | N no-op clicks |
+  | unused flag share | each unused flag (yellow) | N unused flags |
+  | unflagged mine share | each mine without a flag at the end (yellow) | N of M mines unflagged |
+
+  Time, click rate, fastclick gap, mouse speed, path / click, and cadence
+  spread count nothing on the board and have no example. A no-op click
+  with no square (outside the board) is counted in the key but not marked.
+  The examples need this game's board and trace, so they appear only for
+  the game just played or restored, not in the score viewer, and not for
+  an Endgame drill, whose measurements cover only its remnant; a trace
+  without recorded clicks has the board traits' examples only.
+- The 2026-10-08 cut removed example boards from the cards as fluff
+  (Hover card, above). These are this game's own board, not a generic
+  illustration, so they show the measured thing rather than restating the
+  screen ([UI doctrine](ui-doctrine.md), "No fluff in mouseovers").
 
 Linkage to the charts (creator: "this linkage should be very tight and
 clear"): each your-perf and board-trait chart heading carries a chip, "this
@@ -393,10 +460,14 @@ picker for it (user decision 2026-09-23: "there shall only be one session
 length picker? i think it should be in the upper left"). Requested behavior,
 all implemented the same day:
 
-- **Where the picker is.** In the top bar at the page's upper right, labeled
-  "session" (creator request 2026-10-14: "move the session definition to the
-  upper right fully; there's no point to having it as the single only thing
-  in the UL!"; [Top bar](board-and-layout.md#layout-the-board-never-moves)).
+- **Where the picker is.** In the settings row at the page foot, labeled
+  "session", with the rest of the player's global configuration (creator
+  2026-10-20: "all usre-specific global configuration should be in the same
+  place";
+  [Settings row](board-and-layout.md#game-setup-top-bar-settings-row-and-footer)).
+  From 2026-10-14 it was in the top bar at the page's upper right (creator
+  request: "move the session definition to the upper right fully; there's
+  no point to having it as the single only thing in the UL!").
   It reads "session today" and stays whatever the stats panel shows,
   including when the panel is collapsed or gone. The session stats reflect
   it, including the switch-cost row's session column (2026-10-08). From

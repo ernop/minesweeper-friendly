@@ -1,16 +1,16 @@
 "use strict";
 
 importScripts('trend-fit.js?v=20260925-worker-analysis',
-  'game/trace-metrics.js?v=20261019-outcome-line',
-  'game/evaluation.js?v=20261019-outcome-line',
-  'game/session-stats.js?v=20261019-outcome-line',
-  'game/metric-definitions.js?v=20261019-outcome-line',
-  'board-shape.js', 'zini.js', 'board-metrics.js?v=20260921-visible-zero-one',
-  'game-data.js?v=20261015-click-share', 'game/rankings.js?v=20261019-outcome-line',
-  'game/charts.js?v=20261019-outcome-line', 'game/game-data-chart.js?v=20261019-outcome-line',
+  'game/trace-metrics.js?v=20261020-live-perf',
+  'game/evaluation.js?v=20261020-live-perf',
+  'game/session-stats.js?v=20261020-live-perf',
+  'game/metric-definitions.js?v=20261020-live-perf',
+  'board-shape.js?v=20261020-live-perf', 'zini.js?v=20261020-live-perf', 'board-metrics.js?v=20261020-live-perf',
+  'game-data.js?v=20261020-live-perf', 'game/rankings.js?v=20261020-live-perf',
+  'game/charts.js?v=20261020-live-perf', 'game/game-data-chart.js?v=20261020-live-perf',
   'justice.js?v=20260926-fast-evidence', 'board-icons.js?v=20261015-flag-controls',
-  'game/replay-model.js?v=20261019-outcome-line',
-  'during-game.js?v=20261017-shared-game-data');
+  'game/replay-model.js?v=20261020-live-perf',
+  'during-game.js?v=20261020-live-perf');
 
 let config;
 
@@ -23,6 +23,27 @@ let duringGameModel = null;
 function holdDuringGameSource(source) {
   duringGameSource = source;
   duringGameModel = null;
+}
+
+function heldDuringGameModel(data) {
+  if (duringGameSource === null || duringGameSource.id !== data.gameId) {
+    throw new Error('game ' + data.gameId + ' is not the latest finished or restored game');
+  }
+  if (duringGameModel === null) {
+    duringGameModel = DuringGame.model({ ...duringGameSource, timeMs: data.timeMs, outcome: data.outcome });
+  }
+  return duringGameModel;
+}
+
+// The flags standing when the game ended: the last decision's board and that
+// decision's own flag change.
+function standingFlags(events) {
+  const decisions = pathDecisionEvents(events);
+  const last = decisions[decisions.length - 1].evaluation;
+  const flagged = new Set(last.position.flagged);
+  if (last.action === 'flag-place') flagged.add(last.selected[0]);
+  if (last.action === 'flag-remove') flagged.delete(last.selected[0]);
+  return [...flagged];
 }
 
 let liveTrace = null;
@@ -91,14 +112,11 @@ function analyze(kind, data) {
       return { series, metrics, spatial: computeSpatialBias(events),
         measurements: finishedMeasurements(data.measurementPlan, metrics, events) };
     }
-    case 'during-game': {
-      if (duringGameSource === null || duringGameSource.id !== data.gameId) {
-        throw new Error('game ' + data.gameId + ' is not the latest finished or restored game');
-      }
-      if (duringGameModel === null) {
-        duringGameModel = DuringGame.model({ ...duringGameSource, timeMs: data.timeMs, outcome: data.outcome });
-      }
-      return DuringGame.view(duringGameModel, data.rows, data.average);
+    case 'during-game': return DuringGame.view(heldDuringGameModel(data), data.rows, data.average);
+    case 'game-data-examples': {
+      const m = heldDuringGameModel(data);
+      const { width, height, mines, events } = duringGameSource;
+      return GameData.examples(width, height, mines, m.recorded ? { events: m.events, flagged: standingFlags(events) } : null);
     }
     case 'ranks': {
       config = data.config;

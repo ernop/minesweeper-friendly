@@ -8,11 +8,11 @@
 // The just-finished trace remains in RAM until the next board. Its decision
 // events are also persisted in the trace store, preserving exact player-view
 // positions and measured choices for future historical analysis.
-// The game-history slider is available in the collapsed Replay game section. Its
-// position `replayStep` counts actions done: 0 … N−1 show the board the
-// player faced before action step + 1 (review frames), N is the finished
-// board itself. `replayEnabled` is derived from that position; there is no
-// separate toggle (2026-09-04).
+// The replay transport sits under the board whenever a finished game is
+// shown. Its position `replayStep` counts actions done: 0 … N−1 show the
+// board the player faced before action step + 1 (review frames), N is the
+// finished board itself. `replayEnabled` is derived from that position;
+// there is no separate toggle (2026-09-04).
 let replayEnabled = false;
 let pathCanvas = null;
 let pathResizeObserver = null;
@@ -36,9 +36,9 @@ let pathTooltipEl = null;
 const pathViewControl = document.getElementById('path-view-control');
 const pathViewButtons = [...pathViewControl.querySelectorAll('[data-path-view]')];
 const pathViewLegend = document.getElementById('path-view-legend');
-const replayReview = document.getElementById('replay-review');
 const replayControls = document.getElementById('replay-controls');
 const replayPrevious = document.getElementById('replay-prev');
+const replayPlay = document.getElementById('replay-play');
 const replayNext = document.getElementById('replay-next');
 const replayStatus = document.getElementById('replay-status');
 const replaySlider = document.getElementById('replay-slider');
@@ -58,10 +58,17 @@ function replayDecisionCount() {
   return pathViewAvailable() ? pathDecisionEvents(trace.events).length : 0;
 }
 
+// The player's own moves of the game-history position (slider, buttons,
+// arrow keys, a click on the during-the-game charts) stop playback.
+function setReplayStep(step) {
+  stopReplayPlayback();
+  moveReplayStep(step);
+}
+
 // Moves the game-history position and re-renders: review frames for
 // positions before the end, the finished board at the end. Entering the
 // frames starts the idle solver precompute for every frame.
-function setReplayStep(step) {
+function moveReplayStep(step) {
   const count = replayDecisionCount();
   replayStep = Math.max(0, Math.min(count, step));
   const enabled = replayStep < count;
@@ -74,8 +81,8 @@ function setReplayStep(step) {
 
 function renderPathViewControls() {
   const available = pathViewAvailable();
-  // Review is available in the side column after game end. Its transport
-  // stays collapsed until opened; display options remain separately accessible.
+  // After game end the transport shows under the board; the display options
+  // open from their own button in the side column.
   reviewOptions.hidden = !available;
   document.getElementById('review-options-button').hidden = !available;
   if (!available && reviewOptions.matches(':popover-open')) reviewOptions.hidePopover();
@@ -83,7 +90,6 @@ function renderPathViewControls() {
   for (const button of pathViewButtons) {
     button.setAttribute('aria-pressed', String(button.dataset.pathView === settings.pathView));
   }
-  replayReview.hidden = !available;
   if (available) syncReviewPreferences();
   replayControls.hidden = !available;
   replayOverlayControl.hidden = !available;
@@ -112,6 +118,8 @@ function renderReplaySlider() {
   document.getElementById('replay-last').disabled = replayStep >= count;
   replayPrevious.disabled = replayStep === 0;
   replayNext.disabled = replayStep >= count;
+  replayPlay.disabled = count === 0;
+  renderReplayPlayButton();
   if (count === 0) {
     replayStatus.textContent = 'no decision frames were recorded for this game';
   } else if (replayStep >= count) {
@@ -1168,11 +1176,53 @@ for (const button of pathViewButtons) {
   });
 }
 
-replayReview.addEventListener('toggle', () => {
-  if (!replayReview.hidden) rememberPanel('replay', replayReview.open);
-  // Closing review returns to the completed board, so a hidden transport
-  // cannot leave the game showing an unexplained earlier frame.
-  if (!replayReview.open && replayEnabled) setReplayStep(replayDecisionCount());
+//-------PATH REPLAY: PLAYBACK-------
+
+// Playback walks the actions at the pace they were played: each frame stays
+// up for the real time until the next action. The wait before the first
+// action is not play time (the timer starts with that action), so the
+// opening frame holds for a fixed moment instead.
+const REPLAY_OPENING_FRAME_MS = 500;
+let replayPlaybackTimer = 0;
+
+function replayFrameHoldMs(step) {
+  if (step === 0) return REPLAY_OPENING_FRAME_MS;
+  const decisions = pathDecisionEvents(trace.events);
+  return decisions[step].t - decisions[step - 1].t;
+}
+
+function renderReplayPlayButton() {
+  const playing = replayPlaybackTimer !== 0;
+  replayPlay.classList.toggle('playing', playing);
+  replayPlay.setAttribute('aria-label', playing ? 'Pause' : 'Play');
+  replayPlay.title = playing ? 'Pause' : 'Play at the pace it was played';
+}
+
+function stopReplayPlayback() {
+  if (replayPlaybackTimer === 0) return;
+  clearTimeout(replayPlaybackTimer);
+  replayPlaybackTimer = 0;
+  renderReplayPlayButton();
+}
+
+function scheduleReplayPlayback() {
+  replayPlaybackTimer = setTimeout(() => {
+    replayPlaybackTimer = 0;
+    moveReplayStep(replayStep + 1);
+    if (replayStep < replayDecisionCount()) scheduleReplayPlayback();
+    renderReplayPlayButton();
+  }, replayFrameHoldMs(replayStep));
+}
+
+replayPlay.addEventListener('click', () => {
+  if (replayPlaybackTimer !== 0) {
+    stopReplayPlayback();
+    return;
+  }
+  // From the finished board, play starts over, as a video does at its end.
+  if (replayStep >= replayDecisionCount()) moveReplayStep(0);
+  scheduleReplayPlayback();
+  renderReplayPlayButton();
 });
 
 document.getElementById('replay-first').addEventListener('click', () => setReplayStep(0));
@@ -1201,7 +1251,7 @@ for (const button of replayOverlayButtons) {
 
 document.addEventListener('keydown', (event) => {
   if (!pathViewAvailable() || replayDecisionCount() === 0) return;
-  if (!replayReview.open || !replayControls.checkVisibility()) return;
+  if (!replayControls.checkVisibility()) return;
   if (event.target instanceof HTMLElement
       && event.target.matches(
         'input, select, textarea, button, summary, [contenteditable], [tabindex]')) return;

@@ -32,12 +32,12 @@ single-file spec; older references cite them as `PRODUCT.md "Heading"`.
 - [docs/product/hosting.md](docs/product/hosting.md) — Independent Fuseki application hosting, browser-origin isolation, release boundaries, and the hosted site's play statistics.
 
 - [docs/product/design-axis.md](docs/product/design-axis.md) — The friendliness axis from naive random to the angelic dual of Kaboom, and the solver logic tiers behind "solvable".
-- [docs/product/ui-doctrine.md](docs/product/ui-doctrine.md) — App-wide directives (simplicity first, useful optional help, no hover reflow, unshortened legend labels, layout stability). Read before building or reshaping any surface. Section: "UI doctrine".
-- [docs/product/board-and-layout.md](docs/product/board-and-layout.md) — The classic skin and board chrome, and the page columns around a board that never moves. Sections: "Board and chrome", "Layout: the board never moves".
+- [docs/product/ui-doctrine.md](docs/product/ui-doctrine.md) — App-wide directives (simplicity first, defaults show nothing extra, global configuration in one place, useful optional help, no hover reflow, unshortened legend labels, layout stability). Read before building or reshaping any surface. Section: "UI doctrine".
+- [docs/product/board-and-layout.md](docs/product/board-and-layout.md) — The classic skin and board chrome, the game setup rows, top bar, settings row, and footer, and the page columns around a board that never moves. Sections: "Board and chrome", "Game setup, top bar, settings row, and footer", "Layout: the board never moves".
 
 ### Play
 
-- [docs/product/play-modes.md](docs/product/play-modes.md) — The Mode menu and every mode (Standard, the NG variants, Proof-or-die, Angelic, Endgame drill, trials, Pregen 10, Board lab), with the visible-information solver. Section: "Play modes".
+- [docs/product/play-modes.md](docs/product/play-modes.md) — Choosing a mode (preset links, the other modes menu) and every mode (Standard, the NG variants, Proof-or-die, Angelic, Endgame drill, trials, Pregen 10, Board lab), with the visible-information solver. Section: "Play modes".
 - [docs/product/board-generators.md](docs/product/board-generators.md) — The Generator menu, each generator, and the top score keys that rankings are stored under. Section: "Board generators and top score keys".
 - [docs/product/just-universe.md](docs/product/just-universe.md) — Sealed-pocket mercy. Certified pocket entries are safe; open-field gambles and chords stay deadly. Section: "A just universe".
 
@@ -46,7 +46,7 @@ single-file spec; older references cite them as `PRODUCT.md "Heading"`.
 - [docs/product/game-end-evaluation.md](docs/product/game-end-evaluation.md) — Every action judged against the position visible before it, with the evidence ledger, verdicts, and reported endings. Section: "Game-end evaluation".
 - [docs/product/results.md](docs/product/results.md) — The one order for post-game and score-view output (outcome, tables, then point charts). Section: "Result presentation and ordering".
 - [docs/product/game-data.md](docs/product/game-data.md) — The performance chart beside the board, its shared session definition, ranking direction, catalog, and removed fields.
-- [docs/product/during-game.md](docs/product/during-game.md) — How the game just played unfolded on its own clock: progress, pace, and board charts and event lanes (moves, forks, pauses, misclicks) on one time axis, with hover values, the board at that moment, and a replay link. The block "during this game, second by second" at the head of the game data column.
+- [docs/product/during-game.md](docs/product/during-game.md) — How the game just played unfolded on its own clock: a progress chart, one chart of every measured line against its own whole-game value, and event tracks (clicks, jumps, pauses) on one time axis, with the hovered line's value, the board at that moment, and a replay link. The block "live perf charts" at the head of the game data column.
 - [docs/product/rankings.md](docs/product/rankings.md) — Time-window and day-category rank lists, row highlights, the recent-placements summary, relative ages, and streaks. Sections: "Rank lists", "Rank highlights", "Recent placements", "Relative age display", "Streak lists".
 - [docs/product/charts.md](docs/product/charts.md) — Grouped average-time scatters, the relationship scatter plots, and the retired rankaverage tables. Sections: "Average-time charts", "Scatter plots", "Retired rankaverage charts".
 - [docs/product/replay.md](docs/product/replay.md) — After-game path and choice replay (overlays, history slider, solver overlays, legends, chords, off-screen durations). Section: "Path and choice replay views".

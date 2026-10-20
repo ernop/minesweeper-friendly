@@ -11,7 +11,7 @@ append timing or from how many cards fit on a row:
    outcome followed by board · mode · generator in regular weight, then
    the date and time in bold tabular digits. A no-mark win adds "no-mark"
    on that context line ([No-mark wins](rankings.md#no-mark-wins-decided-2026-10-14)).
-2. **Facts / game data** — the column beside the board (or the details column under the outcome context when that column cannot fit): "during this game, second by second" after any game, outside the score viewer and trials ([During the game](during-game.md)), then the winning-game chart; losses and trials retain label/value stats.
+2. **Facts / game data** — the column beside the board (or the details column under the outcome context when that column cannot fit): "live perf charts" after any game, outside the score viewer and trials ([During the game](during-game.md)), then the winning-game chart ("game summary perf" and "board traits"); losses and trials retain label/value stats.
 3. **Analysis** — post-game action interpretation only.
 4. **Tables** — the session summary first, then the "ranks won in session"
    time-period summary, then time/category and all consecutive/loss-tolerant
@@ -112,8 +112,9 @@ go forward with this!"):
   and chart chips that link each chart to its row ([Game data](game-data.md)).
 - One name per measurement across tables, game data, charts, and the
   label/value report ([Rank lists](rankings.md), [Per-game stats](per-game-stats.md)).
-- One session picker, in the top bar at the upper right (the upper-left one
-  until 2026-10-14), regenerates every session surface in place.
+- One session picker, in the settings row at the page foot (in the top bar
+  at the upper right from 2026-10-14, the upper-left one before),
+  regenerates every session surface in place.
 
 Rejected 2026-10-07: the verdict rows of the first review mockup (Result,
 Pace, Board, and Training lines under the board): "not a super fan really."

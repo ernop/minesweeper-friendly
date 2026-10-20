@@ -5,7 +5,8 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
 The recent-observations section uses the same page-wide session definition as
 ranks won in session and game data: `sessionDefinition`, default today (since
 the most recent local midnight, not the last 24 hours). Its one picker is in
-the top bar at the page's upper right (creator request 2026-10-14; from
+the settings row at the page foot (2026-10-20; in the top bar at the page's
+upper right from 2026-10-14; from
 2026-09-23 it was this section's "session" heading at the upper left; see
 [One session definition](game-data.md#one-session-definition)). This
 section's "session" heading shows only with the section. No other surface

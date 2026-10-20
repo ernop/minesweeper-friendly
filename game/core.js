@@ -81,7 +81,11 @@ const gameSidebarClose = document.getElementById('game-sidebar-close');
 const reviewOptions = document.getElementById('review-options');
 const topRight = document.getElementById('top-right');
 const difficultyTabs = document.getElementById('difficulty-tabs');
+const playModeSelect = document.getElementById('play-mode-select');
+const modeOptions = document.getElementById('mode-options');
 const customForm = document.getElementById('custom-form');
+const boardGeneratorChoice = document.getElementById('board-generator');
+const boardLabPanel = document.getElementById('board-lab-panel');
 const justiceLive = document.getElementById('justice-live');
 // The status line beside the backup controls carries every area's
 // progress and failure messages.

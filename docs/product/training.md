@@ -357,8 +357,9 @@ the first incomplete one. Achieving the goal does not wait for earlier stages.
 
 ## Training page
 
-- Opens from "training" in the game page's "other pages ▾" menu in the top
-  bar (2026-10-14; a bordered button beside settings before);
+- Opens from "training" in the game page's footer (2026-10-20; the "other
+  pages ▾" menu in the top bar from 2026-10-14; a bordered button beside
+  settings before);
   `training.html`. Return-to-game
   links at the top and bottom; Esc also returns.
 - Read-only: it never writes storage or settings. Every load computes the

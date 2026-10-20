@@ -68,13 +68,25 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   avoidable or higher risk, and lower modeled one-ply life. A loss from a
   minimum-risk forced guess is not labeled less useful merely because it
   was fatal.
-- Game-history slider (updated 2026-09-07): once a game is finished,
-  **Replay game** in the right sidebar opens its transport. It starts
-  collapsed for each game; closing it restores the finished board. The
-  slider fills the sidebar width above a row of Start / previous / next /
-  End buttons and the status. “Overlays & display” and “see scores” are
-  also in the sidebar. None of these controls occupies space under the board.
-  The slider's positions count actions done, 0 … N: the right end (N) is the
+- Game-history transport (updated 2026-10-20; creator: "replay should
+  appear below th board just like a normal video player ui, like, forward,
+  back, etc."): once a game is finished, the transport sits directly under
+  the board, centered, as wide as the board (at least 340px, at most the
+  board column), and leaves with the next board. The slider is on top;
+  under it five icon buttons, each named by its tooltip: Start, one action
+  back, play/pause, one action forward, and End (the finished board); then
+  the status. There is no disclosure to open first: from 2026-09-07 to
+  2026-10-20 the transport sat collapsed in the details column behind
+  **Replay game**, and closing it restored the finished board.
+  “Overlays & display” and “see scores” stay in the details column.
+- Play shows the game at the pace it was played: each position stays on
+  screen for the time the player took before the next action, from the
+  first action's position on; the position before the first action, which
+  has no measured time, stays 500 ms. Playback stops at the finished board,
+  and Play there starts again from position 0. Pause holds the current
+  position. Any other move (Start, a step button, End, the slider, an arrow
+  key) stops playback first, and so does a new game.
+- The slider's positions count actions done, 0 … N: the right end (N) is the
   finished board itself, which is where every game starts; every earlier
   position shows the exact player-visible board before action position + 1,
   with the board overlays and the legend. Moving the slider is what enters
@@ -84,8 +96,8 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   current position rides in a label above the thumb; the status spells it
   out ("13 of 14 actions done · deciding at 2.66 s · next: reveal · 1
   measured choice"; at the end "14 / 14 actions · Finished board"). The
-  slider is as wide as its
-  row allows (no fixed cap), so notches stay apart on long games. It can be
+  slider is as wide as the
+  transport (no fixed cap), so notches stay apart on long games. It can be
   combined with raw path, click locations, any parameter color, less
   useful, or off; the selected overlay truncates at the displayed position
   while retaining its full-game color scale for comparison.
@@ -99,9 +111,9 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   Board overlays and Mouse path have separate labeled
   groups inside “Overlays & display”, followed by the report choice and the
   result-section groups, all visible at once.
-  The compact transport and panel opener stay in the sidebar; opening them
-  does not move lifetime or daily rankings.
-  ‹ / › and Left/Right keys step one action while replay is open and visible,
+  The transport's height is part of the board's rows: the tables start
+  under it, and stepping or playing never changes its height.
+  ‹ / › and Left/Right keys step one action while the transport is visible,
   except while another
   interactive control has keyboard focus; solid purple rings mark the measured
   reasonable choice set (purple is also the color of the uncertain-pocket

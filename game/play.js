@@ -123,11 +123,14 @@ function generatorAppliesToMode(mode) {
   return mode !== 'single-path-ng' && !Trial.isPlayMode(mode);
 }
 
-// The generator the current settings select for the current mode: the
-// chosen id with its stored parameter overrides filled from the schema
-// defaults, or the default generator where the choice does not apply.
+// The generator the current settings select: in a custom game whose mode
+// places mines with it, the chosen id with its stored parameter overrides
+// filled from the schema defaults. The three presets are each the default
+// generator by definition, and so are the modes it does not apply to.
 function activeGenerator() {
-  if (!generatorAppliesToMode(settings.playMode)) return BoardGenerators.uniformGenerator();
+  if (settings.difficulty !== 'custom' || !generatorAppliesToMode(settings.playMode)) {
+    return BoardGenerators.uniformGenerator();
+  }
   const id = settings.boardGenerator;
   return { id, params: BoardGenerators.paramsFrom(id, settings.boardGeneratorParams[id]) };
 }
@@ -188,7 +191,6 @@ function buildBoardGeneratorSwitcher() {
   }
   select.value = settings.boardGenerator;
   select.addEventListener('change', () => setBoardGenerator(select.value));
-  refreshGeneratorSelect();
 }
 
 function setBoardGenerator(id) {
@@ -198,17 +200,6 @@ function setBoardGenerator(id) {
   saveSettings();
   document.getElementById('board-generator-select').value = id;
   newGame();
-}
-
-// The generator menu is live only in modes that place mines with it;
-// single-path NG carves its own corridor boards and trial sessions use
-// fixed identities, so there the menu is disabled rather than lying.
-function refreshGeneratorSelect() {
-  const select = document.getElementById('board-generator-select');
-  const applies = generatorAppliesToMode(settings.playMode);
-  select.disabled = !applies;
-  select.title = applies
-    ? '' : playModeLabel() + ' builds its boards its own way; the generator applies in the other modes';
 }
 
 //-------GAME FLOW-------
@@ -260,8 +251,7 @@ function flushPendingResult() {
 }
 
 function renderImmediateGameEnd(outcome) {
-  setResultSummary(outcome === 'win' ? 'Win' : 'Loss', null,
-    outcome === 'win' && flagsPlaced === 0);
+  resultSummary.textContent = '';
   clearResultStats();
   resultAnalysis.textContent = '';
   resultRanks.textContent = '';
@@ -391,8 +381,8 @@ function newGame() {
   // controls hide with the finished game they belonged to.
   pathCanvas = null;
   replayFinishedCells = null;
+  stopReplayPlayback();
   replayEnabled = false;
-  replayReview.open = settings.panels.replay;
   replayStep = 0;
   cancelReplayPrecompute();
   replaySolverCache.clear();

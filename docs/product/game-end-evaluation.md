@@ -257,7 +257,7 @@ report.
   evidence; legacy losses retain their old line through provenance, and
   evidence-free losses are "unjudged loss".
 - The session window uses the page-wide `sessionDefinition`, set by the one
-  picker in the top bar and shared with ranks won and game data;
+  picker in the settings row and shared with ranks won and game data;
   default today (since local midnight). Aggregation lookbacks still use
   played time. See [Session stats](session-stats.md).
 - `reportScope` is the single persistent “After each game, show me”

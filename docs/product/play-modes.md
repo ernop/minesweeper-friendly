@@ -2,9 +2,31 @@
 
 Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation notes: [docs/implementation/play-modes.md](../implementation/play-modes.md).
 
-A second uniqueifier next to board size. The upper-right cluster has a
-Mode menu. Rankings and history are stored per (board, play mode); a
-Beginner Standard win never appears on Beginner Uniform NG lists.
+A second uniqueifier next to board size. Rankings and history are stored
+per (board, play mode); a 9 x 9 Standard win never appears on 9 x 9
+Uniform NG lists.
+
+Choosing a mode (creator request 2026-10-20: "beg, int, exp are "all-in-one
+settings choosers". when a user choose a mode besides those from the
+dropdown they shoudl only then be presetned with the variant and other
+options", "for inner modes like for example NG ... they'd be in a custom
+mode overall, then pick the board size and minecount and logic etc
+subsequently"; "simlify the mode pickers. i don't like the current layers
+wqhich are duplicative and needlessly complex"):
+
+- Beginner, Intermediate, and Expert are whole choices: the preset board,
+  Standard, and the default generator. They are the only way to play a
+  preset board, so every other mode's games are custom-board games.
+- Every other mode, and Custom (Standard on a board the player sizes), is
+  one entry of the **other modes** menu beside the preset links, one level
+  deep: the NG variants are entries of their own, not a variant choice
+  under a mode. Choosing an entry opens the mode options row with the board
+  size, the generator where the mode uses one, and the mode's progress
+  ([Game setup](board-and-layout.md#game-setup-top-bar-settings-row-and-footer)).
+- Until 2026-10-20 the mode was a separate menu in the details column, so a
+  preset board could be played in any mode. Saved settings holding a preset
+  with another mode continue as that mode on a custom board of the preset's
+  size, so the rankings they play into are unchanged.
 
 - **Standard.** Today's first-click-safe random boards. "A just universe"
   applies here and in the Trial modes (frozen from the setting on the
@@ -19,7 +41,7 @@ Beginner Standard win never appears on Beginner Uniform NG lists.
   Every candidate has its own replayable seed. The upper-right cell opens
   automatically and the timer starts after generation; that supplied opening
   is not counted as a player click. The current batch position and 3BV appear
-  below the Mode menu. Gameplay otherwise follows Standard, including A just
+  in the mode options row. Gameplay otherwise follows Standard, including A just
   universe and guess measurement, while history and rankings remain separate
   under this mode's key.
   A persistent "challenge progress" table precedes the charts with columns
@@ -165,13 +187,13 @@ or remain explicitly unmeasured.
   its boards and its flags only show where the mines are.)
   No input reaches the cells, no timer runs, and nothing is ever
   recorded — the mode exists to look at generated boards, not to play
-  them. A panel above the board holds free size adjustment (width
-  8–100, height 1–100, mines 1 to the classic (w−1)(h−1) cap — the
-  sliders replace the custom form, which stays hidden in this mode),
-  one slider per parameter of the chosen generator, and a "make new
-  board" button; the titlebar, dove, and space bar deal a new board as
-  everywhere else. Any slider movement regenerates instantly. The
-  generator itself is chosen with the same upper-right Generator menu
-  as in play; parameter changes made in the lab persist and are the
-  values the play modes use. The see-scores control hides here
+  them. The board size is the mode options row's size form, as in every
+  custom mode (until 2026-10-20 the lab had its own width, height, and
+  mines sliders in place of that form). A panel under the row holds the
+  lab's note, one slider per parameter of the chosen generator, and a
+  "make new board" button; the titlebar, dove, and space bar deal a new
+  board as everywhere else. Any slider movement regenerates instantly. The
+  generator itself is chosen with the same Generator menu in the mode
+  options row as in play; parameter changes made in the lab persist and
+  are the values the play modes use. The see-scores control hides here
   (there is nothing to rank).

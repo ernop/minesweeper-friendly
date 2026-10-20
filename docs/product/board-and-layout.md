@@ -92,8 +92,14 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   Default 28 px. The chosen size is a saved preference: it survives reloads
   and visits to Settings, and travels with separate preference exports/imports. Zoom
   changes resize the current board in place and update trace geometry. It
-  sits in the top bar's board display group with **position** and the pixel
-  ratio (2026-10-14; it sat at the end of the difficulty tabs before).
+  sits in the board display group with **position** and the pixel ratio,
+  the last group of the settings row at the page foot
+  ([Game setup, top bar, settings row, and footer](#game-setup-top-bar-settings-row-and-footer)).
+  The group first became its own widget at the foot of the board column
+  (creator request 2026-10-20: "split out the vision/zoom/pixel width
+  section to a very bottom of page widget which has the same contents");
+  from 2026-10-14 it was a group in the top bar, and before that Zoom sat at
+  the end of the difficulty tabs.
 - Pixel ratio (creator request 2026-10-14: "a new viz which shows your
   *browser* zoomlevel (just in case)"): the board display group shows
   "pixel ratio 2", the browser's device pixel ratio, updated the moment it
@@ -213,6 +219,77 @@ laggy"; asked whether the game is "max efficient" and to test and fix it.
   the first clicks of the next board. Each game now writes only its own
   record ([Storage](storage-and-history.md)).
 
+## Game setup, top bar, settings row, and footer
+
+Creator requests 2026-10-20. First: "move the dropdown picker for mode to
+where current "custom" is. make the curent "custom" just one opton on that
+list", "when needed, generator shall show up next to the dropdown for mode;
+ofc, modes such as the three default (beginner, intermediate, expert) have
+no need to see this", and split the board display into "a very bottom of
+page widget". Then: "beg, int, exp are "all-in-one settings choosers". when
+a user choose a mode besides those from the dropdown they shoudl only then
+be presetned with the variant and other options. that way, simple or new
+users who only want to play the standard modes don't need to be confronted
+with any other ui elemtns", "for inner modes like for example NG ... they'd
+be in a custom mode overall, then pick the board size and minecount and
+logic etc subsequently", "you may add other pages as links in the footer
+... move them to the bottom so they aren't cluttering up the top", and
+"all usre-specific global configuration should be in the same place.
+simlify the mode pickers. i don't like the current layers wqhich are
+duplicative and needlessly complex."
+
+- **Game choice row**, at the top of the board column, centered: the Game
+  details button (only while the details are the popover), **Beginner**,
+  **Intermediate**, **Expert**, and the **other modes** menu. A preset link
+  is a whole choice: its board, Standard play, and the default generator.
+  A player who picks presets sees nothing else above the board: no size
+  fields, no generator, no mode status.
+- The **other modes** menu reads "other modes" while a preset is chosen. It
+  lists Custom (Standard play on a board the player sizes) and then every
+  other mode, one level deep: Pregen 10, Uniform NG, Single-path NG,
+  Proof-or-die, Angelic, Endgame drill, Trial, Short trial, Test trial, and
+  Board lab ([Play modes](play-modes.md)). Choosing an entry makes the game
+  custom: it plays on the player's custom board, the last size applied in
+  the mode options row (Expert's 30 x 16 with 99 mines until one is), and
+  the menu shows that mode's name in bold, as the chosen preset link is
+  bold. Choosing a preset link again returns to Standard on that preset.
+- **Mode options row**, directly under the game choice row, only for an
+  entry from the other modes menu: Width, Height, Mines, and **Update**
+  (the one board-size form, for every such mode, Board lab included); the
+  **Generator** menu when the mode places mines with a generator, so not for
+  Single-path NG or the trials
+  ([Board generators](board-generators.md)); and the mode's own progress
+  (a trial's progress and its **end trial** button, Pregen 10's board
+  count, the Endgame drill's line). Board lab adds its panel below the row:
+  its note, the chosen generator's parameter sliders, and **make new
+  board**. Until 2026-10-20 the preset links sat beside a Custom tab, the
+  Mode and Generator menus sat in the details column, and Board lab had a
+  second size form of its own.
+- **Top bar**: only today's use against the daily limits, as plain text once
+  any limit is set ("today: 12m 34s of 30m · 14 of 50 games", red once one
+  is reached; [Daily play limits](play-limits.md)). It is live status, not
+  configuration, so it stays in view: a refused flag press flashes its
+  outline. With the details column docked the bar sits above it at the
+  page's upper right, sticky with it; with the Game details popover it sits
+  above the board column, right-aligned; below 700px it is the first row.
+  Without limits it is empty. From 2026-10-14 to 2026-10-20 it also held the
+  daily limits link, the session picker, settings, and an "other pages"
+  menu.
+- **Settings row**, at the page foot under the backup row: everything the
+  player configures for every game, in one place, in three groups:
+  1. **settings** (the settings page) and **daily limits** (its limits
+     panel), always shown and always so labeled.
+  2. The session picker labeled "session"
+     ([One session definition](game-data.md#one-session-definition)).
+  3. The board display: Zoom, **position**, and the pixel ratio.
+
+  Items within a group sit 6px apart and groups 22px apart; a group never
+  splits across rows. Per-mode choices (board size, generator) are not
+  global and stay in the mode options row.
+- **Footer**, the last line: links to the other pages, self-check, training,
+  and problems, then "play on Fuseki". They were an "other pages" menu in
+  the top bar from 2026-10-14 to 2026-10-20.
+
 ## Layout: the board never moves
 
 - The page has separate columns for session/motion metrics, the board and
@@ -227,43 +304,11 @@ laggy"; asked whether the game is "max efficient" and to test and fix it.
   the box is then invisible but keeps its width, so the board column never
   changes. Until 2026-10-14 the column always existed because its
   "session" heading held the page's one session picker (user decision
-  2026-09-23); the picker is now in the top bar (below).
-- Top bar (creator request 2026-10-14: "there should be a toplevel thing in
-  the UR. also, move the session definition to the upper right fully;
-  there's no point to having it as the single only thing in the UL! also
-  move position there. also, move self-check, training, problems into
-  submenus"). One row at the page's upper right, right-aligned, holding four
-  groups in order (regrouped 2026-10-14 under
-  [One look per kind of thing](ui-doctrine.md); creator request the same
-  day: "zoom dropdown, position and a new viz whichshows your *browser*
-  zoomlevel (just in case) shall also be near each other"):
-  1. Daily limits: today's use against the limits as plain text once any
-     limit is set ("today: 12m 34s of 30m · 14 of 50 games", red once one
-     is reached), then the **daily limits** link, always shown and always
-     so labeled ([Daily play limits](play-limits.md)).
-  2. The session picker labeled "session"
-     ([One session definition](game-data.md#one-session-definition)).
-  3. Board display: Zoom, the board **position** button, and the pixel
-     ratio (above).
-  4. **settings** and **other pages ▾**, a menu holding self-check,
-     training, and problems. The menu opens under its button and closes on
-     a choice, Escape, or a click outside; it is one step deep, as the UI
-     doctrine requires.
-
-  Items within a group sit 6px apart and groups 16px apart. A group never
-  splits across rows.
-  - With the details column docked, the bar sits above it; it is sticky with
-    it, and the column starts just below it. Its groups wrap onto further
-    rows when the column is too narrow for one.
-  - With the details column as the Game details popover, the bar sits above
-    the board column, right-aligned, and scrolls with the page. Below 700px
-    it is the first row, above the session metrics.
-  - Mode, generator, the archive alert, and the play context line (the
-    music state and the player states that are on, as plain text, with the
-    **edit states** button; [Player states](player-states.md)) stay at the
-    top of the details column, under the outcome line after a game; the
-    Game details button stays beside the difficulty tabs, which hold
-    nothing else.
+  2026-09-23); the picker is now in the settings row at the page foot
+  ([below](#game-setup-top-bar-settings-row-and-footer)).
+- The archive alert and the play context line (the music state and the
+  player states that are on, as tags, with the **edit states** button;
+  [Player states](player-states.md)) stay at the top of the details column.
 - One details column (creator 2026-10-17, of the laptop layout with game data
   docked between the board and a 320px details column: "it's too compressed!
   Let's make the entire rightside (two columns) into one, and make the upper
@@ -274,26 +319,31 @@ laggy"; asked whether the game is "max efficient" and to test and fix it.
   space well and can expand to be visible enough."). The separate game data
   column (2026-09-23 to 2026-10-17) is gone; everything right of the board is
   one sticky column, top to bottom:
-  - The outcome line: "Win" or "Loss", then the board and "no-mark" where
-    it applies ("Win Intermediate", "Win Expert · no-mark"). It has no
-    completion date. It named the mode and generator too until 2026-10-19,
-    when the creator dropped the mode: "no need to name mode, it's in the
-    picker"; the generator went with it, its picker sitting beside the
-    mode's.
-  - The setup and review controls on compact wrapping rows: mode, generator,
-    and edit states, then Replay game, Overlays & display, and see scores.
-  - "during this game, second by second" ([During the game](during-game.md)),
-    a stat section titled by a button that opens and closes it, with a (?)
-    beside the title for its help; then game data's one chart
-    ([Game data](game-data.md)), whose two sides, "your performance this
-    game" and "board traits", share its percentile bar (creator 2026-10-17,
+  - No outcome line (creator request 2026-10-20: "remove this text saying
+    'Win beginner.' I was certain we'd already removed it, but anyway,
+    remove it again"). The dove face shows win or loss and the board tabs
+    show the board; "no-mark" stays in the stats ("0 - markless") and the
+    no-mark lifetime list. From 2026-10-17 the column opened with "Win" or
+    "Loss" and the board ("Win Expert · no-mark"); until 2026-10-19 it
+    named the mode and generator too. Only the High scores view keeps a
+    head line: "High scores" and its board, then "Latest win" or "No wins
+    yet", since nothing else on screen says the view is not a game.
+  - The archive alert and the play context line with **edit states**, then
+    one row holding Overlays & display and see scores. Mode and generator
+    moved to the game setup rows above the board on 2026-10-20, and Replay
+    game became the transport under the board.
+  - "live perf charts" ([During the game](during-game.md)), a stat section
+    titled by a button that opens and closes it (its (?) was removed
+    2026-10-20); then game data's one chart ([Game data](game-data.md)),
+    whose two sides, "game summary perf" and "board traits", share its
+    percentile bar (creator 2026-10-17,
     after the first build split them into two sections with a bar each:
     "its necessary / hoped for that "board traits" and "your perf" share the
     same percentile distribution chart"). Each side's title opens and closes
     that side the same way. Each open or closed state is a remembered panel
     (`duringGame`, `gamePerformance`, `boardTraits`), open by default, kept
-    across games and reloads. After a loss the column holds "during this
-    game" and the loss's statistics.
+    across games and reloads. After a loss the column holds live perf
+    charts and the loss's statistics.
   - Game data's chart takes the column height left below everything above
     it, so its options row stays at the screen's bottom. It keeps at least
     240px per open side, and the column scrolls below that rather than
@@ -309,20 +359,22 @@ laggy"; asked whether the game is "max efficient" and to test and fix it.
   first screen left of a Beginner board at 2560 px. A zero position offset is
   the centered place, so finishing a game never moves the board.
 - Beside the board (same decision): after a game, the session summary rests
-  left of the board frame and ranks won right of it, 16px from the frame,
+  left of the board frame and ranks won right of it, 16px from the frame
+  (from the replay transport where that is wider than a small board),
   tops aligned with the board. Each goes beside the board only where its
   whole width fits inside the board column (8px from its edges); otherwise
   it stays at the head of the table list under the board, summary first.
   Both keep their places at the head of the table list's DOM order, so the
-  table order rule is unchanged. The tables below start after the board or
-  after the lower of the two side blocks, whichever ends lower. On the
+  table order rule is unchanged. The tables below start after the board and
+  its transport or after the lower of the two side blocks, whichever ends
+  lower. On the
   creator's 2560 x 970 viewport both fit beside a Beginner board; beside an
   Intermediate board the room is about 379px each side, narrower than the two
   blocks with production history (about 391 and 418px), so both lead the
   tables instead. The side blocks never move the board.
 - The board is the anchor. Appearing or disappearing content must not move it.
   Its reserved startup space occupies the same explicit main column.
-- The outcome line, mode, generator, session tags, optional replay/display
+- The archive alert, session tags, optional display
   controls, the stat sections or completed-game stats, and the full replay
   legend share the right details column in that order. They are in
   normal flow inside an independently scrollable, sticky column. Stats precede
@@ -357,11 +409,14 @@ laggy"; asked whether the game is "max efficient" and to test and fix it.
   This mode depends on viewport, board, and metrics-column widths, never on
   whether a result or legend exists. Below 700px, session metrics occupy a
   bounded scroll area above the game.
-- Replay is collapsed by default behind **Replay game** in the sidebar.
-  Closing it restores the finished board; starting a new game resets it to
-  collapsed. Its slider, status, display options, and score controls occupy
-  no space below the board. Replay arrow shortcuts apply only while its
-  transport is open and visible.
+- The replay transport sits directly under the board once a game ends,
+  like a video player's controls
+  ([Path and choice replay](replay.md)). It is as wide as the
+  board (at least 340px, at most the board column) and centered under it.
+  It adds its height between the board and the tables but never moves the
+  board. Display options and score controls stay in the details column and
+  occupy no space below the board. Replay arrow shortcuts apply while the
+  transport is visible.
 - The tables begin directly below the board when no action report is shown.
   The session summary and the time-period summary ("ranks won in session",
   today by default) lead them, unless they sit beside the board (above);
@@ -397,18 +452,21 @@ laggy"; asked whether the game is "max efficient" and to test and fix it.
   centered resting place (2026-10-07; formerly from beside game data). A
   saved offset therefore now moves the board from the center. Sidebar controls
   remain outside its translation. Applied offsets keep a board that fits at
-  least 8px inside the board column and the viewport and 8px below the tabs
-  (an oversized board keeps its overflow), without rewriting the saved
-  preference.
+  least 8px inside the board column and the viewport and 8px below the game
+  setup rows, the lowest of the game choice row, the mode options row, and
+  the Board lab panel (an oversized board keeps its overflow), without
+  rewriting the saved preference. A trial's lobby and review show no board,
+  so no offset applies to them.
 - The position editor follows the board, normally directly below it, on all
   screen widths. It switches sides when needed and stays within the visible
   viewport during dragging, scrolling, resizing, and zooming. Reset (both
   offsets to zero, the resting place) and a prominent Done button stay at
   the top of the editor; Escape also closes it.
   The editor does not change the board's position or page layout. Its
-  **position** opener is in the top bar's board display group, after Zoom
-  again (2026-10-14; earlier that day it had moved to the top bar alone,
-  leaving Zoom beside the difficulty tabs). It holds a pressed look while the
+  **position** opener is in the settings row's board display group at the
+  page foot, after Zoom (2026-10-20; from 2026-10-14 the same group sat in
+  the top bar). Opening or closing the editor never scrolls the page to the
+  opener. It holds a pressed look while the
   editor is open. Closing the editor returns keyboard focus to
   the opener; loading the page does not (until 2026-10-14 every load gave
   the opener focus and its focus ring).

@@ -13,7 +13,8 @@ challenge and all wins in this mode/configuration since local midnight.
 A run/3BV/time table beside them adds each result as the challenge proceeds
 and keeps the latest completed run highlighted in light blue; it never adds
 a distracting second live clock.
-The Mode menu is in the upper right; each mode keeps its own rankings.
+Beginner, Intermediate, and Expert are one-click choices; every other mode
+is in the "other modes" menu beside them, and each keeps its own rankings.
 
 ![A won Beginner game at 1920 x 1080: session charts at left, the board with the session summary, ranks won, and rank tables under it, game data docked at right, and game details at the far right](promo/win-screen-2026-10-08-full-layout.png)
 
@@ -22,27 +23,37 @@ The Mode menu is in the upper right; each mode keeps its own rankings.
 The page is a row of fixed columns, so nothing that appears or disappears
 ever moves the board:
 
+- **Above the board.** Beginner, Intermediate, Expert, and the "other
+  modes" menu: Custom and every other mode. Only a mode from that menu
+  brings a second row: the board size, the generator where the mode uses
+  one, and the mode's progress.
 - **Top bar, upper right.** Today's use against your daily limits, once
-  any is set, and a "daily limits" link to them; the page's one session
-  picker (today by default), shared by every session comparison on the
-  page; the board display controls together: Zoom, "position" (opens the
-  board position editor), and the pixel ratio, which moves with the
-  browser zoom; then settings and an "other pages" menu with the
+  any is set.
+- **Settings row, page foot.** Everything you configure for every game:
+  settings, daily limits, the page's one session picker (today by default,
+  shared by every session comparison on the page), and the board display:
+  Zoom, "position" (opens the board position editor), and the pixel ratio,
+  which moves with the browser zoom. The footer under it links the
   self-check, training, and problems pages.
 - **Session stats, left**, when turned on: charts of your play across the
   session: when you played, how games ended, action and report rates, mouse
   speed, fastclick gap, and cadence spread.
-- **The board, center.** After a game the session summary and "ranks won in
+- **The board, center.** After a game the replay controls sit under it like
+  a video player's (start, back, play at the pace it was played, forward,
+  end). The session summary and "ranks won in
   session" sit beside it where they fit, otherwise they lead the tables
   under it. Then come the time-window, day-category, and streak rank lists,
   the "This board" tables, and the your-perf, board-trait, and relationship
   charts.
-- **Game data, right of the board**, after a win: each measurement of this
-  game placed on one percentile band against your lifetime and session
-  games, your performance on one side and the board's traits on the other.
-- **Game details, far right.** Mode, generator, a line of plain text
-  naming whether music is on and which of your states are on (changed
-  through "edit states"), replay, and the game's outcome.
+- **Live perf charts and game data, right of the board.** After any game,
+  live perf charts show how it unfolded: progress, and each measured line
+  against its own whole-game value, over tracks of clicks, jumps, and
+  pauses. After a win, game data places each measurement of this game on
+  one percentile band against your lifetime and session games: game summary
+  perf on one side and the board's traits on the other.
+- **Game details, far right.** A line naming whether music is on and which
+  of your states are on, as tags (changed through "edit states"), the
+  replay's display options, and the game's statistics.
 
 **Daily limits** (top of the settings page): play time, games, games per
 level, and a stop time, each per play day from 4:00 to 4:00. A reached
@@ -102,8 +113,8 @@ use `systemctl --user disable --now minesweeper-friendly.service`.
 - Right click: place/remove a flag
 - Left click on a satisfied number: chord (open all unflagged neighbors)
 - Face button or space bar: new game
-- Tabs: Beginner 9x9/10 (default), Intermediate 16x16/40, Expert 30x16/99, Custom
-- Upper-right Mode menu: Standard, Pregen 10 boards by descending 3BV, Uniform NG, Single-path NG, Proof-or-die, Angelic, Endgame drill, Trial, Short trial, Test trial, Board lab
+- Presets (Standard play): Beginner 9x9/10 (default), Intermediate 16x16/40, Expert 30x16/99
+- Other modes menu, each on a board you size: Custom (Standard play), Pregen 10 boards by descending 3BV, Uniform NG, Single-path NG, Proof-or-die, Angelic, Endgame drill, Trial, Short trial, Test trial, Board lab
 
 ## Endgame drill
 
@@ -167,17 +178,20 @@ for every longer list, the top-tenth ranks earned within the session.
 
 Game data replaces the winning game's stats grid. One green-to-red band
 places each measurement by the share of comparable games that did better
-(0% is the best): your perf on the left, each row showing this game's value
+(0% is the best): game summary perf on the left, each row showing this game's value
 and its session and lifetime percentages, and board traits on the right,
 ranked toward each trait's preferred end. Every pool holds only games with
 this game's board settings. "points: lifetime | session" picks which pool
 places the dots; the session is the page's one picker, shared with the
 session stats and "ranks won in session". Hovering a row opens a card with
-that pool's rank and a histogram of your games, this game marked by a light
-blue line. "show distributions" swaps the band for one histogram strip per
-measurement, in lifetime and session sections ("sections: lifetime |
-session | both"); the strips grow to fill the column when measurements or a
-section are hidden. "configure" picks the measurements from one list, "show
+that pool's rank, a histogram of your games with this game's bar in light
+blue under a pin, and, where the measurement counts something on the board,
+this game's finished board in your board style with those squares marked
+(the openings for 3BV, each misclick, each unflagged mine) and their
+counts. "show distributions" swaps the band for one histogram strip per
+measurement, each with its x ticks, in lifetime and session groups
+("pools: lifetime | session | both"); the strips grow to fill the column
+when measurements or a pool are hidden. "configure" picks the measurements from one list, "show
 values" toggles the value column, and "session history" pages through
 earlier session windows. Nothing in it scrolls: it scales to fit its column.
 Each chart further down carries a chip with this game's value and standing,
@@ -264,7 +278,7 @@ the board. During a game it
 shows per-game motion metrics recomputed once a second; on top, once
 session stats are turned on, a
 "session" section charts the actual play within the session (today by
-default, picked in the top bar) across games (losses
+default, picked in the settings row) across games (losses
 and abandoned boards included): mouse
 speed, board-changing clicks per second, deaths with recorded mistake
 tags per minute (fatal actions such as opening a proven mine or guessing

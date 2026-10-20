@@ -13,12 +13,19 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   [One look per kind of thing](ui-doctrine.md)). They form the play context
   line: the measured music state first ("music on" or "music off";
   [Music playing](per-game-stats.md)), then each state that is on, in list
-  order, as bold black text separated by dots, with no border, fill,
-  pointer, hover, or x. Clicking one does nothing. The line wraps after a
-  dot, never inside a name, and is absent when nothing is on and music is
-  not measured. From 2026-08-20 until then each state was a clickable chip
-  (bold black on light blue, a trailing x, a click took it off) and music an
-  olive bordered box, both dressed like buttons.
+  order. Each is a tag (creator request 2026-10-20: "we must visually
+  distinguish states from buttons; they're not buttons, they're tags. make
+  their corners rounded and show they're more like props than UI
+  interactive elements"): a fully rounded pill, bold black on a sand fill
+  with a thin sand border, no pointer, hover, or x. Buttons keep 3px
+  corners and the blue-gray fill, and sand is used for nothing else.
+  Clicking a tag does nothing. The line wraps between tags, never inside
+  one, and is absent when nothing is on and music is not measured. From
+  2026-10-14 to 2026-10-20 the items were plain bold text separated by
+  dots, which still read too much like the controls around them; from
+  2026-08-20 each state was a clickable chip (bold black on light blue, a
+  trailing x, a click took it off) and music an olive bordered box, both
+  dressed like buttons.
 - One bordered **edit states** button follows the line; its tooltip explains
   the feature. It opens the one menu that changes states: every state in
   the list, on or off, as a checkbox row (check puts it on, uncheck takes it
@@ -45,10 +52,14 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   states they were stamped with, even if a state is later removed.
 - The states panel sits at the top of the details column at the right
   (2026-08-20 in the upper-right corner; it previously hung off the board's
-  left edge), under the play-mode menu (2026-08-21) and the generator menu,
-  and after the archive alert, shown only while the archive folder is paused
-  or failing
+  left edge), after the archive alert, shown only while the archive folder
+  is paused or failing
   (2026-09-26, [Archive folder](storage-and-history.md#archive-folder-creator-direction-2026-09-26)).
-  The settings button and the other-page links moved to the top bar above
-  that column on 2026-10-14 ([Layout](board-and-layout.md#layout-the-board-never-moves)).
-  The column is reserved, so using the panel never moves the board.
+  From 2026-08-21 to 2026-10-20 it sat under the play-mode and generator
+  menus, which moved to the game setup rows above the board. The settings
+  button and the other-page links moved to the top bar above that column on
+  2026-10-14, and on 2026-10-20 to the settings row and footer at the page
+  foot ([Game setup](board-and-layout.md#game-setup-top-bar-settings-row-and-footer)).
+  The states are a game's context, not configuration, so they stay beside
+  the game's details. The column is reserved, so using the panel never
+  moves the board.

@@ -12,8 +12,9 @@ got to get here. We definitely do need to create this website". The user takes
 the problems and evaluations as they are created.
 
 Built the same day as version 1: `problems.html`, opened from "problems" in
-the game page's "other pages ▾" menu in the top bar (2026-10-14; a button in
-the upper-right cluster before), part of the game site (see
+the game page's footer (2026-10-20; the "other pages ▾" menu in the top bar
+from 2026-10-14; a button in the upper-right cluster before), part of the
+game site (see
 [Hosting](#hosting)).
 
 ## A problem

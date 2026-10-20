@@ -672,7 +672,7 @@ function buildRecentPlacements(record, modeRecords, referenceMs, markReferenceRe
   box.className = 'rank-list recent-placements';
   const heading = document.createElement('h4');
   heading.appendChild(chartHelpButton([
-    'Top ranks earned in the session (' + chosenLabel + ', the one page-wide session chosen in the top bar at the upper right) on every longer chart: time windows, day categories, streaks, and the exact board benchmarks, 3BV-spread groups, and board shapes of ' + boardsOf + '. A streak counts when its last win is in the session, at its full length.',
+    'Top ranks earned in the session (' + chosenLabel + ', the one page-wide session chosen in the settings row at the foot of the page) on every longer chart: time windows, day categories, streaks, and the exact board benchmarks, 3BV-spread groups, and board shapes of ' + boardsOf + '. A streak counts when its last win is in the session, at its full length.',
     'Only ranks within the top tenth of a list count, except that lifetime shows its closest rank when none made the tenth. Rows go by category, board values ascending. The last column gives the percentage standing of the row’s ranks; this game’s rank is light blue and says “this”.',
     ...(noMarkTimeLabel ? [
       'This win placed no flags, so every rank here is among no-mark games of this same board, mode, and generator. ' + noMarkTimeLabel.charAt(0).toUpperCase() + noMarkTimeLabel.slice(1) + ' is that lifetime list.',
@@ -961,7 +961,7 @@ function buildSessionSummary(record, referenceMs, markCurrent = true, noMark = f
   const heading = document.createElement('h4');
   heading.appendChild(chartHelpButton([
     'Games, wins, and win rate for every board type played in the session (' + choice.label
-      + ', the one page-wide session chosen in the top bar at the upper right). A board type is one size, mine count, mode, and generator; the mode is named only when it is not Standard, the generator only when it is not the default.',
+      + ', the one page-wide session chosen in the settings row at the foot of the page). A board type is one size, mine count, mode, and generator; the mode is named only when it is not Standard, the generator only when it is not the default.',
     'Best is the session’s fastest win of that type. Its lifetime rank compares it with every win of that type so far; among equal times the earlier finish ranks first.',
     'A row marked no-mark counts only games with no flags placed. Its best time’s lifetime rank is among that board type’s no-mark wins.',
     'Mean time, mean 3BV/s, and mean IOE average the session’s wins of that type, each over the wins that measured it, as game data defines them; for the board just played they are the session baseline for its time, 3BV/s, and IOE.',

@@ -3,9 +3,10 @@
 // Daily play limits on the game page: this tab's play spans (saved while
 // each board plays and shared live with other tabs), the gate that keeps a
 // new board from starting while the day is closed, the no-flags penalty
-// stage, the notice over a closed board, and today's use beside the limits
-// link in the top bar. The rules are the pure play-limits.js; limits and the
-// penalty are set only on the settings page.
+// stage, the notice over a closed board, and today's use in the top bar (in
+// view during play, where a refused flag press flashes it; the limits link
+// is in the settings row at the page foot). The rules are the pure
+// play-limits.js; limits and the penalty are set only on the settings page.
 
 //-------DAILY PLAY LIMITS-------
 

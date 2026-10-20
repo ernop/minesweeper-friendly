@@ -412,8 +412,21 @@ check('replay stays separate from path modes and is available after game end',
   const navStart = html.indexOf('id="scores-nav"');
   const navEnd = html.indexOf('</nav>', navStart);
   const nav = html.slice(navStart, navEnd);
-  check('sidebar review groups replay, the display opener, and scores',
-    nav.indexOf('id="replay-controls"') < nav.indexOf('id="review-options-button"')
+  const transport = html.indexOf('id="replay-controls"');
+  check('the replay transport follows the board frame inside the board area, as a video player\u2019s',
+    transport > html.indexOf('id="game-frame"')
+      && transport < html.indexOf('id="board-position-drag-surface"')
+      && html.indexOf('id="game-area"') < html.indexOf('id="game-frame"'));
+  check('the transport has Start, back, play/pause, forward, and End in that order',
+    ['replay-first', 'replay-prev', 'replay-play', 'replay-next', 'replay-last']
+      .map((id) => html.indexOf('id="' + id + '"')).every((at, i, all) => at > transport && (i === 0 || at > all[i - 1])));
+  check('play starts over from the finished board, and the player\u2019s own moves stop playback',
+    source.includes('if (replayStep >= replayDecisionCount()) moveReplayStep(0);')
+      && /function setReplayStep\(step\) \{\s*stopReplayPlayback\(\);\s*moveReplayStep\(step\);/.test(source)
+      && source.includes('stopReplayPlayback();\n  replayEnabled = false;'));
+  check('the sidebar review row holds the display opener, then scores',
+    !nav.includes('id="replay-controls"')
+      && nav.includes('id="review-options-button"')
       && nav.indexOf('id="review-options-button"') < nav.indexOf('id="see-scores-btn"'));
   const panelStart = html.indexOf('id="review-options"');
   check('the display panel ends the side column and holds overlays, path, and report',
@@ -430,12 +443,12 @@ check('replay stays separate from path modes and is available after game end',
       && source.includes('replaySlider.max = String(count)')
       && source.includes('replayStep = replayDecisionCount();')
       && source.includes('const enabled = replayStep < count;'));
-  check('review controls are outside the translated board area',
+  check('display options and scores are outside the translated board area',
     navStart > html.indexOf('id="game-sidebar"'));
 }
-check('replay disclosure restores the saved preference',
-  /<details id="replay-review" hidden>/.test(html)
-    && source.includes('replayReview.open = settings.panels.replay'));
+check('no replay disclosure: the transport shows whenever a finished game is shown',
+  !html.includes('id="replay-review"') && !source.includes('replayReview')
+    && !source.includes("rememberPanel('replay'"));
 check('selected path button keeps box dimensions stable',
   css.includes('#path-view-control button[aria-pressed="true"]')
     && !css.match(/#path-view-control button\[aria-pressed="true"\][^{]*\{[^}]*font-weight/s));

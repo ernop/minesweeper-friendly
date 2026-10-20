@@ -26,34 +26,24 @@ function playModeLabel(id) {
   return spec ? spec.label : String(id);
 }
 
+// The other modes menu beside the three presets. Standard on the custom
+// board is its "Custom" entry; while a preset is chosen the menu shows its
+// own name, an entry that cannot be chosen.
 function buildPlayModeSwitcher() {
-  const select = document.getElementById('play-mode-select');
-  select.textContent = '';
-  for (const mode of PLAY_MODES) {
+  const prompt = document.createElement('option');
+  prompt.value = '';
+  prompt.textContent = 'other modes';
+  prompt.disabled = true;
+  prompt.hidden = true;
+  const entries = PLAY_MODES.map((mode) => {
     const option = document.createElement('option');
     option.value = mode.id;
-    option.textContent = mode.label;
-    select.appendChild(option);
-  }
-  select.value = settings.playMode;
-  select.disabled = false;
-  select.addEventListener('change', () => setPlayMode(select.value));
-}
-
-function setPlayMode(id) {
-  if (!PLAY_MODE_IDS.has(id)) throw new Error('unknown play mode ' + id);
-  if (id === settings.playMode) return;
-  if (Trial.isPlayMode(settings.playMode) && trialIsActive()) abandonTrial();
-  if (pregenActive() || id === 'pregen-10-3bv-desc') pregenBatch = null;
-  lastTrialReview = null;
-  settings.playMode = id;
-  saveSettings();
-  document.getElementById('play-mode-select').value = id;
-  refreshGeneratorSelect();
-  // The custom form's visibility depends on the mode (the Board lab's
-  // sliders replace it), not only on the matched difficulty.
-  syncDifficultyTabs();
-  newGame();
+    option.textContent = mode.id === 'standard' ? 'Custom' : mode.label;
+    return option;
+  });
+  playModeSelect.replaceChildren(prompt, ...entries);
+  playModeSelect.disabled = false;
+  playModeSelect.addEventListener('change', () => chooseGame('custom', playModeSelect.value));
 }
 
 //-------PREGENERATED HIGH-3BV MODE-------
@@ -301,7 +291,6 @@ function buildLabBoard() {
 // changes: a regeneration mid-drag must not replace the slider element
 // under the pointer.
 let labPanelGeneratorId = null;
-let labControls = null;
 
 function labSliderRow(labelText, title, min, max, step, value, onInput) {
   const row = document.createElement('label');
@@ -324,60 +313,30 @@ function labSliderRow(labelText, title, min, max, step, value, onInput) {
     onInput(Number(slider.value));
   });
   row.append(name, slider, readout);
-  return { row, slider, readout };
+  return row;
 }
 
-// Classic winmine constraint, same as the custom form: mines fit with at
-// least a 3x3 opening's worth of space (floor 1 for one-row boards).
-function labMaxMines() {
-  return Math.max(1, (config.width - 1) * (config.height - 1));
-}
-
+// The board size comes from the mode options row's custom form, as in every
+// other custom game; the lab adds the chosen generator's parameters.
 function buildLabPanel() {
-  const panel = document.getElementById('board-lab-panel');
-  panel.textContent = '';
-  labControls = { params: {} };
+  boardLabPanel.textContent = '';
 
   const note = document.createElement('p');
   note.id = 'board-lab-note';
   note.textContent = 'Every board is shown already solved. Nothing here is timed or recorded.';
-  panel.appendChild(note);
-
-  const sizeChanged = () => {
-    if (config.mines > labMaxMines()) config.mines = labMaxMines();
-    rememberCustomBoard();
-    syncDifficultyTabs();
-    newGame();
-  };
-  labControls.width = labSliderRow('width', '', 8, 100, 1, config.width, (v) => {
-    config.width = v;
-    sizeChanged();
-  });
-  labControls.height = labSliderRow('height', '', 1, 100, 1, config.height, (v) => {
-    config.height = v;
-    sizeChanged();
-  });
-  labControls.mines = labSliderRow('mines', '', 1, labMaxMines(), 1, config.mines, (v) => {
-    config.mines = v;
-    rememberCustomBoard();
-    syncDifficultyTabs();
-    newGame();
-  });
-  panel.append(labControls.width.row, labControls.height.row, labControls.mines.row);
+  boardLabPanel.appendChild(note);
 
   const spec = BoardGenerators.byId(settings.boardGenerator);
   const params = BoardGenerators.paramsFrom(spec.id, settings.boardGeneratorParams[spec.id]);
   for (const p of spec.params) {
-    const control = labSliderRow(p.label, p.describe, p.min, p.max, p.step, params[p.key], (v) => {
+    boardLabPanel.appendChild(labSliderRow(p.label, p.describe, p.min, p.max, p.step, params[p.key], (v) => {
       if (!(spec.id in settings.boardGeneratorParams)) {
         settings.boardGeneratorParams[spec.id] = {};
       }
       settings.boardGeneratorParams[spec.id][p.key] = v;
       saveSettings();
       newGame();
-    });
-    labControls.params[p.key] = control;
-    panel.appendChild(control.row);
+    }));
   }
 
   const remake = document.createElement('button');
@@ -386,38 +345,20 @@ function buildLabPanel() {
   remake.className = 'ui-button';
   remake.textContent = 'make new board';
   remake.addEventListener('click', () => newGame());
-  panel.appendChild(remake);
+  boardLabPanel.appendChild(remake);
   labPanelGeneratorId = spec.id;
 }
 
-// Size sliders track config (the difficulty tabs also change it); param
-// sliders are the only writers of their values, so they are not re-set
-// here — a generator change or settings import rebuilds the panel.
-function syncLabPanelValues() {
-  for (const [control, value] of [
-    [labControls.width, config.width],
-    [labControls.height, config.height],
-    [labControls.mines, config.mines],
-  ]) {
-    control.slider.value = String(value);
-    control.readout.textContent = String(value);
-  }
-  labControls.mines.slider.max = String(labMaxMines());
-}
-
 function syncLabChrome() {
-  const panel = document.getElementById('board-lab-panel');
   const lab = boardLabActive();
   scoresNav.hidden = lab;
-  panel.hidden = !lab;
+  boardLabPanel.hidden = !lab;
   if (!lab) {
-    panel.textContent = '';
+    boardLabPanel.textContent = '';
     labPanelGeneratorId = null;
-    labControls = null;
     return;
   }
   if (labPanelGeneratorId !== settings.boardGenerator) buildLabPanel();
-  else syncLabPanelValues();
 }
 
 //-------TRIALS ON THE LIVE BOARD (setup, phases, chrome)-------
@@ -561,6 +502,7 @@ function renderTrialChrome() {
     label.textContent = trialSession.results.length + ' / ' + Trial.gameCount(trialSession);
     const quit = document.createElement('button');
     quit.type = 'button';
+    quit.className = 'ui-button';
     quit.textContent = 'end trial';
     quit.addEventListener('click', () => {
       endTrial('quit');

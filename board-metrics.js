@@ -51,7 +51,8 @@ const BoardMetrics = (() => {
     const meanY = points.reduce((s, p) => s + p.y, 0) / points.length;
     const workSpread = Math.sqrt(points.reduce((s, p) =>
       s + (p.x - meanX) ** 2 + (p.y - meanY) ** 2, 0) / points.length);
-    return { width, height, mines, around, clues, safe, floods, units, workSpread,
+    return { width, height, mines, around, clues, safe, floods, units, points,
+      center: { x: meanX, y: meanY }, workSpread, covered: [...covered],
       zeroOpenedZeroOneCells: [...covered].filter((i) => clues[i] <= 1).length,
       zeroOpenedCells: covered.size,
       mineCount: mines.length - safe.length };

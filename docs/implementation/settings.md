@@ -90,7 +90,14 @@ Spec: [docs/product/settings.md](../product/settings.md). Index: [AGENTS.md](../
   `reportScope` always wins. `gameDataMetricsFromStored` merges the retired
   `gameDataLifetimeMetrics` / `gameDataSessionMetrics` selections into
   `gameDataMetrics` (shown in either stays shown); a stored
-  `gameDataMetrics` always wins.
+  `gameDataMetrics` always wins. `panelsFromStored` (the `panels` field's
+  `migrate`) copies the stored panels without the retired `replay` key
+  (2026-10-20, with the replay disclosure). `saveSettings` throws when a
+  preset `difficulty` goes with a `playMode` other than `standard`;
+  `presetModeAsCustom`, applied in `loadSettings` and `importPreferences`,
+  turns that pair into `difficulty: 'custom'` with the preset's dimensions
+  as `customBoard` and `customBoardDraft` (2026-10-20, when the mode menu
+  became the custom entries; [Play modes](../product/play-modes.md)).
   `justUniverse` is frozen into `justiceEnabledForGame` at first reveal —
   a change on the settings page applies from the next game (the old
   drawer's mid-game lock UI retired with the drawer).

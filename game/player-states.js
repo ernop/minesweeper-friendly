@@ -32,8 +32,8 @@ const statesAddForm = document.getElementById('states-add-form');
 const statesAddInput = document.getElementById('states-add-input');
 const statesStatus = document.getElementById('states-status');
 
-// The states on are facts about this session, so they show as plain text in
-// the play context line after the measured music state, never as buttons.
+// The states on are facts about this session, so they show as tags in the
+// play context line after the measured music state, never as buttons.
 // All changes happen in the one menu behind "edit states": a checkbox per
 // state puts it on or takes it off, its x deletes it from the list, and the
 // field at the bottom creates a new one.

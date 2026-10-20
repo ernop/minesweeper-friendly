@@ -92,6 +92,22 @@ assert.equal(run('settingsFrom({ gameDataMetrics: { time: false } }).gameDataMet
 const beforeRemoval = plain(run('settingsFrom({ gameDataMetrics: { time: false, flagsWithoutMultiCellChord: true } }).gameDataMetrics'));
 assert.equal(beforeRemoval.time, false, 'the removed measurement does not discard the saved selection');
 assert(!('flagsWithoutMultiCellChord' in beforeRemoval));
+// Panel states saved while the Replay game disclosure existed keep the rest.
+const panelsBeforeRemoval = plain(run('settingsFrom({ panels: { states: true, replay: true, duringGame: false } }).panels'));
+assert.equal(panelsBeforeRemoval.states, true, 'the removed replay panel does not discard the saved panel states');
+assert.equal(panelsBeforeRemoval.duringGame, false);
+assert(!('replay' in panelsBeforeRemoval));
+
+// The three presets are Standard with the default generator; a block that
+// paired one with another mode continues as that mode on the custom board
+// at the preset's size, and saving the pairing is a bug that throws.
+run('settings = settingsFrom({})');
+run('loadSettings({ settings: { difficulty: "expert", playMode: "angelic", customBoard: { width: 12, height: 12, mines: 20 } } })');
+assert.deepEqual(plain(run('[settings.difficulty, settings.playMode, settings.customBoard, settings.customBoardDraft]')),
+  ['custom', 'angelic', { width: 30, height: 16, mines: 99 }, { width: '30', height: '16', mines: '99' }]);
+run('loadSettings({ settings: { difficulty: "expert", playMode: "standard" } })');
+assert.deepEqual(plain(run('[settings.difficulty, settings.playMode]')), ['expert', 'standard']);
+assert.throws(() => run('settings.playMode = "angelic"; saveSettings()'), /a preset board is played only in Standard/);
 // Game data's board traits followed the This board table switches until
 // configure chose them (2026-10-14).
 assert.deepEqual(defaults.gameDataBoardTraits, plain(run('GAME_DATA_BOARD_TRAIT_DEFAULTS')));
@@ -174,7 +190,7 @@ const choices = {
   pathView: 'click-speed', replayOverlays: { moves: false, mines: false, probs: true, pointless: true, purposeful: true, movement: true },
   metricsPanelCollapsed: true, trialSpeedBucketMs: 375, resultView: 'scores',
   replayPosition: { endedAt: 12345, step: 7 },
-  panels: { boardPosition: true, gameDetails: true, states: true, replay: true, reviewOptions: true, importHistory: true, dataFormat: true,
+  panels: { boardPosition: true, gameDetails: true, states: true, reviewOptions: true, importHistory: true, dataFormat: true,
     duringGame: false, gamePerformance: false, boardTraits: false },
   trialSections: { '123:identity:1': false, '123:action:456': true },
   drafts: { stateName: 'draft', historyImport: '{', preferencesImport: '{' },

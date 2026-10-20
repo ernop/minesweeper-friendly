@@ -715,30 +715,26 @@ function clearResultStats() {
   hideDuringGameHover();
 }
 
-// The outcome with its board, mode, and generator on one line; a high
-// scores view adds which game its sections describe on a second.
-// Mode and generator are left to their pickers just below the line.
-function setResultSummary(lead, note, noMark = false) {
+// Only the High scores view has a head line: "High scores" and its board,
+// then which game its sections describe. A finished game has none; the
+// face and the board tabs already say the outcome and the board.
+function setHighScoresSummary(note) {
   const leadNode = document.createElement('span');
   leadNode.className = 'result-summary-lead';
-  leadNode.textContent = lead;
+  leadNode.textContent = 'High scores';
   const context = document.createElement('span');
   context.className = 'result-summary-context';
-  context.textContent = [boardDisplayLabel(), noMark ? 'no-mark' : null]
-    .filter((part) => part !== null).join(' \u00b7 ');
-  resultSummary.replaceChildren(leadNode, ' ', context);
-  if (note !== null) {
-    const noteNode = document.createElement('span');
-    noteNode.className = 'result-summary-note';
-    noteNode.textContent = note;
-    resultSummary.append('\n', noteNode);
-  }
+  context.textContent = boardDisplayLabel();
+  const noteNode = document.createElement('span');
+  noteNode.className = 'result-summary-note';
+  noteNode.textContent = note;
+  resultSummary.replaceChildren(leadNode, ' ', context, '\n', noteNode);
 }
 
 // A stat section of the details column: its title is the button that opens
 // and closes it, and the open state is a remembered panel.
 let statSectionCount = 0;
-function buildStatSection(panelKey, title, help) {
+function buildStatSection(panelKey, title) {
   const section = document.createElement('section');
   section.className = 'stat-section';
   section.dataset.panel = panelKey;
@@ -753,9 +749,7 @@ function buildStatSection(panelKey, title, help) {
   body.className = 'stat-section-body';
   body.id = 'stat-section-body-' + ++statSectionCount;
   toggle.setAttribute('aria-controls', body.id);
-  const helpWrap = chartHelpButton(help);
-  helpWrap.querySelector('button').setAttribute('aria-label', 'About ' + title);
-  head.append(toggle, helpWrap);
+  head.append(toggle);
   section.append(head, body);
   const show = () => {
     const open = settings.panels[panelKey];
@@ -814,11 +808,8 @@ async function renderResultAsync(record, modeRecords, options = {}) {
       ? [['Modeled life gap',
         actionSummary.modeledLifeGap.toFixed(3)]] : []),
   ];
-  const summaryLead = options.historyView
-    ? 'High scores'
-    : (record.outcome === 'win' ? 'Win' : 'Loss');
-  const noMarkWin = record.outcome === 'win' && isMarkless(record);
-  setResultSummary(summaryLead, options.historyView ? 'Latest win' : null, noMarkWin);
+  if (options.historyView) setHighScoresSummary('Latest win');
+  else resultSummary.textContent = '';
   clearResultStats();
   resultAnalysis.textContent = '';
   const historyView = options.historyView === true;
@@ -961,7 +952,7 @@ async function renderResultAsync(record, modeRecords, options = {}) {
     renderTrialChrome();
   } else if (record.outcome === 'win') {
     await renderRanks(record, noMarkComparison(record, modeRecords),
-      { ...options, duringGame, ...(noMarkWin ? { noMarkTimeLabel: noMarkTimeLabel() } : {}) },
+      { ...options, duringGame, ...(isMarkless(record) ? { noMarkTimeLabel: noMarkTimeLabel() } : {}) },
       resultSections, isCurrent);
   } else {
     const latestWin = modeRecords.findLast((game) => game.outcome === 'win');
@@ -992,7 +983,7 @@ function showScoresForCurrentMode() {
   const wins = modeRecords.filter((record) => record.outcome === 'win');
   if (wins.length === 0) {
     renderedResult = null;
-    setResultSummary('High scores', 'No wins yet');
+    setHighScoresSummary('No wins yet');
     clearResultStats();
     resultAnalysis.textContent = '';
     resultRanks.textContent = '';

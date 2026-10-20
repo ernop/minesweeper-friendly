@@ -1,6 +1,6 @@
 'use strict';
 
-importScripts('board-shape.js', 'zini.js', 'board-metrics.js?v=20260921-visible-zero-one');
+importScripts('board-shape.js?v=20261020-live-perf', 'zini.js?v=20261020-live-perf', 'board-metrics.js?v=20261020-live-perf');
 
 self.onmessage = ({ data }) => {
   const { id, width, height, mines } = data;

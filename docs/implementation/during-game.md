@@ -7,7 +7,7 @@ Spec: [docs/product/during-game.md](../product/during-game.md). Index: [AGENTS.m
 - `during-game.js` (repository root, pure): `DuringGame`, the model, the
   row catalog, the averaging, and the hover lookup. It loads on the game
   page and the settings page before `settings-core.js` (whose
-  `duringGameRows` and `duringGameAverage` schema entries read
+  `duringGameRows` and `duringGameAveraging` schema entries read
   `DuringGame.defaults`, `DuringGame.AVERAGES`, and
   `DuringGame.DEFAULT_AVERAGE`), and in `analysis-worker.js`. At call time it
   uses `pathDecisionEvents`, `positionView`, and `squareDistance`
@@ -19,8 +19,8 @@ Spec: [docs/product/during-game.md](../product/during-game.md). Index: [AGENTS.m
   holds. `buildDuringGameBlock(record, isCurrent)` builds the block: title,
   charts, the averaging and configure row (game data's
   `.game-data-controls`), and the configure view. `renderDuringGameCharts`
-  draws `DuringGame.CHARTS` and the event lanes on one time axis and wires
-  hover and the replay link. The board at a moment (`duringGameBoard`,
+  draws `DuringGame.CHARTS` and the event tracks (`DuringGame.TRACKS`) on
+  one time axis and wires hover and the replay link. The board at a moment (`duringGameBoard`,
   `paintDuringGameBoard`, `placeDuringGameBoard`) and the card
   (`duringGameCard`, `placeDuringGameCard`) are body-level manual popovers,
   so they show above the Game details popover too; `hideDuringGameHover`
@@ -93,12 +93,17 @@ the board tables, before game data and the charts.
 
 ## Rows and averaging
 
-`CHARTS` lists the shared charts in order: `id`, `name`, `unit`, `scale`
-('share' for a fixed 0 to 1, 'log', else linear from 0), and `percent`
-(fractions labeled as percentages). `ROWS` entries hold `id`, `group`,
-`name`, `default`, `help`, `format`, `chart` (every row but the events),
-and `data(model)`, whose `kind` (progress, state, rate, ratio, value,
-speed, events, unrecorded) decides drawing and averaging. Rows named like a game
+`CHARTS` lists the two charts in order: `id`, `name`, and `scale`
+('share' for progress's fixed 0 to 1, 'relative' for the chart of each
+line against its whole-game value). `TRACKS` lists the event tracks as
+`[id, name]`: clicks, jumps, pauses. `ROWS` entries hold `id`, `group`,
+`name`, `default`, `help`, `format`, and either `chart` and a line
+`color` unique within the chart, or (event rows) `track`, `mark` (a shape
+in `DURING_GAME_MARKS`, unique within the track, or `band` or `bar` for a
+span), and `color`; and `data(model)`, whose `kind` (progress, state,
+rate, ratio, value, speed, events, unrecorded) decides drawing and
+averaging. `AVERAGES` lists the averaging choices in menu order;
+`DEFAULT_AVERAGE` is `rolling-2`. Rows named like a game
 data measurement take its format from `GameData.metrics`. `windowValue`
 measures a row over a time window (undefined under `SESSION_MIN_PLAY_MS`);
 `gameValue` is the right-hand whole-game value; `drawn` returns `steps`,
@@ -118,15 +123,31 @@ toleranceMs)` answers the hover. Unknown rows and averages throw.
   so its title opens and closes it as the remembered panel
   `settings.panels.duringGame`; the charts, lanes, and controls sit in the
   section body.
-- Charts: one SVG per chart under its HTML legend; the lanes are one SVG
-  beside an HTML names column. `duringGameLeftMargin` measures every y tick
-  label and every lane name with its count (canvas `measureText` in the CSS
-  fonts), so every part's plot starts at the same x. The time axis takes
-  `niceTicks` at about one tick per 56 px, labeled under the first and last
-  parts. `duringGameScale` gives the y ticks: progress every 20%, gaps at
-  powers of ten with minor ticks 2 to 9, the rest at 0, the middle, and the
-  top. The block's `ResizeObserver` redraws at the column's width; legend
-  values are whole-game values, so hover changes no width.
+- Charts: one SVG per chart under its HTML legend; the tracks are one SVG
+  beside an HTML names column, with one HTML legend under it whose entries
+  draw each row's mark (`duringGameLegendMark`) beside its name and count.
+  `duringGameLeftMargin` measures every y tick label and every track name
+  (`chartTextWidth`, canvas `measureText` in the CSS fonts), so every
+  part's plot starts at the same x. The time axis takes `niceTicks` at
+  about one tick per 56 px, labeled under the first and last parts.
+  `duringGameScale` gives the y scale: progress every 20%; the relative
+  chart in whole doublings of 1× (`DURING_GAME_RATIO_LABELS`), as many each
+  way as the farthest drawn ratio needs, clamped to 1 to
+  `DURING_GAME_RELATIVE_DOUBLINGS` (3), its `reference` 1× drawn as
+  `.during-game-reference`. `drawDuringGameChart` sets each member's `y`,
+  its value's height, null when the row cannot be drawn (on the relative
+  chart, a whole-game value that is not a positive number,
+  `duringGameComparable`). `drawDuringGameTracks` draws each event as
+  `duringGameMark`: a path for an instant, a band (long gaps) or a top bar
+  (window left) for a span. The block's `ResizeObserver` redraws at the
+  column's width; legend values are whole-game values, so hover changes no
+  width.
+- Card: `partAt` finds the chart or track under the pointer from the SVGs'
+  boxes. Over a chart, `lineAt` picks the member whose drawn value at the
+  moment (`DuringGame.valueAt`) lies nearest the pointer's height; the card
+  gives its own value in its row's format, and `focus` spotlights it as the
+  legend hover does. Over a track, the card names it and lists its events
+  at the moment (`duringGameEventsAt`, `duringGameEventLines`).
 - Hover: `stepAt` turns the moment into a replay step, the first action
   after it, or the finished board within hover reach of the axis's end.
   The board is repainted only when its step or proven-safe set changes:
@@ -141,9 +162,10 @@ toleranceMs)` answers the hover. Unknown rows and averages throw.
   longest text, so the panel keeps its size.
 - `renderDuringGameCharts` throws if the page's replay frames and the
   view's actions differ in number: hover and the replay link index one by
-  the other. A click calls `rememberPanel('replay', true)` before
-  `setReplayStep`, because every replay render re-syncs the panel from
-  `settings.panels.replay`.
+  the other. A click calls `setReplayStep`; the transport under the board
+  is always shown after a game, so there is no panel to open first (until
+  2026-10-20 the click opened the remembered `settings.panels.replay`
+  disclosure).
 
 ## Tests
 
@@ -154,12 +176,16 @@ toleranceMs)` answers the hover. Unknown rows and averages throw.
   trace.
 - `tests/during-game-browser-check.js PLAYWRIGHT_CORE_DIR CHROMIUM
   [SCREENSHOT_DIR]`: real games with real mouse input under the routed test
-  origin: the block at the head of the docked column, the charts and legend
-  rows, one plot x and width for every part, the progress chart's labels,
-  hover line, card, and the board in the player's number and flag style
-  beside the block, fixed while the pointer moves, the finished board at
-  the end, the long-gap lane's proven-safe ring, the replay link,
-  configure, averaging, restore after reload, a loss, an 1100 px viewport
+  origin: the block at the head of the docked column, titled "live perf
+  charts", the 2 s rolling default, the progress chart, the relative chart
+  (its lead, its one 1× line, its doubling labels), and the tracks, each
+  legend in catalog order, one plot x and width for every part, the
+  progress chart's labels, hover line, the card naming only the line under
+  the pointer and spotlighting it, the board in the player's number and
+  flag style beside the block, fixed while the pointer moves, the finished
+  board at the end, the pauses track's long-gap card and proven-safe ring,
+  the replay link, configure ("back to live perf charts"), raw averaging
+  (rates as ticks only), restore after reload, a loss, an 1100 px viewport
   (the block in the details column, the board beside it, the card inside
   the window), and a 390 px viewport (block first in the details popover,
   board clear of the chart and card).

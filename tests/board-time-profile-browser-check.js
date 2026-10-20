@@ -52,10 +52,11 @@ const { chromium } = require(process.argv[2]);
       };
       // A histogram's marks from left to right by redness, red minus green,
       // which rises from the standing scale's green end to its red end, and
-      // its axis labels' values from left to right.
+      // its axis labels' values from left to right. This game's mark takes
+      // the this-game color instead.
       window.histogramReading = (svg) => {
         const redness = (fill) => { const [r, g] = fill.match(/\d+/g).map(Number); return r - g; };
-        const marks = [...svg.querySelectorAll('rect, circle')].map((mark) => ({
+        const marks = [...svg.querySelectorAll('rect:not(.game-data-strip-this), circle:not(.game-data-strip-this)')].map((mark) => ({
           x: Number(mark.getAttribute(mark.localName === 'circle' ? 'cx' : 'x')), redness: redness(mark.getAttribute('fill')) }))
           .sort((a, b) => a.x - b.x || a.redness - b.redness);
         return {
@@ -94,7 +95,9 @@ const { chromium } = require(process.argv[2]);
     await bandReady();
     assert.equal(await profile.locator('figcaption, h4').count(), 0, 'the chart starts with its data, no heading');
     assert.deepEqual(await profile.locator('.game-data-side-title > .stat-section-toggle').allTextContents(),
-      ['your performance this game', 'board traits'], 'each side is titled by the button that opens and closes it');
+      ['game summary perf', 'board traits'], 'each side is titled by the button that opens and closes it');
+    assert.equal(await profile.locator('.game-data-side-title .chart-help-wrap').count(), 0,
+      'the side titles carry no help (creator 2026-10-20)');
     assert.equal(await profile.locator('.game-data-band').count(), 1, 'both sides share one band');
     assert.equal(await profile.locator('.game-data-bar').count(), 1, 'and one bar');
     assert.deepEqual(await profile.locator('.game-data-controls').evaluate((row) => [...row.children]
@@ -103,12 +106,12 @@ const { chromium } = require(process.argv[2]);
     assert.equal(await profile.locator('.game-data-row[data-side="board"]').count(), 9);
     assert.equal(await profile.locator('.game-data-row[data-side="performance"]').count(), 8,
       'one row per measurement, its pools side by side');
-    // Every pool holds this board's games alone, and the performance side's
-    // name column says which board, once (creator 2026-10-15).
+    // Every pool holds this board's games alone; no head copies the board's
+    // name, which the preset links show (creator 2026-10-20).
     assert.deepEqual(await profile.locator('.game-data-column-heads[data-side="performance"] > span').allTextContents(),
-      ['Beginner', 'value', 'session', 'lifetime']);
+      ['', 'value', 'session', 'lifetime']);
     assert.deepEqual(await profile.locator('.game-data-column-heads[data-side="board"] > span').allTextContents(),
-      ['', '', 'value'], 'no "boards" head and no second board name');
+      ['', '', 'value'], 'no "boards" head and no board name');
     assert.deepEqual(await profile.locator('.game-data-row button').evaluateAll((buttons) =>
       [...new Set(buttons.map((button) => getComputedStyle(button).cursor))]), ['default'], 'never the help cursor');
     assert.equal(await profile.locator('.game-data-row[data-measurement="bv3"] .game-data-value').textContent(), '75');
@@ -252,14 +255,6 @@ const { chromium } = require(process.argv[2]);
       { metricId: 'maxAdjacent', name: 'max number', rank: 142, total: 283, percentile: 50, valueText: '5' });
     assert.equal(comparisons.find((row) => row.metricId === 'zeroOpeningCoverage').percentile, 50);
     assert.equal(comparisons.find((row) => row.metricId === 'zeroOneShare').valueText, '60%');
-    const help = profile.getByRole('button', { name: 'About board traits', exact: true });
-    const before = await profile.boundingBox();
-    await help.focus();
-    assert(await page.locator('.chart-help-tip').isVisible());
-    assert((await page.locator('.chart-help-tip').textContent()).includes('better meaning each trait’s preferred end'),
-      'the board side title says what its percentages are');
-    assert.deepEqual(await profile.boundingBox(), before, 'help does not reflow the chart');
-    await help.evaluate((button) => button.blur());
     await page.mouse.move(0, 0);
     await page.setViewportSize({ width: 1920, height: 1100 });
     await page.evaluate(async () => {
@@ -288,16 +283,16 @@ const { chromium } = require(process.argv[2]);
     const bothOpen = await chartState();
     await sideToggle('board traits').click();
     let sides = await chartState();
-    assert.deepEqual(sides.titles, ['your performance this game: true', 'board traits: false']);
+    assert.deepEqual(sides.titles, ['game summary perf: true', 'board traits: false']);
     assert.deepEqual([sides.rows, sides.bars], [[bothOpen.rows[0], 0], 1], 'board traits closed: the band keeps your performance');
     assert.equal(sides.focused, 'board traits', 'its title keeps the focus');
     assert.equal(await page.evaluate(() => settings.panels.boardTraits), false, 'remembered');
-    await sideToggle('your performance this game').click();
+    await sideToggle('game summary perf').click();
     sides = await chartState();
     assert.deepEqual([sides.open, sides.bars, sides.rows], [false, 0, [0, 0]], 'both closed: the titles alone');
     assert(sides.height < 40, 'both closed, the chart is one line: ' + sides.height);
     await profile.screenshot({ path: '/tmp/game-data-closed.png' });
-    await sideToggle('your performance this game').click();
+    await sideToggle('game summary perf').click();
     await sideToggle('board traits').click();
     await bandReady();
     sides = await chartState();
@@ -359,8 +354,8 @@ const { chromium } = require(process.argv[2]);
     assert.equal(await timeRow.locator('.game-data-value').textContent(), '33.542s');
     const picker = page.getByLabel('session', { exact: true });
     assert.equal(await page.locator('select:has(option[value="today"])').count(), 1, 'the page has exactly one session picker');
-    assert.equal(await page.locator('#top-bar #session-definition-select').count(), 1,
-      'the one picker is in the top bar at the upper right');
+    assert.equal(await page.locator('#settings-row #session-definition-select').count(), 1,
+      'the one picker is in the settings row at the page foot');
     assert.equal(await page.locator('#metrics-panel select:has(option[value="today"])').count(), 0,
       'the stats panel holds no picker');
     assert.equal(await picker.inputValue(), 'today', 'the session defaults to today');
@@ -400,7 +395,7 @@ const { chromium } = require(process.argv[2]);
     assert.equal(await sessionCard.getAttribute('data-pool'), 'session');
     assert.equal(await sessionCard.locator('p').first().innerText(), 'session: 2nd of 3 wins',
       'the card opens with the rank alone');
-    assert.equal(await sessionCard.locator('.game-data-histogram-tick').count(), 0, 'no lifetime ticks in a session card');
+    assert(await sessionCard.locator('text').count() > 0, 'the card’s strip labels its x ticks');
     assert.equal(await sessionCard.locator('.game-data-histogram-dot').count(), 3, 'the session’s 3 wins, one dot each');
     assert.equal(await sessionCard.locator('.game-data-card-definition').count(), 0, 'time needs no definition');
     // No key narrates the marks (creator 2026-10-08: "Green line: this
@@ -409,9 +404,10 @@ const { chromium } = require(process.argv[2]);
       ['p', 'svg'], 'the card holds the rank and the chart, no key');
     assert(!(await sessionCard.innerText()).includes('24 hours'), 'no separate 24-hour rank: session and lifetime only');
     assert(!/÷|=|settings|so far|This is|this session|line:|Ticks|per win/.test(await sessionCard.innerText()), await sessionCard.innerText());
-    assert.deepEqual(await sessionCard.locator('.game-data-histogram-this-edge, .game-data-histogram-this').evaluateAll((lines) =>
-      lines.map((line) => getComputedStyle(line).stroke)), ['rgb(0, 0, 0)', 'rgb(135, 206, 250)'],
-      'this game is the this-game light blue line, edged in black');
+    assert.deepEqual(await sessionCard.locator('.game-data-strip-this, .game-data-strip-pin').evaluateAll((marks) =>
+      marks.map((mark) => [mark.localName, getComputedStyle(mark).fill, getComputedStyle(mark).stroke])),
+    [['circle', 'rgb(135, 206, 250)', 'rgb(0, 0, 0)'], ['path', 'rgb(135, 206, 250)', 'rgb(0, 0, 0)']],
+    'this game is its own dot in the this-game light blue, under a pin at its value, both edged in black');
     await page.mouse.move(0, 0);
     await profile.getByRole('button', { name: 'lifetime', exact: true }).click();
     await bandReady();
@@ -427,37 +423,30 @@ const { chromium } = require(process.argv[2]);
       assert.equal(await profile.locator('.game-data-distributions').count(), 1, 'one distributions view for both sides');
       return profile.locator('.game-data-distributions').evaluate((view) => {
         const strips = [...view.querySelectorAll('.game-data-strip')];
-        const firstHead = view.querySelector('.game-data-dist-head');
-        const firstTitle = view.querySelector('.game-data-dist-section > .game-data-pool-title');
         return {
-          // Each group: its side, its pool title line (only with both pools),
-          // then its head's name and pool cells.
+          // Each group: its side, then its head's name, strip, and pool
+          // cells; its pool is named only by its percent column's head.
           heads: [...view.querySelectorAll('.game-data-dist-section')].map((section) => [section.dataset.side,
-            section.querySelector(':scope > .game-data-pool-title')?.textContent ?? null,
             section.querySelector('.game-data-dist-head .game-data-name').textContent,
+            section.querySelector('.game-data-dist-head .game-data-strip-head').textContent,
             section.querySelector('.game-data-dist-head .game-data-pct').textContent]),
+          poolTitles: view.querySelectorAll('.game-data-pool-title').length,
           titles: [...view.querySelectorAll(':scope > .game-data-side-title > .stat-section-toggle')]
             .map((toggle) => toggle.textContent),
-          // The board name next to its head's value cell: [size px, weight, color].
-          boardNameStyles: firstHead && [firstHead.querySelector('.game-data-name'), firstHead.querySelector('.game-data-value')].map((cell) => {
-            const style = getComputedStyle(cell);
-            return [parseFloat(style.fontSize), style.fontWeight, style.color];
-          }),
-          // The title runs over the strip column instead of widening the
-          // name column.
-          titleOverStrips: firstTitle && firstTitle.getBoundingClientRect().right > strips[0].getBoundingClientRect().left,
-          titleAboveHead: firstTitle && firstTitle.getBoundingClientRect().bottom <= firstHead.getBoundingClientRect().top + 0.5,
           rows: strips.length,
           stripLefts: [...new Set(strips.map((strip) => Math.round(strip.getBoundingClientRect().left)))],
           stripHeights: [...new Set(strips.map((strip) => strip.getBoundingClientRect().height))],
           drawnHeights: [...new Set(strips.map((strip) => strip.querySelector('svg').viewBox.baseVal.height))],
+          // Drawn at the px width of their column, not stretched to it.
+          drawnWidths: [...new Set(strips.map((strip) => strip.querySelector('svg').viewBox.baseVal.width - strip.clientWidth))],
+          unlabeled: strips.filter((strip) => strip.querySelectorAll('text').length === 0
+            || strip.querySelectorAll('.game-data-histogram-tick').length === 0).length,
           slack: view.clientHeight - (view.lastElementChild.getBoundingClientRect().bottom
             - view.getBoundingClientRect().top - view.clientTop),
           scrolls: view.scrollHeight > view.clientHeight + 1 || view.scrollWidth > view.clientWidth + 1,
           note: view.querySelector('.game-data-unplotted')?.textContent ?? null,
           captions: [...view.children].filter((child) => !child.matches('.game-data-dist-section, .game-data-unplotted, .game-data-side-title'))
             .map((child) => child.textContent),
-          ticks: view.querySelectorAll('.game-data-histogram-tick').length,
         };
       });
     };
@@ -467,6 +456,8 @@ const { chromium } = require(process.argv[2]);
       assert.equal(shown.scrolls, false, label + ': no scrolling');
       assert.equal(shown.stripHeights.length, 1, label + ': one strip height');
       assert.deepEqual(shown.drawnHeights, shown.stripHeights, label + ': strips drawn at their laid-out height');
+      assert.deepEqual(shown.drawnWidths, [0], label + ': and at their column\u2019s width');
+      assert.equal(shown.unlabeled, 0, label + ': every strip has x ticks with labels');
       assert(shown.slack >= 0 && shown.slack < shown.rows * 1.2 + 4, label + ': the strips fill the box: ' + JSON.stringify(shown));
     };
     await profile.getByLabel('show distributions', { exact: true }).check();
@@ -474,17 +465,11 @@ const { chromium } = require(process.argv[2]);
     assert.equal(await page.evaluate(() => settings.gameDataDistributions), true);
     assert.equal(await profile.locator('.game-data-pool-switch').evaluate((group) => group.textContent), 'pools: lifetimesessionboth');
     assert.deepEqual(shown.heads, [
-      ['performance', 'within your lifetime', 'Beginner', 'lifetime'],
-      ['performance', 'within this session', '', 'session'],
-      ['board', 'within your lifetime', '', 'lifetime'], ['board', 'within this session', '', 'session']],
-    'both pools, for your performance and for board traits, the board named once');
-    assert.deepEqual(shown.titles, ['your performance this game', 'board traits'], 'each side under its title');
-    const [[nameSize, ...nameLook], [valueSize, ...valueLook]] = shown.boardNameStyles;
-    assert.equal(nameSize, valueSize, 'the board name is the value head’s size');
-    assert.deepEqual(nameLook, valueLook, 'and its weight and color');
-    assert.deepEqual(nameLook, ['700', 'rgb(0, 0, 0)'], 'bold black');
-    assert.equal(shown.titleOverStrips, true, 'a pool title spans the columns');
-    assert.equal(shown.titleAboveHead, true, 'on its own line above the column heads');
+      ['performance', '', '', 'lifetime'], ['performance', '', '', 'session'],
+      ['board', '', '', 'lifetime'], ['board', '', '', 'session']],
+    'both pools, for your performance and for board traits; no board name and no strip head');
+    assert.equal(shown.poolTitles, 0, 'no pool title lines (creator 2026-10-20)');
+    assert.deepEqual(shown.titles, ['game summary perf', 'board traits'], 'each side under its title');
     assert.equal(shown.note, null, 'the lifetime groups list every measurement');
     assert.equal(shown.rows, await profile.locator('.game-data-dist-row svg.game-data-histogram').count());
     const stripReadings = await profile.locator('.game-data-dist-row').evaluateAll((rows) => rows.map((row) =>
@@ -500,25 +485,24 @@ const { chromium } = require(process.argv[2]);
     await profile.getByRole('button', { name: 'lifetime', exact: true }).click();
     shown = await distributionsShown('lifetime');
     assert.equal(await page.evaluate(() => settings.gameDataDistributionPools), 'lifetime');
-    assert.deepEqual(shown.heads, [['performance', null, 'Beginner', 'lifetime'], ['board', null, '', 'lifetime']],
-      'one pool needs no pool title: its head names it');
+    assert.deepEqual(shown.heads, [['performance', '', '', 'lifetime'], ['board', '', '', 'lifetime']],
+      'its head names the pool');
     fillsBox(shown, 'lifetime');
     assert(shown.stripHeights[0] > bothStrip, 'fewer rows, taller strips: ' + shown.stripHeights[0] + ' px vs ' + bothStrip + ' px');
     assert.deepEqual(shown.captions, [], 'nothing but groups under the strips: no key');
-    assert(shown.ticks > 0, 'lifetime strips tick the session’s games');
     const lifetimeStrip = shown.stripHeights[0];
     // Closing a side gives its height to the other side's strips; its title stays.
     await sideToggle('board traits').click();
     shown = await distributionsShown('lifetime');
-    assert.deepEqual(shown.heads, [['performance', null, 'Beginner', 'lifetime']], 'board traits closed');
-    assert.deepEqual(shown.titles, ['your performance this game', 'board traits'], 'its title stays');
+    assert.deepEqual(shown.heads, [['performance', '', '', 'lifetime']], 'board traits closed');
+    assert.deepEqual(shown.titles, ['game summary perf', 'board traits'], 'its title stays');
     fillsBox(shown, 'board traits closed');
     assert(shown.stripHeights[0] > lifetimeStrip, 'a closed side gives its height to the other: '
       + shown.stripHeights[0] + ' px vs ' + lifetimeStrip + ' px');
-    await sideToggle('your performance this game').click();
+    await sideToggle('game summary perf').click();
     shown = await distributionsShown('lifetime');
     assert.deepEqual(shown.heads, [], 'both closed: the titles alone');
-    await sideToggle('your performance this game').click();
+    await sideToggle('game summary perf').click();
     await sideToggle('board traits').click();
     shown = await distributionsShown('lifetime');
     assert.deepEqual(shown.stripHeights, [lifetimeStrip], 'both reopened');
@@ -535,17 +519,16 @@ const { chromium } = require(process.argv[2]);
     assert(shown.stripHeights[0] > lifetimeStrip, 'removed measurements give the rest their height: '
       + shown.stripHeights[0] + ' px vs ' + lifetimeStrip + ' px');
     await profile.screenshot({ path: '/tmp/game-data-distributions-few.png' });
-    // Session alone: no lifetime ticks, and a measurement without a session
-    // rank is listed rather than dropped.
+    // Session alone: a measurement without a session rank is listed rather
+    // than dropped.
     await profile.getByRole('button', { name: 'session', exact: true }).click();
     shown = await distributionsShown('session');
-    assert.deepEqual(shown.heads, [['performance', null, 'Beginner', 'session'], ['board', null, '', 'session']]);
+    assert.deepEqual(shown.heads, [['performance', '', '', 'session'], ['board', '', '', 'session']]);
     assert.deepEqual(shown.captions, [], 'the note and groups only: no key');
-    assert.equal(shown.ticks, 0);
     assert.match(shown.note, /^Not ranked in this session yet: ZiNi, .*zeros\. A session rank needs two measured games in the session window\.$/);
     fillsBox(shown, 'session');
-    // A no-mark win ranks among no-mark games alone, and its sections say so
-    // as the band's heads do.
+    // A no-mark win ranks among no-mark games alone, and its heads say so
+    // as the band's do.
     await page.evaluate(async () => {
       settings.gameDataDistributionPools = 'both';
       const marklessWins = profileFixture.wins.map((win) => ({ ...win, flagsPlaced: 0 }));
@@ -556,10 +539,8 @@ const { chromium } = require(process.argv[2]);
     });
     shown = await distributionsShown('both');
     assert.deepEqual(shown.heads, [
-      ['performance', 'within your no-mark games', 'Beginner', 'no-mark'],
-      ['performance', 'within this session\u2019s no-mark games', '', 'no-mark session'],
-      ['board', 'within your no-mark games', '', 'no-mark'],
-      ['board', 'within this session\u2019s no-mark games', '', 'no-mark session']]);
+      ['performance', '', '', 'no-mark'], ['performance', '', '', 'no-mark session'],
+      ['board', '', '', 'no-mark'], ['board', '', '', 'no-mark session']]);
     assert.match(await profile.locator('.game-data-dist-section[data-side="performance"][data-pool="session"] '
       + '.game-data-dist-row[data-measurement="time"] button').getAttribute('aria-label'), /^time 33\.542s: no-mark session \d+%$/);
     fillsBox(shown, 'no-mark');

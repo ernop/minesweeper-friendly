@@ -48,7 +48,7 @@ async function renderRanks(record, modeRecords, options = {}, sections, isCurren
   }
   resultStats.querySelector('.board-time-profile-host')?.remove();
   resultStats.querySelector('.during-game')?.remove();
-  // During this game goes in with its charts built, in the same task as game
+  // Live perf charts go in with their charts built, in the same task as game
   // data's frame, so neither moves the other once shown.
   if (duringGame) {
     await duringGame.analysisReady;

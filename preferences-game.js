@@ -36,7 +36,6 @@ function bindTrialSection(element, key, initiallyOpen) {
 
 function syncReviewPreferences() {
   if (!pathViewAvailable()) return;
-  replayReview.open = settings.panels.replay;
   if (settings.panels.reviewOptions && reviewOptions.popover !== null
       && !reviewOptions.matches(':popover-open')) reviewOptions.showPopover();
 }
@@ -61,7 +60,6 @@ function initGamePreferences() {
   setStatesMenuOpen(settings.panels.states);
   importPanel.hidden = !settings.panels.importHistory;
   formatPanel.hidden = !settings.panels.dataFormat;
-  replayReview.open = settings.panels.replay;
   importText.value = settings.drafts.historyImport;
   statesAddInput.value = settings.drafts.stateName;
   if (settings.panels.gameDetails && pageLayout.classList.contains('compact-sidebar')) gameSidebar.showPopover();
@@ -208,7 +206,7 @@ async function restorePreferredResult() {
     analysisFailure(error);
   });
   replayStep = Math.min(settings.replayPosition.step, replayDecisionCount());
-  replayEnabled = settings.panels.replay && replayStep < replayDecisionCount();
+  replayEnabled = replayStep < replayDecisionCount();
   renderPathView();
   if (replayEnabled) scheduleReplayPrecompute();
 }
