@@ -2,9 +2,9 @@
   "note": "Upper bounds in milliseconds for tests/latency-browser-check.js, one set per machine, because the same code takes different times on different machines and browsers (creator request 2026-10-18, after the PC's budgets judged a run on the Windows laptop). tests/latency-machine.txt, not committed, names the machine running the check. Creator decision 2026-09-26: limits sit at today's real times, not generous ones; any real slowdown must fail. *WorkMs is how long the game's own handlers ran for that input, which only our code affects; the matching *Ms is input to the first task after the next frame, which also includes up to one 60 Hz frame (16.7 ms) of waiting, so a click must show within two frames (34 ms). Tighten when the code gets faster; loosen only by recorded creator decision.",
   "machines": {
     "linux-pc": {
-      "note": "The creator's Linux PC. Set 2026-09-26 just above the worst of three Firefox runs (Chromium is faster everywhere). Known waste, next to cut: new game (26-28 ms of work in Firefox, 8 in Chromium), switching board size (20-21), and the freeze after a game ends (82-91).",
+      "note": "The creator's Linux PC. Set 2026-09-26 just above the worst of three Firefox runs (Chromium is faster everywhere). Tightened 2026-10-20 just above the worst of three Firefox runs of 345ab4a, after the left stats panel was removed: startup 496-516 ms (535-570 before), switching to Expert 7-9 ms of work and 12-13 to screen (8-11 and 13-16 since 2026-10-19, 16-19 and 18-22 before), the freeze after a game ends 68-77 (74-91). Known waste, next to cut: new game (23-24 ms of work in Firefox) and the freeze after a game ends.",
       "budgets": {
-        "startupMs": 700,
+        "startupMs": 570,
         "newGameWorkMs": 32,
         "newGameMs": 36,
         "firstClickWorkMs": 8,
@@ -13,9 +13,9 @@
         "clickMs": 34,
         "showMineWorkMs": 8,
         "showMineMs": 34,
-        "switchToExpertWorkMs": 25,
-        "switchToExpertMs": 30,
-        "afterGameFreezeMs": 100
+        "switchToExpertWorkMs": 14,
+        "switchToExpertMs": 20,
+        "afterGameFreezeMs": 90
       }
     },
     "windows-laptop": {
