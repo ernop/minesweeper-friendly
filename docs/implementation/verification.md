@@ -57,22 +57,37 @@ Index: [AGENTS.md](../../AGENTS.md).
   The profile keeps Firefox's HTTP cache (`<profile>/cache2`), and
   `http.server` sends no cache headers, so a reopened profile can run
   scripts older than the working tree; delete `cache2` before each launch.
-- README and promo screenshots (2026-10-08): the same sandbox, with
-  `updateSettings` opening the stats panel (removed 2026-10-20) and setting the session to
-  "last 7 calendar days" (`pastWeek`), since the history export ended the
-  day before and a "today" session would hold only scripted games. Scripted
-  Beginner wins (safe-cell clicks about 0.3 s apart) were played until one
-  finished in about 5 s, so its rows read as a strong game. Captures: the
-  viewport at 1920 x 1080 for the README's top image; at 2560 x 1440,
-  element screenshots of the game data column (band, then distributions;
-  since 2026-10-17 `.board-time-profile` in `#game-sidebar`),
-  `#metrics-panel` (gone with the panel), the 3BV/s row's `.chart-help-tip`, and
-  `.result-chart-section-perfCharts` / `-relationships`, plus `main` cut
-  above "This board" for the promo hero. The card overhangs the game data
-  column at that width, so it is captured alone. Restore every changed
-  preference afterwards, save the PNGs with Pillow `optimize=True` into
-  `promo/` under the capture date, and replace the old files and every
-  reference to them (README, `promo/PROMO.md`, AGENTS.md).
+- README and promo screenshots (retaken 2026-10-21; first taken
+  2026-10-08): `node tests/promo-screenshots.js <playwright-core> <firefox>
+  <history-export.json> <YYYY-MM-DD>` with the 8099 server running and
+  Pillow installed, about 30 s. It writes the seven PNGs into `promo/`
+  under the capture date; then delete the old ones and replace every
+  reference to them (README, `promo/PROMO.md`, AGENTS.md), and update the
+  README's alt texts to the new numbers. Inside: the same sandbox in a
+  fresh Firefox profile, default preferences, and the history export
+  imported. A history export ends before the capture day, so the page's
+  `Date` is shifted to 7 minutes after the export's last game (the same
+  offset on every load; workers read no clock, and `performance.now` stays
+  real for the trace), and the default "today" session holds that day's
+  real games. Then one scripted Beginner win, chosen so its rows read as a
+  strong game and none as the script's: first click in the corner (an
+  opening about 2 times in 3, the center 1 in 3); only boards of 3BV 10 to
+  12 that `Justice.proveFacts` solves without a guess, others restarted
+  (each restart is an abandoned board in the session); reveals of proven
+  safe squares, openings first, and 2 flags on proven mines; presses at
+  2.35 3BV/s with lognormal gaps (log sigma 0.6, none under 230 ms), the
+  mouse swinging out on an arc between squares and drifting during each
+  press. Each of those choices fixed a row that read wrong in a trial run:
+  guesses in the results tree, a cadence spread, fastclick gap, or mouse
+  speed far outside the creator's games, or a time ranking outside the
+  top tenth. Captures: the viewport at 1920 x 1080 for the README's top
+  image; at 2560 x 1440, `main` cut above "This board" for the promo hero,
+  and element screenshots of `.board-time-profile` in `#game-sidebar`
+  (band, then with "show distributions"), the 3BV/s row's `.chart-help-tip`
+  (it overhangs the column at that width, so it is captured alone), and
+  `.result-chart-section-perfCharts` / `-relationships`; the game data and
+  chart captures, whose text reaches their edges, get an 8 px margin of the
+  page background, and all are saved with Pillow `optimize=True`.
 - Running game code without a browser: load the `game/` scripts, in
   `index.html` order, in Node via `vm.runInThisContext`, not `eval` (each
   file's 'use strict' makes eval declarations local, so nothing would be

@@ -6,7 +6,7 @@ The classic game you know — crisp bevels, chunky numbers, red LCD counters —
 with a dove where the smiley used to be, and a scoreboard unlike anything
 minesweeper has ever had.
 
-![A winning Beginner game with the session summary and the full scoreboard](win-screen-2026-10-08.png)
+![A winning Beginner game with the session summary and the full scoreboard](win-screen-2026-10-21.png)
 
 ## Every win you ever get is remembered
 
@@ -32,13 +32,19 @@ each placed from best to worst against all your games and against today's.
 Point at any line to see where this game falls among all of yours, or flip
 to distributions to see your whole history for every measurement at once.
 
-![How a win compares: your play on the left, the board on the right, the best at the top](game-data-2026-10-08.png)
+![How a win compares: your play on the left, the board on the right, the best at the top](game-data-2026-10-21.png)
 
-## Watch your session as you play
+## Watch every game unfold
 
-A column at the left charts your play as it happens — speed, clicking,
-mistakes, how your games are ending — across today's session or any stretch
-you pick.
+After each game, a chart beside the board plays it back second by second:
+the board clearing, your speed and clicking rising and falling, every pause,
+and every jump to a new part of the board — whether you moved on because
+the work there ran out or left some behind. Point anywhere along it to see
+the board exactly as it stood at that moment.
+
+Beside the board, your session keeps its own tally: every win by how
+cleanly you played it, every loss by what went wrong, and every board you
+gave up on.
 
 ## The details feel right
 
