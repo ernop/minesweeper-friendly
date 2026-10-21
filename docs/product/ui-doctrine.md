@@ -207,10 +207,24 @@ because they apply app-wide, not just where each was first stated.
   its options at once: never behind a collapsed section, a "more" toggle,
   or a second panel. Related options live together in one place, under
   headings named for what they control, in the order those things appear
-  on the page. When the settings page also lists the same options, both
-  render one shared definition with the same groups. Where a narrow window
+  on the page. Where a narrow window
   folds the whole side column into its Game details popover, a panel from
   that column shows inline inside it instead of opening a second popover.
+- Each option in one place (creator 2026-10-21: "rectify the duplication
+  and problematic "double settings location" issue where some settinsg are
+  within "settings" while others are in "overlays & display""). A setting
+  the player keeps for every game (the after-game report choice, which
+  result sections show, the board's look, a just universe) is shown and
+  changed only on the settings page; no other surface carries a copy. A
+  surface's own view choices stay on that surface and are not repeated on
+  the settings page: the replay's board overlays and mouse path in the
+  Overlays panel beside it, each chart's averaging, scale, configure, and
+  pool switches on the chart. From 2026-09-26 until this decision the
+  game's panel, then named Overlays & display, repeated the settings page's
+  report choice and result-section switches from one shared definition,
+  and the trial review repeated the report choice.
+  `tests/settings-one-place-test.js` fails when game-page code changes a
+  setting the settings page shows.
 - Defaults show nothing extra (creator 2026-10-20: "beg, int, exp are
   "all-in-one settings choosers". when a user choose a mode besides those
   from the dropdown they shoudl only then be presetned with the variant and

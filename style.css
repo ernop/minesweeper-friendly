@@ -357,8 +357,8 @@ main {
 
 #scores-nav[hidden] { display: none; }
 
-/* The display options opener and high scores: one small row in the side
-   column, beside the play context. */
+/* The overlays opener and high scores: one small row in the side column,
+   beside the play context. */
 #scores-nav {
   display: flex;
   flex: 0 1 auto;
@@ -1333,33 +1333,6 @@ body.trial-offboard #game-frame {
   font-family: "Arial Black", "Arial Bold", Arial, sans-serif;
 }
 #result-analysis:empty { display: none; }
-.report-scope-control {
-  display: flex;
-  width: max-content;
-  max-width: 100%;
-  align-items: center;
-  gap: 8px;
-  margin: 0 auto 10px;
-  border: 1px solid #8b8b8b;
-  border-radius: 4px;
-  background: #ffffff;
-  padding: 6px 9px;
-  font-family: Arial, Helvetica, sans-serif;
-  font-size: 14px;
-  font-weight: bold;
-}
-.report-scope-control select {
-  max-width: min(52vw, 260px);
-  font: inherit;
-  font-weight: normal;
-}
-
-#results .report-scope-control {
-  width: min(100%, max-content);
-  margin: 8px 0 0;
-  padding: 5px 7px;
-  font-size: 12px;
-}
 #result-analysis .result-verdicts {
   display: grid;
   gap: 10px;
@@ -1693,8 +1666,8 @@ body.trial-offboard #game-frame {
 #details-resize:hover, #details-resize.dragging { background-color: #dde6ee; }
 #details-resize:focus-visible { outline: 2px solid #417ca4; }
 #details-resize[hidden] { display: none; }
-/* The play context (states) and the review row (display options, scores)
-   share wrapping rows, side by side where the column has room. */
+/* The play context (states) and the review row (overlays, scores) share
+   wrapping rows, side by side where the column has room. */
 #sidebar-controls {
   display: flex;
   flex-wrap: wrap;
@@ -4036,21 +4009,6 @@ body.vigilance-running #self-check-header {
 #replay-slider-wrap { min-width: 0; }
 #replay-overlay-control, #path-view-control { justify-content: flex-start; }
 .path-view-heading { flex-basis: 100%; margin: 3px 0; text-align: left; }
-#review-display { text-align: left; }
-#review-display .report-scope-control { flex-wrap: wrap; margin: 0 0 12px; }
-/* Result-section groups fill as many columns as the panel's width allows. */
-.review-display-groups { columns: 200px; column-gap: 20px; }
-.review-display-group {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 5px;
-  margin-bottom: 12px;
-  break-inside: avoid;
-}
-.review-display-group .path-view-heading { margin: 0; }
-.review-display-group label { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
-.review-display-group input { margin: 0; }
 @media (max-width: 700px) {
   #page-layout, #page-layout.compact-sidebar { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; }
   #top-bar, #page-layout.compact-sidebar #top-bar { grid-column: 1; grid-row: 1; }
@@ -4059,7 +4017,7 @@ body.vigilance-running #self-check-header {
   #difficulty-tabs { flex-wrap: wrap; justify-content: center; gap: 10px; }
 }
 
-/* Beside the docked column the display options open in the top layer over
+/* Beside the docked column the replay's overlays open in the top layer over
    that column, leaving rankings in place. The compact Game details popover
    already is the column, so there they end it inline, with no opener. */
 #review-options-button[hidden],

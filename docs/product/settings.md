@@ -70,7 +70,10 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   display (Zoom, position, pixel ratio)
   ([Game setup, top bar, settings row, and footer](board-and-layout.md#game-setup-top-bar-settings-row-and-footer)).
   Choices that belong to one game setup, the board size and the generator,
-  stay beside the mode they configure.
+  stay beside the mode they configure. Each option has one place (creator
+  2026-10-21; [UI doctrine](ui-doctrine.md)): a setting the settings page
+  shows is changed only there, and a surface's own view choices (the
+  replay's overlays, a chart's averaging) only on that surface.
 - A "settings" button in the game page's settings row at the page foot
   (since 2026-10-20; in the top bar at the upper right from 2026-10-14;
   before that in the details column's cluster it shared with the
@@ -104,9 +107,10 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   until 2026-10-20)
   form compact option grids (as many columns of at least 260px as fit) under
   four subheadings named for what they control, in result order: This game,
-  Tables, This board, Charts (2026-09-26, with the game's Overlays & display
-  panel, which renders the same groups from one definition; see
-  [UI doctrine](ui-doctrine.md)). The layout
+  Tables, This board, Charts (2026-09-26). The game's Overlays & display
+  panel showed the same groups until 2026-10-21, when the creator had the
+  copy removed: each option has one place
+  ([UI doctrine](ui-doctrine.md)). The layout
   collapses to one section column on narrow screens while retaining the
   name/control relationship. Width (2026-09-23 sweep): the body spans the
   window less 48px (28px on narrow screens), and the title and return
@@ -148,9 +152,10 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   [Motion stats](motion-stats.md)); it replaced `showMotionStatsDuringGame`
   and `showMotionStatsAfterGame` ("motion charts") on 2026-10-20;
   `reportScope` (`none` by default; choices `none`, `fatal`, `risk`,
-  `full`) — the simple after-game analysis ladder, editable on both the
-  report and settings page; it does not change what game data's report
-  category rows count;
+  `full`) — the simple after-game analysis ladder, chosen only on the
+  settings page since 2026-10-21 (before then also in the game's Overlays &
+  display panel and above the trial review); it does not change what game
+  data's report category rows count;
   `sessionDefinition` (default `today`, since local midnight; set only by
   the one session picker in the game page's settings row, never on the
   settings page) — the shared wall-clock session window (see [One session
@@ -213,9 +218,8 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   saved `reportScope` gets after-game action reports off (`none`); session
   stats were off for them too until the panel's removal on 2026-10-20. The
   session picker stays in the settings row ("session today"). The
-  loss-analysis report stays available from settings, and the report ladder
-  is also in the after-game display controls. A value already saved stays
-  as saved.
+  loss-analysis report stays available from settings, the report ladder's
+  one place since 2026-10-21. A value already saved stays as saved.
 - Motion stats off by default (creator decision 2026-10-17, verbatim: "by
   default, dynamics shall be off"): both stages of the mouse-dynamics
   display, the live left panel and the after-game motion charts, defaulted

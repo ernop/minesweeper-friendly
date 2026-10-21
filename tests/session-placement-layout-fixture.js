@@ -127,7 +127,7 @@
         ...[...resultRanks.querySelectorAll('.beside-board')].map((block) => rect(block).bottom));
       check(label + ': tables begin directly below the board, its transport, and the blocks beside it',
         rect(resultRanks).top - boardRowsBottom < 32 && rect(resultRanks).top >= boardRowsBottom);
-      check(label + ': display options and scores are in the sidebar',
+      check(label + ': the overlays and scores are in the sidebar',
         gameSidebar.contains(scoresNav) && !gameArea.contains(scoresNav));
       check(label + ': redundant review heading is absent',
         !document.querySelector('.review-heading') && !document.getElementById('replay-final-time'));

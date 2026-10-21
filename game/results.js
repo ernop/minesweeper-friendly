@@ -207,7 +207,7 @@ if (typeof ResizeObserver !== 'undefined') {
   resultLayoutObserver.observe(gameFrame);
 }
 
-//-------AFTER-GAME REPORT (verdict blocks, report scope, review display)-------
+//-------AFTER-GAME REPORT (verdict blocks within the report scope)-------
 
 function evaluationCellName(cell, width) {
   return 'row ' + (Math.floor(cell / width) + 1) + ', column ' + (cell % width + 1);
@@ -498,75 +498,6 @@ function buildVerdictBlocks(record) {
   return wrap.childNodes.length > 0 ? wrap : null;
 }
 
-function buildReportScopeControl(onChange) {
-  const label = document.createElement('label');
-  label.className = 'report-scope-control';
-  const text = document.createElement('span');
-  text.textContent = 'After each game, show me:';
-  const select = document.createElement('select');
-  select.setAttribute('aria-label', 'After each game, show me');
-  for (const [value, optionLabel, description] of REPORT_SCOPE_CHOICES) {
-    const option = document.createElement('option');
-    option.value = value;
-    option.textContent = optionLabel;
-    option.title = description;
-    option.selected = settings.reportScope === value;
-    select.appendChild(option);
-  }
-  select.addEventListener('change', () => {
-    settings.reportScope = select.value;
-    // Keep old exports understandable, but reportScope is now authoritative.
-    settings.shownThings.endVerdict = select.value !== 'none';
-    saveSettings();
-    onChange();
-  });
-  label.append(text, select);
-  return label;
-}
-
-// The display panel remains in one place for every analysis scope. Update
-// the report without rebuilding the focused controls or closing the panel.
-function renderReviewDisplay(onChange) {
-  const host = document.getElementById('review-display');
-  host.reviewChange = onChange;
-  if (host.childElementCount > 0) {
-    host.querySelector('select').value = settings.reportScope;
-    for (const input of host.querySelectorAll('input')) {
-      input.checked = resultSectionShown(resultSectionSwitch(input.dataset.setting));
-    }
-    return;
-  }
-  host.appendChild(buildReportScopeControl(() => host.reviewChange()));
-  const groups = document.createElement('div');
-  groups.className = 'review-display-groups';
-  for (const [groupLabel, paths] of RESULT_SECTION_GROUPS) {
-    const group = document.createElement('div');
-    group.className = 'review-display-group';
-    const heading = document.createElement('span');
-    heading.className = 'path-view-heading';
-    heading.textContent = groupLabel;
-    group.appendChild(heading);
-    for (const entry of paths.map(resultSectionSwitch)) {
-      const label = document.createElement('label');
-      label.title = entry.describe;
-      const input = document.createElement('input');
-      input.type = 'checkbox';
-      input.dataset.setting = entry.path;
-      input.checked = resultSectionShown(entry);
-      input.addEventListener('change', () => {
-        setResultSectionShown(entry, input.checked);
-        saveSettings();
-        host.reviewChange();
-        scheduleBoardLayout();
-      });
-      label.append(input, entry.label);
-      group.appendChild(label);
-    }
-    groups.appendChild(group);
-  }
-  host.appendChild(groups);
-}
-
 //-------RESULT PRESENTATION MODEL (pure; tests extract this span)-------
 
 // Result surfaces share one semantic sequence. A section's order is product
@@ -798,13 +729,10 @@ async function renderResultAsync(record, modeRecords, options = {}) {
   clearResultStats();
   resultAnalysis.textContent = '';
   const historyView = options.historyView === true;
-  if (!historyView) {
-    renderReviewDisplay(() => renderResult(record, modeRecords, options));
-    if (settings.reportScope !== 'none') {
-      const verdicts = buildVerdictBlocks(record);
-      if (verdicts !== null) {
-        resultAnalysis.appendChild(verdicts);
-      }
+  if (!historyView && settings.reportScope !== 'none') {
+    const verdicts = buildVerdictBlocks(record);
+    if (verdicts !== null) {
+      resultAnalysis.appendChild(verdicts);
     }
   }
   const statsGrid = document.createElement('div');

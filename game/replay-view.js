@@ -110,8 +110,8 @@ function endReplayPreview() {
 
 function renderPathViewControls() {
   const available = pathViewAvailable();
-  // After game end the transport shows under the board; the display options
-  // open from their own button in the side column.
+  // After game end the transport shows under the board; the overlays open
+  // from their own button in the side column.
   reviewOptions.hidden = !available;
   document.getElementById('review-options-button').hidden = !available;
   if (!available && reviewOptions.matches(':popover-open')) reviewOptions.hidePopover();

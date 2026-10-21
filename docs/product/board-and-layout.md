@@ -326,7 +326,9 @@ duplicative and needlessly complex."
     head line: "High scores" and its board, then "Latest win" or "No wins
     yet", since nothing else on screen says the view is not a game.
   - The archive alert and the play context line with **edit states**, then
-    one row holding Overlays & display and see scores. Mode and generator
+    one row holding Overlays (the replay's board overlays and mouse path;
+    "Overlays & display" until 2026-10-21, when its copies of settings went
+    to the settings page alone) and see scores. Mode and generator
     moved to the game setup rows above the board on 2026-10-20, and Replay
     game became the transport under the board.
   - "live perf charts" ([During the game](during-game.md)), a stat section

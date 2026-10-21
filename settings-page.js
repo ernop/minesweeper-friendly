@@ -680,8 +680,8 @@ function buildChoiceRow(s) {
   return row;
 }
 
-// The same groups as the game's Overlays & display panel, each a compact
-// option grid under its own subheading.
+// The result-section groups, each a compact option grid under its own
+// subheading.
 function buildResultSections() {
   const groups = document.createDocumentFragment();
   for (const [groupLabel, paths] of RESULT_SECTION_GROUPS) {

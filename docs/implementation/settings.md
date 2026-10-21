@@ -68,9 +68,13 @@ Spec: [docs/product/settings.md](../product/settings.md). Index: [AGENTS.md](../
   compact auto-fill option grid of at least 260px columns per group,
   collapsing responsively. Boolean fields with control `result-section`
   (`collapseDuplicateCharts`) render only inside
-  those groups; `renderReviewDisplay` on the game page renders the same
-  groups, and `tests/report-settings-test.js` checks that every switch is in
-  exactly one group. A change just saves; the static
+  those groups, and `tests/report-settings-test.js` checks that every switch
+  is in exactly one group. Only the settings page renders them (the game
+  page's `renderReviewDisplay` copy and `buildReportScopeControl` went on
+  2026-10-21): `tests/settings-one-place-test.js` fails when game-page code
+  (the `game/` files, `preferences-game.js`, `index.html`) writes any field
+  whose schema control is not `none`, or names `RESULT_SECTION_GROUPS`,
+  `REPORT_SCOPE_CHOICES`, or `setResultSectionShown`. A change just saves; the static
   note beside the page title explains the absent save button. No hover
   behavior at all — no hover-injected or
   hover-swapped text, ever (two note mechanisms were removed for this on

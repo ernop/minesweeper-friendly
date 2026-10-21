@@ -172,8 +172,6 @@ function renderTrialReview(session) {
   resultSummary.textContent = '';
   clearResultStats();
   resultAnalysis.textContent = '';
-  resultAnalysis.appendChild(buildReportScopeControl(
-    () => renderTrialReview(session)));
   resultRanks.textContent = '';
   appendTrialSessionSummary(resultRanks, summary);
   const pendingOverlays = [];

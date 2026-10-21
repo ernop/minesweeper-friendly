@@ -102,10 +102,11 @@ Spec: [docs/product/replay.md](../product/replay.md). Index: [AGENTS.md](../../A
   leaders (`--replay-area`) to side labels with non-misleading mine risk and
   cell count, choosing left or right to avoid the result summary/viewport
   edge. Sidebar `#scores-nav` contains the `#review-options-button` opener
-  and see scores. `#review-options` ends `#game-sidebar` after the legend:
-  `#replay-overlay-control`, `#path-view-control`, and `#review-display`
-  (the report-scope select and `RESULT_SECTION_GROUPS`, built once by
-  `renderReviewDisplay` and re-synced on each report redraw). It is an auto
+  and see scores. `#review-options` (headed Overlays) ends `#game-sidebar`
+  after the legend: `#replay-overlay-control` and `#path-view-control`.
+  Until 2026-10-21 `#review-display` followed them, the report-scope select
+  and `RESULT_SECTION_GROUPS` rendered by `renderReviewDisplay` as copies of
+  the settings page's. It is an auto
   popover beside the docked column; `syncGameSidebar` removes its `popover`
   attribute in the compact layout, where it renders inline at the end of the
   Game details popover (CSS hides its opener and Close there), and

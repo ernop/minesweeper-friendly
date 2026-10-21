@@ -51,7 +51,8 @@ ever moves the board:
   perf on one side and the board's traits on the other.
 - **Game details, far right.** A line naming whether music is on and which
   of your states are on, as tags (changed through "edit states"), the
-  replay's display options, and the game's statistics.
+  replay's overlays, and the game's statistics. Every setting kept for all
+  games, such as which result sections show, is on the settings page.
 - **Motion stats, page foot**, closed until you open them: the
   mouse-dynamics measurements of the game on the board, live during play
   and final after it.

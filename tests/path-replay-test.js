@@ -436,17 +436,17 @@ check('replay stays separate from path modes and is available after game end',
       && functionText('previewReplayStep').includes('stopReplayPlayback();\n    replayPreviewReturnStep = replayStep;')
       && functionText('endReplayPreview').includes('showReplayStep(step);')
       && source.includes('replayStep = 0;\n  replayPreviewReturnStep = null;'));
-  check('the sidebar review row holds the display opener, then scores',
+  check('the sidebar review row holds the overlays opener, then scores',
     !nav.includes('id="replay-controls"')
-      && nav.includes('id="review-options-button"')
+      && /id="review-options-button"[^>]*>Overlays</.test(nav)
       && nav.indexOf('id="review-options-button"') < nav.indexOf('id="see-scores-btn"'));
   const panelStart = html.indexOf('id="review-options"');
-  check('the display panel ends the side column and holds overlays, path, and report',
+  check('the overlays panel ends the side column and holds the board overlays, then the mouse path',
     panelStart > html.indexOf('id="path-view-legend"')
       && html.indexOf('</aside>', panelStart) < html.indexOf('id="board-position-panel"')
       && panelStart < html.indexOf('id="replay-overlay-control"')
       && html.indexOf('id="replay-overlay-control"') < html.indexOf('id="path-view-control"')
-      && html.indexOf('id="path-view-control"') < html.indexOf('id="review-display"'));
+      && !html.includes('id="review-display"'));
   check('the legend lives in the separate game sidebar',
     !nav.includes('id="path-view-legend"')
       && html.indexOf('id="path-view-legend"') > html.indexOf('id="game-sidebar"'));
@@ -455,7 +455,7 @@ check('replay stays separate from path modes and is available after game end',
       && source.includes('replaySlider.max = String(count)')
       && source.includes('replayStep = replayDecisionCount();')
       && source.includes('const enabled = replayStep < count;'));
-  check('display options and scores are outside the translated board area',
+  check('the overlays and scores are outside the translated board area',
     navStart > html.indexOf('id="game-sidebar"'));
 }
 check('no replay disclosure: the transport shows whenever a finished game is shown',

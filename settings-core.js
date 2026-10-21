@@ -98,9 +98,8 @@ const SHOWN_THINGS_OPTIONS = [
 ];
 
 // The result-section switches, grouped under what they control and ordered
-// as the result shows it. The game's Overlays & display panel and the
-// settings page both render exactly these groups. 'shownThings.x' is a
-// shownThings key; a bare name is a boolean setting with control
+// as the result shows it; only the settings page renders them. 'shownThings.x'
+// is a shownThings key; a bare name is a boolean setting with control
 // 'result-section'.
 const RESULT_SECTION_GROUPS = [
   ['This game', ['shownThings.gameStats', 'shownThings.duringGame', 'shownThings.boardPercentiles']],

@@ -28,10 +28,11 @@ Spec: [docs/product/game-end-evaluation.md](../product/game-end-evaluation.md). 
   each `.verdict-category` is an auto-fit grid of at least 400px columns;
   the builder groups each action once by primary category and obeys
   `settings.reportScope` through `reportScopeAllows`: none (new-player
-  default), fatal-only, fatal+risk, or full. `buildReportScopeControl`
-  renders in the display options, or above the report for trial review,
-  and re-renders immediately; the
-  settings page shares `REPORT_SCOPE_CHOICES`.
+  default), fatal-only, fatal+risk, or full. The settings page's
+  `buildChoiceRow` renders the choice from `REPORT_SCOPE_CHOICES` (the
+  schema entry's `choices`); the game page has no control for it since
+  2026-10-21, when `buildReportScopeControl` and its copies in the display
+  panel and above the trial review were removed.
   Every direct reveal is evaluated before opening whether or not the player
   ever flags or chords. `buildVerdictBlocks` returns `null` when no enabled
   category has content; it never manufactures an empty-success measurement

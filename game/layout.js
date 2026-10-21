@@ -272,7 +272,7 @@ function syncGameSidebar() {
     if (gameSidebar.matches(':popover-open')) gameSidebar.hidePopover();
     if (reviewOptions.matches(':popover-open')) reviewOptions.hidePopover();
     pageLayout.classList.toggle('compact-sidebar', compact);
-    // Inside the compact popover the display options end the column inline,
+    // Inside the compact popover the replay's overlays end the column inline,
     // so no panel ever opens inside another.
     if (compact) {
       gameSidebar.setAttribute('popover', 'auto');
