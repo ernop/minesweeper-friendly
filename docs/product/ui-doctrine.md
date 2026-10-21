@@ -130,6 +130,19 @@ because they apply app-wide, not just where each was first stated.
   traits) carry no (?) since 2026-10-20 (creator: "remove all three (?)
   buttosn and mouseovers entirely, not replacing orputting the removed text
   anywhere; it merely wil lbe gone."); their rows keep their definitions.
+- Player words only (creator 2026-10-21, of a just universe's settings text
+  "a bare click into a truly unknowable pocket never kills you": "you must
+  rewrite a just univere's text blurb to be more clear about what we do.
+  never use phrases like "pocket" which I haven't approved, with players.").
+  Everything a player can read (labels, hints, tooltips, reports, legends,
+  help pages, the README) uses words a player already knows (square,
+  click, chord, flag, number, mine, guess, 50/50) or a name the creator
+  approved. Terms coined while building ("pocket", "sealed", "certified",
+  "bare click", "sea remnant") stay in code and implementation notes; a new
+  coined term reaches players only with the creator's approval. Text that
+  explains a rule says what happens to the player, in their words, not how
+  the code decides it. `tests/player-words-test.js` searches every shipped
+  file's prose for the removed terms.
 - Hover must not inject, swap, or reflow page content. Supplementary help
   may appear as an overlay tooltip on hover or keyboard focus without
   changing the layout; no action control may be reachable only by hovering.
@@ -193,6 +206,27 @@ because they apply app-wide, not just where each was first stated.
 - Layout stability: content appearing or disappearing must not shift
   unrelated content. "The board never moves" (previous section) is the
   oldest case of this rule; it holds on every page.
+- Errors are shown (creator 2026-10-21, on learning that a failed odds or
+  proof calculation was caught, noted in the backup status line, and play
+  went on: "why would odds.js ever give errors? or other internal systems?
+  let's investigate and surface those and resolve them."). An internal error
+  is a bug to fix, never a mode to keep playing in. Every page that runs game
+  code shows any error no code handled (a thrown exception, a rejected
+  promise, a script or stylesheet that failed to load) in the error bar: a red
+  bar fixed to the foot of the window, so it covers the page and never moves
+  it, one line per distinct error naming the file and line it came from (an
+  analysis worker's own line for a worker's error; an error the browser
+  raises itself, such as a ResizeObserver loop, has no file and shows its
+  message alone) and how many times it happened, with a dismiss button; the
+  next error shows the bar again. Game
+  code never catches an internal error to carry on: the proof and odds
+  calculations behind a click raise theirs, so that click does nothing and
+  the bar says why. "Not measured" is kept for designed limits only: a
+  calculation's work budget (the odds' layout count, the proof's visit
+  limit) and an outside source that does not answer (the music state while
+  the base system is down). One exception stays, the creator's
+  (2026-10-11): play statistics log a failure to the console and never
+  interrupt play ([Play statistics](hosting.md#play-statistics)).
 - No distracting transient duplicates: a live-changing value appears only
   where it is essential, in one canonical place. Summary tables, rankings,
   and comparison surfaces show stable completed facts; they do not echo the

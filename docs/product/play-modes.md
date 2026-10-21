@@ -4,7 +4,7 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
 
 A second uniqueifier next to board size. Rankings and history are stored
 per (board, play mode); a 9 x 9 Standard win never appears on 9 x 9
-Uniform NG lists.
+Angelic lists.
 
 Choosing a mode (creator request 2026-10-20: "beg, int, exp are "all-in-one
 settings choosers". when a user choose a mode besides those from the
@@ -19,8 +19,8 @@ wqhich are duplicative and needlessly complex"):
   preset board, so every other mode's games are custom-board games.
 - Every other mode, and Custom (Standard on a board the player sizes), is
   one entry of the **other modes** menu beside the preset links, one level
-  deep: the NG variants are entries of their own, not a variant choice
-  under a mode. Choosing an entry opens the mode options row with the board
+  deep: every mode is an entry of its own, never a variant choice under
+  another mode. Choosing an entry opens the mode options row with the board
   size, the generator where the mode uses one, and the mode's progress
   ([Game setup](board-and-layout.md#game-setup-top-bar-settings-row-and-footer)).
 - Until 2026-10-20 the mode was a separate menu in the details column, so a
@@ -31,7 +31,7 @@ wqhich are duplicative and needlessly complex"):
 - **Standard.** Today's first-click-safe random boards. "A just universe"
   applies here and in the Trial modes (frozen from the setting on the
   first click, or when a given opening is used). It does not apply in
-  the NG modes or Angelic.
+  Angelic.
 - **3BV countdown (decided 2026-08-26 as "pregen 10 boards and order by 3BV
   descending, assuming auto-click in upper right"; renamed 2026-10-20).**
   The creator asked for a better name ("figure outa better pregen10-name")
@@ -67,22 +67,37 @@ wqhich are duplicative and needlessly complex"):
   Theil–Sen fit, and the latest win ringed with its within-scope time rank).
   Each chart keeps a fixed-size waiting frame until the normal two-win
   minimum is reached.
-- **Uniform NG.** Generate-and-reject until the board is fully solvable
-  from the opening by direct counting, overlap deduction, or exhaustive
-  globally consistent layouts, and every required deduction step sits at
-  one grade (all counting, all overlap, or all exact). If no such board appears
-  within the attempt budget, generation fails loudly.
-- **Single-path NG.** Same solver, plus each deduction step's newly
-  proven safes are covered by one click's flood — no unused forced
-  cells, no second equally-forced next move. Boards are carved as a
-  connected safe corridor through an all-mine field (random placement
-  almost never has this shape). If no such board appears within the
-  attempt budget, generation fails loudly.
-- **Proof-or-die.** An NG board. After the opening, opening a cell that
-  is not currently proven safe kills, even if that cell is empty. Chords
-  die if any opened cell is unproven. If exhaustive proof reaches its
-  explicit work limit, the input is blocked and not judged; engine
-  incompleteness never counts as player failure.
+- **No-guess modes (built 2026-08-21, removed 2026-10-21).** Uniform NG,
+  Single-path NG, and Proof-or-die are gone, with the method that made their
+  boards. Creator decision 2026-10-21: "let's eliminate that bad method. it
+  sounds like it'll take a long time, and taht just sucks. just remove NG
+  overall please." The method drew random boards and threw each away until
+  one passed the mode's test. At Expert it almost never found a Uniform NG
+  or Single-path NG board within its attempt budget, so the first click
+  failed. The Single-path boards it did find were nearly all opened by the
+  first click: all 8 saved Single-path games had 3BV 1 to 3. A replacement
+  that builds each board directly, swapping mines wherever the solver gets
+  stuck, was prototyped the same day and not built. It made every board
+  tested at every standard size, in a median 4 to 6 ms at Expert.
+  - What the modes were, for reading their saved games. Each board was fully
+    solvable from the opening without guessing. Uniform NG also required
+    every deduction step to sit at one grade: all direct counting, all
+    overlap deduction, or all exhaustive layouts. Single-path NG also
+    required one click's opening to cover each step's newly proven safe
+    squares. Proof-or-die used a solvable board and killed any opening of a
+    square not proven safe, even an empty one.
+  - Saved games stay. Their mode, names, history lists, and Proof-or-die's
+    verdicts are kept: a rule death for opening an unproven square, and
+    every win counted as won without a guess. They export and import as
+    before. No new game can be started in these modes. A stored setting
+    naming one loads as Standard, as any invalid stored setting loads as
+    its default; a preferences file naming one is refused on import, as
+    any invalid preference is.
+  - The rule that prompted the removal holds for any later no-guess mode:
+    one method that works well at every board size the mode offers, never a
+    first method with a second behind it for when the first fails ("we
+    should use ONE technology which works well. not use something, and if it
+    fails, use another thing. that's a very bad pattern.").
 - **Angelic.** The rest of the angelic dual of Kaboom: a click (or chord
   cell) that is not a proven mine is made safe; you die only by
   contradicting known facts (clicking a proven mine). A just universe is
@@ -115,9 +130,8 @@ wqhich are duplicative and needlessly complex"):
 
 ## Visible-information solver
 
-`Justice.proveFacts` is the canonical proof engine used by NG generation,
-Proof-or-die, Angelic, misclick classification, guess scoring, and action
-reports. It receives only revealed numbers, covered-cell locations, board
+`Justice.proveFacts` is the canonical proof engine used by Angelic, the
+Endgame drill, misclick classification, guess scoring, and action reports. It receives only revealed numbers, covered-cell locations, board
 dimensions, and the total mine count. Player flags are annotations and the
 hidden layout is never evidence.
 
@@ -133,8 +147,8 @@ The browser search has a deterministic two-million-node work limit.
 Results carry `complete`, `visits`, and `method`. A completed search has
 considered every consistent layout; an over-limit search returns only facts
 already soundly established and marks itself incomplete. Reports must not
-call an unresolved action “unproven,” and Proof-or-die must not kill, merely
-because the engine exhausted its work budget. Identical visible positions
+call an unresolved action “unproven” merely because the engine exhausted its
+work budget. Identical visible positions
 reuse the last exact proof result. One-ply odds scoring may inspect up to
 forty hypothetical next positions; each hypothetical proof prepass uses an
 80000-node limit, after which residual odds either complete independently

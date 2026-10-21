@@ -138,7 +138,7 @@ async function playToEnd(outcome, state) {
     clickCount: 0, chordClicks: 0, wastedClicks: 0, misclicks: 0, flagsPlaced: 0, flagsRemoved: 0,
     unusedCorrectFlags: 0, mousePathPx: 30000.4, justiceEvents: 0, justiceEnabledForGame: false,
     gameSeed: '0123456789abcdef0123456789abcdef', firstRevealIndex: 0, actionEvaluations: [],
-    musicObservations: [], fastclickGaps: [], guessEvents: [], oddsFailed: false,
+    musicObservations: [], fastclickGaps: [], guessEvents: [], oddsUnmeasured: false,
     drillCurrent: null, trialPresentation: null, trialSession: null, pregenBatch: null,
     pregenCurrent: null, resultViewRevision: 0, metricsSeries: [],
     finalMotion: null, trace: { t: [], x: [], y: [], events: [], startedAt: 0 }, replayStep: 0,
@@ -222,12 +222,14 @@ const eventUrl = (n, fields) => '/_event?v=1&e=game&p=abababababababab&s=abababa
     + '&mines=99&g_alpha=1.5&g_scale=8&g_contrast=2&g_stretch=-1.5&just=1&bbbv=181&clicks=230&flags=85'
     + '&bbbvs=1.833&eff=78.696&ioe=0.757'));
 
-  // Single-path NG places no mines with the generator, and a loss shows no
+  // A trial places no mines with the generator, and a loss shows no
   // win-only measurement.
   const customLoss = await playToEnd('loss', {
     config: { width: 20, height: 12, mines: 50 },
-    settings: { playMode: 'single-path-ng' },
+    settings: { playMode: 'test-trial' },
     gameGenerator: { id: 'uniform', params: {} },
+    trialPresentation: { identityIndex: 0, transform: 'rot180' },
+    trialSession: { startedAt: 1787201223496 },
     finalTimeMs: 18765.5,
     compute3BV: () => 64,
     clickCount: 25,
@@ -235,10 +237,10 @@ const eventUrl = (n, fields) => '/_event?v=1&e=game&p=abababababababab&s=abababa
     flagsPlaced: 3,
   });
   assert.deepEqual(customLoss.fields, {
-    m: 'custom-20x12-50:single-path-ng', r: 'loss', d: 18.766, w: 20, h: 12, mines: 50,
+    m: 'custom-20x12-50:test-trial', r: 'loss', d: 18.766, w: 20, h: 12, mines: 50,
     just: false, bbbv: 64, clicks: 25, flags: 3,
   });
-  assert.equal(customLoss.url, eventUrl(2, 'm=custom-20x12-50%3Asingle-path-ng&r=loss&d=18.766'
+  assert.equal(customLoss.url, eventUrl(2, 'm=custom-20x12-50%3Atest-trial&r=loss&d=18.766'
     + '&w=20&h=12&mines=50&just=0&bbbv=64&clicks=25&flags=3'));
 
   // An Endgame drill's 3BV is the presented remnant's, as in its record.

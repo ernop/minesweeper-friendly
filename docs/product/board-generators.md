@@ -10,8 +10,8 @@ that places mines with a generator (creator request 2026-10-20: "when
 needed, generator shall show up next to the dropdown for mode; ofc, modes
 such as the three default (beginner, intermediate, expert) have no need to
 see this"; [Game setup](board-and-layout.md#game-setup-top-bar-settings-row-and-footer)).
-It is absent, never silently ignored, in modes that place their own
-boards: Single-path NG carves corridors, trials deal fixed identities.
+It is absent, never silently ignored, in the modes that place their own
+boards: the trials, which deal fixed identities.
 Beginner, Intermediate, and Expert always use the default generator; the
 chosen generator applies to custom games only. Until 2026-10-20 the menu
 sat in the details column below the Mode menu, disabled where it did not
@@ -55,11 +55,6 @@ star-field canton plus alternating dense/sparse stripes), shipped
 still name it fall back to the default generator via the normal
 validation path; its old top score keys (`+patriotic(...)`) simply stop
 being reachable.
-
-In Standard and Angelic the generator places the board directly; in
-Uniform NG and Proof-or-die it supplies the candidates for the
-generate-and-reject loop, so a colored-noise NG board is noise-shaped
-AND fully solvable (the attempt budget still fails loudly).
 
 **The top score key** is the single high-level concept: everything that
 determines how a board is made and played — board parameters, play

@@ -87,7 +87,7 @@ Spec: [docs/product/replay.md](../product/replay.md). Index: [AGENTS.md](../../A
   via `.cell.replay-mine > svg` so the hint stays full strength); `prob`
   (bottom-right `.replay-prob` badge, suppressed on a proven cell whose
   ring already states 0/100 — fact 1 with `mines` on, fact 2 with `moves`
-  on); `choice` (solid purple inset ring, same hue as the pocket labels —
+  on); `choice` (solid purple inset ring, same hue as the group labels —
   it was a second green before, indistinguishable from `safe`); `trigger`
   (gold ring on `evaluation.triggerCell` for chords, the single selected
   cell otherwise) and `selected` (translucent gold wash via background-image
@@ -100,7 +100,8 @@ Spec: [docs/product/replay.md](../product/replay.md). Index: [AGENTS.md](../../A
   centered just above the arms (never over the acted square; clamped to the
   canvas). The canvas survives path-off while review mode is active so
   those layers keep rendering. `pathChoiceAreas` groups uncertain
-  reasonable choices into connected pockets; `#replay-choice-areas` draws
+  reasonable choices into connected groups (legend: "connected group of
+  uncertain choices"); `#replay-choice-areas` draws
   leaders (`--replay-area`) to side labels with non-misleading mine risk and
   cell count, choosing left or right to avoid the result summary/viewport
   edge. Sidebar `#scores-nav` holds see scores alone. The view toggles end

@@ -503,21 +503,19 @@ const DuringGame = (() => {
     ['events', 'events'],
   ];
 
-  // Two charts, in this order. Progress plots shares of the board on a fixed
-  // 0 to 1 scale. Every other line shares one chart (creator 2026-10-20:
-  // combine the solitary line charts) on a scale of each line against its
-  // own whole-game value, since their units differ. Event rows are marks on
-  // the tracks under the charts.
+  // Two charts. Progress plots shares of the board on a fixed 0 to 1 scale.
+  // Every other line shares one chart (creator 2026-10-20: combine the
+  // solitary line charts) on a scale of each line against its own
+  // whole-game value, since their units differ. Event rows are marks on the
+  // event tracks.
   const CHARTS = [
     { id: 'progress', name: 'progress', scale: 'share' },
     { id: 'relative', name: 'against the whole game', scale: 'relative' },
   ];
   // The relative chart's scale (creator 2026-10-21: toggle between log and
-  // linear): doublings either side of 1x by default, or linear from 0.
-  const RELATIVE_SCALES = [
-    ['log', 'log'],
-    ['linear', 'linear'],
-  ];
+  // linear, with one checkbox): doublings either side of 1x by default, or
+  // linear from 0.
+  const RELATIVE_SCALES = ['log', 'linear'];
   const DEFAULT_RELATIVE_SCALE = 'log';
   // The event tracks (creator 2026-10-20: a compact, meaningful display in
   // place of one lane per event row), by what the events are about: clicks

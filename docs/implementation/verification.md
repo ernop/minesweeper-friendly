@@ -172,6 +172,15 @@ Index: [AGENTS.md](../../AGENTS.md).
   Routing serves workers in Chromium only: Firefox does not route the
   requests a worker makes itself (`importScripts`), so a Firefox check that
   runs workers needs the 8099 server.
+  `tests/page-errors-browser-check.js` takes the engine between the two
+  arguments (`chromium` or `firefox`; the engines write stacks differently,
+  so run both after changing `page-errors.js`) and needs the 8099 server.
+  On every page that runs game code it checks the error bar: none on a
+  clean load, then a thrown error (twice), a rejected promise, and a failed
+  script load as one line each with file and line, dismiss, and on the game
+  page an analysis worker's error naming the worker's own line.
+  `tests/page-errors-test.js` (a Node suite) checks that every such page
+  loads the bar first.
   `tests/metrics-*-parity.js` compare in-page metrics with the offline
   pipelines (environments: [offline-analysis.md](offline-analysis.md)).
 

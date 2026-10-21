@@ -19,10 +19,12 @@ Spec: [docs/product/during-game.md](../product/during-game.md). Index: [AGENTS.m
 - `game/during-game-chart.js` (after `game/game-data-chart.js`): the page
   side. `duringGameSourceId` names the game whose trace the reports worker
   holds. `buildDuringGameBlock(record, isCurrent)` builds the block: title,
-  charts, the averaging, scale, and configure row (game data's
-  `.game-data-controls`), and the configure view. `renderDuringGameCharts`
-  draws `DuringGame.CHARTS` and the event tracks (`DuringGame.TRACKS`) on
-  one time axis and wires the legends, the hover, and the replay link. The
+  charts, the averaging select, log scale checkbox, and configure row (game
+  data's `.game-data-controls`), and the configure view.
+  `renderDuringGameCharts` draws `DuringGame.CHARTS` and the event tracks
+  (`DuringGame.TRACKS`) on one time axis, top to bottom in
+  `DURING_GAME_PARTS` order (progress, the tracks, the relative chart), and
+  wires the legends, the hover, and the replay link. The
   card (`duringGameCard`, `placeDuringGameCard`) is a body-level manual
   popover, so it shows above the Game details popover too;
   `hideDuringGameHover` closes it and ends the replay preview, and
@@ -187,6 +189,15 @@ every row shown; a pick of a row not in `rowIds` drops out), and
   gaps) or a top bar (window left) for a span. The block's `ResizeObserver`
   redraws at the column's width, keeping the spotlight on the redrawn
   nodes; legend values are whole-game values, so hover changes no width.
+  A part's height never depends on the width (`duringGamePlotBottom`,
+  `duringGamePartHeight`), so each svg gets its final height when it is
+  built: the worker's answer can arrive before the block is placed, when no
+  width can be measured, and the first draw then happens inside that
+  observer's callback. Until 2026-10-21 the svgs kept the browser's default
+  150px height until then, so that draw shrank the block and the whole game
+  data column (540 to 403 px after an Expert game at 1920 wide) inside the
+  callback, and the browser reported "ResizeObserver loop completed with
+  undelivered notifications"; the error bar surfaced it.
 - Legends: each part (the two charts and the tracks, `DURING_GAME_TRACKS_ID`)
   keeps its members; `applyPicks` sets each member's `hidden` from
   `DuringGame.legendHides` and the entry's `.during-game-legend-off`. A
@@ -194,9 +205,10 @@ every row shown; a pick of a row not in `rowIds` drops out), and
   that part (`drawPart`) and spotlights the entry's row if it is shown.
   The picks object comes from `duringGamePicksFor(record.endedAt)`, one
   set per part, kept at module level so a rebuilt block for the same game
-  keeps them; another game gets fresh empty sets. The scale select saves
-  `duringGameRelativeScale` and redraws the view last drawn (`drawn`, with
-  the averaging it was built for) without a worker request.
+  keeps them; another game gets fresh empty sets. The log scale checkbox
+  saves `duringGameRelativeScale` (`log` checked, `linear` not) and redraws
+  the view last drawn (`drawn`, with the averaging it was built for) without
+  a worker request.
 - Card: `partAt` finds the chart or track under the pointer from the SVGs'
   boxes. Over a chart, `lineAt` picks the member whose drawn value at the
   moment (`DuringGame.valueAt`) lies nearest the pointer's height; the card
@@ -237,9 +249,9 @@ every row shown; a pick of a row not in `rowIds` drops out), and
 - `tests/during-game-browser-check.js PLAYWRIGHT_CORE_DIR CHROMIUM
   [SCREENSHOT_DIR]`: real games with real mouse input under the routed test
   origin: the block at the head of the docked column, titled "live perf
-  charts", the 2 s rolling default, the progress chart, the relative chart
-  (its lead, its one 1× line, its doubling labels), and the tracks, each
-  legend in catalog order, one plot x and width for every part, the
+  charts", the 2 s rolling default, the progress chart, the tracks, and the
+  relative chart (its lead, its one 1× line, its doubling labels), in that
+  order, each legend in catalog order, one plot x and width for every part, the
   progress chart's labels, hover line, the card naming only the line under
   the pointer and spotlighting it, no second board, the board itself at the
   hovered moment (the transport's step, slider, and status following, in
@@ -247,8 +259,9 @@ every row shown; a pick of a row not in `rowIds` drops out), and
   the axis's end and on leaving, the pauses track's long-gap card and the
   board's proven-safe rings then, a click keeping its moment through
   leaving and a later hover, the legend picks (alone, added, removed, all
-  again; the tracks' legend; plots in place), the linear scale (labels
-  from 0×, picks kept, saved, restored after reload), configure ("back to
+  again; the tracks' legend; plots in place), the linear scale (the log
+  scale checkbox, averaging the one select; labels from 0×, picks kept,
+  saved, restored after reload), configure ("back to
   live perf charts"), raw averaging (rates as ticks only), restore after
   reload, a loss, an 1100 px viewport (the board showing the moment, the
   card inside the window and clear of the board), and a 390 px viewport

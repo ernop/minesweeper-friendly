@@ -24,7 +24,9 @@ report.
   (about 150 ms of main-thread time) and corrected none.
 - The independent dimensions are preserved together:
   - **action and outcome** — reveal, chord, flag placement/removal, or a
-    proof-or-die open; continued play or death;
+    proof-or-die open; continued play or death. Proof-or-die was removed
+    2026-10-21 with the other no-guess modes ([Play modes](play-modes.md));
+    its verdicts in this file judge the games saved in it;
   - **visible certainty** — selected square proven safe, proven mine, or
     uncertain;
   - **necessity** — whether a guaranteed-safe reveal existed elsewhere;
@@ -95,8 +97,11 @@ report.
   at read time, so old records reclassify like every other derived
   view (the session endings chart, removed 2026-10-20, had a matching
   muted-gold line).
-- Evidence capture must never block play. Prover/enumerator failure is
-  stored as unmeasured rather than filled with an invented conclusion.
+- Evidence capture never invents a conclusion: a proof or odds calculation
+  that reaches its work limit is stored as unmeasured. A calculation that
+  throws is a bug, not a measurement: since 2026-10-21 the click stops and
+  the error bar shows it ([UI doctrine](ui-doctrine.md), "Errors are
+  shown"); before then it was stored as unmeasured and play went on.
 - **Game-end feedback precedes result work** (decided 2026-08-29): once the
   ending action has been evaluated, a loss must reveal its mines, mark the hit
   cell, and show the dead face, while a win must complete its mine marks,
@@ -199,15 +204,20 @@ report.
   the report shows their old wording.
 - The Justice recap (win or loss alike): when the game had Justice
   events, a second block cites the rule by name — 'Due to the rule "A
-  Just Universe", you won a forced coinflip' (count-pluralized) — with
-  one detail line per event (pocket type, clear/total layout counts,
-  "a forced coinflip, won"). Strictly the player's point of view
+  Just Universe", you won a forced coinflip: every click into a guess that
+  nothing else on the board could ever settle goes your way.'
+  (count-pluralized) — with one detail line per event naming the guess in
+  player words ("#1: a 50/50", "a chain of 50/50s over 6 squares", "1 mine
+  among 3 squares (2 in 3 safe)", "2 mines among the last 5 squares no
+  number touches (3 in 5 safe)"), then "a forced coinflip, won" (player
+  words since 2026-10-21; before, "entry into a sealed sea pocket (3/5
+  layouts clear)"; [UI doctrine](ui-doctrine.md), "Player words only"). Strictly the player's point of view
   (creator directive later on 2026-08-23, reversing the same-day
   "honest redraw detail" design): no "actual" mine reality is ever
   revealed or referred to — whether an entry's square was mined and
   redrawn or was already clear is not recorded, shown, or hinted at.
   A forced flip is a forced flip, neither a life nor a death. The
-  layout counts in the detail lines are the player's own information,
+  counts and odds in the detail lines are the player's own information,
   derived from visible clues.
 - Storage (see [Per-game stats](per-game-stats.md)): `actionEvaluations` on every new record.
   `justiceSaves` (the redraw count) was written only during part of
@@ -415,7 +425,7 @@ safe risked nothing. Worst first, the first that applies:
 4. `win-guess-min`, "won guessing only at the lowest risk": the guess
    ledger counted guesses and none of them carries a tag above.
 5. `win-no-guess`, "won without guessing": the ledger counted no guess.
-   Every Proof-or-die win is this type, because the mode kills every
+   Every Proof-or-die win is this type, because the mode killed every
    unproven open.
 6. `win-unmeasured`, "won; guesses not measured": the game has no guess
    ledger (recorded before the ledger, an Angelic game, or a guess whose odds

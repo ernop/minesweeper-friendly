@@ -4171,3 +4171,30 @@ body.vigilance-running #self-check-header {
 #play-limit-closed p { margin: 0; }
 #play-limit-closed .play-limit-heading { font-size: 18px; font-weight: bold; }
 #play-limit-closed .play-limit-amount { font-size: 16px; }
+
+/* The error bar (page-errors.js): fixed to the window's foot, so showing it
+   never moves the page; white on dark red, one line per distinct error. */
+.page-errors {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 8px 12px;
+  background: #9b0000;
+  color: #ffffff;
+  font: bold 15px/1.4 Arial, Helvetica, sans-serif;
+}
+.page-errors[hidden] { display: none; }
+.page-errors ul {
+  flex: 1;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 40vh;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+}

@@ -305,7 +305,7 @@ const types = (model) => model.events.map((event) => event.type + '@' + event.at
   assert.deepEqual(ids.filter((id) => DuringGame.legendHides(new Set(['gone']), id, ids)), []);
   assert.deepEqual([...DuringGame.legendPick(new Set(['gone', 'a']), 'b', ids)], ['a', 'b']);
 }
-assert(DuringGame.RELATIVE_SCALES.some(([id]) => id === DuringGame.DEFAULT_RELATIVE_SCALE), 'the default scale is a choice');
+assert.deepEqual([...DuringGame.RELATIVE_SCALES], ['log', 'linear'], 'two scales, one checkbox');
 assert.equal(DuringGame.DEFAULT_RELATIVE_SCALE, 'log', 'log by default');
 
 console.log('during-game tests passed');

@@ -17,13 +17,27 @@
 // mode to tolerate: announce where the player can see it, and throw.
 function storageFailure(what) {
   backupStatus.textContent = what;
-  const startupStatus = document.getElementById('startup-status');
-  if (document.documentElement.classList.contains('game-booting') && startupStatus !== null) {
-    startupStatus.textContent = 'Could not load your saved game. ' + what;
-    startupStatus.classList.add('startup-error');
-    document.body.removeAttribute('aria-busy');
-  }
+  showStartupFailure('Could not load your saved game. ' + what);
   throw new Error(what);
+}
+
+// Any other error stops startup as a startup bug, not a storage failure,
+// rethrown unchanged so the error bar (page-errors.js) names where it was
+// thrown. A storage failure inside init has already said what failed.
+function startupFailure(error) {
+  showStartupFailure('The game failed to start: ' + error.message);
+  throw error;
+}
+
+// While the page boots, the startup line replaces the board's loading text;
+// the first failure shown there stays.
+function showStartupFailure(text) {
+  const startupStatus = document.getElementById('startup-status');
+  if (!document.documentElement.classList.contains('game-booting')
+      || startupStatus.classList.contains('startup-error')) return;
+  startupStatus.textContent = text;
+  startupStatus.classList.add('startup-error');
+  document.body.removeAttribute('aria-busy');
 }
 
 // The in-page settings drawer became a full page on 2026-08-23: the
@@ -45,7 +59,7 @@ function userdataReady() {
     loadSettings(got);
     loadPlayLimits(got.playLimits, got.playLimitPenalty, spans);
     trialSession = got.trial === undefined ? null : got.trial;
-    init().catch((error) => storageFailure(error.message));
+    init().catch(startupFailure);
   })));
 }
 

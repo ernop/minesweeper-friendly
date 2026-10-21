@@ -116,11 +116,11 @@ function applyMineMap(mineAt) {
 
 //-------BOARD GENERATORS (registry in generators.js)-------
 
-// Which modes place mines with the selected board generator. Single-path
-// NG carves corridor boards (its placer is the mode itself), and trial
-// sessions build their fixed identities with the default generator.
+// Which modes place mines with the selected board generator: all but the
+// trials, whose sessions build their fixed identities with the default
+// generator.
 function generatorAppliesToMode(mode) {
-  return mode !== 'single-path-ng' && !Trial.isPlayMode(mode);
+  return !Trial.isPlayMode(mode);
 }
 
 // The generator the current settings select: in a custom game whose mode
@@ -140,43 +140,13 @@ function placeMines(safeIndex) {
     gameGenerator, config.width, config.height, config.mines, safeIndex, gameRandom));
 }
 
-function ngAttempts() {
-  const n = config.width * config.height;
-  if (n <= 81) return 800;
-  if (n <= 256) return 400;
-  return 250;
-}
-
 function placeMinesForPlayMode(safeIndex) {
-  const mode = settings.playMode;
-  if (mode === 'standard' || mode === 'pregen-10-3bv-desc' || mode === 'angelic') {
-    placeMines(safeIndex);
-    return;
-  }
-  if (Trial.isPlayMode(mode)) {
+  if (Trial.isPlayMode(settings.playMode)) {
     if (trialPresentation === null) throw new Error('trial presentation missing at placement');
     applyMineMap(trialPresentation.mines);
     return;
   }
-  const pred = mode === 'uniform-ng' ? (r) => r.uniform
-    : mode === 'single-path-ng' ? (r) => r.singlePath
-    : (r) => r.solved;
-  // NG modes generate-and-reject over the chosen generator's candidates,
-  // so a colored-noise NG board is noise-shaped AND fully solvable.
-  const placer = mode === 'single-path-ng'
-    ? Solver.tunnelPlacement
-    : (w, h, m, safe, rng) => BoardGenerators.place(gameGenerator, w, h, m, safe, rng);
-  backupStatus.textContent = 'generating ' + playModeLabel() + ' board\u2026';
-  let got;
-  try {
-    got = Solver.generate(
-      config.width, config.height, config.mines, safeIndex, gameRandom, pred, ngAttempts(), placer);
-  } catch (err) {
-    backupStatus.textContent = err.message;
-    throw err;
-  }
-  applyMineMap(got.mineAt);
-  backupStatus.textContent = '';
+  placeMines(safeIndex);
 }
 
 function buildBoardGeneratorSwitcher() {
@@ -333,7 +303,7 @@ function newGame() {
   mousePathPx = 0;
   justiceEvents = 0;
   guessEvents = [];
-  oddsFailed = false;
+  oddsUnmeasured = false;
   gameSeed = GameRandom.createSeed();
   gameRandom = GameRandom.fromSeed(gameSeed);
   firstRevealIndex = null;
@@ -492,23 +462,10 @@ function revealCell(index) {
   if (firstReveal && revealedCount === 0) firstRevealIndex = index;
   const guessEvent = !firstReveal && guessLedgerAppliesToMode()
     ? noteGuess(index) : null;
-  const action = settings.playMode === 'proof-or-die' && !firstReveal
-    ? 'proof-open' : 'reveal';
   const actionEvaluation = evaluateRevealAction(
-    index, firstReveal && revealedCount === 0, guessEvent, action);
+    index, firstReveal && revealedCount === 0, guessEvent);
 
-  if (settings.playMode === 'proof-or-die' && !firstReveal) {
-    const proof = Solver.classifyCell(playerView(), index);
-    if (proof.kind !== 'safe' && !proof.complete) {
-      backupStatus.textContent = 'The complete proof search reached its work limit; this click was not judged.';
-      return;
-    }
-    if (proof.kind !== 'safe') {
-      // Opening an unproven cell here is a deterministic rule death.
-      lose([index], actionEvaluation);
-      return;
-    }
-  } else if (settings.playMode === 'angelic' && !firstReveal) {
+  if (settings.playMode === 'angelic' && !firstReveal) {
     const saved = Solver.forceSafe(playerView(), cells.map((c) => c.mine), index, gameRandom);
     if (saved === null) {
       // An angelic death can only be a visible-fact contradiction.
@@ -673,15 +630,6 @@ function chordUnavailableReason(index) {
   return 'chord-nothing-to-open';
 }
 
-function proofSearchBlocks(candidates, inputLabel) {
-  if (settings.playMode !== 'proof-or-die') return false;
-  const proof = Solver.classifyCells(playerView(), candidates);
-  if (proof.complete || !proof.kinds.some((kind) => kind === 'unknown')) return false;
-  backupStatus.textContent = 'The complete proof search reached its work limit; this '
-    + inputLabel + ' was not judged.';
-  return true;
-}
-
 // Left-click chord on a satisfied number opens all unflagged neighbors.
 // Returns whether the click changed anything (a chord on a zero cell, an
 // unsatisfied number, or a number with nothing left to open is a no-op).
@@ -697,16 +645,7 @@ function chord(index) {
   clickCount++;
   chordClicks++;
 
-  if (settings.playMode === 'proof-or-die') {
-    const view = playerView();
-    const proof = Solver.classifyCells(view, toReveal);
-    if (!proof.complete && proof.kinds.some((kind) => kind === 'unknown')) return false;
-    if (proof.kinds.some((kind) => kind !== 'safe')) {
-      // Chording over an unproven cell in proof-or-die is deterministic.
-      lose(toReveal, actionEvaluation);
-      return true;
-    }
-  } else if (settings.playMode === 'angelic') {
+  if (settings.playMode === 'angelic') {
     let mines = cells.map((c) => c.mine);
     const view = playerView();
     for (const n of toReveal) {
@@ -790,10 +729,11 @@ function finish() {
 let justiceEnabledForGame = null; // frozen from the setting on first reveal
 let justiceEvents = 0;            // qualifying sealed-pocket entries
 let guessEvents = [];             // measured bare unproven clicks this game
-let oddsFailed = false;           // a guess existed but odds could not be measured
+let oddsUnmeasured = false;       // a guess's odds were over the measuring budget
 
-// Per-event Justice details of the current game ({type, clearWays,
-// totalWays}), pushed by attemptJustice for the end-of-game recap.
+// Per-event Justice details of the current game ({type, squareCount,
+// mineCount, clearWays, totalWays}), pushed by attemptJustice for the
+// end-of-game recap.
 let justiceDetails = [];
 
 function justiceAppliesToMode() {
@@ -874,6 +814,8 @@ function attemptJustice(index) {
   // (creator request 2026-08-23) — a forced flip is a forced flip.
   justiceDetails.push({
     type: certificate.type,
+    squareCount: certificate.cells.length,
+    mineCount: certificate.mineCount,
     clearWays: certificate.clearWays,
     totalWays: certificate.totalWays,
   });
@@ -891,21 +833,18 @@ function showJusticeSurvivals() {
   word.textContent = justiceEvents === 1
     ? 'you won a forced coinflip'
     : 'you won ' + justiceEvents + ' forced coinflips';
-  word.title = 'Bare entries into certified sealed pockets are forced '
-    + 'coinflips that A Just Universe guarantees you win';
+  word.title = 'Guesses that nothing else on the board could ever settle '
+    + 'are forced coinflips; A Just Universe makes you win every one';
   justiceLive.appendChild(word);
   scheduleBoardLayout();
 }
 
 // The guess ledger only exists where the standard mine gamble is real.
-// Angelic cannot kill an unproven click (risk chips there would be
-// fiction), and proof-or-die kills unproven clicks deterministically —
-// neither is a probabilistic guess against hidden mines.
+// Angelic cannot kill an unproven click, so risk chips there would be
+// fiction.
 function guessLedgerAppliesToMode() {
   return settings.playMode === 'standard'
     || settings.playMode === 'pregen-10-3bv-desc'
-    || settings.playMode === 'uniform-ng'
-    || settings.playMode === 'single-path-ng'
     // Drills are dealt deducible, so any measured guess was unforced —
     // exactly the training signal the mode exists for.
     || settings.playMode === 'endgame-drill'
@@ -913,21 +852,12 @@ function guessLedgerAppliesToMode() {
 }
 
 function noteGuess(index) {
-  let event;
-  try {
-    event = Odds.scoreGuess(playerView(), index, {
-      considerJustice: justiceEnabledForGame === true,
-    });
-  } catch (err) {
-    // A scoring failure must never block the reveal: announce, omit
-    // this game's ledger, and let the click proceed.
-    backupStatus.textContent = 'guess odds failed: ' + err.message;
-    oddsFailed = true;
-    return undefined;
-  }
+  const event = Odds.scoreGuess(playerView(), index, {
+    considerJustice: justiceEnabledForGame === true,
+  });
   if (event === null) return null;
   if (!event.measured) {
-    oddsFailed = true;
+    oddsUnmeasured = true;
     return undefined;
   }
   guessEvents.push(event);

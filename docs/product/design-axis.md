@@ -16,14 +16,16 @@ The design axis mapped so far, ordered by who bears the burden of ambiguity:
 4. Evil NG — additionally guarantees a difficulty floor (at least one advanced
    deduction per board).
 5. Graded NG (unbuilt: score by hardest required technique, as Sudoku
-   grading does). Built 2026-08-21: uniform-hardness NG, single-path NG,
-   proof-or-die NG (opening a not-provably-safe cell kills even if empty).
+   grading does). Uniform NG, Single-path NG, and Proof-or-die were built
+   2026-08-21 and removed 2026-10-21 with the generate-and-reject method that
+   made their boards ([play-modes.md](play-modes.md), "No-guess modes").
 6. Kaboom (pwmarcz.pl/kaboom) — adversarial: mines stay unfixed; any unforced
    guess is a mine, forced guesses are always safe. Unbuilt.
 7. The angelic dual of Kaboom: any guess consistent with your information
    succeeds; you die only by contradicting known facts. First step
-   implemented 2026-08-20 as "A just universe" ([just-universe.md](just-universe.md)): certified
-   sealed-pocket entries are guaranteed safe; open-field gambles and all
+   implemented 2026-08-20 as "A just universe" ([just-universe.md](just-universe.md)): clicks
+   into a guess that nothing else on the board could ever settle are
+   guaranteed safe; open-field gambles and all
    chords stay deadly. The rest of the dual is the Angelic play mode
    (2026-08-21): a cell that is not a proven mine is made safe.
 
@@ -37,7 +39,6 @@ Solver logic tiers (what "solvable" means): (a) direct clue counting;
 patterns are special cases); (c) exhaustive frontier-component constraint
 search joined through the global mine count and unconstrained sea.
 Completed tier-(c) results capture every fact common to all layouts
-consistent with the player's visible information. NG generation is generate → solve → reject/repair →
-repeat. One derived result from the session: a 1-2…2-1 wall chain with k twos
+consistent with the player's visible information. One derived result from the session: a 1-2…2-1 wall chain with k twos
 is fully forced unless k ≡ 0 (mod 3), in which case only every third cell is a
 forced mine.

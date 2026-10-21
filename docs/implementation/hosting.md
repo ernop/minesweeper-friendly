@@ -113,7 +113,7 @@ Specification: [Play statistics](../product/hosting.md#play-statistics).
 - `tests/play-statistics-test.js` checks that every page loads the module
   under one tag and that local, test, and Pages origins send nothing. It
   runs the real deferral chain and `reportResult` for four games (Expert
-  Standard win, pink-noise Expert Standard win, custom Single-path NG loss,
+  Standard win, pink-noise Expert Standard win, custom Test trial loss,
   Endgame drill win with blue noise). Each sends exactly one event, after
   the record is saved, with the exact fields and encoded URL; a second
   flush, the fallback timer, and the analysis answer send nothing more. For

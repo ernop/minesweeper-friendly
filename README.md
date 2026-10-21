@@ -2,8 +2,8 @@
 
 **Play now: https://minesweeper-friendly.fuseki.net/**
 
-Minesweeper variant project. Standard first-click-safe play, plus Uniform NG,
-Single-path NG, Proof-or-die, Angelic, an Endgame drill (instantly dealt
+Minesweeper variant project. Standard first-click-safe play, plus Angelic,
+an Endgame drill (instantly dealt
 realistic late-game remnants, always finishable by pure deduction), a
 100-game Trial of 25 hidden boards shown four times each, Short trial
 (4 boards × 4), and Test trial (1 board × 4). The 3BV countdown mode samples ten boards, ranks them by descending 3BV,
@@ -117,12 +117,12 @@ use `systemctl --user disable --now minesweeper-friendly.service`.
 - Left click on a satisfied number: chord (open all unflagged neighbors)
 - Face button or space bar: new game
 - Presets (Standard play): Beginner 9x9/10 (default), Intermediate 16x16/40, Expert 30x16/99
-- Other modes menu, each on a board you size: Custom (Standard play), 3BV countdown (ten boards, highest 3BV first), Uniform NG, Single-path NG, Proof-or-die, Angelic, Endgame drill, Trial, Short trial, Test trial, Board lab
+- Other modes menu, each on a board you size: Custom (Standard play), 3BV countdown (ten boards, highest 3BV first), Angelic, Endgame drill, Trial, Short trial, Test trial, Board lab
 
 ## Endgame drill
 
 Rapid endgame training: each new game deals a full board and reveals
-everything except a small remnant pocket against a board edge or corner —
+everything except a small unopened patch against a board edge or corner —
 where real endgames actually finish. Every deal keeps 4–45 covered safe
 cells with genuine mine tension and is guaranteed finishable by pure
 deduction, so a death is always a reading error, never a forced guess. The
@@ -139,8 +139,7 @@ connected frontier constraints, combines their mine totals with the
 unconstrained board, and marks a cell only when every valid layout agrees.
 Flags and the hidden board are never treated as player knowledge. If the
 explicit search budget is exhausted, the result is reported as incomplete;
-the game does not turn that engine limit into a criticism or Proof-or-die
-death.
+the game does not turn that engine limit into a criticism.
 
 ## Play history
 

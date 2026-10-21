@@ -20,7 +20,7 @@ function check(name, condition) {
   if (!condition) throw new Error(name);
 }
 
-function load(origin) {
+function load(origin, answer = () => Promise.resolve({ ok: true, json: () => Promise.resolve({ is_music_playing: true }) })) {
   const fetched = [];
   const intervals = [];
   const context = {
@@ -28,7 +28,7 @@ function load(origin) {
     document: { getElementById: () => ({ hidden: true }) },
     fetch: (url) => {
       fetched.push(url);
-      return Promise.resolve({ ok: true, json: () => Promise.resolve({ is_music_playing: true }) });
+      return answer();
     },
     setInterval: (callback, ms) => intervals.push(ms),
     AbortSignal: { timeout: () => undefined },
@@ -48,6 +48,27 @@ function load(origin) {
   await new Promise((resolve) => setImmediate(resolve));
   check('a local answer during the game becomes an observation',
     vm.runInContext('musicObservations.length', local.context) === 1);
+
+  // No answer at all is the designed "not measured" state; an answer that is
+  // an HTTP error or lacks the boolean is a broken endpoint and is raised.
+  const unanswered = load('http://127.0.0.1:8018', () => Promise.reject(new TypeError('NetworkError')));
+  await new Promise((resolve) => setImmediate(resolve));
+  check('no answer leaves the music state unknown without an error',
+    vm.runInContext('musicNow', unanswered.context) === null
+      && vm.runInContext('musicObservations.length', unanswered.context) === 0);
+  for (const [name, answer, message] of [
+    ['an HTTP error', () => Promise.resolve({ ok: false, status: 500 }), 'is-music-playing: http 500'],
+    ['an answer without the boolean', () => Promise.resolve({ ok: true, json: () => Promise.resolve({ is_music_playing: 'yes' }) }),
+      'is-music-playing: no boolean is_music_playing'],
+  ]) {
+    const broken = load('http://127.0.0.1:8018');
+    await new Promise((resolve) => setImmediate(resolve));
+    vm.runInContext('musicNow = true', broken.context);
+    broken.context.fetch = () => answer();
+    const raised = await vm.runInContext('sampleMusic()', broken.context).then(() => null, (error) => error.message);
+    check(`${name} is raised and clears the music state`,
+      raised === message && vm.runInContext('musicNow', broken.context) === null);
+  }
 
   for (const origin of [
     'https://ernop.github.io',

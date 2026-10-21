@@ -310,7 +310,7 @@ function replayMoveOptions(view, flagged, facts) {
 // place and the legend can never drift from the board (semantic labels are
 // never shortened; see docs/product/ui-doctrine.md).
 //
-// Hue budget: purple = the measured choice set and its pocket labels; gold =
+// Hue budget: purple = the measured choice set and its group labels; gold =
 // the action itself; green = proven safe; blue = chord now; teal = chord
 // after marks; red = mine; orange = mistake-tagged action; black = clean
 // action; deep pink = rough movement. Measured choices used to be a second
@@ -323,8 +323,8 @@ const REPLAY_ENCODINGS = replayEncodingTable({
   },
   area: {
     color: '#7256a8', form: 'leader', look: 'purple arrow to a side label',
-    means: 'uncertain pocket',
-    detail: 'the side label gives that pocket\u2019s exact mine risk and cell count',
+    means: 'connected group of uncertain choices',
+    detail: 'the side label gives that group\u2019s exact mine risk and square count',
   },
   trigger: {
     color: '#f1a208', form: 'ring', look: 'gold ring',

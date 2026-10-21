@@ -12,8 +12,10 @@ both. Player-facing pitch in `promo/PROMO.md`; unbuilt work in
 
 - Start from a faithful clone of minesweeper.online's standard mode: same
   mechanics, same classic-Windows look.
-- Grow toward friendlier variants (no-guess and beyond; the design axis is
-  mapped in [docs/product/design-axis.md](docs/product/design-axis.md)).
+- Grow toward friendlier variants (the design axis is mapped in
+  [docs/product/design-axis.md](docs/product/design-axis.md); the no-guess
+  modes built on it were removed 2026-10-21, see
+  [docs/product/play-modes.md](docs/product/play-modes.md)).
   First variant implemented 2026-08-20: "A just universe"
   ([docs/product/just-universe.md](docs/product/just-universe.md)).
 - The public game is https://minesweeper-friendly.fuseki.net/ . Every push
@@ -37,9 +39,9 @@ single-file spec; older references cite them as `PRODUCT.md "Heading"`.
 
 ### Play
 
-- [docs/product/play-modes.md](docs/product/play-modes.md) — Choosing a mode (preset links, the other modes menu) and every mode (Standard, the NG variants, Proof-or-die, Angelic, Endgame drill, trials, 3BV countdown, Board lab), with the visible-information solver. Section: "Play modes".
+- [docs/product/play-modes.md](docs/product/play-modes.md) — Choosing a mode (preset links, the other modes menu) and every mode (Standard, Angelic, Endgame drill, trials, 3BV countdown, Board lab) and the removed no-guess modes, with the visible-information solver. Section: "Play modes".
 - [docs/product/board-generators.md](docs/product/board-generators.md) — The Generator menu, each generator, and the top score keys that rankings are stored under. Section: "Board generators and top score keys".
-- [docs/product/just-universe.md](docs/product/just-universe.md) — Sealed-pocket mercy. Certified pocket entries are safe; open-field gambles and chords stay deadly. Section: "A just universe".
+- [docs/product/just-universe.md](docs/product/just-universe.md) — A click into a guess that nothing else on the board could ever settle (a boxed-in 50/50 and the like) is safe; open-field gambles and chords stay deadly. Section: "A just universe".
 
 ### After a game
 

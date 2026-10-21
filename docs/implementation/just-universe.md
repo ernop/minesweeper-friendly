@@ -6,24 +6,46 @@ Spec: [docs/product/just-universe.md](../product/just-universe.md). Index: [AGEN
   are `justice.js` — pure logic on a view {width, height, mines,
   revealed[], adjacent[]} (flags invisible by design), exporting the
   `Justice` global / CommonJS module, loaded before the `game/` scripts in
-  `index.html`; the page wiring is in `game/play.js`. Exact player rule: a bare click into a certified pocket
-  that no outside clue can ever resolve is guaranteed safe. Qualification
+  `index.html`; the page wiring is in `game/play.js`. Exact player rule
+  (player words since 2026-10-21): a click on a square in a guess that
+  nothing else on the board could ever settle is guaranteed safe. The code
+  and these notes keep their own terms (pocket, sealed, certificate,
+  cardinality, complement, sea); `tests/player-words-test.js` keeps the
+  ones players once saw out of shipped prose. Qualification
   is hidden-layout-independent: `certifyEntry(view, clicked)` receives no
   witness. `certifyEntries(view, entries)` is the batched equivalent used
   by guess scoring: it builds one visible constraint structure and checks
-  each frontier/sea component once, avoiding an Expert-sized structure
-  rebuild for every covered cell on the click-critical path. Certification
+  each component's groups, each group, and the sea once, avoiding an
+  Expert-sized structure rebuild for every covered cell on the
+  click-critical path. Certification
   runs `proveFacts` (direct counts, general overlap subtraction,
   then exhaustive component search coupled by total mines and sea),
-  `buildStructure` (residual clue components plus
-  8-connected sea components), then recognizes one compact family:
-  `cardinalityShape` (every k-of-n layout), `complementShape` (a connected
-  spanning x+y=1 graph whose two equal-total bipartition layouts satisfy
-  every residual clue), or one sealed sea remnant whose count is fixed by
-  cardinality/complement frontier templates. Covered external cells must
-  be proved mines or receive an invariant pocket contribution. Whole
-  residual components are used; v1 never searches arbitrary pocket subsets.
-  Unsupported asymmetric/exotic ambiguity is outside the product rule.
+  `buildStructure` (residual clue components, `cluesOfCell`, plus
+  8-connected sea components), then `componentGroups` splits the clicked
+  cell's component into two kinds of group (per group since 2026-10-21;
+  whole components only before, which refused two boxed-in 50/50s joined
+  by a shared number):
+  - twin groups, the cells touched by exactly the same residual clues,
+    whose mine count is pinned by a clue covering only that group or by
+    peeling (subtracting already pinned groups until a clue has one open
+    group left). A pinned count strictly between none and all of the
+    group, with every external covered cell proved a mine or touching all
+    or none of the group (`cardinalityBoundaryIsSealed`), certifies a
+    cardinality pocket.
+  - pair chains, the cells linked by x+y=1 clues, two-colored (an odd cycle
+    throws: the clues would be inconsistent). Equal sides
+    (`balancedChain`), every residual clue touching the chain seeing as
+    many cells of one side as of the other (`chainCluesAreInvariant`),
+    and the same rule for external covered cells
+    (`complementBoundaryIsSealed`) certify a complement pocket.
+  The sea qualifies when it is the only sea component, sealed, and every
+  frontier cell lies in a pinned twin group or an equal-sided chain
+  (`pinnedComponentTotal`), which fixes the sea's count. Pinning passes
+  along every pair clue, so no chain mixes pinned and unpinned twin
+  groups and nothing is counted twice. The swap of a certified group's
+  layout keeps every clue count and the mine total, so the redraw stays
+  valid. Unsupported asymmetric/exotic ambiguity is outside the product
+  rule.
   This replaced two model-enumeration implementations on 2026-08-20: the
   first hung mid-game; the second's sparse benchmark falsely supported a
   universal <3ms claim, while a deterministic 40-variable sealed
@@ -50,8 +72,11 @@ Spec: [docs/product/just-universe.md](../product/just-universe.md). Index: [AGEN
   mine test and never on the first reveal. `chord` never calls Justice;
   wrong flags remain fatal. Every qualifying entry increments
   `justiceEvents` regardless of whether redraw occurred and pushes a
-  {type, clearWays, totalWays} detail onto `justiceDetails` (reset in
-  newGame; feeds the end-game recap). Whether the entry's cell was mined
+  {type, squareCount, mineCount, clearWays, totalWays} detail onto
+  `justiceDetails` (reset in newGame; feeds the end-game recap, whose
+  `justiceGuessName` names it "a 50/50", "a chain of 50/50s over N
+  squares", "M mines among N squares", or "... among the last N squares no
+  number touches"). Whether the entry's cell was mined
   before the redraw is deliberately not tracked past the redraw itself:
   the player's point of view is the only one that exists (creator
   directive 2026-08-23) — recap, details, stats, and record never reveal
@@ -74,7 +99,14 @@ Spec: [docs/product/just-universe.md](../product/just-universe.md). Index: [AGEN
   popover on the settings row was removed in the 2026-08-23 caption
   purge; the schema no longer carries `helpFile`). Correctness:
   `node tests/justice-test.js`
-  (deterministic fixtures including safe-entry counting semantics and the
-  chord-origin rule); `node tests/rng-test.js` freezes the RNG version's
+  (deterministic fixtures including safe-entry counting semantics, the
+  chord-origin rule, the 2026-10-21 board with two 50/50s sharing a number,
+  and a 50/50 pinned only by subtraction; then 800 random small boards
+  played by opening proven-safe cells until stuck, where every certificate
+  is checked against brute force over every layout the view allows: the
+  family holds, each member can replace the group, no openable outside
+  cell tells the members apart, and every redraw is valid — removing the
+  invariance, balance, or twin sealing check each fails it);
+  `node tests/rng-test.js` freezes the RNG version's
   output sequence; scale: `node tests/justice-bench.js` (100x100 boards,
   10,000-cell structural proof and direct redraw; no timing threshold).

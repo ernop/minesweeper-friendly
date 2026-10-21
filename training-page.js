@@ -37,7 +37,7 @@ function storageFailure(what) {
 }
 
 function userdataReady() {
-  const worker = new Worker('training-worker.js?v=20261021-replay-toggles');
+  const worker = new Worker('training-worker.js?v=20261021-ng-removed');
   worker.onmessage = ({ data }) => {
     worker.terminate();
     if (data.error !== undefined) showTrainingStatus('Training summary failed: ' + data.error, true);
@@ -163,7 +163,7 @@ function renderTrainingBudget(summary) {
     + (notReplayed === 0 ? '.' : ' (' + [
       coverage['no-trace'] ? coverage['no-trace'] + ' without a saved trace' : '',
       coverage['no-layout'] ? coverage['no-layout'] + ' without a rebuildable board' : '',
-      coverage.diverged ? coverage.diverged + ' changed by a Justice redraw' : '',
+      coverage.diverged ? coverage.diverged + ' changed by A Just Universe' : '',
       coverage['no-reveal'] ? coverage['no-reveal'] + ' without a recorded reveal' : '',
     ].filter(Boolean).join(', ') + ').');
   if (budget === null) {

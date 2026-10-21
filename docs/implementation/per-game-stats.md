@@ -130,9 +130,13 @@ Spec: [docs/product/per-game-stats.md](../product/per-game-stats.md). Index: [AG
   during games — because `musicNow` also drives the live music state
   (`#music-state`, the first item of the play context line `#play-context`
   in `#top-right`, rendered by `renderMusicState`: "music on" or "music
-  off", hidden while `musicNow` is null). A failed fetch, a non-OK status,
-  and an answer whose `is_music_playing` is not a boolean all set `musicNow`
-  to null, so unknown never displays or records as silence. An answer is pushed onto
+  off", hidden while `musicNow` is null). A request with no answer (a
+  network failure or the 3 s timeout) sets `musicNow` to null, so unknown
+  never displays or records as silence. A non-OK status or an answer whose
+  `is_music_playing` is not a boolean also sets it null and is raised from
+  the promise `sampleMusic` returns, so the error bar shows it; until
+  2026-10-21 one `.catch` swallowed all three alike.
+  `tests/music-local-only-test.js` pins both paths. An answer is pushed onto
   `musicObservations` only while `tracing()` — it is at most seconds old,
   so it belongs to the board now in play; one landing after game end is
   display-only. `reportResult` writes `musicPlaying` (any-sample-true)
@@ -154,14 +158,21 @@ Spec: [docs/product/per-game-stats.md](../product/per-game-stats.md). Index: [AG
   facts stay sound, and residual odds either complete or remain unmeasured.
   `noteGuess` runs from `revealCell` after the first-click path and
   before Justice, gated by `guessLedgerAppliesToMode()` (standard,
-  trial modes, uniform/single-path NG, endgame drill — modes where hidden
-  mines really kill; angelic and proof-or-die record nothing, their ledger
-  fields stay absent), so the p is the player's
+  3BV countdown, trial modes, endgame drill — modes where hidden mines
+  really kill; angelic records nothing, its ledger fields stay absent, as
+  they are on saved games of the removed proof-or-die), so the p is the
+  player's
   information, not the post-mercy board. Proven-safe clicks and clicks
   with enumerated p(mine) = 0 return null (not a guess). Over-budget returns `{measured: false}` and
-  `oddsFailed` omits the whole ledger from that record — no invented
-  odds; a thrown scoring error does the same and never blocks the
-  reveal. `scoreGuess` stores absolute p (`lifeLost`), excess over min p
+  `oddsUnmeasured` omits the whole ledger from that record — no invented
+  odds. A thrown scoring error is not caught: it leaves `revealCell`
+  before the reveal, so the click does nothing and the error bar shows it
+  (`page-errors.js`). Until 2026-10-21 `noteGuess` caught it, wrote
+  "guess odds failed" in the backup status line, and dropped the ledger,
+  and `scoreGuess` caught a Justice certification error and scored the
+  guess as if no square were protected, recording wrong protected risks
+  without a word.
+  `scoreGuess` stores absolute p (`lifeLost`), excess over min p
   (`lifeNeedless`), `idealRisk`, and one-ply expected remaining life
   (`perfectPlay`). A covered proven-safe cell makes min p 0, so any
   guess is fully needless. The per-guess risk chips that once showed

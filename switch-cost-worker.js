@@ -12,7 +12,7 @@
 // window's worth.
 
 // solver.js builds on Justice, so justice.js loads first (as in training-worker.js).
-importScripts('justice.js?v=20260926-fast-evidence', 'rng.js', 'solver.js?v=20260823-exact-solver',
+importScripts('justice.js?v=20261021-just-universe-words', 'rng.js', 'solver.js?v=20261021-ng-removed',
   'training-core.js?v=20261015-click-share', 'switch-cost.js?v=20261020-switch-cost-per-game');
 
 const switchCostDeps = {
@@ -106,6 +106,6 @@ self.onmessage = async ({ data: { id, kind, payload } }) => {
     previousFits = fits;
     self.postMessage({ id, result });
   } catch (error) {
-    self.postMessage({ id, error: kind + ': ' + error.message });
+    self.postMessage({ id, error: kind + ': ' + error.message, stack: error.stack });
   }
 };

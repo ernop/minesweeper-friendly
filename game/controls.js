@@ -149,10 +149,6 @@ function chordFromNumber(index) {
     recordNoOp(index, chordUnavailableReason(index));
     return;
   }
-  if (proofSearchBlocks(targets, 'chord')) {
-    inputActionCount--;
-    return;
-  }
   const misclick = chordIsMisclick(index, targets);
   if (misclick) recordMisclick();
   recordUsefulPress();
@@ -198,10 +194,6 @@ boardElement.addEventListener('mouseup', (event) => {
     return;
   }
   if (!cell.revealed && !cell.flagged) {
-    if (gameState === 'playing' && proofSearchBlocks([index], 'click')) {
-      inputActionCount--;
-      return;
-    }
     clickCount++;
     const misclick = revealIsMisclick(index);
     if (misclick) recordMisclick();

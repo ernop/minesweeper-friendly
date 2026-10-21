@@ -8,7 +8,13 @@ Spec: [docs/product/game-end-evaluation.md](../product/game-end-evaluation.md). 
   capture the visible board before mutation, independent mistake tags,
   chosen/best raw and protection-aware actual risk, one-ply expected-life
   values, no-op reason, and highlighted alternatives. Compact no-op
-  evaluations deliberately omit a board snapshot.
+  evaluations deliberately omit a board snapshot. None of them catches an
+  error from the proof (`coveredFactsInfo`) or odds (`Odds.analyzeView`):
+  each runs before its action changes the board, so a thrown error leaves
+  the input handler with the board untouched and the error bar shows it.
+  Until 2026-10-21 each caught it, wrote "action evaluation failed" in the
+  backup status line, and stored `factsMeasured: false`; the 2026-10-11
+  export holds no such record, so none had fired.
   Capture and `recordActionEvaluation` never consult `reportScope`; that
   setting gates only rendering through `reportCategoryEnabled` and
   `evaluationForReport`. Thus hidden fatal/reportable items still enter the
@@ -57,7 +63,7 @@ Spec: [docs/product/game-end-evaluation.md](../product/game-end-evaluation.md). 
   status (training's avoidable kinds read it). `lossTypeOf` refines it into
   the loss type ([spec](../product/game-end-evaluation.md#loss-types-requested-2026-10-11)),
   memoized per evaluation object in a WeakMap: `refinedLossType` checks a
-  Proof-or-die chord, then the wrong flag (`besideFlagSatisfiedNumber` on
+  Proof-or-die chord (saved games of that removed mode), then the wrong flag (`besideFlagSatisfiedNumber` on
   the saved position, or any chord), then the stored tier
   (`storedProofTier` throws when a positioned fatal action lacks it), then
   `nearestLowestRiskDistance` against `LOWER_RISK_NEAR_SQUARES` (2). The
@@ -80,8 +86,8 @@ Spec: [docs/product/game-end-evaluation.md](../product/game-end-evaluation.md). 
   passes to `actionEvaluationLines` as `extraLines`; the Certainty and Safe
   alternative lines name the stored tier (`PROOF_TIER_PHRASES`).
   `winTypeOf(record)` (2026-10-14; [spec](../product/game-end-evaluation.md#win-types-requested-2026-10-14))
-  sits after `lossKindOf` in the pure verdict span: Proof-or-die is
-  `win-no-guess`; any legacy or other-version evaluation leaves only the
+  sits after `lossKindOf` in the pure verdict span: a saved Proof-or-die
+  win is `win-no-guess`; any legacy or other-version evaluation leaves only the
   ledger's `guesses === 0`; otherwise `worstSurvivedGuess(evaluations)`
   (the stored `guessed-with-safe-move` / `opened-unproven-with-safe-move`
   tags as 'safe', then `chose-higher-risk` split by `evaluationIsEarlyGame`

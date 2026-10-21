@@ -46,6 +46,7 @@
   "justice.js",
   "observation-context.js",
   "odds.js",
+  "page-errors.js",
   "pages-redirect.js",
   "play-limits.js",
   "preferences-game.js",

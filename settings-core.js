@@ -24,9 +24,6 @@ const PLAY_MODES = [
     label: '3BV countdown',
     description: 'Ten boards a batch, played from the highest 3BV down; the upper-right square opens on its own.',
   },
-  { id: 'uniform-ng', label: 'Uniform NG' },
-  { id: 'single-path-ng', label: 'Single-path NG' },
-  { id: 'proof-or-die', label: 'Proof-or-die' },
   { id: 'angelic', label: 'Angelic' },
   { id: 'endgame-drill', label: 'Endgame drill' },
   { id: 'trial', label: 'Trial' },
@@ -35,6 +32,17 @@ const PLAY_MODES = [
   { id: 'board-lab', label: 'Board lab' },
 ];
 const PLAY_MODE_IDS = new Set(PLAY_MODES.map((m) => m.id));
+
+// The no-guess modes, removed 2026-10-21 (creator decision,
+// docs/product/play-modes.md). They can no longer be chosen; games saved
+// under them keep their mode, so it stays a valid record value with a name.
+const REMOVED_PLAY_MODES = [
+  { id: 'uniform-ng', label: 'Uniform NG' },
+  { id: 'single-path-ng', label: 'Single-path NG' },
+  { id: 'proof-or-die', label: 'Proof-or-die' },
+];
+const RECORD_PLAY_MODES = [...PLAY_MODES, ...REMOVED_PLAY_MODES];
+const RECORD_PLAY_MODE_IDS = new Set(RECORD_PLAY_MODES.map((m) => m.id));
 
 const AVERAGE_CHART_MODES = [
   ['average', 'average'],
@@ -435,8 +443,8 @@ const SETTINGS_SCHEMA = [
     group: 'gameplay',
     label: 'a just universe',
     // The one visible hint: the name alone cannot carry this meaning.
-    hint: 'a bare click into a truly unknowable pocket never kills you',
-    describe: 'when you bare-click into a sealed pocket that no outside clue can ever resolve, that entry is guaranteed safe',
+    hint: 'a guess that nothing else on the board could ever settle, like a boxed-in 50/50, never kills you',
+    describe: 'when you click (not chord) a square in a guess that nothing else on the board could ever settle, that square is guaranteed safe, and every number shown and the mine count stay true; it covers 50/50s, chains of 50/50s, groups like 1 mine among 3 squares, and the last squares no number touches once the mine count fixes their mines; it never covers chords, guesses that opening other squares could still settle, or squares the numbers already prove',
   },
   {
     field: 'collapseDuplicateCharts',
@@ -518,8 +526,8 @@ const SETTINGS_SCHEMA = [
   },
   {
     field: 'duringGameRelativeScale', default: DuringGame.DEFAULT_RELATIVE_SCALE,
-    valid: (v) => DuringGame.RELATIVE_SCALES.some(([id]) => id === v), group: 'after-game', label: 'live perf charts scale',
-    describe: 'the scale of the live perf chart that sets each line against its whole-game value: log, doublings either side of 1× (default), or linear from 0; chosen on that section', control: 'none',
+    valid: (v) => DuringGame.RELATIVE_SCALES.includes(v), group: 'after-game', label: 'live perf charts scale',
+    describe: 'the scale of the live perf chart that sets each line against its whole-game value: log, doublings either side of 1× (default), or linear from 0; chosen with the log scale checkbox on that section', control: 'none',
   },
   {
     field: 'gameDataBandPool', default: 'lifetime',
@@ -579,7 +587,7 @@ const SETTINGS_SCHEMA = [
     valid: (v) => PLAY_MODE_IDS.has(v),
     group: 'gameplay',
     label: 'play mode',
-    describe: 'Standard, 3BV countdown, Uniform NG, Single-path NG, Proof-or-die, Angelic, Endgame drill, Trial, Short trial, Test trial, or Board lab, chosen from the other modes menu beside the three presets (Standard on the custom board is its Custom entry). Each mode stores and ranks its own results (Board lab records nothing).',
+    describe: 'Standard, 3BV countdown, Angelic, Endgame drill, Trial, Short trial, Test trial, or Board lab, chosen from the other modes menu beside the three presets (Standard on the custom board is its Custom entry). Each mode stores and ranks its own results (Board lab records nothing).',
     control: 'none',
   },
   {

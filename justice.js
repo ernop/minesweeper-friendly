@@ -19,6 +19,9 @@ const VISIBLE_PROOF_VERSION = 'all-consistent-layouts-v1';
 //   1. cardinality pockets: every k-of-n placement is possible;
 //   2. complement pockets: exactly two alternating pair/chain layouts;
 //   3. one sealed sea remnant with a fixed mine count.
+// The first two are found per group inside a clue component
+// (componentGroups), so a pocket qualifies even when a number it shares
+// with another pocket joins them into one component.
 //
 // Certification is deduction, graph traversal, and integer counting. It
 // never enumerates mine layouts, estimates probabilities, or needs a work
@@ -522,6 +525,7 @@ function buildStructure(view, proofOptions) {
     view,
     facts,
     clues,
+    cluesOfCell,
     components,
     componentOfCell,
     frontierSet,
@@ -533,74 +537,103 @@ function buildStructure(view, proofOptions) {
   };
 }
 
-function sameCellSet(cells, set) {
-  return cells.length === set.size && cells.every((cell) => set.has(cell));
-}
-
-// Returns the complete symbolic family "all k-subsets of these cells", or
-// null. Every residual clue in the component must be the same equation.
-function cardinalityShape(structure, component) {
-  if (component.clues.length === 0 || component.cells.length < 2) return null;
-  const cellSet = new Set(component.cells);
-  let mineCount = null;
-  for (const clueIndex of component.clues) {
-    const clue = structure.clues[clueIndex];
-    if (!sameCellSet(clue.covered, cellSet)) return null;
-    if (mineCount === null) mineCount = clue.count;
-    else if (mineCount !== clue.count) throw new Error('equivalent clues disagree');
+// The candidate groups inside one residual component, each judged on its
+// own. A component joins every covered cell that shares a clue with
+// another, so two 50/50s seen by one common number are one component with
+// four layouts, yet each 50/50 alone is a family below (2026-10-21; until
+// then only whole components were judged, and such a pair was refused).
+//
+// Twin groups hold the cells touched by exactly the same residual clues.
+// Each of those clues covers the whole group, so any rearrangement of mines
+// inside it changes no clue's count. A group's mine count is pinned when a
+// clue covers exactly the group, or when subtracting the pinned groups a
+// clue covers leaves only this group.
+//
+// Pair chains hold the cells linked by x+y=1 clues: every consistent layout
+// is one of the chain's two alternating colorings.
+function componentGroups(structure, component) {
+  const twinsByKey = new Map();
+  const twinOfCell = new Map();
+  for (const cell of component.cells) {
+    const key = structure.cluesOfCell.get(cell).join(',');
+    if (!twinsByKey.has(key)) twinsByKey.set(key, { cells: [], mineCount: null });
+    const twins = twinsByKey.get(key);
+    twins.cells.push(cell);
+    twinOfCell.set(cell, twins);
   }
-  if (!(mineCount > 0 && mineCount < component.cells.length)) return null;
-  return { cells: component.cells.slice(), mineCount };
-}
+  const clueGroups = component.clues.map((clueIndex) => {
+    const clue = structure.clues[clueIndex];
+    return { count: clue.count, groups: [...new Set(clue.covered.map((cell) => twinOfCell.get(cell)))] };
+  });
+  let pinned = true;
+  while (pinned) {
+    pinned = false;
+    for (const clue of clueGroups) {
+      const open = clue.groups.filter((twins) => twins.mineCount === null);
+      if (open.length !== 1) continue;
+      let count = clue.count;
+      for (const twins of clue.groups) if (twins.mineCount !== null) count -= twins.mineCount;
+      if (count < 0 || count > open[0].cells.length) throw new Error('visible clues are inconsistent');
+      open[0].mineCount = count;
+      pinned = true;
+    }
+  }
 
-// Returns the two complete alternating layouts of a connected x+y=1
-// graph, after verifying every residual clue under both layouts.
-function complementShape(structure, component) {
-  if (component.cells.length < 2) return null;
-  const cellSet = new Set(component.cells);
-  const graph = new Map(component.cells.map((cell) => [cell, []]));
+  const partners = new Map(component.cells.map((cell) => [cell, []]));
   for (const clueIndex of component.clues) {
     const clue = structure.clues[clueIndex];
     if (clue.covered.length !== 2 || clue.count !== 1) continue;
     const [a, b] = clue.covered;
-    graph.get(a).push(b);
-    graph.get(b).push(a);
+    partners.get(a).push(b);
+    partners.get(b).push(a);
   }
-
-  const color = new Map();
-  const stack = [component.cells[0]];
-  color.set(component.cells[0], 0);
-  while (stack.length > 0) {
-    const cell = stack.pop();
-    const nextColor = 1 - color.get(cell);
-    for (const other of graph.get(cell)) {
-      if (!color.has(other)) {
-        color.set(other, nextColor);
-        stack.push(other);
-      } else if (color.get(other) !== nextColor) {
-        return null;
+  const chainOfCell = new Map();
+  for (const start of component.cells) {
+    if (chainOfCell.has(start)) continue;
+    const chain = { cells: [], partitionA: [], partitionB: [] };
+    const side = new Map([[start, 0]]);
+    const stack = [start];
+    while (stack.length > 0) {
+      const cell = stack.pop();
+      chain.cells.push(cell);
+      (side.get(cell) === 0 ? chain.partitionA : chain.partitionB).push(cell);
+      chainOfCell.set(cell, chain);
+      for (const other of partners.get(cell)) {
+        if (!side.has(other)) {
+          side.set(other, 1 - side.get(cell));
+          stack.push(other);
+        } else if (side.get(other) === side.get(cell)) {
+          throw new Error('x+y=1 clues form an odd cycle');
+        }
       }
     }
   }
-  if (color.size !== cellSet.size) return null;
+  return { twinOfCell, chainOfCell };
+}
 
-  const partitionA = component.cells.filter((cell) => color.get(cell) === 0);
-  const partitionB = component.cells.filter((cell) => color.get(cell) === 1);
-  if (partitionA.length === 0 || partitionB.length === 0) return null;
+function balancedChain(chain) {
+  return chain.cells.length >= 2 && chain.partitionA.length === chain.partitionB.length;
+}
 
-  const aSet = new Set(partitionA);
-  const bSet = new Set(partitionB);
-  for (const clueIndex of component.clues) {
-    const clue = structure.clues[clueIndex];
-    let minesA = 0;
-    let minesB = 0;
-    for (const cell of clue.covered) {
-      if (aSet.has(cell)) minesA++;
-      if (bSet.has(cell)) minesB++;
-    }
-    if (minesA !== clue.count || minesB !== clue.count) return null;
+// True when every residual clue touching the chain sees as many cells of
+// one side as of the other, so switching sides changes no count.
+function chainCluesAreInvariant(structure, chain) {
+  const aSet = new Set(chain.partitionA);
+  const bSet = new Set(chain.partitionB);
+  const touching = new Set();
+  for (const cell of chain.cells) {
+    for (const clueIndex of structure.cluesOfCell.get(cell)) touching.add(clueIndex);
   }
-  return { cells: component.cells.slice(), partitionA, partitionB };
+  for (const clueIndex of touching) {
+    let seenA = 0;
+    let seenB = 0;
+    for (const cell of structure.clues[clueIndex].covered) {
+      if (aSet.has(cell)) seenA++;
+      else if (bSet.has(cell)) seenB++;
+    }
+    if (seenA !== seenB) return false;
+  }
+  return true;
 }
 
 function externalCoveredNeighbors(structure, cells) {
@@ -649,56 +682,72 @@ function complementBoundaryIsSealed(structure, shape) {
   return true;
 }
 
-function fixedTemplateTotal(structure, component) {
-  const cardinality = cardinalityShape(structure, component);
-  if (cardinality !== null) return cardinality.mineCount;
-  const complement = complementShape(structure, component);
-  if (complement !== null
-      && complement.partitionA.length === complement.partitionB.length) {
-    return complement.partitionA.length;
+// The component's mine total when every cell lies in a pinned twin group or
+// in a pair chain with equal sides, else null. No chain mixes pinned and
+// unpinned twin groups: a pair clue touching a twin group covers it whole,
+// so pinning passes along every pair clue.
+function pinnedComponentTotal(groups, component) {
+  let total = 0;
+  const counted = new Set();
+  for (const cell of component.cells) {
+    const twins = groups.twinOfCell.get(cell);
+    const chain = groups.chainOfCell.get(cell);
+    let group;
+    let mines;
+    if (twins.mineCount !== null) {
+      group = twins;
+      mines = twins.mineCount;
+    } else if (balancedChain(chain)) {
+      group = chain;
+      mines = chain.partitionA.length;
+    } else {
+      return null;
+    }
+    if (counted.has(group)) continue;
+    counted.add(group);
+    total += mines;
   }
-  return null;
+  return total;
 }
 
-function certifyFrontierEntry(structure, component) {
-  const cardinality = cardinalityShape(structure, component);
-  if (cardinality !== null
-      && cardinalityBoundaryIsSealed(structure, cardinality.cells)) {
-    return {
-      type: 'cardinality',
-      cells: cardinality.cells,
-      mineCount: cardinality.mineCount,
-      clearWays: cardinality.cells.length - cardinality.mineCount,
-      totalWays: cardinality.cells.length,
-    };
-  }
-
-  const complement = complementShape(structure, component);
-  if (complement !== null
-      && complement.partitionA.length === complement.partitionB.length
-      && complementBoundaryIsSealed(structure, complement)) {
-    return {
-      type: 'complement',
-      cells: complement.cells,
-      mineCount: complement.partitionA.length,
-      partitionA: complement.partitionA,
-      partitionB: complement.partitionB,
-      clearWays: 1,
-      totalWays: 2,
-    };
-  }
-  return null;
+// Every k-of-n layout of a twin group is possible when its count is pinned
+// strictly between none and all of it.
+function twinCertificate(structure, twins) {
+  if (twins.mineCount === null || twins.mineCount === 0
+      || twins.mineCount === twins.cells.length) return null;
+  if (!cardinalityBoundaryIsSealed(structure, twins.cells)) return null;
+  return {
+    type: 'cardinality',
+    cells: twins.cells,
+    mineCount: twins.mineCount,
+    clearWays: twins.cells.length - twins.mineCount,
+    totalWays: twins.cells.length,
+  };
 }
 
-function certifySeaEntry(structure, clicked) {
+function chainCertificate(structure, chain) {
+  if (!balancedChain(chain) || !chainCluesAreInvariant(structure, chain)
+      || !complementBoundaryIsSealed(structure, chain)) return null;
+  return {
+    type: 'complement',
+    cells: chain.cells,
+    mineCount: chain.partitionA.length,
+    partitionA: chain.partitionA,
+    partitionB: chain.partitionB,
+    clearWays: 1,
+    totalWays: 2,
+  };
+}
+
+function certifySeaEntry(structure, clicked, groupsOf) {
   const seaIndex = structure.seaComponentOfCell.get(clicked);
   if (seaIndex === undefined || structure.seaComponents.length !== 1) return null;
   const cells = structure.seaComponents[seaIndex];
   if (cells.length < 2) return null;
 
   let frontierMines = structure.provenMineCount;
-  for (const component of structure.components) {
-    const total = fixedTemplateTotal(structure, component);
+  for (let index = 0; index < structure.components.length; index++) {
+    const total = pinnedComponentTotal(groupsOf(index), structure.components[index]);
     if (total === null) return null;
     frontierMines += total;
   }
@@ -724,13 +773,25 @@ function validateEntryIndex(view, clicked) {
 
 // Returns compact proofs for qualifying entries while constructing the
 // visible constraint structure only once. Every cell in one certified
-// pocket shares its certificate, so each frontier/sea component is also
-// checked only once.
+// pocket shares its certificate, so each component's groups, each group,
+// and the sea are also checked only once.
 function certifyEntries(view, entries) {
   for (const entry of entries) validateEntryIndex(view, entry);
   const structure = buildStructure(view);
+  const groupsByComponent = new Map();
+  const groupsOf = (componentIndex) => {
+    if (!groupsByComponent.has(componentIndex)) {
+      groupsByComponent.set(componentIndex,
+        componentGroups(structure, structure.components[componentIndex]));
+    }
+    return groupsByComponent.get(componentIndex);
+  };
+  const groupCertificates = new Map();
+  const certificateOf = (group, certify) => {
+    if (!groupCertificates.has(group)) groupCertificates.set(group, certify(structure, group));
+    return groupCertificates.get(group);
+  };
   const certificates = new Map();
-  const frontierCertificates = new Map();
   let seaCertificate;
   let seaChecked = false;
 
@@ -739,14 +800,14 @@ function certifyEntries(view, entries) {
     const componentIndex = structure.componentOfCell.get(entry);
     let certificate = null;
     if (componentIndex !== undefined) {
-      if (!frontierCertificates.has(componentIndex)) {
-        frontierCertificates.set(componentIndex,
-          certifyFrontierEntry(structure, structure.components[componentIndex]));
+      const groups = groupsOf(componentIndex);
+      certificate = certificateOf(groups.twinOfCell.get(entry), twinCertificate);
+      if (certificate === null) {
+        certificate = certificateOf(groups.chainOfCell.get(entry), chainCertificate);
       }
-      certificate = frontierCertificates.get(componentIndex);
     } else if (structure.seaComponentOfCell.has(entry)) {
       if (!seaChecked) {
-        seaCertificate = certifySeaEntry(structure, entry);
+        seaCertificate = certifySeaEntry(structure, entry, groupsOf);
         seaChecked = true;
       }
       certificate = seaCertificate;
@@ -824,8 +885,7 @@ const Justice = {
   rawClues,
   proveFacts,
   buildStructure,
-  cardinalityShape,
-  complementShape,
+  componentGroups,
   certifyEntries,
   certifyEntry,
   redrawEntry,

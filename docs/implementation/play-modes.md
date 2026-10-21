@@ -19,8 +19,15 @@ Spec: [docs/product/play-modes.md](../product/play-modes.md). Index: [AGENTS.md]
   custom mode, and `#board-lab-panel` holds only the note, the generator's
   parameter sliders (`labSliderRow`), and "make new board".
 - Play modes ([Play modes](../product/play-modes.md)): `settings.playMode` plus history
-  key `WxH/M@id`. `solver.js` grades NG boards (`analyze` /
-  `generate`) and decides proof-or-die / angelic clicks. `trial.js`
+  key `WxH/M@id`. `solver.js` holds first-click-safe placement, the
+  angelic save (`forceSafe`), misclick classification, and the cell
+  classes the endgame drill asks for. The removed no-guess modes' ids and
+  names stay in `REMOVED_PLAY_MODES` (`settings-core.js`):
+  `RECORD_PLAY_MODE_IDS` validates a saved record's `playMode`, and
+  `playModeLabel` names it. Their generator (`Solver.analyze` /
+  `generate` / `tunnelPlacement`) and Proof-or-die's click rules were
+  deleted; the verdicts for saved Proof-or-die games stay in
+  `game/evaluation.js`. `trial.js`
   holds the 25×4 and 4×4 sessions, dihedral maps, identity grouping,
   and replay of opens/flags from stored traces for overlay charts.
   `node tests/solver-test.js` and `node tests/trial-test.js`.

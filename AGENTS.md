@@ -7,9 +7,10 @@ a task needs.
 ## Project
 
 A minesweeper clone of minesweeper.online's standard mode (same mechanics,
-classic-Windows look), growing toward friendlier variants: no-guess boards
-and beyond. The friendliness axis and the solver tiers that define
-"solvable" are in [docs/product/design-axis.md](docs/product/design-axis.md).
+classic-Windows look), growing toward friendlier variants such as A just
+universe and Angelic play (the no-guess modes were removed 2026-10-21). The
+friendliness axis and the solver tiers that define "solvable" are in
+[docs/product/design-axis.md](docs/product/design-axis.md).
 
 Runtime: `index.html` + `style.css` load `storage.js`; pure `rng.js` /
 `justice.js` / `board-shape.js` / `zini.js` / `board-metrics.js`;
@@ -46,6 +47,10 @@ changes together: a stale copy would open an older database version and fail
 (`tests/storage-cache-tag-test.js` enforces it). Every file a page or worker
 loads must be listed in `deploy/runtime-files.json`, or the hosted release
 breaks; `python3 tests/hosting-release-test.py` fails on a missing one.
+Every page that runs game code loads `page-errors.js` right after the Pages
+redirect: the error bar, which shows any error no code handled
+([UI doctrine](docs/product/ui-doctrine.md), "Errors are shown";
+`tests/page-errors-test.js` enforces the order).
 Every page also loads `fuseki-stats.js`, Fuseki's play-statistics module,
 copied byte for byte from fuseki4_ai `setup/apps/fuseki-stats.js`; never edit
 it here. On the game page it loads deferred, just before the `game/` scripts.
@@ -175,7 +180,7 @@ the file path, plus the section heading when the file holds several.
 | Friendliness axis, solver tiers | [docs/product/design-axis.md](docs/product/design-axis.md) | none |
 | UI doctrine (read before any UI work) | [docs/product/ui-doctrine.md](docs/product/ui-doctrine.md) | none |
 | Board chrome, page layout (game setup rows, top bar, settings row, footer), board position | [docs/product/board-and-layout.md](docs/product/board-and-layout.md) | [docs/implementation/board-and-layout.md](docs/implementation/board-and-layout.md) |
-| Play modes (NG variants, Endgame drill, trials, 3BV countdown, Board lab) | [docs/product/play-modes.md](docs/product/play-modes.md) | [docs/implementation/play-modes.md](docs/implementation/play-modes.md) |
+| Play modes (Angelic, Endgame drill, trials, 3BV countdown, Board lab; the removed no-guess modes) | [docs/product/play-modes.md](docs/product/play-modes.md) | [docs/implementation/play-modes.md](docs/implementation/play-modes.md) |
 | Board generators, top score keys | [docs/product/board-generators.md](docs/product/board-generators.md) | [docs/implementation/board-generators.md](docs/implementation/board-generators.md) |
 | A just universe | [docs/product/just-universe.md](docs/product/just-universe.md) | [docs/implementation/just-universe.md](docs/implementation/just-universe.md) |
 | Game-end evaluation, action evidence | [docs/product/game-end-evaluation.md](docs/product/game-end-evaluation.md) | [docs/implementation/game-end-evaluation.md](docs/implementation/game-end-evaluation.md) |
@@ -251,6 +256,11 @@ Banned, non-exhaustively:
 - Config-detection chains (storage → file A → file B → baked default). Read
   the one authoritative source; if missing or invalid, error.
 - Trying multiple external tools until one works.
+- Method chains in our own code: running one method and, when it fails,
+  another. Use one method that works well (creator 2026-10-21, on no-guess
+  board generation: "we should use ONE technology which works well. not use
+  something, and if it fails, use another thing. that's a very bad
+  pattern.").
 - `tryAscertainValue` patterns checking field_a, then field_b, then field_c.
 - Catch-and-default / catch-and-continue: `try { x } catch { return [] }`, or
   `value ?? DEFAULT` where a missing value is a bug.

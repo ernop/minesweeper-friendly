@@ -196,7 +196,7 @@ function buildFormatPanel() {
     .join(', ');
   const exportNote = document.createElement('p');
   exportNote.textContent = 'One list per board and play mode, keyed by width\u00d7height/mines@mode ('
-    + namedModes + '; modes: ' + PLAY_MODES.map((m) => m.id).join(', ')
+    + namedModes + '; modes: ' + RECORD_PLAY_MODES.map((m) => m.id).join(', ')
     + '). Keys without @ are Standard. Records sit in play order, wins and losses alike. '
     + 'Personal preferences have separate export and import controls on the Settings page.';
   exportBlock.append(pre, exportNote);

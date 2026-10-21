@@ -122,6 +122,20 @@ Built the same day:
   whole-game values, so the rule applies to all three legends and no list
   was added.
 
+Later the same day, verbatim: "make the "log/linear" control a boolean click
+toggler, not ad ropdown." And: "move the chart which has 3BV/s to the 3rd
+position, from its current 2nd position, within live perf charts."
+
+Built the same day:
+
+- The scale is one "log scale" checkbox in the options row, checked by
+  default; unchecked draws the linear scale. It replaces the "scale" select
+  built that morning, and a choice saved with the select carries over
+  (`duringGameRelativeScale`, `log` or `linear`).
+- The chart against the whole game, the one with 3BV/s, moved from second to
+  third: top to bottom the block shows the progress chart, the event tracks,
+  then that chart (Charts, below).
+
 ## Placement
 
 - A stat section titled "live perf charts" heads the details column's
@@ -150,6 +164,9 @@ Built the same day:
   line in its series' color. Hovering a line's legend entry spotlights it:
   the line thickens and the chart's other lines fade. Clicking it chooses
   which lines show (Legend picks, below).
+- Top to bottom: the progress chart, the event tracks, then the chart
+  against the whole game (creator 2026-10-21; until then that chart was
+  second and the tracks last).
 - Two charts, each drawing only its shown rows and disappearing when none
   are shown:
 
@@ -158,7 +175,8 @@ Built the same day:
   | progress | 3BV solved, squares opened, mines flagged | 0% to 100%, labeled every 20% |
   | against the whole game | every pace, board, and report row | the line's value divided by its whole-game value, on a doubling (log) scale or a linear one |
 
-- The second chart's scale is log by default and doubles at each label: 1×
+- The scale of the chart against the whole game is log by default and
+  doubles at each label: 1×
   is the line's whole-game value, drawn as a black line across the plot,
   and ½×, ¼×, ⅛× below it and 2×, 4×, 8× above it. It runs as many
   doublings each way as its farthest value needs, at least one and at most
@@ -166,8 +184,8 @@ Built the same day:
   floor. A line whose whole-game value is zero, or not measured, has nothing
   to be measured against and is not drawn; its legend entry still gives the
   value.
-- Its linear scale (creator 2026-10-21; "scale" in the options row chooses
-  log or linear) runs from 0 on the floor to the farthest value its lines
+- Its linear scale (creator 2026-10-21; the "log scale" checkbox in the
+  options row chooses it when unchecked) runs from 0 on the floor to the farthest value its lines
   draw (in raw, which draws no lines, its farthest incident), at least 2×
   and at most 8×, rounded up to a label. The labels step by ½×, 1×, or 2×,
   at most six of them, and 1× is always labeled and drawn as the black
@@ -181,10 +199,11 @@ Built the same day:
   row alone; a click on another adds it, and a second click on a shown one
   removes it. Removing the last one shown, or adding back the last one
   hidden, shows them all again, since showing none is pointless. The
-  progress chart, the second chart, and the event tracks each choose for
-  themselves. A hidden row's entry keeps its place, its swatch or mark, and
-  its whole-game value, with its name struck through; hovering it
-  spotlights nothing. The second chart's scale fits the lines shown; the
+  progress chart, the event tracks, and the chart against the whole game
+  each choose for themselves. A hidden row's entry keeps its place, its
+  swatch or mark, and its whole-game value, with its name struck through;
+  hovering it spotlights nothing. The chart against the whole game fits its
+  scale to the lines shown; the
   event tracks keep all three lanes when a lane's marks are hidden, so
   nothing below moves. The picks hold for the game shown, through every
   redraw of its block (averaging, scale, configure, the result drawn again
@@ -192,14 +211,14 @@ Built the same day:
   game. Configure still decides which rows the block has at all.
 - Above each chart one line names its lines: a swatch in the line's color,
   the row's name (it shows the row's definition on hover), and its
-  whole-game value, the most legible text there. The second chart's line
-  starts with "whole game (1×)", in bold, so the values beside the names
-  read as the 1× each line is measured against.
+  whole-game value, the most legible text there. The line of the chart
+  against the whole game starts with "whole game (1×)", in bold, so the
+  values beside the names read as the 1× each line is measured against.
 - One time axis: every plot spans the same width, game seconds from the first
   click to the end of the game, with vertical gridlines at the same seconds
-  in every chart. The seconds are labeled under the first chart and under
-  the last part, the event tracks.
-- Event tracks sit under the charts, on the same time axis: three thin
+  in every chart. The seconds are labeled under the first part and under
+  the last.
+- Event tracks sit between the two charts, on the same time axis: three thin
   tracks named at their left, "clicks", "jumps", and "pauses", holding every
   shown event row's marks by what the events are about (Events, below).
   Each row's mark differs in shape within its track and in color: an instant
@@ -207,8 +226,8 @@ Built the same day:
   track over its span, and the window left a bar along that track's top
   over its span. One legend under the tracks lists every shown event row:
   its mark, its name (its definition on hover), and its count.
-- "averaging", "scale", and "configure" sit in one small row at the bottom
-  of the block, as game data's options do.
+- "averaging", "log scale", and "configure" sit in one small row at the
+  bottom of the block, as game data's options do.
 
 ## Hover and the board at that moment
 
@@ -216,7 +235,8 @@ Built the same day:
   them.
 - A small card beside the pointer shows the moment and, over a chart, the
   one line nearest the pointer: its swatch, its name, and its value then
-  (on the second chart, the line's own value, not its ratio). That line
+  (on the chart against the whole game, the line's own value, not its
+  ratio). That line
   comes forward and the chart's other lines fade. Where no line has a value
   at that moment the card says "nothing measured at this moment". Over an
   event track the card names the track and gives its events at that moment
@@ -428,7 +448,8 @@ its top and bottom ("back to live perf charts"); Escape also returns.
 Choices apply at once and persist in the settings (`duringGameRows`); the
 averaging choice persists as `duringGameAveraging` (renamed from
 `duringGameAverage` on 2026-10-20, so the new default reached every player
-once), and the second chart's scale as `duringGameRelativeScale`. Legend
+once), and the "log scale" checkbox as `duringGameRelativeScale` (`log` or
+`linear`). Legend
 picks are not saved: they last as long as the game shown (Charts, above).
 
 ## Built and requested

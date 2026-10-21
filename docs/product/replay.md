@@ -139,7 +139,7 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   ‹ / › and Left/Right keys step one action while the transport is visible,
   except while another
   interactive control has keyboard focus; solid purple rings mark the measured
-  reasonable choice set (purple is also the color of the uncertain-pocket
+  reasonable choice set (purple is also the color of the uncertain-group
   labels that describe that set; measured choices were a second green until
   2026-09-04 and could not be told from the proven-safe ring on the same
   square), a gold ring marks the square the action was performed on (for a
@@ -153,7 +153,7 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   The status names actions done, the decision's in-game time, the next
   action's type, and measured choice count; the three values are the largest
   text in the status (bold, 16 px) and the words around them are secondary. Uncertain
-  reasonable-choice cells are split into connected visual pockets; each pocket
+  reasonable-choice cells are split into connected groups; each group
   gets a leader line to a side label giving its mine probability (exact 50%
   reads `50/50`; other uncertain values never round to 0%, 100%, or `50/50`)
   and cell count. Labels choose the board side that avoids the result summary

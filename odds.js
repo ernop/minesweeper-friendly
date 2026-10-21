@@ -381,14 +381,10 @@ function scoreGuess(view, clicked, opts) {
   const idealRisk = !odds.provenSafeOpen && p <= minP + 1e-12;
   let justiceCertificates = new Map();
   if (opts.considerJustice === true) {
-    try {
-      // Certification depends only on this one visible position. Batch all
-      // candidates so the board's proof structure is built once, rather
-      // than once per covered cell on the click-critical path.
-      justiceCertificates = Justice.certifyEntries(view, odds.unproven);
-    } catch (err) {
-      justiceCertificates = new Map();
-    }
+    // Certification depends only on this one visible position. Batch all
+    // candidates so the board's proof structure is built once, rather
+    // than once per covered cell on the click-critical path.
+    justiceCertificates = Justice.certifyEntries(view, odds.unproven);
   }
   const justice = justiceCertificates.has(clicked);
   const actualP = justice ? 0 : p;

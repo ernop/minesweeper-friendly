@@ -45,8 +45,9 @@ const deferredScripts = externalScripts.slice(1);
 check('every later external script is deferred',
   deferredScripts.length > 0
     && deferredScripts.every((script) => /\bdefer\b/.test(script.attrs)));
-check('storage starts before application scripts',
-  deferredScripts[0].src.split('?')[0] === 'storage.js');
+check('the error bar runs first, then storage starts before application scripts',
+  deferredScripts[0].src.split('?')[0] === 'page-errors.js'
+    && deferredScripts[1].src.split('?')[0] === 'storage.js');
 check('early database completion waits for the page callback',
   storage.includes("typeof userdataReady !== 'function'"));
 // storage.js starts the page as soon as userdataReady exists, so the hooks

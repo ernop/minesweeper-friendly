@@ -42,27 +42,34 @@ function renderMusicState() {
     + ', measured about once a minute; stamped onto each game you finish.';
 }
 
+// Only a request that got no answer (the base system is down or took over
+// 3 s) is the "not answering" state. An answer that is an HTTP error or
+// lacks the boolean is a broken endpoint: the music state clears and the
+// error is raised, so the error bar (page-errors.js) shows it.
 function sampleMusic() {
-  fetch(MUSIC_ENDPOINT, { signal: AbortSignal.timeout(3000) })
+  return fetch(MUSIC_ENDPOINT, { signal: AbortSignal.timeout(3000) })
     .then((response) => {
       if (!response.ok) throw new Error('is-music-playing: http ' + response.status);
-      return response.json();
-    })
-    .then((data) => {
-      if (typeof data.is_music_playing !== 'boolean') throw new Error('is-music-playing: no boolean is_music_playing');
-      musicNow = data.is_music_playing;
-      // A game's observations are the answers that arrive while it runs;
-      // an answer is at most seconds old, so it belongs to the board now
-      // in play. One landing after the game ended is display-only — the
-      // record was already written.
-      if (tracing()) musicObservations.push(musicNow);
-      renderMusicState();
-    })
-    .catch(() => {
-      // No base system answered from this origin: unknown, not silence.
-      // Running games are simply not measured (no musicPlaying field).
+      return response.json().then((data) => {
+        if (typeof data.is_music_playing !== 'boolean') throw new Error('is-music-playing: no boolean is_music_playing');
+        musicNow = data.is_music_playing;
+        // A game's observations are the answers that arrive while it runs;
+        // an answer is at most seconds old, so it belongs to the board now
+        // in play. One landing after the game ended is display-only — the
+        // record was already written.
+        if (tracing()) musicObservations.push(musicNow);
+        renderMusicState();
+      });
+    }, () => {
+      // Unknown, not silence: running games are simply not measured (no
+      // musicPlaying field).
       musicNow = null;
       renderMusicState();
+    })
+    .catch((error) => {
+      musicNow = null;
+      renderMusicState();
+      throw error;
     });
 }
 

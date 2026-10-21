@@ -143,7 +143,8 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   section's own selectors and the stats panel's drag edge, the other two,
   left with the panel on 2026-10-20 ([Session stats](session-stats.md)).
 - Settings so far: `cellSize` (default 28) — saved Zoom in pixels;
-  `justUniverse` (default on) — sealed-pocket mercy (see
+  `justUniverse` (default on) — a guess that nothing else on the board
+  could ever settle never kills you (see
   [A just universe](just-universe.md);
   a game freezes the value at its first reveal, so a change made mid-game
   applies from the next game — the old drawer's mid-game lock UI retired
@@ -199,8 +200,8 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   block; added 2026-10-15 as `duringGameAverage` with 5 s buckets, renamed
   2026-10-20 so the new default reached every player), and
   `duringGameRelativeScale` (default log, or linear; the scale of the chart
-  of each line against its whole-game value, chosen on the block; added
-  2026-10-21) — the live perf charts at the head of the game data column (see
+  of each line against its whole-game value, chosen with the block's "log
+  scale" checkbox; added 2026-10-21) — the live perf charts at the head of the game data column (see
   [During the game](during-game.md));
   `shownThings.sessionSummary`
   (default on) — the session summary table (see

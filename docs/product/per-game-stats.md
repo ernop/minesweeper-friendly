@@ -327,8 +327,10 @@ a zero is a pure function of the layout and is computed where it is shown
 (the training page's Openings). Absent on Endgame drill games, whose first
 input meets pre-opened cells, and on games recorded before it existed.
 
-Justice — how many bare entries into certified sealed pockets were
-guaranteed safe (see [A just universe](just-universe.md)) — joined the schema on 2026-08-20
+Justice — how many clicks into a guess that nothing else on the board could
+ever settle were guaranteed safe (see [A just universe](just-universe.md));
+the stats table's row reads "Forced coinflips won", the end-of-game chip's
+words (2026-10-21; "Justice" before) — joined the schema on 2026-08-20
 under the same absence rules as wasted clicks. It increments on every
 qualifying entry whether the hidden cell was originally clear or required
 a redraw. Zero is a normal value and is recorded; the stats table always
@@ -349,7 +351,7 @@ guess in the game exceeded the enumerator budget): `guesses`,
 
 - **Life lost** (absolute). Each guess costs its mine probability. A 19%
   death click spends 0.19 lives in the multiverse whether you lived or
-  died. Justice may still rewrite a certified pocket so you live; the
+  died. A just universe may still rearrange a covered guess so you live; the
   0.19 remains on the ledger (the remaining chance you lived was played
   out, not erased).
 - **Life needless.** Cost above the safest available cell:
@@ -382,13 +384,17 @@ the stack) prints the raw p and either
 `ideal`, `justice`, or the needless extra; its hover text names the
 reason (a provably safe square was available, or the safest square's
 odds). The ledger exists only where the standard mine gamble is real:
-Standard, the Trial modes, and the NG modes (their mines still kill).
-Angelic records no ledger — an unproven click there cannot kill, so a
-risk chip would be fiction — and neither does Proof-or-die, where an
-unproven click is a deterministic death, not a probability. Absence of
-the fields on those modes means "not measured", the usual rule. A
-scoring failure never blocks the reveal: it announces in the backup
-status line and omits that game's ledger. The odds engine is held to
+Standard, 3BV countdown, the Trial modes, and the Endgame drill. Angelic
+records no ledger — an unproven click there cannot kill, so a risk chip
+would be fiction. Neither did Proof-or-die (removed 2026-10-21 with the
+other no-guess modes; [Play modes](play-modes.md)), where an unproven
+click was a deterministic death, not a probability. Absence of the fields
+on those modes means "not measured", the usual rule. A guess
+whose odds exceed the calculation's budget omits that game's ledger, with
+no invented odds. A scoring error is a bug: the click stops and the error
+bar shows it ([UI doctrine](ui-doctrine.md), "Errors are shown"; until
+2026-10-21 it was noted in the backup status line and the ledger was
+dropped). The odds engine is held to
 ground truth by a brute-force parity test (every consistent layout
 enumerated on small random boards; probabilities must match exactly).
 
@@ -482,7 +488,10 @@ open (every 15s, plus once the moment a board is dealt); the record stores
 `musicPlaying` = true if any answer arriving while the game ran heard
 audio, false if every one heard silence, and no field at all when the
 endpoint never answered (base system down) — absence means "not
-measured", the usual rule.
+measured", the usual rule. An answer that is an HTTP error or lacks the
+boolean is a broken endpoint, not silence or "not answering": the music
+state clears and the error bar shows it (2026-10-21,
+[UI doctrine](ui-doctrine.md), "Errors are shown").
 
 Local only (creator, 2026-09-26): music detection was an attempt to see
 whether music distracts the player and lowers the score, and it depends on

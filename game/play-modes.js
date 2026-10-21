@@ -23,8 +23,10 @@ function endgameDrillActive() {
 }
 
 function playModeLabel(id) {
-  const spec = PLAY_MODES.find((m) => m.id === (id || settings.playMode));
-  return spec ? spec.label : String(id);
+  const modeId = id || settings.playMode;
+  const spec = RECORD_PLAY_MODES.find((m) => m.id === modeId);
+  if (spec === undefined) throw new Error('unknown play mode ' + modeId);
+  return spec.label;
 }
 
 // The other modes menu beside the three presets. Standard on the custom

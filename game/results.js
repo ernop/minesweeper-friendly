@@ -71,7 +71,7 @@ function reportResult(outcome, endedAt = Date.now()) {
   if (gameFastGap !== undefined) {
     record.fastclickGapMs = Math.round(gameFastGap);
   }
-  if (!oddsFailed && guessLedgerAppliesToMode()) {
+  if (!oddsUnmeasured && guessLedgerAppliesToMode()) {
     record.guesses = guessEvents.length;
     record.guessIdealRisk = guessEvents.filter((e) => e.idealRisk).length;
     record.guessNonideal = guessEvents.filter((e) => !e.idealRisk).length;
@@ -780,10 +780,10 @@ async function renderResultAsync(record, modeRecords, options = {}) {
               + '%)'
             : String(record.unusedCorrectFlags)]] : []),
     ...measurementRow('unflaggedMineShare'),
-    // A Justice event is any qualifying sealed-pocket entry — a forced
+    // A Justice event is any click "a just universe" covers — a forced
     // coinflip the rule guarantees the player wins.
     ...(fullAnalysis && record.justice !== undefined
-      ? [['Justice', String(record.justice)]] : []),
+      ? [['Forced coinflips won', String(record.justice)]] : []),
     ...(record.outcome === 'win'
       ? [['Clicks over 3BV', String(record.clicks - record.bv3)]]
       : []),

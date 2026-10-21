@@ -182,6 +182,49 @@ function validRedraw(board, redrawn, clicked) {
     second.cells.every((cell) => redrawn[cell] === board.mines[cell]));
 }
 
+// 8b. Two 50/50s seen by one shared number (creator report 2026-10-21: a
+// loss on this board). The shared 2 and 5 join the four cells into one
+// component with four layouts; each 50/50 still qualifies on its own.
+{
+  const board = makeBoard([
+    '.*..*...',
+    '*..*....',
+    '.*****..',
+    '.*#.*.*.',
+    '..*.#...',
+  ]);
+  const clicked = board.at(2, 4);
+  const left = Justice.certifyEntry(board.view, clicked);
+  const right = Justice.certifyEntry(board.view, board.at(4, 4));
+  check('shared-number 50/50s: the clicked pair certified alone',
+    left !== null && left.cells.length === 2 && left.cells.includes(board.at(2, 3))
+      && left.clearWays === 1 && left.totalWays === 2);
+  check('shared-number 50/50s: the other pair certified alone',
+    right !== null && right.cells.length === 2 && right.cells.includes(board.at(4, 3)));
+  const redrawn = Justice.redrawEntry(left, clicked, board.mines, () => 0);
+  check('shared-number 50/50s: mined entry redrawn clear', validRedraw(board, redrawn, clicked));
+  check('shared-number 50/50s: the other pair untouched',
+    right.cells.every((cell) => redrawn[cell] === board.mines[cell]));
+}
+
+// 8c. A 50/50 with no number of its own: the 2s see it and the right-hand
+// pair together, and the right-hand 1 pins that pair, so subtraction pins
+// this one.
+{
+  const board = makeBoard([
+    '****',
+    '#.#.',
+    '*.*.',
+  ]);
+  const certificate = Justice.certifyEntry(board.view, board.at(0, 2));
+  check('subtracted 50/50: certified',
+    certificate !== null && certificate.mineCount === 1
+      && certificate.cells.length === 2 && certificate.cells.includes(board.at(0, 1)));
+  const redrawn = Justice.redrawEntry(certificate, board.at(0, 2), board.mines, () => 0);
+  check('subtracted 50/50: conditioned redraw valid',
+    validRedraw(board, redrawn, board.at(0, 2)));
+}
+
 // 9. Equal-sized overlapping constraints can prove their one-sided cells.
 {
   // Equal-size overlapping clues:
@@ -283,6 +326,130 @@ function validRedraw(board, redrawn, clicked) {
     }
   }
   check('exact facts match brute force on random constraint systems', matched);
+}
+
+// 11b. Stuck positions on random small boards, against brute force over
+// every layout the view allows. Each board opens one safe cell, opens every
+// proven-safe cell until none is left, is checked there, then opens one more
+// safe cell as a lucky guess and goes on. For every certificate: its family
+// holds in every layout, every family member can replace the group in every
+// layout, no covered cell outside the group that could still be opened sees
+// the members differently, and the redraw of a mined entry is a valid layout
+// with the entry clear.
+{
+  let state = 0x20261021;
+  const random = () => {
+    state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+    return state / 4294967296;
+  };
+  const pick = ([low, high]) => low + Math.floor(random() * (high - low + 1));
+  const subsets = (cells, k) => {
+    if (k === 0) return [[]];
+    if (cells.length < k) return [];
+    const [first, ...rest] = cells;
+    return [...subsets(rest, k - 1).map((tail) => [first, ...tail]), ...subsets(rest, k)];
+  };
+  const members = (certificate) => (certificate.type === 'complement'
+    ? [certificate.partitionA, certificate.partitionB]
+    : subsets(certificate.cells, certificate.mineCount)).map((mined) => new Set(mined));
+  let failure = null;
+  let positions = 0;
+  let certified = 0;
+  let partOfComponent = 0;
+  const checkPosition = (label, view, structure) => {
+    const { width, height, revealed, adjacent } = view;
+    const neighbors = (cell) => Justice.neighbors(cell, width, height);
+    const covered = [];
+    for (let cell = 0; cell < revealed.length; cell++) if (!revealed[cell]) covered.push(cell);
+    if (covered.length > 14) return;
+    positions++;
+    const consistent = (layout) => layout.filter(Boolean).length === view.mines
+      && revealed.every((open, cell) => !open || (!layout[cell]
+        && neighbors(cell).filter((n) => layout[n]).length === adjacent[cell]));
+    const layouts = [];
+    for (let mask = 0; mask < (1 << covered.length); mask++) {
+      const layout = new Array(revealed.length).fill(false);
+      covered.forEach((cell, bit) => { layout[cell] = ((mask >> bit) & 1) === 1; });
+      if (consistent(layout)) layouts.push(layout);
+    }
+    const seen = new Set();
+    for (const [entry, certificate] of Justice.certifyEntries(view, covered)) {
+      if (!layouts.some((layout) => layout[entry]) || !layouts.some((layout) => !layout[entry])) {
+        failure = label + ': certified a proven cell ' + entry;
+        return;
+      }
+      for (const layout of layouts.filter((candidate) => candidate[entry])) {
+        if (!validRedraw({ view }, Justice.redrawEntry(certificate, entry, layout, random), entry)) {
+          failure = label + ': invalid redraw of entry ' + entry;
+        }
+      }
+      if (seen.has(certificate)) continue;
+      seen.add(certificate);
+      certified++;
+      const component = structure.components[structure.componentOfCell.get(entry)];
+      if (component !== undefined && component.cells.length > certificate.cells.length) partOfComponent++;
+      const family = members(certificate);
+      const inFamily = (layout) => family.some((mined) => certificate.cells.every((cell) => layout[cell] === mined.has(cell)));
+      if (!layouts.every(inFamily)) failure = label + ': a layout outside the ' + certificate.type + ' family';
+      for (const layout of layouts) {
+        for (const mined of family) {
+          const swapped = layout.slice();
+          for (const cell of certificate.cells) swapped[cell] = mined.has(cell);
+          if (!consistent(swapped)) failure = label + ': a ' + certificate.type + ' member not possible';
+        }
+      }
+      for (const observer of covered) {
+        if (certificate.cells.includes(observer) || layouts.every((layout) => layout[observer])) continue;
+        const counts = new Set(family.map((mined) => neighbors(observer).filter((n) => mined.has(n)).length));
+        if (counts.size > 1) failure = label + ': cell ' + observer + ' could tell the group apart';
+      }
+    }
+  };
+  for (let board = 0; board < 800 && failure === null; board++) {
+    const width = pick([5, 6]);
+    const height = pick([5, 6]);
+    const size = width * height;
+    const mineTotal = pick([5, 8]);
+    const mines = new Array(size).fill(false);
+    for (let placed = 0; placed < mineTotal;) {
+      const cell = Math.floor(random() * size);
+      if (!mines[cell]) { mines[cell] = true; placed++; }
+    }
+    const neighbors = (cell) => Justice.neighbors(cell, width, height);
+    const adjacent = mines.map((mine, cell) => (mine ? 0 : neighbors(cell).filter((n) => mines[n]).length));
+    const revealed = new Array(size).fill(false);
+    const open = (start) => {
+      const stack = [start];
+      while (stack.length > 0) {
+        const cell = stack.pop();
+        if (revealed[cell]) continue;
+        revealed[cell] = true;
+        if (adjacent[cell] === 0) stack.push(...neighbors(cell).filter((n) => !revealed[n]));
+      }
+    };
+    const safe = [];
+    for (let cell = 0; cell < size; cell++) if (!mines[cell]) safe.push(cell);
+    open(safe[Math.floor(random() * safe.length)]);
+    while (failure === null) {
+      const view = { width, height, mines: mineTotal, revealed: revealed.slice(), adjacent };
+      const structure = Justice.buildStructure(view);
+      const provenSafe = [...structure.facts].filter(([cell, status]) => status === 2 && !revealed[cell]);
+      if (provenSafe.length > 0) {
+        for (const [cell] of provenSafe) open(cell);
+        continue;
+      }
+      const unopened = safe.filter((cell) => !revealed[cell]);
+      if (unopened.length === 0) break;
+      checkPosition('board ' + board, view, structure);
+      open(unopened[Math.floor(random() * unopened.length)]);
+    }
+  }
+  check('stuck positions: every certificate holds against brute force' + (failure ? ' (' + failure + ')' : ''),
+    failure === null);
+  check('stuck positions: certificates found (' + certified + ' in ' + positions + ' positions)',
+    certified >= 200);
+  check('stuck positions: groups inside larger components certified (' + partOfComponent + ')',
+    partOfComponent >= 15);
 }
 
 // 12. Chords categorically bypass Justice in the game integration. This is

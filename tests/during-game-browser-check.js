@@ -100,8 +100,8 @@ const shotDir = process.argv[4] || null;
     assert.equal(await block.locator('.stat-section-body').isVisible(), true, 'reopened');
     assert.equal(await page.evaluate(() => settings.panels.duringGame), true);
 
-    // Charts: progress, then every pace and board line on one chart against
-    // its whole-game value, then the event tracks; every plot on one time
+    // Charts: progress, then the event tracks, then every pace and board line
+    // on one chart against its whole-game value; every plot on one time
     // axis.
     const layout = await page.evaluate(() => {
       const shownRows = DuringGame.ROWS.filter((row) => settings.duringGameRows[row.id]);
@@ -110,12 +110,13 @@ const shotDir = process.argv[4] || null;
         const rect = svg.querySelector('rect.scatter-plot');
         return [Number(rect.getAttribute('x')), Number(rect.getAttribute('width'))];
       };
+      const rowsOf = (id) => (id === DURING_GAME_TRACKS_ID
+        ? DuringGame.TRACKS.flatMap(([track]) => shownRows.filter((row) => row.track === track))
+        : shownRows.filter((row) => row.chart === id));
       return {
-        expectedCharts: [...DuringGame.CHARTS.filter((chart) => shownRows.some((row) => row.chart === chart.id))
-          .map((chart) => chart.id), 'events'],
+        expectedCharts: DURING_GAME_PARTS.filter((id) => rowsOf(id).length > 0),
         charts: parts.map((part) => part.dataset.chart),
-        expectedLegend: [...DuringGame.CHARTS.flatMap((chart) => shownRows.filter((row) => row.chart === chart.id)),
-          ...DuringGame.TRACKS.flatMap(([id]) => shownRows.filter((row) => row.track === id))].map((row) => row.id),
+        expectedLegend: DURING_GAME_PARTS.flatMap(rowsOf).map((row) => row.id),
         legend: [...document.querySelectorAll('.during-game-legend-item')].map((item) => item.dataset.row),
         expectedTracks: DuringGame.TRACKS.filter(([id]) => shownRows.some((row) => row.track === id)).map(([id]) => id),
         tracks: [...document.querySelectorAll('.during-game-track-name')].map((name) => name.dataset.track),
@@ -128,7 +129,7 @@ const shotDir = process.argv[4] || null;
         blockOverflow: document.querySelector('.during-game').scrollWidth - document.querySelector('.during-game').clientWidth,
       };
     });
-    assert.deepEqual(layout.charts, ['progress', 'relative', 'events'], 'progress, the relative chart, then the tracks');
+    assert.deepEqual(layout.charts, ['progress', 'events', 'relative'], 'progress, the tracks, then the chart with 3BV/s');
     assert.deepEqual(layout.charts, layout.expectedCharts);
     assert.deepEqual(layout.legend, layout.expectedLegend, 'each chart and the tracks name their rows, in catalog order');
     assert.deepEqual(layout.tracks, layout.expectedTracks, 'one track per kind of event');
@@ -332,10 +333,11 @@ const shotDir = process.argv[4] || null;
 
     // The scale: linear from 0 with 1x labeled and drawn, remembered; the
     // legend's picks hold through the redraw, and the plots keep their place.
-    const scaleSelect = block.locator('.during-game-controls label', { hasText: 'scale' }).locator('select');
-    assert.equal(await scaleSelect.inputValue(), 'log', 'log by default');
+    const logScale = block.locator('.during-game-controls label', { hasText: 'log scale' }).locator('input[type="checkbox"]');
+    assert.equal(await block.locator('.during-game-controls select').count(), 1, 'averaging is the one select');
+    assert.equal(await logScale.isChecked(), true, 'log by default');
     await entry('actionGap').click();
-    await scaleSelect.selectOption('linear');
+    await logScale.uncheck();
     const linear = await page.evaluate(() => ({
       saved: settings.duringGameRelativeScale,
       labels: [...document.querySelectorAll('[data-chart="relative"] text.tick-y')].map((t) => t.textContent),
@@ -381,7 +383,7 @@ const shotDir = process.argv[4] || null;
     await drawn();
     assert.equal((await legendRows()).includes('mouseSpeed'), false);
     assert.equal(await averagingSelect.inputValue(), 'raw');
-    assert.equal(await scaleSelect.inputValue(), 'linear');
+    assert.equal(await logScale.isChecked(), false);
     assert.equal(await page.locator('[data-chart="relative"] text.tick-y').first().textContent(), '0\u00d7', 'drawn linear');
     assert.equal(await legendValue('flagRemovedEvents'), '1');
 

@@ -138,12 +138,14 @@ function hideDuringGameHover() {
 // measurements finish; averaging, scale, and configure redraw it), and
 // start over, every row shown, with another game.
 const DURING_GAME_TRACKS_ID = 'events';
+// The parts top to bottom (creator 2026-10-21: the chart against the whole
+// game, the one with 3BV/s, third, under the event tracks).
+const DURING_GAME_PARTS = ['progress', DURING_GAME_TRACKS_ID, 'relative'];
 let duringGamePicks = { endedAt: null, byPart: null };
 
 function duringGamePicksFor(endedAt) {
   if (duringGamePicks.endedAt !== endedAt) {
-    const ids = [...DuringGame.CHARTS.map((chart) => chart.id), DURING_GAME_TRACKS_ID];
-    duringGamePicks = { endedAt, byPart: Object.fromEntries(ids.map((id) => [id, new Set()])) };
+    duringGamePicks = { endedAt, byPart: Object.fromEntries(DURING_GAME_PARTS.map((id) => [id, new Set()])) };
   }
   return duringGamePicks.byPart;
 }
@@ -186,6 +188,22 @@ function duringGameSize(svg, width, height) {
   svg.setAttribute('height', height);
   svg.setAttribute('viewBox', '0 0 ' + width + ' ' + height);
   svg.replaceChildren();
+}
+
+// Where a part's plot ends, in px from its top: a chart's plot height under
+// the top margin, or one row per event track. Heights never depend on the
+// width, so a part has its full height before its first layout and drawing
+// it on a resize changes no element's size (inside a ResizeObserver callback
+// that would be the browser's "ResizeObserver loop" error).
+function duringGamePlotBottom(part) {
+  return part.id === DURING_GAME_TRACKS_ID
+    ? 1 + part.used.length * DURING_GAME_LAYOUT.track
+    : DURING_GAME_LAYOUT.top + part.plotHeight;
+}
+
+// The first and last parts carry the seconds under their plots.
+function duringGamePartHeight(part, labeled) {
+  return duringGamePlotBottom(part) + (labeled ? DURING_GAME_LAYOUT.xLabels : DURING_GAME_LAYOUT.bottom);
 }
 
 // Every value a row draws: steps, raw marks, and averages.
@@ -327,8 +345,8 @@ function drawDuringGameChart(chart, axis, labeled, relativeScale) {
   const scale = duringGameScale(chart.chart, shown.map((member) => member.row), relativeScale);
   const relative = chart.chart.scale === 'relative';
   const plotTop = DURING_GAME_LAYOUT.top;
-  const plotBottom = plotTop + plotHeight;
-  duringGameSize(svg, axis.width, plotBottom + (labeled ? DURING_GAME_LAYOUT.xLabels : DURING_GAME_LAYOUT.bottom));
+  const plotBottom = duringGamePlotBottom(chart);
+  duringGameSize(svg, axis.width, duringGamePartHeight(chart, labeled));
   duringGameShape(svg, 'rect', { x: axis.left, y: plotTop, width: axis.right - axis.left, height: plotHeight, class: 'scatter-plot' });
   drawDuringGameTimeAxis(svg, axis, plotTop, plotBottom, labeled);
   const y = scale === null ? null : (value) => plotBottom - scale.at(value) * plotHeight;
@@ -415,9 +433,9 @@ function duringGameLegendMark(spec) {
 function drawDuringGameTracks(tracks, axis, labeled) {
   const { svg, names, used } = tracks;
   const height = DURING_GAME_LAYOUT.track;
-  const plotBottom = 1 + used.length * height;
+  const plotBottom = duringGamePlotBottom(tracks);
   names.style.width = axis.left + 'px';
-  duringGameSize(svg, axis.width, plotBottom + (labeled ? DURING_GAME_LAYOUT.xLabels : DURING_GAME_LAYOUT.bottom));
+  duringGameSize(svg, axis.width, duringGamePartHeight(tracks, labeled));
   duringGameShape(svg, 'rect', { x: axis.left, y: 1, width: axis.right - axis.left, height: plotBottom - 1, class: 'scatter-plot' });
   drawDuringGameTimeAxis(svg, axis, 1, plotBottom, labeled);
   used.forEach((track, i) => {
@@ -546,7 +564,6 @@ function renderDuringGameCharts(charts, view, { raw, relativeScale, picks }) {
     }
     applyPicks(part);
     element.append(legend, svg);
-    charts.appendChild(element);
     drawnCharts.push(part);
   }
   const trackMembers = members.filter((member) => member.spec.track !== undefined);
@@ -582,21 +599,25 @@ function renderDuringGameCharts(charts, view, { raw, relativeScale, picks }) {
     }
     applyPicks(tracks);
     element.append(names, svg, legend);
-    charts.appendChild(element);
+  }
+  const built = [...drawnCharts, ...(tracks === null ? [] : [tracks])];
+  const parts = DURING_GAME_PARTS.flatMap((id) => built.filter((part) => part.id === id));
+  // The first and last parts carry the seconds.
+  const labeledPart = (part) => part === parts[0] || part === parts[parts.length - 1];
+  for (const part of parts) {
+    part.svg.setAttribute('height', duringGamePartHeight(part, labeledPart(part)));
+    charts.appendChild(part.element);
   }
   const line = document.createElement('div');
   line.className = 'during-game-line';
   line.hidden = true;
   charts.appendChild(line);
 
-  const parts = [...drawnCharts, ...(tracks === null ? [] : [tracks])];
   const left = duringGameLeftMargin(drawnCharts, tracks);
   let axis = null;
-  // The first and last parts carry the seconds.
   function drawPart(part) {
-    const labeled = part === parts[0] || part === parts[parts.length - 1];
-    if (part === tracks) drawDuringGameTracks(tracks, axis, labeled);
-    else drawDuringGameChart(part, axis, labeled, relativeScale);
+    if (part === tracks) drawDuringGameTracks(tracks, axis, labeledPart(part));
+    else drawDuringGameChart(part, axis, labeledPart(part), relativeScale);
   }
   function layout() {
     const width = Math.floor(charts.clientWidth);
@@ -852,22 +873,21 @@ function buildDuringGameBlock(record, isCurrent) {
   });
   const averagingLabel = document.createElement('label');
   averagingLabel.append('averaging ', averaging);
-  const scale = document.createElement('select');
-  scale.className = 'avg-mode-select';
-  for (const [id, label] of DuringGame.RELATIVE_SCALES) scale.add(new Option(label, id));
-  scale.value = settings.duringGameRelativeScale;
-  scale.addEventListener('change', () => {
-    updateSettings({ duringGameRelativeScale: scale.value });
+  const logScale = document.createElement('input');
+  logScale.type = 'checkbox';
+  logScale.checked = settings.duringGameRelativeScale === 'log';
+  logScale.addEventListener('change', () => {
+    updateSettings({ duringGameRelativeScale: logScale.checked ? 'log' : 'linear' });
     if (!configuring && drawn !== null) draw();
   });
-  const scaleLabel = document.createElement('label');
-  scaleLabel.append('scale ', scale);
+  const logScaleLabel = document.createElement('label');
+  logScaleLabel.append(logScale, ' log scale');
   const configure = button('configure', () => {
     if (configuring) showRows();
     else showConfigure();
   });
   configure.setAttribute('aria-pressed', 'false');
-  controls.append(averagingLabel, scaleLabel, configure);
+  controls.append(averagingLabel, logScaleLabel, configure);
   host.analysisReady = refresh();
   return host;
 }

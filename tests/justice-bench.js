@@ -90,12 +90,15 @@ function makeBoard(rows) {
   for (let i = 0; i + 1 < count; i++) {
     clues.push({ covered: [i, i + 1], count: 1 });
   }
-  const structure = { clues };
+  const cluesOfCell = new Map(cells.map((cell) => [cell,
+    [cell - 1, cell].filter((index) => index >= 0 && index < clues.length)]));
+  const structure = { clues, cluesOfCell };
   const component = { cells, clues: clues.map((_, index) => index) };
-  const shape = measure(
+  const groups = measure(
     '10,000-cell complement-chain structural proof',
-    () => Justice.complementShape(structure, component));
-  if (shape === null || shape.partitionA.length !== 5000) {
+    () => Justice.componentGroups(structure, component));
+  const chain = groups.chainOfCell.get(0);
+  if (chain.cells.length !== count || chain.partitionA.length !== 5000) {
     throw new Error('complement chain was not proven');
   }
 }

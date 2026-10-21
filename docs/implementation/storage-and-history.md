@@ -36,8 +36,14 @@ Spec: [docs/product/storage-and-history.md](../product/storage-and-history.md). 
   at parse). All reads/mutations touch RAM synchronously; every mutation
   calls `persistUserdata(kind, ramObject)`, an async fire-and-forget
   put (IndexedDB clones at put() time, so later RAM mutations cannot
-  race). The game page's `storageFailure` announces in #backup-status;
-  the settings page's in #settings-status — no silent storage loss.
+  race). The game page's `storageFailure` announces in #backup-status
+  (and, while booting, as "Could not load your saved game." on
+  #startup-status); the settings page's in #settings-status — no silent
+  storage loss. Any other error in `init()` goes to `startupFailure`: "The
+  game failed to start: …" on #startup-status (a storage failure shown
+  first stays), then the original error is rethrown so the error bar names
+  where it was thrown. Until 2026-10-21 `init().catch` passed every error
+  to `storageFailure`, so a startup bug read as a storage failure.
   The version-2 upgrade carries the pre-2026-08-20 localStorage keys
   (`LEGACY_LOCALSTORAGE_KEYS`) into `userdata` once, removing them after
   the upgrade transaction commits; deletable once every player's origin

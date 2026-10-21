@@ -325,7 +325,9 @@ rate, and unused flag share give per-game feedback.
 **2. Finish the runs you start.** Chord only over proven flags. Before any
 guess, scan the whole board for a safe move; take a truly forced guess at
 once. Remove a noticed wrong flag before chording near it. Drill 5 minutes of
-Endgame drill a day; if conversion stalls, 10 Intermediate Proof-or-die games.
+Endgame drill a day. Until 2026-10-21 the stage also said "if conversion
+stalls, 10 Intermediate Proof-or-die games"; that mode was removed with the
+other no-guess modes ([Play modes](play-modes.md)).
 
 **3. Read and move faster.** Read with the eyes, not the cursor: move only
 toward an already-solved cell and solve the next area while clicking the

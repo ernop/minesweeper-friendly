@@ -221,7 +221,7 @@ middle? that's okay."
   parameters. Its name is the board ("Beginner", "Custom 20x20-60"), then,
   in its own column so variants line up, the play mode unless it is the
   default Standard and the generator unless it is the default
-  ("Uniform NG", "Pink noise (spectral exponent 1, …)"). The variant column
+  ("Angelic", "Pink noise (spectral exponent 1, …)"). The variant column
   appears only when some row has one (creator 2026-10-08: "we must must
   valign the 'Standard' aspect. actually, do we even need that? it's
   default, how about just not having that?"). Columns: board type, games,
@@ -278,7 +278,8 @@ middle? that's okay."
     measured. Lost: no avoidable risk; riskier guess than necessary;
     guessed while a safe move was available; wrong flag made a mine look
     safe; opened a proven mine; Proof-or-die rule death with no proven-safe
-    move available; risk not measured; judged before loss types (the legacy
+    move available (saved games of that mode, removed 2026-10-21); risk not
+    measured; judged before loss types (the legacy
     verdicts); not judged.
   - **Level 3, the type:** under won, without guessing or guessing only at
     the lowest risk; a riskier guess in the opening or after it. Under
@@ -311,8 +312,8 @@ middle? that's okay."
   size and mine count, play mode, and generator, the same type as a
   summary row and a history key (creator 2026-10-20, asked whether to split
   a size's modes and generators apart: "yes, spli treethat way"). Modes
-  stay apart because their rules change what a guess can do (Angelic,
-  Proof-or-die, NG), and a generator changes the boards. The shown game is
+  stay apart because their rules change what a guess can do (in Angelic a
+  guess cannot kill), and a generator changes the boards. The shown game is
   the one the summary is built for: the win just finished, or after a loss
   and in the scores view the latest win of the board being played (the
   loss itself when that board has no win), so it is always that board's
@@ -321,7 +322,7 @@ middle? that's okay."
   (2026-10-12: "loss-type should be split by main game type (small,
   medium, expert)").
   - Columns: result; the count, headed with the type as a summary row
-    names it ("Expert games", "Expert · NG games", "Custom 20x20-60
+    names it ("Expert games", "Expert · Angelic games", "Custom 20x20-60
     games"); then one share column per level, headed "how it ended" ("won
     or lost" until abandoned joined it on 2026-10-20), "worst offense", and
     "type"; then "lifetime" (below). Every session share is of all that

@@ -639,15 +639,24 @@ assertContains('recap counts the flips',
 assertContains('recap singular', justiceRecapText(1), 'a forced coinflip');
 assertEq('recap never reveals mine reality',
   /redraw|moved|already clear|mined/.test(justiceRecapText(3)), false);
-assertContains('event detail names the pocket',
-  justiceEventDetail({ type: 'sea', clearWays: 3, totalWays: 5 }, 0),
-  'sealed sea pocket (3/5 layouts clear)');
+const seaDetail = { type: 'sea', squareCount: 5, mineCount: 2, clearWays: 3, totalWays: 5 };
+assertEq('event detail names a 50/50 plainly',
+  justiceEventDetail({ type: 'cardinality', squareCount: 2, mineCount: 1, clearWays: 1, totalWays: 2 }, 0),
+  '#1: a 50/50 \u2014 a forced coinflip, won.');
+assertContains('event detail names a chain of 50/50s',
+  justiceEventDetail({ type: 'complement', squareCount: 6, mineCount: 3, clearWays: 1, totalWays: 2 }, 1),
+  'a chain of 50/50s over 6 squares');
+assertContains('event detail counts mines among squares',
+  justiceEventDetail({ type: 'cardinality', squareCount: 3, mineCount: 1, clearWays: 2, totalWays: 3 }, 0),
+  '1 mine among 3 squares (2 in 3 safe)');
+assertContains('event detail names the untouched squares',
+  justiceEventDetail(seaDetail, 0),
+  '2 mines among the last 5 squares no number touches (3 in 5 safe)');
 assertContains('event detail calls the entry a won coinflip',
-  justiceEventDetail({ type: 'complement', clearWays: 1, totalWays: 2 }, 1),
+  justiceEventDetail({ type: 'complement', squareCount: 2, mineCount: 1, clearWays: 1, totalWays: 2 }, 1),
   'a forced coinflip, won');
 assertEq('event detail never reveals mine reality',
-  /redraw|moved|already clear|mined/.test(
-    justiceEventDetail({ type: 'sea', clearWays: 3, totalWays: 5 }, 0)),
+  /redraw|moved|already clear|mined/.test(justiceEventDetail(seaDetail, 0)),
   false);
 
 // Loss types refine the fatal status with facts from the saved position.

@@ -23,8 +23,8 @@ Spec: [docs/product/board-generators.md](../product/board-generators.md). Index:
   (per-generator overrides, deep-copied in `settingsFrom`), the
   `#board-generator-select` menu in `#mode-options`
   (`buildBoardGeneratorSwitcher`; `syncGameChoice` hides its label
-  `#board-generator` when `generatorAppliesToMode` is false, in
-  single-path NG and trials, and the whole row is hidden for presets),
+  `#board-generator` when `generatorAppliesToMode` is false, in the
+  trials, and the whole row is hidden for presets),
   `activeGenerator` (the uniform generator for a preset difficulty or a
   mode it does not apply to, else the stored choice with its parameters),
   `gameGenerator` frozen per board in `newGame`, `topScoreKeyOf` /

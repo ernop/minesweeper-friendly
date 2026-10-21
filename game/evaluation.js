@@ -218,7 +218,9 @@ function fatalEvaluationOf(record) {
 // The modern fatal-action status: one exclusive kind per fatal action,
 // refined below into the loss type that the after-game report and the
 // session results both name. FATAL_STATUS_LABELS words each status;
-// a status the loss type does not refine keeps these words.
+// a status the loss type does not refine keeps these words. The proof
+// statuses belong to games saved in Proof-or-die, a mode removed
+// 2026-10-21 with the other no-guess modes; no new game produces them.
 const FATAL_STATUS_LABELS = {
   'mine-safe': 'opened a proven mine while a safe move was available',
   'mine-forced': 'opened a proven mine when a guess was required',
@@ -425,9 +427,10 @@ function refinedLossType(evaluation, status) {
   const position = evaluation.position;
   const provenMine = status === 'mine-safe' || status === 'mine-forced';
   const proofOrDie = evidence.playMode === 'proof-or-die';
-  // Proof-or-die ends a game on any unproven open, so there a chord over
-  // unproven squares is a rule death like an unproven reveal, and only a
-  // proven mine shows the opened square was mined.
+  // Proof-or-die (removed; its saved games remain) ended a game on any
+  // unproven open, so there a chord over unproven squares is a rule death
+  // like an unproven reveal, and only a proven mine shows the opened square
+  // was mined.
   if (proofOrDie && evaluation.action === 'chord' && !provenMine) {
     return evaluationProvenSafeAvailable(evidence)
       || evaluationJusticeSafeAvailable(evidence) ? 'proof-safe' : 'proof-forced';
@@ -556,7 +559,8 @@ const WIN_TYPE_LABELS = {
 };
 
 function winTypeOf(record) {
-  // Proof-or-die kills every unproven open, so its wins never guessed.
+  // Proof-or-die (removed; its saved games remain) killed every unproven
+  // open, so its wins never guessed.
   if (record.playMode === 'proof-or-die') return 'win-no-guess';
   const evaluations = record.actionEvaluations;
   if (evaluations.some((evaluation) => evaluation.legacy
@@ -1090,17 +1094,31 @@ function justiceRecapText(count) {
   const flips = count === 1
     ? 'a forced coinflip' : count + ' forced coinflips';
   return 'Due to the rule "A Just Universe", you won ' + flips
-    + ': every bare entry into a sealed pocket that no outside clue '
-    + 'could ever resolve lands in your favor.';
+    + ': every click into a guess that nothing else on the board could '
+    + 'ever settle goes your way.';
 }
 
-// One recap line per Justice event of the just-finished game. The clear
-// and total layout counts are the player's own information (derived from
+// One recap line per Justice event of the just-finished game, naming the
+// guess in plain words (creator 2026-10-21: no coined terms with players).
+// The counts and odds are the player's own information (derived from
 // visible clues); nothing here peeks behind the board.
 function justiceEventDetail(detail, index) {
-  return '#' + (index + 1) + ': entry into a sealed ' + detail.type
-    + ' pocket (' + detail.clearWays + '/' + detail.totalWays
-    + ' layouts clear) \u2014 a forced coinflip, won.';
+  return '#' + (index + 1) + ': ' + justiceGuessName(detail)
+    + ' \u2014 a forced coinflip, won.';
+}
+
+function justiceGuessName(detail) {
+  if (detail.squareCount === 2 && detail.totalWays === 2) return 'a 50/50';
+  if (detail.type === 'complement') {
+    return 'a chain of 50/50s over ' + detail.squareCount + ' squares';
+  }
+  const mines = detail.mineCount === 1 ? '1 mine' : detail.mineCount + ' mines';
+  const odds = ' (' + detail.clearWays + ' in ' + detail.totalWays + ' safe)';
+  if (detail.type === 'sea') {
+    return mines + ' among the last ' + detail.squareCount
+      + ' squares no number touches' + odds;
+  }
+  return mines + ' among ' + detail.squareCount + ' squares' + odds;
 }
 
 //-------GAME-END EVALUATION: CAPTURE (reads the live board at the fatal act)-------
@@ -1190,29 +1208,15 @@ function setDecisionChoices(evaluation, kind, candidates, risk) {
   evaluation.choices = [choice];
 }
 
-function evaluateRevealAction(index, firstReveal, guessEvent, action = 'reveal') {
-  const evaluation = actionEvaluationBase(action, inputActionCount, [index]);
+function evaluateRevealAction(index, firstReveal, guessEvent) {
+  const evaluation = actionEvaluationBase('reveal', inputActionCount, [index]);
   evaluation.evidence.firstReveal = firstReveal;
-  let local;
-  try {
-    local = coveredFactsInfo();
-  } catch (err) {
-    backupStatus.textContent = 'action evaluation failed: ' + err.message;
-    local = {
-      facts: new Map(),
-      safeCells: [],
-      mineCells: [],
-      safeAvailable: false,
-      complete: false,
-    };
-    evaluation.evidence.factsMeasured = false;
-  }
+  const local = coveredFactsInfo();
   const measuredGuess = guessEvent && guessEvent.measured === true;
   const provenMine = local.facts.get(index) === 1
     || (measuredGuess && guessEvent.p >= 1 - 1e-12);
   const provenSafe = local.facts.get(index) === 2;
-  evaluation.evidence.factsMeasured = evaluation.evidence.factsMeasured !== false
-    && local.complete;
+  evaluation.evidence.factsMeasured = local.complete;
   evaluation.evidence.knowledge = provenMine ? 'proven-mine'
     : provenSafe ? 'proven-safe'
       : local.complete ? 'uncertain' : 'unmeasured';
@@ -1297,99 +1301,82 @@ function evaluateRevealAction(index, firstReveal, guessEvent, action = 'reveal')
 
 function evaluateChordAction(index, toReveal) {
   const evaluation = actionEvaluationBase('chord', inputActionCount, toReveal, index);
-  try {
-    const view = playerView();
-    const local = coveredFactsInfo(view);
-    const odds = Odds.analyzeView(view);
-    const oddsMeasured = odds.measured === true;
-    const isSafe = (cell) => local.facts.get(cell) === 2
-      || (oddsMeasured && odds.pMine[cell] <= 1e-12);
-    const isMine = (cell) => local.facts.get(cell) === 1
-      || (oddsMeasured && odds.pMine[cell] >= 1 - 1e-12);
-    const flagged = neighbors(index).filter((cell) => cells[cell].flagged);
-    const wrongFlags = flagged.filter(isSafe);
-    const openedMines = toReveal.filter(isMine);
-    const safeCells = [];
-    for (let cell = 0; cell < cells.length; cell++) {
-      if (!view.revealed[cell] && isSafe(cell)) safeCells.push(cell);
-    }
-    evaluation.evidence.factsMeasured = local.complete || oddsMeasured;
-    evaluation.evidence.oddsMeasured = oddsMeasured;
-    evaluation.evidence.safeAvailable = safeCells.length > 0;
-    evaluation.evidence.wrongFlags = wrongFlags;
-    evaluation.evidence.openedProvenMines = openedMines;
-    setDecisionChoices(evaluation, 'guaranteed-safe-reveal',
-      safeCells.filter((cell) => !cells[cell].flagged), 0);
-    if (wrongFlags.length > 0 || openedMines.length > 0) {
-      evaluation.mistakes.push('chord-visible-contradiction');
-    }
-    addAlternative(evaluation, 'unflag-proven-safe', wrongFlags);
-    addAlternative(evaluation, 'flag-proven-mine', openedMines);
-    addAlternative(evaluation, 'safe-reveal',
-      safeCells.filter((cell) => !cells[cell].flagged), 0);
-    if (settings.playMode === 'proof-or-die'
-        && (local.complete || oddsMeasured)
-        && toReveal.some((cell) => !isSafe(cell))
-        && safeCells.length > 0) {
-      evaluation.mistakes.push('opened-unproven-with-safe-move');
-      addAlternative(evaluation, 'safe-reveal', safeCells, 0);
-    }
-  } catch (err) {
-    backupStatus.textContent = 'action evaluation failed: ' + err.message;
-    evaluation.evidence.factsMeasured = false;
+  const view = playerView();
+  const local = coveredFactsInfo(view);
+  const odds = Odds.analyzeView(view);
+  const oddsMeasured = odds.measured === true;
+  const isSafe = (cell) => local.facts.get(cell) === 2
+    || (oddsMeasured && odds.pMine[cell] <= 1e-12);
+  const isMine = (cell) => local.facts.get(cell) === 1
+    || (oddsMeasured && odds.pMine[cell] >= 1 - 1e-12);
+  const flagged = neighbors(index).filter((cell) => cells[cell].flagged);
+  const wrongFlags = flagged.filter(isSafe);
+  const openedMines = toReveal.filter(isMine);
+  const safeCells = [];
+  for (let cell = 0; cell < cells.length; cell++) {
+    if (!view.revealed[cell] && isSafe(cell)) safeCells.push(cell);
   }
+  evaluation.evidence.factsMeasured = local.complete || oddsMeasured;
+  evaluation.evidence.oddsMeasured = oddsMeasured;
+  evaluation.evidence.safeAvailable = safeCells.length > 0;
+  evaluation.evidence.wrongFlags = wrongFlags;
+  evaluation.evidence.openedProvenMines = openedMines;
+  setDecisionChoices(evaluation, 'guaranteed-safe-reveal',
+    safeCells.filter((cell) => !cells[cell].flagged), 0);
+  if (wrongFlags.length > 0 || openedMines.length > 0) {
+    evaluation.mistakes.push('chord-visible-contradiction');
+  }
+  addAlternative(evaluation, 'unflag-proven-safe', wrongFlags);
+  addAlternative(evaluation, 'flag-proven-mine', openedMines);
+  addAlternative(evaluation, 'safe-reveal',
+    safeCells.filter((cell) => !cells[cell].flagged), 0);
   return evaluation;
 }
 
 function evaluateFlagAction(index, removing) {
   const action = removing ? 'flag-remove' : 'flag-place';
   const evaluation = actionEvaluationBase(action, inputActionCount, [index]);
-  try {
-    const view = playerView();
-    const local = coveredFactsInfo(view);
-    const odds = Odds.analyzeView(view);
-    const oddsMeasured = odds.measured === true;
-    const provenMine = local.facts.get(index) === 1
-      || (oddsMeasured && odds.pMine[index] >= 1 - 1e-12);
-    const provenSafe = local.facts.get(index) === 2
-      || (oddsMeasured && odds.pMine[index] <= 1e-12);
-    const mineCells = [];
-    if (oddsMeasured) {
-      for (let cell = 0; cell < cells.length; cell++) {
-        if (!view.revealed[cell] && odds.pMine[cell] >= 1 - 1e-12) mineCells.push(cell);
+  const view = playerView();
+  const local = coveredFactsInfo(view);
+  const odds = Odds.analyzeView(view);
+  const oddsMeasured = odds.measured === true;
+  const provenMine = local.facts.get(index) === 1
+    || (oddsMeasured && odds.pMine[index] >= 1 - 1e-12);
+  const provenSafe = local.facts.get(index) === 2
+    || (oddsMeasured && odds.pMine[index] <= 1e-12);
+  const mineCells = [];
+  if (oddsMeasured) {
+    for (let cell = 0; cell < cells.length; cell++) {
+      if (!view.revealed[cell] && odds.pMine[cell] >= 1 - 1e-12) mineCells.push(cell);
+    }
+  } else {
+    mineCells.push(...local.mineCells);
+  }
+  evaluation.evidence.factsMeasured = local.complete || oddsMeasured;
+  evaluation.evidence.oddsMeasured = oddsMeasured;
+  evaluation.evidence.knowledge = provenMine ? 'proven-mine'
+    : provenSafe ? 'proven-safe'
+      : (local.complete || oddsMeasured) ? 'uncertain' : 'unmeasured';
+  if (removing) {
+    const safeFlags = [];
+    for (let cell = 0; cell < cells.length; cell++) {
+      if (cells[cell].flagged
+          && (local.facts.get(cell) === 2
+            || (oddsMeasured && odds.pMine[cell] <= 1e-12))) {
+        safeFlags.push(cell);
       }
-    } else {
-      mineCells.push(...local.mineCells);
     }
-    evaluation.evidence.factsMeasured = local.complete || oddsMeasured;
-    evaluation.evidence.oddsMeasured = oddsMeasured;
-    evaluation.evidence.knowledge = provenMine ? 'proven-mine'
-      : provenSafe ? 'proven-safe'
-        : (local.complete || oddsMeasured) ? 'uncertain' : 'unmeasured';
-    if (removing) {
-      const safeFlags = [];
-      for (let cell = 0; cell < cells.length; cell++) {
-        if (cells[cell].flagged
-            && (local.facts.get(cell) === 2
-              || (oddsMeasured && odds.pMine[cell] <= 1e-12))) {
-          safeFlags.push(cell);
-        }
-      }
-      setDecisionChoices(evaluation, 'proven-safe-flag-to-remove', safeFlags);
-    } else {
-      setDecisionChoices(evaluation, 'proven-mine-to-flag', mineCells);
-    }
-    if (!removing && evaluation.evidence.knowledge === 'proven-safe') {
-      evaluation.mistakes.push('flagged-proven-safe');
-      addAlternative(evaluation, 'flag-proven-mine', mineCells);
-    }
-    if (removing && evaluation.evidence.knowledge === 'proven-mine') {
-      evaluation.mistakes.push('removed-proven-mine-flag');
-      addAlternative(evaluation, 'keep-proven-mine-flag', [index]);
-    }
-  } catch (err) {
-    backupStatus.textContent = 'action evaluation failed: ' + err.message;
-    evaluation.evidence.factsMeasured = false;
+    setDecisionChoices(evaluation, 'proven-safe-flag-to-remove', safeFlags);
+  } else {
+    setDecisionChoices(evaluation, 'proven-mine-to-flag', mineCells);
+  }
+  if (!removing && evaluation.evidence.knowledge === 'proven-safe') {
+    evaluation.mistakes.push('flagged-proven-safe');
+    addAlternative(evaluation, 'flag-proven-mine', mineCells);
+  }
+  if (removing && evaluation.evidence.knowledge === 'proven-mine') {
+    evaluation.mistakes.push('removed-proven-mine-flag');
+    addAlternative(evaluation, 'keep-proven-mine-flag', [index]);
   }
   return evaluation;
 }

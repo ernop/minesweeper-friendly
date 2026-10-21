@@ -13,8 +13,8 @@ function analysisFailure(error) {
 // Each lane is one worker. The analysis lanes compute on data the page sends;
 // the switch-cost lane's worker reads the saved traces it needs itself.
 function startAnalysisWorker(lane) {
-  if (lane === 'switch-cost') return new Worker('switch-cost-worker.js?v=20261020-switch-cost-per-game');
-  return new Worker('analysis-worker.js?v=20261021-replay-toggles');
+  if (lane === 'switch-cost') return new Worker('switch-cost-worker.js?v=20261021-ng-removed');
+  return new Worker('analysis-worker.js?v=20261021-ng-removed');
 }
 
 async function analysisTask(lane, kind, payload) {
@@ -27,8 +27,14 @@ async function analysisTask(lane, kind, payload) {
       const request = state.pending.get(data.id);
       if (!request) throw new Error('Unknown analysis reply ' + data.id);
       state.pending.delete(data.id);
-      if (data.error) request.reject(new Error(data.error));
-      else request.resolve(data.result);
+      if (data.error) {
+        // The worker's own stack, so the error bar names where it threw.
+        const error = new Error(data.error);
+        error.stack = data.stack;
+        request.reject(error);
+      } else {
+        request.resolve(data.result);
+      }
     };
     worker.onerror = (event) => {
       event.preventDefault();

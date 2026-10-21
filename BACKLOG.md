@@ -90,9 +90,9 @@ Proposed, not decided:
 - **Scope.** The board type being played (size, play mode, and generator;
   Standard Beginner is simply Beginner) in the page-wide session. Other types
   do not appear. Modes stay apart because their rules change what a guess
-  can do (Angelic, Proof-or-die, NG). Built 2026-10-15 by size, then on
-  2026-10-20 by board type (creator: "yes, spli treethat way"), so an NG
-  Expert game and a Standard Expert game no longer share one tree.
+  can do (in Angelic a guess cannot kill). Built 2026-10-15 by size, then on
+  2026-10-20 by board type (creator: "yes, spli treethat way"), so an
+  Angelic Expert game and a Standard Expert game no longer share one tree.
 - **Level 1, how the board ended:** won, lost, or abandoned (restarted, or
   the page closed before the end). A board counts once it ends. Shares are of
   games started, so every level sums to its parent; every game is in exactly
@@ -116,8 +116,9 @@ Proposed, not decided:
   flag; opened a proven mine (by proof level); guessed while a square was
   proven safe (by proof level, or A Just Universe); a riskier guess than
   necessary (after the opening, near or far as today); a forced guess at the
-  lowest risk available. Proof-or-die rule deaths and unmeasured risk keep
-  their own rows; losses without evidence are "not judged".
+  lowest risk available. Proof-or-die rule deaths (saved games of that mode,
+  removed 2026-10-21) and unmeasured risk keep their own rows; losses
+  without evidence are "not judged".
 - **Overlays**, counted within the losses, never adding to them: the two
   likely-misclick reasons, and a new *rushed* row: the fatal click came under
   half a second after the click before it.
@@ -502,9 +503,8 @@ Earlier proposals, still open:
 - **Drills aimed at the stages.** A timed recognize-and-click drill over local
   positions taken from the player's own long pauses and misreads, shown in all
   rotations and reflections with look-alike patterns mixed together (far
-  transfer from generic drills is near zero); a mid-game sprint (a
-  deduction-only mid-game position, the Endgame drill's larger sibling);
-  full-length Expert no-guess practice if generation cost allows.
+  transfer from generic drills is near zero); and a mid-game sprint (a
+  deduction-only mid-game position, the Endgame drill's larger sibling).
 - **Technique comparisons.** Built: the training page compares games with and
   without each player state on the same days, in alternating blocks, with the
   plan's fixed four-pair rule and a 95% interval for the win-time difference
@@ -849,37 +849,31 @@ noise, stippled, letterforms, and patriotic (the last removed
 - **Flags and emblems.** The removed patriotic generator was
   stars-and-stripes; flag geometries generally (tricolors, crosses,
   circles) are a region-allocation pattern with different regions.
-- **Combined modes and sizes.** More modes that combine generators
-  with the NG/graded predicates, and new board sizes as their own
-  ranked keys — the top score key already carries all of it.
+- **New board sizes.** New board sizes as their own ranked keys — the
+  top score key already carries them.
 
 ### Solver-aware modes (mapped)
 
-From the design axis in [docs/product/design-axis.md](docs/product/design-axis.md). NG generation is generate → solve →
-reject/repair → repeat. Solver tiers are now implemented as (a) direct
+From the design axis in [docs/product/design-axis.md](docs/product/design-axis.md). Its
+no-guess tiers (NG, Evil NG, Graded NG) were dropped 2026-10-21 with the
+no-guess modes ([Play modes](docs/product/play-modes.md)). Solver tiers are now implemented as (a) direct
 counting, (b) arbitrary overlap-difference deduction, and (c) exhaustive
 frontier-component search joined through the global mine count and sea.
 This is layout-consistency solving, not a finite named-pattern catalog.
 Derived session result: a
 1-2…2-1 wall chain with k twos is fully forced unless k ≡ 0 (mod 3).
 
-- **No-guess (NG) as its own menu mode.** Uniform / single-path /
-  proof-or-die already generate NG boards ([Play modes](docs/product/play-modes.md)).
-  A separate unlabeled "any NG" item is not in the menu.
-- **Evil NG.** NG plus a difficulty floor: at least one advanced
-  deduction per board.
-- **Graded NG.** Score each board by the hardest required technique, as
-  Sudoku grading does. Uniform-hardness NG is built (one grade for every
-  step); a visible grade label / picker is not.
 - **Kaboom.** Mines stay unfixed; any unforced guess is a mine, forced
   guesses are always safe.
 - **Justice v1 family expansion.** Asymmetric or exotic sealed structure
   still refused. Angelic mode (2026-08-21) is the rest of the dual for
   play: any cell that is not a proven mine is made safe. Expanding
-  Justice certificates is a further step.
-
-minesweeper.online NG also gives a starting position (green X). That
-opening style is not built here.
+  Justice certificates is a further step. Built 2026-10-21: groups are
+  judged one by one inside a connected region, so 50/50s and k-of-n
+  groups joined by a shared number qualify
+  ([A just universe](docs/product/just-universe.md)). Still refused: a
+  group whose count no clue pins even after subtraction, an unequal or
+  unevenly seen chain, and a sea that is not the only one.
 
 ### Boards shaped like the lists above (creator interest, 2026-08-21)
 
@@ -1030,8 +1024,7 @@ from the RAM trace of the game just ended. Not built:
   "3BV N"; board-shape time lists (has 8 / has 7 / max 4 / max 3 /
   max 2 / islands / largest island / zeros); average-time charts; streaks;
   five relationship scatters; markless; states; settings; traces; four in-page motion
-  systems; "A just universe" v1; play-mode switcher; Uniform NG;
-  Single-path NG; Proof-or-die; Angelic; Trial (25 identities × 4
+  systems; "A just universe" v1; play-mode switcher; Angelic; Trial (25 identities × 4
   isometries, lobby → start → repeat-comparison review); Short
   trial (4 × 4); Test trial (1 × 4); correctness / throughput / IOS
   (derived); guess ledger (life lost, needless, ideal-risk, one-ply
