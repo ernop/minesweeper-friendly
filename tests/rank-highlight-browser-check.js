@@ -388,7 +388,7 @@ const { chromium } = require(process.argv[2]);
       for (const span of [spanOf(180, [9, 9, 10], null), spanOf(29, [9, 9, 10], 'restarted'),
         spanOf(25, [30, 16, 99], 'restarted')]) playSpans.set(span.startedAt, span);
       resultRanks.replaceChildren(buildSessionSummary(current, now));
-      const abandoned = { results: read().results, recordedFrom: localDateText(now - 180 * 60000) };
+      const abandoned = { results: read().results };
       playSpans.clear();
       const oldCustom = game(60 * 24 * 40, 'win', 90000);
       history = { ...savedHistory, '20x20/60@standard': [oldCustom] };
@@ -479,10 +479,9 @@ const { chromium } = require(process.argv[2]);
       ['after the opening this', '1', '', '', '25%', '17%'],
       ['lost', '1', '25%', '', '', '17%'],
       ['not judged', '1', '', '25%', '', '17%'],
-      ['abandoned (recorded since ' + sessionSummary.abandoned.recordedFrom + ')', '1', '25%', '', '', '33%'],
+      ['abandoned', '1', '25%', '', '', '33%'],
     ], 'abandoned boards of the type count beside won and lost: the restart in the hour in the session, the closed page '
-      + 'in lifetime too, the Expert restart in neither; the row says since when boards record it, as lifetime reaches '
-      + 'back before then');
+      + 'in lifetime too, the Expert restart in neither; the row carries no recorded-since note');
     assert.equal(sessionSummary.noSizeGames, 'no Custom 20x20-60 games in session',
       'a size without session games says so in place of its tree');
     assert.deepEqual(sessionSummary.short.results, [

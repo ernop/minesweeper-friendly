@@ -98,8 +98,7 @@ Proposed, not decided:
   games started, so every level sums to its parent; every game is in exactly
   one leaf. Built 2026-10-20, abandoned also counting a board cut off by its
   trial's end, with no deeper rows: boards record how they left play from
-  then, and the row says "recorded since" its date when the lifetime
-  reaches back before it ([Session summary](docs/product/rankings.md)).
+  then ([Session summary](docs/product/rankings.md)).
 - **Won, named by the worst risk survived:**
   - *clean*, no risk the board did not force: no guess after the first
     click; or forced guesses only, each at the lowest risk available;

@@ -338,10 +338,12 @@ middle? that's okay."
     closed with it in play. A board counts once it is abandoned; one still
     in play in any tab is not counted. It has no deeper rows. Boards record
     how they left play from 2026-10-20 ([Daily play
-    limits](play-limits.md), play spans); earlier games include no
-    abandoned ones, so when the lifetime reaches back before the first board
-    recorded that way the row reads "abandoned (recorded since
-    2026-10-20)", with that board's date. A summary narrowed to no-mark
+    limits](play-limits.md), play spans), so earlier games include no
+    abandoned ones. The row reads "abandoned" alone. Until 2026-10-21, when
+    the lifetime reached back before the first board recorded that way, it
+    read "abandoned (recorded since 2026-10-20)", with that board's date;
+    the creator had the note removed (2026-10-21: "remove this note: "
+    (recorded since 2026-10-20)""). A summary narrowed to no-mark
     games has no abandoned row, since whether an abandoned board had a flag
     is not recorded. Abandoned boards never count in the summary rows above
     the tree, whose games and win rate stay finished games.

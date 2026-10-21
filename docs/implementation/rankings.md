@@ -196,9 +196,10 @@ Spec: [docs/product/rankings.md](../product/rankings.md). Index: [AGENTS.md](../
   `from`. `recordedFrom` is the earliest start among spans with an
   `ending` field, null before any. `buildSessionSummary` passes `abandoned`
   only when the history is not narrowed to no-mark games and
-  `recordedFrom` is set; the totals then add the counts, and the row's
-  label adds "(recorded since <local date>)" when a lifetime record ended
-  before `recordedFrom`. Liveness uses `Date.now()`, so a board in play in
+  `recordedFrom` is set; the totals then add the counts, and the row is
+  labeled "abandoned" alone (its "(recorded since <local date>)" suffix,
+  shown when a lifetime record ended before `recordedFrom`, was removed
+  2026-10-21). Liveness uses `Date.now()`, so a board in play in
   any tab is not yet abandoned.
   This game (2026-10-15): `renderRanks` passes its `boardRecord`: for a
   loss, whose tables follow its board's latest win, results.js sets

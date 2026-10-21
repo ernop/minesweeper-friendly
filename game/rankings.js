@@ -988,12 +988,6 @@ function sessionSummaryTypeParts(key, generator, noMark) {
       .filter((part) => part !== null).join(' · ') };
 }
 
-// A moment's local date, as 2026-10-20.
-function localDateText(ms) {
-  const d = new Date(ms);
-  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-}
-
 // The history the session summary counts. A no-mark win narrows its own
 // history key to no-mark games, so that row's counts and lifetime rank
 // match the no-mark lists. Every other board type stays whole.
@@ -1196,12 +1190,8 @@ function buildSessionSummaryResults(typeRow, typeLabel, thisGame, lifetimeRecord
       lifetime.likelyMisclicks[reason] || 0)]);
   });
   if (abandoned !== null) {
-    // Lifetime games from before boards recorded how they left play include
-    // no abandoned ones, so the row says since when it counts.
-    const partial = lifetimeRecords.some((r) => r.endedAt < abandoned.recordedFrom);
     line('session-summary-row session-summary-depth-1 session-summary-group-first',
-      [cell('session-summary-result', 'abandoned' + (partial ? ' (recorded since ' + localDateText(abandoned.recordedFrom) + ')' : '')),
-        ...countCells(1, abandoned.session, abandoned.lifetime)]);
+      [cell('session-summary-result', 'abandoned'), ...countCells(1, abandoned.session, abandoned.lifetime)]);
   }
   return grid;
 }
