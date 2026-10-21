@@ -34,12 +34,6 @@ function bindTrialSection(element, key, initiallyOpen) {
   });
 }
 
-function syncReviewPreferences() {
-  if (!pathViewAvailable()) return;
-  if (settings.panels.reviewOptions && reviewOptions.popover !== null
-      && !reviewOptions.matches(':popover-open')) reviewOptions.showPopover();
-}
-
 function flushViewPosition() {
   clearTimeout(preferenceScrollTimer);
   preferenceScrollTimer = null;
@@ -61,15 +55,11 @@ function initGamePreferences() {
   importText.value = settings.drafts.historyImport;
   statesAddInput.value = settings.drafts.stateName;
   if (settings.panels.gameDetails && pageLayout.classList.contains('compact-sidebar')) gameSidebar.showPopover();
-  syncReviewPreferences();
 
-  for (const [element, key] of [[gameSidebar, 'gameDetails'], [reviewOptions, 'reviewOptions']]) {
-    element.addEventListener('toggle', () => {
-      if (key === 'gameDetails' && !pageLayout.classList.contains('compact-sidebar')) return;
-      if (key === 'reviewOptions' && (!pathViewAvailable() || pageLayout.classList.contains('compact-sidebar'))) return;
-      rememberPanel(key, element.matches(':popover-open'));
-    });
-  }
+  gameSidebar.addEventListener('toggle', () => {
+    if (!pageLayout.classList.contains('compact-sidebar')) return;
+    rememberPanel('gameDetails', gameSidebar.matches(':popover-open'));
+  });
   for (const [element, field] of [[statesAddInput, 'stateName'], [importText, 'historyImport']]) {
     element.addEventListener('input', () => rememberPreference('drafts', { ...settings.drafts, [field]: element.value }));
   }

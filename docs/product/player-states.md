@@ -59,7 +59,8 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   menus, which moved to the game setup rows above the board. The settings
   button and the other-page links moved to the top bar above that column on
   2026-10-14, and on 2026-10-20 to the settings row and footer at the page
-  foot ([Game setup](board-and-layout.md#game-setup-top-bar-settings-row-and-footer)).
+  foot; the settings button returned to the top bar on 2026-10-21
+  ([Game setup](board-and-layout.md#game-setup-top-bar-settings-row-and-footer)).
   The states are a game's context, not configuration, so they stay beside
   the game's details. The column is reserved, so using the panel never
   moves the board.

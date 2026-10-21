@@ -76,8 +76,7 @@ main {
    override only what differs. */
 .ui-button,
 .return-to-game,
-#replay-controls button,
-#review-options button {
+#replay-controls button {
   display: inline-block;
   padding: 3px 10px;
   border: 1px solid #c5d0da;
@@ -93,9 +92,7 @@ main {
 .ui-button:focus-visible,
 .return-to-game:hover,
 #replay-controls button:hover,
-#replay-controls button:focus-visible,
-#review-options button:hover,
-#review-options button:focus-visible {
+#replay-controls button:focus-visible {
   border-color: #8aa0b5;
   background: #e3edf6;
 }
@@ -178,12 +175,13 @@ main {
   gap: 5px;
 }
 
-/*-------TOP BAR (today's play)-------*/
+/*-------TOP BAR (today's play, settings)-------*/
 
 /* The page's upper right: above the docked details column, sticky with it,
    or above the board column when the details are the compact popover. It
-   holds only today's use against the daily limits: live status, where the
-   settings row at the page foot holds the configuration. */
+   holds today's use against the daily limits, live status, and the settings
+   page's button at its right end; the settings row at the page foot holds
+   the rest of the configuration. */
 #top-bar {
   grid-column: 2;
   grid-row: 1;
@@ -191,8 +189,10 @@ main {
   top: 12px;
   z-index: 2;
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   align-items: center;
+  gap: 4px 12px;
   min-width: 0;
   background: #ffffff;
   color: #000000;
@@ -214,10 +214,10 @@ main {
 
 /*-------SETTINGS ROW (the player's global configuration, at the page foot)-------*/
 
-/* Everything the player configures for every game sits in this one row:
-   the settings page, the daily limits, the session window, and the board
-   display (Zoom, position, pixel ratio). Each group keeps together when
-   the row wraps, and wider gaps separate the groups. */
+/* What the player configures for every game, besides the settings page's
+   button in the top bar, sits in this one row: the daily limits, the session
+   window, and the board display (Zoom, position, pixel ratio). Each group
+   keeps together when the row wraps, and wider gaps separate the groups. */
 #settings-row {
   display: flex;
   flex-wrap: wrap;
@@ -357,8 +357,7 @@ main {
 
 #scores-nav[hidden] { display: none; }
 
-/* The overlays opener and high scores: one small row in the side column,
-   beside the play context. */
+/* High scores: one small row in the side column, beside the play context. */
 #scores-nav {
   display: flex;
   flex: 0 1 auto;
@@ -372,41 +371,9 @@ main {
   overflow-anchor: none;
 }
 
-#path-view-control {
-  display: flex;
-  flex: 1 0 100%;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  color: #000000;
-}
-
-#path-view-control[hidden],
 #path-view-legend[hidden],
 #replay-controls[hidden] {
   display: none;
-}
-
-.path-view-heading {
-  margin-right: 2px;
-  font-size: 12px;
-  font-weight: bold;
-}
-
-#path-view-control button {
-  box-sizing: border-box;
-  min-height: 25px;
-  padding-inline: 7px;
-  font-weight: normal;
-  white-space: nowrap;
-}
-
-#path-view-control button[aria-pressed="true"] {
-  border-color: #547f9a;
-  background: #dcecf5;
-  color: #000000;
-  box-shadow: inset 0 0 0 1px #ffffff;
 }
 
 /* The complete key shares the sidebar's normal flow with the stats. */
@@ -648,34 +615,42 @@ main {
   color: #000000;
 }
 
-/* Review mode board overlay toggles: same look as the path-mode buttons. */
-#replay-overlay-control {
+/* The replay's view toggles end the transport, each group one wrapping row
+   led by its heading: the board overlays, each on or off, then the mouse
+   path views, one at a time. A toggle keeps its box when pressed, so the
+   transport never changes height as they switch. */
+#replay-controls > #replay-overlay-control { grid-row: 4; }
+#replay-controls > #path-view-control { grid-row: 5; }
+#replay-overlay-control,
+#path-view-control {
+  grid-column: 1 / -1;
   display: flex;
-  flex: 1 0 100%;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: center;
   gap: 4px;
   color: #000000;
 }
 
-#replay-overlay-control[hidden] {
-  display: none;
+.path-view-heading {
+  margin-right: 2px;
+  font-size: 12px;
+  font-weight: bold;
 }
 
-#replay-overlay-control button {
-  box-sizing: border-box;
-  min-height: 25px;
+#replay-overlay-control button,
+#path-view-control button {
   padding-inline: 7px;
-  font-weight: normal;
   white-space: nowrap;
 }
 
-#replay-overlay-control button[aria-pressed="true"] {
-  border-color: #547f9a;
-  background: #dcecf5;
+/* On reads apart from hover at a glance: a darker fill, and an inset shadow
+   that doubles the border inside the same box. */
+#replay-overlay-control button[aria-pressed="true"],
+#path-view-control button[aria-pressed="true"] {
+  border-color: #1f5f8b;
+  background: #b7d8f0;
   color: #000000;
-  box-shadow: inset 0 0 0 1px #ffffff;
+  box-shadow: inset 0 0 0 1px #1f5f8b;
 }
 
 /* Game-history slider: notches for every action (thinned when crowded) and
@@ -918,6 +893,7 @@ body.trial-offboard #game-frame {
 
 /* Event handlers are installed while IndexedDB is still opening. Keep the
    visibly loading chrome from accepting an action it cannot honor yet. */
+.game-booting #top-bar,
 .game-booting #difficulty-tabs,
 .game-booting #mode-options,
 .game-booting #top-right,
@@ -4007,8 +3983,6 @@ body.vigilance-running #self-check-header {
   border-radius: 3px;
 }
 #replay-slider-wrap { min-width: 0; }
-#replay-overlay-control, #path-view-control { justify-content: flex-start; }
-.path-view-heading { flex-basis: 100%; margin: 3px 0; text-align: left; }
 @media (max-width: 700px) {
   #page-layout, #page-layout.compact-sidebar { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; }
   #top-bar, #page-layout.compact-sidebar #top-bar { grid-column: 1; grid-row: 1; }
@@ -4016,32 +3990,6 @@ body.vigilance-running #self-check-header {
   body { padding: 12px; }
   #difficulty-tabs { flex-wrap: wrap; justify-content: center; gap: 10px; }
 }
-
-/* Beside the docked column the replay's overlays open in the top layer over
-   that column, leaving rankings in place. The compact Game details popover
-   already is the column, so there they end it inline, with no opener. */
-#review-options-button[hidden],
-#page-layout.compact-sidebar #review-options-button { display: none; }
-#review-options { color: #000000; font: 12px Arial, sans-serif; }
-#review-options[hidden] { display: none; }
-#review-options[popover] {
-  position: fixed;
-  inset: auto 16px 16px auto;
-  width: min(calc(100vw - 32px), max(460px, var(--game-sidebar-docked-width)));
-  max-height: calc(100dvh - 32px);
-  overflow-y: auto;
-  margin: 0;
-  padding: 14px;
-  border: 1px solid #a5b7c3;
-  border-radius: 5px;
-  background: #fff;
-  box-shadow: 0 4px 20px #0002;
-}
-#review-options:not([popover]) .review-options-heading button { display: none; }
-.review-options-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-.review-options-heading strong { font-size: 14px; }
-#review-options #replay-overlay-control, #review-options #path-view-control { margin-bottom: 12px; }
-
 
 #preferences-import-form {
   display: grid;

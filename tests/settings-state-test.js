@@ -96,6 +96,10 @@ const panelsBeforeRemoval = plain(run('settingsFrom({ panels: { states: true, re
 assert.equal(panelsBeforeRemoval.states, true, 'the removed replay panel does not discard the saved panel states');
 assert.equal(panelsBeforeRemoval.duringGame, false);
 assert(!('replay' in panelsBeforeRemoval));
+// Panel states saved while the Overlays panel existed keep the rest.
+const panelsBeforeOverlaysRemoval = plain(run('settingsFrom({ panels: { states: true, reviewOptions: true } }).panels'));
+assert.equal(panelsBeforeOverlaysRemoval.states, true, 'the removed Overlays panel does not discard the saved panel states');
+assert(!('reviewOptions' in panelsBeforeOverlaysRemoval));
 // Row choices saved before left work split into hard and easy work keep the
 // rest, and both new rows take its choice.
 const rowsBeforeSplit = plain(run('settingsFrom({ duringGameRows: { leftWorkEvents: false, forkEvents: false } }).duringGameRows'));
@@ -197,7 +201,7 @@ const choices = {
   pathView: 'click-speed', replayOverlays: { moves: false, mines: false, probs: true, pointless: true, purposeful: true, movement: true },
   gameDataSwitchCost: true, trialSpeedBucketMs: 375, resultView: 'scores',
   replayPosition: { endedAt: 12345, step: 7 },
-  panels: { boardPosition: true, gameDetails: true, states: true, reviewOptions: true, importHistory: true, dataFormat: true,
+  panels: { boardPosition: true, gameDetails: true, states: true, importHistory: true, dataFormat: true,
     duringGame: false, gamePerformance: false, boardTraits: false, motionStats: true },
   trialSections: { '123:identity:1': false, '123:action:456': true },
   drafts: { stateName: 'draft', historyImport: '{', preferencesImport: '{' },

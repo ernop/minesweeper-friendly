@@ -38,14 +38,14 @@ check('the game page renders no copy of the report choice or the result-section 
 check('the settings page renders the result-section groups',
   read('settings-page.js').includes('for (const [groupLabel, paths] of RESULT_SECTION_GROUPS)'));
 {
-  const panelStart = html.indexOf('<div id="review-options"');
-  const panel = html.slice(panelStart, html.indexOf('</aside>', panelStart));
-  check('the overlays panel holds only the board overlays and the mouse path, each option at its top level',
-    panelStart > 0
-      && panel.includes('<strong>Overlays</strong>')
-      && panel.includes('id="replay-overlay-control"') && panel.includes('id="path-view-control"')
-      && !panel.includes('<select') && !panel.includes('type="checkbox"')
-      && !/<details|<summary|popover(?!target)/.test(panel.slice(panel.indexOf('>') + 1)));
+  const transportStart = html.indexOf('<div id="replay-controls"');
+  const transport = html.slice(transportStart, html.indexOf('id="board-position-drag-surface"', transportStart));
+  check('the replay\'s own view toggles end its transport, each at its top level, behind no opener',
+    transportStart > 0
+      && transport.includes('id="replay-overlay-control"') && transport.includes('id="path-view-control"')
+      && !transport.includes('<select') && !transport.includes('type="checkbox"')
+      && !/<details|<summary|popover/.test(transport)
+      && !html.includes('id="review-options"'));
 }
 
 console.log(`settings-one-place: all ${checks} checks passed`);

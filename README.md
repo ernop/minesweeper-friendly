@@ -28,16 +28,17 @@ ever moves the board:
   brings a second row: the board size, the generator where the mode uses
   one, and the mode's progress.
 - **Top bar, upper right.** Today's use against your daily limits, once
-  any is set.
-- **Settings row, page foot.** Everything you configure for every game:
-  settings, daily limits, the page's one session picker (today by default,
+  any is set, and the settings button.
+- **Settings row, page foot.** The rest of what you configure for every
+  game: daily limits, the page's one session picker (today by default,
   shared by every session comparison on the page), and the board display:
   Zoom, "position" (opens the board position editor), and the pixel ratio,
   which moves with the browser zoom. The footer under it links the
   self-check, training, and problems pages.
 - **The board, center.** After a game the replay controls sit under it like
   a video player's (start, back, play at the pace it was played, forward,
-  end). The session summary and "ranks won in
+  end), with on/off toggles for its board overlays and mouse path views
+  under them. The session summary and "ranks won in
   session" sit beside it where they fit, otherwise they lead the tables
   under it. Then come the time-window, day-category, and streak rank lists,
   the "This board" tables, and the your-perf, board-trait, and relationship
@@ -50,8 +51,8 @@ ever moves the board:
   one percentile band against your lifetime and session games: game summary
   perf on one side and the board's traits on the other.
 - **Game details, far right.** A line naming whether music is on and which
-  of your states are on, as tags (changed through "edit states"), the
-  replay's overlays, and the game's statistics. Every setting kept for all
+  of your states are on, as tags (changed through "edit states"), see
+  scores, and the game's statistics. Every setting kept for all
   games, such as which result sections show, is on the settings page.
 - **Motion stats, page foot**, closed until you open them: the
   mouse-dynamics measurements of the game on the board, live during play

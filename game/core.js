@@ -85,7 +85,6 @@ const topBar = document.getElementById('top-bar');
 const gameSidebar = document.getElementById('game-sidebar');
 const gameSidebarButton = document.getElementById('game-sidebar-button');
 const gameSidebarClose = document.getElementById('game-sidebar-close');
-const reviewOptions = document.getElementById('review-options');
 const topRight = document.getElementById('top-right');
 const difficultyTabs = document.getElementById('difficulty-tabs');
 const playModeSelect = document.getElementById('play-mode-select');

@@ -396,18 +396,20 @@ check('slider scale shows notch marks and numeric labels',
 check('path controls contain no select dropdown',
   !/<select[^>]+(?:path-view|replay)/i.test(html));
 for (const id of [
-  'off', 'raw-path', 'click-locations', 'movement-speed',
+  'raw-path', 'click-locations', 'movement-speed',
   'click-speed', 'progress', 'less-useful',
 ]) {
   check(`path control exposes ${id} button`,
     html.includes(`data-path-view="${id}"`));
 }
+check('the path views are toggles, one at a time, with no off button: the shown one turns the path off',
+  !html.includes('data-path-view="off"')
+    && source.includes("updateSettings({ pathView: settings.pathView === id ? 'off' : id });"));
 check('replay stays separate from path modes and is available after game end',
   !html.includes('id="replay-toggle"')
     && !html.includes('id="review-control"')
     && !html.includes('data-path-view="replay"')
-    && source.includes('replayControls.hidden = !available')
-    && source.includes('replayOverlayControl.hidden = !available'));
+    && source.includes('replayControls.hidden = !available'));
 {
   const navStart = html.indexOf('id="scores-nav"');
   const navEnd = html.indexOf('</nav>', navStart);
@@ -436,17 +438,16 @@ check('replay stays separate from path modes and is available after game end',
       && functionText('previewReplayStep').includes('stopReplayPlayback();\n    replayPreviewReturnStep = replayStep;')
       && functionText('endReplayPreview').includes('showReplayStep(step);')
       && source.includes('replayStep = 0;\n  replayPreviewReturnStep = null;'));
-  check('the sidebar review row holds the overlays opener, then scores',
+  check('the sidebar review row holds see scores alone',
     !nav.includes('id="replay-controls"')
-      && /id="review-options-button"[^>]*>Overlays</.test(nav)
-      && nav.indexOf('id="review-options-button"') < nav.indexOf('id="see-scores-btn"'));
-  const panelStart = html.indexOf('id="review-options"');
-  check('the overlays panel ends the side column and holds the board overlays, then the mouse path',
-    panelStart > html.indexOf('id="path-view-legend"')
-      && html.indexOf('</aside>', panelStart) < html.indexOf('id="board-position-panel"')
-      && panelStart < html.indexOf('id="replay-overlay-control"')
-      && html.indexOf('id="replay-overlay-control"') < html.indexOf('id="path-view-control"')
-      && !html.includes('id="review-display"'));
+      && nav.includes('id="see-scores-btn"')
+      && (nav.match(/<button/g) || []).length === 1);
+  check('the view toggles end the transport, the board overlays, then the mouse path, behind no opener',
+    html.indexOf('id="replay-status"') > transport
+      && html.indexOf('id="replay-overlay-control"') > html.indexOf('id="replay-status"')
+      && html.indexOf('id="path-view-control"') > html.indexOf('id="replay-overlay-control"')
+      && html.indexOf('id="path-view-control"') < html.indexOf('id="board-position-drag-surface"')
+      && !html.includes('id="review-options"') && !html.includes('popovertarget="review-options"'));
   check('the legend lives in the separate game sidebar',
     !nav.includes('id="path-view-legend"')
       && html.indexOf('id="path-view-legend"') > html.indexOf('id="game-sidebar"'));
@@ -455,7 +456,7 @@ check('replay stays separate from path modes and is available after game end',
       && source.includes('replaySlider.max = String(count)')
       && source.includes('replayStep = replayDecisionCount();')
       && source.includes('const enabled = replayStep < count;'));
-  check('the overlays and scores are outside the translated board area',
+  check('see scores is outside the translated board area',
     navStart > html.indexOf('id="game-sidebar"'));
 }
 check('no replay disclosure: the transport shows whenever a finished game is shown',

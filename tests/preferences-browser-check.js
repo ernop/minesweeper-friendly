@@ -106,8 +106,15 @@ const { chromium } = require(process.argv[2]);
   await page.locator('#board .cell').nth(mine).click();
   await page.waitForFunction(() => gameState === 'lost' && settings.replayPosition.endedAt !== null);
   assert.equal(await page.locator('#replay-controls').isVisible(), true, 'the transport shows under the finished board');
-  await page.locator('#review-options-button').click();
+  assert.equal(await page.locator('#replay-controls [data-path-view="progress"]').isVisible(), true,
+    'the view toggles show with the transport, behind no opener');
+  await page.locator('[data-path-view="raw-path"]').click();
+  await page.locator('[data-path-view="raw-path"]').click();
+  assert.equal(await page.evaluate(() => settings.pathView), 'off', 'pressing the shown path view turns the path off');
+  await page.locator('[data-path-view="raw-path"]').click();
   await page.locator('[data-path-view="progress"]').click();
+  assert.equal(await page.locator('[data-path-view="raw-path"]').getAttribute('aria-pressed'), 'false',
+    'pressing another path view switches to it');
   await page.locator('[data-replay-overlay="probs"]').click();
   await page.evaluate(() => {
     const input = document.getElementById('replay-slider');

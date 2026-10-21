@@ -72,9 +72,10 @@ Spec: [docs/product/play-limits.md](../product/play-limits.md). Index: [AGENTS.m
   of `#top-bar`, hidden while no limit is set, `.reached` in red; its parts
   come from `playLimitUsePart`) and `#play-limit-closed`, absolutely
   positioned over `#game-frame`. The link `#play-limits-btn` (fixed text
-  "daily limits", never hidden) is static markup in the first group of
-  `#settings-row`, beside `#settings-btn` (2026-10-20; from 2026-10-14 it
-  followed the use in the top bar).
+  "daily limits", never hidden) is static markup, the first group of
+  `#settings-row` (2026-10-20, beside `#settings-btn` until that moved to
+  the top bar on 2026-10-21; from 2026-10-14 it followed the use in the top
+  bar).
 - Settings page, `settings-page.js` "DAILY LIMITS": `#play-limit-table` is
   one CSS grid (rows `display: contents`) built by `renderPlayLimitTable`;
   `#play-limit-dialog` is a modal `<dialog>` drawn by

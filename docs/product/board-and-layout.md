@@ -267,21 +267,24 @@ duplicative and needlessly complex."
   board**. Until 2026-10-20 the preset links sat beside a Custom tab, the
   Mode and Generator menus sat in the details column, and Board lab had a
   second size form of its own.
-- **Top bar**: only today's use against the daily limits, as plain text once
+- **Top bar**: today's use against the daily limits, as plain text once
   any limit is set ("today: 12m 34s of 30m · 14 of 50 games", red once one
-  is reached; [Daily play limits](play-limits.md)). It is live status, not
-  configuration, so it stays in view: a refused flag press flashes its
+  is reached; [Daily play limits](play-limits.md)), then the **settings**
+  button (the settings page) at its right end. Today's use is live status,
+  not configuration, so it stays in view: a refused flag press flashes its
   outline. With the details column docked the bar sits above it at the
   page's upper right, sticky with it; with the Game details popover it sits
   above the board column, right-aligned; below 700px it is the first row.
-  Without limits it is empty. From 2026-10-14 to 2026-10-20 it also held the
-  daily limits link, the session picker, settings, and an "other pages"
-  menu.
+  Without limits it holds only settings. The settings button returned here
+  on 2026-10-21 (creator: "move "settings" to upper right."); from
+  2026-10-20 it sat in the settings row at the page foot, and from
+  2026-10-14 to 2026-10-20 the bar also held the daily limits link, the
+  session picker, and an "other pages" menu.
 - **Settings row**, at the page foot under the motion stats section and the
-  backup row: everything the
-  player configures for every game, in one place, in three groups:
-  1. **settings** (the settings page) and **daily limits** (its limits
-     panel), always shown and always so labeled.
+  backup row: the rest of what the player configures for every game, in
+  three groups:
+  1. **daily limits** (the settings page's limits panel), always shown and
+     always so labeled.
   2. The session picker labeled "session"
      ([One session definition](game-data.md#one-session-definition)).
   3. The board display: Zoom, **position**, and the pixel ratio.
@@ -326,11 +329,12 @@ duplicative and needlessly complex."
     head line: "High scores" and its board, then "Latest win" or "No wins
     yet", since nothing else on screen says the view is not a game.
   - The archive alert and the play context line with **edit states**, then
-    one row holding Overlays (the replay's board overlays and mouse path;
-    "Overlays & display" until 2026-10-21, when its copies of settings went
-    to the settings page alone) and see scores. Mode and generator
-    moved to the game setup rows above the board on 2026-10-20, and Replay
-    game became the transport under the board.
+    one row holding see scores. Mode and generator moved to the game setup
+    rows above the board on 2026-10-20, and Replay game became the
+    transport under the board. The row also held the Overlays button (the
+    replay's board overlays and mouse path) until 2026-10-21, when those
+    toggles moved under the transport ([Path and choice
+    replay](replay.md)).
   - "live perf charts" ([During the game](during-game.md)), a stat section
     titled by a button that opens and closes it (its (?) was removed
     2026-10-20); then game data's one chart ([Game data](game-data.md)),
@@ -413,9 +417,9 @@ duplicative and needlessly complex."
   ([Path and choice replay](replay.md)). It is as wide as the
   board (at least 340px, at most the board column) and centered under it.
   It adds its height between the board and the tables but never moves the
-  board. Display options and score controls stay in the details column and
-  occupy no space below the board. Replay arrow shortcuts apply while the
-  transport is visible.
+  board. Its foot holds the replay's view toggles, board overlays then
+  mouse path, wrapping within its width; score controls stay in the details
+  column. Replay arrow shortcuts apply while the transport is visible.
 - The tables begin directly below the board when no action report is shown.
   The session summary and the time-period summary ("ranks won in session",
   today by default) lead them, unless they sit beside the board (above);

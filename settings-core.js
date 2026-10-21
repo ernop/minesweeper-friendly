@@ -253,17 +253,19 @@ const REPLAY_OVERLAY_DEFAULTS = {
 };
 const PANEL_OPEN_DEFAULTS = {
   boardPosition: false, gameDetails: false, states: false,
-  reviewOptions: false, importHistory: false, dataFormat: false,
+  importHistory: false, dataFormat: false,
   duringGame: true, gamePerformance: true, boardTraits: true, motionStats: false,
 };
-// The Replay game disclosure was removed on 2026-10-20 (the transport now
-// sits under the board); panel states saved before then still name it, and
-// preferenceBooleans rejects any unknown entry.
+// Two panels were removed: the Replay game disclosure on 2026-10-20 (the
+// transport now sits under the board) and the Overlays panel on 2026-10-21
+// (its toggles now end the transport). Panel states saved before then still
+// name them, and preferenceBooleans rejects any unknown entry.
 function panelsFromStored(stored) {
   if (!Object.hasOwn(stored, 'panels')) return PANEL_OPEN_DEFAULTS;
   if (!preferenceObject(stored.panels)) return stored.panels;
   const kept = { ...stored.panels };
   delete kept.replay;
+  delete kept.reviewOptions;
   return kept;
 }
 // The left work event row split into left hard work and left easy work on
@@ -386,7 +388,7 @@ const SETTINGS_SCHEMA = [
     mergeDefaults: true,
     group: 'gameplay',
     label: 'open panels',
-    describe: 'open or closed state of game panels and review controls',
+    describe: 'open or closed state of game panels',
     control: 'none',
   },
   {

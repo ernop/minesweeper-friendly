@@ -21,12 +21,11 @@ let replayStep = 0;
 // The position a hover preview replaced (previewReplayStep), null when none
 // runs.
 let replayPreviewReturnStep = null;
-// Independent review mode board overlays; remembered for the page session
-// like the path view itself.
-// The solver layers that show the logically deducible state of the shown
-// board (available moves, forced mines) start on: seeing what was provable
-// at each moment is the point of review mode review (requested
-// 2026-08-30 late evening).
+// The board overlays are saved with the player's settings, like the path
+// view. The solver layers that show the logically deducible state of the
+// shown board (available moves, forced mines) start on: seeing what was
+// provable at each moment is the point of review (requested 2026-08-30
+// late evening).
 // Solver reads per decision index for the current trace (cleared on a new
 // board); enumeration can take milliseconds, and slider scrubbing revisits
 // the same frames constantly.
@@ -110,18 +109,12 @@ function endReplayPreview() {
 
 function renderPathViewControls() {
   const available = pathViewAvailable();
-  // After game end the transport shows under the board; the overlays open
-  // from their own button in the side column.
-  reviewOptions.hidden = !available;
-  document.getElementById('review-options-button').hidden = !available;
-  if (!available && reviewOptions.matches(':popover-open')) reviewOptions.hidePopover();
-  pathViewControl.hidden = !available;
+  // After game end the transport shows under the board, its view toggles
+  // with it.
+  replayControls.hidden = !available;
   for (const button of pathViewButtons) {
     button.setAttribute('aria-pressed', String(button.dataset.pathView === settings.pathView));
   }
-  if (available) syncReviewPreferences();
-  replayControls.hidden = !available;
-  replayOverlayControl.hidden = !available;
   for (const button of replayOverlayButtons) {
     button.setAttribute('aria-pressed',
       String(settings.replayOverlays[button.dataset.replayOverlay] === true));
@@ -1195,11 +1188,13 @@ function renderPathView() {
   }
 }
 
+// The path views color one path line, so one shows at a time: pressing
+// another switches to it, and pressing the shown one turns the path off.
 for (const button of pathViewButtons) {
   button.addEventListener('click', () => {
     const id = button.dataset.pathView;
     if (!PATH_VIEW_IDS.has(id)) throw new Error('unknown path view: ' + id);
-    updateSettings({ pathView: id });
+    updateSettings({ pathView: settings.pathView === id ? 'off' : id });
     renderPathView();
   });
 }

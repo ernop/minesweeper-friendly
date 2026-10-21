@@ -3,9 +3,11 @@
 Spec: [docs/product/replay.md](../product/replay.md). Index: [AGENTS.md](../../AGENTS.md).
 
 - Path and choice replay views ([Path and choice replay views](../product/replay.md)):
-  `#path-view-control` (in `#review-options`) exposes separate buttons for off,
-  raw every-sample path, numbered raw click locations, movement speed, click
-  speed, game progress, and less useful—never a dropdown.
+  `#path-view-control` (at the foot of the transport `#replay-controls`)
+  exposes separate buttons for the raw every-sample path, numbered raw click
+  locations, movement speed, click speed, game progress, and less
+  useful—never a dropdown. Pressing the lit one stores `pathView: 'off'`
+  (2026-10-21; until then an "off" button did).
   The game-history slider `#replay-slider` (in the transport under the
   board; positions 0 … N = actions done, N = the finished board) drives
   `replayStep`; `showReplayStep` clamps it, derives `replayEnabled = step <
@@ -101,16 +103,18 @@ Spec: [docs/product/replay.md](../product/replay.md). Index: [AGENTS.md](../../A
   reasonable choices into connected pockets; `#replay-choice-areas` draws
   leaders (`--replay-area`) to side labels with non-misleading mine risk and
   cell count, choosing left or right to avoid the result summary/viewport
-  edge. Sidebar `#scores-nav` contains the `#review-options-button` opener
-  and see scores. `#review-options` (headed Overlays) ends `#game-sidebar`
-  after the legend: `#replay-overlay-control` and `#path-view-control`.
-  Until 2026-10-21 `#review-display` followed them, the report-scope select
-  and `RESULT_SECTION_GROUPS` rendered by `renderReviewDisplay` as copies of
-  the settings page's. It is an auto
-  popover beside the docked column; `syncGameSidebar` removes its `popover`
-  attribute in the compact layout, where it renders inline at the end of the
-  Game details popover (CSS hides its opener and Close there), and
-  `renderPathViewControls` sets its `hidden` while no finished board is shown.
+  edge. Sidebar `#scores-nav` holds see scores alone. The view toggles end
+  the transport: `#replay-overlay-control` (grid row 4) and
+  `#path-view-control` (row 5), each a full-width wrapping flex row headed
+  by a `.path-view-heading`, the pressed state in `aria-pressed`;
+  `renderPathViewControls` hides the transport, and the toggles with it,
+  while no finished board is shown. Until 2026-10-21 they sat in `#review-options`,
+  an auto popover headed Overlays opened by `#review-options-button` in
+  `#scores-nav` (inline at the end of the Game details popover when
+  compact), whose open state `panels.reviewOptions` saved; `panelsFromStored`
+  drops that key now. Until that morning `#review-display` followed them
+  there, the report-scope select and `RESULT_SECTION_GROUPS` rendered by
+  `renderReviewDisplay` as copies of the settings page's.
   The transport `#replay-controls` (2026-10-20) is inside `#game-area`
   right after `#game-frame`, so it moves with the board's saved
   translation: a five-column grid whose width is
@@ -118,7 +122,8 @@ Spec: [docs/product/replay.md](../product/replay.md). Index: [AGENTS.md](../../A
   variable from the frame), the slider wrap spanning row 1, the buttons
   `#replay-first`, `#replay-prev`, `#replay-play`, `#replay-next`, and
   `#replay-last` (inline SVG icons; `aria-label` and `title` name each) in
-  row 2, and `#replay-status` spanning row 3. The former `#replay-review`
+  row 2, `#replay-status` spanning row 3, and the two toggle rows in rows 4
+  and 5 (above). The former `#replay-review`
   disclosure and its remembered `settings.panels.replay` are removed
   (`panelsFromStored` in `settings-core.js` drops the stored key). Keyboard
   replay shortcuts apply while `replayControls.checkVisibility()`.

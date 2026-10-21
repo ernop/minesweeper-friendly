@@ -2,33 +2,37 @@
 
 Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation notes: [docs/implementation/replay.md](../implementation/replay.md).
 
-- When a game finishes, “Overlays” opens a closable panel with the replay's
-  board overlays and its mouse path views, separate buttons for off, raw
-  path, click locations, movement speed, click speed, game progress, and
-  less useful. All options remain available;
-  the panel occupies the browser top layer without pushing rankings down.
-  Close, Escape, or clicking outside dismisses it. The control hides whenever no
-  finished board is on screen (a new board or trial lobby/review phase).
-  Every option in the panel is visible at once (creator direction
-  2026-09-26, [UI doctrine](ui-doctrine.md): options are never more than
-  one step deep). It holds, in order: Board overlays and Mouse path. Named
-  “Overlays & display” until 2026-10-21, it also held the “After each game,
-  show me” report choice and the result-section switches under This game,
-  Tables, This board, and Charts, copies of the settings page's. They are
-  on the settings page only since then (creator 2026-10-21: "rectify the
-  duplication and problematic "double settings location" issue where some
-  settinsg are within "settings" while others are in "overlays &
-  display""; [UI doctrine](ui-doctrine.md), "Each option in one place").
-  The overlays and mouse path stay here, beside the replay they draw on:
-  the creator asked for the path views as separate buttons in the
-  post-game view (2026-08-30), and the settings page has no copy of them.
-  The former collapsed “Analysis
-  & chart display” section is gone. The panel's width follows the docked
-  side column (at least 460px), so it covers that column rather than the
-  board, and its groups fill as many columns as fit, one line per switch.
-  When a narrow window turns the side column into the Game details popover,
-  the same options end that popover inline, with no opener and no Close,
-  so no panel opens inside another.
+- When a game finishes, the replay's view toggles show at the foot of its
+  transport under the board, two labeled rows of on/off buttons that apply
+  the moment they are pressed: Board overlays (available moves, forced
+  mines, mine %, pointless clicks, purposeful clicks, rough movement), then
+  Mouse path (raw path, click locations, movement speed, click speed, game
+  progress, less useful). The six board overlays are independent switches.
+  The mouse path views all color the same path line, so one shows at a
+  time: pressing another view switches to it, and pressing the lit one
+  turns the path off, so there is no "off" button. The rows wrap within
+  the transport's width and leave with it when no finished board is on
+  screen (a new board, or a trial lobby or review phase). There is no
+  opener and no panel (creator 2026-10-21: "move "overlays" to be near the
+  replayer. is it right that this current "overalys" ui only pertains to
+  the replay? i think so. if so, pull out its contents into the toplevel
+  viewer as a visible clear series of binary togglers which live-update.
+  so, no more "display" button at all."). They pertain only to the replay:
+  the board overlays draw on the positions before the finished board, the
+  mouse path on the finished board and those positions, and nothing in
+  them changes play or any other view. The settings page has no copy of
+  them.
+- Before 2026-10-21 these toggles sat in a closable panel opened by a
+  button in the details column, with an "off" button among the path views.
+  Named “Overlays & display” until that morning, the panel also held the
+  “After each game, show me” report choice and the result-section switches
+  under This game, Tables, This board, and Charts, copies of the settings
+  page's; they are on the settings page only since then (creator
+  2026-10-21: "rectify the duplication and problematic "double settings
+  location" issue where some settinsg are within "settings" while others
+  are in "overlays & display""; [UI doctrine](ui-doctrine.md), "Each
+  option in one place"). The creator first asked for the path views as
+  separate buttons in the post-game view on 2026-08-30.
 - Raw path restores the original complete every-sample tool, shaded from light
   early movement to dark late movement. Click locations restores the original
   raw left-release/right-press inputs as numbered positions in action order;
@@ -85,10 +89,10 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   board column), and leaves with the next board. The slider is on top;
   under it five icon buttons, each named by its tooltip: Start, one action
   back, play/pause, one action forward, and End (the finished board); then
-  the status. There is no disclosure to open first: from 2026-09-07 to
-  2026-10-20 the transport sat collapsed in the details column behind
-  **Replay game**, and closing it restored the finished board.
-  “Overlays” and “see scores” stay in the details column.
+  the status; then the view toggles (above). There is no disclosure to
+  open first: from 2026-09-07 to 2026-10-20 the transport sat collapsed in
+  the details column behind **Replay game**, and closing it restored the
+  finished board. “see scores” stays in the details column.
 - Play shows the game at the pace it was played: each position stays on
   screen for the time the player took before the next action, from the
   first action's position on; the position before the first action, which
@@ -119,7 +123,7 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   slider is as wide as the
   transport (no fixed cap), so notches stay apart on long games. It can be
   combined with raw path, click locations, any parameter color, less
-  useful, or off; the selected overlay truncates at the displayed position
+  useful, or no path; the selected overlay truncates at the displayed position
   while retaining its full-game color scale for comparison.
   Start / End jump to the first frame and finished board. Navigation uses
   fixed grid columns and a compact, two-line-height scrollable status area.
@@ -128,8 +132,8 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   duplicate it. The finished-board status shows only the action count and
   “Finished board”. The separate details column keeps the legend out of the
   transport layout, so changing frames or overlays never moves its buttons.
-  Board overlays and Mouse path have separate labeled
-  groups inside “Overlays”, both visible at once.
+  Board overlays and Mouse path are separate labeled rows at the
+  transport's foot, both visible at once.
   The transport's height is part of the board's rows: the tables start
   under it, and stepping or playing never changes its height.
   ‹ / › and Left/Right keys step one action while the transport is visible,
@@ -155,8 +159,8 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   and cell count. Labels choose the board side that avoids the result summary
   and available viewport edge. Proven-safe choices get no coinflip label.
   Returning the slider to its end restores the finished board exactly.
-- Review-mode overlays (2026-08-30): six independent toggles on their own
-  row in the Overlays panel, saved with the player's settings, each doing
+- Review-mode overlays (2026-08-30): six independent toggles in the Board
+  overlays row under the transport, saved with the player's settings, each doing
   exactly what it says.
   `available moves` and `forced mines` start on — showing what was logically
   deducible at each moment is the point of review mode (requested

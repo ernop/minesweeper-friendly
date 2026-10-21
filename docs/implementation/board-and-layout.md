@@ -67,10 +67,10 @@ Spec: [docs/product/board-and-layout.md](../product/board-and-layout.md). Index:
   `renderImmediateGameEnd` and `renderResult` clear; the High scores view's
   head from `setHighScoresSummary(note)`), `#sidebar-controls` (a wrapping
   flex row holding `#top-right`, the archive chip and `#states`, and
-  `#scores-nav`, `#review-options-button` and `#see-scores-btn`), `#results`,
-  and `#path-view-legend` in normal flow, then
-  `#review-options` (a popover when docked, inline at the end when
-  compact), with independent scrolling. It is reserved before game end.
+  `#scores-nav` with `#see-scores-btn`), `#results`, and
+  `#path-view-legend` in normal flow, with independent scrolling. The
+  replay's view toggles are in the transport under the board, not here
+  (2026-10-21). It is reserved before game end.
   When the board and minimum column cannot fit together, `syncGameSidebar`
   removes the sidebar from the grid and makes it an auto popover opened by
   Game details. Results or legend visibility/height never enters that
@@ -151,15 +151,18 @@ Spec: [docs/product/board-and-layout.md](../product/board-and-layout.md). Index:
   `generatorAppliesToMode` is false. `activeGenerator` (`game/play.js`)
   returns the uniform generator for presets, so the stored generator choice
   applies only to custom games.
-- Top bar: `div#top-bar` is the first child of `#page-layout` and holds only
-  `#play-limits-use` (plain text, hidden until a limit is set). From
-  2026-10-14 to 2026-10-20 it was a `nav` that also held the daily limits
-  link, the session picker, settings, and the other pages menu.
+- Top bar: `div#top-bar` is the first child of `#page-layout`, a wrapping
+  flex row aligned right holding `#play-limits-use` (plain text, hidden
+  until a limit is set) and `a#settings-btn` (2026-10-21; in the settings
+  row on 2026-10-20). From 2026-10-14 to 2026-10-20 it was a `nav` that
+  also held the daily limits link, the session picker, settings, and the
+  other pages menu. `.game-booting` blocks its pointer input like the
+  other chrome.
 - Settings row (2026-10-20): `div#settings-row` (`role="group"`, "Your
   settings") sits in `main` between `#backup` and `#site-footer`, a
   wrapping centered flex row of three `.settings-row-group` boxes
-  (`inline-flex`, `nowrap`, so each wraps as a unit): `#settings-btn` with
-  `#play-limits-btn`; `label#session-picker` (a static
+  (`inline-flex`, `nowrap`, so each wraps as a unit): `#play-limits-btn`
+  (with `#settings-btn` until 2026-10-21); `label#session-picker` (a static
   `select#session-definition-select`, disabled with a loading option until
   `initSessionScopeSelect` in `game/rankings.js` fills it from
   `init`); and `span#board-display` (`#zoom-label` with `#zoom-select`,
@@ -178,7 +181,7 @@ Spec: [docs/product/board-and-layout.md](../product/board-and-layout.md). Index:
   bar wraps in a narrow column) and the layout ResizeObserver watches the
   bar. In `.compact-sidebar` the bar is row 1 of the one column, static, and
   `main` row 2 (`--top-bar-block: 0`). Below 700px: bar row 1, main row 2.
-  Without limits the bar is empty and 0px high.
+  Without limits the bar holds only the settings button.
   `tests/session-placement-layout-fixture.js` checks the bar heads the right
   columns, or sits above main when compact, at four widths.
 - Motion stats (2026-10-20): `#motion-stats` sits in `main` after

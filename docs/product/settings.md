@@ -5,7 +5,7 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
 - The design doctrine (settled 2026-08-23 after several same-day
   revisions; the general rules it produced live in [UI doctrine](ui-doctrine.md)):
   settings live on their own full page, settings.html, reached from the
-  clear "settings" button in the game page's settings row at the page foot;
+  clear "settings" button at the game page's upper right, in the top bar;
   the way back is
   equally clear — "return to game" buttons at the top and bottom of the
   page body, Esc, or the browser's Back. The page stays focused on the
@@ -52,7 +52,8 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   separate Mode menu allowed, loads as that mode on a custom board of the
   preset's size, which keeps its rankings. The replay disclosure's
   remembered open state (`panels.replay`) is gone with the disclosure, and
-  a stored one is dropped on load.
+  so is the Overlays panel's (`panels.reviewOptions`, 2026-10-21); a stored
+  one is dropped on load.
 - Preference restoration completes before the game becomes interactive.
   Inapplicable panels keep their open preference until available. Replay
   positions refer to finished games by timestamp; the actual completed board
@@ -66,17 +67,19 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
 - One place for the player's global configuration (creator 2026-10-20:
   "all usre-specific global configuration should be in the same place"):
   on the game page it is the settings row at the page foot, holding the
-  settings link, the daily limits link, the session picker, and the board
-  display (Zoom, position, pixel ratio)
+  daily limits link, the session picker, and the board display (Zoom,
+  position, pixel ratio), with the settings page's own button at the upper
+  right since 2026-10-21 (below)
   ([Game setup, top bar, settings row, and footer](board-and-layout.md#game-setup-top-bar-settings-row-and-footer)).
   Choices that belong to one game setup, the board size and the generator,
   stay beside the mode they configure. Each option has one place (creator
   2026-10-21; [UI doctrine](ui-doctrine.md)): a setting the settings page
   shows is changed only there, and a surface's own view choices (the
   replay's overlays, a chart's averaging) only on that surface.
-- A "settings" button in the game page's settings row at the page foot
-  (since 2026-10-20; in the top bar at the upper right from 2026-10-14;
-  before that in the details column's cluster it shared with the
+- A "settings" button at the right end of the game page's top bar, at the
+  upper right (creator 2026-10-21: "move "settings" to upper right."; on
+  2026-10-20 in the settings row at the page foot; in the top bar from
+  2026-10-14; before that in the details column's cluster it shared with the
   states tags, 2026-08-20; a real bordered
   button since 2026-08-23) is a plain link to settings.html (2026-08-23;
   before that it opened an in-page surface — first a small corner

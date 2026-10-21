@@ -78,15 +78,16 @@ coherent and beautifully integrated way!"
   panel at the top: one single-line row per limit with today's use, the
   limit, "reached" and "locked until 4:00" when they apply, and a Set or
   Change button. Today's use updates live while another tab plays. The
-  game page always shows a link to that panel, "daily limits", beside
-  "settings" in the settings row at the page foot, the one place for the
+  game page always shows a link to that panel, "daily limits", as the first
+  group of the settings row at the page foot, the one place for the
   player's global configuration (creator 2026-10-20: "all usre-specific
-  global configuration should be in the same place"). From 2026-10-14 the
+  global configuration should be in the same place"; "settings" beside it
+  moved to the top bar on 2026-10-21). From 2026-10-14 the
   link sat at the start of the top bar at the upper right (creator request:
   "play limits button/info be on toplevel"; before, it showed in the side
   column and only while a limit was set). Once any limit is set, today's use
-  against them is the top bar's whole content, plain bold text at the upper
-  right, "today: 12m 34s of 30m · 14 of 50 games", in red as
+  against them leads the top bar, before the settings button, plain bold
+  text at the upper right, "today: 12m 34s of 30m · 14 of 50 games", in red as
   "no flags: ..." in the no-flags stage and "limit reached: ..." once the
   day is closed. It stays at the top while the link moved down: it is live
   status rather than configuration, and a refused flag press flashes it, so

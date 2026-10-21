@@ -217,9 +217,9 @@ because they apply app-wide, not just where each was first stated.
   result sections show, the board's look, a just universe) is shown and
   changed only on the settings page; no other surface carries a copy. A
   surface's own view choices stay on that surface and are not repeated on
-  the settings page: the replay's board overlays and mouse path in the
-  Overlays panel beside it, each chart's averaging, scale, configure, and
-  pool switches on the chart. From 2026-09-26 until this decision the
+  the settings page: the replay's board overlays and mouse path as toggles
+  under its transport, each chart's averaging, scale, configure, and pool
+  switches on the chart. From 2026-09-26 until this decision the
   game's panel, then named Overlays & display, repeated the settings page's
   report choice and result-section switches from one shared definition,
   and the trial review repeated the report choice.

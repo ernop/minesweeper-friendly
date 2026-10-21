@@ -12,8 +12,8 @@ Spec: [docs/product/player-states.md](../product/player-states.md). Index: [AGEN
   UI: `#states` lives in `#top-right` inside the independently scrolling
   game sidebar, after the archive chip (the mode and generator selects
   before it moved to `#difficulty-tabs` and `#mode-options` on 2026-10-20;
-  `#settings-btn` moved to `#top-bar` on 2026-10-14 and to `#settings-row`
-  on 2026-10-20). Expanding
+  `#settings-btn` moved to `#top-bar` on 2026-10-14, to `#settings-row`
+  on 2026-10-20, and back to `#top-bar` on 2026-10-21). Expanding
   state controls never changes the board column. `renderStates` calls
   `renderPlayContext` and `renderStatesMenu`. `renderPlayContext` fills
   `#play-context` with `musicStateItem` (`#music-state`, owned by
