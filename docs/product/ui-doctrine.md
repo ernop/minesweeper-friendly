@@ -35,7 +35,12 @@ because they apply app-wide, not just where each was first stated.
   link text until 2026-10-20, when the creator approved converting it ("yes
   standardize"); its two panel openers hold the pressed look while their
   panel is open. Game data's joined pool switch still has its own rule
-  ([BACKLOG.md](../../BACKLOG.md)).
+  ([BACKLOG.md](../../BACKLOG.md)). The live perf charts' legend entries
+  are their rows' switches as well as their key (creator 2026-10-21: a
+  click shows or hides the row; [During the game](during-game.md)): they
+  keep the legend's look (swatch or mark, name, value, no border) and the
+  pointer their spotlight already had, and a hidden row's name is struck
+  through.
 - Prefer regular-weight chart names, labels, and values. Use position,
   spacing, and restrained color to establish hierarchy instead of relying
   on bolding.
@@ -128,6 +133,13 @@ because they apply app-wide, not just where each was first stated.
 - Hover must not inject, swap, or reflow page content. Supplementary help
   may appear as an overlay tooltip on hover or keyboard focus without
   changing the layout; no action control may be reachable only by hovering.
+  One exception, the creator's (2026-10-21): hovering the live perf charts
+  shows the hovered moment on the board itself, through the replay's own
+  frame, in place of a second board beside the charts ("that way we don't
+  duplicate teh baord"). Only the board's squares and overlays, the
+  transport's slider and status, and the replay legend at the column's foot
+  change; nothing moves, and leaving the charts restores them
+  ([During the game](during-game.md)).
 - No help affordance changes the pointer to the question-mark help cursor
   (creator 2026-10-08, of the game data rows: "the mouse shall not change to
   the '?' mark, cause I don't like that"). Requested for game data; applied

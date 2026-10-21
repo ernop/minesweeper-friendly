@@ -189,8 +189,10 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   `duringGameRows` (which rows it shows, chosen with its configure), and
   `duringGameAveraging` (default a 2 s rolling average, chosen on the
   block; added 2026-10-15 as `duringGameAverage` with 5 s buckets, renamed
-  2026-10-20 so the new default reached every player) — the live perf
-  charts at the head of the game data column (see
+  2026-10-20 so the new default reached every player), and
+  `duringGameRelativeScale` (default log, or linear; the scale of the chart
+  of each line against its whole-game value, chosen on the block; added
+  2026-10-21) — the live perf charts at the head of the game data column (see
   [During the game](during-game.md));
   `shownThings.sessionSummary`
   (default on) — the session summary table (see

@@ -420,10 +420,22 @@ check('replay stays separate from path modes and is available after game end',
   check('the transport has Start, back, play/pause, forward, and End in that order',
     ['replay-first', 'replay-prev', 'replay-play', 'replay-next', 'replay-last']
       .map((id) => html.indexOf('id="' + id + '"')).every((at, i, all) => at > transport && (i === 0 || at > all[i - 1])));
-  check('play starts over from the finished board, and the player\u2019s own moves stop playback',
+  const functionText = (name) => {
+    const start = source.indexOf('function ' + name + '(');
+    return start === -1 ? '' : source.slice(start, source.indexOf('\n}\n', start) + 2);
+  };
+  check('play starts over from the finished board, and the player\u2019s own moves stop playback and keep their position past a hover preview',
     source.includes('if (replayStep >= replayDecisionCount()) moveReplayStep(0);')
-      && /function setReplayStep\(step\) \{\s*stopReplayPlayback\(\);\s*moveReplayStep\(step\);/.test(source)
+      && /^function setReplayStep\(step\) \{\s*replayPreviewReturnStep = null;\s*stopReplayPlayback\(\);\s*moveReplayStep\(step\);/
+        .test(functionText('setReplayStep'))
       && source.includes('stopReplayPlayback();\n  replayEnabled = false;'));
+  check('a hover preview stops playback, shows positions without remembering them, and its end shows the position it replaced',
+    functionText('moveReplayStep').includes('rememberReplayPosition();')
+      && ['showReplayStep', 'previewReplayStep', 'endReplayPreview']
+        .every((name) => functionText(name) !== '' && !functionText(name).includes('rememberReplayPosition'))
+      && functionText('previewReplayStep').includes('stopReplayPlayback();\n    replayPreviewReturnStep = replayStep;')
+      && functionText('endReplayPreview').includes('showReplayStep(step);')
+      && source.includes('replayStep = 0;\n  replayPreviewReturnStep = null;'));
   check('the sidebar review row holds the display opener, then scores',
     !nav.includes('id="replay-controls"')
       && nav.includes('id="review-options-button"')

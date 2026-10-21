@@ -4,11 +4,14 @@
 // closing it, the progress chart, the one chart of pace and board lines
 // against their whole-game values, and the event tracks, all on one time
 // axis; the hover line and the card naming the line under the pointer with
-// its value; the board at a moment beside the block in the player's board
-// style; the replay link; configure and averaging; its return after a
-// reload restores the game; a loss; a middle width; and phone width. Writes storage, so it runs on the test origin;
-// pages are served from the working tree by request routing under that
-// origin and every other request is aborted, so no server is needed.
+// its value; the board itself showing the moment under the pointer through
+// the replay, in the player's board style, and back on leaving; a click
+// keeping the moment; legend clicks choosing the lines; the log and linear
+// scales; configure and averaging; its return after a reload restores the
+// game; a loss; a middle width; and phone width. Writes storage, so it runs
+// on the test origin; pages are served from the working tree by request
+// routing under that origin and every other request is aborted, so no
+// server is needed.
 //
 // Usage: node tests/during-game-browser-check.js PLAYWRIGHT_CORE_DIR CHROMIUM [SCREENSHOT_DIR]
 const assert = require('node:assert/strict');
@@ -148,8 +151,16 @@ const shotDir = process.argv[4] || null;
     assert.equal(await legendValue('longGapEvents'), '1');
 
     // Hover in the progress chart: the line, the card with that chart's
-    // values, and the board then beside the block in the player's style.
+    // values, and the board itself showing that moment through the replay,
+    // in the player's style. No second board.
     await page.evaluate(() => updateSettings({ numberDisplay: 'dots' }));
+    const boardCells = () => page.evaluate(() => [...document.querySelectorAll('#board .cell')]
+      .map((cell) => cell.className + '|' + cell.innerHTML));
+    const replayState = () => page.evaluate(() => ({ step: replayStep, count: replayDecisionCount(),
+      enabled: replayEnabled, slider: Number(replaySlider.value), saved: settings.replayPosition.step }));
+    const finishedCells = await boardCells();
+    const atEnd = await replayState();
+    assert.equal(atEnd.step, atEnd.count, 'the finished board before the hover');
     const plotBox = async (chart) => {
       const svg = await block.locator('[data-chart="' + chart + '"] svg').boundingBox();
       const plot = await block.locator('[data-chart="' + chart + '"] rect.scatter-plot').boundingBox();
@@ -166,57 +177,60 @@ const shotDir = process.argv[4] || null;
     await glideInto(progress, hoverX, progress.plot.y + progress.plot.height / 2);
     assert.equal(await block.locator('.during-game-line').isVisible(), true);
     const card = page.locator('.during-game-card');
-    const boardPanel = page.locator('.during-game-board');
     assert.equal(await card.isVisible(), true);
     assert.match(await card.locator('.during-game-card-time').textContent(), /^\d+\.\d s$/);
     const cardRows = await card.locator('.during-game-card-row').allTextContents();
     assert.equal(cardRows.length, 1, 'only the line under the pointer: ' + cardRows);
     assert.match(cardRows[0], /^ (3BV solved|squares opened|mines flagged) \d+%$/);
-    assert.equal(await boardPanel.isVisible(), true);
+    assert.equal(await page.locator('.during-game-board').count(), 0, 'no board beside the block');
+    const previewed = await replayState();
+    assert(previewed.step > 0 && previewed.step < previewed.count, 'the board shows a mid-game moment: ' + JSON.stringify(previewed));
+    assert.equal(previewed.enabled, true);
+    assert.equal(previewed.slider, previewed.step, 'the transport follows the moment');
+    assert.equal(previewed.saved, atEnd.count, 'a preview is not remembered');
     const hovered = await page.evaluate(() => {
       // A string as innerHTML gives it back.
       const parsed = document.createElement('div');
       parsed.innerHTML = chosenFlagSvg();
-      const panel = document.querySelector('.during-game-board');
-      const cellsShown = [...panel.querySelectorAll('.during-game-board-grid > div')];
-      const blockRect = document.querySelector('.during-game').getBoundingClientRect();
-      const panelRect = panel.getBoundingClientRect();
+      const shown = [...document.querySelectorAll('#board .cell')];
+      const cardRect = document.querySelector('.during-game-card').getBoundingClientRect();
+      const boardRect = document.getElementById('board').getBoundingClientRect();
       return {
-        head: panel.querySelector('.during-game-board-head').textContent,
-        count: cellsShown.length,
-        side: panel.dataset.side,
-        clear: panelRect.right <= blockRect.left || panelRect.left >= blockRect.right,
-        top: [panelRect.top, Math.max(4, Math.min(blockRect.top, innerHeight - panelRect.height - 4))],
-        inside: panelRect.left >= 0 && panelRect.right <= innerWidth,
-        flags: cellsShown.filter((cell) => cell.classList.contains('hidden') && cell.querySelector('svg.flag'))
-          .map((cell) => cell.innerHTML === parsed.innerHTML),
-        dots: cellsShown.filter((cell) => /\bn[1-8]\b/.test(cell.className)).map((cell) => cell.querySelector('.num-dot') !== null),
-        shaded: cellsShown.filter((cell) => cell.classList.contains('replay-selected')).length,
+        // A proven mine not yet flagged carries its flag hint inside a span.
+        flags: shown.filter((cell) => cell.querySelector(':scope > svg.flag')).map((cell) => cell.innerHTML === parsed.innerHTML),
+        dots: shown.filter((cell) => /\bn[1-8]\b/.test(cell.className)).map((cell) => cell.querySelector('.num-dot') !== null),
+        shaded: shown.filter((cell) => cell.classList.contains('replay-selected')).length,
+        status: replayStatus.textContent,
+        cardClear: cardRect.left >= boardRect.right || cardRect.right <= boardRect.left
+          || cardRect.top >= boardRect.bottom || cardRect.bottom <= boardRect.top,
+        cardInside: cardRect.left >= 0 && cardRect.right <= document.documentElement.clientWidth,
       };
     });
-    assert.match(hovered.head, /^\d+\.\d s \u00b7 next: .+ at row \d, column \d$/, 'the moment and the next click');
-    assert.equal(hovered.count, 81, 'the Beginner board');
-    assert.equal(hovered.clear, true, 'beside the block, not over it: ' + hovered.side);
-    assert(Math.abs(hovered.top[0] - hovered.top[1]) < 1, 'level with the block\u2019s top: ' + hovered.top);
-    assert.equal(hovered.inside, true);
     assert(hovered.flags.length > 0 && hovered.flags.every(Boolean), 'the player\u2019s flag: ' + hovered.flags);
     assert(hovered.dots.length > 0 && hovered.dots.every(Boolean), 'the player\u2019s number display');
     assert(hovered.shaded > 0, 'the next click\u2019s squares shaded');
+    assert.match(hovered.status, /^\d+ of \d+ actions done \u00b7 deciding at /, 'the transport names the moment: ' + hovered.status);
+    assert.equal(hovered.cardClear, true, 'the card clear of the board');
+    assert.equal(hovered.cardInside, true);
     if (shotDir) await page.screenshot({ path: shotDir + '/during-game-hover.png' });
 
-    // The board stays put while the pointer moves; past the last action it
-    // is the finished board.
-    const before = await boardPanel.boundingBox();
+    // The board follows the pointer, past the last action to the finished
+    // board; leaving the charts returns it to the replay's own position, here
+    // the finished board.
     await page.mouse.move(progress.plot.x + progress.plot.width * 0.3, progress.plot.y + 10, { steps: 3 });
-    assert.deepEqual(await boardPanel.boundingBox(), before, 'the board does not follow the pointer');
+    const earlier = await replayState();
+    assert(earlier.step < previewed.step, 'an earlier moment, an earlier step: ' + JSON.stringify([earlier, previewed]));
     await page.mouse.move(progress.plot.x + progress.plot.width - 1, progress.plot.y + 10, { steps: 3 });
-    const finished = await page.evaluate(() => ({
-      head: document.querySelector('.during-game-board-head').textContent,
-      same: [...document.querySelectorAll('.during-game-board-grid > div')].every((cell, i) =>
-        cell.className === finishedBoardCells()[i].className && cell.innerHTML === finishedBoardCells()[i].innerHTML),
-    }));
-    assert.match(finished.head, /the finished board$/);
-    assert.equal(finished.same, true, 'the finished board as the game board shows it');
+    const last = await replayState();
+    assert.equal(last.step, last.count, 'the axis\u2019s end shows the finished board');
+    assert.deepEqual(await boardCells(), finishedCells, 'as the game board shows it');
+    await page.mouse.move(hoverX, progress.plot.y + 10, { steps: 3 });
+    await page.mouse.move(5, 5);
+    const leftCharts = await replayState();
+    assert.equal(leftCharts.step, leftCharts.count, 'leaving the charts returns the board to the finished board');
+    assert.equal(leftCharts.saved, leftCharts.count);
+    assert.deepEqual(await boardCells(), finishedCells);
+    assert.equal(await card.isVisible(), false);
 
     // The relative chart: the card names the line nearest the pointer, with
     // its own value at that moment, and that line comes forward.
@@ -240,8 +254,8 @@ const shotDir = process.argv[4] || null;
     assert.equal(named.color, rgb(nearestLine.color), 'the card names the line under the pointer');
     assert.deepEqual(named.hot, [nearestLine.color], 'and brings it forward');
 
-    // An event track: the long gap's card in words and its proven-safe
-    // squares ringed on the board.
+    // An event track: the long gap's card in words, and the board then rings
+    // its proven-safe squares under the replay's available-moves overlay.
     const gapSpan = await page.evaluate(() => {
       const tracks = [...document.querySelectorAll('.during-game-track-name')].map((name) => name.dataset.track);
       const y = 1 + tracks.indexOf('pauses') * 18 + 4;
@@ -256,20 +270,85 @@ const shotDir = process.argv[4] || null;
     assert.match(gapCard[1], /^\d+\.\d s pause, ended by /);
     const known = gapCard.map((row) => /^(\d+) proven-safe squares? known/.exec(row)).find(Boolean);
     if (known) {
-      assert.equal(await page.locator('.during-game-board-grid > .replay-safe').count(), Number(known[1]),
-        'the pause\u2019s proven-safe squares ringed');
+      assert.equal(await page.locator('#board .cell.replay-safe').count(), Number(known[1]),
+        'the pause\u2019s proven-safe squares ringed on the board');
     }
 
-    // Clicking moves the transport under the board to the board of that moment.
+    // A click keeps the moment: the replay stays there after the pointer
+    // leaves, remembered as its position, and a later hover returns there.
     await page.mouse.move(hoverX, progress.plot.y + progress.plot.height / 2, { steps: 3 });
+    const clicked = (await replayState()).step;
     await page.mouse.down();
     await page.mouse.up();
-    const replay = await page.evaluate(() => ({ shown: replayControls.checkVisibility(), step: replayStep, count: replayDecisionCount() }));
+    await page.mouse.move(5, 5);
+    const replay = await page.evaluate(() => ({ shown: replayControls.checkVisibility(), step: replayStep,
+      count: replayDecisionCount(), saved: settings.replayPosition.step }));
     assert.equal(replay.shown, true);
     assert(replay.step > 0 && replay.step < replay.count, 'a mid-game step: ' + JSON.stringify(replay));
-    await page.mouse.move(5, 5);
+    assert.equal(replay.step, clicked, 'the moment clicked');
+    assert.equal(replay.saved, clicked, 'remembered as the replay position');
     assert.equal(await card.isVisible(), false);
-    assert.equal(await boardPanel.isVisible(), false);
+    await glideInto(progress, progress.plot.x + progress.plot.width * 0.15, progress.plot.y + 10);
+    assert.notEqual((await replayState()).step, clicked);
+    await page.mouse.move(5, 5);
+    assert.equal((await replayState()).step, clicked, 'leaving returns to the moment clicked');
+
+    // Legend clicks: with every line shown, a click shows its line alone,
+    // another adds its line, a second click on one removes it, and removing
+    // the last shows every line again. Each legend chooses for itself,
+    // hidden lines' names are struck, and the plots keep their place.
+    const entry = (id) => block.locator('.during-game-legend-item[data-row="' + id + '"]');
+    const strokes = (chart) => page.evaluate((id) => [...document.querySelectorAll('[data-chart="' + id + '"] path.end-line')]
+      .map((line) => line.getAttribute('stroke')).sort(), chart);
+    const offRows = () => page.evaluate(() => [...document.querySelectorAll('.during-game-legend-off')].map((item) => item.dataset.row));
+    const plotPlaces = () => page.evaluate(() => [...document.querySelectorAll('.during-game-chart svg rect.scatter-plot')]
+      .map((rect) => rect.getAttribute('x') + ' ' + rect.getAttribute('width')));
+    const colorOf = (id) => page.evaluate((row) => DuringGame.rowById(row).color, id);
+    const relativeIds = await page.evaluate(() => [...document.querySelectorAll('[data-chart="relative"] .during-game-legend-item')]
+      .map((item) => item.dataset.row));
+    const everyLine = await strokes('relative');
+    const progressLines = await strokes('progress');
+    const places = await plotPlaces();
+    const gapColor = await colorOf('actionGap');
+    const rateColor = await colorOf('bvPerSecond');
+    await entry('actionGap').click();
+    assert.deepEqual(await strokes('relative'), [gapColor], 'a click shows its line alone');
+    assert.deepEqual(await offRows(), relativeIds.filter((id) => id !== 'actionGap'), 'the others struck');
+    assert.deepEqual(await strokes('progress'), progressLines, 'each legend chooses for itself');
+    assert.deepEqual(await plotPlaces(), places, 'the plots keep their place');
+    await entry('bvPerSecond').click();
+    assert.deepEqual(await strokes('relative'), [gapColor, rateColor].sort(), 'another adds its line');
+    await entry('bvPerSecond').click();
+    assert.deepEqual(await strokes('relative'), [gapColor], 'a second click removes it');
+    await entry('actionGap').click();
+    assert.deepEqual(await strokes('relative'), everyLine, 'removing the last shows every line again');
+    assert.deepEqual(await offRows(), []);
+    const marks = () => page.locator('.during-game-tracks-svg .during-game-mark').count();
+    const everyMark = await marks();
+    await entry('flagRemovedEvents').click();
+    assert.equal(await marks(), 1, 'the tracks\u2019 legend too: only the flag taken off');
+    await entry('flagRemovedEvents').click();
+    assert.equal(await marks(), everyMark, 'and back to every mark');
+
+    // The scale: linear from 0 with 1x labeled and drawn, remembered; the
+    // legend's picks hold through the redraw, and the plots keep their place.
+    const scaleSelect = block.locator('.during-game-controls label', { hasText: 'scale' }).locator('select');
+    assert.equal(await scaleSelect.inputValue(), 'log', 'log by default');
+    await entry('actionGap').click();
+    await scaleSelect.selectOption('linear');
+    const linear = await page.evaluate(() => ({
+      saved: settings.duringGameRelativeScale,
+      labels: [...document.querySelectorAll('[data-chart="relative"] text.tick-y')].map((t) => t.textContent),
+      reference: document.querySelectorAll('[data-chart="relative"] line.during-game-reference').length,
+    }));
+    assert.equal(linear.saved, 'linear');
+    assert.equal(linear.labels[0], '0\u00d7', 'linear from 0: ' + linear.labels);
+    assert(linear.labels.includes('1\u00d7') && linear.labels.every((label) => /^\d+(\.5)?\u00d7$/.test(label)),
+      'linear steps: ' + linear.labels);
+    assert.equal(linear.reference, 1, 'the whole-game line drawn once');
+    assert.deepEqual(await strokes('relative'), [gapColor], 'the picks hold through the redraw');
+    assert.deepEqual(await plotPlaces(), places);
+    await entry('actionGap').click();
     if (shotDir) await block.screenshot({ path: shotDir + '/during-game-block.png' });
 
     // Configure: one row off, back, and its line is gone.
@@ -283,7 +362,8 @@ const shotDir = process.argv[4] || null;
 
     // Raw averaging: dots for measured gaps and ticks for rates, which have
     // no line; the choice is remembered.
-    await block.locator('select.avg-mode-select').selectOption('raw');
+    const averagingSelect = block.locator('.during-game-controls label', { hasText: 'averaging' }).locator('select');
+    await averagingSelect.selectOption('raw');
     await page.waitForFunction(() => settings.duringGameAveraging === 'raw'
       && document.querySelector('[data-chart="relative"] .during-game-dot') !== null
       && document.querySelector('[data-chart="relative"] .during-game-tick') !== null);
@@ -300,7 +380,9 @@ const shotDir = process.argv[4] || null;
     await page.waitForFunction(() => preferenceUIReady);
     await drawn();
     assert.equal((await legendRows()).includes('mouseSpeed'), false);
-    assert.equal(await block.locator('select.avg-mode-select').inputValue(), 'raw');
+    assert.equal(await averagingSelect.inputValue(), 'raw');
+    assert.equal(await scaleSelect.inputValue(), 'linear');
+    assert.equal(await page.locator('[data-chart="relative"] text.tick-y').first().textContent(), '0\u00d7', 'drawn linear');
     assert.equal(await legendValue('flagRemovedEvents'), '1');
 
     // A loss shows its own game, not the latest win the rank tables use, and
@@ -326,28 +408,33 @@ const shotDir = process.argv[4] || null;
       .map((el) => (el.matches('.stat-section.during-game') ? 'during-game' : el.id || el.className))),
     ['during-game', 'stats-grid'], 'a loss: live perf charts, then its statistics');
 
-    // A middle width: wherever the block sits, the board at a moment stands
-    // beside it, not over it, inside the window.
+    // A middle width: the hover shows the moment on the board beside the
+    // docked column, and the card stays inside the window, clear of the board.
     await page.setViewportSize({ width: 1100, height: 900 });
     await page.waitForTimeout(300);
     await page.locator('.during-game').scrollIntoViewIfNeeded();
     const middle = await plotBox('progress');
+    const middleBase = (await replayState()).step;
     await glideInto(middle, middle.plot.x + middle.plot.width * 0.5, middle.plot.y + middle.plot.height / 2);
-    const middleBoard = await boardPanel.boundingBox();
-    const middleBlock = await page.locator('.during-game').boundingBox();
-    assert(middleBoard.x >= 0 && middleBoard.x + middleBoard.width <= 1100, 'the board inside the window at 1100px');
-    assert(middleBoard.x >= middleBlock.x + middleBlock.width || middleBoard.x + middleBoard.width <= middleBlock.x,
-      'the board beside the block at 1100px: ' + JSON.stringify([middleBoard, middleBlock]));
-    const middleCard = await page.locator('.during-game-card').boundingBox();
-    const middleRoom = await page.evaluate(() => document.documentElement.clientWidth);
-    assert(middleCard.x >= 0 && middleCard.x + middleCard.width <= middleRoom,
-      'the card inside the window at 1100px: ' + JSON.stringify([middleCard, middleRoom]));
+    assert.notEqual((await replayState()).step, middleBase, 'the board shows the moment at 1100px');
+    const middleView = await page.evaluate(() => {
+      const cardRect = document.querySelector('.during-game-card').getBoundingClientRect();
+      const boardRect = document.getElementById('board').getBoundingClientRect();
+      return { compact: pageLayout.classList.contains('compact-sidebar'),
+        cardInside: cardRect.left >= 0 && cardRect.right <= document.documentElement.clientWidth,
+        cardClear: cardRect.left >= boardRect.right || cardRect.right <= boardRect.left
+          || cardRect.top >= boardRect.bottom || cardRect.bottom <= boardRect.top };
+    });
+    assert.equal(middleView.compact, false, 'the column docks at 1100px');
+    assert.equal(middleView.cardInside, true, 'the card inside the window at 1100px');
+    assert.equal(middleView.cardClear, true, 'the card clear of the board at 1100px');
     if (shotDir) await page.screenshot({ path: shotDir + '/during-game-1100.png' });
     await page.mouse.move(0, 0);
+    assert.equal((await replayState()).step, middleBase, 'and back on leaving');
 
-    // Phone width: the block leads the Game details popover, its plots
-    // follow the width, and the board at a moment stays in the window,
-    // clear of the chart being read and of the card.
+    // Phone width: the block leads the Game details popover and its plots
+    // follow the width; the card stays in the window, and a click closes the
+    // popover to show the board at the moment clicked.
     await page.setViewportSize({ width: 390, height: 900 });
     await page.waitForTimeout(300);
     await page.locator('#game-sidebar-button').click();
@@ -361,18 +448,20 @@ const shotDir = process.argv[4] || null;
     assert.equal(phone.overflow, 0, 'nothing spills at 390px');
     assert(phone.widths.every((width) => width > 200 && width < 390), 'plots follow the column: ' + phone.widths);
     const narrow = await plotBox('progress');
-    const pointerY = narrow.plot.y + narrow.plot.height / 2;
-    await glideInto(narrow, narrow.plot.x + narrow.plot.width * 0.5, pointerY);
-    const phoneBoard = await boardPanel.boundingBox();
-    assert(phoneBoard.x >= 0 && phoneBoard.x + phoneBoard.width <= 390, 'the board inside the window: ' + JSON.stringify(phoneBoard));
-    assert(phoneBoard.y >= 0 && phoneBoard.y + phoneBoard.height <= 900, 'the board inside the window: ' + JSON.stringify(phoneBoard));
-    assert(pointerY < phoneBoard.y || pointerY > phoneBoard.y + phoneBoard.height,
-      'the board clear of the chart being read: ' + pointerY + ' ' + JSON.stringify(phoneBoard));
+    await glideInto(narrow, narrow.plot.x + narrow.plot.width * 0.5, narrow.plot.y + narrow.plot.height / 2);
     const phoneCard = await page.locator('.during-game-card').boundingBox();
-    assert(phoneCard.y + phoneCard.height <= phoneBoard.y || phoneCard.y >= phoneBoard.y + phoneBoard.height,
-      'the card clear of the board: ' + JSON.stringify([phoneCard, phoneBoard]));
+    assert(phoneCard.x >= 0 && phoneCard.x + phoneCard.width <= 390 && phoneCard.y >= 0 && phoneCard.y + phoneCard.height <= 900,
+      'the card inside the window: ' + JSON.stringify(phoneCard));
+    const phoneStep = (await replayState()).step;
+    await page.mouse.down();
+    await page.mouse.up();
+    const phoneAfter = await page.evaluate(() => ({ open: gameSidebar.matches(':popover-open'), step: replayStep,
+      saved: settings.replayPosition.step, card: document.querySelector('.during-game-card').matches(':popover-open') }));
+    assert.equal(phoneAfter.open, false, 'the click closes Game details to show the board');
+    assert.deepEqual([phoneAfter.step, phoneAfter.saved], [phoneStep, phoneStep], 'at the moment clicked');
+    assert.equal(phoneAfter.card, false, 'the card closes with it');
     if (shotDir) await page.screenshot({ path: shotDir + '/during-game-390.png' });
     assert.deepEqual(errors, []);
-    console.log('live perf charts: details-column placement and toggle, charts and tracks on one axis, the card naming the line under the pointer, board in the player\u2019s style, replay link, configure, averaging, restore, loss, middle width, and phone width passed');
+    console.log('live perf charts: details-column placement and toggle, charts and tracks on one axis, the card naming the line under the pointer, the board showing the hovered moment in the player\u2019s style and back on leaving, a click keeping it, legend picks, log and linear scales, configure, averaging, restore, loss, middle width, and phone width passed');
   } finally { await browser.close(); }
 })().catch((error) => { console.error(error); process.exitCode = 1; });

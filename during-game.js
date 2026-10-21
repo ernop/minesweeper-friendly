@@ -505,13 +505,20 @@ const DuringGame = (() => {
 
   // Two charts, in this order. Progress plots shares of the board on a fixed
   // 0 to 1 scale. Every other line shares one chart (creator 2026-10-20:
-  // combine the solitary line charts) on a log scale of each line against
-  // its own whole-game value, since their units differ. Event rows are
-  // marks on the tracks under the charts.
+  // combine the solitary line charts) on a scale of each line against its
+  // own whole-game value, since their units differ. Event rows are marks on
+  // the tracks under the charts.
   const CHARTS = [
     { id: 'progress', name: 'progress', scale: 'share' },
     { id: 'relative', name: 'against the whole game', scale: 'relative' },
   ];
+  // The relative chart's scale (creator 2026-10-21: toggle between log and
+  // linear): doublings either side of 1x by default, or linear from 0.
+  const RELATIVE_SCALES = [
+    ['log', 'log'],
+    ['linear', 'linear'],
+  ];
+  const DEFAULT_RELATIVE_SCALE = 'log';
   // The event tracks (creator 2026-10-20: a compact, meaningful display in
   // place of one lane per event row), by what the events are about: clicks
   // that changed nothing, went against the proof, or risked a mine; jumps,
@@ -881,6 +888,27 @@ const DuringGame = (() => {
     return nearest === undefined ? undefined : nearest.value;
   }
 
-  return { NEAR_SQUARES, LONG_GAP_MS, QUICK_UNDO_MS, GROUPS, CHARTS, TRACKS, ROWS, defaults, AVERAGES, DEFAULT_AVERAGE,
-    rowById, model, moveHabits, view, valueAt };
+  //-------DURING THE GAME: LEGEND PICKS (game page)-------
+
+  // The rows a legend click leaves picked, of a legend's `rowIds`; none
+  // picked shows them all (creator 2026-10-21). From all shown, a click
+  // shows its row alone; then each click adds or removes one row. Removing
+  // the last picked row or picking every row shows them all again, since a
+  // chart showing nothing is pointless. Picks of rows the legend no longer
+  // has (configure removed them) drop out.
+  function legendPick(picked, rowId, rowIds) {
+    const next = new Set([...picked].filter((id) => rowIds.includes(id)));
+    if (next.has(rowId)) next.delete(rowId);
+    else next.add(rowId);
+    return next.size === rowIds.length ? new Set() : next;
+  }
+
+  // Whether a legend's picks hide a row: some of its rows are picked, and
+  // not this one.
+  function legendHides(picked, rowId, rowIds) {
+    return rowIds.some((id) => picked.has(id)) && !picked.has(rowId);
+  }
+
+  return { NEAR_SQUARES, LONG_GAP_MS, QUICK_UNDO_MS, GROUPS, CHARTS, RELATIVE_SCALES, DEFAULT_RELATIVE_SCALE, TRACKS,
+    ROWS, defaults, AVERAGES, DEFAULT_AVERAGE, rowById, model, moveHabits, view, valueAt, legendPick, legendHides };
 })();

@@ -6,11 +6,17 @@ Spec: [docs/product/replay.md](../product/replay.md). Index: [AGENTS.md](../../A
   `#path-view-control` (in `#review-options`) exposes separate buttons for off,
   raw every-sample path, numbered raw click locations, movement speed, click
   speed, game progress, and less useful—never a dropdown.
-  The game-history slider `#replay-slider` (inside collapsed sidebar Replay
-  game; positions 0 … N = actions done, N = the finished board) drives
-  `replayStep`; `setReplayStep` clamps it, derives `replayEnabled = step <
+  The game-history slider `#replay-slider` (in the transport under the
+  board; positions 0 … N = actions done, N = the finished board) drives
+  `replayStep`; `showReplayStep` clamps it, derives `replayEnabled = step <
   count`, re-renders through `renderPathView`, and starts the solver
-  precompute when the frames are first entered. `renderReplaySlider` owns
+  precompute when the frames are first entered. `moveReplayStep` shows a
+  step and saves it (`rememberReplayPosition`); `setReplayStep`, every user
+  move, first ends any hover preview and stops playback.
+  `previewReplayStep(step)`, the live perf charts' hover, shows a step
+  without saving it and holds the position it replaced in
+  `replayPreviewReturnStep` (null when no preview runs), which
+  `endReplayPreview` shows again. `renderReplaySlider` owns
   range/thumb/‹ ›/end status; `renderReplayFrame` paints a frame. Any path
   mode combines with the shown pre-action board and is truncated at the
   chosen position without changing its full-game color scale.
@@ -116,12 +122,15 @@ Spec: [docs/product/replay.md](../product/replay.md). Index: [AGENTS.md](../../A
   (`panelsFromStored` in `settings-core.js` drops the stored key). Keyboard
   replay shortcuts apply while `replayControls.checkVisibility()`.
   Playback ("PATH REPLAY: PLAYBACK" in `game/replay-view.js`): `setReplayStep`, the
-  entry point of every user move, calls `stopReplayPlayback` and then
-  `moveReplayStep`, the former body. `scheduleReplayPlayback` sets one
+  entry point of every user move, clears `replayPreviewReturnStep`, calls
+  `stopReplayPlayback`, and then `moveReplayStep`. The first
+  `previewReplayStep` of a hover stops playback too. `scheduleReplayPlayback` sets one
   timeout of `replayFrameHoldMs(replayStep)`: `REPLAY_OPENING_FRAME_MS`
   (500) at step 0, else the trace-time gap between decision events
   `step - 1` and `step` (`pathDecisionEvents(trace.events)[i].t`). Each
   tick moves one step and reschedules until the finished board. The play
   button toggles `.playing`, which swaps its play and pause icons, and its
-  label and title; Play at the end first moves to step 0. `newGame` calls
-  `stopReplayPlayback` before clearing `replayEnabled`.
+  label and title; Play at the end first moves to step 0, and Play during a
+  hover preview drops the held position, playing on from the moment shown.
+  `newGame` calls `stopReplayPlayback` before clearing `replayEnabled` and
+  `replayPreviewReturnStep`.

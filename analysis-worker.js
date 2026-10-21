@@ -1,15 +1,15 @@
 "use strict";
 
 importScripts('trend-fit.js?v=20260925-worker-analysis',
-  'game/trace-metrics.js?v=20261020-move-habits',
-  'game/evaluation.js?v=20261020-move-habits',
-  'game/metric-definitions.js?v=20261020-move-habits',
+  'game/trace-metrics.js?v=20261021-perf-chart-toggles',
+  'game/evaluation.js?v=20261021-perf-chart-toggles',
+  'game/metric-definitions.js?v=20261021-perf-chart-toggles',
   'board-shape.js?v=20261020-no-left-panel', 'zini.js?v=20261020-no-left-panel', 'board-metrics.js?v=20261020-no-left-panel',
-  'game-data.js?v=20261020-move-habits', 'game/rankings.js?v=20261020-move-habits',
-  'game/charts.js?v=20261020-move-habits', 'game/game-data-chart.js?v=20261020-move-habits',
+  'game-data.js?v=20261020-move-habits', 'game/rankings.js?v=20261021-perf-chart-toggles',
+  'game/charts.js?v=20261021-perf-chart-toggles', 'game/game-data-chart.js?v=20261021-perf-chart-toggles',
   'justice.js?v=20260926-fast-evidence', 'board-icons.js?v=20261015-flag-controls',
-  'game/replay-model.js?v=20261020-move-habits',
-  'during-game.js?v=20261020-move-habits');
+  'game/replay-model.js?v=20261021-perf-chart-toggles',
+  'during-game.js?v=20261021-perf-chart-toggles');
 
 let config;
 

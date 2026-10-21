@@ -382,6 +382,7 @@ function newGame() {
   stopReplayPlayback();
   replayEnabled = false;
   replayStep = 0;
+  replayPreviewReturnStep = null;
   cancelReplayPrecompute();
   replaySolverCache.clear();
   replaySlider.max = '0';

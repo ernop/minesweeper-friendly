@@ -102,11 +102,11 @@ Files, in load order:
 | `trial-review.js` | after-trial rank rows, identity review, run overlays |
 | `game-data-chart.js` | game data: pure ranking and label layout, then the 0–100% band and its views, the strips, and the cards' example boards |
 | `switch-cost-line.js` | the optional switch cost line under game data: the session's and the latest 500 standard games' estimates, its card, refresh requests |
-| `during-game-chart.js` | live perf charts (head of the game data column): the progress and relative charts and event tracks on one time axis, hover line, the card for the hovered line, the board at a moment in the player's style, replay link, configure |
+| `during-game-chart.js` | live perf charts (head of the game data column): the progress and relative charts and event tracks on one time axis, legend picks, the log or linear scale, hover line, the card for the hovered line, the board's replay previewing the hovered moment, replay link, configure |
 | `result-ranks.js` | `renderRanks`: result tables and charts in section order |
 | `input-trace.js` | the raw input trace |
 | `replay-model.js` | path and choice replay, pure part |
-| `replay-view.js` | replay transport and playback, frames, path canvas, legends |
+| `replay-view.js` | replay transport and playback, hover preview, frames, path canvas, legends |
 | `music.js` | music state sampling |
 | `trace-metrics.js` | trace metrics, pure (all measurement systems), and the press-timing constants and median the results use |
 | `metric-definitions.js` | shared metric display catalog and series projection (pure, also loaded in workers) |

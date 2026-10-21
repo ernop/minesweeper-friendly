@@ -18,6 +18,9 @@ let pathCanvas = null;
 let pathResizeObserver = null;
 let replayFinishedCells = null;
 let replayStep = 0;
+// The position a hover preview replaced (previewReplayStep), null when none
+// runs.
+let replayPreviewReturnStep = null;
 // Independent review mode board overlays; remembered for the page session
 // like the path view itself.
 // The solver layers that show the logically deducible state of the shown
@@ -59,16 +62,24 @@ function replayDecisionCount() {
 }
 
 // The player's own moves of the game-history position (slider, buttons,
-// arrow keys, a click on the during-the-game charts) stop playback.
+// arrow keys, a click on the live perf charts) stop playback and keep the
+// position past any hover preview.
 function setReplayStep(step) {
+  replayPreviewReturnStep = null;
   stopReplayPlayback();
   moveReplayStep(step);
 }
 
-// Moves the game-history position and re-renders: review frames for
-// positions before the end, the finished board at the end. Entering the
-// frames starts the idle solver precompute for every frame.
+// Moves the game-history position, remembered for a reload.
 function moveReplayStep(step) {
+  showReplayStep(step);
+  rememberReplayPosition();
+}
+
+// Shows a game-history position: review frames for positions before the
+// end, the finished board at the end. Entering the frames starts the idle
+// solver precompute for every frame.
+function showReplayStep(step) {
   const count = replayDecisionCount();
   replayStep = Math.max(0, Math.min(count, step));
   const enabled = replayStep < count;
@@ -76,7 +87,25 @@ function moveReplayStep(step) {
   replayEnabled = enabled;
   renderPathView();
   if (entering) scheduleReplayPrecompute();
-  rememberReplayPosition();
+}
+
+// Hovering the live perf charts previews moments on the board itself
+// (creator 2026-10-21, in place of a second board beside the charts). The
+// first preview stops playback and holds the position it replaced, which
+// ending the preview shows again; a preview is never remembered.
+function previewReplayStep(step) {
+  if (replayPreviewReturnStep === null) {
+    stopReplayPlayback();
+    replayPreviewReturnStep = replayStep;
+  }
+  if (step !== replayStep) showReplayStep(step);
+}
+
+function endReplayPreview() {
+  if (replayPreviewReturnStep === null) return;
+  const step = replayPreviewReturnStep;
+  replayPreviewReturnStep = null;
+  if (step !== replayStep) showReplayStep(step);
 }
 
 function renderPathViewControls() {
@@ -387,13 +416,12 @@ function renderReplaySliderScale(positions) {
 // painted, for the legend's enumeration caveat.
 let replayLegendSolverState = 'off';
 
-// Translates the frame model onto board square elements (the board's own, or
-// the during-the-game board's): base classes from the stored position, one
-// `replay-<key>` class per encoding, the glyph or flag/mine icon, then the
-// mark-mine hint and the probability badge.
-function paintReplayFrame(model, elements) {
-  for (let i = 0; i < elements.length; i++) {
-    const element = elements[i];
+// Translates the frame model onto the board's squares: base classes from the
+// stored position, one `replay-<key>` class per encoding, the glyph or
+// flag/mine icon, then the mark-mine hint and the probability badge.
+function paintReplayFrame(model) {
+  for (let i = 0; i < cellElements.length; i++) {
+    const element = cellElements[i];
     const cell = model.cells[i];
     const classes = ['cell', cell.revealed ? 'revealed' : 'hidden'];
     if (cell.revealed && cell.adjacent > 0) classes.push('n' + cell.adjacent);
@@ -456,7 +484,7 @@ function renderReplayFrame() {
   const solver = wantSolver ? replaySolverAt(replayStep, position) : null;
   const model = replayFrameModel(evaluation, solver, settings.replayOverlays);
   replayLegendSolverState = model.solverState;
-  paintReplayFrame(model, cellElements);
+  paintReplayFrame(model);
   renderReplayChoiceAreas(evaluation);
   renderReplayStatus(replayStatusParts(replayStep, decisions.length, evaluation));
   renderPathOverlay();
@@ -1219,7 +1247,9 @@ replayPlay.addEventListener('click', () => {
     stopReplayPlayback();
     return;
   }
-  // From the finished board, play starts over, as a video does at its end.
+  // From the finished board, play starts over, as a video does at its end;
+  // from a hover preview, it plays on from the moment previewed.
+  replayPreviewReturnStep = null;
   if (replayStep >= replayDecisionCount()) moveReplayStep(0);
   scheduleReplayPlayback();
   renderReplayPlayButton();

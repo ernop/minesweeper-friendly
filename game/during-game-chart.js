@@ -4,9 +4,10 @@
 // (docs/product/during-game.md). The analysis worker builds the rows' series
 // from the finished game's trace (during-game.js); this file draws them as
 // two framed charts on one time axis, progress and every other line against
-// its whole-game value, with the event tracks under them; shows the value of
-// the line under the pointer and, beside the block, the board at that
-// moment; opens the replay there; and chooses the rows.
+// its whole-game value, with the event tracks under them; lets each legend
+// choose its lines; shows the value of the line under the pointer while the
+// board shows that moment; keeps the replay there on a click; and chooses
+// the rows.
 
 //-------DURING THE GAME: SOURCE (the game the reports worker holds)-------
 
@@ -85,135 +86,66 @@ function duringGameEventLines(event) {
   }
 }
 
-//-------DURING THE GAME: THE BOARD AT A MOMENT AND THE CARD (floating)-------
+//-------DURING THE GAME: THE CARD (floating)-------
 
-// The board's squares fit this box, each between these sizes.
-const DURING_GAME_BOARD_BOX = { width: 400, height: 300 };
-const DURING_GAME_CELL_PX = { min: 6, max: 24 };
-const DURING_GAME_FLOAT_GAP_PX = 8;
 const DURING_GAME_CARD_GAP_PX = 14;
 
-// Both are body-level popovers, so they also show above the compact details
-// popover; one of each serves every block.
-let duringGameBoardPanel = null;
+// A body-level popover, so it also shows above the compact details popover;
+// one serves every block.
 let duringGameCardEl = null;
-
-function duringGamePopover(className) {
-  const element = document.createElement('div');
-  element.className = className;
-  element.setAttribute('popover', 'manual');
-  document.body.appendChild(element);
-  return element;
-}
 
 // The window less its scrollbars, which would cover a fixed popover's edge.
 function duringGameRoom() {
   return { width: document.documentElement.clientWidth, height: document.documentElement.clientHeight };
 }
 
-// Real board squares, so the number display, flags, and mines follow the
-// player's board settings as the board itself does. A narrow window
-// narrows the box.
-function duringGameBoard(width, height) {
-  if (duringGameBoardPanel === null) {
-    const element = duringGamePopover('during-game-board');
-    const head = document.createElement('div');
-    head.className = 'during-game-board-head';
-    const grid = document.createElement('div');
-    grid.className = 'during-game-board-grid';
-    element.append(head, grid);
-    duringGameBoardPanel = { element, head, grid, cells: [], width: 0, height: 0, cellPx: 0, painted: null };
-  }
-  const board = duringGameBoardPanel;
-  if (board.width !== width || board.height !== height) {
-    board.grid.style.gridTemplateColumns = 'repeat(' + width + ', var(--cell-size))';
-    board.cells = Array.from({ length: width * height }, () => document.createElement('div'));
-    board.grid.replaceChildren(...board.cells);
-    board.width = width;
-    board.height = height;
-    board.painted = null;
-  }
-  const boxWidth = Math.min(DURING_GAME_BOARD_BOX.width, duringGameRoom().width - 40);
-  const cellPx = Math.max(DURING_GAME_CELL_PX.min, Math.min(DURING_GAME_CELL_PX.max,
-    Math.floor(Math.min(boxWidth / width, DURING_GAME_BOARD_BOX.height / height))));
-  if (board.cellPx !== cellPx) {
-    board.grid.style.setProperty('--cell-size', cellPx + 'px');
-    board.cellPx = cellPx;
-  }
-  return board;
-}
-
-// The replay's frame at `step`: the position before that action with the
-// action's squares shaded, and `marked` squares ringed as proven safe; past
-// the last action, the finished board as the game board shows it.
-function paintDuringGameBoard(board, frames, step, marked) {
-  if (step === frames.length) {
-    finishedBoardCells().forEach((cell, i) => {
-      board.cells[i].className = cell.className;
-      board.cells[i].innerHTML = cell.innerHTML;
-    });
-    return;
-  }
-  const model = replayFrameModel(frames[step].evaluation, null, settings.replayOverlays);
-  for (const cell of model.cells) {
-    for (const key of cell.marks) if (key !== 'selected') cell.marks.delete(key);
-  }
-  for (const index of marked) {
-    if (!model.cells[index].revealed) model.cells[index].marks.add('safe');
-  }
-  paintReplayFrame(model, board.cells);
-}
-
-// Beside the block, level with its top: right when the window has room, else
-// left. It never follows the pointer. A window too narrow for either puts it
-// at the window's top or bottom, whichever half the pointer is not in, so it
-// never covers the chart being read.
-function placeDuringGameBoard(board, block, clientY) {
-  const room = duringGameRoom();
-  const rect = block.getBoundingClientRect();
-  const width = board.element.offsetWidth;
-  const height = board.element.offsetHeight;
-  const right = rect.right + DURING_GAME_FLOAT_GAP_PX;
-  const left = rect.left - DURING_GAME_FLOAT_GAP_PX - width;
-  const side = right + width <= room.width - 4 ? 'right' : left >= 4 ? 'left'
-    : clientY > room.height / 2 ? 'top' : 'bottom';
-  board.element.dataset.side = side;
-  if (side === 'right' || side === 'left') {
-    board.element.style.left = (side === 'right' ? right : left) + 'px';
-    board.element.style.top = Math.max(4, Math.min(rect.top, room.height - height - 4)) + 'px';
-  } else {
-    board.element.style.left = Math.max(4, (room.width - width) / 2) + 'px';
-    board.element.style.top = (side === 'top' ? 4 : room.height - height - 4) + 'px';
-  }
-  return side;
-}
-
 function duringGameCard() {
-  if (duringGameCardEl === null) duringGameCardEl = duringGamePopover('during-game-card');
+  if (duringGameCardEl === null) {
+    duringGameCardEl = document.createElement('div');
+    duringGameCardEl.className = 'during-game-card';
+    duringGameCardEl.setAttribute('popover', 'manual');
+    document.body.appendChild(duringGameCardEl);
+  }
   return duringGameCardEl;
 }
 
-// By the pointer on the side away from the board, so it never covers it;
-// beside the block, above the pointer where there is room.
-function placeDuringGameCard(card, event, boardSide) {
+// Beside the pointer: right of it, away from the board left of the column,
+// unless the window has no room there; above it where there is room, else
+// below.
+function placeDuringGameCard(card, event) {
   const room = duringGameRoom();
   const width = card.offsetWidth;
   const height = card.offsetHeight;
-  const left = boardSide === 'left' ? event.clientX + DURING_GAME_CARD_GAP_PX
-    : event.clientX - DURING_GAME_CARD_GAP_PX - width;
+  const right = event.clientX + DURING_GAME_CARD_GAP_PX;
+  const left = right + width <= room.width - 4 ? right : event.clientX - DURING_GAME_CARD_GAP_PX - width;
   const above = event.clientY - DURING_GAME_CARD_GAP_PX - height;
-  const below = event.clientY + DURING_GAME_CARD_GAP_PX;
-  const top = boardSide === 'top' ? below : boardSide === 'bottom' ? above : above >= 4 ? above : below;
+  const top = above >= 4 ? above : event.clientY + DURING_GAME_CARD_GAP_PX;
   card.style.left = Math.max(4, Math.min(left, room.width - width - 4)) + 'px';
   card.style.top = Math.max(4, Math.min(top, room.height - height - 4)) + 'px';
 }
 
+// Closes the card and returns the board to the replay's own position.
 function hideDuringGameHover() {
-  if (duringGameBoardPanel !== null) {
-    if (duringGameBoardPanel.element.matches(':popover-open')) duringGameBoardPanel.element.hidePopover();
-    duringGameBoardPanel.painted = null;
-  }
   if (duringGameCardEl !== null && duringGameCardEl.matches(':popover-open')) duringGameCardEl.hidePopover();
+  endReplayPreview();
+}
+
+//-------DURING THE GAME: LEGEND PICKS (per game)-------
+
+// The rows each legend has picked (DuringGame.legendPick), by part: the
+// two charts and the event tracks. They hold while the same game is shown,
+// through every redraw of its block (its result renders again as its
+// measurements finish; averaging, scale, and configure redraw it), and
+// start over, every row shown, with another game.
+const DURING_GAME_TRACKS_ID = 'events';
+let duringGamePicks = { endedAt: null, byPart: null };
+
+function duringGamePicksFor(endedAt) {
+  if (duringGamePicks.endedAt !== endedAt) {
+    const ids = [...DuringGame.CHARTS.map((chart) => chart.id), DURING_GAME_TRACKS_ID];
+    duringGamePicks = { endedAt, byPart: Object.fromEntries(ids.map((id) => [id, new Set()])) };
+  }
+  return duringGamePicks.byPart;
 }
 
 //-------DURING THE GAME: CHARTS (one time axis)-------
@@ -224,21 +156,22 @@ function hideDuringGameHover() {
 const DURING_GAME_LAYOUT = {
   plots: { progress: 90, relative: 120 }, track: 18, top: 6, xLabels: 16, bottom: 4, right: 8, minLeft: 32,
 };
-// The relative chart spans at most this many doublings each way of the
-// whole-game value; a value past them draws on the edge, and the card gives
-// it exactly.
+// On the log scale, the relative chart spans at most this many doublings
+// each way of the whole-game value; a value past them draws on the edge, and
+// the card gives it exactly.
 const DURING_GAME_RELATIVE_DOUBLINGS = 3;
 const DURING_GAME_RATIO_LABELS = {
   '-3': '\u215b\u00d7', '-2': '\u00bc\u00d7', '-1': '\u00bd\u00d7', 0: '1\u00d7', 1: '2\u00d7', 2: '4\u00d7', 3: '8\u00d7',
 };
+// The linear scale's top: its lines' farthest value, within these, so it
+// never reaches past the log scale's farthest; a value above it draws on
+// the edge.
+const DURING_GAME_LINEAR_TOP = { min: 2, max: 2 ** DURING_GAME_RELATIVE_DOUBLINGS };
 // Hover reaches raw marks this many pixels from the pointer.
 const DURING_GAME_HOVER_PX = 6;
-// The tick labels', track names', and board head's fonts (style.css), for
-// measuring.
+// The tick labels' and track names' fonts (style.css), for measuring.
 const DURING_GAME_TICK_FONT = 'bold 12px Arial, sans-serif';
 const DURING_GAME_NAME_FONT = '12px Arial, sans-serif';
-const DURING_GAME_HEAD_TIME_FONT = 'bold 15px Arial, Helvetica, sans-serif';
-const DURING_GAME_HEAD_FONT = '12px Arial, Helvetica, sans-serif';
 
 function duringGameShape(svg, name, attributes, text) {
   const node = document.createElementNS(SVG_NS, name);
@@ -255,9 +188,19 @@ function duringGameSize(svg, width, height) {
   svg.replaceChildren();
 }
 
+// Every value a row draws: steps, raw marks, and averages.
 function duringGameRowValues(row) {
   return [...(row.steps || []), ...(row.points || []), ...(row.buckets || []), ...(row.line || [])]
     .map((item) => item.value).filter((value) => Number.isFinite(value));
+}
+
+// The values a row's line draws (steps, buckets, rolling points), or its raw
+// marks where it draws no line. The linear scale fits these: one far raw
+// incident would flatten every line under it.
+function duringGameLineValues(row) {
+  const line = [...(row.steps || []), ...(row.buckets || []), ...(row.line || [])];
+  return (line.length > 0 ? line : row.points || []).map((item) => item.value)
+    .filter((value) => Number.isFinite(value));
 }
 
 // A line on the relative chart needs a whole-game value to compare with.
@@ -265,20 +208,36 @@ function duringGameComparable(row) {
   return Number.isFinite(row.summary) && row.summary > 0;
 }
 
+const duringGameShareLabel = (value) => Math.round(value * 100) + '%';
+const duringGameLinearLabel = (ratio) => Number(ratio.toFixed(1)) + '\u00d7';
+
 // A chart's y scale: `at` maps a value (on the relative chart, a ratio to
 // the line's whole-game value) to its share of the plot's height. Progress
-// is a fixed 0 to 1. The relative chart runs as many doublings each way of
-// 1x as its farthest value needs, at least one and at most
-// DURING_GAME_RELATIVE_DOUBLINGS, with zero on the floor. Null when the rows
-// draw no values (rates in raw are ticks).
-function duringGameScale(chart, rows) {
+// is a fixed 0 to 1. On the log scale, the relative chart runs as many
+// doublings each way of 1x as its farthest value needs, at least one and at
+// most DURING_GAME_RELATIVE_DOUBLINGS, with zero on the floor. On the linear
+// scale it runs from 0 to its lines' farthest value within
+// DURING_GAME_LINEAR_TOP, rounded up to a tick of the 1-2-5 ladder, with 1x
+// always among the ticks. Null when the rows draw no values (rates in raw
+// are ticks).
+function duringGameScale(chart, rows, relativeScale) {
   if (chart.scale === 'share') {
     const ticks = niceTicks(0, 1, 5);
-    return { at: (value) => value, ticks, minors: minorTicks(ticks, 0, 1),
-      label: (value) => Math.round(value * 100) + '%' };
+    return { at: (value) => value, ticks, minors: minorTicks(ticks, 0, 1), label: duringGameShareLabel };
   }
-  const ratios = rows.filter(duringGameComparable)
-    .flatMap((row) => duringGameRowValues(row).map((value) => value / row.summary))
+  const comparable = rows.filter(duringGameComparable);
+  if (relativeScale === 'linear') {
+    const ratios = comparable.flatMap((row) => duringGameLineValues(row).map((value) => value / row.summary));
+    if (ratios.length === 0) return null;
+    const farthest = Math.min(DURING_GAME_LINEAR_TOP.max, Math.max(DURING_GAME_LINEAR_TOP.min, ...ratios));
+    const ticks = niceTicks(0, farthest, 5);
+    if (ticks[ticks.length - 1] < farthest) ticks.push(ticks[ticks.length - 1] + ticks[1] - ticks[0]);
+    if (!ticks.includes(1)) ticks.splice(1, 0, 1);
+    const top = ticks[ticks.length - 1];
+    return { at: (ratio) => Math.max(0, Math.min(top, ratio)) / top, ticks, minors: [], reference: 1,
+      label: duringGameLinearLabel };
+  }
+  const ratios = comparable.flatMap((row) => duringGameRowValues(row).map((value) => value / row.summary))
     .filter((ratio) => ratio > 0);
   if (ratios.length === 0) return null;
   const farthest = Math.max(...ratios.map((ratio) => Math.abs(Math.log2(ratio))));
@@ -291,14 +250,21 @@ function duringGameScale(chart, rows) {
   };
 }
 
-// The plots' shared left edge: room for every y tick label and every track
-// name, so all plots start at the same x.
+// Every y label a chart can draw, on either relative scale.
+function duringGameScaleLabels(chart) {
+  if (chart.scale === 'share') return niceTicks(0, 1, 5).map(duringGameShareLabel);
+  const linear = Array.from({ length: 2 * DURING_GAME_LINEAR_TOP.max + 1 }, (_, k) => duringGameLinearLabel(k / 2));
+  return [...Object.values(DURING_GAME_RATIO_LABELS), ...linear];
+}
+
+// The plots' shared left edge: room for every y label a chart can draw and
+// every track name, so all plots start at the same x whichever lines the
+// legends show and whichever scale is chosen.
 function duringGameLeftMargin(charts, tracks) {
   let width = DURING_GAME_LAYOUT.minLeft;
-  for (const { scale } of charts) {
-    if (scale === null) continue;
-    for (const tick of scale.ticks) {
-      width = Math.max(width, chartTextWidth(scale.label(tick), DURING_GAME_TICK_FONT) + 8);
+  for (const { chart } of charts) {
+    for (const label of duringGameScaleLabels(chart)) {
+      width = Math.max(width, chartTextWidth(label, DURING_GAME_TICK_FONT) + 8);
     }
   }
   for (const track of tracks === null ? [] : tracks.used) {
@@ -352,10 +318,13 @@ function duringGameSeriesPath(row, axis, y) {
   return d;
 }
 
-// Sets each member's `y`, its value's height in the svg, or null where the
-// member draws no line.
-function drawDuringGameChart(chart, axis, labeled) {
-  const { svg, scale, plotHeight } = chart;
+// Draws the members its legend shows on a scale fitted to them. Sets each
+// member's `y`, its value's height in the svg, or null where the member
+// draws no line (its legend hides it, or it has nothing to compare with).
+function drawDuringGameChart(chart, axis, labeled, relativeScale) {
+  const { svg, plotHeight } = chart;
+  const shown = chart.members.filter((member) => !member.hidden);
+  const scale = duringGameScale(chart.chart, shown.map((member) => member.row), relativeScale);
   const relative = chart.chart.scale === 'relative';
   const plotTop = DURING_GAME_LAYOUT.top;
   const plotBottom = plotTop + plotHeight;
@@ -373,10 +342,13 @@ function drawDuringGameChart(chart, axis, labeled) {
       duringGameShape(svg, 'line', { x1: axis.left - 4, y1: y(minor), x2: axis.left, y2: y(minor), class: 'scatter-minor' });
     }
   }
-  // Raw marks first, then every line over them.
   for (const member of chart.members) {
+    member.nodes.length = 0;
+    member.y = null;
+  }
+  // Raw marks first, then every line over them.
+  for (const member of shown) {
     const { row, spec, nodes } = member;
-    nodes.length = 0;
     for (const tick of row.ticks || []) {
       const height = Math.min(10, 3 + 2 * tick.weight);
       nodes.push(duringGameShape(svg, 'rect', { x: (axis.x(tick.atMs) - 0.5).toFixed(1), y: plotBottom - height,
@@ -390,7 +362,7 @@ function drawDuringGameChart(chart, axis, labeled) {
         r: 1.6, fill: spec.color, class: 'during-game-dot' }));
     }
   }
-  for (const member of chart.members) {
+  for (const member of shown) {
     if (member.y === null) continue;
     const d = duringGameSeriesPath(member.row, axis, member.y);
     if (d !== '') member.nodes.push(duringGameShape(svg, 'path', { d, stroke: member.spec.color, class: 'end-line' }));
@@ -453,7 +425,7 @@ function drawDuringGameTracks(tracks, axis, labeled) {
     if (i > 0) duringGameShape(svg, 'line', { x1: axis.left, y1: top, x2: axis.right, y2: top, class: 'scatter-grid' });
     for (const member of track.members) {
       member.nodes.length = 0;
-      if (member.row.kind === 'unrecorded') continue;
+      if (member.hidden || member.row.kind === 'unrecorded') continue;
       for (const event of member.row.events) {
         member.nodes.push(duringGameMark(svg, member.spec, event.endMs === undefined
           ? { x: axis.x(event.atMs), y: top + height / 2 }
@@ -472,11 +444,12 @@ function duringGameEventsAt(row, atMs, toleranceMs) {
     : Math.abs(event.atMs - atMs) <= toleranceMs));
 }
 
-//-------DURING THE GAME: DRAWING AND HOVER-------
+//-------DURING THE GAME: DRAWING, LEGENDS, AND HOVER-------
 
-// Draws `view` into `charts` inside `block` and wires the hover and the
-// replay link. Returns the layout, which redraws at the charts' width.
-function renderDuringGameCharts(charts, view, block, raw) {
+// Draws `view` into `charts` and wires the legends, the hover, and the
+// replay link. `picks` holds each legend's picked rows (duringGamePicksFor).
+// Returns the layout, which redraws at the charts' width.
+function renderDuringGameCharts(charts, view, { raw, relativeScale, picks }) {
   hideDuringGameHover();
   charts.replaceChildren();
   const empty = (text) => {
@@ -486,6 +459,7 @@ function renderDuringGameCharts(charts, view, block, raw) {
   };
   if (!view.recorded) return empty('This game\u2019s trace holds no recorded actions.');
   if (view.timeMs === 0) return empty('This game ended at its first click: there is no time to plot.');
+  // The hover shows replay steps by action index.
   const frames = pathDecisionEvents(trace.events);
   if (frames.length !== view.actions.length) {
     throw new Error('during the game: the page holds ' + frames.length + ' replay frames for '
@@ -508,7 +482,16 @@ function renderDuringGameCharts(charts, view, block, raw) {
     for (const node of member.nodes) node.classList.add('hot');
     focused = { svg, member };
   };
-  const legendEntry = (svg, member, mark, valueText) => {
+  // A legend entry spotlights its series while the pointer is on it, and a
+  // click shows or hides the series (DuringGame.legendPick).
+  const applyPicks = (part) => {
+    const rowIds = part.members.map((member) => member.row.id);
+    for (const member of part.members) {
+      member.hidden = DuringGame.legendHides(picks[part.id], member.row.id, rowIds);
+      member.entry.classList.toggle('during-game-legend-off', member.hidden);
+    }
+  };
+  const legendEntry = (part, member, mark, valueText) => {
     const entry = document.createElement('span');
     entry.className = 'end-legend-item during-game-legend-item series-hotspot';
     entry.dataset.row = member.row.id;
@@ -516,16 +499,27 @@ function renderDuringGameCharts(charts, view, block, raw) {
     value.className = 'during-game-legend-value';
     value.textContent = valueText;
     entry.append(mark, chartHelpButton(member.spec.help, member.spec.name), value);
-    entry.addEventListener('mouseenter', () => focus(svg, member));
+    entry.addEventListener('mouseenter', () => {
+      if (!member.hidden) focus(part.svg, member);
+    });
     entry.addEventListener('mouseleave', () => focus(null, null));
+    entry.addEventListener('click', () => {
+      picks[part.id] = DuringGame.legendPick(picks[part.id], member.row.id, part.members.map((item) => item.row.id));
+      focus(null, null);
+      applyPicks(part);
+      if (axis !== null) drawPart(part);
+      if (!member.hidden) focus(part.svg, member);
+    });
+    member.entry = entry;
     return entry;
   };
 
-  const shown = view.rows.map((row) => ({ row, spec: DuringGame.rowById(row.id), nodes: [], y: null }));
+  const members = view.rows.map((row) => ({ row, spec: DuringGame.rowById(row.id), nodes: [], y: null,
+    hidden: false, entry: null }));
   const drawnCharts = [];
   for (const chart of DuringGame.CHARTS) {
-    const members = shown.filter((member) => member.spec.chart === chart.id);
-    if (members.length === 0) continue;
+    const chartMembers = members.filter((member) => member.spec.chart === chart.id);
+    if (chartMembers.length === 0) continue;
     const element = document.createElement('div');
     element.className = 'during-game-chart';
     element.dataset.chart = chart.id;
@@ -535,30 +529,32 @@ function renderDuringGameCharts(charts, view, block, raw) {
     svg.setAttribute('class', 'during-game-chart-svg' + (raw ? ' during-game-raw' : ''));
     svg.setAttribute('role', 'img');
     svg.setAttribute('aria-label', chart.name + ' during this game');
+    const part = { id: chart.id, chart, members: chartMembers, plotHeight: DURING_GAME_LAYOUT.plots[chart.id],
+      element, svg };
     if (chart.scale === 'relative') {
       const lead = document.createElement('span');
       lead.className = 'during-game-legend-lead';
       lead.textContent = 'whole game (1\u00d7)';
       legend.appendChild(lead);
     }
-    for (const member of members) {
+    for (const member of chartMembers) {
       const swatch = document.createElement('span');
       swatch.className = 'end-swatch';
       swatch.style.background = member.spec.color;
-      legend.appendChild(legendEntry(svg, member, swatch,
+      legend.appendChild(legendEntry(part, member, swatch,
         member.row.summary === undefined ? 'not measured' : member.spec.format(member.row.summary)));
     }
+    applyPicks(part);
     element.append(legend, svg);
     charts.appendChild(element);
-    drawnCharts.push({ chart, members, plotHeight: DURING_GAME_LAYOUT.plots[chart.id], element, svg,
-      scale: duringGameScale(chart, members.map((member) => member.row)) });
+    drawnCharts.push(part);
   }
-  const trackMembers = shown.filter((member) => member.spec.track !== undefined);
+  const trackMembers = members.filter((member) => member.spec.track !== undefined);
   let tracks = null;
   if (trackMembers.length > 0) {
     const element = document.createElement('div');
     element.className = 'during-game-chart during-game-tracks';
-    element.dataset.chart = 'events';
+    element.dataset.chart = DURING_GAME_TRACKS_ID;
     const used = DuringGame.TRACKS.map(([id, name]) => ({ id, name,
       members: trackMembers.filter((member) => member.spec.track === id) }))
       .filter((track) => track.members.length > 0);
@@ -577,23 +573,31 @@ function renderDuringGameCharts(charts, view, block, raw) {
     svg.setAttribute('aria-label', 'events during this game');
     const legend = document.createElement('div');
     legend.className = 'during-game-legend during-game-track-legend';
+    tracks = { id: DURING_GAME_TRACKS_ID, element, names, svg, used, members: trackMembers };
     for (const track of used) {
       for (const member of track.members) {
-        legend.appendChild(legendEntry(svg, member, duringGameLegendMark(member.spec),
+        legend.appendChild(legendEntry(tracks, member, duringGameLegendMark(member.spec),
           member.row.kind === 'unrecorded' ? 'not recorded' : member.spec.format(member.row.summary)));
       }
     }
+    applyPicks(tracks);
     element.append(names, svg, legend);
     charts.appendChild(element);
-    tracks = { element, names, svg, used };
   }
   const line = document.createElement('div');
   line.className = 'during-game-line';
   line.hidden = true;
   charts.appendChild(line);
 
+  const parts = [...drawnCharts, ...(tracks === null ? [] : [tracks])];
   const left = duringGameLeftMargin(drawnCharts, tracks);
   let axis = null;
+  // The first and last parts carry the seconds.
+  function drawPart(part) {
+    const labeled = part === parts[0] || part === parts[parts.length - 1];
+    if (part === tracks) drawDuringGameTracks(tracks, axis, labeled);
+    else drawDuringGameChart(part, axis, labeled, relativeScale);
+  }
   function layout() {
     const width = Math.floor(charts.clientWidth);
     if (width <= left + DURING_GAME_LAYOUT.right + 40 || (axis !== null && axis.width === width)) return;
@@ -604,12 +608,10 @@ function renderDuringGameCharts(charts, view, block, raw) {
       x: (atMs) => left + Math.min(1, Math.max(0, atMs / view.timeMs)) * plotWidth,
       ticks: niceTicks(0, view.timeMs / 1000, Math.max(2, Math.floor(plotWidth / 56))),
     };
-    const parts = [...drawnCharts, ...(tracks === null ? [] : [tracks])];
-    parts.forEach((part, i) => {
-      const labeled = i === 0 || i === parts.length - 1;
-      if (part === tracks) drawDuringGameTracks(tracks, axis, labeled);
-      else drawDuringGameChart(part, axis, labeled);
-    });
+    const kept = focused;
+    focus(null, null);
+    parts.forEach(drawPart);
+    if (kept !== null) focus(kept.svg, kept.member);
   }
 
   // The replay step showing the board at a moment: the first action after
@@ -652,34 +654,6 @@ function renderDuringGameCharts(charts, view, block, raw) {
     return nearest;
   };
   const card = duringGameCard();
-  let boardSide = 'right';
-  // Room for this game's longest head line (its last second, the longest
-  // action, the last square's name), so the board's width and place never
-  // change while the pointer moves.
-  const headWidth = Math.ceil(chartTextWidth(duringGameSeconds(view.timeMs), DURING_GAME_HEAD_TIME_FONT)
-    + Math.max(...Object.values(DURING_GAME_ACTION_PHRASES).map((phrase) => chartTextWidth(' \u00b7 next: '
-      + phrase + ' at ' + evaluationCellName(view.width * view.height - 1, view.width), DURING_GAME_HEAD_FONT))));
-
-  function showBoard(moment, events, clientY) {
-    const board = duringGameBoard(view.width, view.height);
-    board.head.style.minWidth = headWidth + 'px';
-    const step = stepAt(moment);
-    const marked = events.flatMap((event) => event.safeCells || []);
-    const key = step + '|' + marked.join(',');
-    if (board.painted !== key) {
-      paintDuringGameBoard(board, frames, step, marked);
-      board.painted = key;
-    }
-    const time = document.createElement('span');
-    time.className = 'during-game-board-time';
-    time.textContent = duringGameSeconds(moment.atMs);
-    const next = step < view.actions.length ? view.actions[step] : null;
-    board.head.replaceChildren(time, next === null ? ' \u00b7 the finished board'
-      : ' \u00b7 next: ' + DURING_GAME_ACTION_PHRASES[next.kind]
-        + (next.cell === null ? '' : ' at ' + evaluationCellName(next.cell, view.width)));
-    if (!board.element.matches(':popover-open')) board.element.showPopover();
-    boardSide = placeDuringGameBoard(board, block, clientY);
-  }
 
   function fillCard(atMs, part, nearest, events) {
     const time = document.createElement('div');
@@ -711,7 +685,7 @@ function renderDuringGameCharts(charts, view, block, raw) {
     name.textContent = part.track.name;
     cardRow(name);
     for (const member of part.track.members) {
-      if (member.row.kind === 'unrecorded') cardRow(member.spec.name + ': not recorded for this game');
+      if (!member.hidden && member.row.kind === 'unrecorded') cardRow(member.spec.name + ': not recorded for this game');
     }
     if (events.length === 0) cardRow('none at this moment');
     for (const event of events) for (const text of duringGameEventLines(event)) cardRow(text);
@@ -722,16 +696,15 @@ function renderDuringGameCharts(charts, view, block, raw) {
     focus(null, null);
     hideDuringGameHover();
   }
+  // The board shows the moment under the pointer anywhere along the time
+  // axis, through the replay's own frames.
   charts.addEventListener('pointermove', (event) => {
     const moment = momentAt(event);
     if (moment === null) { hide(); return; }
     line.style.left = axis.x(moment.atMs) + 'px';
     line.hidden = false;
+    previewReplayStep(stepAt(moment));
     const part = partAt(event.clientY);
-    const events = part !== null && part.track ? part.track.members
-      .flatMap((member) => duringGameEventsAt(member.row, moment.atMs, moment.toleranceMs))
-      .sort((a, b) => a.atMs - b.atMs) : [];
-    showBoard(moment, events, event.clientY);
     // Over a name, its definition shows instead of the card; over a legend
     // entry, its series stays in focus.
     if (part === null || event.target.closest('.chart-help-wrap')) {
@@ -739,18 +712,26 @@ function renderDuringGameCharts(charts, view, block, raw) {
       if (card.matches(':popover-open')) card.hidePopover();
       return;
     }
+    const events = part.track ? part.track.members.filter((member) => !member.hidden)
+      .flatMap((member) => duringGameEventsAt(member.row, moment.atMs, moment.toleranceMs))
+      .sort((a, b) => a.atMs - b.atMs) : [];
     const nearest = part.chart ? lineAt(part.chart, moment, event.clientY) : null;
     focus(nearest === null ? null : part.chart.svg, nearest === null ? null : nearest.member);
     fillCard(moment.atMs, part, nearest, events);
     if (!card.matches(':popover-open')) card.showPopover();
-    placeDuringGameCard(card, event, boardSide);
+    placeDuringGameCard(card, event);
   });
   charts.addEventListener('pointerleave', hide);
+  // A click on a plot or track keeps its moment as the replay's position. The
+  // compact details popover covers the board, so it closes to show it.
   charts.addEventListener('click', (event) => {
     const moment = momentAt(event);
-    if (moment === null || event.target.closest('button')) return;
-    hide();
+    if (moment === null || partAt(event.clientY) === null) return;
     setReplayStep(stepAt(moment));
+    if (gameSidebar.matches(':popover-open')) {
+      gameSidebar.hidePopover();
+      hide();
+    }
     gameFrame.scrollIntoView({ block: 'nearest' });
   });
   return layout;
@@ -782,6 +763,19 @@ function buildDuringGameBlock(record, isCurrent) {
     return node;
   };
 
+  const picks = duringGamePicksFor(record.endedAt);
+  // The view drawn last, with the averaging it was built for. The scale only
+  // changes the drawing, so it redraws this view without the worker.
+  let drawn = null;
+  function draw() {
+    const charts = document.createElement('div');
+    charts.className = 'during-game-charts';
+    body.replaceChildren(charts);
+    layout = renderDuringGameCharts(charts, drawn.view, { raw: drawn.averagingId === 'raw',
+      relativeScale: settings.duringGameRelativeScale, picks });
+    layout();
+  }
+
   function refresh() {
     const current = ++generation;
     const rowIds = DuringGame.ROWS.filter((row) => settings.duringGameRows[row.id]).map((row) => row.id);
@@ -789,11 +783,8 @@ function buildDuringGameBlock(record, isCurrent) {
     const job = analysisTask('reports', 'during-game', { gameId: record.endedAt, timeMs: record.timeMs,
       outcome: record.outcome, rows: rowIds, average: averagingId }).then((view) => {
       if (current !== generation || !isCurrent() || configuring) return;
-      const charts = document.createElement('div');
-      charts.className = 'during-game-charts';
-      body.replaceChildren(charts);
-      layout = renderDuringGameCharts(charts, view, host, averagingId === 'raw');
-      layout();
+      drawn = { view, averagingId };
+      draw();
     });
     job.catch(analysisFailure);
     return job;
@@ -861,12 +852,22 @@ function buildDuringGameBlock(record, isCurrent) {
   });
   const averagingLabel = document.createElement('label');
   averagingLabel.append('averaging ', averaging);
+  const scale = document.createElement('select');
+  scale.className = 'avg-mode-select';
+  for (const [id, label] of DuringGame.RELATIVE_SCALES) scale.add(new Option(label, id));
+  scale.value = settings.duringGameRelativeScale;
+  scale.addEventListener('change', () => {
+    updateSettings({ duringGameRelativeScale: scale.value });
+    if (!configuring && drawn !== null) draw();
+  });
+  const scaleLabel = document.createElement('label');
+  scaleLabel.append('scale ', scale);
   const configure = button('configure', () => {
     if (configuring) showRows();
     else showConfigure();
   });
   configure.setAttribute('aria-pressed', 'false');
-  controls.append(averagingLabel, configure);
+  controls.append(averagingLabel, scaleLabel, configure);
   host.analysisReady = refresh();
   return host;
 }

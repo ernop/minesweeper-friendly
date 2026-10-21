@@ -37,6 +37,14 @@ Not built yet:
 - Rows plotted against progress (3BV solved share) instead of seconds, so
   games of different length line up.
 - The same rows live during play.
+- Set the hovered events' squares apart on the board. The board beside the
+  block (2026-10-15 to 2026-10-21) ringed only the squares the hovered
+  events concern: the proven-safe squares a move left behind, or every
+  proven-safe square during a pause. Hover now shows the board's own replay
+  frame, whose "available moves" overlay (on by default) rings every
+  proven-safe square of that moment, so the left-behind squares are among
+  them but not marked as the event's. A distinct mark on them while an event is hovered would
+  restore what the event is about.
 
 ## One look per kind of thing: the rest of the page (follows the creator's 2026-10-14 direction)
 

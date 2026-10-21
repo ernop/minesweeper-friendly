@@ -86,6 +86,16 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   and Play there starts again from position 0. Pause holds the current
   position. Any other move (Start, a step button, End, the slider, an arrow
   key) stops playback first, and so does a new game.
+- The live perf charts move the replay too (creator 2026-10-21: "what if
+  instead of a popup, we just scrolled within the jsut-ended game review
+  setup, instantly, to that point? that way we don't duplicate teh
+  baord."). Pointing at a moment there shows that position on the board,
+  with its overlays, the slider, the status, and the legend, without
+  saving it as the replay position; leaving the charts shows the position
+  from before again. Pointing there pauses playback, and Play during it
+  plays on from the moment shown. A click on a chart or an event track
+  keeps the moment as the position, as the slider would
+  ([During the game](during-game.md)).
 - The slider's positions count actions done, 0 … N: the right end (N) is the
   finished board itself, which is where every game starts; every earlier
   position shows the exact player-visible board before action position + 1,

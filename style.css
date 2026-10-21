@@ -2538,6 +2538,8 @@ body.settings-page .return-to-game {
 .during-game-legend-value { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .during-game-legend-lead { font-weight: 700; }
 .during-game-legend-mark { display: inline-block; vertical-align: -1px; margin-right: 4px; }
+/* A row its legend hides keeps its entry and value; its name is struck. */
+.during-game-legend-off .chart-help.chart-help-label { text-decoration: line-through; }
 /* 1x, each line's whole-game value, anchors the relative chart. */
 .during-game-reference { stroke: #000000; stroke-width: 1; }
 /* Raw marks are context under an average's line, the data itself in raw. */
@@ -2570,13 +2572,13 @@ body.settings-page .return-to-game {
 .during-game-config table { border-collapse: collapse; }
 .during-game-config td { padding: 3px 8px 3px 0; border-bottom: 1px solid #d9e2e8; font-size: 13px; }
 .during-game-config h4 { margin: 10px 0 4px; font-size: 14px; }
-/* The board at a moment and the value card float in the top layer, above
-   the compact details popover, and never take the pointer. */
-.during-game-board,
+/* The value card floats in the top layer, above the compact details
+   popover, and never takes the pointer. */
 .during-game-card {
   position: fixed;
   inset: auto;
   margin: 0;
+  padding: 4px 8px 6px;
   overflow: visible;
   pointer-events: none;
   border: 1px solid #000000;
@@ -2585,22 +2587,7 @@ body.settings-page .return-to-game {
   box-shadow: 2px 3px 8px rgba(0, 0, 0, 0.3);
   font: 12px/18px Arial, Helvetica, sans-serif;
 }
-/* The head is one line; its width is set to the game's longest head, so the
-   board neither resizes nor moves while the pointer does. */
-.during-game-board { padding: 4px 8px 8px; }
-.during-game-board-head { box-sizing: content-box; margin-bottom: 4px; white-space: nowrap; }
-.during-game-board-time,
 .during-game-card-time { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
-/* The board's own squares at a smaller size: the bevel follows it. */
-.during-game-board-grid {
-  --bevel-size: calc(var(--cell-size) / 8);
-  display: grid;
-  width: max-content;
-  margin: 0 auto;
-  border: var(--bevel-size) solid;
-  border-color: var(--bevel-dark) var(--bevel-light) var(--bevel-light) var(--bevel-dark);
-}
-.during-game-card { padding: 4px 8px 6px; }
 .during-game-card-row { white-space: nowrap; }
 .during-game-card-row .end-swatch { vertical-align: middle; }
 .during-game-card-value { font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }

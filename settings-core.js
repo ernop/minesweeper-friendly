@@ -89,7 +89,7 @@ const SHOWN_THINGS_OPTIONS = [
   ['zeroOpeningTable', 'zero-opening-coverage tablechart', 'times on boards whose fraction of safe squares exposed by opening every zero region rounds to the same nearest whole percentage point'],
   ['boardShapeTables', 'board-shape tablecharts', 'has an 8, has a 7, max number ≤ 4/3/2, islands, and zeros rankings'],
   ['largestIsland', 'largest island', 'the largest-island stat and matching tablechart'],
-  ['duringGame', 'live perf charts', 'at the head of the game data column: how the game just played unfolded on its own clock: progress, and each measured line against its own whole-game value, over tracks of clicks, jumps, and pauses on one time axis; pointing at a line shows its value and the board then'],
+  ['duringGame', 'live perf charts', 'at the head of the game data column: how the game just played unfolded on its own clock: progress, and each measured line against its own whole-game value, over tracks of clicks, jumps, and pauses on one time axis; pointing at a line shows its value and moves the replay under the board to that moment'],
   ['averageCharts', 'average-time charts', 'your-perf and board-trait property charts, each with its own average, distribution, or winrate reading'],
   ['streak', 'streak', 'consecutive-win ranking'],
   ['nearStreak', 'near-streak', 'win runs spanning at most one loss'],
@@ -514,6 +514,11 @@ const SETTINGS_SCHEMA = [
     field: 'duringGameAveraging', default: DuringGame.DEFAULT_AVERAGE,
     valid: (v) => DuringGame.AVERAGES.some(([id]) => id === v), group: 'after-game', label: 'live perf charts averaging',
     describe: 'how the live perf charts average: a rolling 2, 5, or 10 second average (default 2 seconds), raw incidents, or fixed 2, 5, or 10 second buckets from the first click; chosen on that section', control: 'none',
+  },
+  {
+    field: 'duringGameRelativeScale', default: DuringGame.DEFAULT_RELATIVE_SCALE,
+    valid: (v) => DuringGame.RELATIVE_SCALES.some(([id]) => id === v), group: 'after-game', label: 'live perf charts scale',
+    describe: 'the scale of the live perf chart that sets each line against its whole-game value: log, doublings either side of 1× (default), or linear from 0; chosen on that section', control: 'none',
   },
   {
     field: 'gameDataBandPool', default: 'lifetime',

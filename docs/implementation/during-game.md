@@ -5,11 +5,13 @@ Spec: [docs/product/during-game.md](../product/during-game.md). Index: [AGENTS.m
 ## Files
 
 - `during-game.js` (repository root, pure): `DuringGame`, the model, the
-  row catalog, the averaging, and the hover lookup. It loads on the game
-  page and the settings page before `settings-core.js` (whose
-  `duringGameRows` and `duringGameAveraging` schema entries read
-  `DuringGame.defaults`, `DuringGame.AVERAGES`, and
-  `DuringGame.DEFAULT_AVERAGE`), and in `analysis-worker.js`. At call time it
+  row catalog, the averaging, the relative chart's scales, the hover
+  lookup, and the legend picks. It loads on the game page and the settings
+  page before `settings-core.js` (whose `duringGameRows`,
+  `duringGameAveraging`, and `duringGameRelativeScale` schema entries read
+  `DuringGame.defaults`, `DuringGame.AVERAGES`, `DuringGame.DEFAULT_AVERAGE`,
+  `DuringGame.RELATIVE_SCALES`, and `DuringGame.DEFAULT_RELATIVE_SCALE`),
+  and in `analysis-worker.js`. At call time it
   uses `pathDecisionEvents`, `positionView`, and `squareDistance`
   (`game/replay-model.js`), `Justice`, `medianOf`, `gapSpreadRatioOf`,
   `CADENCE_MOVING_WINDOW_MS`, and `FASTCLICK_MAX_GAP_MS` (`game/trace-metrics.js`),
@@ -17,17 +19,20 @@ Spec: [docs/product/during-game.md](../product/during-game.md). Index: [AGENTS.m
 - `game/during-game-chart.js` (after `game/game-data-chart.js`): the page
   side. `duringGameSourceId` names the game whose trace the reports worker
   holds. `buildDuringGameBlock(record, isCurrent)` builds the block: title,
-  charts, the averaging and configure row (game data's
+  charts, the averaging, scale, and configure row (game data's
   `.game-data-controls`), and the configure view. `renderDuringGameCharts`
   draws `DuringGame.CHARTS` and the event tracks (`DuringGame.TRACKS`) on
-  one time axis and wires hover and the replay link. The board at a moment (`duringGameBoard`,
-  `paintDuringGameBoard`, `placeDuringGameBoard`) and the card
-  (`duringGameCard`, `placeDuringGameCard`) are body-level manual popovers,
-  so they show above the Game details popover too; `hideDuringGameHover`
-  closes both, and `clearResultStats` calls it.
-- `game/replay-view.js` lends the board at a moment
-  `paintReplayFrame(model, elements)`, which paints any list of squares, and
-  `finishedBoardCells()`.
+  one time axis and wires the legends, the hover, and the replay link. The
+  card (`duringGameCard`, `placeDuringGameCard`) is a body-level manual
+  popover, so it shows above the Game details popover too;
+  `hideDuringGameHover` closes it and ends the replay preview, and
+  `clearResultStats` calls it. `duringGamePicksFor(endedAt)` holds each
+  legend's picks for the game shown.
+- `game/replay-view.js` gives the hover `previewReplayStep(step)` and
+  `endReplayPreview()` ([replay implementation](replay.md)). Until
+  2026-10-21 it lent a board beside the block `paintReplayFrame(model,
+  elements)` for any list of squares; `paintReplayFrame` paints the board's
+  own squares again.
 - `analysis-worker.js` imports `justice.js`, `board-icons.js` (whose
   `FLAG_COLOR` `game/replay-model.js` reads at load), `game/replay-model.js`,
   and `during-game.js`.
@@ -139,6 +144,11 @@ spread row takes `gapSpreadRatioOf` of the gaps inside it);
 `line`. `view(model, rowIds, averageId)` adds each action's time, kind, and
 square for the hover card and replay link. `valueAt(row, atMs,
 toleranceMs)` answers the hover. Unknown rows and averages throw.
+`RELATIVE_SCALES` lists the relative chart's scales (`log`, `linear`);
+`DEFAULT_RELATIVE_SCALE` is `log`. `legendPick(picked, rowId, rowIds)`
+returns a legend's picked rows after a click on `rowId` (an empty set is
+every row shown; a pick of a row not in `rowIds` drops out), and
+`legendHides(picked, rowId, rowIds)` whether those picks hide a row.
 
 ## Page
 
@@ -154,46 +164,61 @@ toleranceMs)` answers the hover. Unknown rows and averages throw.
 - Charts: one SVG per chart under its HTML legend; the tracks are one SVG
   beside an HTML names column, with one HTML legend under it whose entries
   draw each row's mark (`duringGameLegendMark`) beside its name and count.
-  `duringGameLeftMargin` measures every y tick label and every track name
-  (`chartTextWidth`, canvas `measureText` in the CSS fonts), so every
-  part's plot starts at the same x. The time axis takes `niceTicks` at
-  about one tick per 56 px, labeled under the first and last parts.
-  `duringGameScale` gives the y scale: progress every 20%; the relative
-  chart in whole doublings of 1× (`DURING_GAME_RATIO_LABELS`), as many each
-  way as the farthest drawn ratio needs, clamped to 1 to
-  `DURING_GAME_RELATIVE_DOUBLINGS` (3), its `reference` 1× drawn as
-  `.during-game-reference`. `drawDuringGameChart` sets each member's `y`,
-  its value's height, null when the row cannot be drawn (on the relative
-  chart, a whole-game value that is not a positive number,
-  `duringGameComparable`). `drawDuringGameTracks` draws each event as
-  `duringGameMark`: a path for an instant, a band (long gaps) or a top bar
-  (window left) for a span. The block's `ResizeObserver` redraws at the
-  column's width; legend values are whole-game values, so hover changes no
-  width.
+  `duringGameLeftMargin` measures every y label either relative scale can
+  draw (`duringGameScaleLabels`) and every track name (`chartTextWidth`,
+  canvas `measureText` in the CSS fonts), so every part's plot starts at
+  the same x whatever the scale and the legend picks. The time axis takes
+  `niceTicks` at about one tick per 56 px, labeled under the first and last
+  parts. `duringGameScale(chart, rows, relativeScale)` gives the y scale:
+  progress every 20%; the relative chart on `log` in whole doublings of 1×
+  (`DURING_GAME_RATIO_LABELS`), as many each way as the farthest drawn
+  ratio needs, clamped to 1 to `DURING_GAME_RELATIVE_DOUBLINGS` (3); on
+  `linear` from 0 to the farthest ratio of the rows' lines
+  (`duringGameLineValues`: steps, buckets, rolling points, or the raw marks
+  of a row that draws no line), clamped to `DURING_GAME_LINEAR_TOP` (2× to
+  8×), on `niceTicks` with the next tick added when the last falls short
+  and 1× inserted when the step is 2. Either way its `reference` 1× is drawn
+  as `.during-game-reference`. `drawDuringGameChart` fits the scale to the
+  members the legend shows at each draw and sets each member's `y`, its
+  value's height, null when the row is hidden or cannot be drawn (on the
+  relative chart, a whole-game value that is not a positive number,
+  `duringGameComparable`). `drawDuringGameTracks` draws each shown event
+  row's events as `duringGameMark`: a path for an instant, a band (long
+  gaps) or a top bar (window left) for a span. The block's `ResizeObserver`
+  redraws at the column's width, keeping the spotlight on the redrawn
+  nodes; legend values are whole-game values, so hover changes no width.
+- Legends: each part (the two charts and the tracks, `DURING_GAME_TRACKS_ID`)
+  keeps its members; `applyPicks` sets each member's `hidden` from
+  `DuringGame.legendHides` and the entry's `.during-game-legend-off`. A
+  click runs `DuringGame.legendPick` on the part's picks, then redraws only
+  that part (`drawPart`) and spotlights the entry's row if it is shown.
+  The picks object comes from `duringGamePicksFor(record.endedAt)`, one
+  set per part, kept at module level so a rebuilt block for the same game
+  keeps them; another game gets fresh empty sets. The scale select saves
+  `duringGameRelativeScale` and redraws the view last drawn (`drawn`, with
+  the averaging it was built for) without a worker request.
 - Card: `partAt` finds the chart or track under the pointer from the SVGs'
   boxes. Over a chart, `lineAt` picks the member whose drawn value at the
   moment (`DuringGame.valueAt`) lies nearest the pointer's height; the card
   gives its own value in its row's format, and `focus` spotlights it as the
-  legend hover does. Over a track, the card names it and lists its events
-  at the moment (`duringGameEventsAt`, `duringGameEventLines`).
+  legend hover does. Over a track, the card names it and lists its shown
+  rows' events at the moment (`duringGameEventsAt`, `duringGameEventLines`).
 - Hover: `stepAt` turns the moment into a replay step, the first action
   after it, or the finished board within hover reach of the axis's end.
-  The board is repainted only when its step or proven-safe set changes:
-  `replayFrameModel` with no solver read, every mark but `selected`
-  cleared, then `safe` on the proven-safe squares. Its squares are real
-  `.cell` divs, so `paintCellGlyph`, `chosenFlagSvg`, and `mineSvg` apply
-  the player's number display, flag style and color strength, and mine
-  style, and `--flag-size` scales with the grid's own `--cell-size` (from
-  a 400 x 300 px box, narrower in a narrow window, 6 to 24 px a square).
-  The grid restates `--bevel-size`, which `:root` resolves at the page's
-  square size. The head's min-width is measured once per game for its
-  longest text, so the panel keeps its size.
+  Every pointer move within the time axis calls `previewReplayStep`, which
+  paints the board's own replay frame as the transport does; leaving the
+  charts or the axis runs `hide`, whose `hideDuringGameHover` calls
+  `endReplayPreview`. Until 2026-10-21 a second board, its own grid of
+  `.cell` squares in a body-level popover beside the block, showed the
+  frame instead.
 - `renderDuringGameCharts` throws if the page's replay frames and the
   view's actions differ in number: hover and the replay link index one by
-  the other. A click calls `setReplayStep`; the transport under the board
-  is always shown after a game, so there is no panel to open first (until
-  2026-10-20 the click opened the remembered `settings.panels.replay`
-  disclosure).
+  the other. A click over a part (`partAt` not null; a legend click is a
+  pick) calls `setReplayStep`, which ends the preview where it is and
+  saves it; the transport under the board is always shown after a game,
+  so there is no panel to open first (until 2026-10-20 the click opened the
+  remembered `settings.panels.replay` disclosure). When the compact
+  `gameSidebar` popover is open, the click closes it and the card.
 
 ## Tests
 
@@ -201,8 +226,11 @@ toleranceMs)` answers the hover. Unknown rows and averages throw.
   hand-built boards (13×3 and 15×3) with worked-out proofs: progress, known
   squares, every event type including both kinds of left work, forks, and
   came back, move habits and their round trip through `finished-game`,
-  averaging, the worker round trip and its throws, window-left spans, and
-  an unrecorded trace.
+  averaging, the worker round trip and its throws, window-left spans, an
+  unrecorded trace, and the legend picks' click sequence.
+- `tests/path-replay-test.js`: the replay preview stops playback, never
+  saves a position, ends on the position it replaced, and a new game
+  clears it; the player's own moves end it where they move.
 - `tests/settings-state-test.js`: a row choice saved for `leftWorkEvents`
   carries to `leftHardWorkEvents` and `leftEasyWorkEvents`
   (`duringGameRowsFromStored` in `settings-core.js`).
@@ -213,14 +241,19 @@ toleranceMs)` answers the hover. Unknown rows and averages throw.
   (its lead, its one 1× line, its doubling labels), and the tracks, each
   legend in catalog order, one plot x and width for every part, the
   progress chart's labels, hover line, the card naming only the line under
-  the pointer and spotlighting it, the board in the player's number and
-  flag style beside the block, fixed while the pointer moves, the finished
-  board at the end, the pauses track's long-gap card and proven-safe ring,
-  the replay link, configure ("back to live perf charts"), raw averaging
-  (rates as ticks only), restore after reload, a loss, an 1100 px viewport
-  (the block in the details column, the board beside it, the card inside
-  the window), and a 390 px viewport (block first in the details popover,
-  board clear of the chart and card).
+  the pointer and spotlighting it, no second board, the board itself at the
+  hovered moment (the transport's step, slider, and status following, in
+  the player's number and flag style, not saved), the finished board at
+  the axis's end and on leaving, the pauses track's long-gap card and the
+  board's proven-safe rings then, a click keeping its moment through
+  leaving and a later hover, the legend picks (alone, added, removed, all
+  again; the tracks' legend; plots in place), the linear scale (labels
+  from 0×, picks kept, saved, restored after reload), configure ("back to
+  live perf charts"), raw averaging (rates as ticks only), restore after
+  reload, a loss, an 1100 px viewport (the board showing the moment, the
+  card inside the window and clear of the board), and a 390 px viewport
+  (block first in the details popover, the card inside the window, a click
+  closing the popover at that moment).
 - `tests/result-presentation-test.js` holds that no result section carries
   the block; the settings tests load `during-game.js` before
   `settings-core.js`.

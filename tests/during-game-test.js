@@ -281,4 +281,31 @@ const types = (model) => model.events.map((event) => event.type + '@' + event.at
   assert.equal(row[1].summary, 1);
 }
 
+// Legend clicks (creator 2026-10-21): with every row shown, a click shows
+// that row alone; another adds its row; a second click on one removes it;
+// removing the last picked row, or picking every row, shows them all.
+{
+  const ids = ['a', 'b', 'c'];
+  let picked = new Set();
+  const hidden = () => ids.filter((id) => DuringGame.legendHides(picked, id, ids));
+  assert.deepEqual(hidden(), [], 'every row shown by default');
+  picked = DuringGame.legendPick(picked, 'b', ids);
+  assert.deepEqual(hidden(), ['a', 'c'], 'a click shows that row alone');
+  picked = DuringGame.legendPick(picked, 'a', ids);
+  assert.deepEqual(hidden(), ['c'], 'another adds its row');
+  picked = DuringGame.legendPick(picked, 'a', ids);
+  assert.deepEqual(hidden(), ['a', 'c'], 'a second click removes it');
+  picked = DuringGame.legendPick(picked, 'b', ids);
+  assert.deepEqual(hidden(), [], 'removing the last picked row shows them all');
+  picked = ids.reduce((set, id) => DuringGame.legendPick(set, id, ids), new Set());
+  assert.equal(picked.size, 0, 'picking every row is every row shown');
+  assert.equal(DuringGame.legendPick(new Set(), 'a', ['a']).size, 0, 'a one-row legend always shows its row');
+  // Configure can remove a picked row: its pick no longer hides anything,
+  // and drops out at the next click.
+  assert.deepEqual(ids.filter((id) => DuringGame.legendHides(new Set(['gone']), id, ids)), []);
+  assert.deepEqual([...DuringGame.legendPick(new Set(['gone', 'a']), 'b', ids)], ['a', 'b']);
+}
+assert(DuringGame.RELATIVE_SCALES.some(([id]) => id === DuringGame.DEFAULT_RELATIVE_SCALE), 'the default scale is a choice');
+assert.equal(DuringGame.DEFAULT_RELATIVE_SCALE, 'log', 'log by default');
+
 console.log('during-game tests passed');

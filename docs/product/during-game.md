@@ -89,6 +89,39 @@ Built the same day:
   timeline design guides), and instants drawn as marks but spans as bands
   (Grafana's annotations).
 
+## Revision (creator 2026-10-21)
+
+Creator, verbatim, of the board that appeared beside the block on hover:
+"what if instead of a popup, we just scrolled within the jsut-ended game
+review setup, instantly, to that point? that way we don't duplicate teh
+baord." Of the second chart's doubling scale: "can there be a way to toggle
+this charts' viz between log and linear?" And of the legends: "clicking a
+label toggles enable/disable for its viz. when all are viz ==true (the
+default), clicking one shows ONLY it. clicking another adds that other to
+the viz (so there would be two). clicking one, then clicking it again,
+reverts to "all are shown" (since showing NONE at all is pointless). make
+sense? and this should apply to both the top chart with 3BV/s, and also the
+2nd one with "action gaps" where you should also add a similar list of
+labels. yes i know this changes what i said before, I intend to change my
+prior rules."
+
+Built the same day:
+
+- Hover moves the replay under the board to the moment under the pointer,
+  and the board beside the block is gone (Hover and the board at that
+  moment, below). This replaces the 2026-10-15 request for the board status
+  "to the right (preferred) or left if needed of this space at a fixed
+  height".
+- "scale" in the options row switches the second chart between log, the
+  doubling scale, and linear (Charts, below).
+- Every legend entry in the block is also its row's switch (Legend picks,
+  below). The message names "the top chart with 3BV/s" and "the 2nd one
+  with "action gaps"", adding a list of labels to the second. The progress
+  chart, the second chart (where 3BV/s and action gaps both are), and the
+  event tracks each already had one legend listing its rows with their
+  whole-game values, so the rule applies to all three legends and no list
+  was added.
+
 ## Placement
 
 - A stat section titled "live perf charts" heads the details column's
@@ -115,22 +148,48 @@ Built the same day:
 - Charts keep the grammar first built for the session stats ([Session stats](session-stats.md)):
   a framed plot with light gridlines, y ticks labeled in bold black, and each
   line in its series' color. Hovering a line's legend entry spotlights it:
-  the line thickens and the chart's other lines fade.
+  the line thickens and the chart's other lines fade. Clicking it chooses
+  which lines show (Legend picks, below).
 - Two charts, each drawing only its shown rows and disappearing when none
   are shown:
 
   | Chart | Rows | Y axis |
   | --- | --- | --- |
   | progress | 3BV solved, squares opened, mines flagged | 0% to 100%, labeled every 20% |
-  | against the whole game | every pace, board, and report row | the line's value divided by its whole-game value, on a doubling scale |
+  | against the whole game | every pace, board, and report row | the line's value divided by its whole-game value, on a doubling (log) scale or a linear one |
 
-- The second chart's scale doubles at each label: 1× is the line's
-  whole-game value, drawn as a black line across the plot, and ½×, ¼×, ⅛×
-  below it and 2×, 4×, 8× above it. It runs as many doublings each way as
-  its farthest value needs, at least one and at most three; a value past
-  three doublings is drawn at the edge, and zero on the floor. A line whose
-  whole-game value is zero, or not measured, has nothing to be measured
-  against and is not drawn; its legend entry still gives the value.
+- The second chart's scale is log by default and doubles at each label: 1×
+  is the line's whole-game value, drawn as a black line across the plot,
+  and ½×, ¼×, ⅛× below it and 2×, 4×, 8× above it. It runs as many
+  doublings each way as its farthest value needs, at least one and at most
+  three; a value past three doublings is drawn at the edge, and zero on the
+  floor. A line whose whole-game value is zero, or not measured, has nothing
+  to be measured against and is not drawn; its legend entry still gives the
+  value.
+- Its linear scale (creator 2026-10-21; "scale" in the options row chooses
+  log or linear) runs from 0 on the floor to the farthest value its lines
+  draw (in raw, which draws no lines, its farthest incident), at least 2×
+  and at most 8×, rounded up to a label. The labels step by ½×, 1×, or 2×,
+  at most six of them, and 1× is always labeled and drawn as the black
+  line. A raw dot or a value past the top is drawn at the edge, as past 8×
+  on the log scale: fitting the dots would let one far incident flatten
+  every line. Either scale leaves every plot in the same place: the plots'
+  left edge has room for every label either scale can draw. The choice
+  persists (`duringGameRelativeScale`).
+- Legend picks (creator 2026-10-21): clicking a legend entry chooses which
+  of its part's rows show. With all shown, the default, a click shows that
+  row alone; a click on another adds it, and a second click on a shown one
+  removes it. Removing the last one shown, or adding back the last one
+  hidden, shows them all again, since showing none is pointless. The
+  progress chart, the second chart, and the event tracks each choose for
+  themselves. A hidden row's entry keeps its place, its swatch or mark, and
+  its whole-game value, with its name struck through; hovering it
+  spotlights nothing. The second chart's scale fits the lines shown; the
+  event tracks keep all three lanes when a lane's marks are hidden, so
+  nothing below moves. The picks hold for the game shown, through every
+  redraw of its block (averaging, scale, configure, the result drawn again
+  as its measurements finish), and start over, all shown, with the next
+  game. Configure still decides which rows the block has at all.
 - Above each chart one line names its lines: a swatch in the line's color,
   the row's name (it shows the row's definition on hover), and its
   whole-game value, the most legible text there. The second chart's line
@@ -148,8 +207,8 @@ Built the same day:
   track over its span, and the window left a bar along that track's top
   over its span. One legend under the tracks lists every shown event row:
   its mark, its name (its definition on hover), and its count.
-- "averaging" and "configure" sit in one small row at the bottom of the
-  block, as game data's options do.
+- "averaging", "scale", and "configure" sit in one small row at the bottom
+  of the block, as game data's options do.
 
 ## Hover and the board at that moment
 
@@ -162,34 +221,37 @@ Built the same day:
   at that moment the card says "nothing measured at this moment". Over an
   event track the card names the track and gives its events at that moment
   in words, such as "left 3 proven-safe squares unopened; jumped 9 squares"
-  or "1.8 s pause, ended by a reveal", or "none at this moment". It opens on
-  the side of the pointer away from the board below, so it never covers it.
-- The board as it was at that moment appears beside the block, to its right
-  when the window has room, else to its left, with its top level with the
-  block's top (kept inside the window). It does not follow the pointer; only
-  its content follows the moment. A window too narrow for either side (a
-  phone, where the block fills the width) has no place beside the block, so
-  the board sits at the window's top or bottom, whichever half the pointer
-  is not in, and never covers the chart being read; it moves only when the
-  pointer crosses the window's middle. Built 2026-10-15, when the first
-  narrow build put it over the charts. It is the replay's frame: the position
-  before the next click, with that click's squares shaded as the replay
-  shades them. The last click ends the game, so the axis's last 6 pixels
-  (the hover's reach) show the finished board. Squares the
-  hovered events concern (the ones left behind, or every proven-safe square
-  during a pause) carry the replay's proven-safe ring. Its head line names
-  the moment and the next click, its square named as the game report names
-  squares ("4.2 s · next: a reveal at row 2, column 4"). The head is sized
-  for the game's longest, so the board keeps its size and place while the
-  pointer moves.
-- That board is drawn with the game board's own squares and follows the
-  player's board settings: number display, flag style, flag size, flag
-  color strength, and mine style ([Personal settings](settings.md)). Its
-  squares are sized to fit a 400 x 300 px box (narrower in a narrow
-  window), up to 24 px.
-- A click on the charts moves the replay under the board to that moment
-  (and stops its playback, as any other move does;
-  [Path and choice replay](replay.md)).
+  or "1.8 s pause, ended by a reveal", or "none at this moment". Only the
+  rows the legends show count (Legend picks, above). The card opens right of
+  the pointer, away from the board left of the column, or left of it where
+  the window has no room; above the pointer where there is room, else
+  below.
+- The board itself shows that moment (creator 2026-10-21, replacing the
+  board shown beside the block from 2026-10-15). While the pointer is over
+  the charts within their time axis, the replay under the board moves at
+  once to the moment under the pointer: the position before the next click,
+  with that click's squares shaded, and the replay's overlays, slider,
+  status line, and legend, all as the transport shows them and in the
+  player's board settings ([Path and choice replay](replay.md)). The last
+  click ends the game, so the axis's last 6 pixels (the hover's reach) show
+  the finished board. Hovering stops playback.
+- Leaving the charts, or their time axis, returns the board to the replay's
+  own position: the finished board after a game, or wherever the transport
+  or a click left it. A hovered moment is never saved as the replay's
+  position.
+- A click on a chart or an event track keeps its moment: the replay stays
+  there after the pointer leaves, saved as the transport's moves are, and
+  the board scrolls into view if the page had scrolled it away. In the
+  compact layout the Game details popover covers the board, so the click
+  also closes it. A click on a legend is a legend pick, not a move.
+- Gone with the board beside the block: its head line (the transport's
+  status names the moment and the next click instead), its fixed size and
+  place, and the proven-safe ring on only the squares the hovered events
+  concern (the ones a move left behind, or every proven-safe square during
+  a pause). Under the replay's "available moves" overlay, on by default,
+  every proven-safe square of the moment is ringed, so the squares a move
+  left behind are among them but not set apart
+  ([BACKLOG.md](../../BACKLOG.md)).
 
 ## Averaging
 
@@ -366,13 +428,15 @@ its top and bottom ("back to live perf charts"); Escape also returns.
 Choices apply at once and persist in the settings (`duringGameRows`); the
 averaging choice persists as `duringGameAveraging` (renamed from
 `duringGameAverage` on 2026-10-20, so the new default reached every player
-once).
+once), and the second chart's scale as `duringGameRelativeScale`. Legend
+picks are not saved: they last as long as the game shown (Charts, above).
 
 ## Built and requested
 
 Built 2026-10-15: a first build, then the same day the 2026-10-15
 revision; the 2026-10-20 revision the day it was asked, and the move
-characterization and habits (above) later that day. Requested but not built
+characterization and habits (above) later that day; the 2026-10-21
+revision the day it was asked. Requested but not built
 yet, in [BACKLOG.md](../../BACKLOG.md): forks inside one work area (several
 ways forward from the same frontier) and the habits of games saved before
 2026-10-20. Proposed there with them: threshold calibration, rows plotted
