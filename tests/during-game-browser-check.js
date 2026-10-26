@@ -1,8 +1,9 @@
 'use strict';
 // Live perf charts, after a real game played with real mouse input: its
 // place as the details column's first stat section, its title opening and
-// closing it, the progress chart, the one chart of pace and board lines
-// against their whole-game values, and the event tracks, all on one time
+// closing it, the progress chart, the moves available counted in whole
+// numbers, the one chart of pace and board lines against their whole-game
+// values, and the event tracks, all on one time
 // axis; the hover line and the card naming the line under the pointer with
 // its value; the board itself showing the moment under the pointer through
 // the replay, in the player's board style, and back on leaving; a click
@@ -100,9 +101,9 @@ const shotDir = process.argv[4] || null;
     assert.equal(await block.locator('.stat-section-body').isVisible(), true, 'reopened');
     assert.equal(await page.evaluate(() => settings.panels.duringGame), true);
 
-    // Charts: progress, then the event tracks, then every pace and board line
-    // on one chart against its whole-game value; every plot on one time
-    // axis.
+    // Charts: progress, the moves available, then the event tracks, then
+    // every pace and board line on one chart against its whole-game value;
+    // every plot on one time axis.
     const layout = await page.evaluate(() => {
       const shownRows = DuringGame.ROWS.filter((row) => settings.duringGameRows[row.id]);
       const parts = [...document.querySelectorAll('.during-game .during-game-chart')];
@@ -123,14 +124,24 @@ const shotDir = process.argv[4] || null;
         lead: document.querySelector('[data-chart="relative"] .during-game-legend-lead').textContent,
         reference: document.querySelectorAll('[data-chart="relative"] line.during-game-reference').length,
         relativeY: [...document.querySelectorAll('[data-chart="relative"] text.tick-y')].map((t) => t.textContent),
+        movesLead: document.querySelector('[data-chart="moves"] .during-game-legend-lead').textContent,
+        movesY: [...document.querySelectorAll('[data-chart="moves"] text.tick-y')].map((t) => t.textContent),
+        movesValues: [...document.querySelectorAll('[data-chart="moves"] .during-game-legend-value')].map((v) => v.textContent),
         plots: parts.map((part) => plotOf(part.querySelector('svg'))),
         progressY: [...document.querySelectorAll('[data-chart="progress"] text.tick-y')].map((t) => t.textContent),
         xLabels: parts.map((part) => [...part.querySelectorAll('text.tick-x')].map((t) => t.textContent)),
         blockOverflow: document.querySelector('.during-game').scrollWidth - document.querySelector('.during-game').clientWidth,
       };
     });
-    assert.deepEqual(layout.charts, ['progress', 'events', 'relative'], 'progress, the tracks, then the chart with 3BV/s');
+    assert.deepEqual(layout.charts, ['progress', 'moves', 'events', 'relative'],
+      'progress, the moves available, the tracks, then the chart with 3BV/s');
     assert.deepEqual(layout.charts, layout.expectedCharts);
+    assert.equal(layout.movesLead, 'game average');
+    assert(layout.movesY[0] === '0' && layout.movesY.every((label, i) => /^\d+$/.test(label)
+      && (i === 0 || Number(label) > Number(layout.movesY[i - 1]))) && layout.movesY.length <= 5,
+    'the moves chart counts from 0 in whole numbers: ' + layout.movesY);
+    assert(layout.movesValues.length === 4 && layout.movesValues.every((value) => /^\d+(\.\d)?$/.test(value)),
+      'four default counts, each averaged over the game: ' + layout.movesValues);
     assert.deepEqual(layout.legend, layout.expectedLegend, 'each chart and the tracks name their rows, in catalog order');
     assert.deepEqual(layout.tracks, layout.expectedTracks, 'one track per kind of event');
     assert.equal(layout.lead, 'whole game (1\u00d7)');
@@ -254,6 +265,13 @@ const shotDir = process.argv[4] || null;
     const rgb = (hex) => 'rgb(' + [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(', ') + ')';
     assert.equal(named.color, rgb(nearestLine.color), 'the card names the line under the pointer');
     assert.deepEqual(named.hot, [nearestLine.color], 'and brings it forward');
+
+    // The moves chart: the card gives a line's count at that moment, whole.
+    const moves = await plotBox('moves');
+    await glideInto(moves, moves.plot.x + moves.plot.width * 0.5, moves.plot.y + moves.plot.height - 2);
+    const movesRows = await card.locator('.during-game-card-row').allTextContents();
+    assert.equal(movesRows.length, 1, 'one line: ' + movesRows);
+    assert.match(movesRows[0], /^ (safe squares known|mines by counting|mines by counting near the last move|chordable numbers) \d+$/);
 
     // An event track: the long gap's card in words, and the board then rings
     // its proven-safe squares under the replay's available-moves overlay.
@@ -464,6 +482,6 @@ const shotDir = process.argv[4] || null;
     assert.equal(phoneAfter.card, false, 'the card closes with it');
     if (shotDir) await page.screenshot({ path: shotDir + '/during-game-390.png' });
     assert.deepEqual(errors, []);
-    console.log('live perf charts: details-column placement and toggle, charts and tracks on one axis, the card naming the line under the pointer, the board showing the hovered moment in the player\u2019s style and back on leaving, a click keeping it, legend picks, log and linear scales, configure, averaging, restore, loss, middle width, and phone width passed');
+    console.log('live perf charts: details-column placement and toggle, charts and tracks on one axis, the moves available in whole counts, the card naming the line under the pointer, the board showing the hovered moment in the player\u2019s style and back on leaving, a click keeping it, legend picks, log and linear scales, configure, averaging, restore, loss, middle width, and phone width passed');
   } finally { await browser.close(); }
 })().catch((error) => { console.error(error); process.exitCode = 1; });

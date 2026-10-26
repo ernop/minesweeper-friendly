@@ -73,8 +73,10 @@ Spec: [docs/product/game-end-evaluation.md](../product/game-end-evaluation.md). 
   and the report's wording can never disagree; it was `sessionEndingKind`,
   serving the session endings chart, until 2026-10-20. `fatalProofTiers`
   measures `mineProofTier` and `safeProofTier` with `easiestProofTier`
-  (Justice.proveFacts with counting only, then with overlaps, else
-  whole-board) and returns only the tiers an evaluation lacks;
+  (Justice.proveFacts with the counting level's options, then the overlap
+  level's, from `Justice.DEDUCTION_LEVELS`, else whole-board; it stops at
+  the first level proving the square, so it does not search when a rule
+  proves it) and returns only the tiers an evaluation lacks;
   `recordActionEvaluation` stores them on a death, and
   `normalizeGameRecord` adds them once to older losses (a fresh evaluation
   object, so the change persists). `likelyMisclickReasonsOf` combines the

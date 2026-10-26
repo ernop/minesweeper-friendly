@@ -97,7 +97,7 @@ const SHOWN_THINGS_OPTIONS = [
   ['zeroOpeningTable', 'zero-opening-coverage tablechart', 'times on boards whose fraction of safe squares exposed by opening every zero region rounds to the same nearest whole percentage point'],
   ['boardShapeTables', 'board-shape tablecharts', 'has an 8, has a 7, max number ≤ 4/3/2, islands, and zeros rankings'],
   ['largestIsland', 'largest island', 'the largest-island stat and matching tablechart'],
-  ['duringGame', 'live perf charts', 'at the head of the game data column: how the game just played unfolded on its own clock: progress, and each measured line against its own whole-game value, over tracks of clicks, jumps, and pauses on one time axis; pointing at a line shows its value and moves the replay under the board to that moment'],
+  ['duringGame', 'live perf charts', 'at the head of the game data column: how the game just played unfolded on its own clock: progress; the moves the board offered, counted (proven-safe squares and proven mines by how hard they were to see, chordable numbers); tracks of clicks, jumps, and pauses; and each measured line against its own whole-game value, all on one time axis; pointing at a line shows its value and moves the replay under the board to that moment'],
   ['averageCharts', 'average-time charts', 'your-perf and board-trait property charts, each with its own average, distribution, or winrate reading'],
   ['streak', 'streak', 'consecutive-win ranking'],
   ['nearStreak', 'near-streak', 'win runs spanning at most one loss'],
@@ -517,7 +517,7 @@ const SETTINGS_SCHEMA = [
     field: 'duringGameRows', default: DuringGame.defaults, mergeDefaults: true,
     valid: preferenceBooleans(DuringGame.defaults), migrate: duringGameRowsFromStored,
     group: 'after-game', label: 'during-the-game rows',
-    describe: 'which progress, pace, board, and event rows the live perf charts show; chosen with configure on that section', control: 'none',
+    describe: 'which progress, moves available, pace, board, report category, and event rows the live perf charts show; chosen with configure on that section', control: 'none',
   },
   {
     field: 'duringGameAveraging', default: DuringGame.DEFAULT_AVERAGE,

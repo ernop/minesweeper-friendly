@@ -136,6 +136,51 @@ Built the same day:
   third: top to bottom the block shows the progress chart, the event tracks,
   then that chart (Charts, below).
 
+## Revision (creator 2026-10-26)
+
+Creator, verbatim: "within the live perf charts lets add a raw numerical
+counter for every moment of the game show shows the count of moves
+available, by type: 1. markable mines by simple means (not whole-board
+based calculations) 2. the prior, but only near the last move (within dist
+5 manhattan distance) (1 & 2 should be straight clear calculations e.g. a 2
+with only 2 neighbors, so its obvious." The same message asked for a
+"well-bordered complexity leel system" for knowing facts about the board;
+that part is quoted, with the levels built from it, in
+[Design axis](design-axis.md), "Deduction levels". It ends: "the 3rd new
+metric should be similar, but for "chordable tile count" such as a 1 with
+multiple uknnown adjacent squares, and one already marked mine, so it's
+ready to be clicked. by using these new metrics, i can see the options the
+player has, as they increase/decrease through the game."
+
+Built the same day:
+
+- A third chart, the moves available chart (named after its rows' group
+  in configure), second in the block, above the event tracks: raw counts
+  on a count axis, each line a step that holds what the board offered from
+  one click to the next (Charts, below).
+- Its rows (Rows, below), shown by default: mines by counting (the first
+  request), mines by counting near the last move (the second), chordable
+  numbers (the third), and safe squares known. Off by default: mines
+  known, and the safe squares and the mines each deduction level is the
+  first to prove.
+- Choices made in building it, for the creator to change:
+  - "Simple means" is the first deduction level, counting single numbers.
+    Each square counts at the first level proving it, so a kind's level
+    rows add up to its known row.
+  - The levels read only open numbers and the board's mine count; a flag
+    is the player's note, not proof. A "markable" mine is covered and
+    unflagged.
+  - Near the last move: at most 5 steps, a step one square across or down,
+    from the square of the last click that changed the board (a chord's:
+    its number); none before the first such click.
+  - A chordable number has as many flags beside it as its number, every
+    flag on a mine, and a covered square left for the chord to open. A
+    number with a wrong flag beside it is not counted: its chord loses.
+  - Safe squares known moved from the chart against the whole game, where
+    the 2026-10-20 revision had combined it with the pace lines, to the
+    moves chart beside the other counts. The chart against the whole game
+    is fourth, still under the tracks.
+
 ## Placement
 
 - A stat section titled "live perf charts" heads the details column's
@@ -164,16 +209,24 @@ Built the same day:
   line in its series' color. Hovering a line's legend entry spotlights it:
   the line thickens and the chart's other lines fade. Clicking it chooses
   which lines show (Legend picks, below).
-- Top to bottom: the progress chart, the event tracks, then the chart
-  against the whole game (creator 2026-10-21; until then that chart was
-  second and the tracks last).
-- Two charts, each drawing only its shown rows and disappearing when none
+- Top to bottom: the progress chart, the moves available chart, the event
+  tracks, then the chart against the whole game (the moves chart since
+  2026-10-26; the chart against the whole game moved below the tracks on
+  2026-10-21, from second).
+- Three charts, each drawing only its shown rows and disappearing when none
   are shown:
 
   | Chart | Rows | Y axis |
   | --- | --- | --- |
   | progress | 3BV solved, squares opened, mines flagged | 0% to 100%, labeled every 20% |
+  | moves available | the counts of moves the board offered | a count from 0 |
   | against the whole game | every pace, board, and report row | the line's value divided by its whole-game value, on a doubling (log) scale or a linear one |
+
+- The moves chart's axis starts at 0 and steps by 1, 2, or 5 times a power
+  of ten, at most five labels, up to the first label at or past the
+  highest count its shown lines reach (at least 1). Its plot is 120 pixels
+  high, the height of the chart against the whole game, so counts a few
+  apart stay apart.
 
 - The scale of the chart against the whole game is log by default and
   doubles at each label: 1×
@@ -198,12 +251,11 @@ Built the same day:
   of its part's rows show. With all shown, the default, a click shows that
   row alone; a click on another adds it, and a second click on a shown one
   removes it. Removing the last one shown, or adding back the last one
-  hidden, shows them all again, since showing none is pointless. The
-  progress chart, the event tracks, and the chart against the whole game
-  each choose for themselves. A hidden row's entry keeps its place, its
-  swatch or mark, and its whole-game value, with its name struck through;
-  hovering it spotlights nothing. The chart against the whole game fits its
-  scale to the lines shown; the
+  hidden, shows them all again, since showing none is pointless. Each
+  chart and the event tracks choose for themselves. A hidden row's entry
+  keeps its place, its swatch or mark, and its whole-game value, with its
+  name struck through; hovering it spotlights nothing. The moves chart and
+  the chart against the whole game fit their scales to the lines shown; the
   event tracks keep all three lanes when a lane's marks are hidden, so
   nothing below moves. The picks hold for the game shown, through every
   redraw of its block (averaging, scale, configure, the result drawn again
@@ -213,12 +265,15 @@ Built the same day:
   the row's name (it shows the row's definition on hover), and its
   whole-game value, the most legible text there. The line of the chart
   against the whole game starts with "whole game (1×)", in bold, so the
-  values beside the names read as the 1× each line is measured against.
+  values beside the names read as the 1× each line is measured against;
+  the moves chart's starts with "game average", since its values are each
+  count's average over the game's time, which the plot does not mark.
 - One time axis: every plot spans the same width, game seconds from the first
   click to the end of the game, with vertical gridlines at the same seconds
   in every chart. The seconds are labeled under the first part and under
   the last.
-- Event tracks sit between the two charts, on the same time axis: three thin
+- Event tracks sit between the moves chart and the chart against the whole
+  game, on the same time axis: three thin
   tracks named at their left, "clicks", "jumps", and "pauses", holding every
   shown event row's marks by what the events are about (Events, below).
   Each row's mark differs in shape within its track and in color: an instant
@@ -292,9 +347,9 @@ A row that shares a game data measurement's name keeps that measurement's
 definition and format, measured over the bucket or window instead of the
 whole game, so its whole-game value matches the game data value (to the
 millisecond for the fastclick gap). In its legend entry, a progress row
-shows its final share, a board row its average over time, a rate or ratio
-the whole game's, and an incident row its median or mean; an event row
-shows its count.
+shows its final share, a moves or board row its average over time, a rate
+or ratio the whole game's, and an incident row its median or mean; an event
+row shows its count.
 
 Shown by default:
 
@@ -308,14 +363,23 @@ Shown by default:
 | action gaps | pace | time from one board-changing click to the next; averages take the median |
 | fastclick gap | pace | gaps of 1 s or less ending in a click made while the cursor was moving, as game data defines it; averages take the median |
 | mouse speed | pace | cursor travel per second, pauses included; each dot is the speed between two board-changing clicks |
-| safe squares known | board | covered squares the visible board had proved safe, between clicks |
+| safe squares known | moves available | covered, unflagged squares the visible board had proved safe, between clicks |
+| mines by counting | moves available | covered, unflagged squares counting single numbers proves mines, one number at a time, as a 2 with only two covered squares beside it |
+| mines by counting near the last move | moves available | the mines by counting at most 5 steps (one square across or down each) from the last board-changing click; none before the first |
+| chordable numbers | moves available | open numbers with as many flags beside them as their number, every flag on a mine, and a covered square left beside them |
 | squares moved between actions | board | squares (in any direction) from each board-changing click to the one before; averages take the mean |
 
 Off by default: efficiency, board-changing click share, IOE, no-op rate,
 misclick rate, path / click, path / 3BV (each as game data defines it);
-safe by counting (the safe squares known that counting single numbers
-proves, the quickest kind to see); work areas (separate places holding
-proven-safe squares, squares at most 2 apart counting as one place).
+work areas (separate places holding proven-safe squares, squares at most 2
+apart counting as one place); and in the moves available group, mines known
+(covered, unflagged squares the visible board had proved mines) and the
+squares each deduction level is the first to prove, safe and mines apart:
+safe by counting, safe by overlap, safe by all numbers, safe by the mine
+total, mines by overlap, mines by all numbers, and mines by the mine total
+([Design axis](design-axis.md), "Deduction levels"). A square counts at one
+level only, so the four safe rows add up to the safe squares known and the
+four mine rows to the mines known.
 
 Off by default since 2026-10-20, when the left stats panel was removed and
 the creator asked for its measurements as optional rows ("same for all,
@@ -340,9 +404,11 @@ measurement notes (judged by an older evaluator) has no measured counts:
 its report rows draw no line, and their legend entries say "not measured".
 
 A progress row starts from what the board showed at the first action, so a
-given opening counts as already done. Safe squares known and work areas say
-nothing where the prover stopped at its work limit; safe by counting is
-always measured.
+given opening counts as already done. The moves rows count the board as it
+stood before each click. Safe squares known, mines known, work areas, and
+the all-numbers and mine-total rows say nothing where the prover's search
+stopped at its work limit; the counting and overlap rows are always
+measured, and chordable numbers always.
 
 ## Events
 
@@ -442,7 +508,8 @@ games ([BACKLOG.md](../../BACKLOG.md)).
 ## Configure
 
 "configure" in the options row replaces the charts with one checklist of
-every row, grouped as progress, pace, board, report categories, events,
+every row, grouped as progress, moves available, pace, board, report
+categories, events,
 with back buttons at
 its top and bottom ("back to live perf charts"); Escape also returns.
 Choices apply at once and persist in the settings (`duringGameRows`); the
@@ -456,8 +523,8 @@ picks are not saved: they last as long as the game shown (Charts, above).
 
 Built 2026-10-15: a first build, then the same day the 2026-10-15
 revision; the 2026-10-20 revision the day it was asked, and the move
-characterization and habits (above) later that day; the 2026-10-21
-revision the day it was asked. Requested but not built
+characterization and habits (above) later that day; the 2026-10-21 and
+2026-10-26 revisions the days they were asked. Requested but not built
 yet, in [BACKLOG.md](../../BACKLOG.md): forks inside one work area (several
 ways forward from the same frontier) and the habits of games saved before
 2026-10-20. Proposed there with them: threshold calibration, rows plotted

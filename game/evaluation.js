@@ -283,9 +283,9 @@ function fatalActionStatusKind(evaluation) {
 //   all its flags opened a square those flags declared safe; either way,
 //   opening a mine proves one of those flags wrong.
 // - A clicked proven mine and a guess past a proven-safe square are graded
-//   by the cheapest solver tier that settles them (docs/product/design-axis.md):
-//   counting single numbers, comparing overlapping numbers, or only
-//   whole-board reasoning (every consistent layout, or the mine total). The
+//   by the easiest proof tier that settles them: the deduction levels
+//   (docs/product/design-axis.md, "Deduction levels") counting and overlap,
+//   or 'whole-board' for all numbers and the mine total together. The
 //   tiers are measured once on the evidence (fatalProofTiers). A guess where
 //   only A Just Universe guaranteed a safe entry is its own kind.
 // - A higher-risk forced guess is graded by how far the nearest
@@ -351,19 +351,20 @@ function besideFlagSatisfiedNumber(position, cell) {
   return false;
 }
 
-// The cheapest solver tier whose rules prove `fact` (1 mine, 2 safe) for
-// `cell`, or for any covered square when `cell` is undefined. The caller
-// knows the fact holds, so what the counting and overlap rules miss needed
+// The easiest proof tier whose rules prove `fact` (1 mine, 2 safe) for
+// `cell`, or for any covered square when `cell` is undefined: the first two
+// deduction levels, then 'whole-board' for the last two, all numbers and the
+// mine total, which the stored tiers do not tell apart. The caller knows the
+// fact holds, so what the counting and overlap rules miss needed
 // whole-board reasoning and the exhaustive prover never runs.
 function easiestProofTier(position, fact, cell) {
   const view = positionView(position);
   const clues = Justice.rawClues(view);
   const proves = (facts) => (cell === undefined
     ? [...facts.values()].includes(fact) : facts.get(cell) === fact);
-  if (proves(Justice.proveFacts(view, clues, { subset: false, global: false, exact: false }))) {
-    return 'counting';
-  }
-  if (proves(Justice.proveFacts(view, clues, { global: false, exact: false }))) return 'overlap';
+  const [counting, overlap] = Justice.DEDUCTION_LEVELS;
+  if (proves(Justice.proveFacts(view, clues, counting.proof))) return 'counting';
+  if (proves(Justice.proveFacts(view, clues, overlap.proof))) return 'overlap';
   return 'whole-board';
 }
 

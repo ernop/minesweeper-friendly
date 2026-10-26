@@ -169,11 +169,10 @@ function possibleMineSums(components, skip = -1) {
   return sums;
 }
 
-// Exhaustive visible-information proof. Frontier components are searched
-// independently, then joined through the board's total mine count and the
-// unconstrained sea. A cell is marked only when every globally consistent
-// layout gives it the same value.
-function proveExactFacts(view, clues, status, mark, maxVisits) {
+// Every layout of the unresolved frontier the visible numbers allow, searched
+// per component of cells the numbers link. `solved` is null when the search
+// stopped at `maxVisits`; `frontier` holds every cell some number touches.
+function searchNumberLayouts(clues, status, maxVisits) {
   const residuals = [];
   const clueIndexesByCell = new Map();
   for (const clue of clues) {
@@ -224,12 +223,42 @@ function proveExactFacts(view, clues, status, mark, maxVisits) {
 
   const work = { visits: 0, maxVisits };
   const solved = [];
+  const frontier = new Set(clueIndexesByCell.keys());
   for (const component of components) {
     const result = enumerateProofComponent(component.cells, component.clues, work);
-    if (result === null) return { complete: false, visits: work.visits };
+    if (result === null) return { solved: null, frontier, visits: work.visits };
     solved.push(result);
   }
+  return { solved, frontier, visits: work.visits };
+}
 
+// A cell is a fact when every layout of its component holding one of
+// `counts` mines gives it the same value.
+function markComponent(component, counts, mark) {
+  component.cells.forEach((cell, index) => {
+    let canBeMine = false;
+    let canBeSafe = false;
+    for (const count of counts) {
+      const summary = component.byMineCount.get(count);
+      if (summary.minePossible[index] === 1) canBeMine = true;
+      if (summary.safePossible[index] === 1) canBeSafe = true;
+    }
+    if (!canBeMine) mark(cell, 2);
+    else if (!canBeSafe) mark(cell, 1);
+  });
+}
+
+// What every layout the numbers allow agrees on, whatever its mine count.
+// The sea, which no number touches, is never marked.
+function markNumberFacts(solved, mark) {
+  for (const component of solved) markComponent(component, [...component.byMineCount.keys()], mark);
+}
+
+// The board's mine total joins the searched components and the sea: each
+// component's mine counts that some whole-board layout allows, and the sea's
+// fact when every such layout fills it or leaves it empty (null otherwise).
+// It reads `status` as the search saw it, before any of its facts are marked.
+function mineTotalVerdict(view, status, solved, frontier) {
   let knownMines = 0;
   const unresolved = [];
   for (let cell = 0; cell < view.width * view.height; cell++) {
@@ -238,7 +267,6 @@ function proveExactFacts(view, clues, status, mark, maxVisits) {
     if (fact === 1) knownMines++;
     else if (fact !== 2) unresolved.push(cell);
   }
-  const frontier = new Set(clueIndexesByCell.keys());
   const sea = unresolved.filter((cell) => !frontier.has(cell));
   const target = view.mines - knownMines;
   if (target < 0 || target > unresolved.length) {
@@ -255,72 +283,55 @@ function proveExactFacts(view, clues, status, mark, maxVisits) {
     throw new Error('visible clues and global mine count have no valid layout');
   }
 
-  for (let i = 0; i < solved.length; i++) {
+  const feasibleCounts = solved.map((component, i) => {
     const otherSums = possibleMineSums(solved, i);
-    const feasibleCounts = [];
-    for (const localCount of solved[i].byMineCount.keys()) {
+    const counts = [];
+    for (const localCount of component.byMineCount.keys()) {
       if ([...otherSums].some((otherCount) => {
         const seaMines = target - localCount - otherCount;
         return seaMines >= 0 && seaMines <= sea.length;
       })) {
-        feasibleCounts.push(localCount);
+        counts.push(localCount);
       }
     }
-    if (feasibleCounts.length === 0) {
+    if (counts.length === 0) {
       throw new Error('component has no globally valid layout');
     }
-    solved[i].cells.forEach((cell, index) => {
-      let canBeMine = false;
-      let canBeSafe = false;
-      for (const count of feasibleCounts) {
-        const summary = solved[i].byMineCount.get(count);
-        if (summary.minePossible[index] === 1) canBeMine = true;
-        if (summary.safePossible[index] === 1) canBeSafe = true;
-      }
-      if (!canBeMine) mark(cell, 2);
-      else if (!canBeSafe) mark(cell, 1);
-    });
-  }
+    return counts;
+  });
 
-  if ([...possibleSeaCounts].every((count) => count === 0)) {
-    for (const cell of sea) mark(cell, 2);
-  } else if ([...possibleSeaCounts].every((count) => count === sea.length)) {
-    for (const cell of sea) mark(cell, 1);
-  }
-  return { complete: true, visits: work.visits };
+  const seaFact = [...possibleSeaCounts].every((count) => count === 0) ? 2
+    : [...possibleSeaCounts].every((count) => count === sea.length) ? 1 : null;
+  return { feasibleCounts, sea, seaFact };
 }
 
-// Sound local deduction to a fixpoint:
-// - a clue needing zero/all of its unresolved cells proves them safe/mined;
-// - subtracting any two overlapping residual clues can expose extreme
-//   one-sided differences (strict subsets are one instance);
-// - the default exact pass searches every globally consistent frontier
-//   layout and applies the total mine count across components and sea.
-// A work-limit result is explicitly marked incomplete. Every returned fact
-// remains sound; incompleteness can withhold a certificate, never invent one.
-//
-// Status values remain 1=mine and 2=safe for the public test interface.
-function proveFacts(view, clues, opts) {
-  opts = opts || {};
-  const useCount = opts.count !== false;
-  const useSubset = opts.subset !== false;
-  const useGlobal = opts.global !== false;
-  const useExact = opts.exact !== false && useCount && useSubset && useGlobal;
-  const maxVisits = Number.isFinite(opts.maxVisits)
-    ? opts.maxVisits : DEFAULT_PROOF_VISITS;
-  const cacheKey = useExact ? exactProofKey(view, clues, maxVisits) : null;
-  const cached = useExact ? lastExactProofByBudget.get(maxVisits) : undefined;
-  if (cached !== undefined && cached.key === cacheKey) return cached.facts;
-  const size = view.width * view.height;
-  const status = new Map();
-  const mark = (cell, value) => {
-    const previous = status.get(cell);
-    if (previous !== undefined && previous !== value) {
-      throw new Error('visible clues prove cell ' + cell + ' both safe and mined');
-    }
-    if (previous === undefined) status.set(cell, value);
-  };
+function markMineTotalFacts(solved, verdict, mark) {
+  solved.forEach((component, i) => markComponent(component, verdict.feasibleCounts[i], mark));
+  if (verdict.seaFact !== null) for (const cell of verdict.sea) mark(cell, verdict.seaFact);
+}
 
+// Exhaustive visible-information proof. Frontier components are searched
+// independently, then joined through the board's total mine count and the
+// unconstrained sea. A cell is marked only when every globally consistent
+// layout gives it the same value. Without the mine total (`useGlobal`
+// false) a cell is marked when every layout the numbers allow, whatever its
+// mine count, gives it the same value.
+function proveExactFacts(view, clues, status, mark, maxVisits, useGlobal) {
+  const search = searchNumberLayouts(clues, status, maxVisits);
+  if (search.solved === null) return { complete: false, visits: search.visits };
+  if (useGlobal) {
+    markMineTotalFacts(search.solved, mineTotalVerdict(view, status, search.solved, search.frontier), mark);
+  } else {
+    markNumberFacts(search.solved, mark);
+  }
+  return { complete: true, visits: search.visits };
+}
+
+// The local rules to a fixpoint: counting single clues (`useCount`),
+// comparing overlapping pairs (`useSubset`), and the mine total's
+// all-or-none rule (`useGlobal`).
+function applyRules(view, clues, status, mark, useCount, useSubset, useGlobal) {
+  const size = view.width * view.height;
   let changed = true;
   while (changed) {
     changed = false;
@@ -420,19 +431,112 @@ function proveFacts(view, clues, opts) {
 
     changed = status.size !== before;
   }
+}
+
+// Sound local deduction to a fixpoint:
+// - a clue needing zero/all of its unresolved cells proves them safe/mined;
+// - subtracting any two overlapping residual clues can expose extreme
+//   one-sided differences (strict subsets are one instance);
+// - the default exact pass searches every globally consistent frontier
+//   layout and applies the total mine count across components and sea;
+//   without `global` it searches every layout the numbers allow.
+// A work-limit result is explicitly marked incomplete. Every returned fact
+// remains sound; incompleteness can withhold a certificate, never invent one.
+//
+// Status values remain 1=mine and 2=safe for the public test interface.
+function proveFacts(view, clues, opts) {
+  opts = opts || {};
+  const useCount = opts.count !== false;
+  const useSubset = opts.subset !== false;
+  const useGlobal = opts.global !== false;
+  const useExact = opts.exact !== false && useCount && useSubset;
+  const maxVisits = Number.isFinite(opts.maxVisits)
+    ? opts.maxVisits : DEFAULT_PROOF_VISITS;
+  // Only the full proof is the one a click asks for several times.
+  const cacheKey = useExact && useGlobal ? exactProofKey(view, clues, maxVisits) : null;
+  const cached = cacheKey !== null ? lastExactProofByBudget.get(maxVisits) : undefined;
+  if (cached !== undefined && cached.key === cacheKey) return cached.facts;
+  const status = new Map();
+  const mark = (cell, value) => {
+    const previous = status.get(cell);
+    if (previous !== undefined && previous !== value) {
+      throw new Error('visible clues prove cell ' + cell + ' both safe and mined');
+    }
+    if (previous === undefined) status.set(cell, value);
+  };
+
+  applyRules(view, clues, status, mark, useCount, useSubset, useGlobal);
   if (useExact) {
     const exact = proveExactFacts(
-      view, clues, status, mark, maxVisits);
+      view, clues, status, mark, maxVisits, useGlobal);
     status.complete = exact.complete;
     status.visits = exact.visits;
-    status.method = exact.complete ? 'all-consistent-layouts' : 'work-limit';
-    lastExactProofByBudget.set(maxVisits, { key: cacheKey, facts: status });
+    status.method = !exact.complete ? 'work-limit'
+      : useGlobal ? 'all-consistent-layouts' : 'all-number-layouts';
+    if (cacheKey !== null) lastExactProofByBudget.set(maxVisits, { key: cacheKey, facts: status });
   } else {
     status.complete = false;
     status.visits = 0;
     status.method = 'rules-only';
   }
   return status;
+}
+
+// The deduction levels (docs/product/design-axis.md, "Deduction levels"),
+// easiest first: what a proof may use. Each level adds one kind of reasoning
+// to the level before it, so it proves every fact the levels below it prove:
+// counting single numbers, one at a time; comparing two numbers that share
+// covered squares; every layout all the numbers allow together; and only
+// those layouts that hold the board's mine total, which is every fact the
+// visible board proves. A fact's level is the first level that proves it.
+const DEDUCTION_LEVELS = Object.freeze([
+  Object.freeze({ id: 'counting', proof: Object.freeze({ subset: false, global: false, exact: false }) }),
+  Object.freeze({ id: 'overlap', proof: Object.freeze({ global: false, exact: false }) }),
+  Object.freeze({ id: 'allNumbers', proof: Object.freeze({ global: false }) }),
+  Object.freeze({ id: 'mineTotal', proof: Object.freeze({}) }),
+]);
+
+// Every deduction level in one pass, each stage continuing from the facts of
+// the stages before it, so each fact is marked once, by the first level that
+// proves it; all numbers and the mine total share one search. Returns the
+// facts as proveFacts' full proof gives them (the same facts, complete or
+// stopped at the same work limit) and `levelOf`, each fact's level id. A
+// stopped search leaves only the rule levels' facts.
+function proveLevels(view, clues, opts) {
+  opts = opts || {};
+  const maxVisits = Number.isFinite(opts.maxVisits)
+    ? opts.maxVisits : DEFAULT_PROOF_VISITS;
+  const facts = new Map();
+  const levelOf = new Map();
+  let level = 'counting';
+  const mark = (cell, value) => {
+    const previous = facts.get(cell);
+    if (previous !== undefined && previous !== value) {
+      throw new Error('visible clues prove cell ' + cell + ' both safe and mined');
+    }
+    if (previous === undefined) {
+      facts.set(cell, value);
+      levelOf.set(cell, level);
+    }
+  };
+  applyRules(view, clues, facts, mark, true, false, false);
+  level = 'overlap';
+  applyRules(view, clues, facts, mark, true, true, false);
+  const search = searchNumberLayouts(clues, facts, maxVisits);
+  facts.visits = search.visits;
+  if (search.solved === null) {
+    facts.complete = false;
+    facts.method = 'work-limit';
+    return { facts, levelOf };
+  }
+  const verdict = mineTotalVerdict(view, facts, search.solved, search.frontier);
+  level = 'allNumbers';
+  markNumberFacts(search.solved, mark);
+  level = 'mineTotal';
+  markMineTotalFacts(search.solved, verdict, mark);
+  facts.complete = true;
+  facts.method = 'all-consistent-layouts';
+  return { facts, levelOf };
 }
 
 function buildStructure(view, proofOptions) {
@@ -881,9 +985,11 @@ function redrawEntry(certificate, clicked, currentMines, random) {
 
 const Justice = {
   PROOF_VERSION: VISIBLE_PROOF_VERSION,
+  DEDUCTION_LEVELS,
   neighbors: justiceNeighbors,
   rawClues,
   proveFacts,
+  proveLevels,
   buildStructure,
   componentGroups,
   certifyEntries,

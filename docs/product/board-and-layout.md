@@ -194,6 +194,19 @@ laggy"; asked whether the game is "max efficient" and to test and fix it.
   same code takes different times on different machines and browsers, so
   each machine has a label, its own limits, and its own runs in the history;
   a run is judged only against its own machine's limits and earlier runs.
+- The check runs at each change, not only at the push (creator decision
+  2026-10-26). The creator asked: "do you think we should run timing tests at
+  the point we change code, rather than waiting til we push it? or is tehre
+  some reason for dealying?" The recommendation was to run it whenever a change
+  to gameplay, game end, storage, startup, or result presentation is finished,
+  keep the recorded run for the push, and add the time from a long Expert win
+  to its full results; the creator answered "make the chagen." Run at each
+  change, a slowdown shows at the change that caused it instead of at a push
+  that bundles several. The Expert win was added because earlier that day a
+  change that doubled the after-game analysis passed the check, which timed
+  only the page's own handlers; that analysis runs in a worker, and the time
+  from the winning click to the full results on screen now counts it. The
+  check takes about 13 seconds on the PC.
 - Latency limits are tight, not generous (creator decision 2026-09-26: "If
   we're getting three milliseconds now, 30 milliseconds now, degrading to 100
   milliseconds per click is absolutely unacceptable ... It's very important

@@ -314,9 +314,11 @@ by its odds even though a chord death always proves a wrong flag, did not
 say how hard the missed proof was, and caught only one misclick pattern.
 
 Every modern loss now has exactly one **loss type**, a refinement of its
-fatal status that uses only facts: the saved position, the solver's proof
-tiers ([design axis](design-axis.md)), and the death itself. In order of
-precedence:
+fatal status that uses only facts: the saved position, the proof tiers,
+and the death itself. The tiers are the deduction levels
+([design axis](design-axis.md), "Deduction levels") with the last two
+joined: `counting` and `overlap` are levels 1 and 2, and `whole-board` is
+all numbers and the mine total together. In order of precedence:
 
 1. **Wrong flag** (`flag-wrong`, "opened a mine that a wrong flag made
    look safe") — every chord death, and every reveal beside a number that

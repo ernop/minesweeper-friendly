@@ -262,9 +262,12 @@ function validRedraw(board, redrawn, clicked) {
     { covered: [1, 3], count: 1 },
     { covered: [2, 4], count: 1 },
   ];
-  const local = Justice.proveFacts(view, clues, { global: false });
+  const local = Justice.proveFacts(view, clues, { global: false, exact: false });
   check('local count/subset rules alone do not find higher-order fact',
     !local.has(0));
+  const numbers = Justice.proveFacts(view, clues, { global: false });
+  check('every layout the numbers allow proves it without the mine total',
+    numbers.get(0) === 2 && numbers.complete === true && numbers.method === 'all-number-layouts');
   const exact = Justice.proveFacts(view, clues);
   check('complete solver proves higher-order safe', exact.get(0) === 2);
   check('complete solver labels exhaustive result', exact.complete === true
@@ -272,6 +275,89 @@ function validRedraw(board, redrawn, clicked) {
   const limited = Justice.proveFacts(view, clues, { maxVisits: 0 });
   check('work limit is explicit rather than a false judgement',
     limited.complete === false && limited.method === 'work-limit' && !limited.has(0));
+  const limitedLevels = Justice.proveLevels(view, clues, { maxVisits: 0 });
+  check('a stopped search leaves every level in one pass to the rules',
+    limitedLevels.facts.complete === false && limitedLevels.facts.method === 'work-limit'
+    && [...limitedLevels.levelOf.values()].every((level) => level === 'counting' || level === 'overlap'));
+}
+
+// Justice.proveLevels, every level in one pass, against each level's own
+// proof: each fact at the first level whose proof proves it, and the facts,
+// completeness, and method of the full proof.
+function levelsInOnePassAgree(view, clues) {
+  const proofs = Justice.DEDUCTION_LEVELS.map((level) => Justice.proveFacts(view, clues, level.proof));
+  const full = proofs[proofs.length - 1];
+  const { facts, levelOf } = Justice.proveLevels(view, clues);
+  if (facts.size !== full.size || levelOf.size !== full.size
+    || facts.complete !== full.complete || facts.method !== full.method) return false;
+  for (const [cell, fact] of full) {
+    if (facts.get(cell) !== fact) return false;
+    const first = proofs.findIndex((proof) => proof.has(cell));
+    if (levelOf.get(cell) !== Justice.DEDUCTION_LEVELS[first].id) return false;
+  }
+  return true;
+}
+
+// 10b. Deduction levels: every fact at the first level that proves it, each
+// level keeping every fact of the levels below it.
+{
+  const levelsOf = (board) => {
+    const clues = Justice.rawClues(board.view);
+    const proofs = Justice.DEDUCTION_LEVELS.map((level) => Justice.proveFacts(board.view, clues, level.proof));
+    const nested = proofs.every((facts, i) => i === 0
+      || [...proofs[i - 1]].every(([cell, fact]) => facts.get(cell) === fact))
+      && levelsInOnePassAgree(board.view, clues);
+    const levels = {};
+    board.view.revealed.forEach((open, cell) => {
+      if (open) return;
+      const first = proofs.findIndex((facts) => facts.has(cell));
+      levels[cell] = first === -1 ? null
+        : (proofs[first].get(cell) === 1 ? 'mine ' : 'safe ') + Justice.DEDUCTION_LEVELS[first].id;
+    });
+    return { nested, levels };
+  };
+  check('deduction levels: counting, overlap, all numbers, mine total, in that order',
+    Justice.DEDUCTION_LEVELS.map((level) => level.id).join() === 'counting,overlap,allNumbers,mineTotal');
+
+  // A 1 touching one covered square; then a 1 touching that mine, one
+  // number at a time.
+  const one = levelsOf(makeBoard(['.*#', '...']));
+  check('level 1: a 1 beside one covered square, then a 1 beside that mine',
+    one.nested && JSON.stringify(one.levels) === JSON.stringify({ 1: 'mine counting', 2: 'safe counting' }));
+
+  // The creator's example (2026-10-26): a 1 2 2 1 wall over zeros on a board
+  // four wide resolves as open, mine, mine, open, and only two numbers
+  // compared do it.
+  const wall = levelsOf(makeBoard(['#**#', '....', '....']));
+  check('level 2: the 1 2 2 1 wall',
+    wall.nested && JSON.stringify(wall.levels)
+      === JSON.stringify({ 0: 'safe overlap', 1: 'mine overlap', 2: 'mine overlap', 3: 'safe overlap' }));
+
+  // 2 a 1 0     The 1 above (a + c = 1) and the 1 at the right (e + f = 1)
+  // b c 2 1     each put one mine among the five covered squares of the
+  // 2 d e f     middle 2: that is both its mines, so d is safe, which three
+  //             numbers prove together and no pair does. Comparing the two
+  // top numbers proves b; e and f stay unknown even with the mine total.
+  const three = levelsOf(makeBoard(['.#..', '**..', '.#*#']));
+  check('level 3: two 1s inside a 2',
+    three.nested && JSON.stringify(three.levels) === JSON.stringify({ 1: 'safe allNumbers', 4: 'mine overlap',
+      5: 'mine allNumbers', 9: 'safe allNumbers', 10: null, 11: null }));
+
+  // 0 0 1 2 a   Counting proves the mine between the 1s; each 2 then needs
+  // 0 0 1 * b   one more: b alone, or a and c both. The board's 2 mines
+  // 0 0 1 2 c   allow only b.
+  const totalBoard = makeBoard(['....#', '...**', '....#']);
+  const total = levelsOf(totalBoard);
+  check('level 4: the mine total chooses between one mine and two',
+    total.nested && JSON.stringify(total.levels) === JSON.stringify({ 4: 'safe mineTotal', 8: 'mine counting',
+      9: 'mine mineTotal', 14: 'safe mineTotal' }));
+  // A proof without the mine total does not replace the full proof a click
+  // asks for again.
+  const clues = Justice.rawClues(totalBoard.view);
+  const full = Justice.proveFacts(totalBoard.view, clues);
+  Justice.proveFacts(totalBoard.view, clues, { global: false });
+  check('the full proof stays cached past a proof without the mine total',
+    Justice.proveFacts(totalBoard.view, clues) === full && full.get(9) === 1);
 }
 
 // 11. Random small constraint systems agree with full brute force.
@@ -301,31 +387,35 @@ function validRedraw(board, redrawn, clicked) {
     }
     const mineCount = witness.filter(Boolean).length;
     const models = [];
+    const numberModels = [];
     for (let mask = 0; mask < (1 << size); mask++) {
       let mines = 0;
       for (let cell = 0; cell < size; cell++) mines += (mask >> cell) & 1;
-      if (mines !== mineCount) continue;
       if (clues.every((clue) => clue.covered.reduce(
         (sum, cell) => sum + ((mask >> cell) & 1), 0) === clue.count)) {
-        models.push(mask);
+        numberModels.push(mask);
+        if (mines === mineCount) models.push(mask);
       }
     }
-    const facts = Justice.proveFacts({
+    const view = {
       width: size,
       height: 1,
       mines: mineCount,
       revealed: new Array(size).fill(false),
       adjacent: new Array(size).fill(0),
-    }, clues);
-    if (!facts.complete || models.length === 0) matched = false;
+    };
+    const facts = Justice.proveFacts(view, clues);
+    const numberFacts = Justice.proveFacts(view, clues, { global: false });
+    if (!facts.complete || !numberFacts.complete || models.length === 0) matched = false;
+    const factIn = (layouts, cell) => (layouts.every((mask) => ((mask >> cell) & 1) === 1) ? 1
+      : layouts.every((mask) => ((mask >> cell) & 1) === 0) ? 2 : undefined);
     for (let cell = 0; cell < size && matched; cell++) {
-      const mineInAll = models.every((mask) => ((mask >> cell) & 1) === 1);
-      const safeInAll = models.every((mask) => ((mask >> cell) & 1) === 0);
-      const expected = mineInAll ? 1 : safeInAll ? 2 : undefined;
-      if (facts.get(cell) !== expected) matched = false;
+      if (facts.get(cell) !== factIn(models, cell)) matched = false;
+      if (numberFacts.get(cell) !== factIn(numberModels, cell)) matched = false;
     }
+    if (!levelsInOnePassAgree(view, clues)) matched = false;
   }
-  check('exact facts match brute force on random constraint systems', matched);
+  check('exact facts, with and without the mine total and every level in one pass, match brute force on random constraint systems', matched);
 }
 
 // 11b. Stuck positions on random small boards, against brute force over

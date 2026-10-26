@@ -424,6 +424,37 @@ Open:
   saved visible position and earlier nonfatal mistakes. Deterministic board
   replay plus stored traces may be able to reconstruct some of that
   evidence offline; uncertainty must remain explicit.
+- **Whole-board split into the two searching levels** (proposed
+  2026-10-26 with the deduction levels,
+  [Design axis](docs/product/design-axis.md), "Deduction levels"). The
+  stored tier `whole-board`, and with it `mine-whole-board` and
+  `guess-safe-whole-board`, joins all numbers and the mine total. Split, a
+  loss would say whether the missed proof needed the numbers taken
+  together or also the board's mine count. It changes stored evidence
+  values and loss-type keys (rankings, the session results tree, the
+  problems builder), so it waits for the creator's decision; existing
+  losses would be measured again once from their saved positions, as on
+  2026-10-11.
+
+## Deduction levels: further grades (proposed 2026-10-26)
+
+The creator asked to "construct a well-bordered complexity leel system and
+develop ths further"; the four levels are built
+([Design axis](docs/product/design-axis.md), "Deduction levels"). Proposed
+next steps, each exact:
+
+- **Grades within all numbers**, the level of "collecting disparate distant
+  facts" and "multi-step contradictions": by the fewest numbers whose
+  layouts alone force the fact (three in the worked example; long chains
+  need more), found by trying sets of the numbers around the fact's linked
+  squares, smallest first. Cost to be measured before choosing; such facts
+  are rare (0.17% of facts on simulated Expert games, 0.1% on Intermediate
+  and Beginner).
+- **Grades within overlap**: one number's covered squares inside another's
+  before two numbers that only partly share squares.
+- **Moves available by the finer grades**: the live perf charts' level rows
+  would gain one row per grade.
+
 ## Switching between marking and clicking (creator, 2026-09-28)
 
 The creator asked for a performance stat on switching between marking and
@@ -625,6 +656,17 @@ game instead of rewriting the whole history twice per game. Not built:
    2026-09-26; the report tasks in item 3). The creator's rule is that time
    with no logical reason to exist is waste; cutting these lowers the limits
    in `tests/latency-budgets.json` (last tightened 2026-10-20).
+   A won Expert game's full results (`expertWinResultsMs`, added 2026-10-26)
+   take 216-224ms on the PC. Inside that time, the page works about 60ms
+   after the winning click before it hands the game to the reports worker,
+   whose `finished-game` takes about 105ms. Then the result renders twice
+   whenever the mode has wins without board measurements, as all the check's
+   synthetic wins are: `saveTrace` clears the mode's saved-board list, the
+   first render reloads it (`loadBoardMetricSources`), and its arrival 2ms
+   later renders the whole result again (`refreshBoardMetricView`). The
+   second render asks the workers for every view again, the live perf
+   charts' view (9-14ms) among them, though only the board measurements'
+   status line and backfill panel read that list.
    Occasional spike (2026-09-26): one latency run in nine on the same code
    measured switching to expert at 45ms of work (usual 15-23ms; master
    showed 17-21ms over the same alternating runs). Not yet attributed; a
@@ -856,9 +898,11 @@ noise, stippled, letterforms, and patriotic (the last removed
 
 From the design axis in [docs/product/design-axis.md](docs/product/design-axis.md). Its
 no-guess tiers (NG, Evil NG, Graded NG) were dropped 2026-10-21 with the
-no-guess modes ([Play modes](docs/product/play-modes.md)). Solver tiers are now implemented as (a) direct
-counting, (b) arbitrary overlap-difference deduction, and (c) exhaustive
-frontier-component search joined through the global mine count and sea.
+no-guess modes ([Play modes](docs/product/play-modes.md)). The deduction levels
+are implemented (design axis, "Deduction levels", 2026-10-26; solver tiers
+before): counting, arbitrary overlap-difference deduction, exhaustive
+frontier-component search over the numbers alone, and that search joined
+through the global mine count and sea.
 This is layout-consistency solving, not a finite named-pattern catalog.
 Derived session result: a
 1-2…2-1 wall chain with k twos is fully forced unless k ≡ 0 (mod 3).
@@ -1096,11 +1140,11 @@ Remaining, in priority order (earlier items prevent irreversible loss):
    - an aimed-pointing test (fixed amplitudes and widths in millimetres after
      calibration);
    - a deduction test from a fixed generator, with parallel forms stratified
-     by solver tier, so no position repeats but difficulty matches;
+     by deduction level, so no position repeats but difficulty matches;
    - a processing-speed task, only if those two leave a gap.
 3. **Gameplay as a calibrated passive measure.**
    - The provability replay: when each cell became provable from the visible
-     board, and time to action, by solver tier.
+     board, and time to action, by deduction level.
    - A split between hand slips and decision errors.
    - Per-movement tables in place of per-game means.
    - Fix or retire the trace stats with known formula defects: wander's window

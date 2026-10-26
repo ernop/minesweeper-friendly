@@ -16,6 +16,9 @@ const DuringGame = (() => {
 
   // Near: at most 2 squares away in any direction.
   const NEAR_SQUARES = 2;
+  // Near the last move (creator 2026-10-26): at most 5 steps from its
+  // square, a step being one square across or down (Manhattan distance).
+  const NEAR_LAST_MOVE_STEPS = 5;
   // Proven-safe squares at most 2 squares apart belong to one work area.
   const AREA_LINK_SQUARES = 2;
   const LONG_GAP_MS = 1000;
@@ -131,6 +134,49 @@ const DuringGame = (() => {
     const cells = [];
     for (const [cell, fact] of facts) if (fact === 2 && !flagged.has(cell)) cells.push(cell);
     return cells.sort((a, b) => a - b);
+  }
+
+  // The covered, unflagged squares each deduction level is the first to
+  // prove safe, and those it is the first to prove mines, by level id
+  // (Justice.proveLevels). The levels that search layouts are null where the
+  // search stopped at its work limit.
+  function countsByLevel(proof, flagged) {
+    const safe = {};
+    const mines = {};
+    const searched = proof.facts.complete === true;
+    for (const level of Justice.DEDUCTION_LEVELS) {
+      const measured = searched || level.proof.exact === false;
+      safe[level.id] = measured ? 0 : null;
+      mines[level.id] = measured ? 0 : null;
+    }
+    for (const [cell, fact] of proof.facts) {
+      if (flagged.has(cell)) continue;
+      if (fact === 2) safe[proof.levelOf.get(cell)]++;
+      else mines[proof.levelOf.get(cell)]++;
+    }
+    return { safe, mines };
+  }
+
+  // Open numbers a chord would open squares around safely: exactly as many
+  // flags beside them as their number, every flag on a mine of the final
+  // layout, and a covered square left beside them.
+  function chordableCount(position, revealed, flagged, mineAt) {
+    const { width, height } = position;
+    let count = 0;
+    for (const [cell, number] of position.revealed) {
+      if (number === 0) continue;
+      let flags = 0;
+      let wrongFlag = false;
+      let covered = false;
+      for (const n of neighborsOf(cell, width, height)) {
+        if (flagged.has(n)) {
+          flags++;
+          if (!mineAt[n]) wrongFlag = true;
+        } else if (!revealed[n]) covered = true;
+      }
+      if (flags === number && !wrongFlag && covered) count++;
+    }
+    return count;
   }
 
   // Work areas: proven-safe squares linked through chains of squares at most
@@ -250,34 +296,62 @@ const DuringGame = (() => {
     const flaggedMinesOf = (position) => position.flagged.filter((cell) => mineAt[cell]).length;
     const progress = { startMs: [0], solved: [solved], opened: [opened],
       flaggedMines: [flaggedMinesOf(decisions[0].evaluation.position)] };
-    const known = { startMs: [], all: [], counting: [], areas: [], safeCells: [] };
+    // What the board offered before each action: the squares proved safe
+    // (`safe`) and mines (`mines`), and those by the first deduction level
+    // that proves them, all covered and unflagged; the proven-safe squares'
+    // work areas and list; the mines counting proves near the last
+    // board-changing action; and the chordable numbers.
+    const levelLists = () => Object.fromEntries(Justice.DEDUCTION_LEVELS.map((level) => [level.id, []]));
+    const known = { startMs: [], safe: [], mines: [], safeByLevel: levelLists(), minesByLevel: levelLists(),
+      areas: [], safeCells: [], minesByCountingNearLastMove: [], chordableNumbers: [] };
     const factsAt = [];
-    const countingFactsAt = [];
+    const levelsAt = [];
     const changedBy = [];
     let proofRevealed = -1;
-    let proofs = null;
+    // The full proof's facts, each with the first deduction level proving it.
+    let proof = null;
+    let lastMoveCell = null;
     for (let k = 0; k <= last; k++) {
       const evaluation = decisions[k].evaluation;
       const position = evaluation.position;
       // Proofs read only the open numbers, which only grow.
       if (position.revealed.length !== proofRevealed) {
         const view = positionView(position);
-        proofs = {
-          counting: Justice.proveFacts(view, Justice.rawClues(view), { subset: false, global: false, exact: false }),
-          all: Justice.proveFacts(view, Justice.rawClues(view)),
-        };
+        proof = Justice.proveLevels(view, Justice.rawClues(view));
         proofRevealed = position.revealed.length;
       }
+      const full = proof.facts;
       const flagged = new Set(position.flagged);
-      const safeAll = safeCellsOf(proofs.all, flagged);
-      const complete = proofs.all.complete === true;
-      factsAt.push(proofs.all);
-      countingFactsAt.push(proofs.counting);
+      const safeAll = safeCellsOf(full, flagged);
+      const complete = full.complete === true;
+      factsAt.push(full);
+      levelsAt.push(proof.levelOf);
       known.startMs.push(k === 0 ? 0 : decisions[k - 1].evaluation.atMs);
-      known.all.push(complete ? safeAll.length : null);
-      known.counting.push(safeCellsOf(proofs.counting, flagged).length);
+      known.safe.push(complete ? safeAll.length : null);
+      let mines = 0;
+      for (const [cell, fact] of full) if (fact === 1 && !flagged.has(cell)) mines++;
+      known.mines.push(complete ? mines : null);
+      const byLevel = countsByLevel(proof, flagged);
+      for (const level of Justice.DEDUCTION_LEVELS) {
+        known.safeByLevel[level.id].push(byLevel.safe[level.id]);
+        known.minesByLevel[level.id].push(byLevel.mines[level.id]);
+      }
       known.areas.push(complete ? areasOf(safeAll, width, height).count : null);
       known.safeCells.push(complete ? safeAll : null);
+      let nearLastMove = null;
+      if (lastMoveCell !== null) {
+        const lx = lastMoveCell % width;
+        const ly = (lastMoveCell - lx) / width;
+        nearLastMove = 0;
+        for (const [cell, fact] of full) {
+          if (fact !== 1 || flagged.has(cell) || proof.levelOf.get(cell) !== 'counting') continue;
+          const cx = cell % width;
+          if (Math.abs(cx - lx) + Math.abs((cell - cx) / width - ly) <= NEAR_LAST_MOVE_STEPS) nearLastMove++;
+        }
+      }
+      known.minesByCountingNearLastMove.push(nearLastMove);
+      known.chordableNumbers.push(chordableCount(position, revealed, flagged, mineAt));
+      if (BOARD_CHANGING.has(evaluation.action)) lastMoveCell = targetCellOf(evaluation);
       // The squares this action opened: the next frame's new squares; a win
       // opens every square still covered, a death none.
       const changed = [];
@@ -391,7 +465,7 @@ const DuringGame = (() => {
           const nearSafe = (safe !== null ? safe : safeCellsOf(factsAt[k], flagged)).filter(near);
           if (action.gapMs >= LONG_GAP_MS) {
             events.push({ type: 'long-gap', atMs: previous.atMs, endMs: atMs, action: k,
-              known: known.all[k], countingKnown: known.counting[k],
+              known: known.safe[k], countingKnown: known.safeByLevel.counting[k],
               ...(safe === null ? {} : { nearKnown: nearSafe.length, safeCells: safe }),
               endedBy: evaluation.action, guess: action.guess === true, noOps: noOpsSince,
               ...(windowLeft === null ? {}
@@ -405,9 +479,9 @@ const DuringGame = (() => {
             // action touched and from the proven-safe squares near it. Moved
             // on once none such remained; left work while some did: easy
             // work when counting a single number proved one of them, hard
-            // work when only combining numbers did. Counting's proof is
-            // always complete and inside the full one, so a proof stopped
-            // at its work limit still tells the two apart.
+            // work when only combining numbers did. Counting's facts come
+            // before any search, so a proof stopped at its work limit still
+            // tells the two apart.
             const facts = { cell, fromCell: previous.cell, squares: action.squares, gapMs: action.gapMs,
               guess: action.guess === true };
             let areas = null;
@@ -433,7 +507,7 @@ const DuringGame = (() => {
               }
             } else if (safe !== null) facts.areas = 0;
             if (nearSafe.length > 0) {
-              const byCounting = nearSafe.filter((square) => countingFactsAt[k].get(square) === 2).length;
+              const byCounting = nearSafe.filter((square) => levelsAt[k].get(square) === 'counting').length;
               at(byCounting > 0 ? 'left-easy-work' : 'left-hard-work',
                 { ...facts, leftSafe: nearSafe.length, leftByCounting: byCounting, safeCells: nearSafe });
               leftBehind.push({ atMs, cells: nearSafe });
@@ -497,19 +571,23 @@ const DuringGame = (() => {
 
   const GROUPS = [
     ['progress', 'progress'],
+    ['moves', 'moves available'],
     ['pace', 'pace'],
     ['board', 'board'],
     ['report', 'report categories'],
     ['events', 'events'],
   ];
 
-  // Two charts. Progress plots shares of the board on a fixed 0 to 1 scale.
-  // Every other line shares one chart (creator 2026-10-20: combine the
-  // solitary line charts) on a scale of each line against its own
-  // whole-game value, since their units differ. Event rows are marks on the
-  // event tracks.
+  // Three charts. Progress plots shares of the board on a fixed 0 to 1
+  // scale. Moves available plots raw counts (creator 2026-10-26: "a raw
+  // numerical counter") of the moves the board offered, all counted in
+  // squares or numbers. Every other line shares one chart (creator
+  // 2026-10-20: combine the solitary line charts) on a scale of each line
+  // against its own whole-game value, since their units differ. Event rows
+  // are marks on the event tracks.
   const CHARTS = [
     { id: 'progress', name: 'progress', scale: 'share' },
+    { id: 'moves', name: 'moves available', scale: 'count' },
     { id: 'relative', name: 'against the whole game', scale: 'relative' },
   ];
   // The relative chart's scale (creator 2026-10-21: toggle between log and
@@ -532,6 +610,7 @@ const DuringGame = (() => {
     kind: 'progress',
     steps: m.progress.startMs.map((atMs, i) => ({ atMs, value: (counts[i] - atStart) / (total - atStart) })),
   });
+  const stateSteps = (m, values) => ({ kind: 'state', steps: m.known.startMs.map((atMs, i) => ({ atMs, value: values[i] })) });
   const eventsOf = (type) => (m) => ({ kind: 'events', events: m.events.filter((e) => e.type === type) });
   // A report category's actions per minute, each weighing `weight`; a game
   // with any action filed under measurement notes has no measured counts.
@@ -542,6 +621,8 @@ const DuringGame = (() => {
   const ms = (value) => Math.round(value) + 'ms';
   const decimal1 = (value) => (Math.round(value * 10) / 10).toFixed(1);
   const integer = (value) => String(value);
+  // A count at a moment, or its average over time to a tenth.
+  const count = (value) => (Number.isInteger(value) ? integer(value) : decimal1(value));
 
   // Each row: id, group, name, default, help, format, data(model), and its
   // chart and line color (unique among the rows of its chart) or, for an
@@ -571,6 +652,59 @@ const DuringGame = (() => {
       chart: 'progress', color: '#c2185b',
       help: 'How many of the board\u2019s mines had a flag at each moment. Flags on safe squares do not count.',
       data: (m) => progressSteps(m, m.progress.flaggedMines, m.mines, 0) },
+    // Moves available (creator 2026-10-26), counted between clicks on
+    // covered, unflagged squares. Each by-level row counts what its
+    // deduction level is the first to prove (docs/product/design-axis.md,
+    // "Deduction levels"), so the four safe rows by level add up to the safe
+    // squares known, and the four mine rows to the mines known.
+    { id: 'safeKnown', group: 'moves', name: 'safe squares known', default: true, format: count,
+      chart: 'moves', color: '#00897b',
+      help: 'Covered squares the visible board had proved safe, between your clicks. The game value is the average over time.',
+      data: (m) => stateSteps(m, m.known.safe) },
+    { id: 'safeByCounting', group: 'moves', name: 'safe by counting', default: false, format: count,
+      chart: 'moves', color: '#7cb342',
+      help: 'The safe squares known that counting single numbers proves, one number at a time, the quickest kind to see. The game value is the average over time.',
+      data: (m) => stateSteps(m, m.known.safeByLevel.counting) },
+    { id: 'safeByOverlap', group: 'moves', name: 'safe by overlap', default: false, format: count,
+      chart: 'moves', color: '#1b5e20',
+      help: 'The safe squares known that comparing two numbers whose covered squares overlap proves and counting does not, as a 1 2 2 1 row proves the squares facing its 1s safe. The game value is the average over time.',
+      data: (m) => stateSteps(m, m.known.safeByLevel.overlap) },
+    { id: 'safeByAllNumbers', group: 'moves', name: 'safe by all numbers', default: false, format: count,
+      chart: 'moves', color: '#9e9d24',
+      help: 'The safe squares known that only the numbers taken all together prove: every way of placing mines that fits every number leaves them safe, though no two numbers compared show it. The game value is the average over time.',
+      data: (m) => stateSteps(m, m.known.safeByLevel.allNumbers) },
+    { id: 'safeByMineTotal', group: 'moves', name: 'safe by the mine total', default: false, format: count,
+      chart: 'moves', color: '#00acc1',
+      help: 'The safe squares known that only the board\u2019s mine count proves: the numbers allow layouts with different numbers of mines, and the mines left rule some of them out. The game value is the average over time.',
+      data: (m) => stateSteps(m, m.known.safeByLevel.mineTotal) },
+    { id: 'minesKnown', group: 'moves', name: 'mines known', default: false, format: count,
+      chart: 'moves', color: '#b71c1c',
+      help: 'Covered, unflagged squares the visible board had proved to be mines, between your clicks. The game value is the average over time.',
+      data: (m) => stateSteps(m, m.known.mines) },
+    { id: 'minesByCounting', group: 'moves', name: 'mines by counting', default: true, format: count,
+      chart: 'moves', color: '#e53935',
+      help: 'The mines known that counting single numbers proves, one number at a time, as a 2 with only two covered squares beside it. The game value is the average over time.',
+      data: (m) => stateSteps(m, m.known.minesByLevel.counting) },
+    { id: 'minesByCountingNearLastMove', group: 'moves', name: 'mines by counting near the last move', default: true,
+      format: count, chart: 'moves', color: '#ef6c00',
+      help: 'The mines by counting at most 5 steps from your last board-changing click, a step being one square across or down; none before the first. The game value is the average over time.',
+      data: (m) => stateSteps(m, m.known.minesByCountingNearLastMove) },
+    { id: 'minesByOverlap', group: 'moves', name: 'mines by overlap', default: false, format: count,
+      chart: 'moves', color: '#8e24aa',
+      help: 'The mines known that comparing two numbers whose covered squares overlap proves and counting does not, as a 1 2 2 1 row proves mines in the squares facing its 2s. The game value is the average over time.',
+      data: (m) => stateSteps(m, m.known.minesByLevel.overlap) },
+    { id: 'minesByAllNumbers', group: 'moves', name: 'mines by all numbers', default: false, format: count,
+      chart: 'moves', color: '#5d4037',
+      help: 'The mines known that only the numbers taken all together prove: every way of placing mines that fits every number puts a mine there, though no two numbers compared show it. The game value is the average over time.',
+      data: (m) => stateSteps(m, m.known.minesByLevel.allNumbers) },
+    { id: 'minesByMineTotal', group: 'moves', name: 'mines by the mine total', default: false, format: count,
+      chart: 'moves', color: '#ad1457',
+      help: 'The mines known that only the board\u2019s mine count proves: the numbers allow layouts with different numbers of mines, and the mines left rule some of them out. The game value is the average over time.',
+      data: (m) => stateSteps(m, m.known.minesByLevel.mineTotal) },
+    { id: 'chordableNumbers', group: 'moves', name: 'chordable numbers', default: true, format: count,
+      chart: 'moves', color: '#1565c0',
+      help: 'Open numbers ready for a chord: as many flags beside them as their number, every flag on a mine, and a covered square still beside them for the chord to open. The game value is the average over time.',
+      data: (m) => stateSteps(m, m.known.chordableNumbers) },
     { id: 'bvPerSecond', group: 'pace', name: '3BV/s', default: true, format: gameDataFormat('bvPerSecond'),
       chart: 'relative', color: '#2e7d32',
       help: '3BV solved per second.',
@@ -642,18 +776,10 @@ const DuringGame = (() => {
       chart: 'relative', color: '#880e4f',
       help: 'How uneven the timing of all presses was: the width of the middle half of the gaps between presses divided by their median. 0 is perfectly even. Raw shows each press as a tick.',
       data: (m) => ({ kind: 'spread', incidents: m.presses }) },
-    { id: 'safeKnown', group: 'board', name: 'safe squares known', default: true, format: decimal1,
-      chart: 'relative', color: '#00897b',
-      help: 'Covered squares the visible board had proved safe, between your clicks. The game value is the average over time.',
-      data: (m) => ({ kind: 'state', steps: m.known.startMs.map((atMs, i) => ({ atMs, value: m.known.all[i] })) }) },
-    { id: 'safeByCounting', group: 'board', name: 'safe by counting', default: false, format: decimal1,
-      chart: 'relative', color: '#7cb342',
-      help: 'The safe squares known that counting single numbers proves, the quickest kind to see. The game value is the average over time.',
-      data: (m) => ({ kind: 'state', steps: m.known.startMs.map((atMs, i) => ({ atMs, value: m.known.counting[i] })) }) },
-    { id: 'workAreas', group: 'board', name: 'work areas', default: false, format: decimal1,
+    { id: 'workAreas', group: 'board', name: 'work areas', default: false, format: count,
       chart: 'relative', color: '#8d6e63',
       help: 'Separate places holding safe squares known; squares at most 2 apart count as one place. The game value is the average over time.',
-      data: (m) => ({ kind: 'state', steps: m.known.startMs.map((atMs, i) => ({ atMs, value: m.known.areas[i] })) }) },
+      data: (m) => stateSteps(m, m.known.areas) },
     { id: 'squaresMoved', group: 'board', name: 'squares moved between actions', default: true, format: decimal1,
       chart: 'relative', color: '#4e342e',
       help: 'How far each board-changing click was from the one before, in squares in any direction; averages take the mean.',

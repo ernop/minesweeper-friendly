@@ -1,15 +1,15 @@
 "use strict";
 
 importScripts('trend-fit.js?v=20260925-worker-analysis',
-  'game/trace-metrics.js?v=20261021-ng-removed',
-  'game/evaluation.js?v=20261021-ng-removed',
-  'game/metric-definitions.js?v=20261021-ng-removed',
+  'game/trace-metrics.js?v=20261026-moves-available',
+  'game/evaluation.js?v=20261026-moves-available',
+  'game/metric-definitions.js?v=20261026-moves-available',
   'board-shape.js?v=20261020-no-left-panel', 'zini.js?v=20261020-no-left-panel', 'board-metrics.js?v=20261020-no-left-panel',
-  'game-data.js?v=20261020-move-habits', 'game/rankings.js?v=20261021-ng-removed',
-  'game/charts.js?v=20261021-ng-removed', 'game/game-data-chart.js?v=20261021-ng-removed',
-  'justice.js?v=20261021-just-universe-words', 'board-icons.js?v=20261015-flag-controls',
-  'game/replay-model.js?v=20261021-ng-removed',
-  'during-game.js?v=20261021-just-universe-words');
+  'game-data.js?v=20261020-move-habits', 'game/rankings.js?v=20261026-moves-available',
+  'game/charts.js?v=20261026-moves-available', 'game/game-data-chart.js?v=20261026-moves-available',
+  'justice.js?v=20261026-moves-available', 'board-icons.js?v=20261015-flag-controls',
+  'game/replay-model.js?v=20261026-moves-available',
+  'during-game.js?v=20261026-moves-available');
 
 let config;
 

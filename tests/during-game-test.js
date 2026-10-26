@@ -129,8 +129,17 @@ const types = (model) => model.events.map((event) => event.type + '@' + event.at
   assert.deepEqual(model.bv3, { total: 3, atStart: 0 }, 'three zero regions and no isolated number');
   assert.deepEqual(model.progress.solved, [0, 1, 2, 3]);
   assert.deepEqual(model.progress.opened, [0, 12, 24, 33]);
-  assert.deepEqual(model.known.all, [0, 0, 9], 'only the mine count proves the middle');
+  assert.deepEqual(model.known.safe, [0, 0, 9], 'only the mine count proves the middle');
   assert.deepEqual(model.known.areas, [0, 0, 1]);
+  // Counting proves each wall from the column of numbers beside it; with
+  // both walls known, the mine total proves the 9 squares between them.
+  const none = [0, 0, 0];
+  assert.deepEqual(model.known.safeByLevel, { counting: none, overlap: none, allNumbers: none, mineTotal: [0, 0, 9] });
+  assert.deepEqual(model.known.minesByLevel, { counting: [0, 3, 6], overlap: none, allNumbers: none, mineTotal: none });
+  assert.deepEqual(model.known.mines, [0, 3, 6]);
+  assert.deepEqual(model.known.minesByCountingNearLastMove, [null, 2, 2],
+    'none before the first click; then the top two squares of the wall 4 columns from the click, 4 and 5 steps away, not the bottom one 6 away');
+  assert.deepEqual(model.known.chordableNumbers, none, 'no flags, so no chord');
   assert.deepEqual(types(model), ['opening@0', 'long-gap@0', 'guess@1500', 'opening@1500', 'moved-on@1500', 'opening@2200']);
   const gap = model.events.find((event) => event.type === 'long-gap');
   assert.deepEqual([gap.endMs, gap.known, gap.countingKnown, gap.nearKnown, gap.endedBy, gap.guess, gap.windowLeft],
@@ -210,6 +219,27 @@ const types = (model) => model.events.map((event) => event.type + '@' + event.at
   assert.deepEqual([event('guess', 3700).died, event('guess', 3700).safeAvailable], [true, true]);
   assert.deepEqual(model.progress.flaggedMines, [0, 0, 1, 2, 2, 3, 3, 3, 3, 3, 3, 3]);
   assert.deepEqual(model.known.areas.slice(4, 8), [2, 2, 2, 2]);
+  // Before each of the 11 actions. Each 1 2 1 proves its middle safe and
+  // its ends mines by overlap; flags take those mines off the counts. Once
+  // (10,1) and then (4,1) open, each 1 beside a single covered square is
+  // counting, and so are the squares a 2 between two known mines proves.
+  // The flag on (5,1) hides one square counting proved safe.
+  const zeros = new Array(11).fill(0);
+  assert.deepEqual(model.known.safeByLevel, { counting: [0, 0, 0, 0, 0, 0, 3, 6, 6, 5, 6],
+    overlap: [0, 1, 1, 1, 2, 2, 1, 0, 0, 0, 0], allNumbers: zeros, mineTotal: zeros });
+  assert.deepEqual(model.known.minesByLevel, { counting: [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1],
+    overlap: [0, 2, 1, 0, 2, 1, 0, 0, 0, 0, 0], allNumbers: zeros, mineTotal: zeros });
+  assert.deepEqual(model.known.safe, [0, 1, 1, 1, 2, 2, 4, 6, 6, 5, 6]);
+  assert.deepEqual(model.known.mines, [0, 2, 1, 0, 2, 1, 1, 1, 1, 1, 1]);
+  // The only mine counting proves and no flag covers is (10,2): 1 step from
+  // (10,1), which the click before the long gap opened, and 6 or 7 steps
+  // from every later click; flags count as moves, the no-op does not.
+  assert.deepEqual(model.known.minesByCountingNearLastMove, [null, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0]);
+  // Each flag beside the left 1 2 1 makes its numbers chordable while (4,1)
+  // is covered; (11,0) with its flag joins until (10,1) opens. Then only the
+  // 2 at (4,1) with both flags is, until the wrong flag on (5,1) makes it
+  // three flags.
+  assert.deepEqual(model.known.chordableNumbers, [0, 0, 1, 3, 3, 4, 3, 1, 1, 0, 1]);
 
   // The worker holds the finished game by its endedAt and answers only for
   // it; its move habits go to the record with the finished game's
@@ -307,5 +337,25 @@ const types = (model) => model.events.map((event) => event.type + '@' + event.at
 }
 assert.deepEqual([...DuringGame.RELATIVE_SCALES], ['log', 'linear'], 'two scales, one checkbox');
 assert.equal(DuringGame.DEFAULT_RELATIVE_SCALE, 'log', 'log by default');
+
+// The catalog: three charts, every row of the moves group on the moves
+// chart, each line's color unique within its chart and each mark's shape
+// within its track, and counts shown whole at a moment, to a tenth averaged.
+{
+  assert.deepEqual([...DuringGame.CHARTS.map((chart) => chart.id)], ['progress', 'moves', 'relative']);
+  assert(DuringGame.ROWS.filter((row) => row.group === 'moves').every((row) => row.chart === 'moves'));
+  for (const chart of DuringGame.CHARTS) {
+    const colors = DuringGame.ROWS.filter((row) => row.chart === chart.id).map((row) => row.color);
+    assert.equal(new Set(colors).size, colors.length, chart.id + ': one color per line');
+  }
+  for (const [track] of DuringGame.TRACKS) {
+    const marks = DuringGame.ROWS.filter((row) => row.track === track).map((row) => row.mark);
+    assert.equal(new Set(marks).size, marks.length, track + ': one shape per row');
+  }
+  assert.deepEqual([...DuringGame.ROWS.filter((row) => row.chart === 'moves' && row.default).map((row) => row.id)],
+    ['safeKnown', 'minesByCounting', 'minesByCountingNearLastMove', 'chordableNumbers']);
+  const chordable = DuringGame.rowById('chordableNumbers');
+  assert.deepEqual([chordable.format(3), chordable.format(0), chordable.format(2.25)], ['3', '0', '2.3']);
+}
 
 console.log('during-game tests passed');

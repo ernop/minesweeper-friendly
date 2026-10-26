@@ -3,8 +3,9 @@
 // Live perf charts: the block at the head of the game data column
 // (docs/product/during-game.md). The analysis worker builds the rows' series
 // from the finished game's trace (during-game.js); this file draws them as
-// two framed charts on one time axis, progress and every other line against
-// its whole-game value, with the event tracks under them; lets each legend
+// three framed charts on one time axis, progress, the moves available, and
+// every other line against its whole-game value, with the event tracks
+// between the second and the third; lets each legend
 // choose its lines; shows the value of the line under the pointer while the
 // board shows that moment; keeps the replay there on a click; and chooses
 // the rows.
@@ -139,8 +140,10 @@ function hideDuringGameHover() {
 // start over, every row shown, with another game.
 const DURING_GAME_TRACKS_ID = 'events';
 // The parts top to bottom (creator 2026-10-21: the chart against the whole
-// game, the one with 3BV/s, third, under the event tracks).
-const DURING_GAME_PARTS = ['progress', DURING_GAME_TRACKS_ID, 'relative'];
+// game, the one with 3BV/s, under the event tracks). The moves available
+// (2026-10-26) sit right above the tracks, so a pause or a jump lines up
+// with what the board offered then.
+const DURING_GAME_PARTS = ['progress', 'moves', DURING_GAME_TRACKS_ID, 'relative'];
 let duringGamePicks = { endedAt: null, byPart: null };
 
 function duringGamePicksFor(endedAt) {
@@ -152,12 +155,19 @@ function duringGamePicksFor(endedAt) {
 
 //-------DURING THE GAME: CHARTS (one time axis)-------
 
-// Heights in px: progress labels its fixed 0-100% scale every 20%, and the
-// relative chart holds every pace, board, and report line. `top` keeps the
-// top tick's label inside the chart.
+// Heights in px: progress labels its fixed 0-100% scale every 20%; the
+// moves chart draws small counts (mines near the last move) under large
+// ones (safe squares known after an opening), and the relative chart holds
+// every pace, board, and report line. `top` keeps the top tick's label
+// inside the chart.
 const DURING_GAME_LAYOUT = {
-  plots: { progress: 90, relative: 120 }, track: 18, top: 6, xLabels: 16, bottom: 4, right: 8, minLeft: 32,
+  plots: { progress: 90, moves: 120, relative: 120 }, track: 18, top: 6, xLabels: 16, bottom: 4, right: 8, minLeft: 32,
 };
+// The moves chart's tick ladder: at most this many steps above 0.
+const DURING_GAME_COUNT_STEPS = 4;
+// What the values in a legend are, where the scale alone does not say: the
+// 1x each line is measured against, or the counts' averages over the game.
+const DURING_GAME_LEGEND_LEADS = { relative: 'whole game (1\u00d7)', count: 'game average' };
 // On the log scale, the relative chart spans at most this many doublings
 // each way of the whole-game value; a value past them draws on the edge, and
 // the card gives it exactly.
@@ -228,10 +238,23 @@ function duringGameComparable(row) {
 
 const duringGameShareLabel = (value) => Math.round(value * 100) + '%';
 const duringGameLinearLabel = (ratio) => Number(ratio.toFixed(1)) + '\u00d7';
+const duringGameCountLabel = (count) => String(count);
+
+// The moves chart's ticks: whole numbers from 0, a step of the 1-2-5 ladder
+// at least 1, up to the first at or above the highest count (at least 1).
+function duringGameCountTicks(highest) {
+  const top = Math.max(1, highest);
+  const ladder = niceTicks(0, top, DURING_GAME_COUNT_STEPS);
+  const step = Math.max(1, ladder[1] - ladder[0]);
+  const ticks = [0];
+  while (ticks[ticks.length - 1] < top) ticks.push(ticks[ticks.length - 1] + step);
+  return ticks;
+}
 
 // A chart's y scale: `at` maps a value (on the relative chart, a ratio to
 // the line's whole-game value) to its share of the plot's height. Progress
-// is a fixed 0 to 1. On the log scale, the relative chart runs as many
+// is a fixed 0 to 1. The moves chart counts from 0 to its lines' highest
+// count (duringGameCountTicks). On the log scale, the relative chart runs as many
 // doublings each way of 1x as its farthest value needs, at least one and at
 // most DURING_GAME_RELATIVE_DOUBLINGS, with zero on the floor. On the linear
 // scale it runs from 0 to its lines' farthest value within
@@ -242,6 +265,13 @@ function duringGameScale(chart, rows, relativeScale) {
   if (chart.scale === 'share') {
     const ticks = niceTicks(0, 1, 5);
     return { at: (value) => value, ticks, minors: minorTicks(ticks, 0, 1), label: duringGameShareLabel };
+  }
+  if (chart.scale === 'count') {
+    const counts = rows.flatMap(duringGameRowValues);
+    if (counts.length === 0) return null;
+    const ticks = duringGameCountTicks(Math.max(...counts));
+    const top = ticks[ticks.length - 1];
+    return { at: (value) => value / top, ticks, minors: [], label: duringGameCountLabel };
   }
   const comparable = rows.filter(duringGameComparable);
   if (relativeScale === 'linear') {
@@ -268,9 +298,15 @@ function duringGameScale(chart, rows, relativeScale) {
   };
 }
 
-// Every y label a chart can draw, on either relative scale.
-function duringGameScaleLabels(chart) {
+// Every y label a chart can draw, on either relative scale. The moves
+// chart's widest are those of all its rows shown: fewer shown lines can only
+// lower its top, and the tick font's digits are all one width.
+function duringGameScaleLabels(chart, rows) {
   if (chart.scale === 'share') return niceTicks(0, 1, 5).map(duringGameShareLabel);
+  if (chart.scale === 'count') {
+    const counts = rows.flatMap(duringGameRowValues);
+    return counts.length === 0 ? [] : duringGameCountTicks(Math.max(...counts)).map(duringGameCountLabel);
+  }
   const linear = Array.from({ length: 2 * DURING_GAME_LINEAR_TOP.max + 1 }, (_, k) => duringGameLinearLabel(k / 2));
   return [...Object.values(DURING_GAME_RATIO_LABELS), ...linear];
 }
@@ -280,8 +316,8 @@ function duringGameScaleLabels(chart) {
 // legends show and whichever scale is chosen.
 function duringGameLeftMargin(charts, tracks) {
   let width = DURING_GAME_LAYOUT.minLeft;
-  for (const { chart } of charts) {
-    for (const label of duringGameScaleLabels(chart)) {
+  for (const part of charts) {
+    for (const label of duringGameScaleLabels(part.chart, part.members.map((member) => member.row))) {
       width = Math.max(width, chartTextWidth(label, DURING_GAME_TICK_FONT) + 8);
     }
   }
@@ -549,10 +585,10 @@ function renderDuringGameCharts(charts, view, { raw, relativeScale, picks }) {
     svg.setAttribute('aria-label', chart.name + ' during this game');
     const part = { id: chart.id, chart, members: chartMembers, plotHeight: DURING_GAME_LAYOUT.plots[chart.id],
       element, svg };
-    if (chart.scale === 'relative') {
+    if (DURING_GAME_LEGEND_LEADS[chart.scale] !== undefined) {
       const lead = document.createElement('span');
       lead.className = 'during-game-legend-lead';
-      lead.textContent = 'whole game (1\u00d7)';
+      lead.textContent = DURING_GAME_LEGEND_LEADS[chart.scale];
       legend.appendChild(lead);
     }
     for (const member of chartMembers) {

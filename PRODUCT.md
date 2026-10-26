@@ -33,7 +33,7 @@ single-file spec; older references cite them as `PRODUCT.md "Heading"`.
 
 - [docs/product/hosting.md](docs/product/hosting.md) — Independent Fuseki application hosting, browser-origin isolation, release boundaries, and the hosted site's play statistics.
 
-- [docs/product/design-axis.md](docs/product/design-axis.md) — The friendliness axis from naive random to the angelic dual of Kaboom, and the solver logic tiers behind "solvable".
+- [docs/product/design-axis.md](docs/product/design-axis.md) — The friendliness axis from naive random to the angelic dual of Kaboom, and the deduction levels (counting, overlap, all numbers, mine total) that grade how hard each fact is to know and define "solvable".
 - [docs/product/ui-doctrine.md](docs/product/ui-doctrine.md) — App-wide directives (simplicity first, defaults show nothing extra, global configuration in one place, useful optional help, no hover reflow, unshortened legend labels, layout stability). Read before building or reshaping any surface. Section: "UI doctrine".
 - [docs/product/board-and-layout.md](docs/product/board-and-layout.md) — The classic skin and board chrome, the game setup rows, top bar, settings row, and footer, and the page columns around a board that never moves. Sections: "Board and chrome", "Game setup, top bar, settings row, and footer", "Layout: the board never moves".
 

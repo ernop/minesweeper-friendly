@@ -141,7 +141,12 @@ constraint components, exhaustively searches each component, and joins
 their possible mine totals through the board-wide mine count and
 unconstrained sea. A cell is proven safe or mined only when it has that
 value in every globally consistent layout. This is general constraint
-solving rather than a catalog of named patterns.
+solving rather than a catalog of named patterns. Its stages are the
+deduction levels ([design axis](design-axis.md), "Deduction levels"):
+counting, overlap, the search without the mine total, then the search
+joined through it. `Justice.proveLevels` runs them in one pass, recording
+the first level proving each fact, for the live perf charts' moves
+available.
 
 The browser search has a deterministic two-million-node work limit.
 Results carry `complete`, `visits`, and `method`. A completed search has

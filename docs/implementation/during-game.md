@@ -23,7 +23,8 @@ Spec: [docs/product/during-game.md](../product/during-game.md). Index: [AGENTS.m
   data's `.game-data-controls`), and the configure view.
   `renderDuringGameCharts` draws `DuringGame.CHARTS` and the event tracks
   (`DuringGame.TRACKS`) on one time axis, top to bottom in
-  `DURING_GAME_PARTS` order (progress, the tracks, the relative chart), and
+  `DURING_GAME_PARTS` order (progress, moves, the tracks, the relative
+  chart), and
   wires the legends, the hover, and the replay link. The
   card (`duringGameCard`, `placeDuringGameCard`) is a body-level manual
   popover, so it shows above the Game details popover too;
@@ -69,10 +70,18 @@ decisions. Otherwise:
 - Pass 1, per decision in replay order (`pathDecisionEvents`): opened safe
   squares and solved 3BV units (`boardUnits` on the final layout: each zero
   region is one unit, each number touching none is one), flagged mines,
-  and, whenever the revealed count changed, two proofs of the position
-  before the action: the counting tier (`{subset: false, global: false,
-  exact: false}`) and the full exact proof. Safe squares known, work areas,
-  and the proven-safe list are null where the exact proof is incomplete.
+  and, whenever the revealed count changed, one `Justice.proveLevels` of
+  the position before the action: the full proof's facts (`factsAt`), each
+  with the first deduction level proving it (`levelsAt`). `known` holds,
+  per action, the covered unflagged squares proved safe and mines; the
+  same by level id (`safeByLevel`, `minesByLevel`, from `countsByLevel`);
+  the work areas and the proven-safe list; the mines counting proves within
+  `NEAR_LAST_MOVE_STEPS` (5, rows plus columns) of the latest
+  board-changing action's square (`targetCellOf`, a chord's number), null
+  before the first; and the chordable numbers (`chordableCount`, flags
+  checked against the final layout). The totals, the work areas and list,
+  and the searching levels (all numbers, mine total) are null where the
+  search stopped at its work limit.
 - Pass 2: each action's gap, squares moved, cursor path, moving flag (the
   fastclick definition), no-op reason, misclick (recomputed from the exact
   proof as `Solver.isVisibleMisclick` judges it), guess, opening,
@@ -81,10 +90,10 @@ decisions. Otherwise:
   `NEAR_SQUARES` of what the previous board-changing action opened or
   marked. A move is a board-changing click outside that zone and not within
   `NEAR_SQUARES` of a proven-safe square in it; moved on when no such
-  squares remained, else left easy work when the counting proof
-  (`countingFactsAt`) marks one of them safe and left hard work when it
-  marks none (counting's facts are always complete and inside the full
-  proof's, so the split holds where the full proof stopped at its limit);
+  squares remained, else left easy work when counting proves one of them
+  (`levelsAt`) and left hard work when it proves none (counting's facts
+  come before any search, so the split holds where the search stopped at
+  its limit);
   every move carries its `gapMs`; a fork when the exact proof's
   proven-safe squares formed 2 or more areas (`areasOf`, linking squares
   within `AREA_LINK_SQUARES`); came back when a later click reaches squares
@@ -117,7 +126,10 @@ or nothing for an unrecorded trace or when `movesJudged` is false.
 Cost (2026-10-15, scripted Expert wins of 290–340 actions in Node):
 about 120 ms for the model and 10–20 ms for a view of every row with the
 rolling average; 2026-10-20, a scripted Expert win of 201 actions in
-headless Chromium: 46–70 ms. Since 2026-10-20 the model is built inside
+headless Chromium: 46–70 ms; 2026-10-26, with every deduction level from
+one `proveLevels` per position, 73–104 ms for scripted Expert wins of
+281–344 actions in Node (a separate proof per level took 140–242 ms on the
+same games). Since 2026-10-20 the model is built inside
 `finished-game`, before the first full result render, which therefore
 comes that much later; the live perf charts then need only the view.
 `renderResultAsync` builds the block, which starts its task, before
@@ -127,9 +139,10 @@ tables, before game data and the charts.
 
 ## Rows and averaging
 
-`CHARTS` lists the two charts in order: `id`, `name`, and `scale`
-('share' for progress's fixed 0 to 1, 'relative' for the chart of each
-line against its whole-game value). `TRACKS` lists the event tracks as
+`CHARTS` lists the three charts in order: `id`, `name`, and `scale`
+('share' for progress's fixed 0 to 1, 'count' for the moves chart's raw
+counts, 'relative' for the chart of each line against its whole-game
+value). `TRACKS` lists the event tracks as
 `[id, name]`: clicks, jumps, pauses. `ROWS` entries hold `id`, `group`,
 `name`, `default`, `help`, `format`, and either `chart` and a line
 `color` unique within the chart, or (event rows) `track`, `mark` (a shape
@@ -172,7 +185,12 @@ every row shown; a pick of a row not in `rowIds` drops out), and
   the same x whatever the scale and the legend picks. The time axis takes
   `niceTicks` at about one tick per 56 px, labeled under the first and last
   parts. `duringGameScale(chart, rows, relativeScale)` gives the y scale:
-  progress every 20%; the relative chart on `log` in whole doublings of 1×
+  progress every 20%; the moves chart's counts from 0 on
+  `duringGameCountTicks`, whole steps from `niceTicks` (about
+  `DURING_GAME_COUNT_STEPS`, 4) repeated to the first at or past the
+  highest drawn count, so a higher count never draws a lower top label and
+  the margin measured from every row's values fits every pick; the
+  relative chart on `log` in whole doublings of 1×
   (`DURING_GAME_RATIO_LABELS`), as many each way as the farthest drawn
   ratio needs, clamped to 1 to `DURING_GAME_RELATIVE_DOUBLINGS` (3); on
   `linear` from 0 to the farthest ratio of the rows' lines
@@ -198,8 +216,10 @@ every row shown; a pick of a row not in `rowIds` drops out), and
   data column (540 to 403 px after an Expert game at 1920 wide) inside the
   callback, and the browser reported "ResizeObserver loop completed with
   undelivered notifications"; the error bar surfaced it.
-- Legends: each part (the two charts and the tracks, `DURING_GAME_TRACKS_ID`)
-  keeps its members; `applyPicks` sets each member's `hidden` from
+- Legends: each part (the three charts and the tracks, `DURING_GAME_TRACKS_ID`)
+  keeps its members; a chart's legend starts with its scale's
+  `DURING_GAME_LEGEND_LEADS` entry ("whole game (1×)", "game average"), if
+  any; `applyPicks` sets each member's `hidden` from
   `DuringGame.legendHides` and the entry's `.during-game-legend-off`. A
   click runs `DuringGame.legendPick` on the part's picks, then redraws only
   that part (`drawPart`) and spotlights the entry's row if it is shown.
@@ -234,9 +254,15 @@ every row shown; a pick of a row not in `rowIds` drops out), and
 
 ## Tests
 
+- `tests/justice-test.js`, "Deduction levels": a board for each level
+  with every square's first level worked out, the levels nested, and
+  `proveLevels` against a separate proof per level there, on random
+  constraint systems, and at the work limit.
 - `tests/during-game-test.js`: the model and rows inside the worker on
   hand-built boards (13×3 and 15×3) with worked-out proofs: progress, known
-  squares, every event type including both kinds of left work, forks, and
+  squares, the moves by level, near the last move, and chordable numbers,
+  the moves chart's rows, colors, defaults, and count format, every event
+  type including both kinds of left work, forks, and
   came back, move habits and their round trip through `finished-game`,
   averaging, the worker round trip and its throws, window-left spans, an
   unrecorded trace, and the legend picks' click sequence.
@@ -249,9 +275,11 @@ every row shown; a pick of a row not in `rowIds` drops out), and
 - `tests/during-game-browser-check.js PLAYWRIGHT_CORE_DIR CHROMIUM
   [SCREENSHOT_DIR]`: real games with real mouse input under the routed test
   origin: the block at the head of the docked column, titled "live perf
-  charts", the 2 s rolling default, the progress chart, the tracks, and the
-  relative chart (its lead, its one 1× line, its doubling labels), in that
-  order, each legend in catalog order, one plot x and width for every part, the
+  charts", the 2 s rolling default, the progress chart, the moves chart (its
+  "game average" lead, whole-count labels from 0, its default rows, a hover
+  card naming one of them with its count), the tracks, and the relative
+  chart (its lead, its one 1× line, its doubling labels), in that order,
+  each legend in catalog order, one plot x and width for every part, the
   progress chart's labels, hover line, the card naming only the line under
   the pointer and spotlighting it, no second board, the board itself at the
   hovered moment (the transport's step, slider, and status following, in

@@ -1,17 +1,20 @@
 'use strict';
-// Latency check (about 10 seconds) that fails on any real slowdown in the
-// waits a player feels. In a fresh profile on the permanent test origin (a
-// server for the repository root at http://127.0.0.1:8099/) holding a
+// Latency check (about 13 seconds on the PC) that fails on any real slowdown
+// in the waits a player feels. In a fresh profile on the permanent test origin
+// (a server for the repository root at http://127.0.0.1:8099/) holding a
 // synthetic 6,500-game history, it times page load, new game, the first click,
 // a dozen more clicks, the click that shows a mine, and switching to expert,
 // each as our handlers' work and as time to screen, plus the longest freeze in
-// the two seconds after that game ends. Timings depend on the machine, so
+// the two seconds after that game ends; then it plays the Expert game to a win
+// and times the winning click to its full results on screen, the analysis
+// workers' share included. Timings depend on the machine, so
 // tests/latency-machine.txt (not committed) names the machine running the
 // check, and any value over that machine's budgets in
 // tests/latency-budgets.json fails the run; --record appends it to
 // tests/latency-history.jsonl, which tests/latency-history.js prints. A
 // machine without budgets yet gets its measurements printed and fails, so
-// its budgets can be set from three runs.
+// its budgets can be set from three runs; so does a machine missing a budget
+// for any metric, a new one included.
 //
 // node tests/latency-browser-check.js PLAYWRIGHT_CORE_DIR firefox|chromium EXECUTABLE [--record]
 const assert = require('node:assert/strict');
@@ -98,6 +101,20 @@ function instrument() {
   }, 10);
 }
 
+// Runs in the page: `winResultsAt`, the first task after the frame that shows
+// a won game's full results, its board measurements in (their arrival renders
+// the result again) and no part of the page still marked busy.
+function watchWinResults() {
+  const probe = window.__latency;
+  const observer = new MutationObserver(() => {
+    if (gameState !== 'won' || renderedResult === null || !hasBoardMeasurements(renderedResult.record)
+      || document.querySelector('[aria-busy="true"]') !== null) return;
+    observer.disconnect();
+    requestAnimationFrame(() => setTimeout(() => { probe.winResultsAt = performance.now(); }, 0));
+  });
+  observer.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['aria-busy'] });
+}
+
 async function main() {
   const browser = await require(playwrightDir)[browserName].launch({ executablePath, headless: true,
     args: browserName === 'chromium' ? ['--no-sandbox'] : [] });
@@ -117,6 +134,7 @@ async function main() {
     await page.reload();
     const startupMs = await ready();
     await page.evaluate(instrument);
+    await page.evaluate(watchWinResults);
     // A fixed board: every new game uses the same seed.
     await page.evaluate(() => { GameRandom.createSeed = () => '6d1f0c2a9b8e47f3a5c4d2e1f0a9b8c7'; });
 
@@ -167,6 +185,33 @@ async function main() {
     await firstClick();
     await sleep(300);
 
+    // The rest of the Expert game, as fast as clicks go: each opens a square
+    // the visible board proves safe, else a safe square as a lucky guess.
+    const nextSafeSquare = () => page.evaluate(() => {
+      if (gameState !== 'playing') return null;
+      const view = { width: config.width, height: config.height, mines: config.mines,
+        revealed: cells.map((c) => c.revealed), adjacent: cells.map((c) => (c.revealed ? c.adjacent : 0)) };
+      let target = -1;
+      for (const [cell, fact] of Justice.proveFacts(view, Justice.rawClues(view))) {
+        if (fact === 2) { target = cell; break; }
+      }
+      if (target === -1) target = cells.findIndex((c) => !c.revealed && !c.mine);
+      const r = cellElements[target].getBoundingClientRect();
+      return [r.left + r.width / 2, r.top + r.height / 2];
+    });
+    for (let square = await nextSafeSquare(); square !== null; square = await nextSafeSquare()) {
+      await page.mouse.click(...square);
+      kinds.push('expert play');
+    }
+    assert.equal((await board()).state, 'won', 'the Expert game ended in a win');
+    const settled = await page.waitForFunction(() => window.__latency.winResultsAt !== undefined, null,
+      { timeout: 30000 }).then(() => true, () => false);
+    if (!settled) {
+      const pending = await page.evaluate(() => ({ measured: hasBoardMeasurements(renderedResult.record),
+        busy: [...document.querySelectorAll('[aria-busy="true"]')].map((el) => el.id || el.className) }));
+      assert.fail('the Expert win\'s full results did not finish within 30 s: ' + JSON.stringify(pending));
+    }
+
     const probe = await page.evaluate(() => window.__latency);
     assert.equal(probe.clicks.length, kinds.length, 'every click reached the page');
     const of = (kinds_, field) => Math.max(...probe.clicks.filter((_, i) => kinds_.includes(kinds[i]))
@@ -180,11 +225,14 @@ async function main() {
     }
     metrics.afterGameFreezeMs = Math.max(0, ...probe.freezes
       .filter((f) => f.at + f.ms >= endAt && f.at <= endAt + 2000).map((f) => f.ms));
+    metrics.expertWinResultsMs = probe.winResultsAt - probe.clicks[kinds.lastIndexOf('expert play')].at;
     for (const name of Object.keys(metrics)) metrics[name] = Math.round(metrics[name]);
-    if (budgets === null) {
+    const unbudgeted = Object.keys(metrics).filter((name) => budgets === null || !(name in budgets));
+    if (unbudgeted.length > 0) {
       for (const [name, value] of Object.entries(metrics)) console.log(name.padEnd(20) + String(value).padStart(6) + ' ms');
       assert.deepEqual(errors, [], 'page errors');
-      assert.fail('no budgets for machine ' + machine + ' in tests/latency-budgets.json: set them just above the worst of three runs');
+      assert.fail('no budget for ' + unbudgeted.join(', ') + ' on machine ' + machine
+        + ' in tests/latency-budgets.json: set it just above the worst of three runs on this machine');
     }
     assert.deepEqual(Object.keys(budgets).sort(), Object.keys(metrics).sort(),
       'tests/latency-budgets.json names exactly the measured metrics for ' + machine);

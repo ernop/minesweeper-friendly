@@ -9,7 +9,8 @@ a task needs.
 A minesweeper clone of minesweeper.online's standard mode (same mechanics,
 classic-Windows look), growing toward friendlier variants such as A just
 universe and Angelic play (the no-guess modes were removed 2026-10-21). The
-friendliness axis and the solver tiers that define "solvable" are in
+friendliness axis and the deduction levels that grade how hard each fact
+is to know and define "solvable" (`Justice.DEDUCTION_LEVELS`) are in
 [docs/product/design-axis.md](docs/product/design-axis.md).
 
 Runtime: `index.html` + `style.css` load `storage.js`; pure `rng.js` /
@@ -107,7 +108,7 @@ Files, in load order:
 | `trial-review.js` | after-trial rank rows, identity review, run overlays |
 | `game-data-chart.js` | game data: pure ranking and label layout, then the 0–100% band and its views, the strips, and the cards' example boards |
 | `switch-cost-line.js` | the optional switch cost line under game data: the session's and the latest 500 standard games' estimates, its card, refresh requests |
-| `during-game-chart.js` | live perf charts (head of the game data column): the progress and relative charts and event tracks on one time axis, legend picks, the log or linear scale, hover line, the card for the hovered line, the board's replay previewing the hovered moment, replay link, configure |
+| `during-game-chart.js` | live perf charts (head of the game data column): the progress, moves available, and relative charts and event tracks on one time axis, legend picks, the log or linear scale and the count axis, hover line, the card for the hovered line, the board's replay previewing the hovered moment, replay link, configure |
 | `result-ranks.js` | `renderRanks`: result tables and charts in section order |
 | `input-trace.js` | the raw input trace |
 | `replay-model.js` | path and choice replay, pure part |
@@ -177,7 +178,7 @@ the file path, plus the section heading when the file holds several.
 | Area | Product spec | Implementation notes |
 | --- | --- | --- |
 | Public hosting and deployment, play statistics | [docs/product/hosting.md](docs/product/hosting.md) | [docs/implementation/hosting.md](docs/implementation/hosting.md) |
-| Friendliness axis, solver tiers | [docs/product/design-axis.md](docs/product/design-axis.md) | none |
+| Friendliness axis, deduction levels | [docs/product/design-axis.md](docs/product/design-axis.md) | none |
 | UI doctrine (read before any UI work) | [docs/product/ui-doctrine.md](docs/product/ui-doctrine.md) | none |
 | Board chrome, page layout (game setup rows, top bar, settings row, footer), board position | [docs/product/board-and-layout.md](docs/product/board-and-layout.md) | [docs/implementation/board-and-layout.md](docs/implementation/board-and-layout.md) |
 | Play modes (Angelic, Endgame drill, trials, 3BV countdown, Board lab; the removed no-guess modes) | [docs/product/play-modes.md](docs/product/play-modes.md) | [docs/implementation/play-modes.md](docs/implementation/play-modes.md) |
@@ -186,7 +187,7 @@ the file path, plus the section heading when the file holds several.
 | Game-end evaluation, action evidence | [docs/product/game-end-evaluation.md](docs/product/game-end-evaluation.md) | [docs/implementation/game-end-evaluation.md](docs/implementation/game-end-evaluation.md) |
 | Result presentation and ordering | [docs/product/results.md](docs/product/results.md) | [docs/implementation/results.md](docs/implementation/results.md) |
 | Game data chart, shared session, switch cost line | [docs/product/game-data.md](docs/product/game-data.md) | [docs/implementation/game-data.md](docs/implementation/game-data.md) |
-| Live perf charts (in-game rows over time, detected events: clicks, jumps and why each move happened, pauses) | [docs/product/during-game.md](docs/product/during-game.md) | [docs/implementation/during-game.md](docs/implementation/during-game.md) |
+| Live perf charts (in-game rows over time, moves available by deduction level and chordable numbers, detected events: clicks, jumps and why each move happened, pauses) | [docs/product/during-game.md](docs/product/during-game.md) | [docs/implementation/during-game.md](docs/implementation/during-game.md) |
 | Rank lists, highlights, recent placements, streaks, session summary and its results tree (incl. abandoned boards) | [docs/product/rankings.md](docs/product/rankings.md) | [docs/implementation/rankings.md](docs/implementation/rankings.md) |
 | Average-time charts, scatter plots | [docs/product/charts.md](docs/product/charts.md) | [docs/implementation/charts.md](docs/implementation/charts.md) |
 | Path and choice replay | [docs/product/replay.md](docs/product/replay.md) | [docs/implementation/replay.md](docs/implementation/replay.md) |
@@ -338,12 +339,17 @@ games and discard stale view updates. No main-thread calculation fallback. See
 
 ### Latency budgets
 
-User requirement (2026-09-26): the system must never get slow again. Before
-pushing any change to gameplay, game end, storage, startup, or result
-presentation, run `tests/latency-browser-check.js` in Firefox with `--record`
-(about 10 seconds on the PC, 25 on the laptop) and commit the appended
-`tests/latency-history.jsonl` line with the change. A budget failure blocks the
-push. Budgets are per machine (creator request 2026-10-18): the gitignored
+User requirement (2026-09-26): the system must never get slow again. Run
+`tests/latency-browser-check.js` in Firefox (about 13 seconds on the PC) when
+finishing each change to gameplay, game end, storage, startup, or result
+presentation, so a slowdown shows at the change that caused it (creator
+decision 2026-10-26; it had run only before a push). Before the push, run it
+once more with `--record` and commit the appended `tests/latency-history.jsonl`
+line with the change: a recorded line names the commit it measured. A budget
+failure blocks the push. Besides input and startup, the check times a long
+Expert win to its full results, the analysis workers' share included (added
+2026-10-26, after a change that doubled the workers' after-game work had
+passed it). Budgets are per machine (creator request 2026-10-18): the gitignored
 `tests/latency-machine.txt` names the machine running the check (`linux-pc`,
 `windows-laptop`), and a run is judged only against that machine's budgets.
 Budgets sit just above that machine's measured times, never at generous round

@@ -127,8 +127,9 @@ function clueList(revealed, adjacent) {
 function settle(revealed, adjacent) {
   const view = { width: W, height: H, mines: MINES, revealed, adjacent };
   const clues = clueList(revealed, adjacent);
-  const one = Justice.proveFacts(view, clues, { subset: false, global: false, exact: false });
-  const two = Justice.proveFacts(view, clues, { global: false, exact: false });
+  const [counting, overlap] = Justice.DEDUCTION_LEVELS;
+  const one = Justice.proveFacts(view, clues, counting.proof);
+  const two = Justice.proveFacts(view, clues, overlap.proof);
   return { view, clues, one, two };
 }
 
