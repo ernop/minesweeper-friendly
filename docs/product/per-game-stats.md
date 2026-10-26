@@ -44,7 +44,10 @@ rate", and "Unused mine marks" became "Path", "Path / click", "Path / 3BV",
 Regular wins show these measurements through the game-data chart and its
 configuration; the complete replacement inventory is in
 [the game-data design](game-data.md). Losses and trial results retain the
-label/value table. Losses are never ranked as completed solves; their measured
+label/value table: since 2026-10-26 it is the "this game" table among the
+tables under the board, as wide as its rows, rather than a panel spanning the
+details column ([This game's stats](results.md#this-games-stats-creator-request-2026-10-26)).
+Losses are never ranked as completed solves; their measured
 action statistics can join a performance comparison, and prior win rankings
 remain visible below the loss.
 

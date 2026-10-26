@@ -692,19 +692,10 @@ function shownMeasurement(record, id) {
   return (metric.allOutcomes || record.outcome === 'win') && Number.isFinite(value) ? value : undefined;
 }
 
-function renderResult(record, modeRecords, options = {}) {
-  const job = renderResultAsync(record, modeRecords, options);
-  job.catch(analysisFailure);
-  return job;
-}
-
-async function renderResultAsync(record, modeRecords, options = {}) {
-  const revision = ++resultViewRevision;
-  const isCurrent = () => revision === resultViewRevision;
-  resultRanks.setAttribute('aria-busy', 'true');
-  if (chartHelpOwner && [resultStats, resultRanks].some((el) => el.contains(chartHelpOwner))) hideChartHelpTip();
-  renderedResult = { record, modeRecords, options };
-  requestBoardMetrics(record);
+// This game's label/value stats, after a loss or a trial game (game data
+// shows a regular win's): one table among the result's tables under the
+// board, like lifetime or the session summary, as wide as its rows.
+function buildGameStats(record) {
   const seconds = secondsOf(record);
   const actionSummary = actionCategorySummary(record.actionEvaluations);
   const fullAnalysis = settings.reportScope === 'full';
@@ -724,19 +715,12 @@ async function renderResultAsync(record, modeRecords, options = {}) {
       ? [['Modeled life gap',
         actionSummary.modeledLifeGap.toFixed(3)]] : []),
   ];
-  if (options.historyView) setHighScoresSummary('Latest win');
-  else resultSummary.textContent = '';
-  clearResultStats();
-  resultAnalysis.textContent = '';
-  const historyView = options.historyView === true;
-  if (!historyView && settings.reportScope !== 'none') {
-    const verdicts = buildVerdictBlocks(record);
-    if (verdicts !== null) {
-      resultAnalysis.appendChild(verdicts);
-    }
-  }
-  const statsGrid = document.createElement('div');
-  statsGrid.id = 'stats-grid';
+  const table = document.createElement('div');
+  table.className = 'rank-list game-stats';
+  const heading = document.createElement('h4');
+  heading.textContent = 'this game';
+  const grid = document.createElement('div');
+  grid.className = 'game-stats-grid';
   // A game data measurement shows under its game data name and format.
   const measurementRow = (id) => {
     const metric = GameData.metrics.find((item) => item.id === id);
@@ -836,18 +820,38 @@ async function renderResultAsync(record, modeRecords, options = {}) {
     const valueCell = document.createElement('span');
     valueCell.className = 'stat-value' + (valueClass ? ' ' + valueClass : '');
     valueCell.textContent = value;
-    statsGrid.append(labelCell, valueCell);
+    grid.append(labelCell, valueCell);
   }
-  if (settings.shownThings.gameStats && (record.outcome !== 'win'
-      || (Trial.isPlayMode(settings.playMode) && !historyView))) {
-    if (historyView) {
-      const heading = document.createElement('h3');
-      heading.className = 'latest-win-stats-title';
-      heading.textContent = 'latest win stats';
-      resultStats.appendChild(heading);
+  table.append(heading, grid);
+  return table;
+}
+
+function renderResult(record, modeRecords, options = {}) {
+  const job = renderResultAsync(record, modeRecords, options);
+  job.catch(analysisFailure);
+  return job;
+}
+
+async function renderResultAsync(record, modeRecords, options = {}) {
+  const revision = ++resultViewRevision;
+  const isCurrent = () => revision === resultViewRevision;
+  resultRanks.setAttribute('aria-busy', 'true');
+  if (chartHelpOwner && [resultStats, resultRanks].some((el) => el.contains(chartHelpOwner))) hideChartHelpTip();
+  renderedResult = { record, modeRecords, options };
+  requestBoardMetrics(record);
+  if (options.historyView) setHighScoresSummary('Latest win');
+  else resultSummary.textContent = '';
+  clearResultStats();
+  resultAnalysis.textContent = '';
+  const historyView = options.historyView === true;
+  if (!historyView && settings.reportScope !== 'none') {
+    const verdicts = buildVerdictBlocks(record);
+    if (verdicts !== null) {
+      resultAnalysis.appendChild(verdicts);
     }
-    resultStats.appendChild(statsGrid);
   }
+  const gameStats = settings.shownThings.gameStats && (record.outcome !== 'win'
+    || (Trial.isPlayMode(settings.playMode) && !historyView)) ? buildGameStats(record) : null;
 
   const resultSections = createResultSectionCollector(
     historyView ? 'scores' : 'postGame');
@@ -862,6 +866,7 @@ async function renderResultAsync(record, modeRecords, options = {}) {
     && duringGameAvailable(record) ? buildDuringGameBlock(record, isCurrent) : null;
   if (Trial.isPlayMode(settings.playMode) && !options.historyView) {
     resultRanks.textContent = '';
+    if (gameStats !== null) resultRanks.appendChild(gameStats);
     renderTrialChrome();
   } else if (record.outcome === 'win') {
     await renderRanks(record, noMarkComparison(record, modeRecords),
@@ -870,7 +875,7 @@ async function renderResultAsync(record, modeRecords, options = {}) {
   } else {
     const latestWin = modeRecords.findLast((game) => game.outcome === 'win');
     await renderRanks(latestWin || record, modeRecords,
-      { ...options, duringGame, historyView: true, boardRecord: record }, resultSections, isCurrent);
+      { ...options, duringGame, gameStats, historyView: true, boardRecord: record }, resultSections, isCurrent);
   }
   if (!isCurrent()) return;
   if (!Trial.isPlayMode(settings.playMode) || options.historyView) {

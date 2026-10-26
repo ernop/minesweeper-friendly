@@ -123,10 +123,10 @@ check('game frame stays centered when surrounding result width changes',
   /#game-frame\s*\{[^}]*width:\s*max-content;[^}]*margin-inline:\s*auto;/s.test(css));
 check('the board rests centered with the session summary left of it and ranks won right of it',
   !css.includes('board-beside-game-data') && !source.includes('board-beside-game-data')
-    && source.includes("['left', resultRanks.querySelector('.session-summary')]")
-    && source.includes("['right', resultRanks.querySelector('.recent-placements')]"));
+    && source.includes("[['left'], resultRanks.querySelector('.session-summary')]")
+    && source.includes("[['right'], resultRanks.querySelector('.recent-placements')]"));
 check('a side block leaves the table list only where it fits inside the edge inset',
-  source.includes('if (left < main.left + inset || left + width > main.right - inset) continue;')
+  source.includes('leftOf(s, width) >= main.left + inset && leftOf(s, width) + width <= main.right - inset')
     && /#result-ranks \.rank-list\.beside-board\s*\{[^}]*position:\s*absolute;/s.test(css));
 check('the history below clears the lowest block beside the board',
   source.includes("resultRanks.querySelectorAll('.beside-board')"));

@@ -54,7 +54,12 @@ Spec: [docs/product/board-and-layout.md](../product/board-and-layout.md). Index:
   share. The grip `#details-resize` (`index.html`, between `main` and the
   sidebar) is a grid item in the sidebar's cell, sticky like it, pulled
   12.5px left into the 18px column gap; a ResizeObserver on the sidebar
-  copies its height. `syncGameSidebar` hides it unless docked and sets its
+  copies its height on the next animation frame. The grip's height sizes the
+  grid row, so it can resize `#page-layout`, which the result layout
+  observer watches; copied inside the callback, that shallower resize could
+  not be delivered in the same frame and the browser reported a
+  "ResizeObserver loop", which the error bar showed (found 2026-10-26: the
+  sidebar shrinking on a new game, and dragging the grip). `syncGameSidebar` hides it unless docked and sets its
   `aria-valuemin/max/now` (px). Pointerdown captures the pointer and reads
   `detailsColumnFit` once; each move stores the clamped width as
   `detailsColumnShare` and schedules one `syncBoardLayout` per frame, whose
@@ -98,13 +103,25 @@ Spec: [docs/product/board-and-layout.md](../product/board-and-layout.md). Index:
   ResizeObserver so its changes refit the chart.
   `syncBoardLayout` applies board position, Justice placement, the blocks
   beside the board, and callout clearance. `placeBoardSides` (2026-10-07)
-  measures `.session-summary` and `.recent-placements` inside `#result-ranks`
-  and gives each `.beside-board` (absolute in `main`, which is
-  `position: relative`) with `left`/`top` only when its width fits between
-  the board (`BOARD_SIDE_GAP`, 16px) and the main column's inset; the
-  board's horizontal extent is the union of the frame and the visible
-  `#replay-controls`, which is wider than a small board's frame. Tops align
-  with the frame. Trial layouts without a board skip it. `applyCellSize`
+  measures `.session-summary`, `.recent-placements`, and (2026-10-26)
+  `.game-stats` inside `#result-ranks`, in that order, and gives each
+  `.beside-board` (absolute in `main`, which is `position: relative`) with
+  `left`/`top` only when its width fits between the board
+  (`BOARD_SIDE_GAP`, 16px) and the main column's inset: the summary on the
+  left only, ranks won on the right only, this game's stats on the first
+  side the two leave free, the left first. The board's horizontal extent is
+  the union of the frame and the visible `#replay-controls`, which is wider
+  than a small board's frame. Tops align with the frame. Trial layouts
+  without a board skip it. Stats left in the tables section whose inline
+  top is below the section's items (they did not fit on the first line
+  beside the floated summary and ranks won) get `.below-first-line`, a left
+  float. The float lands where the line put them, but unlike the inline
+  block it does not push every later table below itself, so lifetime and
+  the rest still fill the room beside the summary. CSS alone cannot do
+  both: a float cannot rise above an earlier float, so floated stats could
+  never share the first line beside the summary, and the inline block
+  holds back every table after it. Each pass first clears `.beside-board`,
+  `.below-first-line`, and the offsets. `applyCellSize`
   and the window resize
   handler call it before `syncResultClearance`, which takes the lowest of
   the Justice callout and the `.beside-board` blocks as the overhang the
@@ -190,7 +207,8 @@ Spec: [docs/product/board-and-layout.md](../product/board-and-layout.md). Index:
 - `setBoardPositionEditing` focuses `#board-position-btn` only when it closes
   an editor that was open; `initGamePreferences` restoring a closed editor
   no longer moves focus.
-- Layout: `#results` (`#result-stats`: the stat sections or `#stats-grid`) is
+- Layout: `#results` (`#result-stats`: the stat sections, or `#stats-grid`
+  with the final time while a result loads) is
   a normal-flow child of `#game-sidebar`, after the controls and before the
   legend. The two grid columns prevent overlaps.
   `syncGameSidebar` controls its compact popover

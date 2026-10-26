@@ -290,8 +290,18 @@ function syncGameSidebar() {
 // read once when it starts.
 const detailsResize = document.getElementById('details-resize');
 const DETAILS_RESIZE_KEY_STEP = 10;
+// The grip's height sizes the grid row it shares with the column, so it can
+// resize #page-layout, which the result layout observer watches. Set inside
+// this callback, that change is a shallower resize the browser cannot
+// deliver in the same frame, and the error bar shows its "ResizeObserver
+// loop" report.
+let detailsResizeFrame = null;
 new ResizeObserver(() => {
-  detailsResize.style.height = gameSidebar.offsetHeight + 'px';
+  if (detailsResizeFrame !== null) return;
+  detailsResizeFrame = requestAnimationFrame(() => {
+    detailsResizeFrame = null;
+    detailsResize.style.height = gameSidebar.offsetHeight + 'px';
+  });
 }).observe(gameSidebar);
 function setDetailsColumnWidth(fit, width) {
   settings.detailsColumnShare = Math.max(fit.minimum, Math.min(fit.maximum, width)) / window.innerWidth;
@@ -354,18 +364,22 @@ function syncJusticePlacement() {
 // Beside the board (user decision 2026-10-07: "the session sum could be to
 // the left of the board, ranks won to the right, board in middle"): the
 // session summary rests left of the board frame and ranks won right of it,
-// tops aligned, each only where it fits inside the board column. A block
-// that does not fit stays first in the table list below the board. Both
-// keep their place in the table list's DOM order.
+// tops aligned, each only where it fits inside the board column. This game's
+// stats (creator 2026-10-26: "flowing up as possible") take a side neither
+// holds, the left first, where they fit. A block that does not fit stays in
+// the table list below the board, and all keep their place in its DOM order.
 const BOARD_SIDE_GAP = 16;
 function placeBoardSides() {
-  const blocks = [['left', resultRanks.querySelector('.session-summary')],
-    ['right', resultRanks.querySelector('.recent-placements')]].filter(([, block]) => block !== null);
+  const stats = resultRanks.querySelector('.game-stats');
+  const blocks = [[['left'], resultRanks.querySelector('.session-summary')],
+    [['right'], resultRanks.querySelector('.recent-placements')],
+    [['left', 'right'], stats]].filter(([, block]) => block !== null);
   for (const [, block] of blocks) {
     block.classList.remove('beside-board');
     block.style.removeProperty('left');
     block.style.removeProperty('top');
   }
+  stats?.classList.remove('below-first-line');
   if (gameArea.classList.contains('trial-no-board')) return;
   const inset = parseFloat(getComputedStyle(pageLayout).getPropertyValue('--board-edge-inset'));
   const frame = gameFrame.getBoundingClientRect();
@@ -374,13 +388,26 @@ function placeBoardSides() {
   const boardLeft = Math.min(frame.left, transport.left);
   const boardRight = Math.max(frame.right, transport.right);
   const main = mainElement.getBoundingClientRect();
-  for (const [side, block] of blocks) {
+  const leftOf = (side, width) => (side === 'left' ? boardLeft - BOARD_SIDE_GAP - width : boardRight + BOARD_SIDE_GAP);
+  const taken = new Set();
+  for (const [sides, block] of blocks) {
     const width = block.getBoundingClientRect().width;
-    const left = side === 'left' ? boardLeft - BOARD_SIDE_GAP - width : boardRight + BOARD_SIDE_GAP;
-    if (left < main.left + inset || left + width > main.right - inset) continue;
+    const side = sides.find((s) => !taken.has(s)
+      && leftOf(s, width) >= main.left + inset && leftOf(s, width) + width <= main.right - inset);
+    if (side === undefined) continue;
+    taken.add(side);
     block.classList.add('beside-board');
-    block.style.left = (left - main.left) + 'px';
+    block.style.left = (leftOf(side, width) - main.left) + 'px';
     block.style.top = (frame.top - main.top) + 'px';
+  }
+  // Under the board, this game's stats lead the first line of tables, beside
+  // the summary column, where they fit there. Otherwise they float where the
+  // line would have put them, under the summary, so the rank tables after
+  // them still use the room beside it.
+  if (stats !== null && !stats.classList.contains('beside-board')
+      && stats.closest('.result-chart-section-tables') !== null
+      && stats.getBoundingClientRect().top > stats.parentElement.getBoundingClientRect().top + 1) {
+    stats.classList.add('below-first-line');
   }
 }
 

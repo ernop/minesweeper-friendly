@@ -1,37 +1,9 @@
 'use strict';
 
-// The review after a trial session: rank rows, identity summaries, attempt
-// charts, and run overlays.
+// The review after a trial session: identity summaries, attempt charts, and
+// run overlays.
 
-//-------TRIAL REVIEW (rank rows, identity review, run overlays)-------
-
-function trialTimeAgeRow(nowRecord, list) {
-  return (i) => {
-    const age = relativeAge(nowRecord.endedAt, list[i].endedAt);
-    const cells = [
-      ['rank-cell', String(i + 1)],
-      ['time-cell' + (isMarkless(list[i]) ? ' markless-time' : ''),
-        (list[i].timeMs / 1000).toFixed(3) + 's'],
-    ];
-    if (age.count === 0 && age.unit === 's') {
-      cells.push(['age-just-cell age-u-s', 'this']);
-    } else {
-      cells.push(['age-num-cell age-u-' + age.unit, formatAgeCount(age)]);
-      cells.push(['age-unit-cell age-u-' + age.unit, age.unit]);
-    }
-    return cells;
-  };
-}
-
-function renderTrialMidRanks(record, modeRecords) {
-  const wins = modeRecords.filter((r) => r.outcome === 'win')
-    .sort((a, b) => a.timeMs - b.timeMs || a.endedAt - b.endedAt);
-  if (wins.length === 0) return;
-  resultRanks.appendChild(buildRankList(
-    playModeLabel() + ' ' + boardKey(),
-    wins.length, wins.indexOf(record), 'rank-grid',
-    trialTimeAgeRow(record, wins)));
-}
+//-------TRIAL REVIEW (identity review, run overlays)-------
 
 const TRIAL_TRANSFORM_LABELS = {
   id: 'upright',

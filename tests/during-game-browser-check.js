@@ -405,9 +405,9 @@ const shotDir = process.argv[4] || null;
     assert.equal(await page.locator('[data-chart="relative"] text.tick-y').first().textContent(), '0\u00d7', 'drawn linear');
     assert.equal(await legendValue('flagRemovedEvents'), '1');
 
-    // A loss shows its own game, not the latest win the rank tables use, and
-    // the details column holds the block and the loss's statistics, no game
-    // data.
+    // A loss shows its own game, not the latest win the rank tables use; the
+    // details column holds the block alone, no game data, and the loss's
+    // statistics are the "this game" table among the tables under the board.
     await page.locator('#face-button').click();
     await press(40);
     now = await board();
@@ -426,7 +426,10 @@ const shotDir = process.argv[4] || null;
       'the click on a mine is a guess or a misclick');
     assert.deepEqual(await page.evaluate(() => [...resultStats.children]
       .map((el) => (el.matches('.stat-section.during-game') ? 'during-game' : el.id || el.className))),
-    ['during-game', 'stats-grid'], 'a loss: live perf charts, then its statistics');
+    ['during-game'], 'a loss: live perf charts alone in the details column');
+    assert.equal(await page.evaluate(() => resultRanks
+      .querySelector('.result-chart-section-tables .game-stats h4')?.textContent), 'this game',
+    'a loss: its statistics are the "this game" table');
 
     // A middle width: the hover shows the moment on the board beside the
     // docked column, and the card stays inside the window, clear of the board.

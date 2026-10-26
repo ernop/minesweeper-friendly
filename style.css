@@ -1385,7 +1385,9 @@ body.trial-offboard #game-frame {
   font-weight: normal;
 }
 
-/* The game's stats as a small label/value tablechart */
+/* The final time in the details column while the result loads
+   (renderImmediateGameEnd); a loss's stats then show as the "this game"
+   table under the board. */
 #stats-grid {
   display: grid;
   width: 100%;
@@ -1423,14 +1425,6 @@ body.trial-offboard #game-frame {
   margin-top: 7px;
   color: #000000;
   font-size: 11px;
-}
-
-.latest-win-stats-title {
-  margin: 8px 0 2px;
-  font-size: 11px;
-  color: #000000;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
 }
 
 /* Game-end evaluation (docs/product/game-end-evaluation.md): action analysis
@@ -2454,6 +2448,12 @@ body.settings-page .return-to-game {
   float: left;
   clear: left;
 }
+/* This game's stats lead the line beside that column where they fit; when
+   they do not (placeBoardSides), they float in the place the line gave
+   them, so the tables after them still fill the room beside the summary. */
+.result-chart-section-tables > .result-chart-section-items > .game-stats.below-first-line {
+  float: left;
+}
 #result-ranks .rank-list.beside-board {
   position: absolute;
   margin: 0;
@@ -3235,6 +3235,23 @@ body.settings-page .return-to-game {
 .session-summary-depth-2 > .session-summary-result { padding-left: 18px; }
 .session-summary-depth-3 > .session-summary-result { padding-left: 32px; }
 .session-summary-group-first > span { border-top: 1px solid #000000; }
+
+/* This game's stats after a loss or a trial game ("this game"): one line per
+   measurement, the label in regular weight and the value right-aligned in
+   bold tabular digits, as the session summary's numbers. */
+.game-stats-grid {
+  display: grid;
+  grid-template-columns: auto auto;
+}
+.game-stats-grid > span {
+  white-space: nowrap;
+  padding: 0 4px;
+}
+.game-stats-grid .stat-value {
+  text-align: right;
+  font-weight: bold;
+  font-variant-numeric: tabular-nums;
+}
 
 /* Recent placements ("ranks won in session"): one row per longer chart,
    listing the top-tenth ranks earned within the session. */

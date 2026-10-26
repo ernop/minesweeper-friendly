@@ -58,6 +58,29 @@ standardize"). One control keeps its own look:
   the select's look or the shared button look with its pressed state.
   Not yet changed.
 
+## Board position editor and a full board column (creator report 2026-10-26, awaiting the creator's choice)
+
+Creator: "on size 36, 100% zoom, I'd like to move the board a bit to the
+right (expert) but using "position" won't let me". At Zoom 36 an Expert
+board's frame is 1114px wide. The details column takes its saved share of
+the window and gives way only until the board column is the board plus the
+8px edge clearance on each side ([Layout](docs/product/board-and-layout.md)),
+so on a 2560px window a share above about 0.527 leaves the board column at
+exactly 1130px and the applied left/right offset at 0 (at the default 0.46
+the board has 86px each side). The editor still shows the saved preference
+on its -2000 to 2000 slider and number, so it states an offset the board is
+not at and gives no reason. Options:
+
+- Truthful editor (recommended): the left/right row shows the board's
+  applied offset and the range that fits at the current width, and says on
+  the same line when the saved preference is held back. Layout priorities
+  stay as decided on 2026-10-17; the player makes room by dragging the
+  details column's edge.
+- The board's position takes room from the details column: an offset past
+  the room narrows the details column, down to its 320px minimum, so the
+  editor always moves the board. The column's width then depends on two
+  settings, and game data and live perf charts narrow as the board moves.
+
 ## Game results as one tree per board type (creator request 2026-10-14; scope and abandoned built 2026-10-20, the rest proposed, awaiting review)
 
 The creator asked to rethink the session's results table. In Beginner, show

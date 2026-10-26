@@ -357,7 +357,9 @@ duplicative and needlessly complex."
     that side the same way. Each open or closed state is a remembered panel
     (`duringGame`, `gamePerformance`, `boardTraits`), open by default, kept
     across games and reloads. After a loss the column holds live perf
-    charts and the loss's statistics.
+    charts alone; the loss's statistics are the "this game" table with the
+    tables under the board (creator 2026-10-26,
+    [This game's stats](results.md#this-games-stats-creator-request-2026-10-26)).
   - Game data's chart takes the column height left below everything above
     it, so its options row stays at the screen's bottom. It keeps at least
     240px per open side, and the column scrolls below that rather than
@@ -386,11 +388,16 @@ duplicative and needlessly complex."
   Intermediate board the room is about 379px each side, narrower than the two
   blocks with production history (about 391 and 418px), so both lead the
   tables instead. The side blocks never move the board.
+  After a loss, the "this game" stats table (creator 2026-10-26: "flowing up
+  as possible") takes a side the summary and ranks won leave free, the left
+  first, by the same fit rule, and otherwise stays in the table list right
+  after them. On the creator's viewport it fits beside a Beginner or
+  Intermediate board (about 230px wide) but not beside an Expert board.
 - The board is the anchor. Appearing or disappearing content must not move it.
   Its reserved startup space occupies the same explicit main column.
 - The archive alert, session tags, optional display
-  controls, the stat sections or completed-game stats, and the full replay
-  legend share the right details column in that order. They are in
+  controls, the stat sections (or the final time while a result loads), and
+  the full replay legend share the right details column in that order. They are in
   normal flow inside an independently scrollable, sticky column. Stats precede
   the legend, so changing replay frames does not move the stats. These panels
   never cover the board or tablecharts and never add height between them.
@@ -433,9 +440,12 @@ duplicative and needlessly complex."
   column. Replay arrow shortcuts apply while the transport is visible.
 - The tables begin directly below the board when no action report is shown.
   The session summary and the time-period summary ("ranks won in session",
-  today by default) lead them, unless they sit beside the board (above);
-  then come the time/category, streak, near-streak, and near-near-streak
-  tables. All share one continuous, left-aligned wrapping list without a
+  today by default) lead them, then after a loss the "this game" stats,
+  unless they sit beside the board (above); then come the time/category,
+  streak, near-streak, and near-near-streak tables. Under the board,
+  "this game" leads the first row beside the summary column where it fits
+  there, and otherwise floats at the left where that row would have put it,
+  so the tables after it still fill the room beside the summary. All share one continuous, left-aligned wrapping list without a
   section heading. A separate **This
   board** section follows (2026-09-21): exact 3BV, ZiNi, HZiNi, maximum number,
   has-7/8, maximum-clue caps, zero-count, mine-island count, and enabled

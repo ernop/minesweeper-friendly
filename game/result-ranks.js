@@ -6,8 +6,9 @@
 //-------RESULT RANKS (tables and charts in section order)-------
 
 async function renderRanks(record, modeRecords, options = {}, sections, isCurrent = () => true) {
-  // The during-the-game block is page content, not a ranking input.
-  const { duringGame, ...rankOptions } = options;
+  // The during-the-game block and this game's stats are page content, not
+  // ranking inputs.
+  const { duringGame, gameStats, ...rankOptions } = options;
   const wins = modeRecords.filter((r) => r.outcome === 'win');
   const boardRecord = options.boardRecord || record;
   const historyView = options.historyView === true;
@@ -36,6 +37,9 @@ async function renderRanks(record, modeRecords, options = {}, sections, isCurren
     sections.append('tables', buildRecentPlacements(record, modeRecords, referenceMs, !historyView,
       options.noMarkTimeLabel || null));
   }
+  // A loss's own stats come next, ahead of every rank table, so they flow
+  // as high as the collection allows.
+  if (gameStats) sections.append('tables', gameStats);
   for (const table of plan.timeTables) {
     sections.append('tables', timeTable(table));
     await yieldAnalysisPresentation();

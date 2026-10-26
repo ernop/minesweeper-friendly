@@ -15,8 +15,10 @@ this game, second by second" until 2026-10-20; creator 2026-10-15: "so it's
 "during this game second by second", "your perf totals for this game", then
 "board traits""; [During the game](during-game.md)), and takes the column
 height left below the outcome line, the controls, and live perf charts.
-After a loss live perf charts and the loss's statistics fill the column
-instead. From 2026-09-23 to
+After a loss live perf charts fill the column instead, and the loss's
+statistics are the "this game" table under the board (2026-10-26,
+[This game's stats](results.md#this-games-stats-creator-request-2026-10-26)).
+From 2026-09-23 to
 2026-10-17 game data had its own
 full-height column between the board and a 320px details column (user
 decision 2026-09-23: "a full-height column right next to the board"), which

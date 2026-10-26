@@ -221,7 +221,7 @@ IOS, mouse path,
 mouse speed, path per click, path per 3BV, plus the per-game forms of the
 session series: click rate, no-op rate, misclick rate, mark rate — derived
 from stored counts — and the stored fastclick gap)
-render as a small label/value table in the game details column, including no-op
+render as a small label/value table, "this game", among the tables under the board (beside the board where it fits), including no-op
 clicks (board clicks that changed nothing — stored as `wastedClicks`
 since
 2026-08-19; older records lack the measurement), flags placed (same

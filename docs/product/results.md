@@ -11,14 +11,16 @@ append timing or from how many cards fit on a row:
    outcome followed by board · mode · generator in regular weight, then
    the date and time in bold tabular digits. A no-mark win adds "no-mark"
    on that context line ([No-mark wins](rankings.md#no-mark-wins-decided-2026-10-14)).
-2. **Facts / game data** — the column beside the board (or the details column under the outcome context when that column cannot fit): "live perf charts" after any game, outside the score viewer and trials ([During the game](during-game.md)), then the winning-game chart ("game summary perf" and "board traits"); losses and trials retain label/value stats.
+2. **Facts / game data** — the column beside the board (or the details column under the outcome context when that column cannot fit): "live perf charts" after any game, outside the score viewer and trials ([During the game](during-game.md)), then the winning-game chart ("game summary perf" and "board traits"). A loss's or a trial game's label/value stats are not in this column: they are the "this game" table (item 4; [This game's stats](#this-games-stats-creator-request-2026-10-26)).
 3. **Analysis** — post-game action interpretation only.
 4. **Tables** — the session summary first, then the "ranks won in session"
-   time-period summary, then time/category and all consecutive/loss-tolerant
+   time-period summary, then after a loss that game's "this game" stats
+   (2026-10-26), then time/category and all consecutive/loss-tolerant
    streak tablecharts (session summary added 2026-10-07). They share one
    left-aligned wrapping collection with no section heading. In the wide
    layout the session summary sits left of the board and ranks won right of
-   it wherever each fits; they keep their places at the head of the
+   it wherever each fits, and "this game" takes a side neither holds, the
+   left first, where it fits; they keep their places at the head of the
    collection's DOM order ([Layout](board-and-layout.md)). Each table retains
    its own identifying label. A no-mark win's tables, and the charts under
    them, list only no-mark games of that same board, mode, and generator;
@@ -56,7 +58,11 @@ ranks won that are not beside the board float at the left as one column, the
 summary on top and ranks won directly under it (2026-10-07); successive rows
 of period/day/streak tables flow alongside that column's height, then use the
 full width underneath. Narrow layouts wrap below it when there is
-insufficient horizontal room. The section contains the floats, so This board
+insufficient horizontal room. A loss's "this game" table, when not beside
+the board, leads the first row beside that column where it fits there;
+otherwise it floats at the left where that row would have put it (beside
+ranks won under the summary, or under the column), so the tables after it
+still fill the room beside the summary. The section contains the floats, so This board
 and later chart sections begin below all upper tables. DOM order is
 preserved, nothing sits above or left of the summary, and table flow cannot
 mix tables with point charts.
@@ -66,8 +72,33 @@ game, and motion diagnostics. Its reference record is explicitly the latest win,
 the completion date above game data; ordinary ranking rows and plots have no
 "this game" highlight. Ranking-table rolling windows use the time at which
 scores are viewed; game-data comparisons end at that latest win. A post-game
-loss has outcome, facts, enabled action analysis, and
-motion diagnostics, and retains rankings from the latest win if one exists.
+loss has outcome, facts, enabled action analysis, its own "this game" stats,
+and motion diagnostics, and retains rankings from the latest win if one
+exists.
+
+## This game's stats (creator request 2026-10-26)
+
+The creator's review of the label/value panel (Time, 3BV, ZiNi, Max number,
+Zeros, Islands, Clicks, Flags placed, ...) that a loss showed at the bottom
+of the details column: "i think it's too wide. can it be made into just
+another infopanel similar to the lifetime, this month, or session blocks,
+and also flowing up as possible?" It spanned the whole column, labels at its
+left edge and values at its right.
+
+Built the same day: the panel is the "this game" table, one of the tables
+under the board (item 4), as wide as its rows, one line per measurement,
+labels in regular weight and values in bold tabular digits. It follows the
+session summary and ranks won in DOM order, ahead of every rank table, and
+rises as high as the layout allows: beside the board where a side is free
+and it fits, otherwise at the head of the tables under the board. Its rows,
+their names, and the "loss and trial stats" display setting that shows it
+are unchanged ([Per-game stats](per-game-stats.md)). A trial game's stats are
+the same table, the only one in its result area under (or beside) the board.
+
+Tradeoff recorded: beside a Beginner or Intermediate board at the creator's
+2560 x 970 viewport the table is on the first screen, but an Expert board
+leaves no side room, so there it sits under the board, below the first
+screen, where the details column used to show the panel without scrolling.
 
 Chart eligibility, table display order, duplicate preference, and summary
 order are separate concepts. Full tables use `displayOrder`; duplicate member

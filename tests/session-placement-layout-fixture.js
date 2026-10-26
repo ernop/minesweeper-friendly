@@ -30,6 +30,8 @@
   const rect = element => element.getBoundingClientRect();
   const sameBoard = before => Math.abs(rect(gameFrame).left - before.left) < 1
     && Math.abs(rect(gameFrame).top - before.top) < 1;
+  const overlaps = (a, b) => rect(a).left < rect(b).right - 1 && rect(b).left < rect(a).right - 1
+    && rect(a).top < rect(b).bottom - 1 && rect(b).top < rect(a).bottom - 1;
   for (const width of [2560, 1680, 1216, 650]) {
     frame.style.width = width + 'px';
     for (const size of ['beginner', 'intermediate', 'expert']) {
@@ -112,8 +114,6 @@
       // Below the board the summary and ranks won form one left column, the
       // summary on top; later tables sit beside that column or under it.
       const lead = inFlow.filter((item) => item === summary || item === ranksWon);
-      const overlaps = (a, b) => rect(a).left < rect(b).right - 1 && rect(b).left < rect(a).right - 1
-        && rect(a).top < rect(b).bottom - 1 && rect(b).top < rect(a).bottom - 1;
       check(label + ': below the board the summary heads one column with ranks won under it',
         lead.length === 0 || (lead[0] === inFlow[0]
           && inFlow.every((item) => rect(item).top >= rect(lead[0]).top - 1 && rect(item).left >= rect(lead[0]).left - 1)
@@ -185,9 +185,64 @@
       pathViewLegend.replaceChildren();
     }
   }
-  await renderResult({ ...record, outcome: 'loss', endedAt: record.endedAt + 1000 }, records);
-  check('loss keeps prior win placements in the same chart collection',
-    !!resultRanks.querySelector('.result-chart-section-tables .recent-placements .rank-row'));
+  // A loss: its stats are the "this game" table, third in the collection
+  // after the summary and the latest win's ranks won. Beside the board they
+  // take a side those two leave free, the left first, exactly where they fit;
+  // under the board they lead the line beside the summary column, or float
+  // where that line put them.
+  const loss = { ...record, outcome: 'loss', endedAt: record.endedAt + 1000 };
+  for (const width of [2560, 1680, 1216, 650]) {
+    frame.style.width = width + 'px';
+    for (const size of ['beginner', 'intermediate', 'expert']) {
+      window.scrollTo(0, 0);
+      config = { ...DIFFICULTIES[size] };
+      newGame();
+      history[modeKey()] = records;
+      await wait();
+      gameState = 'lost';
+      finalTimeMs = loss.timeMs;
+      await renderResult(loss, records);
+      renderPathViewControls();
+      await wait();
+      const label = width + 'px ' + size + ' loss';
+      const tableItems = resultRanks.querySelector('.result-chart-section-tables .result-chart-section-items');
+      const summary = resultRanks.querySelector('.session-summary');
+      const ranksWon = resultRanks.querySelector('.recent-placements');
+      const stats = resultRanks.querySelector('.game-stats');
+      check(label + ': its stats are the "this game" table, third in the table collection',
+        stats !== null && stats.querySelector('h4').textContent === 'this game'
+          && tableItems.children[0] === summary && tableItems.children[1] === ranksWon
+          && tableItems.children[2] === stats && !!ranksWon.querySelector('.rank-row')
+          && resultStats.querySelector('#stats-grid, .game-stats') === null);
+      const inset = parseFloat(getComputedStyle(pageLayout).getPropertyValue('--board-edge-inset'));
+      const frameRect = rect(gameFrame);
+      const transportRect = rect(replayControls);
+      const boardLeft = Math.min(frameRect.left, transportRect.left);
+      const boardRight = Math.max(frameRect.right, transportRect.right);
+      const sideRoom = (rect(mainElement).width - (boardRight - boardLeft)) / 2 - inset - 16;
+      const freeSide = !summary.classList.contains('beside-board') ? 'left'
+        : !ranksWon.classList.contains('beside-board') ? 'right' : null;
+      const beside = stats.classList.contains('beside-board');
+      check(label + ': the table rests beside the board exactly where it fits on a free side, the left first',
+        beside === (freeSide !== null && rect(stats).width <= sideRoom)
+          && (!beside || (Math.abs(rect(stats).top - frameRect.top) < 1
+            && (freeSide === 'left' ? Math.abs(rect(stats).right - (boardLeft - 16)) < 1
+              : Math.abs(rect(stats).left - (boardRight + 16)) < 1))));
+      const floated = stats.classList.contains('below-first-line');
+      if (!beside) {
+        const placed = rect(stats);
+        stats.classList.remove('below-first-line');
+        const inline = rect(stats);
+        stats.classList.toggle('below-first-line', floated);
+        check(label + ': under the board it leads the line beside the summary column, or floats where that line put it',
+          floated === (inline.top > rect(tableItems).top + 1)
+            && Math.abs(placed.top - inline.top) < 1 && Math.abs(placed.left - inline.left) < 1
+            && [summary, ranksWon].every((block) => block.classList.contains('beside-board') || !overlaps(stats, block)));
+      }
+      checks.push('INFO ' + label + ': this game ' + Math.round(rect(stats).width)
+        + (beside ? ' beside' : floated ? ' floated below the first line' : ' on the first line'));
+    }
+  }
 
   // Exercise actual replay renders: rebuilding a visible, scrolled legend
   // must not temporarily empty the sidebar and reset the reader's position.

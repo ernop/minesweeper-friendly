@@ -23,10 +23,20 @@ Spec: [docs/product/results.md](../product/results.md). Index: [AGENTS.md](../..
   `tests/result-presentation-test.js` checks this in both result contexts;
   `tests/session-placement-layout-fixture.js` checks the side placement and
   the column below the board at four widths.
-- The label/value stats grid (losses, trials, history views) shows each
-  GameData catalog measurement through `measurementRow(id)` in
-  `renderResultAsync`: the catalog's name (first letter capitalized) and
-  format. `shownMeasurement(record, id)` decides whether it shows: only on
+- This game's stats (2026-10-26, [spec](../product/results.md#this-games-stats-creator-request-2026-10-26)):
+  `buildGameStats(record)` in `game/results.js` builds the label/value table,
+  a `.rank-list.game-stats` headed "this game" around a two-column
+  `.game-stats-grid` (label `.stat-label`, value `.stat-value`).
+  `renderResultAsync` builds it when `shownThings.gameStats` is on and the
+  record is a loss, or a trial game outside the score viewer, and passes it
+  to `renderRanks` as `gameStats`, which appends it to the tables section
+  right after recent placements; a trial game's result appends it to
+  `#result-ranks` alone, in the trial's centered flex stream. While a result
+  loads, `#stats-grid.immediate-stats` in `#result-stats` shows the final
+  time only (`renderImmediateGameEnd`).
+- The table shows each GameData catalog measurement through
+  `measurementRow(id)` in `buildGameStats`: the catalog's name (first letter
+  capitalized) and format. `shownMeasurement(record, id)` decides whether it shows: only on
   wins unless the metric is `allOutcomes` (2026-10-07), and only when finite.
   The play-statistics fields use the same function.
   Rows without a catalog measurement (counts, board facts, chord share, flag
