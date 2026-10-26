@@ -182,8 +182,16 @@ const shotDir = process.argv[4] || null;
     await page.evaluate(() => updateSettings({ numberDisplay: 'dots' }));
     const boardCells = () => page.evaluate(() => [...document.querySelectorAll('#board .cell')]
       .map((cell) => cell.className + '|' + cell.innerHTML));
-    const replayState = () => page.evaluate(() => ({ step: replayStep, count: replayDecisionCount(),
-      enabled: replayEnabled, slider: Number(replaySlider.value), saved: settings.replayPosition.step }));
+    // Chromium delivers a pointer move with the next animation frame, so a
+    // read right after a move can run before its handler; on a busy machine
+    // it did. Reads after a move wait for that frame.
+    const nextFrames = () => page.evaluate(() => new Promise((resolve) =>
+      requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    const replayState = async () => {
+      await nextFrames();
+      return page.evaluate(() => ({ step: replayStep, count: replayDecisionCount(),
+        enabled: replayEnabled, slider: Number(replaySlider.value), saved: settings.replayPosition.step }));
+    };
     const finishedCells = await boardCells();
     const atEnd = await replayState();
     assert.equal(atEnd.step, atEnd.count, 'the finished board before the hover');
@@ -197,6 +205,7 @@ const shotDir = process.argv[4] || null;
     const glideInto = async (box, x, y) => {
       await page.mouse.move(box.plot.x + 1, y);
       await page.mouse.move(x, y, { steps: 3 });
+      await nextFrames();
     };
     const progress = await plotBox('progress');
     const hoverX = progress.plot.x + progress.plot.width * 0.6;
