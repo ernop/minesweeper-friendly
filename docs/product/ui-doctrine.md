@@ -146,12 +146,15 @@ because they apply app-wide, not just where each was first stated.
 - Hover must not inject, swap, or reflow page content. Supplementary help
   may appear as an overlay tooltip on hover or keyboard focus without
   changing the layout; no action control may be reachable only by hovering.
-  One exception, the creator's (2026-10-21): hovering the live perf charts
-  shows the hovered moment on the board itself, through the replay's own
-  frame, in place of a second board beside the charts ("that way we don't
-  duplicate teh baord"). Only the board's squares and overlays, the
-  transport's slider and status, and the replay legend at the column's foot
-  change; nothing moves, and leaving the charts restores them
+  Two exceptions, the creator's, both on the live perf charts. Hovering them
+  (2026-10-21) shows the hovered moment on the board itself, through the
+  replay's own frame, in place of a second board beside the charts ("that
+  way we don't duplicate teh baord"). Only the board's squares and
+  overlays, the transport's slider and status, and the replay legend at the
+  column's foot change; nothing moves, and leaving the charts restores them.
+  And a line in focus on the chart against the whole game (2026-10-26)
+  relabels that chart's y ticks in the line's values, in place: the plots'
+  left edge already has room for every such label, so nothing moves
   ([During the game](during-game.md)).
 - No help affordance changes the pointer to the question-mark help cursor
   (creator 2026-10-08, of the game data rows: "the mouse shall not change to
@@ -221,12 +224,21 @@ because they apply app-wide, not just where each was first stated.
   next error shows the bar again. Game
   code never catches an internal error to carry on: the proof and odds
   calculations behind a click raise theirs, so that click does nothing and
-  the bar says why. "Not measured" is kept for designed limits only: a
-  calculation's work budget (the odds' layout count, the proof's visit
-  limit) and an outside source that does not answer (the music state while
-  the base system is down). One exception stays, the creator's
-  (2026-10-11): play statistics log a failure to the console and never
-  interrupt play ([Play statistics](hosting.md#play-statistics)).
+  the bar says why. "Not measured" is kept for an outside source that does
+  not answer (the music state while the base system is down). A
+  calculation's work budget is not a designed limit (next rule); the odds'
+  layout count and the proof's visit limit are still in the code until the
+  exact counter replaces them ([BACKLOG](../../BACKLOG.md)). One exception
+  stays, the creator's (2026-10-11): play statistics log a failure to the
+  console and never interrupt play
+  ([Play statistics](hosting.md#play-statistics)).
+- Exact values only (creator 2026-10-22, on the guess ledger: "we definitely
+  shouldn't use such incorrect 'estimates' especially in UIs which present
+  data as true! Note: do NOT ever 'just add a note saying approximately'").
+  A value shown as a fact is computed exactly by its definition. A caption
+  or note ("approximately", "estimated") never stands in for computing it,
+  and "too large to measure" calls for a method that scales
+  ([AGENTS.md](../../AGENTS.md), design requirement 8).
 - No distracting transient duplicates: a live-changing value appears only
   where it is essential, in one canonical place. Summary tables, rankings,
   and comparison surfaces show stable completed facts; they do not echo the
@@ -273,12 +285,15 @@ because they apply app-wide, not just where each was first stated.
   layers wqhich are duplicative and needlessly complex";
   [Game setup](board-and-layout.md#game-setup-top-bar-settings-row-and-footer)).
 - Global configuration in one place (creator 2026-10-20: "all usre-specific
-  global configuration should be in the same place"). Everything the player
-  configures for every game (the settings page, the daily limits, the
-  session window, the board display) sits in one row, at the game page's
-  foot; links to the other pages sit in the footer below it. Live status
-  (today's use against the limits) and per-game context (the player
-  states) are not configuration and stay where play needs them.
+  global configuration should be in the same place"). The choices the
+  player sets on the game page for every game (the session window, the
+  board display) sit in one row, at the game page's foot; links to the
+  other pages sit in the footer below it. The two buttons that open the
+  settings page, daily limits and settings, sit together at the upper right
+  instead, by the creator's later requests (2026-10-21: "move "settings" to
+  upper right."; 2026-10-22: "move "daily limits" control button back up to
+  UR"). Live status (today's use against the limits) and per-game context
+  (the player states) are not configuration and stay where play needs them.
 - Clear ways in and out: a surface opens from an obvious bordered button
   and closes just as obviously — for a page, a visible way back at both
   the top and the bottom of the body (not tucked at a far edge), plus

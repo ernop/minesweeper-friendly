@@ -170,11 +170,23 @@ function gameDataChartChip(row) {
   return chip;
 }
 
-// The charts below that plot one measurement; hovering its row outlines them.
-function linkGameDataCharts(metricId, linked) {
-  for (const chart of resultRanks.querySelectorAll('[data-measurement="' + metricId + '"]')) {
-    chart.classList.toggle('game-data-linked', linked);
+// The measurements hovered anywhere on the page, linked everywhere else that
+// shows them: their charts below outline, their game summary perf rows ring,
+// and their live perf charts lines and event marks come into focus while
+// the rest fade (duringGameSpotlight). `from` names the surface hovered,
+// 'gameData' or 'duringGame', which shows its own hover. [] clears the link.
+function linkMeasurements(metricIds, from) {
+  for (const element of document.querySelectorAll('.game-data-linked')) element.classList.remove('game-data-linked');
+  for (const id of metricIds) {
+    const measurement = '[data-measurement="' + id + '"]';
+    for (const chart of resultRanks.querySelectorAll(measurement)) chart.classList.add('game-data-linked');
+    if (from === 'gameData') continue;
+    for (const row of document.querySelectorAll('.game-data-row[data-side="performance"]' + measurement
+        + ', .game-data-dist-section[data-side="performance"] .game-data-dist-row' + measurement)) {
+      row.classList.add('game-data-linked');
+    }
   }
+  if (from !== 'duringGame' && duringGameSpotlight !== null) duringGameSpotlight(metricIds);
 }
 
 // One pool's games on its measurement's lifetime axis, drawn at its box's
@@ -308,8 +320,8 @@ function requestGameDataExamples(record) {
 const GAME_DATA_EXAMPLE_OF = {
   bvPerSecond: 'bv3', efficiency: 'bv3', ioe: 'bv3', ios: 'bv3', stnb: 'bv3', pathPer3bv: 'bv3',
   ziniEfficiency: 'zini', hziniEfficiency: 'hzini', misclickRate: 'misclickRate', noopRate: 'noopRate',
-  correctness: 'noopRate', unusedMarkShare: 'unusedMarkShare', unusedFlagRate: 'unusedMarkShare',
-  unflaggedMineShare: 'unflaggedMineShare', moveTime: 'moves', easyWorkLeftShare: 'easyWorkLeft',
+  boardChangingClickShare: 'noopRate', unusedFlagShare: 'unusedFlagShare', unusedFlagRate: 'unusedFlagShare',
+  unflaggedMineShare: 'unflaggedMineShare', timeBeforeMove: 'moves', easyWorkLeftShare: 'easyWorkLeft',
   nearestAreaShare: 'forks',
 };
 function gameDataExampleFor(item) {
@@ -337,7 +349,7 @@ const GAME_DATA_EXAMPLE_COUNTS = {
     ['circle', 'their spread around the center']],
   misclickRate: (example) => [['ring', countPhrase(example.clicks, 'misclick', 'misclicks')]],
   noopRate: (example) => [['ring', countPhrase(example.clicks, 'no-op click', 'no-op clicks')]],
-  unusedMarkShare: (example) => [['shade', countPhrase(example.marks.shade.length, 'unused flag', 'unused flags')]],
+  unusedFlagShare: (example) => [['shade', countPhrase(example.marks.shade.length, 'unused flag', 'unused flags')]],
   unflaggedMineShare: (example) => [['shade', example.marks.shade.length + ' of '
     + countPhrase(example.of, 'mine', 'mines') + ' unflagged']],
   moves: (example) => [['ring', countPhrase(example.marks.ring.length, 'move', 'moves')]],
@@ -363,9 +375,11 @@ function gameDataExampleBoard(example) {
     for (const square of squares) marked.set(square, [...(marked.get(square) || []), kind]);
   }
   const mine = mineSvg(settings.mineStyle);
+  // While the replay paints a frame, the finished board is its saved copy:
+  // class names and contents, not elements.
   finishedBoardCells().forEach((source, i) => {
     const cell = document.createElement('div');
-    if (cells[i].mine && !cells[i].flagged && !source.classList.contains('revealed')) {
+    if (cells[i].mine && !cells[i].flagged && !source.className.split(' ').includes('revealed')) {
       cell.className = 'cell revealed';
       cell.innerHTML = mine;
     } else {
@@ -498,10 +512,10 @@ function buildGameDataBand(rows, pool, valuesShown, titles) {
     button.setAttribute('aria-label', item.name + ' ' + item.valueText + ': ' + Object.entries(item.pools)
       .filter(([scope]) => item.side === 'performance' || scope === pool)
       .map(([scope, row]) => gameDataPoolLabel(scope) + ' ' + gameDataPercentText(row)).join(', '));
-    wrap.addEventListener('mouseenter', () => linkGameDataCharts(item.metricId, true));
-    wrap.addEventListener('mouseleave', () => linkGameDataCharts(item.metricId, false));
-    button.addEventListener('focus', () => linkGameDataCharts(item.metricId, true));
-    button.addEventListener('blur', () => linkGameDataCharts(item.metricId, false));
+    wrap.addEventListener('mouseenter', () => linkMeasurements([item.metricId], 'gameData'));
+    wrap.addEventListener('mouseleave', () => linkMeasurements([], 'gameData'));
+    button.addEventListener('focus', () => linkMeasurements([item.metricId], 'gameData'));
+    button.addEventListener('blur', () => linkMeasurements([], 'gameData'));
     return wrap;
   }
   function headCell(className, text, scope) {
@@ -766,8 +780,8 @@ function buildGameDataDistributions(rows, pools, titles) {
         button.replaceChildren(gameDataCell('game-data-name', item.name), gameDataCell('game-data-value', item.valueText),
           strip, gameDataCell('game-data-pct', gameDataPercentText(row)));
         button.setAttribute('aria-label', item.name + ' ' + item.valueText + ': ' + gameDataPoolLabel(scope) + ' ' + gameDataPercentText(row));
-        wrap.addEventListener('mouseenter', () => linkGameDataCharts(item.metricId, true));
-        wrap.addEventListener('mouseleave', () => linkGameDataCharts(item.metricId, false));
+        wrap.addEventListener('mouseenter', () => linkMeasurements([item.metricId], 'gameData'));
+        wrap.addEventListener('mouseleave', () => linkMeasurements([], 'gameData'));
         section.appendChild(wrap);
       }
       groups.push(section);

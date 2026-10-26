@@ -8,19 +8,22 @@ Spec: [docs/product/charts.md](../product/charts.md). Index: [AGENTS.md](../../A
   The section heading carries that group's selector (`chartModeSelect`).
   Board-shape specs exclude legacy records lacking their field; IOS excludes
   times at or below one second; path-ratio specs exclude zero denominators.
-  `steppedMetric(id, step, { percent, ...extra })` charts a GameData
-  measurement: `percent` plots a share ×100 with `xTickUnit: '%'` and a
-  step in percentage points; a null step keeps exact values (unflagged mine
-  share, already one value per mine count).
+  `steppedMetric(id, step, { percent })` charts a GameData measurement
+  with its catalog name and `value`: `percent` plots a share ×100 with
+  `xTickUnit: '%'` and a step in percentage points; a null step keeps
+  exact values (unflagged mine share, already one value per mine count).
+  It sets `winBound` exactly when the catalog entry lacks `allOutcomes`
+  (2026-10-26; [measurement catalog](measurement-catalog.md)); "clicks over
+  3BV", not a catalog measurement, declares `winBound` itself.
   Bucket steps are in [Point charts](../product/charts.md). A board chart
   follows its tablechart `shownThings` switch. `tests/average-scatter-test.js`
   freezes both orders, metric definitions, eligibility, and aggregation.
   Chart titles take their names from the measurement's one source
-  (2026-10-07): `metricName(id)` reads the GameData catalog for
+  (2026-10-07): `steppedMetric` reads the GameData catalog for
   performance measurements, and board charts read `BOARD_TRAIT_NAMES`
   (game/rankings.js). A spec's `measurementId` names the game data row it
   plots; `buildAverageScatter` stamps it as `data-measurement` (the hook
-  for `linkGameDataCharts`) and puts `gameDataChartChip(row)`, this game's
+  for `linkMeasurements`) and puts `gameDataChartChip(row)`, this game's
   value and lifetime standing, after the title.
 - Scatters: `buildScatter` + `niceTicks` (`timeTicks` for the date axis;
   `minorTicks` adds edge tickmarks between labeled divisions, skipped on

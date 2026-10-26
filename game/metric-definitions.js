@@ -9,7 +9,15 @@
 // rendered as an en dash and a gap in the sparkline), and fmt, the formatter
 // for the extracted number. Not everything computed is displayed (the
 // clinical system computes more features than shown); per-stage
-// configurability of what appears is planned.
+// configurability of what appears is planned. A display of a measurement in
+// the catalog (GameData.metrics) takes its name, definition, and format from
+// there (catalogMetricDisplay).
+function catalogMetricDisplay(id, of) {
+  const metric = GameData.metrics.find((item) => item.id === id);
+  if (metric === undefined) throw new Error('motion stats: unknown measurement ' + id);
+  return { label: metric.name, help: metric.help, of, fmt: metric.format };
+}
+
 const TRACE_METRIC_GROUPS = [
   { key: 'bio', name: 'dynamics',
     help: 'Cursor movement split into bouts: a gap of 100 ms or more between '
@@ -98,10 +106,7 @@ const TRACE_METRIC_GROUPS = [
       { label: 'click gap',
         help: 'Median time between consecutive presses.',
         of: (m) => m.cad.gapMedianMs, fmt: (v) => Math.round(v) + 'ms' },
-      { label: 'cadence spread',
-        help: 'How uneven the press timing is: the interquartile range of the '
-          + 'gaps divided by their median. 0 is perfectly even.',
-        of: (m) => m.cad.gapSpreadRatio, fmt: (v) => v.toFixed(2) + '\u00d7' },
+      catalogMetricDisplay('cadenceSpread', (m) => m.cad.gapSpreadRatio),
       { label: 'fastest gap',
         help: 'The shortest time between two consecutive presses.',
         of: (m) => m.cad.fastestGapMs, fmt: (v) => Math.round(v) + 'ms' },

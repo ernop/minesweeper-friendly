@@ -358,4 +358,77 @@ assert.equal(DuringGame.DEFAULT_RELATIVE_SCALE, 'log', 'log by default');
   assert.deepEqual([chordable.format(3), chordable.format(0), chordable.format(2.25)], ['3', '0', '2.3']);
 }
 
+// One catalog (docs/product/measurement-catalog.md): a row or motion stats
+// display showing a game data measurement takes its id, name, definition,
+// and format from GameData.metrics; every row's measurements are catalog
+// ids, an event row's only those computed over its events; and no other
+// row or display takes a catalog name.
+{
+  const catalog = new Map(vm.runInContext('GameData', context).metrics.map((metric) => [metric.id, metric]));
+  const byName = new Map([...catalog.values()].map((metric) => [metric.name, metric]));
+  for (const row of DuringGame.ROWS) {
+    const measurements = row.measurements === undefined ? [] : row.measurements;
+    for (const id of measurements) assert(catalog.has(id), row.id + ': unknown measurement ' + id);
+    const metric = catalog.get(row.id);
+    if (metric === undefined) {
+      assert.equal(byName.has(row.name), false, row.id + ' takes the catalog name ' + row.name);
+      continue;
+    }
+    assert.deepEqual([row.name, row.help, row.format, [...measurements]], [metric.name, metric.help, metric.format, [row.id]],
+      row.id + ' reads the catalog');
+  }
+  assert.deepEqual(Object.fromEntries(DuringGame.ROWS.filter((row) => row.group === 'events' && row.measurements)
+    .map((row) => [row.id, [...row.measurements]])), {
+    noOpEvents: ['noopRate'], misclickEvents: ['misclickRate'], flagRemovedEvents: ['flagRemovalRate'],
+    movedOnEvents: ['timeBeforeMove'], leftHardWorkEvents: ['timeBeforeMove'],
+    leftEasyWorkEvents: ['timeBeforeMove', 'easyWorkLeftShare'], forkEvents: ['nearestAreaShare'],
+    unusedFlagEvents: ['unusedFlagShare', 'unusedFlagRate'],
+  });
+  const displays = vm.runInContext('TRACE_METRIC_GROUPS', context).flatMap((group) => group.displays);
+  const shared = displays.filter((display) => byName.has(display.label));
+  assert.deepEqual([...shared.map((display) => display.label)], ['cadence spread']);
+  for (const display of shared) {
+    const metric = byName.get(display.label);
+    assert.deepEqual([display.help, display.fmt], [metric.help, metric.format], display.label + ' reads the catalog');
+  }
+}
+
+// A whole-game value is the record's measurement exactly: rates divide by
+// the record's time even under a second, every press counts toward cadence
+// spread, and the fastclick gaps are the ones the record's median reads.
+{
+  const pathDecisionEvents = vm.runInContext('pathDecisionEvents', context);
+  const computeClickCadence = vm.runInContext('computeClickCadence', context);
+  const medianOf = vm.runInContext('medianOf', context);
+  const width = 13;
+  const at = cellAt(width);
+  const mines = [0, 1, 2].flatMap((row) => [at(4, row), at(8, row)]);
+  const game = playGame(width, 3, mines, [
+    { act: 'reveal', cell: at(0, 0), atMs: 0 },
+    { act: 'reveal', cell: at(12, 0), atMs: 420 },
+    { act: 'reveal', cell: at(6, 1), atMs: 799.6 },
+  ]);
+  // The record's time is rounded to the ms; the last click came 0.4 ms
+  // after it. One press came before the clock started.
+  game.timeMs = 800;
+  game.events.push({ t: START_T - 300, kind: 'ldown' },
+    ...game.events.filter((event) => event.kind === 'decision').map((event) => ({ t: event.t - 60, kind: 'ldown' })));
+  game.events.sort((a, b) => a.t - b.t);
+  const view = viewOf(game, ['clickRate', 'bvPerSecond', 'mouseSpeed', 'cadenceSpread', 'fastclickGap'], 'rolling-2');
+  const row = (rowId) => view.rows.find((item) => item.id === rowId);
+  assert.equal(row('clickRate').summary, 3 * 1000 / 800, 'three clicks over the record\u2019s 0.8 s');
+  assert.equal(row('bvPerSecond').summary, 3 * 1000 / 800);
+  assert(Number.isFinite(row('mouseSpeed').summary), 'a game under a second still has its mouse speed');
+  assert.equal(row('cadenceSpread').summary, computeClickCadence(game.t, game.events).gapSpreadRatio,
+    'the trace\u2019s cadence spread, the press before the clock included');
+  const gaps = DuringGame.fastclickGaps(pathDecisionEvents(game.events), game.t);
+  assert.deepEqual(structuredClone(gaps), [{ atMs: 420, gapMs: 420 }, { atMs: 799.6, gapMs: 379.6 }]);
+  assert.equal(row('fastclickGap').summary, medianOf(gaps.map((gap) => gap.gapMs)));
+  // The record stores the cadence spread unrounded.
+  const finished = task('finished-game', { width, height: 3, mines: game.mines, drill: true, needCadence: true,
+    needMoveHabits: false, gameId: 1760000000001, timeMs: game.timeMs, outcome: game.outcome,
+    trace: { t: game.t, x: game.x, y: game.y, events: game.events, wallMs: 1500, initialPageState: game.initialPageState } });
+  assert.equal(finished.measurements.cadenceSpread, row('cadenceSpread').summary);
+}
+
 console.log('during-game tests passed');

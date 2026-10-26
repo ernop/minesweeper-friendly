@@ -11,8 +11,8 @@ function bvPerSecond(record) {
   return record.bv3 / secondsOf(record);
 }
 
-// Efficiency: 3BV / effective clicks (the clone name "throughput" is the
-// same quantity). Wins only: a lost board was never finished, so the 3BV
+// Efficiency: 3BV / board-changing clicks (the clone name "throughput" is
+// the same quantity). Wins only: a lost board was never finished, so the 3BV
 // numerator is the whole board and the ratio would flatter a short loss.
 function efficiencyOf(record) {
   if (record.outcome !== 'win' || record.clicks === 0) return undefined;
@@ -28,10 +28,10 @@ function iosOf(record) {
   return Math.log(record.bv3) / Math.log(t);
 }
 
-// IOE (index of efficiency): 3BV / total clicks, wasted included — the
-// total-click cousin of efficiency. Wins only for the same
-// unfinished-board reason; undefined where wastedClicks was never
-// measured (a missing denominator part, not zero).
+// IOE (index of efficiency): 3BV / all clicks, no-op clicks included — the
+// all-click cousin of efficiency. Wins only for the same
+// unfinished-board reason; undefined where the no-op count (wastedClicks)
+// was never measured (a missing denominator part, not zero).
 function ioeOf(record) {
   if (record.outcome !== 'win' || !('wastedClicks' in record)) return undefined;
   const total = record.clicks + record.wastedClicks;
@@ -149,20 +149,27 @@ const GameData = (() => {
   // A game's moves (during-game.js, moveHabits): absent on games recorded
   // before move habits were.
   const movesOf = (r) => r.movesRanOut + r.movesLeftHardWork + r.movesLeftEasyWork;
-  // `help` says only what a measurement's name and unit leave open; its card
-  // and configuration row show it. A measurement whose name and unit already
-  // say what it is has none (creator 2026-10-08, of the time card's
-  // definition: it "just state[s] what the user already knows").
+  // The one catalog of performance measurements
+  // (docs/product/measurement-catalog.md): each measurement's id, name,
+  // definition (`help`), format, and better direction, which every surface
+  // showing it reads: game summary perf, its line in the live perf charts
+  // (during-game.js), the loss's this-game table, the your-perf property
+  // charts, and motion stats. A surface never renames or redefines one.
+  // `help` says only what a measurement's name and unit leave open, worded
+  // so it holds for the whole game and for any stretch of it. A measurement
+  // whose name and unit already say what it is has none (creator
+  // 2026-10-08, of the time card's definition: it "just state[s] what the
+  // user already knows").
   const metrics = [
     { id: 'time', name: 'time', higher: false, default: true,
       value: (r) => r.timeMs, format: (v) => (v / 1000).toFixed(3) + 's' },
     { id: 'misclickRate', allOutcomes: true, name: 'misclick rate', higher: false, default: true,
       value: (r) => r.timeMs > 0 ? r.misclicks * 60000 / r.timeMs : undefined,
       format: (v) => decimal(v) + '/min',
-      help: 'A misclick is an action the visible board had already proved wrong: opening a cell proven to be a mine, or flagging a cell proven safe.' },
+      help: 'A misclick is an action the visible board had already proved wrong: opening a proven mine, flagging a proven-safe square, removing a proven mine\u2019s flag, or chording against the visible proof.' },
     { id: 'fastclickGap', allOutcomes: true, name: 'fastclick gap', higher: false, default: true,
       value: (r) => r.fastclickGapMs, format: (v) => Math.round(v) + 'ms',
-      help: 'The median gap between consecutive board-changing actions made while the cursor was moving (it moved in the 100 ms before), counting gaps up to 1 second. Flags are timed at the right press, left clicks at release.' },
+      help: 'The median gap between consecutive board-changing clicks, counting gaps of at most 1 second ending in a click on the move (the cursor moved in the 100 ms before). Flags are timed at the right press, left clicks at release.' },
     { id: 'bvPerSecond', name: '3BV/s', higher: true, default: true,
       value: (r) => r.timeMs > 0 ? bvPerSecond(r) : undefined,
       format: (v) => v.toFixed(3) },
@@ -171,19 +178,19 @@ const GameData = (() => {
       help: 'Counts board-changing clicks only: reveals, flags, flag removals, and chords.' },
     { id: 'efficiency', name: 'efficiency', higher: true, default: false,
       value: efficiencyOf, format: percent,
-      help: '3BV divided by board-changing clicks.' },
+      help: '3BV solved divided by board-changing clicks.' },
     { id: 'noopRate', allOutcomes: true, name: 'no-op rate', higher: false, default: true,
       value: perSecond('wastedClicks'), format: (v) => v.toFixed(2) + '/s',
       help: 'Clicks that changed nothing, such as chording a number whose mines are not all flagged, or clicking a flag.' },
     { id: 'pathPer3bv', name: 'path / 3BV', higher: false, default: false,
       value: (r) => r.bv3 > 0 ? r.mousePathPx / r.bv3 : undefined,
       format: (v) => Number(v.toFixed(1)) + 'px' },
-    { id: 'correctness', allOutcomes: true, name: 'board-changing click share', higher: true, default: true,
+    { id: 'boardChangingClickShare', allOutcomes: true, name: 'board-changing click share', higher: true, default: true,
       value: (r) => r.clicks + r.wastedClicks > 0 ? r.clicks / (r.clicks + r.wastedClicks) : undefined,
       format: percent, help: 'Board-changing clicks divided by all clicks; a wrong flag still counts as a change.' },
     { id: 'ioe', name: 'IOE', higher: true, default: false,
       value: ioeOf, format: (v) => v.toFixed(3),
-      help: '3BV divided by all clicks, including those that changed nothing.' },
+      help: '3BV solved divided by all clicks, including those that changed nothing.' },
     { id: 'ziniEfficiency', name: 'ZiNi efficiency', higher: true, default: false,
       value: ziniEfficiencyOf, format: percent, help: 'ZiNi divided by board-changing clicks. ZiNi is the click count of a standard greedy flag-and-chord solve of this board.' },
     { id: 'hziniEfficiency', name: 'HZiNi efficiency', higher: true, default: false,
@@ -195,14 +202,14 @@ const GameData = (() => {
       help: '3BV times the level’s constant (beginner 36, intermediate 162, expert 435), divided by seconds^1.7.' },
     { id: 'mouseSpeed', allOutcomes: true, name: 'mouse speed', higher: true, default: true,
       value: perSecond('mousePathPx'), format: (v) => Math.round(v) + 'px/s',
-      help: 'Total cursor travel divided by the game’s time, pauses included.' },
+      help: 'All cursor travel divided by all of the time, pauses included.' },
     { id: 'pathPerClick', allOutcomes: true, name: 'path / click', higher: false, default: false,
       value: (r) => r.clicks > 0 ? r.mousePathPx / r.clicks : undefined,
       format: (v) => Number(v.toFixed(1)) + 'px' },
     { id: 'cadenceSpread', allOutcomes: true, name: 'cadence spread', higher: false, default: false,
       value: (r) => r.cadenceSpread, format: (v) => v.toFixed(2) + '×',
-      help: 'The width of the middle half of the gaps between all presses (the interquartile range) divided by their median. 0 is perfectly even.' },
-    { id: 'moveTime', allOutcomes: true, name: 'time before a move', higher: false, default: true,
+      help: 'How uneven the timing of all your presses on the board is, no-op clicks included: the width of the middle half of the gaps between consecutive presses (the interquartile range) divided by their median. 0 is perfectly even.' },
+    { id: 'timeBeforeMove', allOutcomes: true, name: 'time before a move', higher: false, default: true,
       value: (r) => r.moveGapMedianMs, format: (v) => Math.round(v) + 'ms',
       help: 'The median time from a board-changing click to a move: a click 3 or more squares from everything the click before it opened or marked and from the proven-safe squares within 2 squares of those.' },
     { id: 'easyWorkLeftShare', allOutcomes: true, name: 'moves leaving easy work', higher: false, default: true,
@@ -212,7 +219,7 @@ const GameData = (() => {
     { id: 'nearestAreaShare', allOutcomes: true, name: 'forks to the nearest area', higher: true, default: false,
       value: (r) => (r.forkMoves > 0 ? r.forkMovesToNearestArea / r.forkMoves : undefined), format: percent,
       help: 'Of the moves made while proven-safe squares lay in 2 or more separate areas (squares at most 2 apart are one area), the share that went to the area nearest the click before.' },
-    { id: 'unusedMarkShare', name: 'unused flag share', higher: false, default: true,
+    { id: 'unusedFlagShare', name: 'unused flag share', higher: false, default: true,
       value: (r) => r.flagsPlaced > 0 ? r.unusedCorrectFlags / r.flagsPlaced : undefined,
       format: percent, help: 'Correct flags that no chord ever used, as a share of all flags placed.' },
     { id: 'unflaggedMineShare', name: 'unflagged mine share', higher: true, default: true,
@@ -238,10 +245,10 @@ const GameData = (() => {
     { id: 'lifeMaximizationRate', allOutcomes: true, name: 'life maximization rate', higher: false, default: false, actionSummary: true,
       value: actionRate((s) => s.counts.lifeMaximization), format: (v) => decimal(v) + '/min',
       help: 'Moves where a one-move survival model saw a safer choice.' },
-    { id: 'excessGameRisk', allOutcomes: true, name: 'excess game risk', higher: false, default: false, actionSummary: true,
+    { id: 'excessGameRiskRate', allOutcomes: true, name: 'excess game risk rate', higher: false, default: false, actionSummary: true,
       value: actionRate((s) => 100 * s.excessRisk), format: (v) => decimal(v) + 'pp/min',
       help: 'How much riskier the game risk actions were than the safest available move, summed, in percentage points of the chance of losing.' },
-    { id: 'modeledLifeGap', allOutcomes: true, name: 'modeled life gap', higher: false, default: false, actionSummary: true,
+    { id: 'modeledLifeGapRate', allOutcomes: true, name: 'modeled life gap rate', higher: false, default: false, actionSummary: true,
       value: actionRate((s) => s.modeledLifeGap), format: (v) => v.toFixed(3) + '/min',
       help: 'How much expected remaining life the one-move survival model saw given up in the life maximization moves, summed.' },
   ];
@@ -498,7 +505,7 @@ const GameData = (() => {
       forks: { marks: { ring: eventCells('fork') } },
       misclickRate: { marks: { ring: eventCells('misclick') }, clicks: eventCount('misclick') },
       noopRate: { marks: { ring: eventCells('no-op') }, clicks: eventCount('no-op') },
-      unusedMarkShare: { marks: { shade: eventCells('unused-flag') } },
+      unusedFlagShare: { marks: { shade: eventCells('unused-flag') } },
       unflaggedMineShare: { marks: { shade: mines.flatMap((mine, cell) => (mine && !standing.has(cell) ? [cell] : [])) },
         of: mines.filter(Boolean).length },
     };

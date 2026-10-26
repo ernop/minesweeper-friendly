@@ -94,7 +94,9 @@ Spec: [docs/product/settings.md](../product/settings.md). Index: [AGENTS.md](../
   `reportScope` always wins. `gameDataMetricsFromStored` merges the retired
   `gameDataLifetimeMetrics` / `gameDataSessionMetrics` selections into
   `gameDataMetrics` (shown in either stays shown); a stored
-  `gameDataMetrics` always wins. `panelsFromStored` (the `panels` field's
+  `gameDataMetrics` always wins. It and `duringGameRowsFromStored` rename
+  the measurement ids of 2026-10-26 (`RENAMED_MEASUREMENT_IDS`,
+  `withCurrentMeasurementIds`; [measurement catalog](measurement-catalog.md)). `panelsFromStored` (the `panels` field's
   `migrate`) copies the stored panels without the retired `replay` key
   (2026-10-20, with the replay disclosure). `saveSettings` throws when a
   preset `difficulty` goes with a `playMode` other than `standard`;

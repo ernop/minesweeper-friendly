@@ -108,6 +108,20 @@ assert.deepEqual([rowsBeforeSplit.leftHardWorkEvents, rowsBeforeSplit.leftEasyWo
 assert.equal(rowsBeforeSplit.movedOnEvents, defaults.duringGameRows.movedOnEvents, 'unset rows keep their defaults');
 assert(!('leftWorkEvents' in rowsBeforeSplit));
 assert.equal(run('settingsFrom({ duringGameRows: { leftHardWorkEvents: false } }).duringGameRows.leftEasyWorkEvents'), true);
+// Choices saved under the five measurement ids renamed on 2026-10-26 keep
+// their choice under the new ids, in game data and the live perf charts.
+const renamedMetrics = plain(run(`settingsFrom({ gameDataMetrics: { time: false, correctness: false, moveTime: false,
+  unusedMarkShare: false, excessGameRisk: true, modeledLifeGap: true } }).gameDataMetrics`));
+assert.deepEqual([renamedMetrics.time, renamedMetrics.boardChangingClickShare, renamedMetrics.timeBeforeMove,
+  renamedMetrics.unusedFlagShare, renamedMetrics.excessGameRiskRate, renamedMetrics.modeledLifeGapRate],
+[false, false, false, false, true, true], 'a selection under the old ids is kept, not discarded');
+assert(['correctness', 'moveTime', 'unusedMarkShare', 'excessGameRisk', 'modeledLifeGap'].every((id) => !(id in renamedMetrics)));
+const renamedOld = plain(run('settingsFrom({ gameDataLifetimeMetrics: { correctness: false }, gameDataSessionMetrics: { correctness: false } }).gameDataMetrics'));
+assert.equal(renamedOld.boardChangingClickShare, false, 'the separate selections migrate through the new ids too');
+const renamedRows = plain(run(`settingsFrom({ duringGameRows: { correctness: true, excessGameRisk: true,
+  modeledLifeGap: true, leftWorkEvents: false } }).duringGameRows`));
+assert.deepEqual([renamedRows.boardChangingClickShare, renamedRows.excessGameRiskRate, renamedRows.modeledLifeGapRate,
+  renamedRows.leftHardWorkEvents], [true, true, true, false]);
 
 // The three presets are Standard with the default generator; a block that
 // paired one with another mode continues as that mode on the custom board

@@ -47,27 +47,6 @@ function makeBoard(rows) {
   };
 }
 
-console.log('derived clone stats');
-{
-  function correctness(clicks, wasted) {
-    if (wasted === undefined) return undefined;
-    const total = clicks + wasted;
-    return total === 0 ? undefined : clicks / total;
-  }
-  function throughput(bv3, clicks) {
-    return clicks === 0 ? undefined : bv3 / clicks;
-  }
-  function ios(bv3, timeSec) {
-    if (!(timeSec > 1) || !(bv3 > 0)) return undefined;
-    return Math.log(bv3) / Math.log(timeSec);
-  }
-  check('correctness 19/(19+1)', close(correctness(19, 1), 0.95));
-  check('correctness absent wasted is unmeasured', correctness(19, undefined) === undefined);
-  check('throughput 10/19', close(throughput(10, 19), 10 / 19));
-  check('ios t<=1 is unmeasured', ios(10, 1) === undefined);
-  check('ios log10/log5', close(ios(10, 5), Math.log(10) / Math.log(5)));
-}
-
 console.log('1-of-2 pocket');
 {
   const board = makeBoard([
@@ -325,6 +304,139 @@ console.log('brute-force parity: engine odds match exhaustive enumeration');
   }
   check('at least 150 random positions compared (' + cases + ')', cases >= 150);
   check('every covered-cell probability matches ground truth', mismatches === 0);
+
+  // One-ply expected life for the squares the model gives a number
+  // lookahead: covered squares whose covered neighbors are proven or lie
+  // in their own group. Ground truth groups the consistent layouts where
+  // the square is safe by the number it would show; each group is exactly
+  // the next position's layouts.
+  function consistentLayouts(view) {
+    const n = view.width * view.height;
+    const covered = [];
+    for (let i = 0; i < n; i++) if (!view.revealed[i]) covered.push(i);
+    const mine = new Uint8Array(n);
+    const layouts = [];
+    function consistent() {
+      for (let i = 0; i < n; i++) {
+        if (!view.revealed[i]) continue;
+        let c = 0;
+        for (const nb of Justice.neighbors(i, view.width, view.height)) c += mine[nb];
+        if (c !== view.adjacent[i]) return false;
+      }
+      return true;
+    }
+    function rec(start, left) {
+      if (left === 0) {
+        if (consistent()) layouts.push(mine.slice());
+        return;
+      }
+      for (let k = start; k <= covered.length - left; k++) {
+        mine[covered[k]] = 1;
+        rec(k + 1, left - 1);
+        mine[covered[k]] = 0;
+      }
+    }
+    rec(0, view.mines);
+    return layouts;
+  }
+
+  // The lowest risk left once `opened` shows its number: 0 when a covered
+  // square is safe in every remaining layout, else the smallest mine share
+  // among the undecided squares (0 when none is undecided).
+  function lowestRisk(view, layouts, opened) {
+    let lowest = 1;
+    let undecided = false;
+    for (let x = 0; x < view.width * view.height; x++) {
+      if (view.revealed[x] || x === opened) continue;
+      let mined = 0;
+      for (const layout of layouts) mined += layout[x];
+      if (mined === 0) return 0;
+      if (mined < layouts.length) {
+        undecided = true;
+        lowest = Math.min(lowest, mined / layouts.length);
+      }
+    }
+    return undecided ? lowest : 0;
+  }
+
+  function oneMoveLife(view, layouts, cell) {
+    const byNumber = new Map();
+    for (const layout of layouts) {
+      if (layout[cell]) continue;
+      let number = 0;
+      for (const nb of Justice.neighbors(cell, view.width, view.height)) number += layout[nb];
+      if (!byNumber.has(number)) byNumber.set(number, []);
+      byNumber.get(number).push(layout);
+    }
+    let life = 0;
+    for (const group of byNumber.values()) {
+      life += (group.length / layouts.length) * (1 - lowestRisk(view, group, cell));
+    }
+    return life;
+  }
+
+  function hasNumberLookahead(view, odds, cell) {
+    const structure = odds.structure;
+    const componentIndex = structure.componentOfCell.get(cell);
+    return componentIndex !== undefined
+      && Justice.neighbors(cell, view.width, view.height).every((nb) => view.revealed[nb]
+        || structure.facts.has(nb) || structure.componentOfCell.get(nb) === componentIndex);
+  }
+
+  const lifeRng = lcg(20261022);
+  let lifeSquares = 0;
+  let lifeMismatches = 0;
+  for (let t = 0; t < 200; t++) {
+    const w = 4 + Math.floor(lifeRng() * 2);
+    const m = 3 + Math.floor(lifeRng() * 3);
+    const view = randomView(lifeRng, w, 4, m, 1 + Math.floor(lifeRng() * 2));
+    const odds = Odds.analyzeView(view);
+    if (!odds.measured) continue;
+    const layouts = consistentLayouts(view);
+    for (const cell of odds.unproven) {
+      if (!hasNumberLookahead(view, odds, cell)) continue;
+      lifeSquares++;
+      if (Math.abs(Odds.expectedLife(view, odds, cell) - oneMoveLife(view, layouts, cell)) > 1e-9) {
+        lifeMismatches++;
+      }
+    }
+  }
+  check('at least 150 squares with a number lookahead compared (' + lifeSquares + ')',
+    lifeSquares >= 150);
+  check('every one-ply expected life matches ground truth (' + lifeMismatches + ' differ)',
+    lifeMismatches === 0);
+}
+
+console.log('a number only a ruled-out layout would show is never scored');
+{
+  // 5 mines remain for the 13 covered squares at the right: 12 touch
+  // numbers, whose layouts hold 4, 5, or 6 mines, and 1 touches none. Only
+  // a 6-mine layout would make the square at column 12, row 7 show 5. No
+  // square is proven safe, so every guess there runs the one-ply model.
+  const board = makeBoard([
+    '.*...*..........',
+    '................',
+    '........***..*..',
+    '..............*.',
+    '*..*.*.*........',
+    '.......**.....*.',
+    '....*......**.*.',
+    '.....*....*.##*#',
+    '*....*..*..*#*##',
+    '......*....#*.#*',
+    '..........*...*.',
+    '.....*..........',
+    '................',
+    '...*.....*.*....',
+    '.......*.......*',
+    '...*...*.*......',
+  ]);
+  const odds = Odds.analyzeView(board.view);
+  check('no square is proven safe', odds.measured && !odds.provenSafeOpen);
+  check('13 squares are undecided', odds.unproven.length === 13);
+  const scored = odds.unproven.map((cell) => Odds.scoreGuess(board.view, cell));
+  check('every guess there is scored with one-ply life values',
+    scored.every((guess) => guess.measured && typeof guess.expectedLife === 'number'));
 }
 
 console.log('binom');

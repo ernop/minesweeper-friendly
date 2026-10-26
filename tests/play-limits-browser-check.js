@@ -57,8 +57,9 @@ const shots = process.argv[4];
     assert.equal(await gamePage.locator('#play-limits-use').innerText(), 'today: 0 of 2 games');
     assert.equal(await gamePage.locator('#play-limits-btn').innerText(), 'daily limits',
       'today\'s use is text in the top bar, never the link\'s label');
-    assert.equal(await gamePage.locator('#top-bar #play-limits-use').count(), 1,
-      'today\'s use stays in view at the top while the link is in the settings row');
+    assert.deepEqual(await gamePage.locator('#top-bar > *').evaluateAll((items) => items.map((item) => item.id)),
+      ['play-limits-use', 'play-limits-btn', 'settings-btn'],
+      'the top bar holds today\'s use, then the limits link, then settings');
     const clickCell = async (index) => {
       const cell = gamePage.locator('#board .cell').nth(index);
       await cell.click();
@@ -202,11 +203,11 @@ const shots = process.argv[4];
     watch(freshGame);
     await freshGame.goto('http://127.0.0.1:8099/');
     await freshGame.waitForFunction(() => !document.documentElement.classList.contains('game-booting'));
-    assert.equal(await freshGame.locator('#settings-row #play-limits-btn').innerText(), 'daily limits',
-      'with no limit set the settings row still links to the limits');
+    assert.equal(await freshGame.locator('#top-bar #play-limits-btn').isVisible(), true,
+      'with no limit set the top bar still links to the limits');
     assert.equal(await freshGame.locator('#play-limits-use').isVisible(), false,
       'with no limit set there is no use to show');
-    await shot(freshGame, 'game-no-limits-link', '#settings-row');
+    await shot(freshGame, 'game-no-limits-link', '#top-bar');
     await freshSettings.bringToFront();
     await freshSettings.goto('http://127.0.0.1:8099/settings.html');
     await freshSettings.waitForSelector('#play-limit-table [data-limit="stopAt"]');

@@ -16,13 +16,13 @@ const records = [
 ];
 const on = (selection) => Object.keys(selection).filter((id) => selection[id]);
 assert.deepEqual(on(GameData.defaults), ['time', 'misclickRate', 'fastclickGap', 'bvPerSecond',
-  'clickRate', 'noopRate', 'correctness', 'mouseSpeed', 'moveTime', 'easyWorkLeftShare', 'unusedMarkShare', 'unflaggedMineShare'],
+  'clickRate', 'noopRate', 'boardChangingClickShare', 'mouseSpeed', 'timeBeforeMove', 'easyWorkLeftShare', 'unusedFlagShare', 'unflaggedMineShare'],
   'the creator’s defaults, plus the requested unflagged mine share and move habits');
 const board = { width: 9, height: 9, mines: 10 };
 assert.deepEqual(GameData.rows(current, records, GameData.defaultsForView, board).map((r) => r.id), ['time.lifetime', 'time.session',
   'misclickRate.lifetime', 'misclickRate.session', 'fastclickGap.lifetime', 'fastclickGap.session',
   'bvPerSecond.lifetime', 'bvPerSecond.session', 'clickRate.lifetime', 'clickRate.session',
-  'noopRate.lifetime', 'noopRate.session', 'correctness.lifetime', 'correctness.session',
+  'noopRate.lifetime', 'noopRate.session', 'boardChangingClickShare.lifetime', 'boardChangingClickShare.session',
   'mouseSpeed.lifetime', 'mouseSpeed.session'],
   'one selection ranks each shown measurement against lifetime and the session; unmeasured flag measurements are absent');
 const all = Object.fromEntries(GameData.metrics.map((m) => [m.id, true]));
@@ -58,8 +58,8 @@ assert.equal(row('fastclickGap.session').standingText, 'both games have this val
 const equalTimes = [{ ...current, endedAt: now - 60000 }, current];
 assert.equal(GameData.rows(current, equalTimes, GameData.defaultsForView, board)[0].standingText, '2nd of 2 wins', 'an equal time set earlier ranks ahead');
 const constant = GameData.rows(current, [1, 2, 3].map((i) => ({ ...current, endedAt: now - i * 60000 })).concat(current),
-  { ...both, gameDataMetrics: { ...none, correctness: true } }, board);
-assert.equal(constant.find((r) => r.id === 'correctness.lifetime').standingText, 'all 4 games have this value');
+  { ...both, gameDataMetrics: { ...none, boardChangingClickShare: true } }, board);
+assert.equal(constant.find((r) => r.id === 'boardChangingClickShare.lifetime').standingText, 'all 4 games have this value');
 assert(rows.every((r) => !/÷|=|settings|so far/.test(r.standingText)), 'no rank carries arithmetic or an obvious qualifier');
 // A definition says only what the name and unit leave open; a measurement
 // they already explain has none.
@@ -68,6 +68,15 @@ assert.deepEqual(GameData.metrics.filter((m) => m.help === undefined).map((m) =>
 assert(GameData.metrics.every((m) => m.help === undefined
   || (m.help.split(' ').length <= 40 && !m.help.toLowerCase().startsWith(m.name.toLowerCase()))),
   'every definition is short and never opens by repeating the name');
+// The catalog's formulas are the only ones (docs/product/measurement-catalog.md),
+// unmeasured where a fact is missing or the definition does not apply.
+const formula = (id) => GameData.metrics.find((m) => m.id === id).value;
+assert.equal(formula('boardChangingClickShare')({ clicks: 19, wastedClicks: 1 }), 19 / 20);
+assert.equal(formula('boardChangingClickShare')({ clicks: 19 }), undefined, 'an unrecorded no-op count is unmeasured');
+assert.equal(formula('efficiency')({ outcome: 'win', bv3: 10, clicks: 19 }), 10 / 19);
+assert.equal(formula('efficiency')({ outcome: 'loss', bv3: 10, clicks: 19 }), undefined, 'a loss solved only part of its 3BV');
+assert.equal(formula('ios')({ outcome: 'win', bv3: 10, timeMs: 1000 }), undefined, 'IOS is unmeasured at 1 s or less');
+assert.equal(formula('ios')({ outcome: 'win', bv3: 10, timeMs: 5000 }), Math.log(10) / Math.log(5));
 assert.equal(row('time.lifetime').definition, undefined);
 assert.equal(row('misclickRate.session').definition, GameData.metrics.find((m) => m.id === 'misclickRate').help,
   'every pool’s row carries its measurement’s definition');
@@ -225,7 +234,7 @@ const playExamples = GameData.examples(4, 3, cornerMines, { flagged: [0], events
 assert.deepEqual([playExamples.misclickRate.marks.ring, playExamples.misclickRate.clicks], [[5], 1]);
 assert.deepEqual([playExamples.noopRate.marks.ring, playExamples.noopRate.clicks], [[7], 2],
   'a no-op click with no square is counted but not marked');
-assert.deepEqual(playExamples.unusedMarkShare.marks.shade, [0]);
+assert.deepEqual(playExamples.unusedFlagShare.marks.shade, [0]);
 assert.deepEqual([playExamples.unflaggedMineShare.marks.shade, playExamples.unflaggedMineShare.of], [[11], 2]);
 assert.deepEqual([playExamples.moves.marks.ring, playExamples.forks.marks.ring], [[], []], 'no move, no fork');
 const moveExamples = GameData.examples(4, 3, cornerMines, { flagged: [], events: [
@@ -239,10 +248,10 @@ assert.deepEqual(moveExamples.forks.marks.ring, [8]);
 // Move habits: measured where the record has them, each move kind a share of all moves.
 const metric = (id) => GameData.metrics.find((m) => m.id === id);
 const habits = { movesRanOut: 3, movesLeftHardWork: 2, movesLeftEasyWork: 1, moveGapMedianMs: 840, forkMoves: 4, forkMovesToNearestArea: 3 };
-assert.deepEqual(['moveTime', 'easyWorkLeftShare', 'nearestAreaShare'].map((id) => metric(id).value(habits)), [840, 1 / 6, 0.75]);
-assert.deepEqual(['moveTime', 'easyWorkLeftShare', 'nearestAreaShare'].map((id) => metric(id).value(current)),
+assert.deepEqual(['timeBeforeMove', 'easyWorkLeftShare', 'nearestAreaShare'].map((id) => metric(id).value(habits)), [840, 1 / 6, 0.75]);
+assert.deepEqual(['timeBeforeMove', 'easyWorkLeftShare', 'nearestAreaShare'].map((id) => metric(id).value(current)),
   [undefined, undefined, undefined], 'a game recorded before move habits is unmeasured, never zero');
-assert.deepEqual(['moveTime', 'easyWorkLeftShare', 'nearestAreaShare'].map((id) => metric(id).value({
+assert.deepEqual(['timeBeforeMove', 'easyWorkLeftShare', 'nearestAreaShare'].map((id) => metric(id).value({
   movesRanOut: 0, movesLeftHardWork: 0, movesLeftEasyWork: 0, forkMoves: 0, forkMovesToNearestArea: 0 })),
 [undefined, undefined, undefined], 'a game without a move or a fork has no share of them');
 console.log('game-data: scope boundaries, historical windows, eligible populations, missing values, ties, metric catalog, autozoom, and example boards passed');

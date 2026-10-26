@@ -41,7 +41,7 @@ function showStartupFailure(text) {
 }
 
 // The in-page settings drawer became a full page on 2026-08-23: the
-// "settings" link in the settings row at the page foot opens settings.html
+// "settings" link at the right end of the top bar opens settings.html
 // (see index.html), which shares this page's schema (settings-core.js)
 // and database (storage.js). Changes save straight to the shared
 // database; this page reads them fresh on every load, and the return

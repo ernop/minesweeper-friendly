@@ -162,7 +162,10 @@ mousing over effect"), and keyboard focus keeps an outline. In order:
    and the board traits ZiNi, HZiNi, 3BV spread, 0–1 share, zero-opening
    coverage, islands, and largest island. Time, 3BV/s, path / 3BV, path /
    click, 3BV, max number, and zeros have
-   none. The configuration list shows the same definitions.
+   none. The configuration list shows the same definitions, and so does
+   every other place a performance measurement appears: each is the
+   measurement catalog's one definition, worded to hold for the whole game
+   and for any stretch of it ([Measurement catalog](measurement-catalog.md)).
 
 Removed by the cut (2026-10-08): the name-and-value title, the "This is …"
 plain sentence (added earlier the same day in answer to the creator's
@@ -439,7 +442,10 @@ clear"): each your-perf and board-trait chart heading carries a chip, "this
 1.784 · 55%", with this game's value and lifetime standing on the standing
 color; its tooltip is the card's rank ("lifetime: 19th of 1,201 wins").
 Hovering or focusing a game-data row outlines the charts that plot the same
-measurement.
+measurement. A game summary perf row's hover also spotlights that
+measurement's line and event marks in the live perf charts, and hovering
+one of those lines or legend entries rings the row (creator request
+2026-10-26; [Measurement catalog](measurement-catalog.md), "Hover link").
 
 The user intends game data to supersede many other result elements. Label
 wording and placement beside the board were settled on 2026-09-23 (above).
@@ -661,8 +667,13 @@ as better:
 | early guess rate | the report's early guesses, per minute | wins and losses |
 | time loss rate | the report's time loss actions, per minute | wins and losses |
 | life maximization rate | the report's life maximization moves, per minute | wins and losses |
-| excess game risk | the game risk actions' extra chance of losing over the safest available move, summed, in percentage points per minute | wins and losses |
-| modeled life gap | the expected remaining life the one-move survival model saw given up in life maximization moves, summed, per minute | wins and losses |
+| excess game risk rate | the game risk actions' extra chance of losing over the safest available move, summed, in percentage points per minute | wins and losses |
+| modeled life gap rate | the expected remaining life the one-move survival model saw given up in life maximization moves, summed, per minute | wins and losses |
+
+The last two were named "excess game risk" and "modeled life gap" until
+2026-10-26, when they took "rate" so the names no longer claimed a game's
+total, which the "this game" table shows under those names
+([Measurement catalog](measurement-catalog.md)).
 
 Move habits, added 2026-10-20 (creator: "let's build: move habits and
 characterization of moves, when ih ave to move since local direction ends

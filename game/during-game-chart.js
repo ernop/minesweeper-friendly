@@ -298,17 +298,21 @@ function duringGameScale(chart, rows, relativeScale) {
   };
 }
 
-// Every y label a chart can draw, on either relative scale. The moves
-// chart's widest are those of all its rows shown: fewer shown lines can only
-// lower its top, and the tick font's digits are all one width.
+// Every y label a chart can draw, on either relative scale, as ratios or in
+// any of its lines' values (labelDuringGameTicks). The moves chart's widest
+// are those of all its rows shown: fewer shown lines can only lower its top,
+// and the tick font's digits are all one width.
 function duringGameScaleLabels(chart, rows) {
   if (chart.scale === 'share') return niceTicks(0, 1, 5).map(duringGameShareLabel);
   if (chart.scale === 'count') {
     const counts = rows.flatMap(duringGameRowValues);
     return counts.length === 0 ? [] : duringGameCountTicks(Math.max(...counts)).map(duringGameCountLabel);
   }
-  const linear = Array.from({ length: 2 * DURING_GAME_LINEAR_TOP.max + 1 }, (_, k) => duringGameLinearLabel(k / 2));
-  return [...Object.values(DURING_GAME_RATIO_LABELS), ...linear];
+  const linear = Array.from({ length: 2 * DURING_GAME_LINEAR_TOP.max + 1 }, (_, k) => k / 2);
+  const ticks = [...Object.keys(DURING_GAME_RATIO_LABELS).map((doublings) => 2 ** Number(doublings)), ...linear];
+  const values = rows.filter(duringGameComparable)
+    .flatMap((row) => ticks.map((tick) => DuringGame.rowById(row.id).format(tick * row.summary)));
+  return [...Object.values(DURING_GAME_RATIO_LABELS), ...linear.map(duringGameLinearLabel), ...values];
 }
 
 // The plots' shared left edge: room for every y label a chart can draw and
@@ -374,7 +378,9 @@ function duringGameSeriesPath(row, axis, y) {
 
 // Draws the members its legend shows on a scale fitted to them. Sets each
 // member's `y`, its value's height in the svg, or null where the member
-// draws no line (its legend hides it, or it has nothing to compare with).
+// draws no line (its legend hides it, or it has nothing to compare with);
+// keeps the scale, its y labels, and the `lines` drawn against it (rates in
+// raw draw only ticks).
 function drawDuringGameChart(chart, axis, labeled, relativeScale) {
   const { svg, plotHeight } = chart;
   const shown = chart.members.filter((member) => !member.hidden);
@@ -386,11 +392,14 @@ function drawDuringGameChart(chart, axis, labeled, relativeScale) {
   duringGameShape(svg, 'rect', { x: axis.left, y: plotTop, width: axis.right - axis.left, height: plotHeight, class: 'scatter-plot' });
   drawDuringGameTimeAxis(svg, axis, plotTop, plotBottom, labeled);
   const y = scale === null ? null : (value) => plotBottom - scale.at(value) * plotHeight;
+  chart.scale = scale;
+  chart.tickLabels = [];
   if (scale !== null) {
     for (const tick of scale.ticks) {
       duringGameShape(svg, 'line', { x1: axis.left, y1: y(tick), x2: axis.right, y2: y(tick),
         class: tick === scale.reference ? 'scatter-grid during-game-reference' : 'scatter-grid' });
-      duringGameShape(svg, 'text', { x: axis.left - 4, y: y(tick) + 4, class: 'scatter-tick tick-y' }, scale.label(tick));
+      chart.tickLabels.push({ tick, node: duringGameShape(svg, 'text',
+        { x: axis.left - 4, y: y(tick) + 4, class: 'scatter-tick tick-y' }, scale.label(tick)) });
     }
     for (const minor of scale.minors) {
       duringGameShape(svg, 'line', { x1: axis.left - 4, y1: y(minor), x2: axis.left, y2: y(minor), class: 'scatter-minor' });
@@ -420,6 +429,16 @@ function drawDuringGameChart(chart, axis, labeled, relativeScale) {
     if (member.y === null) continue;
     const d = duringGameSeriesPath(member.row, axis, member.y);
     if (d !== '') member.nodes.push(duringGameShape(svg, 'path', { d, stroke: member.spec.color, class: 'end-line' }));
+  }
+  chart.lines = shown.filter((member) => member.y !== null && duringGameRowValues(member.row).length > 0);
+}
+
+// The relative chart's y labels in one line's values, or its ratios for
+// null. Each line is drawn at its value over its whole-game value, so the
+// tick at r is exactly r times that value.
+function labelDuringGameTicks(chart, member) {
+  for (const { tick, node } of chart.tickLabels) {
+    node.textContent = member === null ? chart.scale.label(tick) : member.spec.format(tick * member.row.summary);
   }
 }
 
@@ -500,11 +519,31 @@ function duringGameEventsAt(row, atMs, toleranceMs) {
 
 //-------DURING THE GAME: DRAWING, LEGENDS, AND HOVER-------
 
+// Focuses the drawn charts' series showing any of the given catalog
+// measurements, or none for []; null while no charts are drawn
+// (linkMeasurements).
+let duringGameSpotlight = null;
+
+// The catalog measurements a row shows (DuringGame.ROWS, `measurements`).
+function duringGameMeasurementsOf(spec) {
+  return spec.measurements === undefined ? [] : spec.measurements;
+}
+
+// A row's name, its definition behind it where the row has one.
+function duringGameRowName(spec) {
+  if (spec.help !== undefined) return chartHelpButton(spec.help, spec.name);
+  const name = document.createElement('span');
+  name.className = 'during-game-row-name';
+  name.textContent = spec.name;
+  return name;
+}
+
 // Draws `view` into `charts` and wires the legends, the hover, and the
 // replay link. `picks` holds each legend's picked rows (duringGamePicksFor).
 // Returns the layout, which redraws at the charts' width.
 function renderDuringGameCharts(charts, view, { raw, relativeScale, picks }) {
   hideDuringGameHover();
+  duringGameSpotlight = null;
   charts.replaceChildren();
   const empty = (text) => {
     charts.classList.add('during-game-empty');
@@ -521,20 +560,37 @@ function renderDuringGameCharts(charts, view, { raw, relativeScale, picks }) {
   }
   if (view.rows.length === 0) return empty('No rows chosen: choose them with configure.');
 
-  // One series in focus at a time: the line under the pointer, or the
-  // legend entry under it. Everything else in its chart fades.
-  let focused = null;
-  const focus = (svg, member) => {
-    if (focused !== null && focused.member === member) return;
-    if (focused !== null) {
-      focused.svg.classList.remove('series-focus');
-      for (const node of focused.member.nodes) node.classList.remove('hot');
-      focused = null;
+  // The series in focus: the line or legend entry under the pointer, or
+  // those showing a measurement hovered in game summary perf. Everything
+  // else in their charts fades.
+  let focused = [];
+  // The relative chart's y labels give the values of its line in focus, else
+  // of the one line it draws, else its ratios (creator 2026-10-26). Only the
+  // labels change, so nothing moves under the pointer.
+  const labelTicks = (part) => {
+    const inFocus = focused.filter((member) => part.lines.includes(member));
+    labelDuringGameTicks(part, inFocus.length === 1 ? inFocus[0] : part.lines.length === 1 ? part.lines[0] : null);
+  };
+  const focus = (next) => {
+    if (next.length === focused.length && next.every((member, i) => member === focused[i])) return;
+    for (const member of focused) {
+      member.part.svg.classList.remove('series-focus');
+      for (const node of member.nodes) node.classList.remove('hot');
     }
-    if (member === null) return;
-    svg.classList.add('series-focus');
-    for (const node of member.nodes) node.classList.add('hot');
-    focused = { svg, member };
+    focused = next;
+    for (const member of focused) {
+      member.part.svg.classList.add('series-focus');
+      for (const node of member.nodes) node.classList.add('hot');
+    }
+    for (const part of drawnCharts) if (part.chart.scale === 'relative') labelTicks(part);
+  };
+  // The pointer's series also links what it measures across the page.
+  let pointed = null;
+  const pointFocus = (member) => {
+    if (member === pointed) return;
+    pointed = member;
+    focus(member === null || member.hidden ? [] : [member]);
+    linkMeasurements(member === null ? [] : duringGameMeasurementsOf(member.spec), 'duringGame');
   };
   // A legend entry spotlights its series while the pointer is on it, and a
   // click shows or hides the series (DuringGame.legendPick).
@@ -552,24 +608,22 @@ function renderDuringGameCharts(charts, view, { raw, relativeScale, picks }) {
     const value = document.createElement('span');
     value.className = 'during-game-legend-value';
     value.textContent = valueText;
-    entry.append(mark, chartHelpButton(member.spec.help, member.spec.name), value);
-    entry.addEventListener('mouseenter', () => {
-      if (!member.hidden) focus(part.svg, member);
-    });
-    entry.addEventListener('mouseleave', () => focus(null, null));
+    entry.append(mark, duringGameRowName(member.spec), value);
+    entry.addEventListener('mouseenter', () => pointFocus(member));
+    entry.addEventListener('mouseleave', () => pointFocus(null));
     entry.addEventListener('click', () => {
       picks[part.id] = DuringGame.legendPick(picks[part.id], member.row.id, part.members.map((item) => item.row.id));
-      focus(null, null);
+      pointFocus(null);
       applyPicks(part);
       if (axis !== null) drawPart(part);
-      if (!member.hidden) focus(part.svg, member);
+      pointFocus(member);
     });
     member.entry = entry;
     return entry;
   };
 
   const members = view.rows.map((row) => ({ row, spec: DuringGame.rowById(row.id), nodes: [], y: null,
-    hidden: false, entry: null }));
+    hidden: false, entry: null, part: null }));
   const drawnCharts = [];
   for (const chart of DuringGame.CHARTS) {
     const chartMembers = members.filter((member) => member.spec.chart === chart.id);
@@ -584,7 +638,8 @@ function renderDuringGameCharts(charts, view, { raw, relativeScale, picks }) {
     svg.setAttribute('role', 'img');
     svg.setAttribute('aria-label', chart.name + ' during this game');
     const part = { id: chart.id, chart, members: chartMembers, plotHeight: DURING_GAME_LAYOUT.plots[chart.id],
-      element, svg };
+      element, svg, scale: null, tickLabels: [], lines: [] };
+    for (const member of chartMembers) member.part = part;
     if (DURING_GAME_LEGEND_LEADS[chart.scale] !== undefined) {
       const lead = document.createElement('span');
       lead.className = 'during-game-legend-lead';
@@ -599,7 +654,8 @@ function renderDuringGameCharts(charts, view, { raw, relativeScale, picks }) {
         member.row.summary === undefined ? 'not measured' : member.spec.format(member.row.summary)));
     }
     applyPicks(part);
-    element.append(legend, svg);
+    // Each legend under what it names, as the tracks' is (creator 2026-10-26).
+    element.append(svg, legend);
     drawnCharts.push(part);
   }
   const trackMembers = members.filter((member) => member.spec.track !== undefined);
@@ -625,8 +681,9 @@ function renderDuringGameCharts(charts, view, { raw, relativeScale, picks }) {
     svg.setAttribute('role', 'img');
     svg.setAttribute('aria-label', 'events during this game');
     const legend = document.createElement('div');
-    legend.className = 'during-game-legend during-game-track-legend';
+    legend.className = 'during-game-legend';
     tracks = { id: DURING_GAME_TRACKS_ID, element, names, svg, used, members: trackMembers };
+    for (const member of trackMembers) member.part = tracks;
     for (const track of used) {
       for (const member of track.members) {
         legend.appendChild(legendEntry(tracks, member, duringGameLegendMark(member.spec),
@@ -648,12 +705,17 @@ function renderDuringGameCharts(charts, view, { raw, relativeScale, picks }) {
   line.className = 'during-game-line';
   line.hidden = true;
   charts.appendChild(line);
+  duringGameSpotlight = (metricIds) => focus(members.filter((member) => !member.hidden
+    && duringGameMeasurementsOf(member.spec).some((id) => metricIds.includes(id))));
 
   const left = duringGameLeftMargin(drawnCharts, tracks);
   let axis = null;
   function drawPart(part) {
     if (part === tracks) drawDuringGameTracks(tracks, axis, labeledPart(part));
-    else drawDuringGameChart(part, axis, labeledPart(part), relativeScale);
+    else {
+      drawDuringGameChart(part, axis, labeledPart(part), relativeScale);
+      if (part.chart.scale === 'relative') labelTicks(part);
+    }
   }
   function layout() {
     const width = Math.floor(charts.clientWidth);
@@ -666,9 +728,9 @@ function renderDuringGameCharts(charts, view, { raw, relativeScale, picks }) {
       ticks: niceTicks(0, view.timeMs / 1000, Math.max(2, Math.floor(plotWidth / 56))),
     };
     const kept = focused;
-    focus(null, null);
+    focus([]);
     parts.forEach(drawPart);
-    if (kept !== null) focus(kept.svg, kept.member);
+    focus(kept);
   }
 
   // The replay step showing the board at a moment: the first action after
@@ -750,22 +812,29 @@ function renderDuringGameCharts(charts, view, { raw, relativeScale, picks }) {
 
   function hide() {
     line.hidden = true;
-    focus(null, null);
+    pointFocus(null);
     hideDuringGameHover();
   }
   // The board shows the moment under the pointer anywhere along the time
   // axis, through the replay's own frames.
   charts.addEventListener('pointermove', (event) => {
+    // Over a legend entry its series stays in focus, also where the entry
+    // sits left of the plots, outside the time axis.
+    const onLegendEntry = event.target.closest('.during-game-legend-item') !== null;
     const moment = momentAt(event);
-    if (moment === null) { hide(); return; }
+    if (moment === null) {
+      line.hidden = true;
+      if (!onLegendEntry) pointFocus(null);
+      hideDuringGameHover();
+      return;
+    }
     line.style.left = axis.x(moment.atMs) + 'px';
     line.hidden = false;
     previewReplayStep(stepAt(moment));
     const part = partAt(event.clientY);
-    // Over a name, its definition shows instead of the card; over a legend
-    // entry, its series stays in focus.
+    // Over a name, its definition shows instead of the card.
     if (part === null || event.target.closest('.chart-help-wrap')) {
-      if (!event.target.closest('.during-game-legend-item')) focus(null, null);
+      if (!onLegendEntry) pointFocus(null);
       if (card.matches(':popover-open')) card.hidePopover();
       return;
     }
@@ -773,7 +842,7 @@ function renderDuringGameCharts(charts, view, { raw, relativeScale, picks }) {
       .flatMap((member) => duringGameEventsAt(member.row, moment.atMs, moment.toleranceMs))
       .sort((a, b) => a.atMs - b.atMs) : [];
     const nearest = part.chart ? lineAt(part.chart, moment, event.clientY) : null;
-    focus(nearest === null ? null : part.chart.svg, nearest === null ? null : nearest.member);
+    pointFocus(nearest === null ? null : nearest.member);
     fillCard(moment.atMs, part, nearest, events);
     if (!card.matches(':popover-open')) card.showPopover();
     placeDuringGameCard(card, event);
@@ -872,7 +941,7 @@ function buildDuringGameBlock(record, isCurrent) {
       for (const row of DuringGame.ROWS.filter((item) => item.group === groupId)) {
         const tr = document.createElement('tr');
         const name = document.createElement('td');
-        name.appendChild(chartHelpButton(row.help, row.name));
+        name.appendChild(duringGameRowName(row));
         const cell = document.createElement('td');
         const input = document.createElement('input');
         input.type = 'checkbox';

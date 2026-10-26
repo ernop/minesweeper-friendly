@@ -163,6 +163,14 @@ layout stability, no distracting duplicate live values, clear ways in and out) l
 [docs/product/ui-doctrine.md](docs/product/ui-doctrine.md) — read it before
 building or reshaping any surface.
 
+One definition per measurement (user request 2026-10-26: "a global clear
+definition of exactly what it is and how we think about it, uniquely across
+the ENTIRE coddebase"): every performance measurement's id, name,
+definition, format, direction, games covered, and formula live once, in
+`GameData.metrics` (`game-data.js`). Every surface reads them from there
+and none renames, redefines, or recomputes a measurement
+([docs/product/measurement-catalog.md](docs/product/measurement-catalog.md)).
+
 Unbuilt work lives in one file: [BACKLOG.md](BACKLOG.md). That is the
 place for generation ideas, deferred product, and requested rank lists
 that are not in the game yet. Do not leave new ideas only in chat.
@@ -178,7 +186,7 @@ the file path, plus the section heading when the file holds several.
 | Area | Product spec | Implementation notes |
 | --- | --- | --- |
 | Public hosting and deployment, play statistics | [docs/product/hosting.md](docs/product/hosting.md) | [docs/implementation/hosting.md](docs/implementation/hosting.md) |
-| Friendliness axis, deduction levels | [docs/product/design-axis.md](docs/product/design-axis.md) | none |
+| Friendliness axis, deduction levels, move hierarchy (how the moves available at any moment are characterized, from proven moves to guesses and output per hour) | [docs/product/design-axis.md](docs/product/design-axis.md) | none |
 | UI doctrine (read before any UI work) | [docs/product/ui-doctrine.md](docs/product/ui-doctrine.md) | none |
 | Board chrome, page layout (game setup rows, top bar, settings row, footer), board position | [docs/product/board-and-layout.md](docs/product/board-and-layout.md) | [docs/implementation/board-and-layout.md](docs/implementation/board-and-layout.md) |
 | Play modes (Angelic, Endgame drill, trials, 3BV countdown, Board lab; the removed no-guess modes) | [docs/product/play-modes.md](docs/product/play-modes.md) | [docs/implementation/play-modes.md](docs/implementation/play-modes.md) |
@@ -188,6 +196,7 @@ the file path, plus the section heading when the file holds several.
 | Result presentation and ordering | [docs/product/results.md](docs/product/results.md) | [docs/implementation/results.md](docs/implementation/results.md) |
 | Game data chart, shared session, switch cost line | [docs/product/game-data.md](docs/product/game-data.md) | [docs/implementation/game-data.md](docs/implementation/game-data.md) |
 | Live perf charts (in-game rows over time, moves available by deduction level and chordable numbers, detected events: clicks, jumps and why each move happened, pauses) | [docs/product/during-game.md](docs/product/during-game.md) | [docs/implementation/during-game.md](docs/implementation/during-game.md) |
+| Measurement catalog (one id, name, definition, format, direction, games covered, and formula per measurement on every surface; the hover link between game summary perf and live perf charts; renamed ids) | [docs/product/measurement-catalog.md](docs/product/measurement-catalog.md) | [docs/implementation/measurement-catalog.md](docs/implementation/measurement-catalog.md) |
 | Rank lists, highlights, recent placements, streaks, session summary and its results tree (incl. abandoned boards) | [docs/product/rankings.md](docs/product/rankings.md) | [docs/implementation/rankings.md](docs/implementation/rankings.md) |
 | Average-time charts, scatter plots | [docs/product/charts.md](docs/product/charts.md) | [docs/implementation/charts.md](docs/implementation/charts.md) |
 | Path and choice replay | [docs/product/replay.md](docs/product/replay.md) | [docs/implementation/replay.md](docs/implementation/replay.md) |
@@ -302,6 +311,18 @@ design in this repo and extend the Anti-Fallback Principle above.
 7. Correct division of concepts: nothing duplicated, nothing that is one
    thing split, nothing that is two things merged. Storing a derived value
    next to its primaries is duplication.
+8. Exact values, never estimates (creator direction 2026-10-22, on the guess
+   ledger's one-move expected life: "we definitely shouldn't use such
+   incorrect 'estimates' especially in UIs which present data as true! Note:
+   do NOT ever 'just add a note saying approximately'. That's not a
+   solution. In general, more notes aren't the solution; the answer is to do
+   things properly and in the best way! if 'too large to measure' i think
+   we'd better think a wee bit more carefully"). Every value shown or stored
+   as a fact is computed exactly by its definition. A shortcut that
+   approximates it is a defect to fix; a caption or note ("approximately",
+   "may differ") never fixes one. A size limit is a reason to find a method
+   that scales (count instead of listing cases, use symmetry, dynamic
+   programming), not to give up or substitute a value.
 
 Refinement to 4 and 7 (2026-08-20, decided with the user): "store each
 primary fact exactly once" means store every independently MEASURED

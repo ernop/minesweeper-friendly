@@ -179,12 +179,27 @@ function withoutRemovedGameDataMetric(selection) {
   return kept;
 }
 
+// Five measurement ids were renamed to say what they name on 2026-10-26
+// (docs/product/measurement-catalog.md). Game data and live perf chart
+// selections saved before then still name the old ids, and their validators
+// reject any unknown entry; each keeps its choice under the new id.
+const RENAMED_MEASUREMENT_IDS = Object.freeze({
+  correctness: 'boardChangingClickShare', moveTime: 'timeBeforeMove', unusedMarkShare: 'unusedFlagShare',
+  excessGameRisk: 'excessGameRiskRate', modeledLifeGap: 'modeledLifeGapRate',
+});
+function withCurrentMeasurementIds(selection) {
+  if (!preferenceObject(selection)) return selection;
+  return Object.fromEntries(Object.entries(selection).map(([id, shown]) =>
+    [Object.hasOwn(RENAMED_MEASUREMENT_IDS, id) ? RENAMED_MEASUREMENT_IDS[id] : id, shown]));
+}
+
 // One selection replaced the separate lifetime and session selections
 // (2026-10-07); a measurement either of them showed stays shown.
 function gameDataMetricsFromStored(stored) {
-  if (Object.hasOwn(stored, 'gameDataMetrics')) return withoutRemovedGameDataMetric(stored.gameDataMetrics);
+  const current = (selection) => withCurrentMeasurementIds(withoutRemovedGameDataMetric(selection));
+  if (Object.hasOwn(stored, 'gameDataMetrics')) return current(stored.gameDataMetrics);
   const old = [stored.gameDataLifetimeMetrics, stored.gameDataSessionMetrics]
-    .map(withoutRemovedGameDataMetric).filter(validGameDataMetrics);
+    .map(current).filter(validGameDataMetrics);
   if (old.length === 0) return GameData.defaults;
   return Object.fromEntries(Object.keys(GameData.defaults).map((id) =>
     [id, old.some((selection) => selection[id] ?? GameData.defaults[id])]));
@@ -281,7 +296,7 @@ function panelsFromStored(stored) {
 // preferenceBooleans rejects any unknown entry. Both new rows take its choice.
 function duringGameRowsFromStored(stored) {
   if (!Object.hasOwn(stored, 'duringGameRows')) return DuringGame.defaults;
-  const rows = stored.duringGameRows;
+  const rows = withCurrentMeasurementIds(stored.duringGameRows);
   if (!preferenceObject(rows) || !Object.hasOwn(rows, 'leftWorkEvents')) return rows;
   const { leftWorkEvents, ...kept } = rows;
   return { leftHardWorkEvents: leftWorkEvents, leftEasyWorkEvents: leftWorkEvents, ...kept };

@@ -175,13 +175,13 @@ main {
   gap: 5px;
 }
 
-/*-------TOP BAR (today's play, settings)-------*/
+/*-------TOP BAR (today's play, daily limits, settings)-------*/
 
 /* The page's upper right: above the docked details column, sticky with it,
    or above the board column when the details are the compact popover. It
-   holds today's use against the daily limits, live status, and the settings
-   page's button at its right end; the settings row at the page foot holds
-   the rest of the configuration. */
+   holds today's use against the daily limits, live status, then the daily
+   limits link and the settings page's button at its right end; the settings
+   row at the page foot holds the rest of the configuration. */
 #top-bar {
   grid-column: 2;
   grid-row: 1;
@@ -214,10 +214,11 @@ main {
 
 /*-------SETTINGS ROW (the player's global configuration, at the page foot)-------*/
 
-/* What the player configures for every game, besides the settings page's
-   button in the top bar, sits in this one row: the daily limits, the session
-   window, and the board display (Zoom, position, pixel ratio). Each group
-   keeps together when the row wraps, and wider gaps separate the groups. */
+/* What the player configures for every game, besides the daily limits link
+   and the settings page's button in the top bar, sits in this one row: the
+   session window and the board display (Zoom, position, pixel ratio). Each
+   group keeps together when the row wraps, and wider gaps separate the
+   groups. */
 #settings-row {
   display: flex;
   flex-wrap: wrap;
@@ -2475,12 +2476,14 @@ body.settings-page .return-to-game {
 .during-game-charts { position: relative; cursor: crosshair; }
 .during-game-charts.during-game-empty { padding: 6px 0; font-size: 13px; cursor: auto; }
 .during-game-chart { position: relative; }
-.during-game-chart + .during-game-chart { margin-top: 2px; }
+/* Each legend sits under its part, nearer it than the next part. */
+.during-game-chart + .during-game-chart { margin-top: 8px; }
 .during-game-chart > svg { display: block; }
 .during-game-legend {
   display: flex;
   flex-wrap: wrap;
   gap: 0 12px;
+  margin-top: 1px;
   line-height: 17px;
   cursor: auto;
 }
@@ -2488,7 +2491,8 @@ body.settings-page .return-to-game {
 .during-game-legend-lead { font-weight: 700; }
 .during-game-legend-mark { display: inline-block; vertical-align: -1px; margin-right: 4px; }
 /* A row its legend hides keeps its entry and value; its name is struck. */
-.during-game-legend-off .chart-help.chart-help-label { text-decoration: line-through; }
+.during-game-legend-off .chart-help.chart-help-label,
+.during-game-legend-off .during-game-row-name { text-decoration: line-through; }
 /* 1x, each line's whole-game value, anchors the relative chart. */
 .during-game-reference { stroke: #000000; stroke-width: 1; }
 /* Raw marks are context under an average's line, the data itself in raw. */
@@ -2506,7 +2510,6 @@ body.settings-page .return-to-game {
   white-space: nowrap;
 }
 .during-game-mark { stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-.during-game-track-legend { margin-top: 1px; }
 .during-game-line {
   position: absolute;
   top: 0;
@@ -2879,6 +2882,15 @@ body.settings-page .return-to-game {
   white-space: nowrap;
 }
 .game-data-linked { outline: 1px solid #000000; box-shadow: 0 0 0 4px var(--this-game), 0 0 0 5px #000000; }
+/* A game summary perf row while its live perf charts line or legend entry
+   is hovered: a ring inside the row, so it never overlaps the rows beside
+   it or reflows them. */
+.game-data-row.game-data-linked,
+.game-data-dist-row.game-data-linked { outline: none; box-shadow: none; }
+.game-data-row.game-data-linked > .chart-help-label,
+.game-data-dist-row.game-data-linked > .chart-help-label {
+  box-shadow: inset 0 0 0 1px #000000, inset 0 0 0 3px var(--this-game);
+}
 .board-time-profile select { font: inherit; color: inherit; max-width: 100%; }
 .board-time-profile button:not(.chart-help),
 .during-game button:not(.chart-help) {

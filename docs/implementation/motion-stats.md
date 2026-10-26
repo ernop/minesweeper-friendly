@@ -42,7 +42,9 @@ Spec: [docs/product/motion-stats.md](../product/motion-stats.md). Index: [AGENTS
   `game/metric-definitions.js` holds `TRACE_METRIC_GROUPS` (per system: key,
   name, help, displays of {label, help, of, fmt}; series identity is
   metricSeriesKey = group key + label; not everything computed is
-  displayed). `game/motion-stats.js` holds the rest: `metricsSeries` (reset
+  displayed). A display of a game data measurement (cadence spread) is
+  `catalogMetricDisplay(id, of)`, its label, help, and format from
+  `GameData.metrics` ([measurement catalog](measurement-catalog.md)). `game/motion-stats.js` holds the rest: `metricsSeries` (reset
   by `beginTraceMetricsSeries` from `beginTrace`), `buildSparkline(tMs,
   values, size)` with the SPARK_LARGE geometry from `game/charts.js`,
   and `buildMetricRow` and `buildMetricsGroupHead` (each label is a

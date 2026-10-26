@@ -7,7 +7,8 @@
 //-------PLAY HISTORY (every finished game kept per mode)-------
 
 // Version stamps each record carries: the random stream, the board
-// placement algorithm, and the Justice rule its game ran under.
+// placement algorithm, the Justice rule its game ran under, and the guess
+// scoring its ledger used.
 const RNG_VERSION = GameRandom.VERSION;
 // One version string per board generator (generators.js); a record's
 // boardVersion names the exact placement algorithm its seed replays
@@ -20,6 +21,7 @@ const JUSTICE_VERSIONS = new Set([
   'sealed-pocket-mercy-v2',
   JUSTICE_VERSION,
 ]);
+const ODDS_VERSIONS = new Set(['guess-ledger-v1', Odds.VERSION]);
 
 // The game-record schema: one record per finished game, win or loss,
 // holding only the primary measurements; every other displayed stat is
@@ -80,8 +82,8 @@ const GAME_RECORD_SCHEMA = [
   { field: 'flagsRemoved', valid: (v) => v === undefined || isNumber(v), example: '1', describe: 'flag states the player turned off; placement and removal are each board-changing clicks; the reason for removal is not observed; absent on games recorded before 2026-08-20' },
   { field: 'unusedCorrectFlags', valid: (v) => v === undefined || isNumber(v), example: '2', describe: 'on a win, correct mine-flag placement episodes that ended or were removed without ever contributing to an accepted chord; absent on losses and games recorded before 2026-08-28 because an unfinished solve cannot establish whether a standing mark would later have been used' },
   { field: 'mousePathPx', valid: isNumber, example: '1182', describe: 'cursor travel while playing, px' },
-  { field: 'fastclickGapMs', valid: (v) => v === undefined || isNumber(v), example: '218', describe: 'median gap between consecutive board-changing presses made on the move (cursor moving within 100ms before) with gaps under 1s; absent when no gap qualified or on games recorded before 2026-08-22' },
-  { field: 'cadenceSpread', valid: (v) => v === undefined || isNumber(v), example: '1.42', describe: 'press-to-press rhythm consistency: interquartile range of all button-press gaps (wasted presses included) divided by their median — 0 means metronomic, larger means burstier; measured for wins and losses; absent under two measurable gaps or on games recorded before 2026-08-30' },
+  { field: 'fastclickGapMs', valid: (v) => v === undefined || isNumber(v), example: '218', describe: 'median gap between consecutive board-changing clicks, counting gaps of at most 1 s that end in a click made on the move (a cursor sample within 100 ms before it), rounded to the ms; from the trace since 2026-10-26, from the wall clock before; absent when no gap qualified or on games recorded before 2026-08-22' },
+  { field: 'cadenceSpread', valid: (v) => v === undefined || isNumber(v), example: '1.42', describe: 'press-to-press rhythm consistency: interquartile range of all button-press gaps (wasted presses included) divided by their median — 0 means metronomic, larger means burstier; measured for wins and losses; unrounded since 2026-10-26, rounded to 3 decimals before; absent under two measurable gaps or on games recorded before 2026-08-30' },
   { field: 'movesRanOut', valid: (v) => v === undefined || isCount(v), example: '4', describe: 'moves made once the local work had run out: a move is a board-changing click 3 or more squares from everything the board-changing click before it opened or marked and from the proven-safe squares within 2 squares of those; measured for wins and losses from the trace; absent where the prover stopped at its work limit at a move, and on games recorded before 2026-10-20 until their result is next restored' },
   { field: 'movesLeftHardWork', valid: (v) => v === undefined || isCount(v), example: '2', describe: 'moves made while proven-safe squares were still within 2 squares of the click before, none of which counting a single number proved: the local work had turned slow; absent with movesRanOut' },
   { field: 'movesLeftEasyWork', valid: (v) => v === undefined || isCount(v), example: '1', describe: 'moves made while counting a single number had proved a square within 2 squares of the click before safe; absent with movesRanOut' },
@@ -116,7 +118,7 @@ const GAME_RECORD_SCHEMA = [
   { field: 'guessPerfect', valid: (v) => v === undefined || isNumber(v), example: '1', describe: 'guesses that maximized one-ply expected remaining life (survival times leftover min-risk after the number you would see); absent with guesses' },
   { field: 'lifeLost', valid: (v) => v === undefined || isNumber(v), example: '0.75', describe: 'sum of mine probabilities of guessed cells (absolute multiverse lives spent); absent with guesses' },
   { field: 'lifeNeedless', valid: (v) => v === undefined || isNumber(v), example: '0.25', describe: 'sum of (chosen risk minus safest available risk); an ideal-risk guess costs 0 even at 19% death; absent with guesses' },
-  { field: 'oddsVersion', valid: (v) => v === undefined || v === Odds.VERSION, example: '"' + Odds.VERSION + '"', describe: 'remaining-layout odds and guess-scoring contract; absent on earlier games' },
+  { field: 'oddsVersion', valid: (v) => v === undefined || ODDS_VERSIONS.has(v), example: '"' + Odds.VERSION + '"', describe: 'remaining-layout odds and guess-scoring contract; v2 weighs each number a guessed square could show by the whole-board layouts that show it (v1 counted each layout of the square\u2019s group once, including layouts the remaining mine count rules out); absent on earlier games' },
   { field: 'stupidDeath', legacy: true, valid: (v) => v === undefined || typeof v === 'boolean', example: 'true', describe: 'legacy import-only avoidable-death boolean; normalized into actionEvaluations and removed immediately' },
   { field: 'deathKind', legacy: true, valid: (v) => v === undefined || v in DEATH_KIND_LABELS, example: '"angel"', describe: 'legacy import-only five-way death verdict; normalized into actionEvaluations and removed immediately' },
   { field: 'deathRisk', legacy: true, valid: (v) => v === undefined || isNumber(v), example: '0.25', describe: 'legacy import-only selected risk; normalized into actionEvaluations and removed immediately' },

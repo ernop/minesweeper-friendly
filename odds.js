@@ -14,7 +14,7 @@ if (typeof Justice === 'undefined') {
 // Enumeration is exact on residual clue components plus a binomial sea.
 // Over budget returns {measured: false}; callers must not invent odds.
 
-const ODDS_VERSION = 'guess-ledger-v1';
+const ODDS_VERSION = 'guess-ledger-v2';
 const MAX_COMPONENT_VARS = 22;
 const MAX_VISITS = 250000;
 
@@ -200,17 +200,23 @@ function analyzeView(view, opts) {
       const others = convolveCounts(prefix[c], suffix[c + 1]);
       const { mineLayouts } = byCount[c];
       const cells = components[c].cells;
+      // restWeights[k]: the layouts of the rest of the board (the other
+      // components and the sea) that complete one of this component's
+      // layouts holding k mines; 0 when the mine count rules it out.
+      const restWeights = new Array(mineLayouts.length).fill(0);
       for (let mines = 0; mines < mineLayouts.length; mines++) {
         let restWeight = 0;
         for (let otherMines = 0; otherMines < others.length; otherMines++) {
           if (others[otherMines] !== 0) restWeight += others[otherMines] * seaWeight[mines + otherMines];
         }
+        restWeights[mines] = restWeight;
         if (restWeight === 0) continue;
         const perCell = mineLayouts[mines];
         for (let i = 0; i < cells.length; i++) {
           if (perCell[i] !== 0) mineWeight[cells[i]] += perCell[i] * restWeight;
         }
       }
+      components[c].restWeights = restWeights;
     }
   }
 
@@ -297,7 +303,8 @@ function nextView(view, cell, number) {
 // One-ply expected remaining life if you click `cell` and then take the
 // lowest remaining raw risk. Sea cells update by hypergeometric count.
 // Frontier cells whose unknown neighbors all sit in enumerated components
-// get a real number-partition lookahead. Anything else falls back to
+// get a real number-partition lookahead, each number weighted by the
+// whole-board layouts that show it. Anything else falls back to
 // survival only (1 - p), which gives no information credit.
 function expectedLife(view, odds, cell) {
   const pDie = odds.pMine[cell];
@@ -332,18 +339,21 @@ function expectedLife(view, odds, cell) {
   const buckets = new Map();
   let safeWeight = 0;
   for (const sol of component.solutions) {
-    if (sol.mines[local]) continue;
+    // A layout the board's mine count rules out can show a number no
+    // consistent position holds, a position the proof rejects.
+    const weight = component.restWeights[sol.mineCount];
+    if (sol.mines[local] || weight === 0) continue;
     if (shape === null) return survive;
     let number = shape.provenMines;
     for (const i of shape.localNeighbors) if (sol.mines[i]) number++;
     const key = String(number);
-    buckets.set(key, (buckets.get(key) || 0) + 1);
-    safeWeight++;
+    buckets.set(key, (buckets.get(key) || 0) + weight);
+    safeWeight += weight;
   }
   if (safeWeight === 0) return 0;
 
   let value = 0;
-  buckets.forEach((count, key) => {
+  buckets.forEach((weight, key) => {
     const next = analyzeView(nextView(view, cell, Number(key)), {
       // One-ply scoring can inspect up to forty hypothetical positions.
       // Keep each canonical proof bounded; incomplete facts remain sound,
@@ -352,7 +362,7 @@ function expectedLife(view, odds, cell) {
       proof: { maxVisits: 80000 },
     });
     const nextMin = next.measured ? minRisk(next) : minRisk(odds);
-    value += (count / safeWeight) * (1 - nextMin);
+    value += (weight / safeWeight) * (1 - nextMin);
   });
   return survive * value;
 }

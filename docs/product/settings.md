@@ -67,9 +67,9 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
 - One place for the player's global configuration (creator 2026-10-20:
   "all usre-specific global configuration should be in the same place"):
   on the game page it is the settings row at the page foot, holding the
-  daily limits link, the session picker, and the board display (Zoom,
-  position, pixel ratio), with the settings page's own button at the upper
-  right since 2026-10-21 (below)
+  session picker and the board display (Zoom, position, pixel ratio), with
+  the settings page's own button (below) at the upper right since
+  2026-10-21 and the daily limits link beside it since 2026-10-22
   ([Game setup, top bar, settings row, and footer](board-and-layout.md#game-setup-top-bar-settings-row-and-footer)).
   Choices that belong to one game setup, the board size and the generator,
   stay beside the mode they configure. Each option has one place (creator
@@ -182,7 +182,9 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   [Board and chrome](board-and-layout.md));
   `gameDataMetrics` (one selection for both comparisons since 2026-10-07,
   replacing separate lifetime and session selections; a measurement either
-  of them showed stays shown), `gameDataBoardTraits` (since 2026-10-14: which
+  of them showed stays shown; a choice saved under an id renamed on
+  2026-10-26 keeps its choice under the new id, as in `duringGameRows`:
+  [Measurement catalog](measurement-catalog.md), "Ids renamed 2026-10-26"), `gameDataBoardTraits` (since 2026-10-14: which
   board traits game data ranks, chosen in its configure, apart from the This
   board table switches; a profile saved before then starts from what those
   switches showed), `gameDataSwitchCost` (default off, since 2026-10-20:

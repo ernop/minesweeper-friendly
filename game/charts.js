@@ -401,15 +401,12 @@ function roundTo(value, step) {
   return Number((Math.round(value / step) * step).toFixed(decimals));
 }
 
-function metricName(id) {
-  return GameData.metrics.find((item) => item.id === id).name;
-}
-
 // measurementId names the game data measurement a chart plots, so the two
 // can be linked; charts of chart-only quantities have none. A `percent`
 // share plots in percent, `step` in percentage points; a null step keeps
-// the exact values of a measurement that is already discrete.
-function steppedMetric(id, step, { percent = false, ...extra } = {}) {
+// the exact values of a measurement that is already discrete. A
+// measurement game data compares on wins only is win-bound here too.
+function steppedMetric(id, step, { percent = false } = {}) {
   const metric = GameData.metrics.find((item) => item.id === id);
   const read = percent ? (record) => 100 * metric.value(record, config)
     : (record) => metric.value(record, config);
@@ -422,45 +419,33 @@ function steppedMetric(id, step, { percent = false, ...extra } = {}) {
     },
     has: (record) => Number.isFinite(read(record)),
     ...(percent ? { xTickUnit: '%' } : {}),
-    ...extra,
+    ...(metric.allOutcomes ? {} : { winBound: true }),
   };
 }
 
 const PERF_CHART_SPECS = [
   { label: 'clicks', value: (s) => s.clicks },
   { label: 'path', value: (s) => Math.round(s.mousePathPx / 100) * 100 },
-  { label: 'clicks over 3BV', value: (s) => s.clicks - s.bv3 },
+  // A loss's 3BV is the whole board's, not what it solved.
+  { label: 'clicks over 3BV', value: (s) => s.clicks - s.bv3, winBound: true },
   steppedMetric('misclickRate', 0.1),
   steppedMetric('fastclickGap', 10),
   steppedMetric('bvPerSecond', 0.1),
   steppedMetric('clickRate', 0.1),
   steppedMetric('noopRate', 0.1),
-  steppedMetric('efficiency', 0.01, { winBound: true }),
-  {
-    label: metricName('pathPer3bv'), measurementId: 'pathPer3bv',
-    value: (s) => s.bv3 > 0 ? Math.round((s.mousePathPx / s.bv3) / 10) * 10 : undefined,
-    has: (s) => s.bv3 > 0,
-  },
-  {
-    label: metricName('pathPerClick'), measurementId: 'pathPerClick',
-    value: (s) => s.clicks > 0 ? Math.round((s.mousePathPx / s.clicks) / 10) * 10 : undefined,
-    has: (s) => s.clicks > 0,
-  },
-  steppedMetric('correctness', 0.01),
-  steppedMetric('ioe', 0.01, { winBound: true }),
-  steppedMetric('ziniEfficiency', 0.01, { winBound: true }),
-  steppedMetric('hziniEfficiency', 0.01, { winBound: true }),
-  {
-    label: metricName('ios'), measurementId: 'ios',
-    value: (s) => iosOf(s) === undefined ? undefined : Number(iosOf(s).toFixed(2)),
-    has: (s) => iosOf(s) !== undefined,
-    winBound: true,
-  },
-  steppedMetric('stnb', 1, { winBound: true }),
+  steppedMetric('efficiency', 0.01),
+  steppedMetric('pathPer3bv', 10),
+  steppedMetric('pathPerClick', 10),
+  steppedMetric('boardChangingClickShare', 0.01),
+  steppedMetric('ioe', 0.01),
+  steppedMetric('ziniEfficiency', 0.01),
+  steppedMetric('hziniEfficiency', 0.01),
+  steppedMetric('ios', 0.01),
+  steppedMetric('stnb', 1),
   steppedMetric('mouseSpeed', 50),
   steppedMetric('cadenceSpread', 0.1),
-  steppedMetric('unusedMarkShare', 5, { percent: true, winBound: true }),
-  steppedMetric('unflaggedMineShare', null, { percent: true, winBound: true }),
+  steppedMetric('unusedFlagShare', 5, { percent: true }),
+  steppedMetric('unflaggedMineShare', null, { percent: true }),
 ];
 
 const BOARD_CHART_SPECS = [

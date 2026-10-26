@@ -33,7 +33,7 @@ single-file spec; older references cite them as `PRODUCT.md "Heading"`.
 
 - [docs/product/hosting.md](docs/product/hosting.md) — Independent Fuseki application hosting, browser-origin isolation, release boundaries, and the hosted site's play statistics.
 
-- [docs/product/design-axis.md](docs/product/design-axis.md) — The friendliness axis from naive random to the angelic dual of Kaboom, and the deduction levels (counting, overlap, all numbers, mine total) that grade how hard each fact is to know and define "solvable".
+- [docs/product/design-axis.md](docs/product/design-axis.md) — The friendliness axis from naive random to the angelic dual of Kaboom, and the deduction levels (counting, overlap, all numbers, mine total) that grade how hard each fact is to know and define "solvable"; the move hierarchy: how the moves available at any moment are characterized, from proven moves through guesses to the player's output per hour, and what is built at each level.
 - [docs/product/ui-doctrine.md](docs/product/ui-doctrine.md) — App-wide directives (simplicity first, defaults show nothing extra, global configuration in one place, useful optional help, no hover reflow, unshortened legend labels, layout stability). Read before building or reshaping any surface. Section: "UI doctrine".
 - [docs/product/board-and-layout.md](docs/product/board-and-layout.md) — The classic skin and board chrome, the game setup rows, top bar, settings row, and footer, and the page columns around a board that never moves. Sections: "Board and chrome", "Game setup, top bar, settings row, and footer", "Layout: the board never moves".
 
@@ -57,6 +57,7 @@ single-file spec; older references cite them as `PRODUCT.md "Heading"`.
 
 - [docs/product/measurement.md](docs/product/measurement.md) — Why games are measured (comparison within one player, no causal inference), the lifelong self-measurement design, and the behavioral-signature research. Section: "Measurement purpose".
 - [docs/product/self-check.md](docs/product/self-check.md) — The frozen reference check (sleepiness rating plus a 10-counter alertness test) for comparison over years: protocols, versioning, stored record, result, history, and backup.
+- [docs/product/measurement-catalog.md](docs/product/measurement-catalog.md) — The one definition of every performance measurement (id, name, definition, format, direction, games covered, formula) that every surface reads, the same whole-game value in game data and the live perf charts, and the hover link between them.
 - [docs/product/per-game-stats.md](docs/product/per-game-stats.md) — The fields recorded per finished game, derived rates, board measurements and backfill, the guess ledger, and music playing. Section: "Per-game stats".
 - [docs/product/motion-stats.md](docs/product/motion-stats.md) — Mouse-dynamics features computed from the trace, live during the game and final after it, in one open/close section at the page foot. Section: "Motion stats".
 - [docs/product/session-stats.md](docs/product/session-stats.md) — The left stats panel's session charts, removed 2026-10-20: the creator's decision, where each part went, and the chart ideas worth reusing. Section: "Session stats".

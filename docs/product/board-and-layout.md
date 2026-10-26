@@ -280,25 +280,26 @@ duplicative and needlessly complex."
   second size form of its own.
 - **Top bar**: today's use against the daily limits, as plain text once
   any limit is set ("today: 12m 34s of 30m · 14 of 50 games", red once one
-  is reached; [Daily play limits](play-limits.md)), then the **settings**
-  button (the settings page) at its right end. Today's use is live status,
-  not configuration, so it stays in view: a refused flag press flashes its
-  outline. With the details column docked the bar sits above it at the
-  page's upper right, sticky with it; with the Game details popover it sits
-  above the board column, right-aligned; below 700px it is the first row.
-  Without limits it holds only settings. The settings button returned here
-  on 2026-10-21 (creator: "move "settings" to upper right."); from
-  2026-10-20 it sat in the settings row at the page foot, and from
-  2026-10-14 to 2026-10-20 the bar also held the daily limits link, the
-  session picker, and an "other pages" menu.
+  is reached; [Daily play limits](play-limits.md)), then the **daily
+  limits** button (the settings page's limits panel, always shown and
+  always so labeled), then the **settings** button (the settings page) at
+  its right end. Today's use is live status, not configuration, so it
+  stays in view: a refused flag press flashes its outline. With the details
+  column docked the bar sits above it at the page's upper right, sticky
+  with it; with the Game details popover it sits above the board column,
+  right-aligned; below 700px it is the first row. Without limits it holds
+  the two buttons. The daily limits button returned here on 2026-10-22
+  (creator: "move "daily limits" control button back up to UR") and the
+  settings button on 2026-10-21 (creator: "move "settings" to upper
+  right."); from 2026-10-20 each sat in the settings row at the page foot,
+  and from 2026-10-14 to 2026-10-20 the bar also held the session picker
+  and an "other pages" menu.
 - **Settings row**, at the page foot under the motion stats section and the
   backup row: the rest of what the player configures for every game, in
-  three groups:
-  1. **daily limits** (the settings page's limits panel), always shown and
-     always so labeled.
-  2. The session picker labeled "session"
+  two groups:
+  1. The session picker labeled "session"
      ([One session definition](game-data.md#one-session-definition)).
-  3. The board display: Zoom, **position**, and the pixel ratio.
+  2. The board display: Zoom, **position**, and the pixel ratio.
 
   Items within a group sit 6px apart and groups 22px apart; a group never
   splits across rows. Per-mode choices (board size, generator) are not

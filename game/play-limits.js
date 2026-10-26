@@ -4,10 +4,10 @@
 // each board plays and shared live with other tabs, every saved one held for
 // the session results' abandoned boards), the gate that keeps a
 // new board from starting while the day is closed, the no-flags penalty
-// stage, the notice over a closed board, and today's use in the top bar (in
-// view during play, where a refused flag press flashes it; the limits link
-// is in the settings row at the page foot). The rules are the pure
-// play-limits.js; limits and the penalty are set only on the settings page.
+// stage, the notice over a closed board, and today's use in the top bar,
+// before the limits link (in view during play, where a refused flag press
+// flashes it). The rules are the pure play-limits.js; limits and the penalty
+// are set only on the settings page.
 
 //-------DAILY PLAY LIMITS-------
 

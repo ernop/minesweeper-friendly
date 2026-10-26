@@ -1,15 +1,15 @@
 "use strict";
 
 importScripts('trend-fit.js?v=20260925-worker-analysis',
-  'game/trace-metrics.js?v=20261026-this-game-stats',
-  'game/evaluation.js?v=20261026-this-game-stats',
-  'game/metric-definitions.js?v=20261026-this-game-stats',
+  'game/trace-metrics.js?v=20261026-legends-below',
+  'game/evaluation.js?v=20261026-legends-below',
+  'game-data.js?v=20261026-legends-below', 'game/metric-definitions.js?v=20261026-legends-below',
   'board-shape.js?v=20261020-no-left-panel', 'zini.js?v=20261020-no-left-panel', 'board-metrics.js?v=20261020-no-left-panel',
-  'game-data.js?v=20261020-move-habits', 'game/rankings.js?v=20261026-this-game-stats',
-  'game/charts.js?v=20261026-this-game-stats', 'game/game-data-chart.js?v=20261026-this-game-stats',
+  'game/rankings.js?v=20261026-legends-below',
+  'game/charts.js?v=20261026-legends-below', 'game/game-data-chart.js?v=20261026-legends-below',
   'justice.js?v=20261026-moves-available', 'board-icons.js?v=20261015-flag-controls',
-  'game/replay-model.js?v=20261026-this-game-stats',
-  'during-game.js?v=20261026-moves-available');
+  'game/replay-model.js?v=20261026-legends-below',
+  'during-game.js?v=20261026-legends-below');
 
 let config;
 
@@ -65,7 +65,7 @@ function finishedMeasurements(plan, metrics, gameId) {
     if (plan.needBoardMetrics) Object.assign(measurements, BoardMetrics.analyze(plan.width, plan.height, plan.mines));
   }
   if (plan.needCadence && Number.isFinite(metrics.cad.gapSpreadRatio)) {
-    measurements.cadenceSpread = Number(metrics.cad.gapSpreadRatio.toFixed(3));
+    measurements.cadenceSpread = metrics.cad.gapSpreadRatio;
   }
   if (plan.needMoveHabits) {
     Object.assign(measurements, DuringGame.moveHabits(heldDuringGameModel({ gameId, timeMs: plan.timeMs, outcome: plan.outcome })));

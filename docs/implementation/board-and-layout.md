@@ -170,16 +170,18 @@ Spec: [docs/product/board-and-layout.md](../product/board-and-layout.md). Index:
   applies only to custom games.
 - Top bar: `div#top-bar` is the first child of `#page-layout`, a wrapping
   flex row aligned right holding `#play-limits-use` (plain text, hidden
-  until a limit is set) and `a#settings-btn` (2026-10-21; in the settings
-  row on 2026-10-20). From 2026-10-14 to 2026-10-20 it was a `nav` that
+  until a limit is set), `a#play-limits-btn` (2026-10-22), and
+  `a#settings-btn` (2026-10-21); on 2026-10-20 both links were in the
+  settings row. From 2026-10-14 to 2026-10-20 it was a `nav` that
   also held the daily limits link, the session picker, settings, and the
   other pages menu. `.game-booting` blocks its pointer input like the
   other chrome.
 - Settings row (2026-10-20): `div#settings-row` (`role="group"`, "Your
   settings") sits in `main` between `#backup` and `#site-footer`, a
-  wrapping centered flex row of three `.settings-row-group` boxes
-  (`inline-flex`, `nowrap`, so each wraps as a unit): `#play-limits-btn`
-  (with `#settings-btn` until 2026-10-21); `label#session-picker` (a static
+  wrapping centered flex row of two `.settings-row-group` boxes
+  (`inline-flex`, `nowrap`, so each wraps as a unit; a first box held
+  `#play-limits-btn` until 2026-10-22, with `#settings-btn` until
+  2026-10-21): `label#session-picker` (a static
   `select#session-definition-select`, disabled with a loading option until
   `initSessionScopeSelect` in `game/rankings.js` fills it from
   `init`); and `span#board-display` (`#zoom-label` with `#zoom-select`,
@@ -198,7 +200,7 @@ Spec: [docs/product/board-and-layout.md](../product/board-and-layout.md). Index:
   bar wraps in a narrow column) and the layout ResizeObserver watches the
   bar. In `.compact-sidebar` the bar is row 1 of the one column, static, and
   `main` row 2 (`--top-bar-block: 0`). Below 700px: bar row 1, main row 2.
-  Without limits the bar holds only the settings button.
+  Without limits the bar holds the daily limits and settings buttons.
   `tests/session-placement-layout-fixture.js` checks the bar heads the right
   columns, or sits above main when compact, at four widths.
 - Motion stats (2026-10-20): `#motion-stats` sits in `main` after

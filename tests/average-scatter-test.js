@@ -22,7 +22,7 @@ const tested = vm.runInThisContext(`(() => {
   ${section('// Property charts group games', "// A chart's eligible wins.")}
   ${section("// A chart's eligible wins.", '// Bucket all finished games')}
   ${section('// Bucket all finished games', "// The property charts' three vertical readings")}
-  return { PERF_CHART_SPECS, BOARD_CHART_SPECS, averageEligibleWins, averagePoints, winratePoints };
+  return { GameData, PERF_CHART_SPECS, BOARD_CHART_SPECS, averageEligibleWins, averagePoints, winratePoints };
 })()`);
 
 let checks = 0;
@@ -65,7 +65,19 @@ assertEq('path / click buckets to 10px',
 assertEq('path / 3BV buckets to 10px',
   byLabel('path / 3BV').value(base), 120);
 assertEq('efficiency is win-only', byLabel('efficiency').winBound, true);
-assertEq('3BV/s keeps losses for winrate', byLabel('3BV/s').winBound, undefined);
+// A loss's recorded 3BV is the whole board's, not what it solved (creator
+// 2026-10-07, "one name one thing"), so the 3BV measurements sit winrate
+// out; a chart of a catalog measurement is win-only exactly where game
+// data compares it on wins only, under its catalog name.
+assertEq('3BV/s is win-only', byLabel('3BV/s').winBound, true);
+assertEq('path / 3BV is win-only', byLabel('path / 3BV').winBound, true);
+assertEq('clicks over 3BV is win-only', byLabel('clicks over 3BV').winBound, true);
+assertEq('click rate keeps losses for winrate', byLabel('click rate').winBound, undefined);
+for (const spec of tested.PERF_CHART_SPECS.filter((item) => item.measurementId !== undefined)) {
+  const metric = tested.GameData.metrics.find((item) => item.id === spec.measurementId);
+  assertEq(spec.label + ' is win-only exactly where game data is', spec.winBound === true, !metric.allOutcomes);
+  assertEq(spec.measurementId + ' takes the catalog name', spec.label, metric.name);
+}
 // The flag shares are win-only and plot in percent: unused flag share in
 // 5-point groups, unflagged mine share at its exact values, one per count
 // of unflagged mines.

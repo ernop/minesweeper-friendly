@@ -5,7 +5,8 @@ Spec: [docs/product/per-game-stats.md](../product/per-game-stats.md). Index: [AG
 - Derived metrics (3BV/s, efficiency %, board-changing click share %, IOS,
   mouse speed, path/click, path/3BV) are computed at read time by the
   `value` functions of `GameData.metrics` in `game-data.js`, never stored.
-  Board-changing click share (id `correctness`, its name until 2026-10-15)
+  Board-changing click share (id `boardChangingClickShare` since
+  2026-10-26; `correctness`, its name until 2026-10-15, before)
   needs `wastedClicks` (absent = unmeasured). Efficiency and IOS are
   wins-only; IOS is also blank when time ≤ 1s.
 - Flagger metrics (2026-08-30, [Per-game stats](../product/per-game-stats.md)): `zini.js`
@@ -17,12 +18,18 @@ Spec: [docs/product/per-game-stats.md](../product/per-game-stats.md). Index: [AG
   (`STNB_CONSTANTS` on exact standard shapes, wins, never on drills).
   `node tests/zini-test.js` (hand-simulated small boards + 3BV-bound
   invariants on random boards). Per-game `cadenceSpread` = the trace
-  cadence system's gap spread ratio, stored on wins and losses from
-  `computeClickCadence` at report time; drives a stats row, the
-  cadence-over-date relationship scatter, and the session series
-  (`sessionGapSpread` over raw press gaps live; per-game basis medians
-  stored spreads — backfilled spans have no raw gaps and stay
-  unmeasured on the per-time basis).
+  cadence system's gap spread ratio, stored on wins and losses by the
+  reports worker's `finished-game` (`finishedMeasurements` with
+  `needCadence`, `metrics.cad.gapSpreadRatio`), unrounded since 2026-10-26
+  (`toFixed(3)` before); drives a stats row, the cadence-over-date
+  relationship scatter, game data, and the live perf charts' row (until
+  2026-10-20 also the left panel's session series).
+- Fastclick gap: `reportResult` stores `fastclickGapMs` as the rounded
+  `medianOf` of `DuringGame.fastclickGaps(pathDecisionEvents(trace.events),
+  trace.t)`, the gaps the live perf charts' fastclick row plots (since
+  2026-10-26; before, `recordUsefulPress` collected them from wall-clock
+  press and cursor times during play;
+  [measurement catalog](measurement-catalog.md)).
 - Move habits (2026-10-20): `movesRanOut`, `movesLeftHardWork`,
   `movesLeftEasyWork`, `moveGapMedianMs`, `forkMoves`, and
   `forkMovesToNearestArea` come from `DuringGame.moveHabits` on the
@@ -32,7 +39,7 @@ Spec: [docs/product/per-game-stats.md](../product/per-game-stats.md). Index: [AG
   in `finished-game` and assigns them before the record's second save; the
   restore path asks when the record lacks `movesRanOut`. Schema rows in
   `GAME_RECORD_SCHEMA` (`isCount` for the counts). Game data reads them in
-  `moveTime`, `easyWorkLeftShare` (left easy work over the three kinds'
+  `timeBeforeMove` (`moveTime` until 2026-10-26), `easyWorkLeftShare` (left easy work over the three kinds'
   sum), and `nearestAreaShare`; `GameData.examples` gives their boards
   (`moves`, `easyWorkLeft`, `forks`). `tests/during-game-test.js` and
   `tests/game-data-test.js` cover them.
@@ -106,8 +113,8 @@ Spec: [docs/product/per-game-stats.md](../product/per-game-stats.md). Index: [AG
   nothing), and at a win every standing flag is on a mine. Its one
   definition serves the `unflaggedMineShare` GameData metric (params are
   the game's `config`; `step(params)` is one mine), the your-perf property
-  chart (`steppedMetric('unflaggedMineShare', null, { percent: true,
-  winBound: true })`), the stats grid's `measurementRow`, `checkWin`'s
+  chart (`steppedMetric('unflaggedMineShare', null, { percent: true })`,
+  win-bound from the catalog), the stats grid's `measurementRow`, `checkWin`'s
   session ending (live counters plus `settings.playMode`), and
   `sessionBackfillFromHistory`. `tests/game-data-test.js` holds its known
   answers.
@@ -156,6 +163,21 @@ Spec: [docs/product/per-game-stats.md](../product/per-game-stats.md). Index: [AG
   canonical proof prepass at 80000 visits so up to forty branches cannot
   each consume the two-million-visit gameplay budget. Incomplete proof
   facts stay sound, and residual odds either complete or remain unmeasured.
+  The lookahead weighs each number the clicked square could show by the
+  whole-board layouts that show it (`guess-ledger-v2`, 2026-10-22):
+  `analyzeView` keeps per component `restWeights[k]`, the layouts of the
+  other components and the sea that complete one of its layouts holding k
+  mines, and `expectedLife` sums those weights per number, skipping layouts
+  whose weight is 0. Until then it counted each layout of the group once,
+  so the number distribution was wrong whenever the group's layouts held
+  different mine counts, and a number only a ruled-out layout shows became
+  a hypothetical position the proof rejects ("visible clues are
+  inconsistent", justice.js). Once `noteGuess` stopped catching errors
+  (2026-10-21), every guess into such a group threw before its reveal, so
+  the square never opened; an Intermediate endgame hit it on 2026-10-22.
+  `history.js` accepts both versions on saved games (`ODDS_VERSIONS`).
+  `tests/odds-test.js` compares the one-ply life with exhaustive
+  enumeration on random small boards and keeps that endgame as a fixture.
   `noteGuess` runs from `revealCell` after the first-click path and
   before Justice, gated by `guessLedgerAppliesToMode()` (standard,
   3BV countdown, trial modes, endgame drill — modes where hidden mines

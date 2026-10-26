@@ -28,9 +28,9 @@ ever moves the board:
   brings a second row: the board size, the generator where the mode uses
   one, and the mode's progress.
 - **Top bar, upper right.** Today's use against your daily limits, once
-  any is set, and the settings button.
+  any is set, then the daily limits and settings buttons.
 - **Settings row, page foot.** The rest of what you configure for every
-  game: daily limits, the page's one session picker (today by default,
+  game: the page's one session picker (today by default,
   shared by every session comparison on the page), and the board display:
   Zoom, "position" (opens the board position editor), and the pixel ratio,
   which moves with the browser zoom. The footer under it links the

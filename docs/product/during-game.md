@@ -181,6 +181,31 @@ Built the same day:
     moves chart beside the other counts. The chart against the whole game
     is fourth, still under the tracks.
 
+## Revision (creator 2026-10-26, legends and the y axis)
+
+Creator, verbatim, with a screenshot of the chart against the whole game:
+"the labels for this, I think, shoudl be bELOW the chart. secondly, what do
+you thyink of the y-axis marks - can't they be denominated in terms of the
+actual unit we're focusing on in the case of mouseover or only a single
+series being shown?" The same message asked for a review of the fastclick
+gap's definition; that part is quoted in
+[Per-game stats](per-game-stats.md), "Fastclick gap", and the plan for it
+is in [BACKLOG.md](../../BACKLOG.md).
+
+Built the same day:
+
+- Every legend sits under its part (Charts, below). The message named the
+  chart against the whole game; the progress and moves charts' legends
+  moved with it, so each legend is under what it names, as the event
+  tracks' already was. Above its chart, that chart's legend had sat right
+  under the tracks' legend and read as part of it.
+- The chart against the whole game labels its y axis in one line's values
+  while that line is in focus or is the only one drawn (Charts, below).
+  The ticks stay where they are and only their labels change, so nothing
+  moves under the pointer. The cost: the plots' left edge makes room for
+  the widest such label any line can get (8× the mouse speed, as a rule),
+  so every plot in the block starts about 25 pixels further right.
+
 ## Placement
 
 - A stat section titled "live perf charts" heads the details column's
@@ -209,6 +234,12 @@ Built the same day:
   line in its series' color. Hovering a line's legend entry spotlights it:
   the line thickens and the chart's other lines fade. Clicking it chooses
   which lines show (Legend picks, below).
+- Linked to game summary perf (creator request 2026-10-26): hovering a
+  line or legend entry of a game data measurement rings that measurement's
+  game summary perf row, and an event row's entry rings the rows of the
+  measurements counted over its events; hovering a game summary perf row
+  spotlights its measurement's line and event marks here alone
+  ([Measurement catalog](measurement-catalog.md), "Hover link").
 - Top to bottom: the progress chart, the moves available chart, the event
   tracks, then the chart against the whole game (the moves chart since
   2026-10-26; the chart against the whole game moved below the tracks on
@@ -245,8 +276,18 @@ Built the same day:
   line. A raw dot or a value past the top is drawn at the edge, as past 8×
   on the log scale: fitting the dots would let one far incident flatten
   every line. Either scale leaves every plot in the same place: the plots'
-  left edge has room for every label either scale can draw. The choice
-  persists (`duringGameRelativeScale`).
+  left edge has room for every label either scale can draw, as a ratio or
+  in any line's values. The choice persists (`duringGameRelativeScale`).
+- On either scale the y labels give one line's values instead of ratios
+  (creator 2026-10-26) while that line is in focus (the pointer is on it,
+  on its legend entry, or on its game summary perf row) or is the only line
+  the chart draws (one row picked or configured, or the others not
+  measured; rates in raw draw only ticks and do not count). Each line is
+  drawn at its value divided by its whole-game value, so the label at r×
+  is exactly r times that value, in the line's format: 1× reads the value
+  its legend gives, and for a 273 ms fastclick gap the linear labels read
+  0ms, 137ms, 273ms, 410ms, 546ms. The ticks and lines stay where they
+  are. With no single such line the labels give the ratios.
 - Legend picks (creator 2026-10-21): clicking a legend entry chooses which
   of its part's rows show. With all shown, the default, a click shows that
   row alone; a click on another adds it, and a second click on a shown one
@@ -261,9 +302,11 @@ Built the same day:
   redraw of its block (averaging, scale, configure, the result drawn again
   as its measurements finish), and start over, all shown, with the next
   game. Configure still decides which rows the block has at all.
-- Above each chart one line names its lines: a swatch in the line's color,
+- Under each chart (above it until 2026-10-26) one line names its lines:
+  a swatch in the line's color,
   the row's name (it shows the row's definition on hover), and its
-  whole-game value, the most legible text there. The line of the chart
+  whole-game value, the most legible text there. A legend sits nearer its
+  own part than the next part below. The line of the chart
   against the whole game starts with "whole game (1×)", in bold, so the
   values beside the names read as the 1× each line is measured against;
   the moves chart's starts with "game average", since its values are each
@@ -292,7 +335,8 @@ Built the same day:
   one line nearest the pointer: its swatch, its name, and its value then
   (on the chart against the whole game, the line's own value, not its
   ratio). That line
-  comes forward and the chart's other lines fade. Where no line has a value
+  comes forward and the chart's other lines fade; on the chart against the
+  whole game its values label the y axis (Charts, above). Where no line has a value
   at that moment the card says "nothing measured at this moment". Over an
   event track the card names the track and gives its events at that moment
   in words, such as "left 3 proven-safe squares unopened; jumped 9 squares"
@@ -338,15 +382,22 @@ was 5 second buckets). Raw incidents stay drawn under an average: dots in
 the line's color for measured values, and short ticks at the plot's foot
 for rate incidents. A rate in raw draws only its ticks. A bucket or window
 with under one second of play shows no value, the rule the session stats
-used: a rate over a sliver of time is not evidence. Progress, board-state, and
+used: a rate over a sliver of time is not evidence. The whole-game value has
+no such minimum (since 2026-10-26): it is game data's value, which a game
+under a second has too. Progress, board-state, and
 event rows have no average.
 
 ## Rows
 
-A row that shares a game data measurement's name keeps that measurement's
-definition and format, measured over the bucket or window instead of the
-whole game, so its whole-game value matches the game data value (to the
-millisecond for the fastclick gap). In its legend entry, a progress row
+A row showing a game data measurement is that measurement: its name,
+definition, and format are the measurement catalog's, the same as game
+data's, measured over the bucket or window instead of the whole game
+([Measurement catalog](measurement-catalog.md)). Its whole-game value is
+exactly game data's value for the game: rates divide by the record's time
+(until 2026-10-26 by the axis's span, the record's time or the last action,
+whichever was later), and the fastclick line plots the gaps whose median
+the record stores. Every other row has a name no catalog measurement uses.
+In its legend entry, a progress row
 shows its final share, a moves or board row its average over time, a rate
 or ratio the whole game's, and an incident row its median or mean; an event
 row shows its count.
@@ -361,7 +412,7 @@ Shown by default:
 | 3BV/s | pace | 3BV solved per second |
 | click rate | pace | board-changing clicks per second |
 | action gaps | pace | time from one board-changing click to the next; averages take the median |
-| fastclick gap | pace | gaps of 1 s or less ending in a click made while the cursor was moving, as game data defines it; averages take the median |
+| fastclick gap | pace | gaps of at most 1 s between board-changing clicks, ending in a click on the move (the cursor moved in the 100 ms before); averages take the median |
 | mouse speed | pace | cursor travel per second, pauses included; each dot is the speed between two board-changing clicks |
 | safe squares known | moves available | covered, unflagged squares the visible board had proved safe, between clicks |
 | mines by counting | moves available | covered, unflagged squares counting single numbers proves mines, one number at a time, as a 2 with only two covered squares beside it |
@@ -395,8 +446,8 @@ actually"; [Session stats](session-stats.md)), each as game data defines it
 | early guess rate | report categories | the report's early guesses per minute |
 | time loss rate | report categories | the report's time loss actions per minute |
 | life maximization rate | report categories | the report's life maximization moves per minute |
-| excess game risk | report categories | the game risk actions' extra chance of losing over the safest available move, in percentage points per minute |
-| modeled life gap | report categories | the expected remaining life the one-move survival model saw given up, per minute |
+| excess game risk rate | report categories | the game risk actions' extra chance of losing over the safest available move, in percentage points per minute |
+| modeled life gap rate | report categories | the expected remaining life the one-move survival model saw given up, per minute |
 
 A report row counts each action when it took effect, in the category the
 after-game report files it under. A game with any action filed under
@@ -428,8 +479,8 @@ Shown by default:
   card ("number still short of flags").
 - **misclicks** — actions the visible board had already proved wrong:
   opening a proven mine, flagging a proven-safe square, removing a proven
-  mine's flag, or a chord against the proof. The same judgment as the
-  game's misclick count.
+  mine's flag, or chording against the visible proof. The same judgment as
+  the game's misclick count.
 - **flags removed** — a flag taken off; within 1 second of placing it, a
   quick undo (the mark/unmark of the request).
 - **flags on safe squares** — a flag placed where no mine was.
@@ -524,7 +575,9 @@ picks are not saved: they last as long as the game shown (Charts, above).
 Built 2026-10-15: a first build, then the same day the 2026-10-15
 revision; the 2026-10-20 revision the day it was asked, and the move
 characterization and habits (above) later that day; the 2026-10-21 and
-2026-10-26 revisions the days they were asked. Requested but not built
+2026-10-26 revisions the days they were asked, and on 2026-10-26 also the
+link with game summary perf and the catalog's definitions
+([Measurement catalog](measurement-catalog.md)). Requested but not built
 yet, in [BACKLOG.md](../../BACKLOG.md): forks inside one work area (several
 ways forward from the same frontier) and the habits of games saved before
 2026-10-20. Proposed there with them: threshold calibration, rows plotted

@@ -40,7 +40,11 @@ percentages, the throughput row (a duplicate of efficiency) is gone, and a
 loss no longer shows 3BV/s, efficiency, or path / 3BV computed from the
 whole board's 3BV. "Mouse path", "Path per click", "Path per 3BV", "Mark
 rate", and "Unused mine marks" became "Path", "Path / click", "Path / 3BV",
-"Flag rate", and "Unused flags".
+"Flag rate", and "Unused flags". Since 2026-10-26 the rule covers every
+surface: each measurement's name, definition, format, and formula come from
+one catalog ([Measurement catalog](measurement-catalog.md)), and the table's
+flag rate and flag-removal rate, formerly computed by the table itself,
+read it too.
 Regular wins show these measurements through the game-data chart and its
 configuration; the complete replacement inventory is in
 [the game-data design](game-data.md). Losses and trial results retain the
@@ -218,7 +222,10 @@ because press-gap distributions are heavy-tailed; the IQR/median form
 ignores outlier pauses instead of being dominated by them. Needs at
 least two measurable gaps. It appears as a stats row, as a
 cadence-spread-versus-date relationship scatter (wins with the field,
-Theil–Sen trend on that subset), and as a session series.
+Theil–Sen trend on that subset), in game data, the live perf charts, and
+motion stats, and until 2026-10-20 as a session series. Stored unrounded
+since 2026-10-26 (to 3 decimals before), the value the live perf charts
+show ([Measurement catalog](measurement-catalog.md)).
 
 Move habits (added 2026-10-20 at the creator's request: "move habits and
 characterization of moves, when ih ave to move since local direction ends
@@ -352,6 +359,16 @@ guess in the game exceeded the enumerator budget): `guesses`,
 `guessIdealRisk`, `guessNonideal`, `guessPerfect`, `lifeLost`,
 `lifeNeedless`, `oddsVersion`.
 
+Requirement (creator 2026-10-22; [AGENTS.md](../../AGENTS.md) design
+requirement 8; not built yet, [BACKLOG](../../BACKLOG.md)): every ledger
+value is exact for every guess in every position. Each is a ratio of layout
+counts, computed by counting layouts (dynamic programming along the
+frontier, with the number a square would show as one more counted
+quantity), never by listing layouts or trying hypothetical boards, so no
+size limit omits the ledger or substitutes a value. Ideal-risk, perfect,
+and ties compare exact counts, with no rounding tolerance. Saved games are
+rescored from their stored positions.
+
 - **Life lost** (absolute). Each guess costs its mine probability. A 19%
   death click spends 0.19 lives in the multiverse whether you lived or
   died. A just universe may still rearrange a covered guess so you live; the
@@ -368,19 +385,23 @@ guess in the game exceeded the enumerator budget): `guesses`,
   that tells you almost nothing can lose to a 5% click that splits the
   remaining layouts and leaves a solved board. The stored objective is
   one-ply expected remaining life: (1 − p(die)) × (1 − expected min
-  remaining risk after the number that click would show). When Justice
-  would certify the cell, death risk for this score is 0 (you will
-  live) but absolute life-lost still uses the raw p. If the remaining
-  region is too large to enumerate, `guessPerfect` falls back to
-  “same as ideal-risk” rather than inventing information value, and if
-  even p cannot be measured the whole ledger is omitted. When the model
-  does not run and no square is proven safe, the action evaluation stores
-  no one-ply life values (since 2026-10-11): until then the chosen and best
-  values were both bare survival odds, and the full report called them
-  "tied" though nothing had compared them. Evaluations saved earlier keep
-  the values they stored; a stored tie cannot be told apart from a real
-  modeled tie, so an older full report can still show such a "tied" line
-  ([BACKLOG](../../BACKLOG.md)).
+  remaining risk after the number that click would show). The expectation
+  weighs each number by the consistent whole-board layouts that show it.
+  When Justice would certify the cell, death risk for this score is 0 (you
+  will live) but absolute life-lost still uses the raw p. The best value is
+  the highest over every covered square, proven-safe ones included; a
+  proven-safe square's value is never below any guess's, because the
+  expected lowest risk after a safe click is at most the lowest risk now.
+  Today's code, until the requirement above is built, is exact only when
+  every covered neighbor of the clicked square is proven or in its group.
+  It stores 1 as the best value beside a proven-safe square, copies
+  ideal-risk into `guessPerfect` past the enumerator budget, omits the
+  ledger when even p is past it, and stores no one-ply life values when its
+  model does not run (since 2026-10-11; earlier evaluations stored bare
+  survival odds for both, which an older full report shows as "tied").
+  Games saved before 2026-10-22 (`oddsVersion` `guess-ledger-v1`) weighed
+  each layout of the clicked square's group once, including layouts the
+  remaining mine count rules out.
 
 A chip (olive, in the Justice stack, shown at game end like the rest of
 the stack) prints the raw p and either
@@ -442,13 +463,54 @@ at the browser's context-menu event, which Windows fires at the release) —
 joined the schema on 2026-08-22 alongside the
 session stats (removed 2026-10-20), whose fastclick series used the
 identical qualification.
-Stored (as `fastclickGapMs`) rather than derived because it needs press
-timestamps, which the scalar record does not carry (the trace does, so
-history from the trace era is backfillable offline). Win or loss alike.
+Stored (as `fastclickGapMs`, rounded to the millisecond) rather than
+derived because it needs press timestamps, which the scalar record does not
+carry (the trace does, so history from the trace era is backfillable
+offline). Since 2026-10-26 the gaps come from the game's trace, the same
+gaps the live perf charts' fastclick line plots, found by one function:
+an action is on the move when the trace's latest cursor sample before it
+is at most 100ms old. Before, the page timed them with its own clock
+during play ([Measurement catalog](measurement-catalog.md)). Win or loss
+alike.
 Absent when no gap qualified — slow, careful play is "not measured
 here", never a made-up number — and on games recorded before the
 measurement. The stats table shows a "Fastclick gap" row when the field
 exists.
+
+Requested redefinition (creator 2026-10-26; not built, the review and the
+plan are in [BACKLOG.md](../../BACKLOG.md), "Fastclick gap: planned
+pairs"). Creator, verbatim: "finally, let's look at and review teh
+definition of fastclick gap. the arbitrary 1s interval seems  badly chosen.
+the actual point is to detect cases where teh player is atually trying to
+"click twice on two squares,  e.g. while moving" and we want to measure
+finger speed. are we sometimes including mistaken intervals such as wehen i
+click, then think as a result of the outcome of the click, calculate, then
+say after 700ms i click again; this is NOT a "fast click" as intended since
+it's just a necessarily bit of sequential work. this is in contrast to e.g.
+when the corner is:
+
+```
+1 1 unkonwn-A, unkonwn-B
+unknown-C, unknown-D, unknown-E
+```
+
+The player from this can recognize taht Unknown-A and unknown-E are
+immediately clickable to open and will often do that; the time it takes to
+do such "precomputed at teh same time" two nearby clicks with a tiny
+movement between them, can be used as an actual piece of the individual
+game perf and body traits of the user. note this down adn then make a plan
+on how to improve it and think about that pleas."
+
+The measurement's purpose, as stated there: the time two clicks on nearby
+squares take when the player decided both before making the first, as a
+measure of finger and hand speed, both for the game and as a lasting trait
+of the player. In the corner, the first 1 sits in the board's corner, so
+its one mine is C or D; the second 1's one mine is then also C or D, which
+leaves A and E safe, both known before either is clicked, and E is one
+square below A. A gap that holds reading the first click's result and
+working out the second is sequential work, not a fast click. The
+definition above counts such gaps: the review found that the 1 s cap and
+the on-the-move test admit them.
 
 Seed — every new board receives a cryptographically generated 128-bit seed.
 `xoshiro128ss-v1` expands it into the one deterministic random stream used

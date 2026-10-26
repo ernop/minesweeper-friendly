@@ -16,6 +16,9 @@ const startIdx = source.indexOf('//-------TRACE METRICS: COMPUTATION');
 const endIdx = source.indexOf('//-------MOTION STATS: SAMPLES AND ROWS');
 if (startIdx === -1 || endIdx === -1) throw new Error('section markers not found');
 vm.runInThisContext(fs.readFileSync(path.join(__dirname, '../trend-fit.js'), 'utf8'));
+// The displays of catalog measurements read game-data.js, which every page
+// and worker loads before them.
+vm.runInThisContext(fs.readFileSync(path.join(__dirname, '../game-data.js'), 'utf8'));
 vm.runInThisContext(source.slice(startIdx, endIdx));
 
 let checks = 0;

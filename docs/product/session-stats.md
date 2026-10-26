@@ -36,7 +36,7 @@ report and the session results keep classifying every loss and win
 | live motion rows | the motion stats section at the page foot, closed by default ([Motion stats](motion-stats.md)) |
 | session picker | the settings row at the page foot, unchanged ([One session definition](game-data.md#one-session-definition)) |
 | mouse speed, click rate, no-op rate, misclick rate, fastclick gap, cadence spread, unused flag share, unflagged mine share | already rows of game summary perf ([Game data](game-data.md)); the pace rows of live perf charts ([During the game](during-game.md)) |
-| flag rate, flag-removal rate, unused flag rate, the game risk, early guess, time loss, and life maximization rates, excess game risk, modeled life gap | new optional rows of game summary perf, off by default ([Catalog and configuration](game-data.md#catalog-and-configuration)) |
+| flag rate, flag-removal rate, unused flag rate, the game risk, early guess, time loss, and life maximization rates, excess game risk rate, modeled life gap rate (the last two named without "rate" until 2026-10-26) | new optional rows of game summary perf, off by default ([Catalog and configuration](game-data.md#catalog-and-configuration)) |
 | the same over the course of a game, plus cadence spread | new optional rows of live perf charts, off by default ([During the game](during-game.md)) |
 | game endings % | the lifetime column of the session results ([Session summary](rankings.md)) |
 | switch cost row | the optional line under game data's chart ([Switch cost line](game-data.md#switch-cost-line-creator-request-and-approval-2026-09-28-under-game-data-since-2026-10-20)) |

@@ -78,20 +78,21 @@ coherent and beautifully integrated way!"
   panel at the top: one single-line row per limit with today's use, the
   limit, "reached" and "locked until 4:00" when they apply, and a Set or
   Change button. Today's use updates live while another tab plays. The
-  game page always shows a link to that panel, "daily limits", as the first
-  group of the settings row at the page foot, the one place for the
-  player's global configuration (creator 2026-10-20: "all usre-specific
-  global configuration should be in the same place"; "settings" beside it
-  moved to the top bar on 2026-10-21). From 2026-10-14 the
-  link sat at the start of the top bar at the upper right (creator request:
-  "play limits button/info be on toplevel"; before, it showed in the side
-  column and only while a limit was set). Once any limit is set, today's use
-  against them leads the top bar, before the settings button, plain bold
+  game page always shows a link to that panel, "daily limits", in the top
+  bar at the upper right, between today's use and the settings button
+  (creator 2026-10-22: "move "daily limits" control button back up to
+  UR"). It first came to the top bar on 2026-10-14 (creator request: "play
+  limits button/info be on toplevel"; before, it showed in the side column
+  and only while a limit was set); from 2026-10-20 to 2026-10-22 it led the
+  settings row at the page foot, then the one place for the player's global
+  configuration (creator 2026-10-20: "all usre-specific global
+  configuration should be in the same place"). Once any limit is set,
+  today's use against them leads the top bar, before the link, plain bold
   text at the upper right, "today: 12m 34s of 30m · 14 of 50 games", in red as
   "no flags: ..." in the no-flags stage and "limit reached: ..." once the
-  day is closed. It stays at the top while the link moved down: it is live
-  status rather than configuration, and a refused flag press flashes it, so
-  it has to be in view during play. (2026-10-14, under
+  day is closed. It stayed at the top while the link was at the foot: it is
+  live status rather than configuration, and a refused flag press flashes
+  it, so it has to be in view during play. (2026-10-14, under
   [One look per kind of thing](ui-doctrine.md): earlier that day the use
   replaced the link's own label, so a fact read as a button.) It updates when a
   board starts or ends, not every second, following the no-ticking-duplicates

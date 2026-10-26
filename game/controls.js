@@ -80,17 +80,6 @@ function joinChordGesture() {
   }
 }
 
-// A board-changing press: its gap since the previous one counts toward the
-// fastclick gap when it is short and made on the move.
-function recordUsefulPress() {
-  const now = Date.now();
-  if (lastUsefulPressAt !== null && now - lastUsefulPressAt <= FASTCLICK_MAX_GAP_MS
-      && now - lastCursorMoveAt <= CADENCE_MOVING_WINDOW_MS) {
-    fastclickGaps.push(now - lastUsefulPressAt);
-  }
-  lastUsefulPressAt = now;
-}
-
 function recordNoOp(index, reason) {
   wastedClicks++;
   recordActionEvaluation(evaluateNoOpAction(index, reason), 'continued');
@@ -112,8 +101,6 @@ function flagCell(index) {
   const actionEvaluation = evaluateFlagAction(index, removing);
   toggleFlag(index, actionEvaluation);
   if (misclick) recordMisclick();
-  // A removal is still a useful press: it changed the board.
-  recordUsefulPress();
   recordActionEvaluation(actionEvaluation, 'continued');
 }
 
@@ -151,7 +138,6 @@ function chordFromNumber(index) {
   }
   const misclick = chordIsMisclick(index, targets);
   if (misclick) recordMisclick();
-  recordUsefulPress();
   chord(index);
 }
 
@@ -197,7 +183,6 @@ boardElement.addEventListener('mouseup', (event) => {
     clickCount++;
     const misclick = revealIsMisclick(index);
     if (misclick) recordMisclick();
-    recordUsefulPress();
     revealCell(index);
   } else if (cell.revealed) {
     chordFromNumber(index);
@@ -230,7 +215,6 @@ document.addEventListener('mouseup', (event) => {
 });
 
 document.addEventListener('mousemove', (event) => {
-  lastCursorMoveAt = Date.now();
   if (lastMouseX !== null && gameState === 'playing') {
     mousePathPx += Math.hypot(event.clientX - lastMouseX, event.clientY - lastMouseY);
   }

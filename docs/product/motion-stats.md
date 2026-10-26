@@ -11,6 +11,9 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   section, "motion stats", at the page foot: after the result sections,
   before the backup and settings rows. Its title opens and closes it like every section
   title; it starts closed (`panels.motionStats`), and the choice is saved.
+  The creator asked for this on 2026-10-22 ("make "motion stats" closed by
+  default"); it was already the default, and that player's saved choice
+  was closed too.
 - During a game (board shown through game end) each row updates in place
   from live samples of the input trace, coalesced to at most four
   computations per second. The active game's clock advances elapsed-time
@@ -79,7 +82,9 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   - CLICK TIMING — press-to-press cadence over all button presses, left
     and right together (added 2026-08-22): click gap (median gap between
     consecutive presses), cadence spread (interquartile range over median,
-    the same value game data and the live perf charts call cadence spread;
+    the same value game data and the live perf charts call cadence spread,
+    shown with the measurement catalog's name and definition since
+    2026-10-26 ([Measurement catalog](measurement-catalog.md));
     "gap spread" until 2026-10-07 —
     near 0 = metronomic, systematic clicking; high = rapid-fire runs
     mixed with long stalls), fastest gap, peak rate (most presses in any

@@ -46,6 +46,155 @@ Not built yet:
   them but not marked as the event's. A distinct mark on them while an event is hovered would
   restore what the event is about.
 
+## Fastclick gap: planned pairs (creator request 2026-10-26, plan awaiting the creator's choice)
+
+**creator** — The request, verbatim, and the purpose it states are in
+[Per-game stats](docs/product/per-game-stats.md), "Requested
+redefinition": the time two clicks on nearby squares take when the player
+decided both before the first (the corner's A and E, both proven safe by
+two 1s against the wall), as a measure of finger and hand speed for the
+game and as a lasting trait of the player; not gaps holding the reading of
+the first click's result and the working out of the second.
+
+Review of the current definition (`DuringGame.fastclickGaps`, the one
+function the record's `fastclickGapMs` and the live perf charts' line
+read):
+
+- It counts the gap from one board-changing click (reveal, chord, flag, or
+  flag removal) to the next when the gap is at most 1 s and the cursor
+  moved in the 100 ms before the second click took effect.
+- It admits the case the creator named. Click, read what opened, work out
+  the next move, then move and click, all within 1 s: the cursor is moving
+  just before the second click, so the gap counts. How many of a game's
+  gaps are such work is not known; step 1 below counts them on the
+  creator's games.
+- It never asks what the second click needed to know, which is the
+  creator's distinction.
+- It pools pairs that measure different things: corrections (flag
+  removals), distances from 1 square to across the board, and two timing
+  points (a flag counts at its press, a reveal or chord at its release), so
+  a game's mix of flags and reveals moves its value by about one press's
+  length.
+- Its only time limit is the 1 s cap, an arbitrary number.
+
+Proposed: planned pairs, with no time cap. Two consecutive board-changing
+clicks are a planned pair when all of these hold:
+
+1. Known together: every square the two clicks act on (the square opened,
+   the squares a chord opens, the square flagged) was proven by the visible
+   board before the first click, safe to open or a mine to flag. The second
+   click then needed nothing the first one showed. Exact, no threshold, and
+   computed from the proof the live perf charts already make for every
+   position (`factsAt` in `DuringGame.model`). The corner's A then E
+   qualifies; a click, then opening a square the newly shown number
+   proved, never does, however fast.
+2. A tiny movement: the second square touches the first (one of its 8
+   neighbors; a chord's square is its number). The corner's E is one square
+   below A; a flag and then a chord on the number beside it is the other
+   common case.
+3. One motion: the two presses come one after the other, nothing pressed
+   between them, and the cursor never rests from the first click to the
+   second press. A rest is the trace's existing definition of the hand
+   standing still, 100 ms without a cursor sample (`STROKE_GAP_MS`, the
+   same 100 ms as today's on-the-move window).
+4. Timed press to press, as finger-tapping tests time taps, so every kind
+   of pair is timed at the same point of the click.
+5. No flag removals.
+
+The game's fastclick gap is the median time of its planned pairs, absent
+when it has none. The name stays, the creator's term; its definition
+(`game-data.js` help, the specs) changes with it. Where a proof stopped at
+its work limit, a square the finished levels did not prove may still be
+provable, so a pair acting on one is not judged and stays out. Counting and
+overlap always finish (the corner's pair is an overlap fact), and no search
+reached the limit in the 340 simulated games of
+[Design axis](docs/product/design-axis.md), "Deduction levels". Not a copy
+of motion stats' Fitts throughput or click cadence: those
+take every press; this picks pairs by what the board had proved.
+
+To settle on the creator's own games before building:
+
+- Touching squares only, or within 2: "nearby" may include a square two
+  over when the hand runs along a line of safe squares. Touching keeps the
+  movement nearly constant, so the value reads as click speed; within 2
+  gets more pairs but mixes in travel.
+- All kinds of pair pooled (reveal then reveal, flag then chord, chord then
+  flag, flag then flag, reveal then flag), or same-button pairs only. A
+  button switch uses another finger and can be faster or slower than one
+  finger clicking twice, so a pooled value moves with a game's mix of
+  flags and reveals.
+- How many planned pairs an Expert game has. With few, a game's median is
+  noisy, and the record may need the pair count beside it.
+- Whether the rest rule splits the pairs cleanly: the rest after the first
+  click should sit near 0 ms in planned pairs and clearly above 100 ms in
+  the others.
+
+Steps:
+
+1. Compare offline on the creator's saved traces: per game, today's gaps,
+   the planned pairs under each choice above, and the excluded gaps by
+   reason (not known before, too far, a rest, a removal, another press
+   between). The traces live only in the browser on the PC (no archive
+   folder was found on disk), so this needs "export traces" from the
+   backup row under the board.
+2. The creator chooses from the numbers.
+3. Change `DuringGame.fastclickGaps`, its definition text, and the specs,
+   with tests on hand-built boards: the corner pair counted; a click, then
+   a square its number proved, not counted; a rest between; a removal; a
+   pair two squares apart.
+4. Recompute every saved game's `fastclickGapMs` from its trace, in a
+   worker, as the move-habits backfill above would.
+5. Creator decision: games holding a `fastclickGapMs` but no saved trace
+   cannot be recomputed and keep a value of the old definition. Options:
+   remove the field from them (no comparison mixes the two definitions; the
+   cost is fewer games with a value), or keep it under a name saying it is
+   the old definition (nothing lost, but a second field the rankings must
+   leave out). Recommended: remove, once step 1 has counted how many games
+   that is.
+
+## Measurement catalog follow-ons (found 2026-10-26 while unifying the measurements)
+
+The catalog and the hover link are built
+([Measurement catalog](docs/product/measurement-catalog.md)). Four
+divergences remain, each needing the creator's choice:
+
+- **found** — Mouse path from one source. The record's `mousePathPx` sums
+  every cursor move during play, while the live perf charts' mouse speed
+  and path rows sum the trace's samples, and the trace merges samples
+  that arrive at the same `performance.now()` time into the last one
+  (`traceMove`, counted in `sampleMergeCount`), dropping the path between
+  them. Whole-game mouse speed and path / click can therefore differ
+  slightly between game data and the live charts (they agreed to the
+  pixel per second in the browser check). Proposed: the trace stops losing
+  path (it keeps the merged samples' path with the surviving sample), and
+  the record's path is computed from the trace, as the fastclick gap now
+  is. The other way, the live whole-game value reading the record's
+  counter, would leave the charts' windows not adding up to the whole.
+- **found** — 3BV of trials with a given opening. The record's `bv3` is
+  the whole board's 3BV, including the opening the trial revealed before
+  the first click, while the live charts' 3BV solved starts from what the
+  board showed. So 3BV/s, efficiency, and IOE in the "this game" table
+  count the given opening as the player's work and the live charts do not;
+  the timer also starts when the opening is given. Proposed: performance
+  measurements read the 3BV the player solved (the board's 3BV less what
+  the given reveal solved, measured when the record is written and stored
+  beside `bv3`), while board traits keep the board's 3BV. The other way,
+  the live charts counting the given opening as solved at the start, would
+  credit the player with work they did not do.
+- **creator** — Stored field names that differ from the measurement names:
+  `clicks` holds board-changing clicks, `wastedClicks` no-op clicks, and
+  `movesRanOut` the moves the live perf charts call "moved on". Renaming
+  them rewrites every saved record and changes the backup format, the
+  archive folder, and offline analysis, so it waits for the creator.
+  Proposed: rename them to `boardChangingClicks`, `noOpClicks`, and
+  `movedOnMoves` in one schema change with a one-time rewrite of the saved
+  records, after an archive backup.
+- **creator** — Recompute older records' fastclick gap (timed by the page's
+  own clock before 2026-10-26) and cadence spread (rounded to 3 decimals
+  before 2026-10-26) from their saved traces, so every record holds the
+  one computation. Proposed: in the same worker pass as the move-habits
+  backfill (Live perf charts follow-ons, above), one read of each trace.
+
 ## One look per kind of thing: the rest of the page (follows the creator's 2026-10-14 direction)
 
 The details column follows
@@ -425,14 +574,6 @@ Loss types and the session summary's results grid are built
 [Session summary](docs/product/rankings.md#session-summary-requested-and-built-2026-10-07)).
 Open:
 
-- **False ties in older full reports.** Until 2026-10-11, when the one-ply
-  model did not run and nothing was proven safe, the action evaluation
-  stored bare survival odds as both the chosen and the best one-ply life
-  value, and the full-scope report shows the pair as "tied". New records no
-  longer store them. Saved values cannot tell these apart from real modeled
-  ties. Options: recompute the one-ply values from saved positions once in
-  a worker, as the proof tiers were added; or stop showing a tie line for
-  evaluations saved before that date.
 - **Proof tiers for survived guesses past a safe move.** Only losses carry
   the tier. A survived reveal past a proven-safe square (game risk) does
   not, so the report and the session results cannot yet tell a missed counting
@@ -477,6 +618,35 @@ next steps, each exact:
   before two numbers that only partly share squares.
 - **Moves available by the finer grades**: the live perf charts' level rows
   would gain one row per grade.
+
+## Move hierarchy: the unbuilt levels (creator request 2026-10-26)
+
+The creator asked for one description of how the moves available at any
+moment are characterized, from proven moves up to the player's output per
+hour. It is [Design axis](docs/product/design-axis.md), "Move hierarchy",
+which says what is built at each level. Not built, each needing the
+creator's choice of definition first:
+
+- **Usefulness of a proven move** (levels 2 and 3). Candidate measures: the
+  squares one click opens or settles (a chord over several squares, a zero
+  that opens a region), the 3BV it solves, or the facts the number it
+  reveals would prove next, counted exactly over the layouts. Each moment
+  could then show the most useful proven move, and each move be judged
+  against it.
+- **Distance at every level** (level 3). Only the mines counting proves
+  have a count near the last move. Each level's safe squares and mines
+  could have one, and each proven move its distance from the last action;
+  the live perf charts' model already has every fact's level and the last
+  move's square, so this needs no new proof.
+- **"Connected guess"** (level 5): the creator's term, not defined yet.
+- **The whole game's chance to win** (level 5): "Deeper than one-ply
+  perfect play", below.
+- **Output per hour** (level 6). Its objective needs a definition first,
+  such as expected wins per hour of play. Then the two choices the creator
+  named: settling the game sooner (a guess that must be taken anyway, taken
+  now, so a loss costs less time), and, between otherwise equal moves, the
+  one whose information helps the player more. "Competing optimization
+  objectives", below, is the analysis side of the same objective.
 
 ## Switching between marking and clicking (creator, 2026-09-28)
 
@@ -983,10 +1153,76 @@ Generation that aims at the same families the new lists rank:
   curves. Raw traces are stored so these can be added later.
 - **Guess-ledger ranks and scatters.** Life lost / needless / perfect-play
   counts are stored per game; no rank list or scatter uses them yet.
+- **Exact layout counter for odds, facts, and the guess ledger
+  (requirement 2026-10-22; [AGENTS.md](AGENTS.md) design requirement 8;
+  [Guess ledger](docs/product/per-game-stats.md)).** Today `odds.js` lists
+  layouts one by one and stops at 22 squares per group or 250,000 steps
+  ("not measured"); it scores one-move life only up to 40 undecided squares.
+  The score is exact only when every covered neighbor of the clicked square
+  is proven or in its group. Everywhere else it takes a shortcut:
+  - squares no number touches get an average-density estimate;
+  - squares with a neighbor outside their group get bare survival;
+  - squares A just universe protects get max(survival × value, 1 − lowest
+    risk);
+  - beside a proven-safe square, 1 is stored as the best value;
+  - a next position past the budget gets today's lowest risk;
+  - without the model, `guessPerfect` copies ideal-risk.
+
+  On forced-guess endgames the "perfect" verdict was wrong for 7.8% of
+  Intermediate and 11.4% of Expert guesses. The replacement was prototyped
+  and checked on 2026-10-22:
+  - **Counting.** Squares touching exactly the same numbers form one box,
+    counted with binomials (as the sea already is). Each group's boxes are
+    swept along the frontier. The state is how many mines each partly
+    covered number still needs, and partial layouts with the same state
+    merge. Counts by mine count (whole numbers, BigInt) join the groups and
+    the sea as the odds join does now. A forward and a backward pass give
+    every square's mine count. Facts are the squares counted 0 or all, so
+    the same counter replaces the proof's exact pass and its
+    2,000,000-visit limit. The counts matched listing every layout on 300
+    small positions, and today's odds wherever both measured. On 4,154
+    positions from simulated Intermediate and Expert games it took at most
+    1.9 and 2.6 ms in Node, including the 194 positions today's odds call
+    too large; at most 60 states merged at any step. It fits the click.
+  - **One-move life.** life(X) × total = the sum, over each number n that X
+    could show, of (layouts with X safe showing n) minus (of those, layouts
+    mining the safest other square); the second term is 0 when some square
+    is then safe or none is undecided. X's number is a second counted
+    dimension. Groups touching X or its neighbors are recounted with X safe
+    and its neighbors' mines tracked; other groups reuse their counts.
+    The sea splits into X's neighbors and the rest, two interchangeable
+    classes. A sea square whose covered neighbors are all sea depends only on
+    how many there are, so each such class is computed once. A square whose
+    survival chance is below the best value found cannot be best and is
+    skipped. A protected square divides by its safe layouts instead of all
+    layouts. It matched listing every layout for all 5,626 covered squares
+    of 400 small positions. Those included squares no number touches,
+    outside-neighbor squares, own-group squares, and proven-safe squares.
+    For every undecided square in Node: Intermediate median 5.9 ms, worst
+    29 ms; Expert median 20.5 ms, worst 179 ms (97 ms with the skip). That
+    is too slow for the click. It runs in the analysis worker on each
+    guess's position; the evaluation, the lower-modeled-life mistake, and
+    the record's `guessPerfect` take its result.
+  - **No safe-square case.** A proven-safe square's value is never below
+    any guess's: the expected lowest risk after a safe click is at most the
+    lowest risk now. No exception appeared in 7,428 simulated positions.
+    So the best value is simply the highest over every covered square.
+  - **Saved games.** Every accepted action's position is in the raw trace
+    (`traceDecision`), so every guess of a traced game is rescored.
+    Rescoring also replaces the false ties stored until 2026-10-11 (bare
+    survival odds saved as both the chosen and best values), which the
+    full report shows as "tied". An untraced game keeps positions only on
+    its stored evaluations (deaths and mistakes). Its `guessPerfect`
+    cannot be rescored, so whether to drop it is a creator decision.
+  - **Worst case.** Deciding whether a position is consistent is
+    NP-complete (Kaye 2000), so a contrived position, such as a
+    checkerboard of revealed squares, can be slow. The cost grows with the
+    frontier's width, which real play keeps small. Either way there is no
+    budget and no substitute value.
 - **Deeper than one-ply perfect play.** Current `guessPerfect` is
   expected remaining life after one number observation. A full
-  remaining-game-tree win probability would need another budget and a
-  visible failure mode; do not silently degrade to min-p.
+  remaining-game-tree win probability needs a method that scales (design
+  requirement 8), not a budget, and never a substitute such as min-p.
 - **IOE as 3BV / total clicks** (effective + wasted). Efficiency /
   throughput already use effective clicks only. The clone's IOE is the
   missing total-click cousin.

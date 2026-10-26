@@ -14,6 +14,8 @@ point chart. Then **your perf**, then **board traits**.
   path / 3BV, path / click, board-changing click share, IOE, ZiNi efficiency, HZiNi
   efficiency, IOS, STNB, mouse speed, cadence spread, unused flag share, and
   unflagged mine share (added 2026-10-10 with its game data measurement).
+  Every chart of a game data measurement takes its name, values, and games
+  from the measurement catalog ([Measurement catalog](measurement-catalog.md)).
 - **Board traits** (`BOARD_CHART_SPECS`): 3BV, ZiNi, HZiNi, 3BV spread, max
   number, islands, largest island, zeros, 0–1 share, and zero-opening
   coverage. A board chart follows its tablechart switch, so 3BV spread and
@@ -47,10 +49,15 @@ at or below one second, and path ratios exclude zero denominators.
     same trend pair and outlier trimming as the raw scatters.
   - **winrate** — all finished games (wins AND losses) group by the value;
     each dot is the percentage won. Measurements defined only for wins
-    sit this mode out (`winBound`): IOS, efficiency, IOE, ZiNi efficiency,
-    HZiNi efficiency, STNB, unused flag share, and unflagged mine share.
-    Their winrate would read 100% everywhere (unused flag share's did until
-    2026-10-10).
+    sit this mode out (`winBound`): clicks over 3BV, and exactly the
+    measurements game data compares on wins only
+    ([Measurement catalog](measurement-catalog.md), "Which games"): 3BV/s,
+    efficiency, path / 3BV, IOE, ZiNi efficiency, HZiNi efficiency, IOS,
+    STNB, unused flag share, and unflagged mine share. Their winrate would read 100% everywhere
+    (unused flag share's did until 2026-10-10). 3BV/s, path / 3BV, and
+    clicks over 3BV joined on 2026-10-26: a loss's recorded 3BV is the whole
+    board's, so their winrate had grouped losses by a value that was not
+    the measurement.
     Loss records carry clicks, path, rates, and board-shape facts, so the
     other specs stay measurable.
 - Each header also carries a (?) help button with only what the title and

@@ -1,4 +1,4 @@
-# Design axis and deduction levels
+# Design axis, deduction levels, and move hierarchy
 
 Product spec section; index: [PRODUCT.md](../../PRODUCT.md).
 
@@ -138,3 +138,82 @@ stored proof tiers keep three grades: `counting` and `overlap` are levels 1
 and 2, and `whole-board` is levels 3 and 4 together
 ([Game-end evaluation](game-end-evaluation.md)); telling those two apart
 there is a proposal in [BACKLOG.md](../../BACKLOG.md).
+
+## Move hierarchy (creator request 2026-10-26; partly built)
+
+Creator request 2026-10-26, verbatim, the day the live perf charts gained
+the moves available: "can you link me to a full description fo the way,
+for any point in teh game, we characterize the availability and hierarchy
+of how we'd classify moves? i.e. "perfect" known mine markings, safe
+clicks, most efficient clicsk/mine markings even within legally valid
+options (beause the game isn't just about only making legal moves, but
+among them even finding the most useful), then among more difficult
+logically proveable options how many and how far away they are from the
+last action they are, and how useful each one is, then further, what
+hyper difficult logical moves csan we derive, then further, what is a good
+"connected guess", from both POV of "highst safe-rate" and also the more
+sophisticated "highest global winrate expected base don per fect play"
+which might willingly take a worst next move survival rate if it increased
+global winrate! and even higher, a move which takes into account the total
+per-hour productivity and usefulness; e.g. anthropic principlpe of move
+choices; all else equal, we should choose moves which either jsut resolve
+teh state quicker so we can start a new game, or choose between otherwise
+equal options based on the usefulness of that info, i.e. take choices to
+help myself."
+
+No single description covered this before; this section is the one. For
+any moment of a game, it lists the levels at which the moves available are
+characterized, each asking more of a move than the level before, with what
+is built at each level and where that is described. The unbuilt parts are
+in [BACKLOG.md](../../BACKLOG.md), "Move hierarchy: the unbuilt levels".
+
+1. **Proven moves**: squares the visible board proves safe to open, and
+   mines it proves. Built: the deduction levels above grade how hard each
+   is to know, and the live perf charts count them at every moment, by
+   level ([During the game](during-game.md), "Revision (creator
+   2026-10-26)").
+2. **The most useful proven moves**: among the proven moves, those that do
+   the most for the fewest clicks, since playing well is choosing among
+   valid moves, not only making them. Not built as a judgment of each move.
+   Built and related: the count of chordable numbers (same section); a
+   whole board's fewest clicks, ZiNi and HZiNi
+   ([Per-game stats](per-game-stats.md)); and, as rules for the player
+   rather than measures, when to flag and chord
+   ([Training](training.md), "The plan", "1. Stop wasting inputs").
+3. **Harder proven moves: how many, how far, how useful**: at each
+   deduction level, how many proven moves there are, how far each is from
+   the last action, and how useful each is. Built: the counts by level.
+   Distance in part: one row counts the mines counting proves near the last
+   move (at most 5 steps), and the move events say how far the nearest
+   proven-safe square was and whether the player went to the nearest of
+   several places ([During the game](during-game.md), "Move
+   characterization and habits"). Usefulness: not built.
+4. **The hardest deductions**: levels 3 and 4 above, all numbers and the
+   mine total. Built. Finer grades within them are proposed
+   ([BACKLOG.md](../../BACKLOG.md), "Deduction levels: further grades").
+5. **Guesses**, opening a square the board does not prove safe (the
+   creator asks what makes a good "connected guess"), judged two ways:
+   - The best chance to survive the click: the lowest mine probability on
+     the board. Built: the guess ledger's ideal-risk and life needless
+     ([Per-game stats](per-game-stats.md), "Guess ledger") and the
+     game-end evaluation's risk rank
+     ([Game-end evaluation](game-end-evaluation.md)).
+   - The best chance to win the game with perfect play afterward, which can
+     take a worse chance on this click for a better chance to win. Built one
+     click deep: the ledger's "perfect" is the chance to survive this click
+     and then the safest next one, averaged over the numbers the click could
+     show (one-ply expected remaining life). The whole game's chance to win
+     is not built ([BACKLOG.md](../../BACKLOG.md), "Deeper than one-ply
+     perfect play").
+6. **Moves for the player's output per hour** (the creator's "anthropic
+   principle of move choices"): all else equal, the move that settles the
+   game sooner, so that a game headed for a loss ends early and the next
+   one starts; or, between otherwise equal moves, the one whose information
+   is more useful to the player. Not built as a judgment of moves. Recorded
+   so far as an objective for analyzing the player's guesses, wins per hour
+   beside the chance to win each game ([Measurement](measurement.md),
+   "Behavioral signatures and state research";
+   [BACKLOG.md](../../BACKLOG.md), "Competing optimization objectives"),
+   and as two training rules: restart when the opening corner shows a
+   number, and take a truly forced guess at once
+   ([Training](training.md), "The plan").

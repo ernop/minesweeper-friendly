@@ -5,7 +5,8 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
 - Game data (2026-09-23, band rebuilt 2026-10-07, panel and cards revised 2026-10-08): [complete design and removed-field inventory](../product/game-data.md).
   `game-data.js` owns shared metric formulas, the GameData catalog (one
   `name`, `format`, direction, and `allOutcomes` per measurement, and a
-  `help` definition only where the name and unit leave it open), rows,
+  `help` definition only where the name and unit leave it open; every
+  surface reads it, [measurement catalog](measurement-catalog.md)), rows,
   history, domain, and SessionScope choices/bounds/records. A board trait's
   definition is `BOARD_TRAIT_DEFINITIONS[id]` (game/rankings.js, beside
   `BOARD_TRAIT_NAMES`); its "This board" table's `help(record)` in
@@ -155,7 +156,11 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
   board trait to its own, and answers only while the examples are the shown
   panel's game and the page still holds that game's board
   (`duringGameSourceId`). `gameDataExampleBoard(example)` copies
-  `finishedBoardCells()` into a `.game-data-example-board` grid at its own
+  `finishedBoardCells()` (the board's elements, or while the replay paints
+  a frame its saved `{className, innerHTML}` copy, so it reads only those
+  two; until 2026-10-26 it read `classList`, which the copy lacks, and a
+  card opened with the replay away from the finished board threw) into a
+  `.game-data-example-board` grid at its own
   `--cell-size` (`GAME_DATA_EXAMPLE_FIT`), painting each uncovered mine
   without a flag (`cells[i].mine`) as `mineSvg(settings.mineStyle)`, and
   marks squares with `.game-data-example-shade` (the square's background),
@@ -206,10 +211,13 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
   `data-measurement` from the spec's `measurementId` and adds
   `gameDataChartChip(row)` for the lifetime row; `renderRanks` awaits the
   game-data job before building charts so the chips exist. Hover and focus
-  on a band or distribution row call `linkGameDataCharts`, which toggles
-  `.game-data-linked` on those charts: a `--this-game` ring with black edges
-  (two box-shadows plus a 1px outline, so it never reflows). Rows take no
-  hover background (2026-10-20); `:focus-visible` keeps a 1px outline.
+  on a band or distribution row call `linkMeasurements([metricId],
+  'gameData')`, which toggles `.game-data-linked` on those charts: a
+  `--this-game` ring with black edges (two box-shadows plus a 1px outline,
+  so it never reflows), and spotlights the measurement in the live perf
+  charts; their lines and legend entries ring performance rows the same way
+  ([measurement catalog](measurement-catalog.md), "Hover link"). Rows take
+  no hover background (2026-10-20); `:focus-visible` keeps a 1px outline.
 - Configuration: `selectionList(title, allLabel, nameHead, field, entries)`
   builds one list per side, each an "all …" checkbox over a table with one
   checkbox per entry (`aria-label` its name) and the name as a
@@ -222,7 +230,8 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
   instead of the two-game minimum. Preferences: `gameDataMetrics`
   (one map; `gameDataMetricsFromStored` carries over the former
   `gameDataLifetimeMetrics`/`gameDataSessionMetrics`, a measurement shown in
-  either staying shown), `gameDataBoardTraits` (settings-core.js; defaults
+  either staying shown, and renames the 2026-10-26 ids through
+  `withCurrentMeasurementIds`), `gameDataBoardTraits` (settings-core.js; defaults
   `GAME_DATA_BOARD_TRAIT_DEFAULTS`; a stored profile without it starts
   from its stored `shownThings` through `gameDataBoardTraitsFromStored`:
   `exact3BV`, `exactZiNi`, `exactMaxNumber`, `exactHZiNi`,

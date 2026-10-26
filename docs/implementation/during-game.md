@@ -14,8 +14,10 @@ Spec: [docs/product/during-game.md](../product/during-game.md). Index: [AGENTS.m
   and in `analysis-worker.js`. At call time it
   uses `pathDecisionEvents`, `positionView`, and `squareDistance`
   (`game/replay-model.js`), `Justice`, `medianOf`, `gapSpreadRatioOf`,
-  `CADENCE_MOVING_WINDOW_MS`, and `FASTCLICK_MAX_GAP_MS` (`game/trace-metrics.js`),
-  and `GameData` formats.
+  `CADENCE_MOVING_WINDOW_MS`, and `FASTCLICK_MAX_GAP_MS` (`game/trace-metrics.js`);
+  at load it reads `GameData.metrics` for its catalog rows, so
+  `game-data.js` loads first everywhere
+  ([measurement catalog](measurement-catalog.md)).
 - `game/during-game-chart.js` (after `game/game-data-chart.js`): the page
   side. `duringGameSourceId` names the game whose trace the reports worker
   holds. `buildDuringGameBlock(record, isCurrent)` builds the block: title,
@@ -82,8 +84,11 @@ decisions. Otherwise:
   checked against the final layout). The totals, the work areas and list,
   and the searching levels (all numbers, mine total) are null where the
   search stopped at its work limit.
-- Pass 2: each action's gap, squares moved, cursor path, moving flag (the
-  fastclick definition), no-op reason, misclick (recomputed from the exact
+- Fastclick gaps: `fastclickGaps(decisions, game.t)`, exported as
+  `DuringGame.fastclickGaps`, which `reportResult` also runs for the
+  record's `fastclickGapMs`.
+- Pass 2: each action's gap, squares moved, cursor path, no-op reason,
+  misclick (recomputed from the exact
   proof as `Solver.isVisibleMisclick` judges it), guess, opening,
   wrong flag, flag removal (quick undo within `QUICK_UNDO_MS`), long gap
   (`LONG_GAP_MS`), and moves. "Near" is a zone stamp: every square within
@@ -150,11 +155,17 @@ in `DURING_GAME_MARKS`, unique within the track, or `band` or `bar` for a
 span), and `color`; and `data(model)`, whose `kind` (progress, state,
 rate, ratio, value, spread, speed, events, unrecorded) decides drawing and
 averaging. `AVERAGES` lists the averaging choices in menu order;
-`DEFAULT_AVERAGE` is `rolling-2`. Rows named like a game
-data measurement take its format from `GameData.metrics`. `windowValue`
+`DEFAULT_AVERAGE` is `rolling-2`. A game data measurement's row is
+`measurementRow(id, row)`: `name`, `help`, and `format` from
+`GameData.metrics` and `measurements: [id]`; an event row's `measurements`
+lists the catalog ids counted over its events (the hover link's keys).
+`valueOver(data, items, fromMs, toMs, durationMs)` computes a rate, ratio,
+value, spread, or speed over given incidents. `windowValue`
 measures a row over a time window (undefined under `MIN_WINDOW_MS`; a
 spread row takes `gapSpreadRatioOf` of the gaps inside it);
-`gameValue` is the right-hand whole-game value; `drawn` returns `steps`,
+`gameValue` is the right-hand whole-game value, every incident over the
+record's `timeMs` (`m.recordTimeMs`) with no minimum, so it equals game
+data's value; `drawn` returns `steps`,
 `events`, `ticks`, or `points`, plus `buckets` or a 241-point rolling
 `line`. `view(model, rowIds, averageId)` adds each action's time, kind, and
 square for the hover card and replay link. `valueAt(row, atMs,
@@ -176,13 +187,18 @@ every row shown; a pick of a row not in `rowIds` drops out), and
   so its title opens and closes it as the remembered panel
   `settings.panels.duringGame`; the charts, lanes, and controls sit in the
   section body.
-- Charts: one SVG per chart under its HTML legend; the tracks are one SVG
+- Charts: one SVG per chart over its HTML legend (2026-10-26; the legend
+  came first until then); the tracks are one SVG
   beside an HTML names column, with one HTML legend under it whose entries
   draw each row's mark (`duringGameLegendMark`) beside its name and count.
-  `duringGameLeftMargin` measures every y label either relative scale can
-  draw (`duringGameScaleLabels`) and every track name (`chartTextWidth`,
+  Parts sit 8px apart and a legend 1px under its svg, so it reads with its
+  own part. `duringGameLeftMargin` measures every y label either relative
+  scale can draw (`duringGameScaleLabels`: the ratios, and every tick
+  either scale can draw times each comparable row's whole-game value in
+  its format) and every track name (`chartTextWidth`,
   canvas `measureText` in the CSS fonts), so every part's plot starts at
-  the same x whatever the scale and the legend picks. The time axis takes
+  the same x whatever the scale, the legend picks, and the line in focus.
+  The time axis takes
   `niceTicks` at about one tick per 56 px, labeled under the first and last
   parts. `duringGameScale(chart, rows, relativeScale)` gives the y scale:
   progress every 20%; the moves chart's counts from 0 on
@@ -202,7 +218,15 @@ every row shown; a pick of a row not in `rowIds` drops out), and
   members the legend shows at each draw and sets each member's `y`, its
   value's height, null when the row is hidden or cannot be drawn (on the
   relative chart, a whole-game value that is not a positive number,
-  `duringGameComparable`). `drawDuringGameTracks` draws each shown event
+  `duringGameComparable`); it keeps the part's `scale`, its `tickLabels`
+  (each tick with its text node), and its `lines`, the members drawing
+  values against the scale (a rate in raw draws only ticks). On the
+  relative chart `labelTicks` (in `renderDuringGameCharts`) picks the line
+  whose values the labels give: the one member of `lines` in focus, else
+  the only one, else none; `labelDuringGameTicks` writes each tick's label
+  as `spec.format(tick * row.summary)`, or the scale's ratio label for
+  none. It runs after the relative part is drawn and on every focus
+  change. `drawDuringGameTracks` draws each shown event
   row's events as `duringGameMark`: a path for an instant, a band (long
   gaps) or a top bar (window left) for a span. The block's `ResizeObserver`
   redraws at the column's width, keeping the spotlight on the redrawn
@@ -223,6 +247,12 @@ every row shown; a pick of a row not in `rowIds` drops out), and
   `DuringGame.legendHides` and the entry's `.during-game-legend-off`. A
   click runs `DuringGame.legendPick` on the part's picks, then redraws only
   that part (`drawPart`) and spotlights the entry's row if it is shown.
+  Entries and the chart hover go through `pointFocus(member)`, which
+  spotlights the member and calls `linkMeasurements` with its
+  `measurements`; `duringGameSpotlight` lets game data's rows spotlight
+  members by measurement ([measurement catalog](measurement-catalog.md),
+  "Hover link"). Names with a definition are `chartHelpButton`s
+  (`duringGameRowName`), in the legends and the configure list.
   The picks object comes from `duringGamePicksFor(record.endedAt)`, one
   set per part, kept at module level so a rebuilt block for the same game
   keeps them; another game gets fresh empty sets. The log scale checkbox
@@ -240,7 +270,10 @@ every row shown; a pick of a row not in `rowIds` drops out), and
   Every pointer move within the time axis calls `previewReplayStep`, which
   paints the board's own replay frame as the transport does; leaving the
   charts or the axis runs `hide`, whose `hideDuringGameHover` calls
-  `endReplayPreview`. Until 2026-10-21 a second board, its own grid of
+  `endReplayPreview`. A pointer on a legend entry keeps that entry's
+  spotlight, also left of the plots, outside the axis: the wider label
+  column of 2026-10-26 put legends' first entries there, and the move
+  handler had cleared their focus. Until 2026-10-21 a second board, its own grid of
   `.cell` squares in a body-level popover beside the block, showed the
   frame instead.
 - `renderDuringGameCharts` throws if the page's replay frames and the
@@ -265,13 +298,15 @@ every row shown; a pick of a row not in `rowIds` drops out), and
   type including both kinds of left work, forks, and
   came back, move habits and their round trip through `finished-game`,
   averaging, the worker round trip and its throws, window-left spans, an
-  unrecorded trace, and the legend picks' click sequence.
+  unrecorded trace, the legend picks' click sequence, and the catalog
+  checks ([measurement catalog](measurement-catalog.md), "Tests").
 - `tests/path-replay-test.js`: the replay preview stops playback, never
   saves a position, ends on the position it replaced, and a new game
   clears it; the player's own moves end it where they move.
 - `tests/settings-state-test.js`: a row choice saved for `leftWorkEvents`
-  carries to `leftHardWorkEvents` and `leftEasyWorkEvents`
-  (`duringGameRowsFromStored` in `settings-core.js`).
+  carries to `leftHardWorkEvents` and `leftEasyWorkEvents`, and one saved
+  under a 2026-10-26 id to the new id (`duringGameRowsFromStored` in
+  `settings-core.js`).
 - `tests/during-game-browser-check.js PLAYWRIGHT_CORE_DIR CHROMIUM
   [SCREENSHOT_DIR]`: real games with real mouse input under the routed test
   origin: the block at the head of the docked column, titled "live perf
@@ -279,16 +314,23 @@ every row shown; a pick of a row not in `rowIds` drops out), and
   "game average" lead, whole-count labels from 0, its default rows, a hover
   card naming one of them with its count), the tracks, and the relative
   chart (its lead, its one 1× line, its doubling labels), in that order,
-  each legend in catalog order, one plot x and width for every part, the
+  each legend in catalog order and under its part, one plot x and width for
+  every part, the
   progress chart's labels, hover line, the card naming only the line under
-  the pointer and spotlighting it, no second board, the board itself at the
+  the pointer and spotlighting it, the relative chart's y labels in that
+  line's values (1× its legend value) and back to ratios when it lets go,
+  no second board, the board itself at the
   hovered moment (the transport's step, slider, and status following, in
   the player's number and flag style, not saved), the finished board at
   the axis's end and on leaving, the pauses track's long-gap card and the
   board's proven-safe rings then, a click keeping its moment through
   leaving and a later hover, the legend picks (alone, added, removed, all
-  again; the tracks' legend; plots in place), the linear scale (the log
-  scale checkbox, averaging the one select; labels from 0×, picks kept,
+  again; the tracks' legend; plots in place), the link with game summary
+  perf (an earlier win held in memory gives game data a comparison: one
+  value in both, a row's hover spotlighting its line or marks alone, lines
+  and legend entries ringing their rows), the linear scale (the log
+  scale checkbox, averaging the one select; with one line picked, labels
+  in its values from 0ms; with every line, ratios from 0×; picks kept,
   saved, restored after reload), configure ("back to
   live perf charts"), raw averaging (rates as ticks only), restore after
   reload, a loss, an 1100 px viewport (the board showing the moment, the

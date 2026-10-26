@@ -193,15 +193,16 @@ async function renderRanks(record, modeRecords, options = {}, sections, isCurren
           ...subsetTrendOpts(withLifeLost, lifeLostOf, secondsOf) }));
     }
     // Cadence spread across the calendar: rhythm consistency drift over
-    // time (wins only here; the session charts cover losses too).
+    // time, over wins like every relationship chart (dots take the win's age).
     const withCadence = wins.filter((s) => s.cadenceSpread !== undefined);
     if (withCadence.length >= 2) {
-      const cadenceOf = (s) => s.cadenceSpread;
+      const cadence = GameData.metrics.find((metric) => metric.id === 'cadenceSpread');
+      const cadenceOf = (s) => cadence.value(s);
       appendScatter(buildScatter(
         withCadence, historyView ? null : record, endedAtOf, cadenceOf,
-        'date', 'cadence spread', meLabel, ageInfoOf,
+        'date', cadence.name, meLabel, ageInfoOf,
         { timeAxis: true, trimY: true,
-          title: 'cadence spread by date', yTickUnit: '\u00d7',
+          title: cadence.name + ' by date', yTickUnit: '\u00d7',
           ...subsetTrendOpts(withCadence, endedAtOf, cadenceOf) }));
     }
     const legend = document.createElement('div');

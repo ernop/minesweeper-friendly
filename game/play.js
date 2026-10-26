@@ -279,8 +279,6 @@ function newGame() {
   // time played was real: close the play span so today's use keeps it, and
   // the session results count the board as abandoned.
   playSpanEnd('restarted');
-  lastUsefulPressAt = null;
-  fastclickGaps = [];
   actionEvaluations = [];
   justiceDetails = [];
   gameState = 'ready';

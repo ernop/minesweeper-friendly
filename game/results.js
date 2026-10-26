@@ -64,10 +64,10 @@ function reportResult(outcome, endedAt = Date.now()) {
     record.musicPlaying = musicObservations.some((heard) => heard);
   }
   if (boardFlagsBlocked) record.flagsBlocked = true;
-  // Fastclick gap: the game's median gap between consecutive useful
-  // presses made on the move with gaps under 1s (recordUsefulPress).
-  // Absent when no gap qualified.
-  const gameFastGap = medianOf(fastclickGaps);
+  // Fastclick gap: the median of the trace's fastclick gaps, the gaps the
+  // live line plots (DuringGame.fastclickGaps). Absent when no gap qualified.
+  const gameFastGap = medianOf(DuringGame.fastclickGaps(pathDecisionEvents(trace.events), trace.t)
+    .map((gap) => gap.gapMs));
   if (gameFastGap !== undefined) {
     record.fastclickGapMs = Math.round(gameFastGap);
   }
@@ -774,7 +774,7 @@ function buildGameStats(record) {
     ...measurementRow('efficiency'),
     ...(chordShareOf(record) !== undefined
       ? [['Chord share', Math.round(chordShareOf(record) * 100) + '%']] : []),
-    ...measurementRow('correctness'),
+    ...measurementRow('boardChangingClickShare'),
     ...measurementRow('ioe'),
     ...measurementRow('hziniEfficiency'),
     ...(fullAnalysis ? measurementRow('ziniEfficiency') : []),
@@ -792,14 +792,12 @@ function buildGameStats(record) {
     ...measurementRow('mouseSpeed'),
     // The per-game forms of the session series, derived from stored
     // fields at display time (so they exist on historical games too);
-    // fastclick gap is the one stored measurement among them.
+    // fastclick gap and cadence spread are stored measurements.
     ...measurementRow('clickRate'),
     ...(fullAnalysis ? measurementRow('noopRate') : []),
     ...(fullAnalysis ? measurementRow('misclickRate') : []),
-    ...(seconds > 0 && record.flagsPlaced !== undefined
-      ? [['Flag rate', (record.flagsPlaced / seconds).toFixed(2) + '/s']] : []),
-    ...(fullAnalysis && seconds > 0 && record.flagsRemoved !== undefined
-      ? [['Flag-removal rate', (record.flagsRemoved / (seconds / 60)).toFixed(1) + '/min']] : []),
+    ...measurementRow('flagRate'),
+    ...(fullAnalysis ? measurementRow('flagRemovalRate') : []),
     ...measurementRow('fastclickGap'),
     ...measurementRow('cadenceSpread'),
     ...measurementRow('pathPerClick'),
