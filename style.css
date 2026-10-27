@@ -1662,8 +1662,10 @@ body.trial-offboard #game-frame {
 #game-sidebar-close { align-self: flex-end; }
 #page-layout.compact-sidebar { grid-template-columns: minmax(0, 1fr); }
 
-/* A stat section (live perf charts): its title is the button that opens
-   and closes it. Game data's two side titles share this look. */
+/* A stat section (live perf charts, motion stats): its title is the button
+   that opens and closes it. Game data's two side titles share this look, and
+   so do the result's tables and sections under the board, whose head holds
+   the title in a heading. */
 .stat-section {
   min-width: 0;
   color: #000000;
@@ -1676,9 +1678,14 @@ body.trial-offboard #game-frame {
   gap: 6px;
   border-bottom: 1px solid #000000;
 }
+.stat-section-head > .stat-section-title {
+  margin: 0;
+  font-size: inherit;
+}
 /* Three classes: the section's own button rules (.during-game button,
    .board-time-profile button) must not restyle its title. */
-.stat-section > .stat-section-head > .stat-section-toggle {
+.stat-section > .stat-section-head > .stat-section-toggle,
+.stat-section-head > .stat-section-title > .stat-section-toggle {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -1690,19 +1697,29 @@ body.trial-offboard #game-frame {
   font: 700 15px Arial, Helvetica, sans-serif;
   text-align: left;
 }
-.stat-section > .stat-section-head > .stat-section-toggle::before {
+.stat-section > .stat-section-head > .stat-section-toggle::before,
+.stat-section-head > .stat-section-title > .stat-section-toggle::before {
   content: "";
   border: 5px solid transparent;
   border-left: 7px solid #000000;
   border-right-width: 0;
 }
-.stat-section > .stat-section-head > .stat-section-toggle[aria-expanded="true"]::before {
+.stat-section > .stat-section-head > .stat-section-toggle[aria-expanded="true"]::before,
+.stat-section-head > .stat-section-title > .stat-section-toggle[aria-expanded="true"]::before {
   border: 5px solid transparent;
   border-top: 7px solid #000000;
   border-bottom-width: 0;
 }
 .stat-section > .stat-section-head > .stat-section-toggle:hover,
-.stat-section > .stat-section-head > .stat-section-toggle:focus-visible { background: #e3edf6; }
+.stat-section > .stat-section-head > .stat-section-toggle:focus-visible,
+.stat-section-head > .stat-section-title > .stat-section-toggle:hover,
+.stat-section-head > .stat-section-title > .stat-section-toggle:focus-visible { background: #e3edf6; }
+/* A title that carries help (the session summary, ranks won) is marked like
+   every help label. */
+.stat-section-toggle.stat-section-toggle-help {
+  text-decoration: underline dotted #84939f;
+  text-underline-offset: 3px;
+}
 .stat-section-body { padding-top: 4px; min-width: 0; }
 .stat-section-body[hidden] { display: none; }
 #game-sidebar[popover] { display: none; }
@@ -2388,37 +2405,13 @@ body.settings-page .return-to-game {
 
 .result-chart-section:last-child { margin-bottom: 0; }
 
+/* A section's title opens and closes it; its chart choice shows only while
+   it is open. */
 .result-chart-section-head {
-  display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
-  gap: 8px 12px;
-  width: calc(100% - 24px);
-  margin: 0 auto 10px;
-  border-bottom: 1px solid #d9e2e8;
-  padding-bottom: 4px;
+  gap: 4px 12px;
 }
-
-.result-chart-section-title {
-  width: calc(100% - 24px);
-  margin: 0 auto 10px;
-  border-bottom: 1px solid #d9e2e8;
-  padding-bottom: 4px;
-  color: #000000;
-  font-size: 16px;
-  font-weight: 700;
-  line-height: 1.2;
-  text-align: left;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
-.result-chart-section-head .result-chart-section-title {
-  width: auto;
-  margin: 0;
-  border-bottom: 0;
-  padding-bottom: 0;
-}
+.result-chart-section-head:has(.stat-section-toggle[aria-expanded="false"]) > .avg-mode-select { display: none; }
 
 .result-chart-section-items {
   display: flex;
@@ -2427,46 +2420,48 @@ body.settings-page .return-to-game {
   align-items: flex-start;
   gap: 18px;
 }
+.result-chart-section-head + .result-chart-section-items { margin-top: 10px; }
+.result-chart-section-items[hidden] { display: none; }
 
-/* The session summary and ranks won, when not beside the board, float as
-   one left column, the summary on top, so successive rows of time/streak
-   tables use the space beside them and then the full width underneath. */
+/* The table collection is one flow. The session summary and ranks won, when
+   not beside the board, float as one left column, the summary on top; this
+   game floats next, beside that column where it fits and under it where it
+   does not. The rankings title takes the room beside those floats, and the
+   rank tables fill that room in rows, then the full width underneath. */
 .result-chart-section-tables > .result-chart-section-items {
   display: flow-root;
   text-align: left;
   font-size: 0;
   margin-bottom: -18px;
 }
-.result-chart-section-tables > .result-chart-section-items > .rank-list {
+.result-chart-section-tables > .result-chart-section-items > .session-tables {
+  float: left;
+}
+.session-tables > .rank-list {
+  float: left;
+  clear: left;
+  margin: 0 18px 18px 0;
+}
+.result-chart-section-tables > .result-chart-section-items > .game-stats {
+  float: left;
+  margin: 0 18px 18px 0;
+}
+.rank-tables-body { padding-top: 6px; }
+.rank-tables-body[hidden] { display: none; }
+.rank-tables-body > .rank-list {
   display: inline-block;
   vertical-align: top;
   margin: 0 18px 18px 0;
 }
-.result-chart-section-tables > .result-chart-section-items > .session-summary {
-  float: left;
-}
-.result-chart-section-tables > .result-chart-section-items > .recent-placements {
-  float: left;
-  clear: left;
-}
-/* This game's stats lead the line beside that column where they fit; when
-   they do not (placeBoardSides), they float in the place the line gave
-   them, so the tables after them still fill the room beside the summary. */
-.result-chart-section-tables > .result-chart-section-items > .game-stats.below-first-line {
-  float: left;
-}
+/* Closed, the title is the collection's last line, and keeps the room the
+   last row of tables would leave under it. */
+.rank-tables:has(> .rank-tables-body[hidden]) { padding-bottom: 18px; }
 #result-ranks .rank-list.beside-board {
   position: absolute;
   margin: 0;
 }
 
 .result-chart-section-boardTables > .result-chart-section-items { justify-content: flex-start; }
-
-.result-chart-section-boardTables > .result-chart-section-title {
-  width: 100%;
-  margin-left: 0;
-  margin-right: 0;
-}
 
 /* Live perf charts (docs/product/during-game.md): the details column's
    first stat section, sized by its content. Its charts take the session

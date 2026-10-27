@@ -58,11 +58,14 @@
       const tableItems = resultRanks.querySelector('.result-chart-section-tables .result-chart-section-items');
       const summary = resultRanks.querySelector('.session-summary');
       const ranksWon = resultRanks.querySelector('.recent-placements');
+      const rankTables = tableItems.querySelector(':scope > .rank-tables');
       check(label + ': the session summary and ranks won lead the continuous table collection',
         sections[0].includes('result-chart-section-tables')
           && resultStats.querySelector('.board-time-profile') !== null
           && resultStats.querySelector('#stats-grid') === null
-          && tableItems.children[0] === summary && tableItems.children[1] === ranksWon
+          && tableItems.children[0].matches('.session-tables')
+          && tableItems.children[0].children[0] === summary && tableItems.children[0].children[1] === ranksWon
+          && tableItems.children[1] === rankTables && tableItems.children.length === 2
           && summary.querySelectorAll('.session-summary-row').length >= 1
           && !resultRanks.querySelector('.result-chart-section-placements')
           && !document.getElementById('history-placements'));
@@ -108,21 +111,29 @@
       check(label + ': all streak tables share the upper collection',
         ['streak', 'near-streak', 'near-near-streak'].every(name => tableLabels.includes(name))
           && !resultRanks.querySelector('.result-chart-section-streaks'));
-      check(label + ': table collection has no section heading',
-        !tableItems.parentElement.querySelector('.result-chart-section-title'));
-      const inFlow = [...tableItems.children].filter((item) => !item.classList.contains('beside-board'));
+      // The collection has no section title; its rank tables (time windows,
+      // day categories, streaks) share one opener, rankings.
+      const rankLists = [...tableItems.querySelectorAll('.rank-list')].filter((list) => list !== summary && list !== ranksWon);
+      const rankingsHead = rankTables.querySelector(':scope > .stat-section-head');
+      check(label + ': the rank tables share the rankings opener, and the collection has no section title',
+        rankingsHead.querySelector('h3 > .stat-section-toggle').textContent === 'rankings'
+          && rankLists.length > 0 && rankLists.every((list) => list.parentElement === rankTables.lastElementChild)
+          && !tableItems.parentElement.querySelector(':scope > .result-chart-section-head'));
       // Below the board the summary and ranks won form one left column, the
-      // summary on top; later tables sit beside that column or under it.
-      const lead = inFlow.filter((item) => item === summary || item === ranksWon);
+      // summary on top; the rankings title and its tables sit beside that
+      // column or under it.
+      const lead = [summary, ranksWon].filter((item) => !item.classList.contains('beside-board'));
       check(label + ': below the board the summary heads one column with ranks won under it',
-        lead.length === 0 || (lead[0] === inFlow[0]
-          && inFlow.every((item) => rect(item).top >= rect(lead[0]).top - 1 && rect(item).left >= rect(lead[0]).left - 1)
+        lead.length === 0 || (Math.abs(rect(lead[0]).top - rect(tableItems).top) < 1
+          && Math.abs(rect(lead[0]).left - rect(tableItems).left) < 1
           && (lead.length === 1 || (Math.abs(rect(ranksWon).left - rect(summary).left) < 1
             && rect(ranksWon).top >= rect(summary).bottom - 1))
-          && inFlow.filter((item) => !lead.includes(item)).every((item) => lead.every((block) => !overlaps(item, block)))));
-      if (width === 1680) check(label + ': the next table uses the space beside that column',
-        Math.abs(rect(inFlow[lead.length]).top - rect(inFlow[0]).top) < 1
-          && rect(inFlow[lead.length]).left >= Math.max(...lead.map((item) => rect(item).right)) - 1);
+          && [rankingsHead, ...rankLists].every((item) => lead.every((block) => !overlaps(item, block)))));
+      if (width === 1680) check(label + ': the rankings title and its first table use the space beside that column',
+        Math.abs(rect(rankingsHead).top - rect(lead[0]).top) < 1
+          && rect(rankingsHead).left >= Math.max(...lead.map((item) => rect(item).right)) - 1
+          && rect(rankLists[0]).left >= Math.max(...lead.map((item) => rect(item).right)) - 1
+          && rect(rankLists[0]).top < rect(lead.at(-1)).bottom);
       const boardRowsBottom = Math.max(rect(gameFrame).bottom, rect(replayControls).bottom,
         ...[...resultRanks.querySelectorAll('.beside-board')].map((block) => rect(block).bottom));
       check(label + ': tables begin directly below the board, its transport, and the blocks beside it',
@@ -188,9 +199,11 @@
   // A loss: its stats are the "this game" table, third in the collection
   // after the summary and the latest win's ranks won. Beside the board they
   // take a side those two leave free, the left first, exactly where they fit;
-  // under the board they lead the line beside the summary column, or float
-  // where that line put them.
+  // under the board they float beside the summary column where they fit
+  // there, and otherwise at the left under it. Closed, each of the three
+  // keeps its open place, so its title does not move.
   const loss = { ...record, outcome: 'loss', endedAt: record.endedAt + 1000 };
+  const tablePanels = ['sessionSummary', 'recentPlacements', 'gameStats'];
   for (const width of [2560, 1680, 1216, 650]) {
     frame.style.width = width + 'px';
     for (const size of ['beginner', 'intermediate', 'expert']) {
@@ -209,10 +222,11 @@
       const summary = resultRanks.querySelector('.session-summary');
       const ranksWon = resultRanks.querySelector('.recent-placements');
       const stats = resultRanks.querySelector('.game-stats');
+      const rankingsHead = tableItems.querySelector(':scope > .rank-tables > .stat-section-head');
       check(label + ': its stats are the "this game" table, third in the table collection',
         stats !== null && stats.querySelector('h4').textContent === 'this game'
-          && tableItems.children[0] === summary && tableItems.children[1] === ranksWon
-          && tableItems.children[2] === stats && !!ranksWon.querySelector('.rank-row')
+          && tableItems.children[0].children[0] === summary && tableItems.children[0].children[1] === ranksWon
+          && tableItems.children[1] === stats && !!ranksWon.querySelector('.rank-row')
           && resultStats.querySelector('#stats-grid, .game-stats') === null);
       const inset = parseFloat(getComputedStyle(pageLayout).getPropertyValue('--board-edge-inset'));
       const frameRect = rect(gameFrame);
@@ -228,19 +242,37 @@
           && (!beside || (Math.abs(rect(stats).top - frameRect.top) < 1
             && (freeSide === 'left' ? Math.abs(rect(stats).right - (boardLeft - 16)) < 1
               : Math.abs(rect(stats).left - (boardRight + 16)) < 1))));
-      const floated = stats.classList.contains('below-first-line');
+      let besideColumn = false;
       if (!beside) {
-        const placed = rect(stats);
-        stats.classList.remove('below-first-line');
-        const inline = rect(stats);
-        stats.classList.toggle('below-first-line', floated);
-        check(label + ': under the board it leads the line beside the summary column, or floats where that line put it',
-          floated === (inline.top > rect(tableItems).top + 1)
-            && Math.abs(placed.top - inline.top) < 1 && Math.abs(placed.left - inline.left) < 1
-            && [summary, ranksWon].every((block) => block.classList.contains('beside-board') || !overlaps(stats, block)));
+        const lead = [summary, ranksWon].filter((block) => !block.classList.contains('beside-board'));
+        const columnRight = lead.length > 0 ? Math.max(...lead.map((block) => rect(block).right)) + 18 : rect(tableItems).left;
+        const columnBottom = lead.length > 0 ? Math.max(...lead.map((block) => rect(block).bottom)) + 18 : rect(tableItems).top;
+        besideColumn = columnRight + rect(stats).width + 18 <= rect(tableItems).right + 0.5;
+        check(label + ': under the board it floats beside the summary column where it fits there, else at the left under it',
+          (besideColumn
+            ? Math.abs(rect(stats).top - rect(tableItems).top) < 1 && Math.abs(rect(stats).left - columnRight) < 1
+            : Math.abs(rect(stats).left - rect(tableItems).left) < 1 && Math.abs(rect(stats).top - columnBottom) < 1)
+            && [summary, ranksWon].every((block) => block.classList.contains('beside-board') || !overlaps(stats, block))
+            && !overlaps(stats, rankingsHead));
       }
       checks.push('INFO ' + label + ': this game ' + Math.round(rect(stats).width)
-        + (beside ? ' beside' : floated ? ' floated below the first line' : ' on the first line'));
+        + (beside ? ' beside the board' : besideColumn ? ' beside the summary column' : ' under the summary column'));
+      // A block beside the board keeps its title's exact place; one under
+      // the board stays there, where the flow moves it only for the blocks
+      // closed before it.
+      const placeOf = (block) => {
+        const box = rect(block.querySelector('.stat-section-toggle'));
+        return block.classList.contains('beside-board') ? [Math.round(box.left), Math.round(box.top)] : 'under';
+      };
+      const openPlaces = [summary, ranksWon, stats].map(placeOf);
+      for (const panel of tablePanels) settings.panels[panel] = false;
+      await renderResult(loss, records);
+      await wait();
+      const closed = ['.session-summary', '.recent-placements', '.game-stats'].map((selector) => resultRanks.querySelector(selector));
+      check(label + ': closed, the summary, ranks won, and this game keep their open places',
+        closed.every((block) => block.querySelector(':scope > .stat-section-body').hidden)
+          && JSON.stringify(closed.map(placeOf)) === JSON.stringify(openPlaces));
+      for (const panel of tablePanels) settings.panels[panel] = true;
     }
   }
 

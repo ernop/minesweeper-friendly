@@ -101,7 +101,7 @@ Files, in load order:
 | `play-modes.js` | other modes menu, mode predicates and labels; 3BV countdown (the code's "pregen"), Endgame drill, Board lab, trials on the live board |
 | `play-limits.js` | daily play limits: the play spans (every saved one; this tab's begin, heartbeat, and ending), the closed-board gate and notice, the no-flags penalty gate, today's use in the top bar |
 | `evaluation.js` | game-end evaluation: pure verdict model, live capture |
-| `results.js` | the saved record (`reportResult`), after-game report, result view, High scores view |
+| `results.js` | the saved record (`reportResult`), after-game report, result view, High scores view; the openers (a title that opens and closes its block, remembered in `settings.panels`) |
 | `history.js` | record version stamps and schema, per-mode history, mode keys, normalization, transfer cleaning |
 | `rankings.js` | rank windows and relative ages, day categories, board families and their one name each (`BOARD_TRAIT_NAMES`), session summary and its results tree, the one session picker, ranks won in session, rank lists |
 | `charts.js` | chart models and presentation (heavy models execute in the analysis worker); chart basics (SVG namespace, count phrases, text widths, displayed numbers, sparkline sizes), axis ticks, trend lines, the (?) help tip, scatter and average-time charts |

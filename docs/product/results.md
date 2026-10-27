@@ -17,7 +17,9 @@ append timing or from how many cards fit on a row:
    time-period summary, then after a loss that game's "this game" stats
    (2026-10-26), then time/category and all consecutive/loss-tolerant
    streak tablecharts (session summary added 2026-10-07). They share one
-   left-aligned wrapping collection with no section heading. In the wide
+   left-aligned wrapping collection with no section title; the time,
+   category, and streak tables share one opener, "rankings"
+   ([Openers](#openers-creator-request-2026-10-26)). In the wide
    layout the session summary sits left of the board and ranks won right of
    it wherever each fits, and "this game" takes a side neither holds, the
    left first, where it fits; they keep their places at the head of the
@@ -28,7 +30,7 @@ append timing or from how many cards fit on a row:
    board's equivalent). Losses retain existing win history without
    marking the loss as a ranked win, and a loss keeps the shared lists.
 5. **This board** — the selected reference board's exact-benchmark and
-   shape time tablecharts, in a separate named, left-aligned wrapping section.
+   shape time tablecharts, in a separate titled, left-aligned wrapping section.
    Empty sections are omitted. The period-wide ranks-won summary above still
    includes all qualifying board categories from its selected period.
 6. **Your perf** — property charts for the left-side measurements, with that
@@ -59,13 +61,55 @@ summary on top and ranks won directly under it (2026-10-07); successive rows
 of period/day/streak tables flow alongside that column's height, then use the
 full width underneath. Narrow layouts wrap below it when there is
 insufficient horizontal room. A loss's "this game" table, when not beside
-the board, leads the first row beside that column where it fits there;
-otherwise it floats at the left where that row would have put it (beside
-ranks won under the summary, or under the column), so the tables after it
-still fill the room beside the summary. The section contains the floats, so This board
+the board, floats beside that column where it fits there, and otherwise at
+the left under it (2026-10-26, when the rankings opener came; it had led the
+first row of tables, as one of them). The "rankings" title takes the room
+beside those tables, and its tables fill that room in rows, then the full
+width underneath. The section contains the floats, so This board
 and later chart sections begin below all upper tables. DOM order is
 preserved, nothing sits above or left of the summary, and table flow cannot
 mix tables with point charts.
+
+## Openers (creator request 2026-10-26)
+
+The creator, of the details column's titles that open and close with an
+arrow: "just like the my perf & related 2 are open/closeable with the
+little arrow, the other items like the session info and the grouped top x
+times parts, also the "this baord" and the your perf sections too should
+all adopt that same type of closer/openers."
+
+Built the same day: every table and section of the result under the board
+opens and closes by its title, the details column's opener (live perf
+charts, game summary perf, board traits): an arrow, pointing right when
+closed and down when open, before a bold title, with a black rule under
+the title. Clicking the title opens or closes what it heads. Each one's
+state is remembered across games and reloads, one per title; all start
+open.
+
+- The session summary ("session"), ranks won in session, and a loss's or
+  trial game's "this game" each open and close alone.
+- The time, category, and streak tables (lifetime, past week, today, the
+  hour and minute windows, the day categories, streak, near-streak,
+  near-near-streak) open and close together under one title, "rankings",
+  the creator's "grouped top x times parts". It replaced the 2026-09-07
+  rule of no heading over them; each table keeps its own label. One
+  opener per table was the alternative not taken: it would add as many
+  titles as tables to a collection the creator calls one group.
+- This board, your perf, board traits, and relationships each open and
+  close as a whole. The your perf and board traits chart choice (average,
+  distribution, winrate) stays beside the title and shows only while its
+  section is open. These titles are no longer upper case.
+- A table beside the board keeps its place when closed: its title stays
+  where it was, and opening it again fills the same place. Whether a table
+  sits beside the board is decided by its open width, closed or not.
+  Closing a table or section moves only what comes after it.
+- The session summary's and ranks won's explanations moved to their
+  titles: hovering the title, or focusing it by keyboard, shows the
+  explanation; the dotted underline that marks a help label marks them.
+  The click that opens or closes puts it away. A help tip never covers
+  what it explains (anywhere on the page): where it fits neither below
+  nor above, it opens beside it. Before, a tall tip could cover its own
+  label, which then lost the pointer to it and flickered.
 
 The score viewer deliberately omits post-game action analysis, during the
 game, and motion diagnostics. Its reference record is explicitly the latest win, named alongside

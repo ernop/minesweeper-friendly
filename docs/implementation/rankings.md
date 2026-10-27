@@ -49,7 +49,9 @@ Spec: [docs/product/rankings.md](../product/rankings.md). Index: [AGENTS.md](../
   near-miss rule, rows flagged nearMiss)} — computes the rows. The current
   record's rank is the entry whose `endedAt` is its own. `SessionScope` supplies the shared source
   window. The "ranks won in session" heading has no selector; the box listens
-  for `session-scope-change` from the one picker and rebuilds itself.
+  for `session-scope-change` from the one picker and rebuilds itself. The
+  heading is `resultTableOpener(box, 'recentPlacements', ...)` with the help
+  on its title; the loading line and rows go in the returned body.
   `buildRecentPlacements(record, modeRecords, referenceMs, markReferenceRecord)`
   sends the mode's records in finish order to the worker's
   `recent-placements` task: wins as `analysisRecord`, losses as
@@ -129,7 +131,9 @@ Spec: [docs/product/rankings.md](../product/rankings.md). Index: [AGENTS.md](../
   the page. `noMark` is true when every record of that key is markless.
   `buildSessionSummary(record, referenceMs, markCurrent, noMark, boardRecord)`
   renders
-  `.rank-list.session-summary` (heading "session", help naming the window)
+  `.rank-list.session-summary` (heading "session", help naming the window,
+  both from `resultTableOpener(box, 'sessionSummary', ...)`, whose body
+  holds everything below)
   with `sessionSummaryTypeParts` (the board, and a variant naming a
   non-Standard mode and a non-default generator, in its own
   `.session-summary-variant` column only when some row has one; the grid's

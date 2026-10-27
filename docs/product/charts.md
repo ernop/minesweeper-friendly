@@ -40,7 +40,9 @@ at or below one second, and path ratios exclude zero denominators.
   percent and add "%" on the x ticks; unused flag share read 0–1 without
   "%" until 2026-10-10.
   The rotated y-axis caption stays gone. The x axis label remains.
-- Each group has its own three-way **mode** selector on the section heading
+- Each group has its own three-way **mode** selector on the section heading,
+  beside the title that opens and closes the group, shown while the group is
+  open (2026-10-26, [Openers](results.md#openers-creator-request-2026-10-26))
   (`settings.perfChartMode` and `settings.boardChartMode`):
   - **average** — the classic reading: each dot is a group's average win
     time.

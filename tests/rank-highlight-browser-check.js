@@ -280,7 +280,7 @@ const { chromium } = require(process.argv[2]);
         const bounds = (el) => { const r = el.getBoundingClientRect();
           return { top: r.top, bottom: r.bottom, left: r.left, right: r.right }; };
         const summary = bounds(items.querySelector('.recent-placements'));
-        const tables = [...items.children].filter((el) => !el.classList.contains('recent-placements')).map(bounds);
+        const tables = [...items.querySelectorAll('.rank-tables .rank-list')].map(bounds);
         const rows = [...items.querySelectorAll('.recent-window-cell')].map(bounds);
         return { summary, tables, rows, nextSection: bounds(resultRanks.querySelector('.result-chart-section-boardTables')) };
       });

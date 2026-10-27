@@ -5,6 +5,28 @@
 
 //-------RESULT RANKS (tables and charts in section order)-------
 
+// The session summary and ranks won, stacked: below the board they float as
+// one left column, so the tables after them rise beside it.
+function sessionTablesColumn(tables) {
+  const column = document.createElement('div');
+  column.className = 'session-tables';
+  column.append(...tables);
+  column.analysisReady = Promise.all(tables.map((table) => table.analysisReady));
+  return column;
+}
+
+// The rank tables (time windows, day categories, streaks) as one group whose
+// title opens and closes them all.
+function rankTablesGroup(lists) {
+  const group = document.createElement('div');
+  group.className = 'rank-tables';
+  const body = document.createElement('div');
+  body.className = 'rank-tables-body';
+  body.append(...lists);
+  group.append(resultOpenerHead('h3', 'rankTables', 'rankings', body), body);
+  return group;
+}
+
 async function renderRanks(record, modeRecords, options = {}, sections, isCurrent = () => true) {
   // The during-the-game block and this game's stats are page content, not
   // ranking inputs.
@@ -29,19 +51,19 @@ async function renderRanks(record, modeRecords, options = {}, sections, isCurren
   }, table.help);
   // The session summary and ranks won lead the table collection; layout
   // moves them beside the board, left and right, where they fit.
-  if (settings.shownThings.sessionSummary) {
-    sections.append('tables', buildSessionSummary(record, referenceMs, !historyView,
-      Boolean(options.noMarkTimeLabel), boardRecord));
-  }
-  if (settings.shownThings.recentPlacements) {
-    sections.append('tables', buildRecentPlacements(record, modeRecords, referenceMs, !historyView,
-      options.noMarkTimeLabel || null));
-  }
+  const sessionTables = [
+    ...(settings.shownThings.sessionSummary ? [buildSessionSummary(record, referenceMs, !historyView,
+      Boolean(options.noMarkTimeLabel), boardRecord)] : []),
+    ...(settings.shownThings.recentPlacements ? [buildRecentPlacements(record, modeRecords, referenceMs, !historyView,
+      options.noMarkTimeLabel || null)] : []),
+  ];
+  if (sessionTables.length > 0) sections.append('tables', sessionTablesColumn(sessionTables));
   // A loss's own stats come next, ahead of every rank table, so they flow
   // as high as the collection allows.
   if (gameStats) sections.append('tables', gameStats);
+  const rankTables = [];
   for (const table of plan.timeTables) {
-    sections.append('tables', timeTable(table));
+    rankTables.push(timeTable(table));
     await yieldAnalysisPresentation();
     if (!isCurrent()) return;
   }
@@ -88,7 +110,7 @@ async function renderRanks(record, modeRecords, options = {}, sections, isCurren
   }
 
   for (const table of plan.streakTables) {
-    sections.append('tables', buildRankList(table.label, table.count, table.index, 'rank-grid', (i) => {
+    rankTables.push(buildRankList(table.label, table.count, table.index, 'rank-grid', (i) => {
       const seg = table.rows[i - table.start], age = relativeAge(referenceMs, seg.end);
       const cells = [['rank-cell', String(i + 1)], ['time-cell', seg.len + (seg.len === 1 ? ' win' : ' wins')]];
       if (!historyView && seg.current) cells.push(['age-just-cell age-u-s', 'this']);
@@ -96,6 +118,7 @@ async function renderRanks(record, modeRecords, options = {}, sections, isCurren
       return cells;
     }));
   }
+  if (rankTables.length > 0) sections.append('tables', rankTablesGroup(rankTables));
 
   // Scatter plots at the very bottom, each raw win value against win time
   // (or clicks). Needs at least 2 wins to have a spread. These are the

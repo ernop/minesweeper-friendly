@@ -512,6 +512,9 @@ const RESULT_PRESENTATION_PHASES = Object.freeze([
   { id: 'relationships', order: 80 },
 ]);
 
+// A titled section's title opens and closes it, remembered as the panel named
+// by its id. The table collection has no title: its tables open and close
+// one by one, and its rank tables as one group.
 const RESULT_CHART_SECTIONS = Object.freeze([
   { id: 'tables', phase: 'tables', label: 'Game tables', heading: false },
   { id: 'boardTables', phase: 'boardTables', label: 'This board' },
@@ -560,22 +563,15 @@ function createResultSectionCollector(context) {
         const section = document.createElement('section');
         section.className = 'result-chart-section result-chart-section-' + spec.id;
         section.setAttribute('aria-label', spec.label);
-        if (spec.heading !== false) {
-          const heading = document.createElement('h3');
-          heading.className = 'result-chart-section-title';
-          heading.textContent = spec.label;
-          if (spec.chartMode) {
-            const head = document.createElement('div');
-            head.className = 'result-chart-section-head';
-            head.append(heading, chartModeSelect(spec.chartMode));
-            section.appendChild(head);
-          } else {
-            section.appendChild(heading);
-          }
-        }
         const items = document.createElement('div');
         items.className = 'result-chart-section-items';
         items.append(...children);
+        if (spec.heading !== false) {
+          const head = resultOpenerHead('h3', spec.id, spec.label, items);
+          head.classList.add('result-chart-section-head');
+          if (spec.chartMode) head.append(chartModeSelect(spec.chartMode));
+          section.appendChild(head);
+        }
         section.appendChild(items);
         parent.appendChild(section);
       }
@@ -643,9 +639,50 @@ function setHighScoresSummary(note) {
   resultSummary.replaceChildren(leadNode, ' ', context, '\n', noteNode);
 }
 
-// A stat section of the details column: its title is the button that opens
-// and closes it, and the open state is a remembered panel.
-let statSectionCount = 0;
+// The title button that opens and closes `body`, its open state the
+// remembered panel `panelKey`: every stat section, result section, and
+// result table opens and closes through this one control. `help`, in
+// chartHelpButton's forms, is the title's tooltip: hovering the title or
+// focusing it by keyboard shows it, and the click that opens or closes puts
+// it away.
+let panelBodyCount = 0;
+function panelToggle(panelKey, title, body, help) {
+  const toggle = document.createElement('button');
+  toggle.type = 'button';
+  toggle.className = 'ui-button stat-section-toggle';
+  toggle.textContent = title;
+  body.id = 'panel-body-' + ++panelBodyCount;
+  toggle.setAttribute('aria-controls', body.id);
+  const show = () => {
+    toggle.setAttribute('aria-expanded', String(settings.panels[panelKey]));
+    body.hidden = !settings.panels[panelKey];
+  };
+  toggle.addEventListener('click', () => {
+    rememberPanel(panelKey, !settings.panels[panelKey]);
+    show();
+    scheduleBoardLayout();
+  });
+  if (help !== undefined) {
+    toggle.classList.add('stat-section-toggle-help');
+    const hide = () => {
+      if (chartHelpOwner === toggle) hideChartHelpTip();
+    };
+    toggle.addEventListener('mouseenter', () => showChartHelp(toggle, help));
+    toggle.addEventListener('mouseleave', () => {
+      if (!toggle.matches(':focus-visible')) hide();
+    });
+    toggle.addEventListener('focus', () => {
+      if (toggle.matches(':focus-visible')) showChartHelp(toggle, help);
+    });
+    toggle.addEventListener('blur', hide);
+    toggle.addEventListener('click', hide);
+  }
+  show();
+  return toggle;
+}
+
+// A stat section of the details column or the page foot: its title opens
+// and closes it.
 function buildStatSection(panelKey, title) {
   const section = document.createElement('section');
   section.className = 'stat-section';
@@ -653,29 +690,33 @@ function buildStatSection(panelKey, title) {
   section.setAttribute('aria-label', title);
   const head = document.createElement('div');
   head.className = 'stat-section-head';
-  const toggle = document.createElement('button');
-  toggle.type = 'button';
-  toggle.className = 'ui-button stat-section-toggle';
-  toggle.textContent = title;
   const body = document.createElement('div');
   body.className = 'stat-section-body';
-  body.id = 'stat-section-body-' + ++statSectionCount;
-  toggle.setAttribute('aria-controls', body.id);
+  const toggle = panelToggle(panelKey, title, body);
   head.append(toggle);
   section.append(head, body);
-  const show = () => {
-    const open = settings.panels[panelKey];
-    toggle.setAttribute('aria-expanded', String(open));
-    section.classList.toggle('open', open);
-    body.hidden = !open;
-  };
-  toggle.addEventListener('click', () => {
-    rememberPanel(panelKey, !settings.panels[panelKey]);
-    show();
-    scheduleBoardLayout();
-  });
-  show();
   return { section, body, toggle };
+}
+
+// A result opener's head: a heading (`level`, h3 or h4) holding the title
+// that opens and closes `body`.
+function resultOpenerHead(level, panelKey, title, body, help) {
+  const head = document.createElement('div');
+  head.className = 'stat-section-head';
+  const heading = document.createElement(level);
+  heading.className = 'stat-section-title';
+  heading.append(panelToggle(panelKey, title, body, help));
+  head.append(heading);
+  return head;
+}
+
+// A table among the result's tables (the session summary, ranks won, this
+// game): its title opens and closes the returned body, which holds the rest.
+function resultTableOpener(table, panelKey, title, help) {
+  const body = document.createElement('div');
+  body.className = 'stat-section-body';
+  table.append(resultOpenerHead('h4', panelKey, title, body, help), body);
+  return body;
 }
 
 // A game data measurement of this record as the result screen shows it: only
@@ -713,8 +754,6 @@ function buildGameStats(record) {
   ];
   const table = document.createElement('div');
   table.className = 'rank-list game-stats';
-  const heading = document.createElement('h4');
-  heading.textContent = 'this game';
   const grid = document.createElement('div');
   grid.className = 'game-stats-grid';
   // A game data measurement shows under its game data name and format.
@@ -816,7 +855,7 @@ function buildGameStats(record) {
     valueCell.textContent = value;
     grid.append(labelCell, valueCell);
   }
-  table.append(heading, grid);
+  resultTableOpener(table, 'gameStats', 'this game').append(grid);
   return table;
 }
 

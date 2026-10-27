@@ -25,9 +25,13 @@ alwaysApply: true
 - Motion stats is not in this sequence either: one open/close section at
   the page foot, after every result section (creator decision 2026-10-20,
   when the left stats panel was removed).
-- The upper tables share one continuous wrapping list without Rankings or
-  Streaks section headings. Retain individual table labels such as lifetime
-  and near-streak, which identify their data.
+- The upper tables share one continuous wrapping list with no section title
+  and no Streaks heading. The time, category, and streak tables open and
+  close together under one title, "rankings", which flows beside the session
+  column like a table (creator request 2026-10-26: every result table and
+  section opens and closes by its title, the details column's opener).
+  Retain individual table labels such as lifetime and near-streak, which
+  identify their data.
 - The session summary and recent placements sit left and right of the board
   where each fits (creator decision 2026-10-07). They stay first in the table
   collection's DOM order, not a section of their own. Below the board they
@@ -36,8 +40,10 @@ alwaysApply: true
 - After a loss, the "this game" stats table follows them in DOM order
   (creator decision 2026-10-26: "flowing up as possible"). It takes a side
   of the board neither holds, the left first, where it fits; below the board
-  it leads the first row beside their column where it fits there, and
-  otherwise floats at the left where that row would have put it.
+  it floats beside their column where it fits there, and otherwise at the
+  left under it.
+- A closed table keeps the place it has open, beside the board or not, so
+  its title never moves as it opens and closes.
 - Never extract the time-period summary or streaks into a separate section.
 - Responsive wrapping must stay within each semantic section and must not
   interleave a pagetable with point charts.

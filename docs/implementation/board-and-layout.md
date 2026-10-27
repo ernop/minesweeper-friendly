@@ -82,9 +82,17 @@ Spec: [docs/product/board-and-layout.md](../product/board-and-layout.md). Index:
   width decision. `#top-right` and `#states` are wrapping flex rows.
   Stat sections: `buildStatSection(panelKey, title)`
   (`game/results.js`) returns a `section.stat-section` whose title button
-  (`.stat-section-toggle`, `aria-expanded`, `aria-controls`) flips the
-  remembered panel `settings.panels[panelKey]` through `rememberPanel` and
-  schedules a board layout; no (?) since 2026-10-20. Panels
+  comes from `panelToggle(panelKey, title, body, help)`: a
+  `.stat-section-toggle` (`aria-expanded`, `aria-controls`) that flips the
+  remembered panel `settings.panels[panelKey]` through `rememberPanel`,
+  hides `body`, and schedules a board layout; no (?) since 2026-10-20. The
+  result's openers (2026-10-26) use the same `panelToggle` through
+  `resultOpenerHead(level, ...)`, a `div.stat-section-head` holding an
+  `h3`/`h4.stat-section-title` around the button, so the button keeps the
+  three-class look selectors. `help` makes the title's tooltip
+  (`showChartHelp`, `.stat-section-toggle-help`'s dotted underline): shown
+  on `mouseenter` and on `:focus-visible` focus, hidden on `mouseleave`
+  unless keyboard-focused, on blur, and on click. Panels
   `duringGame`, `gamePerformance`, and `boardTraits` default open
   (`settings-core.js`); the last two are game data's sides, whose titles
   `gameDataSideTitle` (`game/game-data-chart.js`) builds as
@@ -112,16 +120,16 @@ Spec: [docs/product/board-and-layout.md](../product/board-and-layout.md). Index:
   side the two leave free, the left first. The board's horizontal extent is
   the union of the frame and the visible `#replay-controls`, which is wider
   than a small board's frame. Tops align with the frame. Trial layouts
-  without a board skip it. Stats left in the tables section whose inline
-  top is below the section's items (they did not fit on the first line
-  beside the floated summary and ranks won) get `.below-first-line`, a left
-  float. The float lands where the line put them, but unlike the inline
-  block it does not push every later table below itself, so lifetime and
-  the rest still fill the room beside the summary. CSS alone cannot do
-  both: a float cannot rise above an earlier float, so floated stats could
-  never share the first line beside the summary, and the inline block
-  holds back every table after it. Each pass first clears `.beside-board`,
-  `.below-first-line`, and the offsets. `applyCellSize`
+  without a board skip it. A block whose `.stat-section-body` is hidden
+  (closed) is measured open: every closed body is unhidden, all widths are
+  read in one layout, and the bodies are hidden again in the same task, so
+  the decision and the left offset are the open block's and a closed title
+  stays put. Under the board the stats need no class: the summary and ranks
+  won sit in one floated `.session-tables` column (each a left float that
+  clears left), so the stats, a left float after it, can rise beside the
+  column; a float cannot rise above an earlier float, which is why the two
+  share one column float. Each pass first clears `.beside-board` and the
+  offsets. `applyCellSize`
   and the window resize
   handler call it before `syncResultClearance`, which takes the lowest of
   the Justice callout and the `.beside-board` blocks as the overhang the

@@ -278,6 +278,8 @@ const PANEL_OPEN_DEFAULTS = {
   boardPosition: false, gameDetails: false, states: false,
   importHistory: false, dataFormat: false,
   duringGame: true, gamePerformance: true, boardTraits: true, motionStats: false,
+  sessionSummary: true, recentPlacements: true, gameStats: true, rankTables: true,
+  boardTables: true, perfCharts: true, boardCharts: true, relationships: true,
 };
 // Two panels were removed: the Replay game disclosure on 2026-10-20 (the
 // transport now sits under the board) and the Overlays panel on 2026-10-21

@@ -397,6 +397,11 @@ duplicative and needlessly complex."
   first, by the same fit rule, and otherwise stays in the table list right
   after them. On the creator's viewport it fits beside a Beginner or
   Intermediate board (about 230px wide) but not beside an Expert board.
+  The fit rule uses each block's open width even while its title has it
+  closed (2026-10-26, [Openers](results.md#openers-creator-request-2026-10-26)),
+  so a closed block keeps its place and its title stays put as it opens
+  and closes; beside the board on the left, a closed block's title sits
+  where the open block's left edge is.
 - The board is the anchor. Appearing or disappearing content must not move it.
   Its reserved startup space occupies the same explicit main column.
 - The archive alert, session tags, optional display
@@ -447,10 +452,13 @@ duplicative and needlessly complex."
   today by default) lead them, then after a loss the "this game" stats,
   unless they sit beside the board (above); then come the time/category,
   streak, near-streak, and near-near-streak tables. Under the board,
-  "this game" leads the first row beside the summary column where it fits
-  there, and otherwise floats at the left where that row would have put it,
-  so the tables after it still fill the room beside the summary. All share one continuous, left-aligned wrapping list without a
-  section heading. A separate **This
+  "this game" floats beside the summary column where it fits there, and
+  otherwise at the left under it. All share one continuous, left-aligned
+  wrapping list without a section title; the time, category, and streak
+  tables open and close together under one title, "rankings", which takes
+  the room beside the summary column and "this game", its tables filling
+  that room and then the full width underneath (2026-10-26,
+  [Openers](results.md#openers-creator-request-2026-10-26)). A separate **This
   board** section follows (2026-09-21): exact 3BV, ZiNi, HZiNi, maximum number,
   has-7/8, maximum-clue caps, zero-count, mine-island count, and enabled
   largest-island tablecharts. Each table keeps its own identifying label.

@@ -141,7 +141,53 @@ function hideChartHelpTip() {
   chartHelpOwner = null;
 }
 
-// `place(tip, buttonRect)` may return the tip's viewport {left, top} instead.
+// Shows `help` in the shared tip beside `owner`. `place(tip, ownerRect)` may
+// return the tip's viewport {left, top} instead.
+function showChartHelp(owner, help, place) {
+  const tip = getChartHelpTip();
+  chartHelpOwner = owner;
+  tip.replaceChildren();
+  if (typeof help === 'function') {
+    help(tip);
+  } else {
+    for (const text of Array.isArray(help) ? help : [help]) {
+      const p = document.createElement('p');
+      p.textContent = text;
+      tip.appendChild(p);
+    }
+  }
+  tip.hidden = false;
+  // The compact game sidebar lives in the top layer. Help must share
+  // that layer to remain visible above its chart and configuration.
+  if (!tip.matches(':popover-open')) tip.showPopover();
+  // Fixed positioning clamped to the viewport: below the owner where room
+  // allows, above it where room allows there, and otherwise beside it. The
+  // tip never covers its owner: a covered owner loses the pointer to the tip,
+  // so its click misses and its tip closes and opens again.
+  const rect = owner.getBoundingClientRect();
+  if (place) {
+    const placed = place(tip, rect);
+    tip.style.left = placed.left + 'px';
+    tip.style.top = placed.top + 'px';
+    return;
+  }
+  const width = tip.offsetWidth;
+  const height = tip.offsetHeight;
+  const below = rect.bottom + 5;
+  const above = rect.top - height - 5;
+  let left = Math.max(4, Math.min(rect.left - 10, window.innerWidth - width - 6));
+  let top = below;
+  if (below + height + 6 > window.innerHeight) {
+    if (above >= 4) top = above;
+    else {
+      top = Math.max(4, Math.min(rect.top + rect.height / 2 - height / 2, window.innerHeight - height - 4));
+      left = rect.right + 8 + width + 6 <= window.innerWidth ? rect.right + 8 : Math.max(4, rect.left - 8 - width);
+    }
+  }
+  tip.style.left = left + 'px';
+  tip.style.top = top + 'px';
+}
+
 function chartHelpButton(help, label, place) {
   const wrap = document.createElement('span');
   wrap.className = label ? 'chart-help-wrap chart-help-label-wrap' : 'chart-help-wrap';
@@ -150,41 +196,7 @@ function chartHelpButton(help, label, place) {
   btn.className = label ? 'chart-help chart-help-label' : 'chart-help';
   btn.textContent = label || '?';
   btn.setAttribute('aria-label', label ? 'About ' + label : 'what does this chart mean?');
-  const show = () => {
-    const tip = getChartHelpTip();
-    chartHelpOwner = btn;
-    tip.replaceChildren();
-    if (typeof help === 'function') {
-      help(tip);
-    } else {
-      for (const text of Array.isArray(help) ? help : [help]) {
-        const p = document.createElement('p');
-        p.textContent = text;
-        tip.appendChild(p);
-      }
-    }
-    tip.hidden = false;
-    // The compact game sidebar lives in the top layer. Help must share
-    // that layer to remain visible above its chart and configuration.
-    if (!tip.matches(':popover-open')) tip.showPopover();
-    // Fixed positioning clamped to the viewport: below the button where
-    // room allows, above it otherwise, never off either side edge.
-    const rect = btn.getBoundingClientRect();
-    if (place) {
-      const placed = place(tip, rect);
-      tip.style.left = placed.left + 'px';
-      tip.style.top = placed.top + 'px';
-      return;
-    }
-    const left = Math.max(4, Math.min(rect.left - 10,
-      window.innerWidth - tip.offsetWidth - 6));
-    const below = rect.bottom + 5;
-    const top = below + tip.offsetHeight + 6 <= window.innerHeight
-      ? below
-      : Math.max(4, rect.top - tip.offsetHeight - 5);
-    tip.style.left = left + 'px';
-    tip.style.top = top + 'px';
-  };
+  const show = () => showChartHelp(btn, help, place);
   const hide = () => {
     if (chartHelpOwner !== btn) return;
     hideChartHelpTip();

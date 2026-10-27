@@ -40,7 +40,13 @@ because they apply app-wide, not just where each was first stated.
   click shows or hides the row; [During the game](during-game.md)): they
   keep the legend's look (swatch or mark, name, value, no border) and the
   pointer their spotlight already had, and a hidden row's name is struck
-  through.
+  through. A title that opens and closes the block under it is one look
+  and one control everywhere: an arrow before a bold title, pointing right
+  when closed and down when open, the state remembered across games and
+  reloads. It heads live perf charts, game data's two sides, motion stats,
+  and since 2026-10-26 every table and section of the result under the
+  board ([Openers](results.md#openers-creator-request-2026-10-26)); a
+  section's or table's title has a black rule under it.
 - Prefer regular-weight chart names, labels, and values. Use position,
   spacing, and restrained color to establish hierarchy instead of relying
   on bolding.
@@ -146,6 +152,10 @@ because they apply app-wide, not just where each was first stated.
 - Hover must not inject, swap, or reflow page content. Supplementary help
   may appear as an overlay tooltip on hover or keyboard focus without
   changing the layout; no action control may be reachable only by hovering.
+  A tooltip never covers the thing it explains (2026-10-26): where it fits
+  neither below nor above it, it opens beside it. A covered label or title
+  loses the pointer to its own tooltip, so its click misses and the tooltip
+  closes and opens again.
   Two exceptions, the creator's, both on the live perf charts. Hovering them
   (2026-10-21) shows the hovered moment on the board itself, through the
   replay's own frame, in place of a second board beside the charts ("that

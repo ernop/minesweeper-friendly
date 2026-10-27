@@ -670,23 +670,21 @@ function buildRecentPlacements(record, modeRecords, referenceMs, markReferenceRe
       + ' (the “ranks on other session boards” switch adds the boards of the session’s other wins)';
   const box = document.createElement('div');
   box.className = 'rank-list recent-placements';
-  const heading = document.createElement('h4');
-  heading.appendChild(chartHelpButton([
+  const body = resultTableOpener(box, 'recentPlacements', 'ranks won in session', [
     'Top ranks earned in the session (' + chosenLabel + ', the one page-wide session chosen in the settings row at the foot of the page) on every longer chart: time windows, day categories, streaks, and the exact board benchmarks, 3BV-spread groups, and board shapes of ' + boardsOf + '. A streak counts when its last win is in the session, at its full length.',
     'Only ranks within the top tenth of a list count, except that lifetime shows its closest rank when none made the tenth. Rows go by category, board values ascending. The last column gives the percentage standing of the row’s ranks; this game’s rank is light blue and says “this”.',
     ...(noMarkTimeLabel ? [
       'This win placed no flags, so every rank here is among no-mark games of this same board, mode, and generator. ' + noMarkTimeLabel.charAt(0).toUpperCase() + noMarkTimeLabel.slice(1) + ' is that lifetime list.',
     ] : []),
-  ], 'ranks won in session'));
+  ]);
   box.dataset.sessionScopeView = '';
   box.addEventListener('session-scope-change', () => box.replaceWith(
     buildRecentPlacements(record, modeRecords, referenceMs, markReferenceRecord, noMarkTimeLabel)));
-  box.appendChild(heading);
 
   const loading = document.createElement('div');
   loading.setAttribute('role', 'status');
   loading.textContent = 'Calculating ranks…';
-  box.appendChild(loading);
+  body.appendChild(loading);
   // A loss matters here only where it breaks a streak; its other fields
   // would only add main-thread copying at game end.
   const records = modeRecords.map((r) => r.outcome === 'win' ? analysisRecord(r)
@@ -707,7 +705,7 @@ function buildRecentPlacements(record, modeRecords, referenceMs, markReferenceRe
     const none = document.createElement('div');
     none.className = 'recent-placements-none';
     none.textContent = 'no wins in session';
-    box.appendChild(none);
+    body.appendChild(none);
     return;
   }
   const grid = document.createElement('div');
@@ -760,7 +758,7 @@ function buildRecentPlacements(record, modeRecords, referenceMs, markReferenceRe
     line.appendChild(standingCell);
     grid.appendChild(line);
   }
-  box.appendChild(grid);
+  body.appendChild(grid);
   }
   return box;
 }
@@ -1020,8 +1018,7 @@ function buildSessionSummary(record, referenceMs, markCurrent = true, noMark = f
   const typeKey = Object.keys(sessionHistory).find((key) => sessionHistory[key].includes(record));
   const typeParts = sessionSummaryTypeParts(typeKey, record.generator, sessionHistory[typeKey].every(isMarkless));
   const typeLabel = typeParts.variant === '' ? typeParts.board : typeParts.board + ' · ' + typeParts.variant;
-  const heading = document.createElement('h4');
-  heading.appendChild(chartHelpButton([
+  const body = resultTableOpener(box, 'sessionSummary', 'session', [
     'Games, wins, and win rate for every board type played in the session (' + choice.label
       + ', the one page-wide session chosen in the settings row at the foot of the page). A board type is one size, mine count, mode, and generator; the mode is named only when it is not Standard, the generator only when it is not the default.',
     'Best is the session’s fastest win of that type. Its lifetime rank compares it with every win of that type so far; among equal times the earlier finish ranks first.',
@@ -1036,14 +1033,13 @@ function buildSessionSummary(record, referenceMs, markCurrent = true, noMark = f
       'A loss files under its fatal click, unless the game survived a worse guess earlier: then it is “survived it, died later” under that guess. “Guesses not measured” is a win with no guess record: one from before guesses were measured, an Angelic game, or one whose odds were too large to compute.',
       'The likely-misclick rows count losses whose fatal click was most likely a slip. They are already counted above, so they never add to the total.',
     ] : []),
-  ], 'session'));
-  box.appendChild(heading);
+  ]);
   const rows = sessionSummaryRows(sessionHistory, from, to, Object.values(DIFFICULTIES).map(boardKeyOf));
   if (rows.length === 0) {
     const none = document.createElement('div');
     none.className = 'recent-placements-none';
     none.textContent = 'no games in session';
-    box.appendChild(none);
+    body.appendChild(none);
     return box;
   }
   const grid = document.createElement('div');
@@ -1098,14 +1094,14 @@ function buildSessionSummary(record, referenceMs, markCurrent = true, noMark = f
       cell('session-summary-number', String(wins)), cell('session-summary-number', rate(wins, games)), cell('', ''), cell('', ''),
       ...meanSpecs.map(() => cell('', ''))]);
   }
-  box.appendChild(grid);
+  body.appendChild(grid);
   if (settings.shownThings.sessionEndings) {
     const lifetimeRecords = sessionHistory[typeKey].filter((r) => r.endedAt <= to);
     // Whether an abandoned board had a flag is not recorded, so a tree
     // narrowed to no-mark games counts finished games alone.
     const abandoned = sessionHistory === history
       ? sessionAbandonedCounts(playSpans.values(), typeKey, playSpanKeyOf, from, to, Date.now()) : null;
-    box.appendChild(buildSessionSummaryResults(rows.find((row) => row.key === typeKey), typeLabel, boardRecord,
+    body.appendChild(buildSessionSummaryResults(rows.find((row) => row.key === typeKey), typeLabel, boardRecord,
       lifetimeRecords, abandoned !== null && abandoned.recordedFrom !== null ? abandoned : null));
   }
   return box;

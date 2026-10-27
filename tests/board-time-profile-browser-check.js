@@ -697,6 +697,44 @@ const { chromium } = require(process.argv[2]);
       'the board-trait group stays on distribution');
     await page.screenshot({ path: '/tmp/chart-groups.png', fullPage: true });
     await bandReady();
+    // Each result table and section opens and closes by its title, drawn and
+    // working like the details column's: the state is a remembered panel,
+    // and the title stays where it is.
+    const resultOpeners = [['ranks won in session', 'recentPlacements'], ['rankings', 'rankTables'],
+      ['This board', 'boardTables'], ['your perf', 'perfCharts'], ['board traits', 'boardCharts']];
+    assert.deepEqual(await page.locator('#result-ranks .stat-section-toggle').allTextContents(),
+      resultOpeners.map(([title]) => title));
+    const opener = (title) => page.locator('#result-ranks .stat-section-toggle', { hasText: new RegExp('^' + title + '$') });
+    const placeOf = (title) => opener(title).evaluate((toggle) => {
+      const box = toggle.getBoundingClientRect();
+      return [Math.round(box.left + scrollX), Math.round(box.top + scrollY)];
+    });
+    // A title's help shows on hover and never covers the title, whose click
+    // closes it and puts the help away.
+    await opener('ranks won in session').hover();
+    assert.equal(await page.locator('.chart-help-tip').isVisible(), true, 'the title shows its help on hover');
+    assert.equal(await opener('ranks won in session').evaluate((toggle) => {
+      const box = toggle.getBoundingClientRect();
+      return document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2) === toggle;
+    }), true, 'the help leaves its title uncovered');
+    for (const [title, panel] of resultOpeners) {
+      const toggle = opener(title);
+      const before = await placeOf(title);
+      await toggle.click();
+      await frames();
+      assert.equal(await toggle.getAttribute('aria-expanded'), 'false', title + ' closes');
+      assert.equal(await page.locator('#' + await toggle.getAttribute('aria-controls')).isHidden(), true,
+        title + ' hides what it holds');
+      assert.equal(await page.evaluate((key) => settings.panels[key], panel), false, title + ' is remembered closed');
+      assert.deepEqual(await placeOf(title), before, title + ' stays where it was');
+    }
+    assert.equal(await page.locator('.chart-help-tip').isVisible(), false, 'the click put the help away');
+    assert.equal(await page.locator('.result-chart-section-perfCharts select').isHidden(), true,
+      'a closed section hides its chart choice');
+    await page.evaluate(() => drawProfileFixture());
+    assert.deepEqual(await page.locator('#result-ranks .stat-section-toggle').evaluateAll((toggles) =>
+      toggles.map((toggle) => toggle.getAttribute('aria-expanded'))), resultOpeners.map(() => 'false'),
+      'the next result opens with them closed');
     await profile.getByLabel('show values', { exact: true }).uncheck();
     await page.getByLabel('session', { exact: true }).selectOption('past30min');
     await page.reload();
@@ -706,6 +744,8 @@ const { chromium } = require(process.argv[2]);
     assert.equal(await page.getByLabel('session', { exact: true }).inputValue(), 'past30min');
     assert.equal(await page.evaluate(() => settings.gameDataMetrics.fastclickGap), true);
     assert.equal(await page.evaluate(() => settings.gameDataBoardTraits.workSpread), true, 'the board-trait selection persists');
+    assert.deepEqual(await page.evaluate((panels) => panels.map((key) => settings.panels[key]),
+      resultOpeners.map(([, panel]) => panel)), resultOpeners.map(() => false), 'closed result openers persist');
     const layoutPage = await browser.newPage({ viewport: { width: 1740, height: 1100 } });
     layoutPage.on('pageerror', (error) => errors.push('layout fixture: ' + error.message));
     await layoutPage.goto('http://127.0.0.1:8099/tests/session-placement-layout-test.html');
@@ -714,7 +754,7 @@ const { chromium } = require(process.argv[2]);
     assert.deepEqual(layoutChecks.split('\n').filter((line) => line.startsWith('FAIL')), [], 'post-game layout regression');
     await layoutPage.close();
     assert.deepEqual(errors, []);
-    console.log('board-time-profile: band rows, pools, distributions, chart linkage, responsive layout, help, history, losses, and settings passed');
+    console.log('board-time-profile: band rows, pools, distributions, chart linkage, responsive layout, help, history, losses, result openers, and settings passed');
   } finally {
     await browser.close();
   }

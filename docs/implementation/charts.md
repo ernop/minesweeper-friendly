@@ -5,7 +5,9 @@ Spec: [docs/product/charts.md](../product/charts.md). Index: [AGENTS.md](../../A
 - Property charts: `PERF_CHART_SPECS` and `BOARD_CHART_SPECS`,
   `averageEligibleWins`, `averagePoints`, and `buildAverageScatter`.
   Each group reads `settings.perfChartMode` or `settings.boardChartMode`.
-  The section heading carries that group's selector (`chartModeSelect`).
+  The section heading carries that group's selector (`chartModeSelect`),
+  which CSS hides while the heading's `.stat-section-toggle` is
+  `aria-expanded="false"`.
   Board-shape specs exclude legacy records lacking their field; IOS excludes
   times at or below one second; path-ratio specs exclude zero denominators.
   `steppedMetric(id, step, { percent })` charts a GameData measurement

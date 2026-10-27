@@ -215,7 +215,10 @@ middle? that's okay."
 - One table, heading "session". Its help names the current window and the
   picker; like every other session surface it has no picker or window name
   of its own ([One session definition](game-data.md#one-session-definition)).
-  Changing the one picker regenerates it in place.
+  Changing the one picker regenerates it in place. Since 2026-10-26 the
+  heading is the title that opens and closes the table, and its help shows
+  on hovering or keyboard-focusing that title
+  ([Openers](results.md#openers-creator-request-2026-10-26)).
 - One row per board type played in the session window. A board type is one
   history key: board size and mines, play mode, and generator with its
   parameters. Its name is the board ("Beginner", "Custom 20x20-60"), then,
@@ -416,7 +419,10 @@ middle? that's okay."
   selector of its own (user decision 2026-09-23: it "should merely say
   'session'"); the one picker is in the settings row at the page foot
   ([One session definition](game-data.md#one-session-definition)).
-  The heading tooltip names the current window. Bounds come from the same
+  The heading tooltip names the current window. The heading opens and
+  closes the block, its tooltip showing on hover or keyboard focus
+  (2026-10-26, [Openers](results.md#openers-creator-request-2026-10-26)).
+  Bounds come from the same
   `SessionScope` model; there is no independent recent-placements preference.
   Changing the session rebuilds only scope-dependent content in place.
 - Only charts strictly longer than the source window report — a chart no

@@ -370,16 +370,14 @@ function syncJusticePlacement() {
 // the table list below the board, and all keep their place in its DOM order.
 const BOARD_SIDE_GAP = 16;
 function placeBoardSides() {
-  const stats = resultRanks.querySelector('.game-stats');
   const blocks = [[['left'], resultRanks.querySelector('.session-summary')],
     [['right'], resultRanks.querySelector('.recent-placements')],
-    [['left', 'right'], stats]].filter(([, block]) => block !== null);
+    [['left', 'right'], resultRanks.querySelector('.game-stats')]].filter(([, block]) => block !== null);
   for (const [, block] of blocks) {
     block.classList.remove('beside-board');
     block.style.removeProperty('left');
     block.style.removeProperty('top');
   }
-  stats?.classList.remove('below-first-line');
   if (gameArea.classList.contains('trial-no-board')) return;
   const inset = parseFloat(getComputedStyle(pageLayout).getPropertyValue('--board-edge-inset'));
   const frame = gameFrame.getBoundingClientRect();
@@ -389,26 +387,24 @@ function placeBoardSides() {
   const boardRight = Math.max(frame.right, transport.right);
   const main = mainElement.getBoundingClientRect();
   const leftOf = (side, width) => (side === 'left' ? boardLeft - BOARD_SIDE_GAP - width : boardRight + BOARD_SIDE_GAP);
+  // A closed table takes the place it takes open, so its title stays where it
+  // is as it opens and closes: each is measured open.
+  const closedBodies = blocks.map(([, block]) => block.querySelector(':scope > .stat-section-body'))
+    .filter((body) => body.hidden);
+  for (const body of closedBodies) body.hidden = false;
+  const widths = blocks.map(([, block]) => block.getBoundingClientRect().width);
+  for (const body of closedBodies) body.hidden = true;
   const taken = new Set();
-  for (const [sides, block] of blocks) {
-    const width = block.getBoundingClientRect().width;
+  blocks.forEach(([sides, block], index) => {
+    const width = widths[index];
     const side = sides.find((s) => !taken.has(s)
       && leftOf(s, width) >= main.left + inset && leftOf(s, width) + width <= main.right - inset);
-    if (side === undefined) continue;
+    if (side === undefined) return;
     taken.add(side);
     block.classList.add('beside-board');
     block.style.left = (leftOf(side, width) - main.left) + 'px';
     block.style.top = (frame.top - main.top) + 'px';
-  }
-  // Under the board, this game's stats lead the first line of tables, beside
-  // the summary column, where they fit there. Otherwise they float where the
-  // line would have put them, under the summary, so the rank tables after
-  // them still use the room beside it.
-  if (stats !== null && !stats.classList.contains('beside-board')
-      && stats.closest('.result-chart-section-tables') !== null
-      && stats.getBoundingClientRect().top > stats.parentElement.getBoundingClientRect().top + 1) {
-    stats.classList.add('below-first-line');
-  }
+  });
 }
 
 // Justice callouts and the blocks beside the board belong to the board's

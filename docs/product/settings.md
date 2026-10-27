@@ -155,6 +155,11 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   motion stats section at the page foot, the mouse-dynamics values (see
   [Motion stats](motion-stats.md)); it replaced `showMotionStatsDuringGame`
   and `showMotionStatsAfterGame` ("motion charts") on 2026-10-20;
+  `panels.sessionSummary`, `panels.recentPlacements`, `panels.gameStats`,
+  `panels.rankTables`, `panels.boardTables`, `panels.perfCharts`,
+  `panels.boardCharts`, and `panels.relationships` (default open; each set
+  by its title, 2026-10-26) — the result's tables and sections under the
+  board ([Openers](results.md#openers-creator-request-2026-10-26));
   `reportScope` (`none` by default; choices `none`, `fatal`, `risk`,
   `full`) — the simple after-game analysis ladder, chosen only on the
   settings page since 2026-10-21 (before then also in the game's Overlays &
