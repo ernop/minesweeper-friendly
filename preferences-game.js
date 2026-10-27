@@ -174,9 +174,13 @@ async function restorePreferredResult() {
     measurementPlan: { width: config.width, height: config.height, mines: cells.map((cell) => cell.mine),
       drill: record.playMode === 'endgame-drill', needBoardMetrics, needZini,
       needCadence: record.cadenceSpread === undefined, needMoveHabits: record.movesRanOut === undefined,
+      needFastclickGap: record.fastclickGapVersion !== GameData.FASTCLICK_GAP_VERSION,
       timeMs: record.timeMs, outcome: record.outcome },
   }).then(async (restored) => {
     if (Object.keys(restored.measurements).length) {
+      // A value of the earlier definition gives way to this one's, which a
+      // game without a planned pair leaves absent.
+      if ('fastclickGapVersion' in restored.measurements) delete record.fastclickGapMs;
       Object.assign(record, restored.measurements);
       if (history[key]?.includes(record)) persistGameRecord(key, record);
     }

@@ -15,7 +15,8 @@ const { chromium } = require(process.argv[2]);
     await page.evaluate(async () => {
       const now = Date.now();
       const current = { outcome: 'win', endedAt: now, timeMs: 33542,
-        clicks: 105, misclicks: 1, wastedClicks: 3, fastclickGapMs: 190, mousePathPx: 980,
+        clicks: 105, misclicks: 1, wastedClicks: 3, fastclickGapMs: 190,
+        fastclickGapVersion: GameData.FASTCLICK_GAP_VERSION, mousePathPx: 980,
         flagsPlaced: 8, flagsRemoved: 0, unusedCorrectFlags: 1, bv3: 75, zini: 49, maxAdjacent: 5, hzini: 50, islandCount: 21, zeroCount: 59,
         boardMetrics: { version: 1, workSpread: 6.5, safeCells: 100,
           zeroOpenedZeroOneCells: 60, zeroOpenedCells: 69 } };
@@ -31,14 +32,15 @@ const { chromium } = require(process.argv[2]);
         Array.from({ length: total - 1 }, (_, index) => ({
           ...fields, outcome: 'win', endedAt: now - (1000 + group * 1000 + index) * 864e5,
           clicks: 75 + index % 90, misclicks: index % 4, wastedClicks: index % 9,
-          fastclickGapMs: 100 + index % 300, mousePathPx: 400 + index * 10,
+          fastclickGapMs: 100 + index % 300, fastclickGapVersion: GameData.FASTCLICK_GAP_VERSION, mousePathPx: 400 + index * 10,
           flagsPlaced: 8, flagsRemoved: index % 3, unusedCorrectFlags: index % 4,
           timeMs: current.timeMs + (index < rank - 1 ? index - rank + 1 : index - rank + 2) * 75,
         })));
       wins.push(current);
       wins.push(...[30000, 36000].map((timeMs, index) => ({ outcome: 'win',
         timeMs, endedAt: now - (index === 0 ? 5 : 20) * 60000, clicks: 110, bv3: 74,
-        misclicks: 0, wastedClicks: 2, fastclickGapMs: 180, mousePathPx: 1000 })));
+        misclicks: 0, wastedClicks: 2, fastclickGapMs: 180, fastclickGapVersion: GameData.FASTCLICK_GAP_VERSION,
+        mousePathPx: 1000 })));
       wins.sort((a, b) => a.endedAt - b.endedAt);
       window.profileFixture = { current, wins };
       for (const key of ['sessionSummary', 'recentPlacements', 'timeTables', 'streak', 'nearStreak',

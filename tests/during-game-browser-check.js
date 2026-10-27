@@ -45,7 +45,8 @@ const shotDir = process.argv[4] || null;
     // comparison for the scripted win, so its rows can link to the charts.
     await page.evaluate(() => {
       history[modeKey()] = [{ outcome: 'win', endedAt: Date.now() - 5 * 60000, timeMs: 30000, bv3: 20, clicks: 40,
-        misclicks: 0, wastedClicks: 2, fastclickGapMs: 250, mousePathPx: 6000, flagsPlaced: 10, flagsRemoved: 0,
+        misclicks: 0, wastedClicks: 2, fastclickGapMs: 250, fastclickGapVersion: GameData.FASTCLICK_GAP_VERSION,
+        mousePathPx: 6000, flagsPlaced: 10, flagsRemoved: 0,
         unusedCorrectFlags: 0, guesses: 0, actionEvaluations: [] }];
     });
 
@@ -72,7 +73,8 @@ const shotDir = process.argv[4] || null;
     await press(mines[0], 'right');
     await press(mines[1], 'right');
     await press(mines[2], 'right');
-    await press(now.cells.findIndex((c) => c.revealed));
+    // Boards are random: an open number whose flags are all placed would chord.
+    await press(await page.evaluate(() => cells.findIndex((c, i) => c.revealed && chordTargets(i) === null)));
     await page.waitForTimeout(1300);
     for (let guard = 0; guard < 81; guard++) {
       now = await board();
@@ -272,10 +274,21 @@ const shotDir = process.argv[4] || null;
     const relative = await plotBox('relative');
     const nearestLine = await page.evaluate(() => {
       const svg = document.querySelector('[data-chart="relative"] svg');
-      const path = [...svg.querySelectorAll('path.end-line')].find((line) => line.getTotalLength() > 40);
-      const point = path.getPointAtLength(path.getTotalLength() * 0.5);
+      const lines = [...svg.querySelectorAll('path.end-line')];
+      const along = (line, parts) => Array.from({ length: parts + 1 },
+        (_, i) => line.getPointAtLength(line.getTotalLength() * i / parts));
+      // Boards and timings vary, so lines can cross anywhere: take the point
+      // of a long line farthest from every other line.
+      let best = null;
+      for (const line of lines.filter((candidate) => candidate.getTotalLength() > 40)) {
+        const others = lines.filter((other) => other !== line).flatMap((other) => along(other, 200));
+        for (const point of along(line, 20).slice(2, -2)) {
+          const clearance = Math.min(...others.map((other) => Math.hypot(other.x - point.x, other.y - point.y)));
+          if (best === null || clearance > best.clearance) best = { line, point, clearance };
+        }
+      }
       const box = svg.getBoundingClientRect();
-      return { x: box.left + point.x, y: box.top + point.y, color: path.getAttribute('stroke') };
+      return { x: box.left + best.point.x, y: box.top + best.point.y, color: best.line.getAttribute('stroke') };
     });
     await glideInto(relative, nearestLine.x, nearestLine.y);
     const relativeRows = await card.locator('.during-game-card-row').allTextContents();
@@ -391,6 +404,14 @@ const shotDir = process.argv[4] || null;
     for (const id of ['bvPerSecond', 'clickRate', 'fastclickGap']) {
       assert.equal(await legendValue(id), await dataRow(id).locator('.game-data-value').textContent(), id + ': one value in both');
     }
+    // The saved record names the fastclick gap's definition beside its value.
+    const savedFastclick = await page.evaluate(() => {
+      const record = history[modeKey()].at(-1);
+      return [record.fastclickGapVersion, record.fastclickGapMs, GameData.FASTCLICK_GAP_VERSION];
+    });
+    assert.equal(savedFastclick[0], savedFastclick[2], 'the record names the definition it was measured under');
+    assert.equal(await legendValue('fastclickGap'), savedFastclick[1] === undefined ? 'not measured' : savedFastclick[1] + 'ms',
+      'the planned pairs the record\u2019s median reads');
     const spotlit = () => page.evaluate(() => ({
       parts: [...document.querySelectorAll('.during-game svg.series-focus')].map((svg) => svg.closest('[data-chart]').dataset.chart),
       colors: [...new Set([...document.querySelectorAll('.during-game .hot')].map((node) => (node.getAttribute('stroke') !== null
@@ -483,12 +504,26 @@ const shotDir = process.argv[4] || null;
       .map((row) => row.color));
     assert(rateColors.every((color) => !rawLines.includes(color)), 'rates in raw are ticks only');
 
-    // A reload restores the game and its block with the saved choices.
+    // A reload restores the game and its block with the saved choices. The
+    // saved record is first made one measured before planned pairs; the
+    // restore measures it again, and its old value gives way.
     const endedAt = await page.evaluate(() => renderedResult.record.endedAt);
+    await page.evaluate(() => new Promise((resolve, reject) => {
+      const record = renderedResult.record;
+      delete record.fastclickGapVersion;
+      record.fastclickGapMs = 999;
+      const tx = db.transaction(RECORD_STORE, 'readwrite');
+      tx.objectStore(RECORD_STORE).put(record, [modeKey(), record.endedAt]);
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error);
+    }));
     await page.evaluate((ended) => updateSettings({ resultView: 'game', replayPosition: { endedAt: ended, step: 0 } }), endedAt);
     await page.reload();
     await page.waitForFunction(() => preferenceUIReady);
     await drawn();
+    await page.waitForFunction(() => renderedResult.record.fastclickGapVersion !== undefined, null, { timeout: 30000 });
+    assert.deepEqual(await page.evaluate(() => [renderedResult.record.fastclickGapVersion, renderedResult.record.fastclickGapMs]),
+      [savedFastclick[2], savedFastclick[1]], 'an older record\u2019s fastclick gap is measured again on restore');
     assert.equal((await legendRows()).includes('mouseSpeed'), false);
     assert.equal(await averagingSelect.inputValue(), 'raw');
     assert.equal(await logScale.isChecked(), false);

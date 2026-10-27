@@ -15,7 +15,9 @@ Spec: [docs/product/measurement.md](../product/measurement.md). Index: [AGENTS.m
   2026-08-30 findings review quoted — totals and per-key/per-day win rates
   with Wilson intervals, Theil–Sen daily trends, Spearman shape/time
   correlations, gap-based sessions with early/late halves and the
-  physical-state aggregates (mouse speed, click rate, fastclick gap), the
+  physical-state aggregates (mouse speed, click rate, fastclick gap; it
+  loads `game-data.js` and reads the fastclick gap through its catalog
+  entry, so a value of an earlier definition stays out), the
   loss types and likely-misclick reasons in the report's exact wording (it
   loads the GAME-END EVALUATION: VERDICT span and `justice.js`, like the
   tests, so it can never re-implement `lossTypeOf`), guess-policy per key, a summed-risk luck

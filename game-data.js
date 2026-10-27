@@ -149,6 +149,11 @@ const GameData = (() => {
   // A game's moves (during-game.js, moveHabits): absent on games recorded
   // before move habits were.
   const movesOf = (r) => r.movesRanOut + r.movesLeftHardWork + r.movesLeftEasyWork;
+  // The fastclick gap's definition, which a record measured under it names
+  // (`fastclickGapVersion`): planned pairs since 2026-10-26. A record's
+  // fastclickGapMs without it follows the definition before (gaps of at
+  // most 1 s ending on the move), a different measurement.
+  const FASTCLICK_GAP_VERSION = 'planned-pairs-v1';
   // The one catalog of performance measurements
   // (docs/product/measurement-catalog.md): each measurement's id, name,
   // definition (`help`), format, and better direction, which every surface
@@ -168,8 +173,9 @@ const GameData = (() => {
       format: (v) => decimal(v) + '/min',
       help: 'A misclick is an action the visible board had already proved wrong: opening a proven mine, flagging a proven-safe square, removing a proven mine\u2019s flag, or chording against the visible proof.' },
     { id: 'fastclickGap', allOutcomes: true, name: 'fastclick gap', higher: false, default: true,
-      value: (r) => r.fastclickGapMs, format: (v) => Math.round(v) + 'ms',
-      help: 'The median gap between consecutive board-changing clicks, counting gaps of at most 1 second ending in a click on the move (the cursor moved in the 100 ms before). Flags are timed at the right press, left clicks at release.' },
+      value: (r) => (r.fastclickGapVersion === FASTCLICK_GAP_VERSION ? r.fastclickGapMs : undefined),
+      format: (v) => Math.round(v) + 'ms',
+      help: 'Median press-to-press time of two clicks on touching squares in one motion (no other press, no 100 ms stop after a reveal or chord), all they open proved safe and all they flag mines before the first. Flag removals excluded.' },
     { id: 'bvPerSecond', name: '3BV/s', higher: true, default: true,
       value: (r) => r.timeMs > 0 ? bvPerSecond(r) : undefined,
       format: (v) => v.toFixed(3) },
@@ -510,5 +516,5 @@ const GameData = (() => {
         of: mines.filter(Boolean).length },
     };
   }
-  return { metrics, defaults, defaultsForView, rows, rankedRow, addDistributions, summary, history, domain, examples };
+  return { FASTCLICK_GAP_VERSION, metrics, defaults, defaultsForView, rows, rankedRow, addDistributions, summary, history, domain, examples };
 })();

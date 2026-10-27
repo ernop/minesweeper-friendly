@@ -5,8 +5,8 @@
 // posts the summary. It only reads. The page's storage.js owns opening and
 // upgrading the database and sends the names and version it opened.
 
-importScripts('justice.js?v=20261026-moves-available', 'solver.js?v=20261021-ng-removed', 'rng.js',
-  'game/evaluation.js?v=20261026-legends-below', 'training-core.js?v=20261015-click-share');
+importScripts('justice.js?v=20261026-move-hierarchy', 'solver.js?v=20261021-ng-removed', 'rng.js',
+  'game/evaluation.js?v=20261026-scatter-canvas', 'training-core.js?v=20261015-click-share');
 
 function requestResult(request) {
   return new Promise((resolve, reject) => {

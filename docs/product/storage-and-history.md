@@ -267,9 +267,13 @@ browser, its profile, and this origin.
     `README.txt` is the one exception (2026-09-27): a sync rewrites it when
     its text differs from the current layout's description, because a README
     that omits directories would mislead its reader.
-  - A record is archived as it was first written. Values added to it later
-    (board measurements, evidence corrections) are recomputable from the
-    trace and seed.
+  - A record is archived as stored when a sync first finds it. The sync after
+    a game starts once its trace is saved, while the game's board
+    measurements are still being computed, so the archived copy holds them
+    only when they were stored first. Values added after the sync (board
+    measurements, evidence corrections) are recomputable from the trace and
+    seed. Whether the archived copy should be deterministic is open in
+    [BACKLOG.md](../../BACKLOG.md).
   - Deleting data in the browser never deletes archive files.
 - **Layout** (UTC year and month; every name uses only `[A-Za-z0-9._-]`):
   - `games/YYYY/MM/<endedAt>-<mode>.json.gz`: one finished game's record.

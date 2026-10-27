@@ -139,7 +139,7 @@ and 2, and `whole-board` is levels 3 and 4 together
 ([Game-end evaluation](game-end-evaluation.md)); telling those two apart
 there is a proposal in [BACKLOG.md](../../BACKLOG.md).
 
-## Move hierarchy (creator request 2026-10-26; partly built)
+## Move hierarchy (creator request 2026-10-26; built 2026-10-26 but for level 6's tie-break)
 
 Creator request 2026-10-26, verbatim, the day the live perf charts gained
 the moves available: "can you link me to a full description fo the way,
@@ -174,25 +174,37 @@ in [BACKLOG.md](../../BACKLOG.md), "Move hierarchy: the unbuilt levels".
    2026-10-26)").
 2. **The most useful proven moves**: among the proven moves, those that do
    the most for the fewest clicks, since playing well is choosing among
-   valid moves, not only making them. Not built as a judgment of each move.
-   Built and related: the count of chordable numbers (same section); a
-   whole board's fewest clicks, ZiNi and HZiNi
+   valid moves, not only making them. Built 2026-10-26: at every moment,
+   the most 3BV per click that any one proven move offered, a chord's
+   flags counted as clicks ([During the game](during-game.md), "Revision
+   (creator 2026-10-26, the move hierarchy)"). Not built: judging each
+   move the player made against that best. Related: the count of chordable
+   numbers (same file, "Revision (creator 2026-10-26)"); a whole board's
+   fewest clicks, ZiNi and HZiNi
    ([Per-game stats](per-game-stats.md)); and, as rules for the player
    rather than measures, when to flag and chord
    ([Training](training.md), "The plan", "1. Stop wasting inputs").
 3. **Harder proven moves: how many, how far, how useful**: at each
    deduction level, how many proven moves there are, how far each is from
-   the last action, and how useful each is. Built: the counts by level.
-   Distance in part: one row counts the mines counting proves near the last
-   move (at most 5 steps), and the move events say how far the nearest
-   proven-safe square was and whether the player went to the nearest of
-   several places ([During the game](during-game.md), "Move
-   characterization and habits"). Usefulness: not built.
+   the last action, and how useful each is. Built: the counts by level,
+   and since 2026-10-26, for each level, the most 3BV per click of its
+   moves and the steps from the last board-changing click to its nearest
+   proven-safe square ([During the game](during-game.md), "Revision
+   (creator 2026-10-26, the move hierarchy)"). Also: one row counts the
+   mines counting proves near the last move (at most 5 steps), and the
+   move events say how far the nearest proven-safe square was and whether
+   the player went to the nearest of several places (same file, "Move
+   characterization and habits").
 4. **The hardest deductions**: levels 3 and 4 above, all numbers and the
    mine total. Built. Finer grades within them are proposed
    ([BACKLOG.md](../../BACKLOG.md), "Deduction levels: further grades").
 5. **Guesses**, opening a square the board does not prove safe (the
-   creator asks what makes a good "connected guess"), judged two ways:
+   creator asks what makes a good "connected guess"). A connected guess is
+   built as one beside open numbers, the reading proposed to the creator
+   and unanswered when it was built: the live perf charts' guess card says
+   whether each guess was, and the lowest mine risk beside open numbers
+   and away from them ([During the game](during-game.md), "Revision
+   (creator 2026-10-26, the move hierarchy)"). Guesses are judged two ways:
    - The best chance to survive the click: the lowest mine probability on
      the board. Built: the guess ledger's ideal-risk and life needless
      ([Per-game stats](per-game-stats.md), "Guess ledger") and the
@@ -203,14 +215,26 @@ in [BACKLOG.md](../../BACKLOG.md), "Move hierarchy: the unbuilt levels".
      click deep: the ledger's "perfect" is the chance to survive this click
      and then the safest next one, averaged over the numbers the click could
      show (one-ply expected remaining life). The whole game's chance to win
-     is not built ([BACKLOG.md](../../BACKLOG.md), "Deeper than one-ply
-     perfect play").
+     is built since 2026-10-26 where its exact search finishes: the guess
+     card gives perfect play's chance to win after the guessed square and
+     at best, exact counts of mine layouts won. The search finishes in
+     endgames and not early in a game; in simulated play it finished on 18
+     of 19 Beginner guesses, 19 of 46 Intermediate, and 29 of 197 Expert.
+     Elsewhere the card says the search stopped at its work limit
+     ([BACKLOG.md](../../BACKLOG.md), "Deeper than one-ply perfect play").
 6. **Moves for the player's output per hour** (the creator's "anthropic
    principle of move choices"): all else equal, the move that settles the
    game sooner, so that a game headed for a loss ends early and the next
    one starts; or, between otherwise equal moves, the one whose information
-   is more useful to the player. Not built as a judgment of moves. Recorded
-   so far as an objective for analyzing the player's guesses, wins per hour
+   is more useful to the player. Built 2026-10-26 for settling sooner: the
+   guess card says when nothing else on the board could ever settle the
+   guess, how long that had been so, and on a loss with fixed mines how
+   much sooner taking it at once would have ended the game
+   ([During the game](during-game.md), "Revision (creator 2026-10-26, the
+   move hierarchy)"). Not built: the tie-break by the information's
+   usefulness, and the objective as a judgment of moves
+   ([BACKLOG.md](../../BACKLOG.md), "Move hierarchy: the unbuilt levels").
+   Recorded as an objective for analyzing the player's guesses, wins per hour
    beside the chance to win each game ([Measurement](measurement.md),
    "Behavioral signatures and state research";
    [BACKLOG.md](../../BACKLOG.md), "Competing optimization objectives"),

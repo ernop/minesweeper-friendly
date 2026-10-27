@@ -1,15 +1,15 @@
 "use strict";
 
 importScripts('trend-fit.js?v=20260925-worker-analysis',
-  'game/trace-metrics.js?v=20261026-legends-below',
-  'game/evaluation.js?v=20261026-legends-below',
-  'game-data.js?v=20261026-legends-below', 'game/metric-definitions.js?v=20261026-legends-below',
+  'game/trace-metrics.js?v=20261026-scatter-canvas',
+  'game/evaluation.js?v=20261026-scatter-canvas',
+  'game-data.js?v=20261026-planned-pairs', 'game/metric-definitions.js?v=20261026-scatter-canvas',
   'board-shape.js?v=20261020-no-left-panel', 'zini.js?v=20261020-no-left-panel', 'board-metrics.js?v=20261020-no-left-panel',
-  'game/rankings.js?v=20261026-legends-below',
-  'game/charts.js?v=20261026-legends-below', 'game/game-data-chart.js?v=20261026-legends-below',
-  'justice.js?v=20261026-moves-available', 'board-icons.js?v=20261015-flag-controls',
-  'game/replay-model.js?v=20261026-legends-below',
-  'during-game.js?v=20261026-legends-below');
+  'game/rankings.js?v=20261026-scatter-canvas',
+  'game/charts.js?v=20261026-scatter-canvas', 'game/game-data-chart.js?v=20261026-scatter-canvas',
+  'justice.js?v=20261026-move-hierarchy', 'odds.js?v=20261026-move-hierarchy', 'board-icons.js?v=20261015-flag-controls',
+  'game/replay-model.js?v=20261026-scatter-canvas',
+  'during-game.js?v=20261026-scatter-canvas');
 
 let config;
 
@@ -45,9 +45,26 @@ function standingFlags(events) {
   return [...flagged];
 }
 
-let liveTrace = null;
-let liveComputer = null;
-let liveMetrics = null;
+// The game being played, as the live feed sends it: its trace so far, the
+// trace metrics of it, and its positions' proofs. Each position is proved
+// in a task of its own between messages, so the game's end finds nearly all
+// of them proved and the model only reads them.
+let liveGame = null;
+
+function liveGameOf(traceId) {
+  if (liveGame === null || liveGame.id !== traceId) {
+    liveGame = { id: traceId, t: [], x: [], y: [], events: [], computer: createTraceMetricComputer(),
+      metrics: null, proofs: DuringGame.positionProofs(), unproved: [], proving: false };
+  }
+  return liveGame;
+}
+
+function proveLivePositions(game) {
+  if (game !== liveGame) return;
+  game.proofs.of(game.unproved.shift());
+  if (game.unproved.length > 0) setTimeout(proveLivePositions, 0, game);
+  else game.proving = false;
+}
 
 function analyzeTrace(data) {
   const { t, x, y, events, wallMs } = data;
@@ -56,8 +73,8 @@ function analyzeTrace(data) {
 }
 
 // The record's measurements the plan asks for, of the game the worker holds
-// as gameId. Move habits come from the during-the-game model, which the
-// live perf charts then reuse.
+// as gameId. Move habits and the fastclick gap come from the
+// during-the-game model, which the live perf charts then reuse.
 function finishedMeasurements(plan, metrics, gameId) {
   const measurements = {};
   if (!plan.drill) {
@@ -70,6 +87,9 @@ function finishedMeasurements(plan, metrics, gameId) {
   if (plan.needMoveHabits) {
     Object.assign(measurements, DuringGame.moveHabits(heldDuringGameModel({ gameId, timeMs: plan.timeMs, outcome: plan.outcome })));
   }
+  if (plan.needFastclickGap) {
+    Object.assign(measurements, DuringGame.fastclickGap(heldDuringGameModel({ gameId, timeMs: plan.timeMs, outcome: plan.outcome })));
+  }
   return measurements;
 }
 
@@ -80,30 +100,32 @@ function analyze(kind, data) {
     case 'trace': return analyzeTrace(data);
     case 'finished-game': {
       holdDuringGameSource({ id: data.gameId, width: data.width, height: data.height, mines: data.mines,
-        t: data.trace.t, x: data.trace.x, y: data.trace.y, events: data.trace.events,
-        initialPageState: data.trace.initialPageState });
+        justiceEnabled: data.justiceEnabled, t: data.trace.t, x: data.trace.x, y: data.trace.y, events: data.trace.events,
+        initialPageState: data.trace.initialPageState, proofs: liveGameOf(data.liveTraceId).proofs });
       const motion = analyzeTrace(data.trace);
       return { ...motion, measurements: finishedMeasurements(data, motion.metrics, data.gameId) };
     }
     case 'live-trace': {
-      if (liveTrace === null || liveTrace.id !== data.traceId) {
-        liveTrace = { id: data.traceId, t: [], x: [], y: [], events: [] };
-        liveComputer = createTraceMetricComputer();
-        liveMetrics = null;
-      }
+      const game = liveGameOf(data.traceId);
       for (const key of ['t', 'x', 'y', 'events']) {
-        for (const value of data[key]) liveTrace[key].push(value);
+        for (const value of data[key]) game[key].push(value);
       }
-      liveMetrics = liveMetrics !== null && data.t.length === 0 && data.events.length === 0
-        ? { ...liveMetrics, wallDurationMs: data.wallMs, bio: { ...liveMetrics.bio,
-          wallDurationMs: data.wallMs, silenceRatio: traceSilenceRatio(liveMetrics.bio.movementMs, data.wallMs) } }
-        : liveComputer(liveTrace.t, liveTrace.x, liveTrace.y, liveTrace.events, data.wallMs);
-      return liveMetrics;
+      for (const event of pathDecisionEvents(data.events)) game.unproved.push(event.evaluation.position);
+      if (game.unproved.length > 0 && !game.proving) {
+        game.proving = true;
+        setTimeout(proveLivePositions, 0, game);
+      }
+      game.metrics = game.metrics !== null && data.t.length === 0 && data.events.length === 0
+        ? { ...game.metrics, wallDurationMs: data.wallMs, bio: { ...game.metrics.bio,
+          wallDurationMs: data.wallMs, silenceRatio: traceSilenceRatio(game.metrics.bio.movementMs, data.wallMs) } }
+        : game.computer(game.t, game.x, game.y, game.events, data.wallMs);
+      return game.metrics;
     }
     case 'restore-trace': {
       const { sampleT: t, sampleX: x, sampleY: y, events, metricSampleTimes } = data;
       holdDuringGameSource({ id: data.endedAt, width: data.measurementPlan.width, height: data.measurementPlan.height,
-        mines: data.measurementPlan.mines, t, x, y, events, initialPageState: data.initialPageState });
+        mines: data.measurementPlan.mines, justiceEnabled: data.justiceEnabled, t, x, y, events,
+        initialPageState: data.initialPageState, proofs: DuringGame.positionProofs() });
       const computer = createTraceMetricComputer();
       const includedEvents = [], series = createMetricSeries();
       let samples = 0, eventIndex = 0;

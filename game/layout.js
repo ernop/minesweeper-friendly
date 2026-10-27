@@ -574,6 +574,7 @@ const pixelRatioValue = document.getElementById('pixel-ratio-value');
 function renderPixelRatio() {
   const ratio = window.devicePixelRatio;
   pixelRatioValue.textContent = String(Number(ratio.toFixed(2)));
+  repaintScatterDots();
   matchMedia('(resolution: ' + ratio + 'dppx)')
     .addEventListener('change', renderPixelRatio, { once: true });
 }

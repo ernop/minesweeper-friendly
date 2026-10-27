@@ -240,7 +240,7 @@ function saveTrace(record) {
   const tx = db.transaction(TRACE_STORE, 'readwrite');
   tx.objectStore(TRACE_STORE).put(stored);
   tx.oncomplete = () => {
-    boardMetricSourcesChanged(stored.mode);
+    boardMetricSourceSaved(stored.mode, stored.endedAt);
     switchCostSourcesChanged(stored.mode);
     requestArchiveSync();
   };

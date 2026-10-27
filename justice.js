@@ -539,14 +539,17 @@ function proveLevels(view, clues, opts) {
   return { facts, levelOf };
 }
 
-function buildStructure(view, proofOptions) {
+// provenFacts: the position's proof under the default options when the
+// caller already holds it (proveLevels and proveFacts prove the same
+// facts), else proved here.
+function buildStructure(view, proofOptions, provenFacts) {
   const size = view.width * view.height;
   if (view.revealed.length !== size || view.adjacent.length !== size) {
     throw new Error('board view has the wrong size');
   }
 
   const raw = rawClues(view);
-  const facts = proveFacts(view, raw, proofOptions);
+  const facts = provenFacts === undefined ? proveFacts(view, raw, proofOptions) : provenFacts;
   const clues = [];
   const cluesOfCell = new Map();
   const frontierSet = new Set();
@@ -604,19 +607,38 @@ function buildStructure(view, proofOptions) {
   const seaSet = new Set(seaCells);
   const seaComponents = [];
   const seaComponentOfCell = new Map();
+  // Each sea square's component index plus one, 0 while unassigned. The
+  // neighbors are walked in place, in justiceNeighbors' order (each
+  // component's cell order depends on it), without a list per square: this
+  // fill runs on every structure, early in a game over most of the board.
+  const seaIndexOf = new Int32Array(size);
+  const isSea = new Uint8Array(size);
+  for (const cell of seaCells) isSea[cell] = 1;
+  const { width, height } = view;
   for (const start of seaCells) {
-    if (seaComponentOfCell.has(start)) continue;
+    if (seaIndexOf[start] !== 0) continue;
     const seaIndex = seaComponents.length;
     const cells = [];
     const stack = [start];
+    seaIndexOf[start] = seaIndex + 1;
     seaComponentOfCell.set(start, seaIndex);
     while (stack.length > 0) {
       const cell = stack.pop();
       cells.push(cell);
-      for (const other of justiceNeighbors(cell, view.width, view.height)) {
-        if (!seaSet.has(other) || seaComponentOfCell.has(other)) continue;
-        seaComponentOfCell.set(other, seaIndex);
-        stack.push(other);
+      const x = cell % width;
+      const y = (cell - x) / width;
+      for (let dy = -1; dy <= 1; dy++) {
+        const ny = y + dy;
+        if (ny < 0 || ny >= height) continue;
+        for (let dx = -1; dx <= 1; dx++) {
+          const nx = x + dx;
+          if ((dx === 0 && dy === 0) || nx < 0 || nx >= width) continue;
+          const other = ny * width + nx;
+          if (isSea[other] === 0 || seaIndexOf[other] !== 0) continue;
+          seaIndexOf[other] = seaIndex + 1;
+          seaComponentOfCell.set(other, seaIndex);
+          stack.push(other);
+        }
       }
     }
     seaComponents.push(cells);
@@ -878,10 +900,11 @@ function validateEntryIndex(view, clicked) {
 // Returns compact proofs for qualifying entries while constructing the
 // visible constraint structure only once. Every cell in one certified
 // pocket shares its certificate, so each component's groups, each group,
-// and the sea are also checked only once.
-function certifyEntries(view, entries) {
+// and the sea are also checked only once. heldStructure: buildStructure's
+// for this view when the caller already holds it, else built here.
+function certifyEntries(view, entries, heldStructure) {
   for (const entry of entries) validateEntryIndex(view, entry);
-  const structure = buildStructure(view);
+  const structure = heldStructure === undefined ? buildStructure(view) : heldStructure;
   const groupsByComponent = new Map();
   const groupsOf = (componentIndex) => {
     if (!groupsByComponent.has(componentIndex)) {

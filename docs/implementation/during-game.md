@@ -12,9 +12,10 @@ Spec: [docs/product/during-game.md](../product/during-game.md). Index: [AGENTS.m
   `DuringGame.defaults`, `DuringGame.AVERAGES`, `DuringGame.DEFAULT_AVERAGE`,
   `DuringGame.RELATIVE_SCALES`, and `DuringGame.DEFAULT_RELATIVE_SCALE`),
   and in `analysis-worker.js`. At call time it
-  uses `pathDecisionEvents`, `positionView`, and `squareDistance`
-  (`game/replay-model.js`), `Justice`, `medianOf`, `gapSpreadRatioOf`,
-  `CADENCE_MOVING_WINDOW_MS`, and `FASTCLICK_MAX_GAP_MS` (`game/trace-metrics.js`);
+  uses `pathDecisionEvents` (`game/replay-model.js`), `positionView` and
+  `squareDistance` (`game/evaluation.js`), `Justice`, `Odds`
+  (`analyzeView`, `winChances`), `medianOf`,
+  `gapSpreadRatioOf`, and `STROKE_GAP_MS` (`game/trace-metrics.js`);
   at load it reads `GameData.metrics` for its catalog rows, so
   `game-data.js` loads first everywhere
   ([measurement catalog](measurement-catalog.md)).
@@ -38,17 +39,20 @@ Spec: [docs/product/during-game.md](../product/during-game.md). Index: [AGENTS.m
   2026-10-21 it lent a board beside the block `paintReplayFrame(model,
   elements)` for any list of squares; `paintReplayFrame` paints the board's
   own squares again.
-- `analysis-worker.js` imports `justice.js`, `board-icons.js` (whose
-  `FLAG_COLOR` `game/replay-model.js` reads at load), `game/replay-model.js`,
-  and `during-game.js`.
+- `analysis-worker.js` imports `justice.js`, `odds.js` (the guess facts,
+  since 2026-10-26), `board-icons.js` (whose `FLAG_COLOR`
+  `game/replay-model.js` reads at load), `game/replay-model.js`, and
+  `during-game.js`.
 
 ## Worker task and the held trace
 
 The trace is cloned to the reports worker once. `finished-game` (with
 `gameId: record.endedAt`, and the trace's `initialPageState`) and
 `restore-trace` (with the stored trace) each keep `{id, width, height,
-mines, t, x, y, events, initialPageState}` as the worker's
-`duringGameSource` and drop the cached model. The page sets
+mines, justiceEnabled, t, x, y, events, initialPageState}` as the worker's
+`duringGameSource` and drop the cached model. `justiceEnabled` is the
+record's (`reportResult` sends it; the stored trace carries a copy), absent
+on games from before it was recorded. The page sets
 `duringGameSourceId = record.endedAt` just before posting either
 (`reportResult` in `game/results.js`, the restore path in
 `preferences-game.js`); `duringGameAvailable(record)` gates the section on
@@ -61,6 +65,18 @@ other than the held source's throws. The first request builds
 `DuringGame.view`. Both tasks run on the same `reports` lane, so the held
 source is always the latest finished or restored game.
 
+Positions are proved during play (2026-10-26). The motion stats' live feed
+(`live-trace`, game/motion-stats.js) runs on the same `reports` lane and
+sends each piece of the trace once; the worker keeps the game it belongs to
+(`liveGame`, by `traceId`, the page's `liveMetricsGeneration`) with a
+`DuringGame.positionProofs()` store, and proves each new decision's position
+in its own task (`proveLivePositions`, one per `setTimeout`), so a request
+waits behind at most one proof. `finished-game` names that game
+(`liveTraceId`) and hands the store to its model, which proves only the
+positions the feed never sent, usually the last. `restore-trace` starts an
+empty store. A proof reads only the open numbers, and within one game they
+only grow, so the count of open squares names the position.
+
 ## Model
 
 `DuringGame.model(game)` returns `{recorded: false}` for a trace without
@@ -72,8 +88,10 @@ decisions. Otherwise:
 - Pass 1, per decision in replay order (`pathDecisionEvents`): opened safe
   squares and solved 3BV units (`boardUnits` on the final layout: each zero
   region is one unit, each number touching none is one), flagged mines,
-  and, whenever the revealed count changed, one `Justice.proveLevels` of
-  the position before the action: the full proof's facts (`factsAt`), each
+  and, whenever the revealed count changed, the proof of the position
+  before the action from the game's `positionProofs` store (one
+  `Justice.proveLevels` per count of open squares, and the same facts by
+  square): the full proof's facts (`factsAt`), each
   with the first deduction level proving it (`levelsAt`). `known` holds,
   per action, the covered unflagged squares proved safe and mines; the
   same by level id (`safeByLevel`, `minesByLevel`, from `countsByLevel`);
@@ -84,9 +102,45 @@ decisions. Otherwise:
   checked against the final layout). The totals, the work areas and list,
   and the searching levels (all numbers, mine total) are null where the
   search stopped at its work limit.
-- Fastclick gaps: `fastclickGaps(decisions, game.t)`, exported as
-  `DuringGame.fastclickGaps`, which `reportResult` also runs for the
-  record's `fastclickGapMs`.
+- Move usefulness and distance, per action in pass 1 from the same proof:
+  `mostBvPerClick` gives the most 3BV per click of each level's proven
+  moves and of all (`known.mostBvPerClick`, `mostBvPerClickByLevel`):
+  every proven-safe unflagged square (1 if `boardUnits` makes it a unit, a
+  zero's region or an isolated number, else 0) and every open number
+  whose covered neighbors are all facts with every flag on a proven mine
+  and at least one safe square to open (distinct units over 1 plus its
+  unflagged mines); a move's level is the hardest (`levelRank`) of its
+  facts. `stepsToSafe` gives the rows-plus-columns steps from the last
+  board-changing action's square to the nearest unflagged proven-safe
+  square of each level and of all (`known.stepsToSafe`,
+  `stepsToSafeByLevel`), null when squares are proven before any such
+  action (a drill's dealt position). Both return `NO_MOVE` ('none') where
+  there is no such move, which `stateSteps` turns into a step `{value:
+  null, none: true}`; `view` marks a state row whose every step is none
+  `noMoves`, and its legend entry says "none". A level is measured where
+  the proof is complete or the level's proof is not a search
+  (`levelMeasured`: `proof.exact === false`, counting and overlap), as in
+  `countsByLevel`.
+- Planned pairs (the fastclick gap's, `plannedPairs`):
+  `plannedPairsOf(game.events, decisions, factsAt, game.t, width)`, one
+  pass over the trace's events as recorded. It collects the `ldown` and
+  `rdown` presses since the decision before each decision event;
+  `pairClickOf` gives a board-changing click other than `flag-remove` its
+  press time (a flag's latest `rdown`; else the latest `ldown`, or an
+  earlier `rdown` marked `chordGesture`) and whether those presses were its
+  own alone. Two such clicks from consecutive decision events pair when
+  their squares (`targetCellOf`) are at `squareDistance` 1, the cursor did
+  not rest (`restedBetween`: `STROKE_GAP_MS` without a sample) from the
+  first's decision to the second's press when the first was in
+  `OPENING_ACTIONS` (reveal, proof-open, chord), and `provenTogether` finds
+  every `selected` square of both in `factsAt` of the first (1 for a flag,
+  2 otherwise). It returns `{atMs, gapMs}` per pair (press to press, at the
+  second click), or null when a pair's square was unproven under a proof
+  with `complete` false. `DuringGame.fastclickGap(m)` turns them into the
+  record's `fastclickGapVersion` (`GameData.FASTCLICK_GAP_VERSION`) and
+  `fastclickGapMs` (rounded `medianOf`; absent with no pair or a null);
+  the fastclick row draws them as a median `value` row, or `unrecorded`
+  for null.
 - Pass 2: each action's gap, squares moved, cursor path, no-op reason,
   misclick (recomputed from the exact
   proof as `Solver.isVisibleMisclick` judges it), guess, opening,
@@ -110,6 +164,45 @@ decisions. Otherwise:
   `lifeGap`, the magnitudes `actionCategorySummary` sums for the record;
   `categoriesMeasured` is false when any action falls under measurement
   notes, and the report rows (`categoryRate`) are then `unrecorded`.
+- Guess facts (`guessFacts(k, cell)`, spread into each guess event): one
+  `Justice.buildStructure(view, undefined, factsAt[k])` of the guess's
+  position serves all of them, built from pass 1's proof (`provenFacts`;
+  `proveLevels` and `proveFacts` prove the same facts, so no position is
+  proved twice). `connected`: the square is in the structure's
+  `frontierSet` (beside an open number). Where the evaluation's
+  `evidence.oddsMeasured` is true (the guess ledger measured it, so the
+  mode's mines move only under A just universe),
+  `Odds.analyzeView(view, { structure })` gives `safestConnectedRisk`
+  (the lowest `pMine` of an unproven square in `frontierSet`) and
+  `safestUnconnectedRisk` (of the others), each absent when no such
+  square exists. Where also `game.justiceEnabled === false`:
+  `minesFixed: true`, and `Odds.winChances(view, odds, cell)` gives
+  `winMeasured` and, when measured, `winChance` and `bestWinChance`
+  (layouts won over layouts). Where `factsAt[k]` is complete and
+  `Justice.certifyEntries(view, [cell], structure)` certifies the square:
+  `unavoidable: true`, then a walk back over earlier decisions whose proof
+  differs (`factsAt` repeats one proof object until the revealed count
+  changes), while each certifies it (each with its own structure from
+  its proof); a proof stopped at its work limit ends the walk with no
+  `waitedMs`, else `waitedMs` runs from the start of the first certified
+  decision (`known.startMs`) to the guess.
+- `Odds.winChances(view, odds, cell)` (`odds.js`, `odds` the measured
+  `analyzeView(view)`, which the caller has already): every layout it
+  weighs (proven mines, one solution per component, every way of placing
+  the rest in the sea; a count differing from `totalWeight` throws), each
+  covered square's number in each layout, then a search over sets of
+  layout ids. `settle` opens every square no layout in the set mines and
+  splits the set square by square into one part per number shown; `wins`
+  takes a settled set's best guess (squares mined in the same layouts are
+  one choice, found by a sum of per-layout hash tags and compared in
+  full; choices tried by survivors, pruned when they cannot beat the
+  best), memoized by the set. It returns `{measured, layouts, chosenWins,
+  bestWins}`, or `{measured: false}` once its work (layouts times covered
+  squares, per set visited) passes `WIN_WORK_LIMIT` (100,000). On the
+  simulated guesses below, 100,000 finished 29 of 197 Expert guesses, 19
+  of 46 Intermediate, and 18 of 19 Beginner; 1,000,000 finished 43, 21,
+  and 18, at up to 17 ms an Expert guess, the searches it could not
+  finish taking most of that time.
 - Presses: every `ldown` and `rdown` on the game clock with its gap from
   the press before, as the trace's cadence counts them, for cadence spread.
 - Window left: spans from the trace's `page-state` events and
@@ -134,7 +227,25 @@ rolling average; 2026-10-20, a scripted Expert win of 201 actions in
 headless Chromium: 46–70 ms; 2026-10-26, with every deduction level from
 one `proveLevels` per position, 73–104 ms for scripted Expert wins of
 281–344 actions in Node (a separate proof per level took 140–242 ms on the
-same games). Since 2026-10-20 the model is built inside
+same games). The guess facts, 2026-10-26, in Node on simulated games
+guessing the lowest risk: `winChances` 0.12 ms a guess on average on
+Expert (197 guesses, at most 1.3 ms), 0.25 ms on Intermediate (at most
+3.3 ms), 0.43 ms on Beginner (at most 6.2 ms). The move hierarchy's whole
+share on the latency check's Expert win (229 actions, nine guesses), in
+the analysis worker: about 9 ms of the model's 80–90 ms in headless
+Chromium (usefulness and distance about 5 ms, the guess facts about 4),
+and about 6–7 ms of the check's `expertWinResultsMs` in Firefox (the
+median of six runs against a copy without it). It was about 40 ms in
+Chromium before each guess position got one structure from pass 1's
+proof, shared by `analyzeView` and `certifyEntries`, and before
+`buildStructure`'s sea fill stopped making a neighbor list per square
+(identical output, about 40% faster). With the positions proved during
+play (2026-10-26), `finished-game` on the latency check's Expert win takes
+a median 49 ms in Node against 112 ms proving them after the game, with
+identical measurements and rows (228 of 229 positions proved during play),
+and replies 58-73 ms after it is posted in Firefox; the model's share,
+every position proved, is about 24 ms.
+Since 2026-10-20 the model is built inside
 `finished-game`, before the first full result render, which therefore
 comes that much later; the live perf charts then need only the view.
 `renderResultAsync` builds the block, which starts its task, before
@@ -297,9 +408,26 @@ every row shown; a pick of a row not in `rowIds` drops out), and
   the moves chart's rows, colors, defaults, and count format, every event
   type including both kinds of left work, forks, and
   came back, move habits and their round trip through `finished-game`,
+  planned pairs (the creator's corner on a 6×4 board, and one pair each
+  for a 1.5 click, a rest, a two-button chord, a press between, a flag
+  removal, and a proof at its work limit) and the fastclick gap's round
+  trip through `finished-game`, the most 3BV per click and the steps to
+  the nearest safe square on a 4×3 board solved by counting (a chord
+  worth 1, 1.5, then 3 3BV per click as its mines are flagged; every
+  other level none all game), the guess facts on a 6×2 50/50 nothing
+  could ever settle (won, lost, under A just universe, and unmeasured by
+  the ledger),
   averaging, the worker round trip and its throws, window-left spans, an
-  unrecorded trace, the legend picks' click sequence, and the catalog
-  checks ([measurement catalog](measurement-catalog.md), "Tests").
+  unrecorded trace, the legend picks' click sequence, the catalog
+  checks ([measurement catalog](measurement-catalog.md), "Tests"), and
+  proofs made during play: a 4×3 game fed through `live-trace` up to its
+  last decision, whose `finished-game` proves exactly one position, against
+  a finish without the feed that proves all four, with identical
+  measurements and every row's view.
+- `tests/odds-test.js`, "win chances": two separate 50/50s (1 layout in 4
+  won), an early Expert position past the work limit, and 60 random small
+  positions against a brute-force game search that opens one square at a
+  time, zeros cascading.
 - `tests/path-replay-test.js`: the replay preview stops playback, never
   saves a position, ends on the position it replaced, and a new game
   clears it; the player's own moves end it where they move.
@@ -328,7 +456,9 @@ every row shown; a pick of a row not in `rowIds` drops out), and
   again; the tracks' legend; plots in place), the link with game summary
   perf (an earlier win held in memory gives game data a comparison: one
   value in both, a row's hover spotlighting its line or marks alone, lines
-  and legend entries ringing their rows), the linear scale (the log
+  and legend entries ringing their rows; the saved record's fastclick gap,
+  its definition named, as the legend reads it, and measured again on a
+  reload after being made one of the earlier definition), the linear scale (the log
   scale checkbox, averaging the one select; with one line picked, labels
   in its values from 0ms; with every line, ratios from 0×; picks kept,
   saved, restored after reload), configure ("back to

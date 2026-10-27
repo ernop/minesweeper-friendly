@@ -218,6 +218,34 @@ function chartHelpButton(help, label, place) {
 // box-plot whisker rule: scale-free, and quartiles barely move when an
 // outlier appears) so one freak slow win can't stretch the whole axis.
 // The me-dot is never dropped, and a corner note counts what's hidden.
+// The dots take the age-unit palette, the same hexes as the age units in
+// rank lists (style.css, .age-u-*); dots without an age are black.
+const SCATTER_AGE_DOT_FILLS = Object.freeze({ s: '#39ff14', m: '#008000', h: '#0000ff', d: '#ff0000',
+  w: '#000080', mo: '#800000', y: '#008080' });
+const SCATTER_NEUTRAL_DOT_FILL = '#000000';
+
+// A chart's dots at the current pixel ratio, sharp at any browser zoom:
+// renderPixelRatio paints them again when the ratio changes.
+function paintScatterDots(canvas) {
+  const { width, height, dots } = canvas.scatterDots;
+  const ratio = window.devicePixelRatio;
+  canvas.width = Math.round(width * ratio);
+  canvas.height = Math.round(height * ratio);
+  const context = canvas.getContext('2d');
+  context.scale(ratio, ratio);
+  for (const dot of dots) {
+    context.globalAlpha = dot.alpha;
+    context.fillStyle = dot.fill;
+    context.beginPath();
+    context.arc(dot.x, dot.y, dot.r, 0, 2 * Math.PI);
+    context.fill();
+  }
+}
+
+function repaintScatterDots() {
+  for (const canvas of document.querySelectorAll('canvas.scatter-dots')) paintScatterDots(canvas);
+}
+
 function buildScatter(wins, me, fx, fy, xLabel, yLabel, meLabel, ageInfoOf, opts = {}) {
   const W = 270, H = 210, L = 54, R = 10, T = 10, B = 36;
   const list = document.createElement('div');
@@ -240,7 +268,7 @@ function buildScatter(wins, me, fx, fy, xLabel, yLabel, meLabel, ageInfoOf, opts
   list.analysisReady = Promise.all([model, opts.trendLines || Promise.resolve([])])
     .then(([data, lines]) => draw(data, lines));
   list.analysisReady.catch(analysisFailure);
-  async function draw({ shown, hiddenCount, hiddenMax, xMin, xMax, yMin, yMax }, lines) {
+  function draw({ shown, hiddenCount, hiddenMax, xMin, xMax, yMin, yMax }, lines) {
     const pad = (min, max) => {
       const p = (max - min) * 0.04;
       return [min - p, max + p];
@@ -337,26 +365,23 @@ function buildScatter(wins, me, fx, fy, xLabel, yLabel, meLabel, ageInfoOf, opts
       }
     };
     drawTrends(lines);
-    const dot = (s, cls, r, opacity) => el('circle', {
-      cx: px(s.x).toFixed(1), cy: py(s.y).toFixed(1), r, class: cls,
-      'fill-opacity': opacity,
-    });
+    // The other games' dots are painted on one canvas: a chart holds up to
+    // thousands of them, and as SVG elements every page layout passed through
+    // each one (about 40 ms per layout in Firefox at 13,000 dots). Inside the
+    // SVG, the canvas is painted with it, on the same pixels as the axes.
     // The deeper into its age unit a win sits, the more washed-out its dot:
     // full color on entering the unit, fading to 30% at the far edge.
-    let drawnPoints = 0;
-    for (const s of shown) {
-      if (++drawnPoints % 128 === 0) await yieldAnalysisPresentation();
-      if (s.current) continue;
-      if (opts.neutralDots) {
-        dot(s, 'scatter-dot average-dot', '2.8', '0.8');
-      } else {
-        const age = s.age;
-        dot(s, 'scatter-dot age-dot-' + age.unit, '2.2', (1 - 0.7 * age.frac).toFixed(2));
-      }
-    }
+    const dotCanvas = document.createElement('canvas');
+    dotCanvas.className = 'scatter-dots';
+    dotCanvas.scatterDots = { width: W, height: H, dots: shown.filter((s) => !s.current).map((s) => (opts.neutralDots
+      ? { x: px(s.x), y: py(s.y), r: 2.8, fill: SCATTER_NEUTRAL_DOT_FILL, alpha: 0.8 }
+      : { x: px(s.x), y: py(s.y), r: 2.2, fill: SCATTER_AGE_DOT_FILLS[s.age.unit], alpha: 1 - 0.7 * s.age.frac })) };
+    paintScatterDots(dotCanvas);
+    el('foreignObject', { x: 0, y: 0, width: W, height: H }).appendChild(dotCanvas);
     const selectedPoint = shown.find((p) => p.current);
     if (selectedPoint) {
-      dot(selectedPoint, 'scatter-me', '3.5', '1');
+      el('circle', { cx: px(selectedPoint.x).toFixed(1), cy: py(selectedPoint.y).toFixed(1), r: '3.5',
+        class: 'scatter-me' });
       // Today-rank tag beside the me-dot; flips to the left near the right edge.
       if (meLabel) {
         const meX = px(selectedPoint.x);

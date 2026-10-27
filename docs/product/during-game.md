@@ -189,8 +189,8 @@ you thyink of the y-axis marks - can't they be denominated in terms of the
 actual unit we're focusing on in the case of mouseover or only a single
 series being shown?" The same message asked for a review of the fastclick
 gap's definition; that part is quoted in
-[Per-game stats](per-game-stats.md), "Fastclick gap", and the plan for it
-is in [BACKLOG.md](../../BACKLOG.md).
+[Per-game stats](per-game-stats.md), "Fastclick gap", where the definition
+it led to, planned pairs, built the same day, is given.
 
 Built the same day:
 
@@ -205,6 +205,64 @@ Built the same day:
   moves under the pointer. The cost: the plots' left edge makes room for
   the widest such label any line can get (8× the mouse speed, as a rule),
   so every plot in the block starts about 25 pixels further right.
+
+## Revision (creator 2026-10-26, the move hierarchy)
+
+Creator, verbatim, of the move hierarchy's unbuilt levels
+([Design axis](design-axis.md), "Move hierarchy"): "biuld them". A question
+asked before it, what "connected guess" means, went unanswered; it is built
+with the reading proposed in that question, a guess on a square beside open
+numbers.
+
+Built the same day:
+
+- A fifth row group, move usefulness and distance, on the chart against
+  the whole game (Rows, below). Shown by default: most 3BV per click, the
+  best that any one proven move offered at each moment, and steps to the
+  nearest safe square from the last board-changing click. Off by default:
+  both by deduction level.
+- The guess card says what the guess chose among (Events, below): whether
+  it was beside open numbers; the lowest mine risk beside them and away
+  from them; perfect play's chance to win after this square and at best;
+  and when nothing else on the board could ever settle the guess, how long
+  that had been so, and on a loss how much sooner taking it at once would
+  have ended the game.
+- Choices made in building it, for the creator to change:
+  - Usefulness is the 3BV a proven move solves per click. Opening a square
+    is one click. A chord is its own click plus one for each mine beside
+    it not yet flagged, since it needs those flags first. A zero solves its
+    whole opening, 1 3BV, and so does a number touching no zero; a number
+    on an opening's edge solves none, its opening's 3BV being counted with
+    the zero. The move's level is the hardest level among the facts it
+    needs, so a chord needing an overlap fact is an overlap move.
+  - Distance counts steps of one square across or down, as "near the last
+    move" does, from the square of the last board-changing click (a
+    chord's: its number) to the nearest covered, unflagged, proven-safe
+    square. Proven mines are left out: flagging one solves no 3BV.
+  - "Connected" means beside an open number. The lowest risks are the exact
+    mine probabilities the guess ledger uses, shown only where the ledger
+    measured the guess.
+  - Perfect play's chance to win counts every mine layout the visible board
+    allows as equally likely, as the ledger's risks do, and plays each
+    remaining layout as well as any strategy can: it opens every square no
+    remaining layout mines before it guesses again. It is shown only where
+    the mines were fixed: the ledger measured the guess and A just universe
+    was off, since A just universe moves mines. It is an exact count of
+    layouts won. Where its search passes its work limit, the card says so
+    and shows no chance. In simulated games guessing the lowest risk, the
+    search finished on 18 of 19 Beginner guesses, 19 of 46 Intermediate
+    guesses, and 29 of 197 Expert guesses, each in a few milliseconds. It
+    finishes in endgames with few layouts left, and not early in a game,
+    where the layouts can number more than 10^80 and no known exact method
+    finishes. A limit ten times higher would finish 43 of the 197 Expert
+    guesses, at up to 17 ms a guess, the unfinished searches taking most
+    of that time.
+  - "Nothing else on the board could ever settle it" is A just universe's
+    test for a guess it would protect, applied to the position before the
+    guess in every mode. The wait runs back over the unbroken run of
+    positions where the test held, to the click that began it; a position
+    whose proof stopped at its work limit ends the walk, and the card then
+    gives no wait.
 
 ## Placement
 
@@ -395,12 +453,15 @@ data's, measured over the bucket or window instead of the whole game
 ([Measurement catalog](measurement-catalog.md)). Its whole-game value is
 exactly game data's value for the game: rates divide by the record's time
 (until 2026-10-26 by the axis's span, the record's time or the last action,
-whichever was later), and the fastclick line plots the gaps whose median
-the record stores. Every other row has a name no catalog measurement uses.
+whichever was later), and the fastclick line plots the planned pairs'
+times, whose median the record stores. Every other row has a name no
+catalog measurement uses.
 In its legend entry, a progress row
-shows its final share, a moves or board row its average over time, a rate
-or ratio the whole game's, and an incident row its median or mean; an event
-row shows its count.
+shows its final share, a moves, move usefulness and distance, or board row
+its average over time, a rate or ratio the whole game's, and an incident
+row its median or mean; an event row shows its count. A move usefulness
+and distance row averages the moments it had a move to measure; where it
+had none all game, its entry says "none".
 
 Shown by default:
 
@@ -412,12 +473,14 @@ Shown by default:
 | 3BV/s | pace | 3BV solved per second |
 | click rate | pace | board-changing clicks per second |
 | action gaps | pace | time from one board-changing click to the next; averages take the median |
-| fastclick gap | pace | gaps of at most 1 s between board-changing clicks, ending in a click on the move (the cursor moved in the 100 ms before); averages take the median |
+| fastclick gap | pace | press-to-press time of each planned pair, at its second click: two clicks in a row on touching squares, all they open proven safe and all they flag proven mines before the first, nothing pressed between, no rest after an opening click, no flag removals ([Per-game stats](per-game-stats.md), "Fastclick gap"); averages take the median; not measured on a game where a proof stopped at its work limit on a pair |
 | mouse speed | pace | cursor travel per second, pauses included; each dot is the speed between two board-changing clicks |
 | safe squares known | moves available | covered, unflagged squares the visible board had proved safe, between clicks |
 | mines by counting | moves available | covered, unflagged squares counting single numbers proves mines, one number at a time, as a 2 with only two covered squares beside it |
 | mines by counting near the last move | moves available | the mines by counting at most 5 steps (one square across or down each) from the last board-changing click; none before the first |
 | chordable numbers | moves available | open numbers with as many flags beside them as their number, every flag on a mine, and a covered square left beside them |
+| most 3BV per click | move usefulness and distance | the most 3BV any one proven move solved per click, between clicks: opening a proven-safe zero or a number touching no zero (1 3BV, 1 click), or a chord of an open number whose covered neighbors are all proven, opening at least one square (the distinct 3BV it opens, over 1 click plus one per unflagged mine beside it); 0 where the proven moves solve no 3BV (numbers on an opening's edge), none where no proven move opens a square |
+| steps to the nearest safe square | move usefulness and distance | steps (one square across or down each) from the last board-changing click to the nearest covered, unflagged, proven-safe square, between clicks; none where no square is proven safe, and nothing before the first click |
 | squares moved between actions | board | squares (in any direction) from each board-changing click to the one before; averages take the mean |
 
 Off by default: efficiency, board-changing click share, IOE, no-op rate,
@@ -430,7 +493,12 @@ safe by counting, safe by overlap, safe by all numbers, safe by the mine
 total, mines by overlap, mines by all numbers, and mines by the mine total
 ([Design axis](design-axis.md), "Deduction levels"). A square counts at one
 level only, so the four safe rows add up to the safe squares known and the
-four mine rows to the mines known.
+four mine rows to the mines known. In the move usefulness and distance
+group, the same two measures for each deduction level's moves: most 3BV
+per click by counting, by overlap, by all numbers, and by the mine total,
+where a move's level is the hardest level of the facts it needs; and steps
+to the nearest safe square by counting, by overlap, by all numbers, and by
+the mine total, to the squares that level is the first to prove.
 
 Off by default since 2026-10-20, when the left stats panel was removed and
 the creator asked for its measurements as optional rows ("same for all,
@@ -459,7 +527,10 @@ given opening counts as already done. The moves rows count the board as it
 stood before each click. Safe squares known, mines known, work areas, and
 the all-numbers and mine-total rows say nothing where the prover's search
 stopped at its work limit; the counting and overlap rows are always
-measured, and chordable numbers always.
+measured, and chordable numbers always. The move usefulness and distance
+rows follow the same rule: those for all moves and the all-numbers and
+mine-total rows say nothing where the search stopped, the counting and
+overlap rows are always measured.
 
 ## Events
 
@@ -485,8 +556,19 @@ Shown by default:
   quick undo (the mark/unmark of the request).
 - **flags on safe squares** — a flag placed where no mine was.
 - **guesses** — opening a square the visible board had not proved safe,
-  after the first click; the card gives its mine risk and the lowest
-  available, and says when a proven-safe square was available.
+  after the first click. The card says whether the square was beside open
+  numbers ("guess beside open numbers" or "guess away from open numbers"),
+  gives its mine risk and the lowest available, the lowest risk beside
+  open numbers and away from them, and perfect play's chance to win after
+  this square and at best ("chance to win with perfect play: 50% after
+  this square, 50% at best", or that the exact search stopped at its work
+  limit). Where nothing else on the board could ever settle the guess, it
+  says so and how long that had been so ("it had waited 1.0 s"), and on a
+  loss with fixed mines, "taking it at once would have ended the game
+  1.0 s sooner". It says when a proven-safe square was available. Risks
+  appear only where the guess ledger measured the guess, the chance to
+  win only where the mines were also fixed (Revision (creator 2026-10-26,
+  the move hierarchy), above).
 - **long gaps** — 1 second or more between board-changing clicks, drawn over
   the gap. The card says how many proven-safe squares were known (in all, by
   counting, and near the previous click), what ended the pause, how many
@@ -559,8 +641,8 @@ games ([BACKLOG.md](../../BACKLOG.md)).
 ## Configure
 
 "configure" in the options row replaces the charts with one checklist of
-every row, grouped as progress, moves available, pace, board, report
-categories, events,
+every row, grouped as progress, moves available, move usefulness and
+distance, pace, board, report categories, events,
 with back buttons at
 its top and bottom ("back to live perf charts"); Escape also returns.
 Choices apply at once and persist in the settings (`duringGameRows`); the
@@ -577,7 +659,8 @@ revision; the 2026-10-20 revision the day it was asked, and the move
 characterization and habits (above) later that day; the 2026-10-21 and
 2026-10-26 revisions the days they were asked, and on 2026-10-26 also the
 link with game summary perf and the catalog's definitions
-([Measurement catalog](measurement-catalog.md)). Requested but not built
+([Measurement catalog](measurement-catalog.md)) and the move hierarchy's
+rows and guess facts. Requested but not built
 yet, in [BACKLOG.md](../../BACKLOG.md): forks inside one work area (several
 ways forward from the same frontier) and the habits of games saved before
 2026-10-20. Proposed there with them: threshold calibration, rows plotted

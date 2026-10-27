@@ -1081,10 +1081,6 @@ function computeWasteMetrics(sampleT, sampleX, sampleY, events) {
 const CADENCE_BURST_GAP_MS = 250;     // a burst gap: successive presses closer than this
 const CADENCE_MOVING_WINDOW_MS = 100; // on the move: a cursor sample within this window before the press
 const CADENCE_PEAK_WINDOW_MS = 1000;  // the rolling window for peak press rate
-// A gap between board-changing actions this short, ending in an action made
-// on the move, counts toward the fastclick gap (the record's fastclickGapMs,
-// game data's fastclick gap). A timing filter only; it assigns no cause.
-const FASTCLICK_MAX_GAP_MS = 1000;
 
 // The interquartile range of `gaps` over their median, quartiles by linear
 // interpolation; undefined under 2 gaps or at a zero median (two presses in

@@ -73,7 +73,7 @@ Spec: [docs/product/storage-and-history.md](../product/storage-and-history.md). 
   playMode, identityIndex, transform, trialStartedAt, guesses,
   guessIdealRisk, guessNonideal, guessPerfect, lifeLost, lifeNeedless,
   oddsVersion, actionEvaluations,
-  fastclickGapMs, musicPlaying, flagsBlocked (only `true`, on games a daily
+  fastclickGapMs, fastclickGapVersion, musicPlaying, flagsBlocked (only `true`, on games a daily
   limit's no-flags penalty dealt without flags; 2026-10-14)} —
   (`justiceSaves` is historical: written only during part of 2026-08-23,
   no longer recorded or shown; the schema still accepts it) —
@@ -105,7 +105,10 @@ Spec: [docs/product/storage-and-history.md](../product/storage-and-history.md). 
   ResizeObserver when the panel or surrounding controls change size.
   Stats sampling never triggers a layout pass.
   `node tests/trace-layout-test.js` freezes these
-  rules. `saveTrace` (called from reportResult) puts
+  rules. `saveTrace` (called at the end of reportResult, in the game-end
+  task, so the trace is stored before any analysis reply; after the
+  `finished-game` post, so the worker computes while the trace is copied
+  into storage, about 30 ms of an Expert game in Firefox) puts
   {endedAt, mode, outcome, startedAt, sampleT/sampleX/sampleY as typed
   arrays, events, captureVersion, clock, initialPageState, sampleSourceT,
   sampleTrusted, sampleMergeCount} into the `traces` store, keyPath endedAt.

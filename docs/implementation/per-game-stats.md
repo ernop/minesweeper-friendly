@@ -24,12 +24,20 @@ Spec: [docs/product/per-game-stats.md](../product/per-game-stats.md). Index: [AG
   (`toFixed(3)` before); drives a stats row, the cadence-over-date
   relationship scatter, game data, and the live perf charts' row (until
   2026-10-20 also the left panel's session series).
-- Fastclick gap: `reportResult` stores `fastclickGapMs` as the rounded
-  `medianOf` of `DuringGame.fastclickGaps(pathDecisionEvents(trace.events),
-  trace.t)`, the gaps the live perf charts' fastclick row plots (since
-  2026-10-26; before, `recordUsefulPress` collected them from wall-clock
-  press and cursor times during play;
-  [measurement catalog](measurement-catalog.md)).
+- Fastclick gap: `fastclickGapVersion` and `fastclickGapMs` come from
+  `DuringGame.fastclickGap` on the during-the-game model's planned pairs in
+  the reports worker (`finishedMeasurements` with the plan's
+  `needFastclickGap`), which `reportResult` asks for in `finished-game` and
+  assigns before the record's second save, as move habits are
+  ([Live perf charts](during-game.md), "Model"). The restore path
+  (`preferences-game.js`) asks for them when a record's
+  `fastclickGapVersion` is not `GameData.FASTCLICK_GAP_VERSION` and
+  deletes the earlier definition's `fastclickGapMs` before assigning them.
+  The catalog's `value` reads `fastclickGapMs` only beside the current
+  version. Before 2026-10-26 `reportResult` stored the earlier definition's
+  median, from `DuringGame.fastclickGaps` on the trace that day and before
+  that from `recordUsefulPress`'s wall-clock press and cursor times during
+  play ([measurement catalog](measurement-catalog.md)).
 - Move habits (2026-10-20): `movesRanOut`, `movesLeftHardWork`,
   `movesLeftEasyWork`, `moveGapMedianMs`, `forkMoves`, and
   `forkMovesToNearestArea` come from `DuringGame.moveHabits` on the
@@ -159,7 +167,9 @@ Spec: [docs/product/per-game-stats.md](../product/per-game-stats.md). Index: [AG
   count (`combinationWalkVisits`), so exactly the same positions are
   measured, with the same `visits`.
   `analyzeView(view, opts)` can pass proof options through
-  `Justice.buildStructure`; one-ply hypothetical next positions cap the
+  `Justice.buildStructure`, or take a structure the caller already built
+  under the default options (`opts.structure`, the live perf charts'
+  guess facts); one-ply hypothetical next positions cap the
   canonical proof prepass at 80000 visits so up to forty branches cannot
   each consume the two-million-visit gameplay budget. Incomplete proof
   facts stay sound, and residual odds either complete or remain unmeasured.

@@ -26,8 +26,9 @@ purpose](../../docs/product/measurement.md)).
 
 - `totals`, `byKey`: games, wins, Wilson 95% win-rate interval, accumulated
   play time, robust center/spread (median, quartiles, n) for win time,
-  mouse speed (px/s), click rate (/s), fastclick gap, misclicks, wasted
-  clicks. These are the physical-state aggregates every grouping must
+  mouse speed (px/s), click rate (/s), fastclick gap (only values of its
+  current definition, read through the game's `GameData` catalog), misclicks,
+  wasted clicks. These are the physical-state aggregates every grouping must
   report.
 - `daily[key][day]`, `trends[key]`: per-day win rate and median win time;
   Theil–Sen slopes per day (robust to one odd day); Spearman rank

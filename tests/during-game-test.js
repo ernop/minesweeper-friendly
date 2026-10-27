@@ -8,7 +8,11 @@ const path = require('node:path');
 const vm = require('node:vm');
 const root = path.join(__dirname, '..');
 const replies = [];
-const context = vm.createContext({ self: { postMessage: (value) => replies.push(structuredClone(value)) } });
+// The worker's timers run when the test drains them, between its messages.
+const timers = [];
+const runTimers = () => { while (timers.length > 0) timers.shift()(); };
+const context = vm.createContext({ self: { postMessage: (value) => replies.push(structuredClone(value)) },
+  setTimeout: (callback, delayMs, ...args) => timers.push(() => callback(...args)) });
 context.importScripts = (...files) => {
   for (const file of files) vm.runInContext(fs.readFileSync(path.join(root, file.split('?')[0]), 'utf8'), context, { filename: file });
 };
@@ -23,16 +27,22 @@ const task = (kind, payload) => {
 };
 const DuringGame = vm.runInContext('DuringGame', context);
 // Results cross into this realm so deepEqual compares values, not prototypes.
-const modelOf = (game) => structuredClone(DuringGame.model(game));
-const viewOf = (game, rows, average) => structuredClone(DuringGame.view(DuringGame.model(game), rows, average));
+const proved = (game) => DuringGame.model({ ...game, proofs: DuringGame.positionProofs() });
+const modelOf = (game) => structuredClone(proved(game));
+const viewOf = (game, rows, average) => structuredClone(DuringGame.view(proved(game), rows, average));
 const Justice = vm.runInContext('Justice', context);
+const { FASTCLICK_GAP_VERSION } = vm.runInContext('GameData', context);
 
 const CELL_PX = 20;
 const START_T = 500;
+// How long the scripted left button stays down: a reveal or no-op click
+// takes effect at its release, this long after its press.
+const PRESS_MS = 60;
 
 // Plays `steps` on a board as the game records them: one decision per
-// action with the position before it, the cursor gliding to each target
-// and arriving 5 ms before the click (or 300 ms before when `still`).
+// action with the position before it, after its presses (a flag acts at its
+// right press, a left click at its release), the cursor gliding to each
+// target and arriving 5 ms before the click (or 300 ms before when `still`).
 function playGame(width, height, mineCells, steps) {
   const size = width * height;
   const mine = new Array(size).fill(false);
@@ -97,7 +107,11 @@ function playGame(width, height, mineCells, steps) {
       evaluation.evidence = { reason: step.reason };
       evaluation.mistakes.push('no-op-click');
     } else throw new Error('unknown step ' + step.act);
-    events.push({ t: START_T + step.atMs, kind: 'decision', x: target.x, y: target.y, evaluation });
+    const clickT = START_T + step.atMs;
+    const input = { x: target.x, y: target.y, index: cell };
+    if (step.act === 'flag') events.push({ t: clickT, kind: 'rdown', ...input });
+    else events.push({ t: clickT - PRESS_MS, kind: 'ldown', ...input }, { t: clickT, kind: 'lup', ...input });
+    events.push({ t: clickT, kind: 'decision', x: target.x, y: target.y, evaluation });
     if (outcome === null && revealed.size === size - mineCells.length) outcome = 'win';
   }
   return { width, height, mines: mine, timeMs: steps[steps.length - 1].atMs, outcome,
@@ -157,7 +171,9 @@ const types = (model) => model.events.map((event) => event.type + '@' + event.at
   assert.equal(row('bvPerSecond').summary, 3 / 2.2, 'the whole game: 3 3BV over 2.2 s');
   assert.equal(row('clickRate').summary, 3 / 2.2);
   assert.equal(row('actionGap').summary, (1500 + 700) / 2, 'the median of two gaps');
-  assert.equal(row('fastclickGap').summary, 700, 'the 1.5 s gap is too long for a fastclick');
+  assert.equal(row('fastclickGap').summary, undefined, 'no two clicks in a row touch: no planned pair');
+  assert.deepEqual(structuredClone(DuringGame.fastclickGap(model)), { fastclickGapVersion: FASTCLICK_GAP_VERSION },
+    'measured under the definition, with no value');
   assert.equal(row('safeKnown').summary, 9 * 700 / 2200, 'nine known for the last 0.7 s');
   assert.equal(row('longGapEvents').summary, 1);
   assert.deepEqual(row('bvPerSecond').buckets.map((bucket) => bucket.value), [1, undefined],
@@ -241,15 +257,22 @@ const types = (model) => model.events.map((event) => event.type + '@' + event.at
   // three flags.
   assert.deepEqual(model.known.chordableNumbers, [0, 0, 1, 3, 3, 4, 3, 1, 1, 0, 1]);
 
+  // One planned pair: the flag on (10,0) at 1.3 s, then (10,1) beside it,
+  // pressed at 1.54 s, both proven by the 1 2 1 before the flag. Every
+  // other pair of clicks in a row is too far apart, has the no-op between,
+  // or holds the flag removal.
+  assert.deepEqual(structuredClone(DuringGame.fastclickGap(model)),
+    { fastclickGapVersion: FASTCLICK_GAP_VERSION, fastclickGapMs: 240 });
+
   // The worker holds the finished game by its endedAt and answers only for
-  // it; its move habits go to the record with the finished game's
-  // measurements.
+  // it; its move habits and fastclick gap go to the record with the
+  // finished game's measurements.
   const gameId = 1760000000000;
   const finished = task('finished-game', { width, height: 3, mines: game.mines, drill: true, needCadence: false,
-    needMoveHabits: true, gameId, timeMs: game.timeMs, outcome: game.outcome,
+    needMoveHabits: true, needFastclickGap: true, gameId, timeMs: game.timeMs, outcome: game.outcome, liveTraceId: 1,
     trace: { t: game.t, x: game.x, y: game.y, events: game.events, wallMs: 4000,
       initialPageState: game.initialPageState } });
-  assert.deepEqual(finished.measurements, structuredClone(DuringGame.moveHabits(model)));
+  assert.deepEqual(finished.measurements, structuredClone({ ...DuringGame.moveHabits(model), ...DuringGame.fastclickGap(model) }));
   const rows = ['minesFlagged', 'misclickRate', 'fastclickGap', 'forkEvents', 'leftHardWorkEvents', 'leftEasyWorkEvents', 'mouseSpeed'];
   const view = task('during-game', { gameId, timeMs: game.timeMs, outcome: game.outcome, rows, average: 'rolling-2' });
   assert.deepEqual(view.rows.map((row) => row.id), rows);
@@ -260,7 +283,7 @@ const types = (model) => model.events.map((event) => event.type + '@' + event.at
   assert.equal(row('forkEvents').summary, 1);
   assert.equal(row('leftHardWorkEvents').summary, 1);
   assert.equal(row('leftEasyWorkEvents').summary, 1);
-  assert.equal(row('fastclickGap').summary, 300, 'every gap but the 1.1 s pause is a moving fastclick; their median');
+  assert.equal(row('fastclickGap').summary, 240, 'the one planned pair, press to press');
   assert.equal(row('mouseSpeed').line.length, 241);
   assert.throws(() => task('during-game', { gameId: gameId + 1, timeMs: 1, outcome: 'win', rows, average: 'raw' }),
     /is not the latest finished or restored game/);
@@ -271,7 +294,7 @@ const types = (model) => model.events.map((event) => event.type + '@' + event.at
 // A trace without decision events (captured before actions were traced)
 // has no rows to show and no move habits.
 {
-  const unrecorded = DuringGame.model({ width: 9, height: 9, mines: new Array(81).fill(false), timeMs: 1000, outcome: 'win',
+  const unrecorded = proved({ width: 9, height: 9, mines: new Array(81).fill(false), timeMs: 1000, outcome: 'win',
     t: [], x: [], y: [], events: [], initialPageState: { visibilityState: 'visible', hasFocus: true } });
   assert.deepEqual(structuredClone(unrecorded), { recorded: false });
   assert.deepEqual(structuredClone(DuringGame.moveHabits(unrecorded)), {});
@@ -394,12 +417,10 @@ assert.equal(DuringGame.DEFAULT_RELATIVE_SCALE, 'log', 'log by default');
 }
 
 // A whole-game value is the record's measurement exactly: rates divide by
-// the record's time even under a second, every press counts toward cadence
-// spread, and the fastclick gaps are the ones the record's median reads.
+// the record's time even under a second, and every press counts toward
+// cadence spread.
 {
-  const pathDecisionEvents = vm.runInContext('pathDecisionEvents', context);
   const computeClickCadence = vm.runInContext('computeClickCadence', context);
-  const medianOf = vm.runInContext('medianOf', context);
   const width = 13;
   const at = cellAt(width);
   const mines = [0, 1, 2].flatMap((row) => [at(4, row), at(8, row)]);
@@ -411,24 +432,256 @@ assert.equal(DuringGame.DEFAULT_RELATIVE_SCALE, 'log', 'log by default');
   // The record's time is rounded to the ms; the last click came 0.4 ms
   // after it. One press came before the clock started.
   game.timeMs = 800;
-  game.events.push({ t: START_T - 300, kind: 'ldown' },
-    ...game.events.filter((event) => event.kind === 'decision').map((event) => ({ t: event.t - 60, kind: 'ldown' })));
-  game.events.sort((a, b) => a.t - b.t);
-  const view = viewOf(game, ['clickRate', 'bvPerSecond', 'mouseSpeed', 'cadenceSpread', 'fastclickGap'], 'rolling-2');
+  game.events.unshift({ t: START_T - 300, kind: 'ldown' });
+  const view = viewOf(game, ['clickRate', 'bvPerSecond', 'mouseSpeed', 'cadenceSpread'], 'rolling-2');
   const row = (rowId) => view.rows.find((item) => item.id === rowId);
   assert.equal(row('clickRate').summary, 3 * 1000 / 800, 'three clicks over the record\u2019s 0.8 s');
   assert.equal(row('bvPerSecond').summary, 3 * 1000 / 800);
   assert(Number.isFinite(row('mouseSpeed').summary), 'a game under a second still has its mouse speed');
   assert.equal(row('cadenceSpread').summary, computeClickCadence(game.t, game.events).gapSpreadRatio,
     'the trace\u2019s cadence spread, the press before the clock included');
-  const gaps = DuringGame.fastclickGaps(pathDecisionEvents(game.events), game.t);
-  assert.deepEqual(structuredClone(gaps), [{ atMs: 420, gapMs: 420 }, { atMs: 799.6, gapMs: 379.6 }]);
-  assert.equal(row('fastclickGap').summary, medianOf(gaps.map((gap) => gap.gapMs)));
   // The record stores the cadence spread unrounded.
   const finished = task('finished-game', { width, height: 3, mines: game.mines, drill: true, needCadence: true,
-    needMoveHabits: false, gameId: 1760000000001, timeMs: game.timeMs, outcome: game.outcome,
+    needMoveHabits: false, gameId: 1760000000001, timeMs: game.timeMs, outcome: game.outcome, liveTraceId: 2,
     trace: { t: game.t, x: game.x, y: game.y, events: game.events, wallMs: 1500, initialPageState: game.initialPageState } });
   assert.equal(finished.measurements.cadenceSpread, row('cadenceSpread').summary);
+}
+
+// The creator's corner (2026-10-26), 6 x 4, mines at (1,1) (3,0) (4,3)
+// (0,3). The 1 in the corner and the 1 beside it against the wall share
+// their one mine, (0,1) or (1,1), which leaves (2,0) and (2,1) safe before
+// either is clicked: the fastclick gap's planned pair. Every later pair
+// fails one rule.
+{
+  const width = 6;
+  const at = cellAt(width);
+  const game = playGame(width, 4, [at(1, 1), at(3, 0), at(4, 3), at(0, 3)], [
+    { act: 'reveal', cell: at(0, 0), atMs: 0 },
+    // A guess: the corner 1's mine is (1,0), (0,1), or (1,1).
+    { act: 'reveal', cell: at(1, 0), atMs: 800 },
+    { act: 'reveal', cell: at(2, 0), atMs: 1600 },
+    { act: 'reveal', cell: at(2, 1), atMs: 1750 },
+    // Only the 2 that (2,1) shows proves (2,2) safe: sequential work.
+    { act: 'reveal', cell: at(2, 2), atMs: 1900 },
+    // Proven before (2,2) opened, but the hand rested between.
+    { act: 'reveal', cell: at(3, 2), atMs: 2400, still: true },
+    // Proven before, but two squares from (3,2).
+    { act: 'reveal', cell: at(1, 3), atMs: 2550 },
+    // (1,2) beside it was proven too, but a click on the open 1 came between.
+    { act: 'no-op', cell: at(1, 3), atMs: 2650, reason: 'chord-short-of-flags' },
+    { act: 'reveal', cell: at(1, 2), atMs: 2750 },
+    // Beside it and in one motion, but a guess: (0,2) or (0,3) holds a mine.
+    { act: 'reveal', cell: at(0, 3), atMs: 2900 },
+  ]);
+  assert.equal(game.outcome, 'loss');
+  const model = modelOf(game);
+  assert.deepEqual(model.plannedPairs, [{ atMs: 1750, gapMs: 150 }], 'from the press on (2,0) to the press on (2,1)');
+  assert.deepEqual(structuredClone(DuringGame.fastclickGap(model)),
+    { fastclickGapVersion: FASTCLICK_GAP_VERSION, fastclickGapMs: 150 });
+  const view = viewOf(game, ['fastclickGap'], 'rolling-2');
+  assert.equal(view.rows[0].summary, 150, 'the live line\u2019s whole-game value is the record\u2019s');
+}
+
+// The planned pairs' rules on single pairs of clicks, 5 squares wide: the
+// presses that time them, the hold after a flag, a press between, flag
+// removals, and a proof stopped at its work limit.
+{
+  const pathDecisionEvents = vm.runInContext('pathDecisionEvents', context);
+  const facts = (entries, complete = true) => Object.assign(new Map(entries), { complete });
+  const decision = (t, action, selected, extra = {}) => ({ t, kind: 'decision',
+    evaluation: { action, atMs: t - START_T, selected, position: {}, ...extra } });
+  // A cursor sample every 20 ms from `from` to `to`.
+  const moving = (from, to) => Array.from({ length: (to - from) / 20 + 1 }, (_, i) => from + i * 20);
+  const pairs = (events, factsBefore, sampleT) => {
+    const decisions = pathDecisionEvents(events);
+    return structuredClone(DuringGame.plannedPairsOf(events, decisions, decisions.map(() => factsBefore), sampleT, 5));
+  };
+
+  // A flag, then, the right button still held, a chord on the number beside
+  // it (the 1.5 click): from the right press to the left press, though the
+  // cursor stood still on the flag.
+  assert.deepEqual(pairs([
+    { t: 1000, kind: 'rdown', index: 6 }, decision(1000, 'flag-place', [6]),
+    { t: 1080, kind: 'ldown', index: 7 }, { t: 1150, kind: 'lup', index: 7 },
+    decision(1150, 'chord', [3, 8], { triggerCell: 7 }),
+  ], facts([[6, 1], [3, 2], [8, 2]]), [900, 950, 990]), [{ atMs: 650, gapMs: 80 }]);
+
+  // After a click that opened squares, a rest before the next press breaks
+  // the motion.
+  const revealThenFlag = (sampleT) => pairs([
+    { t: 2000, kind: 'ldown', index: 0 }, { t: 2060, kind: 'lup', index: 0 }, decision(2060, 'reveal', [0]),
+    { t: 2200, kind: 'rdown', index: 6 }, decision(2200, 'flag-place', [6]),
+  ], facts([[0, 2], [6, 1]]), sampleT);
+  assert.deepEqual(revealThenFlag(moving(2000, 2200)), [{ atMs: 1700, gapMs: 200 }]);
+  assert.deepEqual(revealThenFlag([...moving(2000, 2060), ...moving(2180, 2200)]), [], 'still from 2.06 s to 2.18 s');
+
+  // A two-button chord is pressed when its first button goes down.
+  assert.deepEqual(pairs([
+    { t: 3000, kind: 'ldown', index: 0 }, { t: 3060, kind: 'lup', index: 0 }, decision(3060, 'reveal', [0]),
+    { t: 3100, kind: 'rdown', index: 1, chordGesture: true }, { t: 3110, kind: 'ldown', index: 1, chordGesture: true },
+    { t: 3170, kind: 'lup', index: 1, chordGesture: true }, decision(3170, 'chord', [2], { triggerCell: 1 }),
+  ], facts([[0, 2], [2, 2]]), moving(3000, 3200)), [{ atMs: 2670, gapMs: 100 }]);
+
+  // Another press between the two, here one released off the board.
+  assert.deepEqual(pairs([
+    { t: 4000, kind: 'ldown', index: 0 }, { t: 4060, kind: 'lup', index: 0 }, decision(4060, 'reveal', [0]),
+    { t: 4100, kind: 'ldown', index: 1 }, { t: 4120, kind: 'lup', index: null },
+    { t: 4150, kind: 'ldown', index: 1 }, { t: 4210, kind: 'lup', index: 1 }, decision(4210, 'reveal', [1]),
+  ], facts([[0, 2], [1, 2]]), moving(4000, 4260)), []);
+
+  // A flag removal is a correction, neither click of a pair.
+  assert.deepEqual(pairs([
+    { t: 5000, kind: 'rdown', index: 6 }, decision(5000, 'flag-remove', [6]),
+    { t: 5050, kind: 'ldown', index: 7 }, { t: 5110, kind: 'lup', index: 7 }, decision(5110, 'reveal', [7]),
+    { t: 5150, kind: 'rdown', index: 12 }, decision(5150, 'flag-remove', [12]),
+  ], facts([[6, 1], [7, 2], [12, 1]]), moving(5000, 5200)), []);
+
+  // A square left unproven by a proof stopped at its work limit leaves the
+  // pair, and so the game, unjudged; a complete proof that did not prove it,
+  // or any proof proving it otherwise, rules the pair out.
+  const twoReveals = (factsBefore) => pairs([
+    { t: 6000, kind: 'ldown', index: 0 }, { t: 6060, kind: 'lup', index: 0 }, decision(6060, 'reveal', [0]),
+    { t: 6100, kind: 'ldown', index: 5 }, { t: 6160, kind: 'lup', index: 5 }, decision(6160, 'reveal', [5]),
+  ], factsBefore, moving(6000, 6200));
+  assert.deepEqual(twoReveals(facts([[0, 2], [5, 2]], false)), [{ atMs: 5660, gapMs: 100 }], 'both proven: judged');
+  assert.equal(twoReveals(facts([[0, 2]], false)), null);
+  assert.deepEqual(twoReveals(facts([[0, 2]])), []);
+  assert.deepEqual(twoReveals(facts([[0, 2], [5, 1]], false)), []);
+  assert.deepEqual(structuredClone(DuringGame.fastclickGap({ recorded: true, plannedPairs: null })),
+    { fastclickGapVersion: FASTCLICK_GAP_VERSION }, 'an unjudged game is measured with no value');
+}
+
+// The move hierarchy's proven moves (docs/product/design-axis.md, "Move
+// hierarchy"): the most 3BV per click and the steps to the nearest
+// proven-safe square. Board E, 4 x 3, mines at (0,0) (3,1) (3,2):
+//   * 1 1 1    row 0 covered until the end
+//   1 1 2 *
+//   0 0 2 *
+// Opening the 0 at (1,2) shows the numbers below row 0. Counting proves
+// everything: the 2 at (2,2) has only (3,1) and (3,2) covered, both mines;
+// the 2 at (2,1) then has its two mines, so the 1s of row 0 are safe; the
+// 1 at (1,1) then has only (0,0) left, a mine. Row 0's 1s touch no zero, so
+// each is 1 3BV. The game flags the three mines, then opens row 0.
+{
+  const width = 4;
+  const at = cellAt(width);
+  const game = playGame(width, 3, [at(0, 0), at(3, 1), at(3, 2)], [
+    { act: 'reveal', cell: at(1, 2), atMs: 0 },
+    { act: 'flag', cell: at(3, 1), atMs: 300 },
+    { act: 'flag', cell: at(3, 2), atMs: 600 },
+    { act: 'flag', cell: at(0, 0), atMs: 900 },
+    { act: 'reveal', cell: at(1, 0), atMs: 1200 },
+    { act: 'reveal', cell: at(2, 0), atMs: 1400 },
+    { act: 'reveal', cell: at(3, 0), atMs: 1600 },
+  ]);
+  assert.equal(game.outcome, 'win');
+  const model = modelOf(game);
+  // Nothing is proven before the first click. Then opening a 1 of row 0
+  // solves 1 3BV in 1 click, and chording the 2 at (2,1) solves all three
+  // in 3 clicks, its two flags and the chord; in 2 once (3,1) is flagged,
+  // in 1 once (3,2) is. Each 1 opened leaves that chord one 3BV fewer.
+  const most = ['none', 1, 1.5, 3, 3, 2, 1];
+  const none = new Array(7).fill('none');
+  assert.deepEqual(model.known.mostBvPerClick, most);
+  assert.deepEqual(model.known.mostBvPerClickByLevel, { counting: most, overlap: none, allNumbers: none, mineTotal: none });
+  // From the last click to the nearest 1 of row 0 still covered.
+  const steps = ['none', 2, 1, 2, 1, 1, 1];
+  assert.deepEqual(model.known.stepsToSafe, steps);
+  assert.deepEqual(model.known.stepsToSafeByLevel, { counting: steps, overlap: none, allNumbers: none, mineTotal: none });
+  const view = viewOf(game, ['mostBvPerClick', 'stepsToSafe', 'mostBvPerClickByOverlap'], 'rolling-2');
+  const row = (rowId) => view.rows.find((item) => item.id === rowId);
+  assert.equal(row('mostBvPerClick').summary, (1 * 300 + 1.5 * 300 + 3 * 600 + 2 * 200 + 1 * 200) / 1600);
+  assert.equal(row('stepsToSafe').summary, (2 * 300 + 1 * 300 + 2 * 300 + 1 * 300 + 1 * 400) / 1600);
+  assert.deepEqual(row('mostBvPerClick').steps[0], { atMs: 0, value: null, none: true });
+  assert.equal(DuringGame.valueAt(row('mostBvPerClick'), 700, 0), 3);
+  assert.equal(row('mostBvPerClick').noMoves, undefined);
+  assert.deepEqual([row('mostBvPerClickByOverlap').summary, row('mostBvPerClickByOverlap').noMoves], [undefined, true],
+    'no such move all game: the legend says none');
+  assert.equal(DuringGame.rowById('mostBvPerClick').format(1.5), '1.50');
+}
+
+// What a guess chose among. Board F, 6 x 2, one mine at (2,0): opening the
+// zeros at the left shows two 1s seeing (2,0) and (2,1) and nothing else,
+// so the mine total proves the right side safe; opening it shows two more
+// 1s seeing the same two squares. Nothing could ever settle that 50/50: it
+// was one from the first click, and before it the whole board was one
+// sealed sea. Perfect play wins one of its two layouts.
+{
+  const width = 6;
+  const at = cellAt(width);
+  const play = (guessCell) => {
+    const game = playGame(width, 2, [at(2, 0)], [
+      { act: 'reveal', cell: at(0, 0), atMs: 0 },
+      { act: 'reveal', cell: at(5, 0), atMs: 400 },
+      { act: 'reveal', cell: guessCell, atMs: 1000 },
+    ]);
+    game.justiceEnabled = false;
+    game.events.filter((event) => event.kind === 'decision')[2].evaluation.evidence.oddsMeasured = true;
+    return game;
+  };
+  const won = play(at(2, 1));
+  assert.equal(won.outcome, 'win');
+  assert.deepEqual(modelOf(won).events.find((event) => event.type === 'guess'), { type: 'guess', atMs: 1000, action: 2,
+    cell: at(2, 1), safeAvailable: false, died: false, connected: true, safestConnectedRisk: 0.5, minesFixed: true,
+    winMeasured: true, winChance: 0.5, bestWinChance: 0.5, unavoidable: true, waitedMs: 1000 });
+  const lost = modelOf(play(at(2, 0))).events.find((event) => event.type === 'guess');
+  assert.deepEqual([lost.died, lost.minesFixed, lost.unavoidable, lost.waitedMs], [true, true, true, 1000]);
+  // A just universe can move mines: the risks stay, the win chance goes.
+  const just = play(at(2, 1));
+  just.justiceEnabled = true;
+  const justGuess = modelOf(just).events.find((event) => event.type === 'guess');
+  assert.deepEqual([justGuess.safestConnectedRisk, justGuess.minesFixed, justGuess.winMeasured], [0.5, undefined, undefined]);
+  // Where the guess ledger did not measure the guess (Angelic play, whose
+  // mines move), only what the visible board shows.
+  const unmeasured = play(at(2, 1));
+  delete unmeasured.events.filter((event) => event.kind === 'decision')[2].evaluation.evidence.oddsMeasured;
+  const unmeasuredGuess = modelOf(unmeasured).events.find((event) => event.type === 'guess');
+  assert.deepEqual([unmeasuredGuess.connected, unmeasuredGuess.safestConnectedRisk, unmeasuredGuess.winMeasured,
+    unmeasuredGuess.unavoidable, unmeasuredGuess.waitedMs], [true, undefined, undefined, true, 1000]);
+}
+
+// Proofs made during play: the reports worker proves each position the live
+// feed sends, one per task, and the finished game's model reads them back.
+// Board E again, its last decision missing from the feed as the game's end
+// cuts off the feed's last batch. Its positions hold 0, 6, 7, and 8 open
+// squares; the game's end proves only the 8 the feed never sent, and every
+// result equals proving all four after the game.
+{
+  const width = 4;
+  const at = cellAt(width);
+  const game = playGame(width, 3, [at(0, 0), at(3, 1), at(3, 2)], [
+    { act: 'reveal', cell: at(1, 2), atMs: 0 },
+    { act: 'flag', cell: at(3, 1), atMs: 300 },
+    { act: 'flag', cell: at(3, 2), atMs: 600 },
+    { act: 'flag', cell: at(0, 0), atMs: 900 },
+    { act: 'reveal', cell: at(1, 0), atMs: 1200 },
+    { act: 'reveal', cell: at(2, 0), atMs: 1400 },
+    { act: 'reveal', cell: at(3, 0), atMs: 1600 },
+  ]);
+  const lastDecision = game.events.filter((event) => event.kind === 'decision').at(-1);
+  task('live-trace', { traceId: 3, wallMs: 1500, t: [], x: [], y: [],
+    events: game.events.slice(0, game.events.indexOf(lastDecision)) });
+  runTimers();
+  const rows = DuringGame.ROWS.map((row) => row.id);
+  const proveLevels = Justice.proveLevels;
+  let proofs = 0;
+  Justice.proveLevels = (...args) => { proofs++; return proveLevels(...args); };
+  const finish = (gameId, liveTraceId) => {
+    const before = proofs;
+    const finished = task('finished-game', { width, height: 3, mines: game.mines, drill: true, needCadence: false,
+      needMoveHabits: true, needFastclickGap: true, gameId, timeMs: game.timeMs, outcome: game.outcome, liveTraceId,
+      trace: { t: game.t, x: game.x, y: game.y, events: game.events, wallMs: 2000,
+        initialPageState: game.initialPageState } });
+    const view = task('during-game', { gameId, timeMs: game.timeMs, outcome: game.outcome, rows, average: 'rolling-2' });
+    return { measurements: finished.measurements, view, proofs: proofs - before };
+  };
+  const live = finish(1760000000002, 3);
+  const after = finish(1760000000003, 4);
+  Justice.proveLevels = proveLevels;
+  assert.equal(live.proofs, 1, 'the game\u2019s end proves only the position the feed never sent');
+  assert.equal(after.proofs, 4, 'one proof per count of open squares');
+  assert.deepEqual(live.measurements, after.measurements);
+  assert.deepEqual(live.view, after.view);
 }
 
 console.log('during-game tests passed');

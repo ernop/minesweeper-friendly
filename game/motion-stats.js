@@ -369,7 +369,7 @@ function renderLiveTraceMetrics() {
   liveMetricsEventCursor = trace.events.length;
   liveMetricsPending = true;
   lastMetricsSampleAt = performance.now();
-  analysisTask('live', 'live-trace', payload).then((metrics) => {
+  analysisTask('reports', 'live-trace', payload).then((metrics) => {
     if (generation !== liveMetricsGeneration) return;
     liveMetricsPending = false;
     if (trace !== currentTrace || !tracing()) return;

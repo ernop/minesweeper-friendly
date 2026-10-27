@@ -126,9 +126,12 @@ function combinationWalkVisits(components, budget) {
   return nodes;
 }
 
+// opts.proof: proof options; opts.structure: Justice.buildStructure's for
+// this view under the default proof options when the caller already holds
+// it, else built here.
 function analyzeView(view, opts) {
   opts = opts || {};
-  const structure = Justice.buildStructure(view, opts.proof);
+  const structure = opts.structure === undefined ? Justice.buildStructure(view, opts.proof) : opts.structure;
   const visits = { n: 0 };
   const components = [];
   for (const component of structure.components) {
@@ -465,6 +468,196 @@ function scoreGuess(view, clicked, opts) {
   };
 }
 
+// Perfect play's chance to win from a position (docs/product/design-axis.md,
+// "Move hierarchy", level 5): every layout the visible board allows is
+// equally likely, and perfect play wins as many of them as any way of
+// playing on can. Opening a square that no remaining layout mines never
+// loses, so perfect play opens every such square at once and reads its
+// number; a guess keeps the layouts that leave its square safe. Counts of
+// layouts are whole numbers, so the chances are exact ratios. The search
+// lists every layout and every position play can reach, both exponential
+// in the squares left undecided: past WIN_WORK_LIMIT units of work (one
+// unit per layout per covered square looked at) it stops, and the chances
+// are not computed. The limit keeps a guess's search to a few milliseconds
+// in the analysis worker; 1,000,000 finished 43 of 197 simulated Expert
+// guesses where this one finishes 29, at up to 17 ms a guess. `odds` is
+// analyzeView(view), measured.
+const WIN_WORK_LIMIT = 100000;
+
+function winChances(view, odds, cell) {
+  const size = view.width * view.height;
+  const localOf = new Int32Array(size).fill(-1);
+  const covered = [];
+  for (let i = 0; i < size; i++) {
+    if (view.revealed[i]) continue;
+    localOf[i] = covered.length;
+    covered.push(i);
+  }
+  const n = covered.length;
+  let work = odds.totalWeight * n;
+  if (work > WIN_WORK_LIMIT) return { measured: false };
+
+  // Every layout: the proven mines, one solution per component, and each
+  // way of placing the remaining mines in the sea.
+  const layouts = [];
+  const assign = new Uint8Array(n);
+  for (const [square, fact] of odds.structure.facts) if (fact === 1) assign[localOf[square]] = 1;
+  const sea = odds.structure.seaCells.map((square) => localOf[square]);
+  const componentLocals = odds.components.map((component) => component.cells.map((square) => localOf[square]));
+  const addSea = (seaMines) => {
+    if (seaMines < 0 || seaMines > sea.length) return;
+    const chosen = Array.from({ length: seaMines }, (_, i) => i);
+    for (;;) {
+      const layout = assign.slice();
+      for (const i of chosen) layout[sea[i]] = 1;
+      layouts.push(layout);
+      let i = seaMines - 1;
+      while (i >= 0 && chosen[i] === sea.length - seaMines + i) i--;
+      if (i < 0) return;
+      chosen[i]++;
+      for (let j = i + 1; j < seaMines; j++) chosen[j] = chosen[j - 1] + 1;
+    }
+  };
+  const walk = (c, mines) => {
+    if (c === componentLocals.length) {
+      addSea(odds.minesLeft - mines);
+      return;
+    }
+    const locals = componentLocals[c];
+    for (const solution of odds.components[c].solutions) {
+      for (let i = 0; i < locals.length; i++) assign[locals[i]] = solution.mines[i] ? 1 : 0;
+      walk(c + 1, mines + solution.mineCount);
+    }
+  };
+  walk(0, 0);
+  if (layouts.length !== odds.totalWeight) {
+    throw new Error('win chances: listed ' + layouts.length + ' layouts of ' + odds.totalWeight);
+  }
+  const neighborLocals = covered.map((square) => Justice.neighbors(square, view.width, view.height)
+    .filter((neighbor) => !view.revealed[neighbor]).map((neighbor) => localOf[neighbor]));
+  const numbers = layouts.map((layout) => {
+    const out = new Uint8Array(n);
+    for (let i = 0; i < n; i++) {
+      let mines = 0;
+      for (const j of neighborLocals[i]) mines += layout[j];
+      out[i] = mines;
+    }
+    return out;
+  });
+  // MurmurHash3's 32-bit finalizer: tags whose sums over different sets of
+  // layouts rarely coincide.
+  const layoutTags = Int32Array.from(layouts, (_, l) => {
+    let x = l + 1;
+    x = Math.imul(x ^ (x >>> 16), 0x85ebca6b);
+    x = Math.imul(x ^ (x >>> 13), 0xc2b2ae35);
+    return x ^ (x >>> 16);
+  });
+
+  let over = false;
+  const spend = (units) => {
+    work += units;
+    if (work > WIN_WORK_LIMIT) over = true;
+  };
+  // The layouts split by what perfect play reads once it has opened every
+  // square they all leave safe: the numbers on those squares. A part
+  // whose layouts disagree on a newly safe square's number splits again.
+  const settle = (layoutIds, parts) => {
+    spend(layoutIds.length * n);
+    if (over) return;
+    let groups = [layoutIds];
+    for (let i = 0; i < n; i++) {
+      let mined = false;
+      for (const l of layoutIds) {
+        if (layouts[l][i]) {
+          mined = true;
+          break;
+        }
+      }
+      if (mined) continue;
+      const next = [];
+      for (const group of groups) {
+        if (group.length === 1) {
+          next.push(group);
+          continue;
+        }
+        const byNumber = [[], [], [], [], [], [], [], [], []];
+        for (const l of group) byNumber[numbers[l][i]].push(l);
+        for (const part of byNumber) if (part.length > 0) next.push(part);
+      }
+      groups = next;
+    }
+    if (groups.length === 1) parts.push(layoutIds);
+    else for (const group of groups) settle(group, parts);
+  };
+  const winsOf = (parts) => {
+    let total = 0;
+    for (const part of parts) total += wins(part);
+    return total;
+  };
+  // The most layouts of a settled part perfect play wins. One layout left
+  // is a win: every square is known. A guess wins at most the layouts it
+  // survives, which orders and bounds the search.
+  const memo = new Map();
+  function wins(layoutIds) {
+    if (layoutIds.length === 1) return 1;
+    const key = layoutIds.join();
+    const known = memo.get(key);
+    if (known !== undefined) return known;
+    spend(layoutIds.length * n);
+    if (over) return 0;
+    // Squares mined in the same layouts are one choice: opening either
+    // keeps the same layouts and then opens the other. A choice is found by
+    // the sum of its mined layouts' random tags, then compared in full.
+    const choices = new Map();
+    for (let i = 0; i < n; i++) {
+      let mines = 0;
+      let tag = 0;
+      for (const l of layoutIds) {
+        if (layouts[l][i]) {
+          mines++;
+          tag = (tag + layoutTags[l]) | 0;
+        }
+      }
+      if (mines === 0 || mines === layoutIds.length) continue;
+      const same = choices.get(tag);
+      if (same !== undefined && same.some((j) => layoutIds.every((l) => layouts[l][i] === layouts[l][j]))) continue;
+      if (same === undefined) choices.set(tag, [i]);
+      else same.push(i);
+    }
+    const survivorSets = [];
+    for (const squares of choices.values()) {
+      for (const i of squares) survivorSets.push(layoutIds.filter((l) => layouts[l][i] === 0));
+    }
+    let best = 0;
+    for (const survivors of survivorSets.sort((a, b) => b.length - a.length)) {
+      if (survivors.length <= best) break;
+      const parts = [];
+      settle(survivors, parts);
+      let total = 0;
+      let unsettled = survivors.length;
+      for (const part of parts) {
+        total += wins(part);
+        unsettled -= part.length;
+        if (total + unsettled <= best) break;
+      }
+      if (over) return 0;
+      if (total > best) best = total;
+    }
+    memo.set(key, best);
+    return best;
+  }
+
+  const all = layouts.map((_, l) => l);
+  const bestParts = [];
+  settle(all, bestParts);
+  const bestWins = winsOf(bestParts);
+  const chosenParts = [];
+  settle(all.filter((l) => layouts[l][localOf[cell]] === 0), chosenParts);
+  const chosenWins = winsOf(chosenParts);
+  if (over) return { measured: false };
+  return { measured: true, layouts: layouts.length, chosenWins, bestWins };
+}
+
 const Odds = {
   VERSION: ODDS_VERSION,
   binom,
@@ -472,6 +665,7 @@ const Odds = {
   minRisk,
   expectedLife,
   scoreGuess,
+  winChances,
 };
 
 if (typeof module !== 'undefined' && module.exports) module.exports = Odds;

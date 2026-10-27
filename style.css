@@ -3149,6 +3149,11 @@ body.settings-page .return-to-game {
   display: block;
   margin-top: 4px;
 }
+.scatter-dots {
+  display: block;
+  width: 270px;
+  height: 210px;
+}
 .scatter-plot { fill: #fbfbfb; stroke: #dddddd; }
 .scatter-grid { stroke: #eeeeee; }
 .scatter-minor { stroke: #bbbbbb; }
@@ -3160,15 +3165,9 @@ body.settings-page .return-to-game {
 }
 .tick-x { text-anchor: middle; }
 .tick-y { text-anchor: end; }
-/* Dots take the age-unit palette (same as rank-list ages); the current game
-   is the black-ringed this-game dot with its today-rank tag beside it. */
-.scatter-svg .age-dot-s  { fill: #39ff14; }
-.scatter-svg .age-dot-m  { fill: #008000; }
-.scatter-svg .age-dot-h  { fill: #0000ff; }
-.scatter-svg .age-dot-d  { fill: #ff0000; }
-.scatter-svg .age-dot-w  { fill: #000080; }
-.scatter-svg .age-dot-mo { fill: #800000; }
-.scatter-svg .age-dot-y  { fill: #008080; }
+/* The other games' dots are painted on a canvas in the age-unit palette
+   (game/charts.js, SCATTER_AGE_DOT_FILLS); the current game is the
+   black-ringed this-game dot with its today-rank tag beside it. */
 .scatter-me { fill: var(--this-game); stroke: #000000; stroke-width: 1; }
 /* The y = x floor on clicks vs 3BV: a game on the line used only the
    board's minimum clicks */

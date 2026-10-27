@@ -71,8 +71,9 @@ function seedHistory() {
 // (from the first listener to the last, including the click event that
 // starts a new game), which only our code affects; and `ms`, from the input
 // event to the first task after the next frame, what the player sees, which
-// also includes up to one 60 Hz frame of waiting. Plus every gap over 50ms in
-// a 10ms timer (a freeze).
+// also includes up to one 60 Hz frame of waiting. Plus every interval between
+// two runs of a 10ms timer: the longest after a game ends is its freeze. A
+// floor would read every shorter freeze as none.
 function instrument() {
   const probe = { clicks: [], freezes: [] };
   window.__latency = probe;
@@ -96,7 +97,7 @@ function instrument() {
   let previous = performance.now();
   setInterval(() => {
     const now = performance.now();
-    if (now - previous > 50) probe.freezes.push({ at: previous, ms: now - previous });
+    probe.freezes.push({ at: previous, ms: now - previous });
     previous = now;
   }, 10);
 }

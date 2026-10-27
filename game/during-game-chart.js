@@ -51,11 +51,25 @@ function duringGameEventLines(event) {
       return ['flag removed' + (event.stoodMs === undefined ? ''
         : ' ' + duringGameSeconds(event.stoodMs) + ' after placing it' + (event.quickUndo ? ': a quick undo' : ''))];
     case 'wrong-flag': return ['flag on a safe square'];
-    case 'guess':
-      return ['guess' + (event.risk === undefined ? '' : ': ' + percent(event.risk) + ' mine risk')
-        + (event.bestRisk === undefined ? '' : ', lowest available ' + percent(event.bestRisk)),
-      ...(event.safeAvailable ? ['a proven-safe square was available'] : []),
-      ...(event.died ? ['the square was a mine'] : [])];
+    case 'guess': {
+      const safest = [
+        ...(event.safestConnectedRisk === undefined ? [] : ['beside open numbers ' + percent(event.safestConnectedRisk)]),
+        ...(event.safestUnconnectedRisk === undefined ? [] : ['away from them ' + percent(event.safestUnconnectedRisk)])];
+      return [(event.connected ? 'guess beside open numbers' : 'guess away from open numbers')
+          + (event.risk === undefined ? '' : ': ' + percent(event.risk) + ' mine risk')
+          + (event.bestRisk === undefined ? '' : ', lowest available ' + percent(event.bestRisk)),
+        ...(safest.length === 0 ? [] : ['lowest risk ' + safest.join(', ')]),
+        ...(event.winMeasured === undefined ? []
+          : [event.winMeasured ? 'chance to win with perfect play: ' + percent(event.winChance)
+            + ' after this square, ' + percent(event.bestWinChance) + ' at best'
+            : 'chance to win with perfect play: the exact search stopped at its work limit']),
+        ...(event.unavoidable ? ['nothing else on the board could ever settle it'
+          + (event.waitedMs > 0 ? '; it had waited ' + duringGameSeconds(event.waitedMs) : '')] : []),
+        ...(event.unavoidable && event.died && event.minesFixed && event.waitedMs > 0
+          ? ['taking it at once would have ended the game ' + duringGameSeconds(event.waitedMs) + ' sooner'] : []),
+        ...(event.safeAvailable ? ['a proven-safe square was available'] : []),
+        ...(event.died ? ['the square was a mine'] : [])];
+    }
     case 'long-gap':
       return [duringGameSeconds(event.endMs - event.atMs) + ' pause, ended by ' + DURING_GAME_ACTION_PHRASES[event.endedBy],
         event.known === null
@@ -650,8 +664,8 @@ function renderDuringGameCharts(charts, view, { raw, relativeScale, picks }) {
       const swatch = document.createElement('span');
       swatch.className = 'end-swatch';
       swatch.style.background = member.spec.color;
-      legend.appendChild(legendEntry(part, member, swatch,
-        member.row.summary === undefined ? 'not measured' : member.spec.format(member.row.summary)));
+      legend.appendChild(legendEntry(part, member, swatch, member.row.summary !== undefined
+        ? member.spec.format(member.row.summary) : member.row.noMoves ? 'none' : 'not measured'));
     }
     applyPicks(part);
     // Each legend under what it names, as the tracks' is (creator 2026-10-26).

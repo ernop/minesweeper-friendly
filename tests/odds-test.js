@@ -439,6 +439,135 @@ console.log('a number only a ruled-out layout would show is never scored');
     scored.every((guess) => guess.measured && typeof guess.expectedLife === 'number'));
 }
 
+console.log('win chances: two separate 50/50s');
+{
+  // Each pocket holds one mine in two squares, and opening a square of one
+  // shows nothing about the other: perfect play wins 1 layout in 4.
+  const board = makeBoard([
+    '.*.*.',
+    '.#.#.',
+  ]);
+  const chances = Odds.winChances(board.view, Odds.analyzeView(board.view), board.at(1, 1));
+  check('every layout is listed', chances.measured && chances.layouts === 4);
+  check('perfect play wins 1 of 4', chances.bestWins === 1 && chances.chosenWins === 1);
+}
+
+console.log('win chances: an early Expert position is past the work limit');
+{
+  // One open corner and 99 mines among 476 undecided squares.
+  const rows = Array.from({ length: 16 }, (_, y) => (y >= 13 ? '*'.repeat(30)
+    : y === 12 ? '*'.repeat(9) + '#'.repeat(21) : '#'.repeat(30)));
+  rows[0] = '.' + rows[0].slice(1);
+  const board = makeBoard(rows);
+  const odds = Odds.analyzeView(board.view);
+  check('the odds are measured', odds.measured === true);
+  check('the chances are not computed', Odds.winChances(board.view, odds, board.at(5, 5)).measured === false);
+}
+
+console.log('win chances: parity with a brute-force game search');
+{
+  // The search under test opens every square all remaining layouts leave
+  // safe before it guesses. The brute force plays one square at a time by
+  // the game's rules, a zero opening its neighbors, so it checks that
+  // shortcut as well as the counting.
+  let seed = 7;
+  const random = () => {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    return seed / 4294967296;
+  };
+  const bruteForce = (view, cell) => {
+    const { width, height } = view;
+    const size = width * height;
+    const near = (square) => Justice.neighbors(square, width, height);
+    const covered = [...Array(size).keys()].filter((square) => !view.revealed[square]);
+    const layouts = [];
+    const place = (from, left, chosen) => {
+      if (left === 0) {
+        const mine = new Uint8Array(size);
+        for (const square of chosen) mine[square] = 1;
+        for (let square = 0; square < size; square++) {
+          if (view.revealed[square] && near(square).reduce((sum, n) => sum + mine[n], 0) !== view.adjacent[square]) return;
+        }
+        layouts.push(mine);
+        return;
+      }
+      for (let k = from; k <= covered.length - left; k++) place(k + 1, left - 1, [...chosen, covered[k]]);
+    };
+    place(0, view.mines, []);
+    const shown = (mine, square) => near(square).reduce((sum, n) => sum + mine[n], 0);
+    const memo = new Map();
+    const open = (ids, opened, square) => {
+      const parts = new Map();
+      for (const l of ids) {
+        if (layouts[l][square]) continue;
+        const now = new Set(opened);
+        const stack = [square];
+        while (stack.length > 0) {
+          const at = stack.pop();
+          if (now.has(at)) continue;
+          now.add(at);
+          if (shown(layouts[l], at) === 0) stack.push(...near(at));
+        }
+        const key = [...now].sort((a, b) => a - b).map((at) => at + ':' + shown(layouts[l], at)).join();
+        if (!parts.has(key)) parts.set(key, { ids: [], opened: now });
+        parts.get(key).ids.push(l);
+      }
+      let total = 0;
+      for (const part of parts.values()) total += wins(part.ids, part.opened);
+      return total;
+    };
+    const wins = (ids, opened) => {
+      const key = ids.join() + '|' + [...opened].sort((a, b) => a - b).join();
+      if (memo.has(key)) return memo.get(key);
+      let best = null;
+      for (let square = 0; square < size; square++) {
+        if (opened.has(square) || ids.every((l) => layouts[l][square])) continue;
+        best = Math.max(best === null ? 0 : best, open(ids, opened, square));
+      }
+      const result = best === null ? ids.length : best;
+      memo.set(key, result);
+      return result;
+    };
+    const all = layouts.map((_, l) => l);
+    const opened = new Set([...Array(size).keys()].filter((square) => view.revealed[square]));
+    return { layouts: layouts.length, bestWins: wins(all, opened), chosenWins: open(all, opened, cell) };
+  };
+  let compared = 0;
+  let agreed = 0;
+  let generated = 0;
+  while (compared < 60) {
+    if (++generated > 600) throw new Error('parity: too few positions within the work limit');
+    const width = 3 + Math.floor(random() * 3);
+    const height = 3 + Math.floor(random() * 2);
+    const size = width * height;
+    const mines = 1 + Math.floor(random() * Math.min(5, size - 4));
+    const mine = new Array(size).fill(false);
+    for (let placed = 0; placed < mines;) {
+      const square = Math.floor(random() * size);
+      if (!mine[square]) {
+        mine[square] = true;
+        placed++;
+      }
+    }
+    const safe = [...Array(size).keys()].filter((square) => !mine[square]);
+    const revealed = new Array(size).fill(false);
+    for (let r = Math.floor(random() * safe.length); r > 0; r--) revealed[safe[Math.floor(random() * safe.length)]] = true;
+    const covered = [...Array(size).keys()].filter((square) => !revealed[square]);
+    // A guess follows the first click: some square is open.
+    if (covered.length > 12 || covered.length === size) continue;
+    const adjacent = mine.map((isMine, square) => (isMine ? 0
+      : Justice.neighbors(square, width, height).filter((n) => mine[n]).length));
+    const view = { width, height, mines, revealed, adjacent: adjacent.map((count, square) => (revealed[square] ? count : 0)) };
+    const cell = covered[Math.floor(random() * covered.length)];
+    const fast = Odds.winChances(view, Odds.analyzeView(view), cell);
+    if (!fast.measured) continue;
+    const slow = bruteForce(view, cell);
+    compared++;
+    if (fast.layouts === slow.layouts && fast.bestWins === slow.bestWins && fast.chosenWins === slow.chosenWins) agreed++;
+  }
+  check('60 small positions within the work limit agree exactly', agreed === 60);
+}
+
 console.log('binom');
 {
   check('C(5,2)=10', Odds.binom(5, 2) === 10);

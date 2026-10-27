@@ -71,7 +71,7 @@ const origin = 'http://127.0.0.1:8099/';
     assert.equal(await page.evaluate(() => gameState), 'playing');
     const completed = await page.evaluate(({ key, endedAt }) => history[key].find((r) => r.endedAt === endedAt), captured);
     assert(Number.isInteger(completed.zini));
-    await page.waitForFunction(() => analysisLanes.get('live').pending.size === 0);
+    await page.waitForFunction(() => analysisLanes.get('reports').pending.size === 0);
     assert.deepEqual(await page.locator('#game-frame').boundingBox(), initialBoard,
       'worker replies cannot change the reserved board geometry');
     assert.deepEqual(errors, []);

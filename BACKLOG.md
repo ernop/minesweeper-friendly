@@ -46,111 +46,52 @@ Not built yet:
   them but not marked as the event's. A distinct mark on them while an event is hovered would
   restore what the event is about.
 
-## Fastclick gap: planned pairs (creator request 2026-10-26, plan awaiting the creator's choice)
+## Fastclick gap: planned pairs (creator request 2026-10-26; built the same day, follow-ons open)
 
-**creator** — The request, verbatim, and the purpose it states are in
-[Per-game stats](docs/product/per-game-stats.md), "Requested
-redefinition": the time two clicks on nearby squares take when the player
-decided both before the first (the corner's A and E, both proven safe by
-two 1s against the wall), as a measure of finger and hand speed for the
-game and as a lasting trait of the player; not gaps holding the reading of
-the first click's result and the working out of the second.
+The redefinition is built: the fastclick gap is the median press-to-press
+time of a game's planned pairs, two clicks in a row on touching squares
+that the board had proven before the first, in one motion, no flag
+removals ([Per-game stats](docs/product/per-game-stats.md), "Fastclick
+gap", which also holds the creator's request verbatim). The creator asked
+for it ("make the cahgne to fastclick gap") before the offline comparison
+the plan proposed, so the plan's open choices took its proposal. Records
+carry `fastclickGapVersion: "planned-pairs-v1"`; a value without it follows
+the earlier definition and is read nowhere. Open:
 
-Review of the current definition (`DuringGame.fastclickGaps`, the one
-function the record's `fastclickGapMs` and the live perf charts' line
-read):
-
-- It counts the gap from one board-changing click (reveal, chord, flag, or
-  flag removal) to the next when the gap is at most 1 s and the cursor
-  moved in the 100 ms before the second click took effect.
-- It admits the case the creator named. Click, read what opened, work out
-  the next move, then move and click, all within 1 s: the cursor is moving
-  just before the second click, so the gap counts. How many of a game's
-  gaps are such work is not known; step 1 below counts them on the
-  creator's games.
-- It never asks what the second click needed to know, which is the
-  creator's distinction.
-- It pools pairs that measure different things: corrections (flag
-  removals), distances from 1 square to across the board, and two timing
-  points (a flag counts at its press, a reveal or chord at its release), so
-  a game's mix of flags and reveals moves its value by about one press's
-  length.
-- Its only time limit is the 1 s cap, an arbitrary number.
-
-Proposed: planned pairs, with no time cap. Two consecutive board-changing
-clicks are a planned pair when all of these hold:
-
-1. Known together: every square the two clicks act on (the square opened,
-   the squares a chord opens, the square flagged) was proven by the visible
-   board before the first click, safe to open or a mine to flag. The second
-   click then needed nothing the first one showed. Exact, no threshold, and
-   computed from the proof the live perf charts already make for every
-   position (`factsAt` in `DuringGame.model`). The corner's A then E
-   qualifies; a click, then opening a square the newly shown number
-   proved, never does, however fast.
-2. A tiny movement: the second square touches the first (one of its 8
-   neighbors; a chord's square is its number). The corner's E is one square
-   below A; a flag and then a chord on the number beside it is the other
-   common case.
-3. One motion: the two presses come one after the other, nothing pressed
-   between them, and the cursor never rests from the first click to the
-   second press. A rest is the trace's existing definition of the hand
-   standing still, 100 ms without a cursor sample (`STROKE_GAP_MS`, the
-   same 100 ms as today's on-the-move window).
-4. Timed press to press, as finger-tapping tests time taps, so every kind
-   of pair is timed at the same point of the click.
-5. No flag removals.
-
-The game's fastclick gap is the median time of its planned pairs, absent
-when it has none. The name stays, the creator's term; its definition
-(`game-data.js` help, the specs) changes with it. Where a proof stopped at
-its work limit, a square the finished levels did not prove may still be
-provable, so a pair acting on one is not judged and stays out. Counting and
-overlap always finish (the corner's pair is an overlap fact), and no search
-reached the limit in the 340 simulated games of
-[Design axis](docs/product/design-axis.md), "Deduction levels". Not a copy
-of motion stats' Fitts throughput or click cadence: those
-take every press; this picks pairs by what the board had proved.
-
-To settle on the creator's own games before building:
-
-- Touching squares only, or within 2: "nearby" may include a square two
-  over when the hand runs along a line of safe squares. Touching keeps the
-  movement nearly constant, so the value reads as click speed; within 2
-  gets more pairs but mixes in travel.
-- All kinds of pair pooled (reveal then reveal, flag then chord, chord then
-  flag, flag then flag, reveal then flag), or same-button pairs only. A
-  button switch uses another finger and can be faster or slower than one
-  finger clicking twice, so a pooled value moves with a game's mix of
-  flags and reveals.
-- How many planned pairs an Expert game has. With few, a game's median is
-  noisy, and the record may need the pair count beside it.
-- Whether the rest rule splits the pairs cleanly: the rest after the first
-  click should sit near 0 ms in planned pairs and clearly above 100 ms in
-  the others.
-
-Steps:
-
-1. Compare offline on the creator's saved traces: per game, today's gaps,
-   the planned pairs under each choice above, and the excluded gaps by
-   reason (not known before, too far, a rest, a removal, another press
-   between). The traces live only in the browser on the PC (no archive
-   folder was found on disk), so this needs "export traces" from the
-   backup row under the board.
-2. The creator chooses from the numbers.
-3. Change `DuringGame.fastclickGaps`, its definition text, and the specs,
-   with tests on hand-built boards: the corner pair counted; a click, then
-   a square its number proved, not counted; a rest between; a removal; a
-   pair two squares apart.
-4. Recompute every saved game's `fastclickGapMs` from its trace, in a
-   worker, as the move-habits backfill above would.
-5. Creator decision: games holding a `fastclickGapMs` but no saved trace
-   cannot be recomputed and keep a value of the old definition. Options:
-   remove the field from them (no comparison mixes the two definitions; the
-   cost is fewer games with a value), or keep it under a name saying it is
-   the old definition (nothing lost, but a second field the rankings must
-   leave out). Recommended: remove, once step 1 has counted how many games
-   that is.
+- **creator** — Settle the open choices on the creator's own games. Compare
+  offline on saved traces: per game, the earlier definition's gaps, the
+  planned pairs under each choice below, and the excluded pairs by reason
+  (not proven before, too far, a rest, a removal, another press between).
+  The traces live only in the browser on the PC (no archive folder was
+  found on disk), so this needs "export traces" from the backup row under
+  the board. The choices:
+  - Touching squares only (built), or within 2: "nearby" may include a
+    square two over when the hand runs along a line of safe squares;
+    within 2 gets more pairs but mixes in travel.
+  - Every kind of pair pooled (built: reveal then reveal, flag then chord,
+    chord then flag, flag then flag, reveal then flag), or same-button
+    pairs only. A button switch uses another finger and can be faster or
+    slower than one finger clicking twice, so a pooled value moves with a
+    game's mix of flags and reveals.
+  - How many planned pairs an Expert game has. With few, a game's median
+    is noisy, and the record may need the pair count beside it. (A
+    simulated Expert win that always took the proven-safe square nearest
+    the last click had 29 in 201 clicks; the creator's play is not known.)
+  - Whether the rest rule splits the pairs cleanly: the rest after the
+    first click should sit near 0 ms in planned pairs and clearly above
+    100 ms in the others.
+- **found** — Measure every saved game again. Only a game whose result is
+  opened is measured again from its trace now, so most older games have no
+  fastclick gap of the current definition, and game data and the your-perf
+  charts compare the new values with fewer games. Proposed: one worker
+  pass over the saved traces, writing `fastclickGapVersion` and
+  `fastclickGapMs`, in the same pass as the move-habits backfill above.
+- **creator** — Games holding a `fastclickGapMs` but no saved trace cannot
+  be measured again and keep a value of the earlier definition, unread.
+  Options: remove the field from them (the record then holds nothing it
+  does not use; the cost is nothing, as no view reads it), or keep it as
+  now (nothing deleted; a field no view reads stays in every backup).
+  Recommended: remove, after counting how many games that is.
 
 ## Measurement catalog follow-ons (found 2026-10-26 while unifying the measurements)
 
@@ -189,11 +130,12 @@ divergences remain, each needing the creator's choice:
   Proposed: rename them to `boardChangingClicks`, `noOpClicks`, and
   `movedOnMoves` in one schema change with a one-time rewrite of the saved
   records, after an archive backup.
-- **creator** — Recompute older records' fastclick gap (timed by the page's
-  own clock before 2026-10-26) and cadence spread (rounded to 3 decimals
-  before 2026-10-26) from their saved traces, so every record holds the
-  one computation. Proposed: in the same worker pass as the move-habits
-  backfill (Live perf charts follow-ons, above), one read of each trace.
+- **creator** — Recompute older records' cadence spread (rounded to 3
+  decimals before 2026-10-26) from their saved traces, so every record
+  holds the one computation. Proposed: in the same worker pass as the
+  move-habits backfill (Live perf charts follow-ons, above), one read of
+  each trace. Older fastclick gaps follow an earlier definition and are
+  in "Fastclick gap: planned pairs", above.
 
 ## One look per kind of thing: the rest of the page (follows the creator's 2026-10-14 direction)
 
@@ -624,29 +566,32 @@ next steps, each exact:
 The creator asked for one description of how the moves available at any
 moment are characterized, from proven moves up to the player's output per
 hour. It is [Design axis](docs/product/design-axis.md), "Move hierarchy",
-which says what is built at each level. Not built, each needing the
-creator's choice of definition first:
+which says what is built at each level. The creator then asked to build the
+unbuilt levels ("biuld them", 2026-10-26); built that day with definitions
+recorded as choices to change ([During the game](docs/product/during-game.md),
+"Revision (creator 2026-10-26, the move hierarchy)"): usefulness as 3BV per
+click and distance by level, a connected guess as one beside open numbers,
+the whole game's chance to win where its exact search finishes, and the
+wait before a guess nothing could ever settle. Still not built:
 
-- **Usefulness of a proven move** (levels 2 and 3). Candidate measures: the
-  squares one click opens or settles (a chord over several squares, a zero
-  that opens a region), the 3BV it solves, or the facts the number it
-  reveals would prove next, counted exactly over the layouts. Each moment
-  could then show the most useful proven move, and each move be judged
-  against it.
-- **Distance at every level** (level 3). Only the mines counting proves
-  have a count near the last move. Each level's safe squares and mines
-  could have one, and each proven move its distance from the last action;
-  the live perf charts' model already has every fact's level and the last
-  move's square, so this needs no new proof.
-- **"Connected guess"** (level 5): the creator's term, not defined yet.
-- **The whole game's chance to win** (level 5): "Deeper than one-ply
-  perfect play", below.
-- **Output per hour** (level 6). Its objective needs a definition first,
-  such as expected wins per hour of play. Then the two choices the creator
-  named: settling the game sooner (a guess that must be taken anyway, taken
-  now, so a loss costs less time), and, between otherwise equal moves, the
-  one whose information helps the player more. "Competing optimization
-  objectives", below, is the analysis side of the same objective.
+- **Each move judged against the most useful** (level 2). The most 3BV per
+  click available is shown at every moment, but the move the player made
+  is not scored against it. A flag solves no 3BV by itself and pays off
+  only through a later chord, so judging single clicks needs a definition
+  that credits a flag with the chord it prepares.
+- **The information tie-break** (level 6): between otherwise equal moves,
+  the one whose information helps the player more. It needs a definition
+  of an information's usefulness, such as the facts a revealed number
+  would prove next, counted exactly over the layouts.
+- **Output per hour as a judgment of moves** (level 6): an objective such
+  as expected wins per hour of play, against which a move is scored.
+  "Competing optimization objectives", below, is the analysis side of it.
+- **The chance to win past the work limit** (level 5): "Deeper than
+  one-ply perfect play", below.
+- **The choices made in building** (same revision) are first readings:
+  connected meaning beside open numbers (the creator did not answer which
+  reading was meant), flags counted as clicks in 3BV per click, and
+  distance only to proven-safe squares.
 
 ## Switching between marking and clicking (creator, 2026-09-28)
 
@@ -833,9 +778,12 @@ game instead of rewriting the whole history twice per game. Not built:
      work between yields, the trace copy in `saveTrace` (about 45ms on
      expert), and a forced layout of the whole finished report when
      `renderResultAsync` ends with `syncBoardLayout` (58-94ms; once 783ms).
-     Inserting sections progressively, or skipping offscreen sections'
-     layout, would split the layout; both change how the report appears,
-     so they await a creator decision.
+     Remeasured 2026-10-26: most of that layout was the result charts'
+     13,149 dots as SVG circles; drawn on one canvas per chart, the layout
+     after a loss takes 18-20ms and a forced whole-page layout 11ms (51
+     before). Inserting sections progressively, or skipping offscreen
+     sections' layout, would split what remains; both change how the
+     report appears, so they await a creator decision.
    - Switching board size while a report is shown takes about 200ms: the
      forced layout in `newGame`'s `syncGameSidebar`.
    - Some expert clicks take 57-92ms in the misclick check, where the exact
@@ -850,16 +798,33 @@ game instead of rewriting the whole history twice per game. Not built:
    with no logical reason to exist is waste; cutting these lowers the limits
    in `tests/latency-budgets.json` (last tightened 2026-10-20).
    A won Expert game's full results (`expertWinResultsMs`, added 2026-10-26)
-   take 216-224ms on the PC. Inside that time, the page works about 60ms
-   after the winning click before it hands the game to the reports worker,
-   whose `finished-game` takes about 105ms. Then the result renders twice
-   whenever the mode has wins without board measurements, as all the check's
-   synthetic wins are: `saveTrace` clears the mode's saved-board list, the
-   first render reloads it (`loadBoardMetricSources`), and its arrival 2ms
-   later renders the whole result again (`refreshBoardMetricView`). The
-   second render asks the workers for every view again, the live perf
-   charts' view (9-14ms) among them, though only the board measurements'
-   status line and backfill panel read that list.
+   took 216-224ms on the PC, and 132-152ms after that day's changes: the
+   reports worker proves each position during play, so `finished-game`
+   replies 58-73ms after the post instead of about 105ms of work, and the
+   page posts it before saving the trace, so the worker computes during the
+   save. The same changes cut new game work to 7-13ms and the freeze after
+   a game ends to 33-66ms (every interval of the check's timer counted).
+   What remains, in Firefox:
+   - The winning click's task runs 56-68ms: `reportResult` 47-56ms, of which
+     `saveTrace` copies the trace into storage (32-34ms) and the
+     `finished-game` post copies it to the worker (11-13ms). Most of each
+     copy is the full visible board on every decision event; storing each
+     action's board changes instead (Lifelong self-measurement roadmap,
+     "Full-rate pointer capture") would cut both. Sending the worker only
+     what the live feed has not would not: the page changes two kinds of
+     trace entries after the feed may have sent them (a merged pointer
+     sample, and a right press that joins a chord), so the worker's copy
+     can differ from the saved trace.
+   - The first result per mode per page load renders twice when the mode
+     has wins without board measurements, as all the check's synthetic wins
+     are: that render reads the saved-board list (`loadBoardMetricSources`),
+     and its arrival renders the whole result again
+     (`refreshBoardMetricView`), asking the workers for every view again,
+     though only the board measurements' status line and backfill panel
+     read that list. Since 2026-10-26 a saved trace adds its board to a list
+     already read instead of dropping it, so later game ends render once.
+     Refreshing only the status box in place needs a placeholder in the
+     "This board" tables that several layout checks would see.
    Occasional spike (2026-09-26): one latency run in nine on the same code
    measured switching to expert at 45ms of work (usual 15-23ms; master
    showed 17-21ms over the same alternating runs). Not yet attributed; a
@@ -1223,6 +1188,17 @@ Generation that aims at the same families the new lists rank:
   expected remaining life after one number observation. A full
   remaining-game-tree win probability needs a method that scales (design
   requirement 8), not a budget, and never a substitute such as min-p.
+  Built 2026-10-26 for the live perf charts' guess card, not for the
+  record: an exact count of the layouts perfect play wins
+  (`Odds.winChances`), which finishes in endgames with few layouts left
+  (in simulated play 18 of 19 Beginner guesses, 19 of 46 Intermediate, 29
+  of 197 Expert) and otherwise stops at a work limit with no value, the
+  card saying so. That limit is a budget, set to keep each guess's search
+  to a few milliseconds after the game; ten times higher it finishes 43 of
+  the 197 Expert guesses at up to 17 ms each. Early in a game the layouts
+  can number more than 10^80, and no known exact method finishes there.
+  Creator decision open: keep the exact value where it finishes, or remove
+  it until a method that scales exists.
 - **IOE as 3BV / total clicks** (effective + wasted). Efficiency /
   throughput already use effective clicks only. The clone's IOE is the
   missing total-click cousin.
@@ -1372,6 +1348,17 @@ Remaining, in priority order (earlier items prevent irreversible loss):
 1. **Nothing lost.**
    - **Archive import.** Rebuild a browser database from an archive folder,
      for a new machine or profile. Writing is built.
+   - **Which version of a record is archived** (found 2026-10-26, awaiting
+     the creator's choice). The sync after a game starts once its trace is
+     saved, while the worker is still computing the board measurements, so
+     the archived record holds them only when their reply was stored first;
+     on the PC both finish within about 50 ms of the game's end. Options:
+     store the measurements apart from the record, so a record never changes
+     after its first write (a schema change, and the one way the archive is
+     the same every time); start the game's sync after its measurements
+     arrive (another tab's sync can still find the record first); or keep
+     it as is, since everything missing is recomputable from the trace and
+     seed.
    - **Every attempt.** Restarted and abandoned boards keep a record and a
      partial trace with an explicit end reason, checkpointed during play, so
      practice exposure and between-game intervals become countable. Never

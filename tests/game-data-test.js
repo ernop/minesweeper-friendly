@@ -5,7 +5,7 @@ const vm = require('node:vm');
 vm.runInThisContext(fs.readFileSync(require('node:path').join(__dirname, '..', 'game-data.js'), 'utf8'));
 const now = new Date(2026, 8, 23, 0, 30).getTime();
 const current = { endedAt: now, outcome: 'win', timeMs: 30000, bv3: 60, clicks: 80,
-  wastedClicks: 2, misclicks: 0, fastclickGapMs: 200, mousePathPx: 600 };
+  wastedClicks: 2, misclicks: 0, fastclickGapMs: 200, fastclickGapVersion: GameData.FASTCLICK_GAP_VERSION, mousePathPx: 600 };
 const records = [
   { ...current, endedAt: now - 25 * 3600000, timeMs: 10000 },
   { ...current, endedAt: now - 2 * 3600000, timeMs: 20000, misclicks: 1 },
@@ -77,6 +77,9 @@ assert.equal(formula('efficiency')({ outcome: 'win', bv3: 10, clicks: 19 }), 10 
 assert.equal(formula('efficiency')({ outcome: 'loss', bv3: 10, clicks: 19 }), undefined, 'a loss solved only part of its 3BV');
 assert.equal(formula('ios')({ outcome: 'win', bv3: 10, timeMs: 1000 }), undefined, 'IOS is unmeasured at 1 s or less');
 assert.equal(formula('ios')({ outcome: 'win', bv3: 10, timeMs: 5000 }), Math.log(10) / Math.log(5));
+assert.equal(formula('fastclickGap')({ fastclickGapMs: 140, fastclickGapVersion: 'planned-pairs-v1' }), 140);
+assert.equal(formula('fastclickGap')({ fastclickGapMs: 300 }), undefined,
+  'a value under the definition before planned pairs is another measurement');
 assert.equal(row('time.lifetime').definition, undefined);
 assert.equal(row('misclickRate.session').definition, GameData.metrics.find((m) => m.id === 'misclickRate').help,
   'every pool’s row carries its measurement’s definition');

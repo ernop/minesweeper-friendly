@@ -194,9 +194,7 @@ async function playScriptedWin(page) {
     if (wait > 0) await sleep(wait);
     await page.mouse.down({ button });
     await sleep(30 + Math.random() * 25);
-    // A hand drifts during the press. Without a cursor sample in the 100 ms
-    // before a reveal's release (when it takes effect), the reveal is not
-    // "on the move" and drops out of the fastclick gap.
+    // A hand drifts during the press.
     mouse = { x: goal.x + (Math.random() - 0.5) * 3, y: goal.y + (Math.random() - 0.5) * 3 };
     await page.mouse.move(mouse.x, mouse.y);
     await sleep(15);

@@ -33,16 +33,18 @@ Spec: [docs/product/measurement-catalog.md](../product/measurement-catalog.md). 
 
 ## One value
 
-- `DuringGame.fastclickGaps(decisions, sampleT)` returns `{atMs, gapMs}` for
-  each board-changing decision (`BOARD_CHANGING`) whose gap from the one
-  before is at most `FASTCLICK_MAX_GAP_MS` and whose latest cursor sample at
-  or before it lies within `CADENCE_MOVING_WINDOW_MS`. The model keeps them
-  as `fastclickGaps`, the fastclick row's incidents; `reportResult` stores
-  `Math.round(medianOf(...))` of the same call on `pathDecisionEvents(
-  trace.events)` and `trace.t` as `fastclickGapMs`. The final decision is
-  in the trace by then: `recordActionEvaluation` traces it before
-  `checkWin` or the loss. The page's former counters (`lastCursorMoveAt`,
-  `lastUsefulPressAt`, `fastclickGaps`, `recordUsefulPress`) are gone.
+- The model's `plannedPairs` (`plannedPairsOf`, [Live perf charts](during-game.md),
+  "Model") are the fastclick row's incidents, and `DuringGame.fastclickGap`
+  gives the record their rounded median as `fastclickGapMs` with
+  `fastclickGapVersion`, through `finishedMeasurements` in the reports
+  worker. The catalog entry's `value` returns `fastclickGapMs` only when
+  `fastclickGapVersion` is `FASTCLICK_GAP_VERSION` (exported by `GameData`;
+  `game/history.js` accepts no other), so a value of the earlier
+  definition is unmeasured everywhere, the offline history summary
+  included (`analysis/history/summarize-history.js` loads `game-data.js`
+  and reads the entry's `value`). The page's former counters
+  (`lastCursorMoveAt`, `lastUsefulPressAt`, `fastclickGaps`,
+  `recordUsefulPress`) and `FASTCLICK_MAX_GAP_MS` are gone.
 - `gameValue(data, m)` (the legend value and the relative chart's 1×) is
   `valueOver(data, data.incidents, 0, m.timeMs, m.recordTimeMs)`: every
   incident, divided by the record's `timeMs` (`m.recordTimeMs`), with no
@@ -89,15 +91,21 @@ retired lifetime and session selections, and `duringGameRowsFromStored` to
   measurements are the catalog's; every `measurements` id exists; the event
   rows' measurements; no other row or motion stats display takes a catalog
   name, and cadence spread's display is the catalog's; whole-game values on
-  the record's time, under a second, with every press, and the fastclick
-  gaps the record reads; cadence spread unrounded through `finished-game`.
+  the record's time, under a second, and with every press; the fastclick
+  gap's planned pairs on the creator's corner and on single pairs of
+  clicks, and the same value in the record and the row; cadence spread
+  unrounded through `finished-game`.
 - `tests/game-data-test.js`: the catalog's board-changing click share,
-  efficiency, and IOS formulas.
+  efficiency, and IOS formulas, and the fastclick gap read only under its
+  current definition.
 - `tests/settings-state-test.js`: the five renamed ids carry over in both
   selections.
 - `tests/during-game-browser-check.js`: after a real win against one
   earlier win, 3BV/s, click rate, and fastclick gap read the same in the
-  legend and game data; a row's hover spotlights its line or marks alone and
+  legend and game data, and the saved record names the fastclick gap's
+  definition beside the legend's value; a reload of that record, made one
+  of the earlier definition, measures it again to the same value; a row's
+  hover spotlights its line or marks alone and
   lets go; a legend entry, an event row's entry, and the line under the
   pointer ring their rows. `tests/board-time-profile-browser-check.js`: a
   row's hover outlines its charts.

@@ -27,8 +27,20 @@ Spec: [docs/product/charts.md](../product/charts.md). Index: [AGENTS.md](../../A
   value and lifetime standing, after the title.
 - Scatters: `buildScatter` + `niceTicks` (`timeTicks` for the date axis;
   `minorTicks` adds edge tickmarks between labeled divisions, skipped on
-  the date axis), emitted in the relationships section; dots colored by age unit (`.age-dot-*`),
-  the current game `.scatter-me` (`--this-game`, no age class) ringed and
+  the date axis), emitted in the relationships section; the other games' dots
+  painted on one canvas (`canvas.scatter-dots`, `paintScatterDots`) inside the
+  chart's SVG (a `foreignObject` after the trend lines), colored by age unit
+  (`SCATTER_AGE_DOT_FILLS`) or black (`neutralDots`), each with its own
+  opacity so overlapping dots still darken as SVG circles did. As SVG
+  circles (until 2026-10-26) every page layout walked each dot: 13,149 dots
+  in 25 charts after the latency check's loss made a forced layout 51 ms in
+  Firefox (11 ms with the canvas) and the freeze after a loss 75-78 ms
+  (31-39 ms). Inside the SVG the canvas is painted with it, on the same
+  device pixels as the axes at pixel ratios 1 and 2; a canvas beside the SVG
+  sat a device pixel off at ratio 2 in Firefox, which places an SVG on whole
+  CSS pixels and a canvas on whole device pixels. `renderPixelRatio`
+  repaints every canvas when the ratio changes. The
+  current game `.scatter-me` (`--this-game`, no age class) ringed and
   tagged with its today-rank, on-chart axis
   labels, legend appended last. Options: `timeAxis` (local calendar
   x-ticks), `idealLine` (y = x dashed floor), `trendLines`

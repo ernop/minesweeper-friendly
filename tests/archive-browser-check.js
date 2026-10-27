@@ -1,8 +1,9 @@
 'use strict';
 // Archive folder in a real browser: automatic writes after a game, file
-// contents equal to the stored record and trace, write-once on reload, files
-// another tab archived found rather than rewritten through a cached listing,
-// the paused-permission chip and resume, a visible failure when the folder
+// contents equal to the record as first stored and the trace, write-once on
+// reload, files another tab archived found rather than rewritten through a
+// cached listing, the paused-permission chip and resume, a visible failure
+// when the folder
 // disappears, suspension during a self-check test and the write after it,
 // and the settings page status.
 //
@@ -82,6 +83,13 @@ async function loseGame(page, gamesAfter) {
     const page = await context.newPage();
     const errors = [];
     page.on('pageerror', (error) => errors.push(error.message));
+    // The analysis workers load only after the first game's files are
+    // compared: their measurements are added to the record after it is
+    // first stored, and a reply arriving before the comparison would make
+    // the stored record differ from the archived one by timing alone.
+    let releaseWorkers;
+    const workersHeld = new Promise((resolve) => { releaseWorkers = resolve; });
+    await page.route('**/analysis-worker.js?*', async (route) => { await workersHeld; await route.fallback(); });
 
     await page.goto(ORIGIN + '/');
     await waitForGame(page);
@@ -120,8 +128,11 @@ async function loseGame(page, gamesAfter) {
       return (await (await folder.getFileHandle('README.txt')).getFile()).text();
     });
     assert.equal(readme, ARCHIVE_README_TEXT);
+    releaseWorkers();
+    await page.waitForFunction(() => hasBoardMeasurements(Object.values(history).flat()[0]));
 
-    // The stored folder is used again after a reload; nothing is rewritten.
+    // The stored folder is used again after a reload; nothing is rewritten,
+    // including the record its measurements have since changed.
     await page.reload();
     await waitForGame(page);
     await waitForStatus(page, 'up-to-date', '(0 newly archived)');

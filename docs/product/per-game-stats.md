@@ -197,7 +197,8 @@ final boards, and mismatched layouts never enter the bulk queue or button count.
 The source check runs before offering work on each page load; unavailable boards
 cannot resurrect an exhausted batch. No permanent skip flags are stored: restoring
 a board makes its missing measurements eligible again. The index reads only keys,
-not whole input traces; trace writes invalidate the current mode's RAM catalog.
+not whole input traces; a trace write adds its board to the mode's catalog in
+memory, or has the catalog read again if it was still being read.
 `Resume backfill` and `Paused` appear only after an explicit Stop in the current
 page. After reload, remaining calculable work uses `Backfill saved wins`, preserving
 completed measurements without claiming the player paused. Actual read/calculation
@@ -455,31 +456,67 @@ a forced flip is a forced flip, neither a life nor a death. The field is
 no longer recorded or shown anywhere; the schema still accepts it so the
 records from that day stay valid.
 
-Fastclick gap — the game's median gap between consecutive board-changing
-actions with a cursor move within 100ms before the later action and a gap
-of at most 1s (each action timed when it takes effect: a flag at the right
-press, a reveal or chord at its release; before 2026-09-26 a flag took effect
-at the browser's context-menu event, which Windows fires at the release) —
-joined the schema on 2026-08-22 alongside the
-session stats (removed 2026-10-20), whose fastclick series used the
-identical qualification.
-Stored (as `fastclickGapMs`, rounded to the millisecond) rather than
-derived because it needs press timestamps, which the scalar record does not
-carry (the trace does, so history from the trace era is backfillable
-offline). Since 2026-10-26 the gaps come from the game's trace, the same
-gaps the live perf charts' fastclick line plots, found by one function:
-an action is on the move when the trace's latest cursor sample before it
-is at most 100ms old. Before, the page timed them with its own clock
-during play ([Measurement catalog](measurement-catalog.md)). Win or loss
-alike.
-Absent when no gap qualified — slow, careful play is "not measured
-here", never a made-up number — and on games recorded before the
-measurement. The stats table shows a "Fastclick gap" row when the field
-exists.
+Fastclick gap — the game's median press-to-press time of its planned
+pairs (since 2026-10-26, the redefinition below): two clicks the player
+could decide together, timed as a measure of finger and hand speed. Two
+board-changing clicks in a row are a planned pair when all of these hold:
 
-Requested redefinition (creator 2026-10-26; not built, the review and the
-plan are in [BACKLOG.md](../../BACKLOG.md), "Fastclick gap: planned
-pairs"). Creator, verbatim: "finally, let's look at and review teh
+1. Proven together: every square the two clicks act on (the square a
+   reveal opens, the squares a chord opens, the square a flag goes on) was
+   proven by the visible board before the first click, safe to open or a
+   mine to flag. The second click then needed nothing the first one showed.
+2. Touching: the second click's square is one of the first's 8 neighbors;
+   a chord's square is its number. The movement then stays nearly the same
+   from pair to pair, so the time reads as click speed rather than travel.
+3. One motion: nothing else was pressed between them, a click that changed
+   nothing included; and when the first click opened squares (a reveal or
+   chord), the cursor did not rest before the second press: no 100 ms
+   without a cursor sample, the trace's definition of the hand at rest. A
+   flag shows nothing new, so after one the hand may hold still on the
+   button, as in the 1.5 click (a flag, then a chord on the number beside
+   it with the right button still held).
+4. Neither is a flag removal, a correction rather than a planned click.
+
+Each pair is timed from the first click's press to the second's: a flag's
+right press, a reveal's or chord's left press, or a two-button chord's
+first button down; the same point for every kind of click, as
+finger-tapping tests time taps. There is no time limit. The live perf
+charts' fastclick line plots each pair's time at its second click; the
+record stores their median, rounded to the millisecond (`fastclickGapMs`),
+with the definition it was measured under (`fastclickGapVersion`,
+`planned-pairs-v1`). Stored rather than derived at read time because it
+needs the trace and the board's proofs, which the scalar record does not
+carry. Win or loss alike.
+Absent when the game had no planned pair — slow, careful play is "not
+measured here", never a made-up number. Where the prover stopped at its
+work limit before a pair's first click and left one of its squares
+unproven, the board may still have proved it, so that pair cannot be
+judged; the game is then not measured, rather than measured on the pairs
+that could be. The stats table shows a "Fastclick gap" row when the game
+has a value.
+
+Before 2026-10-26 the fastclick gap was the median gap between consecutive
+board-changing actions of at most 1 s with a cursor move within 100 ms
+before the later action, each action timed when it took effect (a flag at
+the right press, a reveal or chord at its release; before 2026-09-26 a flag
+took effect at the browser's context-menu event, which Windows fires at the
+release). It joined the schema on 2026-08-22 alongside the session stats
+(removed 2026-10-20), whose fastclick series used the identical
+qualification; on 2026-10-26 it moved from the page's own clock to the
+game's trace ([Measurement catalog](measurement-catalog.md)), and the same
+day to planned pairs. A record holding a value of that definition has no
+`fastclickGapVersion`, and nothing reads the value: every view and the
+offline history summary read the measurement through the catalog, which
+reads only values of the current definition. Opening such a game's result
+again measures it from its trace and replaces the old value. Games without
+a saved trace keep their old value, unread, until the creator decides
+([BACKLOG.md](../../BACKLOG.md), "Fastclick gap: planned pairs").
+
+Redefinition (creator 2026-10-26; built the same day, the creator asking
+to "make the cahgne to fastclick gap" before the offline comparison the
+plan proposed, so the plan's open choices keep its proposal: touching
+squares only, and every kind of pair pooled; [BACKLOG.md](../../BACKLOG.md),
+"Fastclick gap: planned pairs"). Creator, verbatim: "finally, let's look at and review teh
 definition of fastclick gap. the arbitrary 1s interval seems  badly chosen.
 the actual point is to detect cases where teh player is atually trying to
 "click twice on two squares,  e.g. while moving" and we want to measure
@@ -508,9 +545,11 @@ of the player. In the corner, the first 1 sits in the board's corner, so
 its one mine is C or D; the second 1's one mine is then also C or D, which
 leaves A and E safe, both known before either is clicked, and E is one
 square below A. A gap that holds reading the first click's result and
-working out the second is sequential work, not a fast click. The
-definition above counts such gaps: the review found that the 1 s cap and
-the on-the-move test admit them.
+working out the second is sequential work, not a fast click. The earlier
+definition counted such gaps: the review found that its 1 s cap and its
+on-the-move test admitted them. Planned pairs leave them out by rule 1,
+however fast: a square only the first click's number proved was not
+proven before it.
 
 Seed — every new board receives a cryptographically generated 128-bit seed.
 `xoshiro128ss-v1` expands it into the one deterministic random stream used

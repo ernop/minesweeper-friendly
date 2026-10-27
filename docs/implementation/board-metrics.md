@@ -45,8 +45,14 @@ Spec: [docs/product/per-game-stats.md](../product/per-game-stats.md), [docs/prod
   `boardsByModeAndSize` uses `[mode, finalBoard.cells.length]`; `loadBoardMetricSources`
   reads matching primary keys once per mode before offering bulk work. Absent
   boards cannot reappear as work on reload, and no persistent skip flags prevent
-  restored traces from qualifying. `saveTrace` invalidates this catalog on commit
-  through `boardMetricSourcesChanged`; pending batches wait for its refresh.
+  restored traces from qualifying. `saveTrace`'s commit calls
+  `boardMetricSourceSaved`: a read catalog gains the new key in place (that
+  game's measurements have their own job, so no count moves and nothing is
+  drawn again); a catalog still being read may have missed the write and is
+  dropped through `boardMetricSourcesChanged`, so it is read again and pending
+  batches wait for that refresh. Until 2026-10-26 every commit dropped the
+  catalog, and the next result render read it again and then rendered the
+  whole result a second time when it arrived.
   Stop finishes the current board; Resume/Paused require an explicit Stop in
   this page. After reload the action is `Backfill saved wins` and still skips
   completed records. Each result is persisted

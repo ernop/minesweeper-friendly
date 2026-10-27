@@ -55,6 +55,10 @@ vm.runInThisContext(source.slice(startIdx, endIdx));
 /* global FATAL_STATUS_LABELS, LOSS_TYPE_LABELS, LIKELY_MISCLICK_REASON_LABELS,
    DEATH_KIND_LABELS, fatalActionStatusKind, fatalEvaluationOf, fatalProofTiers,
    lossTypeOf, likelyMisclickReasonsOf, ACTION_EVALUATION_VERSION */
+// The fastclick gap as the game's measurement catalog defines it: a record
+// measured under an earlier definition has none.
+vm.runInThisContext(fs.readFileSync(path.join(repo, 'game-data.js'), 'utf8'));
+const fastclickGapOf = vm.runInThisContext('GameData').metrics.find((metric) => metric.id === 'fastclickGap').value;
 
 //-------STATISTICS (stdlib)-------
 
@@ -192,7 +196,7 @@ function groupSummary(list) {
     winTimeMs: robust(wins.map((g) => g.timeMs)),
     mouseSpeedPxPerS: robust(list.map(mouseSpeed)),
     clickRatePerS: robust(list.map(clickRate)),
-    fastclickGapMs: robust(list.map((g) => g.fastclickGapMs)),
+    fastclickGapMs: robust(list.map(fastclickGapOf)),
     misclicksPerGame: robust(list.map((g) => g.misclicks)),
     wastedClicksPerGame: robust(list.map((g) => g.wastedClicks)),
   };

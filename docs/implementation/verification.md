@@ -241,7 +241,10 @@ just basic timing stuff please so we notice if we megaslowdown again"; spec:
 takes about 13 seconds on the PC. In a fresh profile on 8099 with a synthetic
 6,500-game history, on a fixed board, it times page load, new game, the first
 click, a dozen more clicks, the click that shows a mine, and switching to
-expert, plus the longest freeze in the two seconds after that game ends. Each
+expert, plus the longest freeze in the two seconds after that game ends: the
+longest interval between two runs of a 10 ms timer (until 2026-10-26 only
+intervals over 50 ms counted, so the shorter freezes after that day's
+changes read as 0 ms). Each
 input gets two numbers: `*WorkMs`, how long the game's own handlers ran for it
 (only our code affects this), and `*Ms`, input to the first task after the
 next frame (what the player sees, including up to one 16.7 ms frame of

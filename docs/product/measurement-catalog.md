@@ -66,11 +66,16 @@ the game data value for that game, computed from the same facts:
   whichever was later, and gave a game under a second no whole-game value;
   the 1-second minimum now applies only to an averaging window or bucket
   ([During the game](during-game.md), "Averaging").
-- The fastclick gap's qualifying gaps are found once, from the game's
-  trace, by one function; the live line plots them and the record stores
-  their median, rounded to the millisecond. Until 2026-10-26 the record took
-  them from the page's own clock during play
+- The fastclick gap's planned pairs are found once, from the game's trace
+  and the proofs the live perf charts' model makes, by one function; the
+  live line plots them and the record stores their median, rounded to the
+  millisecond. Until 2026-10-26 the record took its gaps, under the earlier
+  definition, from the page's own clock during play
   ([Per-game stats](per-game-stats.md), "Fastclick gap").
+- A record's value of a measurement's earlier definition is not that
+  measurement: the catalog reads the fastclick gap only from records that
+  name its current definition (`fastclickGapVersion`), so no comparison
+  mixes the two.
 - Cadence spread is stored unrounded; until 2026-10-26 the record rounded
   it to 3 decimals while the live charts did not.
 
@@ -163,5 +168,8 @@ Not unified yet, each awaiting the creator's choice
 ([BACKLOG.md](../../BACKLOG.md), "Measurement catalog follow-ons"): the
 record's mouse path against the trace's, the 3BV of trials with a given
 opening, the stored field names that differ from their measurement's name,
-and recomputing older records' fastclick gap and cadence spread from their
-traces.
+and recomputing older records' cadence spread from their traces. Older
+records' fastclick gaps follow the earlier definition and are read nowhere;
+each is measured again when its game's result is opened, and the rest wait
+on the creator ([BACKLOG.md](../../BACKLOG.md), "Fastclick gap: planned
+pairs").

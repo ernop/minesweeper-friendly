@@ -46,6 +46,16 @@ function boardMetricSourcesChanged(key) {
   if (shown && history[key]?.includes(shown)) refreshBoardMetricView(shown);
 }
 
+// The finished game's own trace committed. A read catalog gains its key and
+// nothing shown changes: that game's board measurements have their own job,
+// so the key moves no count. A catalog still being read may have missed the
+// write and is read again.
+function boardMetricSourceSaved(key, endedAt) {
+  const state = boardMetricSources.get(key);
+  if (state?.status === 'ready') state.endedAts.add(endedAt);
+  else if (state?.status === 'loading') boardMetricSourcesChanged(key);
+}
+
 function boardMetricHistoryKey(record) {
   return Object.keys(history || {}).find((key) => history[key].includes(record));
 }

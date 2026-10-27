@@ -64,13 +64,6 @@ function reportResult(outcome, endedAt = Date.now()) {
     record.musicPlaying = musicObservations.some((heard) => heard);
   }
   if (boardFlagsBlocked) record.flagsBlocked = true;
-  // Fastclick gap: the median of the trace's fastclick gaps, the gaps the
-  // live line plots (DuringGame.fastclickGaps). Absent when no gap qualified.
-  const gameFastGap = medianOf(DuringGame.fastclickGaps(pathDecisionEvents(trace.events), trace.t)
-    .map((gap) => gap.gapMs));
-  if (gameFastGap !== undefined) {
-    record.fastclickGapMs = Math.round(gameFastGap);
-  }
   if (!oddsUnmeasured && guessLedgerAppliesToMode()) {
     record.guesses = guessEvents.length;
     record.guessIdealRisk = guessEvents.filter((e) => e.idealRisk).length;
@@ -121,7 +114,6 @@ function reportResult(outcome, endedAt = Date.now()) {
   const key = modeKey();
   const boardState = { status: 'running' };
   if (!endgameDrillActive()) boardMetricJobs.set(record, boardState);
-  saveTrace(record);
   renderMotionStats();
   replayStep = replayDecisionCount();
   replayEnabled = false;
@@ -130,8 +122,9 @@ function reportResult(outcome, endedAt = Date.now()) {
   duringGameSourceId = record.endedAt;
   analysisTask('reports', 'finished-game', {
     width: config.width, height: config.height, mines: mineAt, drill: endgameDrillActive(),
-    needZini: true, needBoardMetrics: true, needCadence: true, needMoveHabits: true,
-    gameId: record.endedAt, timeMs: record.timeMs, outcome: record.outcome,
+    needZini: true, needBoardMetrics: true, needCadence: true, needMoveHabits: true, needFastclickGap: true,
+    gameId: record.endedAt, timeMs: record.timeMs, outcome: record.outcome, justiceEnabled: record.justiceEnabled,
+    liveTraceId: liveMetricsGeneration,
     trace: { t: finishedTrace.t, x: finishedTrace.x, y: finishedTrace.y,
       events: finishedTrace.events, wallMs: record.endedAt - finishedTrace.startedAt,
       initialPageState: finishedTrace.initialPageState },
@@ -149,6 +142,9 @@ function reportResult(outcome, endedAt = Date.now()) {
     boardState.status = 'error'; boardState.error = error.message;
     analysisFailure(error);
   });
+  // Saved in this same task, so the trace is stored before any analysis
+  // reply; after the post, so the worker computes while it is stored.
+  saveTrace(record);
 }
 
 // The finished game as fuseki-stats.js game fields, sent once from

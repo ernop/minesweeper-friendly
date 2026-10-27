@@ -13,8 +13,10 @@ Spec: [docs/product/just-universe.md](../product/just-universe.md). Index: [AGEN
   cardinality, complement, sea); `tests/player-words-test.js` keeps the
   ones players once saw out of shipped prose. Qualification
   is hidden-layout-independent: `certifyEntry(view, clicked)` receives no
-  witness. `certifyEntries(view, entries)` is the batched equivalent used
-  by guess scoring: it builds one visible constraint structure and checks
+  witness. `certifyEntries(view, entries, heldStructure)` is the batched
+  equivalent used by guess scoring: it builds one visible constraint
+  structure, or takes the caller's (`heldStructure`, the live perf charts'
+  guess facts), and checks
   each component's groups, each group, and the sea once, avoiding an
   Expert-sized structure rebuild for every covered cell on the
   click-critical path. Certification

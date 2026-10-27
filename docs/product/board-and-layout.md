@@ -215,9 +215,12 @@ laggy"; asked whether the game is "max efficient" and to test and fix it.
   properly."). Each limit sits just above today's measured time in Firefox,
   and a click must reach the screen within two frames (34 ms). Limits tighten
   when the code gets faster. Time with no logical reason to exist counts as
-  waste to remove, not as a baseline to protect; measured 2026-09-26 and not
-  yet cut: new game (26–28 ms of work in Firefox), switching board size
-  (20–21 ms), and the freeze after a game ends (82–91 ms).
+  waste to remove, not as a baseline to protect; measured 2026-09-26: new
+  game (26–28 ms of work in Firefox), switching board size (20–21 ms), and
+  the freeze after a game ends (82–91 ms). Cut by 2026-10-26: new game to
+  7–13 ms, switching to 9–10, the freeze after a game ends to 33–66 ms, and
+  a long Expert win's full results from 216–224 ms to 132–152; what remains
+  is listed in [BACKLOG.md](../../BACKLOG.md), "Input latency follow-ons".
 - Click-time evidence (the visible-position proof, guess odds, and Justice
   certification) keeps its exact definitions and results; only its cost
   may change. Built 2026-09-26: expert flags, chords, and guesses that took

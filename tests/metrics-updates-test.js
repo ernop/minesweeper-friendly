@@ -57,7 +57,7 @@ assert.equal(frames.size, 1, 'an input burst queues one frame');
 flushFrame();
 assert.equal(jobs.length, 1);
 assert.equal(samples.length, 0, 'metrics wait for the worker; no synchronous computation');
-assert.equal(jobs[0].lane, 'live');
+assert.equal(jobs[0].lane, 'reports', 'the live feed goes to the worker that proves its positions');
 run('trace.t.push(1); trace.x.push(2); trace.y.push(3); scheduleMetricsUpdate({trace:true})');
 advance(250);
 assert.equal(jobs.length, 1, 'one sample in flight even when more input arrives');

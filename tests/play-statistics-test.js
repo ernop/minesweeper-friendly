@@ -141,7 +141,7 @@ async function playToEnd(outcome, state) {
     gameSeed: '0123456789abcdef0123456789abcdef', firstRevealIndex: 0, actionEvaluations: [],
     musicObservations: [], guessEvents: [], oddsUnmeasured: false,
     drillCurrent: null, trialPresentation: null, trialSession: null, pregenBatch: null,
-    pregenCurrent: null, resultViewRevision: 0, metricsSeries: [],
+    pregenCurrent: null, resultViewRevision: 0, metricsSeries: [], liveMetricsGeneration: 1,
     finalMotion: null, trace: { t: [], x: [], y: [], events: [], startedAt: 0 }, replayStep: 0,
     replayEnabled: true, history: {}, endgameDrillActive: () => false,
     gameState: outcome === 'win' ? 'won' : 'lost',
