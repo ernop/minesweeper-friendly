@@ -1,15 +1,15 @@
 "use strict";
 
 importScripts('trend-fit.js?v=20260925-worker-analysis',
-  'game/trace-metrics.js?v=20261026-scatter-canvas',
-  'game/evaluation.js?v=20261026-scatter-canvas',
-  'game-data.js?v=20261026-planned-pairs', 'game/metric-definitions.js?v=20261026-scatter-canvas',
+  'game/trace-metrics.js?v=20261026-fastclick-cleanup',
+  'game/evaluation.js?v=20261026-fastclick-cleanup',
+  'game-data.js?v=20261026-planned-pairs', 'game/metric-definitions.js?v=20261026-fastclick-cleanup',
   'board-shape.js?v=20261020-no-left-panel', 'zini.js?v=20261020-no-left-panel', 'board-metrics.js?v=20261020-no-left-panel',
-  'game/rankings.js?v=20261026-scatter-canvas',
-  'game/charts.js?v=20261026-scatter-canvas', 'game/game-data-chart.js?v=20261026-scatter-canvas',
+  'game/rankings.js?v=20261026-fastclick-cleanup',
+  'game/charts.js?v=20261026-fastclick-cleanup', 'game/game-data-chart.js?v=20261026-fastclick-cleanup',
   'justice.js?v=20261026-move-hierarchy', 'odds.js?v=20261026-move-hierarchy', 'board-icons.js?v=20261015-flag-controls',
-  'game/replay-model.js?v=20261026-scatter-canvas',
-  'during-game.js?v=20261026-scatter-canvas');
+  'game/replay-model.js?v=20261026-fastclick-cleanup',
+  'during-game.js?v=20261026-fastclick-cleanup');
 
 let config;
 

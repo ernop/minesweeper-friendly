@@ -504,13 +504,16 @@ release). It joined the schema on 2026-08-22 alongside the session stats
 (removed 2026-10-20), whose fastclick series used the identical
 qualification; on 2026-10-26 it moved from the page's own clock to the
 game's trace ([Measurement catalog](measurement-catalog.md)), and the same
-day to planned pairs. A record holding a value of that definition has no
-`fastclickGapVersion`, and nothing reads the value: every view and the
-offline history summary read the measurement through the catalog, which
-reads only values of the current definition. Opening such a game's result
-again measures it from its trace and replaces the old value. Games without
-a saved trace keep their old value, unread, until the creator decides
-([BACKLOG.md](../../BACKLOG.md), "Fastclick gap: planned pairs").
+day to planned pairs. A value of that definition has no
+`fastclickGapVersion`, and nothing read it: every view and the offline
+history summary read the measurement through the catalog, which reads only
+values of the current definition. Since 2026-10-26, loading the history or
+importing a backup deletes such a value. Of the 8,203 games in the
+creator's 2026-10-11 history export, 5,945 held one. The deletion is
+temporary code, removed in a second step once both active players' browsers
+have run it ([Storage](storage-and-history.md), "Storage", changes to saved
+history). Opening an older game's result measures it from its trace under
+the current definition.
 
 Redefinition (creator 2026-10-26; built the same day, the creator asking
 to "make the cahgne to fastclick gap" before the offline comparison the

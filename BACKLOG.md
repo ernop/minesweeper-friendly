@@ -56,7 +56,8 @@ gap", which also holds the creator's request verbatim). The creator asked
 for it ("make the cahgne to fastclick gap") before the offline comparison
 the plan proposed, so the plan's open choices took its proposal. Records
 carry `fastclickGapVersion: "planned-pairs-v1"`; a value without it follows
-the earlier definition and is read nowhere. Open:
+the earlier definition, is read nowhere, and since 2026-10-26 is deleted on
+load and import (step 1 of 2, below). Open:
 
 - **creator** — Settle the open choices on the creator's own games. Compare
   offline on saved traces: per game, the earlier definition's gaps, the
@@ -86,12 +87,20 @@ the earlier definition and is read nowhere. Open:
   charts compare the new values with fewer games. Proposed: one worker
   pass over the saved traces, writing `fastclickGapVersion` and
   `fastclickGapMs`, in the same pass as the move-habits backfill above.
-- **creator** — Games holding a `fastclickGapMs` but no saved trace cannot
-  be measured again and keep a value of the earlier definition, unread.
-  Options: remove the field from them (the record then holds nothing it
-  does not use; the cost is nothing, as no view reads it), or keep it as
-  now (nothing deleted; a field no view reads stays in every backup).
-  Recommended: remove, after counting how many games that is.
+- **creator** — Step 2 of deleting the earlier definition's values. The
+  creator approved deleting them on 2026-10-26, in two steps ("we can do
+  the cleanup in two steps; there aren't many active users (basically only
+  me another guy)"). Of the 8,203 games in the 2026-10-11 history export,
+  5,945 held such a value. Step 1 was built the same day: `normalizeGameRecord`
+  deletes a `fastclickGapMs` without `fastclickGapVersion` on load and
+  import, for every game whether or not it has a trace (a game with a trace
+  is measured again when its result is opened). Step 2 deletes that block,
+  its test in `tests/action-evaluation-migration-test.js`, and the schema
+  sentence saying such values are deleted. It waits for the creator to
+  confirm that every browser both active players use has loaded a release
+  with step 1. A backup saved before step 1 still holds old values. If one
+  is imported after step 2, they are unread again, so the schema sentence
+  then returns to describing them.
 
 ## Measurement catalog follow-ons (found 2026-10-26 while unifying the measurements)
 
@@ -830,6 +839,22 @@ game instead of rewriting the whole history twice per game. Not built:
    showed 17-21ms over the same alternating runs). Not yet attributed; a
    profile of a spiking run would show whether it is garbage collection or
    background analysis landing during the switch.
+5. **Every load reads every game's action evaluations (found 2026-10-26).**
+   The test was a Firefox test profile seeded with the creator's 2026-10-11
+   history export (8,203 games). On it, every load of the game page stalls
+   for 1.0-1.05s while the records are read into RAM. As JSON the records
+   are 57MB, 7KB a game, and 96% of that is `actionEvaluations` (65,605
+   entries): their positions are 21MB, their evidence 12MB, and their
+   alternatives and choices 9MB. The Storage spec's "scalar records are
+   tiny" no longer holds. The latency check seeds a small history, so its
+   startup budget misses this. Any fix changes saved history, so it follows
+   the creator's two-step rule ([Storage](docs/product/storage-and-history.md),
+   "Storage", changes to saved history). Options: keep action evaluations
+   in their own store and read them only where a view needs them; or drop
+   stored positions on games whose trace holds the same board. Either needs
+   a first measure of which startup views read the evaluations. A check
+   with a history of the creator's size would also keep this in the
+   latency budgets.
 
 ## Game data as the primary result surface (creator, 2026-09-23)
 
@@ -1348,8 +1373,9 @@ Remaining, in priority order (earlier items prevent irreversible loss):
 1. **Nothing lost.**
    - **Archive import.** Rebuild a browser database from an archive folder,
      for a new machine or profile. Writing is built.
-   - **Which version of a record is archived** (found 2026-10-26, awaiting
-     the creator's choice). The sync after a game starts once its trace is
+   - **Which version of a record is archived** (found 2026-10-26; kept as
+     it is the same day, the creator approving that recommendation: "nice
+     work. go for it."). The sync after a game starts once its trace is
      saved, while the worker is still computing the board measurements, so
      the archived record holds them only when their reply was stored first;
      on the PC both finish within about 50 ms of the game's end. Options:

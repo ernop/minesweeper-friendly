@@ -57,6 +57,14 @@ const base = {
   const modern = normalizeGameRecord({ ...win, flagsWithoutMultiCellChord: 4 });
   check('removed win measure deleted', modern.changed && !('flagsWithoutMultiCellChord' in modern.record));
   check('record without it unchanged', !normalizeGameRecord(win).changed);
+  const earlierGap = normalizeGameRecord({ ...win, fastclickGapMs: 180 });
+  check('fastclick gap of the earlier definition deleted',
+    earlierGap.changed && !('fastclickGapMs' in earlierGap.record));
+  const plannedPairs = { ...win, fastclickGapMs: 142, fastclickGapVersion: 'planned-pairs-v1' };
+  const kept = normalizeGameRecord(plannedPairs);
+  check('fastclick gap with its version kept', !kept.changed && kept.record.fastclickGapMs === 142);
+  const noPairs = { ...win, fastclickGapVersion: 'planned-pairs-v1' };
+  check('version without a gap unchanged', !normalizeGameRecord(noPairs).changed);
 }
 
 {

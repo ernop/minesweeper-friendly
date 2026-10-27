@@ -351,6 +351,17 @@ its replacement and then kept readable for one saved check):
   remove freely: anything holding real accumulated data, or in real use, keeps
   its data or waits for the creator's decision before anything is deleted.
 
+Changes to saved history (creator decision 2026-10-26): "we are okay with
+changes to history as long as we make reasonable steps; but we don't want to
+make any extremely painful patches which new users from this point on
+wouldn't have." A change that only histories saved before it need ships in
+two steps: one release changes each history as it loads, and a later release
+deletes that code once every active player's history has loaded it ("we can
+do the cleanup in two steps; there aren't many active users (basically only
+me another guy)"). BACKLOG.md lists each pending second step. Details:
+[docs/product/storage-and-history.md](docs/product/storage-and-history.md),
+"Storage".
+
 ### Analysis isolation
 
 User requirement (2026-09-25): expensive analytics must run in workers, never

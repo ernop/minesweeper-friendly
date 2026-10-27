@@ -34,7 +34,10 @@ Spec: [docs/product/per-game-stats.md](../product/per-game-stats.md). Index: [AG
   `fastclickGapVersion` is not `GameData.FASTCLICK_GAP_VERSION` and
   deletes the earlier definition's `fastclickGapMs` before assigning them.
   The catalog's `value` reads `fastclickGapMs` only beside the current
-  version. Before 2026-10-26 `reportResult` stored the earlier definition's
+  version. `normalizeGameRecord` (`game/history.js`) deletes a
+  `fastclickGapMs` without `fastclickGapVersion` on load and import. That
+  block is step 1 of 2; step 2 deletes it and its test
+  ([BACKLOG.md](../../BACKLOG.md), "Fastclick gap: planned pairs"). Before 2026-10-26 `reportResult` stored the earlier definition's
   median, from `DuringGame.fastclickGaps` on the trace that day and before
   that from `recordUsefulPress`'s wall-clock press and cursor times during
   play ([measurement catalog](measurement-catalog.md)).

@@ -79,6 +79,18 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   database upgrade carries those keys over exactly once and then removes
   them, so existing players (including on the public GitHub Pages origin)
   keep their history without doing anything.
+- Changes to saved history (creator decision 2026-10-26): "we are okay with
+  changes to history as long as we make reasonable steps; but we don't want
+  to make any extremely painful patches which new users from this point on
+  wouldn't have." A change that only histories saved before it need ships in
+  two steps, because the game has two active players, the creator and one
+  other ("we can do the cleanup in two steps; there aren't many active users
+  (basically only me another guy)"). The first release changes each history
+  as it loads or is imported. A later release deletes that code once the
+  creator confirms that every browser either player uses has loaded it.
+  [BACKLOG.md](../../BACKLOG.md) lists each pending second step. The first
+  such change deletes fastclick gaps of the definition before planned pairs
+  ([Per-game stats](per-game-stats.md), "Fastclick gap").
 
 ## Raw input traces (decided 2026-08-20)
 
@@ -272,8 +284,9 @@ browser, its profile, and this origin.
     measurements are still being computed, so the archived copy holds them
     only when they were stored first. Values added after the sync (board
     measurements, evidence corrections) are recomputable from the trace and
-    seed. Whether the archived copy should be deterministic is open in
-    [BACKLOG.md](../../BACKLOG.md).
+    seed. The creator kept this as it is on 2026-10-26 rather than store the
+    measurements apart from the record ([BACKLOG.md](../../BACKLOG.md),
+    "Which version of a record is archived").
   - Deleting data in the browser never deletes archive files.
 - **Layout** (UTC year and month; every name uses only `[A-Za-z0-9._-]`):
   - `games/YYYY/MM/<endedAt>-<mode>.json.gz`: one finished game's record.

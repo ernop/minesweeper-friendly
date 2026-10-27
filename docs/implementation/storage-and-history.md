@@ -57,7 +57,12 @@ Spec: [docs/product/storage-and-history.md](../product/storage-and-history.md). 
   only). Load-time normalization returns the exact `writes` and legacy-key
   `deletions` it implies, applied by `persistGameRecordChanges`; it never
   clears the store, so a record another tab saved between this page's read
-  and its write survives. The training
+  and its write survives. `persistGameRecordChanges` issues every put in
+  one task, so a normalization that rewrites many records stalls that load
+  once. The 2026-10-26 fastclick cleanup was measured in Firefox on a test
+  profile seeded with the creator's 2026-10-11 export (5,945 of 8,203
+  games rewritten): one extra 979 ms stall, beside the 1.0-1.05 s that
+  every load spends reading those records. The training
   worker reads only its mode's key range. Cross-page consistency: each page reads settings fresh
   at load and writes through immediately. Two game tabs are two live RAM
   copies: each writes only its own games' records, so neither erases the

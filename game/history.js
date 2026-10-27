@@ -82,7 +82,7 @@ const GAME_RECORD_SCHEMA = [
   { field: 'flagsRemoved', valid: (v) => v === undefined || isNumber(v), example: '1', describe: 'flag states the player turned off; placement and removal are each board-changing clicks; the reason for removal is not observed; absent on games recorded before 2026-08-20' },
   { field: 'unusedCorrectFlags', valid: (v) => v === undefined || isNumber(v), example: '2', describe: 'on a win, correct mine-flag placement episodes that ended or were removed without ever contributing to an accepted chord; absent on losses and games recorded before 2026-08-28 because an unfinished solve cannot establish whether a standing mark would later have been used' },
   { field: 'mousePathPx', valid: isNumber, example: '1182', describe: 'cursor travel while playing, px' },
-  { field: 'fastclickGapMs', valid: (v) => v === undefined || isNumber(v), example: '142', describe: 'with fastclickGapVersion "' + GameData.FASTCLICK_GAP_VERSION + '": median press-to-press time of the game\u2019s planned pairs, rounded to the ms: two board-changing clicks in a row, neither a flag removal, on touching squares, every square they open proven safe and every square they flag proven a mine before the first, nothing else pressed between them, and, after a first click that opened squares, the cursor never 100 ms without moving before the second press; absent when the game had no planned pair or the prover stopped at its work limit on one. Without fastclickGapVersion (games before 2026-10-26 not since restored): the earlier definition, the median gap between board-changing clicks of at most 1 s ending in a click made on the move, which no view reads; absent on games recorded before 2026-08-22' },
+  { field: 'fastclickGapMs', valid: (v) => v === undefined || isNumber(v), example: '142', describe: 'with fastclickGapVersion "' + GameData.FASTCLICK_GAP_VERSION + '": median press-to-press time of the game\u2019s planned pairs, rounded to the ms: two board-changing clicks in a row, neither a flag removal, on touching squares, every square they open proven safe and every square they flag proven a mine before the first, nothing else pressed between them, and, after a first click that opened squares, the cursor never 100 ms without moving before the second press; absent when the game had no planned pair or the prover stopped at its work limit on one, and on games before 2026-10-26 until their result is next restored. A value without fastclickGapVersion follows the earlier definition (the median gap between board-changing clicks of at most 1 s ending in a click made on the move) and is deleted on load and import' },
   { field: 'fastclickGapVersion', valid: (v) => v === undefined || v === GameData.FASTCLICK_GAP_VERSION, example: '"' + GameData.FASTCLICK_GAP_VERSION + '"', describe: 'the fastclick gap definition fastclickGapMs was measured under, written for every game measured since 2026-10-26, including games with no planned pair; absent on earlier games until their result is next restored' },
   { field: 'cadenceSpread', valid: (v) => v === undefined || isNumber(v), example: '1.42', describe: 'press-to-press rhythm consistency: interquartile range of all button-press gaps (wasted presses included) divided by their median — 0 means metronomic, larger means burstier; measured for wins and losses; unrounded since 2026-10-26, rounded to 3 decimals before; absent under two measurable gaps or on games recorded before 2026-08-30' },
   { field: 'movesRanOut', valid: (v) => v === undefined || isCount(v), example: '4', describe: 'moves made once the local work had run out: a move is a board-changing click 3 or more squares from everything the board-changing click before it opened or marked and from the proven-safe squares within 2 squares of those; measured for wins and losses from the trace; absent where the prover stopped at its work limit at a move, and on games recorded before 2026-10-20 until their result is next restored' },
@@ -274,6 +274,14 @@ function normalizeGameRecord(record) {
       delete normalized[field];
       changed = true;
     }
+  }
+  // A fastclick gap without its version follows the definition before
+  // planned pairs and is read nowhere. Temporary: delete this block once every
+  // active player's history has loaded it (BACKLOG.md, "Fastclick gap:
+  // planned pairs").
+  if ('fastclickGapMs' in normalized && !('fastclickGapVersion' in normalized)) {
+    delete normalized.fastclickGapMs;
+    changed = true;
   }
   return { record: normalized, changed };
 }
