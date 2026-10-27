@@ -100,12 +100,12 @@ function evaluationBoardProgress(evaluation) {
   const evidence = evaluation.evidence || {};
   if (typeof evidence.boardProgress === 'number') return evidence.boardProgress;
   const position = evaluation.position;
-  if (!position || !Array.isArray(position.revealed)
+  if (!position || typeof position.cells !== 'string'
       || !Number.isFinite(position.width) || !Number.isFinite(position.height)
       || !Number.isFinite(position.mines)) return undefined;
   const safeTotal = position.width * position.height - position.mines;
   if (safeTotal <= 0) return undefined;
-  return position.revealed.length / safeTotal;
+  return positionOpenCount(position) / safeTotal;
 }
 
 function evaluationIsEarlyGame(evaluation) {
@@ -317,11 +317,48 @@ const PROOF_TIER_PHRASES = {
   'whole-board': 'only whole-board reasoning',
 };
 
+// A saved board (an evaluation's `position`) keeps its squares in `cells`,
+// one character per square in index order: '.' covered, 'F' flagged, '0' to
+// '8' an open square's number. A square list (an alternative's or a choice's
+// `cells`) is its squares joined by commas. Both are strings because a
+// history holds tens of thousands of them: kept as arrays of pairs, reading
+// them back took most of the page's load (2026-10-26).
+function positionNumbers(position) {
+  const numbers = new Map();
+  const cells = position.cells;
+  for (let cell = 0; cell < cells.length; cell++) {
+    const number = cells.charCodeAt(cell) - 48;
+    if (number >= 0 && number <= 8) numbers.set(cell, number);
+  }
+  return numbers;
+}
+
+function positionFlags(position) {
+  const flags = new Set();
+  const cells = position.cells;
+  for (let cell = cells.indexOf('F'); cell !== -1; cell = cells.indexOf('F', cell + 1)) flags.add(cell);
+  return flags;
+}
+
+function positionOpenCount(position) {
+  let count = 0;
+  const cells = position.cells;
+  for (let cell = 0; cell < cells.length; cell++) {
+    const number = cells.charCodeAt(cell) - 48;
+    if (number >= 0 && number <= 8) count++;
+  }
+  return count;
+}
+
+function squareList(cells) {
+  return cells.split(',').map(Number);
+}
+
 function positionView(position) {
   const size = position.width * position.height;
   const revealed = new Array(size).fill(false);
   const adjacent = new Array(size).fill(0);
-  for (const [cell, number] of position.revealed) {
+  for (const [cell, number] of positionNumbers(position)) {
     revealed[cell] = true;
     adjacent[cell] = number;
   }
@@ -329,6 +366,49 @@ function positionView(position) {
     width: position.width, height: position.height, mines: position.mines,
     revealed, adjacent,
   };
+}
+
+// Evaluations saved before 2026-10-26 kept a board as `revealed`
+// ([square, number] pairs) and `flagged` (squares), and each square list as
+// an array. Temporary: saved records convert as they load and saved traces
+// as they are read, until BACKLOG.md "Board strings: step 2" removes this.
+function stringFormatEvaluation(evaluation) {
+  const position = evaluation.position;
+  const pairBoard = position !== undefined && Array.isArray(position.revealed);
+  const arrayLists = ['alternatives', 'choices'].some((field) => Array.isArray(evaluation[field])
+    && evaluation[field].some((list) => Array.isArray(list.cells)));
+  if (!pairBoard && !arrayLists) return evaluation;
+  const converted = { ...evaluation };
+  if (pairBoard) {
+    const size = position.width * position.height;
+    const cells = new Array(size).fill('.');
+    for (const [cell, number] of position.revealed) {
+      if (!(Number.isInteger(cell) && cell >= 0 && cell < size && Number.isInteger(number)
+          && number >= 0 && number <= 8 && cells[cell] === '.')) {
+        throw new Error('saved board has an unconvertible open square: ' + JSON.stringify([cell, number]));
+      }
+      cells[cell] = String(number);
+    }
+    for (const cell of position.flagged) {
+      if (!(Number.isInteger(cell) && cell >= 0 && cell < size && cells[cell] === '.')) {
+        throw new Error('saved board has an unconvertible flag: ' + JSON.stringify(cell));
+      }
+      cells[cell] = 'F';
+    }
+    converted.position = { width: position.width, height: position.height, mines: position.mines,
+      cells: cells.join('') };
+  }
+  for (const field of ['alternatives', 'choices']) {
+    if (!Array.isArray(evaluation[field])) continue;
+    converted[field] = evaluation[field].map((list) => {
+      if (!Array.isArray(list.cells)) return list;
+      if (list.cells.length === 0 || !list.cells.every((cell) => Number.isInteger(cell) && cell >= 0)) {
+        throw new Error('saved square list is unconvertible: ' + JSON.stringify(list.cells));
+      }
+      return { ...list, cells: list.cells.join(',') };
+    });
+  }
+  return converted;
 }
 
 function squareDistance(width, a, b) {
@@ -339,8 +419,8 @@ function squareDistance(width, a, b) {
 // Whether a revealed number next to `cell` already carried exactly as many
 // flags as its count, which declares every other covered neighbor safe.
 function besideFlagSatisfiedNumber(position, cell) {
-  const flagged = new Set(position.flagged);
-  for (const [number, count] of position.revealed) {
+  const flagged = positionFlags(position);
+  for (const [number, count] of positionNumbers(position)) {
     if (count === 0 || squareDistance(position.width, number, cell) !== 1) continue;
     let flags = 0;
     for (const around of Justice.neighbors(number, position.width, position.height)) {
@@ -405,7 +485,7 @@ function nearestLowestRiskDistance(evaluation) {
     alternative.kind === 'lower-risk-reveal');
   if (lower === undefined) return undefined;
   const chosen = evaluation.selected[0];
-  return Math.min(...lower.cells.map((cell) =>
+  return Math.min(...squareList(lower.cells).map((cell) =>
     squareDistance(evaluation.position.width, cell, chosen)));
 }
 
@@ -780,7 +860,7 @@ function actionEvaluationText(evaluation) {
         : '') + '.');
   }
   const alternativeCount = new Set((evaluation.alternatives || [])
-    .flatMap((alternative) => alternative.cells)).size;
+    .flatMap((alternative) => squareList(alternative.cells))).size;
   if (alternativeCount > 0) {
     parts.push(alternativeCount + ' alternative '
       + (alternativeCount === 1 ? 'move is' : 'moves are')
@@ -1039,7 +1119,7 @@ function actionEvaluationLines(evaluation, extraLines = []) {
   const alternatives = evaluation.alternatives || [];
   if (!evaluation.position && alternatives.length > 0) {
     const parts = alternatives.map((alternative) => {
-      const count = Array.isArray(alternative.cells) ? alternative.cells.length : 0;
+      const count = squareList(alternative.cells).length;
       return count + ' ' + evaluationAlternativeLabel(alternative.kind).toLowerCase()
         + (count === 1 ? '' : 's');
     });
@@ -1057,8 +1137,8 @@ function evaluationCropBounds(position, evaluation, padding = 2) {
     cropped: false,
   };
   const relevant = new Set();
-  for (const pair of position.revealed || []) relevant.add(pair[0]);
-  for (const cell of position.flagged || []) relevant.add(cell);
+  for (const cell of positionNumbers(position).keys()) relevant.add(cell);
+  for (const cell of positionFlags(position)) relevant.add(cell);
   for (const cell of evaluation.selected || []) relevant.add(cell);
   if (Number.isInteger(evaluation.triggerCell)) relevant.add(evaluation.triggerCell);
   const cellsInBoard = [...relevant].filter((cell) =>
@@ -1146,18 +1226,13 @@ function coveredFactsInfo(view = playerView()) {
 }
 
 function visiblePositionSnapshot() {
-  const revealed = [];
-  const flagged = [];
-  for (let i = 0; i < cells.length; i++) {
-    if (cells[i].revealed) revealed.push([i, cells[i].adjacent]);
-    if (cells[i].flagged) flagged.push(i);
-  }
+  let squares = '';
+  for (const cell of cells) squares += cell.revealed ? cell.adjacent : cell.flagged ? 'F' : '.';
   return {
     width: config.width,
     height: config.height,
     mines: config.mines,
-    revealed,
-    flagged,
+    cells: squares,
   };
 }
 
@@ -1191,7 +1266,7 @@ function addAlternative(evaluation, kind, candidates, risk) {
   const selected = new Set(evaluation.selected);
   const cells = [...new Set(candidates)].filter((cell) => !selected.has(cell));
   if (cells.length === 0) return;
-  const alternative = { kind, cells };
+  const alternative = { kind, cells: cells.join(',') };
   if (typeof risk === 'number') alternative.risk = risk;
   evaluation.alternatives.push(alternative);
 }
@@ -1204,7 +1279,7 @@ function setDecisionChoices(evaluation, kind, candidates, risk) {
       && (!(revealing || placingFlag) || !cells[cell].revealed)
       && (!(revealing || placingFlag) || !cells[cell].flagged));
   if (choices.length === 0) return;
-  const choice = { kind, cells: choices };
+  const choice = { kind, cells: choices.join(',') };
   if (typeof risk === 'number') choice.risk = risk;
   evaluation.choices = [choice];
 }

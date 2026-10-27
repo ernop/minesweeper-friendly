@@ -86,7 +86,7 @@ check('event timestamps stay non-decreasing',
 const evaluation = {
   action: 'reveal',
   atMs: 999,
-  position: { width: 9, height: 9, mines: 10, revealed: [], flagged: [] },
+  position: { width: 9, height: 9, mines: 10, cells: '.'.repeat(81) },
 };
 traceDecision(evaluation);
 const decision = events[events.length - 1];

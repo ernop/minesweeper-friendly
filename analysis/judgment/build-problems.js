@@ -50,7 +50,7 @@ vm.runInThisContext(source.slice(startIdx, endIdx));
    WIN_TYPE_LABELS, evaluationBoardProgress, evaluationProvenSafeAvailable,
    evaluationJusticeSafeAvailable, besideFlagSatisfiedNumber, easiestProofTier,
    fatalProofTiers, lossTypeOf, winTypeOf, likelyMisclickReasonsOf, positionView,
-   squareDistance */
+   positionNumbers, positionFlags, squareList, stringFormatEvaluation, squareDistance */
 
 //-------DEFINITIONS-------
 
@@ -77,7 +77,7 @@ function phaseOf(progress) {
 }
 
 function flagsAround(position, cell) {
-  const flagged = new Set(position.flagged);
+  const flagged = positionFlags(position);
   return Justice.neighbors(cell, position.width, position.height).filter((nb) => flagged.has(nb));
 }
 
@@ -85,7 +85,7 @@ function flagsAround(position, cell) {
 // clicked square whose flags already matched its count.
 function trustedFlagsOf(position, cell) {
   const trusted = new Set();
-  for (const [number, count] of position.revealed) {
+  for (const [number, count] of positionNumbers(position)) {
     if (count === 0 || squareDistance(position.width, number, cell) !== 1) continue;
     const flags = flagsAround(position, number);
     if (flags.length === count) for (const flag of flags) trusted.add(flag);
@@ -239,7 +239,7 @@ function mineTierOf(moment) {
 function besideNumber(moment) {
   const position = moment.evaluation.position;
   const cell = moment.evaluation.selected[0];
-  return position.revealed.some(([number, count]) =>
+  return [...positionNumbers(position)].some(([number, count]) =>
     count > 0 && squareDistance(position.width, number, cell) === 1);
 }
 
@@ -247,7 +247,7 @@ function nearestLowestDistance(moment) {
   const lower = moment.evaluation.alternatives.find((alt) => alt.kind === 'lower-risk-reveal');
   if (lower === undefined) return undefined;
   const cell = moment.evaluation.selected[0];
-  return Math.min(...lower.cells.map((other) =>
+  return Math.min(...squareList(lower.cells).map((other) =>
     squareDistance(moment.evaluation.position.width, other, cell)));
 }
 
@@ -489,10 +489,12 @@ function bankMoment(moment, record, key) {
     kind: moment.kind,
     phase: moment.phase,
     progress: round(moment.progress),
-    position,
+    // The problem file keeps boards as pairs, the form judge.js reads.
+    position: { width: position.width, height: position.height, mines: position.mines,
+      revealed: [...positionNumbers(position)], flagged: [...positionFlags(position)] },
     safeCells: safeCells.sort((a, b) => a - b),
     mineCells: mineCells.sort((a, b) => a - b),
-    contradictedFlags: position.flagged.filter((cell) => facts.get(cell) === 2),
+    contradictedFlags: [...positionFlags(position)].filter((cell) => facts.get(cell) === 2),
     mistakes: evaluation.mistakes,
   };
   if (typeof evaluation.triggerCell === 'number') out.triggerCell = evaluation.triggerCell;
@@ -708,7 +710,10 @@ const exportData = JSON.parse(fs.readFileSync(inputPath, 'utf8'));
 const games = [];
 for (const key of KEYS) {
   if (!Array.isArray(exportData[key])) throw new Error('export has no ' + key + ' history');
-  for (const record of exportData[key]) {
+  for (const saved of exportData[key]) {
+    // Exports saved before 2026-10-26 keep boards and square lists as arrays.
+    const record = Array.isArray(saved.actionEvaluations)
+      ? { ...saved, actionEvaluations: saved.actionEvaluations.map(stringFormatEvaluation) } : saved;
     if (!modernEvidence(record)) continue;
     if (record.outcome !== 'win' && record.outcome !== 'loss') continue;
     games.push(gameOf(key, record));

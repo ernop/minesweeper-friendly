@@ -1,15 +1,15 @@
 "use strict";
 
 importScripts('trend-fit.js?v=20260925-worker-analysis',
-  'game/trace-metrics.js?v=20261026-result-openers',
-  'game/evaluation.js?v=20261026-result-openers',
-  'game-data.js?v=20261026-planned-pairs', 'game/metric-definitions.js?v=20261026-result-openers',
+  'game/trace-metrics.js?v=20261026-board-strings',
+  'game/evaluation.js?v=20261026-board-strings',
+  'game-data.js?v=20261026-planned-pairs', 'game/metric-definitions.js?v=20261026-board-strings',
   'board-shape.js?v=20261020-no-left-panel', 'zini.js?v=20261020-no-left-panel', 'board-metrics.js?v=20261020-no-left-panel',
-  'game/rankings.js?v=20261026-result-openers',
-  'game/charts.js?v=20261026-result-openers', 'game/game-data-chart.js?v=20261026-result-openers',
+  'game/rankings.js?v=20261026-board-strings',
+  'game/charts.js?v=20261026-board-strings', 'game/game-data-chart.js?v=20261026-board-strings',
   'justice.js?v=20261026-move-hierarchy', 'odds.js?v=20261026-move-hierarchy', 'board-icons.js?v=20261015-flag-controls',
-  'game/replay-model.js?v=20261026-result-openers',
-  'during-game.js?v=20261026-fastclick-cleanup');
+  'game/replay-model.js?v=20261026-board-strings',
+  'during-game.js?v=20261026-board-strings');
 
 let config;
 
@@ -39,7 +39,7 @@ function heldDuringGameModel(data) {
 function standingFlags(events) {
   const decisions = pathDecisionEvents(events);
   const last = decisions[decisions.length - 1].evaluation;
-  const flagged = new Set(last.position.flagged);
+  const flagged = positionFlags(last.position);
   if (last.action === 'flag-place') flagged.add(last.selected[0]);
   if (last.action === 'flag-remove') flagged.delete(last.selected[0]);
   return [...flagged];

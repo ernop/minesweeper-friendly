@@ -285,21 +285,10 @@ function restoreFinishedBoard() {
 // them is proven clear. A solver exception propagates: a crash must never
 // be shown as "position too complex" (Anti-Fallback Principle).
 function replaySolverRead(position) {
+  const view = positionView(position);
   const size = position.width * position.height;
-  const revealed = new Array(size).fill(false);
-  const adjacent = new Array(size).fill(0);
-  for (const [cell, count] of position.revealed || []) {
-    revealed[cell] = true;
-    adjacent[cell] = count;
-  }
-  const view = {
-    width: position.width,
-    height: position.height,
-    mines: position.mines,
-    revealed,
-    adjacent,
-  };
-  const flagged = new Set(position.flagged || []);
+  const revealed = view.revealed;
+  const flagged = positionFlags(position);
   const odds = Odds.analyzeView(view);
   const measured = odds.measured === true;
   let facts;

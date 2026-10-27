@@ -60,8 +60,12 @@ function validActionEvaluations(value) {
       && Number.isInteger(position.width) && position.width > 0
       && Number.isInteger(position.height) && position.height > 0
       && position.width * position.height <= 100000
-      && Array.isArray(position.revealed)
-      && Array.isArray(position.flagged);
+      && ((typeof position.cells === 'string'
+        && position.cells.length === position.width * position.height
+        && /^[.F0-8]*$/.test(position.cells))
+        // Temporary, converted on import: exports saved before 2026-10-26
+        // (BACKLOG.md, "Board strings: step 2").
+        || (Array.isArray(position.revealed) && Array.isArray(position.flagged)));
   }));
 }
 const GAME_RECORD_SCHEMA = [
@@ -256,6 +260,14 @@ function normalizeGameRecord(record) {
     normalized.actionEvaluations = normalized.outcome === 'loss'
       ? [legacyFatalEvaluation(normalized)]
       : [legacyCoverageEvaluation(normalized)];
+    changed = true;
+  }
+  // Temporary: delete with stringFormatEvaluation (BACKLOG.md, "Board
+  // strings: step 2").
+  const stringFormat = normalized.actionEvaluations.map((evaluation) =>
+    evaluation.version === ACTION_EVALUATION_VERSION ? stringFormatEvaluation(evaluation) : evaluation);
+  if (stringFormat.some((evaluation, i) => evaluation !== normalized.actionEvaluations[i])) {
+    normalized.actionEvaluations = stringFormat;
     changed = true;
   }
   // Losses saved before their fatal reveal recorded its proof tiers

@@ -131,4 +131,51 @@ const base = {
   check('a tiered loss is left unchanged', normalizeGameRecord(first.record).changed === false);
 }
 
+// Boards and square lists saved before 2026-10-26 hold arrays: loading
+// converts them to strings once, losslessly; a converted record loads
+// unchanged, and a board no string can hold stops the load.
+{
+  const saved = {
+    version: ACTION_EVALUATION_VERSION,
+    action: 'reveal',
+    actionNumber: 2,
+    atMs: 500,
+    result: 'continued',
+    selected: [5],
+    mistakes: ['chose-higher-risk'],
+    evidence: { boardProgress: 0.25 },
+    alternatives: [{ kind: 'lower-risk-reveal', cells: [6, 7], risk: 0.1 }],
+    choices: [{ kind: 'minimum-risk-reveal', cells: [6, 7], risk: 0.1 }],
+    position: { width: 4, height: 2, mines: 2, revealed: [[0, 1], [1, 2], [3, 0]], flagged: [2] },
+  };
+  const loaded = normalizeGameRecord({ ...base, outcome: 'win', actionEvaluations: [saved] });
+  const converted = loaded.record.actionEvaluations[0];
+  check('an array-format record is converted and persisted', loaded.changed);
+  check('the board becomes one character per square', converted.position.cells === '12F0....');
+  check('the board keeps its size and nothing else',
+    JSON.stringify(Object.keys(converted.position)) === '["width","height","mines","cells"]'
+      && converted.position.width === 4 && converted.position.height === 2 && converted.position.mines === 2);
+  check('square lists become comma-joined squares',
+    converted.alternatives[0].cells === '6,7' && converted.choices[0].cells === '6,7');
+  check('list risks are kept', converted.alternatives[0].risk === 0.1 && converted.choices[0].risk === 0.1);
+  check('the decoders read the converted board back exactly',
+    JSON.stringify([...positionNumbers(converted.position)]) === '[[0,1],[1,2],[3,0]]'
+      && JSON.stringify([...positionFlags(converted.position)]) === '[2]'
+      && positionOpenCount(converted.position) === 3);
+  check('the decoders read a square list back exactly',
+    JSON.stringify(squareList(converted.alternatives[0].cells)) === '[6,7]');
+  check('the saved record is not mutated', Array.isArray(saved.position.revealed));
+  const again = normalizeGameRecord(loaded.record);
+  check('a converted record loads unchanged',
+    again.changed === false && again.record.actionEvaluations[0] === converted);
+  let refused = false;
+  try {
+    normalizeGameRecord({ ...base, outcome: 'win',
+      actionEvaluations: [{ ...saved, position: { ...saved.position, flagged: [0] } }] });
+  } catch (error) {
+    refused = /unconvertible flag/.test(error.message);
+  }
+  check('a square both open and flagged stops the load', refused);
+}
+
 console.log(`action-evaluation-migration: all ${checks} checks passed`);

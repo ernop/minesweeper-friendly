@@ -139,7 +139,8 @@ async function restorePreferredResult() {
   flagsCount = cells.filter((c) => c.flagged).length;
   revealedCount = cells.filter((c) => c.revealed).length;
   trace = { startedAt: stored.startedAt, t0: performance.now() - (stored.endedAt - stored.startedAt),
-    t: Array.from(stored.sampleT), x: Array.from(stored.sampleX), y: Array.from(stored.sampleY), events: stored.events };
+    t: Array.from(stored.sampleT), x: Array.from(stored.sampleX), y: Array.from(stored.sampleY),
+    events: stringFormatTraceEvents(stored) };
   const mine = mineSvg(settings.mineStyle);
   const wrongFlag = wrongFlagSvg(settings.mineStyle);
   for (let i = 0; i < cells.length; i++) {

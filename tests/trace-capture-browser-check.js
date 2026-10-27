@@ -86,7 +86,7 @@ const { chromium } = require(process.argv[2]);
           saved.sampleTrusted, saved.sampleMergeCount].map(a => a.length),
         events: saved.events, enriched, original };
     });
-    assert.equal(captured.version, 1);
+    assert.equal(captured.version, 2);
     assert(Number.isFinite(captured.clock.timeOriginMs));
     assert(Number.isFinite(captured.clock.traceStartMs));
     assert.equal(typeof captured.initialPageState.hasFocus, 'boolean');

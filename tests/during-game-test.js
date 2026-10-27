@@ -85,7 +85,8 @@ function playGame(width, height, mineCells, steps) {
       y.push(from.y + (target.y - from.y) * i / 10);
     }
     const position = { width, height, mines: mineCells.length,
-      revealed: [...revealed].map(([c, a]) => [c, a]), flagged: [...flagged] };
+      cells: Array.from({ length: size }, (_, c) => (revealed.has(c) ? String(revealed.get(c))
+        : flagged.has(c) ? 'F' : '.')).join('') };
     const view = { width, height, mines: mineCells.length,
       revealed: Array.from({ length: size }, (_, c) => revealed.has(c)),
       adjacent: Array.from({ length: size }, (_, c) => revealed.get(c) ?? 0) };

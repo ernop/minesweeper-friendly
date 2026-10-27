@@ -282,7 +282,9 @@ function loadTracesByEndedAt(endedAts, done) {
   for (const endedAt of endedAts) {
     const request = store.get(endedAt);
     request.onsuccess = () => {
-      if (request.result !== undefined) traces.set(endedAt, request.result);
+      if (request.result !== undefined) {
+        traces.set(endedAt, { ...request.result, events: stringFormatTraceEvents(request.result) });
+      }
     };
   }
   tx.oncomplete = () => done(traces);

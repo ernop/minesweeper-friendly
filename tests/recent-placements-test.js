@@ -236,7 +236,7 @@ assertEq('middle placement wording is shared by the recent summary',
   const fatal = (actionNumber, atMs, extra) => ({
     version: ACTION_EVALUATION_VERSION, action: 'reveal', actionNumber, atMs, result: 'death',
     selected: [1], alternatives: [],
-    position: { width: 3, height: 1, mines: 1, revealed: [[0, 1]], flagged: [] }, ...extra,
+    position: { width: 3, height: 1, mines: 1, cells: '1..' }, ...extra,
   });
   const provenMine = fatal(9, 5000, { mistakes: ['opened-proven-mine'],
     evidence: { safeAvailable: true, mineProofTier: 'counting', safeProofTier: 'whole-board' } });

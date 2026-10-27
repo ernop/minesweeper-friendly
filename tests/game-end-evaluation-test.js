@@ -179,7 +179,7 @@ const provenMineWithSafe = {
   result: 'death',
   mistakes: ['opened-proven-mine', 'ignored-safe-move'],
   evidence: { chosenRisk: 1, bestRisk: 0, safeAvailable: true },
-  alternatives: [{ kind: 'safe-reveal', cells: [4] }],
+  alternatives: [{ kind: 'safe-reveal', cells: '4' }],
 };
 assertEq('proven mine remains ending kind', evaluationEndingKind(provenMineWithSafe), 'mine');
 assertContains('mine text states the provable fact',
@@ -200,7 +200,7 @@ const unnecessaryGuess = {
   result: 'continued',
   mistakes: ['guessed-with-safe-move'],
   evidence: { chosenRisk: 0.2, bestRisk: 0, safeAvailable: true },
-  alternatives: [{ kind: 'safe-reveal', cells: [7, 8] }],
+  alternatives: [{ kind: 'safe-reveal', cells: '7,8' }],
 };
 assertEq('safe-open guess is needless ending kind',
   evaluationEndingKind({ ...unnecessaryGuess, result: 'death' }), 'needless');
@@ -217,7 +217,7 @@ const lowerModeledLife = {
   result: 'continued',
   mistakes: ['chose-lower-modeled-life'],
   evidence: { expectedLife: 0.4, bestExpectedLife: 0.6 },
-  alternatives: [{ kind: 'higher-modeled-life-reveal', cells: [6] }],
+  alternatives: [{ kind: 'higher-modeled-life-reveal', cells: '6' }],
 };
 assertContains('modeled-life dimension names the model',
   actionEvaluationText(lowerModeledLife), 'one-ply odds model');
@@ -234,7 +234,7 @@ const higherRisk = {
   result: 'death',
   mistakes: ['chose-higher-risk'],
   evidence: { chosenRisk: 0.3, bestRisk: 0.125, safeAvailable: false },
-  alternatives: [{ kind: 'lower-risk-reveal', cells: [2] }],
+  alternatives: [{ kind: 'lower-risk-reveal', cells: '2' }],
 };
 assertEq('higher-risk forced guess ending', evaluationEndingKind(higherRisk), 'forced');
 assertEq('fatal label distinguishes higher-risk forced guess',
@@ -255,8 +255,8 @@ const compactRiskLines = actionEvaluationLines({
     bestExpectedLife: 2 / 3,
   },
   alternatives: [{ kind: 'lower-risk-reveal',
-    cells: Array.from({ length: 252 }, (_, i) => i + 2) }],
-  position: { width: 30, height: 16, revealed: [[0, 1]], flagged: [] },
+    cells: Array.from({ length: 252 }, (_, i) => i + 2).join(',') }],
+  position: { width: 30, height: 16, cells: '1' + '.'.repeat(479) },
 });
 assertEq('compact risk report has one nonduplicated risk line',
   compactRiskLines.filter((line) =>
@@ -300,7 +300,7 @@ assertEq('progress derives from the saved position when unstored',
     evidence: { chosenRisk: 0.5, bestRisk: 0.15,
       actualRisk: 0.5, bestActualRisk: 0.15 },
     position: { width: 16, height: 16, mines: 40,
-      revealed: [[0, 1], [1, 1], [16, 3], [17, 1]], flagged: [] },
+      cells: '11' + '.'.repeat(14) + '31' + '.'.repeat(238) },
   }), 'earlyGuess');
 assertEq('unmeasurable progress stays game risk',
   actionEvaluationCategory({ ...earlyGuess,
@@ -342,12 +342,11 @@ assertEq('guessing past a safe move stays guess-safe even early',
 const cropped = evaluationCropBounds({
   width: 30,
   height: 16,
-  revealed: [[0, 1]],
-  flagged: [],
+  cells: '1' + '.'.repeat(479),
 }, {
   selected: [1],
   alternatives: [{ kind: 'lower-risk-reveal',
-    cells: Array.from({ length: 252 }, (_, i) => i + 2) }],
+    cells: Array.from({ length: 252 }, (_, i) => i + 2).join(',') }],
 });
 assertEq('uniform covered remainder is cropped', cropped.cropped, true);
 assertEq('crop keeps two cells of nearby context',
@@ -549,7 +548,7 @@ const flaggedSafe = {
   result: 'continued',
   mistakes: ['flagged-proven-safe'],
   evidence: { knowledge: 'proven-safe' },
-  position: { width: 2, height: 2 },
+  position: { width: 2, height: 2, cells: '....' },
 };
 const flaggedSafeGroups = aggregateReportEntries([
   { evaluation: flaggedSafe, shown: flaggedSafe, category: 'timeLoss' },
@@ -673,7 +672,7 @@ const fatalReveal = (cell, position, evidence, mistakes, extra = {}) => {
 const provenMine = ['opened-proven-mine'];
 // 1 x 3, one mine: the 1 on the left proves its neighbor mined; only the
 // mine total proves the far square safe.
-const countingMine = fatalReveal(1, { width: 3, height: 1, mines: 1, revealed: [[0, 1]], flagged: [] },
+const countingMine = fatalReveal(1, { width: 3, height: 1, mines: 1, cells: '1..' },
   { safeAvailable: true }, [...provenMine, 'ignored-safe-move']);
 assertEq('counting tier stored for the opened mine', countingMine.evidence.mineProofTier, 'counting');
 assertEq('whole-board tier stored for the safe square', countingMine.evidence.safeProofTier, 'whole-board');
@@ -689,41 +688,39 @@ assertEq('safe alternative line names the tier',
 assertEq('stored tiers are not measured again', JSON.stringify(fatalProofTiers(countingMine)), '{}');
 // 4 x 2 with 1-2-1-1 along the top: no single number settles anything, but
 // subtracting overlapping numbers proves square 6 mined and 5 and 7 safe.
-const overlapMine = fatalReveal(6, { width: 4, height: 2, mines: 2,
-  revealed: [[0, 1], [1, 2], [2, 1], [3, 1]], flagged: [] },
+const overlapMine = fatalReveal(6, { width: 4, height: 2, mines: 2, cells: '1211....' },
 { safeAvailable: true }, [...provenMine, 'ignored-safe-move']);
 assertEq('overlap tier for the mine', overlapMine.evidence.mineProofTier, 'overlap');
 assertEq('overlap tier for the safe square', overlapMine.evidence.safeProofTier, 'overlap');
 assertEq('an overlap-proven mine', lossTypeOf(overlapMine), 'mine-overlap');
 // 1 x 3, one mine, a 0 on the left: counting proves the middle safe; only
 // the mine total proves the far square mined.
-const wholeBoardMine = fatalReveal(2, { width: 3, height: 1, mines: 1, revealed: [[0, 0]], flagged: [] },
+const wholeBoardMine = fatalReveal(2, { width: 3, height: 1, mines: 1, cells: '0..' },
   { safeAvailable: true }, [...provenMine, 'ignored-safe-move']);
 assertEq('whole-board tier for the mine', wholeBoardMine.evidence.mineProofTier, 'whole-board');
 assertEq('counting tier for the safe square', wholeBoardMine.evidence.safeProofTier, 'counting');
 assertEq('a whole-board-proven mine', lossTypeOf(wholeBoardMine), 'mine-whole-board');
 // The same top row over a third row no number touches: one mine hides in
 // that row, so opening any of its squares there was a 1-in-4 guess.
-const needless = fatalReveal(9, { width: 4, height: 3, mines: 3,
-  revealed: [[0, 1], [1, 2], [2, 1], [3, 1]], flagged: [] },
+const needless = fatalReveal(9, { width: 4, height: 3, mines: 3, cells: '1211........' },
 { safeAvailable: true, chosenRisk: 0.25, bestRisk: 0 }, ['opened-unproven-with-safe-move']);
 assertEq('a needless guess carries the safe square tier only',
   [needless.evidence.mineProofTier, needless.evidence.safeProofTier].join(','), ',overlap');
 assertEq('a needless guess graded by the safe square tier', lossTypeOf(needless), 'guess-safe-overlap');
 assertEq('the loss kind is the same loss type', lossKindOf(needless), 'guess-safe-overlap');
-const justiceOnly = fatalReveal(2, { width: 3, height: 1, mines: 1, revealed: [], flagged: [] },
+const justiceOnly = fatalReveal(2, { width: 3, height: 1, mines: 1, cells: '...' },
   { safeAvailable: false, chosenRisk: 1 / 3, bestRisk: 1 / 3, actualRisk: 1 / 3, bestActualRisk: 0 }, []);
 assertEq('a guess past an A Just Universe safe entry', lossTypeOf(justiceOnly), 'guess-safe-justice');
 // A 1 already carrying its flag declares its other neighbors safe, so
 // opening a mine beside it proves the flag wrong, whatever the odds said.
-const flagSatisfied = fatalReveal(2, { width: 3, height: 1, mines: 1, revealed: [[1, 1]], flagged: [0] },
+const flagSatisfied = fatalReveal(2, { width: 3, height: 1, mines: 1, cells: 'F1.' },
   { safeAvailable: false, chosenRisk: 0.5, bestRisk: 0.5 }, []);
 assertEq('a reveal beside a flag-satisfied number is a wrong flag', lossTypeOf(flagSatisfied), 'flag-wrong');
 assertEq('the wrong flag is explained',
   fatalEvidenceLines(flagSatisfied, []).find((line) => line.label === 'Wrong flag').value,
   'a number beside this square already had all its flags, so one of them was on a safe square');
 const positionedChord = { ...uncertainChordDeath, triggerCell: 1, selected: [2],
-  position: { width: 3, height: 1, mines: 1, revealed: [[1, 1]], flagged: [0] } };
+  position: { width: 3, height: 1, mines: 1, cells: 'F1.' } };
 assertEq('every positioned chord death is a wrong flag', lossTypeOf(positionedChord), 'flag-wrong');
 assertEq('a chord death without a saved position keeps its status',
   lossTypeOf(uncertainChordDeath), 'guess-unmeasured');
@@ -731,9 +728,9 @@ assertEq('a Proof-or-die chord over unproven squares is a rule death',
   lossTypeOf({ ...positionedChord, evidence: { playMode: 'proof-or-die', safeAvailable: true } }),
   'proof-safe');
 const higherAt = (lowerCell) => fatalReveal(0, { width: 10, height: 10, mines: 20,
-  revealed: [[55, 1]], flagged: [] },
+  cells: '.'.repeat(55) + '1' + '.'.repeat(44) },
 { chosenRisk: 0.3, bestRisk: 0.1, safeAvailable: false, boardProgress: 0.5 }, ['chose-higher-risk'],
-  { alternatives: [{ kind: 'lower-risk-reveal', cells: [lowerCell] }] });
+  { alternatives: [{ kind: 'lower-risk-reveal', cells: String(lowerCell) }] });
 assertEq('a lowest-risk square 2 away is near', lossTypeOf(higherAt(22)), 'guess-higher-near');
 assertEq('a lowest-risk square 3 away is far', lossTypeOf(higherAt(3)), 'guess-higher-far');
 assertEq('the distance is stated',

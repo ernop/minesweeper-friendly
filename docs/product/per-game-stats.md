@@ -431,7 +431,9 @@ plus one item for the fatal action on a loss. Every item carries a schema
 version, action number/time, action/result, any number of independent
 mistake tags, literal measured evidence, and alternative cells. Actions
 where position matters also carry a compact visible-position snapshot
-(revealed cell/number pairs plus flagged indices); no-op inputs omit it
+(one character per square, and alternative cells as one comma-joined
+string, since 2026-10-26: [Storage](storage-and-history.md), "Saved boards
+and square lists"); no-op inputs omit it
 to avoid duplicating the board in history. A snapshot records what was visible, not hidden
 mines the player could not see. See [Game-end evaluation](game-end-evaluation.md) for the full
 taxonomy and report.

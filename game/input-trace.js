@@ -209,6 +209,19 @@ function traceDecision(evaluation) {
   scheduleMetricsUpdate({ trace: true });
 }
 
+// Capture version 2 (2026-10-26) saves each decision's board and square
+// lists as strings (positionNumbers in game/evaluation.js).
+const TRACE_CAPTURE_VERSION = 2;
+
+// Traces saved before capture version 2 keep their decisions' boards and
+// square lists as arrays. Temporary, with stringFormatEvaluation (BACKLOG.md,
+// "Board strings: step 2").
+function stringFormatTraceEvents(stored) {
+  if (stored.captureVersion === TRACE_CAPTURE_VERSION) return stored.events;
+  return stored.events.map((event) => event.kind === 'decision'
+    ? { ...event, evaluation: stringFormatEvaluation(event.evaluation) } : event);
+}
+
 // Stored trace: identity fields matching the game record, plus the sample
 // arrays as typed arrays (compact; IndexedDB stores them natively).
 function saveTrace(record) {
@@ -223,7 +236,7 @@ function saveTrace(record) {
     boardVersion: record.boardVersion,
     justiceVersion: record.justiceVersion,
     startedAt: trace.startedAt,
-    captureVersion: 1,
+    captureVersion: TRACE_CAPTURE_VERSION,
     clock: { timeOriginMs: performance.timeOrigin, traceStartMs: trace.t0 },
     initialPageState: trace.initialPageState,
     environment: trace.environment,

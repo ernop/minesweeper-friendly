@@ -11,6 +11,9 @@ const start = source.indexOf('//-------PATH REPLAY: COMPUTATION');
 const end = source.indexOf('//-------PATH REPLAY: DISPLAY');
 if (start < 0 || end <= start) throw new Error('path replay markers not found');
 vm.runInThisContext(fs.readFileSync(path.join(__dirname, '..', 'board-icons.js'), 'utf8'));
+globalThis.Justice = require(path.join(__dirname, '..', 'justice.js'));
+vm.runInThisContext(source.slice(source.indexOf('//-------GAME-END EVALUATION: VERDICT'),
+  source.indexOf('//-------GAME-END EVALUATION: CAPTURE')));
 vm.runInThisContext(source.slice(start, end));
 
 let checks = 0;
@@ -49,7 +52,7 @@ check('empty range is explicitly unmeasured',
         width: 5,
         height: 4,
         mines: 5,
-        revealed: [[0, 0], [1, 1], [2, 1]],
+        cells: '011' + '.'.repeat(17),
       },
       mistakes: [],
     },
@@ -70,7 +73,7 @@ check('empty range is explicitly unmeasured',
     {
       kind: 'decision',
       t: 1,
-      evaluation: { position: { width: 1, height: 1, mines: 0, revealed: [] } },
+      evaluation: { position: { width: 1, height: 1, mines: 0, cells: '.' } },
     },
   ];
   const decisions = pathDecisionEvents(events);
@@ -118,8 +121,8 @@ check('uncertain endpoint risks are not rounded to certainty',
   const evaluation = {
     position: { width: 5, height: 4, mines: 4 },
     choices: [
-      { kind: 'minimum-risk-reveal', risk: 0.5, cells: [0, 1, 6, 19] },
-      { kind: 'guaranteed-safe-reveal', risk: 0, cells: [10] },
+      { kind: 'minimum-risk-reveal', risk: 0.5, cells: '0,1,6,19' },
+      { kind: 'guaranteed-safe-reveal', risk: 0, cells: '10' },
     ],
   };
   const areas = pathChoiceAreas(evaluation);
@@ -279,11 +282,10 @@ check('only the cell\'s own glyph dims on a proven mine, not the mark-mine hint'
     atMs: 1770,
     triggerCell: 0,
     selected: [4],
-    choices: [{ kind: 'guaranteed-safe-reveal', risk: 0, cells: [4] }],
+    choices: [{ kind: 'guaranteed-safe-reveal', risk: 0, cells: '4' }],
     position: {
       width: 3, height: 2, mines: 2,
-      revealed: [[0, 1], [1, 2], [2, 1]],
-      flagged: [3],
+      cells: '121F..',
     },
   };
   const facts = new Map([[3, 1], [4, 2], [5, 1]]);

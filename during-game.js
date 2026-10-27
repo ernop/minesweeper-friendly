@@ -281,12 +281,13 @@ const DuringGame = (() => {
     const byOpenCount = new Map();
     return {
       of(position) {
-        let proven = byOpenCount.get(position.revealed.length);
+        const openCount = positionOpenCount(position);
+        let proven = byOpenCount.get(openCount);
         if (proven === undefined) {
           const view = positionView(position);
           const proof = Justice.proveLevels(view, Justice.rawClues(view));
           proven = { proof, squares: proofSquares(proof, position.width * position.height, rankOf) };
-          byOpenCount.set(position.revealed.length, proven);
+          byOpenCount.set(openCount, proven);
         }
         return proven;
       },
@@ -377,7 +378,7 @@ const DuringGame = (() => {
   // square's neighbors.
   function chordableCount(position, around, revealed, flagged, mineAt) {
     let count = 0;
-    for (const [cell, number] of position.revealed) {
+    for (const [cell, number] of positionNumbers(position)) {
       if (number === 0) continue;
       let flags = 0;
       let wrongFlag = false;
@@ -492,7 +493,7 @@ const DuringGame = (() => {
 
     // Pass 1: what each action changed, and what the board proved before it.
     const revealed = new Uint8Array(size);
-    for (const [cell] of decisions[0].evaluation.position.revealed) revealed[cell] = 1;
+    for (const cell of positionNumbers(decisions[0].evaluation.position).keys()) revealed[cell] = 1;
     const solvedRegion = new Uint8Array(board.regions);
     let solved = 0;
     let opened = 0;
@@ -509,7 +510,7 @@ const DuringGame = (() => {
     for (let cell = 0; cell < size; cell++) if (revealed[cell]) open(cell);
     const solvedAtStart = solved;
     const openedAtStart = opened;
-    const flaggedMinesOf = (position) => position.flagged.filter((cell) => mineAt[cell]).length;
+    const flaggedMinesOf = (position) => [...positionFlags(position)].filter((cell) => mineAt[cell]).length;
     const progress = { startMs: [0], solved: [solved], opened: [opened],
       flaggedMines: [flaggedMinesOf(decisions[0].evaluation.position)] };
     // What the board offered before each action: the squares proved safe
@@ -534,7 +535,7 @@ const DuringGame = (() => {
       // The full proof's facts, each with the first deduction level proving it.
       const { proof, squares } = game.proofs.of(position);
       const full = proof.facts;
-      const flagged = new Set(position.flagged);
+      const flagged = positionFlags(position);
       const safeAll = safeCellsOf(full, flagged);
       const complete = full.complete === true;
       factsAt.push(full);
@@ -577,7 +578,7 @@ const DuringGame = (() => {
       // opens every square still covered, a death none.
       const changed = [];
       if (k < last) {
-        for (const [cell] of decisions[k + 1].evaluation.position.revealed) {
+        for (const cell of positionNumbers(decisions[k + 1].evaluation.position).keys()) {
           if (!revealed[cell]) changed.push(cell);
         }
       } else if (game.outcome === 'win') {
@@ -685,7 +686,7 @@ const DuringGame = (() => {
       const atMs = evaluation.atMs;
       const cell = targetCellOf(evaluation);
       const changes = BOARD_CHANGING.has(evaluation.action);
-      const flagged = new Set(evaluation.position.flagged);
+      const flagged = positionFlags(evaluation.position);
       const action = { atMs, kind: evaluation.action, cell, changes, opened: changedBy[k].length,
         solved: progress.solved[k + 1] - progress.solved[k], result: evaluation.result,
         category: actionEvaluationCategory(evaluation) };

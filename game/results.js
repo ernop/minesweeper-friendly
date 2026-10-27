@@ -215,7 +215,7 @@ function buildEvaluationPosition(evaluation) {
   if (!Number.isInteger(position.width) || !Number.isInteger(position.height)
       || position.width <= 0 || position.height <= 0
       || position.width * position.height > 100000
-      || !Array.isArray(position.revealed) || !Array.isArray(position.flagged)) {
+      || typeof position.cells !== 'string') {
     return null;
   }
   const cellSize = 16;
@@ -233,11 +233,11 @@ function buildEvaluationPosition(evaluation) {
       + ', columns ' + (crop.colFrom + 1) + ' through ' + (crop.colTo + 1)
     : 'Visible board immediately before this action');
   const ctx = canvas.getContext('2d');
-  const revealed = new Map(position.revealed);
-  const flagged = new Set(position.flagged);
+  const revealed = positionNumbers(position);
+  const flagged = positionFlags(position);
   const alternatives = new Map();
   for (const alternative of evaluation.alternatives || []) {
-    for (const cell of alternative.cells) alternatives.set(cell, alternative.kind);
+    for (const cell of squareList(alternative.cells)) alternatives.set(cell, alternative.kind);
   }
   const selected = new Set(evaluation.selected || []);
   const numberColors = ['#555555', '#0000ff', '#008000', '#ff0000',
@@ -309,8 +309,7 @@ function buildEvaluationPosition(evaluation) {
   for (const alternative of evaluation.alternatives || []) {
     const item = document.createElement('span');
     item.className = 'evaluation-key evaluation-key-' + alternative.kind;
-    const alternativeCells = Array.isArray(alternative.cells)
-      ? alternative.cells : [];
+    const alternativeCells = squareList(alternative.cells);
     const examples = alternativeCells.slice(0, 3).map(shortName);
     item.textContent = evaluationAlternativeLabel(alternative.kind) + ': '
       + alternativeCells.length + (alternativeCells.length === 1 ? ' cell' : ' cells')

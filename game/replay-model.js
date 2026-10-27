@@ -52,7 +52,7 @@ function pathClickEvents(events) {
 function pathDecisionProgress(decision) {
   const position = decision.evaluation.position;
   const safeCells = position.width * position.height - position.mines;
-  return safeCells > 0 ? position.revealed.length / safeCells : 0;
+  return safeCells > 0 ? positionOpenCount(position) / safeCells : 0;
 }
 
 function pathDecisionIsLessUseful(decision) {
@@ -91,9 +91,8 @@ function pathChoiceAreas(evaluation) {
   const height = position.height;
   const areas = [];
   for (const choice of evaluation.choices || []) {
-    if (!(typeof choice.risk === 'number' && choice.risk > 0 && choice.risk < 1)
-        || !Array.isArray(choice.cells)) continue;
-    const remaining = new Set(choice.cells.filter((cell) =>
+    if (!(typeof choice.risk === 'number' && choice.risk > 0 && choice.risk < 1)) continue;
+    const remaining = new Set(squareList(choice.cells).filter((cell) =>
       Number.isInteger(cell) && cell >= 0 && cell < width * height));
     while (remaining.size > 0) {
       const first = Math.min(...remaining);
@@ -410,7 +409,7 @@ function replayEncodingTable(entries) {
 
 function replayChoiceCells(evaluation) {
   return [...new Set((evaluation.choices || [])
-    .flatMap((choice) => Array.isArray(choice.cells) ? choice.cells : []))];
+    .flatMap((choice) => squareList(choice.cells)))];
 }
 
 function replayProbabilityText(p) {
@@ -447,8 +446,8 @@ function replayTriggerCell(evaluation) {
 function replayFrameModel(evaluation, solver, overlays) {
   const position = evaluation.position;
   const size = position.width * position.height;
-  const revealed = new Map(position.revealed || []);
-  const flagged = new Set(position.flagged || []);
+  const revealed = positionNumbers(position);
+  const flagged = positionFlags(position);
   const cells = [];
   for (let i = 0; i < size; i++) {
     cells.push({

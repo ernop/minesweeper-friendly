@@ -52,8 +52,8 @@ function seedHistory() {
     for (let i = 0; i < count; i++) {
       const endedAt = now - (count - i) * 1500000;
       const win = int(0, 9) < 7;
-      const revealed = [];
-      for (let cell = 0; cell < width * height; cell += 2) revealed.push([cell, int(0, 4)]);
+      let cells = '';
+      for (let cell = 0; cell < width * height; cell++) cells += cell % 2 === 0 ? int(0, 4) : '.';
       tx.objectStore(RECORD_STORE).put({ endedAt, outcome: win ? 'win' : 'loss', timeMs: int(20000, 200000),
         bv3: int(20, 180), clicks: int(20, 250), wastedClicks: int(0, 8), misclicks: 0, flagsPlaced: int(0, mines),
         flagsRemoved: 0, mousePathPx: int(2000, 40000), states: [], justice: 0, justiceEnabled: true,
@@ -61,7 +61,7 @@ function seedHistory() {
         actionEvaluations: [{ version: 'action-evaluation-v1', action: 'reveal', actionNumber: int(1, 90), atMs: 1000,
           selected: [0], result: win ? 'continued' : 'death', mistakes: ['chose-higher-risk'],
           evidence: { playMode: 'standard', chosenRisk: 0.3, bestRisk: 0.2 }, alternatives: [], choices: [],
-          position: { width, height, mines, revealed, flagged: [] } }] }, [key, endedAt]);
+          position: { width, height, mines, cells } }] }, [key, endedAt]);
     }
   }
   return new Promise((resolve, reject) => { tx.oncomplete = resolve; tx.onerror = () => reject(tx.error); });

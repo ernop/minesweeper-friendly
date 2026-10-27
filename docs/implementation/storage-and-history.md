@@ -117,6 +117,28 @@ Spec: [docs/product/storage-and-history.md](../product/storage-and-history.md). 
   {endedAt, mode, outcome, startedAt, sampleT/sampleX/sampleY as typed
   arrays, events, captureVersion, clock, initialPageState, sampleSourceT,
   sampleTrusted, sampleMergeCount} into the `traces` store, keyPath endedAt.
+  Saved boards and square lists (2026-10-26; product spec, Storage):
+  `visiblePositionSnapshot`, `addAlternative`, and `setDecisionChoices` in
+  game/evaluation.js write the strings, and the verdict section's
+  `positionNumbers` (open square to number, a Map), `positionFlags` (a Set),
+  `positionOpenCount`, `squareList`, and `positionView` read them, on the
+  page, in the workers, and in the offline tools alike. No reader decodes a
+  board it does not show, so loading the history decodes none.
+  `TRACE_CAPTURE_VERSION` (2) stamps new traces. Step 1 of the conversion is
+  `stringFormatEvaluation` (returns the evaluation itself when it is already
+  strings, and throws on a board no string can hold). `normalizeGameRecord`
+  runs it on every current-version evaluation before the fatal proof tiers,
+  so records convert on load and import; `validActionEvaluations` accepts
+  either form at import; `stringFormatTraceEvents` (game/input-trace.js)
+  converts a version-1 trace's decisions where the page reads stored traces
+  (`preferences-game.js` restoring a saved game, `loadTracesByEndedAt` for
+  trial overlays). The training and switch-cost workers read only a trace's
+  input and layout events, and board metrics only its final board, so they
+  need no conversion. The offline tools (analysis/history/summarize-history.js,
+  analysis/judgment/build-problems.js) convert the exports they read; the
+  problem builder writes boards back as pairs, the form judge.js and the
+  checked-in judgment-problems.json use. Both tools' output on the creator's
+  2026-10-11 export was identical before and after, apart from its timestamp.
   Only the active trace remains in RAM during play. Failures go through `storageFailure`
   (#backup-status + throw) — no silent trace loss. "export traces"
   (#export-traces-btn + #export-traces-file) downloads every trace as a

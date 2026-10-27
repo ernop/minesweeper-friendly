@@ -46,10 +46,28 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   synchronously, and each mutation immediately persists that kind's whole
   RAM object, or only the changed game records, with an async
   fire-and-forget write. Everything the player sees is rendered
-  from RAM; nothing waits on the disk. Keeping all userdata in RAM is
-  fine because scalar records are tiny — revisit only if that ever stops
-  being true. Traces are far too large for RAM and are written straight
-  to their store (see Raw input traces).
+  from RAM; nothing waits on the disk. Keeping all userdata in RAM rests
+  on scalar records being small. Their action evaluations broke that: on
+  2026-10-26 the creator's 8,203 games were 58 MB as JSON, and every load
+  froze the page for 1.0-1.05 s while reading them in Firefox. Saved boards
+  and square lists became strings that day (next item), which brought the
+  history to 45.7 MB and the longest freeze of a load to 0.29-0.39 s.
+  Traces are far too large for RAM and are written straight to their store
+  (see Raw input traces).
+- Saved boards and square lists (2026-10-26). An action evaluation's board
+  (`position.cells`) is one character per square in index order: '.'
+  covered, 'F' flagged, '0' to '8' an open square's number. Each
+  alternative's or choice's squares (`cells`) are one comma-joined string.
+  Before, a board was [square, number] pairs plus a list of flags, and each
+  square list an array. Reading those back cost 0.82-0.84 s of the 1.0-1.05
+  s freeze, because the browser rebuilds every pair and number as a separate
+  value. The conversion loses nothing: all 20,666 boards and 30,323 square
+  lists in the creator's history convert exactly. It follows the two-step
+  rule below. Step 1 converts each record as it loads or is imported (once,
+  then persisted; that load of the creator's history froze for 0.95 s and
+  then 0.68 s), and each trace saved before capture version 2 whenever the
+  page reads it. Step 2 removes the conversion (BACKLOG.md, "Board strings:
+  step 2").
 - Page assets download in parallel with deferred scripts, with storage first
   so IndexedDB opens concurrently. Because an IndexedDB open can finish while
   later deferred scripts are still executing, storage announces readiness
@@ -175,7 +193,10 @@ The creator's instruction to continue the profiling work starts with better
 observations. This implemented slice adds provenance to new finished-game
 traces; it does not change the numerical definitions of existing statistics.
 
-- `captureVersion: 1` identifies this acquisition contract. `clock` retains
+- `captureVersion` identifies this acquisition contract. Version 2
+  (2026-10-26) keeps each decision's board and square lists as strings
+  (Storage, "Saved boards and square lists"); version 1 kept them as arrays.
+  `clock` retains
   `timeOriginMs` and `traceStartMs` from the browser monotonic clock; their sum
   anchors relative trace time to the browser's epoch estimate. Existing
   `startedAt` remains the separately observed `Date.now()` value used by current

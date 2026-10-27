@@ -306,7 +306,7 @@ const { chromium } = require(process.argv[2]);
       const game = (minutesAgo, outcome, timeMs) => ({ endedAt: now - minutesAgo * 60000, outcome, timeMs, flagsPlaced: 3,
         bv3: 10, clicks: 10, wastedClicks: 2, playMode: 'standard', actionEvaluations: [] });
       const evaluation = { version: ACTION_EVALUATION_VERSION, result: 'continued', alternatives: [],
-        position: { width: 3, height: 1, mines: 1, revealed: [[0, 1]], flagged: [] } };
+        position: { width: 3, height: 1, mines: 1, cells: '1..' } };
       // The game just won survived a mid-game guess riskier than the lowest.
       const current = { ...game(0, 'win', 4100), guesses: 2, actionEvaluations: [{ ...evaluation, action: 'reveal',
         actionNumber: 6, atMs: 2000, selected: [2], mistakes: ['chose-higher-risk'], evidence: { boardProgress: 0.5 } }] };

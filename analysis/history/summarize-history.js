@@ -157,7 +157,10 @@ for (const [key, list] of Object.entries(exported)) {
         || (record.outcome !== 'win' && record.outcome !== 'loss')) {
       throw new Error('malformed record under ' + key + ': ' + JSON.stringify(record).slice(0, 120));
     }
-    games.push({ key, ...record, startedAt: record.endedAt - record.timeMs });
+    // Exports saved before 2026-10-26 keep boards and square lists as arrays.
+    games.push({ key, ...record, startedAt: record.endedAt - record.timeMs,
+      ...(Array.isArray(record.actionEvaluations)
+        ? { actionEvaluations: record.actionEvaluations.map(stringFormatEvaluation) } : {}) });
   }
 }
 if (games.length === 0) throw new Error('no game records in ' + inputPath);

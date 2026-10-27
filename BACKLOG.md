@@ -817,7 +817,9 @@ game instead of rewriting the whole history twice per game. Not built:
    - The winning click's task runs 56-68ms: `reportResult` 47-56ms, of which
      `saveTrace` copies the trace into storage (32-34ms) and the
      `finished-game` post copies it to the worker (11-13ms). Most of each
-     copy is the full visible board on every decision event; storing each
+     copy was the full visible board on every decision event, measured
+     while boards were arrays; since capture version 2 (2026-10-26) each is
+     one string, so both copies need measuring again. Storing each
      action's board changes instead (Lifelong self-measurement roadmap,
      "Full-rate pointer capture") would cut both. Sending the worker only
      what the live feed has not would not: the page changes two kinds of
@@ -839,22 +841,34 @@ game instead of rewriting the whole history twice per game. Not built:
    showed 17-21ms over the same alternating runs). Not yet attributed; a
    profile of a spiking run would show whether it is garbage collection or
    background analysis landing during the switch.
-5. **Every load reads every game's action evaluations (found 2026-10-26).**
-   The test was a Firefox test profile seeded with the creator's 2026-10-11
-   history export (8,203 games). On it, every load of the game page stalls
-   for 1.0-1.05s while the records are read into RAM. As JSON the records
-   are 57MB, 7KB a game, and 96% of that is `actionEvaluations` (65,605
-   entries): their positions are 21MB, their evidence 12MB, and their
-   alternatives and choices 9MB. The Storage spec's "scalar records are
-   tiny" no longer holds. The latency check seeds a small history, so its
-   startup budget misses this. Any fix changes saved history, so it follows
-   the creator's two-step rule ([Storage](docs/product/storage-and-history.md),
-   "Storage", changes to saved history). Options: keep action evaluations
-   in their own store and read them only where a view needs them; or drop
-   stored positions on games whose trace holds the same board. Either needs
-   a first measure of which startup views read the evaluations. A check
-   with a history of the creator's size would also keep this in the
-   latency budgets.
+5. **Every load reads every game's action evaluations (found 2026-10-26;
+   mostly fixed the same day).** The test was a Firefox test profile seeded
+   with the creator's 2026-10-11 history export (8,203 games): every load
+   froze the page for 1.0-1.05 s while the records were read into RAM, 0.82-
+   0.84 s of it rebuilding the action evaluations' boards and square lists,
+   each pair and number a separate value. Saved boards and square lists are
+   strings since 2026-10-26 ([Storage](docs/product/storage-and-history.md),
+   "Saved boards and square lists"): the longest freeze of an ordinary load
+   is now 0.29-0.39 s on the same history, and the latency check's startup
+   went from 523-528 ms to 244-257 ms. Still open: the remaining freeze is
+   reading the records, now 45.7 MB as JSON, of which the evaluations'
+   evidence is the largest part; and the latency check seeds a small
+   history, so a history of the creator's size would keep this in its
+   budgets.
+6. **Board strings: step 2.** Delete the conversion from array boards and
+   square lists: `stringFormatEvaluation` (game/evaluation.js), its call in
+   `normalizeGameRecord`, the array branch of `validActionEvaluations`
+   (game/history.js), their tests in
+   tests/action-evaluation-migration-test.js, and the offline tools' input
+   conversion. Waits for the creator to confirm that every browser both
+   active players use has loaded step 1. Two decisions belong to the
+   creator then. Traces saved before capture version 2 keep arrays forever
+   unless rewritten, so `stringFormatTraceEvents` either stays, or one pass
+   rewrites every stored trace first. And history exports saved before
+   2026-10-26 can no longer be imported with their action evaluations
+   once the import branch goes, nor read by the offline tools, so the
+   creator re-exports after step 1 and keeps only the new exports, or the
+   conversion stays at import.
 
 ## Game data as the primary result surface (creator, 2026-09-23)
 
@@ -1408,8 +1422,9 @@ Remaining, in priority order (earlier items prevent irreversible loss):
      - Pointer exit and re-entry.
      - Replace capture v1's per-sample trust and merge arrays.
      - Store each action's board changes instead of the full visible board
-       before every action, which is half of every trace (measured
-       2026-09-26). Replay and analysis rebuild positions by applying the
+       before every action, which was half of every trace as arrays
+       (measured 2026-09-26; one string per board since capture version 2,
+       2026-10-26). Replay and analysis rebuild positions by applying the
        changes in order.
    - **Declared setup registry.** Mouse, DPI, pointer speed and acceleration,
      hand, display, and a per-display pixels-per-millimetre calibration, with

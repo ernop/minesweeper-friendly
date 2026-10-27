@@ -286,7 +286,7 @@
   finalTimeMs = record.timeMs;
   trace.events.push(...[0, 1].map(i => ({ kind: 'decision', t: i * 300, x: 0, y: 0,
     evaluation: { action: 'reveal', cell: i, atMs: i * 300,
-      position: { ...config, revealed: [], flagged: [] } } })));
+      position: { ...config, cells: '.'.repeat(config.width * config.height) } } })));
   await renderResult(record, records);
   setReplayStep(replayDecisionCount());
   const arrow = new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true, cancelable: true });
