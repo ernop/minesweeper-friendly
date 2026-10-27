@@ -15,10 +15,11 @@ const RNG_VERSION = GameRandom.VERSION;
 // through. The default generator's string predates the registry.
 const BOARD_VERSION = BoardGenerators.byId(BoardGenerators.DEFAULT_ID).version;
 const BOARD_VERSIONS = new Set(BoardGenerators.SPECS.map((g) => g.version));
-const JUSTICE_VERSION = 'just-universe-v3';
+const JUSTICE_VERSION = 'just-universe-v4';
 const JUSTICE_VERSIONS = new Set([
   'sealed-pocket-mercy-v1',
   'sealed-pocket-mercy-v2',
+  'just-universe-v3',
   JUSTICE_VERSION,
 ]);
 const ODDS_VERSIONS = new Set(['guess-ledger-v1', Odds.VERSION]);
@@ -105,7 +106,7 @@ const GAME_RECORD_SCHEMA = [
   { field: 'rngVersion', valid: (v) => v === undefined || v === RNG_VERSION, example: '"' + RNG_VERSION + '"', describe: 'algorithm that turns seed into the game random stream; absent on earlier games' },
   { field: 'boardVersion', valid: (v) => v === undefined || BOARD_VERSIONS.has(v), example: '"' + BOARD_VERSION + '"', describe: 'board placement algorithm used with the seed (one version string per board generator); absent on earlier games' },
   { field: 'generator', valid: (v) => v === undefined || BoardGenerators.validStoredGenerator(v), example: '{"id":"pink-noise","params":{"alpha":1,"scale":8,"contrast":2}}', describe: 'non-default board generator this board was placed with (id plus its complete parameter set, the same facts the top score key\u2019s +generator suffix carries); absent = the default uniform generator' },
-  { field: 'justiceVersion', valid: (v) => v === undefined || JUSTICE_VERSIONS.has(v), example: '"' + JUSTICE_VERSION + '"', describe: 'version of the rules for which guesses "a just universe" covers and how it keeps them safe; v2 added the all-consistent-layout proof prepass; v3 judges each 50/50 or group on its own when a shared number links it to other unknown squares; absent on earlier games' },
+  { field: 'justiceVersion', valid: (v) => v === undefined || JUSTICE_VERSIONS.has(v), example: '"' + JUSTICE_VERSION + '"', describe: 'version of the rules for which guesses "a just universe" covers and how it keeps them safe; v2 added the all-consistent-layout proof prepass; v3 judges each 50/50 or group on its own when a shared number links it to other unknown squares; v4 covers an uneven chain of 50/50s whose shortfall the last squares no number touches make up, once the mine count leaves just two layouts; absent on earlier games' },
   { field: 'maxAdjacent', valid: (v) => v === undefined || isNumber(v), example: '4', describe: 'highest adjacent-mine number on the finished board; absent on games recorded before 2026-08-21' },
   { field: 'hasSeven', valid: (v) => v === undefined || typeof v === 'boolean', example: 'true', describe: 'whether the finished board contains at least one 7; absent on earlier games' },
   { field: 'zeroCount', valid: (v) => v === undefined || isNumber(v), example: '41', describe: 'how many finished-board cells have adjacent-mine count 0; absent on earlier games' },

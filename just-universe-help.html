@@ -77,6 +77,7 @@
   .mc.n1 { color: #0000ff; }
   .mc.n2 { color: #008000; }
   .mc.n3 { color: #ff0000; }
+  .mc.n4 { color: #000080; }
   .mc.n5 { color: #800000; }
   /* The squares the guess is between */
   .mc.cand {
@@ -120,7 +121,8 @@ does not force you into one particular guess that can never be settled.</p>
 
 <p>What it covers: 50/50s, chains of 50/50s, groups where every arrangement of
 their mines is possible (like 1 mine among 3 squares), and the last squares no
-number touches once the mine count fixes how many mines they hold. Each guess is
+number touches once the mine count fixes how many mines they hold, or once it
+leaves only two layouts for them and a chain of 50/50s together. Each guess is
 judged on its own, even when a number it shares links it to other unknown
 squares. Before deciding, the game works out everything the numbers and the mine
 count prove. A guess that matches none of these exact patterns plays as ordinary
@@ -189,6 +191,24 @@ Minesweeper.</p>
     strip has no other square that could tell them apart. The whole chain is
     <em>one</em> guess: the first click inside it may show a number that settles the
     rest. <span class="verdict-save">Guaranteed safe.</span></p>
+  </div>
+</div>
+
+<div class="example">
+  <div class="mini" style="--w:6">
+    <span class="mc r n2">2</span><span class="mc h mine">&#9679;</span><span class="mc h cand">D</span><span class="mc h cand">A</span><span class="mc r n1">1</span><span class="mc r"></span>
+    <span class="mc r n3">3</span><span class="mc h mine">&#9679;</span><span class="mc h cand">B</span><span class="mc h cand">C</span><span class="mc r n2">2</span><span class="mc r n1">1</span>
+    <span class="mc r n2">2</span><span class="mc h mine">&#9679;</span><span class="mc r n4">4</span><span class="mc r n3">3</span><span class="mc h mine">&#9679;</span><span class="mc r n1">1</span>
+    <span class="mc r n1">1</span><span class="mc r n1">1</span><span class="mc r n2">2</span><span class="mc h mine">&#9679;</span><span class="mc r n2">2</span><span class="mc r n1">1</span>
+  </div>
+  <div>
+    <p><span class="name">The 50/50 the mine count finishes.</span> The 1 and the 2
+    on the right put one mine in A/C; the 4 and the 3 below put one in B/C. So
+    either C holds a mine alone, or A and B both do. D touches no number at all.
+    With the rest of the board solved, the mine count says 2 mines are left: C and
+    D, or A and B. Two layouts, and no square outside these four could ever tell
+    them apart. <span class="verdict-save">Guaranteed safe</span>, whichever of the
+    four you click.</p>
   </div>
 </div>
 

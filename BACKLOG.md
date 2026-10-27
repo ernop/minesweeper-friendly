@@ -1112,9 +1112,15 @@ Derived session result: a
   Justice certificates is a further step. Built 2026-10-21: groups are
   judged one by one inside a connected region, so 50/50s and k-of-n
   groups joined by a shared number qualify
-  ([A just universe](docs/product/just-universe.md)). Still refused: a
-  group whose count no clue pins even after subtraction, an unequal or
-  unevenly seen chain, and a sea that is not the only one.
+  ([A just universe](docs/product/just-universe.md)). Built 2026-10-26: a
+  chain with unequal sides qualifies when the last squares no number
+  touches make up exactly the difference and the mine count leaves just
+  two layouts (creator report of a loss on that shape). Still refused: a
+  group whose count no clue pins even after subtraction, an unevenly seen
+  chain, an unequal chain with more squares no number touches than the
+  difference (several layouts at unequal odds, so not one coin; a rule for
+  it must first decide whether such a guess counts as forced), and a sea
+  that is not the only one.
 
 ### Boards shaped like the lists above (creator interest, 2026-08-21)
 

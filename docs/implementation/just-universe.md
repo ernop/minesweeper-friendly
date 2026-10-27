@@ -42,9 +42,20 @@ Spec: [docs/product/just-universe.md](../product/just-universe.md). Index: [AGEN
     (`complementBoundaryIsSealed`) certify a complement pocket.
   The sea qualifies when it is the only sea component, sealed, and every
   frontier cell lies in a pinned twin group or an equal-sided chain
-  (`pinnedComponentTotal`), which fixes the sea's count. Pinning passes
-  along every pair clue, so no chain mixes pinned and unpinned twin
-  groups and nothing is counted twice. The swap of a certified group's
+  (`frontierBesideOpenChain` finds no open chain), which fixes the sea's
+  count. Pinning passes along every pair clue, so no chain mixes pinned
+  and unpinned twin groups and nothing is counted twice. When one uneven
+  chain is the frontier's only open part instead (2026-10-26,
+  `seaCompletedChainCertificate`), its sides differ by exactly the number
+  of sea cells (every sea component), and the mine total leaves the
+  larger side's count, the chain and the whole sea form one complement
+  pocket: `partitionA` the larger side, `partitionB` the smaller side
+  plus the sea. It needs `chainCluesAreInvariant` on the chain (no clue
+  touches the sea) and `complementBoundaryIsSealed` on the whole shape;
+  a sea at least as large as the frontier fails first, so the early game
+  skips the walk over every component. `certifyEntries` builds it at most
+  once per call and hands the one certificate to each of its chain and
+  sea entries. The swap of a certified group's
   layout keeps every clue count and the mine total, so the redraw stays
   valid. Unsupported asymmetric/exotic ambiguity is outside the product
   rule.
@@ -103,12 +114,17 @@ Spec: [docs/product/just-universe.md](../product/just-universe.md). Index: [AGEN
   `node tests/justice-test.js`
   (deterministic fixtures including safe-entry counting semantics, the
   chord-origin rule, the 2026-10-21 board with two 50/50s sharing a number,
-  and a 50/50 pinned only by subtraction; then 800 random small boards
+  a 50/50 pinned only by subtraction, and the 2026-10-26 corner with its
+  refusals: the same corner twice, a corner group a square outside can
+  tell apart, and a corner the mine count settles read through a stopped
+  proof; then 800 random small boards
   played by opening proven-safe cells until stuck, where every certificate
   is checked against brute force over every layout the view allows: the
   family holds, each member can replace the group, no openable outside
   cell tells the members apart, and every redraw is valid — removing the
-  invariance, balance, or twin sealing check each fails it);
+  invariance, balance, or twin sealing check each fails it, as does
+  removing the sea-completed chain's invariance, boundary, size, or mine
+  count check);
   `node tests/rng-test.js` freezes the RNG version's
   output sequence; scale: `node tests/justice-bench.js` (100x100 boards,
   10,000-cell structural proof and direct redraw; no timing threshold).

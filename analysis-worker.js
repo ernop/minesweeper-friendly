@@ -1,14 +1,14 @@
 "use strict";
 
 importScripts('trend-fit.js?v=20260925-worker-analysis',
-  'game/trace-metrics.js?v=20261026-board-strings',
-  'game/evaluation.js?v=20261026-board-strings',
-  'game-data.js?v=20261026-planned-pairs', 'game/metric-definitions.js?v=20261026-board-strings',
+  'game/trace-metrics.js?v=20261026-justice-corner',
+  'game/evaluation.js?v=20261026-justice-corner',
+  'game-data.js?v=20261026-planned-pairs', 'game/metric-definitions.js?v=20261026-justice-corner',
   'board-shape.js?v=20261020-no-left-panel', 'zini.js?v=20261020-no-left-panel', 'board-metrics.js?v=20261020-no-left-panel',
-  'game/rankings.js?v=20261026-board-strings',
-  'game/charts.js?v=20261026-board-strings', 'game/game-data-chart.js?v=20261026-board-strings',
-  'justice.js?v=20261026-move-hierarchy', 'odds.js?v=20261026-move-hierarchy', 'board-icons.js?v=20261015-flag-controls',
-  'game/replay-model.js?v=20261026-board-strings',
+  'game/rankings.js?v=20261026-justice-corner',
+  'game/charts.js?v=20261026-justice-corner', 'game/game-data-chart.js?v=20261026-justice-corner',
+  'justice.js?v=20261026-justice-corner', 'odds.js?v=20261026-move-hierarchy', 'board-icons.js?v=20261015-flag-controls',
+  'game/replay-model.js?v=20261026-justice-corner',
   'during-game.js?v=20261026-board-strings');
 
 let config;

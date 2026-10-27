@@ -45,8 +45,10 @@ minted specifically for them.
   guaranteed clicks, not counterfactual deaths undone.
 - V1 recognizes only structures carrying short exact proofs: k-of-n groups
   in which every layout is possible (1 mine among 3 squares), equal-total
-  alternating 50/50 pairs and chains, and a single area of squares no
-  number touches whose mine count is pinned by the rest of the board.
+  alternating 50/50 pairs and chains (since 2026-10-26 also a chain with
+  unequal sides that the last squares no number touches complete, below),
+  and a single area of squares no number touches whose mine count is
+  pinned by the rest of the board.
   Arbitrary asymmetric or structurally exotic ambiguities are outside v1
   and keep ordinary Minesweeper behavior. This explicit scope replaces the
   earlier unbounded model-enumeration design.
@@ -60,6 +62,33 @@ minted specifically for them.
   touching it sees all of its squares alike; a chain qualifies when every
   number touching it sees its two sides alike. Records made from then on
   carry `justiceVersion` `just-universe-v3`.
+- A chain of 50/50s with unequal sides qualifies when the last squares no
+  number touches make up the difference (creator report 2026-10-26: "why
+  didn't justice protect me from this 50/50 split?", with a screenshot of a
+  loss at a board's top edge, in a 2-by-2 block walled off by flags). The
+  clicked square formed one 50/50 with the square above it and another
+  with the square beside it, so either it alone held a mine or both of
+  those did; the block's fourth square, which no number touches, made up
+  the difference, and with the rest of the board solved the mine count
+  left exactly 2 mines for the block: the clicked square and the fourth
+  square, or the other two, a 50/50 over all four. The judge refused all
+  four squares: the
+  chain's sides were one square and two, and a single square no number
+  touches, whose count only the chain decided, met neither the chain rule
+  nor the rule for the last squares no number touches. Fixed the same day:
+  such a chain qualifies when every number touching it sees its two sides
+  alike, every other unknown area on the board has a pinned count, the
+  squares no number touches number exactly the difference between the
+  sides, every square outside that could still be opened sees the two
+  layouts alike, and the mine count leaves the larger side's count to the
+  chain and those squares together. Two layouts remain, the larger side
+  mined, or the smaller side and every square no number touches mined, and
+  a click on any of these squares is covered; the recap names it "a chain
+  of 50/50s over N squares". When more squares no number touches remain
+  than the difference, several layouts remain at unequal odds, and the
+  rule does not cover them ([BACKLOG.md](../../BACKLOG.md), "Justice v1
+  family expansion"). Records made from then on carry `justiceVersion`
+  `just-universe-v4`.
 - At game end a single chip appears to the board's right stating the
   game's Justice survival count: "you won a forced coinflip" (pluralized
   with the count for more than one). Its tooltip: "Guesses that nothing else

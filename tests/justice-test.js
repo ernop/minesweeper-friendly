@@ -225,6 +225,60 @@ function validRedraw(board, redrawn, clicked) {
     validRedraw(board, redrawn, board.at(0, 2)));
 }
 
+// 8d. The corner 50/50 (creator report 2026-10-26: a loss on this shape at
+// a board's top edge). The 1 and the 2 on the right see C and A, the 4 and
+// the 3 below see C and B: C alone, or A and B. The corner square D touches
+// no number, and the mine count leaves 2 mines for the four squares, so the
+// layouts are C and D, or A and B: one coin over all four.
+{
+  const board = makeBoard([
+    '.**#..',
+    '.*#*..',
+    '.*..*.',
+    '...*..',
+  ]);
+  const [a, b, c, d] = [board.at(3, 0), board.at(2, 1), board.at(3, 1), board.at(2, 0)];
+  const certificate = Justice.certifyEntry(board.view, c);
+  const sides = (cells) => cells.slice().sort((x, y) => x - y).join();
+  check('corner 50/50: the clicked square certified with the corner square',
+    certificate !== null && certificate.type === 'complement'
+      && certificate.cells.length === 4 && certificate.clearWays === 1 && certificate.totalWays === 2
+      && [sides(certificate.partitionA), sides(certificate.partitionB)].sort().join('|')
+        === [sides([a, b]), sides([c, d])].sort().join('|'));
+  const batched = Justice.certifyEntries(board.view, [a, b, c, d]);
+  check('corner 50/50: every square shares the one certificate, the corner square included',
+    batched.size === 4 && [a, b, c, d].every((cell) => batched.get(cell) === batched.get(c)));
+  const redrawn = Justice.redrawEntry(certificate, c, board.mines, () => 0);
+  check('corner 50/50: mined entry redrawn clear', validRedraw(board, redrawn, c)
+    && redrawn[a] && redrawn[b] && !redrawn[d]);
+
+  // The same corner twice: the mine count no longer settles either one.
+  const mirrored = (row) => row.split('').reverse().join('');
+  const twice = makeBoard([
+    '.**#..', '.*#*..', '.*..*.', '...*..',
+  ].map((row) => row + '.' + mirrored(row)));
+  check('two corners open at once: not certified',
+    Justice.certifyEntry(twice.view, twice.at(3, 1)) === null
+      && Justice.certifyEntry(twice.view, twice.at(2, 0)) === null);
+
+  // A corner group a square outside could still tell apart: the 50/50 at
+  // the lower left may leave the square below the group's middle square
+  // safe, and opened, it would count that middle square and no other.
+  const seen = makeBoard(['....*#', '**..#*', '..#*..', '..*#..']);
+  check('corner group that a square outside can tell apart: not certified',
+    Justice.certifyEntry(seen.view, seen.at(4, 0)) === null
+      && Justice.certifyEntry(seen.view, seen.at(5, 0)) === null);
+
+  // With the corner square safe the mine count leaves 1, so C is a mine.
+  // A proof stopped at its work limit misses that, and the judge still
+  // refuses: the count it reads cannot be the larger side's.
+  const settled = makeBoard(['.*##..', '.*#*..', '.*..*.', '...*..']);
+  const stopped = Justice.buildStructure(settled.view, { maxVisits: 0 });
+  check('corner the mine count settles, read through a stopped proof: not certified',
+    stopped.facts.complete === false
+      && !Justice.certifyEntries(settled.view, [settled.at(3, 1)], stopped).has(settled.at(3, 1)));
+}
+
 // 9. Equal-sized overlapping constraints can prove their one-sided cells.
 {
   // Equal-size overlapping clues:
@@ -446,6 +500,7 @@ function levelsInOnePassAgree(view, clues) {
   let positions = 0;
   let certified = 0;
   let partOfComponent = 0;
+  let seaCompleted = 0;
   const checkPosition = (label, view, structure) => {
     const { width, height, revealed, adjacent } = view;
     const neighbors = (cell) => Justice.neighbors(cell, width, height);
@@ -478,6 +533,7 @@ function levelsInOnePassAgree(view, clues) {
       certified++;
       const component = structure.components[structure.componentOfCell.get(entry)];
       if (component !== undefined && component.cells.length > certificate.cells.length) partOfComponent++;
+      if (certificate.type === 'complement' && certificate.cells.some((cell) => structure.seaSet.has(cell))) seaCompleted++;
       const family = members(certificate);
       const inFamily = (layout) => family.some((mined) => certificate.cells.every((cell) => layout[cell] === mined.has(cell)));
       if (!layouts.every(inFamily)) failure = label + ': a layout outside the ' + certificate.type + ' family';
@@ -540,6 +596,8 @@ function levelsInOnePassAgree(view, clues) {
     certified >= 200);
   check('stuck positions: groups inside larger components certified (' + partOfComponent + ')',
     partOfComponent >= 15);
+  check('stuck positions: uneven chains completed by the squares no number touches certified ('
+    + seaCompleted + ')', seaCompleted >= 10);
 }
 
 // 12. Chords categorically bypass Justice in the game integration. This is

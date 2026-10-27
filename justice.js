@@ -17,7 +17,9 @@ const VISIBLE_PROOF_VERSION = 'all-consistent-layouts-v1';
 // V1 deliberately recognizes only three families with short, exact
 // certificates:
 //   1. cardinality pockets: every k-of-n placement is possible;
-//   2. complement pockets: exactly two alternating pair/chain layouts;
+//   2. complement pockets: exactly two alternating pair/chain layouts, the
+//      chain's sides equal or, since 2026-10-26, the smaller side completed
+//      by the whole sea when the mine total fixes both together;
 //   3. one sealed sea remnant with a fixed mine count.
 // The first two are found per group inside a clue component
 // (componentGroups), so a pocket qualifies even when a number it shares
@@ -808,32 +810,42 @@ function complementBoundaryIsSealed(structure, shape) {
   return true;
 }
 
-// The component's mine total when every cell lies in a pinned twin group or
-// in a pair chain with equal sides, else null. No chain mixes pinned and
-// unpinned twin groups: a pair clue touching a twin group covers it whole,
-// so pinning passes along every pair clue.
-function pinnedComponentTotal(groups, component) {
-  let total = 0;
+// Walks the whole frontier: the mines of every pinned twin group and pair
+// chain with equal sides, and the one uneven chain left open (null when
+// none is). Null when two parts are open. Every cell of a twin group no
+// clue pins lies on an uneven chain (its own one-cell chain when no pair
+// clue touches it), so open chains are the only open parts. No chain
+// mixes pinned and unpinned twin groups: a pair clue touching a twin group
+// covers it whole, so pinning passes along every pair clue.
+function frontierBesideOpenChain(structure, groupsOf) {
+  let pinnedMines = 0;
+  let openChain = null;
   const counted = new Set();
-  for (const cell of component.cells) {
-    const twins = groups.twinOfCell.get(cell);
-    const chain = groups.chainOfCell.get(cell);
-    let group;
-    let mines;
-    if (twins.mineCount !== null) {
-      group = twins;
-      mines = twins.mineCount;
-    } else if (balancedChain(chain)) {
-      group = chain;
-      mines = chain.partitionA.length;
-    } else {
-      return null;
+  for (let index = 0; index < structure.components.length; index++) {
+    const groups = groupsOf(index);
+    for (const cell of structure.components[index].cells) {
+      const twins = groups.twinOfCell.get(cell);
+      const chain = groups.chainOfCell.get(cell);
+      let group;
+      let mines;
+      if (twins.mineCount !== null) {
+        group = twins;
+        mines = twins.mineCount;
+      } else if (balancedChain(chain)) {
+        group = chain;
+        mines = chain.partitionA.length;
+      } else if (openChain === null || openChain === chain) {
+        openChain = chain;
+        continue;
+      } else {
+        return null;
+      }
+      if (counted.has(group)) continue;
+      counted.add(group);
+      pinnedMines += mines;
     }
-    if (counted.has(group)) continue;
-    counted.add(group);
-    total += mines;
   }
-  return total;
+  return { pinnedMines, openChain };
 }
 
 // Every k-of-n layout of a twin group is possible when its count is pinned
@@ -871,13 +883,9 @@ function certifySeaEntry(structure, clicked, groupsOf) {
   const cells = structure.seaComponents[seaIndex];
   if (cells.length < 2) return null;
 
-  let frontierMines = structure.provenMineCount;
-  for (let index = 0; index < structure.components.length; index++) {
-    const total = pinnedComponentTotal(groupsOf(index), structure.components[index]);
-    if (total === null) return null;
-    frontierMines += total;
-  }
-  const mineCount = structure.view.mines - frontierMines;
+  const frontier = frontierBesideOpenChain(structure, groupsOf);
+  if (frontier === null || frontier.openChain !== null) return null;
+  const mineCount = structure.view.mines - structure.provenMineCount - frontier.pinnedMines;
   if (!(mineCount > 0 && mineCount < cells.length)) return null;
   if (!cardinalityBoundaryIsSealed(structure, cells)) return null;
 
@@ -887,6 +895,48 @@ function certifySeaEntry(structure, clicked, groupsOf) {
     mineCount,
     clearWays: cells.length - mineCount,
     totalWays: cells.length,
+  };
+}
+
+// An uneven chain the sea completes (creator report 2026-10-26: a loss in
+// a 2-by-2 block walled off by flags, the clicked square against the
+// squares above it and beside it, with the block's fourth square, which no
+// number touches, making up the difference). When the chain's sides differ
+// by exactly the sea's size, every other part of the frontier is pinned,
+// and the mine total leaves the larger side's count to the chain and the
+// sea together, two layouts remain: the larger side mined and the sea
+// clear, or the smaller side and the whole sea mined. A complement pocket,
+// then, whose smaller side the mine total extends over the sea.
+function seaCompletedChainCertificate(structure, groupsOf) {
+  const sea = structure.seaCells;
+  // The sea makes up the difference between two sides of one chain, so it
+  // is smaller than the frontier; the early game, with its open field,
+  // skips the walk over every component.
+  if (sea.length === 0 || sea.length >= structure.cluesOfCell.size) return null;
+  const frontier = frontierBesideOpenChain(structure, groupsOf);
+  if (frontier === null || frontier.openChain === null) return null;
+  const chain = frontier.openChain;
+  const [larger, smaller] = chain.partitionA.length > chain.partitionB.length
+    ? [chain.partitionA, chain.partitionB]
+    : [chain.partitionB, chain.partitionA];
+  if (larger.length - smaller.length !== sea.length) return null;
+  const mineCount = structure.view.mines - structure.provenMineCount - frontier.pinnedMines;
+  if (mineCount !== larger.length) return null;
+  if (!chainCluesAreInvariant(structure, chain)) return null;
+  const shape = {
+    cells: [...chain.cells, ...sea],
+    partitionA: larger,
+    partitionB: [...smaller, ...sea],
+  };
+  if (!complementBoundaryIsSealed(structure, shape)) return null;
+  return {
+    type: 'complement',
+    cells: shape.cells,
+    mineCount,
+    partitionA: shape.partitionA,
+    partitionB: shape.partitionB,
+    clearWays: 1,
+    totalWays: 2,
   };
 }
 
@@ -921,6 +971,15 @@ function certifyEntries(view, entries, heldStructure) {
   const certificates = new Map();
   let seaCertificate;
   let seaChecked = false;
+  let seaCompletedChain;
+  let seaCompletedChainChecked = false;
+  const seaCompletedChainOf = () => {
+    if (!seaCompletedChainChecked) {
+      seaCompletedChain = seaCompletedChainCertificate(structure, groupsOf);
+      seaCompletedChainChecked = true;
+    }
+    return seaCompletedChain;
+  };
 
   for (const entry of entries) {
     if (view.revealed[entry] || structure.facts.has(entry)) continue;
@@ -932,12 +991,16 @@ function certifyEntries(view, entries, heldStructure) {
       if (certificate === null) {
         certificate = certificateOf(groups.chainOfCell.get(entry), chainCertificate);
       }
+      if (certificate === null) {
+        const completed = seaCompletedChainOf();
+        if (completed !== null && completed.cells.includes(entry)) certificate = completed;
+      }
     } else if (structure.seaComponentOfCell.has(entry)) {
       if (!seaChecked) {
         seaCertificate = certifySeaEntry(structure, entry, groupsOf);
         seaChecked = true;
       }
-      certificate = seaCertificate;
+      certificate = seaCertificate === null ? seaCompletedChainOf() : seaCertificate;
     }
     if (certificate !== null) certificates.set(entry, certificate);
   }
