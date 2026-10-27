@@ -1222,8 +1222,17 @@ Generation that aims at the same families the new lists rank:
   to a few milliseconds after the game; ten times higher it finishes 43 of
   the 197 Expert guesses at up to 17 ms each. Early in a game the layouts
   can number more than 10^80, and no known exact method finishes there.
-  Creator decision open: keep the exact value where it finishes, or remove
-  it until a method that scales exists.
+  The agent recommended keeping the exact value where it finishes. The
+  creator disagreed (2026-10-26): "i still don't agree w/100k; tehre should
+  be a proper way to actually calculate this, algebraically or with just
+  logical propositions in a moderately largeish chain." Open: find an exact
+  method that finishes on moderately large positions, then replace the
+  limit. The layout counts are not the hard part; the guess ledger's risks
+  already come from exact counts. What grows is the search over every
+  number each opened square can show. Directions to measure: splitting the
+  board into regions that interact only through the mine total; settling by
+  proof first, which the search does now; symmetry; and bounds that prune
+  whole subtrees. The limit stays until then.
 - **IOE as 3BV / total clicks** (effective + wasted). Efficiency /
   throughput already use effective clicks only. The clone's IOE is the
   missing total-click cousin.
