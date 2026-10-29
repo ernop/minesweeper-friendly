@@ -66,7 +66,12 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
     jerk (mean |da/dt|, px/ms³), turn rate (rad/ms), left clicks, right
     clicks, hold (mean button-down time), pause-and-click (mean stillness
     before a press). Definitions are exactly those of the offline
-    extractor (`analysis/biometrics/extract_features.py`).
+    extractor (`analysis/biometrics/extract_features.py`). Path, the
+    speeds, and the path under straightness add the cursor's travel
+    through the positions merged into each sample (since 2026-10-27;
+    [Storage](storage-and-history.md), "Capture provenance v1"), the
+    travel game data's path and the live perf charts' mouse speed add;
+    headings and turn rate read the steps between samples.
   - PATH AND NO-ACTION EVENTS ("waste" until 2026-08-23, renamed with the
     other wording of measurements as observations) — the survey's own
     whole-game proposals
@@ -102,6 +107,9 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
     sample entropy, segment time. An exact port of the R package as
     `analysis/mousetrap/trace_measures.R` applies it, verified
     value-for-value against Rscript (see [docs/implementation/motion-stats.md](../implementation/motion-stats.md)).
+    Like the Hevelius group below, it runs its published algorithm over the
+    timestamped samples alone: the positions merged into a sample carry no
+    time of their own, so they cannot join a time series.
   - MOVEMENT GEOMETRY — Hevelius-formula movement features (Gajos et al. 2020;
     reference/hevelius/FEATURES.md) per inter-click movement, means over
     movements: execution, exec no pauses, smoothed peak speed ("peak

@@ -138,8 +138,10 @@ async function restorePreferredResult() {
   gameGenerator = record.generator || BoardGenerators.uniformGenerator();
   flagsCount = cells.filter((c) => c.flagged).length;
   revealedCount = cells.filter((c) => c.revealed).length;
+  const merged = storedMergedObservations(stored);
   trace = { startedAt: stored.startedAt, t0: performance.now() - (stored.endedAt - stored.startedAt),
     t: Array.from(stored.sampleT), x: Array.from(stored.sampleX), y: Array.from(stored.sampleY),
+    mergedSample: Array.from(merged.sample), mergedX: Array.from(merged.x), mergedY: Array.from(merged.y),
     events: stringFormatTraceEvents(stored) };
   const mine = mineSvg(settings.mineStyle);
   const wrongFlag = wrongFlagSvg(settings.mineStyle);
@@ -171,14 +173,18 @@ async function restorePreferredResult() {
   const boardState = { status: 'running' };
   if (needBoardMetrics || needZini) boardMetricJobs.set(record, boardState);
   duringGameSourceId = record.endedAt;
-  restoredAnalysisReady = analysisTask('reports', 'restore-trace', { ...stored,
+  // Cadence spread costs nothing beyond the motion stats restoring computes,
+  // so it is measured again every time: a value stored rounded (before
+  // 2026-10-26) gives way to the exact one.
+  restoredAnalysisReady = analysisTask('reports', 'restore-trace', { ...stored, merged,
     measurementPlan: { width: config.width, height: config.height, mines: cells.map((cell) => cell.mine),
       drill: record.playMode === 'endgame-drill', needBoardMetrics, needZini,
-      needCadence: record.cadenceSpread === undefined, needMoveHabits: record.movesRanOut === undefined,
+      needCadence: true, needMoveHabits: record.movesMovedOn === undefined,
       needFastclickGap: record.fastclickGapVersion !== GameData.FASTCLICK_GAP_VERSION,
+      needGivenOpeningBv3: hadGivenOpening(record) && record.givenOpeningBv3 === undefined,
       timeMs: record.timeMs, outcome: record.outcome },
   }).then(async (restored) => {
-    if (Object.keys(restored.measurements).length) {
+    if (Object.entries(restored.measurements).some(([field, value]) => record[field] !== value)) {
       // A value of the earlier definition gives way to this one's, which a
       // game without a planned pair leaves absent.
       if ('fastclickGapVersion' in restored.measurements) delete record.fastclickGapMs;

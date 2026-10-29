@@ -21,7 +21,7 @@
   settings.shownThings.nearNearStreak = true;
   const record = { outcome: 'win', endedAt: Date.now(), timeMs: 33249,
     states: ['just woke up', 'the gaming m3 gen II'],
-    bv3: 62, clicks: 95, wastedClicks: 0, flagsPlaced: 39, mousePathPx: 1500,
+    bv3: 62, boardChangingClicks: 95, noOpClicks: 0, flagsPlaced: 39, mousePathPx: 1500,
     maxAdjacent: 5, zeroCount: 68, islandCount: 20, zini: 47, playMode: 'standard', actionEvaluations: [] };
   const records = Array.from({length: 24}, (_, i) => ({ ...record,
     endedAt: record.endedAt - (23 - i) * 60000, timeMs: 33000 + i * 500 }));

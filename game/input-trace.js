@@ -27,8 +27,9 @@ function beginTrace() {
   trace = {
     startedAt: Date.now(),
     t0: performance.now(),
-    sourceT: [], sampleTrusted: [], sampleMergeCount: [],
+    sourceT: [], sampleTrusted: [],
     t: [], x: [], y: [],
+    mergedSample: [], mergedX: [], mergedY: [], mergedSourceT: [], mergedTrusted: [],
     initialPageState: tracePageState(),
     environment: observedEnvironment(),
     events: [],
@@ -94,26 +95,38 @@ function traceRightButton(event) {
   });
 }
 
+function liveMergedObservations() {
+  return { sample: trace.mergedSample, x: trace.mergedX, y: trace.mergedY };
+}
+
 function traceMove(event) {
   const t = performance.now() - trace.t0;
   const source = traceEventSource(event);
+  // At the precision saveTrace stores (Float32Array), so the live charts,
+  // the record's path, and a restored trace all add the same coordinates.
+  const x = Math.fround(event.clientX);
+  const y = Math.fround(event.clientY);
   const last = trace.t.length - 1;
   if (last >= 0 && trace.t[last] === t) {
-    // Current metrics require strictly increasing receipt times. Retain the
-    // provenance of the surviving position and count the merged observations;
-    // this stream must not be mistaken for every delivered mouse sample.
-    trace.x[last] = event.clientX;
-    trace.y[last] = event.clientY;
+    // Samples need strictly increasing receipt times, so the latest of the
+    // observations received at one instant is the sample. The ones it
+    // replaces are kept beside the samples, in order, with the sample's
+    // index: the cursor traveled through them (sampleTravelPx).
+    trace.mergedSample.push(last);
+    trace.mergedX.push(trace.x[last]);
+    trace.mergedY.push(trace.y[last]);
+    trace.mergedSourceT.push(trace.sourceT[last]);
+    trace.mergedTrusted.push(trace.sampleTrusted[last]);
+    trace.x[last] = x;
+    trace.y[last] = y;
     trace.sourceT[last] = source.sourceT;
     trace.sampleTrusted[last] = source.isTrusted;
-    trace.sampleMergeCount[last]++;
   } else {
     trace.t.push(t);
-    trace.x.push(event.clientX);
-    trace.y.push(event.clientY);
+    trace.x.push(x);
+    trace.y.push(y);
     trace.sourceT.push(source.sourceT);
     trace.sampleTrusted.push(source.isTrusted);
-    trace.sampleMergeCount.push(1);
   }
   scheduleMetricsUpdate({ trace: true });
 }
@@ -210,14 +223,16 @@ function traceDecision(evaluation) {
 }
 
 // Capture version 2 (2026-10-26) saves each decision's board and square
-// lists as strings (positionNumbers in game/evaluation.js).
-const TRACE_CAPTURE_VERSION = 2;
+// lists as strings (positionNumbers in game/evaluation.js). Version 3
+// (2026-10-27) keeps the cursor observations a sample replaced (`merged*`)
+// in place of how many it replaced (`sampleMergeCount`).
+const TRACE_CAPTURE_VERSION = 3;
 
 // Traces saved before capture version 2 keep their decisions' boards and
 // square lists as arrays. Temporary, with stringFormatEvaluation (BACKLOG.md,
 // "Board strings: step 2").
 function stringFormatTraceEvents(stored) {
-  if (stored.captureVersion === TRACE_CAPTURE_VERSION) return stored.events;
+  if (stored.captureVersion >= 2) return stored.events;
   return stored.events.map((event) => event.kind === 'decision'
     ? { ...event, evaluation: stringFormatEvaluation(event.evaluation) } : event);
 }
@@ -242,7 +257,11 @@ function saveTrace(record) {
     environment: trace.environment,
     sampleSourceT: Float64Array.from(trace.sourceT),
     sampleTrusted: Uint8Array.from(trace.sampleTrusted),
-    sampleMergeCount: Uint32Array.from(trace.sampleMergeCount),
+    mergedSample: Uint32Array.from(trace.mergedSample),
+    mergedX: Float32Array.from(trace.mergedX),
+    mergedY: Float32Array.from(trace.mergedY),
+    mergedSourceT: Float64Array.from(trace.mergedSourceT),
+    mergedTrusted: Uint8Array.from(trace.mergedTrusted),
     metricSampleTimes: [...metricsSeries.tMs, record.endedAt - trace.startedAt],
     finalBoard: { cells: structuredClone(cells), hitIndices: cellElements.flatMap((el, i) => el.classList.contains('mine-hit') ? [i] : []) },
     sampleT: Float64Array.from(trace.t),

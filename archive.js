@@ -110,7 +110,7 @@ function runArchiveSync() {
   archiveState.running = true;
   setArchiveStatus('syncing', '');
   if (archiveState.worker === null) {
-    archiveState.worker = new Worker('archive-worker.js?v=20260927-problems');
+    archiveState.worker = new Worker('archive-worker.js?v=20261027-field-names');
     archiveState.worker.onmessage = onArchiveWorkerMessage;
     archiveState.worker.onerror = (event) => {
       event.preventDefault();

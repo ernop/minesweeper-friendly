@@ -7,7 +7,7 @@
 // serializes syncs from every open tab, and each sync lists the folder after
 // taking the lock, so a file another tab just wrote is seen.
 
-importScripts('archive-format.js?v=20260927-problems', 'problems-storage.js?v=20260927-archive');
+importScripts('archive-format.js?v=20261027-field-names', 'problems-storage.js?v=20260927-archive');
 
 const ARCHIVE_PROGRESS_EVERY = 25;
 

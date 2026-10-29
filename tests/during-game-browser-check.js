@@ -44,8 +44,8 @@ const shotDir = process.argv[4] || null;
     // An earlier win this session, held in memory only, gives game data a
     // comparison for the scripted win, so its rows can link to the charts.
     await page.evaluate(() => {
-      history[modeKey()] = [{ outcome: 'win', endedAt: Date.now() - 5 * 60000, timeMs: 30000, bv3: 20, clicks: 40,
-        misclicks: 0, wastedClicks: 2, fastclickGapMs: 250, fastclickGapVersion: GameData.FASTCLICK_GAP_VERSION,
+      history[modeKey()] = [{ outcome: 'win', endedAt: Date.now() - 5 * 60000, timeMs: 30000, bv3: 20, boardChangingClicks: 40,
+        misclicks: 0, noOpClicks: 2, fastclickGapMs: 250, fastclickGapVersion: GameData.FASTCLICK_GAP_VERSION,
         mousePathPx: 6000, flagsPlaced: 10, flagsRemoved: 0,
         unusedCorrectFlags: 0, guesses: 0, actionEvaluations: [] }];
     });
@@ -404,6 +404,21 @@ const shotDir = process.argv[4] || null;
     for (const id of ['bvPerSecond', 'clickRate', 'fastclickGap']) {
       assert.equal(await legendValue(id), await dataRow(id).locator('.game-data-value').textContent(), id + ': one value in both');
     }
+    // The record's path is the saved trace's travel on the game clock, to
+    // the last bit: the path, path / click, and mouse speed rows of a
+    // restored game read the same coordinates.
+    const paths = await page.evaluate(async () => {
+      const record = history[modeKey()].at(-1);
+      const stored = await new Promise((resolve, reject) => {
+        const request = db.transaction(TRACE_STORE).objectStore(TRACE_STORE).get(record.endedAt);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      return [record.mousePathPx, DuringGame.cursorTravelPx({ timeMs: record.timeMs, t: stored.sampleT,
+        x: stored.sampleX, y: stored.sampleY, merged: storedMergedObservations(stored), events: stored.events })];
+    });
+    assert(paths[0] > 0, 'the cursor traveled during the game');
+    assert.equal(paths[0], paths[1], 'the record\u2019s path is the saved trace\u2019s');
     // The saved record names the fastclick gap's definition beside its value.
     const savedFastclick = await page.evaluate(() => {
       const record = history[modeKey()].at(-1);
@@ -505,13 +520,17 @@ const shotDir = process.argv[4] || null;
     assert(rateColors.every((color) => !rawLines.includes(color)), 'rates in raw are ticks only');
 
     // A reload restores the game and its block with the saved choices. The
-    // saved record is first made one measured before planned pairs; the
-    // restore measures it again, and its old value gives way.
+    // saved record is first made one measured before planned pairs, with a
+    // cadence spread of another computation; the restore measures both
+    // again, and the old values give way.
     const endedAt = await page.evaluate(() => renderedResult.record.endedAt);
+    const savedCadence = await page.evaluate(() => renderedResult.record.cadenceSpread);
+    assert(Number.isFinite(savedCadence), 'the scripted win has a cadence spread');
     await page.evaluate(() => new Promise((resolve, reject) => {
       const record = renderedResult.record;
       delete record.fastclickGapVersion;
       record.fastclickGapMs = 999;
+      record.cadenceSpread += 1;
       const tx = db.transaction(RECORD_STORE, 'readwrite');
       tx.objectStore(RECORD_STORE).put(record, [modeKey(), record.endedAt]);
       tx.oncomplete = resolve;
@@ -524,6 +543,15 @@ const shotDir = process.argv[4] || null;
     await page.waitForFunction(() => renderedResult.record.fastclickGapVersion !== undefined, null, { timeout: 30000 });
     assert.deepEqual(await page.evaluate(() => [renderedResult.record.fastclickGapVersion, renderedResult.record.fastclickGapMs]),
       [savedFastclick[2], savedFastclick[1]], 'an older record\u2019s fastclick gap is measured again on restore');
+    assert.equal(await page.evaluate(() => new Promise((resolve, reject) => {
+      const request = db.transaction(RECORD_STORE).objectStore(RECORD_STORE).get([modeKey(), renderedResult.record.endedAt]);
+      request.onsuccess = () => resolve(request.result.cadenceSpread);
+      request.onerror = () => reject(request.error);
+    })), savedCadence, 'and its cadence spread, saved');
+    assert.equal(await page.evaluate(() => DuringGame.cursorTravelPx({ timeMs: renderedResult.record.timeMs,
+      t: trace.t, x: trace.x, y: trace.y, merged: liveMergedObservations(), events: trace.events })),
+    await page.evaluate(() => renderedResult.record.mousePathPx),
+    'the restored trace, merged observations and all, gives the record\u2019s path');
     assert.equal((await legendRows()).includes('mouseSpeed'), false);
     assert.equal(await averagingSelect.inputValue(), 'raw');
     assert.equal(await logScale.isChecked(), false);

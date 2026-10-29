@@ -164,12 +164,47 @@ configure) keep their choice under the new one.
 - A test kept its own copies of three formulas under the old names
   "correctness" and "throughput"; it now tests the catalog's.
 
-Not unified yet, each awaiting the creator's choice
-([BACKLOG.md](../../BACKLOG.md), "Measurement catalog follow-ons"): the
-record's mouse path against the trace's, the 3BV of trials with a given
-opening, the stored field names that differ from their measurement's name,
-and recomputing older records' cadence spread from their traces. Older
-records' fastclick gaps follow the earlier definition and are read nowhere;
-each is measured again when its game's result is opened, and the rest wait
-on the creator ([BACKLOG.md](../../BACKLOG.md), "Fastclick gap: planned
-pairs").
+## Divergences resolved 2026-10-27
+
+The four that remained on 2026-10-26 went to the creator with a
+recommendation each, and the creator answered "continue" (2026-10-27),
+taking all four:
+
+- Stored field names now are their measurement's name: `clicks` became
+  `boardChangingClicks`, `wastedClicks` became `noOpClicks`, and
+  `movesRanOut` became `movesMovedOn` (the moved-on events' count). The
+  database's version-7 upgrade renames them once in every saved record and
+  in the trial session's attempts, an import renames them in an earlier
+  backup, and the archive folder's format version is 2
+  ([Storage](storage-and-history.md), "Storage"). The local player
+  origin's database was copied aside on 2026-10-27, before the upgrade
+  first ran.
+- Mouse path from one source. The trace keeps the cursor observations it
+  used to drop when two arrived at one instant, and the record's path is the
+  trace's travel while the game clock ran, the same sum the live perf
+  charts' path and mouse speed rows plot, so game data's path, path /
+  click, path / 3BV, and mouse speed are their whole-game values
+  ([Per-game stats](per-game-stats.md), "Mouse path"). The page's own
+  count of the path during play is gone; records before 2026-10-27 keep it.
+  Motion stats' path, wander, movement-bout speeds, and straightness, the
+  trial review's path and speed, and the replay's movement speed read the
+  same travel ([Storage](storage-and-history.md), "Capture provenance
+  v1").
+- Trials with a given opening. The record stores the 3BV the opening solved
+  (`givenOpeningBv3`), and every performance measurement divides the 3BV the
+  player solved, as the live perf charts' 3BV solved counts it; board traits
+  keep the board's 3BV, and ZiNi and HZiNi efficiency do not apply
+  ([Per-game stats](per-game-stats.md), "Trials with a given opening").
+- Older records' cadence spread and fastclick gap. A saved game's result
+  restored on the game page is measured again from its trace: cadence spread
+  every time, the fastclick gap when it follows the earlier definition, and
+  move habits and a given opening's 3BV when missing. Restoring is the one
+  place a saved game is measured again; a pass over every saved game is not
+  built ([BACKLOG.md](../../BACKLOG.md), "Measure every saved game again").
+  Older fastclick gaps are read nowhere, so no comparison mixes the two
+  definitions ([BACKLOG.md](../../BACKLOG.md), "Fastclick gap: planned
+  pairs").
+
+The training page's 3BV/s and IOE and the trial review's 3BV/s and
+efficiency now read the catalog; both had computed their own, and the trial
+review's ignored the given opening.

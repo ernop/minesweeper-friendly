@@ -55,7 +55,7 @@ function seedHistory() {
       let cells = '';
       for (let cell = 0; cell < width * height; cell++) cells += cell % 2 === 0 ? int(0, 4) : '.';
       tx.objectStore(RECORD_STORE).put({ endedAt, outcome: win ? 'win' : 'loss', timeMs: int(20000, 200000),
-        bv3: int(20, 180), clicks: int(20, 250), wastedClicks: int(0, 8), misclicks: 0, flagsPlaced: int(0, mines),
+        bv3: int(20, 180), boardChangingClicks: int(20, 250), noOpClicks: int(0, 8), misclicks: 0, flagsPlaced: int(0, mines),
         flagsRemoved: 0, mousePathPx: int(2000, 40000), states: [], justice: 0, justiceEnabled: true,
         playMode: 'standard', maxAdjacent: int(3, 6), zeroCount: int(10, 90), islandCount: int(3, 30), largestIsland: int(2, 12),
         actionEvaluations: [{ version: 'action-evaluation-v1', action: 'reveal', actionNumber: int(1, 90), atMs: 1000,

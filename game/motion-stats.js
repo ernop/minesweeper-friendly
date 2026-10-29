@@ -21,6 +21,7 @@ function beginTraceMetricsSeries() {
   liveMetricsGeneration++;
   liveMetricsPending = false;
   liveMetricsSampleCursor = 0;
+  liveMetricsMergedCursor = 0;
   liveMetricsEventCursor = 0;
 }
 
@@ -351,21 +352,30 @@ function flushMetricsUpdate() {
 let liveMetricsGeneration = 0;
 let liveMetricsPending = false;
 let liveMetricsSampleCursor = 0;
+let liveMetricsMergedCursor = 0;
 let liveMetricsEventCursor = 0;
 
 function renderLiveTraceMetrics() {
   if (liveMetricsPending) { metricsTraceDirty = true; return; }
   const generation = liveMetricsGeneration;
   const currentTrace = trace;
+  // An observation at the instant of the last sample sent replaced it, so
+  // that sample goes again.
+  const fromSample = Math.min(liveMetricsSampleCursor,
+    ...trace.mergedSample.slice(liveMetricsMergedCursor));
   const payload = {
     traceId: generation,
-    t: trace.t.slice(liveMetricsSampleCursor),
-    x: trace.x.slice(liveMetricsSampleCursor),
-    y: trace.y.slice(liveMetricsSampleCursor),
+    fromSample,
+    t: trace.t.slice(fromSample),
+    x: trace.x.slice(fromSample),
+    y: trace.y.slice(fromSample),
+    merged: { sample: trace.mergedSample.slice(liveMetricsMergedCursor),
+      x: trace.mergedX.slice(liveMetricsMergedCursor), y: trace.mergedY.slice(liveMetricsMergedCursor) },
     events: trace.events.slice(liveMetricsEventCursor),
     wallMs: Date.now() - trace.startedAt,
   };
   liveMetricsSampleCursor = trace.t.length;
+  liveMetricsMergedCursor = trace.mergedSample.length;
   liveMetricsEventCursor = trace.events.length;
   liveMetricsPending = true;
   lastMetricsSampleAt = performance.now();

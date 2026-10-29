@@ -222,8 +222,8 @@ mouse speed, path per click, path per 3BV, plus the per-game forms of the
 session series: click rate, no-op rate, misclick rate, mark rate — derived
 from stored counts — and the stored fastclick gap)
 render as a small label/value table, "this game", among the tables under the board (beside the board where it fits), including no-op
-clicks (board clicks that changed nothing — stored as `wastedClicks`
-since
+clicks (board clicks that changed nothing — stored as `noOpClicks`,
+named `wastedClicks` until 2026-10-27, since
 2026-08-19; older records lack the measurement), flags placed (same
 recording rules; a zero-flag game earns the special status "markless",
 shown right in the row and as a small "(m)" before that game's time in

@@ -99,7 +99,12 @@ Spec: [docs/product/motion-stats.md](../product/motion-stats.md). Index: [AGENTS
   Verification (all checked in under tests/, all extract the computation
   span by its markers):
   - `tests/metrics-biometrics-parity.js` — vs the checked-in Python
-    output (`synthetic-features.json`), tolerance 1e-9;
+    output (`synthetic-features.json`), tolerance 1e-9, on the two games
+    `analysis/biometrics/make_synthetic_trace.py` writes: the second
+    repeats the first as capture version 3 with merged observations, so
+    the path and the bouts' path and speeds (`strokeMetrics` and
+    `stroke_features` both read `sampleTravelPx`'s travel) are compared
+    through them;
   - `tests/metrics-mousetrap-parity.js` — vs the actual R package via
     Rscript on the checked-in synthetic trace plus a freshly randomized
     one per run (needs `~/analysis-envs/r-mousetrap`; fails loudly, never

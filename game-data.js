@@ -7,16 +7,35 @@ function secondsOf(record) {
   return record.timeMs / 1000;
 }
 
+// Whether the game was a trial presentation that opened a square before the
+// first click. Trial games carry identityIndex; those before givenOpening
+// was recorded (2026-08-21) were all given an opening.
+function hadGivenOpening(record) {
+  return record.identityIndex !== undefined && record.givenOpening !== false;
+}
+
+// The 3BV the player solved, which every performance measurement divides:
+// the board's 3BV less what a trial's given opening solved before the first
+// click (`givenOpeningBv3`). Board traits keep the board's 3BV. Unknown on a
+// given-opening trial game until that is measured. An Endgame drill's bv3
+// is already the remnant's.
+function solvedBv3Of(record) {
+  if (!hadGivenOpening(record)) return record.bv3;
+  return record.givenOpeningBv3 === undefined ? undefined : record.bv3 - record.givenOpeningBv3;
+}
+
 function bvPerSecond(record) {
-  return record.bv3 / secondsOf(record);
+  const bv3 = solvedBv3Of(record);
+  return bv3 === undefined ? undefined : bv3 / secondsOf(record);
 }
 
 // Efficiency: 3BV / board-changing clicks (the clone name "throughput" is
 // the same quantity). Wins only: a lost board was never finished, so the 3BV
 // numerator is the whole board and the ratio would flatter a short loss.
 function efficiencyOf(record) {
-  if (record.outcome !== 'win' || record.clicks === 0) return undefined;
-  return record.bv3 / record.clicks;
+  const bv3 = solvedBv3Of(record);
+  if (record.outcome !== 'win' || record.boardChangingClicks === 0 || bv3 === undefined) return undefined;
+  return bv3 / record.boardChangingClicks;
 }
 
 // log(3BV) / log(time in seconds). MSO blanks t≤1; we do the same.
@@ -24,27 +43,37 @@ function efficiencyOf(record) {
 function iosOf(record) {
   if (record.outcome !== 'win') return undefined;
   const t = secondsOf(record);
-  if (!(t > 1) || !(record.bv3 > 0)) return undefined;
-  return Math.log(record.bv3) / Math.log(t);
+  const bv3 = solvedBv3Of(record);
+  if (!(t > 1) || !(bv3 > 0)) return undefined;
+  return Math.log(bv3) / Math.log(t);
 }
 
 // IOE (index of efficiency): 3BV / all clicks, no-op clicks included — the
 // all-click cousin of efficiency. Wins only for the same
-// unfinished-board reason; undefined where the no-op count (wastedClicks)
+// unfinished-board reason; undefined where the no-op count (noOpClicks)
 // was never measured (a missing denominator part, not zero).
 function ioeOf(record) {
-  if (record.outcome !== 'win' || !('wastedClicks' in record)) return undefined;
-  const total = record.clicks + record.wastedClicks;
+  const bv3 = solvedBv3Of(record);
+  if (record.outcome !== 'win' || !('noOpClicks' in record) || bv3 === undefined) return undefined;
+  const total = record.boardChangingClicks + record.noOpClicks;
   if (total === 0) return undefined;
-  return record.bv3 / total;
+  return bv3 / total;
+}
+
+// Board-changing clicks beyond one per 3BV solved. Wins only: a loss solved
+// only part of its 3BV.
+function clicksOverBv3Of(record) {
+  const bv3 = solvedBv3Of(record);
+  if (record.outcome !== 'win' || bv3 === undefined) return undefined;
+  return record.boardChangingClicks - bv3;
 }
 
 // Chord share: accepted chords over board-changing clicks. Defined for
 // wins and losses (both had a real click mix); absent where chordClicks
 // was never measured.
 function chordShareOf(record) {
-  if (record.chordClicks === undefined || record.clicks === 0) return undefined;
-  return record.chordClicks / record.clicks;
+  if (record.chordClicks === undefined || record.boardChangingClicks === 0) return undefined;
+  return record.chordClicks / record.boardChangingClicks;
 }
 
 // STNB, the difficulty-normalized speed score used on saolei.wang:
@@ -66,30 +95,33 @@ function stnbConstantOf(params) {
 }
 
 function stnbOf(record, params) {
-  if (record.outcome !== 'win' || !(record.bv3 > 0)) return undefined;
+  const bv3 = solvedBv3Of(record);
+  if (record.outcome !== 'win' || !(bv3 > 0)) return undefined;
   // A drill's bv3 is the remnant's remaining 3BV, not a full solve of the
   // standard board; STNB's difficulty constants would flatter it wildly.
   if (record.playMode === 'endgame-drill') return undefined;
   const constant = stnbConstantOf(params);
   const t = secondsOf(record);
   if (constant === undefined || !(t > 0)) return undefined;
-  return constant / (Math.pow(t, 1.7) / record.bv3);
+  return constant / (Math.pow(t, 1.7) / bv3);
 }
 
 // ZiNi efficiency: the flagger analog of efficiency (ZNE on the stats
 // sites) — greedy ZiNi over effective clicks. Wins only, and only on
-// games whose records carry the stored zini.
+// games whose records carry the stored zini. ZiNi counts the clicks of a
+// solve from an unopened board, so a trial game given an opening has none.
 function ziniEfficiencyOf(record) {
-  if (record.outcome !== 'win' || record.zini === undefined
-      || record.clicks === 0) return undefined;
-  return record.zini / record.clicks;
+  if (record.outcome !== 'win' || record.zini === undefined || hadGivenOpening(record)
+      || record.boardChangingClicks === 0) return undefined;
+  return record.zini / record.boardChangingClicks;
 }
 
-// HZiNi efficiency describes the completed play; hzini itself describes the board.
+// HZiNi efficiency describes the completed play; hzini itself describes the
+// board, solved from unopened as ZiNi is.
 function hziniEfficiencyOf(record) {
-  if (record.outcome !== 'win' || !Number.isSafeInteger(record.hzini)
-      || !(record.clicks > 0)) return undefined;
-  return record.hzini / record.clicks;
+  if (record.outcome !== 'win' || !Number.isSafeInteger(record.hzini) || hadGivenOpening(record)
+      || !(record.boardChangingClicks > 0)) return undefined;
+  return record.hzini / record.boardChangingClicks;
 }
 
 // The share of the board's mines with no flag when the game was won: the
@@ -148,7 +180,7 @@ const GameData = (() => {
   const count = (n) => n.toLocaleString('en-US');
   // A game's moves (during-game.js, moveHabits): absent on games recorded
   // before move habits were.
-  const movesOf = (r) => r.movesRanOut + r.movesLeftHardWork + r.movesLeftEasyWork;
+  const movesOf = (r) => r.movesMovedOn + r.movesLeftHardWork + r.movesLeftEasyWork;
   // The fastclick gap's definition, which a record measured under it names
   // (`fastclickGapVersion`): planned pairs since 2026-10-26. A record's
   // fastclickGapMs without it follows the definition before (gaps of at
@@ -180,19 +212,20 @@ const GameData = (() => {
       value: (r) => r.timeMs > 0 ? bvPerSecond(r) : undefined,
       format: (v) => v.toFixed(3) },
     { id: 'clickRate', allOutcomes: true, name: 'click rate', higher: true, default: true,
-      value: perSecond('clicks'), format: (v) => v.toFixed(2) + '/s',
+      value: perSecond('boardChangingClicks'), format: (v) => v.toFixed(2) + '/s',
       help: 'Counts board-changing clicks only: reveals, flags, flag removals, and chords.' },
     { id: 'efficiency', name: 'efficiency', higher: true, default: false,
       value: efficiencyOf, format: percent,
       help: '3BV solved divided by board-changing clicks.' },
     { id: 'noopRate', allOutcomes: true, name: 'no-op rate', higher: false, default: true,
-      value: perSecond('wastedClicks'), format: (v) => v.toFixed(2) + '/s',
+      value: perSecond('noOpClicks'), format: (v) => v.toFixed(2) + '/s',
       help: 'Clicks that changed nothing, such as chording a number whose mines are not all flagged, or clicking a flag.' },
     { id: 'pathPer3bv', name: 'path / 3BV', higher: false, default: false,
-      value: (r) => r.bv3 > 0 ? r.mousePathPx / r.bv3 : undefined,
+      value: (r) => solvedBv3Of(r) > 0 ? r.mousePathPx / solvedBv3Of(r) : undefined,
       format: (v) => Number(v.toFixed(1)) + 'px' },
     { id: 'boardChangingClickShare', allOutcomes: true, name: 'board-changing click share', higher: true, default: true,
-      value: (r) => r.clicks + r.wastedClicks > 0 ? r.clicks / (r.clicks + r.wastedClicks) : undefined,
+      value: (r) => r.boardChangingClicks + r.noOpClicks > 0
+        ? r.boardChangingClicks / (r.boardChangingClicks + r.noOpClicks) : undefined,
       format: percent, help: 'Board-changing clicks divided by all clicks; a wrong flag still counts as a change.' },
     { id: 'ioe', name: 'IOE', higher: true, default: false,
       value: ioeOf, format: (v) => v.toFixed(3),
@@ -202,15 +235,15 @@ const GameData = (() => {
     { id: 'hziniEfficiency', name: 'HZiNi efficiency', higher: true, default: false,
       value: hziniEfficiencyOf, format: percent, help: 'HZiNi divided by board-changing clicks. HZiNi is the action count of a fixed human-style flag-and-chord solve of this board.' },
     { id: 'ios', name: 'IOS', higher: true, default: false,
-      value: iosOf, format: (v) => v.toFixed(3), help: 'log(3BV) divided by log(seconds).' },
+      value: iosOf, format: (v) => v.toFixed(3), help: 'log(3BV solved) divided by log(seconds).' },
     { id: 'stnb', name: 'STNB', higher: true, default: false,
       value: stnbOf, format: (v) => v.toFixed(1),
-      help: '3BV times the level’s constant (beginner 36, intermediate 162, expert 435), divided by seconds^1.7.' },
+      help: '3BV solved times the level’s constant (beginner 36, intermediate 162, expert 435), divided by seconds^1.7.' },
     { id: 'mouseSpeed', allOutcomes: true, name: 'mouse speed', higher: true, default: true,
       value: perSecond('mousePathPx'), format: (v) => Math.round(v) + 'px/s',
       help: 'All cursor travel divided by all of the time, pauses included.' },
     { id: 'pathPerClick', allOutcomes: true, name: 'path / click', higher: false, default: false,
-      value: (r) => r.clicks > 0 ? r.mousePathPx / r.clicks : undefined,
+      value: (r) => r.boardChangingClicks > 0 ? r.mousePathPx / r.boardChangingClicks : undefined,
       format: (v) => Number(v.toFixed(1)) + 'px' },
     { id: 'cadenceSpread', allOutcomes: true, name: 'cadence spread', higher: false, default: false,
       value: (r) => r.cadenceSpread, format: (v) => v.toFixed(2) + '×',
@@ -219,7 +252,7 @@ const GameData = (() => {
       value: (r) => r.moveGapMedianMs, format: (v) => Math.round(v) + 'ms',
       help: 'The median time from a board-changing click to a move: a click 3 or more squares from everything the click before it opened or marked and from the proven-safe squares within 2 squares of those.' },
     { id: 'easyWorkLeftShare', allOutcomes: true, name: 'moves leaving easy work', higher: false, default: true,
-      value: (r) => (r.movesRanOut !== undefined && movesOf(r) > 0 ? r.movesLeftEasyWork / movesOf(r) : undefined),
+      value: (r) => (r.movesMovedOn !== undefined && movesOf(r) > 0 ? r.movesLeftEasyWork / movesOf(r) : undefined),
       format: percent,
       help: 'Moves made while counting a single number had proved a square within 2 squares of the click before safe, as a share of all moves: jumps of 3 or more squares from the work the click before touched.' },
     { id: 'nearestAreaShare', allOutcomes: true, name: 'forks to the nearest area', higher: true, default: false,

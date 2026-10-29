@@ -75,24 +75,32 @@ const { chromium } = require(process.argv[2]);
         request.onerror = () => reject(request.error);
       });
       const payload = { t: saved.sampleT, x: saved.sampleX, y: saved.sampleY,
-        events: saved.events, wallMs: saved.endedAt - saved.startedAt };
+        merged: storedMergedObservations(saved), events: saved.events, wallMs: saved.endedAt - saved.startedAt };
       const enriched = await analysisTask('capture-check', 'trace', payload);
       const original = await analysisTask('capture-check', 'trace', { ...payload,
         events: saved.events.filter(e => !['page-state', 'right-button-down', 'right-button-up'].includes(e.kind)) });
       return { version: saved.captureVersion, clock: saved.clock,
         initialPageState: saved.initialPageState,
-        arrayTypes: [saved.sampleSourceT, saved.sampleTrusted, saved.sampleMergeCount].map(a => a.constructor.name),
+        arrayTypes: [saved.sampleSourceT, saved.sampleTrusted, saved.mergedSample, saved.mergedX,
+          saved.mergedY, saved.mergedSourceT, saved.mergedTrusted].map(a => a.constructor.name),
         sampleLengths: [saved.sampleT, saved.sampleX, saved.sampleY, saved.sampleSourceT,
-          saved.sampleTrusted, saved.sampleMergeCount].map(a => a.length),
+          saved.sampleTrusted].map(a => a.length),
+        mergedLengths: [saved.mergedSample, saved.mergedX, saved.mergedY, saved.mergedSourceT,
+          saved.mergedTrusted].map(a => a.length),
+        mergedOwners: Array.from(saved.mergedSample),
         events: saved.events, enriched, original };
     });
-    assert.equal(captured.version, 2);
+    assert.equal(captured.version, 3);
     assert(Number.isFinite(captured.clock.timeOriginMs));
     assert(Number.isFinite(captured.clock.traceStartMs));
     assert.equal(typeof captured.initialPageState.hasFocus, 'boolean');
-    assert.deepEqual(captured.arrayTypes, ['Float64Array', 'Uint8Array', 'Uint32Array']);
+    assert.deepEqual(captured.arrayTypes,
+      ['Float64Array', 'Uint8Array', 'Uint32Array', 'Float32Array', 'Float32Array', 'Float64Array', 'Uint8Array']);
     assert(captured.sampleLengths[0] > 0);
     assert(captured.sampleLengths.every(n => n === captured.sampleLengths[0]));
+    assert(captured.mergedLengths.every(n => n === captured.mergedLengths[0]));
+    assert(captured.mergedOwners.every((owner, i) => owner < captured.sampleLengths[0]
+      && (i === 0 || owner >= captured.mergedOwners[i - 1])), 'each replaced observation names its sample, in order');
     assert.deepEqual(captured.enriched, captured.original,
       'new physical observations cannot double count game actions in existing metrics');
     assert(captured.events.every((e, i) => i === 0 || e.t >= captured.events[i - 1].t));
@@ -104,12 +112,14 @@ const { chromium } = require(process.argv[2]);
       return response.json();
     });
     const saved = exported[0];
-    for (const key of ['sampleT', 'sampleX', 'sampleY', 'sampleSourceT', 'sampleTrusted', 'sampleMergeCount']) {
+    for (const key of ['sampleT', 'sampleX', 'sampleY', 'sampleSourceT', 'sampleTrusted',
+      'mergedSample', 'mergedX', 'mergedY', 'mergedSourceT', 'mergedTrusted']) {
       assert(Array.isArray(saved[key]), key + ' exports as an array');
     }
     assert.deepEqual(saved.events, captured.events);
-    assert(saved.sampleMergeCount.every(n => Number.isInteger(n) && n > 0));
+    assert.deepEqual(saved.mergedSample, captured.mergedOwners);
     assert(saved.sampleTrusted.every(n => n === 0 || n === 1));
+    assert(saved.mergedTrusted.every(n => n === 0 || n === 1));
     if (process.argv[4]) fs.writeFileSync(process.argv[4], JSON.stringify(exported));
     const before = await page.evaluate(() => trace.events.length);
     await page.evaluate(() => window.dispatchEvent(new FocusEvent('blur')));

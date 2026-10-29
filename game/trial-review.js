@@ -131,7 +131,7 @@ function identityStartsOpen(group, playedCount) {
 }
 
 function renderTrialReview(session) {
-  const summary = Trial.sessionSummary(session);
+  const summary = Trial.sessionSummary(session, (attempt) => shownMeasurement(attempt, 'bvPerSecond'));
   const copy = document.getElementById('trial-copy');
   const verdict = document.getElementById('trial-verdict');
   copy.hidden = false;
@@ -162,11 +162,12 @@ function renderTrialReview(session) {
     for (let i = 0; i < group.attempts.length; i++) {
       const attempt = group.attempts[i];
       const seconds = attempt.timeMs / 1000;
+      const bvs = shownMeasurement(attempt, 'bvPerSecond');
       const line = document.createElement('div');
       line.textContent = trialRunOrdinal(i) + '  ' + attempt.outcome + '  '
         + seconds.toFixed(3) + 's  3BV ' + attempt.bv3
-        + '  ' + (attempt.bv3 / seconds).toFixed(3) + '/s  '
-        + trialTransformLabel(attempt.transform);
+        + (bvs === undefined ? '' : '  ' + GameData.metrics.find((m) => m.id === 'bvPerSecond').format(bvs) + '/s')
+        + '  ' + trialTransformLabel(attempt.transform);
       body.appendChild(line);
       if (Array.isArray(attempt.actionEvaluations)
           && attempt.actionEvaluations.length > 0) {
@@ -267,10 +268,10 @@ function appendTrialAttemptCharts(box, attempts) {
   appendNamedBars(box, 'time (s)',
     attempts.map((a) => winOnly(a, a.timeMs / 1000)), SPARK_SMALL);
   appendNamedBars(box, '3BV/s',
-    attempts.map((a) => winOnly(a, a.bv3 / (a.timeMs / 1000))), SPARK_SMALL);
-  appendNamedBars(box, 'clicks', attempts.map((a) => a.clicks), SPARK_SMALL);
+    attempts.map((a) => shownMeasurement(a, 'bvPerSecond')), SPARK_SMALL);
+  appendNamedBars(box, 'clicks', attempts.map((a) => a.boardChangingClicks), SPARK_SMALL);
   appendNamedBars(box, 'efficiency',
-    attempts.map((a) => winOnly(a, a.clicks > 0 ? a.bv3 / a.clicks : undefined)), SPARK_SMALL);
+    attempts.map((a) => shownMeasurement(a, 'efficiency')), SPARK_SMALL);
 }
 
 function loadTracesByEndedAt(endedAts, done) {
@@ -312,16 +313,19 @@ async function appendTrialOverlays(box, session, group, traces) {
       x: Array.from(stored.sampleX),
       y: Array.from(stored.sampleY),
     };
+    const merged = storedMergedObservations(stored);
+    const travel = sampleTravelPx(samples.x, samples.y, merged);
     const wall = stored.endedAt - stored.startedAt;
     runs.push({
       colorIndex: i,
       progress: progress,
-      path: Trial.runningPath(samples.t, samples.x, samples.y),
-      speed: Trial.runningSpeed(samples.t, samples.x, samples.y),
+      path: Trial.runningPath(samples.t, travel),
+      speed: Trial.runningSpeed(samples.t, travel),
       board: Trial.identityBoardSamples(
         samples.t, samples.x, samples.y, stored.events,
         group.attempts[i].transform, session.width, session.height),
-      metrics: (await analysisTask('reports', 'trace', { ...samples, events: stored.events, wallMs: wall })).metrics,
+      metrics: (await analysisTask('reports', 'trace',
+        { ...samples, merged, events: stored.events, wallMs: wall })).metrics,
     });
   }
   if (runs.length < 2) return;

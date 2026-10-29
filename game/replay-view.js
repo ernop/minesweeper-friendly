@@ -472,7 +472,7 @@ function renderReplayFrame() {
   renderPathOverlay();
 }
 
-function pathSegments(decisions) {
+function pathSegments(decisions, travel) {
   const segments = [];
   let nextDecision = 0;
   for (let i = 1; i < trace.t.length; i++) {
@@ -488,11 +488,7 @@ function pathSegments(decisions) {
     const gap = dt >= PATH_GAP_MS;
     let value;
     if (settings.pathView === 'movement-speed') {
-      if (!gap) {
-        value = Math.hypot(
-          trace.x[i] - trace.x[i - 1],
-          trace.y[i] - trace.y[i - 1]) * 1000 / dt;
-      }
+      if (!gap) value = travel[i] * 1000 / dt;
     } else if (settings.pathView === 'click-speed' && decision !== null && nextDecision > 0) {
       const clickGap = decision.t - decisions[nextDecision - 1].t;
       if (clickGap > 0) value = 1000 / clickGap;
@@ -1007,7 +1003,8 @@ function buildPathOverlay(legendTarget) {
   }
   const ctx = canvas.getContext('2d');
   ctx.scale(scale, scale);
-  const segments = drawView ? pathSegments(decisions) : [];
+  const travel = sampleTravelPx(trace.x, trace.y, liveMergedObservations());
+  const segments = drawView ? pathSegments(decisions, travel) : [];
   const endT = trace.t.length === 0 ? 0 : trace.t[trace.t.length - 1];
   const replayIndex = Math.max(0, Math.min(decisions.length - 1, replayStep));
   const cutoff = replayEnabled && decisions.length > 0
@@ -1087,7 +1084,7 @@ function buildPathOverlay(legendTarget) {
     };
   });
   const rough = replayEnabled && settings.replayOverlays.movement
-    ? pathRoughSegments(trace.t, trace.x, trace.y) : null;
+    ? pathRoughSegments(trace.t, trace.x, trace.y, travel) : null;
   lastPathState = {
     ctx,
     width: rect.width,

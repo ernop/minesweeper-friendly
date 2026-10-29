@@ -310,7 +310,8 @@ async function capture(page, rawDir) {
       && document.querySelector('.result-chart-section-perfCharts svg'), null, { timeout: 120000 });
     const win = await page.evaluate(() => {
       const record = history['9x9/10@standard'].reduce((a, b) => (b.endedAt > a.endedAt ? b : a));
-      return { timeMs: record.timeMs, bv3: record.bv3, clicks: record.clicks, flagsPlaced: record.flagsPlaced };
+      return { timeMs: record.timeMs, bv3: record.bv3, boardChangingClicks: record.boardChangingClicks,
+        flagsPlaced: record.flagsPlaced };
     });
     console.log('win', JSON.stringify(win), 'boards restarted', attempts - 1);
     await capture(page, rawDir);

@@ -7,6 +7,11 @@ paths (quadratic Bezier with sub-pixel noise), event-driven sampling at
 pairs on arrival, and two right clicks. Seeded, so the output is
 reproducible byte for byte.
 
+A second game repeats the first's samples and events as capture version 3
+does, with cursor observations a later one received at the same instant
+replaced (mergedSample, mergedX, mergedY), so the extractors' cursor travel
+through them is compared too.
+
 This is a test fixture generator, not a human-likeness model.
 """
 
@@ -30,6 +35,10 @@ WAYPOINTS = [(210.0, 180.0), (420.0, 300.0), (350.0, 460.0),
              (520.0, 220.0), (260.0, 340.0), (450.0, 410.0),
              (300.0, 250.0)]
 RIGHT_CLICK_AT = {2, 4}               # waypoint indexes flagged, not revealed
+MERGE_SEED = SEED + 1
+MERGE_SHARE = 0.15                    # samples that replaced observations
+MERGE_DETOUR_PX = (0.5, 3.0)          # replaced observations off the step
+CAPTURE_VERSION_MERGED = 3
 
 
 def bezier(p0: tuple[float, float], p1: tuple[float, float],
@@ -43,6 +52,27 @@ def minimum_jerk(s: float) -> float:
     """Position profile of a natural reaching movement (Flash & Hogan
     1985): slow-fast-slow along the path."""
     return 10 * s**3 - 15 * s**4 + 6 * s**5
+
+
+def merged_observations(sample_x: list[float],
+                        sample_y: list[float]) -> dict[str, list]:
+    """Observations each sample replaced: one or two points beside the step
+    into it, in delivery order, and two before the first sample."""
+    rng = random.Random(MERGE_SEED)
+    owners: list[int] = []
+    mx: list[float] = []
+    my: list[float] = []
+    for i in range(len(sample_x)):
+        if i > 0 and rng.random() >= MERGE_SHARE:
+            continue
+        x0, y0 = (sample_x[i - 1], sample_y[i - 1]) if i > 0 else (sample_x[0] - 4.0, sample_y[0] - 3.0)
+        count = 2 if i == 0 else rng.choice((1, 2))
+        for j in range(1, count + 1):
+            s = j / (count + 1)
+            owners.append(i)
+            mx.append(round(x0 + s * (sample_x[i] - x0) + rng.uniform(*MERGE_DETOUR_PX), 2))
+            my.append(round(y0 + s * (sample_y[i] - y0) - rng.uniform(*MERGE_DETOUR_PX), 2))
+    return {'mergedSample': owners, 'mergedX': mx, 'mergedY': my}
 
 
 def main() -> None:
@@ -107,9 +137,14 @@ def main() -> None:
         'sampleY': sample_y,
         'events': events,
     }
-    OUT_PATH.write_text(json.dumps([game]))
-    print(f'wrote {OUT_PATH} ({len(sample_t)} samples, '
-          f'{len(events)} events, {t / 1000:.1f} s)')
+    merged_start = started_at + 3_600_000
+    merged_game = {**game, 'endedAt': merged_start + math.ceil(t), 'startedAt': merged_start,
+                   'captureVersion': CAPTURE_VERSION_MERGED,
+                   **merged_observations(sample_x, sample_y)}
+    OUT_PATH.write_text(json.dumps([game, merged_game]))
+    print(f'wrote {OUT_PATH} (2 games of {len(sample_t)} samples, '
+          f'{len(events)} events, {t / 1000:.1f} s; '
+          f'{len(merged_game["mergedSample"])} merged observations)')
 
 
 if __name__ == '__main__':

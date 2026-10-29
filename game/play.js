@@ -286,9 +286,9 @@ function newGame() {
   justiceEnabledForGame = null;
   flagsCount = 0;
   revealedCount = 0;
-  clickCount = 0;
+  boardChangingClicks = 0;
   chordClicks = 0;
-  wastedClicks = 0;
+  noOpClicks = 0;
   inputActionCount = 0;
   misclicks = 0;
   flagsPlaced = 0;
@@ -298,7 +298,6 @@ function newGame() {
   flagEpisodes = [];
   finalTimeMs = 0;
   startTime = 0;
-  mousePathPx = 0;
   justiceEvents = 0;
   guessEvents = [];
   oddsUnmeasured = false;
@@ -599,7 +598,7 @@ function toggleFlag(index, evaluation) {
   flagsCount += cell.flagged ? 1 : -1;
   if (cell.flagged) flagsPlaced++;
   else flagsRemoved++;
-  clickCount++;
+  boardChangingClicks++;
   updateCell(index);
   setLcd(mineCounter, config.mines - flagsCount);
   return true;
@@ -640,7 +639,7 @@ function chord(index) {
   // first, and the first flag already moved ready -> playing.
   const actionEvaluation = evaluateChordAction(index, toReveal);
   markChordFlagUsage(index);
-  clickCount++;
+  boardChangingClicks++;
   chordClicks++;
 
   if (settings.playMode === 'angelic') {

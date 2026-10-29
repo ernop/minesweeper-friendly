@@ -29,7 +29,18 @@ Spec: [docs/product/play-modes.md](../product/play-modes.md). Index: [AGENTS.md]
   deleted; the verdicts for saved Proof-or-die games stay in
   `game/evaluation.js`. `trial.js`
   holds the 25×4 and 4×4 sessions, dihedral maps, identity grouping,
-  and replay of opens/flags from stored traces for overlay charts.
+  and replay of opens/flags from stored traces for overlay charts; its
+  running path and speed (`runningPath`, `runningSpeed`) add each
+  sample's `sampleTravelPx`, and `statsOfAttempts` / `sessionSummary`
+  take the page's 3BV/s function (`shownMeasurement(attempt,
+  'bvPerSecond')` in game/trial-review.js), so the review reads the catalog.
+  `setupTrialBoard` (game/play-modes.js) keeps `givenOpening` and the
+  squares the opening left open (`openedAtStart`) on `trialPresentation`;
+  `reportResult` stores `givenOpeningBv3 = DuringGame.bv3SolvedBy(...)` of
+  those squares, and the restore path measures it for older records with
+  `DuringGame.bv3SolvedAtStart` (the open squares of the trace's first
+  decision position). `hadGivenOpening` and `solvedBv3Of` in game-data.js
+  decide which games have one and what 3BV their measurements divide.
   `node tests/solver-test.js` and `node tests/trial-test.js`.
 - Endgame drill mode ([Play modes](../product/play-modes.md)): `endgame.js` is the pure
   dealing module (`EndgameDrill` global / CommonJS, loaded with the other

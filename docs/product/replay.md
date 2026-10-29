@@ -49,7 +49,9 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   label — the direct answer to "how long was I off-screen?".
 - The three continuous parameter views draw the actual cursor polyline through every
   recorded sample, warmup included. Movement speed colors each segment by
-  its instantaneous px/s; click speed colors the movement leading to each
+  the cursor's speed over it in px/s: its travel, through any positions
+  merged into its end sample ([Storage](storage-and-history.md), "Capture
+  provenance v1"), over its time; click speed colors the movement leading to each
   action by inverse inter-action gap; game progress colors it by the share
   of non-mine cells uncovered in the exact position during that movement.
   Parameter-colored paths are 4.25px wide (raw path 3px), materially thicker
@@ -210,7 +212,8 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
     exact click spot stays readable; black so a clean action never shares a
     hue with the teal chord rings.
   - `rough movement`: deep-pink underlay on segments crawling below ¼ of
-    the game's own median moving pace or making a >135° direction
+    the game's own median moving pace (the same speed as movement speed)
+    or making a >135° direction
     reversal — hesitation and overshoot correction made visible (deep pink
     so it never shares a hue with the purple choice rings).
   - Solver reads are cached per decision index and precomputed for every

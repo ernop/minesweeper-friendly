@@ -104,6 +104,7 @@ Object.assign(game, {
   boardFlagsBlocked: false,
   medianOf: () => 212,
   pathDecisionEvents: () => [],
+  liveMergedObservations: () => ({ sample: [], x: [], y: [] }),
   guessLedgerAppliesToMode: () => false,
   pregenActive: () => false,
   trialIsActive: () => false,
@@ -136,8 +137,8 @@ function paint() {
 // and the analysis worker's answer, which saves the record again.
 async function playToEnd(outcome, state) {
   Object.assign(game, {
-    clickCount: 0, chordClicks: 0, wastedClicks: 0, misclicks: 0, flagsPlaced: 0, flagsRemoved: 0,
-    unusedCorrectFlags: 0, mousePathPx: 30000.4, justiceEvents: 0, justiceEnabledForGame: false,
+    boardChangingClicks: 0, chordClicks: 0, noOpClicks: 0, misclicks: 0, flagsPlaced: 0, flagsRemoved: 0,
+    unusedCorrectFlags: 0, justiceEvents: 0, justiceEnabledForGame: false,
     gameSeed: '0123456789abcdef0123456789abcdef', firstRevealIndex: 0, actionEvaluations: [],
     musicObservations: [], guessEvents: [], oddsUnmeasured: false,
     drillCurrent: null, trialPresentation: null, trialSession: null, pregenBatch: null,
@@ -185,9 +186,9 @@ const eventUrl = (n, fields) => '/_event?v=1&e=game&p=abababababababab&s=abababa
     justiceEnabledForGame: true,
     finalTimeMs: 61234.4,
     compute3BV: () => 152,
-    clickCount: 180,
+    boardChangingClicks: 180,
     chordClicks: 41,
-    wastedClicks: 6,
+    noOpClicks: 6,
     flagsPlaced: 70,
     flagsRemoved: 2,
   });
@@ -209,8 +210,8 @@ const eventUrl = (n, fields) => '/_event?v=1&e=game&p=abababababababab&s=abababa
     justiceEnabledForGame: true,
     finalTimeMs: 98765.2,
     compute3BV: () => 181,
-    clickCount: 230,
-    wastedClicks: 9,
+    boardChangingClicks: 230,
+    noOpClicks: 9,
     flagsPlaced: 85,
   });
   assert.deepEqual(pinkWin.fields, {
@@ -229,12 +230,12 @@ const eventUrl = (n, fields) => '/_event?v=1&e=game&p=abababababababab&s=abababa
     config: { width: 20, height: 12, mines: 50 },
     settings: { playMode: 'test-trial' },
     gameGenerator: { id: 'uniform', params: {} },
-    trialPresentation: { identityIndex: 0, transform: 'rot180' },
+    trialPresentation: { identityIndex: 0, transform: 'rot180', givenOpening: false },
     trialSession: { startedAt: 1787201223496 },
     finalTimeMs: 18765.5,
     compute3BV: () => 64,
-    clickCount: 25,
-    wastedClicks: 2,
+    boardChangingClicks: 25,
+    noOpClicks: 2,
     flagsPlaced: 3,
   });
   assert.deepEqual(customLoss.fields, {
@@ -253,8 +254,8 @@ const eventUrl = (n, fields) => '/_event?v=1&e=game&p=abababababababab&s=abababa
     drillCurrent: { remaining3BV: 9, safeLeft: 14 },
     finalTimeMs: 4000,
     compute3BV: () => 70,
-    clickCount: 12,
-    wastedClicks: 1,
+    boardChangingClicks: 12,
+    noOpClicks: 1,
   });
   assert.deepEqual(drillWin.fields, {
     m: 'intermediate:endgame-drill:blue-noise', r: 'win', d: 4, w: 16, h: 16, mines: 40, g_spread: 3,
@@ -289,7 +290,7 @@ const eventUrl = (n, fields) => '/_event?v=1&e=game&p=abababababababab&s=abababa
       Object.assign(game, {
         config: { width, height, mines },
         gameGenerator: { id: spec.id, params: BoardGenerators.paramsFrom(spec.id) },
-        statsRecord: { outcome: 'win', timeMs: 1000, bv3: 1, clicks: 1, wastedClicks: 0,
+        statsRecord: { outcome: 'win', timeMs: 1000, bv3: 1, boardChangingClicks: 1, noOpClicks: 0,
           flagsPlaced: 0, playMode, justiceEnabled: false },
       });
       const fields = plain(vm.runInContext('playStatisticsFields(statsRecord)', game));

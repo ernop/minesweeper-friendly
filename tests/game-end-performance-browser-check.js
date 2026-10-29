@@ -21,7 +21,7 @@ const { chromium } = require(process.argv[2]);
       const now = Date.now();
       history[modeKey()] = Array.from({ length: 2000 }, (_, i) => ({
         endedAt: now - (2000 - i) * 3600000, outcome: i % 4 ? 'win' : 'loss',
-        timeMs: 10000 + (i * 1543 % 50000), clicks: 20 + i % 15, wastedClicks: i % 3,
+        timeMs: 10000 + (i * 1543 % 50000), boardChangingClicks: 20 + i % 15, noOpClicks: i % 3,
         misclicks: 0, chordClicks: 0, mousePathPx: 500 + i % 900,
         flagsPlaced: 0, flagsRemoved: 0, unusedCorrectFlags: 0, states: [], actionEvaluations: [],
         bv3: 12 + i % 25, zini: 12 + i % 15, hzini: 12 + i % 15,

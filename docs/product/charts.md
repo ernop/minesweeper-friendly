@@ -95,7 +95,7 @@ at or below one second, and path ratios exclude zero denominators.
   a day step, M/D above), win time vs hour of day (0–24 local), 3BV vs time,
   clicks vs 3BV (with the y = x floor drawn as a dashed line — a game on the
   line used only the board's minimum clicks), no-op clicks vs time (only
-  wins carrying the `wastedClicks` measurement; appears once at least 2 do),
+  wins carrying the `noOpClicks` measurement; appears once at least 2 do),
   and (2026-08-30, the guess-ledger and cadence scatters) guesses vs time
   (tied small-integer x, so no trend line, like no-op clicks), life lost
   vs time (guess-ledger wins only), and cadence spread over date. Each

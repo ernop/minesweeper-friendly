@@ -34,8 +34,13 @@ Spec: [docs/product/replay.md](../product/replay.md). Index: [AGENTS.md](../../A
   matching chip. Speed colors use `pathDisplayRange`'s Tukey-trimmed local
   range; a constant range renders its one real value instead of fabricated
   endpoints. `pathPointMapper` walks layout events so each point maps through
-  its geometry at trace time. Sampling gaps ≥300ms (`pathTraceGaps`) draw as
-  dashed connectors; those whose endpoints are ≥40px apart are 'away'
+  its geometry at trace time. `renderPathOverlay` takes each sample's
+  travel once (`sampleTravelPx` over `liveMergedObservations()`; the
+  restored trace carries its merged observations as the live one does),
+  and movement speed (`pathSegments`) and `pathRoughSegments`' pace divide
+  it by the step's time. Sampling gaps ≥300ms (`pathTraceGaps`) draw as
+  dashed connectors; those whose endpoints are ≥40px apart
+  (`distancePx`, the straight distance, not travel) are 'away'
   (off-window) and get an on-path duration label. `pathClickActions` joins
   raw inputs to decision frames by exact event time, so click markers color
   chords (green) apart from plain left releases (blue) and right presses

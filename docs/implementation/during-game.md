@@ -49,8 +49,11 @@ Spec: [docs/product/during-game.md](../product/during-game.md). Index: [AGENTS.m
 The trace is cloned to the reports worker once. `finished-game` (with
 `gameId: record.endedAt`, and the trace's `initialPageState`) and
 `restore-trace` (with the stored trace) each keep `{id, width, height,
-mines, justiceEnabled, t, x, y, events, initialPageState}` as the worker's
-`duringGameSource` and drop the cached model. `justiceEnabled` is the
+mines, justiceEnabled, t, x, y, merged, events, initialPageState}` as the
+worker's `duringGameSource` and drop the cached model (`merged`: the cursor
+observations the samples replaced, `storedMergedObservations` of a stored
+trace, empty before capture version 3; the path rows add `sampleTravelPx`
+of them through `cursorPath`, as the record's `mousePathPx` does). `justiceEnabled` is the
 record's (`reportResult` sends it; the stored trace carries a copy), absent
 on games from before it was recorded. The page sets
 `duringGameSourceId = record.endedAt` just before posting either
@@ -211,14 +214,14 @@ decisions. Otherwise:
   false, the window-left row's data is `{kind: 'unrecorded'}`, and long-gap
   events carry no `windowLeft`.
 
-`DuringGame.moveHabits(model)` gives the record's move habits (`movesRanOut`,
+`DuringGame.moveHabits(model)` gives the record's move habits (`movesMovedOn`,
 `movesLeftHardWork`, `movesLeftEasyWork`, `moveGapMedianMs` with
 `medianOf` when there is a move, `forkMoves`, `forkMovesToNearestArea`),
 or nothing for an unrecorded trace or when `movesJudged` is false.
 `finishedMeasurements` in `analysis-worker.js` adds them when the plan's
 `needMoveHabits` is set: always in `finished-game` (`reportResult` sends
 `timeMs` and `outcome`), and in `restore-trace` when the record lacks
-`movesRanOut` (`preferences-game.js`). It builds the held model through
+`movesMovedOn` (`preferences-game.js`). It builds the held model through
 `heldDuringGameModel`, so the live perf charts' first request reuses it.
 
 Cost (2026-10-15, scripted Expert wins of 290–340 actions in Node):

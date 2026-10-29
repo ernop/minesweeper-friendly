@@ -334,27 +334,27 @@ function replayProgress(width, height, mineAt, firstClick, events, opts) {
   };
 }
 
-function runningPath(sampleT, sampleX, sampleY) {
+// travel: each sample's cursor travel in px (sampleTravelPx in
+// game/trace-metrics.js), which counts the observations merged into it.
+function runningPath(sampleT, travel) {
   const tMs = [];
   const path = [];
   let acc = 0;
   for (let i = 0; i < sampleT.length; i++) {
-    if (i > 0) acc += Math.hypot(sampleX[i] - sampleX[i - 1], sampleY[i] - sampleY[i - 1]);
+    acc += travel[i];
     tMs.push(sampleT[i]);
     path.push(acc);
   }
   return { tMs: tMs, values: path };
 }
 
-function runningSpeed(sampleT, sampleX, sampleY) {
+function runningSpeed(sampleT, travel) {
   const tMs = [];
   const values = [];
   for (let i = 1; i < sampleT.length; i++) {
     const dt = sampleT[i] - sampleT[i - 1];
     tMs.push(sampleT[i]);
-    values.push(dt > 0
-      ? Math.hypot(sampleX[i] - sampleX[i - 1], sampleY[i] - sampleY[i - 1]) / dt * 1000
-      : undefined);
+    values.push(dt > 0 ? travel[i] / dt * 1000 : undefined);
   }
   return { tMs: tMs, values: values };
 }
@@ -455,12 +455,9 @@ function attemptSeconds(attempt) {
   return attempt.timeMs / 1000;
 }
 
-function attemptBvS(attempt) {
-  const seconds = attempt.timeMs / 1000;
-  return seconds > 0 ? attempt.bv3 / seconds : null;
-}
-
-function statsOfAttempts(attempts) {
+// bvPerSecondOf: the game data catalog's 3BV/s of an attempt (game-data.js),
+// which counts only the 3BV the player solved.
+function statsOfAttempts(attempts, bvPerSecondOf) {
   const winTimes = [];
   const winBvS = [];
   let wins = 0;
@@ -468,8 +465,8 @@ function statsOfAttempts(attempts) {
     if (attempt.outcome !== 'win') continue;
     wins++;
     winTimes.push(attemptSeconds(attempt));
-    const bvs = attemptBvS(attempt);
-    if (bvs !== null) winBvS.push(bvs);
+    const bvs = bvPerSecondOf(attempt);
+    if (Number.isFinite(bvs)) winBvS.push(bvs);
   }
   return {
     n: attempts.length,
@@ -483,7 +480,7 @@ function statsOfAttempts(attempts) {
 
 // Meeting-index aggregates. withinMean is seconds faster on the last
 // win vs the first win of an identity (positive = later faster).
-function sessionSummary(session) {
+function sessionSummary(session, bvPerSecondOf) {
   const groups = groupedResults(session);
   let maxShow = 0;
   for (const group of groups) {
@@ -495,7 +492,7 @@ function sessionSummary(session) {
     for (const group of groups) {
       if (group.attempts[k] !== undefined) bucket.push(group.attempts[k]);
     }
-    showings.push(statsOfAttempts(bucket));
+    showings.push(statsOfAttempts(bucket, bvPerSecondOf));
   }
 
   const firstMeetings = [];
@@ -520,8 +517,8 @@ function sessionSummary(session) {
     identitiesPlayed: identitiesPlayed,
     identitiesWithTwoWins: withinDeltas.length,
     showings: showings,
-    firstMeetings: statsOfAttempts(firstMeetings),
-    laterMeetings: statsOfAttempts(laterMeetings),
+    firstMeetings: statsOfAttempts(firstMeetings, bvPerSecondOf),
+    laterMeetings: statsOfAttempts(laterMeetings, bvPerSecondOf),
     withinMean: meanOf(withinDeltas),
   };
 }

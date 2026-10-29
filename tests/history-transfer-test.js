@@ -30,6 +30,11 @@ globalThis.normalizeGameRecord = (record) => ({
 });
 
 vm.runInThisContext(source.slice(start, end));
+const storageSource = fs.readFileSync(path.join(__dirname, '..', 'storage.js'), 'utf8');
+const renameStart = storageSource.indexOf('const RENAMED_RECORD_FIELDS');
+const renameEnd = storageSource.indexOf('const dbRequest');
+if (renameStart < 0 || renameEnd < renameStart) throw new Error('storage.js record renames missing');
+vm.runInThisContext(storageSource.slice(renameStart, renameEnd));
 
 let checks = 0;
 function check(name, condition) {
@@ -63,6 +68,18 @@ function check(name, condition) {
   check('bad optional fields counted', transfer.repairedFields === 2);
   check('bad optional scalar removed', !('note' in record));
   check('bad action evidence normalized', Array.isArray(record.actionEvaluations));
+}
+
+{
+  // A backup from before 2026-10-27 carries the old field names.
+  const transfer = cleanTransferredHistory({
+    '9x9/10@standard': [{ endedAt: 3, outcome: 'win', clicks: 12, wastedClicks: 1, movesRanOut: 2 }],
+  });
+  const record = transfer.history['9x9/10@standard'][0];
+  check('old field names import under the current ones',
+    record.boardChangingClicks === 12 && record.noOpClicks === 1 && record.movesMovedOn === 2);
+  check('old field names are gone', !('clicks' in record || 'wastedClicks' in record || 'movesRanOut' in record));
+  check('renaming is not a repair', transfer.repairedFields === 0);
 }
 
 {

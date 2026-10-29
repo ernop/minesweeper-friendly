@@ -9,6 +9,8 @@
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
+// The catalog's 3BV/s and IOE, which training-core.js reads as globals.
+vm.runInThisContext(fs.readFileSync(path.join(__dirname, '..', 'game-data.js'), 'utf8'));
 const TrainingCore = require('../training-core.js');
 const Solver = require('../solver.js');
 const GameRandom = require('../rng.js');
@@ -218,8 +220,8 @@ console.log('replay: seed-rebuilt Expert boards');
 console.log('records: pace, runs, weeks');
 {
   const day = Date.UTC(2026, 8, 21, 18);
-  const win = (i, timeMs, bv3, clicks, wastedClicks) => ({ endedAt: day + i * 60000, outcome: 'win', timeMs, bv3, clicks,
-    ...(wastedClicks === undefined ? {} : { wastedClicks }), actionEvaluations: [] });
+  const win = (i, timeMs, bv3, boardChangingClicks, noOpClicks) => ({ endedAt: day + i * 60000, outcome: 'win', timeMs, bv3,
+    boardChangingClicks, ...(noOpClicks === undefined ? {} : { noOpClicks }), actionEvaluations: [] });
   const wins = [win(0, 100000, 175, 240, 40), win(1, 80000, 160, 200, 20), win(2, 90000, 150, 190)];
   const pace = TrainingCore.winPace(wins);
   check('median win time over all wins', pace.medianWinS === 90);
@@ -227,7 +229,7 @@ console.log('records: pace, runs, weeks');
     && Math.abs(pace.medianIoe - (175 / 280 + 160 / 220) / 2) < 1e-12);
   check('median no-ops', pace.medianNoopsPerWin === 30);
   const death = (i, mistakes, evidence) => ({ endedAt: day + i * 60000, outcome: 'loss', timeMs: 30000, bv3: 170,
-    clicks: 50, wastedClicks: 3, actionEvaluations: [{ version: 'action-evaluation-v1', action: 'reveal', result: 'death',
+    boardChangingClicks: 50, noOpClicks: 3, actionEvaluations: [{ version: 'action-evaluation-v1', action: 'reveal', result: 'death',
       mistakes, evidence }] });
   const runs = [
     wins[0],
@@ -265,7 +267,7 @@ console.log('player states compared');
   const base = new Date(2026, 8, 20, 10, 0, 0).getTime();
   const noop = (reason) => ({ version: 'action-evaluation-v1', action: 'no-op', result: 'continued',
     mistakes: ['no-op-click'], evidence: { reason } });
-  const records = [{ endedAt: base - 86400000, outcome: 'win', timeMs: 95000, bv3: 180, clicks: 200, wastedClicks: 0,
+  const records = [{ endedAt: base - 86400000, outcome: 'win', timeMs: 95000, bv3: 180, boardChangingClicks: 200, noOpClicks: 0,
     flagsPlaced: 90, states: ['sleepy'], actionEvaluations: [] }];
   // Five pairs of blocks, without the state first, each block one win and
   // one loss past 20 s. With the state the win is faster in pairs 1 and 2
@@ -275,14 +277,14 @@ console.log('player states compared');
     for (const [withState, s] of [[false, withoutS], [true, withS]]) {
       const states = withState ? ['exp'] : [];
       const endedAt = base + records.length * 300000;
-      records.push({ endedAt, outcome: 'win', timeMs: s * 1000, bv3: 180, clicks: 200, wastedClicks: withState ? 0 : 2,
+      records.push({ endedAt, outcome: 'win', timeMs: s * 1000, bv3: 180, boardChangingClicks: 200, noOpClicks: withState ? 0 : 2,
         flagsPlaced: withState ? 60 : 90, states,
         actionEvaluations: withState ? [] : [noop('chord-short-of-flags'), noop('chord-short-of-flags')] });
-      records.push({ endedAt: endedAt + 60000, outcome: 'loss', timeMs: 30000, bv3: 180, clicks: 50, wastedClicks: 0,
+      records.push({ endedAt: endedAt + 60000, outcome: 'loss', timeMs: 30000, bv3: 180, boardChangingClicks: 50, noOpClicks: 0,
         flagsPlaced: 20, states, actionEvaluations: [] });
     }
   });
-  records.push({ endedAt: base + 50 * 300000, outcome: 'loss', timeMs: 25000, bv3: 180, clicks: 60, wastedClicks: 1,
+  records.push({ endedAt: base + 50 * 300000, outcome: 'loss', timeMs: 25000, bv3: 180, boardChangingClicks: 60, noOpClicks: 1,
     flagsPlaced: 20, states: [], actionEvaluations: [noop('chord-unavailable')] });
   const comparisons = TrainingCore.stateComparisons(records, deps.fatalKindOf);
   check('states listed most recently used first', comparisons.map((c) => c.state).join() === 'exp,sleepy');
@@ -336,8 +338,8 @@ console.log('openings');
       expected.numbered++;
       if (won) expected.numberedWins++;
     }
-    records.push({ endedAt: 1790000000000 + i, outcome: won ? 'win' : 'loss', timeMs: 50000, bv3: 150, clicks: 1,
-      wastedClicks: 0, seed, firstRevealIndex: first, rngVersion: GameRandom.VERSION,
+    records.push({ endedAt: 1790000000000 + i, outcome: won ? 'win' : 'loss', timeMs: 50000, bv3: 150, boardChangingClicks: 1,
+      noOpClicks: 0, seed, firstRevealIndex: first, rngVersion: GameRandom.VERSION,
       boardVersion: 'uniform-first-safe-fisher-yates-v1' });
   });
   records.push({ ...records[0], endedAt: 1790000000100, boardVersion: 'pink-noise-v1' });
@@ -371,10 +373,10 @@ console.log('summary: end to end over seed-rebuilt Expert wins');
     const solved = solvedTrace(seed, 0, 300);
     const inputs = solved.events.length;
     records.push({ endedAt: 1790000000000 + i * 1000, outcome: 'win', timeMs: (inputs - 1) * 300, bv3: inputs,
-      clicks: inputs, wastedClicks: 0, actionEvaluations: [] });
+      boardChangingClicks: inputs, noOpClicks: 0, actionEvaluations: [] });
     traces.push(i === 1 ? undefined : solved.trace);
   }
-  records.push({ endedAt: 1790000009000, outcome: 'loss', timeMs: 2000, bv3: 170, clicks: 2, wastedClicks: 0,
+  records.push({ endedAt: 1790000009000, outcome: 'loss', timeMs: 2000, bv3: 170, boardChangingClicks: 2, noOpClicks: 0,
     actionEvaluations: [{ version: 'action-evaluation-v1', action: 'reveal', result: 'death', mistakes: [], evidence: { boardProgress: 0.01 } }] });
   const summary = TrainingCore.summary(records, traces, deps);
   check('replay status counts', summary.replayStatus.replayed === 2 && summary.replayStatus['no-trace'] === 1);

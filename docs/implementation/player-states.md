@@ -8,7 +8,7 @@ Spec: [docs/product/player-states.md](../product/player-states.md). Index: [AGEN
   options (none active) and nothing is persisted until the player
   changes something. `activeStateNames()` is stamped
   onto every record as `states` (always written, `[]` when none active;
-  absent on pre-2026-08-20 records, same absence rules as wastedClicks).
+  absent on pre-2026-08-20 records, same absence rules as noOpClicks).
   UI: `#states` lives in `#top-right` inside the independently scrolling
   game sidebar, after the archive chip (the mode and generator selects
   before it moved to `#difficulty-tabs` and `#mode-options` on 2026-10-20;

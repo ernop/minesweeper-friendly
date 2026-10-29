@@ -461,10 +461,10 @@ function steppedMetric(id, step, { percent = false } = {}) {
 }
 
 const PERF_CHART_SPECS = [
-  { label: 'clicks', value: (s) => s.clicks },
+  { label: 'clicks', value: (s) => s.boardChangingClicks },
   { label: 'path', value: (s) => Math.round(s.mousePathPx / 100) * 100 },
   // A loss's 3BV is the whole board's, not what it solved.
-  { label: 'clicks over 3BV', value: (s) => s.clicks - s.bv3, winBound: true },
+  { label: 'clicks over 3BV', value: clicksOverBv3Of, has: (s) => clicksOverBv3Of(s) !== undefined, winBound: true },
   steppedMetric('misclickRate', 0.1),
   steppedMetric('fastclickGap', 10),
   steppedMetric('bvPerSecond', 0.1),

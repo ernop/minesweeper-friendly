@@ -97,22 +97,65 @@ const DuringGame = (() => {
     return offsets.length % 2 === 1 ? offsets[mid] : (offsets[mid - 1] + offsets[mid]) / 2;
   }
 
-  // Cumulative cursor travel at each in-game sample, on the game clock. The
-  // step into the first in-game sample counts, as the live path counter
-  // counts the first move after the clock starts.
-  function cursorPath(sampleT, sampleX, sampleY, startT, spanMs) {
+  // The time axis: from the clock's start to its stop or to the last action,
+  // whichever is later (the record's time is rounded to the millisecond).
+  function gameClock(decisions, timeMs) {
+    return { startT: clockStartT(decisions),
+      spanMs: Math.max(timeMs, decisions[decisions.length - 1].evaluation.atMs) };
+  }
+
+  // Cumulative cursor travel at each in-game sample, on the game clock
+  // (sampleTravelPx, game/trace-metrics.js). All of the step into the first
+  // sample after the clock starts counts: the move that ended there.
+  function cursorPath(sampleT, travel, startT, spanMs) {
     const times = [0];
     const cumulative = [0];
     let total = 0;
-    for (let i = 1; i < sampleT.length; i++) {
+    for (let i = 0; i < sampleT.length; i++) {
       const at = sampleT[i] - startT;
       if (at <= 0) continue;
       if (at > spanMs) break;
-      total += Math.hypot(sampleX[i] - sampleX[i - 1], sampleY[i] - sampleY[i - 1]);
+      total += travel[i];
       times.push(at);
       cumulative.push(total);
     }
     return { times, cumulative };
+  }
+
+  // The game's cursor travel, px: the record's path (`mousePathPx`) and the
+  // live perf charts' whole-game path, one computation. game: { timeMs, t,
+  // x, y (cursor samples), merged (the observations they replaced), events }.
+  // A game without an action ended as it began, a trial whose given opening
+  // opened every safe square, so the cursor traveled nowhere in it.
+  function cursorTravelPx(game) {
+    const decisions = pathDecisionEvents(game.events);
+    if (decisions.length === 0) return 0;
+    const { startT, spanMs } = gameClock(decisions, game.timeMs);
+    const path = cursorPath(game.t, sampleTravelPx(game.x, game.y, game.merged), startT, spanMs);
+    return path.cumulative[path.cumulative.length - 1];
+  }
+
+  // The 3BV the open squares have solved, on the layout mineAt: each zero
+  // region with an open square, and each open number touching no zero, as
+  // the model counts its progress. A trial's given opening (the record's
+  // givenOpeningBv3) is the squares open before the first action.
+  function bv3SolvedBy(width, height, mineAt, openCells) {
+    const board = boardUnits(width, height, mineAt);
+    const regions = new Set();
+    let isolated = 0;
+    for (const cell of openCells) {
+      if (board.region[cell] !== -1) regions.add(board.region[cell]);
+      else if (board.isolated[cell]) isolated++;
+    }
+    return regions.size + isolated;
+  }
+
+  // The 3BV a saved game had solved before its first action, from its trace:
+  // a trial's given opening. Undefined when the trace recorded no action.
+  function bv3SolvedAtStart(width, height, mineAt, events) {
+    const decisions = pathDecisionEvents(events);
+    if (decisions.length === 0) return undefined;
+    return bv3SolvedBy(width, height, mineAt, positionNumbers(decisions[0].evaluation.position).keys());
   }
 
   function lastIndexAtOrBefore(sorted, value) {
@@ -471,22 +514,20 @@ const DuringGame = (() => {
 
   // game: { width, height, mines (the final layout), justiceEnabled (the
   // record's: whether A just universe was on; absent on games from before
-  // it was recorded), timeMs, outcome, t, x, y (cursor samples), events,
-  // initialPageState, proofs (positionProofs' for this game) }. The time axis runs from
-  // the clock's start to its stop or to the last action, whichever is later
-  // (the record's time is rounded to the millisecond).
+  // it was recorded), timeMs, outcome, t, x, y (cursor samples), merged (the
+  // observations they replaced), events, initialPageState, proofs
+  // (positionProofs' for this game) }. The time axis is gameClock's.
   function model(game) {
     const { width, height } = game;
     const size = width * height;
     const decisions = pathDecisionEvents(game.events);
     if (decisions.length === 0) return { recorded: false };
     const last = decisions.length - 1;
-    const spanMs = Math.max(game.timeMs, decisions[last].evaluation.atMs);
+    const { startT, spanMs } = gameClock(decisions, game.timeMs);
     const mineAt = game.mines;
     const mineCount = mineAt.reduce((count, mine) => count + (mine ? 1 : 0), 0);
     const board = boardUnits(width, height, mineAt);
-    const startT = clockStartT(decisions);
-    const path = cursorPath(game.t, game.x, game.y, startT, spanMs);
+    const path = cursorPath(game.t, sampleTravelPx(game.x, game.y, game.merged), startT, spanMs);
     // Traces from before capture version 1 recorded no page states at all.
     const windowLeft = game.initialPageState === undefined ? null
       : windowLeftSpans(game.events, game.initialPageState, startT, spanMs);
@@ -828,7 +869,7 @@ const DuringGame = (() => {
     const counted = (type) => moves.filter((event) => event.type === type).length;
     const forks = m.events.filter((event) => event.type === 'fork');
     return {
-      movesRanOut: counted('moved-on'),
+      movesMovedOn: counted('moved-on'),
       movesLeftHardWork: counted('left-hard-work'),
       movesLeftEasyWork: counted('left-easy-work'),
       ...(moves.length > 0 ? { moveGapMedianMs: medianOf(moves.map((event) => event.gapMs)) } : {}),
@@ -1345,5 +1386,6 @@ const DuringGame = (() => {
   }
 
   return { NEAR_SQUARES, LONG_GAP_MS, QUICK_UNDO_MS, GROUPS, CHARTS, RELATIVE_SCALES, DEFAULT_RELATIVE_SCALE, TRACKS,
-    ROWS, defaults, AVERAGES, DEFAULT_AVERAGE, rowById, positionProofs, model, plannedPairsOf, moveHabits, fastclickGap, view, valueAt, legendPick, legendHides };
+    ROWS, defaults, AVERAGES, DEFAULT_AVERAGE, rowById, positionProofs, model, cursorTravelPx, bv3SolvedBy, bv3SolvedAtStart,
+    plannedPairsOf, moveHabits, fastclickGap, view, valueAt, legendPick, legendHides };
 })();

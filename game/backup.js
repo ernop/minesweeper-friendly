@@ -51,17 +51,8 @@ document.getElementById('export-traces-btn').addEventListener('click', () => {
   const request = db.transaction(TRACE_STORE).objectStore(TRACE_STORE).getAll();
   request.onerror = () => storageFailure('trace export failed: ' + request.error);
   request.onsuccess = () => {
-    const games = request.result.map((s) => ({
-      ...s,
-      sampleT: Array.from(s.sampleT),
-      sampleX: Array.from(s.sampleX),
-      sampleY: Array.from(s.sampleY),
-      ...(s.captureVersion === undefined ? {} : {
-        sampleSourceT: Array.from(s.sampleSourceT),
-        sampleTrusted: Array.from(s.sampleTrusted),
-        sampleMergeCount: Array.from(s.sampleMergeCount),
-      }),
-    }));
+    const games = request.result.map((s) => Object.fromEntries(Object.entries(s).map(([field, value]) =>
+      [field, ArrayBuffer.isView(value) ? Array.from(value) : value])));
     const json = JSON.stringify(games);
     if (exportTracesLink.href) URL.revokeObjectURL(exportTracesLink.href);
     exportTracesLink.href = URL.createObjectURL(new Blob([json], { type: 'application/json' }));

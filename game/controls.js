@@ -81,7 +81,7 @@ function joinChordGesture() {
 }
 
 function recordNoOp(index, reason) {
-  wastedClicks++;
+  noOpClicks++;
   recordActionEvaluation(evaluateNoOpAction(index, reason), 'continued');
 }
 
@@ -91,7 +91,7 @@ function settlePendingRightPress() {
   if (pendingRightPress === null) return;
   const { evaluation } = pendingRightPress;
   pendingRightPress = null;
-  wastedClicks++;
+  noOpClicks++;
   recordActionEvaluation(evaluation, 'continued');
 }
 
@@ -180,7 +180,7 @@ boardElement.addEventListener('mouseup', (event) => {
     return;
   }
   if (!cell.revealed && !cell.flagged) {
-    clickCount++;
+    boardChangingClicks++;
     const misclick = revealIsMisclick(index);
     if (misclick) recordMisclick();
     revealCell(index);
@@ -215,11 +215,6 @@ document.addEventListener('mouseup', (event) => {
 });
 
 document.addEventListener('mousemove', (event) => {
-  if (lastMouseX !== null && gameState === 'playing') {
-    mousePathPx += Math.hypot(event.clientX - lastMouseX, event.clientY - lastMouseY);
-  }
-  lastMouseX = event.clientX;
-  lastMouseY = event.clientY;
   if (tracing()) traceMove(event);
 });
 

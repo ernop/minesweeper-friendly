@@ -21,27 +21,36 @@ const task = (kind, payload) => {
 const fixtures = JSON.parse(fs.readFileSync(path.join(root, 'analysis/biometrics/synthetic-trace.json'), 'utf8'));
 let snapshots = 0;
 for (const [traceId, fixture] of fixtures.entries()) {
+  const merged = fixture.captureVersion >= 3
+    ? { sample: fixture.mergedSample, x: fixture.mergedX, y: fixture.mergedY } : { sample: [], x: [], y: [] };
   const stored = { ...fixture, sampleT: Float64Array.from(fixture.sampleT),
     sampleX: Float64Array.from(fixture.sampleX), sampleY: Float64Array.from(fixture.sampleY), metricSampleTimes: [],
-    measurementPlan: { drill: true, needCadence: false } };
+    merged, measurementPlan: { drill: true, needCadence: false } };
   const duration = stored.endedAt - stored.startedAt;
-  let samples = 0, events = 0;
+  let samples = 0, events = 0, mergedCount = 0;
   context.reference = structuredClone(stored);
   for (let at = 0; at <= duration; at += 250) {
     let endSample = samples, endEvent = events;
     while (endSample < stored.sampleT.length && stored.sampleT[endSample] <= at) endSample++;
     while (endEvent < stored.events.length && stored.events[endEvent].t <= at) endEvent++;
-    const actual = task('live-trace', { traceId, wallMs: at,
+    let endMerged = mergedCount;
+    while (endMerged < merged.sample.length && merged.sample[endMerged] < endSample) endMerged++;
+    const actual = task('live-trace', { traceId, wallMs: at, fromSample: samples,
       t: stored.sampleT.slice(samples, endSample), x: stored.sampleX.slice(samples, endSample),
-      y: stored.sampleY.slice(samples, endSample), events: stored.events.slice(events, endEvent) });
+      y: stored.sampleY.slice(samples, endSample),
+      merged: { sample: merged.sample.slice(mergedCount, endMerged), x: merged.x.slice(mergedCount, endMerged),
+        y: merged.y.slice(mergedCount, endMerged) },
+      events: stored.events.slice(events, endEvent) });
     context.at = at;
-    const expected = structuredClone(vm.runInContext(`computeAllTraceMetrics(reference.sampleT.filter(t => t <= at),
-      reference.sampleX.slice(0, reference.sampleT.filter(t => t <= at).length),
-      reference.sampleY.slice(0, reference.sampleT.filter(t => t <= at).length),
-      reference.events.filter(e => e.t <= at), at)`, context));
+    const expected = structuredClone(vm.runInContext(`(() => {
+      const count = reference.sampleT.filter(t => t <= at).length;
+      const x = reference.sampleX.slice(0, count), y = reference.sampleY.slice(0, count);
+      return computeAllTraceMetrics(reference.sampleT.slice(0, count), x, y,
+        sampleTravelPx(x, y, reference.merged), reference.events.filter(e => e.t <= at), at);
+    })()`, context));
     assert.deepEqual(actual, expected);
     stored.metricSampleTimes.push(at);
-    samples = endSample; events = endEvent; snapshots++;
+    samples = endSample; events = endEvent; mergedCount = endMerged; snapshots++;
   }
   context.reference = structuredClone(stored);
   const restored = task('restore-trace', stored);
@@ -49,9 +58,9 @@ for (const [traceId, fixture] of fixtures.entries()) {
     const result = createMetricSeries();
     for (const at of reference.metricSampleTimes) {
       const count = reference.sampleT.filter(t => t <= at).length;
-      appendMetricSeries(result, computeAllTraceMetrics(reference.sampleT.slice(0,count),
-        reference.sampleX.slice(0,count), reference.sampleY.slice(0,count),
-        reference.events.filter(e => e.t <= at), at));
+      const x = reference.sampleX.slice(0,count), y = reference.sampleY.slice(0,count);
+      appendMetricSeries(result, computeAllTraceMetrics(reference.sampleT.slice(0,count), x, y,
+        sampleTravelPx(x, y, reference.merged), reference.events.filter(e => e.t <= at), at));
     }
     return result;
   })()`, context));
@@ -90,4 +99,4 @@ for (const [traceId, fixture] of fixtures.entries()) {
 assert.deepEqual(task('trends', { pairs: [[0, 1], [1, 3], [2, 5]], todayPairs: [] }),
   [{ a: 1, b: 2, cls: 'trend-all', xMin: 0, xMax: 2 }]);
 assert.throws(() => task('invalid-analysis-kind', {}), /Unknown analysis task/);
-console.log(`analysis-worker: DOM-free initialization, ${snapshots} streamed snapshots, full-prefix restoration parity, ranks won with streaks and the shown win's board categories, exact trends, and task errors passed`);
+console.log(`analysis-worker: DOM-free initialization, ${snapshots} streamed snapshots (one trace with merged observations), full-prefix restoration parity, ranks won with streaks and the shown win's board categories, exact trends, and task errors passed`);

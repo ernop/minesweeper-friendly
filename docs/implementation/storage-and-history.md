@@ -3,7 +3,11 @@
 Spec: [docs/product/storage-and-history.md](../product/storage-and-history.md). Index: [AGENTS.md](../../AGENTS.md).
 
 - Storage ([Storage](../product/storage-and-history.md)): one IndexedDB database
-  (`minesweeper-friendly`, version 6), five stores. The version-6 upgrade
+  (`minesweeper-friendly`, version 7), five stores. The version-7 upgrade
+  renames record fields in place (`renameRecordFields` over the records
+  store's cursor and the userdata `trial` session's attempts;
+  [measurement catalog implementation](measurement-catalog.md),
+  "Divergences resolved 2026-10-27"). The version-6 upgrade
   creates `playSpans` (`PLAY_SPAN_STORE`, keyPath `startedAt`; read with
   `readPlaySpansSince` on the settings page and `readAllPlaySpans` on the
   game page, written with `persistPlaySpan`;
@@ -69,13 +73,14 @@ Spec: [docs/product/storage-and-history.md](../product/storage-and-history.md). 
   other's; each shows the other's games after a reload.
 - History: the RAM `history` maps mode key to a
   chronological array of game records, one per finished game:
-  {endedAt, outcome: 'win'|'loss', timeMs, bv3, clicks, wastedClicks,
+  {endedAt, outcome: 'win'|'loss', timeMs, bv3, boardChangingClicks, noOpClicks,
   misclicks, flagsPlaced, flagsRemoved, unusedCorrectFlags (wins only), mousePathPx,
   states, justice,
   justiceEnabled, seed, firstRevealIndex (absent on Endgame drill games),
   rngVersion, boardVersion, justiceVersion,
   maxAdjacent, hasSeven, zeroCount, islandCount, largestIsland,
-  playMode, identityIndex, transform, trialStartedAt, guesses,
+  playMode, identityIndex, transform, trialStartedAt, givenOpening,
+  givenOpeningBv3, guesses,
   guessIdealRisk, guessNonideal, guessPerfect, lifeLost, lifeNeedless,
   oddsVersion, actionEvaluations,
   fastclickGapMs, fastclickGapVersion, musicPlaying, flagsBlocked (only `true`, on games a daily
@@ -96,7 +101,8 @@ Spec: [docs/product/storage-and-history.md](../product/storage-and-history.md). 
   and any data under them is ignored.
 - Raw input traces ([Raw input traces](../product/storage-and-history.md)): `beginTrace` (end of
   newGame's board build) starts {startedAt, t0, t/x/y sample arrays,
-  sourceT/sampleTrusted/sampleMergeCount, initialPageState, events}; the
+  sourceT/sampleTrusted, the replaced observations mergedSample/mergedX/
+  mergedY/mergedSourceT/mergedTrusted, initialPageState, events}; the
   document mousemove handler calls `traceMove` while
   `tracing()` (ready or playing). `traceEvent` logs 'ldown'/'lup'/'rdown'
   from the board handlers (document mouseup catches off-cell releases,
@@ -116,7 +122,8 @@ Spec: [docs/product/storage-and-history.md](../product/storage-and-history.md). 
   into storage, about 30 ms of an Expert game in Firefox) puts
   {endedAt, mode, outcome, startedAt, sampleT/sampleX/sampleY as typed
   arrays, events, captureVersion, clock, initialPageState, sampleSourceT,
-  sampleTrusted, sampleMergeCount} into the `traces` store, keyPath endedAt.
+  sampleTrusted, mergedSample/mergedX/mergedY/mergedSourceT/mergedTrusted}
+  into the `traces` store, keyPath endedAt.
   Saved boards and square lists (2026-10-26; product spec, Storage):
   `visiblePositionSnapshot`, `addAlternative`, and `setDecisionChoices` in
   game/evaluation.js write the strings, and the verdict section's
@@ -124,7 +131,8 @@ Spec: [docs/product/storage-and-history.md](../product/storage-and-history.md). 
   `positionOpenCount`, `squareList`, and `positionView` read them, on the
   page, in the workers, and in the offline tools alike. No reader decodes a
   board it does not show, so loading the history decodes none.
-  `TRACE_CAPTURE_VERSION` (2) stamps new traces. Step 1 of the conversion is
+  `TRACE_CAPTURE_VERSION` (3 since 2026-10-27, the merged observations; 2
+  brought these strings) stamps new traces. Step 1 of the conversion is
   `stringFormatEvaluation` (returns the evaluation itself when it is already
   strings, and throws on a board no string can hold). `normalizeGameRecord`
   runs it on every current-version evaluation before the fatal proof tiers,
@@ -145,7 +153,8 @@ Spec: [docs/product/storage-and-history.md](../product/storage-and-history.md). 
   JSON array with the typed arrays converted back to plain arrays.
 - Trace timestamp invariant ([Raw input traces](../product/storage-and-history.md)): the document
   `traceMove` recorder merges events whose precision-reduced
-  performance.now() equals the previous sample's (latest position wins),
+  performance.now() equals the previous sample's (latest position wins,
+  the replaced one kept in the merged arrays since capture version 3),
   so sampleT is strictly increasing by construction. This is what keeps
   every dt > 0 (no Infinity speeds/jerk in the motion stats — the
   2026-08-20 bug, then in the left stats panel) and satisfies the offline extractor's validation.
@@ -153,10 +162,18 @@ Spec: [docs/product/storage-and-history.md](../product/storage-and-history.md). 
   (~12ms sleeps) or they exercise exactly this coalescing path.
 - Capture v1 ([contract](../product/storage-and-history.md#capture-provenance-v1-2026-09-26)):
   `traceEventSource` preserves browser timestamp/type/trust independently of
-  the existing receipt-time fields. `traceMove` merges only equal receipt times,
-  updating the surviving sample's source provenance and merge count together.
-  `saveTrace` writes source times as Float64Array, trust as Uint8Array, counts
-  as Uint32Array; `game/backup.js` converts them for JSON export when measured.
+  the existing receipt-time fields. `traceMove` merges only equal receipt times:
+  it pushes the replaced observation (its sample's index, position, source
+  time, and trust) onto the `merged*` arrays, then overwrites the sample
+  (until capture version 3 it counted merges in `sampleMergeCount`).
+  It stores each position as `Math.fround(event.clientX)` (and Y), the
+  Float32 value `saveTrace` keeps, so `DuringGame.cursorTravelPx` gives the
+  record's `mousePathPx` bit for bit equal to the same function over the
+  restored trace (`tests/during-game-browser-check.js` asserts it).
+  `saveTrace` writes source times as Float64Array, trust as Uint8Array,
+  `mergedSample` as Uint32Array, `mergedX`/`mergedY` as Float32Array like
+  the samples, `mergedSourceT` as Float64Array, and `mergedTrusted` as
+  Uint8Array; `game/backup.js` converts every typed array for JSON export.
   No database upgrade or historical rewrite is needed for these new fields.
   `traceRightButton` runs in document capture listeners before gameplay's
   board mousedown handler (the right press); distinct kinds prevent duplicate

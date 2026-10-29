@@ -5,7 +5,7 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
 ## Storage (decided 2026-08-20)
 
 - All persistent data lives in one IndexedDB database
-  (`minesweeper-friendly`, version 6) with five stores: `userdata`
+  (`minesweeper-friendly`, version 7) with five stores: `userdata`
   (personal preferences, trial sessions, and play limits — one entry per kind),
   `records` (one game record per finished game), `traces` (one entry per finished game),
   `selfChecks` (one record per [self-check](self-check.md), keyed by
@@ -29,6 +29,16 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   database lacks, moving history into `records` if it is still one userdata
   value. Every path therefore ends with the same four stores, and nothing is
   moved twice.
+- Version 7 (2026-10-27) gives three record fields their measurement's
+  name ([Measurement catalog](measurement-catalog.md), "Divergences
+  resolved 2026-10-27"): `clicks` becomes `boardChangingClicks`,
+  `wastedClicks` becomes `noOpClicks`, and `movesRanOut` becomes
+  `movesMovedOn`. The upgrade rewrites every saved record and the trial
+  session's attempts once, on the first load of the release (8,203 records
+  in the creator's 2026-10-11 export), and importing a backup that still
+  uses the old names renames them in its records. A database moving
+  history out of userdata in the same upgrade renames each record as it
+  moves it.
 - Open game tabs never erase each other's games. Found 2026-09-26: with the
   game open in two windows, the whole-history value was rewritten from one
   tab's older copy, dropping the 11 games finished in the other tab between
@@ -108,7 +118,9 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   creator confirms that every browser either player uses has loaded it.
   [BACKLOG.md](../../BACKLOG.md) lists each pending second step. The first
   such change deletes fastclick gaps of the definition before planned pairs
-  ([Per-game stats](per-game-stats.md), "Fastclick gap").
+  ([Per-game stats](per-game-stats.md), "Fastclick gap"). The second renames
+  three record fields (version 7, above); its upgrade step and the import's
+  renaming are the code a later release deletes.
 
 ## Raw input traces (decided 2026-08-20)
 
@@ -158,9 +170,12 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   timestamp. Such events are one sample — the latest position at that
   instant. Their delivery order is known but elapsed time within the tie
   is not resolved; a zero time step would put Infinity into every
-  rate computed from this computation stream. The discarded positions
-  cannot be reconstructed; capture v1 records the number merged. Every consumer (motion stats, the
-  offline extractors) may rely on this invariant.
+  rate computed from this computation stream. Since capture version 3
+  (2026-10-27) the positions a sample replaced are kept beside the samples,
+  so the cursor's travel through them counts (Capture provenance, below);
+  earlier traces lost them, versions 1 and 2 keeping only how many. Every
+  consumer (motion stats, the offline extractors) may rely on this
+  invariant.
 - Traces live in their own store (`traces`, keyed by endedAt exactly like
   history records; see Storage). The active trace stays in RAM; the full
   historical trace collection is not loaded during play. Nothing is pruned.
@@ -193,9 +208,11 @@ The creator's instruction to continue the profiling work starts with better
 observations. This implemented slice adds provenance to new finished-game
 traces; it does not change the numerical definitions of existing statistics.
 
-- `captureVersion` identifies this acquisition contract. Version 2
-  (2026-10-26) keeps each decision's board and square lists as strings
-  (Storage, "Saved boards and square lists"); version 1 kept them as arrays.
+- `captureVersion` identifies this acquisition contract. Version 3
+  (2026-10-27) keeps the cursor observations a sample replaced in place of
+  their count (below). Version 2 (2026-10-26) keeps each decision's board
+  and square lists as strings (Storage, "Saved boards and square lists");
+  version 1 kept them as arrays.
   `clock` retains
   `timeOriginMs` and `traceStartMs` from the browser monotonic clock; their sum
   anchors relative trace time to the browser's epoch estimate. Existing
@@ -208,12 +225,30 @@ traces; it does not change the numerical definitions of existing statistics.
   event creation time, not measured hardware activation. Do not clamp negative
   source times: a queued event may predate board creation. Layout and decision
   events are app observations and do not invent browser-source timestamps.
-- Mouse samples gain parallel `sampleSourceT`, `sampleTrusted` (0/1), and
-  `sampleMergeCount` arrays. A sample's count is the number of delivered
-  `mousemove` observations merged into that receipt-time sample. On a tie, the
-  latest position and its source time/trust survive. Counts expose the loss;
-  they do not recover the discarded observations or browser-coalesced points.
-  No claim of a complete device stream or polling rate follows from these arrays.
+- Mouse samples gain parallel `sampleSourceT` and `sampleTrusted` (0/1)
+  arrays. On a tie, the latest position and its source time/trust become the
+  sample. Since version 3 (2026-10-27) every observation a sample replaced
+  is kept, in delivery order, in five parallel arrays: `mergedSample` (the
+  index of the sample that replaced it), `mergedX`, `mergedY`,
+  `mergedSourceT`, and `mergedTrusted`. A sample's cursor travel runs from
+  the sample before it through those observations to the sample, and every
+  path and every speed taken as travel over time reads that one travel: the
+  record's mouse path, the live perf charts, motion stats' path, wander,
+  and movement-bout speeds and straightness, the trial overlays, the
+  replay's movement speed and rough movement, and the offline extractors
+  ([Measurement catalog](measurement-catalog.md), "Divergences resolved
+  2026-10-27"). The mousetrap and Hevelius measures in motion stats run
+  their published algorithms over the timestamped samples alone, since a
+  merged observation has no time of its own. Versions 1 and 2 stored only a count per sample
+  (`sampleMergeCount`), so the travel through the observations they
+  replaced is lost. Neither recovers browser-coalesced points, and no claim
+  of a complete device stream or polling rate follows from these arrays.
+- Cursor positions are captured at the precision the trace saves them,
+  single-precision floats (since 2026-10-27), which moves a position by
+  under a thousandth of a pixel. Keeping more digits during the game than
+  the saved trace keeps would let the record's mouse path, worked out
+  during the game, differ in its last digits from the same path worked out
+  from the saved trace.
 - Document-level mouse down/up listeners independently record
   `right-button-down` and `right-button-up`, including off-board events, with
   position, cell index (null off cells), browser button state, and source
@@ -322,7 +357,9 @@ browser, its profile, and this origin.
     `bankId`; every bank is `problems-bank.json` in the repository history.
   - `README.txt` describes all of this for a reader without the app.
 - **Format.** Each item is gzip-compressed UTF-8 JSON holding `format`,
-  `formatVersion` (1), and the item. The formats are
+  `formatVersion`, and the item. Version 2 (2026-10-27) renamed three game
+  record fields (Storage, "Version 7"); items written before keep version 1
+  and the old names, which `README.txt` lists. The formats are
   `minesweeper-friendly-game-record` with `{ mode, record }`,
   `minesweeper-friendly-trace` with `{ trace }`,
   `minesweeper-friendly-self-check` with `{ selfCheck }`,

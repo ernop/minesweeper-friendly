@@ -1,15 +1,15 @@
 "use strict";
 
 importScripts('trend-fit.js?v=20260925-worker-analysis',
-  'game/trace-metrics.js?v=20261026-justice-corner',
-  'game/evaluation.js?v=20261026-justice-corner',
-  'game-data.js?v=20261026-planned-pairs', 'game/metric-definitions.js?v=20261026-justice-corner',
+  'game/trace-metrics.js?v=20261027-field-names',
+  'game/evaluation.js?v=20261027-field-names',
+  'game-data.js?v=20261027-field-names', 'game/metric-definitions.js?v=20261027-field-names',
   'board-shape.js?v=20261020-no-left-panel', 'zini.js?v=20261020-no-left-panel', 'board-metrics.js?v=20261020-no-left-panel',
-  'game/rankings.js?v=20261026-justice-corner',
-  'game/charts.js?v=20261026-justice-corner', 'game/game-data-chart.js?v=20261026-justice-corner',
+  'game/rankings.js?v=20261027-field-names',
+  'game/charts.js?v=20261027-field-names', 'game/game-data-chart.js?v=20261027-field-names',
   'justice.js?v=20261026-justice-corner', 'odds.js?v=20261026-move-hierarchy', 'board-icons.js?v=20261015-flag-controls',
-  'game/replay-model.js?v=20261026-justice-corner',
-  'during-game.js?v=20261026-board-strings');
+  'game/replay-model.js?v=20261027-field-names',
+  'during-game.js?v=20261027-field-names');
 
 let config;
 
@@ -53,8 +53,9 @@ let liveGame = null;
 
 function liveGameOf(traceId) {
   if (liveGame === null || liveGame.id !== traceId) {
-    liveGame = { id: traceId, t: [], x: [], y: [], events: [], computer: createTraceMetricComputer(),
-      metrics: null, proofs: DuringGame.positionProofs(), unproved: [], proving: false };
+    liveGame = { id: traceId, t: [], x: [], y: [], merged: { sample: [], x: [], y: [] }, events: [],
+      computer: createTraceMetricComputer(), metrics: null, proofs: DuringGame.positionProofs(),
+      unproved: [], proving: false };
   }
   return liveGame;
 }
@@ -67,8 +68,8 @@ function proveLivePositions(game) {
 }
 
 function analyzeTrace(data) {
-  const { t, x, y, events, wallMs } = data;
-  return { metrics: computeAllTraceMetrics(t, x, y, events, wallMs),
+  const { t, x, y, merged, events, wallMs } = data;
+  return { metrics: computeAllTraceMetrics(t, x, y, sampleTravelPx(x, y, merged), events, wallMs),
     spatial: computeSpatialBias(events) };
 }
 
@@ -90,6 +91,10 @@ function finishedMeasurements(plan, metrics, gameId) {
   if (plan.needFastclickGap) {
     Object.assign(measurements, DuringGame.fastclickGap(heldDuringGameModel({ gameId, timeMs: plan.timeMs, outcome: plan.outcome })));
   }
+  if (plan.needGivenOpeningBv3) {
+    const solved = DuringGame.bv3SolvedAtStart(plan.width, plan.height, plan.mines, duringGameSource.events);
+    if (solved !== undefined) measurements.givenOpeningBv3 = solved;
+  }
   return measurements;
 }
 
@@ -100,16 +105,24 @@ function analyze(kind, data) {
     case 'trace': return analyzeTrace(data);
     case 'finished-game': {
       holdDuringGameSource({ id: data.gameId, width: data.width, height: data.height, mines: data.mines,
-        justiceEnabled: data.justiceEnabled, t: data.trace.t, x: data.trace.x, y: data.trace.y, events: data.trace.events,
+        justiceEnabled: data.justiceEnabled, t: data.trace.t, x: data.trace.x, y: data.trace.y,
+        merged: data.trace.merged, events: data.trace.events,
         initialPageState: data.trace.initialPageState, proofs: liveGameOf(data.liveTraceId).proofs });
       const motion = analyzeTrace(data.trace);
       return { ...motion, measurements: finishedMeasurements(data, motion.metrics, data.gameId) };
     }
     case 'live-trace': {
       const game = liveGameOf(data.traceId);
-      for (const key of ['t', 'x', 'y', 'events']) {
+      // fromSample restarts at the last sample sent when a later observation
+      // at its instant replaced it.
+      for (const key of ['t', 'x', 'y']) {
+        game[key].length = data.fromSample;
         for (const value of data[key]) game[key].push(value);
       }
+      for (const key of ['sample', 'x', 'y']) {
+        for (const value of data.merged[key]) game.merged[key].push(value);
+      }
+      for (const value of data.events) game.events.push(value);
       for (const event of pathDecisionEvents(data.events)) game.unproved.push(event.evaluation.position);
       if (game.unproved.length > 0 && !game.proving) {
         game.proving = true;
@@ -118,24 +131,25 @@ function analyze(kind, data) {
       game.metrics = game.metrics !== null && data.t.length === 0 && data.events.length === 0
         ? { ...game.metrics, wallDurationMs: data.wallMs, bio: { ...game.metrics.bio,
           wallDurationMs: data.wallMs, silenceRatio: traceSilenceRatio(game.metrics.bio.movementMs, data.wallMs) } }
-        : game.computer(game.t, game.x, game.y, game.events, data.wallMs);
+        : game.computer(game.t, game.x, game.y, sampleTravelPx(game.x, game.y, game.merged), game.events, data.wallMs);
       return game.metrics;
     }
     case 'restore-trace': {
-      const { sampleT: t, sampleX: x, sampleY: y, events, metricSampleTimes } = data;
+      const { sampleT: t, sampleX: x, sampleY: y, merged, events, metricSampleTimes } = data;
       holdDuringGameSource({ id: data.endedAt, width: data.measurementPlan.width, height: data.measurementPlan.height,
-        mines: data.measurementPlan.mines, justiceEnabled: data.justiceEnabled, t, x, y, events,
+        mines: data.measurementPlan.mines, justiceEnabled: data.justiceEnabled, t, x, y, merged, events,
         initialPageState: data.initialPageState, proofs: DuringGame.positionProofs() });
       const computer = createTraceMetricComputer();
+      const travel = sampleTravelPx(x, y, merged);
       const includedEvents = [], series = createMetricSeries();
       let samples = 0, eventIndex = 0;
       for (const at of metricSampleTimes) {
         while (samples < t.length && t[samples] <= at) samples++;
         while (eventIndex < events.length && events[eventIndex].t <= at) includedEvents.push(events[eventIndex++]);
         appendMetricSeries(series, computer(t.subarray(0, samples), x.subarray(0, samples),
-          y.subarray(0, samples), includedEvents, at));
+          y.subarray(0, samples), travel.subarray(0, samples), includedEvents, at));
       }
-      const metrics = computer(t, x, y, events, data.endedAt - data.startedAt);
+      const metrics = computer(t, x, y, travel, events, data.endedAt - data.startedAt);
       return { series, metrics, spatial: computeSpatialBias(events),
         measurements: finishedMeasurements(data.measurementPlan, metrics, data.endedAt) };
     }

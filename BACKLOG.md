@@ -25,11 +25,9 @@ Not built yet:
   move characterization ([Per-game stats](docs/product/per-game-stats.md),
   "Move habits"): each game stores them as it ends, and an earlier game
   only when its result is next restored, so lifetime comparisons start from
-  that day. A backfill would run `DuringGame.model` over every saved trace
-  in a worker (46–120 ms per Expert game measured, so minutes for a few
-  thousand games), save each record as it finishes, and show progress and
-  failures as the board-measurement backfill does. Not counted per game:
-  came back.
+  that day. The backfill is "Measure every saved game again" (Measurement
+  catalog follow-ons, below). The live perf charts' "came back" events are
+  not counted in the record.
 - Calibrate the first-choice thresholds against the creator's saved games:
   2 squares near, 3 squares a jump, 1 second a long gap, 1 second a quick
   undo, 2 squares linking a work area. Check the event counts against what
@@ -84,9 +82,8 @@ load and import (step 1 of 2, below). Open:
 - **found** — Measure every saved game again. Only a game whose result is
   opened is measured again from its trace now, so most older games have no
   fastclick gap of the current definition, and game data and the your-perf
-  charts compare the new values with fewer games. Proposed: one worker
-  pass over the saved traces, writing `fastclickGapVersion` and
-  `fastclickGapMs`, in the same pass as the move-habits backfill above.
+  charts compare the new values with fewer games. The proposed pass is
+  "Measure every saved game again" (Measurement catalog follow-ons, below).
 - **creator** — Step 2 of deleting the earlier definition's values. The
   creator approved deleting them on 2026-10-26, in two steps ("we can do
   the cleanup in two steps; there aren't many active users (basically only
@@ -105,46 +102,48 @@ load and import (step 1 of 2, below). Open:
 ## Measurement catalog follow-ons (found 2026-10-26 while unifying the measurements)
 
 The catalog and the hover link are built
-([Measurement catalog](docs/product/measurement-catalog.md)). Four
-divergences remain, each needing the creator's choice:
+([Measurement catalog](docs/product/measurement-catalog.md)), and the four
+divergences left on 2026-10-26 were resolved on 2026-10-27 with the
+creator's approval ("continue"; same file, "Divergences resolved
+2026-10-27"). Open:
 
-- **found** — Mouse path from one source. The record's `mousePathPx` sums
-  every cursor move during play, while the live perf charts' mouse speed
-  and path rows sum the trace's samples, and the trace merges samples
-  that arrive at the same `performance.now()` time into the last one
-  (`traceMove`, counted in `sampleMergeCount`), dropping the path between
-  them. Whole-game mouse speed and path / click can therefore differ
-  slightly between game data and the live charts (they agreed to the
-  pixel per second in the browser check). Proposed: the trace stops losing
-  path (it keeps the merged samples' path with the surviving sample), and
-  the record's path is computed from the trace, as the fastclick gap now
-  is. The other way, the live whole-game value reading the record's
-  counter, would leave the charts' windows not adding up to the whole.
-- **found** — 3BV of trials with a given opening. The record's `bv3` is
-  the whole board's 3BV, including the opening the trial revealed before
-  the first click, while the live charts' 3BV solved starts from what the
-  board showed. So 3BV/s, efficiency, and IOE in the "this game" table
-  count the given opening as the player's work and the live charts do not;
-  the timer also starts when the opening is given. Proposed: performance
-  measurements read the 3BV the player solved (the board's 3BV less what
-  the given reveal solved, measured when the record is written and stored
-  beside `bv3`), while board traits keep the board's 3BV. The other way,
-  the live charts counting the given opening as solved at the start, would
-  credit the player with work they did not do.
-- **creator** — Stored field names that differ from the measurement names:
-  `clicks` holds board-changing clicks, `wastedClicks` no-op clicks, and
-  `movesRanOut` the moves the live perf charts call "moved on". Renaming
-  them rewrites every saved record and changes the backup format, the
-  archive folder, and offline analysis, so it waits for the creator.
-  Proposed: rename them to `boardChangingClicks`, `noOpClicks`, and
-  `movedOnMoves` in one schema change with a one-time rewrite of the saved
-  records, after an archive backup.
-- **creator** — Recompute older records' cadence spread (rounded to 3
-  decimals before 2026-10-26) from their saved traces, so every record
-  holds the one computation. Proposed: in the same worker pass as the
-  move-habits backfill (Live perf charts follow-ons, above), one read of
-  each trace. Older fastclick gaps follow an earlier definition and are
-  in "Fastclick gap: planned pairs", above.
+- **creator** — Record field names: step 2. Step 1 (2026-10-27) renamed
+  `clicks`, `wastedClicks`, and `movesRanOut` to `boardChangingClicks`,
+  `noOpClicks`, and `movesMovedOn`: the database's version-7 upgrade step
+  renames them in saved records and the trial session's attempts, and
+  `cleanTransferredGameRecord` renames them in an imported backup, both
+  through `RENAMED_RECORD_FIELDS` and `renameRecordFields` in `storage.js`
+  (the version-5 step calls it too). Step 2 deletes the version-7 step's
+  body, the rename map and function, the two calls, the "named ... before
+  2026-10-27" schema sentences, and the upgrade and import tests' old-name
+  cases, once the creator confirms that every browser both active players
+  use has loaded a release with step 1. A backup exported before step 1
+  holds the old names, and `boardChangingClicks` is required, so after step
+  2 importing one would reject every record. Before step 2, export a fresh
+  backup, or decide to keep the import's renaming for such files (the
+  creator's 2026-10-11 export is one). The agent recommends exporting fresh
+  backups and deleting all of it, since a new player never has an old file.
+- **found** — Measure every saved game again. A saved game is measured
+  again from its trace only when its result is restored on the game page:
+  cadence spread every time, the fastclick gap of the earlier definition,
+  and move habits and a given opening's 3BV when missing. Most saved games
+  are never restored, so lifetime comparisons of move habits cover games
+  since 2026-10-20 and of the fastclick gap since 2026-10-26, cadence spread
+  keeps older records' 3-decimal rounding, and the 103 trial games of
+  2026-08-21 given an opening show no 3BV/s, efficiency, or IOE until
+  restored. Proposed: one worker pass over the saved traces running the
+  restore path's measurement plan on each game, saving each record as it
+  finishes, with progress and failures shown as the board-measurement
+  backfill shows them. Design notes: the worker reads the traces itself,
+  as `switch-cost-worker.js` does, so the page never holds them; a game
+  its trace cannot measure (no trace, or the prover stopped at its work
+  limit at a move) needs a stamp so the pass does not offer it again; the
+  pass waits while a board is in play; the model takes 46–120 ms per Expert
+  game, so the 8,203 games of the 2026-10-11 export take minutes. Open for
+  the creator: whether it starts by itself or from a button (the
+  board-measurement backfill starts from a button). The mouse path is not
+  in it: traces before capture version 3 lack the observations received at
+  one instant, so their travel would be shorter than the stored path.
 
 ## One look per kind of thing: the rest of the page (follows the creator's 2026-10-14 direction)
 

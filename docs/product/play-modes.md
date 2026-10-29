@@ -205,7 +205,14 @@ or remain explicitly unmeasured.
   storage split (`@test-trial`).
 - The setting `trialGiveOpening` (default off) restores a predetermined
   opening on trial boards. A first click on a mine can kill: the
-  layout is already fixed.
+  layout is already fixed. Each presentation keeps the setting as it was
+  dealt, so a change during play cannot change what its record says
+  (`givenOpening`). A presentation given an opening stores the 3BV the
+  opening solved (`givenOpeningBv3`, since 2026-10-27), and its performance
+  measurements count only the 3BV the player solved
+  ([Per-game stats](per-game-stats.md), "Trials with a given opening");
+  the review's 3BV/s, clicks, and efficiency are game data's
+  ([Measurement catalog](measurement-catalog.md)).
 - **Board lab (decided 2026-08-25).** The non-play mode for exploring
   board generation. Every board appears the instant it is dealt, shown
   fully known: safe cells open with their numbers, every mine flagged,

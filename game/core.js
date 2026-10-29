@@ -16,9 +16,9 @@ let revealedCount = 0;
 let startTime = 0;
 let finalTimeMs = 0;
 let timerInterval = null;
-let clickCount = 0;    // board clicks that changed something (reveal/flag/chord)
+let boardChangingClicks = 0; // reveals, flags, flag removals, and accepted chords
 let chordClicks = 0;   // accepted chords among those (the chord share numerator)
-let wastedClicks = 0;  // board clicks that changed nothing
+let noOpClicks = 0;    // board clicks that changed nothing
 let inputActionCount = 0; // every accepted board input, including no-ops
 let misclicks = 0;     // board-changing actions contradicted by visible facts
 let flagsPlaced = 0;   // flags the player placed (removals don't subtract)
@@ -49,13 +49,6 @@ let pressedIndices = [];
 // an open cell, a no-op only if it ends without a left press joining it.
 let chordGesture = false;
 let pendingRightPress = null;
-
-// Mouse path length during the run (px). The position is tracked at all
-// times so the first in-game segment starts from wherever the cursor
-// already is, but distance only accumulates while playing.
-let mousePathPx = 0;
-let lastMouseX = null;
-let lastMouseY = null;
 
 //-------DOM-------
 

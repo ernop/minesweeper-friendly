@@ -379,8 +379,12 @@ function setupTrialBoard() {
   }
   trialPresentation = Trial.presentation(trialSession, gameRandom);
   applyMineMap(trialPresentation.mines);
-  if (settings.trialGiveOpening) {
+  // Kept with the board, so a setting changed during play cannot change
+  // what its record says it was given.
+  trialPresentation.givenOpening = settings.trialGiveOpening;
+  if (trialPresentation.givenOpening) {
     floodReveal(trialPresentation.firstClick);
+    trialPresentation.openedAtStart = cells.flatMap((cell, index) => cell.revealed ? [index] : []);
     gameState = 'playing';
     startTimer();
     justiceEnabledForGame = settings.justUniverse;

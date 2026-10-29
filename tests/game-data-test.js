@@ -4,8 +4,8 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 vm.runInThisContext(fs.readFileSync(require('node:path').join(__dirname, '..', 'game-data.js'), 'utf8'));
 const now = new Date(2026, 8, 23, 0, 30).getTime();
-const current = { endedAt: now, outcome: 'win', timeMs: 30000, bv3: 60, clicks: 80,
-  wastedClicks: 2, misclicks: 0, fastclickGapMs: 200, fastclickGapVersion: GameData.FASTCLICK_GAP_VERSION, mousePathPx: 600 };
+const current = { endedAt: now, outcome: 'win', timeMs: 30000, bv3: 60, boardChangingClicks: 80,
+  noOpClicks: 2, misclicks: 0, fastclickGapMs: 200, fastclickGapVersion: GameData.FASTCLICK_GAP_VERSION, mousePathPx: 600 };
 const records = [
   { ...current, endedAt: now - 25 * 3600000, timeMs: 10000 },
   { ...current, endedAt: now - 2 * 3600000, timeMs: 20000, misclicks: 1 },
@@ -71,10 +71,29 @@ assert(GameData.metrics.every((m) => m.help === undefined
 // The catalog's formulas are the only ones (docs/product/measurement-catalog.md),
 // unmeasured where a fact is missing or the definition does not apply.
 const formula = (id) => GameData.metrics.find((m) => m.id === id).value;
-assert.equal(formula('boardChangingClickShare')({ clicks: 19, wastedClicks: 1 }), 19 / 20);
-assert.equal(formula('boardChangingClickShare')({ clicks: 19 }), undefined, 'an unrecorded no-op count is unmeasured');
-assert.equal(formula('efficiency')({ outcome: 'win', bv3: 10, clicks: 19 }), 10 / 19);
-assert.equal(formula('efficiency')({ outcome: 'loss', bv3: 10, clicks: 19 }), undefined, 'a loss solved only part of its 3BV');
+assert.equal(formula('boardChangingClickShare')({ boardChangingClicks: 19, noOpClicks: 1 }), 19 / 20);
+assert.equal(formula('boardChangingClickShare')({ boardChangingClicks: 19 }), undefined, 'an unrecorded no-op count is unmeasured');
+assert.equal(formula('efficiency')({ outcome: 'win', bv3: 10, boardChangingClicks: 19 }), 10 / 19);
+assert.equal(formula('efficiency')({ outcome: 'loss', bv3: 10, boardChangingClicks: 19 }), undefined, 'a loss solved only part of its 3BV');
+// A trial's given opening solved part of the board before the first click:
+// performance divides only the 3BV the player solved. Trial games carry
+// identityIndex, and those before givenOpening was recorded had an opening.
+const givenWin = { outcome: 'win', bv3: 10, timeMs: 4000, boardChangingClicks: 12, noOpClicks: 0,
+  zini: 8, hzini: 9, identityIndex: 0, givenOpening: true, givenOpeningBv3: 1 };
+assert.equal(solvedBv3Of(givenWin), 9);
+assert.equal(formula('bvPerSecond')(givenWin), 9 / 4);
+assert.equal(formula('efficiency')(givenWin), 9 / 12);
+assert.equal(formula('ioe')(givenWin), 9 / 12);
+assert.equal(formula('ziniEfficiency')(givenWin), undefined, 'ZiNi counts the clicks from an unopened board');
+assert.equal(formula('hziniEfficiency')(givenWin), undefined);
+const { givenOpening, ...earlyTrialWin } = givenWin;
+assert.equal(solvedBv3Of(earlyTrialWin), 9, 'a trial game from before givenOpening was recorded had an opening');
+const { givenOpeningBv3, ...unmeasuredGivenWin } = givenWin;
+assert.equal(formula('bvPerSecond')(unmeasuredGivenWin), undefined, 'the given opening\u2019s 3BV is not measured yet');
+assert.equal(solvedBv3Of({ ...givenWin, givenOpening: false }), 10, 'a trial without an opening solved the whole board');
+assert.equal(solvedBv3Of({ bv3: 10, givenOpening: true }), 10, 'only trial games have a given opening');
+assert.equal(clicksOverBv3Of(givenWin), 3);
+assert.equal(clicksOverBv3Of({ ...givenWin, outcome: 'loss' }), undefined);
 assert.equal(formula('ios')({ outcome: 'win', bv3: 10, timeMs: 1000 }), undefined, 'IOS is unmeasured at 1 s or less');
 assert.equal(formula('ios')({ outcome: 'win', bv3: 10, timeMs: 5000 }), Math.log(10) / Math.log(5));
 assert.equal(formula('fastclickGap')({ fastclickGapMs: 140, fastclickGapVersion: 'planned-pairs-v1' }), 140);
@@ -250,11 +269,11 @@ assert.deepEqual(moveExamples.forks.marks.ring, [8]);
 
 // Move habits: measured where the record has them, each move kind a share of all moves.
 const metric = (id) => GameData.metrics.find((m) => m.id === id);
-const habits = { movesRanOut: 3, movesLeftHardWork: 2, movesLeftEasyWork: 1, moveGapMedianMs: 840, forkMoves: 4, forkMovesToNearestArea: 3 };
+const habits = { movesMovedOn: 3, movesLeftHardWork: 2, movesLeftEasyWork: 1, moveGapMedianMs: 840, forkMoves: 4, forkMovesToNearestArea: 3 };
 assert.deepEqual(['timeBeforeMove', 'easyWorkLeftShare', 'nearestAreaShare'].map((id) => metric(id).value(habits)), [840, 1 / 6, 0.75]);
 assert.deepEqual(['timeBeforeMove', 'easyWorkLeftShare', 'nearestAreaShare'].map((id) => metric(id).value(current)),
   [undefined, undefined, undefined], 'a game recorded before move habits is unmeasured, never zero');
 assert.deepEqual(['timeBeforeMove', 'easyWorkLeftShare', 'nearestAreaShare'].map((id) => metric(id).value({
-  movesRanOut: 0, movesLeftHardWork: 0, movesLeftEasyWork: 0, forkMoves: 0, forkMovesToNearestArea: 0 })),
+  movesMovedOn: 0, movesLeftHardWork: 0, movesLeftEasyWork: 0, forkMoves: 0, forkMovesToNearestArea: 0 })),
 [undefined, undefined, undefined], 'a game without a move or a fork has no share of them');
 console.log('game-data: scope boundaries, historical windows, eligible populations, missing values, ties, metric catalog, autozoom, and example boards passed');

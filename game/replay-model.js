@@ -144,20 +144,20 @@ function pathHeatColor(value, range) {
 // endpoints mean it rested in place ('rest'). Away gaps get duration labels
 // so "how long was I off-screen?" is answered on the path itself.
 const PATH_GAP_MS = 300;
-const PATH_GAP_TRAVEL_PX = 40;
+const PATH_GAP_DISTANCE_PX = 40;
 
 function pathTraceGaps(t, x, y) {
   const gaps = [];
   for (let i = 1; i < t.length; i++) {
     const dt = t[i] - t[i - 1];
     if (dt < PATH_GAP_MS) continue;
-    const travelPx = Math.hypot(x[i] - x[i - 1], y[i] - y[i - 1]);
+    const distancePx = Math.hypot(x[i] - x[i - 1], y[i] - y[i - 1]);
     gaps.push({
       from: i - 1,
       to: i,
       dtMs: dt,
-      travelPx,
-      kind: travelPx >= PATH_GAP_TRAVEL_PX ? 'away' : 'rest',
+      distancePx,
+      kind: distancePx >= PATH_GAP_DISTANCE_PX ? 'away' : 'rest',
     });
   }
   return gaps;
@@ -167,8 +167,9 @@ function pathTraceGaps(t, x, y) {
 // crawling below a quarter of the game's own median moving speed, or a hard
 // direction reversal (>135°) between adjacent moving segments — hesitation
 // and overshoot correction. Needs at least 8 moving segments to know what
-// "normal" pace is; otherwise nothing is flagged.
-function pathRoughSegments(t, x, y) {
+// "normal" pace is; otherwise nothing is flagged. Pace is each sample's
+// cursor travel (sampleTravelPx); direction is the step between samples.
+function pathRoughSegments(t, x, y, travel) {
   const n = t.length;
   const rough = new Array(n).fill(false);
   const info = new Array(n).fill(null);
@@ -179,7 +180,7 @@ function pathRoughSegments(t, x, y) {
     const dx = x[i] - x[i - 1];
     const dy = y[i] - y[i - 1];
     const len = Math.hypot(dx, dy);
-    const speed = len * 1000 / dt;
+    const speed = travel[i] * 1000 / dt;
     info[i] = { speed, len, theta: len > 0 ? Math.atan2(dy, dx) : null };
     if (speed > 0) speeds.push(speed);
   }

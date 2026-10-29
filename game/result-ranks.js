@@ -152,7 +152,7 @@ async function renderRanks(record, modeRecords, options = {}, sections, isCurren
     });
     const endedAtOf = (s) => s.endedAt;
     const bv3Of = (s) => s.bv3;
-    const clicksOf = (s) => s.clicks;
+    const clicksOf = (s) => s.boardChangingClicks;
     // Axis labels stay terse — one or two words, no units or asides; the
     // tick values carry the scale. "date" spreads wins across the calendar;
     // "time of day" folds every win onto one 24-hour clock, exposing the
@@ -178,12 +178,12 @@ async function renderRanks(record, modeRecords, options = {}, sections, isCurren
       '3BV', 'clicks', meLabel, ageInfoOf,
       { idealLine: true, title: 'clicks by 3BV',
         ...trendOpts(bv3Of, clicksOf) }));
-    // Only wins that carry the wastedClicks measurement (recorded since
+    // Only wins that carry the noOpClicks measurement (recorded since
     // 2026-08-19) can appear on its chart.
-    const withWasted = wins.filter((s) => 'wastedClicks' in s);
-    if (withWasted.length >= 2) {
+    const withNoOps = wins.filter((s) => 'noOpClicks' in s);
+    if (withNoOps.length >= 2) {
       appendScatter(buildScatter(
-        withWasted, historyView ? null : record, (s) => s.wastedClicks, secondsOf,
+        withNoOps, historyView ? null : record, (s) => s.noOpClicks, secondsOf,
         'no-op clicks', 'time', meLabel, ageInfoOf,
         { trimY: true, title: 'time by no-op clicks', yTickUnit: 's' }));
     }

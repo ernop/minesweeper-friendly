@@ -381,8 +381,11 @@ the first incomplete one. Achieving the goal does not wait for earlier stages.
 
 ### Definitions
 
-- **Inputs:** board-changing clicks plus no-op clicks (`clicks + wastedClicks`).
-  **IOE** is 3BV / inputs, the same quantity as the game data column's IOE, so
+- **Inputs:** board-changing clicks plus no-op clicks
+  (`boardChangingClicks + noOpClicks`, named `clicks` and `wastedClicks`
+  until 2026-10-27). **3BV/s** and **IOE** (3BV / inputs) are game data's
+  measurements, read from its catalog since 2026-10-27 rather than computed
+  here ([Measurement catalog](measurement-catalog.md)), so
   3BV/s = IOE / seconds per input. Records from before no-op clicks were
   measured are left out of input medians.
 - **Seconds per input:** win time divided by inputs.

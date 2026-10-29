@@ -1,6 +1,7 @@
 'use strict';
 // Self-check page in a real browser: the version-5 upgrade from version 3 and
-// from both version-4 builds keeps history and self-checks, check-in answers,
+// from both version-4 builds keeps history and self-checks, the version-7
+// upgrade renames saved record fields from each and from version 6, check-in answers,
 // frame-timed stimuli with event-timed responses, early presses, a stop, one
 // complete 10-counter test, storage, history, and backup round trip.
 //
@@ -33,8 +34,14 @@ async function serveWorkingTree(context) {
 
 // The three databases that exist in the wild before version 5: version 3,
 // and the two different version-4 builds of 2026-09-26 (the local player
-// origin's added selfChecks; the public one moved history into records).
-const SEEDED_RECORD = { endedAt: 1, outcome: 'win' };
+// origin's added selfChecks; the public one moved history into records);
+// and version 6, the last before the record field renames.
+const SEEDED_RECORD = { endedAt: 1, outcome: 'win', clicks: 3, wastedClicks: 1, movesRanOut: 2 };
+const RENAMED_RECORD = { endedAt: 1, outcome: 'win', boardChangingClicks: 3, noOpClicks: 1, movesMovedOn: 2 };
+const SEEDED_TRIAL = { playMode: 'trial', endedHow: 'done',
+  results: [{ identityIndex: 0, endedAt: 2, outcome: 'loss', clicks: 4, wastedClicks: 0 }] };
+const RENAMED_TRIAL = { playMode: 'trial', endedHow: 'done',
+  results: [{ identityIndex: 0, endedAt: 2, outcome: 'loss', boardChangingClicks: 4, noOpClicks: 0 }] };
 const SEEDED_CHECK = {
   startedAt: 5, endedAt: 6, timeZone: 'UTC', utcOffsetMin: 0, occasion: 'routine',
   sleepiness: { scale: 'kss-9-v1', rating: 3 },
@@ -46,37 +53,41 @@ const SEEDED_CHECK = {
 
 async function seedDatabase(page, layout) {
   await page.goto(ORIGIN + '/__seed.html');
-  await page.evaluate(({ layout, record, check }) => new Promise((resolve, reject) => {
-    const request = indexedDB.open('minesweeper-friendly', layout === 'version-3' ? 3 : 4);
+  await page.evaluate(({ layout, record, check, trial }) => new Promise((resolve, reject) => {
+    const version = { 'version-3': 3, 'local-version-4': 4, 'public-version-4': 4, 'version-6': 6 }[layout];
+    const request = indexedDB.open('minesweeper-friendly', version);
     request.onupgradeneeded = () => {
       const db = request.result;
       const traces = db.createObjectStore('traces', { keyPath: 'endedAt' });
       traces.createIndex('boardsByModeAndSize', ['mode', 'finalBoard.cells.length']);
       const userdata = db.createObjectStore('userdata');
-      if (layout === 'public-version-4') {
+      userdata.put(trial, 'trial');
+      if (layout === 'public-version-4' || layout === 'version-6') {
         db.createObjectStore('records').put(record, ['9x9/10@standard', record.endedAt]);
       } else {
         userdata.put({ '9x9/10@standard': [record] }, 'history');
       }
-      if (layout === 'local-version-4') {
+      if (layout === 'local-version-4' || layout === 'version-6') {
         db.createObjectStore('selfChecks', { keyPath: 'startedAt' }).put(check);
       }
+      if (layout === 'version-6') db.createObjectStore('playSpans', { keyPath: 'startedAt' });
     };
     request.onsuccess = () => { request.result.close(); resolve(); };
     request.onerror = () => reject(request.error);
-  }), { layout, record: SEEDED_RECORD, check: SEEDED_CHECK });
+  }), { layout, record: SEEDED_RECORD, check: SEEDED_CHECK, trial: SEEDED_TRIAL });
 }
 
 function databaseState(page) {
   return page.evaluate(() => new Promise((resolve, reject) => {
     const tx = db.transaction(['userdata', 'records', 'selfChecks']);
     const history = tx.objectStore('userdata').get('history');
+    const trial = tx.objectStore('userdata').get('trial');
     const recordKeys = tx.objectStore('records').getAllKeys();
     const records = tx.objectStore('records').getAll();
     const checks = tx.objectStore('selfChecks').getAll();
     tx.oncomplete = () => resolve({ version: db.version, stores: [...db.objectStoreNames].sort(),
-      userdataHistory: history.result, recordKeys: recordKeys.result, records: records.result,
-      checks: checks.result });
+      userdataHistory: history.result, trial: trial.result, recordKeys: recordKeys.result,
+      records: records.result, checks: checks.result });
     tx.onerror = () => reject(tx.error);
   }));
 }
@@ -134,16 +145,18 @@ async function answerStimulus(page, at) {
     const errors = [];
     page.on('pageerror', (error) => errors.push(error.message));
 
-    // Every pre-version-5 database ends with the same five stores: history in
-    // records, self-checks kept, nothing lost or duplicated.
-    for (const layout of ['version-3', 'local-version-4', 'public-version-4']) {
+    // Every earlier database ends with the same five stores: history in
+    // records under the current field names, the trial session's attempts
+    // renamed too, self-checks kept, nothing lost or duplicated.
+    for (const layout of ['version-3', 'local-version-4', 'public-version-4', 'version-6']) {
       const state = await upgradedFrom(browser, layout);
-      assert.equal(state.version, 6, layout);
+      assert.equal(state.version, 7, layout);
       assert.deepEqual(state.stores, ['playSpans', 'records', 'selfChecks', 'traces', 'userdata'], layout);
       assert.equal(state.userdataHistory, undefined, layout + ': history left userdata');
       assert.deepEqual(state.recordKeys, [['9x9/10@standard', 1]], layout);
-      assert.deepEqual(state.records, [SEEDED_RECORD], layout);
-      assert.deepEqual(state.checks, layout === 'local-version-4' ? [SEEDED_CHECK] : [], layout);
+      assert.deepEqual(state.records, [RENAMED_RECORD], layout);
+      assert.deepEqual(state.trial, RENAMED_TRIAL, layout);
+      assert.deepEqual(state.checks, ['local-version-4', 'version-6'].includes(layout) ? [SEEDED_CHECK] : [], layout);
     }
 
     await page.goto(ORIGIN + '/self-check.html');

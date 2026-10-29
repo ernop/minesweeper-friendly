@@ -170,10 +170,17 @@ check('bucketSeries averages a 20ms window', (() => {
     && Math.abs(b.values[1] - 40) < 1e-9;
 })());
 
-check('runningPath accumulates distance', (() => {
-  const p = Trial.runningPath([0, 10, 20], [0, 3, 3], [0, 4, 8]);
+check('runningPath accumulates each sample\'s travel', (() => {
+  const p = Trial.runningPath([0, 10, 20], [0, 5, 4]);
   return p.values[0] === 0 && p.values[1] === 5 && p.values[2] === 9;
 })());
+
+check('runningSpeed divides each sample\'s travel by its interval', (() => {
+  const s = Trial.runningSpeed([0, 10, 30], [0, 5, 4]);
+  return s.tMs.join() === '10,30' && s.values[0] === 500 && s.values[1] === 200;
+})());
+
+const bvPerSecondOfAttempt = (attempt) => attempt.bv3 / (attempt.timeMs / 1000);
 
 function fakeAttempt(id, timeMs, outcome) {
   return {
@@ -183,7 +190,7 @@ function fakeAttempt(id, timeMs, outcome) {
     outcome: outcome,
     timeMs: timeMs,
     bv3: 10,
-    clicks: 12,
+    boardChangingClicks: 12,
   };
 }
 
@@ -197,7 +204,7 @@ check('sessionSummary: later meetings faster is a within-identity drop', (() => 
       fakeAttempt(1, 6000, 'win'),
     ],
   };
-  const sum = Trial.sessionSummary(session);
+  const sum = Trial.sessionSummary(session, bvPerSecondOfAttempt);
   return sum.showings[0].meanTime === 10
     && sum.showings[1].meanTime === 6
     && sum.identitiesWithTwoWins === 2
@@ -214,7 +221,7 @@ check('sessionSummary: withinMean averages first-to-last win deltas', (() => {
       fakeAttempt(1, 4800, 'win'),
     ],
   };
-  const sum = Trial.sessionSummary(session);
+  const sum = Trial.sessionSummary(session, bvPerSecondOfAttempt);
   return Math.abs(sum.withinMean - 1.6) < 1e-9;
 })());
 
@@ -236,7 +243,7 @@ check('sessionSummary: one identity still reports a first-to-last delta', (() =>
       fakeAttempt(0, 5000, 'win'),
     ],
   };
-  const sum = Trial.sessionSummary(session);
+  const sum = Trial.sessionSummary(session, bvPerSecondOfAttempt);
   return sum.identitiesPlayed === 1 && Math.abs(sum.withinMean - 4) < 1e-9;
 })());
 

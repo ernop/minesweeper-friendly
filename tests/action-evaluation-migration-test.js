@@ -27,7 +27,7 @@ const base = {
   endedAt: 1,
   outcome: 'loss',
   timeMs: 1000,
-  clicks: 3,
+  boardChangingClicks: 3,
   playMode: 'standard',
 };
 

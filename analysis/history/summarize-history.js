@@ -174,8 +174,8 @@ const localDay = (ms) => {
 const isWin = (g) => g.outcome === 'win';
 const mouseSpeed = (g) => Number.isFinite(g.mousePathPx) && g.timeMs > 0
   ? g.mousePathPx / (g.timeMs / 1000) : NaN;
-const clickRate = (g) => Number.isFinite(g.clicks) && g.timeMs > 0
-  ? g.clicks / (g.timeMs / 1000) : NaN;
+const clickRate = (g) => Number.isFinite(g.boardChangingClicks) && g.timeMs > 0
+  ? g.boardChangingClicks / (g.timeMs / 1000) : NaN;
 const groupBy = (list, keyOf) => {
   const map = new Map();
   for (const item of list) {
@@ -201,7 +201,7 @@ function groupSummary(list) {
     clickRatePerS: robust(list.map(clickRate)),
     fastclickGapMs: robust(list.map(fastclickGapOf)),
     misclicksPerGame: robust(list.map((g) => g.misclicks)),
-    wastedClicksPerGame: robust(list.map((g) => g.wastedClicks)),
+    noOpClicksPerGame: robust(list.map((g) => g.noOpClicks)),
   };
 }
 
@@ -431,7 +431,7 @@ for (const [key, list] of byKey) {
     timeVsZeros: spearman(wins.map((g) => g.zeroCount), wins.map((g) => g.timeMs)),
     timeVsIslands: spearman(wins.map((g) => g.islandCount), wins.map((g) => g.timeMs)),
     timeVsMousePath: spearman(wins.map((g) => g.mousePathPx), wins.map((g) => g.timeMs)),
-    timeVsClicks: spearman(wins.map((g) => g.clicks), wins.map((g) => g.timeMs)),
+    timeVsClicks: spearman(wins.map((g) => g.boardChangingClicks), wins.map((g) => g.timeMs)),
   };
 }
 

@@ -7,8 +7,12 @@ Spec: [docs/product/per-game-stats.md](../product/per-game-stats.md). Index: [AG
   `value` functions of `GameData.metrics` in `game-data.js`, never stored.
   Board-changing click share (id `boardChangingClickShare` since
   2026-10-26; `correctness`, its name until 2026-10-15, before)
-  needs `wastedClicks` (absent = unmeasured). Efficiency and IOS are
-  wins-only; IOS is also blank when time ≤ 1s.
+  needs `noOpClicks` (absent = unmeasured). Efficiency and IOS are
+  wins-only; IOS is also blank when time ≤ 1s. Every one that divides 3BV
+  reads `solvedBv3Of(record)`: `bv3`, less `givenOpeningBv3` on a trial
+  game given an opening (`hadGivenOpening`), undefined there until that is
+  measured; `ziniEfficiencyOf` and `hziniEfficiencyOf` are undefined on such
+  games.
 - Flagger metrics (2026-08-30, [Per-game stats](../product/per-game-stats.md)): `zini.js`
   (`Zini` global / CommonJS) ports the community Rust reference's greedy
   ZiNi and human ZiNi; `reportResult` stores `zini`/`hzini` (except in
@@ -21,7 +25,10 @@ Spec: [docs/product/per-game-stats.md](../product/per-game-stats.md). Index: [AG
   cadence system's gap spread ratio, stored on wins and losses by the
   reports worker's `finished-game` (`finishedMeasurements` with
   `needCadence`, `metrics.cad.gapSpreadRatio`), unrounded since 2026-10-26
-  (`toFixed(3)` before); drives a stats row, the cadence-over-date
+  (`toFixed(3)` before). The restore path (`preferences-game.js`) asks for
+  it every time (`needCadence: true`; the worker already runs the trace
+  metrics for the restored charts) and saves the record only when a
+  measured value differs from the stored one; drives a stats row, the cadence-over-date
   relationship scatter, game data, and the live perf charts' row (until
   2026-10-20 also the left panel's session series).
 - Fastclick gap: `fastclickGapVersion` and `fastclickGapMs` come from
@@ -41,21 +48,35 @@ Spec: [docs/product/per-game-stats.md](../product/per-game-stats.md). Index: [AG
   median, from `DuringGame.fastclickGaps` on the trace that day and before
   that from `recordUsefulPress`'s wall-clock press and cursor times during
   play ([measurement catalog](measurement-catalog.md)).
-- Move habits (2026-10-20): `movesRanOut`, `movesLeftHardWork`,
+- Move habits (2026-10-20): `movesMovedOn` (`movesRanOut` until
+  2026-10-27), `movesLeftHardWork`,
   `movesLeftEasyWork`, `moveGapMedianMs`, `forkMoves`, and
   `forkMovesToNearestArea` come from `DuringGame.moveHabits` on the
   during-the-game model in the reports worker (`finishedMeasurements` with
   the plan's `needMoveHabits`; see
   [Live perf charts](during-game.md), "Model"). `reportResult` asks for them
   in `finished-game` and assigns them before the record's second save; the
-  restore path asks when the record lacks `movesRanOut`. Schema rows in
+  restore path asks when the record lacks `movesMovedOn`. Schema rows in
   `GAME_RECORD_SCHEMA` (`isCount` for the counts). Game data reads them in
   `timeBeforeMove` (`moveTime` until 2026-10-26), `easyWorkLeftShare` (left easy work over the three kinds'
   sum), and `nearestAreaShare`; `GameData.examples` gives their boards
   (`moves`, `easyWorkLeft`, `forks`). `tests/during-game-test.js` and
   `tests/game-data-test.js` cover them.
-- `mousePathPx`: cursor distance accumulated on document mousemove only
-  while `gameState === 'playing'`.
+- `mousePathPx` (2026-10-27): `reportResult` stores
+  `DuringGame.cursorTravelPx` of the live trace (samples, the observations
+  they replaced from `liveMergedObservations`, events, and the record's
+  time): the sum of `sampleTravelPx` (game/trace-metrics.js) over the
+  samples on the game clock, the same `cursorPath` the live perf charts'
+  path and mouse speed rows plot. Until then `game/controls.js` added each
+  document mousemove's step while `gameState === 'playing'` and the record
+  stored that sum rounded.
+- Given-opening 3BV (2026-10-27): `reportResult` stores `givenOpeningBv3`
+  on a trial game given an opening, `DuringGame.bv3SolvedBy` of the squares
+  the opening left open (`trialPresentation.openedAtStart`), and carries it
+  into the trial session's attempt. The restore path asks for it
+  (`needGivenOpeningBv3`) when such a record lacks it; the worker's
+  `finishedMeasurements` takes `DuringGame.bv3SolvedAtStart` of the trace's
+  events, the open squares of the first decision's position.
 - Unused correct marks: `activeFlagEpisodes` and `flagEpisodes` retain every
   player flag placement and removal until the outcome is known.
   `markChordFlagUsage` consumes neighboring episodes only for an accepted
@@ -69,7 +90,9 @@ Spec: [docs/product/per-game-stats.md](../product/per-game-stats.md). Index: [AG
   per-minute form is the optional unused flag rate (`perMinute` in
   game-data.js). A markless win is unmeasured (0 of 0). Until 2026-10-20 the
   session series also carried both to the left panel's charts.
-- `clickCount` counts only effective clicks; `wastedClicks` counts board
+- `boardChangingClicks` (the page counter and the record field; `clickCount`
+  and `clicks` until 2026-10-27) counts only effective clicks; `noOpClicks`
+  (`wastedClicks` until then) counts board
   clicks that changed nothing — the board mousedown/mouseup handlers
   (game/controls.js) count unavailable chords, left-clicks on flagged cells,
   both-button releases over unopened cells, and right presses on revealed
@@ -106,7 +129,7 @@ Spec: [docs/product/per-game-stats.md](../product/per-game-stats.md). Index: [AG
 - `flagsPlaced` counts flag placements by the player (removals don't
   subtract). `isMarkless(record)` derives the markless status
   (flagsPlaced === 0); records from before the measurement have it
-  undefined and never qualify. Same absence rules as wastedClicks.
+  undefined and never qualify. Same absence rules as noOpClicks.
   Display: the `.markless-time` class on a time cell draws a small
   olive-green "(m)" before the time via CSS `::before` — applied in
   `timeAgeRow` (every time-ranked list) and the stats table's Time row.
@@ -115,7 +138,7 @@ Spec: [docs/product/per-game-stats.md](../product/per-game-stats.md). Index: [AG
 - `flagsRemoved` counts flag removals by the player (both branches live in
   `toggleFlag`). It stays separate from no-op clicks because removal
   changed the board; its reason is not inferred. Same absence rules as
-  wastedClicks (absent before 2026-08-20).
+  noOpClicks (absent before 2026-08-20).
 - Unflagged mine share (2026-10-10): `unflaggedMineShareOf(record, mines)`
   in game-data.js, (mines − flagsPlaced + flagsRemoved) ÷ mines on wins, 1
   for a markless win, undefined on losses, Endgame drills, and records

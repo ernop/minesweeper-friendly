@@ -304,7 +304,7 @@ const { chromium } = require(process.argv[2]);
     const sessionSummary = await page.evaluate(async () => {
       const now = Date.now();
       const game = (minutesAgo, outcome, timeMs) => ({ endedAt: now - minutesAgo * 60000, outcome, timeMs, flagsPlaced: 3,
-        bv3: 10, clicks: 10, wastedClicks: 2, playMode: 'standard', actionEvaluations: [] });
+        bv3: 10, boardChangingClicks: 10, noOpClicks: 2, playMode: 'standard', actionEvaluations: [] });
       const evaluation = { version: ACTION_EVALUATION_VERSION, result: 'continued', alternatives: [],
         position: { width: 3, height: 1, mines: 1, cells: '1..' } };
       // The game just won survived a mid-game guess riskier than the lowest.
@@ -312,7 +312,7 @@ const { chromium } = require(process.argv[2]);
         actionNumber: 6, atMs: 2000, selected: [2], mistakes: ['chose-higher-risk'], evidence: { boardProgress: 0.5 } }] };
       // A win from before no-op clicks and guesses were measured has no IOE
       // and no win type.
-      const { wastedClicks, ...unmeasured } = game(10, 'win', 21000);
+      const { noOpClicks, ...unmeasured } = game(10, 'win', 21000);
       // A modern loss: a left click on a mine that counting proved, under a
       // second after a chord on the number beside it found too few flags.
       const shortChord = { ...evaluation, action: 'no-op', actionNumber: 8, atMs: 4700, selected: [0],

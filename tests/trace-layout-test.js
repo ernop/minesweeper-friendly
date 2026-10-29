@@ -119,8 +119,9 @@ traceMove({ timeStamp: 1043, type: 'mousemove', clientX: 12, clientY: 22, isTrus
 check('equal receipt times retain the latest point and its provenance',
   trace.t.length === 2 && trace.x[0] === 11 && trace.y[0] === 21
   && trace.sourceT[0] === 42 && trace.sampleTrusted[0] === false);
-check('merged observations are counted explicitly',
-  trace.sampleMergeCount.join(',') === '2,1');
+check('a replaced observation is kept with the index of the sample that replaced it',
+  trace.mergedSample.join(',') === '0' && trace.mergedX.join(',') === '10' && trace.mergedY.join(',') === '20'
+  && trace.mergedSourceT.join(',') === '41' && trace.mergedTrusted.join(',') === 'true');
 check('source and receipt samples use the same trace origin',
   trace.t[1] === 54 && trace.sourceT[1] === 43);
 

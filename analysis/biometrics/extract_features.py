@@ -5,7 +5,10 @@ Input: the game's trace export — a JSON array of per-game trace objects
       sampleT: [ms relative to trace start], sampleX: [px], sampleY: [px],
       events: [{t, kind: 'ldown'|'lup'|'rdown', x, y, index}
                | {t, kind: 'layout', left, top, width, height,
-                  boardWidth, boardHeight}] }
+                  boardWidth, boardHeight}],
+      from capture version 3: mergedSample, mergedX, mergedY: the cursor
+      observations a later one at the same instant replaced, each with the
+      index of the sample that replaced it }
 (see saveTrace in game/input-trace.js and the traces-export handler in
 game/backup.js).
 
@@ -87,6 +90,39 @@ def validate_game(game: dict[str, Any], game_index: int) -> None:
         prev_t = ev['t']
         if kind in BUTTON_EVENT_KINDS and ('x' not in ev or 'y' not in ev):
             raise ValueError(f'{where}: {kind} event {i} lacks x/y')
+    if game.get('captureVersion', 0) >= 3:
+        owners = game['mergedSample']
+        if not (len(owners) == len(game['mergedX']) == len(game['mergedY'])):
+            raise ValueError(f'{where}: merged arrays disagree in length')
+        for k, owner in enumerate(owners):
+            if not 0 <= owner < len(t) or (k > 0 and owner < owners[k - 1]):
+                raise ValueError(f'{where}: mergedSample[{k}] = {owner} is not '
+                                 f'a sample index in order')
+
+
+def sample_travel_px(game: dict[str, Any], x: np.ndarray,
+                     y: np.ndarray) -> np.ndarray:
+    """Each sample's cursor travel in px: from the sample before, through the
+    observations merged into it (capture version 3 on), to it. Mirrors
+    sampleTravelPx in game/trace-metrics.js."""
+    merged = game.get('captureVersion', 0) >= 3
+    owners = game['mergedSample'] if merged else []
+    mx = game['mergedX'] if merged else []
+    my = game['mergedY'] if merged else []
+    travel = np.zeros(len(x), dtype=np.float64)
+    k = 0
+    for i in range(len(x)):
+        px, py = (x[i - 1], y[i - 1]) if i > 0 else (None, None)
+        total = 0.0
+        while k < len(owners) and owners[k] == i:
+            if px is not None:
+                total += math.hypot(mx[k] - px, my[k] - py)
+            px, py = mx[k], my[k]
+            k += 1
+        if px is not None:
+            total += math.hypot(x[i] - px, y[i] - py)
+        travel[i] = total
+    return travel
 
 
 def segment_strokes(t: np.ndarray, x: np.ndarray,
@@ -111,13 +147,16 @@ def dist_stats(values: np.ndarray) -> dict[str, float]:
             'max': float(np.max(values))}
 
 
-def stroke_features(t: np.ndarray, x: np.ndarray,
-                    y: np.ndarray) -> dict[str, Any]:
+def stroke_features(t: np.ndarray, x: np.ndarray, y: np.ndarray,
+                    travel: np.ndarray) -> dict[str, Any]:
     """Features of one movement bout.
 
     A feature whose formula needs more points (or nonzero displacement)
     than the stroke has is absent from the result, not defaulted: absence
-    means "not measurable on this stroke".
+    means "not measurable on this stroke". Path and speeds read each
+    sample's travel (sample_travel_px); headings, velocities per axis, and
+    curvature read the steps between samples. Mirrors strokeMetrics in
+    game/trace-metrics.js.
     """
     n = len(t)
     feat: dict[str, Any] = {
@@ -132,8 +171,9 @@ def stroke_features(t: np.ndarray, x: np.ndarray,
     dx = np.diff(x)
     dy = np.diff(y)
     seg_len = np.hypot(dx, dy)
+    seg_travel = travel[1:]              # into each sample after the first
 
-    path = float(np.sum(seg_len))
+    path = float(np.sum(seg_travel))
     chord = float(math.hypot(float(x[-1] - x[0]), float(y[-1] - y[0])))
     feat['pathLengthPx'] = path
     feat['chordLengthPx'] = chord
@@ -144,7 +184,7 @@ def stroke_features(t: np.ndarray, x: np.ndarray,
         feat['directionRad'] = math.atan2(float(y[-1] - y[0]),
                                           float(x[-1] - x[0]))
 
-    speed = seg_len / dt                 # px/ms per segment
+    speed = seg_travel / dt              # px/ms per segment
     feat['speedPxPerMs'] = dist_stats(speed)
     feat['velocityXPxPerMs'] = {'mean': float(np.mean(dx / dt)),
                                 'std': float(np.std(dx / dt))}
@@ -279,7 +319,8 @@ def extract_game(game: dict[str, Any], game_index: int) -> dict[str, Any]:
     x = np.asarray(game['sampleX'], dtype=np.float64)
     y = np.asarray(game['sampleY'], dtype=np.float64)
 
-    strokes = [stroke_features(t[s], x[s], y[s])
+    travel = sample_travel_px(game, x, y)
+    strokes = [stroke_features(t[s], x[s], y[s], travel[s])
                for s in segment_strokes(t, x, y)]
     movement_ms = sum(s['durationMs'] for s in strokes)
     wall_ms = float(game['endedAt'] - game['startedAt'])
@@ -299,8 +340,7 @@ def extract_game(game: dict[str, Any], game_index: int) -> dict[str, Any]:
             # Survey vocabulary (arXiv:2208.09061): share of the game
             # spent with the cursor still.
             'silenceRatio': 1.0 - movement_ms / wall_ms,
-            'totalPathPx': float(np.sum(np.hypot(np.diff(x), np.diff(y))))
-                           if len(t) > 1 else 0.0,
+            'totalPathPx': float(np.sum(travel)),
         },
         'clicks': click_features(game['events'], t),
         'strokeAggregates': aggregate_strokes(strokes),

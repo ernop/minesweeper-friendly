@@ -95,6 +95,17 @@ Per stroke:
 A feature whose formula needs more points or displacement than a stroke
 has is absent for that stroke, never defaulted.
 
+Path and speed (`pathLengthPx`, `straightness`'s path, `speedPxPerMs`,
+and the acceleration and jerk taken from it, and the session's
+`totalPathPx`) add each sample's cursor travel: from the sample before,
+through the observations merged into it (capture version 3, 2026-10-27:
+`mergedSample`, `mergedX`, `mergedY`), to it, as `sampleTravelPx` in
+`game/trace-metrics.js` does. Merged observations share their sample's
+receipt time, so they cannot be points of their own in a time series.
+Directions, per-axis velocities, and curvature read the steps between
+samples. Older traces have no merged observations, and their travel is
+the steps.
+
 Clicks (from the event stream):
 
 - `clickDurationMs` — ldown-to-lup hold time (Hevelius; surveys)
@@ -128,9 +139,15 @@ accepted. Existing formulas use receipt-time `sampleT` and the original
 `ldown`/`lup`/`rdown` action population; they do not treat a physical right
 transition as another flag action or claim an interruption-adjusted measure.
 
-Regenerate the synthetic fixture (seeded, byte-reproducible):
+Regenerate the synthetic fixture (seeded, byte-reproducible), then its
+features:
 
     .venv/bin/python make_synthetic_trace.py
+    .venv/bin/python extract_features.py synthetic-trace.json > synthetic-features.json
+
+The fixture's second game (added 2026-10-27) repeats the first as capture
+version 3 with 89 merged observations beside its samples, so
+`tests/metrics-biometrics-parity.js` compares the travel through them.
 
 ## Synthetic end-to-end run (2026-08-20)
 

@@ -33,7 +33,8 @@ const newStreaks = vm.runInThisContext('(() => {' + span(current('game/rankings.
   + ';return (records, slack) => rankedStreaks(streakRuns(records), slack);})()');
 function metricsOf(read, cached) {
   return vm.runInThisContext('(() => {' + read('game/trace-metrics.js')
-    + ';return ' + (cached ? 'createTraceMetricComputer' : 'computeAllTraceMetrics') + ';})()');
+    + ';return ' + (cached ? '{ createTraceMetricComputer, sampleTravelPx, NO_MERGED_OBSERVATIONS }'
+      : 'computeAllTraceMetrics') + ';})()');
 }
 const timed = (run) => {
   const durations = [];
@@ -77,7 +78,7 @@ for (const size of [20, 40, 80]) {
     events.push({ t: click * 500 + 395, kind: 'ldown', x: x.at(-1), y: y.at(-1), index: click % 81 },
       { t: click * 500 + 400, kind: 'lup', x: x.at(-1), y: y.at(-1), index: click % 81 });
   }
-  const oldMetrics = metricsOf(baseline, false), createMetrics = metricsOf(current, true);
+  const oldMetrics = metricsOf(baseline, false), currentMetrics = metricsOf(current, true);
   const before = timed(() => {
     let last;
     for (let at = 0; at < size * 500; at += 100) {
@@ -87,14 +88,16 @@ for (const size of [20, 40, 80]) {
     return last;
   });
   const sampleT = Float64Array.from(t), sampleX = Float64Array.from(x), sampleY = Float64Array.from(y);
+  const travel = currentMetrics.sampleTravelPx(sampleX, sampleY, currentMetrics.NO_MERGED_OBSERVATIONS);
   const after = timed(() => {
-    const newMetrics = createMetrics();
+    const newMetrics = currentMetrics.createTraceMetricComputer();
     let last, samples = 0, eventCount = 0;
     const prefix = [];
     for (let at = 0; at < size * 500; at += 100) {
       while (samples < t.length && t[samples] <= at) samples++;
       while (eventCount < events.length && events[eventCount].t <= at) prefix.push(events[eventCount++]);
-      last = newMetrics(sampleT.subarray(0, samples), sampleX.subarray(0, samples), sampleY.subarray(0, samples), prefix, at);
+      last = newMetrics(sampleT.subarray(0, samples), sampleX.subarray(0, samples), sampleY.subarray(0, samples),
+        travel.subarray(0, samples), prefix, at);
     }
     return last;
   });

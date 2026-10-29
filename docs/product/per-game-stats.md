@@ -4,8 +4,9 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
 
 Recorded per finished game, win or loss, primary measurements only: end
 date, outcome, time (ms precision, shown as seconds to 3 decimals), 3BV,
-clicks, no-op clicks (`wastedClicks`), misclicks, flags placed, flags removed, mouse path (px of
-cursor travel, accumulated only while the game is in progress), and
+board-changing clicks (`boardChangingClicks`), no-op clicks (`noOpClicks`),
+misclicks, flags placed, flags removed, mouse path (`mousePathPx`, the px of
+cursor travel while the game clock ran), and
 the versioned action-evaluation ledger (`actionEvaluations`), plus
 the finished-board shape facts (max number, whether a 7 is present,
 zero count, island count, largest island). The stored click count includes only
@@ -226,7 +227,39 @@ cadence-spread-versus-date relationship scatter (wins with the field,
 Theil–Sen trend on that subset), in game data, the live perf charts, and
 motion stats, and until 2026-10-20 as a session series. Stored unrounded
 since 2026-10-26 (to 3 decimals before), the value the live perf charts
-show ([Measurement catalog](measurement-catalog.md)).
+show ([Measurement catalog](measurement-catalog.md)). Since 2026-10-27 a
+saved game's cadence spread is measured again from its trace whenever its
+result is restored on the game page, so a restored older game holds the
+one computation; the record is written only when the value changed.
+
+Mouse path (2026-10-27, creator approval of the agent's recommendation;
+[Measurement catalog](measurement-catalog.md), "Divergences resolved
+2026-10-27"): the record's `mousePathPx` is the cursor travel in the
+game's input trace while the game clock ran, from its start to its stop or
+the last action, whichever is later, counting every cursor observation,
+including those received at the same instant as the next
+([Storage](storage-and-history.md), "Capture provenance v1"); it is stored
+unrounded. The live perf charts' path and mouse speed rows and motion stats
+add the same travel, so game data's path, path / click, path / 3BV, and
+mouse speed are the live charts' whole-game values. Until 2026-10-27 the
+page counted the path itself from document mouse moves while the game was
+in progress and stored it rounded to the pixel, and the trace dropped the
+travel through observations received at one instant, so the two could
+differ. Records saved before then keep their counted path: their traces
+lack those observations, so the trace's travel would be shorter.
+
+Trials with a given opening (2026-10-27, creator approval of the agent's
+recommendation): a trial presentation that opened a square before the first
+click ([Play modes](play-modes.md), "Trial") stores `givenOpeningBv3`, the
+3BV that opening solved. Every performance measurement that divides 3BV
+(3BV/s, efficiency, IOE, IOS, STNB, clicks over 3BV, path / 3BV) uses the
+3BV the player solved, the board's 3BV less the given opening's, as the
+live perf charts' 3BV solved does; board traits keep the board's 3BV. ZiNi
+and HZiNi efficiency count the clicks of a solve from an unopened board, so
+a game given an opening has none. A trial game recorded before 2026-10-27
+gets `givenOpeningBv3` from its trace when its result is next restored and
+until then shows none of those measurements. Trial games recorded before
+`givenOpening` was stored (2026-08-21) were all given an opening.
 
 Move habits (added 2026-10-20 at the creator's request: "move habits and
 characterization of moves, when ih ave to move since local direction ends
@@ -236,8 +269,9 @@ board-changing click 3 or more squares from everything the board-changing
 click before it opened or marked and from the proven-safe squares within 2
 squares of those ([Live perf charts](during-game.md), "Events"):
 
-- `movesRanOut`: moves after those squares had run out (the local work
-  ended).
+- `movesMovedOn`: moves after those squares had run out (the local work
+  ended), the live perf charts' "moved on" events; named `movesRanOut`
+  until 2026-10-27.
 - `movesLeftHardWork`: moves while some remained, none of which counting a
   single number proved (the local work had turned slow).
 - `movesLeftEasyWork`: moves while counting a single number had proved one
@@ -257,7 +291,8 @@ game ends; a game saved earlier gets them when its result is next restored
 on the game page. Game data ranks three of them ([Game data](game-data.md),
 "Catalog and configuration").
 
-Wasted clicks — board clicks that changed nothing (chord attempts on
+No-op clicks (`noOpClicks`, named `wastedClicks` until 2026-10-27; the
+board-changing count was `clicks` until then) — board clicks that changed nothing (chord attempts on
 unsatisfied or empty numbers or with both buttons over an unopened cell,
 left-clicks on flagged cells, right presses on revealed cells that no left
 press joined into a chord; a both-button chord counts as one click, like a

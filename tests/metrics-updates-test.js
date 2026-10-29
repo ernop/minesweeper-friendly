@@ -19,7 +19,7 @@ const context = vm.createContext({
   Date: { now: () => now },
   document: { hidden: false },
   lastLiveMetrics: null,
-  trace: { startedAt: 0, t: [], x: [], y: [], events: [] },
+  trace: { startedAt: 0, t: [], x: [], y: [], mergedSample: [], mergedX: [], mergedY: [], events: [] },
   tracing: () => activeTrace,
   renderMotionStats: () => { renders++; },
   appendTraceMetricsSeries: (metrics) => samples.push(metrics),
@@ -70,6 +70,16 @@ assert.equal(jobs[0].payload.t.length, 1);
 await reply();
 advance(5000);
 assert.equal(jobs.length, 0, 'idle time produces no analysis work');
+// An observation received at the instant of a sample already sent replaced
+// it: that sample goes again, with the observation it replaced.
+run('trace.mergedSample.push(0); trace.mergedX.push(2); trace.mergedY.push(3); trace.x[0] = 4;'
+  + ' trace.t.push(5); trace.x.push(6); trace.y.push(7); scheduleMetricsUpdate({ trace: true })');
+advance(250);
+assert.deepEqual([jobs[0].payload.fromSample, jobs[0].payload.t, jobs[0].payload.x, jobs[0].payload.y],
+  [0, [1, 5], [4, 6], [3, 7]]);
+assert.deepEqual({ ...jobs[0].payload.merged }, { sample: [0], x: [2], y: [3] });
+await reply();
+advance(5000);
 run('scheduleMetricsUpdate({ elapsed: true })');
 flushFrame();
 assert.equal(jobs[0].payload.t.length, 0, 'elapsed samples send no old input');

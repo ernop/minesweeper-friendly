@@ -14,7 +14,7 @@ const repo = path.join(__dirname, '..');
 const source = require('./game-source.js').source;
 
 const startMarker = '//-------TRACE METRICS: COMPUTATION';
-const endMarker = '//-------TRACE METRICS: DISPLAY';
+const endMarker = '//-------TRACE METRICS: SEGMENTATION';
 const startIdx = source.indexOf(startMarker);
 const endIdx = source.indexOf(endMarker);
 if (startIdx === -1 || endIdx === -1) throw new Error('section markers not found');
@@ -39,7 +39,8 @@ function close(name, actual, want) {
 for (let g = 0; g < games.length; g++) {
   const game = games[g];
   const want = expected[g];
-  const m = computeTraceMetrics(game.sampleT, game.sampleX, game.sampleY,
+  const travel = sampleTravelPx(game.sampleX, game.sampleY, storedMergedObservations(game));
+  const m = computeTraceMetrics(game.sampleT, game.sampleX, game.sampleY, travel,
     game.events, game.endedAt - game.startedAt);
 
   close(`game${g}.strokeCount`, m.strokeCount, want.session.strokeCount);
@@ -78,7 +79,7 @@ for (let g = 0; g < games.length; g++) {
   const half = Math.floor(game.sampleT.length / 2);
   const live = computeTraceMetrics(
     game.sampleT.slice(0, half), game.sampleX.slice(0, half),
-    game.sampleY.slice(0, half),
+    game.sampleY.slice(0, half), travel.subarray(0, half),
     game.events.filter((e) => e.t <= game.sampleT[half - 1]),
     game.sampleT[half - 1]);
   if (!(live.strokeCount <= m.strokeCount)) throw new Error(`game${g}: live strokes exceed final`);

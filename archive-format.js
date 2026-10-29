@@ -4,7 +4,7 @@
 // (docs/product/storage-and-history.md "Archive folder"). Shared by
 // archive-worker.js and tests/archive-format-test.js; no DOM, no storage.
 
-const ARCHIVE_FORMAT_VERSION = 1;
+const ARCHIVE_FORMAT_VERSION = 2;
 const ARCHIVE_README_NAME = 'README.txt';
 
 // UTC year and month, so an item's path never depends on the reader's zone.
@@ -108,5 +108,9 @@ const ARCHIVE_README_TEXT = [
   'displays them (rates, ranks, charts) are not stored; recompute them from these',
   'files. A record is archived as it was first written; measurements the game adds',
   'to it later are recomputable from the trace and the board seed.',
+  '',
+  'Format version 2 (2026-10-27) renamed three game record fields: version 1',
+  'records name boardChangingClicks, noOpClicks, and movesMovedOn as clicks,',
+  'wastedClicks, and movesRanOut.',
   '',
 ].join('\n');

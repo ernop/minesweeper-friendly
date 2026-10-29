@@ -29,6 +29,42 @@
 // consecutive samples separates two bouts.
 const STROKE_GAP_MS = 100;
 
+// The cursor observations a trace keeps beside its samples
+// (game/input-trace.js): each was received at the same instant as a later
+// one, which replaced it as the sample. sample[k] is the index of the sample
+// that replaced observation k. Traces before capture version 3 kept none.
+const NO_MERGED_OBSERVATIONS = Object.freeze({ sample: [], x: [], y: [] });
+
+function storedMergedObservations(stored) {
+  return stored.captureVersion >= 3
+    ? { sample: stored.mergedSample, x: stored.mergedX, y: stored.mergedY } : NO_MERGED_OBSERVATIONS;
+}
+
+// The cursor's travel into each sample, px: straight steps from the sample
+// before through each observation the sample replaced, in the order
+// received (for sample 0, from the first of them). Every sum of cursor
+// travel adds these: the record's path (during-game.js), motion stats' path,
+// wander, and bout path and speeds, the trial review's path and speed, and
+// the replay's movement speed.
+function sampleTravelPx(sampleX, sampleY, merged) {
+  const n = sampleX.length;
+  const travel = new Float64Array(n);
+  let k = 0;
+  for (let i = 0; i < n; i++) {
+    let px = i > 0 ? sampleX[i - 1] : null;
+    let py = i > 0 ? sampleY[i - 1] : null;
+    let sum = 0;
+    for (; k < merged.sample.length && merged.sample[k] === i; k++) {
+      if (px !== null) sum += Math.hypot(merged.x[k] - px, merged.y[k] - py);
+      px = merged.x[k];
+      py = merged.y[k];
+    }
+    if (px !== null) sum += Math.hypot(sampleX[i] - px, sampleY[i] - py);
+    travel[i] = sum;
+  }
+  return travel;
+}
+
 function traceMetricsMean(values) {
   let sum = 0;
   for (const v of values) sum += v;
@@ -52,8 +88,9 @@ function wrapAngle(a) {
 }
 
 // Features of one movement bout, samples [a, b). A feature whose formula
-// needs more points (or displacement) than the bout has is absent.
-function strokeMetrics(t, x, y, a, b) {
+// needs more points (or displacement) than the bout has is absent. Path and
+// speeds read each sample's travel; headings, the step between samples.
+function strokeMetrics(t, x, y, travel, a, b) {
   const count = b - a;
   const m = { durationMs: t[b - 1] - t[a] };
   if (count < 2) return m;
@@ -61,17 +98,16 @@ function strokeMetrics(t, x, y, a, b) {
   let path = 0;
   const speeds = [];     // px/ms per segment
   const tMid = [];       // segment midpoint times, for the kinematic chain
-  const thetas = [];     // heading per moving (nonzero-length) segment
+  const thetas = [];     // heading per segment whose ends differ
   const thetaTMid = [];
   for (let i = a + 1; i < b; i++) {
     const dt = t[i] - t[i - 1];
     const dx = x[i] - x[i - 1];
     const dy = y[i] - y[i - 1];
-    const len = Math.hypot(dx, dy);
-    path += len;
-    speeds.push(len / dt);
+    path += travel[i];
+    speeds.push(travel[i] / dt);
     tMid.push((t[i] + t[i - 1]) / 2);
-    if (len > 0) {
+    if (dx !== 0 || dy !== 0) {
       thetas.push(Math.atan2(dy, dx));
       thetaTMid.push((t[i] + t[i - 1]) / 2);
     }
@@ -125,14 +161,14 @@ function traceSilenceRatio(movementMs, wallDurationMs) {
   return wallDurationMs > 0 ? 1 - movementMs / wallDurationMs : undefined;
 }
 
-function computeTraceMetrics(sampleT, sampleX, sampleY, events, wallDurationMs) {
+function computeTraceMetrics(sampleT, sampleX, sampleY, travel, events, wallDurationMs) {
   const n = sampleT.length;
 
   const strokes = [];
   let start = 0;
   for (let i = 1; i <= n; i++) {
     if (i === n || sampleT[i] - sampleT[i - 1] >= STROKE_GAP_MS) {
-      strokes.push(strokeMetrics(sampleT, sampleX, sampleY, start, i));
+      strokes.push(strokeMetrics(sampleT, sampleX, sampleY, travel, start, i));
       start = i;
     }
   }
@@ -142,9 +178,7 @@ function computeTraceMetrics(sampleT, sampleX, sampleY, events, wallDurationMs) 
   // Total path over ALL consecutive samples — the jumps across stroke gaps
   // are travel too (the measurement principle: fruitless motion existed).
   let totalPathPx = 0;
-  for (let i = 1; i < n; i++) {
-    totalPathPx += Math.hypot(sampleX[i] - sampleX[i - 1], sampleY[i] - sampleY[i - 1]);
-  }
+  for (let i = 0; i < n; i++) totalPathPx += travel[i];
   let speedMaxPxPerMs;
   for (const s of strokes) {
     if (s.speedMaxPxPerMs !== undefined
@@ -970,7 +1004,7 @@ const WASTE_PAUSE_MS = 250;      // a whole-game pause: >= 250 ms between sample
 const WASTE_TURN_LEG_PX = 8;     // heading legs must displace this far
 const FEINT_DWELL_MS = 300;      // a feint: dwell this long, then leave clickless
 
-function computeWasteMetrics(sampleT, sampleX, sampleY, events) {
+function computeWasteMetrics(sampleT, sampleX, sampleY, travel, events) {
   const n = sampleT.length;
 
   // Pauses over the whole game (>= 250 ms between consecutive samples):
@@ -992,9 +1026,7 @@ function computeWasteMetrics(sampleT, sampleX, sampleY, events) {
   // between consecutive clicks (1.0 = perfectly direct all game). The
   // fruitless travel stays in the numerator — that is the point.
   let totalPathPx = 0;
-  for (let i = 1; i < n; i++) {
-    totalPathPx += Math.hypot(sampleX[i] - sampleX[i - 1], sampleY[i] - sampleY[i - 1]);
-  }
+  for (let i = 0; i < n; i++) totalPathPx += travel[i];
   let clickTravelPx = 0;
   let prevClick = null;
   for (const ev of events) {
@@ -1395,13 +1427,13 @@ function computeSpatialBias(events) {
 // completed inter-click segments, so their values change only when a
 // click lands — the live schedule exploits that (renderLiveTraceMetrics
 // caches them between clicks).
-function computeAllTraceMetrics(sampleT, sampleX, sampleY, events, wallDurationMs, segments) {
+function computeAllTraceMetrics(sampleT, sampleX, sampleY, travel, events, wallDurationMs, segments) {
   return {
     wallDurationMs: wallDurationMs,
-    bio: computeTraceMetrics(sampleT, sampleX, sampleY, events, wallDurationMs),
+    bio: computeTraceMetrics(sampleT, sampleX, sampleY, travel, events, wallDurationMs),
     psych: segments === undefined ? computePsychometrics(sampleT, sampleX, sampleY, events) : segments.psych,
     hev: segments === undefined ? computeHevelius(sampleT, sampleX, sampleY, events) : segments.hev,
-    waste: computeWasteMetrics(sampleT, sampleX, sampleY, events),
+    waste: computeWasteMetrics(sampleT, sampleX, sampleY, travel, events),
     cad: computeClickCadence(sampleT, events),
     queue: computeQueueMetrics(sampleT, sampleX, sampleY, events),
     rec: computeRecoveryMetrics(events),
@@ -1415,7 +1447,7 @@ function computeAllTraceMetrics(sampleT, sampleX, sampleY, events, wallDurationM
 function createTraceMetricComputer() {
   let eventIndex = 0, clickEvents = 0, measuredClicks = -1;
   let segments;
-  return (sampleT, sampleX, sampleY, events, wallDurationMs) => {
+  return (sampleT, sampleX, sampleY, travel, events, wallDurationMs) => {
     while (eventIndex < events.length) {
       const event = events[eventIndex++];
       if (event.kind === 'lup' || event.kind === 'rdown') clickEvents++;
@@ -1427,6 +1459,6 @@ function createTraceMetricComputer() {
       };
       measuredClicks = clickEvents;
     }
-    return computeAllTraceMetrics(sampleT, sampleX, sampleY, events, wallDurationMs, segments);
+    return computeAllTraceMetrics(sampleT, sampleX, sampleY, travel, events, wallDurationMs, segments);
   };
 }

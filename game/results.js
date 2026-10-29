@@ -18,24 +18,26 @@ function computeBoardShape() {
 function reportResult(outcome, endedAt = Date.now()) {
   const shape = computeBoardShape();
   const mineAt = cells.map((cell) => cell.mine);
+  const timeMs = Math.round(finalTimeMs);
   const record = {
     endedAt: endedAt,
     ...observedTimeZone(endedAt),
     outcome: outcome,
-    timeMs: Math.round(finalTimeMs),
+    timeMs: timeMs,
     // A drill's difficulty is what was actually presented: the remnant's
     // remaining 3BV, not the whole board's. Full-board ZiNi is likewise
     // meaningless for a partial solve, so drill records omit it.
     bv3: endgameDrillActive() && drillCurrent !== null
       ? drillCurrent.remaining3BV : compute3BV(),
-    clicks: clickCount,
+    boardChangingClicks: boardChangingClicks,
     chordClicks: chordClicks,
-    wastedClicks: wastedClicks,
+    noOpClicks: noOpClicks,
     misclicks: misclicks,
     flagsPlaced: flagsPlaced,
     flagsRemoved: flagsRemoved,
     ...(outcome === 'win' ? { unusedCorrectFlags: unusedCorrectFlags } : {}),
-    mousePathPx: Math.round(mousePathPx),
+    mousePathPx: DuringGame.cursorTravelPx({ timeMs, t: trace.t, x: trace.x, y: trace.y,
+      merged: liveMergedObservations(), events: trace.events }),
     states: activeStateNames(),
     justice: justiceEvents,
     justiceEnabled: justiceEnabledForGame,
@@ -77,7 +79,11 @@ function reportResult(outcome, endedAt = Date.now()) {
     record.identityIndex = trialPresentation.identityIndex;
     record.transform = trialPresentation.transform;
     record.trialStartedAt = trialSession.startedAt;
-    record.givenOpening = settings.trialGiveOpening;
+    record.givenOpening = trialPresentation.givenOpening;
+    if (hadGivenOpening(record)) {
+      record.givenOpeningBv3 = DuringGame.bv3SolvedBy(config.width, config.height, mineAt,
+        trialPresentation.openedAtStart);
+    }
   }
   if (pregenActive() && pregenBatch !== null && pregenCurrent !== null) {
     pregenBatch.results.push({ run: pregenCurrent.rank, record });
@@ -100,7 +106,8 @@ function reportResult(outcome, endedAt = Date.now()) {
       outcome: record.outcome,
       timeMs: record.timeMs,
       bv3: record.bv3,
-      clicks: record.clicks,
+      ...(hadGivenOpening(record) ? { givenOpeningBv3: record.givenOpeningBv3 } : {}),
+      boardChangingClicks: record.boardChangingClicks,
       actionEvaluations: record.actionEvaluations,
     });
     if (trialSession.nextIndex >= Trial.gameCount(trialSession)) endTrial('completed');
@@ -125,7 +132,7 @@ function reportResult(outcome, endedAt = Date.now()) {
     needZini: true, needBoardMetrics: true, needCadence: true, needMoveHabits: true, needFastclickGap: true,
     gameId: record.endedAt, timeMs: record.timeMs, outcome: record.outcome, justiceEnabled: record.justiceEnabled,
     liveTraceId: liveMetricsGeneration,
-    trace: { t: finishedTrace.t, x: finishedTrace.x, y: finishedTrace.y,
+    trace: { t: finishedTrace.t, x: finishedTrace.x, y: finishedTrace.y, merged: liveMergedObservations(),
       events: finishedTrace.events, wallMs: record.endedAt - finishedTrace.startedAt,
       initialPageState: finishedTrace.initialPageState },
   }).then((result) => {
@@ -176,7 +183,7 @@ function playStatisticsFields(record) {
       generator.params.map((param) => ['g_' + param.key, gameGenerator.params[param.key]]))),
     just: record.justiceEnabled,
     bbbv: record.bv3,
-    clicks: record.clicks,
+    clicks: record.boardChangingClicks,
     flags: record.flagsPlaced,
     ...measured('bbbvs', 'bvPerSecond'),
     ...measured('eff', 'efficiency', 100),
@@ -762,8 +769,6 @@ function buildGameStats(record) {
     return value === undefined
       ? [] : [[metric.name[0].toUpperCase() + metric.name.slice(1), metric.format(value)]];
   };
-  // "Clicks over 3BV" only exists for wins: a lost board was never
-  // finished, so the subtraction means nothing.
   for (const [label, value, valueClass] of [
     ['Time', seconds.toFixed(3) + 's', isMarkless(record) ? 'markless-time' : ''],
     ['3BV', String(record.bv3)],
@@ -779,8 +784,8 @@ function buildGameStats(record) {
     ...(settings.shownThings.largestIsland && record.largestIsland !== undefined
       ? [['Largest island', String(record.largestIsland)]] : []),
     ...measurementRow('bvPerSecond'),
-    ['Clicks', String(record.clicks)],
-    ...(fullAnalysis ? [['No-op clicks', String(record.wastedClicks)]] : []),
+    ['Clicks', String(record.boardChangingClicks)],
+    ...(fullAnalysis ? [['No-op clicks', String(record.noOpClicks)]] : []),
     ...(fullAnalysis && record.misclicks !== undefined
       ? [['Misclicks', String(record.misclicks)]] : []),
     ['Flags placed', isMarkless(record) ? '0 - markless' : String(record.flagsPlaced)],
@@ -802,8 +807,8 @@ function buildGameStats(record) {
     // coinflip the rule guarantees the player wins.
     ...(fullAnalysis && record.justice !== undefined
       ? [['Forced coinflips won', String(record.justice)]] : []),
-    ...(record.outcome === 'win'
-      ? [['Clicks over 3BV', String(record.clicks - record.bv3)]]
+    ...(clicksOverBv3Of(record) !== undefined
+      ? [['Clicks over 3BV', String(clicksOverBv3Of(record))]]
       : []),
     ...measurementRow('efficiency'),
     ...(chordShareOf(record) !== undefined
@@ -822,7 +827,7 @@ function buildGameStats(record) {
       ? [['Guesses', formatGuesses(record)]] : []),
     ...categoryStatRows,
     ...categoryMagnitudeRows,
-    ['Path', record.mousePathPx + 'px'],
+    ['Path', Math.round(record.mousePathPx) + 'px'],
     ...measurementRow('mouseSpeed'),
     // The per-game forms of the session series, derived from stored
     // fields at display time (so they exist on historical games too);

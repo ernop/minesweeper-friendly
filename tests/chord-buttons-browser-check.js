@@ -35,7 +35,7 @@ const ORIGIN = 'http://127.0.0.1:8099/';
       return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
     }, index);
     const moveTo = async (index) => { const p = await center(index); await page.mouse.move(p.x, p.y); };
-    const counters = () => page.evaluate(() => ({ clicks: clickCount, wasted: wastedClicks, chords: chordClicks,
+    const counters = () => page.evaluate(() => ({ clicks: boardChangingClicks, wasted: noOpClicks, chords: chordClicks,
       flags: flagsPlaced, revealed: revealedCount, state: gameState }));
 
     // A number whose single adjacent mine is still covered and which still

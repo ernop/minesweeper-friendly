@@ -286,24 +286,24 @@ function trainingTimeBudget(winBreakdowns, records) {
 }
 
 function trainingInputs(record) {
-  return record.clicks + record.wastedClicks;
+  return record.boardChangingClicks + record.noOpClicks;
 }
 
-// Pace and economy over a list of wins. Inputs are board-changing clicks
-// plus no-op clicks, so IOE here is the game data column's IOE (3BV per
-// input) and 3BV/s = IOE / seconds per input. Records from before no-op
-// clicks were measured are left out of the input-based medians rather than
-// counted as zero.
+// Pace and economy over a list of wins. 3BV/s and IOE are the game data
+// catalog's (game-data.js, loaded before this file), and 3BV/s = IOE /
+// seconds per input, an input being a board-changing or no-op click.
+// Records from before no-op clicks were measured are left out of the
+// input-based medians rather than counted as zero.
 function trainingWinPace(wins) {
-  const measured = wins.filter((r) => typeof r.wastedClicks === 'number');
+  const measured = wins.filter((r) => typeof r.noOpClicks === 'number');
   return {
     wins: wins.length,
     medianWinS: trainingMedian(wins.map((r) => r.timeMs / 1000)),
-    median3bvPerS: trainingMedian(wins.map((r) => r.bv3 / (r.timeMs / 1000))),
+    median3bvPerS: trainingMedian(wins.map((r) => bvPerSecond(r))),
     inputMeasuredWins: measured.length,
-    medianIoe: trainingMedian(measured.map((r) => r.bv3 / trainingInputs(r))),
+    medianIoe: trainingMedian(measured.map((r) => ioeOf(r))),
     medianSecondsPerInput: trainingMedian(measured.map((r) => r.timeMs / 1000 / trainingInputs(r))),
-    medianNoopsPerWin: trainingMedian(measured.map((r) => r.wastedClicks)),
+    medianNoopsPerWin: trainingMedian(measured.map((r) => r.noOpClicks)),
   };
 }
 

@@ -21,7 +21,7 @@ const repo = path.join(__dirname, '..');
 const source = require('./game-source.js').source;
 
 const startMarker = '//-------TRACE METRICS: COMPUTATION';
-const endMarker = '//-------TRACE METRICS: DISPLAY';
+const endMarker = '//-------TRACE METRICS: CLINICAL';
 const startIdx = source.indexOf(startMarker);
 const endIdx = source.indexOf(endMarker);
 if (startIdx === -1 || endIdx === -1) throw new Error('section markers not found');

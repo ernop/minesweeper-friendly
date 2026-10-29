@@ -30,7 +30,7 @@ const ODDS_VERSIONS = new Set(['guess-ledger-v1', Odds.VERSION]);
 // definition of the record shape — reportResult writes the non-legacy
 // fields, importHistory also accepts the explicitly marked legacy boundary
 // fields, and the data-format card renders only the current examples and
-// descriptions. wastedClicks and
+// descriptions. noOpClicks and
 // flagsPlaced joined the schema on 2026-08-19, flagsRemoved on 2026-08-20,
 // and win-only unusedCorrectFlags on 2026-08-28: the first two are always
 // written now and the last is written on wins; games recorded before they were measured
@@ -79,23 +79,23 @@ const GAME_RECORD_SCHEMA = [
   { field: 'zini', valid: (v) => v === undefined || isNumber(v), example: '8', describe: "the board's greedy ZiNi: the reference greedy flags-and-chords algorithm's click count, the flaggers' counterpart to 3BV (never above it); absent on games recorded before 2026-08-30 and on Endgame drill games (a full-board measure misdescribes a partial solve)" },
   { field: 'hzini', valid: (v) => v === undefined || isNumber(v), example: '9', describe: "the board's human ZiNi: the same greedy algorithm restricted to already-open cells after opening every opening first; absent on games recorded before 2026-08-30 and on Endgame drill games" },
   { field: 'boardMetrics', valid: (v) => v === undefined || BoardMetrics.valid(v), example: '{"version":1,"workSpread":3.12,"safeCells":71,"zeroOpenedZeroOneCells":51,"zeroOpenedCells":57}', describe: 'final-board 3BV spread in cells and exact safe-cell counts for visible 0–1 share after opening all zeros and zero-opening coverage; absent measurements can be backfilled from saved final-board traces' },
-  { field: 'clicks', valid: isNumber, example: '19', describe: 'clicks that changed the board (reveals, flags, chords)' },
+  { field: 'boardChangingClicks', valid: isNumber, example: '19', describe: 'board-changing clicks: reveals, flags, flag removals, and accepted chords (named clicks before 2026-10-27)' },
   { field: 'chordClicks', valid: (v) => v === undefined || isNumber(v), example: '4', describe: 'accepted chords among the board-changing clicks (the chord-share numerator); absent on games recorded before 2026-08-30' },
-  { field: 'wastedClicks', valid: (v) => v === undefined || isNumber(v), example: '3', describe: 'board clicks that changed nothing; absent on games recorded before 2026-08-19' },
+  { field: 'noOpClicks', valid: (v) => v === undefined || isNumber(v), example: '3', describe: 'board clicks that changed nothing (named wastedClicks before 2026-10-27); absent on games recorded before 2026-08-19' },
   { field: 'misclicks', valid: (v) => v === undefined || isNumber(v), example: '1', describe: 'board-changing actions contradicted by facts provable from the visible board at click time: opening a proven mine, flagging a proven safe, removing a proven-mine flag, or chording through a visible contradiction; independent of whether the action caused death; absent on games recorded before 2026-08-23' },
   { field: 'flagsPlaced', valid: (v) => v === undefined || isNumber(v), example: '0', describe: 'flags the player placed; 0 = a markless game; absent on games recorded before 2026-08-19' },
   { field: 'flagsRemoved', valid: (v) => v === undefined || isNumber(v), example: '1', describe: 'flag states the player turned off; placement and removal are each board-changing clicks; the reason for removal is not observed; absent on games recorded before 2026-08-20' },
   { field: 'unusedCorrectFlags', valid: (v) => v === undefined || isNumber(v), example: '2', describe: 'on a win, correct mine-flag placement episodes that ended or were removed without ever contributing to an accepted chord; absent on losses and games recorded before 2026-08-28 because an unfinished solve cannot establish whether a standing mark would later have been used' },
-  { field: 'mousePathPx', valid: isNumber, example: '1182', describe: 'cursor travel while playing, px' },
+  { field: 'mousePathPx', valid: isNumber, example: '1182.5', describe: 'cursor travel while the game clock ran, px: since 2026-10-27 measured from the input trace, every cursor observation counted, unrounded; before, a live count of the same travel rounded to the px' },
   { field: 'fastclickGapMs', valid: (v) => v === undefined || isNumber(v), example: '142', describe: 'with fastclickGapVersion "' + GameData.FASTCLICK_GAP_VERSION + '": median press-to-press time of the game\u2019s planned pairs, rounded to the ms: two board-changing clicks in a row, neither a flag removal, on touching squares, every square they open proven safe and every square they flag proven a mine before the first, nothing else pressed between them, and, after a first click that opened squares, the cursor never 100 ms without moving before the second press; absent when the game had no planned pair or the prover stopped at its work limit on one, and on games before 2026-10-26 until their result is next restored. A value without fastclickGapVersion follows the earlier definition (the median gap between board-changing clicks of at most 1 s ending in a click made on the move) and is deleted on load and import' },
   { field: 'fastclickGapVersion', valid: (v) => v === undefined || v === GameData.FASTCLICK_GAP_VERSION, example: '"' + GameData.FASTCLICK_GAP_VERSION + '"', describe: 'the fastclick gap definition fastclickGapMs was measured under, written for every game measured since 2026-10-26, including games with no planned pair; absent on earlier games until their result is next restored' },
   { field: 'cadenceSpread', valid: (v) => v === undefined || isNumber(v), example: '1.42', describe: 'press-to-press rhythm consistency: interquartile range of all button-press gaps (wasted presses included) divided by their median — 0 means metronomic, larger means burstier; measured for wins and losses; unrounded since 2026-10-26, rounded to 3 decimals before; absent under two measurable gaps or on games recorded before 2026-08-30' },
-  { field: 'movesRanOut', valid: (v) => v === undefined || isCount(v), example: '4', describe: 'moves made once the local work had run out: a move is a board-changing click 3 or more squares from everything the board-changing click before it opened or marked and from the proven-safe squares within 2 squares of those; measured for wins and losses from the trace; absent where the prover stopped at its work limit at a move, and on games recorded before 2026-10-20 until their result is next restored' },
-  { field: 'movesLeftHardWork', valid: (v) => v === undefined || isCount(v), example: '2', describe: 'moves made while proven-safe squares were still within 2 squares of the click before, none of which counting a single number proved: the local work had turned slow; absent with movesRanOut' },
-  { field: 'movesLeftEasyWork', valid: (v) => v === undefined || isCount(v), example: '1', describe: 'moves made while counting a single number had proved a square within 2 squares of the click before safe; absent with movesRanOut' },
-  { field: 'moveGapMedianMs', valid: (v) => v === undefined || isNumber(v), example: '842', describe: 'median time from the board-changing click before a move to the move, ms; absent with movesRanOut and on games without a move' },
-  { field: 'forkMoves', valid: (v) => v === undefined || isCount(v), example: '2', describe: 'moves made while proven-safe squares lay in 2 or more places (squares at most 2 apart are one place); absent with movesRanOut' },
-  { field: 'forkMovesToNearestArea', valid: (v) => v === undefined || isCount(v), example: '1', describe: 'fork moves that went to the place holding the proven-safe square nearest the click before; absent with movesRanOut' },
+  { field: 'movesMovedOn', valid: (v) => v === undefined || isCount(v), example: '4', describe: 'moves made once the local work had run out (named movesRanOut before 2026-10-27): a move is a board-changing click 3 or more squares from everything the board-changing click before it opened or marked and from the proven-safe squares within 2 squares of those; measured for wins and losses from the trace; absent where the prover stopped at its work limit at a move, and on games recorded before 2026-10-20 until their result is next restored' },
+  { field: 'movesLeftHardWork', valid: (v) => v === undefined || isCount(v), example: '2', describe: 'moves made while proven-safe squares were still within 2 squares of the click before, none of which counting a single number proved: the local work had turned slow; absent with movesMovedOn' },
+  { field: 'movesLeftEasyWork', valid: (v) => v === undefined || isCount(v), example: '1', describe: 'moves made while counting a single number had proved a square within 2 squares of the click before safe; absent with movesMovedOn' },
+  { field: 'moveGapMedianMs', valid: (v) => v === undefined || isNumber(v), example: '842', describe: 'median time from the board-changing click before a move to the move, ms; absent with movesMovedOn and on games without a move' },
+  { field: 'forkMoves', valid: (v) => v === undefined || isCount(v), example: '2', describe: 'moves made while proven-safe squares lay in 2 or more places (squares at most 2 apart are one place); absent with movesMovedOn' },
+  { field: 'forkMovesToNearestArea', valid: (v) => v === undefined || isCount(v), example: '1', describe: 'fork moves that went to the place holding the proven-safe square nearest the click before; absent with movesMovedOn' },
   { field: 'states', valid: (v) => v === undefined || (Array.isArray(v) && v.every((s) => typeof s === 'string')), example: '["sleepy"]', describe: 'player-defined state tags active when the game finished (see the states panel); absent on games recorded before 2026-08-20' },
   { field: 'musicPlaying', valid: (v) => v === undefined || typeof v === 'boolean', example: 'true', describe: 'whether this machine heard audio playing during the game (sampled about once a minute from the local base system); absent when that endpoint never answered, on every origin other than the local player origin, or on games recorded before 2026-08-22' },
   { field: 'flagsBlocked', valid: (v) => v === undefined || v === true, example: 'true', describe: 'true when a reached daily play limit\u2019s no-flags penalty kept the player from placing flags for the whole game (fixed when the board went into play; removing a flag stayed allowed); absent = flags allowed, as on every game before 2026-10-14' },
@@ -118,6 +118,7 @@ const GAME_RECORD_SCHEMA = [
   { field: 'transform', valid: (v) => v === undefined || typeof v === 'string', example: '"rot90"', describe: 'isometry applied to the trial identity for this presentation' },
   { field: 'trialStartedAt', valid: (v) => v === undefined || isNumber(v), example: '1787201223496', describe: 'when the enclosing trial session began' },
   { field: 'givenOpening', valid: (v) => v === undefined || typeof v === 'boolean', example: 'false', describe: 'whether this trial presentation started with a predetermined cell already opened; absent on earlier trial games (those were given an opening)' },
+  { field: 'givenOpeningBv3', valid: (v) => v === undefined || isCount(v), example: '1', describe: 'on a trial game given an opening, the 3BV that opening solved before the first click; performance measurements divide only the 3BV the player solved, bv3 less this; absent on other games, and on given-opening games recorded before 2026-10-27 until their result is next restored' },
   { field: 'guesses', valid: (v) => v === undefined || isNumber(v), example: '2', describe: 'clicks (not chords) on cells with p(mine) > 0; a zero-risk cell is not a guess even if local deduction had not marked it; absent when odds could not be measured, in modes without a real mine gamble (angelic, and the removed proof-or-die), or on games recorded before 2026-08-21' },
   { field: 'guessIdealRisk', valid: (v) => v === undefined || isNumber(v), example: '1', describe: 'guesses that chose a lowest-available death risk; absent with guesses' },
   { field: 'guessNonideal', valid: (v) => v === undefined || isNumber(v), example: '1', describe: 'guesses that chose a cell riskier than the safest available; absent with guesses' },
@@ -201,7 +202,7 @@ function legacyFatalEvaluation(record) {
     action: deathKind === 'chord' ? 'chord'
       : record.playMode === 'proof-or-die' ? 'proof-open'
         : deathKind === undefined ? 'unknown' : 'reveal',
-    actionNumber: record.clicks,
+    actionNumber: record.boardChangingClicks,
     atMs: record.timeMs,
     selected: [],
     result: 'death',
@@ -341,6 +342,7 @@ function cleanTransferredGameRecord(source) {
     return { record: null, repairedFields: 0 };
   }
   const cleaned = { ...source };
+  renameRecordFields(cleaned);
   let repairedFields = 0;
   for (const field of GAME_RECORD_SCHEMA) {
     if (field.valid(cleaned[field.field])) continue;

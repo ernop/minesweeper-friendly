@@ -97,7 +97,7 @@ function flaggerGame(seed, endedAt, withFinalBoard) {
     for (const n of neighbors(number)) if (!open[n] && !flagged[n]) flood(n);
   }
   const record = { endedAt, outcome: 'win', timeMs: events[events.length - 1].t - 1000, bv3: threeBV(mine, adjacent),
-    clicks, wastedClicks: noops, flagsPlaced: flagged.reduce((a, b) => a + b, 0), actionEvaluations: [],
+    boardChangingClicks: clicks, noOpClicks: noops, flagsPlaced: flagged.reduce((a, b) => a + b, 0), actionEvaluations: [],
     seed, firstRevealIndex: first, rngVersion: GameRandom.VERSION, boardVersion: 'uniform-first-safe-fisher-yates-v1' };
   const trace = { endedAt, mode: '30x16/99@standard', seed, rngVersion: GameRandom.VERSION,
     boardVersion: 'uniform-first-safe-fisher-yates-v1', events,
@@ -106,7 +106,7 @@ function flaggerGame(seed, endedAt, withFinalBoard) {
 }
 
 function lossRecord(endedAt, timeMs, mistakes, evidence) {
-  return { endedAt, outcome: 'loss', timeMs, bv3: 170, clicks: 60, wastedClicks: 4, actionEvaluations: [
+  return { endedAt, outcome: 'loss', timeMs, bv3: 170, boardChangingClicks: 60, noOpClicks: 4, actionEvaluations: [
     { version: 'action-evaluation-v1', action: 'reveal', actionNumber: 60, atMs: timeMs, selected: [5],
       result: 'death', mistakes, evidence } ] };
 }

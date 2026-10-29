@@ -51,7 +51,31 @@ const LEGACY_LOCALSTORAGE_KEYS = {
   states: 'minesweeper-friendly.states',
 };
 
-const dbRequest = indexedDB.open(DB_NAME, 6);
+// Game record fields renamed on 2026-10-27 to the measurements' names
+// (docs/product/measurement-catalog.md), old name first. The version-7
+// upgrade renames them in saved records and the trial session's attempts,
+// and importing an earlier backup renames them in its records. Temporary:
+// delete with that upgrade step and the import conversion (BACKLOG.md,
+// "Record field names: step 2").
+const RENAMED_RECORD_FIELDS = [
+  ['clicks', 'boardChangingClicks'],
+  ['wastedClicks', 'noOpClicks'],
+  ['movesRanOut', 'movesMovedOn'],
+];
+
+// Renames the fields in place; true when the record changed.
+function renameRecordFields(record) {
+  let changed = false;
+  for (const [oldName, newName] of RENAMED_RECORD_FIELDS) {
+    if (!(oldName in record)) continue;
+    record[newName] = record[oldName];
+    delete record[oldName];
+    changed = true;
+  }
+  return changed;
+}
+
+const dbRequest = indexedDB.open(DB_NAME, 7);
 dbRequest.onupgradeneeded = (event) => {
   const upgraded = event.target.result;
   if (event.oldVersion < 1) upgraded.createObjectStore(TRACE_STORE, { keyPath: 'endedAt' });
@@ -95,6 +119,8 @@ dbRequest.onupgradeneeded = (event) => {
           for (const record of list) {
             if (seen.has(record.endedAt)) continue;
             seen.add(record.endedAt);
+            // The version-7 step below runs before these adds.
+            renameRecordFields(record);
             records.add(record, [historyKey, record.endedAt]);
           }
         }
@@ -106,6 +132,23 @@ dbRequest.onupgradeneeded = (event) => {
     }
   }
   if (event.oldVersion < 6) upgraded.createObjectStore(PLAY_SPAN_STORE, { keyPath: 'startedAt' });
+  if (event.oldVersion < 7) {
+    const transaction = event.target.transaction;
+    transaction.objectStore(RECORD_STORE).openCursor().onsuccess = (cursorEvent) => {
+      const cursor = cursorEvent.target.result;
+      if (cursor === null) return;
+      const record = cursor.value;
+      if (renameRecordFields(record)) cursor.update(record);
+      cursor.continue();
+    };
+    const userdata = transaction.objectStore(USERDATA_STORE);
+    const trial = userdata.get('trial');
+    trial.onsuccess = () => {
+      const session = trial.result;
+      if (session === undefined) return;
+      if (session.results.map(renameRecordFields).some(Boolean)) userdata.put(session, 'trial');
+    };
+  }
 };
 // The open can complete between this script and the page's own script
 // (the open races the network fetch of the later deferred scripts). During

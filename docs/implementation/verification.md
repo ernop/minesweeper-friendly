@@ -166,7 +166,9 @@ Index: [AGENTS.md](../../AGENTS.md).
   `/home/ef/.cache/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-linux64/chrome-headless-shell`.
   `tests/self-check-browser-check.js` (runs a complete 10-counter test),
   `tests/switch-cost-browser-check.js` (optional third argument: a
-  screenshot path for game data's switch cost line with its card open), and
+  screenshot path for game data's switch cost line with its card open),
+  `tests/trial-opening-browser-check.js` (a trial given an opening, won
+  with real mouse input), and
   `tests/archive-browser-check.js` take the same two arguments but
   need no server: they serve the working tree through Playwright request
   routing under the exact origin `http://127.0.0.1:8099/` and abort every

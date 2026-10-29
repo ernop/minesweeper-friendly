@@ -42,7 +42,8 @@ const TRACE_METRIC_GROUPS = [
           + 'averaged over bouts.',
         of: (m) => m.bio.speedMeanPxPerMs, fmt: (v) => Math.round(v * 1000) + 'px/s' },
       { label: 'peak speed',
-        help: 'The fastest single sample-to-sample cursor speed in the game.',
+        help: 'The fastest cursor speed from one sample to the next in the game, '
+          + 'over the path the cursor took between them.',
         of: (m) => m.bio.speedMaxPxPerMs, fmt: (v) => Math.round(v * 1000) + 'px/s' },
       { label: 'straightness',
         help: 'How straight each bout runs: start-to-end distance over path '

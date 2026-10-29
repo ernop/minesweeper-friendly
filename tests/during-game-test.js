@@ -116,7 +116,7 @@ function playGame(width, height, mineCells, steps) {
     if (outcome === null && revealed.size === size - mineCells.length) outcome = 'win';
   }
   return { width, height, mines: mine, timeMs: steps[steps.length - 1].atMs, outcome,
-    t, x, y, events, initialPageState: { visibilityState: 'visible', hasFocus: true } };
+    t, x, y, merged: { sample: [], x: [], y: [] }, events, initialPageState: { visibilityState: 'visible', hasFocus: true } };
 }
 
 const cellAt = (width) => (col, row) => row * width + col;
@@ -161,7 +161,7 @@ const types = (model) => model.events.map((event) => event.type + '@' + event.at
     [1500, 0, 0, 0, 'reveal', true, false]);
   const move = model.events.find((event) => event.type === 'moved-on');
   assert.deepEqual([move.squares, move.areas, move.guess, move.gapMs], [12, 0, true, 1500]);
-  assert.deepEqual(structuredClone(DuringGame.moveHabits(model)), { movesRanOut: 1, movesLeftHardWork: 0, movesLeftEasyWork: 0,
+  assert.deepEqual(structuredClone(DuringGame.moveHabits(model)), { movesMovedOn: 1, movesLeftHardWork: 0, movesLeftEasyWork: 0,
     moveGapMedianMs: 1500, forkMoves: 0, forkMovesToNearestArea: 0 }, 'one move, after the local work ran out');
 
   const view = viewOf(game, ['bv3Solved', 'safeOpened', 'bvPerSecond', 'clickRate', 'actionGap', 'fastclickGap',
@@ -225,7 +225,7 @@ const types = (model) => model.events.map((event) => event.type + '@' + event.at
   assert.deepEqual([easy.safeCells, easy.leftSafe, easy.leftByCounting, easy.gapMs],
     [[at(9, 0), at(9, 1), at(9, 2)], 3, 3, 1100]);
   assert.equal(model.movesJudged, true);
-  assert.deepEqual(structuredClone(DuringGame.moveHabits(model)), { movesRanOut: 0, movesLeftHardWork: 1, movesLeftEasyWork: 1,
+  assert.deepEqual(structuredClone(DuringGame.moveHabits(model)), { movesMovedOn: 0, movesLeftHardWork: 1, movesLeftEasyWork: 1,
     moveGapMedianMs: 700, forkMoves: 1, forkMovesToNearestArea: 0 }, 'two moves 0.3 s and 1.1 s after the click before; one fork, past the nearest area');
   const fork = event('fork', 2700);
   assert.deepEqual([fork.areas, fork.nearestSafeSquares, fork.toArea, fork.toNearestArea], [2, 1, true, false]);
@@ -271,7 +271,7 @@ const types = (model) => model.events.map((event) => event.type + '@' + event.at
   const gameId = 1760000000000;
   const finished = task('finished-game', { width, height: 3, mines: game.mines, drill: true, needCadence: false,
     needMoveHabits: true, needFastclickGap: true, gameId, timeMs: game.timeMs, outcome: game.outcome, liveTraceId: 1,
-    trace: { t: game.t, x: game.x, y: game.y, events: game.events, wallMs: 4000,
+    trace: { t: game.t, x: game.x, y: game.y, merged: game.merged, events: game.events, wallMs: 4000,
       initialPageState: game.initialPageState } });
   assert.deepEqual(finished.measurements, structuredClone({ ...DuringGame.moveHabits(model), ...DuringGame.fastclickGap(model) }));
   const rows = ['minesFlagged', 'misclickRate', 'fastclickGap', 'forkEvents', 'leftHardWorkEvents', 'leftEasyWorkEvents', 'mouseSpeed'];
@@ -296,7 +296,8 @@ const types = (model) => model.events.map((event) => event.type + '@' + event.at
 // has no rows to show and no move habits.
 {
   const unrecorded = proved({ width: 9, height: 9, mines: new Array(81).fill(false), timeMs: 1000, outcome: 'win',
-    t: [], x: [], y: [], events: [], initialPageState: { visibilityState: 'visible', hasFocus: true } });
+    t: [], x: [], y: [], merged: { sample: [], x: [], y: [] }, events: [],
+    initialPageState: { visibilityState: 'visible', hasFocus: true } });
   assert.deepEqual(structuredClone(unrecorded), { recorded: false });
   assert.deepEqual(structuredClone(DuringGame.moveHabits(unrecorded)), {});
   // A proof stopped at its work limit at a move leaves that move unjudged,
@@ -444,7 +445,7 @@ assert.equal(DuringGame.DEFAULT_RELATIVE_SCALE, 'log', 'log by default');
   // The record stores the cadence spread unrounded.
   const finished = task('finished-game', { width, height: 3, mines: game.mines, drill: true, needCadence: true,
     needMoveHabits: false, gameId: 1760000000001, timeMs: game.timeMs, outcome: game.outcome, liveTraceId: 2,
-    trace: { t: game.t, x: game.x, y: game.y, events: game.events, wallMs: 1500, initialPageState: game.initialPageState } });
+    trace: { t: game.t, x: game.x, y: game.y, merged: game.merged, events: game.events, wallMs: 1500, initialPageState: game.initialPageState } });
   assert.equal(finished.measurements.cadenceSpread, row('cadenceSpread').summary);
 }
 
@@ -660,8 +661,8 @@ assert.equal(DuringGame.DEFAULT_RELATIVE_SCALE, 'log', 'log by default');
     { act: 'reveal', cell: at(3, 0), atMs: 1600 },
   ]);
   const lastDecision = game.events.filter((event) => event.kind === 'decision').at(-1);
-  task('live-trace', { traceId: 3, wallMs: 1500, t: [], x: [], y: [],
-    events: game.events.slice(0, game.events.indexOf(lastDecision)) });
+  task('live-trace', { traceId: 3, wallMs: 1500, fromSample: 0, t: [], x: [], y: [],
+    merged: { sample: [], x: [], y: [] }, events: game.events.slice(0, game.events.indexOf(lastDecision)) });
   runTimers();
   const rows = DuringGame.ROWS.map((row) => row.id);
   const proveLevels = Justice.proveLevels;
@@ -671,7 +672,7 @@ assert.equal(DuringGame.DEFAULT_RELATIVE_SCALE, 'log', 'log by default');
     const before = proofs;
     const finished = task('finished-game', { width, height: 3, mines: game.mines, drill: true, needCadence: false,
       needMoveHabits: true, needFastclickGap: true, gameId, timeMs: game.timeMs, outcome: game.outcome, liveTraceId,
-      trace: { t: game.t, x: game.x, y: game.y, events: game.events, wallMs: 2000,
+      trace: { t: game.t, x: game.x, y: game.y, merged: game.merged, events: game.events, wallMs: 2000,
         initialPageState: game.initialPageState } });
     const view = task('during-game', { gameId, timeMs: game.timeMs, outcome: game.outcome, rows, average: 'rolling-2' });
     return { measurements: finished.measurements, view, proofs: proofs - before };
@@ -683,6 +684,44 @@ assert.equal(DuringGame.DEFAULT_RELATIVE_SCALE, 'log', 'log by default');
   assert.equal(after.proofs, 4, 'one proof per count of open squares');
   assert.deepEqual(live.measurements, after.measurements);
   assert.deepEqual(live.view, after.view);
+}
+
+// Each sample's travel counts the cursor observations merged into it, in
+// order; the record's path is the live perf charts' whole-game path; and
+// the 3BV a trial's given opening solved is what the model counts as
+// solved at the start.
+{
+  const sampleTravelPx = vm.runInContext('sampleTravelPx', context);
+  const travel = Array.from(sampleTravelPx([0, 10], [0, 0], { sample: [0, 1], x: [3, 5], y: [4, 5] }));
+  assert.equal(travel[0], 5, 'from the observation sample 0 replaced to sample 0');
+  assert(Math.abs(travel[1] - 2 * Math.hypot(5, 5)) < 1e-12, 'through the observation sample 1 replaced');
+
+  const width = 13;
+  const at = cellAt(width);
+  const mines = [0, 1, 2].flatMap((row) => [at(4, row), at(8, row)]);
+  const game = playGame(width, 3, mines, [
+    { act: 'reveal', cell: at(0, 0), atMs: 0 },
+    { act: 'reveal', cell: at(12, 0), atMs: 1500 },
+    { act: 'reveal', cell: at(6, 1), atMs: 2200 },
+  ]);
+  const plain = DuringGame.cursorTravelPx(game);
+  assert.equal(plain, modelOf(game).path.cumulative.at(-1));
+  const i = Math.floor(game.t.length / 2);
+  const detour = { x: game.x[i - 1] + 30, y: game.y[i - 1] + 40 };
+  const extra = Math.hypot(detour.x - game.x[i - 1], detour.y - game.y[i - 1])
+    + Math.hypot(game.x[i] - detour.x, game.y[i] - detour.y)
+    - Math.hypot(game.x[i] - game.x[i - 1], game.y[i] - game.y[i - 1]);
+  const detoured = { ...game, merged: { sample: [i], x: [detour.x], y: [detour.y] } };
+  assert(Math.abs(DuringGame.cursorTravelPx(detoured) - plain - extra) < 1e-9);
+
+  const first = game.events.find((event) => event.kind === 'decision');
+  const given = { ...game, events: game.events.filter((event) => event !== first) };
+  assert.equal(modelOf(given).bv3.atStart, 1, 'the first click\u2019s opening, given before the first action');
+  assert.equal(DuringGame.bv3SolvedAtStart(width, 3, game.mines, given.events), 1);
+  assert.equal(DuringGame.bv3SolvedAtStart(width, 3, game.mines, game.events), 0);
+  assert.equal(DuringGame.bv3SolvedAtStart(width, 3, game.mines, []), undefined);
+  assert.equal(DuringGame.bv3SolvedBy(width, 3, game.mines, [at(12, 1), at(11, 2)]), 1,
+    'two open squares of one zero region solve it once');
 }
 
 console.log('during-game tests passed');

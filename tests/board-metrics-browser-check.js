@@ -72,10 +72,11 @@ const { chromium } = require(process.argv[2]);
         recordKeys: await read(RECORD_STORE, 'getAllKeys'),
         recordOutcomes: (await read(RECORD_STORE, 'getAll')).map((r) => r.outcome),
         normalized: (await read(RECORD_STORE, 'getAll')).every((r) => Array.isArray(r.actionEvaluations)),
+        clicks: (await read(RECORD_STORE, 'getAll')).map((r) => [r.boardChangingClicks, 'clicks' in r]),
         ram: history['3x3/1@angelic'].map((r) => [r.endedAt, r.outcome]) };
-    }), { version: 6, keys: [1], userdataHistory: undefined,
+    }), { version: 7, keys: [1], userdataHistory: undefined,
       recordKeys: [['3x3/1@angelic', 10], ['3x3/1@angelic', 11]], recordOutcomes: ['win', 'loss'],
-      normalized: true, ram: [[10, 'win'], [11, 'loss']] });
+      normalized: true, clicks: [[2, false], [1, false]], ram: [[10, 'win'], [11, 'loss']] });
     await page.locator('#board .cell').first().click();
     const mine = await page.evaluate(() => cells.findIndex((cell) => cell.mine));
     await page.locator('#board .cell').nth(mine).click();
@@ -329,7 +330,7 @@ const { chromium } = require(process.argv[2]);
       const now = Date.now();
       const metrics = BoardMetrics.analyze(3, 3, [false, false, false, false, true, false, false, false, false]).boardMetrics;
       const base = { outcome: 'win', endedAt: now, timeMs: 4000, states: [], actionEvaluations: [],
-        bv3: 8, zini: 5, hzini: 6, clicks: 8, wastedClicks: 0, flagsPlaced: 1,
+        bv3: 8, zini: 5, hzini: 6, boardChangingClicks: 8, noOpClicks: 0, flagsPlaced: 1,
         flagsRemoved: 0, mousePathPx: 100, maxAdjacent: 1, zeroCount: 0,
         boardMetrics: metrics };
       const records = [
@@ -404,7 +405,7 @@ const { chromium } = require(process.argv[2]);
       await page.screenshot({ path: '/tmp/board-tools-' + width + '.png', fullPage: true });
     }
     const edgeCases = await page.evaluate(async () => {
-      const r = { outcome: 'win', hzini: 6, clicks: 5,
+      const r = { outcome: 'win', hzini: 6, boardChangingClicks: 5,
         boardMetrics: { version: 1, workSpread: 1.2 } };
       const above100 = 100 * hziniEfficiencyOf(r);
       const noIdleStatus = buildBoardMetricStatus(r) === null;

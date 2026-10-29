@@ -47,7 +47,7 @@ const base = {
   outcome: 'win',
   timeMs: 25000,
   bv3: 25,
-  clicks: 30,
+  boardChangingClicks: 30,
   mousePathPx: 3120,
   zeroCount: 40,
   islandCount: 7,
@@ -102,7 +102,7 @@ assertEq('IOS excludes games at or below one second',
   tested.averageEligibleWins(byLabel('IOS'), [{ ...base, timeMs: 1000 }]).length,
   0);
 assertEq('path / click excludes a zero denominator',
-  tested.averageEligibleWins(byLabel('path / click'), [{ ...base, clicks: 0 }]).length,
+  tested.averageEligibleWins(byLabel('path / click'), [{ ...base, boardChangingClicks: 0 }]).length,
   0);
 assertEq('path / 3BV excludes a zero denominator',
   tested.averageEligibleWins(byLabel('path / 3BV'), [{ ...base, bv3: 0 }]).length,

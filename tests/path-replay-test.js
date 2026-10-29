@@ -141,7 +141,7 @@ check('uncertain endpoint risks are not rounded to certainty',
   const gaps = pathTraceGaps(t, x, y);
   check('short sample gaps are not data gaps', gaps.length === 2);
   check('a silent stretch ending far away is an off-screen gap',
-    gaps[0].kind === 'away' && gaps[0].dtMs === 800 && gaps[0].travelPx === 290);
+    gaps[0].kind === 'away' && gaps[0].dtMs === 800 && gaps[0].distancePx === 290);
   check('a silent stretch ending in place is a rest',
     gaps[1].kind === 'rest' && gaps[1].dtMs === 700);
 }
@@ -166,10 +166,16 @@ check('uncertain endpoint risks are not rounded to certainty',
   push(50, 0.05); // segment 7: ~1 px/s, far below the median pace
   push(50, -10);  // segment 8: hard reversal
   for (let i = 0; i < 6; i++) push(50, 5);
-  const rough = pathRoughSegments(t, x, y);
+  const travel = x.map((at, i) => (i === 0 ? 0 : Math.abs(at - x[i - 1])));
+  const rough = pathRoughSegments(t, x, y, travel);
   check('steady movement is not rough', rough[3] === false && rough[12] === false);
   check('crawling far below median pace is rough', rough[7] === true);
   check('a hard direction reversal is rough', rough[8] === true);
+  // The cursor went out and back through positions merged into sample 7,
+  // so its travel there is the steady pace's, not the step's 0.05 px.
+  travel[7] = 5;
+  check('pace is the sample\u2019s travel, not its step',
+    pathRoughSegments(t, x, y, travel)[7] === false);
 }
 
 {

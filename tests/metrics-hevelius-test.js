@@ -126,7 +126,7 @@ const LAYOUT = { t: 0, kind: 'layout', left: -3.75, top: -3.75, width: 277.5, he
 
   // The waste system on the same trace: the 300 ms stop also crosses the
   // whole-game 250 ms pause bar.
-  const w = computeWasteMetrics(t, x, y, events);
+  const w = computeWasteMetrics(t, x, y, sampleTravelPx(x, y, NO_MERGED_OBSERVATIONS), events);
   assertEq('t2 waste pauses', w.pauseCount, 1);
   assertEq('t2 waste paused', w.pausedMs, 300);
   assertEq('t2 waste longest', w.longestPauseMs, 300);
@@ -163,12 +163,12 @@ const LAYOUT = { t: 0, kind: 'layout', left: -3.75, top: -3.75, width: 277.5, he
     LAYOUT,
     { t: 1000, kind: 'lup', x: 5, y: 135, index: 36 },
   ];
-  const w = computeWasteMetrics(t, x, y, events);
+  const w = computeWasteMetrics(t, x, y, sampleTravelPx(x, y, NO_MERGED_OBSERVATIONS), events);
   assertEq('t3 feints', w.feintCount, 1);
   assertEq('t3 turnarounds', w.dirChanges, 1);
   // Out 90 px and back 90 px = 180 px of travel; a single click means
   // wander stays unmeasurable — the travel is still all counted.
-  assertClose('t3 path (via bio)', computeTraceMetrics(t, x, y, events, 1000).totalPathPx,
+  assertClose('t3 path (via bio)', computeTraceMetrics(t, x, y, sampleTravelPx(x, y, NO_MERGED_OBSERVATIONS), events, 1000).totalPathPx,
     180, 1e-9);
 
   // The x-coordinate reverses once: exactly one x-flip in the segment.
@@ -193,7 +193,7 @@ const LAYOUT = { t: 0, kind: 'layout', left: -3.75, top: -3.75, width: 277.5, he
   // Empty and clickless traces measure nothing but do not crash.
   assertEq('t4 empty hev', computeHevelius([], [], [], []).movementCount, 0);
   assertEq('t4 empty psych', computePsychometrics([], [], [], []).segmentCount, 0);
-  assertEq('t4 empty waste feints', computeWasteMetrics([], [], [], []).feintCount, 0);
+  assertEq('t4 empty waste feints', computeWasteMetrics([], [], [], [], []).feintCount, 0);
   const clickless = computeHevelius([0, 10, 20], [0, 5, 10], [0, 0, 0], [LAYOUT]);
   assertEq('t4 clickless hev', clickless.movementCount, 0);
 }
