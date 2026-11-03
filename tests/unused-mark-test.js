@@ -9,6 +9,13 @@ const start = source.indexOf('function beginFlagEpisode(');
 const end = source.indexOf('// Returns whether the click changed anything', start);
 if (start < 0 || end <= start) throw new Error('flag episode span not found');
 
+// The record's evaluations come from its saved decisions at game end.
+const sourceFunction = (name) => {
+  const at = source.indexOf('function ' + name + '(');
+  if (at < 0) throw new Error(name + ' not found');
+  return source.slice(at, source.indexOf('\n}\n', at) + 3);
+};
+
 const context = {
   activeFlagEpisodes: new Map(),
   flagEpisodes: [],
@@ -18,24 +25,26 @@ const context = {
     { mine: true, flagged: true },
     { mine: false, flagged: true },
   ],
-  actionEvaluations: [],
   neighbors() { return [0, 1]; },
 };
 vm.createContext(context);
 vm.runInContext(source.slice(start, end), context);
+vm.runInContext(sourceFunction('evaluationHasMistake') + sourceFunction('reportableEvaluations'), context);
 
 let checks = 0;
 function check(name, condition) {
   checks++;
   if (!condition) throw new Error(name);
 }
-const evaluation = () => ({ mistakes: [], evidence: {} });
+const evaluation = () => ({ action: 'flag-place', result: 'continued', mistakes: [], evidence: {} });
 const resetGame = () => {
   context.activeFlagEpisodes = new Map();
   context.flagEpisodes = [];
   context.unusedCorrectFlags = 0;
-  context.actionEvaluations = [];
 };
+// The saved decisions, as the trace holds them: the same evaluation objects.
+const reported = (...evaluations) => context.reportableEvaluations(
+  evaluations.map((item) => ({ kind: 'decision', evaluation: item })));
 
 check('stored unused-mark count exists only on wins',
   source.includes("...(outcome === 'win' ? { unusedCorrectFlags: unusedCorrectFlags } : {})"));
@@ -62,7 +71,7 @@ check('stored unused-mark count exists only on wins',
   check('a loss never classifies an unused correct mark',
     context.unusedCorrectFlags === 0
       && removed.mistakes.length === 0
-      && context.actionEvaluations.length === 0);
+      && reported(removed).length === 0);
 }
 
 {
@@ -77,7 +86,8 @@ check('stored unused-mark count exists only on wins',
     removed.mistakes.includes('unused-correct-flag')
       && removed.evidence.unusedFlagEndedBy === 'flag-removed');
   check('win-only unused mark enters report evidence once',
-    context.actionEvaluations.filter((item) => item === removed).length === 1);
+    reported(removed).filter((item) => item === removed).length === 1
+      && removed.mistakes.filter((mistake) => mistake === 'unused-correct-flag').length === 1);
 }
 
 {

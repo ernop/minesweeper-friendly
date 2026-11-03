@@ -349,6 +349,9 @@ Visit budgets, completeness, and every threshold decision are unchanged.
   3; guess p90 from 603ms to 4ms. Positions whose exact proof exhausts its
   2,000,000-node budget (about 1% of expert positions, all incomplete) fell
   from 425–1,116ms to 52–113ms for the whole action; that budget case is
-  the remaining tail (V8 about 40ns per node).
+  the remaining tail (V8 about 40ns per node). Since 2026-11-02 the proof
+  counts layouts instead and has no budget: on 1,736 positions of
+  simulated Expert games it took at most 3.7 ms in Node (the node search
+  16.4 ms), every one complete.
 - Benchmark (V8), expert 806 positions: 24,315ms → 389ms total; slowest
   position 316ms → 3.6ms.

@@ -12,7 +12,7 @@
 // window's worth.
 
 // solver.js builds on Justice, so justice.js loads first (as in training-worker.js).
-importScripts('justice.js?v=20261026-justice-corner', 'rng.js', 'solver.js?v=20261021-ng-removed',
+importScripts('justice.js?v=20261103-worker-evaluation', 'rng.js', 'solver.js?v=20261103-worker-evaluation',
   'training-core.js?v=20261027-field-names', 'switch-cost.js?v=20261020-switch-cost-per-game');
 
 const switchCostDeps = {

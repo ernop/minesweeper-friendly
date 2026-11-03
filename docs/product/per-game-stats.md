@@ -284,11 +284,12 @@ squares of those ([Live perf charts](during-game.md), "Events"):
   proven-safe square nearest the click before.
 
 The kinds are counted separately rather than one as the total less the
-others, since each is its own judgment. A game where the prover stopped at
-its work limit at a move stores none of them, since that move's kind or
-fork is unknown and the counts would undercount. They are measured as each
+others, since each is its own judgment. They are measured as each
 game ends; a game saved earlier gets them when its result is next restored
-on the game page. Game data ranks three of them ([Game data](game-data.md),
+on the game page. Before 2026-11-02 the prover could stop at a work limit,
+and a game where it stopped at a move stored none of them, since that
+move's kind or fork was unknown; the prover now always finishes, so such a
+game gets them when its result is next restored. Game data ranks three of them ([Game data](game-data.md),
 "Catalog and configuration").
 
 No-op clicks (`noOpClicks`, named `wastedClicks` until 2026-10-27; the
@@ -311,7 +312,10 @@ operational visible-state classification, not a claim about intent or what
 the player consciously knew. It is independent of outcome: a fatal
 misclick also appears in the action-evaluation ledger, while a wrong
 flag can be a nonfatal misclick. Stored as `misclicks` on every new game
-record beginning 2026-08-23; older records omit it as not measured.
+record beginning 2026-08-23; older records omit it as not measured. Since
+2026-11-03 the reports worker counts them at game end from the boards the
+trace saved ([Game-end evaluation](game-end-evaluation.md), "When it is
+judged").
 
 Likely physical misclick deaths are a separate post-hoc inference, introduced
 2026-08-28; they do not change that exact visible-state count or replace the
@@ -380,7 +384,10 @@ words (2026-10-21; "Justice" before) — joined the schema on 2026-08-20
 under the same absence rules as wasted clicks. It increments on every
 qualifying entry whether the hidden cell was originally clear or required
 a redraw. Zero is a normal value and is recorded; the stats table always
-shows the row when the field exists. `justiceEnabled` records the setting
+shows the row when the field exists. Since 2026-11-03 the count comes from
+the reports worker's judgment at game end
+([Game-end evaluation](game-end-evaluation.md), "When it is judged");
+the click saves the redraw in the trace. `justiceEnabled` records the setting
 state frozen at the first reveal so the rules of the game remain knowable,
 although rankings deliberately continue mixing both states for now.
 
@@ -389,21 +396,26 @@ mine probability is greater than zero (not the first click, never a
 chord). A cell that is safe in every consistent layout is not a guess,
 even if local deduction had not yet marked it; clicking it is not
 wrong and does not print a chip. The remaining consistent layouts
-are enumerated and the click is scored. Stored per game (joined
-2026-08-21, same absence rules as wasted clicks; omitted entirely if any
-guess in the game exceeded the enumerator budget): `guesses`,
-`guessIdealRisk`, `guessNonideal`, `guessPerfect`, `lifeLost`,
+are counted and the click is scored. Since 2026-11-03 the scoring runs at
+game end in the reports worker, from the board the click saved in the trace,
+never on the click ([Game-end evaluation](game-end-evaluation.md), "When it
+is judged"). Stored per game (joined
+2026-08-21, same absence rules as wasted clicks; before 2026-11-02 omitted
+entirely if any guess in the game exceeded the enumerator budget):
+`guesses`, `guessIdealRisk`, `guessNonideal`, `guessPerfect`, `lifeLost`,
 `lifeNeedless`, `oddsVersion`.
 
 Requirement (creator 2026-10-22; [AGENTS.md](../../AGENTS.md) design
-requirement 8; not built yet, [BACKLOG](../../BACKLOG.md)): every ledger
+requirement 8; built 2026-11-02, `guess-ledger-v3`, except the rescoring of
+saved games, [BACKLOG](../../BACKLOG.md)): every ledger
 value is exact for every guess in every position. Each is a ratio of layout
 counts, computed by counting layouts (dynamic programming along the
 frontier, with the number a square would show as one more counted
 quantity), never by listing layouts or trying hypothetical boards, so no
 size limit omits the ledger or substitutes a value. Ideal-risk, perfect,
 and ties compare exact counts, with no rounding tolerance. Saved games are
-rescored from their stored positions.
+rescored from their stored positions; not built: a game saved earlier keeps
+the values its `oddsVersion` names.
 
 - **Life lost** (absolute). Each guess costs its mine probability. A 19%
   death click spends 0.19 lives in the multiverse whether you lived or
@@ -420,7 +432,9 @@ rescored from their stored positions.
 - **Perfect.** Lowest raw risk is not the same as best play. A 4% click
   that tells you almost nothing can lose to a 5% click that splits the
   remaining layouts and leaves a solved board. The stored objective is
-  one-ply expected remaining life: (1 − p(die)) × (1 − expected min
+  one-move life (named one-ply expected remaining life until 2026-11-02),
+  the chance of surviving the click and then the safest next square:
+  (1 − p(die)) × (1 − expected min
   remaining risk after the number that click would show). The expectation
   weighs each number by the consistent whole-board layouts that show it.
   When Justice would certify the cell, death risk for this score is 0 (you
@@ -428,13 +442,15 @@ rescored from their stored positions.
   the highest over every covered square, proven-safe ones included; a
   proven-safe square's value is never below any guess's, because the
   expected lowest risk after a safe click is at most the lowest risk now.
-  Today's code, until the requirement above is built, is exact only when
-  every covered neighbor of the clicked square is proven or in its group.
-  It stores 1 as the best value beside a proven-safe square, copies
-  ideal-risk into `guessPerfect` past the enumerator budget, omits the
-  ledger when even p is past it, and stores no one-ply life values when its
-  model does not run (since 2026-10-11; earlier evaluations stored bare
-  survival odds for both, which an older full report shows as "tied").
+  Since 2026-11-02 (`guess-ledger-v3`) every value is exact for every
+  guess. Games saved before then (`guess-ledger-v2`) keep values from code
+  that was exact only when every covered neighbor of the clicked square was
+  proven or in its group. It stored 1 as the best value beside a
+  proven-safe square, copied ideal-risk into `guessPerfect` past the
+  enumerator budget, omitted the ledger when even p was past it, and stored
+  no one-move life values when its model did not run (since 2026-10-11;
+  earlier evaluations stored bare survival odds for both, which an older
+  full report shows as "tied").
   Games saved before 2026-10-22 (`oddsVersion` `guess-ledger-v1`) weighed
   each layout of the clicked square's group once, including layouts the
   remaining mine count rules out.
@@ -449,11 +465,13 @@ records no ledger — an unproven click there cannot kill, so a risk chip
 would be fiction. Neither did Proof-or-die (removed 2026-10-21 with the
 other no-guess modes; [Play modes](play-modes.md)), where an unproven
 click was a deterministic death, not a probability. Absence of the fields
-on those modes means "not measured", the usual rule. A guess
-whose odds exceed the calculation's budget omits that game's ledger, with
-no invented odds. A scoring error is a bug: the click stops and the error
-bar shows it ([UI doctrine](ui-doctrine.md), "Errors are shown"; until
-2026-10-21 it was noted in the backup status line and the ledger was
+on those modes means "not measured", the usual rule. Until 2026-11-02 a
+guess whose odds exceeded the calculation's budget omitted that game's
+ledger, with no invented odds; since then no guess exceeds it. A scoring
+error is a bug: the game's judgment stops and the error bar shows it
+([UI doctrine](ui-doctrine.md), "Errors are shown"; the game stays pending
+and the next load judges it again; until 2026-11-03 the click stopped, and
+until 2026-10-21 it was noted in the backup status line and the ledger was
 dropped). The odds engine is held to
 ground truth by a brute-force parity test (every consistent layout
 enumerated on small random boards; probabilities must match exactly).
@@ -525,12 +543,13 @@ with the definition it was measured under (`fastclickGapVersion`,
 needs the trace and the board's proofs, which the scalar record does not
 carry. Win or loss alike.
 Absent when the game had no planned pair — slow, careful play is "not
-measured here", never a made-up number. Where the prover stopped at its
-work limit before a pair's first click and left one of its squares
-unproven, the board may still have proved it, so that pair cannot be
-judged; the game is then not measured, rather than measured on the pairs
-that could be. The stats table shows a "Fastclick gap" row when the game
-has a value.
+measured here", never a made-up number. Before 2026-11-02 the prover
+could stop at a work limit before a pair's first click, leaving one of its
+squares unproven, and the game was then not measured rather than measured
+on the pairs that could be judged. Such a game keeps no value: it carries
+the current definition, and restoring a result measures again only a gap
+of an earlier definition. The prover now always finishes. The stats table
+shows a "Fastclick gap" row when the game has a value.
 
 Before 2026-10-26 the fastclick gap was the median gap between consecutive
 board-changing actions of at most 1 s with a cursor move within 100 ms

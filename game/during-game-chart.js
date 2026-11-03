@@ -72,10 +72,8 @@ function duringGameEventLines(event) {
     }
     case 'long-gap':
       return [duringGameSeconds(event.endMs - event.atMs) + ' pause, ended by ' + DURING_GAME_ACTION_PHRASES[event.endedBy],
-        event.known === null
-          ? 'proof stopped at its work limit; ' + event.countingKnown + ' safe by counting'
-          : countPhrase(event.known, 'proven-safe square', 'proven-safe squares') + ' known: '
-            + event.countingKnown + ' by counting, ' + event.nearKnown + ' near the click before',
+        countPhrase(event.known, 'proven-safe square', 'proven-safe squares') + ' known: '
+          + event.countingKnown + ' by counting, ' + event.nearKnown + ' near the click before',
         ...(event.noOps > 0 ? [countPhrase(event.noOps, 'no-op click', 'no-op clicks') + ' inside'] : []),
         ...(event.windowLeft ? ['the window was left during it'] : [])];
     case 'moved-on':

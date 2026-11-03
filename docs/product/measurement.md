@@ -114,7 +114,7 @@ and state analysis."
   stands for the analyses still to be built.
 - A play signature is multidimensional: movement/click cadence and geometry;
   no-op, contradiction, and fatal-action patterns; marking/chording style;
-  and the rate, risk rank, one-ply quality, and context of guesses. A total
+  and the rate, risk rank, one-move life, and context of guesses. A total
   score must not erase the component values that identify how two signatures
   differ.
 - State classification is a supervised within-person research result, not an
@@ -125,7 +125,7 @@ and state analysis."
   that motion or gameplay detected a physical, physiological, cognitive, or
   clinical state.
 - Guess behavior must be analyzed against more than one objective. Immediate
-  minimum mine risk and one-ply expected remaining life describe per-instance
+  minimum mine risk and one-move life (expected remaining life) describe per-instance
   survival quality; wins per wall-clock hour, attempts per hour, expected
   time to the next win, and cumulative progress/risk describe exposure-time
   optimization. A player may rationally accept lower per-game win probability

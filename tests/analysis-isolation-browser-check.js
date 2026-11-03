@@ -45,32 +45,52 @@ const origin = 'http://127.0.0.1:8099/';
     await page.locator('#board .cell').first().click();
     const mine = await page.evaluate(() => cells.findIndex((cell) => cell.mine));
     await page.locator('#board .cell').nth(mine).click();
-    await page.waitForFunction(() => history[modeKey()]?.length === 1);
-    const captured = await page.evaluate(async () => {
-      const record = history[modeKey()][0], key = modeKey();
-      const request = db.transaction(TRACE_STORE).objectStore(TRACE_STORE).get(record.endedAt);
-      const stored = await new Promise((resolve) => { request.onsuccess = () => resolve(request.result); });
-      return { endedAt: record.endedAt, key, seed: stored.seed, cells: stored.finalBoard.cells,
-        sampleTimes: stored.metricSampleTimes, wallMs: record.endedAt - stored.startedAt,
-        pending: boardMetricJobs.get(record).status };
+    // The lost game is saved, record and trace together and marked pending,
+    // before any worker replies; it joins the history only once the reports
+    // worker has judged it.
+    const savedGame = () => page.evaluate(async () => {
+      const read = (store, method, query) => new Promise((resolve, reject) => {
+        const request = db.transaction(store).objectStore(store)[method](query);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      const [record] = await read(RECORD_STORE, 'getAll');
+      if (record === undefined) return null;
+      const stored = await read(TRACE_STORE, 'get', record.endedAt);
+      return { endedAt: record.endedAt, key: modeKey(), recordPending: record.evaluationPending === true,
+        tracePending: stored.evaluationPending === true, sampleTimes: stored.metricSampleTimes,
+        wallMs: record.endedAt - stored.startedAt, inHistory: (history[modeKey()] ?? []).length };
     });
-    assert.equal(captured.pending, 'running');
+    let captured = null;
+    for (let tries = 0; captured === null && tries < 100; tries++) {
+      captured = await savedGame();
+      if (captured === null) await page.waitForTimeout(50);
+    }
+    assert.notEqual(captured, null, 'the lost game is saved while the workers are held');
+    assert.deepEqual([captured.recordPending, captured.tracePending, captured.inHistory], [true, true, 0],
+      'saved pending judgment, not yet in the history');
     assert.equal(captured.sampleTimes.at(-1), captured.wallMs, 'the final sample time is durable before analysis');
-    await page.evaluate(() => { renderResult(history[modeKey()][0], history[modeKey()]); });
-    assert.equal(await page.locator('#result-ranks').getAttribute('aria-busy'), 'true');
+    await page.waitForFunction(() => document.querySelector('#result-ranks .result-loading') !== null);
     await page.keyboard.press('Space');
-    assert.equal(await page.locator('#result-ranks').getAttribute('aria-busy'), null, 'restart cancels the old pending presentation');
     assert.equal(await page.evaluate(() => gameState), 'ready');
+    assert.equal(await page.locator('#result-ranks .result-loading').count(), 0, 'restart clears the waiting result');
     await page.locator('#board .cell').first().click();
     const nextSeed = await page.evaluate(() => gameSeed);
     assert.equal(await page.evaluate(() => gameState), 'playing');
     releaseWorkers();
-    await page.waitForFunction(({ key, endedAt }) => hasBoardMeasurements(history[key].find((r) => r.endedAt === endedAt)), captured);
+    await page.waitForFunction(({ key, endedAt }) => {
+      const record = (history[key] ?? []).find((r) => r.endedAt === endedAt);
+      return record !== undefined && hasBoardMeasurements(record);
+    }, captured);
     assert.equal(await page.evaluate(() => gameSeed), nextSeed);
     assert.equal(await page.evaluate(() => renderedResult), null, 'late analysis never replaces the active game');
     assert.equal(await page.evaluate(() => gameState), 'playing');
     const completed = await page.evaluate(({ key, endedAt }) => history[key].find((r) => r.endedAt === endedAt), captured);
     assert(Number.isInteger(completed.zini));
+    assert.equal(completed.evaluationPending, undefined);
+    assert.equal(completed.actionEvaluations.at(-1).result, 'death', 'the judgment arrives with the record');
+    const resaved = await savedGame();
+    assert.deepEqual([resaved.recordPending, resaved.tracePending], [false, false], 'saved again complete');
     await page.waitForFunction(() => analysisLanes.get('reports').pending.size === 0);
     assert.deepEqual(await page.locator('#game-frame').boundingBox(), initialBoard,
       'worker replies cannot change the reserved board geometry');

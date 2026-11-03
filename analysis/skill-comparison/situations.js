@@ -55,7 +55,6 @@ const H = 16;
 const MINES = 99;
 const N = W * H;
 const ONSET_CELLS = 0.25;
-const EXACT_VISITS = 200000;
 const LEVEL_BANDS = [[1.0, 1.4], [1.4, 1.8], [1.8, 2.2], [2.2, 2.6], [2.6, 3.0], [3.0, 3.5], [3.5, 9]];
 const FLUENT_MARGIN_MS = 60;
 // Gaps longer than this are breaks rather than decisions.
@@ -134,13 +133,11 @@ function settle(revealed, adjacent) {
 }
 
 function exactFacts(state) {
-  return Justice.proveFacts(state.view, state.clues, { maxVisits: EXACT_VISITS });
+  return Justice.proveFacts(state.view, state.clues);
 }
 
 function exactFact(state, cell) {
-  const facts = exactFacts(state);
-  if (facts.has(cell)) return 'more';
-  return facts.complete ? 'guess' : 'unresolved';
+  return exactFacts(state).has(cell) ? 'more' : 'guess';
 }
 
 // Each number's cells not settled by single-number counting, and the mines it

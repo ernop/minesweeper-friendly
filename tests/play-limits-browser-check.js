@@ -103,12 +103,10 @@ const shots = process.argv[4];
     assert.equal(await gamePage.locator('#play-limits-use').innerText(),
       'limit reached: 3 of 2 games and 1 without flags');
     // Lose on a mine beside an open number, outside any sealed pocket, so the
-    // record is written: it states that flags were blocked.
-    await gamePage.evaluate(() => {
-      const mine = cells.findIndex((cell, index) => cell.mine
-        && neighbors(index).some((n) => cells[n].revealed));
-      revealCell(mine);
-    });
+    // record is written: it states that flags were blocked. A real click, as
+    // the game end judges each decision from the press that made it.
+    await clickCell(await gamePage.evaluate(() => cells.findIndex((cell, index) => cell.mine
+      && neighbors(index).some((n) => cells[n].revealed))));
     await gamePage.waitForFunction(() => gameState === 'lost'
       && history[modeKey()] !== undefined && history[modeKey()].at(-1).flagsBlocked === true);
     // Each saved span says how its board left play, which the session

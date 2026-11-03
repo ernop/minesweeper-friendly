@@ -361,8 +361,9 @@ Spec: [Switch cost line](../product/game-data.md#switch-cost-line-creator-reques
     now sits under another game or the session window now holds a different
     number of the request's candidates (another session picked, or the
     window's start passing a game).
-  - `switchCostSourcesChanged`: called when `saveTrace` completes. `init`
-    calls `refreshSwitchCost` after startup.
+  - `switchCostSourcesChanged`: called when a judged game's `storeGame`
+    completes (a game pending judgment is not in `history`, so never a
+    candidate). `init` calls `refreshSwitchCost` after startup.
   - Configure's checkbox for `gameDataSwitchCost` sits between the
     performance measurements and the board traits.
 - `style.css`, `.switch-cost-value`: `min-width: 6ch`, 14px bold tabular

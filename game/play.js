@@ -279,7 +279,6 @@ function newGame() {
   // time played was real: close the play span so today's use keeps it, and
   // the session results count the board as abandoned.
   playSpanEnd('restarted');
-  actionEvaluations = [];
   justiceDetails = [];
   gameState = 'ready';
   minesPlaced = false;
@@ -290,7 +289,6 @@ function newGame() {
   chordClicks = 0;
   noOpClicks = 0;
   inputActionCount = 0;
-  misclicks = 0;
   flagsPlaced = 0;
   flagsRemoved = 0;
   unusedCorrectFlags = 0;
@@ -298,9 +296,6 @@ function newGame() {
   flagEpisodes = [];
   finalTimeMs = 0;
   startTime = 0;
-  justiceEvents = 0;
-  guessEvents = [];
-  oddsUnmeasured = false;
   gameSeed = GameRandom.createSeed();
   gameRandom = GameRandom.fromSeed(gameSeed);
   firstRevealIndex = null;
@@ -457,11 +452,10 @@ function revealCell(index) {
   }
 
   if (firstReveal && revealedCount === 0) firstRevealIndex = index;
-  const guessEvent = !firstReveal && guessLedgerAppliesToMode()
-    ? noteGuess(index) : null;
-  const actionEvaluation = evaluateRevealAction(
-    index, firstReveal && revealedCount === 0, guessEvent);
+  const actionEvaluation = captureRevealAction(index, firstReveal);
 
+  // Only a mined square needs the rules' proof on the click: a clear one
+  // opens as it is.
   if (settings.playMode === 'angelic' && !firstReveal) {
     const saved = Solver.forceSafe(playerView(), cells.map((c) => c.mine), index, gameRandom);
     if (saved === null) {
@@ -470,7 +464,7 @@ function revealCell(index) {
       return;
     }
     applyMineMap(saved);
-  } else if (!firstReveal) {
+  } else if (!firstReveal && cell.mine) {
     attemptJustice(index);
   }
   if (cell.mine) {
@@ -533,7 +527,6 @@ function finishOpenFlagEpisodes(won) {
       evaluation.mistakes.push('unused-correct-flag');
       evaluation.evidence.unusedFlagEndedBy = episode.endedBy;
     }
-    if (!actionEvaluations.includes(evaluation)) actionEvaluations.push(evaluation);
   }
 }
 
@@ -557,7 +550,7 @@ function cellsTouch(a, b) {
 // than replaces the exact fatal status: a still-active flag on an actual safe
 // cell, placed under one second before an adjacent fatal chord/reveal. Both
 // times are input-event times: the fatal evaluation's own atMs is still its
-// build time here, after the click's odds work, until traceDecision sets it.
+// build time here, until traceDecision sets it.
 function annotateLikelyMisclickDeath(evaluation) {
   if (!evaluation || evaluation.result === 'death') return;
   const target = evaluation.action === 'chord'
@@ -637,7 +630,7 @@ function chord(index) {
   // Even on an endgame drill's pre-opened numbers a chord cannot be the
   // first game-starting input: an accepted chord needs its flags placed
   // first, and the first flag already moved ready -> playing.
-  const actionEvaluation = evaluateChordAction(index, toReveal);
+  const actionEvaluation = captureChordAction(index, toReveal);
   markChordFlagUsage(index);
   boardChangingClicks++;
   chordClicks++;
@@ -714,7 +707,6 @@ function finish() {
   clearInterval(timerInterval);
   timerInterval = null;
   clearPresses();
-  showJusticeSurvivals();
 }
 
 //-------A JUST UNIVERSE (sealed-pocket mercy)-------
@@ -722,15 +714,14 @@ function finish() {
 // Qualification happens before the hidden layout is consulted. Every bare
 // click into a certified sealed pocket is one Justice event whether that
 // cell was already clear or needed a conditional redraw. Chords never enter
-// this path: a wrong flag is the player's mistake.
+// this path: a wrong flag is the player's mistake. The click itself certifies
+// only a mined entry, which must be redrawn there; the game's end counts
+// every event from the saved boards (completeGameEvaluations).
 let justiceEnabledForGame = null; // frozen from the setting on first reveal
-let justiceEvents = 0;            // qualifying sealed-pocket entries
-let guessEvents = [];             // measured bare unproven clicks this game
-let oddsUnmeasured = false;       // a guess's odds were over the measuring budget
 
-// Per-event Justice details of the current game ({type, squareCount,
-// mineCount, clearWays, totalWays}), pushed by attemptJustice for the
-// end-of-game recap.
+// Per-event Justice details of the finished game ({type, squareCount,
+// mineCount, clearWays, totalWays}) for the end-of-game recap, set when its
+// evaluation completes.
 let justiceDetails = [];
 
 function justiceAppliesToMode() {
@@ -749,42 +740,13 @@ function playerView() {
   };
 }
 
-function revealIsMisclick(index) {
-  return minesPlaced && Solver.isVisibleMisclick(
-    playerView(), { kind: 'reveal', cell: index });
-}
-
-function flagChangeIsMisclick(index, removing) {
-  return minesPlaced && Solver.isVisibleMisclick(
-    playerView(), { kind: 'flag', cell: index, removing: removing });
-}
-
-function chordIsMisclick(index, toReveal) {
-  return minesPlaced && Solver.isVisibleMisclick(playerView(), {
-    kind: 'chord',
-    opened: toReveal,
-    flagged: neighbors(index).filter((n) => cells[n].flagged),
-  });
-}
-
-function recordMisclick() {
-  misclicks++;
-}
-
+// A mined entry the visible board certifies is redrawn clear.
 function attemptJustice(index) {
-  if (justiceEnabledForGame !== true) return false;
-  const view = {
-    width: config.width,
-    height: config.height,
-    mines: config.mines,
-    revealed: cells.map((c) => c.revealed),
-    adjacent: cells.map((c) => c.adjacent),
-  };
-  let certificate;
+  if (justiceEnabledForGame !== true) return;
   let redrawn;
   try {
-    certificate = Justice.certifyEntry(view, index);
-    if (certificate === null) return false;
+    const certificate = Justice.certifyEntry(playerView(), index);
+    if (certificate === null) return;
     redrawn = Justice.redrawEntry(
       certificate, index, cells.map((c) => c.mine), gameRandom);
   } catch (err) {
@@ -805,18 +767,6 @@ function attemptJustice(index) {
     cells[i].adjacent = cells[i].mine ? 0 : neighbors(i).filter((n) => cells[n].mine).length;
   }
   if (cells[index].mine) throw new Error('justice entry remained mined');
-  justiceEvents++;
-  // Deliberately not recorded: whether this entry's cell was mined before
-  // the redraw. The player's point of view is the only one that exists
-  // (creator request 2026-08-23) — a forced flip is a forced flip.
-  justiceDetails.push({
-    type: certificate.type,
-    squareCount: certificate.cells.length,
-    mineCount: certificate.mineCount,
-    clearWays: certificate.clearWays,
-    totalWays: certificate.totalWays,
-  });
-  return true;
 }
 
 // The only thing shown beside the board at game end is the count of
@@ -824,12 +774,13 @@ function attemptJustice(index) {
 // are withheld for now; they may return once they can be shown with a
 // proper explanation. The measurements themselves are still recorded.
 function showJusticeSurvivals() {
-  if (justiceEvents === 0) return;
+  const count = justiceDetails.length;
+  if (count === 0) return;
   const word = document.createElement('div');
   word.className = 'justice-live-word';
-  word.textContent = justiceEvents === 1
+  word.textContent = count === 1
     ? 'you won a forced coinflip'
-    : 'you won ' + justiceEvents + ' forced coinflips';
+    : 'you won ' + count + ' forced coinflips';
   word.title = 'Guesses that nothing else on the board could ever settle '
     + 'are forced coinflips; A Just Universe makes you win every one';
   justiceLive.appendChild(word);
@@ -839,24 +790,11 @@ function showJusticeSurvivals() {
 // The guess ledger only exists where the standard mine gamble is real.
 // Angelic cannot kill an unproven click, so risk chips there would be
 // fiction.
-function guessLedgerAppliesToMode() {
-  return settings.playMode === 'standard'
-    || settings.playMode === 'pregen-10-3bv-desc'
+function guessLedgerAppliesTo(playMode) {
+  return playMode === 'standard'
+    || playMode === 'pregen-10-3bv-desc'
     // Drills are dealt deducible, so any measured guess was unforced —
     // exactly the training signal the mode exists for.
-    || settings.playMode === 'endgame-drill'
-    || Trial.isPlayMode(settings.playMode);
-}
-
-function noteGuess(index) {
-  const event = Odds.scoreGuess(playerView(), index, {
-    considerJustice: justiceEnabledForGame === true,
-  });
-  if (event === null) return null;
-  if (!event.measured) {
-    oddsUnmeasured = true;
-    return undefined;
-  }
-  guessEvents.push(event);
-  return event;
+    || playMode === 'endgame-drill'
+    || Trial.isPlayMode(playMode);
 }

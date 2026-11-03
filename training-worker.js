@@ -5,8 +5,8 @@
 // posts the summary. It only reads. The page's storage.js owns opening and
 // upgrading the database and sends the names and version it opened.
 
-importScripts('justice.js?v=20261026-justice-corner', 'solver.js?v=20261021-ng-removed', 'rng.js',
-  'game/evaluation.js?v=20261027-field-names', 'game-data.js?v=20261027-field-names',
+importScripts('justice.js?v=20261103-worker-evaluation', 'solver.js?v=20261103-worker-evaluation', 'rng.js',
+  'game/evaluation.js?v=20261103-worker-evaluation', 'game-data.js?v=20261027-field-names',
   'training-core.js?v=20261027-field-names');
 
 function requestResult(request) {
@@ -30,12 +30,16 @@ function openSavedDatabase(database) {
   });
 }
 
+// A game whose evaluation is pending (the game page saves it before judging
+// it, and judges it at its next load if it closed first) is not counted
+// until it is judged.
 async function readTrainingInput(database) {
   const db = await openSavedDatabase(database);
   try {
-    const records = await requestResult(db.transaction(database.recordStore)
+    const records = (await requestResult(db.transaction(database.recordStore)
       .objectStore(database.recordStore)
-      .getAll(IDBKeyRange.bound([TrainingCore.KEY, -Infinity], [TrainingCore.KEY, Infinity])));
+      .getAll(IDBKeyRange.bound([TrainingCore.KEY, -Infinity], [TrainingCore.KEY, Infinity]))))
+      .filter((record) => record.evaluationPending !== true);
     if (records.length === 0) return { records: null, traces: [] };
     const recentWins = records.filter((r) => r.outcome === 'win')
       .sort((a, b) => a.endedAt - b.endedAt).slice(-TrainingCore.RECENT_WINS);

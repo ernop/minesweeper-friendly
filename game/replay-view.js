@@ -276,32 +276,19 @@ function restoreFinishedBoard() {
   replayFinishedCells = null;
 }
 
-// Full-knowledge solver reading of one replay position: exact mine
-// probability for every covered cell when the layout enumeration fits its
-// budget, proven mines/safes either way (the bounded canonical prover still
-// runs when enumeration is over budget), and the full move option set from
-// replayMoveOptions: chords available now and mark-mine-then-chord combos,
-// each with the exact cells the chord would open and whether every one of
-// them is proven clear. A solver exception propagates: a crash must never
-// be shown as "position too complex" (Anti-Fallback Principle).
+// Full-knowledge solver reading of one replay position: the exact mine
+// chance of every covered cell, the proven mines and safes, and the full move
+// option set from replayMoveOptions: chords available now and
+// mark-mine-then-chord combos, each with the exact cells the chord would
+// open and whether every one of them is proven clear. A solver exception
+// propagates (Anti-Fallback Principle).
 function replaySolverRead(position) {
   const view = positionView(position);
   const size = position.width * position.height;
   const revealed = view.revealed;
   const flagged = positionFlags(position);
   const odds = Odds.analyzeView(view);
-  const measured = odds.measured === true;
-  let facts;
-  if (measured) {
-    facts = new Map();
-    for (let i = 0; i < size; i++) {
-      if (revealed[i]) continue;
-      if (odds.pMine[i] <= 1e-12) facts.set(i, 2);
-      else if (odds.pMine[i] >= 1 - 1e-12) facts.set(i, 1);
-    }
-  } else {
-    facts = Justice.proveFacts(view, Justice.rawClues(view));
-  }
+  const facts = odds.structure.facts;
   const provenMines = [];
   const provenSafe = [];
   for (let i = 0; i < size; i++) {
@@ -310,8 +297,7 @@ function replaySolverRead(position) {
     else if (facts.get(i) === 2) provenSafe.push(i);
   }
   const { chords, flagChords } = replayMoveOptions(view, flagged, facts);
-  return { measured, pMine: measured ? odds.pMine : null, facts,
-    provenMines, provenSafe, chords, flagChords };
+  return { pMine: odds.pMine, facts, provenMines, provenSafe, chords, flagChords };
 }
 
 function replaySolverAt(step, position) {
@@ -394,10 +380,6 @@ function renderReplaySliderScale(positions) {
   }
 }
 
-// Solver state ('off' | 'exact' | 'bounded') from the frame most recently
-// painted, for the legend's enumeration caveat.
-let replayLegendSolverState = 'off';
-
 // Translates the frame model onto the board's squares: base classes from the
 // stored position, one `replay-<key>` class per encoding, the glyph or
 // flag/mine icon, then the mark-mine hint and the probability badge.
@@ -451,7 +433,6 @@ function renderReplayEndStatus(parts) {
 
 function renderReplayFrame() {
   const decisions = pathDecisionEvents(trace.events);
-  replayLegendSolverState = 'off';
   if (replayFinishedCells === null) {
     replayFinishedCells = cellElements.map((element) => ({
       className: element.className,
@@ -465,7 +446,6 @@ function renderReplayFrame() {
     || settings.replayOverlays.probs;
   const solver = wantSolver ? replaySolverAt(replayStep, position) : null;
   const model = replayFrameModel(evaluation, solver, settings.replayOverlays);
-  replayLegendSolverState = model.solverState;
   paintReplayFrame(model);
   renderReplayChoiceAreas(evaluation);
   renderReplayStatus(replayStatusParts(replayStep, decisions.length, evaluation));
@@ -617,7 +597,7 @@ function appendPathGradientLegend(legendTarget, title, range, format, options = 
 
 function appendReplayLegend(legendTarget) {
   if (!replayEnabled) return;
-  for (const row of replayLegendRows(settings.replayOverlays, replayLegendSolverState)) {
+  for (const row of replayLegendRows(settings.replayOverlays)) {
     appendPathLegendRow(legendTarget, row.title,
       row.keys.map((key) => REPLAY_ENCODINGS[key]), row.note);
   }

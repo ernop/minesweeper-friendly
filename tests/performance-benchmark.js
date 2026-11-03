@@ -173,13 +173,34 @@ function actionEvidence({ Justice, Odds, Solver }, positions) {
   return positions.map(({ view, cell, flag }) => {
     const copy = () => ({ ...view, revealed: view.revealed.slice(), adjacent: view.adjacent.slice() });
     const facts = Solver.classifyCells(copy(), [cell]);
-    const kinds = { complete: facts.complete, visits: facts.visits, kinds: facts.kinds };
+    const kinds = { complete: facts.complete, kinds: facts.kinds };
+    // A baseline before 2026-11-02 could stop at a work limit (measured
+    // false); its guesses' one-move life values had another definition.
     if (flag) {
       const odds = Odds.analyzeView(copy());
-      return { kinds, odds: odds.measured ? { visits: odds.visits, pMine: odds.pMine } : false };
+      return { kinds, pMine: odds.measured === false ? null : odds.pMine };
     }
-    return { kinds, guess: Odds.scoreGuess(copy(), cell, { considerJustice: true }),
-      justice: Justice.certifyEntry(copy(), cell) };
+    const guess = Odds.scoreGuess(copy(), cell, { considerJustice: true });
+    return {
+      kinds,
+      risks: guess === null || guess.measured === false ? null : {
+        p: guess.p, minP: guess.minP, actualP: guess.actualP, actualMinP: guess.actualMinP,
+        bestCells: guess.bestCells, idealRisk: guess.idealRisk, justice: guess.justice,
+      },
+      justice: Justice.certifyEntry(copy(), cell),
+    };
+  });
+}
+// Equal wherever both revisions measured: a baseline that stopped at a work
+// limit has no value to compare.
+function assertActionEvidenceEqual(after, before) {
+  after.forEach((position, i) => {
+    const old = before[i];
+    if (!old.kinds.complete) return;
+    for (const key of ['pMine', 'risks']) {
+      if (old[key] === null) position[key] = null;
+    }
+    assertEvidenceEqual(position, old, 'evidence[' + i + ']');
   });
 }
 function assertEvidenceEqual(after, before, where = 'evidence') {
@@ -203,7 +224,7 @@ for (const [width, height, mines, games] of [[16, 16, 40, 4], [30, 16, 99, 3]]) 
   const positions = actionPositions(width, height, mines, games);
   const before = timed(() => actionEvidence(oldSolver, positions));
   const after = timed(() => actionEvidence(newSolver, positions));
-  assertEvidenceEqual(after.value, before.value);
+  assertActionEvidenceEqual(after.value, before.value);
   const name = 'action evidence ' + width + 'x' + height;
   report(name + ' (positions)', positions.length, before, after);
   const worstBefore = slowestPosition(oldSolver, positions), worstAfter = slowestPosition(newSolver, positions);

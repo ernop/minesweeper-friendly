@@ -487,7 +487,7 @@ function replayFrameModel(evaluation, solver, overlays) {
   if (solver !== null && overlays.mines) {
     for (const cell of solver.provenMines) mark(cell, 'mine');
   }
-  if (solver !== null && overlays.probs && solver.measured) {
+  if (solver !== null && overlays.probs) {
     for (let i = 0; i < size; i++) {
       if (cells[i].revealed) continue;
       const fact = solver.facts.get(i);
@@ -507,43 +507,25 @@ function replayFrameModel(evaluation, solver, overlays) {
     cells,
     triggerCell,
     choiceCount: choices.length,
-    solverState: solver === null ? 'off' : solver.measured ? 'exact' : 'bounded',
   };
 }
 
-// Legend rows for the active overlays: encoding keys (rendered verbatim from
-// REPLAY_ENCODINGS) plus the exact-enumeration caveat where it applies.
-function replayLegendRows(overlays, solverState) {
+// Legend rows for the active overlays: encoding keys, rendered verbatim from
+// REPLAY_ENCODINGS.
+function replayLegendRows(overlays) {
   const rows = [{
     title: 'decision-time board',
     keys: ['choice', 'area', 'trigger', 'selected', 'crosshair'],
   }];
-  const bounded = solverState === 'bounded';
-  const solverNote = bounded
-    ? 'position too complex for exact enumeration — showing bounded-proof facts only'
-    : undefined;
   if (overlays.moves) {
     rows.push({
       title: 'available moves',
       keys: ['safe', 'chord-now', 'mark-mine', 'chord-after-marks',
         'chord-after-marks-single', 'chord-open'],
-      note: solverNote,
     });
   }
-  if (overlays.mines) {
-    rows.push({
-      title: 'forced mines',
-      keys: ['mine'],
-      note: overlays.moves ? undefined : solverNote,
-    });
-  }
-  if (overlays.probs) {
-    rows.push({
-      title: 'mine %',
-      keys: bounded ? [] : ['prob'],
-      note: bounded ? 'position too complex for exact probabilities' : undefined,
-    });
-  }
+  if (overlays.mines) rows.push({ title: 'forced mines', keys: ['mine'] });
+  if (overlays.probs) rows.push({ title: 'mine %', keys: ['prob'] });
   if (overlays.pointless) rows.push({ title: 'pointless clicks', keys: ['pointless'] });
   if (overlays.purposeful) rows.push({ title: 'purposeful clicks', keys: ['purposeful'] });
   if (overlays.movement) rows.push({ title: 'rough movement', keys: ['movement'] });

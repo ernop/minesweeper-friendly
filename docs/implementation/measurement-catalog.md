@@ -100,7 +100,7 @@ Spec: [docs/product/measurement-catalog.md](../product/measurement-catalog.md). 
   upgrade step, and the import call are step 1 of 2 ([BACKLOG.md](../../BACKLOG.md),
   "Record field names: step 2").
 - Mouse path: `traceMove` (`game/input-trace.js`) keeps every observation a
-  sample replaces in the `merged*` arrays; `saveTrace` stores them
+  sample replaces in the `merged*` arrays; `storedTraceOf` stores them
   (`TRACE_CAPTURE_VERSION` 3). `sampleTravelPx(x, y, merged)`
   (`game/trace-metrics.js`) is each sample's travel, and every path sum
   and travel-over-time speed takes it: `computeTraceMetrics` (its total

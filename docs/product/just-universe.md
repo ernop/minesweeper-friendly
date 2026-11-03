@@ -126,7 +126,8 @@ minted specifically for them.
   removed in the 2026-08-23 caption purge.
 - The group judge is exact and deterministic; it performs no model
   enumeration and has no search budget (the proof of what the numbers fix,
-  run before it, has a work limit whose overruns withhold the rule, never
-  invent it). Redraw sampling is direct over the group's compact family.
+  run before it, counts every layout with no work limit since 2026-11-02;
+  until then it had one, whose overruns withheld the rule, never invented
+  it). Redraw sampling is direct over the group's compact family.
   Implementation and deterministic scale checks are recorded in
   [docs/implementation/just-universe.md](../implementation/just-universe.md).

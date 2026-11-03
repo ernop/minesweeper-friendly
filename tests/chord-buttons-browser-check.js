@@ -66,7 +66,8 @@ const ORIGIN = 'http://127.0.0.1:8099/';
     };
 
     const first = await nextPlan();
-    const lastReason = () => page.evaluate(() => actionEvaluations[actionEvaluations.length - 1].evidence.reason);
+    const lastReason = () => page.evaluate(() =>
+      trace.events.findLast((event) => event.kind === 'decision').evaluation.evidence.reason);
 
     // A click on the number one flag short changes nothing and says why.
     await moveTo(first.number);
@@ -118,8 +119,7 @@ const ORIGIN = 'http://127.0.0.1:8099/';
     assert.equal((await counters()).wasted, before.wasted, 'undecided while held');
     await page.mouse.up({ button: 'right' });
     assert.equal((await counters()).wasted, before.wasted + 1, 'wasted once released alone');
-    assert.equal(await page.evaluate(() => actionEvaluations[actionEvaluations.length - 1].evidence.reason),
-      'flagged-revealed-cell');
+    assert.equal(await lastReason(), 'flagged-revealed-cell');
 
     // Both buttons released over an unopened safe cell never reveal it.
     const third = await nextPlan();

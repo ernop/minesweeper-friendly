@@ -116,6 +116,9 @@ function solvedBv3(width, height, mineAt, open) {
       await page.waitForTimeout(60);
     }
     await page.waitForFunction((recorded) => history[modeKey()]?.length === recorded + 1, dealt.recorded);
+    // The result renders after the record is saved.
+    await page.waitForFunction(() => renderedResult?.record.endedAt === history[modeKey()].at(-1).endedAt
+      && [...document.querySelectorAll('.game-stats-grid .stat-label')].some((cell) => cell.textContent === '3BV/s'));
     const saved = await page.evaluate(async () => {
       const record = history[modeKey()].at(-1);
       const stored = await new Promise((resolve, reject) => {

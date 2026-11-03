@@ -4,22 +4,26 @@
 // section at the page foot (docs/product/motion-stats.md). During play
 // each value is a row with its sparkline, updated in place; once the game's
 // final measurement is in, the same rows show the whole trace, followed by
-// the Fitts curve and the spatial pace bias. Sampling and its scheduling run
-// every game, open or closed: the saved trace keeps the sample times.
+// the Fitts curve and the spatial pace bias. Sample times are taken every
+// game, open or closed: the saved trace keeps them. The reports worker
+// computes the rows at them only while the section is open (creator
+// 2026-11-03: no code runs during play that the player does not need), and a
+// finished or restored game's when the section is first open on it.
 
 //-------MOTION STATS: SAMPLES AND ROWS-------
 
-// The per-game history of every displayed value, sampled on coalesced input
-// and active-game clock changes, plus the final measurement.
-// Display-side state only: nothing here is stored anywhere.
+// The values at the game's sample times the worker has computed for the open
+// section, in order from the first. Display-side state only.
 let metricsSeries = null;
 
 function beginTraceMetricsSeries() {
   cancelMetricsUpdate();
   lastLiveMetrics = null;
+  metricSampleTimes = [];
   metricsSeries = createMetricSeries();
   liveMetricsGeneration++;
   liveMetricsPending = false;
+  liveMetricsTimeCursor = 0;
   liveMetricsSampleCursor = 0;
   liveMetricsMergedCursor = 0;
   liveMetricsEventCursor = 0;
@@ -152,10 +156,10 @@ function buildMetricsGroupHead(group) {
 // taking another sample.
 let lastLiveMetrics = null;
 
-// The finished game's canonical metrics and its full series, snapshotted
-// at game end; null while no finished game is on screen. beginTrace replaces
-// metricsSeries with a fresh object, so these references stay the ended
-// game's own.
+// The finished or restored game on screen: { gameId, metrics, spatial,
+// sampleTimes, series }, its whole-trace metrics and its sample times, the
+// series at them null until the open section asks for it
+// (requestFinalMotionSeries); null while no finished game is on screen.
 let finalMotion = null;
 
 //-------MOTION STATS: THE SECTION (page foot)-------
@@ -182,9 +186,10 @@ function initMotionStats() {
   renderMotionStats();
 }
 
-// Nothing renders while the section is closed; opening it renders the game
-// as it is then. The live rows show while a game is traced, and a finished
-// game keeps its last live values until its final measurement replaces them.
+// Nothing renders or computes while the section is closed; opening it renders
+// the game as it is then, catching up on the sample times taken while it was
+// closed. The live rows show while a game is traced, and a finished game keeps
+// its last live values until its final measurement and series replace them.
 // A new trace's first sample is one worker reply away, so until it comes the
 // section keeps what it shows rather than flashing empty.
 function renderMotionStats() {
@@ -192,6 +197,11 @@ function renderMotionStats() {
   if (!settings.panels.motionStats) return;
   const view = motionStatsView;
   const final = tracing() ? null : finalMotion;
+  if (final !== null && final.series === null) {
+    requestFinalMotionSeries(final);
+    return;
+  }
+  if (tracing()) renderLiveTraceMetrics();
   const metrics = final !== null ? final.metrics
     : tracing() || gameState === 'won' || gameState === 'lost' ? lastLiveMetrics : null;
   if (metrics === null) {
@@ -224,6 +234,20 @@ function renderMotionStats() {
         .filter((node) => node !== null)));
   }
   if (view.body.firstChild !== view.charts) view.body.replaceChildren(view.charts);
+}
+
+// A finished or restored game's series, from the worker that holds its trace
+// (duringGameSourceId's game): the values at its sample times, then the whole
+// trace's, which the rows show.
+function requestFinalMotionSeries(final) {
+  if (final.seriesRequested) return;
+  final.seriesRequested = true;
+  analysisTask('reports', 'motion-series', { gameId: final.gameId, sampleTimes: final.sampleTimes })
+    .then((series) => {
+      appendMetricSeries(series, final.metrics);
+      final.series = series;
+      if (finalMotion === final) renderMotionStats();
+    }).catch(analysisFailure);
 }
 
 // The Fitts curve: this game's aimed movements as (index of difficulty,
@@ -317,6 +341,9 @@ let metricsUpdateTimeout = null;
 let metricsTraceDirty = false;
 let metricsElapsedDirty = false;
 let lastMetricsSampleAt = -Infinity;
+// The game's sample times (ms since its trace began), taken on coalesced
+// input and active-game clock changes.
+let metricSampleTimes = [];
 
 function cancelMetricsUpdate() {
   if (metricsUpdateFrame !== null) cancelAnimationFrame(metricsUpdateFrame);
@@ -344,19 +371,30 @@ function flushMetricsUpdate() {
   const changed = metricsTraceDirty || metricsElapsedDirty;
   metricsTraceDirty = false;
   metricsElapsedDirty = false;
-  if (tracing() && changed) renderLiveTraceMetrics();
+  if (tracing() && changed) takeMetricsSample();
 }
 
-// At most one sample is in flight. Input arriving meanwhile stays dirty,
-// so the next request sends only the appended samples/events for this game.
+function takeMetricsSample() {
+  lastMetricsSampleAt = performance.now();
+  metricSampleTimes.push(Date.now() - trace.startedAt);
+  renderLiveTraceMetrics();
+}
+
+// The open section's rows during play. At most one job is in flight; each
+// sends only the samples, observations, events, and sample times appended
+// since the one before, so the first job after the section opens catches up
+// on every sample time taken while it was closed, and the one after a reply
+// on those taken while it was computed.
 let liveMetricsGeneration = 0;
 let liveMetricsPending = false;
+let liveMetricsTimeCursor = 0;
 let liveMetricsSampleCursor = 0;
 let liveMetricsMergedCursor = 0;
 let liveMetricsEventCursor = 0;
 
 function renderLiveTraceMetrics() {
-  if (liveMetricsPending) { metricsTraceDirty = true; return; }
+  if (!settings.panels.motionStats || liveMetricsPending
+      || liveMetricsTimeCursor === metricSampleTimes.length) return;
   const generation = liveMetricsGeneration;
   const currentTrace = trace;
   // An observation at the instant of the last sample sent replaced it, so
@@ -372,20 +410,20 @@ function renderLiveTraceMetrics() {
     merged: { sample: trace.mergedSample.slice(liveMetricsMergedCursor),
       x: trace.mergedX.slice(liveMetricsMergedCursor), y: trace.mergedY.slice(liveMetricsMergedCursor) },
     events: trace.events.slice(liveMetricsEventCursor),
-    wallMs: Date.now() - trace.startedAt,
+    sampleTimes: metricSampleTimes.slice(liveMetricsTimeCursor),
   };
+  liveMetricsTimeCursor = metricSampleTimes.length;
   liveMetricsSampleCursor = trace.t.length;
   liveMetricsMergedCursor = trace.mergedSample.length;
   liveMetricsEventCursor = trace.events.length;
   liveMetricsPending = true;
-  lastMetricsSampleAt = performance.now();
-  analysisTask('reports', 'live-trace', payload).then((metrics) => {
+  analysisTask('reports', 'live-trace', payload).then((points) => {
     if (generation !== liveMetricsGeneration) return;
     liveMetricsPending = false;
     if (trace !== currentTrace || !tracing()) return;
-    appendTraceMetricsSeries(metrics);
-    lastLiveMetrics = metrics;
+    for (const metrics of points) appendTraceMetricsSeries(metrics);
+    lastLiveMetrics = points[points.length - 1];
+    renderLiveTraceMetrics();
     renderMotionStats();
-    if (metricsTraceDirty || metricsElapsedDirty) scheduleMetricsUpdate();
   }).catch(analysisFailure);
 }

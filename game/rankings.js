@@ -814,7 +814,9 @@ const SESSION_RESULT_TREE = [
   { label: 'won', children: [
     { label: 'no avoidable risk', children: [
       { kind: 'win-no-guess', label: 'without guessing' },
-      { kind: 'win-guess-min', label: 'guessing only at the lowest risk' },
+      { kind: 'win-guess-min-best', label: 'each guess the best one-move choice' },
+      { kind: 'win-guess-min', label: 'not each guess the best one-move choice' },
+      { kind: 'win-guess-min-unrated', label: 'one-move choices not measured' },
     ] },
     { label: 'riskier guess than necessary', children: [
       { kind: 'win-guess-early', label: 'in the opening' },
@@ -826,7 +828,12 @@ const SESSION_RESULT_TREE = [
   { label: 'lost', children: [
     { label: 'no avoidable risk', children: [
       { kind: 'guess-early-min', label: 'lowest-risk forced guess in the opening' },
-      { kind: 'guess-min', label: 'lowest-risk forced guess after the opening' },
+      { kind: 'guess-min-best',
+        label: 'lowest-risk forced guess after the opening, each guess the best one-move choice' },
+      { kind: 'guess-min',
+        label: 'lowest-risk forced guess after the opening, not each guess the best one-move choice' },
+      { kind: 'guess-min-unrated',
+        label: 'lowest-risk forced guess after the opening, one-move choices not measured' },
     ] },
     { label: 'riskier guess than necessary', children: [
       { kind: 'guess-early-higher', label: 'in the opening' },
@@ -1029,8 +1036,8 @@ function buildSessionSummary(record, referenceMs, markCurrent = true, noMark = f
       'Every share is of all those games and stands in its level’s column: how it ended, worst offense, or type. The shares under a row add up to that row’s share, give or take rounding.',
       'Lifetime is the same row’s share of every ' + typeLabel + ' game you have played, up to the game shown, for comparison with the session.',
       'Abandoned is a board that went into play and never finished: restarted, cut off by its trial’s end, or still in play when its page closed. Boards record how they left play since 2026-10-20, so earlier games include no abandoned ones; the row names the date when the lifetime reaches back before it. A no-mark summary has no abandoned row, since whether an abandoned board had a flag is not recorded.',
-      'A guess is a click on a square that might hold a mine, after the first click; its risk is the risk under the active rules, so a guess A Just Universe made safe risked nothing. The opening lasts until a tenth of the board’s safe squares are open. A proof named is the easiest one that worked: counting single numbers, comparing overlapping numbers, or only whole-board reasoning.',
-      'A loss files under its fatal click, unless the game survived a worse guess earlier: then it is “survived it, died later” under that guess. “Guesses not measured” is a win with no guess record: one from before guesses were measured, an Angelic game, or one whose odds were too large to compute.',
+      'A guess is a click on a square that might hold a mine, after the first click; its risk is the risk under the active rules, so a guess A Just Universe made safe risked nothing. A guess is riskier than necessary when another square had a lower risk. Its one-move life is its chance of surviving it and then the safest next square, over every number it could show; the best one-move choice has the highest. Games saved before 2026-11-02 have no exact one-move lives, so their lowest-risk guesses show as one-move choices not measured. The opening lasts until a tenth of the board’s safe squares are open. A proof named is the easiest one that worked: counting single numbers, comparing overlapping numbers, or only whole-board reasoning.',
+      'A loss files under its fatal click, unless the game survived a worse guess earlier: then it is “survived it, died later” under that guess. “Guesses not measured” is a win with no guess record: one from before guesses were measured, an Angelic game, or one from before 2026-11-02 whose odds were then too large to compute.',
       'The likely-misclick rows count losses whose fatal click was most likely a slip. They are already counted above, so they never add to the total.',
     ] : []),
   ]);

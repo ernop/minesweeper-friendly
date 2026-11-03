@@ -68,17 +68,19 @@ Spec: [docs/product/replay.md](../product/replay.md). Index: [AGENTS.md](../../A
   `{revealed, adjacent, flagged, marks: Set<key>, badge}` plus
   `triggerCell`, `choiceCount`, `solverState` ('off' | 'exact' | 'bounded');
   `paintReplayFrame` only turns keys into classes and badges.
-  `replayLegendRows(overlays, solverState)` and `replayStatusParts` are the
+  `replayLegendRows(overlays)` and `replayStatusParts` are the
   pure legend/status models; `appendReplayLegend` / `renderReplayStatus`
   render them (`pathLegendSwatch` draws one swatch per form: line, dot,
   ring, dashed, dashed-thin, fill, flag, badge, crosshair, leader).
-  Solver layers come from `replaySolverRead` (exact `Odds.analyzeView`
-  enumeration; bounded `Justice.proveFacts` facts when over budget; a solver
-  exception propagates — never shown as "too complex"), cached per decision
+  Solver layers come from `replaySolverRead` (`Odds.analyzeView`'s exact
+  counts and its structure's facts, every position measured since
+  2026-11-02; until then bounded `Justice.proveFacts` facts and no
+  percentages over budget, the legend saying so; a solver exception
+  propagates — never shown as "too complex"), cached per decision
   index in `replaySolverCache`. `scheduleReplayPrecompute` fills that cache
   for every frame in 8 ms `setTimeout(0)` slices as soon as review mode is
   on (cancelled by `cancelReplayPrecompute` on toggle-off and new board), so
-  slider scrubbing never waits on an enumeration.
+  slider scrubbing never waits on a count.
   Solver deductions draw as dashed inner rings via `::after` (their own
   visual channel) while player-action marks stay on `box-shadow`, so both
   can coexist on one square. Encoding keys: `safe` (dashed green; flagged

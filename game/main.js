@@ -52,15 +52,49 @@ function showStartupFailure(text) {
 // of which read RAM.
 function userdataReady() {
   readAllUserdata((got) => readGameRecords((storedHistory) => readAllPlaySpans((spans) => {
-    const loaded = normalizeHistory(storedHistory);
-    history = loaded.history;
-    if (loaded.changed) persistGameRecordChanges(loaded.writes, loaded.deletions);
-    // An absent kind is a player who never stored it, not an error.
-    loadSettings(got);
-    loadPlayLimits(got.playLimits, got.playLimitPenalty, spans);
-    trialSession = got.trial === undefined ? null : got.trial;
-    init().catch(startupFailure);
+    completePendingGames(storedHistory, got.trial).then(() => {
+      const loaded = normalizeHistory(storedHistory);
+      history = loaded.history;
+      if (loaded.changed) persistGameRecordChanges(loaded.writes, loaded.deletions);
+      // An absent kind is a player who never stored it, not an error.
+      loadSettings(got);
+      loadPlayLimits(got.playLimits, got.playLimitPenalty, spans);
+      trialSession = got.trial === undefined ? null : got.trial;
+      return init();
+    }).catch(startupFailure);
   })));
+}
+
+// A game whose page closed before the reports worker had judged it is still
+// pending (reportResult saves it so): it is judged now, from its stored
+// trace, by the same job as at its end, before the history loads. The
+// trial result of the game gets its evaluations too.
+async function completePendingGames(storedHistory, trial) {
+  for (const [key, records] of Object.entries(storedHistory)) {
+    for (const record of records) {
+      if (record.evaluationPending !== true) continue;
+      const stored = await readStoredTrace(record.endedAt);
+      const { width, height } = boardOfKey(key);
+      const result = await analysisTask('reports', 'finished-game', {
+        width, height, mines: stored.finalBoard.cells.map((cell) => cell.mine),
+        drill: record.playMode === 'endgame-drill',
+        needZini: true, needBoardMetrics: true, needCadence: true, needMoveHabits: true, needFastclickGap: true,
+        gameId: record.endedAt, timeMs: record.timeMs, outcome: record.outcome,
+        justiceEnabled: record.justiceEnabled, guessLedger: guessLedgerAppliesTo(record.playMode),
+        trace: { t: stored.sampleT, x: stored.sampleX, y: stored.sampleY, merged: storedMergedObservations(stored),
+          events: stored.events, wallMs: record.endedAt - stored.startedAt,
+          initialPageState: stored.initialPageState },
+      });
+      Object.assign(record, result.measurements);
+      completeGameRecord(record, stored, result.evaluation);
+      storeGame(key, record, stored, requestArchiveSync);
+      const trialResult = trial?.results.find((result) => result.endedAt === record.endedAt);
+      if (trialResult !== undefined) {
+        trialResult.actionEvaluations = record.actionEvaluations;
+        persistUserdata('trial', trial);
+      }
+    }
+  }
 }
 
 //-------INIT-------

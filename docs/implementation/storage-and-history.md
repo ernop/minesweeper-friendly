@@ -116,14 +116,22 @@ Spec: [docs/product/storage-and-history.md](../product/storage-and-history.md). 
   ResizeObserver when the panel or surrounding controls change size.
   Stats sampling never triggers a layout pass.
   `node tests/trace-layout-test.js` freezes these
-  rules. `saveTrace` (called at the end of reportResult, in the game-end
-  task, so the trace is stored before any analysis reply; after the
-  `finished-game` post, so the worker computes while the trace is copied
-  into storage, about 30 ms of an Expert game in Firefox) puts
+  rules. `storedTraceOf(record, key)` builds the stored trace
   {endedAt, mode, outcome, startedAt, sampleT/sampleX/sampleY as typed
   arrays, events, captureVersion, clock, initialPageState, sampleSourceT,
-  sampleTrusted, mergedSample/mergedX/mergedY/mergedSourceT/mergedTrusted}
-  into the `traces` store, keyPath endedAt.
+  sampleTrusted, mergedSample/mergedX/mergedY/mergedSourceT/mergedTrusted,
+  metricSampleTimes, finalBoard, evaluationPending: true}, keyPath endedAt.
+  `storeGame(key, record, stored, onStored)` puts the record and the trace
+  in one readwrite transaction over the `records` and `traces` stores, so
+  neither is ever stored without the other (since 2026-11-03; until then
+  `saveTrace` stored the trace alone after the record). `reportResult`
+  calls it as soon as the record is built, with `evaluationPending` on
+  both, and again when the reports worker's `finished-game` reply has been
+  applied (`completeGameRecord` deletes the mark from both); only then does
+  the record join `history` (`addGameRecord`). `completePendingGames`
+  (game/main.js, run by `userdataReady` before `normalizeHistory`) judges
+  every record still marked, one at a time, from `readStoredTrace`, with
+  the same job, and stores it complete.
   Saved boards and square lists (2026-10-26; product spec, Storage):
   `visiblePositionSnapshot`, `addAlternative`, and `setDecisionChoices` in
   game/evaluation.js write the strings, and the verdict section's
@@ -167,10 +175,10 @@ Spec: [docs/product/storage-and-history.md](../product/storage-and-history.md). 
   time, and trust) onto the `merged*` arrays, then overwrites the sample
   (until capture version 3 it counted merges in `sampleMergeCount`).
   It stores each position as `Math.fround(event.clientX)` (and Y), the
-  Float32 value `saveTrace` keeps, so `DuringGame.cursorTravelPx` gives the
+  Float32 value `storedTraceOf` keeps, so `DuringGame.cursorTravelPx` gives the
   record's `mousePathPx` bit for bit equal to the same function over the
   restored trace (`tests/during-game-browser-check.js` asserts it).
-  `saveTrace` writes source times as Float64Array, trust as Uint8Array,
+  `storedTraceOf` writes source times as Float64Array, trust as Uint8Array,
   `mergedSample` as Uint32Array, `mergedX`/`mergedY` as Float32Array like
   the samples, `mergedSourceT` as Float64Array, and `mergedTrusted` as
   Uint8Array; `game/backup.js` converts every typed array for JSON export.
@@ -246,9 +254,13 @@ Spec: [docs/product/storage-and-history.md](../product/storage-and-history.md). 
     `archiveProblemItemPath` and `archiveProblemItemDocument` for the problems
     page's three kinds), and `ARCHIVE_README_TEXT`.
   - Triggers:
-    - game page: `saveTrace`'s completion, `importHistory`, and
+    - game page: the completion of a judged game's `storeGame` (at its end
+      or by `completePendingGames`), `importHistory`, and
       `loadArchive(renderArchiveChip)` at the end of `init` (`game/backup.js`
-      renders `#archive-chip`);
+      renders `#archive-chip`). `readCompleteGames` (archive-worker.js)
+      reads records and trace keys in one transaction and leaves out every
+      game whose record is still `evaluationPending`, so an archived file,
+      written once, always holds a judged game;
     - settings page: `renderArchiveSettings` in `settings-page.js`;
     - self-check page: `renderSelfCheckArchive`, a sync after each saved
       check and after an import, and suspension from `startVigilance` until

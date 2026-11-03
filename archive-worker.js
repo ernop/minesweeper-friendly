@@ -48,6 +48,22 @@ function readAll(db, store, method, query) {
   return requestResult(db.transaction(store).objectStore(store)[method](query));
 }
 
+// The saved games in one transaction, so a game the page saves meanwhile is
+// in both lists or in neither. A game whose evaluation is pending (the page
+// saves its record and trace before judging it, game/results.js) is left
+// for a later sync: an archived file is never written again.
+async function readCompleteGames(db, database) {
+  const tx = db.transaction([database.recordStore, database.traceStore]);
+  const recordStore = tx.objectStore(database.recordStore);
+  const [recordKeys, records, traceKeys] = await Promise.all([
+    requestResult(recordStore.getAllKeys()), requestResult(recordStore.getAll()),
+    requestResult(tx.objectStore(database.traceStore).getAllKeys())]);
+  const pending = new Set(records.filter((record) => record.evaluationPending === true)
+    .map((record) => record.endedAt));
+  const complete = records.flatMap((record, i) => pending.has(record.endedAt) ? [] : [[recordKeys[i][0], record]]);
+  return { records: complete, traceKeys: traceKeys.filter((endedAt) => !pending.has(endedAt)) };
+}
+
 async function gzipJson(value) {
   const stream = new Blob([JSON.stringify(value)]).stream().pipeThrough(new CompressionStream('gzip'));
   return new Response(stream).blob();
@@ -131,17 +147,14 @@ async function syncArchive({ handle, database }) {
   const db = await openDatabase(database.name);
   try {
     // Record keys are [history key, endedAt], so the key names each record's mode.
-    const recordKeys = await readAll(db, database.recordStore, 'getAllKeys');
-    const records = await readAll(db, database.recordStore, 'getAll');
-    const traceKeys = await readAll(db, database.traceStore, 'getAllKeys');
+    const { records, traceKeys } = await readCompleteGames(db, database);
     const selfChecks = await readAll(db, database.selfCheckStore, 'getAll');
 
     const items = [];
-    recordKeys.forEach(([mode], i) => {
-      const record = records[i];
+    for (const [mode, record] of records) {
       items.push({ kind: 'records', path: archiveRecordPath(mode, record),
         document: async () => archiveRecordDocument(mode, record) });
-    });
+    }
     for (const endedAt of traceKeys) {
       items.push({ kind: 'traces', path: archiveTracePath(endedAt),
         document: async () => archiveTraceDocument(

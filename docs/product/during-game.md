@@ -241,28 +241,52 @@ Built the same day:
     square. Proven mines are left out: flagging one solves no 3BV.
   - "Connected" means beside an open number. The lowest risks are the exact
     mine probabilities the guess ledger uses, shown only where the ledger
-    measured the guess.
+    measured the guess: every guess since 2026-11-02, when the ledger's
+    work limit was removed.
   - Perfect play's chance to win counts every mine layout the visible board
     allows as equally likely, as the ledger's risks do, and plays each
     remaining layout as well as any strategy can: it opens every square no
     remaining layout mines before it guesses again. It is shown only where
     the mines were fixed: the ledger measured the guess and A just universe
     was off, since A just universe moves mines. It is an exact count of
-    layouts won. Where its search passes its work limit, the card says so
-    and shows no chance. In simulated games guessing the lowest risk, the
-    search finished on 18 of 19 Beginner guesses, 19 of 46 Intermediate
-    guesses, and 29 of 197 Expert guesses, each in a few milliseconds. It
-    finishes in endgames with few layouts left, and not early in a game,
-    where the layouts can number more than 10^80 and no known exact method
-    finishes. A limit ten times higher would finish 43 of the 197 Expert
-    guesses, at up to 17 ms a guess, the unfinished searches taking most
-    of that time.
+    layouts won. Since 2026-10-27 (the creator: "there should be a proper
+    way to actually calculate this"), the board is first split into
+    separate games: groups of squares no number, open or still to open,
+    can tell anything about another, and that the mine total leaves one
+    mine count each. Perfect play wins the whole board exactly when it
+    wins each of them, so the chance to win is the product of theirs;
+    groups the mine total leaves several counts are searched together.
+    Since 2026-11-02 the search skips "dead" squares (JSMinesweeper's
+    term, [reference/jsminesweeper.md](../../reference/jsminesweeper.md)):
+    a square whose number is the same in every layout that leaves it safe
+    teaches nothing, and perfect play never needs to guess one while a
+    square that can teach something remains. When none remains, perfect
+    play wins exactly one of the layouts left.
+    Where a search passes its work limit, the card says so and shows no
+    chance. On the guesses of simulated games guessing the lowest risk
+    (`tests/win-chances-bench.js`, 2026-11-02, when every guess's odds
+    became measurable, so the simulated games play to their end), it is
+    computed for 27 of 42 Beginner guesses, 52 of 93 Intermediate, and 116
+    of 387 Expert, at most about 11 ms a guess. The published release on
+    the same guesses computed 26, 49, and 89, and had no odds at all for
+    1, 16, and 121 of them; the two agree exactly on every guess both
+    compute. On 2026-10-27, of the 122 Expert guesses then left, 96 had a
+    group of a million or more layouts that nothing splits, 82 of them more
+    than 10^12: the unopened area joins them, and the chance to win there
+    is the value of the whole rest of the game in that area, where the
+    layouts early in a game can number more than 10^80 and no known exact
+    method finishes. JSMinesweeper's own exact search runs only while
+    fewer than 1,000 layouts remain in play (in its analyzer, a setting
+    from 0 to 20,000, 5,000 by default), with a heuristic beyond. On
+    the 2026-11-02 guesses, a limit 10 times higher computes 7 more Expert
+    guesses (123 of 387) at up to 61 ms a guess, and 100 times higher 14
+    more (130) at up to 259 ms.
   - "Nothing else on the board could ever settle it" is A just universe's
     test for a guess it would protect, applied to the position before the
     guess in every mode. The wait runs back over the unbroken run of
-    positions where the test held, to the click that began it; a position
-    whose proof stopped at its work limit ends the walk, and the card then
-    gives no wait.
+    positions where the test held, to the click that began it. (Until
+    2026-11-02 a position whose proof stopped at its work limit ended the
+    walk, and the card then gave no wait.)
 
 ## Placement
 
@@ -524,13 +548,20 @@ its report rows draw no line, and their legend entries say "not measured".
 
 A progress row starts from what the board showed at the first action, so a
 given opening counts as already done. The moves rows count the board as it
-stood before each click. Safe squares known, mines known, work areas, and
-the all-numbers and mine-total rows say nothing where the prover's search
-stopped at its work limit; the counting and overlap rows are always
-measured, and chordable numbers always. The move usefulness and distance
-rows follow the same rule: those for all moves and the all-numbers and
-mine-total rows say nothing where the search stopped, the counting and
-overlap rows are always measured.
+stood before each click. Every moves row and every move usefulness and
+distance row is measured at every click: since 2026-11-02 the prover
+counts every layout with no work limit. (Until then safe squares known,
+mines known, work areas, the all-numbers and mine-total rows, and the
+usefulness and distance rows for all moves said nothing where the search
+stopped at its work limit.)
+
+The rows are computed after the game ends, in the reports worker, never
+during play. Each board is proved once, for these rows and the game's
+judgment together ([Game-end evaluation](game-end-evaluation.md), "When it
+is judged"), and each proof continues from the previous board's, since a
+fact proved there still holds. (Until 2026-11-03 the worker proved each new
+board during play, between its other jobs, and proved every board from
+scratch.)
 
 ## Events
 
@@ -605,9 +636,9 @@ click the move came ("moved on after 1.4 s"), whether it was a guess, and
 how far the nearest proven-safe square was; a move that left work says how
 many proven-safe squares it left and how many of them counting proved
 ("left hard work after 2.3 s: 2 proven-safe squares unopened, none by
-counting"). Moves and forks need the exact proof; where the prover stopped
-at its work limit, only leaving work can still be judged, from the squares
-it did prove, hard or easy alike: counting's proof is always complete.
+counting"). Moves and forks need the exact proof, which since 2026-11-02
+always completes. (Until then, where the prover stopped at its work limit,
+only leaving work could still be judged, from the squares it did prove.)
 
 ### Move characterization and habits (creator request 2026-10-20)
 

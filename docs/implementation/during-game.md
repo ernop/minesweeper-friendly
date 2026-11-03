@@ -68,17 +68,23 @@ other than the held source's throws. The first request builds
 `DuringGame.view`. Both tasks run on the same `reports` lane, so the held
 source is always the latest finished or restored game.
 
-Positions are proved during play (2026-10-26). The motion stats' live feed
-(`live-trace`, game/motion-stats.js) runs on the same `reports` lane and
-sends each piece of the trace once; the worker keeps the game it belongs to
-(`liveGame`, by `traceId`, the page's `liveMetricsGeneration`) with a
-`DuringGame.positionProofs()` store, and proves each new decision's position
-in its own task (`proveLivePositions`, one per `setTimeout`), so a request
-waits behind at most one proof. `finished-game` names that game
-(`liveTraceId`) and hands the store to its model, which proves only the
-positions the feed never sent, usually the last. `restore-trace` starts an
-empty store. A proof reads only the open numbers, and within one game they
-only grow, so the count of open squares names the position.
+Positions are proved after the game, never during play (since 2026-11-03;
+from 2026-10-26 the worker proved each new position between the motion
+stats feed's messages, open or closed). `finished-game` makes one
+`DuringGame.positionProofs()` store, judges the game's decisions with it
+(`completeGameEvaluations`, [Game-end evaluation](game-end-evaluation.md)),
+and holds it with the source, so the model reads every proof already made.
+`restore-trace` starts an empty store. A proof reads only the open numbers,
+and within one game they only grow, so the count of open squares names the
+position; the store seeds each new proof with the latest earlier
+position's (`Justice.proveLevels(view, clues, earlier, groupCounts)`), whose
+facts still hold, so each deduction stage starts from them. The store's
+`groupCounts` keeps every residual group's layout count
+(`countNumberLayouts`) under its exact constraints: the group's squares in
+order and its numbers' needs and squares. A click changes only the groups
+beside it; the others are read back, not counted again. A kept group holds
+only its boxes' squares, never the clue indices of the position that
+counted it.
 
 ## Model
 
@@ -102,9 +108,11 @@ decisions. Otherwise:
   `NEAR_LAST_MOVE_STEPS` (5, rows plus columns) of the latest
   board-changing action's square (`targetCellOf`, a chord's number), null
   before the first; and the chordable numbers (`chordableCount`, flags
-  checked against the final layout). The totals, the work areas and list,
-  and the searching levels (all numbers, mine total) are null where the
-  search stopped at its work limit.
+  checked against the final layout). Every one is measured at every action:
+  `proveLevels` always completes since 2026-11-02 (until then the totals,
+  the work areas and list, and the searching levels were null where the
+  search stopped at its work limit, and `movesJudged` and an unjudged
+  planned pair's null recorded it).
 - Move usefulness and distance, per action in pass 1 from the same proof:
   `mostBvPerClick` gives the most 3BV per click of each level's proven
   moves and of all (`known.mostBvPerClick`, `mostBvPerClickByLevel`):
@@ -120,10 +128,7 @@ decisions. Otherwise:
   action (a drill's dealt position). Both return `NO_MOVE` ('none') where
   there is no such move, which `stateSteps` turns into a step `{value:
   null, none: true}`; `view` marks a state row whose every step is none
-  `noMoves`, and its legend entry says "none". A level is measured where
-  the proof is complete or the level's proof is not a search
-  (`levelMeasured`: `proof.exact === false`, counting and overlap), as in
-  `countsByLevel`.
+  `noMoves`, and its legend entry says "none".
 - Planned pairs (the fastclick gap's, `plannedPairs`):
   `plannedPairsOf(game.events, decisions, factsAt, game.t, width)`, one
   pass over the trace's events as recorded. It collects the `ldown` and
@@ -145,8 +150,8 @@ decisions. Otherwise:
   the fastclick row draws them as a median `value` row, or `unrecorded`
   for null.
 - Pass 2: each action's gap, squares moved, cursor path, no-op reason,
-  misclick (recomputed from the exact
-  proof as `Solver.isVisibleMisclick` judges it), guess, opening,
+  misclick (recomputed from the exact proof, as the game-end judgment's
+  `MISCLICK_MISTAKES` define it), guess, opening,
   wrong flag, flag removal (quick undo within `QUICK_UNDO_MS`), long gap
   (`LONG_GAP_MS`), and moves. "Near" is a zone stamp: every square within
   `NEAR_SQUARES` of what the previous board-changing action opened or
@@ -181,31 +186,61 @@ decisions. Otherwise:
   square exists. Where also `game.justiceEnabled === false`:
   `minesFixed: true`, and `Odds.winChances(view, odds, cell)` gives
   `winMeasured` and, when measured, `winChance` and `bestWinChance`
-  (layouts won over layouts). Where `factsAt[k]` is complete and
+  (layouts won over layouts, `Odds.ratio` of the BigInt counts). Where
   `Justice.certifyEntries(view, [cell], structure)` certifies the square:
   `unavoidable: true`, then a walk back over earlier decisions whose proof
   differs (`factsAt` repeats one proof object until the revealed count
   changes), while each certifies it (each with its own structure from
-  its proof); a proof stopped at its work limit ends the walk with no
-  `waitedMs`, else `waitedMs` runs from the start of the first certified
+  its proof); `waitedMs` runs from the start of the first certified
   decision (`known.startMs`) to the guess.
 - `Odds.winChances(view, odds, cell)` (`odds.js`, `odds` the measured
-  `analyzeView(view)`, which the caller has already): every layout it
-  weighs (proven mines, one solution per component, every way of placing
-  the rest in the sea; a count differing from `totalWeight` throws), each
-  covered square's number in each layout, then a search over sets of
-  layout ids. `settle` opens every square no layout in the set mines and
-  splits the set square by square into one part per number shown; `wins`
-  takes a settled set's best guess (squares mined in the same layouts are
-  one choice, found by a sum of per-layout hash tags and compared in
-  full; choices tried by survivors, pruned when they cannot beat the
-  best), memoized by the set. It returns `{measured, layouts, chosenWins,
-  bestWins}`, or `{measured: false}` once its work (layouts times covered
-  squares, per set visited) passes `WIN_WORK_LIMIT` (100,000). On the
-  simulated guesses below, 100,000 finished 29 of 197 Expert guesses, 19
-  of 46 Intermediate, and 18 of 19 Beginner; 1,000,000 finished 43, 21,
-  and 18, at up to 17 ms an Expert guess, the searches it could not
-  finish taking most of that time.
+  `analyzeView(view)`, which the caller has already; `cell` undecided, or
+  it throws). It splits the board first (2026-10-27): a union-find joins
+  each undecided square to every covered square beside it that is not a
+  proven mine, and a component whose solutions are not every combination
+  of their distinct patterns in the parts it touches (the patterns'
+  product against the solution count) joins those parts. Parts without an
+  undecided square drop out. A part's layouts by mine count are its
+  pieces' pattern counts convolved with its sea's binomials; a part the
+  mine total (`minesLeft`) leaves one possible count is a search of its
+  own, and the rest form one search. Each search lists its layouts (a
+  count differing from the convolution throws) and each of its squares'
+  numbers in each layout (squares outside it add the same to every
+  layout), then searches sets of layout ids. `settle` opens every square
+  no layout in the set mines and splits the set into one part per number
+  shown; `wins(set, floor)` takes a settled set's best guess (squares
+  mined in the same layouts are one choice, found by a sum of per-layout
+  hash tags and compared in full; choices tried by survivors; since
+  2026-11-02 only live choices, a dead square, one showing the same number
+  in every layout of the set that leaves it safe, teaching nothing; a set
+  with no live choice wins exactly one layout) and returns
+  the exact count when it is above `floor`, else at most `floor`: each
+  settled part is asked for more than the guess needs to beat the best so
+  far. The memo keeps each set's count and whether it is exact or a
+  ceiling. It returns `{measured, layouts, chosenWins, bestWins}`, BigInt
+  products over the searches, or `{measured: false}` once the work
+  (layouts times the search's squares, listed and per set visited, over
+  all searches) passes `WIN_WORK_LIMIT` (100,000). Whole pieces take their
+  counts by mine count from `analyzeView`'s groups and are listed only
+  for a search, the listing charged to the work.
+  `node tests/win-chances-bench.js` measures it on the guesses of
+  simulated games (400 Beginner, 200 Intermediate, 150 Expert; the player
+  opens proven-safe squares, else guesses the lowest risk). On 2026-11-02,
+  with every guess's odds measured so the games play to their end: 27 of
+  42 Beginner guesses, 52 of 93 Intermediate, and 116 of 387 Expert; the
+  published release (one search over all layouts, no dead squares, odds
+  listed up to a budget) computed 26, 49, and 89 of the same guesses, had
+  no odds for 1, 16, and 121 of them, and agrees exactly wherever both
+  compute. With the limit at 1,000,000: 28, 53, and 123, at up to 61 ms a
+  guess; at 10,000,000: 29, 56, and 130, at up to 259 ms (both measured
+  a minute after another program began heavy work on the PC). On
+  2026-10-27, on the guesses of games then cut short by unmeasured odds
+  (41, 77, and 212), the split computed 27, 52, and 90 where the single
+  search had finished 26, 49, and 71; of the 122 Expert guesses it
+  refused, 96 had a search of a million or more layouts (82 of more than
+  10^12, the unopened area in one part), and without a limit the other 26
+  took at most 5 ms (4 of them), 120 ms (6), 1.2 s (5), 3 to 11 s (4),
+  and 7 did not finish within 2,000,000,000 (15 to 19 s).
 - Presses: every `ldown` and `rdown` on the game clock with its gap from
   the press before, as the trace's cadence counts them, for cadence spread.
 - Window left: spans from the trace's `page-state` events and
@@ -230,10 +265,12 @@ rolling average; 2026-10-20, a scripted Expert win of 201 actions in
 headless Chromium: 46–70 ms; 2026-10-26, with every deduction level from
 one `proveLevels` per position, 73–104 ms for scripted Expert wins of
 281–344 actions in Node (a separate proof per level took 140–242 ms on the
-same games). The guess facts, 2026-10-26, in Node on simulated games
-guessing the lowest risk: `winChances` 0.12 ms a guess on average on
-Expert (197 guesses, at most 1.3 ms), 0.25 ms on Intermediate (at most
-3.3 ms), 0.43 ms on Beginner (at most 6.2 ms). The move hierarchy's whole
+same games). The guess facts, 2026-11-02, `tests/win-chances-bench.js`
+in Node, with another program keeping 25 of 32 cores busy: `winChances`
+a median 0.33 ms a guess on Expert (387 guesses, 95th percentile 2.6 ms,
+at most 11 ms), 0.24 ms on Intermediate (93, at most 6.7 ms), 0.16 ms on
+Beginner (42, at most 6.2 ms); on 2026-10-27, on the then shorter games,
+0.12 ms on Expert (212, at most 2.4 ms). The move hierarchy's whole
 share on the latency check's Expert win (229 actions, nine guesses), in
 the analysis worker: about 9 ms of the model's 80–90 ms in headless
 Chromium (usefulness and distance about 5 ms, the guess facts about 4),
@@ -242,12 +279,25 @@ median of six runs against a copy without it). It was about 40 ms in
 Chromium before each guess position got one structure from pass 1's
 proof, shared by `analyzeView` and `certifyEntries`, and before
 `buildStructure`'s sea fill stopped making a neighbor list per square
-(identical output, about 40% faster). With the positions proved during
-play (2026-10-26), `finished-game` on the latency check's Expert win takes
-a median 49 ms in Node against 112 ms proving them after the game, with
-identical measurements and rows (228 of 229 positions proved during play),
-and replies 58-73 ms after it is posted in Firefox; the model's share,
-every position proved, is about 24 ms.
+(identical output, about 40% faster). From 2026-10-26 to 2026-11-03 the
+positions were proved during play, and `finished-game` on the latency
+check's Expert win took a median 49 ms in Node against 112 ms proving them
+after the game. Since 2026-11-03 they are proved after the game, once for
+the judgment and the model together, each proof resuming from the previous
+position's: on simulated games in Node, 0.14 ms an Expert position resumed
+against 0.18 ms from scratch, and the whole judgment of an Expert game,
+proofs and guess scores, a median 47 ms and at most 95 ms (60 games). The
+latency check's `expertWinResultsMs` times the whole job in Firefox. With
+the counted groups kept (2026-11-03), the check's Expert win (229
+decisions, nine guesses) reads back 599 of its 730 group counts: in Node
+the counting went from 23 ms to 8 ms and the warm judgment from about
+74 ms to 59 ms. In Firefox the job's parts were 52–55 ms proving, 14–15 ms
+the rest of the judgment, 4–5 ms motion, and 30–32 ms the measurements
+with the model, and `expertWinResultsMs` 205–248 ms against 137–138 ms
+when the positions were proved during play. The rest of each proof (the
+rules passes, residual numbers, the mine total's step, and the board
+view) still reads the whole board at every position: BACKLOG.md,
+"Incremental proofs".
 Since 2026-10-20 the model is built inside
 `finished-game`, before the first full result render, which therefore
 comes that much later; the live perf charts then need only the view.
@@ -404,7 +454,11 @@ every row shown; a pick of a row not in `rowIds` drops out), and
 - `tests/justice-test.js`, "Deduction levels": a board for each level
   with every square's first level worked out, the levels nested, and
   `proveLevels` against a separate proof per level there, on random
-  constraint systems, and at the work limit.
+  constraint systems, and on a group of 160 squares and 2^80 + 2 layouts
+  that the listing before 2026-11-02 stopped on at its work limit; 11c,
+  the game end's proof (resumed, counted groups read back) against a
+  separate proof per level at every position of 300 random games (6,696
+  positions, 3,823 groups read back).
 - `tests/during-game-test.js`: the model and rows inside the worker on
   hand-built boards (13×3 and 15×3) with worked-out proofs: progress, known
   squares, the moves by level, near the last move, and chordable numbers,
@@ -413,7 +467,7 @@ every row shown; a pick of a row not in `rowIds` drops out), and
   came back, move habits and their round trip through `finished-game`,
   planned pairs (the creator's corner on a 6×4 board, and one pair each
   for a 1.5 click, a rest, a two-button chord, a press between, a flag
-  removal, and a proof at its work limit) and the fastclick gap's round
+  removal, and squares unproven or proved mines) and the fastclick gap's round
   trip through `finished-game`, the most 3BV per click and the steps to
   the nearest safe square on a 4×3 board solved by counting (a chord
   worth 1, 1.5, then 3 3BV per click as its mines are flagged; every
@@ -423,13 +477,16 @@ every row shown; a pick of a row not in `rowIds` drops out), and
   averaging, the worker round trip and its throws, window-left spans, an
   unrecorded trace, the legend picks' click sequence, the catalog
   checks ([measurement catalog](measurement-catalog.md), "Tests"), and
-  proofs made during play: a 4×3 game fed through `live-trace` up to its
-  last decision, whose `finished-game` proves exactly one position, against
-  a finish without the feed that proves all four, with identical
-  measurements and every row's view.
-- `tests/odds-test.js`, "win chances": two separate 50/50s (1 layout in 4
-  won), an early Expert position past the work limit, and 60 random small
-  positions against a brute-force game search that opens one square at a
+  nothing proved during play: a 4×3 game fed whole through `live-trace`
+  proves no position and leaves no timer, one value per sample time sent;
+  its `finished-game` then proves each of its four positions once, for the
+  judgment of all seven decisions and the model together, and its
+  `motion-series` gives one value per sample time.
+- `tests/odds-test.js`, "win chances": two 50/50s sharing open numbers (1
+  layout in 4 won), fifteen separate 50/50s (1 of 32,768, past the limit
+  without the split), an early Expert position past the work limit, and
+  60 random small positions plus 40 with separate groups of covered
+  squares against a brute-force game search that opens one square at a
   time, zeros cascading.
 - `tests/path-replay-test.js`: the replay preview stops playback, never
   saves a position, ends on the position it replaced, and a new game

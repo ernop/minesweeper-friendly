@@ -45,7 +45,8 @@ Spec: [docs/product/per-game-stats.md](../product/per-game-stats.md), [docs/prod
   `boardsByModeAndSize` uses `[mode, finalBoard.cells.length]`; `loadBoardMetricSources`
   reads matching primary keys once per mode before offering bulk work. Absent
   boards cannot reappear as work on reload, and no persistent skip flags prevent
-  restored traces from qualifying. `saveTrace`'s commit calls
+  restored traces from qualifying. The commit of a game's first `storeGame`
+  (game end, judgment pending) calls
   `boardMetricSourceSaved`: a read catalog gains the new key in place (that
   game's measurements have their own job, so no count moves and nothing is
   drawn again); a catalog still being read may have missed the write and is

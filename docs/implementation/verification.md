@@ -17,7 +17,7 @@ Index: [AGENTS.md](../../AGENTS.md).
   player's real origin. Agent verification
   also runs on 8018 whenever it persists nothing (RAM-only injections
   plus an in-page render, reading, screenshots — `persistUserdata` and
-  `saveTrace` untouched). Anything that writes storage — imports, played
+  `storeGame` untouched). Anything that writes storage — imports, played
   test games, settings changes — runs on `http://127.0.0.1:8099/`, the
   single permanent test origin (junk history expected there), never on any
   other origin.
@@ -228,7 +228,9 @@ Analysis performance checks (2026-09-25):
 `tests/analysis-worker-test.js` loads the real worker without any DOM and
 compares streamed/restored metrics with complete-prefix calculations.
 `tests/analysis-isolation-browser-check.js` holds worker loading while testing
-real play/restart/restoration and error visibility.
+real play (the lost game saved pending its judgment and kept out of the
+history until the reports worker judges it), restart, restoration, and error
+visibility.
 `tests/game-end-performance-browser-check.js` runs a 2,000-record fixture and
 fails if expensive analytics execute in the window. Both browser checks use
 the same Playwright/Chromium arguments and 8099 origin listed above.

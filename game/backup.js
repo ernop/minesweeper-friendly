@@ -43,7 +43,9 @@ document.getElementById('export-btn').addEventListener('click', () => {
 // Traces export as a JSON array of per-game trace objects (typed arrays
 // converted back to plain arrays), download-only — traces are far too
 // large for the clipboard. Consumed by the offline analysis pipelines
-// (see analysis/ and docs/implementation/offline-analysis.md).
+// (see analysis/ and docs/implementation/offline-analysis.md). A trace whose
+// game's evaluation is still pending, in the moment after its game ends, is
+// not exported: its decisions are not judged yet.
 const exportTracesLink = document.getElementById('export-traces-file');
 
 document.getElementById('export-traces-btn').addEventListener('click', () => {
@@ -51,7 +53,8 @@ document.getElementById('export-traces-btn').addEventListener('click', () => {
   const request = db.transaction(TRACE_STORE).objectStore(TRACE_STORE).getAll();
   request.onerror = () => storageFailure('trace export failed: ' + request.error);
   request.onsuccess = () => {
-    const games = request.result.map((s) => Object.fromEntries(Object.entries(s).map(([field, value]) =>
+    const games = request.result.filter((s) => s.evaluationPending !== true)
+      .map((s) => Object.fromEntries(Object.entries(s).map(([field, value]) =>
       [field, ArrayBuffer.isView(value) ? Array.from(value) : value])));
     const json = JSON.stringify(games);
     if (exportTracesLink.href) URL.revokeObjectURL(exportTracesLink.href);

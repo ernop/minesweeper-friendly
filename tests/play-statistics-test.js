@@ -74,8 +74,8 @@ for (const file of ['generators.js', 'game-data.js', 'during-game.js', 'board-ic
 }
 vm.runInContext("'use strict';\n"
   + source.slice(source.indexOf('let pendingResultOutcome = null;'), source.indexOf('\nfunction newGame('))
-  + ['reportResult', 'playStatisticsFields', 'shownMeasurement', 'difficultyNameOf', 'generatorAppliesToMode']
-    .map((name) => functionSource(source, name)).join(''), game);
+  + ['reportResult', 'completeGameRecord', 'playStatisticsFields', 'shownMeasurement', 'difficultyNameOf',
+    'generatorAppliesToMode'].map((name) => functionSource(source, name)).join(''), game);
 
 let frames = [];
 let timers = [];
@@ -105,21 +105,23 @@ Object.assign(game, {
   medianOf: () => 212,
   pathDecisionEvents: () => [],
   liveMergedObservations: () => ({ sample: [], x: [], y: [] }),
-  guessLedgerAppliesToMode: () => false,
+  guessLedgerAppliesTo: () => false,
   pregenActive: () => false,
   trialIsActive: () => false,
   replayDecisionCount: () => 0,
   modeKey: () => 'finished-board-key',
-  appendGameRecord: (record) => {
-    log.push('saved');
-    return [record];
-  },
+  storedTraceOf: () => ({ events: [], evaluationPending: true }),
+  // The record is saved pending at the game's end and again once judged.
+  storeGame: (key, record) => log.push(record.evaluationPending ? 'saved' : 'judged'),
+  addGameRecord: (key, record) => [record],
+  applyCompletedEvaluations: () => {},
+  reportableEvaluations: () => [],
   analysisTask: () => new Promise((resolve) => analyses.push(resolve)),
   analysisFailure: (error) => failures.push(error),
 });
 for (const name of ['renderImmediateGameEnd', 'renderPregenCharts', 'endTrial', 'persistUserdata',
-  'saveTrace', 'renderMotionStats', 'updateSettings', 'renderPathView', 'persistGameRecord',
-  'scheduleMetricsUpdate', 'appendMetricSeries', 'renderResult']) {
+  'renderMotionStats', 'updateSettings', 'renderPathView', 'scheduleMetricsUpdate', 'renderResult',
+  'showJusticeSurvivals', 'renderTrialReview']) {
   game[name] = () => {};
 }
 
@@ -137,12 +139,12 @@ function paint() {
 // and the analysis worker's answer, which saves the record again.
 async function playToEnd(outcome, state) {
   Object.assign(game, {
-    boardChangingClicks: 0, chordClicks: 0, noOpClicks: 0, misclicks: 0, flagsPlaced: 0, flagsRemoved: 0,
-    unusedCorrectFlags: 0, justiceEvents: 0, justiceEnabledForGame: false,
-    gameSeed: '0123456789abcdef0123456789abcdef', firstRevealIndex: 0, actionEvaluations: [],
-    musicObservations: [], guessEvents: [], oddsUnmeasured: false,
-    drillCurrent: null, trialPresentation: null, trialSession: null, pregenBatch: null,
-    pregenCurrent: null, resultViewRevision: 0, metricsSeries: [], liveMetricsGeneration: 1,
+    boardChangingClicks: 0, chordClicks: 0, noOpClicks: 0, flagsPlaced: 0, flagsRemoved: 0,
+    unusedCorrectFlags: 0, justiceEnabledForGame: false,
+    gameSeed: '0123456789abcdef0123456789abcdef', firstRevealIndex: 0,
+    musicObservations: [], justiceDetails: [],
+    drillCurrent: null, trialPresentation: null, trialSession: null, lastTrialReview: null, pregenBatch: null,
+    pregenCurrent: null, resultViewRevision: 0, metricSampleTimes: [],
     finalMotion: null, trace: { t: [], x: [], y: [], events: [], startedAt: 0 }, replayStep: 0,
     replayEnabled: true, history: {}, endgameDrillActive: () => false,
     gameState: outcome === 'win' ? 'won' : 'lost',
@@ -164,12 +166,13 @@ async function playToEnd(outcome, state) {
   vm.runInContext('flushPendingResult()', game);
   for (const timer of timers.splice(0)) timer.fn();
   for (const resolve of analyses.splice(0)) {
-    resolve({ measurements: { zini: 120, hzini: 131 }, metrics: { cad: { gapSpreadRatio: 1.4 } }, spatial: null });
+    resolve({ measurements: { zini: 120, hzini: 131 }, metrics: { cad: { gapSpreadRatio: 1.4 } }, spatial: null,
+      evaluation: { completed: [], misclicks: 0, justiceDetails: [] } });
   }
   await settle();
   assert.deepEqual(failures, []);
   assert.equal(sent.length, 1, 'no later step sends again');
-  assert.deepEqual(log, ['saved', 'sent'], 'the event follows the saved record');
+  assert.deepEqual(log, ['saved', 'sent', 'judged'], 'the event follows the saved record');
   assert.equal(hosted.fetched.length, 1);
   return { fields: sent[0], url: hosted.fetched[0] };
 }

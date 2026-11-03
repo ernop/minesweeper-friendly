@@ -193,8 +193,9 @@ async function restorePreferredResult() {
     }
     boardState.status = 'done';
     if (trace !== restoredTrace || revision !== resultViewRevision) return;
-    metricsSeries = restored.series;
-    finalMotion = { metrics: restored.metrics, series: metricsSeries, spatial: restored.spatial };
+    // The saved sample times end with the game's end, the whole trace's.
+    finalMotion = { gameId: record.endedAt, metrics: restored.metrics, spatial: restored.spatial,
+      sampleTimes: stored.metricSampleTimes.slice(0, -1), series: null };
     renderMotionStats();
     await renderResult(record, modeRecords);
   });

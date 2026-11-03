@@ -59,13 +59,11 @@ function rawClues(view) {
   return clues;
 }
 
-const DEFAULT_PROOF_VISITS = 2000000;
-// The latest exact proof per work budget. One click proves its position
-// several times (misclick, evidence, Justice), and guess scoring interleaves
-// many smaller-budget hypothetical positions that must not evict it.
-const lastExactProofByBudget = new Map();
+// The latest exact proof. One click proves its position several times
+// (misclick, evidence, Justice); a proof of another position replaces it.
+let lastExactProof = null;
 
-function exactProofKey(view, clues, maxVisits) {
+function exactProofKey(view, clues) {
   const visible = [];
   for (let i = 0; i < view.revealed.length; i++) {
     if (view.revealed[i]) visible.push(i + ':' + view.adjacent[i]);
@@ -73,110 +71,335 @@ function exactProofKey(view, clues, maxVisits) {
   const equations = clues.map((clue) =>
     clue.count + ':' + clue.covered.join(',')).join(';');
   return view.width + 'x' + view.height + '/' + view.mines
-    + '|' + visible.join(',') + '|' + equations + '|' + maxVisits;
+    + '|' + visible.join(',') + '|' + equations;
 }
 
-// byMineCount maps each achievable mine count to flags indexed like
-// `cells`: minePossible[i] / safePossible[i] are 1 when some layout with
-// that count puts a mine / no mine on cells[i]; `unseen` counts flags
-// still 0.
-function enumerateProofComponent(cells, clues, work) {
-  const clueIndexesByCell = new Map(cells.map((cell) => [cell, []]));
-  clues.forEach((clue, clueIndex) => {
-    for (const cell of clue.unknown) clueIndexesByCell.get(cell).push(clueIndex);
-  });
-  const ordered = cells.slice().sort((a, b) =>
-    clueIndexesByCell.get(b).length - clueIndexesByCell.get(a).length);
-  // The clues touching ordered[at] are touching[offsets[at]..offsets[at+1]).
-  const offsets = new Int32Array(ordered.length + 1);
-  ordered.forEach((cell, at) => { offsets[at + 1] = offsets[at] + clueIndexesByCell.get(cell).length; });
-  const touching = new Int32Array(offsets[ordered.length]);
-  ordered.forEach((cell, at) => touching.set(clueIndexesByCell.get(cell), offsets[at]));
-  const remaining = Int32Array.from(clues, (clue) => clue.unknown.length);
-  const needed = Int32Array.from(clues, (clue) => clue.need);
-  const assignment = new Uint8Array(ordered.length);
-  const byMineCount = new Map();
-  const maxVisits = work.maxVisits;
-  let visits = work.visits;
-  let stopped = false;
+//-------LAYOUT COUNTS (whole numbers, no work limit)-------
+//
+// How many mine layouts the numbers allow, counted rather than listed (the
+// method of JSMinesweeper's probability engine; reference/jsminesweeper.md).
+// Squares touching exactly the same numbers form one box: s squares holding
+// m mines have choose(s, m) layouts, whichever squares hold them. A group's
+// boxes are swept breadth-first from a box far from the first, so the boxes
+// of each number sit close together in the sweep. After each box the state
+// is what each number with boxes on both sides of the sweep still needs, and
+// partial layouts in the same state merge into one count. A backward sweep
+// counts each state's completions; the two together count the layouts
+// mining each box. Counts are BigInts: whole-board counts pass 2^53 at once.
+// The work grows with how many numbers the sweep holds open at once, which
+// play keeps small. There is no limit and no substitute value; deciding
+// whether a position has any layout is NP-complete (Kaye 2000), so a
+// contrived position can still take long.
+//
+// Counts are polynomials stored as counts[j][k]: the layouts holding k
+// mines, j of them on tracked squares (one row, j = 0, when none is).
 
-  const visit = (at, mineCount) => {
-    visits++;
-    if (visits > maxVisits) {
-      stopped = true;
-      return;
+const SMALL_CHOOSE = [];
+for (let n = 0; n <= 8; n++) {
+  const row = [1n];
+  for (let k = 1; k <= n; k++) row.push(row[k - 1] * BigInt(n - k + 1) / BigInt(k));
+  SMALL_CHOOSE.push(row);
+}
+
+// choose(n, k) for the n a box or one square's neighbors can have (up to 8).
+function smallChoose(n, k) {
+  return k < 0 || k > n ? 0n : SMALL_CHOOSE[n][k];
+}
+
+// choose(n, k) for every k from `from` to `to`, out[k - from]; 0 outside
+// 0..n. Each step of the product formula is itself a binomial, so every
+// division is exact.
+function chooseRange(n, from, to) {
+  const out = new Array(Math.max(0, to - from + 1)).fill(0n);
+  const start = Math.max(0, from);
+  const end = Math.min(n, to);
+  if (start > end) return out;
+  const side = Math.min(start, n - start);
+  let value = 1n;
+  for (let i = 1; i <= side; i++) value = value * BigInt(n - side + i) / BigInt(i);
+  for (let k = start; k <= end; k++) {
+    out[k - from] = value;
+    value = value * BigInt(n - k) / BigInt(k + 1);
+  }
+  return out;
+}
+
+function choose(n, k) {
+  if (k < 0 || k > n) return 0n;
+  return n <= 8 ? SMALL_CHOOSE[n][k] : chooseRange(n, k, k)[0];
+}
+
+// target[j + dj][k + dk] += source[j][k] * factor.
+function addCounts(target, source, dj, dk, factor) {
+  for (let j = 0; j < source.length; j++) {
+    const from = source[j];
+    if (from.length === 0) continue;
+    while (target.length <= j + dj) target.push([]);
+    const to = target[j + dj];
+    while (to.length < from.length + dk) to.push(0n);
+    for (let k = 0; k < from.length; k++) {
+      if (from[k] !== 0n) to[k + dk] += factor === 1n ? from[k] : from[k] * factor;
     }
-    // Assigning a clue's last cell prunes unless it needs exactly zero more
-    // mines, so every clue is satisfied at a leaf.
-    if (at === ordered.length) {
-      let summary = byMineCount.get(mineCount);
-      if (!summary) {
-        summary = {
-          minePossible: new Uint8Array(ordered.length),
-          safePossible: new Uint8Array(ordered.length),
-          unseen: 2 * ordered.length,
-        };
-        byMineCount.set(mineCount, summary);
-      }
-      if (summary.unseen === 0) return;
-      for (let i = 0; i < ordered.length; i++) {
-        const seen = assignment[i] === 1 ? summary.minePossible : summary.safePossible;
-        if (seen[i] === 0) {
-          seen[i] = 1;
-          summary.unseen--;
+  }
+}
+
+// target += a * b as polynomials: the layouts of two parts together. Mine
+// counts above maxMines are dropped, since no board position holds them.
+function addProduct(target, a, b, maxMines) {
+  for (let ja = 0; ja < a.length; ja++) {
+    const rowA = a[ja];
+    for (let jb = 0; jb < b.length; jb++) {
+      const rowB = b[jb];
+      if (rowA.length === 0 || rowB.length === 0) continue;
+      const length = Math.min(maxMines + 1, rowA.length + rowB.length - 1);
+      if (length <= 0) continue;
+      while (target.length <= ja + jb) target.push([]);
+      const to = target[ja + jb];
+      while (to.length < length) to.push(0n);
+      for (let ka = 0; ka < rowA.length && ka < length; ka++) {
+        const x = rowA[ka];
+        if (x === 0n) continue;
+        const last = Math.min(rowB.length, length - ka);
+        for (let kb = 0; kb < last; kb++) {
+          if (rowB[kb] !== 0n) to[ka + kb] += x * rowB[kb];
         }
       }
-      return;
     }
-    const from = offsets[at];
-    const to = offsets[at + 1];
-    for (let mine = 0; mine <= 1; mine++) {
-      let possible = true;
-      assignment[at] = mine;
-      for (let k = from; k < to; k++) {
-        const clueIndex = touching[k];
-        remaining[clueIndex]--;
-        needed[clueIndex] -= mine;
-        if (needed[clueIndex] < 0 || needed[clueIndex] > remaining[clueIndex]) {
-          possible = false;
+  }
+}
+
+function multiplyCounts(a, b, maxMines = Infinity) {
+  const out = [];
+  addProduct(out, a, b, maxMines);
+  return out;
+}
+
+// The count of tracked mines j and mines k, 0 where none was stored.
+function countAt(counts, j, k) {
+  if (j < 0 || j >= counts.length || k < 0) return 0n;
+  const row = counts[j];
+  return k < row.length ? row[k] : 0n;
+}
+
+// Breadth-first from a box farthest from each piece's first box, so the
+// boxes of each number sit close together in the order.
+function sweepOrder(boxes, boxesOfClue) {
+  const order = [];
+  const placed = new Uint8Array(boxes.length);
+  const stamp = new Int32Array(boxes.length).fill(-1);
+  const walk = (start, seen, mark, out) => {
+    const queue = [start];
+    mark(start);
+    for (let at = 0; at < queue.length; at++) {
+      for (const c of boxes[queue[at]].clueIds) {
+        for (const other of boxesOfClue.get(c)) {
+          if (seen(other)) continue;
+          mark(other);
+          queue.push(other);
         }
       }
-      if (possible) visit(at + 1, mineCount + mine);
-      for (let k = from; k < to; k++) {
-        const clueIndex = touching[k];
-        needed[clueIndex] += mine;
-        remaining[clueIndex]++;
+    }
+    if (out !== null) for (const b of queue) out.push(b);
+    return queue[queue.length - 1];
+  };
+  for (let b = 0; b < boxes.length; b++) {
+    if (placed[b] === 1) continue;
+    const far = walk(b, (x) => stamp[x] === b, (x) => { stamp[x] = b; }, null);
+    walk(far, (x) => placed[x] === 1, (x) => { placed[x] = 1; }, order);
+  }
+  return order;
+}
+
+// The state after a step puts `mines` mines in its box, or null when a
+// number it touches would need fewer than none or more than its squares
+// left can hold. A step's `carry[s]` is the new state's slot s: an index
+// into the box's own numbers when >= 0, else slot -carry - 1 of the old.
+function advanceState(step, state, mines) {
+  const own = step.own;
+  const left = new Array(own.length);
+  for (let o = 0; o < own.length; o++) {
+    const need = (own[o].slot >= 0 ? state[own[o].slot] : own[o].need) - mines;
+    if (need < 0 || need > own[o].capacity) return null;
+    left[o] = need;
+  }
+  const next = new Array(step.carry.length);
+  for (let s = 0; s < next.length; s++) {
+    const from = step.carry[s];
+    next[s] = from >= 0 ? left[from] : state[-from - 1];
+  }
+  return next;
+}
+
+// The swept group: its boxes in sweep order, and for each step the states
+// before it, each with its partial layouts (`counts`), where each mine
+// count for the step's box leads (`next`, null where impossible), and its
+// completions (null when none). needs[c]: the mines number c still needs
+// among its covered squares; clueIdsOf.get(square): the numbers touching a
+// square, ascending; tracked: a Set of squares, or null.
+function sweepGroup(squares, clueIdsOf, needs, tracked) {
+  const boxes = [];
+  const boxByKey = new Map();
+  for (const square of squares) {
+    const clueIds = clueIdsOf.get(square);
+    const isTracked = tracked !== null && tracked.has(square);
+    const key = isTracked ? clueIds.join() + '+' : clueIds.join();
+    let box = boxByKey.get(key);
+    if (box === undefined) {
+      box = { squares: [], clueIds, tracked: isTracked };
+      boxByKey.set(key, box);
+      boxes.push(box);
+    }
+    box.squares.push(square);
+  }
+  const boxesOfClue = new Map();
+  boxes.forEach((box, b) => {
+    for (const c of box.clueIds) {
+      const list = boxesOfClue.get(c);
+      if (list === undefined) boxesOfClue.set(c, [b]);
+      else list.push(b);
+    }
+  });
+  const order = sweepOrder(boxes, boxesOfClue);
+  const position = new Int32Array(boxes.length);
+  order.forEach((b, i) => { position[b] = i; });
+  const lastStep = new Map();
+  const unswept = new Map();
+  for (const [c, list] of boxesOfClue) {
+    let last = -1;
+    let squaresLeft = 0;
+    for (const b of list) {
+      if (position[b] > last) last = position[b];
+      squaresLeft += boxes[b].squares.length;
+    }
+    lastStep.set(c, last);
+    unswept.set(c, squaresLeft);
+  }
+
+  const steps = [];
+  let open = [];
+  for (let i = 0; i < order.length; i++) {
+    const box = boxes[order[i]];
+    const size = box.squares.length;
+    const slotOf = new Map(open.map((c, slot) => [c, slot]));
+    const own = box.clueIds.map((c) => {
+      unswept.set(c, unswept.get(c) - size);
+      return { slot: slotOf.has(c) ? slotOf.get(c) : -1, need: needs[c], capacity: unswept.get(c) };
+    });
+    const next = open.filter((c) => lastStep.get(c) > i);
+    for (const c of box.clueIds) if (!slotOf.has(c) && lastStep.get(c) > i) next.push(c);
+    const ownOf = new Map(box.clueIds.map((c, o) => [c, o]));
+    const carry = new Int32Array(next.length);
+    next.forEach((c, s) => { carry[s] = ownOf.has(c) ? ownOf.get(c) : -slotOf.get(c) - 1; });
+    steps.push({ size, tracked: box.tracked, own, carry });
+    open = next;
+  }
+
+  const layers = [new Map([['', { state: [], counts: [[1n]], next: null, completions: null }]])];
+  for (let i = 0; i < steps.length; i++) {
+    const step = steps[i];
+    const following = new Map();
+    for (const entry of layers[i].values()) {
+      entry.next = new Array(step.size + 1).fill(null);
+      for (let m = 0; m <= step.size; m++) {
+        const state = advanceState(step, entry.state, m);
+        if (state === null) continue;
+        const key = state.join();
+        let target = following.get(key);
+        if (target === undefined) {
+          target = { state, counts: [], next: null, completions: null };
+          following.set(key, target);
+        }
+        entry.next[m] = target;
+        addCounts(target.counts, entry.counts, step.tracked ? m : 0, m, smallChoose(step.size, m));
       }
-      if (stopped) return;
+    }
+    layers.push(following);
+  }
+  // Every number is closed after the last box, so the last layer holds at
+  // most the empty state.
+  for (const entry of layers[steps.length].values()) entry.completions = [[1n]];
+  for (let i = steps.length - 1; i >= 0; i--) {
+    const step = steps[i];
+    for (const entry of layers[i].values()) {
+      let completions = null;
+      for (let m = 0; m <= step.size; m++) {
+        const target = entry.next[m];
+        if (target === null || target.completions === null) continue;
+        if (completions === null) completions = [];
+        addCounts(completions, target.completions, step.tracked ? m : 0, m, smallChoose(step.size, m));
+      }
+      entry.completions = completions;
+    }
+  }
+  if (layers[0].get('').completions === null) throw new Error('visible clues have no valid layout');
+  return { boxes, order, steps, layers };
+}
+
+// Every layout of a group, counted: the boxes, layouts[j][k], and per box
+// mineLayouts[b][j][k], the layouts mining one given square of box b.
+function countGroup(squares, clueIdsOf, needs, tracked) {
+  const { boxes, order, steps, layers } = sweepGroup(squares, clueIdsOf, needs, tracked);
+  const mineLayouts = new Array(boxes.length);
+  for (let i = 0; i < steps.length; i++) {
+    const step = steps[i];
+    const mined = [];
+    for (const entry of layers[i].values()) {
+      if (entry.completions === null) continue;
+      let after = null;
+      for (let m = 1; m <= step.size; m++) {
+        const target = entry.next[m];
+        if (target === null || target.completions === null) continue;
+        if (after === null) after = [];
+        addCounts(after, target.completions, step.tracked ? m : 0, m, smallChoose(step.size - 1, m - 1));
+      }
+      if (after !== null) addProduct(mined, entry.counts, after, Infinity);
+    }
+    mineLayouts[order[i]] = mined;
+  }
+  return { boxes, layouts: layers[0].get('').completions, mineLayouts };
+}
+
+// Every layout of a group, listed: calls visit(mined) once per layout with
+// a Uint8Array over `squares`, 1 where the layout puts a mine; the array is
+// reused between calls. The sweep's states lead only to completions, so the
+// walk never backtracks out of a dead end.
+function listGroupLayouts(squares, clueIdsOf, needs, visit) {
+  const { boxes, order, steps, layers } = sweepGroup(squares, clueIdsOf, needs, null);
+  const indexOf = new Map(squares.map((square, i) => [square, i]));
+  const boxSquares = order.map((b) => boxes[b].squares.map((square) => indexOf.get(square)));
+  const mined = new Uint8Array(squares.length);
+  const place = (i, entry) => {
+    if (i === steps.length) {
+      visit(mined);
+      return;
+    }
+    const at = boxSquares[i];
+    for (let m = 0; m <= at.length; m++) {
+      const target = entry.next[m];
+      if (target === null || target.completions === null) continue;
+      // Every choice of m of the box's squares.
+      const chosen = Array.from({ length: m }, (_, c) => c);
+      for (;;) {
+        for (let c = 0; c < m; c++) mined[at[chosen[c]]] = 1;
+        place(i + 1, target);
+        for (let c = 0; c < m; c++) mined[at[chosen[c]]] = 0;
+        let c = m - 1;
+        while (c >= 0 && chosen[c] === at.length - m + c) c--;
+        if (c < 0) break;
+        chosen[c]++;
+        for (let d = c + 1; d < m; d++) chosen[d] = chosen[d - 1] + 1;
+      }
     }
   };
-
-  visit(0, 0);
-  work.visits = visits;
-  if (stopped) return null;
-  if (byMineCount.size === 0) throw new Error('visible clues have no valid layout');
-  return { cells: ordered, byMineCount };
+  place(0, layers[0].get(''));
 }
 
-function possibleMineSums(components, skip = -1) {
-  let sums = new Set([0]);
-  for (let i = 0; i < components.length; i++) {
-    if (i === skip) continue;
-    const next = new Set();
-    for (const sum of sums) {
-      for (const count of components[i].byMineCount.keys()) next.add(sum + count);
-    }
-    sums = next;
-  }
-  return sums;
-}
-
-// Every layout of the unresolved frontier the visible numbers allow, searched
-// per component of cells the numbers link. `solved` is null when the search
-// stopped at `maxVisits`; `frontier` holds every cell some number touches.
-function searchNumberLayouts(clues, status, maxVisits) {
-  const residuals = [];
-  const clueIndexesByCell = new Map();
+// The residual numbers once `status`'s facts are applied: needs[c] and the
+// numbers touching each unresolved cell, ascending.
+function residualNumbers(clues, status) {
+  const needs = [];
+  const covered = [];
+  const clueIdsOf = new Map();
   for (const clue of clues) {
     const unknown = [];
     let need = clue.count;
@@ -189,78 +412,118 @@ function searchNumberLayouts(clues, status, maxVisits) {
       throw new Error('visible clues are inconsistent');
     }
     if (unknown.length === 0) continue;
-    const clueIndex = residuals.length;
-    residuals.push({ unknown, need });
+    const clueIndex = needs.length;
+    needs.push(need);
+    covered.push(unknown);
     for (const cell of unknown) {
-      if (!clueIndexesByCell.has(cell)) clueIndexesByCell.set(cell, []);
-      clueIndexesByCell.get(cell).push(clueIndex);
+      if (!clueIdsOf.has(cell)) clueIdsOf.set(cell, []);
+      clueIdsOf.get(cell).push(clueIndex);
     }
   }
+  return { needs, covered, clueIdsOf };
+}
 
-  const components = [];
+// The groups of cells the residual numbers link, each listed once.
+function linkedGroups(covered, clueIdsOf) {
+  const groups = [];
   const seen = new Set();
-  for (const start of clueIndexesByCell.keys()) {
+  for (const start of clueIdsOf.keys()) {
     if (seen.has(start)) continue;
     const cells = [];
-    const clueSet = new Set();
     const stack = [start];
     seen.add(start);
     while (stack.length > 0) {
       const cell = stack.pop();
       cells.push(cell);
-      for (const clueIndex of clueIndexesByCell.get(cell)) {
-        if (!clueSet.has(clueIndex)) clueSet.add(clueIndex);
-        for (const other of residuals[clueIndex].unknown) {
+      for (const clueIndex of clueIdsOf.get(cell)) {
+        for (const other of covered[clueIndex]) {
           if (seen.has(other)) continue;
           seen.add(other);
           stack.push(other);
         }
       }
     }
-    components.push({
-      cells,
-      clues: [...clueSet].map((index) => residuals[index]),
-    });
+    groups.push(cells);
   }
-
-  const work = { visits: 0, maxVisits };
-  const solved = [];
-  const frontier = new Set(clueIndexesByCell.keys());
-  for (const component of components) {
-    const result = enumerateProofComponent(component.cells, component.clues, work);
-    if (result === null) return { solved: null, frontier, visits: work.visits };
-    solved.push(result);
-  }
-  return { solved, frontier, visits: work.visits };
+  return groups;
 }
 
-// A cell is a fact when every layout of its component holding one of
-// `counts` mines gives it the same value.
+// Every layout of the unresolved frontier the visible numbers allow,
+// counted per group of cells the numbers link. Each counted group holds
+// its boxes' squares, layouts[k] (its layouts with k mines),
+// mineLayouts[b][k], and the mine counts some layout of it holds;
+// `frontier` holds every cell some number touches. `groupCounts`, when
+// given, is a Map kept for one game's positions, from a group's exact
+// numbers to its count: a click changes only the groups beside it, and the
+// others are read back rather than counted again.
+function countNumberLayouts(clues, status, groupCounts) {
+  const { needs, covered, clueIdsOf } = residualNumbers(clues, status);
+  const counted = linkedGroups(covered, clueIdsOf).map((cells) => {
+    let key = null;
+    if (groupCounts !== undefined) {
+      const clueIds = [...new Set(cells.flatMap((cell) => clueIdsOf.get(cell)))].sort((a, b) => a - b);
+      key = cells.join() + '|' + clueIds.map((c) => needs[c] + ':' + covered[c].join()).join(';');
+      const known = groupCounts.get(key);
+      if (known !== undefined) return known;
+    }
+    const { boxes, layouts, mineLayouts } = countGroup(cells, clueIdsOf, needs, null);
+    const length = cells.length + 1;
+    const dense = (counts) => {
+      const row = counts.length > 0 ? counts[0].slice(0, length) : [];
+      while (row.length < length) row.push(0n);
+      return row;
+    };
+    const byMines = dense(layouts);
+    const mineCounts = [];
+    byMines.forEach((count, k) => { if (count > 0n) mineCounts.push(k); });
+    const group = { cells, boxes: boxes.map((box) => ({ squares: box.squares })), layouts: byMines,
+      mineLayouts: mineLayouts.map(dense), mineCounts };
+    if (key !== null) groupCounts.set(key, group);
+    return group;
+  });
+  return { counted, frontier: new Set(clueIdsOf.keys()) };
+}
+
+function possibleMineSums(components, skip = -1) {
+  let sums = new Set([0]);
+  for (let i = 0; i < components.length; i++) {
+    if (i === skip) continue;
+    const next = new Set();
+    for (const sum of sums) {
+      for (const count of components[i].mineCounts) next.add(sum + count);
+    }
+    sums = next;
+  }
+  return sums;
+}
+
+// A cell is a fact when every layout of its group holding one of `counts`
+// mines gives it the same value.
 function markComponent(component, counts, mark) {
-  component.cells.forEach((cell, index) => {
+  component.boxes.forEach((box, b) => {
+    const mined = component.mineLayouts[b];
     let canBeMine = false;
     let canBeSafe = false;
     for (const count of counts) {
-      const summary = component.byMineCount.get(count);
-      if (summary.minePossible[index] === 1) canBeMine = true;
-      if (summary.safePossible[index] === 1) canBeSafe = true;
+      if (mined[count] > 0n) canBeMine = true;
+      if (mined[count] < component.layouts[count]) canBeSafe = true;
     }
-    if (!canBeMine) mark(cell, 2);
-    else if (!canBeSafe) mark(cell, 1);
+    const fact = !canBeMine ? 2 : !canBeSafe ? 1 : 0;
+    if (fact !== 0) for (const cell of box.squares) mark(cell, fact);
   });
 }
 
 // What every layout the numbers allow agrees on, whatever its mine count.
 // The sea, which no number touches, is never marked.
-function markNumberFacts(solved, mark) {
-  for (const component of solved) markComponent(component, [...component.byMineCount.keys()], mark);
+function markNumberFacts(counted, mark) {
+  for (const component of counted) markComponent(component, component.mineCounts, mark);
 }
 
-// The board's mine total joins the searched components and the sea: each
-// component's mine counts that some whole-board layout allows, and the sea's
-// fact when every such layout fills it or leaves it empty (null otherwise).
-// It reads `status` as the search saw it, before any of its facts are marked.
-function mineTotalVerdict(view, status, solved, frontier) {
+// The board's mine total joins the counted groups and the sea: each group's
+// mine counts that some whole-board layout allows, and the sea's fact when
+// every such layout fills it or leaves it empty (null otherwise). It reads
+// `status` as the count saw it, before any of its facts are marked.
+function mineTotalVerdict(view, status, counted, frontier) {
   let knownMines = 0;
   const unresolved = [];
   for (let cell = 0; cell < view.width * view.height; cell++) {
@@ -275,7 +538,7 @@ function mineTotalVerdict(view, status, solved, frontier) {
     throw new Error('global mine count contradicts visible clues');
   }
 
-  const allComponentSums = possibleMineSums(solved);
+  const allComponentSums = possibleMineSums(counted);
   const possibleSeaCounts = new Set();
   for (const sum of allComponentSums) {
     const seaMines = target - sum;
@@ -285,10 +548,10 @@ function mineTotalVerdict(view, status, solved, frontier) {
     throw new Error('visible clues and global mine count have no valid layout');
   }
 
-  const feasibleCounts = solved.map((component, i) => {
-    const otherSums = possibleMineSums(solved, i);
+  const feasibleCounts = counted.map((component, i) => {
+    const otherSums = possibleMineSums(counted, i);
     const counts = [];
-    for (const localCount of component.byMineCount.keys()) {
+    for (const localCount of component.mineCounts) {
       if ([...otherSums].some((otherCount) => {
         const seaMines = target - localCount - otherCount;
         return seaMines >= 0 && seaMines <= sea.length;
@@ -307,26 +570,24 @@ function mineTotalVerdict(view, status, solved, frontier) {
   return { feasibleCounts, sea, seaFact };
 }
 
-function markMineTotalFacts(solved, verdict, mark) {
-  solved.forEach((component, i) => markComponent(component, verdict.feasibleCounts[i], mark));
+function markMineTotalFacts(counted, verdict, mark) {
+  counted.forEach((component, i) => markComponent(component, verdict.feasibleCounts[i], mark));
   if (verdict.seaFact !== null) for (const cell of verdict.sea) mark(cell, verdict.seaFact);
 }
 
-// Exhaustive visible-information proof. Frontier components are searched
+// Exhaustive visible-information proof. Frontier groups are counted
 // independently, then joined through the board's total mine count and the
 // unconstrained sea. A cell is marked only when every globally consistent
 // layout gives it the same value. Without the mine total (`useGlobal`
 // false) a cell is marked when every layout the numbers allow, whatever its
 // mine count, gives it the same value.
-function proveExactFacts(view, clues, status, mark, maxVisits, useGlobal) {
-  const search = searchNumberLayouts(clues, status, maxVisits);
-  if (search.solved === null) return { complete: false, visits: search.visits };
+function proveExactFacts(view, clues, status, mark, useGlobal) {
+  const { counted, frontier } = countNumberLayouts(clues, status);
   if (useGlobal) {
-    markMineTotalFacts(search.solved, mineTotalVerdict(view, status, search.solved, search.frontier), mark);
+    markMineTotalFacts(counted, mineTotalVerdict(view, status, counted, frontier), mark);
   } else {
-    markNumberFacts(search.solved, mark);
+    markNumberFacts(counted, mark);
   }
-  return { complete: true, visits: search.visits };
 }
 
 // The local rules to a fixpoint: counting single clues (`useCount`),
@@ -439,11 +700,11 @@ function applyRules(view, clues, status, mark, useCount, useSubset, useGlobal) {
 // - a clue needing zero/all of its unresolved cells proves them safe/mined;
 // - subtracting any two overlapping residual clues can expose extreme
 //   one-sided differences (strict subsets are one instance);
-// - the default exact pass searches every globally consistent frontier
+// - the default exact pass counts every globally consistent frontier
 //   layout and applies the total mine count across components and sea;
-//   without `global` it searches every layout the numbers allow.
-// A work-limit result is explicitly marked incomplete. Every returned fact
-// remains sound; incompleteness can withhold a certificate, never invent one.
+//   without `global` it counts every layout the numbers allow.
+// The exact pass always completes (`complete`); a rules-only proof is
+// marked incomplete. Every returned fact is sound.
 //
 // Status values remain 1=mine and 2=safe for the public test interface.
 function proveFacts(view, clues, opts) {
@@ -452,12 +713,11 @@ function proveFacts(view, clues, opts) {
   const useSubset = opts.subset !== false;
   const useGlobal = opts.global !== false;
   const useExact = opts.exact !== false && useCount && useSubset;
-  const maxVisits = Number.isFinite(opts.maxVisits)
-    ? opts.maxVisits : DEFAULT_PROOF_VISITS;
   // Only the full proof is the one a click asks for several times.
-  const cacheKey = useExact && useGlobal ? exactProofKey(view, clues, maxVisits) : null;
-  const cached = cacheKey !== null ? lastExactProofByBudget.get(maxVisits) : undefined;
-  if (cached !== undefined && cached.key === cacheKey) return cached.facts;
+  const cacheKey = useExact && useGlobal ? exactProofKey(view, clues) : null;
+  if (cacheKey !== null && lastExactProof !== null && lastExactProof.key === cacheKey) {
+    return lastExactProof.facts;
+  }
   const status = new Map();
   const mark = (cell, value) => {
     const previous = status.get(cell);
@@ -469,16 +729,12 @@ function proveFacts(view, clues, opts) {
 
   applyRules(view, clues, status, mark, useCount, useSubset, useGlobal);
   if (useExact) {
-    const exact = proveExactFacts(
-      view, clues, status, mark, maxVisits, useGlobal);
-    status.complete = exact.complete;
-    status.visits = exact.visits;
-    status.method = !exact.complete ? 'work-limit'
-      : useGlobal ? 'all-consistent-layouts' : 'all-number-layouts';
-    if (cacheKey !== null) lastExactProofByBudget.set(maxVisits, { key: cacheKey, facts: status });
+    proveExactFacts(view, clues, status, mark, useGlobal);
+    status.complete = true;
+    status.method = useGlobal ? 'all-consistent-layouts' : 'all-number-layouts';
+    if (cacheKey !== null) lastExactProof = { key: cacheKey, facts: status };
   } else {
     status.complete = false;
-    status.visits = 0;
     status.method = 'rules-only';
   }
   return status;
@@ -500,14 +756,21 @@ const DEDUCTION_LEVELS = Object.freeze([
 
 // Every deduction level in one pass, each stage continuing from the facts of
 // the stages before it, so each fact is marked once, by the first level that
-// proves it; all numbers and the mine total share one search. Returns the
-// facts as proveFacts' full proof gives them (the same facts, complete or
-// stopped at the same work limit) and `levelOf`, each fact's level id. A
-// stopped search leaves only the rule levels' facts.
-function proveLevels(view, clues, opts) {
-  opts = opts || {};
-  const maxVisits = Number.isFinite(opts.maxVisits)
-    ? opts.maxVisits : DEFAULT_PROOF_VISITS;
+// proves it; all numbers and the mine total share one count. Returns the
+// facts as proveFacts' full proof gives them and `levelOf`, each fact's
+// level id.
+//
+// `earlier`, when given, is this function's result for an earlier position
+// of the same game, every square open there open here. Its facts of the
+// first three levels still hold here at that level or an easier one: an
+// opened square was safe, so the numbers that proved them prove them
+// still, and more numbers only remove layouts. Each of those stages starts
+// from the earlier facts of its level, after the easier stages have had
+// their turn, so every fact keeps the first level that proves it here. The
+// mine total's facts are counted again: marked before the count, they
+// would let it prove from the mine total what it labels all numbers.
+// `groupCounts`: countNumberLayouts' counts kept for the same game.
+function proveLevels(view, clues, earlier, groupCounts) {
   const facts = new Map();
   const levelOf = new Map();
   let level = 'counting';
@@ -521,21 +784,24 @@ function proveLevels(view, clues, opts) {
       levelOf.set(cell, level);
     }
   };
+  const resume = () => {
+    if (earlier === undefined) return;
+    for (const [cell, id] of earlier.levelOf) {
+      if (id === level && !view.revealed[cell]) mark(cell, earlier.facts.get(cell));
+    }
+  };
+  resume();
   applyRules(view, clues, facts, mark, true, false, false);
   level = 'overlap';
+  resume();
   applyRules(view, clues, facts, mark, true, true, false);
-  const search = searchNumberLayouts(clues, facts, maxVisits);
-  facts.visits = search.visits;
-  if (search.solved === null) {
-    facts.complete = false;
-    facts.method = 'work-limit';
-    return { facts, levelOf };
-  }
-  const verdict = mineTotalVerdict(view, facts, search.solved, search.frontier);
   level = 'allNumbers';
-  markNumberFacts(search.solved, mark);
+  resume();
+  const { counted, frontier } = countNumberLayouts(clues, facts, groupCounts);
+  const verdict = mineTotalVerdict(view, facts, counted, frontier);
+  markNumberFacts(counted, mark);
   level = 'mineTotal';
-  markMineTotalFacts(search.solved, verdict, mark);
+  markMineTotalFacts(counted, verdict, mark);
   facts.complete = true;
   facts.method = 'all-consistent-layouts';
   return { facts, levelOf };
@@ -1081,6 +1347,14 @@ const Justice = {
   certifyEntries,
   certifyEntry,
   redrawEntry,
+  // Exact layout counting, which odds.js shares.
+  choose,
+  chooseRange,
+  countGroup,
+  listGroupLayouts,
+  addCounts,
+  multiplyCounts,
+  countAt,
 };
 
 if (typeof module !== 'undefined' && module.exports) module.exports = Justice;

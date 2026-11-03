@@ -81,7 +81,7 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   boundary; each action-to-action interval is labeled with its measured time.
   Less useful means actions with measured
   mistake evidence: no-op/time-loss actions, visible contradictions,
-  avoidable or higher risk, and lower modeled one-ply life. A loss from a
+  avoidable or higher risk, and lower one-move life. A loss from a
   minimum-risk forced guess is not labeled less useful merely because it
   was fatal.
 - Game-history transport (updated 2026-10-20; creator: "replay should
@@ -192,20 +192,21 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   - `forced mines`: every covered cell proven to be a mine gets a dashed red
     ring and (when unflagged) a dimmed real mine glyph; on a flagged cell
     the ring confirms the flag. The mark-mine mini flag on the same square
-    stays at full strength. Proofs come from full layout enumeration,
-    so everything deducible from the visible numbers is shown (e.g. the
-    forced mine under a satisfied 2), not just one-step patterns.
+    stays at full strength. Proofs come from an exact count of every
+    remaining layout, so everything deducible from the visible numbers is
+    shown (e.g. the forced mine under a satisfied 2), not just one-step
+    patterns.
   - `mine %`: every covered cell shows its exact mine probability in percent
     as a small white corner badge (bottom-right, so flags and mine glyphs
-    stay visible), computed by full enumeration of remaining layouts
+    stay visible), computed from an exact count of the remaining layouts
     (components + binomial sea) with all visible knowledge. A proven cell
     whose ring already states the answer shows no badge (a proven mine while
     `forced mines` is on, a proven safe while `available moves` is on); with
     those layers off the badge reads 0 or 100. Four symbols in one square
-    hid the board (2026-09-04). When a position exceeds the enumeration
-    budget the legend says so and only bounded-proof facts are marked —
-    probabilities are never invented. The legend's badge swatch shows a
-    sample number.
+    hid the board (2026-09-04). The legend's badge swatch shows a sample
+    number. Until 2026-11-02 the layouts were listed one by one up to a
+    budget; past it the legend said so and showed no percentages. They are
+    now counted, with no budget, so every position shows them.
   - `pointless clicks` / `purposeful clicks`: numbered hollow rings at every
     mistake-tagged (orange) or clean (black) action up to the shown moment,
     as two separate layers. Hollow so the number, flag, or badge under the
@@ -218,7 +219,7 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
     so it never shares a hue with the purple choice rings).
   - Solver reads are cached per decision index and precomputed for every
     frame in short idle slices as soon as review mode is turned on, so
-    slider scrubbing never waits on an enumeration; the cache and the
+    slider scrubbing never waits on a count; the cache and the
     precompute clear with each new board. A solver failure is an error,
     never displayed as "position too complex".
   - Legend: every encoding has its own legend item with a swatch of the same

@@ -56,7 +56,7 @@ ever moves the board:
   games, such as which result sections show, is on the settings page.
 - **Motion stats, page foot**, closed until you open them: the
   mouse-dynamics measurements of the game on the board, live during play
-  and final after it.
+  while open and final after it.
 
 **Daily limits** (top of the settings page): play time, games, games per
 level, and a stop time, each per play day from 4:00 to 4:00. A reached
@@ -137,9 +137,12 @@ Proofs use every mine layout consistent with the revealed numbers and total
 mine count, not a fixed catalog of Minesweeper patterns. The engine solves
 connected frontier constraints, combines their mine totals with the
 unconstrained board, and marks a cell only when every valid layout agrees.
-Flags and the hidden board are never treated as player knowledge. If the
-explicit search budget is exhausted, the result is reported as incomplete;
-the game does not turn that engine limit into a criticism.
+Flags and the hidden board are never treated as player knowledge. Since
+2026-11-02 the layouts are counted rather than listed (the method of
+[JSMinesweeper](https://github.com/DavidNHill/JSMinesweeper)'s probability
+engine), with no search budget: every proof completes, and every guess's
+mine odds and one-move life (the chance of surviving it and then the safest
+next square) are exact.
 
 ## Play history
 
@@ -233,7 +236,7 @@ lifetime list is named "top expert no-mark times" or the matching board)
 and, for wins, clicks over
 3BV (clicks beyond the board's minimum). The after-game report groups each
 action once by severity: game loss, game risk, time loss, optional
-one-ply life maximization, or measurement notes. New players see none of
+one-move life maximization, or measurement notes. New players see none of
 that report until they ask for it. Fatal scope shows only the fatal action
 after a loss (a win has none at that scope). Risk/full
 scope reports still show needless or higher-risk actions from games the

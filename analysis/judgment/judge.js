@@ -417,7 +417,6 @@ function momentFacts(problem, moment) {
   if (moment.mistakes.length > 0) {
     rows.push(['The game\u2019s tags', moment.mistakes.map((tag) => tag.replace(/-/g, ' ')).join('; ')]);
   }
-  if (!moment.oddsMeasured) rows.push(['Mine chances', 'not measured for this position']);
   return factsTable(rows);
 }
 

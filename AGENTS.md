@@ -100,8 +100,8 @@ Files, in load order:
 | `play.js` | top panel (LCDs, face), generator glue and Generator menu, new-game flow, reveal/flag/chord, win/loss, A just universe |
 | `play-modes.js` | other modes menu, mode predicates and labels; 3BV countdown (the code's "pregen"), Endgame drill, Board lab, trials on the live board |
 | `play-limits.js` | daily play limits: the play spans (every saved one; this tab's begin, heartbeat, and ending), the closed-board gate and notice, the no-flags penalty gate, today's use in the top bar |
-| `evaluation.js` | game-end evaluation: pure verdict model, live capture |
-| `results.js` | the saved record (`reportResult`), after-game report, result view, High scores view; the openers (a title that opens and closes its block, remembered in `settings.panels`) |
+| `evaluation.js` | game-end evaluation: pure verdict model; the game-end judgment of the saved decisions (run in the reports worker); raw capture at the click |
+| `results.js` | the saved record (`reportResult`, then `completeGameRecord` with the worker's judgment), after-game report, result view, High scores view; the openers (a title that opens and closes its block, remembered in `settings.panels`) |
 | `history.js` | record version stamps and schema, per-mode history, mode keys, normalization, transfer cleaning |
 | `rankings.js` | rank windows and relative ages, day categories, board families and their one name each (`BOARD_TRAIT_NAMES`), session summary and its results tree, the one session picker, ranks won in session, rank lists |
 | `charts.js` | chart models and presentation (heavy models execute in the analysis worker); chart basics (SVG namespace, count phrases, text widths, displayed numbers, sparkline sizes), axis ticks, trend lines, the (?) help tip, scatter and average-time charts |
@@ -110,17 +110,17 @@ Files, in load order:
 | `switch-cost-line.js` | the optional switch cost line under game data: the session's and the latest 500 standard games' estimates, its card, refresh requests |
 | `during-game-chart.js` | live perf charts (head of the game data column): the progress, moves available, and relative charts and event tracks on one time axis, legend picks, the log or linear scale and the count axis, hover line, the card for the hovered line, the board's replay previewing the hovered moment, replay link, configure |
 | `result-ranks.js` | `renderRanks`: result tables and charts in section order |
-| `input-trace.js` | the raw input trace |
+| `input-trace.js` | the raw input trace; saving a finished game's record and trace together (`storeGame`) |
 | `replay-model.js` | path and choice replay, pure part |
 | `replay-view.js` | replay transport and playback, hover preview, frames, path canvas, legends |
 | `music.js` | music state sampling |
 | `trace-metrics.js` | trace metrics, pure (all measurement systems), and the press-timing constants and median the results use |
 | `metric-definitions.js` | shared metric display catalog and series projection (pure, also loaded in workers) |
-| `motion-stats.js` | motion stats, the open/close section at the page foot: live sample scheduling, rows and sparklines, the finished game's Fitts curve and spatial pace bias |
+| `motion-stats.js` | motion stats, the open/close section at the page foot: live sample scheduling (computed only while it is open), rows and sparklines, the finished game's series on demand, Fitts curve, and spatial pace bias |
 | `player-states.js` | player state tags and their menu |
 | `controls.js` | board input events, new-game shortcut, game choice (preset links, other modes menu, mode options row), custom board, see-scores button |
 | `backup.js` | history/trace export and import, data-format card |
-| `main.js` | storage hooks, static chrome, `init` (last) |
+| `main.js` | storage hooks, judging games a closed page left pending (`completePendingGames`), static chrome, `init` (last) |
 
 Serve with `python3 -m http.server 8018 --bind 127.0.0.1` and open exactly
 `http://127.0.0.1:8018/`.

@@ -54,10 +54,18 @@ Spec: [docs/product/motion-stats.md](../product/motion-stats.md). Index: [AGENTS
   (undefined and NaN both render as the en dash). Live: `scheduleMetricsUpdate` invalidates from trace mutations
   (`game/input-trace.js`) and the active game's clock (`game/play.js`,
   `game/controls.js`). One trailing task coalesces input bursts (250ms
-  minimum sample spacing), then dispatches to the live worker; it never
-  polls while idle. Replies append the sampled metrics to `metricsSeries`,
-  set `lastLiveMetrics`, and call `renderMotionStats`. Sampling runs with
-  the section open or closed, because `saveTrace` stores the sample times.
+  minimum sample spacing) and takes a sample (`takeMetricsSample`: the time
+  goes on `metricSampleTimes`); it never polls while idle. Sampling runs
+  with the section open or closed, because `storedTraceOf` stores the
+  sample times. Only while the section is open does
+  `renderLiveTraceMetrics` send the reports worker a `live-trace` job: at
+  most one in flight, carrying the samples, merged observations, events,
+  and sample times added since the previous job, so the first job after the
+  section opens catches up on every sample time taken while it was closed
+  (since 2026-11-03; until then every sample was sent and computed, open or
+  closed). The worker returns the metrics at each sample time
+  (`liveMetricsAt`); the reply appends them to `metricsSeries`, sets
+  `lastLiveMetrics`, and calls `renderMotionStats`.
   `createTraceMetricComputer` in the worker recomputes psych/hev only when
   the click-event count changes; elapsed-only updates reuse all input
   computations and derive `traceSilenceRatio` from the new duration.
@@ -92,10 +100,14 @@ Spec: [docs/product/motion-stats.md](../product/motion-stats.md). Index: [AGENTS
   unload with an unsaved record. Final:
   the finished-game worker computes
   `computeAllTraceMetrics` with wall time endedAt - trace.startedAt (the
-  stored trace's definition); `reportResult` appends that final sample to
-  the finished game's series and sets `finalMotion` {metrics, series,
-  spatial} before rendering the result. `newGame` nulls `finalMotion` with
-  `renderedResult`.
+  stored trace's definition); `reportResult` sets `finalMotion` {gameId,
+  metrics, spatial, sampleTimes, series: null} before rendering the result.
+  The series waits for the open section: `renderMotionStats` then calls
+  `requestFinalMotionSeries`, whose `motion-series` job computes the values
+  at the game's sample times from the game the worker holds
+  (`metricSeriesAt`), and appends the whole-trace values as the last point.
+  A restored game's `finalMotion` works the same way. `newGame` nulls
+  `finalMotion` with `renderedResult`.
   Verification (all checked in under tests/, all extract the computation
   span by its markers):
   - `tests/metrics-biometrics-parity.js` — vs the checked-in Python

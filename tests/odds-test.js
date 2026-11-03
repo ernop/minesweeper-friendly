@@ -56,7 +56,8 @@ console.log('1-of-2 pocket');
   const a = board.at(1, 0);
   const b = board.at(1, 1);
   const odds = Odds.analyzeView(board.view);
-  check('measured', odds.measured);
+  check('two layouts, each square mined in one', odds.total === 2n
+    && odds.mineLayouts[a] === 1n && odds.mineLayouts[b] === 1n);
   check('p=1/2', close(odds.pMine[a], 0.5) && close(odds.pMine[b], 0.5));
   const guess = Odds.scoreGuess(board.view, a);
   check('life lost 0.5', close(guess.lifeLost, 0.5));
@@ -155,11 +156,10 @@ console.log('a proven safe makes any guess needless');
   check('not perfect', guess.perfectPlay === false);
 }
 
-console.log('no one-ply life values when the model did not run');
+console.log('one-move life however many squares are covered');
 {
-  // Ninety-nine covered squares and no proven-safe one: too many for the
-  // one-ply model, so the chosen and best values would both be bare
-  // survival odds and read as a tie nobody measured.
+  // Ninety-nine covered squares and no proven-safe one. The model before
+  // 2026-11-02 stopped at 40 undecided squares and stored no values.
   const board = makeBoard([
     '.#########',
     '#*########',
@@ -174,12 +174,12 @@ console.log('no one-ply life values when the model did not run');
   ]);
   const odds = Odds.analyzeView(board.view);
   check('no proven-safe square', !odds.provenSafeOpen);
-  check('over the one-ply limit', odds.unproven.length > 40);
+  check('more than 40 undecided squares', odds.unproven.length > 40);
   const guess = Odds.scoreGuess(board.view, board.at(9, 9));
-  check('the guess is still scored', guess !== null && guess.measured);
-  check('life values are absent',
-    guess.expectedLife === undefined && guess.bestExpectedLife === undefined
-      && guess.bestExpectedCells === undefined);
+  check('the guess has its one-move life and the best',
+    typeof guess.expectedLife === 'number' && guess.expectedLife > 0
+      && guess.expectedLife <= 1 - guess.p && guess.bestExpectedLife >= guess.expectedLife
+      && guess.bestExpectedCells.length > 0);
 }
 
 console.log('enumeration-safe is not a guess');
@@ -295,21 +295,20 @@ console.log('brute-force parity: engine odds match exhaustive enumeration');
     const truth = bruteForce(view);
     if (truth.total === 0) continue;
     const odds = Odds.analyzeView(view);
-    if (!odds.measured) continue;
     cases++;
+    if (odds.total !== BigInt(truth.total)) mismatches++;
     for (let i = 0; i < view.width * view.height; i++) {
       if (view.revealed[i]) continue;
-      if (Math.abs(odds.pMine[i] - truth.p[i]) > 1e-9) mismatches++;
+      if (odds.mineLayouts[i] !== BigInt(Math.round(truth.p[i] * truth.total))) mismatches++;
+      if (Math.abs(odds.pMine[i] - truth.p[i]) > 1e-12) mismatches++;
     }
   }
   check('at least 150 random positions compared (' + cases + ')', cases >= 150);
-  check('every covered-cell probability matches ground truth', mismatches === 0);
+  check('every layout count and covered-cell probability matches ground truth', mismatches === 0);
 
-  // One-ply expected life for the squares the model gives a number
-  // lookahead: covered squares whose covered neighbors are proven or lie
-  // in their own group. Ground truth groups the consistent layouts where
-  // the square is safe by the number it would show; each group is exactly
-  // the next position's layouts.
+  // One-move life for every covered square. Ground truth groups the
+  // consistent layouts where the square is safe by the number it would
+  // show; each group is exactly the next position's layouts.
   function consistentLayouts(view) {
     const n = view.width * view.height;
     const covered = [];
@@ -359,7 +358,9 @@ console.log('brute-force parity: engine odds match exhaustive enumeration');
     return undecided ? lowest : 0;
   }
 
-  function oneMoveLife(view, layouts, cell) {
+  // The one-move life of opening `cell`, times the layouts: per number it
+  // shows, the layouts showing it minus those mining the safest other square.
+  function oneMoveLifeLayouts(view, layouts, cell) {
     const byNumber = new Map();
     for (const layout of layouts) {
       if (layout[cell]) continue;
@@ -370,41 +371,57 @@ console.log('brute-force parity: engine odds match exhaustive enumeration');
     }
     let life = 0;
     for (const group of byNumber.values()) {
-      life += (group.length / layouts.length) * (1 - lowestRisk(view, group, cell));
+      life += group.length - Math.round(lowestRisk(view, group, cell) * group.length);
     }
-    return life;
-  }
-
-  function hasNumberLookahead(view, odds, cell) {
-    const structure = odds.structure;
-    const componentIndex = structure.componentOfCell.get(cell);
-    return componentIndex !== undefined
-      && Justice.neighbors(cell, view.width, view.height).every((nb) => view.revealed[nb]
-        || structure.facts.has(nb) || structure.componentOfCell.get(nb) === componentIndex);
+    return BigInt(life);
   }
 
   const lifeRng = lcg(20261022);
-  let lifeSquares = 0;
+  const kinds = { 'no number touches it': 0, 'a neighbor outside its group': 0, 'every neighbor in its group': 0, 'proven safe': 0 };
   let lifeMismatches = 0;
-  for (let t = 0; t < 200; t++) {
+  let bestChecked = 0;
+  let bestMismatches = 0;
+  for (let t = 0; t < 300; t++) {
     const w = 4 + Math.floor(lifeRng() * 2);
-    const m = 3 + Math.floor(lifeRng() * 3);
-    const view = randomView(lifeRng, w, 4, m, 1 + Math.floor(lifeRng() * 2));
-    const odds = Odds.analyzeView(view);
-    if (!odds.measured) continue;
+    const h = 4 + Math.floor(lifeRng() * 2);
+    const m = 3 + Math.floor(lifeRng() * 4);
+    const view = randomView(lifeRng, w, h, m, 1 + Math.floor(lifeRng() * 3));
     const layouts = consistentLayouts(view);
-    for (const cell of odds.unproven) {
-      if (!hasNumberLookahead(view, odds, cell)) continue;
-      lifeSquares++;
-      if (Math.abs(Odds.expectedLife(view, odds, cell) - oneMoveLife(view, layouts, cell)) > 1e-9) {
-        lifeMismatches++;
-      }
+    if (layouts.length === 0) continue;
+    const odds = Odds.analyzeView(view);
+    const { structure } = odds;
+    const cache = Odds.lifeCache();
+    const truths = new Map();
+    for (let cell = 0; cell < w * h; cell++) {
+      if (view.revealed[cell] || odds.mineLayouts[cell] === odds.total) continue;
+      const truth = oneMoveLifeLayouts(view, layouts, cell);
+      truths.set(cell, truth);
+      const group = structure.componentOfCell.get(cell);
+      const covered = Justice.neighbors(cell, w, h).filter((nb) => !view.revealed[nb] && !structure.facts.has(nb));
+      kinds[structure.facts.get(cell) === 2 ? 'proven safe' : group === undefined ? 'no number touches it'
+        : covered.every((nb) => structure.componentOfCell.get(nb) === group)
+          ? 'every neighbor in its group' : 'a neighbor outside its group']++;
+      if (Odds.lifeLayouts(view, odds, cell, cache) !== truth) lifeMismatches++;
+    }
+    // The best value is the highest over every covered square.
+    for (const clicked of odds.unproven) {
+      const guess = Odds.scoreGuess(view, clicked);
+      let best = -1n;
+      for (const value of truths.values()) if (value > best) best = value;
+      const bestCells = [...truths.keys()].filter((cell) => truths.get(cell) === best);
+      bestChecked++;
+      if (!close(guess.bestExpectedLife, Number(best) / layouts.length, 1e-12)
+          || guess.bestExpectedCells.join() !== bestCells.join()
+          || guess.perfectPlay !== (truths.get(clicked) === best)
+          || !close(guess.expectedLife, Number(truths.get(clicked)) / layouts.length, 1e-12)) bestMismatches++;
     }
   }
-  check('at least 150 squares with a number lookahead compared (' + lifeSquares + ')',
-    lifeSquares >= 150);
-  check('every one-ply expected life matches ground truth (' + lifeMismatches + ' differ)',
-    lifeMismatches === 0);
+  for (const [kind, squares] of Object.entries(kinds)) {
+    check('one-move life compared on at least 100 squares where ' + kind + ' (' + squares + ')', squares >= 100);
+  }
+  check('every one-move life matches ground truth exactly (' + lifeMismatches + ' differ)', lifeMismatches === 0);
+  check('the best value, its squares, and perfect play match ground truth on '
+    + bestChecked + ' guesses (' + bestMismatches + ' differ)', bestChecked >= 300 && bestMismatches === 0);
 }
 
 console.log('a number only a ruled-out layout would show is never scored');
@@ -412,7 +429,7 @@ console.log('a number only a ruled-out layout would show is never scored');
   // 5 mines remain for the 13 covered squares at the right: 12 touch
   // numbers, whose layouts hold 4, 5, or 6 mines, and 1 touches none. Only
   // a 6-mine layout would make the square at column 12, row 7 show 5. No
-  // square is proven safe, so every guess there runs the one-ply model.
+  // square is proven safe, so every guess there runs the one-move model.
   const board = makeBoard([
     '.*...*..........',
     '................',
@@ -432,11 +449,11 @@ console.log('a number only a ruled-out layout would show is never scored');
     '...*...*.*......',
   ]);
   const odds = Odds.analyzeView(board.view);
-  check('no square is proven safe', odds.measured && !odds.provenSafeOpen);
+  check('no square is proven safe', !odds.provenSafeOpen);
   check('13 squares are undecided', odds.unproven.length === 13);
   const scored = odds.unproven.map((cell) => Odds.scoreGuess(board.view, cell));
-  check('every guess there is scored with one-ply life values',
-    scored.every((guess) => guess.measured && typeof guess.expectedLife === 'number'));
+  check('every guess there is scored with one-move life values',
+    scored.every((guess) => typeof guess.expectedLife === 'number' && guess.expectedLife <= 1 - guess.p));
 }
 
 console.log('win chances: two separate 50/50s');
@@ -448,8 +465,22 @@ console.log('win chances: two separate 50/50s');
     '.#.#.',
   ]);
   const chances = Odds.winChances(board.view, Odds.analyzeView(board.view), board.at(1, 1));
-  check('every layout is listed', chances.measured && chances.layouts === 4);
-  check('perfect play wins 1 of 4', chances.bestWins === 1 && chances.chosenWins === 1);
+  check('every layout is counted', chances.measured && chances.layouts === 4n);
+  check('perfect play wins 1 of 4', chances.bestWins === 1n && chances.chosenWins === 1n);
+}
+
+console.log('win chances: fifteen separate 50/50s');
+{
+  // Two open columns keep every number to one pocket. Listing all 32,768
+  // layouts of the board would pass the work limit; each pocket alone has
+  // two.
+  const row = (pocket) => Array.from({ length: 46 }, (_, x) => (x % 3 === 1 ? pocket : '.')).join('');
+  const board = makeBoard([row('*'), row('#')]);
+  const odds = Odds.analyzeView(board.view);
+  check('the odds count every layout', odds.total === 32768n);
+  const chances = Odds.winChances(board.view, odds, board.at(4, 1));
+  check('every layout is counted', chances.measured && chances.layouts === 32768n);
+  check('perfect play wins 1', chances.bestWins === 1n && chances.chosenWins === 1n);
 }
 
 console.log('win chances: an early Expert position is past the work limit');
@@ -460,7 +491,7 @@ console.log('win chances: an early Expert position is past the work limit');
   rows[0] = '.' + rows[0].slice(1);
   const board = makeBoard(rows);
   const odds = Odds.analyzeView(board.view);
-  check('the odds are measured', odds.measured === true);
+  check('the odds count every layout', odds.total === Justice.choose(476, 99));
   check('the chances are not computed', Odds.winChances(board.view, odds, board.at(5, 5)).measured === false);
 }
 
@@ -532,47 +563,84 @@ console.log('win chances: parity with a brute-force game search');
     const opened = new Set([...Array(size).keys()].filter((square) => view.revealed[square]));
     return { layouts: layouts.length, bestWins: wins(all, opened), chosenWins: open(all, opened, cell) };
   };
-  let compared = 0;
-  let agreed = 0;
-  let generated = 0;
-  while (compared < 60) {
-    if (++generated > 600) throw new Error('parity: too few positions within the work limit');
-    const width = 3 + Math.floor(random() * 3);
-    const height = 3 + Math.floor(random() * 2);
-    const size = width * height;
-    const mines = 1 + Math.floor(random() * Math.min(5, size - 4));
-    const mine = new Array(size).fill(false);
-    for (let placed = 0; placed < mines;) {
-      const square = Math.floor(random() * size);
-      if (!mine[square]) {
-        mine[square] = true;
-        placed++;
+  // Separate groups of covered squares, touching at no corner.
+  const coveredGroups = (view) => {
+    const seen = new Set();
+    let groups = 0;
+    for (let square = 0; square < view.width * view.height; square++) {
+      if (view.revealed[square] || seen.has(square)) continue;
+      groups++;
+      const stack = [square];
+      while (stack.length > 0) {
+        const at = stack.pop();
+        if (seen.has(at)) continue;
+        seen.add(at);
+        for (const n of Justice.neighbors(at, view.width, view.height)) if (!view.revealed[n]) stack.push(n);
       }
     }
-    const safe = [...Array(size).keys()].filter((square) => !mine[square]);
-    const revealed = new Array(size).fill(false);
-    for (let r = Math.floor(random() * safe.length); r > 0; r--) revealed[safe[Math.floor(random() * safe.length)]] = true;
-    const covered = [...Array(size).keys()].filter((square) => !revealed[square]);
-    // A guess follows the first click: some square is open.
-    if (covered.length > 12 || covered.length === size) continue;
-    const adjacent = mine.map((isMine, square) => (isMine ? 0
-      : Justice.neighbors(square, width, height).filter((n) => mine[n]).length));
-    const view = { width, height, mines, revealed, adjacent: adjacent.map((count, square) => (revealed[square] ? count : 0)) };
-    const cell = covered[Math.floor(random() * covered.length)];
-    const fast = Odds.winChances(view, Odds.analyzeView(view), cell);
-    if (!fast.measured) continue;
-    const slow = bruteForce(view, cell);
-    compared++;
-    if (fast.layouts === slow.layouts && fast.bestWins === slow.bestWins && fast.chosenWins === slow.chosenWins) agreed++;
-  }
-  check('60 small positions within the work limit agree exactly', agreed === 60);
+    return groups;
+  };
+  const compare = (wanted, widths, heights, maxCovered, minGroups) => {
+    let compared = 0;
+    let agreed = 0;
+    let generated = 0;
+    while (compared < wanted) {
+      if (++generated > wanted * 40) throw new Error('parity: too few positions within the work limit');
+      const width = widths[0] + Math.floor(random() * (widths[1] - widths[0] + 1));
+      const height = heights[0] + Math.floor(random() * (heights[1] - heights[0] + 1));
+      const size = width * height;
+      const mines = 1 + Math.floor(random() * Math.min(5, size - 4));
+      const mine = new Array(size).fill(false);
+      for (let placed = 0; placed < mines;) {
+        const square = Math.floor(random() * size);
+        if (!mine[square]) {
+          mine[square] = true;
+          placed++;
+        }
+      }
+      const safe = [...Array(size).keys()].filter((square) => !mine[square]);
+      const revealed = new Array(size).fill(false);
+      for (let r = Math.floor(random() * safe.length); r > 0; r--) revealed[safe[Math.floor(random() * safe.length)]] = true;
+      const covered = [...Array(size).keys()].filter((square) => !revealed[square]);
+      // A guess follows the first click: some square is open.
+      if (covered.length > maxCovered || covered.length === size) continue;
+      const adjacent = mine.map((isMine, square) => (isMine ? 0
+        : Justice.neighbors(square, width, height).filter((n) => mine[n]).length));
+      const view = { width, height, mines, revealed, adjacent: adjacent.map((count, square) => (revealed[square] ? count : 0)) };
+      if (coveredGroups(view) < minGroups) continue;
+      const odds = Odds.analyzeView(view);
+      const undecided = covered.filter((square) => !odds.structure.facts.has(square));
+      if (undecided.length === 0) continue;
+      const cell = undecided[Math.floor(random() * undecided.length)];
+      const fast = Odds.winChances(view, odds, cell);
+      if (!fast.measured) continue;
+      const slow = bruteForce(view, cell);
+      compared++;
+      if (fast.layouts === BigInt(slow.layouts) && fast.bestWins === BigInt(slow.bestWins)
+        && fast.chosenWins === BigInt(slow.chosenWins)) agreed++;
+    }
+    return agreed;
+  };
+  check('60 small positions within the work limit agree exactly', compare(60, [3, 5], [3, 4], 12, 1) === 60);
+  check('40 positions with separate groups of covered squares agree exactly',
+    compare(40, [5, 7], [3, 5], 12, 2) === 40);
 }
 
-console.log('binom');
+console.log('odds past a double and past the old limits');
 {
-  check('C(5,2)=10', Odds.binom(5, 2) === 10);
-  check('C(n,0)=1', Odds.binom(7, 0) === 1);
-  check('C(4,5)=0', Odds.binom(4, 5) === 0);
+  const huge = Justice.choose(4000, 2000);
+  check('a ratio of counts past a double\u2019s range keeps its precision',
+    close(Odds.ratio(huge, huge * 3n), 1 / 3, 1e-15) && Odds.ratio(0n, huge) === 0 && Odds.ratio(huge, huge) === 1);
+  // A row of numbers between two covered rows, as in justice-test: 160
+  // squares in one group, far past the 22 squares the listing stopped at.
+  const width = 119;
+  const rows = [0, 1, 2].map((y) => Array.from({ length: width }, (_, x) =>
+    (y === 1 ? '.' : (y === 0 ? x % 3 === 0 : x % 3 === 1) ? '*' : '#')).join(''));
+  const board = makeBoard(rows);
+  const odds = Odds.analyzeView(board.view);
+  check('a 160-square group: 2^80 + 2 layouts, each undecided square mined in half',
+    odds.groups.length === 1 && odds.groups[0].cells.length === 160 && odds.total === 2n ** 80n + 2n
+      && odds.unproven.length === 160 && odds.unproven.every((cell) => odds.mineLayouts[cell] * 2n === odds.total));
 }
 
 if (failures > 0) {

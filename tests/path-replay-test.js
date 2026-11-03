@@ -302,7 +302,6 @@ check('only the cell\'s own glyph dims on a proven mine, not the mark-mine hint'
   };
   const { chords, flagChords } = replayMoveOptions(view, new Set([3]), facts);
   const solver = {
-    measured: true,
     pMine: [0, 0, 0, 1, 0, 1],
     facts,
     provenMines: [3, 5],
@@ -329,8 +328,7 @@ check('only the cell\'s own glyph dims on a proven mine, not the mark-mine hint'
     marks(2) === 'chord-after-marks-single' && marks(1) === 'chord-after-marks-single');
   check('proven cells already ringed show no probability badge',
     model.cells.every((cell) => cell.badge === null));
-  check('measured choice count and exact solver state are reported',
-    model.choiceCount === 1 && model.solverState === 'exact');
+  check('the measured choice count is reported', model.choiceCount === 1);
 
   const probsOnly = replayFrameModel(evaluation, solver, { moves: false, mines: false, probs: true });
   check('with rings off, proven cells read 0 and 100',
@@ -340,16 +338,9 @@ check('only the cell\'s own glyph dims on a proven mine, not the mark-mine hint'
     [...probsOnly.cells[4].marks].sort().join(',') === 'choice,selected');
 
   const none = replayFrameModel(evaluation, null, all);
-  check('no solver read means no solver marks and state off',
-    none.solverState === 'off'
-      && none.cells.every((cell) => ![...cell.marks].some((key) =>
-        ['safe', 'mine', 'chord-now', 'mark-mine'].includes(key))));
-
-  const bounded = replayFrameModel(evaluation,
-    { ...solver, measured: false, pMine: null }, all);
-  check('an over-budget position still marks proofs but no probabilities',
-    bounded.solverState === 'bounded' && bounded.cells[5].marks.has('mine')
-      && bounded.cells.every((cell) => cell.badge === null));
+  check('no solver read means no solver marks',
+    none.cells.every((cell) => ![...cell.marks].some((key) =>
+      ['safe', 'mine', 'chord-now', 'mark-mine'].includes(key))));
 
   const status = replayStatusParts(7, 19, evaluation);
   check('status parts carry the values separately from the words',
@@ -362,7 +353,7 @@ check('only the cell\'s own glyph dims on a proven mine, not the mark-mine hint'
 
 {
   const rows = replayLegendRows({ moves: true, mines: true, probs: true,
-    pointless: false, purposeful: true, movement: false }, 'exact');
+    pointless: false, purposeful: true, movement: false });
   check('legend rows follow the active overlays',
     rows.map((row) => row.title).join('|')
       === 'decision-time board|available moves|forced mines|mine %|purposeful clicks');
@@ -371,10 +362,8 @@ check('only the cell\'s own glyph dims on a proven mine, not the mark-mine hint'
   check('the board row splits ring, wash, and crosshair into separate items',
     rows[0].keys.includes('trigger') && rows[0].keys.includes('selected')
       && rows[0].keys.includes('crosshair'));
-  const boundedRows = replayLegendRows({ moves: false, mines: true, probs: true }, 'bounded');
-  check('the enumeration caveat rides on the first solver row shown',
-    boundedRows[1].note !== undefined && boundedRows[2].keys.length === 0
-      && boundedRows[2].note === 'position too complex for exact probabilities');
+  check('no legend row carries a position-too-complex caveat',
+    rows.every((row) => row.note === undefined));
 }
 
 check('solver reads are never silently replaced by a fallback',

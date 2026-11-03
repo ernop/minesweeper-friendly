@@ -18,6 +18,7 @@ const context = vm.createContext({
   performance: { now: () => now },
   Date: { now: () => now },
   document: { hidden: false },
+  settings: { panels: { motionStats: true } },
   lastLiveMetrics: null,
   trace: { startedAt: 0, t: [], x: [], y: [], mergedSample: [], mergedX: [], mergedY: [], events: [] },
   tracing: () => activeTrace,
@@ -47,9 +48,10 @@ const advance = (ms) => {
 };
 async function reply() {
   const job = jobs.shift();
-  job.resolve({ wallDurationMs: job.payload.wallMs, bio: { movementMs: 100 } });
+  job.resolve(job.payload.sampleTimes.map((at) => ({ wallDurationMs: at, bio: { movementMs: 100 } })));
   await Promise.resolve();
 }
+const sampleTimes = () => run('metricSampleTimes.length');
 (async () => {
 assert.equal(frames.size + timeouts.size, 0, 'loading installs no metrics work');
 run('for (let i = 0; i < 100; i++) scheduleMetricsUpdate({ trace: true })');
@@ -57,16 +59,18 @@ assert.equal(frames.size, 1, 'an input burst queues one frame');
 flushFrame();
 assert.equal(jobs.length, 1);
 assert.equal(samples.length, 0, 'metrics wait for the worker; no synchronous computation');
-assert.equal(jobs[0].lane, 'reports', 'the live feed goes to the worker that proves its positions');
+assert.equal(jobs[0].lane, 'reports', 'the live feed goes to the worker that judges the game at its end');
+assert.deepEqual([...jobs[0].payload.sampleTimes], [1000], 'the job computes at the sample time taken');
 run('trace.t.push(1); trace.x.push(2); trace.y.push(3); scheduleMetricsUpdate({trace:true})');
 advance(250);
-assert.equal(jobs.length, 1, 'one sample in flight even when more input arrives');
+assert.equal(jobs.length, 1, 'one job in flight even when more input arrives');
+assert.equal(sampleTimes(), 2, 'the sample time is taken while the job computes');
 await reply();
 assert.equal(samples.length, 1);
-assert.equal(renders, 1, 'each sample renders the motion stats once');
-flushFrame();
-assert.equal(jobs.length, 1, 'dirty input follows the completed sample');
+assert.equal(renders, 1, 'each reply renders the motion stats once');
+assert.equal(jobs.length, 1, 'the sample taken meanwhile follows the reply');
 assert.equal(jobs[0].payload.t.length, 1);
+assert.deepEqual([...jobs[0].payload.sampleTimes], [1250]);
 await reply();
 advance(5000);
 assert.equal(jobs.length, 0, 'idle time produces no analysis work');
@@ -83,6 +87,22 @@ advance(5000);
 run('scheduleMetricsUpdate({ elapsed: true })');
 flushFrame();
 assert.equal(jobs[0].payload.t.length, 0, 'elapsed samples send no old input');
+await reply();
+// A closed section takes the sample times the saved trace keeps and runs
+// nothing; opening it computes every one of them in one job.
+context.settings.panels.motionStats = false;
+const closedFrom = sampleTimes();
+for (let i = 0; i < 3; i++) {
+  run('trace.t.push(' + (100 + i) + '); trace.x.push(1); trace.y.push(1); scheduleMetricsUpdate({ trace: true })');
+  advance(250);
+}
+assert.equal(sampleTimes(), closedFrom + 3, 'a closed section still takes sample times');
+assert.equal(jobs.length, 0, 'a closed section posts no analysis work');
+context.settings.panels.motionStats = true;
+run('renderLiveTraceMetrics()');
+assert.equal(jobs.length, 1, 'opening the section posts one job');
+assert.equal(jobs[0].payload.sampleTimes.length, 3, 'that job computes every sample time taken while closed');
+assert.equal(jobs[0].payload.t.length, 3, 'with the samples recorded meanwhile');
 await reply();
 run('scheduleMetricsUpdate({ trace: true }); cancelMetricsUpdate()');
 assert.equal(frames.size + timeouts.size, 0, 'cancellation removes scheduled work');
@@ -103,6 +123,5 @@ advance(250);
 assert.equal(jobs.length, 0, 'a finished trace is not sampled');
 advance(5000);
 assert.equal(frames.size + timeouts.size, 0, 'finished games leave no refresh loop');
-console.log('metrics-updates: worker backpressure, delta transport, stale replies, visibility, and idle checks passed');
+console.log('metrics-updates: worker backpressure, delta transport, closed-section sampling, catch-up, stale replies, visibility, and idle checks passed');
 })().catch((error) => { console.error(error); process.exitCode = 1; });
-

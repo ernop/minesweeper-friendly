@@ -13,7 +13,11 @@ const startIdx = source.indexOf('//-------GAME-END EVALUATION: VERDICT');
 const endIdx = source.indexOf('//-------GAME-END EVALUATION: CAPTURE');
 if (startIdx === -1 || endIdx === -1) throw new Error('section markers not found');
 globalThis.Justice = require(path.join(repo, 'justice.js'));
+globalThis.Odds = require(path.join(repo, 'odds.js'));
 vm.runInThisContext(source.slice(startIdx, endIdx));
+for (const file of ['game-data.js', 'during-game.js']) {
+  vm.runInThisContext(fs.readFileSync(path.join(repo, file), 'utf8'));
+}
 
 let checks = 0;
 function assertEq(name, actual, want) {
@@ -74,14 +78,14 @@ assertEq('report display scope never gates unused-mark recording',
   unusedMarkSource.includes('reportCategoryEnabled'), false);
 assertEq('empty successful games do not render a report placeholder',
   source.includes('No recorded reportable actions'), false);
-assertEq('bare reveals are evaluated without requiring flags or chords',
-  source.includes('const actionEvaluation = evaluateRevealAction('), true);
+assertEq('bare reveals are captured without requiring flags or chords',
+  source.includes('const actionEvaluation = captureRevealAction('), true);
 assertEq('no-op report entries omit duplicate board snapshots',
   source.includes("undefined, { position: false });"), true);
 assertEq('trace replay restores a snapshot only on its no-op copy',
   source.includes('{ ...evaluation, position: visiblePositionSnapshot() }'), true);
 assertEq('reveal and flag-placement choices exclude unavailable cells',
-  source.includes("const placingFlag = kind.endsWith('-to-flag');"), true);
+  source.includes("const untouchedOnly = kind.endsWith('-reveal') || kind.endsWith('-to-flag');"), true);
 const lossSource = source.slice(
   source.indexOf('function lose('), source.indexOf('\nfunction finish('));
 assertEq('loss board is updated before post-game work is queued',
@@ -220,7 +224,9 @@ const lowerModeledLife = {
   alternatives: [{ kind: 'higher-modeled-life-reveal', cells: '6' }],
 };
 assertContains('modeled-life dimension names the model',
-  actionEvaluationText(lowerModeledLife), 'one-ply odds model');
+  actionEvaluationText(lowerModeledLife), 'one-move survival model');
+assertContains('modeled-life text shows the gap the verdict found',
+  actionEvaluationText(lowerModeledLife), '(gap 0.200)');
 assertContains('modeled-life values retained',
   actionEvaluationText(lowerModeledLife), '0.400 selected; 0.600 best');
 assertEq('modeled-only action has optional category',
@@ -264,9 +270,30 @@ assertEq('compact risk report has one nonduplicated risk line',
 assertContains('compact risk line highlights the delta',
   compactRiskLines.find((line) => line.label === 'Immediate risk').value,
   '+17.8pp');
-assertEq('compact one-ply line states a tie once',
-  compactRiskLines.find((line) => line.label === 'One-ply life (model)').value,
+assertEq('compact one-move line states a tie once',
+  compactRiskLines.find((line) => line.label === 'One-move life (model)').value,
   'tied at 0.667');
+// The risk line's tie is the saved active-rules verdict where one is saved:
+// a gap below any decimal tolerance still shows, and an older guess with no
+// saved verdict reads its decimals.
+const nearTieRisk = (evidence) => actionEvaluationLines({ ...higherRisk, result: 'continued',
+  evidence: { chosenRisk: 0.25 + 1e-13, bestRisk: 0.25, actualRisk: 0.25 + 1e-13, bestActualRisk: 0.25,
+    ...evidence } }).find((line) => line.label === 'Immediate risk').value;
+assertEq('a risk gap the exact verdict found shows however small',
+  nearTieRisk({ bestActualRiskTaken: false }), '25.0% selected · 25.0% minimum · +0.0pp');
+assertEq('a risk tie by the exact verdict reads as tied', nearTieRisk({ bestActualRiskTaken: true }),
+  '25.0% selected · 25.0% minimum · tied');
+assertEq('an older guess reads its risk decimals', nearTieRisk({}), '25.0% selected · 25.0% minimum · tied');
+// A tie is the saved verdict, not a closeness of the stored decimals: a
+// guess the exact counts judged below the best shows its gap even where the
+// decimals round to the same value.
+assertEq('a gap the verdict found shows however small',
+  actionEvaluationLines({ ...lowerModeledLife, evidence: { expectedLife: 0.6, bestExpectedLife: 0.6 + 1e-12 } })
+    .find((line) => line.label === 'One-move life (model)').value,
+  '0.600 selected · 0.600 best · gap 0.000');
+assertEq('a gap the verdict found files as life maximization however small',
+  actionEvaluationCategory({ ...lowerModeledLife, evidence: { expectedLife: 0.6, bestExpectedLife: 0.6 + 1e-12 } }),
+  'lifeMaximization');
 assertEq('positioned report leaves alternative count to its legend',
   compactRiskLines.some((line) => line.label === 'Alternatives'), false);
 
@@ -366,6 +393,12 @@ assertEq('fatal label says minimum-risk choice still lost',
   actionEvaluationLabel(bestRiskDeath),
   'died despite choosing a minimum-risk forced guess');
 assertContains('best-risk death is explained', actionEvaluationText(bestRiskDeath), 'lowest measured');
+
+const justiceSafeDeath = { ...bestRiskDeath,
+  evidence: { ...bestRiskDeath.evidence, actualRisk: 0.25, bestActualRisk: 0, bestActualRiskTaken: false } };
+assertEq('a death past an entry A Just Universe made safe is needless',
+  evaluationEndingKind(justiceSafeDeath), 'needless');
+assertContains('and says so', actionEvaluationText(justiceSafeDeath), 'A Just Universe guaranteed a safe entry elsewhere');
 
 const uncertainChordDeath = {
   version: ACTION_EVALUATION_VERSION,
@@ -782,7 +815,8 @@ assertEq('the captured wrong-flag tag is the other reason',
   const collect = (nodes) => nodes.forEach((node) => (node.children ? collect(node.children) : leaves.push(node.kind)));
   collect(tree);
   const kinds = [...Object.keys(LOSS_TYPE_LABELS).filter((kind) => kind !== 'guess-early'),
-    'guess-early-min', 'guess-early-higher', 'guess-early-unmeasured', 'survived-guess-safe', 'survived-guess-higher',
+    'guess-early-min', 'guess-early-higher', 'guess-early-unmeasured', 'guess-min-best', 'guess-min-unrated',
+    'survived-guess-safe', 'survived-guess-higher',
     ...Object.keys(DEATH_KIND_LABELS), 'other', ...Object.keys(WIN_TYPE_LABELS)];
   assertEq('every result kind has a session results row', kinds.filter((kind) => !leaves.includes(kind)).join(), '');
   assertEq('no session results row repeats a kind', new Set(leaves).size, leaves.length);
@@ -801,7 +835,13 @@ assertEq('the captured wrong-flag tag is the other reason',
   const win = (actionEvaluations, extra = {}) => ({
     outcome: 'win', playMode: 'standard', actionEvaluations, ...extra });
   assertEq('a ledger with no guess is a win without guessing', winTypeOf(win([], { guesses: 0 })), 'win-no-guess');
-  assertEq('untagged counted guesses were all lowest-risk', winTypeOf(win([], { guesses: 3 })), 'win-guess-min');
+  assertEq('untagged guesses of a ledger without exact one-move lives were lowest-risk, their one-move choices unrated',
+    winTypeOf(win([], { guesses: 3, guessPerfect: 3, oddsVersion: 'guess-ledger-v2' })), 'win-guess-min-unrated');
+  const exact = [...EXACT_ONE_MOVE_LEDGERS][0];
+  assertEq('every guess the best one-move choice',
+    winTypeOf(win([], { guesses: 3, guessPerfect: 3, oddsVersion: exact })), 'win-guess-min-best');
+  assertEq('not every guess the best one-move choice',
+    winTypeOf(win([], { guesses: 3, guessPerfect: 2, oddsVersion: exact })), 'win-guess-min');
   assertEq('without tags or a ledger the guesses are unmeasured', winTypeOf(win([])), 'win-unmeasured');
   assertEq('a higher-risk guess mid-game', winTypeOf(win([survived(['chose-higher-risk'], 0.5)], { guesses: 2 })),
     'win-guess-higher');
@@ -821,7 +861,8 @@ assertEq('the captured wrong-flag tag is the other reason',
   assertEq('a legacy win with guesses stays unmeasured', winTypeOf(win([coverage], { guesses: 2 })), 'win-unmeasured');
   assertEq('a Proof-or-die win never guessed', winTypeOf(win([], { playMode: 'proof-or-die' })), 'win-no-guess');
   assertEq('win types list from cleanest to worst, then unmeasured', Object.keys(WIN_TYPE_LABELS).join(),
-    'win-no-guess,win-guess-min,win-guess-early,win-guess-higher,win-guess-safe,win-unmeasured');
+    'win-no-guess,win-guess-min-best,win-guess-min,win-guess-min-unrated,win-guess-early,win-guess-higher,'
+      + 'win-guess-safe,win-unmeasured');
 }
 
 // Session result kinds: a game files under its worst offense. An opening
@@ -849,7 +890,13 @@ assertEq('the captured wrong-flag tag is the other reason',
     sessionResultKind(loss(earlyMin)), 'guess-early-min');
   assertEq('an opening guess death without measured risk',
     sessionResultKind(loss(earlyUnmeasured)), 'guess-early-unmeasured');
-  assertEq('a lowest-risk death after the opening keeps its loss type', sessionResultKind(loss(midMin)), 'guess-min');
+  assertEq('a lowest-risk death after the opening, one-move choices unrated without an exact ledger',
+    sessionResultKind(loss(midMin)), 'guess-min-unrated');
+  const exact = [...EXACT_ONE_MOVE_LEDGERS][0];
+  assertEq('a lowest-risk death with every guess the best one-move choice',
+    sessionResultKind({ ...loss(midMin), guesses: 2, guessPerfect: 2, oddsVersion: exact }), 'guess-min-best');
+  assertEq('a lowest-risk death with a guess not the best one-move choice',
+    sessionResultKind({ ...loss(midMin), guesses: 2, guessPerfect: 1, oddsVersion: exact }), 'guess-min');
   assertEq('a survived guess past a safe square outranks a lowest-risk death',
     sessionResultKind(loss(survived(['guessed-with-safe-move'], 0.4), midMin)), 'survived-guess-safe');
   assertEq('a survived riskier opening guess outranks a lowest-risk death',
@@ -863,10 +910,51 @@ assertEq('the captured wrong-flag tag is the other reason',
   assertEq('a proven mine is the worst offense whatever was survived',
     sessionResultKind(loss(survived(['guessed-with-safe-move'], 0.4), countingMine)), 'mine-counting');
   assertEq('time-loss tags are no offense against the risk ladder',
-    sessionResultKind(loss(survived(['no-op-click'], 0.4), midMin)), 'guess-min');
+    sessionResultKind(loss(survived(['no-op-click'], 0.4), midMin)), 'guess-min-unrated');
   assertEq('a loss without evidence stays unjudged', sessionResultKind(loss()), 'other');
   assertEq('a win is its win type', sessionResultKind({ outcome: 'win', playMode: 'standard', guesses: 2,
     actionEvaluations: [survived(['chose-higher-risk'], 0.05)] }), 'win-guess-early');
+}
+
+// The game-end judge on a Beginner position from play (2026-11-03), 7
+// layouts. Square 16 is the safest, 1 in 7; square 17, 2 in 7, ties it for
+// the best one-move life, 4 in 7. A riskier square that ties the best
+// one-move life is still riskier than necessary: one-move life looks one
+// move ahead, and here perfect play wins 3 of the 7 layouts after 16 but 2
+// after 17 (Odds.winChances), so the safer square was the better move.
+{
+  const cells = '000001...' + '111012...' + '1.101.3..' + '111012.21' + '000012210'
+    + '01111.100' + '12.111100' + '.31100000' + '.20000000';
+  const judged = (square) => {
+    const evaluation = { version: ACTION_EVALUATION_VERSION, action: 'reveal', actionNumber: 9, atMs: 9000,
+      selected: [square], result: 'continued', mistakes: [], alternatives: [], choices: [],
+      evidence: { playMode: 'standard', boardProgress: 0.8, firstReveal: false, startedGame: false },
+      position: { width: 9, height: 9, mines: 10, cells } };
+    const result = completeGameEvaluations({ events: [{ kind: 'decision', evaluation }], justiceEnabled: false,
+      guessLedger: true }, DuringGame.positionProofs());
+    return { evaluation, result };
+  };
+  const riskier = judged(17);
+  assertEq('the riskier square is riskier than necessary', riskier.evaluation.mistakes.join(), 'chose-higher-risk');
+  assertEq('the lower-risk square is its alternative',
+    riskier.evaluation.alternatives.map((alternative) => alternative.kind + ' ' + alternative.cells).join(),
+    'lower-risk-reveal 16');
+  assertEq('its saved verdict is exact', riskier.evaluation.evidence.bestActualRiskTaken, false);
+  assertEq('it tied the best one-move life', riskier.evaluation.evidence.expectedLife,
+    riskier.evaluation.evidence.bestExpectedLife);
+  assertEq('the ledger counts one guess, not at the lowest risk, the best one-move choice',
+    JSON.stringify(riskier.result.ledger),
+    JSON.stringify({ guesses: 1, guessIdealRisk: 0, guessNonideal: 1, guessPerfect: 1, lifeLost: 2 / 7,
+      lifeNeedless: 1 / 7, oddsVersion: Odds.VERSION }));
+  assertEq('the ledger version keeps exact one-move verdicts', EXACT_ONE_MOVE_LEDGERS.has(Odds.VERSION), true);
+  const safest = judged(16);
+  assertEq('the safest square took no avoidable risk', safest.evaluation.mistakes.join(), '');
+  const view = positionView(safest.evaluation.position);
+  const odds = Odds.analyzeView(view);
+  const wins = (square) => Odds.winChances(view, odds, square);
+  assertEq('perfect play wins 3 of 7 after the safest square', String(wins(16).chosenWins) + '/'
+    + String(wins(16).layouts), '3/7');
+  assertEq('and 2 of 7 after the riskier one', String(wins(17).chosenWins), '2');
 }
 
 console.log(`game-end-evaluation: all ${checks} checks passed`);

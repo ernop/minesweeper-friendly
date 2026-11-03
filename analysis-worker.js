@@ -1,15 +1,15 @@
 "use strict";
 
 importScripts('trend-fit.js?v=20260925-worker-analysis',
-  'game/trace-metrics.js?v=20261027-field-names',
-  'game/evaluation.js?v=20261027-field-names',
-  'game-data.js?v=20261027-field-names', 'game/metric-definitions.js?v=20261027-field-names',
+  'game/trace-metrics.js?v=20261103-worker-evaluation',
+  'game/evaluation.js?v=20261103-worker-evaluation',
+  'game-data.js?v=20261027-field-names', 'game/metric-definitions.js?v=20261103-worker-evaluation',
   'board-shape.js?v=20261020-no-left-panel', 'zini.js?v=20261020-no-left-panel', 'board-metrics.js?v=20261020-no-left-panel',
-  'game/rankings.js?v=20261027-field-names',
-  'game/charts.js?v=20261027-field-names', 'game/game-data-chart.js?v=20261027-field-names',
-  'justice.js?v=20261026-justice-corner', 'odds.js?v=20261026-move-hierarchy', 'board-icons.js?v=20261015-flag-controls',
-  'game/replay-model.js?v=20261027-field-names',
-  'during-game.js?v=20261027-field-names');
+  'game/rankings.js?v=20261103-worker-evaluation',
+  'game/charts.js?v=20261103-worker-evaluation', 'game/game-data-chart.js?v=20261103-worker-evaluation',
+  'justice.js?v=20261103-worker-evaluation', 'odds.js?v=20261103-worker-evaluation', 'board-icons.js?v=20261015-flag-controls',
+  'game/replay-model.js?v=20261103-worker-evaluation',
+  'during-game.js?v=20261103-worker-evaluation');
 
 let config;
 
@@ -24,12 +24,17 @@ function holdDuringGameSource(source) {
   duringGameModel = null;
 }
 
-function heldDuringGameModel(data) {
-  if (duringGameSource === null || duringGameSource.id !== data.gameId) {
-    throw new Error('game ' + data.gameId + ' is not the latest finished or restored game');
+function heldDuringGameSource(gameId) {
+  if (duringGameSource === null || duringGameSource.id !== gameId) {
+    throw new Error('game ' + gameId + ' is not the latest finished or restored game');
   }
+  return duringGameSource;
+}
+
+function heldDuringGameModel(data) {
+  const source = heldDuringGameSource(data.gameId);
   if (duringGameModel === null) {
-    duringGameModel = DuringGame.model({ ...duringGameSource, timeMs: data.timeMs, outcome: data.outcome });
+    duringGameModel = DuringGame.model({ ...source, timeMs: data.timeMs, outcome: data.outcome });
   }
   return duringGameModel;
 }
@@ -45,26 +50,56 @@ function standingFlags(events) {
   return [...flagged];
 }
 
-// The game being played, as the live feed sends it: its trace so far, the
-// trace metrics of it, and its positions' proofs. Each position is proved
-// in a task of its own between messages, so the game's end finds nearly all
-// of them proved and the model only reads them.
+// The game being played, as the open motion stats section's feed sends it:
+// its trace so far, and the samples and events the latest value it computed
+// covered with that value. Nothing else runs during play.
 let liveGame = null;
 
 function liveGameOf(traceId) {
   if (liveGame === null || liveGame.id !== traceId) {
     liveGame = { id: traceId, t: [], x: [], y: [], merged: { sample: [], x: [], y: [] }, events: [],
-      computer: createTraceMetricComputer(), metrics: null, proofs: DuringGame.positionProofs(),
-      unproved: [], proving: false };
+      computer: createTraceMetricComputer(), latest: null };
   }
   return liveGame;
 }
 
-function proveLivePositions(game) {
-  if (game !== liveGame) return;
-  game.proofs.of(game.unproved.shift());
-  if (game.unproved.length > 0) setTimeout(proveLivePositions, 0, game);
-  else game.proving = false;
+// The live game's trace metrics at a sample time, from the samples and
+// events up to it. Time alone passing reuses the latest value with the new
+// wall time.
+function liveMetricsAt(game, at, travel) {
+  let samples = game.t.length;
+  while (samples > 0 && game.t[samples - 1] > at) samples--;
+  let events = game.events.length;
+  while (events > 0 && game.events[events - 1].t > at) events--;
+  const latest = game.latest;
+  const metrics = latest !== null && latest.samples === samples && latest.events === events
+    ? { ...latest.metrics, wallDurationMs: at, bio: { ...latest.metrics.bio,
+      wallDurationMs: at, silenceRatio: traceSilenceRatio(latest.metrics.bio.movementMs, at) } }
+    : game.computer(game.t.slice(0, samples), game.x.slice(0, samples), game.y.slice(0, samples),
+      travel.slice(0, samples), game.events.slice(0, events), at);
+  game.latest = { samples, events, metrics };
+  return metrics;
+}
+
+// The held game's trace metrics at each of its sample times: the motion
+// stats series, computed when the open section first shows the game.
+function metricSeriesAt(source, sampleTimes) {
+  const t = Float64Array.from(source.t);
+  const x = Float64Array.from(source.x);
+  const y = Float64Array.from(source.y);
+  const travel = sampleTravelPx(x, y, source.merged);
+  const computer = createTraceMetricComputer();
+  const includedEvents = [], series = createMetricSeries();
+  let samples = 0, eventIndex = 0;
+  for (const at of sampleTimes) {
+    while (samples < t.length && t[samples] <= at) samples++;
+    while (eventIndex < source.events.length && source.events[eventIndex].t <= at) {
+      includedEvents.push(source.events[eventIndex++]);
+    }
+    appendMetricSeries(series, computer(t.subarray(0, samples), x.subarray(0, samples),
+      y.subarray(0, samples), travel.subarray(0, samples), includedEvents, at));
+  }
+  return series;
 }
 
 function analyzeTrace(data) {
@@ -103,13 +138,19 @@ function analyze(kind, data) {
     case 'trends': return fitTrendLines(data.pairs, data.todayPairs);
     case 'scatter': return scatterPlotData(data.points, data.trimY);
     case 'trace': return analyzeTrace(data);
+    // A game at its end, or at the next load when its page closed first
+    // (completePendingGames): its decisions judged, then its measurements and
+    // motion stats, every board proved once for all of them.
     case 'finished-game': {
+      const proofs = DuringGame.positionProofs();
+      const evaluation = completeGameEvaluations({ events: data.trace.events,
+        justiceEnabled: data.justiceEnabled, guessLedger: data.guessLedger }, proofs);
       holdDuringGameSource({ id: data.gameId, width: data.width, height: data.height, mines: data.mines,
         justiceEnabled: data.justiceEnabled, t: data.trace.t, x: data.trace.x, y: data.trace.y,
         merged: data.trace.merged, events: data.trace.events,
-        initialPageState: data.trace.initialPageState, proofs: liveGameOf(data.liveTraceId).proofs });
+        initialPageState: data.trace.initialPageState, proofs });
       const motion = analyzeTrace(data.trace);
-      return { ...motion, measurements: finishedMeasurements(data, motion.metrics, data.gameId) };
+      return { ...motion, evaluation, measurements: finishedMeasurements(data, motion.metrics, data.gameId) };
     }
     case 'live-trace': {
       const game = liveGameOf(data.traceId);
@@ -123,34 +164,17 @@ function analyze(kind, data) {
         for (const value of data.merged[key]) game.merged[key].push(value);
       }
       for (const value of data.events) game.events.push(value);
-      for (const event of pathDecisionEvents(data.events)) game.unproved.push(event.evaluation.position);
-      if (game.unproved.length > 0 && !game.proving) {
-        game.proving = true;
-        setTimeout(proveLivePositions, 0, game);
-      }
-      game.metrics = game.metrics !== null && data.t.length === 0 && data.events.length === 0
-        ? { ...game.metrics, wallDurationMs: data.wallMs, bio: { ...game.metrics.bio,
-          wallDurationMs: data.wallMs, silenceRatio: traceSilenceRatio(game.metrics.bio.movementMs, data.wallMs) } }
-        : game.computer(game.t, game.x, game.y, sampleTravelPx(game.x, game.y, game.merged), game.events, data.wallMs);
-      return game.metrics;
+      const travel = sampleTravelPx(game.x, game.y, game.merged);
+      return data.sampleTimes.map((at) => liveMetricsAt(game, at, travel));
     }
+    case 'motion-series': return metricSeriesAt(heldDuringGameSource(data.gameId), data.sampleTimes);
     case 'restore-trace': {
-      const { sampleT: t, sampleX: x, sampleY: y, merged, events, metricSampleTimes } = data;
+      const { sampleT: t, sampleX: x, sampleY: y, merged, events } = data;
       holdDuringGameSource({ id: data.endedAt, width: data.measurementPlan.width, height: data.measurementPlan.height,
         mines: data.measurementPlan.mines, justiceEnabled: data.justiceEnabled, t, x, y, merged, events,
         initialPageState: data.initialPageState, proofs: DuringGame.positionProofs() });
-      const computer = createTraceMetricComputer();
-      const travel = sampleTravelPx(x, y, merged);
-      const includedEvents = [], series = createMetricSeries();
-      let samples = 0, eventIndex = 0;
-      for (const at of metricSampleTimes) {
-        while (samples < t.length && t[samples] <= at) samples++;
-        while (eventIndex < events.length && events[eventIndex].t <= at) includedEvents.push(events[eventIndex++]);
-        appendMetricSeries(series, computer(t.subarray(0, samples), x.subarray(0, samples),
-          y.subarray(0, samples), travel.subarray(0, samples), includedEvents, at));
-      }
-      const metrics = computer(t, x, y, travel, events, data.endedAt - data.startedAt);
-      return { series, metrics, spatial: computeSpatialBias(events),
+      const metrics = computeAllTraceMetrics(t, x, y, sampleTravelPx(x, y, merged), events, data.endedAt - data.startedAt);
+      return { metrics, spatial: computeSpatialBias(events),
         measurements: finishedMeasurements(data.measurementPlan, metrics, data.endedAt) };
     }
     case 'during-game': return DuringGame.view(heldDuringGameModel(data), data.rows, data.average);

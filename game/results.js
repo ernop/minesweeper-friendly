@@ -32,14 +32,12 @@ function reportResult(outcome, endedAt = Date.now()) {
     boardChangingClicks: boardChangingClicks,
     chordClicks: chordClicks,
     noOpClicks: noOpClicks,
-    misclicks: misclicks,
     flagsPlaced: flagsPlaced,
     flagsRemoved: flagsRemoved,
     ...(outcome === 'win' ? { unusedCorrectFlags: unusedCorrectFlags } : {}),
     mousePathPx: DuringGame.cursorTravelPx({ timeMs, t: trace.t, x: trace.x, y: trace.y,
       merged: liveMergedObservations(), events: trace.events }),
     states: activeStateNames(),
-    justice: justiceEvents,
     justiceEnabled: justiceEnabledForGame,
     seed: gameSeed,
     ...(firstRevealIndex !== null ? { firstRevealIndex } : {}),
@@ -52,7 +50,7 @@ function reportResult(outcome, endedAt = Date.now()) {
     islandCount: shape.islandCount,
     largestIsland: shape.largestIsland,
     playMode: settings.playMode,
-    actionEvaluations: actionEvaluations,
+    evaluationPending: true,
   };
   // The non-default board generator this board was placed with; absent =
   // the default uniform generator (matching the key suffix convention).
@@ -66,15 +64,6 @@ function reportResult(outcome, endedAt = Date.now()) {
     record.musicPlaying = musicObservations.some((heard) => heard);
   }
   if (boardFlagsBlocked) record.flagsBlocked = true;
-  if (!oddsUnmeasured && guessLedgerAppliesToMode()) {
-    record.guesses = guessEvents.length;
-    record.guessIdealRisk = guessEvents.filter((e) => e.idealRisk).length;
-    record.guessNonideal = guessEvents.filter((e) => !e.idealRisk).length;
-    record.guessPerfect = guessEvents.filter((e) => e.perfectPlay).length;
-    record.lifeLost = guessEvents.reduce((sum, e) => sum + e.lifeLost, 0);
-    record.lifeNeedless = guessEvents.reduce((sum, e) => sum + e.lifeNeedless, 0);
-    record.oddsVersion = Odds.VERSION;
-  }
   if (Trial.isPlayMode(settings.playMode) && trialPresentation !== null) {
     record.identityIndex = trialPresentation.identityIndex;
     record.transform = trialPresentation.transform;
@@ -88,7 +77,11 @@ function reportResult(outcome, endedAt = Date.now()) {
   if (pregenActive() && pregenBatch !== null && pregenCurrent !== null) {
     pregenBatch.results.push({ run: pregenCurrent.rank, record });
   }
-  const modeRecords = appendGameRecord(record);
+  const key = modeKey();
+  const stored = storedTraceOf(record, key);
+  // Saved before the worker judges the game, so a page closed meanwhile
+  // loses nothing: the next load completes it (completePendingGames).
+  storeGame(key, record, stored, () => boardMetricSourceSaved(key, record.endedAt));
   // Play statistics must never interrupt a game's end (creator decision
   // 2026-10-11): a failure is logged, never raised.
   try {
@@ -96,9 +89,10 @@ function reportResult(outcome, endedAt = Date.now()) {
   } catch (error) {
     console.error(error);
   }
-  renderPregenCharts();
+  const trialOf = trialSession;
+  let trialResult = null;
   if (Trial.isPlayMode(settings.playMode) && trialIsActive() && trialPresentation !== null) {
-    Trial.recordResult(trialSession, {
+    trialResult = {
       identityIndex: trialPresentation.identityIndex,
       transform: trialPresentation.transform,
       givenOpening: record.givenOpening,
@@ -108,8 +102,8 @@ function reportResult(outcome, endedAt = Date.now()) {
       bv3: record.bv3,
       ...(hadGivenOpening(record) ? { givenOpeningBv3: record.givenOpeningBv3 } : {}),
       boardChangingClicks: record.boardChangingClicks,
-      actionEvaluations: record.actionEvaluations,
-    });
+    };
+    Trial.recordResult(trialSession, trialResult);
     if (trialSession.nextIndex >= Trial.gameCount(trialSession)) endTrial('completed');
     persistUserdata('trial', trialSession);
   }
@@ -117,8 +111,7 @@ function reportResult(outcome, endedAt = Date.now()) {
   // below the worker boundary uses this game's snapshot, not mutable globals.
   const resultRevision = resultViewRevision;
   const finishedTrace = trace;
-  const finishedSeries = metricsSeries;
-  const key = modeKey();
+  const sampleTimes = metricSampleTimes;
   const boardState = { status: 'running' };
   if (!endgameDrillActive()) boardMetricJobs.set(record, boardState);
   renderMotionStats();
@@ -131,27 +124,52 @@ function reportResult(outcome, endedAt = Date.now()) {
     width: config.width, height: config.height, mines: mineAt, drill: endgameDrillActive(),
     needZini: true, needBoardMetrics: true, needCadence: true, needMoveHabits: true, needFastclickGap: true,
     gameId: record.endedAt, timeMs: record.timeMs, outcome: record.outcome, justiceEnabled: record.justiceEnabled,
-    liveTraceId: liveMetricsGeneration,
+    guessLedger: guessLedgerAppliesTo(record.playMode),
     trace: { t: finishedTrace.t, x: finishedTrace.x, y: finishedTrace.y, merged: liveMergedObservations(),
       events: finishedTrace.events, wallMs: record.endedAt - finishedTrace.startedAt,
       initialPageState: finishedTrace.initialPageState },
   }).then((result) => {
     Object.assign(record, result.measurements);
+    completeGameRecord(record, stored, result.evaluation);
+    storeGame(key, record, stored, () => {
+      switchCostSourcesChanged(key);
+      requestArchiveSync();
+    });
+    const modeRecords = addGameRecord(key, record);
+    if (trialResult !== null) {
+      trialResult.actionEvaluations = record.actionEvaluations;
+      if (trialSession === trialOf) persistUserdata('trial', trialOf);
+      if (lastTrialReview === trialOf && trialPhase() === 'review') renderTrialReview(trialOf);
+    }
     boardState.status = 'done';
-    if (history[key]?.includes(record)) persistGameRecord(key, record);
+    renderPregenCharts();
     if (trace !== finishedTrace || resultViewRevision !== resultRevision
         || !['won', 'lost'].includes(gameState)) return;
-    appendMetricSeries(finishedSeries, result.metrics);
-    finalMotion = { metrics: result.metrics, series: finishedSeries, spatial: result.spatial };
+    justiceDetails = result.evaluation.justiceDetails;
+    showJusticeSurvivals();
+    // The path's less useful actions are the ones the judgment found mistakes in.
+    renderPathView();
+    finalMotion = { gameId: record.endedAt, metrics: result.metrics, spatial: result.spatial,
+      sampleTimes, series: null };
     renderMotionStats();
     renderResult(record, modeRecords);
   }).catch((error) => {
     boardState.status = 'error'; boardState.error = error.message;
     analysisFailure(error);
   });
-  // Saved in this same task, so the trace is stored before any analysis
-  // reply; after the post, so the worker computes while it is stored.
-  saveTrace(record);
+}
+
+// Puts the reports worker's judgment of a finished game
+// (completeGameEvaluations) on its record and on its stored trace's
+// decisions, which are then no longer pending.
+function completeGameRecord(record, stored, evaluation) {
+  applyCompletedEvaluations(stored.events, evaluation.completed);
+  record.misclicks = evaluation.misclicks;
+  record.justice = evaluation.justiceDetails.length;
+  if (evaluation.ledger !== undefined) Object.assign(record, evaluation.ledger);
+  record.actionEvaluations = reportableEvaluations(stored.events);
+  delete record.evaluationPending;
+  delete stored.evaluationPending;
 }
 
 // The finished game as fuseki-stats.js game fields, sent once from

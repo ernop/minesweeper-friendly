@@ -14,12 +14,12 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   The creator asked for this on 2026-10-22 ("make "motion stats" closed by
   default"); it was already the default, and that player's saved choice
   was closed too.
-- During a game (board shown through game end) each row updates in place
-  from live samples of the input trace, coalesced to at most four
-  computations per second. The active game's clock advances elapsed-time
-  measurements from cached input computations; ready boards and finished
-  games have no idle stats timer. These numbers are transient readings of
-  an unfinished trace.
+- During a game (board shown through game end), while the section is open,
+  each row updates in place from live samples of the input trace, coalesced
+  to at most four samples per second and computed in the reports worker. The
+  active game's clock advances elapsed-time measurements from cached input
+  computations; ready boards and finished games have no idle stats timer.
+  These numbers are transient readings of an unfinished trace.
 - When the game finishes, the same computation runs once over the complete
   trace, and the same rows show its values, followed by the Fitts curve and
   the spatial bias grid. These are the canonical values: same code as live,
@@ -29,8 +29,13 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   next game's first sample replaces them. Until a page's first sample, the
   open section says "No game in progress."
 - Sampling runs every game, open or closed, because the saved trace keeps
-  the sample times. Closed, the section draws nothing; opening it draws the
-  game as it is then.
+  the sample times. Closed, the section computes and draws nothing (since
+  2026-11-03; creator: "you should never just run random code continuously
+  in a harmful way for players!"; until then every sample was computed in
+  the worker, open or closed). Opening it computes and draws the game as it
+  is then: during play, every sample taken so far, in one worker job; after
+  the game, its whole-trace values, then the series at its sample times,
+  computed when the open section first shows that game.
 - Removed with the panel (2026-10-20): its × / "stats ▸" toggler and drag
   grip with their saved collapse state and width, the settings "show motion
   stats during game" and "motion charts", and the after-game charts' own

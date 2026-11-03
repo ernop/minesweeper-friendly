@@ -22,7 +22,7 @@ const JUSTICE_VERSIONS = new Set([
   'just-universe-v3',
   JUSTICE_VERSION,
 ]);
-const ODDS_VERSIONS = new Set(['guess-ledger-v1', Odds.VERSION]);
+const ODDS_VERSIONS = new Set(['guess-ledger-v1', 'guess-ledger-v2', Odds.VERSION]);
 
 // The game-record schema: one record per finished game, win or loss,
 // holding only the primary measurements; every other displayed stat is
@@ -87,10 +87,10 @@ const GAME_RECORD_SCHEMA = [
   { field: 'flagsRemoved', valid: (v) => v === undefined || isNumber(v), example: '1', describe: 'flag states the player turned off; placement and removal are each board-changing clicks; the reason for removal is not observed; absent on games recorded before 2026-08-20' },
   { field: 'unusedCorrectFlags', valid: (v) => v === undefined || isNumber(v), example: '2', describe: 'on a win, correct mine-flag placement episodes that ended or were removed without ever contributing to an accepted chord; absent on losses and games recorded before 2026-08-28 because an unfinished solve cannot establish whether a standing mark would later have been used' },
   { field: 'mousePathPx', valid: isNumber, example: '1182.5', describe: 'cursor travel while the game clock ran, px: since 2026-10-27 measured from the input trace, every cursor observation counted, unrounded; before, a live count of the same travel rounded to the px' },
-  { field: 'fastclickGapMs', valid: (v) => v === undefined || isNumber(v), example: '142', describe: 'with fastclickGapVersion "' + GameData.FASTCLICK_GAP_VERSION + '": median press-to-press time of the game\u2019s planned pairs, rounded to the ms: two board-changing clicks in a row, neither a flag removal, on touching squares, every square they open proven safe and every square they flag proven a mine before the first, nothing else pressed between them, and, after a first click that opened squares, the cursor never 100 ms without moving before the second press; absent when the game had no planned pair or the prover stopped at its work limit on one, and on games before 2026-10-26 until their result is next restored. A value without fastclickGapVersion follows the earlier definition (the median gap between board-changing clicks of at most 1 s ending in a click made on the move) and is deleted on load and import' },
+  { field: 'fastclickGapMs', valid: (v) => v === undefined || isNumber(v), example: '142', describe: 'with fastclickGapVersion "' + GameData.FASTCLICK_GAP_VERSION + '": median press-to-press time of the game\u2019s planned pairs, rounded to the ms: two board-changing clicks in a row, neither a flag removal, on touching squares, every square they open proven safe and every square they flag proven a mine before the first, nothing else pressed between them, and, after a first click that opened squares, the cursor never 100 ms without moving before the second press; absent when the game had no planned pair, on games before 2026-11-02 where the prover then stopped at its work limit on one, and on games before 2026-10-26 until their result is next restored. A value without fastclickGapVersion follows the earlier definition (the median gap between board-changing clicks of at most 1 s ending in a click made on the move) and is deleted on load and import' },
   { field: 'fastclickGapVersion', valid: (v) => v === undefined || v === GameData.FASTCLICK_GAP_VERSION, example: '"' + GameData.FASTCLICK_GAP_VERSION + '"', describe: 'the fastclick gap definition fastclickGapMs was measured under, written for every game measured since 2026-10-26, including games with no planned pair; absent on earlier games until their result is next restored' },
   { field: 'cadenceSpread', valid: (v) => v === undefined || isNumber(v), example: '1.42', describe: 'press-to-press rhythm consistency: interquartile range of all button-press gaps (wasted presses included) divided by their median — 0 means metronomic, larger means burstier; measured for wins and losses; unrounded since 2026-10-26, rounded to 3 decimals before; absent under two measurable gaps or on games recorded before 2026-08-30' },
-  { field: 'movesMovedOn', valid: (v) => v === undefined || isCount(v), example: '4', describe: 'moves made once the local work had run out (named movesRanOut before 2026-10-27): a move is a board-changing click 3 or more squares from everything the board-changing click before it opened or marked and from the proven-safe squares within 2 squares of those; measured for wins and losses from the trace; absent where the prover stopped at its work limit at a move, and on games recorded before 2026-10-20 until their result is next restored' },
+  { field: 'movesMovedOn', valid: (v) => v === undefined || isCount(v), example: '4', describe: 'moves made once the local work had run out (named movesRanOut before 2026-10-27): a move is a board-changing click 3 or more squares from everything the board-changing click before it opened or marked and from the proven-safe squares within 2 squares of those; measured for wins and losses from the trace; absent until their result is next restored on games recorded before 2026-10-20 and on games before 2026-11-02 where the prover then stopped at its work limit at a move' },
   { field: 'movesLeftHardWork', valid: (v) => v === undefined || isCount(v), example: '2', describe: 'moves made while proven-safe squares were still within 2 squares of the click before, none of which counting a single number proved: the local work had turned slow; absent with movesMovedOn' },
   { field: 'movesLeftEasyWork', valid: (v) => v === undefined || isCount(v), example: '1', describe: 'moves made while counting a single number had proved a square within 2 squares of the click before safe; absent with movesMovedOn' },
   { field: 'moveGapMedianMs', valid: (v) => v === undefined || isNumber(v), example: '842', describe: 'median time from the board-changing click before a move to the move, ms; absent with movesMovedOn and on games without a move' },
@@ -122,10 +122,10 @@ const GAME_RECORD_SCHEMA = [
   { field: 'guesses', valid: (v) => v === undefined || isNumber(v), example: '2', describe: 'clicks (not chords) on cells with p(mine) > 0; a zero-risk cell is not a guess even if local deduction had not marked it; absent when odds could not be measured, in modes without a real mine gamble (angelic, and the removed proof-or-die), or on games recorded before 2026-08-21' },
   { field: 'guessIdealRisk', valid: (v) => v === undefined || isNumber(v), example: '1', describe: 'guesses that chose a lowest-available death risk; absent with guesses' },
   { field: 'guessNonideal', valid: (v) => v === undefined || isNumber(v), example: '1', describe: 'guesses that chose a cell riskier than the safest available; absent with guesses' },
-  { field: 'guessPerfect', valid: (v) => v === undefined || isNumber(v), example: '1', describe: 'guesses that maximized one-ply expected remaining life (survival times leftover min-risk after the number you would see); absent with guesses' },
+  { field: 'guessPerfect', valid: (v) => v === undefined || isNumber(v), example: '1', describe: 'guesses that maximized one-move life (the chance of surviving the guess and then the safest next square, over every number it could show) among every covered square; absent with guesses' },
   { field: 'lifeLost', valid: (v) => v === undefined || isNumber(v), example: '0.75', describe: 'sum of mine probabilities of guessed cells (absolute multiverse lives spent); absent with guesses' },
   { field: 'lifeNeedless', valid: (v) => v === undefined || isNumber(v), example: '0.25', describe: 'sum of (chosen risk minus safest available risk); an ideal-risk guess costs 0 even at 19% death; absent with guesses' },
-  { field: 'oddsVersion', valid: (v) => v === undefined || ODDS_VERSIONS.has(v), example: '"' + Odds.VERSION + '"', describe: 'remaining-layout odds and guess-scoring contract; v2 weighs each number a guessed square could show by the whole-board layouts that show it (v1 counted each layout of the square\u2019s group once, including layouts the remaining mine count rules out); absent on earlier games' },
+  { field: 'oddsVersion', valid: (v) => v === undefined || ODDS_VERSIONS.has(v), example: '"' + Odds.VERSION + '"', describe: 'remaining-layout odds and guess-scoring contract; v3 counts every layout exactly with no work limit and scores every guess\u2019s one-move life exactly for every square (v2 stopped at a work limit, saving no ledger for a game with an unmeasured guess, and used estimates or bare survival for squares no number or group lookahead covered); v2 weighs each number a guessed square could show by the whole-board layouts that show it (v1 counted each layout of the square\u2019s group once, including layouts the remaining mine count rules out); absent on earlier games' },
   { field: 'stupidDeath', legacy: true, valid: (v) => v === undefined || typeof v === 'boolean', example: 'true', describe: 'legacy import-only avoidable-death boolean; normalized into actionEvaluations and removed immediately' },
   { field: 'deathKind', legacy: true, valid: (v) => v === undefined || v in DEATH_KIND_LABELS, example: '"angel"', describe: 'legacy import-only five-way death verdict; normalized into actionEvaluations and removed immediately' },
   { field: 'deathRisk', legacy: true, valid: (v) => v === undefined || isNumber(v), example: '0.25', describe: 'legacy import-only selected risk; normalized into actionEvaluations and removed immediately' },
@@ -146,13 +146,13 @@ function isMarkless(record) {
 // only if that ever stops being true.
 let history = null;
 
-// Appends the finished game to its mode's history and returns that mode's
-// full record list (the appended object included, so identity search works).
-function appendGameRecord(record) {
-  const key = modeKey();
+// Appends a finished game whose evaluation has completed to the history of
+// its mode key and returns that mode's full record list (the appended object
+// included, so identity search works). The caller saves it (storeGame).
+// Games complete in the order they ended: one worker queue judges them.
+function addGameRecord(key, record) {
   if (!(key in history)) history[key] = [];
   history[key].push(record);
-  persistGameRecord(key, record);
   return history[key];
 }
 

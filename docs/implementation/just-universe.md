@@ -21,7 +21,8 @@ Spec: [docs/product/just-universe.md](../product/just-universe.md). Index: [AGEN
   Expert-sized structure rebuild for every covered cell on the
   click-critical path. Certification
   runs `proveFacts` (direct counts, general overlap subtraction,
-  then exhaustive component search coupled by total mines and sea),
+  then an exact count of every component's layouts coupled by total mines
+  and sea),
   `buildStructure` (residual clue components, `cluesOfCell`, plus
   8-connected sea components), then `componentGroups` splits the clicked
   cell's component into two kinds of group (per group since 2026-10-21;
@@ -64,29 +65,35 @@ Spec: [docs/product/just-universe.md](../product/just-universe.md). Index: [AGEN
   universal <3ms claim, while a deterministic 40-variable sealed
   constraint family exposed 1,048,576 layouts and took ~693ms. The current
   certificate-shape judge itself enumerates no ambiguous pocket layouts.
-  Its canonical proof prepass now has a deterministic two-million-node
-  ceiling and returns a Map annotated with `complete`, `visits`, and
-  `method`; over-limit results retain only sound facts and cannot justify a
-  negative player judgement. A visible-position cache, one entry per work
-  budget, avoids repeating the same exact proof across click scoring,
-  reports, and mode rules; guess scoring's 80,000-node hypothetical
-  positions therefore cannot evict the click's own proof (2026-09-26).
-  The same day's input-latency review made the proof cheaper without
-  changing its results: the node search keeps its cell order, branch order,
-  and node count but uses flat typed arrays and no per-node allocation,
-  leaf summaries stop once every flag is seen, and after a count pass that
-  marked nothing, the pairwise subset rule compares only clue pairs that
-  share a cell (disjoint pairs can then neither mark nor contradict).
+  Its canonical proof prepass counts every layout with no work limit
+  (since 2026-11-02, Justice's counter,
+  [per-game stats](per-game-stats.md), "Guess ledger") and returns a Map
+  annotated with `complete` and `method`, always complete for the full
+  proof. A visible-position cache of the full proof (`lastExactProof`)
+  avoids repeating it across the click's mode rules.
+  From 2026-09-26 until then the prepass was a node search with a
+  deterministic two-million-node ceiling that also returned `visits`, whose
+  over-limit results retained only sound facts and could not justify a
+  negative player judgement, with one cache entry per work budget so guess
+  scoring's 80,000-node hypothetical positions could not evict the click's
+  own proof. The pairwise subset rule still compares only clue pairs that
+  share a cell after a count pass that marked nothing (disjoint pairs can
+  then neither mark nor contradict).
   `redrawEntry(certificate, clicked, currentMines, random)` consults the
   witness only after certification: an already-clear entry returns it
   unchanged; a mined cardinality/sea entry directly samples k locations
   excluding the click; a mined complement entry switches partitions.
   Game side: only `revealCell` calls `attemptJustice(index)`, before its
-  mine test and never on the first reveal. `chord` never calls Justice;
-  wrong flags remain fatal. Every qualifying entry increments
-  `justiceEvents` regardless of whether redraw occurred and pushes a
-  {type, squareCount, mineCount, clearWays, totalWays} detail onto
-  `justiceDetails` (reset in newGame; feeds the end-game recap, whose
+  mine test and never on the first reveal; it certifies and redraws, and
+  records nothing else. `chord` never calls Justice; wrong flags remain
+  fatal. The events are counted at game end (since 2026-11-03; until then
+  on the click): in the reports worker, `justiceDetailOf`
+  (game/evaluation.js, inside `completeGameEvaluations`) certifies each
+  saved reveal's entry again on its saved board and returns a
+  {type, squareCount, mineCount, clearWays, totalWays} detail for every
+  qualifying entry, whether or not a redraw occurred. `completeGameRecord`
+  stores their count as `justice`; `justiceDetails` (reset in newGame)
+  holds them for the end-game recap, whose
   `justiceGuessName` names it "a 50/50", "a chain of 50/50s over N
   squares", "M mines among N squares", or "... among the last N squares no
   number touches"). Whether the entry's cell was mined
@@ -94,12 +101,12 @@ Spec: [docs/product/just-universe.md](../product/just-universe.md). Index: [AGEN
   the player's point of view is the only one that exists (creator
   directive 2026-08-23) — recap, details, stats, and record never reveal
   or refer to an "actual" mine reality, and the historical `justiceSaves`
-  field stopped being written the same day it was added. When
-  `finish()` runs, `showJusticeSurvivals` attaches one
+  field stopped being written the same day it was added. When the
+  worker's judgment arrives, `showJusticeSurvivals` attaches one
   `.justice-live-word` chip to #justice-live at the board's right,
   wording the count as "you won a forced coinflip" (pluralized) —
   nothing pops up mid-game, and no chip appears when the count is zero
-  (2026-08-23). `reportResult` stores `justice`,
+  (2026-08-23). `reportResult` stores
   `justiceEnabled`, `seed`, `rngVersion`, `boardVersion`,
   and `justiceVersion`; rankings intentionally remain mixed (confirmed
   as the product 2026-08-23, no longer a deferral). `rng.js`

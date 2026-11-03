@@ -35,7 +35,7 @@ for (const [traceId, fixture] of fixtures.entries()) {
     while (endEvent < stored.events.length && stored.events[endEvent].t <= at) endEvent++;
     let endMerged = mergedCount;
     while (endMerged < merged.sample.length && merged.sample[endMerged] < endSample) endMerged++;
-    const actual = task('live-trace', { traceId, wallMs: at, fromSample: samples,
+    const [actual] = task('live-trace', { traceId, sampleTimes: [at], fromSample: samples,
       t: stored.sampleT.slice(samples, endSample), x: stored.sampleX.slice(samples, endSample),
       y: stored.sampleY.slice(samples, endSample),
       merged: { sample: merged.sample.slice(mergedCount, endMerged), x: merged.x.slice(mergedCount, endMerged),
@@ -54,6 +54,12 @@ for (const [traceId, fixture] of fixtures.entries()) {
   }
   context.reference = structuredClone(stored);
   const restored = task('restore-trace', stored);
+  assert.deepEqual(restored.metrics, structuredClone(vm.runInContext(`computeAllTraceMetrics(reference.sampleT,
+    reference.sampleX, reference.sampleY, sampleTravelPx(reference.sampleX, reference.sampleY, reference.merged),
+    reference.events, reference.endedAt - reference.startedAt)`, context)));
+  // The series comes after, from the game the restore holds, when motion
+  // stats asks for it.
+  const series = task('motion-series', { gameId: stored.endedAt, sampleTimes: stored.metricSampleTimes });
   const expectedSeries = structuredClone(vm.runInContext(`(() => {
     const result = createMetricSeries();
     for (const at of reference.metricSampleTimes) {
@@ -64,7 +70,7 @@ for (const [traceId, fixture] of fixtures.entries()) {
     }
     return result;
   })()`, context));
-  assert.deepEqual(restored.series, expectedSeries);
+  assert.deepEqual(series, expectedSeries);
 }
 // Ranks won reads the mode's records with their losses, so streaks report.
 {
@@ -99,4 +105,4 @@ for (const [traceId, fixture] of fixtures.entries()) {
 assert.deepEqual(task('trends', { pairs: [[0, 1], [1, 3], [2, 5]], todayPairs: [] }),
   [{ a: 1, b: 2, cls: 'trend-all', xMin: 0, xMax: 2 }]);
 assert.throws(() => task('invalid-analysis-kind', {}), /Unknown analysis task/);
-console.log(`analysis-worker: DOM-free initialization, ${snapshots} streamed snapshots (one trace with merged observations), full-prefix restoration parity, ranks won with streaks and the shown win's board categories, exact trends, and task errors passed`);
+console.log(`analysis-worker: DOM-free initialization, ${snapshots} streamed snapshots (one trace with merged observations), restoration and the later motion series against full prefixes, ranks won with streaks and the shown win's board categories, exact trends, and task errors passed`);

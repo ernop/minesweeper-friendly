@@ -68,9 +68,11 @@ Each level adds one kind of reasoning to the level before it, so each
 proves every fact the levels below it prove. A fact's level is the first
 level that proves it. The levels read only the open numbers and the
 board's mine count: a flag is the player's note, not proof. Every level is
-computed exactly, the last two by searching every layout (no estimate, no
-sampling); a search that reaches its work limit leaves its level, and the
-levels above it, unmeasured rather than guessed.
+computed exactly, the last two from every layout (no estimate, no
+sampling). Since 2026-11-02 the layouts are counted rather than listed,
+with no work limit ([JSMinesweeper review](../../reference/jsminesweeper.md)),
+so every level is always measured; until then a search that reached its
+work limit left its level, and the levels above it, unmeasured.
 
 1. **Counting**: one number at a time. A number whose covered squares
    must all be mines (as many as its count, less the mines already proven
@@ -92,8 +94,8 @@ levels above it, unmeasured rather than guessed.
 3. **All numbers**: every layout of mines all the numbers allow together,
    whatever its mine count. A square that is a mine in every such layout,
    or safe in every one, is known, however far apart the numbers proving
-   it lie and however many steps its contradiction takes. The search runs
-   per group of covered squares the numbers link, exhaustively.
+   it lie and however many steps its contradiction takes. The count runs
+   per group of covered squares the numbers link, over every layout.
 4. **Mine total**: only the layouts that also hold the board's mine count.
    It decides between layouts whose mine counts differ, and it can prove
    squares no number touches.
@@ -126,8 +128,9 @@ proving them):
 | Intermediate, 100 games | 928 | 93.1% | 5.91% | 0.10% | 0.91% |
 | Beginner, 200 games | 858 | 85.8% | 7.73% | 0.11% | 6.34% |
 
-No search reached its work limit: on boards this size the exhaustive
-search is cheap, as the creator expected. All four levels, computed in one
+No search reached its work limit (the limit was removed on 2026-11-02): on
+boards this size the exhaustive search is cheap, as the creator expected.
+All four levels, computed in one
 pass, took 0.03 ms per position on average on Beginner and 0.14 ms on
 Expert. Level 3 matched an independent brute-force search at every
 position whose linked groups were small enough for one (2,491 of 2,563).
@@ -214,14 +217,22 @@ in [BACKLOG.md](../../BACKLOG.md), "Move hierarchy: the unbuilt levels".
      take a worse chance on this click for a better chance to win. Built one
      click deep: the ledger's "perfect" is the chance to survive this click
      and then the safest next one, averaged over the numbers the click could
-     show (one-ply expected remaining life). The whole game's chance to win
+     show (one-move life, the expected remaining life after one guess). Since
+     2026-11-02 it is exact for every guess, compared over every covered
+     square. The whole game's chance to win
      is built since 2026-10-26 where its exact search finishes: the guess
      card gives perfect play's chance to win after the guessed square and
-     at best, exact counts of mine layouts won. The search finishes in
-     endgames and not early in a game; in simulated play it finished on 18
-     of 19 Beginner guesses, 19 of 46 Intermediate, and 29 of 197 Expert.
-     Elsewhere the card says the search stopped at its work limit
-     ([BACKLOG.md](../../BACKLOG.md), "Deeper than one-ply perfect play").
+     at best, exact counts of mine layouts won. Since 2026-10-27 the board
+     is first split into groups of squares no number can link, whose
+     chances multiply; since 2026-11-02 the search also skips squares whose
+     number is already known in every layout that leaves them safe, which
+     teach nothing (JSMinesweeper's "dead" squares). The search finishes in
+     endgames and not early in a game, where the unopened area joins most
+     of the board into one group; on the simulated guesses of
+     `tests/win-chances-bench.js` it is computed for 27 of 42 Beginner
+     guesses, 52 of 93 Intermediate, and 116 of 387 Expert. Elsewhere the
+     card says the search stopped at its work limit
+     ([BACKLOG.md](../../BACKLOG.md), "Deeper than one-move perfect play").
 6. **Moves for the player's output per hour** (the creator's "anthropic
    principle of move choices"): all else equal, the move that settles the
    game sooner, so that a game headed for a loss ends early and the next

@@ -34,7 +34,7 @@ global.observedEnvironment = () => ({ devicePixelRatio: 1, screenWidth: 1920, sc
 global.Date = Object.assign(function () {}, Date, { now: () => 1700000000000 });
 // beginTrace's motion stats hookups are display machinery, inert here.
 global.beginTraceMetricsSeries = () => {};
-global.renderLiveTraceMetrics = () => {};
+global.takeMetricsSample = () => {};
 global.scheduleMetricsUpdate = () => {};
 
 vm.runInThisContext(span, { filename: 'raw-input-trace-span.js' });

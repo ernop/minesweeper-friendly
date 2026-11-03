@@ -120,7 +120,9 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   such change deletes fastclick gaps of the definition before planned pairs
   ([Per-game stats](per-game-stats.md), "Fastclick gap"). The second renames
   three record fields (version 7, above); its upgrade step and the import's
-  renaming are the code a later release deletes.
+  renaming are the code a later release deletes. The creator set that
+  deletion for 2026-11-05 or any later day (2026-10-29;
+  [BACKLOG.md](../../BACKLOG.md), "Record field names: step 2").
 
 ## Raw input traces (decided 2026-08-20)
 
@@ -191,6 +193,14 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
 - Scalar record fields are summaries; the trace is what lets any future
   metric be computed over past games retroactively. Failure to capture or
   save a trace is announced visibly and thrown, never tolerated.
+- A finished game's record and trace are saved together in one write the
+  moment it ends, marked `evaluationPending`, and saved again, complete,
+  when the reports worker has judged the game (since 2026-11-03;
+  [Game-end evaluation](game-end-evaluation.md), "When it is judged"). A
+  page closed in between loses nothing: the next load judges each pending
+  game from its saved trace before the history loads. A
+  pending game is not in the history the page shows, the archive folder,
+  the training page's games, the switch cost line, or a trace export.
 - An "export traces" button beside the backup controls downloads all
   traces as one JSON file (download only — far too large for the
   clipboard) for the offline analysis pipelines under `analysis/`.
@@ -335,14 +345,16 @@ browser, its profile, and this origin.
     `README.txt` is the one exception (2026-09-27): a sync rewrites it when
     its text differs from the current layout's description, because a README
     that omits directories would mislead its reader.
-  - A record is archived as stored when a sync first finds it. The sync after
-    a game starts once its trace is saved, while the game's board
-    measurements are still being computed, so the archived copy holds them
-    only when they were stored first. Values added after the sync (board
-    measurements, evidence corrections) are recomputable from the trace and
-    seed. The creator kept this as it is on 2026-10-26 rather than store the
-    measurements apart from the record ([BACKLOG.md](../../BACKLOG.md),
-    "Which version of a record is archived").
+  - A record is archived as stored when a sync first finds it. Since
+    2026-11-03 a sync leaves out a game still pending judgment, and the sync
+    after a game starts once its judged record is saved, with the board
+    measurements the same worker job computed. Until then the sync started
+    once the trace was saved, while the board measurements were still being
+    computed, so the archived copy held them only when they were stored
+    first (found 2026-10-26 and kept then, rather than store the
+    measurements apart from the record; the pending mark ended it). Values
+    added after the sync (evidence corrections) are recomputable from the
+    trace and seed.
   - Deleting data in the browser never deletes archive files.
 - **Layout** (UTC year and month; every name uses only `[A-Za-z0-9._-]`):
   - `games/YYYY/MM/<endedAt>-<mode>.json.gz`: one finished game's record.

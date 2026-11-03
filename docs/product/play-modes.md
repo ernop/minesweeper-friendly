@@ -137,8 +137,8 @@ hidden layout is never evidence.
 
 The solver first closes direct-count and arbitrary overlap-difference
 constraints. It then partitions the unresolved frontier into connected
-constraint components, exhaustively searches each component, and joins
-their possible mine totals through the board-wide mine count and
+constraint components, counts every layout of each component exactly, and
+joins their possible mine totals through the board-wide mine count and
 unconstrained sea. A cell is proven safe or mined only when it has that
 value in every globally consistent layout. This is general constraint
 solving rather than a catalog of named patterns. Its stages are the
@@ -148,16 +148,28 @@ joined through it. `Justice.proveLevels` runs them in one pass, recording
 the first level proving each fact, for the live perf charts' moves
 available.
 
-The browser search has a deterministic two-million-node work limit.
-Results carry `complete`, `visits`, and `method`. A completed search has
-considered every consistent layout; an over-limit search returns only facts
-already soundly established and marks itself incomplete. Reports must not
-call an unresolved action “unproven” merely because the engine exhausted its
-work budget. Identical visible positions
-reuse the last exact proof result. One-ply odds scoring may inspect up to
-forty hypothetical next positions; each hypothetical proof prepass uses an
-80000-node limit, after which residual odds either complete independently
-or remain explicitly unmeasured.
+Since 2026-11-02 the count has no work limit
+([JSMinesweeper review](../../reference/jsminesweeper.md)): covered squares
+beside exactly the same numbers are counted together, and the numbers are
+taken in an order that keeps few of them half-settled at once, partial
+layouts that leave every open number the same need being merged into one
+count. The work grows with how many numbers are half-settled at once, not
+with how many layouts there are, so a group of 2^80 layouts is counted in
+milliseconds. Results carry `complete` and `method`; a full proof is always
+complete, and only the counting and overlap levels, which never search, are
+marked incomplete. Identical visible positions reuse the last exact proof
+result. One-move odds scoring (the one-move life of every covered square)
+counts the layouts by the number each square would show from the same
+counts, with no hypothetical boards and no work limit.
+
+Until 2026-11-02 the browser search listed layouts with a deterministic
+two-million-node work limit, and results also carried `visits`. An
+over-limit search returned only facts already soundly established and
+marked itself incomplete; reports did not call an unresolved action
+“unproven” merely because the engine exhausted its work budget. One-move
+odds scoring inspected up to forty hypothetical next positions, each
+hypothetical proof prepass with an 80000-node limit, after which residual
+odds either completed independently or remained explicitly unmeasured.
 - **Trial.** 25 hidden board identities for the current size, each shown
   four times (100 games). Choosing the mode hides the board and shows
   a centered description plus Start trial. That click starts the

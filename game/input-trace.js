@@ -38,7 +38,7 @@ function beginTrace() {
   // Fresh series and an immediate first sample: the previous game's final
   // values and sparklines must not stay over a running trace.
   beginTraceMetricsSeries();
-  renderLiveTraceMetrics();
+  takeMetricsSample();
 }
 
 // trace is null between script load and the first newGame() (init() awaits
@@ -102,7 +102,7 @@ function liveMergedObservations() {
 function traceMove(event) {
   const t = performance.now() - trace.t0;
   const source = traceEventSource(event);
-  // At the precision saveTrace stores (Float32Array), so the live charts,
+  // At the precision the stored trace keeps (Float32Array), so the live charts,
   // the record's path, and a restored trace all add the same coordinates.
   const x = Math.fround(event.clientX);
   const y = Math.fround(event.clientY);
@@ -198,10 +198,10 @@ function latestBoardInput() {
   throw new Error('accepted board action has no input trace event');
 }
 
-// Every accepted board action gets one exact pre-action player view and the
-// choices measured from it. This belongs in the raw trace: it is the durable
-// time-aligned source for replay and later decision analysis, while the game
-// record keeps only the reportable mistake subset.
+// Every accepted board action gets one exact pre-action player view, from
+// which the game's end judges it. This belongs in the raw trace: it is the
+// durable time-aligned source for replay and later decision analysis, while
+// the game record keeps only the reportable mistake subset.
 function traceDecision(evaluation) {
   if (!tracing()) return;
   const input = latestBoardInput();
@@ -238,12 +238,13 @@ function stringFormatTraceEvents(stored) {
 }
 
 // Stored trace: identity fields matching the game record, plus the sample
-// arrays as typed arrays (compact; IndexedDB stores them natively).
-function saveTrace(record) {
-  if (db === null) storageFailure('trace not saved: database is not open');
-  const stored = {
+// arrays as typed arrays (compact; IndexedDB stores them natively). Pending,
+// like its record, until the game's evaluation completes
+// (completeGameRecord).
+function storedTraceOf(record, key) {
+  return {
     endedAt: record.endedAt,
-    mode: modeKey(),
+    mode: key,
     outcome: record.outcome,
     justiceEnabled: record.justiceEnabled,
     seed: record.seed,
@@ -262,19 +263,32 @@ function saveTrace(record) {
     mergedY: Float32Array.from(trace.mergedY),
     mergedSourceT: Float64Array.from(trace.mergedSourceT),
     mergedTrusted: Uint8Array.from(trace.mergedTrusted),
-    metricSampleTimes: [...metricsSeries.tMs, record.endedAt - trace.startedAt],
+    metricSampleTimes: [...metricSampleTimes, record.endedAt - trace.startedAt],
     finalBoard: { cells: structuredClone(cells), hitIndices: cellElements.flatMap((el, i) => el.classList.contains('mine-hit') ? [i] : []) },
     sampleT: Float64Array.from(trace.t),
     sampleX: Float32Array.from(trace.x),
     sampleY: Float32Array.from(trace.y),
     events: trace.events,
+    evaluationPending: true,
   };
-  const tx = db.transaction(TRACE_STORE, 'readwrite');
+}
+
+// Saves a game's record and its stored trace in one transaction, so neither
+// is ever stored without the other.
+function storeGame(key, record, stored, onStored) {
+  if (db === null) storageFailure('game not saved: database is not open');
+  const tx = db.transaction([RECORD_STORE, TRACE_STORE], 'readwrite');
+  tx.objectStore(RECORD_STORE).put(record, [key, record.endedAt]);
   tx.objectStore(TRACE_STORE).put(stored);
-  tx.oncomplete = () => {
-    boardMetricSourceSaved(stored.mode, stored.endedAt);
-    switchCostSourcesChanged(stored.mode);
-    requestArchiveSync();
-  };
-  tx.onerror = () => storageFailure('trace save failed: ' + tx.error);
+  tx.oncomplete = onStored;
+  tx.onerror = () => storageFailure('game save failed: ' + tx.error);
+}
+
+// The stored trace of the game that ended at endedAt.
+function readStoredTrace(endedAt) {
+  return new Promise((resolve, reject) => {
+    const request = db.transaction(TRACE_STORE).objectStore(TRACE_STORE).get(endedAt);
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
 }

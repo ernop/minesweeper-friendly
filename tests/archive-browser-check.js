@@ -1,6 +1,7 @@
 'use strict';
-// Archive folder in a real browser: automatic writes after a game, file
-// contents equal to the record as first stored and the trace, write-once on
+// Archive folder in a real browser: a game pending its judgment left out,
+// automatic writes once it is judged, file contents equal to the stored
+// record and trace, write-once on
 // reload, files another tab archived found rather than rewritten through a
 // cached listing, the paused-permission chip and resume, a visible failure
 // when the folder
@@ -63,7 +64,7 @@ async function waitForGame(page) {
 
 // A page with saved games opens on the last finished board; the face button
 // starts a fresh one, as a player would.
-async function loseGame(page, gamesAfter) {
+async function playLosingGame(page) {
   await page.evaluate(() => { settings.justUniverse = false; });
   if (await page.evaluate(() => gameState === 'won' || gameState === 'lost')) {
     await page.locator('#face-button').click();
@@ -71,7 +72,30 @@ async function loseGame(page, gamesAfter) {
   await page.locator('#board .cell').first().click();
   const mine = await page.evaluate(() => cells.findIndex((cell) => cell.mine));
   await page.locator('#board .cell').nth(mine).click();
+}
+
+// A finished game joins the history once the reports worker has judged it.
+async function loseGame(page, gamesAfter) {
+  await playLosingGame(page);
   await page.waitForFunction((count) => Object.values(history).flat().length === count, gamesAfter);
+}
+
+// Every game record in the database, with its stored trace.
+function storedGames(page) {
+  return page.evaluate(async () => {
+    const read = (store, method, query) => new Promise((resolve, reject) => {
+      const request = db.transaction(store).objectStore(store)[method](query);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const keys = await read(RECORD_STORE, 'getAllKeys');
+    const records = await read(RECORD_STORE, 'getAll');
+    return Promise.all(records.map(async (record, i) => {
+      const trace = await read(TRACE_STORE, 'get', record.endedAt);
+      return { mode: keys[i][0], record, sampleT: Array.from(trace.sampleT), sampleX: Array.from(trace.sampleX),
+        events: trace.events, tracePending: trace.evaluationPending === true };
+    }));
+  });
 }
 
 (async () => {
@@ -83,10 +107,9 @@ async function loseGame(page, gamesAfter) {
     const page = await context.newPage();
     const errors = [];
     page.on('pageerror', (error) => errors.push(error.message));
-    // The analysis workers load only after the first game's files are
-    // compared: their measurements are added to the record after it is
-    // first stored, and a reply arriving before the comparison would make
-    // the stored record differ from the archived one by timing alone.
+    // The analysis workers are held at first: a finished game is saved at
+    // once, pending the reports worker's judgment, and a sync meanwhile
+    // leaves it out.
     let releaseWorkers;
     const workersHeld = new Promise((resolve) => { releaseWorkers = resolve; });
     await page.route('**/analysis-worker.js?*', async (route) => { await workersHeld; await route.fallback(); });
@@ -98,22 +121,27 @@ async function loseGame(page, gamesAfter) {
     await useFolder(page, 'archive');
     await waitForStatus(page, 'up-to-date', '0 game records');
 
-    // A finished game is archived automatically, exactly as stored.
-    await loseGame(page, 1);
+    await playLosingGame(page);
+    let pending = [];
+    for (let tries = 0; pending.length === 0 && tries < 100; tries++) {
+      pending = await storedGames(page);
+      if (pending.length === 0) await page.waitForTimeout(50);
+    }
+    assert.deepEqual(pending.map((game) => [game.record.evaluationPending, game.tracePending]), [[true, true]]);
+    await page.evaluate(() => runArchiveSync());
+    await waitForStatus(page, 'up-to-date', '0 game records, 0 traces, 0 self-checks (0 newly archived)');
+
+    // Judged, the game is archived automatically, exactly as stored.
+    releaseWorkers();
+    await page.waitForFunction(() => Object.values(history).flat().length === 1);
     await waitForStatus(page, 'up-to-date', '1 game record, 1 trace, 0 self-checks (2 newly archived)');
     assert.equal(await page.evaluate(async () => (await indexedDB.databases()).some((known) => known.name === 'minesweeper-problems')),
       false, 'a sync never creates the problems page\u2019s database');
-    const stored = await page.evaluate(async () => {
-      const [mode, records] = Object.entries(history).find(([, list]) => list.length > 0);
-      const record = records[0];
-      const trace = await new Promise((resolve, reject) => {
-        const request = db.transaction(TRACE_STORE).objectStore(TRACE_STORE).get(record.endedAt);
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error);
-      });
-      return { mode, record, sampleT: Array.from(trace.sampleT), sampleX: Array.from(trace.sampleX),
-        events: trace.events };
-    });
+    const [stored] = await storedGames(page);
+    assert.equal(stored.record.evaluationPending, undefined);
+    assert.equal(stored.tracePending, false);
+    assert.equal(await page.evaluate(() => hasBoardMeasurements(Object.values(history).flat()[0])), true,
+      'the record is archived with its board measurements');
     const archivedRecord = await readArchived(page, 'archive', archiveRecordPath(stored.mode, stored.record));
     assert.equal(archivedRecord.format, 'minesweeper-friendly-game-record');
     assert.equal(archivedRecord.mode, stored.mode);
@@ -128,11 +156,8 @@ async function loseGame(page, gamesAfter) {
       return (await (await folder.getFileHandle('README.txt')).getFile()).text();
     });
     assert.equal(readme, ARCHIVE_README_TEXT);
-    releaseWorkers();
-    await page.waitForFunction(() => hasBoardMeasurements(Object.values(history).flat()[0]));
 
-    // The stored folder is used again after a reload; nothing is rewritten,
-    // including the record its measurements have since changed.
+    // The stored folder is used again after a reload; nothing is rewritten.
     await page.reload();
     await waitForGame(page);
     await waitForStatus(page, 'up-to-date', '(0 newly archived)');
@@ -252,7 +277,7 @@ async function loseGame(page, gamesAfter) {
     assert.equal(await readmeText(), ARCHIVE_README_TEXT, 'an outdated README is rewritten');
 
     assert.deepEqual(errors, []);
-    console.log('archive browser check: automatic writes, exact contents, write-once reload, other-tab files, '
+    console.log('archive browser check: pending games left out, automatic writes, exact contents, write-once reload, other-tab files, '
       + 'paused and resumed, visible failure, self-check suspension, settings status, and problems-page items passed');
   } finally {
     await browser.close();

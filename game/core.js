@@ -20,14 +20,12 @@ let boardChangingClicks = 0; // reveals, flags, flag removals, and accepted chor
 let chordClicks = 0;   // accepted chords among those (the chord share numerator)
 let noOpClicks = 0;    // board clicks that changed nothing
 let inputActionCount = 0; // every accepted board input, including no-ops
-let misclicks = 0;     // board-changing actions contradicted by visible facts
 let flagsPlaced = 0;   // flags the player placed (removals don't subtract)
 let flagsRemoved = 0;  // flag states the player turned off; each placement
                        // and each removal is a separate board-changing click
 let unusedCorrectFlags = 0; // win-only correct flags never consumed by a chord
 let activeFlagEpisodes = new Map(); // cell index -> placement evaluation/use state
 let flagEpisodes = []; // every placement, retained until the outcome is known
-let actionEvaluations = []; // fatal action plus every earlier measured mistake
 let gameSeed = null;    // 128-bit seed for placement and Justice redraws
 let firstRevealIndex = null; // the game-starting reveal's cell on an unopened board
 let gameRandom = null;  // the one deterministic random stream for this game

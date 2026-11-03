@@ -86,31 +86,11 @@ function classifyCells(view, cells) {
   const facts = factsFor(view);
   return {
     complete: facts.complete === true,
-    visits: facts.visits || 0,
     kinds: cells.map((cell) => {
       const fact = facts.get(cell);
       return fact === 1 ? 'mine' : fact === 2 ? 'safe' : 'unknown';
     }),
   };
-}
-
-// Whether a board-changing action contradicts facts provable from the
-// visible board. This classifies the action, not the player's intent.
-// Flags are passed as action data rather than fed into the proof system,
-// because a player's mark cannot prove itself correct.
-function isVisibleMisclick(view, action) {
-  const facts = factsFor(view);
-  if (action.kind === 'reveal') return facts.get(action.cell) === 1;
-  if (action.kind === 'flag') {
-    return action.removing
-      ? facts.get(action.cell) === 1
-      : facts.get(action.cell) === 2;
-  }
-  if (action.kind === 'chord') {
-    return action.opened.some((cell) => facts.get(cell) === 1)
-      || action.flagged.some((cell) => facts.get(cell) === 2);
-  }
-  throw new Error('unknown visible action kind ' + action.kind);
 }
 
 function layoutAgrees(view, mines) {
@@ -130,12 +110,13 @@ function layoutAgrees(view, mines) {
 
 // If clicked is a certain mine, return null (cannot save). Otherwise
 // return a mine map with that cell clear, agreeing with every revealed
-// number. Single-mine swaps cover 50/50 partners and open sea.
+// number. Single-mine swaps cover 50/50 partners and open sea. A clear
+// cell needs no proof: a certain mine is a mine in the real layout too.
 function forceSafe(view, mines, clicked, rng) {
-  const facts = factsFor(view);
-  if (facts.get(clicked) === 1) return null;
   const next = mines.slice();
   if (!next[clicked]) return next;
+  const facts = factsFor(view);
+  if (facts.get(clicked) === 1) return null;
   const size = view.width * view.height;
   const partners = [];
   for (let i = 0; i < size; i++) {
@@ -168,7 +149,6 @@ const Solver = {
   isProvenSafe: isProvenSafe,
   isCertainMine: isCertainMine,
   classifyCells: classifyCells,
-  isVisibleMisclick: isVisibleMisclick,
   forceSafe: forceSafe,
   layoutAgrees: layoutAgrees,
 };

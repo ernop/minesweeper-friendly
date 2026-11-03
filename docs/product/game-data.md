@@ -697,8 +697,8 @@ moves, and one without a fork no fork share. Each card's example board
 rings where the game's moves went (forks for the fork share; for moves
 leaving easy work, those moves, with the squares they left shaded). Games
 recorded before 2026-10-20 are unmeasured until their result is next
-restored, and so is a game where the prover stopped at its work limit at
-a move.
+restored, and so is a game before 2026-11-02 where the prover then stopped
+at its work limit at a move (it now always finishes).
 
 The categories are the report's exclusive ones ([Game-end
 evaluation](game-end-evaluation.md)), counted whatever the after-game

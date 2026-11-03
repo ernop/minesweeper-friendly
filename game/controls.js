@@ -82,7 +82,7 @@ function joinChordGesture() {
 
 function recordNoOp(index, reason) {
   noOpClicks++;
-  recordActionEvaluation(evaluateNoOpAction(index, reason), 'continued');
+  recordActionEvaluation(captureNoOpAction(index, reason), 'continued');
 }
 
 // A right press on an open cell that ended without a left press joining it
@@ -96,11 +96,8 @@ function settlePendingRightPress() {
 }
 
 function flagCell(index) {
-  const removing = cells[index].flagged;
-  const misclick = flagChangeIsMisclick(index, removing);
-  const actionEvaluation = evaluateFlagAction(index, removing);
+  const actionEvaluation = captureFlagAction(index, cells[index].flagged);
   toggleFlag(index, actionEvaluation);
-  if (misclick) recordMisclick();
   recordActionEvaluation(actionEvaluation, 'continued');
 }
 
@@ -124,7 +121,7 @@ function rightPress(event) {
     return;
   }
   if (cells[index].revealed) {
-    pendingRightPress = { logged, evaluation: evaluateNoOpAction(index, 'flagged-revealed-cell') };
+    pendingRightPress = { logged, evaluation: captureNoOpAction(index, 'flagged-revealed-cell') };
     return;
   }
   flagCell(index);
@@ -136,8 +133,6 @@ function chordFromNumber(index) {
     recordNoOp(index, chordUnavailableReason(index));
     return;
   }
-  const misclick = chordIsMisclick(index, targets);
-  if (misclick) recordMisclick();
   chord(index);
 }
 
@@ -181,8 +176,6 @@ boardElement.addEventListener('mouseup', (event) => {
   }
   if (!cell.revealed && !cell.flagged) {
     boardChangingClicks++;
-    const misclick = revealIsMisclick(index);
-    if (misclick) recordMisclick();
     revealCell(index);
   } else if (cell.revealed) {
     chordFromNumber(index);

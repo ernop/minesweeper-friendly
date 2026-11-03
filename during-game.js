@@ -204,20 +204,13 @@ const DuringGame = (() => {
 
   // Whether the board's proof before a pair (`facts`) held every square the
   // pair's clicks act on: the squares a reveal or chord opens safe, a flagged
-  // square a mine. Null when one is unproven and the proof stopped at its
-  // work limit, which leaves open whether the board proved it.
+  // square a mine.
   function provenTogether(facts, evaluations) {
-    let unproven = false;
     for (const evaluation of evaluations) {
       const wanted = evaluation.action === 'flag-place' ? 1 : 2;
-      for (const cell of evaluation.selected) {
-        const fact = facts.get(cell);
-        if (fact === undefined) unproven = true;
-        else if (fact !== wanted) return false;
-      }
+      for (const cell of evaluation.selected) if (facts.get(cell) !== wanted) return false;
     }
-    if (!unproven) return true;
-    return facts.complete === true ? false : null;
+    return true;
   }
 
   // The fastclick gap's planned pairs (creator 2026-10-26: two clicks
@@ -229,15 +222,12 @@ const DuringGame = (() => {
   // second press. A flag shows nothing new, so the hand may hold still
   // after one. Each pair's gap runs press to press and is placed at the
   // second click. The record's fastclick gap is their median and the live
-  // line plots them. Null when a pair's squares were left open by a proof
-  // stopped at its work limit: an unjudged pair leaves the game unmeasured
-  // rather than measured on the pairs that could be judged.
+  // line plots them.
   // events: the trace's events as recorded; decisions: its decision events
   // in order (pathDecisionEvents); factsAt: the proof before each decision.
   function plannedPairsOf(events, decisions, factsAt, sampleT, width) {
     const decisionIndex = new Map(decisions.map((decision, k) => [decision, k]));
     const pairs = [];
-    let judged = true;
     let previous = null;
     let lefts = [];
     let rights = [];
@@ -251,14 +241,13 @@ const DuringGame = (() => {
       rights = [];
       if (click !== null && previous !== null && click.alone
           && squareDistance(width, targetCellOf(previous.evaluation), targetCellOf(evaluation)) === 1
-          && !(OPENING_ACTIONS.has(previous.evaluation.action) && restedBetween(sampleT, previous.t, click.pressT))) {
-        const proven = provenTogether(factsAt[previous.k], [previous.evaluation, evaluation]);
-        if (proven === null) judged = false;
-        else if (proven) pairs.push({ atMs: evaluation.atMs, gapMs: click.pressT - previous.pressT });
+          && !(OPENING_ACTIONS.has(previous.evaluation.action) && restedBetween(sampleT, previous.t, click.pressT))
+          && provenTogether(factsAt[previous.k], [previous.evaluation, evaluation])) {
+        pairs.push({ atMs: evaluation.atMs, gapMs: click.pressT - previous.pressT });
       }
       previous = click === null ? null : { k: decisionIndex.get(event), t: event.t, pressT: click.pressT, evaluation };
     }
-    return judged ? pairs : null;
+    return pairs;
   }
 
   function pathAt(path, atMs) {
@@ -275,15 +264,13 @@ const DuringGame = (() => {
 
   // The covered, unflagged squares each deduction level is the first to
   // prove safe, and those it is the first to prove mines, by level id
-  // (Justice.proveLevels). The levels that search layouts are null where the
-  // search stopped at its work limit.
+  // (Justice.proveLevels).
   function countsByLevel(proof, flagged) {
     const safe = {};
     const mines = {};
-    const searched = proof.facts.complete === true;
     for (const level of Justice.DEDUCTION_LEVELS) {
-      safe[level.id] = levelMeasured(level, searched) ? 0 : null;
-      mines[level.id] = levelMeasured(level, searched) ? 0 : null;
+      safe[level.id] = 0;
+      mines[level.id] = 0;
     }
     for (const [cell, fact] of proof.facts) {
       if (flagged.has(cell)) continue;
@@ -296,7 +283,6 @@ const DuringGame = (() => {
   // A value of the move hierarchy's rows where the board offered no such
   // move; the rows draw it as no value and say "none".
   const NO_MOVE = 'none';
-  const levelMeasured = (level, searched) => searched || level.proof.exact === false;
 
   // One proof's facts by square for the per-action passes: `fact` (0 none,
   // 1 mine, 2 safe), `rank` (the index in Justice.DEDUCTION_LEVELS of the
@@ -311,24 +297,53 @@ const DuringGame = (() => {
       rank[cell] = rankOf.get(proof.levelOf.get(cell));
       if (value === 2) safe.push(cell);
     }
-    return { complete: proof.facts.complete === true, fact, rank, safe };
+    return { fact, rank, safe };
   }
 
   // One game's positions proved, each once: its full proof by level and the
-  // same by square. A proof reads only the open numbers, and within one game
-  // they only grow, so the count of open squares names the position. The
-  // reports worker proves the live game's positions as they arrive during
-  // play, and the model reads them back after the game.
+  // same by square, and on request its layout structure and odds. A proof
+  // reads only the open numbers, and within one game they only grow, so the
+  // count of open squares names the position. Each proof starts from the
+  // latest earlier one's facts, and each group of numbers left open is
+  // counted once in the game (Justice.proveLevels' groupCounts): a click
+  // changes only the groups beside it. The reports worker proves a game's
+  // positions when it ends, for its evaluation (completeGameEvaluations) and
+  // then the model, which read the same proofs.
   function positionProofs() {
     const rankOf = new Map(Justice.DEDUCTION_LEVELS.map((level, rank) => [level.id, rank]));
     const byOpenCount = new Map();
+    const groupCounts = new Map();
     return {
+      structureOf(position) {
+        const proven = this.of(position);
+        if (proven.structure === undefined) {
+          proven.structure = Justice.buildStructure(positionView(position), undefined, proven.proof.facts);
+        }
+        return proven.structure;
+      },
+      oddsOf(position) {
+        const proven = this.of(position);
+        if (proven.odds === undefined) {
+          proven.odds = Odds.analyzeView(positionView(position), { structure: this.structureOf(position) });
+        }
+        return proven.odds;
+      },
       of(position) {
         const openCount = positionOpenCount(position);
         let proven = byOpenCount.get(openCount);
         if (proven === undefined) {
+          // Within one game, a position with fewer open squares came
+          // earlier, so the latest of them proved facts that carry over.
+          let earlier;
+          let earlierCount = -1;
+          for (const [count, entry] of byOpenCount) {
+            if (count < openCount && count > earlierCount) {
+              earlier = entry.proof;
+              earlierCount = count;
+            }
+          }
           const view = positionView(position);
-          const proof = Justice.proveLevels(view, Justice.rawClues(view));
+          const proof = Justice.proveLevels(view, Justice.rawClues(view), earlier, groupCounts);
           proven = { proof, squares: proofSquares(proof, position.width * position.height, rankOf) };
           byOpenCount.set(openCount, proven);
         }
@@ -346,8 +361,7 @@ const DuringGame = (() => {
   // (boardUnits): a zero's whole opening, or a number touching no zero; a
   // number beside a zero solves none. Its clicks count each flag it needs.
   // Its level is the hardest of the facts it uses. NO_MOVE where no square
-  // could be opened by such a move; null where the proof stopped before the
-  // level, and for all levels together. `squares` is proofSquares', `around`
+  // could be opened by such a move. `squares` is proofSquares', `around`
   // each square's neighbors.
   function mostBvPerClick(squares, around, revealed, flagged, board) {
     const best = Justice.DEDUCTION_LEVELS.map(() => null);
@@ -385,18 +399,17 @@ const DuringGame = (() => {
     }
     const byLevel = {};
     Justice.DEDUCTION_LEVELS.forEach((level, rank) => {
-      byLevel[level.id] = !levelMeasured(level, squares.complete) ? null : best[rank] === null ? NO_MOVE : best[rank];
+      byLevel[level.id] = best[rank] === null ? NO_MOVE : best[rank];
     });
     const offered = best.filter((value) => value !== null);
-    return { all: !squares.complete ? null : offered.length === 0 ? NO_MOVE : Math.max(...offered), byLevel };
+    return { all: offered.length === 0 ? NO_MOVE : Math.max(...offered), byLevel };
   }
 
   // Steps from the last board-changing click's square to the nearest
   // covered, unflagged proven-safe square, of each deduction level and of
   // all levels, a step being one square across or down (as near the last
-  // move counts). NO_MOVE where no such square was proven; null where the
-  // proof stopped before the level, and for all levels together, or where
-  // such squares were proven before any board-changing click.
+  // move counts). NO_MOVE where no such square was proven; null where such
+  // squares were proven before any board-changing click.
   function stepsToSafe(squares, flagged, lastMoveCell, width) {
     const nearest = Justice.DEDUCTION_LEVELS.map(() => null);
     for (const cell of squares.safe) {
@@ -409,10 +422,10 @@ const DuringGame = (() => {
     const valueOf = (steps) => (steps === null ? NO_MOVE : steps === Infinity ? null : steps);
     const byLevel = {};
     Justice.DEDUCTION_LEVELS.forEach((level, rank) => {
-      byLevel[level.id] = levelMeasured(level, squares.complete) ? valueOf(nearest[rank]) : null;
+      byLevel[level.id] = valueOf(nearest[rank]);
     });
     const proven = nearest.filter((steps) => steps !== null);
-    return { all: !squares.complete ? null : valueOf(proven.length === 0 ? null : Math.min(...proven)), byLevel };
+    return { all: valueOf(proven.length === 0 ? null : Math.min(...proven)), byLevel };
   }
 
   // Open numbers a chord would open squares around safely: exactly as many
@@ -493,9 +506,9 @@ const DuringGame = (() => {
     return evaluation.selected.length > 0 ? evaluation.selected[0] : null;
   }
 
-  // The record's misclick, judged as the live counter judges it
-  // (Solver.isVisibleMisclick): the exact proof of the board before the
-  // action already showed the action wrong.
+  // The record's misclick, judged as the game's end judges it
+  // (MISCLICK_MISTAKES in game/evaluation.js): the exact proof of the board
+  // before the action already showed the action wrong.
   function misclickOf(evaluation, facts, flagged, width, height) {
     const cell = targetCellOf(evaluation);
     switch (evaluation.action) {
@@ -578,21 +591,20 @@ const DuringGame = (() => {
       const full = proof.facts;
       const flagged = positionFlags(position);
       const safeAll = safeCellsOf(full, flagged);
-      const complete = full.complete === true;
       factsAt.push(full);
       levelsAt.push(proof.levelOf);
       known.startMs.push(k === 0 ? 0 : decisions[k - 1].evaluation.atMs);
-      known.safe.push(complete ? safeAll.length : null);
+      known.safe.push(safeAll.length);
       let mines = 0;
       for (const [cell, fact] of full) if (fact === 1 && !flagged.has(cell)) mines++;
-      known.mines.push(complete ? mines : null);
+      known.mines.push(mines);
       const byLevel = countsByLevel(proof, flagged);
       for (const level of Justice.DEDUCTION_LEVELS) {
         known.safeByLevel[level.id].push(byLevel.safe[level.id]);
         known.minesByLevel[level.id].push(byLevel.mines[level.id]);
       }
-      known.areas.push(complete ? areasOf(safeAll, width, height).count : null);
-      known.safeCells.push(complete ? safeAll : null);
+      known.areas.push(areasOf(safeAll, width, height).count);
+      known.safeCells.push(safeAll);
       let nearLastMove = null;
       if (lastMoveCell !== null) {
         const lx = lastMoveCell % width;
@@ -666,8 +678,6 @@ const DuringGame = (() => {
     let previous = null;
     let leftBehind = [];
     let noOpsSince = 0;
-    // Whether every move's kind and fork were judged on a complete proof.
-    let movesJudged = true;
     // What a guess chose among (docs/product/design-axis.md, "Move
     // hierarchy", levels 5 and 6): whether its square was connected (beside
     // an open number); where the guess ledger measured the guess, the lowest
@@ -678,14 +688,14 @@ const DuringGame = (() => {
     // settle the guess (Justice's sealed pockets), since when that had held
     // without a break, which the walk back reads from the proofs of pass 1.
     // The ledger measures only modes whose mines never move unless A just
-    // universe moves them (guessLedgerAppliesToMode).
+    // universe moves them (guessLedgerAppliesTo).
     const guessFacts = (k, cell) => {
       const evaluation = decisions[k].evaluation;
       const view = positionView(evaluation.position);
-      const structure = Justice.buildStructure(view, undefined, factsAt[k]);
+      const structure = game.proofs.structureOf(evaluation.position);
       const facts = { connected: structure.frontierSet.has(cell) };
       if (evaluation.evidence.oddsMeasured === true) {
-        const odds = Odds.analyzeView(view, { structure });
+        const odds = game.proofs.oddsOf(evaluation.position);
         let connected = Infinity;
         let unconnected = Infinity;
         for (const square of odds.unproven) {
@@ -699,20 +709,19 @@ const DuringGame = (() => {
           const chances = Odds.winChances(view, odds, cell);
           facts.winMeasured = chances.measured;
           if (chances.measured) {
-            facts.winChance = chances.chosenWins / chances.layouts;
-            facts.bestWinChance = chances.bestWins / chances.layouts;
+            facts.winChance = Odds.ratio(chances.chosenWins, chances.layouts);
+            facts.bestWinChance = Odds.ratio(chances.bestWins, chances.layouts);
           }
         }
       }
-      if (factsAt[k].complete === true && Justice.certifyEntries(view, [cell], structure).has(cell)) {
+      if (Justice.certifyEntries(view, [cell], structure).has(cell)) {
         facts.unavoidable = true;
         let since = k;
         while (since > 0) {
           const before = factsAt[since - 1];
           if (before !== factsAt[since]) {
-            if (before.complete !== true) return facts;
-            const earlier = positionView(decisions[since - 1].evaluation.position);
-            if (!Justice.certifyEntries(earlier, [cell], Justice.buildStructure(earlier, undefined, before)).has(cell)) break;
+            const earlier = decisions[since - 1].evaluation.position;
+            if (!Justice.certifyEntries(positionView(earlier), [cell], game.proofs.structureOf(earlier)).has(cell)) break;
           }
           since--;
         }
@@ -770,32 +779,27 @@ const DuringGame = (() => {
           action.squares = squareDistance(width, previous.cell, cell);
           const safe = known.safeCells[k];
           const near = (square) => zoneStamp[square] === previous.stamp;
-          // Proven-safe squares near the previous action. A proof stopped at
-          // its work limit still proves every square it marked.
-          const nearSafe = (safe !== null ? safe : safeCellsOf(factsAt[k], flagged)).filter(near);
+          // Proven-safe squares near the previous action.
+          const nearSafe = safe.filter(near);
           if (action.gapMs >= LONG_GAP_MS) {
             events.push({ type: 'long-gap', atMs: previous.atMs, endMs: atMs, action: k,
               known: known.safe[k], countingKnown: known.safeByLevel.counting[k],
-              ...(safe === null ? {} : { nearKnown: nearSafe.length, safeCells: safe }),
+              nearKnown: nearSafe.length, safeCells: safe,
               endedBy: evaluation.action, guess: action.guess === true, noOps: noOpsSince,
               ...(windowLeft === null ? {}
                 : { windowLeft: windowLeft.some(([from, to]) => from < atMs && to > previous.atMs) }) });
           }
           const continuing = nearSafe.some((square) => squareDistance(width, cell, square) <= NEAR_SQUARES);
-          const moved = !near(cell) && !continuing;
-          if (moved && safe === null) movesJudged = false;
-          if (moved && (nearSafe.length > 0 || safe !== null)) {
+          if (!near(cell) && !continuing) {
             // A move: away from everything the previous board-changing
             // action touched and from the proven-safe squares near it. Moved
             // on once none such remained; left work while some did: easy
             // work when counting a single number proved one of them, hard
-            // work when only combining numbers did. Counting's facts come
-            // before any search, so a proof stopped at its work limit still
-            // tells the two apart.
+            // work when only combining numbers did.
             const facts = { cell, fromCell: previous.cell, squares: action.squares, gapMs: action.gapMs,
               guess: action.guess === true };
             let areas = null;
-            if (safe !== null && safe.length > 0) {
+            if (safe.length > 0) {
               areas = areasOf(safe, width, height);
               let nearest = Infinity;
               for (const square of safe) nearest = Math.min(nearest, squareDistance(width, previous.cell, square));
@@ -815,7 +819,7 @@ const DuringGame = (() => {
                 facts.toNearestArea = safe.some((square, i) => areas.area[i] === target
                   && squareDistance(width, previous.cell, square) === nearest);
               }
-            } else if (safe !== null) facts.areas = 0;
+            } else facts.areas = 0;
             if (nearSafe.length > 0) {
               const byCounting = nearSafe.filter((square) => levelsAt[k].get(square) === 'counting').length;
               at(byCounting > 0 ? 'left-easy-work' : 'left-hard-work',
@@ -847,7 +851,6 @@ const DuringGame = (() => {
       recorded: true, timeMs: spanMs, recordTimeMs: game.timeMs, outcome: game.outcome, width, height, mines: mineCount,
       pageStateRecorded: windowLeft !== null,
       categoriesMeasured: actions.every((action) => action.category !== 'measurementNotes'),
-      movesJudged,
       bv3: { total: board.total, atStart: solvedAtStart },
       safe: { total: size - mineCount, atStart: openedAtStart },
       actions, presses, plannedPairs: plannedPairsOf(game.events, decisions, factsAt, game.t, width),
@@ -861,10 +864,9 @@ const DuringGame = (() => {
 
   // The game's moves as the record stores them (game/history.js): how many
   // of each kind, the median time before one, and the forks and how many
-  // went to the nearest place. Nothing where a proof stopped at its work
-  // limit at a move, which leaves that move's kind or fork unknown.
+  // went to the nearest place.
   function moveHabits(m) {
-    if (!m.recorded || !m.movesJudged) return {};
+    if (!m.recorded) return {};
     const moves = m.events.filter((event) => MOVE_TYPES.has(event.type));
     const counted = (type) => moves.filter((event) => event.type === type).length;
     const forks = m.events.filter((event) => event.type === 'fork');
@@ -880,10 +882,10 @@ const DuringGame = (() => {
 
   // The record's fastclick gap (game/history.js): the definition it was
   // measured under, and the median of the planned pairs' gaps, which is
-  // absent where the game had no planned pair or one went unjudged.
+  // absent where the game had no planned pair.
   function fastclickGap(m) {
     if (!m.recorded) return {};
-    const gaps = m.plannedPairs === null ? [] : m.plannedPairs.map((pair) => pair.gapMs);
+    const gaps = m.plannedPairs.map((pair) => pair.gapMs);
     return { fastclickGapVersion: GameData.FASTCLICK_GAP_VERSION,
       ...(gaps.length > 0 ? { fastclickGapMs: Math.round(medianOf(gaps)) } : {}) };
   }
@@ -970,7 +972,7 @@ const DuringGame = (() => {
   //   speed     cursor travel over time
   //   events    detected events, at an instant or over a span
   //   unrecorded  not measured for this game: the trace did not record what
-  //               the row needs, or a proof it needs stopped at its work limit
+  //               the row needs
   // A row's `measurements` are the catalog measurements it shows: a
   // measurement row's own, or for an event row those computed over exactly
   // its events (their count, the share they are of a whole, or a statistic
@@ -1099,7 +1101,7 @@ const DuringGame = (() => {
       data: (m) => ({ kind: 'value', aggregate: 'median',
         incidents: changingActions(m).filter((a) => a.gapMs !== undefined).map((a) => ({ atMs: a.atMs, value: a.gapMs })) }) },
     measurementRow('fastclickGap', { group: 'pace', default: true, chart: 'relative', color: '#ef6c00',
-      data: (m) => (m.plannedPairs === null ? { kind: 'unrecorded' } : { kind: 'value', aggregate: 'median',
+      data: (m) => ({ kind: 'value', aggregate: 'median',
         incidents: m.plannedPairs.map((pair) => ({ atMs: pair.atMs, value: pair.gapMs })) }) }),
     measurementRow('mouseSpeed', { group: 'pace', default: true, chart: 'relative', color: '#6a1b9a',
       data: (m) => ({ kind: 'speed', path: m.path,

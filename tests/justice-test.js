@@ -268,15 +268,6 @@ function validRedraw(board, redrawn, clicked) {
   check('corner group that a square outside can tell apart: not certified',
     Justice.certifyEntry(seen.view, seen.at(4, 0)) === null
       && Justice.certifyEntry(seen.view, seen.at(5, 0)) === null);
-
-  // With the corner square safe the mine count leaves 1, so C is a mine.
-  // A proof stopped at its work limit misses that, and the judge still
-  // refuses: the count it reads cannot be the larger side's.
-  const settled = makeBoard(['.*##..', '.*#*..', '.*..*.', '...*..']);
-  const stopped = Justice.buildStructure(settled.view, { maxVisits: 0 });
-  check('corner the mine count settles, read through a stopped proof: not certified',
-    stopped.facts.complete === false
-      && !Justice.certifyEntries(settled.view, [settled.at(3, 1)], stopped).has(settled.at(3, 1)));
 }
 
 // 9. Equal-sized overlapping constraints can prove their one-sided cells.
@@ -326,22 +317,39 @@ function validRedraw(board, redrawn, clicked) {
   check('complete solver proves higher-order safe', exact.get(0) === 2);
   check('complete solver labels exhaustive result', exact.complete === true
     && exact.method === 'all-consistent-layouts');
-  const limited = Justice.proveFacts(view, clues, { maxVisits: 0 });
-  check('work limit is explicit rather than a false judgement',
-    limited.complete === false && limited.method === 'work-limit' && !limited.has(0));
-  const limitedLevels = Justice.proveLevels(view, clues, { maxVisits: 0 });
-  check('a stopped search leaves every level in one pass to the rules',
-    limitedLevels.facts.complete === false && limitedLevels.facts.method === 'work-limit'
-    && [...limitedLevels.levelOf.values()].every((level) => level === 'counting' || level === 'overlap'));
+}
+
+// 10a. No work limit: a row of numbers between two covered rows, 119 wide,
+// mines on the top row's every third square and the bottom row's next one.
+// Every number sees 2 mines, so each third column is safe and every other
+// column holds one mine, top or bottom: 2^80 + 2 layouts in one group of
+// 160 squares. The search before 2026-11-02 listed layouts and stopped here
+// at its 2,000,000-visit limit; the count finishes.
+{
+  const width = 119;
+  const rows = [0, 1, 2].map((y) => Array.from({ length: width }, (_, x) =>
+    (y === 1 ? '.' : (y === 0 ? x % 3 === 0 : x % 3 === 1) ? '*' : '#')).join(''));
+  const strip = makeBoard(rows);
+  const startedAt = Date.now();
+  const facts = Justice.proveFacts(strip.view, Justice.rawClues(strip.view));
+  const levels = Justice.proveLevels(strip.view, Justice.rawClues(strip.view));
+  const elapsedMs = Date.now() - startedAt;
+  const safeColumns = (cell) => cell % width % 3 === 2;
+  check('a 160-square group with 2^80 + 2 layouts is proved completely',
+    facts.complete === true && facts.method === 'all-consistent-layouts'
+      && levels.facts.complete === true && levels.facts.size === facts.size);
+  check('exactly every third column is proven, safe',
+    facts.size === 78 && [...facts].every(([cell, fact]) => fact === 2 && safeColumns(cell)));
+  check('the count takes under a second (' + elapsedMs + ' ms)', elapsedMs < 1000);
 }
 
 // Justice.proveLevels, every level in one pass, against each level's own
 // proof: each fact at the first level whose proof proves it, and the facts,
 // completeness, and method of the full proof.
-function levelsInOnePassAgree(view, clues) {
+function levelsInOnePassAgree(view, clues, proven = Justice.proveLevels(view, clues)) {
   const proofs = Justice.DEDUCTION_LEVELS.map((level) => Justice.proveFacts(view, clues, level.proof));
   const full = proofs[proofs.length - 1];
-  const { facts, levelOf } = Justice.proveLevels(view, clues);
+  const { facts, levelOf } = proven;
   if (facts.size !== full.size || levelOf.size !== full.size
     || facts.complete !== full.complete || facts.method !== full.method) return false;
   for (const [cell, fact] of full) {
@@ -598,6 +606,74 @@ function levelsInOnePassAgree(view, clues) {
     partOfComponent >= 15);
   check('stuck positions: uneven chains completed by the squares no number touches certified ('
     + seaCompleted + ')', seaCompleted >= 10);
+}
+
+// 11c. A proof as the game's end proves each board, resumed from the game's
+// previous position (proveLevels' `earlier`) and reading back the groups
+// the game already counted (`groupCounts`), equals every level's own proof
+// of the whole board: the same facts, each at the first level that proves
+// it. Random games open one safe square at a time, with every proven-safe
+// square opened in turn.
+{
+  let state = 0x20261103;
+  const random = () => {
+    state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+    return state / 4294967296;
+  };
+  let positions = 0;
+  let resumed = 0;
+  let reused = 0;
+  let failure = null;
+  for (let board = 0; board < 300 && failure === null; board++) {
+    const width = 6 + Math.floor(random() * 5);
+    const height = 6 + Math.floor(random() * 5);
+    const size = width * height;
+    const mineTotal = Math.round(size * (0.12 + random() * 0.08));
+    const mines = new Array(size).fill(false);
+    for (let placed = 0; placed < mineTotal;) {
+      const cell = Math.floor(random() * size);
+      if (!mines[cell]) { mines[cell] = true; placed++; }
+    }
+    const neighbors = (cell) => Justice.neighbors(cell, width, height);
+    const adjacent = mines.map((mine, cell) => (mine ? 0 : neighbors(cell).filter((n) => mines[n]).length));
+    const revealed = new Array(size).fill(false);
+    const open = (start) => {
+      const stack = [start];
+      while (stack.length > 0) {
+        const cell = stack.pop();
+        if (revealed[cell]) continue;
+        revealed[cell] = true;
+        if (adjacent[cell] === 0) stack.push(...neighbors(cell).filter((n) => !revealed[n]));
+      }
+    };
+    const safe = [];
+    for (let cell = 0; cell < size; cell++) if (!mines[cell]) safe.push(cell);
+    open(safe[Math.floor(random() * safe.length)]);
+    const groupCounts = new Map();
+    const read = groupCounts.get.bind(groupCounts);
+    groupCounts.get = (key) => {
+      const counted = read(key);
+      if (counted !== undefined) reused++;
+      return counted;
+    };
+    let earlier;
+    while (failure === null) {
+      const view = { width, height, mines: mineTotal, revealed: revealed.slice(), adjacent };
+      const clues = Justice.rawClues(view);
+      if (earlier !== undefined) resumed++;
+      const proven = Justice.proveLevels(view, clues, earlier, groupCounts);
+      if (!levelsInOnePassAgree(view, clues, proven)) failure = 'board ' + board + ' position ' + positions;
+      positions++;
+      earlier = proven;
+      const unopened = safe.filter((cell) => !revealed[cell]);
+      if (unopened.length === 0) break;
+      const provenSafe = unopened.filter((cell) => proven.facts.get(cell) === 2);
+      open((provenSafe.length > 0 ? provenSafe : unopened)[Math.floor(random() * (provenSafe.length || unopened.length))]);
+    }
+  }
+  check('a resumed proof reading back the game\'s counted groups equals every level\'s own proof ('
+    + resumed + ' of ' + positions + ' positions resumed, ' + reused + ' groups read back)'
+    + (failure ? ' (' + failure + ')' : ''), failure === null && resumed >= 2000 && reused >= 2000);
 }
 
 // 12. Chords categorically bypass Justice in the game integration. This is

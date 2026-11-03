@@ -11,10 +11,37 @@ action;
 a nonfatal unnecessary guess therefore survives into the after-game
 report.
 
+When it is judged (creator 2026-11-03: "we MUST not block the input
+thread. yes you have to provide the evaluation at some time probably; NO
+you should never just run random code continuously in a harmful way for
+players!"; and of proving each position from scratch: "that seems
+wasteful"):
+
+- A click saves only what it did and the board before it, in the raw
+  trace. It proves nothing and scores no guess. A Just Universe's rule
+  check and Angelic play's mine move still run on the click, since they
+  decide what the click opens.
+- When the game ends, the reports worker judges every saved decision from
+  its saved board, off the input thread: facts, risks, one-move life,
+  mistakes, alternatives, the misclick count, the A Just Universe events,
+  and the guess ledger. Each board is proved once for this and for the
+  live perf charts. Each proof continues from the game's previous board,
+  since a fact proved there still holds, and a group of numbers the click
+  left unchanged is not counted again.
+- The finished game and its trace are saved at once, marked as judgment
+  pending, and saved again complete. A page closed in between loses
+  nothing: the next load judges the pending game from its saved trace
+  before showing anything. A pending game is not in the history the page
+  shows, the archive folder, the training page, or a trace export until it
+  is complete. Games complete in the order they ended.
+- Nothing about the judgment runs during play.
+
 - New evidence records carry `proofVersion: "all-consistent-layouts-v1"`.
-  An exhaustive result may call an unresolved cell uncertain; an
-  explicitly incomplete work-limit result may preserve facts already
-  proved, but cannot generate an “unproven” criticism. From 2026-08-23
+  An exhaustive result may call an unresolved cell uncertain. Until
+  2026-11-02 a proof could stop at a work limit; such an explicitly
+  incomplete result preserved facts already proved but could not generate
+  an “unproven” criticism. Since then the proof counts every layout with
+  no work limit and always completes. From 2026-08-23
   until 2026-10-11, every page load rechecked older
   `opened-unproven-with-safe-move` entries with the canonical solver and
   removed the tag where the selected cell was proved safe. The recheck was
@@ -36,9 +63,17 @@ report.
     loss probability after Justice or mode protection is applied. Raw
     risk can remain nonzero while actual risk is zero; that action is not
     called game-risking;
-  - **one-ply modeled quality** — chosen and best measured expected
-    remaining life. This is explicitly the odds model's output, not a
-    claim about information, intent, attention, or cause;
+  - **one-move modeled quality** — chosen and best measured expected
+    remaining life (one-move life: surviving the click and then the safest
+    next square, over every number it could show), exact since 2026-11-02.
+    This is explicitly the one-move survival model's output, not a
+    claim about information, intent, attention, or cause. It is the
+    chance a guess leads to a safe next move, weighed by surviving the
+    guess: the one-move measure of choosing with winning the board in
+    mind, not only the safest square. Perfect play's chance to win
+    (`Odds.winChances`, [During the game](during-game.md)) is the full
+    measure, computed only where its search finishes ("Riskier than
+    necessary" below);
   - **mechanical contradictions** — proven-safe flag, removal of a
     proven-mine flag, visible chord contradiction, and a wrong-flag chord
     established only by the fatal outcome;
@@ -97,8 +132,10 @@ report.
   at read time, so old records reclassify like every other derived
   view (the session endings chart, removed 2026-10-20, had a matching
   muted-gold line).
-- Evidence capture never invents a conclusion: a proof or odds calculation
-  that reaches its work limit is stored as unmeasured. A calculation that
+- Evidence capture never invents a conclusion. Until 2026-11-02 a proof
+  or odds calculation that reached its work limit was stored as
+  unmeasured; both now count every layout with no work limit, so every
+  action is measured. A calculation that
   throws is a bug, not a measurement: since 2026-10-21 the click stops and
   the error bar shows it ([UI doctrine](ui-doctrine.md), "Errors are
   shown"); before then it was stored as unmeasured and play went on.
@@ -146,7 +183,8 @@ report.
      measurement is one classified action; it does not invent seconds or
      claim intent.
   5. **Life maximization** — an otherwise-lower-severity action for which
-     the one-ply model found higher expected remaining life elsewhere.
+     the one-move survival model found higher expected remaining life
+     elsewhere, by exact counts since 2026-11-02.
      This category is optional and model-relative, including
      sea-versus-frontier comparisons; it is not presented as long-horizon
      optimality.
@@ -166,9 +204,11 @@ report.
   qualifies under the selected scope, the report emits no empty-success or
   “nothing recorded” placeholder. Each block leads with
   only the dimensions that distinguish that report type, as compact
-  labeled facts (`Immediate risk`, `Safe alternative`, `One-ply life`,
-  etc.). Equal raw/active risks collapse into one line, equal modeled-life
-  values say “tied,” and measured values/counts are retained without
+  labeled facts (`Immediate risk`, `Safe alternative`, `One-move life`,
+  etc.). Equal raw/active risks collapse into one line, and modeled-life
+  values say “tied” when the saved verdict found no better square (since
+  2026-11-02; before, when the stored decimals were within 10⁻⁹), and
+  measured values/counts are retained without
   repetitive prose. A saved rendering shows the visible board before the
   action. Uniform covered remainder is omitted: the diagram crops to
   revealed/flagged/selected/trigger cells plus two cells of context,
@@ -272,7 +312,7 @@ report.
   **Game loss** (every fatal action), **Game risk** (a survived action that
   increased actual death risk), **Time loss** (no progress, visible-state
   regression, or a win's unused correct mine mark), **Life maximization**
-  (positive one-ply modeled-life gap), and **Measurement notes** (legacy,
+  (positive one-move modeled-life gap), and **Measurement notes** (legacy,
   incomplete, newer, or otherwise unclassifiable evidence).
 - The complete current mistake/evidence tag registry is:
   `opened-proven-mine`, `ignored-safe-move`, `guessed-with-safe-move`,
@@ -424,14 +464,21 @@ safe risked nothing. Worst first, the first that applies:
 3. `win-guess-early`, "won despite a higher-risk early-game guess": the
    same, in the opening only (the early-game line of the Early-game guess
    category above).
-4. `win-guess-min`, "won guessing only at the lowest risk": the guess
-   ledger counted guesses and none of them carries a tag above.
+4. Guessing only at the lowest risk: the guess ledger counted guesses and
+   none of them carries a tag above. Split by the one-move choice
+   (2026-11-02, with exact one-move lives): `win-guess-min-best`, "...each
+   guess the best one-move choice" (the ledger's `guessPerfect` equals its
+   `guesses`); `win-guess-min`, "...not each guess the best one-move
+   choice"; and `win-guess-min-unrated`, "...one-move choices not
+   measured", for a ledger version whose one-move verdicts were estimates
+   (every ledger before `guess-ledger-v3`).
 5. `win-no-guess`, "won without guessing": the ledger counted no guess.
    Every Proof-or-die win is this type, because the mode killed every
    unproven open.
 6. `win-unmeasured`, "won; guesses not measured": the game has no guess
-   ledger (recorded before the ledger, an Angelic game, or a guess whose odds
-   exceeded the enumerator budget) and no tag above, or its action evidence
+   ledger (recorded before the ledger, an Angelic game, or, before
+   2026-11-02, a guess whose odds exceeded the enumerator budget) and no
+   tag above, or its action evidence
    predates the action evaluations and its ledger counted guesses.
 
 The saved action evaluations keep every survived guess that was riskier than
@@ -459,7 +506,13 @@ worst offense against perfect play. The offenses, least to worst:
 4. opening a mine: through a wrong flag, or a proven mine.
 
 A win's kind is its win type (above), which already names the worst guess it
-survived. A loss's kind is its loss type, with two refinements:
+survived. A loss's kind is its loss type, with three refinements:
+
+- **A lowest-risk forced guess death after the opening splits by the
+  one-move choice**, as lowest-risk wins do: `guess-min-best` when every
+  guess of the game was the best one-move choice, `guess-min` when one was
+  not, `guess-min-unrated` when the ledger's one-move verdicts were
+  estimates.
 
 - **An early-game guess death splits by risk rank**, as every other guess
   does: `guess-early-min` (the lowest risk available, no offense),
@@ -487,6 +540,35 @@ survived. A loss's kind is its loss type, with two refinements:
   moves 1 Beginner, 35 Intermediate, and 103 Expert losses.
 - Proof-or-die's rule death with no proven-safe move, legacy verdicts, and
   unjudged losses are not ranked, so they keep their kinds.
+
+### Riskier than necessary (decided 2026-11-03)
+
+A guess is riskier than necessary when another square had a lower risk
+under the active rules; its one-move choice does not change that. The
+creator asked whether the best move should be judged "with board-winning in
+mind" rather than as the safest next move, so the agent tested excusing a
+riskier guess that was the best one-move choice. The evidence, from the
+creator's saved games:
+
+- Of 4,849 forced guesses (no proven-safe square, scored under the rules
+  each was played with), 56 (1.2%) were riskier than the safest square and
+  still the best one-move choice; 3,908 were riskier and not the best; 885
+  had the lowest risk, 330 of them not the best one-move choice.
+- On the 145 forced guesses where perfect play's exact chance to win
+  finishes (scored without A Just Universe, which that chance does not
+  model), the guess won as many layouts as any square in: lowest risk and
+  best one-move choice, 100 of 106; lowest risk only, 2 of 15; riskier and
+  not the best, 4 of 22; riskier but the best one-move choice, 1 of 2.
+- In one of those, a Beginner position of 7 layouts, a square of risk 2 in
+  7 tied the safest square (1 in 7) for the best one-move life, 4 in 7, yet
+  perfect play wins 2 layouts after it and 3 after the safest square
+  (`tests/game-end-evaluation-test.js` keeps it).
+
+So the one-move choice is the stronger sign of a winning move, and the
+results already split guesses of no avoidable risk by it; excusing riskier
+best one-move guesses changed one verdict for the better and one for the
+worse on the measured guesses, at the cost of a second meaning for "riskier
+than necessary". The definition stays.
 
 Time-loss actions (no-op clicks, flags on proven-safe squares, unused
 correct flags) are not on this ladder: the families name risk taken, so a

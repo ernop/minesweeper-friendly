@@ -116,8 +116,9 @@ creator's approval ("continue"; same file, "Divergences resolved
   (the version-5 step calls it too). Step 2 deletes the version-7 step's
   body, the rename map and function, the two calls, the "named ... before
   2026-10-27" schema sentences, and the upgrade and import tests' old-name
-  cases, once the creator confirms that every browser both active players
-  use has loaded a release with step 1. A backup exported before step 1
+  cases. The creator set the date on 2026-10-29: do the deletion on
+  2026-11-05 or any later day, in place of waiting for a separate
+  confirmation that both players' browsers have loaded step 1. A backup exported before step 1
   holds the old names, and `boardChangingClicks` is required, so after step
   2 importing one would reject every record. Before step 2, export a fresh
   backup, or decide to keep the import's renaming for such files (the
@@ -595,7 +596,9 @@ wait before a guess nothing could ever settle. Still not built:
   as expected wins per hour of play, against which a move is scored.
   "Competing optimization objectives", below, is the analysis side of it.
 - **The chance to win past the work limit** (level 5): "Deeper than
-  one-ply perfect play", below.
+  one-move perfect play", below; the split into independent groups and the
+  pruning bound were built 2026-10-27, dead squares skipped 2026-11-02, and
+  the limit is a creator decision.
 - **The choices made in building** (same revision) are first readings:
   connected meaning beside open numbers (the creator did not answer which
   reading was meant), flags counted as clicks in 3BV per click, and
@@ -769,17 +772,25 @@ Built: exact, faster click-time proof and odds evidence, session charts
 that redraw once per session step during a game, and one stored record per
 game instead of rewriting the whole history twice per game. Not built:
 
-1. **Proof-budget tail.** About 1% of expert positions exhaust the exact
-   proof's 2,000,000-node budget (about 90ms in Firefox, every click on
-   them) and end incomplete. A memoized frontier search would finish them
-   in milliseconds but would complete proofs the current rule leaves
-   incomplete, changing Justice, misclick, and evidence results; that needs
-   a proof-version decision.
-2. **Evidence off the input path.** Odds and misclick evidence could move to
-   a worker, but the exact proof stays synchronous because A Just Universe
-   needs it before revealing, and game-end finalization would have to wait
-   for the last action's evidence. After item 1 this would save only a few
-   milliseconds per click.
+1. **Proof-budget tail.** Built 2026-11-02 by the exact counter
+   ([reference/jsminesweeper.md](reference/jsminesweeper.md)): about 1% of
+   expert positions exhausted the exact proof's 2,000,000-node budget
+   (about 90ms in Firefox, every click on them) and ended incomplete; the
+   proof now always completes, at most 3.7 ms on 1,736 simulated Expert
+   positions in Node. It completes proofs that used to stop, so in those
+   positions A just universe now applies its rule and the evaluation can
+   name a mistake it withheld. No version changed for it: the proof's
+   definition (`proofVersion` `all-consistent-layouts-v1`, every consistent
+   layout) is the same, each saved evaluation records whether its proof
+   completed (`factsMeasured`), and evaluations and records made since
+   carry `oddsVersion` `guess-ledger-v3`. The creator may still ask for a
+   new proof version.
+2. **Evidence off the input path.** Built 2026-11-03, on the creator's
+   "we MUST not block the input thread": a click saves its board, and the
+   reports worker judges every decision at game end
+   ([Game-end evaluation](docs/product/game-end-evaluation.md), "When it is
+   judged"). Only A Just Universe's certification and Angelic play's mine
+   move still prove on the click, since they decide what it opens.
 3. **Remaining freezes found by attributed measurement (2026-09-26).** In
    Firefox with the stats panel open, all measured as our own code:
    - After a game, the report arrives in tasks of 60-160ms: `renderResult`
@@ -794,8 +805,9 @@ game instead of rewriting the whole history twice per game. Not built:
      report appears, so they await a creator decision.
    - Switching board size while a report is shown takes about 200ms: the
      forced layout in `newGame`'s `syncGameSidebar`.
-   - Some expert clicks take 57-92ms in the misclick check, where the exact
-     proof exhausts its work budget (item 1).
+   - Some expert clicks took 57-92ms in the misclick check, where the exact
+     proof exhausted its work budget (item 1, built 2026-11-02; not yet
+     remeasured in Firefox).
 4. **Waste the latency check measures (2026-09-26; remeasured 2026-10-20).**
    Our own handlers, in Firefox, with no report shown: a new intermediate
    game takes 23-24ms of work to build 256 cells (26-28ms on 2026-09-26,
@@ -807,18 +819,25 @@ game instead of rewriting the whole history twice per game. Not built:
    in `tests/latency-budgets.json` (last tightened 2026-10-20).
    A won Expert game's full results (`expertWinResultsMs`, added 2026-10-26)
    took 216-224ms on the PC, and 132-152ms after that day's changes: the
-   reports worker proves each position during play, so `finished-game`
-   replies 58-73ms after the post instead of about 105ms of work, and the
-   page posts it before saving the trace, so the worker computes during the
-   save. The same changes cut new game work to 7-13ms and the freeze after
-   a game ends to 33-66ms (every interval of the check's timer counted).
+   reports worker proved each position during play, so `finished-game`
+   replied 58-73ms after the post instead of about 105ms of work. The same
+   changes cut new game work to 7-13ms and the freeze after a game ends to
+   33-66ms (every interval of the check's timer counted). Since 2026-11-03
+   the positions are proved after the game instead (item 2): on the check's
+   Expert win (229 decisions, nine guesses) `finished-game` takes 106-118ms
+   in Firefox (proving 52-55, the rest of the judgment 14-15, motion 4-5,
+   the measurements with the model 30-32), and `expertWinResultsMs` was
+   205-248ms against its 165ms budget, which waits on the creator's decision
+   (asked 2026-11-03). The freeze after a game ends was 30-39ms that day.
    What remains, in Firefox:
-   - The winning click's task runs 56-68ms: `reportResult` 47-56ms, of which
-     `saveTrace` copies the trace into storage (32-34ms) and the
-     `finished-game` post copies it to the worker (11-13ms). Most of each
-     copy was the full visible board on every decision event, measured
-     while boards were arrays; since capture version 2 (2026-10-26) each is
-     one string, so both copies need measuring again. Storing each
+   - The winning click's task ran 56-68ms (2026-10-26): `reportResult`
+     47-56ms, of which copying the trace into storage took 32-34ms and the
+     `finished-game` post's copy to the worker 11-13ms. Since 2026-11-03
+     `storeGame` copies the record and trace into storage twice, at game
+     end marked pending and again once judged. Most of each copy was the
+     full visible board on every decision event, measured while boards
+     were arrays; since capture version 2 (2026-10-26) each is one string,
+     so the copies need measuring again. Storing each
      action's board changes instead (Lifelong self-measurement roadmap,
      "Full-rate pointer capture") would cut both. Sending the worker only
      what the live feed has not would not: the page changes two kinds of
@@ -868,6 +887,20 @@ game instead of rewriting the whole history twice per game. Not built:
    once the import branch goes, nor read by the offline tools, so the
    creator re-exports after step 1 and keeps only the new exports, or the
    conversion stays at import.
+7. **Incremental proofs (2026-11-03).** The game end proves every position
+   of the game once (item 2). Each proof starts from the previous
+   position's facts, and the residual groups of numbers a click left
+   unchanged are read back rather than counted again (599 of 730 on the
+   latency check's Expert win). The rest of each proof still reads the
+   whole board at every position: the two rules passes to a fixpoint over
+   every number, the residual numbers and their groups, the mine total's
+   step, and the board view, together about 0.2ms a position in Firefox
+   (52-55ms of the check's 229-decision win). Updating them only around the
+   squares a click opened (the numbers beside new facts as a worklist,
+   residual numbers and groups carried from the previous position, the
+   mine total's sums kept per group) would make each proof cost about what
+   the click changed. The proof's definition and results stay the same, so
+   no version changes. Not built.
 
 ## Game data as the primary result surface (creator, 2026-09-23)
 
@@ -1164,94 +1197,169 @@ Generation that aims at the same families the new lists rank:
   counts are stored per game; no rank list or scatter uses them yet.
 - **Exact layout counter for odds, facts, and the guess ledger
   (requirement 2026-10-22; [AGENTS.md](AGENTS.md) design requirement 8;
-  [Guess ledger](docs/product/per-game-stats.md)).** Today `odds.js` lists
-  layouts one by one and stops at 22 squares per group or 250,000 steps
-  ("not measured"); it scores one-move life only up to 40 undecided squares.
-  The score is exact only when every covered neighbor of the clicked square
-  is proven or in its group. Everywhere else it takes a shortcut:
-  - squares no number touches get an average-density estimate;
-  - squares with a neighbor outside their group get bare survival;
-  - squares A just universe protects get max(survival × value, 1 − lowest
-    risk);
-  - beside a proven-safe square, 1 is stored as the best value;
-  - a next position past the budget gets today's lowest risk;
-  - without the model, `guessPerfect` copies ideal-risk.
-
-  On forced-guess endgames the "perfect" verdict was wrong for 7.8% of
-  Intermediate and 11.4% of Expert guesses. The replacement was prototyped
-  and checked on 2026-10-22:
-  - **Counting.** Squares touching exactly the same numbers form one box,
-    counted with binomials (as the sea already is). Each group's boxes are
-    swept along the frontier. The state is how many mines each partly
-    covered number still needs, and partial layouts with the same state
-    merge. Counts by mine count (whole numbers, BigInt) join the groups and
-    the sea as the odds join does now. A forward and a backward pass give
-    every square's mine count. Facts are the squares counted 0 or all, so
-    the same counter replaces the proof's exact pass and its
-    2,000,000-visit limit. The counts matched listing every layout on 300
-    small positions, and today's odds wherever both measured. On 4,154
-    positions from simulated Intermediate and Expert games it took at most
-    1.9 and 2.6 ms in Node, including the 194 positions today's odds call
-    too large; at most 60 states merged at any step. It fits the click.
-  - **One-move life.** life(X) × total = the sum, over each number n that X
-    could show, of (layouts with X safe showing n) minus (of those, layouts
-    mining the safest other square); the second term is 0 when some square
-    is then safe or none is undecided. X's number is a second counted
-    dimension. Groups touching X or its neighbors are recounted with X safe
-    and its neighbors' mines tracked; other groups reuse their counts.
-    The sea splits into X's neighbors and the rest, two interchangeable
-    classes. A sea square whose covered neighbors are all sea depends only on
-    how many there are, so each such class is computed once. A square whose
-    survival chance is below the best value found cannot be best and is
-    skipped. A protected square divides by its safe layouts instead of all
-    layouts. It matched listing every layout for all 5,626 covered squares
-    of 400 small positions. Those included squares no number touches,
-    outside-neighbor squares, own-group squares, and proven-safe squares.
-    For every undecided square in Node: Intermediate median 5.9 ms, worst
-    29 ms; Expert median 20.5 ms, worst 179 ms (97 ms with the skip). That
-    is too slow for the click. It runs in the analysis worker on each
-    guess's position; the evaluation, the lower-modeled-life mistake, and
-    the record's `guessPerfect` take its result.
-  - **No safe-square case.** A proven-safe square's value is never below
-    any guess's: the expected lowest risk after a safe click is at most the
-    lowest risk now. No exception appeared in 7,428 simulated positions.
-    So the best value is simply the highest over every covered square.
+  [Guess ledger](docs/product/per-game-stats.md)).** Built 2026-11-02
+  (`guess-ledger-v3`; [per-game stats notes](docs/implementation/per-game-stats.md),
+  "Guess ledger"; the method is JSMinesweeper's probability engine,
+  [reference/jsminesweeper.md](reference/jsminesweeper.md)), except the
+  rescoring of saved games: one counter for the proof, the odds, and
+  one-move life, with no work limit; every guess measured; the best value
+  over every covered square; ties by exact counts. Until then `odds.js`
+  listed layouts up to 22 squares per group or 250,000 steps and took
+  shortcuts beyond them, and on forced-guess endgames the "perfect"
+  verdict was wrong for 7.8% of Intermediate and 11.4% of Expert guesses
+  (measured 2026-10-22). The 2026-10-22 prototype of one-move life took a
+  median 20.5 ms and at most 179 ms an Expert guess, so it was planned for
+  the analysis worker; the built one takes a median 0.6 ms and at most
+  15 ms on 832 Expert guesses in Node (kernels for the untouched board
+  cached per touched set, one value per class of sea square, the survival
+  bound in increasing order of risk). Since 2026-11-03 the whole judgment,
+  this scoring included, runs at game end in the reports worker, never on
+  the click ([Game-end evaluation](docs/product/game-end-evaluation.md),
+  "When it is judged"). Still open:
   - **Saved games.** Every accepted action's position is in the raw trace
-    (`traceDecision`), so every guess of a traced game is rescored.
-    Rescoring also replaces the false ties stored until 2026-10-11 (bare
-    survival odds saved as both the chosen and best values), which the
-    full report shows as "tied". An untraced game keeps positions only on
-    its stored evaluations (deaths and mistakes). Its `guessPerfect`
-    cannot be rescored, so whether to drop it is a creator decision.
-  - **Worst case.** Deciding whether a position is consistent is
-    NP-complete (Kaye 2000), so a contrived position, such as a
-    checkerboard of revealed squares, can be slow. The cost grows with the
-    frontier's width, which real play keeps small. Either way there is no
-    budget and no substitute value.
-- **Deeper than one-ply perfect play.** Current `guessPerfect` is
+    (`traceDecision`), so every guess of a traced game can be rescored to
+    `guess-ledger-v3`. Rescoring also replaces the false ties stored until
+    2026-10-11 (bare survival odds saved as both the chosen and best
+    values), which the full report shows as "tied". An untraced game keeps
+    positions only on its stored evaluations (deaths and mistakes). Its
+    `guessPerfect` cannot be rescored, so whether to drop it is a creator
+    decision. Rescoring changes saved history, so it ships in two steps
+    ([AGENTS.md](AGENTS.md), "Changes to saved history").
+  - **Raw risk ties read from decimals.** Since 2026-11-03 each guess
+    saves the active-rules verdict exactly (`bestActualRiskTaken`), and the
+    survived game-risk category, the loss types, the session kinds, and the
+    report's active-rules risk line read it; "a square was proven safe"
+    reads a lowest risk of exactly 0. Two readers still compare stored
+    decimals within 10^-12: the report's raw risk line ("tied"), shown when
+    A Just Universe made the active risks differ, and whether the raw and
+    active risks are the same line. A gap smaller than that needs more than
+    10^12 layouts in play. Exact: save the raw verdict and whether A Just
+    Universe changed either risk. Saved games keep the tolerance where
+    their decimals came from raw odds (until 2026-08-23) or the listing.
+- **Deeper than one-move perfect play.** Current `guessPerfect` is
   expected remaining life after one number observation. A full
   remaining-game-tree win probability needs a method that scales (design
   requirement 8), not a budget, and never a substitute such as min-p.
   Built 2026-10-26 for the live perf charts' guess card, not for the
   record: an exact count of the layouts perfect play wins
-  (`Odds.winChances`), which finishes in endgames with few layouts left
-  (in simulated play 18 of 19 Beginner guesses, 19 of 46 Intermediate, 29
-  of 197 Expert) and otherwise stops at a work limit with no value, the
-  card saying so. That limit is a budget, set to keep each guess's search
-  to a few milliseconds after the game; ten times higher it finishes 43 of
-  the 197 Expert guesses at up to 17 ms each. Early in a game the layouts
-  can number more than 10^80, and no known exact method finishes there.
-  The agent recommended keeping the exact value where it finishes. The
-  creator disagreed (2026-10-26): "i still don't agree w/100k; tehre should
-  be a proper way to actually calculate this, algebraically or with just
-  logical propositions in a moderately largeish chain." Open: find an exact
-  method that finishes on moderately large positions, then replace the
-  limit. The layout counts are not the hard part; the guess ledger's risks
-  already come from exact counts. What grows is the search over every
-  number each opened square can show. Directions to measure: splitting the
-  board into regions that interact only through the mine total; settling by
-  proof first, which the search does now; symmetry; and bounds that prune
-  whole subtrees. The limit stays until then.
+  (`Odds.winChances`), which stops at a work limit with no value where its
+  search is too large, the card saying so. That limit is a budget, set to
+  keep each guess's search to a few milliseconds after the game. The agent
+  recommended keeping the exact value where it finishes. The creator
+  disagreed (2026-10-26): "i still don't agree w/100k; tehre should be a
+  proper way to actually calculate this, algebraically or with just
+  logical propositions in a moderately largeish chain." Directions then
+  listed: splitting the board into regions that interact only through the
+  mine total; settling by proof first; symmetry; and bounds that prune
+  whole subtrees.
+  Built 2026-10-27 ([During the game](docs/product/during-game.md),
+  "Revision (creator 2026-10-26, the move hierarchy)"): the split (groups
+  no number links, whose chances multiply where the mine total leaves each
+  one count; groups it leaves several counts searched together) and a
+  bound that prunes every subtree that cannot beat the best guess found.
+  Both are exact: they agree with a brute-force game search on 12,000
+  random small positions. On the guesses of `tests/win-chances-bench.js`
+  they raised the computed guesses from 26 to 27 of 41 Beginner, 49 to 52
+  of 77 Intermediate, and 71 to 90 of 212 Expert, at most about 2 ms a
+  guess. Settling by proof first was already in the search; symmetry beyond
+  squares mined in the same layouts was not tried.
+  What remains is not a counting problem. Of the 122 Expert guesses still
+  refused, 96 have a group of a million or more layouts that nothing
+  splits (82 more than 10^12), because the unopened area joins them: the
+  chance to win there is the value of the whole rest of the game in that
+  area, which no known exact method finishes. The other 26 have fewer
+  layouts but a long search over what opening the unopened squares can
+  show: without a limit, 15 finish within 1.2 seconds, 4 take 3 to 11
+  seconds, and 7 do not finish in 15. Open, a creator decision: the limit.
+  Raising it tenfold computes 4 more Expert guesses and 1 Beginner, at up
+  to 15 ms a guess on the after-game results path; computing a guess's
+  chance only when its card opens, with about a second each, would compute
+  about 15 more Expert guesses and leave the card blank while it runs. The
+  agent recommends keeping 100,000. The limit stays until the creator
+  decides.
+  2026-11-02: the search skips dead squares (one showing the same number in
+  every layout that leaves it safe; JSMinesweeper's term), its counts are
+  exact BigInts from the new counter, and every guess's odds are measured,
+  so the bench's games play to their end. On those guesses it computes 27
+  of 42 Beginner, 52 of 93 Intermediate, and 116 of 387 Expert (the
+  published release: 26, 49, and 89, agreeing exactly on every guess both
+  compute); at 1,000,000, 28, 53, and 123 at up to 61 ms a guess; at
+  10,000,000, 29, 56, and 130 at up to 259 ms. JSMinesweeper limits the
+  same search too: its exact search runs only below 1,000 remaining
+  layouts in play (its analyzer: a setting up to 20,000, 5,000 by
+  default), and a heuristic chooses beyond. The decision is still the
+  creator's; the agent's recommendation is unchanged.
+  2026-11-03, the creator: "i still disagree with things such as arbitrary
+  100k limits ... is there evidence of the actual risk, the actual timing
+  distribution we expose ourselves to? there should be." Measured that day
+  in Node on the PC, on the 4,703 guesses with an undecided square in
+  2,245 of the creator's saved games (a copy of the database read on the
+  test origin), at limits of 10^5 (now), 10^6, 10^7, and 10^8:
+
+  | Level | Guesses | Computed at 10^5 / 10^6 / 10^7 / 10^8 | Per guess at 10^5: median, 99th percentile, most | Most per guess at 10^6 / 10^7 / 10^8 |
+  | --- | --- | --- | --- | --- |
+  | Beginner | 476 | 14.5% / 16.0% / 17.2% / 18.3% | 0.18 ms, 9 ms, 27 ms | 0.19 s / 2.2 s / 18.5 s |
+  | Intermediate | 1,144 | 10.5% / 11.8% / 12.5% / 14.0% | 0.45 ms, 17 ms, 76 ms | 0.24 s / 1.8 s / 17.8 s |
+  | Expert | 3,083 | 4.6% / 5.1% / 5.6% / 6.2% | 0.89 ms, 18 ms, 57 ms | 0.23 s / 2.4 s / 16.8 s |
+
+  At 10^5 one game's guesses take at most 112 ms together, in the reports
+  worker after the game. Of the 4,266 guesses not computed at 10^8, 4,184
+  stop while listing a group's layouts, which alone needs at least 10^8
+  units, and up to 10^107: no limit a person can wait for computes them
+  (at the measured median of 0.09 µs a unit, 10^8 units take about 9
+  seconds and 10^15 about 3 years). The other 82 stop in the search. So the limit is a bound on time, not on the answer, and
+  raising it buys a few guesses in 100 at seconds each. Options for the
+  creator, the agent recommending the first:
+  1. Keep 10^5, and have the guess card state the work the search needed
+     (at least the units counted when it stopped; a group's listing is
+     counted exactly before it is listed) in place of a bare "not
+     computed".
+  2. Compute a guess's chance only when its card opens, with no limit,
+     cancelled when the card closes or a game starts, showing progress:
+     about 1 more guess in 100, and a card that waits seconds or never
+     finishes on the rest.
+  3. Raise the limit to 10^6: about 1 more guess in 100, up to 0.24 s a
+     guess after the game.
+- **JSMinesweeper traits not built** (review 2026-11-02,
+  [reference/jsminesweeper.md](reference/jsminesweeper.md)). Each but the
+  last is exact and comes from counts the game already makes:
+  - **Chance of each number.** For a covered square, the chance it shows
+    each number if opened (JSMinesweeper's "probability breakdown by
+    value", 2026-10-04). One-move life already counts the layouts showing
+    each number; it could show on the replay's hover or the guess card.
+  - **Progress chance.** The chance the position after a guess has a
+    proven-safe square (JSMinesweeper's "progress"). One-move life already
+    finds, for each number, whether some square is then safe. A candidate
+    definition for the move hierarchy's information tie-break (level 6,
+    above).
+  - **Dead squares shown.** Marking squares whose opening can teach
+    nothing (a mine in every layout, or the same number in every layout
+    that leaves it safe), in the guess card or the replay. Perfect play's
+    search already finds them.
+  - **Position analyzer.** Building a position by hand and seeing its mine
+    chances, one-move life, and chance to win (JSMinesweeper's Analyser).
+    Today they show only on positions from played games. It needs a place
+    on the page and a decision on whether such positions are saved.
+  - **MBF and ABF board files.** Opening and saving boards in the
+    MinesweeperX and Arbiter formats, to share boards with other tools.
+  - **Long-term risk.** JSMinesweeper raises the score of a guess that
+    affects a 50/50 the player must face later, by a heuristic weight. The
+    exact version is perfect play's chance to win ("Deeper than one-move
+    perfect play", above).
+- **Session results judged by the one-move choice first** (offered
+  2026-11-03, not requested). The creator asked for the "best move with
+  board-winning in mind rather than safest next move". Built that day: the
+  tree splits lowest-risk guesses by whether each was the best one-move
+  choice ([Game-end evaluation](docs/product/game-end-evaluation.md),
+  "Riskier than necessary (decided 2026-11-03)"). The option is to file a
+  guess by its one-move choice first, so a riskier guess that was the best
+  one-move choice is no offense. Evidence the same day: of 4,849 forced
+  guesses in the creator's games, 56 (1.2%) would change family; on the 145
+  where perfect play's chance to win finishes, the best one-move choice and
+  the lowest risk together won as many layouts as any square 100 times in
+  106, the lowest risk alone 2 in 15, and the best one-move choice alone 1
+  in 2. Games saved before 2026-11-02 have no exact one-move life, so they
+  could not be filed this way.
 - **IOE as 3BV / total clicks** (effective + wasted). Efficiency /
   throughput already use effective clicks only. The clone's IOE is the
   missing total-click cousin.
@@ -1302,7 +1410,7 @@ script's JSON is the intended input for their first versions.
   action evaluations by `atMs` rather than trusting historical array order.
 - **Guess-policy progression.** By exact level and over date/session position,
   chart the shares and risk magnitudes of guaranteed-safe alternatives
-  ignored, minimum-risk guesses, higher-risk guesses, one-ply model-best
+  ignored, minimum-risk guesses, higher-risk guesses, one-move model-best
   choices, and model disagreements. Add information-gain/deeper-horizon
   measures only when their definitions and coverage are explicit.
 - **Competing optimization objectives.** Put per-game win probability beside
@@ -1359,7 +1467,7 @@ from the RAM trace of the game just ended. Not built:
   systems; "A just universe" v1; play-mode switcher; Angelic; Trial (25 identities × 4
   isometries, lobby → start → repeat-comparison review); Short
   trial (4 × 4); Test trial (1 × 4); correctness / throughput / IOS
-  (derived); guess ledger (life lost, needless, ideal-risk, one-ply
+  (derived); guess ledger (life lost, needless, ideal-risk, one-move
   perfect play); board generators (Default / Pink noise / Blue noise /
   Green noise / Stippled / Letterforms, per-key rankings
   via the top score key, Board lab exploration mode);
@@ -1401,18 +1509,6 @@ Remaining, in priority order (earlier items prevent irreversible loss):
 1. **Nothing lost.**
    - **Archive import.** Rebuild a browser database from an archive folder,
      for a new machine or profile. Writing is built.
-   - **Which version of a record is archived** (found 2026-10-26; kept as
-     it is the same day, the creator approving that recommendation: "nice
-     work. go for it."). The sync after a game starts once its trace is
-     saved, while the worker is still computing the board measurements, so
-     the archived record holds them only when their reply was stored first;
-     on the PC both finish within about 50 ms of the game's end. Options:
-     store the measurements apart from the record, so a record never changes
-     after its first write (a schema change, and the one way the archive is
-     the same every time); start the game's sync after its measurements
-     arrive (another tab's sync can still find the record first); or keep
-     it as is, since everything missing is recomputable from the trace and
-     seed.
    - **Every attempt.** Restarted and abandoned boards keep a record and a
      partial trace with an explicit end reason, checkpointed during play, so
      practice exposure and between-game intervals become countable. Never

@@ -284,9 +284,13 @@ middle? that's okay."
     move available (saved games of that mode, removed 2026-10-21); risk not
     measured; judged before loss types (the legacy
     verdicts); not judged.
-  - **Level 3, the type:** under won, without guessing or guessing only at
-    the lowest risk; a riskier guess in the opening or after it. Under
-    lost, a lowest-risk forced guess in the opening or after it; a riskier
+  - **Level 3, the type:** under won, without guessing, or guessing only at
+    the lowest risk with each guess the best one-move choice, not each, or
+    one-move choices not measured (games saved before 2026-11-02, when exact
+    one-move lives began; added 2026-11-03 on the creator's request that the
+    tree carry "made optimal 1-step guess"); a riskier guess in the opening
+    or after it. Under lost, a lowest-risk forced guess in the opening, or
+    after it split the same three ways; a riskier
     guess in the opening, or after it with a lowest-risk square within 2
     squares or every one 3 or more away; the proof that showed a safe
     square or the mine (counting single numbers, comparing overlapping

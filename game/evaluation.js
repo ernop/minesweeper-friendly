@@ -44,7 +44,7 @@ const ACTION_CATEGORY_SPECS = [
   { id: 'timeLoss', label: 'Time loss',
     records: 'an input that made no board progress, moved visible state away from a proven fact, or—in a won game—placed a correct mine flag never consumed by a chord; counts actions, not seconds or intent' },
   { id: 'lifeMaximization', label: 'Life maximization',
-    records: 'an optional one-ply model comparison where another action had higher expected remaining life' },
+    records: 'an optional one-move survival model comparison where another action had higher expected remaining life' },
   { id: 'measurementNotes', label: 'Measurement notes',
     records: 'legacy or incomplete evidence the app cannot classify more precisely' },
 ];
@@ -84,6 +84,17 @@ function evaluationRiskDelta(evaluation) {
     return Math.max(0, evidence.chosenRisk - evidence.bestRisk);
   }
   return undefined;
+}
+
+// Whether an action took more risk than the least on offer under the rules
+// in play; undefined when its risk was not measured. A guess judged since
+// 2026-11-03 saved the exact verdict, from layout counts; an older one is
+// judged from its saved risks, decimals within a rounding tolerance.
+function evaluationTookHigherRisk(evaluation) {
+  const evidence = evaluation.evidence || {};
+  if (typeof evidence.bestActualRiskTaken === 'boolean') return !evidence.bestActualRiskTaken;
+  const delta = evaluationRiskDelta(evaluation);
+  return delta === undefined ? undefined : delta > 1e-12;
 }
 
 // "Early game" is judged from the player's own position: the fraction of
@@ -129,15 +140,13 @@ function actionEvaluationCategory(evaluation) {
       && evaluation.version !== ACTION_EVALUATION_VERSION) return 'measurementNotes';
   const mistakes = new Set(evaluation.mistakes || []);
   const hasRiskRule = [...GAME_RISK_MISTAKES].some((kind) => mistakes.has(kind));
-  if (hasRiskRule) {
-    const delta = evaluationRiskDelta(evaluation);
-    if (delta === undefined || delta > 1e-12) {
-      return evaluationIsEarlyGame(evaluation) ? 'earlyGuess' : 'gameRisk';
-    }
+  if (hasRiskRule && evaluationTookHigherRisk(evaluation) !== false) {
+    return evaluationIsEarlyGame(evaluation) ? 'earlyGuess' : 'gameRisk';
   }
   if ([...TIME_LOSS_MISTAKES].some((kind) => mistakes.has(kind))) return 'timeLoss';
-  if (mistakes.has('chose-lower-modeled-life')
-      && (evaluationLifeGap(evaluation) || 0) > 1e-9) return 'lifeMaximization';
+  // The tag is the verdict, set from exact counts: a real gap can be
+  // smaller than any decimal tolerance on the stored lives.
+  if (mistakes.has('chose-lower-modeled-life')) return 'lifeMaximization';
   if (evaluation.legacy || mistakes.has('legacy-avoidable')
       || (evaluation.evidence && evaluation.evidence.factsMeasured === false)) {
     return 'measurementNotes';
@@ -189,7 +198,8 @@ function evaluationEndingKind(evaluation) {
         && evidence.openedProvenMines.length > 0)) return 'mine';
   if (mistakes.has('guessed-with-safe-move')
       || mistakes.has('opened-unproven-with-safe-move')
-      || evidence.safeAvailable === true) return 'needless';
+      || evidence.safeAvailable === true
+      || evaluationJusticeSafeAvailable(evidence)) return 'needless';
   if (mistakes.has('chose-higher-risk') || evaluation.action === 'proof-open') {
     return 'forced';
   }
@@ -198,12 +208,7 @@ function evaluationEndingKind(evaluation) {
   // risk-rank-unmeasured mine opening. Legacy chord verdicts returned above
   // retain their old chart line as provenance.
   if (evaluation.action === 'chord') return 'forced';
-  if (evidence.firstReveal === true
-      || (typeof evidence.chosenRisk === 'number'
-        && typeof evidence.bestRisk === 'number'
-        && evidence.chosenRisk <= evidence.bestRisk + 1e-12)) {
-    return 'angel';
-  }
+  if (evidence.firstReveal === true || evaluationTookHigherRisk(evaluation) === false) return 'angel';
   return 'other';
 }
 
@@ -234,17 +239,16 @@ const FATAL_STATUS_LABELS = {
 };
 
 // A covered square was proven safe: the canonical prover or the
-// remaining-layout odds found one.
+// remaining-layout odds found one. The odds are ratios of layout counts,
+// exactly 0 for a square no layout mines.
 function evaluationProvenSafeAvailable(evidence) {
-  return evidence.safeAvailable === true
-    || (typeof evidence.bestRisk === 'number' && evidence.bestRisk <= 1e-12);
+  return evidence.safeAvailable === true || evidence.bestRisk === 0;
 }
 
 // A safe entry existed under the active rules (A Just Universe certifies
 // some guesses) even where no square was proven safe.
 function evaluationJusticeSafeAvailable(evidence) {
-  return typeof evidence.bestActualRisk === 'number'
-    && evidence.bestActualRisk <= 1e-12;
+  return evidence.bestActualRisk === 0;
 }
 
 function fatalActionStatusKind(evaluation) {
@@ -262,16 +266,15 @@ function fatalActionStatusKind(evaluation) {
   if (evaluation.action === 'proof-open') {
     return safeAvailable ? 'proof-safe' : 'proof-forced';
   }
-  const delta = evaluationRiskDelta(evaluation);
   if (safeAvailable) return 'guess-safe';
   // A forced guess death before the board opened up is the mode's
   // entry fee: over enough games it must happen, so it files as one
   // routine kind whatever the risk rank was (creator, 2026-08-24).
   // Guessing past a proven-safe move stays 'guess-safe' at any stage.
   if (evaluationIsEarlyGame(evaluation)) return 'guess-early';
-  if (delta !== undefined && delta > 1e-12) return 'guess-higher';
-  if (delta !== undefined) return 'guess-min';
-  return 'guess-unmeasured';
+  const higher = evaluationTookHigherRisk(evaluation);
+  if (higher === undefined) return 'guess-unmeasured';
+  return higher ? 'guess-higher' : 'guess-min';
 }
 
 // The loss type (creator request 2026-10-11): one exclusive kind per modern
@@ -629,15 +632,40 @@ function lossKindOf(evaluation) {
 // forced guess, the same before the board opened up (filed apart, as early
 // losses are), lowest-risk guesses only, none. The saved action evaluations
 // hold every survived guess riskier than necessary; the guess ledger counts
-// the rest, and without it a clean-looking win stays unmeasured.
+// the rest, and without it a clean-looking win stays unmeasured. Lowest-risk
+// guesses split by the one-move choice (creator request 2026-11-03): whether
+// every guess was also the best one-move choice, the square with the highest
+// one-move life (the chance to survive it and then the safest next square).
 const WIN_TYPE_LABELS = {
   'win-no-guess': 'won without guessing',
-  'win-guess-min': 'won guessing only at the lowest risk',
+  'win-guess-min-best': 'won guessing only at the lowest risk, each guess the best one-move choice',
+  'win-guess-min': 'won guessing only at the lowest risk, not each guess the best one-move choice',
+  'win-guess-min-unrated': 'won guessing only at the lowest risk; one-move choices not measured',
   'win-guess-early': 'won despite a higher-risk early-game guess',
   'win-guess-higher': 'won despite a higher-risk forced guess',
   'win-guess-safe': 'won despite guessing while a safe move was available',
   'win-unmeasured': 'won; guesses not measured',
 };
+
+// The guess ledgers whose one-move verdicts (`guessPerfect`) are exact,
+// counted from layouts; earlier ones estimated some squares' one-move life.
+// A later ledger version joins this list when it keeps them exact.
+const EXACT_ONE_MOVE_LEDGERS = new Set(['guess-ledger-v3']);
+
+// Whether every guess of the game was the best one-move choice; undefined
+// where the ledger's one-move verdicts are not exact or it has none.
+function everyGuessBestOneMove(record) {
+  if (!EXACT_ONE_MOVE_LEDGERS.has(record.oddsVersion)) return undefined;
+  return record.guessPerfect === record.guesses;
+}
+
+// A lowest-risk kind refined by the one-move choice: `kind` + '-best' when
+// every guess was the best one, the kind itself when one was not, + '-unrated'
+// when the ledger cannot tell.
+function oneMoveKind(kind, record) {
+  const best = everyGuessBestOneMove(record);
+  return best === undefined ? kind + '-unrated' : best ? kind + '-best' : kind;
+}
 
 function winTypeOf(record) {
   // Proof-or-die (removed; its saved games remain) killed every unproven
@@ -651,7 +679,7 @@ function winTypeOf(record) {
   const survived = worstSurvivedGuess(evaluations);
   if (survived !== undefined) return 'win-guess-' + survived;
   if (record.guesses === undefined) return 'win-unmeasured';
-  return record.guesses > 0 ? 'win-guess-min' : 'win-no-guess';
+  return record.guesses > 0 ? oneMoveKind('win-guess-min', record) : 'win-no-guess';
 }
 
 // The worst guess a game survived, worst first: 'safe', past a proven-safe
@@ -694,26 +722,30 @@ const SURVIVED_GUESS_RANKS = { safe: 2, higher: 1, early: 1 };
 // The session results tree's kind for a game (creator request 2026-10-14:
 // "1st split: wins/losses. then within each cat, break them down by the
 // variety and type of worst offenses against perfect play"). A win is its
-// win type. A loss is its loss type, with two refinements:
+// win type. A loss is its loss type, with three refinements:
 // - an early-game guess death splits by its risk rank like any other guess:
 //   'guess-early-min', 'guess-early-higher', or 'guess-early-unmeasured';
 // - when the game survived a guess worse than its fatal click, that guess
-//   was the worst offense: 'survived-guess-safe' or 'survived-guess-higher'.
+//   was the worst offense: 'survived-guess-safe' or 'survived-guess-higher';
+// - a lowest-risk forced guess death after the opening splits by the
+//   one-move choice, as lowest-risk wins do: 'guess-min-best' when every
+//   guess of the game was the best one-move choice, 'guess-min' when one was
+//   not, 'guess-min-unrated' when the ledger cannot tell.
 function sessionResultKind(record) {
   if (record.outcome === 'win') return winTypeOf(record);
   const fatal = fatalEvaluationOf(record);
   let kind = lossKindOf(fatal);
   if (kind === 'guess-early') {
-    const delta = evaluationRiskDelta(fatal);
-    if (delta === undefined) kind = 'guess-early-unmeasured';
-    else kind = delta > 1e-12 ? 'guess-early-higher' : 'guess-early-min';
+    const higher = evaluationTookHigherRisk(fatal);
+    kind = higher === undefined ? 'guess-early-unmeasured'
+      : higher ? 'guess-early-higher' : 'guess-early-min';
   }
   if (!Object.hasOwn(FATAL_OFFENSE_RANKS, kind)) return kind;
   const survived = worstSurvivedGuess(record.actionEvaluations);
   if (survived !== undefined && SURVIVED_GUESS_RANKS[survived] > FATAL_OFFENSE_RANKS[kind]) {
     return survived === 'safe' ? 'survived-guess-safe' : 'survived-guess-higher';
   }
-  return kind;
+  return kind === 'guess-min' ? oneMoveKind(kind, record) : kind;
 }
 
 function actionEvaluationLabel(evaluation) {
@@ -776,7 +808,7 @@ function actionEvaluationText(evaluation) {
     parts.push('The selected risk was higher than the lowest risk available.');
   }
   if (mistakes.has('chose-lower-modeled-life')) {
-    parts.push('The one-ply odds model found another action with higher expected remaining life; this compares modeled outcomes, not intent.');
+    parts.push('The one-move survival model found another action with higher expected remaining life; this compares modeled outcomes, not intent.');
   }
   if (mistakes.has('flagged-proven-safe')) {
     parts.push('Visible facts proved the flagged square safe.');
@@ -825,7 +857,9 @@ function actionEvaluationText(evaluation) {
   }
   if (evaluation.result === 'death' && parts.length === 0
       && typeof evidence.chosenRisk === 'number') {
-    parts.push('No guaranteed-safe reveal was available. The selected square had the lowest measured mine risk and happened to be mined.');
+    parts.push(evaluationJusticeSafeAvailable(evidence)
+      ? 'A Just Universe guaranteed a safe entry elsewhere; the selected square was not one and happened to be mined.'
+      : 'No guaranteed-safe reveal was available. The selected square had the lowest measured mine risk and happened to be mined.');
   }
   if (actionEvaluationCategory(evaluation) === 'earlyGuess'
       || fatalActionStatusKind(evaluation) === 'guess-early') {
@@ -846,16 +880,16 @@ function actionEvaluationText(evaluation) {
     parts.push('Under the active mode and protection rules: '
       + (evidence.actualRisk * 100).toFixed(1) + '% selected versus '
       + (evidence.bestActualRisk * 100).toFixed(1) + '% best available'
-      + (delta > 1e-12
+      + (evaluationTookHigherRisk(evaluation) === true
         ? ' (+' + (delta * 100).toFixed(1) + ' percentage points)' : '')
       + '.');
   }
   if (typeof evidence.expectedLife === 'number'
       && typeof evidence.bestExpectedLife === 'number') {
-    parts.push('One-ply expected remaining life: '
+    parts.push('One-move expected remaining life: '
       + evidence.expectedLife.toFixed(3) + ' selected; '
       + evidence.bestExpectedLife.toFixed(3) + ' best measured'
-      + (evidence.bestExpectedLife > evidence.expectedLife + 1e-9
+      + (mistakes.has('chose-lower-modeled-life')
         ? ' (gap ' + (evidence.bestExpectedLife - evidence.expectedLife).toFixed(3) + ')'
         : '') + '.');
   }
@@ -1070,22 +1104,25 @@ function actionEvaluationLines(evaluation, extraLines = []) {
   const sameRisk = rawMeasured && activeMeasured
     && Math.abs(evidence.chosenRisk - evidence.actualRisk) <= 1e-12
     && Math.abs(evidence.bestRisk - evidence.bestActualRisk) <= 1e-12;
-  const riskValue = (chosen, best) => {
+  // The active-rules gap is the saved verdict where the judgment saved one
+  // (evaluationTookHigherRisk); the raw one is read from its decimals.
+  const riskValue = (chosen, best, higher) => {
     const delta = Math.max(0, chosen - best);
     return pct(chosen) + ' selected · ' + pct(best) + ' minimum'
-      + (delta > 1e-12 ? ' · +' + (delta * 100).toFixed(1) + 'pp' : ' · tied');
+      + (higher ? ' · +' + (delta * 100).toFixed(1) + 'pp' : ' · tied');
   };
+  const activeHigher = activeMeasured && evaluationTookHigherRisk(evaluation) === true;
   if (sameRisk) {
     lines.push({ label: 'Immediate risk', value:
-      riskValue(evidence.actualRisk, evidence.bestActualRisk) });
+      riskValue(evidence.actualRisk, evidence.bestActualRisk, activeHigher) });
   } else {
     if (rawMeasured) {
-      lines.push({ label: 'Raw mine risk', value:
-        riskValue(evidence.chosenRisk, evidence.bestRisk) });
+      lines.push({ label: 'Raw mine risk', value: riskValue(evidence.chosenRisk, evidence.bestRisk,
+        evidence.chosenRisk - evidence.bestRisk > 1e-12) });
     }
     if (activeMeasured) {
       lines.push({ label: 'Under active rules', value:
-        riskValue(evidence.actualRisk, evidence.bestActualRisk) });
+        riskValue(evidence.actualRisk, evidence.bestActualRisk, activeHigher) });
     }
   }
   if (evidence.oddsMeasured === false && !rawMeasured) {
@@ -1100,14 +1137,13 @@ function actionEvaluationLines(evaluation, extraLines = []) {
   }
   if (typeof evidence.expectedLife === 'number'
       && typeof evidence.bestExpectedLife === 'number') {
-    const gap = Math.max(0, evidence.bestExpectedLife - evidence.expectedLife);
     lines.push({
-      label: 'One-ply life (model)',
-      value: gap <= 1e-9
+      label: 'One-move life (model)',
+      value: !evaluation.mistakes.includes('chose-lower-modeled-life')
         ? 'tied at ' + evidence.expectedLife.toFixed(3)
         : evidence.expectedLife.toFixed(3) + ' selected · '
           + evidence.bestExpectedLife.toFixed(3) + ' best · gap '
-          + gap.toFixed(3),
+          + (evidence.bestExpectedLife - evidence.expectedLife).toFixed(3),
     });
   }
   if (mistakes.has('no-op-click')) {
@@ -1202,28 +1238,324 @@ function justiceGuessName(detail) {
   return mines + ' among ' + detail.squareCount + ' squares' + odds;
 }
 
-//-------GAME-END EVALUATION: CAPTURE (reads the live board at the fatal act)-------
+//-------GAME-END EVALUATION: DECISIONS (pure; the reports worker judges a finished game)-------
 
-// Facts common to every globally consistent visible-information layout:
-// the fact map (1 = certain mine, 2 = proven safe), completeness status,
-// and the covered safe/mine lists. The same canonical prover feeds odds.
-function coveredFactsInfo(view = playerView()) {
-  const facts = Justice.proveFacts(view, Justice.rawClues(view));
-  const safeCells = [];
-  const mineCells = [];
-  for (let i = 0; i < cells.length; i++) {
-    if (view.revealed[i]) continue;
-    if (facts.get(i) === 2) safeCells.push(i);
-    if (facts.get(i) === 1) mineCells.push(i);
+// A click saves what it did and the board before it (CAPTURE below). Every
+// judgment of it is made from that saved board when the game ends, in the
+// reports worker: off the input thread (creator 2026-11-03: "we MUST not
+// block the input thread"), each board proved once for this and the live
+// perf charts, each proof resumed from the game's board before it
+// (DuringGame.positionProofs). A game whose page closed before its
+// evaluation was done is evaluated from its saved trace at the next load.
+
+// The mistakes that make an action a misclick: the board before it already
+// proved it wrong. The record's misclicks count the actions carrying one.
+const MISCLICK_MISTAKES = new Set(['opened-proven-mine', 'flagged-proven-safe',
+  'removed-proven-mine-flag', 'chord-visible-contradiction']);
+
+// A proof tier (fatalProofTiers) from the deduction level that first proves
+// a fact: the first two name themselves, the last two need the whole board.
+const PROOF_TIER_OF_LEVEL = {
+  counting: 'counting', overlap: 'overlap', allNumbers: 'whole-board', mineTotal: 'whole-board',
+};
+
+// The covered squares a proof settles, in square order.
+function provenSquares(position, facts) {
+  const safe = [];
+  const mines = [];
+  const squares = position.cells;
+  for (let cell = 0; cell < squares.length; cell++) {
+    if (squares[cell] !== '.' && squares[cell] !== 'F') continue;
+    const fact = facts.get(cell);
+    if (fact === 2) safe.push(cell);
+    else if (fact === 1) mines.push(cell);
   }
+  return { safe, mines };
+}
+
+function addAlternative(evaluation, kind, candidates, risk) {
+  const selected = new Set(evaluation.selected);
+  const squares = [...new Set(candidates)].filter((cell) => !selected.has(cell));
+  if (squares.length === 0) return;
+  const alternative = { kind, cells: squares.join(',') };
+  if (typeof risk === 'number') alternative.risk = risk;
+  evaluation.alternatives.push(alternative);
+}
+
+// A choice to open or to flag lists only squares its board left covered
+// and unflagged.
+function setDecisionChoices(evaluation, kind, candidates, risk) {
+  const squares = evaluation.position.cells;
+  const untouchedOnly = kind.endsWith('-reveal') || kind.endsWith('-to-flag');
+  const choices = [...new Set(candidates)].filter((cell) => !untouchedOnly || squares[cell] === '.');
+  if (choices.length === 0) return;
+  const choice = { kind, cells: choices.join(',') };
+  if (typeof risk === 'number') choice.risk = risk;
+  evaluation.choices = [choice];
+}
+
+// Mistakes the proof finds come before those the click itself saw (a
+// chord's outcome, a likely misclick, an unused flag).
+function prependMistakes(evaluation, mistakes) {
+  evaluation.mistakes = [...mistakes, ...evaluation.mistakes];
+}
+
+// `context`: { proofs, justiceEnabled, guessLedger } (completeGameEvaluations).
+// Returns the guess's score (Odds.scoreGuess), or null when the ledger
+// scores no guess here.
+function completeReveal(evaluation, proof, context) {
+  const { position, evidence } = evaluation;
+  const { facts } = proof;
+  const index = evaluation.selected[0];
+  const proven = provenSquares(position, facts);
+  const provenMine = facts.get(index) === 1;
+  const provenSafe = facts.get(index) === 2;
+  const safeAvailable = proven.safe.length > 0;
+  evidence.factsMeasured = true;
+  evidence.knowledge = provenMine ? 'proven-mine' : provenSafe ? 'proven-safe' : 'uncertain';
+  if (provenMine) evidence.knowledgeSource = 'visible-deduction';
+  evidence.safeAvailable = safeAvailable;
+  const guess = context.guessLedger && !evidence.startedGame && !provenSafe
+    ? Odds.scoreGuess(positionView(position), index,
+      { odds: context.proofs.oddsOf(position), considerJustice: context.justiceEnabled })
+    : null;
+  const measuredGuess = guess !== null;
+  evidence.oddsMeasured = measuredGuess;
+  if (measuredGuess) {
+    evidence.chosenRisk = guess.p;
+    evidence.bestRisk = guess.minP;
+    evidence.actualRisk = guess.actualP;
+    evidence.bestActualRisk = guess.actualMinP;
+    evidence.justiceProtected = guess.justice === true;
+    evidence.bestActualRiskTaken = !guess.actualHigherRisk;
+    evidence.expectedLife = guess.expectedLife;
+    evidence.bestExpectedLife = guess.bestExpectedLife;
+  } else if (evidence.firstReveal) {
+    const blindRisk = position.mines / (position.width * position.height);
+    evidence.oddsMeasured = true;
+    evidence.chosenRisk = blindRisk;
+    evidence.bestRisk = blindRisk;
+    evidence.actualRisk = blindRisk;
+    evidence.bestActualRisk = blindRisk;
+    evidence.bestActualRiskTaken = true;
+  }
+
+  if (evidence.firstReveal) {
+    setDecisionChoices(evaluation, 'first-safe-reveal', Array.from(position.cells, (_, cell) => cell));
+  } else if (safeAvailable) {
+    setDecisionChoices(evaluation, 'guaranteed-safe-reveal',
+      measuredGuess ? guess.bestCells : proven.safe, 0);
+  } else if (measuredGuess) {
+    setDecisionChoices(evaluation, 'minimum-risk-reveal', guess.bestCells, guess.minP);
+  } else if (evidence.playMode === 'angelic') {
+    setDecisionChoices(evaluation, 'angelic-safe-reveal',
+      Array.from(position.cells, (_, cell) => cell).filter((cell) => facts.get(cell) !== 1));
+  }
+
+  const mistakes = [];
+  if (provenMine) mistakes.push('opened-proven-mine');
+  if (provenMine && safeAvailable) mistakes.push('ignored-safe-move');
+  if (!provenMine && measuredGuess && safeAvailable && guess.actualHigherRisk) {
+    mistakes.push('guessed-with-safe-move');
+  }
+  if (measuredGuess && !safeAvailable && guess.higherRisk && guess.actualHigherRisk) {
+    mistakes.push('chose-higher-risk');
+  }
+  if (measuredGuess && !guess.perfectPlay) mistakes.push('chose-lower-modeled-life');
+  if (!provenMine && !provenSafe && !measuredGuess && safeAvailable
+      && evidence.playMode !== 'angelic') {
+    mistakes.push('opened-unproven-with-safe-move');
+  }
+  prependMistakes(evaluation, mistakes);
+
+  const bestCells = measuredGuess ? guess.bestCells : proven.safe;
+  if (safeAvailable) addAlternative(evaluation, 'safe-reveal', bestCells, 0);
+  else if (measuredGuess && guess.higherRisk) {
+    addAlternative(evaluation, 'lower-risk-reveal', guess.bestCells, guess.minP);
+  }
+  if (measuredGuess && !guess.perfectPlay) {
+    addAlternative(evaluation, 'higher-modeled-life-reveal', guess.bestExpectedCells);
+  }
+  return guess;
+}
+
+function completeChord(evaluation, proof) {
+  const { position, evidence } = evaluation;
+  const { facts } = proof;
+  const flags = positionFlags(position);
+  const flagged = Justice.neighbors(evaluation.triggerCell, position.width, position.height)
+    .filter((cell) => flags.has(cell));
+  const wrongFlags = flagged.filter((cell) => facts.get(cell) === 2);
+  const openedMines = evaluation.selected.filter((cell) => facts.get(cell) === 1);
+  const proven = provenSquares(position, facts);
+  const unflaggedSafe = proven.safe.filter((cell) => !flags.has(cell));
+  evidence.factsMeasured = true;
+  evidence.safeAvailable = proven.safe.length > 0;
+  evidence.wrongFlags = wrongFlags;
+  evidence.openedProvenMines = openedMines;
+  setDecisionChoices(evaluation, 'guaranteed-safe-reveal', unflaggedSafe, 0);
+  if (wrongFlags.length > 0 || openedMines.length > 0) {
+    prependMistakes(evaluation, ['chord-visible-contradiction']);
+  }
+  addAlternative(evaluation, 'unflag-proven-safe', wrongFlags);
+  addAlternative(evaluation, 'flag-proven-mine', openedMines);
+  addAlternative(evaluation, 'safe-reveal', unflaggedSafe, 0);
+}
+
+function completeFlag(evaluation, proof) {
+  const { position, evidence } = evaluation;
+  const { facts } = proof;
+  const index = evaluation.selected[0];
+  const removing = evaluation.action === 'flag-remove';
+  const proven = provenSquares(position, facts);
+  evidence.factsMeasured = true;
+  evidence.knowledge = facts.get(index) === 1 ? 'proven-mine'
+    : facts.get(index) === 2 ? 'proven-safe' : 'uncertain';
+  if (removing) {
+    setDecisionChoices(evaluation, 'proven-safe-flag-to-remove',
+      [...positionFlags(position)].filter((cell) => facts.get(cell) === 2));
+  } else {
+    setDecisionChoices(evaluation, 'proven-mine-to-flag', proven.mines);
+  }
+  if (!removing && evidence.knowledge === 'proven-safe') {
+    prependMistakes(evaluation, ['flagged-proven-safe']);
+    addAlternative(evaluation, 'flag-proven-mine', proven.mines);
+  }
+  if (removing && evidence.knowledge === 'proven-mine') {
+    prependMistakes(evaluation, ['removed-proven-mine-flag']);
+    addAlternative(evaluation, 'keep-proven-mine-flag', [index]);
+  }
+}
+
+// A fatal reveal's proof tiers (fatalProofTiers), read from its board's
+// proof levels.
+function fatalTiersOfProof(evaluation, proof) {
+  if (evaluation.action === 'chord') return {};
+  const status = fatalActionStatusKind(evaluation);
+  const tiers = {};
+  if (status === 'mine-safe' || status === 'mine-forced') {
+    tiers.mineProofTier = PROOF_TIER_OF_LEVEL[proof.levelOf.get(evaluation.selected[0])];
+  }
+  if (evaluationProvenSafeAvailable(evaluation.evidence)) {
+    tiers.safeProofTier = 'whole-board';
+    for (const [cell, level] of proof.levelOf) {
+      if (proof.facts.get(cell) !== 2) continue;
+      if (level === 'counting') {
+        tiers.safeProofTier = 'counting';
+        break;
+      }
+      if (level === 'overlap') tiers.safeProofTier = 'overlap';
+    }
+  }
+  return tiers;
+}
+
+// A Justice event (attemptJustice): a reveal after the game began into an
+// entry its board certifies, mined or not. Deliberately not recorded:
+// whether the entry was mined before a redraw. The player's point of view is
+// the only one that exists (creator request 2026-08-23) — a forced flip is a
+// forced flip.
+function justiceDetailOf(evaluation, proof, context) {
+  const index = evaluation.selected[0];
+  if (!context.justiceEnabled || evaluation.evidence.startedGame || proof.facts.has(index)) return null;
+  const certificate = Justice.certifyEntries(positionView(evaluation.position), [index],
+    context.proofs.structureOf(evaluation.position)).get(index);
+  if (certificate === undefined) return null;
   return {
-    facts,
-    safeCells,
-    mineCells,
-    safeAvailable: safeCells.length > 0,
-    complete: facts.complete === true,
+    type: certificate.type,
+    squareCount: certificate.cells.length,
+    mineCount: certificate.mineCount,
+    clearWays: certificate.clearWays,
+    totalWays: certificate.totalWays,
   };
 }
+
+// Judges a finished game's decisions in place, each from its saved board.
+// `game`: { events (its trace's), justiceEnabled (the record's), guessLedger
+// (guessLedgerAppliesTo its play mode) }; `proofs`:
+// DuringGame.positionProofs() for this game. Returns `completed`, the parts
+// judged on each decision but a no-op, in order (applyCompletedEvaluations
+// puts them on the page's copies); the misclick count; the Justice events'
+// details; and, where the mode keeps one, the guess ledger.
+function completeGameEvaluations(game, proofs) {
+  const context = { proofs, justiceEnabled: game.justiceEnabled === true, guessLedger: game.guessLedger };
+  const completed = [];
+  const guesses = [];
+  const justiceDetails = [];
+  let misclicks = 0;
+  for (const event of game.events) {
+    if (event.kind !== 'decision' || event.evaluation.action === 'no-op') continue;
+    const evaluation = event.evaluation;
+    // A game judged at a later load (completePendingGames) may meet newer
+    // code than captured it; the stamps name the code that judged it.
+    evaluation.evidence.oddsVersion = Odds.VERSION;
+    evaluation.evidence.proofVersion = Justice.PROOF_VERSION;
+    const { proof } = proofs.of(evaluation.position);
+    if (evaluation.action === 'reveal') {
+      const guess = completeReveal(evaluation, proof, context);
+      if (guess !== null) guesses.push(guess);
+      const justice = justiceDetailOf(evaluation, proof, context);
+      if (justice !== null) justiceDetails.push(justice);
+    } else if (evaluation.action === 'chord') {
+      completeChord(evaluation, proof);
+    } else if (evaluation.action === 'flag-place' || evaluation.action === 'flag-remove') {
+      completeFlag(evaluation, proof);
+    } else {
+      throw new Error('evaluation: no judgment for a ' + evaluation.action + ' decision');
+    }
+    if (evaluation.result === 'death') Object.assign(evaluation.evidence, fatalTiersOfProof(evaluation, proof));
+    if (evaluation.mistakes.some((mistake) => MISCLICK_MISTAKES.has(mistake))) misclicks++;
+    completed.push({ evidence: evaluation.evidence, mistakes: evaluation.mistakes,
+      alternatives: evaluation.alternatives, choices: evaluation.choices });
+  }
+  return {
+    completed,
+    misclicks,
+    justiceDetails,
+    ...(game.guessLedger ? { ledger: {
+      guesses: guesses.length,
+      guessIdealRisk: guesses.filter((guess) => guess.idealRisk).length,
+      guessNonideal: guesses.filter((guess) => !guess.idealRisk).length,
+      guessPerfect: guesses.filter((guess) => guess.perfectPlay).length,
+      lifeLost: guesses.reduce((sum, guess) => sum + guess.lifeLost, 0),
+      lifeNeedless: guesses.reduce((sum, guess) => sum + guess.lifeNeedless, 0),
+      oddsVersion: Odds.VERSION,
+    } } : {}),
+  };
+}
+
+// Puts completeGameEvaluations' `completed` parts on the same decisions of
+// `events` (the page's copy of the trace).
+function applyCompletedEvaluations(events, completed) {
+  let judged = 0;
+  for (const event of events) {
+    if (event.kind !== 'decision' || event.evaluation.action === 'no-op') continue;
+    Object.assign(event.evaluation, completed[judged++]);
+  }
+  if (judged !== completed.length) {
+    throw new Error('evaluation: ' + completed.length + ' judged decisions returned for ' + judged);
+  }
+}
+
+// The record's evaluations: every decision with a death or a mistake, in
+// order. A no-op keeps no board: only its trace copy needs one, for replay.
+function reportableEvaluations(events) {
+  const kept = [];
+  for (const event of events) {
+    if (event.kind !== 'decision') continue;
+    const evaluation = event.evaluation;
+    if (evaluation.result !== 'death' && !evaluationHasMistake(evaluation)) continue;
+    if (evaluation.action === 'no-op') {
+      const { position, ...compact } = evaluation;
+      kept.push(compact);
+    } else {
+      kept.push(evaluation);
+    }
+  }
+  return kept;
+}
+
+//-------GAME-END EVALUATION: CAPTURE (what each click did, saved at the click)-------
 
 function visiblePositionSnapshot() {
   let squares = '';
@@ -1262,202 +1594,24 @@ function actionEvaluationBase(action, actionNumber, selected, triggerCell, optio
   return evaluation;
 }
 
-function addAlternative(evaluation, kind, candidates, risk) {
-  const selected = new Set(evaluation.selected);
-  const cells = [...new Set(candidates)].filter((cell) => !selected.has(cell));
-  if (cells.length === 0) return;
-  const alternative = { kind, cells: cells.join(',') };
-  if (typeof risk === 'number') alternative.risk = risk;
-  evaluation.alternatives.push(alternative);
-}
-
-function setDecisionChoices(evaluation, kind, candidates, risk) {
-  const revealing = kind.endsWith('-reveal');
-  const placingFlag = kind.endsWith('-to-flag');
-  const choices = [...new Set(candidates)].filter((cell) =>
-    Number.isInteger(cell) && cell >= 0 && cell < config.width * config.height
-      && (!(revealing || placingFlag) || !cells[cell].revealed)
-      && (!(revealing || placingFlag) || !cells[cell].flagged));
-  if (choices.length === 0) return;
-  const choice = { kind, cells: choices.join(',') };
-  if (typeof risk === 'number') choice.risk = risk;
-  evaluation.choices = [choice];
-}
-
-function evaluateRevealAction(index, firstReveal, guessEvent) {
+// `startedGame`: this reveal moved the game from ready to playing, so
+// neither A just universe nor the guess ledger applies to it.
+function captureRevealAction(index, startedGame) {
   const evaluation = actionEvaluationBase('reveal', inputActionCount, [index]);
-  evaluation.evidence.firstReveal = firstReveal;
-  const local = coveredFactsInfo();
-  const measuredGuess = guessEvent && guessEvent.measured === true;
-  const provenMine = local.facts.get(index) === 1
-    || (measuredGuess && guessEvent.p >= 1 - 1e-12);
-  const provenSafe = local.facts.get(index) === 2;
-  evaluation.evidence.factsMeasured = local.complete;
-  evaluation.evidence.knowledge = provenMine ? 'proven-mine'
-    : provenSafe ? 'proven-safe'
-      : local.complete ? 'uncertain' : 'unmeasured';
-  if (provenMine) {
-    evaluation.evidence.knowledgeSource = local.facts.get(index) === 1
-      ? 'visible-deduction' : 'remaining-layouts';
-  }
-
-  const safeAvailable = measuredGuess
-    ? guessEvent.minP <= 1e-12 : local.safeAvailable;
-  evaluation.evidence.safeAvailable = safeAvailable;
-  evaluation.evidence.oddsMeasured = measuredGuess;
-  if (measuredGuess) {
-    evaluation.evidence.chosenRisk = guessEvent.p;
-    evaluation.evidence.bestRisk = guessEvent.minP;
-    evaluation.evidence.actualRisk = guessEvent.actualP;
-    evaluation.evidence.bestActualRisk = guessEvent.actualMinP;
-    evaluation.evidence.justiceProtected = guessEvent.justice === true;
-    evaluation.evidence.bestRiskTaken = guessEvent.p <= guessEvent.minP + 1e-12;
-    if (typeof guessEvent.expectedLife === 'number') {
-      evaluation.evidence.expectedLife = guessEvent.expectedLife;
-      evaluation.evidence.bestExpectedLife = guessEvent.bestExpectedLife;
-    }
-  } else if (firstReveal) {
-    const blindRisk = config.mines / cells.length;
-    evaluation.evidence.oddsMeasured = true;
-    evaluation.evidence.chosenRisk = blindRisk;
-    evaluation.evidence.bestRisk = blindRisk;
-    evaluation.evidence.actualRisk = blindRisk;
-    evaluation.evidence.bestActualRisk = blindRisk;
-    evaluation.evidence.bestRiskTaken = true;
-  }
-
-  if (firstReveal) {
-    setDecisionChoices(evaluation, 'first-safe-reveal',
-      cells.map((_, cellIndex) => cellIndex));
-  } else if (safeAvailable) {
-    setDecisionChoices(evaluation, 'guaranteed-safe-reveal',
-      measuredGuess ? guessEvent.bestCells : local.safeCells, 0);
-  } else if (measuredGuess) {
-    setDecisionChoices(evaluation, 'minimum-risk-reveal',
-      guessEvent.bestCells, guessEvent.minP);
-  } else if (settings.playMode === 'angelic' && local.complete) {
-    setDecisionChoices(evaluation, 'angelic-safe-reveal',
-      cells.map((cell, cellIndex) => ({ cell, cellIndex }))
-        .filter(({ cell, cellIndex }) =>
-          !cell.revealed && !cell.flagged && local.facts.get(cellIndex) !== 1)
-        .map(({ cellIndex }) => cellIndex));
-  }
-
-  if (provenMine) evaluation.mistakes.push('opened-proven-mine');
-  if (provenMine && safeAvailable) evaluation.mistakes.push('ignored-safe-move');
-  if (!provenMine && measuredGuess && guessEvent.p > 1e-12
-      && guessEvent.minP <= 1e-12
-      && guessEvent.actualP > guessEvent.actualMinP + 1e-12) {
-    evaluation.mistakes.push('guessed-with-safe-move');
-  }
-  if (measuredGuess && guessEvent.minP > 1e-12
-      && guessEvent.p > guessEvent.minP + 1e-12
-      && guessEvent.actualP > guessEvent.actualMinP + 1e-12) {
-    evaluation.mistakes.push('chose-higher-risk');
-  }
-  if (measuredGuess && guessEvent.bestExpectedLife > guessEvent.expectedLife + 1e-9) {
-    evaluation.mistakes.push('chose-lower-modeled-life');
-  }
-  if (!provenMine && !provenSafe && !measuredGuess && safeAvailable
-      && local.complete
-      && settings.playMode !== 'angelic') {
-    evaluation.mistakes.push('opened-unproven-with-safe-move');
-  }
-
-  const bestCells = measuredGuess ? guessEvent.bestCells : local.safeCells;
-  if (safeAvailable) addAlternative(evaluation, 'safe-reveal', bestCells, 0);
-  else if (measuredGuess && guessEvent.p > guessEvent.minP + 1e-12) {
-    addAlternative(evaluation, 'lower-risk-reveal', guessEvent.bestCells, guessEvent.minP);
-  }
-  if (measuredGuess && guessEvent.bestExpectedLife > guessEvent.expectedLife + 1e-9) {
-    addAlternative(evaluation, 'higher-modeled-life-reveal', guessEvent.bestExpectedCells);
-  }
+  evaluation.evidence.firstReveal = startedGame && revealedCount === 0;
+  evaluation.evidence.startedGame = startedGame;
   return evaluation;
 }
 
-function evaluateChordAction(index, toReveal) {
-  const evaluation = actionEvaluationBase('chord', inputActionCount, toReveal, index);
-  const view = playerView();
-  const local = coveredFactsInfo(view);
-  const odds = Odds.analyzeView(view);
-  const oddsMeasured = odds.measured === true;
-  const isSafe = (cell) => local.facts.get(cell) === 2
-    || (oddsMeasured && odds.pMine[cell] <= 1e-12);
-  const isMine = (cell) => local.facts.get(cell) === 1
-    || (oddsMeasured && odds.pMine[cell] >= 1 - 1e-12);
-  const flagged = neighbors(index).filter((cell) => cells[cell].flagged);
-  const wrongFlags = flagged.filter(isSafe);
-  const openedMines = toReveal.filter(isMine);
-  const safeCells = [];
-  for (let cell = 0; cell < cells.length; cell++) {
-    if (!view.revealed[cell] && isSafe(cell)) safeCells.push(cell);
-  }
-  evaluation.evidence.factsMeasured = local.complete || oddsMeasured;
-  evaluation.evidence.oddsMeasured = oddsMeasured;
-  evaluation.evidence.safeAvailable = safeCells.length > 0;
-  evaluation.evidence.wrongFlags = wrongFlags;
-  evaluation.evidence.openedProvenMines = openedMines;
-  setDecisionChoices(evaluation, 'guaranteed-safe-reveal',
-    safeCells.filter((cell) => !cells[cell].flagged), 0);
-  if (wrongFlags.length > 0 || openedMines.length > 0) {
-    evaluation.mistakes.push('chord-visible-contradiction');
-  }
-  addAlternative(evaluation, 'unflag-proven-safe', wrongFlags);
-  addAlternative(evaluation, 'flag-proven-mine', openedMines);
-  addAlternative(evaluation, 'safe-reveal',
-    safeCells.filter((cell) => !cells[cell].flagged), 0);
-  return evaluation;
+function captureChordAction(index, toReveal) {
+  return actionEvaluationBase('chord', inputActionCount, toReveal, index);
 }
 
-function evaluateFlagAction(index, removing) {
-  const action = removing ? 'flag-remove' : 'flag-place';
-  const evaluation = actionEvaluationBase(action, inputActionCount, [index]);
-  const view = playerView();
-  const local = coveredFactsInfo(view);
-  const odds = Odds.analyzeView(view);
-  const oddsMeasured = odds.measured === true;
-  const provenMine = local.facts.get(index) === 1
-    || (oddsMeasured && odds.pMine[index] >= 1 - 1e-12);
-  const provenSafe = local.facts.get(index) === 2
-    || (oddsMeasured && odds.pMine[index] <= 1e-12);
-  const mineCells = [];
-  if (oddsMeasured) {
-    for (let cell = 0; cell < cells.length; cell++) {
-      if (!view.revealed[cell] && odds.pMine[cell] >= 1 - 1e-12) mineCells.push(cell);
-    }
-  } else {
-    mineCells.push(...local.mineCells);
-  }
-  evaluation.evidence.factsMeasured = local.complete || oddsMeasured;
-  evaluation.evidence.oddsMeasured = oddsMeasured;
-  evaluation.evidence.knowledge = provenMine ? 'proven-mine'
-    : provenSafe ? 'proven-safe'
-      : (local.complete || oddsMeasured) ? 'uncertain' : 'unmeasured';
-  if (removing) {
-    const safeFlags = [];
-    for (let cell = 0; cell < cells.length; cell++) {
-      if (cells[cell].flagged
-          && (local.facts.get(cell) === 2
-            || (oddsMeasured && odds.pMine[cell] <= 1e-12))) {
-        safeFlags.push(cell);
-      }
-    }
-    setDecisionChoices(evaluation, 'proven-safe-flag-to-remove', safeFlags);
-  } else {
-    setDecisionChoices(evaluation, 'proven-mine-to-flag', mineCells);
-  }
-  if (!removing && evaluation.evidence.knowledge === 'proven-safe') {
-    evaluation.mistakes.push('flagged-proven-safe');
-    addAlternative(evaluation, 'flag-proven-mine', mineCells);
-  }
-  if (removing && evaluation.evidence.knowledge === 'proven-mine') {
-    evaluation.mistakes.push('removed-proven-mine-flag');
-    addAlternative(evaluation, 'keep-proven-mine-flag', [index]);
-  }
-  return evaluation;
+function captureFlagAction(index, removing) {
+  return actionEvaluationBase(removing ? 'flag-remove' : 'flag-place', inputActionCount, [index]);
 }
 
-function evaluateNoOpAction(index, reason) {
+function captureNoOpAction(index, reason) {
   const evaluation = actionEvaluationBase(
     'no-op', inputActionCount, index === null ? [] : [index],
     undefined, { position: false });
@@ -1466,10 +1620,8 @@ function evaluateNoOpAction(index, reason) {
   return evaluation;
 }
 
+// Every decision goes into the trace; the game's end judges them there.
 function recordActionEvaluation(evaluation, result) {
-  if (!evaluation) return;
   evaluation.result = result;
-  if (result === 'death') Object.assign(evaluation.evidence, fatalProofTiers(evaluation));
   traceDecision(evaluation);
-  if (result === 'death' || evaluationHasMistake(evaluation)) actionEvaluations.push(evaluation);
 }

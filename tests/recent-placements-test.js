@@ -277,13 +277,14 @@ assertEq('middle placement wording is shared by the recent summary',
 
 // The session results tree holds every result kind exactly once: every win
 // type, every loss type except the early-game guess (split by risk), the
-// split and survived-guess kinds, the legacy verdicts, and unjudged.
+// split kinds (the opening's by risk, the lowest-risk death's by one-move
+// choice), the survived-guess kinds, the legacy verdicts, and unjudged.
 {
   const kindsOf = (node) => (node.children ? node.children.flatMap(kindsOf) : [node.kind]);
   const treeKinds = SESSION_RESULT_TREE.flatMap(kindsOf);
   const expected = [...Object.keys(WIN_TYPE_LABELS),
     ...Object.keys(LOSS_TYPE_LABELS).filter((kind) => kind !== 'guess-early'),
-    'guess-early-min', 'guess-early-higher', 'guess-early-unmeasured',
+    'guess-early-min', 'guess-early-higher', 'guess-early-unmeasured', 'guess-min-best', 'guess-min-unrated',
     'survived-guess-safe', 'survived-guess-higher', ...Object.keys(DEATH_KIND_LABELS), 'other'];
   assertEq('every result kind has one row', [...treeKinds].sort().join(), [...expected].sort().join());
   assertEq('no kind appears twice', new Set(treeKinds).size, treeKinds.length);

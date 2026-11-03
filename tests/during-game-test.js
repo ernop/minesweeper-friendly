@@ -93,7 +93,7 @@ function playGame(width, height, mineCells, steps) {
     const facts = Justice.proveFacts(view, Justice.rawClues(view));
     const safeAvailable = [...facts].some(([c, fact]) => fact === 2 && !flagged.has(c));
     const evaluation = { action: null, atMs: step.atMs, selected: [cell], result: 'continued', mistakes: [],
-      evidence: {}, position };
+      evidence: {}, alternatives: [], choices: [], position };
     if (step.act === 'reveal') {
       evaluation.action = 'reveal';
       evaluation.evidence = { firstReveal, safeAvailable,
@@ -224,7 +224,6 @@ const types = (model) => model.events.map((event) => event.type + '@' + event.at
   const easy = event('left-easy-work', 2700);
   assert.deepEqual([easy.safeCells, easy.leftSafe, easy.leftByCounting, easy.gapMs],
     [[at(9, 0), at(9, 1), at(9, 2)], 3, 3, 1100]);
-  assert.equal(model.movesJudged, true);
   assert.deepEqual(structuredClone(DuringGame.moveHabits(model)), { movesMovedOn: 0, movesLeftHardWork: 1, movesLeftEasyWork: 1,
     moveGapMedianMs: 700, forkMoves: 1, forkMovesToNearestArea: 0 }, 'two moves 0.3 s and 1.1 s after the click before; one fork, past the nearest area');
   const fork = event('fork', 2700);
@@ -270,7 +269,7 @@ const types = (model) => model.events.map((event) => event.type + '@' + event.at
   // finished game's measurements.
   const gameId = 1760000000000;
   const finished = task('finished-game', { width, height: 3, mines: game.mines, drill: true, needCadence: false,
-    needMoveHabits: true, needFastclickGap: true, gameId, timeMs: game.timeMs, outcome: game.outcome, liveTraceId: 1,
+    needMoveHabits: true, needFastclickGap: true, gameId, timeMs: game.timeMs, outcome: game.outcome,
     trace: { t: game.t, x: game.x, y: game.y, merged: game.merged, events: game.events, wallMs: 4000,
       initialPageState: game.initialPageState } });
   assert.deepEqual(finished.measurements, structuredClone({ ...DuringGame.moveHabits(model), ...DuringGame.fastclickGap(model) }));
@@ -300,9 +299,6 @@ const types = (model) => model.events.map((event) => event.type + '@' + event.at
     initialPageState: { visibilityState: 'visible', hasFocus: true } });
   assert.deepEqual(structuredClone(unrecorded), { recorded: false });
   assert.deepEqual(structuredClone(DuringGame.moveHabits(unrecorded)), {});
-  // A proof stopped at its work limit at a move leaves that move unjudged,
-  // so the game records no move habits rather than undercounting them.
-  assert.deepEqual(structuredClone(DuringGame.moveHabits({ recorded: true, movesJudged: false, events: [] })), {});
 }
 
 // The window-left spans come from page-state events on the game clock.
@@ -444,7 +440,7 @@ assert.equal(DuringGame.DEFAULT_RELATIVE_SCALE, 'log', 'log by default');
     'the trace\u2019s cadence spread, the press before the clock included');
   // The record stores the cadence spread unrounded.
   const finished = task('finished-game', { width, height: 3, mines: game.mines, drill: true, needCadence: true,
-    needMoveHabits: false, gameId: 1760000000001, timeMs: game.timeMs, outcome: game.outcome, liveTraceId: 2,
+    needMoveHabits: false, gameId: 1760000000001, timeMs: game.timeMs, outcome: game.outcome,
     trace: { t: game.t, x: game.x, y: game.y, merged: game.merged, events: game.events, wallMs: 1500, initialPageState: game.initialPageState } });
   assert.equal(finished.measurements.cadenceSpread, row('cadenceSpread').summary);
 }
@@ -486,10 +482,10 @@ assert.equal(DuringGame.DEFAULT_RELATIVE_SCALE, 'log', 'log by default');
 
 // The planned pairs' rules on single pairs of clicks, 5 squares wide: the
 // presses that time them, the hold after a flag, a press between, flag
-// removals, and a proof stopped at its work limit.
+// removals, and squares the proof left unproven or proved otherwise.
 {
   const pathDecisionEvents = vm.runInContext('pathDecisionEvents', context);
-  const facts = (entries, complete = true) => Object.assign(new Map(entries), { complete });
+  const facts = (entries) => new Map(entries);
   const decision = (t, action, selected, extra = {}) => ({ t, kind: 'decision',
     evaluation: { action, atMs: t - START_T, selected, position: {}, ...extra } });
   // A cursor sample every 20 ms from `from` to `to`.
@@ -538,19 +534,14 @@ assert.equal(DuringGame.DEFAULT_RELATIVE_SCALE, 'log', 'log by default');
     { t: 5150, kind: 'rdown', index: 12 }, decision(5150, 'flag-remove', [12]),
   ], facts([[6, 1], [7, 2], [12, 1]]), moving(5000, 5200)), []);
 
-  // A square left unproven by a proof stopped at its work limit leaves the
-  // pair, and so the game, unjudged; a complete proof that did not prove it,
-  // or any proof proving it otherwise, rules the pair out.
+  // A square the proof did not prove, or proved a mine, rules the pair out.
   const twoReveals = (factsBefore) => pairs([
     { t: 6000, kind: 'ldown', index: 0 }, { t: 6060, kind: 'lup', index: 0 }, decision(6060, 'reveal', [0]),
     { t: 6100, kind: 'ldown', index: 5 }, { t: 6160, kind: 'lup', index: 5 }, decision(6160, 'reveal', [5]),
   ], factsBefore, moving(6000, 6200));
-  assert.deepEqual(twoReveals(facts([[0, 2], [5, 2]], false)), [{ atMs: 5660, gapMs: 100 }], 'both proven: judged');
-  assert.equal(twoReveals(facts([[0, 2]], false)), null);
+  assert.deepEqual(twoReveals(facts([[0, 2], [5, 2]])), [{ atMs: 5660, gapMs: 100 }], 'both proven safe');
   assert.deepEqual(twoReveals(facts([[0, 2]])), []);
-  assert.deepEqual(twoReveals(facts([[0, 2], [5, 1]], false)), []);
-  assert.deepEqual(structuredClone(DuringGame.fastclickGap({ recorded: true, plannedPairs: null })),
-    { fastclickGapVersion: FASTCLICK_GAP_VERSION }, 'an unjudged game is measured with no value');
+  assert.deepEqual(twoReveals(facts([[0, 2], [5, 1]])), []);
 }
 
 // The move hierarchy's proven moves (docs/product/design-axis.md, "Move
@@ -642,12 +633,10 @@ assert.equal(DuringGame.DEFAULT_RELATIVE_SCALE, 'log', 'log by default');
     unmeasuredGuess.unavoidable, unmeasuredGuess.waitedMs], [true, undefined, undefined, true, 1000]);
 }
 
-// Proofs made during play: the reports worker proves each position the live
-// feed sends, one per task, and the finished game's model reads them back.
-// Board E again, its last decision missing from the feed as the game's end
-// cuts off the feed's last batch. Its positions hold 0, 6, 7, and 8 open
-// squares; the game's end proves only the 8 the feed never sent, and every
-// result equals proving all four after the game.
+// Nothing is proved during play: the live feed (the open motion stats
+// section's) computes trace metrics only. The game's end proves each
+// position once, for the judgment of its decisions and for the model alike.
+// Board E again: its positions hold 0, 6, 7, and 8 open squares.
 {
   const width = 4;
   const at = cellAt(width);
@@ -660,30 +649,34 @@ assert.equal(DuringGame.DEFAULT_RELATIVE_SCALE, 'log', 'log by default');
     { act: 'reveal', cell: at(2, 0), atMs: 1400 },
     { act: 'reveal', cell: at(3, 0), atMs: 1600 },
   ]);
-  const lastDecision = game.events.filter((event) => event.kind === 'decision').at(-1);
-  task('live-trace', { traceId: 3, wallMs: 1500, fromSample: 0, t: [], x: [], y: [],
-    merged: { sample: [], x: [], y: [] }, events: game.events.slice(0, game.events.indexOf(lastDecision)) });
-  runTimers();
-  const rows = DuringGame.ROWS.map((row) => row.id);
   const proveLevels = Justice.proveLevels;
   let proofs = 0;
   Justice.proveLevels = (...args) => { proofs++; return proveLevels(...args); };
-  const finish = (gameId, liveTraceId) => {
-    const before = proofs;
-    const finished = task('finished-game', { width, height: 3, mines: game.mines, drill: true, needCadence: false,
-      needMoveHabits: true, needFastclickGap: true, gameId, timeMs: game.timeMs, outcome: game.outcome, liveTraceId,
-      trace: { t: game.t, x: game.x, y: game.y, merged: game.merged, events: game.events, wallMs: 2000,
-        initialPageState: game.initialPageState } });
-    const view = task('during-game', { gameId, timeMs: game.timeMs, outcome: game.outcome, rows, average: 'rolling-2' });
-    return { measurements: finished.measurements, view, proofs: proofs - before };
-  };
-  const live = finish(1760000000002, 3);
-  const after = finish(1760000000003, 4);
+  const live = task('live-trace', { traceId: 3, fromSample: 0, t: game.t, x: game.x, y: game.y,
+    merged: game.merged, events: game.events, sampleTimes: [START_T + 700, START_T + 1500] });
+  assert.equal(timers.length, 0, 'the live feed leaves no work behind');
+  assert.equal(proofs, 0, 'the live feed proves no position');
+  assert.deepEqual(live.map((metrics) => metrics.wallDurationMs), [START_T + 700, START_T + 1500],
+    'one value per sample time sent');
+  const gameId = 1760000000002;
+  const rows = DuringGame.ROWS.map((row) => row.id);
+  const finished = task('finished-game', { width, height: 3, mines: game.mines, drill: true, needCadence: false,
+    needMoveHabits: true, needFastclickGap: true, gameId, timeMs: game.timeMs, outcome: game.outcome,
+    justiceEnabled: false, guessLedger: false,
+    trace: { t: game.t, x: game.x, y: game.y, merged: game.merged, events: game.events, wallMs: 2000,
+      initialPageState: game.initialPageState } });
+  task('during-game', { gameId, timeMs: game.timeMs, outcome: game.outcome, rows, average: 'rolling-2' });
   Justice.proveLevels = proveLevels;
-  assert.equal(live.proofs, 1, 'the game\u2019s end proves only the position the feed never sent');
-  assert.equal(after.proofs, 4, 'one proof per count of open squares');
-  assert.deepEqual(live.measurements, after.measurements);
-  assert.deepEqual(live.view, after.view);
+  assert.equal(proofs, 4, 'one proof per count of open squares, shared by the judgment and the model');
+  assert.equal(finished.evaluation.completed.length, 7, 'every decision judged');
+  // The 1 at (1,2) with (0,1) and (2,1) covered beside it proves nothing,
+  // so flagging (3,1) is no misclick: none of the game's actions is one.
+  assert.equal(finished.evaluation.misclicks, 0);
+  // The motion stats series, asked of the held game: one value per sample time.
+  const series = task('motion-series', { gameId, sampleTimes: [START_T + 700, START_T + 1500] });
+  assert.equal(series.tMs.length, 2);
+  assert.throws(() => task('motion-series', { gameId: gameId + 1, sampleTimes: [1] }),
+    /is not the latest finished or restored game/);
 }
 
 // Each sample's travel counts the cursor observations merged into it, in

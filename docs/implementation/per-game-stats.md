@@ -100,15 +100,16 @@ Spec: [docs/product/per-game-stats.md](../product/per-game-stats.md). Index: [AG
   2026-08-19; `GAME_RECORD_SCHEMA` accepts its absence (older records),
   and the wasted-clicks scatter filters to wins that carry it.
 - `misclicks` counts board-changing actions contradicted by facts provable
-  from the visible board at input time. `Solver.isVisibleMisclick` owns
-  the pure classification: reveal of a certain mine, placement on a
-  proven safe, removal from a certain mine, or a chord whose opened set
-  contains a certain mine / flagged set contains a proven safe. The
-  board mousedown/mouseup handlers classify and increment before acting so a
-  fatal action reaches `reportResult`; `newGame` resets it. Stored since
-  2026-08-23; older records omit it. A fatal misclick can also carry one
-  or more tags in `actionEvaluations`; the count and evidence ledger are
-  independent measurements.
+  from the visible board at input time: reveal of a certain mine, placement
+  on a proven safe, removal from a certain mine, or a chord whose opened set
+  contains a certain mine / flagged set contains a proven safe. Since
+  2026-11-03 `completeGameEvaluations` counts, at game end, the judged
+  decisions carrying a `MISCLICK_MISTAKES` tag (game/evaluation.js), and
+  `completeGameRecord` stores the count. Until then
+  `Solver.isVisibleMisclick` classified each action in the board
+  mousedown/mouseup handlers before acting. Stored since 2026-08-23; older
+  records omit it. A fatal misclick also carries its tag in
+  `actionEvaluations`.
 - `annotateLikelyMisclickDeath` adds a non-exclusive retrospective inference
   to the fatal evaluation before `recordActionEvaluation`: among
   `activeFlagEpisodes`, a still-standing flag on an actual safe cell must
@@ -124,8 +125,10 @@ Spec: [docs/product/per-game-stats.md](../product/per-game-stats.md). Index: [AG
   (evaluation.js), shared with the ledger-read wrong-button reason
   (`wrongButtonEvidenceOf`).
 - `scoreGuess` (odds.js) returns `expectedLife`, `bestExpectedLife`, and
-  `bestExpectedCells` only when the one-ply model ran or a proven-safe open
-  exists; `evaluateRevealAction` stores the life fields only when present.
+  `bestExpectedCells` for every guess, and `completeReveal` stores
+  them on every measured guess at game end (since 2026-11-02; until then
+  only when the one-move model ran or a proven-safe open existed; until
+  2026-11-03 `evaluateRevealAction` stored them at the click).
 - `flagsPlaced` counts flag placements by the player (removals don't
   subtract). `isMarkless(record)` derives the markless status
   (flagsPlaced === 0); records from before the measurement have it
@@ -184,55 +187,104 @@ Spec: [docs/product/per-game-stats.md](../product/per-game-stats.md). Index: [AG
   only when at least one answer arrived during the game — a failed fetch
   (launcher down) sets `musicNow` null and produces no observation, the
   designed "not measured" state, not a hidden error.
-- Guess ledger ([Guess ledger](../product/per-game-stats.md)): `odds.js` enumerates remaining
-  consistent layouts on residual clue components (budget 22 vars /
-  250000 visits) plus a binomial sea, then scores a bare unproven click.
-  Since 2026-09-26 each placement rechecks only the clues touching its
-  cell, and components join by mine-count polynomials instead of visiting
-  every combination; the budget still charges the combination walk's node
-  count (`combinationWalkVisits`), so exactly the same positions are
-  measured, with the same `visits`.
-  `analyzeView(view, opts)` can pass proof options through
-  `Justice.buildStructure`, or take a structure the caller already built
-  under the default options (`opts.structure`, the live perf charts'
-  guess facts); one-ply hypothetical next positions cap the
-  canonical proof prepass at 80000 visits so up to forty branches cannot
-  each consume the two-million-visit gameplay budget. Incomplete proof
-  facts stay sound, and residual odds either complete or remain unmeasured.
-  The lookahead weighs each number the clicked square could show by the
-  whole-board layouts that show it (`guess-ledger-v2`, 2026-10-22):
-  `analyzeView` keeps per component `restWeights[k]`, the layouts of the
-  other components and the sea that complete one of its layouts holding k
-  mines, and `expectedLife` sums those weights per number, skipping layouts
-  whose weight is 0. Until then it counted each layout of the group once,
-  so the number distribution was wrong whenever the group's layouts held
-  different mine counts, and a number only a ruled-out layout shows became
-  a hypothetical position the proof rejects ("visible clues are
-  inconsistent", justice.js). Once `noteGuess` stopped catching errors
+- Guess ledger ([Guess ledger](../product/per-game-stats.md)), since
+  2026-11-02 (`guess-ledger-v3`): `odds.js` counts every remaining layout
+  exactly with Justice's counter (below) and scores a bare unproven click,
+  with no work limit. `analyzeView(view, opts)` (`opts.structure`: a
+  structure the caller already built under the default options, the live
+  perf charts' guess facts) returns each number group's boxes and layouts
+  by mine count, and for each covered square the layouts mining it
+  (`mineLayouts`, BigInt; a proven mine's is every layout), `total`,
+  `pMine`, `unproven`, and `provenSafeOpen`; it throws when no layout fits
+  the visible numbers and the mine count. `Odds.ratio(num, den)` turns a
+  ratio of BigInt counts into a double, cutting both to their top 1,000 bits
+  past the double range, so a count past 10^308 still gives its exact ratio
+  to double precision.
+- Justice's counter (`justice.js`, "LAYOUT COUNTS", the method of
+  JSMinesweeper's probability engine,
+  [reference/jsminesweeper.md](../../reference/jsminesweeper.md)): covered
+  squares beside exactly the same numbers form one box; a group's numbers
+  are taken in breadth-first order; a state is the remaining need of each
+  number open across that order, and partial layouts with equal states
+  merge, their counts kept as BigInt polynomials by mine count
+  (`countGroup`). Forward counts and backward completions give each box's
+  mined tallies. Groups join each other and the sea by products of their
+  rows by mine count and the sea's binomials (`multiplyCounts`,
+  `chooseRange`). The work grows with how many numbers are open across the
+  order, not with the layouts: `tests/justice-test.js` 10a counts 2^80 + 2
+  layouts in one group of 160 squares in about 20 ms, where the listing it
+  replaced stopped at its 2,000,000-visit limit. The problem is NP-complete
+  in the worst case (Kaye 2000), and there is no limit: a position past
+  reach would be slow, never answered with a missing or substituted value.
+  On 3,955 positions of simulated Intermediate and Expert games the facts
+  equal the listing's wherever it finished. On 1,736 positions of
+  simulated Expert games `proveLevels` took a median 0.25 ms (the listing
+  0.21 ms) and at most 3.7 ms (the listing 16.4 ms).
+- One-move life (`lifeLayouts`, `expectedLife`; `guess-ledger-v3`): for an
+  opened square X, life × total is the sum, over each number n X could
+  show, of the layouts showing n less the fewest layouts mining any one
+  square once n shows (none when some square is then proven safe or none
+  is undecided). The groups X touches are recounted with X safe and its
+  covered neighbors tracked, so the number X shows is one more counted
+  quantity; the rest of the board enters through kernels cached per
+  touched set (the far groups' and the sea's layouts by mine count, with
+  variants for a tracked or an untracked sea square mined). Squares no
+  group touches share one value per class (proven safe or sea, how many
+  sea neighbors are tracked, which proven squares are around). While
+  another proven-safe square is open, X's life is its survival layouts.
+- `scoreGuess`: the best is the highest life over every covered square;
+  squares are taken in increasing order of layouts mining them, and the
+  scan stops once a square's survival, which bounds its life, falls below
+  the best found. A square A just universe would protect is always scored,
+  its life divided by its safe layouts, since it cannot die. `perfectPlay`
+  compares products of BigInt counts exactly. On 832 Expert guesses of
+  simulated games guessing the safest square, in Node on 2026-11-02: a
+  median 0.6 ms, 99th percentile 5.0 ms, at most 15 ms a guess (the code
+  it replaced: no odds at all for 176 of them). Since 2026-11-03 it runs
+  at game end in the reports worker (`completeReveal`), never on the click
+  (creator 2026-11-03: "we MUST not block the input thread"). It had stayed
+  on the click from 2026-11-02 on the Node numbers; in Firefox that day a
+  guess re-timed warm took a median 2.1 ms on Intermediate and 1.0 ms on
+  Expert, and the page's first guess, run cold, 9 to 13 ms.
+- Before 2026-11-02 (`guess-ledger-v2`, 2026-10-22) `odds.js` listed
+  layouts on residual clue components (budget 22 vars / 250000 visits)
+  plus a binomial sea; one-move hypothetical next positions capped their
+  proof prepass at 80000 visits. Its lookahead weighed each number the
+  clicked square could show by the whole-board layouts that show it
+  (`restWeights[k]` per component). Before v2 it counted each layout of the
+  group once, so the number distribution was wrong whenever the group's
+  layouts held different mine counts, and a number only a ruled-out layout
+  shows became a hypothetical position the proof rejects ("visible clues
+  are inconsistent", justice.js). Once `noteGuess` stopped catching errors
   (2026-10-21), every guess into such a group threw before its reveal, so
   the square never opened; an Intermediate endgame hit it on 2026-10-22.
-  `history.js` accepts both versions on saved games (`ODDS_VERSIONS`).
-  `tests/odds-test.js` compares the one-ply life with exhaustive
-  enumeration on random small boards and keeps that endgame as a fixture.
-  `noteGuess` runs from `revealCell` after the first-click path and
-  before Justice, gated by `guessLedgerAppliesToMode()` (standard,
-  3BV countdown, trial modes, endgame drill — modes where hidden mines
-  really kill; angelic records nothing, its ledger fields stay absent, as
-  they are on saved games of the removed proof-or-die), so the p is the
-  player's
-  information, not the post-mercy board. Proven-safe clicks and clicks
-  with enumerated p(mine) = 0 return null (not a guess). Over-budget returns `{measured: false}` and
-  `oddsUnmeasured` omits the whole ledger from that record — no invented
-  odds. A thrown scoring error is not caught: it leaves `revealCell`
-  before the reveal, so the click does nothing and the error bar shows it
-  (`page-errors.js`). Until 2026-10-21 `noteGuess` caught it, wrote
-  "guess odds failed" in the backup status line, and dropped the ledger,
-  and `scoreGuess` caught a Justice certification error and scored the
-  guess as if no square were protected, recording wrong protected risks
-  without a word.
+  `history.js` accepts all three versions on saved games (`ODDS_VERSIONS`).
+  `tests/odds-test.js` compares every covered square's one-move life, and
+  the best value, cells, and perfect-play verdict, with a brute-force
+  listing on random small boards, counts past the double range, and keeps
+  that endgame as a fixture.
+  `completeReveal` scores each reveal after the first-click path that its
+  board did not prove safe, from the board saved before the click, so the
+  p is the player's information, not the post-mercy board. The
+  `finished-game` job's `guessLedger` flag, `guessLedgerAppliesTo(playMode)`
+  (game/play.js: standard, 3BV countdown, trial modes, endgame drill —
+  modes where hidden mines really kill; angelic records nothing, its ledger
+  fields stay absent, as they are on saved games of the removed
+  proof-or-die), gates it. Until 2026-11-03 `noteGuess` scored the click in
+  `revealCell` before Justice. Proven-safe clicks and clicks with
+  p(mine) = 0 are not guesses. Every guess is measured; until 2026-11-02 an
+  over-budget position returned `{measured: false}` and `oddsUnmeasured`
+  omitted the whole ledger from that record — no invented odds. A thrown
+  scoring error is not caught: it rejects the worker job, the error bar
+  shows it (`analysisFailure`), and the game stays pending. Until
+  2026-11-03 it left `revealCell` before the reveal; until 2026-10-21
+  `noteGuess` caught it, wrote "guess odds failed" in the backup status
+  line, and dropped the ledger, and `scoreGuess` caught a Justice
+  certification error and scored the guess as if no square were protected,
+  recording wrong protected risks without a word.
   `scoreGuess` stores absolute p (`lifeLost`), excess over min p
-  (`lifeNeedless`), `idealRisk`, and one-ply expected remaining life
-  (`perfectPlay`). A covered proven-safe cell makes min p 0, so any
+  (`lifeNeedless`), `idealRisk`, and one-move life, the expected
+  remaining life after one guess (`perfectPlay`). A covered proven-safe cell makes min p 0, so any
   guess is fully needless. The per-guess risk chips that once showed
   these numbers beside the board were withheld on 2026-08-23 (creator
   request: reintroduce only with a proper explanation); the ledger

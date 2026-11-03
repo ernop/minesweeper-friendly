@@ -184,19 +184,19 @@ function momentOf(evaluation, ledger) {
   return moment;
 }
 
-// The one-step expected-life comparison, recomputed from the saved position
-// with the game's own call (game/play.js). Records saved before 2026-10-11
-// stored a bare survival tie where the model never ran; the current odds
-// code omits the comparison there, so only real comparisons survive.
+// The one-move life comparison, recomputed from the saved position with the
+// game-end judge's own call (completeReveal, game/evaluation.js), so records
+// saved before 2026-10-11, which stored a bare survival tie where the model
+// never ran, and those saved before the exact counts of 2026-11-02 get the
+// exact comparison.
 function modeledLifeOf(moment, record) {
   if (moment.modeledLife === undefined) {
     const evaluation = moment.evaluation;
     const guess = Odds.scoreGuess(positionView(evaluation.position), evaluation.selected[0],
       { considerJustice: record.justiceEnabled === true });
-    moment.modeledLife = guess !== null && guess.measured && typeof guess.expectedLife === 'number'
-      ? { expectedLife: guess.expectedLife, bestExpectedLife: guess.bestExpectedLife,
-        bestExpectedCells: guess.bestExpectedCells }
-      : null;
+    moment.modeledLife = guess === null ? null
+      : { expectedLife: guess.expectedLife, bestExpectedLife: guess.bestExpectedLife,
+        bestExpectedCells: guess.bestExpectedCells };
   }
   return moment.modeledLife;
 }
@@ -538,19 +538,17 @@ function bankMoment(moment, record, key) {
   const share = choiceShareOf(moment);
   if (share !== undefined) out.choiceShare = round(share, 4);
   const odds = Odds.analyzeView(view);
-  out.oddsMeasured = odds.measured === true;
-  if (odds.measured) {
-    out.pMine = odds.unproven.map((cell) => [cell, round(odds.pMine[cell], 4)]);
-    if (safeCells.length === 0) {
-      const minP = Odds.minRisk(odds);
-      out.lowestCells = odds.unproven.filter((cell) => odds.pMine[cell] <= minP + EPS);
-    }
-    if (typeof out.chosenRisk === 'number' && moment.kind !== 'known-mine'
-        && evaluation.action === 'reveal'
-        && Math.abs(odds.pMine[evaluation.selected[0]] - evidence.chosenRisk) > 1e-6) {
-      throw new Error('recomputed risk disagrees with the saved risk for ' + key + ' at '
-        + record.endedAt + ' action ' + evaluation.actionNumber);
-    }
+  out.pMine = odds.unproven.map((cell) => [cell, round(odds.pMine[cell], 4)]);
+  if (safeCells.length === 0) {
+    let fewest = odds.total;
+    for (const cell of odds.unproven) if (odds.mineLayouts[cell] < fewest) fewest = odds.mineLayouts[cell];
+    out.lowestCells = odds.unproven.filter((cell) => odds.mineLayouts[cell] === fewest);
+  }
+  if (typeof out.chosenRisk === 'number' && moment.kind !== 'known-mine'
+      && evaluation.action === 'reveal'
+      && Math.abs(odds.pMine[evaluation.selected[0]] - evidence.chosenRisk) > 1e-6) {
+    throw new Error('recomputed risk disagrees with the saved risk for ' + key + ' at '
+      + record.endedAt + ' action ' + evaluation.actionNumber);
   }
   return out;
 }

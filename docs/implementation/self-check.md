@@ -46,7 +46,7 @@ Spec: [docs/product/self-check.md](../product/self-check.md).
 - Game page context (same change): `observation-context.js` loads right after
   `storage.js`. `reportResult` spreads `observedTimeZone(endedAt)` into the
   record. `GAME_RECORD_SCHEMA` validates `timeZone` and `utcOffsetMin`.
-  `beginTrace` captures `observedEnvironment()`, and `saveTrace` stores it as
+  `beginTrace` captures `observedEnvironment()`, and `storedTraceOf` stores it as
   `environment`.
 
 ## Tests

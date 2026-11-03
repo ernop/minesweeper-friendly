@@ -9,7 +9,7 @@ Input: the game's trace export — a JSON array of per-game trace objects
       from capture version 3: mergedSample, mergedX, mergedY: the cursor
       observations a later one at the same instant replaced, each with the
       index of the sample that replaced it }
-(see saveTrace in game/input-trace.js and the traces-export handler in
+(see storedTraceOf in game/input-trace.js and the traces-export handler in
 game/backup.js).
 
 Output: JSON on stdout — per game: session-level features, click features,

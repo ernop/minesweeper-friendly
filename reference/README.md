@@ -52,6 +52,12 @@ Research notes and external references. Index: [AGENTS.md](../AGENTS.md).
   and the period-summary scope decision that followed it.
 - `reference/replay-experiment.md` — design notes (unbuilt) for covert
   replays inside ordinary play and the skill/luck decomposition.
+- `reference/jsminesweeper.md` — 2026-11-02 review of David N Hill's
+  JSMinesweeper solver (exact layout counting, dead squares, 50/50
+  detection, its guess heuristic, perfect play below 1,000 layouts) and
+  what this game took from it that day: the exact counter behind the
+  proof, the odds, and one-move life, and dead squares in perfect play's
+  search.
 - Pattern catalog: https://minesweeper.online/help/patterns
 - Gameplay/3BV/NG help: https://minesweeper.online/help/gameplay
 - Kaboom design writeup: https://pwmarcz.pl/blog/kaboom/
