@@ -49,7 +49,7 @@ const { chromium } = require(process.argv[2]);
         const collector = createResultSectionCollector(options.historyView ? 'scores' : 'postGame');
         await renderRanks(current, wins, options, collector);
         resultRanks.classList.add('sectioned-results');
-        collector.renderInto(resultRanks);
+        await collector.stream(resultRanks);
         resultsBox.hidden = false;
       };
       // A histogram's marks from left to right by redness, red minus green,
@@ -527,7 +527,7 @@ const { chromium } = require(process.argv[2]);
       const current = marklessWins.find((win) => win.endedAt === profileFixture.current.endedAt);
       const collector = createResultSectionCollector('postGame');
       await renderRanks(current, marklessWins, {}, collector);
-      collector.renderInto(resultRanks);
+      await collector.stream(resultRanks);
     });
     shown = await distributionsShown('both');
     assert.deepEqual(shown.heads, [
@@ -631,7 +631,7 @@ const { chromium } = require(process.argv[2]);
       const identical = [{ ...current, endedAt: current.endedAt - 1000 }, current];
       const collector = createResultSectionCollector('postGame');
       await renderRanks(current, identical, {}, collector);
-      collector.renderInto(resultRanks);
+      await collector.stream(resultRanks);
     });
     await bandReady();
     assert.equal(await profile.locator('.game-data-row[data-measurement="islandCount"]').count(), 1);

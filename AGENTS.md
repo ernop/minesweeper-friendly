@@ -372,7 +372,7 @@ games and discard stale view updates. No main-thread calculation fallback. See
 ### Latency budgets
 
 User requirement (2026-09-26): the system must never get slow again. Run
-`tests/latency-browser-check.js` in Firefox (about 13 seconds on the PC) when
+`tests/latency-browser-check.js` in Firefox (about 15 seconds on the PC) when
 finishing each change to gameplay, game end, storage, startup, or result
 presentation, so a slowdown shows at the change that caused it (creator
 decision 2026-10-26; it had run only before a push). Before the push, run it
@@ -381,7 +381,11 @@ line with the change: a recorded line names the commit it measured. A budget
 failure blocks the push. Besides input and startup, the check times a long
 Expert win to its full results, the analysis workers' share included (added
 2026-10-26, after a change that doubled the workers' after-game work had
-passed it). Budgets are per machine (creator request 2026-10-18): the gitignored
+passed it). Results show part by part as their data arrives, so that budget
+may be raised while the player is never blocked: the winning click and the
+freeze after it keep tight budgets (creator decision 2026-11-03,
+[Input latency](docs/product/board-and-layout.md#input-latency-user-report-2026-09-26)).
+Budgets are per machine (creator request 2026-10-18): the gitignored
 `tests/latency-machine.txt` names the machine running the check (`linux-pc`,
 `windows-laptop`), and a run is judged only against that machine's budgets.
 Budgets sit just above that machine's measured times, never at generous round

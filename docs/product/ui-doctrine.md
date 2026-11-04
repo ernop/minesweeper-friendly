@@ -236,9 +236,12 @@ because they apply app-wide, not just where each was first stated.
   calculations behind a click raise theirs, so that click does nothing and
   the bar says why. "Not measured" is kept for an outside source that does
   not answer (the music state while the base system is down). A
-  calculation's work budget is not a designed limit (next rule); the odds'
-  layout count and the proof's visit limit are still in the code until the
-  exact counter replaces them ([BACKLOG](../../BACKLOG.md)). One exception
+  calculation's work budget is not a designed limit (next rule). Since
+  2026-11-03 the odds count every layout exactly and the proof has no visit
+  limit; the one search with a work limit left is a guess's chance of
+  winning with perfect play, which past it is not computed, never estimated,
+  and whose limit rests on measured timings ([BACKLOG](../../BACKLOG.md),
+  "Deeper than one-move perfect play"). One exception
   stays, the creator's (2026-10-11): play statistics log a failure to the
   console and never interrupt play
   ([Play statistics](hosting.md#play-statistics)).

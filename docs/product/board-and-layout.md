@@ -206,7 +206,7 @@ laggy"; asked whether the game is "max efficient" and to test and fix it.
   change that doubled the after-game analysis passed the check, which timed
   only the page's own handlers; that analysis runs in a worker, and the time
   from the winning click to the full results on screen now counts it. The
-  check takes about 13 seconds on the PC.
+  check takes about 15 seconds on the PC.
 - Latency limits are tight, not generous (creator decision 2026-09-26: "If
   we're getting three milliseconds now, 30 milliseconds now, degrading to 100
   milliseconds per click is absolutely unacceptable ... It's very important
@@ -221,6 +221,24 @@ laggy"; asked whether the game is "max efficient" and to test and fix it.
   7–13 ms, switching to 9–10, the freeze after a game ends to 33–66 ms, and
   a long Expert win's full results from 216–224 ms to 132–152; what remains
   is listed in [BACKLOG.md](../../BACKLOG.md), "Input latency follow-ons".
+- A game's full results may take longer; play may not (creator decision
+  2026-11-03: "let's just display things as they come in, so nothing blocks
+  other stuff ... during-game play speed is totally unimpacted; the display
+  of the result (win/die) is unaffected, and AFTER t hat, data comes in ...
+  as long as the user isn't blocked, budgets can be raised"). Results show
+  part by part as their data arrives
+  ([Results come in as their data arrives](results.md#results-come-in-as-their-data-arrives-creator-decision-2026-11-03)).
+  The limits on play, on the winning click, and on freezes stay tight; only
+  the limit on the time to a game's full results may be raised. So the check
+  also times the winning click (its own work and its time to screen) and the
+  longest freeze in the two seconds after it. Its Expert game now places one
+  flag, so the win is ranked among the history's Expert wins and its results
+  draw every chart; the full-results limit on the PC went from 165 to 525 ms
+  (measured 386-520 at system load up to 5; the code before took 448-527 in
+  runs alternating with it; the judgment, made in the reports worker after
+  the game since that day, takes about 115 of them, and the charts' models
+  about 140). The freeze after a game ends was cut to 26-31 ms, so its
+  limit went from 70 to 35.
 - Click-time evidence (the visible-position proof, guess odds, and Justice
   certification) keeps its exact definitions and results; only its cost
   may change. Built 2026-09-26: expert flags, chords, and guesses that took

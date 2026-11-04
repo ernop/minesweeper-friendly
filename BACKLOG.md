@@ -800,9 +800,18 @@ game instead of rewriting the whole history twice per game. Not built:
      Remeasured 2026-10-26: most of that layout was the result charts'
      13,149 dots as SVG circles; drawn on one canvas per chart, the layout
      after a loss takes 18-20ms and a forced whole-page layout 11ms (51
-     before). Inserting sections progressively, or skipping offscreen
-     sections' layout, would split what remains; both change how the
-     report appears, so they await a creator decision.
+     before). Since 2026-11-03 the result's parts show as they arrive
+     (creator decision that day,
+     [Results come in as their data arrives](docs/product/results.md#results-come-in-as-their-data-arrives-creator-decision-2026-11-03)),
+     and each worker request and the session summary are built in their own
+     task, the session results file the board type's games while the reports
+     worker judges the game (22ms in one piece at 1,950 games), and the
+     relationship charts are built one per task, so asking for every part at
+     once adds no long task: the freeze after the check's lost game reads
+     27-30ms, and 34-45ms for the code before in runs alternating with it.
+     The longest frame after a win is live perf charts' first draw, about
+     27ms (about 12 of them drawing the charts), as before. Skipping
+     offscreen sections' layout is still open.
    - Switching board size while a report is shown takes about 200ms: the
      forced layout in `newGame`'s `syncGameSidebar`.
    - Some expert clicks took 57-92ms in the misclick check, where the exact
@@ -827,8 +836,18 @@ game instead of rewriting the whole history twice per game. Not built:
    Expert win (229 decisions, nine guesses) `finished-game` takes 106-118ms
    in Firefox (proving 52-55, the rest of the judgment 14-15, motion 4-5,
    the measurements with the model 30-32), and `expertWinResultsMs` was
-   205-248ms against its 165ms budget, which waits on the creator's decision
-   (asked 2026-11-03). The freeze after a game ends was 30-39ms that day.
+   205-248ms against its 165ms budget. The creator decided the same day that
+   results come in part by part and that budget may rise while the player is
+   never blocked, and the winning click and the freeze in the two seconds
+   after it got their own budgets. The check's Expert game then began placing
+   one flag: the synthetic Expert wins all have flags, so the flagless win
+   had been ranked by itself and drew no charts. With every chart drawn the
+   full results take 386-520ms (448-527 for the code before, alternating),
+   and the budget is 525ms; the freeze after a game ends fell to 26-31ms and
+   its budget from 70 to 35. Replying the judgment before the model's
+   measurements would bring the first parts sooner; only game data and the
+   charts need those measurements. The charts' models run one after another
+   in the one charts worker, about 140ms for an Expert win's 30 jobs.
    What remains, in Firefox:
    - The winning click's task ran 56-68ms (2026-10-26): `reportResult`
      47-56ms, of which copying the trace into storage took 32-34ms and the
@@ -844,16 +863,14 @@ game instead of rewriting the whole history twice per game. Not built:
      trace entries after the feed may have sent them (a merged pointer
      sample, and a right press that joins a chord), so the worker's copy
      can differ from the saved trace.
-   - The first result per mode per page load renders twice when the mode
-     has wins without board measurements, as all the check's synthetic wins
-     are: that render reads the saved-board list (`loadBoardMetricSources`),
-     and its arrival renders the whole result again
-     (`refreshBoardMetricView`), asking the workers for every view again,
-     though only the board measurements' status line and backfill panel
-     read that list. Since 2026-10-26 a saved trace adds its board to a list
-     already read instead of dropping it, so later game ends render once.
-     Refreshing only the status box in place needs a placeholder in the
-     "This board" tables that several layout checks would see.
+   - Fixed 2026-11-03: the first result per mode per page load rendered
+     twice when the mode had wins without board measurements, as all the
+     check's synthetic wins are: the arrival of the saved-board list
+     (`loadBoardMetricSources`) rendered the whole result again, asking the
+     workers for every view again, though only the board measurements'
+     status box reads that list. The box is now always in This board,
+     hidden while empty, and such changes refill only it
+     (`refreshBoardMetricStatus`).
    Occasional spike (2026-09-26): one latency run in nine on the same code
    measured switching to expert at 45ms of work (usual 15-23ms; master
    showed 17-21ms over the same alternating runs). Not yet attributed; a

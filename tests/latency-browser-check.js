@@ -1,12 +1,13 @@
 'use strict';
-// Latency check (about 13 seconds on the PC) that fails on any real slowdown
+// Latency check (about 15 seconds on the PC) that fails on any real slowdown
 // in the waits a player feels. In a fresh profile on the permanent test origin
 // (a server for the repository root at http://127.0.0.1:8099/) holding a
 // synthetic 6,500-game history, it times page load, new game, the first click,
 // a dozen more clicks, the click that shows a mine, and switching to expert,
 // each as our handlers' work and as time to screen, plus the longest freeze in
 // the two seconds after that game ends; then it plays the Expert game to a win
-// and times the winning click to its full results on screen, the analysis
+// and times the winning click itself, the longest freeze in the two seconds
+// after it, and the click to its full results on screen, the analysis
 // workers' share included. Timings depend on the machine, so
 // tests/latency-machine.txt (not committed) names the machine running the
 // check, and any value over that machine's budgets in
@@ -187,22 +188,26 @@ async function main() {
     await sleep(300);
 
     // The rest of the Expert game, as fast as clicks go: each opens a square
-    // the visible board proves safe, else a safe square as a lucky guess.
-    const nextSafeSquare = () => page.evaluate(() => {
+    // the visible board proves safe, else a safe square as a lucky guess. The
+    // first proven mine gets one flag, so the win ranks among the history's
+    // Expert wins (all flagged) and its results draw every chart over them.
+    const nextMove = () => page.evaluate(() => {
       if (gameState !== 'playing') return null;
       const view = { width: config.width, height: config.height, mines: config.mines,
         revealed: cells.map((c) => c.revealed), adjacent: cells.map((c) => (c.revealed ? c.adjacent : 0)) };
-      let target = -1;
+      const flagged = cells.some((c) => c.flagged);
+      let target = -1, flag = false;
       for (const [cell, fact] of Justice.proveFacts(view, Justice.rawClues(view))) {
-        if (fact === 2) { target = cell; break; }
+        if (fact === 1 && !flagged) { target = cell; flag = true; break; }
+        if (fact === 2 && target === -1) target = cell;
       }
       if (target === -1) target = cells.findIndex((c) => !c.revealed && !c.mine);
       const r = cellElements[target].getBoundingClientRect();
-      return [r.left + r.width / 2, r.top + r.height / 2];
+      return { at: [r.left + r.width / 2, r.top + r.height / 2], flag };
     });
-    for (let square = await nextSafeSquare(); square !== null; square = await nextSafeSquare()) {
-      await page.mouse.click(...square);
-      kinds.push('expert play');
+    for (let move = await nextMove(); move !== null; move = await nextMove()) {
+      await page.mouse.click(...move.at, { button: move.flag ? 'right' : 'left' });
+      kinds.push(move.flag ? 'expert flag' : 'expert play');
     }
     assert.equal((await board()).state, 'won', 'the Expert game ended in a win');
     const settled = await page.waitForFunction(() => window.__latency.winResultsAt !== undefined, null,
@@ -212,6 +217,7 @@ async function main() {
         busy: [...document.querySelectorAll('[aria-busy="true"]')].map((el) => el.id || el.className) }));
       assert.fail('the Expert win\'s full results did not finish within 30 s: ' + JSON.stringify(pending));
     }
+    await page.waitForFunction(() => performance.now() > window.__latency.clicks.at(-1).at + 2000);
 
     const probe = await page.evaluate(() => window.__latency);
     assert.equal(probe.clicks.length, kinds.length, 'every click reached the page');
@@ -224,9 +230,16 @@ async function main() {
       metrics[name + 'WorkMs'] = of(kinds_, 'work');
       metrics[name + 'Ms'] = of(kinds_, 'screen');
     }
-    metrics.afterGameFreezeMs = Math.max(0, ...probe.freezes
-      .filter((f) => f.at + f.ms >= endAt && f.at <= endAt + 2000).map((f) => f.ms));
-    metrics.expertWinResultsMs = probe.winResultsAt - probe.clicks[kinds.lastIndexOf('expert play')].at;
+    const freezeAfter = (at) => Math.max(0, ...probe.freezes
+      .filter((f) => f.at + f.ms >= at && f.at <= at + 2000).map((f) => f.ms));
+    metrics.afterGameFreezeMs = freezeAfter(endAt);
+    // The result shows at the winning click; its data comes in after it and
+    // never blocks the page (creator decision 2026-11-03).
+    const winClick = probe.clicks[kinds.lastIndexOf('expert play')];
+    metrics.winClickWorkMs = winClick.end - winClick.start;
+    metrics.winClickMs = winClick.ms;
+    metrics.afterWinFreezeMs = freezeAfter(winClick.at);
+    metrics.expertWinResultsMs = probe.winResultsAt - winClick.at;
     for (const name of Object.keys(metrics)) metrics[name] = Math.round(metrics[name]);
     const unbudgeted = Object.keys(metrics).filter((name) => budgets === null || !(name in budgets));
     if (unbudgeted.length > 0) {

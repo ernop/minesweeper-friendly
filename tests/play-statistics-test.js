@@ -154,7 +154,8 @@ async function playToEnd(outcome, state) {
   });
   // settings-core.js declares `settings` with let, which a context property
   // cannot replace.
-  vm.runInContext('settings = ' + JSON.stringify(state.settings), game);
+  vm.runInContext('settings = { shownThings: { ...SHOWN_THINGS_DEFAULTS }, ...'
+    + JSON.stringify(state.settings) + ' }', game);
   log.length = 0;
   sent.length = 0;
   hosted.fetched.length = 0;

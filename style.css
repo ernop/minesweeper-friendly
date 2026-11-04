@@ -2403,7 +2403,7 @@ body.settings-page .return-to-game {
   margin: 0 auto 26px;
 }
 
-.result-chart-section:last-child { margin-bottom: 0; }
+.result-chart-section:not(:has(~ :not([hidden]))) { margin-bottom: 0; }
 
 /* A section's title opens and closes it; its chart choice shows only while
    it is open. */
@@ -2549,6 +2549,7 @@ body.settings-page .return-to-game {
   font-size: 12px;
   color: #000000;
 }
+.board-metric-status[hidden] { display: none; }
 .board-metric-backfill { align-self: flex-start; font-size: 12px; }
 .board-metric-backfill-panel {
   flex-basis: 100%;

@@ -148,8 +148,9 @@ Spec: [docs/product/board-and-layout.md](../product/board-and-layout.md). Index:
   callouts measure visible stats and legend bounds to avoid the sidebar.
   `renderPathOverlay` builds its legend into a detached fragment and replaces
   the live contents once, preventing transient collapse and scroll resets.
-  `createResultSectionCollector` appends every section to `#result-ranks` in
-  model order. The `tables` section has `heading: false`: daily placements,
+  `createResultSectionCollector` places every section in `#result-ranks` in
+  model order as its parts arrive ([Result presentation](results.md)). The
+  `tables` section has `heading: false`: daily placements,
   time/category tables, and all streak variants share one left-aligned
   wrapping collection. `boardTables` follows, labeled "This board", with
   exact 3BV/ZiNi/maximum-clue and board-shape time tables. Both precede
@@ -283,7 +284,8 @@ There is no main-thread calculation substitute.
   that record, even after a restart, but view revision and trace identity gate
   presentation. Restoring a saved trace computes any unfinished derived board
   measurements. Statistical completion is independent of starting another game.
-- `renderResult`/`renderRanks` await worker models. Tables receive only their
+- `renderRanks` requests worker models, each request in its own task, and
+  each part shows when its model arrives. Tables receive only their
   visible 11-row windows. Messages strip raw action evidence from ranking
   inputs. Sections and motion rows yield against a 4ms presentation budget;
   scatter dots also check the budget every 128 points. DOM work stays on the

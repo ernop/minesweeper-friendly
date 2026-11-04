@@ -242,7 +242,7 @@ function renderImmediateGameEnd(outcome) {
   const loading = document.createElement('div');
   loading.className = 'result-loading';
   loading.setAttribute('role', 'status');
-  loading.textContent = 'loading scores and report\u2026';
+  loading.textContent = 'loading results\u2026';
   resultRanks.appendChild(loading);
   // Place the shell in its reserved column before this task paints.
   syncBoardLayout();

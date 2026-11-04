@@ -210,7 +210,20 @@ const shotDir = process.argv[4] || null;
       await nextFrames();
     };
     const progress = await plotBox('progress');
-    const hoverX = progress.plot.x + progress.plot.width * 0.6;
+    // The x of the moment halfway between two actions, which shows the board
+    // after `step` actions: the scripted clicks' times follow the machine's
+    // load, so fixed fractions of the axis could fall in one gap and show
+    // one step.
+    const clock = await page.evaluate(() => {
+      const actionTimes = pathDecisionEvents(trace.events).map((event) => event.evaluation.atMs);
+      return { actionTimes, spanMs: Math.max(renderedResult.record.timeMs, actionTimes.at(-1)) };
+    });
+    const xShowing = (step) => progress.plot.x
+      + progress.plot.width * (clock.actionTimes[step - 1] + clock.actionTimes[step]) / 2 / clock.spanMs;
+    const gaps = clock.actionTimes.slice(1).map((atMs, i) => atMs - clock.actionTimes[i]);
+    // The long pause: the player's standing flags, then the next click to come.
+    const pauseStep = gaps.indexOf(Math.max(...gaps)) + 1;
+    const hoverX = xShowing(pauseStep);
     await glideInto(progress, hoverX, progress.plot.y + progress.plot.height / 2);
     assert.equal(await block.locator('.during-game-line').isVisible(), true);
     const card = page.locator('.during-game-card');
@@ -254,7 +267,7 @@ const shotDir = process.argv[4] || null;
     // The board follows the pointer, past the last action to the finished
     // board; leaving the charts returns it to the replay's own position, here
     // the finished board.
-    await page.mouse.move(progress.plot.x + progress.plot.width * 0.3, progress.plot.y + 10, { steps: 3 });
+    await page.mouse.move(xShowing(1), progress.plot.y + 10, { steps: 3 });
     const earlier = await replayState();
     assert(earlier.step < previewed.step, 'an earlier moment, an earlier step: ' + JSON.stringify([earlier, previewed]));
     await page.mouse.move(progress.plot.x + progress.plot.width - 1, progress.plot.y + 10, { steps: 3 });
@@ -353,7 +366,7 @@ const shotDir = process.argv[4] || null;
     assert.equal(replay.step, clicked, 'the moment clicked');
     assert.equal(replay.saved, clicked, 'remembered as the replay position');
     assert.equal(await card.isVisible(), false);
-    await glideInto(progress, progress.plot.x + progress.plot.width * 0.15, progress.plot.y + 10);
+    await glideInto(progress, xShowing(1), progress.plot.y + 10);
     assert.notEqual((await replayState()).step, clicked);
     await page.mouse.move(5, 5);
     assert.equal((await replayState()).step, clicked, 'leaving returns to the moment clicked');

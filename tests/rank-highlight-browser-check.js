@@ -53,7 +53,7 @@ const { chromium } = require(process.argv[2]);
       settings.shownThings.recentPlacementsOtherBoards = true;
       collector.append('tables', buildRecentPlacements(current, wins, now));
       await collector.ready();
-      collector.renderInto(resultRanks);
+      await collector.stream(resultRanks);
     });
     const ownBoardLabels = await page.evaluate(() => window.ownBoardLabels);
     assert(ownBoardLabels.includes('3BV 40'), 'this win’s board category is listed by default');
@@ -179,7 +179,7 @@ const { chromium } = require(process.argv[2]);
         const collector = createResultSectionCollector('postGame');
         await renderRanks(current, records, options, collector);
         await collector.ready();
-      collector.renderInto(resultRanks);
+      await collector.stream(resultRanks);
         return Object.fromEntries([...resultRanks.querySelectorAll('.rank-list')]
           .filter((list) => !list.classList.contains('recent-placements'))
           .map((list) => [list.querySelector('h4').textContent, {
@@ -239,7 +239,7 @@ const { chromium } = require(process.argv[2]);
       const collector = createResultSectionCollector('postGame');
       await renderRanks(recent[0], wins, {}, collector);
       await collector.ready();
-      collector.renderInto(resultRanks);
+      await collector.stream(resultRanks);
       const rows = [...resultRanks.querySelectorAll('.recent-placements .rank-row')];
       return {
         labels: rows.map((row) => row.querySelector('.recent-window-cell').textContent),
@@ -336,7 +336,7 @@ const { chromium } = require(process.argv[2]);
       const collector = createResultSectionCollector('postGame');
       collector.append('tables', buildSessionSummary(current, now));
       await collector.ready();
-      collector.renderInto(resultRanks);
+      await collector.stream(resultRanks);
       const read = () => {
         const box = resultRanks.querySelector('.session-summary');
         const main = box.querySelector('.session-summary-grid:not(.session-summary-results)');

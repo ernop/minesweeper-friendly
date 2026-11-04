@@ -892,6 +892,20 @@ function sessionGameResult(record) {
   return result;
 }
 
+// Files `records` under their results a slice at a time, so the summary that
+// reads them all finds them filed: 22 ms in one piece for 1,950 games, once
+// per page load. reportResult starts it for the game's board type while the
+// reports worker judges the game; the summary files whatever is left. False
+// once `isCurrent` stops it.
+async function fileSessionGameResults(records, isCurrent = () => true) {
+  for (const record of records) {
+    sessionGameResult(record);
+    await yieldAnalysisPresentation();
+    if (!isCurrent()) return false;
+  }
+  return true;
+}
+
 // How `records` split over the tree: games per result kind and losses per
 // likely-misclick reason.
 function sessionResultCounts(records) {

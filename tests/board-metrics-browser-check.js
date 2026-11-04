@@ -228,13 +228,13 @@ const { chromium } = require(process.argv[2]);
       const base = history[key].find((r) => r.endedAt === endedAt);
       const missing = history[key].at(-2);
       boardMetricJobs.set(missing, { status: 'error', error: 'deliberate backfill failure' });
-      const failed = buildBoardMetricStatus(base);
+      const failed = boardMetricStatusBox(base);
       const errorVisible = failed.querySelector('[role=alert]').textContent;
       const failedPanel = failed.querySelector('.board-metric-backfill-panel') !== null;
       const oldMetrics = missing.boardMetrics;
       missing.boardMetrics = { ...base.boardMetrics };
       boardMetricJobs.delete(missing);
-      const allMeasuredIsHidden = buildBoardMetricStatus(base) === null;
+      const allMeasuredIsHidden = boardMetricStatusBox(base).hidden;
       missing.boardMetrics = oldMetrics;
       boardMetricJobs.set(missing, { status: 'unavailable' });
       return { errorVisible, failedPanel, allMeasuredIsHidden };
@@ -275,7 +275,7 @@ const { chromium } = require(process.argv[2]);
     assert.equal(await page.locator('.board-metric-backfill').count(), 0);
     assert.match(await page.evaluate(async ({ key, endedAt }) => {
       settings.shownThings.boardMetricFacts = false;
-      const text = buildBoardMetricStatus(history[key].find((r) => r.endedAt === endedAt)).textContent;
+      const text = boardMetricStatusBox(history[key].find((r) => r.endedAt === endedAt)).textContent;
       settings.shownThings.boardMetricFacts = true;
       return text;
     }, saved), /Could not check saved boards/, 'hiding progress cannot hide source read failures');
@@ -408,11 +408,11 @@ const { chromium } = require(process.argv[2]);
       const r = { outcome: 'win', hzini: 6, boardChangingClicks: 5,
         boardMetrics: { version: 1, workSpread: 1.2 } };
       const above100 = 100 * hziniEfficiencyOf(r);
-      const noIdleStatus = buildBoardMetricStatus(r) === null;
+      const noIdleStatus = boardMetricStatusBox(r).hidden;
       r.outcome = 'loss';
       const lossHasEfficiency = hziniEfficiencyOf(r) !== undefined;
       boardMetricJobs.set(r, { status: 'error', error: 'deliberate fixture failure' });
-      const errorText = buildBoardMetricStatus(r).querySelector('[role=alert]').textContent;
+      const errorText = boardMetricStatusBox(r).querySelector('[role=alert]').textContent;
       return { above100, noIdleStatus, lossHasEfficiency, errorText };
     });
     assert.deepEqual(edgeCases, { above100: 120, noIdleStatus: true, lossHasEfficiency: false,

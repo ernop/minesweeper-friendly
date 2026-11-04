@@ -303,8 +303,9 @@ Since 2026-10-20 the model is built inside
 comes that much later; the live perf charts then need only the view.
 `renderResultAsync` builds the block, which starts its task, before
 `renderRanks`, so the reports lane (after `finished-game`) runs it beside
-the rankings lane's tables. `renderRanks` waits for it after the board
-tables, before game data and the charts.
+the rankings lane's tables. `renderRanks` places it with game data's frame
+as soon as it is drawn, whatever the tables under the board are waiting for
+(2026-11-03, [Result presentation](results.md)).
 
 ## Rows and averaging
 

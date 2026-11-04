@@ -5,7 +5,7 @@ Spec: [docs/product/results.md](../product/results.md). Index: [AGENTS.md](../..
 - Unified result presentation: the pure span between the "RESULT
   PRESENTATION MODEL" and "DISPLAY" markers defines semantic phase and chart
   section order for post-game and score contexts. `createResultSectionCollector`
-  collects computed nodes and emits only nonempty sections in that order;
+  places nonempty sections in that order as their parts arrive (below);
   each `.result-chart-section-items` wraps internally. A section with a
   heading gets `resultOpenerHead('h3', spec.id, spec.label, items)`: its
   title opens and closes the items as the panel named by the section id
@@ -62,9 +62,51 @@ Spec: [docs/product/results.md](../product/results.md). Index: [AGENTS.md](../..
   rate, Justice, ledger facts) keep their own formatting.
 
 - `renderResult` returns a completion promise; a view revision invalidates
-  older renders on restart or selection changes. `createResultSectionCollector`
-  waits for node analysis promises before committing its ordered sections.
-  Existing report controls stay mounted during recalculation. `reportResult`
+  older renders on restart or selection changes. `reportResult`
   captures primary facts synchronously, persists them, and delegates heavy
   measurements to the report worker. Replies can enrich their saved record
   after a restart but cannot overwrite a newer game or score view.
+- Progressive results (2026-11-03,
+  [spec](../product/results.md#results-come-in-as-their-data-arrives-creator-decision-2026-11-03)):
+  the collector's `append(sectionId, part)` takes a node or a promise of
+  nodes; a part is ready once its nodes are built and each node's
+  `analysisReady` has resolved, and `ready()` waits for every part.
+  `stream(parent, isCurrent)` walks the sections in model order and places
+  each part once it and every part before it are ready, creating a
+  section's shell at its first nonempty part, then `syncBoardLayout()` and
+  `yieldAnalysisPresentation()`. A section still in `parent` from the
+  previous render is swapped whole once all its new parts are ready (removed
+  when they are all empty); sections the new result lacks, and the
+  `.result-loading` line, go at the end. `syncResultSectionShown` hides a
+  section whose items are all hidden.
+  `renderRanks(record, modeRecords, options, sections, isCurrent)` appends
+  every part before its first wait, each a promise derived from `prepared`,
+  which builds, each after `yieldAnalysisPresentation()`, ranks won (its
+  `recent-placements` request), game data (`game-data`), and the `ranks`
+  plan request; a result no longer current stops there and its parts are
+  empty. The rankings worker answers in that request order. The session
+  summary is built after `prepared`, while the workers answer, once every
+  game of the mode is filed under its result (`sessionGameResult`, kept per
+  record for the page): the results tree's lifetime column reads them all,
+  22 ms in one piece for the check's 1,950 Expert games, so
+  `fileSessionGameResults` files them one `yieldAnalysisPresentation()`
+  slice at a time, begun by `reportResult` for the game's history key while
+  the reports worker judges the game and stopped by any new result view, a
+  new game's included; the summary's own call files what is left. Parts:
+  the tables section gets
+  the session column (after the summary), a loss's "this game", and the
+  rankings group (after the plan); This board its tables (plan); your perf
+  its charts (plan and game data's rows); board traits after your perf;
+  relationships after board traits, one chart per task
+  (`relationshipChartBuilders`, 7-19 ms in one piece at 2,000 wins), whose
+  scatter and trend jobs start only then. The details column (`#result-stats`) is
+  replaced in one step, live perf charts and game data's frame, once
+  `prepared` is done and live perf charts are drawn, after a
+  `yieldAnalysisPresentation()`: the frame that first draws them is the
+  result's costliest (about 27 ms on the check's Expert win), so it never
+  follows the task that sent the last request. Until then the column keeps
+  `#stats-grid.immediate-stats` with the final time.
+  `renderResultAsync` replaces the report (`#result-analysis`) at once,
+  keeps `#result-ranks`' sections for the stream to replace, and keeps
+  `aria-busy` on `#result-ranks` until the stream ends. The loading line
+  reads "loading results…" (`renderImmediateGameEnd`).

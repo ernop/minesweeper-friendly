@@ -157,6 +157,13 @@ function reportResult(outcome, endedAt = Date.now()) {
     boardState.status = 'error'; boardState.error = error.message;
     analysisFailure(error);
   });
+  // The session results' lifetime column reads every earlier game of this
+  // board type; filing them while the worker judges this one keeps that work
+  // out of the result's own tasks. It stops with the view, a new game's
+  // included; the summary files what is left.
+  if (settings.shownThings.sessionSummary && settings.shownThings.sessionEndings && key in history) {
+    fileSessionGameResults(history[key], () => resultViewRevision === resultRevision);
+  }
 }
 
 // Puts the reports worker's judgment of a finished game
@@ -564,43 +571,104 @@ function resultChartSections(context) {
 
 //-------RESULT PRESENTATION DISPLAY-------
 
-// Collect first, render second: call sites can compute related data together,
-// while the model above remains the one authority for visible section order.
+// The result's sections show as their parts arrive (creator decision
+// 2026-11-03: "display things as they come in, so nothing blocks other
+// stuff"). Call sites append every part at once, in order: a node, or a
+// promise of the nodes a worker's reply builds. A part is ready when its
+// nodes are built and their own analysis is drawn. The model above stays the
+// one authority for section order.
 function createResultSectionCollector(context) {
   const specs = resultChartSections(context);
-  const nodes = new Map(specs.map((spec) => [spec.id, []]));
+  const parts = new Map(specs.map((spec) => [spec.id, []]));
+  const sectionShell = (spec) => {
+    const section = document.createElement('section');
+    section.className = 'result-chart-section result-chart-section-' + spec.id;
+    section.dataset.section = spec.id;
+    section.setAttribute('aria-label', spec.label);
+    const items = document.createElement('div');
+    items.className = 'result-chart-section-items';
+    if (spec.heading !== false) {
+      const head = resultOpenerHead('h3', spec.id, spec.label, items);
+      head.classList.add('result-chart-section-head');
+      if (spec.chartMode) head.append(chartModeSelect(spec.chartMode));
+      section.appendChild(head);
+    }
+    section.appendChild(items);
+    return { section, items };
+  };
   return {
-    append(sectionId, node) {
-      if (!nodes.has(sectionId)) {
+    append(sectionId, part) {
+      if (!parts.has(sectionId)) {
         throw new Error('unknown result section: ' + sectionId);
       }
-      nodes.get(sectionId).push(node);
+      parts.get(sectionId).push(Promise.resolve(part instanceof Node ? [part] : part)
+        .then((nodes) => Promise.all(nodes.map((node) => node.analysisReady)).then(() => nodes)));
     },
     ready() {
-      return Promise.all([...nodes.values()].flat().map((node) => node.analysisReady));
+      return Promise.all([...parts.values()].flat());
     },
-    renderInto(parent) {
-      parent.textContent = '';
-      for (const spec of specs) {
-        const children = nodes.get(spec.id);
-        if (children.length === 0) continue;
-        const section = document.createElement('section');
-        section.className = 'result-chart-section result-chart-section-' + spec.id;
-        section.setAttribute('aria-label', spec.label);
-        const items = document.createElement('div');
-        items.className = 'result-chart-section-items';
-        items.append(...children);
-        if (spec.heading !== false) {
-          const head = resultOpenerHead('h3', spec.id, spec.label, items);
-          head.classList.add('result-chart-section-head');
-          if (spec.chartMode) head.append(chartModeSelect(spec.chartMode));
-          section.appendChild(head);
-        }
-        section.appendChild(items);
-        parent.appendChild(section);
+    // Places each part once it and every part before it are ready, so what
+    // is shown never moves for what comes later. A section already on screen
+    // keeps its content until its replacement is whole; one the new result
+    // lacks goes when the rest is placed.
+    async stream(parent, isCurrent = () => true) {
+      for (const child of [...parent.children]) {
+        if (!child.matches('.result-chart-section, .result-loading')) child.remove();
       }
+      const shown = new Map([...parent.querySelectorAll(':scope > .result-chart-section')]
+        .map((section) => [section.dataset.section, section]));
+      let last = null;
+      const place = (section) => {
+        if (last === null) parent.prepend(section);
+        else last.after(section);
+        last = section;
+      };
+      for (const spec of specs) {
+        const sectionParts = parts.get(spec.id);
+        const old = shown.get(spec.id);
+        if (old !== undefined) {
+          const nodes = (await Promise.all(sectionParts)).flat();
+          if (!isCurrent()) return;
+          shown.delete(spec.id);
+          if (nodes.length === 0) {
+            old.remove();
+            continue;
+          }
+          const { section, items } = sectionShell(spec);
+          items.append(...nodes);
+          syncResultSectionShown(section);
+          old.replaceWith(section);
+          last = section;
+          syncBoardLayout();
+          await yieldAnalysisPresentation();
+          continue;
+        }
+        let shell = null;
+        for (const part of sectionParts) {
+          const nodes = await part;
+          if (!isCurrent()) return;
+          if (nodes.length === 0) continue;
+          if (shell === null) {
+            shell = sectionShell(spec);
+            place(shell.section);
+          }
+          shell.items.append(...nodes);
+          syncResultSectionShown(shell.section);
+          syncBoardLayout();
+          await yieldAnalysisPresentation();
+        }
+      }
+      for (const old of shown.values()) old.remove();
+      parent.querySelector(':scope > .result-loading')?.remove();
     },
   };
+}
+
+// A section shows its title only while something in it shows: the board
+// measurements' status box hides while it has nothing to say.
+function syncResultSectionShown(section) {
+  const items = section.querySelector(':scope > .result-chart-section-items');
+  section.hidden = [...items.children].every((item) => item.hidden);
 }
 
 function difficultyDisplayName(name) {
@@ -892,25 +960,19 @@ async function renderResultAsync(record, modeRecords, options = {}) {
   const isCurrent = () => revision === resultViewRevision;
   resultRanks.setAttribute('aria-busy', 'true');
   if (chartHelpOwner && [resultStats, resultRanks].some((el) => el.contains(chartHelpOwner))) hideChartHelpTip();
-  renderedResult = { record, modeRecords, options };
   requestBoardMetrics(record);
+  const metricStatus = boardMetricStatusBox(record);
+  renderedResult = { record, modeRecords, options, metricStatus };
   if (options.historyView) setHighScoresSummary('Latest win');
   else resultSummary.textContent = '';
-  clearResultStats();
-  resultAnalysis.textContent = '';
   const historyView = options.historyView === true;
-  if (!historyView && settings.reportScope !== 'none') {
-    const verdicts = buildVerdictBlocks(record);
-    if (verdicts !== null) {
-      resultAnalysis.appendChild(verdicts);
-    }
-  }
+  const verdicts = !historyView && settings.reportScope !== 'none' ? buildVerdictBlocks(record) : null;
+  resultAnalysis.replaceChildren(...(verdicts === null ? [] : [verdicts]));
   const gameStats = settings.shownThings.gameStats && (record.outcome !== 'win'
     || (Trial.isPlayMode(settings.playMode) && !historyView)) ? buildGameStats(record) : null;
 
   const resultSections = createResultSectionCollector(
     historyView ? 'scores' : 'postGame');
-  const metricStatus = buildBoardMetricStatus(record);
   if (metricStatus) resultSections.append('boardTables', metricStatus);
   resultRanks.classList.toggle(
     'sectioned-results',
@@ -920,23 +982,19 @@ async function renderResultAsync(record, modeRecords, options = {}) {
   const duringGame = settings.shownThings.duringGame && !historyView && !Trial.isPlayMode(settings.playMode)
     && duringGameAvailable(record) ? buildDuringGameBlock(record, isCurrent) : null;
   if (Trial.isPlayMode(settings.playMode) && !options.historyView) {
+    clearResultStats();
     resultRanks.textContent = '';
     if (gameStats !== null) resultRanks.appendChild(gameStats);
     renderTrialChrome();
-  } else if (record.outcome === 'win') {
-    await renderRanks(record, noMarkComparison(record, modeRecords),
-      { ...options, duringGame, ...(isMarkless(record) ? { noMarkTimeLabel: noMarkTimeLabel() } : {}) },
-      resultSections, isCurrent);
   } else {
-    const latestWin = modeRecords.findLast((game) => game.outcome === 'win');
-    await renderRanks(latestWin || record, modeRecords,
-      { ...options, duringGame, gameStats, historyView: true, boardRecord: record }, resultSections, isCurrent);
-  }
-  if (!isCurrent()) return;
-  if (!Trial.isPlayMode(settings.playMode) || options.historyView) {
-    await resultSections.ready();
+    const ranks = record.outcome === 'win'
+      ? renderRanks(record, noMarkComparison(record, modeRecords),
+        { ...options, duringGame, ...(isMarkless(record) ? { noMarkTimeLabel: noMarkTimeLabel() } : {}) },
+        resultSections, isCurrent)
+      : renderRanks(modeRecords.findLast((game) => game.outcome === 'win') || record, modeRecords,
+        { ...options, duringGame, gameStats, historyView: true, boardRecord: record }, resultSections, isCurrent);
+    await Promise.all([ranks, resultSections.stream(resultRanks, isCurrent)]);
     if (!isCurrent()) return;
-    resultSections.renderInto(resultRanks);
   }
   resultRanks.removeAttribute('aria-busy');
   syncBoardLayout();

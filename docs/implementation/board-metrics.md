@@ -26,9 +26,19 @@ Spec: [docs/product/per-game-stats.md](../product/per-game-stats.md), [docs/prod
   with `Math.round(2 * value) / 2`. There is no preliminary decimal rounding.
   Recorded measurements stay unchanged. Full tables and recent summaries
   share these groups through `BOARD_METRIC_TABLES` / `boardMetricCandidates`.
-  `buildBoardMetricStatus` replaces the cards with calculation/error status
+  `boardMetricStatusBox` replaces the cards with calculation/error status
   and backfill progress; saved display key `boardMetricFacts` now controls
   only backfill progress. Status/error messages remain visible independently.
+  The box exists for every result but a drill's, first in This board, and is
+  hidden while it has nothing to say (`syncResultSectionShown` then hides a
+  section it is alone in). `renderedResult.metricStatus` holds it, and
+  `refreshBoardMetricStatus` refills it in place (`fillBoardMetricStatus`)
+  for the saved-board check, a changed catalog, an unavailable or unreadable
+  board, a failed measurement, and the backfill button: nothing else in the
+  result reads them. Only a board measured (`runBoardMetricQueue`) renders
+  the result again (`refreshBoardMetricView`). Until 2026-11-03 each of
+  them rendered the whole result again, so the first result per mode per
+  page load asked the workers for every view twice.
   First losses still render the measured table headings with empty win pools.
   Retired research fields remain stored but are not used by the display.
   `board-metrics-worker.js` performs calculations; `board-metrics-ui.js`

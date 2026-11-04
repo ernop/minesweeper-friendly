@@ -31,8 +31,7 @@ function loadBoardMetricSources(key) {
       }
       continueBoardMetricBackfill(key);
     }
-    const shown = renderedResult?.record;
-    if (shown && history[key]?.includes(shown)) refreshBoardMetricView(shown);
+    refreshBoardMetricStatus();
   };
   tx.oncomplete = () => finish();
   tx.onabort = () => finish(tx.error || 'transaction aborted');
@@ -42,8 +41,7 @@ function loadBoardMetricSources(key) {
 function boardMetricSourcesChanged(key) {
   if (!boardMetricSources.has(key)) return;
   boardMetricSources.delete(key);
-  const shown = renderedResult?.record;
-  if (shown && history[key]?.includes(shown)) refreshBoardMetricView(shown);
+  refreshBoardMetricStatus();
 }
 
 // The finished game's own trace committed. A read catalog gains its key and
@@ -121,12 +119,25 @@ function continueBoardMetricBackfill(key) {
   }
 }
 
+// A record's new board measurements change the result's tables and charts.
 function refreshBoardMetricView(record) {
   if (renderedResult === null || !renderedResult.modeRecords.includes(record)) return;
   const { record: shown, modeRecords, options } = renderedResult;
   const x = window.scrollX, y = window.scrollY;
   renderResult(shown, modeRecords, options);
   window.scrollTo(x, y);
+}
+
+// Only the status box reads the saved-board check, the backfill's progress,
+// and a measurement job's state, so their changes refill it in place and
+// never render the result again.
+function refreshBoardMetricStatus() {
+  const box = renderedResult?.metricStatus;
+  if (!box) return;
+  fillBoardMetricStatus(box, renderedResult.record);
+  const section = box.closest('.result-chart-section');
+  if (section) syncResultSectionShown(section);
+  syncBoardLayout();
 }
 
 function runBoardMetricQueue() {
@@ -151,7 +162,8 @@ function runBoardMetricQueue() {
     }
     boardMetricWorkerBusy = false;
     continueBoardMetricBackfill(job.key);
-    refreshBoardMetricView(job.record);
+    if (result) refreshBoardMetricView(job.record);
+    else refreshBoardMetricStatus();
     runBoardMetricQueue();
   };
   try {
@@ -178,7 +190,7 @@ function requestBoardMetrics(record, snapshot) {
   const enqueue = (saved) => {
     if (!saved || saved.width * saved.height !== saved.mines.length) {
       state.status = 'unavailable'; continueBoardMetricBackfill(key);
-      refreshBoardMetricView(record); return;
+      refreshBoardMetricStatus(); return;
     }
     state.status = 'running';
     boardMetricQueue.push({ id: ++boardMetricJobId, record, key, state, board: saved });
@@ -196,14 +208,22 @@ function requestBoardMetrics(record, snapshot) {
   request.onerror = () => {
     state.status = 'error'; state.error = 'Could not read the saved board.';
     continueBoardMetricBackfill(key);
-    refreshBoardMetricView(record);
+    refreshBoardMetricStatus();
   };
 }
 
-function buildBoardMetricStatus(record) {
+// The result's board measurements status box, hidden while it has nothing to
+// say; refreshBoardMetricStatus refills it.
+function boardMetricStatusBox(record) {
   if (record.playMode === 'endgame-drill') return null;
   const box = document.createElement('div');
   box.className = 'board-metric-status';
+  fillBoardMetricStatus(box, record);
+  return box;
+}
+
+function fillBoardMetricStatus(box, record) {
+  box.replaceChildren();
   const job = boardMetricJobs.get(record);
   if (job && ['running', 'loading', 'unavailable'].includes(job.status)) {
     const status = document.createElement('div');
@@ -272,7 +292,7 @@ function buildBoardMetricStatus(record) {
             boardMetricBackfills.add(key);
             continueBoardMetricBackfill(key);
           }
-          refreshBoardMetricView(record);
+          refreshBoardMetricStatus();
         });
         panel.appendChild(button);
       }
@@ -288,5 +308,5 @@ function buildBoardMetricStatus(record) {
       box.appendChild(error);
     }
   }
-  return box.childElementCount ? box : null;
+  box.hidden = box.childElementCount === 0;
 }

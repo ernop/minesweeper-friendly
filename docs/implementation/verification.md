@@ -144,7 +144,7 @@ Index: [AGENTS.md](../../AGENTS.md).
     browser-check list. They average about 10 seconds each; all of them
     together take over two minutes.
   - The Node suites (about 25 seconds together) and the latency check (about
-    13 seconds; run when finishing each change to gameplay, game end, storage,
+    15 seconds; run when finishing each change to gameplay, game end, storage,
     startup, or result presentation, and recorded before a push) stay as they
     are.
   - A command expected to finish in under a minute that is still running
@@ -242,7 +242,7 @@ Latency check (2026-09-26, creator request, cut to basics the same day: "keep
 just basic timing stuff please so we notice if we megaslowdown again"; spec:
 [Input latency](../product/board-and-layout.md#input-latency-user-report-2026-09-26)):
 `node tests/latency-browser-check.js PLAYWRIGHT_CORE_DIR firefox|chromium EXECUTABLE [--record]`
-takes about 13 seconds on the PC. In a fresh profile on 8099 with a synthetic
+takes about 15 seconds on the PC. In a fresh profile on 8099 with a synthetic
 6,500-game history, on a fixed board, it times page load, new game, the first
 click, a dozen more clicks, the click that shows a mine, and switching to
 expert, plus the longest freeze in the two seconds after that game ends: the
@@ -254,7 +254,10 @@ input gets two numbers: `*WorkMs`, how long the game's own handlers ran for it
 next frame (what the player sees, including up to one 16.7 ms frame of
 waiting). Then it plays the Expert game to a win (229 clicks, 3BV 193), each
 click on a square the visible numbers prove safe, or on a square without a
-mine where none is proven, and times `expertWinResultsMs`: the winning click to
+mine where none is proven, and one flag on the first proven mine (since
+2026-11-03): the synthetic Expert wins all have flags, so a win without one
+was ranked among no-mark wins alone, by itself, and its results drew no
+charts. It times `expertWinResultsMs`: the winning click to
 the first task after the frame that shows the won game's full results, with
 its board measurements in and no part of the page marked `aria-busy`
 (`watchWinResults`). The analysis workers' share is inside that span, which
@@ -262,7 +265,12 @@ the other metrics never reach (added 2026-10-26, creator decision: a change
 that doubled the live perf charts' model, built in the reports worker's
 `finished-game` task, had passed the check; with that change put back for one
 run, `finished-game` took 235 ms instead of about 105 and the step 347 ms
-against the PC's 240 ms limit). Unlike the checks above, these are pass thresholds, one set per
+against the PC's 240 ms limit). Since the results show part by part (creator
+decision 2026-11-03), only that span may be allowed to grow, and only while
+the player is not blocked, which three more metrics hold: `winClickWorkMs`
+and `winClickMs`, the winning click's work and time to screen, and
+`afterWinFreezeMs`, the longest freeze in the two seconds after it (the check
+waits out those two seconds). Unlike the checks above, these are pass thresholds, one set per
 machine (creator request 2026-10-18). `tests/latency-machine.txt`, gitignored,
 holds the label of the machine running the check: `linux-pc` or
 `windows-laptop`. The check stops at once when the file is missing, and any
@@ -288,8 +296,9 @@ prints one table per machine against its limits.
   Its times vary far more than the PC's (startup 1276-2306 ms and new game
   work 29-55 ms across five runs of one release, with other programs keeping
   the processor about 40% busy), so its limits catch only large slowdowns.
-  It has no `expertWinResultsMs` limit yet: the check fails there, printing
-  its measurements, until three runs there set one.
+  It has no `expertWinResultsMs`, `winClickWorkMs`, `winClickMs`, or
+  `afterWinFreezeMs` limit yet: the check fails there, printing its
+  measurements, until three runs there set them.
 
 Hosting verification (2026-09-26): `python3 tests/hosting-release-test.py`
 checks the committed-runtime artifact. `tests/hosting-browser-check.js` takes

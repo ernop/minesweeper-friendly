@@ -4,7 +4,9 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
 
 Post-game and score-view output share one semantic presentation model. Order
 answers progressively deeper player questions; it is never inferred from DOM
-append timing or from how many cards fit on a row:
+append timing or from how many cards fit on a row. Each part shows as soon as
+its data has arrived, in this order
+([Results come in as their data arrives](#results-come-in-as-their-data-arrives-creator-decision-2026-11-03)):
 
 1. **Outcome** — win/loss or High scores, board, mode, generator, date.
    Two lines (2026-09-23; formerly one item per line): the larger bold
@@ -193,3 +195,61 @@ go forward with this!"):
 
 Rejected 2026-10-07: the verdict rows of the first review mockup (Result,
 Pace, Board, and Training lines under the board): "not a super fan really."
+
+## Results come in as their data arrives (creator decision 2026-11-03)
+
+The creator, after the game-end judgment moved off the click and the full
+results of a long Expert win took about 210 ms: "for post-win, where we're
+going to be calculating stuff, let's just display things as they come in, so
+nothing blocks other stuff, if possible. taht way during-game play speed is
+totally unimpacted; the display of the result (win/die) is unaffected, and
+AFTER t hat, data comes in. that sounds good. let's think about how to do
+that; as long as the user isn't blocked, budgets can be raised."
+
+Built the same day:
+
+- The win or loss shows at the click: the face, the opened board, and the
+  final time in the details column. Nothing about it waits for analysis.
+- Every result part needs the judgment of the game's decisions, which the
+  reports worker makes after the game
+  ([Game-end evaluation](game-end-evaluation.md)): the game joins the history
+  only once judged. Until then the area under the board says "loading
+  results…".
+- From the judgment on, each part shows as soon as its data is in, without
+  waiting for the rest: under the board the session summary with ranks won,
+  the rankings, This board, your perf, board traits, and relationships, in
+  that order; the details column (live perf charts above game data) on its
+  own, once live perf charts are drawn. The details column keeps the final
+  time until then.
+- Nothing shown moves for what comes later. A part is placed only once it and
+  every part before it in its column are in, so each new part appears after
+  what is already shown. "loading results…" stays after the last part shown
+  until the last part is in.
+- A result shown again (a chart choice, a backfilled board's measurements, a
+  session change) keeps each section on screen until its replacement is
+  whole, then swaps it, so no section blanks or shrinks in between. Changes
+  of the board measurements' status (the saved-board check, backfill
+  progress, a board that cannot be measured) refill only the status box
+  above This board's tables, never the whole result.
+- No step of the result's own work holds the page long: each request to the
+  workers and the session summary are built in their own task, the session
+  results file the board type's earlier games a slice at a time while the
+  reports worker judges the game, and the sections yield between tables and
+  between charts. Play is never blocked; the
+  latency check holds the winning click, and the freeze in the two seconds
+  after it, to tight limits, and only the time to the full results was raised
+  ([Input latency](board-and-layout.md#input-latency-user-report-2026-09-26)).
+
+On the latency check's Expert win (Firefox, the PC; the game places one
+flag, so its results rank it among the history's 1,576 Expert wins and draw
+every chart) the judgment arrives 150-160 ms after the winning click. Live
+perf charts and game data show 45-55 ms after it, the session summary and
+ranks won 65-80 ms after it, the rankings and This board 110-150 ms after
+it, and the charts follow until relationships, 235-260 ms after it: the full
+results 390-430 ms after the click. Before, every part waited for the
+slowest and all appeared together: 492-527 ms after the click in four runs
+alternating with the new code, which took 403-439 in those runs. The longest
+freeze after the win is the frame that first draws live perf charts, about
+27 ms, as before; in those runs the check's freeze after the win read 32-41
+ms against 37-61 for the code before, and after a lost game 27-30 against
+34-45.
