@@ -181,6 +181,39 @@ not at and gives no reason. Options:
   editor always moves the board. The column's width then depends on two
   settings, and game data and live perf charts narrow as the board moves.
 
+## Settings changes undone after Back from the settings page (found 2026-11-04, awaiting the creator's choice)
+
+Firefox keeps the game page in its back-forward cache while settings.html is
+open, and the hosted site's `Cache-Control: no-cache` does not prevent that.
+Back, one of the documented ways back from settings
+([Personal settings](docs/product/settings.md)), restores that page as it
+was. Its RAM settings predate the change, so the board keeps the old look,
+and its next preference write (a scroll, a focus change, a panel toggle, or
+leaving the page) stores the whole older settings object over the change.
+Reproduced 2026-11-04 in Playwright's Firefox with bfcache on as in a normal
+Firefox (`fission.bfcacheInParent`, which Playwright's build turns off): after
+importing `{"cellSize": 40, "flagSize": 60}` on settings.html and going Back,
+`pageshow` reported `persisted`, the board drew 28 px squares, and focusing
+another control stored cellSize 28 and flagSize 45 again. "return to game" and
+Esc load index.html fresh and are not affected. Two open tabs share the cause:
+each writes its whole RAM settings object, so a game tab left open overwrites
+a change made in another tab at its next preference write (game records had
+this failure until 2026-09-26; [Storage](docs/product/storage-and-history.md)).
+Options:
+
+- Checked writes (recommended): each settings write reads the stored record
+  in the same IndexedDB transaction and writes only when it is the record
+  this page last read or wrote; otherwise the page reloads and shows the
+  stored settings. Covers Back, two tabs, and the settings page restored the
+  same way, and an unfinished board survives Back when nothing changed. It
+  changes storage.js (every page's cache tag) and needs a rule for the stale
+  page's own last change: dropped by the reload, or written field by field
+  onto the stored record first.
+- Reload on restore: the game page reloads on a `pageshow` with `persisted`
+  before anything can write, so Back works like "return to game". A few
+  lines, but Back from any page abandons an unfinished board, and two open
+  tabs still overwrite each other.
+
 ## Game results as one tree per board type (creator request 2026-10-14; scope and abandoned built 2026-10-20, the rest proposed, awaiting review)
 
 The creator asked to rethink the session's results table. In Beginner, show
