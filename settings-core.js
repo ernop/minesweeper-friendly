@@ -450,7 +450,7 @@ const SETTINGS_SCHEMA = [
     choices: CELL_SIZE_CHOICES,
     group: 'gameplay',
     label: 'cell size',
-    describe: 'cell size in pixels; chosen with Zoom above the board and remembered between visits',
+    describe: 'cell size in pixels; chosen with Zoom in the settings row at the foot of the game page and remembered between visits',
     control: 'none',
   },
   {
