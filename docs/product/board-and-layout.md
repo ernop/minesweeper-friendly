@@ -13,6 +13,23 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   the squares"). Up to 28 px a digit is about half the square's height; from
   40 px it is about two thirds, the classic proportion; 32 and 36 px sit in
   between, so no zoom step jumps. The face keeps its weight at every size.
+- Number size and mine size (creator request 2026-11-05: the board's glyph
+  sizes "shall be an adjustable setting", and if "the normal settings UI"
+  could not adjust them, "it should be modified to allow me to do so").
+  Two gameplay sliders on the settings page, each under the choice it sizes:
+  - number size, under number display: 50% to 120% of a count's standard
+    size at the chosen zoom (the size above), in steps of 5, numbered every
+    10. Default 100%. It sizes digits, letters, and dots alike. Its ceiling
+    keeps the widest letter, G, inside its square at the largest zoom.
+  - mine size, under mine style: 50% to 100% of the style's own size, in
+    steps of 5, numbered every 10. Default 100%. Every style but classic
+    already fills nearly the whole open square, so no mine grows past its
+    own size. It sizes every mine drawing: the crossed-out wrong flag and a
+    replay's proven mines too.
+  They work like the flag sliders: dragging redraws every board demo on the
+  page, releasing saves, and the game page applies them when it loads. The
+  problems page and the judgment tool draw counts and mines at 100%: they
+  do not read the game's settings.
 - Number display (2026-08-23): a gameplay setting draws revealed counts
   as the classic digits (default), as letters A–H (A=1 … H=8), or as one
   colored dot per cell. All three use the classic color palette, so the
@@ -55,7 +72,7 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   mines, which i'll be able to choose from visually in my config", at least
   two "more visually distinct and clear", as the enlarged numbers are): a
   gameplay setting picks how mines are drawn on a lost board, in replays,
-  and in help boards. Classic (default) is the original Windows mine: a
+  and on game data's example boards. Classic (default) is the original Windows mine: a
   small ball with thin spikes at its original size. Bold is the same mine at
   heavy weight; sea mine is a large ball with six round-tipped horns; bomb
   is a round cartoon bomb with a lit fuse; star is a solid eight-point star.

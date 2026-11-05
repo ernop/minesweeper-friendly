@@ -114,6 +114,8 @@ async function init() {
   buildBoardGeneratorSwitcher();
   syncGameChoice();
   setFlagSize(settings.flagSize);
+  setMineSize(settings.mineSize);
+  setNumberSize(settings.numberSize);
   initCellSizeControl();
   initSessionScopeSelect();
   renderStates();

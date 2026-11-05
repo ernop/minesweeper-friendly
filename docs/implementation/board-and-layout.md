@@ -265,6 +265,18 @@ Spec: [docs/product/board-and-layout.md](../product/board-and-layout.md). Index:
   game data's example boards (`game/game-data-chart.js`) draw
   `settings.mineStyle`; the
   problems page and `analysis/judgment/judge.js` draw `'classic'`.
+- Number and mine sizes (2026-11-05): `setNumberSize(sizePercent)` and
+  `setMineSize(sizePercent)` in `board-icons.js` set `--number-size` and
+  `--mine-size` on the root as fractions (100% is 1). `.cell` multiplies its
+  `clamp()` font size by `--number-size`, and `.cell .num-dot` its 0.45 of
+  `--cell-size`; `.cell svg` (0.72), `.cell.hidden svg` (0.62), and
+  `.cell.revealed svg.mine-full-size` (0.92) multiply by `--mine-size`, so
+  every board on every page follows them. Like `--flag-size`, neither has a
+  stylesheet default: `init` (`game/main.js`) and `renderBoardLook`
+  (`settings-page.js`) apply `settings.numberSize` and `settings.mineSize`,
+  and the problems page and the judgment tool apply `OWN_SIZE_PERCENT`
+  (100). At zoom 96 and number size 120%, Liberation Sans Bold's widest
+  letter, G, is 0.88 of the square's width (Firefox, 2026-11-05).
 
 ## Analysis execution and cost (2026-09-25)
 

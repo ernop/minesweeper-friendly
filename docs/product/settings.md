@@ -178,6 +178,9 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   layout](board-and-layout.md));
   `numberDisplay` (default numbers; the first choice-row setting) —
   digits / letters / dots for revealed counts (see [Board and chrome](board-and-layout.md));
+  `numberSize` (default 100, percent of a count's standard size at the
+  zoom, 50–120 by 5; added 2026-11-05) — set with a slider (see [Board and
+  chrome](board-and-layout.md));
   `flagStyle` (default classic), `flagSize` (default 45, percent of the
   square's width, 20–100 by 5), and `flagIntensity` (default 100, color
   strength, 10–100 by 10; all added 2026-10-15) — the flag's look, the two
@@ -185,6 +188,9 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   `mineStyle` (default classic; added 2026-10-15) — classic / bold / sea
   mine / bomb / star, each choice shown as board squares in the picker (see
   [Board and chrome](board-and-layout.md));
+  `mineSize` (default 100, percent of the mine style's own size, 50–100 by
+  5; added 2026-11-05) — set with a slider (see [Board and
+  chrome](board-and-layout.md));
   `gameDataMetrics` (one selection for both comparisons since 2026-10-07,
   replacing separate lifetime and session selections; a measurement either
   of them showed stays shown; a choice saved under an id renamed on

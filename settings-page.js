@@ -577,6 +577,8 @@ const CHOICE_PREVIEWS = {
 // Redraws everything on this page that shows how the board will look.
 function renderBoardLook() {
   setFlagSize(settings.flagSize);
+  setMineSize(settings.mineSize);
+  setNumberSize(settings.numberSize);
   for (const preview of document.querySelectorAll('.setting-choice-preview')) {
     preview.replaceChildren(...CHOICE_PREVIEWS[preview.dataset.field].cells(preview.dataset.value));
   }

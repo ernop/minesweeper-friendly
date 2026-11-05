@@ -20,6 +20,8 @@ const EXPORT_FORMAT_VERSION = 1;
 const RING_LIMIT = 12;
 
 setFlagSize(CLASSIC_FLAG.sizePercent);
+setMineSize(OWN_SIZE_PERCENT);
+setNumberSize(OWN_SIZE_PERCENT);
 const CELL_MIN_PX = 14;
 const CELL_MAX_PX = 32;
 // Cards wrap to a new row before their boards' squares drop below this, so

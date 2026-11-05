@@ -20,8 +20,11 @@ const OUTCOME_TEXT = {
   interrupted: 'Interrupted (tab or window changed)',
 };
 
-// This page never reads the game's settings, so its flag is the classic one.
+// This page never reads the game's settings, so its flag is the classic one
+// and its mines and counts are at their own size.
 setFlagSize(CLASSIC_FLAG.sizePercent);
+setMineSize(OWN_SIZE_PERCENT);
+setNumberSize(OWN_SIZE_PERCENT);
 
 let problemDb = null;
 let bank = null;

@@ -258,6 +258,8 @@ const FLAG_STYLE_CHOICES = FLAG_STYLES.map((style) => [style.id, style.label, st
 // notch every labelStep.
 const FLAG_SIZE_SCALE = { min: 20, max: 100, step: 5, labelStep: 10, unit: '%' };
 const FLAG_INTENSITY_SCALE = { min: 10, max: 100, step: 10, labelStep: 10, unit: '' };
+const NUMBER_SIZE_SCALE = { min: 50, max: 120, step: 5, labelStep: 10, unit: '%' };
+const MINE_SIZE_SCALE = { min: 50, max: 100, step: 5, labelStep: 10, unit: '%' };
 const onScale = (scale) => (v) => Number.isInteger(v) && v >= scale.min && v <= scale.max
   && (v - scale.min) % scale.step === 0;
 
@@ -636,6 +638,16 @@ const SETTINGS_SCHEMA = [
     choices: NUMBER_DISPLAY_CHOICES,
   },
   {
+    field: 'numberSize',
+    default: OWN_SIZE_PERCENT,
+    valid: onScale(NUMBER_SIZE_SCALE),
+    group: 'gameplay',
+    label: 'number size',
+    describe: 'how large a revealed cell\u2019s count is drawn, as a percent of its standard size for the chosen Zoom',
+    control: 'slider',
+    scale: NUMBER_SIZE_SCALE,
+  },
+  {
     field: 'flagStyle',
     default: CLASSIC_FLAG.style,
     valid: (v) => FLAG_STYLE_CHOICES.some(([id]) => id === v),
@@ -671,9 +683,19 @@ const SETTINGS_SCHEMA = [
     valid: (v) => MINE_STYLE_CHOICES.some(([id]) => id === v),
     group: 'gameplay',
     label: 'mine style',
-    describe: 'how mines are drawn when a game is lost, in replays, and in help boards; each choice is shown as it looks on the board',
+    describe: 'how mines are drawn when a game is lost, in replays, and on game data\u2019s example boards; each choice is shown as it looks on the board',
     control: 'choice',
     choices: MINE_STYLE_CHOICES,
+  },
+  {
+    field: 'mineSize',
+    default: OWN_SIZE_PERCENT,
+    valid: onScale(MINE_SIZE_SCALE),
+    group: 'gameplay',
+    label: 'mine size',
+    describe: 'how large mines are drawn, as a percent of their style\u2019s own size; 100 is the largest because every style but classic is drawn nearly as wide as the square',
+    control: 'slider',
+    scale: MINE_SIZE_SCALE,
   },
   {
     field: 'trialGiveOpening',

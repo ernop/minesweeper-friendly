@@ -2,8 +2,9 @@
 
 //-------CELL ICONOGRAPHY-------
 
-// The board's flag and mine glyphs, shared by every page that draws a board
-// (the game, the settings page's mine-style picker, and the problems page).
+// The board's flag and mine glyphs and the sizes of its flags, mines, and
+// counts, shared by every page that draws a board (the game, the settings
+// page's style pickers, the problems page, and the judgment tool).
 
 // The flag's hue is the one strong hue nothing else on a board uses: not
 // a count color, the red hit square and wrong-flag cross, the bomb's fuse,
@@ -76,6 +77,23 @@ function flagSvg(styleId, intensityPercent) {
 // (style.css reads --flag-size).
 function setFlagSize(sizePercent) {
   document.documentElement.style.setProperty('--flag-size', String(sizePercent / 100));
+}
+
+// Mines and counts at their own size: what the problems page and the
+// judgment tool draw, and the settings defaults.
+const OWN_SIZE_PERCENT = 100;
+
+// Mines draw at this percent of their style's own size everywhere they
+// appear (style.css reads --mine-size). Every style but classic already
+// reaches nearly across the square at its own size, so none grows past it.
+function setMineSize(sizePercent) {
+  document.documentElement.style.setProperty('--mine-size', String(sizePercent / 100));
+}
+
+// Revealed counts draw at this percent of their size at the current zoom
+// (style.css reads --number-size).
+function setNumberSize(sizePercent) {
+  document.documentElement.style.setProperty('--number-size', String(sizePercent / 100));
 }
 
 // The mine styles the player chooses from (settings.mineStyle), in picker

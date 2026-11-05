@@ -56,9 +56,11 @@ Spec: [docs/product/settings.md](../product/settings.md). Index: [AGENTS.md](../
   the counts 1–8 through `paintCountGlyph`, or a demo board
   (`FLAG_STYLE_DEMO_BOARD` in play, `MINE_STYLE_DEMO_BOARD` lost; counts
   computed from their mines) drawn by `demoBoardCells` with the player's
-  other choices. `renderBoardLook` applies `setFlagSize` and refills every
-  preview after each build, choice change, and slider movement.
-  Control `slider` (`flagSize`, `flagIntensity`; schema `scale` = min, max,
+  other choices. `renderBoardLook` applies `setFlagSize`, `setMineSize`, and
+  `setNumberSize` and refills every preview after each build, choice change,
+  and slider movement.
+  Control `slider` (`numberSize`, `flagSize`, `flagIntensity`, `mineSize`;
+  schema `scale` = min, max,
   step, labelStep, unit, validated by `onScale`) renders through
   `buildSliderRow`: the value beside the name, a range input, and a notch
   and number scale positioned by `--at`, inset by half the thumb. `input`

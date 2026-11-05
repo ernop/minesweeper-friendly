@@ -8,11 +8,13 @@ Spec: [docs/product/problems.md](../product/problems.md).
   return-to-game dress), `problems.css`, then `board-icons.js`,
   `problems-core.js`, and `problems-page.js`. It loads neither `storage.js`
   nor the game's settings scripts.
-- `board-icons.js`: the flag and mine styles (`flagSvg`, `setFlagSize`,
-  `CLASSIC_FLAG`, `mineSvg`, `wrongFlagSvg`), shared with the game and
-  settings pages (moved out of `settings-core.js`, which only hosted them).
-  This page does not read the game's settings: it draws `mineSvg('classic')`
-  and the `CLASSIC_FLAG` flag, and calls `setFlagSize` for it at load.
+- `board-icons.js`: the flag and mine styles and the glyph sizes (`flagSvg`,
+  `setFlagSize`, `CLASSIC_FLAG`, `mineSvg`, `wrongFlagSvg`, `setMineSize`,
+  `setNumberSize`, `OWN_SIZE_PERCENT`), shared with the game and settings
+  pages (moved out of `settings-core.js`, which only hosted them). This page
+  does not read the game's settings: it draws `mineSvg('classic')` and the
+  `CLASSIC_FLAG` flag, and at load calls `setFlagSize` for that flag and
+  `setMineSize` and `setNumberSize` with `OWN_SIZE_PERCENT`.
 - `problems-core.js` (pure, no DOM, globals like `self-check-core.js`):
   - protocol constants `PROBLEM_PROTOCOL` (`problems-v2`, the one the page
     runs), `PROBLEM_RECORDED_PROTOCOLS` (what a stored attempt may carry),

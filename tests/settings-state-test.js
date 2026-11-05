@@ -171,15 +171,20 @@ for (const id of mineStyleIds) {
 assert.equal(run('settingsFrom({ mineStyle: "skull" }).mineStyle'), 'classic');
 
 // Flags: five styles, a size slider and a color-strength slider; the
-// defaults are the classic flag, which the problems page also draws.
+// defaults are the classic flag, which the problems page also draws. Mine
+// and number sizes are sliders too, defaulting to the glyphs' own size;
+// mines never grow past it.
 const flagStyleIds = plain(run('FLAG_STYLES.map((style) => style.id)'));
 assert.equal(flagStyleIds.length, 5);
 assert.equal(new Set(flagStyleIds).size, 5);
 assert.deepEqual(plain(run('FLAG_STYLE_CHOICES.map(([id]) => id)')), flagStyleIds);
 assert.deepEqual([defaults.flagStyle, defaults.flagSize, defaults.flagIntensity],
   plain(run('[CLASSIC_FLAG.style, CLASSIC_FLAG.sizePercent, CLASSIC_FLAG.intensityPercent]')));
+assert.deepEqual([defaults.mineSize, defaults.numberSize], [100, 100]);
 for (const [field, good, bad] of [['flagSize', [20, 45, 100], [15, 47, 105, 45.5, '45']],
-  ['flagIntensity', [10, 50, 100], [0, 55, 110, '100']]]) {
+  ['flagIntensity', [10, 50, 100], [0, 55, 110, '100']],
+  ['mineSize', [50, 75, 100], [45, 72, 105, '100']],
+  ['numberSize', [50, 100, 120], [45, 102, 125, 100.5, '100']]]) {
   context.field = field;
   for (const value of good) {
     context.value = value;
@@ -214,6 +219,7 @@ const choices = {
   playerStates: [{ name: 'new mouse', active: true }, { name: 'sleepy', active: false }],
   pathView: 'click-speed', replayOverlays: { moves: false, mines: false, probs: true, pointless: true, purposeful: true, movement: true },
   gameDataSwitchCost: true, trialSpeedBucketMs: 375, resultView: 'scores',
+  mineSize: 70, numberSize: 115,
   replayPosition: { endedAt: 12345, step: 7 },
   panels: { boardPosition: true, gameDetails: true, states: true, importHistory: true, dataFormat: true,
     duringGame: false, gamePerformance: false, boardTraits: false, motionStats: true,

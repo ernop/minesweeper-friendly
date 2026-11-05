@@ -397,8 +397,8 @@ come on!" Built the same day:
   the axis end.
 - The card adds this game's board where the measurement counts something
   on it: the finished board as the game board shows it, drawn with the game
-  board's own squares in the player's board style (number display, flag
-  style, flag size, flag color strength, mine style), every mine no flag
+  board's own squares in the player's board style (number display, number
+  size, flag style, flag size, flag color strength, mine style, mine size), every mine no flag
   covers shown as a mine, sized to fit the card (5 to 20 px a square). Marks
   on its squares show what the measurement counts: a yellow square
   background, a magenta ring, a small magenta dot in a square's corner, and
