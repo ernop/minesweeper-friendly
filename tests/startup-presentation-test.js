@@ -78,11 +78,11 @@ check('workers import game scripts under the game scripts’ version ' + gameTag
   + staleWorkerImports.map((entry) => '; ' + entry.file + ' imports ' + entry.src + ' as ' + entry.tag).join(''),
   workerGameImports.length > 0 && staleWorkerImports.length === 0);
 
-const newGameAt = js.lastIndexOf('  newGame();');
+const newGameAt = js.lastIndexOf('  newGame(savedResult === null);');
+const restoreAt = js.lastIndexOf('await restorePreferredResult(savedResult);');
 const readyAt = js.lastIndexOf("document.documentElement.classList.remove('game-booting')");
 check('the real board exists before startup completes',
-  newGameAt !== -1 && readyAt > newGameAt
-    && readyAt > js.lastIndexOf('await restorePreferredResult();')
+  newGameAt !== -1 && restoreAt > newGameAt && readyAt > restoreAt
     && readyAt > js.lastIndexOf('await initGamePreferences();'));
 check('startup accessibility state completes',
   js.includes("boardElement.removeAttribute('aria-busy')")

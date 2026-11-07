@@ -185,6 +185,11 @@ Index: [AGENTS.md](../../AGENTS.md).
   page an analysis worker's error naming the worker's own line.
   `tests/page-errors-test.js` (a Node suite) checks that every such page
   loads the bar first.
+  `tests/score-list-browser-check.js` takes the same three arguments and
+  needs the 8099 server (2026-11-07): about 1,950 synthetic Beginner games
+  and two real wins, then the full score list's columns, sort, column
+  choices, unopenable games, an old game opened by keyboard, its way back,
+  a reload, and leaving it. About 5 seconds in Chromium, 7 in Firefox.
   `tests/metrics-*-parity.js` compare in-page metrics with the offline
   pipelines (environments: [offline-analysis.md](offline-analysis.md)).
 

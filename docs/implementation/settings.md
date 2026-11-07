@@ -116,6 +116,15 @@ Spec: [docs/product/settings.md](../product/settings.md). Index: [AGENTS.md](../
 - Saved-board restoration separates interactive setup from statistics.
   `restorePreferredResult` loads the board/trace and restores replay controls,
   while `restoredAnalysisReady` reconstructs metrics and reports in workers.
+  `init` asks `savedResultToShow()` first and calls `newGame(false)` when a
+  saved game will take the board's place, so no opened board is dealt
+  under it (2026-11-07); before that first board no generator is frozen,
+  so the lookup's key uses `activeGenerator()`. `showSavedGame` (shared
+  with the old games of the full score lists) draws the stored finished
+  board and its result. `resultView` is `'game'`, `'scores'`, or
+  `'review'` (an old game, with `reviewList` naming the full list it came
+  from); `scoreListColumns` and `scoreListSort` are the full lists' column
+  choice and sort ([rankings notes](rankings.md)).
   `initGamePreferences` releases startup after control layout; it applies saved
   scroll/focus again after report completion only until the first pointer,
   key, wheel, or touch input. A late reply never pulls the player back after

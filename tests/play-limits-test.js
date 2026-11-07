@@ -200,7 +200,7 @@ check('reveal and flag refuse to start a board while closed',
 check('board presses refuse to start a board while closed',
   (js.match(/playLimitBlocksStart\(\)/g) || []).length >= 6, true);
 check('modes that deal an opened board skip the deal while closed',
-  body('newGame').includes("boardDealtClosed = playDayStageNow() === 'closed';")
+  body('newGame').includes("boardDealtClosed = deal && playDayStageNow() === 'closed';")
     && /!boardDealtClosed && Trial\.isPlayMode/.test(body('newGame'))
     && /!boardDealtClosed && pregenActive\(\)/.test(body('newGame')), true);
 check('a hidden or closing tab saves its board\u2019s progress',

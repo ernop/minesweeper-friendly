@@ -263,7 +263,8 @@ const { chromium } = require(process.argv[2]);
     }
     assert.equal(longSession.labels[0], 'lifetime');
     assert.equal(longSession.current, '1st this');
-    const dateHelp = page.getByRole('button', { name: 'About on the 21st', exact: true });
+    // The title opens the table's full list; hovering it shows its help.
+    const dateHelp = page.getByRole('button', { name: 'on the 21st', exact: true });
     await dateHelp.hover();
     assert((await page.locator('.chart-help-tip').innerText()).includes('day of any month, across all years'));
     await page.mouse.move(0, 0);

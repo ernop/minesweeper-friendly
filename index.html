@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="pages-redirect.js?v=20260926-pages-redirect-2"></script>
 <title>Minesweeper - Standard Mode</title>
-<link rel="stylesheet" href="style.css?v=20261105-glyph-sizes">
+<link rel="stylesheet" href="style.css?v=20261107-score-lists">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <!-- Defer preserves dependency order while letting every page asset download
      in parallel. The Pages redirect is the one blocking script; the error bar
@@ -27,41 +27,42 @@
 <script defer src="pregen.js?v=20261020-move-habits"></script>
 <script defer src="odds.js?v=20261103-worker-evaluation"></script>
 <script defer src="trial.js?v=20261027-field-names"></script>
-<script defer src="game-data.js?v=20261027-field-names"></script>
+<script defer src="game-data.js?v=20261107-score-lists"></script>
 <script defer src="during-game.js?v=20261103-worker-evaluation"></script>
 <script defer src="board-icons.js?v=20261105-glyph-sizes"></script>
-<script defer src="settings-core.js?v=20261105-glyph-sizes"></script>
+<script defer src="settings-core.js?v=20261107-score-lists"></script>
 <script defer src="play-limits.js?v=20261020-move-habits"></script>
-<script defer src="analysis-client.js?v=20261107-one-move-line"></script>
+<script defer src="analysis-client.js?v=20261107-score-lists"></script>
 <script defer src="switch-cost.js?v=20261020-switch-cost-per-game"></script>
-<script defer src="preferences-game.js?v=20261103-worker-evaluation"></script>
+<script defer src="preferences-game.js?v=20261107-score-lists"></script>
 <script defer src="fuseki-stats.js?v=20261011-play-statistics"></script>
-<script defer src="game/core.js?v=20261107-one-move-line"></script>
-<script defer src="game/layout.js?v=20261107-one-move-line"></script>
-<script defer src="game/play.js?v=20261107-one-move-line"></script>
-<script defer src="game/play-modes.js?v=20261107-one-move-line"></script>
-<script defer src="game/play-limits.js?v=20261107-one-move-line"></script>
-<script defer src="game/evaluation.js?v=20261107-one-move-line"></script>
-<script defer src="game/results.js?v=20261107-one-move-line"></script>
-<script defer src="game/history.js?v=20261107-one-move-line"></script>
-<script defer src="game/rankings.js?v=20261107-one-move-line"></script>
-<script defer src="game/charts.js?v=20261107-one-move-line"></script>
-<script defer src="game/trial-review.js?v=20261107-one-move-line"></script>
-<script defer src="game/game-data-chart.js?v=20261107-one-move-line"></script>
-<script defer src="game/switch-cost-line.js?v=20261107-one-move-line"></script>
-<script defer src="game/during-game-chart.js?v=20261107-one-move-line"></script>
-<script defer src="game/result-ranks.js?v=20261107-one-move-line"></script>
-<script defer src="game/input-trace.js?v=20261107-one-move-line"></script>
-<script defer src="game/replay-model.js?v=20261107-one-move-line"></script>
-<script defer src="game/replay-view.js?v=20261107-one-move-line"></script>
-<script defer src="game/music.js?v=20261107-one-move-line"></script>
-<script defer src="game/trace-metrics.js?v=20261107-one-move-line"></script>
-<script defer src="game/metric-definitions.js?v=20261107-one-move-line"></script>
-<script defer src="game/motion-stats.js?v=20261107-one-move-line"></script>
-<script defer src="game/player-states.js?v=20261107-one-move-line"></script>
-<script defer src="game/controls.js?v=20261107-one-move-line"></script>
-<script defer src="game/backup.js?v=20261107-one-move-line"></script>
-<script defer src="game/main.js?v=20261107-one-move-line"></script>
+<script defer src="game/core.js?v=20261107-score-lists"></script>
+<script defer src="game/layout.js?v=20261107-score-lists"></script>
+<script defer src="game/play.js?v=20261107-score-lists"></script>
+<script defer src="game/play-modes.js?v=20261107-score-lists"></script>
+<script defer src="game/play-limits.js?v=20261107-score-lists"></script>
+<script defer src="game/evaluation.js?v=20261107-score-lists"></script>
+<script defer src="game/results.js?v=20261107-score-lists"></script>
+<script defer src="game/history.js?v=20261107-score-lists"></script>
+<script defer src="game/rankings.js?v=20261107-score-lists"></script>
+<script defer src="game/charts.js?v=20261107-score-lists"></script>
+<script defer src="game/trial-review.js?v=20261107-score-lists"></script>
+<script defer src="game/game-data-chart.js?v=20261107-score-lists"></script>
+<script defer src="game/switch-cost-line.js?v=20261107-score-lists"></script>
+<script defer src="game/during-game-chart.js?v=20261107-score-lists"></script>
+<script defer src="game/result-ranks.js?v=20261107-score-lists"></script>
+<script defer src="game/score-list.js?v=20261107-score-lists"></script>
+<script defer src="game/input-trace.js?v=20261107-score-lists"></script>
+<script defer src="game/replay-model.js?v=20261107-score-lists"></script>
+<script defer src="game/replay-view.js?v=20261107-score-lists"></script>
+<script defer src="game/music.js?v=20261107-score-lists"></script>
+<script defer src="game/trace-metrics.js?v=20261107-score-lists"></script>
+<script defer src="game/metric-definitions.js?v=20261107-score-lists"></script>
+<script defer src="game/motion-stats.js?v=20261107-score-lists"></script>
+<script defer src="game/player-states.js?v=20261107-score-lists"></script>
+<script defer src="game/controls.js?v=20261107-score-lists"></script>
+<script defer src="game/backup.js?v=20261107-score-lists"></script>
+<script defer src="game/main.js?v=20261107-score-lists"></script>
 </head>
 <body aria-busy="true">
 <div id="page-layout">
@@ -285,5 +286,19 @@
       aria-label="Vertical board offset in pixels">
   </div>
 </div>
+<!-- A rank table's full list (game/score-list.js); its rows open old games. -->
+<dialog id="score-list" aria-labelledby="score-list-title">
+  <div class="score-list-head">
+    <h2 id="score-list-title"></h2>
+    <span id="score-list-count"></span>
+    <button type="button" id="score-list-columns-button" class="ui-button" aria-expanded="false" aria-controls="score-list-choices">columns</button>
+    <button type="button" id="score-list-close" class="ui-button">close</button>
+  </div>
+  <p id="score-list-status" role="status"></p>
+  <div class="score-list-body">
+    <div id="score-list-scroll"></div>
+    <div id="score-list-choices" hidden></div>
+  </div>
+</dialog>
 </body>
 </html>

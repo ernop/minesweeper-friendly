@@ -29,9 +29,9 @@ const { chromium } = require(process.argv[2]);
 
     await page.evaluate(() => {
       const restore = restorePreferredResult;
-      restorePreferredResult = async () => {
+      restorePreferredResult = async (...args) => {
         await new Promise((resolve) => { window.releaseResultRestore = resolve; });
-        await restore();
+        await restore(...args);
       };
       const preferences = initGamePreferences;
       initGamePreferences = async () => {

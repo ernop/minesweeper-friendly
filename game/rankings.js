@@ -244,6 +244,32 @@ const BOARD_TRAIT_DEFINITIONS = {
   largestIsland: 'Mines in the largest group of touching mines, diagonals included.',
 };
 
+// Each trait's value on a board (undefined when the board was not measured),
+// its written form, and whether more is better, for its tables, game data,
+// and the full score lists.
+const BOARD_TRAIT_MEASURES = {
+  bv3: { value: (record) => record.bv3, format: String, higher: false },
+  zini: { value: (record) => record.zini, format: String, higher: false },
+  maxAdjacent: { value: (record) => record.maxAdjacent, format: String, higher: true },
+  hzini: { value: (record) => record.hzini, format: String, higher: false },
+  workSpread: { value: (record) => record.boardMetrics?.version === 1 ? record.boardMetrics.workSpread : undefined,
+    format: (value) => Number(value.toFixed(1)) + ' cells', higher: false },
+  zeroOneShare: { value: (record) => boardFractionOf(record, 'zeroOpenedZeroOneCells'),
+    format: (value) => formatBoardShare(value, 1), higher: true },
+  zeroOpeningCoverage: { value: (record) => boardFractionOf(record, 'zeroOpenedCells'),
+    format: (value) => formatBoardShare(value, 1), higher: true },
+  islandCount: { value: (record) => record.islandCount, format: String, higher: false },
+  largestIsland: { value: (record) => record.largestIsland, format: String, higher: true },
+  zeroCount: { value: (record) => record.zeroCount, format: String, higher: true },
+};
+
+// What game data plots for a family of one measured trait.
+function boardTraitFields(id) {
+  const measure = BOARD_TRAIT_MEASURES[id];
+  return { measurementId: id, trait: BOARD_TRAIT_NAMES[id], rawValue: measure.value,
+    higher: measure.higher, format: measure.format };
+}
+
 function boardShareHelp(record, field, definition) {
   const m = record.boardMetrics;
   return [definition,
@@ -265,18 +291,16 @@ function boardShareStep(record) {
 // Matching one feature does not imply equal overall difficulty. A grouped
 // table names its group's range.
 const BOARD_METRIC_TABLES = [
-  { id: 'bv3', field: 'bv3', format: String, setting: 'exact3BV', priority: 13, summaryGroup: 3,
+  { id: 'bv3', field: 'bv3', setting: 'exact3BV', priority: 13, summaryGroup: 3,
     help: () => ['The fewest clicks that clear this board without flags: one for each zero region, plus one for each number that no zero region reveals.'] },
-  { id: 'zini', field: 'zini', format: String, setting: 'exactZiNi', priority: 14, summaryGroup: 4,
+  { id: 'zini', field: 'zini', setting: 'exactZiNi', priority: 14, summaryGroup: 4,
     help: () => [BOARD_TRAIT_DEFINITIONS.zini] },
-  { id: 'maxAdjacent', field: 'maxAdjacent', format: String, setting: 'exactMaxNumber', priority: 15, summaryGroup: 7, higher: true,
+  { id: 'maxAdjacent', field: 'maxAdjacent', setting: 'exactMaxNumber', priority: 15, summaryGroup: 7,
     help: () => ['Max number: the most mines touching any one safe cell, from 1 to 8.'] },
-  { id: 'hzini', field: 'hzini', format: String, setting: 'exactHZiNi', priority: 16, summaryGroup: 5,
+  { id: 'hzini', field: 'hzini', setting: 'exactHZiNi', priority: 16, summaryGroup: 5,
     help: () => [BOARD_TRAIT_DEFINITIONS.hzini] },
   { id: 'workSpread', field: boardSpreadGroup,
     labelOf: (value) => BOARD_TRAIT_NAMES.workSpread + ' ' + (value - 0.25).toFixed(2) + '–' + (value + 0.25).toFixed(2) + ' cells',
-    format: (value) => Number(value.toFixed(1)) + ' cells',
-    rawValue: (record) => record.boardMetrics?.version === 1 ? record.boardMetrics.workSpread : undefined,
     setting: 'workSpreadTable', priority: 17, summaryGroup: 6,
     help: (record) => [
       BOARD_TRAIT_DEFINITIONS.workSpread,
@@ -285,28 +309,23 @@ const BOARD_METRIC_TABLES = [
         + (boardSpreadGroup(record) + 0.25).toFixed(2) + ' cells.',
     ] },
   { id: 'zeroOneShare', field: (win) => boardShareGroup(win, 'zeroOpenedZeroOneCells'),
-    format: (value) => formatBoardShare(value, 1),
-    rawValue: (record) => boardFractionOf(record, 'zeroOpenedZeroOneCells'), higher: true,
     labelOf: (value) => BOARD_TRAIT_NAMES.zeroOneShare + ' ' + value + '%', setting: 'zeroOneShareTable', priority: 18, summaryGroup: 13,
     step: boardShareStep,
     help: (record) => boardShareHelp(record, 'zeroOpenedZeroOneCells', BOARD_TRAIT_DEFINITIONS.zeroOneShare) },
   { id: 'zeroOpeningCoverage', field: (win) => boardShareGroup(win, 'zeroOpenedCells'),
-    format: (value) => formatBoardShare(value, 1),
-    rawValue: (record) => boardFractionOf(record, 'zeroOpenedCells'), higher: true,
     labelOf: (value) => BOARD_TRAIT_NAMES.zeroOpeningCoverage + ' ' + value + '%', setting: 'zeroOpeningTable', priority: 19, summaryGroup: 14,
     step: boardShareStep,
     help: (record) => boardShareHelp(record, 'zeroOpenedCells', BOARD_TRAIT_DEFINITIONS.zeroOpeningCoverage) },
 ];
 
+// A family's id names its trait and group value, so a full score list finds
+// the same family again.
 function boardMetricCandidates(referenceWins, wins) {
   return BOARD_METRIC_TABLES.flatMap((spec) =>
     [...rankValueGroups(referenceWins, wins, spec.field)].map(([value, rows]) => ({
+      id: spec.id + '-' + value,
       label: spec.labelOf ? spec.labelOf(value) : BOARD_TRAIT_NAMES[spec.id] + ' ' + value,
-      measurementId: spec.id,
-      trait: BOARD_TRAIT_NAMES[spec.id],
-      format: spec.format,
-      rawValue: spec.rawValue || ((record) => record[spec.field]),
-      higher: spec.higher === true,
+      ...boardTraitFields(spec.id),
       setting: spec.setting,
       help: spec.help,
       step: spec.step,
@@ -361,10 +380,8 @@ function boardShapeCandidates(referenceWins, wins) {
   }
   for (const [count, rows] of rankValueGroups(referenceWins, wins, 'islandCount')) {
     candidates.push({
-      id: 'islands-' + count, measurementId: 'islandCount',
-      trait: BOARD_TRAIT_NAMES.islandCount, rawValue: (record) => record.islandCount, higher: false,
+      id: 'islands-' + count, ...boardTraitFields('islandCount'),
       help: () => [BOARD_TRAIT_DEFINITIONS.islandCount],
-      format: String,
       summaryOrder: [10, count],
       label: BOARD_TRAIT_NAMES.islandCount + ' ' + count,
       displayOrder: 80,
@@ -374,10 +391,8 @@ function boardShapeCandidates(referenceWins, wins) {
   }
   for (const [size, rows] of rankValueGroups(referenceWins, wins, 'largestIsland')) {
     candidates.push({
-      id: 'largest-island-' + size, measurementId: 'largestIsland',
-      trait: BOARD_TRAIT_NAMES.largestIsland, rawValue: (record) => record.largestIsland, higher: true,
+      id: 'largest-island-' + size, ...boardTraitFields('largestIsland'),
       help: () => [BOARD_TRAIT_DEFINITIONS.largestIsland],
-      format: String,
       summaryOrder: [11, size],
       label: BOARD_TRAIT_NAMES.largestIsland + ' ' + size,
       displayOrder: 90,
@@ -387,10 +402,8 @@ function boardShapeCandidates(referenceWins, wins) {
   }
   for (const [count, rows] of rankValueGroups(referenceWins, wins, 'zeroCount')) {
     candidates.push({
-      id: 'zeros-' + count, measurementId: 'zeroCount',
-      trait: BOARD_TRAIT_NAMES.zeroCount, rawValue: (record) => record.zeroCount, higher: true,
+      id: 'zeros-' + count, ...boardTraitFields('zeroCount'),
       help: () => ['Safe cells with no adjacent mines.'],
-      format: String,
       summaryOrder: [12, count],
       label: BOARD_TRAIT_NAMES.zeroCount + ' ' + count,
       displayOrder: 100,
@@ -1231,15 +1244,21 @@ function windowBounds(myIndex, length) {
 // windowBounds); a mediocre placement still shows its 5 neighbors above and
 // below, at full opacity, since the placement itself is fresh information.
 // The footer names the selected rank's full comparison pool and percentage,
-// even when the end of a short list is visible.
-function buildRankList(headingText, rowCount, myIndex, gridClass, buildRowCells, help) {
+// even when the end of a short list is visible. With `open`, the whole list
+// is a button that calls it, its title the keyboard's way in.
+function buildRankList(headingText, rowCount, myIndex, gridClass, buildRowCells, help, open) {
   const list = document.createElement('div');
   list.className = 'rank-list';
   if (headingText !== null) {
     const heading = document.createElement('h4');
-    if (help) heading.appendChild(chartHelpButton(help, headingText));
+    if (open) heading.appendChild(scoreListOpenerTitle(headingText, help));
+    else if (help) heading.appendChild(chartHelpButton(help, headingText));
     else heading.textContent = headingText;
     list.appendChild(heading);
+  }
+  if (open) {
+    list.classList.add('opens-list');
+    list.addEventListener('click', () => open());
   }
   const grid = document.createElement('div');
   grid.className = gridClass;
@@ -1331,10 +1350,11 @@ function rankedStreaks(runs, slack) {
 function resultRankPlan(record, records, options, preferences, referenceMs) {
   const wins = records.filter((r) => r.outcome === 'win');
   const boardRecord = options.boardRecord || record;
-  const table = (label, list, help) => {
+  // `id` finds the table's wins again for its full list (scoreListOf).
+  const table = (id, label, list, help) => {
     const index = options.historyView ? -1 : list.indexOf(record);
     const [start, end] = windowBounds(index, list.length);
-    return { label, count: list.length, index, start, rows: list.slice(start, end), help };
+    return { id, label, count: list.length, index, start, rows: list.slice(start, end), help };
   };
   let candidates = rankColumns(referenceMs)
     .filter((column) => preferences.shownThings.lastOneMinute || column.label !== 'past 1 min')
@@ -1344,13 +1364,13 @@ function resultRankPlan(record, records, options, preferences, referenceMs) {
     candidates = candidates.filter((c) => kept.has(c));
   }
   const timeTables = preferences.shownThings.timeTables
-    ? candidates.map((c) => table(noMarkRankLabel(c.label, options.noMarkTimeLabel), c.wins,
+    ? candidates.map((c) => table(c.id, noMarkRankLabel(c.label, options.noMarkTimeLabel), c.wins,
       c.help || (options.noMarkTimeLabel && c.id === 'lifetime'
         ? ['Wins with no flags placed, on this same board, mode, and generator.'] : undefined))) : [];
   const boardTables = [];
   for (const c of boardMetricCandidates([boardRecord], wins)) {
     if (preferences.shownThings[c.setting]) {
-      boardTables.push(table(noMarkRankLabel(c.label, options.noMarkTimeLabel),
+      boardTables.push(table(c.id, noMarkRankLabel(c.label, options.noMarkTimeLabel),
         c.wins.slice().sort(compareRankedWins), c.help(boardRecord)));
     }
   }
@@ -1362,7 +1382,7 @@ function resultRankPlan(record, records, options, preferences, referenceMs) {
       const kept = new Set(dedupeRankCandidates(shapes));
       shapes = shapes.filter((c) => kept.has(c));
     }
-    for (const c of shapes) boardTables.push(table(noMarkRankLabel(c.label, options.noMarkTimeLabel),
+    for (const c of shapes) boardTables.push(table(c.id, noMarkRankLabel(c.label, options.noMarkTimeLabel),
       c.wins.slice().sort(compareRankedWins), c.help?.(boardRecord)));
   }
   const runs = streakRuns(records);
@@ -1370,7 +1390,8 @@ function resultRankPlan(record, records, options, preferences, referenceMs) {
   for (const { label, setting, slack } of STREAK_TABLES) {
     if (!preferences.shownThings[setting]) continue;
     const list = rankedStreaks(runs, slack);
-    const index = options.historyView ? -1 : list.findIndex((seg) => seg.current);
+    // The current streak is not an old game's.
+    const index = options.historyView || options.reviewList !== undefined ? -1 : list.findIndex((seg) => seg.current);
     const [start, end] = windowBounds(index, list.length);
     streakTables.push({ label: noMarkRankLabel(label, options.noMarkTimeLabel),
       count: list.length, index, start, rows: list.slice(start, end) });

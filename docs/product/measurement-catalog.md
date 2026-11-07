@@ -46,7 +46,10 @@ catalog and never renames or redefines it:
 - motion stats' cadence spread row: name and definition
   ([Motion stats](motion-stats.md));
 - the "this game" table of a loss or trial game
-  ([Per-game stats](per-game-stats.md)).
+  ([Per-game stats](per-game-stats.md));
+- the full score lists' columns: header, values, definition in the column
+  choices, and the better direction a first sort puts first
+  ([Rank tables](rankings.md), "Full lists and old games").
 
 A row or label that is not a catalog measurement never takes a
 measurement's name. A whole-game total and its rate are two things with two

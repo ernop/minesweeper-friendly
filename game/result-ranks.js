@@ -39,7 +39,10 @@ async function renderRanks(record, modeRecords, options = {}, sections, isCurren
   const wins = modeRecords.filter((r) => r.outcome === 'win');
   const boardRecord = options.boardRecord || record;
   const historyView = options.historyView === true;
-  const referenceMs = historyView ? Date.now() : record.endedAt;
+  // An old game compares as of now (docs/product/rankings.md, "Full lists
+  // and old games"); a game just ended, as of its end.
+  const oldGame = options.reviewList !== undefined;
+  const referenceMs = historyView || oldGame ? Date.now() : record.endedAt;
   // Each request and the session summary are built in their own task, so
   // none holds the page long; a result no longer current builds no more.
   const prepared = (async () => {
@@ -49,7 +52,8 @@ async function renderRanks(record, modeRecords, options = {}, sections, isCurren
       !historyView, options.noMarkTimeLabel || null) : null;
     await yieldAnalysisPresentation();
     if (!isCurrent()) return null;
-    const profile = settings.shownThings.boardPercentiles ? buildBoardTimeRankProfile(boardRecord, modeRecords) : null;
+    const profile = settings.shownThings.boardPercentiles
+      ? buildBoardTimeRankProfile(boardRecord, modeRecords, oldGame ? referenceMs : boardRecord.endedAt) : null;
     await yieldAnalysisPresentation();
     if (!isCurrent()) return null;
     const plan = analysisTask('rankings', 'ranks', {
@@ -89,6 +93,8 @@ async function renderRanks(record, modeRecords, options = {}, sections, isCurren
     syncBoardLayout();
   });
 
+  // A table of games opens its full list, where old games open.
+  const listsOpen = oldGamesOpen();
   const timeTable = (table) => buildRankList(table.label, table.count, table.index, 'rank-grid', (i) => {
     const row = table.rows[i - table.start];
     const age = relativeAge(referenceMs, row.endedAt);
@@ -98,11 +104,12 @@ async function renderRanks(record, modeRecords, options = {}, sections, isCurren
     else cells.push(['age-num-cell age-u-' + age.unit, formatAgeCount(age)],
       ['age-unit-cell age-u-' + age.unit, age.unit]);
     return cells;
-  }, table.help);
+  }, table.help, listsOpen && table.count > 0
+    ? () => openScoreList({ table: table.id, referenceMs, noMark: Boolean(options.noMarkTimeLabel) }) : undefined);
   const streakTable = (table) => buildRankList(table.label, table.count, table.index, 'rank-grid', (i) => {
     const seg = table.rows[i - table.start], age = relativeAge(referenceMs, seg.end);
     const cells = [['rank-cell', String(i + 1)], ['time-cell', seg.len + (seg.len === 1 ? ' win' : ' wins')]];
-    if (!historyView && seg.current) cells.push(['age-just-cell age-u-s', 'this']);
+    if (i === table.index) cells.push(['age-just-cell age-u-s', 'this']);
     else cells.push(['age-num-cell age-u-' + age.unit, formatAgeCount(age)], ['age-unit-cell age-u-' + age.unit, age.unit]);
     return cells;
   });
@@ -163,12 +170,13 @@ async function renderRanks(record, modeRecords, options = {}, sections, isCurren
 // maps every win, so building them all at once held the page about 7 to 19 ms
 // at 2,000 wins, growing with the history.
 function relationshipChartBuilders(record, wins, historyView, referenceMs) {
-  const todayStart = startOfDay(record.endedAt);
-  const todayRank = wins
+  // This game's tag is its rank among today's wins, so an old game from an
+  // earlier day has none.
+  const todayStart = startOfDay(referenceMs);
+  const meLabel = record.endedAt < todayStart ? '' : wins
     .filter((s) => s.endedAt >= todayStart)
     .sort(compareRankedWins)
-    .indexOf(record) + 1;
-  const meLabel = todayRank + ' today';
+    .indexOf(record) + 1 + ' today';
   const highlighted = historyView ? null : record;
   const ageInfoOf = (s) => ageInfo(referenceMs, s.endedAt);
   const hourOfDay = (s) => {

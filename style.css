@@ -1387,6 +1387,10 @@ body.trial-offboard #game-frame {
   font-size: 13px;
   font-weight: normal;
 }
+.result-summary-back {
+  margin-left: 4px;
+  vertical-align: 2px;
+}
 
 /* The final time in the details column while the result loads
    (renderImmediateGameEnd); a loss's stats then show as the "this game"
@@ -3079,6 +3083,37 @@ body.settings-page .return-to-game {
   color: #000000;
 }
 
+/* A rank table that opens its full list (game/score-list.js) is a button:
+   it wears the bordered button look, and its title is the keyboard's way
+   in, ringed while it has keyboard focus. No :has() on the tables: one
+   added about 9 ms to the freeze after an Expert win in Firefox. */
+.rank-list.opens-list {
+  padding: 3px 6px 2px;
+  border: 1px solid #c5d0da;
+  border-radius: 3px;
+  background: #f7f9fb;
+  cursor: pointer;
+}
+.rank-list.opens-list:hover {
+  border-color: #8aa0b5;
+  background: #e3edf6;
+}
+.rank-list-open {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.rank-list-open:focus-visible { outline: 2px solid #000000; outline-offset: 1px; }
+.rank-list-open.has-help,
+.score-list-sort.has-help {
+  text-decoration: underline dotted #84939f;
+  text-underline-offset: 3px;
+}
+
 /* Rank, time, age-count, and age-unit line up as four columns. Rank, time,
    and age-count are right-aligned so widths like #9/#10, 5.961s/10.220s, and
    0s/15m/1.0h stay vertically comparable. Spacing uses cell padding, not gaps, so
@@ -4137,6 +4172,70 @@ body.vigilance-running #self-check-header {
 #play-limit-closed p { margin: 0; }
 #play-limit-closed .play-limit-heading { font-size: 18px; font-weight: bold; }
 #play-limit-closed .play-limit-amount { font-size: 16px; }
+
+/*-------FULL SCORE LISTS (a rank table's window, game/score-list.js)-------*/
+
+/* As wide and tall as the list and the page allow; the list scrolls inside
+   under its header row. */
+#score-list {
+  box-sizing: border-box;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 32px);
+  padding: 14px 16px 16px;
+  border: 1px solid #b9c8d2;
+  border-radius: 10px;
+  color: #000000;
+  background: #ffffff;
+  font: 13px Arial, Helvetica, sans-serif;
+}
+#score-list[open] { display: flex; flex-direction: column; }
+#score-list::backdrop { background: rgba(20, 34, 44, 0.45); }
+.score-list-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; }
+#score-list-title { margin: 0; font-size: 20px; }
+#score-list-count { font-size: 15px; font-weight: bold; font-variant-numeric: tabular-nums; }
+#score-list-columns-button { margin-left: auto; }
+#score-list-status { margin: 8px 0 0; color: #a40000; font-weight: bold; }
+#score-list-status:empty { display: none; }
+.score-list-body { display: flex; gap: 18px; min-height: 0; margin-top: 10px; }
+#score-list-scroll { min-width: 0; min-height: 0; overflow: auto; scroll-padding-top: 24px; }
+#score-list-choices { flex: none; min-height: 0; overflow: auto; padding-right: 4px; }
+#score-list-choices[hidden] { display: none; }
+#score-list-choices h3 { margin: 0 0 4px; font-size: 14px; }
+#score-list-choices ul { margin: 0 0 12px; padding: 0; list-style: none; }
+#score-list-choices li { display: flex; align-items: baseline; gap: 6px; white-space: nowrap; }
+.score-list-table { border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.score-list-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 0;
+  border-bottom: 1px solid #000000;
+  background: #ffffff;
+  text-align: right;
+  white-space: nowrap;
+}
+.score-list-table th:first-child { padding: 2px 8px 3px; }
+.score-list-sort {
+  padding: 2px 8px 3px;
+  border: 0;
+  background: transparent;
+  color: #000000;
+  font: bold 13px Arial, Helvetica, sans-serif;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.score-list-sort:hover,
+.score-list-sort:focus-visible { background: #e3edf6; }
+/* Every header keeps the arrow's room, so a new sort moves no column. */
+.score-list-arrow { display: inline-block; width: 1.2em; font-size: 10px; text-align: right; }
+.score-list-table td { padding: 1px 8px; text-align: right; white-space: nowrap; }
+.score-list-table td.age-num-cell { padding-right: 0; }
+.score-list-table td.age-unit-cell { min-width: 2ch; padding-left: 2px; text-align: left; }
+.score-list-table .age-u-s { color: #008000; font-weight: inherit; background: transparent; border-radius: 0; }
+.score-list-table tbody tr { cursor: pointer; }
+.score-list-table tbody tr:hover > td { background: #e3edf6; }
+.score-list-table tbody tr.me > td { background: var(--this-game); font-weight: bold; }
+.score-list-table tbody tr:focus-visible { outline: 2px solid #000000; outline-offset: -2px; }
 
 /* The error bar (page-errors.js): fixed to the window's foot, so showing it
    never moves the page; white on dark red, one line per distinct error. */

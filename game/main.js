@@ -130,8 +130,9 @@ async function init() {
     };
     if (trialSession.endedHow !== null) lastTrialReview = trialSession;
   }
-  newGame();
-  await restorePreferredResult();
+  const savedResult = savedResultToShow();
+  newGame(savedResult === null);
+  await restorePreferredResult(savedResult);
   // A restored finished board is not a ready one, so no closed notice.
   renderPlayLimits();
   await initGamePreferences();

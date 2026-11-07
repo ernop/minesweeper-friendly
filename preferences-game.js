@@ -107,28 +107,44 @@ function rememberReplayPosition() {
   rememberPreference('replayPosition', { endedAt: renderedResult.record.endedAt, step: replayStep });
 }
 
-async function restorePreferredResult() {
+// The finished game a reload shows again: the one the saved view names, when
+// this history holds it. Its board takes the place of a newly dealt one.
+function savedResultToShow() {
+  const endedAt = settings.replayPosition.endedAt;
+  if (settings.resultView === 'scores' || endedAt === null || trialIsActive() || boardLabActive()) return null;
+  // Before the first board froze its generator, the chosen mode's history.
+  const key = topScoreKeyOf(config, settings.playMode, activeGenerator());
+  const record = (history[key] || []).find((r) => r.endedAt === endedAt);
+  if (record === undefined) {
+    backupStatus.textContent = 'Saved replay is not present in this game history.';
+    return null;
+  }
+  return record;
+}
+
+// `record` is savedResultToShow's; init dealt no board when it is a game.
+async function restorePreferredResult(record) {
   if (settings.resultView === 'scores') {
     restoredAnalysisReady = Promise.resolve(showScoresForCurrentMode());
     return;
   }
-  const endedAt = settings.replayPosition.endedAt;
-  if (endedAt === null || trialIsActive() || boardLabActive()) return;
-  const modeRecords = history[modeKey()] || [];
-  const record = modeRecords.find((r) => r.endedAt === endedAt);
-  if (!record) {
-    backupStatus.textContent = 'Saved replay is not present in this game history.';
-    return;
-  }
-  const stored = await new Promise((resolve, reject) => {
-    const request = db.transaction(TRACE_STORE).objectStore(TRACE_STORE).get(endedAt);
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
+  if (record === null) return;
+  const stored = await readStoredTrace(record.endedAt);
   if (!stored || !stored.finalBoard) {
     backupStatus.textContent = 'Saved game has no completed-board replay snapshot.';
+    newGame();
     return;
   }
+  restoredAnalysisReady = showSavedGame(record, history[modeKey()], stored, settings.replayPosition.step,
+    settings.resultView === 'review' ? settings.reviewList : undefined);
+}
+
+// Shows a finished game of this history from its stored trace on the
+// undealt board: the finished board at replay position `step` (clamped to
+// its end), the motion stats, and its result. `reviewList`, for an old game,
+// is the full list it came from (game/score-list.js). Returns the
+// restored analysis and result.
+function showSavedGame(record, modeRecords, stored, step, reviewList) {
   clearInterval(timerInterval);
   timerInterval = null;
   cells = structuredClone(stored.finalBoard.cells);
@@ -166,7 +182,10 @@ async function restorePreferredResult() {
   const restoredTrace = trace;
   const revision = resultViewRevision;
   renderImmediateGameEnd(record.outcome);
-  renderedResult = { record, modeRecords, options: {} };
+  const options = reviewList === undefined ? {} : { reviewList };
+  // Its way back is there before the result's data arrives.
+  if (reviewList !== undefined) setOldGameSummary(record, reviewList);
+  renderedResult = { record, modeRecords, options };
   const key = modeKey();
   const needBoardMetrics = record.playMode !== 'endgame-drill' && !hasBoardMeasurements(record);
   const needZini = record.playMode !== 'endgame-drill' && record.zini === undefined;
@@ -176,7 +195,7 @@ async function restorePreferredResult() {
   // Cadence spread costs nothing beyond the motion stats restoring computes,
   // so it is measured again every time: a value stored rounded (before
   // 2026-10-26) gives way to the exact one.
-  restoredAnalysisReady = analysisTask('reports', 'restore-trace', { ...stored, merged,
+  const analysisReady = analysisTask('reports', 'restore-trace', { ...stored, merged,
     measurementPlan: { width: config.width, height: config.height, mines: cells.map((cell) => cell.mine),
       drill: record.playMode === 'endgame-drill', needBoardMetrics, needZini,
       needCadence: true, needMoveHabits: record.movesMovedOn === undefined,
@@ -197,14 +216,15 @@ async function restorePreferredResult() {
     finalMotion = { gameId: record.endedAt, metrics: restored.metrics, spatial: restored.spatial,
       sampleTimes: stored.metricSampleTimes.slice(0, -1), series: null };
     renderMotionStats();
-    await renderResult(record, modeRecords);
+    await renderResult(record, modeRecords, options);
   });
-  restoredAnalysisReady.catch((error) => {
+  analysisReady.catch((error) => {
     boardState.status = 'error'; boardState.error = error.message;
     analysisFailure(error);
   });
-  replayStep = Math.min(settings.replayPosition.step, replayDecisionCount());
+  replayStep = Math.min(step, replayDecisionCount());
   replayEnabled = replayStep < replayDecisionCount();
   renderPathView();
   if (replayEnabled) scheduleReplayPrecompute();
+  return analysisReady;
 }

@@ -117,7 +117,7 @@ function reportResult(outcome, endedAt = Date.now()) {
   renderMotionStats();
   replayStep = replayDecisionCount();
   replayEnabled = false;
-  updateSettings({ resultView: 'game', replayPosition: { endedAt: record.endedAt, step: replayStep } });
+  updateSettings({ resultView: 'game', reviewList: null, replayPosition: { endedAt: record.endedAt, step: replayStep } });
   renderPathView();
   duringGameSourceId = record.endedAt;
   analysisTask('reports', 'finished-game', {
@@ -719,20 +719,51 @@ function clearResultStats() {
   hideDuringGameHover();
 }
 
-// Only the High scores view has a head line: "High scores" and its board,
-// then which game its sections describe. A finished game has none; the
-// face and the board tabs already say the outcome and the board.
-function setHighScoresSummary(note) {
+// Only the High scores and old game views have a head line: "High scores"
+// and its board, then which game its sections describe; "Old game", when it
+// ended, and the way back to its full list. A game just finished has none;
+// the face and the board tabs already say the outcome and the board.
+function setResultSummary(lead, contextText, ...after) {
   const leadNode = document.createElement('span');
   leadNode.className = 'result-summary-lead';
-  leadNode.textContent = 'High scores';
+  leadNode.textContent = lead;
   const context = document.createElement('span');
   context.className = 'result-summary-context';
-  context.textContent = boardDisplayLabel();
+  context.textContent = contextText;
+  resultSummary.replaceChildren(leadNode, ' ', context, ...after);
+}
+
+function setHighScoresSummary(note) {
   const noteNode = document.createElement('span');
   noteNode.className = 'result-summary-note';
   noteNode.textContent = note;
-  resultSummary.replaceChildren(leadNode, ' ', context, '\n', noteNode);
+  setResultSummary('High scores', boardDisplayLabel(), '\n', noteNode);
+}
+
+function setOldGameSummary(record, list) {
+  const back = document.createElement('button');
+  back.type = 'button';
+  back.className = 'ui-button result-summary-back';
+  back.textContent = 'back to list';
+  back.addEventListener('click', () => openScoreList(list));
+  setResultSummary('Old game', formatLocalDateTime(record.endedAt), ' ', back);
+}
+
+// A button's tooltip, `help` in chartHelpButton's forms: hovering the button
+// or focusing it by keyboard shows it, and its click puts it away.
+function attachHelpTip(button, help) {
+  const hide = () => {
+    if (chartHelpOwner === button) hideChartHelpTip();
+  };
+  button.addEventListener('mouseenter', () => showChartHelp(button, help));
+  button.addEventListener('mouseleave', () => {
+    if (!button.matches(':focus-visible')) hide();
+  });
+  button.addEventListener('focus', () => {
+    if (button.matches(':focus-visible')) showChartHelp(button, help);
+  });
+  button.addEventListener('blur', hide);
+  button.addEventListener('click', hide);
 }
 
 // The title button that opens and closes `body`, its open state the
@@ -760,18 +791,7 @@ function panelToggle(panelKey, title, body, help) {
   });
   if (help !== undefined) {
     toggle.classList.add('stat-section-toggle-help');
-    const hide = () => {
-      if (chartHelpOwner === toggle) hideChartHelpTip();
-    };
-    toggle.addEventListener('mouseenter', () => showChartHelp(toggle, help));
-    toggle.addEventListener('mouseleave', () => {
-      if (!toggle.matches(':focus-visible')) hide();
-    });
-    toggle.addEventListener('focus', () => {
-      if (toggle.matches(':focus-visible')) showChartHelp(toggle, help);
-    });
-    toggle.addEventListener('blur', hide);
-    toggle.addEventListener('click', hide);
+    attachHelpTip(toggle, help);
   }
   show();
   return toggle;
@@ -968,6 +988,7 @@ async function renderResultAsync(record, modeRecords, options = {}) {
   const metricStatus = boardMetricStatusBox(record);
   renderedResult = { record, modeRecords, options, metricStatus };
   if (options.historyView) setHighScoresSummary('Latest win');
+  else if (options.reviewList !== undefined) setOldGameSummary(record, options.reviewList);
   else resultSummary.textContent = '';
   const historyView = options.historyView === true;
   const verdicts = !historyView && settings.reportScope !== 'none' ? buildVerdictBlocks(record) : null;
@@ -1007,6 +1028,7 @@ async function renderResultAsync(record, modeRecords, options = {}) {
 function showScoresForCurrentMode() {
   resultViewRevision++;
   rememberPreference('resultView', 'scores');
+  rememberPreference('reviewList', null);
   const modeRecords = history[modeKey()] || [];
   const wins = modeRecords.filter((record) => record.outcome === 'win');
   if (wins.length === 0) {

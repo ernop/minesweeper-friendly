@@ -110,6 +110,7 @@ Files, in load order:
 | `switch-cost-line.js` | the optional switch cost line under game data: the session's and the latest 500 standard games' estimates, its card, refresh requests |
 | `during-game-chart.js` | live perf charts (head of the game data column): the progress, moves available, and relative charts and event tracks on one time axis, legend picks, the log or linear scale and the count axis, hover line, the card for the hovered line, the board's replay previewing the hovered moment, replay link, configure |
 | `result-ranks.js` | `renderRanks`: result tables and charts in section order |
+| `score-list.js` | full score lists: a rank table's every win in a window over the page, its columns and sort; the old games its rows open, compared as of now |
 | `input-trace.js` | the raw input trace; saving a finished game's record and trace together (`storeGame`) |
 | `replay-model.js` | path and choice replay, pure part |
 | `replay-view.js` | replay transport and playback, hover preview, frames, path canvas, legends |

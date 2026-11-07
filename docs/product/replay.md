@@ -241,9 +241,15 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
     On compact layouts it appears in the same Game details popover. Neither
     the legend nor the stats changes the board, transport, or history layout.
 - These displays read the trace of the finished game on screen: the game
-  just ended, or the one a reload brings back from the trace store. Opening
-  any other saved game here is not built
-  ([BACKLOG](../../BACKLOG.md), "Path replay follow-ons").
+  just ended, an old game opened from a rank table's full list
+  ([Rank tables](rankings.md), "Full lists and old games"), or the one a
+  reload brings back from the trace store. A game saved without its final
+  board cannot be shown ([BACKLOG](../../BACKLOG.md), "Path replay
+  follow-ons"). A reload that brings a finished game back deals no board
+  under it first, so in the modes that deal opened boards (3BV countdown,
+  endgame drill) no board's clock starts and no board counts as abandoned
+  (fixed 2026-11-07: the board dealt under it had been in play, and the
+  next new game counted it abandoned).
 - Every point maps through the trace's layout events (the board geometry
   in effect at that moment) to a board fraction and then onto the
   board's current size, so the overlay is correct even if the player

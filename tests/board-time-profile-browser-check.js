@@ -643,7 +643,7 @@ const { chromium } = require(process.argv[2]);
       const { current } = profileFixture;
       window.savedBoardTraits = { ...settings.gameDataBoardTraits };
       settings.gameDataBoardTraits = Object.fromEntries(Object.keys(savedBoardTraits).map((id) => [id, id === 'bv3']));
-      const host = buildBoardTimeRankProfile(current, [current]);
+      const host = buildBoardTimeRankProfile(current, [current], current.endedAt);
       resultRanks.replaceChildren(host);
       await host.analysisReady;
     });

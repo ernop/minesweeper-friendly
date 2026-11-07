@@ -447,10 +447,17 @@ const GameData = (() => {
           ...(values.length <= DOT_POOL ? { values: values.slice().sort((a, b) => a - b) } : {}) } };
     });
   }
-  function rows(record, records, preferences = defaultsForView, params) {
+  // The pools hold the games to `referenceMs`, the session's end: this
+  // game's end after it, now for an old game, which counts as one of the
+  // current session's games.
+  function poolsAt(record, records, sessionDefinition, referenceMs) {
+    const past = records.filter((r) => r.endedAt <= referenceMs);
+    const session = SessionScope.records(past, sessionDefinition, referenceMs);
+    return { past, session: session.includes(record) ? session : chronological([...session, record]) };
+  }
+  function rows(record, records, preferences = defaultsForView, params, referenceMs = record.endedAt) {
     if (record.outcome !== 'win' || !records.includes(record)) return [];
-    const past = records.filter((r) => r.endedAt <= record.endedAt);
-    const session = SessionScope.records(past, preferences.sessionDefinition, record.endedAt);
+    const { past, session } = poolsAt(record, records, preferences.sessionDefinition, referenceMs);
     const result = [];
     for (const spec of metrics) {
       if (!preferences.gameDataMetrics[spec.id]) continue;
@@ -549,5 +556,5 @@ const GameData = (() => {
         of: mines.filter(Boolean).length },
     };
   }
-  return { FASTCLICK_GAP_VERSION, metrics, defaults, defaultsForView, rows, rankedRow, addDistributions, summary, history, domain, examples };
+  return { FASTCLICK_GAP_VERSION, metrics, defaults, defaultsForView, poolsAt, rows, rankedRow, addDistributions, summary, history, domain, examples };
 })();

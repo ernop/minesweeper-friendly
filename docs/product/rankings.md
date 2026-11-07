@@ -101,6 +101,94 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   because the placement itself is fresh information. (This replaced the
   earned-detail collapse, which greyed non-top placements to a single row.)
 
+## Full lists and old games (creator request 2026-11-07)
+
+The creator, of the rank tables: "if I click on any of the ratings boxes
+e.g. beginner, lifetime or intermediate, "on the 7th" then it loads that
+list fully, in a way i can scroll and see all the data in it - the time of
+the win, the diff since i got it (e.g. 3 weeks ago); also with columns for
+properties of the game, same properties as we show after, such as the 3bv
+of the board, 3bv/s achieved (personal stats), and the list of columns is
+fully configurble too, also sortable. and if i click into one, that also
+loads IT. then from taht "review old game" view we can return to the game
+list from that top score list." Asked earlier that day whether old games
+could be opened like a game just ended, the creator wanted their
+comparisons "based on today's data, not badck then, rpobably, as the
+default". Built the same day.
+
+- Which tables open: every rank table whose rows are games and that holds
+  a win, in every view that shows it (after a game, an old game, High
+  scores, after a loss): the time windows, the day categories, and the
+  This board tables. The whole table is the button: it wears the bordered
+  button look, darker under the pointer, and its title wears the focus ring
+  while it has keyboard focus; a click anywhere on it, or Enter on its
+  title, opens its full list. The streak tables do not open: their rows are runs of wins, not
+  games ([BACKLOG](../../BACKLOG.md)). Nothing opens in the trials, whose
+  boards belong to their trial, or in Board lab, whose boards are built:
+  old games open only where a result is a game's own.
+- The full list is a window over the page that closes with Esc or its
+  close button, leaving the page as it was. Its title is the table's name
+  and how many wins it holds. It holds the table's wins exactly: the same
+  pool (a no-mark win's no-mark games), board, mode, and generator, and the
+  window or day category as the table drew it, so a "today" list opened
+  before midnight stays that day. The list scrolls inside the window, under
+  a header row that stays in view; the window is as wide as its columns
+  and the page allow.
+- Each row is one line: the win's rank in the table (#), its time, then
+  the chosen columns. The game shown on the page wears the this-game light
+  blue, as in the tables, and the list opens scrolled to it with its row
+  focused. A list without it (High scores, which shows no game of its own,
+  and after a loss) marks none and opens at its first row.
+- Columns: "date", the local date and time the win ended (2026-10-07
+  14:22); "age", how long ago that was, written and colored as in the
+  tables; every performance measurement but time, which is always shown,
+  under its one name and format
+  ([Measurement catalog](measurement-catalog.md)); and every board trait,
+  under its one name and format. Shown by default: date, age, 3BV, 3BV/s,
+  and efficiency. The "columns" button in the window's head opens the
+  choices beside the list, all at once: one box per column under "when",
+  "performance measurements", and "board traits", each measurement and
+  trait with its definition on hover. The list changes with each box, and
+  the choice is remembered for every list.
+- Sorting: a column's header sorts by it. The first click puts the best
+  first: the fastest time, the newest date, the youngest age, and for a
+  measurement or board trait the value game data counts better; the next
+  click reverses the order, and the header's arrow shows it. Equal values
+  keep rank order.
+  A win without the value (not measured) shows an empty cell and sorts last
+  either way. The sort is remembered for every list; hiding the sorted
+  column sorts by time again.
+- A click on a row, or Enter or Space on it (the arrow keys move between
+  rows), opens that game as an old game and closes the window. A game
+  saved without its final board, or without its replay, cannot be opened:
+  the window stays and its status line says so
+  ([BACKLOG](../../BACKLOG.md), "Path replay follow-ons").
+- The old game view is the page as it was right after that game: its
+  finished board, face, timer, and mine counter; the replay transport at
+  the finished board, where Play replays the game from its start; the
+  after-game report; live perf charts; game data; the tables and charts
+  under the board; and motion stats. Every comparison is made as of now,
+  not as of the game's end: the windows and day categories are today's,
+  ages count from now, every pool holds every game to now, the session is
+  the current one, and ranks won in session are the current session's. The
+  old game is "this" in every pool it is in, and game data ranks it within
+  the current session's games as one of them. The streak tables mark no
+  streak: the current streak is not the old game's. The relationship
+  charts tag its dot with its rank today only when it is from today.
+  Opening an old game scrolls the page to its top, where its board and the
+  details column's head line are.
+- The details column's head line names the view: "Old game", the date and
+  time the game ended, and a "back to list" button, which reopens the list
+  the game came from in its sort, scrolled to that game's row with the row
+  focused. Esc there returns to the old game.
+- A new game (the face, the space bar, a board choice) leaves the old game
+  as it leaves any finished one, and see scores opens High scores. Opening
+  an old game while a board is in play leaves that board as starting a new
+  game does. In modes that deal opened boards (3BV countdown, endgame drill)
+  opening an old game deals none; the next new game deals the next board.
+- A reload brings back the old game at its replay position, with the same
+  way back to its list.
+
 ## No-mark wins (decided 2026-10-14)
 
 No-mark is not a play mode and not its own history key. It is a way of

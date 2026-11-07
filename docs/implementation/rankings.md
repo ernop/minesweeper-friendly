@@ -269,3 +269,46 @@ Spec: [docs/product/rankings.md](../product/rankings.md). Index: [AGENTS.md](../
   worker. Rank tables return counts, selected indexes, and the visible window;
   highlighting, labels, and section order stay in the renderer. Recent
   placements expose a pending status while their rows are calculated.
+- Full lists and old games (2026-11-07;
+  [spec](../product/rankings.md#full-lists-and-old-games-creator-request-2026-11-07)),
+  `game/score-list.js`, loaded after `game/result-ranks.js`. A rank table's
+  identity is its `id`: `rankColumns`' column ids for the time windows and
+  day categories, and for the board families the candidate ids
+  (`<BOARD_METRIC_TABLES id>-<value>` from `boardMetricCandidates`, the
+  shape ids of `boardShapeCandidates`). `resultRankPlan`'s tables carry it,
+  and `renderRanks` passes `buildRankList` an `open` function when
+  `oldGamesOpen()` (not a trial play mode, not Board lab) and the table
+  holds a win; the box then gets `.opens-list` and a
+  `scoreListOpenerTitle` button as its title (the focus ring is the
+  button's own: a `.opens-list:has(:focus-visible)` rule added about 9 ms
+  to the freeze after an Expert win in Firefox, four runs each against the
+  commit before, 2026-11-07), and its click calls
+  `openScoreList({ table, referenceMs, noMark })`, the form
+  `settings.reviewList` stores. `scoreListOf` finds the column among
+  `rankColumns(referenceMs)`, or the family among every win's candidates,
+  and throws when neither holds the id. The window is the
+  `<dialog id="score-list">` of `index.html`, opened with `showModal`
+  (Esc closes it natively; its keydown stops at the dialog so the page's
+  space bar and replay keys stay out). Columns come from
+  `scoreListColumns(nowMs)`: time and the other `GameData.metrics` (their
+  `value`, `format`, `higher`; actionSummary metrics get
+  `gameDataActionSummary` as in game data), date and age, then the traits
+  in `GAME_DATA_BOARD_TRAIT_DEFAULTS` key order through
+  `BOARD_TRAIT_MEASURES` (rankings.js: one value, format, and better
+  direction per trait, which `boardTraitFields` also gives the tables'
+  families). `sortScoreListRows` sorts finite values only, missing last,
+  ties in rank order. The rows use one tab stop that moves with the arrow
+  keys. `openOldGame` reads the trace, then `newGame(false)` and
+  `showSavedGame(record, history, stored, Infinity, list)`, and saves
+  `resultView: 'review'` with the list and the replay position, so a
+  reload restores the same view. `setOldGameSummary` (results.js) writes
+  the head line and its "back to list" button.
+  As of now: `renderRanks` takes `referenceMs = Date.now()` for an old game
+  (`options.reviewList` set) as for High scores; the board-time profile
+  and the worker's game data take that moment (`GameData.rows(...,
+  referenceMs)`, `boardTraitRankProfile(..., referenceMs)`), and
+  `GameData.poolsAt` adds an old game outside the current session to that
+  session's pool. `resultRankPlan` marks no streak for an old game.
+  `node tests/score-list-browser-check.js <playwright-core> <chromium|firefox>
+  <browser>` covers the list, sort, columns, unopenable games, the old game,
+  its way back, a reload, and leaving it, on the test origin.

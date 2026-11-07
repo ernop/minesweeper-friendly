@@ -8,7 +8,7 @@ append timing or from how many cards fit on a row. Each part shows as soon as
 its data has arrived, in this order
 ([Results come in as their data arrives](#results-come-in-as-their-data-arrives-creator-decision-2026-11-03)):
 
-1. **Outcome** — win/loss or High scores, board, mode, generator, date.
+1. **Outcome** — win/loss, High scores, or Old game, board, mode, generator, date.
    Two lines (2026-09-23; formerly one item per line): the larger bold
    outcome followed by board · mode · generator in regular weight, then
    the date and time in bold tabular digits. A no-mark win adds "no-mark"
@@ -121,6 +121,13 @@ scores are viewed; game-data comparisons end at that latest win. A post-game
 loss has outcome, facts, enabled action analysis, its own "this game" stats,
 and motion diagnostics, and retains rankings from the latest win if one
 exists.
+
+An old game, opened from a rank table's full list (creator request
+2026-11-07; [Rank tables](rankings.md), "Full lists and old games"), shows
+everything the post-game view of that win shows, with every comparison made
+as of now: rolling windows, day categories, ages, the session, ranks won in
+session, and game data's pools. Its head line is "Old game", the date and
+time it ended, and "back to list".
 
 ## This game's stats (creator request 2026-10-26)
 

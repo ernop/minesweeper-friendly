@@ -226,6 +226,16 @@ function gameDataBoardTraitsFromStored(stored) {
   };
 }
 
+// The full score lists' optional columns, in their order, and whether each
+// shows by default: when each win ended and how long ago, every performance
+// measurement but time (always shown), and every board trait.
+const SCORE_LIST_COLUMN_DEFAULTS = Object.freeze({
+  date: true, age: true,
+  ...Object.fromEntries(GameData.metrics.filter((metric) => metric.id !== 'time')
+    .map((metric) => [metric.id, metric.id === 'bvPerSecond' || metric.id === 'efficiency'])),
+  ...Object.fromEntries(Object.keys(GAME_DATA_BOARD_TRAIT_DEFAULTS).map((id) => [id, id === 'bv3'])),
+});
+
 function validShownThings(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
     && Object.entries(value).every(([key, enabled]) =>
@@ -392,11 +402,34 @@ const SETTINGS_SCHEMA = [
   {
     field: 'resultView',
     default: 'game',
-    valid: (v) => v === 'game' || v === 'scores',
+    valid: (v) => v === 'game' || v === 'scores' || v === 'review',
     group: 'after-game',
     label: 'result view',
-    describe: 'current game or high-score view',
+    describe: 'current game, high-score view, or an old game opened from a full score list',
     control: 'none',
+  },
+  {
+    field: 'reviewList',
+    default: null,
+    valid: (v) => v === null || (preferenceObject(v) && Object.keys(v).length === 3 && typeof v.table === 'string'
+      && preferenceNumber(v.referenceMs) && typeof v.noMark === 'boolean'),
+    group: 'after-game',
+    label: 'old game list',
+    describe: 'the full score list the old game came from: its table, the moment that table compared against, and whether it held only no-mark games',
+    control: 'none',
+  },
+  {
+    field: 'scoreListColumns', default: SCORE_LIST_COLUMN_DEFAULTS, mergeDefaults: true,
+    valid: preferenceBooleans(SCORE_LIST_COLUMN_DEFAULTS),
+    group: 'after-game', label: 'full score list columns',
+    describe: 'which columns the full score lists show after rank and time; chosen with columns in a list', control: 'none',
+  },
+  {
+    field: 'scoreListSort', default: { column: 'time', ascending: true },
+    valid: (v) => preferenceObject(v) && Object.keys(v).length === 2
+      && (v.column === 'time' || Object.hasOwn(SCORE_LIST_COLUMN_DEFAULTS, v.column)) && typeof v.ascending === 'boolean',
+    group: 'after-game', label: 'full score list order',
+    describe: 'the column the full score lists sort by, and which way', control: 'none',
   },
   {
     field: 'replayPosition',

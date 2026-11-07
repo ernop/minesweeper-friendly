@@ -260,12 +260,16 @@ function reportResultAfterPaint(outcome) {
   });
 }
 
-function newGame() {
+// `deal` false leaves the board undealt for a saved game to take its place,
+// so modes that deal an opened board start no clock and leave no board in
+// play.
+function newGame(deal = true) {
   resultViewRevision++;
   // Preserve the just-finished game's mutable state if a programmatic restart
   // arrives in the brief post-paint finalization window.
   flushPendingResult();
   rememberPreference('resultView', 'game');
+  rememberPreference('reviewList', null);
   rememberPreference('replayPosition', { endedAt: null, step: 0 });
   if (Trial.isPlayMode(settings.playMode) && trialIsActive()
       && (trialSession.width !== config.width
@@ -359,13 +363,13 @@ function newGame() {
   syncResultClearance();
   // A reached limit closes the board before modes that deal an already
   // opened board (and start its clock) get to deal it.
-  boardDealtClosed = playDayStageNow() === 'closed';
-  if (!boardDealtClosed && Trial.isPlayMode(settings.playMode) && trialIsActive()) setupTrialBoard();
+  boardDealtClosed = deal && playDayStageNow() === 'closed';
+  if (deal && !boardDealtClosed && Trial.isPlayMode(settings.playMode) && trialIsActive()) setupTrialBoard();
   else trialPresentation = null;
-  if (!boardDealtClosed && pregenActive()) setupPregenBoard();
+  if (deal && !boardDealtClosed && pregenActive()) setupPregenBoard();
   else pregenCurrent = null;
-  if (boardLabActive()) buildLabBoard();
-  if (endgameDrillActive()) setupEndgameDrill();
+  if (deal && boardLabActive()) buildLabBoard();
+  if (deal && endgameDrillActive()) setupEndgameDrill();
   else drillCurrent = null;
   document.title = 'Minesweeper - ' + playModeLabel();
   renderTrialChrome();

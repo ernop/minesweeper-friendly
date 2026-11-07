@@ -1484,38 +1484,27 @@ script's JSON is the intended input for their first versions.
 
 The after-game replay is built ([Path and choice replay](docs/product/replay.md)):
 the transport under the finished board, with Play, the board overlays, and
-the mouse path views, drawn from the trace of the game just ended or of the
-one a reload brings back. Not built:
+the mouse path views, drawn from the trace of the game just ended, of an old
+game opened from a rank table's full list (built 2026-11-07,
+[Rank tables](docs/product/rankings.md), "Full lists and old games"), or of
+the one a reload brings back. Not built:
 
-- **creator** — Open any saved game in the after-game view (request
-  2026-11-07): "is there a way to get into the mode "game just ended; you
-  may veiw replay, full stats, etc" mode for old games, like old
-  winning/best times etc.? and watch the mby clicking play, etc. while also
-  looking at the distributions (based on today's data, not badck then,
-  rpobably, as the default?)". Wanted: choose an old game, a best time
-  say, and see what a game that just ended shows: the replay with Play,
-  live perf charts, game data, the tables and charts, and motion stats.
-  The comparisons would use today's history by default, which the creator
-  put tentatively ("probably"). Mapped 2026-08-23 as historical replay from
-  the traces store.
-  - The view exists: `restorePreferredResult` (`preferences-game.js`)
-    rebuilds any saved game of the current board, mode, and generator from
-    its trace, found by `endedAt`. Only the game a reload brings back
-    (`settings.replayPosition`) reaches it, so what is missing is a way to
-    choose the game. Until then the console chooses it, as the browser
-    checks do: `updateSettings({ resultView: 'game', replayPosition:
-    { endedAt, step: 0 } })`, then a reload.
-  - Games saved before 2026-09-21 have no `finalBoard` in their trace, and
-    the restore refuses them ("Saved game has no completed-board replay
-    snapshot."). Their board can be rebuilt from the seed and the first
-    reveal where the generator allows it, as the training worker does
-    ([Training](docs/implementation/training.md), "Replay").
-  - One comparison anchor. For a game that is not the latest, the restore
-    mixes two today: game data and the session summary end at the game's
-    end, while the rank tables and ranks won also count every later game,
-    with window starts and ages measured from the game's end, so a later
-    game reads 0 s old. Every part needs the same anchor: now, the
-    creator's lean, or the game's end.
+- **creator** — Old games saved without their final board (request
+  2026-11-07: open old games, "like old winning/best times etc.", as a game
+  just ended). Traces kept the finished board (`finalBoard`) from
+  2026-09-21; a full list's row of an earlier game says it cannot be opened.
+  Its mines can be rebuilt from the seed and the first reveal where the
+  generator allows it, and its finished board by replaying its inputs, as
+  the training worker does ([Training](docs/implementation/training.md),
+  "Replay"; exact unless a Justice redraw happened, which the replay
+  detects). Open: whether those traces carry what the replay transport and
+  the live perf charts read (each move's recorded position), or those parts
+  stay off for such games.
+- **creator** — Full lists of the streak tables (2026-11-07). The
+  creator's request covered "any of the ratings boxes"; a streak table's
+  rows are runs of wins, not games, so its box does not open. A full list
+  of runs could show each run's length, its first and last win's dates,
+  and open its last win. Waits on the creator.
 - **Animated playback.** The stored timestamps allow replaying the
   cursor in real or scaled time rather than a static polyline.
 - **Off-board excursions.** The overlay canvas covers the board only,

@@ -374,8 +374,9 @@ const { chromium } = require(process.argv[2]);
       return { x: rect.left + scrollX, y: rect.top + scrollY, width: rect.width, height: rect.height };
     });
     const boardBefore = await boardPosition();
+    // A table's title opens its full list; hovering it shows its help.
     const tableHelp = page.locator('.rank-list');
-    const spreadHelp = tableHelp.getByRole('button', { name: 'About 3BV spread 0.75–1.25 cells', exact: true });
+    const spreadHelp = tableHelp.getByRole('button', { name: '3BV spread 0.75–1.25 cells', exact: true });
     await spreadHelp.hover();
     const spreadTip = await page.locator('.chart-help-tip').innerText();
     assert(spreadTip.includes('root-mean-square'));
@@ -388,7 +389,7 @@ const { chromium } = require(process.argv[2]);
     await spreadHelp.evaluate((el) => el.blur());
     for (const [label, detail] of [['0–1 share 0%', '0 of 8 safe cells'],
       ['zero-opening coverage 0%', '0 of 8 safe cells']]) {
-      const help = tableHelp.getByRole('button', { name: 'About ' + label, exact: true });
+      const help = tableHelp.getByRole('button', { name: label, exact: true });
       await help.hover();
       const tip = await page.locator('.chart-help-tip').innerText();
       assert(tip.includes(detail));

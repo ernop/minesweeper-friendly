@@ -1,14 +1,14 @@
 "use strict";
 
 importScripts('trend-fit.js?v=20260925-worker-analysis',
-  'game/trace-metrics.js?v=20261107-one-move-line',
-  'game/evaluation.js?v=20261107-one-move-line',
-  'game-data.js?v=20261027-field-names', 'game/metric-definitions.js?v=20261107-one-move-line',
+  'game/trace-metrics.js?v=20261107-score-lists',
+  'game/evaluation.js?v=20261107-score-lists',
+  'game-data.js?v=20261107-score-lists', 'game/metric-definitions.js?v=20261107-score-lists',
   'board-shape.js?v=20261020-no-left-panel', 'zini.js?v=20261020-no-left-panel', 'board-metrics.js?v=20261020-no-left-panel',
-  'game/rankings.js?v=20261107-one-move-line',
-  'game/charts.js?v=20261107-one-move-line', 'game/game-data-chart.js?v=20261107-one-move-line',
+  'game/rankings.js?v=20261107-score-lists',
+  'game/charts.js?v=20261107-score-lists', 'game/game-data-chart.js?v=20261107-score-lists',
   'justice.js?v=20261103-worker-evaluation', 'odds.js?v=20261103-worker-evaluation', 'board-icons.js?v=20261105-glyph-sizes',
-  'game/replay-model.js?v=20261107-one-move-line',
+  'game/replay-model.js?v=20261107-score-lists',
   'during-game.js?v=20261103-worker-evaluation');
 
 let config;
@@ -209,8 +209,8 @@ function analyze(kind, data) {
       const wins = records.filter((r) => r.outcome === 'win');
       const comparisons = [...boardMetricCandidates([record], wins), ...boardShapeCandidates([record], wins)]
         .filter((c) => preferences.gameDataBoardTraits[c.measurementId]);
-      return [...GameData.rows(record, records, preferences, data.config),
-        ...boardTraitRankProfile(record, comparisons, records, preferences.sessionDefinition)];
+      return [...GameData.rows(record, records, preferences, data.config, data.referenceMs),
+        ...boardTraitRankProfile(record, comparisons, records, preferences.sessionDefinition, data.referenceMs)];
     }
     case 'game-data-history': {
       const groups = GameData.history(data.records, data.endedAt, data.sessionDefinition, data.page, data.pageSize);

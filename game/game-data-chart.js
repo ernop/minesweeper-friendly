@@ -10,10 +10,9 @@
 // solve-time pools still drive the separate tables, not these markers. A
 // trait ranks against every board so far with these settings, won or lost,
 // and against the session's boards, the two pools the points switch picks.
-function boardTraitRankProfile(record, comparisons, records, sessionDefinition) {
+function boardTraitRankProfile(record, comparisons, records, sessionDefinition, referenceMs = record.endedAt) {
   if (record.outcome !== 'win') return [];
-  const past = records.filter((r) => r.endedAt <= record.endedAt);
-  const session = SessionScope.records(past, sessionDefinition, record.endedAt);
+  const { past, session } = GameData.poolsAt(record, records, sessionDefinition, referenceMs);
   return comparisons.filter((c) => c.rawValue).flatMap((comparison) => {
     const spec = { id: comparison.measurementId, name: comparison.trait, allOutcomes: true,
       higher: comparison.higher, value: comparison.rawValue, format: comparison.format,
@@ -898,7 +897,8 @@ function gameDataAnalysisRecords(records, metricIds) {
   });
 }
 
-function buildBoardTimeRankProfile(record, records) {
+// `referenceMs` ends its pools and session (GameData.poolsAt).
+function buildBoardTimeRankProfile(record, records, referenceMs) {
   gameDataNoMark = record.outcome === 'win' && isMarkless(record);
   if (record.outcome !== 'win') return null;
   requestGameDataExamples(record);
@@ -1069,7 +1069,7 @@ function buildBoardTimeRankProfile(record, records) {
       controls.append(label, chartHelpButton('Windows overlap, so the rows are not separate sessions. Wins-only measurements skip losses.'));
       profile.appendChild(controls);
       const pageSize = 20;
-      const groups = await analysisTask('rankings', 'game-data-history', { records: gameDataAnalysisRecords(records, [historyMetric]), endedAt: record.endedAt,
+      const groups = await analysisTask('rankings', 'game-data-history', { records: gameDataAnalysisRecords(records, [historyMetric]), endedAt: referenceMs,
         sessionDefinition: settings.sessionDefinition, page: historyPage, pageSize, metric: historyMetric, config });
       if (generation !== viewGeneration) return;
       const spec = GameData.metrics.find((m) => m.id === historyMetric);
@@ -1109,7 +1109,7 @@ function buildBoardTimeRankProfile(record, records) {
         const at = records.indexOf(record);
         const computed = await analysisTask('rankings', 'game-data', {
           record: at === -1 ? gameDataAnalysisRecords([record], shownIds)[0] : facts[at], records: facts,
-          preferences: settings, config });
+          preferences: settings, config, referenceMs });
         if (generation !== viewGeneration) return;
         rows = computed;
       }
