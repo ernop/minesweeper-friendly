@@ -1480,16 +1480,42 @@ script's JSON is the intended input for their first versions.
   risk-calibration curves; guess-policy shares by level; same-cell no-op burst
   rasters; and held-out state-classifier calibration/confusion views.
 
-## Path replay follow-ons (mapped, 2026-08-23)
+## Path replay follow-ons (mapped 2026-08-23; creator request 2026-11-07)
 
-The after-game path views are built ([Path replay views](docs/product/replay.md)):
-a button below the finished board cycles off → moves → clicks, drawn
-from the RAM trace of the game just ended. Not built:
+The after-game replay is built ([Path and choice replay](docs/product/replay.md)):
+the transport under the finished board, with Play, the board overlays, and
+the mouse path views, drawn from the trace of the game just ended or of the
+one a reload brings back. Not built:
 
-- **Historical replay from the traces store.** Every finished game's
-  trace is persisted; a viewer that loads a past game's trace (and
-  redraws its board from seed + mode + first click) could show any
-  game's path, not just the last one.
+- **creator** — Open any saved game in the after-game view (request
+  2026-11-07): "is there a way to get into the mode "game just ended; you
+  may veiw replay, full stats, etc" mode for old games, like old
+  winning/best times etc.? and watch the mby clicking play, etc. while also
+  looking at the distributions (based on today's data, not badck then,
+  rpobably, as the default?)". Wanted: choose an old game, a best time
+  say, and see what a game that just ended shows: the replay with Play,
+  live perf charts, game data, the tables and charts, and motion stats.
+  The comparisons would use today's history by default, which the creator
+  put tentatively ("probably"). Mapped 2026-08-23 as historical replay from
+  the traces store.
+  - The view exists: `restorePreferredResult` (`preferences-game.js`)
+    rebuilds any saved game of the current board, mode, and generator from
+    its trace, found by `endedAt`. Only the game a reload brings back
+    (`settings.replayPosition`) reaches it, so what is missing is a way to
+    choose the game. Until then the console chooses it, as the browser
+    checks do: `updateSettings({ resultView: 'game', replayPosition:
+    { endedAt, step: 0 } })`, then a reload.
+  - Games saved before 2026-09-21 have no `finalBoard` in their trace, and
+    the restore refuses them ("Saved game has no completed-board replay
+    snapshot."). Their board can be rebuilt from the seed and the first
+    reveal where the generator allows it, as the training worker does
+    ([Training](docs/implementation/training.md), "Replay").
+  - One comparison anchor. For a game that is not the latest, the restore
+    mixes two today: game data and the session summary end at the game's
+    end, while the rank tables and ranks won also count every later game,
+    with window starts and ages measured from the game's end, so a later
+    game reads 0 s old. Every part needs the same anchor: now, the
+    creator's lean, or the game's end.
 - **Animated playback.** The stored timestamps allow replaying the
   cursor in real or scaled time rather than a static polyline.
 - **Off-board excursions.** The overlay canvas covers the board only,

@@ -240,9 +240,10 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
     with stats for a horizontal gutter or pushes stats below the board.
     On compact layouts it appears in the same Game details popover. Neither
     the legend nor the stats changes the board, transport, or history layout.
-- These displays read the just-finished RAM trace. The same decision frames
-  are persisted in the trace store for future historical replay and analytics;
-  loading older traces into this control is not yet built.
+- These displays read the trace of the finished game on screen: the game
+  just ended, or the one a reload brings back from the trace store. Opening
+  any other saved game here is not built
+  ([BACKLOG](../../BACKLOG.md), "Path replay follow-ons").
 - Every point maps through the trace's layout events (the board geometry
   in effect at that moment) to a board fraction and then onto the
   board's current size, so the overlay is correct even if the player
