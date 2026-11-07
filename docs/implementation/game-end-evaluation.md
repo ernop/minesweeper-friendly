@@ -81,7 +81,14 @@ Spec: [docs/product/game-end-evaluation.md](../product/game-end-evaluation.md). 
   selected actual death probability, then excess risk, while other sections
   retain action order. Winning records use this same path and therefore
   show survived risky actions at risk/full scope without inventing a fatal block.
-  Life-model secondary prose/alternatives appear only at full scope.
+  Life-model secondary prose/alternatives appear only at full scope:
+  below it `evaluationForReport`'s copy, without the
+  `chose-lower-modeled-life` tag and the `higher-modeled-life-reveal`
+  alternative, gives each block its title, prose, and diagram, while
+  `buildVerdictBlocks` passes the saved evaluation to
+  `actionEvaluationLines`, so the One-move life line states the saved
+  verdict at every scope (`tests/game-end-evaluation-test.js`, the
+  2026-11-07 Intermediate position).
   `aggregateReportEntries` collapses semantically identical
   positionless entries into reason-specific counts while positioned
   entries stay individual. `actionEvaluationLines` turns positioned

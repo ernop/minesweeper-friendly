@@ -357,6 +357,10 @@ function reportCategoryEnabled(category) {
   return reportScopeAllows(scope, category);
 }
 
+// Below full scope the life model's verdict is not named: its tag leaves the
+// headline and prose, and its squares the diagram. A block's labeled lines
+// are built from the saved evaluation instead, since the One-move life line
+// reads that tag to state whether the choice tied the best.
 function evaluationForReport(evaluation) {
   if (reportCategoryEnabled('lifeMaximization')) return evaluation;
   return {
@@ -446,7 +450,7 @@ function buildVerdictBlocks(record) {
           ? ' ' + instance.evaluation.actionNumber : '')
         + ': ' + actionEvaluationLabel(instance.shown);
       item.appendChild(itemTitle);
-      appendBody(item, actionEvaluationLines(instance.shown));
+      appendBody(item, actionEvaluationLines(instance.evaluation));
       const position = detail === 'positions'
         ? buildEvaluationPosition(instance.shown) : null;
       if (position) item.appendChild(position);
@@ -471,7 +475,7 @@ function buildVerdictBlocks(record) {
         ? 'A forced coinflip before the board opened up came up wrong. '
           + 'Over enough games this ending is part of the mode; full '
           + 'analysis shows the measured odds.'
-        : actionEvaluationLines(shown, fatalEvidenceLines(fatal, evaluations)));
+        : actionEvaluationLines(fatal, fatalEvidenceLines(fatal, evaluations)));
     const position = detail === 'positions' && !compactEarly
       ? buildEvaluationPosition(shown) : null;
     if (position) box.appendChild(position);
@@ -503,7 +507,7 @@ function buildVerdictBlocks(record) {
         + ': ' + actionEvaluationLabel(shown);
     const body = positionless
       ? (shown.action === 'no-op' ? null : (entry.text || actionEvaluationText(shown)))
-      : actionEvaluationLines(shown);
+      : actionEvaluationLines(evaluation);
     const box = block(category, 'verdict-mistake', title, body);
     const position = detail === 'positions' ? buildEvaluationPosition(shown) : null;
     if (position) box.appendChild(position);

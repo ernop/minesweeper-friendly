@@ -207,9 +207,17 @@ wasteful"):
   labeled facts (`Immediate risk`, `Safe alternative`, `One-move life`,
   etc.). Equal raw/active risks collapse into one line, and modeled-life
   values say “tied” when the saved verdict found no better square (since
-  2026-11-02; before, when the stored decimals were within 10⁻⁹), and
-  measured values/counts are retained without
-  repetitive prose. A saved rendering shows the visible board before the
+  2026-11-02; before, when the stored decimals were within 10⁻⁹). The
+  `One-move life` line states that verdict at every report scope: below
+  full analysis the verdict is left out of the headline and its squares
+  off the diagram, but the line still compares the choice with the best.
+  From 2026-11-03 to 2026-11-07 the line read the scope's copy, which
+  lacks the verdict, so below full analysis every guess with a better
+  one-move square read “tied” at its own value (creator question
+  2026-11-07, on an Intermediate guess at 0.928 beside 14 proven-safe
+  squares, whose one-move life is 1.000). Measured values/counts are
+  retained without repetitive prose. A saved rendering shows the
+  visible board before the
   action. Uniform covered remainder is omitted: the diagram crops to
   revealed/flagged/selected/trigger cells plus two cells of context,
   explicitly labels its original row/column range, and ignores a large

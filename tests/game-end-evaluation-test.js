@@ -957,4 +957,38 @@ assertEq('the captured wrong-flag tag is the other reason',
   assertEq('and 2 of 7 after the riskier one', String(wins(17).chosenWins), '2');
 }
 
+// The game-end judge on an Intermediate position from play (2026-11-07):
+// action 56 opened r7c15, which no number touches, while counting single
+// numbers proved 14 squares safe. Of 22,140 layouts, 1,600 mine r7c15. Its
+// one-move life is its survival, since a proven-safe square stays open
+// after it; a proven-safe square's is 1. Below full scope the report drops
+// that verdict from the headline, and from 2026-11-03 its One-move life line
+// read the same copy and called this guess "tied at 0.928".
+{
+  const cells = '1121100000000000' + '1.2.211000000000' + '22212.1001110011' + '.100233212.1124.'
+    + '.1001..2.2123...' + '.10012221101....' + '.100011111113...' + '.32111.11.112...'
+    + '....21222122.3..' + '....301.101.4.32' + '....31211012.3.1' + '......1000011211'
+    + '......2110000000' + '........11110000' + '...........31222' + '................';
+  const evaluation = { version: ACTION_EVALUATION_VERSION, action: 'reveal', actionNumber: 56, atMs: 56000,
+    selected: [6 * 16 + 14], result: 'continued', mistakes: [], alternatives: [], choices: [],
+    evidence: { playMode: 'standard', boardProgress: 161 / 216, firstReveal: false, startedGame: false },
+    position: { width: 16, height: 16, mines: 40, cells } };
+  completeGameEvaluations({ events: [{ kind: 'decision', evaluation }], justiceEnabled: false,
+    guessLedger: true }, DuringGame.positionProofs());
+  assertEq('a guess past proven-safe squares is below the best one-move life', evaluation.mistakes.join(),
+    'guessed-with-safe-move,chose-lower-modeled-life');
+  assertEq('the 14 proven-safe squares are the alternative',
+    squareList(evaluation.alternatives.find((alternative) => alternative.kind === 'safe-reveal').cells).length, 14);
+  assertEq('1,600 of 22,140 layouts mine the selected square', evaluation.evidence.chosenRisk, 1600 / 22140);
+  assertEq('its one-move life is its survival', evaluation.evidence.expectedLife, 20540 / 22140);
+  assertEq('a proven-safe square has the best one-move life', evaluation.evidence.bestExpectedLife, 1);
+  assertEq('the One-move life line states the gap',
+    actionEvaluationLines(evaluation).find((line) => line.label === 'One-move life (model)').value,
+    '0.928 selected \u00b7 1.000 best \u00b7 gap 0.072');
+  const start = source.indexOf('\nfunction buildVerdictBlocks(');
+  const report = source.slice(start, source.indexOf('\n}\n', start) + 3);
+  assertEq('every report block builds its labeled lines from the saved evaluation, not the scope\u2019s copy',
+    start !== -1 && !/actionEvaluationLines\((instance\.)?shown\b/.test(report), true);
+}
+
 console.log(`game-end-evaluation: all ${checks} checks passed`);
