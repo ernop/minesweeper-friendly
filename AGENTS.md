@@ -124,19 +124,28 @@ Files, in load order:
 | `main.js` | storage hooks, judging games a closed page left pending (`completePendingGames`), static chrome, `init` (last) |
 
 Serve with `python3 -m http.server 8018 --bind 127.0.0.1` and open exactly
-`http://127.0.0.1:8018/`.
+`http://127.0.0.1:8018/`, never `localhost` or another host or port:
+IndexedDB is per origin, so another origin opens a different history.
 On PC, the enabled systemd user unit `minesweeper-friendly.service` owns this
 server (boot startup, survives logout, restarts after exit). Use
 `systemctl --user start/restart/status minesweeper-friendly.service` as
 appropriate; never launch a competing manual server. Source and installation:
 [README.md — Persistent local server](README.md#persistent-local-server-linux).
 Anything that writes storage during verification runs on
-`http://127.0.0.1:8099/` instead
-([docs/implementation/verification.md](docs/implementation/verification.md)).
+`http://127.0.0.1:8099/` instead, the test origin, never used for the player's
+games ([docs/implementation/verification.md](docs/implementation/verification.md)).
 
 Hosting: public GitHub repo `ernop/minesweeper-friendly`. The canonical game
-is https://minesweeper-friendly.fuseki.net/ and every master push releases it.
-GitHub Pages still publishes the master branch and redirects visitors there.
+is https://minesweeper-friendly.fuseki.net/ and every master push releases it
+once the workflow's tests pass. GitHub Pages still publishes the master
+branch and redirects visitors there.
+
+Pushing: finished work is committed and pushed (his user rule "Commit and
+push finished work"), so each push is a release to the players. Before it,
+record the latency check on the commit being pushed ("Latency budgets"
+below); after it, confirm the release run passed (`gh run watch <id>
+--exit-status`; [verification](docs/implementation/verification.md),
+"Deploys"). A failed run is a failed change.
 
 ## Standing instructions
 
@@ -232,7 +241,7 @@ the file path, plus the section heading when the file holds several.
 ## Rules for agents
 
 Condensed from `~/proj/mybrowser/.cursor/rules/` (canonical source; read
-`00-absolute-rules.mdc` there for the full text) and `~/proj/agents.md`.
+`00-absolute-rules.mdc` there for the full text).
 
 ### The Anti-Fallback Principle
 
@@ -376,11 +385,14 @@ User requirement (2026-09-26): the system must never get slow again. Run
 `tests/latency-browser-check.js` in Firefox (about 15 seconds on the PC) when
 finishing each change to gameplay, game end, storage, startup, or result
 presentation, so a slowdown shows at the change that caused it (creator
-decision 2026-10-26; it had run only before a push). Before the push, run it
-once more with `--record` and commit the appended `tests/latency-history.jsonl`
-line with the change: a recorded line names the commit it measured. A budget
-failure blocks the push. Besides input and startup, the check times a long
-Expert win to its full results, the analysis workers' share included (added
+decision 2026-10-26; it had run only before a push). Before each push, run it
+once more with `--record` on the commit being pushed, then commit the line it
+appends to `tests/latency-history.jsonl` by itself ("Record latency for
+<commit>: ..."). The line names the commit it measured, and its `dirty` says
+whether other sessions' uncommitted edits were in the tree, which does not
+hold the push. A budget failure means the change is not finished: find the
+slowdown, or ask the creator to loosen that budget. Besides input and
+startup, the check times a long Expert win to its full results, the analysis workers' share included (added
 2026-10-26, after a change that doubled the workers' after-game work had
 passed it). Results show part by part as their data arrives, so that budget
 may be raised while the player is never blocked: the winning click and the
@@ -403,10 +415,10 @@ command that has stalled instead of waiting on it again. Details:
 
 ### Configuration
 
-- Never use environment variables for configuration.
-- `settings.json` (gitignored) holds keys/secrets; `settings.example.json`
-  (checked in) is the template. Code reads the config file, not `os.environ`.
-- Never commit credentials; placeholders like `YOUR_API_KEY_HERE` in docs.
+- Never use environment variables for configuration: a machine's own
+  settings go in a gitignored file, as `tests/latency-machine.txt` does. The
+  repo holds no secrets; the deploy key exists only as the GitHub secret
+  `FUSEKI_DEPLOY_SSH_KEY`.
 
 ### Communication
 
@@ -419,8 +431,6 @@ command that has stalled instead of waiting on it again. Details:
 - Answer first (user request 2026-09-26): answer the user's question in the
   first message, then do any long audit or fix; a yes/no question once
   waited 28 minutes behind its fix.
-- Defects found while working get fixed when the fix is clear, not only
-  listed (user expectation 2026-09-26); report what was fixed.
 - No emojis anywhere — files, responses, commits.
 - No relationship-management speech: no praise, validation, verdicts on the
   user's statements ("You're right"), reassurance, or servile offers. Present
@@ -453,7 +463,7 @@ command that has stalled instead of waiting on it again. Details:
 "The agent will remember/try harder next time" is not a fix — future sessions
 start from the same weights and files. Valid fixes change the code path, the
 checked-in rule files, or an injected hook so the correct behavior is the
-default. Durable facts go in checked-in files linked from an agents.md, never
+default. Durable facts go in checked-in files linked from an AGENTS.md, never
 in an agent's private memory.
 
 ### Cost-efficiency
