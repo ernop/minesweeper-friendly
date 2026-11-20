@@ -156,6 +156,9 @@ check('adaptive dock supports right, left, and below-board placement without pop
     && !html.includes('game-sidebar-button'));
 check('top stage reserves height for docked details so sections below never overlap',
   source.includes('topStage.style.minHeight'));
+check('position editor clears visible replay controls and scrolls off-screen board only on user click',
+  source.includes('if (!replayControls.hidden)')
+    && source.includes('if (open && options.scrollToBoard'));
 check('offset constraints use the same edge inset as the resting frame',
   /#page-layout\s*\{[^}]*--board-edge-inset:\s*8px;/s.test(css)
     && source.includes("getPropertyValue('--board-edge-inset')")

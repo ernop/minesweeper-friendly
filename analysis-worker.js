@@ -1,14 +1,14 @@
 "use strict";
 
 importScripts('trend-fit.js?v=20260925-worker-analysis',
-  'game/trace-metrics.js?v=20261119-board-first-layout',
-  'game/evaluation.js?v=20261119-board-first-layout',
-  'game-data.js?v=20261107-score-lists', 'game/metric-definitions.js?v=20261119-board-first-layout',
+  'game/trace-metrics.js?v=20261119-layout-polish',
+  'game/evaluation.js?v=20261119-layout-polish',
+  'game-data.js?v=20261107-score-lists', 'game/metric-definitions.js?v=20261119-layout-polish',
   'board-shape.js?v=20261020-no-left-panel', 'zini.js?v=20261020-no-left-panel', 'board-metrics.js?v=20261020-no-left-panel',
-  'game/rankings.js?v=20261119-board-first-layout',
-  'game/charts.js?v=20261119-board-first-layout', 'game/game-data-chart.js?v=20261119-board-first-layout',
+  'game/rankings.js?v=20261119-layout-polish',
+  'game/charts.js?v=20261119-layout-polish', 'game/game-data-chart.js?v=20261119-layout-polish',
   'justice.js?v=20261103-worker-evaluation', 'odds.js?v=20261103-worker-evaluation', 'board-icons.js?v=20261105-glyph-sizes',
-  'game/replay-model.js?v=20261119-board-first-layout',
+  'game/replay-model.js?v=20261119-layout-polish',
   'during-game.js?v=20261103-worker-evaluation');
 
 let config;

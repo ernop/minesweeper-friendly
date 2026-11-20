@@ -220,7 +220,17 @@ function placeBoardPositionPanel() {
   };
   boardPositionPanel.style.maxWidth = Math.max(0, bounds.right - bounds.left) + 'px';
   boardPositionPanel.style.maxHeight = Math.max(0, bounds.bottom - bounds.top) + 'px';
-  const placed = boardPositionPanelRect(gameFrame.getBoundingClientRect(),
+  const frame = gameFrame.getBoundingClientRect();
+  let anchor = frame;
+  if (!replayControls.hidden) {
+    const replay = replayControls.getBoundingClientRect();
+    const left = Math.min(frame.left, replay.left);
+    const top = Math.min(frame.top, replay.top);
+    const right = Math.max(frame.right, replay.right);
+    const bottom = Math.max(frame.bottom, replay.bottom);
+    anchor = { left, top, right, bottom, width: right - left, height: bottom - top };
+  }
+  const placed = boardPositionPanelRect(anchor,
     boardPositionPanel.offsetWidth, boardPositionPanel.offsetHeight, bounds);
   boardPositionPanel.style.left = placed.left + 'px';
   boardPositionPanel.style.top = placed.top + 'px';
@@ -335,7 +345,34 @@ function scheduleBoardLayout() {
 // readable height (matching live perf charts when side by side).
 const GAME_DATA_SIDE_MIN_HEIGHT = 240;
 const GAME_DATA_SUBVIEW_MIN_HEIGHT = 480;
-function fitGameDataToSidebar() {
+const GAME_DATA_BAND_COMPACT_MAX_HEIGHT = 580;
+
+// Cap the docked column's height to the board area when game data's percentile
+// band stands alone (live perf charts absent or closed), so a short band does
+// not stretch below the board and leave an empty gap above the tables.
+function syncDetailsDockMaxHeight(stageDocTop = null, boardAreaHeight = null) {
+  const docked = topStage.dataset.detailsDock === 'left' || topStage.dataset.detailsDock === 'right';
+  if (!docked) {
+    setStyleProp(gameSidebar, '--details-dock-max-height', '');
+    return;
+  }
+  const top = stageDocTop !== null ? stageDocTop : topStage.getBoundingClientRect().top + window.scrollY;
+  const viewportRoom = Math.max(480, Math.floor(window.innerHeight - top - 16));
+  let maxHeight = viewportRoom;
+  if (!resultsBox.hidden && !settings.gameDataDistributions
+      && resultStats.querySelector('.board-time-profile') !== null) {
+    const duringEl = resultStats.querySelector('.during-game');
+    const duringOpen = duringEl !== null
+      && duringEl.querySelector(':scope > .stat-section-body:not([hidden])') !== null;
+    if (!duringOpen) {
+      const areaHeight = boardAreaHeight !== null ? boardAreaHeight : gameArea.offsetHeight;
+      maxHeight = Math.min(viewportRoom, Math.max(GAME_DATA_BAND_COMPACT_MAX_HEIGHT, areaHeight));
+    }
+  }
+  setStyleProp(gameSidebar, '--details-dock-max-height', maxHeight + 'px');
+}
+
+function fitGameDataToSidebar(syncDockHeight = true) {
   const profile = resultStats.querySelector('.board-time-profile');
   if (profile === null || resultsBox.hidden || !profile.checkVisibility()) return;
   const below = topStage.dataset.detailsDock === 'below';
@@ -358,6 +395,7 @@ function fitGameDataToSidebar() {
       }
     }
   } else {
+    if (syncDockHeight) syncDetailsDockMaxHeight();
     const column = getComputedStyle(gameSidebar);
     const offset = profile.getBoundingClientRect().top - gameSidebar.getBoundingClientRect().top + gameSidebar.scrollTop;
     const bottom = parseFloat(column.maxHeight) - parseFloat(column.paddingBottom) - parseFloat(column.borderBottomWidth);
@@ -424,9 +462,7 @@ function syncGameSidebar(snapshot = null, deltaX = 0) {
     const widthVal = fit.width + 'px';
     setStyleProp(gameSidebar, '--details-dock-width', widthVal);
     setStyleProp(detailsResize, '--details-dock-width', widthVal);
-    const stageDocTop = snapshot !== null ? snapshot.stageRect.top : topStage.getBoundingClientRect().top + window.scrollY;
-    const maxHeight = Math.max(480, Math.floor(window.innerHeight - stageDocTop - 16));
-    setStyleProp(gameSidebar, '--details-dock-max-height', maxHeight + 'px');
+    syncDetailsDockMaxHeight(snapshot !== null ? snapshot.stageRect.top : null);
     if ('belowColumns' in topStage.dataset) delete topStage.dataset.belowColumns;
   } else {
     setStyleProp(gameSidebar, '--details-dock-width', '');
@@ -441,7 +477,7 @@ function syncGameSidebar(snapshot = null, deltaX = 0) {
   setAttrIfChanged(detailsResize, 'aria-valuemin', String(fit.minimum));
   setAttrIfChanged(detailsResize, 'aria-valuemax', String(fit.maximum));
   setAttrIfChanged(detailsResize, 'aria-valuenow', String(fit.width));
-  fitGameDataToSidebar();
+  fitGameDataToSidebar(false);
 }
 
 // The docked column's board-facing edge grip sits in the gap between the
@@ -450,11 +486,20 @@ function syncGameSidebar(snapshot = null, deltaX = 0) {
 // The board never moves during a drag, so the flank limits are fixed at start.
 const detailsResize = document.getElementById('details-resize');
 const DETAILS_RESIZE_KEY_STEP = 10;
+let sidebarClearanceFrame = null;
 new ResizeObserver((entries) => {
   if (settings === null) return;
   const entry = entries[entries.length - 1];
   const box = entry.borderBoxSize && entry.borderBoxSize[0];
-  syncResultClearance(box ? box.blockSize : null);
+  const blockSize = box ? box.blockSize : null;
+  // Defer the ancestor min-height update to the next frame so mutating
+  // #top-stage (shallower than #game-sidebar and observed for width changes)
+  // never triggers a ResizeObserver undelivered-notifications error.
+  if (sidebarClearanceFrame !== null) cancelAnimationFrame(sidebarClearanceFrame);
+  sidebarClearanceFrame = requestAnimationFrame(() => {
+    sidebarClearanceFrame = null;
+    syncResultClearance(blockSize);
+  });
 }).observe(gameSidebar);
 
 function setDetailsColumnWidth(fit, width) {
@@ -570,15 +615,22 @@ function setBoardPositionPreference(x, y, persist) {
   if (persist) saveSettings();
 }
 
-function setBoardPositionEditing(open) {
+function setBoardPositionEditing(open, options = {}) {
   // Startup restores the saved state through here; only closing an open
-  // editor hands focus back to its button.
+  // editor hands focus back to its button, and only a user click from below
+  // scrolls an off-screen board into view.
   const wasOpen = !boardPositionPanel.hidden;
   rememberPanel('boardPosition', open);
   if (!open && stopBoardPositionDrag !== null) stopBoardPositionDrag();
   boardPositionPanel.hidden = !open;
   boardPositionDragSurface.hidden = !open;
   boardPositionButton.setAttribute('aria-expanded', String(open));
+  if (open && options.scrollToBoard && !gameArea.classList.contains('trial-no-board')) {
+    const rect = gameFrame.getBoundingClientRect();
+    if (rect.bottom < 0 || rect.top > window.innerHeight) {
+      gameFrame.scrollIntoView({ block: 'center', behavior: 'instant' });
+    }
+  }
   syncBoardLayout();
   if (open) boardPositionDragSurface.focus({ preventScroll: true });
   else if (wasOpen) boardPositionButton.focus({ preventScroll: true });
@@ -600,7 +652,7 @@ function bindBoardPositionInput(range, number, axis) {
 function initBoardPositionControls() {
   syncBoardPositionInputs();
   boardPositionButton.addEventListener('click', () => {
-    setBoardPositionEditing(boardPositionPanel.hidden);
+    setBoardPositionEditing(boardPositionPanel.hidden, { scrollToBoard: true });
   });
   document.getElementById('board-position-done').addEventListener('click', () => {
     setBoardPositionEditing(false);

@@ -6,7 +6,7 @@ The classic game you know — crisp bevels, chunky numbers, red LCD counters —
 with a dove where the smiley used to be, and a scoreboard unlike anything
 minesweeper has ever had.
 
-![A winning Beginner game with the session summary and the full scoreboard](win-screen-2026-10-21.png)
+![A winning Beginner game with the session summary and the full scoreboard](win-screen-2026-11-19.png)
 
 ## Every win you ever get is remembered
 
@@ -32,7 +32,7 @@ each placed from best to worst against all your games and against today's.
 Point at any line to see where this game falls among all of yours, or flip
 to distributions to see your whole history for every measurement at once.
 
-![How a win compares: your play on the left, the board on the right, the best at the top](game-data-2026-10-21.png)
+![How a win compares: your play on the left, the board on the right, the best at the top](game-data-2026-11-19.png)
 
 ## Watch every game unfold
 

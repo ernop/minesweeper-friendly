@@ -9,16 +9,24 @@ Spec: [docs/product/results.md](../product/results.md). Index: [AGENTS.md](../..
   each `.result-chart-section-items` wraps internally (and the three
   point-chart sections `perfCharts`, `boardCharts`, and `relationships` use
   a left-aligned CSS Grid `repeat(auto-fill, minmax(min(270px, 100%),
-  270px))` with `.scatter-legend` spanning `1 / -1`). A section with a
+  270px))` with `align-items: stretch` and flex-column `.rank-list.scatter`
+  cards (`margin-top: auto` on `.scatter-svg`) so two-line titles never
+  shift plot baselines across a row, and `.scatter-legend` spans `1 / -1`).
+  `.stat-section-toggle` clears `.ui-button[aria-expanded="true"]`'s inset
+  `box-shadow` so open section titles stay crisp on white. A section with a
   heading gets `resultOpenerHead('h3', spec.id, spec.label, items)`: its
   title opens and closes the items as the panel named by the section id
   (`boardTables`, `perfCharts`, `boardCharts`, `relationships`), and the
   chart mode select follows the title in the head. When `#result-analysis`
   has verdict cards, `renderResultAnalysis` wraps them in
-  `buildStatSection('resultAnalysis', 'after-game report')`. The upper table
+  `buildStatSection('resultAnalysis', 'after-game report')`, with
+  `.verdict-category` using `repeat(auto-fill, minmax(min(100%, 420px),
+  680px))` (bounding single-card width) and plain bold category titles
+  without a second full-width underline. The upper table
   collection (no heading) holds two full-width children built by
   `renderRanks`: `overviewTablesBand` (`.result-overview-band`, a wrapping
-  flex row holding the session summary, ranks won in session, and on losses
+  flex row holding the session summary with internal horizontal scroll on
+  narrow viewports, ranks won in session, and on losses
   `.game-stats`, stacking at `<= 720px`) and `rankTablesGroup`
   (`.rank-tables`: a `div.stat-section-head` with the "rankings" title,
   panel `rankTables`, then `.rank-tables-body` wrapping the time, category,

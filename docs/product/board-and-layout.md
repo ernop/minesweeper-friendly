@@ -409,7 +409,11 @@ charts).
     [This game's stats](results.md#this-games-stats-creator-request-2026-10-26)).
   - When docked beside the board, game data's chart takes the column height
     left below everything above it (keeping at least 240 px per open side,
-    scrolling below that rather than crushing it). When docked below the
+    scrolling below that rather than crushing it). In band view, when live
+    perf charts is absent (High scores) or closed, the docked details
+    column caps its height to `max(580px, boardAreaHeight)` within the
+    available viewport height so the lone band stays compact alongside the
+    board instead of stretching to the viewport foot. When docked below the
     board, it flows at full readable height (matching live perf charts when
     side by side).
   - The replay legend follows stats inside the same details dock, so
@@ -471,10 +475,13 @@ charts).
   and labeled ticks for the current board and viewport, and dragging/arrow
   keys start from the applied position with zero dead zone. A trial's lobby
   and review show no board, so no offset applies to them.
-  The editor panel follows the board, staying within the visible viewport,
-  with Reset and Done at the top and Escape to close. Opening or closing it
-  never scrolls the page; closing returns focus to the **position** button
-  in the settings row.
+  The editor panel follows the union of the board and (when visible) its
+  replay controls so opening it after a finished game never covers the
+  replay transport, staying within the visible viewport, with Reset and
+  Done at the top and Escape to close. Clicking **position** in the
+  settings row scrolls the board into view when the board is off-screen;
+  reloading with the editor open or closing it never scrolls the page, and
+  closing returns focus to the **position** button in the settings row.
 - **Typography** (unified 2026-11-19, sub-choice A): all after-board
   sections (`#result-analysis`, `#result-ranks`, `#pregen-charts`) share
   regular `Arial, Helvetica, sans-serif` (bold headings and tabular values)

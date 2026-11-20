@@ -16,47 +16,52 @@ a distracting second live clock.
 Beginner, Intermediate, and Expert are one-click choices; every other mode
 is in the "other modes" menu beside them, and each keeps its own rankings.
 
-![A won Beginner game at 1920 x 1080 on 2026-10-21: the board with its replay controls, the session summary with its results tree and ranks won in session under it, and at right the live perf charts above game data](promo/win-screen-2026-10-21-full-layout.png)
+![A won Beginner game at 1920 x 1080 on 2026-11-19: the board centered in the full-width top stage with its replay controls below it, and live perf charts above game data docked on the right flank](promo/win-screen-2026-11-19-full-layout.png)
 
 ## The page
 
-The page is a row of fixed columns, so nothing that appears or disappears
-ever moves the board:
+The page places the board first across the full viewport width, so nothing
+that appears or disappears ever moves it:
 
-- **Above the board.** Beginner, Intermediate, Expert, and the "other
-  modes" menu: Custom and every other mode. Only a mode from that menu
-  brings a second row: the board size, the generator where the mode uses
-  one, and the mode's progress.
-- **Top bar, upper right.** Today's use against your daily limits, once
-  any is set, then the daily limits and settings buttons.
-- **Settings row, page foot.** The rest of what you configure for every
-  game: the page's one session picker (today by default,
-  shared by every session comparison on the page), and the board display:
-  Zoom, "position" (opens the board position editor), and the pixel ratio,
-  which moves with the browser zoom. The footer under it links the
-  self-check, training, and problems pages.
-- **The board, center.** After a game the replay controls sit under it like
-  a video player's (start, back, play at the pace it was played, forward,
-  end), with on/off toggles for its board overlays and mouse path views
-  under them. The session summary and "ranks won in
-  session" sit beside it where they fit, otherwise they lead the tables
-  under it. Then come the time-window, day-category, and streak rank lists,
-  the "This board" tables, and the your-perf, board-trait, and relationship
+- **Top bar and game choice.** Beginner, Intermediate, Expert, and the
+  "other modes" menu sit centered across the top, with today's daily-limit
+  use (once any limit is set), daily limits, and settings at the upper right.
+  Only a mode from the menu brings a second row: the board size, the
+  generator where the mode uses one, and the mode's progress.
+- **The board, top stage.** The board centers in the full width by default
+  and can be moved anywhere across it with **position**. After a game the
+  replay controls sit directly under it like a video player's (start, back,
+  play at the pace it was played, forward, end), with on/off toggles for
+  its board overlays and mouse path views under them.
+- **Details dock, beside or below the board.** Play states (changed through
+  "edit states"), "see scores", live perf charts, game data, and the replay
+  legend dock into whichever side of the board has more free room (right on
+  ties) whenever at least 320 px fits, with a drag grip on the board-facing
+  edge. When neither side has room, the dock drops directly below the board
+  at full width (with live perf charts and game data side by side at 900 px
+  and wider). Live perf charts show how the game unfolded: progress, moves
+  available, and each measured line against its own whole-game value, over
+  tracks of clicks, jumps, and pauses. After a win, game data places each
+  measurement of this game on one percentile band against your lifetime and
+  session games: game summary perf on one side and the board's traits on
+  the other.
+- **After-board sections, full width.** Below the top stage every section
+  uses the full page width in a consistent stack: the after-game report
+  (when enabled), the overview row (session summary, "ranks won in
+  session", and after a loss "this game" stats side by side), the
+  "rankings" group (time-window, day-category, and streak rank lists), the
+  "This board" tables, and the your-perf, board-trait, and relationship
   charts.
-- **Live perf charts and game data, right of the board.** After any game,
-  live perf charts show how it unfolded: progress, and each measured line
-  against its own whole-game value, over tracks of clicks, jumps, and
-  pauses; each jump is marked by why it happened: the local work had run
-  out, had turned slow, or was still easy. After a win, game data places each measurement of this game on
-  one percentile band against your lifetime and session games: game summary
-  perf on one side and the board's traits on the other.
-- **Game details, far right.** A line naming whether music is on and which
-  of your states are on, as tags (changed through "edit states"), see
-  scores, and the game's statistics. Every setting kept for all
-  games, such as which result sections show, is on the settings page.
 - **Motion stats, page foot**, closed until you open them: the
   mouse-dynamics measurements of the game on the board, live during play
   while open and final after it.
+- **Settings row and footer, page foot.** The rest of what you configure
+  for every game: the page's one session picker (today by default, shared
+  by every session comparison on the page), and the board display: Zoom,
+  "position" (opens the board position editor), and the pixel ratio, which
+  moves with the browser zoom. Every setting kept for all games, such as
+  which result sections show, is on the settings page. The footer links the
+  self-check, training, and problems pages.
 
 **Daily limits** (top of the settings page): play time, games, games per
 level, and a stop time, each per play day from 4:00 to 4:00. A reached
@@ -64,9 +69,6 @@ limit lets the game in progress finish and closes the board until 4:00.
 Every change is confirmed twice, and raising or removing a limit works only
 before 2 minutes of play that day
 ([spec](docs/product/play-limits.md)).
-
-On narrower windows game data moves into the details column, and below that
-the details open from a **Game details** button.
 
 ## Run
 
@@ -181,7 +183,7 @@ losses by what went wrong, and boards abandoned before the end (restarted,
 or the page closed), recorded since 2026-10-20. "Ranks won in session" names,
 for every longer list, the top-tenth ranks earned within the session.
 
-![The board after a Beginner win, with the session summary and its results tree, ranks won in session, and the time-window, day-category, and streak rank lists](promo/win-screen-2026-10-21.png)
+![The board after a Beginner win, with docked live perf charts and game data beside it, the overview row of session summary and ranks won in session, and the full-width time-window, day-category, and streak rank lists](promo/win-screen-2026-11-19.png)
 
 Game data replaces the winning game's stats grid. One green-to-red band
 places each measurement by the share of comparable games that did better
@@ -206,18 +208,18 @@ and hovering a row outlines the charts that plot the same measurement. See
 [the design and removed-field inventory](docs/product/game-data.md).
 
 <p>
-  <img src="promo/game-data-2026-10-21.png" alt="Game data after a win: game summary perf rows on the left and board traits on the right, each joined to its point on the green-to-red percentile band" width="49%">
-  <img src="promo/game-data-distributions-2026-10-21.png" alt="Game data distributions: one histogram strip per measurement in lifetime and session sections, this game's bar in light blue under a pin" width="49%">
+  <img src="promo/game-data-2026-11-19.png" alt="Game data after a win: game summary perf rows on the left and board traits on the right, each joined to its point on the green-to-red percentile band" width="49%">
+  <img src="promo/game-data-distributions-2026-11-19.png" alt="Game data distributions: one histogram strip per measurement in lifetime and session sections, this game's bar in light blue under a pin" width="49%">
 </p>
 
-![The 3BV/s card: 284th of 1,549 lifetime wins, over a histogram of every win with this game's bar in light blue under a pin, and the finished board with its 2 openings and the 9 numbers outside them marked](promo/game-data-card-2026-10-21.png)
+![The 3BV/s card: 334th of 1,851 lifetime wins, over a histogram of every win with this game's bar in light blue under a pin, and the finished board with its 3 openings and the 8 numbers outside them marked](promo/game-data-card-2026-11-19.png)
 
 Property charts sit in two groups, your perf and board traits, each with
 its own average, distribution, or winrate reading. They plot a measurement
 against average win time, every win's time, or the share of games won.
 Charts omit games where that measurement is absent.
 
-![Your-perf charts in average mode: average win time for each value of every performance measurement, dots colored by the age of their newest win, chips giving this game's value and lifetime standing](promo/perf-charts-2026-10-21.png)
+![Your-perf charts in average mode: average win time for each value of every performance measurement, dots colored by the age of their newest win, chips giving this game's value and lifetime standing](promo/perf-charts-2026-11-19.png)
 
 After a loss or a trial game, the stats themselves (time, 3BV, 3BV/s, clicks, efficiency, board-changing click share,
 IOS, mouse path,
@@ -266,17 +268,17 @@ otherwise it centers on you with the 5 nearest entries either side. Rows
 show rank (without a leading "#"), fixed-width time, and a relative age
 ("43s", "5m", "2.0w"; the brand-new score says "this").
 
-![Relationship charts: every win a dot colored by its age, the just-finished game ringed and tagged with its rank among today's wins](promo/relationship-charts-2026-10-21.png)
+![Relationship charts: every win a dot colored by its age, the just-finished game ringed and tagged with its rank among today's wins](promo/relationship-charts-2026-11-19.png)
 
-Post-game output follows stable sections under the board: the action report
-when one is shown; one wrapping list of tables (the session summary, ranks
-won in session, the time and day-category rank lists, then every streak
-list); the "This board" tables; then the your-perf charts, board-trait
-charts, and relationships. Data tables always precede
+Post-game output follows stable full-width sections under the board: the
+action report (with its own opener) when one is shown; the overview row
+(session summary, ranks won in session, and on losses this game's stats),
+then the "rankings" group (time and day-category rank lists and every
+streak list); the "This board" tables; then the your-perf charts,
+board-trait charts, and relationships. Data tables always precede
 the dot-plot charts, and each section wraps within its own rows, so viewport
-width cannot mix them. The session summary and ranks won move beside the
-board where each fits. The High scores view uses the same history sections but omits post-game
-action analysis; its facts are explicitly labeled as
+width cannot mix them. The High scores view uses the same history sections
+but omits post-game action analysis; its facts are explicitly labeled as
 the latest win's stats and historical charts have no current-game marker.
 
 The motion stats section at the page foot (closed until opened; the choice

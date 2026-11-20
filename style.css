@@ -1323,11 +1323,16 @@ body.trial-offboard #game-frame {
 }
 #result-analysis .verdict-category {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 400px), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 680px));
   align-items: start;
   gap: 10px;
 }
-#result-analysis .verdict-category-title { grid-column: 1 / -1; margin-bottom: 0; }
+#result-analysis .verdict-category-title {
+  grid-column: 1 / -1;
+  margin: 2px 0 0;
+  border-bottom: none;
+  padding: 0;
+}
 #result-analysis .verdict-block {
   margin: 0;
   padding: 10px 14px;
@@ -1743,6 +1748,7 @@ body.trial-offboard #game-frame {
   border: 0;
   border-radius: 0;
   background: transparent;
+  box-shadow: none;
   color: #000000;
   font: 700 15px Arial, Helvetica, sans-serif;
   text-align: left;
@@ -2461,6 +2467,13 @@ body.settings-page .return-to-game {
   gap: 18px 28px;
   width: 100%;
 }
+.result-overview-band > .rank-list {
+  max-width: 100%;
+}
+.session-summary > .stat-section-body {
+  max-width: 100%;
+  overflow-x: auto;
+}
 .rank-tables { width: 100%; }
 .rank-tables-body {
   display: flex;
@@ -2483,9 +2496,19 @@ body.settings-page .return-to-game {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(270px, 100%), 270px));
   justify-content: start;
-  align-items: start;
+  align-items: stretch;
   gap: 18px;
   width: 100%;
+}
+.rank-list.scatter {
+  display: flex;
+  flex-direction: column;
+}
+.rank-list.scatter > h4 {
+  margin-bottom: 4px;
+}
+.rank-list.scatter > .scatter-svg {
+  margin-top: auto;
 }
 .result-chart-section > .result-chart-section-items[hidden] { display: none; }
 

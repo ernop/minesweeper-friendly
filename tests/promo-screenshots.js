@@ -79,9 +79,10 @@ jobs = [
 for source, target, pad in jobs:
     image = Image.open(raw / source).convert('RGB')
     if pad:
-        corners = {image.getpixel((x, y)) for x in (0, image.width - 1) for y in (0, image.height - 1)}
+        corner_map = {(x, y): image.getpixel((x, y)) for x in (0, image.width - 1) for y in (0, image.height - 1)}
+        corners = set(corner_map.values())
         if len(corners) != 1:
-            raise SystemExit(f'{source}: corners differ {corners}, no single background to pad with')
+            raise SystemExit(f'{source}: corners differ {corner_map}, no single background to pad with')
         padded = Image.new('RGB', (image.width + 2 * MARGIN_PX, image.height + 2 * MARGIN_PX), corners.pop())
         padded.paste(image, (MARGIN_PX, MARGIN_PX))
         image = padded
@@ -237,9 +238,9 @@ async function capture(page, rawDir) {
   await page.evaluate(() => window.scrollTo(0, 0));
   await sleep(500);
   const heroClip = await page.evaluate(() => {
-    const main = document.querySelector('main').getBoundingClientRect();
+    const head = document.getElementById('page-head').getBoundingClientRect();
     const bottom = document.querySelector('.result-chart-section-boardTables').getBoundingClientRect().top;
-    return { x: main.left + window.scrollX, y: main.top + window.scrollY, width: main.width, height: bottom - main.top };
+    return { x: head.left + window.scrollX, y: head.top + window.scrollY, width: head.width, height: bottom - head.top };
   });
   await page.screenshot({ path: path.join(rawDir, 'hero-2560.png'), clip: heroClip, fullPage: true });
   const profile = page.locator('#game-sidebar .board-time-profile');
@@ -262,6 +263,10 @@ async function capture(page, rawDir) {
   await profile.screenshot({ path: path.join(rawDir, 'game-data-distributions-2560.png') });
   await distributions.uncheck();
   await sleep(1500);
+  // Capture the lower point-chart grids at a 4-column viewport width (matching
+  // laptop screens and keeping every chart legible in README.md).
+  await page.setViewportSize({ width: 1220, height: 1440 });
+  await sleep(600);
   await page.locator('.result-chart-section-perfCharts').screenshot({ path: path.join(rawDir, 'perf-charts-2560.png') });
   await page.locator('.result-chart-section-relationships').screenshot({ path: path.join(rawDir, 'relationships-2560.png') });
 }

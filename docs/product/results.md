@@ -56,14 +56,18 @@ before visual correlation charts gives the page a stable transition from exact
 records to graphical analysis.
 
 Every result section below the top stage spans 100% of the page width
-(standardized 2026-11-19). In the upper table collection, the overview band
-places the session summary, ranks won in session, and (after a loss) "this
-game" side by side across the full width, stacking cleanly on narrow
-screens (`<= 720px`); the full-width "rankings" group follows directly
-below it, wrapping its time, category, and streak tables across the full
-page width. This board, your perf, board traits, and relationships follow
-at full width (with left-aligned CSS grids of 270 px chart cards for the
-three point-chart sections). DOM order is preserved and table flow cannot
+(standardized 2026-11-19). The after-game report bounds individual verdict
+cards to a readable measure (up to 680 px) under plain bold category titles
+without repeating the opener's underline. In the upper table collection,
+the overview band places the session summary, ranks won in session, and
+(after a loss) "this game" side by side across the full width, stacking
+cleanly on narrow screens (`<= 720px`) with the wide session table
+scrolling inside its own box rather than widening the page; the full-width
+"rankings" group follows directly below it, wrapping its time, category,
+and streak tables across the full page width. This board, your perf, board
+traits, and relationships follow at full width (with left-aligned CSS grids
+of 270 px chart cards whose plot boxes align across each row even when a
+title wraps to two lines). DOM order is preserved and table flow cannot
 mix tables with point charts.
 
 ## Openers (creator request 2026-10-26)

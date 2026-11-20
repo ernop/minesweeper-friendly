@@ -36,7 +36,11 @@ Spec: [docs/product/board-and-layout.md](../product/board-and-layout.md). Index:
   setup row (`#page-head`, `#mode-options`, `#board-lab-panel`).
   `boardPositionOffset` returns zero while `#game-area` has `.trial-no-board`.
   `boardPositionPanelRect` anchors the body-level position editor to the
-  board within `visualViewport`.
+  union of `#game-frame` and (when visible) `#replay-controls` within
+  `visualViewport`. Clicking `#board-position-btn` passes
+  `{ scrollToBoard: true }` to `setBoardPositionEditing`, scrolling
+  `#game-frame` into view when it is off-screen; reloads with the editor
+  open do not scroll.
 - Layout (revised 2026-11-19: full-width board-first top stage + adaptive
   details dock + full-width after-board stack): `#page-layout` is a
   single-column full-width container holding `<header id="page-head">`
@@ -67,13 +71,19 @@ Spec: [docs/product/board-and-layout.md](../product/board-and-layout.md). Index:
   Left/Right keys update `settings.detailsColumnShare` within
   `[fit.minimum, fit.maximum]` without moving the board.
   A ResizeObserver on `#game-sidebar` passes `borderBoxSize[0].blockSize`
-  directly to `syncResultClearance`, keeping `#details-resize` height and
-  `#top-stage` `min-height` synced before paint so `#result-analysis` and
-  `#result-ranks` below never overlap the docked sidebar or Justice
-  callouts. A single ResizeObserver in `initBoardPositionControls` watches
-  `#top-stage` width changes plus `#page-head`, `#mode-options`,
-  `#board-lab-panel`, `#game-frame`, `#justice-live`, and
-  `#board-position-panel` and schedules `syncBoardLayout`.
+  via `requestAnimationFrame` to `syncResultClearance` (deferring the
+  ancestor `#top-stage` `min-height` update to the next frame so it never
+  triggers a Firefox `ResizeObserver loop completed with undelivered
+  notifications` error), keeping `#details-resize` height and `#top-stage`
+  `min-height` synced so `#result-analysis` and `#result-ranks` below never
+  overlap the docked sidebar or Justice callouts. `syncDetailsDockMaxHeight`
+  caps `--details-dock-max-height` in band view when `.during-game` is
+  absent or closed to `Math.min(viewportRoom, Math.max(580,
+  gameArea.offsetHeight))` (`GAME_DATA_BAND_COMPACT_MAX_HEIGHT = 580`). A
+  single ResizeObserver in `initBoardPositionControls` watches `#top-stage`
+  width changes plus `#page-head`, `#mode-options`, `#board-lab-panel`,
+  `#game-frame`, `#justice-live`, and `#board-position-panel` and schedules
+  `syncBoardLayout`.
   The sidebar contains `#result-summary`, `#sidebar-controls` (wrapping
   flex row holding `#top-right` and `#scores-nav`), `#results`, and
   `#path-view-legend`.
