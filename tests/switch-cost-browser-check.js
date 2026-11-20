@@ -433,8 +433,10 @@ function pickSession(page, id) {
     })).jsonValue(), [false, true], 'turning the line on again catches up');
     await settled(page);
 
-    // Inside game data from the narrowest details column to the widest, the
+    // Inside game data from the narrowest details column to the widest (with
+    // the board placed left so the right flank holds 46% of the window), the
     // line wraps only between items; the widest holds it on one line.
+    await page.evaluate(() => { settings.boardOffsetX = -200; syncBoardLayout(); });
     for (const share of [0.2, 0.46, 0.3]) {
       await page.evaluate((columnShare) => { settings.detailsColumnShare = columnShare; syncBoardLayout(); }, share);
       await page.waitForTimeout(100);

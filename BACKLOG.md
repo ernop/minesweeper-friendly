@@ -158,28 +158,14 @@ standardize"). One control keeps its own look:
   the select's look or the shared button look with its pressed state.
   Not yet changed.
 
-## Board position editor and a full board column (creator report 2026-10-26, awaiting the creator's choice)
+## Legacy panel cleanup: `panels.gameDetails` step 2 (step 1 built 2026-11-19)
 
-Creator: "on size 36, 100% zoom, I'd like to move the board a bit to the
-right (expert) but using "position" won't let me". At Zoom 36 an Expert
-board's frame is 1114px wide. The details column takes its saved share of
-the window and gives way only until the board column is the board plus the
-8px edge clearance on each side ([Layout](docs/product/board-and-layout.md)),
-so on a 2560px window a share above about 0.527 leaves the board column at
-exactly 1130px and the applied left/right offset at 0 (at the default 0.46
-the board has 86px each side). The editor still shows the saved preference
-on its -2000 to 2000 slider and number, so it states an offset the board is
-not at and gives no reason. Options:
-
-- Truthful editor (recommended): the left/right row shows the board's
-  applied offset and the range that fits at the current width, and says on
-  the same line when the saved preference is held back. Layout priorities
-  stay as decided on 2026-10-17; the player makes room by dragging the
-  details column's edge.
-- The board's position takes room from the details column: an offset past
-  the room narrows the details column, down to its 320px minimum, so the
-  editor always moves the board. The column's width then depends on two
-  settings, and game data and live perf charts narrow as the board moves.
+When the Game details popover was replaced by the adaptive below-board dock
+on 2026-11-19 ([Board and layout](docs/product/board-and-layout.md)),
+`panelsFromStored` in `settings-core.js` began stripping the retired
+`panels.gameDetails` key on load and import (step 1). Step 2 removes that
+strip (alongside `replay` and `reviewOptions`) and its test once active
+players' settings have loaded a release with step 1.
 
 ## Settings changes undone after Back from the settings page (found 2026-11-04, awaiting the creator's choice)
 
@@ -519,21 +505,6 @@ Still open:
   result" tables; fold motion diagnostics behind one button.
 - **Small pools** (proposed, not decided). With two session games every
   session standing is 0% or 100%; "2 of 2" wording or a minimum pool size.
-- **Session summary clipped in a narrow board column** (found 2026-10-14,
-  unchanged by that day's top bar). With the details column docked and game
-  data inside it, as at 1216-1280 px wide, the board column is about 400-440
-  px, narrower than the summary (about 505-515 px), so its right columns
-  (mean IOE, and a second size's share in the results grid) are cut off at
-  the column's edge. Options: let the summary scroll sideways inside its
-  block; wrap the means onto their own grid under the counts; or undock the
-  details column into the Game details popover sooner.
-- **Fit beside an Intermediate board at 2560** (found while building). With
-  production history the session summary (391 px) and ranks won (418 px)
-  exceed the 379 px beside an Intermediate board, so both sit below it.
-  Narrower blocks or a narrower game data column would put them beside it.
-  Since the session means were added (2026-10-08) the summary is about
-  505 px for one type and no longer fits beside a Beginner board (433 px)
-  either; ranks won still does.
 - **Ranks won rows wrap** (found while building 2026-10-10). The ranks cell
   is capped at 28ch (set 2026-09-21, when the block began listing every
   session rank), so about four chips, one of them a range or the "this"

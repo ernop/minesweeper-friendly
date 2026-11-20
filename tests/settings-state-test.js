@@ -100,6 +100,10 @@ assert(!('replay' in panelsBeforeRemoval));
 const panelsBeforeOverlaysRemoval = plain(run('settingsFrom({ panels: { states: true, reviewOptions: true } }).panels'));
 assert.equal(panelsBeforeOverlaysRemoval.states, true, 'the removed Overlays panel does not discard the saved panel states');
 assert(!('reviewOptions' in panelsBeforeOverlaysRemoval));
+// Panel states saved while the Game details popover existed keep the rest.
+const panelsBeforeDetailsRemoval = plain(run('settingsFrom({ panels: { states: true, gameDetails: true } }).panels'));
+assert.equal(panelsBeforeDetailsRemoval.states, true, 'the removed Game details popover does not discard the saved panel states');
+assert(!('gameDetails' in panelsBeforeDetailsRemoval));
 // Row choices saved before left work split into hard and easy work keep the
 // rest, and both new rows take its choice.
 const rowsBeforeSplit = plain(run('settingsFrom({ duringGameRows: { leftWorkEvents: false, forkEvents: false } }).duringGameRows'));
@@ -221,8 +225,9 @@ const choices = {
   gameDataSwitchCost: true, trialSpeedBucketMs: 375, resultView: 'scores',
   mineSize: 70, numberSize: 115,
   replayPosition: { endedAt: 12345, step: 7 },
-  panels: { boardPosition: true, gameDetails: true, states: true, importHistory: true, dataFormat: true,
+  panels: { boardPosition: true, states: true, importHistory: true, dataFormat: true,
     duringGame: false, gamePerformance: false, boardTraits: false, motionStats: true,
+    resultAnalysis: false,
     sessionSummary: false, recentPlacements: false, gameStats: false, rankTables: false,
     boardTables: false, perfCharts: false, boardCharts: false, relationships: false },
   trialSections: { '123:identity:1': false, '123:action:456': true },

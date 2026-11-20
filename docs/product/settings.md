@@ -172,10 +172,10 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   `showSessionStats`, `sessionLookbackSeconds`, `metricsPanelWidth`, and
   the other session chart controls were removed with it on 2026-10-20
   ([Session stats](session-stats.md));
-  `detailsColumnShare` (default 0.46; set by dragging the details column's
-  left edge) — the docked details column's share of the window width,
-  within 320px and the board column's room (see [Board and
-  layout](board-and-layout.md));
+  `detailsColumnShare` (default 0.46; set by dragging the docked details
+  column's board-facing edge) — the docked details column's preferred share
+  of the window width, clamped between 320 px and the free flank beside the
+  placed board (see [Board and layout](board-and-layout.md));
   `numberDisplay` (default numbers; the first choice-row setting) —
   digits / letters / dots for revealed counts (see [Board and chrome](board-and-layout.md));
   `numberSize` (default 100, percent of a count's standard size at the

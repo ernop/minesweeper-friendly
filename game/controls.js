@@ -237,11 +237,8 @@ document.addEventListener('scroll', () => {
   if (tracing()) recordLayout();
 });
 window.addEventListener('resize', () => {
-  applyBoardPosition();
+  syncBoardLayout();
   if (tracing()) recordLayout();
-  syncJusticePlacement();
-  placeBoardSides();
-  syncResultClearance();
 });
 
 function requestNewGame() {

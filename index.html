@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="pages-redirect.js?v=20260926-pages-redirect-2"></script>
 <title>Minesweeper - Standard Mode</title>
-<link rel="stylesheet" href="style.css?v=20261107-score-lists">
+<link rel="stylesheet" href="style.css?v=20261119-board-first-layout">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <!-- Defer preserves dependency order while letting every page asset download
      in parallel. The Pages redirect is the one blocking script; the error bar
@@ -30,51 +30,44 @@
 <script defer src="game-data.js?v=20261107-score-lists"></script>
 <script defer src="during-game.js?v=20261103-worker-evaluation"></script>
 <script defer src="board-icons.js?v=20261105-glyph-sizes"></script>
-<script defer src="settings-core.js?v=20261107-score-lists"></script>
+<script defer src="settings-core.js?v=20261119-board-first-layout"></script>
 <script defer src="play-limits.js?v=20261020-move-habits"></script>
-<script defer src="analysis-client.js?v=20261107-score-lists"></script>
+<script defer src="analysis-client.js?v=20261119-board-first-layout"></script>
 <script defer src="switch-cost.js?v=20261020-switch-cost-per-game"></script>
-<script defer src="preferences-game.js?v=20261107-score-lists"></script>
+<script defer src="preferences-game.js?v=20261119-board-first-layout"></script>
 <script defer src="fuseki-stats.js?v=20261011-play-statistics"></script>
-<script defer src="game/core.js?v=20261107-score-lists"></script>
-<script defer src="game/layout.js?v=20261107-score-lists"></script>
-<script defer src="game/play.js?v=20261107-score-lists"></script>
-<script defer src="game/play-modes.js?v=20261107-score-lists"></script>
-<script defer src="game/play-limits.js?v=20261107-score-lists"></script>
-<script defer src="game/evaluation.js?v=20261107-score-lists"></script>
-<script defer src="game/results.js?v=20261107-score-lists"></script>
-<script defer src="game/history.js?v=20261107-score-lists"></script>
-<script defer src="game/rankings.js?v=20261107-score-lists"></script>
-<script defer src="game/charts.js?v=20261107-score-lists"></script>
-<script defer src="game/trial-review.js?v=20261107-score-lists"></script>
-<script defer src="game/game-data-chart.js?v=20261107-score-lists"></script>
-<script defer src="game/switch-cost-line.js?v=20261107-score-lists"></script>
-<script defer src="game/during-game-chart.js?v=20261107-score-lists"></script>
-<script defer src="game/result-ranks.js?v=20261107-score-lists"></script>
-<script defer src="game/score-list.js?v=20261107-score-lists"></script>
-<script defer src="game/input-trace.js?v=20261107-score-lists"></script>
-<script defer src="game/replay-model.js?v=20261107-score-lists"></script>
-<script defer src="game/replay-view.js?v=20261107-score-lists"></script>
-<script defer src="game/music.js?v=20261107-score-lists"></script>
-<script defer src="game/trace-metrics.js?v=20261107-score-lists"></script>
-<script defer src="game/metric-definitions.js?v=20261107-score-lists"></script>
-<script defer src="game/motion-stats.js?v=20261107-score-lists"></script>
-<script defer src="game/player-states.js?v=20261107-score-lists"></script>
-<script defer src="game/controls.js?v=20261107-score-lists"></script>
-<script defer src="game/backup.js?v=20261107-score-lists"></script>
-<script defer src="game/main.js?v=20261107-score-lists"></script>
+<script defer src="game/core.js?v=20261119-board-first-layout"></script>
+<script defer src="game/layout.js?v=20261119-board-first-layout"></script>
+<script defer src="game/play.js?v=20261119-board-first-layout"></script>
+<script defer src="game/play-modes.js?v=20261119-board-first-layout"></script>
+<script defer src="game/play-limits.js?v=20261119-board-first-layout"></script>
+<script defer src="game/evaluation.js?v=20261119-board-first-layout"></script>
+<script defer src="game/results.js?v=20261119-board-first-layout"></script>
+<script defer src="game/history.js?v=20261119-board-first-layout"></script>
+<script defer src="game/rankings.js?v=20261119-board-first-layout"></script>
+<script defer src="game/charts.js?v=20261119-board-first-layout"></script>
+<script defer src="game/trial-review.js?v=20261119-board-first-layout"></script>
+<script defer src="game/game-data-chart.js?v=20261119-board-first-layout"></script>
+<script defer src="game/switch-cost-line.js?v=20261119-board-first-layout"></script>
+<script defer src="game/during-game-chart.js?v=20261119-board-first-layout"></script>
+<script defer src="game/result-ranks.js?v=20261119-board-first-layout"></script>
+<script defer src="game/score-list.js?v=20261119-board-first-layout"></script>
+<script defer src="game/input-trace.js?v=20261119-board-first-layout"></script>
+<script defer src="game/replay-model.js?v=20261119-board-first-layout"></script>
+<script defer src="game/replay-view.js?v=20261119-board-first-layout"></script>
+<script defer src="game/music.js?v=20261119-board-first-layout"></script>
+<script defer src="game/trace-metrics.js?v=20261119-board-first-layout"></script>
+<script defer src="game/metric-definitions.js?v=20261119-board-first-layout"></script>
+<script defer src="game/motion-stats.js?v=20261119-board-first-layout"></script>
+<script defer src="game/player-states.js?v=20261119-board-first-layout"></script>
+<script defer src="game/controls.js?v=20261119-board-first-layout"></script>
+<script defer src="game/backup.js?v=20261119-board-first-layout"></script>
+<script defer src="game/main.js?v=20261119-board-first-layout"></script>
 </head>
 <body aria-busy="true">
 <div id="page-layout">
-<div id="top-bar">
-  <span id="play-limits-use" hidden></span>
-  <a id="play-limits-btn" class="ui-button" href="settings.html#play-limits"
-    title="Daily limits on play time, games, and a stop time, and what reaching one does (by default, no new flags for half the limit again, then no new boards), set on the settings page">daily limits</a>
-  <a id="settings-btn" class="ui-button" href="settings.html">settings</a>
-</div>
-<main>
+<header id="page-head">
   <nav id="difficulty-tabs" aria-label="Board and mode">
-    <button type="button" id="game-sidebar-button" class="ui-button" popovertarget="game-sidebar" hidden>Game details</button>
     <a href="#" data-difficulty="beginner" class="active">Beginner</a>
     <a href="#" data-difficulty="intermediate">Intermediate</a>
     <a href="#" data-difficulty="expert">Expert</a>
@@ -82,6 +75,14 @@
       <option>Loading saved mode…</option>
     </select>
   </nav>
+  <div id="top-bar">
+    <span id="play-limits-use" hidden></span>
+    <a id="play-limits-btn" class="ui-button" href="settings.html#play-limits"
+      title="Daily limits on play time, games, and a stop time, and what reaching one does (by default, no new flags for half the limit again, then no new boards), set on the settings page">daily limits</a>
+    <a id="settings-btn" class="ui-button" href="settings.html">settings</a>
+  </div>
+</header>
+<main>
   <div id="mode-options" hidden>
     <form id="custom-form">
       <label>Width <input id="custom-width" type="number" min="8" max="100" value="30"></label>
@@ -98,7 +99,8 @@
   </div>
   <div id="board-lab-panel" hidden></div>
 
-  <div id="game-area">
+    <div id="top-stage" data-details-dock="right">
+    <div id="game-area">
     <div id="startup-status" role="status">
       <span class="startup-dot" aria-hidden="true"></span>
       Preparing your game…
@@ -171,6 +173,42 @@
       aria-label="Board position. Drag, or use arrow keys to move."></div>
 
     <div id="justice-live" aria-live="polite" aria-label="A Just Universe"></div>
+    </div>
+    <div id="details-resize" role="separator" aria-orientation="vertical" aria-label="resize details column" title="drag to resize the details column" tabindex="0" hidden></div>
+    <aside id="game-sidebar" aria-label="Play context, game statistics, and replay legend">
+      <p id="result-summary"></p>
+      <!-- The play context and see scores pack into small wrapping rows, so the
+           stat sections below get the column's height. -->
+      <div id="sidebar-controls">
+        <div id="top-right">
+          <button type="button" id="archive-chip" class="ui-button alert" hidden></button>
+          <div id="states">
+            <p id="play-context"><span id="music-state" class="context-item" hidden></span></p>
+            <button type="button" id="states-edit-btn" class="ui-button" aria-expanded="false" aria-controls="states-menu"
+              title="Tag your play session (sleepy? new mouse?). The states you have on are saved onto every game you finish, so measurements can be compared by self-reported context; a tag does not establish a cause.">edit states</button>
+            <div id="states-menu" hidden>
+              <div id="states-menu-head">
+                <span>session states</span>
+                <button type="button" id="states-close" title="close (Esc or a click outside also closes)">&times;</button>
+              </div>
+              <div id="states-options"></div>
+              <form id="states-add-form">
+                <input id="states-add-input" type="text" placeholder="new state" aria-label="new state">
+                <button type="submit" class="ui-button">add</button>
+              </form>
+              <p id="states-status"></p>
+            </div>
+          </div>
+        </div>
+        <nav id="scores-nav" aria-label="High scores">
+          <button type="button" id="see-scores-btn" class="ui-button">see scores</button>
+        </nav>
+      </div>
+      <div id="results" hidden>
+        <div id="result-stats"></div>
+      </div>
+      <div id="path-view-legend" hidden></div>
+    </aside>
   </div>
 
   <section id="pregen-charts" hidden aria-label="Pregen challenge charts"></section>
@@ -220,42 +258,6 @@
   </p>
 
 </main>
-<div id="details-resize" role="separator" aria-orientation="vertical" aria-label="resize details column" title="drag to resize the details column" tabindex="0" hidden></div>
-<aside id="game-sidebar" aria-label="Play context, game statistics, and replay legend">
-  <button type="button" id="game-sidebar-close" class="ui-button" popovertarget="game-sidebar" popovertargetaction="hide" hidden>Close</button>
-  <p id="result-summary"></p>
-  <!-- The play context and see scores pack into small wrapping rows, so the
-       stat sections below get the column's height. -->
-  <div id="sidebar-controls">
-    <div id="top-right">
-      <button type="button" id="archive-chip" class="ui-button alert" hidden></button>
-      <div id="states">
-        <p id="play-context"><span id="music-state" class="context-item" hidden></span></p>
-        <button type="button" id="states-edit-btn" class="ui-button" aria-expanded="false" aria-controls="states-menu"
-          title="Tag your play session (sleepy? new mouse?). The states you have on are saved onto every game you finish, so measurements can be compared by self-reported context; a tag does not establish a cause.">edit states</button>
-        <div id="states-menu" hidden>
-          <div id="states-menu-head">
-            <span>session states</span>
-            <button type="button" id="states-close" title="close (Esc or a click outside also closes)">&times;</button>
-          </div>
-          <div id="states-options"></div>
-          <form id="states-add-form">
-            <input id="states-add-input" type="text" placeholder="new state" aria-label="new state">
-            <button type="submit" class="ui-button">add</button>
-          </form>
-          <p id="states-status"></p>
-        </div>
-      </div>
-    </div>
-    <nav id="scores-nav" aria-label="High scores">
-      <button type="button" id="see-scores-btn" class="ui-button">see scores</button>
-    </nav>
-  </div>
-  <div id="results" hidden>
-    <div id="result-stats"></div>
-  </div>
-  <div id="path-view-legend" hidden></div>
-</aside>
 </div>
 <div id="board-position-panel" role="region" aria-labelledby="board-position-title" hidden>
   <div id="board-position-actions">

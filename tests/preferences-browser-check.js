@@ -26,7 +26,6 @@ const { chromium } = require(process.argv[2]);
   await page.locator('#custom-form button').click();
   await page.locator('#custom-mines').fill('26');
   await page.locator('#board-position-btn').click();
-  if (await page.locator('#game-sidebar-button').isVisible()) await page.locator('#game-sidebar-button').click();
   await page.locator('#states-edit-btn').click();
   await page.locator('#states-add-input').fill('draft tag');
   await page.reload();await page.waitForFunction(()=>preferenceUIReady);

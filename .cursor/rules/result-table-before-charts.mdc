@@ -20,30 +20,25 @@ alwaysApply: true
   board-trait charts → relationship charts.
 - "Live perf charts" (titled "during this game, second by second" until
   2026-10-20) is not in this sequence: it leads the
-  game data column beside the board, above game data (creator decision
-  2026-10-15).
+  details dock beside (or directly below) the board, above game data (creator
+  decision 2026-10-15; adaptive dock 2026-11-19).
 - Motion stats is not in this sequence either: one open/close section at
   the page foot, after every result section (creator decision 2026-10-20,
   when the left stats panel was removed).
-- The upper tables share one continuous wrapping list with no section title
-  and no Streaks heading. The time, category, and streak tables open and
-  close together under one title, "rankings", which flows beside the session
-  column like a table (creator request 2026-10-26: every result table and
+- The upper tables lead the full-width after-board sections with no section
+  title and no Streaks heading. First is a wrapping full-width overview row
+  holding the session summary, ranks won in session, and (after a loss) "this
+  game" stats side by side in DOM order (creator decision 2026-11-19,
+  superseding the 2026-10-07 beside-board snapping and `.session-tables`
+  floats so moving the board never jumps the tables and every after-board
+  chunk uses the full page width). Below the overview row sits the full-width
+  "rankings" group, whose title opens and closes the time, category, and
+  streak tables together (creator request 2026-10-26: every result table and
   section opens and closes by its title, the details column's opener).
   Retain individual table labels such as lifetime and near-streak, which
   identify their data.
-- The session summary and recent placements sit left and right of the board
-  where each fits (creator decision 2026-10-07). They stay first in the table
-  collection's DOM order, not a section of their own. Below the board they
-  float as one left column, the summary on top, with nothing above or left
-  of it.
-- After a loss, the "this game" stats table follows them in DOM order
-  (creator decision 2026-10-26: "flowing up as possible"). It takes a side
-  of the board neither holds, the left first, where it fits; below the board
-  it floats beside their column where it fits there, and otherwise at the
-  left under it.
-- A closed table keeps the place it has open, beside the board or not, so
-  its title never moves as it opens and closes.
+- A closed overview table locks its open width (`min-width: min(100%, openWidth)`)
+  so its title and siblings stay put as it opens and closes.
 - Never extract the time-period summary or streaks into a separate section.
 - Responsive wrapping must stay within each semantic section and must not
   interleave a pagetable with point charts.

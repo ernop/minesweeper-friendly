@@ -291,12 +291,13 @@ logic etc subsequently", "you may add other pages as links in the footer
 simlify the mode pickers. i don't like the current layers wqhich are
 duplicative and needlessly complex."
 
-- **Game choice row**, at the top of the board column, centered: the Game
-  details button (only while the details are the popover), **Beginner**,
-  **Intermediate**, **Expert**, and the **other modes** menu. A preset link
-  is a whole choice: its board, Standard play, and the default generator.
-  A player who picks presets sees nothing else above the board: no size
-  fields, no generator, no mode status.
+- **Game choice row**, centered in the page head above the top stage:
+  **Beginner**, **Intermediate**, **Expert**, and the **other modes** menu. A
+  preset link is a whole choice: its board, Standard play, and the default
+  generator. A player who picks presets sees nothing else above the board: no
+  size fields, no generator, no mode status. (Until 2026-11-19 a **Game
+  details** popover button also appeared here on narrow screens; the adaptive
+  details dock below the board replaced that popover.)
 - The **other modes** menu reads "other modes" while a preset is chosen. It
   lists Custom (Standard play on a board the player sizes) and then every
   other mode, one level deep: 3BV countdown, Angelic, Endgame drill, Trial,
@@ -322,10 +323,10 @@ duplicative and needlessly complex."
   limits** button (the settings page's limits panel, always shown and
   always so labeled), then the **settings** button (the settings page) at
   its right end. Today's use is live status, not configuration, so it
-  stays in view: a refused flag press flashes its outline. With the details
-  column docked the bar sits above it at the page's upper right, sticky
-  with it; with the Game details popover it sits above the board column,
-  right-aligned; below 700px it is the first row. Without limits it holds
+  stays in view: a refused flag press flashes its outline. Above 1120px it
+  shares the page head with the centered game choice row at the page's upper
+  right; at 1120px and below it stacks cleanly right-aligned above the game
+  choice row so neither collides. Without limits it holds
   the two buttons. The daily limits button returned here on 2026-10-22
   (creator: "move "daily limits" control button back up to UR") and the
   settings button on 2026-10-21 (creator: "move "settings" to upper
@@ -346,201 +347,136 @@ duplicative and needlessly complex."
   and problems, then "play on Fuseki". They were an "other pages" menu in
   the top bar from 2026-10-14 to 2026-10-20.
 
-## Layout: the board never moves
+## Layout: board position first, adaptive details dock, full-width sections
 
-- The page has two columns: the board with its tablecharts, and the
-  details column (live perf charts, game data, and game details). The
-  details column is reserved before a game finishes; results and replay
-  never change the board column's width.
-- A third column at the left held the session and live motion stats until
-  2026-10-20 ([Session stats](session-stats.md)). The motion stats are now
-  an open/close section at the page foot ([Motion stats](motion-stats.md)),
-  so nothing beside the board comes or goes with them.
-- The archive alert and the play context line (the music state and the
-  player states that are on, as tags, with the **edit states** button;
-  [Player states](player-states.md)) stay at the top of the details column.
-- One details column (creator 2026-10-17, of the laptop layout with game data
-  docked between the board and a 320px details column: "it's too compressed!
-  Let's make the entire rightside (two columns) into one, and make the upper
-  part be things like "intermediate" and "win" ... (actually, remove the
-  date) and make the rest part of the UI, which can compress/shrink, so
-  there's proper room for during-game, game-average, and board-profile stat
-  sections. and, each of those shall be toggleable open/closed so that we use
-  space well and can expand to be visible enough."). The separate game data
-  column (2026-09-23 to 2026-10-17) is gone; everything right of the board is
-  one sticky column, top to bottom:
+Revised 2026-11-19 (creator approved Option 1 with sub-choices A and B,
+following his 2026-10-26 report that "position" blocked moving an Expert
+board right at Zoom 36 and his 2026-11-19 request to prioritize board
+location across the full viewport and standardize the framing and flow of
+the remaining after-board chunks without altering their internal tables or
+charts).
+
+- **Single-column full-width page with a board-first top stage**: the page
+  no longer reserves a permanent right-hand column beside the board and
+  every lower section (that two-column split ran from 2026-09-07 to
+  2026-11-19, with a third left stats column removed on 2026-10-20).
+  Instead:
+  1. **Zone 1 (top stage)**: the board is placed **first** across the full
+     page width, with `boardOffsetX = 0` centered in the full viewport. The
+     player can drag or set **position** anywhere inside the full stage
+     width (8 px edge inset) and below the game setup rows without any
+     details-column reservation blocking travel.
+  2. **Adaptive details dock**: after the board is placed, the details
+     column (archive alert, play context with **edit states**, **see
+     scores**, live perf charts, game data, and the replay legend) docks
+     into whichever free flank of the board has more room (right on ties)
+     whenever that flank holds at least 320 px outside an 18 px gap and the
+     viewport is wider than 700 px. Moving the board right automatically
+     flips the dock to the left flank; moving the board left widens the
+     right flank. The footprint reserves the replay transport's minimum
+     width (340 px) so ending a small board never shifts the dock.
+  3. **Below-board full-width fallback (no popover)**: when neither flank
+     holds 320 px or the viewport is 700 px or narrower (for example an
+     Expert board centered on a 1440–1504 px laptop or a narrow window),
+     the details dock drops directly below the board at 100% page width
+     instead of hiding behind a **Game details** popover. At 900 px and
+     wider when both live perf charts and game data are present, they sit
+     side by side in two equal fluid columns; below 900 px or when only one
+     is present they stack cleanly at full width.
+  4. **Zone 2 (full-width after-board sections)**: below the top stage,
+     every section spans 100% of the page width in a consistent vertical
+     stack: after-game report (when shown, with its own arrow opener),
+     upper tables (overview row then rankings), This board, your perf,
+     board traits, relationships, motion stats, backup, settings row, and
+     footer.
+- **Details dock contents** (unified into one column on 2026-10-17, creator:
+  "make the entire rightside (two columns) into one ... each of those shall
+  be toggleable open/closed so that we use space well"):
   - No outcome line (creator request 2026-10-20: "remove this text saying
-    'Win beginner.' I was certain we'd already removed it, but anyway,
-    remove it again"). The dove face shows win or loss and the board tabs
-    show the board; "no-mark" stays in the stats ("0 - markless") and the
-    no-mark lifetime list. From 2026-10-17 the column opened with "Win" or
-    "Loss" and the board ("Win Expert · no-mark"); until 2026-10-19 it
-    named the mode and generator too. Only the High scores view keeps a
-    head line: "High scores" and its board, then "Latest win" or "No wins
-    yet", since nothing else on screen says the view is not a game.
-  - The archive alert and the play context line with **edit states**, then
-    one row holding see scores. Mode and generator moved to the game setup
-    rows above the board on 2026-10-20, and Replay game became the
-    transport under the board. The row also held the Overlays button (the
-    replay's board overlays and mouse path) until 2026-10-21, when those
-    toggles moved under the transport ([Path and choice
-    replay](replay.md)).
+    'Win beginner.'"). Only the High scores view and Old game view keep a
+    head line, since nothing else on screen says the view is not the current
+    game.
+  - The archive alert and play context line with **edit states**, paired
+    with **see scores** on one wrapping line.
   - "live perf charts" ([During the game](during-game.md)), a stat section
-    titled by a button that opens and closes it (its (?) was removed
-    2026-10-20); then game data's one chart ([Game data](game-data.md)),
-    whose two sides, "game summary perf" and "board traits", share its
-    percentile bar (creator 2026-10-17,
-    after the first build split them into two sections with a bar each:
-    "its necessary / hoped for that "board traits" and "your perf" share the
-    same percentile distribution chart"). Each side's title opens and closes
-    that side the same way. Each open or closed state is a remembered panel
-    (`duringGame`, `gamePerformance`, `boardTraits`), open by default, kept
-    across games and reloads. After a loss the column holds live perf
-    charts alone; the loss's statistics are the "this game" table with the
-    tables under the board (creator 2026-10-26,
+    titled by a button that opens and closes it; then game data's one chart
+    ([Game data](game-data.md)), whose two sides, "game summary perf" and
+    "board traits", share its percentile bar. Each open or closed state is
+    a remembered panel (`duringGame`, `gamePerformance`, `boardTraits`),
+    open by default. After a loss the column holds live perf charts alone;
+    the loss's statistics are the "this game" table in the overview row
+    below the board (creator 2026-10-26,
     [This game's stats](results.md#this-games-stats-creator-request-2026-10-26)).
-  - Game data's chart takes the column height left below everything above
-    it, so its options row stays at the screen's bottom. It keeps at least
-    240px per open side, and the column scrolls below that rather than
-    crushing it. A closed side keeps only its title and the open side takes
-    its room; with both sides closed the chart is one line holding the two
-    titles. Closing "during this game" lets the chart fill the column.
-- Board in the middle (creator decision 2026-10-07: "perhaps the session sum
-  could be to the left of the board, ranks won to the right, board in
-  middle? that's okay"): the board always centers in its column. This
-  supersedes the 2026-09-23 decision that the board rest against game data
-  ("Sit right next to the game data column; my saved position then counts
-  from there"), which had left an empty area about 1,000 x 330 px wide on the
-  first screen left of a Beginner board at 2560 px. A zero position offset is
-  the centered place, so finishing a game never moves the board.
-- Beside the board (same decision): after a game, the session summary rests
-  left of the board frame and ranks won right of it, 16px from the frame
-  (from the replay transport where that is wider than a small board),
-  tops aligned with the board. Each goes beside the board only where its
-  whole width fits inside the board column (8px from its edges); otherwise
-  it stays at the head of the table list under the board, summary first.
-  Both keep their places at the head of the table list's DOM order, so the
-  table order rule is unchanged. The tables below start after the board and
-  its transport or after the lower of the two side blocks, whichever ends
-  lower. On the
-  creator's 2560 x 970 viewport both fit beside a Beginner board; beside an
-  Intermediate board the room is about 379px each side, narrower than the two
-  blocks with production history (about 391 and 418px), so both lead the
-  tables instead. The side blocks never move the board.
-  After a loss, the "this game" stats table (creator 2026-10-26: "flowing up
-  as possible") takes a side the summary and ranks won leave free, the left
-  first, by the same fit rule, and otherwise stays in the table list right
-  after them. On the creator's viewport it fits beside a Beginner or
-  Intermediate board (about 230px wide) but not beside an Expert board.
-  The fit rule uses each block's open width even while its title has it
-  closed (2026-10-26, [Openers](results.md#openers-creator-request-2026-10-26)),
-  so a closed block keeps its place and its title stays put as it opens
-  and closes; beside the board on the left, a closed block's title sits
-  where the open block's left edge is.
-- The board is the anchor. Appearing or disappearing content must not move it.
-  Its reserved startup space occupies the same explicit main column.
-- The archive alert, session tags, optional display
-  controls, the stat sections (or the final time while a result loads), and
-  the full replay legend share the right details column in that order. They are in
-  normal flow inside an independently scrollable, sticky column. Stats precede
-  the legend, so changing replay frames does not move the stats. These panels
-  never cover the board or tablecharts and never add height between them.
-- Details column sizing (2026-10-17, replacing the 2026-09-23 split between
-  a game data column and a 320px details column): the column prefers a
-  share of the window width, 46% by default, and gives way to the board
-  column, which keeps the larger of the board and 640px (the ranks-won
-  summary plus a table beside it), down to 320px. Below that the Game
-  details popover takes over, `max(420px, 60vw)` within the viewport, so
-  widening the column never undocks a board that fit beside a 320px column.
-  On a 1504px laptop window with the stats panel open (until 2026-10-20) it
-  was about 450px wide by default.
-- Resizable details column (creator 2026-10-17, of the details column with
-  game data: "you must allow that section, also, to be widenable/narrowable
-  with mouse", the stats panel's right edge being the existing drag grip):
-  the docked column's left edge is a drag grip in the gap between the board
-  column and the details column, the height of the column, marked by a thin
-  line that highlights on hover and while dragging. Dragging left widens the
-  column and dragging right narrows it, within the same limits (320px, and
-  the board column's room); the board recenters in its column, and the
-  during-the-game charts and game data follow the pointer each animation
-  frame rather than catching up on release. Release saves the width as the
-  `detailsColumnShare` setting, a share of the window width, so the column
-  keeps its proportion when the window changes size. With keyboard focus on
-  the grip, the left and right arrows widen and narrow the column by 10px.
-  The grip is absent while the details are the Game details popover.
-- When the board and side columns cannot fit, a bordered **Game details**
-  button opens the same details as a native popover. Close, Escape, or clicking
-  outside dismisses it. Opening it does not reflow the board or history.
-  This mode depends on viewport, board, and metrics-column widths, never on
-  whether a result or legend exists. Below 700px, session metrics occupy a
-  bounded scroll area above the game.
-- The replay transport sits directly under the board once a game ends,
-  like a video player's controls
-  ([Path and choice replay](replay.md)). It is as wide as the
-  board (at least 340px, at most the board column) and centered under it.
-  It adds its height between the board and the tables but never moves the
-  board. Its foot holds the replay's view toggles, board overlays then
-  mouse path, wrapping within its width; score controls stay in the details
-  column. Replay arrow shortcuts apply while the transport is visible.
-- The tables begin directly below the board when no action report is shown.
-  The session summary and the time-period summary ("ranks won in session",
-  today by default) lead them, then after a loss the "this game" stats,
-  unless they sit beside the board (above); then come the time/category,
-  streak, near-streak, and near-near-streak tables. Under the board,
-  "this game" floats beside the summary column where it fits there, and
-  otherwise at the left under it. All share one continuous, left-aligned
-  wrapping list without a section title; the time, category, and streak
-  tables open and close together under one title, "rankings", which takes
-  the room beside the summary column and "this game", its tables filling
-  that room and then the full width underneath (2026-10-26,
-  [Openers](results.md#openers-creator-request-2026-10-26)). A separate **This
-  board** section follows (2026-09-21): exact 3BV, ZiNi, HZiNi, maximum number,
-  has-7/8, maximum-clue caps, zero-count, mine-island count, and enabled
-  largest-island tablecharts. Each table keeps its own identifying label.
-  Both sections precede the your-perf charts, the board-trait charts, and
-  relationships; the motion stats section follows them at the page foot
-  ([Motion stats](motion-stats.md)).
-  HZiNi, 3BV spread, 0–1 share, and zero-opening coverage values appear in
-  their tablechart headings; there are no separate value cards. The
-  3BV-spread tablechart is off by default (user decision 2026-09-23: "i don't
-  think we need to show 3bv spread by default"). Game data's board-trait
-  rows, the 3BV spread marker among them, are chosen in its configure since
-  2026-10-14, not by these switches ([Game data](game-data.md)). Heading
-  mouseovers/focus expose definitions, more precise values, and grouping
-  rules without moving the layout. Backfill progress stays above the tables.
-  After a loss these comparison families describe the lost board, including
-  when no wins exist yet; the upper period/streak tables retain the latest
-  win history without marking the loss.
-- The scrollbar gutter is reserved so page growth cannot move the board.
-  Stats and legend height affect only their own scroll column. Only board
-  Justice callouts reserve any overhang before the following content.
-- Replay legends are built offscreen and replaced together, so rebuilding
-  them cannot temporarily collapse the column and reset its scroll position.
-- Layout runs on geometry changes, never a periodic stats-refresh timer, and
-  preserves page and sidebar scroll. Layout corrections allocate space;
-  they do not raise z-index to conceal collisions between ordinary content.
-- Position stores independent X/Y pixel preferences, editable by drag,
-  arrows, labeled sliders, or numbers. Offsets count from the board's
-  centered resting place (2026-10-07; formerly from beside game data). A
-  saved offset therefore now moves the board from the center. Sidebar controls
-  remain outside its translation. Applied offsets keep a board that fits at
-  least 8px inside the board column and the viewport and 8px below the game
-  setup rows, the lowest of the game choice row, the mode options row, and
-  the Board lab panel (an oversized board keeps its overflow), without
-  rewriting the saved preference. A trial's lobby and review show no board,
-  so no offset applies to them.
-- The position editor follows the board, normally directly below it, on all
-  screen widths. It switches sides when needed and stays within the visible
-  viewport during dragging, scrolling, resizing, and zooming. Reset (both
-  offsets to zero, the resting place) and a prominent Done button stay at
-  the top of the editor; Escape also closes it.
-  The editor does not change the board's position or page layout. Its
-  **position** opener is in the settings row's board display group at the
-  page foot, after Zoom (2026-10-20; from 2026-10-14 the same group sat in
-  the top bar). Opening or closing the editor never scrolls the page to the
-  opener. It holds a pressed look while the
-  editor is open. Closing the editor returns keyboard focus to
-  the opener; loading the page does not (until 2026-10-14 every load gave
-  the opener focus and its focus ring).
-- The results area echoes the in-game numeral face (Arial Black stack);
-  the game-data chart inside it uses regular Arial.
+  - When docked beside the board, game data's chart takes the column height
+    left below everything above it (keeping at least 240 px per open side,
+    scrolling below that rather than crushing it). When docked below the
+    board, it flows at full readable height (matching live perf charts when
+    side by side).
+  - The replay legend follows stats inside the same details dock, so
+    changing replay frames never moves stats, and neither moves the board.
+- **Resizable docked details**: when the details dock sits in the left or
+  right flank, its board-facing edge holds a drag grip in the 18 px gap
+  (right edge when docked left, left edge when docked right), matching the
+  dock's height and highlighted on hover and drag. Dragging widens or
+  narrows the dock between 320 px and the free flank's room without ever
+  moving the board; live perf charts and game data follow each animation
+  frame. Release saves `detailsColumnShare` (default 0.46 of window width).
+  Keyboard Left/Right arrows step 10 px. The grip is absent when the dock
+  sits below the board.
+- **The board is the anchor**: appearing or disappearing results, replay
+  controls, hover cards, or lower sections never move the board. The
+  scrollbar gutter is reserved so page growth cannot shift the board.
+  Top-stage `min-height` reserves room for the docked details panel and any
+  board Justice callout so sections below never overlap them.
+- **Replay transport**: sits directly under the board once a game ends
+  ([Path and choice replay](replay.md)), sized to
+  `min(stageWidth, max(340px, boardFrameWidth))` and centered under the
+  board (moving with its saved translation). Its foot holds the replay's
+  view toggles, board overlays then mouse path.
+- **After-board sections** (standardized 2026-11-19):
+  - When an after-game report is shown, it uses the same full-width arrow
+    opener ("after-game report", remembered in `panels.resultAnalysis`,
+    default open) with a 1 px black underline.
+  - The upper tables start directly below the top stage (or report). First
+    is a full-width wrapping overview row holding the session summary
+    ("session"), "ranks won in session", and after a loss "this game" stats
+    side by side in DOM order (stacking cleanly on narrow viewports).
+    Beside-board table snapping (`placeBoardSides`, used 2026-10-07 to
+    2026-11-19) was removed so overview tables stay predictable and never
+    jump when the board moves, and the `.session-tables` float wraparound
+    was replaced by the clean full-width row. Below the overview row sits
+    the full-width "rankings" group (time, category, and streak tables
+    sharing one opener and consistent vertical padding/baseline across
+    clickable and non-clickable tables).
+  - **This board** follows at full width, then **your perf**, **board
+    traits**, and **relationships** (each using a left-aligned responsive
+    CSS grid of 270 px chart cards without changing each chart's internal
+    SVG/canvas geometry), then **motion stats** at the page foot (a
+    left-aligned responsive grid of 230 px cards with matching black-rule
+    subheadings).
+  - HZiNi, 3BV spread, 0–1 share, and zero-opening coverage values appear in
+    their tablechart headings; 3BV spread stays off by default. Heading
+    mouseovers/focus show definitions without moving layout.
+- **Replay legends** are built offscreen and replaced together so
+  rebuilding them cannot collapse the dock and reset scroll. Layout runs on
+  geometry changes, never a periodic stats-refresh timer, and preserves
+  page and dock scroll.
+- **Position editor**: stores independent X/Y pixel preferences, editable
+  by drag, arrows, labeled sliders, or numeric inputs. Offsets count from
+  the board's viewport-centered resting place (`0, 0`). Applied offsets
+  keep a board that fits at least 8 px inside the full stage width and the
+  viewport and 8 px below the lowest visible game setup row (an oversized
+  board keeps its overflow), without rewriting the saved preference. The
+  X and Y sliders dynamically show the actual movable `[min, max]` range
+  and labeled ticks for the current board and viewport, and dragging/arrow
+  keys start from the applied position with zero dead zone. A trial's lobby
+  and review show no board, so no offset applies to them.
+  The editor panel follows the board, staying within the visible viewport,
+  with Reset and Done at the top and Escape to close. Opening or closing it
+  never scrolls the page; closing returns focus to the **position** button
+  in the settings row.
+- **Typography** (unified 2026-11-19, sub-choice A): all after-board
+  sections (`#result-analysis`, `#result-ranks`, `#pregen-charts`) share
+  regular `Arial, Helvetica, sans-serif` (bold headings and tabular values)
+  with `#game-sidebar` and `#motion-stats`. Only board `.cell` numerals and
+  live Justice callouts keep the chunky `Arial Black` face.

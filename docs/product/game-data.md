@@ -22,8 +22,12 @@ From 2026-09-23 to
 2026-10-17 game data had its own
 full-height column between the board and a 320px details column (user
 decision 2026-09-23: "a full-height column right next to the board"), which
-the creator found "too compressed" on a laptop. Where the column cannot dock,
-everything goes into the Game details popover in the same order.
+  the creator found "too compressed" on a laptop. Since 2026-11-19 the
+  details dock sits in whichever flank of the placed board has more room
+  (left or right when at least 320 px fits), and where neither flank fits,
+  live perf charts and game data flow directly below the board at full
+  page width (side by side at 900 px and wider, stacked below) instead of
+  inside a popover.
 It is not repeated among the lower ranking charts. Losses and trial games
 retain their scalar statistics because an unfinished board has no completed
 solve-time or efficiency rank. High scores uses its latest winning game.

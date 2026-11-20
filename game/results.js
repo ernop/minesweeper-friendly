@@ -221,20 +221,6 @@ function playStatisticsFields(record) {
 let renderedResult = null;
 let resultViewRevision = 0;
 
-let resultLayoutFrame = null;
-if (typeof ResizeObserver !== 'undefined') {
-  const resultLayoutObserver = new ResizeObserver(() => {
-    if (settings === null || resultLayoutFrame !== null) return;
-    resultLayoutFrame = requestAnimationFrame(() => {
-      resultLayoutFrame = null;
-      syncBoardLayout();
-    });
-  });
-  resultLayoutObserver.observe(mainElement);
-  resultLayoutObserver.observe(pageLayout);
-  resultLayoutObserver.observe(gameFrame);
-}
-
 //-------AFTER-GAME REPORT (verdict blocks within the report scope)-------
 
 function evaluationCellName(cell, width) {
@@ -643,7 +629,6 @@ function createResultSectionCollector(context) {
           syncResultSectionShown(section);
           old.replaceWith(section);
           last = section;
-          syncBoardLayout();
           await yieldAnalysisPresentation();
           continue;
         }
@@ -658,7 +643,6 @@ function createResultSectionCollector(context) {
           }
           shell.items.append(...nodes);
           syncResultSectionShown(shell.section);
-          syncBoardLayout();
           await yieldAnalysisPresentation();
         }
       }
@@ -773,7 +757,7 @@ function attachHelpTip(button, help) {
 // focusing it by keyboard shows it, and the click that opens or closes puts
 // it away.
 let panelBodyCount = 0;
-function panelToggle(panelKey, title, body, help) {
+function panelToggle(panelKey, title, body, help, onBeforeToggle) {
   const toggle = document.createElement('button');
   toggle.type = 'button';
   toggle.className = 'ui-button stat-section-toggle';
@@ -785,7 +769,9 @@ function panelToggle(panelKey, title, body, help) {
     body.hidden = !settings.panels[panelKey];
   };
   toggle.addEventListener('click', () => {
-    rememberPanel(panelKey, !settings.panels[panelKey]);
+    const next = !settings.panels[panelKey];
+    if (onBeforeToggle) onBeforeToggle(next);
+    rememberPanel(panelKey, next);
     show();
     scheduleBoardLayout();
   });
@@ -816,22 +802,30 @@ function buildStatSection(panelKey, title) {
 
 // A result opener's head: a heading (`level`, h3 or h4) holding the title
 // that opens and closes `body`.
-function resultOpenerHead(level, panelKey, title, body, help) {
+function resultOpenerHead(level, panelKey, title, body, help, onBeforeToggle) {
   const head = document.createElement('div');
   head.className = 'stat-section-head';
   const heading = document.createElement(level);
   heading.className = 'stat-section-title';
-  heading.append(panelToggle(panelKey, title, body, help));
+  heading.append(panelToggle(panelKey, title, body, help, onBeforeToggle));
   head.append(heading);
   return head;
 }
 
 // A table among the result's tables (the session summary, ranks won, this
 // game): its title opens and closes the returned body, which holds the rest.
+// Closing holds the table's open width so wrapped siblings never jump rows.
 function resultTableOpener(table, panelKey, title, help) {
   const body = document.createElement('div');
   body.className = 'stat-section-body';
-  table.append(resultOpenerHead('h4', panelKey, title, body, help), body);
+  const head = resultOpenerHead('h4', panelKey, title, body, help, (opening) => {
+    if (!opening) {
+      table.style.minWidth = 'min(100%, ' + Math.ceil(table.getBoundingClientRect().width) + 'px)';
+    } else {
+      table.style.removeProperty('min-width');
+    }
+  });
+  table.append(head, body);
   return body;
 }
 
@@ -992,7 +986,14 @@ async function renderResultAsync(record, modeRecords, options = {}) {
   else resultSummary.textContent = '';
   const historyView = options.historyView === true;
   const verdicts = !historyView && settings.reportScope !== 'none' ? buildVerdictBlocks(record) : null;
-  resultAnalysis.replaceChildren(...(verdicts === null ? [] : [verdicts]));
+  if (verdicts === null) {
+    resultAnalysis.replaceChildren();
+  } else {
+    const { section, body } = buildStatSection('resultAnalysis', 'after-game report');
+    section.classList.add('result-analysis-section');
+    body.appendChild(verdicts);
+    resultAnalysis.replaceChildren(section);
+  }
   const gameStats = settings.shownThings.gameStats && (record.outcome !== 'win'
     || (Trial.isPlayMode(settings.playMode) && !historyView)) ? buildGameStats(record) : null;
 
@@ -1011,6 +1012,8 @@ async function renderResultAsync(record, modeRecords, options = {}) {
     resultRanks.textContent = '';
     if (gameStats !== null) resultRanks.appendChild(gameStats);
     renderTrialChrome();
+    syncGameSidebar();
+    syncResultClearance();
   } else {
     const ranks = record.outcome === 'win'
       ? renderRanks(record, noMarkComparison(record, modeRecords),
@@ -1022,7 +1025,6 @@ async function renderResultAsync(record, modeRecords, options = {}) {
     if (!isCurrent()) return;
   }
   resultRanks.removeAttribute('aria-busy');
-  syncBoardLayout();
 }
 
 function showScoresForCurrentMode() {
@@ -1038,7 +1040,8 @@ function showScoresForCurrentMode() {
     resultAnalysis.textContent = '';
     resultRanks.textContent = '';
     resultRanks.removeAttribute('aria-busy');
-    syncBoardLayout();
+    syncGameSidebar();
+    syncResultClearance();
     return;
   }
   const latest = wins.reduce((a, b) => a.endedAt > b.endedAt ? a : b);

@@ -442,9 +442,8 @@ Built the same day:
   position.
 - A click on a chart or an event track keeps its moment: the replay stays
   there after the pointer leaves, saved as the transport's moves are, and
-  the board scrolls into view if the page had scrolled it away. In the
-  compact layout the Game details popover covers the board, so the click
-  also closes it. A click on a legend is a legend pick, not a move.
+  the board scrolls into view if the page had scrolled it away. A click on
+  a legend is a legend pick, not a move.
 - Gone with the board beside the block: its head line (the transport's
   status names the moment and the next click instead), its fixed size and
   place, and the proven-safe ring on only the squares the hovered events

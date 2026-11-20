@@ -266,9 +266,9 @@ because they apply app-wide, not just where each was first stated.
   its options at once: never behind a collapsed section, a "more" toggle,
   or a second panel. Related options live together in one place, under
   headings named for what they control, in the order those things appear
-  on the page. Where a narrow window
-  folds the whole side column into its Game details popover, a panel from
-  that column shows inline inside it instead of opening a second popover.
+  on   the page. (Until 2026-11-19 a narrow window folded the side column into a
+  Game details popover; since then the details dock flows full-width below
+  the board instead of hiding behind a popover.)
 - Each option in one place (creator 2026-10-21: "rectify the duplication
   and problematic "double settings location" issue where some settinsg are
   within "settings" while others are in "overlays & display""). A setting

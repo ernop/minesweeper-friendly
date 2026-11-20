@@ -54,12 +54,6 @@ function initGamePreferences() {
   showBackupPanel(formatPanel, formatButton, settings.panels.dataFormat);
   importText.value = settings.drafts.historyImport;
   statesAddInput.value = settings.drafts.stateName;
-  if (settings.panels.gameDetails && pageLayout.classList.contains('compact-sidebar')) gameSidebar.showPopover();
-
-  gameSidebar.addEventListener('toggle', () => {
-    if (!pageLayout.classList.contains('compact-sidebar')) return;
-    rememberPanel('gameDetails', gameSidebar.matches(':popover-open'));
-  });
   for (const [element, field] of [[statesAddInput, 'stateName'], [importText, 'historyImport']]) {
     element.addEventListener('input', () => rememberPreference('drafts', { ...settings.drafts, [field]: element.value }));
   }

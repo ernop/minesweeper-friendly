@@ -5,14 +5,15 @@
 
 //-------RESULT RANKS (tables and charts in section order)-------
 
-// The session summary and ranks won, stacked: below the board they float as
-// one left column, so the tables after them rise beside it.
-function sessionTablesColumn(tables) {
-  const column = document.createElement('div');
-  column.className = 'session-tables';
-  column.append(...tables);
-  column.analysisReady = Promise.all(tables.map((table) => table.analysisReady));
-  return column;
+// The overview band leading the table collection: the session summary, ranks
+// won in session, and (after a loss) this game's stats sit side by side
+// across the full page width.
+function overviewTablesBand(tables) {
+  const band = document.createElement('div');
+  band.className = 'result-overview-band';
+  band.append(...tables);
+  band.analysisReady = Promise.all(tables.map((table) => table.analysisReady));
+  return band;
 }
 
 // The rank tables (time windows, day categories, streaks) as one group whose
@@ -90,7 +91,8 @@ async function renderRanks(record, modeRecords, options = {}, sections, isCurren
     if (!isCurrent()) return;
     clearResultStats();
     resultStats.append(...[duringGame, parts.profile].filter((block) => block));
-    syncBoardLayout();
+    syncGameSidebar();
+    syncResultClearance();
   });
 
   // A table of games opens its full list, where old games open.
@@ -126,15 +128,12 @@ async function renderRanks(record, modeRecords, options = {}, sections, isCurren
     return nodes;
   };
 
-  // The session summary and ranks won lead the table collection; layout
-  // moves them beside the board, left and right, where they fit.
+  // The session summary, ranks won in session, and (after a loss) this game's
+  // stats lead the table collection side by side at full width.
   sections.append('tables', whenPrepared(async ({ placements }) => {
-    const tables = [await summary, placements].filter((table) => table);
-    return tables.length > 0 && isCurrent() ? [sessionTablesColumn(tables)] : [];
+    const tables = [await summary, placements, gameStats].filter((table) => table);
+    return tables.length > 0 && isCurrent() ? [overviewTablesBand(tables)] : [];
   }));
-  // A loss's own stats come next, ahead of every rank table, so they flow
-  // as high as the collection allows.
-  if (gameStats) sections.append('tables', gameStats);
   sections.append('tables', whenPlanned(async (ranks) => {
     const lists = await buildEach(ranks.timeTables, timeTable);
     if (!isCurrent()) return [];

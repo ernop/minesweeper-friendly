@@ -481,7 +481,6 @@ function syncTrialBoardVisibility(phase) {
   gameArea.classList.toggle('trial-no-board', hide);
   document.body.classList.toggle('trial-offboard', hide);
   resultsBox.hidden = hide;
-  if (hide) resultRanks.style.removeProperty('--result-overflow');
 }
 
 function renderTrialChrome() {

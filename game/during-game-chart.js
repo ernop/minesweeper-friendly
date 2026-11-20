@@ -122,15 +122,19 @@ function duringGameCard() {
   return duringGameCardEl;
 }
 
-// Beside the pointer: right of it, away from the board left of the column,
-// unless the window has no room there; above it where there is room, else
-// below.
+// Beside the pointer: away from the board where there is room (right of the
+// pointer when the details column docks right, left of it when it docks
+// left); above the pointer where there is room, else below.
 function placeDuringGameCard(card, event) {
   const room = duringGameRoom();
   const width = card.offsetWidth;
   const height = card.offsetHeight;
+  const dockedLeft = topStage.dataset.detailsDock === 'left';
   const right = event.clientX + DURING_GAME_CARD_GAP_PX;
-  const left = right + width <= room.width - 4 ? right : event.clientX - DURING_GAME_CARD_GAP_PX - width;
+  const leftSide = event.clientX - DURING_GAME_CARD_GAP_PX - width;
+  const left = dockedLeft
+    ? (leftSide >= 4 ? leftSide : right)
+    : (right + width <= room.width - 4 ? right : leftSide);
   const above = event.clientY - DURING_GAME_CARD_GAP_PX - height;
   const top = above >= 4 ? above : event.clientY + DURING_GAME_CARD_GAP_PX;
   card.style.left = Math.max(4, Math.min(left, room.width - width - 4)) + 'px';
@@ -860,16 +864,13 @@ function renderDuringGameCharts(charts, view, { raw, relativeScale, picks }) {
     placeDuringGameCard(card, event);
   });
   charts.addEventListener('pointerleave', hide);
-  // A click on a plot or track keeps its moment as the replay's position. The
-  // compact details popover covers the board, so it closes to show it.
+  // A click on a plot or track keeps its moment as the replay's position and
+  // brings the board into view when the details panel sits below it.
   charts.addEventListener('click', (event) => {
     const moment = momentAt(event);
     if (moment === null || partAt(event.clientY) === null) return;
     setReplayStep(stepAt(moment));
-    if (gameSidebar.matches(':popover-open')) {
-      gameSidebar.hidePopover();
-      hide();
-    }
+    if (topStage.dataset.detailsDock === 'below') hide();
     gameFrame.scrollIntoView({ block: 'nearest' });
   });
   return layout;

@@ -1170,6 +1170,7 @@ function buildBoardTimeRankProfile(record, records, referenceMs) {
       profile.appendChild(footer);
     }
     profile.removeAttribute('aria-busy');
+    fitGameDataToSidebar();
   }
   profile.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && view !== 'chart') { event.preventDefault(); event.stopPropagation(); show('chart'); }

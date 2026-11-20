@@ -1,8 +1,8 @@
 'use strict';
 
 // Board position (a pure constraint solver, its page wiring, and the position
-// editor), zoom (cell size), and page layout: the docked details column,
-// Justice callout placement, and result clearance.
+// editor), zoom (cell size), and page layout: the full-width top stage with
+// an adaptive details dock, Justice callout placement, and stage clearance.
 
 //-------PERSISTENT BOARD POSITION (pure constraint solver)-------
 
@@ -56,7 +56,7 @@ function boardPositionPanelRect(board, width, height, bounds) {
 }
 
 // Find the collision-free offset nearest the player's preference. Horizontal
-// bounds keep a board that fits inside the available main column; oversized
+// bounds keep a board that fits inside the full stage width; oversized
 // boards retain their natural overflow. There is deliberately no lower bound:
 // positive Y expands page flow, so a deeply lowered board remains scrollable.
 function constrainBoardOffset(base, bounds, exclusions, preferredX, preferredY) {
@@ -92,9 +92,28 @@ function constrainBoardOffset(base, bounds, exclusions, preferredX, preferredY) 
   return { x: best.x, y: best.y, adjusted: best.x !== preferredX || best.y !== preferredY };
 }
 
+// Choose where the details column docks around the placed board inside the
+// full-width top stage: the wider free flank (right on ties) when it holds at
+// least `minimum` pixels, otherwise below the board at full stage width.
+// Never moves the board.
+function detailsDockPlacement(stageWidth, boardLeft, boardRight, minimum, gap, preferredWidth, narrowViewport) {
+  const clampedLeft = Math.max(0, Math.min(stageWidth, boardLeft));
+  const clampedRight = Math.max(clampedLeft, Math.min(stageWidth, boardRight));
+  const leftRoom = Math.floor(clampedLeft - gap);
+  const rightRoom = Math.floor(stageWidth - clampedRight - gap);
+  const widestFlank = Math.max(leftRoom, rightRoom);
+  if (narrowViewport || widestFlank < minimum) {
+    return { dock: 'below', minimum, maximum: Math.max(0, Math.floor(stageWidth)), width: Math.max(0, Math.floor(stageWidth)) };
+  }
+  const dock = rightRoom >= leftRoom ? 'right' : 'left';
+  const maximum = dock === 'right' ? rightRoom : leftRoom;
+  const width = Math.max(minimum, Math.min(maximum, preferredWidth));
+  return { dock, minimum, maximum, width };
+}
+
 //-------PERSISTENT BOARD POSITION END-------
 
-//-------PAGE LAYOUT (applied position, docked columns, clearance)-------
+//-------PAGE LAYOUT (applied position, adaptive details dock, clearance)-------
 
 const boardPositionButton = document.getElementById('board-position-btn');
 const boardPositionPanel = document.getElementById('board-position-panel');
@@ -102,12 +121,51 @@ const boardPositionX = document.getElementById('board-position-x');
 const boardPositionXNumber = document.getElementById('board-position-x-number');
 const boardPositionY = document.getElementById('board-position-y');
 const boardPositionYNumber = document.getElementById('board-position-y-number');
+const boardPositionXTicks = [...boardPositionX.parentElement.querySelectorAll('.board-position-ticks > span')];
+const boardPositionYTicks = [...boardPositionY.parentElement.querySelectorAll('.board-position-ticks > span')];
 const boardPositionDragSurface = document.getElementById('board-position-drag-surface');
+
+const BOARD_OFFSET_X_LIMIT = 2000;
+const BOARD_OFFSET_Y_MIN_LIMIT = -1000;
+const BOARD_OFFSET_Y_MAX_LIMIT = 2000;
+const DETAILS_DOCK_GAP = 18;
+const REPLAY_CONTROLS_MIN_WIDTH = 340;
+const BELOW_TWO_COLUMN_MIN_WIDTH = 900;
 
 let appliedBoardOffsetX = 0;
 let appliedBoardOffsetY = 0;
+let boardPositionRange = {
+  fitsHorizontally: true,
+  minX: -BOARD_OFFSET_X_LIMIT,
+  maxX: BOARD_OFFSET_X_LIMIT,
+  minY: BOARD_OFFSET_Y_MIN_LIMIT,
+  maxY: BOARD_OFFSET_Y_MAX_LIMIT,
+};
 let boardLayoutFrame = null;
 let stopBoardPositionDrag = null;
+let cachedLayoutConstants = null;
+
+function readLayoutConstants() {
+  if (cachedLayoutConstants === null) {
+    const style = getComputedStyle(pageLayout);
+    cachedLayoutConstants = {
+      inset: parseFloat(style.getPropertyValue('--board-edge-inset')),
+      sidebarMin: parseFloat(style.getPropertyValue('--game-sidebar-min-width')),
+    };
+  }
+  return cachedLayoutConstants;
+}
+
+function setStyleProp(element, name, value) {
+  if (element.style.getPropertyValue(name) !== value) {
+    if (value === '') element.style.removeProperty(name);
+    else element.style.setProperty(name, value);
+  }
+}
+
+function setAttrIfChanged(element, name, value) {
+  if (element.getAttribute(name) !== value) element.setAttribute(name, value);
+}
 
 // Board layout uses document coordinates so scrolling cannot move content.
 function boardPageRect(element) {
@@ -115,13 +173,37 @@ function boardPageRect(element) {
     element.getBoundingClientRect(), window.scrollX, window.scrollY, false);
 }
 
+function syncAxisSlider(rangeInput, numberInput, tickSpans, min, max, value) {
+  const locked = min >= max;
+  const minStr = String(min);
+  const maxStr = String(max);
+  const valStr = String(value);
+  if (rangeInput.min !== minStr) rangeInput.min = minStr;
+  if (rangeInput.max !== maxStr) rangeInput.max = maxStr;
+  if (numberInput.min !== minStr) numberInput.min = minStr;
+  if (numberInput.max !== maxStr) numberInput.max = maxStr;
+  if (rangeInput.disabled !== locked) rangeInput.disabled = locked;
+  if (numberInput.disabled !== locked) numberInput.disabled = locked;
+  if (rangeInput.value !== valStr) rangeInput.value = valStr;
+  if (numberInput.value !== valStr) numberInput.value = valStr;
+  if (tickSpans.length === 5) {
+    const labels = locked
+      ? [minStr, '', '', '', maxStr]
+      : [min, Math.round(min + (max - min) * 0.25), Math.round((min + max) / 2),
+          Math.round(min + (max - min) * 0.75), max].map(String);
+    tickSpans.forEach((span, i) => {
+      if (span.textContent !== labels[i]) span.textContent = labels[i];
+    });
+  }
+}
+
 function syncBoardPositionInputs() {
-  const x = String(settings.boardOffsetX);
-  const y = String(settings.boardOffsetY);
-  boardPositionX.value = x;
-  boardPositionXNumber.value = x;
-  boardPositionY.value = y;
-  boardPositionYNumber.value = y;
+  const xVal = Math.max(boardPositionRange.minX, Math.min(boardPositionRange.maxX, appliedBoardOffsetX));
+  const yVal = Math.max(boardPositionRange.minY, Math.min(boardPositionRange.maxY, appliedBoardOffsetY));
+  syncAxisSlider(boardPositionX, boardPositionXNumber, boardPositionXTicks,
+    boardPositionRange.minX, boardPositionRange.maxX, xVal);
+  syncAxisSlider(boardPositionY, boardPositionYNumber, boardPositionYTicks,
+    boardPositionRange.minY, boardPositionRange.maxY, yVal);
 }
 
 // Keep the editor beside the board without constraining the position being
@@ -144,56 +226,96 @@ function placeBoardPositionPanel() {
   boardPositionPanel.style.top = placed.top + 'px';
 }
 
+// Measure the top stage once so board placement and adaptive details docking
+// share one geometry snapshot without triggering interleaved reflows.
+function measureTopStage() {
+  const scrollX = window.scrollX;
+  const scrollY = window.scrollY;
+  const stageClientRect = topStage.getBoundingClientRect();
+  const stageRect = boardPositionLayoutRect(stageClientRect, scrollX, scrollY, false);
+  const trialNoBoard = gameArea.classList.contains('trial-no-board');
+  const frameClientRect = trialNoBoard ? null : gameFrame.getBoundingClientRect();
+  const frameRect = frameClientRect === null ? null
+    : boardPositionLayoutRect(frameClientRect, scrollX, scrollY, false);
+  const setupBottom = Math.max(...[pageHead, modeOptions, boardLabPanel]
+    .filter((row) => !row.hidden)
+    .map((row) => row.getBoundingClientRect().bottom + scrollY));
+  return { scrollX, scrollY, stageClientRect, stageRect, trialNoBoard, frameClientRect, frameRect, setupBottom };
+}
+
 // A trial's lobby and review show no board, so nothing is placed: the hidden
 // frame measures as an empty box at the page origin, and constraining that
 // box would push the offset further on every layout pass.
-function boardPositionOffset() {
-  if (gameArea.classList.contains('trial-no-board')) return { x: 0, y: 0 };
-  const inset = parseFloat(getComputedStyle(pageLayout).getPropertyValue('--board-edge-inset'));
-  const current = boardPageRect(gameFrame);
-  const base = boardPositionRect(current, -appliedBoardOffsetX, -appliedBoardOffsetY);
-  const mainRect = boardPageRect(mainElement);
-  // The board may move up to the game setup rows, never over them.
-  const setupBottom = Math.max(...[difficultyTabs, modeOptions, boardLabPanel]
-    .filter((row) => !row.hidden).map((row) => boardPageRect(row).bottom));
-  const viewportRight = Math.max(inset, window.innerWidth - inset);
-  let left = Math.max(inset, mainRect.left + inset);
-  let right = Math.min(viewportRight, mainRect.right - inset);
-  if (right < left) {
-    left = mainRect.left;
-    right = mainRect.right;
+function boardPositionOffset(snapshot = measureTopStage()) {
+  if (snapshot.trialNoBoard) {
+    return { x: 0, y: 0, range: boardPositionRange, snapshot };
   }
-  return constrainBoardOffset(base, {
-    left,
-    right,
-    top: setupBottom + inset,
-  }, [], settings.boardOffsetX, settings.boardOffsetY);
+  const { inset } = readLayoutConstants();
+  const base = boardPositionRect(snapshot.frameRect, -appliedBoardOffsetX, -appliedBoardOffsetY);
+  const viewportRight = Math.max(inset, window.innerWidth - inset);
+  let left = Math.max(inset, snapshot.stageRect.left + inset);
+  let right = Math.min(viewportRight, snapshot.stageRect.right - inset);
+  if (right < left) {
+    left = snapshot.stageRect.left;
+    right = snapshot.stageRect.right;
+  }
+  const bounds = { left, right, top: snapshot.setupBottom + inset };
+  const placed = constrainBoardOffset(base, bounds, [], settings.boardOffsetX, settings.boardOffsetY);
+  const fitsHorizontally = base.width <= Math.max(0, bounds.right - bounds.left);
+  let minX = fitsHorizontally ? Math.max(-BOARD_OFFSET_X_LIMIT, Math.ceil(bounds.left - base.left)) : -BOARD_OFFSET_X_LIMIT;
+  let maxX = fitsHorizontally ? Math.min(BOARD_OFFSET_X_LIMIT, Math.floor(bounds.right - base.right)) : BOARD_OFFSET_X_LIMIT;
+  if (minX > maxX) {
+    minX = placed.x;
+    maxX = placed.x;
+  }
+  const minY = Math.max(BOARD_OFFSET_Y_MIN_LIMIT, Math.min(0, Math.ceil(bounds.top - base.top)));
+  return {
+    ...placed,
+    range: { fitsHorizontally, minX, maxX, minY, maxY: BOARD_OFFSET_Y_MAX_LIMIT },
+    snapshot,
+  };
 }
 
-function applyBoardPosition() {
-  if (settings === null) return;
-  syncGameSidebar();
-  const placed = boardPositionOffset();
+function applyBoardPosition(snapshot = measureTopStage()) {
+  if (settings === null) return null;
+  const placed = boardPositionOffset(snapshot);
+  const prevX = appliedBoardOffsetX;
   appliedBoardOffsetX = placed.x;
   appliedBoardOffsetY = placed.y;
-  gameArea.style.setProperty('--board-position-applied-x', placed.x + 'px');
-  gameArea.style.setProperty('--board-position-applied-y', placed.y + 'px');
-  gameArea.style.setProperty(
-    '--board-position-flow-clearance', Math.max(0, placed.y) + 'px');
+  boardPositionRange = placed.range;
+  setStyleProp(gameArea, '--board-position-applied-x', placed.x === 0 ? '' : placed.x + 'px');
+  setStyleProp(gameArea, '--board-position-applied-y', placed.y === 0 ? '' : placed.y + 'px');
+  setStyleProp(gameArea, '--board-position-flow-clearance', placed.y <= 0 ? '' : placed.y + 'px');
 
-  boardPositionDragSurface.style.left = gameFrame.offsetLeft + 'px';
-  boardPositionDragSurface.style.top = gameFrame.offsetTop + 'px';
-  boardPositionDragSurface.style.width = gameFrame.offsetWidth + 'px';
-  boardPositionDragSurface.style.height = gameFrame.offsetHeight + 'px';
-  placeBoardPositionPanel();
+  if (!boardPositionDragSurface.hidden) {
+    boardPositionDragSurface.style.left = gameFrame.offsetLeft + 'px';
+    boardPositionDragSurface.style.top = gameFrame.offsetTop + 'px';
+    boardPositionDragSurface.style.width = gameFrame.offsetWidth + 'px';
+    boardPositionDragSurface.style.height = gameFrame.offsetHeight + 'px';
+  }
+  if (!boardPositionPanel.hidden) {
+    syncBoardPositionInputs();
+    placeBoardPositionPanel();
+  }
+  return { ...placed, deltaX: placed.x - prevX };
+}
+
+function syncReplayBounds(snapshot) {
+  // Keep transport sizing variables directly on #replay-controls so changing
+  // them never invalidates the board's cell grid.
+  setStyleProp(replayControls, '--stage-width', Math.round(snapshot.stageClientRect.width) + 'px');
+  if (snapshot.frameClientRect !== null) {
+    setStyleProp(replayControls, '--board-frame-width', Math.round(snapshot.frameClientRect.width) + 'px');
+  }
 }
 
 function syncBoardLayout() {
-  // The replay transport under the board is as wide as the board frame.
-  gameArea.style.setProperty('--board-frame-width', gameFrame.offsetWidth + 'px');
-  applyBoardPosition();
+  if (settings === null) return;
+  const snapshot = measureTopStage();
+  syncReplayBounds(snapshot);
+  const placed = applyBoardPosition(snapshot);
+  syncGameSidebar(snapshot, placed ? placed.deltaX : 0);
   syncJusticePlacement();
-  placeBoardSides();
   syncResultClearance();
   recordLayoutIfMoved();
 }
@@ -206,126 +328,164 @@ function scheduleBoardLayout() {
   });
 }
 
-// Game data's chart takes the column height left below the summary,
-// controls, and during-this-game section, so the options row under it stays
-// in view. Each open side keeps a readable plot's height; a column too short
-// for that scrolls instead of crushing them. The subviews (configure,
-// session history) take the column height as one view.
+// Game data's chart takes the docked column height left below the summary,
+// controls, and live perf charts, so the options row under it stays in view.
+// Each open side keeps a readable plot's height; a column too short for that
+// scrolls instead of crushing them. Below the board, game data flows at full
+// readable height (matching live perf charts when side by side).
 const GAME_DATA_SIDE_MIN_HEIGHT = 240;
 const GAME_DATA_SUBVIEW_MIN_HEIGHT = 480;
 function fitGameDataToSidebar() {
   const profile = resultStats.querySelector('.board-time-profile');
-  if (profile === null || !profile.checkVisibility()) return;
-  const column = getComputedStyle(gameSidebar);
-  const offset = profile.getBoundingClientRect().top - gameSidebar.getBoundingClientRect().top + gameSidebar.scrollTop;
-  const bottom = parseFloat(column.maxHeight) - parseFloat(column.paddingBottom) - parseFloat(column.borderBottomWidth);
-  const room = Math.floor(bottom - offset);
-  if (profile.dataset.screen !== 'chart') {
-    profile.style.height = Math.max(GAME_DATA_SUBVIEW_MIN_HEIGHT, room) + 'px';
-    return;
+  if (profile === null || resultsBox.hidden || !profile.checkVisibility()) return;
+  const below = topStage.dataset.detailsDock === 'below';
+  let targetHeight = '';
+  if (below) {
+    const sibling = resultStats.querySelector('.during-game');
+    const siblingHeight = topStage.dataset.belowColumns === '2' && sibling !== null && sibling.checkVisibility()
+      ? Math.floor(sibling.getBoundingClientRect().height) : 0;
+    if (profile.dataset.screen !== 'chart') {
+      targetHeight = Math.max(GAME_DATA_SUBVIEW_MIN_HEIGHT, siblingHeight) + 'px';
+    } else {
+      const section = profile.querySelector('.game-data-section.open');
+      if (section !== null) {
+        const fixed = profile.getBoundingClientRect().height - section.getBoundingClientRect().height;
+        const openSides = Number(section.dataset.openSides);
+        const needed = Math.ceil(fixed) + openSides * GAME_DATA_SIDE_MIN_HEIGHT;
+        targetHeight = (siblingHeight > 0
+          ? Math.max(needed, siblingHeight)
+          : Math.max(needed, Math.min(620, Math.round(window.innerHeight * 0.65)))) + 'px';
+      }
+    }
+  } else {
+    const column = getComputedStyle(gameSidebar);
+    const offset = profile.getBoundingClientRect().top - gameSidebar.getBoundingClientRect().top + gameSidebar.scrollTop;
+    const bottom = parseFloat(column.maxHeight) - parseFloat(column.paddingBottom) - parseFloat(column.borderBottomWidth);
+    const room = Math.floor(bottom - offset);
+    if (profile.dataset.screen !== 'chart') {
+      targetHeight = Math.max(GAME_DATA_SUBVIEW_MIN_HEIGHT, room) + 'px';
+    } else {
+      const section = profile.querySelector('.game-data-section.open');
+      if (section !== null) {
+        const fixed = profile.getBoundingClientRect().height - section.getBoundingClientRect().height;
+        const openSides = Number(section.dataset.openSides);
+        targetHeight = Math.max(Math.ceil(fixed) + openSides * GAME_DATA_SIDE_MIN_HEIGHT, room) + 'px';
+      }
+    }
   }
-  const section = profile.querySelector('.game-data-section.open');
-  if (section === null) {
-    profile.style.height = '';
-    return;
-  }
-  // Everything but the chart keeps its own height: the options row.
-  const fixed = profile.getBoundingClientRect().height - section.getBoundingClientRect().height;
-  const openSides = Number(section.dataset.openSides);
-  profile.style.height = Math.max(Math.ceil(fixed) + openSides * GAME_DATA_SIDE_MIN_HEIGHT, room) + 'px';
+  if (profile.style.height !== targetHeight) profile.style.height = targetHeight;
 }
 
-// Reserve the details column before results exist. A finished game's
-// content never decides how much room the board or history receives.
-// Keeps the session summary and a table beside it under a small board.
-const MAIN_MIN_BESIDE_DETAILS = 640;
-// One details column beside the board column: docked while the board column
-// leaves it its minimum; below that the details become the Game details
-// popover. Its width is the player's share of the window, yielding to the
-// board column down to the minimum.
-function detailsColumnFit() {
-  const layoutStyle = getComputedStyle(pageLayout);
-  const gap = parseFloat(layoutStyle.columnGap);
-  const minimum = parseFloat(layoutStyle.getPropertyValue('--game-sidebar-min-width'));
-  const free = pageLayout.clientWidth;
-  const board = gameFrame.offsetWidth + 16;
-  return {
-    docked: window.innerWidth > 700 && free - gap - board >= minimum,
+// Adaptive details dock around the placed board inside #top-stage:
+// docks into the wider free flank (right on ties) when at least 320 px fits,
+// and drops directly below the board at full width otherwise. The footprint
+// always reserves the replay transport's minimum width so ending a small
+// board never shifts the docked panel.
+function detailsColumnFit(snapshot = null, deltaX = 0) {
+  const stageRect = snapshot !== null ? snapshot.stageClientRect : topStage.getBoundingClientRect();
+  const { sidebarMin: minimum } = readLayoutConstants();
+  let boardLeft;
+  let boardRight;
+  if (gameArea.classList.contains('trial-no-board')) {
+    const trialRect = document.getElementById('trial-stage').getBoundingClientRect();
+    const width = Math.max(trialRect.width, REPLAY_CONTROLS_MIN_WIDTH);
+    boardLeft = (stageRect.width - width) / 2;
+    boardRight = (stageRect.width + width) / 2;
+  } else {
+    const frame = snapshot !== null && snapshot.frameClientRect !== null
+      ? snapshot.frameClientRect : gameFrame.getBoundingClientRect();
+    const footprint = Math.max(frame.width, REPLAY_CONTROLS_MIN_WIDTH);
+    const center = (frame.left + frame.right) / 2 + deltaX - stageRect.left;
+    boardLeft = center - footprint / 2;
+    boardRight = center + footprint / 2;
+  }
+  return detailsDockPlacement(
+    stageRect.width,
+    boardLeft,
+    boardRight,
     minimum,
-    maximum: Math.max(minimum, Math.floor(free - gap - Math.max(board, MAIN_MIN_BESIDE_DETAILS))),
-  };
+    DETAILS_DOCK_GAP,
+    Math.round(settings.detailsColumnShare * window.innerWidth),
+    window.innerWidth <= 700);
 }
+
 function detailsColumnWidth(fit, share) {
   return Math.max(fit.minimum, Math.min(fit.maximum, Math.round(share * window.innerWidth)));
 }
-function syncGameSidebar() {
-  const fit = detailsColumnFit();
-  const docked = fit.docked;
-  const width = detailsColumnWidth(fit, settings.detailsColumnShare);
-  pageLayout.style.setProperty('--game-sidebar-docked-width', width + 'px');
-  detailsResize.hidden = !docked;
-  detailsResize.setAttribute('aria-valuemin', String(fit.minimum));
-  detailsResize.setAttribute('aria-valuemax', String(fit.maximum));
-  detailsResize.setAttribute('aria-valuenow', String(width));
-  const compact = !docked;
-  if (pageLayout.classList.contains('compact-sidebar') !== compact) {
-    if (gameSidebar.matches(':popover-open')) gameSidebar.hidePopover();
-    pageLayout.classList.toggle('compact-sidebar', compact);
-    if (compact) gameSidebar.setAttribute('popover', 'auto');
-    else gameSidebar.removeAttribute('popover');
+
+function syncGameSidebar(snapshot = null, deltaX = 0) {
+  const fit = detailsColumnFit(snapshot, deltaX);
+  const dock = fit.dock;
+  const docked = dock !== 'below';
+  if (topStage.dataset.detailsDock !== dock) topStage.dataset.detailsDock = dock;
+  const hideResults = resultStats.childElementCount === 0;
+  if (resultsBox.hidden !== hideResults) resultsBox.hidden = hideResults;
+  if (docked) {
+    const widthVal = fit.width + 'px';
+    setStyleProp(gameSidebar, '--details-dock-width', widthVal);
+    setStyleProp(detailsResize, '--details-dock-width', widthVal);
+    const stageDocTop = snapshot !== null ? snapshot.stageRect.top : topStage.getBoundingClientRect().top + window.scrollY;
+    const maxHeight = Math.max(480, Math.floor(window.innerHeight - stageDocTop - 16));
+    setStyleProp(gameSidebar, '--details-dock-max-height', maxHeight + 'px');
+    if ('belowColumns' in topStage.dataset) delete topStage.dataset.belowColumns;
+  } else {
+    setStyleProp(gameSidebar, '--details-dock-width', '');
+    setStyleProp(detailsResize, '--details-dock-width', '');
+    setStyleProp(gameSidebar, '--details-dock-max-height', '');
+    if (detailsResize.style.height !== '') detailsResize.style.height = '';
+    if (topStage.style.minHeight !== '') topStage.style.minHeight = '';
+    const cols = fit.width >= BELOW_TWO_COLUMN_MIN_WIDTH && resultStats.childElementCount >= 2 ? '2' : '1';
+    if (topStage.dataset.belowColumns !== cols) topStage.dataset.belowColumns = cols;
   }
-  gameSidebarButton.hidden = docked;
-  gameSidebarClose.hidden = docked;
-  // The docked column sticks below the top bar, which wraps to two rows when
-  // its width cannot hold the bar's items.
-  pageLayout.style.setProperty('--top-bar-height', topBar.offsetHeight + 'px');
-  resultsBox.hidden = resultStats.textContent === '';
+  if (detailsResize.hidden !== !docked) detailsResize.hidden = !docked;
+  setAttrIfChanged(detailsResize, 'aria-valuemin', String(fit.minimum));
+  setAttrIfChanged(detailsResize, 'aria-valuemax', String(fit.maximum));
+  setAttrIfChanged(detailsResize, 'aria-valuenow', String(fit.width));
   fitGameDataToSidebar();
 }
 
-// The docked column's left-edge grip sits in the column gap, outside the
-// column's own scroll, at the column's height. The column and its charts
+// The docked column's board-facing edge grip sits in the gap between the
+// column and the board, at the column's height. The column and its charts
 // follow the pointer on the next animation frame; release saves the share.
-// The room the board leaves cannot change during a drag, so its limits are
-// read once when it starts.
+// The board never moves during a drag, so the flank limits are fixed at start.
 const detailsResize = document.getElementById('details-resize');
 const DETAILS_RESIZE_KEY_STEP = 10;
-// The grip's height sizes the grid row it shares with the column, so it can
-// resize #page-layout, which the result layout observer watches. Set inside
-// this callback, that change is a shallower resize the browser cannot
-// deliver in the same frame, and the error bar shows its "ResizeObserver
-// loop" report.
-let detailsResizeFrame = null;
-new ResizeObserver(() => {
-  if (detailsResizeFrame !== null) return;
-  detailsResizeFrame = requestAnimationFrame(() => {
-    detailsResizeFrame = null;
-    detailsResize.style.height = gameSidebar.offsetHeight + 'px';
-  });
+new ResizeObserver((entries) => {
+  if (settings === null) return;
+  const entry = entries[entries.length - 1];
+  const box = entry.borderBoxSize && entry.borderBoxSize[0];
+  syncResultClearance(box ? box.blockSize : null);
 }).observe(gameSidebar);
+
 function setDetailsColumnWidth(fit, width) {
   settings.detailsColumnShare = Math.max(fit.minimum, Math.min(fit.maximum, width)) / window.innerWidth;
 }
+
 detailsResize.addEventListener('keydown', (event) => {
   if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
   event.preventDefault();
   const fit = detailsColumnFit();
-  const step = event.key === 'ArrowLeft' ? DETAILS_RESIZE_KEY_STEP : -DETAILS_RESIZE_KEY_STEP;
+  if (fit.dock === 'below') return;
+  const sign = fit.dock === 'left' ? 1 : -1;
+  const step = (event.key === 'ArrowRight' ? 1 : -1) * sign * DETAILS_RESIZE_KEY_STEP;
   setDetailsColumnWidth(fit, detailsColumnWidth(fit, settings.detailsColumnShare) + step);
   saveSettings();
   syncBoardLayout();
 });
+
 detailsResize.addEventListener('pointerdown', (event) => {
   if (event.button !== 0) return;
+  const fit = detailsColumnFit();
+  if (fit.dock === 'below') return;
   event.preventDefault();
   detailsResize.setPointerCapture(event.pointerId);
   detailsResize.classList.add('dragging');
-  const fit = detailsColumnFit();
+  const sign = fit.dock === 'left' ? 1 : -1;
   const startX = event.clientX;
   const startWidth = detailsColumnWidth(fit, settings.detailsColumnShare);
   let frame = null;
   const move = (ev) => {
-    setDetailsColumnWidth(fit, startWidth + startX - ev.clientX);
+    setDetailsColumnWidth(fit, startWidth + sign * (ev.clientX - startX));
     if (frame === null) {
       frame = requestAnimationFrame(() => {
         frame = null;
@@ -346,13 +506,25 @@ detailsResize.addEventListener('pointerdown', (event) => {
 });
 
 function syncJusticePlacement() {
+  if (justiceLive.childElementCount === 0) {
+    if (justiceLive.classList.contains('justice-left') || justiceLive.classList.contains('justice-below')) {
+      justiceLive.classList.remove('justice-left', 'justice-below');
+    }
+    return;
+  }
   justiceLive.classList.remove('justice-left', 'justice-below');
-  if (justiceLive.childElementCount === 0) return;
   const mainRect = boardPageRect(mainElement);
-  const inset = parseFloat(getComputedStyle(pageLayout).getPropertyValue('--board-edge-inset'));
-  // Keep board callouts within the main column. Sidebar contents, including
-  // an open compact popover, must not reposition them or the history below.
-  const collides = (rect) => rect.left < mainRect.left + inset || rect.right > mainRect.right - inset;
+  const { inset } = readLayoutConstants();
+  const docked = topStage.dataset.detailsDock === 'left' || topStage.dataset.detailsDock === 'right';
+  const dockRect = docked ? boardPageRect(gameSidebar) : null;
+  const collides = (rect) => rect.left < mainRect.left + inset
+    || rect.right > mainRect.right - inset
+    || (dockRect !== null && boardPositionOverlapArea(rect, {
+      left: dockRect.left - inset,
+      top: dockRect.top - inset,
+      right: dockRect.right + inset,
+      bottom: dockRect.bottom + inset,
+    }) > 0);
 
   if (!collides(boardPageRect(justiceLive))) return;
   justiceLive.classList.add('justice-left');
@@ -361,78 +533,39 @@ function syncJusticePlacement() {
   justiceLive.classList.add('justice-below');
 }
 
-// Beside the board (user decision 2026-10-07: "the session sum could be to
-// the left of the board, ranks won to the right, board in middle"): the
-// session summary rests left of the board frame and ranks won right of it,
-// tops aligned, each only where it fits inside the board column. This game's
-// stats (creator 2026-10-26: "flowing up as possible") take a side neither
-// holds, the left first, where they fit. A block that does not fit stays in
-// the table list below the board, and all keep their place in its DOM order.
-const BOARD_SIDE_GAP = 16;
-function placeBoardSides() {
-  const blocks = [[['left'], resultRanks.querySelector('.session-summary')],
-    [['right'], resultRanks.querySelector('.recent-placements')],
-    [['left', 'right'], resultRanks.querySelector('.game-stats')]].filter(([, block]) => block !== null);
-  for (const [, block] of blocks) {
-    block.classList.remove('beside-board');
-    block.style.removeProperty('left');
-    block.style.removeProperty('top');
-  }
-  if (gameArea.classList.contains('trial-no-board')) return;
-  const inset = parseFloat(getComputedStyle(pageLayout).getPropertyValue('--board-edge-inset'));
-  const frame = gameFrame.getBoundingClientRect();
-  // The replay transport under a small board is wider than its frame.
-  const transport = replayControls.hidden ? frame : replayControls.getBoundingClientRect();
-  const boardLeft = Math.min(frame.left, transport.left);
-  const boardRight = Math.max(frame.right, transport.right);
-  const main = mainElement.getBoundingClientRect();
-  const leftOf = (side, width) => (side === 'left' ? boardLeft - BOARD_SIDE_GAP - width : boardRight + BOARD_SIDE_GAP);
-  // A closed table takes the place it takes open, so its title stays where it
-  // is as it opens and closes: each is measured open.
-  const closedBodies = blocks.map(([, block]) => block.querySelector(':scope > .stat-section-body'))
-    .filter((body) => body.hidden);
-  for (const body of closedBodies) body.hidden = false;
-  const widths = blocks.map(([, block]) => block.getBoundingClientRect().width);
-  for (const body of closedBodies) body.hidden = true;
-  const taken = new Set();
-  blocks.forEach(([sides, block], index) => {
-    const width = widths[index];
-    const side = sides.find((s) => !taken.has(s)
-      && leftOf(s, width) >= main.left + inset && leftOf(s, width) + width <= main.right - inset);
-    if (side === undefined) return;
-    taken.add(side);
-    block.classList.add('beside-board');
-    block.style.left = (leftOf(side, width) - main.left) + 'px';
-    block.style.top = (frame.top - main.top) + 'px';
-  });
-}
-
-// Justice callouts and the blocks beside the board belong to the board's
-// rows: the history below starts after the lowest of them. The stats and
-// replay legend have their own column and contribute no height here.
-function syncResultClearance() {
-  const sections = [pregenCharts, resultAnalysis, resultRanks];
-  const areaBottom = gameArea.getBoundingClientRect().bottom;
-  const overhangs = [...resultRanks.querySelectorAll('.beside-board')]
-    .map((block) => block.getBoundingClientRect().bottom - areaBottom);
-  if (!gameArea.classList.contains('trial-no-board') && justiceLive.childElementCount > 0) {
-    overhangs.push(justiceLive.getBoundingClientRect().bottom - areaBottom);
-  }
-  const extra = Math.max(0, Math.ceil(Math.max(0, ...overhangs)));
-  const target = !pregenCharts.hidden ? pregenCharts
-    : resultAnalysis.childElementCount > 0 ? resultAnalysis : resultRanks;
-  target.style.setProperty('--result-overflow', extra + 'px');
-  for (const section of sections) {
-    if (section !== target) section.style.removeProperty('--result-overflow');
+// Keep every section below #top-stage clear of both the docked details panel
+// and any Justice callout hanging below the board, without moving the board.
+// Also keeps the resize grip's height matched to the docked details panel.
+function syncResultClearance(measuredSidebarHeight = null) {
+  const docked = topStage.dataset.detailsDock === 'left' || topStage.dataset.detailsDock === 'right';
+  if (docked) {
+    const sidebarHeight = measuredSidebarHeight !== null ? measuredSidebarHeight : gameSidebar.offsetHeight;
+    let needed = sidebarHeight;
+    if (!gameArea.classList.contains('trial-no-board') && justiceLive.childElementCount > 0) {
+      needed = Math.max(needed, justiceLive.getBoundingClientRect().bottom - topStage.getBoundingClientRect().top);
+    }
+    const gripHeight = Math.ceil(sidebarHeight) + 'px';
+    if (detailsResize.style.height !== gripHeight) detailsResize.style.height = gripHeight;
+    if (gameSidebar.style.marginTop !== '') gameSidebar.style.removeProperty('margin-top');
+    const target = needed > 0 ? Math.ceil(needed) + 'px' : '';
+    if (topStage.style.minHeight !== target) topStage.style.minHeight = target;
+  } else {
+    if (detailsResize.style.height !== '') detailsResize.style.height = '';
+    if (topStage.style.minHeight !== '') topStage.style.minHeight = '';
+    let extra = 0;
+    if (!gameArea.classList.contains('trial-no-board') && justiceLive.childElementCount > 0) {
+      extra = Math.max(0, Math.ceil(justiceLive.getBoundingClientRect().bottom - gameArea.getBoundingClientRect().bottom));
+    }
+    const margin = extra > 0 ? (16 + extra) + 'px' : '';
+    if (gameSidebar.style.marginTop !== margin) gameSidebar.style.marginTop = margin;
   }
 }
 
 //-------BOARD POSITION EDITOR (the position panel controls)-------
 
 function setBoardPositionPreference(x, y, persist) {
-  settings.boardOffsetX = Math.max(-2000, Math.min(2000, Math.round(x)));
-  settings.boardOffsetY = Math.max(-1000, Math.min(2000, Math.round(y)));
-  syncBoardPositionInputs();
+  settings.boardOffsetX = Math.max(-BOARD_OFFSET_X_LIMIT, Math.min(BOARD_OFFSET_X_LIMIT, Math.round(x)));
+  settings.boardOffsetY = Math.max(BOARD_OFFSET_Y_MIN_LIMIT, Math.min(BOARD_OFFSET_Y_MAX_LIMIT, Math.round(y)));
   syncBoardLayout();
   if (persist) saveSettings();
 }
@@ -455,8 +588,8 @@ function bindBoardPositionInput(range, number, axis) {
   const apply = (source, persist) => {
     if (source.value === '' || !Number.isFinite(Number(source.value))) return;
     const value = Number(source.value);
-    const x = axis === 'x' ? value : settings.boardOffsetX;
-    const y = axis === 'y' ? value : settings.boardOffsetY;
+    const x = axis === 'x' ? value : appliedBoardOffsetX;
+    const y = axis === 'y' ? value : appliedBoardOffsetY;
     setBoardPositionPreference(x, y, persist);
   };
   range.addEventListener('input', () => apply(range, false));
@@ -492,10 +625,12 @@ function initBoardPositionControls() {
     event.preventDefault();
     const scale = event.shiftKey ? 10 : 1;
     const [dx, dy] = deltas[event.key];
-    setBoardPositionPreference(
-      settings.boardOffsetX + dx * scale,
-      settings.boardOffsetY + dy * scale,
-      true);
+    const nextX = appliedBoardOffsetX + dx * scale;
+    const nextY = appliedBoardOffsetY + dy * scale;
+    const clampedX = boardPositionRange.fitsHorizontally
+      ? Math.max(boardPositionRange.minX, Math.min(boardPositionRange.maxX, nextX)) : nextX;
+    const clampedY = Math.max(boardPositionRange.minY, Math.min(boardPositionRange.maxY, nextY));
+    setBoardPositionPreference(clampedX, clampedY, true);
   });
 
   boardPositionDragSurface.addEventListener('pointerdown', (event) => {
@@ -504,14 +639,17 @@ function initBoardPositionControls() {
     boardPositionDragSurface.focus({ preventScroll: true });
     const startX = event.clientX;
     const startY = event.clientY;
-    const preferenceX = settings.boardOffsetX;
-    const preferenceY = settings.boardOffsetY;
+    const originX = appliedBoardOffsetX;
+    const originY = appliedBoardOffsetY;
+    const range = boardPositionRange;
     const move = (ev) => {
       if (ev.pointerId !== event.pointerId) return;
-      setBoardPositionPreference(
-        preferenceX + ev.clientX - startX,
-        preferenceY + ev.clientY - startY,
-        false);
+      const nextX = originX + ev.clientX - startX;
+      const nextY = originY + ev.clientY - startY;
+      const clampedX = range.fitsHorizontally
+        ? Math.max(range.minX, Math.min(range.maxX, nextX)) : nextX;
+      const clampedY = Math.max(range.minY, Math.min(range.maxY, nextY));
+      setBoardPositionPreference(clampedX, clampedY, false);
     };
     const up = (ev) => {
       if (ev.pointerId !== event.pointerId) return;
@@ -544,17 +682,28 @@ function initBoardPositionControls() {
   window.visualViewport.addEventListener('scroll', placeBoardPositionPanel);
 
   if (typeof ResizeObserver !== 'undefined') {
-    const observer = new ResizeObserver(scheduleBoardLayout);
-    observer.observe(topBar);
-    observer.observe(topRight);
-    observer.observe(scoresNav);
+    let lastStageWidth = -1;
+    const observer = new ResizeObserver((entries) => {
+      let changed = false;
+      for (const entry of entries) {
+        if (entry.target === topStage) {
+          const width = Math.round(entry.contentRect.width);
+          if (width !== lastStageWidth) {
+            lastStageWidth = width;
+            changed = true;
+          }
+        } else {
+          changed = true;
+        }
+      }
+      if (changed) scheduleBoardLayout();
+    });
+    observer.observe(topStage);
+    observer.observe(pageHead);
     observer.observe(modeOptions);
     observer.observe(boardLabPanel);
     observer.observe(gameFrame);
-    observer.observe(replayControls);
-    observer.observe(resultsBox);
     observer.observe(justiceLive);
-    observer.observe(difficultyTabs);
     observer.observe(boardPositionPanel);
   }
 }
@@ -575,14 +724,11 @@ function renderPixelRatio() {
     .addEventListener('change', renderPixelRatio, { once: true });
 }
 
-function applyCellSize() {
+function applyCellSize(layout = true) {
   document.getElementById('zoom-select').value = String(settings.cellSize);
   document.documentElement.style.setProperty('--cell-size', settings.cellSize + 'px');
-  applyBoardPosition();
+  if (layout) syncBoardLayout();
   if (tracing()) recordLayout();
-  syncJusticePlacement();
-  placeBoardSides();
-  syncResultClearance();
 }
 
 function initCellSizeControl() {
@@ -595,7 +741,7 @@ function initCellSizeControl() {
     option.textContent = String(size);
     select.appendChild(option);
   }
-  applyCellSize();
+  applyCellSize(false);
   renderPixelRatio();
   select.disabled = false;
   select.addEventListener('change', () => {

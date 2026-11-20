@@ -235,11 +235,12 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
     raw click"); the look words and any fine print sit beneath it in one
     smaller black line ("dashed green · around a flag it means that flag is
     provably wrong"). Groups have bold underlined titles. Nothing is
-    shortened. The complete key follows the stats inside the right details
-    column, with its own column's scrollbar when needed. It never competes
-    with stats for a horizontal gutter or pushes stats below the board.
-    On compact layouts it appears in the same Game details popover. Neither
-    the legend nor the stats changes the board, transport, or history layout.
+    shortened.     The complete key follows the stats inside the adaptive details dock
+    (beside the board when a flank fits, or directly below the board at full
+    width otherwise), with its own scrollbar when docked beside the board.
+    It never competes with stats for a horizontal gutter or pushes stats
+    below the board, and neither the legend nor the stats changes the board,
+    transport, or history layout.
 - These displays read the trace of the finished game on screen: the game
   just ended, an old game opened from a rank table's full list
   ([Rank tables](rankings.md), "Full lists and old games"), or the one a

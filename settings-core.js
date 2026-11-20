@@ -287,22 +287,26 @@ const REPLAY_OVERLAY_DEFAULTS = {
   moves: true, mines: true, probs: false, pointless: false, purposeful: false, movement: false,
 };
 const PANEL_OPEN_DEFAULTS = {
-  boardPosition: false, gameDetails: false, states: false,
+  boardPosition: false, states: false,
   importHistory: false, dataFormat: false,
   duringGame: true, gamePerformance: true, boardTraits: true, motionStats: false,
+  resultAnalysis: true,
   sessionSummary: true, recentPlacements: true, gameStats: true, rankTables: true,
   boardTables: true, perfCharts: true, boardCharts: true, relationships: true,
 };
-// Two panels were removed: the Replay game disclosure on 2026-10-20 (the
-// transport now sits under the board) and the Overlays panel on 2026-10-21
-// (its toggles now end the transport). Panel states saved before then still
-// name them, and preferenceBooleans rejects any unknown entry.
+// Three panels were removed: the Replay game disclosure on 2026-10-20 (the
+// transport now sits under the board), the Overlays panel on 2026-10-21 (its
+// toggles now end the transport), and the Game details popover on 2026-11-19
+// (the details column docks beside the board or flows below it). Panel states
+// saved before then still name them, and preferenceBooleans rejects any
+// unknown entry.
 function panelsFromStored(stored) {
   if (!Object.hasOwn(stored, 'panels')) return PANEL_OPEN_DEFAULTS;
   if (!preferenceObject(stored.panels)) return stored.panels;
   const kept = { ...stored.panels };
   delete kept.replay;
   delete kept.reviewOptions;
+  delete kept.gameDetails;
   return kept;
 }
 // The left work event row split into left hard work and left easy work on

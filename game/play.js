@@ -244,7 +244,7 @@ function renderImmediateGameEnd(outcome) {
   loading.setAttribute('role', 'status');
   loading.textContent = 'loading results\u2026';
   resultRanks.appendChild(loading);
-  // Place the shell in its reserved column before this task paints.
+  // Reveal the shell in its docked details column before this task paints.
   syncBoardLayout();
 }
 
@@ -330,7 +330,8 @@ function newGame(deal = true) {
 
   // Apply the saved preference after the rebuilt board has its final size,
   // but before beginTrace snapshots its initial viewport geometry.
-  applyBoardPosition();
+  const placed = applyBoardPosition();
+  if (placed !== null) syncReplayBounds(placed.snapshot);
   beginTrace();
   beginMusicSampling();
 
@@ -360,7 +361,6 @@ function newGame(deal = true) {
   resultAnalysis.textContent = '';
   resultRanks.textContent = '';
   resultRanks.removeAttribute('aria-busy');
-  syncResultClearance();
   // A reached limit closes the board before modes that deal an already
   // opened board (and start its clock) get to deal it.
   boardDealtClosed = deal && playDayStageNow() === 'closed';
@@ -377,7 +377,12 @@ function newGame(deal = true) {
   renderDrillChrome();
   renderPregenCharts();
   syncLabChrome();
-  syncGameSidebar();
+  const canReuseSnapshot = placed !== null && !placed.snapshot.trialNoBoard
+    && !gameArea.classList.contains('trial-no-board') && boardLabPanel.hidden;
+  syncGameSidebar(canReuseSnapshot ? placed.snapshot : null, canReuseSnapshot ? placed.deltaX : 0);
+  if (topStage.dataset.detailsDock === 'below' && gameSidebar.style.marginTop !== '') {
+    gameSidebar.style.removeProperty('margin-top');
+  }
   renderPlayLimits();
 }
 

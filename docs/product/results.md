@@ -13,19 +13,18 @@ its data has arrived, in this order
    outcome followed by board · mode · generator in regular weight, then
    the date and time in bold tabular digits. A no-mark win adds "no-mark"
    on that context line ([No-mark wins](rankings.md#no-mark-wins-decided-2026-10-14)).
-2. **Facts / game data** — the column beside the board (or the details column under the outcome context when that column cannot fit): "live perf charts" after any game, outside the score viewer and trials ([During the game](during-game.md)), then the winning-game chart ("game summary perf" and "board traits"). A loss's or a trial game's label/value stats are not in this column: they are the "this game" table (item 4; [This game's stats](#this-games-stats-creator-request-2026-10-26)).
-3. **Analysis** — post-game action interpretation only.
+2. **Facts / game data** — the adaptive details dock beside the board (or directly below it at full width when neither flank holds 320 px): "live perf charts" after any game, outside the score viewer and trials ([During the game](during-game.md)), then the winning-game chart ("game summary perf" and "board traits"). A loss's or a trial game's label/value stats are not in this column: they are the "this game" table (item 4; [This game's stats](#this-games-stats-creator-request-2026-10-26)).
+3. **Analysis** — post-game action interpretation only, framed under its own full-width "after-game report" opener (2026-11-19).
 4. **Tables** — the session summary first, then the "ranks won in session"
    time-period summary, then after a loss that game's "this game" stats
    (2026-10-26), then time/category and all consecutive/loss-tolerant
-   streak tablecharts (session summary added 2026-10-07). They share one
-   left-aligned wrapping collection with no section title; the time,
+   streak tablecharts (session summary added 2026-10-07). Since 2026-11-19
+   the overview tables (`session`, `ranks won in session`, and on losses
+   `this game`) share a clean full-width wrapping row above the full-width
+   `rankings` group (superseding the 2026-10-07 beside-board snapping and
+   `.session-tables` floats; [Layout](board-and-layout.md)). The time,
    category, and streak tables share one opener, "rankings"
-   ([Openers](#openers-creator-request-2026-10-26)). In the wide
-   layout the session summary sits left of the board and ranks won right of
-   it wherever each fits, and "this game" takes a side neither holds, the
-   left first, where it fits; they keep their places at the head of the
-   collection's DOM order ([Layout](board-and-layout.md)). Each table retains
+   ([Openers](#openers-creator-request-2026-10-26)). Each table retains
    its own identifying label. A no-mark win's tables, and the charts under
    them, list only no-mark games of that same board, mode, and generator;
    the lifetime time list is named "top expert no-mark times" (or that
@@ -56,20 +55,15 @@ raw relationship scatters. Keeping the denser lookup-oriented tables together
 before visual correlation charts gives the page a stable transition from exact
 records to graphical analysis.
 
-The upper table collection fills the main column; This board and later sections
-span its full width below. In the upper collection, the session summary and
-ranks won that are not beside the board float at the left as one column, the
-summary on top and ranks won directly under it (2026-10-07); successive rows
-of period/day/streak tables flow alongside that column's height, then use the
-full width underneath. Narrow layouts wrap below it when there is
-insufficient horizontal room. A loss's "this game" table, when not beside
-the board, floats beside that column where it fits there, and otherwise at
-the left under it (2026-10-26, when the rankings opener came; it had led the
-first row of tables, as one of them). The "rankings" title takes the room
-beside those tables, and its tables fill that room in rows, then the full
-width underneath. The section contains the floats, so This board
-and later chart sections begin below all upper tables. DOM order is
-preserved, nothing sits above or left of the summary, and table flow cannot
+Every result section below the top stage spans 100% of the page width
+(standardized 2026-11-19). In the upper table collection, the overview band
+places the session summary, ranks won in session, and (after a loss) "this
+game" side by side across the full width, stacking cleanly on narrow
+screens (`<= 720px`); the full-width "rankings" group follows directly
+below it, wrapping its time, category, and streak tables across the full
+page width. This board, your perf, board traits, and relationships follow
+at full width (with left-aligned CSS grids of 270 px chart cards for the
+three point-chart sections). DOM order is preserved and table flow cannot
 mix tables with point charts.
 
 ## Openers (creator request 2026-10-26)
@@ -88,8 +82,9 @@ the title. Clicking the title opens or closes what it heads. Each one's
 state is remembered across games and reloads, one per title; all start
 open.
 
-- The session summary ("session"), ranks won in session, and a loss's or
-  trial game's "this game" each open and close alone.
+- The after-game report ("after-game report", added 2026-11-19), the
+  session summary ("session"), ranks won in session, and a loss's or trial
+  game's "this game" each open and close alone.
 - The time, category, and streak tables (lifetime, past week, today, the
   hour and minute windows, the day categories, streak, near-streak,
   near-near-streak) open and close together under one title, "rankings",
@@ -101,9 +96,8 @@ open.
   close as a whole. The your perf and board traits chart choice (average,
   distribution, winrate) stays beside the title and shows only while its
   section is open. These titles are no longer upper case.
-- A table beside the board keeps its place when closed: its title stays
-  where it was, and opening it again fills the same place. Whether a table
-  sits beside the board is decided by its open width, closed or not.
+- A closed overview table locks its open width (`min-width: min(100%,
+  openWidth)`) so its title and siblings stay put as it opens and closes.
   Closing a table or section moves only what comes after it.
 - The session summary's and ranks won's explanations moved to their
   titles: hovering the title, or focusing it by keyboard, shows the
@@ -138,20 +132,16 @@ another infopanel similar to the lifetime, this month, or session blocks,
 and also flowing up as possible?" It spanned the whole column, labels at its
 left edge and values at its right.
 
-Built the same day: the panel is the "this game" table, one of the tables
-under the board (item 4), as wide as its rows, one line per measurement,
-labels in regular weight and values in bold tabular digits. It follows the
-session summary and ranks won in DOM order, ahead of every rank table, and
-rises as high as the layout allows: beside the board where a side is free
-and it fits, otherwise at the head of the tables under the board. Its rows,
-their names, and the "loss and trial stats" display setting that shows it
-are unchanged ([Per-game stats](per-game-stats.md)). A trial game's stats are
-the same table, the only one in its result area under (or beside) the board.
-
-Tradeoff recorded: beside a Beginner or Intermediate board at the creator's
-2560 x 970 viewport the table is on the first screen, but an Expert board
-leaves no side room, so there it sits under the board, below the first
-screen, where the details column used to show the panel without scrolling.
+Built 2026-10-26 (moved into the full-width overview row on 2026-11-19 when
+beside-board snapping was removed): the panel is the "this game" table, one
+of the tables in the upper overview band (item 4), as wide as its rows, one
+line per measurement, labels in regular weight and values in bold tabular
+digits. It follows the session summary and ranks won in DOM order, ahead of
+every rank table, sitting beside them in the overview band (or stacked on
+narrow viewports). Its rows, their names, and the "loss and trial stats"
+display setting that shows it are unchanged
+([Per-game stats](per-game-stats.md)). A trial game's stats are the same
+table, the only one in its result area under the board.
 
 Chart eligibility, table display order, duplicate preference, and summary
 order are separate concepts. Full tables use `displayOrder`; duplicate member

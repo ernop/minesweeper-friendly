@@ -75,10 +75,9 @@ Spec: [docs/product/rankings.md](../product/rankings.md). Index: [AGENTS.md](../
   ignores the largestIsland display gate. The period-wide discovery
   (2026-09-21) was the default until 2026-10-14 and now sits behind the
   switch; the heading's help names which wins' boards are listed.
-  The builder emits the second item in the upper table collection, after the
+  The builder emits the second item in the upper overview band, after the
   session summary, gated by shownThings.recentPlacements; nearMiss rows retain
-  an explanatory tooltip. `placeBoardSides` (game/layout.js) may move it right
-  of the board ([layout notes](board-and-layout.md)).
+  an explanatory tooltip ([layout notes](board-and-layout.md)).
   `dedupeRankCandidates` is shared
   with the full time/day and board-shape tablecharts, so the summary
   obeys `collapseDuplicateCharts` with the same pinned lifetime/week

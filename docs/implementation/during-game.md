@@ -30,7 +30,8 @@ Spec: [docs/product/during-game.md](../product/during-game.md). Index: [AGENTS.m
   chart), and
   wires the legends, the hover, and the replay link. The
   card (`duringGameCard`, `placeDuringGameCard`) is a body-level manual
-  popover, so it shows above the Game details popover too;
+  popover that opens away from the board (left when docked right, right
+  when docked left);
   `hideDuringGameHover` closes it and ends the replay preview, and
   `clearResultStats` calls it. `duringGamePicksFor(endedAt)` holds each
   legend's picks for the game shown.

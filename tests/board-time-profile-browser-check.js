@@ -123,12 +123,9 @@ const { chromium } = require(process.argv[2]);
     assert.equal(await page.locator('#result-stats .board-time-profile').count(), 1,
       'at 1440px game data is in the details column');
     assert.equal(await page.locator('#result-ranks .board-time-profile').count(), 0);
-    for (const width of [1920, 1100, 650, 390, 320]) {
+    for (const width of [1920, 1100, 650, 390, 320, 280]) {
       await page.setViewportSize({ width, height: 1100 });
-      await page.evaluate(() => syncGameSidebar());
-      if (await page.locator('#game-sidebar-button').isVisible()
-          && !(await page.locator('#game-sidebar').evaluate((el) => el.matches(':popover-open'))))
-        await page.locator('#game-sidebar-button').click();
+      await page.evaluate(() => syncBoardLayout());
       await profile.scrollIntoViewIfNeeded();
       await page.waitForTimeout(80);
       const layout = await profile.evaluate((el) => {
@@ -136,17 +133,20 @@ const { chromium } = require(process.argv[2]);
         const band = el.querySelector('.game-data-band');
         const column = el.closest('#game-sidebar');
         const columnStyle = getComputedStyle(column);
+        const dock = topStage.dataset.detailsDock;
         const scrolls = (node) => node.scrollWidth > node.clientWidth + 1 || node.scrollHeight > node.clientHeight + 1;
         return {
           host: column.id,
+          dock,
           overflow: scrolls(band) || [el, ...el.querySelectorAll('*')].some((node) =>
             /auto|scroll/.test(getComputedStyle(node).overflow) && scrolls(node)),
           scale: Number(band.style.getPropertyValue('--game-data-scale')),
           width: bounds.width,
           chartHeight: el.querySelector('.game-data-section.open').getBoundingClientRect().height,
-          columnSlack: parseFloat(columnStyle.maxHeight) - parseFloat(columnStyle.paddingBottom)
-            - parseFloat(columnStyle.borderBottomWidth)
-            - (bounds.bottom - column.getBoundingClientRect().top + column.scrollTop),
+          columnSlack: dock === 'below' ? 0
+            : parseFloat(columnStyle.maxHeight) - parseFloat(columnStyle.paddingBottom)
+              - parseFloat(columnStyle.borderBottomWidth)
+              - (bounds.bottom - column.getBoundingClientRect().top + column.scrollTop),
           hiddenPools: [...el.querySelectorAll('.game-data-row .game-data-pct')].filter((cell) => !cell.checkVisibility())
             .map((cell) => cell.dataset.pool),
           nameWeight: getComputedStyle(el.querySelector('.game-data-row .game-data-name')).fontWeight,
@@ -181,7 +181,7 @@ const { chromium } = require(process.argv[2]);
       // Below the narrowest plan a band shrinks as a whole rather than
       // scrolling, shortening names, or hiding values.
       assert.equal(layout.overflow, false, width + 'px nothing in game data scrolls');
-      assert.equal(layout.scale < 1, width === 320, width + 'px only the narrowest width scales the band: ' + layout.scale);
+      assert.equal(layout.scale < 1, width === 280, width + 'px only the narrowest width scales the band: ' + layout.scale);
       assert.equal(layout.nameWeight, '400');
       assert.equal(layout.valueWeight, '400', 'numbers are never bold');
       assert.deepEqual(layout.numberWeights, ['400'], 'percentages and bar labels are never bold');

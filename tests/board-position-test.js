@@ -117,23 +117,49 @@ const bounds = { left: 0, right: 800, top: 50 };
       visible.left >= narrow.left && visible.top >= narrow.top
         && visible.right <= narrow.right && visible.bottom <= narrow.bottom);
   }
+
+  // Adaptive details dock placement around the already-placed board.
+  const centeredWide = detailsDockPlacement(2496, 691, 1805, 320, 18, 1178, false);
+  check('centered board with equal flanks docks details on the right',
+    centeredWide.dock === 'right' && centeredWide.maximum === 673 && centeredWide.width === 673);
+
+  const movedLeft = detailsDockPlacement(2496, 291, 1405, 320, 18, 1178, false);
+  check('board moved left widens the right flank dock',
+    movedLeft.dock === 'right' && movedLeft.maximum === 1073 && movedLeft.width === 1073);
+
+  const movedRight = detailsDockPlacement(2496, 1091, 2205, 320, 18, 1178, false);
+  check('board moved right flips details dock to the left flank',
+    movedRight.dock === 'left' && movedRight.maximum === 1073 && movedRight.width === 1073);
+
+  const farRight = detailsDockPlacement(2496, 1374, 2488, 320, 18, 1178, false);
+  check('far-right board caps left dock width to the preferred width while exposing full flank maximum',
+    farRight.dock === 'left' && farRight.maximum === 1356 && farRight.width === 1178);
+
+  const centeredTooTight = detailsDockPlacement(1440, 163, 1277, 320, 18, 692, false);
+  check('neither flank holding the minimum drops details below the board at full width',
+    centeredTooTight.dock === 'below' && centeredTooTight.width === 1440);
+
+  const phoneWidth = detailsDockPlacement(650, 155, 495, 320, 18, 320, true);
+  check('narrow viewports drop details below the board at full width',
+    phoneWidth.dock === 'below' && phoneWidth.width === 650);
 }
 
 check('game frame stays centered when surrounding result width changes',
   /#game-frame\s*\{[^}]*width:\s*max-content;[^}]*margin-inline:\s*auto;/s.test(css));
-check('the board rests centered with the session summary left of it and ranks won right of it',
-  !css.includes('board-beside-game-data') && !source.includes('board-beside-game-data')
-    && source.includes("[['left'], resultRanks.querySelector('.session-summary')]")
-    && source.includes("[['right'], resultRanks.querySelector('.recent-placements')]"));
-check('a side block leaves the table list only where it fits inside the edge inset',
-  source.includes('leftOf(s, width) >= main.left + inset && leftOf(s, width) + width <= main.right - inset')
-    && /#result-ranks \.rank-list\.beside-board\s*\{[^}]*position:\s*absolute;/s.test(css));
-check('the history below clears the lowest block beside the board',
-  source.includes("resultRanks.querySelectorAll('.beside-board')"));
+check('board layout places the board across the full stage before docking details',
+  !css.includes('beside-board') && !source.includes('placeBoardSides')
+    && /const placed = applyBoardPosition\(snapshot\);\s*syncGameSidebar\(snapshot,/.test(source));
+check('adaptive dock supports right, left, and below-board placement without popover hiding',
+  /#top-stage\[data-details-dock="right"\]\s+#game-sidebar/.test(css)
+    && /#top-stage\[data-details-dock="left"\]\s+#game-sidebar/.test(css)
+    && /#top-stage\[data-details-dock="below"\]\s+#game-sidebar/.test(css)
+    && !html.includes('game-sidebar-button'));
+check('top stage reserves height for docked details so sections below never overlap',
+  source.includes('topStage.style.minHeight'));
 check('offset constraints use the same edge inset as the resting frame',
   /#page-layout\s*\{[^}]*--board-edge-inset:\s*8px;/s.test(css)
     && source.includes("getPropertyValue('--board-edge-inset')")
-    && !/mainRect\.(left|right) [+-] 8\b/.test(source));
+    && !/stageRect\.(left|right) [+-] 8\b/.test(source));
 check('position editor exposes independent horizontal and vertical values',
   html.includes('id="board-position-x-number"')
     && html.includes('id="board-position-y-number"'));

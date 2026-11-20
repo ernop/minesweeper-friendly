@@ -95,11 +95,11 @@ const shotDir = process.argv[4] || null;
     // Placement: the details column's first stat section, game data under
     // it, nothing in the lower sections.
     const placement = await page.evaluate(() => ({
-      compact: pageLayout.classList.contains('compact-sidebar'),
+      dock: topStage.dataset.detailsDock,
       column: [...resultStats.children].map((el) => (el.matches('.stat-section.during-game') ? 'during-game' : el.className)),
       inRanks: resultRanks.querySelector('.during-game') !== null,
     }));
-    assert.equal(placement.compact, false, 'the details column docks at 1920px');
+    assert.equal(placement.dock, 'right', 'the details column docks right at 1920px');
     assert.deepEqual(placement.column, ['during-game', 'board-time-profile-host'], 'live perf charts, then game data');
     assert.equal(placement.inRanks, false, 'not a lower result section');
     const toggle = block.locator('.stat-section-toggle');
@@ -609,31 +609,33 @@ const shotDir = process.argv[4] || null;
     const middleView = await page.evaluate(() => {
       const cardRect = document.querySelector('.during-game-card').getBoundingClientRect();
       const boardRect = document.getElementById('board').getBoundingClientRect();
-      return { compact: pageLayout.classList.contains('compact-sidebar'),
+      return { dock: topStage.dataset.detailsDock,
         cardInside: cardRect.left >= 0 && cardRect.right <= document.documentElement.clientWidth,
         cardClear: cardRect.left >= boardRect.right || cardRect.right <= boardRect.left
           || cardRect.top >= boardRect.bottom || cardRect.bottom <= boardRect.top };
     });
-    assert.equal(middleView.compact, false, 'the column docks at 1100px');
+    assert.equal(middleView.dock, 'right', 'the column docks right at 1100px');
     assert.equal(middleView.cardInside, true, 'the card inside the window at 1100px');
     assert.equal(middleView.cardClear, true, 'the card clear of the board at 1100px');
     if (shotDir) await page.screenshot({ path: shotDir + '/during-game-1100.png' });
     await page.mouse.move(0, 0);
     assert.equal((await replayState()).step, middleBase, 'and back on leaving');
 
-    // Phone width: the block leads the Game details popover and its plots
-    // follow the width; the card stays in the window, and a click closes the
-    // popover to show the board at the moment clicked.
+    // Phone width: the block flows directly below the board at full width,
+    // its plots follow the width, the card stays in the window, and a click
+    // keeps its moment and scrolls the board into view.
     await page.setViewportSize({ width: 390, height: 900 });
     await page.waitForTimeout(300);
-    await page.locator('#game-sidebar-button').click();
-    await page.waitForTimeout(200);
+    await page.locator('.during-game').scrollIntoViewIfNeeded();
+    await page.waitForTimeout(100);
     const phone = await page.evaluate(() => {
       const el = document.querySelector('.during-game');
-      return { first: resultStats.firstElementChild === el, overflow: el.scrollWidth - el.clientWidth,
+      return { dock: topStage.dataset.detailsDock, first: resultStats.firstElementChild === el,
+        overflow: el.scrollWidth - el.clientWidth,
         widths: [...el.querySelectorAll('.during-game-chart > svg')].map((svg) => svg.getBoundingClientRect().width) };
     });
-    assert.equal(phone.first, true, 'first in the details column');
+    assert.equal(phone.dock, 'below', 'flows directly below the board at 390px');
+    assert.equal(phone.first, true, 'first in the details panel');
     assert.equal(phone.overflow, 0, 'nothing spills at 390px');
     assert(phone.widths.every((width) => width > 200 && width < 390), 'plots follow the column: ' + phone.widths);
     const narrow = await plotBox('progress');
@@ -644,9 +646,8 @@ const shotDir = process.argv[4] || null;
     const phoneStep = (await replayState()).step;
     await page.mouse.down();
     await page.mouse.up();
-    const phoneAfter = await page.evaluate(() => ({ open: gameSidebar.matches(':popover-open'), step: replayStep,
+    const phoneAfter = await page.evaluate(() => ({ step: replayStep,
       saved: settings.replayPosition.step, card: document.querySelector('.during-game-card').matches(':popover-open') }));
-    assert.equal(phoneAfter.open, false, 'the click closes Game details to show the board');
     assert.deepEqual([phoneAfter.step, phoneAfter.saved], [phoneStep, phoneStep], 'at the moment clicked');
     assert.equal(phoneAfter.card, false, 'the card closes with it');
     if (shotDir) await page.screenshot({ path: shotDir + '/during-game-390.png' });

@@ -126,8 +126,9 @@ Spec: [docs/product/replay.md](../product/replay.md). Index: [AGENTS.md](../../A
   The transport `#replay-controls` (2026-10-20) is inside `#game-area`
   right after `#game-frame`, so it moves with the board's saved
   translation: a five-column grid whose width is
-  `min(100%, max(340px, --board-frame-width))` (`syncBoardLayout` sets the
-  variable from the frame), the slider wrap spanning row 1, the buttons
+  `min(var(--stage-width, 100vw), max(340px, var(--board-frame-width, 340px)))`
+  (`syncReplayBounds` sets both variables directly on `#replay-controls`),
+  the slider wrap spanning row 1, the buttons
   `#replay-first`, `#replay-prev`, `#replay-play`, `#replay-next`, and
   `#replay-last` (inline SVG icons; `aria-label` and `title` name each) in
   row 2, `#replay-status` spanning row 3, and the two toggle rows in rows 4
