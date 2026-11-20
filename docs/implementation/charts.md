@@ -2,24 +2,29 @@
 
 Spec: [docs/product/charts.md](../product/charts.md). Index: [AGENTS.md](../../AGENTS.md).
 
-- Property charts: `PERF_CHART_SPECS` and `BOARD_CHART_SPECS`,
-  `averageEligibleWins`, `averagePoints`, and `buildAverageScatter`.
+- Property charts: `PERF_CHART_SPECS` (10 charts) and `BOARD_CHART_SPECS`
+  (10 charts), `msPerBv3Of`, `averageEligibleWins`, `averagePoints`,
+  `averageScatterData`, and `buildAverageScatter`.
   Each group reads `settings.perfChartMode` or `settings.boardChartMode`.
   The section heading carries that group's selector (`chartModeSelect`),
   which CSS hides while the heading's `.stat-section-toggle` is
   `aria-expanded="false"`.
-  Board-shape specs exclude legacy records lacking their field; IOS excludes
-  times at or below one second; path-ratio specs exclude zero denominators.
+  `analysis-worker.js` calls `averageScatterData` with `yMetric = 'msPerBv3'`
+  for `PERF_CHART_SPECS` (`msPerBv3Of(record) = record.timeMs / solvedBv3Of(record)`,
+  excluding wins without positive solved 3BV) and `'time'` for
+  `BOARD_CHART_SPECS` (`secondsOf(record)`).
+  Board-shape specs exclude legacy records lacking their field.
   `steppedMetric(id, step, { percent })` charts a GameData measurement
   with its catalog name and `value`: `percent` plots a share ×100 with
   `xTickUnit: '%'` and a step in percentage points; a null step keeps
   exact values (unflagged mine share, already one value per mine count).
   It sets `winBound` exactly when the catalog entry lacks `allOutcomes`
-  (2026-10-26; [measurement catalog](measurement-catalog.md)); "clicks over
-  3BV", not a catalog measurement, declares `winBound` itself.
+  (2026-10-26; [measurement catalog](measurement-catalog.md)); `misclicks`
+  uses `record.misclicks` directly (all outcomes).
   Bucket steps are in [Point charts](../product/charts.md). A board chart
   follows its tablechart `shownThings` switch. `tests/average-scatter-test.js`
-  freezes both orders, metric definitions, eligibility, and aggregation.
+  freezes both orders, metric definitions, `ms / 3BV` normalization,
+  eligibility, and aggregation.
   Chart titles take their names from the measurement's one source
   (2026-10-07): `steppedMetric` reads the GameData catalog for
   performance measurements, and board charts read `BOARD_TRAIT_NAMES`

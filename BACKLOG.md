@@ -1580,9 +1580,10 @@ Remaining, in priority order (earlier items prevent irreversible loss):
      board, and time to action, by deduction level.
    - A split between hand slips and decision errors.
    - Per-movement tables in place of per-game means.
-   - Fix or retire the trace stats with known formula defects: wander's window
-     mismatch, signed MAD/AUC/AD that cancel, recovery runs cut off by the
-     game's end, and idle under event-driven sampling.
+   - Fix or retire the remaining trace stats with known formula defects:
+     wander's window mismatch and recovery runs cut off by the game's end
+     (signed MAD/AUC/AD and mousetrap `idle` were retired with the in-page
+     mousetrap group on 2026-11-19).
    - Then regroup the displayed core by dimension and rename. The popups were
      rewritten short on 2026-09-26 (docs/product/ui-doctrine.md, "Stat
      explanations"); update each one as its stat is renamed, fixed, or retired.

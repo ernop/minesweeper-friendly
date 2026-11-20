@@ -173,54 +173,6 @@ const TRACE_METRIC_GROUPS = [
           + 'movements, in bits per second.',
         of: (m) => m.fitts.throughputBitsPerSec, fmt: (v) => v.toFixed(2) + ' bit/s' },
     ] },
-  { key: 'psych', name: 'trajectory geometry',
-    help: 'The shape of each click-to-click cursor path, using the mousetrap '
-      + 'package\u2019s formulas, averaged over paths with at least 5 samples.',
-    displays: [
-      { label: 'segments',
-        help: 'Number of click-to-click paths measured.',
-        of: (m) => m.psych.segmentCount, fmt: (v) => String(v) },
-      { label: 'MAD',
-        help: 'Largest sideways distance from the straight line to the click, '
-          + 'signed by side and averaged. Bends to opposite sides cancel.',
-        of: (m) => m.psych.mad, fmt: (v) => Math.round(v) + 'px' },
-      { label: 'AUC',
-        help: 'Signed area between the path and the straight line to the '
-          + 'click, averaged. Bends to opposite sides cancel.',
-        of: (m) => m.psych.auc, fmt: (v) => sparkAxisNumber(v) + 'px\u00b2' },
-      { label: 'AD',
-        help: 'Average signed distance from the straight line to the click, '
-          + 'averaged over paths. Bends to opposite sides cancel.',
-        of: (m) => m.psych.ad, fmt: (v) => Math.round(v) + 'px' },
-      { label: 'x-flips',
-        help: 'Left-right direction reversals per path, averaged.',
-        of: (m) => m.psych.xFlips, fmt: (v) => v.toFixed(1) },
-      { label: 'y-flips',
-        help: 'Up-down direction reversals per path, averaged.',
-        of: (m) => m.psych.yFlips, fmt: (v) => v.toFixed(1) },
-      { label: 'initiation',
-        help: 'Time from the previous click until the cursor starts moving, '
-          + 'averaged.',
-        of: (m) => m.psych.initiationTimeMs, fmt: (v) => Math.round(v) + 'ms' },
-      { label: 'idle',
-        help: 'Time per path with the cursor position unchanged, averaged. The '
-          + 'browser sends no samples while the cursor rests, so most '
-          + 'stillness does not show here.',
-        of: (m) => m.psych.idleTimeMs, fmt: (v) => (v / 1000).toFixed(1) + 's' },
-      { label: 'vel max',
-        help: 'Peak cursor speed per path, averaged.',
-        of: (m) => m.psych.velMaxPxPerMs, fmt: (v) => Math.round(v * 1000) + 'px/s' },
-      { label: 'acc max',
-        help: 'Peak acceleration per path, averaged.',
-        of: (m) => m.psych.accMaxPxPerMs2, fmt: (v) => v.toFixed(4) },
-      { label: 'entropy',
-        help: 'How irregular the left-right movement is over time (sample '
-          + 'entropy), averaged over paths. Higher is less regular.',
-        of: (m) => m.psych.sampleEntropy, fmt: (v) => v.toFixed(2) },
-      { label: 'segment time',
-        help: 'Time from one click to the next, averaged over paths.',
-        of: (m) => m.psych.rtMs, fmt: (v) => (v / 1000).toFixed(1) + 's' },
-    ] },
   { key: 'hev', name: 'movement geometry',
     help: 'Movement features from the Hevelius formulas, measured on each '
       + 'click-to-click movement after resampling to 100 Hz and smoothing at '

@@ -4,7 +4,9 @@ Spec: [docs/product/measurement.md](../product/measurement.md). Index: [AGENTS.m
 
 - Offline analysis lives under `analysis/` (inputs: the exported trace
   JSON). `analysis/mousetrap/trace_measures.R` computes psychometric
-  mouse-tracking measures per inter-click segment; it runs on the R env
+  mouse-tracking measures per inter-click segment (offline-only since
+  2026-11-19, when the in-page mousetrap group was retired from Motion
+  Stats); it runs on the R env
   at `~/analysis-envs/r-mousetrap` (created 2026-08-20 with micromamba at
   `~/.local/bin/micromamba` — this machine has no system R and no
   passwordless sudo; mousetrap itself compiled from CRAN, its heavy deps

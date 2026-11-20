@@ -134,15 +134,6 @@ const LAYOUT = { t: 0, kind: 'layout', left: -3.75, top: -3.75, width: 277.5, he
   assertUndefined('t2 wander', w.wanderRatio);
   // Monotone straight path: no turnarounds.
   assertEq('t2 turnarounds', w.dirChanges, 0);
-
-  // The psychometric system agrees on the idle time (the 300 ms
-  // position-constant step) and sees zero x-flips on the monotone path.
-  const p = computePsychometrics(t, x, y, events);
-  assertEq('t2 segments', p.segmentCount, 1);
-  assertEq('t2 psych idle', p.idleTimeMs, 300);
-  assertEq('t2 psych xFlips', p.xFlips, 0);
-  assertClose('t2 psych velMax', p.velMaxPxPerMs, 1, 1e-9);
-  assertClose('t2 psych MAD', p.mad, 0, 1e-9);
 }
 
 // ---- Test 3: out-and-back (a feint plus a turnaround) ----
@@ -170,10 +161,6 @@ const LAYOUT = { t: 0, kind: 'layout', left: -3.75, top: -3.75, width: 277.5, he
   // wander stays unmeasurable — the travel is still all counted.
   assertClose('t3 path (via bio)', computeTraceMetrics(t, x, y, sampleTravelPx(x, y, NO_MERGED_OBSERVATIONS), events, 1000).totalPathPx,
     180, 1e-9);
-
-  // The x-coordinate reverses once: exactly one x-flip in the segment.
-  const p = computePsychometrics(t, x, y, events);
-  assertEq('t3 psych xFlips', p.xFlips, 1);
 }
 
 // ---- Test 4: click slip and empty traces ----
@@ -192,7 +179,6 @@ const LAYOUT = { t: 0, kind: 'layout', left: -3.75, top: -3.75, width: 277.5, he
 
   // Empty and clickless traces measure nothing but do not crash.
   assertEq('t4 empty hev', computeHevelius([], [], [], []).movementCount, 0);
-  assertEq('t4 empty psych', computePsychometrics([], [], [], []).segmentCount, 0);
   assertEq('t4 empty waste feints', computeWasteMetrics([], [], [], [], []).feintCount, 0);
   const clickless = computeHevelius([0, 10, 20], [0, 5, 10], [0, 0, 0], [LAYOUT]);
   assertEq('t4 clickless hev', clickless.movementCount, 0);

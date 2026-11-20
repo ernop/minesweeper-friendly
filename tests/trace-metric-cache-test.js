@@ -23,19 +23,18 @@ for (const fixture of fixtures) {
     comparisons++;
   }
 }
-// Instrument only the expensive segment functions; elapsed/input snapshots
-// between clicks must share them, while the next completed click invalidates.
+// Instrument only the expensive segment function; elapsed/input snapshots
+// between clicks must share it, while the next completed click invalidates.
 const context = vm.createContext({ calls: 0 });
 vm.runInContext(source + `
-const psych = computePsychometrics, hev = computeHevelius;
-computePsychometrics = (...args) => { calls++; return psych(...args); };
+const hev = computeHevelius;
 computeHevelius = (...args) => { calls++; return hev(...args); };
 const compute = createTraceMetricComputer();
 const events = [];
 compute([], [], [], [], events, 0);
 for (let i = 1; i < 100; i++) compute([], [], [], [], events, i);
 `, context);
-assert.equal(context.calls, 2);
+assert.equal(context.calls, 1);
 vm.runInContext("events.push({kind:'rdown',t:100,x:1,y:2,index:null}); compute([],[],[],[],events,100);", context);
-assert.equal(context.calls, 4);
+assert.equal(context.calls, 2);
 console.log(`trace metric cache: ${comparisons} snapshots match full computation; completed-click invalidation passed`);

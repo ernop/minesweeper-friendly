@@ -212,14 +212,17 @@ and hovering a row outlines the charts that plot the same measurement. See
   <img src="promo/game-data-distributions-2026-11-19.png" alt="Game data distributions: one histogram strip per measurement in lifetime and session sections, this game's bar in light blue under a pin" width="49%">
 </p>
 
-![The 3BV/s card: 334th of 1,851 lifetime wins, over a histogram of every win with this game's bar in light blue under a pin, and the finished board with its 3 openings and the 8 numbers outside them marked](promo/game-data-card-2026-11-19.png)
+![The 3BV/s card: 333rd of 1,851 lifetime wins, over a histogram of every win with this game's bar in light blue under a pin, and the finished board with its 2 openings and the 8 numbers outside them marked](promo/game-data-card-2026-11-19.png)
 
 Property charts sit in two groups, your perf and board traits, each with
-its own average, distribution, or winrate reading. They plot a measurement
-against average win time, every win's time, or the share of games won.
+its own average, distribution, or winrate reading. Your-perf charts plot
+each play measurement against average `ms / 3BV`, every win's `ms / 3BV`,
+or the share of games won (normalizing away board-size confounding);
+board-trait charts plot each board measurement against average win time,
+every win's time, or the share of games won.
 Charts omit games where that measurement is absent.
 
-![Your-perf charts in average mode: average win time for each value of every performance measurement, dots colored by the age of their newest win, chips giving this game's value and lifetime standing](promo/perf-charts-2026-11-19.png)
+![Your-perf charts in average mode: average ms per 3BV for each value of ten performance measurements, dots colored by the age of their newest win, chips giving this game's value and lifetime standing](promo/perf-charts-2026-11-19.png)
 
 After a loss or a trial game, the stats themselves (time, 3BV, 3BV/s, clicks, efficiency, board-changing click share,
 IOS, mouse path,

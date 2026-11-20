@@ -416,9 +416,10 @@ function buildScatter(wins, me, fx, fy, xLabel, yLabel, meLabel, ageInfoOf, opts
       }, '\u2192 ' + yLabel);
     }
     if (hiddenCount > 0) {
+      const maxText = opts.yTickUnit === 'ms' ? Math.round(hiddenMax) + 'ms' : hiddenMax.toFixed(1);
       el('text', { x: W - R - 3, y: T + 11, class: 'scatter-outlier-note' },
         '\u2191 ' + hiddenCount + ' outlier' + (hiddenCount === 1 ? '' : 's')
-        + ', max ' + hiddenMax.toFixed(1));
+        + ', max ' + maxText);
     }
 
     list.removeAttribute('aria-busy');
@@ -427,12 +428,13 @@ function buildScatter(wins, me, fx, fy, xLabel, yLabel, meLabel, ageInfoOf, opts
 }
 
 // Property charts group games by a measurement, then plot that value against
-// average win time, every win's time, or win percentage. Two groups match
-// the game-data sides. Integer measurements group exactly. Continuous ones
-// use a fixed step so one game cannot become its own bucket. `has` keeps
-// legacy records that predate a measurement off that chart. `setting` hides
-// a board chart when its tablechart switch is off. `winBound` sits a
-// win-only measurement out of winrate, which would otherwise read 100%.
+// solve pace (ms / 3BV for your perf, raw win time for board traits), every
+// win's value, or win percentage. Two groups match the game-data sides.
+// Integer measurements group exactly. Continuous ones use a fixed step so
+// one game cannot become its own bucket. `has` keeps legacy records that
+// predate a measurement off that chart. `setting` hides a board chart when
+// its tablechart switch is off. `winBound` sits a win-only measurement out
+// of winrate, which would otherwise read 100%.
 function roundTo(value, step) {
   const decimals = (String(step).split('.')[1] || '').length;
   return Number((Math.round(value / step) * step).toFixed(decimals));
@@ -461,26 +463,14 @@ function steppedMetric(id, step, { percent = false } = {}) {
 }
 
 const PERF_CHART_SPECS = [
-  { label: 'clicks', value: (s) => s.boardChangingClicks },
-  { label: 'path', value: (s) => Math.round(s.mousePathPx / 100) * 100 },
-  // A loss's 3BV is the whole board's, not what it solved.
-  { label: 'clicks over 3BV', value: clicksOverBv3Of, has: (s) => clicksOverBv3Of(s) !== undefined, winBound: true },
-  steppedMetric('misclickRate', 0.1),
-  steppedMetric('fastclickGap', 10),
-  steppedMetric('bvPerSecond', 0.1),
-  steppedMetric('clickRate', 0.1),
-  steppedMetric('noopRate', 0.1),
-  steppedMetric('efficiency', 0.01),
-  steppedMetric('pathPer3bv', 10),
-  steppedMetric('pathPerClick', 10),
-  steppedMetric('boardChangingClickShare', 0.01),
   steppedMetric('ioe', 0.01),
-  steppedMetric('ziniEfficiency', 0.01),
-  steppedMetric('hziniEfficiency', 0.01),
-  steppedMetric('ios', 0.01),
-  steppedMetric('stnb', 1),
+  steppedMetric('hziniEfficiency', 1, { percent: true }),
+  steppedMetric('boardChangingClickShare', 1, { percent: true }),
+  steppedMetric('clickRate', 0.1),
+  steppedMetric('fastclickGap', 10),
   steppedMetric('mouseSpeed', 50),
   steppedMetric('cadenceSpread', 0.1),
+  { label: 'misclicks', value: (s) => s.misclicks, has: (s) => typeof s.misclicks === 'number' },
   steppedMetric('unusedFlagShare', 5, { percent: true }),
   steppedMetric('unflaggedMineShare', null, { percent: true }),
 ];
@@ -534,28 +524,33 @@ const BOARD_CHART_SPECS = [
 
 // A chart's eligible wins. The finite check is a final guard against
 // malformed ratios reaching SVG axis math.
-function averageEligibleWins(spec, wins) {
-  return wins.filter((win) =>
-    (!spec.has || spec.has(win)) && Number.isFinite(spec.value(win)));
+function msPerBv3Of(record) {
+  const bv3 = solvedBv3Of(record);
+  return bv3 > 0 ? record.timeMs / bv3 : undefined;
 }
 
-// Bucket eligible wins by the spec's value and average each bucket's solve
-// time: the points the average charts plot.
-function averagePoints(spec, wins) {
+function averageEligibleWins(spec, wins, yOf = secondsOf) {
+  return wins.filter((win) =>
+    (!spec.has || spec.has(win)) && Number.isFinite(spec.value(win)) && Number.isFinite(yOf(win)));
+}
+
+// Bucket eligible wins by the spec's value and average each bucket's y value
+// (ms / 3BV for your perf, win time in seconds for board traits).
+function averagePoints(spec, wins, yOf = secondsOf) {
   const groups = new Map();
-  for (const win of averageEligibleWins(spec, wins)) {
+  for (const win of averageEligibleWins(spec, wins, yOf)) {
     const key = spec.value(win);
     const group = groups.get(key) || {
-      x: key, totalSeconds: 0, count: 0, newestEndedAt: -Infinity,
+      x: key, totalY: 0, count: 0, newestEndedAt: -Infinity,
     };
-    group.totalSeconds += secondsOf(win);
+    group.totalY += yOf(win);
     group.count += 1;
     group.newestEndedAt = Math.max(group.newestEndedAt, win.endedAt);
     groups.set(key, group);
   }
   return [...groups.values()].map((group) => ({
     x: group.x,
-    averageSeconds: group.totalSeconds / group.count,
+    averageY: group.totalY / group.count,
     endedAt: group.newestEndedAt,
   }));
 }
@@ -583,17 +578,22 @@ function winratePoints(spec, records) {
 }
 
 // The property charts' three vertical readings (requested 2026-08-30):
-// bucket-average win time, every win's time, and win percentage per value.
+// bucket-average pace (ms / 3BV on your perf, win time on board traits),
+// every win's value, and win percentage per value.
 // Each game-data side has its own saved mode, chosen once on that section.
 // AVERAGE_CHART_MODES lives with its setting in settings-core.js.
 
 function chartModeSelect(modeField) {
+  const perf = modeField === 'perfChartMode';
   const select = document.createElement('select');
   select.className = 'avg-mode-select';
   select.setAttribute('aria-label',
-    (modeField === 'perfChartMode' ? 'your perf' : 'board traits') + ' chart mode');
-  select.title = 'average win time per value, every individual win time, '
-    + 'or the share of games won per value';
+    (perf ? 'your perf' : 'board traits') + ' chart mode');
+  select.title = perf
+    ? 'average ms per 3BV per value, every individual win\u2019s ms per 3BV, '
+      + 'or the share of games won per value'
+    : 'average win time per value, every individual win time, '
+      + 'or the share of games won per value';
   for (const [id, label] of AVERAGE_CHART_MODES) {
     const option = document.createElement('option');
     option.value = id;
@@ -622,12 +622,15 @@ function averageChartHelp(mode) {
     + 'Theil\u2013Sen trend fits: teal over all wins, blue over today\u2019s.';
 }
 
-// One property chart in the selected mode: "time by X" (bucket averages
-// plus the Theil–Sen trend pair), "times by X" (every win's own time),
-// or "winrate by X" (percent of all finished games won per value).
-function averageScatterData(spec, wins, allRecords, record, historyView, mode, referenceMs) {
+// One property chart in the selected mode. Board-trait charts use raw win
+// time in seconds ("time by X", "times by X"); your-perf charts normalize
+// solve time by solved 3BV ("ms / 3BV by X", "game ms / 3BV by X") so board
+// size does not confound play measurements. Both share "winrate by X".
+function averageScatterData(spec, wins, allRecords, record, historyView, mode, referenceMs, yMetric = 'time') {
+  const msPerBv3 = yMetric === 'msPerBv3';
+  const yOf = msPerBv3 ? msPerBv3Of : secondsOf;
   const todayStart = startOfDay(referenceMs);
-  const selected = !historyView && averageEligibleWins(spec, [record]).length > 0;
+  const selected = !historyView && (!spec.has || spec.has(record)) && Number.isFinite(spec.value(record));
   let points, todayPairs, currentIndex, title, yLabel;
   if (mode === 'winrate') {
     if (spec.winBound) return null;
@@ -637,23 +640,25 @@ function averageScatterData(spec, wins, allRecords, record, historyView, mode, r
     currentIndex = selected ? points.findIndex((p) => p.x === spec.value(record)) : -1;
     title = 'winrate by '; yLabel = 'winrate';
   } else {
-    const eligible = averageEligibleWins(spec, wins);
+    const eligible = averageEligibleWins(spec, wins, yOf);
     if (eligible.length < 2) return null;
     if (mode === 'distribution') {
-      points = eligible.map((w) => ({ x: spec.value(w), y: secondsOf(w), endedAt: w.endedAt }));
+      points = eligible.map((w) => ({ x: spec.value(w), y: yOf(w), endedAt: w.endedAt }));
       todayPairs = points.filter((p) => p.endedAt >= todayStart).map((p) => [p.x, p.y]);
       currentIndex = selected ? eligible.indexOf(record) : -1;
-      title = 'times by '; yLabel = 'time';
+      title = msPerBv3 ? 'game ms / 3BV by ' : 'times by ';
+      yLabel = msPerBv3 ? 'ms / 3BV' : 'time';
     } else {
-      points = averagePoints(spec, eligible).map((p) => ({ x: p.x, y: p.averageSeconds, endedAt: p.endedAt }));
-      todayPairs = averagePoints(spec, eligible.filter((w) => w.endedAt >= todayStart))
-        .map((p) => [p.x, p.averageSeconds]);
+      points = averagePoints(spec, eligible, yOf).map((p) => ({ x: p.x, y: p.averageY, endedAt: p.endedAt }));
+      todayPairs = averagePoints(spec, eligible.filter((w) => w.endedAt >= todayStart), yOf)
+        .map((p) => [p.x, p.averageY]);
       currentIndex = selected ? points.findIndex((p) => p.x === spec.value(record)) : -1;
-      title = 'time by '; yLabel = 'average time';
+      title = msPerBv3 ? 'ms / 3BV by ' : 'time by ';
+      yLabel = msPerBv3 ? 'average ms / 3BV' : 'average time';
     }
   }
   return { points, currentIndex, referenceMs, yLabel,
-    opts: { title: title + spec.label, yTickUnit: mode === 'winrate' ? '%' : 's',
+    opts: { title: title + spec.label, yTickUnit: mode === 'winrate' ? '%' : (msPerBv3 ? 'ms' : 's'),
       help: averageChartHelp(mode), xTickUnit: spec.xTickUnit, trimY: mode === 'distribution',
       ...(mode === 'winrate' ? {} : { trendLines: fitTrendLines(points.map((p) => [p.x, p.y]), todayPairs) }) } };
 }

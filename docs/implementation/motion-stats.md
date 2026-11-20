@@ -5,21 +5,13 @@ Spec: [docs/product/motion-stats.md](../product/motion-stats.md). Index: [AGENTS
 - Trace metrics ([Motion stats](../product/motion-stats.md)): the pure sections
   between the "TRACE METRICS: COMPUTATION" and "TRACE METRICS: DISPLAY"
   markers (no DOM; Node harnesses extract exactly this span) implement
-  all five measurement systems over a trace:
+  the in-page measurement systems over a trace:
   - `computeTraceMetrics` — the biometrics session set, a JS port of
     `analysis/biometrics/extract_features.py`;
-  - `traceSegments` — the shared inter-click segmentation, the exact
-    trial construction of `analysis/mousetrap/trace_measures.R`
-    ('lup'/'rdown' events end segments; previous click point prepended,
-    click point appended, < 5 points skipped);
-  - `computePsychometrics` — an exact port of the mousetrap R package's
-    mt_derivatives/mt_deviations/mt_measures/mt_time_normalize/
-    mt_sample_entropy path, transcribed from the installed package
-    source (deparse dumps; includes quirks like the padded leading zero
-    in vel/acc, pracma::polyarea's ccw-positive shoelace with the
-    orientation flip, and which.max tie-breaking). The entropy radius r
-    pools per game — trace_measures.R was changed the same day to run
-    its pipeline per game so offline matches;
+  - `traceSegments`, `signedLineDeviation`, `countDirectionFlips` —
+    inter-click segmentation ('lup'/'rdown' events end segments; previous
+    click point prepended, click point appended, < 5 points skipped) and
+    axis-deviation / flip helpers used by Hevelius;
   - `computeHevelius` — the cursor-only Hevelius features per movement
     (FEATURES.md mapping; 100 Hz linear resample, 7 Hz Kaiser-FIR
     (21 taps, beta 3.3953, unity DC gain, replicate padding) speed/acc/
@@ -37,8 +29,11 @@ Spec: [docs/product/motion-stats.md](../product/motion-stats.md). Index: [AGENTS
     spread), fastest gap, peak presses in a rolling 1 s window, share of
     gaps under 250 ms, share of presses with a cursor sample within
     100 ms before the press;
-  - `computeAllTraceMetrics` — the combined {bio, psych, hev, waste,
-    cad} object the display consumes.
+  - `computeQueueMetrics`, `computeRecoveryMetrics`, `computeFittsMetrics`,
+    `computeSpatialBias`;
+  - `computeAllTraceMetrics` — the combined {bio, hev, waste, cad, queue,
+    rec, fitts} object the display consumes (the in-page mousetrap / `psych`
+    port was retired on 2026-11-19).
   `game/metric-definitions.js` holds `TRACE_METRIC_GROUPS` (per system: key,
   name, help, displays of {label, help, of, fmt}; series identity is
   metricSeriesKey = group key + label; not everything computed is
@@ -66,7 +61,7 @@ Spec: [docs/product/motion-stats.md](../product/motion-stats.md). Index: [AGENTS
   closed). The worker returns the metrics at each sample time
   (`liveMetricsAt`); the reply appends them to `metricsSeries`, sets
   `lastLiveMetrics`, and calls `renderMotionStats`.
-  `createTraceMetricComputer` in the worker recomputes psych/hev only when
+  `createTraceMetricComputer` in the worker recomputes `hev` only when
   the click-event count changes; elapsed-only updates reuse all input
   computations and derive `traceSilenceRatio` from the new duration.
   The section: `initMotionStats` (from `init`, before the first board)
@@ -117,10 +112,6 @@ Spec: [docs/product/motion-stats.md](../product/motion-stats.md). Index: [AGENTS
     the path and the bouts' path and speeds (`strokeMetrics` and
     `stroke_features` both read `sampleTravelPx`'s travel) are compared
     through them;
-  - `tests/metrics-mousetrap-parity.js` — vs the actual R package via
-    Rscript on the checked-in synthetic trace plus a freshly randomized
-    one per run (needs `~/analysis-envs/r-mousetrap`; fails loudly, never
-    skips), tolerance 1e-8 on all 11 per-game means;
   - `tests/metrics-hevelius-test.js` — known-answer constructed
     movements (no runnable Hevelius reference exists; note: the 7 Hz
     FIR's side lobes legitimately overshoot ~1.5% at moving-to-still

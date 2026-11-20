@@ -247,8 +247,8 @@ traces; it does not change the numerical definitions of existing statistics.
   and movement-bout speeds and straightness, the trial overlays, the
   replay's movement speed and rough movement, and the offline extractors
   ([Measurement catalog](measurement-catalog.md), "Divergences resolved
-  2026-10-27"). The mousetrap and Hevelius measures in motion stats run
-  their published algorithms over the timestamped samples alone, since a
+  2026-10-27"). The Hevelius measures in motion stats run
+  their published algorithm over the timestamped samples alone, since a
   merged observation has no time of its own. Versions 1 and 2 stored only a count per sample
   (`sampleMergeCount`), so the travel through the observations they
   replaced is lost. Neither recovers browser-coalesced points, and no claim

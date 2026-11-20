@@ -673,7 +673,9 @@ const { chromium } = require(process.argv[2]);
     const bvPercent = Math.round(Number(await bvRow.getAttribute('data-percentile'))) + '%';
     assert.equal(await page.locator('.result-chart-section-boardCharts [data-measurement="bv3"] .game-data-chart-chip').textContent(),
       'this 75 · ' + bvPercent);
-    assert.equal(await page.locator('.result-chart-section-perfCharts [data-measurement="bvPerSecond"] .game-data-chart-chip').count(), 1);
+    assert.equal(await page.locator('.result-chart-section-perfCharts [data-measurement="clickRate"] .game-data-chart-chip').count(), 1);
+    assert(await page.locator('.result-chart-section-perfCharts h4').first().textContent()
+      .then((text) => text.startsWith('ms / 3BV by ')), 'your perf average charts normalize by 3BV');
     await bvRow.hover();
     assert.deepEqual(await page.locator('.game-data-linked').evaluateAll((charts) => charts.map((chart) => chart.dataset.measurement)),
       ['bv3'], 'hovering a band row outlines its chart');
@@ -686,6 +688,10 @@ const { chromium } = require(process.argv[2]);
     assert.equal(await page.locator('.result-chart-section-boardCharts select').inputValue(), 'distribution');
     assert(await page.locator('.result-chart-section-boardCharts h4').first().textContent()
       .then((text) => text.startsWith('times by ')));
+    await page.locator('.result-chart-section-perfCharts select').selectOption('distribution');
+    await page.evaluate(() => drawProfileFixture());
+    assert(await page.locator('.result-chart-section-perfCharts h4').first().textContent()
+      .then((text) => text.startsWith('game ms / 3BV by ')), 'your perf distribution charts plot ms / 3BV per game');
     await page.locator('.result-chart-section-perfCharts select').selectOption('winrate');
     assert.equal(await page.evaluate(() => settings.perfChartMode), 'winrate');
     assert.equal(await page.evaluate(() => settings.boardChartMode), 'distribution',

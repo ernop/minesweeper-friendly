@@ -9,11 +9,16 @@ Calendar, day-category, and streak leaderboards stay above both. This board's
 exact-value time tables stay with the other pagetables, ahead of every
 point chart. Then **your perf**, then **board traits**.
 
-- **Your perf** (`PERF_CHART_SPECS`): clicks, mouse path, clicks over 3BV,
-  misclick rate, fastclick gap, 3BV/s, click rate, no-op rate, efficiency,
-  path / 3BV, path / click, board-changing click share, IOE, ZiNi efficiency, HZiNi
-  efficiency, IOS, STNB, mouse speed, cadence spread, unused flag share, and
-  unflagged mine share (added 2026-10-10 with its game data measurement).
+- **Your perf** (`PERF_CHART_SPECS`, pruned 2026-11-19 to ten orthogonal
+  measurements): IOE, HZiNi efficiency, board-changing click share, click
+  rate, fastclick gap, mouse speed, cadence spread, misclicks (exact count),
+  unused flag share, and unflagged mine share (added 2026-10-10 with its
+  game data measurement). Redundant transforms (clicks, mouse path, clicks
+  over 3BV, efficiency, path / 3BV, path / click, ZiNi efficiency, IOS,
+  STNB), 3BV/s (deterministic inverse of the `ms / 3BV` vertical axis), and
+  per-time error rates (misclick rate, no-op rate — which created `k / time`
+  hyperbolas against time) were retired from these scatter plots while
+  remaining in `GameData.metrics` and exports.
   Every chart of a game data measurement takes its name, values, and games
   from the measurement catalog ([Measurement catalog](measurement-catalog.md)).
 - **Board traits** (`BOARD_CHART_SPECS`): 3BV, ZiNi, HZiNi, 3BV spread, max
@@ -21,46 +26,51 @@ point chart. Then **your perf**, then **board traits**.
   coverage. A board chart follows its tablechart switch, so 3BV spread and
   largest island stay off until those tables are on.
 
-Integer measurements group exactly. Mouse path uses 100px buckets, IOS 0.01,
-both path ratios 10px, fastclick gap 10ms, mouse speed 50px/s, 3BV/s and the
-per-second rates 0.1, efficiency-family ratios 0.01, cadence spread 0.1,
-unused flag share 5 percentage points, misclick rate 0.1/min, and STNB 1.
+Integer measurements (including misclicks and board-trait counts) group
+exactly. IOE uses 0.01 buckets, HZiNi efficiency and board-changing click
+share use 1 percentage point, fastclick gap 10ms, mouse speed 50px/s, click
+rate and cadence spread 0.1, and unused flag share 5 percentage points.
 Unflagged mine share groups exactly: its values are already one per count
 of unflagged mines. 0–1 share and
 zero-opening coverage use the same whole-percentage groups as their time
-tables; 3BV spread uses the same 0.5-cell groups. The grouped value is on x
-and that group's average solve time on y; dots are colored by the age of the
+tables; 3BV spread uses the same 0.5-cell groups. The grouped value is on x.
+On **board traits**, y is raw win time in seconds; on **your perf** (creator
+decision 2026-11-19), y is **ms / 3BV** (`timeMs / solvedBv3`), keeping
+"lower is faster" while removing 3BV board-size confounding from play
+measurements. Dots are colored by the age of the
 group's newest win. A chart appears only when at least two wins have a finite
-value. Older records missing a measurement are excluded. IOS excludes times
-at or below one second, and path ratios exclude zero denominators.
+value (and positive solved 3BV for `ms / 3BV`). Older records missing a
+measurement are excluded.
 
-- Each chart header names its reading and grouping ("time by clicks"). Y
-  ticks carry the unit ("25s", "40%"). Share charts (0–1 share,
-  zero-opening coverage, unused flag share, unflagged mine share) plot in
-  percent and add "%" on the x ticks; unused flag share read 0–1 without
-  "%" until 2026-10-10.
+- Each chart header names its reading and grouping: `"time by 3BV"` /
+  `"times by 3BV"` on board traits, `"ms / 3BV by IOE"` /
+  `"game ms / 3BV by IOE"` on your perf, and `"winrate by …"` on both. Y
+  ticks carry the unit (`"25s"`, `"600ms"`, `"40%"`). Share and efficiency
+  percent charts (HZiNi efficiency, board-changing click share, unused flag
+  share, unflagged mine share, 0–1 share, zero-opening coverage) plot in
+  percent and add `"%"` on the x ticks; unused flag share read 0–1 without
+  `"%"` until 2026-10-10, and HZiNi efficiency and board-changing click share
+  joined percent x ticks on 2026-11-19.
   The rotated y-axis caption stays gone. The x axis label remains.
 - Each group has its own three-way **mode** selector on the section heading,
   beside the title that opens and closes the group, shown while the group is
   open (2026-10-26, [Openers](results.md#openers-creator-request-2026-10-26))
   (`settings.perfChartMode` and `settings.boardChartMode`):
-  - **average** — the classic reading: each dot is a group's average win
-    time.
+  - **average** — each dot is a group's average `ms / 3BV` (your perf) or
+    average win time in seconds (board traits).
   - **distribution** — every win is its own dot (value on x, that game's
-    time on y), showing the full spread of times at each value, with the
-    same trend pair and outlier trimming as the raw scatters.
+    `ms / 3BV` or win time on y), showing the full spread at each value,
+    with the same trend pair and outlier trimming as the raw scatters.
   - **winrate** — all finished games (wins AND losses) group by the value;
     each dot is the percentage won. Measurements defined only for wins
-    sit this mode out (`winBound`): clicks over 3BV, and exactly the
+    sit this mode out (`winBound`): exactly the
     measurements game data compares on wins only
-    ([Measurement catalog](measurement-catalog.md), "Which games"): 3BV/s,
-    efficiency, path / 3BV, IOE, ZiNi efficiency, HZiNi efficiency, IOS,
-    STNB, unused flag share, and unflagged mine share. Their winrate would read 100% everywhere
-    (unused flag share's did until 2026-10-10). 3BV/s, path / 3BV, and
-    clicks over 3BV joined on 2026-10-26: a loss's recorded 3BV is the whole
-    board's, so their winrate had grouped losses by a value that was not
-    the measurement.
-    Loss records carry clicks, path, rates, and board-shape facts, so the
+    ([Measurement catalog](measurement-catalog.md), "Which games"): IOE,
+    HZiNi efficiency, unused flag share, and unflagged mine share. Their
+    winrate would read 100% everywhere
+    (unused flag share's did until 2026-10-10).
+    Loss records carry board-changing click share, click rate, fastclick gap,
+    mouse speed, cadence spread, misclicks, and board-shape facts, so the
     other specs stay measurable.
 - Each header also carries a (?) help button with only what the title and
   axes leave open: in average and distribution modes the dot colors (the

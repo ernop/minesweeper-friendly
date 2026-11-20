@@ -262,16 +262,13 @@ function itemsMean(items, key) {
 
 //-------TRACE METRICS: SEGMENTATION (inter-click movements)-------
 
-// The psychometric and clinical systems both analyze inter-click
-// segments: the trajectory from the previous click (or trace start) to
-// the next click, the click being the segment's response. This is the
-// exact trial construction of analysis/mousetrap/trace_measures.R: a
-// click is an 'lup' or 'rdown' event; the segment gets the previous
-// click's point prepended (that is where the cursor stood) and the
-// click's own point appended unless a sample already sits on that
-// instant; segments with fewer than SEGMENT_MIN_SAMPLES points carry too
-// little trajectory to measure and are skipped, like the R script skips
-// them.
+// The clinical system analyzes inter-click segments: the trajectory from
+// the previous click (or trace start) to the next click, the click being
+// the segment's response. A click is an 'lup' or 'rdown' event; the
+// segment gets the previous click's point prepended (that is where the
+// cursor stood) and the click's own point appended unless a sample already
+// sits on that instant; segments with fewer than SEGMENT_MIN_SAMPLES
+// points carry too little trajectory to measure and are skipped.
 const SEGMENT_MIN_SAMPLES = 5;
 
 function traceSegments(sampleT, sampleX, sampleY, events) {
@@ -319,35 +316,19 @@ function traceSegments(sampleT, sampleX, sampleY, events) {
   return segments;
 }
 
-//-------TRACE METRICS: PSYCHOMETRIC (mousetrap measures per segment)-------
-
-// An exact port of the mousetrap R package pipeline (Kieslich et al.) as
-// analysis/mousetrap/trace_measures.R applies it: mt_derivatives ->
-// mt_measures -> mt_time_normalize -> mt_sample_entropy, per inter-click
-// segment, then per-game means. Ported from the installed package source
-// (mousetrap 3.2.x), verified value-for-value against Rscript on the
-// synthetic trace (tests/metrics-mousetrap-parity.js).
-
-// Signed deviation of each point from the idealized straight line from
-// the first to the last point (mt_deviations / points_on_ideal): distance
-// to the orthogonal projection on the infinite line, negative where the
-// ideal point lies below the actual one in y, all negated when the
-// trajectory runs downward in y.
-function mtDevIdeal(x, y) {
+// Signed orthogonal distance of each point from the straight line connecting
+// the first and last point of a segment.
+function signedLineDeviation(x, y) {
   const n = x.length;
   const dev = new Array(n);
-  const sx = x[0];
-  const sy = y[0];
-  const ex = x[n - 1];
-  const ey = y[n - 1];
+  const sx = x[0], sy = y[0];
+  const ex = x[n - 1], ey = y[n - 1];
   if (sx === ex && sy === ey) { dev.fill(0); return dev; }
-  const dx = ex - sx;
-  const dy = ey - sy;
+  const dx = ex - sx, dy = ey - sy;
   const len2 = dx * dx + dy * dy;
   for (let i = 0; i < n; i++) {
     const u = ((x[i] - sx) * dx + (y[i] - sy) * dy) / len2;
-    const ix = sx + u * dx;
-    const iy = sy + u * dy;
+    const ix = sx + u * dx, iy = sy + u * dy;
     let d = Math.hypot(ix - x[i], iy - y[i]);
     if (iy > y[i]) d = -d;
     dev[i] = d;
@@ -356,14 +337,12 @@ function mtDevIdeal(x, y) {
   return dev;
 }
 
-// mousetrap:::count_changes with threshold 0: merge consecutive nonzero
-// position changes into same-sign runs; flips = runs - 1 (0 when the
-// coordinate never moved).
-function mtCountFlips(pos) {
-  let runs = 0;
-  let lastSign = 0;
-  for (let i = 1; i < pos.length; i++) {
-    const d = pos[i] - pos[i - 1];
+// Direction reversals along a 1-D series: merge consecutive nonzero steps of
+// the same sign into runs; reversals = runs - 1 (0 if never moved).
+function countDirectionFlips(values) {
+  let runs = 0, lastSign = 0;
+  for (let i = 1; i < values.length; i++) {
+    const d = values[i] - values[i - 1];
     if (d === 0) continue;
     const sign = d > 0 ? 1 : -1;
     if (sign !== lastSign) { runs++; lastSign = sign; }
@@ -371,172 +350,12 @@ function mtCountFlips(pos) {
   return runs > 0 ? runs - 1 : 0;
 }
 
-// mt_measures + mt_derivatives on one segment (rebased t). Includes the
-// leading padded zero mousetrap stores in the vel/acc columns, hence the
-// maxima never go below 0.
-function mtSegmentMeasures(t, x, y) {
-  const n = t.length;
-  const dev = mtDevIdeal(x, y);
-
-  let madIdx = 0;
-  let adSum = 0;
-  for (let i = 0; i < n; i++) {
-    if (Math.abs(dev[i]) > Math.abs(dev[madIdx])) madIdx = i;
-    adSum += dev[i];
-  }
-
-  // AUC: pracma::polyarea's shoelace over the closed point polygon
-  // (counterclockwise positive), then mousetrap's orientation flip so
-  // that curvature away from the ideal line is positive.
-  let area2 = 0;
-  for (let i = 0; i < n; i++) {
-    const j = (i + 1) % n;
-    area2 += x[i] * y[j] - x[j] * y[i];
-  }
-  let auc = area2 / 2;
-  if ((y[n - 1] > y[0] && x[n - 1] > x[0]) || (y[n - 1] < y[0] && x[n - 1] < x[0])) {
-    auc = -auc;
-  }
-
-  // initiation_time: timestamp of the sample before the first one that
-  // has moved away from the start; RT when nothing ever moved.
-  let initiationTimeMs = t[n - 1];
-  for (let i = 1; i < n; i++) {
-    if (x[i] !== x[0] || y[i] !== y[0]) { initiationTimeMs = t[i - 1]; break; }
-  }
-
-  // idle_time over position-constant steps; mousetrap's two degenerate
-  // branches (never idle -> first timestamp, which is 0 after rebasing;
-  // always idle -> RT).
-  let constCount = 0;
-  let idleSum = 0;
-  for (let i = 1; i < n; i++) {
-    if (x[i] === x[i - 1] && y[i] === y[i - 1]) {
-      constCount++;
-      idleSum += t[i] - t[i - 1];
-    }
-  }
-  let idleTimeMs;
-  if (constCount === 0) idleTimeMs = t[0];
-  else if (constCount === n - 1) idleTimeMs = t[n - 1];
-  else idleTimeMs = idleSum;
-
-  // mt_derivatives: vel over each step; acc = diff(vel) over the step
-  // times (not midpoints — mousetrap's own convention).
-  const vel = [];
-  for (let i = 1; i < n; i++) {
-    vel.push(Math.hypot(x[i] - x[i - 1], y[i] - y[i - 1]) / (t[i] - t[i - 1]));
-  }
-  let velMax = 0;
-  for (const v of vel) if (v > velMax) velMax = v;
-  let accMax = 0;
-  for (let i = 1; i < vel.length; i++) {
-    const a = (vel[i] - vel[i - 1]) / (t[i] - t[i - 1]);
-    if (a > accMax) accMax = a;
-  }
-
-  return {
-    mad: dev[madIdx],
-    ad: adSum / n,
-    auc: auc,
-    xFlips: mtCountFlips(x),
-    yFlips: mtCountFlips(y),
-    initiationTimeMs: initiationTimeMs,
-    idleTimeMs: idleTimeMs,
-    velMaxPxPerMs: velMax,
-    accMaxPxPerMs2: accMax,
-    rtMs: t[n - 1],
-  };
-}
-
-// mt_time_normalize: linear interpolation at nsteps equally spaced
-// timestamps from first to last (R's approx(..., n = nsteps)).
-function mtTimeNormalize(t, vals, nsteps) {
-  const n = t.length;
-  const out = new Array(nsteps);
-  const t0 = t[0];
-  const t1 = t[n - 1];
-  let j = 0;
-  for (let s = 0; s < nsteps; s++) {
-    const tt = t0 + ((t1 - t0) * s) / (nsteps - 1);
-    while (j < n - 2 && t[j + 1] < tt) j++;
-    out[s] = vals[j] + (vals[j + 1] - vals[j]) * ((tt - t[j]) / (t[j + 1] - t[j]));
-  }
-  return out;
-}
-
-// mt_sample_entropy (m = 3, use_diff = TRUE) on a time-normalized x
-// series: window-match counting over the first differences, dropping the
-// last m-window exactly like the package does. NaN when no m-windows
-// match within r (R's -log(0/0)).
-function mtSampleEntropy(tnX, r, m) {
-  const dx = [];
-  for (let i = 1; i < tnX.length; i++) dx.push(tnX[i] - tnX[i - 1]);
-  const windows = dx.length - m; // (length - m + 1) minus the dropped last
-  let matchesM = 0;
-  let matchesM1 = 0;
-  for (let i = 0; i < windows - 1; i++) {
-    for (let j = i + 1; j < windows; j++) {
-      let maxd = 0;
-      for (let k = 0; k < m; k++) {
-        const d = Math.abs(dx[i + k] - dx[j + k]);
-        if (d > maxd) maxd = d;
-      }
-      if (maxd <= r) {
-        matchesM++;
-        if (Math.max(maxd, Math.abs(dx[i + m] - dx[j + m])) <= r) matchesM1++;
-      }
-    }
-  }
-  return -Math.log(matchesM1 / matchesM);
-}
-
-const MT_TIME_NORMALIZE_STEPS = 101;
-const MT_SAMPLE_ENTROPY_M = 3;
-
-// Per-game means of the key mousetrap measures over the game's
-// inter-click segments (the same key list trace_measures.R aggregates).
-// The entropy tolerance radius r pools the time-normalized x-differences
-// of this game's segments (0.2 * their sample SD) — the game is the
-// pooling unit, in-page and offline alike, so a game's value never
-// depends on which other games happen to sit in the same export.
-function computePsychometrics(sampleT, sampleX, sampleY, events) {
-  const segments = traceSegments(sampleT, sampleX, sampleY, events);
-  if (segments.length === 0) return { segmentCount: 0 };
-  const per = segments.map((seg) => mtSegmentMeasures(seg.t, seg.x, seg.y));
-
-  const tn = segments.map((seg) => mtTimeNormalize(seg.t, seg.x, MT_TIME_NORMALIZE_STEPS));
-  const pooledDiffs = [];
-  for (const xs of tn) {
-    for (let i = 1; i < xs.length; i++) pooledDiffs.push(xs[i] - xs[i - 1]);
-  }
-  const r = 0.2 * traceMetricsSampleSd(pooledDiffs);
-  for (let i = 0; i < per.length; i++) {
-    per[i].sampleEntropy = mtSampleEntropy(tn[i], r, MT_SAMPLE_ENTROPY_M);
-  }
-
-  return {
-    segmentCount: segments.length,
-    mad: itemsMean(per, 'mad'),
-    ad: itemsMean(per, 'ad'),
-    auc: itemsMean(per, 'auc'),
-    xFlips: itemsMean(per, 'xFlips'),
-    yFlips: itemsMean(per, 'yFlips'),
-    initiationTimeMs: itemsMean(per, 'initiationTimeMs'),
-    idleTimeMs: itemsMean(per, 'idleTimeMs'),
-    velMaxPxPerMs: itemsMean(per, 'velMaxPxPerMs'),
-    accMaxPxPerMs2: itemsMean(per, 'accMaxPxPerMs2'),
-    sampleEntropy: itemsMean(per, 'sampleEntropy'),
-    rtMs: itemsMean(per, 'rtMs'),
-  };
-}
-
 //-------TRACE METRICS: CLINICAL (Hevelius-style movement features)-------
 
 // The cursor-only subset of the Hevelius 32 (Gajos et al., Movement
 // Disorders 2020; definitions and mapping in reference/hevelius/
-// FEATURES.md), per inter-click movement (assumption A1: the same
-// segments as the psychometric system), aggregated as per-game means over
+// FEATURES.md), per inter-click movement (assumption A1: segments from
+// traceSegments), aggregated as per-game means over
 // the movements where each feature is defined.
 //
 // Kinematic pipeline, deliberately close to Hevelius's published one:
@@ -822,9 +641,8 @@ function heveliusMovement(seg, buttonIntervals, pressT, targetRect) {
   }
 
   // Task-axis path statistics (13-17, 19, 20) on the actual pointer
-  // samples; the axis is the start-to-end cursor line, signed deviation
-  // as in mtDevIdeal.
-  const dev = mtDevIdeal(seg.x, seg.y);
+  // samples; the axis is the start-to-end cursor line.
+  const dev = signedLineDeviation(seg.x, seg.y);
   let maxDev = 0;
   let absSum = 0;
   let devSum = 0;
@@ -846,7 +664,7 @@ function heveliusMovement(seg, buttonIntervals, pressT, targetRect) {
     lastSide = side;
   }
   m.axisCrossings = crossings;                      // 17
-  m.directionChanges = mtCountFlips(dev);           // 19 (orthogonal component)
+  m.directionChanges = countDirectionFlips(dev);    // 19 (orthogonal component)
   const axisProj = new Array(n);
   {
     const ax = seg.x[n - 1] - seg.x[0];
@@ -858,7 +676,7 @@ function heveliusMovement(seg, buttonIntervals, pressT, targetRect) {
         : 0;
     }
   }
-  m.orthogonalDirectionChanges = mtCountFlips(axisProj); // 20 (parallel component)
+  m.orthogonalDirectionChanges = countDirectionFlips(axisProj); // 20 (parallel component)
 
   // Target re-entries (18) and verification time (22), when the target
   // rect is known. Verification: last raw move at or before the press
@@ -1422,16 +1240,14 @@ function computeSpatialBias(events) {
 
 //-------TRACE METRICS: ALL SYSTEMS COMBINED-------
 
-// The object the display layer consumes: all four measurement systems
-// over the same trace. The psychometric and clinical systems only see
-// completed inter-click segments, so their values change only when a
-// click lands — the live schedule exploits that (renderLiveTraceMetrics
-// caches them between clicks).
+// The object the display layer consumes: all in-page measurement systems
+// over the same trace. The clinical system only sees completed inter-click
+// segments, so its values change only when a click lands — the live
+// schedule exploits that (createTraceMetricComputer caches it between clicks).
 function computeAllTraceMetrics(sampleT, sampleX, sampleY, travel, events, wallDurationMs, segments) {
   return {
     wallDurationMs: wallDurationMs,
     bio: computeTraceMetrics(sampleT, sampleX, sampleY, travel, events, wallDurationMs),
-    psych: segments === undefined ? computePsychometrics(sampleT, sampleX, sampleY, events) : segments.psych,
     hev: segments === undefined ? computeHevelius(sampleT, sampleX, sampleY, events) : segments.hev,
     waste: computeWasteMetrics(sampleT, sampleX, sampleY, travel, events),
     cad: computeClickCadence(sampleT, events),
@@ -1454,7 +1270,6 @@ function createTraceMetricComputer() {
     }
     if (clickEvents !== measuredClicks) {
       segments = {
-        psych: computePsychometrics(sampleT, sampleX, sampleY, events),
         hev: computeHevelius(sampleT, sampleX, sampleY, events),
       };
       measuredClicks = clickEvents;

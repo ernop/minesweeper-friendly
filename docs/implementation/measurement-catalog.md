@@ -110,8 +110,8 @@ Spec: [docs/product/measurement-catalog.md](../product/measurement-catalog.md). 
   `Trial.runningPath` and `runningSpeed`, the replay's `pathSegments` and
   `pathRoughSegments`, and the offline extractor's `sample_travel_px` and
   `stroke_features` (`analysis/biometrics/extract_features.py`).
-  `computePsychometrics` (mousetrap) and `computeHevelius` keep the
-  samples alone, as their reference algorithms do.
+  `computeHevelius` keeps the
+  samples alone, as its reference algorithm does.
   `storedMergedObservations(stored)` reads them from a stored trace (none
   before version 3), `liveMergedObservations()` from the live one or from
   the trace `restorePreferredResult` rebuilds, which carries them too.

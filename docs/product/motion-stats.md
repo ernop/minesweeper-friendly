@@ -49,11 +49,15 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   value — the padding is chart geometry, not data), x runs 0 to the
   elapsed seconds. Spans where the value was not yet measurable are gaps
   in the line, never bridged. Each row's chart is 230x130.
-- Eight measurement systems, each a labeled group of the section
-  (decided 2026-08-20, when the three researched
-  systems beyond the first were reimplemented in-page; click timing
-  added 2026-08-22; queued clicks, pace recovery, and aimed movement
-  added 2026-08-30). Every row name and every section header opens a
+- Seven measurement systems, each a labeled group of the section
+  (decided 2026-08-20, when the researched systems beyond the first were
+  reimplemented in-page; click timing added 2026-08-22; queued clicks,
+  pace recovery, and aimed movement added 2026-08-30; trajectory geometry
+  / mousetrap retired from in-page Motion Stats on 2026-11-19 because its
+  signed path deviations cancel across directions, browser-side `idle`
+  misses stationary cursor pauses, and its remaining features duplicate
+  Dynamics and Movement Geometry — offline `analysis/mousetrap/trace_measures.R`
+  remains for offline studies). Every row name and every section header opens a
   short explanation on hover, focus, or click; the name itself is the
   trigger, marked by a dotted underline, and the popup never moves the
   rows. Each explanation is one or two plain sentences: what the number
@@ -106,15 +110,6 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
     principle again). A right press here is the right-button press on a
     board cell, whatever it did (since 2026-09-26; before that it was the
     browser's context-menu event, which Windows fires at the release).
-  - TRAJECTORY GEOMETRY — mousetrap-formula measures (Kieslich et al.)
-    per inter-click segment, means over segments: segments, MAD,
-    AUC, AD, x-flips, y-flips, initiation, idle, vel max, acc max,
-    sample entropy, segment time. An exact port of the R package as
-    `analysis/mousetrap/trace_measures.R` applies it, verified
-    value-for-value against Rscript (see [docs/implementation/motion-stats.md](../implementation/motion-stats.md)).
-    Like the Hevelius group below, it runs its published algorithm over the
-    timestamped samples alone: the positions merged into a sample carry no
-    time of their own, so they cannot join a time series.
   - MOVEMENT GEOMETRY — Hevelius-formula movement features (Gajos et al. 2020;
     reference/hevelius/FEATURES.md) per inter-click movement, means over
     movements: execution, exec no pauses, smoothed peak speed ("peak
@@ -122,7 +117,9 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
     DYNAMICS' raw peak speed), peak accel,
     submovements, main sub, sub end dist, axis dev, movement error, axis
     crossings, norm jerk (without pauses), click slip, verification,
-    re-entries. More features are computed than displayed (offsets,
+    re-entries. Runs its published algorithm over the timestamped samples
+    alone: the positions merged into a sample carry no time of their own,
+    so they cannot join a time series. More features are computed than displayed (offsets,
     variability, direction changes, normalized jerk with pauses, the
     submovement fractions); per-stage display configurability is
     planned. The block-variability features (CoV across
@@ -167,20 +164,18 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
     per-region action counts; an unvisited region shows a dash). Needs
     at least 8 timed pairs and at least 2 measured regions; the Fitts
     curve likewise needs at least 8 movements.
-- An inter-click segment (the trajectory- and movement-geometry unit) runs from
-  the previous click to the next, the click being the segment's response
-  — the exact trial construction of the offline R pipeline; segments
-  with fewer than 5 trajectory points are unmeasurable and skipped.
+- An inter-click segment (the movement-geometry unit) runs from
+  the previous click to the next, the click being the segment's response;
+  segments with fewer than 5 trajectory points are unmeasurable and skipped.
   Segment values change only when a click lands, so the live schedule
-  recomputes those two systems when new clicks enter a sample and the
+  recomputes Hevelius when new clicks enter a sample and the
   whole-trace systems when input changes. Elapsed-only updates reuse the
   input measurements and derive the silence share from the new duration.
 - A value whose formula needs more data than the trace has yet (no
   strokes, no completed click, no measurable segment, zero wall time)
   shows as an en dash with a "not yet measurable" tooltip — never a
-  made-up zero. A formula that computes but degenerates (sample entropy
-  with no matching windows yields NaN, as in R) displays the same way:
-  not measurable here.
+  made-up zero. A formula that computes but degenerates (NaN) displays the
+  same way: not measurable here.
 - The section is display only: nothing new is stored. The trace remains the
   ground truth, per-game scalar records are unchanged, and the section's
   values are recomputable from the stored trace forever.

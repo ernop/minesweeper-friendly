@@ -22,7 +22,7 @@ const tested = vm.runInThisContext(`(() => {
   ${section('// Property charts group games', "// A chart's eligible wins.")}
   ${section("// A chart's eligible wins.", '// Bucket all finished games')}
   ${section('// Bucket all finished games', "// The property charts' three vertical readings")}
-  return { GameData, PERF_CHART_SPECS, BOARD_CHART_SPECS, averageEligibleWins, averagePoints, winratePoints };
+  return { GameData, PERF_CHART_SPECS, BOARD_CHART_SPECS, msPerBv3Of, averageEligibleWins, averagePoints, winratePoints };
 })()`);
 
 let checks = 0;
@@ -34,7 +34,7 @@ function assertEq(name, actual, want) {
 assertEq(
   'your-perf chart order',
   tested.PERF_CHART_SPECS.map((spec) => spec.label).join(','),
-  'clicks,path,clicks over 3BV,misclick rate,fastclick gap,3BV/s,click rate,no-op rate,efficiency,path / 3BV,path / click,board-changing click share,IOE,ZiNi efficiency,HZiNi efficiency,IOS,STNB,mouse speed,cadence spread,unused flag share,unflagged mine share');
+  'IOE,HZiNi efficiency,board-changing click share,click rate,fastclick gap,mouse speed,cadence spread,misclicks,unused flag share,unflagged mine share');
 assertEq(
   'board-trait chart order',
   tested.BOARD_CHART_SPECS.map((spec) => spec.label).join(','),
@@ -48,6 +48,9 @@ const base = {
   timeMs: 25000,
   bv3: 25,
   boardChangingClicks: 30,
+  noOpClicks: 3,
+  misclicks: 2,
+  hzini: 27,
   mousePathPx: 3120,
   zeroCount: 40,
   islandCount: 7,
@@ -57,21 +60,18 @@ const base = {
 assertEq('zeros use their exact count', byLabel('zeros').value(base), 40);
 assertEq('islands use their exact count', byLabel('islands').value(base), 7);
 assertEq('max number uses maxAdjacent', byLabel('max number').value(base), 5);
-assertEq('click overhead is clicks minus 3BV',
-  byLabel('clicks over 3BV').value(base), 5);
-assertEq('IOS buckets to hundredths', byLabel('IOS').value(base), 1);
-assertEq('path / click buckets to 10px',
-  byLabel('path / click').value(base), 100);
-assertEq('path / 3BV buckets to 10px',
-  byLabel('path / 3BV').value(base), 120);
-assertEq('efficiency is win-only', byLabel('efficiency').winBound, true);
+assertEq('misclicks use their exact count', byLabel('misclicks').value(base), 2);
+assertEq('misclicks keep losses for winrate', byLabel('misclicks').winBound, undefined);
+assertEq('IOE is win-only', byLabel('IOE').winBound, true);
+assertEq('HZiNi efficiency plots in percent', byLabel('HZiNi efficiency').xTickUnit, '%');
+assertEq('HZiNi efficiency groups in 1-point steps', byLabel('HZiNi efficiency').value(base), 90);
+assertEq('board-changing click share plots in percent', byLabel('board-changing click share').xTickUnit, '%');
+assertEq('board-changing click share groups in 1-point steps', byLabel('board-changing click share').value(base), 91);
 // A loss's recorded 3BV is the whole board's, not what it solved (creator
 // 2026-10-07, "one name one thing"), so the 3BV measurements sit winrate
 // out; a chart of a catalog measurement is win-only exactly where game
 // data compares it on wins only, under its catalog name.
-assertEq('3BV/s is win-only', byLabel('3BV/s').winBound, true);
-assertEq('path / 3BV is win-only', byLabel('path / 3BV').winBound, true);
-assertEq('clicks over 3BV is win-only', byLabel('clicks over 3BV').winBound, true);
+assertEq('HZiNi efficiency is win-only', byLabel('HZiNi efficiency').winBound, true);
 assertEq('click rate keeps losses for winrate', byLabel('click rate').winBound, undefined);
 for (const spec of tested.PERF_CHART_SPECS.filter((item) => item.measurementId !== undefined)) {
   const metric = tested.GameData.metrics.find((item) => item.id === spec.measurementId);
@@ -98,14 +98,14 @@ assertEq('unflagged mine share needs the flag counters',
 assertEq('legacy shape records are ineligible',
   tested.averageEligibleWins(byLabel('zeros'), [{ ...base, zeroCount: undefined }]).length,
   0);
-assertEq('IOS excludes games at or below one second',
-  tested.averageEligibleWins(byLabel('IOS'), [{ ...base, timeMs: 1000 }]).length,
+assertEq('ms / 3BV divides timeMs by solved 3BV', tested.msPerBv3Of(base), 1000);
+assertEq('ms / 3BV subtracts a trial given opening',
+  tested.msPerBv3Of({ ...base, identityIndex: 0, givenOpening: true, givenOpeningBv3: 5 }), 1250);
+assertEq('ms / 3BV excludes zero solved 3BV',
+  tested.averageEligibleWins(byLabel('click rate'), [{ ...base, bv3: 0 }], tested.msPerBv3Of).length,
   0);
-assertEq('path / click excludes a zero denominator',
-  tested.averageEligibleWins(byLabel('path / click'), [{ ...base, boardChangingClicks: 0 }]).length,
-  0);
-assertEq('path / 3BV excludes a zero denominator',
-  tested.averageEligibleWins(byLabel('path / 3BV'), [{ ...base, bv3: 0 }]).length,
+assertEq('ms / 3BV excludes unmeasured trial openings',
+  tested.averageEligibleWins(byLabel('click rate'), [{ ...base, identityIndex: 0, givenOpening: true }], tested.msPerBv3Of).length,
   0);
 
 const zeroPoints = tested.averagePoints(byLabel('zeros'), [
@@ -115,9 +115,17 @@ const zeroPoints = tested.averagePoints(byLabel('zeros'), [
   { ...base, endedAt: 4000, zeroCount: undefined },
 ]).sort((a, b) => a.x - b.x);
 assertEq('same-value wins form one bucket', zeroPoints.length, 2);
-assertEq('bucket time is the arithmetic mean', zeroPoints[0].averageSeconds, 30);
+assertEq('bucket time is the arithmetic mean', zeroPoints[0].averageY, 30);
 assertEq('bucket age follows its newest win', zeroPoints[0].endedAt, 2000);
 assertEq('a distinct value forms another bucket', zeroPoints[1].x, 41);
+
+const pacePoints = tested.averagePoints(byLabel('misclicks'), [
+  { ...base, bv3: 20, timeMs: 10000, misclicks: 0 },
+  { ...base, endedAt: 2000, bv3: 50, timeMs: 35000, misclicks: 0 },
+  { ...base, endedAt: 3000, bv3: 25, timeMs: 25000, misclicks: 1 },
+], tested.msPerBv3Of).sort((a, b) => a.x - b.x);
+assertEq('your-perf buckets average ms / 3BV across board sizes', pacePoints[0].averageY, 600);
+assertEq('misclick bucket 1 reads exact ms / 3BV', pacePoints[1].averageY, 1000);
 
 // Winrate mode buckets wins AND losses by the same property value.
 const winratePoints = tested.winratePoints(byLabel('zeros'), [
@@ -132,6 +140,6 @@ assertEq('losses join their bucket and lower it',
 assertEq('winrate bucket age follows its newest game',
   winratePoints[0].endedAt, 2000);
 assertEq('an all-win bucket reads 100', winratePoints[1].winratePct, 100);
-assertEq('IOS sits winrate mode out', byLabel('IOS').winBound, true);
+assertEq('IOE sits winrate mode out', byLabel('IOE').winBound, true);
 
 console.log(`average-scatter: all ${checks} checks passed`);

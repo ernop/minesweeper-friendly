@@ -6,7 +6,7 @@
 // upgrading the database and sends the names and version it opened.
 
 importScripts('justice.js?v=20261103-worker-evaluation', 'solver.js?v=20261103-worker-evaluation', 'rng.js',
-  'game/evaluation.js?v=20261119-layout-polish', 'game-data.js?v=20261107-score-lists',
+  'game/evaluation.js?v=20261119-perf-charts-motion', 'game-data.js?v=20261107-score-lists',
   'training-core.js?v=20261027-field-names');
 
 function requestResult(request) {

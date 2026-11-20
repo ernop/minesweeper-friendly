@@ -1,14 +1,14 @@
 "use strict";
 
 importScripts('trend-fit.js?v=20260925-worker-analysis',
-  'game/trace-metrics.js?v=20261119-layout-polish',
-  'game/evaluation.js?v=20261119-layout-polish',
-  'game-data.js?v=20261107-score-lists', 'game/metric-definitions.js?v=20261119-layout-polish',
+  'game/trace-metrics.js?v=20261119-perf-charts-motion',
+  'game/evaluation.js?v=20261119-perf-charts-motion',
+  'game-data.js?v=20261107-score-lists', 'game/metric-definitions.js?v=20261119-perf-charts-motion',
   'board-shape.js?v=20261020-no-left-panel', 'zini.js?v=20261020-no-left-panel', 'board-metrics.js?v=20261020-no-left-panel',
-  'game/rankings.js?v=20261119-layout-polish',
-  'game/charts.js?v=20261119-layout-polish', 'game/game-data-chart.js?v=20261119-layout-polish',
+  'game/rankings.js?v=20261119-perf-charts-motion',
+  'game/charts.js?v=20261119-perf-charts-motion', 'game/game-data-chart.js?v=20261119-perf-charts-motion',
   'justice.js?v=20261103-worker-evaluation', 'odds.js?v=20261103-worker-evaluation', 'board-icons.js?v=20261105-glyph-sizes',
-  'game/replay-model.js?v=20261119-layout-polish',
+  'game/replay-model.js?v=20261119-perf-charts-motion',
   'during-game.js?v=20261103-worker-evaluation');
 
 let config;
@@ -188,14 +188,14 @@ function analyze(kind, data) {
       const { record, records, options, preferences, referenceMs } = data;
       const plan = resultRankPlan(record, records, options, preferences, referenceMs);
       const wins = records.filter((r) => r.outcome === 'win');
-      const charts = (specs, mode) => specs.map((spec) => {
+      const charts = (specs, mode, yMetric) => specs.map((spec) => {
         if (!preferences.shownThings.averageCharts || wins.length < 2
             || (spec.setting && !preferences.shownThings[spec.setting])
             || (spec.setting === 'largestIsland' && !preferences.shownThings.boardShapeTables)) return null;
-        return averageScatterData(spec, wins, records, record, options.historyView, mode, referenceMs);
+        return averageScatterData(spec, wins, records, record, options.historyView, mode, referenceMs, yMetric);
       });
-      plan.perfCharts = charts(PERF_CHART_SPECS, preferences.perfChartMode);
-      plan.boardCharts = charts(BOARD_CHART_SPECS, preferences.boardChartMode);
+      plan.perfCharts = charts(PERF_CHART_SPECS, preferences.perfChartMode, 'msPerBv3');
+      plan.boardCharts = charts(BOARD_CHART_SPECS, preferences.boardChartMode, 'time');
       return plan;
     }
     case 'recent-placements': {
