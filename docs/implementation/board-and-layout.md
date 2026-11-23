@@ -201,7 +201,11 @@ Spec: [docs/product/board-and-layout.md](../product/board-and-layout.md). Index:
   (`settings-page.js`) apply `settings.numberSize` and `settings.mineSize`,
   and the problems page and the judgment tool apply `OWN_SIZE_PERCENT`
   (100). At zoom 96 and number size 120%, Liberation Sans Bold's widest
-  letter, G, is 0.88 of the square's width (Firefox, 2026-11-05).
+  letter, G, is 0.88 of the square's width (Firefox, 2026-11-05). Because a
+  large count's font line box extends above and below the cell even while the
+  ink stays inside, `.cell.revealed` sets `overflow: clip` so a revealed
+  number cannot steal clicks off the bottom of the square above it (leaving
+  `.cell.hidden` unclipped for flags above 75%).
 
 ## Analysis execution and cost (2026-09-25)
 

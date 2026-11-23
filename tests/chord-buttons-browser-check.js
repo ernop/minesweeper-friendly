@@ -148,9 +148,43 @@ const ORIGIN = 'http://127.0.0.1:8099/';
       'left click on a satisfied number chords');
     assert.equal(after.chords, before.chords + 1);
 
+    // At large zoom and 120% number size, a revealed number's taller font box
+    // must not steal a click near the bottom edge of the covered square above it.
+    await page.evaluate(() => {
+      updateSettings({ cellSize: 48, numberSize: 120 });
+      applyCellSize();
+      setNumberSize(120);
+    });
+    let aboveNumber = null;
+    for (let deal = 0; deal < 20 && aboveNumber === null; deal++) {
+      aboveNumber = await page.evaluate(() => {
+        for (let i = config.width; i < cells.length; i++) {
+          if (!cells[i].revealed || cells[i].adjacent === 0) continue;
+          const up = i - config.width;
+          if (!cells[up].revealed && !cells[up].flagged && !cells[up].mine) {
+            const r = cellElements[up].getBoundingClientRect();
+            return { up, below: i, x: r.left + r.width / 2, y: r.bottom - 1 };
+          }
+        }
+        return null;
+      });
+      if (aboveNumber === null) {
+        await page.keyboard.press('Space');
+        await moveTo(await page.evaluate(() => Math.floor(cells.length / 2)));
+        await page.mouse.down();
+        await page.mouse.up();
+      }
+    }
+    assert.ok(aboveNumber !== null, 'found a covered safe square directly above a revealed number');
+    await page.mouse.move(aboveNumber.x, aboveNumber.y);
+    await page.mouse.down({ button: 'left' });
+    await page.mouse.up({ button: 'left' });
+    assert.equal(await page.evaluate((i) => cells[i].revealed, aboveNumber.up), true,
+      'clicking the bottom edge of a covered square above a large revealed number opens that square');
+
     assert.deepEqual(errors, []);
     console.log('chording: right press flags; 1.5 click; both-button chord without waste; lone right press wasted; '
-      + 'gesture never reveals; left-click chord kept');
+      + 'gesture never reveals; left-click chord kept; large revealed number does not steal clicks above it');
   } finally {
     await browser.close();
   }

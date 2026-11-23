@@ -1206,6 +1206,14 @@ body.trial-offboard #game-frame {
   border-left: 1px solid var(--bevel-dark);
 }
 
+/* Large counts' font box extends past the cell's top and bottom edges even
+   when the ink fits inside; clipping stops a revealed number from stealing
+   clicks off the bottom of the square above it (leaving .cell.hidden unclipped
+   so flags larger than 75% still reach over the bevel). */
+.cell.revealed {
+  overflow: clip;
+}
+
 /* Mines, crossed out or not, at the player's mine size (set by setMineSize). */
 .cell svg {
   width: calc(var(--cell-size) * 0.72 * var(--mine-size));
